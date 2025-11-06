@@ -88,8 +88,11 @@
         ></div>
 
         <div class="mt-4 text-sm">
-          <p class="text-gray-400">Click on the score to add quarter notes at that position!</p>
-          <p class="text-yellow-400 text-xs mt-1">Note: Notes cannot overlap with existing notes at the same pitch, and measures have limited capacity based on time signature (4/4 = 4 beats).</p>
+          <p class="text-gray-400">Click anywhere on the staff to add quarter notes. Create your own melody!</p>
+          <p class="text-yellow-400 text-xs mt-1">
+            Tip: Each measure can hold 4 beats (4/4 time). Quarter notes are 1 beat each.
+            Click "Add Sample Notes" to see an example.
+          </p>
         </div>
       </div>
     </div>
@@ -161,8 +164,8 @@ onMounted(() => {
       },
     })
 
-    // Add initial sample notes and render
-    addSampleNotes()
+    // Initialize with empty measures
+    initializeEmptyScore()
     renderScore()
   }
 })
@@ -173,23 +176,31 @@ onUnmounted(() => {
   }
 })
 
+function initializeEmptyScore() {
+  if (!engine.value) return
+
+  // Clear any existing notes
+  engine.value.clearAllNotes()
+
+  // Add 7 more measures (1 already exists by default) for a total of 8
+  for (let i = 0; i < 7; i++) {
+    engine.value.addMeasure()
+  }
+}
+
 function addSampleNotes() {
   if (!engine.value) return
 
   // Clear existing notes first
   engine.value.clearAllNotes()
 
-  // Add some sample notes to measure 1 - Leave space for user to add more
+  // Add some sample notes as an example
   engine.value.addNote({ pitch: 60, duration: 'q', measure: 1, beat: 0 }) // C4
   engine.value.addNote({ pitch: 64, duration: 'q', measure: 1, beat: 1 }) // E4
   engine.value.addNote({ pitch: 67, duration: 'q', measure: 1, beat: 2 }) // G4
-  // Beat 3 is left empty for user to add notes
+  engine.value.addNote({ pitch: 72, duration: 'q', measure: 1, beat: 3 }) // C5
 
-  // Add measure 2 with some notes
-  engine.value.addMeasure()
-  engine.value.addNote({ pitch: 72, duration: 'h', measure: 2, beat: 0 }) // C5 - half note
-  engine.value.addNote({ pitch: 69, duration: 'q', measure: 2, beat: 2 }) // A4
-  // Beat 3 is left empty for user to add notes
+  renderScore()
 }
 
 function clearNotes() {
