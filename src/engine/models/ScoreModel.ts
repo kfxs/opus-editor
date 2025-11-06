@@ -95,8 +95,8 @@ export class ScoreModel {
       throw new Error(`Measure ${params.measure} does not exist`)
     }
 
-    // Validate pitch
-    if (params.pitch < 0 || params.pitch > 127) {
+    // Validate pitch (skip validation for rests)
+    if (!params.isRest && (params.pitch < 0 || params.pitch > 127)) {
       throw new Error('Pitch must be between 0 and 127')
     }
 
@@ -110,6 +110,20 @@ export class ScoreModel {
     measure.notes.sort((a, b) => a.beat - b.beat)
 
     return note
+  }
+
+  /**
+   * Add a rest to the score
+   * A rest is a note with isRest=true and pitch=0 (pitch is ignored for rests)
+   */
+  addRest(duration: NoteParams['duration'], measure: number, beat: number): Note {
+    return this.addNote({
+      pitch: 0, // Pitch doesn't matter for rests
+      duration,
+      measure,
+      beat,
+      isRest: true,
+    })
   }
 
   /**

@@ -4,17 +4,29 @@ A modern music score editor built with Vue 3, VexFlow, and Tone.js.
 
 ## Project Status
 
-**Phase 1 Complete** - Developer A: Music Engine & Data Layer
+**Phase 2 Complete** - Developer A: Note Operations & Playback
 
 ### Completed Features
 
+**Phase 1:**
 - ✅ TypeScript interfaces for musical elements (Note, Measure, Score)
 - ✅ ScoreModel class with full CRUD operations
 - ✅ Music utility functions (duration calculations, MIDI conversions, beat calculations)
 - ✅ VexFlow rendering wrapper service
-- ✅ Basic score visualization with static example
+- ✅ Basic score visualization
 - ✅ JSON serialization/deserialization
-- ✅ Comprehensive unit tests (60 tests passing)
+
+**Phase 2:**
+- ✅ Coordinate mapping system (pixel ↔ musical position)
+- ✅ Click-to-add notes on canvas
+- ✅ Note collision detection
+- ✅ Measure overflow handling
+- ✅ Tone.js audio playback engine
+- ✅ Real-time playback cursor tracking
+- ✅ Play/Pause/Stop controls
+- ✅ Rest support
+- ✅ MusicEngine unified API
+- ✅ Comprehensive test suite (116 tests passing)
 
 ## Tech Stack
 
@@ -81,65 +93,83 @@ src/
 
 ## Core API (Developer A)
 
-### ScoreModel
+### MusicEngine (Unified API)
 
-Main class for managing musical scores:
+Main interface for all music operations:
 
 ```typescript
-const score = new ScoreModel('My Score', 120)
+import { MusicEngine } from './engine/MusicEngine'
 
-// Add measures
-score.addMeasure()
-
-// Add notes
-const note = score.addNote({
-  pitch: 60,        // Middle C (MIDI)
-  duration: 'q',    // Quarter note
-  measure: 1,
-  beat: 0
+// Initialize
+const engine = new MusicEngine({
+  container: document.getElementById('score'),
+  width: 1000,
+  height: 400
 })
 
-// Update notes
-score.updateNote(note.id, { pitch: 64 })
+// Add notes
+engine.addNote({ pitch: 60, duration: 'q', measure: 1, beat: 0 })
 
-// Delete notes
-score.deleteNote(note.id)
+// Add notes by clicking (pixel to position conversion)
+engine.addNoteAtPosition({ x: 200, y: 100 }, 'q')
 
-// Serialize
-const json = score.toJSON()
-const loaded = ScoreModel.fromJSON(json)
+// Playback controls
+await engine.play()
+engine.pause()
+engine.stop()
+
+// Playback callbacks
+engine.setPlaybackCallbacks({
+  onPositionChange: (pos) => console.log(pos),
+  onStateChange: (state) => console.log(state),
+  onNotePlay: (note) => console.log('Playing:', note)
+})
+
+// Collision detection
+const collision = engine.checkCollision(noteParams)
+if (collision.hasCollision) {
+  console.log('Note would collide!')
+}
+
+// Coordinate mapping
+const position = engine.pixelToPosition({ x, y }, beatsInMeasure)
+const coords = engine.noteToPixel(note, beatsInMeasure)
+
+// Rendering
+engine.renderScore()
+
+// Export/Import
+const json = engine.exportJSON()
+engine.loadJSON(json)
 ```
 
-### VexFlowRenderer
+### Individual Components
 
-Wrapper for VexFlow notation rendering:
-
+#### ScoreModel
 ```typescript
-const renderer = new VexFlowRenderer(containerElement)
-renderer.initialize(1000, 400)
-renderer.renderScore(score.getScore())
+const score = new ScoreModel('My Score', 120)
+score.addNote({ pitch: 60, duration: 'q', measure: 1, beat: 0 })
+score.addRest('q', 1, 2)
 ```
 
-### Music Utilities
-
-Helper functions for music calculations:
-
+#### CoordinateMapper
 ```typescript
-import {
-  durationToBeats,
-  midiToNoteName,
-  noteNameToMidi,
-  getMeasureDuration,
-  noteCanFitInMeasure
-} from '@/utils/musicUtils'
+const mapper = new CoordinateMapper(config)
+const position = mapper.pixelToPosition({ x: 200, y: 100 }, 4)
+```
 
-// Convert durations
-durationToBeats('q') // 1 beat
-durationToBeats('h') // 2 beats
+#### CollisionDetector
+```typescript
+const detector = new CollisionDetector()
+const collision = detector.checkNoteCollision(newNote, existingNotes)
+const overflow = detector.checkMeasureOverflow(note, measure, notes)
+```
 
-// MIDI conversions
-midiToNoteName(60)    // 'C4'
-noteNameToMidi('A4')  // 69
+#### PlaybackEngine
+```typescript
+const playback = new PlaybackEngine()
+playback.setScore(score)
+await playback.play()
 ```
 
 ## Testing
@@ -152,22 +182,30 @@ npm test
 
 - 33 tests for music utilities
 - 27 tests for ScoreModel
-- All 60 tests passing
+- 31 tests for CoordinateMapper
+- 25 tests for CollisionDetector
+- All 116 tests passing
 
-## Next Steps (Phase 2)
+## Next Steps (Phase 3)
 
-Developer A will implement:
-- Note-to-pixel coordinate mapping
-- Pixel-to-note position resolver
-- Note collision detection
-- Tone.js playback engine
+Developer A can implement:
+- Accidentals (sharps, flats, naturals)
+- Key signature support
+- Time signature changes
+- Dotted notes and tuplets
+- Dynamic markings
+- Tempo changes
+- Auto-beaming logic
 - MIDI export
 
 Developer B will implement:
 - Vue components for UI
-- Mouse and keyboard interaction
-- Tool panels and controls
+- Enhanced mouse and keyboard interaction
+- Tool panels (duration selector, property inspector)
+- Measure navigator
 - Undo/redo system
+- Copy/paste functionality
+- Drag-and-drop note movement
 
 ## License
 

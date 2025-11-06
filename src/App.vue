@@ -1,20 +1,20 @@
 <template>
   <div class="min-h-screen bg-gray-900 text-white p-8">
-    <h1 class="text-4xl font-bold mb-8">Score Editor - Phase 1 Demo</h1>
+    <h1 class="text-4xl font-bold mb-8">Score Editor - Phase 2 Demo</h1>
 
     <div class="mb-8">
-      <h2 class="text-2xl mb-4">Developer A: Music Engine Test</h2>
+      <h2 class="text-2xl mb-4">Developer A: Music Engine with Playback</h2>
       <div class="bg-gray-800 p-4 rounded-lg">
-        <div class="mb-4">
+        <div class="mb-4 flex gap-2">
           <button
             @click="addSampleNotes"
-            class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded mr-2"
+            class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
           >
             Add Sample Notes
           </button>
           <button
             @click="clearNotes"
-            class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded mr-2"
+            class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded"
           >
             Clear Notes
           </button>
@@ -24,84 +24,220 @@
           >
             Render Score
           </button>
+          <div class="border-l border-gray-600 mx-2"></div>
+          <button
+            @click="handlePlay"
+            :disabled="playbackState === 'playing'"
+            :class="[
+              'px-4 py-2 rounded',
+              playbackState === 'playing'
+                ? 'bg-gray-600 cursor-not-allowed'
+                : 'bg-purple-600 hover:bg-purple-700',
+            ]"
+          >
+            ▶ Play
+          </button>
+          <button
+            @click="handlePause"
+            :disabled="playbackState !== 'playing'"
+            :class="[
+              'px-4 py-2 rounded',
+              playbackState !== 'playing'
+                ? 'bg-gray-600 cursor-not-allowed'
+                : 'bg-yellow-600 hover:bg-yellow-700',
+            ]"
+          >
+            ⏸ Pause
+          </button>
+          <button
+            @click="handleStop"
+            :disabled="playbackState === 'stopped'"
+            :class="[
+              'px-4 py-2 rounded',
+              playbackState === 'stopped'
+                ? 'bg-gray-600 cursor-not-allowed'
+                : 'bg-orange-600 hover:bg-orange-700',
+            ]"
+          >
+            ⏹ Stop
+          </button>
         </div>
 
-        <div class="text-left mb-4">
-          <p class="text-sm text-gray-400 mb-2">Score Info:</p>
-          <p>Title: {{ scoreModel.getScore().title }}</p>
-          <p>Tempo: {{ scoreModel.getScore().tempo }} BPM</p>
-          <p>Measures: {{ scoreModel.getScore().measures.length }}</p>
-          <p>Total Notes: {{ scoreModel.getAllNotes().length }}</p>
+        <div class="text-left mb-4 grid grid-cols-2 gap-4">
+          <div>
+            <p class="text-sm text-gray-400 mb-2">Score Info:</p>
+            <p>Title: {{ engine.getScore().title }}</p>
+            <p>Tempo: {{ engine.getScore().tempo }} BPM</p>
+            <p>Measures: {{ engine.getScore().measures.length }}</p>
+            <p>Total Notes: {{ totalNotes }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-400 mb-2">Playback Status:</p>
+            <p>State: <span class="capitalize">{{ playbackState }}</span></p>
+            <p>Measure: {{ playbackPosition.measure }}</p>
+            <p>Beat: {{ playbackPosition.beat.toFixed(2) }}</p>
+            <p>Progress: {{ (playbackPosition.progress * 100).toFixed(0) }}%</p>
+          </div>
         </div>
 
         <!-- VexFlow Rendering Area -->
         <div
           ref="scoreCanvas"
-          class="bg-white rounded-lg p-4 min-h-[300px]"
+          class="bg-white rounded-lg p-4 min-h-[300px] cursor-crosshair"
+          @click="handleCanvasClick"
         ></div>
+
+        <div class="mt-4 text-sm text-gray-400">
+          Click on the score to add notes at that position!
+        </div>
       </div>
     </div>
 
-    <div class="bg-gray-800 p-4 rounded-lg text-left">
-      <h3 class="text-xl mb-2">Score JSON:</h3>
-      <pre class="bg-gray-900 p-4 rounded overflow-auto text-xs">{{ scoreJSON }}</pre>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="bg-gray-800 p-4 rounded-lg text-left">
+        <h3 class="text-xl mb-2">Score JSON:</h3>
+        <pre class="bg-gray-900 p-4 rounded overflow-auto text-xs max-h-96">{{ scoreJSON }}</pre>
+      </div>
+
+      <div class="bg-gray-800 p-4 rounded-lg text-left">
+        <h3 class="text-xl mb-2">Phase 2 Features:</h3>
+        <ul class="list-disc list-inside space-y-2 text-sm">
+          <li>✅ Note-to-pixel coordinate mapping</li>
+          <li>✅ Pixel-to-note position resolver</li>
+          <li>✅ Click canvas to add notes</li>
+          <li>✅ Note collision detection</li>
+          <li>✅ Measure overflow handling</li>
+          <li>✅ Tone.js audio playback</li>
+          <li>✅ Playback cursor tracking</li>
+          <li>✅ Rest support</li>
+          <li>✅ 116 unit tests passing</li>
+        </ul>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { ScoreModel } from './engine/models/ScoreModel'
-import { VexFlowRenderer } from './engine/rendering/VexFlowRenderer'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { MusicEngine } from './engine/MusicEngine'
+import type { PlaybackPosition } from './engine/audio/PlaybackEngine'
 
-// Create a score model
-const scoreModel = new ScoreModel('Test Score', 120)
-
-// VexFlow renderer
-let renderer: VexFlowRenderer | null = null
+// Create the music engine
+let engine: MusicEngine
 const scoreCanvas = ref<HTMLElement | null>(null)
 
-// Computed property for JSON display
-const scoreJSON = computed(() => scoreModel.toJSON())
+// Playback state
+const playbackState = ref<'stopped' | 'playing' | 'paused'>('stopped')
+const playbackPosition = ref<PlaybackPosition>({
+  measure: 1,
+  beat: 0,
+  progress: 0,
+  time: 0,
+})
+
+// Computed properties
+const totalNotes = computed(() => engine?.getScore().measures.flatMap(m => m.notes).length || 0)
+const scoreJSON = computed(() => engine?.exportJSON() || '{}')
 
 onMounted(() => {
   if (scoreCanvas.value) {
-    renderer = new VexFlowRenderer(scoreCanvas.value)
-    renderer.initialize(1000, 400)
+    engine = new MusicEngine({
+      container: scoreCanvas.value,
+      width: 1000,
+      height: 400,
+    })
 
-    // Add initial sample notes
+    // Setup playback callbacks
+    engine.setPlaybackCallbacks({
+      onStateChange: state => {
+        playbackState.value = state
+      },
+      onPositionChange: position => {
+        playbackPosition.value = position
+      },
+      onPlaybackComplete: () => {
+        playbackState.value = 'stopped'
+      },
+    })
+
+    // Add initial sample notes and render
     addSampleNotes()
     renderScore()
   }
 })
 
-function addSampleNotes() {
-  // Clear existing notes first
-  scoreModel.clearAllNotes()
+onUnmounted(() => {
+  if (engine) {
+    engine.dispose()
+  }
+})
 
-  // Add some sample notes to measure 1
-  // C4, E4, G4, C5 (C major chord arpeggio)
-  scoreModel.addNote({ pitch: 60, duration: 'q', measure: 1, beat: 0 }) // C4
-  scoreModel.addNote({ pitch: 64, duration: 'q', measure: 1, beat: 1 }) // E4
-  scoreModel.addNote({ pitch: 67, duration: 'q', measure: 1, beat: 2 }) // G4
-  scoreModel.addNote({ pitch: 72, duration: 'q', measure: 1, beat: 3 }) // C5
+function addSampleNotes() {
+  if (!engine) return
+
+  // Clear existing notes first
+  engine.clearAllNotes()
+
+  // Add some sample notes to measure 1 - C major scale
+  engine.addNote({ pitch: 60, duration: 'q', measure: 1, beat: 0 }) // C4
+  engine.addNote({ pitch: 62, duration: 'q', measure: 1, beat: 1 }) // D4
+  engine.addNote({ pitch: 64, duration: 'q', measure: 1, beat: 2 }) // E4
+  engine.addNote({ pitch: 65, duration: 'q', measure: 1, beat: 3 }) // F4
 
   // Add measure 2 and more notes
-  scoreModel.addMeasure()
-  scoreModel.addNote({ pitch: 71, duration: 'h', measure: 2, beat: 0 }) // B4
-  scoreModel.addNote({ pitch: 69, duration: 'h', measure: 2, beat: 2 }) // A4
+  engine.addMeasure()
+  engine.addNote({ pitch: 67, duration: 'q', measure: 2, beat: 0 }) // G4
+  engine.addNote({ pitch: 69, duration: 'q', measure: 2, beat: 1 }) // A4
+  engine.addNote({ pitch: 71, duration: 'q', measure: 2, beat: 2 }) // B4
+  engine.addNote({ pitch: 72, duration: 'q', measure: 2, beat: 3 }) // C5
 }
 
 function clearNotes() {
-  scoreModel.clearAllNotes()
+  if (!engine) return
+  engine.clearAllNotes()
   renderScore()
 }
 
 function renderScore() {
-  if (renderer && scoreCanvas.value) {
-    renderer.clear()
-    renderer.initialize(1000, 400)
-    renderer.renderScore(scoreModel.getScore())
+  if (!engine) return
+  engine.clearCanvas()
+  engine.resizeCanvas(1000, 400)
+}
+
+async function handlePlay() {
+  if (!engine) return
+  try {
+    await engine.play()
+  } catch (error) {
+    console.error('Playback error:', error)
+  }
+}
+
+function handlePause() {
+  if (!engine) return
+  engine.pause()
+}
+
+function handleStop() {
+  if (!engine) return
+  engine.stop()
+}
+
+function handleCanvasClick(event: MouseEvent) {
+  if (!engine || !scoreCanvas.value) return
+
+  const rect = scoreCanvas.value.getBoundingClientRect()
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+
+  // Add a quarter note at clicked position
+  const note = engine.addNoteAtPosition({ x, y }, 'q')
+
+  if (note) {
+    console.log('Added note:', note)
+    renderScore()
+  } else {
+    console.warn('Could not add note at this position (collision or invalid location)')
   }
 }
 </script>
