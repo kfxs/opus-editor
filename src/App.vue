@@ -5,7 +5,7 @@
     <div class="mb-8">
       <h2 class="text-2xl mb-4">Developer A: Music Engine with Playback</h2>
       <div class="bg-gray-800 p-4 rounded-lg">
-        <div class="mb-4 flex gap-2">
+        <div class="mb-4 flex gap-2 flex-wrap">
           <button
             @click="addSampleNotes"
             class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
@@ -24,6 +24,126 @@
           >
             Render Score
           </button>
+          <div class="border-l border-gray-600 mx-2"></div>
+
+          <!-- Note Duration Selector -->
+          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
+            <span class="text-sm text-gray-300">Duration:</span>
+            <button
+              @click="selectedDuration = 'w'"
+              :class="[
+                'px-3 py-1 rounded text-sm font-bold',
+                selectedDuration === 'w'
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Whole note (Redonda) - 4 beats"
+            >
+              𝅝
+            </button>
+            <button
+              @click="selectedDuration = 'h'"
+              :class="[
+                'px-3 py-1 rounded text-sm font-bold',
+                selectedDuration === 'h'
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Half note (Blanca) - 2 beats"
+            >
+              𝅗𝅥
+            </button>
+            <button
+              @click="selectedDuration = 'q'"
+              :class="[
+                'px-3 py-1 rounded text-sm font-bold',
+                selectedDuration === 'q'
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Quarter note (Negra) - 1 beat"
+            >
+              ♩
+            </button>
+            <button
+              @click="selectedDuration = '8'"
+              :class="[
+                'px-3 py-1 rounded text-sm font-bold',
+                selectedDuration === '8'
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Eighth note (Corchea) - 0.5 beats"
+            >
+              ♪
+            </button>
+            <button
+              @click="selectedDuration = '16'"
+              :class="[
+                'px-3 py-1 rounded text-sm font-bold',
+                selectedDuration === '16'
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Sixteenth note (Semicorchea) - 0.25 beats"
+            >
+              𝅘𝅥𝅯
+            </button>
+          </div>
+
+          <!-- Accidental Selector -->
+          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
+            <span class="text-sm text-gray-300">Alteration:</span>
+            <button
+              @click="selectedAccidental = null"
+              :class="[
+                'px-3 py-1 rounded text-sm font-bold',
+                selectedAccidental === null
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="No alteration (Natural)"
+            >
+              —
+            </button>
+            <button
+              @click="selectedAccidental = '#'"
+              :class="[
+                'px-3 py-1 rounded text-lg font-bold',
+                selectedAccidental === '#'
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Sharp (Sostenido)"
+            >
+              ♯
+            </button>
+            <button
+              @click="selectedAccidental = 'b'"
+              :class="[
+                'px-3 py-1 rounded text-lg font-bold',
+                selectedAccidental === 'b'
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Flat (Bemol)"
+            >
+              ♭
+            </button>
+            <button
+              @click="selectedAccidental = 'n'"
+              :class="[
+                'px-3 py-1 rounded text-lg font-bold',
+                selectedAccidental === 'n'
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Natural (Becuadro)"
+            >
+              ♮
+            </button>
+          </div>
+
           <div class="border-l border-gray-600 mx-2"></div>
           <button
             @click="handlePlay"
@@ -90,10 +210,10 @@
         ></div>
 
         <div class="mt-4 text-sm">
-          <p class="text-gray-400">Click anywhere on the staff to add quarter notes. Create your own melody!</p>
+          <p class="text-gray-400">Click anywhere on the staff to add notes. Create your own melody!</p>
           <p class="text-yellow-400 text-xs mt-1">
-            Tip: Each measure can hold 4 beats (4/4 time). Quarter notes are 1 beat each.
-            Click "Add Sample Notes" to see an example.
+            <strong>Selected:</strong> {{ durationName }} ({{ durationBeats }} beat{{ durationBeats === 1 ? '' : 's' }}){{ accidentalText }}
+            • Each measure can hold 4 beats (4/4 time)
           </p>
         </div>
       </div>
@@ -111,12 +231,15 @@
           <li>✅ Note-to-pixel coordinate mapping</li>
           <li>✅ Pixel-to-note position resolver</li>
           <li>✅ Click canvas to add notes</li>
-          <li>✅ Note collision detection</li>
+          <li>✅ Multiple duration support (whole, half, quarter, eighth, sixteenth)</li>
+          <li>✅ Chord creation with smart collision detection</li>
+          <li>✅ Classical notation displacement for seconds</li>
+          <li>✅ Note collision detection & X-axis snap tolerance</li>
           <li>✅ Measure overflow handling</li>
+          <li>✅ Ghost note preview with displacement</li>
           <li>✅ Tone.js audio playback</li>
           <li>✅ Playback cursor tracking</li>
           <li>✅ Rest support</li>
-          <li>✅ 116 unit tests passing</li>
         </ul>
       </div>
     </div>
@@ -141,6 +264,12 @@ const playbackPosition = ref<PlaybackPosition>({
   time: 0,
 })
 
+// Note duration selection
+const selectedDuration = ref<'w' | 'h' | 'q' | '8' | '16' | '32'>('q') // Default to quarter note
+
+// Accidental selection
+const selectedAccidental = ref<'#' | 'b' | 'n' | null>(null) // Default to no accidental
+
 // Ghost note preview throttling
 let lastPreviewRender = 0
 const PREVIEW_THROTTLE_MS = 50 // Only update preview every 50ms
@@ -148,6 +277,43 @@ const PREVIEW_THROTTLE_MS = 50 // Only update preview every 50ms
 // Computed properties
 const totalNotes = computed(() => engine.value?.getScore().measures.flatMap(m => m.notes).length || 0)
 const scoreJSON = computed(() => engine.value?.exportJSON() || '{}')
+
+// Duration name mapping for UI display
+const durationName = computed(() => {
+  const names: Record<string, string> = {
+    'w': 'Whole note (Redonda)',
+    'h': 'Half note (Blanca)',
+    'q': 'Quarter note (Negra)',
+    '8': 'Eighth note (Corchea)',
+    '16': 'Sixteenth note (Semicorchea)',
+    '32': 'Thirty-second note (Fusa)'
+  }
+  return names[selectedDuration.value] || 'Unknown'
+})
+
+// Duration beats mapping
+const durationBeats = computed(() => {
+  const beats: Record<string, number> = {
+    'w': 4,
+    'h': 2,
+    'q': 1,
+    '8': 0.5,
+    '16': 0.25,
+    '32': 0.125
+  }
+  return beats[selectedDuration.value] || 1
+})
+
+// Accidental text for display
+const accidentalText = computed(() => {
+  if (!selectedAccidental.value) return ''
+  const names: Record<string, string> = {
+    '#': ' with Sharp (♯)',
+    'b': ' with Flat (♭)',
+    'n': ' with Natural (♮)'
+  }
+  return names[selectedAccidental.value] || ''
+})
 
 onMounted(() => {
   if (scoreCanvas.value) {
@@ -249,8 +415,12 @@ function handleCanvasClick(event: MouseEvent) {
   const y = event.clientY - rect.top
 
   try {
-    // Add a quarter note at clicked position
-    const note = engine.value.addNoteAtPosition({ x, y }, 'q')
+    // Add a note with the selected duration and accidental at clicked position
+    const note = engine.value.addNoteAtPosition(
+      { x, y },
+      selectedDuration.value,
+      selectedAccidental.value || undefined
+    )
 
     if (note) {
       console.log('Added note:', note)
@@ -280,8 +450,12 @@ function handleCanvasMouseMove(event: MouseEvent) {
 
   console.log('🖱️ Mouse move:', { x, y, clientY: event.clientY, rectTop: rect.top })
 
-  // Render score with ghost note preview
-  engine.value.renderScoreWithPreview({ x, y }, 'q')
+  // Render score with ghost note preview using selected duration and accidental
+  engine.value.renderScoreWithPreview(
+    { x, y },
+    selectedDuration.value,
+    selectedAccidental.value || undefined
+  )
 }
 
 function handleCanvasMouseLeave() {

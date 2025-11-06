@@ -141,7 +141,11 @@ export class MusicEngine {
   /**
    * Add a note at pixel coordinates
    */
-  addNoteAtPosition(coords: PixelCoordinates, duration: NoteParams['duration']): Note | null {
+  addNoteAtPosition(
+    coords: PixelCoordinates,
+    duration: NoteParams['duration'],
+    accidental?: NoteParams['accidental']
+  ): Note | null {
     const score = this.scoreModel.getScore()
     const measure = this.scoreModel.getMeasure(1)
     if (!measure) return null
@@ -167,6 +171,7 @@ export class MusicEngine {
       duration,
       measure: position.measure,
       beat: finalBeat,
+      ...(accidental && { accidental }), // Only add accidental if provided
     }
 
     // Get the target measure for overflow check
@@ -271,7 +276,11 @@ export class MusicEngine {
   /**
    * Render the score with a ghost note preview at mouse position
    */
-  renderScoreWithPreview(coords: PixelCoordinates, duration: NoteParams['duration']): void {
+  renderScoreWithPreview(
+    coords: PixelCoordinates,
+    duration: NoteParams['duration'],
+    accidental?: NoteParams['accidental']
+  ): void {
     const measure = this.scoreModel.getMeasure(1)
     if (!measure) {
       console.warn('No measure found for preview')
@@ -300,6 +309,7 @@ export class MusicEngine {
         duration,
         measure: position.measure,
         beat: position.beat,
+        ...(accidental && { accidental }), // Only add accidental if provided
       }
     )
   }
