@@ -135,20 +135,47 @@ export class VexFlowRenderer {
    * @param score - Score to render
    */
   renderScore(score: Score): void {
-    if (!this.context) {
+    if (!this.context || !this.renderer) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
 
-    const staveWidth = 500
-    const staveHeight = 150
-    const startX = 10
-    let currentY = 10
+    // Get the SVG element to determine available space
+    const svg = this.getSVGElement()
+    if (!svg) return
+
+    const containerWidth = parseInt(svg.getAttribute('width') || '1000')
+    const containerHeight = parseInt(svg.getAttribute('height') || '400')
+
+    // Calculate layout parameters to fit measures within container
+    const numMeasures = score.measures.length
+    const margin = 20
+    const staveHeight = 120
+    const verticalSpacing = 30
+
+    // Determine how many measures fit per line
+    let measuresPerLine = Math.max(1, Math.floor(numMeasures / 2))
+    if (measuresPerLine > 4) measuresPerLine = 4 // Max 4 measures per line
+
+    // Calculate measure width to fit in container
+    const availableWidth = containerWidth - (margin * 2)
+    const staveWidth = Math.floor(availableWidth / measuresPerLine) - 20
+
+    // Calculate how many lines we need
+    const numLines = Math.ceil(numMeasures / measuresPerLine)
+    const totalHeight = numLines * (staveHeight + verticalSpacing)
+
+    // Adjust container height if needed
+    if (totalHeight > containerHeight) {
+      this.renderer.resize(containerWidth, totalHeight + margin * 2)
+    }
 
     // Render each measure
     score.measures.forEach((measure, index) => {
-      // Calculate position (simple single-line layout for now)
-      const x = startX + (index % 2) * staveWidth
-      const y = currentY + Math.floor(index / 2) * staveHeight
+      const line = Math.floor(index / measuresPerLine)
+      const positionInLine = index % measuresPerLine
+
+      const x = margin + positionInLine * (staveWidth + 20)
+      const y = margin + line * (staveHeight + verticalSpacing)
 
       this.renderMeasure(measure, x, y, staveWidth)
     })

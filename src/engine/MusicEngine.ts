@@ -33,12 +33,32 @@ export class MusicEngine {
   constructor(config: MusicEngineConfig) {
     this.scoreModel = new ScoreModel()
     this.renderer = new VexFlowRenderer(config.container)
-    this.coordinateMapper = new CoordinateMapper(config.coordinateConfig)
+
+    // Calculate coordinate mapper config based on container size
+    const width = config.width || 1000
+    const height = config.height || 400
+    const numMeasures = 2 // Initial number of measures
+    const measuresPerLine = Math.max(1, Math.floor(numMeasures / 2))
+    const margin = 20
+    const availableWidth = width - (margin * 2)
+    const staveWidth = Math.floor(availableWidth / measuresPerLine) - 20
+
+    this.coordinateMapper = new CoordinateMapper({
+      measureWidth: staveWidth + 20,
+      staffHeight: 120 + 30, // staveHeight + verticalSpacing
+      startX: margin,
+      startY: margin,
+      measuresPerLine: measuresPerLine,
+      lineSpacing: 10,
+      measureLeftMargin: 100,
+      ...config.coordinateConfig
+    })
+
     this.collisionDetector = new CollisionDetector()
     this.playbackEngine = new PlaybackEngine()
 
     // Initialize renderer
-    this.renderer.initialize(config.width || 1000, config.height || 400)
+    this.renderer.initialize(width, height)
 
     // Set score in playback engine
     this.playbackEngine.setScore(this.scoreModel.getScore())
