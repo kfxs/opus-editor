@@ -230,14 +230,19 @@ function handleCanvasClick(event: MouseEvent) {
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
 
-  // Add a quarter note at clicked position
-  const note = engine.value.addNoteAtPosition({ x, y }, 'q')
+  try {
+    // Add a quarter note at clicked position
+    const note = engine.value.addNoteAtPosition({ x, y }, 'q')
 
-  if (note) {
-    console.log('Added note:', note)
-    renderScore()
-  } else {
-    console.warn('Could not add note at this position (collision or invalid location)')
+    if (note) {
+      console.log('Added note:', note)
+      renderScore()
+    } else {
+      console.warn('Could not add note at this position (collision or invalid location)')
+    }
+  } catch (error) {
+    console.error('Error adding note:', error)
+    alert('Cannot add note: ' + (error as Error).message)
   }
 }
 </script>

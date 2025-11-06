@@ -130,6 +130,22 @@ export class MusicEngine {
       beat: position.beat,
     }
 
+    // Get the target measure for overflow check
+    const targetMeasure = this.scoreModel.getMeasure(position.measure)
+    if (!targetMeasure) return null
+
+    // Check for measure overflow
+    const overflow = this.collisionDetector.checkMeasureOverflow(
+      noteParams,
+      targetMeasure,
+      this.scoreModel.getNotesInMeasure(position.measure)
+    )
+
+    if (overflow.willOverflow) {
+      console.warn('Note would overflow measure:', overflow)
+      return null
+    }
+
     // Check for collisions
     const collision = this.collisionDetector.checkNoteCollision(
       noteParams,

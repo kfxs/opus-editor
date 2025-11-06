@@ -127,11 +127,18 @@ export class VexFlowRenderer {
         num_beats: measure.timeSignature.numerator,
         beat_value: measure.timeSignature.denominator,
       })
-      voice.addTickables(staveNotes)
 
-      // Format and render the voice
-      new Formatter().joinVoices([voice]).format([voice], width - 100)
-      voice.draw(this.context, stave)
+      try {
+        voice.addTickables(staveNotes)
+
+        // Format and render the voice
+        new Formatter().joinVoices([voice]).format([voice], width - 100)
+        voice.draw(this.context, stave)
+      } catch (error) {
+        // If there are too many notes, just skip rendering them
+        // This can happen when notes exceed the measure's time signature
+        console.warn(`Could not render measure ${measure.number}: ${error}`)
+      }
     }
   }
 
