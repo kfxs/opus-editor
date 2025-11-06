@@ -35,7 +35,7 @@ export interface PlaybackCallbacks {
  * PlaybackEngine handles audio playback of musical scores using Tone.js
  */
 export class PlaybackEngine {
-  private synth: Tone.PolySynth
+  private synth: Tone.PolySynth | null = null
   private score: Score | null = null
   private state: PlaybackState = 'stopped'
   private callbacks: PlaybackCallbacks = {}
@@ -47,6 +47,15 @@ export class PlaybackEngine {
   private totalDuration: number = 0
 
   constructor() {
+    // Synth will be lazy-initialized on first play to avoid AudioContext warnings
+  }
+
+  /**
+   * Initialize the synthesizer (lazy initialization)
+   */
+  private initializeSynth(): void {
+    if (this.synth) return
+
     // Create a polyphonic synthesizer
     this.synth = new Tone.PolySynth(Tone.Synth, {
       oscillator: {
@@ -132,6 +141,10 @@ export class PlaybackEngine {
   private async scheduleNotes(): Promise<void> {
     if (!this.score) return
 
+    // Initialize synth if needed
+    this.initializeSynth()
+    if (!this.synth) return
+
     // Ensure Tone is started before scheduling
     await Tone.start()
 
@@ -160,7 +173,7 @@ export class PlaybackEngine {
 
         // Schedule the note
         const eventId = Tone.Transport.schedule(time => {
-          this.synth.triggerAttackRelease(
+          this.synth!.triggerAttackRelease(
             frequency,
             this.noteDurationToToneTime(note.duration),
             time
@@ -350,7 +363,10 @@ export class PlaybackEngine {
    * Set playback volume (0-1)
    */
   setVolume(volume: number): void {
-    this.synth.volume.value = Tone.gainToDb(volume)
+    this.initializeSynth()
+    if (this.synth) {
+      this.synth.volume.value = Tone.gainToDb(volume)
+    }
   }
 
   /**
@@ -358,6 +374,8 @@ export class PlaybackEngine {
    */
   dispose(): void {
     this.stop()
-    this.synth.dispose()
+    if (this.synth) {
+      this.synth.dispose()
+    }
   }
 }

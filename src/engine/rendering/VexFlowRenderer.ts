@@ -69,6 +69,18 @@ export class VexFlowRenderer {
    */
   private createStaveNote(note: MusicNote): StaveNote {
     const vexDuration = this.convertDuration(note.duration)
+
+    // Handle rests differently
+    if (note.isRest) {
+      // Create a rest (add 'r' suffix to duration)
+      const staveNote = new StaveNote({
+        keys: ['b/4'], // Rests use a placeholder key
+        duration: vexDuration + 'r', // Add 'r' for rest
+      })
+      return staveNote
+    }
+
+    // Regular note
     const vexNote = this.midiToVexFlowNote(note.pitch)
 
     const staveNote = new StaveNote({
@@ -87,6 +99,64 @@ export class VexFlowRenderer {
     }
 
     return staveNote
+  }
+
+  /**
+   * Calculate total beats used by notes in a measure
+   */
+  private calculateUsedBeats(notes: MusicNote[]): number {
+    const durationToBeats: Record<NoteDuration, number> = {
+      w: 4,
+      h: 2,
+      q: 1,
+      '8': 0.5,
+      '16': 0.25,
+      '32': 0.125,
+    }
+
+    let totalBeats = 0
+    for (const note of notes) {
+      totalBeats += durationToBeats[note.duration] || 1
+    }
+    return totalBeats
+  }
+
+  /**
+   * Convert beats to rest durations (may need multiple rests)
+   * Returns an array of VexFlow duration strings with 'r' suffix for rests
+   */
+  private beatsToRestDurations(beats: number): string[] {
+    const rests: string[] = []
+    let remaining = beats
+    const epsilon = 0.001 // Tolerance for floating point comparison
+
+    // Break down into whole, half, quarter, etc.
+    while (remaining > epsilon) {
+      if (remaining >= 4 - epsilon) {
+        rests.push('wr')
+        remaining -= 4
+      } else if (remaining >= 2 - epsilon) {
+        rests.push('hr')
+        remaining -= 2
+      } else if (remaining >= 1 - epsilon) {
+        rests.push('qr')
+        remaining -= 1
+      } else if (remaining >= 0.5 - epsilon) {
+        rests.push('8r')
+        remaining -= 0.5
+      } else if (remaining >= 0.25 - epsilon) {
+        rests.push('16r')
+        remaining -= 0.25
+      } else if (remaining >= 0.125 - epsilon) {
+        rests.push('32r')
+        remaining -= 0.125
+      } else {
+        // Prevent infinite loop if remaining is very small
+        break
+      }
+    }
+
+    return rests
   }
 
   /**
@@ -118,9 +188,29 @@ export class VexFlowRenderer {
     // Draw the stave
     stave.setContext(this.context).draw()
 
-    // Create notes for this measure
+    // Create notes for this measure (measures always have notes - at minimum rests)
     if (measure.notes.length > 0) {
-      const staveNotes = measure.notes.map(note => this.createStaveNote(note))
+      // Sort notes by beat position before rendering
+      const sortedNotes = [...measure.notes].sort((a, b) => a.beat - b.beat)
+
+      // DEBUG: Log measure data before processing
+      console.log(`📊 MEASURE ${measure.number} DATA:`)
+      console.log(`  - Notes count: ${measure.notes.length}`)
+      console.log(`  - Notes:`, sortedNotes.map(n => `${n.isRest ? 'REST-' : ''}${n.duration} at beat ${n.beat}`))
+
+      const staveNotes = sortedNotes.map(note => this.createStaveNote(note))
+
+      // Calculate how many beats are used (using sorted notes)
+      const usedBeats = this.calculateUsedBeats(sortedNotes)
+      const requiredBeats = measure.timeSignature.numerator
+
+      console.log(`  - Used beats: ${usedBeats} / Required: ${requiredBeats}`)
+
+      if (usedBeats !== requiredBeats) {
+        console.error(`  ⚠️ MISMATCH: Measure has ${usedBeats} beats but should have exactly ${requiredBeats}!`)
+      }
+
+      console.log(`  - Total StaveNotes to render: ${staveNotes.length}`)
 
       // Create a voice with the notes
       const voice = new Voice({
@@ -134,10 +224,10 @@ export class VexFlowRenderer {
         // Format and render the voice
         new Formatter().joinVoices([voice]).format([voice], width - 100)
         voice.draw(this.context, stave)
+        console.log(`  ✅ Measure ${measure.number} rendered successfully`)
       } catch (error) {
-        // If there are too many notes, just skip rendering them
-        // This can happen when notes exceed the measure's time signature
-        console.warn(`Could not render measure ${measure.number}: ${error}`)
+        console.error(`  ❌ Could not render measure ${measure.number}: ${error}`)
+        console.error(`  - Measure data:`, JSON.stringify(measure, null, 2))
       }
     }
   }
@@ -151,35 +241,54 @@ export class VexFlowRenderer {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
 
-    // Get the SVG element to determine available space
-    const svg = this.getSVGElement()
-    if (!svg) return
-
-    const containerWidth = parseInt(svg.getAttribute('width') || '1000')
-    const containerHeight = parseInt(svg.getAttribute('height') || '400')
-
-    // Calculate layout parameters to fit measures within container
+    // Calculate layout parameters first
     const numMeasures = score.measures.length
     const margin = 20
     const staveHeight = 120
     const verticalSpacing = 30
+    const containerWidth = 1000
 
     // Determine how many measures fit per line
     let measuresPerLine = Math.max(1, Math.floor(numMeasures / 2))
     if (measuresPerLine > 4) measuresPerLine = 4 // Max 4 measures per line
 
+    // Calculate how many lines we need
+    const numLines = Math.ceil(numMeasures / measuresPerLine)
+    const totalHeight = numLines * (staveHeight + verticalSpacing) + margin * 2
+
+    // Check if SVG exists (should always exist after initialization)
+    const svg = this.getSVGElement()
+    if (!svg) {
+      throw new Error('SVG element not found. Renderer may not be properly initialized.')
+    }
+
+    console.log('renderScore() - About to render', numMeasures, 'measures')
+    console.log('SVG element:', svg)
+    console.log('Context:', this.context)
+    console.log('Renderer:', this.renderer)
+
+    // Get current SVG size
+    const currentWidth = parseInt(svg.getAttribute('width') || '0')
+    const currentHeight = parseInt(svg.getAttribute('height') || '0')
+
+    console.log(`Current size: ${currentWidth}x${currentHeight}, Target: ${containerWidth}x${totalHeight}`)
+
+    // Only resize if dimensions changed (following VexFlow best practice)
+    if (currentWidth !== containerWidth || currentHeight !== totalHeight) {
+      console.log('Resizing SVG...')
+      this.renderer!.resize(containerWidth, totalHeight)
+      // Note: According to VexFlow docs, resize() modifies the existing SVG
+      // element's attributes, it does NOT create a new element
+    }
+
+    // Reuse the same context (VexFlow best practice: "single context per renderer")
+    // No need to call getContext() again unless we recreated the renderer
+
     // Calculate measure width to fit in container (no gaps between measures)
     const availableWidth = containerWidth - (margin * 2)
     const staveWidth = Math.floor(availableWidth / measuresPerLine)
 
-    // Calculate how many lines we need
-    const numLines = Math.ceil(numMeasures / measuresPerLine)
-    const totalHeight = numLines * (staveHeight + verticalSpacing)
-
-    // Adjust container height if needed
-    if (totalHeight > containerHeight) {
-      this.renderer.resize(containerWidth, totalHeight + margin * 2)
-    }
+    console.log(`Rendering ${numMeasures} measures, ${measuresPerLine} per line`)
 
     // Render each measure
     score.measures.forEach((measure, index) => {
@@ -191,16 +300,28 @@ export class VexFlowRenderer {
       const x = margin + positionInLine * staveWidth
       const y = margin + line * (staveHeight + verticalSpacing)
 
+      console.log(`Rendering measure ${measure.number} at (${x}, ${y})`)
       this.renderMeasure(measure, x, y, staveWidth, isFirstInLine)
     })
+
+    console.log('renderScore() complete - SVG children count:', svg.childNodes.length)
   }
 
   /**
-   * Clear the canvas
+   * Clear the canvas content without removing the SVG element
    */
   clear(): void {
-    if (this.svgContainer) {
-      this.svgContainer.innerHTML = ''
+    // According to VexFlow best practices, we should keep the SVG element
+    // and only clear its contents, not remove the element itself
+    const svg = this.getSVGElement()
+    console.log('clear() called, SVG exists:', !!svg)
+    if (svg) {
+      console.log('SVG before clear - children count:', svg.childNodes.length)
+      // Clear all children of the SVG, but keep the SVG element itself
+      while (svg.firstChild) {
+        svg.removeChild(svg.firstChild)
+      }
+      console.log('SVG after clear - children count:', svg.childNodes.length)
     }
   }
 

@@ -179,10 +179,11 @@ onUnmounted(() => {
 function initializeEmptyScore() {
   if (!engine.value) return
 
-  // Clear any existing notes
+  // Clear any existing notes (refills with rests)
   engine.value.clearAllNotes()
 
   // Add 7 more measures (1 already exists by default) for a total of 8
+  // Each new measure is automatically filled with rests
   for (let i = 0; i < 7; i++) {
     engine.value.addMeasure()
   }
@@ -212,7 +213,7 @@ function clearNotes() {
 function renderScore() {
   if (!engine.value) return
   engine.value.clearCanvas()
-  engine.value.resizeCanvas(1000, 400)
+  engine.value.renderScore()
 }
 
 async function handlePlay() {
