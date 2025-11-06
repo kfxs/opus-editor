@@ -28,6 +28,10 @@ export class VexFlowRenderer {
     this.renderer = new Renderer(this.svgContainer, Renderer.Backends.SVG)
     this.renderer.resize(width, height)
     this.context = this.renderer.getContext()
+
+    // Disable save/restore to avoid structuredClone issues with Vue reactivity
+    this.context.save = () => {}
+    this.context.restore = () => {}
   }
 
   /**
