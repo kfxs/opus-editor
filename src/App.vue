@@ -66,9 +66,9 @@
         <div class="text-left mb-4 grid grid-cols-2 gap-4">
           <div>
             <p class="text-sm text-gray-400 mb-2">Score Info:</p>
-            <p>Title: {{ engine.getScore().title }}</p>
-            <p>Tempo: {{ engine.getScore().tempo }} BPM</p>
-            <p>Measures: {{ engine.getScore().measures.length }}</p>
+            <p>Title: {{ engine?.getScore().title || 'Loading...' }}</p>
+            <p>Tempo: {{ engine?.getScore().tempo || 120 }} BPM</p>
+            <p>Measures: {{ engine?.getScore().measures.length || 0 }}</p>
             <p>Total Notes: {{ totalNotes }}</p>
           </div>
           <div>
@@ -123,7 +123,7 @@ import { MusicEngine } from './engine/MusicEngine'
 import type { PlaybackPosition } from './engine/audio/PlaybackEngine'
 
 // Create the music engine
-let engine: MusicEngine
+const engine = ref<MusicEngine | null>(null)
 const scoreCanvas = ref<HTMLElement | null>(null)
 
 // Playback state
@@ -136,19 +136,19 @@ const playbackPosition = ref<PlaybackPosition>({
 })
 
 // Computed properties
-const totalNotes = computed(() => engine?.getScore().measures.flatMap(m => m.notes).length || 0)
-const scoreJSON = computed(() => engine?.exportJSON() || '{}')
+const totalNotes = computed(() => engine.value?.getScore().measures.flatMap(m => m.notes).length || 0)
+const scoreJSON = computed(() => engine.value?.exportJSON() || '{}')
 
 onMounted(() => {
   if (scoreCanvas.value) {
-    engine = new MusicEngine({
+    engine.value = new MusicEngine({
       container: scoreCanvas.value,
       width: 1000,
       height: 400,
     })
 
     // Setup playback callbacks
-    engine.setPlaybackCallbacks({
+    engine.value.setPlaybackCallbacks({
       onStateChange: state => {
         playbackState.value = state
       },
@@ -167,71 +167,71 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (engine) {
-    engine.dispose()
+  if (engine.value) {
+    engine.value.dispose()
   }
 })
 
 function addSampleNotes() {
-  if (!engine) return
+  if (!engine.value) return
 
   // Clear existing notes first
-  engine.clearAllNotes()
+  engine.value.clearAllNotes()
 
   // Add some sample notes to measure 1 - C major scale
-  engine.addNote({ pitch: 60, duration: 'q', measure: 1, beat: 0 }) // C4
-  engine.addNote({ pitch: 62, duration: 'q', measure: 1, beat: 1 }) // D4
-  engine.addNote({ pitch: 64, duration: 'q', measure: 1, beat: 2 }) // E4
-  engine.addNote({ pitch: 65, duration: 'q', measure: 1, beat: 3 }) // F4
+  engine.value.addNote({ pitch: 60, duration: 'q', measure: 1, beat: 0 }) // C4
+  engine.value.addNote({ pitch: 62, duration: 'q', measure: 1, beat: 1 }) // D4
+  engine.value.addNote({ pitch: 64, duration: 'q', measure: 1, beat: 2 }) // E4
+  engine.value.addNote({ pitch: 65, duration: 'q', measure: 1, beat: 3 }) // F4
 
   // Add measure 2 and more notes
-  engine.addMeasure()
-  engine.addNote({ pitch: 67, duration: 'q', measure: 2, beat: 0 }) // G4
-  engine.addNote({ pitch: 69, duration: 'q', measure: 2, beat: 1 }) // A4
-  engine.addNote({ pitch: 71, duration: 'q', measure: 2, beat: 2 }) // B4
-  engine.addNote({ pitch: 72, duration: 'q', measure: 2, beat: 3 }) // C5
+  engine.value.addMeasure()
+  engine.value.addNote({ pitch: 67, duration: 'q', measure: 2, beat: 0 }) // G4
+  engine.value.addNote({ pitch: 69, duration: 'q', measure: 2, beat: 1 }) // A4
+  engine.value.addNote({ pitch: 71, duration: 'q', measure: 2, beat: 2 }) // B4
+  engine.value.addNote({ pitch: 72, duration: 'q', measure: 2, beat: 3 }) // C5
 }
 
 function clearNotes() {
-  if (!engine) return
-  engine.clearAllNotes()
+  if (!engine.value) return
+  engine.value.clearAllNotes()
   renderScore()
 }
 
 function renderScore() {
-  if (!engine) return
-  engine.clearCanvas()
-  engine.resizeCanvas(1000, 400)
+  if (!engine.value) return
+  engine.value.clearCanvas()
+  engine.value.resizeCanvas(1000, 400)
 }
 
 async function handlePlay() {
-  if (!engine) return
+  if (!engine.value) return
   try {
-    await engine.play()
+    await engine.value.play()
   } catch (error) {
     console.error('Playback error:', error)
   }
 }
 
 function handlePause() {
-  if (!engine) return
-  engine.pause()
+  if (!engine.value) return
+  engine.value.pause()
 }
 
 function handleStop() {
-  if (!engine) return
-  engine.stop()
+  if (!engine.value) return
+  engine.value.stop()
 }
 
 function handleCanvasClick(event: MouseEvent) {
-  if (!engine || !scoreCanvas.value) return
+  if (!engine.value || !scoreCanvas.value) return
 
   const rect = scoreCanvas.value.getBoundingClientRect()
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
 
   // Add a quarter note at clicked position
-  const note = engine.addNoteAtPosition({ x, y }, 'q')
+  const note = engine.value.addNoteAtPosition({ x, y }, 'q')
 
   if (note) {
     console.log('Added note:', note)
