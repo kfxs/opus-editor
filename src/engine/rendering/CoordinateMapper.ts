@@ -84,23 +84,59 @@ export class CoordinateMapper {
 
   /**
    * Calculate pixel Y coordinate for a pitch (MIDI number)
+   * Uses VexFlow's coordinate system formula: getYForLine
+   * Formula from VexFlow: y = stave.y + (line * spacing) + (headroom * spacing)
    * @param pitch - MIDI note number
    * @param measureNumber - Measure number for Y offset calculation
    */
   pitchToPixelY(pitch: number, measureNumber: number): number {
     const measurePos = this.getMeasurePosition(measureNumber)
 
-    // Use the same geometry as pixelYToPitch for consistency
-    const STAFF_LINE_SPACING = 10
-    const STAFF_TOP_LINE_OFFSET = 40
-    const STAFF_TOP_Y = measurePos.y + STAFF_TOP_LINE_OFFSET
-    const topLinePitch = 77 // F5
+    // VexFlow's standard geometry
+    const SPACING_BETWEEN_LINES = 10
+    const SPACE_ABOVE_STAFF = 4 // headroom in line units
 
-    // Calculate how many half-spaces below the top line this pitch is
-    const halfSpacesFromTop = topLinePitch - pitch
-    const pixelOffset = halfSpacesFromTop * (STAFF_LINE_SPACING / 2)
+    // Convert pitch to staff line (inverse of staffLineToPitch)
+    const staffLine = this.pitchToStaffLine(pitch)
 
-    return STAFF_TOP_Y + pixelOffset
+    // VexFlow's getYForLine formula:
+    // y = stave.y + (line * spacing) + (headroom * spacing)
+    const y = measurePos.y + (staffLine * SPACING_BETWEEN_LINES) + (SPACE_ABOVE_STAFF * SPACING_BETWEEN_LINES)
+
+    return y
+  }
+
+  /**
+   * Convert MIDI pitch to staff line position (inverse of staffLineToPitch)
+   * @param pitch - MIDI pitch number
+   * @returns Staff line position (0 = top line, 4 = bottom line)
+   */
+  private pitchToStaffLine(pitch: number): number {
+    // Define the diatonic scale from F5 descending
+    const diatonicNotes = [
+      77, 76, 74, 72, 71, 69, 67, 65, 64, 62, 60, 59, 57, 55
+    ]
+
+    // Check if pitch is in the main lookup table
+    const index = diatonicNotes.indexOf(pitch)
+    if (index !== -1) {
+      return index / 2 // Convert index to staff line (0.0, 0.5, 1.0, etc.)
+    }
+
+    // Handle notes above the staff
+    const positionsAbove = [79, 81, 83, 84, 86, 88, 89, 91]
+    const aboveIndex = positionsAbove.indexOf(pitch)
+    if (aboveIndex !== -1) {
+      return -(aboveIndex + 1) / 2 // Negative values for above staff
+    }
+
+    // For any other pitch, calculate relative to F5 (77)
+    // This is an approximation for pitches not in the diatonic scale
+    const pitchDiff = 77 - pitch
+
+    // Approximate: each diatonic step is about 1-2 semitones
+    // Use average of 1.7 semitones per staff position
+    return pitchDiff / 1.7
   }
 
   /**
@@ -142,52 +178,101 @@ export class CoordinateMapper {
 
   /**
    * Convert pixel Y coordinate to MIDI pitch
-   * Uses VexFlow's staff geometry and treble clef positioning
+   * Uses VexFlow's coordinate system with diatonic (scale-based) mapping
+   * Formula from VexFlow: line = ((y - stave.y) / spacing) - headroom
    */
   pixelYToPitch(y: number, measureNumber: number): number {
     const measurePos = this.getMeasurePosition(measureNumber)
 
-    // VexFlow staff geometry:
-    // - Staff has 5 lines with 10px spacing between lines (STAVE_LINE_DISTANCE = 10)
-    // - Staff top is at measurePos.y (this is the Stave bounding box top)
-    // - The actual top staff line is offset from this (VexFlow adds padding)
-    // - In treble clef, the top line is F5 (MIDI 77), bottom line is E4 (MIDI 64)
-    // - Each half-space is one semitone in chromatic scale
+    // VexFlow's standard geometry (matching Stave defaults)
+    const SPACING_BETWEEN_LINES = 10 // pixels between staff lines
+    const SPACE_ABOVE_STAFF = 4 // headroom in "line units" (4 * 10 = 40px)
 
-    const STAFF_LINE_SPACING = 10 // VexFlow's standard line spacing
-    // Increased offset to account for VexFlow's stave padding and allow notes above the staff
-    const STAFF_TOP_LINE_OFFSET = 40 // Offset from measurePos.y to actual top staff line
-    const STAFF_TOP_Y = measurePos.y + STAFF_TOP_LINE_OFFSET
+    // VexFlow's getLineForY formula:
+    // line = ((y - stave.y) / spacing) - headroom
+    const staffLine = ((y - measurePos.y) / SPACING_BETWEEN_LINES) - SPACE_ABOVE_STAFF
 
-    // Calculate position relative to staff top line (0 = top line)
-    const relativeY = y - STAFF_TOP_Y
-
-    // In treble clef:
-    // - Top line (line 0) = F5 (MIDI 77)
-    // - Each staff line down is 2 semitones (whole step)
-    // - Each half-space is 1 semitone
-
-    // Convert Y pixels to half-spaces (each half-space = 5 pixels)
-    const halfSpaces = Math.round(relativeY / (STAFF_LINE_SPACING / 2))
-
-    // Top line of treble clef staff is F5 (MIDI 77)
-    // Going down (positive Y) decreases pitch
-    // Going up (negative Y) increases pitch
-    const topLinePitch = 77 // F5
-    const pitch = topLinePitch - halfSpaces
+    // Convert staff line to diatonic pitch (C major scale)
+    const pitch = this.staffLineToPitch(staffLine)
 
     console.log('🎵 pixelYToPitch DEBUG:', {
       y,
       measureNumber,
       'measurePos.y': measurePos.y,
-      STAFF_TOP_Y,
-      relativeY,
-      halfSpaces,
+      staffLine: staffLine.toFixed(2),
       pitch,
       noteName: this.pitchToNoteName(pitch)
     })
 
     return pitch
+  }
+
+  /**
+   * Convert staff line position to MIDI pitch (diatonic mapping)
+   * In treble clef, staff positions map to: F E D C B A G F E D C B A G...
+   * @param staffLine - Staff line position (0 = top line, 4 = bottom line)
+   * @returns MIDI pitch number
+   */
+  private staffLineToPitch(staffLine: number): number {
+    // Top line (line 0) = F5 (MIDI 77)
+    // Treble clef notes descending: F E D C B A G F E D C B A G F...
+    // Semitone pattern: -1, -2, -2, -1, -2, -2, -2 (repeating)
+
+    // Round to nearest half-line (0.0, 0.5, 1.0, 1.5, etc.)
+    const roundedLine = Math.round(staffLine * 2) / 2
+
+    // Define the diatonic scale from F5 descending (C major scale starting on F)
+    // Position 0.0 = F5, 0.5 = E5, 1.0 = D5, 1.5 = C5, 2.0 = B4, etc.
+    const diatonicNotes = [
+      77, // 0.0: F5
+      76, // 0.5: E5
+      74, // 1.0: D5
+      72, // 1.5: C5
+      71, // 2.0: B4
+      69, // 2.5: A4
+      67, // 3.0: G4
+      65, // 3.5: F4
+      64, // 4.0: E4
+      62, // 4.5: D4
+      60, // 5.0: C4
+      59, // 5.5: B3
+      57, // 6.0: A3
+      55, // 6.5: G3
+    ]
+
+    // Handle positions above the staff (negative values)
+    if (roundedLine < 0) {
+      // Above the staff: G5, A5, B5, C6, D6, E6, F6, G6...
+      const positionsAbove = [
+        79, // -0.5: G5
+        81, // -1.0: A5
+        83, // -1.5: B5
+        84, // -2.0: C6
+        86, // -2.5: D6
+        88, // -3.0: E6
+        89, // -3.5: F6
+        91, // -4.0: G6
+      ]
+      const index = Math.floor(Math.abs(roundedLine) * 2) - 1
+      if (index < positionsAbove.length) {
+        return positionsAbove[index]
+      }
+      // For very high notes, continue the pattern
+      return 77 + Math.ceil(Math.abs(roundedLine) * 2) // Approximate
+    }
+
+    // Use lookup table for staff and below
+    const index = Math.floor(roundedLine * 2)
+    if (index < diatonicNotes.length) {
+      return diatonicNotes[index]
+    }
+
+    // For very low notes below the table, continue the pattern (descending by 2 or 1)
+    // F E D C B A G pattern repeats
+    const notesPerOctave = 7 // diatonic scale
+    const octaveOffset = Math.floor(index / (notesPerOctave * 2))
+    const posInOctave = index % (notesPerOctave * 2)
+    return diatonicNotes[posInOctave] - (octaveOffset * 12)
   }
 
   /**
