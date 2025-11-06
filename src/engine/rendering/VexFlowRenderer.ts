@@ -105,9 +105,13 @@ export class VexFlowRenderer {
     // Create a stave
     const stave = new Stave(x, y, width)
 
-    // Add clef and time signature for first measure or first measure of each line
+    // Add clef for first measure or first measure of each line
     if (measure.number === 1 || isFirstInLine) {
       stave.addClef('treble')
+    }
+
+    // Add time signature only for the very first measure
+    if (measure.number === 1) {
       stave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
     }
 
