@@ -85,6 +85,8 @@
           ref="scoreCanvas"
           class="bg-white rounded-lg p-4 min-h-[300px] cursor-crosshair"
           @click="handleCanvasClick"
+          @mousemove="handleCanvasMouseMove"
+          @mouseleave="handleCanvasMouseLeave"
         ></div>
 
         <div class="mt-4 text-sm">
@@ -138,6 +140,10 @@ const playbackPosition = ref<PlaybackPosition>({
   progress: 0,
   time: 0,
 })
+
+// Ghost note preview throttling
+let lastPreviewRender = 0
+const PREVIEW_THROTTLE_MS = 50 // Only update preview every 50ms
 
 // Computed properties
 const totalNotes = computed(() => engine.value?.getScore().measures.flatMap(m => m.notes).length || 0)
@@ -256,5 +262,32 @@ function handleCanvasClick(event: MouseEvent) {
     console.error('Error adding note:', error)
     alert('Cannot add note: ' + (error as Error).message)
   }
+}
+
+function handleCanvasMouseMove(event: MouseEvent) {
+  if (!engine.value || !scoreCanvas.value) return
+
+  // Throttle preview updates for performance
+  const now = Date.now()
+  if (now - lastPreviewRender < PREVIEW_THROTTLE_MS) {
+    return
+  }
+  lastPreviewRender = now
+
+  const rect = scoreCanvas.value.getBoundingClientRect()
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+
+  console.log('🖱️ Mouse move:', { x, y })
+
+  // Render score with ghost note preview
+  engine.value.renderScoreWithPreview({ x, y }, 'q')
+}
+
+function handleCanvasMouseLeave() {
+  if (!engine.value) return
+
+  // Clear preview and render normal score
+  renderScore()
 }
 </script>

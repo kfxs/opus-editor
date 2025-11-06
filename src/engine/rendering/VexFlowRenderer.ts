@@ -167,7 +167,13 @@ export class VexFlowRenderer {
    * @param width - Width of the measure
    * @param isFirstInLine - Whether this is the first measure in a line
    */
-  renderMeasure(measure: Measure, x: number, y: number, width: number, isFirstInLine: boolean = false): void {
+  renderMeasure(
+    measure: Measure,
+    x: number,
+    y: number,
+    width: number,
+    isFirstInLine: boolean = false
+  ): void {
     if (!this.context) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
@@ -193,10 +199,10 @@ export class VexFlowRenderer {
       // Sort notes by beat position before rendering
       const sortedNotes = [...measure.notes].sort((a, b) => a.beat - b.beat)
 
-      // DEBUG: Log measure data before processing
-      console.log(`📊 MEASURE ${measure.number} DATA:`)
-      console.log(`  - Notes count: ${measure.notes.length}`)
-      console.log(`  - Notes:`, sortedNotes.map(n => `${n.isRest ? 'REST-' : ''}${n.duration} at beat ${n.beat}`))
+      // DEBUG: Log measure data before processing (disabled for performance)
+      // console.log(`📊 MEASURE ${measure.number} DATA:`)
+      // console.log(`  - Notes count: ${measure.notes.length}`)
+      // console.log(`  - Notes:`, sortedNotes.map(n => `${n.isRest ? 'REST-' : ''}${n.duration} at beat ${n.beat}`))
 
       const staveNotes = sortedNotes.map(note => this.createStaveNote(note))
 
@@ -204,13 +210,13 @@ export class VexFlowRenderer {
       const usedBeats = this.calculateUsedBeats(sortedNotes)
       const requiredBeats = measure.timeSignature.numerator
 
-      console.log(`  - Used beats: ${usedBeats} / Required: ${requiredBeats}`)
+      // console.log(`  - Used beats: ${usedBeats} / Required: ${requiredBeats}`)
 
       if (usedBeats !== requiredBeats) {
         console.error(`  ⚠️ MISMATCH: Measure has ${usedBeats} beats but should have exactly ${requiredBeats}!`)
       }
 
-      console.log(`  - Total StaveNotes to render: ${staveNotes.length}`)
+      // console.log(`  - Total StaveNotes to render: ${staveNotes.length}`)
 
       // Create a voice with the notes
       const voice = new Voice({
@@ -224,19 +230,181 @@ export class VexFlowRenderer {
         // Format and render the voice
         new Formatter().joinVoices([voice]).format([voice], width - 100)
         voice.draw(this.context, stave)
-        console.log(`  ✅ Measure ${measure.number} rendered successfully`)
+        // console.log(`  ✅ Measure ${measure.number} rendered successfully`)
       } catch (error) {
         console.error(`  ❌ Could not render measure ${measure.number}: ${error}`)
         console.error(`  - Measure data:`, JSON.stringify(measure, null, 2))
       }
     }
+
+  }
+
+  /**
+   * Render ghost note after all measures (called from renderScore)
+   * Uses VexFlow's actual note rendering on a temporary invisible stave
+   */
+  private renderGhostNoteOverlay(
+    ghostNote: { pitch: number; duration: string; measure: number; beat: number },
+    score: Score,
+    measuresPerLine: number,
+    margin: number,
+    staveWidth: number,
+    staveHeight: number,
+    verticalSpacing: number
+  ): void {
+    console.log('🎵 renderGhostNoteOverlay called:', ghostNote)
+    try {
+      // Find the measure this ghost note belongs to
+      const measure = score.measures.find(m => m.number === ghostNote.measure)
+      if (!measure) {
+        console.warn('⚠️ Measure not found for ghost note:', ghostNote.measure)
+        return
+      }
+
+      // Calculate which line and position this measure is on
+      const measureIndex = ghostNote.measure - 1
+      const line = Math.floor(measureIndex / measuresPerLine)
+      const positionInLine = measureIndex % measuresPerLine
+
+      const measureX = margin + positionInLine * staveWidth
+      const measureY = margin + line * (staveHeight + verticalSpacing)
+
+      // Create a temporary invisible stave for rendering the ghost note
+      const tempStave = new Stave(measureX, measureY, staveWidth)
+      tempStave.setContext(this.context!)
+
+      // Convert our note to VexFlow format
+      const vexNote = this.midiToVexFlowNote(ghostNote.pitch)
+      const vexDuration = this.convertDuration(ghostNote.duration as any)
+
+      // Create the StaveNote
+      const staveNote = new StaveNote({
+        keys: [vexNote],
+        duration: vexDuration,
+      })
+
+      // Create a voice with the ghost note plus padding rests to fill the measure
+      const totalBeats = measure.timeSignature.numerator
+      const noteDuration = this.durationToBeats(ghostNote.duration)
+
+      // Calculate beats before and after the ghost note
+      const beatsBeforeNote = ghostNote.beat
+      const beatsAfterNote = totalBeats - ghostNote.beat - noteDuration
+
+      const tickables: any[] = []
+
+      // Add invisible rests before the note
+      if (beatsBeforeNote > 0) {
+        const restsBefore = this.beatsToRestDurations(beatsBeforeNote)
+        for (const restDuration of restsBefore) {
+          tickables.push(new StaveNote({
+            keys: ['b/4'],
+            duration: restDuration,
+          }))
+        }
+      }
+
+      // Add the ghost note
+      tickables.push(staveNote)
+
+      // Add invisible rests after the note
+      if (beatsAfterNote > 0) {
+        const restsAfter = this.beatsToRestDurations(beatsAfterNote)
+        for (const restDuration of restsAfter) {
+          tickables.push(new StaveNote({
+            keys: ['b/4'],
+            duration: restDuration,
+          }))
+        }
+      }
+
+      // Create voice and format
+      const voice = new Voice({
+        num_beats: totalBeats,
+        beat_value: measure.timeSignature.denominator,
+      })
+      voice.addTickables(tickables)
+
+      // Format the voice to get proper positioning
+      new Formatter().joinVoices([voice]).format([voice], staveWidth - 100)
+
+      // Now render only the ghost note (not the rests, not the stave)
+      // We'll extract the SVG elements and modify their styling
+      const svg = this.getSVGElement()
+      if (!svg) {
+        console.error('❌ SVG element not found for ghost note')
+        return
+      }
+
+      // CRITICAL: Set the stave for the note so it can calculate Y values
+      staveNote.setStave(tempStave)
+
+      // Get the current number of children (before rendering)
+      const childrenBefore = svg.children.length
+
+      // Render the ghost note (this will add elements to the SVG)
+      staveNote.setContext(this.context!).draw()
+
+      console.log('✅ Ghost note rendered, modifying SVG styling...')
+
+      // Find the newly added elements (everything after childrenBefore)
+      const newElements: Element[] = []
+      for (let i = childrenBefore; i < svg.children.length; i++) {
+        newElements.push(svg.children[i])
+      }
+
+      // Modify all newly added elements to be blue and semi-transparent
+      for (const element of newElements) {
+        // Add class for identification
+        element.setAttribute('class', 'ghost-note-preview')
+
+        // Make elements blue and semi-transparent
+        if (element.tagName === 'path' || element.tagName === 'rect' || element.tagName === 'line') {
+          element.setAttribute('fill', 'rgba(59, 130, 246, 0.5)')
+          element.setAttribute('stroke', 'rgba(59, 130, 246, 0.8)')
+          element.setAttribute('opacity', '0.7')
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ Could not render ghost note overlay:', error)
+    }
+  }
+
+  /**
+   * Helper to convert duration to beats
+   */
+  private durationToBeats(duration: string): number {
+    const map: Record<string, number> = {
+      w: 4,
+      h: 2,
+      q: 1,
+      '8': 0.5,
+      '16': 0.25,
+      '32': 0.125,
+    }
+    return map[duration] || 1
+  }
+
+  /**
+   * Render the complete score with an optional ghost note preview
+   * @param score - Score to render
+   * @param ghostNote - Optional ghost note to render in blue/transparent
+   */
+  renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number }): void {
+    // Clear the canvas first to avoid accumulation
+    this.clear()
+
+    // Render the score with ghost note
+    this.renderScore(score, ghostNote)
   }
 
   /**
    * Render the complete score
    * @param score - Score to render
+   * @param ghostNote - Optional ghost note preview
    */
-  renderScore(score: Score): void {
+  renderScore(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number }): void {
     if (!this.context || !this.renderer) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
@@ -262,20 +430,20 @@ export class VexFlowRenderer {
       throw new Error('SVG element not found. Renderer may not be properly initialized.')
     }
 
-    console.log('renderScore() - About to render', numMeasures, 'measures')
-    console.log('SVG element:', svg)
-    console.log('Context:', this.context)
-    console.log('Renderer:', this.renderer)
+    // console.log('renderScore() - About to render', numMeasures, 'measures')
+    // console.log('SVG element:', svg)
+    // console.log('Context:', this.context)
+    // console.log('Renderer:', this.renderer)
 
     // Get current SVG size
     const currentWidth = parseInt(svg.getAttribute('width') || '0')
     const currentHeight = parseInt(svg.getAttribute('height') || '0')
 
-    console.log(`Current size: ${currentWidth}x${currentHeight}, Target: ${containerWidth}x${totalHeight}`)
+    // console.log(`Current size: ${currentWidth}x${currentHeight}, Target: ${containerWidth}x${totalHeight}`)
 
     // Only resize if dimensions changed (following VexFlow best practice)
     if (currentWidth !== containerWidth || currentHeight !== totalHeight) {
-      console.log('Resizing SVG...')
+      // console.log('Resizing SVG...')
       this.renderer!.resize(containerWidth, totalHeight)
       // Note: According to VexFlow docs, resize() modifies the existing SVG
       // element's attributes, it does NOT create a new element
@@ -288,7 +456,7 @@ export class VexFlowRenderer {
     const availableWidth = containerWidth - (margin * 2)
     const staveWidth = Math.floor(availableWidth / measuresPerLine)
 
-    console.log(`Rendering ${numMeasures} measures, ${measuresPerLine} per line`)
+    // console.log(`Rendering ${numMeasures} measures, ${measuresPerLine} per line`)
 
     // Render each measure
     score.measures.forEach((measure, index) => {
@@ -300,11 +468,24 @@ export class VexFlowRenderer {
       const x = margin + positionInLine * staveWidth
       const y = margin + line * (staveHeight + verticalSpacing)
 
-      console.log(`Rendering measure ${measure.number} at (${x}, ${y})`)
+      // console.log(`Rendering measure ${measure.number} at (${x}, ${y})`)
       this.renderMeasure(measure, x, y, staveWidth, isFirstInLine)
     })
 
-    console.log('renderScore() complete - SVG children count:', svg.childNodes.length)
+    // Render ghost note AFTER all measures (as an overlay)
+    if (ghostNote) {
+      this.renderGhostNoteOverlay(
+        ghostNote,
+        score,
+        measuresPerLine,
+        margin,
+        staveWidth,
+        staveHeight,
+        verticalSpacing
+      )
+    }
+
+    // console.log('renderScore() complete - SVG children count:', svg.childNodes.length)
   }
 
   /**
@@ -314,14 +495,14 @@ export class VexFlowRenderer {
     // According to VexFlow best practices, we should keep the SVG element
     // and only clear its contents, not remove the element itself
     const svg = this.getSVGElement()
-    console.log('clear() called, SVG exists:', !!svg)
+    // console.log('clear() called, SVG exists:', !!svg)
     if (svg) {
-      console.log('SVG before clear - children count:', svg.childNodes.length)
+      // console.log('SVG before clear - children count:', svg.childNodes.length)
       // Clear all children of the SVG, but keep the SVG element itself
       while (svg.firstChild) {
         svg.removeChild(svg.firstChild)
       }
-      console.log('SVG after clear - children count:', svg.childNodes.length)
+      // console.log('SVG after clear - children count:', svg.childNodes.length)
     }
   }
 

@@ -230,6 +230,42 @@ export class MusicEngine {
   }
 
   /**
+   * Render the score with a ghost note preview at mouse position
+   */
+  renderScoreWithPreview(coords: PixelCoordinates, duration: NoteParams['duration']): void {
+    const measure = this.scoreModel.getMeasure(1)
+    if (!measure) {
+      console.warn('No measure found for preview')
+      return
+    }
+
+    const beatsInMeasure = measure.timeSignature.numerator
+    const position = this.coordinateMapper.pixelToPosition(coords, beatsInMeasure)
+
+    console.log('📍 Converted position:', position)
+
+    // Validate measure exists
+    if (!this.scoreModel.getMeasure(position.measure)) {
+      console.warn('Position measure not found:', position.measure)
+      this.renderScore()
+      return
+    }
+
+    console.log('✅ Calling renderScoreWithGhostNote')
+
+    // Render score with ghost note
+    this.renderer.renderScoreWithGhostNote(
+      this.scoreModel.getScore(),
+      {
+        pitch: position.pitch,
+        duration,
+        measure: position.measure,
+        beat: position.beat,
+      }
+    )
+  }
+
+  /**
    * Clear the canvas
    */
   clearCanvas(): void {
