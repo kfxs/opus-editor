@@ -66,8 +66,9 @@ export class VexFlowRenderer {
 
   /**
    * Create a VexFlow StaveNote from our Note type
+   * Can handle single notes or chords (multiple pitches)
    */
-  private createStaveNote(note: MusicNote): StaveNote {
+  private createStaveNote(note: MusicNote, additionalPitches?: number[]): StaveNote {
     const vexDuration = this.convertDuration(note.duration)
 
     // Handle rests differently
@@ -80,13 +81,24 @@ export class VexFlowRenderer {
       return staveNote
     }
 
-    // Regular note
-    const vexNote = this.midiToVexFlowNote(note.pitch)
+    // Regular note or chord
+    // Collect all pitches (main note + additional chord notes)
+    const allPitches = [note.pitch, ...(additionalPitches || [])]
+
+    // Sort pitches from lowest to highest (VexFlow requires this for chords)
+    allPitches.sort((a, b) => a - b)
+
+    // Convert to VexFlow note names
+    const keys = allPitches.map(pitch => this.midiToVexFlowNote(pitch))
 
     const staveNote = new StaveNote({
-      keys: [vexNote],
+      keys: keys,
       duration: vexDuration,
+      auto_stem: true, // Enable automatic stem direction
     })
+
+    // VexFlow automatically handles note displacement for seconds (adjacent notes)
+    // The lower note in a second interval will be shifted to the right side of the stem
 
     // Add accidentals if specified
     if (note.accidental) {
@@ -102,7 +114,57 @@ export class VexFlowRenderer {
   }
 
   /**
+   * Group notes by beat position to identify chords
+   * Returns an array of note groups, where each group is at the same beat
+   */
+  private groupNotesByBeat(notes: MusicNote[]): MusicNote[][] {
+    const beatGroups = new Map<number, MusicNote[]>()
+
+    for (const note of notes) {
+      const beat = note.beat
+      if (!beatGroups.has(beat)) {
+        beatGroups.set(beat, [])
+      }
+      beatGroups.get(beat)!.push(note)
+    }
+
+    // Convert to array and sort by beat position
+    return Array.from(beatGroups.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([beat, notes]) => notes)
+  }
+
+  /**
+   * Create StaveNotes from note groups (handles both single notes and chords)
+   */
+  private createStaveNotesFromGroups(noteGroups: MusicNote[][]): StaveNote[] {
+    const staveNotes: StaveNote[] = []
+
+    for (const group of noteGroups) {
+      // Separate rests from regular notes
+      const rests = group.filter(n => n.isRest)
+      const regularNotes = group.filter(n => !n.isRest)
+
+      // Add rests (rests cannot form chords)
+      for (const rest of rests) {
+        staveNotes.push(this.createStaveNote(rest))
+      }
+
+      // Add regular notes (as single note or chord)
+      if (regularNotes.length > 0) {
+        // Use the first note as the base, pass other pitches for chord
+        const baseNote = regularNotes[0]
+        const additionalPitches = regularNotes.slice(1).map(n => n.pitch)
+        staveNotes.push(this.createStaveNote(baseNote, additionalPitches))
+      }
+    }
+
+    return staveNotes
+  }
+
+  /**
    * Calculate total beats used by notes in a measure
+   * Groups notes by beat to properly handle chords (chord = 1 beat, not N beats)
    */
   private calculateUsedBeats(notes: MusicNote[]): number {
     const durationToBeats: Record<NoteDuration, number> = {
@@ -114,9 +176,14 @@ export class VexFlowRenderer {
       '32': 0.125,
     }
 
+    // Group by beat position to avoid counting chords multiple times
+    const noteGroups = this.groupNotesByBeat(notes)
+
     let totalBeats = 0
-    for (const note of notes) {
-      totalBeats += durationToBeats[note.duration] || 1
+    for (const group of noteGroups) {
+      // Each group (single note or chord) counts once
+      // Use the duration of the first note (all notes in a chord should have same duration)
+      totalBeats += durationToBeats[group[0].duration] || 1
     }
     return totalBeats
   }
@@ -204,7 +271,9 @@ export class VexFlowRenderer {
       // console.log(`  - Notes count: ${measure.notes.length}`)
       // console.log(`  - Notes:`, sortedNotes.map(n => `${n.isRest ? 'REST-' : ''}${n.duration} at beat ${n.beat}`))
 
-      const staveNotes = sortedNotes.map(note => this.createStaveNote(note))
+      // Group notes by beat position to handle chords
+      const noteGroups = this.groupNotesByBeat(sortedNotes)
+      const staveNotes = this.createStaveNotesFromGroups(noteGroups)
 
       // Calculate how many beats are used (using sorted notes)
       const usedBeats = this.calculateUsedBeats(sortedNotes)
@@ -277,11 +346,26 @@ export class VexFlowRenderer {
       const vexNote = this.midiToVexFlowNote(ghostNote.pitch)
       const vexDuration = this.convertDuration(ghostNote.duration as any)
 
+      // Check if there are existing notes at the same beat (potential chord)
+      const notesAtSameBeat = measure.notes.filter(
+        n => !n.isRest && Math.abs(n.beat - ghostNote.beat) < 0.001
+      )
+
+      // Check if the ghost note forms a second with any existing note
+      const formsSecond = notesAtSameBeat.some(existingNote => {
+        const interval = Math.abs(existingNote.pitch - ghostNote.pitch)
+        // A second is 1 or 2 semitones (minor second or major second)
+        return interval === 1 || interval === 2
+      })
+
       // Create the StaveNote
       const staveNote = new StaveNote({
         keys: [vexNote],
         duration: vexDuration,
       })
+
+      // Store whether this forms a second for later displacement
+      const needsDisplacement = formsSecond
 
       // Create a voice with the ghost note plus padding rests to fill the measure
       const totalBeats = measure.timeSignature.numerator
@@ -345,26 +429,51 @@ export class VexFlowRenderer {
       // Render the ghost note (this will add elements to the SVG)
       staveNote.setContext(this.context!).draw()
 
-      console.log('✅ Ghost note rendered, modifying SVG styling...')
+      console.log('✅ Ghost note rendered, applying blue color...')
 
-      // Find the newly added elements (everything after childrenBefore)
-      const newElements: Element[] = []
-      for (let i = childrenBefore; i < svg.children.length; i++) {
-        newElements.push(svg.children[i])
-      }
+      // Recursively apply blue color and displacement to all elements
+      const applyBlueColorAndDisplacement = (element: Element) => {
+        const tagName = element.tagName.toLowerCase()
 
-      // Modify all newly added elements to be blue and semi-transparent
-      for (const element of newElements) {
-        // Add class for identification
-        element.setAttribute('class', 'ghost-note-preview')
-
-        // Make elements blue and semi-transparent
-        if (element.tagName === 'path' || element.tagName === 'rect' || element.tagName === 'line') {
-          element.setAttribute('fill', 'rgba(59, 130, 246, 0.5)')
-          element.setAttribute('stroke', 'rgba(59, 130, 246, 0.8)')
+        // Apply blue color to note shapes (paths, ellipses, circles)
+        if (tagName === 'path' || tagName === 'ellipse' || tagName === 'circle') {
+          // Use style attribute to override VexFlow's inline styles
+          element.setAttribute('fill', '#3B82F6')
+          element.setAttribute('stroke', '#2563EB')
           element.setAttribute('opacity', '0.7')
+          // Also set style attribute as backup
+          const currentStyle = element.getAttribute('style') || ''
+          element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; stroke: #2563EB !important; opacity: 0.7 !important;')
+          console.log(`🎨 Applied blue to ${tagName}`)
+
+          // If this note forms a second, shift the note head to the right
+          if (needsDisplacement) {
+            const transform = element.getAttribute('transform') || ''
+            const newTransform = transform ? `${transform} translate(10, 0)` : 'translate(10, 0)'
+            element.setAttribute('transform', newTransform)
+            console.log(`↔️ Applied displacement to ${tagName}`)
+          }
+        } else if (tagName === 'line') {
+          // Lines (stems) - only stroke, NO displacement
+          element.setAttribute('stroke', '#2563EB')
+          element.setAttribute('opacity', '0.7')
+          const currentStyle = element.getAttribute('style') || ''
+          element.setAttribute('style', currentStyle + '; stroke: #2563EB !important; opacity: 0.7 !important;')
+          console.log(`🎨 Applied blue to line`)
+        }
+
+        // Recursively process children
+        for (let i = 0; i < element.children.length; i++) {
+          applyBlueColorAndDisplacement(element.children[i])
         }
       }
+
+      // Process all new top-level elements
+      for (let i = childrenBefore; i < svg.children.length; i++) {
+        applyBlueColorAndDisplacement(svg.children[i])
+      }
+
+      console.log('✅ Blue color and displacement applied to ghost note')
 
     } catch (error) {
       console.error('❌ Could not render ghost note overlay:', error)

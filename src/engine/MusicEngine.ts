@@ -107,6 +107,38 @@ export class MusicEngine {
   }
 
   /**
+   * Find a nearby note within X tolerance for chord snapping
+   * Returns the closest note within tolerance, or null if none found
+   */
+  private findNearbyNote(
+    coords: PixelCoordinates,
+    notesInMeasure: Note[],
+    beatsInMeasure: number
+  ): Note | null {
+    const X_TOLERANCE = 25 // pixels - tolerance on both sides
+
+    let closestNote: Note | null = null
+    let closestDistance = Infinity
+
+    for (const note of notesInMeasure) {
+      // Skip rests
+      if (note.isRest) continue
+
+      // Get the X pixel position of this note
+      const noteCoords = this.coordinateMapper.noteToPixel(note, beatsInMeasure)
+      const xDistance = Math.abs(coords.x - noteCoords.x)
+
+      // Check if within X tolerance
+      if (xDistance <= X_TOLERANCE && xDistance < closestDistance) {
+        closestNote = note
+        closestDistance = xDistance
+      }
+    }
+
+    return closestNote
+  }
+
+  /**
    * Add a note at pixel coordinates
    */
   addNoteAtPosition(coords: PixelCoordinates, duration: NoteParams['duration']): Note | null {
@@ -123,11 +155,18 @@ export class MusicEngine {
       return null
     }
 
+    // Check if there are nearby notes to snap to (for easier chord creation)
+    const notesInMeasure = this.scoreModel.getNotesInMeasure(position.measure)
+    const nearbyNote = this.findNearbyNote(coords, notesInMeasure, beatsInMeasure)
+
+    // If there's a nearby note, snap to its beat position (to form a chord)
+    const finalBeat = nearbyNote ? nearbyNote.beat : position.beat
+
     const noteParams: NoteParams = {
       pitch: position.pitch,
       duration,
       measure: position.measure,
-      beat: position.beat,
+      beat: finalBeat,
     }
 
     // Get the target measure for overflow check

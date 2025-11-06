@@ -31,7 +31,11 @@ export interface OverflowResult {
 export class CollisionDetector {
   /**
    * Check if a new note would collide with existing notes
-   * Two notes collide if they overlap in time and have the same pitch
+   *
+   * Collision rules:
+   * 1. Same beat + same pitch + same duration = DUPLICATE (collision)
+   * 2. Same beat + different pitch + same duration = CHORD (allowed)
+   * 3. Overlapping time but different beats = COLLISION (not allowed)
    */
   checkNoteCollision(newNote: NoteParams, existingNotes: Note[]): CollisionResult {
     const newNoteDuration = durationToBeats(newNote.duration)
@@ -43,27 +47,42 @@ export class CollisionDetector {
       // Skip notes in different measures
       if (existing.measure !== newNote.measure) continue
 
+      // Skip rests - they don't participate in chords
+      if (existing.isRest) continue
+
       const existingDuration = durationToBeats(existing.duration)
       const existingEnd = existing.beat + existingDuration
 
-      // Check for time overlap
-      const timeOverlap =
-        (newNote.beat >= existing.beat && newNote.beat < existingEnd) ||
-        (newNoteEnd > existing.beat && newNoteEnd <= existingEnd) ||
-        (newNote.beat <= existing.beat && newNoteEnd >= existingEnd)
+      // Check if notes start at the EXACT same beat position
+      const sameStartBeat = Math.abs(newNote.beat - existing.beat) < 0.001 // tolerance for floating point
 
-      // Check for pitch match (same pitch = collision)
-      const pitchMatch = existing.pitch === newNote.pitch
+      if (sameStartBeat) {
+        // Notes starting at same beat - check if they form a chord or duplicate
+        const samePitch = existing.pitch === newNote.pitch
+        const sameDuration = Math.abs(newNoteDuration - existingDuration) < 0.001
 
-      if (timeOverlap && pitchMatch) {
-        collidingNotes.push(existing.id)
+        if (samePitch && sameDuration) {
+          // Exact duplicate note - reject
+          collidingNotes.push(existing.id)
+        }
+        // Different pitch or duration at same beat = chord (allowed, no collision)
+      } else {
+        // Different start beats - check for partial time overlap (true collision)
+        const timeOverlap =
+          (newNote.beat > existing.beat && newNote.beat < existingEnd) ||
+          (newNoteEnd > existing.beat && newNoteEnd < existingEnd) ||
+          (newNote.beat <= existing.beat && newNoteEnd >= existingEnd)
+
+        if (timeOverlap) {
+          collidingNotes.push(existing.id)
+        }
       }
     }
 
     return {
       hasCollision: collidingNotes.length > 0,
       collidingNotes,
-      reason: collidingNotes.length > 0 ? 'Note overlaps with existing note(s)' : undefined,
+      reason: collidingNotes.length > 0 ? 'Note overlaps with existing note(s) or is a duplicate' : undefined,
     }
   }
 

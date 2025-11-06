@@ -291,3 +291,19 @@ function handleCanvasMouseLeave() {
   renderScore()
 }
 </script>
+
+<style>
+/* Style ghost note preview elements */
+.ghost-note-preview path,
+.ghost-note-preview ellipse,
+.ghost-note-preview circle {
+  fill: #3B82F6 !important;
+  stroke: #2563EB !important;
+  opacity: 0.7 !important;
+}
+
+.ghost-note-preview line {
+  stroke: #2563EB !important;
+  opacity: 0.7 !important;
+}
+</style>
