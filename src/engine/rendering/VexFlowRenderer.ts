@@ -95,8 +95,9 @@ export class VexFlowRenderer {
    * @param x - X position on canvas
    * @param y - Y position on canvas
    * @param width - Width of the measure
+   * @param isFirstInLine - Whether this is the first measure in a line
    */
-  renderMeasure(measure: Measure, x: number, y: number, width: number): void {
+  renderMeasure(measure: Measure, x: number, y: number, width: number, isFirstInLine: boolean = false): void {
     if (!this.context) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
@@ -104,8 +105,8 @@ export class VexFlowRenderer {
     // Create a stave
     const stave = new Stave(x, y, width)
 
-    // Add clef, time signature, and key signature for first measure
-    if (measure.number === 1) {
+    // Add clef and time signature for first measure or first measure of each line
+    if (measure.number === 1 || isFirstInLine) {
       stave.addClef('treble')
       stave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
     }
@@ -173,11 +174,12 @@ export class VexFlowRenderer {
     score.measures.forEach((measure, index) => {
       const line = Math.floor(index / measuresPerLine)
       const positionInLine = index % measuresPerLine
+      const isFirstInLine = positionInLine === 0
 
       const x = margin + positionInLine * (staveWidth + 20)
       const y = margin + line * (staveHeight + verticalSpacing)
 
-      this.renderMeasure(measure, x, y, staveWidth)
+      this.renderMeasure(measure, x, y, staveWidth, isFirstInLine)
     })
   }
 
