@@ -37,14 +37,14 @@ export class MusicEngine {
     // Calculate coordinate mapper config based on container size
     const width = config.width || 1000
     const height = config.height || 400
-    const numMeasures = 2 // Initial number of measures
-    const measuresPerLine = Math.max(1, Math.floor(numMeasures / 2))
+    const numMeasures = 8 // 8 measures total
+    const measuresPerLine = 4 // 4 measures per line
     const margin = 20
     const availableWidth = width - (margin * 2)
-    const staveWidth = Math.floor(availableWidth / measuresPerLine) - 20
+    const staveWidth = Math.floor(availableWidth / measuresPerLine)
 
     this.coordinateMapper = new CoordinateMapper({
-      measureWidth: staveWidth + 20,
+      measureWidth: staveWidth, // No gaps between measures
       staffHeight: 120 + 30, // staveHeight + verticalSpacing
       startX: margin,
       startY: margin,

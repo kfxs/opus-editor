@@ -168,9 +168,9 @@ export class VexFlowRenderer {
     let measuresPerLine = Math.max(1, Math.floor(numMeasures / 2))
     if (measuresPerLine > 4) measuresPerLine = 4 // Max 4 measures per line
 
-    // Calculate measure width to fit in container
+    // Calculate measure width to fit in container (no gaps between measures)
     const availableWidth = containerWidth - (margin * 2)
-    const staveWidth = Math.floor(availableWidth / measuresPerLine) - 20
+    const staveWidth = Math.floor(availableWidth / measuresPerLine)
 
     // Calculate how many lines we need
     const numLines = Math.ceil(numMeasures / measuresPerLine)
@@ -187,7 +187,8 @@ export class VexFlowRenderer {
       const positionInLine = index % measuresPerLine
       const isFirstInLine = positionInLine === 0
 
-      const x = margin + positionInLine * (staveWidth + 20)
+      // Measures are continuous - no gaps between them
+      const x = margin + positionInLine * staveWidth
       const y = margin + line * (staveHeight + verticalSpacing)
 
       this.renderMeasure(measure, x, y, staveWidth, isFirstInLine)
