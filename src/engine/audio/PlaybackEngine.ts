@@ -129,8 +129,11 @@ export class PlaybackEngine {
   /**
    * Schedule all notes for playback
    */
-  private scheduleNotes(): void {
+  private async scheduleNotes(): Promise<void> {
     if (!this.score) return
+
+    // Ensure Tone is started before scheduling
+    await Tone.start()
 
     // Clear previously scheduled notes
     this.clearScheduledNotes()
@@ -252,7 +255,7 @@ export class PlaybackEngine {
 
     if (this.state === 'stopped') {
       // Start from beginning
-      this.scheduleNotes()
+      await this.scheduleNotes()
       Tone.Transport.position = 0
       this.startTime = 0
     }
