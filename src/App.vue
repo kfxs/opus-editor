@@ -87,8 +87,9 @@
           @click="handleCanvasClick"
         ></div>
 
-        <div class="mt-4 text-sm text-gray-400">
-          Click on the score to add notes at that position!
+        <div class="mt-4 text-sm">
+          <p class="text-gray-400">Click on the score to add quarter notes at that position!</p>
+          <p class="text-yellow-400 text-xs mt-1">Note: Notes cannot overlap with existing notes at the same pitch, and measures have limited capacity based on time signature (4/4 = 4 beats).</p>
         </div>
       </div>
     </div>
@@ -178,18 +179,17 @@ function addSampleNotes() {
   // Clear existing notes first
   engine.value.clearAllNotes()
 
-  // Add some sample notes to measure 1 - C major scale
+  // Add some sample notes to measure 1 - Leave space for user to add more
   engine.value.addNote({ pitch: 60, duration: 'q', measure: 1, beat: 0 }) // C4
-  engine.value.addNote({ pitch: 62, duration: 'q', measure: 1, beat: 1 }) // D4
-  engine.value.addNote({ pitch: 64, duration: 'q', measure: 1, beat: 2 }) // E4
-  engine.value.addNote({ pitch: 65, duration: 'q', measure: 1, beat: 3 }) // F4
+  engine.value.addNote({ pitch: 64, duration: 'q', measure: 1, beat: 1 }) // E4
+  engine.value.addNote({ pitch: 67, duration: 'q', measure: 1, beat: 2 }) // G4
+  // Beat 3 is left empty for user to add notes
 
-  // Add measure 2 and more notes
+  // Add measure 2 with some notes
   engine.value.addMeasure()
-  engine.value.addNote({ pitch: 67, duration: 'q', measure: 2, beat: 0 }) // G4
-  engine.value.addNote({ pitch: 69, duration: 'q', measure: 2, beat: 1 }) // A4
-  engine.value.addNote({ pitch: 71, duration: 'q', measure: 2, beat: 2 }) // B4
-  engine.value.addNote({ pitch: 72, duration: 'q', measure: 2, beat: 3 }) // C5
+  engine.value.addNote({ pitch: 72, duration: 'h', measure: 2, beat: 0 }) // C5 - half note
+  engine.value.addNote({ pitch: 69, duration: 'q', measure: 2, beat: 2 }) // A4
+  // Beat 3 is left empty for user to add notes
 }
 
 function clearNotes() {
