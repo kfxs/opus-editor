@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, TickContext } from 'vexflow'
 import type { Score, Measure, Note as MusicNote, NoteDuration } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
 
@@ -391,7 +391,7 @@ export class VexFlowRenderer {
    * @param score - Score to render
    * @param ghostNote - Optional ghost note to render in blue/transparent
    */
-  renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number }): void {
+  renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawY?: number }): void {
     // Clear the canvas first to avoid accumulation
     this.clear()
 
@@ -404,7 +404,7 @@ export class VexFlowRenderer {
    * @param score - Score to render
    * @param ghostNote - Optional ghost note preview
    */
-  renderScore(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number }): void {
+  renderScore(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawY?: number }): void {
     if (!this.context || !this.renderer) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }

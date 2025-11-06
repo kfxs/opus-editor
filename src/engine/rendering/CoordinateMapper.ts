@@ -1,5 +1,4 @@
 import type { PixelCoordinates, Position, Note, Measure } from '@/types/music'
-import { getStaffLinePosition } from '@/utils/musicUtils'
 
 /**
  * Configuration for the coordinate mapping system
@@ -90,13 +89,18 @@ export class CoordinateMapper {
    */
   pitchToPixelY(pitch: number, measureNumber: number): number {
     const measurePos = this.getMeasurePosition(measureNumber)
-    const staffLinePos = getStaffLinePosition(pitch)
 
-    // VexFlow staff has 5 lines, middle line is typically around the center
-    // Negative staff positions are below middle C, positive are above
-    const pixelOffset = -staffLinePos * this.config.lineSpacing
+    // Use the same geometry as pixelYToPitch for consistency
+    const STAFF_LINE_SPACING = 10
+    const STAFF_TOP_LINE_OFFSET = 40
+    const STAFF_TOP_Y = measurePos.y + STAFF_TOP_LINE_OFFSET
+    const topLinePitch = 77 // F5
 
-    return measurePos.y + 60 + pixelOffset // 60 is approximate center of staff
+    // Calculate how many half-spaces below the top line this pitch is
+    const halfSpacesFromTop = topLinePitch - pitch
+    const pixelOffset = halfSpacesFromTop * (STAFF_LINE_SPACING / 2)
+
+    return STAFF_TOP_Y + pixelOffset
   }
 
   /**
@@ -138,18 +142,62 @@ export class CoordinateMapper {
 
   /**
    * Convert pixel Y coordinate to MIDI pitch
-   * Middle C (60) is the baseline
+   * Uses VexFlow's staff geometry and treble clef positioning
    */
   pixelYToPitch(y: number, measureNumber: number): number {
     const measurePos = this.getMeasurePosition(measureNumber)
-    const relativeY = y - (measurePos.y + 60) // 60 is center offset
 
-    const staffLines = -Math.round(relativeY / this.config.lineSpacing)
+    // VexFlow staff geometry:
+    // - Staff has 5 lines with 10px spacing between lines (STAVE_LINE_DISTANCE = 10)
+    // - Staff top is at measurePos.y (this is the Stave bounding box top)
+    // - The actual top staff line is offset from this (VexFlow adds padding)
+    // - In treble clef, the top line is F5 (MIDI 77), bottom line is E4 (MIDI 64)
+    // - Each half-space is one semitone in chromatic scale
 
-    // Convert staff line position to MIDI pitch
-    // Each staff line is a whole step (2 semitones)
-    const middleC = 60
-    return middleC + staffLines * 2
+    const STAFF_LINE_SPACING = 10 // VexFlow's standard line spacing
+    // Increased offset to account for VexFlow's stave padding and allow notes above the staff
+    const STAFF_TOP_LINE_OFFSET = 40 // Offset from measurePos.y to actual top staff line
+    const STAFF_TOP_Y = measurePos.y + STAFF_TOP_LINE_OFFSET
+
+    // Calculate position relative to staff top line (0 = top line)
+    const relativeY = y - STAFF_TOP_Y
+
+    // In treble clef:
+    // - Top line (line 0) = F5 (MIDI 77)
+    // - Each staff line down is 2 semitones (whole step)
+    // - Each half-space is 1 semitone
+
+    // Convert Y pixels to half-spaces (each half-space = 5 pixels)
+    const halfSpaces = Math.round(relativeY / (STAFF_LINE_SPACING / 2))
+
+    // Top line of treble clef staff is F5 (MIDI 77)
+    // Going down (positive Y) decreases pitch
+    // Going up (negative Y) increases pitch
+    const topLinePitch = 77 // F5
+    const pitch = topLinePitch - halfSpaces
+
+    console.log('🎵 pixelYToPitch DEBUG:', {
+      y,
+      measureNumber,
+      'measurePos.y': measurePos.y,
+      STAFF_TOP_Y,
+      relativeY,
+      halfSpaces,
+      pitch,
+      noteName: this.pitchToNoteName(pitch)
+    })
+
+    return pitch
+  }
+
+  /**
+   * Helper to convert MIDI pitch to note name for debugging
+   */
+  private pitchToNoteName(midiNote: number): string {
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    const octave = Math.floor(midiNote / 12) - 1
+    const noteName = noteNames[midiNote % 12]
+    return `${noteName}${octave}`
   }
 
   /**

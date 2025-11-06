@@ -278,7 +278,7 @@ function handleCanvasMouseMove(event: MouseEvent) {
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
 
-  console.log('🖱️ Mouse move:', { x, y })
+  console.log('🖱️ Mouse move:', { x, y, clientY: event.clientY, rectTop: rect.top })
 
   // Render score with ghost note preview
   engine.value.renderScoreWithPreview({ x, y }, 'q')
