@@ -181,6 +181,12 @@
           >
             ⏹ Stop
           </button>
+          <button
+            @click="testAudio"
+            class="bg-pink-600 hover:bg-pink-700 px-4 py-2 rounded"
+          >
+            🔊 Test Audio
+          </button>
         </div>
 
         <div class="text-left mb-4 grid grid-cols-2 gap-4">
@@ -423,7 +429,6 @@ function handleCanvasClick(event: MouseEvent) {
     )
 
     if (note) {
-      console.log('Added note:', note)
       renderScore()
     } else {
       console.warn('Could not add note at this position (collision or invalid location)')
@@ -448,8 +453,6 @@ function handleCanvasMouseMove(event: MouseEvent) {
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
 
-  console.log('🖱️ Mouse move:', { x, y, clientY: event.clientY, rectTop: rect.top })
-
   // Render score with ghost note preview using selected duration and accidental
   engine.value.renderScoreWithPreview(
     { x, y },
@@ -463,6 +466,21 @@ function handleCanvasMouseLeave() {
 
   // Clear preview and render normal score
   renderScore()
+}
+
+async function testAudio() {
+  // Import Tone directly for the test
+  const Tone = await import('tone')
+  await Tone.start()
+
+  const synth = new Tone.Synth().toDestination()
+  const now = Tone.now()
+
+  // Play C major scale from C4 to G4
+  const notes = ['C4', 'D4', 'E4', 'F4', 'G4']
+  notes.forEach((note, i) => {
+    synth.triggerAttackRelease(note, '8n', now + i * 0.3)
+  })
 }
 </script>
 

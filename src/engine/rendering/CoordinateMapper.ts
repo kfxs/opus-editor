@@ -195,15 +195,6 @@ export class CoordinateMapper {
     // Convert staff line to diatonic pitch (C major scale)
     const pitch = this.staffLineToPitch(staffLine)
 
-    console.log('🎵 pixelYToPitch DEBUG:', {
-      y,
-      measureNumber,
-      'measurePos.y': measurePos.y,
-      staffLine: staffLine.toFixed(2),
-      pitch,
-      noteName: this.pitchToNoteName(pitch)
-    })
-
     return pitch
   }
 

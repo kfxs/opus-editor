@@ -321,7 +321,6 @@ export class VexFlowRenderer {
     staveHeight: number,
     verticalSpacing: number
   ): void {
-    console.log('🎵 renderGhostNoteOverlay called:', ghostNote)
     try {
       // Find the measure this ghost note belongs to
       const measure = score.measures.find(m => m.number === ghostNote.measure)
@@ -429,8 +428,6 @@ export class VexFlowRenderer {
       // Render the ghost note (this will add elements to the SVG)
       staveNote.setContext(this.context!).draw()
 
-      console.log('✅ Ghost note rendered, applying blue color...')
-
       // Recursively apply blue color and displacement to all elements
       const applyBlueColorAndDisplacement = (element: Element) => {
         const tagName = element.tagName.toLowerCase()
@@ -444,14 +441,12 @@ export class VexFlowRenderer {
           // Also set style attribute as backup
           const currentStyle = element.getAttribute('style') || ''
           element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; stroke: #2563EB !important; opacity: 0.7 !important;')
-          console.log(`🎨 Applied blue to ${tagName}`)
 
           // If this note forms a second, shift the note head to the right
           if (needsDisplacement) {
             const transform = element.getAttribute('transform') || ''
             const newTransform = transform ? `${transform} translate(10, 0)` : 'translate(10, 0)'
             element.setAttribute('transform', newTransform)
-            console.log(`↔️ Applied displacement to ${tagName}`)
           }
         } else if (tagName === 'line') {
           // Lines (stems) - only stroke, NO displacement
@@ -459,7 +454,6 @@ export class VexFlowRenderer {
           element.setAttribute('opacity', '0.7')
           const currentStyle = element.getAttribute('style') || ''
           element.setAttribute('style', currentStyle + '; stroke: #2563EB !important; opacity: 0.7 !important;')
-          console.log(`🎨 Applied blue to line`)
         }
 
         // Recursively process children
@@ -472,8 +466,6 @@ export class VexFlowRenderer {
       for (let i = childrenBefore; i < svg.children.length; i++) {
         applyBlueColorAndDisplacement(svg.children[i])
       }
-
-      console.log('✅ Blue color and displacement applied to ghost note')
 
     } catch (error) {
       console.error('❌ Could not render ghost note overlay:', error)
