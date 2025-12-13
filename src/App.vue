@@ -225,29 +225,9 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-4">
-      <div class="bg-gray-800 p-4 rounded-lg text-left">
-        <h3 class="text-xl mb-2">Score JSON:</h3>
-        <pre class="bg-gray-900 p-4 rounded overflow-auto text-xs max-h-96">{{ scoreJSON }}</pre>
-      </div>
-
-      <div class="bg-gray-800 p-4 rounded-lg text-left">
-        <h3 class="text-xl mb-2">Phase 2 Features:</h3>
-        <ul class="list-disc list-inside space-y-2 text-sm">
-          <li>✅ Note-to-pixel coordinate mapping</li>
-          <li>✅ Pixel-to-note position resolver</li>
-          <li>✅ Click canvas to add notes</li>
-          <li>✅ Multiple duration support (whole, half, quarter, eighth, sixteenth)</li>
-          <li>✅ Chord creation with smart collision detection</li>
-          <li>✅ Classical notation displacement for seconds</li>
-          <li>✅ Note collision detection & X-axis snap tolerance</li>
-          <li>✅ Measure overflow handling</li>
-          <li>✅ Ghost note preview with displacement</li>
-          <li>✅ Tone.js audio playback</li>
-          <li>✅ Playback cursor tracking</li>
-          <li>✅ Rest support</li>
-        </ul>
-      </div>
+    <div class="bg-gray-800 p-4 rounded-lg text-left">
+      <h3 class="text-xl mb-2">Score JSON:</h3>
+      <pre class="bg-gray-900 p-4 rounded overflow-auto text-xs max-h-96">{{ scoreJSON }}</pre>
     </div>
   </div>
 </template>
