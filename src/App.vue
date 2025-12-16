@@ -178,7 +178,8 @@
         <!-- VexFlow Rendering Area -->
         <div
           ref="scoreCanvas"
-          class="bg-white rounded-lg p-4 min-h-[300px] cursor-crosshair"
+          class="bg-white rounded-lg p-4 min-h-[300px]"
+          :class="showCursor ? 'cursor-crosshair' : 'cursor-none'"
           @click="handleCanvasClick"
           @mousemove="handleCanvasMouseMove"
           @mouseleave="handleCanvasMouseLeave"
@@ -224,6 +225,9 @@ const selectedDuration = ref<'w' | 'h' | 'q' | '8' | '16' | '32'>('q') // Defaul
 
 // Accidental selection
 const selectedAccidental = ref<'#' | 'b' | 'n' | null>(null) // Default to no accidental
+
+// Cursor visibility (hide when ghost note renders, show when it doesn't)
+const showCursor = ref(true)
 
 // Ghost note preview throttling
 let lastPreviewRender = 0
@@ -398,11 +402,14 @@ function handleCanvasMouseMove(event: MouseEvent) {
   const y = event.clientY - rect.top
 
   // Render score with ghost note preview using selected duration and accidental
-  engine.value.renderScoreWithPreview(
+  const ghostNoteRendered = engine.value.renderScoreWithPreview(
     { x, y },
     selectedDuration.value,
     selectedAccidental.value || undefined
   )
+
+  // Hide cursor when ghost note is shown, show cursor when it's not
+  showCursor.value = !ghostNoteRendered
 }
 
 function handleCanvasMouseLeave() {
@@ -410,6 +417,9 @@ function handleCanvasMouseLeave() {
 
   // Clear preview and render normal score
   renderScore()
+
+  // Reset cursor visibility when leaving the canvas
+  showCursor.value = true
 }
 
 </script>

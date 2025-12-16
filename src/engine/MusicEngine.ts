@@ -277,16 +277,17 @@ export class MusicEngine {
 
   /**
    * Render the score with a ghost note preview at mouse position
+   * @returns true if ghost note was rendered, false otherwise
    */
   renderScoreWithPreview(
     coords: PixelCoordinates,
     duration: NoteParams['duration'],
     accidental?: NoteParams['accidental']
-  ): void {
+  ): boolean {
     const measure = this.scoreModel.getMeasure(1)
     if (!measure) {
       console.warn('No measure found for preview')
-      return
+      return false
     }
 
     const beatsInMeasure = measure.timeSignature.numerator
@@ -296,11 +297,11 @@ export class MusicEngine {
     if (!this.scoreModel.getMeasure(position.measure)) {
       console.warn('Position measure not found:', position.measure)
       this.renderScore()
-      return
+      return false
     }
 
     // Render score with ghost note
-    this.renderer.renderScoreWithGhostNote(
+    const ghostNoteRendered = this.renderer.renderScoreWithGhostNote(
       this.scoreModel.getScore(),
       {
         pitch: position.pitch,
@@ -312,6 +313,7 @@ export class MusicEngine {
     )
     // Update coordinate mapper with actual VexFlow bounds
     this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
+    return ghostNoteRendered
   }
 
   /**

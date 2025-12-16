@@ -352,6 +352,7 @@ export class VexFlowRenderer {
   /**
    * Render ghost note after all measures (called from renderScore)
    * Uses VexFlow's actual note rendering on a temporary invisible stave
+   * @returns true if ghost note was rendered, false if skipped
    */
   private renderGhostNoteOverlay(
     ghostNote: { pitch: number; duration: string; measure: number; beat: number },
@@ -361,13 +362,13 @@ export class VexFlowRenderer {
     staveWidth: number,
     staveHeight: number,
     verticalSpacing: number
-  ): void {
+  ): boolean {
     try {
       // Find the measure this ghost note belongs to
       const measure = score.measures.find(m => m.number === ghostNote.measure)
       if (!measure) {
         console.warn('⚠️ Measure not found for ghost note:', ghostNote.measure)
-        return
+        return false
       }
 
       // Calculate which line and position this measure is on
@@ -424,6 +425,12 @@ export class VexFlowRenderer {
       // Calculate beats before and after the ghost note
       const beatsBeforeNote = ghostNote.beat
       const beatsAfterNote = totalBeats - ghostNote.beat - noteDuration
+
+      // Don't render if the ghost note would overflow the measure
+      if (beatsAfterNote < -0.001) {
+        // Ghost note doesn't fit in this measure - skip rendering
+        return false
+      }
 
       const tickables: any[] = []
 
@@ -518,8 +525,10 @@ export class VexFlowRenderer {
         applyBlueColorAndDisplacement(svg.children[i])
       }
 
+      return true
     } catch (error) {
       console.error('❌ Could not render ghost note overlay:', error)
+      return false
     }
   }
 
@@ -542,21 +551,23 @@ export class VexFlowRenderer {
    * Render the complete score with an optional ghost note preview
    * @param score - Score to render
    * @param ghostNote - Optional ghost note to render in blue/transparent
+   * @returns true if ghost note was rendered, false if not (or no ghost note provided)
    */
-  renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawY?: number }): void {
+  renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawY?: number }): boolean {
     // Clear the canvas first to avoid accumulation
     this.clear()
 
     // Render the score with ghost note
-    this.renderScore(score, ghostNote)
+    return this.renderScore(score, ghostNote)
   }
 
   /**
    * Render the complete score
    * @param score - Score to render
    * @param ghostNote - Optional ghost note preview
+   * @returns true if ghost note was rendered, false if not (or no ghost note provided)
    */
-  renderScore(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawY?: number }): void {
+  renderScore(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawY?: number }): boolean {
     if (!this.context || !this.renderer) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
@@ -625,8 +636,9 @@ export class VexFlowRenderer {
     })
 
     // Render ghost note AFTER all measures (as an overlay)
+    let ghostNoteRendered = false
     if (ghostNote) {
-      this.renderGhostNoteOverlay(
+      ghostNoteRendered = this.renderGhostNoteOverlay(
         ghostNote,
         score,
         measuresPerLine,
@@ -638,6 +650,7 @@ export class VexFlowRenderer {
     }
 
     // console.log('renderScore() complete - SVG children count:', svg.childNodes.length)
+    return ghostNoteRendered
   }
 
   /**
