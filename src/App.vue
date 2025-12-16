@@ -18,12 +18,6 @@
           >
             Clear Notes
           </button>
-          <button
-            @click="renderScore"
-            class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded"
-          >
-            Render Score
-          </button>
           <div class="border-l border-gray-600 mx-2"></div>
 
           <!-- Note Duration Selector -->
@@ -185,13 +179,6 @@
           @mouseleave="handleCanvasMouseLeave"
         ></div>
 
-        <div class="mt-4 text-sm">
-          <p class="text-gray-400">Click anywhere on the staff to add notes. Create your own melody!</p>
-          <p class="text-yellow-400 text-xs mt-1">
-            <strong>Selected:</strong> {{ durationName }} ({{ durationBeats }} beat{{ durationBeats === 1 ? '' : 's' }}){{ accidentalText }}
-            • Each measure can hold 4 beats (4/4 time)
-          </p>
-        </div>
       </div>
     </div>
 
@@ -237,42 +224,6 @@ const PREVIEW_THROTTLE_MS = 50 // Only update preview every 50ms
 const totalNotes = computed(() => engine.value?.getScore().measures.flatMap(m => m.notes).length || 0)
 const scoreJSON = computed(() => engine.value?.exportJSON() || '{}')
 
-// Duration name mapping for UI display
-const durationName = computed(() => {
-  const names: Record<string, string> = {
-    'w': 'Whole note (Redonda)',
-    'h': 'Half note (Blanca)',
-    'q': 'Quarter note (Negra)',
-    '8': 'Eighth note (Corchea)',
-    '16': 'Sixteenth note (Semicorchea)',
-    '32': 'Thirty-second note (Fusa)'
-  }
-  return names[selectedDuration.value] || 'Unknown'
-})
-
-// Duration beats mapping
-const durationBeats = computed(() => {
-  const beats: Record<string, number> = {
-    'w': 4,
-    'h': 2,
-    'q': 1,
-    '8': 0.5,
-    '16': 0.25,
-    '32': 0.125
-  }
-  return beats[selectedDuration.value] || 1
-})
-
-// Accidental text for display
-const accidentalText = computed(() => {
-  if (!selectedAccidental.value) return ''
-  const names: Record<string, string> = {
-    '#': ' with Sharp (♯)',
-    'b': ' with Flat (♭)',
-    'n': ' with Natural (♮)'
-  }
-  return names[selectedAccidental.value] || ''
-})
 
 onMounted(() => {
   if (scoreCanvas.value) {
