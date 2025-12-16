@@ -261,8 +261,8 @@ export class PlaybackEngine {
     const Tone = await import('tone')
     await Tone.start()
 
-    // Create fresh synth exactly like testAudio
-    const synth = new Tone.Synth().toDestination()
+    // Create fresh PolySynth for chord support (multiple simultaneous notes)
+    const synth = new Tone.PolySynth(Tone.Synth).toDestination()
     const now = Tone.now()
 
     // Collect all notes with their timing
