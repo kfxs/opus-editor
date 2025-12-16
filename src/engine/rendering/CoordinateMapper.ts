@@ -153,8 +153,9 @@ export class CoordinateMapper {
    * Convert pixel coordinates to measure number
    */
   pixelToMeasure(coords: PixelCoordinates): number {
-    const line = Math.floor((coords.y - this.config.startY) / this.config.staffHeight)
-    const posInLine = Math.floor((coords.x - this.config.startX) / this.config.measureWidth)
+    // Clamp to non-negative values to handle mouse positions outside valid area
+    const line = Math.max(0, Math.floor((coords.y - this.config.startY) / this.config.staffHeight))
+    const posInLine = Math.max(0, Math.floor((coords.x - this.config.startX) / this.config.measureWidth))
 
     return line * this.config.measuresPerLine + posInLine + 1 // Convert to 1-indexed
   }

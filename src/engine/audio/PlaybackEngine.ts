@@ -1,6 +1,9 @@
-import * as Tone from 'tone'
+import type * as ToneType from 'tone'
 import type { Score, Note } from '@/types/music'
 import { durationToBeats, getMeasureDuration } from '@/utils/musicUtils'
+
+// Tone.js module - loaded dynamically to avoid AudioContext issues
+let Tone: typeof ToneType | null = null
 
 /**
  * Playback state
@@ -33,41 +36,32 @@ export interface PlaybackCallbacks {
 
 /**
  * PlaybackEngine handles audio playback of musical scores using Tone.js
+ * Uses direct scheduling (like Tone.now()) instead of Transport for reliability
  */
 export class PlaybackEngine {
-  private synth: Tone.PolySynth | null = null
+  private synth: ToneType.Synth | ToneType.PolySynth | null = null
   private score: Score | null = null
   private state: PlaybackState = 'stopped'
   private callbacks: PlaybackCallbacks = {}
-  private scheduledNotes: number[] = []
   private currentMeasure: number = 1
   private currentBeat: number = 0
   private animationFrameId: number | null = null
-  private startTime: number = 0
+  private playbackStartTime: number = 0
   private totalDuration: number = 0
+  private playbackTimeoutId: ReturnType<typeof setTimeout> | null = null
 
   constructor() {
-    // Synth will be lazy-initialized on first play to avoid AudioContext warnings
+    // Synth is created fresh on each play() to avoid AudioContext state issues
   }
 
   /**
-   * Initialize the synthesizer (lazy initialization)
+   * Dynamically load Tone.js (like testAudio does)
    */
-  private initializeSynth(): void {
-    if (this.synth) return
-
-    // Create a polyphonic synthesizer
-    this.synth = new Tone.PolySynth(Tone.Synth, {
-      oscillator: {
-        type: 'sine',
-      },
-      envelope: {
-        attack: 0.005,
-        decay: 0.1,
-        sustain: 0.3,
-        release: 0.5,
-      },
-    }).toDestination()
+  private async loadTone(): Promise<typeof ToneType> {
+    if (!Tone) {
+      Tone = await import('tone')
+    }
+    return Tone
   }
 
   /**
@@ -121,43 +115,35 @@ export class PlaybackEngine {
   }
 
   /**
-   * Convert note duration to Tone.js duration string
-   */
-  private noteDurationToToneTime(duration: string): string {
-    const map: Record<string, string> = {
-      w: '1n',
-      h: '2n',
-      q: '4n',
-      '8': '8n',
-      '16': '16n',
-      '32': '32n',
-    }
-    return map[duration] || '4n'
-  }
-
-  /**
-   * Schedule all notes for playback
+   * Schedule all notes for playback using direct Tone.now() scheduling
+   * Creates a fresh synth each time (like testAudio) to avoid state issues
    */
   private async scheduleNotes(): Promise<void> {
     if (!this.score) return
 
-    // Initialize synth if needed
-    this.initializeSynth()
-    if (!this.synth) return
+    // Dynamically import Tone.js (exactly like testAudio does)
+    const Tone = await this.loadTone()
 
-    // Ensure Tone is started before scheduling
+    // Ensure Tone is started FIRST before creating any audio nodes
     await Tone.start()
 
-    // Clear previously scheduled notes
-    this.clearScheduledNotes()
+    // Dispose old synth if exists and create fresh one (like testAudio does)
+    if (this.synth) {
+      this.synth.dispose()
+      this.synth = null
+    }
 
-    // Set the tempo
-    Tone.Transport.bpm.value = this.score.tempo
+    // Create a fresh synth for this playback session
+    this.synth = new Tone.Synth().toDestination()
 
-    let currentTime = 0 // in beats
+    // Get the current audio context time as our reference point
+    const now = Tone.now()
+    this.playbackStartTime = now
+
+    let currentTimeInBeats = 0 // in beats
 
     for (const measure of this.score.measures) {
-      const measureStartTime = currentTime
+      const measureStartTime = currentTimeInBeats
 
       for (const note of measure.notes) {
         if (note.isRest) {
@@ -165,58 +151,66 @@ export class PlaybackEngine {
           continue
         }
 
-        // Calculate absolute time for this note
-        const noteTime = measureStartTime + note.beat
+        // Calculate absolute time for this note in beats
+        const noteTimeInBeats = measureStartTime + note.beat
 
-        // Convert MIDI to frequency
-        const frequency = Tone.Frequency(note.pitch, 'midi').toFrequency()
+        // Validate note time before scheduling
+        if (isNaN(noteTimeInBeats) || noteTimeInBeats < 0) {
+          console.warn('Invalid note time, skipping:', noteTimeInBeats, note)
+          continue
+        }
 
-        // Schedule the note
-        const eventId = Tone.Transport.schedule(time => {
-          this.synth!.triggerAttackRelease(
-            frequency,
-            this.noteDurationToToneTime(note.duration),
-            time
-          )
+        // Convert MIDI to note name (like testAudio uses)
+        const noteName = Tone.Frequency(note.pitch, 'midi').toNote()
 
-          // Trigger callback
-          if (this.callbacks.onNotePlay) {
-            this.callbacks.onNotePlay(note)
-          }
-        }, `${noteTime}`)
+        // Convert beat time to seconds
+        const noteTimeInSeconds = this.beatsToSeconds(noteTimeInBeats)
+        const durationInSeconds = this.noteDurationToSeconds(note.duration)
 
-        this.scheduledNotes.push(eventId as any)
+        // Schedule the note directly using Tone.now() + offset
+        // This is the exact same approach used by testAudio which works
+        this.synth.triggerAttackRelease(
+          noteName,
+          durationInSeconds,
+          now + noteTimeInSeconds
+        )
+
+        // Trigger callback (using setTimeout to align with audio timing)
+        if (this.callbacks.onNotePlay) {
+          setTimeout(() => {
+            this.callbacks.onNotePlay!(note)
+          }, noteTimeInSeconds * 1000)
+        }
       }
 
-      currentTime += getMeasureDuration(measure.timeSignature)
+      currentTimeInBeats += getMeasureDuration(measure.timeSignature)
     }
 
     // Schedule playback complete callback
-    Tone.Transport.schedule(() => {
+    const totalTimeInSeconds = this.beatsToSeconds(currentTimeInBeats)
+    this.playbackTimeoutId = setTimeout(() => {
       this.stop()
       if (this.callbacks.onPlaybackComplete) {
         this.callbacks.onPlaybackComplete()
       }
-    }, `${currentTime}`)
+    }, totalTimeInSeconds * 1000)
   }
 
   /**
-   * Clear all scheduled notes
+   * Convert note duration to seconds based on tempo
    */
-  private clearScheduledNotes(): void {
-    this.scheduledNotes.forEach(id => {
-      Tone.Transport.clear(id)
-    })
-    this.scheduledNotes = []
+  private noteDurationToSeconds(duration: string): number {
+    const beats = durationToBeats(duration)
+    return this.beatsToSeconds(beats)
   }
 
   /**
    * Update playback position
    */
   private updatePosition(): void {
-    if (!this.score || this.state !== 'playing') return
+    if (!this.score || this.state !== 'playing' || !Tone) return
 
-    const elapsedSeconds = Tone.Transport.seconds - this.startTime
+    const elapsedSeconds = Tone.now() - this.playbackStartTime
     const elapsedBeats = (elapsedSeconds * this.score.tempo) / 60
 
     let accumulatedBeats = 0
@@ -263,40 +257,67 @@ export class PlaybackEngine {
 
     if (this.state === 'playing') return
 
-    // Ensure Tone.js audio context is started
+    // Do EXACTLY what testAudio does - inline, no class methods
+    const Tone = await import('tone')
     await Tone.start()
 
-    if (this.state === 'stopped') {
-      // Start from beginning
-      await this.scheduleNotes()
-      Tone.Transport.position = 0
-      this.startTime = 0
+    // Create fresh synth exactly like testAudio
+    const synth = new Tone.Synth().toDestination()
+    const now = Tone.now()
+
+    // Collect all notes with their timing
+    let currentTimeInBeats = 0
+    const tempo = this.score.tempo
+
+    for (const measure of this.score.measures) {
+      const measureStartTime = currentTimeInBeats
+
+      for (const note of measure.notes) {
+        if (note.isRest) continue
+
+        const noteTimeInBeats = measureStartTime + note.beat
+        const beatsPerSecond = tempo / 60
+        const noteTimeInSeconds = noteTimeInBeats / beatsPerSecond
+        const durationInSeconds = durationToBeats(note.duration) / beatsPerSecond
+
+        // Convert MIDI to note name like testAudio
+        const noteName = Tone.Frequency(note.pitch, 'midi').toNote()
+
+        // Schedule exactly like testAudio does
+        synth.triggerAttackRelease(noteName, durationInSeconds, now + noteTimeInSeconds)
+      }
+
+      currentTimeInBeats += getMeasureDuration(measure.timeSignature)
     }
 
-    Tone.Transport.start()
     this.state = 'playing'
-    this.startTime = Tone.Transport.seconds
+    this.playbackStartTime = now
+
+    // Store synth reference for stop
+    this.synth = synth
 
     if (this.callbacks.onStateChange) {
       this.callbacks.onStateChange(this.state)
     }
 
-    this.updatePosition()
+    // Schedule auto-stop
+    const totalSeconds = currentTimeInBeats / (tempo / 60)
+    this.playbackTimeoutId = setTimeout(() => {
+      this.stop()
+    }, totalSeconds * 1000)
   }
 
   /**
    * Pause playback
+   * Note: With direct scheduling, pause acts like stop (cannot resume mid-note)
    */
   pause(): void {
     if (this.state !== 'playing') return
 
-    Tone.Transport.pause()
+    // With direct scheduling, we can't easily pause mid-playback
+    // So pause behaves like stop
+    this.stop()
     this.state = 'paused'
-
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId)
-      this.animationFrameId = null
-    }
 
     if (this.callbacks.onStateChange) {
       this.callbacks.onStateChange(this.state)
@@ -307,8 +328,6 @@ export class PlaybackEngine {
    * Stop playback and reset to beginning
    */
   stop(): void {
-    Tone.Transport.stop()
-    Tone.Transport.position = 0
     this.state = 'stopped'
     this.currentMeasure = 1
     this.currentBeat = 0
@@ -318,7 +337,21 @@ export class PlaybackEngine {
       this.animationFrameId = null
     }
 
-    this.clearScheduledNotes()
+    // Clear the playback complete timeout
+    if (this.playbackTimeoutId) {
+      clearTimeout(this.playbackTimeoutId)
+      this.playbackTimeoutId = null
+    }
+
+    // Dispose the synth to stop all sound immediately
+    if (this.synth) {
+      try {
+        this.synth.dispose()
+      } catch {
+        // Ignore dispose errors - synth may already be disposed
+      }
+      this.synth = null
+    }
 
     if (this.callbacks.onStateChange) {
       this.callbacks.onStateChange(this.state)
@@ -327,19 +360,13 @@ export class PlaybackEngine {
 
   /**
    * Seek to a specific measure
+   * Note: With direct scheduling, seek only works when stopped
    */
   seekToMeasure(measureNumber: number): void {
     if (!this.score) return
 
-    let targetBeats = 0
-    for (const measure of this.score.measures) {
-      if (measure.number >= measureNumber) break
-      targetBeats += getMeasureDuration(measure.timeSignature)
-    }
-
-    const targetSeconds = this.beatsToSeconds(targetBeats)
-    Tone.Transport.seconds = targetSeconds
-
+    // With direct scheduling, we can only seek when stopped
+    // This sets the starting point for the next play()
     this.currentMeasure = measureNumber
     this.currentBeat = 0
   }
@@ -348,7 +375,10 @@ export class PlaybackEngine {
    * Get current playback position
    */
   getPosition(): PlaybackPosition {
-    const elapsedSeconds = Tone.Transport.seconds
+    let elapsedSeconds = 0
+    if (this.state === 'playing' && Tone) {
+      elapsedSeconds = Tone.now() - this.playbackStartTime
+    }
     const progress = this.totalDuration > 0 ? elapsedSeconds / this.totalDuration : 0
 
     return {
@@ -361,10 +391,10 @@ export class PlaybackEngine {
 
   /**
    * Set playback volume (0-1)
+   * Note: Volume only applies when synth exists (during playback)
    */
   setVolume(volume: number): void {
-    this.initializeSynth()
-    if (this.synth) {
+    if (this.synth && Tone) {
       this.synth.volume.value = Tone.gainToDb(volume)
     }
   }
@@ -375,7 +405,12 @@ export class PlaybackEngine {
   dispose(): void {
     this.stop()
     if (this.synth) {
-      this.synth.dispose()
+      try {
+        this.synth.dispose()
+      } catch {
+        // Ignore dispose errors
+      }
+      this.synth = null
     }
   }
 }
