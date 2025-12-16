@@ -146,46 +146,15 @@
 
           <div class="border-l border-gray-600 mx-2"></div>
           <button
-            @click="handlePlay"
-            :disabled="playbackState === 'playing'"
+            @click="togglePlayback"
             :class="[
-              'px-4 py-2 rounded',
+              'px-4 py-2 rounded min-w-[80px]',
               playbackState === 'playing'
-                ? 'bg-gray-600 cursor-not-allowed'
+                ? 'bg-orange-600 hover:bg-orange-700'
                 : 'bg-purple-600 hover:bg-purple-700',
             ]"
           >
-            ▶ Play
-          </button>
-          <button
-            @click="handlePause"
-            :disabled="playbackState !== 'playing'"
-            :class="[
-              'px-4 py-2 rounded',
-              playbackState !== 'playing'
-                ? 'bg-gray-600 cursor-not-allowed'
-                : 'bg-yellow-600 hover:bg-yellow-700',
-            ]"
-          >
-            ⏸ Pause
-          </button>
-          <button
-            @click="handleStop"
-            :disabled="playbackState === 'stopped'"
-            :class="[
-              'px-4 py-2 rounded',
-              playbackState === 'stopped'
-                ? 'bg-gray-600 cursor-not-allowed'
-                : 'bg-orange-600 hover:bg-orange-700',
-            ]"
-          >
-            ⏹ Stop
-          </button>
-          <button
-            @click="testAudio"
-            class="bg-pink-600 hover:bg-pink-700 px-4 py-2 rounded"
-          >
-            🔊 Test Audio
+            {{ playbackState === 'playing' ? '⏹ Stop' : '▶ Play' }}
           </button>
         </div>
 
@@ -374,23 +343,18 @@ function renderScore() {
   engine.value.renderScore()
 }
 
-async function handlePlay() {
+async function togglePlayback() {
   if (!engine.value) return
-  try {
-    await engine.value.play()
-  } catch (error) {
-    console.error('Playback error:', error)
+
+  if (playbackState.value === 'playing') {
+    engine.value.stop()
+  } else {
+    try {
+      await engine.value.play()
+    } catch (error) {
+      console.error('Playback error:', error)
+    }
   }
-}
-
-function handlePause() {
-  if (!engine.value) return
-  engine.value.pause()
-}
-
-function handleStop() {
-  if (!engine.value) return
-  engine.value.stop()
 }
 
 function handleCanvasClick(event: MouseEvent) {
@@ -448,20 +412,6 @@ function handleCanvasMouseLeave() {
   renderScore()
 }
 
-async function testAudio() {
-  // Import Tone directly for the test
-  const Tone = await import('tone')
-  await Tone.start()
-
-  const synth = new Tone.Synth().toDestination()
-  const now = Tone.now()
-
-  // Play C major scale from C4 to G4
-  const notes = ['C4', 'D4', 'E4', 'F4', 'G4']
-  notes.forEach((note, i) => {
-    synth.triggerAttackRelease(note, '8n', now + i * 0.3)
-  })
-}
 </script>
 
 <style>
