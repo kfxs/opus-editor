@@ -492,13 +492,17 @@ export class VexFlowRenderer {
 
         // Apply blue color to note shapes (paths, ellipses, circles)
         if (tagName === 'path' || tagName === 'ellipse' || tagName === 'circle') {
-          // Use style attribute to override VexFlow's inline styles
           element.setAttribute('fill', '#3B82F6')
           element.setAttribute('stroke', '#2563EB')
           element.setAttribute('opacity', '0.7')
-          // Also set style attribute as backup
           const currentStyle = element.getAttribute('style') || ''
           element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; stroke: #2563EB !important; opacity: 0.7 !important;')
+        } else if (tagName === 'text') {
+          // Text glyphs: only fill, no stroke (stroke makes them appear larger)
+          element.setAttribute('fill', '#3B82F6')
+          element.setAttribute('opacity', '0.7')
+          const currentStyle = element.getAttribute('style') || ''
+          element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; opacity: 0.7 !important;')
 
           // If this note forms a second, shift the note head to the right
           if (needsDisplacement) {
