@@ -293,9 +293,8 @@ export class MusicEngine {
     const beatsInMeasure = measure.timeSignature.numerator
     const position = this.coordinateMapper.pixelToPosition(coords, beatsInMeasure)
 
-    // Validate measure exists
+    // Validate measure exists (cursor may be outside valid measure area)
     if (!this.scoreModel.getMeasure(position.measure)) {
-      console.warn('Position measure not found:', position.measure)
       this.renderScore()
       return false
     }
