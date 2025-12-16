@@ -3,6 +3,22 @@ import type { Score, Measure, Note as MusicNote, NoteDuration } from '@/types/mu
 import { midiToNoteName } from '@/utils/musicUtils'
 
 /**
+ * Bounds information for a rendered measure
+ */
+export interface MeasureBounds {
+  /** X position where the measure starts */
+  measureX: number
+  /** Y position of the measure */
+  measureY: number
+  /** Total width of the measure */
+  measureWidth: number
+  /** X position where notes can start (after clef/time sig) */
+  noteStartX: number
+  /** X position where notes must end */
+  noteEndX: number
+}
+
+/**
  * VexFlow wrapper service for rendering musical notation
  * This service abstracts VexFlow complexity and provides a clean API
  */
@@ -10,9 +26,25 @@ export class VexFlowRenderer {
   private renderer: Renderer | null = null
   private context: any = null
   private readonly svgContainer: HTMLElement
+  /** Stored bounds for each rendered measure (keyed by measure number) */
+  private measureBounds: Map<number, MeasureBounds> = new Map()
 
   constructor(containerElement: HTMLElement) {
     this.svgContainer = containerElement
+  }
+
+  /**
+   * Get the bounds for a specific measure (after rendering)
+   */
+  getMeasureBounds(measureNumber: number): MeasureBounds | undefined {
+    return this.measureBounds.get(measureNumber)
+  }
+
+  /**
+   * Get all measure bounds
+   */
+  getAllMeasureBounds(): Map<number, MeasureBounds> {
+    return this.measureBounds
   }
 
   /**
@@ -261,6 +293,15 @@ export class VexFlowRenderer {
     // Draw the stave
     stave.setContext(this.context).draw()
 
+    // Store the actual bounds from VexFlow (after clef/time sig are accounted for)
+    this.measureBounds.set(measure.number, {
+      measureX: x,
+      measureY: y,
+      measureWidth: width,
+      noteStartX: stave.getNoteStartX(),
+      noteEndX: stave.getNoteEndX(),
+    })
+
     // Create notes for this measure (measures always have notes - at minimum rests)
     if (measure.notes.length > 0) {
       // Sort notes by beat position before rendering
@@ -339,6 +380,16 @@ export class VexFlowRenderer {
 
       // Create a temporary invisible stave for rendering the ghost note
       const tempStave = new Stave(measureX, measureY, staveWidth)
+
+      // Add clef and time signature to match the actual stave layout
+      const isFirstInLine = positionInLine === 0
+      if (ghostNote.measure === 1 || isFirstInLine) {
+        tempStave.addClef('treble')
+      }
+      if (ghostNote.measure === 1) {
+        tempStave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
+      }
+
       tempStave.setContext(this.context!)
 
       // Convert our note to VexFlow format
@@ -605,6 +656,8 @@ export class VexFlowRenderer {
       }
       // console.log('SVG after clear - children count:', svg.childNodes.length)
     }
+    // Note: We do NOT clear measureBounds here because the layout stays the same
+    // and we need the bounds for coordinate mapping between renders
   }
 
   /**

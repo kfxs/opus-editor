@@ -271,6 +271,8 @@ export class MusicEngine {
    */
   renderScore(): void {
     this.renderer.renderScore(this.scoreModel.getScore())
+    // Update coordinate mapper with actual VexFlow bounds
+    this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
   }
 
   /**
@@ -308,6 +310,8 @@ export class MusicEngine {
         ...(accidental && { accidental }), // Only add accidental if provided
       }
     )
+    // Update coordinate mapper with actual VexFlow bounds
+    this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
   }
 
   /**

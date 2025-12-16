@@ -1,4 +1,5 @@
 import type { PixelCoordinates, Position, Note, Measure } from '@/types/music'
+import type { MeasureBounds } from './VexFlowRenderer'
 
 /**
  * Configuration for the coordinate mapping system
@@ -26,6 +27,8 @@ export interface CoordinateMapperConfig {
  */
 export class CoordinateMapper {
   private config: CoordinateMapperConfig
+  /** Actual measure bounds from VexFlow (after rendering) */
+  private measureBounds: Map<number, MeasureBounds> = new Map()
 
   constructor(config: Partial<CoordinateMapperConfig> = {}) {
     this.config = {
@@ -45,6 +48,16 @@ export class CoordinateMapper {
    */
   updateConfig(config: Partial<CoordinateMapperConfig>): void {
     this.config = { ...this.config, ...config }
+  }
+
+  /**
+   * Update measure bounds from VexFlow's actual rendered positions
+   * This should be called after each render
+   */
+  setMeasureBounds(bounds: Map<number, MeasureBounds>): void {
+    // Copy the map to avoid sharing reference with VexFlowRenderer
+    // (otherwise clear() in renderer would also clear our bounds)
+    this.measureBounds = new Map(bounds)
   }
 
   /**
@@ -69,17 +82,48 @@ export class CoordinateMapper {
   }
 
   /**
+   * Check if a measure is the first in its line (has clef)
+   */
+  private isFirstInLine(measureNumber: number): boolean {
+    const measureIndex = measureNumber - 1 // Convert to 0-indexed
+    const positionInLine = measureIndex % this.config.measuresPerLine
+    return positionInLine === 0
+  }
+
+  /**
+   * Get the left margin for a specific measure
+   * First measure of each line has clef, so needs more space
+   */
+  private getLeftMarginForMeasure(measureNumber: number): number {
+    if (this.isFirstInLine(measureNumber)) {
+      return this.config.measureLeftMargin // Full margin for clef
+    }
+    return 20 // Minimal margin for measures without clef
+  }
+
+  /**
    * Calculate pixel X coordinate for a beat position within a measure
+   * Uses actual VexFlow bounds if available, otherwise falls back to calculated values
    * @param beat - Beat position (0-indexed, fractional allowed)
    * @param measureNumber - Measure number (1-indexed)
    * @param beatsInMeasure - Total beats in the measure (e.g., 4 for 4/4)
    */
   beatToPixelX(beat: number, measureNumber: number, beatsInMeasure: number): number {
+    // Use actual VexFlow bounds if available
+    const bounds = this.measureBounds.get(measureNumber)
+    if (bounds) {
+      const usableWidth = bounds.noteEndX - bounds.noteStartX
+      const beatWidth = usableWidth / beatsInMeasure
+      return bounds.noteStartX + beat * beatWidth
+    }
+
+    // Fallback to calculated values
     const measurePos = this.getMeasurePosition(measureNumber)
-    const usableWidth = this.config.measureWidth - this.config.measureLeftMargin - 20 // 20px right margin
+    const leftMargin = this.getLeftMarginForMeasure(measureNumber)
+    const usableWidth = this.config.measureWidth - leftMargin - 20 // 20px right margin
     const beatWidth = usableWidth / beatsInMeasure
 
-    return measurePos.x + this.config.measureLeftMargin + beat * beatWidth
+    return measurePos.x + leftMargin + beat * beatWidth
   }
 
   /**
@@ -162,11 +206,27 @@ export class CoordinateMapper {
 
   /**
    * Convert pixel X coordinate to beat position within a measure
+   * Uses actual VexFlow bounds if available, otherwise falls back to calculated values
    */
   pixelXToBeat(x: number, measureNumber: number, beatsInMeasure: number): number {
+    // Use actual VexFlow bounds if available
+    const bounds = this.measureBounds.get(measureNumber)
+    if (bounds) {
+      const relativeX = x - bounds.noteStartX
+      const usableWidth = bounds.noteEndX - bounds.noteStartX
+
+      if (relativeX < 0) return 0
+      if (relativeX > usableWidth) return beatsInMeasure
+
+      const beat = (relativeX / usableWidth) * beatsInMeasure
+      return Math.round(beat * 4) / 4
+    }
+
+    // Fallback to calculated values
     const measurePos = this.getMeasurePosition(measureNumber)
-    const relativeX = x - measurePos.x - this.config.measureLeftMargin
-    const usableWidth = this.config.measureWidth - this.config.measureLeftMargin - 20
+    const leftMargin = this.getLeftMarginForMeasure(measureNumber)
+    const relativeX = x - measurePos.x - leftMargin
+    const usableWidth = this.config.measureWidth - leftMargin - 20
 
     if (relativeX < 0) return 0
     if (relativeX > usableWidth) return beatsInMeasure
