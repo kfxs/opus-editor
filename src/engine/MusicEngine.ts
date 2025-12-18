@@ -3,6 +3,7 @@ import { VexFlowRenderer } from './rendering/VexFlowRenderer'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
+import { durationToBeats } from '@/utils/musicUtils'
 import type { Score, Note, NoteParams, PixelCoordinates } from '@/types/music'
 
 /**
@@ -140,6 +141,8 @@ export class MusicEngine {
 
   /**
    * Add a note at pixel coordinates
+   * Uses "snap to rest" logic: the note is placed at the start of whichever rest
+   * covers the clicked beat position, making note entry more intuitive.
    */
   addNoteAtPosition(
     coords: PixelCoordinates,
@@ -159,12 +162,29 @@ export class MusicEngine {
       return null
     }
 
-    // Check if there are nearby notes to snap to (for easier chord creation)
+    // Get notes in the target measure
     const notesInMeasure = this.scoreModel.getNotesInMeasure(position.measure)
+
+    // First, check if there's a nearby note to snap to (for chord creation)
     const nearbyNote = this.findNearbyNote(coords, notesInMeasure, beatsInMeasure)
 
-    // If there's a nearby note, snap to its beat position (to form a chord)
-    const finalBeat = nearbyNote ? nearbyNote.beat : position.beat
+    let finalBeat: number
+
+    if (nearbyNote) {
+      // Snap to nearby note's beat position (to form a chord)
+      finalBeat = nearbyNote.beat
+    } else {
+      // Snap to rest: find the rest that covers the clicked beat position
+      const targetRest = this.findRestAtBeat(notesInMeasure, position.beat)
+      if (targetRest) {
+        // Snap to the rest's start position
+        finalBeat = targetRest.beat
+      } else {
+        // No rest at this position - there's already a note here
+        // Fall back to original beat (will likely be rejected by collision detection)
+        finalBeat = position.beat
+      }
+    }
 
     const noteParams: NoteParams = {
       pitch: position.pitch,
@@ -202,6 +222,23 @@ export class MusicEngine {
     }
 
     return this.addNote(noteParams)
+  }
+
+  /**
+   * Find a rest that covers the given beat position
+   * Returns the rest if found, null otherwise
+   */
+  private findRestAtBeat(notes: Note[], beat: number): Note | null {
+    for (const note of notes) {
+      if (note.isRest) {
+        const restEnd = note.beat + durationToBeats(note.duration)
+        // Check if the beat falls within this rest's time span
+        if (beat >= note.beat && beat < restEnd) {
+          return note
+        }
+      }
+    }
+    return null
   }
 
   /**
