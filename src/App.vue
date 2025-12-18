@@ -352,6 +352,11 @@ function handleCanvasMouseMove(event: MouseEvent) {
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
 
+  // DEBUG: Log mouse position including scroll offset
+  const scrollX = scoreCanvas.value.scrollLeft
+  const scrollY = scoreCanvas.value.scrollTop
+  console.log(`🖱️ Mouse Y: ${y.toFixed(0)}, X: ${x.toFixed(0)} | Scroll Y: ${scrollY}, X: ${scrollX} | Adjusted Y: ${(y + scrollY).toFixed(0)}, X: ${(x + scrollX).toFixed(0)}`)
+
   // Render score with ghost note preview using selected duration and accidental
   const ghostNoteRendered = engine.value.renderScoreWithPreview(
     { x, y },

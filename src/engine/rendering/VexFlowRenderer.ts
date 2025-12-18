@@ -558,10 +558,7 @@ export class VexFlowRenderer {
    * @returns true if ghost note was rendered, false if not (or no ghost note provided)
    */
   renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawY?: number }): boolean {
-    // Clear the canvas first to avoid accumulation
-    this.clear()
-
-    // Render the score with ghost note
+    // renderScore now clears first, so no need to clear here
     return this.renderScore(score, ghostNote)
   }
 
@@ -575,6 +572,9 @@ export class VexFlowRenderer {
     if (!this.context || !this.renderer) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
+
+    // Always clear before rendering to prevent accumulation
+    this.clear()
 
     // Calculate layout parameters first
     const numMeasures = score.measures.length
