@@ -172,7 +172,7 @@
         <!-- VexFlow Rendering Area -->
         <div
           ref="scoreCanvas"
-          class="bg-white rounded-lg p-4 min-h-[300px]"
+          class="bg-white rounded-lg p-4 min-h-[300px] overflow-auto"
           :class="showCursor ? 'cursor-crosshair' : 'cursor-none'"
           @click="handleCanvasClick"
           @mousemove="handleCanvasMouseMove"
