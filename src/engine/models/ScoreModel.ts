@@ -185,6 +185,8 @@ export class ScoreModel {
 
   /**
    * Replace rests with a new note and fill gaps with new rests
+   * Also handles chord formation: when adding a note at the same beat as existing notes,
+   * all notes at that beat will have their duration updated to match the new note
    */
   private replaceRestsWithNote(measure: Measure, note: Note): void {
     const noteDuration = this.durationToBeats(note.duration)
@@ -209,6 +211,11 @@ export class ScoreModel {
           remainingNotes.push(existing)
         }
       } else {
+        // For regular notes at the same beat (chord formation),
+        // update their duration to match the new note's duration
+        if (existing.beat === note.beat && existing.duration !== note.duration) {
+          existing.duration = note.duration
+        }
         remainingNotes.push(existing)
       }
     }
