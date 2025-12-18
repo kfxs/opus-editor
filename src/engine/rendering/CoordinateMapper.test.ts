@@ -59,9 +59,11 @@ describe('CoordinateMapper', () => {
   })
 
   describe('pitchToPixelY', () => {
-    it('should return center Y for middle C (MIDI 60)', () => {
+    it('should return correct Y for middle C (MIDI 60)', () => {
       const y = mapper.pitchToPixelY(60, 1)
-      expect(y).toBe(100) // startY + 60
+      // C4 (60) is at staff line 5.0
+      // y = startY + (staffLine * 10) + (headroom * 10) = 40 + 50 + 40 = 130
+      expect(y).toBe(130)
     })
 
     it('should return lower Y for higher pitch', () => {
@@ -88,8 +90,8 @@ describe('CoordinateMapper', () => {
       }
 
       const coords = mapper.noteToPixel(note, 4)
-      expect(coords.x).toBe(110)
-      expect(coords.y).toBe(100)
+      expect(coords.x).toBe(110) // startX + measureLeftMargin
+      expect(coords.y).toBe(130) // C4 at staff line 5.0
     })
 
     it('should handle notes in different measures', () => {
@@ -102,7 +104,9 @@ describe('CoordinateMapper', () => {
       }
 
       const coords = mapper.noteToPixel(note, 4)
-      expect(coords.x).toBe(610) // Second measure X position + leftMargin
+      // Measure 2 is not first in line, so leftMargin = 20
+      // x = startX + measureWidth + 20 = 10 + 500 + 20 = 530
+      expect(coords.x).toBe(530)
     })
   })
 
@@ -153,25 +157,29 @@ describe('CoordinateMapper', () => {
   })
 
   describe('pixelYToPitch', () => {
-    it('should convert center Y to middle C', () => {
-      const pitch = mapper.pixelYToPitch(100, 1)
+    it('should convert Y=130 to middle C (MIDI 60)', () => {
+      // y=130: staffLine = ((130 - 40) / 10) - 4 = 9 - 4 = 5.0 = C4 (60)
+      const pitch = mapper.pixelYToPitch(130, 1)
       expect(pitch).toBe(60)
     })
 
     it('should convert lower Y to higher pitch', () => {
-      const pitch = mapper.pixelYToPitch(80, 1)
-      expect(pitch).toBeGreaterThan(60)
+      const pitchLow = mapper.pixelYToPitch(130, 1)  // C4
+      const pitchHigh = mapper.pixelYToPitch(80, 1)  // Higher on staff
+      expect(pitchHigh).toBeGreaterThan(pitchLow)
     })
 
     it('should convert higher Y to lower pitch', () => {
-      const pitch = mapper.pixelYToPitch(120, 1)
-      expect(pitch).toBeLessThan(60)
+      const pitchHigh = mapper.pixelYToPitch(130, 1) // C4 (60)
+      const pitchLow = mapper.pixelYToPitch(140, 1)  // A3 (57) - lower on staff
+      expect(pitchLow).toBeLessThan(pitchHigh)
     })
   })
 
   describe('pixelToPosition', () => {
     it('should convert pixel coordinates to complete position', () => {
-      const position = mapper.pixelToPosition({ x: 110, y: 100 }, 4)
+      // Use y=130 for middle C (pitch 60)
+      const position = mapper.pixelToPosition({ x: 110, y: 130 }, 4)
 
       expect(position.measure).toBe(1)
       expect(position.beat).toBe(0)

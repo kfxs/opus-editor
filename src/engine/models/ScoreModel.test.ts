@@ -136,7 +136,8 @@ describe('ScoreModel', () => {
       model.addNote({ ...noteParams, beat: 1 })
 
       const notes = model.getNotesInMeasure(1)
-      expect(notes).toHaveLength(2)
+      const actualNotes = notes.filter(n => !n.isRest)
+      expect(actualNotes).toHaveLength(2)
     })
 
     it('should update a note', () => {
@@ -153,8 +154,10 @@ describe('ScoreModel', () => {
       const note = model.addNote(noteParams)
       model.updateNote(note.id, { measure: 2 })
 
-      expect(model.getNotesInMeasure(1)).toHaveLength(0)
-      expect(model.getNotesInMeasure(2)).toHaveLength(1)
+      const measure1Notes = model.getNotesInMeasure(1).filter(n => !n.isRest)
+      const measure2Notes = model.getNotesInMeasure(2).filter(n => !n.isRest)
+      expect(measure1Notes).toHaveLength(0)
+      expect(measure2Notes).toHaveLength(1)
       expect(model.getNote(note.id)?.measure).toBe(2)
     })
 
@@ -171,7 +174,8 @@ describe('ScoreModel', () => {
 
       expect(deleted).toBe(true)
       expect(model.getNote(note.id)).toBeUndefined()
-      expect(model.getNotesInMeasure(1)).toHaveLength(0)
+      const remainingNotes = model.getNotesInMeasure(1).filter(n => !n.isRest)
+      expect(remainingNotes).toHaveLength(0)
     })
 
     it('should return false when deleting non-existent note', () => {
@@ -184,7 +188,8 @@ describe('ScoreModel', () => {
       model.addNote({ ...noteParams, measure: 2 })
 
       const allNotes = model.getAllNotes()
-      expect(allNotes).toHaveLength(2)
+      const actualNotes = allNotes.filter(n => !n.isRest)
+      expect(actualNotes).toHaveLength(2)
     })
 
     it('should clear all notes', () => {
@@ -192,7 +197,8 @@ describe('ScoreModel', () => {
       model.addNote({ ...noteParams, beat: 1 })
       model.clearAllNotes()
 
-      expect(model.getAllNotes()).toHaveLength(0)
+      const remainingNotes = model.getAllNotes().filter(n => !n.isRest)
+      expect(remainingNotes).toHaveLength(0)
     })
   })
 
@@ -213,7 +219,8 @@ describe('ScoreModel', () => {
       const loaded = ScoreModel.fromJSON(json)
       expect(loaded.getScore().title).toBe('Test Score')
       expect(loaded.getScore().tempo).toBe(120)
-      expect(loaded.getAllNotes()).toHaveLength(1)
+      const actualNotes = loaded.getAllNotes().filter(n => !n.isRest)
+      expect(actualNotes).toHaveLength(1)
     })
   })
 })
