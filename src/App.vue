@@ -169,10 +169,10 @@
           </div>
         </div>
 
-        <!-- VexFlow Rendering Area -->
+        <!-- VexFlow Rendering Area (Score Container/Canvas) -->
         <div
           ref="scoreCanvas"
-          class="bg-white rounded-lg p-4 min-h-[300px] overflow-auto"
+          class="score-container bg-white rounded-lg p-4 min-h-[300px] overflow-auto"
           :class="showCursor ? 'cursor-crosshair' : 'cursor-none'"
           @click="handleCanvasClick"
           @mousemove="handleCanvasMouseMove"
@@ -388,5 +388,36 @@ function handleCanvasMouseLeave() {
 .ghost-note-preview line {
   stroke: #2563EB !important;
   opacity: 0.7 !important;
+}
+
+/* Score container with rounded corners that work with scrollbars */
+.score-container {
+  /* Ensure scrollbar doesn't break rounded corners */
+  scrollbar-gutter: stable;
+}
+
+/* Custom scrollbar styling to respect rounded corners */
+.score-container::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.score-container::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 0 8px 8px 0;
+}
+
+.score-container::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 6px;
+}
+
+.score-container::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+.score-container::-webkit-scrollbar-corner {
+  background: #e2e8f0;
+  border-radius: 0 0 8px 0;
 }
 </style>
