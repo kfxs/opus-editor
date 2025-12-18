@@ -2,6 +2,18 @@ import type { Score, Measure, Note, NoteParams, TimeSignature } from '@/types/mu
 import { v4 as uuidv4 } from 'uuid'
 
 /**
+ * A whole note equals 4 quarter notes.
+ * This constant is used to convert time signature denominators to our internal beat system
+ * where quarter note = 1 beat.
+ *
+ * Examples:
+ * - 4/4: beatUnit = 4/4 = 1 (quarter note = 1 beat), totalBeats = 4 * 1 = 4
+ * - 7/8: beatUnit = 4/8 = 0.5 (eighth note = 0.5 beats), totalBeats = 7 * 0.5 = 3.5
+ * - 3/16: beatUnit = 4/16 = 0.25 (sixteenth = 0.25 beats), totalBeats = 3 * 0.25 = 0.75
+ */
+const WHOLE_NOTE_IN_QUARTERS = 4
+
+/**
  * ScoreModel manages the musical score data and provides CRUD operations
  * This is the core data model for Developer A's music engine
  */
@@ -67,14 +79,31 @@ export class ScoreModel {
   }
 
   /**
+   * Calculate total beats in a measure based on its time signature
+   * Converts to our internal system where quarter note = 1 beat
+   */
+  private getMeasureTotalBeats(timeSignature: TimeSignature): number {
+    const beatUnit = WHOLE_NOTE_IN_QUARTERS / timeSignature.denominator
+    return timeSignature.numerator * beatUnit
+  }
+
+  /**
+   * Get the beat unit (duration of one "count") for a time signature
+   * In 4/4: 1 (quarter note), in 7/8: 0.5 (eighth note), etc.
+   */
+  private getBeatUnit(timeSignature: TimeSignature): number {
+    return WHOLE_NOTE_IN_QUARTERS / timeSignature.denominator
+  }
+
+  /**
    * Fill a measure with rests to complete its time signature
    * For 4/4 time, this creates a whole rest (4 beats)
    */
   private fillMeasureWithRests(measure: Measure): void {
-    const totalBeats = measure.timeSignature.numerator
+    const totalBeats = this.getMeasureTotalBeats(measure.timeSignature)
 
     // For 4/4 time, use a single whole rest
-    if (totalBeats === 4) {
+    if (totalBeats === 4 && measure.timeSignature.denominator === 4) {
       const rest: Note = {
         id: uuidv4(),
         pitch: 0, // Pitch doesn't matter for rests
@@ -85,43 +114,17 @@ export class ScoreModel {
       }
       measure.notes.push(rest)
     } else {
-      // For other time signatures, fill with appropriate rests
-      let currentBeat = 0
-      while (currentBeat < totalBeats) {
-        const remainingBeats = totalBeats - currentBeat
-        let duration: Note['duration']
-        let beatDuration: number
-
-        if (remainingBeats >= 4) {
-          duration = 'w'
-          beatDuration = 4
-        } else if (remainingBeats >= 2) {
-          duration = 'h'
-          beatDuration = 2
-        } else if (remainingBeats >= 1) {
-          duration = 'q'
-          beatDuration = 1
-        } else if (remainingBeats >= 0.5) {
-          duration = '8'
-          beatDuration = 0.5
-        } else if (remainingBeats >= 0.25) {
-          duration = '16'
-          beatDuration = 0.25
-        } else {
-          duration = '32'
-          beatDuration = 0.125
-        }
-
-        const rest: Note = {
+      // For other time signatures, fill with musically appropriate rests
+      const rests = this.createMusicalRests(0, totalBeats, measure.timeSignature)
+      for (const rest of rests) {
+        measure.notes.push({
           id: uuidv4(),
           pitch: 0,
-          duration,
+          duration: rest.duration,
           measure: measure.number,
-          beat: currentBeat,
+          beat: rest.beat,
           isRest: true,
-        }
-        measure.notes.push(rest)
-        currentBeat += beatDuration
+        })
       }
     }
   }
@@ -235,9 +238,11 @@ export class ScoreModel {
 
   /**
    * Fill gaps in a measure with rests
+   * Uses musical rest placement: fills to beat boundaries first with small rests,
+   * then uses larger rests for full beats.
    */
   private fillGapsWithRests(measure: Measure): void {
-    const totalBeats = measure.timeSignature.numerator
+    const totalBeats = this.getMeasureTotalBeats(measure.timeSignature)
 
     // Sort notes by beat
     const sortedNotes = [...measure.notes].sort((a, b) => a.beat - b.beat)
@@ -260,48 +265,102 @@ export class ScoreModel {
       gaps.push({ start: currentBeat, end: totalBeats })
     }
 
-    // Fill each gap with rests
+    // Fill each gap with musically appropriate rests
     for (const gap of gaps) {
-      let currentPos = gap.start
-      const gapSize = gap.end - gap.start
-
-      while (currentPos < gap.end) {
-        const remaining = gap.end - currentPos
-        let duration: Note['duration']
-        let beatDuration: number
-
-        if (remaining >= 4) {
-          duration = 'w'
-          beatDuration = 4
-        } else if (remaining >= 2) {
-          duration = 'h'
-          beatDuration = 2
-        } else if (remaining >= 1) {
-          duration = 'q'
-          beatDuration = 1
-        } else if (remaining >= 0.5) {
-          duration = '8'
-          beatDuration = 0.5
-        } else if (remaining >= 0.25) {
-          duration = '16'
-          beatDuration = 0.25
-        } else {
-          duration = '32'
-          beatDuration = 0.125
-        }
-
-        const rest: Note = {
+      const rests = this.createMusicalRests(gap.start, gap.end, measure.timeSignature)
+      for (const rest of rests) {
+        measure.notes.push({
           id: uuidv4(),
           pitch: 0,
-          duration,
+          duration: rest.duration,
           measure: measure.number,
-          beat: currentPos,
+          beat: rest.beat,
           isRest: true,
-        }
-        measure.notes.push(rest)
-        currentPos += beatDuration
+        })
       }
     }
+  }
+
+  /**
+   * Create musically appropriate rests for a gap
+   * Rules:
+   * 1. If not on a beat boundary, use small rests to reach the next beat
+   * 2. Once on a beat boundary, use the largest rest that fits
+   * @param timeSignature - Used to determine beat boundaries for the time signature
+   */
+  private createMusicalRests(
+    start: number,
+    end: number,
+    timeSignature: TimeSignature
+  ): Array<{ beat: number; duration: Note['duration'] }> {
+    const rests: Array<{ beat: number; duration: Note['duration'] }> = []
+    let current = start
+    const epsilon = 0.001
+
+    // Beat unit determines what counts as a "beat boundary"
+    // In 4/4: 1 (quarter), in 7/8: 0.5 (eighth), in 3/16: 0.25 (sixteenth)
+    const beatUnit = this.getBeatUnit(timeSignature)
+
+    while (current < end - epsilon) {
+      const remaining = end - current
+      // Check if we're on a beat boundary for this time signature
+      const beatFraction = current % beatUnit
+      const isOnBeat = beatFraction < epsilon || beatFraction > beatUnit - epsilon
+
+      if (!isOnBeat) {
+        // Not on a beat boundary - use small rests to reach next beat
+        const toNextBeat = beatUnit - beatFraction
+
+        // Use smallest rests that fit to reach the beat boundary
+        if (toNextBeat >= 0.5 - epsilon && remaining >= 0.5 - epsilon) {
+          rests.push({ beat: current, duration: '8' })
+          current += 0.5
+        } else if (toNextBeat >= 0.25 - epsilon && remaining >= 0.25 - epsilon) {
+          rests.push({ beat: current, duration: '16' })
+          current += 0.25
+        } else if (toNextBeat >= 0.125 - epsilon && remaining >= 0.125 - epsilon) {
+          rests.push({ beat: current, duration: '32' })
+          current += 0.125
+        } else {
+          break
+        }
+      } else {
+        // On a beat boundary - use largest appropriate rest that ends on a beat boundary
+        if (remaining >= 4 - epsilon && Math.abs(current % 4) < epsilon) {
+          rests.push({ beat: current, duration: 'w' })
+          current += 4
+        } else if (remaining >= 2 - epsilon && Math.abs(current % 2) < epsilon) {
+          rests.push({ beat: current, duration: 'h' })
+          current += 2
+        } else if (remaining >= 1 - epsilon && beatUnit <= 1) {
+          rests.push({ beat: current, duration: 'q' })
+          current += 1
+        } else if (remaining >= 0.5 - epsilon && beatUnit <= 0.5) {
+          rests.push({ beat: current, duration: '8' })
+          current += 0.5
+        } else if (remaining >= 0.25 - epsilon && beatUnit <= 0.25) {
+          rests.push({ beat: current, duration: '16' })
+          current += 0.25
+        } else if (remaining >= 0.125 - epsilon) {
+          rests.push({ beat: current, duration: '32' })
+          current += 0.125
+        } else if (remaining >= 1 - epsilon) {
+          // Fallback for larger beat units
+          rests.push({ beat: current, duration: 'q' })
+          current += 1
+        } else if (remaining >= 0.5 - epsilon) {
+          rests.push({ beat: current, duration: '8' })
+          current += 0.5
+        } else if (remaining >= 0.25 - epsilon) {
+          rests.push({ beat: current, duration: '16' })
+          current += 0.25
+        } else {
+          break
+        }
+      }
+    }
+
+    return rests
   }
 
   /**
