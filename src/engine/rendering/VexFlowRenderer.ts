@@ -1,6 +1,17 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, TickContext } from 'vexflow'
-import type { Score, Measure, Note as MusicNote, NoteDuration } from '@/types/music'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, TickContext, Stem } from 'vexflow'
+import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
+
+/**
+ * Clef configuration for stem direction calculation
+ * middleLinePitch: MIDI pitch of the middle line (B4=71 for treble, D3=50 for bass, etc.)
+ */
+const CLEF_CONFIG: Record<Clef, { middleLinePitch: number }> = {
+  treble: { middleLinePitch: 71 },  // B4
+  bass: { middleLinePitch: 50 },    // D3
+  alto: { middleLinePitch: 60 },    // C4 (middle C)
+  tenor: { middleLinePitch: 57 },   // A3
+}
 
 /**
  * Bounds information for a rendered measure
@@ -97,15 +108,94 @@ export class VexFlowRenderer {
   }
 
   /**
+   * Get the staff position pitch for stem direction calculation
+   * Adjusts for accidentals since they don't affect visual staff position
+   * @param pitch - MIDI pitch
+   * @param accidental - Optional accidental
+   * @returns The pitch representing the visual staff position
+   */
+  private getStaffPositionPitch(pitch: number, accidental?: AccidentalType): number {
+    switch (accidental) {
+      case '#': return pitch - 1   // Sharp: visual position is one semitone lower
+      case 'b': return pitch + 1   // Flat: visual position is one semitone higher
+      // Future: case 'x': return pitch - 2  // Double sharp
+      // Future: case 'bb': return pitch + 2 // Double flat
+      default: return pitch
+    }
+  }
+
+  /**
+   * Calculate stem direction for a single note
+   * @param pitch - MIDI pitch
+   * @param accidental - Optional accidental
+   * @param clef - Clef type (default: 'treble')
+   * @returns VexFlow stem direction value (Stem.UP = 1, Stem.DOWN = -1)
+   */
+  private calculateStemDirection(
+    pitch: number,
+    accidental?: AccidentalType,
+    clef: Clef = 'treble'
+  ): number {
+    const staffPitch = this.getStaffPositionPitch(pitch, accidental)
+    const middlePitch = CLEF_CONFIG[clef].middleLinePitch
+    // Notes on or above middle line: stem down
+    // Notes below middle line: stem up
+    // Using numeric values directly: 1 = UP, -1 = DOWN
+    const direction = staffPitch >= middlePitch ? -1 : 1
+    console.log(`🎵 Stem: pitch=${pitch}, staffPitch=${staffPitch}, middle=${middlePitch}, direction=${direction}, Stem.UP=${Stem.UP}, Stem.DOWN=${Stem.DOWN}`)
+    return direction
+  }
+
+  /**
+   * Calculate stem direction for a chord (multiple notes at same beat)
+   * Uses the note furthest from the middle line to determine direction
+   * @param notes - Array of notes in the chord
+   * @param clef - Clef type (default: 'treble')
+   * @returns VexFlow stem direction value
+   */
+  private calculateChordStemDirection(notes: MusicNote[], clef: Clef = 'treble'): number {
+    // Using numeric values directly: 1 = UP, -1 = DOWN
+    if (notes.length === 0) return 1
+    if (notes.length === 1) {
+      return this.calculateStemDirection(notes[0].pitch, notes[0].accidental, clef)
+    }
+
+    const middlePitch = CLEF_CONFIG[clef].middleLinePitch
+
+    // Find the note furthest from the middle line
+    let maxDistance = 0
+    let stemDirection = 1 // UP
+
+    for (const note of notes) {
+      const staffPitch = this.getStaffPositionPitch(note.pitch, note.accidental)
+      const distance = Math.abs(staffPitch - middlePitch)
+
+      if (distance > maxDistance) {
+        maxDistance = distance
+        // Direction based on this furthest note
+        stemDirection = staffPitch >= middlePitch ? -1 : 1 // -1 = DOWN, 1 = UP
+      }
+    }
+
+    return stemDirection
+  }
+
+  /**
    * Create a VexFlow StaveNote from our Note type
    * Can handle single notes or chords (multiple pitches)
+   * @param note - The main note
+   * @param chordNotes - All notes in the chord (for stem direction calculation)
+   * @param clef - Clef type for stem direction calculation
    */
-  private createStaveNote(note: MusicNote, additionalPitches?: number[]): StaveNote {
+  private createStaveNote(
+    note: MusicNote,
+    chordNotes: MusicNote[] = [note],
+    clef: Clef = 'treble'
+  ): StaveNote {
     const vexDuration = this.convertDuration(note.duration)
 
-    // Handle rests differently
+    // Handle rests differently - rests don't have stem direction
     if (note.isRest) {
-      // Create a rest (add 'r' suffix to duration)
       const staveNote = new StaveNote({
         keys: ['b/4'], // Rests use a placeholder key
         duration: vexDuration + 'r', // Add 'r' for rest
@@ -114,8 +204,8 @@ export class VexFlowRenderer {
     }
 
     // Regular note or chord
-    // Collect all pitches (main note + additional chord notes)
-    const allPitches = [note.pitch, ...(additionalPitches || [])]
+    // Collect all pitches from chord notes
+    const allPitches = chordNotes.map(n => n.pitch)
 
     // Sort pitches from lowest to highest (VexFlow requires this for chords)
     allPitches.sort((a, b) => a - b)
@@ -123,24 +213,51 @@ export class VexFlowRenderer {
     // Convert to VexFlow note names
     const keys = allPitches.map(pitch => this.midiToVexFlowNote(pitch))
 
+    // Calculate stem direction
+    // Check if any note has a manual stem direction override
+    // Using numeric values directly: 1 = UP, -1 = DOWN
+    const manualDirection = chordNotes.find(n => n.stemDirection && n.stemDirection !== 'auto')
+    let stemDirection: number
+
+    if (manualDirection?.stemDirection === 'up') {
+      stemDirection = 1 // UP
+    } else if (manualDirection?.stemDirection === 'down') {
+      stemDirection = -1 // DOWN
+    } else {
+      // Auto-calculate based on pitch and clef
+      stemDirection = this.calculateChordStemDirection(chordNotes, clef)
+    }
+
     const staveNote = new StaveNote({
       keys: keys,
       duration: vexDuration,
-      auto_stem: true, // Enable automatic stem direction
+      auto_stem: false,
     })
+
+    // Explicitly set stem direction AFTER creation
+    // VexFlow sometimes ignores the constructor option
+    staveNote.setStemDirection(stemDirection)
+
+    console.log(`🎹 StaveNote created: keys=${keys.join(',')}, stemDirection=${stemDirection}, getStemDirection=${staveNote.getStemDirection()}`)
 
     // VexFlow automatically handles note displacement for seconds (adjacent notes)
     // The lower note in a second interval will be shifted to the right side of the stem
 
-    // Add accidentals if specified
-    if (note.accidental) {
-      const accidentalMap: Record<string, string> = {
-        '#': '#',
-        b: 'b',
-        n: 'n',
+    // Add accidentals for each note in the chord
+    chordNotes.forEach((chordNote, index) => {
+      if (chordNote.accidental) {
+        const accidentalMap: Record<string, string> = {
+          '#': '#',
+          b: 'b',
+          n: 'n',
+        }
+        // Find the index in the sorted keys array
+        const sortedIndex = allPitches.indexOf(chordNote.pitch)
+        if (sortedIndex !== -1) {
+          staveNote.addModifier(new Accidental(accidentalMap[chordNote.accidental]), sortedIndex)
+        }
       }
-      staveNote.addModifier(new Accidental(accidentalMap[note.accidental]), 0)
-    }
+    })
 
     return staveNote
   }
@@ -168,8 +285,10 @@ export class VexFlowRenderer {
 
   /**
    * Create StaveNotes from note groups (handles both single notes and chords)
+   * @param noteGroups - Groups of notes at same beat positions
+   * @param clef - Clef type for stem direction calculation
    */
-  private createStaveNotesFromGroups(noteGroups: MusicNote[][]): StaveNote[] {
+  private createStaveNotesFromGroups(noteGroups: MusicNote[][], clef: Clef = 'treble'): StaveNote[] {
     const staveNotes: StaveNote[] = []
 
     for (const group of noteGroups) {
@@ -179,15 +298,14 @@ export class VexFlowRenderer {
 
       // Add rests (rests cannot form chords)
       for (const rest of rests) {
-        staveNotes.push(this.createStaveNote(rest))
+        staveNotes.push(this.createStaveNote(rest, [rest], clef))
       }
 
       // Add regular notes (as single note or chord)
       if (regularNotes.length > 0) {
-        // Use the first note as the base, pass other pitches for chord
+        // Use the first note as the base, pass all chord notes for stem calculation
         const baseNote = regularNotes[0]
-        const additionalPitches = regularNotes.slice(1).map(n => n.pitch)
-        staveNotes.push(this.createStaveNote(baseNote, additionalPitches))
+        staveNotes.push(this.createStaveNote(baseNote, regularNotes, clef))
       }
     }
 
@@ -265,13 +383,15 @@ export class VexFlowRenderer {
    * @param y - Y position on canvas
    * @param width - Width of the measure
    * @param isFirstInLine - Whether this is the first measure in a line
+   * @param clef - Clef type for rendering and stem direction
    */
   renderMeasure(
     measure: Measure,
     x: number,
     y: number,
     width: number,
-    isFirstInLine: boolean = false
+    isFirstInLine: boolean = false,
+    clef: Clef = 'treble'
   ): void {
     if (!this.context) {
       throw new Error('Renderer not initialized. Call initialize() first.')
@@ -282,7 +402,7 @@ export class VexFlowRenderer {
 
     // Add clef for first measure or first measure of each line
     if (measure.number === 1 || isFirstInLine) {
-      stave.addClef('treble')
+      stave.addClef(clef)
     }
 
     // Add time signature only for the very first measure
@@ -314,7 +434,7 @@ export class VexFlowRenderer {
 
       // Group notes by beat position to handle chords
       const noteGroups = this.groupNotesByBeat(sortedNotes)
-      const staveNotes = this.createStaveNotesFromGroups(noteGroups)
+      const staveNotes = this.createStaveNotesFromGroups(noteGroups, clef)
 
       // Calculate how many beats are used (using sorted notes)
       const usedBeats = this.calculateUsedBeats(sortedNotes)
@@ -379,13 +499,16 @@ export class VexFlowRenderer {
       const measureX = margin + positionInLine * staveWidth
       const measureY = margin + line * (staveHeight + verticalSpacing)
 
+      // Get clef from score
+      const clef: Clef = score.clef || 'treble'
+
       // Create a temporary invisible stave for rendering the ghost note
       const tempStave = new Stave(measureX, measureY, staveWidth)
 
       // Add clef and time signature to match the actual stave layout
       const isFirstInLine = positionInLine === 0
       if (ghostNote.measure === 1 || isFirstInLine) {
-        tempStave.addClef('treble')
+        tempStave.addClef(clef)
       }
       if (ghostNote.measure === 1) {
         tempStave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
@@ -409,11 +532,29 @@ export class VexFlowRenderer {
         return interval === 1 || interval === 2
       })
 
+      // Calculate stem direction for ghost note
+      // If there are notes at same beat, consider them for chord stem direction
+      const ghostMusicNote: MusicNote = {
+        id: 'ghost',
+        pitch: ghostNote.pitch,
+        duration: ghostNote.duration as NoteDuration,
+        measure: ghostNote.measure,
+        beat: ghostNote.beat,
+      }
+      const chordNotes = notesAtSameBeat.length > 0
+        ? [...notesAtSameBeat, ghostMusicNote]
+        : [ghostMusicNote]
+      const stemDirection = this.calculateChordStemDirection(chordNotes, clef)
+
       // Create the StaveNote
       const staveNote = new StaveNote({
         keys: [vexNote],
         duration: vexDuration,
+        auto_stem: false,
       })
+
+      // Explicitly set stem direction AFTER creation
+      staveNote.setStemDirection(stemDirection)
 
       // Store whether this forms a second for later displacement
       const needsDisplacement = formsSecond
@@ -625,6 +766,9 @@ export class VexFlowRenderer {
 
     // console.log(`Rendering ${numMeasures} measures, ${measuresPerLine} per line`)
 
+    // Get clef from score (default to treble)
+    const clef: Clef = score.clef || 'treble'
+
     // Render each measure
     score.measures.forEach((measure, index) => {
       const line = Math.floor(index / measuresPerLine)
@@ -636,7 +780,7 @@ export class VexFlowRenderer {
       const y = margin + line * (staveHeight + verticalSpacing)
 
       // console.log(`Rendering measure ${measure.number} at (${x}, ${y})`)
-      this.renderMeasure(measure, x, y, staveWidth, isFirstInLine)
+      this.renderMeasure(measure, x, y, staveWidth, isFirstInLine, clef)
     })
 
     // Render ghost note AFTER all measures (as an overlay)

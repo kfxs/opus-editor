@@ -13,6 +13,19 @@ export type NoteDuration = 'w' | 'h' | 'q' | '8' | '16' | '32'
 export type Accidental = '#' | 'b' | 'n'
 
 /**
+ * Clef types
+ */
+export type Clef = 'treble' | 'bass' | 'alto' | 'tenor'
+
+/**
+ * Stem direction for notes
+ * - 'auto': Calculate based on pitch and clef (default)
+ * - 'up': Force stem up
+ * - 'down': Force stem down
+ */
+export type StemDirection = 'auto' | 'up' | 'down'
+
+/**
  * Represents a single musical note
  */
 export interface Note {
@@ -30,6 +43,8 @@ export interface Note {
   accidental?: Accidental
   /** Whether this note is a rest */
   isRest?: boolean
+  /** Stem direction override (default: 'auto' - calculated from pitch and clef) */
+  stemDirection?: StemDirection
 }
 
 /**
@@ -86,6 +101,8 @@ export interface Score {
   keySignature: KeySignature
   /** Default time signature */
   defaultTimeSignature: TimeSignature
+  /** Clef for the score (default: 'treble') */
+  clef?: Clef
 }
 
 /**
