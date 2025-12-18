@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Beam } from 'vexflow'
 import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
 
@@ -374,6 +374,95 @@ export class VexFlowRenderer {
   }
 
   /**
+   * Check if a duration is beamable (8th note or shorter)
+   */
+  private isBeamableDuration(duration: NoteDuration): boolean {
+    return duration === '8' || duration === '16' || duration === '32'
+  }
+
+  /**
+   * Get the beat boundary for grouping beams
+   * In 4/4, we typically beam per beat (quarter note)
+   * This returns which beat group a note belongs to
+   */
+  private getBeatGroup(beat: number, beatsPerMeasure: number): number {
+    // For now, group by integer beat (beam within each beat)
+    // This can be enhanced later for different time signatures
+    // e.g., in 6/8, beam in groups of 3 eighth notes
+    return Math.floor(beat)
+  }
+
+  /**
+   * Create beam groups from stave notes and their corresponding music notes
+   * Returns arrays of StaveNotes that should be beamed together
+   *
+   * @param staveNotes - The VexFlow StaveNote objects
+   * @param noteGroups - The original note groups (for duration/beat info)
+   * @param beatsPerMeasure - Number of beats in the measure
+   * @returns Array of StaveNote arrays, each array is a beam group
+   */
+  private createBeamGroups(
+    staveNotes: StaveNote[],
+    noteGroups: MusicNote[][],
+    beatsPerMeasure: number
+  ): StaveNote[][] {
+    const beamGroups: StaveNote[][] = []
+    let currentGroup: StaveNote[] = []
+    let currentBeatGroup: number | null = null
+
+    for (let i = 0; i < staveNotes.length && i < noteGroups.length; i++) {
+      const staveNote = staveNotes[i]
+      const noteGroup = noteGroups[i]
+      const firstNote = noteGroup[0]
+
+      // Skip rests - they break beams
+      if (firstNote.isRest) {
+        // Save current group if it has 2+ notes
+        if (currentGroup.length >= 2) {
+          beamGroups.push(currentGroup)
+        }
+        currentGroup = []
+        currentBeatGroup = null
+        continue
+      }
+
+      // Check if this note is beamable
+      if (!this.isBeamableDuration(firstNote.duration)) {
+        // Non-beamable note breaks the beam
+        if (currentGroup.length >= 2) {
+          beamGroups.push(currentGroup)
+        }
+        currentGroup = []
+        currentBeatGroup = null
+        continue
+      }
+
+      // This note is beamable - check beat boundary
+      const beatGroup = this.getBeatGroup(firstNote.beat, beatsPerMeasure)
+
+      if (currentBeatGroup === null || beatGroup === currentBeatGroup) {
+        // Same beat group or starting new group
+        currentGroup.push(staveNote)
+        currentBeatGroup = beatGroup
+      } else {
+        // Different beat group - save current and start new
+        if (currentGroup.length >= 2) {
+          beamGroups.push(currentGroup)
+        }
+        currentGroup = [staveNote]
+        currentBeatGroup = beatGroup
+      }
+    }
+
+    // Don't forget the last group
+    if (currentGroup.length >= 2) {
+      beamGroups.push(currentGroup)
+    }
+
+    return beamGroups
+  }
+
+  /**
    * Render a single measure
    * @param measure - Measure to render
    * @param x - X position on canvas
@@ -445,9 +534,32 @@ export class VexFlowRenderer {
       try {
         voice.addTickables(staveNotes)
 
+        // Create beams BEFORE drawing (so VexFlow hides the flags)
+        const beamGroups = this.createBeamGroups(
+          staveNotes,
+          noteGroups,
+          measure.timeSignature.numerator
+        )
+
+        const beams: Beam[] = []
+        for (const beamGroup of beamGroups) {
+          try {
+            const beam = new Beam(beamGroup)
+            beams.push(beam)
+          } catch (beamError) {
+            // Silently skip beam errors (e.g., if notes can't be beamed)
+            console.warn(`Could not create beam: ${beamError}`)
+          }
+        }
+
         // Format and render the voice
         new Formatter().joinVoices([voice]).format([voice], width - 100)
         voice.draw(this.context, stave)
+
+        // Draw beams AFTER the voice
+        for (const beam of beams) {
+          beam.setContext(this.context).draw()
+        }
       } catch (error) {
         console.error(`  ❌ Could not render measure ${measure.number}: ${error}`)
         console.error(`  - Measure data:`, JSON.stringify(measure, null, 2))
