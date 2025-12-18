@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, TickContext, Stem } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental } from 'vexflow'
 import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
 
@@ -142,7 +142,6 @@ export class VexFlowRenderer {
     // Notes below middle line: stem up
     // Using numeric values directly: 1 = UP, -1 = DOWN
     const direction = staffPitch >= middlePitch ? -1 : 1
-    console.log(`🎵 Stem: pitch=${pitch}, staffPitch=${staffPitch}, middle=${middlePitch}, direction=${direction}, Stem.UP=${Stem.UP}, Stem.DOWN=${Stem.DOWN}`)
     return direction
   }
 
@@ -237,8 +236,6 @@ export class VexFlowRenderer {
     // Explicitly set stem direction AFTER creation
     // VexFlow sometimes ignores the constructor option
     staveNote.setStemDirection(stemDirection)
-
-    console.log(`🎹 StaveNote created: keys=${keys.join(',')}, stemDirection=${stemDirection}, getStemDirection=${staveNote.getStemDirection()}`)
 
     // VexFlow automatically handles note displacement for seconds (adjacent notes)
     // The lower note in a second interval will be shifted to the right side of the stem
@@ -427,11 +424,6 @@ export class VexFlowRenderer {
       // Sort notes by beat position before rendering
       const sortedNotes = [...measure.notes].sort((a, b) => a.beat - b.beat)
 
-      // DEBUG: Log measure data before processing (disabled for performance)
-      // console.log(`📊 MEASURE ${measure.number} DATA:`)
-      // console.log(`  - Notes count: ${measure.notes.length}`)
-      // console.log(`  - Notes:`, sortedNotes.map(n => `${n.isRest ? 'REST-' : ''}${n.duration} at beat ${n.beat}`))
-
       // Group notes by beat position to handle chords
       const noteGroups = this.groupNotesByBeat(sortedNotes)
       const staveNotes = this.createStaveNotesFromGroups(noteGroups, clef)
@@ -440,13 +432,9 @@ export class VexFlowRenderer {
       const usedBeats = this.calculateUsedBeats(sortedNotes)
       const requiredBeats = measure.timeSignature.numerator
 
-      // console.log(`  - Used beats: ${usedBeats} / Required: ${requiredBeats}`)
-
       if (usedBeats !== requiredBeats) {
         console.error(`  ⚠️ MISMATCH: Measure has ${usedBeats} beats but should have exactly ${requiredBeats}!`)
       }
-
-      // console.log(`  - Total StaveNotes to render: ${staveNotes.length}`)
 
       // Create a voice with the notes
       const voice = new Voice({
@@ -460,7 +448,6 @@ export class VexFlowRenderer {
         // Format and render the voice
         new Formatter().joinVoices([voice]).format([voice], width - 100)
         voice.draw(this.context, stave)
-        // console.log(`  ✅ Measure ${measure.number} rendered successfully`)
       } catch (error) {
         console.error(`  ❌ Could not render measure ${measure.number}: ${error}`)
         console.error(`  - Measure data:`, JSON.stringify(measure, null, 2))
@@ -738,23 +725,13 @@ export class VexFlowRenderer {
       throw new Error('SVG element not found. Renderer may not be properly initialized.')
     }
 
-    // console.log('renderScore() - About to render', numMeasures, 'measures')
-    // console.log('SVG element:', svg)
-    // console.log('Context:', this.context)
-    // console.log('Renderer:', this.renderer)
-
     // Get current SVG size
     const currentWidth = parseInt(svg.getAttribute('width') || '0')
     const currentHeight = parseInt(svg.getAttribute('height') || '0')
 
-    // console.log(`Current size: ${currentWidth}x${currentHeight}, Target: ${containerWidth}x${totalHeight}`)
-
     // Only resize if dimensions changed (following VexFlow best practice)
     if (currentWidth !== containerWidth || currentHeight !== totalHeight) {
-      // console.log('Resizing SVG...')
       this.renderer!.resize(containerWidth, totalHeight)
-      // Note: According to VexFlow docs, resize() modifies the existing SVG
-      // element's attributes, it does NOT create a new element
     }
 
     // Reuse the same context (VexFlow best practice: "single context per renderer")
@@ -763,8 +740,6 @@ export class VexFlowRenderer {
     // Calculate measure width to fit in container (no gaps between measures)
     const availableWidth = containerWidth - (margin * 2)
     const staveWidth = Math.floor(availableWidth / measuresPerLine)
-
-    // console.log(`Rendering ${numMeasures} measures, ${measuresPerLine} per line`)
 
     // Get clef from score (default to treble)
     const clef: Clef = score.clef || 'treble'
@@ -779,7 +754,6 @@ export class VexFlowRenderer {
       const x = margin + positionInLine * staveWidth
       const y = margin + line * (staveHeight + verticalSpacing)
 
-      // console.log(`Rendering measure ${measure.number} at (${x}, ${y})`)
       this.renderMeasure(measure, x, y, staveWidth, isFirstInLine, clef)
     })
 
@@ -797,7 +771,6 @@ export class VexFlowRenderer {
       )
     }
 
-    // console.log('renderScore() complete - SVG children count:', svg.childNodes.length)
     return ghostNoteRendered
   }
 
@@ -808,17 +781,11 @@ export class VexFlowRenderer {
     // According to VexFlow best practices, we should keep the SVG element
     // and only clear its contents, not remove the element itself
     const svg = this.getSVGElement()
-    // console.log('clear() called, SVG exists:', !!svg)
     if (svg) {
-      // console.log('SVG before clear - children count:', svg.childNodes.length)
-      // Clear all children of the SVG, but keep the SVG element itself
       while (svg.firstChild) {
         svg.removeChild(svg.firstChild)
       }
-      // console.log('SVG after clear - children count:', svg.childNodes.length)
     }
-    // Note: We do NOT clear measureBounds here because the layout stays the same
-    // and we need the bounds for coordinate mapping between renders
   }
 
   /**
