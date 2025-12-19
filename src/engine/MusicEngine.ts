@@ -5,6 +5,7 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { durationToBeats } from '@/utils/musicUtils'
 import type { Score, Note, NoteParams, PixelCoordinates } from '@/types/music'
+import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 
 /**
  * Configuration for the MusicEngine
@@ -502,6 +503,29 @@ export class MusicEngine {
     this.scoreModel = loaded
     this.playbackEngine.setScore(this.scoreModel.getScore())
     this.renderScore()
+  }
+
+  // ==================== Element Registry ====================
+
+  /**
+   * Get the element registry (contains positions of all rendered elements)
+   */
+  getElementRegistry(): ElementRegistry {
+    return this.renderer.getElementRegistry()
+  }
+
+  /**
+   * Find element at a specific pixel coordinate
+   */
+  getElementAt(coords: PixelCoordinates): ElementInfo | null {
+    return this.renderer.getElementRegistry().getAt(coords.x, coords.y)
+  }
+
+  /**
+   * Find element by its ID (for notes/rests)
+   */
+  getElementById(id: string): ElementInfo | null {
+    return this.renderer.getElementRegistry().getById(id)
   }
 
   // ==================== Cleanup ====================

@@ -1,6 +1,7 @@
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Beam } from 'vexflow'
 import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
+import { ElementRegistry } from '@/engine/ElementRegistry'
 
 /**
  * Clef configuration for stem direction calculation
@@ -75,9 +76,18 @@ export class VexFlowRenderer {
   private readonly svgContainer: HTMLElement
   /** Stored bounds for each rendered measure (keyed by measure number) */
   private measureBounds: Map<number, MeasureBounds> = new Map()
+  /** Registry tracking all rendered elements and their positions */
+  private elementRegistry: ElementRegistry = new ElementRegistry()
 
   constructor(containerElement: HTMLElement) {
     this.svgContainer = containerElement
+  }
+
+  /**
+   * Get the element registry (contains positions of all rendered elements)
+   */
+  getElementRegistry(): ElementRegistry {
+    return this.elementRegistry
   }
 
   /**
@@ -763,12 +773,95 @@ export class VexFlowRenderer {
         for (const beam of beams) {
           beam.setContext(this.context).draw()
         }
+
+        // === Register elements after drawing ===
+
+        // Register notes and rests
+        for (let i = 0; i < staveNotes.length && i < noteGroups.length; i++) {
+          const staveNote = staveNotes[i]
+          const noteGroup = noteGroups[i]
+
+          try {
+            const box = staveNote.getBoundingBox()
+            if (box) {
+              // Register each note in the group (for chords, they share the same bbox)
+              for (const note of noteGroup) {
+                this.elementRegistry.add({
+                  type: note.isRest ? 'rest' : 'note',
+                  id: note.id,
+                  measure: measure.number,
+                  beat: note.beat,
+                  pitch: note.isRest ? undefined : note.pitch,
+                  bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+                })
+              }
+            }
+          } catch (e) {
+            // getBoundingBox may fail for some elements
+          }
+        }
+
+        // Register beams
+        for (const beam of beams) {
+          try {
+            const box = beam.getBoundingBox()
+            if (box) {
+              this.elementRegistry.add({
+                type: 'beam',
+                measure: measure.number,
+                bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+              })
+            }
+          } catch (e) {
+            // getBoundingBox may fail
+          }
+        }
       } catch (error) {
         console.error(`  ❌ Could not render measure ${measure.number}: ${error}`)
         console.error(`  - Measure data:`, JSON.stringify(measure, null, 2))
       }
     }
 
+    // Register the staff
+    try {
+      const staveBox = stave.getBoundingBox()
+      if (staveBox) {
+        this.elementRegistry.add({
+          type: 'staff',
+          measure: measure.number,
+          bbox: { x: staveBox.x, y: staveBox.y, width: staveBox.w, height: staveBox.h },
+        })
+      }
+    } catch (e) {
+      // getBoundingBox may fail
+    }
+
+    // Register clef (first measure or first in line)
+    if (measure.number === 1 || isFirstInLine) {
+      // Clef is positioned at the start of the stave
+      this.elementRegistry.add({
+        type: 'clef',
+        measure: measure.number,
+        bbox: { x: x, y: y, width: LAYOUT_CONFIG.CLEF_WIDTH, height: LAYOUT_CONFIG.STAVE_HEIGHT },
+      })
+    }
+
+    // Register time signature (first measure only)
+    if (measure.number === 1) {
+      const timeSigX = x + LAYOUT_CONFIG.CLEF_WIDTH
+      this.elementRegistry.add({
+        type: 'timeSignature',
+        measure: measure.number,
+        bbox: { x: timeSigX, y: y, width: LAYOUT_CONFIG.TIME_SIG_WIDTH, height: LAYOUT_CONFIG.STAVE_HEIGHT },
+      })
+    }
+
+    // Register barline (at the end of each measure)
+    this.elementRegistry.add({
+      type: 'barline',
+      measure: measure.number,
+      bbox: { x: x + width - 2, y: y, width: 4, height: LAYOUT_CONFIG.STAVE_HEIGHT },
+    })
   }
 
   /**
@@ -1316,6 +1409,8 @@ export class VexFlowRenderer {
         svg.removeChild(svg.firstChild)
       }
     }
+    // Clear the element registry for the new render
+    this.elementRegistry.clear()
   }
 
   /**
