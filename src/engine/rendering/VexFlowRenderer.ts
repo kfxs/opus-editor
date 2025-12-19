@@ -1264,9 +1264,49 @@ export class VexFlowRenderer {
 
       staveNote.setStave(tempStave)
 
+      // === DEBUG: Log VexFlow ghost note coordinates ===
+      let vexflowNoteX: number | null = null
+      let appliedShiftX: number | null = null
+
+      // Apply X shift BEFORE drawing to position note at cursor
+      if (ghostNote.rawX !== undefined) {
+        try {
+          // Get where VexFlow will render the note
+          const noteX = staveNote.getAbsoluteX()
+          vexflowNoteX = noteX
+          // Calculate shift to move note to cursor position
+          const shiftX = ghostNote.rawX - noteX
+          appliedShiftX = shiftX
+          staveNote.setXShift(shiftX)
+        } catch (e) {
+          // getAbsoluteX might not be available, fall back to post-render shift
+        }
+      }
+
       const childrenBefore = svg.children.length
 
       staveNote.setContext(this.context!).draw()
+
+      // === DEBUG: Log ghost note positioning ===
+      try {
+        const box = staveNote.getBoundingBox()
+        if (box && ghostNote.rawX !== undefined && ghostNote.rawY !== undefined) {
+          const noteheadCenterX = box.x + box.w / 2
+          const noteheadCenterY = box.y + box.h / 2
+          const deltaX = ghostNote.rawX - noteheadCenterX
+          const deltaY = ghostNote.rawY - noteheadCenterY
+
+          // Get staff line positions for context
+          const line0Y = tempStave.getYForLine(0)
+          const line2Y = tempStave.getYForLine(2) // middle line
+          const line4Y = tempStave.getYForLine(4)
+          const lineSpacing = (line4Y - line0Y) / 4
+
+          console.log(`Ghost | cursor:(${ghostNote.rawX.toFixed(0)},${ghostNote.rawY.toFixed(0)}) notehead:(${noteheadCenterX.toFixed(0)},${noteheadCenterY.toFixed(0)}) delta:(${deltaX.toFixed(0)},${deltaY.toFixed(0)}) | pitch:${ghostNote.pitch} | staffY:[${line0Y.toFixed(0)}-${line4Y.toFixed(0)}] spacing:${lineSpacing.toFixed(1)} ${Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10 ? '⚠️' : '✓'}`)
+        }
+      } catch (e) {
+        // Ignore bounding box errors
+      }
 
       // Apply blue color and displacement to ghost note elements
       const applyGhostStyle = (element: Element) => {
@@ -1303,47 +1343,6 @@ export class VexFlowRenderer {
 
       for (let i = childrenBefore; i < svg.children.length; i++) {
         applyGhostStyle(svg.children[i])
-      }
-
-      // Shift ghost note to follow cursor's X position for smooth visual feedback
-      if (ghostNote.rawX !== undefined) {
-        // Get the ghost note's current center X position
-        const ghostElements = []
-        for (let i = childrenBefore; i < svg.children.length; i++) {
-          ghostElements.push(svg.children[i])
-        }
-
-        if (ghostElements.length > 0) {
-          // Get bounding box of the ghost note elements
-          let minX = Infinity
-          let maxX = -Infinity
-          for (const el of ghostElements) {
-            if (el instanceof SVGGraphicsElement) {
-              try {
-                const bbox = el.getBBox()
-                minX = Math.min(minX, bbox.x)
-                maxX = Math.max(maxX, bbox.x + bbox.width)
-              } catch (e) {
-                // getBBox can fail for some elements
-              }
-            }
-          }
-
-          if (minX !== Infinity && maxX !== -Infinity) {
-            // Calculate shift needed to center the ghost note on the cursor
-            const currentCenterX = (minX + maxX) / 2
-            const shiftX = ghostNote.rawX - currentCenterX
-
-            // Apply transform to shift ghost note elements
-            for (const el of ghostElements) {
-              const existingTransform = el.getAttribute('transform') || ''
-              const newTransform = existingTransform
-                ? `${existingTransform} translate(${shiftX}, 0)`
-                : `translate(${shiftX}, 0)`
-              el.setAttribute('transform', newTransform)
-            }
-          }
-        }
       }
 
       return true

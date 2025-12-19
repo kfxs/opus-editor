@@ -313,9 +313,20 @@ async function togglePlayback() {
 function handleCanvasClick(event: MouseEvent) {
   if (!engine.value || !scoreCanvas.value) return
 
-  const rect = scoreCanvas.value.getBoundingClientRect()
-  const x = event.clientX - rect.left
-  const y = event.clientY - rect.top
+  // Get coordinates in SVG space using SVG's native coordinate transformation
+  // This automatically handles padding, scroll, zoom, and any CSS transforms
+  const svg = scoreCanvas.value.querySelector('svg')
+  if (!svg) return
+
+  const point = svg.createSVGPoint()
+  point.x = event.clientX
+  point.y = event.clientY
+  const ctm = svg.getScreenCTM()
+  if (!ctm) return
+
+  const svgPoint = point.matrixTransform(ctm.inverse())
+  const x = svgPoint.x
+  const y = svgPoint.y
 
   // === DEBUG LOGGING ===
   console.log('=== CLICK DEBUG ===')
@@ -373,9 +384,20 @@ function handleCanvasMouseMove(event: MouseEvent) {
   }
   lastPreviewRender = now
 
-  const rect = scoreCanvas.value.getBoundingClientRect()
-  const x = event.clientX - rect.left
-  const y = event.clientY - rect.top
+  // Get coordinates in SVG space using SVG's native coordinate transformation
+  // This automatically handles padding, scroll, zoom, and any CSS transforms
+  const svg = scoreCanvas.value.querySelector('svg')
+  if (!svg) return
+
+  const point = svg.createSVGPoint()
+  point.x = event.clientX
+  point.y = event.clientY
+  const ctm = svg.getScreenCTM()
+  if (!ctm) return
+
+  const svgPoint = point.matrixTransform(ctm.inverse())
+  const x = svgPoint.x
+  const y = svgPoint.y
 
   // Render score with ghost note preview using selected duration and accidental
   const ghostNoteRendered = engine.value.renderScoreWithPreview(

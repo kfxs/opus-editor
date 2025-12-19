@@ -365,6 +365,18 @@ export class MusicEngine {
       return false
     }
     const beatsInMeasure = measure.timeSignature.numerator
+    const registry = this.renderer.getElementRegistry()
+
+    // Check if cursor is over an invalid element (clef, time signature, barline)
+    const elementAtCursor = registry.getAt(coords.x, coords.y)
+    if (elementAtCursor) {
+      const invalidTypes = ['clef', 'timeSignature', 'barline', 'keySignature']
+      if (invalidTypes.includes(elementAtCursor.type)) {
+        // Don't show ghost note over these elements
+        this.renderScore()
+        return false
+      }
+    }
 
     // Use centralized position calculation
     const position = this.getPositionFromPixels(coords, beatsInMeasure)
@@ -373,6 +385,17 @@ export class MusicEngine {
     if (!this.scoreModel.getMeasure(position.measure)) {
       this.renderScore()
       return false
+    }
+
+    // Check if cursor is within valid staff area (note entry zone)
+    const staffGeometry = registry.getStaffGeometry(position.measure)
+    if (staffGeometry) {
+      // Check if X is within the note entry area (between noteStartX and noteEndX)
+      if (coords.x < staffGeometry.noteStartX || coords.x > staffGeometry.noteEndX) {
+        // Cursor is outside the note entry area (over clef, time sig, or past barline)
+        this.renderScore()
+        return false
+      }
     }
 
     // Render score with ghost note
