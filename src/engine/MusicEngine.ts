@@ -141,6 +141,42 @@ export class MusicEngine {
   }
 
   /**
+   * Convert pixel coordinates to musical position using ElementRegistry
+   * This is the centralized method for accurate position calculation
+   * Uses actual rendered element positions from VexFlow
+   */
+  private getPositionFromPixels(
+    coords: PixelCoordinates,
+    beatsInMeasure: number
+  ): { measure: number; beat: number; pitch: number } {
+    const registry = this.renderer.getElementRegistry()
+    const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
+
+    // Get pitch from ElementRegistry (more accurate) with fallback
+    let pitch = registry.pixelYToPitch(coords.y, measureNumber)
+    if (pitch === null) {
+      pitch = this.coordinateMapper.pixelYToPitch(coords.y, measureNumber)
+    }
+
+    // Get beat from ElementRegistry or coordinateMapper
+    let beat: number
+    const nearestElement = registry.findNearestNoteOrRest(coords.x, measureNumber)
+    if (nearestElement && nearestElement.beat !== undefined) {
+      const elementCenterX = nearestElement.bbox.x + nearestElement.bbox.width / 2
+      const distance = Math.abs(coords.x - elementCenterX)
+      if (distance < nearestElement.bbox.width * 1.5) {
+        beat = nearestElement.beat
+      } else {
+        beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
+      }
+    } else {
+      beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
+    }
+
+    return { measure: measureNumber, beat, pitch }
+  }
+
+  /**
    * Add a note at pixel coordinates
    * Uses "snap to rest" logic: the note is placed at the start of whichever rest
    * covers the clicked beat position, making note entry more intuitive.
@@ -150,13 +186,13 @@ export class MusicEngine {
     duration: NoteParams['duration'],
     accidental?: NoteParams['accidental']
   ): Note | null {
-    const score = this.scoreModel.getScore()
     const measure = this.scoreModel.getMeasure(1)
     if (!measure) return null
 
     const beatsInMeasure = measure.timeSignature.numerator
 
-    const position = this.coordinateMapper.pixelToPosition(coords, beatsInMeasure)
+    // Use centralized position calculation
+    const position = this.getPositionFromPixels(coords, beatsInMeasure)
 
     // Validate measure exists
     if (!this.scoreModel.getMeasure(position.measure)) {
@@ -315,6 +351,7 @@ export class MusicEngine {
 
   /**
    * Render the score with a ghost note preview at mouse position
+   * Uses ElementRegistry for accurate beat detection based on rendered element positions
    * @returns true if ghost note was rendered, false otherwise
    */
   renderScoreWithPreview(
@@ -327,17 +364,19 @@ export class MusicEngine {
       console.warn('No measure found for preview')
       return false
     }
-
     const beatsInMeasure = measure.timeSignature.numerator
-    const position = this.coordinateMapper.pixelToPosition(coords, beatsInMeasure)
 
-    // Validate measure exists (cursor may be outside valid measure area)
+    // Use centralized position calculation
+    const position = this.getPositionFromPixels(coords, beatsInMeasure)
+
+    // Validate measure exists
     if (!this.scoreModel.getMeasure(position.measure)) {
       this.renderScore()
       return false
     }
 
     // Render score with ghost note
+    // Pass raw cursor coordinates for smooth visual positioning
     const ghostNoteRendered = this.renderer.renderScoreWithGhostNote(
       this.scoreModel.getScore(),
       {
@@ -345,9 +384,12 @@ export class MusicEngine {
         duration,
         measure: position.measure,
         beat: position.beat,
-        ...(accidental && { accidental }), // Only add accidental if provided
+        rawX: coords.x,  // For smooth X positioning (follows cursor)
+        rawY: coords.y,  // For reference
+        ...(accidental && { accidental }),
       }
     )
+
     // Update coordinate mapper with actual VexFlow bounds
     this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
     return ghostNoteRendered
@@ -371,10 +413,18 @@ export class MusicEngine {
   // ==================== Coordinate Mapping ====================
 
   /**
+   * Convert pixel coordinates to measure number
+   */
+  pixelToMeasure(coords: PixelCoordinates): number {
+    return this.coordinateMapper.pixelToMeasure(coords)
+  }
+
+  /**
    * Convert pixel coordinates to musical position
+   * Uses ElementRegistry for accurate position calculation based on actual rendered elements
    */
   pixelToPosition(coords: PixelCoordinates, beatsInMeasure: number) {
-    return this.coordinateMapper.pixelToPosition(coords, beatsInMeasure)
+    return this.getPositionFromPixels(coords, beatsInMeasure)
   }
 
   /**

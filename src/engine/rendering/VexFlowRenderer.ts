@@ -1,7 +1,7 @@
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Beam } from 'vexflow'
 import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
-import { ElementRegistry } from '@/engine/ElementRegistry'
+import { ElementRegistry, type StaffGeometry } from '@/engine/ElementRegistry'
 
 /**
  * Clef configuration for stem direction calculation
@@ -822,7 +822,7 @@ export class VexFlowRenderer {
       }
     }
 
-    // Register the staff
+    // Register the staff and its geometry
     try {
       const staveBox = stave.getBoundingBox()
       if (staveBox) {
@@ -832,8 +832,27 @@ export class VexFlowRenderer {
           bbox: { x: staveBox.x, y: staveBox.y, width: staveBox.w, height: staveBox.h },
         })
       }
+
+      // Store staff geometry for accurate pitch calculation
+      // VexFlow's getYForLine(line) returns Y position for staff line 0-4
+      const lineYPositions: [number, number, number, number, number] = [
+        stave.getYForLine(0),
+        stave.getYForLine(1),
+        stave.getYForLine(2),
+        stave.getYForLine(3),
+        stave.getYForLine(4),
+      ]
+      const lineSpacing = lineYPositions[1] - lineYPositions[0]
+
+      this.elementRegistry.setStaffGeometry({
+        measure: measure.number,
+        lineYPositions,
+        lineSpacing,
+        noteStartX: stave.getNoteStartX(),
+        noteEndX: stave.getNoteEndX(),
+      })
     } catch (e) {
-      // getBoundingBox may fail
+      // getBoundingBox or getYForLine may fail
     }
 
     // Register clef (first measure or first in line)
@@ -1093,9 +1112,10 @@ export class VexFlowRenderer {
   /**
    * Render ghost note with dynamic measure widths
    * Uses the pre-calculated measure widths to position the ghost note correctly
+   * @param rawX - Raw cursor X position for smooth visual positioning
    */
   private renderGhostNoteWithDynamicWidths(
-    ghostNote: { pitch: number; duration: string; measure: number; beat: number },
+    ghostNote: { pitch: number; duration: string; measure: number; beat: number; rawX?: number },
     score: Score,
     measureWidths: Map<number, MeasureWidthInfo>,
     margin: number,
@@ -1285,6 +1305,47 @@ export class VexFlowRenderer {
         applyGhostStyle(svg.children[i])
       }
 
+      // Shift ghost note to follow cursor's X position for smooth visual feedback
+      if (ghostNote.rawX !== undefined) {
+        // Get the ghost note's current center X position
+        const ghostElements = []
+        for (let i = childrenBefore; i < svg.children.length; i++) {
+          ghostElements.push(svg.children[i])
+        }
+
+        if (ghostElements.length > 0) {
+          // Get bounding box of the ghost note elements
+          let minX = Infinity
+          let maxX = -Infinity
+          for (const el of ghostElements) {
+            if (el instanceof SVGGraphicsElement) {
+              try {
+                const bbox = el.getBBox()
+                minX = Math.min(minX, bbox.x)
+                maxX = Math.max(maxX, bbox.x + bbox.width)
+              } catch (e) {
+                // getBBox can fail for some elements
+              }
+            }
+          }
+
+          if (minX !== Infinity && maxX !== -Infinity) {
+            // Calculate shift needed to center the ghost note on the cursor
+            const currentCenterX = (minX + maxX) / 2
+            const shiftX = ghostNote.rawX - currentCenterX
+
+            // Apply transform to shift ghost note elements
+            for (const el of ghostElements) {
+              const existingTransform = el.getAttribute('transform') || ''
+              const newTransform = existingTransform
+                ? `${existingTransform} translate(${shiftX}, 0)`
+                : `translate(${shiftX}, 0)`
+              el.setAttribute('transform', newTransform)
+            }
+          }
+        }
+      }
+
       return true
     } catch (error) {
       console.error('Could not render ghost note with dynamic widths:', error)
@@ -1298,7 +1359,7 @@ export class VexFlowRenderer {
    * @param ghostNote - Optional ghost note to render in blue/transparent
    * @returns true if ghost note was rendered, false if not (or no ghost note provided)
    */
-  renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawY?: number }): boolean {
+  renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number }): boolean {
     // renderScore now clears first, so no need to clear here
     return this.renderScore(score, ghostNote)
   }
@@ -1306,10 +1367,10 @@ export class VexFlowRenderer {
   /**
    * Render the complete score
    * @param score - Score to render
-   * @param ghostNote - Optional ghost note preview
+   * @param ghostNote - Optional ghost note preview (rawX for smooth cursor following)
    * @returns true if ghost note was rendered, false if not (or no ghost note provided)
    */
-  renderScore(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawY?: number }): boolean {
+  renderScore(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number }): boolean {
     if (!this.context || !this.renderer) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
