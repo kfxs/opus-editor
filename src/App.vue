@@ -171,8 +171,7 @@
         <!-- VexFlow Rendering Area (Score Container/Canvas) -->
         <div
           ref="scoreCanvas"
-          class="score-container bg-white rounded-lg p-4 min-h-[300px] overflow-auto"
-          :class="showCursor ? 'cursor-crosshair' : 'cursor-none'"
+          class="score-container bg-white rounded-lg p-4 min-h-[300px] overflow-auto cursor-default"
           @click="handleCanvasClick"
           @mousemove="handleCanvasMouseMove"
           @mouseleave="handleCanvasMouseLeave"
