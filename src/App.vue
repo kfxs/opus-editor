@@ -328,33 +328,6 @@ function handleCanvasClick(event: MouseEvent) {
   const x = svgPoint.x
   const y = svgPoint.y
 
-  // === DEBUG LOGGING ===
-  console.log('=== CLICK DEBUG ===')
-  console.log('Mouse coords:', { x, y })
-
-  const registry = engine.value.getElementRegistry()
-  const elementAt = registry.getAt(x, y)
-  console.log('Element at click:', elementAt)
-
-  // Get measure from coordinateMapper
-  const measureNumber = engine.value.pixelToMeasure({ x, y })
-  console.log('Measure number:', measureNumber)
-
-  // Get staff geometry for this measure
-  const staffGeometry = registry.getStaffGeometry(measureNumber)
-  console.log('Staff geometry:', staffGeometry)
-
-  // Get pitch from registry
-  const pitchFromRegistry = registry.pixelYToPitch(y, measureNumber)
-  console.log('Pitch from registry:', pitchFromRegistry)
-
-  // Get nearest note/rest
-  const nearestElement = registry.findNearestNoteOrRest(x, measureNumber)
-  console.log('Nearest note/rest:', nearestElement)
-
-  console.log('===================')
-  // === END DEBUG ===
-
   try {
     // Add a note with the selected duration and accidental at clicked position
     const note = engine.value.addNoteAtPosition(

@@ -1334,27 +1334,6 @@ export class VexFlowRenderer {
 
       staveNote.setContext(this.context!).draw()
 
-      // === DEBUG: Log ghost note positioning ===
-      try {
-        const box = staveNote.getBoundingBox()
-        if (box && ghostNote.rawX !== undefined && ghostNote.rawY !== undefined) {
-          const noteheadCenterX = box.x + box.w / 2
-          const noteheadCenterY = box.y + box.h / 2
-          const deltaX = ghostNote.rawX - noteheadCenterX
-          const deltaY = ghostNote.rawY - noteheadCenterY
-
-          // Get staff line positions for context
-          const line0Y = tempStave.getYForLine(0)
-          const line2Y = tempStave.getYForLine(2) // middle line
-          const line4Y = tempStave.getYForLine(4)
-          const lineSpacing = (line4Y - line0Y) / 4
-
-          console.log(`Ghost | cursor:(${ghostNote.rawX.toFixed(0)},${ghostNote.rawY.toFixed(0)}) notehead:(${noteheadCenterX.toFixed(0)},${noteheadCenterY.toFixed(0)}) delta:(${deltaX.toFixed(0)},${deltaY.toFixed(0)}) | pitch:${ghostNote.pitch} | staffY:[${line0Y.toFixed(0)}-${line4Y.toFixed(0)}] spacing:${lineSpacing.toFixed(1)} ${Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10 ? '⚠️' : '✓'}`)
-        }
-      } catch (e) {
-        // Ignore bounding box errors
-      }
-
       // Apply blue color and displacement to ghost note elements
       const applyGhostStyle = (element: Element) => {
         const tagName = element.tagName.toLowerCase()
