@@ -14,6 +14,42 @@ const CLEF_CONFIG: Record<Clef, { middleLinePitch: number }> = {
 }
 
 /**
+ * Layout configuration for proportional measure spacing
+ */
+const LAYOUT_CONFIG = {
+  /** Minimum pixels between notes for clickability */
+  MIN_NOTE_SPACING: 18,
+  /** Minimum measure width even for empty measures */
+  MIN_MEASURE_WIDTH: 100,
+  /** Maximum measure width to prevent one measure dominating */
+  MAX_MEASURE_WIDTH: 400,
+  /** Space for clef symbol on first measure of line */
+  CLEF_WIDTH: 45,
+  /** Space for time signature */
+  TIME_SIG_WIDTH: 30,
+  /** Padding before/after barlines */
+  BARLINE_PADDING: 10,
+  /** Default container width */
+  CONTAINER_WIDTH: 1000,
+  /** Margin around the score */
+  MARGIN: 20,
+  /** Stave height */
+  STAVE_HEIGHT: 120,
+  /** Vertical spacing between lines */
+  VERTICAL_SPACING: 30,
+}
+
+/**
+ * Width calculation result for a measure
+ */
+interface MeasureWidthInfo {
+  measureNumber: number
+  minWidth: number
+  finalWidth: number
+  lineNumber: number
+}
+
+/**
  * Bounds information for a rendered measure
  */
 export interface MeasureBounds {
@@ -463,6 +499,169 @@ export class VexFlowRenderer {
   }
 
   /**
+   * Calculate minimum width needed for a single measure based on its content
+   * Uses VexFlow's Formatter to estimate space needed for notes
+   */
+  private calculateMinimumMeasureWidth(
+    measure: Measure,
+    isFirstInLine: boolean,
+    clef: Clef
+  ): number {
+    // Start with base overhead
+    let overhead = LAYOUT_CONFIG.BARLINE_PADDING * 2
+
+    // Add clef width for first measure of each line
+    if (isFirstInLine) {
+      overhead += LAYOUT_CONFIG.CLEF_WIDTH
+    }
+
+    // Add time signature width for measure 1
+    if (measure.number === 1) {
+      overhead += LAYOUT_CONFIG.TIME_SIG_WIDTH
+    }
+
+    // If measure has no notes or only rests, use minimum width
+    const actualNotes = measure.notes.filter(n => !n.isRest)
+    if (actualNotes.length === 0) {
+      return Math.max(LAYOUT_CONFIG.MIN_MEASURE_WIDTH, overhead + 40)
+    }
+
+    // Create temporary voice to calculate width
+    const sortedNotes = [...measure.notes].sort((a, b) => a.beat - b.beat)
+    const noteGroups = this.groupNotesByBeat(sortedNotes)
+    const staveNotes = this.createStaveNotesFromGroups(noteGroups, clef)
+
+    const voice = new Voice({
+      num_beats: measure.timeSignature.numerator,
+      beat_value: measure.timeSignature.denominator,
+    })
+
+    try {
+      voice.addTickables(staveNotes)
+
+      // Use VexFlow's formatter to calculate minimum width
+      const formatter = new Formatter()
+      formatter.joinVoices([voice])
+      const minNoteWidth = formatter.preCalculateMinTotalWidth([voice])
+
+      // Add safety buffer (15%) and ensure minimum note spacing
+      const noteCount = noteGroups.filter(g => !g[0].isRest).length
+      const minSpacingWidth = noteCount * LAYOUT_CONFIG.MIN_NOTE_SPACING
+      const calculatedWidth = Math.max(minNoteWidth * 1.15, minSpacingWidth)
+
+      // Total width = note space + overhead
+      let totalWidth = calculatedWidth + overhead
+
+      // Apply min/max constraints
+      totalWidth = Math.max(totalWidth, LAYOUT_CONFIG.MIN_MEASURE_WIDTH)
+      totalWidth = Math.min(totalWidth, LAYOUT_CONFIG.MAX_MEASURE_WIDTH)
+
+      return totalWidth
+    } catch (error) {
+      // If calculation fails, fall back to minimum width
+      console.warn(`Could not calculate width for measure ${measure.number}:`, error)
+      return LAYOUT_CONFIG.MIN_MEASURE_WIDTH
+    }
+  }
+
+  /**
+   * Distribute available width proportionally among measures on a line
+   */
+  private distributeLineWidths(
+    measureInfos: MeasureWidthInfo[],
+    availableWidth: number
+  ): void {
+    if (measureInfos.length === 0) return
+
+    const totalMinWidth = measureInfos.reduce((sum, m) => sum + m.minWidth, 0)
+
+    if (totalMinWidth >= availableWidth) {
+      // Need to compress - distribute proportionally to minimum widths
+      const compressionRatio = availableWidth / totalMinWidth
+      if (compressionRatio < 0.7) {
+        console.warn(`Severe measure compression (${(compressionRatio * 100).toFixed(0)}%) on line - measures may be crowded`)
+      }
+      for (const info of measureInfos) {
+        info.finalWidth = info.minWidth * compressionRatio
+      }
+    } else {
+      // Have extra space - distribute proportionally
+      const extraSpace = availableWidth - totalMinWidth
+      for (const info of measureInfos) {
+        const proportion = info.minWidth / totalMinWidth
+        info.finalWidth = info.minWidth + (extraSpace * proportion)
+      }
+    }
+  }
+
+  /**
+   * Calculate widths for all measures using a two-pass algorithm
+   * Pass 1: Calculate minimum widths and group into lines
+   * Pass 2: Distribute available space proportionally within each line
+   */
+  private calculateMeasureWidths(score: Score): Map<number, MeasureWidthInfo> {
+    const results = new Map<number, MeasureWidthInfo>()
+    const clef: Clef = score.clef || 'treble'
+    const margin = LAYOUT_CONFIG.MARGIN
+    const availableWidth = LAYOUT_CONFIG.CONTAINER_WIDTH - (margin * 2)
+
+    // Pass 1: Calculate minimum widths and assign to lines
+    let currentLine = 0
+    let currentLineWidth = 0
+    let currentLineMeasures: MeasureWidthInfo[] = []
+
+    for (const measure of score.measures) {
+      const isFirstInLine = currentLineMeasures.length === 0
+      const minWidth = this.calculateMinimumMeasureWidth(measure, isFirstInLine, clef)
+
+      // Check if measure fits on current line
+      if (currentLineWidth + minWidth > availableWidth && currentLineMeasures.length > 0) {
+        // Finalize current line
+        this.distributeLineWidths(currentLineMeasures, availableWidth)
+        for (const info of currentLineMeasures) {
+          results.set(info.measureNumber, info)
+        }
+
+        // Start new line
+        currentLine++
+        currentLineWidth = 0
+        currentLineMeasures = []
+
+        // Recalculate width for new line (first-in-line overhead may differ)
+        const newMinWidth = this.calculateMinimumMeasureWidth(measure, true, clef)
+
+        const info: MeasureWidthInfo = {
+          measureNumber: measure.number,
+          minWidth: newMinWidth,
+          finalWidth: newMinWidth,
+          lineNumber: currentLine,
+        }
+        currentLineMeasures.push(info)
+        currentLineWidth = newMinWidth
+      } else {
+        const info: MeasureWidthInfo = {
+          measureNumber: measure.number,
+          minWidth,
+          finalWidth: minWidth,
+          lineNumber: currentLine,
+        }
+        currentLineMeasures.push(info)
+        currentLineWidth += minWidth
+      }
+    }
+
+    // Finalize last line
+    if (currentLineMeasures.length > 0) {
+      this.distributeLineWidths(currentLineMeasures, availableWidth)
+      for (const info of currentLineMeasures) {
+        results.set(info.measureNumber, info)
+      }
+    }
+
+    return results
+  }
+
+  /**
    * Render a single measure
    * @param measure - Measure to render
    * @param x - X position on canvas
@@ -552,8 +751,9 @@ export class VexFlowRenderer {
           }
         }
 
-        // Format and render the voice
-        new Formatter().joinVoices([voice]).format([voice], width - 100)
+        // Format and render the voice using actual note area
+        const noteAreaWidth = stave.getNoteEndX() - stave.getNoteStartX()
+        new Formatter().joinVoices([voice]).format([voice], noteAreaWidth)
         voice.draw(this.context, stave)
 
         // Draw beams AFTER the voice
@@ -792,6 +992,206 @@ export class VexFlowRenderer {
   }
 
   /**
+   * Render ghost note with dynamic measure widths
+   * Uses the pre-calculated measure widths to position the ghost note correctly
+   */
+  private renderGhostNoteWithDynamicWidths(
+    ghostNote: { pitch: number; duration: string; measure: number; beat: number },
+    score: Score,
+    measureWidths: Map<number, MeasureWidthInfo>,
+    margin: number,
+    staveHeight: number,
+    verticalSpacing: number
+  ): boolean {
+    try {
+      // Find the measure this ghost note belongs to
+      const measure = score.measures.find(m => m.number === ghostNote.measure)
+      if (!measure) {
+        console.warn('Measure not found for ghost note:', ghostNote.measure)
+        return false
+      }
+
+      // Get the measure's width info
+      const widthInfo = measureWidths.get(ghostNote.measure)
+      if (!widthInfo) {
+        console.warn('Width info not found for ghost note measure:', ghostNote.measure)
+        return false
+      }
+
+      // Calculate X position by summing widths of previous measures on the same line
+      let measureX = margin
+      for (const m of score.measures) {
+        if (m.number === ghostNote.measure) break
+        const mInfo = measureWidths.get(m.number)
+        if (mInfo && mInfo.lineNumber === widthInfo.lineNumber) {
+          measureX += mInfo.finalWidth
+        } else if (mInfo && mInfo.lineNumber < widthInfo.lineNumber) {
+          // Reset for new line
+          measureX = margin
+        }
+      }
+
+      const measureY = margin + widthInfo.lineNumber * (staveHeight + verticalSpacing)
+      const staveWidth = widthInfo.finalWidth
+
+      // Get clef from score
+      const clef: Clef = score.clef || 'treble'
+
+      // Create a temporary invisible stave for rendering the ghost note
+      const tempStave = new Stave(measureX, measureY, staveWidth)
+
+      // Add clef and time signature to match the actual stave layout
+      const isFirstInLine = measureX === margin
+      if (ghostNote.measure === 1 || isFirstInLine) {
+        tempStave.addClef(clef)
+      }
+      if (ghostNote.measure === 1) {
+        tempStave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
+      }
+
+      tempStave.setContext(this.context!)
+
+      // Convert our note to VexFlow format
+      const vexNote = this.midiToVexFlowNote(ghostNote.pitch)
+      const vexDuration = this.convertDuration(ghostNote.duration as any)
+
+      // Check if there are existing notes at the same beat (potential chord)
+      const notesAtSameBeat = measure.notes.filter(
+        n => !n.isRest && Math.abs(n.beat - ghostNote.beat) < 0.001
+      )
+
+      // Check if the ghost note forms a second with any existing note
+      const formsSecond = notesAtSameBeat.some(existingNote => {
+        const interval = Math.abs(existingNote.pitch - ghostNote.pitch)
+        return interval === 1 || interval === 2
+      })
+
+      // Calculate stem direction for ghost note
+      const ghostMusicNote: MusicNote = {
+        id: 'ghost',
+        pitch: ghostNote.pitch,
+        duration: ghostNote.duration as NoteDuration,
+        measure: ghostNote.measure,
+        beat: ghostNote.beat,
+      }
+      const chordNotes = notesAtSameBeat.length > 0
+        ? [...notesAtSameBeat, ghostMusicNote]
+        : [ghostMusicNote]
+      const stemDirection = this.calculateChordStemDirection(chordNotes, clef)
+
+      // Create the StaveNote
+      const staveNote = new StaveNote({
+        keys: [vexNote],
+        duration: vexDuration,
+        auto_stem: false,
+      })
+
+      staveNote.setStemDirection(stemDirection)
+
+      const needsDisplacement = formsSecond
+
+      // Create a voice with the ghost note plus padding rests to fill the measure
+      const totalBeats = measure.timeSignature.numerator
+      const noteDuration = this.durationToBeats(ghostNote.duration)
+
+      const beatsBeforeNote = ghostNote.beat
+      const beatsAfterNote = totalBeats - ghostNote.beat - noteDuration
+
+      if (beatsAfterNote < -0.001) {
+        return false
+      }
+
+      const tickables: any[] = []
+
+      if (beatsBeforeNote > 0) {
+        const restsBefore = this.beatsToRestDurations(beatsBeforeNote)
+        for (const restDuration of restsBefore) {
+          tickables.push(new StaveNote({
+            keys: ['b/4'],
+            duration: restDuration,
+          }))
+        }
+      }
+
+      tickables.push(staveNote)
+
+      if (beatsAfterNote > 0) {
+        const restsAfter = this.beatsToRestDurations(beatsAfterNote)
+        for (const restDuration of restsAfter) {
+          tickables.push(new StaveNote({
+            keys: ['b/4'],
+            duration: restDuration,
+          }))
+        }
+      }
+
+      const voice = new Voice({
+        num_beats: totalBeats,
+        beat_value: measure.timeSignature.denominator,
+      })
+      voice.addTickables(tickables)
+
+      // Format the voice using actual note area
+      const noteAreaWidth = tempStave.getNoteEndX() - tempStave.getNoteStartX()
+      new Formatter().joinVoices([voice]).format([voice], noteAreaWidth > 0 ? noteAreaWidth : staveWidth - 100)
+
+      const svg = this.getSVGElement()
+      if (!svg) {
+        console.error('SVG element not found for ghost note')
+        return false
+      }
+
+      staveNote.setStave(tempStave)
+
+      const childrenBefore = svg.children.length
+
+      staveNote.setContext(this.context!).draw()
+
+      // Apply blue color and displacement to ghost note elements
+      const applyGhostStyle = (element: Element) => {
+        const tagName = element.tagName.toLowerCase()
+
+        if (tagName === 'path' || tagName === 'ellipse' || tagName === 'circle') {
+          element.setAttribute('fill', '#3B82F6')
+          element.setAttribute('stroke', '#2563EB')
+          element.setAttribute('opacity', '0.7')
+          const currentStyle = element.getAttribute('style') || ''
+          element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; stroke: #2563EB !important; opacity: 0.7 !important;')
+        } else if (tagName === 'text') {
+          element.setAttribute('fill', '#3B82F6')
+          element.setAttribute('opacity', '0.7')
+          const currentStyle = element.getAttribute('style') || ''
+          element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; opacity: 0.7 !important;')
+
+          if (needsDisplacement) {
+            const transform = element.getAttribute('transform') || ''
+            const newTransform = transform ? `${transform} translate(10, 0)` : 'translate(10, 0)'
+            element.setAttribute('transform', newTransform)
+          }
+        } else if (tagName === 'line') {
+          element.setAttribute('stroke', '#2563EB')
+          element.setAttribute('opacity', '0.7')
+          const currentStyle = element.getAttribute('style') || ''
+          element.setAttribute('style', currentStyle + '; stroke: #2563EB !important; opacity: 0.7 !important;')
+        }
+
+        for (let i = 0; i < element.children.length; i++) {
+          applyGhostStyle(element.children[i])
+        }
+      }
+
+      for (let i = childrenBefore; i < svg.children.length; i++) {
+        applyGhostStyle(svg.children[i])
+      }
+
+      return true
+    } catch (error) {
+      console.error('Could not render ghost note with dynamic widths:', error)
+      return false
+    }
+  }
+
+  /**
    * Render the complete score with an optional ghost note preview
    * @param score - Score to render
    * @param ghostNote - Optional ghost note to render in blue/transparent
@@ -816,19 +1216,24 @@ export class VexFlowRenderer {
     // Always clear before rendering to prevent accumulation
     this.clear()
 
-    // Calculate layout parameters first
-    const numMeasures = score.measures.length
-    const margin = 20
-    const staveHeight = 120
-    const verticalSpacing = 30
-    const containerWidth = 1000
+    // Use layout configuration
+    const margin = LAYOUT_CONFIG.MARGIN
+    const staveHeight = LAYOUT_CONFIG.STAVE_HEIGHT
+    const verticalSpacing = LAYOUT_CONFIG.VERTICAL_SPACING
+    const containerWidth = LAYOUT_CONFIG.CONTAINER_WIDTH
 
-    // Determine how many measures fit per line
-    let measuresPerLine = Math.max(1, Math.floor(numMeasures / 2))
-    if (measuresPerLine > 4) measuresPerLine = 4 // Max 4 measures per line
+    // Get clef from score (default to treble)
+    const clef: Clef = score.clef || 'treble'
 
-    // Calculate how many lines we need
-    const numLines = Math.ceil(numMeasures / measuresPerLine)
+    // Calculate proportional widths for all measures
+    const measureWidths = this.calculateMeasureWidths(score)
+
+    // Find the number of lines from the calculated widths
+    let maxLine = 0
+    for (const info of measureWidths.values()) {
+      maxLine = Math.max(maxLine, info.lineNumber)
+    }
+    const numLines = maxLine + 1
     const totalHeight = numLines * (staveHeight + verticalSpacing) + margin * 2
 
     // Check if SVG exists (should always exist after initialization)
@@ -846,41 +1251,46 @@ export class VexFlowRenderer {
       this.renderer!.resize(containerWidth, totalHeight)
     }
 
-    // Reuse the same context (VexFlow best practice: "single context per renderer")
-    // No need to call getContext() again unless we recreated the renderer
+    // Render each measure with calculated widths
+    let currentLine = -1
+    let currentX = margin
 
-    // Calculate measure width to fit in container (no gaps between measures)
-    const availableWidth = containerWidth - (margin * 2)
-    const staveWidth = Math.floor(availableWidth / measuresPerLine)
+    score.measures.forEach((measure) => {
+      const widthInfo = measureWidths.get(measure.number)
+      if (!widthInfo) {
+        console.error(`No width info for measure ${measure.number}`)
+        return
+      }
 
-    // Get clef from score (default to treble)
-    const clef: Clef = score.clef || 'treble'
+      // Check if we've moved to a new line
+      if (widthInfo.lineNumber !== currentLine) {
+        currentLine = widthInfo.lineNumber
+        currentX = margin
+      }
 
-    // Render each measure
-    score.measures.forEach((measure, index) => {
-      const line = Math.floor(index / measuresPerLine)
-      const positionInLine = index % measuresPerLine
-      const isFirstInLine = positionInLine === 0
+      const y = margin + currentLine * (staveHeight + verticalSpacing)
+      const isFirstInLine = currentX === margin
 
-      // Measures are continuous - no gaps between them
-      const x = margin + positionInLine * staveWidth
-      const y = margin + line * (staveHeight + verticalSpacing)
+      this.renderMeasure(measure, currentX, y, widthInfo.finalWidth, isFirstInLine, clef)
 
-      this.renderMeasure(measure, x, y, staveWidth, isFirstInLine, clef)
+      currentX += widthInfo.finalWidth
     })
 
     // Render ghost note AFTER all measures (as an overlay)
     let ghostNoteRendered = false
     if (ghostNote) {
-      ghostNoteRendered = this.renderGhostNoteOverlay(
-        ghostNote,
-        score,
-        measuresPerLine,
-        margin,
-        staveWidth,
-        staveHeight,
-        verticalSpacing
-      )
+      // For ghost note, we need to find the measure's actual position
+      const ghostMeasureInfo = measureWidths.get(ghostNote.measure)
+      if (ghostMeasureInfo) {
+        ghostNoteRendered = this.renderGhostNoteWithDynamicWidths(
+          ghostNote,
+          score,
+          measureWidths,
+          margin,
+          staveHeight,
+          verticalSpacing
+        )
+      }
     }
 
     return ghostNoteRendered

@@ -195,9 +195,44 @@ export class CoordinateMapper {
 
   /**
    * Convert pixel coordinates to measure number
+   * Uses actual VexFlow bounds if available for accurate hit detection with dynamic widths
    */
   pixelToMeasure(coords: PixelCoordinates): number {
-    // Clamp to non-negative values to handle mouse positions outside valid area
+    // First, try using actual measure bounds if available (supports dynamic widths)
+    if (this.measureBounds.size > 0) {
+      // Find which measure contains the click coordinates
+      for (const [measureNumber, bounds] of this.measureBounds.entries()) {
+        if (
+          coords.x >= bounds.measureX &&
+          coords.x < bounds.measureX + bounds.measureWidth &&
+          coords.y >= bounds.measureY &&
+          coords.y < bounds.measureY + this.config.staffHeight
+        ) {
+          return measureNumber
+        }
+      }
+
+      // If no exact match found, find the closest measure on the correct line
+      const line = Math.max(0, Math.floor((coords.y - this.config.startY) / this.config.staffHeight))
+      let closestMeasure = 1
+      let closestDistance = Infinity
+
+      for (const [measureNumber, bounds] of this.measureBounds.entries()) {
+        const measureLine = Math.floor((bounds.measureY - this.config.startY) / this.config.staffHeight)
+        if (measureLine === line) {
+          const measureCenterX = bounds.measureX + bounds.measureWidth / 2
+          const distance = Math.abs(coords.x - measureCenterX)
+          if (distance < closestDistance) {
+            closestDistance = distance
+            closestMeasure = measureNumber
+          }
+        }
+      }
+
+      return closestMeasure
+    }
+
+    // Fallback to calculated values (for uniform widths or when bounds not set)
     const line = Math.max(0, Math.floor((coords.y - this.config.startY) / this.config.staffHeight))
     const posInLine = Math.max(0, Math.floor((coords.x - this.config.startX) / this.config.measureWidth))
 
