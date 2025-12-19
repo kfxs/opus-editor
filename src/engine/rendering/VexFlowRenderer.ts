@@ -751,9 +751,12 @@ export class VexFlowRenderer {
           }
         }
 
-        // Format and render the voice using actual note area
+        // Format and render the voice using actual note area with right padding
+        // Subtract padding to prevent notes/rests from being too close to barline
         const noteAreaWidth = stave.getNoteEndX() - stave.getNoteStartX()
-        new Formatter().joinVoices([voice]).format([voice], noteAreaWidth)
+        const rightPadding = 15 // Padding before barline
+        const formatWidth = Math.max(noteAreaWidth - rightPadding, 50)
+        new Formatter().joinVoices([voice]).format([voice], formatWidth)
         voice.draw(this.context, stave)
 
         // Draw beams AFTER the voice
@@ -906,8 +909,11 @@ export class VexFlowRenderer {
       })
       voice.addTickables(tickables)
 
-      // Format the voice to get proper positioning
-      new Formatter().joinVoices([voice]).format([voice], staveWidth - 100)
+      // Format the voice to get proper positioning with right padding
+      const noteAreaWidth = tempStave.getNoteEndX() - tempStave.getNoteStartX()
+      const rightPadding = 15 // Padding before barline
+      const formatWidth = noteAreaWidth > 0 ? Math.max(noteAreaWidth - rightPadding, 50) : staveWidth - 100
+      new Formatter().joinVoices([voice]).format([voice], formatWidth)
 
       // Now render only the ghost note (not the rests, not the stave)
       // We'll extract the SVG elements and modify their styling
@@ -1131,9 +1137,11 @@ export class VexFlowRenderer {
       })
       voice.addTickables(tickables)
 
-      // Format the voice using actual note area
+      // Format the voice using actual note area with right padding
       const noteAreaWidth = tempStave.getNoteEndX() - tempStave.getNoteStartX()
-      new Formatter().joinVoices([voice]).format([voice], noteAreaWidth > 0 ? noteAreaWidth : staveWidth - 100)
+      const rightPadding = 15 // Padding before barline
+      const formatWidth = noteAreaWidth > 0 ? Math.max(noteAreaWidth - rightPadding, 50) : staveWidth - 100
+      new Formatter().joinVoices([voice]).format([voice], formatWidth)
 
       const svg = this.getSVGElement()
       if (!svg) {
