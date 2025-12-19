@@ -439,21 +439,54 @@ export class VexFlowRenderer {
   }
 
   /**
+   * Calculate the stem direction for an entire beam group
+   * Uses the note furthest from the middle line to determine direction
+   * This ensures all notes in a beam have consistent stem direction
+   * @param allNotes - All notes in the beam group (flattened from note groups)
+   * @param clef - Clef type for middle line reference
+   * @returns VexFlow stem direction value (1 = UP, -1 = DOWN)
+   */
+  private calculateBeamGroupStemDirection(allNotes: MusicNote[], clef: Clef = 'treble'): number {
+    if (allNotes.length === 0) return 1 // UP by default
+
+    const middlePitch = CLEF_CONFIG[clef].middleLinePitch
+
+    // Find the note furthest from the middle line
+    let maxDistance = 0
+    let furthestPitch = allNotes[0].pitch
+
+    for (const note of allNotes) {
+      if (note.isRest) continue
+      const staffPitch = this.getStaffPositionPitch(note.pitch, note.accidental)
+      const distance = Math.abs(staffPitch - middlePitch)
+
+      if (distance > maxDistance) {
+        maxDistance = distance
+        furthestPitch = staffPitch
+      }
+    }
+
+    // If furthest note is on or above middle line, stems go down; otherwise up
+    return furthestPitch >= middlePitch ? -1 : 1
+  }
+
+  /**
    * Create beam groups from stave notes and their corresponding music notes
-   * Returns arrays of StaveNotes that should be beamed together
+   * Returns arrays of StaveNotes that should be beamed together, along with note data
    *
    * @param staveNotes - The VexFlow StaveNote objects
    * @param noteGroups - The original note groups (for duration/beat info)
    * @param beatsPerMeasure - Number of beats in the measure
-   * @returns Array of StaveNote arrays, each array is a beam group
+   * @returns Array of beam group info with stave notes and music notes
    */
   private createBeamGroups(
     staveNotes: StaveNote[],
     noteGroups: MusicNote[][],
     beatsPerMeasure: number
-  ): StaveNote[][] {
-    const beamGroups: StaveNote[][] = []
-    let currentGroup: StaveNote[] = []
+  ): { staveNotes: StaveNote[]; musicNotes: MusicNote[][] }[] {
+    const beamGroups: { staveNotes: StaveNote[]; musicNotes: MusicNote[][] }[] = []
+    let currentStaveNotes: StaveNote[] = []
+    let currentMusicNotes: MusicNote[][] = []
     let currentBeatGroup: number | null = null
 
     for (let i = 0; i < staveNotes.length && i < noteGroups.length; i++) {
@@ -464,10 +497,11 @@ export class VexFlowRenderer {
       // Skip rests - they break beams
       if (firstNote.isRest) {
         // Save current group if it has 2+ notes
-        if (currentGroup.length >= 2) {
-          beamGroups.push(currentGroup)
+        if (currentStaveNotes.length >= 2) {
+          beamGroups.push({ staveNotes: currentStaveNotes, musicNotes: currentMusicNotes })
         }
-        currentGroup = []
+        currentStaveNotes = []
+        currentMusicNotes = []
         currentBeatGroup = null
         continue
       }
@@ -475,10 +509,11 @@ export class VexFlowRenderer {
       // Check if this note is beamable
       if (!this.isBeamableDuration(firstNote.duration)) {
         // Non-beamable note breaks the beam
-        if (currentGroup.length >= 2) {
-          beamGroups.push(currentGroup)
+        if (currentStaveNotes.length >= 2) {
+          beamGroups.push({ staveNotes: currentStaveNotes, musicNotes: currentMusicNotes })
         }
-        currentGroup = []
+        currentStaveNotes = []
+        currentMusicNotes = []
         currentBeatGroup = null
         continue
       }
@@ -488,21 +523,23 @@ export class VexFlowRenderer {
 
       if (currentBeatGroup === null || beatGroup === currentBeatGroup) {
         // Same beat group or starting new group
-        currentGroup.push(staveNote)
+        currentStaveNotes.push(staveNote)
+        currentMusicNotes.push(noteGroup)
         currentBeatGroup = beatGroup
       } else {
         // Different beat group - save current and start new
-        if (currentGroup.length >= 2) {
-          beamGroups.push(currentGroup)
+        if (currentStaveNotes.length >= 2) {
+          beamGroups.push({ staveNotes: currentStaveNotes, musicNotes: currentMusicNotes })
         }
-        currentGroup = [staveNote]
+        currentStaveNotes = [staveNote]
+        currentMusicNotes = [noteGroup]
         currentBeatGroup = beatGroup
       }
     }
 
     // Don't forget the last group
-    if (currentGroup.length >= 2) {
-      beamGroups.push(currentGroup)
+    if (currentStaveNotes.length >= 2) {
+      beamGroups.push({ staveNotes: currentStaveNotes, musicNotes: currentMusicNotes })
     }
 
     return beamGroups
@@ -753,7 +790,17 @@ export class VexFlowRenderer {
         const beams: Beam[] = []
         for (const beamGroup of beamGroups) {
           try {
-            const beam = new Beam(beamGroup)
+            // Calculate unified stem direction for the entire beam group
+            // This ensures all notes in the beam have consistent stems
+            const allNotesInBeam = beamGroup.musicNotes.flat()
+            const beamStemDirection = this.calculateBeamGroupStemDirection(allNotesInBeam, clef)
+
+            // Apply the unified stem direction to all notes in the beam group
+            for (const staveNote of beamGroup.staveNotes) {
+              staveNote.setStemDirection(beamStemDirection)
+            }
+
+            const beam = new Beam(beamGroup.staveNotes)
             beams.push(beam)
           } catch (beamError) {
             // Silently skip beam errors (e.g., if notes can't be beamed)
