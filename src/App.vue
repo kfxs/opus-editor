@@ -328,6 +328,16 @@ function handleCanvasClick(event: MouseEvent) {
   const x = svgPoint.x
   const y = svgPoint.y
 
+  // === DEBUG: Log click info ===
+  const registry = engine.value.getElementRegistry()
+  const nearestElement = registry.findNearestNoteOrRest(x, engine.value.pixelToMeasure({ x, y }))
+  const elementAt = registry.getAt(x, y)
+  console.log(`Click | mouse:(${x.toFixed(0)},${y.toFixed(0)}) | nearestElement:`, nearestElement ? {
+    type: nearestElement.type,
+    beat: nearestElement.beat,
+    bbox: `(${nearestElement.bbox.x.toFixed(0)},${nearestElement.bbox.y.toFixed(0)}) ${nearestElement.bbox.width.toFixed(0)}x${nearestElement.bbox.height.toFixed(0)}`
+  } : null, '| elementAt:', elementAt?.type || null)
+
   try {
     // Add a note with the selected duration and accidental at clicked position
     const note = engine.value.addNoteAtPosition(
@@ -337,9 +347,10 @@ function handleCanvasClick(event: MouseEvent) {
     )
 
     if (note) {
+      console.log(`✓ Note added | pitch:${note.pitch} measure:${note.measure} beat:${note.beat}`)
       renderScore()
     } else {
-      console.warn('Could not add note at this position (collision or invalid location)')
+      console.log('✗ Note NOT added (collision or invalid location)')
     }
   } catch (error) {
     console.error('Error adding note:', error)

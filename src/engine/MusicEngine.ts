@@ -109,38 +109,6 @@ export class MusicEngine {
   }
 
   /**
-   * Find a nearby note within X tolerance for chord snapping
-   * Returns the closest note within tolerance, or null if none found
-   */
-  private findNearbyNote(
-    coords: PixelCoordinates,
-    notesInMeasure: Note[],
-    beatsInMeasure: number
-  ): Note | null {
-    const X_TOLERANCE = 25 // pixels - tolerance on both sides
-
-    let closestNote: Note | null = null
-    let closestDistance = Infinity
-
-    for (const note of notesInMeasure) {
-      // Skip rests
-      if (note.isRest) continue
-
-      // Get the X pixel position of this note
-      const noteCoords = this.coordinateMapper.noteToPixel(note, beatsInMeasure)
-      const xDistance = Math.abs(coords.x - noteCoords.x)
-
-      // Check if within X tolerance
-      if (xDistance <= X_TOLERANCE && xDistance < closestDistance) {
-        closestNote = note
-        closestDistance = xDistance
-      }
-    }
-
-    return closestNote
-  }
-
-  /**
    * Convert pixel coordinates to musical position using ElementRegistry
    * This is the centralized method for accurate position calculation
    * Uses actual rendered element positions from VexFlow
@@ -178,8 +146,13 @@ export class MusicEngine {
 
   /**
    * Add a note at pixel coordinates
-   * Uses "snap to rest" logic: the note is placed at the start of whichever rest
-   * covers the clicked beat position, making note entry more intuitive.
+   *
+   * Logic:
+   * 1. Find the CLOSEST element (note or rest) using ElementRegistry
+   * 2. If closest is a REST → place note at rest's beat position
+   * 3. If closest is a NOTE:
+   *    - Different pitch → form chord (use note's beat)
+   *    - Same pitch → collision, reject
    */
   addNoteAtPosition(
     coords: PixelCoordinates,
@@ -190,56 +163,83 @@ export class MusicEngine {
     if (!measure) return null
 
     const beatsInMeasure = measure.timeSignature.numerator
+    const registry = this.renderer.getElementRegistry()
 
-    // Use centralized position calculation
-    const position = this.getPositionFromPixels(coords, beatsInMeasure)
+    // Get measure number from coordinates
+    const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
 
     // Validate measure exists
-    if (!this.scoreModel.getMeasure(position.measure)) {
+    if (!this.scoreModel.getMeasure(measureNumber)) {
       return null
     }
 
-    // Get notes in the target measure
-    const notesInMeasure = this.scoreModel.getNotesInMeasure(position.measure)
+    // Get pitch from Y coordinate
+    let pitch = registry.pixelYToPitch(coords.y, measureNumber)
+    if (pitch === null) {
+      pitch = this.coordinateMapper.pixelYToPitch(coords.y, measureNumber)
+    }
 
-    // First, check if there's a nearby note to snap to (for chord creation)
-    const nearbyNote = this.findNearbyNote(coords, notesInMeasure, beatsInMeasure)
+    // Find the CLOSEST element (note or rest) to the click position
+    const nearestElement = registry.findNearestNoteOrRest(coords.x, measureNumber)
+
+    if (!nearestElement || nearestElement.beat === undefined) {
+      // No element found - shouldn't happen in a properly filled measure
+      console.warn('No nearest element found at position')
+      return null
+    }
 
     let finalBeat: number
 
-    if (nearbyNote) {
-      // Snap to nearby note's beat position (to form a chord)
-      finalBeat = nearbyNote.beat
-    } else {
-      // Snap to rest: find the rest that covers the clicked beat position
-      const targetRest = this.findRestAtBeat(notesInMeasure, position.beat)
-      if (targetRest) {
-        // Snap to the rest's start position
-        finalBeat = targetRest.beat
+    if (nearestElement.type === 'rest') {
+      // Closest element is a REST → place note at rest's beat
+      finalBeat = nearestElement.beat
+    } else if (nearestElement.type === 'note') {
+      // Closest element is a NOTE
+      // Check if any note at this beat has the same pitch
+      const notesAtBeat = this.scoreModel.getNotesInMeasure(measureNumber)
+        .filter(n => !n.isRest && n.beat === nearestElement.beat)
+
+      const hasSamePitch = notesAtBeat.some(n => n.pitch === pitch)
+
+      if (hasSamePitch) {
+        // Same pitch exists at this beat → find the next available rest
+        const notesInMeasure = this.scoreModel.getNotesInMeasure(measureNumber)
+        const nextRest = this.findNextRestAfterBeat(notesInMeasure, nearestElement.beat)
+
+        if (nextRest) {
+          // Found a rest after this note → place note there
+          finalBeat = nextRest.beat
+        } else {
+          // No rest available after this position
+          console.warn('No available rest position after this note')
+          return null
+        }
       } else {
-        // No rest at this position - there's already a note here
-        // Fall back to original beat (will likely be rejected by collision detection)
-        finalBeat = position.beat
+        // Different pitch → form chord at this beat
+        finalBeat = nearestElement.beat
       }
+    } else {
+      // Unknown element type, fall back to coordinate calculation
+      finalBeat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
     }
 
     const noteParams: NoteParams = {
-      pitch: position.pitch,
+      pitch,
       duration,
-      measure: position.measure,
+      measure: measureNumber,
       beat: finalBeat,
-      ...(accidental && { accidental }), // Only add accidental if provided
+      ...(accidental && { accidental }),
     }
 
     // Get the target measure for overflow check
-    const targetMeasure = this.scoreModel.getMeasure(position.measure)
+    const targetMeasure = this.scoreModel.getMeasure(measureNumber)
     if (!targetMeasure) return null
 
     // Check for measure overflow
     const overflow = this.collisionDetector.checkMeasureOverflow(
       noteParams,
       targetMeasure,
-      this.scoreModel.getNotesInMeasure(position.measure)
+      this.scoreModel.getNotesInMeasure(measureNumber)
     )
 
     if (overflow.willOverflow) {
@@ -247,7 +247,7 @@ export class MusicEngine {
       return null
     }
 
-    // Check for collisions
+    // Check for collisions (additional safety check)
     const collision = this.collisionDetector.checkNoteCollision(
       noteParams,
       this.scoreModel.getAllNotes()
@@ -276,6 +276,25 @@ export class MusicEngine {
       }
     }
     return null
+  }
+
+  /**
+   * Find the first rest that starts after the given beat
+   * Returns the rest if found, null otherwise
+   */
+  private findNextRestAfterBeat(notes: Note[], beat: number): Note | null {
+    let nextRest: Note | null = null
+    let smallestBeatAfter = Infinity
+
+    for (const note of notes) {
+      if (note.isRest && note.beat > beat) {
+        if (note.beat < smallestBeatAfter) {
+          smallestBeatAfter = note.beat
+          nextRest = note
+        }
+      }
+    }
+    return nextRest
   }
 
   /**
