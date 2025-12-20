@@ -189,7 +189,12 @@ export class ElementRegistry {
     const staffLine = (y - topLineY) / lineSpacing
 
     // Convert staff line to pitch using diatonic scale
-    return this.staffLineToPitch(staffLine)
+    const pitch = this.staffLineToPitch(staffLine)
+
+    // Clamp to valid MIDI range for notation (C0 to C8)
+    // MIDI 24 = C1 (lowest practical for notation)
+    // MIDI 108 = C8 (highest practical for notation)
+    return Math.max(24, Math.min(108, pitch))
   }
 
   /**
@@ -314,5 +319,54 @@ export class ElementRegistry {
       .filter(({ distance }) => distance <= tolerance)
       .sort((a, b) => a.distance - b.distance)
       .map(({ el }) => el)
+  }
+
+  /**
+   * Find notes/rests to left and right of a given X position
+   * For directional note entry logic where:
+   * - right element is rest → new note
+   * - right element is note → add to chord
+   *
+   * @param x - Pixel X coordinate
+   * @param measure - Measure number
+   * @returns Object with nearestLeft and nearestRight elements (can be null)
+   */
+  findNotesLeftRight(x: number, measure: number): {
+    nearestLeft: ElementInfo | null,
+    nearestRight: ElementInfo | null,
+    leftDistance: number,
+    rightDistance: number
+  } {
+    const notesAndRests = this.elements.filter(
+      el => el.measure === measure && (el.type === 'note' || el.type === 'rest')
+    )
+
+    let nearestLeft: ElementInfo | null = null
+    let nearestRight: ElementInfo | null = null
+    let leftDistance = Infinity
+    let rightDistance = Infinity
+
+    for (const el of notesAndRests) {
+      const centerX = el.bbox.x + el.bbox.width / 2
+      const distance = centerX - x  // Positive = right, negative = left
+
+      if (distance <= 0) {
+        // Element is to the left (or at click position)
+        const absDistance = Math.abs(distance)
+        if (absDistance < leftDistance) {
+          leftDistance = absDistance
+          nearestLeft = el
+        }
+      }
+      if (distance >= 0) {
+        // Element is to the right (or at click position)
+        if (distance < rightDistance) {
+          rightDistance = distance
+          nearestRight = el
+        }
+      }
+    }
+
+    return { nearestLeft, nearestRight, leftDistance, rightDistance }
   }
 }

@@ -291,7 +291,8 @@ export class CoordinateMapper {
     // Convert staff line to diatonic pitch (C major scale)
     const pitch = this.staffLineToPitch(staffLine)
 
-    return pitch
+    // Clamp to valid MIDI range for notation (C1 to C8)
+    return Math.max(24, Math.min(108, pitch))
   }
 
   /**

@@ -223,6 +223,13 @@ const totalNotes = computed(() => engine.value?.getScore().measures.flatMap(m =>
 const scoreJSON = computed(() => engine.value?.exportJSON() || '{}')
 
 
+// Debug: Track if we're in a render to detect race conditions
+let isRendering = false
+let lastRenderTime = 0
+
+// Track mouse button state to prevent re-renders during click
+let isMouseButtonDown = false
+
 onMounted(() => {
   if (scoreCanvas.value) {
     engine.value = new MusicEngine({
@@ -243,6 +250,49 @@ onMounted(() => {
         playbackState.value = 'stopped'
       },
     })
+
+    // Debug: Add native click listener to detect missed clicks
+    scoreCanvas.value.addEventListener('click', (e: MouseEvent) => {
+      const timeSinceRender = Date.now() - lastRenderTime
+      console.log(`[Native] Canvas click | isRendering:${isRendering} | timeSinceRender:${timeSinceRender}ms | target:${(e.target as Element)?.tagName}`)
+    }, true)  // Use capture phase to see it first
+
+    // Debug: Document-level click to catch ALL clicks
+    document.addEventListener('click', (e: MouseEvent) => {
+      const target = e.target as Element
+      const isInCanvas = scoreCanvas.value?.contains(target)
+      const rect = scoreCanvas.value?.getBoundingClientRect()
+      const isInCanvasArea = rect &&
+        e.clientX >= rect.left && e.clientX <= rect.right &&
+        e.clientY >= rect.top && e.clientY <= rect.bottom
+
+      console.log(`[Document] Click | client:(${e.clientX},${e.clientY}) | inCanvas:${isInCanvas} | inCanvasArea:${isInCanvasArea} | target:${target.tagName}`)
+    }, true)
+
+    // Track mousedown/mouseup to prevent re-renders during click
+    let mouseDownInfo: { x: number; y: number; time: number; target: Element } | null = null
+    document.addEventListener('mousedown', (e: MouseEvent) => {
+      const target = e.target as Element
+      mouseDownInfo = { x: e.clientX, y: e.clientY, time: Date.now(), target }
+      isMouseButtonDown = true  // Prevent ghost note re-renders
+      console.log(`[MouseDown] client:(${e.clientX},${e.clientY}) | target:${target.tagName}`)
+    }, true)
+    document.addEventListener('mouseup', (e: MouseEvent) => {
+      const target = e.target as Element
+      isMouseButtonDown = false  // Allow ghost note re-renders again
+      if (mouseDownInfo) {
+        const dx = e.clientX - mouseDownInfo.x
+        const dy = e.clientY - mouseDownInfo.y
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const duration = Date.now() - mouseDownInfo.time
+        const sameTarget = target === mouseDownInfo.target
+        console.log(`[MouseUp] client:(${e.clientX},${e.clientY}) | moved:${dist.toFixed(1)}px | duration:${duration}ms | target:${target.tagName} | sameTarget:${sameTarget}`)
+        if (!sameTarget) {
+          console.warn(`[MouseUp] Target changed! down:${mouseDownInfo.target.tagName} → up:${target.tagName} - Click may be lost!`)
+        }
+        mouseDownInfo = null
+      }
+    }, true)
 
     // Initialize with empty measures
     initializeEmptyScore()
@@ -292,8 +342,11 @@ function clearNotes() {
 
 function renderScore() {
   if (!engine.value) return
+  isRendering = true
   engine.value.clearCanvas()
   engine.value.renderScore()
+  isRendering = false
+  lastRenderTime = Date.now()
 }
 
 async function togglePlayback() {
@@ -311,18 +364,30 @@ async function togglePlayback() {
 }
 
 function handleCanvasClick(event: MouseEvent) {
-  if (!engine.value || !scoreCanvas.value) return
+  // Log raw click immediately
+  console.log(`Click RAW | client:(${event.clientX},${event.clientY})`)
+
+  if (!engine.value || !scoreCanvas.value) {
+    console.log('✗ Click ignored: engine or canvas not ready')
+    return
+  }
 
   // Get coordinates in SVG space using SVG's native coordinate transformation
   // This automatically handles padding, scroll, zoom, and any CSS transforms
   const svg = scoreCanvas.value.querySelector('svg')
-  if (!svg) return
+  if (!svg) {
+    console.log('✗ Click ignored: SVG not found')
+    return
+  }
 
   const point = svg.createSVGPoint()
   point.x = event.clientX
   point.y = event.clientY
   const ctm = svg.getScreenCTM()
-  if (!ctm) return
+  if (!ctm) {
+    console.log('✗ Click ignored: no CTM')
+    return
+  }
 
   const svgPoint = point.matrixTransform(ctm.inverse())
   const x = svgPoint.x
@@ -330,9 +395,10 @@ function handleCanvasClick(event: MouseEvent) {
 
   // === DEBUG: Log click info ===
   const registry = engine.value.getElementRegistry()
-  const nearestElement = registry.findNearestNoteOrRest(x, engine.value.pixelToMeasure({ x, y }))
+  const measureNum = engine.value.pixelToMeasure({ x, y })
+  const nearestElement = registry.findNearestNoteOrRest(x, measureNum)
   const elementAt = registry.getAt(x, y)
-  console.log(`Click | mouse:(${x.toFixed(0)},${y.toFixed(0)}) | nearestElement:`, nearestElement ? {
+  console.log(`Click | svg:(${x.toFixed(0)},${y.toFixed(0)}) measure:${measureNum} | nearestElement:`, nearestElement ? {
     type: nearestElement.type,
     beat: nearestElement.beat,
     bbox: `(${nearestElement.bbox.x.toFixed(0)},${nearestElement.bbox.y.toFixed(0)}) ${nearestElement.bbox.width.toFixed(0)}x${nearestElement.bbox.height.toFixed(0)}`
@@ -360,6 +426,13 @@ function handleCanvasClick(event: MouseEvent) {
 
 function handleCanvasMouseMove(event: MouseEvent) {
   if (!engine.value || !scoreCanvas.value) return
+
+  // IMPORTANT: Don't re-render while mouse button is down
+  // This prevents the SVG elements from being replaced during a click,
+  // which would cause the browser to not fire the click event
+  if (isMouseButtonDown) {
+    return
+  }
 
   // Throttle preview updates for performance
   const now = Date.now()

@@ -112,10 +112,12 @@ export class MusicEngine {
    * Convert pixel coordinates to musical position using ElementRegistry
    * This is the centralized method for accurate position calculation
    * Uses actual rendered element positions from VexFlow
+   * @param duration - Optional duration for beat quantization
    */
   private getPositionFromPixels(
     coords: PixelCoordinates,
-    beatsInMeasure: number
+    beatsInMeasure: number,
+    duration?: NoteParams['duration']
   ): { measure: number; beat: number; pitch: number } {
     const registry = this.renderer.getElementRegistry()
     const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
@@ -136,9 +138,21 @@ export class MusicEngine {
         beat = nearestElement.beat
       } else {
         beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
+        // Quantize beat if duration provided
+        if (duration) {
+          const noteDurationInBeats = durationToBeats(duration)
+          beat = Math.round(beat / noteDurationInBeats) * noteDurationInBeats
+          beat = Math.max(0, Math.min(beat, beatsInMeasure - noteDurationInBeats))
+        }
       }
     } else {
       beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
+      // Quantize beat if duration provided
+      if (duration) {
+        const noteDurationInBeats = durationToBeats(duration)
+        beat = Math.round(beat / noteDurationInBeats) * noteDurationInBeats
+        beat = Math.max(0, Math.min(beat, beatsInMeasure - noteDurationInBeats))
+      }
     }
 
     return { measure: measureNumber, beat, pitch }
@@ -147,12 +161,14 @@ export class MusicEngine {
   /**
    * Add a note at pixel coordinates
    *
-   * Logic:
-   * 1. Find the CLOSEST element (note or rest) using ElementRegistry
-   * 2. If closest is a REST → place note at rest's beat position
-   * 3. If closest is a NOTE:
-   *    - Different pitch → form chord (use note's beat)
-   *    - Same pitch → collision, reject
+   * Directional Logic:
+   * 1. Find elements to the LEFT and RIGHT of the click position
+   * 2. If click is FAR from all elements → use coordinate-based beat calculation
+   * 3. Priority: Element to the RIGHT determines behavior
+   *    - If RIGHT is a REST → place note at that rest's beat (new note)
+   *    - If RIGHT is a NOTE → add to that chord (if different pitch)
+   * 4. If only LEFT element and it's close → use LEFT's beat
+   * 5. If same pitch collision → find next rest
    */
   addNoteAtPosition(
     coords: PixelCoordinates,
@@ -170,7 +186,39 @@ export class MusicEngine {
 
     // Validate measure exists
     if (!this.scoreModel.getMeasure(measureNumber)) {
+      console.log('✗ Invalid: measure does not exist')
       return null
+    }
+
+    // Check if click is over an invalid element (clef, time signature, barline)
+    const elementAtCursor = registry.getAt(coords.x, coords.y)
+    if (elementAtCursor) {
+      const invalidTypes = ['clef', 'timeSignature', 'barline', 'keySignature']
+      if (invalidTypes.includes(elementAtCursor.type)) {
+        console.log(`✗ Invalid: clicked on ${elementAtCursor.type}`)
+        return null
+      }
+    }
+
+    // Check if click is within valid staff area (X range)
+    const staffGeometry = registry.getStaffGeometry(measureNumber)
+    if (staffGeometry) {
+      if (coords.x < staffGeometry.noteStartX || coords.x > staffGeometry.noteEndX) {
+        console.log('✗ Invalid: X outside note entry area')
+        return null
+      }
+
+      // Check if click is within valid Y range (reasonable pitch range)
+      // Allow ~2 octaves above/below staff (staff lines span ~4 lines = 40px typically)
+      const topLineY = staffGeometry.lineYPositions[0]
+      const bottomLineY = staffGeometry.lineYPositions[4]
+      const staffHeight = bottomLineY - topLineY
+      const maxDistance = staffHeight * 2  // Allow 2x staff height above/below
+
+      if (coords.y < topLineY - maxDistance || coords.y > bottomLineY + maxDistance) {
+        console.log(`✗ Invalid: Y outside valid range (y=${coords.y.toFixed(0)}, valid=${(topLineY - maxDistance).toFixed(0)}-${(bottomLineY + maxDistance).toFixed(0)})`)
+        return null
+      }
     }
 
     // Get pitch from Y coordinate
@@ -179,48 +227,131 @@ export class MusicEngine {
       pitch = this.coordinateMapper.pixelYToPitch(coords.y, measureNumber)
     }
 
-    // Find the CLOSEST element (note or rest) to the click position
-    const nearestElement = registry.findNearestNoteOrRest(coords.x, measureNumber)
+    // Find elements to the left and right of click
+    const { nearestLeft, nearestRight, leftDistance, rightDistance } =
+      registry.findNotesLeftRight(coords.x, measureNumber)
 
-    if (!nearestElement || nearestElement.beat === undefined) {
-      // No element found - shouldn't happen in a properly filled measure
-      console.warn('No nearest element found at position')
-      return null
-    }
+    // Distance thresholds
+    const CLOSE_THRESHOLD = 25   // For preferring left element when very close
+    const FAR_THRESHOLD = 40     // Beyond this, use coordinate-based calculation
+
+    // Check if click is far from all elements - use coordinate-based beat
+    const nearestDistance = Math.min(
+      nearestLeft ? leftDistance : Infinity,
+      nearestRight ? rightDistance : Infinity
+    )
 
     let finalBeat: number
+    let useCoordinateCalculation = false
+    let decisionReason = ''  // For debug logging
 
-    if (nearestElement.type === 'rest') {
-      // Closest element is a REST → place note at rest's beat
-      finalBeat = nearestElement.beat
-    } else if (nearestElement.type === 'note') {
-      // Closest element is a NOTE
-      // Check if any note at this beat has the same pitch
-      const notesAtBeat = this.scoreModel.getNotesInMeasure(measureNumber)
-        .filter(n => !n.isRest && n.beat === nearestElement.beat)
+    // Get the beat subdivision based on note duration (for quantization)
+    const noteDurationInBeats = durationToBeats(duration)
 
-      const hasSamePitch = notesAtBeat.some(n => n.pitch === pitch)
+    if (nearestDistance > FAR_THRESHOLD) {
+      // Click is far from any element - use coordinate calculation
+      // This handles empty/sparse measures where user clicks in open space
+      useCoordinateCalculation = true
+      const rawBeat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
+      // Quantize beat to note duration grid (e.g., quarter notes snap to 0,1,2,3)
+      finalBeat = Math.round(rawBeat / noteDurationInBeats) * noteDurationInBeats
+      // Clamp to valid range
+      finalBeat = Math.max(0, Math.min(finalBeat, beatsInMeasure - noteDurationInBeats))
+      decisionReason = `coordCalc (nearest=${nearestDistance.toFixed(0)}px > ${FAR_THRESHOLD}px)`
+    } else {
+      // Click is near an element - use directional logic
+      let targetElement: { type: string; beat: number } | null = null
 
-      if (hasSamePitch) {
-        // Same pitch exists at this beat → find the next available rest
-        const notesInMeasure = this.scoreModel.getNotesInMeasure(measureNumber)
-        const nextRest = this.findNextRestAfterBeat(notesInMeasure, nearestElement.beat)
-
-        if (nextRest) {
-          // Found a rest after this note → place note there
-          finalBeat = nextRest.beat
+      if (nearestRight && nearestRight.beat !== undefined && rightDistance <= FAR_THRESHOLD) {
+        if (nearestLeft && leftDistance < CLOSE_THRESHOLD && leftDistance < rightDistance) {
+          // Click is very close to left element - use it
+          targetElement = { type: nearestLeft.type, beat: nearestLeft.beat! }
+          decisionReason = `left (close: ${leftDistance.toFixed(0)}px < ${CLOSE_THRESHOLD}px)`
         } else {
-          // No rest available after this position
-          console.warn('No available rest position after this note')
-          return null
+          // Use right element (the primary directional logic)
+          targetElement = { type: nearestRight.type, beat: nearestRight.beat }
+          decisionReason = `right (${rightDistance.toFixed(0)}px)`
+        }
+      } else if (nearestLeft && nearestLeft.beat !== undefined && leftDistance <= FAR_THRESHOLD) {
+        // Only left element available and it's close enough
+        targetElement = { type: nearestLeft.type, beat: nearestLeft.beat }
+        decisionReason = `left-only (${leftDistance.toFixed(0)}px)`
+      }
+
+      if (!targetElement) {
+        // No element close enough - fall back to coordinates with quantization
+        useCoordinateCalculation = true
+        const rawBeat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
+        finalBeat = Math.round(rawBeat / noteDurationInBeats) * noteDurationInBeats
+        finalBeat = Math.max(0, Math.min(finalBeat, beatsInMeasure - noteDurationInBeats))
+        decisionReason = 'coordCalc (no valid target)'
+      } else if (targetElement.type === 'rest') {
+        // Target is a REST → place note at rest's beat
+        finalBeat = targetElement.beat
+        decisionReason += ` → rest@${targetElement.beat}`
+      } else if (targetElement.type === 'note') {
+        // Target is a NOTE → check for collision
+        const notesAtBeat = this.scoreModel.getNotesInMeasure(measureNumber)
+          .filter(n => !n.isRest && n.beat === targetElement!.beat)
+
+        const hasSamePitch = notesAtBeat.some(n => n.pitch === pitch)
+
+        if (hasSamePitch) {
+          // Same pitch exists at this beat → find the next available rest
+          const notesInMeasure = this.scoreModel.getNotesInMeasure(measureNumber)
+          const nextRest = this.findNextRestAfterBeat(notesInMeasure, targetElement.beat)
+
+          if (nextRest) {
+            // Found a rest after this note → place note there
+            finalBeat = nextRest.beat
+            decisionReason += ` → note@${targetElement.beat} (collision→rest@${nextRest.beat})`
+          } else {
+            // No rest available after this position
+            console.warn('No available rest position after this note')
+            return null
+          }
+        } else {
+          // Different pitch → form chord at this beat
+          finalBeat = targetElement.beat
+          decisionReason += ` → note@${targetElement.beat} (chord)`
         }
       } else {
-        // Different pitch → form chord at this beat
-        finalBeat = nearestElement.beat
+        // Unknown element type, fall back to coordinate calculation with quantization
+        useCoordinateCalculation = true
+        const rawBeat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
+        finalBeat = Math.round(rawBeat / noteDurationInBeats) * noteDurationInBeats
+        finalBeat = Math.max(0, Math.min(finalBeat, beatsInMeasure - noteDurationInBeats))
+        decisionReason = 'coordCalc (unknown element type)'
       }
-    } else {
-      // Unknown element type, fall back to coordinate calculation
-      finalBeat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
+    }
+
+    // When using coordinate calculation, we need to find if there's a rest at that beat
+    // or if we'd be creating a new note position
+    if (useCoordinateCalculation) {
+      const notesInMeasure = this.scoreModel.getNotesInMeasure(measureNumber)
+      const restAtBeat = this.findRestAtBeat(notesInMeasure, finalBeat)
+      if (!restAtBeat) {
+        // Check if there's a note at this beat we could chord with
+        const notesAtBeat = notesInMeasure.filter(n => !n.isRest && n.beat === finalBeat)
+        if (notesAtBeat.length > 0) {
+          // There are notes at this beat - check for collision
+          const hasSamePitch = notesAtBeat.some(n => n.pitch === pitch)
+          if (hasSamePitch) {
+            console.warn('Same pitch collision at calculated beat')
+            return null
+          }
+          // Different pitch - will form chord (continue with finalBeat)
+        } else {
+          // No rest and no notes at this beat - find nearest rest
+          const nearestRest = this.findNearestRestToBeat(notesInMeasure, finalBeat)
+          if (nearestRest) {
+            finalBeat = nearestRest.beat
+          } else {
+            console.warn('No available position for note')
+            return null
+          }
+        }
+      }
     }
 
     const noteParams: NoteParams = {
@@ -258,7 +389,20 @@ export class MusicEngine {
       return null
     }
 
-    return this.addNote(noteParams)
+    const note = this.addNote(noteParams)
+
+    // Debug logging with full context
+    if (note) {
+      console.log('NoteEntry:', {
+        decision: decisionReason,
+        left: nearestLeft ? `${nearestLeft.type}@${nearestLeft.beat} (${leftDistance.toFixed(0)}px)` : null,
+        right: nearestRight ? `${nearestRight.type}@${nearestRight.beat} (${rightDistance.toFixed(0)}px)` : null,
+        finalBeat,
+        coordCalc: useCoordinateCalculation
+      })
+    }
+
+    return note
   }
 
   /**
@@ -295,6 +439,26 @@ export class MusicEngine {
       }
     }
     return nextRest
+  }
+
+  /**
+   * Find the rest nearest to the given beat (before or after)
+   * Used when coordinate calculation lands on a beat without a rest
+   */
+  private findNearestRestToBeat(notes: Note[], targetBeat: number): Note | null {
+    let nearestRest: Note | null = null
+    let smallestDistance = Infinity
+
+    for (const note of notes) {
+      if (note.isRest) {
+        const distance = Math.abs(note.beat - targetBeat)
+        if (distance < smallestDistance) {
+          smallestDistance = distance
+          nearestRest = note
+        }
+      }
+    }
+    return nearestRest
   }
 
   /**
@@ -397,8 +561,8 @@ export class MusicEngine {
       }
     }
 
-    // Use centralized position calculation
-    const position = this.getPositionFromPixels(coords, beatsInMeasure)
+    // Use centralized position calculation with duration for beat quantization
+    const position = this.getPositionFromPixels(coords, beatsInMeasure, duration)
 
     // Validate measure exists
     if (!this.scoreModel.getMeasure(position.measure)) {
