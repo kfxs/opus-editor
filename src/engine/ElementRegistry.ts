@@ -21,6 +21,8 @@ export type ElementType =
   | 'barline'
   | 'beam'
   | 'staff'
+  | 'tie'
+  | 'accidental'
 
 /**
  * Bounding box in pixel coordinates
@@ -58,13 +60,31 @@ export interface ElementInfo {
   /** Our internal ID (for notes/rests) */
   id?: string
   /** Measure number (1-indexed) */
-  measure: number
+  measure?: number
   /** Beat position within measure (for notes/rests) */
   beat?: number
   /** MIDI pitch (for notes) */
   pitch?: number
   /** Pixel bounding box */
   bbox: BoundingBox
+  // Tie-specific properties
+  /** ID of the note this tie starts from (for ties) */
+  fromNoteId?: string
+  /** ID of the note this tie goes to (for ties) */
+  toNoteId?: string
+  /** Source measure number (for ties) */
+  fromMeasure?: number
+  /** Destination measure number (for ties) */
+  toMeasure?: number
+  /** Whether this is a partial tie (line break) */
+  isPartial?: boolean
+  /** Type of partial tie: 'start' or 'end' */
+  partialType?: 'start' | 'end'
+  // Accidental-specific properties
+  /** Type of accidental: '#', 'b', 'n', '##', 'bb' (for accidentals) */
+  accidentalType?: string
+  /** ID of the note this accidental belongs to (for accidentals) */
+  noteId?: string
 }
 
 /**

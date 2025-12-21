@@ -251,47 +251,12 @@ onMounted(() => {
       },
     })
 
-    // Debug: Add native click listener to detect missed clicks
-    scoreCanvas.value.addEventListener('click', (e: MouseEvent) => {
-      const timeSinceRender = Date.now() - lastRenderTime
-      console.log(`[Native] Canvas click | isRendering:${isRendering} | timeSinceRender:${timeSinceRender}ms | target:${(e.target as Element)?.tagName}`)
-    }, true)  // Use capture phase to see it first
-
-    // Debug: Document-level click to catch ALL clicks
-    document.addEventListener('click', (e: MouseEvent) => {
-      const target = e.target as Element
-      const isInCanvas = scoreCanvas.value?.contains(target)
-      const rect = scoreCanvas.value?.getBoundingClientRect()
-      const isInCanvasArea = rect &&
-        e.clientX >= rect.left && e.clientX <= rect.right &&
-        e.clientY >= rect.top && e.clientY <= rect.bottom
-
-      console.log(`[Document] Click | client:(${e.clientX},${e.clientY}) | inCanvas:${isInCanvas} | inCanvasArea:${isInCanvasArea} | target:${target.tagName}`)
-    }, true)
-
     // Track mousedown/mouseup to prevent re-renders during click
-    let mouseDownInfo: { x: number; y: number; time: number; target: Element } | null = null
-    document.addEventListener('mousedown', (e: MouseEvent) => {
-      const target = e.target as Element
-      mouseDownInfo = { x: e.clientX, y: e.clientY, time: Date.now(), target }
+    document.addEventListener('mousedown', () => {
       isMouseButtonDown = true  // Prevent ghost note re-renders
-      console.log(`[MouseDown] client:(${e.clientX},${e.clientY}) | target:${target.tagName}`)
     }, true)
-    document.addEventListener('mouseup', (e: MouseEvent) => {
-      const target = e.target as Element
+    document.addEventListener('mouseup', () => {
       isMouseButtonDown = false  // Allow ghost note re-renders again
-      if (mouseDownInfo) {
-        const dx = e.clientX - mouseDownInfo.x
-        const dy = e.clientY - mouseDownInfo.y
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        const duration = Date.now() - mouseDownInfo.time
-        const sameTarget = target === mouseDownInfo.target
-        console.log(`[MouseUp] client:(${e.clientX},${e.clientY}) | moved:${dist.toFixed(1)}px | duration:${duration}ms | target:${target.tagName} | sameTarget:${sameTarget}`)
-        if (!sameTarget) {
-          console.warn(`[MouseUp] Target changed! down:${mouseDownInfo.target.tagName} → up:${target.tagName} - Click may be lost!`)
-        }
-        mouseDownInfo = null
-      }
     }, true)
 
     // Initialize with empty measures

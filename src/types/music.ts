@@ -45,6 +45,10 @@ export interface Note {
   isRest?: boolean
   /** Stem direction override (default: 'auto' - calculated from pitch and clef) */
   stemDirection?: StemDirection
+  /** ID of the note this note is tied TO (forward tie) */
+  tiedTo?: string
+  /** ID of the note this note is tied FROM (backward tie) */
+  tiedFrom?: string
 }
 
 /**

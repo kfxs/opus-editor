@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Beam } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Beam, StaveTie } from 'vexflow'
 import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
 import { ElementRegistry, type StaffGeometry } from '@/engine/ElementRegistry'
@@ -78,6 +78,10 @@ export class VexFlowRenderer {
   private measureBounds: Map<number, MeasureBounds> = new Map()
   /** Registry tracking all rendered elements and their positions */
   private elementRegistry: ElementRegistry = new ElementRegistry()
+  /** Map of note IDs to their rendered StaveNotes (for tie rendering) */
+  private staveNoteMap: Map<string, { staveNote: StaveNote; noteIndex: number }> = new Map()
+  /** Map of measure numbers to their layout info (including line number) */
+  private measureLayoutInfo: Map<number, MeasureWidthInfo> = new Map()
 
   constructor(containerElement: HTMLElement) {
     this.svgContainer = containerElement
@@ -824,27 +828,97 @@ export class VexFlowRenderer {
         // === Register elements after drawing ===
 
         // Register notes and rests
-        for (let i = 0; i < staveNotes.length && i < noteGroups.length; i++) {
-          const staveNote = staveNotes[i]
-          const noteGroup = noteGroups[i]
+        // We need to track staveNote index separately since rests and chords create separate staveNotes
+        let staveNoteIndex = 0
+        for (const noteGroup of noteGroups) {
+          // Separate rests from regular notes (same logic as createStaveNotesFromGroups)
+          const rests = noteGroup.filter(n => n.isRest)
+          const regularNotes = noteGroup.filter(n => !n.isRest)
 
-          try {
-            const box = staveNote.getBoundingBox()
-            if (box) {
-              // Register each note in the group (for chords, they share the same bbox)
-              for (const note of noteGroup) {
-                this.elementRegistry.add({
-                  type: note.isRest ? 'rest' : 'note',
-                  id: note.id,
-                  measure: measure.number,
-                  beat: note.beat,
-                  pitch: note.isRest ? undefined : note.pitch,
-                  bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
-                })
+          // Register rests (each rest is a separate staveNote)
+          for (const rest of rests) {
+            if (staveNoteIndex < staveNotes.length) {
+              const staveNote = staveNotes[staveNoteIndex]
+              try {
+                const box = staveNote.getBoundingBox()
+                if (box) {
+                  this.elementRegistry.add({
+                    type: 'rest',
+                    id: rest.id,
+                    measure: measure.number,
+                    beat: rest.beat,
+                    bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+                  })
+                }
+              } catch (e) {
+                // getBoundingBox may fail
               }
+              staveNoteIndex++
             }
-          } catch (e) {
-            // getBoundingBox may fail for some elements
+          }
+
+          // Register regular notes (chord is one staveNote with multiple pitches)
+          if (regularNotes.length > 0 && staveNoteIndex < staveNotes.length) {
+            const staveNote = staveNotes[staveNoteIndex]
+            try {
+              const box = staveNote.getBoundingBox()
+              if (box) {
+                // Sort notes by pitch to match VexFlow's internal ordering
+                const sortedNotes = [...regularNotes].sort((a, b) => a.pitch - b.pitch)
+
+                for (let keyIndex = 0; keyIndex < sortedNotes.length; keyIndex++) {
+                  const note = sortedNotes[keyIndex]
+                  this.elementRegistry.add({
+                    type: 'note',
+                    id: note.id,
+                    measure: measure.number,
+                    beat: note.beat,
+                    pitch: note.pitch,
+                    bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+                  })
+
+                  // Store StaveNote reference for tie rendering
+                  // keyIndex matches VexFlow's sorted pitch order
+                  this.staveNoteMap.set(note.id, { staveNote, noteIndex: keyIndex })
+
+                  // Register accidental if present
+                  if (note.accidental) {
+                    try {
+                      // Get modifiers and find the accidental for this note index
+                      const modifiers = staveNote.getModifiers()
+                      for (const modifier of modifiers) {
+                        if (modifier.getCategory() === 'accidentals') {
+                          const accidental = modifier as Accidental
+                          // Check if this accidental is for this key index
+                          if ((accidental as any).index === keyIndex ||
+                              (accidental as any).note_index === keyIndex ||
+                              modifiers.filter(m => m.getCategory() === 'accidentals').indexOf(modifier) === keyIndex) {
+                            const accBox = accidental.getBoundingBox()
+                            if (accBox) {
+                              this.elementRegistry.add({
+                                type: 'accidental',
+                                noteId: note.id,
+                                measure: measure.number,
+                                beat: note.beat,
+                                pitch: note.pitch,
+                                accidentalType: note.accidental,
+                                bbox: { x: accBox.x, y: accBox.y, width: accBox.w, height: accBox.h },
+                              })
+                            }
+                            break
+                          }
+                        }
+                      }
+                    } catch (e) {
+                      // Accidental bounding box may not be available
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              // getBoundingBox may fail
+            }
+            staveNoteIndex++
           }
         }
 
@@ -1263,9 +1337,10 @@ export class VexFlowRenderer {
       const beatsBeforeNote = ghostNote.beat
       const beatsAfterNote = totalBeats - ghostNote.beat - noteDuration
 
-      if (beatsAfterNote < -0.001) {
-        return false
-      }
+      // Ghost note can overflow the measure (we support overwriting notes)
+      // Use effective beats for voice calculation
+      const effectiveBeatsAfter = Math.max(0, beatsAfterNote)
+      const effectiveTotalBeats = beatsBeforeNote + noteDuration + effectiveBeatsAfter
 
       const tickables: any[] = []
 
@@ -1281,8 +1356,8 @@ export class VexFlowRenderer {
 
       tickables.push(staveNote)
 
-      if (beatsAfterNote > 0) {
-        const restsAfter = this.beatsToRestDurations(beatsAfterNote)
+      if (effectiveBeatsAfter > 0) {
+        const restsAfter = this.beatsToRestDurations(effectiveBeatsAfter)
         for (const restDuration of restsAfter) {
           tickables.push(new StaveNote({
             keys: ['b/4'],
@@ -1291,10 +1366,12 @@ export class VexFlowRenderer {
         }
       }
 
+      // Use SOFT mode to allow notes that overflow the measure
+      // This is needed for ghost note preview when placing longer notes
       const voice = new Voice({
         num_beats: totalBeats,
         beat_value: measure.timeSignature.denominator,
-      })
+      }).setMode(Voice.Mode.SOFT)
       voice.addTickables(tickables)
 
       // Format the voice using actual note area with right padding
@@ -1414,6 +1491,8 @@ export class VexFlowRenderer {
 
     // Calculate proportional widths for all measures
     const measureWidths = this.calculateMeasureWidths(score)
+    // Store for use in tie rendering (to determine which line each measure is on)
+    this.measureLayoutInfo = measureWidths
 
     // Find the number of lines from the calculated widths
     let maxLine = 0
@@ -1463,6 +1542,9 @@ export class VexFlowRenderer {
       currentX += widthInfo.finalWidth
     })
 
+    // Render ties between measures after all measures are drawn
+    this.renderTies(score)
+
     // Render ghost note AFTER all measures (as an overlay)
     let ghostNoteRendered = false
     if (ghostNote) {
@@ -1484,6 +1566,182 @@ export class VexFlowRenderer {
   }
 
   /**
+   * Determine tie direction for a note in a chord
+   * Returns: -1 for UP (top note), 1 for DOWN (bottom note), or undefined for single notes
+   */
+  private getTieDirection(note: MusicNote, measure: Measure): number | undefined {
+    // Find all non-rest notes at the same beat in this measure
+    const notesAtBeat = measure.notes.filter(
+      n => !n.isRest && n.beat === note.beat
+    )
+
+    if (notesAtBeat.length <= 1) {
+      // Single note - use stem direction convention
+      // Stem up → tie down (1), Stem down → tie up (-1)
+      const clef = 'treble' // TODO: get from score if needed
+      const middlePitch = clef === 'treble' ? 71 : 50 // B4 for treble
+      return note.pitch >= middlePitch ? 1 : -1
+    }
+
+    // Sort by pitch to find position in chord
+    const sortedPitches = notesAtBeat.map(n => n.pitch).sort((a, b) => a - b)
+    const lowestPitch = sortedPitches[0]
+    const highestPitch = sortedPitches[sortedPitches.length - 1]
+
+    if (note.pitch === highestPitch) {
+      // Top note of chord: tie curves UP
+      return -1
+    } else if (note.pitch === lowestPitch) {
+      // Bottom note of chord: tie curves DOWN
+      return 1
+    } else {
+      // Middle note: follow the nearest outer voice
+      const distToTop = highestPitch - note.pitch
+      const distToBottom = note.pitch - lowestPitch
+      return distToTop <= distToBottom ? -1 : 1
+    }
+  }
+
+  /**
+   * Render ties between notes that have tiedTo/tiedFrom properties
+   */
+  private renderTies(score: Score): void {
+    if (!this.context) return
+
+    // Track which ties we've already processed to avoid duplicates
+    const processedTies = new Set<string>()
+
+    // Find all notes with ties
+    for (const measure of score.measures) {
+      for (const note of measure.notes) {
+        if (note.tiedTo && !note.isRest) {
+          // Create a unique key for this tie relationship
+          const tieKey = `${note.id}->${note.tiedTo}`
+          if (processedTies.has(tieKey)) {
+            continue
+          }
+          processedTies.add(tieKey)
+
+          // This note ties forward to another note
+          const fromInfo = this.staveNoteMap.get(note.id)
+          const toInfo = this.staveNoteMap.get(note.tiedTo)
+
+          if (fromInfo?.staveNote && toInfo?.staveNote) {
+            try {
+              // Get measure numbers
+              const fromMeasure = note.measure
+              const toNote = score.measures.flatMap(m => m.notes).find(n => n.id === note.tiedTo)
+              const toMeasure = toNote?.measure
+
+              // Get line numbers for both measures
+              const fromLayout = this.measureLayoutInfo.get(fromMeasure)
+              const toLayout = toMeasure ? this.measureLayoutInfo.get(toMeasure) : undefined
+              const fromLine = fromLayout?.lineNumber ?? 0
+              const toLine = toLayout?.lineNumber ?? 0
+              const sameLine = fromLine === toLine
+
+              // Determine tie direction based on chord position
+              const tieDirection = this.getTieDirection(note, measure)
+
+              if (sameLine) {
+                // Same line: single continuous tie
+                const tie = new StaveTie({
+                  firstNote: fromInfo.staveNote,
+                  lastNote: toInfo.staveNote,
+                  firstIndexes: [fromInfo.noteIndex],
+                  lastIndexes: [toInfo.noteIndex],
+                })
+                if (tieDirection !== undefined) {
+                  tie.setDirection(tieDirection)
+                }
+                tie.setContext(this.context!).draw()
+
+                // Register tie in element registry
+                try {
+                  const box = tie.getBoundingBox()
+                  if (box) {
+                    this.elementRegistry.add({
+                      type: 'tie',
+                      fromNoteId: note.id,
+                      toNoteId: note.tiedTo!,
+                      fromMeasure: fromMeasure,
+                      toMeasure: toMeasure!,
+                      bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+                    })
+                  }
+                } catch (e) {
+                  // getBoundingBox may fail
+                }
+              } else {
+                // Different lines (line break): two partial ties
+                // First partial: from note to end of line
+                const firstPartialTie = new StaveTie({
+                  firstNote: fromInfo.staveNote,
+                  firstIndexes: [fromInfo.noteIndex],
+                })
+                if (tieDirection !== undefined) {
+                  firstPartialTie.setDirection(tieDirection)
+                }
+                firstPartialTie.setContext(this.context!).draw()
+
+                // Register first partial tie
+                try {
+                  const box = firstPartialTie.getBoundingBox()
+                  if (box) {
+                    this.elementRegistry.add({
+                      type: 'tie',
+                      fromNoteId: note.id,
+                      toNoteId: note.tiedTo!,
+                      fromMeasure: fromMeasure,
+                      toMeasure: toMeasure!,
+                      isPartial: true,
+                      partialType: 'end', // ends at line break
+                      bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+                    })
+                  }
+                } catch (e) {
+                  // getBoundingBox may fail
+                }
+
+                // Second partial: from start of line to note
+                const secondPartialTie = new StaveTie({
+                  lastNote: toInfo.staveNote,
+                  lastIndexes: [toInfo.noteIndex],
+                })
+                if (tieDirection !== undefined) {
+                  secondPartialTie.setDirection(tieDirection)
+                }
+                secondPartialTie.setContext(this.context!).draw()
+
+                // Register second partial tie
+                try {
+                  const box = secondPartialTie.getBoundingBox()
+                  if (box) {
+                    this.elementRegistry.add({
+                      type: 'tie',
+                      fromNoteId: note.id,
+                      toNoteId: note.tiedTo!,
+                      fromMeasure: fromMeasure,
+                      toMeasure: toMeasure!,
+                      isPartial: true,
+                      partialType: 'start', // starts at line break
+                      bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+                    })
+                  }
+                } catch (e) {
+                  // getBoundingBox may fail
+                }
+              }
+            } catch (e) {
+              console.error('Could not render tie:', e)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /**
    * Clear the canvas content without removing the SVG element
    */
   clear(): void {
@@ -1497,6 +1755,10 @@ export class VexFlowRenderer {
     }
     // Clear the element registry for the new render
     this.elementRegistry.clear()
+    // Clear the stave note map
+    this.staveNoteMap.clear()
+    // Clear measure layout info
+    this.measureLayoutInfo.clear()
   }
 
   /**

@@ -169,3 +169,57 @@ export function calculateTotalDuration(
 ): number {
   return notes.reduce((total, note) => total + durationToBeats(note.duration), 0)
 }
+
+/**
+ * Convert a beat value to the closest note duration
+ * @param beats - Number of beats
+ * @returns The closest NoteDuration, or null if no match
+ */
+export function beatsToDuration(beats: number): NoteDuration | null {
+  const epsilon = 0.001
+  if (Math.abs(beats - 4) < epsilon) return 'w'
+  if (Math.abs(beats - 2) < epsilon) return 'h'
+  if (Math.abs(beats - 1) < epsilon) return 'q'
+  if (Math.abs(beats - 0.5) < epsilon) return '8'
+  if (Math.abs(beats - 0.25) < epsilon) return '16'
+  if (Math.abs(beats - 0.125) < epsilon) return '32'
+  return null
+}
+
+/**
+ * Split a duration into parts that fit within available beats
+ * Returns an array of durations that sum to the original duration
+ * Used for splitting notes across bar lines
+ * @param totalBeats - Total beats to fill
+ * @returns Array of NoteDuration values
+ */
+export function splitBeatsIntoDurations(totalBeats: number): NoteDuration[] {
+  const durations: NoteDuration[] = []
+  let remaining = totalBeats
+  const epsilon = 0.001
+
+  // Available durations from largest to smallest
+  const availableDurations: { duration: NoteDuration; beats: number }[] = [
+    { duration: 'w', beats: 4 },
+    { duration: 'h', beats: 2 },
+    { duration: 'q', beats: 1 },
+    { duration: '8', beats: 0.5 },
+    { duration: '16', beats: 0.25 },
+    { duration: '32', beats: 0.125 },
+  ]
+
+  while (remaining > epsilon) {
+    let found = false
+    for (const { duration, beats } of availableDurations) {
+      if (remaining >= beats - epsilon) {
+        durations.push(duration)
+        remaining -= beats
+        found = true
+        break
+      }
+    }
+    if (!found) break // Prevent infinite loop for very small remainders
+  }
+
+  return durations
+}

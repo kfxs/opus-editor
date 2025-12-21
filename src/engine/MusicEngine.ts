@@ -3,7 +3,7 @@ import { VexFlowRenderer } from './rendering/VexFlowRenderer'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
-import { durationToBeats } from '@/utils/musicUtils'
+import { durationToBeats, splitBeatsIntoDurations } from '@/utils/musicUtils'
 import type { Score, Note, NoteParams, PixelCoordinates } from '@/types/music'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 
@@ -290,31 +290,10 @@ export class MusicEngine {
         finalBeat = targetElement.beat
         decisionReason += ` → rest@${targetElement.beat}`
       } else if (targetElement.type === 'note') {
-        // Target is a NOTE → check for collision
-        const notesAtBeat = this.scoreModel.getNotesInMeasure(measureNumber)
-          .filter(n => !n.isRest && n.beat === targetElement!.beat)
-
-        const hasSamePitch = notesAtBeat.some(n => n.pitch === pitch)
-
-        if (hasSamePitch) {
-          // Same pitch exists at this beat → find the next available rest
-          const notesInMeasure = this.scoreModel.getNotesInMeasure(measureNumber)
-          const nextRest = this.findNextRestAfterBeat(notesInMeasure, targetElement.beat)
-
-          if (nextRest) {
-            // Found a rest after this note → place note there
-            finalBeat = nextRest.beat
-            decisionReason += ` → note@${targetElement.beat} (collision→rest@${nextRest.beat})`
-          } else {
-            // No rest available after this position
-            console.warn('No available rest position after this note')
-            return null
-          }
-        } else {
-          // Different pitch → form chord at this beat
-          finalBeat = targetElement.beat
-          decisionReason += ` → note@${targetElement.beat} (chord)`
-        }
+        // Target is a NOTE → overwrite or form chord
+        // In overwrite mode (like Finale), clicking on a note replaces it with the new duration
+        finalBeat = targetElement.beat
+        decisionReason += ` → note@${targetElement.beat} (overwrite/chord)`
       } else {
         // Unknown element type, fall back to coordinate calculation with quantization
         useCoordinateCalculation = true
@@ -373,20 +352,37 @@ export class MusicEngine {
       this.scoreModel.getNotesInMeasure(measureNumber)
     )
 
-    if (overflow.willOverflow) {
-      console.warn('Note would overflow measure:', overflow)
-      return null
+    // Find and delete notes that would be overwritten by this note
+    // This includes: notes within the duration range AND same-pitch notes at same beat (replacement)
+    const notesToOverwrite = this.findNotesToOverwrite(measureNumber, finalBeat, duration, pitch)
+    if (notesToOverwrite.length > 0) {
+      console.log('Overwriting notes:', notesToOverwrite.map(n => `pitch:${n.pitch}@beat:${n.beat}`).join(', '))
+      for (const noteToDelete of notesToOverwrite) {
+        this.scoreModel.deleteNote(noteToDelete.id)
+      }
     }
 
-    // Check for collisions (additional safety check)
-    const collision = this.collisionDetector.checkNoteCollision(
-      noteParams,
-      this.scoreModel.getAllNotes()
-    )
+    // Handle overflow by splitting note across bar line with tie
+    if (overflow.willOverflow && overflow.overflowAmount) {
+      // Also update existing chord notes at the same beat to have the same duration and ties
+      const existingChordNotes = this.scoreModel.getNotesInMeasure(measureNumber)
+        .filter(n => !n.isRest && Math.abs(n.beat - finalBeat) < 0.001 && n.pitch !== pitch)
 
-    if (collision.hasCollision) {
-      console.warn('Note collision detected:', collision.reason)
-      return null
+      // Split each existing chord note with ties
+      for (const chordNote of existingChordNotes) {
+        this.splitExistingNoteWithTie(chordNote, duration, overflow.overflowAmount)
+      }
+
+      return this.addSplitNoteWithTie(noteParams, overflow.overflowAmount)
+    }
+
+    // For non-overflow cases, update existing chord notes to match duration
+    const existingChordNotes = this.scoreModel.getNotesInMeasure(measureNumber)
+      .filter(n => !n.isRest && Math.abs(n.beat - finalBeat) < 0.001 && n.pitch !== pitch)
+    for (const chordNote of existingChordNotes) {
+      if (chordNote.duration !== duration) {
+        this.scoreModel.updateNote(chordNote.id, { duration })
+      }
     }
 
     const note = this.addNote(noteParams)
@@ -459,6 +455,193 @@ export class MusicEngine {
       }
     }
     return nearestRest
+  }
+
+  /**
+   * Split an existing note with a tie when its duration changes to overflow
+   * @param existingNote - The existing note to split
+   * @param newDuration - The new duration to apply
+   * @param overflowAmount - Amount of beats that overflow into next measure
+   */
+  private splitExistingNoteWithTie(existingNote: Note, newDuration: NoteParams['duration'], overflowAmount: number): void {
+    const totalBeats = durationToBeats(newDuration)
+    const beatsInCurrentMeasure = totalBeats - overflowAmount
+    const beatsInNextMeasure = overflowAmount
+
+    // Get durations for each part
+    const currentMeasureDurations = splitBeatsIntoDurations(beatsInCurrentMeasure)
+    const nextMeasureDurations = splitBeatsIntoDurations(beatsInNextMeasure)
+
+    if (currentMeasureDurations.length === 0 || nextMeasureDurations.length === 0) {
+      console.warn('Could not split existing note into valid durations')
+      return
+    }
+
+    // Update the existing note's duration to the first part
+    this.scoreModel.updateNote(existingNote.id, { duration: currentMeasureDurations[0] })
+
+    // Check if next measure exists, if not create it
+    const nextMeasureNumber = existingNote.measure + 1
+    if (!this.scoreModel.getMeasure(nextMeasureNumber)) {
+      while (!this.scoreModel.getMeasure(nextMeasureNumber)) {
+        this.scoreModel.addMeasure()
+      }
+    }
+
+    // Add tied continuation note in next measure
+    let previousNoteId = existingNote.id
+    let nextBeat = 0
+
+    for (const duration of nextMeasureDurations) {
+      const continuationNote = this.addNote({
+        pitch: existingNote.pitch,
+        duration,
+        measure: nextMeasureNumber,
+        beat: nextBeat,
+        ...(existingNote.accidental && { accidental: existingNote.accidental }),
+      })
+
+      // Link with tie
+      this.scoreModel.updateNote(previousNoteId, { tiedTo: continuationNote.id })
+      this.scoreModel.updateNote(continuationNote.id, { tiedFrom: previousNoteId })
+
+      previousNoteId = continuationNote.id
+      nextBeat += durationToBeats(duration)
+    }
+
+    console.log('Split existing chord note with tie:', {
+      noteId: existingNote.id,
+      pitch: existingNote.pitch,
+      currentDuration: currentMeasureDurations[0],
+      nextDurations: nextMeasureDurations,
+    })
+  }
+
+  /**
+   * Add a note that spans across bar line by splitting it with a tie
+   * @param noteParams - Original note parameters
+   * @param overflowAmount - Amount of beats that overflow into next measure
+   * @returns The first note (in current measure) or null if failed
+   */
+  private addSplitNoteWithTie(noteParams: NoteParams, overflowAmount: number): Note | null {
+    const totalBeats = durationToBeats(noteParams.duration)
+    const beatsInCurrentMeasure = totalBeats - overflowAmount
+    const beatsInNextMeasure = overflowAmount
+
+    // Get durations for each part
+    const currentMeasureDurations = splitBeatsIntoDurations(beatsInCurrentMeasure)
+    const nextMeasureDurations = splitBeatsIntoDurations(beatsInNextMeasure)
+
+    if (currentMeasureDurations.length === 0 || nextMeasureDurations.length === 0) {
+      console.warn('Could not split note into valid durations')
+      return null
+    }
+
+    // Check if next measure exists, if not create it
+    const nextMeasureNumber = noteParams.measure + 1
+    let nextMeasure = this.scoreModel.getMeasure(nextMeasureNumber)
+    if (!nextMeasure) {
+      // Add measures until we have the next one
+      while (!this.scoreModel.getMeasure(nextMeasureNumber)) {
+        this.scoreModel.addMeasure()
+      }
+      nextMeasure = this.scoreModel.getMeasure(nextMeasureNumber)
+    }
+
+    // Delete notes that would be overwritten in the next measure
+    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, 0, nextMeasureDurations[0], noteParams.pitch)
+    for (const noteToDelete of notesToOverwriteNext) {
+      this.scoreModel.deleteNote(noteToDelete.id)
+    }
+
+    // Add notes in current measure (may need multiple if duration splits, e.g., dotted notes)
+    let currentBeat = noteParams.beat
+    let firstNote: Note | null = null
+    let previousNote: Note | null = null
+
+    for (const duration of currentMeasureDurations) {
+      const note = this.addNote({
+        ...noteParams,
+        duration,
+        beat: currentBeat,
+      })
+      if (!firstNote) firstNote = note
+
+      // Link with previous note in current measure if there are multiple
+      if (previousNote) {
+        this.scoreModel.updateNote(previousNote.id, { tiedTo: note.id })
+        this.scoreModel.updateNote(note.id, { tiedFrom: previousNote.id })
+      }
+
+      previousNote = note
+      currentBeat += durationToBeats(duration)
+    }
+
+    // Add notes in next measure
+    let nextBeat = 0
+    for (const duration of nextMeasureDurations) {
+      const note = this.addNote({
+        pitch: noteParams.pitch,
+        duration,
+        measure: nextMeasureNumber,
+        beat: nextBeat,
+        ...(noteParams.accidental && { accidental: noteParams.accidental }),
+      })
+
+      // Link with previous note (tie across bar line)
+      if (previousNote) {
+        this.scoreModel.updateNote(previousNote.id, { tiedTo: note.id })
+        this.scoreModel.updateNote(note.id, { tiedFrom: previousNote.id })
+      }
+
+      previousNote = note
+      nextBeat += durationToBeats(duration)
+    }
+
+    console.log('Split note with tie:', {
+      currentMeasure: noteParams.measure,
+      currentDurations: currentMeasureDurations,
+      nextMeasure: nextMeasureNumber,
+      nextDurations: nextMeasureDurations,
+    })
+
+    return firstNote
+  }
+
+  /**
+   * Find notes that would be overwritten by a new note
+   * This returns notes that fall within the new note's duration range.
+   * Notes at the same beat with DIFFERENT pitch are kept (chords).
+   * Notes at the same beat with SAME pitch are deleted (replacement).
+   */
+  private findNotesToOverwrite(
+    measureNumber: number,
+    beat: number,
+    duration: NoteParams['duration'],
+    pitch: number
+  ): Note[] {
+    const noteDurationInBeats = durationToBeats(duration)
+    const noteEnd = beat + noteDurationInBeats
+    const notesInMeasure = this.scoreModel.getNotesInMeasure(measureNumber)
+
+    return notesInMeasure.filter(existing => {
+      // Skip rests - they're handled separately by ScoreModel
+      if (existing.isRest) return false
+
+      // Notes at the same beat: only delete if same pitch (replacement)
+      // Different pitch at same beat = chord (keep it)
+      if (Math.abs(existing.beat - beat) < 0.001) {
+        return existing.pitch === pitch  // Delete if same pitch (replacement)
+      }
+
+      // Check if this note starts within the new note's time range
+      // A note should be deleted if it starts after our beat but before our end
+      if (existing.beat > beat && existing.beat < noteEnd) {
+        return true
+      }
+
+      return false
+    })
   }
 
   /**
