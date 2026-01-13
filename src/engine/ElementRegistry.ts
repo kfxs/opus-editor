@@ -369,6 +369,55 @@ export class ElementRegistry {
   }
 
   /**
+   * Find the closest note or rest to a given X,Y position
+   * Used for selecting notes and rests in selection mode
+   * @param x - Pixel X coordinate
+   * @param y - Pixel Y coordinate
+   * @param measure - Measure number
+   * @param xTolerance - Max X distance in pixels (default 30)
+   * @returns The closest note/rest element, or null if none found
+   */
+  findClosestNoteOrRest(x: number, y: number, measure: number, xTolerance: number = 30): ElementInfo | null {
+    const elements = this.elements.filter(
+      el => el.measure === measure && (el.type === 'note' || el.type === 'rest')
+    )
+
+    if (elements.length === 0) return null
+
+    let closest: ElementInfo | null = null
+    let minDistance = Infinity
+
+    for (const element of elements) {
+      const centerX = element.bbox.x + element.bbox.width / 2
+      const xDist = Math.abs(x - centerX)
+
+      // Only consider elements within X tolerance
+      if (xDist <= xTolerance) {
+        let elementY: number
+
+        if (element.type === 'note' && element.pitch !== undefined) {
+          // For notes in chords, use pitch-based Y position
+          const pitchY = this.pitchToPixelY(element.pitch, measure)
+          elementY = pitchY !== null ? pitchY : element.bbox.y + element.bbox.height / 2
+        } else {
+          // For rests (and notes without pitch), use bbox center
+          elementY = element.bbox.y + element.bbox.height / 2
+        }
+
+        // Use Euclidean distance for selection
+        const distance = Math.sqrt(xDist ** 2 + (y - elementY) ** 2)
+
+        if (distance < minDistance) {
+          minDistance = distance
+          closest = element
+        }
+      }
+    }
+
+    return closest
+  }
+
+  /**
    * Find notes/rests near a given X position (within tolerance)
    * @param x - Pixel X coordinate
    * @param measure - Measure number

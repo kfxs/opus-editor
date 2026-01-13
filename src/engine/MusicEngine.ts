@@ -716,8 +716,8 @@ export class MusicEngine {
       let beatsToRecover = 0
 
       for (const n of measureNotes) {
-        // Skip the note being updated and other notes in the same chord
-        if (chordNoteIds.has(n.id)) continue
+        // Skip the note/rest being updated and other notes in the same chord
+        if (n.id === noteId || chordNoteIds.has(n.id)) continue
 
         const nStart = n.beat
         const nEnd = n.beat + durationToBeats(n.duration)

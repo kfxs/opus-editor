@@ -389,10 +389,10 @@ function renderScore() {
 function applySelectionHighlight() {
   if (!engine.value || !scoreCanvas.value || !selectedNoteId.value) return
 
-  // Get the selected note's info from ElementRegistry
+  // Get the selected element's info from ElementRegistry
   const elementInfo = engine.value.getElementById(selectedNoteId.value)
   if (!elementInfo) {
-    // Note was deleted or no longer exists
+    // Element was deleted or no longer exists
     selectedNoteId.value = null
     return
   }
@@ -404,43 +404,50 @@ function applySelectionHighlight() {
   const SELECTION_COLOR = '#F59E0B'
   const SELECTION_STROKE = '#D97706'
 
-  // Get the note's pitch from the score model (more reliable than ElementRegistry for chords)
+  // Get the element's data from the score model
   const score = engine.value.getScore()
   let notePitch: number | null = null
   let noteMeasure: number | null = null
+  let isRest = false
+
   for (const measure of score.measures) {
-    const note = measure.notes.find(n => n.id === selectedNoteId.value)
-    if (note && !note.isRest) {
-      notePitch = note.pitch
-      noteMeasure = note.measure
+    const element = measure.notes.find(n => n.id === selectedNoteId.value)
+    if (element) {
+      noteMeasure = element.measure
+      isRest = element.isRest || false
+      if (!element.isRest) {
+        notePitch = element.pitch
+      }
       break
     }
   }
 
   // For chords, the bbox covers all notes. Calculate specific Y for this note's pitch.
+  // For rests, use the bbox directly (no pitch-based positioning)
   const registry = engine.value.getElementRegistry()
   let targetY: number | null = null
   if (notePitch !== null && noteMeasure !== null) {
     targetY = registry.pitchToPixelY(notePitch, noteMeasure)
   }
 
-  // Create a pitch-specific bounding box if we have a target Y
-  // Otherwise fall back to the full bbox
+  // Create a pitch-specific bounding box if we have a target Y (for notes)
+  // For rests, use the full bbox
   const bbox = elementInfo.bbox
   const noteHeight = 25 // Approximate height of a single notehead
-  const selectBbox = targetY !== null ? {
+  const selectBbox = (targetY !== null && !isRest) ? {
     x: bbox.x,
     y: targetY - noteHeight / 2,
     width: bbox.width,
     height: noteHeight
   } : bbox
 
-  console.log('Highlight debug:', { notePitch, noteMeasure, targetY, bbox, selectBbox })
+  console.log('Highlight debug:', { notePitch, noteMeasure, targetY, isRest, bbox, selectBbox })
 
   // Determine if this note is part of a chord and get Y positions of all chord notes
+  // Rests cannot be in chords
   let isInChord = false
   let chordNoteYPositions: number[] = []
-  if (noteMeasure !== null) {
+  if (noteMeasure !== null && !isRest) {
     const measureData = score.measures.find(m => m.number === noteMeasure)
     if (measureData) {
       const noteData = measureData.notes.find(n => n.id === selectedNoteId.value)
@@ -604,34 +611,35 @@ function handleCanvasClick(event: MouseEvent) {
 
   // Handle based on current tool mode
   if (selectedTool.value === 'selection') {
-    // Selection mode: find and select note under cursor
-    // Use findClosestNote to properly handle chords (multiple notes at same beat)
-    const closestNote = registry.findClosestNote(x, y, measureNum)
+    // Selection mode: find and select note or rest under cursor
+    // Use findClosestNoteOrRest to handle both notes and rests
+    const closestElement = registry.findClosestNoteOrRest(x, y, measureNum)
 
-    if (closestNote && closestNote.id) {
-      // Check if click is within a reasonable distance of the note
-      const bbox = closestNote.bbox
+    if (closestElement && closestElement.id) {
+      // Check if click is within a reasonable distance of the element
+      const bbox = closestElement.bbox
       const centerX = bbox.x + bbox.width / 2
 
-      // For chords, use pitch-based Y position instead of bbox center
-      // (all notes in a chord share the same bbox)
-      let noteY: number
-      if (closestNote.pitch !== undefined) {
-        const pitchY = registry.pitchToPixelY(closestNote.pitch, measureNum)
-        noteY = pitchY !== null ? pitchY : bbox.y + bbox.height / 2
+      // For notes in chords, use pitch-based Y position
+      // For rests, use bbox center
+      let elementY: number
+      if (closestElement.type === 'note' && closestElement.pitch !== undefined) {
+        const pitchY = registry.pitchToPixelY(closestElement.pitch, measureNum)
+        elementY = pitchY !== null ? pitchY : bbox.y + bbox.height / 2
       } else {
-        noteY = bbox.y + bbox.height / 2
+        elementY = bbox.y + bbox.height / 2
       }
 
-      const distance = Math.sqrt((x - centerX) ** 2 + (y - noteY) ** 2)
+      const distance = Math.sqrt((x - centerX) ** 2 + (y - elementY) ** 2)
 
-      // Select if within 30px of note center
+      // Select if within 30px of element center
       if (distance < 30) {
-        selectedNoteId.value = closestNote.id
-        console.log(`✓ Note selected | id:${closestNote.id}`)
+        selectedNoteId.value = closestElement.id
+        const typeLabel = closestElement.type === 'rest' ? 'Rest' : 'Note'
+        console.log(`✓ ${typeLabel} selected | id:${closestElement.id}`)
       } else {
         selectedNoteId.value = null
-        console.log('Selection cleared (too far from note)')
+        console.log('Selection cleared (too far from element)')
       }
     } else {
       // Clicked on empty space - clear selection
