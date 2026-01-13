@@ -389,7 +389,7 @@ function renderScore() {
 function applySelectionHighlight() {
   if (!engine.value || !scoreCanvas.value || !selectedNoteId.value) return
 
-  // Get the selected note's bounding box from ElementRegistry
+  // Get the selected note's info from ElementRegistry
   const elementInfo = engine.value.getElementById(selectedNoteId.value)
   if (!elementInfo) {
     // Note was deleted or no longer exists
@@ -397,35 +397,151 @@ function applySelectionHighlight() {
     return
   }
 
-  // Get SVG element and transform coordinates
+  // Get SVG element
   const svg = scoreCanvas.value.querySelector('svg')
   if (!svg) return
 
-  // Calculate center of the bounding box in screen coordinates
+  const SELECTION_COLOR = '#F59E0B'
+  const SELECTION_STROKE = '#D97706'
+
+  // Get the note's pitch from the score model (more reliable than ElementRegistry for chords)
+  const score = engine.value.getScore()
+  let notePitch: number | null = null
+  let noteMeasure: number | null = null
+  for (const measure of score.measures) {
+    const note = measure.notes.find(n => n.id === selectedNoteId.value)
+    if (note && !note.isRest) {
+      notePitch = note.pitch
+      noteMeasure = note.measure
+      break
+    }
+  }
+
+  // For chords, the bbox covers all notes. Calculate specific Y for this note's pitch.
+  const registry = engine.value.getElementRegistry()
+  let targetY: number | null = null
+  if (notePitch !== null && noteMeasure !== null) {
+    targetY = registry.pitchToPixelY(notePitch, noteMeasure)
+  }
+
+  // Create a pitch-specific bounding box if we have a target Y
+  // Otherwise fall back to the full bbox
   const bbox = elementInfo.bbox
-  const centerX = bbox.x + bbox.width / 2
-  const centerY = bbox.y + bbox.height / 2
+  const noteHeight = 25 // Approximate height of a single notehead
+  const selectBbox = targetY !== null ? {
+    x: bbox.x,
+    y: targetY - noteHeight / 2,
+    width: bbox.width,
+    height: noteHeight
+  } : bbox
 
-  // Transform SVG coordinates to screen coordinates
-  const point = svg.createSVGPoint()
-  point.x = centerX
-  point.y = centerY
-  const ctm = svg.getScreenCTM()
-  if (!ctm) return
+  console.log('Highlight debug:', { notePitch, noteMeasure, targetY, bbox, selectBbox })
 
-  const screenPoint = point.matrixTransform(ctm)
+  // Determine if this note is part of a chord and get Y positions of all chord notes
+  let isInChord = false
+  let chordNoteYPositions: number[] = []
+  if (noteMeasure !== null) {
+    const measureData = score.measures.find(m => m.number === noteMeasure)
+    if (measureData) {
+      const noteData = measureData.notes.find(n => n.id === selectedNoteId.value)
+      if (noteData) {
+        const notesAtBeat = measureData.notes.filter(
+          n => !n.isRest && n.beat === noteData.beat
+        )
+        isInChord = notesAtBeat.length > 1
+        // Get Y positions for all notes in the chord (except the selected one)
+        if (isInChord) {
+          for (const chordNote of notesAtBeat) {
+            if (chordNote.id !== selectedNoteId.value) {
+              const chordNoteY = registry.pitchToPixelY(chordNote.pitch, noteMeasure)
+              if (chordNoteY !== null) {
+                chordNoteYPositions.push(chordNoteY)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 
-  // Find elements at that screen position
-  const elements = document.elementsFromPoint(screenPoint.x, screenPoint.y)
+  // Find all SVG elements and check if they intersect with the note's bounding box
+  // Include 'text' and 'use' as VexFlow may use font glyphs for noteheads
+  const allElements = svg.querySelectorAll('path, ellipse, circle, line, rect, text, use')
 
-  // Find the parent SVG group (usually the first <g> ancestor)
-  for (const el of elements) {
-    if (el instanceof SVGElement && el.closest('svg') === svg) {
-      // Find the nearest ancestor <g> element that represents the note
-      let group = el.closest('g')
-      if (group) {
-        group.classList.add('selected-note')
-        return
+  for (const el of allElements) {
+    const elBBox = (el as SVGGraphicsElement).getBBox?.()
+    if (!elBBox) continue
+
+    // Check if element's bounding box intersects with note's bounding box
+    const intersects = !(
+      elBBox.x + elBBox.width < selectBbox.x ||
+      elBBox.x > selectBbox.x + selectBbox.width ||
+      elBBox.y + elBBox.height < selectBbox.y ||
+      elBBox.y > selectBbox.y + selectBbox.height
+    )
+
+    if (intersects) {
+      // Check if this is likely part of the note (not staff lines, etc.)
+      // Staff lines are typically very wide, notes are narrow
+      if (elBBox.width < 50) {
+        const svgEl = el as SVGElement
+
+        // For chords, we need extra filtering to only highlight the specific note
+        if (isInChord && targetY !== null) {
+          const elCenterY = elBBox.y + elBBox.height / 2
+
+          // For lines (stems), skip highlighting - stems are shared across chord notes
+          // Only highlight if the line is very short (ledger lines, not chord stems)
+          if (el.tagName === 'line') {
+            // Skip chord stems (tall vertical lines) - only highlight short lines
+            if (elBBox.height > 20) {
+              continue
+            }
+          }
+
+          // For noteheads (text, path, ellipse), only highlight if this element
+          // is closer to the selected note than to any other note in the chord
+          const distToSelectedNote = Math.abs(elCenterY - targetY)
+
+          // Check if any other chord note is closer to this element
+          let isCloserToOtherNote = false
+          for (const otherNoteY of chordNoteYPositions) {
+            const distToOtherNote = Math.abs(elCenterY - otherNoteY)
+            if (distToOtherNote < distToSelectedNote) {
+              isCloserToOtherNote = true
+              break
+            }
+          }
+
+          if (isCloserToOtherNote) {
+            continue
+          }
+
+          // Also skip if too far from selected note (more than 20px)
+          if (distToSelectedNote > 20) {
+            continue
+          }
+        }
+
+        // Store original values for potential restoration
+        svgEl.dataset.originalFill = svgEl.getAttribute('fill') || ''
+        svgEl.dataset.originalStroke = svgEl.getAttribute('stroke') || ''
+
+        // Apply selection colors directly
+        if (el.tagName === 'line') {
+          svgEl.setAttribute('stroke', SELECTION_STROKE)
+        } else if (el.tagName === 'text') {
+          // Text elements use fill for color
+          svgEl.setAttribute('fill', SELECTION_COLOR)
+          svgEl.style.fill = SELECTION_COLOR
+        } else {
+          const currentFill = svgEl.getAttribute('fill')
+          if (currentFill && currentFill !== 'none') {
+            svgEl.setAttribute('fill', SELECTION_COLOR)
+          }
+          svgEl.setAttribute('stroke', SELECTION_STROKE)
+        }
+        svgEl.classList.add('selected-note')
       }
     }
   }
@@ -489,18 +605,30 @@ function handleCanvasClick(event: MouseEvent) {
   // Handle based on current tool mode
   if (selectedTool.value === 'selection') {
     // Selection mode: find and select note under cursor
-    // Use nearestElement since getAt often returns 'staff' due to overlapping bboxes
-    if (nearestElement && nearestElement.type === 'note' && nearestElement.id) {
+    // Use findClosestNote to properly handle chords (multiple notes at same beat)
+    const closestNote = registry.findClosestNote(x, y, measureNum)
+
+    if (closestNote && closestNote.id) {
       // Check if click is within a reasonable distance of the note
-      const bbox = nearestElement.bbox
+      const bbox = closestNote.bbox
       const centerX = bbox.x + bbox.width / 2
-      const centerY = bbox.y + bbox.height / 2
-      const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2)
+
+      // For chords, use pitch-based Y position instead of bbox center
+      // (all notes in a chord share the same bbox)
+      let noteY: number
+      if (closestNote.pitch !== undefined) {
+        const pitchY = registry.pitchToPixelY(closestNote.pitch, measureNum)
+        noteY = pitchY !== null ? pitchY : bbox.y + bbox.height / 2
+      } else {
+        noteY = bbox.y + bbox.height / 2
+      }
+
+      const distance = Math.sqrt((x - centerX) ** 2 + (y - noteY) ** 2)
 
       // Select if within 30px of note center
       if (distance < 30) {
-        selectedNoteId.value = nearestElement.id
-        console.log(`✓ Note selected | id:${nearestElement.id}`)
+        selectedNoteId.value = closestNote.id
+        console.log(`✓ Note selected | id:${closestNote.id}`)
       } else {
         selectedNoteId.value = null
         console.log('Selection cleared (too far from note)')
@@ -611,13 +739,21 @@ function handleCanvasMouseLeave() {
 /* Style selected note elements */
 .selected-note path,
 .selected-note ellipse,
-.selected-note circle {
+.selected-note circle,
+.selected-note rect {
   fill: #F59E0B !important;
   stroke: #D97706 !important;
 }
 
 .selected-note line {
   stroke: #D97706 !important;
+}
+
+/* Force notehead fill color (VexFlow uses inline styles) */
+.selected-note [fill="black"],
+.selected-note [fill="#000"],
+.selected-note [fill="#000000"] {
+  fill: #F59E0B !important;
 }
 
 /* Score container with rounded corners that work with scrollbars */

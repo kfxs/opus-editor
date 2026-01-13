@@ -669,6 +669,14 @@ export class MusicEngine {
     const oldDuration = existingNote.duration
     let newDuration = updates.duration || oldDuration
 
+    // Find all notes in the same chord (same measure, same beat, non-rest)
+    // All notes in a chord must have the same duration
+    const measureNotes = this.scoreModel.getNotesInMeasure(existingNote.measure)
+    const chordNotes = measureNotes.filter(
+      n => !n.isRest && Math.abs(n.beat - existingNote.beat) < 0.001
+    )
+    const isChord = chordNotes.length > 1
+
     // Limit duration to fit within the measure
     const measure = this.scoreModel.getMeasure(existingNote.measure)
     if (measure && updates.duration) {
@@ -699,15 +707,17 @@ export class MusicEngine {
     // If duration is being lengthened, remove overlapping notes/rests first
     if (beatDifference < -0.001) {
       const noteEndBeat = existingNote.beat + newBeats
-      const measureNotes = this.scoreModel.getNotesInMeasure(existingNote.measure)
 
       // Find notes/rests that overlap with the new extended duration
       // These are notes that start after the original note ends but before the new end
+      // Exclude notes that are part of the same chord
+      const chordNoteIds = new Set(chordNotes.map(n => n.id))
       const notesToRemove: string[] = []
       let beatsToRecover = 0
 
       for (const n of measureNotes) {
-        if (n.id === noteId) continue // Skip the note being updated
+        // Skip the note being updated and other notes in the same chord
+        if (chordNoteIds.has(n.id)) continue
 
         const nStart = n.beat
         const nEnd = n.beat + durationToBeats(n.duration)
@@ -746,7 +756,34 @@ export class MusicEngine {
       }
     }
 
-    // Update the note
+    // Update all notes in the chord if duration is changing
+    // All notes in a chord must have the same duration
+    if (isChord && updates.duration) {
+      for (const chordNote of chordNotes) {
+        // Update each chord note's duration (but only duration, not other properties)
+        this.scoreModel.updateNote(chordNote.id, { duration: updates.duration })
+      }
+      // Now update the target note with all requested updates (pitch, accidental, etc.)
+      // Duration is already set, but include it to ensure consistency
+      const note = this.scoreModel.updateNote(noteId, updates)
+
+      // If duration was shortened, fill the gap with rests
+      if (beatDifference > 0.001) {
+        const restStartBeat = note.beat + newBeats
+        const restDurations = splitBeatsIntoDurations(beatDifference)
+
+        let currentBeat = restStartBeat
+        for (const restDuration of restDurations) {
+          this.scoreModel.addRest(restDuration, note.measure, currentBeat)
+          currentBeat += durationToBeats(restDuration)
+        }
+      }
+
+      this.playbackEngine.setScore(this.scoreModel.getScore())
+      return note
+    }
+
+    // Single note update (not part of a chord)
     const note = this.scoreModel.updateNote(noteId, updates)
 
     // If duration was shortened, fill the gap with rests

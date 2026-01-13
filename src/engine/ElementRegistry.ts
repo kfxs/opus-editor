@@ -320,6 +320,55 @@ export class ElementRegistry {
   }
 
   /**
+   * Find the closest note to a given X,Y position
+   * Used for selecting specific notes in chords
+   * @param x - Pixel X coordinate
+   * @param y - Pixel Y coordinate
+   * @param measure - Measure number
+   * @param xTolerance - Max X distance in pixels (default 30)
+   * @returns The closest note element, or null if none found
+   */
+  findClosestNote(x: number, y: number, measure: number, xTolerance: number = 30): ElementInfo | null {
+    const notes = this.elements.filter(
+      el => el.measure === measure && el.type === 'note'
+    )
+
+    if (notes.length === 0) return null
+
+    let closest: ElementInfo | null = null
+    let minDistance = Infinity
+
+    for (const note of notes) {
+      const centerX = note.bbox.x + note.bbox.width / 2
+      const xDist = Math.abs(x - centerX)
+
+      // Only consider notes within X tolerance
+      if (xDist <= xTolerance) {
+        // For chords, notes share the same bbox but have different pitches
+        // Use pitch-based Y position for accurate selection
+        let noteY: number
+        if (note.pitch !== undefined) {
+          // Calculate actual Y position from pitch using staff geometry
+          const pitchY = this.pitchToPixelY(note.pitch, measure)
+          noteY = pitchY !== null ? pitchY : note.bbox.y + note.bbox.height / 2
+        } else {
+          noteY = note.bbox.y + note.bbox.height / 2
+        }
+
+        // Use Euclidean distance for selection
+        const distance = Math.sqrt(xDist ** 2 + (y - noteY) ** 2)
+
+        if (distance < minDistance) {
+          minDistance = distance
+          closest = note
+        }
+      }
+    }
+
+    return closest
+  }
+
+  /**
    * Find notes/rests near a given X position (within tolerance)
    * @param x - Pixel X coordinate
    * @param measure - Measure number
