@@ -655,11 +655,135 @@ export class MusicEngine {
 
   /**
    * Update a note
+   * When duration is shortened, fills the gap with rests
+   * When duration is lengthened, removes overlapping notes/rests
+   * Duration is limited to fit within the current measure (no bar line crossing)
    */
   updateNote(noteId: string, updates: Partial<NoteParams>): Note {
+    // Get the note before update to check if duration is changing
+    const existingNote = this.scoreModel.getNote(noteId)
+    if (!existingNote) {
+      throw new Error(`Note ${noteId} not found`)
+    }
+
+    const oldDuration = existingNote.duration
+    let newDuration = updates.duration || oldDuration
+
+    // Limit duration to fit within the measure
+    const measure = this.scoreModel.getMeasure(existingNote.measure)
+    if (measure && updates.duration) {
+      const timeSignature = measure.timeSignature
+      const measureTotalBeats = (4 / timeSignature.denominator) * timeSignature.numerator
+      const availableBeats = measureTotalBeats - existingNote.beat
+      const requestedBeats = durationToBeats(updates.duration)
+
+      if (requestedBeats > availableBeats + 0.001) {
+        // Find the largest duration that fits
+        const fittingDuration = this.findLargestFittingDuration(availableBeats)
+        if (fittingDuration) {
+          newDuration = fittingDuration
+          updates = { ...updates, duration: fittingDuration }
+        } else {
+          // No standard duration fits, keep the old duration
+          newDuration = oldDuration
+          delete updates.duration
+        }
+      }
+    }
+
+    // Calculate beat difference if duration is changing
+    const oldBeats = durationToBeats(oldDuration)
+    const newBeats = durationToBeats(newDuration)
+    const beatDifference = oldBeats - newBeats
+
+    // If duration is being lengthened, remove overlapping notes/rests first
+    if (beatDifference < -0.001) {
+      const noteEndBeat = existingNote.beat + newBeats
+      const measureNotes = this.scoreModel.getNotesInMeasure(existingNote.measure)
+
+      // Find notes/rests that overlap with the new extended duration
+      // These are notes that start after the original note ends but before the new end
+      const notesToRemove: string[] = []
+      let beatsToRecover = 0
+
+      for (const n of measureNotes) {
+        if (n.id === noteId) continue // Skip the note being updated
+
+        const nStart = n.beat
+        const nEnd = n.beat + durationToBeats(n.duration)
+
+        // Check if this note overlaps with the extended range
+        // The extended range is from (existingNote.beat + oldBeats) to (existingNote.beat + newBeats)
+        if (nStart >= existingNote.beat + oldBeats && nStart < noteEndBeat) {
+          // This note starts within the extended range - remove it entirely
+          notesToRemove.push(n.id)
+          beatsToRecover += durationToBeats(n.duration)
+        } else if (nStart < existingNote.beat + oldBeats && nEnd > existingNote.beat + oldBeats && nEnd <= noteEndBeat) {
+          // This note starts before but extends into the range - remove it
+          notesToRemove.push(n.id)
+          beatsToRecover += durationToBeats(n.duration)
+        }
+      }
+
+      // Remove overlapping notes
+      for (const id of notesToRemove) {
+        this.scoreModel.deleteNote(id)
+      }
+
+      // If we removed more beats than needed, add rests to fill the gap
+      const beatsNeeded = Math.abs(beatDifference)
+      const excessBeats = beatsToRecover - beatsNeeded
+
+      if (excessBeats > 0.001) {
+        const restStartBeat = noteEndBeat
+        const restDurations = splitBeatsIntoDurations(excessBeats)
+
+        let currentBeat = restStartBeat
+        for (const restDuration of restDurations) {
+          this.scoreModel.addRest(restDuration, existingNote.measure, currentBeat)
+          currentBeat += durationToBeats(restDuration)
+        }
+      }
+    }
+
+    // Update the note
     const note = this.scoreModel.updateNote(noteId, updates)
+
+    // If duration was shortened, fill the gap with rests
+    if (beatDifference > 0.001) {
+      const restStartBeat = note.beat + newBeats
+      const restDurations = splitBeatsIntoDurations(beatDifference)
+
+      let currentBeat = restStartBeat
+      for (const restDuration of restDurations) {
+        this.scoreModel.addRest(restDuration, note.measure, currentBeat)
+        currentBeat += durationToBeats(restDuration)
+      }
+    }
+
     this.playbackEngine.setScore(this.scoreModel.getScore())
     return note
+  }
+
+  /**
+   * Find the largest standard note duration that fits within available beats
+   */
+  private findLargestFittingDuration(availableBeats: number): NoteParams['duration'] | null {
+    const durations: { duration: NoteParams['duration']; beats: number }[] = [
+      { duration: 'w', beats: 4 },
+      { duration: 'h', beats: 2 },
+      { duration: 'q', beats: 1 },
+      { duration: '8', beats: 0.5 },
+      { duration: '16', beats: 0.25 },
+      { duration: '32', beats: 0.125 },
+    ]
+
+    for (const { duration, beats } of durations) {
+      if (beats <= availableBeats + 0.001) {
+        return duration
+      }
+    }
+    return null
   }
 
   /**
