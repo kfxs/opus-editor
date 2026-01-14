@@ -204,7 +204,9 @@
           ref="scoreCanvas"
           class="score-container bg-white rounded-lg p-4 min-h-[300px] overflow-auto cursor-default"
           @click="handleCanvasClick"
+          @mousedown="handleCanvasMouseDown"
           @mousemove="handleCanvasMouseMove"
+          @mouseup="handleCanvasMouseUp"
           @mouseleave="handleCanvasMouseLeave"
         ></div>
 
@@ -264,6 +266,10 @@ let lastRenderTime = 0
 
 // Track mouse button state to prevent re-renders during click
 let isMouseButtonDown = false
+
+// Drag-to-change-pitch state
+let isDraggingNote = false
+let draggedNoteOriginalPitch: number | null = null
 
 onMounted(() => {
   if (scoreCanvas.value) {
@@ -568,7 +574,78 @@ async function togglePlayback() {
   }
 }
 
+function handleCanvasMouseDown(event: MouseEvent) {
+  if (!engine.value || !scoreCanvas.value) return
+
+  // Only handle drag in selection mode with a selected note (not rest)
+  if (selectedTool.value !== 'selection' || !selectedNoteId.value) return
+
+  // Check if the selected element is a note (not a rest)
+  const score = engine.value.getScore()
+  let selectedNote = null
+  for (const measure of score.measures) {
+    const note = measure.notes.find(n => n.id === selectedNoteId.value)
+    if (note) {
+      selectedNote = note
+      break
+    }
+  }
+
+  // Don't allow dragging rests (they don't have pitch)
+  if (!selectedNote || selectedNote.isRest) return
+
+  // Get SVG coordinates
+  const svg = scoreCanvas.value.querySelector('svg')
+  if (!svg) return
+
+  const point = svg.createSVGPoint()
+  point.x = event.clientX
+  point.y = event.clientY
+  const ctm = svg.getScreenCTM()
+  if (!ctm) return
+
+  const svgPoint = point.matrixTransform(ctm.inverse())
+  const x = svgPoint.x
+  const y = svgPoint.y
+
+  // Check if mousedown is on or near the selected note
+  const registry = engine.value.getElementRegistry()
+  const measureNum = engine.value.pixelToMeasure({ x, y })
+  const elementInfo = engine.value.getElementById(selectedNoteId.value)
+
+  if (elementInfo) {
+    const bbox = elementInfo.bbox
+    // Get pitch-specific Y position for the selected note
+    const noteY = registry.pitchToPixelY(selectedNote.pitch, selectedNote.measure)
+    const centerX = bbox.x + bbox.width / 2
+    const centerY = noteY !== null ? noteY : bbox.y + bbox.height / 2
+
+    const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2)
+
+    // Start drag if click is close to the note (within 25px)
+    if (distance < 25) {
+      isDraggingNote = true
+      draggedNoteOriginalPitch = selectedNote.pitch
+      console.log(`Drag started | note:${selectedNoteId.value} pitch:${selectedNote.pitch}`)
+      event.preventDefault() // Prevent text selection during drag
+    }
+  }
+}
+
+function handleCanvasMouseUp(_event: MouseEvent) {
+  if (isDraggingNote) {
+    console.log(`Drag ended | note:${selectedNoteId.value}`)
+    isDraggingNote = false
+    draggedNoteOriginalPitch = null
+  }
+}
+
 function handleCanvasClick(event: MouseEvent) {
+  // Ignore click if we were dragging (drag already handled the interaction)
+  if (isDraggingNote) {
+    return
+  }
+
   // Log raw click immediately
   console.log(`Click RAW | client:(${event.clientX},${event.clientY})`)
 
@@ -672,7 +749,53 @@ function handleCanvasClick(event: MouseEvent) {
 function handleCanvasMouseMove(event: MouseEvent) {
   if (!engine.value || !scoreCanvas.value) return
 
-  // Don't show ghost note preview in selection mode
+  // Get SVG coordinates (needed for both drag and ghost note preview)
+  const svg = scoreCanvas.value.querySelector('svg')
+  if (!svg) return
+
+  const point = svg.createSVGPoint()
+  point.x = event.clientX
+  point.y = event.clientY
+  const ctm = svg.getScreenCTM()
+  if (!ctm) return
+
+  const svgPoint = point.matrixTransform(ctm.inverse())
+  const x = svgPoint.x
+  const y = svgPoint.y
+
+  // Handle drag-to-change-pitch in selection mode
+  if (isDraggingNote && selectedNoteId.value) {
+    // Get the measure of the selected note
+    const score = engine.value.getScore()
+    let selectedNote = null
+    for (const measure of score.measures) {
+      const note = measure.notes.find(n => n.id === selectedNoteId.value)
+      if (note) {
+        selectedNote = note
+        break
+      }
+    }
+
+    if (selectedNote && !selectedNote.isRest) {
+      // Calculate new pitch from Y position
+      const measure = engine.value.getScore().measures.find(m => m.number === selectedNote.measure)
+      if (measure) {
+        const beatsInMeasure = measure.timeSignature.numerator
+        const position = engine.value.pixelToPosition({ x, y }, beatsInMeasure)
+        const newPitch = position.pitch
+
+        // Only update if pitch actually changed
+        if (newPitch !== selectedNote.pitch) {
+          console.log(`Drag pitch change | ${selectedNote.pitch} -> ${newPitch}`)
+          engine.value.updateNote(selectedNoteId.value, { pitch: newPitch })
+          renderScore()
+        }
+      }
+    }
+    return
+  }
+
+  // Don't show ghost note preview in selection mode (when not dragging)
   if (selectedTool.value === 'selection') {
     return
   }
@@ -691,21 +814,6 @@ function handleCanvasMouseMove(event: MouseEvent) {
   }
   lastPreviewRender = now
 
-  // Get coordinates in SVG space using SVG's native coordinate transformation
-  // This automatically handles padding, scroll, zoom, and any CSS transforms
-  const svg = scoreCanvas.value.querySelector('svg')
-  if (!svg) return
-
-  const point = svg.createSVGPoint()
-  point.x = event.clientX
-  point.y = event.clientY
-  const ctm = svg.getScreenCTM()
-  if (!ctm) return
-
-  const svgPoint = point.matrixTransform(ctm.inverse())
-  const x = svgPoint.x
-  const y = svgPoint.y
-
   // Render score with ghost note preview using selected duration and accidental
   const ghostNoteRendered = engine.value.renderScoreWithPreview(
     { x, y },
@@ -719,6 +827,13 @@ function handleCanvasMouseMove(event: MouseEvent) {
 
 function handleCanvasMouseLeave() {
   if (!engine.value) return
+
+  // End any ongoing drag
+  if (isDraggingNote) {
+    console.log('Drag ended (mouse left canvas)')
+    isDraggingNote = false
+    draggedNoteOriginalPitch = null
+  }
 
   // Clear preview and render normal score
   renderScore()
