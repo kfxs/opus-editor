@@ -270,6 +270,8 @@ let isMouseButtonDown = false
 // Drag-to-change-pitch state
 let isDraggingNote = false
 let draggedNoteOriginalPitch: number | null = null
+let dragStartTime: number | null = null
+const DRAG_TIME_THRESHOLD_MS = 150 // Must hold mouse down this long before drag activates
 
 onMounted(() => {
   if (scoreCanvas.value) {
@@ -577,22 +579,8 @@ async function togglePlayback() {
 function handleCanvasMouseDown(event: MouseEvent) {
   if (!engine.value || !scoreCanvas.value) return
 
-  // Only handle drag in selection mode with a selected note (not rest)
-  if (selectedTool.value !== 'selection' || !selectedNoteId.value) return
-
-  // Check if the selected element is a note (not a rest)
-  const score = engine.value.getScore()
-  let selectedNote = null
-  for (const measure of score.measures) {
-    const note = measure.notes.find(n => n.id === selectedNoteId.value)
-    if (note) {
-      selectedNote = note
-      break
-    }
-  }
-
-  // Don't allow dragging rests (they don't have pitch)
-  if (!selectedNote || selectedNote.isRest) return
+  // Only handle in selection mode
+  if (selectedTool.value !== 'selection') return
 
   // Get SVG coordinates
   const svg = scoreCanvas.value.querySelector('svg')
@@ -608,27 +596,54 @@ function handleCanvasMouseDown(event: MouseEvent) {
   const x = svgPoint.x
   const y = svgPoint.y
 
-  // Check if mousedown is on or near the selected note
   const registry = engine.value.getElementRegistry()
   const measureNum = engine.value.pixelToMeasure({ x, y })
-  const elementInfo = engine.value.getElementById(selectedNoteId.value)
 
-  if (elementInfo) {
-    const bbox = elementInfo.bbox
-    // Get pitch-specific Y position for the selected note
-    const noteY = registry.pitchToPixelY(selectedNote.pitch, selectedNote.measure)
+  // Find closest element to select
+  const closestElement = registry.findClosestNoteOrRest(x, y, measureNum)
+
+  if (closestElement && closestElement.id) {
+    const bbox = closestElement.bbox
     const centerX = bbox.x + bbox.width / 2
-    const centerY = noteY !== null ? noteY : bbox.y + bbox.height / 2
 
-    const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2)
-
-    // Start drag if click is close to the note (within 25px)
-    if (distance < 25) {
-      isDraggingNote = true
-      draggedNoteOriginalPitch = selectedNote.pitch
-      console.log(`Drag started | note:${selectedNoteId.value} pitch:${selectedNote.pitch}`)
-      event.preventDefault() // Prevent text selection during drag
+    // For notes in chords, use pitch-based Y position
+    // For rests, use bbox center
+    let elementY: number
+    if (closestElement.type === 'note' && closestElement.pitch !== undefined) {
+      const pitchY = registry.pitchToPixelY(closestElement.pitch, measureNum)
+      elementY = pitchY !== null ? pitchY : bbox.y + bbox.height / 2
+    } else {
+      elementY = bbox.y + bbox.height / 2
     }
+
+    const distance = Math.sqrt((x - centerX) ** 2 + (y - elementY) ** 2)
+
+    // Select if within 30px of element center
+    if (distance < 30) {
+      selectedNoteId.value = closestElement.id
+      const typeLabel = closestElement.type === 'rest' ? 'Rest' : 'Note'
+      console.log(`✓ ${typeLabel} selected on mousedown | id:${closestElement.id}`)
+      renderScore()
+
+      // If it's a note (not rest), prepare for potential drag
+      if (closestElement.type === 'note' && closestElement.pitch !== undefined) {
+        isDraggingNote = true
+        draggedNoteOriginalPitch = closestElement.pitch
+        dragStartTime = Date.now()
+        console.log(`Drag ready | note:${closestElement.id} pitch:${closestElement.pitch}`)
+        event.preventDefault() // Prevent text selection during drag
+      }
+    } else {
+      // Clicked too far from element - clear selection
+      selectedNoteId.value = null
+      console.log('Selection cleared (too far from element)')
+      renderScore()
+    }
+  } else {
+    // Clicked on empty space - clear selection
+    selectedNoteId.value = null
+    console.log('Selection cleared')
+    renderScore()
   }
 }
 
@@ -637,12 +652,13 @@ function handleCanvasMouseUp(_event: MouseEvent) {
     console.log(`Drag ended | note:${selectedNoteId.value}`)
     isDraggingNote = false
     draggedNoteOriginalPitch = null
+    dragStartTime = null
   }
 }
 
 function handleCanvasClick(event: MouseEvent) {
-  // Ignore click if we were dragging (drag already handled the interaction)
-  if (isDraggingNote) {
+  // Selection mode is handled entirely by mousedown, skip here
+  if (selectedTool.value === 'selection') {
     return
   }
 
@@ -686,63 +702,23 @@ function handleCanvasClick(event: MouseEvent) {
     bbox: `(${nearestElement.bbox.x.toFixed(0)},${nearestElement.bbox.y.toFixed(0)}) ${nearestElement.bbox.width.toFixed(0)}x${nearestElement.bbox.height.toFixed(0)}`
   } : null, '| elementAt:', elementAt?.type || null)
 
-  // Handle based on current tool mode
-  if (selectedTool.value === 'selection') {
-    // Selection mode: find and select note or rest under cursor
-    // Use findClosestNoteOrRest to handle both notes and rests
-    const closestElement = registry.findClosestNoteOrRest(x, y, measureNum)
+  // Entry mode: add note at position
+  try {
+    const note = engine.value.addNoteAtPosition(
+      { x, y },
+      selectedDuration.value,
+      selectedAccidental.value || undefined
+    )
 
-    if (closestElement && closestElement.id) {
-      // Check if click is within a reasonable distance of the element
-      const bbox = closestElement.bbox
-      const centerX = bbox.x + bbox.width / 2
-
-      // For notes in chords, use pitch-based Y position
-      // For rests, use bbox center
-      let elementY: number
-      if (closestElement.type === 'note' && closestElement.pitch !== undefined) {
-        const pitchY = registry.pitchToPixelY(closestElement.pitch, measureNum)
-        elementY = pitchY !== null ? pitchY : bbox.y + bbox.height / 2
-      } else {
-        elementY = bbox.y + bbox.height / 2
-      }
-
-      const distance = Math.sqrt((x - centerX) ** 2 + (y - elementY) ** 2)
-
-      // Select if within 30px of element center
-      if (distance < 30) {
-        selectedNoteId.value = closestElement.id
-        const typeLabel = closestElement.type === 'rest' ? 'Rest' : 'Note'
-        console.log(`✓ ${typeLabel} selected | id:${closestElement.id}`)
-      } else {
-        selectedNoteId.value = null
-        console.log('Selection cleared (too far from element)')
-      }
+    if (note) {
+      console.log(`✓ Note added | pitch:${note.pitch} measure:${note.measure} beat:${note.beat}`)
+      renderScore()
     } else {
-      // Clicked on empty space - clear selection
-      selectedNoteId.value = null
-      console.log('Selection cleared')
+      console.log('✗ Note NOT added (collision or invalid location)')
     }
-    renderScore()
-  } else {
-    // Entry mode: add note at position
-    try {
-      const note = engine.value.addNoteAtPosition(
-        { x, y },
-        selectedDuration.value,
-        selectedAccidental.value || undefined
-      )
-
-      if (note) {
-        console.log(`✓ Note added | pitch:${note.pitch} measure:${note.measure} beat:${note.beat}`)
-        renderScore()
-      } else {
-        console.log('✗ Note NOT added (collision or invalid location)')
-      }
-    } catch (error) {
-      console.error('Error adding note:', error)
-      alert('Cannot add note: ' + (error as Error).message)
-    }
+  } catch (error) {
+    console.error('Error adding note:', error)
+    alert('Cannot add note: ' + (error as Error).message)
   }
 }
 
@@ -764,7 +740,16 @@ function handleCanvasMouseMove(event: MouseEvent) {
   const y = svgPoint.y
 
   // Handle drag-to-change-pitch in selection mode
-  if (isDraggingNote && selectedNoteId.value) {
+  if (isDraggingNote && selectedNoteId.value && draggedNoteOriginalPitch !== null) {
+    // Time-based threshold: must hold mouse down long enough before drag activates
+    if (dragStartTime !== null) {
+      const elapsed = Date.now() - dragStartTime
+      if (elapsed < DRAG_TIME_THRESHOLD_MS) {
+        // Not held long enough yet, don't allow pitch changes
+        return
+      }
+    }
+
     // Get the measure of the selected note
     const score = engine.value.getScore()
     let selectedNote = null
@@ -777,17 +762,17 @@ function handleCanvasMouseMove(event: MouseEvent) {
     }
 
     if (selectedNote && !selectedNote.isRest) {
-      // Calculate new pitch from Y position
+      // Calculate what pitch the cursor is at
       const measure = engine.value.getScore().measures.find(m => m.number === selectedNote.measure)
       if (measure) {
         const beatsInMeasure = measure.timeSignature.numerator
         const position = engine.value.pixelToPosition({ x, y }, beatsInMeasure)
-        const newPitch = position.pitch
+        const cursorPitch = position.pitch
 
         // Only update if pitch actually changed
-        if (newPitch !== selectedNote.pitch) {
-          console.log(`Drag pitch change | ${selectedNote.pitch} -> ${newPitch}`)
-          engine.value.updateNote(selectedNoteId.value, { pitch: newPitch })
+        if (cursorPitch !== selectedNote.pitch) {
+          console.log(`Drag pitch change | ${selectedNote.pitch} -> ${cursorPitch}`)
+          engine.value.updateNote(selectedNoteId.value, { pitch: cursorPitch })
           renderScore()
         }
       }
@@ -833,6 +818,7 @@ function handleCanvasMouseLeave() {
     console.log('Drag ended (mouse left canvas)')
     isDraggingNote = false
     draggedNoteOriginalPitch = null
+    dragStartTime = null
   }
 
   // Clear preview and render normal score

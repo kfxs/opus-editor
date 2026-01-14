@@ -35,6 +35,11 @@ export interface BoundingBox {
 }
 
 /**
+ * Clef types (duplicated here to avoid circular imports)
+ */
+export type ClefType = 'treble' | 'bass' | 'alto' | 'tenor'
+
+/**
  * Staff geometry for a measure - stores actual Y positions of staff lines
  * Used for accurate pitch calculation from cursor Y position
  */
@@ -49,6 +54,8 @@ export interface StaffGeometry {
   noteStartX: number
   /** X where notes must end (before barline) */
   noteEndX: number
+  /** Clef type for this staff */
+  clef: ClefType
 }
 
 /**
@@ -192,6 +199,21 @@ export class ElementRegistry {
   // ==================== Pitch Calculation ====================
 
   /**
+   * Clef reference data: which pitch sits on which staff line
+   * Staff lines are numbered 0-4 from top to bottom
+   */
+  private static readonly CLEF_REFERENCES: Record<ClefType, { pitch: number; line: number }> = {
+    // Treble (G clef): G4 (67) on line 3 (second from bottom)
+    treble: { pitch: 67, line: 3 },
+    // Bass (F clef): F3 (53) on line 1 (second from top)
+    bass: { pitch: 53, line: 1 },
+    // Alto (C clef): C4 (60) on line 2 (middle)
+    alto: { pitch: 60, line: 2 },
+    // Tenor (C clef): C4 (60) on line 1 (second from top)
+    tenor: { pitch: 60, line: 1 },
+  }
+
+  /**
    * Convert pixel Y coordinate to MIDI pitch using staff geometry
    * @param y - Pixel Y coordinate
    * @param measure - Measure number to get staff geometry from
@@ -201,20 +223,17 @@ export class ElementRegistry {
     const geometry = this.staffGeometries.get(measure)
     if (!geometry) return null
 
-    const { lineYPositions, lineSpacing } = geometry
+    const { lineYPositions, lineSpacing, clef } = geometry
 
     // Calculate staff line from Y position
-    // Line 0 (top) = F5 (MIDI 77), Line 4 (bottom) = E4 (MIDI 64)
     const topLineY = lineYPositions[0]
     const staffLine = (y - topLineY) / lineSpacing
 
-    // Convert staff line to pitch using diatonic scale
-    const pitch = this.staffLineToPitch(staffLine)
+    // Convert staff line to pitch using clef-aware calculation
+    const pitch = this.staffLineToPitch(staffLine, clef)
 
-    // Clamp to valid MIDI range for notation (C0 to C8)
-    // MIDI 24 = C1 (lowest practical for notation)
-    // MIDI 108 = C8 (highest practical for notation)
-    return Math.max(24, Math.min(108, pitch))
+    // Clamp to valid MIDI range for notation
+    return Math.max(21, Math.min(108, pitch))
   }
 
   /**
@@ -227,65 +246,108 @@ export class ElementRegistry {
     const geometry = this.staffGeometries.get(measure)
     if (!geometry) return null
 
-    const { lineYPositions, lineSpacing } = geometry
-    const staffLine = this.pitchToStaffLine(pitch)
+    const { lineYPositions, lineSpacing, clef } = geometry
+    const staffLine = this.pitchToStaffLine(pitch, clef)
 
     return lineYPositions[0] + staffLine * lineSpacing
   }
 
   /**
-   * Convert staff line position to MIDI pitch (diatonic mapping for treble clef)
-   * Line 0 = F5 (77), 0.5 = E5 (76), 1.0 = D5 (74), etc.
+   * Get the diatonic pitch class (0-6 for C-B) from a MIDI pitch
    */
-  private staffLineToPitch(staffLine: number): number {
-    // Round to nearest half-line
-    const roundedLine = Math.round(staffLine * 2) / 2
-
-    // Diatonic notes from F5 descending
-    const diatonicNotes = [
-      77, 76, 74, 72, 71, 69, 67, 65, 64, 62, 60, 59, 57, 55, 53, 52
-    ]
-
-    // Handle positions above the staff (negative values)
-    if (roundedLine < 0) {
-      const positionsAbove = [79, 81, 83, 84, 86, 88, 89, 91]
-      const index = Math.floor(Math.abs(roundedLine) * 2) - 1
-      if (index >= 0 && index < positionsAbove.length) {
-        return positionsAbove[index]
-      }
-      return 77 + Math.ceil(Math.abs(roundedLine) * 2)
-    }
-
-    // On or below staff
-    const index = Math.floor(roundedLine * 2)
-    if (index < diatonicNotes.length) {
-      return diatonicNotes[index]
-    }
-
-    // Below lookup table - extrapolate
-    return diatonicNotes[diatonicNotes.length - 1] - (index - diatonicNotes.length + 1)
+  private getDiatonicClass(pitch: number): number {
+    // MIDI pitch to pitch class (0-11), then to diatonic class (0-6)
+    const pitchClass = pitch % 12
+    // Map: C=0, D=1, E=2, F=3, G=4, A=5, B=6
+    // Chromatic to diatonic: 0->0, 1->0, 2->1, 3->1, 4->2, 5->3, 6->3, 7->4, 8->4, 9->5, 10->5, 11->6
+    const chromaticToDiatonic = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6]
+    return chromaticToDiatonic[pitchClass]
   }
 
   /**
-   * Convert MIDI pitch to staff line position
+   * Get the octave number from a MIDI pitch
    */
-  private pitchToStaffLine(pitch: number): number {
-    const diatonicNotes = [77, 76, 74, 72, 71, 69, 67, 65, 64, 62, 60, 59, 57, 55]
+  private getOctave(pitch: number): number {
+    return Math.floor(pitch / 12) - 1
+  }
 
-    const index = diatonicNotes.indexOf(pitch)
-    if (index !== -1) {
-      return index / 2
+  /**
+   * Calculate diatonic steps between two pitches
+   * Positive = pitch2 is higher, negative = pitch2 is lower
+   */
+  private getDiatonicDistance(pitch1: number, pitch2: number): number {
+    const octave1 = this.getOctave(pitch1)
+    const octave2 = this.getOctave(pitch2)
+    const class1 = this.getDiatonicClass(pitch1)
+    const class2 = this.getDiatonicClass(pitch2)
+
+    // Total diatonic steps = octave difference * 7 + class difference
+    return (octave2 - octave1) * 7 + (class2 - class1)
+  }
+
+  /**
+   * Convert staff line position to MIDI pitch (clef-aware)
+   * Each half-line is one diatonic step
+   * @param staffLine - Staff line position (0-4 for lines, 0.5, 1.5, etc. for spaces)
+   * @param clef - The clef type
+   */
+  private staffLineToPitch(staffLine: number, clef: ClefType): number {
+    const ref = ElementRegistry.CLEF_REFERENCES[clef]
+
+    // Round to nearest half-line for diatonic snapping
+    const roundedLine = Math.round(staffLine * 2) / 2
+
+    // Calculate diatonic steps from reference
+    // Moving DOWN the staff (increasing line number) = LOWER pitch
+    const diatonicStepsFromRef = (roundedLine - ref.line) * 2
+
+    // Convert diatonic steps to pitch
+    return this.addDiatonicSteps(ref.pitch, -diatonicStepsFromRef)
+  }
+
+  /**
+   * Convert MIDI pitch to staff line position (clef-aware)
+   * @param pitch - MIDI pitch number
+   * @param clef - The clef type
+   */
+  private pitchToStaffLine(pitch: number, clef: ClefType): number {
+    const ref = ElementRegistry.CLEF_REFERENCES[clef]
+
+    // Calculate diatonic distance from reference pitch
+    const diatonicSteps = this.getDiatonicDistance(ref.pitch, pitch)
+
+    // Convert to staff lines (2 diatonic steps per line, higher pitch = lower line number)
+    return ref.line - diatonicSteps / 2
+  }
+
+  /**
+   * Add diatonic steps to a pitch
+   * @param pitch - Starting MIDI pitch
+   * @param steps - Number of diatonic steps (positive = up, negative = down)
+   */
+  private addDiatonicSteps(pitch: number, steps: number): number {
+    // Diatonic intervals in semitones from each pitch class
+    // Starting from C: C->D=2, D->E=2, E->F=1, F->G=2, G->A=2, A->B=2, B->C=1
+    const intervals = [2, 2, 1, 2, 2, 2, 1] // intervals from C, D, E, F, G, A, B
+
+    let currentPitch = pitch
+    const direction = steps > 0 ? 1 : -1
+    const absSteps = Math.abs(steps)
+
+    for (let i = 0; i < absSteps; i++) {
+      const currentClass = this.getDiatonicClass(currentPitch)
+
+      if (direction > 0) {
+        // Moving up: add interval from current class
+        currentPitch += intervals[currentClass]
+      } else {
+        // Moving down: subtract interval to previous class
+        const prevClass = (currentClass + 6) % 7 // Previous diatonic class
+        currentPitch -= intervals[prevClass]
+      }
     }
 
-    // Notes above staff
-    const positionsAbove = [79, 81, 83, 84, 86, 88, 89, 91]
-    const aboveIndex = positionsAbove.indexOf(pitch)
-    if (aboveIndex !== -1) {
-      return -(aboveIndex + 1) / 2
-    }
-
-    // Approximate for other pitches
-    return (77 - pitch) / 1.7
+    return currentPitch
   }
 
   // ==================== Nearby Element Finding ====================

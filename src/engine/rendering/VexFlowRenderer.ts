@@ -971,6 +971,7 @@ export class VexFlowRenderer {
         lineSpacing,
         noteStartX: stave.getNoteStartX(),
         noteEndX: stave.getNoteEndX(),
+        clef,
       })
     } catch (e) {
       // getBoundingBox or getYForLine may fail
