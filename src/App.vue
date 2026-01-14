@@ -224,6 +224,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { MusicEngine } from './engine/MusicEngine'
 import type { PlaybackPosition } from './engine/audio/PlaybackEngine'
+import { ShortcutManager } from './shortcuts'
 
 // Create the music engine
 const engine = ref<MusicEngine | null>(null)
@@ -255,6 +256,9 @@ const showCursor = ref(true)
 let lastPreviewRender = 0
 const PREVIEW_THROTTLE_MS = 50 // Only update preview every 50ms
 
+// Track last mouse position on canvas for ghost note rendering
+let lastCanvasMousePosition: { x: number; y: number } | null = null
+
 // Computed properties
 const totalNotes = computed(() => engine.value?.getScore().measures.flatMap(m => m.notes).length || 0)
 const scoreJSON = computed(() => engine.value?.exportJSON() || '{}')
@@ -272,6 +276,9 @@ let isDraggingNote = false
 let draggedNoteOriginalPitch: number | null = null
 let dragStartTime: number | null = null
 const DRAG_TIME_THRESHOLD_MS = 150 // Must hold mouse down this long before drag activates
+
+// Keyboard shortcuts manager
+const shortcutManager = new ShortcutManager()
 
 onMounted(() => {
   if (scoreCanvas.value) {
@@ -302,8 +309,33 @@ onMounted(() => {
       isMouseButtonDown = false  // Allow ghost note re-renders again
     }, true)
 
-    // Handle Delete key for removing selected note
-    document.addEventListener('keydown', handleKeyDown)
+    // Register keyboard shortcuts
+    shortcutManager.registerActions({
+      setEntryMode: () => {
+        selectedTool.value = 'entry'
+        selectedNoteId.value = null
+        // Show ghost note at last known mouse position
+        if (lastCanvasMousePosition && engine.value) {
+          engine.value.renderScoreWithPreview(
+            lastCanvasMousePosition,
+            selectedDuration.value,
+            selectedAccidental.value || undefined
+          )
+        }
+      },
+      setSelectionMode: () => {
+        selectedTool.value = 'selection'
+        renderScore() // Clear ghost note immediately
+      },
+      deleteSelected: () => {
+        if (selectedNoteId.value && engine.value) {
+          engine.value.deleteNote(selectedNoteId.value)
+          selectedNoteId.value = null
+          renderScore()
+        }
+      },
+    })
+    shortcutManager.enable()
 
     // Initialize with empty measures
     initializeEmptyScore()
@@ -312,22 +344,11 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeyDown)
+  shortcutManager.disable()
   if (engine.value) {
     engine.value.dispose()
   }
 })
-
-function handleKeyDown(event: KeyboardEvent) {
-  // Delete or Backspace key removes selected note
-  if ((event.key === 'Delete' || event.key === 'Backspace') && selectedNoteId.value && engine.value) {
-    // Prevent default browser behavior (like navigating back)
-    event.preventDefault()
-    engine.value.deleteNote(selectedNoteId.value)
-    selectedNoteId.value = null
-    renderScore()
-  }
-}
 
 function initializeEmptyScore() {
   if (!engine.value) return
@@ -739,6 +760,9 @@ function handleCanvasMouseMove(event: MouseEvent) {
   const x = svgPoint.x
   const y = svgPoint.y
 
+  // Track last mouse position for ghost note rendering when switching modes
+  lastCanvasMousePosition = { x, y }
+
   // Handle drag-to-change-pitch in selection mode
   if (isDraggingNote && selectedNoteId.value && draggedNoteOriginalPitch !== null) {
     // Time-based threshold: must hold mouse down long enough before drag activates
@@ -820,6 +844,9 @@ function handleCanvasMouseLeave() {
     draggedNoteOriginalPitch = null
     dragStartTime = null
   }
+
+  // Clear last mouse position (mouse is no longer on canvas)
+  lastCanvasMousePosition = null
 
   // Clear preview and render normal score
   renderScore()
