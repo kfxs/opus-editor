@@ -768,6 +768,9 @@ function handleCanvasMouseLeave() {
 .score-container {
   /* Ensure scrollbar doesn't break rounded corners */
   scrollbar-gutter: stable;
+  /* Prevent browser text selection from affecting the canvas */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* Custom scrollbar styling to respect rounded corners */
