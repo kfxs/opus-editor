@@ -314,6 +314,7 @@ onMounted(() => {
       setEntryMode: () => {
         selectedTool.value = 'entry'
         selectedNoteId.value = null
+        resetPaletteToDefaults()
         // Show ghost note at last known mouse position
         if (lastCanvasMousePosition && engine.value) {
           engine.value.renderScoreWithPreview(
@@ -334,6 +335,9 @@ onMounted(() => {
           renderScore()
         }
       },
+      setAccidentalNatural: () => setAccidental('n'),
+      setAccidentalSharp: () => setAccidental('#'),
+      setAccidentalFlat: () => setAccidental('b'),
     })
     shortcutManager.enable()
 
@@ -395,12 +399,40 @@ function setDuration(duration: 'w' | 'h' | 'q' | '8' | '16' | '32') {
 }
 
 function setAccidental(accidental: '#' | 'b' | 'n' | null) {
-  selectedAccidental.value = accidental
+  // Toggle behavior: if same accidental is already selected, deselect it
+  const newValue = selectedAccidental.value === accidental ? null : accidental
+  selectedAccidental.value = newValue
   // If a note is selected, update its accidental
   if (selectedNoteId.value && engine.value) {
-    engine.value.updateNote(selectedNoteId.value, { accidental: accidental || undefined })
+    engine.value.updateNote(selectedNoteId.value, { accidental: newValue || undefined })
     renderScore()
   }
+}
+
+// Helper to select a note and sync palette to its properties
+function selectNote(noteId: string | null) {
+  selectedNoteId.value = noteId
+
+  if (noteId && engine.value) {
+    // Find the note in the score and sync palette
+    const score = engine.value.getScore()
+    for (const measure of score.measures) {
+      const note = measure.notes.find(n => n.id === noteId)
+      if (note) {
+        // Sync duration palette (works for both notes and rests)
+        selectedDuration.value = note.duration
+        // Sync accidental palette (only relevant for notes, rests have no accidental)
+        selectedAccidental.value = note.accidental || null
+        break
+      }
+    }
+  }
+}
+
+// Reset palette to defaults (for entry mode)
+function resetPaletteToDefaults() {
+  selectedDuration.value = 'q'
+  selectedAccidental.value = null
 }
 
 function renderScore() {
@@ -641,7 +673,7 @@ function handleCanvasMouseDown(event: MouseEvent) {
 
     // Select if within 30px of element center
     if (distance < 30) {
-      selectedNoteId.value = closestElement.id
+      selectNote(closestElement.id)
       const typeLabel = closestElement.type === 'rest' ? 'Rest' : 'Note'
       console.log(`✓ ${typeLabel} selected on mousedown | id:${closestElement.id}`)
       renderScore()

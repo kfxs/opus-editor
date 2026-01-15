@@ -49,6 +49,20 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'deleteSelected',
     description: 'Delete selected note',
   },
+
+  // Accidentals (numpad keys)
+  'Numpad7': {
+    action: 'setAccidentalNatural',
+    description: 'Natural accidental',
+  },
+  'Numpad8': {
+    action: 'setAccidentalSharp',
+    description: 'Sharp accidental',
+  },
+  'Numpad9': {
+    action: 'setAccidentalFlat',
+    description: 'Flat accidental',
+  },
 }
 
 /**
