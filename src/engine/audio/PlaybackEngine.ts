@@ -160,8 +160,27 @@ export class PlaybackEngine {
           continue
         }
 
+        // Calculate actual sounding pitch by applying accidental
+        let soundingPitch = note.pitch
+        if (note.accidental) {
+          switch (note.accidental) {
+            case '#':
+              soundingPitch += 1
+              break
+            case 'b':
+              soundingPitch -= 1
+              break
+            case '##':
+              soundingPitch += 2
+              break
+            case 'bb':
+              soundingPitch -= 2
+              break
+          }
+        }
+
         // Convert MIDI to note name (like testAudio uses)
-        const noteName = Tone.Frequency(note.pitch, 'midi').toNote()
+        const noteName = Tone.Frequency(soundingPitch, 'midi').toNote()
 
         // Convert beat time to seconds
         const noteTimeInSeconds = this.beatsToSeconds(noteTimeInBeats)
@@ -280,8 +299,29 @@ export class PlaybackEngine {
         const noteTimeInSeconds = noteTimeInBeats / beatsPerSecond
         const durationInSeconds = durationToBeats(note.duration) / beatsPerSecond
 
+        // Calculate actual sounding pitch by applying accidental
+        // The note.pitch is the symbolic pitch on the staff, accidentals modify the actual sound
+        let soundingPitch = note.pitch
+        if (note.accidental) {
+          switch (note.accidental) {
+            case '#':
+              soundingPitch += 1
+              break
+            case 'b':
+              soundingPitch -= 1
+              break
+            case '##':
+              soundingPitch += 2
+              break
+            case 'bb':
+              soundingPitch -= 2
+              break
+            // 'n' (natural) doesn't change the pitch - it just cancels key signature
+          }
+        }
+
         // Convert MIDI to note name like testAudio
-        const noteName = Tone.Frequency(note.pitch, 'midi').toNote()
+        const noteName = Tone.Frequency(soundingPitch, 'midi').toNote()
 
         // Schedule exactly like testAudio does
         synth.triggerAttackRelease(noteName, durationInSeconds, now + noteTimeInSeconds)
