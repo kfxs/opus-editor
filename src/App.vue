@@ -406,6 +406,13 @@ function setAccidental(accidental: '#' | 'b' | 'n' | null) {
   if (selectedNoteId.value && engine.value) {
     engine.value.updateNote(selectedNoteId.value, { accidental: newValue || undefined })
     renderScore()
+  } else if (selectedTool.value === 'entry' && lastCanvasMousePosition && engine.value) {
+    // Re-render ghost note with new accidental
+    engine.value.renderScoreWithPreview(
+      lastCanvasMousePosition,
+      selectedDuration.value,
+      newValue || undefined
+    )
   }
 }
 

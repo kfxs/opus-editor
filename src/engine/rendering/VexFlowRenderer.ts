@@ -1092,6 +1092,12 @@ export class VexFlowRenderer {
       // Explicitly set stem direction AFTER creation
       staveNote.setStemDirection(stemDirection)
 
+      // Add accidental if present (position will be adjusted after rendering)
+      if (ghostNote.accidental) {
+        const accidentalMap: Record<string, string> = { '#': '#', 'b': 'b', 'n': 'n' }
+        staveNote.addModifier(new Accidental(accidentalMap[ghostNote.accidental]), 0)
+      }
+
       // Store whether this forms a second for later displacement
       const needsDisplacement = formsSecond
 
@@ -1166,6 +1172,46 @@ export class VexFlowRenderer {
       // Render the ghost note (this will add elements to the SVG)
       staveNote.setContext(this.context!).draw()
 
+      // Collect ghost note elements for styling and accidental repositioning
+      let noteHeadElement: Element | null = null
+      let accidentalElement: Element | null = null
+
+      const collectGhostElements = (element: Element) => {
+        const tagName = element.tagName.toLowerCase()
+        if (tagName === 'path' || tagName === 'ellipse' || tagName === 'circle') {
+          if (!noteHeadElement && (tagName === 'ellipse' || tagName === 'path')) {
+            noteHeadElement = element
+          }
+        } else if (tagName === 'text') {
+          accidentalElement = element
+        }
+        for (let i = 0; i < element.children.length; i++) {
+          collectGhostElements(element.children[i])
+        }
+      }
+
+      for (let i = childrenBefore; i < svg.children.length; i++) {
+        collectGhostElements(svg.children[i])
+      }
+
+      // Reposition accidental relative to note head if both exist
+      if (noteHeadElement && accidentalElement && ghostNote.accidental) {
+        const noteHeadBBox = (noteHeadElement as SVGGraphicsElement).getBBox()
+        const accidentalBBox = (accidentalElement as SVGGraphicsElement).getBBox()
+
+        // Position accidental's right edge at a fixed gap from the notehead's left edge
+        const gap = 3 // pixels between accidental right edge and notehead left edge
+        const noteHeadLeftX = noteHeadBBox.x
+        const accidentalRightX = accidentalBBox.x + accidentalBBox.width
+        const targetAccidentalRightX = noteHeadLeftX - gap
+        const offsetX = targetAccidentalRightX - accidentalRightX
+
+        // Apply transform to reposition accidental
+        const currentTransform = accidentalElement.getAttribute('transform') || ''
+        const newTransform = currentTransform ? `${currentTransform} translate(${offsetX}, 0)` : `translate(${offsetX}, 0)`
+        accidentalElement.setAttribute('transform', newTransform)
+      }
+
       // Recursively apply blue color and displacement to all elements
       const applyBlueColorAndDisplacement = (element: Element) => {
         const tagName = element.tagName.toLowerCase()
@@ -1184,8 +1230,8 @@ export class VexFlowRenderer {
           const currentStyle = element.getAttribute('style') || ''
           element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; opacity: 0.7 !important;')
 
-          // If this note forms a second, shift the note head to the right
-          if (needsDisplacement) {
+          // If this note forms a second, shift the note head to the right (but not the accidental)
+          if (needsDisplacement && element !== accidentalElement) {
             const transform = element.getAttribute('transform') || ''
             const newTransform = transform ? `${transform} translate(10, 0)` : 'translate(10, 0)'
             element.setAttribute('transform', newTransform)
@@ -1329,6 +1375,12 @@ export class VexFlowRenderer {
 
       staveNote.setStemDirection(stemDirection)
 
+      // Add accidental if present (position will be adjusted after rendering)
+      if (ghostNote.accidental) {
+        const accidentalMap: Record<string, string> = { '#': '#', 'b': 'b', 'n': 'n' }
+        staveNote.addModifier(new Accidental(accidentalMap[ghostNote.accidental]), 0)
+      }
+
       const needsDisplacement = formsSecond
 
       // Create a voice with the ghost note plus padding rests to fill the measure
@@ -1389,22 +1441,26 @@ export class VexFlowRenderer {
 
       staveNote.setStave(tempStave)
 
-      // === DEBUG: Log VexFlow ghost note coordinates ===
-      let vexflowNoteX: number | null = null
-      let appliedShiftX: number | null = null
+      // === NEW APPROACH: Don't use setXShift, instead transform the whole group after rendering ===
+      // This ensures all elements (stem, notehead, flag, accidental) move together
+      let targetShiftX: number | null = null
 
-      // Apply X shift BEFORE drawing to position note at cursor
       if (ghostNote.rawX !== undefined) {
         try {
           // Get where VexFlow will render the note
           const noteX = staveNote.getAbsoluteX()
-          vexflowNoteX = noteX
-          // Calculate shift to move note to cursor position
-          const shiftX = ghostNote.rawX - noteX
-          appliedShiftX = shiftX
-          staveNote.setXShift(shiftX)
+          // Calculate shift needed to move note to cursor position
+          targetShiftX = ghostNote.rawX - noteX
+
+          if (ghostNote.accidental) {
+            console.log('=== GHOST NOTE SHIFT (new approach) ===')
+            console.log('rawX:', ghostNote.rawX)
+            console.log('VexFlow noteX:', noteX)
+            console.log('targetShiftX:', targetShiftX)
+            console.log('=======================================')
+          }
         } catch (e) {
-          // getAbsoluteX might not be available, fall back to post-render shift
+          // getAbsoluteX might not be available
         }
       }
 
@@ -1412,7 +1468,46 @@ export class VexFlowRenderer {
 
       staveNote.setContext(this.context!).draw()
 
-      // Apply blue color and displacement to ghost note elements
+      // === NEW SIMPLE APPROACH ===
+      // Instead of trying to detect and reposition individual elements,
+      // we wrap ALL new SVG elements in a group and transform the entire group.
+      // This ensures stem, notehead, flag, accidental, and leger lines all move together.
+
+      // Collect all new top-level elements that VexFlow just added
+      const newElements: Element[] = []
+      for (let i = childrenBefore; i < svg.children.length; i++) {
+        newElements.push(svg.children[i])
+      }
+
+      if (newElements.length > 0 && targetShiftX !== null) {
+        // Create a wrapper group for all ghost note elements
+        const ghostGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+        ghostGroup.setAttribute('class', 'ghost-note-group')
+
+        // Apply the transform to shift everything to the correct position
+        ghostGroup.setAttribute('transform', `translate(${targetShiftX}, 0)`)
+
+        if (ghostNote.accidental) {
+          console.log('=== GHOST NOTE GROUP TRANSFORM ===')
+          console.log('targetShiftX:', targetShiftX)
+          console.log('Elements in group:', newElements.length)
+          console.log('==================================')
+        }
+
+        // Move all new elements into the group
+        // We need to do this in reverse order to maintain correct order when moving
+        for (const element of newElements) {
+          svg.removeChild(element)
+        }
+        for (const element of newElements) {
+          ghostGroup.appendChild(element)
+        }
+
+        // Add the group to the SVG
+        svg.appendChild(ghostGroup)
+      }
+
+      // Apply ghost styling (blue color, transparency) to all elements recursively
       const applyGhostStyle = (element: Element) => {
         const tagName = element.tagName.toLowerCase()
 
@@ -1427,12 +1522,6 @@ export class VexFlowRenderer {
           element.setAttribute('opacity', '0.7')
           const currentStyle = element.getAttribute('style') || ''
           element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; opacity: 0.7 !important;')
-
-          if (needsDisplacement) {
-            const transform = element.getAttribute('transform') || ''
-            const newTransform = transform ? `${transform} translate(10, 0)` : 'translate(10, 0)'
-            element.setAttribute('transform', newTransform)
-          }
         } else if (tagName === 'line') {
           element.setAttribute('stroke', '#2563EB')
           element.setAttribute('opacity', '0.7')
@@ -1440,11 +1529,13 @@ export class VexFlowRenderer {
           element.setAttribute('style', currentStyle + '; stroke: #2563EB !important; opacity: 0.7 !important;')
         }
 
+        // Recurse into children
         for (let i = 0; i < element.children.length; i++) {
           applyGhostStyle(element.children[i])
         }
       }
 
+      // Apply styling to all elements in the SVG (either in the group or directly)
       for (let i = childrenBefore; i < svg.children.length; i++) {
         applyGhostStyle(svg.children[i])
       }
@@ -1462,7 +1553,7 @@ export class VexFlowRenderer {
    * @param ghostNote - Optional ghost note to render in blue/transparent
    * @returns true if ghost note was rendered, false if not (or no ghost note provided)
    */
-  renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number }): boolean {
+  renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number; accidental?: '#' | 'b' | 'n' }): boolean {
     // renderScore now clears first, so no need to clear here
     return this.renderScore(score, ghostNote)
   }
@@ -1473,7 +1564,7 @@ export class VexFlowRenderer {
    * @param ghostNote - Optional ghost note preview (rawX for smooth cursor following)
    * @returns true if ghost note was rendered, false if not (or no ghost note provided)
    */
-  renderScore(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number }): boolean {
+  renderScore(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number; accidental?: '#' | 'b' | 'n' }): boolean {
     if (!this.context || !this.renderer) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
