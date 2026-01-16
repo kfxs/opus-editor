@@ -1451,14 +1451,6 @@ export class VexFlowRenderer {
           const noteX = staveNote.getAbsoluteX()
           // Calculate shift needed to move note to cursor position
           targetShiftX = ghostNote.rawX - noteX
-
-          if (ghostNote.accidental) {
-            console.log('=== GHOST NOTE SHIFT (new approach) ===')
-            console.log('rawX:', ghostNote.rawX)
-            console.log('VexFlow noteX:', noteX)
-            console.log('targetShiftX:', targetShiftX)
-            console.log('=======================================')
-          }
         } catch (e) {
           // getAbsoluteX might not be available
         }
@@ -1486,13 +1478,6 @@ export class VexFlowRenderer {
 
         // Apply the transform to shift everything to the correct position
         ghostGroup.setAttribute('transform', `translate(${targetShiftX}, 0)`)
-
-        if (ghostNote.accidental) {
-          console.log('=== GHOST NOTE GROUP TRANSFORM ===')
-          console.log('targetShiftX:', targetShiftX)
-          console.log('Elements in group:', newElements.length)
-          console.log('==================================')
-        }
 
         // Move all new elements into the group
         // We need to do this in reverse order to maintain correct order when moving
