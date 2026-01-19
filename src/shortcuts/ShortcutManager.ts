@@ -94,10 +94,14 @@ export class ShortcutManager {
 
     let shortcut: ShortcutDefinition | undefined
 
+    // Normalize letter keys to lowercase for consistent matching
+    // This handles caps lock state - e.g., Ctrl+Z works regardless of caps lock
+    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key
+
     if (modifierPrefix) {
       // For shortcuts with modifiers, only use event.key (not code)
       // This ensures Ctrl+ArrowUp only works with regular arrows, not numpad
-      shortcut = SHORTCUTS[modifierPrefix + event.key]
+      shortcut = SHORTCUTS[modifierPrefix + key]
     } else {
       // For shortcuts without modifiers, check code first (for numpad), then key
       shortcut = SHORTCUTS[event.code] || SHORTCUTS[event.key]

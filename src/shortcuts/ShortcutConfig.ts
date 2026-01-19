@@ -119,6 +119,16 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'octaveDown',
     description: 'Lower selected note by one octave',
   },
+
+  // Undo/Redo
+  'Ctrl+z': {
+    action: 'undo',
+    description: 'Undo last action',
+  },
+  'Ctrl+Shift+z': {
+    action: 'redo',
+    description: 'Redo last undone action',
+  },
 }
 
 /**

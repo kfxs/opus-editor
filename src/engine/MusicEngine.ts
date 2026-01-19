@@ -3,7 +3,8 @@ import { VexFlowRenderer } from './rendering/VexFlowRenderer'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
-import { durationToBeats, splitBeatsIntoDurations } from '@/utils/musicUtils'
+import { UndoRedoManager } from './UndoRedoManager'
+import { durationToBeats, splitBeatsIntoDurations, midiToNoteName } from '@/utils/musicUtils'
 import type { Score, Note, NoteParams, PixelCoordinates } from '@/types/music'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 
@@ -31,6 +32,7 @@ export class MusicEngine {
   private coordinateMapper: CoordinateMapper
   private collisionDetector: CollisionDetector
   private playbackEngine: PlaybackEngine
+  private undoRedoManager: UndoRedoManager
 
   constructor(config: MusicEngineConfig) {
     this.scoreModel = new ScoreModel()
@@ -58,12 +60,81 @@ export class MusicEngine {
 
     this.collisionDetector = new CollisionDetector()
     this.playbackEngine = new PlaybackEngine()
+    this.undoRedoManager = new UndoRedoManager()
 
     // Initialize renderer
     this.renderer.initialize(width, height)
 
     // Set score in playback engine
     this.playbackEngine.setScore(this.scoreModel.getScore())
+
+    // Save initial state for undo/redo
+    this.undoRedoManager.saveInitialState(this.scoreModel.getScore())
+  }
+
+  // ==================== Undo/Redo ====================
+
+  /**
+   * Save current state to undo history (call after mutations)
+   */
+  private saveUndoState(description: string): void {
+    this.undoRedoManager.pushState(this.scoreModel.getScore(), description)
+  }
+
+  /**
+   * Undo the last action
+   * @returns true if undo was successful
+   */
+  undo(): boolean {
+    const previousState = this.undoRedoManager.undo()
+    if (!previousState) return false
+
+    // Restore the state
+    this.scoreModel = ScoreModel.fromJSON(JSON.stringify(previousState))
+    this.playbackEngine.setScore(this.scoreModel.getScore())
+    return true
+  }
+
+  /**
+   * Redo the last undone action
+   * @returns true if redo was successful
+   */
+  redo(): boolean {
+    const nextState = this.undoRedoManager.redo()
+    if (!nextState) return false
+
+    // Restore the state
+    this.scoreModel = ScoreModel.fromJSON(JSON.stringify(nextState))
+    this.playbackEngine.setScore(this.scoreModel.getScore())
+    return true
+  }
+
+  /**
+   * Check if undo is available
+   */
+  canUndo(): boolean {
+    return this.undoRedoManager.canUndo()
+  }
+
+  /**
+   * Check if redo is available
+   */
+  canRedo(): boolean {
+    return this.undoRedoManager.canRedo()
+  }
+
+  /**
+   * Get description of action that would be undone
+   */
+  getUndoDescription(): string | null {
+    return this.undoRedoManager.getUndoDescription()
+  }
+
+  /**
+   * Get description of action that would be redone
+   */
+  getRedoDescription(): string | null {
+    return this.undoRedoManager.getRedoDescription()
   }
 
   // ==================== Score Operations ====================
@@ -80,6 +151,7 @@ export class MusicEngine {
    */
   setTitle(title: string): void {
     this.scoreModel.setTitle(title)
+    this.saveUndoState(`Set title to "${title}"`)
   }
 
   /**
@@ -88,6 +160,7 @@ export class MusicEngine {
   setTempo(tempo: number): void {
     this.scoreModel.setTempo(tempo)
     this.playbackEngine.setScore(this.scoreModel.getScore())
+    this.saveUndoState(`Set tempo to ${tempo}`)
   }
 
   /**
@@ -95,12 +168,13 @@ export class MusicEngine {
    */
   addMeasure(): void {
     this.scoreModel.addMeasure()
+    this.saveUndoState('Add measure')
   }
 
   // ==================== Note Operations ====================
 
   /**
-   * Add a note at a specific position
+   * Add a note at a specific position (internal - use addNoteAtPosition for UI)
    */
   addNote(params: NoteParams): Note {
     const note = this.scoreModel.addNote(params)
@@ -373,7 +447,12 @@ export class MusicEngine {
         this.splitExistingNoteWithTie(chordNote, duration, overflow.overflowAmount)
       }
 
-      return this.addSplitNoteWithTie(noteParams, overflow.overflowAmount)
+      const splitNote = this.addSplitNoteWithTie(noteParams, overflow.overflowAmount)
+      if (splitNote) {
+        const noteName = midiToNoteName(noteParams.pitch)
+        this.saveUndoState(`Add ${noteName}`)
+      }
+      return splitNote
     }
 
     // For non-overflow cases, update existing chord notes to match duration
@@ -396,6 +475,10 @@ export class MusicEngine {
         finalBeat,
         coordCalc: useCoordinateCalculation
       })
+
+      // Save undo state for the complete add operation
+      const noteName = midiToNoteName(pitch)
+      this.saveUndoState(`Add ${noteName}`)
     }
 
     return note
@@ -650,6 +733,7 @@ export class MusicEngine {
   addRest(duration: NoteParams['duration'], measure: number, beat: number): Note {
     const rest = this.scoreModel.addRest(duration, measure, beat)
     this.playbackEngine.setScore(this.scoreModel.getScore())
+    this.saveUndoState('Add rest')
     return rest
   }
 
@@ -780,6 +864,7 @@ export class MusicEngine {
       }
 
       this.playbackEngine.setScore(this.scoreModel.getScore())
+      this.saveUndoState('Update note')
       return note
     }
 
@@ -799,6 +884,7 @@ export class MusicEngine {
     }
 
     this.playbackEngine.setScore(this.scoreModel.getScore())
+    this.saveUndoState('Update note')
     return note
   }
 
@@ -824,11 +910,27 @@ export class MusicEngine {
   }
 
   /**
+   * Get a note by ID
+   */
+  getNote(noteId: string): Note | undefined {
+    return this.scoreModel.getNote(noteId)
+  }
+
+  /**
    * Delete a note
    */
   deleteNote(noteId: string): boolean {
+    // Get note info before deleting for undo description
+    const note = this.scoreModel.getNote(noteId)
+    const description = note && !note.isRest
+      ? `Delete ${midiToNoteName(note.pitch)}`
+      : 'Delete rest'
+
     const result = this.scoreModel.deleteNote(noteId)
     this.playbackEngine.setScore(this.scoreModel.getScore())
+    if (result) {
+      this.saveUndoState(description)
+    }
     return result
   }
 
@@ -863,6 +965,7 @@ export class MusicEngine {
   clearAllNotes(): void {
     this.scoreModel.clearAllNotes()
     this.playbackEngine.setScore(this.scoreModel.getScore())
+    this.saveUndoState('Clear all notes')
   }
 
   // ==================== Rendering Operations ====================
@@ -1103,6 +1206,8 @@ export class MusicEngine {
     this.scoreModel = loaded
     this.playbackEngine.setScore(this.scoreModel.getScore())
     this.renderScore()
+    // Reset undo history with loaded state as initial
+    this.undoRedoManager.saveInitialState(this.scoreModel.getScore())
   }
 
   // ==================== Element Registry ====================

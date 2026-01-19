@@ -362,6 +362,40 @@ onMounted(() => {
       pitchDown: () => adjustPitch(-1),
       octaveUp: () => adjustOctave(1),
       octaveDown: () => adjustOctave(-1),
+      undo: () => {
+        if (engine.value?.undo()) {
+          renderScore()
+          // Update selection state after undo
+          if (selectedNoteId.value) {
+            const note = engine.value.getNote(selectedNoteId.value)
+            if (note) {
+              // Sync palette with restored note state
+              selectedDuration.value = note.duration
+              selectedAccidental.value = note.accidental || null
+            } else {
+              // Note no longer exists after undo
+              selectedNoteId.value = null
+            }
+          }
+        }
+      },
+      redo: () => {
+        if (engine.value?.redo()) {
+          renderScore()
+          // Update selection state after redo
+          if (selectedNoteId.value) {
+            const note = engine.value.getNote(selectedNoteId.value)
+            if (note) {
+              // Sync palette with restored note state
+              selectedDuration.value = note.duration
+              selectedAccidental.value = note.accidental || null
+            } else {
+              // Note no longer exists after redo
+              selectedNoteId.value = null
+            }
+          }
+        }
+      },
     })
     shortcutManager.enable()
 
