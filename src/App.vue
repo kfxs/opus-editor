@@ -338,6 +338,8 @@ onMounted(() => {
       setAccidentalNatural: () => setAccidental('n'),
       setAccidentalSharp: () => setAccidental('#'),
       setAccidentalFlat: () => setAccidental('b'),
+      selectNextNote: () => navigateSelection(1),
+      selectPreviousNote: () => navigateSelection(-1),
     })
     shortcutManager.enable()
 
@@ -433,6 +435,91 @@ function selectNote(noteId: string | null) {
         break
       }
     }
+  }
+}
+
+// Navigate selection left/right by direction (-1 for previous, 1 for next)
+function navigateSelection(direction: number) {
+  // Only works in selection mode with something selected
+  if (selectedTool.value !== 'selection' || !selectedNoteId.value || !engine.value) {
+    return
+  }
+
+  const score = engine.value.getScore()
+
+  // Build a sorted list of all notes/rests across all measures
+  const allNotes = score.measures
+    .flatMap(m => m.notes.map(n => ({ ...n, measureNumber: m.number })))
+    .sort((a, b) => {
+      if (a.measureNumber !== b.measureNumber) {
+        return a.measureNumber - b.measureNumber
+      }
+      return a.beat - b.beat
+    })
+
+  // Find current selection index
+  const currentIndex = allNotes.findIndex(n => n.id === selectedNoteId.value)
+  if (currentIndex === -1) return
+
+  const newIndex = currentIndex + direction
+
+  // If going past boundaries, deselect
+  if (newIndex < 0 || newIndex >= allNotes.length) {
+    selectNote(null)
+    renderScore()
+    return
+  }
+
+  const nextNote = allNotes[newIndex]
+  if (nextNote) {
+    selectNote(nextNote.id)
+    renderScore()
+    scrollSelectedNoteIntoView()
+  }
+}
+
+// Scroll the canvas so the selected note is visible
+function scrollSelectedNoteIntoView() {
+  if (!engine.value || !scoreCanvas.value || !selectedNoteId.value) return
+
+  const elementInfo = engine.value.getElementById(selectedNoteId.value)
+  if (!elementInfo) return
+
+  const container = scoreCanvas.value
+  const bbox = elementInfo.bbox
+
+  // Add some padding around the element
+  const padding = 50
+
+  // Calculate scroll positions to center the element (or at least make it visible)
+  const containerRect = container.getBoundingClientRect()
+
+  // Check if element is outside visible horizontal area
+  const elementLeft = bbox.x
+  const elementRight = bbox.x + bbox.width
+  const visibleLeft = container.scrollLeft
+  const visibleRight = container.scrollLeft + containerRect.width
+
+  if (elementLeft < visibleLeft + padding) {
+    // Element is to the left of visible area
+    container.scrollLeft = Math.max(0, elementLeft - padding)
+  } else if (elementRight > visibleRight - padding) {
+    // Element is to the right of visible area
+    container.scrollLeft = elementRight - containerRect.width + padding
+  }
+
+  // Check if element is outside visible vertical area
+  const elementTop = bbox.y
+  const elementBottom = bbox.y + bbox.height
+  const visibleTop = container.scrollTop
+  const visibleBottom = container.scrollTop + containerRect.height
+
+  if (elementTop < visibleTop + padding) {
+    // Element is above visible area
+    container.scrollTop = Math.max(0, elementTop - padding)
+  } else if (elementBottom > visibleBottom - padding) {
+    // Element is below visible area
+    container.scrollTop = elementBottom - containerRect.height + padding
   }
 }
 

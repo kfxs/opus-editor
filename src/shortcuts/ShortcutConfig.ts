@@ -63,6 +63,16 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'setAccidentalFlat',
     description: 'Flat accidental',
   },
+
+  // Selection navigation
+  'ArrowRight': {
+    action: 'selectNextNote',
+    description: 'Select next note/rest',
+  },
+  'ArrowLeft': {
+    action: 'selectPreviousNote',
+    description: 'Select previous note/rest',
+  },
 }
 
 /**
