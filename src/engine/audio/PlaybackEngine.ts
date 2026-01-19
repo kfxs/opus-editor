@@ -297,7 +297,7 @@ export class PlaybackEngine {
         const noteTimeInBeats = measureStartTime + note.beat
         const beatsPerSecond = tempo / 60
         const noteTimeInSeconds = noteTimeInBeats / beatsPerSecond
-        const durationInSeconds = durationToBeats(note.duration) / beatsPerSecond
+        const durationInSeconds = durationToBeats(note.duration, note.dots || 0) / beatsPerSecond
 
         // Calculate actual sounding pitch by applying accidental
         // The note.pitch is the symbolic pitch on the staff, accidentals modify the actual sound

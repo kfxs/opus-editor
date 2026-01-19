@@ -192,7 +192,7 @@ export class ScoreModel {
    * all notes at that beat will have their duration updated to match the new note
    */
   private replaceRestsWithNote(measure: Measure, note: Note): void {
-    const noteDuration = this.durationToBeats(note.duration)
+    const noteDuration = this.durationToBeats(note.duration, note.dots || 0)
     const noteEnd = note.beat + noteDuration
 
     // Remove all rests that overlap with the note's time range
@@ -201,7 +201,7 @@ export class ScoreModel {
 
     for (const existing of measure.notes) {
       if (existing.isRest) {
-        const existingDuration = this.durationToBeats(existing.duration)
+        const existingDuration = this.durationToBeats(existing.duration, existing.dots || 0)
         const existingEnd = existing.beat + existingDuration
 
         // Check if this rest overlaps with the new note
@@ -215,9 +215,14 @@ export class ScoreModel {
         }
       } else {
         // For regular notes at the same beat (chord formation),
-        // update their duration to match the new note's duration
-        if (existing.beat === note.beat && existing.duration !== note.duration) {
-          existing.duration = note.duration
+        // update their duration and dots to match the new note
+        if (existing.beat === note.beat) {
+          const existingDots = existing.dots || 0
+          const noteDots = note.dots || 0
+          if (existing.duration !== note.duration || existingDots !== noteDots) {
+            existing.duration = note.duration
+            existing.dots = noteDots
+          }
         }
         remainingNotes.push(existing)
       }
@@ -256,7 +261,7 @@ export class ScoreModel {
         // There's a gap before this note
         gaps.push({ start: currentBeat, end: note.beat })
       }
-      const noteDuration = this.durationToBeats(note.duration)
+      const noteDuration = this.durationToBeats(note.duration, note.dots || 0)
       currentBeat = note.beat + noteDuration
     }
 
@@ -366,7 +371,7 @@ export class ScoreModel {
   /**
    * Convert note duration to beats
    */
-  private durationToBeats(duration: Note['duration']): number {
+  private durationToBeats(duration: Note['duration'], dots: number = 0): number {
     const map: Record<Note['duration'], number> = {
       w: 4,
       h: 2,
@@ -375,7 +380,10 @@ export class ScoreModel {
       '16': 0.25,
       '32': 0.125,
     }
-    return map[duration] || 1
+    const baseBeats = map[duration] || 1
+    // Apply dot multiplier: 1 dot = 1.5x, 2 dots = 1.75x, etc.
+    const dotMultiplier = dots > 0 ? 2 - Math.pow(0.5, dots) : 1
+    return baseBeats * dotMultiplier
   }
 
   /**

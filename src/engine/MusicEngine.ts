@@ -247,7 +247,8 @@ export class MusicEngine {
   addNoteAtPosition(
     coords: PixelCoordinates,
     duration: NoteParams['duration'],
-    accidental?: NoteParams['accidental']
+    accidental?: NoteParams['accidental'],
+    dots?: number
   ): Note | null {
     const measure = this.scoreModel.getMeasure(1)
     if (!measure) return null
@@ -413,6 +414,7 @@ export class MusicEngine {
       measure: measureNumber,
       beat: finalBeat,
       ...(accidental && { accidental }),
+      ...(dots && { dots }),
     }
 
     // Get the target measure for overflow check
@@ -439,12 +441,13 @@ export class MusicEngine {
     // Handle overflow by splitting note across bar line with tie
     if (overflow.willOverflow && overflow.overflowAmount) {
       // Also update existing chord notes at the same beat to have the same duration and ties
+      // Skip notes that are already tied (already split) to avoid creating duplicates
       const existingChordNotes = this.scoreModel.getNotesInMeasure(measureNumber)
-        .filter(n => !n.isRest && Math.abs(n.beat - finalBeat) < 0.001 && n.pitch !== pitch)
+        .filter(n => !n.isRest && Math.abs(n.beat - finalBeat) < 0.001 && n.pitch !== pitch && !n.tiedTo)
 
       // Split each existing chord note with ties
       for (const chordNote of existingChordNotes) {
-        this.splitExistingNoteWithTie(chordNote, duration, overflow.overflowAmount)
+        this.splitExistingNoteWithTie(chordNote, duration, overflow.overflowAmount, dots)
       }
 
       const splitNote = this.addSplitNoteWithTie(noteParams, overflow.overflowAmount)
@@ -491,7 +494,7 @@ export class MusicEngine {
   private findRestAtBeat(notes: Note[], beat: number): Note | null {
     for (const note of notes) {
       if (note.isRest) {
-        const restEnd = note.beat + durationToBeats(note.duration)
+        const restEnd = note.beat + durationToBeats(note.duration, note.dots || 0)
         // Check if the beat falls within this rest's time span
         if (beat >= note.beat && beat < restEnd) {
           return note
@@ -545,9 +548,11 @@ export class MusicEngine {
    * @param existingNote - The existing note to split
    * @param newDuration - The new duration to apply
    * @param overflowAmount - Amount of beats that overflow into next measure
+   * @param newDots - Number of dots for the new duration (default 0)
    */
-  private splitExistingNoteWithTie(existingNote: Note, newDuration: NoteParams['duration'], overflowAmount: number): void {
-    const totalBeats = durationToBeats(newDuration)
+  private splitExistingNoteWithTie(existingNote: Note, newDuration: NoteParams['duration'], overflowAmount: number, newDots: number = 0): void {
+    // Include dots in total beats calculation
+    const totalBeats = durationToBeats(newDuration, newDots)
     const beatsInCurrentMeasure = totalBeats - overflowAmount
     const beatsInNextMeasure = overflowAmount
 
@@ -569,6 +574,13 @@ export class MusicEngine {
       while (!this.scoreModel.getMeasure(nextMeasureNumber)) {
         this.scoreModel.addMeasure()
       }
+    }
+
+    // Delete notes that would be overwritten in the next measure
+    // For tied continuations, delete ALL notes at beat 0 (not just same pitch)
+    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, 0, nextMeasureDurations[0], existingNote.pitch, true)
+    for (const noteToDelete of notesToOverwriteNext) {
+      this.scoreModel.deleteNote(noteToDelete.id)
     }
 
     // Add tied continuation note in next measure
@@ -607,7 +619,8 @@ export class MusicEngine {
    * @returns The first note (in current measure) or null if failed
    */
   private addSplitNoteWithTie(noteParams: NoteParams, overflowAmount: number): Note | null {
-    const totalBeats = durationToBeats(noteParams.duration)
+    // Include dots in total beats calculation
+    const totalBeats = durationToBeats(noteParams.duration, noteParams.dots || 0)
     const beatsInCurrentMeasure = totalBeats - overflowAmount
     const beatsInNextMeasure = overflowAmount
 
@@ -632,21 +645,26 @@ export class MusicEngine {
     }
 
     // Delete notes that would be overwritten in the next measure
-    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, 0, nextMeasureDurations[0], noteParams.pitch)
+    // For tied continuations, delete ALL notes at beat 0 (not just same pitch)
+    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, 0, nextMeasureDurations[0], noteParams.pitch, true)
     for (const noteToDelete of notesToOverwriteNext) {
       this.scoreModel.deleteNote(noteToDelete.id)
     }
 
     // Add notes in current measure (may need multiple if duration splits, e.g., dotted notes)
+    // Note: Split notes use standard durations (no dots) from splitBeatsIntoDurations
     let currentBeat = noteParams.beat
     let firstNote: Note | null = null
     let previousNote: Note | null = null
 
     for (const duration of currentMeasureDurations) {
       const note = this.addNote({
-        ...noteParams,
+        pitch: noteParams.pitch,
         duration,
+        measure: noteParams.measure,
         beat: currentBeat,
+        ...(noteParams.accidental && { accidental: noteParams.accidental }),
+        // No dots - split durations are standard non-dotted durations
       })
       if (!firstNote) firstNote = note
 
@@ -669,6 +687,7 @@ export class MusicEngine {
         measure: nextMeasureNumber,
         beat: nextBeat,
         ...(noteParams.accidental && { accidental: noteParams.accidental }),
+        // No dots - split durations are standard non-dotted durations
       })
 
       // Link with previous note (tie across bar line)
@@ -696,12 +715,15 @@ export class MusicEngine {
    * This returns notes that fall within the new note's duration range.
    * Notes at the same beat with DIFFERENT pitch are kept (chords).
    * Notes at the same beat with SAME pitch are deleted (replacement).
+   *
+   * @param isTiedContinuation - If true, delete ALL notes at the same beat (tied notes eat existing notes)
    */
   private findNotesToOverwrite(
     measureNumber: number,
     beat: number,
     duration: NoteParams['duration'],
-    pitch: number
+    pitch: number,
+    isTiedContinuation: boolean = false
   ): Note[] {
     const noteDurationInBeats = durationToBeats(duration)
     const noteEnd = beat + noteDurationInBeats
@@ -711,9 +733,13 @@ export class MusicEngine {
       // Skip rests - they're handled separately by ScoreModel
       if (existing.isRest) return false
 
-      // Notes at the same beat: only delete if same pitch (replacement)
-      // Different pitch at same beat = chord (keep it)
+      // Notes at the same beat:
+      // - For tied continuations: delete ALL notes (tied notes "eat" existing notes)
+      // - For normal notes: only delete if same pitch (replacement), different pitch = chord
       if (Math.abs(existing.beat - beat) < 0.001) {
+        if (isTiedContinuation) {
+          return true  // Delete all notes at this beat for tied continuations
+        }
         return existing.pitch === pitch  // Delete if same pitch (replacement)
       }
 
@@ -751,7 +777,10 @@ export class MusicEngine {
     }
 
     const oldDuration = existingNote.duration
+    const oldDots = existingNote.dots || 0
     let newDuration = updates.duration || oldDuration
+    // Handle dots: if dots is explicitly set in updates (even to 0), use it; otherwise keep old
+    const newDots = updates.dots !== undefined ? updates.dots : oldDots
 
     // Find all notes in the same chord (same measure, same beat, non-rest)
     // All notes in a chord must have the same duration
@@ -761,31 +790,32 @@ export class MusicEngine {
     )
     const isChord = chordNotes.length > 1
 
-    // Limit duration to fit within the measure
+    // Limit duration to fit within the measure (considering dots)
     const measure = this.scoreModel.getMeasure(existingNote.measure)
-    if (measure && updates.duration) {
+    if (measure && (updates.duration || updates.dots !== undefined)) {
       const timeSignature = measure.timeSignature
       const measureTotalBeats = (4 / timeSignature.denominator) * timeSignature.numerator
       const availableBeats = measureTotalBeats - existingNote.beat
-      const requestedBeats = durationToBeats(updates.duration)
+      const requestedBeats = durationToBeats(newDuration, newDots)
 
       if (requestedBeats > availableBeats + 0.001) {
-        // Find the largest duration that fits
+        // Find the largest duration that fits (without dots for simplicity)
         const fittingDuration = this.findLargestFittingDuration(availableBeats)
         if (fittingDuration) {
           newDuration = fittingDuration
-          updates = { ...updates, duration: fittingDuration }
+          updates = { ...updates, duration: fittingDuration, dots: 0 }
         } else {
           // No standard duration fits, keep the old duration
           newDuration = oldDuration
           delete updates.duration
+          delete updates.dots
         }
       }
     }
 
-    // Calculate beat difference if duration is changing
-    const oldBeats = durationToBeats(oldDuration)
-    const newBeats = durationToBeats(newDuration)
+    // Calculate beat difference if duration OR dots is changing
+    const oldBeats = durationToBeats(oldDuration, oldDots)
+    const newBeats = durationToBeats(newDuration, newDots)
     const beatDifference = oldBeats - newBeats
 
     // If duration is being lengthened, remove overlapping notes/rests first
@@ -804,18 +834,18 @@ export class MusicEngine {
         if (n.id === noteId || chordNoteIds.has(n.id)) continue
 
         const nStart = n.beat
-        const nEnd = n.beat + durationToBeats(n.duration)
+        const nEnd = n.beat + durationToBeats(n.duration, n.dots || 0)
 
         // Check if this note overlaps with the extended range
         // The extended range is from (existingNote.beat + oldBeats) to (existingNote.beat + newBeats)
         if (nStart >= existingNote.beat + oldBeats && nStart < noteEndBeat) {
           // This note starts within the extended range - remove it entirely
           notesToRemove.push(n.id)
-          beatsToRecover += durationToBeats(n.duration)
+          beatsToRecover += durationToBeats(n.duration, n.dots || 0)
         } else if (nStart < existingNote.beat + oldBeats && nEnd > existingNote.beat + oldBeats && nEnd <= noteEndBeat) {
           // This note starts before but extends into the range - remove it
           notesToRemove.push(n.id)
-          beatsToRecover += durationToBeats(n.duration)
+          beatsToRecover += durationToBeats(n.duration, n.dots || 0)
         }
       }
 
@@ -987,7 +1017,8 @@ export class MusicEngine {
   renderScoreWithPreview(
     coords: PixelCoordinates,
     duration: NoteParams['duration'],
-    accidental?: NoteParams['accidental']
+    accidental?: NoteParams['accidental'],
+    dots?: number
   ): boolean {
     const measure = this.scoreModel.getMeasure(1)
     if (!measure) {
@@ -1040,6 +1071,7 @@ export class MusicEngine {
         rawX: coords.x,  // For smooth X positioning (follows cursor)
         rawY: coords.y,  // For reference
         ...(accidental && { accidental }),
+        ...(dots && { dots }),
       }
     )
 

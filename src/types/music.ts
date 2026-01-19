@@ -49,6 +49,8 @@ export interface Note {
   tiedTo?: string
   /** ID of the note this note is tied FROM (backward tie) */
   tiedFrom?: string
+  /** Number of dots (0=none, 1=dotted, 2=double-dotted) */
+  dots?: number
 }
 
 /**
@@ -137,4 +139,5 @@ export interface NoteParams {
   beat: number
   accidental?: Accidental
   isRest?: boolean
+  dots?: number
 }

@@ -180,6 +180,23 @@
             </button>
           </div>
 
+          <!-- Dot Selector -->
+          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
+            <span class="text-sm text-gray-300">Dot:</span>
+            <button
+              @click="toggleDot"
+              :class="[
+                'px-3 py-1 rounded text-lg font-bold',
+                selectedDots > 0
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Toggle dot (.) - adds 50% duration"
+            >
+              •
+            </button>
+          </div>
+
           <div class="border-l border-gray-600 mx-2"></div>
           <button
             @click="togglePlayback"
@@ -261,6 +278,9 @@ const selectedDuration = ref<'w' | 'h' | 'q' | '8' | '16' | '32'>('q') // Defaul
 // Accidental selection
 const selectedAccidental = ref<'#' | 'b' | 'n' | null>(null) // Default to no accidental
 
+// Dot selection (0 = no dot, 1 = dotted, 2 = double-dotted)
+const selectedDots = ref<number>(0)
+
 // Cursor visibility (hide when ghost note renders, show when it doesn't)
 const showCursor = ref(true)
 
@@ -332,13 +352,21 @@ onMounted(() => {
           engine.value.renderScoreWithPreview(
             lastCanvasMousePosition,
             selectedDuration.value,
-            selectedAccidental.value || undefined
+            selectedAccidental.value || undefined,
+            selectedDots.value
           )
         }
       },
       setSelectionMode: () => {
-        selectedTool.value = 'selection'
-        renderScore() // Clear ghost note immediately
+        // If already in selection mode with a note selected, clear selection
+        if (selectedTool.value === 'selection' && selectedNoteId.value) {
+          selectedNoteId.value = null
+          renderScore()
+        } else {
+          // Otherwise, switch to selection mode
+          selectedTool.value = 'selection'
+          renderScore() // Clear ghost note immediately
+        }
       },
       deleteSelected: () => {
         if (selectedNoteId.value && engine.value) {
@@ -372,6 +400,7 @@ onMounted(() => {
               // Sync palette with restored note state
               selectedDuration.value = note.duration
               selectedAccidental.value = note.accidental || null
+              selectedDots.value = note.dots || 0
             } else {
               // Note no longer exists after undo
               selectedNoteId.value = null
@@ -389,6 +418,7 @@ onMounted(() => {
               // Sync palette with restored note state
               selectedDuration.value = note.duration
               selectedAccidental.value = note.accidental || null
+              selectedDots.value = note.dots || 0
             } else {
               // Note no longer exists after redo
               selectedNoteId.value = null
@@ -396,6 +426,7 @@ onMounted(() => {
           }
         }
       },
+      toggleDot,
     })
     shortcutManager.enable()
 
@@ -449,10 +480,23 @@ function clearNotes() {
 
 function setDuration(duration: 'w' | 'h' | 'q' | '8' | '16' | '32') {
   selectedDuration.value = duration
-  // If a note is selected, update its duration
+  // Reset dots when changing duration
+  selectedDots.value = 0
+  // If a note is selected, update its duration (and remove dots)
   if (selectedNoteId.value && engine.value) {
-    engine.value.updateNote(selectedNoteId.value, { duration })
+    engine.value.updateNote(selectedNoteId.value, { duration, dots: 0 })
     renderScore()
+  } else if (selectedTool.value === 'selection') {
+    // Switch to entry mode when pressing duration in selection mode with nothing selected
+    selectedTool.value = 'entry'
+    if (lastCanvasMousePosition && engine.value) {
+      engine.value.renderScoreWithPreview(
+        lastCanvasMousePosition,
+        duration,
+        selectedAccidental.value || undefined,
+        0
+      )
+    }
   }
 }
 
@@ -464,12 +508,54 @@ function setAccidental(accidental: '#' | 'b' | 'n' | null) {
   if (selectedNoteId.value && engine.value) {
     engine.value.updateNote(selectedNoteId.value, { accidental: newValue || undefined })
     renderScore()
+  } else if (selectedTool.value === 'selection') {
+    // Switch to entry mode when pressing accidental in selection mode with nothing selected
+    selectedTool.value = 'entry'
+    if (lastCanvasMousePosition && engine.value) {
+      engine.value.renderScoreWithPreview(
+        lastCanvasMousePosition,
+        selectedDuration.value,
+        newValue || undefined,
+        selectedDots.value
+      )
+    }
   } else if (selectedTool.value === 'entry' && lastCanvasMousePosition && engine.value) {
     // Re-render ghost note with new accidental
     engine.value.renderScoreWithPreview(
       lastCanvasMousePosition,
       selectedDuration.value,
-      newValue || undefined
+      newValue || undefined,
+      selectedDots.value
+    )
+  }
+}
+
+function toggleDot() {
+  // Toggle between 0 (no dot) and 1 (dotted)
+  const newValue = selectedDots.value > 0 ? 0 : 1
+  selectedDots.value = newValue
+  // If a note is selected, update its dots
+  if (selectedNoteId.value && engine.value) {
+    engine.value.updateNote(selectedNoteId.value, { dots: newValue })
+    renderScore()
+  } else if (selectedTool.value === 'selection') {
+    // Switch to entry mode when pressing dot in selection mode with nothing selected
+    selectedTool.value = 'entry'
+    if (lastCanvasMousePosition && engine.value) {
+      engine.value.renderScoreWithPreview(
+        lastCanvasMousePosition,
+        selectedDuration.value,
+        selectedAccidental.value || undefined,
+        newValue
+      )
+    }
+  } else if (selectedTool.value === 'entry' && lastCanvasMousePosition && engine.value) {
+    // Re-render ghost note with new dot
+    engine.value.renderScoreWithPreview(
+      lastCanvasMousePosition,
+      selectedDuration.value,
+      selectedAccidental.value || undefined,
+      newValue
     )
   }
 }
@@ -488,6 +574,8 @@ function selectNote(noteId: string | null) {
         selectedDuration.value = note.duration
         // Sync accidental palette (only relevant for notes, rests have no accidental)
         selectedAccidental.value = note.accidental || null
+        // Sync dots palette
+        selectedDots.value = note.dots || 0
         break
       }
     }
@@ -688,6 +776,7 @@ function scrollSelectedNoteIntoView() {
 function resetPaletteToDefaults() {
   selectedDuration.value = 'q'
   selectedAccidental.value = null
+  selectedDots.value = 0
 }
 
 function renderScore() {
@@ -1015,7 +1104,8 @@ function handleCanvasClick(event: MouseEvent) {
     const note = engine.value.addNoteAtPosition(
       { x, y },
       selectedDuration.value,
-      selectedAccidental.value || undefined
+      selectedAccidental.value || undefined,
+      selectedDots.value || undefined
     )
 
     if (note) {
@@ -1110,11 +1200,12 @@ function handleCanvasMouseMove(event: MouseEvent) {
   }
   lastPreviewRender = now
 
-  // Render score with ghost note preview using selected duration and accidental
+  // Render score with ghost note preview using selected duration, accidental, and dots
   const ghostNoteRendered = engine.value.renderScoreWithPreview(
     { x, y },
     selectedDuration.value,
-    selectedAccidental.value || undefined
+    selectedAccidental.value || undefined,
+    selectedDots.value
   )
 
   // Hide cursor when ghost note is shown, show cursor when it's not

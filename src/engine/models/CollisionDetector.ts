@@ -38,7 +38,7 @@ export class CollisionDetector {
    * 3. Overlapping time but different beats = COLLISION (not allowed)
    */
   checkNoteCollision(newNote: NoteParams, existingNotes: Note[]): CollisionResult {
-    const newNoteDuration = durationToBeats(newNote.duration)
+    const newNoteDuration = durationToBeats(newNote.duration, newNote.dots || 0)
     const newNoteEnd = newNote.beat + newNoteDuration
 
     const collidingNotes: string[] = []
@@ -50,7 +50,7 @@ export class CollisionDetector {
       // Skip rests - they don't participate in chords
       if (existing.isRest) continue
 
-      const existingDuration = durationToBeats(existing.duration)
+      const existingDuration = durationToBeats(existing.duration, existing.dots || 0)
       const existingEnd = existing.beat + existingDuration
 
       // Check if notes start at the EXACT same beat position
@@ -94,7 +94,7 @@ export class CollisionDetector {
     measure: Measure,
     existingNotes: Note[]
   ): OverflowResult {
-    const noteDuration = durationToBeats(note.duration)
+    const noteDuration = durationToBeats(note.duration, note.dots || 0)
     const noteEnd = note.beat + noteDuration
     const measureDuration = getMeasureDuration(measure.timeSignature)
 
@@ -131,7 +131,7 @@ export class CollisionDetector {
     let currentBeat = startFromBeat
 
     for (const note of sortedNotes) {
-      const noteEnd = note.beat + durationToBeats(note.duration)
+      const noteEnd = note.beat + durationToBeats(note.duration, note.dots || 0)
 
       // Can we fit before this note?
       if (currentBeat + noteDuration <= note.beat) {
@@ -155,13 +155,13 @@ export class CollisionDetector {
    * This includes notes that would need to be moved or split
    */
   getAffectedNotes(newNote: NoteParams, existingNotes: Note[]): Note[] {
-    const newNoteDuration = durationToBeats(newNote.duration)
+    const newNoteDuration = durationToBeats(newNote.duration, newNote.dots || 0)
     const newNoteEnd = newNote.beat + newNoteDuration
 
     return existingNotes.filter(note => {
       if (note.measure !== newNote.measure) return false
 
-      const noteDuration = durationToBeats(note.duration)
+      const noteDuration = durationToBeats(note.duration, note.dots || 0)
       const noteEnd = note.beat + noteDuration
 
       // Check for any overlap in time
@@ -187,7 +187,7 @@ export class CollisionDetector {
     // Find the latest end point
     let maxEnd = 0
     for (const note of measureNotes) {
-      const noteEnd = note.beat + durationToBeats(note.duration)
+      const noteEnd = note.beat + durationToBeats(note.duration, note.dots || 0)
       maxEnd = Math.max(maxEnd, noteEnd)
     }
 
@@ -210,7 +210,7 @@ export class CollisionDetector {
     const measureNotes = notes.filter(n => n.measure === measure.number)
 
     for (const note of measureNotes) {
-      const noteEnd = note.beat + durationToBeats(note.duration)
+      const noteEnd = note.beat + durationToBeats(note.duration, note.dots || 0)
 
       if (noteEnd > measureDuration) {
         errors.push(
@@ -245,7 +245,7 @@ export class CollisionDetector {
 
     return {
       ...note,
-      beat: Math.max(0, Math.min(quantizedBeat, measureDuration - durationToBeats(note.duration))),
+      beat: Math.max(0, Math.min(quantizedBeat, measureDuration - durationToBeats(note.duration, note.dots || 0))),
     }
   }
 }

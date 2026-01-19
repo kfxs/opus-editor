@@ -129,6 +129,16 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'redo',
     description: 'Redo last undone action',
   },
+
+  // Dot toggle
+  Period: {
+    action: 'toggleDot',
+    description: 'Toggle dotted note',
+  },
+  NumpadDecimal: {
+    action: 'toggleDot',
+    description: 'Toggle dotted note (numpad)',
+  },
 }
 
 /**

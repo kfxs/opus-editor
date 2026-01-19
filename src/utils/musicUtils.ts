@@ -5,11 +5,24 @@ import type { NoteDuration, TimeSignature } from '@/types/music'
  */
 
 /**
+ * Get the multiplier for dotted notes
+ * - 1 dot = 1.5x (2 - 1/2)
+ * - 2 dots = 1.75x (2 - 1/4)
+ * - 3 dots = 1.875x (2 - 1/8)
+ * @param dots - Number of dots (0, 1, 2, etc.)
+ * @returns Multiplier for the duration
+ */
+export function getDotMultiplier(dots: number): number {
+  return dots > 0 ? 2 - Math.pow(0.5, dots) : 1
+}
+
+/**
  * Convert note duration to beat value
  * @param duration - Note duration string
+ * @param dots - Number of dots (optional, default 0)
  * @returns Number of quarter note beats this duration represents
  */
-export function durationToBeats(duration: NoteDuration): number {
+export function durationToBeats(duration: NoteDuration, dots: number = 0): number {
   const durationMap: Record<NoteDuration, number> = {
     w: 4, // Whole note = 4 beats
     h: 2, // Half note = 2 beats
@@ -18,7 +31,7 @@ export function durationToBeats(duration: NoteDuration): number {
     '16': 0.25, // Sixteenth note = 0.25 beats
     '32': 0.125, // Thirty-second note = 0.125 beats
   }
-  return durationMap[duration]
+  return durationMap[duration] * getDotMultiplier(dots)
 }
 
 /**
@@ -113,12 +126,13 @@ export function noteNameToMidi(noteName: string): number {
  * @returns Next available beat position, or -1 if measure is full
  */
 export function getNextAvailableBeat(
-  occupiedBeats: Array<{ beat: number; duration: NoteDuration }>,
+  occupiedBeats: Array<{ beat: number; duration: NoteDuration; dots?: number }>,
   duration: NoteDuration,
-  timeSignature: TimeSignature
+  timeSignature: TimeSignature,
+  dots: number = 0
 ): number {
   const measureDuration = getMeasureDuration(timeSignature)
-  const noteDuration = durationToBeats(duration)
+  const noteDuration = durationToBeats(duration, dots)
 
   // Sort occupied beats
   const sorted = [...occupiedBeats].sort((a, b) => a.beat - b.beat)
@@ -127,7 +141,7 @@ export function getNextAvailableBeat(
   let currentPosition = 0
 
   for (const occupied of sorted) {
-    const occupiedDuration = durationToBeats(occupied.duration)
+    const occupiedDuration = durationToBeats(occupied.duration, occupied.dots || 0)
 
     // Check if there's space before this note
     if (currentPosition + noteDuration <= occupied.beat) {
@@ -161,13 +175,13 @@ export function getStaffLinePosition(midiNote: number): number {
 
 /**
  * Calculate total duration of all notes in beats
- * @param notes - Array of note objects with duration property
+ * @param notes - Array of note objects with duration and optional dots property
  * @returns Total duration in beats
  */
 export function calculateTotalDuration(
-  notes: Array<{ duration: NoteDuration }>
+  notes: Array<{ duration: NoteDuration; dots?: number }>
 ): number {
-  return notes.reduce((total, note) => total + durationToBeats(note.duration), 0)
+  return notes.reduce((total, note) => total + durationToBeats(note.duration, note.dots || 0), 0)
 }
 
 /**

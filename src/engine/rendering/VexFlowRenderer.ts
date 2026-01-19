@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Beam, StaveTie } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Beam, StaveTie, Dot } from 'vexflow'
 import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
 import { ElementRegistry, type StaffGeometry } from '@/engine/ElementRegistry'
@@ -129,8 +129,9 @@ export class VexFlowRenderer {
 
   /**
    * Convert our NoteDuration to VexFlow duration format
+   * Appends 'd' for each dot (e.g., "qd" for dotted quarter, "qdd" for double-dotted)
    */
-  private convertDuration(duration: NoteDuration): string {
+  private convertDuration(duration: NoteDuration, dots: number = 0): string {
     const durationMap: Record<NoteDuration, string> = {
       w: 'w',
       h: 'h',
@@ -139,7 +140,12 @@ export class VexFlowRenderer {
       '16': '16',
       '32': '32',
     }
-    return durationMap[duration]
+    let vexDuration = durationMap[duration]
+    // Append 'd' for each dot - VexFlow uses this to calculate correct ticks
+    for (let i = 0; i < dots; i++) {
+      vexDuration += 'd'
+    }
+    return vexDuration
   }
 
   /**
@@ -241,7 +247,7 @@ export class VexFlowRenderer {
     chordNotes: MusicNote[] = [note],
     clef: Clef = 'treble'
   ): StaveNote {
-    const vexDuration = this.convertDuration(note.duration)
+    const vexDuration = this.convertDuration(note.duration, note.dots || 0)
 
     // Handle rests differently - rests don't have stem direction
     if (note.isRest) {
@@ -249,6 +255,11 @@ export class VexFlowRenderer {
         keys: ['b/4'], // Rests use a placeholder key
         duration: vexDuration + 'r', // Add 'r' for rest
       })
+      // Add dots to rest if present
+      const dots = note.dots || 0
+      for (let d = 0; d < dots; d++) {
+        Dot.buildAndAttach([staveNote], { all: true })
+      }
       return staveNote
     }
 
@@ -305,6 +316,13 @@ export class VexFlowRenderer {
         }
       }
     })
+
+    // Add dots to the note/chord
+    // All notes in a chord share the same duration/dots, so use the first note's dots
+    const dots = note.dots || 0
+    for (let d = 0; d < dots; d++) {
+      Dot.buildAndAttach([staveNote], { all: true })
+    }
 
     return staveNote
   }
@@ -364,7 +382,7 @@ export class VexFlowRenderer {
    * Groups notes by beat to properly handle chords (chord = 1 beat, not N beats)
    */
   private calculateUsedBeats(notes: MusicNote[]): number {
-    const durationToBeats: Record<NoteDuration, number> = {
+    const baseDurationToBeats: Record<NoteDuration, number> = {
       w: 4,
       h: 2,
       q: 1,
@@ -380,7 +398,11 @@ export class VexFlowRenderer {
     for (const group of noteGroups) {
       // Each group (single note or chord) counts once
       // Use the duration of the first note (all notes in a chord should have same duration)
-      totalBeats += durationToBeats[group[0].duration] || 1
+      const note = group[0]
+      const baseBeats = baseDurationToBeats[note.duration] || 1
+      // Apply dot multiplier: 1 dot = 1.5x, 2 dots = 1.75x
+      const dotMultiplier = note.dots && note.dots > 0 ? 2 - Math.pow(0.5, note.dots) : 1
+      totalBeats += baseBeats * dotMultiplier
     }
     return totalBeats
   }
@@ -1054,7 +1076,7 @@ export class VexFlowRenderer {
 
       // Convert our note to VexFlow format
       const vexNote = this.midiToVexFlowNote(ghostNote.pitch)
-      const vexDuration = this.convertDuration(ghostNote.duration as any)
+      const vexDuration = this.convertDuration(ghostNote.duration as any, ghostNote.dots || 0)
 
       // Check if there are existing notes at the same beat (potential chord)
       const notesAtSameBeat = measure.notes.filter(
@@ -1265,7 +1287,7 @@ export class VexFlowRenderer {
   /**
    * Helper to convert duration to beats
    */
-  private durationToBeats(duration: string): number {
+  private durationToBeats(duration: string, dots: number = 0): number {
     const map: Record<string, number> = {
       w: 4,
       h: 2,
@@ -1274,7 +1296,10 @@ export class VexFlowRenderer {
       '16': 0.25,
       '32': 0.125,
     }
-    return map[duration] || 1
+    const baseBeats = map[duration] || 1
+    // Apply dot multiplier: 1 dot = 1.5x, 2 dots = 1.75x
+    const dotMultiplier = dots > 0 ? 2 - Math.pow(0.5, dots) : 1
+    return baseBeats * dotMultiplier
   }
 
   /**
@@ -1283,7 +1308,7 @@ export class VexFlowRenderer {
    * @param rawX - Raw cursor X position for smooth visual positioning
    */
   private renderGhostNoteWithDynamicWidths(
-    ghostNote: { pitch: number; duration: string; measure: number; beat: number; rawX?: number },
+    ghostNote: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; dots?: number },
     score: Score,
     measureWidths: Map<number, MeasureWidthInfo>,
     margin: number,
@@ -1340,7 +1365,7 @@ export class VexFlowRenderer {
 
       // Convert our note to VexFlow format
       const vexNote = this.midiToVexFlowNote(ghostNote.pitch)
-      const vexDuration = this.convertDuration(ghostNote.duration as any)
+      const vexDuration = this.convertDuration(ghostNote.duration as any, ghostNote.dots || 0)
 
       // Check if there are existing notes at the same beat (potential chord)
       const notesAtSameBeat = measure.notes.filter(
@@ -1374,6 +1399,12 @@ export class VexFlowRenderer {
       })
 
       staveNote.setStemDirection(stemDirection)
+
+      // Add dots if present
+      const dots = ghostNote.dots || 0
+      for (let d = 0; d < dots; d++) {
+        Dot.buildAndAttach([staveNote], { all: true })
+      }
 
       // Add accidental if present (position will be adjusted after rendering)
       if (ghostNote.accidental) {
@@ -1538,7 +1569,7 @@ export class VexFlowRenderer {
    * @param ghostNote - Optional ghost note to render in blue/transparent
    * @returns true if ghost note was rendered, false if not (or no ghost note provided)
    */
-  renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number; accidental?: '#' | 'b' | 'n' }): boolean {
+  renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number; accidental?: '#' | 'b' | 'n'; dots?: number }): boolean {
     // renderScore now clears first, so no need to clear here
     return this.renderScore(score, ghostNote)
   }
@@ -1549,7 +1580,7 @@ export class VexFlowRenderer {
    * @param ghostNote - Optional ghost note preview (rawX for smooth cursor following)
    * @returns true if ghost note was rendered, false if not (or no ghost note provided)
    */
-  renderScore(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number; accidental?: '#' | 'b' | 'n' }): boolean {
+  renderScore(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number; accidental?: '#' | 'b' | 'n'; dots?: number }): boolean {
     if (!this.context || !this.renderer) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
@@ -1653,11 +1684,12 @@ export class VexFlowRenderer {
     )
 
     if (notesAtBeat.length <= 1) {
-      // Single note - use stem direction convention
-      // Stem up → tie down (1), Stem down → tie up (-1)
+      // Single note - tie direction is opposite of stem direction
+      // Stem up (pitch < middle) → tie down (1)
+      // Stem down (pitch >= middle) → tie up (-1)
       const clef = 'treble' // TODO: get from score if needed
       const middlePitch = clef === 'treble' ? 71 : 50 // B4 for treble
-      return note.pitch >= middlePitch ? 1 : -1
+      return note.pitch >= middlePitch ? -1 : 1
     }
 
     // Sort by pitch to find position in chord
