@@ -113,6 +113,18 @@
             >
               𝅘𝅥𝅯
             </button>
+            <button
+              @click="setDuration('32')"
+              :class="[
+                'px-3 py-1 rounded text-sm font-bold',
+                selectedDuration === '32'
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Thirty-second note (Fusa) - 0.125 beats"
+            >
+              𝅘𝅥𝅰
+            </button>
           </div>
 
           <!-- Accidental Selector -->
@@ -335,6 +347,12 @@ onMounted(() => {
           renderScore()
         }
       },
+      setDurationThirtySecond: () => setDuration('32'),
+      setDurationSixteenth: () => setDuration('16'),
+      setDurationEighth: () => setDuration('8'),
+      setDurationQuarter: () => setDuration('q'),
+      setDurationHalf: () => setDuration('h'),
+      setDurationWhole: () => setDuration('w'),
       setAccidentalNatural: () => setAccidental('n'),
       setAccidentalSharp: () => setAccidental('#'),
       setAccidentalFlat: () => setAccidental('b'),
@@ -342,6 +360,8 @@ onMounted(() => {
       selectPreviousNote: () => navigateSelection(-1),
       pitchUp: () => adjustPitch(1),
       pitchDown: () => adjustPitch(-1),
+      octaveUp: () => adjustOctave(1),
+      octaveDown: () => adjustOctave(-1),
     })
     shortcutManager.enable()
 
@@ -504,6 +524,36 @@ function adjustPitch(direction: number) {
 
   // Calculate new pitch moving diatonically (accidental is preserved automatically)
   const newPitch = movePitchDiatonically(selectedNote.pitch, direction)
+
+  // Update the note (keeping the same accidental)
+  engine.value.updateNote(selectedNoteId.value, { pitch: newPitch })
+  renderScore()
+}
+
+// Adjust pitch of selected note by octave (12 semitones)
+function adjustOctave(direction: number) {
+  // Only works in selection mode with a note selected (not rests)
+  if (selectedTool.value !== 'selection' || !selectedNoteId.value || !engine.value) {
+    return
+  }
+
+  // Find the selected note
+  const score = engine.value.getScore()
+  let selectedNote = null
+  for (const measure of score.measures) {
+    const note = measure.notes.find(n => n.id === selectedNoteId.value)
+    if (note) {
+      selectedNote = note
+      break
+    }
+  }
+
+  if (!selectedNote || selectedNote.isRest) {
+    return // Can't change pitch of a rest
+  }
+
+  // Move by one octave (12 semitones)
+  const newPitch = selectedNote.pitch + (direction * 12)
 
   // Update the note (keeping the same accidental)
   engine.value.updateNote(selectedNoteId.value, { pitch: newPitch })

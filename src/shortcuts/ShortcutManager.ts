@@ -85,8 +85,24 @@ export class ShortcutManager {
                       target.tagName === 'TEXTAREA' ||
                       target.isContentEditable
 
-    // Look up the shortcut (check code first so numpad keys take priority over arrow keys)
-    const shortcut = SHORTCUTS[event.code] || SHORTCUTS[event.key]
+    // Build modifier prefix for shortcut lookup
+    const modifiers: string[] = []
+    if (event.ctrlKey || event.metaKey) modifiers.push('Ctrl')
+    if (event.shiftKey) modifiers.push('Shift')
+    if (event.altKey) modifiers.push('Alt')
+    const modifierPrefix = modifiers.length > 0 ? modifiers.join('+') + '+' : ''
+
+    let shortcut: ShortcutDefinition | undefined
+
+    if (modifierPrefix) {
+      // For shortcuts with modifiers, only use event.key (not code)
+      // This ensures Ctrl+ArrowUp only works with regular arrows, not numpad
+      shortcut = SHORTCUTS[modifierPrefix + event.key]
+    } else {
+      // For shortcuts without modifiers, check code first (for numpad), then key
+      shortcut = SHORTCUTS[event.code] || SHORTCUTS[event.key]
+    }
+
     if (!shortcut) return
 
     // Skip if in input and shortcut doesn't allow it

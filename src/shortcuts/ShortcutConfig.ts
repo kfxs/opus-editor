@@ -50,6 +50,32 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Delete selected note',
   },
 
+  // Durations (numpad keys - Sibelius style)
+  'Numpad1': {
+    action: 'setDurationThirtySecond',
+    description: 'Thirty-second note (fusa)',
+  },
+  'Numpad2': {
+    action: 'setDurationSixteenth',
+    description: 'Sixteenth note (semicorchea)',
+  },
+  'Numpad3': {
+    action: 'setDurationEighth',
+    description: 'Eighth note (corchea)',
+  },
+  'Numpad4': {
+    action: 'setDurationQuarter',
+    description: 'Quarter note (negra)',
+  },
+  'Numpad5': {
+    action: 'setDurationHalf',
+    description: 'Half note (blanca)',
+  },
+  'Numpad6': {
+    action: 'setDurationWhole',
+    description: 'Whole note (redonda)',
+  },
+
   // Accidentals (numpad keys)
   'Numpad7': {
     action: 'setAccidentalNatural',
@@ -82,6 +108,16 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   'ArrowDown': {
     action: 'pitchDown',
     description: 'Lower selected note pitch',
+  },
+
+  // Octave jumps (Ctrl + arrow keys)
+  'Ctrl+ArrowUp': {
+    action: 'octaveUp',
+    description: 'Raise selected note by one octave',
+  },
+  'Ctrl+ArrowDown': {
+    action: 'octaveDown',
+    description: 'Lower selected note by one octave',
   },
 }
 
