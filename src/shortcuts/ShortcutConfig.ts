@@ -73,6 +73,16 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'selectPreviousNote',
     description: 'Select previous note/rest',
   },
+
+  // Pitch editing
+  'ArrowUp': {
+    action: 'pitchUp',
+    description: 'Raise selected note pitch',
+  },
+  'ArrowDown': {
+    action: 'pitchDown',
+    description: 'Lower selected note pitch',
+  },
 }
 
 /**

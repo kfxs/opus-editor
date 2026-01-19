@@ -85,8 +85,8 @@ export class ShortcutManager {
                       target.tagName === 'TEXTAREA' ||
                       target.isContentEditable
 
-    // Look up the shortcut (check both key and code for numpad support)
-    const shortcut = SHORTCUTS[event.key] || SHORTCUTS[event.code]
+    // Look up the shortcut (check code first so numpad keys take priority over arrow keys)
+    const shortcut = SHORTCUTS[event.code] || SHORTCUTS[event.key]
     if (!shortcut) return
 
     // Skip if in input and shortcut doesn't allow it

@@ -340,6 +340,8 @@ onMounted(() => {
       setAccidentalFlat: () => setAccidental('b'),
       selectNextNote: () => navigateSelection(1),
       selectPreviousNote: () => navigateSelection(-1),
+      pitchUp: () => adjustPitch(1),
+      pitchDown: () => adjustPitch(-1),
     })
     shortcutManager.enable()
 
@@ -476,6 +478,81 @@ function navigateSelection(direction: number) {
     renderScore()
     scrollSelectedNoteIntoView()
   }
+}
+
+// Adjust pitch of selected note by diatonic steps (up/down on staff)
+function adjustPitch(direction: number) {
+  // Only works in selection mode with a note selected (not rests)
+  if (selectedTool.value !== 'selection' || !selectedNoteId.value || !engine.value) {
+    return
+  }
+
+  // Find the selected note
+  const score = engine.value.getScore()
+  let selectedNote = null
+  for (const measure of score.measures) {
+    const note = measure.notes.find(n => n.id === selectedNoteId.value)
+    if (note) {
+      selectedNote = note
+      break
+    }
+  }
+
+  if (!selectedNote || selectedNote.isRest) {
+    return // Can't change pitch of a rest
+  }
+
+  // Calculate new pitch moving diatonically (accidental is preserved automatically)
+  const newPitch = movePitchDiatonically(selectedNote.pitch, direction)
+
+  // Update the note (keeping the same accidental)
+  engine.value.updateNote(selectedNoteId.value, { pitch: newPitch })
+  renderScore()
+}
+
+// Move pitch by one diatonic step (C, D, E, F, G, A, B) preserving accidental
+// Note: In this system, 'pitch' is the STAFF POSITION (the natural note line/space),
+// and accidentals modify the sounding pitch. This function only moves the staff position.
+function movePitchDiatonically(pitch: number, direction: number): number {
+  // The pitch IS the staff position (natural note), accidentals don't affect it
+  const staffPosition = pitch
+
+  // Get the octave and semitone within octave
+  const octave = Math.floor(staffPosition / 12)
+  const semitone = ((staffPosition % 12) + 12) % 12 // Handle negative values
+
+  // Diatonic note semitones within octave: C=0, D=2, E=4, F=5, G=7, A=9, B=11
+  const diatonicSemitones = [0, 2, 4, 5, 7, 9, 11]
+
+  // Find which diatonic note we're on
+  let diatonicIndex = diatonicSemitones.indexOf(semitone)
+  if (diatonicIndex === -1) {
+    // Staff position is on a black key - this shouldn't normally happen
+    // but handle it by rounding to nearest diatonic note
+    for (let i = 0; i < diatonicSemitones.length; i++) {
+      if (diatonicSemitones[i] > semitone) {
+        diatonicIndex = direction > 0 ? i : i - 1
+        break
+      }
+    }
+    if (diatonicIndex === -1) diatonicIndex = 6 // B
+  }
+
+  // Move diatonically
+  let newDiatonicIndex = diatonicIndex + direction
+  let newOctave = octave
+
+  if (newDiatonicIndex > 6) {
+    newDiatonicIndex = 0
+    newOctave++
+  } else if (newDiatonicIndex < 0) {
+    newDiatonicIndex = 6
+    newOctave--
+  }
+
+  // Convert back to staff position
+  const newSemitone = diatonicSemitones[newDiatonicIndex]
+  return newOctave * 12 + newSemitone
 }
 
 // Scroll the canvas so the selected note is visible
