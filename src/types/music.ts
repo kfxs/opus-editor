@@ -8,6 +8,22 @@
 export type NoteDuration = 'w' | 'h' | 'q' | '8' | '16' | '32'
 
 /**
+ * Tuplet definition (e.g., triplet = 3 notes in space of 2)
+ */
+export interface Tuplet {
+  /** Unique identifier for the tuplet */
+  id: string
+  /** Beat position where the tuplet starts */
+  startBeat: number
+  /** Base note duration for the tuplet (e.g., 'q' for quarter note triplet) */
+  baseDuration: NoteDuration
+  /** Number of notes in the tuplet (e.g., 3 for triplet) */
+  numNotes: number
+  /** Number of base notes the tuplet occupies (e.g., 2 for triplet) */
+  notesOccupied: number
+}
+
+/**
  * Accidental types
  */
 export type Accidental = '#' | 'b' | 'n'
@@ -51,6 +67,8 @@ export interface Note {
   tiedFrom?: string
   /** Number of dots (0=none, 1=dotted, 2=double-dotted) */
   dots?: number
+  /** ID of the tuplet this note belongs to */
+  tupletId?: string
 }
 
 /**
@@ -77,6 +95,8 @@ export interface Measure {
   timeSignature: TimeSignature
   /** Optional key signature (number of sharps/flats, positive = sharps, negative = flats) */
   keySignature?: number
+  /** Tuplets in this measure */
+  tuplets: Tuplet[]
 }
 
 /**
@@ -140,4 +160,5 @@ export interface NoteParams {
   accidental?: Accidental
   isRest?: boolean
   dots?: number
+  tupletId?: string
 }

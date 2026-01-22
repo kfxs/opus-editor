@@ -1,4 +1,4 @@
-import type { NoteDuration, TimeSignature } from '@/types/music'
+import type { NoteDuration, TimeSignature, Tuplet } from '@/types/music'
 
 /**
  * Music utility functions for calculations and conversions
@@ -236,4 +236,101 @@ export function splitBeatsIntoDurations(totalBeats: number): NoteDuration[] {
   }
 
   return durations
+}
+
+// ==================== Tuplet Utilities ====================
+
+/**
+ * Get the duration in beats of a single note within a tuplet
+ * For a triplet of eighth notes (3:2), each eighth note = (0.5 * 2) / 3 = 0.333 beats
+ * @param baseDuration - The base note duration (e.g., '8' for eighth note triplet)
+ * @param numNotes - Number of notes in the tuplet (e.g., 3)
+ * @param notesOccupied - Number of base notes the tuplet spans (e.g., 2)
+ * @returns Duration in beats of one tuplet note
+ */
+export function getTupletNoteDuration(
+  baseDuration: NoteDuration,
+  numNotes: number,
+  notesOccupied: number
+): number {
+  const baseBeats = durationToBeats(baseDuration)
+  return (baseBeats * notesOccupied) / numNotes
+}
+
+/**
+ * Get the total duration in beats that a tuplet occupies
+ * For a triplet of eighth notes (3:2), total = 0.5 * 2 = 1 beat
+ * @param baseDuration - The base note duration
+ * @param notesOccupied - Number of base notes the tuplet spans
+ * @returns Total duration in beats
+ */
+export function getTupletTotalBeats(
+  baseDuration: NoteDuration,
+  notesOccupied: number
+): number {
+  return durationToBeats(baseDuration) * notesOccupied
+}
+
+/**
+ * Calculate the beat positions for all notes in a tuplet
+ * @param startBeat - Starting beat position of the tuplet
+ * @param baseDuration - The base note duration
+ * @param numNotes - Number of notes in the tuplet
+ * @param notesOccupied - Number of base notes the tuplet spans
+ * @returns Array of beat positions for each note in the tuplet
+ */
+export function getTupletBeatPositions(
+  startBeat: number,
+  baseDuration: NoteDuration,
+  numNotes: number,
+  notesOccupied: number
+): number[] {
+  const noteDuration = getTupletNoteDuration(baseDuration, numNotes, notesOccupied)
+  const positions: number[] = []
+
+  for (let i = 0; i < numNotes; i++) {
+    positions.push(startBeat + i * noteDuration)
+  }
+
+  return positions
+}
+
+/**
+ * Check if a beat position falls within a tuplet's time span
+ * @param beat - Beat position to check
+ * @param tuplet - The tuplet to check against
+ * @returns true if the beat is within the tuplet
+ */
+export function isBeatInTuplet(beat: number, tuplet: Tuplet): boolean {
+  const epsilon = 0.001
+  const tupletEnd = tuplet.startBeat + getTupletTotalBeats(tuplet.baseDuration, tuplet.notesOccupied)
+  return beat >= tuplet.startBeat - epsilon && beat < tupletEnd - epsilon
+}
+
+/**
+ * Find the nearest tuplet beat position to a given beat
+ * @param beat - Target beat position
+ * @param tuplet - The tuplet to snap to
+ * @returns The nearest valid beat position within the tuplet
+ */
+export function snapToTupletBeat(beat: number, tuplet: Tuplet): number {
+  const positions = getTupletBeatPositions(
+    tuplet.startBeat,
+    tuplet.baseDuration,
+    tuplet.numNotes,
+    tuplet.notesOccupied
+  )
+
+  let nearestPosition = positions[0]
+  let smallestDistance = Math.abs(beat - positions[0])
+
+  for (const pos of positions) {
+    const distance = Math.abs(beat - pos)
+    if (distance < smallestDistance) {
+      smallestDistance = distance
+      nearestPosition = pos
+    }
+  }
+
+  return nearestPosition
 }

@@ -1,5 +1,5 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Beam, StaveTie, Dot } from 'vexflow'
-import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType } from '@/types/music'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Beam, StaveTie, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
+import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType, Tuplet } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
 import { ElementRegistry, type StaffGeometry } from '@/engine/ElementRegistry'
 
@@ -572,6 +572,124 @@ export class VexFlowRenderer {
   }
 
   /**
+   * Calculate the optimal location (above or below) for a tuplet bracket
+   * Based on the stem direction of the notes in the tuplet
+   * @param staveNotes - The VexFlow StaveNotes in the tuplet
+   * @param clef - The clef type for pitch reference
+   * @returns VexFlow.Tuplet.LOCATION_TOP (1) or VexFlow.Tuplet.LOCATION_BOTTOM (-1)
+   */
+  private calculateTupletLocation(staveNotes: StaveNote[], clef: Clef): number {
+    // VexFlow constants: LOCATION_TOP = 1, LOCATION_BOTTOM = -1
+    const LOCATION_TOP = 1
+    const LOCATION_BOTTOM = -1
+
+    if (staveNotes.length === 0) return LOCATION_TOP
+
+    // Check if all notes have stems down (then bracket goes above)
+    // or if all notes have stems up (then bracket goes below)
+    // Mixed directions: use majority or default to above
+    let stemsUp = 0
+    let stemsDown = 0
+
+    for (const note of staveNotes) {
+      try {
+        const stem = note.getStem()
+        if (stem) {
+          // getStemDirection returns 1 for up, -1 for down
+          const direction = note.getStemDirection()
+          if (direction === 1) stemsUp++
+          else if (direction === -1) stemsDown++
+        } else {
+          // No stem (whole note or rest) - use default
+          stemsDown++
+        }
+      } catch (e) {
+        // getStem may fail for rests
+        stemsDown++
+      }
+    }
+
+    // Bracket goes opposite to stem direction:
+    // - Stems up → bracket below
+    // - Stems down → bracket above
+    if (stemsUp > stemsDown) {
+      return LOCATION_BOTTOM
+    } else {
+      return LOCATION_TOP
+    }
+  }
+
+  /**
+   * Create VexFlow Tuplet objects for a measure (adjusts tick values on notes)
+   * Must be called BEFORE voice.addTickables() for correct tick calculation
+   * @param measure - The measure containing tuplet definitions
+   * @param noteGroups - Note groups organized by beat position
+   * @param staveNotes - The VexFlow StaveNotes array
+   * @returns Map of tupletId to VexFlow Tuplet objects
+   */
+  private createTupletsForMeasure(
+    measure: Measure,
+    noteGroups: MusicNote[][],
+    staveNotes: StaveNote[]
+  ): Map<string, VexFlowTuplet> {
+    const vexTuplets = new Map<string, VexFlowTuplet>()
+
+    if (!measure.tuplets || measure.tuplets.length === 0) {
+      return vexTuplets
+    }
+
+    // Build mapping from tupletId to StaveNotes
+    const tupletStaveNoteMap = new Map<string, StaveNote[]>()
+
+    let staveNoteIdx = 0
+    for (const noteGroup of noteGroups) {
+      const rests = noteGroup.filter(n => n.isRest)
+      const regularNotes = noteGroup.filter(n => !n.isRest)
+
+      // Process rests
+      for (const rest of rests) {
+        if (staveNoteIdx < staveNotes.length && rest.tupletId) {
+          if (!tupletStaveNoteMap.has(rest.tupletId)) {
+            tupletStaveNoteMap.set(rest.tupletId, [])
+          }
+          tupletStaveNoteMap.get(rest.tupletId)!.push(staveNotes[staveNoteIdx])
+        }
+        staveNoteIdx++
+      }
+
+      // Process regular notes
+      if (regularNotes.length > 0 && staveNoteIdx < staveNotes.length) {
+        const firstNote = regularNotes[0]
+        if (firstNote.tupletId) {
+          if (!tupletStaveNoteMap.has(firstNote.tupletId)) {
+            tupletStaveNoteMap.set(firstNote.tupletId, [])
+          }
+          tupletStaveNoteMap.get(firstNote.tupletId)!.push(staveNotes[staveNoteIdx])
+        }
+        staveNoteIdx++
+      }
+    }
+
+    // Create VexFlow Tuplet objects
+    for (const [tupletId, tupletStaveNotes] of tupletStaveNoteMap) {
+      const tupletData = measure.tuplets.find(t => t.id === tupletId)
+      if (tupletData && tupletStaveNotes.length >= 2) {
+        try {
+          const vexTuplet = new VexFlowTuplet(tupletStaveNotes, {
+            numNotes: tupletData.numNotes,
+            notesOccupied: tupletData.notesOccupied,
+          })
+          vexTuplets.set(tupletId, vexTuplet)
+        } catch (e) {
+          // Ignore tuplet creation errors
+        }
+      }
+    }
+
+    return vexTuplets
+  }
+
+  /**
    * Calculate minimum width needed for a single measure based on its content
    * Uses VexFlow's Formatter to estimate space needed for notes
    */
@@ -604,9 +722,12 @@ export class VexFlowRenderer {
     const noteGroups = this.groupNotesByBeat(sortedNotes)
     const staveNotes = this.createStaveNotesFromGroups(noteGroups, clef)
 
+    // Create VexFlow Tuplets BEFORE adding notes to voice (adjusts tick values)
+    this.createTupletsForMeasure(measure, noteGroups, staveNotes)
+
     const voice = new Voice({
-      num_beats: measure.timeSignature.numerator,
-      beat_value: measure.timeSignature.denominator,
+      numBeats: measure.timeSignature.numerator,
+      beatValue: measure.timeSignature.denominator,
     })
 
     try {
@@ -789,18 +910,74 @@ export class VexFlowRenderer {
       const noteGroups = this.groupNotesByBeat(sortedNotes)
       const staveNotes = this.createStaveNotesFromGroups(noteGroups, clef)
 
-      // Calculate how many beats are used (using sorted notes)
-      const usedBeats = this.calculateUsedBeats(sortedNotes)
-      const requiredBeats = measure.timeSignature.numerator
+      // === Create VexFlow Tuplets BEFORE adding notes to voice ===
+      // This is critical: VexFlow Tuplet adjusts tick values via setTuplet()
+      // which must happen before voice.addTickables() for correct tick calculation
+      const tupletStaveNoteMap = new Map<string, { staveNotes: StaveNote[], tuplet: Tuplet }>()
 
-      if (usedBeats !== requiredBeats) {
-        console.error(`  ⚠️ MISMATCH: Measure has ${usedBeats} beats but should have exactly ${requiredBeats}!`)
+      // Build the mapping from tupletId to StaveNotes
+      let staveNoteIdx = 0
+      for (const noteGroup of noteGroups) {
+        const rests = noteGroup.filter(n => n.isRest)
+        const regularNotes = noteGroup.filter(n => !n.isRest)
+
+        // Process rests
+        for (const rest of rests) {
+          if (staveNoteIdx < staveNotes.length && rest.tupletId) {
+            const tupletData = (measure.tuplets || []).find(t => t.id === rest.tupletId)
+            if (tupletData) {
+              if (!tupletStaveNoteMap.has(rest.tupletId)) {
+                tupletStaveNoteMap.set(rest.tupletId, { staveNotes: [], tuplet: tupletData })
+              }
+              tupletStaveNoteMap.get(rest.tupletId)!.staveNotes.push(staveNotes[staveNoteIdx])
+            }
+          }
+          staveNoteIdx++
+        }
+
+        // Process regular notes
+        if (regularNotes.length > 0 && staveNoteIdx < staveNotes.length) {
+          const firstNote = regularNotes[0]
+          if (firstNote.tupletId) {
+            const tupletData = (measure.tuplets || []).find(t => t.id === firstNote.tupletId)
+            if (tupletData) {
+              if (!tupletStaveNoteMap.has(firstNote.tupletId)) {
+                tupletStaveNoteMap.set(firstNote.tupletId, { staveNotes: [], tuplet: tupletData })
+              }
+              tupletStaveNoteMap.get(firstNote.tupletId)!.staveNotes.push(staveNotes[staveNoteIdx])
+            }
+          }
+          staveNoteIdx++
+        }
+      }
+
+      // Create VexFlow Tuplet objects BEFORE adding to voice
+      // This adjusts the tick values of the notes
+      const vexTuplets: VexFlowTuplet[] = []
+      for (const [tupletId, { staveNotes: tupletStaveNotes, tuplet: tupletData }] of tupletStaveNoteMap) {
+        if (tupletStaveNotes.length >= 2) {
+          try {
+            // Calculate tuplet bracket location (above or below)
+            const location = this.calculateTupletLocation(tupletStaveNotes, clef)
+
+            const vexTuplet = new VexFlowTuplet(tupletStaveNotes, {
+              numNotes: tupletData.numNotes,
+              notesOccupied: tupletData.notesOccupied,
+              location,
+              bracketed: true,
+            })
+            vexTuplets.push(vexTuplet)
+          } catch (tupletError) {
+            console.warn(`Could not create tuplet: ${tupletError}`)
+          }
+        }
       }
 
       // Create a voice with the notes
+      // Note: Tuplets have already adjusted tick values above
       const voice = new Voice({
-        num_beats: measure.timeSignature.numerator,
-        beat_value: measure.timeSignature.denominator,
+        numBeats: measure.timeSignature.numerator,
+        beatValue: measure.timeSignature.denominator,
       })
 
       try {
@@ -847,6 +1024,38 @@ export class VexFlowRenderer {
           beam.setContext(this.context).draw()
         }
 
+        // Draw tuplets AFTER the voice and register them
+        for (const vexTuplet of vexTuplets) {
+          try {
+            vexTuplet.setContext(this.context!).draw()
+
+            // Register the tuplet element
+            const box = vexTuplet.getBoundingBox()
+            if (box) {
+              // Find the tuplet data for this vexTuplet
+              const tupletNotes = vexTuplet.getNotes()
+              if (tupletNotes.length > 0) {
+                // Find the corresponding tuplet data
+                for (const [tupletId, { staveNotes: tStaveNotes, tuplet: tupletData }] of tupletStaveNoteMap) {
+                  if (tStaveNotes.includes(tupletNotes[0] as StaveNote)) {
+                    this.elementRegistry.add({
+                      type: 'tuplet',
+                      tupletId: tupletId,
+                      measure: measure.number,
+                      startBeat: tupletData.startBeat,
+                      numNotes: tupletData.numNotes,
+                      bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+                    })
+                    break
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            // Drawing or getBoundingBox may fail
+          }
+        }
+
         // === Register elements after drawing ===
 
         // Register notes and rests
@@ -869,6 +1078,8 @@ export class VexFlowRenderer {
                     id: rest.id,
                     measure: measure.number,
                     beat: rest.beat,
+                    duration: rest.duration,
+                    tupletId: rest.tupletId,
                     bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
                   })
                 }
@@ -896,6 +1107,8 @@ export class VexFlowRenderer {
                     measure: measure.number,
                     beat: note.beat,
                     pitch: note.pitch,
+                    duration: note.duration,
+                    tupletId: note.tupletId,
                     bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
                   })
 
@@ -1166,8 +1379,8 @@ export class VexFlowRenderer {
 
       // Create voice and format
       const voice = new Voice({
-        num_beats: totalBeats,
-        beat_value: measure.timeSignature.denominator,
+        numBeats: totalBeats,
+        beatValue: measure.timeSignature.denominator,
       })
       voice.addTickables(tickables)
 
@@ -1453,8 +1666,8 @@ export class VexFlowRenderer {
       // Use SOFT mode to allow notes that overflow the measure
       // This is needed for ghost note preview when placing longer notes
       const voice = new Voice({
-        num_beats: totalBeats,
-        beat_value: measure.timeSignature.denominator,
+        numBeats: totalBeats,
+        beatValue: measure.timeSignature.denominator,
       }).setMode(Voice.Mode.SOFT)
       voice.addTickables(tickables)
 

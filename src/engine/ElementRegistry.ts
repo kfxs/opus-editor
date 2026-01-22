@@ -23,6 +23,7 @@ export type ElementType =
   | 'staff'
   | 'tie'
   | 'accidental'
+  | 'tuplet'
 
 /**
  * Bounding box in pixel coordinates
@@ -92,6 +93,15 @@ export interface ElementInfo {
   accidentalType?: string
   /** ID of the note this accidental belongs to (for accidentals) */
   noteId?: string
+  // Tuplet-specific properties
+  /** Tuplet ID (for tuplet brackets, or for notes/rests belonging to a tuplet) */
+  tupletId?: string
+  /** Start beat of the tuplet */
+  startBeat?: number
+  /** Number of notes in the tuplet (e.g., 3 for triplet) */
+  numNotes?: number
+  /** Duration of the note/rest */
+  duration?: string
 }
 
 /**
@@ -548,5 +558,67 @@ export class ElementRegistry {
     }
 
     return { nearestLeft, nearestRight, leftDistance, rightDistance }
+  }
+
+  // ==================== Tuplet Lookup ====================
+
+  /**
+   * Find a tuplet bracket at a given coordinate
+   * @param x - Pixel X coordinate
+   * @param y - Pixel Y coordinate
+   * @param measure - Measure number
+   * @returns The tuplet element info, or null if not found
+   */
+  getTupletAt(x: number, y: number, measure: number): ElementInfo | null {
+    const tuplets = this.elements.filter(
+      el => el.type === 'tuplet' && el.measure === measure
+    )
+
+    for (const tuplet of tuplets) {
+      const b = tuplet.bbox
+      if (x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height) {
+        return tuplet
+      }
+    }
+    return null
+  }
+
+  /**
+   * Get a tuplet element by its tuplet ID
+   * @param tupletId - The tuplet's unique ID
+   * @returns The tuplet element info, or null if not found
+   */
+  getTupletById(tupletId: string): ElementInfo | null {
+    return this.elements.find(el => el.type === 'tuplet' && el.tupletId === tupletId) || null
+  }
+
+  /**
+   * Get all tuplet elements in a measure
+   * @param measure - Measure number
+   * @returns Array of tuplet element infos
+   */
+  getTupletsByMeasure(measure: number): ElementInfo[] {
+    return this.elements.filter(el => el.type === 'tuplet' && el.measure === measure)
+  }
+
+  /**
+   * Get all notes and rests belonging to a specific tuplet
+   * @param tupletId - The tuplet's unique ID
+   * @returns Array of note/rest element infos that belong to the tuplet
+   */
+  getNotesByTupletId(tupletId: string): ElementInfo[] {
+    return this.elements.filter(
+      el => (el.type === 'note' || el.type === 'rest') && el.tupletId === tupletId
+    )
+  }
+
+  /**
+   * Check if an element belongs to a tuplet
+   * @param elementId - The note/rest ID
+   * @returns The tupletId if the element is in a tuplet, undefined otherwise
+   */
+  getElementTupletId(elementId: string): string | undefined {
+    const element = this.elements.find(el => el.id === elementId)
+    return element?.tupletId
   }
 }

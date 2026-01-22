@@ -139,6 +139,12 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'toggleDot',
     description: 'Toggle dotted note (numpad)',
   },
+
+  // Tuplet toggle
+  't': {
+    action: 'toggleTuplet',
+    description: 'Toggle triplet mode',
+  },
 }
 
 /**

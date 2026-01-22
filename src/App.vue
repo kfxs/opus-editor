@@ -197,6 +197,23 @@
             </button>
           </div>
 
+          <!-- Tuplet Selector -->
+          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
+            <span class="text-sm text-gray-300">Tuplet:</span>
+            <button
+              @click="toggleTuplet"
+              :class="[
+                'px-3 py-1 rounded text-sm font-bold',
+                tupletMode
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Toggle triplet mode (T) - creates 3 notes in space of 2"
+            >
+              3
+            </button>
+          </div>
+
           <div class="border-l border-gray-600 mx-2"></div>
           <button
             @click="togglePlayback"
@@ -280,6 +297,12 @@ const selectedAccidental = ref<'#' | 'b' | 'n' | null>(null) // Default to no ac
 
 // Dot selection (0 = no dot, 1 = dotted, 2 = double-dotted)
 const selectedDots = ref<number>(0)
+
+// Tuplet mode (for creating triplets)
+const tupletMode = ref<boolean>(false)
+
+// Selected tuplet ID (for tuplet selection/deletion)
+const selectedTupletId = ref<string | null>(null)
 
 // Cursor visibility (hide when ghost note renders, show when it doesn't)
 const showCursor = ref(true)
@@ -369,7 +392,13 @@ onMounted(() => {
         }
       },
       deleteSelected: () => {
-        if (selectedNoteId.value && engine.value) {
+        if (selectedTupletId.value && engine.value) {
+          // Delete selected tuplet
+          engine.value.deleteTuplet(selectedTupletId.value)
+          selectedTupletId.value = null
+          renderScore()
+        } else if (selectedNoteId.value && engine.value) {
+          // Delete selected note
           engine.value.deleteNote(selectedNoteId.value)
           selectedNoteId.value = null
           renderScore()
@@ -427,6 +456,7 @@ onMounted(() => {
         }
       },
       toggleDot,
+      toggleTuplet,
     })
     shortcutManager.enable()
 
@@ -482,6 +512,8 @@ function setDuration(duration: 'w' | 'h' | 'q' | '8' | '16' | '32') {
   selectedDuration.value = duration
   // Reset dots when changing duration
   selectedDots.value = 0
+  // Clear tuplet mode when changing duration - user likely wants a new note value
+  tupletMode.value = false
   // If a note is selected, update its duration (and remove dots)
   if (selectedNoteId.value && engine.value) {
     engine.value.updateNote(selectedNoteId.value, { duration, dots: 0 })
@@ -557,6 +589,15 @@ function toggleDot() {
       selectedAccidental.value || undefined,
       newValue
     )
+  }
+}
+
+function toggleTuplet() {
+  // Toggle tuplet mode on/off
+  tupletMode.value = !tupletMode.value
+  // Disable dots when enabling tuplet mode (tuplets don't use dots)
+  if (tupletMode.value) {
+    selectedDots.value = 0
   }
 }
 
@@ -996,6 +1037,20 @@ function handleCanvasMouseDown(event: MouseEvent) {
   const registry = engine.value.getElementRegistry()
   const measureNum = engine.value.pixelToMeasure({ x, y })
 
+  // First, check if clicking on a tuplet bracket
+  const tupletAtClick = registry.getTupletAt(x, y, measureNum)
+  if (tupletAtClick && tupletAtClick.tupletId) {
+    // Select the tuplet
+    selectedTupletId.value = tupletAtClick.tupletId
+    selectedNoteId.value = null // Clear note selection
+    console.log(`✓ Tuplet selected | id:${tupletAtClick.tupletId}`)
+    renderScore()
+    return
+  }
+
+  // Clear tuplet selection when selecting notes
+  selectedTupletId.value = null
+
   // Find closest element to select
   const closestElement = registry.findClosestNoteOrRest(x, y, measureNum)
 
@@ -1099,20 +1154,73 @@ function handleCanvasClick(event: MouseEvent) {
     bbox: `(${nearestElement.bbox.x.toFixed(0)},${nearestElement.bbox.y.toFixed(0)}) ${nearestElement.bbox.width.toFixed(0)}x${nearestElement.bbox.height.toFixed(0)}`
   } : null, '| elementAt:', elementAt?.type || null)
 
-  // Entry mode: add note at position
+  // Entry mode: add note or tuplet at position
   try {
-    const note = engine.value.addNoteAtPosition(
-      { x, y },
-      selectedDuration.value,
-      selectedAccidental.value || undefined,
-      selectedDots.value || undefined
-    )
+    if (tupletMode.value) {
+      // Tuplet mode: check if clicking inside an existing tuplet first
+      // If so, add a note to that tuplet instead of creating a new one
+      const score = engine.value.getScore()
+      const measure = score.measures.find(m => m.number === measureNum)
+      const beatsInMeasure = measure
+        ? (4 / measure.timeSignature.denominator) * measure.timeSignature.numerator
+        : 4
+      const position = engine.value.pixelToPosition({ x, y }, beatsInMeasure)
+      const existingTuplet = engine.value.getTupletAtBeat(measureNum, position.beat)
 
-    if (note) {
-      console.log(`✓ Note added | pitch:${note.pitch} measure:${note.measure} beat:${note.beat}`)
-      renderScore()
+      if (existingTuplet) {
+        // Clicking inside an existing tuplet - add a note instead of creating a new tuplet
+        console.log(`Tuplet mode: clicking inside existing tuplet at beat ${position.beat.toFixed(3)}, adding note instead`)
+        const note = engine.value.addNoteAtPosition(
+          { x, y },
+          selectedDuration.value,
+          selectedAccidental.value || undefined,
+          selectedDots.value || undefined
+        )
+
+        if (note) {
+          console.log(`✓ Note added to tuplet | pitch:${note.pitch} measure:${note.measure} beat:${note.beat}`)
+          renderScore()
+        } else {
+          console.log('✗ Note NOT added to tuplet (collision or invalid location)')
+        }
+      } else {
+        // Not inside an existing tuplet - create a new tuplet
+        // Get pitch from Y coordinate
+        let pitch = registry.pixelYToPitch(y, measureNum)
+        if (pitch === null) {
+          pitch = 71 // Default to B4 if pitch detection fails
+        }
+
+        const result = engine.value.createTupletAtPosition(
+          { x, y },
+          selectedDuration.value,
+          pitch,
+          selectedAccidental.value || undefined
+        )
+
+        if (result) {
+          console.log(`✓ Tuplet created | tupletId:${result.tuplet.id} firstNote pitch:${result.firstNote.pitch}`)
+          // Keep tuplet mode active - user must manually disable it
+          renderScore()
+        } else {
+          console.log('✗ Tuplet NOT created (collision or invalid location)')
+        }
+      }
     } else {
-      console.log('✗ Note NOT added (collision or invalid location)')
+      // Normal mode: add note at position
+      const note = engine.value.addNoteAtPosition(
+        { x, y },
+        selectedDuration.value,
+        selectedAccidental.value || undefined,
+        selectedDots.value || undefined
+      )
+
+      if (note) {
+        console.log(`✓ Note added | pitch:${note.pitch} measure:${note.measure} beat:${note.beat}`)
+        renderScore()
+      } else {
+        console.log('✗ Note NOT added (collision or invalid location)')
+      }
     }
   } catch (error) {
     console.error('Error adding note:', error)
