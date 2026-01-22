@@ -430,39 +430,60 @@ export class MusicEngine {
       if (!existingTupletRestAtBeat) {
         finalBeat = snapToTupletBeat(finalBeat, tupletAtBeat)
       }
-      tupletId = tupletAtBeat.id
 
       // Check if the selected duration is smaller than the tuplet's base duration
       // If so, we need to add a filler rest for the remaining time in that slot
       const baseDurationBeats = durationToBeats(tupletAtBeat.baseDuration)
       const selectedDurationBeats = durationToBeats(duration, dots)
 
-      if (selectedDurationBeats < baseDurationBeats) {
-        // Calculate how many of the selected duration fit in one base slot
-        // e.g., 2 sixteenths fit in 1 eighth
-        const subdivisionFactor = baseDurationBeats / selectedDurationBeats
+      // Calculate the tuplet's total duration and remaining time
+      const tupletTotalBeats = durationToBeats(tupletAtBeat.baseDuration) * tupletAtBeat.notesOccupied
+      const tupletEndBeat = tupletAtBeat.startBeat + tupletTotalBeats
+      const remainingTupletBeats = tupletEndBeat - finalBeat
 
-        // Calculate the tuplet slot duration (in beats)
-        const tupletSlotDuration = getTupletNoteDuration(
-          tupletAtBeat.baseDuration,
-          tupletAtBeat.numNotes,
-          tupletAtBeat.notesOccupied
-        )
+      // Check if the note is too large to fit in the tuplet
+      // A note fits if its duration (in normal time, scaled by tuplet ratio) fits in remaining space
+      // For simplicity: if note duration > tuplet's total duration, it's too big
+      const noteTooLargeForTuplet = selectedDurationBeats > tupletTotalBeats
 
-        // Calculate the sub-slot duration (duration of one small note in tuplet time)
-        const subSlotDuration = tupletSlotDuration / subdivisionFactor
+      if (noteTooLargeForTuplet) {
+        // Note is too large for the tuplet - delete the tuplet and place note at tuplet's start
+        this.scoreModel.deleteTuplet(tupletAtBeat.id)
+        // Place note at the tuplet's start beat (a clean position) instead of the clicked tuplet position
+        finalBeat = tupletAtBeat.startBeat
+        // Don't set tupletId - note will be placed outside of any tuplet
+        decisionReason += ` → tuplet deleted (note too large: ${selectedDurationBeats} > ${tupletTotalBeats}), beat adjusted to ${finalBeat}`
+      } else {
+        // Note fits in tuplet
+        tupletId = tupletAtBeat.id
 
-        // We need a filler rest after this note
-        // The rest duration should be the same as the note duration
-        // and positioned at (note beat + subSlotDuration)
-        tupletFillerRest = {
-          beat: finalBeat + subSlotDuration,
-          duration: duration,
+        if (selectedDurationBeats < baseDurationBeats) {
+          // Calculate how many of the selected duration fit in one base slot
+          // e.g., 2 sixteenths fit in 1 eighth
+          const subdivisionFactor = baseDurationBeats / selectedDurationBeats
+
+          // Calculate the tuplet slot duration (in beats)
+          const tupletSlotDuration = getTupletNoteDuration(
+            tupletAtBeat.baseDuration,
+            tupletAtBeat.numNotes,
+            tupletAtBeat.notesOccupied
+          )
+
+          // Calculate the sub-slot duration (duration of one small note in tuplet time)
+          const subSlotDuration = tupletSlotDuration / subdivisionFactor
+
+          // We need a filler rest after this note
+          // The rest duration should be the same as the note duration
+          // and positioned at (note beat + subSlotDuration)
+          tupletFillerRest = {
+            beat: finalBeat + subSlotDuration,
+            duration: duration,
+          }
         }
-      }
-      // Larger durations are allowed - they may extend beyond the tuplet or replace multiple slots
+        // Notes equal to or slightly larger than base duration are allowed within the tuplet
 
-      decisionReason += ` → tuplet snap@${finalBeat.toFixed(3)}`
+        decisionReason += ` → tuplet snap@${finalBeat.toFixed(3)}`
+      }
     }
 
     const noteParams: NoteParams = {
