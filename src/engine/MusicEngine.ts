@@ -1005,6 +1005,123 @@ export class MusicEngine {
     const newBeats = durationToBeats(newDuration, newDots)
     const beatDifference = oldBeats - newBeats
 
+    // Handle tuplet notes specially
+    if (existingNote.tupletId && measure) {
+      const tuplet = measure.tuplets?.find(t => t.id === existingNote.tupletId)
+      if (tuplet) {
+        const baseDurationBeats = durationToBeats(tuplet.baseDuration)
+        const tupletRatio = tuplet.notesOccupied / tuplet.numNotes
+        const tupletTotalBeats = baseDurationBeats * tuplet.notesOccupied
+        const tupletEndBeat = tuplet.startBeat + tupletTotalBeats
+        const remainingTupletBeats = tupletEndBeat - existingNote.beat
+
+        // Check if new duration fits in remaining tuplet space
+        const scaledNewDuration = newBeats * tupletRatio
+        if (scaledNewDuration > remainingTupletBeats + 0.001) {
+          // New duration doesn't fit - use the largest that does
+          const maxNormalBeats = remainingTupletBeats / tupletRatio
+          const fittingDuration = this.findLargestFittingDuration(maxNormalBeats)
+          if (fittingDuration) {
+            newDuration = fittingDuration
+            updates = { ...updates, duration: fittingDuration, dots: 0 }
+          } else {
+            // Can't fit any duration, keep old
+            return existingNote
+          }
+        }
+
+        // Calculate how many slots the new duration takes
+        const slotsConsumed = newBeats / baseDurationBeats
+        const isWholeSlots = Math.abs(slotsConsumed - Math.round(slotsConsumed)) < 0.001
+
+        // For fractional slots (like dotted notes), reject for simplicity
+        if (!isWholeSlots && slotsConsumed > 1) {
+          console.log('Tuplet note update rejected: fractional slots > 1 not supported')
+          return existingNote
+        }
+
+        // Handle duration changes for tuplet notes
+        const actualNewDuration = newBeats * tupletRatio
+        const actualOldDuration = oldBeats * tupletRatio
+        const noteEndBeat = existingNote.beat + actualNewDuration
+
+        if (newBeats > oldBeats) {
+          // Duration increased - delete overlapping tuplet items
+          const tupletItemsToDelete = measureNotes.filter(n =>
+            n.tupletId === existingNote.tupletId &&
+            n.id !== noteId &&
+            n.beat > existingNote.beat + 0.001 &&
+            n.beat < noteEndBeat - 0.001
+          )
+
+          for (const item of tupletItemsToDelete) {
+            this.scoreModel.deleteNote(item.id)
+          }
+
+          // Create filler rest if there's remaining space and fractional slots
+          const fractionalSlots = slotsConsumed - Math.floor(slotsConsumed)
+          if (fractionalSlots > 0.001 && slotsConsumed < 1) {
+            const remainderBeats = fractionalSlots * baseDurationBeats
+            const fillerDuration = beatsToDuration(remainderBeats)
+            if (fillerDuration) {
+              const fillerBeat = noteEndBeat
+              if (fillerBeat < tupletEndBeat - 0.001) {
+                this.scoreModel.addNote({
+                  pitch: 0,
+                  duration: fillerDuration,
+                  measure: existingNote.measure,
+                  beat: fillerBeat,
+                  isRest: true,
+                  tupletId: existingNote.tupletId,
+                })
+              }
+            }
+          }
+        } else if (newBeats < oldBeats) {
+          // Duration decreased - add filler rest for the remaining space
+          const remainingBeats = actualOldDuration - actualNewDuration
+          const remainingNormalBeats = remainingBeats / tupletRatio
+          const fillerDuration = beatsToDuration(remainingNormalBeats)
+
+          if (fillerDuration) {
+            const fillerBeat = noteEndBeat
+            // Check if there's already something at this beat
+            const existingAtFiller = measureNotes.find(n =>
+              n.tupletId === existingNote.tupletId &&
+              Math.abs(n.beat - fillerBeat) < 0.02
+            )
+
+            if (!existingAtFiller) {
+              this.scoreModel.addNote({
+                pitch: 0,
+                duration: fillerDuration,
+                measure: existingNote.measure,
+                beat: fillerBeat,
+                isRest: true,
+                tupletId: existingNote.tupletId,
+              })
+            }
+          }
+        }
+
+        // Update the note
+        const updatedNote = this.scoreModel.updateNote(noteId, updates)
+
+        // Also update chord notes if this is a chord
+        if (isChord) {
+          for (const chordNote of chordNotes) {
+            if (chordNote.id !== noteId) {
+              this.scoreModel.updateNote(chordNote.id, { duration: newDuration, dots: newDots })
+            }
+          }
+        }
+
+        this.playbackEngine.setScore(this.scoreModel.getScore())
+        this.saveUndoState('Update tuplet note')
+        return updatedNote
+      }
+    }
+
     // If duration is being lengthened, remove overlapping notes/rests first
     if (beatDifference < -0.001) {
       const noteEndBeat = existingNote.beat + newBeats
@@ -1269,12 +1386,14 @@ export class MusicEngine {
         // Target is a REST → start tuplet at rest's beat
         beat = targetElement.beat
         decisionReason += ` → rest@${targetElement.beat}`
+      } else if (targetElement && targetElement.type === 'note') {
+        // Target is a NOTE → start tuplet at note's beat (will convert existing note to tuplet)
+        beat = targetElement.beat
+        decisionReason += ` → note@${targetElement.beat} (convert to tuplet)`
       } else {
-        // No valid target or target is a note - use coordinate calculation
+        // No valid target - use coordinate calculation
         beat = Math.round(rawBeat / noteDurationInBeats) * noteDurationInBeats
-        decisionReason = targetElement
-          ? `note@${targetElement.beat} → coordCalc`
-          : 'coordCalc (no valid target)'
+        decisionReason = 'coordCalc (no valid target)'
       }
     }
 
@@ -1298,32 +1417,72 @@ export class MusicEngine {
       config: `${numNotes}:${notesOccupied} ${duration}`,
     })
 
-    // Create the tuplet (this fills it with rests)
+    // Check if there's an existing note at the tuplet's start position
+    // Save its data before createTuplet (which deletes overlapping notes)
+    const existingNoteAtStart = this.scoreModel.getNotesInMeasure(measureNumber)
+      .find(n => !n.isRest && !n.tupletId && Math.abs(n.beat - beat) < 0.001)
+    const existingNoteData = existingNoteAtStart ? {
+      pitch: existingNoteAtStart.pitch,
+      accidental: existingNoteAtStart.accidental,
+    } : null
+
+    // Create the tuplet (this fills it with rests and DELETES overlapping notes)
     const tuplet = this.scoreModel.createTuplet(measureNumber, beat, duration, numNotes, notesOccupied)
 
     // Get the beat positions for the tuplet
     const beatPositions = getTupletBeatPositions(beat, duration, numNotes, notesOccupied)
 
-    // Find the first rest in the tuplet and replace it with a note
+    // Find the first rest in the tuplet
     const tupletNotes = this.scoreModel.getNotesInTuplet(tuplet.id)
     const firstRest = tupletNotes.find(n => n.isRest && Math.abs(n.beat - beatPositions[0]) < 0.001)
 
-    if (!firstRest) {
-      console.warn('Could not find first rest in tuplet')
-      return null
+    let firstNote: Note
+
+    if (existingNoteData) {
+      // There was an existing note - re-add it as part of the tuplet
+      // Delete the tuplet rest at the first position
+      if (firstRest) {
+        this.scoreModel.deleteNote(firstRest.id)
+      }
+
+      // Re-add the existing note as part of the tuplet
+      this.addNote({
+        pitch: existingNoteData.pitch,
+        duration,
+        measure: measureNumber,
+        beat: beatPositions[0],
+        tupletId: tuplet.id,
+        ...(existingNoteData.accidental && { accidental: existingNoteData.accidental }),
+      })
+
+      // Add the new note as a chord
+      firstNote = this.addNote({
+        pitch,
+        duration,
+        measure: measureNumber,
+        beat: beatPositions[0],
+        tupletId: tuplet.id,
+        ...(accidental && { accidental }),
+      })
+    } else {
+      // No existing note - replace the first rest with the new note
+      if (!firstRest) {
+        console.warn('Could not find first rest in tuplet')
+        return null
+      }
+
+      // Delete the first rest and add a note in its place
+      this.scoreModel.deleteNote(firstRest.id)
+
+      firstNote = this.addNote({
+        pitch,
+        duration,
+        measure: measureNumber,
+        beat: beatPositions[0],
+        tupletId: tuplet.id,
+        ...(accidental && { accidental }),
+      })
     }
-
-    // Delete the first rest and add a note in its place
-    this.scoreModel.deleteNote(firstRest.id)
-
-    const firstNote = this.addNote({
-      pitch,
-      duration,
-      measure: measureNumber,
-      beat: beatPositions[0],
-      tupletId: tuplet.id,
-      ...(accidental && { accidental }),
-    })
 
     this.playbackEngine.setScore(this.scoreModel.getScore())
     this.saveUndoState('Create triplet')
