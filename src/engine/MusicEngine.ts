@@ -4,7 +4,7 @@ import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/Coord
 import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
-import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, getTupletBeatPositions, snapToTupletBeat, isBeatInTuplet, getTupletNoteDuration } from '@/utils/musicUtils'
+import { durationToBeats, beatsToDuration, splitBeatsIntoDurations, midiToNoteName, getTupletBeatPositions, snapToTupletBeat, isBeatInTuplet, getTupletNoteDuration } from '@/utils/musicUtils'
 import type { Score, Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration } from '@/types/music'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 
@@ -442,32 +442,45 @@ export class MusicEngine {
       const remainingTupletBeats = tupletEndBeat - finalBeat
 
       // Check if the note is too large to fit in the tuplet
-      // A note fits if its duration (in normal time, scaled by tuplet ratio) fits in remaining space
-      // For simplicity: if note duration > tuplet's total duration, it's too big
-      const noteTooLargeForTuplet = selectedDurationBeats > tupletTotalBeats
+      // Case 1: Note larger than entire tuplet → delete tuplet and place at start
+      const noteLargerThanEntireTuplet = selectedDurationBeats > tupletTotalBeats
 
-      if (noteTooLargeForTuplet) {
+      // Case 2: Note fits in tuplet overall but doesn't fit in REMAINING space
+      // In a tuplet, durations are scaled by the tuplet ratio (notesOccupied / numNotes)
+      // e.g., in a triplet (3:2), a quarter note takes 2/3 of its normal duration
+      const tupletRatio = tupletAtBeat.notesOccupied / tupletAtBeat.numNotes
+      const scaledNoteDuration = selectedDurationBeats * tupletRatio
+      const noteTooLargeForRemainingSpace = scaledNoteDuration > remainingTupletBeats + 0.001
+
+      if (noteLargerThanEntireTuplet) {
         // Note is too large for the tuplet - delete the tuplet and place note at tuplet's start
         this.scoreModel.deleteTuplet(tupletAtBeat.id)
         // Place note at the tuplet's start beat (a clean position) instead of the clicked tuplet position
         finalBeat = tupletAtBeat.startBeat
         // Don't set tupletId - note will be placed outside of any tuplet
         decisionReason += ` → tuplet deleted (note too large: ${selectedDurationBeats} > ${tupletTotalBeats}), beat adjusted to ${finalBeat}`
+      } else if (noteTooLargeForRemainingSpace) {
+        // Note doesn't fit in remaining tuplet space - reject the entry silently
+        console.log(`Note rejected: duration (${scaledNoteDuration.toFixed(3)} scaled beats) too large for remaining tuplet space (${remainingTupletBeats.toFixed(3)} beats)`)
+        return null
       } else {
         // Note fits in tuplet
         tupletId = tupletAtBeat.id
 
-        if (selectedDurationBeats < baseDurationBeats) {
-          // Calculate how many of the selected duration fit in one base slot
-          // e.g., 2 sixteenths fit in 1 eighth
-          const subdivisionFactor = baseDurationBeats / selectedDurationBeats
+        // Calculate how many "slots" (base durations) this note consumes
+        const slotsConsumed = selectedDurationBeats / baseDurationBeats
 
-          // Calculate the tuplet slot duration (in beats)
-          const tupletSlotDuration = getTupletNoteDuration(
-            tupletAtBeat.baseDuration,
-            tupletAtBeat.numNotes,
-            tupletAtBeat.notesOccupied
-          )
+        // Calculate the tuplet slot duration (in beats)
+        const tupletSlotDuration = getTupletNoteDuration(
+          tupletAtBeat.baseDuration,
+          tupletAtBeat.numNotes,
+          tupletAtBeat.notesOccupied
+        )
+
+        if (selectedDurationBeats < baseDurationBeats) {
+          // Note is SMALLER than base duration (e.g., 16th in 8th triplet)
+          // Calculate how many of the selected duration fit in one base slot
+          const subdivisionFactor = baseDurationBeats / selectedDurationBeats
 
           // Calculate the sub-slot duration (duration of one small note in tuplet time)
           const subSlotDuration = tupletSlotDuration / subdivisionFactor
@@ -479,8 +492,39 @@ export class MusicEngine {
             beat: finalBeat + subSlotDuration,
             duration: duration,
           }
+        } else {
+          // Note is >= base duration - check for fractional slots
+          const fractionalSlots = slotsConsumed - Math.floor(slotsConsumed)
+
+          if (fractionalSlots > 0.001) {
+            // Note takes fractional slots (e.g., dotted 8th = 1.5 slots in 8th triplet)
+            // Need to create a filler rest for the remaining fraction
+            // e.g., 1.5 slots leaves 0.5 slots which needs a 16th rest
+
+            // Calculate the filler rest duration in normal beats
+            // fractionalSlots * baseDurationBeats gives the remaining duration
+            const remainderNormalBeats = fractionalSlots * baseDurationBeats
+            const fillerDuration = beatsToDuration(remainderNormalBeats)
+
+            if (fillerDuration) {
+              // Calculate where the filler rest goes (after the note ends)
+              // Note takes scaledNoteDuration in actual beats
+              const fillerBeat = finalBeat + scaledNoteDuration
+
+              // Only add filler if it's within the tuplet
+              if (fillerBeat < tupletEndBeat - 0.001) {
+                tupletFillerRest = {
+                  beat: fillerBeat,
+                  duration: fillerDuration,
+                }
+              }
+            } else {
+              // Can't find a standard duration for the remainder - reject
+              console.log(`Note rejected: fractional remainder ${remainderNormalBeats.toFixed(3)} beats has no standard duration`)
+              return null
+            }
+          }
         }
-        // Notes equal to or slightly larger than base duration are allowed within the tuplet
 
         decisionReason += ` → tuplet snap@${finalBeat.toFixed(3)}`
       }
@@ -514,6 +558,25 @@ export class MusicEngine {
       console.log('Overwriting notes:', notesToOverwrite.map(n => `pitch:${n.pitch}@beat:${n.beat}`).join(', '))
       for (const noteToDelete of notesToOverwrite) {
         this.scoreModel.deleteNote(noteToDelete.id)
+      }
+    }
+
+    // For tuplet notes that span multiple slots (e.g., quarter note in eighth triplet),
+    // delete any existing tuplet notes/rests that fall within the note's actual time range
+    if (tupletId && tupletAtBeat) {
+      const tupletRatio = tupletAtBeat.notesOccupied / tupletAtBeat.numNotes
+      const actualNoteDuration = durationToBeats(duration, dots) * tupletRatio
+      const noteEndBeat = finalBeat + actualNoteDuration
+
+      const tupletItemsToDelete = this.scoreModel.getNotesInMeasure(measureNumber)
+        .filter(n =>
+          n.tupletId === tupletId &&
+          n.beat > finalBeat + 0.001 && // After the note's start
+          n.beat < noteEndBeat - 0.001   // Before the note's end
+        )
+
+      for (const itemToDelete of tupletItemsToDelete) {
+        this.scoreModel.deleteNote(itemToDelete.id)
       }
     }
 
