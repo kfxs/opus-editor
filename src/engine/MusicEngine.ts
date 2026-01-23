@@ -1252,15 +1252,41 @@ export class MusicEngine {
 
   /**
    * Delete a note
+   * If the note is part of a chord, just remove it from the chord.
+   * If it's a single note, replace it with a rest of the same duration.
    */
   deleteNote(noteId: string): boolean {
     // Get note info before deleting for undo description
     const note = this.scoreModel.getNote(noteId)
-    const description = note && !note.isRest
+    if (!note) return false
+
+    const description = !note.isRest
       ? `Delete ${midiToNoteName(note.pitch)}`
       : 'Delete rest'
 
+    // Check if this note is part of a chord (multiple notes at same beat, same measure)
+    const notesInMeasure = this.scoreModel.getNotesInMeasure(note.measure)
+    const notesAtSameBeat = notesInMeasure.filter(
+      n => Math.abs(n.beat - note.beat) < 0.001 && !n.isRest
+    )
+    const isPartOfChord = notesAtSameBeat.length > 1
+
+    // Delete the note
     const result = this.scoreModel.deleteNote(noteId)
+
+    // If it's a single note (not a chord), replace with a rest of the same duration
+    if (result && !isPartOfChord && !note.isRest) {
+      this.scoreModel.addNote({
+        pitch: 0,
+        duration: note.duration,
+        measure: note.measure,
+        beat: note.beat,
+        isRest: true,
+        dots: note.dots,
+        tupletId: note.tupletId, // Preserve tuplet membership
+      })
+    }
+
     this.playbackEngine.setScore(this.scoreModel.getScore())
     if (result) {
       this.saveUndoState(description)
