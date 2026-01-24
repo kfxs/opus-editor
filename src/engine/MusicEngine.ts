@@ -1811,6 +1811,13 @@ export class MusicEngine {
     return this.renderer.getElementRegistry().getById(id)
   }
 
+  /**
+   * Find tuplet element by its tuplet ID
+   */
+  getTupletElementById(tupletId: string): ElementInfo | null {
+    return this.renderer.getElementRegistry().getTupletById(tupletId)
+  }
+
   // ==================== Cleanup ====================
 
   /**

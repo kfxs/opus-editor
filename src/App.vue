@@ -828,8 +828,9 @@ function renderScore() {
   isRendering = false
   lastRenderTime = Date.now()
 
-  // Apply selection highlight if a note is selected
+  // Apply selection highlights
   applySelectionHighlight()
+  applyTupletSelectionHighlight()
 }
 
 function applySelectionHighlight() {
@@ -887,8 +888,6 @@ function applySelectionHighlight() {
     height: noteHeight
   } : bbox
 
-  console.log('Highlight debug:', { notePitch, noteMeasure, targetY, isRest, bbox, selectBbox })
-
   // Determine if this note is part of a chord and get Y positions of all chord notes
   // Rests cannot be in chords
   let isInChord = false
@@ -917,6 +916,11 @@ function applySelectionHighlight() {
     }
   }
 
+  // Check if there are tuplets in this measure (used to filter out tuplet number from highlight)
+  const hasTupletsInMeasure = noteMeasure !== null
+    ? registry.getTupletsByMeasure(noteMeasure).length > 0
+    : false
+
   // Find all SVG elements and check if they intersect with the note's bounding box
   // Include 'text' and 'use' as VexFlow may use font glyphs for noteheads
   const allElements = svg.querySelectorAll('path, ellipse, circle, line, rect, text, use')
@@ -938,11 +942,26 @@ function applySelectionHighlight() {
       // Staff lines are typically very wide, notes are narrow
       if (elBBox.width < 50) {
         const svgEl = el as SVGElement
+        const elCenterX = elBBox.x + elBBox.width / 2
+        const elCenterY = elBBox.y + elBBox.height / 2
+
+        // Skip tuplet bracket elements (the "3" number) when selecting notes
+        // For text elements in measures with tuplets, only include elements very close
+        // to the notehead Y position. Noteheads are rendered at exactly targetY,
+        // while tuplet numbers are always offset (above or below).
+        // Use a tight threshold (~8px) to only include the notehead glyph itself.
+        if (hasTupletsInMeasure && el.tagName === 'text' && targetY !== null) {
+          const distanceFromNotehead = Math.abs(elCenterY - targetY)
+          // Noteheads are rendered at exactly targetY (distance ~0)
+          // Accidentals are also close (~5px horizontal offset, same Y)
+          // Tuplet numbers are always offset vertically (14px+ when bracket above, 35px+ when below)
+          if (distanceFromNotehead > 8) {
+            continue
+          }
+        }
 
         // For chords, we need extra filtering to only highlight the specific note
         if (isInChord && targetY !== null) {
-          const elCenterY = elBBox.y + elBBox.height / 2
-
           // For lines (stems), skip highlighting - stems are shared across chord notes
           // Only highlight if the line is very short (ledger lines, not chord stems)
           if (el.tagName === 'line') {
@@ -1000,6 +1019,88 @@ function applySelectionHighlight() {
   }
 }
 
+function applyTupletSelectionHighlight() {
+  if (!engine.value || !scoreCanvas.value || !selectedTupletId.value) return
+
+  // Get the tuplet element's info from ElementRegistry
+  const elementInfo = engine.value.getTupletElementById(selectedTupletId.value)
+  if (!elementInfo) {
+    // Tuplet was deleted or no longer exists
+    selectedTupletId.value = null
+    return
+  }
+
+  // Get SVG element
+  const svg = scoreCanvas.value.querySelector('svg')
+  if (!svg) return
+
+  const SELECTION_COLOR = '#F59E0B'
+  const SELECTION_STROKE = '#D97706'
+
+  const bbox = elementInfo.bbox
+
+  // Find all SVG elements that could be part of the tuplet bracket/number
+  // Include rect as VexFlow might use it for brackets
+  const allElements = svg.querySelectorAll('path, line, text, rect, polygon, polyline')
+
+  for (const el of allElements) {
+    const elBBox = (el as SVGGraphicsElement).getBBox?.()
+    if (!elBBox) continue
+
+    // Calculate element's center
+    const elCenterX = elBBox.x + elBBox.width / 2
+    const elCenterY = elBBox.y + elBBox.height / 2
+
+    // Check if element's center is within the tuplet bbox
+    // Use a small margin (5px) on X to catch bracket legs that extend slightly beyond the notes
+    const xMargin = 5
+    const centerInBbox = (
+      elCenterX >= bbox.x - xMargin &&
+      elCenterX <= bbox.x + bbox.width + xMargin &&
+      elCenterY >= bbox.y &&
+      elCenterY <= bbox.y + bbox.height
+    )
+
+    if (centerInBbox) {
+      // Additional filter based on element type:
+      // - Text elements (the "3"): VexFlow text elements have height=160 (full staff),
+      //   but we already checked their CENTER is in the bbox, so include them
+      // - Line/path/rect elements (brackets): exclude wide elements (staff lines) and
+      //   tall elements (note stems)
+      let shouldHighlight = false
+      if (el.tagName === 'text') {
+        // Text elements with center in bbox are likely the tuplet number
+        shouldHighlight = elBBox.width < 30 // Just filter out very wide text
+      } else {
+        // For lines/paths/rects, use stricter filter to exclude stems and staff lines
+        shouldHighlight = elBBox.width < 80 && elBBox.height < 20
+      }
+
+      if (shouldHighlight) {
+        const svgEl = el as SVGElement
+
+        // Store original values for potential restoration
+        svgEl.dataset.originalFill = svgEl.getAttribute('fill') || ''
+        svgEl.dataset.originalStroke = svgEl.getAttribute('stroke') || ''
+
+        // Apply selection colors based on element type
+        if (el.tagName === 'line' || el.tagName === 'path') {
+          svgEl.setAttribute('stroke', SELECTION_STROKE)
+        }
+        if (el.tagName === 'rect') {
+          // Rect elements use fill for their color
+          svgEl.setAttribute('fill', SELECTION_COLOR)
+        }
+        if (el.tagName === 'text') {
+          svgEl.setAttribute('fill', SELECTION_COLOR)
+          svgEl.style.fill = SELECTION_COLOR
+        }
+        svgEl.classList.add('selected-tuplet')
+      }
+    }
+  }
+}
+
 async function togglePlayback() {
   if (!engine.value) return
 
@@ -1037,22 +1138,45 @@ function handleCanvasMouseDown(event: MouseEvent) {
   const registry = engine.value.getElementRegistry()
   const measureNum = engine.value.pixelToMeasure({ x, y })
 
-  // First, check if clicking on a tuplet bracket
+  // Find closest note/rest element first
+  const closestElement = registry.findClosestNoteOrRest(x, y, measureNum)
+
+  // Check if clicking on a tuplet bracket (but prioritize notes over tuplets)
   const tupletAtClick = registry.getTupletAt(x, y, measureNum)
+
+  // If click is inside a tuplet bbox, decide between selecting note or tuplet
+  // based on VERTICAL distance to noteheads (not total distance, since notes spread horizontally)
   if (tupletAtClick && tupletAtClick.tupletId) {
-    // Select the tuplet
-    selectedTupletId.value = tupletAtClick.tupletId
-    selectedNoteId.value = null // Clear note selection
-    console.log(`✓ Tuplet selected | id:${tupletAtClick.tupletId}`)
-    renderScore()
-    return
+    // Get Y positions of all notes in this tuplet
+    const tupletNotes = registry.getNotesByTupletId(tupletAtClick.tupletId)
+    let minVerticalDistance = Infinity
+    const noteYPositions: number[] = []
+
+    for (const note of tupletNotes) {
+      if (note.pitch !== undefined) {
+        const noteY = registry.pitchToPixelY(note.pitch, measureNum)
+        if (noteY !== null) {
+          noteYPositions.push(noteY)
+          const verticalDistance = Math.abs(y - noteY)
+          minVerticalDistance = Math.min(minVerticalDistance, verticalDistance)
+        }
+      }
+    }
+
+    // If click Y is far from all noteheads (>12px), select the tuplet
+    // This means clicking on the bracket/number area (above or below notes)
+    // 12px is roughly half a staff line spacing, covers the notehead height
+    if (minVerticalDistance > 12) {
+      selectedTupletId.value = tupletAtClick.tupletId
+      selectedNoteId.value = null
+      console.log(`✓ Tuplet selected on mousedown | id:${tupletAtClick.tupletId}`)
+      renderScore()
+      return
+    }
   }
 
   // Clear tuplet selection when selecting notes
   selectedTupletId.value = null
-
-  // Find closest element to select
-  const closestElement = registry.findClosestNoteOrRest(x, y, measureNum)
 
   if (closestElement && closestElement.id) {
     const bbox = closestElement.bbox

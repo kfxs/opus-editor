@@ -60,6 +60,42 @@ export interface StaffGeometry {
 }
 
 /**
+ * Tuplet geometry - stores all geometrical data from VexFlow's rendered tuplet
+ * Used for accurate hit detection and future engraving adjustments
+ */
+export interface TupletGeometry {
+  // === Position (actual rendered coordinates from VexFlow) ===
+  /** X position of the tuplet bracket start */
+  x: number
+  /** Y position of the tuplet bracket */
+  y: number
+  /** Width of the tuplet bracket (from first to last note) */
+  width: number
+
+  // === Bracket properties ===
+  /** Whether the bracket is drawn (false for beamed notes) */
+  bracketed: boolean
+  /** Bracket position: 1 = above notes (TOP), -1 = below notes (BOTTOM) */
+  location: 1 | -1
+  /** Height of the vertical bracket legs in pixels */
+  bracketLegLength: number
+  /** Thickness of the bracket lines in pixels */
+  bracketThickness: number
+  /** Padding at the bracket ends in pixels */
+  bracketPadding: number
+
+  // === Text/number position ===
+  /** X position of the center of the tuplet number (e.g., "3") */
+  notationCenterX: number
+  /** Vertical offset of the tuplet number text */
+  textYOffset: number
+
+  // === Offsets for manual adjustments ===
+  /** Manual vertical offset applied to the tuplet */
+  yOffset: number
+}
+
+/**
  * Information about a rendered element
  */
 export interface ElementInfo {
@@ -102,6 +138,8 @@ export interface ElementInfo {
   numNotes?: number
   /** Duration of the note/rest */
   duration?: string
+  /** Detailed geometry data for tuplet elements (only for type: 'tuplet') */
+  tupletGeometry?: TupletGeometry
 }
 
 /**

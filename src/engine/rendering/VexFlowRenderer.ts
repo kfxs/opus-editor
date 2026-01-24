@@ -1,7 +1,7 @@
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Beam, StaveTie, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
 import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType, Tuplet } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
-import { ElementRegistry, type StaffGeometry } from '@/engine/ElementRegistry'
+import { ElementRegistry, type StaffGeometry, type TupletGeometry } from '@/engine/ElementRegistry'
 
 /**
  * Clef configuration for stem direction calculation
@@ -1029,25 +1029,122 @@ export class VexFlowRenderer {
           try {
             vexTuplet.setContext(this.context!).draw()
 
-            // Register the tuplet element
-            const box = vexTuplet.getBoundingBox()
-            if (box) {
-              // Find the tuplet data for this vexTuplet
-              const tupletNotes = vexTuplet.getNotes()
-              if (tupletNotes.length > 0) {
-                // Find the corresponding tuplet data
-                for (const [tupletId, { staveNotes: tStaveNotes, tuplet: tupletData }] of tupletStaveNoteMap) {
-                  if (tStaveNotes.includes(tupletNotes[0] as StaveNote)) {
+            // Register the tuplet element using VexFlow's actual rendered coordinates
+            const tupletNotes = vexTuplet.getNotes() as StaveNote[]
+            if (tupletNotes.length > 0) {
+              // Find the corresponding tuplet data
+              for (const [tupletId, { staveNotes: tStaveNotes, tuplet: tupletData }] of tupletStaveNoteMap) {
+                if (tStaveNotes.includes(tupletNotes[0])) {
+                  // Get the actual bounding box of the tuplet's text element ("3")
+                  // VexFlow stores the number in textElement with its own getBoundingBox()
+                  const vt = vexTuplet as any
+                  const notes = vt.notes as StaveNote[]
+                  const firstNote = notes?.[0]
+                  const lastNote = notes?.[notes.length - 1]
+
+                  if (firstNote && lastNote) {
+                    // Get the location (TOP=1, BOTTOM=-1) from options
+                    const location = (vt.options?.location ?? 1) as 1 | -1
+                    const bracketed = vt.options?.bracketed ?? true
+
+                    // VexFlow's textElement doesn't store absolute coordinates after render
+                    // So we calculate the position based on VexFlow's drawing algorithm:
+                    // For BOTTOM: text is below the lowest stem + offset
+                    // For TOP: text is above the highest stem - offset
+
+                    // Get stem extents to calculate tuplet position
+                    // VexFlow's getStemExtents() returns topY and baseY, but the semantics
+                    // differ between stem-up and stem-down notes:
+                    // - Stem UP: topY is at stem tip (smaller Y), baseY at notehead (larger Y)
+                    // - Stem DOWN: topY is at stem tip (larger Y), baseY at notehead (smaller Y)
+                    // So we take the actual min/max of both values to get the true vertical range
+                    let stemMinY = Infinity
+                    let stemMaxY = -Infinity
+                    for (const note of notes) {
+                      try {
+                        const stemExtents = note.getStemExtents?.()
+                        if (stemExtents) {
+                          // Take actual min/max regardless of which property
+                          stemMinY = Math.min(stemMinY, stemExtents.topY, stemExtents.baseY)
+                          stemMaxY = Math.max(stemMaxY, stemExtents.topY, stemExtents.baseY)
+                        }
+                      } catch (e) { /* ignore */ }
+                    }
+
+                    if (stemMinY === Infinity || stemMaxY === -Infinity) {
+                      for (const note of notes) {
+                        try {
+                          const noteBox = note.getBoundingBox()
+                          if (noteBox) {
+                            stemMinY = Math.min(stemMinY, noteBox.getY())
+                            stemMaxY = Math.max(stemMaxY, noteBox.getY() + noteBox.getH())
+                          }
+                        } catch (e) { /* ignore */ }
+                      }
+                    }
+
+                    // Calculate X bounds from notes for the bracket
+                    const bracketPadding = 5
+                    const xStart = bracketed
+                      ? firstNote.getTieLeftX() - bracketPadding
+                      : firstNote.getStemX()
+                    const xEnd = bracketed
+                      ? lastNote.getTieRightX() + bracketPadding
+                      : lastNote.getStemX()
+                    const width = xEnd - xStart
+
+                    // Calculate Y position based on VexFlow's rendering algorithm
+                    // The tuplet bracket and "3" are positioned relative to stem endpoints
+                    // Based on debug: "3" center is at ~y=130 when stemMaxY=95 (BOTTOM)
+                    // So offset is approximately 35 pixels from stem end
+                    let bracketY: number
+                    let bracketHeight: number
+                    const textHeight = 20       // Height of the "3" text
+                    const bracketGap = 10       // Gap between stem end and bracket
+                    const totalHeight = 45      // Total height to cover bracket + text
+
+                    if (location === 1) {
+                      // TOP: bracket and text above the highest stem
+                      bracketY = stemMinY - bracketGap - totalHeight
+                      bracketHeight = totalHeight
+                    } else {
+                      // BOTTOM: bracket and text below the lowest stem
+                      // Start just below stems and extend down to cover the "3"
+                      bracketY = stemMaxY + bracketGap
+                      bracketHeight = totalHeight
+                    }
+
+                    // Build comprehensive geometry
+                    const tupletGeometry: TupletGeometry = {
+                      x: xStart,
+                      y: bracketY,
+                      width: width,
+                      bracketed: bracketed,
+                      location: location,
+                      bracketLegLength: 10,
+                      bracketThickness: 1,
+                      bracketPadding: bracketPadding,
+                      notationCenterX: xStart + width / 2,
+                      textYOffset: vt.options?.textYOffset ?? 0,
+                      yOffset: vt.options?.yOffset ?? 0,
+                    }
+
                     this.elementRegistry.add({
                       type: 'tuplet',
                       tupletId: tupletId,
                       measure: measure.number,
                       startBeat: tupletData.startBeat,
                       numNotes: tupletData.numNotes,
-                      bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+                      bbox: {
+                        x: xStart,
+                        y: bracketY,
+                        width: width,
+                        height: bracketHeight,
+                      },
+                      tupletGeometry,
                     })
-                    break
                   }
+                  break
                 }
               }
             }
