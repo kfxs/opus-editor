@@ -1393,10 +1393,10 @@ export class MusicEngine {
       let targetElement: { type: string; beat: number } | null = null
 
       if (nearestRight && nearestRight.beat !== undefined && rightDistance <= FAR_THRESHOLD) {
-        if (nearestLeft && nearestLeft.beat !== undefined && leftDistance < CLOSE_THRESHOLD) {
-          // Very close to left element - prefer left
+        if (nearestLeft && nearestLeft.beat !== undefined && leftDistance < CLOSE_THRESHOLD && leftDistance < rightDistance) {
+          // Very close to left element AND closer than right - prefer left
           targetElement = { type: nearestLeft.type, beat: nearestLeft.beat }
-          decisionReason = `left (${leftDistance.toFixed(0)}px < ${CLOSE_THRESHOLD}px)`
+          decisionReason = `left (${leftDistance.toFixed(0)}px < ${CLOSE_THRESHOLD}px, closer than right)`
         } else {
           // Default: prefer right element
           targetElement = { type: nearestRight.type, beat: nearestRight.beat }
