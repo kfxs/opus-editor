@@ -415,6 +415,8 @@ onMounted(() => {
       setAccidentalFlat: () => setAccidental('b'),
       selectNextNote: () => navigateSelection(1),
       selectPreviousNote: () => navigateSelection(-1),
+      chordNoteUp: () => navigateChord(1),
+      chordNoteDown: () => navigateChord(-1),
       pitchUp: () => adjustPitch(1),
       pitchDown: () => adjustPitch(-1),
       octaveUp: () => adjustOctave(1),
@@ -675,6 +677,36 @@ function navigateSelection(direction: number) {
     renderScore()
     scrollSelectedNoteIntoView()
   }
+}
+
+// Navigate within a chord by pitch (Shift+ArrowUp/Down).
+// Moves selection to the next higher or lower note at the same beat.
+// Clamped: stays on the top/bottom note instead of wrapping.
+function navigateChord(direction: number) {
+  if (selectedTool.value !== 'selection' || !selectedNoteId.value || !engine.value) return
+
+  const note = engine.value.getNote(selectedNoteId.value)
+  if (!note || note.isRest) return
+
+  const score = engine.value.getScore()
+  const measure = score.measures.find(m => m.number === note.measure)
+  if (!measure) return
+
+  // All non-rest notes at the same beat, sorted low → high
+  const chordNotes = measure.notes
+    .filter(n => !n.isRest && Math.abs(n.beat - note.beat) < 0.001)
+    .sort((a, b) => a.pitch - b.pitch)
+
+  if (chordNotes.length <= 1) return
+
+  const currentIndex = chordNotes.findIndex(n => n.id === selectedNoteId.value)
+  if (currentIndex === -1) return
+
+  const newIndex = Math.max(0, Math.min(chordNotes.length - 1, currentIndex + direction))
+  if (newIndex === currentIndex) return
+
+  selectNote(chordNotes[newIndex].id)
+  renderScore()
 }
 
 // Adjust pitch of selected note by diatonic steps (up/down on staff)

@@ -120,6 +120,16 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Lower selected note by one octave',
   },
 
+  // Chord navigation (Alt + arrow keys)
+  'Alt+ArrowUp': {
+    action: 'chordNoteUp',
+    description: 'Select next higher note in chord',
+  },
+  'Alt+ArrowDown': {
+    action: 'chordNoteDown',
+    description: 'Select next lower note in chord',
+  },
+
   // Undo/Redo
   'Ctrl+z': {
     action: 'undo',
