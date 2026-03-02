@@ -639,44 +639,58 @@ function selectNote(noteId: string | null) {
   }
 }
 
-// Navigate selection left/right by direction (-1 for previous, 1 for next)
+// Navigate selection left/right by direction (-1 for previous, 1 for next).
+// Chords are treated as a single unit — horizontal navigation moves between
+// beats, not between individual chord notes (use Alt+ArrowUp/Down for that).
+// Landing on a chord always selects its lowest-pitch note.
 function navigateSelection(direction: number) {
-  // Only works in selection mode with something selected
-  if (selectedTool.value !== 'selection' || !selectedNoteId.value || !engine.value) {
-    return
-  }
+  if (selectedTool.value !== 'selection' || !selectedNoteId.value || !engine.value) return
 
   const score = engine.value.getScore()
 
-  // Build a sorted list of all notes/rests across all measures
-  const allNotes = score.measures
+  // Build one representative per beat: lowest non-rest note, or the rest itself.
+  // This collapses chords into a single entry so horizontal nav skips them as a unit.
+  const beatMap = new Map<string, typeof allFlat[0]>()
+  const allFlat = score.measures
     .flatMap(m => m.notes.map(n => ({ ...n, measureNumber: m.number })))
-    .sort((a, b) => {
-      if (a.measureNumber !== b.measureNumber) {
-        return a.measureNumber - b.measureNumber
-      }
-      return a.beat - b.beat
-    })
+    .sort((a, b) =>
+      a.measureNumber !== b.measureNumber
+        ? a.measureNumber - b.measureNumber
+        : a.beat - b.beat
+    )
 
-  // Find current selection index
-  const currentIndex = allNotes.findIndex(n => n.id === selectedNoteId.value)
+  for (const n of allFlat) {
+    const key = `${n.measureNumber}:${n.beat}`
+    const existing = beatMap.get(key)
+    if (!existing) {
+      beatMap.set(key, n)
+    } else if (!n.isRest && (existing.isRest || n.pitch < existing.pitch)) {
+      // Prefer non-rest; among non-rests prefer the lowest pitch
+      beatMap.set(key, n)
+    }
+  }
+
+  const beats = Array.from(beatMap.values())
+
+  // Find the beat group the current selection belongs to
+  const currentNote = allFlat.find(n => n.id === selectedNoteId.value)
+  if (!currentNote) return
+  const currentKey = `${currentNote.measureNumber}:${currentNote.beat}`
+  const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat}` === currentKey)
   if (currentIndex === -1) return
 
   const newIndex = currentIndex + direction
 
-  // If going past boundaries, deselect
-  if (newIndex < 0 || newIndex >= allNotes.length) {
+  // Past boundaries → deselect
+  if (newIndex < 0 || newIndex >= beats.length) {
     selectNote(null)
     renderScore()
     return
   }
 
-  const nextNote = allNotes[newIndex]
-  if (nextNote) {
-    selectNote(nextNote.id)
-    renderScore()
-    scrollSelectedNoteIntoView()
-  }
+  selectNote(beats[newIndex].id)
+  renderScore()
+  scrollSelectedNoteIntoView()
 }
 
 // Navigate within a chord by pitch (Shift+ArrowUp/Down).
