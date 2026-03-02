@@ -183,6 +183,17 @@ export class MusicEngine {
   }
 
   /**
+   * Add a note to an existing chord (same beat/measure as an existing note). Saves undo state.
+   */
+  addChordNote(params: NoteParams): Note {
+    const note = this.scoreModel.addNote(params)
+    this.playbackEngine.setScore(this.scoreModel.getScore())
+    const noteName = midiToNoteName(params.pitch)
+    this.saveUndoState(`Add chord note ${noteName}`)
+    return note
+  }
+
+  /**
    * Convert pixel coordinates to musical position using ElementRegistry
    * This is the centralized method for accurate position calculation
    * Uses actual rendered element positions from VexFlow

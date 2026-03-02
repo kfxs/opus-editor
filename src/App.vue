@@ -457,6 +457,20 @@ onMounted(() => {
       },
       toggleDot,
       toggleTuplet,
+      enterNoteA: () => enterNoteByLetter('a'),
+      enterNoteB: () => enterNoteByLetter('b'),
+      enterNoteC: () => enterNoteByLetter('c'),
+      enterNoteD: () => enterNoteByLetter('d'),
+      enterNoteE: () => enterNoteByLetter('e'),
+      enterNoteF: () => enterNoteByLetter('f'),
+      enterNoteG: () => enterNoteByLetter('g'),
+      addChordA: () => addChordNoteByLetter('a'),
+      addChordB: () => addChordNoteByLetter('b'),
+      addChordC: () => addChordNoteByLetter('c'),
+      addChordD: () => addChordNoteByLetter('d'),
+      addChordE: () => addChordNoteByLetter('e'),
+      addChordF: () => addChordNoteByLetter('f'),
+      addChordG: () => addChordNoteByLetter('g'),
     })
     shortcutManager.enable()
 
@@ -766,6 +780,116 @@ function movePitchDiatonically(pitch: number, direction: number): number {
   // Convert back to staff position
   const newSemitone = diatonicSemitones[newDiatonicIndex]
   return newOctave * 12 + newSemitone
+}
+
+// Get a reference pitch from neighboring notes for octave context.
+// Returns the average pitch of the nearest prev/next non-rest notes,
+// or just one neighbor if only one exists, or 60 (C4) if there are none.
+function getContextPitch(): number {
+  if (!engine.value || !selectedNoteId.value) return 60
+
+  const score = engine.value.getScore()
+  const allNotes = score.measures
+    .flatMap(m => m.notes.map(n => ({ ...n, measureNumber: m.number })))
+    .sort((a, b) =>
+      a.measureNumber !== b.measureNumber
+        ? a.measureNumber - b.measureNumber
+        : a.beat - b.beat
+    )
+
+  const currentIndex = allNotes.findIndex(n => n.id === selectedNoteId.value)
+  if (currentIndex === -1) return 60
+
+  let prevPitch: number | null = null
+  let nextPitch: number | null = null
+
+  for (let i = currentIndex - 1; i >= 0; i--) {
+    if (!allNotes[i].isRest) { prevPitch = allNotes[i].pitch; break }
+  }
+  for (let i = currentIndex + 1; i < allNotes.length; i++) {
+    if (!allNotes[i].isRest) { nextPitch = allNotes[i].pitch; break }
+  }
+
+  if (prevPitch !== null && nextPitch !== null) return Math.round((prevPitch + nextPitch) / 2)
+  if (prevPitch !== null) return prevPitch
+  if (nextPitch !== null) return nextPitch
+  return 60 // default: middle C octave
+}
+
+// Enter a note by letter key (a-g) at the selected position.
+// Octave is chosen to be closest to neighboring notes (or C4 if no context).
+// Converts rests to notes. Clears any existing accidental.
+function enterNoteByLetter(letter: string) {
+  if (!selectedNoteId.value || !engine.value) return
+  if (selectedTool.value !== 'selection') return
+
+  const letterToPitchClass: Record<string, number> = {
+    c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11,
+  }
+  const pitchClass = letterToPitchClass[letter]
+  if (pitchClass === undefined) return
+
+  const reference = getContextPitch()
+  // Find the octave k such that (pitchClass + 12*k) is closest to reference
+  const k = Math.round((reference - pitchClass) / 12)
+  const targetPitch = pitchClass + 12 * k
+
+  engine.value.updateNote(selectedNoteId.value, {
+    pitch: targetPitch,
+    isRest: false,
+    accidental: selectedAccidental.value || undefined,
+  })
+  renderScore()
+}
+
+// Add a note to the chord at the selected note's position (Shift + letter key).
+// The new note's pitch is >= the selected note's pitch (same octave or higher).
+// If a rest is selected, falls back to enterNoteByLetter (single note replacement).
+function addChordNoteByLetter(letter: string) {
+  if (!selectedNoteId.value || !engine.value) return
+  if (selectedTool.value !== 'selection') return
+
+  const letterToPitchClass: Record<string, number> = {
+    c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11,
+  }
+  const pitchClass = letterToPitchClass[letter]
+  if (pitchClass === undefined) return
+
+  const note = engine.value.getNote(selectedNoteId.value)
+  if (!note) return
+
+  // If a rest is selected, just enter a single note as normal
+  if (note.isRest) {
+    enterNoteByLetter(letter)
+    return
+  }
+
+  // Use the highest pitch already in the chord as the anchor, so each new
+  // note lands above ALL existing chord notes, not just the selected one.
+  const score = engine.value.getScore()
+  const measure = score.measures.find(m => m.number === note.measure)
+  const chordPitches = (measure?.notes ?? [])
+    .filter(n => !n.isRest && Math.abs(n.beat - note.beat) < 0.001)
+    .map(n => n.pitch)
+  const basePitch = chordPitches.length > 0 ? Math.max(...chordPitches) : note.pitch
+
+  const k = Math.ceil((basePitch - pitchClass) / 12)
+  let targetPitch = pitchClass + 12 * k
+
+  // If equal to basePitch it would be a duplicate — go up one octave
+  if (targetPitch === basePitch) targetPitch += 12
+
+  engine.value.addChordNote({
+    pitch: targetPitch,
+    duration: note.duration,
+    measure: note.measure,
+    beat: note.beat,
+    accidental: selectedAccidental.value || undefined,
+    dots: note.dots,
+    isRest: false,
+    tupletId: note.tupletId,
+  })
+  renderScore()
 }
 
 // Scroll the canvas so the selected note is visible

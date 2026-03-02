@@ -145,6 +145,24 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'toggleTuplet',
     description: 'Toggle triplet mode',
   },
+
+  // Note letter entry (replaces selected note/rest with the given pitch)
+  'a': { action: 'enterNoteA', description: 'Enter note A at selected position' },
+  'b': { action: 'enterNoteB', description: 'Enter note B at selected position' },
+  'c': { action: 'enterNoteC', description: 'Enter note C at selected position' },
+  'd': { action: 'enterNoteD', description: 'Enter note D at selected position' },
+  'e': { action: 'enterNoteE', description: 'Enter note E at selected position' },
+  'f': { action: 'enterNoteF', description: 'Enter note F at selected position' },
+  'g': { action: 'enterNoteG', description: 'Enter note G at selected position' },
+
+  // Chord note entry (adds to selected note; rest falls back to single note entry)
+  'Shift+a': { action: 'addChordA', description: 'Add chord note A above selected' },
+  'Shift+b': { action: 'addChordB', description: 'Add chord note B above selected' },
+  'Shift+c': { action: 'addChordC', description: 'Add chord note C above selected' },
+  'Shift+d': { action: 'addChordD', description: 'Add chord note D above selected' },
+  'Shift+e': { action: 'addChordE', description: 'Add chord note E above selected' },
+  'Shift+f': { action: 'addChordF', description: 'Add chord note F above selected' },
+  'Shift+g': { action: 'addChordG', description: 'Add chord note G above selected' },
 }
 
 /**
