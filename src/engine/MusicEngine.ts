@@ -183,6 +183,40 @@ export class MusicEngine {
   }
 
   /**
+   * Add a note by beat/measure position with full overflow handling (tie splitting across barlines).
+   * Use this for keyboard entry mode instead of addNote().
+   * Returns the first note placed (in the current measure), or null if placement failed.
+   */
+  addNoteAtBeat(params: NoteParams): Note | null {
+    const targetMeasure = this.scoreModel.getMeasure(params.measure)
+    if (!targetMeasure) return null
+
+    console.log(`[Keyboard] addNoteAtBeat: pitch=${params.pitch} dur=${params.duration} measure=${params.measure} beat=${params.beat}`)
+
+    const overflow = this.collisionDetector.checkMeasureOverflow(
+      params,
+      targetMeasure,
+      this.scoreModel.getNotesInMeasure(params.measure)
+    )
+
+    if (overflow.willOverflow && overflow.overflowAmount) {
+      console.log(`[Keyboard] Overflow detected: ${overflow.overflowAmount.toFixed(3)} beats spill into next measure — splitting with tie`)
+      const splitNote = this.addSplitNoteWithTie(params, overflow.overflowAmount)
+      if (splitNote) {
+        this.saveUndoState(`Keyboard enter note`)
+        this.playbackEngine.setScore(this.scoreModel.getScore())
+      }
+      return splitNote
+    }
+
+    console.log(`[Keyboard] No overflow — placing note directly`)
+    const note = this.scoreModel.addNote(params)
+    this.saveUndoState(`Keyboard enter note`)
+    this.playbackEngine.setScore(this.scoreModel.getScore())
+    return note
+  }
+
+  /**
    * Add a note to an existing chord (same beat/measure as an existing note). Saves undo state.
    */
   addChordNote(params: NoteParams): Note {

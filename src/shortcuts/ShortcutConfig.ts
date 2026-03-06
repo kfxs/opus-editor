@@ -156,6 +156,9 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Toggle triplet mode',
   },
 
+  // Rest entry in keyboard mode
+  'r': { action: 'enterRest', description: 'Enter rest at cursor position (keyboard mode)' },
+
   // Note letter entry (replaces selected note/rest with the given pitch)
   'a': { action: 'enterNoteA', description: 'Enter note A at selected position' },
   'b': { action: 'enterNoteB', description: 'Enter note B at selected position' },

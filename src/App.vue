@@ -46,6 +46,13 @@
             >
               Select
             </button>
+            <span
+              v-if="selectedTool === 'keyboard'"
+              class="px-3 py-1 rounded text-sm bg-blue-600 text-white"
+              title="Keyboard entry active — press Escape to exit"
+            >
+              Keyboard
+            </span>
           </div>
 
           <div class="border-l border-gray-600 mx-2"></div>
@@ -271,6 +278,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { MusicEngine } from './engine/MusicEngine'
 import type { PlaybackPosition } from './engine/audio/PlaybackEngine'
 import { ShortcutManager } from './shortcuts'
+import { durationToBeats } from './utils/musicUtils'
 
 // Create the music engine
 const engine = ref<MusicEngine | null>(null)
@@ -286,7 +294,7 @@ const playbackPosition = ref<PlaybackPosition>({
 })
 
 // Tool mode selection
-const selectedTool = ref<'entry' | 'selection'>('entry')
+const selectedTool = ref<'entry' | 'selection' | 'keyboard'>('entry')
 const selectedNoteId = ref<string | null>(null)
 
 // Note duration selection
@@ -381,8 +389,12 @@ onMounted(() => {
         }
       },
       setSelectionMode: () => {
-        // If already in selection mode with a note selected, clear selection
-        if (selectedTool.value === 'selection' && selectedNoteId.value) {
+        if (selectedTool.value === 'keyboard') {
+          // Exit keyboard mode → back to selection, keep current note selected
+          selectedTool.value = 'selection'
+          renderScore()
+        } else if (selectedTool.value === 'selection' && selectedNoteId.value) {
+          // If already in selection mode with a note selected, clear selection
           selectedNoteId.value = null
           renderScore()
         } else {
@@ -413,8 +425,26 @@ onMounted(() => {
       setAccidentalNatural: () => setAccidental('n'),
       setAccidentalSharp: () => setAccidental('#'),
       setAccidentalFlat: () => setAccidental('b'),
-      selectNextNote: () => navigateSelection(1),
-      selectPreviousNote: () => navigateSelection(-1),
+      selectNextNote: () => {
+        if (selectedTool.value === 'keyboard') {
+          // Right arrow: exit keyboard mode and land on the note AT the cursor
+          // (the next beat after the last edited note)
+          selectedTool.value = 'selection'
+          navigateSelection(1)
+        } else {
+          navigateSelection(1)
+        }
+      },
+      selectPreviousNote: () => {
+        if (selectedTool.value === 'keyboard') {
+          // Left arrow: exit keyboard mode and land on the note to the LEFT of the cursor
+          // (the last edited note — already selectedNoteId, no movement needed)
+          selectedTool.value = 'selection'
+          renderScore()
+        } else {
+          navigateSelection(-1)
+        }
+      },
       chordNoteUp: () => navigateChord(1),
       chordNoteDown: () => navigateChord(-1),
       pitchUp: () => adjustPitch(1),
@@ -466,6 +496,7 @@ onMounted(() => {
       enterNoteE: () => enterNoteByLetter('e'),
       enterNoteF: () => enterNoteByLetter('f'),
       enterNoteG: () => enterNoteByLetter('g'),
+      enterRest: () => enterRestAtCursorPosition(),
       addChordA: () => addChordNoteByLetter('a'),
       addChordB: () => addChordNoteByLetter('b'),
       addChordC: () => addChordNoteByLetter('c'),
@@ -530,8 +561,8 @@ function setDuration(duration: 'w' | 'h' | 'q' | '8' | '16' | '32') {
   selectedDots.value = 0
   // Clear tuplet mode when changing duration - user likely wants a new note value
   tupletMode.value = false
-  // If a note is selected, update its duration (and remove dots)
-  if (selectedNoteId.value && engine.value) {
+  // If a note is selected in selection mode, update its duration (and remove dots)
+  if (selectedNoteId.value && engine.value && selectedTool.value === 'selection') {
     engine.value.updateNote(selectedNoteId.value, { duration, dots: 0 })
     renderScore()
   } else if (selectedTool.value === 'selection') {
@@ -552,8 +583,8 @@ function setAccidental(accidental: '#' | 'b' | 'n' | null) {
   // Toggle behavior: if same accidental is already selected, deselect it
   const newValue = selectedAccidental.value === accidental ? null : accidental
   selectedAccidental.value = newValue
-  // If a note is selected, update its accidental
-  if (selectedNoteId.value && engine.value) {
+  // If a note is selected in selection mode, update its accidental
+  if (selectedNoteId.value && engine.value && selectedTool.value === 'selection') {
     engine.value.updateNote(selectedNoteId.value, { accidental: newValue || undefined })
     renderScore()
   } else if (selectedTool.value === 'selection') {
@@ -582,8 +613,8 @@ function toggleDot() {
   // Toggle between 0 (no dot) and 1 (dotted)
   const newValue = selectedDots.value > 0 ? 0 : 1
   selectedDots.value = newValue
-  // If a note is selected, update its dots
-  if (selectedNoteId.value && engine.value) {
+  // If a note is selected in selection mode, update its dots
+  if (selectedNoteId.value && engine.value && selectedTool.value === 'selection') {
     engine.value.updateNote(selectedNoteId.value, { dots: newValue })
     renderScore()
   } else if (selectedTool.value === 'selection') {
@@ -862,12 +893,12 @@ function getContextPitch(): number {
   return 60 // default: middle C octave
 }
 
-// Enter a note by letter key (a-g) at the selected position.
-// Octave is chosen to be closest to neighboring notes (or C4 if no context).
-// Converts rests to notes. Clears any existing accidental.
+// Enter a note by letter key (a-g).
+// In selection mode: edits the selected note in place and enters keyboard mode.
+// In keyboard mode: overwrites the note at the cursor position and advances the cursor.
 function enterNoteByLetter(letter: string) {
   if (!selectedNoteId.value || !engine.value) return
-  if (selectedTool.value !== 'selection') return
+  if (selectedTool.value !== 'selection' && selectedTool.value !== 'keyboard') return
 
   const letterToPitchClass: Record<string, number> = {
     c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11,
@@ -875,8 +906,13 @@ function enterNoteByLetter(letter: string) {
   const pitchClass = letterToPitchClass[letter]
   if (pitchClass === undefined) return
 
+  if (selectedTool.value === 'keyboard') {
+    enterNoteAtCursorPosition(pitchClass)
+    return
+  }
+
+  // Selection mode: edit in place, then switch to keyboard mode
   const reference = getContextPitch()
-  // Find the octave k such that (pitchClass + 12*k) is closest to reference
   const k = Math.round((reference - pitchClass) / 12)
   const targetPitch = pitchClass + 12 * k
 
@@ -885,6 +921,199 @@ function enterNoteByLetter(letter: string) {
     isRest: false,
     accidental: selectedAccidental.value || undefined,
   })
+
+  selectedTool.value = 'keyboard'
+  renderScore()
+}
+
+// Place a note at the cursor position (the beat after selectedNoteId) using the current palette.
+// Overwrites whatever is there — notes or rests — filling leftover space with rests.
+// Handles measure overflow the same way mouse entry does (tie splitting across barlines).
+// Advances selectedNoteId to the newly placed note.
+function enterNoteAtCursorPosition(pitchClass: number) {
+  if (!selectedNoteId.value || !engine.value) return
+
+  const score = engine.value.getScore()
+  const epsilon = 0.001
+
+  // Build sorted beat list (same logic as navigateSelection / applyKeyboardCursor)
+  const allFlat = score.measures
+    .flatMap(m => m.notes.map(n => ({ ...n, measureNumber: m.number })))
+    .sort((a, b) =>
+      a.measureNumber !== b.measureNumber ? a.measureNumber - b.measureNumber : a.beat - b.beat
+    )
+  const beatMap = new Map<string, typeof allFlat[0]>()
+  for (const n of allFlat) {
+    const key = `${n.measureNumber}:${n.beat}`
+    const existing = beatMap.get(key)
+    if (!existing) {
+      beatMap.set(key, n)
+    } else if (!n.isRest && (existing.isRest || n.pitch < existing.pitch)) {
+      beatMap.set(key, n)
+    }
+  }
+  const beats = Array.from(beatMap.values())
+
+  // Find the cursor position: the next beat after the currently selected note
+  const currentNote = allFlat.find(n => n.id === selectedNoteId.value)
+  if (!currentNote) {
+    console.log('[Keyboard] enterNoteAtCursorPosition: currentNote not found for id', selectedNoteId.value)
+    return
+  }
+  const currentKey = `${currentNote.measureNumber}:${currentNote.beat}`
+  const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat}` === currentKey)
+  if (currentIndex === -1) {
+    console.log('[Keyboard] enterNoteAtCursorPosition: beat not found in beatMap for key', currentKey)
+    return
+  }
+
+  const nextBeat = beats[currentIndex + 1]
+  if (!nextBeat) {
+    console.log('[Keyboard] enterNoteAtCursorPosition: cursor is at end of score, nowhere to place note')
+    return
+  }
+
+  const targetMeasure = nextBeat.measureNumber
+  const targetBeat = nextBeat.beat
+
+  // Octave: choose the one closest to the note we just entered
+  const reference = (!currentNote.isRest) ? currentNote.pitch : getContextPitch()
+  const k = Math.round((reference - pitchClass) / 12)
+  const targetPitch = pitchClass + 12 * k
+
+  const newDurationBeats = durationToBeats(selectedDuration.value, selectedDots.value)
+
+  console.log(`[Keyboard] Entering note: pitchClass=${pitchClass} pitch=${targetPitch} dur=${selectedDuration.value} dots=${selectedDots.value} (${newDurationBeats} beats) at measure=${targetMeasure} beat=${targetBeat}`)
+
+  // Remove every note/rest in the target measure that overlaps the new note's time span.
+  // addNoteAtBeat handles overflow into the next measure via tie splitting.
+  const noteEnd = targetBeat + newDurationBeats
+  const measure = score.measures.find(m => m.number === targetMeasure)
+  if (!measure) return
+
+  const toDelete = measure.notes.filter(n => {
+    const nEnd = n.beat + durationToBeats(n.duration, n.dots || 0)
+    return n.beat + epsilon < noteEnd && nEnd - epsilon > targetBeat
+  })
+  if (toDelete.length > 0) {
+    console.log(`[Keyboard] Removing ${toDelete.length} overlapping note(s):`, toDelete.map(n => `${n.isRest ? 'rest' : 'note'} dur=${n.duration} @beat=${n.beat}`).join(', '))
+    for (const n of toDelete) {
+      engine.value!.deleteNote(n.id)
+    }
+  }
+
+  // Place the new note — addNoteAtBeat handles overflow (tie split) and gap filling
+  const newNote = engine.value.addNoteAtBeat({
+    pitch: targetPitch,
+    duration: selectedDuration.value,
+    measure: targetMeasure,
+    beat: targetBeat,
+    accidental: selectedAccidental.value || undefined,
+    dots: selectedDots.value || undefined,
+    isRest: false,
+  })
+
+  if (!newNote) {
+    console.log('[Keyboard] addNoteAtBeat returned null — placement failed')
+    renderScore()
+    return
+  }
+
+  console.log(`[Keyboard] Note placed: id=${newNote.id} pitch=${newNote.pitch} dur=${newNote.duration} measure=${newNote.measure} beat=${newNote.beat}`)
+
+  // Advance the cursor to the note we just placed
+  selectedNoteId.value = newNote.id
+  renderScore()
+}
+
+// Enter a rest at the cursor position using the current palette duration.
+// Only active in keyboard mode. Advances the cursor like note entry does.
+function enterRestAtCursorPosition() {
+  if (selectedTool.value !== 'keyboard' || !selectedNoteId.value || !engine.value) return
+
+  const score = engine.value.getScore()
+  const epsilon = 0.001
+
+  const allFlat = score.measures
+    .flatMap(m => m.notes.map(n => ({ ...n, measureNumber: m.number })))
+    .sort((a, b) =>
+      a.measureNumber !== b.measureNumber ? a.measureNumber - b.measureNumber : a.beat - b.beat
+    )
+  const beatMap = new Map<string, typeof allFlat[0]>()
+  for (const n of allFlat) {
+    const key = `${n.measureNumber}:${n.beat}`
+    const existing = beatMap.get(key)
+    if (!existing) {
+      beatMap.set(key, n)
+    } else if (!n.isRest && (existing.isRest || n.pitch < existing.pitch)) {
+      beatMap.set(key, n)
+    }
+  }
+  const beats = Array.from(beatMap.values())
+
+  const currentNote = allFlat.find(n => n.id === selectedNoteId.value)
+  if (!currentNote) return
+  const currentKey = `${currentNote.measureNumber}:${currentNote.beat}`
+  const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat}` === currentKey)
+  if (currentIndex === -1) return
+
+  const nextBeat = beats[currentIndex + 1]
+  if (!nextBeat) {
+    console.log('[Keyboard] enterRestAtCursorPosition: cursor is at end of score')
+    return
+  }
+
+  const targetMeasure = nextBeat.measureNumber
+  const targetBeat = nextBeat.beat
+  const newDurationBeats = durationToBeats(selectedDuration.value, selectedDots.value)
+  const noteEnd = targetBeat + newDurationBeats
+
+  // Rests don't tie across barlines — cap to available space in the measure
+  const measureData = score.measures.find(m => m.number === targetMeasure)
+  if (!measureData) return
+  const measureTotalBeats = measureData.timeSignature.numerator * (4 / measureData.timeSignature.denominator)
+  const availableBeats = measureTotalBeats - targetBeat
+  const actualDurationBeats = Math.min(newDurationBeats, availableBeats)
+  // Find the largest standard duration that fits
+  const durations: Array<{ dur: typeof selectedDuration.value; beats: number }> = [
+    { dur: 'w', beats: 4 }, { dur: 'h', beats: 2 }, { dur: 'q', beats: 1 },
+    { dur: '8', beats: 0.5 }, { dur: '16', beats: 0.25 }, { dur: '32', beats: 0.125 },
+  ]
+  const fittingDur = durations.find(d => d.beats <= actualDurationBeats + 0.001) ?? { dur: selectedDuration.value, beats: newDurationBeats }
+
+  console.log(`[Keyboard] Entering rest: dur=${fittingDur.dur} (${fittingDur.beats} beats) at measure=${targetMeasure} beat=${targetBeat}${fittingDur.dur !== selectedDuration.value ? ` (capped from ${selectedDuration.value})` : ''}`)
+
+  const measure = measureData
+  if (!measure) return
+
+  const actualNoteEnd = targetBeat + fittingDur.beats
+  const toDelete = measure.notes.filter(n => {
+    const nEnd = n.beat + durationToBeats(n.duration, n.dots || 0)
+    return n.beat + epsilon < actualNoteEnd && nEnd - epsilon > targetBeat
+  })
+  if (toDelete.length > 0) {
+    console.log(`[Keyboard] Removing ${toDelete.length} overlapping note(s):`, toDelete.map(n => `${n.isRest ? 'rest' : 'note'} dur=${n.duration} @beat=${n.beat}`).join(', '))
+    for (const n of toDelete) {
+      engine.value!.deleteNote(n.id)
+    }
+  }
+
+  const newRest = engine.value.addNoteAtBeat({
+    pitch: 0,
+    duration: fittingDur.dur,
+    measure: targetMeasure,
+    beat: targetBeat,
+    isRest: true,
+  })
+
+  if (!newRest) {
+    console.log('[Keyboard] addNoteAtBeat returned null for rest')
+    renderScore()
+    return
+  }
+
+  console.log(`[Keyboard] Rest placed: id=${newRest.id} dur=${newRest.duration} measure=${newRest.measure} beat=${newRest.beat}`)
+  selectedNoteId.value = newRest.id
   renderScore()
 }
 
@@ -893,7 +1122,7 @@ function enterNoteByLetter(letter: string) {
 // If a rest is selected, falls back to enterNoteByLetter (single note replacement).
 function addChordNoteByLetter(letter: string) {
   if (!selectedNoteId.value || !engine.value) return
-  if (selectedTool.value !== 'selection') return
+  if (selectedTool.value !== 'selection' && selectedTool.value !== 'keyboard') return
 
   const letterToPitchClass: Record<string, number> = {
     c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11,
@@ -1001,6 +1230,82 @@ function renderScore() {
   // Apply selection highlights
   applySelectionHighlight()
   applyTupletSelectionHighlight()
+  applyKeyboardCursor()
+}
+
+// Draw a vertical cursor line on the staff AFTER the currently selected note,
+// indicating where the next keyboard entry will land.
+// The cursor signals that keyboard entry mode is active (like Sibelius's blue cursor).
+function applyKeyboardCursor() {
+  if (selectedTool.value !== 'keyboard' || !selectedNoteId.value || !engine.value || !scoreCanvas.value) return
+
+  const svg = scoreCanvas.value.querySelector('svg')
+  if (!svg) return
+
+  const score = engine.value.getScore()
+  const registry = engine.value.getElementRegistry()
+
+  // Build a flat sorted list of one representative note per beat (same logic as navigateSelection)
+  const beatMap = new Map<string, { id: string; measureNumber: number; beat: number }>()
+  const allFlat = score.measures
+    .flatMap(m => m.notes.map(n => ({ ...n, measureNumber: m.number })))
+    .sort((a, b) =>
+      a.measureNumber !== b.measureNumber ? a.measureNumber - b.measureNumber : a.beat - b.beat
+    )
+  for (const n of allFlat) {
+    const key = `${n.measureNumber}:${n.beat}`
+    const existing = beatMap.get(key)
+    if (!existing) {
+      beatMap.set(key, n)
+    } else if (!n.isRest && (existing.isRest || n.pitch < existing.pitch)) {
+      beatMap.set(key, n)
+    }
+  }
+  const beats = Array.from(beatMap.values())
+
+  // Find the current note's position in the beat list
+  const currentNote = allFlat.find(n => n.id === selectedNoteId.value)
+  if (!currentNote) return
+  const currentKey = `${currentNote.measureNumber}:${currentNote.beat}`
+  const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat}` === currentKey)
+  if (currentIndex === -1) return
+
+  // The cursor goes at the NEXT beat after the current one
+  const nextBeat = beats[currentIndex + 1]
+
+  let cursorX: number
+  let cursorMeasure: number
+
+  if (nextBeat) {
+    // Position cursor at the left edge of the next note
+    const nextInfo = engine.value.getElementById(nextBeat.id)
+    if (!nextInfo) return
+    cursorX = nextInfo.bbox.x
+    cursorMeasure = nextBeat.measureNumber
+  } else {
+    // No next note — position cursor at the right edge of the current note
+    const currentInfo = engine.value.getElementById(selectedNoteId.value)
+    if (!currentInfo) return
+    cursorX = currentInfo.bbox.x + currentInfo.bbox.width
+    cursorMeasure = currentNote.measureNumber
+  }
+
+  const staffGeometry = registry.getStaffGeometry(cursorMeasure)
+  if (!staffGeometry) return
+
+  const topY = staffGeometry.lineYPositions[0]
+  const bottomY = staffGeometry.lineYPositions[4]
+
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+  line.setAttribute('x1', String(cursorX))
+  line.setAttribute('y1', String(topY - 6))
+  line.setAttribute('x2', String(cursorX))
+  line.setAttribute('y2', String(bottomY + 6))
+  line.setAttribute('stroke', '#3B82F6') // Blue
+  line.setAttribute('stroke-width', '2')
+  line.setAttribute('stroke-linecap', 'round')
+  line.setAttribute('class', 'keyboard-cursor')
+  svg.appendChild(line)
 }
 
 function applySelectionHighlight() {
