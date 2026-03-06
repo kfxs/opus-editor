@@ -301,9 +301,11 @@ export class VexFlowRenderer {
     // VexFlow automatically handles note displacement for seconds (adjacent notes)
     // The lower note in a second interval will be shifted to the right side of the stem
 
-    // Add accidentals for each note in the chord
+    // Add accidentals for each note in the chord.
+    // Skip tied continuations — the tie carries the accidental implicitly;
+    // re-displaying it on the second note would be incorrect notation.
     chordNotes.forEach((chordNote, index) => {
-      if (chordNote.accidental) {
+      if (chordNote.accidental && !chordNote.tiedFrom) {
         const accidentalMap: Record<string, string> = {
           '#': '#',
           b: 'b',

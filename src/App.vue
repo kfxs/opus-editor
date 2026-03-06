@@ -1021,8 +1021,23 @@ function enterNoteAtCursorPosition(pitchClass: number) {
 
   console.log(`[Keyboard] Note placed: id=${newNote.id} pitch=${newNote.pitch} dur=${newNote.duration} measure=${newNote.measure} beat=${newNote.beat}`)
 
-  // Advance the cursor to the note we just placed
-  selectedNoteId.value = newNote.id
+  // Follow the tie chain to the last note — the cursor must land after all tied continuations,
+  // not just the first segment (e.g. half note split across barline → cursor after measure 3 note)
+  let lastNote = newNote
+  const scoreAfter = engine.value.getScore()
+  let safetyLimit = 16
+  while (lastNote.tiedTo && safetyLimit-- > 0) {
+    const tied = scoreAfter.measures.flatMap(m => m.notes).find(n => n.id === lastNote.tiedTo)
+    if (!tied) break
+    lastNote = tied
+  }
+  if (lastNote.id !== newNote.id) {
+    console.log(`[Keyboard] Tie chain: cursor advanced to last tied note id=${lastNote.id} measure=${lastNote.measure} beat=${lastNote.beat}`)
+  }
+
+  selectedNoteId.value = lastNote.id
+  // In keyboard mode, accidentals are one-shot — clear after each entry
+  selectedAccidental.value = null
   renderScore()
 }
 
