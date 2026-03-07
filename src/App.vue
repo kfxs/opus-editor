@@ -46,13 +46,6 @@
             >
               Select
             </button>
-            <span
-              v-if="selectedTool === 'keyboard'"
-              class="px-3 py-1 rounded text-sm bg-blue-600 text-white"
-              title="Keyboard entry active — press Escape to exit"
-            >
-              Keyboard
-            </span>
           </div>
 
           <div class="border-l border-gray-600 mx-2"></div>
@@ -294,7 +287,7 @@ const playbackPosition = ref<PlaybackPosition>({
 })
 
 // Tool mode selection
-const selectedTool = ref<'entry' | 'selection' | 'keyboard'>('entry')
+const selectedTool = ref<'entry' | 'selection'>('entry')
 const selectedNoteId = ref<string | null>(null)
 
 // Note duration selection
@@ -389,7 +382,7 @@ onMounted(() => {
         }
       },
       setSelectionMode: () => {
-        if (selectedTool.value === 'keyboard') {
+        if (selectedTool.value === 'entry') {
           // Exit keyboard mode → back to selection, keep current note selected
           selectedTool.value = 'selection'
           renderScore()
@@ -426,7 +419,7 @@ onMounted(() => {
       setAccidentalSharp: () => setAccidental('#'),
       setAccidentalFlat: () => setAccidental('b'),
       selectNextNote: () => {
-        if (selectedTool.value === 'keyboard') {
+        if (selectedTool.value === 'entry') {
           // Right arrow: exit keyboard mode and land on the note AT the cursor
           // (the next beat after the last edited note)
           selectedTool.value = 'selection'
@@ -436,7 +429,7 @@ onMounted(() => {
         }
       },
       selectPreviousNote: () => {
-        if (selectedTool.value === 'keyboard') {
+        if (selectedTool.value === 'entry') {
           // Left arrow: exit keyboard mode and land on the note to the LEFT of the cursor
           // (the last edited note — already selectedNoteId, no movement needed)
           selectedTool.value = 'selection'
@@ -756,8 +749,8 @@ function navigateChord(direction: number) {
 
 // Adjust pitch of selected note by diatonic steps (up/down on staff)
 function adjustPitch(direction: number) {
-  // Only works in selection mode with a note selected (not rests)
-  if (selectedTool.value !== 'selection' || !selectedNoteId.value || !engine.value) {
+  // Works in selection and entry mode with a note selected (not rests)
+  if ((selectedTool.value !== 'selection' && selectedTool.value !== 'entry') || !selectedNoteId.value || !engine.value) {
     return
   }
 
@@ -786,8 +779,8 @@ function adjustPitch(direction: number) {
 
 // Adjust pitch of selected note by octave (12 semitones)
 function adjustOctave(direction: number) {
-  // Only works in selection mode with a note selected (not rests)
-  if (selectedTool.value !== 'selection' || !selectedNoteId.value || !engine.value) {
+  // Works in selection and entry mode with a note selected (not rests)
+  if ((selectedTool.value !== 'selection' && selectedTool.value !== 'entry') || !selectedNoteId.value || !engine.value) {
     return
   }
 
@@ -898,7 +891,7 @@ function getContextPitch(): number {
 // In keyboard mode: overwrites the note at the cursor position and advances the cursor.
 function enterNoteByLetter(letter: string) {
   if (!selectedNoteId.value || !engine.value) return
-  if (selectedTool.value !== 'selection' && selectedTool.value !== 'keyboard') return
+  if (selectedTool.value !== 'selection' && selectedTool.value !== 'entry') return
 
   const letterToPitchClass: Record<string, number> = {
     c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11,
@@ -906,7 +899,7 @@ function enterNoteByLetter(letter: string) {
   const pitchClass = letterToPitchClass[letter]
   if (pitchClass === undefined) return
 
-  if (selectedTool.value === 'keyboard') {
+  if (selectedTool.value === 'entry') {
     enterNoteAtCursorPosition(pitchClass)
     return
   }
@@ -922,7 +915,7 @@ function enterNoteByLetter(letter: string) {
     accidental: selectedAccidental.value || undefined,
   })
 
-  selectedTool.value = 'keyboard'
+  selectedTool.value = 'entry'
   renderScore()
 }
 
@@ -1044,7 +1037,7 @@ function enterNoteAtCursorPosition(pitchClass: number) {
 // Enter a rest at the cursor position using the current palette duration.
 // Only active in keyboard mode. Advances the cursor like note entry does.
 function enterRestAtCursorPosition() {
-  if (selectedTool.value !== 'keyboard' || !selectedNoteId.value || !engine.value) return
+  if (selectedTool.value !== 'entry' || !selectedNoteId.value || !engine.value) return
 
   const score = engine.value.getScore()
   const epsilon = 0.001
@@ -1137,7 +1130,7 @@ function enterRestAtCursorPosition() {
 // If a rest is selected, falls back to enterNoteByLetter (single note replacement).
 function addChordNoteByLetter(letter: string) {
   if (!selectedNoteId.value || !engine.value) return
-  if (selectedTool.value !== 'selection' && selectedTool.value !== 'keyboard') return
+  if (selectedTool.value !== 'selection' && selectedTool.value !== 'entry') return
 
   const letterToPitchClass: Record<string, number> = {
     c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11,
@@ -1252,7 +1245,7 @@ function renderScore() {
 // indicating where the next keyboard entry will land.
 // The cursor signals that keyboard entry mode is active (like Sibelius's blue cursor).
 function applyKeyboardCursor() {
-  if (selectedTool.value !== 'keyboard' || !selectedNoteId.value || !engine.value || !scoreCanvas.value) return
+  if (selectedTool.value !== 'entry' || !selectedNoteId.value || !engine.value || !scoreCanvas.value) return
 
   const svg = scoreCanvas.value.querySelector('svg')
   if (!svg) return
@@ -1793,6 +1786,8 @@ function handleCanvasClick(event: MouseEvent) {
 
         if (note) {
           console.log(`✓ Note added to tuplet | pitch:${note.pitch} measure:${note.measure} beat:${note.beat}`)
+          selectedNoteId.value = note.id
+          selectedTool.value = 'entry'
           renderScore()
         } else {
           console.log('✗ Note NOT added to tuplet (collision or invalid location)')
@@ -1814,6 +1809,8 @@ function handleCanvasClick(event: MouseEvent) {
 
         if (result) {
           console.log(`✓ Tuplet created | tupletId:${result.tuplet.id} firstNote pitch:${result.firstNote.pitch}`)
+          selectedNoteId.value = result.firstNote.id
+          selectedTool.value = 'entry'
           // Keep tuplet mode active - user must manually disable it
           renderScore()
         } else {
@@ -1831,6 +1828,8 @@ function handleCanvasClick(event: MouseEvent) {
 
       if (note) {
         console.log(`✓ Note added | pitch:${note.pitch} measure:${note.measure} beat:${note.beat}`)
+        selectedNoteId.value = note.id
+        selectedTool.value = 'entry'
         renderScore()
       } else {
         console.log('✗ Note NOT added (collision or invalid location)')
