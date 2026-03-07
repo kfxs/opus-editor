@@ -1650,7 +1650,8 @@ export class MusicEngine {
     coords: PixelCoordinates,
     duration: NoteParams['duration'],
     accidental?: NoteParams['accidental'],
-    dots?: number
+    dots?: number,
+    articulations?: ArticulationType[]
   ): boolean {
     const measure = this.scoreModel.getMeasure(1)
     if (!measure) {
@@ -1704,6 +1705,7 @@ export class MusicEngine {
         rawY: coords.y,  // For reference
         ...(accidental && { accidental }),
         ...(dots && { dots }),
+        ...(articulations?.length && { articulations }),
       }
     )
 

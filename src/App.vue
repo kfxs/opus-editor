@@ -611,6 +611,7 @@ function toggleAccent() {
   } else {
     // Entry mode: just arm/disarm the pending accent for the next note entry
     selectedAccent.value = !selectedAccent.value
+    if (lastCanvasMousePosition) renderPreview(lastCanvasMousePosition)
   }
 }
 
@@ -1225,7 +1226,8 @@ function renderPreview(coords: { x: number; y: number }) {
     coords,
     selectedDuration.value,
     selectedAccidental.value || undefined,
-    selectedDots.value
+    selectedDots.value,
+    selectedAccent.value ? ['accent'] : undefined
   )
   applySelectionHighlight()
   applyTupletSelectionHighlight()
@@ -1928,7 +1930,8 @@ function handleCanvasMouseMove(event: MouseEvent) {
     { x, y },
     selectedDuration.value,
     selectedAccidental.value || undefined,
-    selectedDots.value
+    selectedDots.value,
+    selectedAccent.value ? ['accent'] : undefined
   )
 
   applySelectionHighlight()

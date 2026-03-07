@@ -1465,6 +1465,15 @@ export class VexFlowRenderer {
         staveNote.addModifier(new Accidental(accidentalMap[ghostNote.accidental]), 0)
       }
 
+      // Add articulations with correct position (same logic as regular notes)
+      if (ghostNote.articulations?.length) {
+        const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>' }
+        const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
+        for (const art of ghostNote.articulations) {
+          staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
+        }
+      }
+
       // Store whether this forms a second for later displacement
       const needsDisplacement = formsSecond
 
@@ -1653,7 +1662,7 @@ export class VexFlowRenderer {
    * @param rawX - Raw cursor X position for smooth visual positioning
    */
   private renderGhostNoteWithDynamicWidths(
-    ghostNote: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; dots?: number },
+    ghostNote: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; dots?: number; articulations?: ArticulationType[] },
     score: Score,
     measureWidths: Map<number, MeasureWidthInfo>,
     margin: number,
@@ -1755,6 +1764,15 @@ export class VexFlowRenderer {
       if (ghostNote.accidental) {
         const accidentalMap: Record<string, string> = { '#': '#', 'b': 'b', 'n': 'n' }
         staveNote.addModifier(new Accidental(accidentalMap[ghostNote.accidental]), 0)
+      }
+
+      // Add articulations with correct position based on stem direction
+      if (ghostNote.articulations?.length) {
+        const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>' }
+        const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
+        for (const art of ghostNote.articulations) {
+          staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
+        }
       }
 
       const needsDisplacement = formsSecond
@@ -1914,7 +1932,7 @@ export class VexFlowRenderer {
    * @param ghostNote - Optional ghost note to render in blue/transparent
    * @returns true if ghost note was rendered, false if not (or no ghost note provided)
    */
-  renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number; accidental?: '#' | 'b' | 'n'; dots?: number }): boolean {
+  renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number; accidental?: '#' | 'b' | 'n'; dots?: number; articulations?: ArticulationType[] }): boolean {
     // renderScore now clears first, so no need to clear here
     return this.renderScore(score, ghostNote)
   }
@@ -1925,7 +1943,7 @@ export class VexFlowRenderer {
    * @param ghostNote - Optional ghost note preview (rawX for smooth cursor following)
    * @returns true if ghost note was rendered, false if not (or no ghost note provided)
    */
-  renderScore(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number; accidental?: '#' | 'b' | 'n'; dots?: number }): boolean {
+  renderScore(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number; accidental?: '#' | 'b' | 'n'; dots?: number; articulations?: ArticulationType[] }): boolean {
     if (!this.context || !this.renderer) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
