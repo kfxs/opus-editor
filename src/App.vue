@@ -500,7 +500,23 @@ onMounted(() => {
         }
       },
       deleteSelected: () => {
-        if (selectedTupletId.value && engine.value) {
+        if (selectedArticulationNoteId.value && selectedArticulationType.value && engine.value) {
+          // Delete selected articulation; keep the note
+          const noteId = selectedArticulationNoteId.value
+          engine.value.toggleArticulation(noteId, selectedArticulationType.value as ArticulationType)
+          selectedArticulationNoteId.value = null
+          selectedArticulationType.value = null
+          selectNote(noteId)
+          renderScore()
+        } else if (selectedAccidentalNoteId.value && engine.value) {
+          // Delete selected accidental; keep the note
+          const noteId = selectedAccidentalNoteId.value
+          engine.value.updateNote(noteId, { accidental: undefined })
+          selectedAccidentalNoteId.value = null
+          selectedAccidentalType.value = null
+          selectNote(noteId)
+          renderScore()
+        } else if (selectedTupletId.value && engine.value) {
           // Delete selected tuplet
           engine.value.deleteTuplet(selectedTupletId.value)
           selectedTupletId.value = null
@@ -1119,8 +1135,6 @@ function enterNoteAtCursorPosition(pitchClass: number) {
   }
 
   setSelectedNote(lastNote.id)
-  // In keyboard mode, accidentals are one-shot — clear after each entry
-  selectedAccidental.value = null
   renderScore()
 }
 

@@ -47,11 +47,11 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // Editing
   'Delete': {
     action: 'deleteSelected',
-    description: 'Delete selected note',
+    description: 'Delete selected note or articulation',
   },
   'Backspace': {
     action: 'deleteSelected',
-    description: 'Delete selected note',
+    description: 'Delete selected note or articulation',
   },
 
   // Durations (numpad keys - Sibelius style)
