@@ -255,6 +255,23 @@
             </button>
           </div>
 
+          <!-- Tie -->
+          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
+            <span class="text-sm text-gray-300">Tie:</span>
+            <button
+              @click="toggleTie"
+              :class="[
+                'px-3 py-1 rounded text-sm font-bold',
+                selectedNoteHasTie
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Toggle tie to next note of same pitch (Numpad Enter)"
+            >
+              ⌒
+            </button>
+          </div>
+
           <div class="border-l border-gray-600 mx-2"></div>
           <button
             @click="togglePlayback"
@@ -346,6 +363,9 @@ const selectedAccent = ref(false)
 const selectedStaccato = ref(false)
 const selectedTenuto = ref(false)
 
+// Pending tie: armed in entry mode — the next note entered will be tied FROM this note id
+const pendingTieFromNoteId = ref<string | null>(null)
+
 // Selected articulation (separate from note selection)
 const selectedArticulationNoteId = ref<string | null>(null)
 const selectedArticulationType = ref<string | null>(null)
@@ -392,6 +412,15 @@ const selectedNoteHasTenuto = computed(() => {
     }
   }
   return selectedTenuto.value
+})
+
+const selectedNoteHasTie = computed(() => {
+  // In entry mode, glow if tie is armed (pending)
+  if (selectedTool.value === 'entry' && pendingTieFromNoteId.value) return true
+  // In selection mode (or no pending), reflect the selected note's tiedTo
+  if (!selectedNoteId.value || !engine.value) return false
+  const note = engine.value.getNote(selectedNoteId.value)
+  return !!note?.tiedTo
 })
 
 // Combined pending articulations for entry mode note creation
@@ -540,6 +569,7 @@ onMounted(() => {
       toggleAccent: () => toggleAccent(),
       toggleStaccato: () => toggleStaccato(),
       toggleTenuto: () => toggleTenuto(),
+      toggleTie: () => toggleTie(),
       selectNextNote: () => {
         if (selectedTool.value === 'entry') {
           // Right arrow: exit keyboard mode and land on the note AT the cursor
@@ -727,6 +757,25 @@ function toggleTenuto() {
   } else {
     selectedTenuto.value = !selectedTenuto.value
     if (lastCanvasMousePosition) renderPreview(lastCanvasMousePosition)
+  }
+}
+
+function toggleTie() {
+  if (!selectedNoteId.value || !engine.value) return
+
+  if (selectedTool.value === 'entry') {
+    // Entry mode: arm/disarm the pending tie
+    if (pendingTieFromNoteId.value === selectedNoteId.value) {
+      // Already armed for this note — disarm
+      pendingTieFromNoteId.value = null
+    } else {
+      pendingTieFromNoteId.value = selectedNoteId.value
+    }
+    renderScore()
+  } else {
+    // Selection mode: toggle tie between this note and the next note of same pitch
+    engine.value.toggleTie(selectedNoteId.value)
+    renderScore()
   }
 }
 
@@ -1135,6 +1184,12 @@ function enterNoteAtCursorPosition(pitchClass: number) {
 
   console.log(`[Keyboard] Note placed: id=${newNote.id} pitch=${newNote.pitch} dur=${newNote.duration} measure=${newNote.measure} beat=${newNote.beat}`)
 
+  // If a tie was armed, link the previous note to this new note
+  if (pendingTieFromNoteId.value) {
+    engine.value.linkTie(pendingTieFromNoteId.value, newNote.id)
+    pendingTieFromNoteId.value = null
+  }
+
   // Follow the tie chain to the last note — the cursor must land after all tied continuations,
   // not just the first segment (e.g. half note split across barline → cursor after measure 3 note)
   let lastNote = newNote
@@ -1333,6 +1388,7 @@ function resetPaletteToDefaults() {
   selectedAccent.value = false
   selectedStaccato.value = false
   selectedTenuto.value = false
+  pendingTieFromNoteId.value = null
 }
 
 function setSelectedNote(id: string | null) {
@@ -1354,6 +1410,11 @@ function renderScore() {
   applyAccidentalHighlight()
   applyTupletSelectionHighlight()
   applyKeyboardCursor()
+
+  // Draw dangling tie arc if a tie is armed
+  if (pendingTieFromNoteId.value) {
+    engine.value.renderPendingTie(pendingTieFromNoteId.value)
+  }
 }
 
 function renderPreview(coords: { x: number; y: number }) {

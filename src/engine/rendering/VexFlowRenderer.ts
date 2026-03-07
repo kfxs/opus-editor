@@ -2216,6 +2216,32 @@ export class VexFlowRenderer {
   }
 
   /**
+   * Render a dangling (pending) tie from a note with no target yet.
+   * Draws a partial arc extending to the right — same as the first half of a cross-barline tie.
+   */
+  renderPendingTie(noteId: string, score: Score): void {
+    if (!this.context) return
+    const info = this.staveNoteMap.get(noteId)
+    if (!info) return
+
+    // Find the note and its measure to compute tie direction
+    const note = score.measures.flatMap(m => m.notes).find(n => n.id === noteId)
+    if (!note || note.isRest) return
+    const measure = score.measures.find(m => m.number === note.measure)
+    if (!measure) return
+
+    const tieDirection = this.getTieDirection(note, measure)
+    const pendingTie = new StaveTie({
+      firstNote: info.staveNote,
+      firstIndexes: [info.noteIndex],
+    })
+    if (tieDirection !== undefined) {
+      pendingTie.setDirection(tieDirection)
+    }
+    pendingTie.setContext(this.context).draw()
+  }
+
+  /**
    * Clear the canvas content without removing the SVG element
    */
   clear(): void {

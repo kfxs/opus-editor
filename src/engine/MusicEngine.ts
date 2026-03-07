@@ -1360,6 +1360,58 @@ export class MusicEngine {
   }
 
   /**
+   * Directly link two notes with a tie (fromNoteId → toNoteId).
+   * Used when the target note already exists (e.g. pending tie resolution in keyboard entry).
+   */
+  linkTie(fromNoteId: string, toNoteId: string): void {
+    const score = this.scoreModel.getScore()
+    const allNotes = score.measures.flatMap(m => m.notes)
+    const fromNote = allNotes.find(n => n.id === fromNoteId)
+    const toNote = allNotes.find(n => n.id === toNoteId)
+    if (!fromNote || !toNote) return
+    fromNote.tiedTo = toNoteId
+    toNote.tiedFrom = fromNoteId
+    this.playbackEngine.setScore(score)
+    this.saveUndoState('Add tie')
+  }
+
+  /**
+   * Toggle a tie from a note to the next note with the same pitch.
+   * If the note already has a forward tie, removes it.
+   * Returns true if tie added, false if removed, null if no candidate found.
+   */
+  toggleTie(noteId: string): boolean | null {
+    const score = this.scoreModel.getScore()
+    const allNotes = score.measures
+      .flatMap(m => m.notes)
+      .sort((a, b) => a.measure !== b.measure ? a.measure - b.measure : a.beat - b.beat)
+
+    const note = allNotes.find(n => n.id === noteId)
+    if (!note || note.isRest) return null
+
+    if (note.tiedTo) {
+      // Remove existing tie
+      const toNote = allNotes.find(n => n.id === note.tiedTo)
+      delete note.tiedTo
+      if (toNote) delete toNote.tiedFrom
+      this.playbackEngine.setScore(score)
+      this.saveUndoState('Remove tie')
+      return false
+    } else {
+      // Find next note with same pitch after current position
+      const idx = allNotes.findIndex(n => n.id === noteId)
+      const nextNote = allNotes.slice(idx + 1).find(n => !n.isRest && n.pitch === note.pitch)
+      if (!nextNote) return null
+
+      note.tiedTo = nextNote.id
+      nextNote.tiedFrom = noteId
+      this.playbackEngine.setScore(score)
+      this.saveUndoState('Add tie')
+      return true
+    }
+  }
+
+  /**
    * Delete a note
    * If the note is part of a chord, just remove it from the chord.
    * If it's a single note, replace it with a rest of the same duration.
@@ -1731,6 +1783,14 @@ export class MusicEngine {
     this.renderer.renderScore(this.scoreModel.getScore())
     // Update coordinate mapper with actual VexFlow bounds
     this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
+  }
+
+  /**
+   * Render a dangling tie arc from a note with no target yet (pending tie).
+   * Must be called after renderScore().
+   */
+  renderPendingTie(noteId: string): void {
+    this.renderer.renderPendingTie(noteId, this.scoreModel.getScore())
   }
 
   /**

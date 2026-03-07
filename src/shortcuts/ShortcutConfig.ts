@@ -94,6 +94,12 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Flat accidental',
   },
 
+  // Tie (numpad Enter - Sibelius style)
+  'NumpadEnter': {
+    action: 'toggleTie',
+    description: 'Toggle tie to next note of same pitch',
+  },
+
   // Articulations (numpad - Sibelius style)
   'NumpadDivide': {
     action: 'toggleAccent',
