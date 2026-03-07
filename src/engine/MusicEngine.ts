@@ -203,27 +203,50 @@ export class MusicEngine {
 
     console.log(`[Keyboard] addNoteAtBeat: pitch=${params.pitch} dur=${params.duration} measure=${params.measure} beat=${params.beat}`)
 
-    // Remove overlapping notes/rests atomically (before saving undo state)
+    // Detect tuplet context: auto-assign tupletId and snap beat if this beat falls inside a tuplet
+    let finalBeat = params.beat
+    let tupletId = params.tupletId
+    const tupletAtBeat = tupletId
+      ? (targetMeasure.tuplets || []).find(t => t.id === tupletId)
+      : this.scoreModel.getTupletAtBeat(params.measure, params.beat)
+
+    if (tupletAtBeat && !tupletId) {
+      finalBeat = snapToTupletBeat(params.beat, tupletAtBeat)
+      tupletId = tupletAtBeat.id
+    }
+
+    const finalParams: NoteParams = { ...params, beat: finalBeat, ...(tupletId ? { tupletId } : {}) }
+
+    // Calculate effective note duration (scaled by tuplet ratio when inside a tuplet)
+    const nominalDuration = durationToBeats(params.duration, params.dots || 0)
+    const tupletRatio = tupletAtBeat ? tupletAtBeat.notesOccupied / tupletAtBeat.numNotes : 1
+    const effectiveDuration = nominalDuration * tupletRatio
+    const noteEnd = finalBeat + effectiveDuration
+
+    // Remove overlapping notes/rests atomically, using scaled durations for tuplet notes
     const epsilon = 0.001
-    const newDurationBeats = durationToBeats(params.duration, params.dots || 0)
-    const noteEnd = params.beat + newDurationBeats
     const toDelete = targetMeasure.notes.filter(n => {
-      const nEnd = n.beat + durationToBeats(n.duration, n.dots || 0)
-      return n.beat + epsilon < noteEnd && nEnd - epsilon > params.beat
+      let nDuration = durationToBeats(n.duration, n.dots || 0)
+      if (n.tupletId) {
+        const nTuplet = (targetMeasure.tuplets || []).find(t => t.id === n.tupletId)
+        if (nTuplet) nDuration *= nTuplet.notesOccupied / nTuplet.numNotes
+      }
+      const nEnd = n.beat + nDuration
+      return n.beat + epsilon < noteEnd && nEnd - epsilon > finalBeat
     })
     for (const n of toDelete) {
       this.scoreModel.deleteNote(n.id)
     }
 
     const overflow = this.collisionDetector.checkMeasureOverflow(
-      params,
+      finalParams,
       targetMeasure,
       this.scoreModel.getNotesInMeasure(params.measure)
     )
 
     if (overflow.willOverflow && overflow.overflowAmount) {
       console.log(`[Keyboard] Overflow detected: ${overflow.overflowAmount.toFixed(3)} beats spill into next measure — splitting with tie`)
-      const splitNote = this.addSplitNoteWithTie(params, overflow.overflowAmount)
+      const splitNote = this.addSplitNoteWithTie(finalParams, overflow.overflowAmount)
       if (splitNote) {
         this.saveUndoState(`Keyboard enter note`)
         this.playbackEngine.setScore(this.scoreModel.getScore())
@@ -232,7 +255,7 @@ export class MusicEngine {
     }
 
     console.log(`[Keyboard] No overflow — placing note directly`)
-    const note = this.scoreModel.addNote(params)
+    const note = this.scoreModel.addNote(finalParams)
     this.saveUndoState(`Keyboard enter note`)
     this.playbackEngine.setScore(this.scoreModel.getScore())
     return note
@@ -1599,6 +1622,75 @@ export class MusicEngine {
     this.playbackEngine.setScore(this.scoreModel.getScore())
     this.saveUndoState('Create triplet')
 
+    return { tuplet, firstNote }
+  }
+
+  /**
+   * Create a tuplet at a specific beat position (for keyboard entry mode).
+   * Same logic as createTupletAtPosition but takes beat/measure directly.
+   */
+  createTupletAtBeat(
+    measureNumber: number,
+    beat: number,
+    duration: NoteDuration,
+    pitch: number,
+    accidental?: NoteParams['accidental'],
+    numNotes: number = 3,
+    notesOccupied: number = 2
+  ): { tuplet: Tuplet; firstNote: Note } | null {
+    const targetMeasure = this.scoreModel.getMeasure(measureNumber)
+    if (!targetMeasure) return null
+
+    const existingTuplet = this.scoreModel.getTupletAtBeat(measureNumber, beat)
+    if (existingTuplet) return null
+
+    const existingNoteAtStart = this.scoreModel.getNotesInMeasure(measureNumber)
+      .find(n => !n.isRest && !n.tupletId && Math.abs(n.beat - beat) < 0.001)
+    const existingNoteData = existingNoteAtStart ? {
+      pitch: existingNoteAtStart.pitch,
+      accidental: existingNoteAtStart.accidental,
+    } : null
+
+    const tuplet = this.scoreModel.createTuplet(measureNumber, beat, duration, numNotes, notesOccupied)
+    const beatPositions = getTupletBeatPositions(beat, duration, numNotes, notesOccupied)
+    const tupletNotes = this.scoreModel.getNotesInTuplet(tuplet.id)
+    const firstRest = tupletNotes.find(n => n.isRest && Math.abs(n.beat - beatPositions[0]) < 0.001)
+
+    let firstNote: Note
+
+    if (existingNoteData) {
+      if (firstRest) this.scoreModel.deleteNote(firstRest.id)
+      this.addNote({
+        pitch: existingNoteData.pitch,
+        duration,
+        measure: measureNumber,
+        beat: beatPositions[0],
+        tupletId: tuplet.id,
+        ...(existingNoteData.accidental && { accidental: existingNoteData.accidental }),
+      })
+      firstNote = this.addNote({
+        pitch,
+        duration,
+        measure: measureNumber,
+        beat: beatPositions[0],
+        tupletId: tuplet.id,
+        ...(accidental && { accidental }),
+      })
+    } else {
+      if (!firstRest) return null
+      this.scoreModel.deleteNote(firstRest.id)
+      firstNote = this.addNote({
+        pitch,
+        duration,
+        measure: measureNumber,
+        beat: beatPositions[0],
+        tupletId: tuplet.id,
+        ...(accidental && { accidental }),
+      })
+    }
+
+    this.playbackEngine.setScore(this.scoreModel.getScore())
+    this.saveUndoState('Create triplet')
     return { tuplet, firstNote }
   }
 

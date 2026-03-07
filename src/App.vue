@@ -310,7 +310,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { MusicEngine } from './engine/MusicEngine'
-import type { ArticulationType } from './types/music'
+import type { ArticulationType, Note } from './types/music'
 import type { PlaybackPosition } from './engine/audio/PlaybackEngine'
 import { ShortcutManager } from './shortcuts'
 import { durationToBeats } from './utils/musicUtils'
@@ -1100,20 +1100,35 @@ function enterNoteAtCursorPosition(pitchClass: number) {
   const measure = score.measures.find(m => m.number === targetMeasure)
   if (!measure) return
 
-  // Place the new note — addNoteAtBeat handles overlap removal, overflow (tie split) and gap filling
-  const newNote = engine.value.addNoteAtBeat({
-    pitch: targetPitch,
-    duration: selectedDuration.value,
-    measure: targetMeasure,
-    beat: targetBeat,
-    accidental: selectedAccidental.value || undefined,
-    dots: selectedDots.value || undefined,
-    isRest: false,
-    articulations: pendingArticulations.value,
-  })
+  let newNote: Note | null
+
+  if (tupletMode.value && !engine.value.getTupletAtBeat(targetMeasure, targetBeat)) {
+    // Tuplet mode and cursor is at a free beat — create a new tuplet
+    const result = engine.value.createTupletAtBeat(
+      targetMeasure,
+      targetBeat,
+      selectedDuration.value,
+      targetPitch,
+      selectedAccidental.value || undefined
+    )
+    newNote = result ? result.firstNote : null
+  } else {
+    // Normal mode, or cursor is already inside an existing tuplet.
+    // addNoteAtBeat auto-detects tuplet context and uses scaled durations.
+    newNote = engine.value.addNoteAtBeat({
+      pitch: targetPitch,
+      duration: selectedDuration.value,
+      measure: targetMeasure,
+      beat: targetBeat,
+      accidental: selectedAccidental.value || undefined,
+      dots: selectedDots.value || undefined,
+      isRest: false,
+      articulations: pendingArticulations.value,
+    })
+  }
 
   if (!newNote) {
-    console.log('[Keyboard] addNoteAtBeat returned null — placement failed')
+    console.log('[Keyboard] placement failed')
     renderScore()
     return
   }
