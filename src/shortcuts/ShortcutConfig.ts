@@ -99,6 +99,10 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'toggleAccent',
     description: 'Toggle accent articulation',
   },
+  'NumpadMultiply': {
+    action: 'toggleStaccato',
+    description: 'Toggle staccato articulation',
+  },
 
   // Selection navigation
   'ArrowRight': {

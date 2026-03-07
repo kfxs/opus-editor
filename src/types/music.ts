@@ -31,7 +31,7 @@ export type Accidental = '#' | 'b' | 'n'
 /**
  * Articulation types
  */
-export type ArticulationType = 'accent'
+export type ArticulationType = 'accent' | 'staccato'
 
 /**
  * Clef types

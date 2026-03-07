@@ -191,9 +191,21 @@
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
-              title="Accent (>)"
+              title="Accent (Numpad /)"
             >
               &gt;
+            </button>
+            <button
+              @click="toggleStaccato"
+              :class="[
+                'px-3 py-1 rounded text-sm font-bold',
+                selectedNoteHasStaccato
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Staccato (Numpad *)"
+            >
+              •
             </button>
           </div>
 
@@ -286,6 +298,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { MusicEngine } from './engine/MusicEngine'
+import type { ArticulationType } from './types/music'
 import type { PlaybackPosition } from './engine/audio/PlaybackEngine'
 import { ShortcutManager } from './shortcuts'
 import { durationToBeats } from './utils/musicUtils'
@@ -316,8 +329,9 @@ const selectedAccidental = ref<'#' | 'b' | 'n' | null>(null) // Default to no ac
 // Dot selection (0 = no dot, 1 = dotted, 2 = double-dotted)
 const selectedDots = ref<number>(0)
 
-// Pending accent state for entry mode (like selectedAccidental)
+// Pending accent/staccato state for entry mode (like selectedAccidental)
 const selectedAccent = ref(false)
+const selectedStaccato = ref(false)
 
 // Selected articulation (separate from note selection)
 const selectedArticulationNoteId = ref<string | null>(null)
@@ -339,6 +353,27 @@ const selectedNoteHasAccent = computed(() => {
     }
   }
   return selectedAccent.value
+})
+
+const selectedNoteHasStaccato = computed(() => {
+  if (selectedTool.value === 'selection' && engine.value) {
+    if (selectedArticulationNoteId.value) {
+      return selectedArticulationType.value === 'staccato'
+    }
+    if (selectedNoteId.value) {
+      const note = engine.value.getNote(selectedNoteId.value)
+      return note?.articulations?.includes('staccato') ?? false
+    }
+  }
+  return selectedStaccato.value
+})
+
+// Combined pending articulations for entry mode note creation
+const pendingArticulations = computed<ArticulationType[] | undefined>(() => {
+  const arts: ArticulationType[] = []
+  if (selectedAccent.value) arts.push('accent')
+  if (selectedStaccato.value) arts.push('staccato')
+  return arts.length ? arts : undefined
 })
 
 // Tuplet mode (for creating triplets)
@@ -460,6 +495,7 @@ onMounted(() => {
       setAccidentalSharp: () => setAccidental('#'),
       setAccidentalFlat: () => setAccidental('b'),
       toggleAccent: () => toggleAccent(),
+      toggleStaccato: () => toggleStaccato(),
       selectNextNote: () => {
         if (selectedTool.value === 'entry') {
           // Right arrow: exit keyboard mode and land on the note AT the cursor
@@ -624,6 +660,17 @@ function toggleAccent() {
   } else {
     // Entry mode: just arm/disarm the pending accent for the next note entry
     selectedAccent.value = !selectedAccent.value
+    if (lastCanvasMousePosition) renderPreview(lastCanvasMousePosition)
+  }
+}
+
+function toggleStaccato() {
+  if (selectedTool.value === 'selection' && selectedNoteId.value && engine.value) {
+    engine.value.toggleArticulation(selectedNoteId.value, 'staccato')
+    setSelectedNote(selectedNoteId.value)
+    renderScore()
+  } else {
+    selectedStaccato.value = !selectedStaccato.value
     if (lastCanvasMousePosition) renderPreview(lastCanvasMousePosition)
   }
 }
@@ -1007,7 +1054,7 @@ function enterNoteAtCursorPosition(pitchClass: number) {
     accidental: selectedAccidental.value || undefined,
     dots: selectedDots.value || undefined,
     isRest: false,
-    articulations: selectedAccent.value ? ['accent'] : undefined,
+    articulations: pendingArticulations.value,
   })
 
   if (!newNote) {
@@ -1216,6 +1263,7 @@ function resetPaletteToDefaults() {
   selectedAccidental.value = null
   selectedDots.value = 0
   selectedAccent.value = false
+  selectedStaccato.value = false
 }
 
 function setSelectedNote(id: string | null) {
@@ -1246,7 +1294,7 @@ function renderPreview(coords: { x: number; y: number }) {
     selectedDuration.value,
     selectedAccidental.value || undefined,
     selectedDots.value,
-    selectedAccent.value ? ['accent'] : undefined
+    pendingArticulations.value
   )
   applySelectionHighlight()
   applyArticulationHighlight()
@@ -1536,24 +1584,32 @@ function applyArticulationHighlight() {
 
   const ARTICULATION_COLOR = '#F59E0B'
 
+  // SMuFL char codes for each articulation type.
+  // Note: VexFlow maps 'a.' (staccato) to Glyphs.augmentationDot (U+E1E7), NOT articStaccatoAbove.
+  // The staccato and dotted-note augmentation dots share the same glyph — x-position matching
+  // below distinguishes them (staccato is centered on the note; augmentation dots are to the right).
+  const articulationCharCodes: Record<string, number[]> = {
+    accent:   [0xE4A0, 0xE4A1],
+    staccato: [0xE1E7],
+  }
+
+  const textEls = svg.querySelectorAll('text')
+
   for (const artEl of artElements) {
     const bbox = artEl.bbox
-    // VexFlow renders articulation glyphs as <text> elements (SMuFL font).
-    // All text elements have a giant getBBox height (~161px = full font line-box), so
-    // center-Y containment is unreliable. Instead, match by X start + width (sub-pixel
-    // tolerance), which uniquely identifies the articulation glyph vs nearby noteheads.
-    const textEls = svg.querySelectorAll('text')
-    for (const svgEl of textEls) {
-      const elBBox = (svgEl as SVGGraphicsElement).getBBox?.()
-      if (!elBBox) continue
+    const expectedCodes = articulationCharCodes[artEl.articulationType ?? ''] ?? []
 
-      const xMatches = Math.abs(elBBox.x - bbox.x) < 0.5 && Math.abs(elBBox.width - bbox.width) < 0.5
-      if (xMatches) {
-        const el = svgEl as SVGElement
-        el.setAttribute('fill', ARTICULATION_COLOR)
-        el.style.fill = ARTICULATION_COLOR
-        el.classList.add('selected-articulation')
-      }
+    for (const svgEl of textEls) {
+      const charCode = svgEl.textContent?.charCodeAt(0) ?? 0
+      if (!expectedCodes.includes(charCode)) continue
+
+      const svgX = parseFloat(svgEl.getAttribute('x') || '0')
+      if (Math.abs(svgX - bbox.x) > 3) continue
+
+      const el = svgEl as SVGElement
+      el.setAttribute('fill', ARTICULATION_COLOR)
+      el.style.fill = ARTICULATION_COLOR
+      el.classList.add('selected-articulation')
     }
   }
 }
@@ -1778,9 +1834,11 @@ function handleCanvasMouseDown(event: MouseEvent) {
 
   // Check if clicking directly on an articulation — select the articulation itself
   // (cannot use getAt here because the staff element is registered last and always wins)
+  // Use a tolerance pad because small articulations like staccato have tiny bounding boxes
+  const artPad = 8
   const articulationAt = registry.getByType('articulation').find(el => {
     const b = el.bbox
-    return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
+    return x >= b.x - artPad && x <= b.x + b.width + artPad && y >= b.y - artPad && y <= b.y + b.height + artPad
   }) ?? null
   if (articulationAt?.noteId) {
     selectedNoteId.value = null
@@ -1914,7 +1972,7 @@ function handleCanvasClick(event: MouseEvent) {
           selectedDuration.value,
           selectedAccidental.value || undefined,
           selectedDots.value || undefined,
-          selectedAccent.value ? ['accent'] : undefined
+          pendingArticulations.value
         )
 
         if (note) {
@@ -1957,7 +2015,7 @@ function handleCanvasClick(event: MouseEvent) {
         selectedDuration.value,
         selectedAccidental.value || undefined,
         selectedDots.value || undefined,
-        selectedAccent.value ? ['accent'] : undefined
+        pendingArticulations.value
       )
 
       if (note) {
@@ -2061,7 +2119,7 @@ function handleCanvasMouseMove(event: MouseEvent) {
     selectedDuration.value,
     selectedAccidental.value || undefined,
     selectedDots.value,
-    selectedAccent.value ? ['accent'] : undefined
+    pendingArticulations.value
   )
 
   applySelectionHighlight()
