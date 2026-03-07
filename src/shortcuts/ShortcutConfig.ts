@@ -173,6 +173,10 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'toggleTuplet',
     description: 'Toggle triplet mode',
   },
+  'Ctrl+3': {
+    action: 'toggleTuplet',
+    description: 'Toggle triplet mode (Ctrl+3)',
+  },
 
   // Rest entry in keyboard mode
   'r': { action: 'enterRest', description: 'Enter rest at cursor position (keyboard mode)' },
