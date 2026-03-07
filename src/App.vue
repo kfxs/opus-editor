@@ -207,6 +207,18 @@
             >
               •
             </button>
+            <button
+              @click="toggleTenuto"
+              :class="[
+                'px-3 py-1 rounded text-sm font-bold',
+                selectedNoteHasTenuto
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Tenuto (Numpad -)"
+            >
+              —
+            </button>
           </div>
 
           <!-- Dot Selector -->
@@ -329,9 +341,10 @@ const selectedAccidental = ref<'#' | 'b' | 'n' | null>(null) // Default to no ac
 // Dot selection (0 = no dot, 1 = dotted, 2 = double-dotted)
 const selectedDots = ref<number>(0)
 
-// Pending accent/staccato state for entry mode (like selectedAccidental)
+// Pending accent/staccato/tenuto state for entry mode (like selectedAccidental)
 const selectedAccent = ref(false)
 const selectedStaccato = ref(false)
+const selectedTenuto = ref(false)
 
 // Selected articulation (separate from note selection)
 const selectedArticulationNoteId = ref<string | null>(null)
@@ -368,11 +381,25 @@ const selectedNoteHasStaccato = computed(() => {
   return selectedStaccato.value
 })
 
+const selectedNoteHasTenuto = computed(() => {
+  if (selectedTool.value === 'selection' && engine.value) {
+    if (selectedArticulationNoteId.value) {
+      return selectedArticulationType.value === 'tenuto'
+    }
+    if (selectedNoteId.value) {
+      const note = engine.value.getNote(selectedNoteId.value)
+      return note?.articulations?.includes('tenuto') ?? false
+    }
+  }
+  return selectedTenuto.value
+})
+
 // Combined pending articulations for entry mode note creation
 const pendingArticulations = computed<ArticulationType[] | undefined>(() => {
   const arts: ArticulationType[] = []
   if (selectedAccent.value) arts.push('accent')
   if (selectedStaccato.value) arts.push('staccato')
+  if (selectedTenuto.value) arts.push('tenuto')
   return arts.length ? arts : undefined
 })
 
@@ -496,6 +523,7 @@ onMounted(() => {
       setAccidentalFlat: () => setAccidental('b'),
       toggleAccent: () => toggleAccent(),
       toggleStaccato: () => toggleStaccato(),
+      toggleTenuto: () => toggleTenuto(),
       selectNextNote: () => {
         if (selectedTool.value === 'entry') {
           // Right arrow: exit keyboard mode and land on the note AT the cursor
@@ -671,6 +699,17 @@ function toggleStaccato() {
     renderScore()
   } else {
     selectedStaccato.value = !selectedStaccato.value
+    if (lastCanvasMousePosition) renderPreview(lastCanvasMousePosition)
+  }
+}
+
+function toggleTenuto() {
+  if (selectedTool.value === 'selection' && selectedNoteId.value && engine.value) {
+    engine.value.toggleArticulation(selectedNoteId.value, 'tenuto')
+    setSelectedNote(selectedNoteId.value)
+    renderScore()
+  } else {
+    selectedTenuto.value = !selectedTenuto.value
     if (lastCanvasMousePosition) renderPreview(lastCanvasMousePosition)
   }
 }
@@ -1264,6 +1303,7 @@ function resetPaletteToDefaults() {
   selectedDots.value = 0
   selectedAccent.value = false
   selectedStaccato.value = false
+  selectedTenuto.value = false
 }
 
 function setSelectedNote(id: string | null) {
@@ -1591,6 +1631,7 @@ function applyArticulationHighlight() {
   const articulationCharCodes: Record<string, number[]> = {
     accent:   [0xE4A0, 0xE4A1],
     staccato: [0xE1E7],
+    tenuto:   [0xE4A4, 0xE4A5],
   }
 
   const textEls = svg.querySelectorAll('text')

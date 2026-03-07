@@ -103,6 +103,10 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'toggleStaccato',
     description: 'Toggle staccato articulation',
   },
+  'NumpadSubtract': {
+    action: 'toggleTenuto',
+    description: 'Toggle tenuto articulation',
+  },
 
   // Selection navigation
   'ArrowRight': {

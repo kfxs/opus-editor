@@ -328,7 +328,7 @@ export class VexFlowRenderer {
 
     // Add articulations (apply to chord representative note — index 0)
     // Position: stem up (note below middle line) → accent below notehead; stem down → above
-    const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.' }
+    const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
     const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
     const articulations = note.articulations || []
     for (const art of articulations) {
@@ -1469,7 +1469,7 @@ export class VexFlowRenderer {
 
       // Add articulations with correct position (same logic as regular notes)
       if (ghostNote.articulations?.length) {
-        const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.' }
+        const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
         const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
         for (const art of ghostNote.articulations) {
           staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
@@ -1770,7 +1770,7 @@ export class VexFlowRenderer {
 
       // Add articulations with correct position based on stem direction
       if (ghostNote.articulations?.length) {
-        const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.' }
+        const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
         const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
         for (const art of ghostNote.articulations) {
           staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
