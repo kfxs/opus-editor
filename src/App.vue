@@ -319,11 +319,20 @@ const selectedDots = ref<number>(0)
 // Pending accent state for entry mode (like selectedAccidental)
 const selectedAccent = ref(false)
 
-// Button active: in selection mode reflect the note's state, in entry mode reflect the pending state
+// Selected articulation (separate from note selection)
+const selectedArticulationNoteId = ref<string | null>(null)
+const selectedArticulationType = ref<string | null>(null)
+
+// Button active: in selection mode reflect the note's/articulation's state, in entry mode reflect the pending state
 const selectedNoteHasAccent = computed(() => {
-  if (selectedTool.value === 'selection' && selectedNoteId.value && engine.value) {
-    const note = engine.value.getNote(selectedNoteId.value)
-    return note?.articulations?.includes('accent') ?? false
+  if (selectedTool.value === 'selection' && engine.value) {
+    if (selectedArticulationNoteId.value) {
+      return selectedArticulationType.value === 'accent'
+    }
+    if (selectedNoteId.value) {
+      const note = engine.value.getNote(selectedNoteId.value)
+      return note?.articulations?.includes('accent') ?? false
+    }
   }
   return selectedAccent.value
 })
@@ -416,7 +425,7 @@ onMounted(() => {
           renderScore()
         } else if (selectedTool.value === 'selection' && selectedNoteId.value) {
           // If already in selection mode with a note selected, clear selection
-          selectedNoteId.value = null
+          selectNote(null)
           renderScore()
         } else {
           // Otherwise, switch to selection mode
@@ -433,7 +442,7 @@ onMounted(() => {
         } else if (selectedNoteId.value && engine.value) {
           // Delete selected note
           engine.value.deleteNote(selectedNoteId.value)
-          selectedNoteId.value = null
+          selectNote(null)
           renderScore()
         }
       },
@@ -563,7 +572,7 @@ function addSampleNotes() {
 function clearNotes() {
   if (!engine.value) return
   engine.value.clearAllNotes()
-  selectedNoteId.value = null
+  selectNote(null)
   renderScore()
 }
 
@@ -645,6 +654,8 @@ function toggleTuplet() {
 // Helper to select a note and sync palette to its properties
 function selectNote(noteId: string | null) {
   selectedNoteId.value = noteId
+  selectedArticulationNoteId.value = null
+  selectedArticulationType.value = null
 
   if (noteId && engine.value) {
     // Find the note in the score and sync palette
@@ -1216,6 +1227,7 @@ function renderScore() {
 
   // Apply selection highlights
   applySelectionHighlight()
+  applyArticulationHighlight()
   applyTupletSelectionHighlight()
   applyKeyboardCursor()
 }
@@ -1230,6 +1242,7 @@ function renderPreview(coords: { x: number; y: number }) {
     selectedAccent.value ? ['accent'] : undefined
   )
   applySelectionHighlight()
+  applyArticulationHighlight()
   applyTupletSelectionHighlight()
   applyKeyboardCursor()
 }
@@ -1495,6 +1508,48 @@ function applySelectionHighlight() {
   }
 }
 
+function applyArticulationHighlight() {
+  if (!engine.value || !scoreCanvas.value || !selectedArticulationNoteId.value) return
+
+  const registry = engine.value.getElementRegistry()
+  const artElements = registry.getByType('articulation').filter(
+    el => el.noteId === selectedArticulationNoteId.value &&
+          el.articulationType === selectedArticulationType.value
+  )
+  if (!artElements.length) {
+    // Articulation no longer exists - clear selection
+    selectedArticulationNoteId.value = null
+    selectedArticulationType.value = null
+    return
+  }
+
+  const svg = scoreCanvas.value.querySelector('svg')
+  if (!svg) return
+
+  const ARTICULATION_COLOR = '#F59E0B'
+
+  for (const artEl of artElements) {
+    const bbox = artEl.bbox
+    // VexFlow renders articulation glyphs as <text> elements (SMuFL font).
+    // All text elements have a giant getBBox height (~161px = full font line-box), so
+    // center-Y containment is unreliable. Instead, match by X start + width (sub-pixel
+    // tolerance), which uniquely identifies the articulation glyph vs nearby noteheads.
+    const textEls = svg.querySelectorAll('text')
+    for (const svgEl of textEls) {
+      const elBBox = (svgEl as SVGGraphicsElement).getBBox?.()
+      if (!elBBox) continue
+
+      const xMatches = Math.abs(elBBox.x - bbox.x) < 0.5 && Math.abs(elBBox.width - bbox.width) < 0.5
+      if (xMatches) {
+        const el = svgEl as SVGElement
+        el.setAttribute('fill', ARTICULATION_COLOR)
+        el.style.fill = ARTICULATION_COLOR
+        el.classList.add('selected-articulation')
+      }
+    }
+  }
+}
+
 function applyTupletSelectionHighlight() {
   if (!engine.value || !scoreCanvas.value || !selectedTupletId.value) return
 
@@ -1654,11 +1709,17 @@ function handleCanvasMouseDown(event: MouseEvent) {
   // Clear tuplet selection when selecting notes
   selectedTupletId.value = null
 
-  // Check if clicking directly on an articulation — select its parent note
-  const articulationAt = registry.getAt(x, y)
-  if (articulationAt?.type === 'articulation' && articulationAt.noteId) {
-    selectNote(articulationAt.noteId)
-    console.log(`✓ Articulation clicked, selected note | id:${articulationAt.noteId}`)
+  // Check if clicking directly on an articulation — select the articulation itself
+  // (cannot use getAt here because the staff element is registered last and always wins)
+  const articulationAt = registry.getByType('articulation').find(el => {
+    const b = el.bbox
+    return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
+  }) ?? null
+  if (articulationAt?.noteId) {
+    selectedNoteId.value = null
+    selectedArticulationNoteId.value = articulationAt.noteId
+    selectedArticulationType.value = articulationAt.articulationType || null
+    console.log(`✓ Articulation selected | noteId:${articulationAt.noteId} type:${articulationAt.articulationType}`)
     renderScore()
     return
   }
@@ -1696,13 +1757,13 @@ function handleCanvasMouseDown(event: MouseEvent) {
       }
     } else {
       // Clicked too far from element - clear selection
-      selectedNoteId.value = null
+      selectNote(null)
       console.log('Selection cleared (too far from element)')
       renderScore()
     }
   } else {
     // Clicked on empty space - clear selection
-    selectedNoteId.value = null
+    selectNote(null)
     console.log('Selection cleared')
     renderScore()
   }
@@ -1935,6 +1996,7 @@ function handleCanvasMouseMove(event: MouseEvent) {
   )
 
   applySelectionHighlight()
+  applyArticulationHighlight()
   applyTupletSelectionHighlight()
   applyKeyboardCursor()
 

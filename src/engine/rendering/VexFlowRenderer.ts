@@ -1229,7 +1229,7 @@ export class VexFlowRenderer {
                     try {
                       const modifiers = staveNote.getModifiers()
                       for (const modifier of modifiers) {
-                        if (modifier.getCategory() === 'articulations') {
+                        if (modifier.getCategory() === 'Articulation') {
                           const artBox = modifier.getBoundingBox()
                           if (artBox) {
                             this.elementRegistry.add({
