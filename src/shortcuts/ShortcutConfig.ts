@@ -33,6 +33,10 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'setSelectionMode',
     description: 'Switch to selection mode / clear selection',
   },
+  ' ': {
+    action: 'enterEntryFromSelection',
+    description: 'Enter entry mode keeping the selected note as cursor anchor',
+  },
 
   // Note durations (for future use)
   // '1': { action: 'setDurationWhole', description: 'Whole note' },

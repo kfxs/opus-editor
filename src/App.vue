@@ -372,18 +372,17 @@ onMounted(() => {
         selectedNoteId.value = null
         resetPaletteToDefaults()
         // Show ghost note at last known mouse position
-        if (lastCanvasMousePosition && engine.value) {
-          engine.value.renderScoreWithPreview(
-            lastCanvasMousePosition,
-            selectedDuration.value,
-            selectedAccidental.value || undefined,
-            selectedDots.value
-          )
-        }
+        if (lastCanvasMousePosition) renderPreview(lastCanvasMousePosition)
+      },
+      enterEntryFromSelection: () => {
+        // Only acts when in selection mode with a note selected
+        if (selectedTool.value !== 'selection' || !selectedNoteId.value) return
+        selectedTool.value = 'entry'
+        renderScore()
       },
       setSelectionMode: () => {
         if (selectedTool.value === 'entry') {
-          // Exit keyboard mode → back to selection, keep current note selected
+          // Exit entry mode → back to selection, keep current note selected
           selectedTool.value = 'selection'
           renderScore()
         } else if (selectedTool.value === 'selection' && selectedNoteId.value) {
@@ -446,37 +445,27 @@ onMounted(() => {
       octaveDown: () => adjustOctave(-1),
       undo: () => {
         if (engine.value?.undo()) {
+          const restoredId = engine.value.getLastRestoredNoteId()
+          selectedNoteId.value = restoredId && engine.value.getNote(restoredId) ? restoredId : null
           renderScore()
-          // Update selection state after undo
           if (selectedNoteId.value) {
-            const note = engine.value.getNote(selectedNoteId.value)
-            if (note) {
-              // Sync palette with restored note state
-              selectedDuration.value = note.duration
-              selectedAccidental.value = note.accidental || null
-              selectedDots.value = note.dots || 0
-            } else {
-              // Note no longer exists after undo
-              selectedNoteId.value = null
-            }
+            const note = engine.value.getNote(selectedNoteId.value)!
+            selectedDuration.value = note.duration
+            selectedAccidental.value = note.accidental || null
+            selectedDots.value = note.dots || 0
           }
         }
       },
       redo: () => {
         if (engine.value?.redo()) {
+          const restoredId = engine.value.getLastRestoredNoteId()
+          selectedNoteId.value = restoredId && engine.value.getNote(restoredId) ? restoredId : null
           renderScore()
-          // Update selection state after redo
           if (selectedNoteId.value) {
-            const note = engine.value.getNote(selectedNoteId.value)
-            if (note) {
-              // Sync palette with restored note state
-              selectedDuration.value = note.duration
-              selectedAccidental.value = note.accidental || null
-              selectedDots.value = note.dots || 0
-            } else {
-              // Note no longer exists after redo
-              selectedNoteId.value = null
-            }
+            const note = engine.value.getNote(selectedNoteId.value)!
+            selectedDuration.value = note.duration
+            selectedAccidental.value = note.accidental || null
+            selectedDots.value = note.dots || 0
           }
         }
       },
@@ -561,14 +550,7 @@ function setDuration(duration: 'w' | 'h' | 'q' | '8' | '16' | '32') {
   } else if (selectedTool.value === 'selection') {
     // Switch to entry mode when pressing duration in selection mode with nothing selected
     selectedTool.value = 'entry'
-    if (lastCanvasMousePosition && engine.value) {
-      engine.value.renderScoreWithPreview(
-        lastCanvasMousePosition,
-        duration,
-        selectedAccidental.value || undefined,
-        0
-      )
-    }
+    if (lastCanvasMousePosition) renderPreview(lastCanvasMousePosition)
   }
 }
 
@@ -583,22 +565,10 @@ function setAccidental(accidental: '#' | 'b' | 'n' | null) {
   } else if (selectedTool.value === 'selection') {
     // Switch to entry mode when pressing accidental in selection mode with nothing selected
     selectedTool.value = 'entry'
-    if (lastCanvasMousePosition && engine.value) {
-      engine.value.renderScoreWithPreview(
-        lastCanvasMousePosition,
-        selectedDuration.value,
-        newValue || undefined,
-        selectedDots.value
-      )
-    }
-  } else if (selectedTool.value === 'entry' && lastCanvasMousePosition && engine.value) {
+    if (lastCanvasMousePosition) renderPreview(lastCanvasMousePosition)
+  } else if (selectedTool.value === 'entry' && lastCanvasMousePosition) {
     // Re-render ghost note with new accidental
-    engine.value.renderScoreWithPreview(
-      lastCanvasMousePosition,
-      selectedDuration.value,
-      newValue || undefined,
-      selectedDots.value
-    )
+    renderPreview(lastCanvasMousePosition)
   }
 }
 
@@ -613,22 +583,10 @@ function toggleDot() {
   } else if (selectedTool.value === 'selection') {
     // Switch to entry mode when pressing dot in selection mode with nothing selected
     selectedTool.value = 'entry'
-    if (lastCanvasMousePosition && engine.value) {
-      engine.value.renderScoreWithPreview(
-        lastCanvasMousePosition,
-        selectedDuration.value,
-        selectedAccidental.value || undefined,
-        newValue
-      )
-    }
-  } else if (selectedTool.value === 'entry' && lastCanvasMousePosition && engine.value) {
+    if (lastCanvasMousePosition) renderPreview(lastCanvasMousePosition)
+  } else if (selectedTool.value === 'entry' && lastCanvasMousePosition) {
     // Re-render ghost note with new dot
-    engine.value.renderScoreWithPreview(
-      lastCanvasMousePosition,
-      selectedDuration.value,
-      selectedAccidental.value || undefined,
-      newValue
-    )
+    renderPreview(lastCanvasMousePosition)
   }
 }
 
@@ -927,7 +885,6 @@ function enterNoteAtCursorPosition(pitchClass: number) {
   if (!selectedNoteId.value || !engine.value) return
 
   const score = engine.value.getScore()
-  const epsilon = 0.001
 
   // Build sorted beat list (same logic as navigateSelection / applyKeyboardCursor)
   const allFlat = score.measures
@@ -978,24 +935,10 @@ function enterNoteAtCursorPosition(pitchClass: number) {
 
   console.log(`[Keyboard] Entering note: pitchClass=${pitchClass} pitch=${targetPitch} dur=${selectedDuration.value} dots=${selectedDots.value} (${newDurationBeats} beats) at measure=${targetMeasure} beat=${targetBeat}`)
 
-  // Remove every note/rest in the target measure that overlaps the new note's time span.
-  // addNoteAtBeat handles overflow into the next measure via tie splitting.
-  const noteEnd = targetBeat + newDurationBeats
   const measure = score.measures.find(m => m.number === targetMeasure)
   if (!measure) return
 
-  const toDelete = measure.notes.filter(n => {
-    const nEnd = n.beat + durationToBeats(n.duration, n.dots || 0)
-    return n.beat + epsilon < noteEnd && nEnd - epsilon > targetBeat
-  })
-  if (toDelete.length > 0) {
-    console.log(`[Keyboard] Removing ${toDelete.length} overlapping note(s):`, toDelete.map(n => `${n.isRest ? 'rest' : 'note'} dur=${n.duration} @beat=${n.beat}`).join(', '))
-    for (const n of toDelete) {
-      engine.value!.deleteNote(n.id)
-    }
-  }
-
-  // Place the new note — addNoteAtBeat handles overflow (tie split) and gap filling
+  // Place the new note — addNoteAtBeat handles overlap removal, overflow (tie split) and gap filling
   const newNote = engine.value.addNoteAtBeat({
     pitch: targetPitch,
     duration: selectedDuration.value,
@@ -1028,7 +971,7 @@ function enterNoteAtCursorPosition(pitchClass: number) {
     console.log(`[Keyboard] Tie chain: cursor advanced to last tied note id=${lastNote.id} measure=${lastNote.measure} beat=${lastNote.beat}`)
   }
 
-  selectedNoteId.value = lastNote.id
+  setSelectedNote(lastNote.id)
   // In keyboard mode, accidentals are one-shot — clear after each entry
   selectedAccidental.value = null
   renderScore()
@@ -1074,7 +1017,6 @@ function enterRestAtCursorPosition() {
   const targetMeasure = nextBeat.measureNumber
   const targetBeat = nextBeat.beat
   const newDurationBeats = durationToBeats(selectedDuration.value, selectedDots.value)
-  const noteEnd = targetBeat + newDurationBeats
 
   // Rests don't tie across barlines — cap to available space in the measure
   const measureData = score.measures.find(m => m.number === targetMeasure)
@@ -1091,21 +1033,7 @@ function enterRestAtCursorPosition() {
 
   console.log(`[Keyboard] Entering rest: dur=${fittingDur.dur} (${fittingDur.beats} beats) at measure=${targetMeasure} beat=${targetBeat}${fittingDur.dur !== selectedDuration.value ? ` (capped from ${selectedDuration.value})` : ''}`)
 
-  const measure = measureData
-  if (!measure) return
-
-  const actualNoteEnd = targetBeat + fittingDur.beats
-  const toDelete = measure.notes.filter(n => {
-    const nEnd = n.beat + durationToBeats(n.duration, n.dots || 0)
-    return n.beat + epsilon < actualNoteEnd && nEnd - epsilon > targetBeat
-  })
-  if (toDelete.length > 0) {
-    console.log(`[Keyboard] Removing ${toDelete.length} overlapping note(s):`, toDelete.map(n => `${n.isRest ? 'rest' : 'note'} dur=${n.duration} @beat=${n.beat}`).join(', '))
-    for (const n of toDelete) {
-      engine.value!.deleteNote(n.id)
-    }
-  }
-
+  // addNoteAtBeat handles overlap removal atomically
   const newRest = engine.value.addNoteAtBeat({
     pitch: 0,
     duration: fittingDur.dur,
@@ -1121,7 +1049,7 @@ function enterRestAtCursorPosition() {
   }
 
   console.log(`[Keyboard] Rest placed: id=${newRest.id} dur=${newRest.duration} measure=${newRest.measure} beat=${newRest.beat}`)
-  selectedNoteId.value = newRest.id
+  setSelectedNote(newRest.id)
   renderScore()
 }
 
@@ -1162,7 +1090,7 @@ function addChordNoteByLetter(letter: string) {
   // If equal to basePitch it would be a duplicate — go up one octave
   if (targetPitch === basePitch) targetPitch += 12
 
-  engine.value.addChordNote({
+  const newNote = engine.value.addChordNote({
     pitch: targetPitch,
     duration: note.duration,
     measure: note.measure,
@@ -1172,6 +1100,7 @@ function addChordNoteByLetter(letter: string) {
     isRest: false,
     tupletId: note.tupletId,
   })
+  setSelectedNote(newNote.id)
   renderScore()
 }
 
@@ -1227,6 +1156,11 @@ function resetPaletteToDefaults() {
   selectedDots.value = 0
 }
 
+function setSelectedNote(id: string | null) {
+  selectedNoteId.value = id
+  if (engine.value) engine.value.updateUndoNoteId(id)
+}
+
 function renderScore() {
   if (!engine.value) return
   isRendering = true
@@ -1236,6 +1170,19 @@ function renderScore() {
   lastRenderTime = Date.now()
 
   // Apply selection highlights
+  applySelectionHighlight()
+  applyTupletSelectionHighlight()
+  applyKeyboardCursor()
+}
+
+function renderPreview(coords: { x: number; y: number }) {
+  if (!engine.value) return
+  engine.value.renderScoreWithPreview(
+    coords,
+    selectedDuration.value,
+    selectedAccidental.value || undefined,
+    selectedDots.value
+  )
   applySelectionHighlight()
   applyTupletSelectionHighlight()
   applyKeyboardCursor()
@@ -1786,7 +1733,7 @@ function handleCanvasClick(event: MouseEvent) {
 
         if (note) {
           console.log(`✓ Note added to tuplet | pitch:${note.pitch} measure:${note.measure} beat:${note.beat}`)
-          selectedNoteId.value = note.id
+          setSelectedNote(note.id)
           selectedTool.value = 'entry'
           renderScore()
         } else {
@@ -1809,7 +1756,7 @@ function handleCanvasClick(event: MouseEvent) {
 
         if (result) {
           console.log(`✓ Tuplet created | tupletId:${result.tuplet.id} firstNote pitch:${result.firstNote.pitch}`)
-          selectedNoteId.value = result.firstNote.id
+          setSelectedNote(result.firstNote.id)
           selectedTool.value = 'entry'
           // Keep tuplet mode active - user must manually disable it
           renderScore()
@@ -1828,7 +1775,7 @@ function handleCanvasClick(event: MouseEvent) {
 
       if (note) {
         console.log(`✓ Note added | pitch:${note.pitch} measure:${note.measure} beat:${note.beat}`)
-        selectedNoteId.value = note.id
+        setSelectedNote(note.id)
         selectedTool.value = 'entry'
         renderScore()
       } else {
@@ -1928,6 +1875,10 @@ function handleCanvasMouseMove(event: MouseEvent) {
     selectedAccidental.value || undefined,
     selectedDots.value
   )
+
+  applySelectionHighlight()
+  applyTupletSelectionHighlight()
+  applyKeyboardCursor()
 
   // Hide cursor when ghost note is shown, show cursor when it's not
   showCursor.value = !ghostNoteRendered

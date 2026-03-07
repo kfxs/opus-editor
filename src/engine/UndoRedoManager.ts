@@ -4,6 +4,7 @@ interface HistoryEntry {
   snapshot: Score
   description: string
   timestamp: number
+  selectedNoteId?: string | null
 }
 
 /**
@@ -17,6 +18,7 @@ export class UndoRedoManager {
   private history: HistoryEntry[] = []
   private currentIndex = -1
   private maxHistory: number
+  private lastRestoredNoteId: string | null = null
 
   constructor(maxHistory = 100) {
     this.maxHistory = maxHistory
@@ -76,13 +78,30 @@ export class UndoRedoManager {
   }
 
   /**
+   * Update the selectedNoteId stored in the current history entry.
+   * Call this after an operation updates selectedNoteId in the UI.
+   */
+  updateCurrentNoteId(id: string | null): void {
+    if (this.currentIndex >= 0) {
+      this.history[this.currentIndex].selectedNoteId = id
+    }
+  }
+
+  /**
+   * Returns the selectedNoteId that was stored in the state we just restored to.
+   */
+  getLastRestoredNoteId(): string | null {
+    return this.lastRestoredNoteId
+  }
+
+  /**
    * Undo: Go back to the previous state
    * @returns The previous score state, or null if can't undo
    */
   undo(): Score | null {
     if (!this.canUndo()) return null
     this.currentIndex--
-    // Return a deep copy to prevent external modifications
+    this.lastRestoredNoteId = this.history[this.currentIndex].selectedNoteId ?? null
     return JSON.parse(JSON.stringify(this.history[this.currentIndex].snapshot)) as Score
   }
 
@@ -93,7 +112,7 @@ export class UndoRedoManager {
   redo(): Score | null {
     if (!this.canRedo()) return null
     this.currentIndex++
-    // Return a deep copy to prevent external modifications
+    this.lastRestoredNoteId = this.history[this.currentIndex].selectedNoteId ?? null
     return JSON.parse(JSON.stringify(this.history[this.currentIndex].snapshot)) as Score
   }
 

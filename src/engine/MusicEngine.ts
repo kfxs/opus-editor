@@ -109,6 +109,16 @@ export class MusicEngine {
     return true
   }
 
+  /** Store the selectedNoteId alongside the current undo state. */
+  updateUndoNoteId(id: string | null): void {
+    this.undoRedoManager.updateCurrentNoteId(id)
+  }
+
+  /** Returns the selectedNoteId recorded in the state just restored by undo/redo. */
+  getLastRestoredNoteId(): string | null {
+    return this.undoRedoManager.getLastRestoredNoteId()
+  }
+
   /**
    * Check if undo is available
    */
@@ -192,6 +202,18 @@ export class MusicEngine {
     if (!targetMeasure) return null
 
     console.log(`[Keyboard] addNoteAtBeat: pitch=${params.pitch} dur=${params.duration} measure=${params.measure} beat=${params.beat}`)
+
+    // Remove overlapping notes/rests atomically (before saving undo state)
+    const epsilon = 0.001
+    const newDurationBeats = durationToBeats(params.duration, params.dots || 0)
+    const noteEnd = params.beat + newDurationBeats
+    const toDelete = targetMeasure.notes.filter(n => {
+      const nEnd = n.beat + durationToBeats(n.duration, n.dots || 0)
+      return n.beat + epsilon < noteEnd && nEnd - epsilon > params.beat
+    })
+    for (const n of toDelete) {
+      this.scoreModel.deleteNote(n.id)
+    }
 
     const overflow = this.collisionDetector.checkMeasureOverflow(
       params,
