@@ -180,6 +180,23 @@
             </button>
           </div>
 
+          <!-- Articulations -->
+          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
+            <span class="text-sm text-gray-300">Articulation:</span>
+            <button
+              @click="toggleAccent"
+              :class="[
+                'px-3 py-1 rounded text-sm font-bold',
+                selectedNoteHasAccent
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Accent (>)"
+            >
+              &gt;
+            </button>
+          </div>
+
           <!-- Dot Selector -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Dot:</span>
@@ -298,6 +315,18 @@ const selectedAccidental = ref<'#' | 'b' | 'n' | null>(null) // Default to no ac
 
 // Dot selection (0 = no dot, 1 = dotted, 2 = double-dotted)
 const selectedDots = ref<number>(0)
+
+// Pending accent state for entry mode (like selectedAccidental)
+const selectedAccent = ref(false)
+
+// Button active when pending accent is armed OR selected note has accent
+const selectedNoteHasAccent = computed(() => {
+  if (selectedNoteId.value && engine.value) {
+    const note = engine.value.getNote(selectedNoteId.value)
+    if (note) return note.articulations?.includes('accent') ?? false
+  }
+  return selectedAccent.value
+})
 
 // Tuplet mode (for creating triplets)
 const tupletMode = ref<boolean>(false)
@@ -569,6 +598,21 @@ function setAccidental(accidental: '#' | 'b' | 'n' | null) {
   } else if (selectedTool.value === 'entry' && lastCanvasMousePosition) {
     // Re-render ghost note with new accidental
     renderPreview(lastCanvasMousePosition)
+  }
+}
+
+function toggleAccent() {
+  if (selectedNoteId.value && engine.value) {
+    // Note selected: toggle on the note immediately
+    engine.value.toggleArticulation(selectedNoteId.value, 'accent')
+    setSelectedNote(selectedNoteId.value)
+    // Sync pending state with the note's actual state
+    const note = engine.value.getNote(selectedNoteId.value)
+    selectedAccent.value = note?.articulations?.includes('accent') ?? false
+    renderScore()
+  } else {
+    // No note selected (entry mode, before first click): arm/disarm pending accent
+    selectedAccent.value = !selectedAccent.value
   }
 }
 
@@ -947,6 +991,7 @@ function enterNoteAtCursorPosition(pitchClass: number) {
     accidental: selectedAccidental.value || undefined,
     dots: selectedDots.value || undefined,
     isRest: false,
+    articulations: selectedAccent.value ? ['accent'] : undefined,
   })
 
   if (!newNote) {
@@ -1154,6 +1199,7 @@ function resetPaletteToDefaults() {
   selectedDuration.value = 'q'
   selectedAccidental.value = null
   selectedDots.value = 0
+  selectedAccent.value = false
 }
 
 function setSelectedNote(id: string | null) {
@@ -1608,6 +1654,15 @@ function handleCanvasMouseDown(event: MouseEvent) {
   // Clear tuplet selection when selecting notes
   selectedTupletId.value = null
 
+  // Check if clicking directly on an articulation — select its parent note
+  const articulationAt = registry.getAt(x, y)
+  if (articulationAt?.type === 'articulation' && articulationAt.noteId) {
+    selectNote(articulationAt.noteId)
+    console.log(`✓ Articulation clicked, selected note | id:${articulationAt.noteId}`)
+    renderScore()
+    return
+  }
+
   if (closestElement && closestElement.id) {
     const bbox = closestElement.bbox
     const centerX = bbox.x + bbox.width / 2
@@ -1728,7 +1783,8 @@ function handleCanvasClick(event: MouseEvent) {
           { x, y },
           selectedDuration.value,
           selectedAccidental.value || undefined,
-          selectedDots.value || undefined
+          selectedDots.value || undefined,
+          selectedAccent.value ? ['accent'] : undefined
         )
 
         if (note) {
@@ -1770,7 +1826,8 @@ function handleCanvasClick(event: MouseEvent) {
         { x, y },
         selectedDuration.value,
         selectedAccidental.value || undefined,
-        selectedDots.value || undefined
+        selectedDots.value || undefined,
+        selectedAccent.value ? ['accent'] : undefined
       )
 
       if (note) {

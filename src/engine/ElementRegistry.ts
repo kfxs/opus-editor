@@ -24,6 +24,7 @@ export type ElementType =
   | 'tie'
   | 'accidental'
   | 'tuplet'
+  | 'articulation'
 
 /**
  * Bounding box in pixel coordinates
@@ -129,6 +130,9 @@ export interface ElementInfo {
   accidentalType?: string
   /** ID of the note this accidental belongs to (for accidentals) */
   noteId?: string
+  // Articulation-specific properties
+  /** Articulation type (for articulations) */
+  articulationType?: string
   // Tuplet-specific properties
   /** Tuplet ID (for tuplet brackets, or for notes/rests belonging to a tuplet) */
   tupletId?: string

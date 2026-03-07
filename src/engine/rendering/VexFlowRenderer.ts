@@ -1,5 +1,5 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Beam, StaveTie, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
-import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType, Tuplet } from '@/types/music'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Beam, StaveTie, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
+import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType, ArticulationType, Tuplet } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
 import { ElementRegistry, type StaffGeometry, type TupletGeometry } from '@/engine/ElementRegistry'
 
@@ -324,6 +324,13 @@ export class VexFlowRenderer {
     const dots = note.dots || 0
     for (let d = 0; d < dots; d++) {
       Dot.buildAndAttach([staveNote], { all: true })
+    }
+
+    // Add articulations (apply to chord representative note — index 0)
+    const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>' }
+    const articulations = note.articulations || []
+    for (const art of articulations) {
+      staveNote.addModifier(new Articulation(articulationVexCodes[art]), 0)
     }
 
     return staveNote
@@ -1214,6 +1221,30 @@ export class VexFlowRenderer {
                   // Store StaveNote reference for tie rendering
                   // keyIndex matches VexFlow's sorted pitch order
                   this.staveNoteMap.set(note.id, { staveNote, noteIndex: keyIndex })
+
+                  // Register articulations if present (only on the lowest-pitch note, index 0)
+                  if (keyIndex === 0 && note.articulations?.length) {
+                    try {
+                      const modifiers = staveNote.getModifiers()
+                      for (const modifier of modifiers) {
+                        if (modifier.getCategory() === 'articulations') {
+                          const artBox = modifier.getBoundingBox()
+                          if (artBox) {
+                            this.elementRegistry.add({
+                              type: 'articulation',
+                              noteId: note.id,
+                              articulationType: 'accent',
+                              measure: measure.number,
+                              beat: note.beat,
+                              bbox: { x: artBox.x, y: artBox.y, width: artBox.w, height: artBox.h },
+                            })
+                          }
+                        }
+                      }
+                    } catch (e) {
+                      // Articulation bounding box may not be available
+                    }
+                  }
 
                   // Register accidental if present
                   if (note.accidental) {

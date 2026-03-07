@@ -5,7 +5,7 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { durationToBeats, beatsToDuration, splitBeatsIntoDurations, midiToNoteName, getTupletBeatPositions, snapToTupletBeat, isBeatInTuplet, getTupletNoteDuration } from '@/utils/musicUtils'
-import type { Score, Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration } from '@/types/music'
+import type { Score, Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType } from '@/types/music'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 
 /**
@@ -315,7 +315,8 @@ export class MusicEngine {
     coords: PixelCoordinates,
     duration: NoteParams['duration'],
     accidental?: NoteParams['accidental'],
-    dots?: number
+    dots?: number,
+    articulations?: ArticulationType[]
   ): Note | null {
     const measure = this.scoreModel.getMeasure(1)
     if (!measure) return null
@@ -605,6 +606,7 @@ export class MusicEngine {
       ...(accidental && { accidental }),
       ...(dots && { dots }),
       ...(tupletId && { tupletId }),
+      ...(articulations?.length && { articulations }),
     }
 
     // Get the target measure for overflow check
@@ -1315,6 +1317,23 @@ export class MusicEngine {
    */
   getNote(noteId: string): Note | undefined {
     return this.scoreModel.getNote(noteId)
+  }
+
+  /**
+   * Toggle an articulation on a note. Adds if absent, removes if present.
+   */
+  toggleArticulation(noteId: string, type: ArticulationType): Note | null {
+    const note = this.scoreModel.getNote(noteId)
+    if (!note || note.isRest) return null
+
+    const existing = note.articulations || []
+    const hasIt = existing.includes(type)
+    const updated = hasIt ? existing.filter(a => a !== type) : [...existing, type]
+
+    const result = this.scoreModel.updateNote(noteId, { articulations: updated })
+    this.playbackEngine.setScore(this.scoreModel.getScore())
+    this.saveUndoState(hasIt ? `Remove ${type}` : `Add ${type}`)
+    return result
   }
 
   /**

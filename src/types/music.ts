@@ -29,6 +29,11 @@ export interface Tuplet {
 export type Accidental = '#' | 'b' | 'n'
 
 /**
+ * Articulation types
+ */
+export type ArticulationType = 'accent'
+
+/**
  * Clef types
  */
 export type Clef = 'treble' | 'bass' | 'alto' | 'tenor'
@@ -69,6 +74,8 @@ export interface Note {
   dots?: number
   /** ID of the tuplet this note belongs to */
   tupletId?: string
+  /** Articulations applied to this note */
+  articulations?: ArticulationType[]
 }
 
 /**
@@ -161,4 +168,5 @@ export interface NoteParams {
   isRest?: boolean
   dots?: number
   tupletId?: string
+  articulations?: ArticulationType[]
 }
