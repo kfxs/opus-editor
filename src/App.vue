@@ -319,11 +319,11 @@ const selectedDots = ref<number>(0)
 // Pending accent state for entry mode (like selectedAccidental)
 const selectedAccent = ref(false)
 
-// Button active when pending accent is armed OR selected note has accent
+// Button active: in selection mode reflect the note's state, in entry mode reflect the pending state
 const selectedNoteHasAccent = computed(() => {
-  if (selectedNoteId.value && engine.value) {
+  if (selectedTool.value === 'selection' && selectedNoteId.value && engine.value) {
     const note = engine.value.getNote(selectedNoteId.value)
-    if (note) return note.articulations?.includes('accent') ?? false
+    return note?.articulations?.includes('accent') ?? false
   }
   return selectedAccent.value
 })
@@ -446,6 +446,7 @@ onMounted(() => {
       setAccidentalNatural: () => setAccidental('n'),
       setAccidentalSharp: () => setAccidental('#'),
       setAccidentalFlat: () => setAccidental('b'),
+      toggleAccent: () => toggleAccent(),
       selectNextNote: () => {
         if (selectedTool.value === 'entry') {
           // Right arrow: exit keyboard mode and land on the note AT the cursor
@@ -602,16 +603,13 @@ function setAccidental(accidental: '#' | 'b' | 'n' | null) {
 }
 
 function toggleAccent() {
-  if (selectedNoteId.value && engine.value) {
-    // Note selected: toggle on the note immediately
+  if (selectedTool.value === 'selection' && selectedNoteId.value && engine.value) {
+    // Selection mode: toggle on the note immediately
     engine.value.toggleArticulation(selectedNoteId.value, 'accent')
     setSelectedNote(selectedNoteId.value)
-    // Sync pending state with the note's actual state
-    const note = engine.value.getNote(selectedNoteId.value)
-    selectedAccent.value = note?.articulations?.includes('accent') ?? false
     renderScore()
   } else {
-    // No note selected (entry mode, before first click): arm/disarm pending accent
+    // Entry mode: just arm/disarm the pending accent for the next note entry
     selectedAccent.value = !selectedAccent.value
   }
 }

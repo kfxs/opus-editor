@@ -94,6 +94,12 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Flat accidental',
   },
 
+  // Articulations (numpad - Sibelius style)
+  'NumpadDivide': {
+    action: 'toggleAccent',
+    description: 'Toggle accent articulation',
+  },
+
   // Selection navigation
   'ArrowRight': {
     action: 'selectNextNote',
