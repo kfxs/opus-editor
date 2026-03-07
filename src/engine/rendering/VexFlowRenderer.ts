@@ -1254,12 +1254,12 @@ export class VexFlowRenderer {
                       // Get modifiers and find the accidental for this note index
                       const modifiers = staveNote.getModifiers()
                       for (const modifier of modifiers) {
-                        if (modifier.getCategory() === 'accidentals') {
+                        if (modifier.getCategory() === 'Accidental') {
                           const accidental = modifier as Accidental
                           // Check if this accidental is for this key index
                           if ((accidental as any).index === keyIndex ||
                               (accidental as any).note_index === keyIndex ||
-                              modifiers.filter(m => m.getCategory() === 'accidentals').indexOf(modifier) === keyIndex) {
+                              modifiers.filter(m => m.getCategory() === 'Accidental').indexOf(modifier) === keyIndex) {
                             const accBox = accidental.getBoundingBox()
                             if (accBox) {
                               this.elementRegistry.add({

@@ -323,6 +323,10 @@ const selectedAccent = ref(false)
 const selectedArticulationNoteId = ref<string | null>(null)
 const selectedArticulationType = ref<string | null>(null)
 
+// Selected accidental (separate from note selection)
+const selectedAccidentalNoteId = ref<string | null>(null)
+const selectedAccidentalType = ref<string | null>(null)
+
 // Button active: in selection mode reflect the note's/articulation's state, in entry mode reflect the pending state
 const selectedNoteHasAccent = computed(() => {
   if (selectedTool.value === 'selection' && engine.value) {
@@ -656,6 +660,8 @@ function selectNote(noteId: string | null) {
   selectedNoteId.value = noteId
   selectedArticulationNoteId.value = null
   selectedArticulationType.value = null
+  selectedAccidentalNoteId.value = null
+  selectedAccidentalType.value = null
 
   if (noteId && engine.value) {
     // Find the note in the score and sync palette
@@ -1228,6 +1234,7 @@ function renderScore() {
   // Apply selection highlights
   applySelectionHighlight()
   applyArticulationHighlight()
+  applyAccidentalHighlight()
   applyTupletSelectionHighlight()
   applyKeyboardCursor()
 }
@@ -1243,6 +1250,7 @@ function renderPreview(coords: { x: number; y: number }) {
   )
   applySelectionHighlight()
   applyArticulationHighlight()
+  applyAccidentalHighlight()
   applyTupletSelectionHighlight()
   applyKeyboardCursor()
 }
@@ -1550,6 +1558,49 @@ function applyArticulationHighlight() {
   }
 }
 
+function applyAccidentalHighlight() {
+  if (!engine.value || !scoreCanvas.value || !selectedAccidentalNoteId.value) return
+
+  const registry = engine.value.getElementRegistry()
+  const accElements = registry.getByType('accidental').filter(
+    el => el.noteId === selectedAccidentalNoteId.value &&
+          el.accidentalType === selectedAccidentalType.value
+  )
+  if (!accElements.length) {
+    selectedAccidentalNoteId.value = null
+    selectedAccidentalType.value = null
+    return
+  }
+
+  const svg = scoreCanvas.value.querySelector('svg')
+  if (!svg) return
+
+  const ACCIDENTAL_COLOR = '#F59E0B'
+
+  for (const accEl of accElements) {
+    const bbox = accEl.bbox
+    // Accidental glyphs are <text> elements (SMuFL font), same as articulations.
+    // Match by X start + width since getBBox heights are the full font line-box.
+    const textEls = svg.querySelectorAll('text')
+    for (const svgEl of textEls) {
+      const elBBox = (svgEl as SVGGraphicsElement).getBBox?.()
+      if (!elBBox) continue
+
+      // Accidental bbox x/width from VexFlow and SVG getBBox differ by ~0.9px,
+      // so match by center X (±1px) which is stable across both.
+      const centerX_bbox = bbox.x + bbox.width / 2
+      const centerX_el = elBBox.x + elBBox.width / 2
+      const xMatches = Math.abs(centerX_el - centerX_bbox) < 1.0
+      if (xMatches) {
+        const el = svgEl as SVGElement
+        el.setAttribute('fill', ACCIDENTAL_COLOR)
+        el.style.fill = ACCIDENTAL_COLOR
+        el.classList.add('selected-accidental')
+      }
+    }
+  }
+}
+
 function applyTupletSelectionHighlight() {
   if (!engine.value || !scoreCanvas.value || !selectedTupletId.value) return
 
@@ -1709,6 +1760,22 @@ function handleCanvasMouseDown(event: MouseEvent) {
   // Clear tuplet selection when selecting notes
   selectedTupletId.value = null
 
+  // Check if clicking directly on an accidental — select the accidental itself
+  const accidentalAt = registry.getByType('accidental').find(el => {
+    const b = el.bbox
+    return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
+  }) ?? null
+  if (accidentalAt?.noteId) {
+    selectedNoteId.value = null
+    selectedArticulationNoteId.value = null
+    selectedArticulationType.value = null
+    selectedAccidentalNoteId.value = accidentalAt.noteId
+    selectedAccidentalType.value = accidentalAt.accidentalType || null
+    console.log(`✓ Accidental selected | noteId:${accidentalAt.noteId} type:${accidentalAt.accidentalType}`)
+    renderScore()
+    return
+  }
+
   // Check if clicking directly on an articulation — select the articulation itself
   // (cannot use getAt here because the staff element is registered last and always wins)
   const articulationAt = registry.getByType('articulation').find(el => {
@@ -1717,6 +1784,8 @@ function handleCanvasMouseDown(event: MouseEvent) {
   }) ?? null
   if (articulationAt?.noteId) {
     selectedNoteId.value = null
+    selectedAccidentalNoteId.value = null
+    selectedAccidentalType.value = null
     selectedArticulationNoteId.value = articulationAt.noteId
     selectedArticulationType.value = articulationAt.articulationType || null
     console.log(`✓ Articulation selected | noteId:${articulationAt.noteId} type:${articulationAt.articulationType}`)
@@ -1997,6 +2066,7 @@ function handleCanvasMouseMove(event: MouseEvent) {
 
   applySelectionHighlight()
   applyArticulationHighlight()
+  applyAccidentalHighlight()
   applyTupletSelectionHighlight()
   applyKeyboardCursor()
 
