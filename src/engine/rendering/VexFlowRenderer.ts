@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Beam, StaveTie, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Beam, StaveTie, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
 import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType, ArticulationType, Tuplet } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
 import { ElementRegistry, type StaffGeometry, type TupletGeometry } from '@/engine/ElementRegistry'
@@ -327,10 +327,12 @@ export class VexFlowRenderer {
     }
 
     // Add articulations (apply to chord representative note — index 0)
+    // Position: stem up (note below middle line) → accent below notehead; stem down → above
     const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>' }
+    const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
     const articulations = note.articulations || []
     for (const art of articulations) {
-      staveNote.addModifier(new Articulation(articulationVexCodes[art]), 0)
+      staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
     }
 
     return staveNote
