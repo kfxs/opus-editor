@@ -169,4 +169,6 @@ export interface NoteParams {
   dots?: number
   tupletId?: string
   articulations?: ArticulationType[]
+  tiedTo?: string
+  tiedFrom?: string
 }

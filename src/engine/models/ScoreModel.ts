@@ -327,7 +327,6 @@ export class ScoreModel {
       let adjustedEnd = gap.end
 
       for (const tuplet of tuplets) {
-        const tupletEnd = tuplet.startBeat + getTupletTotalBeats(tuplet.baseDuration, tuplet.notesOccupied)
         // If tuplet is within gap, split around it
         if (tuplet.startBeat > adjustedStart && tuplet.startBeat < adjustedEnd) {
           adjustedEnd = tuplet.startBeat
@@ -687,8 +686,6 @@ export class ScoreModel {
 
       const tupletIndex = measure.tuplets.findIndex(t => t.id === tupletId)
       if (tupletIndex === -1) continue
-
-      const tuplet = measure.tuplets[tupletIndex]
 
       // Remove all notes belonging to this tuplet
       measure.notes = measure.notes.filter(n => n.tupletId !== tupletId)

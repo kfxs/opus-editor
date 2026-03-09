@@ -1,4 +1,4 @@
-import type { PixelCoordinates, Position, Note, Measure } from '@/types/music'
+import type { PixelCoordinates, Note } from '@/types/music'
 import type { MeasureBounds } from './VexFlowRenderer'
 
 /**
@@ -361,16 +361,6 @@ export class CoordinateMapper {
     const octaveOffset = Math.floor(index / (notesPerOctave * 2))
     const posInOctave = index % (notesPerOctave * 2)
     return diatonicNotes[posInOctave] - (octaveOffset * 12)
-  }
-
-  /**
-   * Helper to convert MIDI pitch to note name for debugging
-   */
-  private pitchToNoteName(midiNote: number): string {
-    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-    const octave = Math.floor(midiNote / 12) - 1
-    const noteName = noteNames[midiNote % 12]
-    return `${noteName}${octave}`
   }
 
   /**

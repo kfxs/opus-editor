@@ -4,9 +4,25 @@ import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/Coord
 import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
-import { durationToBeats, beatsToDuration, splitBeatsIntoDurations, midiToNoteName, getTupletBeatPositions, snapToTupletBeat, isBeatInTuplet, getTupletNoteDuration } from '@/utils/musicUtils'
-import type { Score, Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType } from '@/types/music'
+import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
+import { durationToBeats, beatsToDuration, splitBeatsIntoDurations, midiToNoteName } from '@/utils/musicUtils'
+import type { Score, Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure } from '@/types/music'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
+
+/** Internal context passed to updateNote sub-methods */
+interface NoteUpdateCtx {
+  noteId: string
+  updates: Partial<NoteParams>
+  existingNote: Note
+  measureNotes: Note[]
+  chordNotes: Note[]
+  isChord: boolean
+  oldBeats: number
+  newBeats: number
+  newDuration: NoteDuration
+  newDots: number
+  beatDifference: number
+}
 
 /**
  * Configuration for the MusicEngine
@@ -33,6 +49,7 @@ export class MusicEngine {
   private collisionDetector: CollisionDetector
   private playbackEngine: PlaybackEngine
   private undoRedoManager: UndoRedoManager
+  private noteEntryCoordinator: NoteEntryCoordinator
 
   constructor(config: MusicEngineConfig) {
     this.scoreModel = new ScoreModel()
@@ -41,7 +58,6 @@ export class MusicEngine {
     // Calculate coordinate mapper config based on container size
     const width = config.width || 1000
     const height = config.height || 400
-    const numMeasures = 8 // 8 measures total
     const measuresPerLine = 4 // 4 measures per line
     const margin = 20
     const availableWidth = width - (margin * 2)
@@ -61,6 +77,16 @@ export class MusicEngine {
     this.collisionDetector = new CollisionDetector()
     this.playbackEngine = new PlaybackEngine()
     this.undoRedoManager = new UndoRedoManager()
+    this.noteEntryCoordinator = new NoteEntryCoordinator(
+      () => this.scoreModel,
+      this.coordinateMapper,
+      this.collisionDetector,
+      this.renderer.getElementRegistry(),
+      (description) => {
+        this.playbackEngine.setScore(this.scoreModel.getScore())
+        this.saveUndoState(description)
+      }
+    )
 
     // Initialize renderer
     this.renderer.initialize(width, height)
@@ -183,14 +209,7 @@ export class MusicEngine {
 
   // ==================== Note Operations ====================
 
-  /**
-   * Add a note at a specific position (internal - use addNoteAtPosition for UI)
-   */
-  addNote(params: NoteParams): Note {
-    const note = this.scoreModel.addNote(params)
-    this.playbackEngine.setScore(this.scoreModel.getScore())
-    return note
-  }
+  // --- Entry ---
 
   /**
    * Add a note by beat/measure position with full overflow handling (tie splitting across barlines).
@@ -198,67 +217,7 @@ export class MusicEngine {
    * Returns the first note placed (in the current measure), or null if placement failed.
    */
   addNoteAtBeat(params: NoteParams): Note | null {
-    const targetMeasure = this.scoreModel.getMeasure(params.measure)
-    if (!targetMeasure) return null
-
-    console.log(`[Keyboard] addNoteAtBeat: pitch=${params.pitch} dur=${params.duration} measure=${params.measure} beat=${params.beat}`)
-
-    // Detect tuplet context: auto-assign tupletId and snap beat if this beat falls inside a tuplet
-    let finalBeat = params.beat
-    let tupletId = params.tupletId
-    const tupletAtBeat = tupletId
-      ? (targetMeasure.tuplets || []).find(t => t.id === tupletId)
-      : this.scoreModel.getTupletAtBeat(params.measure, params.beat)
-
-    if (tupletAtBeat && !tupletId) {
-      finalBeat = snapToTupletBeat(params.beat, tupletAtBeat)
-      tupletId = tupletAtBeat.id
-    }
-
-    const finalParams: NoteParams = { ...params, beat: finalBeat, ...(tupletId ? { tupletId } : {}) }
-
-    // Calculate effective note duration (scaled by tuplet ratio when inside a tuplet)
-    const nominalDuration = durationToBeats(params.duration, params.dots || 0)
-    const tupletRatio = tupletAtBeat ? tupletAtBeat.notesOccupied / tupletAtBeat.numNotes : 1
-    const effectiveDuration = nominalDuration * tupletRatio
-    const noteEnd = finalBeat + effectiveDuration
-
-    // Remove overlapping notes/rests atomically, using scaled durations for tuplet notes
-    const epsilon = 0.001
-    const toDelete = targetMeasure.notes.filter(n => {
-      let nDuration = durationToBeats(n.duration, n.dots || 0)
-      if (n.tupletId) {
-        const nTuplet = (targetMeasure.tuplets || []).find(t => t.id === n.tupletId)
-        if (nTuplet) nDuration *= nTuplet.notesOccupied / nTuplet.numNotes
-      }
-      const nEnd = n.beat + nDuration
-      return n.beat + epsilon < noteEnd && nEnd - epsilon > finalBeat
-    })
-    for (const n of toDelete) {
-      this.scoreModel.deleteNote(n.id)
-    }
-
-    const overflow = this.collisionDetector.checkMeasureOverflow(
-      finalParams,
-      targetMeasure,
-      this.scoreModel.getNotesInMeasure(params.measure)
-    )
-
-    if (overflow.willOverflow && overflow.overflowAmount) {
-      console.log(`[Keyboard] Overflow detected: ${overflow.overflowAmount.toFixed(3)} beats spill into next measure — splitting with tie`)
-      const splitNote = this.addSplitNoteWithTie(finalParams, overflow.overflowAmount)
-      if (splitNote) {
-        this.saveUndoState(`Keyboard enter note`)
-        this.playbackEngine.setScore(this.scoreModel.getScore())
-      }
-      return splitNote
-    }
-
-    console.log(`[Keyboard] No overflow — placing note directly`)
-    const note = this.scoreModel.addNote(finalParams)
-    this.saveUndoState(`Keyboard enter note`)
-    this.playbackEngine.setScore(this.scoreModel.getScore())
-    return note
+    return this.noteEntryCoordinator.addNoteAtBeat(params)
   }
 
   /**
@@ -272,68 +231,6 @@ export class MusicEngine {
     return note
   }
 
-  /**
-   * Convert pixel coordinates to musical position using ElementRegistry
-   * This is the centralized method for accurate position calculation
-   * Uses actual rendered element positions from VexFlow
-   * @param duration - Optional duration for beat quantization
-   */
-  private getPositionFromPixels(
-    coords: PixelCoordinates,
-    beatsInMeasure: number,
-    duration?: NoteParams['duration']
-  ): { measure: number; beat: number; pitch: number } {
-    const registry = this.renderer.getElementRegistry()
-    const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
-
-    // Get pitch from ElementRegistry (more accurate) with fallback
-    let pitch = registry.pixelYToPitch(coords.y, measureNumber)
-    if (pitch === null) {
-      pitch = this.coordinateMapper.pixelYToPitch(coords.y, measureNumber)
-    }
-
-    // Get beat from ElementRegistry or coordinateMapper
-    let beat: number
-    const nearestElement = registry.findNearestNoteOrRest(coords.x, measureNumber)
-    if (nearestElement && nearestElement.beat !== undefined) {
-      const elementCenterX = nearestElement.bbox.x + nearestElement.bbox.width / 2
-      const distance = Math.abs(coords.x - elementCenterX)
-      if (distance < nearestElement.bbox.width * 1.5) {
-        beat = nearestElement.beat
-      } else {
-        beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
-        // Quantize beat if duration provided
-        if (duration) {
-          const noteDurationInBeats = durationToBeats(duration)
-          beat = Math.round(beat / noteDurationInBeats) * noteDurationInBeats
-          beat = Math.max(0, Math.min(beat, beatsInMeasure - noteDurationInBeats))
-        }
-      }
-    } else {
-      beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
-      // Quantize beat if duration provided
-      if (duration) {
-        const noteDurationInBeats = durationToBeats(duration)
-        beat = Math.round(beat / noteDurationInBeats) * noteDurationInBeats
-        beat = Math.max(0, Math.min(beat, beatsInMeasure - noteDurationInBeats))
-      }
-    }
-
-    return { measure: measureNumber, beat, pitch }
-  }
-
-  /**
-   * Add a note at pixel coordinates
-   *
-   * Directional Logic:
-   * 1. Find elements to the LEFT and RIGHT of the click position
-   * 2. If click is FAR from all elements → use coordinate-based beat calculation
-   * 3. Priority: Element to the RIGHT determines behavior
-   *    - If RIGHT is a REST → place note at that rest's beat (new note)
-   *    - If RIGHT is a NOTE → add to that chord (if different pitch)
-   * 4. If only LEFT element and it's close → use LEFT's beat
-   * 5. If same pitch collision → find next rest
-   */
   addNoteAtPosition(
     coords: PixelCoordinates,
     duration: NoteParams['duration'],
@@ -341,700 +238,9 @@ export class MusicEngine {
     dots?: number,
     articulations?: ArticulationType[]
   ): Note | null {
-    const measure = this.scoreModel.getMeasure(1)
-    if (!measure) return null
-
-    const beatsInMeasure = measure.timeSignature.numerator
-    const registry = this.renderer.getElementRegistry()
-
-    // Get measure number from coordinates
-    const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
-
-    // Validate measure exists
-    if (!this.scoreModel.getMeasure(measureNumber)) {
-      console.log('✗ Invalid: measure does not exist')
-      return null
-    }
-
-    // Check if click is over an invalid element (clef, time signature, barline)
-    const elementAtCursor = registry.getAt(coords.x, coords.y)
-    if (elementAtCursor) {
-      const invalidTypes = ['clef', 'timeSignature', 'barline', 'keySignature']
-      if (invalidTypes.includes(elementAtCursor.type)) {
-        console.log(`✗ Invalid: clicked on ${elementAtCursor.type}`)
-        return null
-      }
-    }
-
-    // Check if click is within valid staff area (X range)
-    const staffGeometry = registry.getStaffGeometry(measureNumber)
-    if (staffGeometry) {
-      if (coords.x < staffGeometry.noteStartX || coords.x > staffGeometry.noteEndX) {
-        console.log('✗ Invalid: X outside note entry area')
-        return null
-      }
-
-      // Check if click is within valid Y range (reasonable pitch range)
-      // Allow ~2 octaves above/below staff (staff lines span ~4 lines = 40px typically)
-      const topLineY = staffGeometry.lineYPositions[0]
-      const bottomLineY = staffGeometry.lineYPositions[4]
-      const staffHeight = bottomLineY - topLineY
-      const maxDistance = staffHeight * 2  // Allow 2x staff height above/below
-
-      if (coords.y < topLineY - maxDistance || coords.y > bottomLineY + maxDistance) {
-        console.log(`✗ Invalid: Y outside valid range (y=${coords.y.toFixed(0)}, valid=${(topLineY - maxDistance).toFixed(0)}-${(bottomLineY + maxDistance).toFixed(0)})`)
-        return null
-      }
-    }
-
-    // Get pitch from Y coordinate
-    let pitch = registry.pixelYToPitch(coords.y, measureNumber)
-    if (pitch === null) {
-      pitch = this.coordinateMapper.pixelYToPitch(coords.y, measureNumber)
-    }
-
-    // Find elements to the left and right of click
-    const { nearestLeft, nearestRight, leftDistance, rightDistance } =
-      registry.findNotesLeftRight(coords.x, measureNumber)
-
-    // Distance thresholds
-    const CLOSE_THRESHOLD = 25   // For preferring left element when very close
-    const FAR_THRESHOLD = 40     // Beyond this, use coordinate-based calculation
-
-    // Check if click is far from all elements - use coordinate-based beat
-    const nearestDistance = Math.min(
-      nearestLeft ? leftDistance : Infinity,
-      nearestRight ? rightDistance : Infinity
-    )
-
-    let finalBeat: number
-    let useCoordinateCalculation = false
-    let decisionReason = ''  // For debug logging
-
-    // Get the beat subdivision based on note duration (for quantization)
-    const noteDurationInBeats = durationToBeats(duration)
-
-    if (nearestDistance > FAR_THRESHOLD) {
-      // Click is far from any element - use coordinate calculation
-      // This handles empty/sparse measures where user clicks in open space
-      useCoordinateCalculation = true
-      const rawBeat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
-      // Quantize beat to note duration grid (e.g., quarter notes snap to 0,1,2,3)
-      finalBeat = Math.round(rawBeat / noteDurationInBeats) * noteDurationInBeats
-      // Clamp to valid range
-      finalBeat = Math.max(0, Math.min(finalBeat, beatsInMeasure - noteDurationInBeats))
-      decisionReason = `coordCalc (nearest=${nearestDistance.toFixed(0)}px > ${FAR_THRESHOLD}px)`
-    } else {
-      // Click is near an element - use directional logic
-      let targetElement: { type: string; beat: number } | null = null
-
-      if (nearestRight && nearestRight.beat !== undefined && rightDistance <= FAR_THRESHOLD) {
-        if (nearestLeft && leftDistance < CLOSE_THRESHOLD && leftDistance < rightDistance) {
-          // Click is very close to left element - use it
-          targetElement = { type: nearestLeft.type, beat: nearestLeft.beat! }
-          decisionReason = `left (close: ${leftDistance.toFixed(0)}px < ${CLOSE_THRESHOLD}px)`
-        } else {
-          // Use right element (the primary directional logic)
-          targetElement = { type: nearestRight.type, beat: nearestRight.beat }
-          decisionReason = `right (${rightDistance.toFixed(0)}px)`
-        }
-      } else if (nearestLeft && nearestLeft.beat !== undefined && leftDistance <= FAR_THRESHOLD) {
-        // Only left element available and it's close enough
-        targetElement = { type: nearestLeft.type, beat: nearestLeft.beat }
-        decisionReason = `left-only (${leftDistance.toFixed(0)}px)`
-      }
-
-      if (!targetElement) {
-        // No element close enough - fall back to coordinates with quantization
-        useCoordinateCalculation = true
-        const rawBeat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
-        finalBeat = Math.round(rawBeat / noteDurationInBeats) * noteDurationInBeats
-        finalBeat = Math.max(0, Math.min(finalBeat, beatsInMeasure - noteDurationInBeats))
-        decisionReason = 'coordCalc (no valid target)'
-      } else if (targetElement.type === 'rest') {
-        // Target is a REST → place note at rest's beat
-        finalBeat = targetElement.beat
-        decisionReason += ` → rest@${targetElement.beat}`
-      } else if (targetElement.type === 'note') {
-        // Target is a NOTE → overwrite or form chord
-        // In overwrite mode (like Finale), clicking on a note replaces it with the new duration
-        finalBeat = targetElement.beat
-        decisionReason += ` → note@${targetElement.beat} (overwrite/chord)`
-      } else {
-        // Unknown element type, fall back to coordinate calculation with quantization
-        useCoordinateCalculation = true
-        const rawBeat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
-        finalBeat = Math.round(rawBeat / noteDurationInBeats) * noteDurationInBeats
-        finalBeat = Math.max(0, Math.min(finalBeat, beatsInMeasure - noteDurationInBeats))
-        decisionReason = 'coordCalc (unknown element type)'
-      }
-    }
-
-    // When using coordinate calculation, we need to find if there's a rest at that beat
-    // or if we'd be creating a new note position
-    if (useCoordinateCalculation) {
-      const notesInMeasure = this.scoreModel.getNotesInMeasure(measureNumber)
-      const restAtBeat = this.findRestAtBeat(notesInMeasure, finalBeat)
-      if (!restAtBeat) {
-        // Check if there's a note at this beat we could chord with
-        const notesAtBeat = notesInMeasure.filter(n => !n.isRest && n.beat === finalBeat)
-        if (notesAtBeat.length > 0) {
-          // There are notes at this beat - check for collision
-          const hasSamePitch = notesAtBeat.some(n => n.pitch === pitch)
-          if (hasSamePitch) {
-            console.warn('Same pitch collision at calculated beat')
-            return null
-          }
-          // Different pitch - will form chord (continue with finalBeat)
-        } else {
-          // No rest and no notes at this beat - find nearest rest
-          const nearestRest = this.findNearestRestToBeat(notesInMeasure, finalBeat)
-          if (nearestRest) {
-            finalBeat = nearestRest.beat
-          } else {
-            console.warn('No available position for note')
-            return null
-          }
-        }
-      }
-    }
-
-    // Check if the final beat falls within a tuplet
-    // If so, snap to the nearest tuplet beat and inherit the tuplet ID
-    let tupletId: string | undefined
-    let tupletFillerRest: { beat: number; duration: NoteDuration } | null = null
-    const tupletAtBeat = this.scoreModel.getTupletAtBeat(measureNumber, finalBeat)
-
-    // Check if there's an existing tuplet rest at the final beat position
-    // This handles subdivision positions (e.g., 0.5 in a triplet with 16th notes)
-    // where we should use the exact beat rather than snapping to the base grid
-    const existingTupletRestAtBeat = (() => {
-      const notesInMeasure = this.scoreModel.getNotesInMeasure(measureNumber)
-      return notesInMeasure.find(n =>
-        n.isRest && n.tupletId && Math.abs(n.beat - finalBeat) < 0.001
-      )
-    })()
-
-    if (tupletAtBeat) {
-      // Only snap to base grid if there's no existing tuplet rest at this exact position
-      // Existing tuplet rests may be at subdivision positions that aren't on the base grid
-      if (!existingTupletRestAtBeat) {
-        finalBeat = snapToTupletBeat(finalBeat, tupletAtBeat)
-      }
-
-      // Check if the selected duration is smaller than the tuplet's base duration
-      // If so, we need to add a filler rest for the remaining time in that slot
-      const baseDurationBeats = durationToBeats(tupletAtBeat.baseDuration)
-      const selectedDurationBeats = durationToBeats(duration, dots)
-
-      // Calculate the tuplet's total duration and remaining time
-      const tupletTotalBeats = durationToBeats(tupletAtBeat.baseDuration) * tupletAtBeat.notesOccupied
-      const tupletEndBeat = tupletAtBeat.startBeat + tupletTotalBeats
-      const remainingTupletBeats = tupletEndBeat - finalBeat
-
-      // Check if the note is too large to fit in the tuplet
-      // Case 1: Note larger than entire tuplet → delete tuplet and place at start
-      const noteLargerThanEntireTuplet = selectedDurationBeats > tupletTotalBeats
-
-      // Case 2: Note fits in tuplet overall but doesn't fit in REMAINING space
-      // In a tuplet, durations are scaled by the tuplet ratio (notesOccupied / numNotes)
-      // e.g., in a triplet (3:2), a quarter note takes 2/3 of its normal duration
-      const tupletRatio = tupletAtBeat.notesOccupied / tupletAtBeat.numNotes
-      const scaledNoteDuration = selectedDurationBeats * tupletRatio
-      const noteTooLargeForRemainingSpace = scaledNoteDuration > remainingTupletBeats + 0.001
-
-      if (noteLargerThanEntireTuplet) {
-        // Note is too large for the tuplet - delete the tuplet and place note at tuplet's start
-        this.scoreModel.deleteTuplet(tupletAtBeat.id)
-        // Place note at the tuplet's start beat (a clean position) instead of the clicked tuplet position
-        finalBeat = tupletAtBeat.startBeat
-        // Don't set tupletId - note will be placed outside of any tuplet
-        decisionReason += ` → tuplet deleted (note too large: ${selectedDurationBeats} > ${tupletTotalBeats}), beat adjusted to ${finalBeat}`
-      } else if (noteTooLargeForRemainingSpace) {
-        // Note doesn't fit in remaining tuplet space - reject the entry silently
-        console.log(`Note rejected: duration (${scaledNoteDuration.toFixed(3)} scaled beats) too large for remaining tuplet space (${remainingTupletBeats.toFixed(3)} beats)`)
-        return null
-      } else {
-        // Note fits in tuplet
-        tupletId = tupletAtBeat.id
-
-        // Calculate how many "slots" (base durations) this note consumes
-        const slotsConsumed = selectedDurationBeats / baseDurationBeats
-
-        // Calculate the tuplet slot duration (in beats)
-        const tupletSlotDuration = getTupletNoteDuration(
-          tupletAtBeat.baseDuration,
-          tupletAtBeat.numNotes,
-          tupletAtBeat.notesOccupied
-        )
-
-        if (selectedDurationBeats < baseDurationBeats) {
-          // Note is SMALLER than base duration (e.g., 16th in 8th triplet)
-          // Calculate how many of the selected duration fit in one base slot
-          const subdivisionFactor = baseDurationBeats / selectedDurationBeats
-
-          // Calculate the sub-slot duration (duration of one small note in tuplet time)
-          const subSlotDuration = tupletSlotDuration / subdivisionFactor
-
-          // We need a filler rest after this note
-          // The rest duration should be the same as the note duration
-          // and positioned at (note beat + subSlotDuration)
-          tupletFillerRest = {
-            beat: finalBeat + subSlotDuration,
-            duration: duration,
-          }
-        } else {
-          // Note is >= base duration - check for fractional slots
-          const fractionalSlots = slotsConsumed - Math.floor(slotsConsumed)
-
-          if (fractionalSlots > 0.001) {
-            // Note takes fractional slots (e.g., dotted 8th = 1.5 slots in 8th triplet)
-            // Need to create a filler rest for the remaining fraction
-            // e.g., 1.5 slots leaves 0.5 slots which needs a 16th rest
-
-            // Calculate the filler rest duration in normal beats
-            // fractionalSlots * baseDurationBeats gives the remaining duration
-            const remainderNormalBeats = fractionalSlots * baseDurationBeats
-            const fillerDuration = beatsToDuration(remainderNormalBeats)
-
-            if (fillerDuration) {
-              // Calculate where the filler rest goes (after the note ends)
-              // Note takes scaledNoteDuration in actual beats
-              const fillerBeat = finalBeat + scaledNoteDuration
-
-              // Only add filler if it's within the tuplet
-              if (fillerBeat < tupletEndBeat - 0.001) {
-                tupletFillerRest = {
-                  beat: fillerBeat,
-                  duration: fillerDuration,
-                }
-              }
-            } else {
-              // Can't find a standard duration for the remainder - reject
-              console.log(`Note rejected: fractional remainder ${remainderNormalBeats.toFixed(3)} beats has no standard duration`)
-              return null
-            }
-          }
-        }
-
-        decisionReason += ` → tuplet snap@${finalBeat.toFixed(3)}`
-      }
-    }
-
-    const noteParams: NoteParams = {
-      pitch,
-      duration,
-      measure: measureNumber,
-      beat: finalBeat,
-      ...(accidental && { accidental }),
-      ...(dots && { dots }),
-      ...(tupletId && { tupletId }),
-      ...(articulations?.length && { articulations }),
-    }
-
-    // Get the target measure for overflow check
-    const targetMeasure = this.scoreModel.getMeasure(measureNumber)
-    if (!targetMeasure) return null
-
-    // Check for measure overflow
-    const overflow = this.collisionDetector.checkMeasureOverflow(
-      noteParams,
-      targetMeasure,
-      this.scoreModel.getNotesInMeasure(measureNumber)
-    )
-
-    // Find and delete notes that would be overwritten by this note
-    // This includes: notes within the duration range AND same-pitch notes at same beat (replacement)
-    const notesToOverwrite = this.findNotesToOverwrite(measureNumber, finalBeat, duration, pitch, false, tupletAtBeat)
-    if (notesToOverwrite.length > 0) {
-      console.log('Overwriting notes:', notesToOverwrite.map(n => `pitch:${n.pitch}@beat:${n.beat}`).join(', '))
-      for (const noteToDelete of notesToOverwrite) {
-        this.scoreModel.deleteNote(noteToDelete.id)
-      }
-    }
-
-    // For tuplet notes that span multiple slots (e.g., quarter note in eighth triplet),
-    // delete any existing tuplet notes/rests that fall within the note's actual time range
-    if (tupletId && tupletAtBeat) {
-      const tupletRatio = tupletAtBeat.notesOccupied / tupletAtBeat.numNotes
-      const actualNoteDuration = durationToBeats(duration, dots) * tupletRatio
-      const noteEndBeat = finalBeat + actualNoteDuration
-
-      const tupletItemsToDelete = this.scoreModel.getNotesInMeasure(measureNumber)
-        .filter(n =>
-          n.tupletId === tupletId &&
-          n.beat > finalBeat + 0.001 && // After the note's start
-          n.beat < noteEndBeat - 0.001   // Before the note's end
-        )
-
-      for (const itemToDelete of tupletItemsToDelete) {
-        this.scoreModel.deleteNote(itemToDelete.id)
-      }
-    }
-
-    // Handle overflow by splitting note across bar line with tie
-    // SKIP for tuplet notes - tuplets have shorter actual durations and are designed to fit within their span
-    if (overflow.willOverflow && overflow.overflowAmount && !tupletId) {
-      // Also update existing chord notes at the same beat to have the same duration and ties
-      // Skip notes that are already tied (already split) to avoid creating duplicates
-      const existingChordNotes = this.scoreModel.getNotesInMeasure(measureNumber)
-        .filter(n => !n.isRest && Math.abs(n.beat - finalBeat) < 0.001 && n.pitch !== pitch && !n.tiedTo)
-
-      // Split each existing chord note with ties
-      for (const chordNote of existingChordNotes) {
-        this.splitExistingNoteWithTie(chordNote, duration, overflow.overflowAmount, dots)
-      }
-
-      const splitNote = this.addSplitNoteWithTie(noteParams, overflow.overflowAmount)
-      if (splitNote) {
-        const noteName = midiToNoteName(noteParams.pitch)
-        this.saveUndoState(`Add ${noteName}`)
-      }
-      return splitNote
-    }
-
-    // For non-overflow cases, update existing chord notes to match duration
-    const existingChordNotes = this.scoreModel.getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && Math.abs(n.beat - finalBeat) < 0.001 && n.pitch !== pitch)
-    for (const chordNote of existingChordNotes) {
-      if (chordNote.duration !== duration) {
-        this.scoreModel.updateNote(chordNote.id, { duration })
-      }
-    }
-
-    const note = this.addNote(noteParams)
-
-    // If we're adding a smaller note to a tuplet, add the filler rest
-    if (note && tupletFillerRest && tupletId && tupletAtBeat) {
-      // Calculate the tuplet's end beat
-      const tupletEndBeat = tupletAtBeat.startBeat + getTupletNoteDuration(
-        tupletAtBeat.baseDuration,
-        tupletAtBeat.numNotes,
-        tupletAtBeat.notesOccupied
-      ) * tupletAtBeat.numNotes
-
-      // Only add filler if it's within the tuplet's time span
-      const fillerWithinTuplet = tupletFillerRest.beat < tupletEndBeat - 0.001
-
-      // Check if there's already a note/rest at or near the filler position
-      // Use larger epsilon (0.02) for floating point safety
-      const existingAtFillerBeat = this.scoreModel.getNotesInMeasure(measureNumber)
-        .find(n => Math.abs(n.beat - tupletFillerRest!.beat) < 0.02 && n.tupletId === tupletId)
-
-      if (fillerWithinTuplet && !existingAtFillerBeat) {
-        // Add a filler rest at the calculated position
-        this.scoreModel.addNote({
-          pitch: 0,
-          duration: tupletFillerRest.duration,
-          measure: measureNumber,
-          beat: tupletFillerRest.beat,
-          isRest: true,
-          tupletId: tupletId,
-        })
-      }
-    }
-
-    // Debug logging with full context
-    if (note) {
-      console.log('NoteEntry:', {
-        decision: decisionReason,
-        left: nearestLeft ? `${nearestLeft.type}@${nearestLeft.beat} (${leftDistance.toFixed(0)}px)` : null,
-        right: nearestRight ? `${nearestRight.type}@${nearestRight.beat} (${rightDistance.toFixed(0)}px)` : null,
-        finalBeat,
-        coordCalc: useCoordinateCalculation
-      })
-
-      // Save undo state for the complete add operation
-      const noteName = midiToNoteName(pitch)
-      this.saveUndoState(`Add ${noteName}`)
-    }
-
-    return note
+    return this.noteEntryCoordinator.addNoteAtPosition(coords, duration, accidental, dots, articulations)
   }
 
-  /**
-   * Find a rest that covers the given beat position
-   * Returns the rest if found, null otherwise
-   */
-  private findRestAtBeat(notes: Note[], beat: number): Note | null {
-    for (const note of notes) {
-      if (note.isRest) {
-        const restEnd = note.beat + durationToBeats(note.duration, note.dots || 0)
-        // Check if the beat falls within this rest's time span
-        if (beat >= note.beat && beat < restEnd) {
-          return note
-        }
-      }
-    }
-    return null
-  }
-
-  /**
-   * Find the first rest that starts after the given beat
-   * Returns the rest if found, null otherwise
-   */
-  private findNextRestAfterBeat(notes: Note[], beat: number): Note | null {
-    let nextRest: Note | null = null
-    let smallestBeatAfter = Infinity
-
-    for (const note of notes) {
-      if (note.isRest && note.beat > beat) {
-        if (note.beat < smallestBeatAfter) {
-          smallestBeatAfter = note.beat
-          nextRest = note
-        }
-      }
-    }
-    return nextRest
-  }
-
-  /**
-   * Find the rest nearest to the given beat (before or after)
-   * Used when coordinate calculation lands on a beat without a rest
-   */
-  private findNearestRestToBeat(notes: Note[], targetBeat: number): Note | null {
-    let nearestRest: Note | null = null
-    let smallestDistance = Infinity
-
-    for (const note of notes) {
-      if (note.isRest) {
-        const distance = Math.abs(note.beat - targetBeat)
-        if (distance < smallestDistance) {
-          smallestDistance = distance
-          nearestRest = note
-        }
-      }
-    }
-    return nearestRest
-  }
-
-  /**
-   * Split an existing note with a tie when its duration changes to overflow
-   * @param existingNote - The existing note to split
-   * @param newDuration - The new duration to apply
-   * @param overflowAmount - Amount of beats that overflow into next measure
-   * @param newDots - Number of dots for the new duration (default 0)
-   */
-  private splitExistingNoteWithTie(existingNote: Note, newDuration: NoteParams['duration'], overflowAmount: number, newDots: number = 0): void {
-    // Include dots in total beats calculation
-    const totalBeats = durationToBeats(newDuration, newDots)
-    const beatsInCurrentMeasure = totalBeats - overflowAmount
-    const beatsInNextMeasure = overflowAmount
-
-    // Get durations for each part
-    const currentMeasureDurations = splitBeatsIntoDurations(beatsInCurrentMeasure)
-    const nextMeasureDurations = splitBeatsIntoDurations(beatsInNextMeasure)
-
-    if (currentMeasureDurations.length === 0 || nextMeasureDurations.length === 0) {
-      console.warn('Could not split existing note into valid durations')
-      return
-    }
-
-    // Update the existing note's duration to the first part
-    this.scoreModel.updateNote(existingNote.id, { duration: currentMeasureDurations[0] })
-
-    // Check if next measure exists, if not create it
-    const nextMeasureNumber = existingNote.measure + 1
-    if (!this.scoreModel.getMeasure(nextMeasureNumber)) {
-      while (!this.scoreModel.getMeasure(nextMeasureNumber)) {
-        this.scoreModel.addMeasure()
-      }
-    }
-
-    // Delete notes that would be overwritten in the next measure
-    // For tied continuations, delete ALL notes at beat 0 (not just same pitch)
-    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, 0, nextMeasureDurations[0], existingNote.pitch, true)
-    for (const noteToDelete of notesToOverwriteNext) {
-      this.scoreModel.deleteNote(noteToDelete.id)
-    }
-
-    // Add tied continuation note in next measure
-    let previousNoteId = existingNote.id
-    let nextBeat = 0
-
-    for (const duration of nextMeasureDurations) {
-      const continuationNote = this.addNote({
-        pitch: existingNote.pitch,
-        duration,
-        measure: nextMeasureNumber,
-        beat: nextBeat,
-        ...(existingNote.accidental && { accidental: existingNote.accidental }),
-      })
-
-      // Link with tie
-      this.scoreModel.updateNote(previousNoteId, { tiedTo: continuationNote.id })
-      this.scoreModel.updateNote(continuationNote.id, { tiedFrom: previousNoteId })
-
-      previousNoteId = continuationNote.id
-      nextBeat += durationToBeats(duration)
-    }
-
-    console.log('Split existing chord note with tie:', {
-      noteId: existingNote.id,
-      pitch: existingNote.pitch,
-      currentDuration: currentMeasureDurations[0],
-      nextDurations: nextMeasureDurations,
-    })
-  }
-
-  /**
-   * Add a note that spans across bar line by splitting it with a tie
-   * @param noteParams - Original note parameters
-   * @param overflowAmount - Amount of beats that overflow into next measure
-   * @returns The first note (in current measure) or null if failed
-   */
-  private addSplitNoteWithTie(noteParams: NoteParams, overflowAmount: number): Note | null {
-    // Include dots in total beats calculation
-    const totalBeats = durationToBeats(noteParams.duration, noteParams.dots || 0)
-    const beatsInCurrentMeasure = totalBeats - overflowAmount
-    const beatsInNextMeasure = overflowAmount
-
-    // Get durations for each part
-    const currentMeasureDurations = splitBeatsIntoDurations(beatsInCurrentMeasure)
-    const nextMeasureDurations = splitBeatsIntoDurations(beatsInNextMeasure)
-
-    if (currentMeasureDurations.length === 0 || nextMeasureDurations.length === 0) {
-      console.warn('Could not split note into valid durations')
-      return null
-    }
-
-    // Check if next measure exists, if not create it
-    const nextMeasureNumber = noteParams.measure + 1
-    let nextMeasure = this.scoreModel.getMeasure(nextMeasureNumber)
-    if (!nextMeasure) {
-      // Add measures until we have the next one
-      while (!this.scoreModel.getMeasure(nextMeasureNumber)) {
-        this.scoreModel.addMeasure()
-      }
-      nextMeasure = this.scoreModel.getMeasure(nextMeasureNumber)
-    }
-
-    // Delete notes that would be overwritten in the next measure
-    // For tied continuations, delete ALL notes at beat 0 (not just same pitch)
-    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, 0, nextMeasureDurations[0], noteParams.pitch, true)
-    for (const noteToDelete of notesToOverwriteNext) {
-      this.scoreModel.deleteNote(noteToDelete.id)
-    }
-
-    // Add notes in current measure (may need multiple if duration splits, e.g., dotted notes)
-    // Note: Split notes use standard durations (no dots) from splitBeatsIntoDurations
-    let currentBeat = noteParams.beat
-    let firstNote: Note | null = null
-    let previousNote: Note | null = null
-
-    for (const duration of currentMeasureDurations) {
-      const note = this.addNote({
-        pitch: noteParams.pitch,
-        duration,
-        measure: noteParams.measure,
-        beat: currentBeat,
-        ...(noteParams.accidental && { accidental: noteParams.accidental }),
-        // No dots - split durations are standard non-dotted durations
-      })
-      if (!firstNote) firstNote = note
-
-      // Link with previous note in current measure if there are multiple
-      if (previousNote) {
-        this.scoreModel.updateNote(previousNote.id, { tiedTo: note.id })
-        this.scoreModel.updateNote(note.id, { tiedFrom: previousNote.id })
-      }
-
-      previousNote = note
-      currentBeat += durationToBeats(duration)
-    }
-
-    // Add notes in next measure
-    let nextBeat = 0
-    for (const duration of nextMeasureDurations) {
-      const note = this.addNote({
-        pitch: noteParams.pitch,
-        duration,
-        measure: nextMeasureNumber,
-        beat: nextBeat,
-        ...(noteParams.accidental && { accidental: noteParams.accidental }),
-        // No dots - split durations are standard non-dotted durations
-      })
-
-      // Link with previous note (tie across bar line)
-      if (previousNote) {
-        this.scoreModel.updateNote(previousNote.id, { tiedTo: note.id })
-        this.scoreModel.updateNote(note.id, { tiedFrom: previousNote.id })
-      }
-
-      previousNote = note
-      nextBeat += durationToBeats(duration)
-    }
-
-    console.log('Split note with tie:', {
-      currentMeasure: noteParams.measure,
-      currentDurations: currentMeasureDurations,
-      nextMeasure: nextMeasureNumber,
-      nextDurations: nextMeasureDurations,
-    })
-
-    return firstNote
-  }
-
-  /**
-   * Find notes that would be overwritten by a new note
-   * This returns notes that fall within the new note's duration range.
-   * Notes at the same beat with DIFFERENT pitch are kept (chords).
-   * Notes at the same beat with SAME pitch are deleted (replacement).
-   *
-   * @param isTiedContinuation - If true, delete ALL notes at the same beat (tied notes eat existing notes)
-   */
-  private findNotesToOverwrite(
-    measureNumber: number,
-    beat: number,
-    duration: NoteParams['duration'],
-    pitch: number,
-    isTiedContinuation: boolean = false,
-    tupletInfo?: Tuplet
-  ): Note[] {
-    // For tuplet notes, use the actual tuplet note duration, not the base duration
-    const noteDurationInBeats = tupletInfo
-      ? getTupletNoteDuration(tupletInfo.baseDuration, tupletInfo.numNotes, tupletInfo.notesOccupied)
-      : durationToBeats(duration)
-    const noteEnd = beat + noteDurationInBeats
-    const notesInMeasure = this.scoreModel.getNotesInMeasure(measureNumber)
-
-    return notesInMeasure.filter(existing => {
-      // Skip rests - they're handled separately by ScoreModel
-      if (existing.isRest) return false
-
-      // Never delete notes that are in the same tuplet (except for same-beat replacement)
-      // Notes within a tuplet should coexist and not overwrite each other based on range
-      if (tupletInfo && existing.tupletId === tupletInfo.id) {
-        // Only allow deletion if at the exact same beat AND same pitch (replacement)
-        if (Math.abs(existing.beat - beat) < 0.001 && existing.pitch === pitch) {
-          return true
-        }
-        return false  // Protect all other notes in the same tuplet
-      }
-
-      // Notes at the same beat:
-      // - For tied continuations: delete ALL notes (tied notes "eat" existing notes)
-      // - For normal notes: only delete if same pitch (replacement), different pitch = chord
-      if (Math.abs(existing.beat - beat) < 0.001) {
-        if (isTiedContinuation) {
-          return true  // Delete all notes at this beat for tied continuations
-        }
-        return existing.pitch === pitch  // Delete if same pitch (replacement)
-      }
-
-      // Check if this note starts within the new note's time range
-      // A note should be deleted if it starts after our beat but before our end
-      if (existing.beat > beat && existing.beat < noteEnd) {
-        return true
-      }
-
-      return false
-    })
-  }
-
-  /**
-   * Add a rest
-   */
   addRest(duration: NoteParams['duration'], measure: number, beat: number): Note {
     const rest = this.scoreModel.addRest(duration, measure, beat)
     this.playbackEngine.setScore(this.scoreModel.getScore())
@@ -1042,18 +248,24 @@ export class MusicEngine {
     return rest
   }
 
+  // --- Mutation ---
+
+  /** Returns all non-rest notes at the given beat in a measure (chord members). */
+  private getChordNotesAt(measureNumber: number, beat: number): Note[] {
+    return this.scoreModel.getNotesInMeasure(measureNumber)
+      .filter(n => !n.isRest && Math.abs(n.beat - beat) < 0.001)
+  }
+
   /**
-   * Update a note
-   * When duration is shortened, fills the gap with rests
-   * When duration is lengthened, removes overlapping notes/rests
-   * Duration is limited to fit within the current measure (no bar line crossing)
+   * Update a note.
+   * Dispatches to updateTupletNote or updateNonTupletNote based on context.
+   * When duration is shortened, fills the gap with rests.
+   * When duration is lengthened, removes overlapping notes/rests.
+   * Duration is limited to fit within the current measure (no bar line crossing).
    */
   updateNote(noteId: string, updates: Partial<NoteParams>): Note {
-    // Get the note before update to check if duration is changing
     const existingNote = this.scoreModel.getNote(noteId)
-    if (!existingNote) {
-      throw new Error(`Note ${noteId} not found`)
-    }
+    if (!existingNote) throw new Error(`Note ${noteId} not found`)
 
     const oldDuration = existingNote.duration
     const oldDots = existingNote.dots || 0
@@ -1061,12 +273,8 @@ export class MusicEngine {
     // Handle dots: if dots is explicitly set in updates (even to 0), use it; otherwise keep old
     const newDots = updates.dots !== undefined ? updates.dots : oldDots
 
-    // Find all notes in the same chord (same measure, same beat, non-rest)
-    // All notes in a chord must have the same duration
     const measureNotes = this.scoreModel.getNotesInMeasure(existingNote.measure)
-    const chordNotes = measureNotes.filter(
-      n => !n.isRest && Math.abs(n.beat - existingNote.beat) < 0.001
-    )
+    const chordNotes = this.getChordNotesAt(existingNote.measure, existingNote.beat)
     const isChord = chordNotes.length > 1
 
     // Limit duration to fit within the measure (considering dots)
@@ -1078,7 +286,6 @@ export class MusicEngine {
       const requestedBeats = durationToBeats(newDuration, newDots)
 
       if (requestedBeats > availableBeats + 0.001) {
-        // Find the largest duration that fits (without dots for simplicity)
         const fittingDuration = this.findLargestFittingDuration(availableBeats)
         if (fittingDuration) {
           newDuration = fittingDuration
@@ -1092,218 +299,175 @@ export class MusicEngine {
       }
     }
 
-    // Calculate beat difference if duration OR dots is changing
     const oldBeats = durationToBeats(oldDuration, oldDots)
     const newBeats = durationToBeats(newDuration, newDots)
     const beatDifference = oldBeats - newBeats
 
-    // Handle tuplet notes specially
+    const ctx: NoteUpdateCtx = {
+      noteId, updates, existingNote, measureNotes,
+      chordNotes, isChord, oldBeats, newBeats, newDuration, newDots, beatDifference,
+    }
+
+    // Tuplet notes have special duration constraints and filler rest logic
     if (existingNote.tupletId && measure) {
       const tuplet = measure.tuplets?.find(t => t.id === existingNote.tupletId)
-      if (tuplet) {
-        const baseDurationBeats = durationToBeats(tuplet.baseDuration)
-        const tupletRatio = tuplet.notesOccupied / tuplet.numNotes
-        const tupletTotalBeats = baseDurationBeats * tuplet.notesOccupied
-        const tupletEndBeat = tuplet.startBeat + tupletTotalBeats
-        const remainingTupletBeats = tupletEndBeat - existingNote.beat
+      if (tuplet) return this.updateTupletNote(ctx, measure, tuplet)
+    }
 
-        // Check if new duration fits in remaining tuplet space
-        const scaledNewDuration = newBeats * tupletRatio
-        if (scaledNewDuration > remainingTupletBeats + 0.001) {
-          // New duration doesn't fit - use the largest that does
-          const maxNormalBeats = remainingTupletBeats / tupletRatio
-          const fittingDuration = this.findLargestFittingDuration(maxNormalBeats)
-          if (fittingDuration) {
-            newDuration = fittingDuration
-            updates = { ...updates, duration: fittingDuration, dots: 0 }
-          } else {
-            // Can't fit any duration, keep old
-            return existingNote
-          }
-        }
+    return this.updateNonTupletNote(ctx)
+  }
 
-        // Calculate how many slots the new duration takes
-        const slotsConsumed = newBeats / baseDurationBeats
-        const isWholeSlots = Math.abs(slotsConsumed - Math.round(slotsConsumed)) < 0.001
+  /** Handles duration updates for notes inside a tuplet. */
+  private updateTupletNote(ctx: NoteUpdateCtx, _measure: Measure, tuplet: Tuplet): Note {
+    let { noteId, updates, existingNote, measureNotes, chordNotes, isChord, oldBeats, newBeats, newDuration, newDots } = ctx
 
-        // For fractional slots (like dotted notes), reject for simplicity
-        if (!isWholeSlots && slotsConsumed > 1) {
-          console.log('Tuplet note update rejected: fractional slots > 1 not supported')
-          return existingNote
-        }
+    const baseDurationBeats = durationToBeats(tuplet.baseDuration)
+    const tupletRatio = tuplet.notesOccupied / tuplet.numNotes
+    const tupletTotalBeats = baseDurationBeats * tuplet.notesOccupied
+    const tupletEndBeat = tuplet.startBeat + tupletTotalBeats
+    const remainingTupletBeats = tupletEndBeat - existingNote.beat
 
-        // Handle duration changes for tuplet notes
-        const actualNewDuration = newBeats * tupletRatio
-        const actualOldDuration = oldBeats * tupletRatio
-        const noteEndBeat = existingNote.beat + actualNewDuration
-
-        if (newBeats > oldBeats) {
-          // Duration increased - delete overlapping tuplet items
-          const tupletItemsToDelete = measureNotes.filter(n =>
-            n.tupletId === existingNote.tupletId &&
-            n.id !== noteId &&
-            n.beat > existingNote.beat + 0.001 &&
-            n.beat < noteEndBeat - 0.001
-          )
-
-          for (const item of tupletItemsToDelete) {
-            this.scoreModel.deleteNote(item.id)
-          }
-
-          // Create filler rest if there's remaining space and fractional slots
-          const fractionalSlots = slotsConsumed - Math.floor(slotsConsumed)
-          if (fractionalSlots > 0.001 && slotsConsumed < 1) {
-            const remainderBeats = fractionalSlots * baseDurationBeats
-            const fillerDuration = beatsToDuration(remainderBeats)
-            if (fillerDuration) {
-              const fillerBeat = noteEndBeat
-              if (fillerBeat < tupletEndBeat - 0.001) {
-                this.scoreModel.addNote({
-                  pitch: 0,
-                  duration: fillerDuration,
-                  measure: existingNote.measure,
-                  beat: fillerBeat,
-                  isRest: true,
-                  tupletId: existingNote.tupletId,
-                })
-              }
-            }
-          }
-        } else if (newBeats < oldBeats) {
-          // Duration decreased - add filler rest for the remaining space
-          const remainingBeats = actualOldDuration - actualNewDuration
-          const remainingNormalBeats = remainingBeats / tupletRatio
-          const fillerDuration = beatsToDuration(remainingNormalBeats)
-
-          if (fillerDuration) {
-            const fillerBeat = noteEndBeat
-            // Check if there's already something at this beat
-            const existingAtFiller = measureNotes.find(n =>
-              n.tupletId === existingNote.tupletId &&
-              Math.abs(n.beat - fillerBeat) < 0.02
-            )
-
-            if (!existingAtFiller) {
-              this.scoreModel.addNote({
-                pitch: 0,
-                duration: fillerDuration,
-                measure: existingNote.measure,
-                beat: fillerBeat,
-                isRest: true,
-                tupletId: existingNote.tupletId,
-              })
-            }
-          }
-        }
-
-        // Update the note
-        const updatedNote = this.scoreModel.updateNote(noteId, updates)
-
-        // Also update chord notes if this is a chord
-        if (isChord) {
-          for (const chordNote of chordNotes) {
-            if (chordNote.id !== noteId) {
-              this.scoreModel.updateNote(chordNote.id, { duration: newDuration, dots: newDots })
-            }
-          }
-        }
-
-        this.playbackEngine.setScore(this.scoreModel.getScore())
-        this.saveUndoState('Update tuplet note')
-        return updatedNote
+    // Check if new duration fits in remaining tuplet space
+    const scaledNewDuration = newBeats * tupletRatio
+    if (scaledNewDuration > remainingTupletBeats + 0.001) {
+      const maxNormalBeats = remainingTupletBeats / tupletRatio
+      const fittingDuration = this.findLargestFittingDuration(maxNormalBeats)
+      if (fittingDuration) {
+        newDuration = fittingDuration
+        updates = { ...updates, duration: fittingDuration, dots: 0 }
+        newBeats = durationToBeats(fittingDuration)
+      } else {
+        // Can't fit any duration, keep old
+        return existingNote
       }
     }
+
+    // Calculate how many tuplet slots the new duration takes
+    const slotsConsumed = newBeats / baseDurationBeats
+    const isWholeSlots = Math.abs(slotsConsumed - Math.round(slotsConsumed)) < 0.001
+
+    // For fractional slots (like dotted notes), reject for simplicity
+    if (!isWholeSlots && slotsConsumed > 1) {
+      console.log('Tuplet note update rejected: fractional slots > 1 not supported')
+      return existingNote
+    }
+
+    const actualNewDuration = newBeats * tupletRatio
+    const actualOldDuration = oldBeats * tupletRatio
+    const noteEndBeat = existingNote.beat + actualNewDuration
+
+    if (newBeats > oldBeats) {
+      // Duration increased - delete overlapping tuplet items
+      const tupletItemsToDelete = measureNotes.filter(n =>
+        n.tupletId === existingNote.tupletId &&
+        n.id !== noteId &&
+        n.beat > existingNote.beat + 0.001 &&
+        n.beat < noteEndBeat - 0.001
+      )
+      for (const item of tupletItemsToDelete) {
+        this.scoreModel.deleteNote(item.id)
+      }
+
+      // Create filler rest if there's remaining space and fractional slots
+      const fractionalSlots = slotsConsumed - Math.floor(slotsConsumed)
+      if (fractionalSlots > 0.001 && slotsConsumed < 1) {
+        const fillerDuration = beatsToDuration(fractionalSlots * baseDurationBeats)
+        if (fillerDuration && noteEndBeat < tupletEndBeat - 0.001) {
+          this.scoreModel.addNote({
+            pitch: 0, duration: fillerDuration,
+            measure: existingNote.measure, beat: noteEndBeat,
+            isRest: true, tupletId: existingNote.tupletId,
+          })
+        }
+      }
+    } else if (newBeats < oldBeats) {
+      // Duration decreased - add filler rest for the remaining space
+      const fillerDuration = beatsToDuration((actualOldDuration - actualNewDuration) / tupletRatio)
+      if (fillerDuration) {
+        const existingAtFiller = measureNotes.find(n =>
+          n.tupletId === existingNote.tupletId &&
+          Math.abs(n.beat - noteEndBeat) < 0.02
+        )
+        if (!existingAtFiller) {
+          this.scoreModel.addNote({
+            pitch: 0, duration: fillerDuration,
+            measure: existingNote.measure, beat: noteEndBeat,
+            isRest: true, tupletId: existingNote.tupletId,
+          })
+        }
+      }
+    }
+
+    const updatedNote = this.scoreModel.updateNote(noteId, updates)
+
+    // Also update chord notes to keep duration in sync
+    if (isChord) {
+      for (const chordNote of chordNotes) {
+        if (chordNote.id !== noteId) {
+          this.scoreModel.updateNote(chordNote.id, { duration: newDuration, dots: newDots })
+        }
+      }
+    }
+
+    this.playbackEngine.setScore(this.scoreModel.getScore())
+    this.saveUndoState('Update tuplet note')
+    return updatedNote
+  }
+
+  /** Handles duration updates for regular (non-tuplet) notes, both chords and singles. */
+  private updateNonTupletNote(ctx: NoteUpdateCtx): Note {
+    const { noteId, updates, existingNote, measureNotes, chordNotes, isChord, oldBeats, newBeats, newDuration, newDots, beatDifference } = ctx
 
     // If duration is being lengthened, remove overlapping notes/rests first
     if (beatDifference < -0.001) {
       const noteEndBeat = existingNote.beat + newBeats
-
-      // Find notes/rests that overlap with the new extended duration
-      // These are notes that start after the original note ends but before the new end
-      // Exclude notes that are part of the same chord
       const chordNoteIds = new Set(chordNotes.map(n => n.id))
       const notesToRemove: string[] = []
       let beatsToRecover = 0
 
       for (const n of measureNotes) {
-        // Skip the note/rest being updated and other notes in the same chord
         if (n.id === noteId || chordNoteIds.has(n.id)) continue
-
         const nStart = n.beat
         const nEnd = n.beat + durationToBeats(n.duration, n.dots || 0)
-
-        // Check if this note overlaps with the extended range
-        // The extended range is from (existingNote.beat + oldBeats) to (existingNote.beat + newBeats)
+        // Note starts within the extended range - remove it entirely
         if (nStart >= existingNote.beat + oldBeats && nStart < noteEndBeat) {
-          // This note starts within the extended range - remove it entirely
           notesToRemove.push(n.id)
           beatsToRecover += durationToBeats(n.duration, n.dots || 0)
+        // Note starts before but extends into the range - remove it
         } else if (nStart < existingNote.beat + oldBeats && nEnd > existingNote.beat + oldBeats && nEnd <= noteEndBeat) {
-          // This note starts before but extends into the range - remove it
           notesToRemove.push(n.id)
           beatsToRecover += durationToBeats(n.duration, n.dots || 0)
         }
       }
 
-      // Remove overlapping notes
-      for (const id of notesToRemove) {
-        this.scoreModel.deleteNote(id)
-      }
+      for (const id of notesToRemove) this.scoreModel.deleteNote(id)
 
-      // If we removed more beats than needed, add rests to fill the gap
-      const beatsNeeded = Math.abs(beatDifference)
-      const excessBeats = beatsToRecover - beatsNeeded
-
+      // If we removed more beats than needed, add rests to fill the excess
+      const excessBeats = beatsToRecover - Math.abs(beatDifference)
       if (excessBeats > 0.001) {
-        const restStartBeat = noteEndBeat
-        const restDurations = splitBeatsIntoDurations(excessBeats)
-
-        let currentBeat = restStartBeat
-        for (const restDuration of restDurations) {
+        let currentBeat = noteEndBeat
+        for (const restDuration of splitBeatsIntoDurations(excessBeats)) {
           this.scoreModel.addRest(restDuration, existingNote.measure, currentBeat)
           currentBeat += durationToBeats(restDuration)
         }
       }
     }
 
-    // Update all notes in the chord if duration is changing
-    // All notes in a chord must have the same duration
-    if (isChord && updates.duration) {
+    // For chords, update all members' duration and dots so they stay in sync
+    if (isChord && (updates.duration || updates.dots !== undefined)) {
       for (const chordNote of chordNotes) {
-        // Update each chord note's duration (but only duration, not other properties)
-        this.scoreModel.updateNote(chordNote.id, { duration: updates.duration })
+        if (chordNote.id === noteId) continue
+        this.scoreModel.updateNote(chordNote.id, { duration: newDuration, dots: newDots })
       }
-      // Now update the target note with all requested updates (pitch, accidental, etc.)
-      // Duration is already set, but include it to ensure consistency
-      const note = this.scoreModel.updateNote(noteId, updates)
-
-      // If duration was shortened, fill the gap with rests
-      if (beatDifference > 0.001) {
-        const restStartBeat = note.beat + newBeats
-        const restDurations = splitBeatsIntoDurations(beatDifference)
-
-        let currentBeat = restStartBeat
-        for (const restDuration of restDurations) {
-          this.scoreModel.addRest(restDuration, note.measure, currentBeat)
-          currentBeat += durationToBeats(restDuration)
-        }
-      }
-
-      this.playbackEngine.setScore(this.scoreModel.getScore())
-      this.saveUndoState('Update note')
-      return note
     }
 
-    // Single note update (not part of a chord)
+    // Apply all requested updates to the target note
     const note = this.scoreModel.updateNote(noteId, updates)
 
     // If duration was shortened, fill the gap with rests
     if (beatDifference > 0.001) {
-      const restStartBeat = note.beat + newBeats
-      const restDurations = splitBeatsIntoDurations(beatDifference)
-
-      let currentBeat = restStartBeat
-      for (const restDuration of restDurations) {
+      let currentBeat = note.beat + newBeats
+      for (const restDuration of splitBeatsIntoDurations(beatDifference)) {
         this.scoreModel.addRest(restDuration, note.measure, currentBeat)
         currentBeat += durationToBeats(restDuration)
       }
@@ -1335,12 +499,7 @@ export class MusicEngine {
     return null
   }
 
-  /**
-   * Get a note by ID
-   */
-  getNote(noteId: string): Note | undefined {
-    return this.scoreModel.getNote(noteId)
-  }
+  // --- Articulations & Ties ---
 
   /**
    * Toggle an articulation on a note. Adds if absent, removes if present.
@@ -1364,14 +523,12 @@ export class MusicEngine {
    * Used when the target note already exists (e.g. pending tie resolution in keyboard entry).
    */
   linkTie(fromNoteId: string, toNoteId: string): void {
-    const score = this.scoreModel.getScore()
-    const allNotes = score.measures.flatMap(m => m.notes)
-    const fromNote = allNotes.find(n => n.id === fromNoteId)
-    const toNote = allNotes.find(n => n.id === toNoteId)
+    const fromNote = this.scoreModel.getNote(fromNoteId)
+    const toNote = this.scoreModel.getNote(toNoteId)
     if (!fromNote || !toNote) return
-    fromNote.tiedTo = toNoteId
-    toNote.tiedFrom = fromNoteId
-    this.playbackEngine.setScore(score)
+    this.scoreModel.updateNote(fromNoteId, { tiedTo: toNoteId })
+    this.scoreModel.updateNote(toNoteId, { tiedFrom: fromNoteId })
+    this.playbackEngine.setScore(this.scoreModel.getScore())
     this.saveUndoState('Add tie')
   }
 
@@ -1381,34 +538,40 @@ export class MusicEngine {
    * Returns true if tie added, false if removed, null if no candidate found.
    */
   toggleTie(noteId: string): boolean | null {
-    const score = this.scoreModel.getScore()
-    const allNotes = score.measures
-      .flatMap(m => m.notes)
-      .sort((a, b) => a.measure !== b.measure ? a.measure - b.measure : a.beat - b.beat)
-
-    const note = allNotes.find(n => n.id === noteId)
+    const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest) return null
 
     if (note.tiedTo) {
-      // Remove existing tie
-      const toNote = allNotes.find(n => n.id === note.tiedTo)
+      // Remove existing tie — get live refs and delete the fields
+      const toNote = this.scoreModel.getNote(note.tiedTo)
       delete note.tiedTo
       if (toNote) delete toNote.tiedFrom
-      this.playbackEngine.setScore(score)
+      this.playbackEngine.setScore(this.scoreModel.getScore())
       this.saveUndoState('Remove tie')
       return false
     } else {
       // Find next note with same pitch after current position
+      const allNotes = this.scoreModel.getAllNotes()
+        .sort((a, b) => a.measure !== b.measure ? a.measure - b.measure : a.beat - b.beat)
       const idx = allNotes.findIndex(n => n.id === noteId)
       const nextNote = allNotes.slice(idx + 1).find(n => !n.isRest && n.pitch === note.pitch)
       if (!nextNote) return null
 
-      note.tiedTo = nextNote.id
-      nextNote.tiedFrom = noteId
-      this.playbackEngine.setScore(score)
+      this.scoreModel.updateNote(noteId, { tiedTo: nextNote.id })
+      this.scoreModel.updateNote(nextNote.id, { tiedFrom: noteId })
+      this.playbackEngine.setScore(this.scoreModel.getScore())
       this.saveUndoState('Add tie')
       return true
     }
+  }
+
+  // --- Query & Deletion ---
+
+  /**
+   * Get a note by ID
+   */
+  getNote(noteId: string): Note | undefined {
+    return this.scoreModel.getNote(noteId)
   }
 
   /**
@@ -1426,10 +589,7 @@ export class MusicEngine {
       : 'Delete rest'
 
     // Check if this note is part of a chord (multiple notes at same beat, same measure)
-    const notesInMeasure = this.scoreModel.getNotesInMeasure(note.measure)
-    const notesAtSameBeat = notesInMeasure.filter(
-      n => Math.abs(n.beat - note.beat) < 0.001 && !n.isRest
-    )
+    const notesAtSameBeat = this.getChordNotesAt(note.measure, note.beat)
     const isPartOfChord = notesAtSameBeat.length > 1
 
     // Delete the note
@@ -1491,17 +651,7 @@ export class MusicEngine {
 
   // ==================== Tuplet Operations ====================
 
-  /**
-   * Create a tuplet at a pixel position
-   * Creates a complete tuplet with the first note at the given pitch and remaining positions as rests
-   * @param coords - Pixel coordinates where the tuplet starts
-   * @param duration - Base duration for the tuplet notes
-   * @param pitch - MIDI pitch for the first note
-   * @param accidental - Optional accidental for the first note
-   * @param numNotes - Number of notes in the tuplet (default: 3 for triplet)
-   * @param notesOccupied - Number of base notes the tuplet spans (default: 2 for triplet)
-   * @returns Object containing the created tuplet and first note, or null if creation failed
-   */
+  /** Create a tuplet at a pixel position. Delegates to NoteEntryCoordinator. */
   createTupletAtPosition(
     coords: PixelCoordinates,
     duration: NoteDuration,
@@ -1510,176 +660,12 @@ export class MusicEngine {
     numNotes: number = 3,
     notesOccupied: number = 2
   ): { tuplet: Tuplet; firstNote: Note } | null {
-    const measure = this.scoreModel.getMeasure(1)
-    if (!measure) return null
-
-    const beatsInMeasure = measure.timeSignature.numerator
-    const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
-
-    // Validate measure exists
-    const targetMeasure = this.scoreModel.getMeasure(measureNumber)
-    if (!targetMeasure) {
-      console.log('✗ Invalid: measure does not exist')
-      return null
-    }
-
-    // Get nearest elements (same logic as addNoteAtPosition)
-    const registry = this.renderer.getElementRegistry()
-    const { nearestLeft, nearestRight, leftDistance, rightDistance } =
-      registry.findNotesLeftRight(coords.x, measureNumber)
-
-    // Distance thresholds (same as addNoteAtPosition)
-    const CLOSE_THRESHOLD = 25
-    const FAR_THRESHOLD = 40
-
-    const noteDurationInBeats = durationToBeats(duration)
-    const tupletTotalBeats = noteDurationInBeats * notesOccupied
-    const rawBeat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
-
-    let beat: number
-    let decisionReason = ''
-
-    // Check if click is far from all elements - use coordinate-based calculation
-    const nearestDistance = Math.min(
-      nearestLeft ? leftDistance : Infinity,
-      nearestRight ? rightDistance : Infinity
-    )
-
-    if (nearestDistance > FAR_THRESHOLD) {
-      // Click is far from any element - use coordinate calculation
-      beat = Math.round(rawBeat / noteDurationInBeats) * noteDurationInBeats
-      decisionReason = `coordCalc (nearest=${nearestDistance.toFixed(0)}px > ${FAR_THRESHOLD}px)`
-    } else {
-      // Click is near an element - use directional logic (same as note entry)
-      let targetElement: { type: string; beat: number } | null = null
-
-      if (nearestRight && nearestRight.beat !== undefined && rightDistance <= FAR_THRESHOLD) {
-        if (nearestLeft && nearestLeft.beat !== undefined && leftDistance < CLOSE_THRESHOLD && leftDistance < rightDistance) {
-          // Very close to left element AND closer than right - prefer left
-          targetElement = { type: nearestLeft.type, beat: nearestLeft.beat }
-          decisionReason = `left (${leftDistance.toFixed(0)}px < ${CLOSE_THRESHOLD}px, closer than right)`
-        } else {
-          // Default: prefer right element
-          targetElement = { type: nearestRight.type, beat: nearestRight.beat }
-          decisionReason = `right (${rightDistance.toFixed(0)}px)`
-        }
-      } else if (nearestLeft && nearestLeft.beat !== undefined && leftDistance <= FAR_THRESHOLD) {
-        // Only left element available and it's close enough
-        targetElement = { type: nearestLeft.type, beat: nearestLeft.beat }
-        decisionReason = `left-only (${leftDistance.toFixed(0)}px)`
-      }
-
-      if (targetElement && targetElement.type === 'rest') {
-        // Target is a REST → start tuplet at rest's beat
-        beat = targetElement.beat
-        decisionReason += ` → rest@${targetElement.beat}`
-      } else if (targetElement && targetElement.type === 'note') {
-        // Target is a NOTE → start tuplet at note's beat (will convert existing note to tuplet)
-        beat = targetElement.beat
-        decisionReason += ` → note@${targetElement.beat} (convert to tuplet)`
-      } else {
-        // No valid target - use coordinate calculation
-        beat = Math.round(rawBeat / noteDurationInBeats) * noteDurationInBeats
-        decisionReason = 'coordCalc (no valid target)'
-      }
-    }
-
-    // Clamp to valid range (tuplet must fit in measure)
-    beat = Math.max(0, Math.min(beat, beatsInMeasure - tupletTotalBeats))
-
-    // Check if there's already a tuplet at this position
-    const existingTuplet = this.scoreModel.getTupletAtBeat(measureNumber, beat)
-    if (existingTuplet) {
-      console.log('✗ Tuplet already exists at this beat')
-      return null
-    }
-
-    // Log tuplet entry decision
-    console.log('TupletEntry:', {
-      decision: decisionReason,
-      left: nearestLeft ? `${nearestLeft.type}@${nearestLeft.beat} (${leftDistance.toFixed(0)}px)` : null,
-      right: nearestRight ? `${nearestRight.type}@${nearestRight.beat} (${rightDistance.toFixed(0)}px)` : null,
-      finalBeat: beat,
-      tupletSpan: `${beat} to ${(beat + tupletTotalBeats).toFixed(3)}`,
-      config: `${numNotes}:${notesOccupied} ${duration}`,
-    })
-
-    // Check if there's an existing note at the tuplet's start position
-    // Save its data before createTuplet (which deletes overlapping notes)
-    const existingNoteAtStart = this.scoreModel.getNotesInMeasure(measureNumber)
-      .find(n => !n.isRest && !n.tupletId && Math.abs(n.beat - beat) < 0.001)
-    const existingNoteData = existingNoteAtStart ? {
-      pitch: existingNoteAtStart.pitch,
-      accidental: existingNoteAtStart.accidental,
-    } : null
-
-    // Create the tuplet (this fills it with rests and DELETES overlapping notes)
-    const tuplet = this.scoreModel.createTuplet(measureNumber, beat, duration, numNotes, notesOccupied)
-
-    // Get the beat positions for the tuplet
-    const beatPositions = getTupletBeatPositions(beat, duration, numNotes, notesOccupied)
-
-    // Find the first rest in the tuplet
-    const tupletNotes = this.scoreModel.getNotesInTuplet(tuplet.id)
-    const firstRest = tupletNotes.find(n => n.isRest && Math.abs(n.beat - beatPositions[0]) < 0.001)
-
-    let firstNote: Note
-
-    if (existingNoteData) {
-      // There was an existing note - re-add it as part of the tuplet
-      // Delete the tuplet rest at the first position
-      if (firstRest) {
-        this.scoreModel.deleteNote(firstRest.id)
-      }
-
-      // Re-add the existing note as part of the tuplet
-      this.addNote({
-        pitch: existingNoteData.pitch,
-        duration,
-        measure: measureNumber,
-        beat: beatPositions[0],
-        tupletId: tuplet.id,
-        ...(existingNoteData.accidental && { accidental: existingNoteData.accidental }),
-      })
-
-      // Add the new note as a chord
-      firstNote = this.addNote({
-        pitch,
-        duration,
-        measure: measureNumber,
-        beat: beatPositions[0],
-        tupletId: tuplet.id,
-        ...(accidental && { accidental }),
-      })
-    } else {
-      // No existing note - replace the first rest with the new note
-      if (!firstRest) {
-        console.warn('Could not find first rest in tuplet')
-        return null
-      }
-
-      // Delete the first rest and add a note in its place
-      this.scoreModel.deleteNote(firstRest.id)
-
-      firstNote = this.addNote({
-        pitch,
-        duration,
-        measure: measureNumber,
-        beat: beatPositions[0],
-        tupletId: tuplet.id,
-        ...(accidental && { accidental }),
-      })
-    }
-
-    this.playbackEngine.setScore(this.scoreModel.getScore())
-    this.saveUndoState('Create triplet')
-
-    return { tuplet, firstNote }
+    return this.noteEntryCoordinator.createTupletAtPosition(coords, duration, pitch, accidental, numNotes, notesOccupied)
   }
 
   /**
    * Create a tuplet at a specific beat position (for keyboard entry mode).
-   * Same logic as createTupletAtPosition but takes beat/measure directly.
+   * Delegates to NoteEntryCoordinator.
    */
   createTupletAtBeat(
     measureNumber: number,
@@ -1690,60 +676,7 @@ export class MusicEngine {
     numNotes: number = 3,
     notesOccupied: number = 2
   ): { tuplet: Tuplet; firstNote: Note } | null {
-    const targetMeasure = this.scoreModel.getMeasure(measureNumber)
-    if (!targetMeasure) return null
-
-    const existingTuplet = this.scoreModel.getTupletAtBeat(measureNumber, beat)
-    if (existingTuplet) return null
-
-    const existingNoteAtStart = this.scoreModel.getNotesInMeasure(measureNumber)
-      .find(n => !n.isRest && !n.tupletId && Math.abs(n.beat - beat) < 0.001)
-    const existingNoteData = existingNoteAtStart ? {
-      pitch: existingNoteAtStart.pitch,
-      accidental: existingNoteAtStart.accidental,
-    } : null
-
-    const tuplet = this.scoreModel.createTuplet(measureNumber, beat, duration, numNotes, notesOccupied)
-    const beatPositions = getTupletBeatPositions(beat, duration, numNotes, notesOccupied)
-    const tupletNotes = this.scoreModel.getNotesInTuplet(tuplet.id)
-    const firstRest = tupletNotes.find(n => n.isRest && Math.abs(n.beat - beatPositions[0]) < 0.001)
-
-    let firstNote: Note
-
-    if (existingNoteData) {
-      if (firstRest) this.scoreModel.deleteNote(firstRest.id)
-      this.addNote({
-        pitch: existingNoteData.pitch,
-        duration,
-        measure: measureNumber,
-        beat: beatPositions[0],
-        tupletId: tuplet.id,
-        ...(existingNoteData.accidental && { accidental: existingNoteData.accidental }),
-      })
-      firstNote = this.addNote({
-        pitch,
-        duration,
-        measure: measureNumber,
-        beat: beatPositions[0],
-        tupletId: tuplet.id,
-        ...(accidental && { accidental }),
-      })
-    } else {
-      if (!firstRest) return null
-      this.scoreModel.deleteNote(firstRest.id)
-      firstNote = this.addNote({
-        pitch,
-        duration,
-        measure: measureNumber,
-        beat: beatPositions[0],
-        tupletId: tuplet.id,
-        ...(accidental && { accidental }),
-      })
-    }
-
-    this.playbackEngine.setScore(this.scoreModel.getScore())
-    this.saveUndoState('Create triplet')
-    return { tuplet, firstNote }
+    return this.noteEntryCoordinator.createTupletAtBeat(measureNumber, beat, duration, pitch, accidental, numNotes, notesOccupied)
   }
 
   /**
@@ -1816,8 +749,7 @@ export class MusicEngine {
     // Check if cursor is over an invalid element (clef, time signature, barline)
     const elementAtCursor = registry.getAt(coords.x, coords.y)
     if (elementAtCursor) {
-      const invalidTypes = ['clef', 'timeSignature', 'barline', 'keySignature']
-      if (invalidTypes.includes(elementAtCursor.type)) {
+      if (INVALID_NOTE_ENTRY_TYPES.includes(elementAtCursor.type)) {
         // Don't show ghost note over these elements
         this.renderScore()
         return false
@@ -1896,6 +828,53 @@ export class MusicEngine {
    */
   pixelToPosition(coords: PixelCoordinates, beatsInMeasure: number) {
     return this.getPositionFromPixels(coords, beatsInMeasure)
+  }
+
+  /**
+   * Core pixel→position resolver using ElementRegistry with coordinateMapper fallback.
+   * Also used by renderScoreWithPreview for beat quantization during ghost-note preview.
+   * @param duration - Optional duration for beat quantization
+   */
+  private getPositionFromPixels(
+    coords: PixelCoordinates,
+    beatsInMeasure: number,
+    duration?: NoteParams['duration']
+  ): { measure: number; beat: number; pitch: number } {
+    const registry = this.renderer.getElementRegistry()
+    const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
+
+    // Get pitch from ElementRegistry (more accurate) with fallback
+    let pitch = registry.pixelYToPitch(coords.y, measureNumber)
+    if (pitch === null) {
+      pitch = this.coordinateMapper.pixelYToPitch(coords.y, measureNumber)
+    }
+
+    // Get beat from ElementRegistry or coordinateMapper
+    let beat: number
+    const nearestElement = registry.findNearestNoteOrRest(coords.x, measureNumber)
+    if (nearestElement && nearestElement.beat !== undefined) {
+      const elementCenterX = nearestElement.bbox.x + nearestElement.bbox.width / 2
+      const distance = Math.abs(coords.x - elementCenterX)
+      if (distance < nearestElement.bbox.width * 1.5) {
+        beat = nearestElement.beat
+      } else {
+        beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
+        if (duration) {
+          const noteDurationInBeats = durationToBeats(duration)
+          beat = Math.round(beat / noteDurationInBeats) * noteDurationInBeats
+          beat = Math.max(0, Math.min(beat, beatsInMeasure - noteDurationInBeats))
+        }
+      }
+    } else {
+      beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
+      if (duration) {
+        const noteDurationInBeats = durationToBeats(duration)
+        beat = Math.round(beat / noteDurationInBeats) * noteDurationInBeats
+        beat = Math.max(0, Math.min(beat, beatsInMeasure - noteDurationInBeats))
+      }
+    }
+
+    return { measure: measureNumber, beat, pitch }
   }
 
   /**

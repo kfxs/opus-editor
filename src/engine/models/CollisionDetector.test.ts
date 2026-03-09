@@ -13,6 +13,7 @@ describe('CollisionDetector', () => {
       number: 1,
       notes: [],
       timeSignature: { numerator: 4, denominator: 4 },
+      tuplets: [],
     }
   })
 

@@ -55,16 +55,6 @@ export class PlaybackEngine {
   }
 
   /**
-   * Dynamically load Tone.js (like testAudio does)
-   */
-  private async loadTone(): Promise<typeof ToneType> {
-    if (!Tone) {
-      Tone = await import('tone')
-    }
-    return Tone
-  }
-
-  /**
    * Set the score to play
    */
   setScore(score: Score): void {
@@ -103,124 +93,6 @@ export class PlaybackEngine {
     // Convert beats to seconds based on tempo
     const beatsPerSecond = this.score.tempo / 60
     this.totalDuration = totalBeats / beatsPerSecond
-  }
-
-  /**
-   * Convert beat duration to seconds based on tempo
-   */
-  private beatsToSeconds(beats: number): number {
-    if (!this.score) return 0
-    const beatsPerSecond = this.score.tempo / 60
-    return beats / beatsPerSecond
-  }
-
-  /**
-   * Schedule all notes for playback using direct Tone.now() scheduling
-   * Creates a fresh synth each time (like testAudio) to avoid state issues
-   */
-  private async scheduleNotes(): Promise<void> {
-    if (!this.score) return
-
-    // Dynamically import Tone.js (exactly like testAudio does)
-    const Tone = await this.loadTone()
-
-    // Ensure Tone is started FIRST before creating any audio nodes
-    await Tone.start()
-
-    // Dispose old synth if exists and create fresh one (like testAudio does)
-    if (this.synth) {
-      this.synth.dispose()
-      this.synth = null
-    }
-
-    // Create a fresh synth for this playback session
-    this.synth = new Tone.Synth().toDestination()
-
-    // Get the current audio context time as our reference point
-    const now = Tone.now()
-    this.playbackStartTime = now
-
-    let currentTimeInBeats = 0 // in beats
-
-    for (const measure of this.score.measures) {
-      const measureStartTime = currentTimeInBeats
-
-      for (const note of measure.notes) {
-        if (note.isRest) {
-          // Skip rests (silence)
-          continue
-        }
-
-        // Calculate absolute time for this note in beats
-        const noteTimeInBeats = measureStartTime + note.beat
-
-        // Validate note time before scheduling
-        if (isNaN(noteTimeInBeats) || noteTimeInBeats < 0) {
-          console.warn('Invalid note time, skipping:', noteTimeInBeats, note)
-          continue
-        }
-
-        // Calculate actual sounding pitch by applying accidental
-        let soundingPitch = note.pitch
-        if (note.accidental) {
-          switch (note.accidental) {
-            case '#':
-              soundingPitch += 1
-              break
-            case 'b':
-              soundingPitch -= 1
-              break
-            case '##':
-              soundingPitch += 2
-              break
-            case 'bb':
-              soundingPitch -= 2
-              break
-          }
-        }
-
-        // Convert MIDI to note name (like testAudio uses)
-        const noteName = Tone.Frequency(soundingPitch, 'midi').toNote()
-
-        // Convert beat time to seconds
-        const noteTimeInSeconds = this.beatsToSeconds(noteTimeInBeats)
-        const durationInSeconds = this.noteDurationToSeconds(note.duration)
-
-        // Schedule the note directly using Tone.now() + offset
-        // This is the exact same approach used by testAudio which works
-        this.synth.triggerAttackRelease(
-          noteName,
-          durationInSeconds,
-          now + noteTimeInSeconds
-        )
-
-        // Trigger callback (using setTimeout to align with audio timing)
-        if (this.callbacks.onNotePlay) {
-          setTimeout(() => {
-            this.callbacks.onNotePlay!(note)
-          }, noteTimeInSeconds * 1000)
-        }
-      }
-
-      currentTimeInBeats += getMeasureDuration(measure.timeSignature)
-    }
-
-    // Schedule playback complete callback
-    const totalTimeInSeconds = this.beatsToSeconds(currentTimeInBeats)
-    this.playbackTimeoutId = setTimeout(() => {
-      this.stop()
-      if (this.callbacks.onPlaybackComplete) {
-        this.callbacks.onPlaybackComplete()
-      }
-    }, totalTimeInSeconds * 1000)
-  }
-
-  /**
-   * Convert note duration to seconds based on tempo
-   */
-  private noteDurationToSeconds(duration: string): number {
-    const beats = durationToBeats(duration)
-    return this.beatsToSeconds(beats)
   }
 
   /**
@@ -309,12 +181,6 @@ export class PlaybackEngine {
               break
             case 'b':
               soundingPitch -= 1
-              break
-            case '##':
-              soundingPitch += 2
-              break
-            case 'bb':
-              soundingPitch -= 2
               break
             // 'n' (natural) doesn't change the pitch - it just cancels key signature
           }

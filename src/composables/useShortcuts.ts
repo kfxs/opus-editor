@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import type { ArticulationType } from '../types/music'
+import type { ArticulationType, NoteDuration, Accidental } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import { ShortcutManager } from '../shortcuts'
 

@@ -1,7 +1,7 @@
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Beam, StaveTie, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
 import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType, ArticulationType, Tuplet } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
-import { ElementRegistry, type StaffGeometry, type TupletGeometry } from '@/engine/ElementRegistry'
+import { ElementRegistry, type TupletGeometry } from '@/engine/ElementRegistry'
 
 /**
  * Clef configuration for stem direction calculation
@@ -118,7 +118,7 @@ export class VexFlowRenderer {
     this.svgContainer.innerHTML = ''
 
     // Create VexFlow SVG renderer
-    this.renderer = new Renderer(this.svgContainer, Renderer.Backends.SVG)
+    this.renderer = new Renderer(this.svgContainer as HTMLDivElement, Renderer.Backends.SVG)
     this.renderer.resize(width, height)
     this.context = this.renderer.getContext()
 
@@ -291,7 +291,7 @@ export class VexFlowRenderer {
     const staveNote = new StaveNote({
       keys: keys,
       duration: vexDuration,
-      auto_stem: false,
+      autoStem: false,
     })
 
     // Explicitly set stem direction AFTER creation
@@ -304,7 +304,7 @@ export class VexFlowRenderer {
     // Add accidentals for each note in the chord.
     // Skip tied continuations — the tie carries the accidental implicitly;
     // re-displaying it on the second note would be incorrect notation.
-    chordNotes.forEach((chordNote, index) => {
+    chordNotes.forEach((chordNote) => {
       if (chordNote.accidental && !chordNote.tiedFrom) {
         const accidentalMap: Record<string, string> = {
           '#': '#',
@@ -356,7 +356,7 @@ export class VexFlowRenderer {
     // Convert to array and sort by beat position
     return Array.from(beatGroups.entries())
       .sort((a, b) => a[0] - b[0])
-      .map(([beat, notes]) => notes)
+      .map(([_beat, notes]) => notes)
   }
 
   /**
@@ -392,67 +392,26 @@ export class VexFlowRenderer {
    * Calculate total beats used by notes in a measure
    * Groups notes by beat to properly handle chords (chord = 1 beat, not N beats)
    */
-  private calculateUsedBeats(notes: MusicNote[]): number {
-    const baseDurationToBeats: Record<NoteDuration, number> = {
-      w: 4,
-      h: 2,
-      q: 1,
-      '8': 0.5,
-      '16': 0.25,
-      '32': 0.125,
-    }
-
-    // Group by beat position to avoid counting chords multiple times
-    const noteGroups = this.groupNotesByBeat(notes)
-
-    let totalBeats = 0
-    for (const group of noteGroups) {
-      // Each group (single note or chord) counts once
-      // Use the duration of the first note (all notes in a chord should have same duration)
-      const note = group[0]
-      const baseBeats = baseDurationToBeats[note.duration] || 1
-      // Apply dot multiplier: 1 dot = 1.5x, 2 dots = 1.75x
-      const dotMultiplier = note.dots && note.dots > 0 ? 2 - Math.pow(0.5, note.dots) : 1
-      totalBeats += baseBeats * dotMultiplier
-    }
-    return totalBeats
+  private durationToBeats(duration: string, dots: number = 0): number {
+    const map: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25, '32': 0.125 }
+    const baseBeats = map[duration] || 1
+    const dotMultiplier = dots > 0 ? 2 - Math.pow(0.5, dots) : 1
+    return baseBeats * dotMultiplier
   }
 
-  /**
-   * Convert beats to rest durations (may need multiple rests)
-   * Returns an array of VexFlow duration strings with 'r' suffix for rests
-   */
   private beatsToRestDurations(beats: number): string[] {
     const rests: string[] = []
     let remaining = beats
-    const epsilon = 0.001 // Tolerance for floating point comparison
-
-    // Break down into whole, half, quarter, etc.
+    const epsilon = 0.001
     while (remaining > epsilon) {
-      if (remaining >= 4 - epsilon) {
-        rests.push('wr')
-        remaining -= 4
-      } else if (remaining >= 2 - epsilon) {
-        rests.push('hr')
-        remaining -= 2
-      } else if (remaining >= 1 - epsilon) {
-        rests.push('qr')
-        remaining -= 1
-      } else if (remaining >= 0.5 - epsilon) {
-        rests.push('8r')
-        remaining -= 0.5
-      } else if (remaining >= 0.25 - epsilon) {
-        rests.push('16r')
-        remaining -= 0.25
-      } else if (remaining >= 0.125 - epsilon) {
-        rests.push('32r')
-        remaining -= 0.125
-      } else {
-        // Prevent infinite loop if remaining is very small
-        break
-      }
+      if (remaining >= 4 - epsilon) { rests.push('wr'); remaining -= 4 }
+      else if (remaining >= 2 - epsilon) { rests.push('hr'); remaining -= 2 }
+      else if (remaining >= 1 - epsilon) { rests.push('qr'); remaining -= 1 }
+      else if (remaining >= 0.5 - epsilon) { rests.push('8r'); remaining -= 0.5 }
+      else if (remaining >= 0.25 - epsilon) { rests.push('16r'); remaining -= 0.25 }
+      else if (remaining >= 0.125 - epsilon) { rests.push('32r'); remaining -= 0.125 }
+      else break
     }
-
     return rests
   }
 
@@ -468,7 +427,7 @@ export class VexFlowRenderer {
    * In 4/4, we typically beam per beat (quarter note)
    * This returns which beat group a note belongs to
    */
-  private getBeatGroup(beat: number, beatsPerMeasure: number): number {
+  private getBeatGroup(beat: number, _beatsPerMeasure: number): number {
     // For now, group by integer beat (beam within each beat)
     // This can be enhanced later for different time signatures
     // e.g., in 6/8, beam in groups of 3 eighth notes
@@ -589,7 +548,7 @@ export class VexFlowRenderer {
    * @param clef - The clef type for pitch reference
    * @returns VexFlow.Tuplet.LOCATION_TOP (1) or VexFlow.Tuplet.LOCATION_BOTTOM (-1)
    */
-  private calculateTupletLocation(staveNotes: StaveNote[], clef: Clef): number {
+  private calculateTupletLocation(staveNotes: StaveNote[], _clef: Clef): number {
     // VexFlow constants: LOCATION_TOP = 1, LOCATION_BOTTOM = -1
     const LOCATION_TOP = 1
     const LOCATION_BOTTOM = -1
@@ -965,7 +924,7 @@ export class VexFlowRenderer {
       // Create VexFlow Tuplet objects BEFORE adding to voice
       // This adjusts the tick values of the notes
       const vexTuplets: VexFlowTuplet[] = []
-      for (const [tupletId, { staveNotes: tupletStaveNotes, tuplet: tupletData }] of tupletStaveNoteMap) {
+      for (const [_tupletId, { staveNotes: tupletStaveNotes, tuplet: tupletData }] of tupletStaveNoteMap) {
         if (tupletStaveNotes.length >= 2) {
           try {
             // Calculate tuplet bracket location (above or below)
@@ -1110,7 +1069,6 @@ export class VexFlowRenderer {
                     // So offset is approximately 35 pixels from stem end
                     let bracketY: number
                     let bracketHeight: number
-                    const textHeight = 20       // Height of the "3" text
                     const bracketGap = 10       // Gap between stem end and bracket
                     const totalHeight = 45      // Total height to cover bracket + text
 
@@ -1375,571 +1333,6 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Render ghost note after all measures (called from renderScore)
-   * Uses VexFlow's actual note rendering on a temporary invisible stave
-   * @returns true if ghost note was rendered, false if skipped
-   */
-  private renderGhostNoteOverlay(
-    ghostNote: { pitch: number; duration: string; measure: number; beat: number },
-    score: Score,
-    measuresPerLine: number,
-    margin: number,
-    staveWidth: number,
-    staveHeight: number,
-    verticalSpacing: number
-  ): boolean {
-    try {
-      // Find the measure this ghost note belongs to
-      const measure = score.measures.find(m => m.number === ghostNote.measure)
-      if (!measure) {
-        console.warn('⚠️ Measure not found for ghost note:', ghostNote.measure)
-        return false
-      }
-
-      // Calculate which line and position this measure is on
-      const measureIndex = ghostNote.measure - 1
-      const line = Math.floor(measureIndex / measuresPerLine)
-      const positionInLine = measureIndex % measuresPerLine
-
-      const measureX = margin + positionInLine * staveWidth
-      const measureY = margin + line * (staveHeight + verticalSpacing)
-
-      // Get clef from score
-      const clef: Clef = score.clef || 'treble'
-
-      // Create a temporary invisible stave for rendering the ghost note
-      const tempStave = new Stave(measureX, measureY, staveWidth)
-
-      // Add clef and time signature to match the actual stave layout
-      const isFirstInLine = positionInLine === 0
-      if (ghostNote.measure === 1 || isFirstInLine) {
-        tempStave.addClef(clef)
-      }
-      if (ghostNote.measure === 1) {
-        tempStave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
-      }
-
-      tempStave.setContext(this.context!)
-
-      // Convert our note to VexFlow format
-      const vexNote = this.midiToVexFlowNote(ghostNote.pitch)
-      const vexDuration = this.convertDuration(ghostNote.duration as any, ghostNote.dots || 0)
-
-      // Check if there are existing notes at the same beat (potential chord)
-      const notesAtSameBeat = measure.notes.filter(
-        n => !n.isRest && Math.abs(n.beat - ghostNote.beat) < 0.001
-      )
-
-      // Check if the ghost note forms a second with any existing note
-      const formsSecond = notesAtSameBeat.some(existingNote => {
-        const interval = Math.abs(existingNote.pitch - ghostNote.pitch)
-        // A second is 1 or 2 semitones (minor second or major second)
-        return interval === 1 || interval === 2
-      })
-
-      // Calculate stem direction for ghost note
-      // If there are notes at same beat, consider them for chord stem direction
-      const ghostMusicNote: MusicNote = {
-        id: 'ghost',
-        pitch: ghostNote.pitch,
-        duration: ghostNote.duration as NoteDuration,
-        measure: ghostNote.measure,
-        beat: ghostNote.beat,
-      }
-      const chordNotes = notesAtSameBeat.length > 0
-        ? [...notesAtSameBeat, ghostMusicNote]
-        : [ghostMusicNote]
-      const stemDirection = this.calculateChordStemDirection(chordNotes, clef)
-
-      // Create the StaveNote
-      const staveNote = new StaveNote({
-        keys: [vexNote],
-        duration: vexDuration,
-        auto_stem: false,
-      })
-
-      // Explicitly set stem direction AFTER creation
-      staveNote.setStemDirection(stemDirection)
-
-      // Add accidental if present (position will be adjusted after rendering)
-      if (ghostNote.accidental) {
-        const accidentalMap: Record<string, string> = { '#': '#', 'b': 'b', 'n': 'n' }
-        staveNote.addModifier(new Accidental(accidentalMap[ghostNote.accidental]), 0)
-      }
-
-      // Add articulations with correct position (same logic as regular notes)
-      if (ghostNote.articulations?.length) {
-        const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
-        const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
-        for (const art of ghostNote.articulations) {
-          staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
-        }
-      }
-
-      // Store whether this forms a second for later displacement
-      const needsDisplacement = formsSecond
-
-      // Create a voice with the ghost note plus padding rests to fill the measure
-      const totalBeats = measure.timeSignature.numerator
-      const noteDuration = this.durationToBeats(ghostNote.duration)
-
-      // Calculate beats before and after the ghost note
-      const beatsBeforeNote = ghostNote.beat
-      const beatsAfterNote = totalBeats - ghostNote.beat - noteDuration
-
-      // Don't render if the ghost note would overflow the measure
-      if (beatsAfterNote < -0.001) {
-        // Ghost note doesn't fit in this measure - skip rendering
-        return false
-      }
-
-      const tickables: any[] = []
-
-      // Add invisible rests before the note
-      if (beatsBeforeNote > 0) {
-        const restsBefore = this.beatsToRestDurations(beatsBeforeNote)
-        for (const restDuration of restsBefore) {
-          tickables.push(new StaveNote({
-            keys: ['b/4'],
-            duration: restDuration,
-          }))
-        }
-      }
-
-      // Add the ghost note
-      tickables.push(staveNote)
-
-      // Add invisible rests after the note
-      if (beatsAfterNote > 0) {
-        const restsAfter = this.beatsToRestDurations(beatsAfterNote)
-        for (const restDuration of restsAfter) {
-          tickables.push(new StaveNote({
-            keys: ['b/4'],
-            duration: restDuration,
-          }))
-        }
-      }
-
-      // Create voice and format
-      const voice = new Voice({
-        numBeats: totalBeats,
-        beatValue: measure.timeSignature.denominator,
-      })
-      voice.addTickables(tickables)
-
-      // Format the voice to get proper positioning with right padding
-      const noteAreaWidth = tempStave.getNoteEndX() - tempStave.getNoteStartX()
-      const rightPadding = 15 // Padding before barline
-      const formatWidth = noteAreaWidth > 0 ? Math.max(noteAreaWidth - rightPadding, 50) : staveWidth - 100
-      new Formatter().joinVoices([voice]).format([voice], formatWidth)
-
-      // Now render only the ghost note (not the rests, not the stave)
-      // We'll extract the SVG elements and modify their styling
-      const svg = this.getSVGElement()
-      if (!svg) {
-        console.error('❌ SVG element not found for ghost note')
-        return
-      }
-
-      // CRITICAL: Set the stave for the note so it can calculate Y values
-      staveNote.setStave(tempStave)
-
-      // Get the current number of children (before rendering)
-      const childrenBefore = svg.children.length
-
-      // Render the ghost note (this will add elements to the SVG)
-      staveNote.setContext(this.context!).draw()
-
-      // Collect ghost note elements for styling and accidental repositioning
-      let noteHeadElement: Element | null = null
-      let accidentalElement: Element | null = null
-
-      const collectGhostElements = (element: Element) => {
-        const tagName = element.tagName.toLowerCase()
-        if (tagName === 'path' || tagName === 'ellipse' || tagName === 'circle') {
-          if (!noteHeadElement && (tagName === 'ellipse' || tagName === 'path')) {
-            noteHeadElement = element
-          }
-        } else if (tagName === 'text') {
-          accidentalElement = element
-        }
-        for (let i = 0; i < element.children.length; i++) {
-          collectGhostElements(element.children[i])
-        }
-      }
-
-      for (let i = childrenBefore; i < svg.children.length; i++) {
-        collectGhostElements(svg.children[i])
-      }
-
-      // Reposition accidental relative to note head if both exist
-      if (noteHeadElement && accidentalElement && ghostNote.accidental) {
-        const noteHeadBBox = (noteHeadElement as SVGGraphicsElement).getBBox()
-        const accidentalBBox = (accidentalElement as SVGGraphicsElement).getBBox()
-
-        // Position accidental's right edge at a fixed gap from the notehead's left edge
-        const gap = 3 // pixels between accidental right edge and notehead left edge
-        const noteHeadLeftX = noteHeadBBox.x
-        const accidentalRightX = accidentalBBox.x + accidentalBBox.width
-        const targetAccidentalRightX = noteHeadLeftX - gap
-        const offsetX = targetAccidentalRightX - accidentalRightX
-
-        // Apply transform to reposition accidental
-        const currentTransform = accidentalElement.getAttribute('transform') || ''
-        const newTransform = currentTransform ? `${currentTransform} translate(${offsetX}, 0)` : `translate(${offsetX}, 0)`
-        accidentalElement.setAttribute('transform', newTransform)
-      }
-
-      // Recursively apply blue color and displacement to all elements
-      const applyBlueColorAndDisplacement = (element: Element) => {
-        const tagName = element.tagName.toLowerCase()
-
-        // Apply blue color to note shapes (paths, ellipses, circles)
-        if (tagName === 'path' || tagName === 'ellipse' || tagName === 'circle') {
-          element.setAttribute('fill', '#3B82F6')
-          element.setAttribute('stroke', '#2563EB')
-          element.setAttribute('opacity', '0.7')
-          const currentStyle = element.getAttribute('style') || ''
-          element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; stroke: #2563EB !important; opacity: 0.7 !important;')
-        } else if (tagName === 'text') {
-          // Text glyphs: only fill, no stroke (stroke makes them appear larger)
-          element.setAttribute('fill', '#3B82F6')
-          element.setAttribute('opacity', '0.7')
-          const currentStyle = element.getAttribute('style') || ''
-          element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; opacity: 0.7 !important;')
-
-          // If this note forms a second, shift the note head to the right (but not the accidental)
-          if (needsDisplacement && element !== accidentalElement) {
-            const transform = element.getAttribute('transform') || ''
-            const newTransform = transform ? `${transform} translate(10, 0)` : 'translate(10, 0)'
-            element.setAttribute('transform', newTransform)
-          }
-        } else if (tagName === 'line') {
-          // Lines (stems) - only stroke, NO displacement
-          element.setAttribute('stroke', '#2563EB')
-          element.setAttribute('opacity', '0.7')
-          const currentStyle = element.getAttribute('style') || ''
-          element.setAttribute('style', currentStyle + '; stroke: #2563EB !important; opacity: 0.7 !important;')
-        }
-
-        // Recursively process children
-        for (let i = 0; i < element.children.length; i++) {
-          applyBlueColorAndDisplacement(element.children[i])
-        }
-      }
-
-      // Process all new top-level elements
-      for (let i = childrenBefore; i < svg.children.length; i++) {
-        applyBlueColorAndDisplacement(svg.children[i])
-      }
-
-      return true
-    } catch (error) {
-      console.error('❌ Could not render ghost note overlay:', error)
-      return false
-    }
-  }
-
-  /**
-   * Helper to convert duration to beats
-   */
-  private durationToBeats(duration: string, dots: number = 0): number {
-    const map: Record<string, number> = {
-      w: 4,
-      h: 2,
-      q: 1,
-      '8': 0.5,
-      '16': 0.25,
-      '32': 0.125,
-    }
-    const baseBeats = map[duration] || 1
-    // Apply dot multiplier: 1 dot = 1.5x, 2 dots = 1.75x
-    const dotMultiplier = dots > 0 ? 2 - Math.pow(0.5, dots) : 1
-    return baseBeats * dotMultiplier
-  }
-
-  /**
-   * Render ghost note with dynamic measure widths
-   * Uses the pre-calculated measure widths to position the ghost note correctly
-   * @param rawX - Raw cursor X position for smooth visual positioning
-   */
-  private renderGhostNoteWithDynamicWidths(
-    ghostNote: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; dots?: number; articulations?: ArticulationType[] },
-    score: Score,
-    measureWidths: Map<number, MeasureWidthInfo>,
-    margin: number,
-    staveHeight: number,
-    verticalSpacing: number
-  ): boolean {
-    try {
-      // Find the measure this ghost note belongs to
-      const measure = score.measures.find(m => m.number === ghostNote.measure)
-      if (!measure) {
-        console.warn('Measure not found for ghost note:', ghostNote.measure)
-        return false
-      }
-
-      // Get the measure's width info
-      const widthInfo = measureWidths.get(ghostNote.measure)
-      if (!widthInfo) {
-        console.warn('Width info not found for ghost note measure:', ghostNote.measure)
-        return false
-      }
-
-      // Calculate X position by summing widths of previous measures on the same line
-      let measureX = margin
-      for (const m of score.measures) {
-        if (m.number === ghostNote.measure) break
-        const mInfo = measureWidths.get(m.number)
-        if (mInfo && mInfo.lineNumber === widthInfo.lineNumber) {
-          measureX += mInfo.finalWidth
-        } else if (mInfo && mInfo.lineNumber < widthInfo.lineNumber) {
-          // Reset for new line
-          measureX = margin
-        }
-      }
-
-      const measureY = margin + widthInfo.lineNumber * (staveHeight + verticalSpacing)
-      const staveWidth = widthInfo.finalWidth
-
-      // Get clef from score
-      const clef: Clef = score.clef || 'treble'
-
-      // Create a temporary invisible stave for rendering the ghost note
-      const tempStave = new Stave(measureX, measureY, staveWidth)
-
-      // Add clef and time signature to match the actual stave layout
-      const isFirstInLine = measureX === margin
-      if (ghostNote.measure === 1 || isFirstInLine) {
-        tempStave.addClef(clef)
-      }
-      if (ghostNote.measure === 1) {
-        tempStave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
-      }
-
-      tempStave.setContext(this.context!)
-
-      // Convert our note to VexFlow format
-      const vexNote = this.midiToVexFlowNote(ghostNote.pitch)
-      const vexDuration = this.convertDuration(ghostNote.duration as any, ghostNote.dots || 0)
-
-      // Check if there are existing notes at the same beat (potential chord)
-      const notesAtSameBeat = measure.notes.filter(
-        n => !n.isRest && Math.abs(n.beat - ghostNote.beat) < 0.001
-      )
-
-      // Check if the ghost note forms a second with any existing note
-      const formsSecond = notesAtSameBeat.some(existingNote => {
-        const interval = Math.abs(existingNote.pitch - ghostNote.pitch)
-        return interval === 1 || interval === 2
-      })
-
-      // Calculate stem direction for ghost note
-      const ghostMusicNote: MusicNote = {
-        id: 'ghost',
-        pitch: ghostNote.pitch,
-        duration: ghostNote.duration as NoteDuration,
-        measure: ghostNote.measure,
-        beat: ghostNote.beat,
-      }
-      const chordNotes = notesAtSameBeat.length > 0
-        ? [...notesAtSameBeat, ghostMusicNote]
-        : [ghostMusicNote]
-      const stemDirection = this.calculateChordStemDirection(chordNotes, clef)
-
-      // Create the StaveNote
-      const staveNote = new StaveNote({
-        keys: [vexNote],
-        duration: vexDuration,
-        auto_stem: false,
-      })
-
-      staveNote.setStemDirection(stemDirection)
-
-      // Add dots if present
-      const dots = ghostNote.dots || 0
-      for (let d = 0; d < dots; d++) {
-        Dot.buildAndAttach([staveNote], { all: true })
-      }
-
-      // Add accidental if present (position will be adjusted after rendering)
-      if (ghostNote.accidental) {
-        const accidentalMap: Record<string, string> = { '#': '#', 'b': 'b', 'n': 'n' }
-        staveNote.addModifier(new Accidental(accidentalMap[ghostNote.accidental]), 0)
-      }
-
-      // Add articulations with correct position based on stem direction
-      if (ghostNote.articulations?.length) {
-        const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
-        const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
-        for (const art of ghostNote.articulations) {
-          staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
-        }
-      }
-
-      const needsDisplacement = formsSecond
-
-      // Create a voice with the ghost note plus padding rests to fill the measure
-      const totalBeats = measure.timeSignature.numerator
-      const noteDuration = this.durationToBeats(ghostNote.duration)
-
-      const beatsBeforeNote = ghostNote.beat
-      const beatsAfterNote = totalBeats - ghostNote.beat - noteDuration
-
-      // Ghost note can overflow the measure (we support overwriting notes)
-      // Use effective beats for voice calculation
-      const effectiveBeatsAfter = Math.max(0, beatsAfterNote)
-      const effectiveTotalBeats = beatsBeforeNote + noteDuration + effectiveBeatsAfter
-
-      const tickables: any[] = []
-
-      if (beatsBeforeNote > 0) {
-        const restsBefore = this.beatsToRestDurations(beatsBeforeNote)
-        for (const restDuration of restsBefore) {
-          tickables.push(new StaveNote({
-            keys: ['b/4'],
-            duration: restDuration,
-          }))
-        }
-      }
-
-      tickables.push(staveNote)
-
-      if (effectiveBeatsAfter > 0) {
-        const restsAfter = this.beatsToRestDurations(effectiveBeatsAfter)
-        for (const restDuration of restsAfter) {
-          tickables.push(new StaveNote({
-            keys: ['b/4'],
-            duration: restDuration,
-          }))
-        }
-      }
-
-      // Use SOFT mode to allow notes that overflow the measure
-      // This is needed for ghost note preview when placing longer notes
-      const voice = new Voice({
-        numBeats: totalBeats,
-        beatValue: measure.timeSignature.denominator,
-      }).setMode(Voice.Mode.SOFT)
-      voice.addTickables(tickables)
-
-      // Format the voice using actual note area with right padding
-      const noteAreaWidth = tempStave.getNoteEndX() - tempStave.getNoteStartX()
-      const rightPadding = 15 // Padding before barline
-      const formatWidth = noteAreaWidth > 0 ? Math.max(noteAreaWidth - rightPadding, 50) : staveWidth - 100
-      new Formatter().joinVoices([voice]).format([voice], formatWidth)
-
-      const svg = this.getSVGElement()
-      if (!svg) {
-        console.error('SVG element not found for ghost note')
-        return false
-      }
-
-      staveNote.setStave(tempStave)
-
-      // === NEW APPROACH: Don't use setXShift, instead transform the whole group after rendering ===
-      // This ensures all elements (stem, notehead, flag, accidental) move together
-      let targetShiftX: number | null = null
-
-      if (ghostNote.rawX !== undefined) {
-        try {
-          // Get where VexFlow will render the note
-          const noteX = staveNote.getAbsoluteX()
-          // Calculate shift needed to move note to cursor position
-          targetShiftX = ghostNote.rawX - noteX
-        } catch (e) {
-          // getAbsoluteX might not be available
-        }
-      }
-
-      const childrenBefore = svg.children.length
-
-      staveNote.setContext(this.context!).draw()
-
-      // === NEW SIMPLE APPROACH ===
-      // Instead of trying to detect and reposition individual elements,
-      // we wrap ALL new SVG elements in a group and transform the entire group.
-      // This ensures stem, notehead, flag, accidental, and leger lines all move together.
-
-      // Collect all new top-level elements that VexFlow just added
-      const newElements: Element[] = []
-      for (let i = childrenBefore; i < svg.children.length; i++) {
-        newElements.push(svg.children[i])
-      }
-
-      if (newElements.length > 0 && targetShiftX !== null) {
-        // Create a wrapper group for all ghost note elements
-        const ghostGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-        ghostGroup.setAttribute('class', 'ghost-note-group')
-
-        // Apply the transform to shift everything to the correct position
-        ghostGroup.setAttribute('transform', `translate(${targetShiftX}, 0)`)
-
-        // Move all new elements into the group
-        // We need to do this in reverse order to maintain correct order when moving
-        for (const element of newElements) {
-          svg.removeChild(element)
-        }
-        for (const element of newElements) {
-          ghostGroup.appendChild(element)
-        }
-
-        // Add the group to the SVG
-        svg.appendChild(ghostGroup)
-      }
-
-      // Apply ghost styling (blue color, transparency) to all elements recursively
-      const applyGhostStyle = (element: Element) => {
-        const tagName = element.tagName.toLowerCase()
-
-        if (tagName === 'path' || tagName === 'ellipse' || tagName === 'circle') {
-          element.setAttribute('fill', '#3B82F6')
-          element.setAttribute('stroke', '#2563EB')
-          element.setAttribute('opacity', '0.7')
-          const currentStyle = element.getAttribute('style') || ''
-          element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; stroke: #2563EB !important; opacity: 0.7 !important;')
-        } else if (tagName === 'text') {
-          element.setAttribute('fill', '#3B82F6')
-          element.setAttribute('opacity', '0.7')
-          const currentStyle = element.getAttribute('style') || ''
-          element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; opacity: 0.7 !important;')
-        } else if (tagName === 'line') {
-          element.setAttribute('stroke', '#2563EB')
-          element.setAttribute('opacity', '0.7')
-          const currentStyle = element.getAttribute('style') || ''
-          element.setAttribute('style', currentStyle + '; stroke: #2563EB !important; opacity: 0.7 !important;')
-        }
-
-        // Recurse into children
-        for (let i = 0; i < element.children.length; i++) {
-          applyGhostStyle(element.children[i])
-        }
-      }
-
-      // Apply styling to all elements in the SVG (either in the group or directly)
-      for (let i = childrenBefore; i < svg.children.length; i++) {
-        applyGhostStyle(svg.children[i])
-      }
-
-      return true
-    } catch (error) {
-      console.error('Could not render ghost note with dynamic widths:', error)
-      return false
-    }
-  }
-
-  /**
-   * Render the complete score with an optional ghost note preview
-   * @param score - Score to render
-   * @param ghostNote - Optional ghost note to render in blue/transparent
-   * @returns true if ghost note was rendered, false if not (or no ghost note provided)
-   */
-  renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number; accidental?: '#' | 'b' | 'n'; dots?: number; articulations?: ArticulationType[] }): boolean {
-    // renderScore now clears first, so no need to clear here
-    return this.renderScore(score, ghostNote)
-  }
-
-  /**
    * Render the complete score
    * @param score - Score to render
    * @param ghostNote - Optional ghost note preview (rawX for smooth cursor following)
@@ -2036,6 +1429,201 @@ export class VexFlowRenderer {
     }
 
     return ghostNoteRendered
+  }
+
+  private renderGhostNoteWithDynamicWidths(
+    ghostNote: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; accidental?: '#' | 'b' | 'n'; dots?: number; articulations?: ArticulationType[] },
+    score: Score,
+    measureWidths: Map<number, MeasureWidthInfo>,
+    margin: number,
+    staveHeight: number,
+    verticalSpacing: number
+  ): boolean {
+    try {
+      const measure = score.measures.find(m => m.number === ghostNote.measure)
+      if (!measure) {
+        console.warn('Measure not found for ghost note:', ghostNote.measure)
+        return false
+      }
+
+      const widthInfo = measureWidths.get(ghostNote.measure)
+      if (!widthInfo) {
+        console.warn('Width info not found for ghost note measure:', ghostNote.measure)
+        return false
+      }
+
+      // Calculate X position by summing widths of previous measures on the same line
+      let measureX = margin
+      for (const m of score.measures) {
+        if (m.number === ghostNote.measure) break
+        const mInfo = measureWidths.get(m.number)
+        if (mInfo && mInfo.lineNumber === widthInfo.lineNumber) {
+          measureX += mInfo.finalWidth
+        } else if (mInfo && mInfo.lineNumber < widthInfo.lineNumber) {
+          measureX = margin
+        }
+      }
+
+      const measureY = margin + widthInfo.lineNumber * (staveHeight + verticalSpacing)
+      const staveWidth = widthInfo.finalWidth
+      const clef: Clef = score.clef || 'treble'
+
+      const tempStave = new Stave(measureX, measureY, staveWidth)
+      const isFirstInLine = measureX === margin
+      if (ghostNote.measure === 1 || isFirstInLine) {
+        tempStave.addClef(clef)
+      }
+      if (ghostNote.measure === 1) {
+        tempStave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
+      }
+      tempStave.setContext(this.context!)
+
+      const vexNote = this.midiToVexFlowNote(ghostNote.pitch)
+      const vexDuration = this.convertDuration(ghostNote.duration as any, ghostNote.dots || 0)
+
+      const notesAtSameBeat = measure.notes.filter(
+        n => !n.isRest && Math.abs(n.beat - ghostNote.beat) < 0.001
+      )
+
+      const ghostMusicNote: MusicNote = {
+        id: 'ghost',
+        pitch: ghostNote.pitch,
+        duration: ghostNote.duration as NoteDuration,
+        measure: ghostNote.measure,
+        beat: ghostNote.beat,
+      }
+      const chordNotes = notesAtSameBeat.length > 0
+        ? [...notesAtSameBeat, ghostMusicNote]
+        : [ghostMusicNote]
+      const stemDirection = this.calculateChordStemDirection(chordNotes, clef)
+
+      const staveNote = new StaveNote({
+        keys: [vexNote],
+        duration: vexDuration,
+        autoStem: false,
+      })
+      staveNote.setStemDirection(stemDirection)
+
+      const dots = ghostNote.dots || 0
+      for (let d = 0; d < dots; d++) {
+        Dot.buildAndAttach([staveNote], { all: true })
+      }
+
+      if (ghostNote.accidental) {
+        const accidentalMap: Record<string, string> = { '#': '#', 'b': 'b', 'n': 'n' }
+        staveNote.addModifier(new Accidental(accidentalMap[ghostNote.accidental as '#' | 'b' | 'n']), 0)
+      }
+
+      if (ghostNote.articulations?.length) {
+        const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
+        const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
+        for (const art of ghostNote.articulations) {
+          staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
+        }
+      }
+
+      const totalBeats = measure.timeSignature.numerator
+      const noteDuration = this.durationToBeats(ghostNote.duration)
+      const beatsBeforeNote = ghostNote.beat
+      const beatsAfterNote = totalBeats - ghostNote.beat - noteDuration
+      const effectiveBeatsAfter = Math.max(0, beatsAfterNote)
+
+      const tickables: any[] = []
+      if (beatsBeforeNote > 0) {
+        for (const restDuration of this.beatsToRestDurations(beatsBeforeNote)) {
+          tickables.push(new StaveNote({ keys: ['b/4'], duration: restDuration }))
+        }
+      }
+      tickables.push(staveNote)
+      if (effectiveBeatsAfter > 0) {
+        for (const restDuration of this.beatsToRestDurations(effectiveBeatsAfter)) {
+          tickables.push(new StaveNote({ keys: ['b/4'], duration: restDuration }))
+        }
+      }
+
+      const voice = new Voice({
+        numBeats: totalBeats,
+        beatValue: measure.timeSignature.denominator,
+      }).setMode(Voice.Mode.SOFT)
+      voice.addTickables(tickables)
+
+      const noteAreaWidth = tempStave.getNoteEndX() - tempStave.getNoteStartX()
+      const rightPadding = 15
+      const formatWidth = noteAreaWidth > 0 ? Math.max(noteAreaWidth - rightPadding, 50) : staveWidth - 100
+      new Formatter().joinVoices([voice]).format([voice], formatWidth)
+
+      const svg = this.getSVGElement()
+      if (!svg) {
+        console.error('SVG element not found for ghost note')
+        return false
+      }
+
+      staveNote.setStave(tempStave)
+
+      let targetShiftX: number | null = null
+      if (ghostNote.rawX !== undefined) {
+        try {
+          const noteX = staveNote.getAbsoluteX()
+          targetShiftX = ghostNote.rawX - noteX
+        } catch (e) {
+          // getAbsoluteX might not be available before draw
+        }
+      }
+
+      const childrenBefore = svg.children.length
+      staveNote.setContext(this.context!).draw()
+
+      const newElements: Element[] = []
+      for (let i = childrenBefore; i < svg.children.length; i++) {
+        newElements.push(svg.children[i])
+      }
+
+      if (newElements.length > 0 && targetShiftX !== null) {
+        const ghostGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+        ghostGroup.setAttribute('class', 'ghost-note-group')
+        ghostGroup.setAttribute('transform', `translate(${targetShiftX}, 0)`)
+        for (const element of newElements) {
+          svg.removeChild(element)
+        }
+        for (const element of newElements) {
+          ghostGroup.appendChild(element)
+        }
+        svg.appendChild(ghostGroup)
+      }
+
+      const applyGhostStyle = (element: Element) => {
+        const tagName = element.tagName.toLowerCase()
+        if (tagName === 'path' || tagName === 'ellipse' || tagName === 'circle') {
+          element.setAttribute('fill', '#3B82F6')
+          element.setAttribute('stroke', '#2563EB')
+          element.setAttribute('opacity', '0.7')
+          const currentStyle = element.getAttribute('style') || ''
+          element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; stroke: #2563EB !important; opacity: 0.7 !important;')
+        } else if (tagName === 'text') {
+          element.setAttribute('fill', '#3B82F6')
+          element.setAttribute('opacity', '0.7')
+          const currentStyle = element.getAttribute('style') || ''
+          element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; opacity: 0.7 !important;')
+        } else if (tagName === 'line') {
+          element.setAttribute('stroke', '#2563EB')
+          element.setAttribute('opacity', '0.7')
+          const currentStyle = element.getAttribute('style') || ''
+          element.setAttribute('style', currentStyle + '; stroke: #2563EB !important; opacity: 0.7 !important;')
+        }
+        for (let i = 0; i < element.children.length; i++) {
+          applyGhostStyle(element.children[i])
+        }
+      }
+
+      for (let i = childrenBefore; i < svg.children.length; i++) {
+        applyGhostStyle(svg.children[i])
+      }
+
+      return true
+    } catch (error) {
+      console.error('Could not render ghost note with dynamic widths:', error)
+      return false
+    }
   }
 
   /**
@@ -2266,5 +1854,13 @@ export class VexFlowRenderer {
    */
   getSVGElement(): SVGElement | null {
     return this.svgContainer.querySelector('svg')
+  }
+
+  /**
+   * Render score with an optional ghost note overlay (preview note during mouse hover)
+   * Returns true if ghost note was rendered
+   */
+  renderScoreWithGhostNote(score: Score, ghostNote?: { pitch: number; duration: string; measure: number; beat: number; rawX?: number; rawY?: number; accidental?: '#' | 'b' | 'n'; dots?: number; articulations?: ArticulationType[] }): boolean {
+    return this.renderScore(score, ghostNote)
   }
 }

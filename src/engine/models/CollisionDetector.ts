@@ -92,7 +92,7 @@ export class CollisionDetector {
   checkMeasureOverflow(
     note: NoteParams,
     measure: Measure,
-    existingNotes: Note[]
+    _existingNotes: Note[]
   ): OverflowResult {
     const noteDuration = durationToBeats(note.duration, note.dots || 0)
     const noteEnd = note.beat + noteDuration
