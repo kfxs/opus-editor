@@ -245,7 +245,8 @@ export class VexFlowRenderer {
   private createStaveNote(
     note: MusicNote,
     chordNotes: MusicNote[] = [note],
-    clef: Clef = 'treble'
+    clef: Clef = 'treble',
+    displayAccidentals?: Map<string, AccidentalType | null>
   ): StaveNote {
     const vexDuration = this.convertDuration(note.duration, note.dots || 0)
 
@@ -302,19 +303,21 @@ export class VexFlowRenderer {
     // The lower note in a second interval will be shifted to the right side of the stem
 
     // Add accidentals for each note in the chord.
-    // Skip tied continuations — the tie carries the accidental implicitly;
-    // re-displaying it on the second note would be incorrect notation.
+    // If displayAccidentals is provided, it already encodes the correct accidental to show
+    // (accounting for within-measure state and cautionary naturals). Otherwise fall back to
+    // the raw stored accidental, skipping tied continuations.
+    const accidentalMap: Record<string, string> = { '#': '#', b: 'b', n: 'n' }
     chordNotes.forEach((chordNote) => {
-      if (chordNote.accidental && !chordNote.tiedFrom) {
-        const accidentalMap: Record<string, string> = {
-          '#': '#',
-          b: 'b',
-          n: 'n',
-        }
-        // Find the index in the sorted keys array
+      let accToDisplay: AccidentalType | null | undefined
+      if (displayAccidentals) {
+        accToDisplay = displayAccidentals.get(chordNote.id) ?? null
+      } else {
+        accToDisplay = chordNote.tiedFrom ? null : (chordNote.accidental ?? null)
+      }
+      if (accToDisplay) {
         const sortedIndex = allPitches.indexOf(chordNote.pitch)
         if (sortedIndex !== -1) {
-          staveNote.addModifier(new Accidental(accidentalMap[chordNote.accidental]), sortedIndex)
+          staveNote.addModifier(new Accidental(accidentalMap[accToDisplay]), sortedIndex)
         }
       }
     })
@@ -367,6 +370,12 @@ export class VexFlowRenderer {
   private createStaveNotesFromGroups(noteGroups: MusicNote[][], clef: Clef = 'treble'): StaveNote[] {
     const staveNotes: StaveNote[] = []
 
+    // Track active accidentals per pitch within this measure.
+    // key = pitch (staff position), value = the last explicit accidental set ('#'/'b'),
+    // or null meaning the pitch was explicitly returned to natural this measure.
+    // undefined (key absent) means no accidental has been set yet this measure.
+    const activeMeasureAccidentals = new Map<number, AccidentalType | null>()
+
     for (const group of noteGroups) {
       // Separate rests from regular notes
       const rests = group.filter(n => n.isRest)
@@ -379,9 +388,43 @@ export class VexFlowRenderer {
 
       // Add regular notes (as single note or chord)
       if (regularNotes.length > 0) {
-        // Use the first note as the base, pass all chord notes for stem calculation
+        // Compute which accidental to actually display for each note in this chord,
+        // taking the measure's running accidental state into account.
+        const displayAccidentals = new Map<string, AccidentalType | null>()
+
+        for (const note of regularNotes) {
+          if (note.tiedFrom) {
+            // Tied continuations never show an accidental
+            displayAccidentals.set(note.id, null)
+            continue
+          }
+
+          const activeAcc = activeMeasureAccidentals.get(note.pitch) // undefined = never set
+
+          if (note.accidental) {
+            if (activeAcc === note.accidental) {
+              // Same accidental already active in this measure — redundant, suppress it
+              displayAccidentals.set(note.id, null)
+            } else {
+              // New or changed accidental — show it and update the measure state
+              displayAccidentals.set(note.id, note.accidental)
+              activeMeasureAccidentals.set(note.pitch, note.accidental)
+            }
+          } else {
+            // Note is natural (no accidental stored)
+            if (activeAcc !== undefined && activeAcc !== null) {
+              // A sharp/flat was active for this pitch — show cautionary natural
+              displayAccidentals.set(note.id, 'n')
+              activeMeasureAccidentals.set(note.pitch, null)
+            } else {
+              // No active accidental — nothing to show
+              displayAccidentals.set(note.id, null)
+            }
+          }
+        }
+
         const baseNote = regularNotes[0]
-        staveNotes.push(this.createStaveNote(baseNote, regularNotes, clef))
+        staveNotes.push(this.createStaveNote(baseNote, regularNotes, clef, displayAccidentals))
       }
     }
 
