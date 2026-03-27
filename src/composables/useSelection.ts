@@ -54,7 +54,8 @@ export function useSelection(deps: SelectionDeps) {
 
     for (const n of preceding) {
       if (n.accidental) {
-        active.set(n.pitch, n.accidental)
+        // Normalize 'n' → null: both mean "natural" in the active state map
+        active.set(n.pitch, n.accidental === 'n' ? null : n.accidental)
       } else if (active.has(n.pitch)) {
         active.set(n.pitch, null)
       }
@@ -62,7 +63,8 @@ export function useSelection(deps: SelectionDeps) {
 
     const activeAcc = active.get(note.pitch)
     if (note.accidental) {
-      return activeAcc === note.accidental ? null : note.accidental
+      const normalizedAcc = note.accidental === 'n' ? null : note.accidental
+      return activeAcc === normalizedAcc ? null : note.accidental
     } else {
       return (activeAcc !== undefined && activeAcc !== null) ? 'n' : null
     }

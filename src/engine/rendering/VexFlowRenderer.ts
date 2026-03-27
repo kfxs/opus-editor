@@ -402,13 +402,15 @@ export class VexFlowRenderer {
           const activeAcc = activeMeasureAccidentals.get(note.pitch) // undefined = never set
 
           if (note.accidental) {
-            if (!note.forceAccidental && activeAcc === note.accidental) {
-              // Same accidental already active in this measure — redundant, suppress it
+            // Normalize 'n' → null for comparison: both mean "natural" in the active state map.
+            const normalizedAcc = note.accidental === 'n' ? null : note.accidental
+            if (!note.forceAccidental && activeAcc === normalizedAcc) {
+              // Redundant — same state already active in this measure, suppress the sign
               displayAccidentals.set(note.id, null)
             } else {
-              // New, changed, or explicitly forced accidental — show it and update the measure state
+              // New, changed, or explicitly forced — show it and update the measure state
               displayAccidentals.set(note.id, note.accidental)
-              activeMeasureAccidentals.set(note.pitch, note.accidental)
+              activeMeasureAccidentals.set(note.pitch, normalizedAcc)
             }
           } else {
             // Note is natural (no accidental stored)
