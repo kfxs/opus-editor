@@ -73,8 +73,13 @@ export function usePalette(deps: PaletteDeps) {
     if (selectedNoteId.value && engine.value && selectedTool.value === 'selection') {
       const note = engine.value.getNote(selectedNoteId.value)
       if (newValue === null) {
-        // Toggle off: only remove the explicit force flag, never remove the stored accidental.
-        engine.value.updateNote(selectedNoteId.value, { forceAccidental: undefined })
+        if (note?.forceAccidental) {
+          // Was force-shown → remove force only, goes back to suppressed (accidental stays)
+          engine.value.updateNote(selectedNoteId.value, { forceAccidental: undefined })
+        } else {
+          // Naturally shown (not forced) → remove the accidental entirely, note becomes natural
+          engine.value.updateNote(selectedNoteId.value, { accidental: undefined, forceAccidental: undefined })
+        }
       } else if (newValue === 'n') {
         // Natural/becuadro: never store accidental='n'. Instead:
         // - If note has a sharp/flat → clear it (renderer will auto-show cautionary ♮ if needed)
