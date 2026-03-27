@@ -400,6 +400,7 @@ const {
   renderScore: () => renderScore(),
   renderPreview: (c) => renderPreview(c),
   getLastMousePosition: () => _getLastMousePos(),
+  selectNote: (id) => selectNote(id),
 })
 
 // Keyboard note/rest entry

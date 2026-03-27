@@ -16,6 +16,7 @@ interface PaletteDeps {
   renderScore: () => void
   renderPreview: (coords: { x: number; y: number }) => void
   getLastMousePosition: () => { x: number; y: number } | null
+  selectNote: (id: string | null) => void
 }
 
 export function usePalette(deps: PaletteDeps) {
@@ -23,7 +24,7 @@ export function usePalette(deps: PaletteDeps) {
     selectedTool, selectedNoteId,
     selectedArticulationNoteId, selectedArticulationType,
     selectedDuration, selectedAccidental, selectedDots,
-    engine, renderScore, renderPreview, getLastMousePosition,
+    engine, renderScore, renderPreview, getLastMousePosition, selectNote,
   } = deps
   const selectedAccent = ref(false)
   const selectedStaccato = ref(false)
@@ -77,6 +78,10 @@ export function usePalette(deps: PaletteDeps) {
         forceAccidental,
       })
       renderScore()
+      // Re-sync palette to the effective displayed accidental after the update.
+      // The note may now be suppressed by measure rules, so selectedAccidental must
+      // reflect what's actually shown — not the raw intent — for the next press to work correctly.
+      selectNote(selectedNoteId.value)
     } else if (selectedTool.value === 'selection') {
       // Switch to entry mode when pressing accidental in selection mode with nothing selected
       selectedTool.value = 'entry'
