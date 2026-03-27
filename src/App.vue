@@ -125,18 +125,6 @@
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Alteration:</span>
             <button
-              @click="setAccidental(null)"
-              :class="[
-                'px-3 py-1 rounded text-sm font-bold',
-                selectedAccidental === null
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="No alteration (Natural)"
-            >
-              —
-            </button>
-            <button
               @click="setAccidental('#')"
               :class="[
                 'px-3 py-1 rounded text-lg font-bold',
