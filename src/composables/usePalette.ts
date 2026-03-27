@@ -81,14 +81,10 @@ export function usePalette(deps: PaletteDeps) {
           engine.value.updateNote(selectedNoteId.value, { accidental: undefined, forceAccidental: undefined })
         }
       } else if (newValue === 'n') {
-        // Natural/becuadro: never store accidental='n'. Instead:
-        // - If note has a sharp/flat → clear it (renderer will auto-show cautionary ♮ if needed)
-        // - If note is already natural → toggle forceAccidental to force-show/hide the ♮ sign
-        if (note?.accidental && note.accidental !== 'n') {
-          engine.value.updateNote(selectedNoteId.value, { accidental: undefined, forceAccidental: undefined })
-        } else {
-          engine.value.updateNote(selectedNoteId.value, { forceAccidental: true })
-        }
+        // Natural/becuadro: always make the note natural AND force-show the ♮ sign.
+        // Whether the note had a sharp/flat or was already natural, the result is the same:
+        // the ♮ sign is visible. Press ♮ again to hide it (toggle-off removes forceAccidental).
+        engine.value.updateNote(selectedNoteId.value, { accidental: undefined, forceAccidental: true })
       } else {
         // Set #/b: force-show if re-pressing the same accidental that's currently suppressed.
         const forceAccidental = newValue === note?.accidental ? true : undefined
