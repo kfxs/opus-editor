@@ -402,11 +402,11 @@ export class VexFlowRenderer {
           const activeAcc = activeMeasureAccidentals.get(note.pitch) // undefined = never set
 
           if (note.accidental) {
-            if (activeAcc === note.accidental) {
+            if (!note.forceAccidental && activeAcc === note.accidental) {
               // Same accidental already active in this measure — redundant, suppress it
               displayAccidentals.set(note.id, null)
             } else {
-              // New or changed accidental — show it and update the measure state
+              // New, changed, or explicitly forced accidental — show it and update the measure state
               displayAccidentals.set(note.id, note.accidental)
               activeMeasureAccidentals.set(note.pitch, note.accidental)
             }

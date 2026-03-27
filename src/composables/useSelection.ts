@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import type { Ref } from 'vue'
-import type { Accidental, NoteDuration } from '../types/music'
+import type { Accidental, NoteDuration, Note, Measure } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import { buildBeatMap } from '../utils/beatMap'
 
@@ -38,6 +38,37 @@ export function useSelection(deps: SelectionDeps) {
   // --- Functions ---
 
   /**
+   * Compute which accidental sign would actually be displayed for a note, given the
+   * running accidental state of its measure up to that beat.
+   * Returns null if no sign is shown, 'n' for a cautionary natural.
+   */
+  function computeDisplayedAccidental(note: Note, measure: Measure): Accidental | 'n' | null {
+    if (note.isRest || note.tiedFrom) return null
+    if (note.forceAccidental && note.accidental) return note.accidental
+
+    // Build active-accidental state from notes strictly before this note's beat
+    const active = new Map<number, Accidental | null>()
+    const preceding = measure.notes
+      .filter(n => !n.isRest && !n.tiedFrom && n.beat < note.beat - 0.001)
+      .sort((a, b) => a.beat - b.beat)
+
+    for (const n of preceding) {
+      if (n.accidental) {
+        active.set(n.pitch, n.accidental)
+      } else if (active.has(n.pitch)) {
+        active.set(n.pitch, null)
+      }
+    }
+
+    const activeAcc = active.get(note.pitch)
+    if (note.accidental) {
+      return activeAcc === note.accidental ? null : note.accidental
+    } else {
+      return (activeAcc !== undefined && activeAcc !== null) ? 'n' : null
+    }
+  }
+
+  /**
    * Select a note by ID and sync the palette (duration, accidental, dots) to its properties.
    * Pass null to clear the selection.
    * Also clears any articulation/accidental/tuplet sub-selections.
@@ -56,8 +87,9 @@ export function useSelection(deps: SelectionDeps) {
         if (note) {
           // Sync duration palette (works for both notes and rests)
           selectedDuration.value = note.duration
-          // Sync accidental palette (only relevant for notes, rests have no accidental)
-          selectedAccidental.value = note.accidental || null
+          // Sync accidental palette to what is VISUALLY DISPLAYED, not the raw stored value.
+          // This ensures the palette accurately reflects what the user sees in the score.
+          selectedAccidental.value = computeDisplayedAccidental(note, measure)
           // Sync dots palette
           selectedDots.value = note.dots || 0
           break

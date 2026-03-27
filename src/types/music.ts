@@ -62,6 +62,8 @@ export interface Note {
   beat: number
   /** Optional accidental */
   accidental?: Accidental
+  /** If true, always show the accidental sign even when measure rules would suppress it */
+  forceAccidental?: boolean
   /** Whether this note is a rest */
   isRest?: boolean
   /** Stem direction override (default: 'auto' - calculated from pitch and clef) */
@@ -165,6 +167,7 @@ export interface NoteParams {
   measure: number
   beat: number
   accidental?: Accidental
+  forceAccidental?: boolean
   isRest?: boolean
   dots?: number
   tupletId?: string

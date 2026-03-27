@@ -64,9 +64,18 @@ export function usePalette(deps: PaletteDeps) {
     // Toggle behavior: if same accidental is already selected, deselect it
     const newValue = selectedAccidental.value === accidental ? null : accidental
     selectedAccidental.value = newValue
-    // If a note is selected in selection mode, update its accidental
+    // If a note is selected in selection mode, update its accidental.
+    // forceAccidental is only set when the user presses the same accidental that is already
+    // stored on the note but suppressed by measure rules (palette showed nothing). In that
+    // case they're explicitly asking to override the suppression. Any real change (e.g.
+    // natural → sharp) follows standard measure rules without forcing.
     if (selectedNoteId.value && engine.value && selectedTool.value === 'selection') {
-      engine.value.updateNote(selectedNoteId.value, { accidental: newValue || undefined })
+      const note = engine.value.getNote(selectedNoteId.value)
+      const forceAccidental = newValue !== null && newValue === note?.accidental ? true : undefined
+      engine.value.updateNote(selectedNoteId.value, {
+        accidental: newValue || undefined,
+        forceAccidental,
+      })
       renderScore()
     } else if (selectedTool.value === 'selection') {
       // Switch to entry mode when pressing accidental in selection mode with nothing selected
