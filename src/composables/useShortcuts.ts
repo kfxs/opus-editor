@@ -76,7 +76,9 @@ export function useShortcuts(deps: ShortcutsDeps) {
     setSelectionMode: () => {
       if (selectedTool.value === 'entry') {
         // Exit entry mode → back to selection, keep current note selected
+        // Call selectNote to sync palette (accidental, duration, dots) to the note's actual state
         selectedTool.value = 'selection'
+        selectNote(selectedNoteId.value)
         renderScore()
       } else if (selectedTool.value === 'selection' && selectedNoteId.value) {
         // If already in selection mode with a note selected, clear selection
