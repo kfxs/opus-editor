@@ -418,6 +418,10 @@ export class VexFlowRenderer {
               // A sharp/flat was active for this pitch — show cautionary natural
               displayAccidentals.set(note.id, 'n')
               activeMeasureAccidentals.set(note.pitch, null)
+            } else if (note.forceAccidental) {
+              // User explicitly wants to show the natural sign
+              displayAccidentals.set(note.id, 'n')
+              activeMeasureAccidentals.set(note.pitch, null)
             } else {
               // No active accidental — nothing to show
               displayAccidentals.set(note.id, null)

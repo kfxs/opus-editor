@@ -66,7 +66,9 @@ export function useSelection(deps: SelectionDeps) {
       const normalizedAcc = note.accidental === 'n' ? null : note.accidental
       return activeAcc === normalizedAcc ? null : note.accidental
     } else {
-      return (activeAcc !== undefined && activeAcc !== null) ? 'n' : null
+      if (activeAcc !== undefined && activeAcc !== null) return 'n'
+      if (note.forceAccidental) return 'n'
+      return null
     }
   }
 
