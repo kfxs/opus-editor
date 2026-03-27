@@ -196,7 +196,7 @@ export function useSelection(deps: SelectionDeps) {
     if (!selectedNote || selectedNote.isRest) return
 
     const newPitch = movePitchDiatonically(selectedNote.pitch, direction)
-    engine.value.updateNote(selectedNoteId.value, { pitch: newPitch })
+    engine.value.updateNote(selectedNoteId.value, { pitch: newPitch, forceAccidental: undefined })
     renderScore()
   }
 
@@ -218,7 +218,7 @@ export function useSelection(deps: SelectionDeps) {
     if (!selectedNote || selectedNote.isRest) return
 
     const newPitch = selectedNote.pitch + (direction * 12)
-    engine.value.updateNote(selectedNoteId.value, { pitch: newPitch })
+    engine.value.updateNote(selectedNoteId.value, { pitch: newPitch, forceAccidental: undefined })
     renderScore()
   }
 
