@@ -72,15 +72,17 @@ export function usePalette(deps: PaletteDeps) {
     // natural → sharp) follows standard measure rules without forcing.
     if (selectedNoteId.value && engine.value && selectedTool.value === 'selection') {
       const note = engine.value.getNote(selectedNoteId.value)
-      const forceAccidental = newValue !== null && newValue === note?.accidental ? true : undefined
-      engine.value.updateNote(selectedNoteId.value, {
-        accidental: newValue || undefined,
-        forceAccidental,
-      })
+      if (newValue === null) {
+        // Toggle off: only remove the explicit force flag — never remove the stored accidental.
+        // Changing the pitch to natural requires pressing 'n' explicitly.
+        engine.value.updateNote(selectedNoteId.value, { forceAccidental: undefined })
+      } else {
+        // Set a (possibly new) accidental; force-show if re-pressing one already stored but suppressed.
+        const forceAccidental = newValue === note?.accidental ? true : undefined
+        engine.value.updateNote(selectedNoteId.value, { accidental: newValue, forceAccidental })
+      }
       renderScore()
       // Re-sync palette to the effective displayed accidental after the update.
-      // The note may now be suppressed by measure rules, so selectedAccidental must
-      // reflect what's actually shown — not the raw intent — for the next press to work correctly.
       selectNote(selectedNoteId.value)
     } else if (selectedTool.value === 'selection') {
       // Switch to entry mode when pressing accidental in selection mode with nothing selected
