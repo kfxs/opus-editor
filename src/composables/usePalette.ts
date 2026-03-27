@@ -101,10 +101,29 @@ export function usePalette(deps: PaletteDeps) {
           engine.value.updateNote(selectedNoteId.value, { accidental: undefined, forceAccidental: undefined })
         }
       } else if (newValue === 'n') {
-        // Natural/becuadro: always make the note natural AND force-show the ♮ sign.
-        // Whether the note had a sharp/flat or was already natural, the result is the same:
-        // the ♮ sign is visible. Press ♮ again to hide it (toggle-off removes forceAccidental).
-        engine.value.updateNote(selectedNoteId.value, { accidental: undefined, forceAccidental: true })
+        // Natural/becuadro: make the note natural. Only set forceAccidental=true if the ♮ sign
+        // would NOT auto-show from measure rules — i.e., when no preceding note established a
+        // sharp/flat for this pitch. If the measure would auto-show ♮ anyway, leave forceAccidental
+        // unset so the flag doesn't incorrectly travel with the note on octave shifts.
+        const score = engine.value.getScore()
+        const measure = score.measures.find(m => m.number === note!.measure)
+        let wouldAutoShow = false
+        if (measure) {
+          const active = new Map<number, Accidental | null>()
+          const preceding = measure.notes
+            .filter(n => !n.isRest && !n.tiedFrom && n.beat < note!.beat - 0.001)
+            .sort((a, b) => a.beat - b.beat)
+          for (const n of preceding) {
+            if (n.accidental) active.set(n.pitch, n.accidental === 'n' ? null : n.accidental as Accidental)
+            else if (active.has(n.pitch)) active.set(n.pitch, null)
+          }
+          const activeAcc = active.get(note!.pitch)
+          wouldAutoShow = activeAcc !== undefined && activeAcc !== null
+        }
+        engine.value.updateNote(selectedNoteId.value, {
+          accidental: undefined,
+          forceAccidental: wouldAutoShow ? undefined : true,
+        })
       } else {
         // Set #/b: force-show if re-pressing the same accidental that's currently suppressed.
         const forceAccidental = newValue === note?.accidental ? true : undefined
