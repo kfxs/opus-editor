@@ -76,6 +76,26 @@ export function usePalette(deps: PaletteDeps) {
         if (note?.forceAccidental) {
           // Was force-shown → remove force only, goes back to suppressed (accidental stays)
           engine.value.updateNote(selectedNoteId.value, { forceAccidental: undefined })
+        } else if (!note?.accidental) {
+          // Auto-cautionary ♮ state (no stored accidental, no force — ♮ was computed from measure).
+          // The user pressing toggle-off means "inherit the active measure accidental" for this pitch.
+          // Walk preceding notes to find the active accidental, then apply it.
+          const score = engine.value.getScore()
+          const measure = score.measures.find(m => m.number === note!.measure)
+          if (measure) {
+            const active = new Map<number, Accidental | null>()
+            const preceding = measure.notes
+              .filter(n => !n.isRest && !n.tiedFrom && n.beat < note!.beat - 0.001)
+              .sort((a, b) => a.beat - b.beat)
+            for (const n of preceding) {
+              if (n.accidental) active.set(n.pitch, n.accidental === 'n' ? null : n.accidental as Accidental)
+              else if (active.has(n.pitch)) active.set(n.pitch, null)
+            }
+            const activeAcc = active.get(note!.pitch)
+            if (activeAcc !== undefined && activeAcc !== null) {
+              engine.value.updateNote(selectedNoteId.value, { accidental: activeAcc, forceAccidental: undefined })
+            }
+          }
         } else {
           // Naturally shown (not forced) → remove the accidental entirely, note becomes natural
           engine.value.updateNote(selectedNoteId.value, { accidental: undefined, forceAccidental: undefined })
