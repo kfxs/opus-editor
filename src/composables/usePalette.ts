@@ -224,7 +224,7 @@ export function usePalette(deps: PaletteDeps) {
   function toggleTuplet() {
     if (selectedNoteId.value && engine.value && selectedTool.value === 'selection') {
       const note = engine.value.getNote(selectedNoteId.value)
-      if (!note || note.isRest) return
+      if (!note) return
       if (note.tupletId) {
         // Already in a tuplet — remove it
         engine.value.deleteTuplet(note.tupletId)
