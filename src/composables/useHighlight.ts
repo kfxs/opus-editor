@@ -103,17 +103,27 @@ export function useHighlight(deps: HighlightDeps) {
     let notePitch: number | null = null
     let noteMeasure: number | null = null
     let isRest = false
+    let noteTupletId: string | null = null
 
     for (const measure of score.measures) {
       const element = measure.notes.find(n => n.id === selectedNoteId.value)
       if (element) {
         noteMeasure = element.measure
         isRest = element.isRest || false
+        noteTupletId = element.tupletId || null
         if (!element.isRest) {
           notePitch = element.pitch
         }
         break
       }
+    }
+
+    // If this note/rest belongs to a tuplet, get the tuplet's rendered bbox
+    // so we can exclude the "3" text element from the note highlight
+    let tupletBbox: { x: number; y: number; width: number; height: number } | null = null
+    if (noteTupletId) {
+      const tupletInfo = engine.value.getTupletElementById(noteTupletId)
+      if (tupletInfo) tupletBbox = tupletInfo.bbox
     }
 
     // For chords, the bbox covers all notes. Calculate specific Y for this note's pitch.
@@ -191,18 +201,28 @@ export function useHighlight(deps: HighlightDeps) {
           const svgEl = el as SVGElement
           const elCenterY = elBBox.y + elBBox.height / 2
 
-          // Skip tuplet bracket elements (the "3" number) when selecting notes
-          // For text elements in measures with tuplets, only include elements very close
-          // to the notehead Y position. Noteheads are rendered at exactly targetY,
-          // while tuplet numbers are always offset (above or below).
-          // Use a tight threshold (~8px) to only include the notehead glyph itself.
-          if (hasTupletsInMeasure && el.tagName === 'text' && targetY !== null) {
-            const distanceFromNotehead = Math.abs(elCenterY - targetY)
-            // Noteheads are rendered at exactly targetY (distance ~0)
-            // Accidentals are also close (~5px horizontal offset, same Y)
-            // Tuplet numbers are always offset vertically (14px+ when bracket above, 35px+ when below)
-            if (distanceFromNotehead > 8) {
-              continue
+          // Skip tuplet bracket elements (the "3" number) when selecting notes/rests.
+          // For notes: filter by Y distance from notehead (tuplet number is always offset).
+          // For rests: filter by comparing against the tuplet's registered bbox.
+          if (el.tagName === 'text') {
+            if (hasTupletsInMeasure && targetY !== null) {
+              // Note: skip text elements far from the notehead Y
+              const distanceFromNotehead = Math.abs(elCenterY - targetY)
+              if (distanceFromNotehead > 8) {
+                continue
+              }
+            } else if (tupletBbox) {
+              // Rest inside a tuplet: skip text elements whose center falls within the tuplet bbox
+              const elCenterX = elBBox.x + elBBox.width / 2
+              const xMargin = 5
+              if (
+                elCenterX >= tupletBbox.x - xMargin &&
+                elCenterX <= tupletBbox.x + tupletBbox.width + xMargin &&
+                elCenterY >= tupletBbox.y &&
+                elCenterY <= tupletBbox.y + tupletBbox.height
+              ) {
+                continue
+              }
             }
           }
 
