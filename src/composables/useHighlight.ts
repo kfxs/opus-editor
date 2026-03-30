@@ -201,11 +201,11 @@ export function useHighlight(deps: HighlightDeps) {
           const svgEl = el as SVGElement
           const elCenterY = elBBox.y + elBBox.height / 2
 
-          // Skip tuplet bracket/number elements when selecting a note or rest.
-          // The tuplet's registered bbox covers only the bracket+number area (never the noteheads),
-          // so any SVG element whose centre falls within that bbox is a bracket component.
+          const elCenterX = elBBox.x + elBBox.width / 2
+
+          // Skip any SVG element whose centre falls inside the tuplet's bracket/number bbox.
+          // That bbox covers only the bracket+number area, never the noteheads themselves.
           if (tupletBbox) {
-            const elCenterX = elBBox.x + elBBox.width / 2
             const xMargin = 5
             if (
               elCenterX >= tupletBbox.x - xMargin &&
@@ -215,11 +215,13 @@ export function useHighlight(deps: HighlightDeps) {
             ) {
               continue
             }
-          } else if (hasTupletsInMeasure && el.tagName === 'text' && targetY !== null) {
-            // Fallback for notes whose tuplet wasn't found in the registry:
-            // skip text elements far from the notehead Y (the "3" is always offset).
-            const distanceFromNotehead = Math.abs(elCenterY - targetY)
-            if (distanceFromNotehead > 8) {
+          }
+
+          // Additional safety net for text elements: if there are tuplets in the measure
+          // and we know the notehead Y, skip any text element that is too far from it.
+          // This catches the "3" even if the registered bbox is slightly off.
+          if (hasTupletsInMeasure && el.tagName === 'text' && targetY !== null) {
+            if (Math.abs(elCenterY - targetY) > 8) {
               continue
             }
           }
