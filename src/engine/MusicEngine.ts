@@ -606,6 +606,9 @@ export class MusicEngine {
         dots: note.dots,
         tupletId: note.tupletId, // Preserve tuplet membership
       })
+    } else if (result && !isPartOfChord && note.isRest && !note.tupletId) {
+      // Standalone rest deleted without replacement — re-fill the measure to close the gap
+      this.scoreModel.repairMeasureGaps(note.measure)
     }
 
     this.playbackEngine.setScore(this.scoreModel.getScore())
@@ -724,6 +727,8 @@ export class MusicEngine {
    * Render the score
    */
   renderScore(): void {
+    // Repair any data model gaps before rendering (defensive safety net)
+    this.scoreModel.repairAllMeasureGaps()
     this.renderer.renderScore(this.scoreModel.getScore())
     // Update coordinate mapper with actual VexFlow bounds
     this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())

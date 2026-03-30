@@ -403,7 +403,7 @@ export class ScoreModel {
         } else if (remaining >= 1 - epsilon && beatUnit <= 1) {
           rests.push({ beat: current, duration: 'q' })
           current += 1
-        } else if (remaining >= 0.5 - epsilon && beatUnit <= 0.5) {
+        } else if (remaining >= 0.5 - epsilon) {
           rests.push({ beat: current, duration: '8' })
           current += 0.5
         } else if (remaining >= 0.25 - epsilon && beatUnit <= 0.25) {
@@ -699,6 +699,26 @@ export class ScoreModel {
       return true
     }
     return false
+  }
+
+  /**
+   * Repair gaps in a single measure by filling with rests.
+   * Called by MusicEngine after operations that may leave gaps (e.g. rest deletion).
+   */
+  repairMeasureGaps(measureNumber: number): void {
+    const measure = this.getMeasure(measureNumber)
+    if (measure) {
+      this.fillGapsWithRests(measure)
+    }
+  }
+
+  /**
+   * Repair gaps in all measures. Called as a pre-render safety net.
+   */
+  repairAllMeasureGaps(): void {
+    for (const measure of this.score.measures) {
+      this.fillGapsWithRests(measure)
+    }
   }
 
   /**
