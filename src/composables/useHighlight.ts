@@ -201,28 +201,26 @@ export function useHighlight(deps: HighlightDeps) {
           const svgEl = el as SVGElement
           const elCenterY = elBBox.y + elBBox.height / 2
 
-          // Skip tuplet bracket elements (the "3" number) when selecting notes/rests.
-          // For notes: filter by Y distance from notehead (tuplet number is always offset).
-          // For rests: filter by comparing against the tuplet's registered bbox.
-          if (el.tagName === 'text') {
-            if (hasTupletsInMeasure && targetY !== null) {
-              // Note: skip text elements far from the notehead Y
-              const distanceFromNotehead = Math.abs(elCenterY - targetY)
-              if (distanceFromNotehead > 8) {
-                continue
-              }
-            } else if (tupletBbox) {
-              // Rest inside a tuplet: skip text elements whose center falls within the tuplet bbox
-              const elCenterX = elBBox.x + elBBox.width / 2
-              const xMargin = 5
-              if (
-                elCenterX >= tupletBbox.x - xMargin &&
-                elCenterX <= tupletBbox.x + tupletBbox.width + xMargin &&
-                elCenterY >= tupletBbox.y &&
-                elCenterY <= tupletBbox.y + tupletBbox.height
-              ) {
-                continue
-              }
+          // Skip tuplet bracket/number elements when selecting a note or rest.
+          // The tuplet's registered bbox covers only the bracket+number area (never the noteheads),
+          // so any SVG element whose centre falls within that bbox is a bracket component.
+          if (tupletBbox) {
+            const elCenterX = elBBox.x + elBBox.width / 2
+            const xMargin = 5
+            if (
+              elCenterX >= tupletBbox.x - xMargin &&
+              elCenterX <= tupletBbox.x + tupletBbox.width + xMargin &&
+              elCenterY >= tupletBbox.y &&
+              elCenterY <= tupletBbox.y + tupletBbox.height
+            ) {
+              continue
+            }
+          } else if (hasTupletsInMeasure && el.tagName === 'text' && targetY !== null) {
+            // Fallback for notes whose tuplet wasn't found in the registry:
+            // skip text elements far from the notehead Y (the "3" is always offset).
+            const distanceFromNotehead = Math.abs(elCenterY - targetY)
+            if (distanceFromNotehead > 8) {
+              continue
             }
           }
 
