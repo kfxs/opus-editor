@@ -222,6 +222,20 @@ export function usePalette(deps: PaletteDeps) {
   }
 
   function toggleTuplet() {
+    if (selectedNoteId.value && engine.value && selectedTool.value === 'selection') {
+      const note = engine.value.getNote(selectedNoteId.value)
+      if (!note || note.isRest) return
+      if (note.tupletId) {
+        // Already in a tuplet — remove it
+        engine.value.deleteTuplet(note.tupletId)
+      } else {
+        // Convert the selected note into the first note of a triplet
+        const result = engine.value.applyTupletToNote(selectedNoteId.value)
+        if (result) selectNote(result.note.id)
+      }
+      renderScore()
+      return
+    }
     // Toggle tuplet mode on/off
     tupletMode.value = !tupletMode.value
     // Disable dots when enabling tuplet mode (tuplets don't use dots)

@@ -539,6 +539,49 @@ export class NoteEntryCoordinator {
     return this.buildTupletWithFirstNote(measureNumber, beat, duration, pitch, accidental, numNotes, notesOccupied)
   }
 
+  /**
+   * Convert an existing selected note into the first note of a tuplet.
+   * Used when the user presses the tuplet button in selection mode with a note selected.
+   */
+  applyTupletToNote(
+    noteId: string,
+    numNotes: number = 3,
+    notesOccupied: number = 2
+  ): { tuplet: Tuplet; note: Note } | null {
+    const note = this.getScoreModel().getNote(noteId)
+    if (!note || note.isRest || note.tupletId) return null
+
+    const existingTuplet = this.getScoreModel().getTupletAtBeat(note.measure, note.beat)
+    if (existingTuplet) return null
+
+    // createTuplet deletes the note at this beat and fills with rests
+    const tuplet = this.getScoreModel().createTuplet(note.measure, note.beat, note.duration, numNotes, notesOccupied)
+
+    // Replace the first rest with the original note's pitch
+    const beatPositions = getTupletBeatPositions(note.beat, note.duration, numNotes, notesOccupied)
+    const tupletNotes = this.getScoreModel().getNotesInTuplet(tuplet.id)
+    const firstRest = tupletNotes.find(n => n.isRest && Math.abs(n.beat - beatPositions[0]) < 0.001)
+
+    if (!firstRest) {
+      console.warn('Could not find first rest in tuplet after applying to selected note')
+      return null
+    }
+
+    this.getScoreModel().deleteNote(firstRest.id)
+    const newNote = this.getScoreModel().addNote({
+      pitch: note.pitch,
+      duration: note.duration,
+      measure: note.measure,
+      beat: beatPositions[0],
+      tupletId: tuplet.id,
+      ...(note.accidental && { accidental: note.accidental }),
+      ...(note.stemDirection && { stemDirection: note.stemDirection }),
+    })
+
+    this.onCommit('Apply tuplet')
+    return { tuplet, note: newNote }
+  }
+
   // ==================== Private Helpers ====================
 
   /**

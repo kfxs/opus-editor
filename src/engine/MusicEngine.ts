@@ -680,6 +680,17 @@ export class MusicEngine {
   }
 
   /**
+   * Convert an existing selected note into the first note of a tuplet (for selection mode).
+   */
+  applyTupletToNote(
+    noteId: string,
+    numNotes: number = 3,
+    notesOccupied: number = 2
+  ): { tuplet: Tuplet; note: Note } | null {
+    return this.noteEntryCoordinator.applyTupletToNote(noteId, numNotes, notesOccupied)
+  }
+
+  /**
    * Delete a tuplet and replace it with a rest
    * @param tupletId - ID of the tuplet to delete
    * @returns true if deleted successfully
