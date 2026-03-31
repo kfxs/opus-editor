@@ -1,4 +1,5 @@
 import type { Note, Score } from '../types/music'
+import { fracCompare } from '../utils/fraction'
 
 /**
  * A note augmented with its parent measure number (for cross-measure sorting).
@@ -20,12 +21,13 @@ export function buildBeatMap(score: Score): { allFlat: FlatNote[]; beats: FlatNo
     .sort((a, b) =>
       a.measureNumber !== b.measureNumber
         ? a.measureNumber - b.measureNumber
-        : a.beat - b.beat
+        : fracCompare(a.beat, b.beat),
     )
 
+  // Key uses num/den so {num:1,den:3} and {num:2,den:6} (same value) reduce to the same key
   const beatMap = new Map<string, FlatNote>()
   for (const n of allFlat) {
-    const key = `${n.measureNumber}:${n.beat}`
+    const key = `${n.measureNumber}:${n.beat.num}/${n.beat.den}`
     const existing = beatMap.get(key)
     if (!existing) {
       beatMap.set(key, n)

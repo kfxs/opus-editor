@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { CoordinateMapper } from './CoordinateMapper'
 import type { Note } from '@/types/music'
+import { fracCreate as frac } from '@/utils/fraction'
 
 describe('CoordinateMapper', () => {
   let mapper: CoordinateMapper
@@ -86,7 +87,7 @@ describe('CoordinateMapper', () => {
         pitch: 60,
         duration: 'q',
         measure: 1,
-        beat: 0,
+        beat: frac(0, 1),
       }
 
       const coords = mapper.noteToPixel(note, 4)
@@ -100,7 +101,7 @@ describe('CoordinateMapper', () => {
         pitch: 60,
         duration: 'q',
         measure: 2,
-        beat: 0,
+        beat: frac(0, 1),
       }
 
       const coords = mapper.noteToPixel(note, 4)

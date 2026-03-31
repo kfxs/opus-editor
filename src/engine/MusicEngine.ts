@@ -6,7 +6,9 @@ import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
 import { durationToBeats, beatsToDuration, splitBeatsIntoDurations, midiToNoteName } from '@/utils/musicUtils'
-import type { Score, Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure } from '@/types/music'
+import { fracToNumber, fracCompare, fracEq } from '@/utils/fraction'
+import { beatToFrac } from '@/utils/musicUtils'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure } from '@/types/music'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 
 /** Internal context passed to updateNote sub-methods */
@@ -241,7 +243,7 @@ export class MusicEngine {
     return this.noteEntryCoordinator.addNoteAtPosition(coords, duration, accidental, dots, articulations)
   }
 
-  addRest(duration: NoteParams['duration'], measure: number, beat: number): Note {
+  addRest(duration: NoteParams['duration'], measure: number, beat: Fraction): Note {
     const rest = this.scoreModel.addRest(duration, measure, beat)
     this.playbackEngine.setScore(this.scoreModel.getScore())
     this.saveUndoState('Add rest')
@@ -251,9 +253,9 @@ export class MusicEngine {
   // --- Mutation ---
 
   /** Returns all non-rest notes at the given beat in a measure (chord members). */
-  private getChordNotesAt(measureNumber: number, beat: number): Note[] {
+  private getChordNotesAt(measureNumber: number, beat: Fraction): Note[] {
     return this.scoreModel.getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && Math.abs(n.beat - beat) < 0.001)
+      .filter(n => !n.isRest && fracEq(n.beat, beat))
   }
 
   /**
@@ -282,7 +284,7 @@ export class MusicEngine {
     if (measure && (updates.duration || updates.dots !== undefined)) {
       const timeSignature = measure.timeSignature
       const measureTotalBeats = (4 / timeSignature.denominator) * timeSignature.numerator
-      const availableBeats = measureTotalBeats - existingNote.beat
+      const availableBeats = measureTotalBeats - fracToNumber(existingNote.beat)
       const requestedBeats = durationToBeats(newDuration, newDots)
 
       if (requestedBeats > availableBeats + 0.001) {
@@ -324,8 +326,8 @@ export class MusicEngine {
     const baseDurationBeats = durationToBeats(tuplet.baseDuration)
     const tupletRatio = tuplet.notesOccupied / tuplet.numNotes
     const tupletTotalBeats = baseDurationBeats * tuplet.notesOccupied
-    const tupletEndBeat = tuplet.startBeat + tupletTotalBeats
-    const remainingTupletBeats = tupletEndBeat - existingNote.beat
+    const tupletEndBeat = fracToNumber(tuplet.startBeat) + tupletTotalBeats
+    const remainingTupletBeats = tupletEndBeat - fracToNumber(existingNote.beat)
 
     // Check if new duration fits in remaining tuplet space
     const scaledNewDuration = newBeats * tupletRatio
@@ -354,15 +356,16 @@ export class MusicEngine {
 
     const actualNewDuration = newBeats * tupletRatio
     const actualOldDuration = oldBeats * tupletRatio
-    const noteEndBeat = existingNote.beat + actualNewDuration
+    const noteEndBeat = fracToNumber(existingNote.beat) + actualNewDuration
 
     if (newBeats > oldBeats) {
       // Duration increased - delete overlapping tuplet items
+      const existingBeatNum = fracToNumber(existingNote.beat)
       const tupletItemsToDelete = measureNotes.filter(n =>
         n.tupletId === existingNote.tupletId &&
         n.id !== noteId &&
-        n.beat > existingNote.beat + 0.001 &&
-        n.beat < noteEndBeat - 0.001
+        fracToNumber(n.beat) > existingBeatNum + 0.001 &&
+        fracToNumber(n.beat) < noteEndBeat - 0.001
       )
       for (const item of tupletItemsToDelete) {
         this.scoreModel.deleteNote(item.id)
@@ -375,7 +378,7 @@ export class MusicEngine {
         if (fillerDuration && noteEndBeat < tupletEndBeat - 0.001) {
           this.scoreModel.addNote({
             pitch: 0, duration: fillerDuration,
-            measure: existingNote.measure, beat: noteEndBeat,
+            measure: existingNote.measure, beat: beatToFrac(noteEndBeat),
             isRest: true, tupletId: existingNote.tupletId,
           })
         }
@@ -386,12 +389,12 @@ export class MusicEngine {
       if (fillerDuration) {
         const existingAtFiller = measureNotes.find(n =>
           n.tupletId === existingNote.tupletId &&
-          Math.abs(n.beat - noteEndBeat) < 0.02
+          Math.abs(fracToNumber(n.beat) - noteEndBeat) < 0.02
         )
         if (!existingAtFiller) {
           this.scoreModel.addNote({
             pitch: 0, duration: fillerDuration,
-            measure: existingNote.measure, beat: noteEndBeat,
+            measure: existingNote.measure, beat: beatToFrac(noteEndBeat),
             isRest: true, tupletId: existingNote.tupletId,
           })
         }
@@ -420,21 +423,22 @@ export class MusicEngine {
 
     // If duration is being lengthened, remove overlapping notes/rests first
     if (beatDifference < -0.001) {
-      const noteEndBeat = existingNote.beat + newBeats
+      const existingBeatNum = fracToNumber(existingNote.beat)
+      const noteEndBeat = existingBeatNum + newBeats
       const chordNoteIds = new Set(chordNotes.map(n => n.id))
       const notesToRemove: string[] = []
       let beatsToRecover = 0
 
       for (const n of measureNotes) {
         if (n.id === noteId || chordNoteIds.has(n.id)) continue
-        const nStart = n.beat
-        const nEnd = n.beat + durationToBeats(n.duration, n.dots || 0)
+        const nStart = fracToNumber(n.beat)
+        const nEnd = nStart + durationToBeats(n.duration, n.dots || 0)
         // Note starts within the extended range - remove it entirely
-        if (nStart >= existingNote.beat + oldBeats && nStart < noteEndBeat) {
+        if (nStart >= existingBeatNum + oldBeats && nStart < noteEndBeat) {
           notesToRemove.push(n.id)
           beatsToRecover += durationToBeats(n.duration, n.dots || 0)
         // Note starts before but extends into the range - remove it
-        } else if (nStart < existingNote.beat + oldBeats && nEnd > existingNote.beat + oldBeats && nEnd <= noteEndBeat) {
+        } else if (nStart < existingBeatNum + oldBeats && nEnd > existingBeatNum + oldBeats && nEnd <= noteEndBeat) {
           notesToRemove.push(n.id)
           beatsToRecover += durationToBeats(n.duration, n.dots || 0)
         }
@@ -447,7 +451,7 @@ export class MusicEngine {
       if (excessBeats > 0.001) {
         let currentBeat = noteEndBeat
         for (const restDuration of splitBeatsIntoDurations(excessBeats)) {
-          this.scoreModel.addRest(restDuration, existingNote.measure, currentBeat)
+          this.scoreModel.addRest(restDuration, existingNote.measure, beatToFrac(currentBeat))
           currentBeat += durationToBeats(restDuration)
         }
       }
@@ -466,9 +470,9 @@ export class MusicEngine {
 
     // If duration was shortened, fill the gap with rests
     if (beatDifference > 0.001) {
-      let currentBeat = note.beat + newBeats
+      let currentBeat = fracToNumber(note.beat) + newBeats
       for (const restDuration of splitBeatsIntoDurations(beatDifference)) {
-        this.scoreModel.addRest(restDuration, note.measure, currentBeat)
+        this.scoreModel.addRest(restDuration, note.measure, beatToFrac(currentBeat))
         currentBeat += durationToBeats(restDuration)
       }
     }
@@ -552,7 +556,7 @@ export class MusicEngine {
     } else {
       // Find next note with same pitch after current position
       const allNotes = this.scoreModel.getAllNotes()
-        .sort((a, b) => a.measure !== b.measure ? a.measure - b.measure : a.beat - b.beat)
+        .sort((a, b) => a.measure !== b.measure ? a.measure - b.measure : fracCompare(a.beat, b.beat))
       const idx = allNotes.findIndex(n => n.id === noteId)
       const nextNote = allNotes.slice(idx + 1).find(n => !n.isRest && n.pitch === note.pitch)
       if (!nextNote) return null
@@ -717,7 +721,7 @@ export class MusicEngine {
   /**
    * Get the tuplet at a specific beat position in a measure
    */
-  getTupletAtBeat(measureNumber: number, beat: number): Tuplet | undefined {
+  getTupletAtBeat(measureNumber: number, beat: Fraction): Tuplet | undefined {
     return this.scoreModel.getTupletAtBeat(measureNumber, beat)
   }
 
@@ -842,8 +846,9 @@ export class MusicEngine {
    * Convert pixel coordinates to musical position
    * Uses ElementRegistry for accurate position calculation based on actual rendered elements
    */
-  pixelToPosition(coords: PixelCoordinates, beatsInMeasure: number) {
-    return this.getPositionFromPixels(coords, beatsInMeasure)
+  pixelToPosition(coords: PixelCoordinates, beatsInMeasure: number): { measure: number; beat: Fraction; pitch: number } {
+    const { measure, beat, pitch } = this.getPositionFromPixels(coords, beatsInMeasure)
+    return { measure, beat: beatToFrac(beat), pitch }
   }
 
   /**

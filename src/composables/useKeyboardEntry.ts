@@ -3,6 +3,7 @@ import type { ArticulationType, Accidental, NoteDuration, Note } from '../types/
 import type { MusicEngine } from '../engine/MusicEngine'
 import { buildBeatMap } from '../utils/beatMap'
 import { durationToBeats } from '../utils/musicUtils'
+import { fracToNumber, fracEq } from '../utils/fraction'
 
 interface KeyboardEntryDeps {
   selectedTool: Ref<'entry' | 'selection'>
@@ -83,8 +84,8 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
       console.log('[Keyboard] enterNoteAtCursorPosition: currentNote not found for id', selectedNoteId.value)
       return
     }
-    const currentKey = `${currentNote.measureNumber}:${currentNote.beat}`
-    const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat}` === currentKey)
+    const currentKey = `${currentNote.measureNumber}:${currentNote.beat.num}/${currentNote.beat.den}`
+    const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat.num}/${n.beat.den}` === currentKey)
     if (currentIndex === -1) {
       console.log('[Keyboard] enterNoteAtCursorPosition: beat not found in beatMap for key', currentKey)
       return
@@ -104,20 +105,19 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
     const k = Math.round((reference - pitchClass) / 12)
     const targetPitch = pitchClass + 12 * k
 
-    const newDurationBeats = durationToBeats(selectedDuration.value, selectedDots.value)
-
-    console.log(`[Keyboard] Entering note: pitchClass=${pitchClass} pitch=${targetPitch} dur=${selectedDuration.value} dots=${selectedDots.value} (${newDurationBeats} beats) at measure=${targetMeasure} beat=${targetBeat}`)
+    const existingTuplet = engine.value.getTupletAtBeat(targetMeasure, targetBeat)
+    console.log(`KeyboardEntry RAW | pitch:${targetPitch} dur:${selectedDuration.value} measure:${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(3)} tupletMode:${tupletMode.value} existingTuplet:${existingTuplet ? existingTuplet.id : 'none'}`)
 
     const measure = score.measures.find(m => m.number === targetMeasure)
     if (!measure) return
 
     let newNote: Note | null
 
-    if (tupletMode.value && !engine.value.getTupletAtBeat(targetMeasure, targetBeat)) {
+    if (tupletMode.value && !existingTuplet) {
       // Tuplet mode and cursor is at a free beat — create a new tuplet
       const result = engine.value.createTupletAtBeat(
         targetMeasure,
-        targetBeat,
+        fracToNumber(targetBeat),
         selectedDuration.value,
         targetPitch,
         selectedAccidental.value || undefined
@@ -139,12 +139,10 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
     }
 
     if (!newNote) {
-      console.log('[Keyboard] placement failed')
+      console.log('✗ KeyboardEntry | placement failed')
       renderScore()
       return
     }
-
-    console.log(`[Keyboard] Note placed: id=${newNote.id} pitch=${newNote.pitch} dur=${newNote.duration} measure=${newNote.measure} beat=${newNote.beat}`)
 
     // If a tie was armed, link the previous note to this new note
     if (pendingTieFromNoteId.value) {
@@ -183,8 +181,8 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
 
     const currentNote = allFlat.find(n => n.id === selectedNoteId.value)
     if (!currentNote) return
-    const currentKey = `${currentNote.measureNumber}:${currentNote.beat}`
-    const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat}` === currentKey)
+    const currentKey = `${currentNote.measureNumber}:${currentNote.beat.num}/${currentNote.beat.den}`
+    const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat.num}/${n.beat.den}` === currentKey)
     if (currentIndex === -1) return
 
     const nextBeat = beats[currentIndex + 1]
@@ -201,7 +199,7 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
     const measureData = score.measures.find(m => m.number === targetMeasure)
     if (!measureData) return
     const measureTotalBeats = measureData.timeSignature.numerator * (4 / measureData.timeSignature.denominator)
-    const availableBeats = measureTotalBeats - targetBeat
+    const availableBeats = measureTotalBeats - fracToNumber(targetBeat)
     const actualDurationBeats = Math.min(newDurationBeats, availableBeats)
     // Find the largest standard duration that fits
     const durations: Array<{ dur: NoteDuration; beats: number }> = [
@@ -261,7 +259,7 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
     const score = engine.value.getScore()
     const measure = score.measures.find(m => m.number === note.measure)
     const chordPitches = (measure?.notes ?? [])
-      .filter(n => !n.isRest && Math.abs(n.beat - note.beat) < 0.001)
+      .filter(n => !n.isRest && fracEq(n.beat, note.beat))
       .map(n => n.pitch)
     const basePitch = chordPitches.length > 0 ? Math.max(...chordPitches) : note.pitch
 

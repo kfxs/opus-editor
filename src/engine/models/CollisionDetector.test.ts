@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { CollisionDetector } from './CollisionDetector'
 import type { Note, NoteParams, Measure } from '@/types/music'
+import { fracCreate as frac } from '@/utils/fraction'
 
 describe('CollisionDetector', () => {
   let detector: CollisionDetector
@@ -23,7 +24,7 @@ describe('CollisionDetector', () => {
         pitch: 60,
         duration: 'q',
         measure: 1,
-        beat: 0,
+        beat: frac(0, 1),
       }
 
       const result = detector.checkNoteCollision(newNote, [])
@@ -36,14 +37,14 @@ describe('CollisionDetector', () => {
         pitch: 60,
         duration: 'q',
         measure: 1,
-        beat: 0,
+        beat: frac(0, 1),
       }
 
       const newNote: NoteParams = {
         pitch: 60,
         duration: 'q',
         measure: 1,
-        beat: 0.5, // Overlaps with existing note
+        beat: frac(1, 2), // Overlaps with existing note
       }
 
       const result = detector.checkNoteCollision(newNote, [existingNote])
@@ -57,14 +58,14 @@ describe('CollisionDetector', () => {
         pitch: 60,
         duration: 'q',
         measure: 1,
-        beat: 0,
+        beat: frac(0, 1),
       }
 
       const newNote: NoteParams = {
         pitch: 64, // Different pitch
         duration: 'q',
         measure: 1,
-        beat: 0,
+        beat: frac(0, 1),
       }
 
       const result = detector.checkNoteCollision(newNote, [existingNote])
@@ -77,14 +78,14 @@ describe('CollisionDetector', () => {
         pitch: 60,
         duration: 'q',
         measure: 1,
-        beat: 0,
+        beat: frac(0, 1),
       }
 
       const newNote: NoteParams = {
         pitch: 60,
         duration: 'q',
         measure: 1,
-        beat: 1, // Starts after existing note ends
+        beat: frac(1, 1), // Starts after existing note ends
       }
 
       const result = detector.checkNoteCollision(newNote, [existingNote])
@@ -97,14 +98,14 @@ describe('CollisionDetector', () => {
         pitch: 60,
         duration: 'q',
         measure: 1,
-        beat: 1,
+        beat: frac(1, 1),
       }
 
       const newNote: NoteParams = {
         pitch: 60,
         duration: 'w', // Whole note encompasses the quarter note
         measure: 1,
-        beat: 0,
+        beat: frac(0, 1),
       }
 
       const result = detector.checkNoteCollision(newNote, [existingNote])
@@ -117,14 +118,14 @@ describe('CollisionDetector', () => {
         pitch: 60,
         duration: 'q',
         measure: 1,
-        beat: 0,
+        beat: frac(0, 1),
       }
 
       const newNote: NoteParams = {
         pitch: 60,
         duration: 'q',
         measure: 2, // Different measure
-        beat: 0,
+        beat: frac(0, 1),
       }
 
       const result = detector.checkNoteCollision(newNote, [existingNote])
@@ -138,7 +139,7 @@ describe('CollisionDetector', () => {
         pitch: 60,
         duration: 'q',
         measure: 1,
-        beat: 0,
+        beat: frac(0, 1),
       }
 
       const result = detector.checkMeasureOverflow(note, measure, [])
@@ -150,7 +151,7 @@ describe('CollisionDetector', () => {
         pitch: 60,
         duration: 'w',
         measure: 1,
-        beat: 2, // Whole note starting at beat 2 will overflow
+        beat: frac(2, 1), // Whole note starting at beat 2 will overflow
       }
 
       const result = detector.checkMeasureOverflow(note, measure, [])
@@ -164,7 +165,7 @@ describe('CollisionDetector', () => {
         pitch: 60,
         duration: 'q',
         measure: 1,
-        beat: 3, // Quarter note at beat 3 ends exactly at 4
+        beat: frac(3, 1), // Quarter note at beat 3 ends exactly at 4
       }
 
       const result = detector.checkMeasureOverflow(note, measure, [])
@@ -185,7 +186,7 @@ describe('CollisionDetector', () => {
           pitch: 60,
           duration: 'q',
           measure: 1,
-          beat: 0,
+          beat: frac(0, 1),
         },
       ]
 
@@ -200,14 +201,14 @@ describe('CollisionDetector', () => {
           pitch: 60,
           duration: 'q',
           measure: 1,
-          beat: 0,
+          beat: frac(0, 1),
         },
         {
           id: '2',
           pitch: 60,
           duration: 'q',
           measure: 1,
-          beat: 2,
+          beat: frac(2, 1),
         },
       ]
 
@@ -222,7 +223,7 @@ describe('CollisionDetector', () => {
           pitch: 60,
           duration: 'w',
           measure: 1,
-          beat: 0,
+          beat: frac(0, 1),
         },
       ]
 
@@ -244,7 +245,7 @@ describe('CollisionDetector', () => {
           pitch: 60,
           duration: 'q',
           measure: 1,
-          beat: 0,
+          beat: frac(0, 1),
         },
       ]
 
@@ -252,7 +253,7 @@ describe('CollisionDetector', () => {
         pitch: 60,
         duration: 'q',
         measure: 1,
-        beat: 2,
+        beat: frac(2, 1),
       }
 
       const affected = detector.getAffectedNotes(newNote, existingNotes)
@@ -266,14 +267,14 @@ describe('CollisionDetector', () => {
           pitch: 60,
           duration: 'q',
           measure: 1,
-          beat: 0,
+          beat: frac(0, 1),
         },
         {
           id: '2',
           pitch: 64,
           duration: 'q',
           measure: 1,
-          beat: 0.5,
+          beat: frac(1, 2),
         },
       ]
 
@@ -281,7 +282,7 @@ describe('CollisionDetector', () => {
         pitch: 67,
         duration: 'h',
         measure: 1,
-        beat: 0,
+        beat: frac(0, 1),
       }
 
       const affected = detector.getAffectedNotes(newNote, existingNotes)
@@ -304,7 +305,7 @@ describe('CollisionDetector', () => {
           pitch: 60,
           duration: 'h',
           measure: 1,
-          beat: 0,
+          beat: frac(0, 1),
         },
       ]
 
@@ -321,14 +322,14 @@ describe('CollisionDetector', () => {
           pitch: 60,
           duration: 'q',
           measure: 1,
-          beat: 0,
+          beat: frac(0, 1),
         },
         {
           id: '2',
           pitch: 64,
           duration: 'q',
           measure: 1,
-          beat: 3,
+          beat: frac(3, 1),
         },
       ]
 
@@ -351,7 +352,7 @@ describe('CollisionDetector', () => {
           pitch: 60,
           duration: 'q',
           measure: 1,
-          beat: 0,
+          beat: frac(0, 1),
         },
       ]
 
@@ -366,7 +367,7 @@ describe('CollisionDetector', () => {
           pitch: 60,
           duration: 'w',
           measure: 1,
-          beat: 2,
+          beat: frac(2, 1),
         },
       ]
 
@@ -382,7 +383,7 @@ describe('CollisionDetector', () => {
           pitch: 60,
           duration: 'q',
           measure: 1,
-          beat: -1,
+          beat: frac(-1, 1),
         },
       ]
 
@@ -398,11 +399,11 @@ describe('CollisionDetector', () => {
         pitch: 60,
         duration: 'q',
         measure: 1,
-        beat: 0.6,
+        beat: frac(3, 5),
       }
 
       const quantized = detector.quantizeNote(note, measure.timeSignature, 4)
-      expect(quantized.beat).toBe(1) // Snapped to 1 (0.6 rounds to 1)
+      expect(quantized.beat).toEqual(frac(1, 1)) // Snapped to 1 (0.6 rounds to 1)
     })
 
     it('should clamp to measure boundaries', () => {
@@ -410,11 +411,11 @@ describe('CollisionDetector', () => {
         pitch: 60,
         duration: 'h',
         measure: 1,
-        beat: 3.5,
+        beat: frac(7, 2),
       }
 
       const quantized = detector.quantizeNote(note, measure.timeSignature, 4)
-      expect(quantized.beat).toBeLessThanOrEqual(2) // Can't start past beat 2 with half note
+      expect(quantized.beat.num / quantized.beat.den).toBeLessThanOrEqual(2) // Can't start past beat 2 with half note
     })
   })
 })

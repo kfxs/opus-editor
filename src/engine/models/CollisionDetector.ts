@@ -1,5 +1,7 @@
 import type { Note, NoteParams, Measure, TimeSignature } from '@/types/music'
 import { durationToBeats, getMeasureDuration } from '@/utils/musicUtils'
+import { durationToFraction, fracAdd, fracCompare, fracEq, fracGt, fracGte, fracLt, fracToNumber, fracCreate } from '@/utils/fraction'
+import { beatToFrac } from '@/utils/musicUtils'
 
 /**
  * Result of a collision check
@@ -38,8 +40,8 @@ export class CollisionDetector {
    * 3. Overlapping time but different beats = COLLISION (not allowed)
    */
   checkNoteCollision(newNote: NoteParams, existingNotes: Note[]): CollisionResult {
-    const newNoteDuration = durationToBeats(newNote.duration, newNote.dots || 0)
-    const newNoteEnd = newNote.beat + newNoteDuration
+    const newNoteDurFrac = newNote.actualDuration ?? durationToFraction(newNote.duration, newNote.dots ?? 0)
+    const newNoteEnd = fracAdd(newNote.beat, newNoteDurFrac)
 
     const collidingNotes: string[] = []
 
@@ -50,16 +52,16 @@ export class CollisionDetector {
       // Skip rests - they don't participate in chords
       if (existing.isRest) continue
 
-      const existingDuration = durationToBeats(existing.duration, existing.dots || 0)
-      const existingEnd = existing.beat + existingDuration
+      const existingDurFrac = existing.actualDuration ?? durationToFraction(existing.duration, existing.dots ?? 0)
+      const existingEnd = fracAdd(existing.beat, existingDurFrac)
 
-      // Check if notes start at the EXACT same beat position
-      const sameStartBeat = Math.abs(newNote.beat - existing.beat) < 0.001 // tolerance for floating point
+      // Check if notes start at the exact same beat position (exact — no epsilon)
+      const sameStartBeat = fracEq(newNote.beat, existing.beat)
 
       if (sameStartBeat) {
         // Notes starting at same beat - check if they form a chord or duplicate
         const samePitch = existing.pitch === newNote.pitch
-        const sameDuration = Math.abs(newNoteDuration - existingDuration) < 0.001
+        const sameDuration = fracEq(newNoteDurFrac, existingDurFrac)
 
         if (samePitch && sameDuration) {
           // Exact duplicate note - reject
@@ -69,9 +71,9 @@ export class CollisionDetector {
       } else {
         // Different start beats - check for partial time overlap (true collision)
         const timeOverlap =
-          (newNote.beat > existing.beat && newNote.beat < existingEnd) ||
-          (newNoteEnd > existing.beat && newNoteEnd < existingEnd) ||
-          (newNote.beat <= existing.beat && newNoteEnd >= existingEnd)
+          (fracGt(newNote.beat, existing.beat) && fracLt(newNote.beat, existingEnd)) ||
+          (fracGt(newNoteEnd, existing.beat) && fracLt(newNoteEnd, existingEnd)) ||
+          (fracLt(newNote.beat, existing.beat) && fracGte(newNoteEnd, existingEnd))
 
         if (timeOverlap) {
           collidingNotes.push(existing.id)
@@ -92,13 +94,12 @@ export class CollisionDetector {
   checkMeasureOverflow(
     note: NoteParams,
     measure: Measure,
-    _existingNotes: Note[]
+    _existingNotes: Note[],
   ): OverflowResult {
-    const noteDuration = durationToBeats(note.duration, note.dots || 0)
-    const noteEnd = note.beat + noteDuration
+    const noteDurFrac = note.actualDuration ?? durationToFraction(note.duration, note.dots ?? 0)
+    const noteEnd = fracToNumber(fracAdd(note.beat, noteDurFrac))
     const measureDuration = getMeasureDuration(measure.timeSignature)
 
-    // Check if note extends beyond measure
     if (noteEnd > measureDuration) {
       return {
         willOverflow: true,
@@ -107,68 +108,59 @@ export class CollisionDetector {
       }
     }
 
-    return {
-      willOverflow: false,
-    }
+    return { willOverflow: false }
   }
 
   /**
-   * Find the next available position in a measure for a note
-   * Returns null if no space is available
+   * Find the next available position in a measure for a note (returns a number in beats).
    */
   findNextAvailablePosition(
     duration: string,
     measure: Measure,
     existingNotes: Note[],
-    startFromBeat: number = 0
+    startFromBeat: number = 0,
   ): number | null {
     const noteDuration = durationToBeats(duration as any)
     const measureDuration = getMeasureDuration(measure.timeSignature)
 
-    // Sort notes by beat
-    const sortedNotes = [...existingNotes].sort((a, b) => a.beat - b.beat)
+    const sortedNotes = [...existingNotes].sort((a, b) => fracCompare(a.beat, b.beat))
 
     let currentBeat = startFromBeat
 
     for (const note of sortedNotes) {
-      const noteEnd = note.beat + durationToBeats(note.duration, note.dots || 0)
+      const noteEnd = fracToNumber(note.beat) + durationToBeats(note.duration, note.dots || 0)
 
-      // Can we fit before this note?
-      if (currentBeat + noteDuration <= note.beat) {
+      if (currentBeat + noteDuration <= fracToNumber(note.beat)) {
         return currentBeat
       }
 
-      // Move to after this note
       currentBeat = Math.max(currentBeat, noteEnd)
     }
 
-    // Can we fit at the end?
     if (currentBeat + noteDuration <= measureDuration) {
       return currentBeat
     }
 
-    return null // No space available
+    return null
   }
 
   /**
    * Get all notes that would be affected by inserting a note at a position
-   * This includes notes that would need to be moved or split
    */
   getAffectedNotes(newNote: NoteParams, existingNotes: Note[]): Note[] {
-    const newNoteDuration = durationToBeats(newNote.duration, newNote.dots || 0)
-    const newNoteEnd = newNote.beat + newNoteDuration
+    const newNoteDurFrac = newNote.actualDuration ?? durationToFraction(newNote.duration, newNote.dots ?? 0)
+    const newNoteEnd = fracAdd(newNote.beat, newNoteDurFrac)
 
     return existingNotes.filter(note => {
       if (note.measure !== newNote.measure) return false
 
-      const noteDuration = durationToBeats(note.duration, note.dots || 0)
-      const noteEnd = note.beat + noteDuration
+      const noteDurFrac = note.actualDuration ?? durationToFraction(note.duration, note.dots ?? 0)
+      const noteEnd = fracAdd(note.beat, noteDurFrac)
 
-      // Check for any overlap in time
       return (
-        (newNote.beat >= note.beat && newNote.beat < noteEnd) ||
-        (newNoteEnd > note.beat && newNoteEnd <= noteEnd) ||
-        (newNote.beat <= note.beat && newNoteEnd >= noteEnd)
+        (fracGte(newNote.beat, note.beat) && fracLt(newNote.beat, noteEnd)) ||
+        (fracGt(newNoteEnd, note.beat) && fracLt(newNoteEnd, noteEnd)) ||
+        (fracLt(newNote.beat, note.beat) && fracGte(newNoteEnd, noteEnd))
       )
     })
   }
@@ -184,10 +176,10 @@ export class CollisionDetector {
     const measureDuration = getMeasureDuration(measure.timeSignature)
     const measureNotes = notes.filter(n => n.measure === measure.number)
 
-    // Find the latest end point
     let maxEnd = 0
     for (const note of measureNotes) {
-      const noteEnd = note.beat + durationToBeats(note.duration, note.dots || 0)
+      const noteDurFrac = note.actualDuration ?? durationToFraction(note.duration, note.dots ?? 0)
+      const noteEnd = fracToNumber(fracAdd(note.beat, noteDurFrac))
       maxEnd = Math.max(maxEnd, noteEnd)
     }
 
@@ -210,16 +202,17 @@ export class CollisionDetector {
     const measureNotes = notes.filter(n => n.measure === measure.number)
 
     for (const note of measureNotes) {
-      const noteEnd = note.beat + durationToBeats(note.duration, note.dots || 0)
+      const noteDurFrac = note.actualDuration ?? durationToFraction(note.duration, note.dots ?? 0)
+      const noteEnd = fracToNumber(fracAdd(note.beat, noteDurFrac))
 
       if (noteEnd > measureDuration) {
         errors.push(
-          `Note ${note.id} extends beyond measure (ends at ${noteEnd}, measure duration is ${measureDuration})`
+          `Note ${note.id} extends beyond measure (ends at ${noteEnd}, measure duration is ${measureDuration})`,
         )
       }
 
-      if (note.beat < 0) {
-        errors.push(`Note ${note.id} has negative beat position: ${note.beat}`)
+      if (fracLt(note.beat, fracCreate(0, 1))) {
+        errors.push(`Note ${note.id} has negative beat position: ${fracToNumber(note.beat)}`)
       }
     }
 
@@ -230,22 +223,25 @@ export class CollisionDetector {
   }
 
   /**
-   * Suggest automatic note quantization to fit in measure
-   * Quantizes beat positions to nearest valid subdivision
+   * Suggest automatic note quantization to fit in measure.
+   * Quantizes beat position to nearest valid subdivision.
    */
   quantizeNote(
     note: NoteParams,
     timeSignature: TimeSignature,
-    subdivision: number = 4
+    subdivision: number = 4,
   ): NoteParams {
     const measureDuration = getMeasureDuration(timeSignature)
     const quantum = measureDuration / subdivision
+    const beatNum = fracToNumber(note.beat)
+    const noteDuration = durationToBeats(note.duration, note.dots || 0)
 
-    const quantizedBeat = Math.round(note.beat / quantum) * quantum
+    const quantizedBeat = Math.round(beatNum / quantum) * quantum
+    const clampedBeat = Math.max(0, Math.min(quantizedBeat, measureDuration - noteDuration))
 
     return {
       ...note,
-      beat: Math.max(0, Math.min(quantizedBeat, measureDuration - durationToBeats(note.duration, note.dots || 0))),
+      beat: beatToFrac(clampedBeat),
     }
   }
 }

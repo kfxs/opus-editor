@@ -1,5 +1,6 @@
 import type { PixelCoordinates, Note } from '@/types/music'
 import type { MeasureBounds } from './VexFlowRenderer'
+import { fracToNumber } from '@/utils/fraction'
 
 /**
  * Configuration for the coordinate mapping system
@@ -188,7 +189,7 @@ export class CoordinateMapper {
    */
   noteToPixel(note: Note, beatsInMeasure: number): PixelCoordinates {
     return {
-      x: this.beatToPixelX(note.beat, note.measure, beatsInMeasure),
+      x: this.beatToPixelX(fracToNumber(note.beat), note.measure, beatsInMeasure),
       y: this.pitchToPixelY(note.pitch, note.measure),
     }
   }

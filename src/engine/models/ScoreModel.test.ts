@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
 import type { NoteParams } from '@/types/music'
+import { fracCreate as frac } from '@/utils/fraction'
 
 describe('ScoreModel', () => {
   let model: ScoreModel
@@ -85,7 +86,7 @@ describe('ScoreModel', () => {
       pitch: 60,
       duration: 'q',
       measure: 1,
-      beat: 0,
+      beat: frac(0, 1),
     }
 
     it('should add a note to a measure', () => {
@@ -93,7 +94,7 @@ describe('ScoreModel', () => {
       expect(note.pitch).toBe(60)
       expect(note.duration).toBe('q')
       expect(note.measure).toBe(1)
-      expect(note.beat).toBe(0)
+      expect(note.beat).toEqual(frac(0, 1))
       expect(note.id).toBeDefined()
     })
 
@@ -110,14 +111,14 @@ describe('ScoreModel', () => {
     })
 
     it('should sort notes by beat position', () => {
-      model.addNote({ ...noteParams, beat: 2 })
-      model.addNote({ ...noteParams, beat: 0 })
-      model.addNote({ ...noteParams, beat: 1 })
+      model.addNote({ ...noteParams, beat: frac(2, 1) })
+      model.addNote({ ...noteParams, beat: frac(0, 1) })
+      model.addNote({ ...noteParams, beat: frac(1, 1) })
 
       const notes = model.getNotesInMeasure(1)
-      expect(notes[0].beat).toBe(0)
-      expect(notes[1].beat).toBe(1)
-      expect(notes[2].beat).toBe(2)
+      expect(notes[0].beat).toEqual(frac(0, 1))
+      expect(notes[1].beat).toEqual(frac(1, 1))
+      expect(notes[2].beat).toEqual(frac(2, 1))
     })
 
     it('should get a note by ID', () => {
@@ -133,7 +134,7 @@ describe('ScoreModel', () => {
 
     it('should get all notes in a measure', () => {
       model.addNote(noteParams)
-      model.addNote({ ...noteParams, beat: 1 })
+      model.addNote({ ...noteParams, beat: frac(1, 1) })
 
       const notes = model.getNotesInMeasure(1)
       const actualNotes = notes.filter(n => !n.isRest)
@@ -194,7 +195,7 @@ describe('ScoreModel', () => {
 
     it('should clear all notes', () => {
       model.addNote(noteParams)
-      model.addNote({ ...noteParams, beat: 1 })
+      model.addNote({ ...noteParams, beat: frac(1, 1) })
       model.clearAllNotes()
 
       const remainingNotes = model.getAllNotes().filter(n => !n.isRest)
@@ -204,7 +205,7 @@ describe('ScoreModel', () => {
 
   describe('serialization', () => {
     it('should serialize score to JSON', () => {
-      model.addNote({ pitch: 60, duration: 'q', measure: 1, beat: 0 })
+      model.addNote({ pitch: 60, duration: 'q', measure: 1, beat: frac(0, 1) })
       const json = model.toJSON()
 
       expect(json).toContain('"title": "Test Score"')
@@ -213,7 +214,7 @@ describe('ScoreModel', () => {
     })
 
     it('should deserialize score from JSON', () => {
-      model.addNote({ pitch: 60, duration: 'q', measure: 1, beat: 0 })
+      model.addNote({ pitch: 60, duration: 'q', measure: 1, beat: frac(0, 1) })
       const json = model.toJSON()
 
       const loaded = ScoreModel.fromJSON(json)

@@ -2,6 +2,9 @@
  * Core music types for the score editor
  */
 
+import type { Fraction } from '../utils/fraction'
+export type { Fraction }
+
 /**
  * Note duration types supported by the editor
  */
@@ -13,8 +16,8 @@ export type NoteDuration = 'w' | 'h' | 'q' | '8' | '16' | '32'
 export interface Tuplet {
   /** Unique identifier for the tuplet */
   id: string
-  /** Beat position where the tuplet starts */
-  startBeat: number
+  /** Beat position where the tuplet starts (exact rational) */
+  startBeat: Fraction
   /** Base note duration for the tuplet (e.g., 'q' for quarter note triplet) */
   baseDuration: NoteDuration
   /** Number of notes in the tuplet (e.g., 3 for triplet) */
@@ -58,8 +61,8 @@ export interface Note {
   duration: NoteDuration
   /** Measure number (1-indexed) */
   measure: number
-  /** Beat position within the measure (0-indexed, fractional for subdivisions) */
-  beat: number
+  /** Beat position within the measure (0-indexed, exact rational fraction) */
+  beat: Fraction
   /** Optional accidental */
   accidental?: Accidental
   /** If true, always show the accidental sign even when measure rules would suppress it */
@@ -76,6 +79,13 @@ export interface Note {
   dots?: number
   /** ID of the tuplet this note belongs to */
   tupletId?: string
+  /**
+   * Exact sounding duration as a rational fraction (in beats).
+   * For regular notes equals durationToFraction(duration, dots).
+   * For tuplet notes equals that value × (notesOccupied / numNotes).
+   * Stored explicitly so all timing comparisons can be exact — no epsilon.
+   */
+  actualDuration?: Fraction
   /** Articulations applied to this note */
   articulations?: ArticulationType[]
 }
@@ -146,8 +156,8 @@ export interface Score {
 export interface Position {
   /** Measure number (1-indexed) */
   measure: number
-  /** Beat position (0-indexed) */
-  beat: number
+  /** Beat position (0-indexed, exact rational fraction) */
+  beat: Fraction
 }
 
 /**
@@ -165,12 +175,13 @@ export interface NoteParams {
   pitch: number
   duration: NoteDuration
   measure: number
-  beat: number
+  beat: Fraction
   accidental?: Accidental
   forceAccidental?: boolean
   isRest?: boolean
   dots?: number
   tupletId?: string
+  actualDuration?: Fraction
   articulations?: ArticulationType[]
   tiedTo?: string
   tiedFrom?: string

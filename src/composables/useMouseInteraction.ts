@@ -2,6 +2,7 @@ import { onMounted, onUnmounted } from 'vue'
 import type { Ref, ComputedRef } from 'vue'
 import type { ArticulationType, Accidental, NoteDuration } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
+import { fracToNumber } from '../utils/fraction'
 
 interface MouseInteractionDeps {
   engine: Ref<MusicEngine | null>
@@ -283,7 +284,7 @@ export function useMouseInteraction(deps: MouseInteractionDeps) {
 
         if (existingTuplet) {
           // Clicking inside an existing tuplet - add a note instead of creating a new tuplet
-          console.log(`Tuplet mode: clicking inside existing tuplet at beat ${position.beat.toFixed(3)}, adding note instead`)
+          console.log(`Tuplet mode: clicking inside existing tuplet at beat ${fracToNumber(position.beat).toFixed(3)}, adding note instead`)
           const note = engine.value.addNoteAtPosition(
             { x, y },
             selectedDuration.value,

@@ -1,6 +1,7 @@
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Beam, StaveTie, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
 import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType, ArticulationType, Tuplet } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
+import { fracToNumber, fracEq, fracCompare } from '@/utils/fraction'
 import { ElementRegistry, type TupletGeometry } from '@/engine/ElementRegistry'
 
 /**
@@ -346,20 +347,24 @@ export class VexFlowRenderer {
    * Returns an array of note groups, where each group is at the same beat
    */
   private groupNotesByBeat(notes: MusicNote[]): MusicNote[][] {
-    const beatGroups = new Map<number, MusicNote[]>()
+    const beatGroups = new Map<string, MusicNote[]>()
 
     for (const note of notes) {
-      const beat = note.beat
-      if (!beatGroups.has(beat)) {
-        beatGroups.set(beat, [])
+      const key = `${note.beat.num}/${note.beat.den}`
+      if (!beatGroups.has(key)) {
+        beatGroups.set(key, [])
       }
-      beatGroups.get(beat)!.push(note)
+      beatGroups.get(key)!.push(note)
     }
 
     // Convert to array and sort by beat position
     return Array.from(beatGroups.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([_beat, notes]) => notes)
+      .sort((a, b) => {
+        const [aN, aD] = a[0].split('/').map(Number)
+        const [bN, bD] = b[0].split('/').map(Number)
+        return aN * bD - bN * aD
+      })
+      .map(([_key, notes]) => notes)
   }
 
   /**
@@ -564,7 +569,7 @@ export class VexFlowRenderer {
       }
 
       // This note is beamable - check beat boundary
-      const beatGroup = this.getBeatGroup(firstNote.beat, beatsPerMeasure)
+      const beatGroup = this.getBeatGroup(fracToNumber(firstNote.beat), beatsPerMeasure)
 
       if (currentBeatGroup === null || beatGroup === currentBeatGroup) {
         // Same beat group or starting new group
@@ -737,7 +742,7 @@ export class VexFlowRenderer {
     }
 
     // Create temporary voice to calculate width
-    const sortedNotes = [...measure.notes].sort((a, b) => a.beat - b.beat)
+    const sortedNotes = [...measure.notes].sort((a, b) => fracCompare(a.beat, b.beat))
     const noteGroups = this.groupNotesByBeat(sortedNotes)
     const staveNotes = this.createStaveNotesFromGroups(noteGroups, clef)
 
@@ -923,7 +928,7 @@ export class VexFlowRenderer {
     // Create notes for this measure (measures always have notes - at minimum rests)
     if (measure.notes.length > 0) {
       // Sort notes by beat position before rendering
-      const sortedNotes = [...measure.notes].sort((a, b) => a.beat - b.beat)
+      const sortedNotes = [...measure.notes].sort((a, b) => fracCompare(a.beat, b.beat))
 
       // Group notes by beat position to handle chords
       const noteGroups = this.groupNotesByBeat(sortedNotes)
@@ -1151,7 +1156,7 @@ export class VexFlowRenderer {
                       type: 'tuplet',
                       tupletId: tupletId,
                       measure: measure.number,
-                      startBeat: tupletData.startBeat,
+                      startBeat: fracToNumber(tupletData.startBeat),
                       numNotes: tupletData.numNotes,
                       bbox: {
                         x: xStart,
@@ -1192,7 +1197,7 @@ export class VexFlowRenderer {
                     type: 'rest',
                     id: rest.id,
                     measure: measure.number,
-                    beat: rest.beat,
+                    beat: fracToNumber(rest.beat),
                     duration: rest.duration,
                     tupletId: rest.tupletId,
                     bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
@@ -1220,7 +1225,7 @@ export class VexFlowRenderer {
                     type: 'note',
                     id: note.id,
                     measure: measure.number,
-                    beat: note.beat,
+                    beat: fracToNumber(note.beat),
                     pitch: note.pitch,
                     duration: note.duration,
                     tupletId: note.tupletId,
@@ -1245,7 +1250,7 @@ export class VexFlowRenderer {
                               noteId: note.id,
                               articulationType: note.articulations[articulationIndex],
                               measure: measure.number,
-                              beat: note.beat,
+                              beat: fracToNumber(note.beat),
                               bbox: { x: artBox.x, y: artBox.y, width: artBox.w, height: artBox.h },
                             })
                           }
@@ -1275,7 +1280,7 @@ export class VexFlowRenderer {
                                 type: 'accidental',
                                 noteId: note.id,
                                 measure: measure.number,
-                                beat: note.beat,
+                                beat: fracToNumber(note.beat),
                                 pitch: note.pitch,
                                 accidentalType: note.accidental,
                                 bbox: { x: accBox.x, y: accBox.y, width: accBox.w, height: accBox.h },
@@ -1531,7 +1536,7 @@ export class VexFlowRenderer {
       const vexDuration = this.convertDuration(ghostNote.duration as any, ghostNote.dots || 0)
 
       const notesAtSameBeat = measure.notes.filter(
-        n => !n.isRest && Math.abs(n.beat - ghostNote.beat) < 0.001
+        n => !n.isRest && Math.abs(fracToNumber(n.beat) - ghostNote.beat) < 0.001
       )
 
       const ghostMusicNote: MusicNote = {
@@ -1539,7 +1544,7 @@ export class VexFlowRenderer {
         pitch: ghostNote.pitch,
         duration: ghostNote.duration as NoteDuration,
         measure: ghostNote.measure,
-        beat: ghostNote.beat,
+        beat: { num: Math.round(ghostNote.beat * 96), den: 96 }, // approximate Fraction for ghost
       }
       const chordNotes = notesAtSameBeat.length > 0
         ? [...notesAtSameBeat, ghostMusicNote]
@@ -1682,7 +1687,7 @@ export class VexFlowRenderer {
   private getTieDirection(note: MusicNote, measure: Measure): number | undefined {
     // Find all non-rest notes at the same beat in this measure
     const notesAtBeat = measure.notes.filter(
-      n => !n.isRest && n.beat === note.beat
+      n => !n.isRest && fracEq(n.beat, note.beat)
     )
 
     if (notesAtBeat.length <= 1) {

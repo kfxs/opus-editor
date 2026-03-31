@@ -1,6 +1,7 @@
 import type * as ToneType from 'tone'
 import type { Score, Note } from '@/types/music'
 import { durationToBeats, getMeasureDuration } from '@/utils/musicUtils'
+import { fracToNumber } from '@/utils/fraction'
 
 // Tone.js module - loaded dynamically to avoid AudioContext issues
 let Tone: typeof ToneType | null = null
@@ -166,10 +167,11 @@ export class PlaybackEngine {
       for (const note of measure.notes) {
         if (note.isRest) continue
 
-        const noteTimeInBeats = measureStartTime + note.beat
+        const noteTimeInBeats = measureStartTime + fracToNumber(note.beat)
         const beatsPerSecond = tempo / 60
         const noteTimeInSeconds = noteTimeInBeats / beatsPerSecond
-        const durationInSeconds = durationToBeats(note.duration, note.dots || 0) / beatsPerSecond
+        const durationBeats = note.actualDuration ? fracToNumber(note.actualDuration) : durationToBeats(note.duration, note.dots || 0)
+        const durationInSeconds = durationBeats / beatsPerSecond
 
         // Calculate actual sounding pitch by applying accidental
         // The note.pitch is the symbolic pitch on the staff, accidentals modify the actual sound

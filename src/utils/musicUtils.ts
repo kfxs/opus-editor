@@ -1,4 +1,16 @@
 import type { NoteDuration, TimeSignature, Tuplet } from '@/types/music'
+import {
+  type Fraction,
+  durationToFraction,
+  fracCreate,
+  fracMul,
+  fracAdd,
+  fracLte,
+  fracLt,
+  fracGte,
+  fracCompare,
+  fracToNumber,
+} from '@/utils/fraction'
 
 /**
  * Music utility functions for calculations and conversions
@@ -303,8 +315,9 @@ export function getTupletBeatPositions(
  */
 export function isBeatInTuplet(beat: number, tuplet: Tuplet): boolean {
   const epsilon = 0.001
-  const tupletEnd = tuplet.startBeat + getTupletTotalBeats(tuplet.baseDuration, tuplet.notesOccupied)
-  return beat >= tuplet.startBeat - epsilon && beat < tupletEnd - epsilon
+  const start = fracToNumber(tuplet.startBeat)
+  const tupletEnd = start + getTupletTotalBeats(tuplet.baseDuration, tuplet.notesOccupied)
+  return beat >= start - epsilon && beat < tupletEnd - epsilon
 }
 
 /**
@@ -315,10 +328,10 @@ export function isBeatInTuplet(beat: number, tuplet: Tuplet): boolean {
  */
 export function snapToTupletBeat(beat: number, tuplet: Tuplet): number {
   const positions = getTupletBeatPositions(
-    tuplet.startBeat,
+    fracToNumber(tuplet.startBeat),
     tuplet.baseDuration,
     tuplet.numNotes,
-    tuplet.notesOccupied
+    tuplet.notesOccupied,
   )
 
   let nearestPosition = positions[0]
@@ -333,4 +346,147 @@ export function snapToTupletBeat(beat: number, tuplet: Tuplet): number {
   }
 
   return nearestPosition
+}
+
+// ==================== Exact Fraction Tuplet Utilities ====================
+// These are the fraction-based counterparts to the float functions above.
+// Use these for all new internal logic — they are exact, no epsilon needed.
+// The float variants above remain for VexFlow/pixel callers that need numbers.
+
+/**
+ * Exact duration (in beats) of a single note within a tuplet.
+ * Result is fully reduced: triplet eighth → Fraction(1, 3).
+ */
+export function getTupletNoteDurationFrac(
+  baseDuration: NoteDuration,
+  numNotes: number,
+  notesOccupied: number,
+): Fraction {
+  return fracMul(durationToFraction(baseDuration), fracCreate(notesOccupied, numNotes))
+}
+
+/**
+ * Exact total duration (in beats) the entire tuplet group occupies.
+ * e.g. triplet of eighths → 2 eighths → Fraction(1, 1).
+ */
+export function getTupletTotalBeatsFrac(
+  baseDuration: NoteDuration,
+  notesOccupied: number,
+): Fraction {
+  return fracMul(durationToFraction(baseDuration), fracCreate(notesOccupied, 1))
+}
+
+/**
+ * Exact beat positions for every note slot in a tuplet.
+ * Positions are accumulated by repeated fraction addition — no floating-point drift.
+ *
+ * @param startBeat - Tuplet start position (as a Fraction, in beats)
+ * @param baseDuration - Written note type of each tuplet slot
+ * @param numNotes - N in N:M (e.g. 3 for triplet)
+ * @param notesOccupied - M in N:M (e.g. 2 for triplet)
+ */
+export function getTupletBeatPositionsFrac(
+  startBeat: Fraction,
+  baseDuration: NoteDuration,
+  numNotes: number,
+  notesOccupied: number,
+): Fraction[] {
+  const step = getTupletNoteDurationFrac(baseDuration, numNotes, notesOccupied)
+  const positions: Fraction[] = []
+  let current = startBeat
+  for (let i = 0; i < numNotes; i++) {
+    positions.push(current)
+    current = fracAdd(current, step)
+  }
+  return positions
+}
+
+/**
+ * Exact check: does `beat` fall within the given tuplet's time span?
+ * No epsilon — comparison is cross-multiplication of integers.
+ *
+ * Inclusive of startBeat, exclusive of end.
+ */
+export function isBeatInTupletFrac(beat: Fraction, tuplet: Tuplet): boolean {
+  const end = fracAdd(tuplet.startBeat, getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied))
+  return fracGte(beat, tuplet.startBeat) && fracLt(beat, end)
+}
+
+/**
+ * Find the nearest valid tuplet slot to `beat` (as a Fraction).
+ * Returns the closest Fraction position from getTupletBeatPositionsFrac.
+ */
+export function snapToTupletBeatFrac(beat: Fraction, tuplet: Tuplet): Fraction {
+  const positions = getTupletBeatPositionsFrac(
+    tuplet.startBeat,
+    tuplet.baseDuration,
+    tuplet.numNotes,
+    tuplet.notesOccupied,
+  )
+
+  let nearest = positions[0]
+  // Compare distances using cross-multiplication to stay exact
+  for (const pos of positions) {
+    // |beat - pos| vs |beat - nearest| — compare by squaring avoids abs on fractions
+    // Simpler: convert distances to number only for comparison (not for the result)
+    const dCurrent = Math.abs(fracToNumber(beat) - fracToNumber(pos))
+    const dBest = Math.abs(fracToNumber(beat) - fracToNumber(nearest))
+    if (dCurrent < dBest) nearest = pos
+  }
+
+  return nearest
+}
+
+/**
+ * Sort an array of Fraction beat positions in ascending order (mutates in place).
+ * Uses exact cross-multiplication comparison.
+ */
+export function sortBeatsFrac(positions: Fraction[]): Fraction[] {
+  return positions.sort(fracCompare)
+}
+
+/**
+ * Bridge helper: convert a number beat (from legacy Note.beat) to a Fraction
+ * using the same candidate-denominator approach as fracFromFloat.
+ * Only needed during Phase 2.5–3 while note.beat is still a number.
+ */
+export function beatToFrac(beat: number): Fraction {
+  // Fast path for common integer and dyadic values
+  if (Number.isInteger(beat)) return fracCreate(beat, 1)
+  // Try denominators that cover all standard + tuplet subdivisions
+  const DENS = [2, 3, 4, 5, 6, 7, 8, 12, 14, 16, 21, 24, 28, 32, 48, 56, 96, 112]
+  for (const d of DENS) {
+    const n = Math.round(beat * d)
+    if (Math.abs(beat - n / d) < 1e-9) return fracCreate(n, d)
+  }
+  // Fallback: rational approximation with den=96 (covers up to 32nd-note triplets)
+  return fracCreate(Math.round(beat * 96), 96)
+}
+
+/**
+ * Exact overlap check for two note spans [aStart, aStart+aDur) and [bStart, bStart+bDur).
+ * Returns true if they overlap (share any time), false if they are adjacent or disjoint.
+ */
+export function noteSpansOverlapFrac(
+  aStart: Fraction,
+  aDur: Fraction,
+  bStart: Fraction,
+  bDur: Fraction,
+): boolean {
+  const aEnd = fracAdd(aStart, aDur)
+  const bEnd = fracAdd(bStart, bDur)
+  // Overlap iff aStart < bEnd AND bStart < aEnd
+  return fracLt(aStart, bEnd) && fracLt(bStart, aEnd)
+}
+
+/**
+ * Check if span [start, start+dur) is fully contained within [regionStart, regionEnd).
+ */
+export function spanContainedInFrac(
+  start: Fraction,
+  dur: Fraction,
+  regionStart: Fraction,
+  regionEnd: Fraction,
+): boolean {
+  return fracGte(start, regionStart) && fracLte(fracAdd(start, dur), regionEnd)
 }

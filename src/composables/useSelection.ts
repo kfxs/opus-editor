@@ -3,6 +3,7 @@ import type { Ref } from 'vue'
 import type { Accidental, NoteDuration, Note, Measure } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import { buildBeatMap } from '../utils/beatMap'
+import { fracLt, fracEq, fracCompare } from '../utils/fraction'
 
 interface SelectionDeps {
   selectedTool: Ref<'entry' | 'selection'>
@@ -49,8 +50,8 @@ export function useSelection(deps: SelectionDeps) {
     // Build active-accidental state from notes strictly before this note's beat
     const active = new Map<number, Accidental | null>()
     const preceding = measure.notes
-      .filter(n => !n.isRest && !n.tiedFrom && n.beat < note.beat - 0.001)
-      .sort((a, b) => a.beat - b.beat)
+      .filter(n => !n.isRest && !n.tiedFrom && fracLt(n.beat, note.beat))
+      .sort((a, b) => fracCompare(a.beat, b.beat))
 
     for (const n of preceding) {
       if (n.accidental) {
@@ -128,8 +129,8 @@ export function useSelection(deps: SelectionDeps) {
     // Find the beat group the current selection belongs to
     const currentNote = allFlat.find(n => n.id === selectedNoteId.value)
     if (!currentNote) return
-    const currentKey = `${currentNote.measureNumber}:${currentNote.beat}`
-    const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat}` === currentKey)
+    const currentKey = `${currentNote.measureNumber}:${currentNote.beat.num}/${currentNote.beat.den}`
+    const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat.num}/${n.beat.den}` === currentKey)
     if (currentIndex === -1) return
 
     const newIndex = currentIndex + direction
@@ -163,7 +164,7 @@ export function useSelection(deps: SelectionDeps) {
 
     // All non-rest notes at the same beat, sorted low → high
     const chordNotes = measure.notes
-      .filter(n => !n.isRest && Math.abs(n.beat - note.beat) < 0.001)
+      .filter(n => !n.isRest && fracEq(n.beat, note.beat))
       .sort((a, b) => a.pitch - b.pitch)
 
     if (chordNotes.length <= 1) return
@@ -236,7 +237,7 @@ export function useSelection(deps: SelectionDeps) {
       .sort((a, b) =>
         a.measureNumber !== b.measureNumber
           ? a.measureNumber - b.measureNumber
-          : a.beat - b.beat
+          : fracCompare(a.beat, b.beat)
       )
 
     const currentIndex = allNotes.findIndex(n => n.id === selectedNoteId.value)
