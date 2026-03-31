@@ -3,10 +3,15 @@ import { CoordinateMapper } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
 import {
   durationToBeats, beatsToDuration, splitBeatsIntoDurations, midiToNoteName,
-  getTupletBeatPositionsFrac, snapToTupletBeatFrac, getTupletNoteDuration,
-  beatToFrac,
+  getTupletBeatPositionsFrac, snapToTupletBeatFrac,
+  getTupletNoteDurationFrac, getTupletTotalBeatsFrac, beatToFrac,
 } from '@/utils/musicUtils'
-import { fracToNumber, fracEq } from '@/utils/fraction'
+import {
+  fracToNumber, fracEq, fracAdd, fracSub, fracMul, fracDiv,
+  fracLt, fracGt, fracGte, fracIsPositive, fracFromInt,
+  durationToFraction, tupletNoteDurationFraction,
+} from '@/utils/fraction'
+import type { Fraction } from '@/utils/fraction'
 import type { Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType } from '@/types/music'
 import { ElementRegistry } from './ElementRegistry'
 import type { ElementInfo } from './ElementRegistry'
@@ -178,7 +183,7 @@ export class NoteEntryCoordinator {
       usedCoordCalc: useCoordinateCalculation,
       nearestLeft, nearestRight, leftDistance, rightDistance,
     } = this.resolveClickToBeat(coords, measureNumber, beatsInMeasure, durationToBeats(duration))
-    let finalBeat = resolvedBeat
+    let finalBeat: Fraction = beatToFrac(resolvedBeat)
     let decisionReason = resolvedReason
 
     // When using coordinate calculation, we need to find if there's a rest at that beat
@@ -188,7 +193,7 @@ export class NoteEntryCoordinator {
       const restAtBeat = this.findRestAtBeat(notesInMeasure, finalBeat)
       if (!restAtBeat) {
         // Check if there's a note at this beat we could chord with
-        const notesAtBeat = notesInMeasure.filter(n => !n.isRest && Math.abs(fracToNumber(n.beat) - finalBeat) < 0.001)
+        const notesAtBeat = notesInMeasure.filter(n => !n.isRest && fracEq(n.beat, finalBeat))
         if (notesAtBeat.length > 0) {
           // There are notes at this beat - check for collision
           const hasSamePitch = notesAtBeat.some(n => n.pitch === pitch)
@@ -201,7 +206,7 @@ export class NoteEntryCoordinator {
           // No rest and no notes at this beat - find nearest rest
           const nearestRest = this.findNearestRestToBeat(notesInMeasure, finalBeat)
           if (nearestRest) {
-            finalBeat = fracToNumber(nearestRest.beat)
+            finalBeat = nearestRest.beat
           } else {
             console.warn('No available position for note')
             return null
@@ -213,8 +218,8 @@ export class NoteEntryCoordinator {
     // Check if the final beat falls within a tuplet
     // If so, snap to the nearest tuplet beat and inherit the tuplet ID
     let tupletId: string | undefined
-    let tupletFillerRest: { beat: number; duration: NoteDuration } | null = null
-    const tupletAtBeat = this.getScoreModel().getTupletAtBeat(measureNumber, beatToFrac(finalBeat))
+    let tupletFillerRest: { beat: Fraction; duration: NoteDuration } | null = null
+    const tupletAtBeat = this.getScoreModel().getTupletAtBeat(measureNumber, finalBeat)
 
     // Check if there's an existing tuplet rest at the final beat position
     // This handles subdivision positions (e.g., 0.5 in a triplet with 16th notes)
@@ -222,7 +227,7 @@ export class NoteEntryCoordinator {
     const existingTupletRestAtBeat = (() => {
       const notesInMeasure = this.getScoreModel().getNotesInMeasure(measureNumber)
       return notesInMeasure.find(n =>
-        n.isRest && n.tupletId && Math.abs(fracToNumber(n.beat) - finalBeat) < 0.001
+        n.isRest && n.tupletId && fracEq(n.beat, finalBeat)
       )
     })()
 
@@ -230,91 +235,88 @@ export class NoteEntryCoordinator {
       // Only snap to base grid if there's no existing tuplet rest at this exact position
       // Existing tuplet rests may be at subdivision positions that aren't on the base grid
       if (!existingTupletRestAtBeat) {
-        finalBeat = fracToNumber(snapToTupletBeatFrac(beatToFrac(finalBeat), tupletAtBeat))
+        finalBeat = snapToTupletBeatFrac(finalBeat, tupletAtBeat)
       }
 
       // Check if the selected duration is smaller than the tuplet's base duration
       // If so, we need to add a filler rest for the remaining time in that slot
-      const baseDurationBeats = durationToBeats(tupletAtBeat.baseDuration)
-      const selectedDurationBeats = durationToBeats(duration, dots)
+      const baseDurationFrac = durationToFraction(tupletAtBeat.baseDuration)
+      const selectedDurationFrac = durationToFraction(duration, dots)
 
       // Calculate the tuplet's total duration and remaining time
-      const tupletTotalBeats = durationToBeats(tupletAtBeat.baseDuration) * tupletAtBeat.notesOccupied
-      const tupletEndBeat = fracToNumber(tupletAtBeat.startBeat) + tupletTotalBeats
-      const remainingTupletBeats = tupletEndBeat - finalBeat
+      const tupletTotalBeatsFrac = getTupletTotalBeatsFrac(tupletAtBeat.baseDuration, tupletAtBeat.notesOccupied)
+      const tupletEndBeat = fracAdd(tupletAtBeat.startBeat, tupletTotalBeatsFrac)
+      const remainingTupletBeats = fracSub(tupletEndBeat, finalBeat)
 
       // Check if the note is too large to fit in the tuplet
       // Case 1: Note larger than entire tuplet → delete tuplet and place at start
-      const noteLargerThanEntireTuplet = selectedDurationBeats > tupletTotalBeats
+      const noteLargerThanEntireTuplet = fracGt(selectedDurationFrac, tupletTotalBeatsFrac)
 
       // Case 2: Note fits in tuplet overall but doesn't fit in REMAINING space
       // In a tuplet, durations are scaled by the tuplet ratio (notesOccupied / numNotes)
       // e.g., in a triplet (3:2), a quarter note takes 2/3 of its normal duration
-      const tupletRatio = tupletAtBeat.notesOccupied / tupletAtBeat.numNotes
-      const scaledNoteDuration = selectedDurationBeats * tupletRatio
-      const noteTooLargeForRemainingSpace = scaledNoteDuration > remainingTupletBeats + 0.001
+      const scaledNoteDurationFrac = tupletNoteDurationFraction(duration, dots ?? 0, tupletAtBeat.numNotes, tupletAtBeat.notesOccupied)
+      const noteTooLargeForRemainingSpace = fracGt(scaledNoteDurationFrac, remainingTupletBeats)
 
       if (noteLargerThanEntireTuplet) {
         // Note is too large for the tuplet - delete the tuplet and place note at tuplet's start
         this.getScoreModel().deleteTuplet(tupletAtBeat.id)
         // Place note at the tuplet's start beat (a clean position) instead of the clicked tuplet position
-        finalBeat = fracToNumber(tupletAtBeat.startBeat)
+        finalBeat = tupletAtBeat.startBeat
         // Don't set tupletId - note will be placed outside of any tuplet
-        decisionReason += ` → tuplet deleted (note too large: ${selectedDurationBeats} > ${tupletTotalBeats}), beat adjusted to ${finalBeat}`
+        decisionReason += ` → tuplet deleted (note too large), beat adjusted to ${fracToNumber(finalBeat).toFixed(3)}`
       } else if (noteTooLargeForRemainingSpace) {
         // Note doesn't fit in remaining tuplet space - reject the entry silently
-        console.log(`Note rejected: duration (${scaledNoteDuration.toFixed(3)} scaled beats) too large for remaining tuplet space (${remainingTupletBeats.toFixed(3)} beats)`)
+        console.log(`Note rejected: duration (${fracToNumber(scaledNoteDurationFrac).toFixed(3)} scaled beats) too large for remaining tuplet space (${fracToNumber(remainingTupletBeats).toFixed(3)} beats)`)
         return null
       } else {
         // Note fits in tuplet
         tupletId = tupletAtBeat.id
 
         // Calculate how many "slots" (base durations) this note consumes
-        const slotsConsumed = selectedDurationBeats / baseDurationBeats
+        const slotsConsumedFrac = fracDiv(selectedDurationFrac, baseDurationFrac)
 
-        // Calculate the tuplet slot duration (in beats)
-        const tupletSlotDuration = getTupletNoteDuration(
+        // Calculate the exact tuplet slot duration
+        const tupletSlotDurationFrac = getTupletNoteDurationFrac(
           tupletAtBeat.baseDuration,
           tupletAtBeat.numNotes,
           tupletAtBeat.notesOccupied
         )
 
-        if (selectedDurationBeats < baseDurationBeats) {
+        if (fracLt(selectedDurationFrac, baseDurationFrac)) {
           // Note is SMALLER than base duration (e.g., 16th in 8th triplet)
           // Calculate how many of the selected duration fit in one base slot
-          const subdivisionFactor = baseDurationBeats / selectedDurationBeats
+          const subdivisionFactorFrac = fracDiv(baseDurationFrac, selectedDurationFrac)
 
           // Calculate the sub-slot duration (duration of one small note in tuplet time)
-          const subSlotDuration = tupletSlotDuration / subdivisionFactor
+          const subSlotDurationFrac = fracDiv(tupletSlotDurationFrac, subdivisionFactorFrac)
 
           // We need a filler rest after this note
           // The rest duration should be the same as the note duration
           // and positioned at (note beat + subSlotDuration)
           tupletFillerRest = {
-            beat: finalBeat + subSlotDuration,
+            beat: fracAdd(finalBeat, subSlotDurationFrac),
             duration: duration,
           }
         } else {
           // Note is >= base duration - check for fractional slots
-          const fractionalSlots = slotsConsumed - Math.floor(slotsConsumed)
+          const fractionalSlotsFrac = fracSub(slotsConsumedFrac, fracFromInt(Math.floor(fracToNumber(slotsConsumedFrac))))
 
-          if (fractionalSlots > 0.001) {
+          if (fracIsPositive(fractionalSlotsFrac)) {
             // Note takes fractional slots (e.g., dotted 8th = 1.5 slots in 8th triplet)
             // Need to create a filler rest for the remaining fraction
             // e.g., 1.5 slots leaves 0.5 slots which needs a 16th rest
 
             // Calculate the filler rest duration in normal beats
-            // fractionalSlots * baseDurationBeats gives the remaining duration
-            const remainderNormalBeats = fractionalSlots * baseDurationBeats
-            const fillerDuration = beatsToDuration(remainderNormalBeats)
+            const remainderNormalBeatsFrac = fracMul(fractionalSlotsFrac, baseDurationFrac)
+            const fillerDuration = beatsToDuration(fracToNumber(remainderNormalBeatsFrac))
 
             if (fillerDuration) {
-              // Calculate where the filler rest goes (after the note ends)
-              // Note takes scaledNoteDuration in actual beats
-              const fillerBeat = finalBeat + scaledNoteDuration
+              // Calculate where the filler rest goes (after the note ends in actual time)
+              const fillerBeat = fracAdd(finalBeat, scaledNoteDurationFrac)
 
               // Only add filler if it's within the tuplet
-              if (fillerBeat < tupletEndBeat - 0.001) {
+              if (fracLt(fillerBeat, tupletEndBeat)) {
                 tupletFillerRest = {
                   beat: fillerBeat,
                   duration: fillerDuration,
@@ -322,13 +324,13 @@ export class NoteEntryCoordinator {
               }
             } else {
               // Can't find a standard duration for the remainder - reject
-              console.log(`Note rejected: fractional remainder ${remainderNormalBeats.toFixed(3)} beats has no standard duration`)
+              console.log(`Note rejected: fractional remainder ${fracToNumber(remainderNormalBeatsFrac).toFixed(3)} beats has no standard duration`)
               return null
             }
           }
         }
 
-        decisionReason += ` → tuplet snap@${finalBeat.toFixed(3)}`
+        decisionReason += ` → tuplet snap@${fracToNumber(finalBeat).toFixed(3)}`
       }
     }
 
@@ -336,7 +338,7 @@ export class NoteEntryCoordinator {
       pitch,
       duration,
       measure: measureNumber,
-      beat: beatToFrac(finalBeat),
+      beat: finalBeat,
       ...(accidental && { accidental }),
       ...(dots && { dots }),
       ...(tupletId && { tupletId }),
@@ -367,15 +369,14 @@ export class NoteEntryCoordinator {
     // For tuplet notes that span multiple slots (e.g., quarter note in eighth triplet),
     // delete any existing tuplet notes/rests that fall within the note's actual time range
     if (tupletId && tupletAtBeat) {
-      const tupletRatio = tupletAtBeat.notesOccupied / tupletAtBeat.numNotes
-      const actualNoteDuration = durationToBeats(duration, dots) * tupletRatio
-      const noteEndBeat = finalBeat + actualNoteDuration
+      const actualNoteDurationFrac = tupletNoteDurationFraction(duration, dots ?? 0, tupletAtBeat.numNotes, tupletAtBeat.notesOccupied)
+      const noteEndBeat = fracAdd(finalBeat, actualNoteDurationFrac)
 
       const tupletItemsToDelete = this.getScoreModel().getNotesInMeasure(measureNumber)
         .filter(n =>
           n.tupletId === tupletId &&
-          fracToNumber(n.beat) > finalBeat + 0.001 && // After the note's start
-          fracToNumber(n.beat) < noteEndBeat - 0.001   // Before the note's end
+          fracGt(n.beat, finalBeat) && // After the note's start (exclusive)
+          fracLt(n.beat, noteEndBeat)  // Before the note's end (exclusive)
         )
 
       for (const itemToDelete of tupletItemsToDelete) {
@@ -389,7 +390,7 @@ export class NoteEntryCoordinator {
       // Also update existing chord notes at the same beat to have the same duration and ties
       // Skip notes that are already tied (already split) to avoid creating duplicates
       const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
-        .filter(n => !n.isRest && Math.abs(fracToNumber(n.beat) - finalBeat) < 0.001 && n.pitch !== pitch && !n.tiedTo)
+        .filter(n => !n.isRest && fracEq(n.beat, finalBeat) && n.pitch !== pitch && !n.tiedTo)
 
       // Split each existing chord note with ties
       for (const chordNote of existingChordNotes) {
@@ -405,7 +406,7 @@ export class NoteEntryCoordinator {
 
     // For non-overflow cases, update existing chord notes to match duration
     const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && Math.abs(fracToNumber(n.beat) - finalBeat) < 0.001 && n.pitch !== pitch)
+      .filter(n => !n.isRest && fracEq(n.beat, finalBeat) && n.pitch !== pitch)
     for (const chordNote of existingChordNotes) {
       if (chordNote.duration !== duration) {
         this.getScoreModel().updateNote(chordNote.id, { duration })
@@ -417,19 +418,14 @@ export class NoteEntryCoordinator {
     // If we're adding a smaller note to a tuplet, add the filler rest
     if (note && tupletFillerRest && tupletId && tupletAtBeat) {
       // Calculate the tuplet's end beat
-      const tupletEndBeat = fracToNumber(tupletAtBeat.startBeat) + getTupletNoteDuration(
-        tupletAtBeat.baseDuration,
-        tupletAtBeat.numNotes,
-        tupletAtBeat.notesOccupied
-      ) * tupletAtBeat.numNotes
+      const tupletEndBeat = fracAdd(tupletAtBeat.startBeat, getTupletTotalBeatsFrac(tupletAtBeat.baseDuration, tupletAtBeat.notesOccupied))
 
       // Only add filler if it's within the tuplet's time span
-      const fillerWithinTuplet = tupletFillerRest.beat < tupletEndBeat - 0.001
+      const fillerWithinTuplet = fracLt(tupletFillerRest.beat, tupletEndBeat)
 
-      // Check if there's already a note/rest at or near the filler position
-      // Use larger epsilon (0.02) for floating point safety
+      // Check if there's already a note/rest at the filler position (exact comparison)
       const existingAtFillerBeat = this.getScoreModel().getNotesInMeasure(measureNumber)
-        .find(n => Math.abs(fracToNumber(n.beat) - tupletFillerRest!.beat) < 0.02 && n.tupletId === tupletId)
+        .find(n => fracEq(n.beat, tupletFillerRest!.beat) && n.tupletId === tupletId)
 
       if (fillerWithinTuplet && !existingAtFillerBeat) {
         // Add a filler rest at the calculated position
@@ -437,7 +433,7 @@ export class NoteEntryCoordinator {
           pitch: 0,
           duration: tupletFillerRest.duration,
           measure: measureNumber,
-          beat: beatToFrac(tupletFillerRest.beat),
+          beat: tupletFillerRest.beat,
           isRest: true,
           tupletId: tupletId,
         })
@@ -450,7 +446,7 @@ export class NoteEntryCoordinator {
         decision: decisionReason,
         left: nearestLeft ? `${nearestLeft.type}@${nearestLeft.beat} (${leftDistance.toFixed(0)}px)` : null,
         right: nearestRight ? `${nearestRight.type}@${nearestRight.beat} (${rightDistance.toFixed(0)}px)` : null,
-        finalBeat,
+        finalBeat: fracToNumber(finalBeat),
         coordCalc: useCoordinateCalculation
       })
 
@@ -744,13 +740,12 @@ export class NoteEntryCoordinator {
    * Find a rest that covers the given beat position.
    * Returns the rest if found, null otherwise.
    */
-  private findRestAtBeat(notes: Note[], beat: number): Note | null {
+  private findRestAtBeat(notes: Note[], beat: Fraction): Note | null {
     for (const note of notes) {
       if (note.isRest) {
-        const noteBeat = fracToNumber(note.beat)
-        const restEnd = noteBeat + durationToBeats(note.duration, note.dots || 0)
+        const restEnd = fracAdd(note.beat, durationToFraction(note.duration, note.dots || 0))
         // Check if the beat falls within this rest's time span
-        if (beat >= noteBeat && beat < restEnd) {
+        if (fracGte(beat, note.beat) && fracLt(beat, restEnd)) {
           return note
         }
       }
@@ -762,13 +757,13 @@ export class NoteEntryCoordinator {
    * Find the rest nearest to the given beat (before or after).
    * Used when coordinate calculation lands on a beat without a rest.
    */
-  private findNearestRestToBeat(notes: Note[], targetBeat: number): Note | null {
+  private findNearestRestToBeat(notes: Note[], targetBeat: Fraction): Note | null {
     let nearestRest: Note | null = null
     let smallestDistance = Infinity
 
     for (const note of notes) {
       if (note.isRest) {
-        const distance = Math.abs(fracToNumber(note.beat) - targetBeat)
+        const distance = Math.abs(fracToNumber(fracSub(note.beat, targetBeat)))
         if (distance < smallestDistance) {
           smallestDistance = distance
           nearestRest = note
@@ -811,7 +806,7 @@ export class NoteEntryCoordinator {
     }
 
     // Delete notes that would be overwritten in the next measure
-    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, 0, nextMeasureDurations[0], existingNote.pitch, true)
+    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, { num: 0, den: 1 }, nextMeasureDurations[0], existingNote.pitch, true)
     for (const noteToDelete of notesToOverwriteNext) {
       this.getScoreModel().deleteNote(noteToDelete.id)
     }
@@ -878,7 +873,7 @@ export class NoteEntryCoordinator {
     }
 
     // Delete notes that would be overwritten in the next measure
-    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, 0, nextMeasureDurations[0], noteParams.pitch, true)
+    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, { num: 0, den: 1 }, nextMeasureDurations[0], noteParams.pitch, true)
     for (const noteToDelete of notesToOverwriteNext) {
       this.getScoreModel().deleteNote(noteToDelete.id)
     }
@@ -951,17 +946,17 @@ export class NoteEntryCoordinator {
    */
   private findNotesToOverwrite(
     measureNumber: number,
-    beat: number,
+    beat: Fraction,
     duration: NoteParams['duration'],
     pitch: number,
     isTiedContinuation: boolean = false,
     tupletInfo?: Tuplet
   ): Note[] {
     // For tuplet notes, use the actual tuplet note duration, not the base duration
-    const noteDurationInBeats = tupletInfo
-      ? getTupletNoteDuration(tupletInfo.baseDuration, tupletInfo.numNotes, tupletInfo.notesOccupied)
-      : durationToBeats(duration)
-    const noteEnd = beat + noteDurationInBeats
+    const noteDurationFrac = tupletInfo
+      ? getTupletNoteDurationFrac(tupletInfo.baseDuration, tupletInfo.numNotes, tupletInfo.notesOccupied)
+      : durationToFraction(duration)
+    const noteEnd = fracAdd(beat, noteDurationFrac)
     const notesInMeasure = this.getScoreModel().getNotesInMeasure(measureNumber)
 
     return notesInMeasure.filter(existing => {
@@ -970,10 +965,9 @@ export class NoteEntryCoordinator {
 
       // Never delete notes that are in the same tuplet (except for same-beat replacement)
       // Notes within a tuplet should coexist and not overwrite each other based on range
-      const existingBeat = fracToNumber(existing.beat)
       if (tupletInfo && existing.tupletId === tupletInfo.id) {
         // Only allow deletion if at the exact same beat AND same pitch (replacement)
-        if (Math.abs(existingBeat - beat) < 0.001 && existing.pitch === pitch) {
+        if (fracEq(existing.beat, beat) && existing.pitch === pitch) {
           return true
         }
         return false  // Protect all other notes in the same tuplet
@@ -982,7 +976,7 @@ export class NoteEntryCoordinator {
       // Notes at the same beat:
       // - For tied continuations: delete ALL notes (tied notes "eat" existing notes)
       // - For normal notes: only delete if same pitch (replacement), different pitch = chord
-      if (Math.abs(existingBeat - beat) < 0.001) {
+      if (fracEq(existing.beat, beat)) {
         if (isTiedContinuation) {
           return true  // Delete all notes at this beat for tied continuations
         }
@@ -990,7 +984,7 @@ export class NoteEntryCoordinator {
       }
 
       // Check if this note starts within the new note's time range
-      if (existingBeat > beat && existingBeat < noteEnd) {
+      if (fracGt(existing.beat, beat) && fracLt(existing.beat, noteEnd)) {
         return true
       }
 
