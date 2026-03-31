@@ -3,10 +3,10 @@ import { CoordinateMapper } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
 import {
   durationToBeats, beatsToDuration, splitBeatsIntoDurations, midiToNoteName,
-  getTupletBeatPositions, snapToTupletBeat, getTupletNoteDuration,
+  getTupletBeatPositionsFrac, snapToTupletBeatFrac, getTupletNoteDuration,
+  beatToFrac,
 } from '@/utils/musicUtils'
-import { fracToNumber } from '@/utils/fraction'
-import { beatToFrac } from '@/utils/musicUtils'
+import { fracToNumber, fracEq } from '@/utils/fraction'
 import type { Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType } from '@/types/music'
 import { ElementRegistry } from './ElementRegistry'
 import type { ElementInfo } from './ElementRegistry'
@@ -48,7 +48,7 @@ export class NoteEntryCoordinator {
       : this.getScoreModel().getTupletAtBeat(params.measure, params.beat)
 
     if (tupletAtBeat && !tupletId) {
-      finalBeatFrac = beatToFrac(snapToTupletBeat(fracToNumber(params.beat), tupletAtBeat))
+      finalBeatFrac = snapToTupletBeatFrac(params.beat, tupletAtBeat)
       tupletId = tupletAtBeat.id
     }
 
@@ -230,7 +230,7 @@ export class NoteEntryCoordinator {
       // Only snap to base grid if there's no existing tuplet rest at this exact position
       // Existing tuplet rests may be at subdivision positions that aren't on the base grid
       if (!existingTupletRestAtBeat) {
-        finalBeat = snapToTupletBeat(finalBeat, tupletAtBeat)
+        finalBeat = fracToNumber(snapToTupletBeatFrac(beatToFrac(finalBeat), tupletAtBeat))
       }
 
       // Check if the selected duration is smaller than the tuplet's base duration
@@ -561,9 +561,9 @@ export class NoteEntryCoordinator {
     // createTuplet deletes the element at this beat and fills all slots with rests
     const tuplet = this.getScoreModel().createTuplet(note.measure, note.beat, note.duration, numNotes, notesOccupied)
 
-    const beatPositions = getTupletBeatPositions(fracToNumber(note.beat), note.duration, numNotes, notesOccupied)
+    const beatPositions = getTupletBeatPositionsFrac(note.beat, note.duration, numNotes, notesOccupied)
     const tupletNotes = this.getScoreModel().getNotesInTuplet(tuplet.id)
-    const firstRest = tupletNotes.find(n => n.isRest && Math.abs(fracToNumber(n.beat) - beatPositions[0]) < 0.001)
+    const firstRest = tupletNotes.find(n => n.isRest && fracEq(n.beat, beatPositions[0]))
 
     if (!firstRest) {
       console.warn('Could not find first rest in tuplet after applying to selected note')
@@ -582,7 +582,7 @@ export class NoteEntryCoordinator {
       pitch: note.pitch,
       duration: note.duration,
       measure: note.measure,
-      beat: beatToFrac(beatPositions[0]),
+      beat: beatPositions[0],
       tupletId: tuplet.id,
       ...(note.accidental && { accidental: note.accidental }),
       ...(note.stemDirection && { stemDirection: note.stemDirection }),
@@ -615,10 +615,11 @@ export class NoteEntryCoordinator {
       : null
 
     // Create the tuplet (fills with rests and deletes overlapping notes)
-    const tuplet = this.getScoreModel().createTuplet(measureNumber, beatToFrac(beat), duration, numNotes, notesOccupied)
-    const beatPositions = getTupletBeatPositions(beat, duration, numNotes, notesOccupied)
+    const beatFrac = beatToFrac(beat)
+    const tuplet = this.getScoreModel().createTuplet(measureNumber, beatFrac, duration, numNotes, notesOccupied)
+    const beatPositions = getTupletBeatPositionsFrac(beatFrac, duration, numNotes, notesOccupied)
     const tupletNotes = this.getScoreModel().getNotesInTuplet(tuplet.id)
-    const firstRest = tupletNotes.find(n => n.isRest && Math.abs(fracToNumber(n.beat) - beatPositions[0]) < 0.001)
+    const firstRest = tupletNotes.find(n => n.isRest && fracEq(n.beat, beatPositions[0]))
 
     let firstNote: Note
 
@@ -629,7 +630,7 @@ export class NoteEntryCoordinator {
         pitch: existingNoteData.pitch,
         duration,
         measure: measureNumber,
-        beat: beatToFrac(beatPositions[0]),
+        beat: beatPositions[0],
         tupletId: tuplet.id,
         ...(existingNoteData.accidental && { accidental: existingNoteData.accidental }),
       })
@@ -637,7 +638,7 @@ export class NoteEntryCoordinator {
         pitch,
         duration,
         measure: measureNumber,
-        beat: beatToFrac(beatPositions[0]),
+        beat: beatPositions[0],
         tupletId: tuplet.id,
         ...(accidental && { accidental }),
       })
@@ -652,7 +653,7 @@ export class NoteEntryCoordinator {
         pitch,
         duration,
         measure: measureNumber,
-        beat: beatToFrac(beatPositions[0]),
+        beat: beatPositions[0],
         tupletId: tuplet.id,
         ...(accidental && { accidental }),
       })
