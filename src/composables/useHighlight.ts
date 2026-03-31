@@ -43,8 +43,8 @@ export function useHighlight(deps: HighlightDeps) {
     // Find the current note's position in the beat list
     const currentNote = allFlat.find(n => n.id === selectedNoteId.value)
     if (!currentNote) return
-    const currentKey = `${currentNote.measureNumber}:${currentNote.beat}`
-    const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat}` === currentKey)
+    const currentKey = `${currentNote.measureNumber}:${currentNote.beat.num}/${currentNote.beat.den}`
+    const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat.num}/${n.beat.den}` === currentKey)
     if (currentIndex === -1) return
 
     // The cursor goes at the NEXT beat after the current one
@@ -155,7 +155,7 @@ export function useHighlight(deps: HighlightDeps) {
         const noteData = measureData.notes.find(n => n.id === selectedNoteId.value)
         if (noteData) {
           const notesAtBeat = measureData.notes.filter(
-            n => !n.isRest && n.beat === noteData.beat
+            n => !n.isRest && n.beat.num === noteData.beat.num && n.beat.den === noteData.beat.den
           )
           isInChord = notesAtBeat.length > 1
           // Get Y positions for all notes in the chord (except the selected one)
