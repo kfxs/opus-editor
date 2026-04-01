@@ -1,5 +1,5 @@
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Beam, StaveTie, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
-import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType, ArticulationType, Tuplet } from '@/types/music'
+import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType, ArticulationType, Tuplet, ChordRest } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
 import { fracToNumber, fracEq, fracCompare } from '@/utils/fraction'
 import { ElementRegistry, type TupletGeometry } from '@/engine/ElementRegistry'
@@ -340,6 +340,51 @@ export class VexFlowRenderer {
     }
 
     return staveNote
+  }
+
+  /**
+   * Convert ChordRest[] slots to flat MusicNote[] for use with existing rendering pipeline.
+   * Chords become multiple flat Note objects (same beat/duration, different pitch).
+   * Rests become a single flat Note with isRest=true.
+   */
+  private slotsToFlatNotes(slots: ChordRest[]): MusicNote[] {
+    const result: MusicNote[] = []
+    for (const slot of slots) {
+      if (slot.type === 'rest') {
+        result.push({
+          id: slot.id,
+          pitch: 0,
+          duration: slot.duration,
+          measure: slot.measure,
+          beat: slot.beat,
+          isRest: true,
+          dots: slot.dots,
+          tupletId: slot.tupletId,
+          actualDuration: slot.actualDuration,
+        })
+      } else {
+        for (const pitch of slot.notes) {
+          result.push({
+            id: pitch.id,
+            pitch: pitch.pitch,
+            duration: slot.duration,
+            measure: slot.measure,
+            beat: slot.beat,
+            isRest: false,
+            accidental: pitch.accidental,
+            forceAccidental: pitch.forceAccidental,
+            stemDirection: slot.stemDirection,
+            tiedTo: pitch.tiedTo,
+            tiedFrom: pitch.tiedFrom,
+            dots: slot.dots,
+            tupletId: slot.tupletId,
+            actualDuration: slot.actualDuration,
+            articulations: pitch.articulations,
+          })
+        }
+      }
+    }
+    return result
   }
 
   /**
@@ -736,13 +781,14 @@ export class VexFlowRenderer {
     }
 
     // If measure has no notes or only rests, use minimum width
-    const actualNotes = measure.notes.filter(n => !n.isRest)
+    const actualNotes = measure.slots.filter(s => s.type === 'chord')
     if (actualNotes.length === 0) {
       return Math.max(LAYOUT_CONFIG.MIN_MEASURE_WIDTH, overhead + 40)
     }
 
     // Create temporary voice to calculate width
-    const sortedNotes = [...measure.notes].sort((a, b) => fracCompare(a.beat, b.beat))
+    const flatNotes = this.slotsToFlatNotes(measure.slots)
+    const sortedNotes = [...flatNotes].sort((a, b) => fracCompare(a.beat, b.beat))
     const noteGroups = this.groupNotesByBeat(sortedNotes)
     const staveNotes = this.createStaveNotesFromGroups(noteGroups, clef)
 
@@ -925,10 +971,11 @@ export class VexFlowRenderer {
       noteEndX: stave.getNoteEndX(),
     })
 
-    // Create notes for this measure (measures always have notes - at minimum rests)
-    if (measure.notes.length > 0) {
-      // Sort notes by beat position before rendering
-      const sortedNotes = [...measure.notes].sort((a, b) => fracCompare(a.beat, b.beat))
+    // Create notes for this measure (measures always have slots - at minimum rests)
+    if (measure.slots.length > 0) {
+      // Convert slots to flat notes and sort by beat position before rendering
+      const flatNotes = this.slotsToFlatNotes(measure.slots)
+      const sortedNotes = [...flatNotes].sort((a, b) => fracCompare(a.beat, b.beat))
 
       // Group notes by beat position to handle chords
       const noteGroups = this.groupNotesByBeat(sortedNotes)
@@ -1535,7 +1582,7 @@ export class VexFlowRenderer {
       const vexNote = this.midiToVexFlowNote(ghostNote.pitch)
       const vexDuration = this.convertDuration(ghostNote.duration as any, ghostNote.dots || 0)
 
-      const notesAtSameBeat = measure.notes.filter(
+      const notesAtSameBeat = this.slotsToFlatNotes(measure.slots).filter(
         n => !n.isRest && Math.abs(fracToNumber(n.beat) - ghostNote.beat) < 0.001
       )
 
@@ -1686,7 +1733,7 @@ export class VexFlowRenderer {
    */
   private getTieDirection(note: MusicNote, measure: Measure): number | undefined {
     // Find all non-rest notes at the same beat in this measure
-    const notesAtBeat = measure.notes.filter(
+    const notesAtBeat = this.slotsToFlatNotes(measure.slots).filter(
       n => !n.isRest && fracEq(n.beat, note.beat)
     )
 
@@ -1729,7 +1776,7 @@ export class VexFlowRenderer {
 
     // Find all notes with ties
     for (const measure of score.measures) {
-      for (const note of measure.notes) {
+      for (const note of this.slotsToFlatNotes(measure.slots)) {
         if (note.tiedTo && !note.isRest) {
           // Create a unique key for this tie relationship
           const tieKey = `${note.id}->${note.tiedTo}`
@@ -1746,7 +1793,7 @@ export class VexFlowRenderer {
             try {
               // Get measure numbers
               const fromMeasure = note.measure
-              const toNote = score.measures.flatMap(m => m.notes).find(n => n.id === note.tiedTo)
+              const toNote = score.measures.flatMap(m => this.slotsToFlatNotes(m.slots)).find(n => n.id === note.tiedTo)
               const toMeasure = toNote?.measure
 
               // Get line numbers for both measures
@@ -1867,7 +1914,7 @@ export class VexFlowRenderer {
     if (!info) return
 
     // Find the note and its measure to compute tie direction
-    const note = score.measures.flatMap(m => m.notes).find(n => n.id === noteId)
+    const note = score.measures.flatMap(m => this.slotsToFlatNotes(m.slots)).find(n => n.id === noteId)
     if (!note || note.isRest) return
     const measure = score.measures.find(m => m.number === note.measure)
     if (!measure) return

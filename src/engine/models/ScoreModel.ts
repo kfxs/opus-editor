@@ -1,4 +1,4 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch } from '@/types/music'
 import {
   getTupletBeatPositionsFrac,
   isBeatInTupletFrac,
@@ -88,7 +88,7 @@ export class ScoreModel {
     const measure: Measure = {
       id: uuidv4(),
       number: measureNumber,
-      notes: [],
+      slots: [],
       timeSignature: ts,
       tuplets: [],
     }
@@ -126,27 +126,25 @@ export class ScoreModel {
 
     // For 4/4 time, use a single whole rest
     if (totalBeats === 4 && measure.timeSignature.denominator === 4) {
-      const rest: Note = {
+      const rest: Rest = {
         id: uuidv4(),
-        pitch: 0, // Pitch doesn't matter for rests
-        duration: 'w', // Whole rest
+        type: 'rest',
+        duration: 'w',
         measure: measure.number,
         beat: fracCreate(0, 1),
-        isRest: true,
         actualDuration: durationToFraction('w'),
       }
-      measure.notes.push(rest)
+      measure.slots.push(rest)
     } else {
       // For other time signatures, fill with musically appropriate rests
       const rests = this.createMusicalRests(0, totalBeats, measure.timeSignature)
       for (const rest of rests) {
-        measure.notes.push({
+        measure.slots.push({
           id: uuidv4(),
-          pitch: 0,
+          type: 'rest',
           duration: rest.duration,
           measure: measure.number,
           beat: beatToFrac(rest.beat),
-          isRest: true,
           actualDuration: durationToFraction(rest.duration),
         })
       }
@@ -171,17 +169,79 @@ export class ScoreModel {
     // Renumber subsequent measures
     for (let i = index; i < this.score.measures.length; i++) {
       this.score.measures[i].number = i + 1
-      // Update note measure numbers
-      this.score.measures[i].notes.forEach(note => {
-        note.measure = i + 1
+      // Update slot measure numbers
+      this.score.measures[i].slots.forEach(slot => {
+        slot.measure = i + 1
       })
     }
     return true
   }
 
+  // ==================== Internal helpers ====================
+
+  /**
+   * Find the slot containing the given note/pitch ID.
+   */
+  private findSlot(noteId: string):
+    | { type: 'chord'; chord: Chord; pitch: NotePitch }
+    | { type: 'rest'; rest: Rest }
+    | undefined {
+    for (const measure of this.score.measures) {
+      for (const slot of measure.slots) {
+        if (slot.type === 'rest' && slot.id === noteId) {
+          return { type: 'rest', rest: slot }
+        }
+        if (slot.type === 'chord') {
+          const pitch = slot.notes.find(n => n.id === noteId)
+          if (pitch) return { type: 'chord', chord: slot, pitch }
+        }
+      }
+    }
+    return undefined
+  }
+
+  /** Assemble a backward-compat flat Note from a Chord + NotePitch. */
+  private toFlatNote(chord: Chord, pitch: NotePitch): Note {
+    return {
+      id: pitch.id,
+      pitch: pitch.pitch,
+      duration: chord.duration,
+      measure: chord.measure,
+      beat: chord.beat,
+      isRest: false,
+      accidental: pitch.accidental,
+      forceAccidental: pitch.forceAccidental,
+      stemDirection: chord.stemDirection,
+      tiedTo: pitch.tiedTo,
+      tiedFrom: pitch.tiedFrom,
+      dots: chord.dots,
+      tupletId: chord.tupletId,
+      actualDuration: chord.actualDuration,
+      articulations: pitch.articulations,
+    }
+  }
+
+  /** Assemble a backward-compat flat Note from a Rest. */
+  private restToFlatNote(rest: Rest): Note {
+    return {
+      id: rest.id,
+      pitch: 0,
+      duration: rest.duration,
+      measure: rest.measure,
+      beat: rest.beat,
+      isRest: true,
+      dots: rest.dots,
+      tupletId: rest.tupletId,
+      actualDuration: rest.actualDuration,
+    }
+  }
+
+  // ==================== Note Entry ====================
+
   /**
    * Add a note to the score
    * If adding a regular note (not a rest), this will replace overlapping rests
+   * and may join an existing Chord at the same beat.
    */
   addNote(params: NoteParams): Note {
     const measure = this.getMeasure(params.measure)
@@ -194,127 +254,156 @@ export class ScoreModel {
       throw new Error('Pitch must be between 0 and 127')
     }
 
-    const note: Note = {
+    if (params.isRest) {
+      // Create a Rest slot
+      const rest: Rest = {
+        id: uuidv4(),
+        type: 'rest',
+        beat: params.beat,
+        duration: params.duration,
+        measure: params.measure,
+        dots: params.dots,
+        tupletId: params.tupletId,
+        actualDuration: params.actualDuration,
+      }
+      rest.actualDuration = this.computeActualDurationForSlot(rest, measure)
+      measure.slots.push(rest)
+      measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+      return this.restToFlatNote(rest)
+    }
+
+    // Regular note — look for existing Chord at same beat
+    const existingChord = measure.slots.find(
+      (s): s is Chord => s.type === 'chord' && fracEq(s.beat, params.beat)
+    )
+
+    if (existingChord) {
+      // Add pitch to existing chord
+      const notePitch: NotePitch = {
+        id: uuidv4(),
+        pitch: params.pitch,
+        accidental: params.accidental,
+        forceAccidental: params.forceAccidental,
+        tiedTo: params.tiedTo,
+        tiedFrom: params.tiedFrom,
+        articulations: params.articulations,
+      }
+      existingChord.notes.push(notePitch)
+      // Sync duration/dots if new note differs (and neither is a tuplet note)
+      if (!existingChord.tupletId && !params.tupletId) {
+        const noteDots = params.dots || 0
+        if (existingChord.duration !== params.duration || (existingChord.dots || 0) !== noteDots) {
+          existingChord.duration = params.duration
+          existingChord.dots = params.dots
+          existingChord.actualDuration = this.computeActualDurationForSlot(existingChord, measure)
+        }
+      }
+      // Sync stem direction if provided
+      if (params.actualDuration !== undefined) {
+        existingChord.actualDuration = params.actualDuration
+      }
+      return this.toFlatNote(existingChord, notePitch)
+    }
+
+    // No existing chord at beat — replace any overlapping rests and create new Chord
+    const notePitch: NotePitch = {
       id: uuidv4(),
-      ...params,
+      pitch: params.pitch,
+      accidental: params.accidental,
+      forceAccidental: params.forceAccidental,
+      tiedTo: params.tiedTo,
+      tiedFrom: params.tiedFrom,
+      articulations: params.articulations,
     }
 
-    // Compute and store the exact sounding duration as a Fraction
-    note.actualDuration = this.computeActualDuration(note, measure)
-
-    // If adding a regular note (not a rest), replace overlapping rests
-    if (!params.isRest) {
-      this.replaceRestsWithNote(measure, note)
-    } else {
-      measure.notes.push(note)
-      measure.notes.sort((a, b) => fracCompare(a.beat, b.beat))
+    const chord: Chord = {
+      id: uuidv4(),
+      type: 'chord',
+      beat: params.beat,
+      duration: params.duration,
+      dots: params.dots,
+      measure: params.measure,
+      tupletId: params.tupletId,
+      actualDuration: params.actualDuration,
+      notes: [notePitch],
     }
+    chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
 
-    return note
+    this.replaceRestsWithChord(measure, chord)
+
+    return this.toFlatNote(chord, notePitch)
   }
 
   /**
-   * Replace rests with a new note and fill gaps with new rests
-   * Also handles chord formation: when adding a note at the same beat as existing notes,
-   * all notes at that beat will have their duration updated to match the new note
-   *
-   * Tuplet handling:
-   * - If the note already has a tupletId, it's added as-is
-   * - If replacing a tuplet rest, the note inherits the tuplet's ID
-   * - Notes within tuplets use the tuplet's beat positioning
+   * Replace rests overlapping a new Chord and fill gaps with new rests.
+   * Also inherits tupletId from any replaced tuplet rest.
    */
-  private replaceRestsWithNote(measure: Measure, note: Note): void {
-    // Exact Fraction spans — no epsilon needed
-    const noteDurFrac = note.actualDuration ?? durationToFraction(note.duration, note.dots ?? 0)
+  private replaceRestsWithChord(measure: Measure, chord: Chord): void {
+    const chordDurFrac = chord.actualDuration ?? durationToFraction(chord.duration, chord.dots ?? 0)
 
-    // Remove all rests that overlap with the note's time range
-    const overlappingRests: Note[] = []
-    const remainingNotes: Note[] = []
+    // Remove overlapping rests; keep non-overlapping slots (both chords and rests)
+    let inheritedTupletId: string | undefined = chord.tupletId
+    const remaining: ChordRest[] = []
 
-    // Track if we're replacing a tuplet rest
-    let inheritedTupletId: string | undefined = note.tupletId
-
-    for (const existing of measure.notes) {
-      if (existing.isRest) {
+    for (const existing of measure.slots) {
+      if (existing.type === 'rest') {
         const existingDurFrac =
           existing.actualDuration ?? durationToFraction(existing.duration, existing.dots ?? 0)
-
-        // Exact overlap: [noteStart, noteEnd) ∩ [existingStart, existingEnd) ≠ ∅
-        // Adjacent spans (one ends where the other starts) do NOT overlap — no epsilon needed
-        const overlaps = noteSpansOverlapFrac(note.beat, noteDurFrac, existing.beat, existingDurFrac)
-
+        const overlaps = noteSpansOverlapFrac(chord.beat, chordDurFrac, existing.beat, existingDurFrac)
         if (overlaps) {
-          overlappingRests.push(existing)
-          // If replacing a tuplet rest, inherit its tupletId
-          if (existing.tupletId && !note.tupletId) {
+          if (existing.tupletId && !chord.tupletId) {
             inheritedTupletId = existing.tupletId
           }
+          // Remove (don't keep)
         } else {
-          remainingNotes.push(existing)
+          remaining.push(existing)
         }
       } else {
-        // For regular notes at the same beat (chord formation),
-        // update their duration and dots to match the new note
-        if (fracEq(existing.beat, note.beat)) {
-          const existingDots = existing.dots || 0
-          const noteDots = note.dots || 0
-          // Don't update duration for tuplet notes (they have their own timing)
-          if (!existing.tupletId && !note.tupletId) {
-            if (existing.duration !== note.duration || existingDots !== noteDots) {
-              existing.duration = note.duration
-              existing.dots = noteDots
-              existing.actualDuration = this.computeActualDuration(existing, measure)
-            }
-          }
-        }
-        remainingNotes.push(existing)
+        // Existing chord — keep it
+        remaining.push(existing)
       }
     }
 
-    // Clear the measure and add back non-overlapping notes
-    measure.notes = remainingNotes
-
-    // Apply inherited tupletId if applicable
-    if (inheritedTupletId && !note.tupletId) {
-      note.tupletId = inheritedTupletId
+    // Apply inherited tupletId
+    if (inheritedTupletId && !chord.tupletId) {
+      chord.tupletId = inheritedTupletId
+      // Recompute actual duration with the now-known tuplet
+      chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
     }
 
-    // Add the new note
-    measure.notes.push(note)
+    measure.slots = remaining
+    measure.slots.push(chord)
 
-    // Find gaps and fill with rests
+    // Fill gaps with rests
     this.fillGapsWithRests(measure)
 
     // Sort by beat
-    measure.notes.sort((a, b) => fracCompare(a.beat, b.beat))
+    measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
   }
 
   /**
    * Fill gaps in a measure with rests
-   * Uses musical rest placement: fills to beat boundaries first with small rests,
-   * then uses larger rests for full beats.
-   * Skips any gaps that fall within tuplet time spans (tuplets manage their own rests)
    */
   private fillGapsWithRests(measure: Measure): void {
     const totalBeats = this.getMeasureTotalBeats(measure.timeSignature)
     const totalBeatsFrac: Fraction = fracCreate(
       Math.round(totalBeats * 8),
       8,
-    ) // totalBeats is always dyadic (1, 2, 3.5, 4, …)
+    )
 
-    // Sort notes by beat position
-    const sortedNotes = [...measure.notes].sort((a, b) => fracCompare(a.beat, b.beat))
+    // Sort slots by beat position
+    const sortedSlots = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))
 
-    // Find gaps using exact Fraction accumulation — no floating-point drift
+    // Find gaps
     const gaps: Array<{ start: Fraction; end: Fraction }> = []
     let currentBeat: Fraction = fracCreate(0, 1)
 
-    for (const note of sortedNotes) {
-      if (fracLt(currentBeat, note.beat)) {
-        gaps.push({ start: currentBeat, end: note.beat })
+    for (const slot of sortedSlots) {
+      if (fracLt(currentBeat, slot.beat)) {
+        gaps.push({ start: currentBeat, end: slot.beat })
       }
-      const noteDurFrac = note.actualDuration ?? durationToFraction(note.duration, note.dots ?? 0)
-      currentBeat = fracAdd(note.beat, noteDurFrac)
+      const slotDurFrac = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
+      currentBeat = fracAdd(slot.beat, slotDurFrac)
     }
 
     // Check for gap at the end of the measure
@@ -322,8 +411,7 @@ export class ScoreModel {
       gaps.push({ start: currentBeat, end: totalBeatsFrac })
     }
 
-    // Filter out gaps that start inside a tuplet's span.
-    // Tuplets manage their own internal rests.
+    // Filter out gaps that start inside a tuplet's span
     const tuplets = measure.tuplets || []
     const filteredGaps = gaps.filter(gap => {
       for (const tuplet of tuplets) {
@@ -331,7 +419,6 @@ export class ScoreModel {
           tuplet.startBeat,
           getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied),
         )
-        // Exact: gap starts inside this tuplet → skip
         if (fracGte(gap.start, tuplet.startBeat) && fracLt(gap.start, tupletEndFrac)) {
           return false
         }
@@ -341,7 +428,6 @@ export class ScoreModel {
 
     // Fill each gap with musically appropriate rests
     for (const gap of filteredGaps) {
-      // If a tuplet starts inside this gap, trim the gap to end there
       let adjustedStart = gap.start
       let adjustedEnd = gap.end
 
@@ -353,20 +439,18 @@ export class ScoreModel {
 
       if (fracLte(adjustedEnd, adjustedStart)) continue
 
-      // createMusicalRests still works with numbers (all values here are dyadic)
       const rests = this.createMusicalRests(
         fracToNumber(adjustedStart),
         fracToNumber(adjustedEnd),
         measure.timeSignature,
       )
       for (const rest of rests) {
-        measure.notes.push({
+        measure.slots.push({
           id: uuidv4(),
-          pitch: 0,
+          type: 'rest',
           duration: rest.duration,
           measure: measure.number,
           beat: beatToFrac(rest.beat),
-          isRest: true,
           actualDuration: durationToFraction(rest.duration),
         })
       }
@@ -375,10 +459,6 @@ export class ScoreModel {
 
   /**
    * Create musically appropriate rests for a gap
-   * Rules:
-   * 1. If not on a beat boundary, use small rests to reach the next beat
-   * 2. Once on a beat boundary, use the largest rest that fits
-   * @param timeSignature - Used to determine beat boundaries for the time signature
    */
   private createMusicalRests(
     start: number,
@@ -389,21 +469,16 @@ export class ScoreModel {
     let current = start
     const epsilon = 0.001
 
-    // Beat unit determines what counts as a "beat boundary"
-    // In 4/4: 1 (quarter), in 7/8: 0.5 (eighth), in 3/16: 0.25 (sixteenth)
     const beatUnit = this.getBeatUnit(timeSignature)
 
     while (current < end - epsilon) {
       const remaining = end - current
-      // Check if we're on a beat boundary for this time signature
       const beatFraction = current % beatUnit
       const isOnBeat = beatFraction < epsilon || beatFraction > beatUnit - epsilon
 
       if (!isOnBeat) {
-        // Not on a beat boundary - use small rests to reach next beat
         const toNextBeat = beatUnit - beatFraction
 
-        // Use smallest rests that fit to reach the beat boundary
         if (toNextBeat >= 0.5 - epsilon && remaining >= 0.5 - epsilon) {
           rests.push({ beat: current, duration: '8' })
           current += 0.5
@@ -417,7 +492,6 @@ export class ScoreModel {
           break
         }
       } else {
-        // On a beat boundary - use largest appropriate rest that ends on a beat boundary
         if (remaining >= 4 - epsilon && Math.abs(current % 4) < epsilon) {
           rests.push({ beat: current, duration: 'w' })
           current += 4
@@ -437,7 +511,6 @@ export class ScoreModel {
           rests.push({ beat: current, duration: '32' })
           current += 0.125
         } else if (remaining >= 1 - epsilon) {
-          // Fallback for larger beat units
           rests.push({ beat: current, duration: 'q' })
           current += 1
         } else if (remaining >= 0.5 - epsilon) {
@@ -456,14 +529,12 @@ export class ScoreModel {
   }
 
   /**
-   * Compute the exact sounding duration of a note as a Fraction.
-   * For regular notes: durationToFraction(duration, dots).
-   * For tuplet notes: that value × (notesOccupied / numNotes).
+   * Compute the exact sounding duration of a slot as a Fraction.
    */
-  private computeActualDuration(note: Note, measure: Measure) {
-    const base = durationToFraction(note.duration, note.dots ?? 0)
-    if (note.tupletId && measure.tuplets) {
-      const tuplet = measure.tuplets.find(t => t.id === note.tupletId)
+  private computeActualDurationForSlot(slot: ChordRest | { duration: NoteDuration; dots?: number; tupletId?: string }, measure: Measure): Fraction {
+    const base = durationToFraction(slot.duration, slot.dots ?? 0)
+    if (slot.tupletId && measure.tuplets) {
+      const tuplet = measure.tuplets.find(t => t.id === slot.tupletId)
       if (tuplet) {
         return fracMul(base, fracCreate(tuplet.notesOccupied, tuplet.numNotes))
       }
@@ -473,11 +544,10 @@ export class ScoreModel {
 
   /**
    * Add a rest to the score
-   * A rest is a note with isRest=true and pitch=0 (pitch is ignored for rests)
    */
   addRest(duration: NoteParams['duration'], measure: number, beat: Fraction): Note {
     return this.addNote({
-      pitch: 0, // Pitch doesn't matter for rests
+      pitch: 0,
       duration,
       measure,
       beat,
@@ -489,82 +559,164 @@ export class ScoreModel {
    * Get a note by its ID
    */
   getNote(noteId: string): Note | undefined {
-    for (const measure of this.score.measures) {
-      const note = measure.notes.find(n => n.id === noteId)
-      if (note) return note
-    }
-    return undefined
+    const found = this.findSlot(noteId)
+    if (!found) return undefined
+    if (found.type === 'rest') return this.restToFlatNote(found.rest)
+    return this.toFlatNote(found.chord, found.pitch)
   }
 
   /**
-   * Get all notes in a specific measure
+   * Get all notes in a specific measure (as flat Note objects for backward compat)
    */
   getNotesInMeasure(measureNumber: number): Note[] {
     const measure = this.getMeasure(measureNumber)
-    return measure ? [...measure.notes] : []
+    if (!measure) return []
+    const result: Note[] = []
+    for (const slot of measure.slots) {
+      if (slot.type === 'rest') {
+        result.push(this.restToFlatNote(slot))
+      } else {
+        for (const pitch of slot.notes) {
+          result.push(this.toFlatNote(slot, pitch))
+        }
+      }
+    }
+    return result
+  }
+
+  /**
+   * Get the slots in a measure (returns the internal ChordRest[] directly)
+   */
+  getSlotsInMeasure(measureNumber: number): ChordRest[] {
+    const measure = this.getMeasure(measureNumber)
+    return measure ? [...measure.slots] : []
   }
 
   /**
    * Update a note
    */
   updateNote(noteId: string, updates: Partial<NoteParams>): Note {
-    const note = this.getNote(noteId)
-    if (!note) {
+    const found = this.findSlot(noteId)
+    if (!found) {
       throw new Error(`Note ${noteId} not found`)
     }
 
-    // If measure is being changed, move the note
-    if (updates.measure !== undefined && updates.measure !== note.measure) {
-      const oldMeasure = this.getMeasure(note.measure)
-      const newMeasure = this.getMeasure(updates.measure)
+    if (found.type === 'rest') {
+      const rest = found.rest
+      const oldMeasure = rest.measure
 
-      if (!newMeasure) {
-        throw new Error(`Target measure ${updates.measure} does not exist`)
-      }
-
-      // Remove from old measure
-      if (oldMeasure) {
-        const index = oldMeasure.notes.findIndex(n => n.id === noteId)
-        if (index !== -1) {
-          oldMeasure.notes.splice(index, 1)
+      // If measure is being changed, move the rest
+      if (updates.measure !== undefined && updates.measure !== oldMeasure) {
+        const oldMeasureObj = this.getMeasure(oldMeasure)
+        const newMeasureObj = this.getMeasure(updates.measure)
+        if (!newMeasureObj) throw new Error(`Target measure ${updates.measure} does not exist`)
+        if (oldMeasureObj) {
+          oldMeasureObj.slots = oldMeasureObj.slots.filter(s => s.id !== rest.id)
+        }
+        if (updates.duration !== undefined) rest.duration = updates.duration
+        if (updates.dots !== undefined) rest.dots = updates.dots
+        if (updates.beat !== undefined) rest.beat = updates.beat
+        if (updates.tupletId !== undefined) rest.tupletId = updates.tupletId
+        rest.measure = updates.measure
+        rest.actualDuration = this.computeActualDurationForSlot(rest, newMeasureObj)
+        newMeasureObj.slots.push(rest)
+        newMeasureObj.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+      } else {
+        if (updates.duration !== undefined) rest.duration = updates.duration
+        if (updates.dots !== undefined) rest.dots = updates.dots
+        if (updates.tupletId !== undefined) rest.tupletId = updates.tupletId
+        if (updates.beat !== undefined) {
+          rest.beat = updates.beat
+          const m = this.getMeasure(rest.measure)
+          if (m) m.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+        }
+        if (updates.duration !== undefined || updates.dots !== undefined || updates.tupletId !== undefined) {
+          const m = this.getMeasure(rest.measure)
+          if (m) rest.actualDuration = this.computeActualDurationForSlot(rest, m)
         }
       }
+      return this.restToFlatNote(rest)
+    }
 
-      // Add to new measure
-      Object.assign(note, updates)
-      newMeasure.notes.push(note)
-      newMeasure.notes.sort((a, b) => fracCompare(a.beat, b.beat))
+    // Chord case
+    const { chord, pitch } = found
+    const oldMeasure = chord.measure
+
+    // Pitch-only updates
+    if (updates.pitch !== undefined) pitch.pitch = updates.pitch
+    if (updates.accidental !== undefined) pitch.accidental = updates.accidental
+    if (updates.forceAccidental !== undefined) pitch.forceAccidental = updates.forceAccidental
+    if (updates.tiedTo !== undefined) pitch.tiedTo = updates.tiedTo
+    if (updates.tiedFrom !== undefined) pitch.tiedFrom = updates.tiedFrom
+    if (updates.articulations !== undefined) pitch.articulations = updates.articulations
+
+    // Handle explicit undefined for tie fields
+    if ('tiedTo' in updates && updates.tiedTo === undefined) pitch.tiedTo = undefined
+    if ('tiedFrom' in updates && updates.tiedFrom === undefined) pitch.tiedFrom = undefined
+
+    // Chord-level timing updates
+    if (updates.duration !== undefined) chord.duration = updates.duration
+    if (updates.dots !== undefined) chord.dots = updates.dots
+    if (updates.tupletId !== undefined) chord.tupletId = updates.tupletId
+    if (updates.beat !== undefined) chord.beat = updates.beat
+    if (updates.actualDuration !== undefined) chord.actualDuration = updates.actualDuration
+
+    // If measure is being changed, move the whole chord
+    if (updates.measure !== undefined && updates.measure !== oldMeasure) {
+      const oldMeasureObj = this.getMeasure(oldMeasure)
+      const newMeasureObj = this.getMeasure(updates.measure)
+      if (!newMeasureObj) throw new Error(`Target measure ${updates.measure} does not exist`)
+      if (oldMeasureObj) {
+        oldMeasureObj.slots = oldMeasureObj.slots.filter(s => s.id !== chord.id)
+      }
+      chord.measure = updates.measure
+      chord.actualDuration = this.computeActualDurationForSlot(chord, newMeasureObj)
+      newMeasureObj.slots.push(chord)
+      newMeasureObj.slots.sort((a, b) => fracCompare(a.beat, b.beat))
     } else {
-      // Update in place
-      Object.assign(note, updates)
-      // Re-sort if beat changed
       if (updates.beat !== undefined) {
-        const measure = this.getMeasure(note.measure)
-        if (measure) {
-          measure.notes.sort((a, b) => fracCompare(a.beat, b.beat))
-        }
+        const m = this.getMeasure(chord.measure)
+        if (m) m.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+      }
+      if (updates.duration !== undefined || updates.dots !== undefined || updates.tupletId !== undefined) {
+        const m = this.getMeasure(chord.measure)
+        if (m) chord.actualDuration = this.computeActualDurationForSlot(chord, m)
       }
     }
 
-    // Recompute actualDuration whenever duration-related fields may have changed
-    if (updates.duration !== undefined || updates.dots !== undefined || updates.tupletId !== undefined) {
-      const measure = this.getMeasure(note.measure)
-      if (measure) {
-        note.actualDuration = this.computeActualDuration(note, measure)
-      }
-    }
-
-    return note
+    return this.toFlatNote(chord, pitch)
   }
 
   /**
    * Delete a note
    */
   deleteNote(noteId: string): boolean {
+    const found = this.findSlot(noteId)
+    if (!found) return false
+
+    if (found.type === 'rest') {
+      for (const measure of this.score.measures) {
+        const idx = measure.slots.findIndex(s => s.id === found.rest.id)
+        if (idx !== -1) {
+          measure.slots.splice(idx, 1)
+          return true
+        }
+      }
+      return false
+    }
+
+    // Chord case
+    const { chord, pitch } = found
     for (const measure of this.score.measures) {
-      const index = measure.notes.findIndex(n => n.id === noteId)
-      if (index !== -1) {
-        measure.notes.splice(index, 1)
+      const idx = measure.slots.findIndex(s => s.id === chord.id)
+      if (idx !== -1) {
+        if (chord.notes.length <= 1) {
+          // Remove the whole chord slot
+          measure.slots.splice(idx, 1)
+        } else {
+          // Remove just this pitch from the chord
+          chord.notes = chord.notes.filter(n => n.id !== pitch.id)
+        }
         return true
       }
     }
@@ -572,23 +724,16 @@ export class ScoreModel {
   }
 
   /**
-   * Get all notes in the score
+   * Get all notes in the score (as flat Note objects for backward compat)
    */
   getAllNotes(): Note[] {
-    return this.score.measures.flatMap(m => m.notes)
+    return this.score.measures.flatMap(m => this.getNotesInMeasure(m.number))
   }
 
   // ==================== Tuplet Operations ====================
 
   /**
    * Create a tuplet in a measure
-   * This creates the tuplet and fills it with rests at each tuplet beat position
-   * @param measureNumber - Measure number (1-indexed)
-   * @param startBeat - Starting beat position
-   * @param baseDuration - Base note duration for the tuplet
-   * @param numNotes - Number of notes in the tuplet (default: 3 for triplet)
-   * @param notesOccupied - Number of base notes the tuplet spans (default: 2 for triplet)
-   * @returns The created tuplet
    */
   createTuplet(
     measureNumber: number,
@@ -602,7 +747,6 @@ export class ScoreModel {
       throw new Error(`Measure ${measureNumber} does not exist`)
     }
 
-    // Create the tuplet
     const tuplet: Tuplet = {
       id: uuidv4(),
       startBeat,
@@ -611,41 +755,39 @@ export class ScoreModel {
       notesOccupied,
     }
 
-    // Initialize tuplets array if needed
     if (!measure.tuplets) {
       measure.tuplets = []
     }
     measure.tuplets.push(tuplet)
 
-    // Remove any existing notes/rests that overlap with the tuplet's time span.
+    // Remove any existing slots that overlap with the tuplet's time span
     const tupletDurFrac = getTupletTotalBeatsFrac(baseDuration, notesOccupied)
-    measure.notes = measure.notes.filter(note => {
-      const noteDurFrac = note.actualDuration ?? durationToFraction(note.duration, note.dots ?? 0)
-      return !noteSpansOverlapFrac(note.beat, noteDurFrac, startBeat, tupletDurFrac)
+    measure.slots = measure.slots.filter(slot => {
+      const slotDurFrac = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
+      return !noteSpansOverlapFrac(slot.beat, slotDurFrac, startBeat, tupletDurFrac)
     })
 
-    // Create rests at each tuplet beat position
+    // Create rest slots at each tuplet beat position
     const tupletActualDuration = fracMul(
       durationToFraction(baseDuration),
       fracCreate(notesOccupied, numNotes),
     )
     const beatPositions = getTupletBeatPositionsFrac(startBeat, baseDuration, numNotes, notesOccupied)
     for (const beat of beatPositions) {
-      const rest: Note = {
+      const rest: Rest = {
         id: uuidv4(),
-        pitch: 0,
+        type: 'rest',
         duration: baseDuration,
         measure: measureNumber,
         beat,
-        isRest: true,
         tupletId: tuplet.id,
         actualDuration: tupletActualDuration,
       }
-      measure.notes.push(rest)
+      measure.slots.push(rest)
     }
 
-    // Sort notes by beat
-    measure.notes.sort((a, b) => fracCompare(a.beat, b.beat))
+    // Sort by beat
+    measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
 
     return tuplet
   }
@@ -664,32 +806,38 @@ export class ScoreModel {
 
   /**
    * Get the tuplet at a specific beat position in a measure
-   * @param measureNumber - Measure number (1-indexed)
-   * @param beat - Beat position to check
-   * @returns The tuplet at that beat, or undefined
    */
   getTupletAtBeat(measureNumber: number, beat: Fraction): Tuplet | undefined {
     const measure = this.getMeasure(measureNumber)
     if (!measure || !measure.tuplets) return undefined
-
     return measure.tuplets.find(tuplet => isBeatInTupletFrac(beat, tuplet))
   }
 
   /**
-   * Get all notes that belong to a specific tuplet
+   * Get all notes that belong to a specific tuplet (as flat Notes)
    */
   getNotesInTuplet(tupletId: string): Note[] {
     for (const measure of this.score.measures) {
-      const notes = measure.notes.filter(n => n.tupletId === tupletId)
-      if (notes.length > 0) return notes
+      const slots = measure.slots.filter(s => s.tupletId === tupletId)
+      if (slots.length > 0) {
+        const result: Note[] = []
+        for (const slot of slots) {
+          if (slot.type === 'rest') {
+            result.push(this.restToFlatNote(slot))
+          } else {
+            for (const pitch of slot.notes) {
+              result.push(this.toFlatNote(slot, pitch))
+            }
+          }
+        }
+        return result
+      }
     }
     return []
   }
 
   /**
    * Delete a tuplet and replace it with an appropriate rest
-   * @param tupletId - ID of the tuplet to delete
-   * @returns true if deleted successfully
    */
   deleteTuplet(tupletId: string): boolean {
     for (const measure of this.score.measures) {
@@ -698,13 +846,13 @@ export class ScoreModel {
       const tupletIndex = measure.tuplets.findIndex(t => t.id === tupletId)
       if (tupletIndex === -1) continue
 
-      // Remove all notes belonging to this tuplet
-      measure.notes = measure.notes.filter(n => n.tupletId !== tupletId)
+      // Remove all slots belonging to this tuplet
+      measure.slots = measure.slots.filter(s => s.tupletId !== tupletId)
 
       // Remove the tuplet
       measure.tuplets.splice(tupletIndex, 1)
 
-      // Re-fill gaps with rests (this will fill the space left by the tuplet)
+      // Re-fill gaps with rests
       this.fillGapsWithRests(measure)
 
       return true
@@ -714,7 +862,6 @@ export class ScoreModel {
 
   /**
    * Repair gaps in a single measure by filling with rests.
-   * Called by MusicEngine after operations that may leave gaps (e.g. rest deletion).
    */
   repairMeasureGaps(measureNumber: number): void {
     const measure = this.getMeasure(measureNumber)
@@ -737,7 +884,7 @@ export class ScoreModel {
    */
   clearAllNotes(): void {
     this.score.measures.forEach(measure => {
-      measure.notes = []
+      measure.slots = []
       measure.tuplets = []
       this.fillMeasureWithRests(measure)
     })
@@ -754,24 +901,104 @@ export class ScoreModel {
    * Load a score from JSON
    */
   static fromJSON(json: string): ScoreModel {
-    const scoreData: Score = JSON.parse(json)
+    const scoreData = JSON.parse(json)
     const model = new ScoreModel()
     model.score = scoreData
-    // Migrate legacy scores: beat and startBeat were stored as plain numbers.
-    // Convert them to Fractions, then recompute actualDuration.
+
+    // Migrate legacy scores: if measures have 'notes' but no 'slots', convert.
     for (const measure of model.score.measures) {
+      // Migrate legacy notes array to slots
+      if ((measure as any).notes && !(measure as any).slots) {
+        ;(measure as any).slots = ScoreModel.migrateNotesToSlots((measure as any).notes)
+        delete (measure as any).notes
+      }
+
+      // Migrate legacy tuplet startBeat from number to Fraction
       for (const tuplet of measure.tuplets ?? []) {
         if (typeof (tuplet.startBeat as unknown) === 'number') {
           tuplet.startBeat = beatToFrac(tuplet.startBeat as unknown as number)
         }
       }
-      for (const note of measure.notes) {
-        if (typeof (note.beat as unknown) === 'number') {
-          note.beat = beatToFrac(note.beat as unknown as number)
+
+      // Migrate slot beats from number to Fraction and recompute actualDuration
+      for (const slot of measure.slots ?? []) {
+        if (typeof (slot.beat as unknown) === 'number') {
+          slot.beat = beatToFrac(slot.beat as unknown as number)
         }
-        note.actualDuration = model.computeActualDuration(note, measure)
+        if (slot.type === 'chord') {
+          slot.actualDuration = model.computeActualDurationForSlot(slot, measure)
+        } else {
+          slot.actualDuration = model.computeActualDurationForSlot(slot, measure)
+        }
       }
     }
+
     return model
+  }
+
+  /**
+   * Migrate old flat Note[] to ChordRest[].
+   * Groups same-beat real notes into Chords, converts rest notes to Rest slots.
+   */
+  private static migrateNotesToSlots(notes: any[]): ChordRest[] {
+    const slots: ChordRest[] = []
+
+    // Separate rests and real notes
+    const restNotes = notes.filter((n: any) => n.isRest)
+    const realNotes = notes.filter((n: any) => !n.isRest)
+
+    // Convert rests
+    for (const n of restNotes) {
+      const rest: Rest = {
+        id: n.id,
+        type: 'rest',
+        beat: typeof n.beat === 'number' ? beatToFrac(n.beat) : n.beat,
+        duration: n.duration,
+        dots: n.dots,
+        measure: n.measure,
+        tupletId: n.tupletId,
+        actualDuration: n.actualDuration,
+      }
+      slots.push(rest)
+    }
+
+    // Group real notes by beat
+    const beatGroups = new Map<string, any[]>()
+    for (const n of realNotes) {
+      const beatFrac = typeof n.beat === 'number' ? beatToFrac(n.beat) : n.beat
+      const key = `${beatFrac.num}/${beatFrac.den}`
+      if (!beatGroups.has(key)) beatGroups.set(key, [])
+      beatGroups.get(key)!.push({ ...n, beat: beatFrac })
+    }
+
+    // Create Chord per group
+    for (const group of beatGroups.values()) {
+      const firstNote = group[0]
+      const chord: Chord = {
+        id: uuidv4(),
+        type: 'chord',
+        beat: firstNote.beat,
+        duration: firstNote.duration,
+        dots: firstNote.dots,
+        measure: firstNote.measure,
+        tupletId: firstNote.tupletId,
+        actualDuration: firstNote.actualDuration,
+        stemDirection: firstNote.stemDirection,
+        notes: group.map((n: any) => ({
+          id: n.id,
+          pitch: n.pitch,
+          accidental: n.accidental,
+          forceAccidental: n.forceAccidental,
+          tiedTo: n.tiedTo,
+          tiedFrom: n.tiedFrom,
+          articulations: n.articulations,
+        })),
+      }
+      slots.push(chord)
+    }
+
+    // Sort by beat
+    slots.sort((a, b) => fracCompare(a.beat, b.beat))
+    return slots
   }
 }

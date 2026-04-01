@@ -12,7 +12,7 @@ describe('CollisionDetector', () => {
     measure = {
       id: '1',
       number: 1,
-      notes: [],
+      slots: [],
       timeSignature: { numerator: 4, denominator: 4 },
       tuplets: [],
     }

@@ -100,6 +100,47 @@ export interface TimeSignature {
   denominator: number
 }
 
+/** Internal pitch-only object stored inside a Chord */
+export interface NotePitch {
+  id: string
+  pitch: number
+  accidental?: Accidental
+  forceAccidental?: boolean
+  tiedTo?: string      // ID of another NotePitch in another Chord
+  tiedFrom?: string
+  articulations?: ArticulationType[]
+}
+
+/** A rhythmic slot containing one or more pitches */
+export interface Chord {
+  id: string
+  type: 'chord'
+  beat: Fraction
+  duration: NoteDuration
+  dots?: number
+  measure: number
+  voice?: 0 | 1 | 2 | 3
+  stemDirection?: StemDirection
+  tupletId?: string
+  actualDuration?: Fraction
+  notes: NotePitch[]
+}
+
+/** An empty rhythmic slot (silence) */
+export interface Rest {
+  id: string
+  type: 'rest'
+  beat: Fraction
+  duration: NoteDuration
+  dots?: number
+  measure: number
+  voice?: 0 | 1 | 2 | 3
+  tupletId?: string
+  actualDuration?: Fraction
+}
+
+export type ChordRest = Chord | Rest
+
 /**
  * Represents a measure in the score
  */
@@ -108,8 +149,8 @@ export interface Measure {
   id: string
   /** Measure number (1-indexed) */
   number: number
-  /** Notes in this measure */
-  notes: Note[]
+  /** Rhythmic slots (chords and rests) in this measure */
+  slots: ChordRest[]
   /** Time signature for this measure */
   timeSignature: TimeSignature
   /** Optional key signature (number of sharps/flats, positive = sharps, negative = flats) */

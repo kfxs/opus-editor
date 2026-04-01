@@ -4,6 +4,7 @@ import type { Accidental, NoteDuration, Note, Measure } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import { buildBeatMap } from '../utils/beatMap'
 import { fracLt, fracEq, fracCompare } from '../utils/fraction'
+import { getMeasureNotes } from '../utils/musicUtils'
 
 interface SelectionDeps {
   selectedTool: Ref<'entry' | 'selection'>
@@ -49,7 +50,7 @@ export function useSelection(deps: SelectionDeps) {
 
     // Build active-accidental state from notes strictly before this note's beat
     const active = new Map<number, Accidental | null>()
-    const preceding = measure.notes
+    const preceding = getMeasureNotes(measure)
       .filter(n => !n.isRest && !n.tiedFrom && fracLt(n.beat, note.beat))
       .sort((a, b) => fracCompare(a.beat, b.beat))
 
@@ -88,7 +89,7 @@ export function useSelection(deps: SelectionDeps) {
     if (noteId && engine.value) {
       const score = engine.value.getScore()
       for (const measure of score.measures) {
-        const note = measure.notes.find(n => n.id === noteId)
+        const note = getMeasureNotes(measure).find(n => n.id === noteId)
         if (note) {
           // Sync duration palette (works for both notes and rests)
           selectedDuration.value = note.duration
@@ -163,7 +164,7 @@ export function useSelection(deps: SelectionDeps) {
     if (!measure) return
 
     // All non-rest notes at the same beat, sorted low → high
-    const chordNotes = measure.notes
+    const chordNotes = getMeasureNotes(measure)
       .filter(n => !n.isRest && fracEq(n.beat, note.beat))
       .sort((a, b) => a.pitch - b.pitch)
 
@@ -190,7 +191,7 @@ export function useSelection(deps: SelectionDeps) {
     const score = engine.value.getScore()
     let selectedNote = null
     for (const measure of score.measures) {
-      const note = measure.notes.find(n => n.id === selectedNoteId.value)
+      const note = getMeasureNotes(measure).find(n => n.id === selectedNoteId.value)
       if (note) { selectedNote = note; break }
     }
 
@@ -212,7 +213,7 @@ export function useSelection(deps: SelectionDeps) {
     const score = engine.value.getScore()
     let selectedNote = null
     for (const measure of score.measures) {
-      const note = measure.notes.find(n => n.id === selectedNoteId.value)
+      const note = getMeasureNotes(measure).find(n => n.id === selectedNoteId.value)
       if (note) { selectedNote = note; break }
     }
 
@@ -233,7 +234,7 @@ export function useSelection(deps: SelectionDeps) {
 
     const score = engine.value.getScore()
     const allNotes = score.measures
-      .flatMap(m => m.notes.map(n => ({ ...n, measureNumber: m.number })))
+      .flatMap(m => getMeasureNotes(m).map(n => ({ ...n, measureNumber: m.number })))
       .sort((a, b) =>
         a.measureNumber !== b.measureNumber
           ? a.measureNumber - b.measureNumber

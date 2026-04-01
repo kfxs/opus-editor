@@ -70,7 +70,7 @@ export class NoteEntryCoordinator {
 
     // Remove overlapping notes/rests atomically, using scaled durations for tuplet notes
     const epsilon = 0.001
-    const toDelete = targetMeasure.notes.filter(n => {
+    const toDelete = this.getScoreModel().getNotesInMeasure(params.measure).filter(n => {
       let nDuration = durationToBeats(n.duration, n.dots || 0)
       if (n.tupletId) {
         const nTuplet = (targetMeasure.tuplets || []).find(t => t.id === n.tupletId)

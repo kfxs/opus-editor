@@ -546,10 +546,10 @@ export class MusicEngine {
     if (!note || note.isRest) return null
 
     if (note.tiedTo) {
-      // Remove existing tie — get live refs and delete the fields
-      const toNote = this.scoreModel.getNote(note.tiedTo)
-      delete note.tiedTo
-      if (toNote) delete toNote.tiedFrom
+      // Remove existing tie — update via scoreModel to mutate the live slot
+      const tiedToId = note.tiedTo
+      this.scoreModel.updateNote(noteId, { tiedTo: undefined })
+      this.scoreModel.updateNote(tiedToId, { tiedFrom: undefined })
       this.playbackEngine.setScore(this.scoreModel.getScore())
       this.saveUndoState('Remove tie')
       return false

@@ -2,7 +2,7 @@ import type { Ref, ComputedRef } from 'vue'
 import type { ArticulationType, Accidental, NoteDuration, Note } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import { buildBeatMap } from '../utils/beatMap'
-import { durationToBeats } from '../utils/musicUtils'
+import { durationToBeats, getMeasureNotes } from '../utils/musicUtils'
 import { fracToNumber, fracEq } from '../utils/fraction'
 
 interface KeyboardEntryDeps {
@@ -156,7 +156,7 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
     const scoreAfter = engine.value.getScore()
     let safetyLimit = 16
     while (lastNote.tiedTo && safetyLimit-- > 0) {
-      const tied = scoreAfter.measures.flatMap(m => m.notes).find(n => n.id === lastNote.tiedTo)
+      const tied = scoreAfter.measures.flatMap(m => getMeasureNotes(m)).find(n => n.id === lastNote.tiedTo)
       if (!tied) break
       lastNote = tied
     }
@@ -258,7 +258,7 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
     // note lands above ALL existing chord notes, not just the selected one.
     const score = engine.value.getScore()
     const measure = score.measures.find(m => m.number === note.measure)
-    const chordPitches = (measure?.notes ?? [])
+    const chordPitches = (measure ? getMeasureNotes(measure) : [])
       .filter(n => !n.isRest && fracEq(n.beat, note.beat))
       .map(n => n.pitch)
     const basePitch = chordPitches.length > 0 ? Math.max(...chordPitches) : note.pitch

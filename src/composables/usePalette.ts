@@ -3,6 +3,7 @@ import type { Ref } from 'vue'
 import type { ArticulationType, NoteDuration, Accidental } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import { fracLt, fracCompare } from '../utils/fraction'
+import { getMeasureNotes } from '../utils/musicUtils'
 
 interface PaletteDeps {
   selectedTool: Ref<'entry' | 'selection'>
@@ -85,7 +86,7 @@ export function usePalette(deps: PaletteDeps) {
           const measure = score.measures.find(m => m.number === note!.measure)
           if (measure) {
             const active = new Map<number, Accidental | null>()
-            const preceding = measure.notes
+            const preceding = getMeasureNotes(measure)
               .filter(n => !n.isRest && !n.tiedFrom && fracLt(n.beat, note!.beat))
               .sort((a, b) => fracCompare(a.beat, b.beat))
             for (const n of preceding) {
@@ -111,7 +112,7 @@ export function usePalette(deps: PaletteDeps) {
         let wouldAutoShow = false
         if (measure) {
           const active = new Map<number, Accidental | null>()
-          const preceding = measure.notes
+          const preceding = getMeasureNotes(measure)
             .filter(n => !n.isRest && !n.tiedFrom && fracLt(n.beat, note!.beat))
             .sort((a, b) => fracCompare(a.beat, b.beat))
           for (const n of preceding) {

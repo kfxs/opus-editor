@@ -1,6 +1,7 @@
 import type { Ref } from 'vue'
 import type { MusicEngine } from '../engine/MusicEngine'
 import { buildBeatMap } from '../utils/beatMap'
+import { getMeasureNotes } from '../utils/musicUtils'
 
 interface HighlightDeps {
   engine: Ref<MusicEngine | null>
@@ -106,7 +107,7 @@ export function useHighlight(deps: HighlightDeps) {
     let noteTupletId: string | null = null
 
     for (const measure of score.measures) {
-      const element = measure.notes.find(n => n.id === selectedNoteId.value)
+      const element = getMeasureNotes(measure).find(n => n.id === selectedNoteId.value)
       if (element) {
         noteMeasure = element.measure
         isRest = element.isRest || false
@@ -152,9 +153,10 @@ export function useHighlight(deps: HighlightDeps) {
     if (noteMeasure !== null && !isRest) {
       const measureData = score.measures.find(m => m.number === noteMeasure)
       if (measureData) {
-        const noteData = measureData.notes.find(n => n.id === selectedNoteId.value)
+        const measureNotes = getMeasureNotes(measureData)
+        const noteData = measureNotes.find(n => n.id === selectedNoteId.value)
         if (noteData) {
-          const notesAtBeat = measureData.notes.filter(
+          const notesAtBeat = measureNotes.filter(
             n => !n.isRest && n.beat.num === noteData.beat.num && n.beat.den === noteData.beat.den
           )
           isInChord = notesAtBeat.length > 1

@@ -3,6 +3,7 @@ import type { Ref, ComputedRef } from 'vue'
 import type { ArticulationType, Accidental, NoteDuration } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import { fracToNumber } from '../utils/fraction'
+import { getMeasureNotes } from '../utils/musicUtils'
 
 interface MouseInteractionDeps {
   engine: Ref<MusicEngine | null>
@@ -377,7 +378,7 @@ export function useMouseInteraction(deps: MouseInteractionDeps) {
       const score = engine.value.getScore()
       let selectedNote = null
       for (const measure of score.measures) {
-        const note = measure.notes.find(n => n.id === selectedNoteId.value)
+        const note = getMeasureNotes(measure).find(n => n.id === selectedNoteId.value)
         if (note) { selectedNote = note; break }
       }
 

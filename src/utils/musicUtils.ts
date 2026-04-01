@@ -1,4 +1,4 @@
-import type { NoteDuration, TimeSignature, Tuplet } from '@/types/music'
+import type { NoteDuration, TimeSignature, Tuplet, Measure, Note } from '@/types/music'
 import {
   type Fraction,
   durationToFraction,
@@ -422,4 +422,49 @@ export function spanContainedInFrac(
   regionEnd: Fraction,
 ): boolean {
   return fracGte(start, regionStart) && fracLte(fracAdd(start, dur), regionEnd)
+}
+
+/**
+ * Flatten a Measure's ChordRest slots into a backward-compatible Note[] array.
+ * Each Rest slot becomes one Note with isRest=true.
+ * Each Chord slot becomes one Note per pitch.
+ */
+export function getMeasureNotes(measure: Measure): Note[] {
+  const result: Note[] = []
+  for (const slot of measure.slots) {
+    if (slot.type === 'rest') {
+      result.push({
+        id: slot.id,
+        pitch: 0,
+        duration: slot.duration,
+        measure: slot.measure,
+        beat: slot.beat,
+        isRest: true,
+        dots: slot.dots,
+        tupletId: slot.tupletId,
+        actualDuration: slot.actualDuration,
+      })
+    } else {
+      for (const pitch of slot.notes) {
+        result.push({
+          id: pitch.id,
+          pitch: pitch.pitch,
+          duration: slot.duration,
+          measure: slot.measure,
+          beat: slot.beat,
+          isRest: false,
+          accidental: pitch.accidental,
+          forceAccidental: pitch.forceAccidental,
+          stemDirection: slot.stemDirection,
+          tiedTo: pitch.tiedTo,
+          tiedFrom: pitch.tiedFrom,
+          dots: slot.dots,
+          tupletId: slot.tupletId,
+          actualDuration: slot.actualDuration,
+          articulations: pitch.articulations,
+        })
+      }
+    }
+  }
+  return result
 }

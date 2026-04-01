@@ -164,35 +164,38 @@ export class PlaybackEngine {
     for (const measure of this.score.measures) {
       const measureStartTime = currentTimeInBeats
 
-      for (const note of measure.notes) {
-        if (note.isRest) continue
+      for (const slot of measure.slots) {
+        if (slot.type === 'rest') continue
 
-        const noteTimeInBeats = measureStartTime + fracToNumber(note.beat)
+        // slot is a Chord
+        const chord = slot
+        const noteTimeInBeats = measureStartTime + fracToNumber(chord.beat)
         const beatsPerSecond = tempo / 60
         const noteTimeInSeconds = noteTimeInBeats / beatsPerSecond
-        const durationBeats = note.actualDuration ? fracToNumber(note.actualDuration) : durationToBeats(note.duration, note.dots || 0)
+        const durationBeats = chord.actualDuration ? fracToNumber(chord.actualDuration) : durationToBeats(chord.duration, chord.dots || 0)
         const durationInSeconds = durationBeats / beatsPerSecond
 
-        // Calculate actual sounding pitch by applying accidental
-        // The note.pitch is the symbolic pitch on the staff, accidentals modify the actual sound
-        let soundingPitch = note.pitch
-        if (note.accidental) {
-          switch (note.accidental) {
-            case '#':
-              soundingPitch += 1
-              break
-            case 'b':
-              soundingPitch -= 1
-              break
-            // 'n' (natural) doesn't change the pitch - it just cancels key signature
+        for (const notePitch of chord.notes) {
+          // Calculate actual sounding pitch by applying accidental
+          let soundingPitch = notePitch.pitch
+          if (notePitch.accidental) {
+            switch (notePitch.accidental) {
+              case '#':
+                soundingPitch += 1
+                break
+              case 'b':
+                soundingPitch -= 1
+                break
+              // 'n' (natural) doesn't change the pitch - it just cancels key signature
+            }
           }
+
+          // Convert MIDI to note name like testAudio
+          const noteName = Tone.Frequency(soundingPitch, 'midi').toNote()
+
+          // Schedule exactly like testAudio does
+          synth.triggerAttackRelease(noteName, durationInSeconds, now + noteTimeInSeconds)
         }
-
-        // Convert MIDI to note name like testAudio
-        const noteName = Tone.Frequency(soundingPitch, 'midi').toNote()
-
-        // Schedule exactly like testAudio does
-        synth.triggerAttackRelease(noteName, durationInSeconds, now + noteTimeInSeconds)
       }
 
       currentTimeInBeats += getMeasureDuration(measure.timeSignature)
