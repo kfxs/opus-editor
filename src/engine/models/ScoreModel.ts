@@ -603,6 +603,39 @@ export class ScoreModel {
 
     if (found.type === 'rest') {
       const rest = found.rest
+
+      // Convert rest → chord when isRest is explicitly set to false
+      if (updates.isRest === false && updates.pitch !== undefined) {
+        const measure = this.getMeasure(rest.measure)
+        if (!measure) throw new Error(`Measure ${rest.measure} does not exist`)
+
+        const notePitch: NotePitch = {
+          id: rest.id,   // reuse rest ID so the caller's selectedNoteId stays valid
+          pitch: updates.pitch,
+          accidental: updates.accidental,
+          forceAccidental: updates.forceAccidental,
+          articulations: updates.articulations,
+        }
+        const chord: Chord = {
+          id: uuidv4(),
+          type: 'chord',
+          beat: updates.beat ?? rest.beat,
+          duration: updates.duration ?? rest.duration,
+          dots: updates.dots ?? rest.dots,
+          measure: rest.measure,
+          tupletId: updates.tupletId ?? rest.tupletId,
+          actualDuration: rest.actualDuration,
+          notes: [notePitch],
+        }
+        chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
+
+        measure.slots = measure.slots.filter(s => s.id !== rest.id)
+        measure.slots.push(chord)
+        measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+
+        return this.toFlatNote(chord, notePitch)
+      }
+
       const oldMeasure = rest.measure
 
       // If measure is being changed, move the rest

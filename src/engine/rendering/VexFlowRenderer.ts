@@ -1,5 +1,5 @@
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Beam, StaveTie, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
-import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType, ArticulationType, Tuplet, ChordRest } from '@/types/music'
+import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType, ArticulationType, Tuplet, ChordRest, Chord, Fraction } from '@/types/music'
 import { midiToNoteName } from '@/utils/musicUtils'
 import { fracToNumber, fracEq, fracCompare } from '@/utils/fraction'
 import { ElementRegistry, type TupletGeometry } from '@/engine/ElementRegistry'
@@ -237,251 +237,106 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Create a VexFlow StaveNote from our Note type
-   * Can handle single notes or chords (multiple pitches)
-   * @param note - The main note
-   * @param chordNotes - All notes in the chord (for stem direction calculation)
+   * Create StaveNotes directly from ChordRest slots.
+   * One slot → one StaveNote. Rests → rest StaveNote; Chords → multi-key StaveNote.
+   * @param slots - Slots already sorted by beat position
    * @param clef - Clef type for stem direction calculation
    */
-  private createStaveNote(
-    note: MusicNote,
-    chordNotes: MusicNote[] = [note],
-    clef: Clef = 'treble',
-    displayAccidentals?: Map<string, AccidentalType | null>
-  ): StaveNote {
-    const vexDuration = this.convertDuration(note.duration, note.dots || 0)
-
-    // Handle rests differently - rests don't have stem direction
-    if (note.isRest) {
-      const staveNote = new StaveNote({
-        keys: ['b/4'], // Rests use a placeholder key
-        duration: vexDuration + 'r', // Add 'r' for rest
-      })
-      // Add dots to rest if present
-      const dots = note.dots || 0
-      for (let d = 0; d < dots; d++) {
-        Dot.buildAndAttach([staveNote], { all: true })
-      }
-      return staveNote
-    }
-
-    // Regular note or chord
-    // Collect all pitches from chord notes
-    const allPitches = chordNotes.map(n => n.pitch)
-
-    // Sort pitches from lowest to highest (VexFlow requires this for chords)
-    allPitches.sort((a, b) => a - b)
-
-    // Convert to VexFlow note names
-    const keys = allPitches.map(pitch => this.midiToVexFlowNote(pitch))
-
-    // Calculate stem direction
-    // Check if any note has a manual stem direction override
-    // Using numeric values directly: 1 = UP, -1 = DOWN
-    const manualDirection = chordNotes.find(n => n.stemDirection && n.stemDirection !== 'auto')
-    let stemDirection: number
-
-    if (manualDirection?.stemDirection === 'up') {
-      stemDirection = 1 // UP
-    } else if (manualDirection?.stemDirection === 'down') {
-      stemDirection = -1 // DOWN
-    } else {
-      // Auto-calculate based on pitch and clef
-      stemDirection = this.calculateChordStemDirection(chordNotes, clef)
-    }
-
-    const staveNote = new StaveNote({
-      keys: keys,
-      duration: vexDuration,
-      autoStem: false,
-    })
-
-    // Explicitly set stem direction AFTER creation
-    // VexFlow sometimes ignores the constructor option
-    staveNote.setStemDirection(stemDirection)
-
-    // VexFlow automatically handles note displacement for seconds (adjacent notes)
-    // The lower note in a second interval will be shifted to the right side of the stem
-
-    // Add accidentals for each note in the chord.
-    // If displayAccidentals is provided, it already encodes the correct accidental to show
-    // (accounting for within-measure state and cautionary naturals). Otherwise fall back to
-    // the raw stored accidental, skipping tied continuations.
-    const accidentalMap: Record<string, string> = { '#': '#', b: 'b', n: 'n' }
-    chordNotes.forEach((chordNote) => {
-      let accToDisplay: AccidentalType | null | undefined
-      if (displayAccidentals) {
-        accToDisplay = displayAccidentals.get(chordNote.id) ?? null
-      } else {
-        accToDisplay = chordNote.tiedFrom ? null : (chordNote.accidental ?? null)
-      }
-      if (accToDisplay) {
-        const sortedIndex = allPitches.indexOf(chordNote.pitch)
-        if (sortedIndex !== -1) {
-          staveNote.addModifier(new Accidental(accidentalMap[accToDisplay]), sortedIndex)
-        }
-      }
-    })
-
-    // Add dots to the note/chord
-    // All notes in a chord share the same duration/dots, so use the first note's dots
-    const dots = note.dots || 0
-    for (let d = 0; d < dots; d++) {
-      Dot.buildAndAttach([staveNote], { all: true })
-    }
-
-    // Add articulations (apply to chord representative note — index 0)
-    // Position: stem up (note below middle line) → accent below notehead; stem down → above
-    const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
-    const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
-    const articulations = note.articulations || []
-    for (const art of articulations) {
-      staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
-    }
-
-    return staveNote
-  }
-
-  /**
-   * Convert ChordRest[] slots to flat MusicNote[] for use with existing rendering pipeline.
-   * Chords become multiple flat Note objects (same beat/duration, different pitch).
-   * Rests become a single flat Note with isRest=true.
-   */
-  private slotsToFlatNotes(slots: ChordRest[]): MusicNote[] {
-    const result: MusicNote[] = []
-    for (const slot of slots) {
-      if (slot.type === 'rest') {
-        result.push({
-          id: slot.id,
-          pitch: 0,
-          duration: slot.duration,
-          measure: slot.measure,
-          beat: slot.beat,
-          isRest: true,
-          dots: slot.dots,
-          tupletId: slot.tupletId,
-          actualDuration: slot.actualDuration,
-        })
-      } else {
-        for (const pitch of slot.notes) {
-          result.push({
-            id: pitch.id,
-            pitch: pitch.pitch,
-            duration: slot.duration,
-            measure: slot.measure,
-            beat: slot.beat,
-            isRest: false,
-            accidental: pitch.accidental,
-            forceAccidental: pitch.forceAccidental,
-            stemDirection: slot.stemDirection,
-            tiedTo: pitch.tiedTo,
-            tiedFrom: pitch.tiedFrom,
-            dots: slot.dots,
-            tupletId: slot.tupletId,
-            actualDuration: slot.actualDuration,
-            articulations: pitch.articulations,
-          })
-        }
-      }
-    }
-    return result
-  }
-
-  /**
-   * Group notes by beat position to identify chords
-   * Returns an array of note groups, where each group is at the same beat
-   */
-  private groupNotesByBeat(notes: MusicNote[]): MusicNote[][] {
-    const beatGroups = new Map<string, MusicNote[]>()
-
-    for (const note of notes) {
-      const key = `${note.beat.num}/${note.beat.den}`
-      if (!beatGroups.has(key)) {
-        beatGroups.set(key, [])
-      }
-      beatGroups.get(key)!.push(note)
-    }
-
-    // Convert to array and sort by beat position
-    return Array.from(beatGroups.entries())
-      .sort((a, b) => {
-        const [aN, aD] = a[0].split('/').map(Number)
-        const [bN, bD] = b[0].split('/').map(Number)
-        return aN * bD - bN * aD
-      })
-      .map(([_key, notes]) => notes)
-  }
-
-  /**
-   * Create StaveNotes from note groups (handles both single notes and chords)
-   * @param noteGroups - Groups of notes at same beat positions
-   * @param clef - Clef type for stem direction calculation
-   */
-  private createStaveNotesFromGroups(noteGroups: MusicNote[][], clef: Clef = 'treble'): StaveNote[] {
+  private createStaveNotesFromSlots(slots: ChordRest[], clef: Clef = 'treble'): StaveNote[] {
     const staveNotes: StaveNote[] = []
 
-    // Track active accidentals per pitch within this measure.
-    // key = pitch (staff position), value = the last explicit accidental set ('#'/'b'),
-    // or null meaning the pitch was explicitly returned to natural this measure.
-    // undefined (key absent) means no accidental has been set yet this measure.
+    // Track active accidentals per MIDI pitch within this measure.
+    // undefined = never set; null = naturalised this measure; AccidentalType = sharp/flat active.
     const activeMeasureAccidentals = new Map<number, AccidentalType | null>()
 
-    for (const group of noteGroups) {
-      // Separate rests from regular notes
-      const rests = group.filter(n => n.isRest)
-      const regularNotes = group.filter(n => !n.isRest)
-
-      // Add rests (rests cannot form chords)
-      for (const rest of rests) {
-        staveNotes.push(this.createStaveNote(rest, [rest], clef))
+    for (const slot of slots) {
+      if (slot.type === 'rest') {
+        const vexDuration = this.convertDuration(slot.duration, slot.dots || 0)
+        const staveNote = new StaveNote({ keys: ['b/4'], duration: vexDuration + 'r' })
+        for (let d = 0; d < (slot.dots || 0); d++) {
+          Dot.buildAndAttach([staveNote], { all: true })
+        }
+        staveNotes.push(staveNote)
+        continue
       }
 
-      // Add regular notes (as single note or chord)
-      if (regularNotes.length > 0) {
-        // Compute which accidental to actually display for each note in this chord,
-        // taking the measure's running accidental state into account.
-        const displayAccidentals = new Map<string, AccidentalType | null>()
-
-        for (const note of regularNotes) {
-          if (note.tiedFrom) {
-            // Tied continuations never show an accidental
-            displayAccidentals.set(note.id, null)
-            continue
-          }
-
-          const activeAcc = activeMeasureAccidentals.get(note.pitch) // undefined = never set
-
-          if (note.accidental) {
-            // Normalize 'n' → null for comparison: both mean "natural" in the active state map.
-            const normalizedAcc = note.accidental === 'n' ? null : note.accidental
-            if (!note.forceAccidental && activeAcc === normalizedAcc) {
-              // Redundant — same state already active in this measure, suppress the sign
-              displayAccidentals.set(note.id, null)
-            } else {
-              // New, changed, or explicitly forced — show it and update the measure state
-              displayAccidentals.set(note.id, note.accidental)
-              activeMeasureAccidentals.set(note.pitch, normalizedAcc)
-            }
+      // Chord slot — compute per-pitch display accidentals
+      const displayAccidentals = new Map<string, AccidentalType | null>()
+      for (const p of slot.notes) {
+        if (p.tiedFrom) {
+          displayAccidentals.set(p.id, null)
+          continue
+        }
+        const activeAcc = activeMeasureAccidentals.get(p.pitch)
+        if (p.accidental) {
+          const normalizedAcc = p.accidental === 'n' ? null : p.accidental
+          if (!p.forceAccidental && activeAcc === normalizedAcc) {
+            displayAccidentals.set(p.id, null)
           } else {
-            // Note is natural (no accidental stored)
-            if (activeAcc !== undefined && activeAcc !== null) {
-              // A sharp/flat was active for this pitch — show cautionary natural
-              displayAccidentals.set(note.id, 'n')
-              activeMeasureAccidentals.set(note.pitch, null)
-            } else if (note.forceAccidental) {
-              // User explicitly wants to show the natural sign
-              displayAccidentals.set(note.id, 'n')
-              activeMeasureAccidentals.set(note.pitch, null)
-            } else {
-              // No active accidental — nothing to show
-              displayAccidentals.set(note.id, null)
-            }
+            displayAccidentals.set(p.id, p.accidental)
+            activeMeasureAccidentals.set(p.pitch, normalizedAcc)
+          }
+        } else {
+          if (activeAcc !== undefined && activeAcc !== null) {
+            displayAccidentals.set(p.id, 'n')
+            activeMeasureAccidentals.set(p.pitch, null)
+          } else if (p.forceAccidental) {
+            displayAccidentals.set(p.id, 'n')
+            activeMeasureAccidentals.set(p.pitch, null)
+          } else {
+            displayAccidentals.set(p.id, null)
           }
         }
-
-        const baseNote = regularNotes[0]
-        staveNotes.push(this.createStaveNote(baseNote, regularNotes, clef, displayAccidentals))
       }
+
+      // Sort pitches low→high (VexFlow requirement for chords)
+      const sortedPitches = [...slot.notes].sort((a, b) => a.pitch - b.pitch)
+      const keys = sortedPitches.map(p => this.midiToVexFlowNote(p.pitch))
+
+      // Stem direction
+      let stemDirection: number
+      if (slot.stemDirection === 'up') {
+        stemDirection = 1
+      } else if (slot.stemDirection === 'down') {
+        stemDirection = -1
+      } else {
+        const middlePitch = CLEF_CONFIG[clef].middleLinePitch
+        let maxDist = 0
+        stemDirection = 1
+        for (const p of slot.notes) {
+          const staffPitch = this.getStaffPositionPitch(p.pitch, p.accidental)
+          const dist = Math.abs(staffPitch - middlePitch)
+          if (dist > maxDist) {
+            maxDist = dist
+            stemDirection = staffPitch >= middlePitch ? -1 : 1
+          }
+        }
+      }
+
+      const vexDuration = this.convertDuration(slot.duration, slot.dots || 0)
+      const staveNote = new StaveNote({ keys, duration: vexDuration, autoStem: false })
+      staveNote.setStemDirection(stemDirection)
+
+      // Accidentals
+      const accidentalMap: Record<string, string> = { '#': '#', b: 'b', n: 'n' }
+      sortedPitches.forEach((p, idx) => {
+        const acc = displayAccidentals.get(p.id) ?? null
+        if (acc) staveNote.addModifier(new Accidental(accidentalMap[acc]), idx)
+      })
+
+      // Dots
+      for (let d = 0; d < (slot.dots || 0); d++) {
+        Dot.buildAndAttach([staveNote], { all: true })
+      }
+
+      // Articulations from first (unsorted) pitch — articulations are per-chord
+      const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
+      const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
+      for (const art of slot.notes[0]?.articulations || []) {
+        staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
+      }
+
+      staveNotes.push(staveNote)
     }
 
     return staveNotes
@@ -534,107 +389,98 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Calculate the stem direction for an entire beam group
-   * Uses the note furthest from the middle line to determine direction
-   * This ensures all notes in a beam have consistent stem direction
-   * @param allNotes - All notes in the beam group (flattened from note groups)
+   * Calculate the stem direction for an entire beam group.
+   * Uses the pitch furthest from the middle line across all slots.
+   * @param slots - ChordRest slots in the beam group
    * @param clef - Clef type for middle line reference
    * @returns VexFlow stem direction value (1 = UP, -1 = DOWN)
    */
-  private calculateBeamGroupStemDirection(allNotes: MusicNote[], clef: Clef = 'treble'): number {
-    if (allNotes.length === 0) return 1 // UP by default
-
+  private calculateBeamGroupStemDirection(slots: ChordRest[], clef: Clef = 'treble'): number {
     const middlePitch = CLEF_CONFIG[clef].middleLinePitch
-
-    // Find the note furthest from the middle line
     let maxDistance = 0
-    let furthestPitch = allNotes[0].pitch
+    let furthestPitch = middlePitch
+    let hasPitch = false
 
-    for (const note of allNotes) {
-      if (note.isRest) continue
-      const staffPitch = this.getStaffPositionPitch(note.pitch, note.accidental)
-      const distance = Math.abs(staffPitch - middlePitch)
-
-      if (distance > maxDistance) {
-        maxDistance = distance
-        furthestPitch = staffPitch
+    for (const slot of slots) {
+      if (slot.type === 'rest') continue
+      for (const p of slot.notes) {
+        const staffPitch = this.getStaffPositionPitch(p.pitch, p.accidental)
+        const distance = Math.abs(staffPitch - middlePitch)
+        if (!hasPitch || distance > maxDistance) {
+          maxDistance = distance
+          furthestPitch = staffPitch
+          hasPitch = true
+        }
       }
     }
 
-    // If furthest note is on or above middle line, stems go down; otherwise up
     return furthestPitch >= middlePitch ? -1 : 1
   }
 
   /**
-   * Create beam groups from stave notes and their corresponding music notes
-   * Returns arrays of StaveNotes that should be beamed together, along with note data
+   * Create beam groups from stave notes and their corresponding slots.
+   * Returns arrays of StaveNotes that should be beamed together, along with slot data.
    *
-   * @param staveNotes - The VexFlow StaveNote objects
-   * @param noteGroups - The original note groups (for duration/beat info)
+   * @param staveNotes - The VexFlow StaveNote objects (one per slot)
+   * @param slots - ChordRest slots sorted by beat (parallel to staveNotes)
    * @param beatsPerMeasure - Number of beats in the measure
-   * @returns Array of beam group info with stave notes and music notes
+   * @returns Array of beam group info with stave notes and slots
    */
   private createBeamGroups(
     staveNotes: StaveNote[],
-    noteGroups: MusicNote[][],
+    slots: ChordRest[],
     beatsPerMeasure: number
-  ): { staveNotes: StaveNote[]; musicNotes: MusicNote[][] }[] {
-    const beamGroups: { staveNotes: StaveNote[]; musicNotes: MusicNote[][] }[] = []
+  ): { staveNotes: StaveNote[]; slots: ChordRest[] }[] {
+    const beamGroups: { staveNotes: StaveNote[]; slots: ChordRest[] }[] = []
     let currentStaveNotes: StaveNote[] = []
-    let currentMusicNotes: MusicNote[][] = []
+    let currentSlots: ChordRest[] = []
     let currentBeatGroup: number | null = null
 
-    for (let i = 0; i < staveNotes.length && i < noteGroups.length; i++) {
+    for (let i = 0; i < staveNotes.length && i < slots.length; i++) {
       const staveNote = staveNotes[i]
-      const noteGroup = noteGroups[i]
-      const firstNote = noteGroup[0]
+      const slot = slots[i]
 
-      // Skip rests - they break beams
-      if (firstNote.isRest) {
-        // Save current group if it has 2+ notes
+      // Rests break beams
+      if (slot.type === 'rest') {
         if (currentStaveNotes.length >= 2) {
-          beamGroups.push({ staveNotes: currentStaveNotes, musicNotes: currentMusicNotes })
+          beamGroups.push({ staveNotes: currentStaveNotes, slots: currentSlots })
         }
         currentStaveNotes = []
-        currentMusicNotes = []
+        currentSlots = []
         currentBeatGroup = null
         continue
       }
 
-      // Check if this note is beamable
-      if (!this.isBeamableDuration(firstNote.duration)) {
-        // Non-beamable note breaks the beam
+      // Non-beamable notes break the beam
+      if (!this.isBeamableDuration(slot.duration)) {
         if (currentStaveNotes.length >= 2) {
-          beamGroups.push({ staveNotes: currentStaveNotes, musicNotes: currentMusicNotes })
+          beamGroups.push({ staveNotes: currentStaveNotes, slots: currentSlots })
         }
         currentStaveNotes = []
-        currentMusicNotes = []
+        currentSlots = []
         currentBeatGroup = null
         continue
       }
 
-      // This note is beamable - check beat boundary
-      const beatGroup = this.getBeatGroup(fracToNumber(firstNote.beat), beatsPerMeasure)
+      // Beamable chord — check beat boundary
+      const beatGroup = this.getBeatGroup(fracToNumber(slot.beat), beatsPerMeasure)
 
       if (currentBeatGroup === null || beatGroup === currentBeatGroup) {
-        // Same beat group or starting new group
         currentStaveNotes.push(staveNote)
-        currentMusicNotes.push(noteGroup)
+        currentSlots.push(slot)
         currentBeatGroup = beatGroup
       } else {
-        // Different beat group - save current and start new
         if (currentStaveNotes.length >= 2) {
-          beamGroups.push({ staveNotes: currentStaveNotes, musicNotes: currentMusicNotes })
+          beamGroups.push({ staveNotes: currentStaveNotes, slots: currentSlots })
         }
         currentStaveNotes = [staveNote]
-        currentMusicNotes = [noteGroup]
+        currentSlots = [slot]
         currentBeatGroup = beatGroup
       }
     }
 
-    // Don't forget the last group
     if (currentStaveNotes.length >= 2) {
-      beamGroups.push({ staveNotes: currentStaveNotes, musicNotes: currentMusicNotes })
+      beamGroups.push({ staveNotes: currentStaveNotes, slots: currentSlots })
     }
 
     return beamGroups
@@ -689,16 +535,16 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Create VexFlow Tuplet objects for a measure (adjusts tick values on notes)
-   * Must be called BEFORE voice.addTickables() for correct tick calculation
+   * Create VexFlow Tuplet objects for a measure (adjusts tick values on notes).
+   * Must be called BEFORE voice.addTickables() for correct tick calculation.
    * @param measure - The measure containing tuplet definitions
-   * @param noteGroups - Note groups organized by beat position
+   * @param slots - ChordRest slots sorted by beat (parallel to staveNotes)
    * @param staveNotes - The VexFlow StaveNotes array
    * @returns Map of tupletId to VexFlow Tuplet objects
    */
   private createTupletsForMeasure(
     measure: Measure,
-    noteGroups: MusicNote[][],
+    slots: ChordRest[],
     staveNotes: StaveNote[]
   ): Map<string, VexFlowTuplet> {
     const vexTuplets = new Map<string, VexFlowTuplet>()
@@ -707,35 +553,16 @@ export class VexFlowRenderer {
       return vexTuplets
     }
 
-    // Build mapping from tupletId to StaveNotes
+    // Build mapping from tupletId to StaveNotes (one slot → one StaveNote)
     const tupletStaveNoteMap = new Map<string, StaveNote[]>()
 
-    let staveNoteIdx = 0
-    for (const noteGroup of noteGroups) {
-      const rests = noteGroup.filter(n => n.isRest)
-      const regularNotes = noteGroup.filter(n => !n.isRest)
-
-      // Process rests
-      for (const rest of rests) {
-        if (staveNoteIdx < staveNotes.length && rest.tupletId) {
-          if (!tupletStaveNoteMap.has(rest.tupletId)) {
-            tupletStaveNoteMap.set(rest.tupletId, [])
-          }
-          tupletStaveNoteMap.get(rest.tupletId)!.push(staveNotes[staveNoteIdx])
+    for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
+      const slot = slots[i]
+      if (slot.tupletId) {
+        if (!tupletStaveNoteMap.has(slot.tupletId)) {
+          tupletStaveNoteMap.set(slot.tupletId, [])
         }
-        staveNoteIdx++
-      }
-
-      // Process regular notes
-      if (regularNotes.length > 0 && staveNoteIdx < staveNotes.length) {
-        const firstNote = regularNotes[0]
-        if (firstNote.tupletId) {
-          if (!tupletStaveNoteMap.has(firstNote.tupletId)) {
-            tupletStaveNoteMap.set(firstNote.tupletId, [])
-          }
-          tupletStaveNoteMap.get(firstNote.tupletId)!.push(staveNotes[staveNoteIdx])
-        }
-        staveNoteIdx++
+        tupletStaveNoteMap.get(slot.tupletId)!.push(staveNotes[i])
       }
     }
 
@@ -787,13 +614,11 @@ export class VexFlowRenderer {
     }
 
     // Create temporary voice to calculate width
-    const flatNotes = this.slotsToFlatNotes(measure.slots)
-    const sortedNotes = [...flatNotes].sort((a, b) => fracCompare(a.beat, b.beat))
-    const noteGroups = this.groupNotesByBeat(sortedNotes)
-    const staveNotes = this.createStaveNotesFromGroups(noteGroups, clef)
+    const sortedSlots = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))
+    const staveNotes = this.createStaveNotesFromSlots(sortedSlots, clef)
 
     // Create VexFlow Tuplets BEFORE adding notes to voice (adjusts tick values)
-    this.createTupletsForMeasure(measure, noteGroups, staveNotes)
+    this.createTupletsForMeasure(measure, sortedSlots, staveNotes)
 
     const voice = new Voice({
       numBeats: measure.timeSignature.numerator,
@@ -809,7 +634,7 @@ export class VexFlowRenderer {
       const minNoteWidth = formatter.preCalculateMinTotalWidth([voice])
 
       // Add safety buffer (15%) and ensure minimum note spacing
-      const noteCount = noteGroups.filter(g => !g[0].isRest).length
+      const noteCount = sortedSlots.filter(s => s.type === 'chord').length
       const minSpacingWidth = noteCount * LAYOUT_CONFIG.MIN_NOTE_SPACING
       const calculatedWidth = Math.max(minNoteWidth * 1.15, minSpacingWidth)
 
@@ -973,52 +798,26 @@ export class VexFlowRenderer {
 
     // Create notes for this measure (measures always have slots - at minimum rests)
     if (measure.slots.length > 0) {
-      // Convert slots to flat notes and sort by beat position before rendering
-      const flatNotes = this.slotsToFlatNotes(measure.slots)
-      const sortedNotes = [...flatNotes].sort((a, b) => fracCompare(a.beat, b.beat))
-
-      // Group notes by beat position to handle chords
-      const noteGroups = this.groupNotesByBeat(sortedNotes)
-      const staveNotes = this.createStaveNotesFromGroups(noteGroups, clef)
+      // Sort slots by beat position before rendering
+      const sortedSlots = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))
+      const staveNotes = this.createStaveNotesFromSlots(sortedSlots, clef)
 
       // === Create VexFlow Tuplets BEFORE adding notes to voice ===
       // This is critical: VexFlow Tuplet adjusts tick values via setTuplet()
       // which must happen before voice.addTickables() for correct tick calculation
       const tupletStaveNoteMap = new Map<string, { staveNotes: StaveNote[], tuplet: Tuplet }>()
 
-      // Build the mapping from tupletId to StaveNotes
-      let staveNoteIdx = 0
-      for (const noteGroup of noteGroups) {
-        const rests = noteGroup.filter(n => n.isRest)
-        const regularNotes = noteGroup.filter(n => !n.isRest)
-
-        // Process rests
-        for (const rest of rests) {
-          if (staveNoteIdx < staveNotes.length && rest.tupletId) {
-            const tupletData = (measure.tuplets || []).find(t => t.id === rest.tupletId)
-            if (tupletData) {
-              if (!tupletStaveNoteMap.has(rest.tupletId)) {
-                tupletStaveNoteMap.set(rest.tupletId, { staveNotes: [], tuplet: tupletData })
-              }
-              tupletStaveNoteMap.get(rest.tupletId)!.staveNotes.push(staveNotes[staveNoteIdx])
+      // Build the mapping from tupletId to StaveNotes (one slot → one StaveNote)
+      for (let idx = 0; idx < sortedSlots.length && idx < staveNotes.length; idx++) {
+        const slot = sortedSlots[idx]
+        if (slot.tupletId) {
+          const tupletData = (measure.tuplets || []).find(t => t.id === slot.tupletId)
+          if (tupletData) {
+            if (!tupletStaveNoteMap.has(slot.tupletId)) {
+              tupletStaveNoteMap.set(slot.tupletId, { staveNotes: [], tuplet: tupletData })
             }
+            tupletStaveNoteMap.get(slot.tupletId)!.staveNotes.push(staveNotes[idx])
           }
-          staveNoteIdx++
-        }
-
-        // Process regular notes
-        if (regularNotes.length > 0 && staveNoteIdx < staveNotes.length) {
-          const firstNote = regularNotes[0]
-          if (firstNote.tupletId) {
-            const tupletData = (measure.tuplets || []).find(t => t.id === firstNote.tupletId)
-            if (tupletData) {
-              if (!tupletStaveNoteMap.has(firstNote.tupletId)) {
-                tupletStaveNoteMap.set(firstNote.tupletId, { staveNotes: [], tuplet: tupletData })
-              }
-              tupletStaveNoteMap.get(firstNote.tupletId)!.staveNotes.push(staveNotes[staveNoteIdx])
-            }
-          }
-          staveNoteIdx++
         }
       }
 
@@ -1057,7 +856,7 @@ export class VexFlowRenderer {
         // Create beams BEFORE drawing (so VexFlow hides the flags)
         const beamGroups = this.createBeamGroups(
           staveNotes,
-          noteGroups,
+          sortedSlots,
           measure.timeSignature.numerator
         )
 
@@ -1066,8 +865,7 @@ export class VexFlowRenderer {
           try {
             // Calculate unified stem direction for the entire beam group
             // This ensures all notes in the beam have consistent stems
-            const allNotesInBeam = beamGroup.musicNotes.flat()
-            const beamStemDirection = this.calculateBeamGroupStemDirection(allNotesInBeam, clef)
+            const beamStemDirection = this.calculateBeamGroupStemDirection(beamGroup.slots, clef)
 
             // Apply the unified stem direction to all notes in the beam group
             for (const staveNote of beamGroup.staveNotes) {
@@ -1225,66 +1023,55 @@ export class VexFlowRenderer {
 
         // === Register elements after drawing ===
 
-        // Register notes and rests
-        // We need to track staveNote index separately since rests and chords create separate staveNotes
-        let staveNoteIndex = 0
-        for (const noteGroup of noteGroups) {
-          // Separate rests from regular notes (same logic as createStaveNotesFromGroups)
-          const rests = noteGroup.filter(n => n.isRest)
-          const regularNotes = noteGroup.filter(n => !n.isRest)
+        // Register notes and rests — one staveNote per slot (positional correspondence)
+        for (let si = 0; si < sortedSlots.length && si < staveNotes.length; si++) {
+          const slot = sortedSlots[si]
+          const staveNote = staveNotes[si]
 
-          // Register rests (each rest is a separate staveNote)
-          for (const rest of rests) {
-            if (staveNoteIndex < staveNotes.length) {
-              const staveNote = staveNotes[staveNoteIndex]
-              try {
-                const box = staveNote.getBoundingBox()
-                if (box) {
-                  this.elementRegistry.add({
-                    type: 'rest',
-                    id: rest.id,
-                    measure: measure.number,
-                    beat: fracToNumber(rest.beat),
-                    duration: rest.duration,
-                    tupletId: rest.tupletId,
-                    bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
-                  })
-                }
-              } catch (e) {
-                // getBoundingBox may fail
-              }
-              staveNoteIndex++
-            }
-          }
-
-          // Register regular notes (chord is one staveNote with multiple pitches)
-          if (regularNotes.length > 0 && staveNoteIndex < staveNotes.length) {
-            const staveNote = staveNotes[staveNoteIndex]
+          if (slot.type === 'rest') {
             try {
               const box = staveNote.getBoundingBox()
               if (box) {
-                // Sort notes by pitch to match VexFlow's internal ordering
-                const sortedNotes = [...regularNotes].sort((a, b) => a.pitch - b.pitch)
+                this.elementRegistry.add({
+                  type: 'rest',
+                  id: slot.id,
+                  measure: measure.number,
+                  beat: fracToNumber(slot.beat),
+                  duration: slot.duration,
+                  tupletId: slot.tupletId,
+                  bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+                })
+              }
+            } catch (e) {
+              // getBoundingBox may fail
+            }
+          } else {
+            // Chord — one staveNote with multiple pitches
+            try {
+              const box = staveNote.getBoundingBox()
+              if (box) {
+                // Sort pitches low→high to match VexFlow's internal key ordering
+                const sortedPitches = [...slot.notes].sort((a, b) => a.pitch - b.pitch)
 
-                for (let keyIndex = 0; keyIndex < sortedNotes.length; keyIndex++) {
-                  const note = sortedNotes[keyIndex]
+                for (let keyIndex = 0; keyIndex < sortedPitches.length; keyIndex++) {
+                  const pitch = sortedPitches[keyIndex]
                   this.elementRegistry.add({
                     type: 'note',
-                    id: note.id,
+                    id: pitch.id,
                     measure: measure.number,
-                    beat: fracToNumber(note.beat),
-                    pitch: note.pitch,
-                    duration: note.duration,
-                    tupletId: note.tupletId,
+                    beat: fracToNumber(slot.beat),
+                    pitch: pitch.pitch,
+                    duration: slot.duration,
+                    tupletId: slot.tupletId,
                     bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
                   })
 
                   // Store StaveNote reference for tie rendering
                   // keyIndex matches VexFlow's sorted pitch order
-                  this.staveNoteMap.set(note.id, { staveNote, noteIndex: keyIndex })
+                  this.staveNoteMap.set(pitch.id, { staveNote, noteIndex: keyIndex })
 
                   // Register articulations if present (only on the lowest-pitch note, index 0)
-                  if (keyIndex === 0 && note.articulations?.length) {
+                  if (keyIndex === 0 && pitch.articulations?.length) {
                     try {
                       const modifiers = staveNote.getModifiers()
                       let articulationIndex = 0
@@ -1294,10 +1081,10 @@ export class VexFlowRenderer {
                           if (artBox) {
                             this.elementRegistry.add({
                               type: 'articulation',
-                              noteId: note.id,
-                              articulationType: note.articulations[articulationIndex],
+                              noteId: pitch.id,
+                              articulationType: pitch.articulations[articulationIndex],
                               measure: measure.number,
-                              beat: fracToNumber(note.beat),
+                              beat: fracToNumber(slot.beat),
                               bbox: { x: artBox.x, y: artBox.y, width: artBox.w, height: artBox.h },
                             })
                           }
@@ -1310,14 +1097,12 @@ export class VexFlowRenderer {
                   }
 
                   // Register accidental if present
-                  if (note.accidental) {
+                  if (pitch.accidental) {
                     try {
-                      // Get modifiers and find the accidental for this note index
                       const modifiers = staveNote.getModifiers()
                       for (const modifier of modifiers) {
                         if (modifier.getCategory() === 'Accidental') {
                           const accidental = modifier as Accidental
-                          // Check if this accidental is for this key index
                           if ((accidental as any).index === keyIndex ||
                               (accidental as any).note_index === keyIndex ||
                               modifiers.filter(m => m.getCategory() === 'Accidental').indexOf(modifier) === keyIndex) {
@@ -1325,11 +1110,11 @@ export class VexFlowRenderer {
                             if (accBox) {
                               this.elementRegistry.add({
                                 type: 'accidental',
-                                noteId: note.id,
+                                noteId: pitch.id,
                                 measure: measure.number,
-                                beat: fracToNumber(note.beat),
-                                pitch: note.pitch,
-                                accidentalType: note.accidental,
+                                beat: fracToNumber(slot.beat),
+                                pitch: pitch.pitch,
+                                accidentalType: pitch.accidental,
                                 bbox: { x: accBox.x, y: accBox.y, width: accBox.w, height: accBox.h },
                               })
                             }
@@ -1346,7 +1131,6 @@ export class VexFlowRenderer {
             } catch (e) {
               // getBoundingBox may fail
             }
-            staveNoteIndex++
           }
         }
 
@@ -1582,9 +1366,22 @@ export class VexFlowRenderer {
       const vexNote = this.midiToVexFlowNote(ghostNote.pitch)
       const vexDuration = this.convertDuration(ghostNote.duration as any, ghostNote.dots || 0)
 
-      const notesAtSameBeat = this.slotsToFlatNotes(measure.slots).filter(
-        n => !n.isRest && Math.abs(fracToNumber(n.beat) - ghostNote.beat) < 0.001
-      )
+      // Collect pitches at the same beat position for chord stem-direction calculation
+      const notesAtSameBeat: MusicNote[] = []
+      for (const slot of measure.slots) {
+        if (slot.type === 'chord' && Math.abs(fracToNumber(slot.beat) - ghostNote.beat) < 0.001) {
+          for (const p of slot.notes) {
+            notesAtSameBeat.push({
+              id: p.id,
+              pitch: p.pitch,
+              duration: slot.duration,
+              measure: slot.measure,
+              beat: slot.beat,
+              accidental: p.accidental,
+            })
+          }
+        }
+      }
 
       const ghostMusicNote: MusicNote = {
         id: 'ghost',
@@ -1728,41 +1525,36 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Determine tie direction for a note in a chord
-   * Returns: -1 for UP (top note), 1 for DOWN (bottom note), or undefined for single notes
+   * Determine tie direction for a pitch within a chord.
+   * Returns: -1 for UP (top note), 1 for DOWN (bottom note).
+   * @param pitch - MIDI pitch of the note being tied
+   * @param beat - Beat position of the chord containing this pitch
+   * @param measure - The measure to look up chord info in
    */
-  private getTieDirection(note: MusicNote, measure: Measure): number | undefined {
-    // Find all non-rest notes at the same beat in this measure
-    const notesAtBeat = this.slotsToFlatNotes(measure.slots).filter(
-      n => !n.isRest && fracEq(n.beat, note.beat)
-    )
+  private getTieDirection(pitch: number, beat: Fraction, measure: Measure): number | undefined {
+    // Find the chord slot at this beat
+    const chordAtBeat = measure.slots.find(
+      s => s.type === 'chord' && fracEq(s.beat, beat)
+    ) as Chord | undefined
 
-    if (notesAtBeat.length <= 1) {
-      // Single note - tie direction is opposite of stem direction
-      // Stem up (pitch < middle) → tie down (1)
-      // Stem down (pitch >= middle) → tie up (-1)
-      const clef = 'treble' // TODO: get from score if needed
-      const middlePitch = clef === 'treble' ? 71 : 50 // B4 for treble
-      return note.pitch >= middlePitch ? -1 : 1
+    if (!chordAtBeat || chordAtBeat.notes.length <= 1) {
+      // Single note — tie direction is opposite of stem direction
+      const middlePitch = 71 // B4 for treble
+      return pitch >= middlePitch ? -1 : 1
     }
 
     // Sort by pitch to find position in chord
-    const sortedPitches = notesAtBeat.map(n => n.pitch).sort((a, b) => a - b)
+    const sortedPitches = chordAtBeat.notes.map(n => n.pitch).sort((a, b) => a - b)
     const lowestPitch = sortedPitches[0]
     const highestPitch = sortedPitches[sortedPitches.length - 1]
 
-    if (note.pitch === highestPitch) {
-      // Top note of chord: tie curves UP
-      return -1
-    } else if (note.pitch === lowestPitch) {
-      // Bottom note of chord: tie curves DOWN
-      return 1
-    } else {
-      // Middle note: follow the nearest outer voice
-      const distToTop = highestPitch - note.pitch
-      const distToBottom = note.pitch - lowestPitch
-      return distToTop <= distToBottom ? -1 : 1
-    }
+    if (pitch === highestPitch) return -1  // Top note: tie curves UP
+    if (pitch === lowestPitch) return 1    // Bottom note: tie curves DOWN
+
+    // Middle note: follow the nearest outer voice
+    const distToTop = highestPitch - pitch
+    const distToBottom = pitch - lowestPitch
+    return distToTop <= distToBottom ? -1 : 1
   }
 
   /**
@@ -1774,37 +1566,43 @@ export class VexFlowRenderer {
     // Track which ties we've already processed to avoid duplicates
     const processedTies = new Set<string>()
 
-    // Find all notes with ties
+    // Find all notes with ties by iterating chord slots directly
     for (const measure of score.measures) {
-      for (const note of this.slotsToFlatNotes(measure.slots)) {
-        if (note.tiedTo && !note.isRest) {
-          // Create a unique key for this tie relationship
-          const tieKey = `${note.id}->${note.tiedTo}`
-          if (processedTies.has(tieKey)) {
-            continue
-          }
+      for (const slot of measure.slots) {
+        if (slot.type !== 'chord') continue
+        for (const pitch of slot.notes) {
+          if (!pitch.tiedTo) continue
+
+          const tieKey = `${pitch.id}->${pitch.tiedTo}`
+          if (processedTies.has(tieKey)) continue
           processedTies.add(tieKey)
 
-          // This note ties forward to another note
-          const fromInfo = this.staveNoteMap.get(note.id)
-          const toInfo = this.staveNoteMap.get(note.tiedTo)
+          const fromInfo = this.staveNoteMap.get(pitch.id)
+          const toInfo = this.staveNoteMap.get(pitch.tiedTo)
 
           if (fromInfo?.staveNote && toInfo?.staveNote) {
             try {
-              // Get measure numbers
-              const fromMeasure = note.measure
-              const toNote = score.measures.flatMap(m => this.slotsToFlatNotes(m.slots)).find(n => n.id === note.tiedTo)
-              const toMeasure = toNote?.measure
+              const fromMeasure = slot.measure
+              // Find the measure containing the target pitch
+              let toMeasure: number | undefined
+              outer: for (const m of score.measures) {
+                for (const s of m.slots) {
+                  if (s.type === 'chord' && s.notes.some(p => p.id === pitch.tiedTo)) {
+                    toMeasure = m.number
+                    break outer
+                  }
+                }
+              }
 
-              // Get line numbers for both measures
               const fromLayout = this.measureLayoutInfo.get(fromMeasure)
               const toLayout = toMeasure ? this.measureLayoutInfo.get(toMeasure) : undefined
               const fromLine = fromLayout?.lineNumber ?? 0
               const toLine = toLayout?.lineNumber ?? 0
               const sameLine = fromLine === toLine
 
-              // Determine tie direction based on chord position
-              const tieDirection = this.getTieDirection(note, measure)
+              const tieDirection = this.getTieDirection(pitch.pitch, slot.beat, measure)
+              // note alias for registry callbacks below
+              const note = { id: pitch.id, tiedTo: pitch.tiedTo, measure: fromMeasure }
 
               if (sameLine) {
                 // Same line: single continuous tie
@@ -1913,13 +1711,28 @@ export class VexFlowRenderer {
     const info = this.staveNoteMap.get(noteId)
     if (!info) return
 
-    // Find the note and its measure to compute tie direction
-    const note = score.measures.flatMap(m => this.slotsToFlatNotes(m.slots)).find(n => n.id === noteId)
-    if (!note || note.isRest) return
-    const measure = score.measures.find(m => m.number === note.measure)
-    if (!measure) return
+    // Find the pitch and its containing chord/measure
+    let foundPitch: number | undefined
+    let foundBeat: Fraction | undefined
+    let foundMeasure: Measure | undefined
 
-    const tieDirection = this.getTieDirection(note, measure)
+    outer: for (const measure of score.measures) {
+      for (const slot of measure.slots) {
+        if (slot.type === 'chord') {
+          const p = slot.notes.find(n => n.id === noteId)
+          if (p) {
+            foundPitch = p.pitch
+            foundBeat = slot.beat
+            foundMeasure = measure
+            break outer
+          }
+        }
+      }
+    }
+
+    if (foundPitch === undefined || !foundBeat || !foundMeasure) return
+
+    const tieDirection = this.getTieDirection(foundPitch, foundBeat, foundMeasure)
     const pendingTie = new StaveTie({
       firstNote: info.staveNote,
       firstIndexes: [info.noteIndex],
