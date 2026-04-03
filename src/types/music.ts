@@ -156,7 +156,6 @@ export interface NotePitch {
   forceAccidental?: boolean
   tiedTo?: string      // ID of another NotePitch in another Chord
   tiedFrom?: string
-  articulations?: ArticulationType[]
 }
 
 /** A rhythmic slot containing one or more pitches */
@@ -171,6 +170,7 @@ export interface Chord {
   stemDirection?: StemDirection
   tupletId?: string
   actualDuration?: Fraction
+  articulations?: ArticulationType[]
   notes: NotePitch[]
 }
 
@@ -240,7 +240,8 @@ export interface Score {
   /**
    * Schema version for JSON migration.
    * Absent or 1 = legacy (NotePitch stored pitch+accidental as MIDI+string).
-   * 2 = current (NotePitch stored as step+alter+octave).
+   * 2 = enharmonic (NotePitch stored as step+alter+octave).
+   * 3 = current (articulations moved from NotePitch to Chord level).
    */
   schemaVersion?: number
 }

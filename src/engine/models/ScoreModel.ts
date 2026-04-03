@@ -50,7 +50,7 @@ export class ScoreModel {
       keySignature: { key: 'C', accidentals: 0 },
       defaultTimeSignature: { numerator: 4, denominator: 4 },
       measures: [],
-      schemaVersion: 2,
+      schemaVersion: 3,
     }
     // Initialize with one empty measure
     this.addMeasure()
@@ -220,7 +220,7 @@ export class ScoreModel {
       dots: chord.dots,
       tupletId: chord.tupletId,
       actualDuration: chord.actualDuration,
-      articulations: pitch.articulations,
+      articulations: chord.articulations,
     }
   }
 
@@ -289,8 +289,8 @@ export class ScoreModel {
         forceAccidental: params.forceAccidental,
         tiedTo: params.tiedTo,
         tiedFrom: params.tiedFrom,
-        articulations: params.articulations,
       }
+      if (params.articulations !== undefined) existingChord.articulations = params.articulations
       existingChord.notes.push(notePitch)
       // Sync duration/dots if new note differs (and neither is a tuplet note)
       if (!existingChord.tupletId && !params.tupletId) {
@@ -317,7 +317,6 @@ export class ScoreModel {
       forceAccidental: params.forceAccidental,
       tiedTo: params.tiedTo,
       tiedFrom: params.tiedFrom,
-      articulations: params.articulations,
     }
 
     const chord: Chord = {
@@ -329,6 +328,7 @@ export class ScoreModel {
       measure: params.measure,
       tupletId: params.tupletId,
       actualDuration: params.actualDuration,
+      articulations: params.articulations,
       notes: [notePitch],
     }
     chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
@@ -618,7 +618,6 @@ export class ScoreModel {
           alter: (updates.alter ?? 0) as PitchAlter,
           octave: updates.octave!,
           forceAccidental: updates.forceAccidental,
-          articulations: updates.articulations,
         }
         const chord: Chord = {
           id: uuidv4(),
@@ -629,6 +628,7 @@ export class ScoreModel {
           measure: rest.measure,
           tupletId: updates.tupletId ?? rest.tupletId,
           actualDuration: rest.actualDuration,
+          articulations: updates.articulations,
           notes: [notePitch],
         }
         chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
@@ -686,7 +686,7 @@ export class ScoreModel {
     if ('forceAccidental' in updates) pitch.forceAccidental = updates.forceAccidental
     if (updates.tiedTo !== undefined) pitch.tiedTo = updates.tiedTo
     if (updates.tiedFrom !== undefined) pitch.tiedFrom = updates.tiedFrom
-    if (updates.articulations !== undefined) pitch.articulations = updates.articulations
+    if (updates.articulations !== undefined) chord.articulations = updates.articulations
 
     // Handle explicit undefined for tie fields
     if ('tiedTo' in updates && updates.tiedTo === undefined) pitch.tiedTo = undefined
@@ -988,7 +988,7 @@ export class ScoreModel {
                 forceAccidental: p.forceAccidental,
                 tiedTo: p.tiedTo,
                 tiedFrom: p.tiedFrom,
-                articulations: p.articulations,
+                articulations: p.articulations,  // still on pitch at this stage; v2→v3 hoists it
               }
             })
           }
@@ -996,8 +996,32 @@ export class ScoreModel {
       }
     }
 
-    // Stamp the loaded score as v2 so it exports in the new format
-    model.score.schemaVersion = 2
+    // Migrate v2 → v3: articulations move from NotePitch to Chord level.
+    if ((scoreData.schemaVersion ?? 1) < 3) {
+      for (const measure of model.score.measures) {
+        for (const slot of measure.slots ?? []) {
+          if (slot.type === 'chord' && !slot.articulations) {
+            // Hoist articulations from first pitch that has them (legacy: only notes[0] was ever written)
+            for (const pitch of slot.notes) {
+              const arts = (pitch as any).articulations
+              if (arts?.length) {
+                slot.articulations = arts
+                break
+              }
+            }
+          }
+          // Strip articulations off all pitches
+          if (slot.type === 'chord') {
+            for (const pitch of slot.notes) {
+              delete (pitch as any).articulations
+            }
+          }
+        }
+      }
+    }
+
+    // Stamp the loaded score as v3 so it exports in the new format
+    model.score.schemaVersion = 3
 
     return model
   }
@@ -1050,6 +1074,8 @@ export class ScoreModel {
         tupletId: firstNote.tupletId,
         actualDuration: firstNote.actualDuration,
         stemDirection: firstNote.stemDirection,
+        // Hoist articulations from first note that has them (chord-level in v3+)
+        articulations: group.find((n: any) => n.articulations?.length)?.articulations,
         notes: group.map((n: any) => {
           // Support both v1 (MIDI pitch + accidental string) and v2 (step+alter+octave)
           const spelling = (n.step !== undefined)
@@ -1063,7 +1089,6 @@ export class ScoreModel {
             forceAccidental: n.forceAccidental,
             tiedTo: n.tiedTo,
             tiedFrom: n.tiedFrom,
-            articulations: n.articulations,
           }
         }),
       }

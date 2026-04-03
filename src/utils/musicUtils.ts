@@ -461,7 +461,7 @@ export function getMeasureNotes(measure: Measure): Note[] {
           dots: slot.dots,
           tupletId: slot.tupletId,
           actualDuration: slot.actualDuration,
-          articulations: pitch.articulations,
+          articulations: slot.articulations,
         })
       }
     }

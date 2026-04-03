@@ -257,10 +257,10 @@ export class VexFlowRenderer {
         Dot.buildAndAttach([staveNote], { all: true })
       }
 
-      // Articulations from first (unsorted) pitch — articulations are per-chord
+      // Articulations are per-chord (stored on slot, not per pitch)
       const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
       const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
-      for (const art of slot.notes[0]?.articulations || []) {
+      for (const art of slot.articulations || []) {
         staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
       }
 
@@ -977,8 +977,8 @@ export class VexFlowRenderer {
               // keyIndex matches VexFlow's sorted pitch order
               this.staveNoteMap.set(pitch.id, { staveNote, noteIndex: keyIndex })
 
-              // Articulations: only on the lowest-pitch note (index 0)
-              if (keyIndex === 0 && pitch.articulations?.length) {
+              // Articulations: register on the lowest-pitch note (index 0); data lives on chord
+              if (keyIndex === 0 && slot.articulations?.length) {
                 try {
                   const modifiers = staveNote.getModifiers()
                   let articulationIndex = 0
@@ -989,7 +989,7 @@ export class VexFlowRenderer {
                         this.elementRegistry.add({
                           type: 'articulation',
                           noteId: pitch.id,
-                          articulationType: pitch.articulations[articulationIndex],
+                          articulationType: slot.articulations[articulationIndex],
                           measure: measure.number,
                           beat: fracToNumber(slot.beat),
                           bbox: { x: artBox.x, y: artBox.y, width: artBox.w, height: artBox.h },

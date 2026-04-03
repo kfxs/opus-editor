@@ -216,8 +216,8 @@ describe('ScoreModel', () => {
 
       expect(json).toContain('"title": "Test Score"')
       expect(json).toContain('"tempo": 120')
-      // v2 schema stores pitch as step+alter+octave, not as a raw MIDI integer
-      expect(parsed.schemaVersion).toBe(2)
+      // v3 schema stores pitch as step+alter+octave and articulations on Chord (not NotePitch)
+      expect(parsed.schemaVersion).toBe(3)
       const chord = parsed.measures[0].slots.find((s: any) => s.type === 'chord')
       expect(chord).toBeDefined()
       expect(chord.notes[0].step).toBe('C')
