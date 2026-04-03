@@ -5,6 +5,14 @@ import { ElementRegistry, type TupletGeometry } from '@/engine/ElementRegistry'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
 
 /**
+ * Articulation render order — from note outward (first = closest to note head).
+ * Staccato always hugs the note, tenuto sits next, accent is outermost.
+ * This applies whether the group is above or below the staff.
+ * To change the order in the future, edit this array.
+ */
+const ARTICULATION_RENDER_ORDER: ArticulationType[] = ['staccato', 'tenuto', 'accent']
+
+/**
  * Clef configuration for stem direction calculation.
  * middleLineDiatonicPos: spellingDiatonicPos() of the middle (3rd) staff line.
  *   treble B4  = diatonic 34  (4×7+6)
@@ -257,10 +265,14 @@ export class VexFlowRenderer {
         Dot.buildAndAttach([staveNote], { all: true })
       }
 
-      // Articulations are per-chord (stored on slot, not per pitch)
+      // Articulations are per-chord (stored on slot, not per pitch).
+      // Sorted by ARTICULATION_RENDER_ORDER so the first added sits closest to the note head.
       const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
       const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
-      for (const art of slot.articulations || []) {
+      const sortedArticulations = (slot.articulations ?? []).slice().sort(
+        (a, b) => ARTICULATION_RENDER_ORDER.indexOf(a) - ARTICULATION_RENDER_ORDER.indexOf(b)
+      )
+      for (const art of sortedArticulations) {
         staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
       }
 
@@ -1302,7 +1314,10 @@ export class VexFlowRenderer {
       if (ghostNote.articulations?.length) {
         const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
         const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
-        for (const art of ghostNote.articulations) {
+        const sortedGhostArticulations = ghostNote.articulations.slice().sort(
+          (a, b) => ARTICULATION_RENDER_ORDER.indexOf(a) - ARTICULATION_RENDER_ORDER.indexOf(b)
+        )
+        for (const art of sortedGhostArticulations) {
           staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
         }
       }
