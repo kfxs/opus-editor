@@ -1,5 +1,4 @@
 import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter } from '@/types/music'
-import { midiToSpelling } from '@/utils/pitchSpelling'
 import {
   getTupletBeatPositionsFrac,
   isBeatInTupletFrac,
@@ -50,7 +49,7 @@ export class ScoreModel {
       keySignature: { key: 'C', accidentals: 0 },
       defaultTimeSignature: { numerator: 4, denominator: 4 },
       measures: [],
-      schemaVersion: 3,
+      schemaVersion: 1,
     }
     // Initialize with one empty measure
     this.addMeasure()
@@ -943,160 +942,13 @@ export class ScoreModel {
     const model = new ScoreModel()
     model.score = scoreData
 
-    // Migrate legacy scores: if measures have 'notes' but no 'slots', convert.
+    // Recompute actualDuration for all slots (not stored reliably across versions)
     for (const measure of model.score.measures) {
-      // Migrate legacy notes array to slots
-      if ((measure as any).notes && !(measure as any).slots) {
-        ;(measure as any).slots = ScoreModel.migrateNotesToSlots((measure as any).notes)
-        delete (measure as any).notes
-      }
-
-      // Migrate legacy tuplet startBeat from number to Fraction
-      for (const tuplet of measure.tuplets ?? []) {
-        if (typeof (tuplet.startBeat as unknown) === 'number') {
-          tuplet.startBeat = beatToFrac(tuplet.startBeat as unknown as number)
-        }
-      }
-
-      // Migrate slot beats from number to Fraction and recompute actualDuration
       for (const slot of measure.slots ?? []) {
-        if (typeof (slot.beat as unknown) === 'number') {
-          slot.beat = beatToFrac(slot.beat as unknown as number)
-        }
-        if (slot.type === 'chord') {
-          slot.actualDuration = model.computeActualDurationForSlot(slot, measure)
-        } else {
-          slot.actualDuration = model.computeActualDurationForSlot(slot, measure)
-        }
+        slot.actualDuration = model.computeActualDurationForSlot(slot, measure)
       }
     }
-
-    // Migrate v1 NotePitch (pitch+accidental) → v2 (step+alter+octave).
-    // Applies to scores already in slots format that were saved before schemaVersion 2.
-    if ((scoreData.schemaVersion ?? 1) < 2) {
-      for (const measure of model.score.measures) {
-        for (const slot of measure.slots ?? []) {
-          if (slot.type === 'chord') {
-            slot.notes = (slot.notes as any[]).map((p: any) => {
-              if (p.step !== undefined) return p  // already v2
-              const { step, alter, octave } = midiToSpelling(p.pitch ?? 60, p.accidental)
-              return {
-                id: p.id,
-                step,
-                alter,
-                octave,
-                forceAccidental: p.forceAccidental,
-                tiedTo: p.tiedTo,
-                tiedFrom: p.tiedFrom,
-                articulations: p.articulations,  // still on pitch at this stage; v2→v3 hoists it
-              }
-            })
-          }
-        }
-      }
-    }
-
-    // Migrate v2 → v3: articulations move from NotePitch to Chord level.
-    if ((scoreData.schemaVersion ?? 1) < 3) {
-      for (const measure of model.score.measures) {
-        for (const slot of measure.slots ?? []) {
-          if (slot.type === 'chord' && !slot.articulations) {
-            // Hoist articulations from first pitch that has them (legacy: only notes[0] was ever written)
-            for (const pitch of slot.notes) {
-              const arts = (pitch as any).articulations
-              if (arts?.length) {
-                slot.articulations = arts
-                break
-              }
-            }
-          }
-          // Strip articulations off all pitches
-          if (slot.type === 'chord') {
-            for (const pitch of slot.notes) {
-              delete (pitch as any).articulations
-            }
-          }
-        }
-      }
-    }
-
-    // Stamp the loaded score as v3 so it exports in the new format
-    model.score.schemaVersion = 3
 
     return model
-  }
-
-  /**
-   * Migrate old flat Note[] to ChordRest[].
-   * Groups same-beat real notes into Chords, converts rest notes to Rest slots.
-   */
-  private static migrateNotesToSlots(notes: any[]): ChordRest[] {
-    const slots: ChordRest[] = []
-
-    // Separate rests and real notes
-    const restNotes = notes.filter((n: any) => n.isRest)
-    const realNotes = notes.filter((n: any) => !n.isRest)
-
-    // Convert rests
-    for (const n of restNotes) {
-      const rest: Rest = {
-        id: n.id,
-        type: 'rest',
-        beat: typeof n.beat === 'number' ? beatToFrac(n.beat) : n.beat,
-        duration: n.duration,
-        dots: n.dots,
-        measure: n.measure,
-        tupletId: n.tupletId,
-        actualDuration: n.actualDuration,
-      }
-      slots.push(rest)
-    }
-
-    // Group real notes by beat
-    const beatGroups = new Map<string, any[]>()
-    for (const n of realNotes) {
-      const beatFrac = typeof n.beat === 'number' ? beatToFrac(n.beat) : n.beat
-      const key = `${beatFrac.num}/${beatFrac.den}`
-      if (!beatGroups.has(key)) beatGroups.set(key, [])
-      beatGroups.get(key)!.push({ ...n, beat: beatFrac })
-    }
-
-    // Create Chord per group
-    for (const group of beatGroups.values()) {
-      const firstNote = group[0]
-      const chord: Chord = {
-        id: uuidv4(),
-        type: 'chord',
-        beat: firstNote.beat,
-        duration: firstNote.duration,
-        dots: firstNote.dots,
-        measure: firstNote.measure,
-        tupletId: firstNote.tupletId,
-        actualDuration: firstNote.actualDuration,
-        stemDirection: firstNote.stemDirection,
-        // Hoist articulations from first note that has them (chord-level in v3+)
-        articulations: group.find((n: any) => n.articulations?.length)?.articulations,
-        notes: group.map((n: any) => {
-          // Support both v1 (MIDI pitch + accidental string) and v2 (step+alter+octave)
-          const spelling = (n.step !== undefined)
-            ? { step: n.step, alter: n.alter ?? 0, octave: n.octave }
-            : midiToSpelling(n.pitch ?? 60, n.accidental)
-          return {
-            id: n.id,
-            step: spelling.step,
-            alter: spelling.alter,
-            octave: spelling.octave,
-            forceAccidental: n.forceAccidental,
-            tiedTo: n.tiedTo,
-            tiedFrom: n.tiedFrom,
-          }
-        }),
-      }
-      slots.push(chord)
-    }
-
-    // Sort by beat
-    slots.sort((a, b) => fracCompare(a.beat, b.beat))
-    return slots
   }
 }

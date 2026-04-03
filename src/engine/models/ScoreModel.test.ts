@@ -216,8 +216,7 @@ describe('ScoreModel', () => {
 
       expect(json).toContain('"title": "Test Score"')
       expect(json).toContain('"tempo": 120')
-      // v3 schema stores pitch as step+alter+octave and articulations on Chord (not NotePitch)
-      expect(parsed.schemaVersion).toBe(3)
+      expect(parsed.schemaVersion).toBe(1)
       const chord = parsed.measures[0].slots.find((s: any) => s.type === 'chord')
       expect(chord).toBeDefined()
       expect(chord.notes[0].step).toBe('C')

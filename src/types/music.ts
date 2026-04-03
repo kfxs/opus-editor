@@ -237,12 +237,7 @@ export interface Score {
   defaultTimeSignature: TimeSignature
   /** Clef for the score (default: 'treble') */
   clef?: Clef
-  /**
-   * Schema version for JSON migration.
-   * Absent or 1 = legacy (NotePitch stored pitch+accidental as MIDI+string).
-   * 2 = enharmonic (NotePitch stored as step+alter+octave).
-   * 3 = current (articulations moved from NotePitch to Chord level).
-   */
+  /** Schema version for JSON forward-compatibility. Current: 1. */
   schemaVersion?: number
 }
 
