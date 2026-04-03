@@ -17,10 +17,10 @@
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Tool:</span>
             <button
-              @click="selectedTool = 'entry'; selectedNoteId = null"
+              @click="state.selectedTool = 'entry'; state.selectedNoteId = null"
               :class="[
                 'px-3 py-1 rounded text-sm',
-                selectedTool === 'entry'
+                state.selectedTool === 'entry'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -29,10 +29,10 @@
               Entry
             </button>
             <button
-              @click="selectedTool = 'selection'"
+              @click="state.selectedTool = 'selection'"
               :class="[
                 'px-3 py-1 rounded text-sm',
-                selectedTool === 'selection'
+                state.selectedTool === 'selection'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -48,10 +48,10 @@
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Duration:</span>
             <button
-              @click="setDuration('w')"
+              @click="palette.setDuration('w')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                selectedDuration === 'w'
+                state.selectedDuration === 'w'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -60,10 +60,10 @@
               𝅝
             </button>
             <button
-              @click="setDuration('h')"
+              @click="palette.setDuration('h')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                selectedDuration === 'h'
+                state.selectedDuration === 'h'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -72,10 +72,10 @@
               𝅗𝅥
             </button>
             <button
-              @click="setDuration('q')"
+              @click="palette.setDuration('q')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                selectedDuration === 'q'
+                state.selectedDuration === 'q'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -84,10 +84,10 @@
               ♩
             </button>
             <button
-              @click="setDuration('8')"
+              @click="palette.setDuration('8')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                selectedDuration === '8'
+                state.selectedDuration === '8'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -96,10 +96,10 @@
               ♪
             </button>
             <button
-              @click="setDuration('16')"
+              @click="palette.setDuration('16')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                selectedDuration === '16'
+                state.selectedDuration === '16'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -108,10 +108,10 @@
               𝅘𝅥𝅯
             </button>
             <button
-              @click="setDuration('32')"
+              @click="palette.setDuration('32')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                selectedDuration === '32'
+                state.selectedDuration === '32'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -125,10 +125,10 @@
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Alteration:</span>
             <button
-              @click="setAccidental('#')"
+              @click="palette.setAccidental('#')"
               :class="[
                 'px-3 py-1 rounded text-lg font-bold',
-                selectedAccidental === '#'
+                state.selectedAccidental === '#'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -137,10 +137,10 @@
               ♯
             </button>
             <button
-              @click="setAccidental('b')"
+              @click="palette.setAccidental('b')"
               :class="[
                 'px-3 py-1 rounded text-lg font-bold',
-                selectedAccidental === 'b'
+                state.selectedAccidental === 'b'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -149,10 +149,10 @@
               ♭
             </button>
             <button
-              @click="setAccidental('n')"
+              @click="palette.setAccidental('n')"
               :class="[
                 'px-3 py-1 rounded text-lg font-bold',
-                selectedAccidental === 'n'
+                state.selectedAccidental === 'n'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -166,10 +166,10 @@
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Articulation:</span>
             <button
-              @click="toggleAccent"
+              @click="palette.toggleAccent()"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                selectedNoteHasAccent
+                palette.noteHasAccent()
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -178,10 +178,10 @@
               &gt;
             </button>
             <button
-              @click="toggleStaccato"
+              @click="palette.toggleStaccato()"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                selectedNoteHasStaccato
+                palette.noteHasStaccato()
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -190,10 +190,10 @@
               •
             </button>
             <button
-              @click="toggleTenuto"
+              @click="palette.toggleTenuto()"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                selectedNoteHasTenuto
+                palette.noteHasTenuto()
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -207,10 +207,10 @@
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Dot:</span>
             <button
-              @click="toggleDot"
+              @click="palette.toggleDot()"
               :class="[
                 'px-3 py-1 rounded text-lg font-bold',
-                selectedDots > 0
+                state.selectedDots > 0
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -224,10 +224,10 @@
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Tuplet:</span>
             <button
-              @click="toggleTuplet"
+              @click="palette.toggleTuplet()"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                tupletMode
+                state.tupletMode
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -241,10 +241,10 @@
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Tie:</span>
             <button
-              @click="toggleTie"
+              @click="palette.toggleTie()"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                selectedNoteHasTie
+                palette.noteHasTie()
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -259,12 +259,12 @@
             @click="togglePlayback"
             :class="[
               'px-4 py-2 rounded min-w-[80px]',
-              playbackState === 'playing'
+              state.playbackState === 'playing'
                 ? 'bg-orange-600 hover:bg-orange-700'
                 : 'bg-purple-600 hover:bg-purple-700',
             ]"
           >
-            {{ playbackState === 'playing' ? '⏹ Stop' : '▶ Play' }}
+            {{ state.playbackState === 'playing' ? '⏹ Stop' : '▶ Play' }}
           </button>
         </div>
 
@@ -272,11 +272,11 @@
         <div
           ref="scoreCanvas"
           class="score-container bg-white rounded-lg p-4 min-h-[300px] overflow-auto cursor-default"
-          @click="handleCanvasClick"
-          @mousedown="handleCanvasMouseDown"
-          @mousemove="handleCanvasMouseMove"
-          @mouseup="handleCanvasMouseUp"
-          @mouseleave="handleCanvasMouseLeave"
+          @click="(e) => mouse.handleClick(e)"
+          @mousedown="(e) => mouse.handleMouseDown(e)"
+          @mousemove="(e) => mouse.handleMouseMove(e)"
+          @mouseup="(e) => mouse.handleMouseUp(e)"
+          @mouseleave="mouse.handleMouseLeave()"
         ></div>
 
       </div>
@@ -290,236 +290,63 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, onUnmounted } from 'vue'
+import { ref, shallowRef, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { MusicEngine } from './engine/MusicEngine'
-import type { PlaybackPosition } from './engine/audio/PlaybackEngine'
-import { usePalette } from './composables/usePalette'
-import { useSelection } from './composables/useSelection'
-import { useKeyboardEntry } from './composables/useKeyboardEntry'
+import { createEditorState } from './interactions/EditorState'
 import { useHighlight } from './composables/useHighlight'
 import { useRenderer } from './composables/useRenderer'
+import { useSelection } from './composables/useSelection'
+import { usePalette } from './composables/usePalette'
+import { useKeyboardEntry } from './composables/useKeyboardEntry'
 import { useMouseInteraction } from './composables/useMouseInteraction'
 import { useShortcuts } from './composables/useShortcuts'
 
-// Create the music engine
+// --- Engine and canvas ---
 const engine = shallowRef<MusicEngine | null>(null)
 const scoreCanvas = ref<HTMLElement | null>(null)
 
-// Playback state
-const playbackState = ref<'stopped' | 'playing' | 'paused'>('stopped')
-const playbackPosition = ref<PlaybackPosition>({
-  measure: 1,
-  beat: 0,
-  progress: 0,
-  time: 0,
-})
+// --- All editor state in one reactive plain object ---
+const state = reactive(createEditorState())
 
-// Tool mode selection
-const selectedTool = ref<'entry' | 'selection'>('entry')
-const selectedNoteId = ref<string | null>(null)
+// --- Wire up controllers in dependency order ---
+// HighlightController has no deps on other controllers
+const highlight = useHighlight(state, engine, scoreCanvas)
 
-// Shared palette refs — declared here so both useSelection (writes) and usePalette (reads/actions) share the same instances
-const selectedDuration = ref<'w' | 'h' | 'q' | '8' | '16' | '32'>('q')
-const selectedAccidental = ref<'#' | 'b' | 'n' | null>(null)
-const selectedDots = ref<number>(0)
+// RenderController depends on HighlightController
+const renderer = useRenderer(state, engine, highlight)
 
-// Mutable render functions — assigned by useRenderer once it runs.
-// Early composables (useSelection, usePalette, useKeyboardEntry) receive closure wrappers
-// so they always call the real implementation at event time, not the initial no-op.
-let renderScore: () => void = () => {}
-let renderPreview: (coords: { x: number; y: number }) => void = () => {}
+// SelectionController depends on renderer (for renderScore callback)
+const selection = useSelection(state, engine, scoreCanvas, () => renderer.renderScore())
 
-// Stable wrapper for last mouse position — points to useMouseInteraction's getter once that composable runs.
-// Declared here so usePalette (called before useMouseInteraction) can reference it via closure.
-let _getLastMousePos: () => { x: number; y: number } | null = () => null
+// PaletteController needs selection.selectNote and mouse.getLastMousePosition.
+// Mouse is created below — the closure resolves lazily at call time.
+let mouse: ReturnType<typeof useMouseInteraction>
+const palette = usePalette(
+  state, engine,
+  () => renderer.renderScore(),
+  (c) => renderer.renderPreview(c),
+  () => mouse?.getLastMousePosition() ?? null,
+  selection,
+)
 
-// Selection state and navigation (runs first — owns selectedArticulationNoteId/Type)
-const {
-  selectedArticulationNoteId,
-  selectedArticulationType,
-  selectedAccidentalNoteId,
-  selectedAccidentalType,
-  selectedTupletId,
-  selectNote,
-  setSelectedNote,
-  navigateSelection,
-  navigateChord,
-  adjustPitch,
-  adjustOctave,
-  getContextPitch,
-} = useSelection({
-  selectedTool,
-  selectedNoteId,
-  engine,
-  scoreCanvas,
-  selectedDuration,
-  selectedAccidental,
-  selectedDots,
-  renderScore: () => renderScore(),
-})
+// KeyboardController depends on selection and palette
+const keyboard = useKeyboardEntry(state, engine, palette, () => renderer.renderScore(), selection)
 
-// Palette state and actions (duration, accidental, dot, articulations, tie, tuplet)
-const {
-  pendingTieFromNoteId,
-  tupletMode,
-  pendingArticulations,
-  setDuration,
-  setAccidental,
-  toggleAccent,
-  toggleStaccato,
-  toggleTenuto,
-  toggleTie,
-  toggleDot,
-  toggleTuplet,
-  resetPaletteToDefaults,
-  selectedNoteHasAccent,
-  selectedNoteHasStaccato,
-  selectedNoteHasTenuto,
-  selectedNoteHasTie,
-} = usePalette({
-  selectedTool,
-  selectedNoteId,
-  selectedArticulationNoteId,
-  selectedArticulationType,
-  selectedDuration,
-  selectedAccidental,
-  selectedDots,
-  engine,
-  renderScore: () => renderScore(),
-  renderPreview: (c) => renderPreview(c),
-  getLastMousePosition: () => _getLastMousePos(),
-  selectNote: (id) => selectNote(id),
-})
+// MouseController depends on selection, renderer, highlight, palette.
+// onMounted/onUnmounted are called internally by the composable.
+mouse = useMouseInteraction(state, engine, scoreCanvas, selection, renderer, palette)
 
-// Keyboard note/rest entry
-const {
-  enterNoteByLetter,
-  enterRestAtCursorPosition,
-  addChordNoteByLetter,
-} = useKeyboardEntry({
-  selectedTool,
-  selectedNoteId,
-  engine,
-  selectedDuration,
-  selectedAccidental,
-  selectedDots,
-  pendingArticulations,
-  tupletMode,
-  pendingTieFromNoteId,
-  setSelectedNote,
-  getContextPitch,
-  renderScore: () => renderScore(),
-})
+// ShortcutManager — wires keyboard shortcuts to controller actions
+const shortcuts = useShortcuts(
+  state, engine,
+  selection, palette, keyboard, renderer,
+  () => mouse.getLastMousePosition(),
+)
 
-// SVG highlight functions
-const {
-  applySelectionHighlight,
-  applyArticulationHighlight,
-  applyAccidentalHighlight,
-  applyTupletSelectionHighlight,
-  applyKeyboardCursor,
-} = useHighlight({
-  engine,
-  scoreCanvas,
-  selectedTool,
-  selectedNoteId,
-  selectedArticulationNoteId,
-  selectedArticulationType,
-  selectedAccidentalNoteId,
-  selectedAccidentalType,
-  selectedTupletId,
-})
-
-// Rendering orchestration — owns renderScore and renderPreview
-;({ renderScore, renderPreview } = useRenderer({
-  engine,
-  selectedDuration,
-  selectedAccidental,
-  selectedDots,
-  pendingArticulations,
-  pendingTieFromNoteId,
-  applySelectionHighlight,
-  applyArticulationHighlight,
-  applyAccidentalHighlight,
-  applyTupletSelectionHighlight,
-  applyKeyboardCursor,
-}))
-
-// Cursor visibility (hide when ghost note renders, show when it doesn't)
-const showCursor = ref(true)
-
-// Mouse interaction handlers
-const {
-  handleCanvasMouseDown,
-  handleCanvasMouseUp,
-  handleCanvasClick,
-  handleCanvasMouseMove,
-  handleCanvasMouseLeave,
-  getLastMousePosition,
-} = useMouseInteraction({
-  engine,
-  scoreCanvas,
-  selectedTool,
-  selectedNoteId,
-  selectedArticulationNoteId,
-  selectedArticulationType,
-  selectedAccidentalNoteId,
-  selectedAccidentalType,
-  selectedTupletId,
-  selectedDuration,
-  selectedAccidental,
-  selectedDots,
-  pendingArticulations,
-  tupletMode,
-  selectNote,
-  setSelectedNote,
-  renderScore,
-  applySelectionHighlight,
-  applyArticulationHighlight,
-  applyAccidentalHighlight,
-  applyTupletSelectionHighlight,
-  applyKeyboardCursor,
-  showCursor,
-})
-
-// Wire the stable wrappers to the real getters now that useMouseInteraction has run
-_getLastMousePos = getLastMousePosition
-
-// Computed properties
+// --- Computed ---
 const scoreJSON = computed(() => engine.value?.exportJSON() || '{}')
 
-// Keyboard shortcuts
-const shortcuts = useShortcuts({
-  engine,
-  selectedTool,
-  selectedNoteId,
-  selectedArticulationNoteId,
-  selectedArticulationType,
-  selectedAccidentalNoteId,
-  selectedAccidentalType,
-  selectedTupletId,
-  setDuration,
-  setAccidental,
-  toggleAccent,
-  toggleStaccato,
-  toggleTenuto,
-  toggleTie,
-  toggleDot,
-  toggleTuplet,
-  resetPaletteToDefaults,
-  selectNote,
-  navigateSelection,
-  navigateChord,
-  adjustPitch,
-  adjustOctave,
-  enterNoteByLetter,
-  enterRestAtCursorPosition,
-  addChordNoteByLetter,
-  renderScore,
-  getLastMousePosition,
-  renderPreview,
-})
-
+// --- Lifecycle ---
 onMounted(() => {
   if (scoreCanvas.value) {
     engine.value = new MusicEngine({
@@ -528,24 +355,15 @@ onMounted(() => {
       height: 400,
     })
 
-    // Setup playback callbacks
     engine.value.setPlaybackCallbacks({
-      onStateChange: state => {
-        playbackState.value = state
-      },
-      onPositionChange: position => {
-        playbackPosition.value = position
-      },
-      onPlaybackComplete: () => {
-        playbackState.value = 'stopped'
-      },
+      onStateChange: s => { state.playbackState = s },
+      onPositionChange: _pos => { /* future: update state.playbackPosition */ },
+      onPlaybackComplete: () => { state.playbackState = 'stopped' },
     })
 
     shortcuts.enable()
-
-    // Initialize with empty measures
     initializeEmptyScore()
-    renderScore()
+    renderer.renderScore()
   }
 })
 
@@ -556,14 +374,11 @@ onUnmounted(() => {
   }
 })
 
+// --- App-level actions ---
+
 function initializeEmptyScore() {
   if (!engine.value) return
-
-  // Clear any existing notes (refills with rests)
   engine.value.clearAllNotes()
-
-  // Add 7 more measures (1 already exists by default) for a total of 8
-  // Each new measure is automatically filled with rests
   for (let i = 0; i < 7; i++) {
     engine.value.addMeasure()
   }
@@ -572,14 +387,13 @@ function initializeEmptyScore() {
 function clearNotes() {
   if (!engine.value) return
   engine.value.clearAllNotes()
-  selectNote(null)
-  renderScore()
+  selection.selectNote(null)
+  renderer.renderScore()
 }
 
 async function togglePlayback() {
   if (!engine.value) return
-
-  if (playbackState.value === 'playing') {
+  if (state.playbackState === 'playing') {
     engine.value.stop()
   } else {
     try {
@@ -589,7 +403,6 @@ async function togglePlayback() {
     }
   }
 }
-
 </script>
 
 <style>
@@ -629,9 +442,7 @@ async function togglePlayback() {
 
 /* Score container with rounded corners that work with scrollbars */
 .score-container {
-  /* Ensure scrollbar doesn't break rounded corners */
   scrollbar-gutter: stable;
-  /* Prevent browser text selection from affecting the canvas */
   user-select: none;
   -webkit-user-select: none;
 }

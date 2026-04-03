@@ -1,0 +1,255 @@
+import type { ArticulationType, Accidental, NoteDuration, PitchAlter } from '../types/music'
+import type { MusicEngine } from '../engine/MusicEngine'
+import type { EditorState } from './EditorState'
+import { fracLt, fracCompare } from '../utils/fraction'
+import { getMeasureNotes } from '../utils/musicUtils'
+import { spellingDiatonicPos } from '../utils/pitchSpelling'
+
+/**
+ * Handles palette actions: duration, accidental, articulations, tie, dot, tuplet.
+ * Framework-agnostic: reads/writes EditorState directly, no Vue/React/Angular imports.
+ */
+export class PaletteController {
+  constructor(
+    private getEngine: () => MusicEngine | null,
+    private state: EditorState,
+    private renderScore: () => void,
+    private renderPreview: (coords: { x: number; y: number }) => void,
+    private getLastMousePosition: () => { x: number; y: number } | null,
+    private selectNote: (id: string | null) => void,
+  ) {}
+
+  /** Returns the articulations currently armed for the next note entry. */
+  getPendingArticulations(): ArticulationType[] | undefined {
+    const arts: ArticulationType[] = []
+    if (this.state.accent) arts.push('accent')
+    if (this.state.staccato) arts.push('staccato')
+    if (this.state.tenuto) arts.push('tenuto')
+    return arts.length ? arts : undefined
+  }
+
+  setDuration(duration: NoteDuration): void {
+    this.state.selectedDuration = duration
+    this.state.selectedDots = 0
+    this.state.tupletMode = false
+    const engine = this.getEngine()
+    if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
+      engine.updateNote(this.state.selectedNoteId, { duration, dots: 0 })
+      this.renderScore()
+    } else if (this.state.selectedTool === 'selection') {
+      this.state.selectedTool = 'entry'
+      const pos = this.getLastMousePosition()
+      if (pos) this.renderPreview(pos)
+    }
+  }
+
+  setAccidental(accidental: Accidental | null): void {
+    const newValue = this.state.selectedAccidental === accidental ? null : accidental
+    this.state.selectedAccidental = newValue
+    const engine = this.getEngine()
+
+    if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
+      const note = engine.getNote(this.state.selectedNoteId)
+      // Rests have no accidental — keep palette value armed for next note entry.
+      if (note?.isRest) return
+      if (newValue === null) {
+        if (note?.forceAccidental) {
+          engine.updateNote(this.state.selectedNoteId, { forceAccidental: undefined })
+        } else {
+          engine.updateNote(this.state.selectedNoteId, { alter: 0, forceAccidental: undefined })
+        }
+      } else if (newValue === 'n') {
+        const score = engine.getScore()
+        const measure = score.measures.find(m => m.number === note!.measure)
+        let wouldAutoShow = false
+        if (measure) {
+          const active = new Map<number, PitchAlter>()
+          const preceding = getMeasureNotes(measure)
+            .filter(n => !n.isRest && !n.tiedFrom && fracLt(n.beat, note!.beat))
+            .sort((a, b) => fracCompare(a.beat, b.beat))
+          for (const n of preceding) {
+            const dPos = spellingDiatonicPos(n.step!, n.octave!)
+            active.set(dPos, n.alter ?? 0)
+          }
+          const dPos = spellingDiatonicPos(note!.step!, note!.octave!)
+          const activeAlter = active.get(dPos)
+          wouldAutoShow = activeAlter !== undefined && activeAlter !== 0
+        }
+        engine.updateNote(this.state.selectedNoteId, {
+          alter: 0,
+          forceAccidental: wouldAutoShow ? undefined : true,
+        })
+      } else {
+        const newAlter: PitchAlter = newValue === '#' ? 1 : -1
+        const forceAccidental = note?.alter === newAlter ? true : undefined
+        engine.updateNote(this.state.selectedNoteId, { alter: newAlter, forceAccidental })
+      }
+      this.renderScore()
+      this.selectNote(this.state.selectedNoteId)
+    } else if (this.state.selectedTool === 'selection') {
+      this.state.selectedTool = 'entry'
+      const pos = this.getLastMousePosition()
+      if (pos) this.renderPreview(pos)
+    } else if (this.state.selectedTool === 'entry') {
+      const pos = this.getLastMousePosition()
+      if (pos) this.renderPreview(pos)
+    }
+  }
+
+  toggleAccent(): void {
+    const engine = this.getEngine()
+    if (this.state.selectedTool === 'selection' && this.state.selectedNoteId && engine) {
+      engine.toggleArticulation(this.state.selectedNoteId, 'accent')
+      engine.updateUndoNoteId(this.state.selectedNoteId)
+      this.renderScore()
+    } else {
+      this.state.accent = !this.state.accent
+      const pos = this.getLastMousePosition()
+      if (pos) this.renderPreview(pos)
+    }
+  }
+
+  toggleStaccato(): void {
+    const engine = this.getEngine()
+    if (this.state.selectedTool === 'selection' && this.state.selectedNoteId && engine) {
+      engine.toggleArticulation(this.state.selectedNoteId, 'staccato')
+      engine.updateUndoNoteId(this.state.selectedNoteId)
+      this.renderScore()
+    } else {
+      this.state.staccato = !this.state.staccato
+      const pos = this.getLastMousePosition()
+      if (pos) this.renderPreview(pos)
+    }
+  }
+
+  toggleTenuto(): void {
+    const engine = this.getEngine()
+    if (this.state.selectedTool === 'selection' && this.state.selectedNoteId && engine) {
+      engine.toggleArticulation(this.state.selectedNoteId, 'tenuto')
+      engine.updateUndoNoteId(this.state.selectedNoteId)
+      this.renderScore()
+    } else {
+      this.state.tenuto = !this.state.tenuto
+      const pos = this.getLastMousePosition()
+      if (pos) this.renderPreview(pos)
+    }
+  }
+
+  toggleTie(): void {
+    const engine = this.getEngine()
+    if (!this.state.selectedNoteId || !engine) return
+
+    if (this.state.selectedTool === 'entry') {
+      if (this.state.pendingTieFromNoteId === this.state.selectedNoteId) {
+        this.state.pendingTieFromNoteId = null
+      } else {
+        this.state.pendingTieFromNoteId = this.state.selectedNoteId
+      }
+      this.renderScore()
+    } else {
+      engine.toggleTie(this.state.selectedNoteId)
+      this.renderScore()
+    }
+  }
+
+  toggleDot(): void {
+    const newValue = this.state.selectedDots > 0 ? 0 : 1
+    this.state.selectedDots = newValue
+    const engine = this.getEngine()
+    if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
+      engine.updateNote(this.state.selectedNoteId, { dots: newValue })
+      this.renderScore()
+    } else if (this.state.selectedTool === 'selection') {
+      this.state.selectedTool = 'entry'
+      const pos = this.getLastMousePosition()
+      if (pos) this.renderPreview(pos)
+    } else if (this.state.selectedTool === 'entry') {
+      const pos = this.getLastMousePosition()
+      if (pos) this.renderPreview(pos)
+    }
+  }
+
+  toggleTuplet(): void {
+    const engine = this.getEngine()
+    if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
+      const note = engine.getNote(this.state.selectedNoteId)
+      if (!note) return
+      if (note.tupletId) {
+        engine.deleteTuplet(note.tupletId)
+      } else {
+        const result = engine.applyTupletToNote(this.state.selectedNoteId)
+        if (result) this.selectNote(result.note.id)
+      }
+      this.renderScore()
+      return
+    }
+    this.state.tupletMode = !this.state.tupletMode
+    if (this.state.tupletMode) {
+      this.state.selectedDots = 0
+    }
+  }
+
+  resetToDefaults(): void {
+    this.state.selectedDuration = 'q'
+    this.state.selectedAccidental = null
+    this.state.selectedDots = 0
+    this.state.accent = false
+    this.state.staccato = false
+    this.state.tenuto = false
+    this.state.pendingTieFromNoteId = null
+  }
+
+  // --- Toolbar button active-state helpers ---
+  // In selection mode: reflect the selected note's actual state.
+  // In entry mode: reflect the pending palette state.
+
+  noteHasAccent(): boolean {
+    const engine = this.getEngine()
+    if (this.state.selectedTool === 'selection' && engine) {
+      if (this.state.selectedArticulationNoteId) {
+        return this.state.selectedArticulationType === 'accent'
+      }
+      if (this.state.selectedNoteId) {
+        const note = engine.getNote(this.state.selectedNoteId)
+        return note?.articulations?.includes('accent') ?? false
+      }
+    }
+    return this.state.accent
+  }
+
+  noteHasStaccato(): boolean {
+    const engine = this.getEngine()
+    if (this.state.selectedTool === 'selection' && engine) {
+      if (this.state.selectedArticulationNoteId) {
+        return this.state.selectedArticulationType === 'staccato'
+      }
+      if (this.state.selectedNoteId) {
+        const note = engine.getNote(this.state.selectedNoteId)
+        return note?.articulations?.includes('staccato') ?? false
+      }
+    }
+    return this.state.staccato
+  }
+
+  noteHasTenuto(): boolean {
+    const engine = this.getEngine()
+    if (this.state.selectedTool === 'selection' && engine) {
+      if (this.state.selectedArticulationNoteId) {
+        return this.state.selectedArticulationType === 'tenuto'
+      }
+      if (this.state.selectedNoteId) {
+        const note = engine.getNote(this.state.selectedNoteId)
+        return note?.articulations?.includes('tenuto') ?? false
+      }
+    }
+    return this.state.tenuto
+  }
+
+  noteHasTie(): boolean {
+    if (this.state.selectedTool === 'entry' && this.state.pendingTieFromNoteId) return true
+    const engine = this.getEngine()
+    if (!this.state.selectedNoteId || !engine) return false
+    const note = engine.getNote(this.state.selectedNoteId)
+    return !!note?.tiedTo
+  }
+}

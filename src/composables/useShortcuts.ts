@@ -1,196 +1,150 @@
 import type { Ref } from 'vue'
-import type { ArticulationType, NoteDuration, Accidental } from '../types/music'
+import type { ArticulationType } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { EditorState } from '../interactions/EditorState'
+import type { SelectionController } from '../interactions/SelectionController'
+import type { PaletteController } from '../interactions/PaletteController'
+import type { KeyboardController } from '../interactions/KeyboardController'
+import type { RenderController } from '../interactions/RenderController'
 import { ShortcutManager } from '../shortcuts'
 
-interface ShortcutsDeps {
-  engine: Ref<MusicEngine | null>
-  selectedTool: Ref<'entry' | 'selection'>
-  selectedNoteId: Ref<string | null>
-  selectedArticulationNoteId: Ref<string | null>
-  selectedArticulationType: Ref<string | null>
-  selectedAccidentalNoteId: Ref<string | null>
-  selectedAccidentalType: Ref<string | null>
-  selectedTupletId: Ref<string | null>
-  // Palette actions
-  setDuration: (d: NoteDuration) => void
-  setAccidental: (a: Accidental | null) => void
-  toggleAccent: () => void
-  toggleStaccato: () => void
-  toggleTenuto: () => void
-  toggleTie: () => void
-  toggleDot: () => void
-  toggleTuplet: () => void
-  resetPaletteToDefaults: () => void
-  // Selection actions
-  selectNote: (id: string | null) => void
-  navigateSelection: (dir: number) => void
-  navigateChord: (dir: number) => void
-  adjustPitch: (dir: number) => void
-  adjustOctave: (dir: number) => void
-  // Keyboard entry actions
-  enterNoteByLetter: (letter: string) => void
-  enterRestAtCursorPosition: () => void
-  addChordNoteByLetter: (letter: string) => void
-  // Render
-  renderScore: () => void
-  // Mouse position (for ghost note after mode switch)
-  getLastMousePosition: () => { x: number; y: number } | null
-  renderPreview: (coords: { x: number; y: number }) => void
-}
-
-export function useShortcuts(deps: ShortcutsDeps) {
-  const {
-    engine,
-    selectedTool, selectedNoteId,
-    selectedArticulationNoteId, selectedArticulationType,
-    selectedAccidentalNoteId, selectedAccidentalType,
-    selectedTupletId,
-    setDuration, setAccidental,
-    toggleAccent, toggleStaccato, toggleTenuto, toggleTie, toggleDot, toggleTuplet,
-    resetPaletteToDefaults,
-    selectNote,
-    navigateSelection, navigateChord, adjustPitch, adjustOctave,
-    enterNoteByLetter, enterRestAtCursorPosition, addChordNoteByLetter,
-    renderScore,
-    getLastMousePosition, renderPreview,
-  } = deps
-
+/**
+ * Vue adapter that wires keyboard shortcuts to controller actions.
+ * Reads/writes EditorState directly (no Vue ref wrappers needed).
+ */
+export function useShortcuts(
+  state: EditorState,
+  engine: Ref<MusicEngine | null>,
+  selection: SelectionController,
+  palette: PaletteController,
+  keyboard: KeyboardController,
+  renderer: RenderController,
+  getLastMousePosition: () => { x: number; y: number } | null,
+): { enable: () => void; disable: () => void } {
   const shortcutManager = new ShortcutManager()
 
   shortcutManager.registerActions({
     setEntryMode: () => {
-      selectedTool.value = 'entry'
-      selectedNoteId.value = null
-      resetPaletteToDefaults()
-      // Show ghost note at last known mouse position
+      state.selectedTool = 'entry'
+      state.selectedNoteId = null
+      palette.resetToDefaults()
       const pos = getLastMousePosition()
-      if (pos) renderPreview(pos)
+      if (pos) renderer.renderPreview(pos)
     },
     enterEntryFromSelection: () => {
-      // Only acts when in selection mode with a note selected
-      if (selectedTool.value !== 'selection' || !selectedNoteId.value) return
-      selectedTool.value = 'entry'
-      renderScore()
+      if (state.selectedTool !== 'selection' || !state.selectedNoteId) return
+      state.selectedTool = 'entry'
+      renderer.renderScore()
     },
     setSelectionMode: () => {
-      if (selectedTool.value === 'entry') {
-        // Exit entry mode → back to selection, keep current note selected
-        // Call selectNote to sync palette (accidental, duration, dots) to the note's actual state
-        selectedTool.value = 'selection'
-        selectNote(selectedNoteId.value)
-        renderScore()
-      } else if (selectedTool.value === 'selection' && selectedNoteId.value) {
-        // If already in selection mode with a note selected, clear selection
-        selectNote(null)
-        renderScore()
+      if (state.selectedTool === 'entry') {
+        state.selectedTool = 'selection'
+        selection.selectNote(state.selectedNoteId)
+        renderer.renderScore()
+      } else if (state.selectedTool === 'selection' && state.selectedNoteId) {
+        selection.selectNote(null)
+        renderer.renderScore()
       } else {
-        // Otherwise, switch to selection mode
-        selectedTool.value = 'selection'
-        renderScore() // Clear ghost note immediately
+        state.selectedTool = 'selection'
+        renderer.renderScore()
       }
     },
     deleteSelected: () => {
-      if (selectedArticulationNoteId.value && selectedArticulationType.value && engine.value) {
-        // Delete selected articulation; keep the note
-        const noteId = selectedArticulationNoteId.value
-        engine.value.toggleArticulation(noteId, selectedArticulationType.value as ArticulationType)
-        selectedArticulationNoteId.value = null
-        selectedArticulationType.value = null
-        selectNote(noteId)
-        renderScore()
-      } else if (selectedAccidentalNoteId.value && engine.value) {
-        // Delete selected accidental; keep the note
-        const noteId = selectedAccidentalNoteId.value
-        engine.value.updateNote(noteId, { forceAccidental: undefined })
-        selectedAccidentalNoteId.value = null
-        selectedAccidentalType.value = null
-        selectNote(noteId)
-        renderScore()
-      } else if (selectedTupletId.value && engine.value) {
-        // Delete selected tuplet
-        engine.value.deleteTuplet(selectedTupletId.value)
-        selectedTupletId.value = null
-        renderScore()
-      } else if (selectedNoteId.value && engine.value) {
-        // Delete selected note
-        engine.value.deleteNote(selectedNoteId.value)
-        selectNote(null)
-        renderScore()
+      const eng = engine.value
+      if (state.selectedArticulationNoteId && state.selectedArticulationType && eng) {
+        const noteId = state.selectedArticulationNoteId
+        eng.toggleArticulation(noteId, state.selectedArticulationType as ArticulationType)
+        state.selectedArticulationNoteId = null
+        state.selectedArticulationType = null
+        selection.selectNote(noteId)
+        renderer.renderScore()
+      } else if (state.selectedAccidentalNoteId && eng) {
+        const noteId = state.selectedAccidentalNoteId
+        eng.updateNote(noteId, { forceAccidental: undefined })
+        state.selectedAccidentalNoteId = null
+        state.selectedAccidentalType = null
+        selection.selectNote(noteId)
+        renderer.renderScore()
+      } else if (state.selectedTupletId && eng) {
+        eng.deleteTuplet(state.selectedTupletId)
+        state.selectedTupletId = null
+        renderer.renderScore()
+      } else if (state.selectedNoteId && eng) {
+        eng.deleteNote(state.selectedNoteId)
+        selection.selectNote(null)
+        renderer.renderScore()
       }
     },
-    setDurationThirtySecond: () => setDuration('32'),
-    setDurationSixteenth: () => setDuration('16'),
-    setDurationEighth: () => setDuration('8'),
-    setDurationQuarter: () => setDuration('q'),
-    setDurationHalf: () => setDuration('h'),
-    setDurationWhole: () => setDuration('w'),
-    setAccidentalNatural: () => setAccidental('n'),
-    setAccidentalSharp: () => setAccidental('#'),
-    setAccidentalFlat: () => setAccidental('b'),
-    toggleAccent: () => toggleAccent(),
-    toggleStaccato: () => toggleStaccato(),
-    toggleTenuto: () => toggleTenuto(),
-    toggleTie: () => toggleTie(),
+    setDurationThirtySecond: () => palette.setDuration('32'),
+    setDurationSixteenth: () => palette.setDuration('16'),
+    setDurationEighth: () => palette.setDuration('8'),
+    setDurationQuarter: () => palette.setDuration('q'),
+    setDurationHalf: () => palette.setDuration('h'),
+    setDurationWhole: () => palette.setDuration('w'),
+    setAccidentalNatural: () => palette.setAccidental('n'),
+    setAccidentalSharp: () => palette.setAccidental('#'),
+    setAccidentalFlat: () => palette.setAccidental('b'),
+    toggleAccent: () => palette.toggleAccent(),
+    toggleStaccato: () => palette.toggleStaccato(),
+    toggleTenuto: () => palette.toggleTenuto(),
+    toggleTie: () => palette.toggleTie(),
     selectNextNote: () => {
-      if (selectedTool.value === 'entry') {
-        // Right arrow: exit keyboard mode and land on the note AT the cursor
-        // (the next beat after the last edited note)
-        selectedTool.value = 'selection'
-        navigateSelection(1)
+      if (state.selectedTool === 'entry') {
+        state.selectedTool = 'selection'
+        selection.navigateSelection(1)
       } else {
-        navigateSelection(1)
+        selection.navigateSelection(1)
       }
     },
     selectPreviousNote: () => {
-      if (selectedTool.value === 'entry') {
-        // Left arrow: exit keyboard mode and land on the note to the LEFT of the cursor
-        // (the last edited note — already selectedNoteId, no movement needed)
-        selectedTool.value = 'selection'
-        renderScore()
+      if (state.selectedTool === 'entry') {
+        state.selectedTool = 'selection'
+        renderer.renderScore()
       } else {
-        navigateSelection(-1)
+        selection.navigateSelection(-1)
       }
     },
-    chordNoteUp: () => navigateChord(1),
-    chordNoteDown: () => navigateChord(-1),
-    pitchUp: () => adjustPitch(1),
-    pitchDown: () => adjustPitch(-1),
-    octaveUp: () => adjustOctave(1),
-    octaveDown: () => adjustOctave(-1),
+    chordNoteUp: () => selection.navigateChord(1),
+    chordNoteDown: () => selection.navigateChord(-1),
+    pitchUp: () => selection.adjustPitch(1),
+    pitchDown: () => selection.adjustPitch(-1),
+    octaveUp: () => selection.adjustOctave(1),
+    octaveDown: () => selection.adjustOctave(-1),
     undo: () => {
-      if (engine.value?.undo()) {
-        const restoredId = engine.value.getLastRestoredNoteId()
-        const validId = restoredId && engine.value.getNote(restoredId) ? restoredId : null
-        selectNote(validId)
-        renderScore()
+      const eng = engine.value
+      if (eng?.undo()) {
+        const restoredId = eng.getLastRestoredNoteId()
+        const validId = restoredId && eng.getNote(restoredId) ? restoredId : null
+        selection.selectNote(validId)
+        renderer.renderScore()
       }
     },
     redo: () => {
-      if (engine.value?.redo()) {
-        const restoredId = engine.value.getLastRestoredNoteId()
-        const validId = restoredId && engine.value.getNote(restoredId) ? restoredId : null
-        selectNote(validId)
-        renderScore()
+      const eng = engine.value
+      if (eng?.redo()) {
+        const restoredId = eng.getLastRestoredNoteId()
+        const validId = restoredId && eng.getNote(restoredId) ? restoredId : null
+        selection.selectNote(validId)
+        renderer.renderScore()
       }
     },
-    toggleDot,
-    toggleTuplet,
-    enterNoteA: () => enterNoteByLetter('a'),
-    enterNoteB: () => enterNoteByLetter('b'),
-    enterNoteC: () => enterNoteByLetter('c'),
-    enterNoteD: () => enterNoteByLetter('d'),
-    enterNoteE: () => enterNoteByLetter('e'),
-    enterNoteF: () => enterNoteByLetter('f'),
-    enterNoteG: () => enterNoteByLetter('g'),
-    enterRest: () => enterRestAtCursorPosition(),
-    addChordA: () => addChordNoteByLetter('a'),
-    addChordB: () => addChordNoteByLetter('b'),
-    addChordC: () => addChordNoteByLetter('c'),
-    addChordD: () => addChordNoteByLetter('d'),
-    addChordE: () => addChordNoteByLetter('e'),
-    addChordF: () => addChordNoteByLetter('f'),
-    addChordG: () => addChordNoteByLetter('g'),
+    toggleDot: () => palette.toggleDot(),
+    toggleTuplet: () => palette.toggleTuplet(),
+    enterNoteA: () => keyboard.enterNoteByLetter('a'),
+    enterNoteB: () => keyboard.enterNoteByLetter('b'),
+    enterNoteC: () => keyboard.enterNoteByLetter('c'),
+    enterNoteD: () => keyboard.enterNoteByLetter('d'),
+    enterNoteE: () => keyboard.enterNoteByLetter('e'),
+    enterNoteF: () => keyboard.enterNoteByLetter('f'),
+    enterNoteG: () => keyboard.enterNoteByLetter('g'),
+    enterRest: () => keyboard.enterRestAtCursorPosition(),
+    addChordA: () => keyboard.addChordNoteByLetter('a'),
+    addChordB: () => keyboard.addChordNoteByLetter('b'),
+    addChordC: () => keyboard.addChordNoteByLetter('c'),
+    addChordD: () => keyboard.addChordNoteByLetter('d'),
+    addChordE: () => keyboard.addChordNoteByLetter('e'),
+    addChordF: () => keyboard.addChordNoteByLetter('f'),
+    addChordG: () => keyboard.addChordNoteByLetter('g'),
   })
 
   return {
