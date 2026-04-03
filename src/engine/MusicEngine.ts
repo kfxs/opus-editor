@@ -8,7 +8,8 @@ import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoord
 import { durationToBeats, beatsToDuration, splitBeatsIntoDurations, midiToNoteName } from '@/utils/musicUtils'
 import { fracToNumber, fracCompare, fracEq } from '@/utils/fraction'
 import { beatToFrac } from '@/utils/musicUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure } from '@/types/music'
+import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling } from '@/types/music'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 
 /** Internal context passed to updateNote sub-methods */
@@ -228,7 +229,7 @@ export class MusicEngine {
   addChordNote(params: NoteParams): Note {
     const note = this.scoreModel.addNote(params)
     this.playbackEngine.setScore(this.scoreModel.getScore())
-    const noteName = midiToNoteName(params.pitch)
+    const noteName = params.step ? midiToNoteName(spellingToMidi(params.step, params.alter ?? 0, params.octave!)) : 'rest'
     this.saveUndoState(`Add chord note ${noteName}`)
     return note
   }
@@ -236,7 +237,7 @@ export class MusicEngine {
   addNoteAtPosition(
     coords: PixelCoordinates,
     duration: NoteParams['duration'],
-    accidental?: NoteParams['accidental'],
+    accidental?: Accidental,
     dots?: number,
     articulations?: ArticulationType[]
   ): Note | null {
@@ -377,7 +378,7 @@ export class MusicEngine {
         const fillerDuration = beatsToDuration(fractionalSlots * baseDurationBeats)
         if (fillerDuration && noteEndBeat < tupletEndBeat - 0.001) {
           this.scoreModel.addNote({
-            pitch: 0, duration: fillerDuration,
+            duration: fillerDuration,
             measure: existingNote.measure, beat: beatToFrac(noteEndBeat),
             isRest: true, tupletId: existingNote.tupletId,
           })
@@ -393,7 +394,7 @@ export class MusicEngine {
         )
         if (!existingAtFiller) {
           this.scoreModel.addNote({
-            pitch: 0, duration: fillerDuration,
+            duration: fillerDuration,
             measure: existingNote.measure, beat: beatToFrac(noteEndBeat),
             isRest: true, tupletId: existingNote.tupletId,
           })
@@ -554,11 +555,12 @@ export class MusicEngine {
       this.saveUndoState('Remove tie')
       return false
     } else {
-      // Find next note with same pitch after current position
+      // Find next note with same pitch (same MIDI value) after current position
+      const noteMidi = spellingToMidi(note.step!, note.alter!, note.octave!)
       const allNotes = this.scoreModel.getAllNotes()
         .sort((a, b) => a.measure !== b.measure ? a.measure - b.measure : fracCompare(a.beat, b.beat))
       const idx = allNotes.findIndex(n => n.id === noteId)
-      const nextNote = allNotes.slice(idx + 1).find(n => !n.isRest && n.pitch === note.pitch)
+      const nextNote = allNotes.slice(idx + 1).find(n => !n.isRest && spellingToMidi(n.step!, n.alter!, n.octave!) === noteMidi)
       if (!nextNote) return null
 
       this.scoreModel.updateNote(noteId, { tiedTo: nextNote.id })
@@ -588,8 +590,8 @@ export class MusicEngine {
     const note = this.scoreModel.getNote(noteId)
     if (!note) return false
 
-    const description = !note.isRest
-      ? `Delete ${midiToNoteName(note.pitch)}`
+    const description = !note.isRest && note.step
+      ? `Delete ${midiToNoteName(spellingToMidi(note.step, note.alter ?? 0, note.octave!))}`
       : 'Delete rest'
 
     // Check if this note is part of a chord (multiple notes at same beat, same measure)
@@ -602,7 +604,6 @@ export class MusicEngine {
     // If it's a single note (not a chord), replace with a rest of the same duration
     if (result && !isPartOfChord && !note.isRest) {
       this.scoreModel.addNote({
-        pitch: 0,
         duration: note.duration,
         measure: note.measure,
         beat: note.beat,
@@ -662,12 +663,11 @@ export class MusicEngine {
   createTupletAtPosition(
     coords: PixelCoordinates,
     duration: NoteDuration,
-    pitch: number,
-    accidental?: NoteParams['accidental'],
+    spelling: PitchSpelling,
     numNotes: number = 3,
     notesOccupied: number = 2
   ): { tuplet: Tuplet; firstNote: Note } | null {
-    return this.noteEntryCoordinator.createTupletAtPosition(coords, duration, pitch, accidental, numNotes, notesOccupied)
+    return this.noteEntryCoordinator.createTupletAtPosition(coords, duration, spelling, numNotes, notesOccupied)
   }
 
   /**
@@ -678,12 +678,11 @@ export class MusicEngine {
     measureNumber: number,
     beat: number,
     duration: NoteDuration,
-    pitch: number,
-    accidental?: NoteParams['accidental'],
+    spelling: PitchSpelling,
     numNotes: number = 3,
     notesOccupied: number = 2
   ): { tuplet: Tuplet; firstNote: Note } | null {
-    return this.noteEntryCoordinator.createTupletAtBeat(measureNumber, beat, duration, pitch, accidental, numNotes, notesOccupied)
+    return this.noteEntryCoordinator.createTupletAtBeat(measureNumber, beat, duration, spelling, numNotes, notesOccupied)
   }
 
   /**
@@ -754,7 +753,7 @@ export class MusicEngine {
   renderScoreWithPreview(
     coords: PixelCoordinates,
     duration: NoteParams['duration'],
-    accidental?: NoteParams['accidental'],
+    accidental?: Accidental,
     dots?: number,
     articulations?: ArticulationType[]
   ): boolean {
@@ -797,11 +796,16 @@ export class MusicEngine {
     }
 
     // Render score with ghost note
+    // Apply accidental from palette and compute MIDI for the renderer
+    const alter = accidentalToAlter(accidental)
+    const ghostSpelling = { ...position.spelling, alter }
+    const ghostPitch = spellingToMidi(ghostSpelling.step, ghostSpelling.alter, ghostSpelling.octave)
+
     // Pass raw cursor coordinates for smooth visual positioning
     const ghostNoteRendered = this.renderer.renderScoreWithGhostNote(
       this.scoreModel.getScore(),
       {
-        pitch: position.pitch,
+        pitch: ghostPitch,
         duration,
         measure: position.measure,
         beat: position.beat,
@@ -846,9 +850,9 @@ export class MusicEngine {
    * Convert pixel coordinates to musical position
    * Uses ElementRegistry for accurate position calculation based on actual rendered elements
    */
-  pixelToPosition(coords: PixelCoordinates, beatsInMeasure: number): { measure: number; beat: Fraction; pitch: number } {
-    const { measure, beat, pitch } = this.getPositionFromPixels(coords, beatsInMeasure)
-    return { measure, beat: beatToFrac(beat), pitch }
+  pixelToPosition(coords: PixelCoordinates, beatsInMeasure: number): { measure: number; beat: Fraction; spelling: PitchSpelling } {
+    const { measure, beat, spelling } = this.getPositionFromPixels(coords, beatsInMeasure)
+    return { measure, beat: beatToFrac(beat), spelling }
   }
 
   /**
@@ -860,15 +864,13 @@ export class MusicEngine {
     coords: PixelCoordinates,
     beatsInMeasure: number,
     duration?: NoteParams['duration']
-  ): { measure: number; beat: number; pitch: number } {
+  ): { measure: number; beat: number; spelling: PitchSpelling } {
     const registry = this.renderer.getElementRegistry()
     const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
 
-    // Get pitch from ElementRegistry (more accurate) with fallback
-    let pitch = registry.pixelYToPitch(coords.y, measureNumber)
-    if (pitch === null) {
-      pitch = this.coordinateMapper.pixelYToPitch(coords.y, measureNumber)
-    }
+    // Get natural spelling from ElementRegistry (more accurate) with fallback
+    const spelling = registry.pixelYToPitch(coords.y, measureNumber)
+      ?? this.coordinateMapper.pixelYToPitch(coords.y, measureNumber)
 
     // Get beat from ElementRegistry or coordinateMapper
     let beat: number
@@ -895,7 +897,7 @@ export class MusicEngine {
       }
     }
 
-    return { measure: measureNumber, beat, pitch }
+    return { measure: measureNumber, beat, spelling }
   }
 
   /**

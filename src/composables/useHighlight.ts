@@ -2,6 +2,7 @@ import type { Ref } from 'vue'
 import type { MusicEngine } from '../engine/MusicEngine'
 import { buildBeatMap } from '../utils/beatMap'
 import { getMeasureNotes } from '../utils/musicUtils'
+import { spellingToMidi } from '../utils/pitchSpelling'
 
 interface HighlightDeps {
   engine: Ref<MusicEngine | null>
@@ -113,7 +114,7 @@ export function useHighlight(deps: HighlightDeps) {
         isRest = element.isRest || false
         noteTupletId = element.tupletId || null
         if (!element.isRest) {
-          notePitch = element.pitch
+          notePitch = spellingToMidi(element.step!, element.alter!, element.octave!)
         }
         break
       }
@@ -164,7 +165,7 @@ export function useHighlight(deps: HighlightDeps) {
           if (isInChord) {
             for (const chordNote of notesAtBeat) {
               if (chordNote.id !== selectedNoteId.value) {
-                const chordNoteY = registry.pitchToPixelY(chordNote.pitch, noteMeasure)
+                const chordNoteY = registry.pitchToPixelY(spellingToMidi(chordNote.step!, chordNote.alter!, chordNote.octave!), noteMeasure)
                 if (chordNoteY !== null) {
                   chordNoteYPositions.push(chordNoteY)
                 }

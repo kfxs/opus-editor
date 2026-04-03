@@ -102,7 +102,7 @@ export function useShortcuts(deps: ShortcutsDeps) {
       } else if (selectedAccidentalNoteId.value && engine.value) {
         // Delete selected accidental; keep the note
         const noteId = selectedAccidentalNoteId.value
-        engine.value.updateNote(noteId, { accidental: undefined })
+        engine.value.updateNote(noteId, { forceAccidental: undefined })
         selectedAccidentalNoteId.value = null
         selectedAccidentalType.value = null
         selectNote(noteId)

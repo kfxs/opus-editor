@@ -32,6 +32,35 @@ export interface Tuplet {
 export type Accidental = '#' | 'b' | 'n'
 
 /**
+ * Diatonic step name (letter name of the note, independent of accidental)
+ */
+export type PitchStep = 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B'
+
+/**
+ * Chromatic alteration in semitones.
+ * -2 = double-flat (bb), -1 = flat (b), 0 = natural, 1 = sharp (#), 2 = double-sharp (##)
+ */
+export type PitchAlter = -2 | -1 | 0 | 1 | 2
+
+/**
+ * Enharmonic-aware pitch spelling: step + alteration + scientific octave.
+ *
+ * This is the industry-standard representation (MusicXML, music21).
+ * Unlike a bare MIDI integer, it distinguishes enharmonic equivalents:
+ *   C#4 = { step: 'C', alter:  1, octave: 4 }  — MIDI 61
+ *   Db4 = { step: 'D', alter: -1, octave: 4 }  — MIDI 61
+ *
+ * MIDI is always *derived* from this, never primary.
+ * Use spellingToMidi() to compute the MIDI value.
+ */
+export interface PitchSpelling {
+  step: PitchStep
+  alter: PitchAlter
+  /** Scientific octave number — C4 is middle C (MIDI 60) */
+  octave: number
+}
+
+/**
  * Articulation types
  */
 export type ArticulationType = 'accent' | 'staccato' | 'tenuto'
@@ -50,21 +79,27 @@ export type Clef = 'treble' | 'bass' | 'alto' | 'tenor'
 export type StemDirection = 'auto' | 'up' | 'down'
 
 /**
- * Represents a single musical note
+ * Represents a single musical note (or rest).
+ *
+ * Pitch is stored as step + alter + octave (PitchSpelling), NOT as a raw MIDI integer.
+ * These fields are undefined for rests (isRest === true).
+ * Use spellingToMidi(step!, alter!, octave!) to derive the MIDI value when needed.
  */
 export interface Note {
   /** Unique identifier for the note */
   id: string
-  /** MIDI pitch number (21-108 for piano, 0-127 for full MIDI range) */
-  pitch: number
+  /** Diatonic step name — undefined for rests */
+  step?: PitchStep
+  /** Chromatic alteration: -2=bb  -1=b  0=natural  1=#  2=## — undefined for rests */
+  alter?: PitchAlter
+  /** Scientific octave (C4 = middle C) — undefined for rests */
+  octave?: number
   /** Note duration */
   duration: NoteDuration
   /** Measure number (1-indexed) */
   measure: number
   /** Beat position within the measure (0-indexed, exact rational fraction) */
   beat: Fraction
-  /** Optional accidental */
-  accidental?: Accidental
   /** If true, always show the accidental sign even when measure rules would suppress it */
   forceAccidental?: boolean
   /** Whether this note is a rest */
@@ -100,11 +135,24 @@ export interface TimeSignature {
   denominator: number
 }
 
-/** Internal pitch-only object stored inside a Chord */
+/**
+ * Internal pitch-only object stored inside a Chord.
+ *
+ * Pitch is stored as step + alter + octave (MusicXML / music21 convention),
+ * NOT as a raw MIDI integer. This makes enharmonic spelling explicit:
+ *   C#4 = { step:'C', alter:1,  octave:4 }
+ *   Db4 = { step:'D', alter:-1, octave:4 }
+ * Use spellingToMidi() from pitchSpelling.ts to derive the MIDI value.
+ */
 export interface NotePitch {
   id: string
-  pitch: number
-  accidental?: Accidental
+  /** Diatonic step name */
+  step: PitchStep
+  /** Chromatic alteration: -2=bb  -1=b  0=natural  1=#  2=## */
+  alter: PitchAlter
+  /** Scientific octave — C4 is middle C */
+  octave: number
+  /** Show accidental sign even when measure context would suppress it */
   forceAccidental?: boolean
   tiedTo?: string      // ID of another NotePitch in another Chord
   tiedFrom?: string
@@ -189,6 +237,12 @@ export interface Score {
   defaultTimeSignature: TimeSignature
   /** Clef for the score (default: 'treble') */
   clef?: Clef
+  /**
+   * Schema version for JSON migration.
+   * Absent or 1 = legacy (NotePitch stored pitch+accidental as MIDI+string).
+   * 2 = current (NotePitch stored as step+alter+octave).
+   */
+  schemaVersion?: number
 }
 
 /**
@@ -210,14 +264,22 @@ export interface PixelCoordinates {
 }
 
 /**
- * Parameters for creating a new note
+ * Parameters for creating or updating a note.
+ *
+ * Pitch is specified as step + alter + octave (PitchSpelling).
+ * All three pitch fields should be provided together for non-rests;
+ * they are omitted (or undefined) for rests.
  */
 export interface NoteParams {
-  pitch: number
+  /** Diatonic step name — omit for rests */
+  step?: PitchStep
+  /** Chromatic alteration — omit for rests, defaults to 0 (natural) when step is provided */
+  alter?: PitchAlter
+  /** Scientific octave — omit for rests */
+  octave?: number
   duration: NoteDuration
   measure: number
   beat: Fraction
-  accidental?: Accidental
   forceAccidental?: boolean
   isRest?: boolean
   dots?: number
@@ -226,4 +288,5 @@ export interface NoteParams {
   articulations?: ArticulationType[]
   tiedTo?: string
   tiedFrom?: string
+  stemDirection?: StemDirection
 }

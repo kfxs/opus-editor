@@ -1,9 +1,20 @@
 import type { Ref, ComputedRef } from 'vue'
-import type { ArticulationType, Accidental, NoteDuration, Note } from '../types/music'
+import type { ArticulationType, Accidental, NoteDuration, Note, PitchStep, PitchAlter } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import { buildBeatMap } from '../utils/beatMap'
 import { durationToBeats, getMeasureNotes } from '../utils/musicUtils'
 import { fracToNumber, fracEq } from '../utils/fraction'
+import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
+
+/** Natural (no-accidental) semitone offsets for each step letter */
+const STEP_SEMITONES: Record<PitchStep, number> = {
+  C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
+}
+
+/** Letter → PitchStep mapping */
+const LETTER_TO_STEP: Record<string, PitchStep> = {
+  c: 'C', d: 'D', e: 'E', f: 'F', g: 'G', a: 'A', b: 'B',
+}
 
 interface KeyboardEntryDeps {
   selectedTool: Ref<'entry' | 'selection'>
@@ -40,26 +51,27 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
     if (!selectedNoteId.value || !engine.value) return
     if (selectedTool.value !== 'selection' && selectedTool.value !== 'entry') return
 
-    const letterToPitchClass: Record<string, number> = {
-      c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11,
-    }
-    const pitchClass = letterToPitchClass[letter]
-    if (pitchClass === undefined) return
+    const step = LETTER_TO_STEP[letter]
+    if (!step) return
 
     if (selectedTool.value === 'entry') {
-      enterNoteAtCursorPosition(pitchClass)
+      enterNoteAtCursorPosition(step)
       return
     }
 
     // Selection mode: edit in place, then switch to keyboard mode
-    const reference = getContextPitch()
-    const k = Math.round((reference - pitchClass) / 12)
-    const targetPitch = pitchClass + 12 * k
+    const alter: PitchAlter = accidentalToAlter(selectedAccidental.value)
+    const reference = getContextPitch()  // MIDI of nearby note
+    const naturalPitchClass = STEP_SEMITONES[step]
+    const k = Math.round((reference - naturalPitchClass) / 12)
+    const targetMidi = naturalPitchClass + 12 * k
+    const octave = Math.floor(targetMidi / 12) - 1
 
     engine.value.updateNote(selectedNoteId.value, {
-      pitch: targetPitch,
+      step,
+      alter,
+      octave,
       isRest: false,
-      accidental: selectedAccidental.value || undefined,
     })
 
     selectedTool.value = 'entry'
@@ -72,7 +84,7 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
    * Handles measure overflow the same way mouse entry does (tie splitting across barlines).
    * Advances selectedNoteId to the newly placed note.
    */
-  function enterNoteAtCursorPosition(pitchClass: number) {
+  function enterNoteAtCursorPosition(step: PitchStep) {
     if (!selectedNoteId.value || !engine.value) return
 
     const score = engine.value.getScore()
@@ -101,12 +113,17 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
     const targetBeat = nextBeat.beat
 
     // Octave: choose the one closest to the note we just entered
-    const reference = (!currentNote.isRest) ? currentNote.pitch : getContextPitch()
-    const k = Math.round((reference - pitchClass) / 12)
-    const targetPitch = pitchClass + 12 * k
+    const alter: PitchAlter = accidentalToAlter(selectedAccidental.value)
+    const referenceMidi = (!currentNote.isRest && currentNote.step)
+      ? spellingToMidi(currentNote.step, currentNote.alter!, currentNote.octave!)
+      : getContextPitch()
+    const naturalPitchClass = STEP_SEMITONES[step]
+    const k = Math.round((referenceMidi - naturalPitchClass) / 12)
+    const targetMidi = naturalPitchClass + 12 * k
+    const octave = Math.floor(targetMidi / 12) - 1
 
     const existingTuplet = engine.value.getTupletAtBeat(targetMeasure, targetBeat)
-    console.log(`KeyboardEntry RAW | pitch:${targetPitch} dur:${selectedDuration.value} measure:${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(3)} tupletMode:${tupletMode.value} existingTuplet:${existingTuplet ? existingTuplet.id : 'none'}`)
+    console.log(`KeyboardEntry RAW | ${step}${alter !== 0 ? (alter > 0 ? '#' : 'b') : ''} dur:${selectedDuration.value} measure:${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(3)} tupletMode:${tupletMode.value} existingTuplet:${existingTuplet ? existingTuplet.id : 'none'}`)
 
     const measure = score.measures.find(m => m.number === targetMeasure)
     if (!measure) return
@@ -119,19 +136,19 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
         targetMeasure,
         fracToNumber(targetBeat),
         selectedDuration.value,
-        targetPitch,
-        selectedAccidental.value || undefined
+        { step, alter, octave }
       )
       newNote = result ? result.firstNote : null
     } else {
       // Normal mode, or cursor is already inside an existing tuplet.
       // addNoteAtBeat auto-detects tuplet context and uses scaled durations.
       newNote = engine.value.addNoteAtBeat({
-        pitch: targetPitch,
+        step,
+        alter,
+        octave,
         duration: selectedDuration.value,
         measure: targetMeasure,
         beat: targetBeat,
-        accidental: selectedAccidental.value || undefined,
         dots: selectedDots.value || undefined,
         isRest: false,
         articulations: pendingArticulations.value,
@@ -212,7 +229,6 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
 
     // addNoteAtBeat handles overlap removal atomically
     const newRest = engine.value.addNoteAtBeat({
-      pitch: 0,
       duration: fittingDur.dur,
       measure: targetMeasure,
       beat: targetBeat,
@@ -239,11 +255,8 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
     if (!selectedNoteId.value || !engine.value) return
     if (selectedTool.value !== 'selection' && selectedTool.value !== 'entry') return
 
-    const letterToPitchClass: Record<string, number> = {
-      c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11,
-    }
-    const pitchClass = letterToPitchClass[letter]
-    if (pitchClass === undefined) return
+    const step = LETTER_TO_STEP[letter]
+    if (!step) return
 
     const note = engine.value.getNote(selectedNoteId.value)
     if (!note) return
@@ -254,27 +267,31 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
       return
     }
 
-    // Use the highest pitch already in the chord as the anchor, so each new
+    // Use the highest MIDI pitch already in the chord as the anchor, so each new
     // note lands above ALL existing chord notes, not just the selected one.
     const score = engine.value.getScore()
     const measure = score.measures.find(m => m.number === note.measure)
-    const chordPitches = (measure ? getMeasureNotes(measure) : [])
+    const chordMidis = (measure ? getMeasureNotes(measure) : [])
       .filter(n => !n.isRest && fracEq(n.beat, note.beat))
-      .map(n => n.pitch)
-    const basePitch = chordPitches.length > 0 ? Math.max(...chordPitches) : note.pitch
+      .map(n => spellingToMidi(n.step!, n.alter!, n.octave!))
+    const baseMidi = chordMidis.length > 0 ? Math.max(...chordMidis) : spellingToMidi(note.step!, note.alter!, note.octave!)
 
-    const k = Math.ceil((basePitch - pitchClass) / 12)
-    let targetPitch = pitchClass + 12 * k
+    const alter: PitchAlter = accidentalToAlter(selectedAccidental.value)
+    const naturalPitchClass = STEP_SEMITONES[step]
+    const k = Math.ceil((baseMidi - naturalPitchClass) / 12)
+    let targetMidi = naturalPitchClass + 12 * k
 
-    // If equal to basePitch it would be a duplicate — go up one octave
-    if (targetPitch === basePitch) targetPitch += 12
+    // If equal to baseMidi it would be a duplicate — go up one octave
+    if (targetMidi === baseMidi) targetMidi += 12
+    const octave = Math.floor(targetMidi / 12) - 1
 
     const newNote = engine.value.addChordNote({
-      pitch: targetPitch,
+      step,
+      alter,
+      octave,
       duration: note.duration,
       measure: note.measure,
       beat: note.beat,
-      accidental: selectedAccidental.value || undefined,
       dots: note.dots,
       isRest: false,
       tupletId: note.tupletId,

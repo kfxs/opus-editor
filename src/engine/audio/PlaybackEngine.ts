@@ -2,6 +2,7 @@ import type * as ToneType from 'tone'
 import type { Score, Note } from '@/types/music'
 import { durationToBeats, getMeasureDuration } from '@/utils/musicUtils'
 import { fracToNumber } from '@/utils/fraction'
+import { spellingToMidi } from '@/utils/pitchSpelling'
 
 // Tone.js module - loaded dynamically to avoid AudioContext issues
 let Tone: typeof ToneType | null = null
@@ -176,22 +177,12 @@ export class PlaybackEngine {
         const durationInSeconds = durationBeats / beatsPerSecond
 
         for (const notePitch of chord.notes) {
-          // Calculate actual sounding pitch by applying accidental
-          let soundingPitch = notePitch.pitch
-          if (notePitch.accidental) {
-            switch (notePitch.accidental) {
-              case '#':
-                soundingPitch += 1
-                break
-              case 'b':
-                soundingPitch -= 1
-                break
-              // 'n' (natural) doesn't change the pitch - it just cancels key signature
-            }
-          }
+          // Derive sounding MIDI directly from the stored spelling —
+          // alter already encodes the chromatic offset, so no manual adjustment needed.
+          const soundingMidi = spellingToMidi(notePitch.step, notePitch.alter, notePitch.octave)
 
           // Convert MIDI to note name like testAudio
-          const noteName = Tone.Frequency(soundingPitch, 'midi').toNote()
+          const noteName = Tone.Frequency(soundingMidi, 'midi').toNote()
 
           // Schedule exactly like testAudio does
           synth.triggerAttackRelease(noteName, durationInSeconds, now + noteTimeInSeconds)

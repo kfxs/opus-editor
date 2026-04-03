@@ -1,4 +1,5 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter } from '@/types/music'
+import { midiToSpelling } from '@/utils/pitchSpelling'
 import {
   getTupletBeatPositionsFrac,
   isBeatInTupletFrac,
@@ -49,6 +50,7 @@ export class ScoreModel {
       keySignature: { key: 'C', accidentals: 0 },
       defaultTimeSignature: { numerator: 4, denominator: 4 },
       measures: [],
+      schemaVersion: 2,
     }
     // Initialize with one empty measure
     this.addMeasure()
@@ -200,16 +202,17 @@ export class ScoreModel {
     return undefined
   }
 
-  /** Assemble a backward-compat flat Note from a Chord + NotePitch. */
+  /** Assemble a flat Note from a Chord + NotePitch. */
   private toFlatNote(chord: Chord, pitch: NotePitch): Note {
     return {
       id: pitch.id,
-      pitch: pitch.pitch,
+      step: pitch.step,
+      alter: pitch.alter,
+      octave: pitch.octave,
       duration: chord.duration,
       measure: chord.measure,
       beat: chord.beat,
       isRest: false,
-      accidental: pitch.accidental,
       forceAccidental: pitch.forceAccidental,
       stemDirection: chord.stemDirection,
       tiedTo: pitch.tiedTo,
@@ -221,11 +224,10 @@ export class ScoreModel {
     }
   }
 
-  /** Assemble a backward-compat flat Note from a Rest. */
+  /** Assemble a flat Note from a Rest. */
   private restToFlatNote(rest: Rest): Note {
     return {
       id: rest.id,
-      pitch: 0,
       duration: rest.duration,
       measure: rest.measure,
       beat: rest.beat,
@@ -250,8 +252,8 @@ export class ScoreModel {
     }
 
     // Validate pitch (skip validation for rests)
-    if (!params.isRest && (params.pitch < 0 || params.pitch > 127)) {
-      throw new Error('Pitch must be between 0 and 127')
+    if (!params.isRest && !params.step) {
+      throw new Error('Non-rest notes must have a step')
     }
 
     if (params.isRest) {
@@ -281,8 +283,9 @@ export class ScoreModel {
       // Add pitch to existing chord
       const notePitch: NotePitch = {
         id: uuidv4(),
-        pitch: params.pitch,
-        accidental: params.accidental,
+        step: params.step!,
+        alter: (params.alter ?? 0) as PitchAlter,
+        octave: params.octave!,
         forceAccidental: params.forceAccidental,
         tiedTo: params.tiedTo,
         tiedFrom: params.tiedFrom,
@@ -308,8 +311,9 @@ export class ScoreModel {
     // No existing chord at beat — replace any overlapping rests and create new Chord
     const notePitch: NotePitch = {
       id: uuidv4(),
-      pitch: params.pitch,
-      accidental: params.accidental,
+      step: params.step!,
+      alter: (params.alter ?? 0) as PitchAlter,
+      octave: params.octave!,
       forceAccidental: params.forceAccidental,
       tiedTo: params.tiedTo,
       tiedFrom: params.tiedFrom,
@@ -547,7 +551,6 @@ export class ScoreModel {
    */
   addRest(duration: NoteParams['duration'], measure: number, beat: Fraction): Note {
     return this.addNote({
-      pitch: 0,
       duration,
       measure,
       beat,
@@ -605,14 +608,15 @@ export class ScoreModel {
       const rest = found.rest
 
       // Convert rest → chord when isRest is explicitly set to false
-      if (updates.isRest === false && updates.pitch !== undefined) {
+      if (updates.isRest === false && updates.step !== undefined) {
         const measure = this.getMeasure(rest.measure)
         if (!measure) throw new Error(`Measure ${rest.measure} does not exist`)
 
         const notePitch: NotePitch = {
           id: rest.id,   // reuse rest ID so the caller's selectedNoteId stays valid
-          pitch: updates.pitch,
-          accidental: updates.accidental,
+          step: updates.step!,
+          alter: (updates.alter ?? 0) as PitchAlter,
+          octave: updates.octave!,
           forceAccidental: updates.forceAccidental,
           articulations: updates.articulations,
         }
@@ -675,10 +679,11 @@ export class ScoreModel {
     const { chord, pitch } = found
     const oldMeasure = chord.measure
 
-    // Pitch-only updates
-    if (updates.pitch !== undefined) pitch.pitch = updates.pitch
-    if (updates.accidental !== undefined) pitch.accidental = updates.accidental
-    if (updates.forceAccidental !== undefined) pitch.forceAccidental = updates.forceAccidental
+    // Pitch updates — apply spelling fields directly
+    if (updates.step !== undefined) pitch.step = updates.step
+    if (updates.alter !== undefined) pitch.alter = updates.alter
+    if (updates.octave !== undefined) pitch.octave = updates.octave
+    if ('forceAccidental' in updates) pitch.forceAccidental = updates.forceAccidental
     if (updates.tiedTo !== undefined) pitch.tiedTo = updates.tiedTo
     if (updates.tiedFrom !== undefined) pitch.tiedFrom = updates.tiedFrom
     if (updates.articulations !== undefined) pitch.articulations = updates.articulations
@@ -966,6 +971,34 @@ export class ScoreModel {
       }
     }
 
+    // Migrate v1 NotePitch (pitch+accidental) → v2 (step+alter+octave).
+    // Applies to scores already in slots format that were saved before schemaVersion 2.
+    if ((scoreData.schemaVersion ?? 1) < 2) {
+      for (const measure of model.score.measures) {
+        for (const slot of measure.slots ?? []) {
+          if (slot.type === 'chord') {
+            slot.notes = (slot.notes as any[]).map((p: any) => {
+              if (p.step !== undefined) return p  // already v2
+              const { step, alter, octave } = midiToSpelling(p.pitch ?? 60, p.accidental)
+              return {
+                id: p.id,
+                step,
+                alter,
+                octave,
+                forceAccidental: p.forceAccidental,
+                tiedTo: p.tiedTo,
+                tiedFrom: p.tiedFrom,
+                articulations: p.articulations,
+              }
+            })
+          }
+        }
+      }
+    }
+
+    // Stamp the loaded score as v2 so it exports in the new format
+    model.score.schemaVersion = 2
+
     return model
   }
 
@@ -1017,15 +1050,22 @@ export class ScoreModel {
         tupletId: firstNote.tupletId,
         actualDuration: firstNote.actualDuration,
         stemDirection: firstNote.stemDirection,
-        notes: group.map((n: any) => ({
-          id: n.id,
-          pitch: n.pitch,
-          accidental: n.accidental,
-          forceAccidental: n.forceAccidental,
-          tiedTo: n.tiedTo,
-          tiedFrom: n.tiedFrom,
-          articulations: n.articulations,
-        })),
+        notes: group.map((n: any) => {
+          // Support both v1 (MIDI pitch + accidental string) and v2 (step+alter+octave)
+          const spelling = (n.step !== undefined)
+            ? { step: n.step, alter: n.alter ?? 0, octave: n.octave }
+            : midiToSpelling(n.pitch ?? 60, n.accidental)
+          return {
+            id: n.id,
+            step: spelling.step,
+            alter: spelling.alter,
+            octave: spelling.octave,
+            forceAccidental: n.forceAccidental,
+            tiedTo: n.tiedTo,
+            tiedFrom: n.tiedFrom,
+            articulations: n.articulations,
+          }
+        }),
       }
       slots.push(chord)
     }

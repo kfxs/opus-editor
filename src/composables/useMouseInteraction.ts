@@ -1,9 +1,10 @@
 import { onMounted, onUnmounted } from 'vue'
 import type { Ref, ComputedRef } from 'vue'
-import type { ArticulationType, Accidental, NoteDuration } from '../types/music'
+import type { ArticulationType, Accidental, NoteDuration, PitchSpelling } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import { fracToNumber } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
+import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
 
 interface MouseInteractionDeps {
   engine: Ref<MusicEngine | null>
@@ -69,7 +70,7 @@ export function useMouseInteraction(deps: MouseInteractionDeps) {
 
   // --- Internal drag state ---
   let isDraggingNote = false
-  let draggedNoteOriginalPitch: number | null = null
+  let draggedNoteOriginalPitch: PitchSpelling | null = null
   let dragStartTime: number | null = null
   const DRAG_TIME_THRESHOLD_MS = 150 // Must hold mouse down this long before drag activates
 
@@ -207,7 +208,11 @@ export function useMouseInteraction(deps: MouseInteractionDeps) {
         // If it's a note (not rest), prepare for potential drag
         if (closestElement.type === 'note' && closestElement.pitch !== undefined) {
           isDraggingNote = true
-          draggedNoteOriginalPitch = closestElement.pitch
+          // Store the original spelling for drag reference (derived from MIDI in registry)
+          const origNote = engine.value?.getNote(closestElement.id)
+          draggedNoteOriginalPitch = origNote && origNote.step
+            ? { step: origNote.step, alter: origNote.alter!, octave: origNote.octave! }
+            : null
           dragStartTime = Date.now()
           console.log(`Drag ready | note:${closestElement.id} pitch:${closestElement.pitch}`)
           event.preventDefault() // Prevent text selection during drag
@@ -295,7 +300,7 @@ export function useMouseInteraction(deps: MouseInteractionDeps) {
           )
 
           if (note) {
-            console.log(`✓ Note added to tuplet | pitch:${note.pitch} measure:${note.measure} beat:${note.beat}`)
+            console.log(`✓ Note added to tuplet | measure:${note.measure} beat:${note.beat}`)
             setSelectedNote(note.id)
             selectedTool.value = 'entry'
             renderScore()
@@ -304,20 +309,20 @@ export function useMouseInteraction(deps: MouseInteractionDeps) {
           }
         } else {
           // Not inside an existing tuplet - create a new tuplet
-          let pitch = registry.pixelYToPitch(y, measureNum)
-          if (pitch === null) {
-            pitch = 71 // Default to B4 if pitch detection fails
-          }
+          const naturalSpelling = registry.pixelYToPitch(y, measureNum)
+          const spelling: PitchSpelling = naturalSpelling
+            ? { ...naturalSpelling, alter: accidentalToAlter(selectedAccidental.value) }
+            : { step: 'B', alter: 0, octave: 4 }
 
           const result = engine.value.createTupletAtPosition(
             { x, y },
             selectedDuration.value,
-            pitch,
-            selectedAccidental.value || undefined
+            spelling
           )
 
           if (result) {
-            console.log(`✓ Tuplet created | tupletId:${result.tuplet.id} firstNote pitch:${result.firstNote.pitch}`)
+            const firstMidi = spellingToMidi(result.firstNote.step!, result.firstNote.alter!, result.firstNote.octave!)
+            console.log(`✓ Tuplet created | tupletId:${result.tuplet.id} firstNote midi:${firstMidi}`)
             setSelectedNote(result.firstNote.id)
             selectedTool.value = 'entry'
             // Keep tuplet mode active - user must manually disable it
@@ -337,7 +342,7 @@ export function useMouseInteraction(deps: MouseInteractionDeps) {
         )
 
         if (note) {
-          console.log(`✓ Note added | pitch:${note.pitch} measure:${note.measure} beat:${note.beat}`)
+          console.log(`✓ Note added | measure:${note.measure} beat:${note.beat}`)
           setSelectedNote(note.id)
           selectedTool.value = 'entry'
           renderScore()
@@ -387,12 +392,14 @@ export function useMouseInteraction(deps: MouseInteractionDeps) {
         if (measure) {
           const beatsInMeasure = measure.timeSignature.numerator
           const position = engine.value.pixelToPosition({ x, y }, beatsInMeasure)
-          const cursorPitch = position.pitch
+          const cursorSpelling = position.spelling
+          const cursorMidi = spellingToMidi(cursorSpelling.step, cursorSpelling.alter, cursorSpelling.octave)
+          const noteMidi = spellingToMidi(selectedNote.step!, selectedNote.alter!, selectedNote.octave!)
 
           // Only update if pitch actually changed
-          if (cursorPitch !== selectedNote.pitch) {
-            console.log(`Drag pitch change | ${selectedNote.pitch} -> ${cursorPitch}`)
-            engine.value.updateNote(selectedNoteId.value, { pitch: cursorPitch })
+          if (cursorMidi !== noteMidi) {
+            console.log(`Drag pitch change | midi:${noteMidi} -> ${cursorMidi}`)
+            engine.value.updateNote(selectedNoteId.value, { step: cursorSpelling.step, alter: cursorSpelling.alter, octave: cursorSpelling.octave })
             renderScore()
           }
         }

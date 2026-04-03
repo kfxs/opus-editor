@@ -1,5 +1,6 @@
 import type { Note, NoteParams, Measure, TimeSignature } from '@/types/music'
 import { durationToBeats, getMeasureDuration } from '@/utils/musicUtils'
+import { spellingToMidi } from '@/utils/pitchSpelling'
 import { durationToFraction, fracAdd, fracCompare, fracEq, fracGt, fracGte, fracLt, fracToNumber, fracCreate } from '@/utils/fraction'
 import { beatToFrac } from '@/utils/musicUtils'
 
@@ -60,7 +61,10 @@ export class CollisionDetector {
 
       if (sameStartBeat) {
         // Notes starting at same beat - check if they form a chord or duplicate
-        const samePitch = existing.pitch === newNote.pitch
+        // Compare by sounding MIDI pitch (enharmonic duplicates also collide)
+        const samePitch = !existing.isRest && !newNote.isRest &&
+          spellingToMidi(existing.step!, existing.alter!, existing.octave!) ===
+          spellingToMidi(newNote.step!, newNote.alter!, newNote.octave!)
         const sameDuration = fracEq(newNoteDurFrac, existingDurFrac)
 
         if (samePitch && sameDuration) {

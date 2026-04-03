@@ -12,7 +12,8 @@ import {
   durationToFraction, tupletNoteDurationFraction,
 } from '@/utils/fraction'
 import type { Fraction } from '@/utils/fraction'
-import type { Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType } from '@/types/music'
+import type { Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling } from '@/types/music'
+import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
 import { ElementRegistry } from './ElementRegistry'
 import type { ElementInfo } from './ElementRegistry'
 
@@ -91,7 +92,7 @@ export class NoteEntryCoordinator {
     )
 
     if (overflow.willOverflow && overflow.overflowAmount) {
-      console.log(`KeyboardEntry | pitch:${params.pitch} dur:${params.duration} measure:${params.measure} beat:${finalBeat.toFixed(3)} → overflow ${overflow.overflowAmount.toFixed(3)}b — splitting with tie`)
+      console.log(`KeyboardEntry | step:${params.step} dur:${params.duration} measure:${params.measure} beat:${finalBeat.toFixed(3)} → overflow ${overflow.overflowAmount.toFixed(3)}b — splitting with tie`)
       const splitNote = this.addSplitNoteWithTie(finalParams, overflow.overflowAmount)
       if (splitNote) {
         this.onCommit('Keyboard enter note')
@@ -100,7 +101,7 @@ export class NoteEntryCoordinator {
     }
 
     const note = this.getScoreModel().addNote(finalParams)
-    console.log(`✓ KeyboardEntry | pitch:${note.pitch} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}${tupletAtBeat ? ` tuplet:${tupletAtBeat.id}` : ''}`)
+    console.log(`✓ KeyboardEntry | step:${note.step}${note.alter ? note.alter : ''} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}${tupletAtBeat ? ` tuplet:${tupletAtBeat.id}` : ''}`)
     this.onCommit('Keyboard enter note')
     return note
   }
@@ -122,7 +123,7 @@ export class NoteEntryCoordinator {
   addNoteAtPosition(
     coords: PixelCoordinates,
     duration: NoteParams['duration'],
-    accidental?: NoteParams['accidental'],
+    accidental?: Accidental,
     dots?: number,
     articulations?: ArticulationType[]
   ): Note | null {
@@ -171,11 +172,12 @@ export class NoteEntryCoordinator {
       }
     }
 
-    // Get pitch from Y coordinate
-    let pitch = registry.pixelYToPitch(coords.y, measureNumber)
-    if (pitch === null) {
-      pitch = this.coordinateMapper.pixelYToPitch(coords.y, measureNumber)
-    }
+    // Get natural pitch spelling from Y coordinate, then apply accidental from palette
+    const naturalSpelling = registry.pixelYToPitch(coords.y, measureNumber)
+      ?? this.coordinateMapper.pixelYToPitch(coords.y, measureNumber)
+    const alter = accidentalToAlter(accidental)
+    const spelling: PitchSpelling = { ...naturalSpelling, alter }
+    const pitchMidi = spellingToMidi(spelling.step, spelling.alter, spelling.octave)
 
     // Resolve beat using directional element logic
     const {
@@ -196,7 +198,7 @@ export class NoteEntryCoordinator {
         const notesAtBeat = notesInMeasure.filter(n => !n.isRest && fracEq(n.beat, finalBeat))
         if (notesAtBeat.length > 0) {
           // There are notes at this beat - check for collision
-          const hasSamePitch = notesAtBeat.some(n => n.pitch === pitch)
+          const hasSamePitch = notesAtBeat.some(n => !n.isRest && spellingToMidi(n.step!, n.alter!, n.octave!) === pitchMidi)
           if (hasSamePitch) {
             console.warn('Same pitch collision at calculated beat')
             return null
@@ -335,11 +337,12 @@ export class NoteEntryCoordinator {
     }
 
     const noteParams: NoteParams = {
-      pitch,
+      step: spelling.step,
+      alter: spelling.alter,
+      octave: spelling.octave,
       duration,
       measure: measureNumber,
       beat: finalBeat,
-      ...(accidental && { accidental }),
       ...(dots && { dots }),
       ...(tupletId && { tupletId }),
       ...(articulations?.length && { articulations }),
@@ -358,9 +361,9 @@ export class NoteEntryCoordinator {
 
     // Find and delete notes that would be overwritten by this note
     // This includes: notes within the duration range AND same-pitch notes at same beat (replacement)
-    const notesToOverwrite = this.findNotesToOverwrite(measureNumber, finalBeat, duration, pitch, false, tupletAtBeat)
+    const notesToOverwrite = this.findNotesToOverwrite(measureNumber, finalBeat, duration, pitchMidi, false, tupletAtBeat)
     if (notesToOverwrite.length > 0) {
-      console.log('Overwriting notes:', notesToOverwrite.map(n => `pitch:${n.pitch}@beat:${n.beat}`).join(', '))
+      console.log('Overwriting notes:', notesToOverwrite.map(n => `${n.step}${n.alter ?? ''}@beat:${n.beat}`).join(', '))
       for (const noteToDelete of notesToOverwrite) {
         this.getScoreModel().deleteNote(noteToDelete.id)
       }
@@ -390,7 +393,7 @@ export class NoteEntryCoordinator {
       // Also update existing chord notes at the same beat to have the same duration and ties
       // Skip notes that are already tied (already split) to avoid creating duplicates
       const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
-        .filter(n => !n.isRest && fracEq(n.beat, finalBeat) && n.pitch !== pitch && !n.tiedTo)
+        .filter(n => !n.isRest && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi && !n.tiedTo)
 
       // Split each existing chord note with ties
       for (const chordNote of existingChordNotes) {
@@ -399,14 +402,14 @@ export class NoteEntryCoordinator {
 
       const splitNote = this.addSplitNoteWithTie(noteParams, overflow.overflowAmount)
       if (splitNote) {
-        this.onCommit(`Add ${midiToNoteName(noteParams.pitch)}`)
+        this.onCommit(`Add ${midiToNoteName(pitchMidi)}`)
       }
       return splitNote
     }
 
     // For non-overflow cases, update existing chord notes to match duration
     const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && fracEq(n.beat, finalBeat) && n.pitch !== pitch)
+      .filter(n => !n.isRest && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi)
     for (const chordNote of existingChordNotes) {
       if (chordNote.duration !== duration) {
         this.getScoreModel().updateNote(chordNote.id, { duration })
@@ -430,7 +433,6 @@ export class NoteEntryCoordinator {
       if (fillerWithinTuplet && !existingAtFillerBeat) {
         // Add a filler rest at the calculated position
         this.getScoreModel().addNote({
-          pitch: 0,
           duration: tupletFillerRest.duration,
           measure: measureNumber,
           beat: tupletFillerRest.beat,
@@ -451,7 +453,7 @@ export class NoteEntryCoordinator {
       })
 
       // Save undo state for the complete add operation
-      this.onCommit(`Add ${midiToNoteName(pitch)}`)
+      this.onCommit(`Add ${midiToNoteName(pitchMidi)}`)
     }
 
     return note
@@ -466,8 +468,7 @@ export class NoteEntryCoordinator {
   createTupletAtPosition(
     coords: PixelCoordinates,
     duration: NoteDuration,
-    pitch: number,
-    accidental?: NoteParams['accidental'],
+    spelling: PitchSpelling,
     numNotes: number = 3,
     notesOccupied: number = 2
   ): { tuplet: Tuplet; firstNote: Note } | null {
@@ -514,7 +515,7 @@ export class NoteEntryCoordinator {
       config: `${numNotes}:${notesOccupied} ${duration}`,
     })
 
-    return this.buildTupletWithFirstNote(measureNumber, beat, duration, pitch, accidental, numNotes, notesOccupied)
+    return this.buildTupletWithFirstNote(measureNumber, beat, duration, spelling, numNotes, notesOccupied)
   }
 
   /**
@@ -525,8 +526,7 @@ export class NoteEntryCoordinator {
     measureNumber: number,
     beat: number,
     duration: NoteDuration,
-    pitch: number,
-    accidental?: NoteParams['accidental'],
+    spelling: PitchSpelling,
     numNotes: number = 3,
     notesOccupied: number = 2
   ): { tuplet: Tuplet; firstNote: Note } | null {
@@ -536,7 +536,7 @@ export class NoteEntryCoordinator {
     const existingTuplet = this.getScoreModel().getTupletAtBeat(measureNumber, beatToFrac(beat))
     if (existingTuplet) return null
 
-    return this.buildTupletWithFirstNote(measureNumber, beat, duration, pitch, accidental, numNotes, notesOccupied)
+    return this.buildTupletWithFirstNote(measureNumber, beat, duration, spelling, numNotes, notesOccupied)
   }
 
   /**
@@ -575,12 +575,13 @@ export class NoteEntryCoordinator {
     // For pitched notes: replace the first rest with the original note's pitch
     this.getScoreModel().deleteNote(firstRest.id)
     const newNote = this.getScoreModel().addNote({
-      pitch: note.pitch,
+      step: note.step,
+      alter: note.alter,
+      octave: note.octave,
       duration: note.duration,
       measure: note.measure,
       beat: beatPositions[0],
       tupletId: tuplet.id,
-      ...(note.accidental && { accidental: note.accidental }),
       ...(note.stemDirection && { stemDirection: note.stemDirection }),
     })
 
@@ -598,8 +599,7 @@ export class NoteEntryCoordinator {
     measureNumber: number,
     beat: number,
     duration: NoteDuration,
-    pitch: number,
-    accidental: NoteParams['accidental'] | undefined,
+    spelling: PitchSpelling,
     numNotes: number,
     notesOccupied: number
   ): { tuplet: Tuplet; firstNote: Note } | null {
@@ -607,7 +607,7 @@ export class NoteEntryCoordinator {
     const existingNoteAtStart = this.getScoreModel().getNotesInMeasure(measureNumber)
       .find(n => !n.isRest && !n.tupletId && Math.abs(fracToNumber(n.beat) - beat) < 0.001)
     const existingNoteData = existingNoteAtStart
-      ? { pitch: existingNoteAtStart.pitch, accidental: existingNoteAtStart.accidental }
+      ? { step: existingNoteAtStart.step, alter: existingNoteAtStart.alter, octave: existingNoteAtStart.octave }
       : null
 
     // Create the tuplet (fills with rests and deletes overlapping notes)
@@ -623,20 +623,22 @@ export class NoteEntryCoordinator {
       // Re-add the pre-existing note as part of the tuplet, then add new note as chord
       if (firstRest) this.getScoreModel().deleteNote(firstRest.id)
       this.getScoreModel().addNote({
-        pitch: existingNoteData.pitch,
+        step: existingNoteData.step,
+        alter: existingNoteData.alter,
+        octave: existingNoteData.octave,
         duration,
         measure: measureNumber,
         beat: beatPositions[0],
         tupletId: tuplet.id,
-        ...(existingNoteData.accidental && { accidental: existingNoteData.accidental }),
       })
       firstNote = this.getScoreModel().addNote({
-        pitch,
+        step: spelling.step,
+        alter: spelling.alter,
+        octave: spelling.octave,
         duration,
         measure: measureNumber,
         beat: beatPositions[0],
         tupletId: tuplet.id,
-        ...(accidental && { accidental }),
       })
     } else {
       // Replace the first rest with the new note
@@ -646,12 +648,13 @@ export class NoteEntryCoordinator {
       }
       this.getScoreModel().deleteNote(firstRest.id)
       firstNote = this.getScoreModel().addNote({
-        pitch,
+        step: spelling.step,
+        alter: spelling.alter,
+        octave: spelling.octave,
         duration,
         measure: measureNumber,
         beat: beatPositions[0],
         tupletId: tuplet.id,
-        ...(accidental && { accidental }),
       })
     }
 
@@ -806,7 +809,8 @@ export class NoteEntryCoordinator {
     }
 
     // Delete notes that would be overwritten in the next measure
-    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, { num: 0, den: 1 }, nextMeasureDurations[0], existingNote.pitch, true)
+    const existingMidi = spellingToMidi(existingNote.step!, existingNote.alter!, existingNote.octave!)
+    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, { num: 0, den: 1 }, nextMeasureDurations[0], existingMidi, true)
     for (const noteToDelete of notesToOverwriteNext) {
       this.getScoreModel().deleteNote(noteToDelete.id)
     }
@@ -817,11 +821,12 @@ export class NoteEntryCoordinator {
 
     for (const duration of nextMeasureDurations) {
       const continuationNote = this.getScoreModel().addNote({
-        pitch: existingNote.pitch,
+        step: existingNote.step,
+        alter: existingNote.alter,
+        octave: existingNote.octave,
         duration,
         measure: nextMeasureNumber,
         beat: beatToFrac(nextBeat),
-        ...(existingNote.accidental && { accidental: existingNote.accidental }),
       })
 
       // Link with tie
@@ -834,7 +839,9 @@ export class NoteEntryCoordinator {
 
     console.log('Split existing chord note with tie:', {
       noteId: existingNote.id,
-      pitch: existingNote.pitch,
+      step: existingNote.step,
+      alter: existingNote.alter,
+      octave: existingNote.octave,
       currentDuration: currentMeasureDurations[0],
       nextDurations: nextMeasureDurations,
     })
@@ -873,7 +880,8 @@ export class NoteEntryCoordinator {
     }
 
     // Delete notes that would be overwritten in the next measure
-    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, { num: 0, den: 1 }, nextMeasureDurations[0], noteParams.pitch, true)
+    const noteParamsMidi = spellingToMidi(noteParams.step!, noteParams.alter!, noteParams.octave!)
+    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, { num: 0, den: 1 }, nextMeasureDurations[0], noteParamsMidi, true)
     for (const noteToDelete of notesToOverwriteNext) {
       this.getScoreModel().deleteNote(noteToDelete.id)
     }
@@ -885,11 +893,12 @@ export class NoteEntryCoordinator {
 
     for (const duration of currentMeasureDurations) {
       const note = this.getScoreModel().addNote({
-        pitch: noteParams.pitch,
+        step: noteParams.step,
+        alter: noteParams.alter,
+        octave: noteParams.octave,
         duration,
         measure: noteParams.measure,
         beat: beatToFrac(currentBeat),
-        ...(noteParams.accidental && { accidental: noteParams.accidental }),
         // No dots - split durations are standard non-dotted durations
       })
       if (!firstNote) firstNote = note
@@ -908,11 +917,12 @@ export class NoteEntryCoordinator {
     let nextBeat = 0
     for (const duration of nextMeasureDurations) {
       const note = this.getScoreModel().addNote({
-        pitch: noteParams.pitch,
+        step: noteParams.step,
+        alter: noteParams.alter,
+        octave: noteParams.octave,
         duration,
         measure: nextMeasureNumber,
         beat: beatToFrac(nextBeat),
-        ...(noteParams.accidental && { accidental: noteParams.accidental }),
         // No dots - split durations are standard non-dotted durations
       })
 
@@ -967,7 +977,7 @@ export class NoteEntryCoordinator {
       // Notes within a tuplet should coexist and not overwrite each other based on range
       if (tupletInfo && existing.tupletId === tupletInfo.id) {
         // Only allow deletion if at the exact same beat AND same pitch (replacement)
-        if (fracEq(existing.beat, beat) && existing.pitch === pitch) {
+        if (fracEq(existing.beat, beat) && !existing.isRest && spellingToMidi(existing.step!, existing.alter!, existing.octave!) === pitch) {
           return true
         }
         return false  // Protect all other notes in the same tuplet
@@ -980,7 +990,7 @@ export class NoteEntryCoordinator {
         if (isTiedContinuation) {
           return true  // Delete all notes at this beat for tied continuations
         }
-        return existing.pitch === pitch  // Delete if same pitch (replacement)
+        return !existing.isRest && spellingToMidi(existing.step!, existing.alter!, existing.octave!) === pitch  // Delete if same MIDI pitch (replacement)
       }
 
       // Check if this note starts within the new note's time range

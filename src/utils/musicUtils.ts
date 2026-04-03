@@ -435,7 +435,6 @@ export function getMeasureNotes(measure: Measure): Note[] {
     if (slot.type === 'rest') {
       result.push({
         id: slot.id,
-        pitch: 0,
         duration: slot.duration,
         measure: slot.measure,
         beat: slot.beat,
@@ -448,12 +447,13 @@ export function getMeasureNotes(measure: Measure): Note[] {
       for (const pitch of slot.notes) {
         result.push({
           id: pitch.id,
-          pitch: pitch.pitch,
+          step: pitch.step,
+          alter: pitch.alter,
+          octave: pitch.octave,
           duration: slot.duration,
           measure: slot.measure,
           beat: slot.beat,
           isRest: false,
-          accidental: pitch.accidental,
           forceAccidental: pitch.forceAccidental,
           stemDirection: slot.stemDirection,
           tiedTo: pitch.tiedTo,

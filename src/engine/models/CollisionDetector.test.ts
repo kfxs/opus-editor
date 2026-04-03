@@ -3,6 +3,11 @@ import { CollisionDetector } from './CollisionDetector'
 import type { Note, NoteParams, Measure } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
 
+// Helpers for common note pitches used throughout
+const C4: Pick<NoteParams, 'step' | 'alter' | 'octave'> = { step: 'C', alter: 0, octave: 4 }
+const E4: Pick<NoteParams, 'step' | 'alter' | 'octave'> = { step: 'E', alter: 0, octave: 4 }
+const G4: Pick<NoteParams, 'step' | 'alter' | 'octave'> = { step: 'G', alter: 0, octave: 4 }
+
 describe('CollisionDetector', () => {
   let detector: CollisionDetector
   let measure: Measure
@@ -21,7 +26,7 @@ describe('CollisionDetector', () => {
   describe('checkNoteCollision', () => {
     it('should not detect collision with empty notes list', () => {
       const newNote: NoteParams = {
-        pitch: 60,
+        ...C4,
         duration: 'q',
         measure: 1,
         beat: frac(0, 1),
@@ -34,14 +39,14 @@ describe('CollisionDetector', () => {
     it('should detect collision with same pitch and overlapping time', () => {
       const existingNote: Note = {
         id: '1',
-        pitch: 60,
+        ...C4,
         duration: 'q',
         measure: 1,
         beat: frac(0, 1),
       }
 
       const newNote: NoteParams = {
-        pitch: 60,
+        ...C4,
         duration: 'q',
         measure: 1,
         beat: frac(1, 2), // Overlaps with existing note
@@ -55,14 +60,14 @@ describe('CollisionDetector', () => {
     it('should not detect collision with different pitch', () => {
       const existingNote: Note = {
         id: '1',
-        pitch: 60,
+        ...C4,
         duration: 'q',
         measure: 1,
         beat: frac(0, 1),
       }
 
       const newNote: NoteParams = {
-        pitch: 64, // Different pitch
+        ...E4, // Different pitch
         duration: 'q',
         measure: 1,
         beat: frac(0, 1),
@@ -75,14 +80,14 @@ describe('CollisionDetector', () => {
     it('should not detect collision with non-overlapping time', () => {
       const existingNote: Note = {
         id: '1',
-        pitch: 60,
+        ...C4,
         duration: 'q',
         measure: 1,
         beat: frac(0, 1),
       }
 
       const newNote: NoteParams = {
-        pitch: 60,
+        ...C4,
         duration: 'q',
         measure: 1,
         beat: frac(1, 1), // Starts after existing note ends
@@ -95,14 +100,14 @@ describe('CollisionDetector', () => {
     it('should detect collision when new note encompasses existing note', () => {
       const existingNote: Note = {
         id: '1',
-        pitch: 60,
+        ...C4,
         duration: 'q',
         measure: 1,
         beat: frac(1, 1),
       }
 
       const newNote: NoteParams = {
-        pitch: 60,
+        ...C4,
         duration: 'w', // Whole note encompasses the quarter note
         measure: 1,
         beat: frac(0, 1),
@@ -115,14 +120,14 @@ describe('CollisionDetector', () => {
     it('should not detect collision in different measures', () => {
       const existingNote: Note = {
         id: '1',
-        pitch: 60,
+        ...C4,
         duration: 'q',
         measure: 1,
         beat: frac(0, 1),
       }
 
       const newNote: NoteParams = {
-        pitch: 60,
+        ...C4,
         duration: 'q',
         measure: 2, // Different measure
         beat: frac(0, 1),
@@ -136,7 +141,7 @@ describe('CollisionDetector', () => {
   describe('checkMeasureOverflow', () => {
     it('should not detect overflow for note that fits', () => {
       const note: NoteParams = {
-        pitch: 60,
+        ...C4,
         duration: 'q',
         measure: 1,
         beat: frac(0, 1),
@@ -148,7 +153,7 @@ describe('CollisionDetector', () => {
 
     it('should detect overflow for note extending beyond measure', () => {
       const note: NoteParams = {
-        pitch: 60,
+        ...C4,
         duration: 'w',
         measure: 1,
         beat: frac(2, 1), // Whole note starting at beat 2 will overflow
@@ -162,7 +167,7 @@ describe('CollisionDetector', () => {
 
     it('should allow note at exact end of measure', () => {
       const note: NoteParams = {
-        pitch: 60,
+        ...C4,
         duration: 'q',
         measure: 1,
         beat: frac(3, 1), // Quarter note at beat 3 ends exactly at 4
@@ -183,7 +188,7 @@ describe('CollisionDetector', () => {
       const existingNotes: Note[] = [
         {
           id: '1',
-          pitch: 60,
+          ...C4,
           duration: 'q',
           measure: 1,
           beat: frac(0, 1),
@@ -198,14 +203,14 @@ describe('CollisionDetector', () => {
       const existingNotes: Note[] = [
         {
           id: '1',
-          pitch: 60,
+          ...C4,
           duration: 'q',
           measure: 1,
           beat: frac(0, 1),
         },
         {
           id: '2',
-          pitch: 60,
+          ...C4,
           duration: 'q',
           measure: 1,
           beat: frac(2, 1),
@@ -220,7 +225,7 @@ describe('CollisionDetector', () => {
       const existingNotes: Note[] = [
         {
           id: '1',
-          pitch: 60,
+          ...C4,
           duration: 'w',
           measure: 1,
           beat: frac(0, 1),
@@ -242,7 +247,7 @@ describe('CollisionDetector', () => {
       const existingNotes: Note[] = [
         {
           id: '1',
-          pitch: 60,
+          ...C4,
           duration: 'q',
           measure: 1,
           beat: frac(0, 1),
@@ -250,7 +255,7 @@ describe('CollisionDetector', () => {
       ]
 
       const newNote: NoteParams = {
-        pitch: 60,
+        ...C4,
         duration: 'q',
         measure: 1,
         beat: frac(2, 1),
@@ -264,14 +269,14 @@ describe('CollisionDetector', () => {
       const existingNotes: Note[] = [
         {
           id: '1',
-          pitch: 60,
+          ...C4,
           duration: 'q',
           measure: 1,
           beat: frac(0, 1),
         },
         {
           id: '2',
-          pitch: 64,
+          ...E4,
           duration: 'q',
           measure: 1,
           beat: frac(1, 2),
@@ -279,7 +284,7 @@ describe('CollisionDetector', () => {
       ]
 
       const newNote: NoteParams = {
-        pitch: 67,
+        ...G4,
         duration: 'h',
         measure: 1,
         beat: frac(0, 1),
@@ -302,7 +307,7 @@ describe('CollisionDetector', () => {
       const notes: Note[] = [
         {
           id: '1',
-          pitch: 60,
+          ...C4,
           duration: 'h',
           measure: 1,
           beat: frac(0, 1),
@@ -319,14 +324,14 @@ describe('CollisionDetector', () => {
       const notes: Note[] = [
         {
           id: '1',
-          pitch: 60,
+          ...C4,
           duration: 'q',
           measure: 1,
           beat: frac(0, 1),
         },
         {
           id: '2',
-          pitch: 64,
+          ...E4,
           duration: 'q',
           measure: 1,
           beat: frac(3, 1),
@@ -349,7 +354,7 @@ describe('CollisionDetector', () => {
       const notes: Note[] = [
         {
           id: '1',
-          pitch: 60,
+          ...C4,
           duration: 'q',
           measure: 1,
           beat: frac(0, 1),
@@ -364,7 +369,7 @@ describe('CollisionDetector', () => {
       const notes: Note[] = [
         {
           id: '1',
-          pitch: 60,
+          ...C4,
           duration: 'w',
           measure: 1,
           beat: frac(2, 1),
@@ -380,7 +385,7 @@ describe('CollisionDetector', () => {
       const notes: Note[] = [
         {
           id: '1',
-          pitch: 60,
+          ...C4,
           duration: 'q',
           measure: 1,
           beat: frac(-1, 1),
@@ -396,7 +401,7 @@ describe('CollisionDetector', () => {
   describe('quantizeNote', () => {
     it('should quantize note to nearest subdivision', () => {
       const note: NoteParams = {
-        pitch: 60,
+        ...C4,
         duration: 'q',
         measure: 1,
         beat: frac(3, 5),
@@ -408,7 +413,7 @@ describe('CollisionDetector', () => {
 
     it('should clamp to measure boundaries', () => {
       const note: NoteParams = {
-        pitch: 60,
+        ...C4,
         duration: 'h',
         measure: 1,
         beat: frac(7, 2),

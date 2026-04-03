@@ -1,6 +1,7 @@
 import type { Note, Score } from '../types/music'
 import { fracCompare } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
+import { spellingToMidi } from '../utils/pitchSpelling'
 
 /**
  * A note augmented with its parent measure number (for cross-measure sorting).
@@ -32,7 +33,7 @@ export function buildBeatMap(score: Score): { allFlat: FlatNote[]; beats: FlatNo
     const existing = beatMap.get(key)
     if (!existing) {
       beatMap.set(key, n)
-    } else if (!n.isRest && (existing.isRest || n.pitch < existing.pitch)) {
+    } else if (!n.isRest && (existing.isRest || spellingToMidi(n.step!, n.alter!, n.octave!) < spellingToMidi(existing.step!, existing.alter!, existing.octave!))) {
       // Prefer non-rest; among non-rests prefer the lowest pitch
       beatMap.set(key, n)
     }

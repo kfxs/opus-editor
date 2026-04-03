@@ -1,10 +1,11 @@
 import { ref } from 'vue'
 import type { Ref } from 'vue'
-import type { Accidental, NoteDuration, Note, Measure } from '../types/music'
+import type { Accidental, NoteDuration, Note, Measure, PitchStep, PitchAlter } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import { buildBeatMap } from '../utils/beatMap'
 import { fracLt, fracEq, fracCompare } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
+import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
 
 interface SelectionDeps {
   selectedTool: Ref<'entry' | 'selection'>
@@ -46,29 +47,32 @@ export function useSelection(deps: SelectionDeps) {
    */
   function computeDisplayedAccidental(note: Note, measure: Measure): Accidental | 'n' | null {
     if (note.isRest || note.tiedFrom) return null
-    if (note.forceAccidental && note.accidental) return note.accidental
+    if (note.forceAccidental && note.alter) return note.alter > 0 ? '#' : 'b'
 
-    // Build active-accidental state from notes strictly before this note's beat
-    const active = new Map<number, Accidental | null>()
+    // Build active-alter state from notes strictly before this note's beat.
+    // Key = diatonic staff position (same as the renderer) — this is what determines
+    // whether a natural sign is needed, not the MIDI pitch. C# and C natural share the
+    // same diatonic position, so a preceding C# requires a ♮ on a later C natural.
+    const active = new Map<number, PitchAlter>()
     const preceding = getMeasureNotes(measure)
       .filter(n => !n.isRest && !n.tiedFrom && fracLt(n.beat, note.beat))
       .sort((a, b) => fracCompare(a.beat, b.beat))
 
     for (const n of preceding) {
-      if (n.accidental) {
-        // Normalize 'n' → null: both mean "natural" in the active state map
-        active.set(n.pitch, n.accidental === 'n' ? null : n.accidental)
-      } else if (active.has(n.pitch)) {
-        active.set(n.pitch, null)
-      }
+      const dPos = spellingDiatonicPos(n.step!, n.octave!)
+      active.set(dPos, n.alter ?? 0)
     }
 
-    const activeAcc = active.get(note.pitch)
-    if (note.accidental) {
-      const normalizedAcc = note.accidental === 'n' ? null : note.accidental
-      return activeAcc === normalizedAcc ? null : note.accidental
+    const dPos = spellingDiatonicPos(note.step!, note.octave!)
+    const activeAlter = active.get(dPos)
+    const noteAlter = note.alter ?? 0
+
+    if (noteAlter !== 0) {
+      // Note has an accidental — show it only if it differs from the active state
+      return activeAlter === noteAlter ? null : (noteAlter > 0 ? '#' : 'b')
     } else {
-      if (activeAcc !== undefined && activeAcc !== null) return 'n'
+      // Natural note — show 'n' cautionary if there was a previous accidental
+      if (activeAlter !== undefined && activeAlter !== 0) return 'n'
       if (note.forceAccidental) return 'n'
       return null
     }
@@ -166,7 +170,7 @@ export function useSelection(deps: SelectionDeps) {
     // All non-rest notes at the same beat, sorted low → high
     const chordNotes = getMeasureNotes(measure)
       .filter(n => !n.isRest && fracEq(n.beat, note.beat))
-      .sort((a, b) => a.pitch - b.pitch)
+      .sort((a, b) => spellingToMidi(a.step!, a.alter!, a.octave!) - spellingToMidi(b.step!, b.alter!, b.octave!))
 
     if (chordNotes.length <= 1) return
 
@@ -197,8 +201,8 @@ export function useSelection(deps: SelectionDeps) {
 
     if (!selectedNote || selectedNote.isRest) return
 
-    const newPitch = movePitchDiatonically(selectedNote.pitch, direction)
-    engine.value.updateNote(selectedNoteId.value, { pitch: newPitch })
+    const newSpelling = movePitchDiatonically(selectedNote.step!, selectedNote.alter!, selectedNote.octave!, direction)
+    engine.value.updateNote(selectedNoteId.value, { step: newSpelling.step, alter: newSpelling.alter, octave: newSpelling.octave })
     renderScore()
   }
 
@@ -219,8 +223,7 @@ export function useSelection(deps: SelectionDeps) {
 
     if (!selectedNote || selectedNote.isRest) return
 
-    const newPitch = selectedNote.pitch + (direction * 12)
-    engine.value.updateNote(selectedNoteId.value, { pitch: newPitch })
+    engine.value.updateNote(selectedNoteId.value, { octave: selectedNote.octave! + direction })
     renderScore()
   }
 
@@ -244,19 +247,21 @@ export function useSelection(deps: SelectionDeps) {
     const currentIndex = allNotes.findIndex(n => n.id === selectedNoteId.value)
     if (currentIndex === -1) return 60
 
-    let prevPitch: number | null = null
-    let nextPitch: number | null = null
+    let prevMidi: number | null = null
+    let nextMidi: number | null = null
 
     for (let i = currentIndex - 1; i >= 0; i--) {
-      if (!allNotes[i].isRest) { prevPitch = allNotes[i].pitch; break }
+      const n = allNotes[i]
+      if (!n.isRest && n.step) { prevMidi = spellingToMidi(n.step, n.alter!, n.octave!); break }
     }
     for (let i = currentIndex + 1; i < allNotes.length; i++) {
-      if (!allNotes[i].isRest) { nextPitch = allNotes[i].pitch; break }
+      const n = allNotes[i]
+      if (!n.isRest && n.step) { nextMidi = spellingToMidi(n.step, n.alter!, n.octave!); break }
     }
 
-    if (prevPitch !== null && nextPitch !== null) return Math.round((prevPitch + nextPitch) / 2)
-    if (prevPitch !== null) return prevPitch
-    if (nextPitch !== null) return nextPitch
+    if (prevMidi !== null && nextMidi !== null) return Math.round((prevMidi + nextMidi) / 2)
+    if (prevMidi !== null) return prevMidi
+    if (nextMidi !== null) return nextMidi
     return 60 // default: middle C octave
   }
 
@@ -301,44 +306,16 @@ export function useSelection(deps: SelectionDeps) {
   // --- Private helpers ---
 
   /**
-   * Move pitch by one diatonic step (C, D, E, F, G, A, B) preserving accidental.
-   * Note: 'pitch' is the STAFF POSITION (the natural note line/space),
-   * and accidentals modify the sounding pitch. This only moves the staff position.
+   * Move a pitch spelling by one diatonic step (C↔D↔E↔F↔G↔A↔B), preserving the alter.
    */
-  function movePitchDiatonically(pitch: number, direction: number): number {
-    const staffPosition = pitch
-    const octave = Math.floor(staffPosition / 12)
-    const semitone = ((staffPosition % 12) + 12) % 12 // Handle negative values
-
-    // Diatonic note semitones within octave: C=0, D=2, E=4, F=5, G=7, A=9, B=11
-    const diatonicSemitones = [0, 2, 4, 5, 7, 9, 11]
-
-    let diatonicIndex = diatonicSemitones.indexOf(semitone)
-    if (diatonicIndex === -1) {
-      // Staff position is on a black key - shouldn't normally happen,
-      // but handle it by rounding to nearest diatonic note
-      for (let i = 0; i < diatonicSemitones.length; i++) {
-        if (diatonicSemitones[i] > semitone) {
-          diatonicIndex = direction > 0 ? i : i - 1
-          break
-        }
-      }
-      if (diatonicIndex === -1) diatonicIndex = 6 // B
-    }
-
-    let newDiatonicIndex = diatonicIndex + direction
+  function movePitchDiatonically(step: PitchStep, alter: PitchAlter, octave: number, direction: number): { step: PitchStep; alter: PitchAlter; octave: number } {
+    const STEPS: PitchStep[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
+    let idx = STEPS.indexOf(step)
     let newOctave = octave
-
-    if (newDiatonicIndex > 6) {
-      newDiatonicIndex = 0
-      newOctave++
-    } else if (newDiatonicIndex < 0) {
-      newDiatonicIndex = 6
-      newOctave--
-    }
-
-    const newSemitone = diatonicSemitones[newDiatonicIndex]
-    return newOctave * 12 + newSemitone
+    idx += direction
+    if (idx > 6) { idx = 0; newOctave++ }
+    else if (idx < 0) { idx = 6; newOctave-- }
+    return { step: STEPS[idx], alter, octave: newOctave }
   }
 
   return {

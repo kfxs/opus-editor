@@ -1,9 +1,10 @@
 import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
-import type { ArticulationType, NoteDuration, Accidental } from '../types/music'
+import type { ArticulationType, NoteDuration, Accidental, PitchAlter } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import { fracLt, fracCompare } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
+import { spellingDiatonicPos } from '../utils/pitchSpelling'
 
 interface PaletteDeps {
   selectedTool: Ref<'entry' | 'selection'>
@@ -76,60 +77,43 @@ export function usePalette(deps: PaletteDeps) {
       const note = engine.value.getNote(selectedNoteId.value)
       if (newValue === null) {
         if (note?.forceAccidental) {
-          // Was force-shown → remove force only, goes back to suppressed (accidental stays)
+          // Was force-shown → remove force only, alter (pitch) stays
           engine.value.updateNote(selectedNoteId.value, { forceAccidental: undefined })
-        } else if (!note?.accidental) {
-          // Auto-cautionary ♮ state (no stored accidental, no force — ♮ was computed from measure).
-          // The user pressing toggle-off means "inherit the active measure accidental" for this pitch.
-          // Walk preceding notes to find the active accidental, then apply it.
-          const score = engine.value.getScore()
-          const measure = score.measures.find(m => m.number === note!.measure)
-          if (measure) {
-            const active = new Map<number, Accidental | null>()
-            const preceding = getMeasureNotes(measure)
-              .filter(n => !n.isRest && !n.tiedFrom && fracLt(n.beat, note!.beat))
-              .sort((a, b) => fracCompare(a.beat, b.beat))
-            for (const n of preceding) {
-              if (n.accidental) active.set(n.pitch, n.accidental === 'n' ? null : n.accidental as Accidental)
-              else if (active.has(n.pitch)) active.set(n.pitch, null)
-            }
-            const activeAcc = active.get(note!.pitch)
-            if (activeAcc !== undefined && activeAcc !== null) {
-              engine.value.updateNote(selectedNoteId.value, { accidental: activeAcc, forceAccidental: undefined })
-            }
-          }
         } else {
-          // Naturally shown (not forced) → remove the accidental entirely, note becomes natural
-          engine.value.updateNote(selectedNoteId.value, { accidental: undefined, forceAccidental: undefined })
+          // Toggle off → make note natural (alter=0), clear force
+          engine.value.updateNote(selectedNoteId.value, { alter: 0, forceAccidental: undefined })
         }
       } else if (newValue === 'n') {
-        // Natural/becuadro: make the note natural. Only set forceAccidental=true if the ♮ sign
-        // would NOT auto-show from measure rules — i.e., when no preceding note established a
-        // sharp/flat for this pitch. If the measure would auto-show ♮ anyway, leave forceAccidental
-        // unset so the flag doesn't incorrectly travel with the note on octave shifts.
+        // Natural: set alter=0. Only force-show ♮ if it would NOT auto-show from measure rules —
+        // i.e., when a preceding note established a sharp/flat for this pitch in the measure.
         const score = engine.value.getScore()
         const measure = score.measures.find(m => m.number === note!.measure)
         let wouldAutoShow = false
         if (measure) {
-          const active = new Map<number, Accidental | null>()
+          // Use diatonic staff position as key — same logic as the renderer.
+          // C# and C natural share diatonic position 28, so a preceding C# means
+          // the renderer will auto-show ♮ on a subsequent C natural.
+          const active = new Map<number, PitchAlter>()
           const preceding = getMeasureNotes(measure)
             .filter(n => !n.isRest && !n.tiedFrom && fracLt(n.beat, note!.beat))
             .sort((a, b) => fracCompare(a.beat, b.beat))
           for (const n of preceding) {
-            if (n.accidental) active.set(n.pitch, n.accidental === 'n' ? null : n.accidental as Accidental)
-            else if (active.has(n.pitch)) active.set(n.pitch, null)
+            const dPos = spellingDiatonicPos(n.step!, n.octave!)
+            active.set(dPos, n.alter ?? 0)
           }
-          const activeAcc = active.get(note!.pitch)
-          wouldAutoShow = activeAcc !== undefined && activeAcc !== null
+          const dPos = spellingDiatonicPos(note!.step!, note!.octave!)
+          const activeAlter = active.get(dPos)
+          wouldAutoShow = activeAlter !== undefined && activeAlter !== 0
         }
         engine.value.updateNote(selectedNoteId.value, {
-          accidental: undefined,
+          alter: 0,
           forceAccidental: wouldAutoShow ? undefined : true,
         })
       } else {
-        // Set #/b: force-show if re-pressing the same accidental that's currently suppressed.
-        const forceAccidental = newValue === note?.accidental ? true : undefined
-        engine.value.updateNote(selectedNoteId.value, { accidental: newValue, forceAccidental })
+        // '#' or 'b': change alter. Force-show if the note already has this alter (sign was suppressed).
+        const newAlter: PitchAlter = newValue === '#' ? 1 : -1
+        const forceAccidental = note?.alter === newAlter ? true : undefined
+        engine.value.updateNote(selectedNoteId.value, { alter: newAlter, forceAccidental })
       }
       renderScore()
       // Re-sync palette to the effective displayed accidental after the update.

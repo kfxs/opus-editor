@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { CoordinateMapper } from './CoordinateMapper'
 import type { Note } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
+import { spellingToMidi } from '@/utils/pitchSpelling'
 
 describe('CoordinateMapper', () => {
   let mapper: CoordinateMapper
@@ -60,22 +61,22 @@ describe('CoordinateMapper', () => {
   })
 
   describe('pitchToPixelY', () => {
-    it('should return correct Y for middle C (MIDI 60)', () => {
-      const y = mapper.pitchToPixelY(60, 1)
-      // C4 (60) is at staff line 5.0
-      // y = startY + (staffLine * 10) + (headroom * 10) = 40 + 50 + 40 = 130
+    it('should return correct Y for middle C (C4)', () => {
+      const y = mapper.pitchToPixelY('C', 0, 4, 1)
+      // C4: dPos=28, staffLine=(38-28)/2=5.0
+      // y = startY + (5.0 * 10) + (4 * 10) = 40 + 50 + 40 = 130
       expect(y).toBe(130)
     })
 
     it('should return lower Y for higher pitch', () => {
-      const yC = mapper.pitchToPixelY(60, 1)
-      const yE = mapper.pitchToPixelY(64, 1)
+      const yC = mapper.pitchToPixelY('C', 0, 4, 1)
+      const yE = mapper.pitchToPixelY('E', 0, 4, 1)
       expect(yE).toBeLessThan(yC) // Higher pitch = lower on screen
     })
 
     it('should return higher Y for lower pitch', () => {
-      const yC = mapper.pitchToPixelY(60, 1)
-      const yG = mapper.pitchToPixelY(55, 1)
+      const yC = mapper.pitchToPixelY('C', 0, 4, 1)
+      const yG = mapper.pitchToPixelY('G', 0, 3, 1)
       expect(yG).toBeGreaterThan(yC) // Lower pitch = higher on screen
     })
   })
@@ -84,7 +85,9 @@ describe('CoordinateMapper', () => {
     it('should convert note to pixel coordinates', () => {
       const note: Note = {
         id: '1',
-        pitch: 60,
+        step: 'C',
+        alter: 0,
+        octave: 4,
         duration: 'q',
         measure: 1,
         beat: frac(0, 1),
@@ -98,7 +101,9 @@ describe('CoordinateMapper', () => {
     it('should handle notes in different measures', () => {
       const note: Note = {
         id: '1',
-        pitch: 60,
+        step: 'C',
+        alter: 0,
+        octave: 4,
         duration: 'q',
         measure: 2,
         beat: frac(0, 1),
@@ -158,33 +163,38 @@ describe('CoordinateMapper', () => {
   })
 
   describe('pixelYToPitch', () => {
-    it('should convert Y=130 to middle C (MIDI 60)', () => {
-      // y=130: staffLine = ((130 - 40) / 10) - 4 = 9 - 4 = 5.0 = C4 (60)
-      const pitch = mapper.pixelYToPitch(130, 1)
-      expect(pitch).toBe(60)
+    it('should convert Y=130 to middle C (C4)', () => {
+      // y=130: staffLine = ((130 - 40) / 10) - 4 = 9 - 4 = 5.0 → dPos=28 → C4
+      const spelling = mapper.pixelYToPitch(130, 1)
+      expect(spelling.step).toBe('C')
+      expect(spelling.octave).toBe(4)
+      expect(spellingToMidi(spelling.step, spelling.alter, spelling.octave)).toBe(60)
     })
 
     it('should convert lower Y to higher pitch', () => {
-      const pitchLow = mapper.pixelYToPitch(130, 1)  // C4
-      const pitchHigh = mapper.pixelYToPitch(80, 1)  // Higher on staff
-      expect(pitchHigh).toBeGreaterThan(pitchLow)
+      const spellingC = mapper.pixelYToPitch(130, 1)  // C4
+      const spellingHigh = mapper.pixelYToPitch(80, 1)  // Higher on staff
+      expect(spellingToMidi(spellingHigh.step, spellingHigh.alter, spellingHigh.octave))
+        .toBeGreaterThan(spellingToMidi(spellingC.step, spellingC.alter, spellingC.octave))
     })
 
     it('should convert higher Y to lower pitch', () => {
-      const pitchHigh = mapper.pixelYToPitch(130, 1) // C4 (60)
-      const pitchLow = mapper.pixelYToPitch(140, 1)  // A3 (57) - lower on staff
-      expect(pitchLow).toBeLessThan(pitchHigh)
+      const spellingC = mapper.pixelYToPitch(130, 1)  // C4
+      const spellingLow = mapper.pixelYToPitch(140, 1) // Lower on staff
+      expect(spellingToMidi(spellingLow.step, spellingLow.alter, spellingLow.octave))
+        .toBeLessThan(spellingToMidi(spellingC.step, spellingC.alter, spellingC.octave))
     })
   })
 
   describe('pixelToPosition', () => {
     it('should convert pixel coordinates to complete position', () => {
-      // Use y=130 for middle C (pitch 60)
+      // Use y=130 for middle C (C4)
       const position = mapper.pixelToPosition({ x: 110, y: 130 }, 4)
 
       expect(position.measure).toBe(1)
       expect(position.beat).toBe(0)
-      expect(position.pitch).toBe(60)
+      expect(position.spelling.step).toBe('C')
+      expect(position.spelling.octave).toBe(4)
     })
 
     it('should handle different pixel positions', () => {
@@ -192,7 +202,8 @@ describe('CoordinateMapper', () => {
 
       expect(position.measure).toBe(2)
       expect(position.beat).toBeGreaterThanOrEqual(0)
-      expect(position.pitch).toBeGreaterThan(60)
+      expect(spellingToMidi(position.spelling.step, position.spelling.alter, position.spelling.octave))
+        .toBeGreaterThan(60)
     })
   })
 

@@ -83,7 +83,9 @@ describe('ScoreModel', () => {
 
   describe('note operations', () => {
     const noteParams: NoteParams = {
-      pitch: 60,
+      step: 'C',
+      alter: 0,
+      octave: 4,
       duration: 'q',
       measure: 1,
       beat: frac(0, 1),
@@ -91,7 +93,9 @@ describe('ScoreModel', () => {
 
     it('should add a note to a measure', () => {
       const note = model.addNote(noteParams)
-      expect(note.pitch).toBe(60)
+      expect(note.step).toBe('C')
+      expect(note.alter).toBe(0)
+      expect(note.octave).toBe(4)
       expect(note.duration).toBe('q')
       expect(note.measure).toBe(1)
       expect(note.beat).toEqual(frac(0, 1))
@@ -104,10 +108,10 @@ describe('ScoreModel', () => {
       ).toThrow('Measure 999 does not exist')
     })
 
-    it('should throw error for invalid pitch', () => {
+    it('should throw error for note without step', () => {
       expect(() =>
-        model.addNote({ ...noteParams, pitch: 200 })
-      ).toThrow('Pitch must be between 0 and 127')
+        model.addNote({ duration: 'q', measure: 1, beat: frac(0, 1) })
+      ).toThrow('Non-rest notes must have a step')
     })
 
     it('should sort notes by beat position', () => {
@@ -143,10 +147,11 @@ describe('ScoreModel', () => {
 
     it('should update a note', () => {
       const note = model.addNote(noteParams)
-      model.updateNote(note.id, { pitch: 64, duration: 'h' })
+      model.updateNote(note.id, { step: 'E', alter: 0, octave: 4, duration: 'h' })
 
       const updated = model.getNote(note.id)
-      expect(updated?.pitch).toBe(64)
+      expect(updated?.step).toBe('E')
+      expect(updated?.octave).toBe(4)
       expect(updated?.duration).toBe('h')
     })
 
@@ -205,16 +210,23 @@ describe('ScoreModel', () => {
 
   describe('serialization', () => {
     it('should serialize score to JSON', () => {
-      model.addNote({ pitch: 60, duration: 'q', measure: 1, beat: frac(0, 1) })
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
       const json = model.toJSON()
+      const parsed = JSON.parse(json)
 
       expect(json).toContain('"title": "Test Score"')
       expect(json).toContain('"tempo": 120')
-      expect(json).toContain('"pitch": 60')
+      // v2 schema stores pitch as step+alter+octave, not as a raw MIDI integer
+      expect(parsed.schemaVersion).toBe(2)
+      const chord = parsed.measures[0].slots.find((s: any) => s.type === 'chord')
+      expect(chord).toBeDefined()
+      expect(chord.notes[0].step).toBe('C')
+      expect(chord.notes[0].alter).toBe(0)
+      expect(chord.notes[0].octave).toBe(4)
     })
 
     it('should deserialize score from JSON', () => {
-      model.addNote({ pitch: 60, duration: 'q', measure: 1, beat: frac(0, 1) })
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
       const json = model.toJSON()
 
       const loaded = ScoreModel.fromJSON(json)

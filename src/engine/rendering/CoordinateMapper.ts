@@ -1,6 +1,10 @@
-import type { PixelCoordinates, Note } from '@/types/music'
+import type { PixelCoordinates, Note, PitchStep, PitchSpelling } from '@/types/music'
 import type { MeasureBounds } from './VexFlowRenderer'
 import { fracToNumber } from '@/utils/fraction'
+import { spellingDiatonicPos, spellingToMidi, midiToSpelling } from '@/utils/pitchSpelling'
+
+/** Treble-clef reference: F5 sits on staff line 0 (top line). diatonicPos = 5*7+3 = 38 */
+const TREBLE_TOP_DIATONIC_POS = 38
 
 /**
  * Configuration for the coordinate mapping system
@@ -128,60 +132,24 @@ export class CoordinateMapper {
   }
 
   /**
-   * Calculate pixel Y coordinate for a pitch (MIDI number)
-   * Uses VexFlow's coordinate system formula: getYForLine
-   * Formula from VexFlow: y = stave.y + (line * spacing) + (headroom * spacing)
-   * @param pitch - MIDI note number
+   * Calculate pixel Y coordinate for a pitch spelling.
+   * Uses spellingDiatonicPos for correct staff line positioning — accidentals
+   * on the same diatonic step (e.g. C# and C♮) map to the same Y position.
+   * @param step - Diatonic step name
+   * @param _alter - Ignored for Y positioning (alter doesn't change staff line)
+   * @param octave - Scientific octave
    * @param measureNumber - Measure number for Y offset calculation
    */
-  pitchToPixelY(pitch: number, measureNumber: number): number {
+  pitchToPixelY(step: PitchStep, _alter: number, octave: number, measureNumber: number): number {
     const measurePos = this.getMeasurePosition(measureNumber)
+    const SPACING = 10
+    const HEADROOM = 4 // lines above staff
 
-    // VexFlow's standard geometry
-    const SPACING_BETWEEN_LINES = 10
-    const SPACE_ABOVE_STAFF = 4 // headroom in line units
+    // staff line 0 = F5 (top line); each half-line = one diatonic step down
+    const dPos = spellingDiatonicPos(step, octave)
+    const staffLine = (TREBLE_TOP_DIATONIC_POS - dPos) / 2
 
-    // Convert pitch to staff line (inverse of staffLineToPitch)
-    const staffLine = this.pitchToStaffLine(pitch)
-
-    // VexFlow's getYForLine formula:
-    // y = stave.y + (line * spacing) + (headroom * spacing)
-    const y = measurePos.y + (staffLine * SPACING_BETWEEN_LINES) + (SPACE_ABOVE_STAFF * SPACING_BETWEEN_LINES)
-
-    return y
-  }
-
-  /**
-   * Convert MIDI pitch to staff line position (inverse of staffLineToPitch)
-   * @param pitch - MIDI pitch number
-   * @returns Staff line position (0 = top line, 4 = bottom line)
-   */
-  private pitchToStaffLine(pitch: number): number {
-    // Define the diatonic scale from F5 descending
-    const diatonicNotes = [
-      77, 76, 74, 72, 71, 69, 67, 65, 64, 62, 60, 59, 57, 55
-    ]
-
-    // Check if pitch is in the main lookup table
-    const index = diatonicNotes.indexOf(pitch)
-    if (index !== -1) {
-      return index / 2 // Convert index to staff line (0.0, 0.5, 1.0, etc.)
-    }
-
-    // Handle notes above the staff
-    const positionsAbove = [79, 81, 83, 84, 86, 88, 89, 91]
-    const aboveIndex = positionsAbove.indexOf(pitch)
-    if (aboveIndex !== -1) {
-      return -(aboveIndex + 1) / 2 // Negative values for above staff
-    }
-
-    // For any other pitch, calculate relative to F5 (77)
-    // This is an approximation for pitches not in the diatonic scale
-    const pitchDiff = 77 - pitch
-
-    // Approximate: each diatonic step is about 1-2 semitones
-    // Use average of 1.7 semitones per staff position
-    return pitchDiff / 1.7
+    return measurePos.y + (staffLine * SPACING) + (HEADROOM * SPACING)
   }
 
   /**
@@ -190,7 +158,9 @@ export class CoordinateMapper {
   noteToPixel(note: Note, beatsInMeasure: number): PixelCoordinates {
     return {
       x: this.beatToPixelX(fracToNumber(note.beat), note.measure, beatsInMeasure),
-      y: this.pitchToPixelY(note.pitch, note.measure),
+      y: note.step !== undefined
+        ? this.pitchToPixelY(note.step, note.alter ?? 0, note.octave!, note.measure)
+        : this.getMeasurePosition(note.measure).y + 40, // rests: center of staff
     }
   }
 
@@ -274,109 +244,50 @@ export class CoordinateMapper {
   }
 
   /**
-   * Convert pixel Y coordinate to MIDI pitch
-   * Uses VexFlow's coordinate system with diatonic (scale-based) mapping
-   * Formula from VexFlow: line = ((y - stave.y) / spacing) - headroom
+   * Convert pixel Y coordinate to a PitchSpelling (always natural: alter=0).
+   * Uses the inverse of spellingDiatonicPos with treble-clef reference (F5 at top line).
    */
-  pixelYToPitch(y: number, measureNumber: number): number {
+  pixelYToPitch(y: number, measureNumber: number): PitchSpelling {
     const measurePos = this.getMeasurePosition(measureNumber)
+    const SPACING = 10
+    const HEADROOM = 4
 
-    // VexFlow's standard geometry (matching Stave defaults)
-    const SPACING_BETWEEN_LINES = 10 // pixels between staff lines
-    const SPACE_ABOVE_STAFF = 4 // headroom in "line units" (4 * 10 = 40px)
-
-    // VexFlow's getLineForY formula:
-    // line = ((y - stave.y) / spacing) - headroom
-    const staffLine = ((y - measurePos.y) / SPACING_BETWEEN_LINES) - SPACE_ABOVE_STAFF
-
-    // Convert staff line to diatonic pitch (C major scale)
-    const pitch = this.staffLineToPitch(staffLine)
-
-    // Clamp to valid MIDI range for notation (C1 to C8)
-    return Math.max(24, Math.min(108, pitch))
-  }
-
-  /**
-   * Convert staff line position to MIDI pitch (diatonic mapping)
-   * In treble clef, staff positions map to: F E D C B A G F E D C B A G...
-   * @param staffLine - Staff line position (0 = top line, 4 = bottom line)
-   * @returns MIDI pitch number
-   */
-  private staffLineToPitch(staffLine: number): number {
-    // Top line (line 0) = F5 (MIDI 77)
-    // Treble clef notes descending: F E D C B A G F E D C B A G F...
-    // Semitone pattern: -1, -2, -2, -1, -2, -2, -2 (repeating)
-
-    // Round to nearest half-line (0.0, 0.5, 1.0, 1.5, etc.)
+    const staffLine = ((y - measurePos.y) / SPACING) - HEADROOM
+    // Round to nearest half-staff-line (one diatonic step)
     const roundedLine = Math.round(staffLine * 2) / 2
 
-    // Define the diatonic scale from F5 descending (C major scale starting on F)
-    // Position 0.0 = F5, 0.5 = E5, 1.0 = D5, 1.5 = C5, 2.0 = B4, etc.
-    const diatonicNotes = [
-      77, // 0.0: F5
-      76, // 0.5: E5
-      74, // 1.0: D5
-      72, // 1.5: C5
-      71, // 2.0: B4
-      69, // 2.5: A4
-      67, // 3.0: G4
-      65, // 3.5: F4
-      64, // 4.0: E4
-      62, // 4.5: D4
-      60, // 5.0: C4
-      59, // 5.5: B3
-      57, // 6.0: A3
-      55, // 6.5: G3
-    ]
+    // diatonicPos = TREBLE_TOP_DIATONIC_POS - roundedLine * 2
+    const diatonicPos = TREBLE_TOP_DIATONIC_POS - roundedLine * 2
 
-    // Handle positions above the staff (negative values)
-    if (roundedLine < 0) {
-      // Above the staff: G5, A5, B5, C6, D6, E6, F6, G6...
-      const positionsAbove = [
-        79, // -0.5: G5
-        81, // -1.0: A5
-        83, // -1.5: B5
-        84, // -2.0: C6
-        86, // -2.5: D6
-        88, // -3.0: E6
-        89, // -3.5: F6
-        91, // -4.0: G6
-      ]
-      const index = Math.floor(Math.abs(roundedLine) * 2) - 1
-      if (index < positionsAbove.length) {
-        return positionsAbove[index]
-      }
-      // For very high notes, continue the pattern
-      return 77 + Math.ceil(Math.abs(roundedLine) * 2) // Approximate
+    // Clamp to sensible range (C2 = pos 14, C8 = pos 56)
+    const clampedDiatonic = Math.max(7, Math.min(63, diatonicPos))
+
+    const octave = Math.floor(clampedDiatonic / 7)
+    const stepIdx = ((Math.round(clampedDiatonic) % 7) + 7) % 7
+    const STEPS: PitchStep[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
+
+    // Final MIDI clamp to ensure we stay in playable range
+    const step = STEPS[stepIdx]
+    const midi = spellingToMidi(step, 0, octave)
+    if (midi < 24 || midi > 108) {
+      return midiToSpelling(Math.max(24, Math.min(108, midi)))
     }
-
-    // Use lookup table for staff and below
-    const index = Math.floor(roundedLine * 2)
-    if (index < diatonicNotes.length) {
-      return diatonicNotes[index]
-    }
-
-    // For very low notes below the table, continue the pattern (descending by 2 or 1)
-    // F E D C B A G pattern repeats
-    const notesPerOctave = 7 // diatonic scale
-    const octaveOffset = Math.floor(index / (notesPerOctave * 2))
-    const posInOctave = index % (notesPerOctave * 2)
-    return diatonicNotes[posInOctave] - (octaveOffset * 12)
+    return { step, alter: 0, octave }
   }
 
   /**
    * Convert pixel coordinates to musical position
-   * Returns measure, beat, and pitch
+   * Returns measure, beat, and spelling (natural note at that staff position)
    */
   pixelToPosition(
     coords: PixelCoordinates,
     beatsInMeasure: number
-  ): { measure: number; beat: number; pitch: number } {
+  ): { measure: number; beat: number; spelling: PitchSpelling } {
     const measure = this.pixelToMeasure(coords)
     const beat = this.pixelXToBeat(coords.x, measure, beatsInMeasure)
-    const pitch = this.pixelYToPitch(coords.y, measure)
+    const spelling = this.pixelYToPitch(coords.y, measure)
 
-    return { measure, beat, pitch }
+    return { measure, beat, spelling }
   }
 
   /**

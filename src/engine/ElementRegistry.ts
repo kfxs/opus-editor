@@ -9,6 +9,8 @@
  * - Position lookup: "Where is note with ID 'abc123' on screen?"
  */
 
+import type { PitchSpelling } from '@/types/music'
+
 /**
  * Types of elements we track
  */
@@ -146,6 +148,9 @@ export interface ElementInfo {
   tupletGeometry?: TupletGeometry
 }
 
+/** Diatonic step names in order C=0…B=6 */
+const DIATONIC_STEPS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const
+
 /**
  * Registry that tracks all rendered elements
  */
@@ -266,12 +271,12 @@ export class ElementRegistry {
   }
 
   /**
-   * Convert pixel Y coordinate to MIDI pitch using staff geometry
+   * Convert pixel Y coordinate to a natural PitchSpelling (alter=0) using staff geometry.
    * @param y - Pixel Y coordinate
    * @param measure - Measure number to get staff geometry from
-   * @returns MIDI pitch number, or null if geometry not available
+   * @returns PitchSpelling (always natural), or null if geometry not available
    */
-  pixelYToPitch(y: number, measure: number): number | null {
+  pixelYToPitch(y: number, measure: number): PitchSpelling | null {
     const geometry = this.staffGeometries.get(measure)
     if (!geometry) return null
 
@@ -281,11 +286,25 @@ export class ElementRegistry {
     const topLineY = lineYPositions[0]
     const staffLine = (y - topLineY) / lineSpacing
 
-    // Convert staff line to pitch using clef-aware calculation
-    const pitch = this.staffLineToPitch(staffLine, clef)
+    // Convert staff line to MIDI pitch using clef-aware calculation, then to spelling
+    const midi = this.staffLineToPitch(staffLine, clef)
+    const clampedMidi = Math.max(21, Math.min(108, midi))
 
-    // Clamp to valid MIDI range for notation
-    return Math.max(21, Math.min(108, pitch))
+    // midiToSpelling with no hint gives natural (sharp) spelling;
+    // since we only produce natural notes here, just compute step+octave from MIDI
+    const pc = clampedMidi % 12
+    const oct = Math.floor(clampedMidi / 12) - 1
+    const WHITE_KEY_PC_TO_STEP: Partial<Record<number, typeof DIATONIC_STEPS[number]>> = {
+      0: 'C', 2: 'D', 4: 'E', 5: 'F', 7: 'G', 9: 'A', 11: 'B',
+    }
+    const step = WHITE_KEY_PC_TO_STEP[pc]
+    if (step) {
+      return { step, alter: 0, octave: oct }
+    }
+    // Fell on a black key — snap to nearest white key below
+    const snappedPc = [0, 0, 2, 2, 4, 5, 5, 7, 7, 9, 9, 11][pc]
+    const snappedStep = WHITE_KEY_PC_TO_STEP[snappedPc]!
+    return { step: snappedStep, alter: 0, octave: oct }
   }
 
   /**

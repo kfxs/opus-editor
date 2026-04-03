@@ -1,18 +1,30 @@
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Beam, StaveTie, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
-import type { Score, Measure, Note as MusicNote, NoteDuration, Clef, Accidental as AccidentalType, ArticulationType, Tuplet, ChordRest, Chord, Fraction } from '@/types/music'
-import { midiToNoteName } from '@/utils/musicUtils'
+import type { Score, Measure, NoteDuration, Clef, Accidental as AccidentalType, ArticulationType, Tuplet, ChordRest, Chord, Fraction } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare } from '@/utils/fraction'
 import { ElementRegistry, type TupletGeometry } from '@/engine/ElementRegistry'
+import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos, midiToSpelling, alterToAccidental } from '@/utils/pitchSpelling'
+import type { PitchAlter } from '@/types/music'
+
+/** Internal flat note used only for ghost-note stem-direction calculation. */
+interface FlatNoteForStem {
+  pitch: number
+  accidental?: AccidentalType
+}
 
 /**
- * Clef configuration for stem direction calculation
- * middleLinePitch: MIDI pitch of the middle line (B4=71 for treble, D3=50 for bass, etc.)
+ * Clef configuration for stem direction calculation.
+ * middleLinePitch:       MIDI of the middle (3rd) staff line — used by legacy flat-Note paths.
+ * middleLineDiatonicPos: spellingDiatonicPos() of the same note — used by NotePitch paths.
+ *   treble B4  = diatonic 34  (4×7+6)
+ *   bass   D3  = diatonic 22  (3×7+1)
+ *   alto   C4  = diatonic 28  (4×7+0)
+ *   tenor  A3  = diatonic 26  (3×7+5)
  */
-const CLEF_CONFIG: Record<Clef, { middleLinePitch: number }> = {
-  treble: { middleLinePitch: 71 },  // B4
-  bass: { middleLinePitch: 50 },    // D3
-  alto: { middleLinePitch: 60 },    // C4 (middle C)
-  tenor: { middleLinePitch: 57 },   // A3
+const CLEF_CONFIG: Record<Clef, { middleLinePitch: number; middleLineDiatonicPos: number }> = {
+  treble: { middleLinePitch: 71, middleLineDiatonicPos: 34 },  // B4
+  bass:   { middleLinePitch: 50, middleLineDiatonicPos: 22 },  // D3
+  alto:   { middleLinePitch: 60, middleLineDiatonicPos: 28 },  // C4
+  tenor:  { middleLinePitch: 57, middleLineDiatonicPos: 26 },  // A3
 }
 
 /**
@@ -150,18 +162,13 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Convert MIDI note to VexFlow note format
-   * @param midiNote - MIDI note number
-   * @returns VexFlow note string (e.g., 'C/4', 'A#/3')
+   * Convert a MIDI note number to a VexFlow key string (e.g. 'c#/4').
+   * Used only by the ghost-note rendering path, which still receives MIDI.
+   * The optional hint resolves enharmonic spelling for black keys.
    */
-  private midiToVexFlowNote(midiNote: number): string {
-    const noteName = midiToNoteName(midiNote)
-    // Convert 'C#4' to 'C#/4' format
-    const match = noteName.match(/^([A-G][#b]?)(\d+)$/)
-    if (!match) {
-      throw new Error(`Invalid note name: ${noteName}`)
-    }
-    return `${match[1]}/${match[2]}`
+  private midiToVexFlowNote(midi: number, hint?: '#' | 'b' | 'n'): string {
+    const s = midiToSpelling(midi, hint)
+    return spellingToVexflowKey(s.step, s.alter, s.octave)
   }
 
   /**
@@ -209,7 +216,7 @@ export class VexFlowRenderer {
    * @param clef - Clef type (default: 'treble')
    * @returns VexFlow stem direction value
    */
-  private calculateChordStemDirection(notes: MusicNote[], clef: Clef = 'treble'): number {
+  private calculateChordStemDirection(notes: FlatNoteForStem[], clef: Clef = 'treble'): number {
     // Using numeric values directly: 1 = UP, -1 = DOWN
     if (notes.length === 0) return 1
     if (notes.length === 1) {
@@ -245,9 +252,10 @@ export class VexFlowRenderer {
   private createStaveNotesFromSlots(slots: ChordRest[], clef: Clef = 'treble'): StaveNote[] {
     const staveNotes: StaveNote[] = []
 
-    // Track active accidentals per MIDI pitch within this measure.
-    // undefined = never set; null = naturalised this measure; AccidentalType = sharp/flat active.
-    const activeMeasureAccidentals = new Map<number, AccidentalType | null>()
+    // Track the currently active alteration per diatonic staff position within this measure.
+    // Key = spellingDiatonicPos(step, octave). Value = active PitchAlter (0 = natural).
+    // A position absent from the map has not yet appeared in this measure.
+    const activeMeasureAlterations = new Map<number, PitchAlter>()
 
     for (const slot of slots) {
       if (slot.type === 'rest') {
@@ -260,55 +268,66 @@ export class VexFlowRenderer {
         continue
       }
 
-      // Chord slot — compute per-pitch display accidentals
-      const displayAccidentals = new Map<string, AccidentalType | null>()
+      // Chord slot — decide which accidental sign (if any) to display for each pitch.
+      // displayAccidentals: noteId → VexFlow accidental string, or null if suppressed.
+      const displayAccidentals = new Map<string, string | null>()
       for (const p of slot.notes) {
         if (p.tiedFrom) {
+          // Tied continuation: never re-show the accidental
           displayAccidentals.set(p.id, null)
           continue
         }
-        const activeAcc = activeMeasureAccidentals.get(p.pitch)
-        if (p.accidental) {
-          const normalizedAcc = p.accidental === 'n' ? null : p.accidental
-          if (!p.forceAccidental && activeAcc === normalizedAcc) {
-            displayAccidentals.set(p.id, null)
+        const dPos = spellingDiatonicPos(p.step, p.octave)
+        const activeAlter = activeMeasureAlterations.get(dPos)  // undefined = not seen yet
+
+        if (p.alter !== 0) {
+          // Non-natural pitch — show sign unless the same alteration is already active
+          if (!p.forceAccidental && activeAlter === p.alter) {
+            displayAccidentals.set(p.id, null)  // suppress: redundant
           } else {
-            displayAccidentals.set(p.id, p.accidental)
-            activeMeasureAccidentals.set(p.pitch, normalizedAcc)
+            const sign = p.alter === 2 ? '##' : p.alter === 1 ? '#' : p.alter === -1 ? 'b' : 'bb'
+            displayAccidentals.set(p.id, sign)
+            activeMeasureAlterations.set(dPos, p.alter)
           }
         } else {
-          if (activeAcc !== undefined && activeAcc !== null) {
+          // Natural pitch (alter === 0)
+          if (activeAlter !== undefined && activeAlter !== 0) {
+            // A previous note on this staff position was altered — show ♮ to cancel it
             displayAccidentals.set(p.id, 'n')
-            activeMeasureAccidentals.set(p.pitch, null)
+            activeMeasureAlterations.set(dPos, 0)
           } else if (p.forceAccidental) {
+            // Caller explicitly wants a courtesy natural sign
             displayAccidentals.set(p.id, 'n')
-            activeMeasureAccidentals.set(p.pitch, null)
+            activeMeasureAlterations.set(dPos, 0)
           } else {
-            displayAccidentals.set(p.id, null)
+            displayAccidentals.set(p.id, null)  // no sign needed
           }
         }
       }
 
-      // Sort pitches low→high (VexFlow requirement for chords)
-      const sortedPitches = [...slot.notes].sort((a, b) => a.pitch - b.pitch)
-      const keys = sortedPitches.map(p => this.midiToVexFlowNote(p.pitch))
+      // Sort pitches low→high by MIDI value (VexFlow requires ascending key order for chords)
+      const sortedPitches = [...slot.notes].sort(
+        (a, b) => spellingToMidi(a.step, a.alter, a.octave) - spellingToMidi(b.step, b.alter, b.octave)
+      )
+      // Build VexFlow key strings directly from spelling — no MIDI lookup table needed
+      const keys = sortedPitches.map(p => spellingToVexflowKey(p.step, p.alter, p.octave))
 
-      // Stem direction
+      // Stem direction — compare diatonic staff position against clef's middle line
       let stemDirection: number
       if (slot.stemDirection === 'up') {
         stemDirection = 1
       } else if (slot.stemDirection === 'down') {
         stemDirection = -1
       } else {
-        const middlePitch = CLEF_CONFIG[clef].middleLinePitch
+        const middleDiatonic = CLEF_CONFIG[clef].middleLineDiatonicPos
         let maxDist = 0
         stemDirection = 1
         for (const p of slot.notes) {
-          const staffPitch = this.getStaffPositionPitch(p.pitch, p.accidental)
-          const dist = Math.abs(staffPitch - middlePitch)
+          const dPos = spellingDiatonicPos(p.step, p.octave)
+          const dist = Math.abs(dPos - middleDiatonic)
           if (dist > maxDist) {
             maxDist = dist
-            stemDirection = staffPitch >= middlePitch ? -1 : 1
+            stemDirection = dPos >= middleDiatonic ? -1 : 1
           }
         }
       }
@@ -317,11 +336,10 @@ export class VexFlowRenderer {
       const staveNote = new StaveNote({ keys, duration: vexDuration, autoStem: false })
       staveNote.setStemDirection(stemDirection)
 
-      // Accidentals
-      const accidentalMap: Record<string, string> = { '#': '#', b: 'b', n: 'n' }
+      // Add accidental modifiers — VexFlow accepts '#', 'b', 'n', '##', 'bb'
       sortedPitches.forEach((p, idx) => {
         const acc = displayAccidentals.get(p.id) ?? null
-        if (acc) staveNote.addModifier(new Accidental(accidentalMap[acc]), idx)
+        if (acc) staveNote.addModifier(new Accidental(acc), idx)
       })
 
       // Dots
@@ -396,25 +414,25 @@ export class VexFlowRenderer {
    * @returns VexFlow stem direction value (1 = UP, -1 = DOWN)
    */
   private calculateBeamGroupStemDirection(slots: ChordRest[], clef: Clef = 'treble'): number {
-    const middlePitch = CLEF_CONFIG[clef].middleLinePitch
+    const middleDiatonic = CLEF_CONFIG[clef].middleLineDiatonicPos
     let maxDistance = 0
-    let furthestPitch = middlePitch
+    let furthestDiatonic = middleDiatonic
     let hasPitch = false
 
     for (const slot of slots) {
       if (slot.type === 'rest') continue
       for (const p of slot.notes) {
-        const staffPitch = this.getStaffPositionPitch(p.pitch, p.accidental)
-        const distance = Math.abs(staffPitch - middlePitch)
+        const dPos = spellingDiatonicPos(p.step, p.octave)
+        const distance = Math.abs(dPos - middleDiatonic)
         if (!hasPitch || distance > maxDistance) {
           maxDistance = distance
-          furthestPitch = staffPitch
+          furthestDiatonic = dPos
           hasPitch = true
         }
       }
     }
 
-    return furthestPitch >= middlePitch ? -1 : 1
+    return furthestDiatonic >= middleDiatonic ? -1 : 1
   }
 
   /**
@@ -1050,17 +1068,20 @@ export class VexFlowRenderer {
             try {
               const box = staveNote.getBoundingBox()
               if (box) {
-                // Sort pitches low→high to match VexFlow's internal key ordering
-                const sortedPitches = [...slot.notes].sort((a, b) => a.pitch - b.pitch)
+                // Sort pitches low→high by MIDI to match VexFlow's internal key ordering
+                const sortedPitches = [...slot.notes].sort(
+                  (a, b) => spellingToMidi(a.step, a.alter, a.octave) - spellingToMidi(b.step, b.alter, b.octave)
+                )
 
                 for (let keyIndex = 0; keyIndex < sortedPitches.length; keyIndex++) {
                   const pitch = sortedPitches[keyIndex]
+                  const pitchMidi = spellingToMidi(pitch.step, pitch.alter, pitch.octave)
                   this.elementRegistry.add({
                     type: 'note',
                     id: pitch.id,
                     measure: measure.number,
                     beat: fracToNumber(slot.beat),
-                    pitch: pitch.pitch,
+                    pitch: pitchMidi,
                     duration: slot.duration,
                     tupletId: slot.tupletId,
                     bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
@@ -1096,8 +1117,10 @@ export class VexFlowRenderer {
                     }
                   }
 
-                  // Register accidental if present
-                  if (pitch.accidental) {
+                  // Register accidental if one may have been rendered.
+                  // We attempt registration whenever alter is non-zero or forceAccidental is set.
+                  // The inner try-catch handles cases where no modifier was actually drawn.
+                  if (pitch.alter !== 0 || pitch.forceAccidental) {
                     try {
                       const modifiers = staveNote.getModifiers()
                       for (const modifier of modifiers) {
@@ -1108,13 +1131,15 @@ export class VexFlowRenderer {
                               modifiers.filter(m => m.getCategory() === 'Accidental').indexOf(modifier) === keyIndex) {
                             const accBox = accidental.getBoundingBox()
                             if (accBox) {
+                              const accStr = pitch.alter === 2 ? '##' : pitch.alter === 1 ? '#'
+                                : pitch.alter === -1 ? 'b' : pitch.alter === -2 ? 'bb' : 'n'
                               this.elementRegistry.add({
                                 type: 'accidental',
                                 noteId: pitch.id,
                                 measure: measure.number,
                                 beat: fracToNumber(slot.beat),
-                                pitch: pitch.pitch,
-                                accidentalType: pitch.accidental,
+                                pitch: pitchMidi,
+                                accidentalType: accStr,
                                 bbox: { x: accBox.x, y: accBox.y, width: accBox.w, height: accBox.h },
                               })
                             }
@@ -1366,29 +1391,23 @@ export class VexFlowRenderer {
       const vexNote = this.midiToVexFlowNote(ghostNote.pitch)
       const vexDuration = this.convertDuration(ghostNote.duration as any, ghostNote.dots || 0)
 
-      // Collect pitches at the same beat position for chord stem-direction calculation
-      const notesAtSameBeat: MusicNote[] = []
+      // Collect pitches at the same beat position for chord stem-direction calculation.
+      // calculateChordStemDirection expects flat MusicNote objects (MIDI pitch), so we
+      // derive MIDI from the stored spelling here.
+      const notesAtSameBeat: FlatNoteForStem[] = []
       for (const slot of measure.slots) {
         if (slot.type === 'chord' && Math.abs(fracToNumber(slot.beat) - ghostNote.beat) < 0.001) {
           for (const p of slot.notes) {
             notesAtSameBeat.push({
-              id: p.id,
-              pitch: p.pitch,
-              duration: slot.duration,
-              measure: slot.measure,
-              beat: slot.beat,
-              accidental: p.accidental,
+              pitch: spellingToMidi(p.step, p.alter, p.octave),
+              accidental: alterToAccidental(p.alter),
             })
           }
         }
       }
 
-      const ghostMusicNote: MusicNote = {
-        id: 'ghost',
+      const ghostMusicNote: FlatNoteForStem = {
         pitch: ghostNote.pitch,
-        duration: ghostNote.duration as NoteDuration,
-        measure: ghostNote.measure,
-        beat: { num: Math.round(ghostNote.beat * 96), den: 96 }, // approximate Fraction for ghost
       }
       const chordNotes = notesAtSameBeat.length > 0
         ? [...notesAtSameBeat, ghostMusicNote]
@@ -1531,29 +1550,33 @@ export class VexFlowRenderer {
    * @param beat - Beat position of the chord containing this pitch
    * @param measure - The measure to look up chord info in
    */
-  private getTieDirection(pitch: number, beat: Fraction, measure: Measure): number | undefined {
+  private getTieDirection(notePitch: import('@/types/music').NotePitch, beat: Fraction, measure: Measure): number | undefined {
     // Find the chord slot at this beat
     const chordAtBeat = measure.slots.find(
       s => s.type === 'chord' && fracEq(s.beat, beat)
     ) as Chord | undefined
 
+    const thisDiatonic = spellingDiatonicPos(notePitch.step, notePitch.octave)
+
     if (!chordAtBeat || chordAtBeat.notes.length <= 1) {
-      // Single note — tie direction is opposite of stem direction
-      const middlePitch = 71 // B4 for treble
-      return pitch >= middlePitch ? -1 : 1
+      // Single note — tie direction based on diatonic distance from middle line (treble B4=34)
+      const middleDiatonic = CLEF_CONFIG['treble'].middleLineDiatonicPos
+      return thisDiatonic >= middleDiatonic ? -1 : 1
     }
 
-    // Sort by pitch to find position in chord
-    const sortedPitches = chordAtBeat.notes.map(n => n.pitch).sort((a, b) => a - b)
-    const lowestPitch = sortedPitches[0]
-    const highestPitch = sortedPitches[sortedPitches.length - 1]
+    // Sort all chord notes by diatonic staff position
+    const sortedDiatonics = chordAtBeat.notes
+      .map(n => spellingDiatonicPos(n.step, n.octave))
+      .sort((a, b) => a - b)
+    const lowestDiatonic  = sortedDiatonics[0]
+    const highestDiatonic = sortedDiatonics[sortedDiatonics.length - 1]
 
-    if (pitch === highestPitch) return -1  // Top note: tie curves UP
-    if (pitch === lowestPitch) return 1    // Bottom note: tie curves DOWN
+    if (thisDiatonic === highestDiatonic) return -1  // Top note: tie curves UP
+    if (thisDiatonic === lowestDiatonic)  return 1   // Bottom note: tie curves DOWN
 
-    // Middle note: follow the nearest outer voice
-    const distToTop = highestPitch - pitch
-    const distToBottom = pitch - lowestPitch
+    // Middle note: follow nearest outer voice
+    const distToTop    = highestDiatonic - thisDiatonic
+    const distToBottom = thisDiatonic    - lowestDiatonic
     return distToTop <= distToBottom ? -1 : 1
   }
 
@@ -1600,7 +1623,7 @@ export class VexFlowRenderer {
               const toLine = toLayout?.lineNumber ?? 0
               const sameLine = fromLine === toLine
 
-              const tieDirection = this.getTieDirection(pitch.pitch, slot.beat, measure)
+              const tieDirection = this.getTieDirection(pitch, slot.beat, measure)
               // note alias for registry callbacks below
               const note = { id: pitch.id, tiedTo: pitch.tiedTo, measure: fromMeasure }
 
@@ -1711,8 +1734,8 @@ export class VexFlowRenderer {
     const info = this.staveNoteMap.get(noteId)
     if (!info) return
 
-    // Find the pitch and its containing chord/measure
-    let foundPitch: number | undefined
+    // Find the NotePitch and its containing chord/measure
+    let foundNotePitch: import('@/types/music').NotePitch | undefined
     let foundBeat: Fraction | undefined
     let foundMeasure: Measure | undefined
 
@@ -1721,7 +1744,7 @@ export class VexFlowRenderer {
         if (slot.type === 'chord') {
           const p = slot.notes.find(n => n.id === noteId)
           if (p) {
-            foundPitch = p.pitch
+            foundNotePitch = p
             foundBeat = slot.beat
             foundMeasure = measure
             break outer
@@ -1730,9 +1753,9 @@ export class VexFlowRenderer {
       }
     }
 
-    if (foundPitch === undefined || !foundBeat || !foundMeasure) return
+    if (!foundNotePitch || !foundBeat || !foundMeasure) return
 
-    const tieDirection = this.getTieDirection(foundPitch, foundBeat, foundMeasure)
+    const tieDirection = this.getTieDirection(foundNotePitch, foundBeat, foundMeasure)
     const pendingTie = new StaveTie({
       firstNote: info.staveNote,
       firstIndexes: [info.noteIndex],
