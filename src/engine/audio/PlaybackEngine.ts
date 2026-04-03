@@ -162,6 +162,21 @@ export class PlaybackEngine {
     let currentTimeInBeats = 0
     const tempo = this.score.tempo
 
+    // Build a lookup: notePitch ID -> { chord, measureStartBeats }
+    // so we can follow tiedTo chains to accumulate total duration.
+    const pitchInfo = new Map<string, { chord: (typeof this.score.measures)[0]['slots'][0] & { type: 'chord' }, measureStartBeats: number }>()
+    let scanTime = 0
+    for (const measure of this.score.measures) {
+      for (const slot of measure.slots) {
+        if (slot.type === 'chord') {
+          for (const np of slot.notes) {
+            pitchInfo.set(np.id, { chord: slot, measureStartBeats: scanTime })
+          }
+        }
+      }
+      scanTime += getMeasureDuration(measure.timeSignature)
+    }
+
     for (const measure of this.score.measures) {
       const measureStartTime = currentTimeInBeats
 
@@ -173,10 +188,29 @@ export class PlaybackEngine {
         const noteTimeInBeats = measureStartTime + fracToNumber(chord.beat)
         const beatsPerSecond = tempo / 60
         const noteTimeInSeconds = noteTimeInBeats / beatsPerSecond
-        const durationBeats = chord.actualDuration ? fracToNumber(chord.actualDuration) : durationToBeats(chord.duration, chord.dots || 0)
-        const durationInSeconds = durationBeats / beatsPerSecond
+        const baseDurationBeats = chord.actualDuration ? fracToNumber(chord.actualDuration) : durationToBeats(chord.duration, chord.dots || 0)
 
         for (const notePitch of chord.notes) {
+          // Skip tied-continuation notes — they're an extension of a prior attack.
+          if (notePitch.tiedFrom) continue
+
+          // Follow the tiedTo chain to get the full sounding duration.
+          let durationBeats = baseDurationBeats
+          let cursor = notePitch
+          while (cursor.tiedTo) {
+            const next = pitchInfo.get(cursor.tiedTo)
+            if (!next) break
+            const nextNp = next.chord.notes.find(n => n.id === cursor.tiedTo)
+            if (!nextNp) break
+            const nextDur = next.chord.actualDuration
+              ? fracToNumber(next.chord.actualDuration)
+              : durationToBeats(next.chord.duration, next.chord.dots || 0)
+            durationBeats += nextDur
+            cursor = nextNp
+          }
+
+          const durationInSeconds = durationBeats / beatsPerSecond
+
           // Derive sounding MIDI directly from the stored spelling —
           // alter already encodes the chromatic offset, so no manual adjustment needed.
           const soundingMidi = spellingToMidi(notePitch.step, notePitch.alter, notePitch.octave)
