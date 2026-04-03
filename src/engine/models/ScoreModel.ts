@@ -146,7 +146,7 @@ export class ScoreModel {
           type: 'rest',
           duration: rest.duration,
           measure: measure.number,
-          beat: beatToFrac(rest.beat),
+          beat: rest.beat,
           actualDuration: durationToFraction(rest.duration),
         })
       }
@@ -454,7 +454,7 @@ export class ScoreModel {
           type: 'rest',
           duration: rest.duration,
           measure: measure.number,
-          beat: beatToFrac(rest.beat),
+          beat: rest.beat,
           actualDuration: durationToFraction(rest.duration),
         })
       }
@@ -468,8 +468,8 @@ export class ScoreModel {
     start: number,
     end: number,
     timeSignature: TimeSignature
-  ): Array<{ beat: number; duration: Note['duration'] }> {
-    const rests: Array<{ beat: number; duration: Note['duration'] }> = []
+  ): Array<{ beat: Fraction; duration: Note['duration'] }> {
+    const rests: Array<{ beat: Fraction; duration: Note['duration'] }> = []
     let current = start
     const epsilon = 0.001
 
@@ -484,44 +484,44 @@ export class ScoreModel {
         const toNextBeat = beatUnit - beatFraction
 
         if (toNextBeat >= 0.5 - epsilon && remaining >= 0.5 - epsilon) {
-          rests.push({ beat: current, duration: '8' })
+          rests.push({ beat: beatToFrac(current), duration: '8' })
           current += 0.5
         } else if (toNextBeat >= 0.25 - epsilon && remaining >= 0.25 - epsilon) {
-          rests.push({ beat: current, duration: '16' })
+          rests.push({ beat: beatToFrac(current), duration: '16' })
           current += 0.25
         } else if (toNextBeat >= 0.125 - epsilon && remaining >= 0.125 - epsilon) {
-          rests.push({ beat: current, duration: '32' })
+          rests.push({ beat: beatToFrac(current), duration: '32' })
           current += 0.125
         } else {
           break
         }
       } else {
         if (remaining >= 4 - epsilon && Math.abs(current % 4) < epsilon) {
-          rests.push({ beat: current, duration: 'w' })
+          rests.push({ beat: beatToFrac(current), duration: 'w' })
           current += 4
         } else if (remaining >= 2 - epsilon && Math.abs(current % 2) < epsilon) {
-          rests.push({ beat: current, duration: 'h' })
+          rests.push({ beat: beatToFrac(current), duration: 'h' })
           current += 2
         } else if (remaining >= 1 - epsilon && beatUnit <= 1) {
-          rests.push({ beat: current, duration: 'q' })
+          rests.push({ beat: beatToFrac(current), duration: 'q' })
           current += 1
         } else if (remaining >= 0.5 - epsilon) {
-          rests.push({ beat: current, duration: '8' })
+          rests.push({ beat: beatToFrac(current), duration: '8' })
           current += 0.5
         } else if (remaining >= 0.25 - epsilon && beatUnit <= 0.25) {
-          rests.push({ beat: current, duration: '16' })
+          rests.push({ beat: beatToFrac(current), duration: '16' })
           current += 0.25
         } else if (remaining >= 0.125 - epsilon) {
-          rests.push({ beat: current, duration: '32' })
+          rests.push({ beat: beatToFrac(current), duration: '32' })
           current += 0.125
         } else if (remaining >= 1 - epsilon) {
-          rests.push({ beat: current, duration: 'q' })
+          rests.push({ beat: beatToFrac(current), duration: 'q' })
           current += 1
         } else if (remaining >= 0.5 - epsilon) {
-          rests.push({ beat: current, duration: '8' })
+          rests.push({ beat: beatToFrac(current), duration: '8' })
           current += 0.5
         } else if (remaining >= 0.25 - epsilon) {
-          rests.push({ beat: current, duration: '16' })
+          rests.push({ beat: beatToFrac(current), duration: '16' })
           current += 0.25
         } else {
           break

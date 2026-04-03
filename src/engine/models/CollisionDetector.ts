@@ -52,6 +52,8 @@ export class CollisionDetector {
 
       // Skip rests - they don't participate in chords
       if (existing.isRest) continue
+      // Pitched notes must have all three pitch fields; skip malformed data
+      if (existing.step === undefined || existing.octave === undefined) continue
 
       const existingDurFrac = existing.actualDuration ?? durationToFraction(existing.duration, existing.dots ?? 0)
       const existingEnd = fracAdd(existing.beat, existingDurFrac)
@@ -62,9 +64,10 @@ export class CollisionDetector {
       if (sameStartBeat) {
         // Notes starting at same beat - check if they form a chord or duplicate
         // Compare by sounding MIDI pitch (enharmonic duplicates also collide)
-        const samePitch = !existing.isRest && !newNote.isRest &&
-          spellingToMidi(existing.step!, existing.alter!, existing.octave!) ===
-          spellingToMidi(newNote.step!, newNote.alter!, newNote.octave!)
+        const samePitch = !newNote.isRest &&
+          newNote.step !== undefined && newNote.octave !== undefined &&
+          spellingToMidi(existing.step, existing.alter ?? 0, existing.octave) ===
+          spellingToMidi(newNote.step, newNote.alter ?? 0, newNote.octave)
         const sameDuration = fracEq(newNoteDurFrac, existingDurFrac)
 
         if (samePitch && sameDuration) {

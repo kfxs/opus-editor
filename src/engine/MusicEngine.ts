@@ -5,11 +5,10 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
-import { durationToBeats, beatsToDuration, splitBeatsIntoDurations, midiToNoteName } from '@/utils/musicUtils'
-import { fracToNumber, fracCompare, fracEq } from '@/utils/fraction'
-import { beatToFrac } from '@/utils/musicUtils'
+import { durationToBeats, beatsToDuration, splitBeatsIntoDurations, midiToNoteName, beatToFrac } from '@/utils/musicUtils'
+import { fracToNumber, fracCompare, fracEq, fracAdd, durationToFraction } from '@/utils/fraction'
 import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling, GhostNote } from '@/types/music'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 
 /** Internal context passed to updateNote sub-methods */
@@ -450,10 +449,10 @@ export class MusicEngine {
       // If we removed more beats than needed, add rests to fill the excess
       const excessBeats = beatsToRecover - Math.abs(beatDifference)
       if (excessBeats > 0.001) {
-        let currentBeat = noteEndBeat
+        let currentBeat = fracAdd(existingNote.beat, durationToFraction(newDuration, newDots))
         for (const restDuration of splitBeatsIntoDurations(excessBeats)) {
-          this.scoreModel.addRest(restDuration, existingNote.measure, beatToFrac(currentBeat))
-          currentBeat += durationToBeats(restDuration)
+          this.scoreModel.addRest(restDuration, existingNote.measure, currentBeat)
+          currentBeat = fracAdd(currentBeat, durationToFraction(restDuration))
         }
       }
     }
@@ -471,10 +470,10 @@ export class MusicEngine {
 
     // If duration was shortened, fill the gap with rests
     if (beatDifference > 0.001) {
-      let currentBeat = fracToNumber(note.beat) + newBeats
+      let currentBeat = fracAdd(note.beat, durationToFraction(newDuration, newDots))
       for (const restDuration of splitBeatsIntoDurations(beatDifference)) {
-        this.scoreModel.addRest(restDuration, note.measure, beatToFrac(currentBeat))
-        currentBeat += durationToBeats(restDuration)
+        this.scoreModel.addRest(restDuration, note.measure, currentBeat)
+        currentBeat = fracAdd(currentBeat, durationToFraction(restDuration))
       }
     }
 
@@ -796,25 +795,25 @@ export class MusicEngine {
     }
 
     // Render score with ghost note
-    // Apply accidental from palette and compute MIDI for the renderer
+    // Apply accidental from palette to the resolved spelling
     const alter = accidentalToAlter(accidental)
     const ghostSpelling = { ...position.spelling, alter }
-    const ghostPitch = spellingToMidi(ghostSpelling.step, ghostSpelling.alter, ghostSpelling.octave)
+
+    const ghostNote: GhostNote = {
+      ...ghostSpelling,
+      duration,
+      measure: position.measure,
+      beat: position.beat,
+      rawX: coords.x,
+      rawY: coords.y,
+      ...(dots && { dots }),
+      ...(articulations?.length && { articulations }),
+    }
 
     // Pass raw cursor coordinates for smooth visual positioning
     const ghostNoteRendered = this.renderer.renderScoreWithGhostNote(
       this.scoreModel.getScore(),
-      {
-        pitch: ghostPitch,
-        duration,
-        measure: position.measure,
-        beat: position.beat,
-        rawX: coords.x,  // For smooth X positioning (follows cursor)
-        rawY: coords.y,  // For reference
-        ...(accidental && { accidental }),
-        ...(dots && { dots }),
-        ...(articulations?.length && { articulations }),
-      }
+      ghostNote
     )
 
     // Update coordinate mapper with actual VexFlow bounds

@@ -379,9 +379,9 @@ export function sortBeatsFrac(positions: Fraction[]): Fraction[] {
 }
 
 /**
- * Bridge helper: convert a number beat (from legacy Note.beat) to a Fraction
- * using the same candidate-denominator approach as fracFromFloat.
- * Only needed during Phase 2.5–3 while note.beat is still a number.
+ * Convert a numeric beat value to an exact Fraction.
+ * Used wherever beat positions are computed via float arithmetic (coordinate mapping,
+ * tuplet ratios, quantization) and need to be passed to APIs that expect Fraction.
  */
 export function beatToFrac(beat: number): Fraction {
   // Fast path for common integer and dyadic values

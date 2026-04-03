@@ -256,6 +256,23 @@ export interface Position {
 }
 
 /**
+ * Ghost note preview shown while hovering before note entry.
+ * Pitch is stored as spelling (step/alter/octave) — same as NotePitch.
+ */
+export interface GhostNote {
+  step: PitchStep
+  alter: PitchAlter
+  octave: number
+  duration: NoteDuration
+  measure: number
+  beat: number
+  rawX?: number
+  rawY?: number
+  dots?: number
+  articulations?: ArticulationType[]
+}
+
+/**
  * Pixel coordinates
  */
 export interface PixelCoordinates {

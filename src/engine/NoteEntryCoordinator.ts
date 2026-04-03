@@ -8,7 +8,7 @@ import {
 } from '@/utils/musicUtils'
 import {
   fracToNumber, fracEq, fracAdd, fracSub, fracMul, fracDiv,
-  fracLt, fracGt, fracGte, fracIsPositive, fracFromInt,
+  fracLt, fracGt, fracGte, fracIsPositive, fracFromInt, fracCreate,
   durationToFraction, tupletNoteDurationFraction,
 } from '@/utils/fraction'
 import type { Fraction } from '@/utils/fraction'
@@ -64,7 +64,9 @@ export class NoteEntryCoordinator {
     const tupletRatio = tupletAtBeat ? tupletAtBeat.notesOccupied / tupletAtBeat.numNotes : 1
     const effectiveDuration = nominalDuration * tupletRatio
     // Set actualDuration so checkMeasureOverflow uses the scaled duration, not the written one
-    const actualDuration = tupletAtBeat ? beatToFrac(effectiveDuration) : undefined
+    const actualDuration = tupletAtBeat
+      ? fracMul(durationToFraction(params.duration, params.dots || 0), fracCreate(tupletAtBeat.notesOccupied, tupletAtBeat.numNotes))
+      : undefined
 
     const finalParams: NoteParams = { ...params, beat: finalBeatFrac, ...(tupletId ? { tupletId } : {}), ...(actualDuration ? { actualDuration } : {}) }
     const noteEnd = finalBeat + effectiveDuration
@@ -824,7 +826,7 @@ export class NoteEntryCoordinator {
 
     // Add tied continuation note in next measure
     let previousNoteId = existingNote.id
-    let nextBeat = 0
+    let nextBeat = fracFromInt(0)
 
     for (const duration of nextMeasureDurations) {
       const continuationNote = this.getScoreModel().addNote({
@@ -833,7 +835,7 @@ export class NoteEntryCoordinator {
         octave: existingNote.octave,
         duration,
         measure: nextMeasureNumber,
-        beat: beatToFrac(nextBeat),
+        beat: nextBeat,
       })
 
       // Link with tie
@@ -841,7 +843,7 @@ export class NoteEntryCoordinator {
       this.getScoreModel().updateNote(continuationNote.id, { tiedFrom: previousNoteId })
 
       previousNoteId = continuationNote.id
-      nextBeat += durationToBeats(duration)
+      nextBeat = fracAdd(nextBeat, durationToFraction(duration))
     }
 
     console.log('Split existing chord note with tie:', {
@@ -894,7 +896,7 @@ export class NoteEntryCoordinator {
     }
 
     // Add notes in current measure (may need multiple if duration splits, e.g., dotted notes)
-    let currentBeat = fracToNumber(noteParams.beat)
+    let currentBeat = noteParams.beat
     let firstNote: Note | null = null
     let previousNote: Note | null = null
 
@@ -905,7 +907,7 @@ export class NoteEntryCoordinator {
         octave: noteParams.octave,
         duration,
         measure: noteParams.measure,
-        beat: beatToFrac(currentBeat),
+        beat: currentBeat,
         // No dots - split durations are standard non-dotted durations
       })
       if (!firstNote) firstNote = note
@@ -917,11 +919,11 @@ export class NoteEntryCoordinator {
       }
 
       previousNote = note
-      currentBeat += durationToBeats(duration)
+      currentBeat = fracAdd(currentBeat, durationToFraction(duration))
     }
 
     // Add notes in next measure
-    let nextBeat = 0
+    let nextBeat = fracFromInt(0)
     for (const duration of nextMeasureDurations) {
       const note = this.getScoreModel().addNote({
         step: noteParams.step,
@@ -929,7 +931,7 @@ export class NoteEntryCoordinator {
         octave: noteParams.octave,
         duration,
         measure: nextMeasureNumber,
-        beat: beatToFrac(nextBeat),
+        beat: nextBeat,
         // No dots - split durations are standard non-dotted durations
       })
 
@@ -940,7 +942,7 @@ export class NoteEntryCoordinator {
       }
 
       previousNote = note
-      nextBeat += durationToBeats(duration)
+      nextBeat = fracAdd(nextBeat, durationToFraction(duration))
     }
 
     console.log('Split note with tie:', {
