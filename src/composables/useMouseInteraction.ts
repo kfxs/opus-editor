@@ -300,7 +300,8 @@ export function useMouseInteraction(deps: MouseInteractionDeps) {
           )
 
           if (note) {
-            console.log(`✓ Note added to tuplet | measure:${note.measure} beat:${note.beat}`)
+            const pitch = note.isRest ? 'rest' : `${note.step}${note.alter === 2 ? '##' : note.alter === 1 ? '#' : note.alter === -1 ? 'b' : note.alter === -2 ? 'bb' : ''}${note.octave}`
+            console.log(`✓ Note added to tuplet | ${pitch} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}`)
             setSelectedNote(note.id)
             selectedTool.value = 'entry'
             renderScore()
@@ -321,8 +322,9 @@ export function useMouseInteraction(deps: MouseInteractionDeps) {
           )
 
           if (result) {
-            const firstMidi = spellingToMidi(result.firstNote.step!, result.firstNote.alter!, result.firstNote.octave!)
-            console.log(`✓ Tuplet created | tupletId:${result.tuplet.id} firstNote midi:${firstMidi}`)
+            const fn = result.firstNote
+            const fnPitch = `${fn.step}${fn.alter === 2 ? '##' : fn.alter === 1 ? '#' : fn.alter === -1 ? 'b' : fn.alter === -2 ? 'bb' : ''}${fn.octave}`
+            console.log(`✓ Tuplet created | tupletId:${result.tuplet.id} firstNote:${fnPitch} measure:${fn.measure} beat:${fracToNumber(fn.beat).toFixed(3)}`)
             setSelectedNote(result.firstNote.id)
             selectedTool.value = 'entry'
             // Keep tuplet mode active - user must manually disable it
@@ -342,7 +344,8 @@ export function useMouseInteraction(deps: MouseInteractionDeps) {
         )
 
         if (note) {
-          console.log(`✓ Note added | measure:${note.measure} beat:${note.beat}`)
+          const pitch = note.isRest ? 'rest' : `${note.step}${note.alter === 2 ? '##' : note.alter === 1 ? '#' : note.alter === -1 ? 'b' : note.alter === -2 ? 'bb' : ''}${note.octave}`
+          console.log(`✓ Note added | ${pitch} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}`)
           setSelectedNote(note.id)
           selectedTool.value = 'entry'
           renderScore()

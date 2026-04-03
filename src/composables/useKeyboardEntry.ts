@@ -178,7 +178,7 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
       lastNote = tied
     }
     if (lastNote.id !== newNote.id) {
-      console.log(`[Keyboard] Tie chain: cursor advanced to last tied note id=${lastNote.id} measure=${lastNote.measure} beat=${lastNote.beat}`)
+      console.log(`[Keyboard] Tie chain: cursor advanced to last tied note id=${lastNote.id} measure=${lastNote.measure} beat=${fracToNumber(lastNote.beat).toFixed(3)}`)
     }
 
     setSelectedNote(lastNote.id)
@@ -225,7 +225,7 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
     ]
     const fittingDur = durations.find(d => d.beats <= actualDurationBeats + 0.001) ?? { dur: selectedDuration.value, beats: newDurationBeats }
 
-    console.log(`[Keyboard] Entering rest: dur=${fittingDur.dur} (${fittingDur.beats} beats) at measure=${targetMeasure} beat=${targetBeat}${fittingDur.dur !== selectedDuration.value ? ` (capped from ${selectedDuration.value})` : ''}`)
+    console.log(`[Keyboard] Entering rest: dur=${fittingDur.dur} (${fittingDur.beats} beats) at measure=${targetMeasure} beat=${fracToNumber(targetBeat).toFixed(3)}${fittingDur.dur !== selectedDuration.value ? ` (capped from ${selectedDuration.value})` : ''}`)
 
     // addNoteAtBeat handles overlap removal atomically
     const newRest = engine.value.addNoteAtBeat({
@@ -241,7 +241,7 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
       return
     }
 
-    console.log(`[Keyboard] Rest placed: id=${newRest.id} dur=${newRest.duration} measure=${newRest.measure} beat=${newRest.beat}`)
+    console.log(`[Keyboard] Rest placed: id=${newRest.id} dur=${newRest.duration} measure=${newRest.measure} beat=${fracToNumber(newRest.beat).toFixed(3)}`)
     setSelectedNote(newRest.id)
     renderScore()
   }

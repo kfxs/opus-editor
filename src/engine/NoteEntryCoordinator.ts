@@ -92,7 +92,8 @@ export class NoteEntryCoordinator {
     )
 
     if (overflow.willOverflow && overflow.overflowAmount) {
-      console.log(`KeyboardEntry | step:${params.step} dur:${params.duration} measure:${params.measure} beat:${finalBeat.toFixed(3)} → overflow ${overflow.overflowAmount.toFixed(3)}b — splitting with tie`)
+      const alt = params.alter === 2 ? '##' : params.alter === 1 ? '#' : params.alter === -1 ? 'b' : params.alter === -2 ? 'bb' : ''
+      console.log(`KeyboardEntry | ${params.step}${alt}${params.octave} dur:${params.duration} measure:${params.measure} beat:${finalBeat.toFixed(3)} → overflow ${overflow.overflowAmount.toFixed(3)}b — splitting with tie`)
       const splitNote = this.addSplitNoteWithTie(finalParams, overflow.overflowAmount)
       if (splitNote) {
         this.onCommit('Keyboard enter note')
@@ -101,7 +102,8 @@ export class NoteEntryCoordinator {
     }
 
     const note = this.getScoreModel().addNote(finalParams)
-    console.log(`✓ KeyboardEntry | step:${note.step}${note.alter ? note.alter : ''} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}${tupletAtBeat ? ` tuplet:${tupletAtBeat.id}` : ''}`)
+    const noteAlt = note.alter === 2 ? '##' : note.alter === 1 ? '#' : note.alter === -1 ? 'b' : note.alter === -2 ? 'bb' : ''
+    console.log(`✓ KeyboardEntry | ${note.step}${noteAlt}${note.octave} dur:${note.duration} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}${tupletAtBeat ? ` tuplet:${tupletAtBeat.id}` : ''}`)
     this.onCommit('Keyboard enter note')
     return note
   }
@@ -363,7 +365,10 @@ export class NoteEntryCoordinator {
     // This includes: notes within the duration range AND same-pitch notes at same beat (replacement)
     const notesToOverwrite = this.findNotesToOverwrite(measureNumber, finalBeat, duration, pitchMidi, false, tupletAtBeat)
     if (notesToOverwrite.length > 0) {
-      console.log('Overwriting notes:', notesToOverwrite.map(n => `${n.step}${n.alter ?? ''}@beat:${n.beat}`).join(', '))
+      console.log('Overwriting notes:', notesToOverwrite.map(n => {
+        const a = n.alter === 2 ? '##' : n.alter === 1 ? '#' : n.alter === -1 ? 'b' : n.alter === -2 ? 'bb' : ''
+        return `${n.step}${a}${n.octave}@beat:${fracToNumber(n.beat).toFixed(3)}`
+      }).join(', '))
       for (const noteToDelete of notesToOverwrite) {
         this.getScoreModel().deleteNote(noteToDelete.id)
       }
