@@ -75,6 +75,9 @@ export function usePalette(deps: PaletteDeps) {
     // natural → sharp) follows standard measure rules without forcing.
     if (selectedNoteId.value && engine.value && selectedTool.value === 'selection') {
       const note = engine.value.getNote(selectedNoteId.value)
+      // Rests have no accidental — just keep the palette value armed for the next note entry.
+      // Do not call selectNote() here, which would re-sync selectedAccidental back to null.
+      if (note?.isRest) return
       if (newValue === null) {
         if (note?.forceAccidental) {
           // Was force-shown → remove force only, alter (pitch) stays

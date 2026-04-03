@@ -345,6 +345,8 @@ export class NoteEntryCoordinator {
       duration,
       measure: measureNumber,
       beat: finalBeat,
+      // User explicitly armed ♮ in the palette → force the natural sign to display
+      ...(accidental === 'n' && { forceAccidental: true }),
       ...(dots && { dots }),
       ...(tupletId && { tupletId }),
       ...(articulations?.length && { articulations }),

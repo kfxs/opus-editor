@@ -72,8 +72,10 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
       alter,
       octave,
       isRest: false,
+      ...(selectedAccidental.value === 'n' && { forceAccidental: true }),
     })
 
+    selectedAccidental.value = null
     selectedTool.value = 'entry'
     renderScore()
   }
@@ -152,6 +154,7 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
         dots: selectedDots.value || undefined,
         isRest: false,
         articulations: pendingArticulations.value,
+        ...(selectedAccidental.value === 'n' && { forceAccidental: true }),
       })
     }
 
@@ -180,6 +183,10 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
     if (lastNote.id !== newNote.id) {
       console.log(`[Keyboard] Tie chain: cursor advanced to last tied note id=${lastNote.id} measure=${lastNote.measure} beat=${fracToNumber(lastNote.beat).toFixed(3)}`)
     }
+
+    // Clear accidental after keyboard entry — unlike mouse entry (where the accidental
+    // stays armed for repeated clicks), keyboard entry is note-by-note and explicit.
+    selectedAccidental.value = null
 
     setSelectedNote(lastNote.id)
     renderScore()
@@ -242,6 +249,7 @@ export function useKeyboardEntry(deps: KeyboardEntryDeps) {
     }
 
     console.log(`[Keyboard] Rest placed: id=${newRest.id} dur=${newRest.duration} measure=${newRest.measure} beat=${fracToNumber(newRest.beat).toFixed(3)}`)
+    selectedAccidental.value = null
     setSelectedNote(newRest.id)
     renderScore()
   }
