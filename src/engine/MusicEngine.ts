@@ -5,7 +5,7 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
-import { durationToBeats, beatsToDuration, splitBeatsIntoDurations, midiToNoteName, beatToFrac } from '@/utils/musicUtils'
+import { durationToBeats, beatsToDuration, splitBeatsIntoDurations, midiToNoteName, beatToFrac, getTupletBeatPositionsFrac } from '@/utils/musicUtils'
 import { fracToNumber, fracCompare, fracEq, fracAdd, durationToFraction } from '@/utils/fraction'
 import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
 import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling, GhostNote } from '@/types/music'
@@ -413,19 +413,57 @@ export class MusicEngine {
         }
       }
     } else if (newBeats < oldBeats) {
-      // Duration decreased - add filler rest for the remaining space
-      const fillerDuration = beatsToDuration((actualOldDuration - actualNewDuration) / tupletRatio)
-      if (fillerDuration) {
-        const existingAtFiller = measureNotes.find(n =>
-          n.tupletId === existingNote.tupletId &&
-          Math.abs(fracToNumber(n.beat) - noteEndBeat) < 0.02
-        )
-        if (!existingAtFiller) {
+      // Duration decreased — reconstruct the freed zone with proper tuplet rests.
+      // The freed zone spans [noteEndBeat, oldEndBeat). It may contain:
+      //   (a) a sub-slot remainder within the current slot (filled with a shorter rest)
+      //   (b) one or more freed whole slots (each gets a full base-duration rest)
+      const oldEndBeat = fracToNumber(existingNote.beat) + actualOldDuration
+      const slotPositions = getTupletBeatPositionsFrac(
+        tuplet.startBeat, tuplet.baseDuration, tuplet.numNotes, tuplet.notesOccupied,
+      )
+
+      // Delete anything in the freed zone (e.g. rests from a previous sub-slot fill)
+      const toDelete = measureNotes.filter(n =>
+        n.tupletId === existingNote.tupletId &&
+        n.id !== noteId &&
+        fracToNumber(n.beat) > noteEndBeat - 0.001 &&
+        fracToNumber(n.beat) < oldEndBeat - 0.001
+      )
+      for (const n of toDelete) this.scoreModel.deleteNote(n.id)
+
+      // (a) Sub-slot filler: fill from noteEndBeat to the end of the current slot boundary.
+      // Slot duration in actual beats = baseDurationBeats * tupletRatio.
+      const slotActualDuration = baseDurationBeats * tupletRatio
+      const slotIndex = Math.floor(
+        (fracToNumber(existingNote.beat) - fracToNumber(tuplet.startBeat)) / slotActualDuration + 1e-9
+      )
+      const slotEndActual =
+        fracToNumber(tuplet.startBeat) + (slotIndex + 1) * slotActualDuration
+      const subSlotRemaining = slotEndActual - noteEndBeat
+      if (subSlotRemaining > 0.001) {
+        const fillerWritten = beatsToDuration(subSlotRemaining / tupletRatio)
+        if (fillerWritten) {
           this.scoreModel.addNote({
-            duration: fillerDuration,
+            duration: fillerWritten,
             measure: existingNote.measure, beat: beatToFrac(noteEndBeat),
             isRest: true, tupletId: existingNote.tupletId,
           })
+        }
+      }
+
+      // (b) Freed whole slots: add a base-duration rest at each slot boundary in the freed zone
+      for (const slotPos of slotPositions) {
+        const slotBeat = fracToNumber(slotPos)
+        if (slotBeat >= slotEndActual - 0.001 && slotBeat < oldEndBeat - 0.001) {
+          const alreadyThere = this.scoreModel.getNotesInMeasure(existingNote.measure)
+            .find(n => n.tupletId === existingNote.tupletId && Math.abs(fracToNumber(n.beat) - slotBeat) < 0.001)
+          if (!alreadyThere) {
+            this.scoreModel.addNote({
+              duration: tuplet.baseDuration,
+              measure: existingNote.measure, beat: slotPos,
+              isRest: true, tupletId: existingNote.tupletId,
+            })
+          }
         }
       }
     }

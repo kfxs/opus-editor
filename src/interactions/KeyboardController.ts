@@ -102,7 +102,7 @@ export class KeyboardController {
       return
     }
 
-    console.log(`[Cursor] position: m${currentNote.measureNumber} beat:${fracToNumber(currentNote.beat).toFixed(4)} (${currentNote.isRest ? 'rest' : currentNote.step + currentNote.octave}${currentNote.tupletId ? ' tuplet' : ''}) → targeting m${nextBeat.measureNumber} beat:${fracToNumber(nextBeat.beat).toFixed(4)}`)
+    console.log(`[Cursor] position: m${currentNote.measureNumber} beat:${fracToNumber(currentNote.beat).toFixed(4)} (${currentNote.isRest ? 'rest' : `${currentNote.step ?? '?'}${currentNote.octave ?? ''}`}${currentNote.tupletId ? ' tuplet' : ''}) → targeting m${nextBeat.measureNumber} beat:${fracToNumber(nextBeat.beat).toFixed(4)}`)
 
     const targetMeasure = nextBeat.measureNumber
     const targetBeat = nextBeat.beat
