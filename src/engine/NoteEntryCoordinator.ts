@@ -820,12 +820,8 @@ export class NoteEntryCoordinator {
       }
     }
 
-    // Delete notes that would be overwritten in the next measure
-    const existingMidi = spellingToMidi(existingNote.step!, existingNote.alter!, existingNote.octave!)
-    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, { num: 0, den: 1 }, nextMeasureDurations[0], existingMidi, true)
-    for (const noteToDelete of notesToOverwriteNext) {
-      this.getScoreModel().deleteNote(noteToDelete.id)
-    }
+    // Erode notes in the overflow zone of the next measure (Sibelius-style)
+    this.erodeOverflowZone(nextMeasureNumber, beatsInNextMeasure)
 
     // Build a chain of tied notes across the barline.
     // Chain: existingNote → [extra current-measure notes if needed] → [next-measure notes]
@@ -908,12 +904,8 @@ export class NoteEntryCoordinator {
       }
     }
 
-    // Delete notes that would be overwritten in the next measure
-    const noteParamsMidi = spellingToMidi(noteParams.step!, noteParams.alter!, noteParams.octave!)
-    const notesToOverwriteNext = this.findNotesToOverwrite(nextMeasureNumber, { num: 0, den: 1 }, nextMeasureDurations[0], noteParamsMidi, true)
-    for (const noteToDelete of notesToOverwriteNext) {
-      this.getScoreModel().deleteNote(noteToDelete.id)
-    }
+    // Erode notes in the overflow zone of the next measure (Sibelius-style)
+    this.erodeOverflowZone(nextMeasureNumber, beatsInNextMeasure)
 
     // Add notes in current measure (may need multiple if duration splits, e.g., dotted notes)
     let currentBeat = noteParams.beat
@@ -973,6 +965,94 @@ export class NoteEntryCoordinator {
     })
 
     return firstNote
+  }
+
+  /**
+   * Erode all notes in the overflow zone of the next measure.
+   * Notes fully within [0, overflowBeats) are deleted.
+   * Notes that straddle the boundary are trimmed and moved to start at overflowBeats.
+   * Notes with a downstream tiedTo are deleted (punt case).
+   */
+  private erodeOverflowZone(measureNumber: number, overflowBeats: number): void {
+    const epsilon = 0.001
+    const notes = this.getScoreModel().getNotesInMeasure(measureNumber)
+    for (const note of notes) {
+      if (note.isRest) continue
+      const noteBeat = fracToNumber(note.beat)
+      if (noteBeat >= overflowBeats - epsilon) continue
+      this.erodeNoteAtBoundary(note, overflowBeats)
+    }
+  }
+
+  /**
+   * Erode a single note that starts within the overflow zone.
+   * - Fully consumed (noteEnd <= overflowBeats): break upstream tiedFrom, delete.
+   * - Straddles (noteEnd > overflowBeats, no tiedTo): trim duration and move to overflowBeats.
+   *   If the remainder needs multiple durations, build a tie chain for the tail.
+   * - Has tiedTo (downstream chain): delete (punt case — too complex to rewire).
+   */
+  private erodeNoteAtBoundary(note: Note, overflowBeats: number): void {
+    const epsilon = 0.001
+    const noteBeat = fracToNumber(note.beat)
+    const noteDurBeats = durationToBeats(note.duration, note.dots ?? 0)
+    const noteEnd = noteBeat + noteDurBeats
+
+    if (noteEnd <= overflowBeats + epsilon) {
+      // Fully consumed — break upstream tie pointer then delete
+      if (note.tiedFrom) {
+        this.getScoreModel().updateNote(note.tiedFrom, { tiedTo: undefined })
+      }
+      this.getScoreModel().deleteNote(note.id)
+      return
+    }
+
+    // Straddles boundary — punt to deletion if note has a downstream tie chain
+    if (note.tiedTo) {
+      this.getScoreModel().deleteNote(note.id)
+      return
+    }
+
+    // Trim: remainder starts at overflowBeats
+    const remainderBeats = noteEnd - overflowBeats
+    const remainderDurations = splitBeatsIntoDurations(remainderBeats)
+    if (remainderDurations.length === 0) {
+      this.getScoreModel().deleteNote(note.id)
+      return
+    }
+
+    // Break incoming tie
+    if (note.tiedFrom) {
+      this.getScoreModel().updateNote(note.tiedFrom, { tiedTo: undefined })
+    }
+
+    // Update the note: first remainder duration, moved to overflowBeats
+    this.getScoreModel().updateNote(note.id, {
+      duration: remainderDurations[0],
+      dots: 0,
+      beat: beatToFrac(overflowBeats),
+      tiedFrom: undefined,
+    })
+
+    // Build tie chain for any additional remainder durations
+    if (remainderDurations.length > 1) {
+      let prevId = note.id
+      let currentBeat = fracAdd(beatToFrac(overflowBeats), durationToFraction(remainderDurations[0]))
+      for (let i = 1; i < remainderDurations.length; i++) {
+        const dur = remainderDurations[i]
+        const tailNote = this.getScoreModel().addNote({
+          step: note.step,
+          alter: note.alter,
+          octave: note.octave,
+          duration: dur,
+          measure: note.measure,
+          beat: currentBeat,
+        })
+        this.getScoreModel().updateNote(prevId, { tiedTo: tailNote.id })
+        this.getScoreModel().updateNote(tailNote.id, { tiedFrom: prevId })
+        prevId = tailNote.id
+        currentBeat = fracAdd(currentBeat, durationToFraction(dur))
+      }
+    }
   }
 
   /**
