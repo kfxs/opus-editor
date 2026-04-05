@@ -18,6 +18,7 @@ export class RenderController {
     this.highlight.applyArticulationHighlight()
     this.highlight.applyAccidentalHighlight()
     this.highlight.applyTupletSelectionHighlight()
+    this.highlight.applyTieHighlight()
     this.highlight.applyKeyboardCursor()
   }
 

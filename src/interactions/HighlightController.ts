@@ -312,6 +312,40 @@ export class HighlightController {
     }
   }
 
+  applyTieHighlight(): void {
+    const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
+    if (!engine || !scoreCanvas || !this.state.selectedTieFromNoteId) return
+
+    const registry = engine.getElementRegistry()
+    const tieEl = registry.getByType('tie').find(el => el.fromNoteId === this.state.selectedTieFromNoteId)
+    if (!tieEl) return
+
+    const svg = scoreCanvas.querySelector('svg')
+    if (!svg) return
+
+    const TIE_COLOR = '#F59E0B'
+    const bbox = tieEl.bbox
+
+    // The tie is a filled SVG path — find it by matching its center to the bbox
+    const paths = svg.querySelectorAll('path')
+    for (const path of paths) {
+      const elBBox = (path as SVGGraphicsElement).getBBox?.()
+      if (!elBBox) continue
+
+      const centerX = elBBox.x + elBBox.width / 2
+      const centerY = elBBox.y + elBBox.height / 2
+      if (
+        centerX >= bbox.x && centerX <= bbox.x + bbox.width &&
+        centerY >= bbox.y - 4 && centerY <= bbox.y + bbox.height + 4
+      ) {
+        const svgEl = path as SVGElement
+        svgEl.setAttribute('fill', TIE_COLOR)
+        svgEl.classList.add('selected-tie')
+      }
+    }
+  }
+
   applyTupletSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()

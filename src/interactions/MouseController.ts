@@ -108,6 +108,25 @@ export class MouseController {
     }
 
     this.state.selectedTupletId = null
+    this.state.selectedTieFromNoteId = null
+
+    const tiePad = 6
+    const tieAt = registry.getByType('tie').find(el => {
+      const b = el.bbox
+      return x >= b.x - tiePad && x <= b.x + b.width + tiePad
+        && y >= b.y - tiePad && y <= b.y + b.height + tiePad
+    }) ?? null
+    if (tieAt?.fromNoteId) {
+      this.state.selectedNoteId = null
+      this.state.selectedArticulationNoteId = null
+      this.state.selectedArticulationType = null
+      this.state.selectedAccidentalNoteId = null
+      this.state.selectedAccidentalType = null
+      this.state.selectedTieFromNoteId = tieAt.fromNoteId
+      console.log(`✓ Tie selected | fromNoteId:${tieAt.fromNoteId} toNoteId:${tieAt.toNoteId} fromMeasure:${tieAt.fromMeasure} toMeasure:${tieAt.toMeasure}`)
+      this.render.renderScore()
+      return
+    }
 
     const accidentalAt = registry.getByType('accidental').find(el => {
       const b = el.bbox

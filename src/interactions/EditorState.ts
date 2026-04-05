@@ -22,6 +22,7 @@ export interface EditorState {
   selectedAccidentalNoteId: string | null
   selectedAccidentalType: string | null
   selectedTupletId: string | null
+  selectedTieFromNoteId: string | null
 
   // --- Palette ---
   selectedDuration: NoteDuration
@@ -46,6 +47,7 @@ export function createEditorState(): EditorState {
     selectedAccidentalNoteId: null,
     selectedAccidentalType: null,
     selectedTupletId: null,
+    selectedTieFromNoteId: null,
     selectedDuration: 'q',
     selectedAccidental: null,
     selectedDots: 0,

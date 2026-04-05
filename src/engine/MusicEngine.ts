@@ -615,12 +615,17 @@ export class MusicEngine {
     const notesAtSameBeat = this.getChordNotesAt(note.measure, note.beat)
     const isPartOfChord = notesAtSameBeat.length > 1
 
+    // Save the tiedFrom source before deletion clears it.
+    // When a single note is replaced by a rest, we re-link the source tie to the new rest
+    // so the tie arc remains visible (the owner of the tie is the source, not the target).
+    const tiedFromSourceId = !note.isRest && !isPartOfChord ? note.tiedFrom : undefined
+
     // Delete the note
     const result = this.scoreModel.deleteNote(noteId)
 
     // If it's a single note (not a chord), replace with a rest of the same duration
     if (result && !isPartOfChord && !note.isRest) {
-      this.scoreModel.addNote({
+      const replacementRest = this.scoreModel.addNote({
         duration: note.duration,
         measure: note.measure,
         beat: note.beat,
@@ -628,6 +633,12 @@ export class MusicEngine {
         dots: note.dots,
         tupletId: note.tupletId, // Preserve tuplet membership
       })
+
+      // Re-link the source tie to the new rest so the tie arc is preserved
+      if (tiedFromSourceId && replacementRest) {
+        this.scoreModel.updateNote(tiedFromSourceId, { tiedTo: replacementRest.id })
+        this.scoreModel.updateNote(replacementRest.id, { tiedFrom: tiedFromSourceId })
+      }
     } else if (result && !isPartOfChord && note.isRest && !note.tupletId) {
       // Standalone rest deleted without replacement — re-fill the measure to close the gap
       this.scoreModel.repairMeasureGaps(note.measure)

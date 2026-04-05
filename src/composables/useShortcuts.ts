@@ -65,6 +65,10 @@ export function useShortcuts(
         state.selectedAccidentalType = null
         selection.selectNote(noteId)
         renderer.renderScore()
+      } else if (state.selectedTieFromNoteId && eng) {
+        eng.toggleTie(state.selectedTieFromNoteId)
+        state.selectedTieFromNoteId = null
+        renderer.renderScore()
       } else if (state.selectedTupletId && eng) {
         eng.deleteTuplet(state.selectedTupletId)
         state.selectedTupletId = null

@@ -61,6 +61,7 @@ export class SelectionController {
     this.state.selectedArticulationType = null
     this.state.selectedAccidentalNoteId = null
     this.state.selectedAccidentalType = null
+    this.state.selectedTieFromNoteId = null
 
     if (noteId) {
       const engine = this.getEngine()

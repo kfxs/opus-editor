@@ -1469,19 +1469,20 @@ export class VexFlowRenderer {
    * Draw a tie arc where both endpoints share the source note's Y position.
    * Ties always connect the same pitch, so the arc must be horizontally flat.
    * Replicates VexFlow's StaveTie.renderTie() algorithm with firstY === lastY.
+   * Returns the bounding box of the drawn arc, or null on failure.
    */
   private drawFlatTie(
     fromInfo: { staveNote: StaveNote; noteIndex: number },
     toInfo: { staveNote: StaveNote; noteIndex: number },
     direction: number,
-  ): void {
-    if (!this.context) return
+  ): { x: number; y: number; width: number; height: number } | null {
+    if (!this.context) return null
     try {
       const firstX = fromInfo.staveNote.getTieRightX()
       const lastX = toInfo.staveNote.getTieLeftX()
       const ys = fromInfo.staveNote.getYs()
       const y = ys[fromInfo.noteIndex] ?? ys[0]
-      if (y === undefined || isNaN(y)) return
+      if (y === undefined || isNaN(y)) return null
 
       // Match VexFlow StaveTie defaults: cp1=8, cp2=12, yShift=7
       const cp1 = 8
@@ -1497,8 +1498,14 @@ export class VexFlowRenderer {
       this.context.quadraticCurveTo(cpX, bottomCP, firstX, tieY)
       this.context.closePath()
       this.context.fill()
+
+      // Bounding box: x range is firstX→lastX, y range spans from tieY to the arc apex
+      const arcTop = Math.min(tieY, topCP)
+      const arcBottom = Math.max(tieY, bottomCP)
+      return { x: firstX, y: arcTop, width: lastX - firstX, height: arcBottom - arcTop }
     } catch (e) {
       console.error('Could not draw flat tie:', e)
+      return null
     }
   }
 
@@ -1556,7 +1563,17 @@ export class VexFlowRenderer {
               if (sameLine) {
                 // Same line: draw flat arc anchored at the source note's Y
                 // (ties always connect the same pitch, so both endpoints share the same Y)
-                this.drawFlatTie(fromInfo, toInfo, tieDirection ?? 1)
+                const bbox = this.drawFlatTie(fromInfo, toInfo, tieDirection ?? 1)
+                if (bbox) {
+                  this.elementRegistry.add({
+                    type: 'tie',
+                    fromNoteId: note.id,
+                    toNoteId: note.tiedTo!,
+                    fromMeasure: fromMeasure,
+                    toMeasure: toMeasure!,
+                    bbox,
+                  })
+                }
               } else {
                 // Different lines (line break): two partial ties
                 // First partial: from note to end of line
