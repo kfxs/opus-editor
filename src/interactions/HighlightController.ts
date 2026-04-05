@@ -156,11 +156,25 @@ export class HighlightController {
       ? registry.getTupletsByMeasure(noteMeasure).length > 0
       : false
 
+    // Collect all tie bboxes so we can skip tie paths during note highlighting
+    const tieBboxes = registry.getByType('tie').map(el => el.bbox)
+
     const allElements = svg.querySelectorAll('path, ellipse, circle, line, rect, text, use')
 
     for (const el of allElements) {
       const elBBox = (el as SVGGraphicsElement).getBBox?.()
       if (!elBBox) continue
+
+      // Skip path elements that belong to a registered tie arc
+      if (el.tagName === 'path') {
+        const cx = elBBox.x + elBBox.width / 2
+        const cy = elBBox.y + elBBox.height / 2
+        const isTiePath = tieBboxes.some(tb =>
+          cx >= tb.x && cx <= tb.x + tb.width &&
+          cy >= tb.y - 4 && cy <= tb.y + tb.height + 4,
+        )
+        if (isTiePath) continue
+      }
 
       const intersects = !(
         elBBox.x + elBBox.width < selectBbox.x ||
