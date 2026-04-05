@@ -109,6 +109,19 @@ export class NoteEntryCoordinator {
     const note = this.getScoreModel().addNote(finalParams)
     const noteAlt = note.alter === 2 ? '##' : note.alter === 1 ? '#' : note.alter === -1 ? 'b' : note.alter === -2 ? 'bb' : ''
     console.log(`✓ KeyboardEntry | ${note.step}${noteAlt}${note.octave} dur:${note.duration} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}${tupletAtBeat ? ` tuplet:${tupletAtBeat.id}` : ''}`)
+
+    // Fill remaining sub-slots in the tuplet slot with rests (general: works for any subdivision).
+    // Return the last filler rest so the caller's cursor advances past the whole slot — without
+    // this, the cursor stays on the placed note and the next key press lands on the filler rest
+    // (mid-slot), destroying the slot structure.
+    if (tupletAtBeat && tupletId) {
+      const lastFiller = this.fillTupletSlotRemainder(params.measure, note.beat, params.duration, params.dots || 0, tupletAtBeat)
+      if (lastFiller) {
+        this.onCommit('Keyboard enter note')
+        return lastFiller
+      }
+    }
+
     this.onCommit('Keyboard enter note')
     return note
   }
@@ -430,28 +443,9 @@ export class NoteEntryCoordinator {
 
     const note = this.getScoreModel().addNote(noteParams)
 
-    // If we're adding a smaller note to a tuplet, add the filler rest
+    // Fill remaining sub-slots in the tuplet slot with rests (general: works for any subdivision)
     if (note && tupletFillerRest && tupletId && tupletAtBeat) {
-      // Calculate the tuplet's end beat
-      const tupletEndBeat = fracAdd(tupletAtBeat.startBeat, getTupletTotalBeatsFrac(tupletAtBeat.baseDuration, tupletAtBeat.notesOccupied))
-
-      // Only add filler if it's within the tuplet's time span
-      const fillerWithinTuplet = fracLt(tupletFillerRest.beat, tupletEndBeat)
-
-      // Check if there's already a note/rest at the filler position (exact comparison)
-      const existingAtFillerBeat = this.getScoreModel().getNotesInMeasure(measureNumber)
-        .find(n => fracEq(n.beat, tupletFillerRest!.beat) && n.tupletId === tupletId)
-
-      if (fillerWithinTuplet && !existingAtFillerBeat) {
-        // Add a filler rest at the calculated position
-        this.getScoreModel().addNote({
-          duration: tupletFillerRest.duration,
-          measure: measureNumber,
-          beat: tupletFillerRest.beat,
-          isRest: true,
-          tupletId: tupletId,
-        })
-      }
+      this.fillTupletSlotRemainder(measureNumber, note.beat, duration, dots ?? 0, tupletAtBeat)
     }
 
     // Debug logging with full context
@@ -973,6 +967,75 @@ export class NoteEntryCoordinator {
    * Notes that straddle the boundary are trimmed and moved to start at overflowBeats.
    * Notes with a downstream tiedTo are deleted (punt case).
    */
+  /**
+   * After placing a note shorter than the tuplet's baseDuration, fill the remaining
+   * sub-slots in that tuplet slot with rests of the same duration.
+   *
+   * General formula: subdivisionFactor = baseDuration / noteDuration (always a power of 2).
+   * We need (subdivisionFactor - 1) filler rests spaced by (tupletSlotDuration / subdivisionFactor).
+   *
+   * Examples:
+   *   16th in 8th triplet → factor=2 → 1 filler rest (fills half-slot)
+   *   32nd in 8th triplet → factor=4 → 3 filler rests (fills 3/4 of slot)
+   *   64th in 8th triplet → factor=8 → 7 filler rests
+   */
+  private fillTupletSlotRemainder(
+    measureNumber: number,
+    noteBeat: Fraction,
+    noteDuration: NoteDuration,
+    noteDots: number,
+    tuplet: { id: string; baseDuration: NoteDuration; numNotes: number; notesOccupied: number; startBeat: Fraction },
+  ): Note | null {
+    const baseDurationFrac = durationToFraction(tuplet.baseDuration)
+    const selectedDurationFrac = durationToFraction(noteDuration, noteDots)
+    if (!fracLt(selectedDurationFrac, baseDurationFrac)) return null
+
+    const tupletSlotDurationFrac = getTupletNoteDurationFrac(
+      tuplet.baseDuration, tuplet.numNotes, tuplet.notesOccupied
+    )
+    const tupletEndBeat = fracAdd(tuplet.startBeat, getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied))
+
+    // Sub-slot = actual time one noteDuration occupies inside the tuplet
+    const subSlotDurationFrac = fracMul(
+      tupletSlotDurationFrac,
+      fracDiv(selectedDurationFrac, baseDurationFrac)
+    )
+    // Note's actual duration equals subSlotDurationFrac (one sub-slot)
+    const noteActualDuration = subSlotDurationFrac
+    const noteEnd = fracAdd(noteBeat, noteActualDuration)
+
+    // Find which tuplet slot noteBeat falls in, then compute remaining space in that slot
+    const offsetInTuplet = fracToNumber(fracSub(noteBeat, tuplet.startBeat))
+    const slotDuration = fracToNumber(tupletSlotDurationFrac)
+    const slotIndex = Math.floor(offsetInTuplet / slotDuration + 1e-9)
+    const nextSlotBoundary = fracAdd(tuplet.startBeat, fracMul(fracFromInt(slotIndex + 1), tupletSlotDurationFrac))
+
+    const remainingFrac = fracSub(nextSlotBoundary, noteEnd)
+    const numFillers = Math.max(0, Math.round(fracToNumber(fracDiv(remainingFrac, subSlotDurationFrac))))
+
+    let fillerBeat = noteEnd
+    let lastFiller: Note | null = null
+    for (let i = 0; i < numFillers; i++) {
+      if (!fracLt(fillerBeat, tupletEndBeat)) break
+      const existing = this.getScoreModel().getNotesInMeasure(measureNumber)
+        .find(n => fracEq(n.beat, fillerBeat) && n.tupletId === tuplet.id)
+      if (!existing) {
+        lastFiller = this.getScoreModel().addNote({
+          duration: noteDuration,
+          measure: measureNumber,
+          beat: fillerBeat,
+          isRest: true,
+          tupletId: tuplet.id,
+        })
+        console.log(`[Tuplet] filler rest dur:${noteDuration} at beat:${fracToNumber(fillerBeat).toFixed(4)}`)
+      } else {
+        lastFiller = existing
+      }
+      fillerBeat = fracAdd(fillerBeat, subSlotDurationFrac)
+    }
+    return lastFiller
+  }
+
   private erodeOverflowZone(measureNumber: number, overflowBeats: number): void {
     const epsilon = 0.001
     const notes = this.getScoreModel().getNotesInMeasure(measureNumber)

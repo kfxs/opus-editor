@@ -142,6 +142,7 @@ export class KeyboardController {
         isRest: false,
         articulations: this.getPendingArticulations(),
         ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }),
+        ...(existingTuplet && { tupletId: existingTuplet.id }),
       })
     }
 
