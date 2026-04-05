@@ -152,7 +152,7 @@ export class PaletteController {
   }
 
   toggleDot(): void {
-    const newValue = this.state.selectedDots >= 2 ? 0 : this.state.selectedDots + 1
+    const newValue = this.state.selectedDots >= 1 ? 0 : 1
     this.state.selectedDots = newValue
     const engine = this.getEngine()
     if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
