@@ -791,7 +791,7 @@ export class NoteEntryCoordinator {
   /**
    * Split an existing note with a tie when its duration changes to overflow.
    */
-  private splitExistingNoteWithTie(existingNote: Note, newDuration: NoteParams['duration'], overflowAmount: number, newDots: number = 0): void {
+  splitExistingNoteWithTie(existingNote: Note, newDuration: NoteParams['duration'], overflowAmount: number, newDots: number = 0): void {
     const totalBeats = durationToBeats(newDuration, newDots)
     const beatsInCurrentMeasure = totalBeats - overflowAmount
     const beatsInNextMeasure = overflowAmount
@@ -804,8 +804,8 @@ export class NoteEntryCoordinator {
       return
     }
 
-    // Update the existing note's duration to the first part
-    this.getScoreModel().updateNote(existingNote.id, { duration: currentMeasureDurations[0] })
+    // Update the existing note's duration to the first part (clear dots — split durations are always plain)
+    this.getScoreModel().updateNote(existingNote.id, { duration: currentMeasureDurations[0], dots: 0 })
 
     // Check if next measure exists, if not create it
     const nextMeasureNumber = existingNote.measure + 1
@@ -827,10 +827,30 @@ export class NoteEntryCoordinator {
       this.getScoreModel().deleteNote(noteToDelete.id)
     }
 
-    // Add tied continuation note in next measure
+    // Build a chain of tied notes across the barline.
+    // Chain: existingNote → [extra current-measure notes if needed] → [next-measure notes]
     let previousNoteId = existingNote.id
-    let nextBeat = fracFromInt(0)
 
+    // Add any extra tied notes within the current measure (when split needs > 1 duration, e.g. 3 beats → h + q)
+    let currentBeat = fracAdd(existingNote.beat, durationToFraction(currentMeasureDurations[0]))
+    for (let i = 1; i < currentMeasureDurations.length; i++) {
+      const dur = currentMeasureDurations[i]
+      const extraNote = this.getScoreModel().addNote({
+        step: existingNote.step,
+        alter: existingNote.alter,
+        octave: existingNote.octave,
+        duration: dur,
+        measure: existingNote.measure,
+        beat: currentBeat,
+      })
+      this.getScoreModel().updateNote(previousNoteId, { tiedTo: extraNote.id })
+      this.getScoreModel().updateNote(extraNote.id, { tiedFrom: previousNoteId })
+      previousNoteId = extraNote.id
+      currentBeat = fracAdd(currentBeat, durationToFraction(dur))
+    }
+
+    // Add tied continuation notes in the next measure
+    let nextBeat = fracFromInt(0)
     for (const duration of nextMeasureDurations) {
       const continuationNote = this.getScoreModel().addNote({
         step: existingNote.step,
@@ -840,21 +860,18 @@ export class NoteEntryCoordinator {
         measure: nextMeasureNumber,
         beat: nextBeat,
       })
-
-      // Link with tie
       this.getScoreModel().updateNote(previousNoteId, { tiedTo: continuationNote.id })
       this.getScoreModel().updateNote(continuationNote.id, { tiedFrom: previousNoteId })
-
       previousNoteId = continuationNote.id
       nextBeat = fracAdd(nextBeat, durationToFraction(duration))
     }
 
-    console.log('Split existing chord note with tie:', {
+    console.log('Split existing note with tie:', {
       noteId: existingNote.id,
       step: existingNote.step,
       alter: existingNote.alter,
       octave: existingNote.octave,
-      currentDuration: currentMeasureDurations[0],
+      currentDurations: currentMeasureDurations,
       nextDurations: nextMeasureDurations,
     })
   }

@@ -279,7 +279,7 @@ export class MusicEngine {
     const chordNotes = this.getChordNotesAt(existingNote.measure, existingNote.beat)
     const isChord = chordNotes.length > 1
 
-    // Limit duration to fit within the measure (considering dots)
+    // Check for measure overflow (considering dots)
     const measure = this.scoreModel.getMeasure(existingNote.measure)
     if (measure && (updates.duration || updates.dots !== undefined)) {
       const timeSignature = measure.timeSignature
@@ -288,6 +288,35 @@ export class MusicEngine {
       const requestedBeats = durationToBeats(newDuration, newDots)
 
       if (requestedBeats > availableBeats + 0.001) {
+        if (!existingNote.tupletId && !existingNote.isRest) {
+          // Non-tuplet, non-rest overflow: split with tie across the barline (Dorico-style)
+          const overflowAmount = requestedBeats - availableBeats
+          const oldNoteEnd = fracToNumber(existingNote.beat) + durationToBeats(oldDuration, oldDots)
+
+          // Clear notes in the current measure that fall within the newly extended range
+          for (const n of measureNotes) {
+            if (n.id === noteId || chordNotes.some(c => c.id === n.id)) continue
+            const nStart = fracToNumber(n.beat)
+            if (nStart >= oldNoteEnd - 0.001 && nStart < fracToNumber(existingNote.beat) + availableBeats - 0.001) {
+              this.scoreModel.deleteNote(n.id)
+            }
+          }
+
+          // Split chord members (other notes at the same beat)
+          for (const chordNote of chordNotes) {
+            if (chordNote.id === noteId) continue
+            this.noteEntryCoordinator.splitExistingNoteWithTie(chordNote, newDuration, overflowAmount, newDots)
+          }
+
+          // Split the target note itself
+          this.noteEntryCoordinator.splitExistingNoteWithTie(existingNote, newDuration, overflowAmount, newDots)
+
+          this.playbackEngine.setScore(this.scoreModel.getScore())
+          this.saveUndoState('Update note duration')
+          return this.scoreModel.getNote(noteId)!
+        }
+
+        // Tuplet notes: clip to fit (updateTupletNote will also enforce its own constraints)
         const fittingDuration = this.findLargestFittingDuration(availableBeats)
         if (fittingDuration) {
           newDuration = fittingDuration
