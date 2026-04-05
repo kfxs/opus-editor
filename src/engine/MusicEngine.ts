@@ -441,13 +441,16 @@ export class MusicEngine {
         fracToNumber(tuplet.startBeat) + (slotIndex + 1) * slotActualDuration
       const subSlotRemaining = slotEndActual - noteEndBeat
       if (subSlotRemaining > 0.001) {
-        const fillerWritten = beatsToDuration(subSlotRemaining / tupletRatio)
-        if (fillerWritten) {
+        // splitBeatsIntoDurations handles non-power-of-2 remainders (e.g. 3/8 for a 32nd in triplet)
+        const fillerDurations = splitBeatsIntoDurations(subSlotRemaining / tupletRatio)
+        let fillerBeat = noteEndBeat
+        for (const dur of fillerDurations) {
           this.scoreModel.addNote({
-            duration: fillerWritten,
-            measure: existingNote.measure, beat: beatToFrac(noteEndBeat),
+            duration: dur,
+            measure: existingNote.measure, beat: beatToFrac(fillerBeat),
             isRest: true, tupletId: existingNote.tupletId,
           })
+          fillerBeat += durationToBeats(dur) * tupletRatio
         }
       }
 
