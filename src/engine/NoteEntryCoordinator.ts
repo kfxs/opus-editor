@@ -110,16 +110,11 @@ export class NoteEntryCoordinator {
     const noteAlt = note.alter === 2 ? '##' : note.alter === 1 ? '#' : note.alter === -1 ? 'b' : note.alter === -2 ? 'bb' : ''
     console.log(`✓ KeyboardEntry | ${note.step}${noteAlt}${note.octave} dur:${note.duration} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}${tupletAtBeat ? ` tuplet:${tupletAtBeat.id}` : ''}`)
 
-    // Fill remaining sub-slots in the tuplet slot with rests (general: works for any subdivision).
-    // Return the last filler rest so the caller's cursor advances past the whole slot — without
-    // this, the cursor stays on the placed note and the next key press lands on the filler rest
-    // (mid-slot), destroying the slot structure.
     if (tupletAtBeat && tupletId) {
-      const lastFiller = this.fillTupletSlotRemainder(params.measure, note.beat, params.duration, params.dots || 0, tupletAtBeat)
-      if (lastFiller) {
-        this.onCommit('Keyboard enter note')
-        return lastFiller
-      }
+      // Add filler rests for the remainder of the slot (structurally necessary).
+      // Return the placed note — cursor stays on it; the beat map naturally advances
+      // to the next available sub-slot or slot boundary on the next key press.
+      this.fillTupletSlotRemainder(params.measure, note.beat, params.duration, params.dots || 0, tupletAtBeat)
     }
 
     this.onCommit('Keyboard enter note')
@@ -1033,6 +1028,7 @@ export class NoteEntryCoordinator {
       }
       fillerBeat = fracAdd(fillerBeat, subSlotDurationFrac)
     }
+
     return lastFiller
   }
 

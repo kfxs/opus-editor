@@ -86,21 +86,23 @@ export class KeyboardController {
 
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
     if (!currentNote) {
-      console.log('[Keyboard] enterNoteAtCursorPosition: currentNote not found for id', this.state.selectedNoteId)
+      console.log('[Cursor] enterNoteAtCursorPosition: currentNote not found for id', this.state.selectedNoteId)
       return
     }
     const currentKey = `${currentNote.measureNumber}:${currentNote.beat.num}/${currentNote.beat.den}`
     const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat.num}/${n.beat.den}` === currentKey)
     if (currentIndex === -1) {
-      console.log('[Keyboard] enterNoteAtCursorPosition: beat not found in beatMap for key', currentKey)
+      console.log('[Cursor] enterNoteAtCursorPosition: beat not found in beatMap for key', currentKey)
       return
     }
 
-    const nextBeat = beats[currentIndex + 1]
+    let nextBeat = beats[currentIndex + 1]
     if (!nextBeat) {
-      console.log('[Keyboard] enterNoteAtCursorPosition: cursor is at end of score, nowhere to place note')
+      console.log('[Cursor] enterNoteAtCursorPosition: cursor is at end of score, nowhere to place note')
       return
     }
+
+    console.log(`[Cursor] position: m${currentNote.measureNumber} beat:${fracToNumber(currentNote.beat).toFixed(4)} (${currentNote.isRest ? 'rest' : currentNote.step + currentNote.octave}${currentNote.tupletId ? ' tuplet' : ''}) → targeting m${nextBeat.measureNumber} beat:${fracToNumber(nextBeat.beat).toFixed(4)}`)
 
     const targetMeasure = nextBeat.measureNumber
     const targetBeat = nextBeat.beat
@@ -168,6 +170,7 @@ export class KeyboardController {
     // Clear accidental after keyboard entry
     this.state.selectedAccidental = null
 
+    console.log(`[Cursor] → cursor lands on: m${lastNote.measure} beat:${fracToNumber(lastNote.beat).toFixed(4)} (${lastNote.isRest ? 'rest' : `${lastNote.step}${lastNote.octave}`}${lastNote.tupletId ? ' tuplet' : ''})`)
     this.setSelectedNote(lastNote.id)
     this.renderScore()
   }
