@@ -504,6 +504,20 @@ export class MusicEngine {
         this.scoreModel.addRest(restDuration, note.measure, currentBeat)
         currentBeat = fracAdd(currentBeat, durationToFraction(restDuration))
       }
+
+      // Break tiedTo if the shortened note no longer abuts its tie target
+      if (note.tiedTo) {
+        const tiedTarget = this.scoreModel.getNote(note.tiedTo)
+        if (tiedTarget) {
+          const noteEnd = fracToNumber(note.beat) + durationToBeats(newDuration, newDots)
+          const targetBeat = fracToNumber(tiedTarget.beat)
+          if (Math.abs(noteEnd - targetBeat) > 0.001 || note.measure !== tiedTarget.measure) {
+            console.log(`[Tie] broken — ${note.step}${note.octave} m${note.measure} no longer abuts tied target after duration change`)
+            this.scoreModel.updateNote(note.id, { tiedTo: undefined })
+            this.scoreModel.updateNote(tiedTarget.id, { tiedFrom: undefined })
+          }
+        }
+      }
     }
 
     this.playbackEngine.setScore(this.scoreModel.getScore())

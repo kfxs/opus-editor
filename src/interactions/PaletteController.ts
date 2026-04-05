@@ -34,7 +34,13 @@ export class PaletteController {
     this.state.tupletMode = false
     const engine = this.getEngine()
     if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
+      const before = engine.getNote(this.state.selectedNoteId)
       engine.updateNote(this.state.selectedNoteId, { duration, dots: 0 })
+      if (before && !before.isRest) {
+        const pitch = `${before.step}${before.alter === 1 ? '#' : before.alter === -1 ? 'b' : before.alter === 2 ? '##' : before.alter === -2 ? 'bb' : ''}${before.octave}`
+        const oldDur = `${before.duration}${'.'.repeat(before.dots ?? 0)}`
+        console.log(`[Duration] ${pitch} | ${oldDur} → ${duration}`)
+      }
       this.renderScore()
     } else if (this.state.selectedTool === 'selection') {
       this.state.selectedTool = 'entry'
@@ -150,7 +156,14 @@ export class PaletteController {
     this.state.selectedDots = newValue
     const engine = this.getEngine()
     if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
+      const before = engine.getNote(this.state.selectedNoteId)
       engine.updateNote(this.state.selectedNoteId, { dots: newValue })
+      if (before && !before.isRest) {
+        const pitch = `${before.step}${before.alter === 1 ? '#' : before.alter === -1 ? 'b' : before.alter === 2 ? '##' : before.alter === -2 ? 'bb' : ''}${before.octave}`
+        const oldDur = `${before.duration}${'.'.repeat(before.dots ?? 0)}`
+        const newDur = `${before.duration}${'.'.repeat(newValue)}`
+        console.log(`[Duration] ${pitch} | ${oldDur} → ${newDur}`)
+      }
       this.renderScore()
     } else if (this.state.selectedTool === 'selection') {
       this.state.selectedTool = 'entry'
