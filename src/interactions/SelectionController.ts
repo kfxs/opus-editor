@@ -112,7 +112,13 @@ export class SelectionController {
       return
     }
 
-    this.selectNote(beats[newIndex].id)
+    const dest = beats[newIndex]
+    const destNote = allFlat.find(n => n.id === dest.id)
+    const destDesc = destNote
+      ? (destNote.isRest ? `rest m${dest.measureNumber} beat:${dest.beat.num / dest.beat.den}` : `${destNote.step}${destNote.alter !== 0 ? (destNote.alter! > 0 ? '#' : 'b') : ''}${destNote.octave} m${dest.measureNumber} beat:${dest.beat.num / dest.beat.den}`)
+      : `id:${dest.id}`
+    console.log(`[Nav] ${direction > 0 ? '→' : '←'} → ${destDesc} (tool:${this.state.selectedTool})`)
+    this.selectNote(dest.id)
     this.renderScore()
     this.scrollSelectedNoteIntoView()
   }
@@ -168,6 +174,8 @@ export class SelectionController {
     engine.updateNote(this.state.selectedNoteId, {
       step: newSpelling.step, alter: newSpelling.alter, octave: newSpelling.octave,
     })
+    const altStr = newSpelling.alter === 1 ? '#' : newSpelling.alter === -1 ? 'b' : ''
+    console.log(`[Pitch] ${direction > 0 ? '↑' : '↓'} → ${newSpelling.step}${altStr}${newSpelling.octave} (tool:${this.state.selectedTool})`)
     this.renderScore()
   }
 
@@ -187,6 +195,7 @@ export class SelectionController {
     if (!selectedNote || selectedNote.isRest) return
 
     engine.updateNote(this.state.selectedNoteId, { octave: selectedNote.octave! + direction })
+    console.log(`[Pitch] octave${direction > 0 ? '↑' : '↓'} → ${selectedNote.step}${selectedNote.octave! + direction}`)
     this.renderScore()
   }
 

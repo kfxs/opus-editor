@@ -234,6 +234,7 @@ export class ScoreModel {
       dots: rest.dots,
       tupletId: rest.tupletId,
       actualDuration: rest.actualDuration,
+      tiedFrom: rest.tiedFrom,
     }
   }
 
@@ -357,6 +358,12 @@ export class ScoreModel {
           if (existing.tupletId && !chord.tupletId) {
             inheritedTupletId = existing.tupletId
           }
+          // Migrate any tie pointing TO this rest onto the new chord's first note
+          if (chord.notes.length > 0) {
+            const newNp = chord.notes[0]
+            if (existing.tiedFrom) newNp.tiedFrom = existing.tiedFrom
+            this.migrateRestTieTo(existing.id, newNp.id)
+          }
           // Remove (don't keep)
         } else {
           remaining.push(existing)
@@ -382,6 +389,24 @@ export class ScoreModel {
 
     // Sort by beat
     measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+  }
+
+  /**
+   * Update all NotePitch.tiedTo pointers that reference a deleted rest ID,
+   * redirecting them to newNotePitchId.
+   */
+  private migrateRestTieTo(restId: string, newNotePitchId: string): void {
+    for (const measure of this.score.measures) {
+      for (const slot of measure.slots) {
+        if (slot.type === 'chord') {
+          for (const pitch of slot.notes) {
+            if (pitch.tiedTo === restId) {
+              pitch.tiedTo = newNotePitchId
+            }
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -617,6 +642,7 @@ export class ScoreModel {
           alter: (updates.alter ?? 0) as PitchAlter,
           octave: updates.octave!,
           forceAccidental: updates.forceAccidental,
+          tiedFrom: rest.tiedFrom,  // preserve incoming tie
         }
         const chord: Chord = {
           id: uuidv4(),
@@ -661,6 +687,8 @@ export class ScoreModel {
         if (updates.duration !== undefined) rest.duration = updates.duration
         if (updates.dots !== undefined) rest.dots = updates.dots
         if (updates.tupletId !== undefined) rest.tupletId = updates.tupletId
+        if (updates.tiedFrom !== undefined) rest.tiedFrom = updates.tiedFrom
+        if ('tiedFrom' in updates && updates.tiedFrom === undefined) rest.tiedFrom = undefined
         if (updates.beat !== undefined) {
           rest.beat = updates.beat
           const m = this.getMeasure(rest.measure)
@@ -732,8 +760,14 @@ export class ScoreModel {
     if (!found) return false
 
     if (found.type === 'rest') {
+      const rest = found.rest
+      // Clean up tie partners before removing
+      if (rest.tiedFrom) {
+        const partner = this.findSlot(rest.tiedFrom)
+        if (partner?.type === 'chord') partner.pitch.tiedTo = undefined
+      }
       for (const measure of this.score.measures) {
-        const idx = measure.slots.findIndex(s => s.id === found.rest.id)
+        const idx = measure.slots.findIndex(s => s.id === rest.id)
         if (idx !== -1) {
           measure.slots.splice(idx, 1)
           return true
@@ -744,6 +778,18 @@ export class ScoreModel {
 
     // Chord case
     const { chord, pitch } = found
+
+    // Clean up tie partners before removing this pitch
+    if (pitch.tiedTo) {
+      const partner = this.findSlot(pitch.tiedTo)
+      if (partner?.type === 'chord') partner.pitch.tiedFrom = undefined
+      else if (partner?.type === 'rest') partner.rest.tiedFrom = undefined
+    }
+    if (pitch.tiedFrom) {
+      const partner = this.findSlot(pitch.tiedFrom)
+      if (partner?.type === 'chord') partner.pitch.tiedTo = undefined
+    }
+
     for (const measure of this.score.measures) {
       const idx = measure.slots.findIndex(s => s.id === chord.id)
       if (idx !== -1) {

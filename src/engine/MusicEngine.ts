@@ -526,10 +526,21 @@ export class MusicEngine {
    * Directly link two notes with a tie (fromNoteId → toNoteId).
    * Used when the target note already exists (e.g. pending tie resolution in keyboard entry).
    */
+  /**
+   * If toNoteId is a valid pending-tie target for fromNoteId (same pitch, comes after),
+   * link the tie and return true. Otherwise return false without side effects.
+   * Call this after any note placement or pitch change when a pending tie is armed.
+   */
+  /**
   linkTie(fromNoteId: string, toNoteId: string): void {
     const fromNote = this.scoreModel.getNote(fromNoteId)
     const toNote = this.scoreModel.getNote(toNoteId)
-    if (!fromNote || !toNote) return
+    if (!fromNote || !toNote) {
+      console.log(`[Tie] linkTie FAILED — fromNote:${fromNote ? 'ok' : 'NOT FOUND'} toNote:${toNote ? 'ok' : 'NOT FOUND'}`)
+      return
+    }
+    const fmt = (n: typeof fromNote) => n.isRest ? `rest` : `${n.step}${n.alter === 2 ? '##' : n.alter === 1 ? '#' : n.alter === -1 ? 'b' : n.alter === -2 ? 'bb' : ''}${n.octave} m${n.measure} beat:${fracToNumber(n.beat).toFixed(3)}`
+    console.log(`[Tie] linkTie | FROM: ${fmt(fromNote)} → TO: ${fmt(toNote)}`)
     this.scoreModel.updateNote(fromNoteId, { tiedTo: toNoteId })
     this.scoreModel.updateNote(toNoteId, { tiedFrom: fromNoteId })
     this.playbackEngine.setScore(this.scoreModel.getScore())
@@ -545,8 +556,12 @@ export class MusicEngine {
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest) return null
 
+    const fmt = (n: typeof note) => n.isRest ? `rest` : `${n.step}${n.alter === 2 ? '##' : n.alter === 1 ? '#' : n.alter === -1 ? 'b' : n.alter === -2 ? 'bb' : ''}${n.octave} m${n.measure} beat:${fracToNumber(n.beat).toFixed(3)}`
+    console.log(`[Tie] toggleTie | source: ${fmt(note)}`)
+
     if (note.tiedTo) {
-      // Remove existing tie — update via scoreModel to mutate the live slot
+      const tiedToNote = this.scoreModel.getNote(note.tiedTo)
+      console.log(`[Tie] removing existing tie → was tied to: ${tiedToNote ? fmt(tiedToNote) : 'NOT FOUND'}`)
       const tiedToId = note.tiedTo
       this.scoreModel.updateNote(noteId, { tiedTo: undefined })
       this.scoreModel.updateNote(tiedToId, { tiedFrom: undefined })
@@ -554,13 +569,16 @@ export class MusicEngine {
       this.saveUndoState('Remove tie')
       return false
     } else {
-      // Find next note with same pitch (same MIDI value) after current position
-      const noteMidi = spellingToMidi(note.step!, note.alter!, note.octave!)
-      const allNotes = this.scoreModel.getAllNotes()
+      // Tie to the immediately next slot (rest or note — no pitch filter)
+      const allSlots = this.scoreModel.getAllNotes()
         .sort((a, b) => a.measure !== b.measure ? a.measure - b.measure : fracCompare(a.beat, b.beat))
-      const idx = allNotes.findIndex(n => n.id === noteId)
-      const nextNote = allNotes.slice(idx + 1).find(n => !n.isRest && spellingToMidi(n.step!, n.alter!, n.octave!) === noteMidi)
-      if (!nextNote) return null
+      const idx = allSlots.findIndex(n => n.id === noteId)
+      const nextNote = allSlots[idx + 1]
+      if (!nextNote) {
+        console.log(`[Tie] no next slot found — tie not created`)
+        return null
+      }
+      console.log(`[Tie] tying to next slot: ${fmt(nextNote)}`)
 
       this.scoreModel.updateNote(noteId, { tiedTo: nextNote.id })
       this.scoreModel.updateNote(nextNote.id, { tiedFrom: noteId })
@@ -734,14 +752,6 @@ export class MusicEngine {
     this.renderer.renderScore(this.scoreModel.getScore())
     // Update coordinate mapper with actual VexFlow bounds
     this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
-  }
-
-  /**
-   * Render a dangling tie arc from a note with no target yet (pending tie).
-   * Must be called after renderScore().
-   */
-  renderPendingTie(noteId: string): void {
-    this.renderer.renderPendingTie(noteId, this.scoreModel.getScore())
   }
 
   /**

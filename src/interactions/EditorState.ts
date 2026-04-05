@@ -30,7 +30,6 @@ export interface EditorState {
   accent: boolean
   staccato: boolean
   tenuto: boolean
-  pendingTieFromNoteId: string | null
   tupletMode: boolean
 
   // --- UI ---
@@ -53,7 +52,6 @@ export function createEditorState(): EditorState {
     accent: false,
     staccato: false,
     tenuto: false,
-    pendingTieFromNoteId: null,
     tupletMode: false,
     showCursor: true,
     playbackState: 'stopped',

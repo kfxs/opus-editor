@@ -90,6 +90,7 @@ export function useShortcuts(
     toggleTie: () => palette.toggleTie(),
     selectNextNote: () => {
       if (state.selectedTool === 'entry') {
+        console.log(`[Nav] ArrowRight in entry mode → switching to selection`)
         state.selectedTool = 'selection'
         selection.navigateSelection(1)
       } else {
@@ -98,6 +99,7 @@ export function useShortcuts(
     },
     selectPreviousNote: () => {
       if (state.selectedTool === 'entry') {
+        console.log(`[Nav] ArrowLeft in entry mode → switching to selection`)
         state.selectedTool = 'selection'
         renderer.renderScore()
       } else {

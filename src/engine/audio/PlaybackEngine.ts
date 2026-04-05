@@ -1,5 +1,5 @@
 import type * as ToneType from 'tone'
-import type { Score, Note } from '@/types/music'
+import type { Score, Note, Chord } from '@/types/music'
 import { durationToBeats, getMeasureDuration } from '@/utils/musicUtils'
 import { fracToNumber } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'
@@ -164,7 +164,7 @@ export class PlaybackEngine {
 
     // Build a lookup: notePitch ID -> { chord, measureStartBeats }
     // so we can follow tiedTo chains to accumulate total duration.
-    const pitchInfo = new Map<string, { chord: (typeof this.score.measures)[0]['slots'][0] & { type: 'chord' }, measureStartBeats: number }>()
+    const pitchInfo = new Map<string, { chord: Chord, measureStartBeats: number }>()
     let scanTime = 0
     for (const measure of this.score.measures) {
       for (const slot of measure.slots) {
@@ -191,10 +191,18 @@ export class PlaybackEngine {
         const baseDurationBeats = chord.actualDuration ? fracToNumber(chord.actualDuration) : durationToBeats(chord.duration, chord.dots || 0)
 
         for (const notePitch of chord.notes) {
-          // Skip tied-continuation notes — they're an extension of a prior attack.
-          if (notePitch.tiedFrom) continue
+          // Skip tied-continuation notes only when the source has the same pitch (true tie).
+          // If the pitch differs, the tie is a migration artifact — play the note normally.
+          if (notePitch.tiedFrom) {
+            const sourceInfo = pitchInfo.get(notePitch.tiedFrom)
+            const sourceNp = sourceInfo?.chord.notes.find(n => n.id === notePitch.tiedFrom)
+            if (sourceNp && spellingToMidi(sourceNp.step, sourceNp.alter, sourceNp.octave) === spellingToMidi(notePitch.step, notePitch.alter, notePitch.octave)) {
+              continue // True same-pitch tie — skip re-attack
+            }
+          }
 
-          // Follow the tiedTo chain to get the full sounding duration.
+          // Follow the tiedTo chain to accumulate total duration.
+          // Only extend for same-pitch ties (true ties); stop at different pitches.
           let durationBeats = baseDurationBeats
           let cursor = notePitch
           while (cursor.tiedTo) {
@@ -202,6 +210,7 @@ export class PlaybackEngine {
             if (!next) break
             const nextNp = next.chord.notes.find(n => n.id === cursor.tiedTo)
             if (!nextNp) break
+            if (spellingToMidi(nextNp.step, nextNp.alter, nextNp.octave) !== spellingToMidi(cursor.step, cursor.alter, cursor.octave)) break
             const nextDur = next.chord.actualDuration
               ? fracToNumber(next.chord.actualDuration)
               : durationToBeats(next.chord.duration, next.chord.dots || 0)

@@ -56,13 +56,16 @@ export class KeyboardController {
     const targetMidi = naturalPitchClass + 12 * k
     const octave = Math.floor(targetMidi / 12) - 1
 
-    engine.updateNote(this.state.selectedNoteId, {
+    const updatedNote = engine.updateNote(this.state.selectedNoteId, {
       step,
       alter,
       octave,
       isRest: false,
       ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }),
     })
+
+    const altStr = alter === 2 ? '##' : alter === 1 ? '#' : alter === -1 ? 'b' : alter === -2 ? 'bb' : ''
+    console.log(`✓ KeyboardEntry (edit-in-place) | ${step}${altStr}${octave} dur:${updatedNote.duration} measure:${updatedNote.measure} beat:${fracToNumber(updatedNote.beat).toFixed(3)}`)
 
     this.state.selectedAccidental = null
     this.state.selectedTool = 'entry'
@@ -146,11 +149,6 @@ export class KeyboardController {
       console.log('✗ KeyboardEntry | placement failed')
       this.renderScore()
       return
-    }
-
-    if (this.state.pendingTieFromNoteId) {
-      engine.linkTie(this.state.pendingTieFromNoteId, newNote.id)
-      this.state.pendingTieFromNoteId = null
     }
 
     // Follow the tie chain to the last note so the cursor lands after all tied continuations

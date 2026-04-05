@@ -960,6 +960,8 @@ export class VexFlowRenderer {
               tupletId: slot.tupletId,
               bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
             })
+            // Add rest to staveNoteMap so ties pointing to this rest can be rendered
+            this.staveNoteMap.set(slot.id, { staveNote, noteIndex: 0 })
           }
         } catch (e) { /* getBoundingBox may fail */ }
       } else {
@@ -1464,6 +1466,43 @@ export class VexFlowRenderer {
   }
 
   /**
+   * Draw a tie arc where both endpoints share the source note's Y position.
+   * Ties always connect the same pitch, so the arc must be horizontally flat.
+   * Replicates VexFlow's StaveTie.renderTie() algorithm with firstY === lastY.
+   */
+  private drawFlatTie(
+    fromInfo: { staveNote: StaveNote; noteIndex: number },
+    toInfo: { staveNote: StaveNote; noteIndex: number },
+    direction: number,
+  ): void {
+    if (!this.context) return
+    try {
+      const firstX = fromInfo.staveNote.getTieRightX()
+      const lastX = toInfo.staveNote.getTieLeftX()
+      const ys = fromInfo.staveNote.getYs()
+      const y = ys[fromInfo.noteIndex] ?? ys[0]
+      if (y === undefined || isNaN(y)) return
+
+      // Match VexFlow StaveTie defaults: cp1=8, cp2=12, yShift=7
+      const cp1 = 8
+      const cp2 = 12
+      const tieY = y + 7 * direction
+      const cpX = (firstX + lastX) / 2
+      const topCP = tieY + cp1 * direction
+      const bottomCP = tieY + cp2 * direction
+
+      this.context.beginPath()
+      this.context.moveTo(firstX, tieY)
+      this.context.quadraticCurveTo(cpX, topCP, lastX, tieY)
+      this.context.quadraticCurveTo(cpX, bottomCP, firstX, tieY)
+      this.context.closePath()
+      this.context.fill()
+    } catch (e) {
+      console.error('Could not draw flat tie:', e)
+    }
+  }
+
+  /**
    * Render ties between notes that have tiedTo/tiedFrom properties
    */
   private renderTies(score: Score): void {
@@ -1497,6 +1536,10 @@ export class VexFlowRenderer {
                     toMeasure = m.number
                     break outer
                   }
+                  if (s.type === 'rest' && s.id === pitch.tiedTo) {
+                    toMeasure = m.number
+                    break outer
+                  }
                 }
               }
 
@@ -1511,34 +1554,9 @@ export class VexFlowRenderer {
               const note = { id: pitch.id, tiedTo: pitch.tiedTo, measure: fromMeasure }
 
               if (sameLine) {
-                // Same line: single continuous tie
-                const tie = new StaveTie({
-                  firstNote: fromInfo.staveNote,
-                  lastNote: toInfo.staveNote,
-                  firstIndexes: [fromInfo.noteIndex],
-                  lastIndexes: [toInfo.noteIndex],
-                })
-                if (tieDirection !== undefined) {
-                  tie.setDirection(tieDirection)
-                }
-                tie.setContext(this.context!).draw()
-
-                // Register tie in element registry
-                try {
-                  const box = tie.getBoundingBox()
-                  if (box) {
-                    this.elementRegistry.add({
-                      type: 'tie',
-                      fromNoteId: note.id,
-                      toNoteId: note.tiedTo!,
-                      fromMeasure: fromMeasure,
-                      toMeasure: toMeasure!,
-                      bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
-                    })
-                  }
-                } catch (e) {
-                  // getBoundingBox may fail
-                }
+                // Same line: draw flat arc anchored at the source note's Y
+                // (ties always connect the same pitch, so both endpoints share the same Y)
+                this.drawFlatTie(fromInfo, toInfo, tieDirection ?? 1)
               } else {
                 // Different lines (line break): two partial ties
                 // First partial: from note to end of line

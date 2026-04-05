@@ -27,10 +27,6 @@ export class RenderController {
     engine.clearCanvas()
     engine.renderScore()
     this.applyHighlights()
-
-    if (this.state.pendingTieFromNoteId) {
-      engine.renderPendingTie(this.state.pendingTieFromNoteId)
-    }
   }
 
   /** Returns true if a ghost note was actually rendered (used to hide the cursor). */

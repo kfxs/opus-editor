@@ -139,21 +139,14 @@ export class PaletteController {
     const engine = this.getEngine()
     if (!this.state.selectedNoteId || !engine) return
 
-    if (this.state.selectedTool === 'entry') {
-      if (this.state.pendingTieFromNoteId === this.state.selectedNoteId) {
-        this.state.pendingTieFromNoteId = null
-      } else {
-        this.state.pendingTieFromNoteId = this.state.selectedNoteId
-      }
-      this.renderScore()
-    } else {
-      engine.toggleTie(this.state.selectedNoteId)
-      this.renderScore()
-    }
+    console.log(`[Tie] toggleTie on noteId:${this.state.selectedNoteId} (tool:${this.state.selectedTool})`)
+    const result = engine.toggleTie(this.state.selectedNoteId)
+    console.log(`[Tie] result:${result === null ? 'no candidate found' : result ? 'tie added' : 'tie removed'}`)
+    this.renderScore()
   }
 
   toggleDot(): void {
-    const newValue = this.state.selectedDots > 0 ? 0 : 1
+    const newValue = this.state.selectedDots >= 2 ? 0 : this.state.selectedDots + 1
     this.state.selectedDots = newValue
     const engine = this.getEngine()
     if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
@@ -196,7 +189,6 @@ export class PaletteController {
     this.state.accent = false
     this.state.staccato = false
     this.state.tenuto = false
-    this.state.pendingTieFromNoteId = null
   }
 
   // --- Toolbar button active-state helpers ---
@@ -246,7 +238,6 @@ export class PaletteController {
   }
 
   noteHasTie(): boolean {
-    if (this.state.selectedTool === 'entry' && this.state.pendingTieFromNoteId) return true
     const engine = this.getEngine()
     if (!this.state.selectedNoteId || !engine) return false
     const note = engine.getNote(this.state.selectedNoteId)

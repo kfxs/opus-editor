@@ -185,6 +185,7 @@ export interface Rest {
   voice?: 0 | 1 | 2 | 3
   tupletId?: string
   actualDuration?: Fraction
+  tiedFrom?: string
 }
 
 export type ChordRest = Chord | Rest
