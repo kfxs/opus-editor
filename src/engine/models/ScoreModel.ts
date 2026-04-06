@@ -913,47 +913,50 @@ export class ScoreModel {
    */
   refillTupletRemainder(measureNumber: number, tuplet: Tuplet): void {
     const ratio = fracCreate(tuplet.notesOccupied, tuplet.numNotes)
+    const inverseRatio = fracCreate(tuplet.numNotes, tuplet.notesOccupied)
     const tupletEnd = fracAdd(tuplet.startBeat, getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied))
 
-    // Snapshot then delete all rests
+    // Snapshot then delete all existing filler rests
     const allTupletNotes = this.getNotesInTuplet(tuplet.id)
     for (const n of allTupletNotes) {
       if (n.isRest) this.deleteNote(n.id)
     }
 
-    // Compute fill pointer from real notes
-    const realNotes = allTupletNotes.filter(n => !n.isRest)
-    let fillPointer: Fraction
-    if (realNotes.length === 0) {
-      fillPointer = tuplet.startBeat
-    } else {
-      const sorted = [...realNotes].sort((a, b) => fracCompare(a.beat, b.beat))
-      const last = sorted[sorted.length - 1]
-      const lastActual = last.actualDuration
-        ?? fracMul(durationToFraction(last.duration, last.dots ?? 0), ratio)
-      fillPointer = fracAdd(last.beat, lastActual)
+    // Sort real notes by beat
+    const realNotes = allTupletNotes
+      .filter(n => !n.isRest)
+      .sort((a, b) => fracCompare(a.beat, b.beat))
+
+    // Fill a gap in actual-time [from, to) with tuplet filler rests
+    const fillGap = (from: Fraction, to: Fraction): void => {
+      if (!fracLt(from, to)) return
+      const actualGap = fracSub(to, from)
+      const writtenGap = fracMul(actualGap, inverseRatio)
+      const durations = splitBeatsIntoDurations(fracToNumber(writtenGap))
+      let beat = from
+      for (const dur of durations) {
+        const actualDur = fracMul(durationToFraction(dur), ratio)
+        this.addNote({
+          duration: dur,
+          measure: measureNumber,
+          beat,
+          isRest: true,
+          tupletId: tuplet.id,
+          actualDuration: actualDur,
+        })
+        beat = fracAdd(beat, actualDur)
+      }
     }
 
-    if (!fracLt(fillPointer, tupletEnd)) return
-
-    // Convert remaining actual → written, split, place rests
-    const remainingActual = fracSub(tupletEnd, fillPointer)
-    const remainingWritten = fracMul(remainingActual, fracCreate(tuplet.numNotes, tuplet.notesOccupied))
-    const durations = splitBeatsIntoDurations(fracToNumber(remainingWritten))
-
-    let beat = fillPointer
-    for (const dur of durations) {
-      const actualDur = fracMul(durationToFraction(dur), ratio)
-      this.addNote({
-        duration: dur,
-        measure: measureNumber,
-        beat,
-        isRest: true,
-        tupletId: tuplet.id,
-        actualDuration: actualDur,
-      })
-      beat = fracAdd(beat, actualDur)
+    // Walk through real notes filling gaps before, between, and after them
+    let pointer: Fraction = tuplet.startBeat
+    for (const note of realNotes) {
+      fillGap(pointer, note.beat)
+      const noteActual = note.actualDuration
+        ?? fracMul(durationToFraction(note.duration, note.dots ?? 0), ratio)
+      pointer = fracAdd(note.beat, noteActual)
     }
+    fillGap(pointer, tupletEnd)
   }
 
   /**
