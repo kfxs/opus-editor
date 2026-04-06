@@ -720,12 +720,13 @@ export class ScoreModel {
     if ('tiedTo' in updates && updates.tiedTo === undefined) pitch.tiedTo = undefined
     if ('tiedFrom' in updates && updates.tiedFrom === undefined) pitch.tiedFrom = undefined
 
-    // Chord-level timing updates
+    // Chord-level timing and style updates
     if (updates.duration !== undefined) chord.duration = updates.duration
     if (updates.dots !== undefined) chord.dots = updates.dots
     if (updates.tupletId !== undefined) chord.tupletId = updates.tupletId
     if (updates.beat !== undefined) chord.beat = updates.beat
     if (updates.actualDuration !== undefined) chord.actualDuration = updates.actualDuration
+    if (updates.stemDirection !== undefined) chord.stemDirection = updates.stemDirection === 'auto' ? undefined : updates.stemDirection
 
     // If measure is being changed, move the whole chord
     if (updates.measure !== undefined && updates.measure !== oldMeasure) {

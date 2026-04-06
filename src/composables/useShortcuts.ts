@@ -134,6 +134,12 @@ export function useShortcuts(
         renderer.renderScore()
       }
     },
+    flipStemDirection: () => {
+      const eng = engine.value
+      if (!eng || !state.selectedNoteId) return
+      eng.flipStemDirection(state.selectedNoteId)
+      renderer.renderScore()
+    },
     toggleDot: () => palette.toggleDot(),
     toggleTuplet: () => palette.toggleTuplet(),
     enterNoteA: () => keyboard.enterNoteByLetter('a'),

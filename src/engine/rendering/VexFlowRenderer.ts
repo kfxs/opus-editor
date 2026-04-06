@@ -239,7 +239,7 @@ export class VexFlowRenderer {
       } else {
         const middleDiatonic = CLEF_CONFIG[clef].middleLineDiatonicPos
         let maxDist = 0
-        stemDirection = 1
+        stemDirection = -1  // default down; middle-line notes follow this convention
         for (const p of slot.notes) {
           const dPos = spellingDiatonicPos(p.step, p.octave)
           const dist = Math.abs(dPos - middleDiatonic)
@@ -336,6 +336,13 @@ export class VexFlowRenderer {
    * @returns VexFlow stem direction value (1 = UP, -1 = DOWN)
    */
   private calculateBeamGroupStemDirection(slots: ChordRest[], clef: Clef = 'treble'): number {
+    // Explicit override on any note in the group takes priority over pitch calculation
+    for (const slot of slots) {
+      if (slot.type === 'chord' && slot.stemDirection === 'up') return 1
+      if (slot.type === 'chord' && slot.stemDirection === 'down') return -1
+    }
+
+    // No override — use the pitch furthest from the middle line
     const middleDiatonic = CLEF_CONFIG[clef].middleLineDiatonicPos
     let maxDistance = 0
     let furthestDiatonic = middleDiatonic
@@ -1282,7 +1289,7 @@ export class VexFlowRenderer {
       // Stem direction — same diatonic approach as createStaveNotesFromSlots.
       // Include any existing notes at the same beat so the ghost matches the chord's stem.
       const middleDiatonic = CLEF_CONFIG[clef].middleLineDiatonicPos
-      let stemDirection = 1
+      let stemDirection = -1  // default down; middle-line notes follow this convention
       let maxDist = 0
       const checkDiatonic = (step: PitchStep, octave: number) => {
         const dPos = spellingDiatonicPos(step, octave)

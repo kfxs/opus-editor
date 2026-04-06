@@ -7,7 +7,7 @@ import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
 import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, beatToFrac } from '@/utils/musicUtils'
 import { fracToNumber, fracCompare, fracEq, fracAdd, durationToFraction } from '@/utils/fraction'
-import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
+import { spellingToMidi, accidentalToAlter, spellingDiatonicPos } from '@/utils/pitchSpelling'
 import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling, GhostNote } from '@/types/music'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 
@@ -755,6 +755,39 @@ export class MusicEngine {
    */
   getTupletAtBeat(measureNumber: number, beat: Fraction): Tuplet | undefined {
     return this.scoreModel.getTupletAtBeat(measureNumber, beat)
+  }
+
+  /**
+   * Toggle stem direction for a note between auto and the opposite of its natural direction.
+   * - If already forced (up/down): reset to auto.
+   * - If auto: calculate natural direction from pitch, force the opposite.
+   * Rests are ignored (no stem).
+   */
+  flipStemDirection(noteId: string): Note | null {
+    const note = this.scoreModel.getNote(noteId)
+    if (!note || note.isRest) return null
+
+    let newDirection: 'auto' | 'up' | 'down'
+
+    if (note.stemDirection === 'up' || note.stemDirection === 'down') {
+      // Already forced — toggle back to auto
+      newDirection = 'auto'
+    } else {
+      // Auto state — compute natural direction and force the opposite
+      const clef = this.scoreModel.getScore().clef ?? 'treble'
+      const middleLineDiatonic: Record<string, number> = {
+        treble: 34, bass: 22, alto: 28, tenor: 26,
+      }
+      const middleDiatonic = middleLineDiatonic[clef] ?? 34
+      const dPos = spellingDiatonicPos(note.step!, note.octave!)
+      // Natural: at/above middle → down; below → up. Force the opposite.
+      newDirection = dPos >= middleDiatonic ? 'up' : 'down'
+    }
+
+    const updated = this.scoreModel.updateNote(noteId, { stemDirection: newDirection })
+    this.playbackEngine.setScore(this.scoreModel.getScore())
+    this.saveUndoState('Flip stem direction')
+    return updated
   }
 
   // ==================== Rendering Operations ====================

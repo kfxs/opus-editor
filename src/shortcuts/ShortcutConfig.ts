@@ -184,6 +184,9 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Toggle triplet mode (Ctrl+3)',
   },
 
+  // Stem direction
+  'x': { action: 'flipStemDirection', description: 'Flip stem direction (toggle auto ↔ forced opposite)' },
+
   // Rest entry in keyboard mode
   'r': { action: 'enterRest', description: 'Enter rest at cursor position (keyboard mode)' },
 
