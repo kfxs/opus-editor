@@ -56,6 +56,23 @@ export class NoteEntryCoordinator {
       tupletId = tupletAtBeat.id
     }
 
+    // Clamp note duration to remaining actual tuplet space (solution A).
+    // If the selected written duration would overflow the tuplet, silently use the
+    // largest standard duration that fits instead — same behaviour as Sibelius.
+    if (tupletAtBeat) {
+      const ratio = fracCreate(tupletAtBeat.notesOccupied, tupletAtBeat.numNotes)
+      const tupletEnd = fracAdd(tupletAtBeat.startBeat, getTupletTotalBeatsFrac(tupletAtBeat.baseDuration, tupletAtBeat.notesOccupied))
+      const remainingActual = fracSub(tupletEnd, finalBeatFrac)
+      const noteActual = fracMul(durationToFraction(params.duration, params.dots || 0), ratio)
+      if (fracGt(noteActual, remainingActual)) {
+        const maxWritten = fracToNumber(fracMul(remainingActual, fracCreate(tupletAtBeat.numNotes, tupletAtBeat.notesOccupied)))
+        const fitting = splitBeatsIntoDurations(maxWritten)
+        if (fitting.length === 0) return null
+        console.log(`[Tuplet] duration clamped: ${params.duration} → ${fitting[0]} (remaining actual: ${fracToNumber(remainingActual).toFixed(4)})`)
+        params = { ...params, duration: fitting[0], dots: 0 }
+      }
+    }
+
     // Calculate effective note duration (scaled by tuplet ratio when inside a tuplet)
     const finalBeat = fracToNumber(finalBeatFrac)
     const nominalDuration = durationToBeats(params.duration, params.dots || 0)
