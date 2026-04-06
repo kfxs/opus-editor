@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
 import type { NoteParams } from '@/types/music'
-import { fracCreate as frac } from '@/utils/fraction'
+import { fracCreate as frac, fracCompare } from '@/utils/fraction'
 
 describe('ScoreModel', () => {
   let model: ScoreModel
@@ -352,6 +352,42 @@ describe('ScoreModel', () => {
       const notes = model.getNotesInTuplet(tuplet.id)
       expect(notes.filter(n => n.isRest)).toHaveLength(0)
       expect(notes.filter(n => !n.isRest)).toHaveLength(3)
+    })
+
+    it('preserves existing rests and only fills empty gaps', () => {
+      // Setup: triplet with a 16th rest at beat 0 and an 8th rest at beat 1/3
+      // There is a gap at [1/6, 1/3) that must be filled
+      const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)
+      model.addNote({ duration: '16', measure: 1, beat: frac(0, 1), isRest: true, tupletId: tuplet.id, actualDuration: frac(1, 6) })
+      model.addNote({ duration: '8',  measure: 1, beat: frac(1, 3), isRest: true, tupletId: tuplet.id, actualDuration: frac(1, 3) })
+      model.addNote({ duration: '8',  measure: 1, beat: frac(2, 3), isRest: true, tupletId: tuplet.id, actualDuration: frac(1, 3) })
+
+      model.refillTupletRemainder(1, tuplet)
+
+      const notes = model.getNotesInTuplet(tuplet.id)
+      expect(notes).toHaveLength(4)
+      expect(notes.every(n => n.isRest)).toBe(true)
+
+      // Verify total actual duration still equals 1 beat
+      const totalActual = notes.reduce((sum, n) => sum + (n.actualDuration ? n.actualDuration.num / n.actualDuration.den : 0), 0)
+      expect(totalActual).toBeCloseTo(1, 10)
+
+      // The gap at [1/6, 1/3) = 1/6 actual → should be filled with a 16th rest
+      const sorted = [...notes].sort((a, b) => fracCompare(a.beat, b.beat))
+      expect(sorted[0].duration).toBe('16') // original 16th rest preserved
+      expect(sorted[1].duration).toBe('16') // new filler rest in the gap
+      expect(sorted[2].duration).toBe('8')  // original 8th rest preserved
+      expect(sorted[3].duration).toBe('8')  // original 8th rest preserved
+    })
+
+    it('does not duplicate rests when called multiple times', () => {
+      const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)
+      model.refillTupletRemainder(1, tuplet)
+      model.refillTupletRemainder(1, tuplet) // second call must be idempotent
+
+      const notes = model.getNotesInTuplet(tuplet.id)
+      const totalActual = notes.reduce((sum, n) => sum + (n.actualDuration ? n.actualDuration.num / n.actualDuration.den : 0), 0)
+      expect(totalActual).toBeCloseTo(1, 10)
     })
   })
 })

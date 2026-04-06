@@ -642,6 +642,11 @@ export class MusicEngine {
     } else if (result && !isPartOfChord && note.isRest && !note.tupletId) {
       // Standalone rest deleted without replacement — re-fill the measure to close the gap
       this.scoreModel.repairMeasureGaps(note.measure)
+    } else if (result && !isPartOfChord && note.isRest && note.tupletId) {
+      // Rest inside a tuplet deleted — fill the empty gap it left behind
+      const measure = this.scoreModel.getMeasure(note.measure)
+      const tuplet = measure?.tuplets?.find(t => t.id === note.tupletId)
+      if (tuplet) this.scoreModel.refillTupletRemainder(note.measure, tuplet)
     }
 
     this.playbackEngine.setScore(this.scoreModel.getScore())

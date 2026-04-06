@@ -902,29 +902,24 @@ export class ScoreModel {
   }
 
   /**
-   * Recompute filler rests for a tuplet after any mutation (note entry, update, delete).
+   * Fill any empty gaps in a tuplet with filler rests.
    *
    * Algorithm:
-   *   1. Delete all existing rests in the tuplet.
-   *   2. Find fill pointer = end of the last real (non-rest) note in the tuplet.
-   *      If no real notes, fill pointer = tuplet start.
-   *   3. Convert remaining actual duration → written duration (× numNotes/notesOccupied).
-   *   4. Split into standard durations and place as rests.
+   *   1. Collect all existing slots (notes AND rests) in the tuplet, sorted by beat.
+   *   2. Walk the tuplet's time span looking for empty gaps (ranges with no slot).
+   *   3. Fill only those empty gaps with new rests.
+   *
+   * Rests are treated as first-class slots and are never deleted here.
+   * Callers are responsible for removing slots before calling this (e.g. when a
+   * note grows into a rest's time span).
    */
   refillTupletRemainder(measureNumber: number, tuplet: Tuplet): void {
     const ratio = fracCreate(tuplet.notesOccupied, tuplet.numNotes)
     const inverseRatio = fracCreate(tuplet.numNotes, tuplet.notesOccupied)
     const tupletEnd = fracAdd(tuplet.startBeat, getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied))
 
-    // Snapshot then delete all existing filler rests
-    const allTupletNotes = this.getNotesInTuplet(tuplet.id)
-    for (const n of allTupletNotes) {
-      if (n.isRest) this.deleteNote(n.id)
-    }
-
-    // Sort real notes by beat
-    const realNotes = allTupletNotes
-      .filter(n => !n.isRest)
+    // Get ALL existing slots (notes and rests) sorted by beat
+    const allSlots = this.getNotesInTuplet(tuplet.id)
       .sort((a, b) => fracCompare(a.beat, b.beat))
 
     // Fill a gap in actual-time [from, to) with tuplet filler rests
@@ -948,13 +943,13 @@ export class ScoreModel {
       }
     }
 
-    // Walk through real notes filling gaps before, between, and after them
+    // Walk through all slots filling empty gaps between them
     let pointer: Fraction = tuplet.startBeat
-    for (const note of realNotes) {
-      fillGap(pointer, note.beat)
-      const noteActual = note.actualDuration
-        ?? fracMul(durationToFraction(note.duration, note.dots ?? 0), ratio)
-      pointer = fracAdd(note.beat, noteActual)
+    for (const slot of allSlots) {
+      fillGap(pointer, slot.beat)
+      const slotActual = slot.actualDuration
+        ?? fracMul(durationToFraction(slot.duration, slot.dots ?? 0), ratio)
+      pointer = fracAdd(slot.beat, slotActual)
     }
     fillGap(pointer, tupletEnd)
   }
