@@ -235,4 +235,123 @@ describe('ScoreModel', () => {
       expect(actualNotes).toHaveLength(1)
     })
   })
+
+  // ==================== Tuplet Tests ====================
+
+  describe('createTuplet', () => {
+    it('starts empty — no initial rests placed', () => {
+      model.addMeasure()
+      // Fill measure 1 with a whole rest first
+      const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)
+      const tupletNotes = model.getNotesInTuplet(tuplet.id)
+      expect(tupletNotes).toHaveLength(0)
+    })
+
+    it('removes overlapping slots when creating a tuplet', () => {
+      // There should be a whole rest covering the measure before creating the tuplet
+      const before = model.getNotesInMeasure(1)
+      expect(before.some(n => n.isRest)).toBe(true)
+
+      model.createTuplet(1, frac(0, 1), '8', 3, 2)
+
+      // The whole rest should be gone — tuplet cleared it
+      const after = model.getNotesInMeasure(1).filter(n => !n.tupletId)
+      expect(after.every(n => !n.isRest || frac(0, 1) !== n.beat)).toBe(true)
+    })
+  })
+
+  describe('refillTupletRemainder', () => {
+    it('places filler rests spanning the full tuplet when empty', () => {
+      const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)
+      model.refillTupletRemainder(1, tuplet)
+
+      const notes = model.getNotesInTuplet(tuplet.id)
+      // Remaining written = 1 × 3/2 = 1.5 beats → splitBeatsIntoDurations(1.5) = ['q', '8']
+      expect(notes).toHaveLength(2)
+      expect(notes.every(n => n.isRest)).toBe(true)
+      expect(notes[0].duration).toBe('q')
+      expect(notes[1].duration).toBe('8')
+    })
+
+    it('total actual duration of filler rests equals tuplet span when empty', () => {
+      const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)
+      model.refillTupletRemainder(1, tuplet)
+
+      const notes = model.getNotesInTuplet(tuplet.id)
+      // Sum of actualDurations should equal 1 beat (the tuplet span)
+      const totalActual = notes.reduce((sum, n) => {
+        const ad = n.actualDuration
+        return sum + (ad ? ad.num / ad.den : 0)
+      }, 0)
+      expect(totalActual).toBeCloseTo(1, 10)
+    })
+
+    it('places correct filler after one full-slot note (8th in 3:2 triplet)', () => {
+      const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)
+      // Add C4 8th — actual = 1/3 beat
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), tupletId: tuplet.id, actualDuration: frac(1, 3) })
+      model.refillTupletRemainder(1, tuplet)
+
+      const notes = model.getNotesInTuplet(tuplet.id)
+      const realNotes = notes.filter(n => !n.isRest)
+      const rests = notes.filter(n => n.isRest)
+
+      expect(realNotes).toHaveLength(1)
+      // Remaining actual = 2/3 beat. Written = 2/3 × 3/2 = 1 beat = quarter
+      // splitBeatsIntoDurations(1) = ['q']
+      expect(rests).toHaveLength(1)
+      expect(rests[0].duration).toBe('q')
+
+      // Total actual = 1/3 + 2/3 = 1 beat
+      const totalActual = notes.reduce((sum, n) => {
+        const ad = n.actualDuration
+        return sum + (ad ? ad.num / ad.den : 0)
+      }, 0)
+      expect(totalActual).toBeCloseTo(1, 10)
+    })
+
+    it('places correct filler for the bug scenario: 8th + 16th + 8th in triplet', () => {
+      // This is the exact bug: C4(8th) + D4(16th) + E4(8th) → should leave 16th filler
+      const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)
+      const ratio = { num: 2, den: 3 }
+
+      // C4 8th: actual = 1/2 × 2/3 = 1/3
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), tupletId: tuplet.id, actualDuration: frac(1, 3) })
+      // D4 16th: actual = 1/4 × 2/3 = 1/6
+      model.addNote({ step: 'D', alter: 0, octave: 4, duration: '16', measure: 1, beat: frac(1, 3), tupletId: tuplet.id, actualDuration: frac(1, 6) })
+      // E4 8th at beat 1/2 (mid-slot, the bug position): actual = 1/3
+      model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 2), tupletId: tuplet.id, actualDuration: frac(1, 3) })
+
+      model.refillTupletRemainder(1, tuplet)
+
+      const notes = model.getNotesInTuplet(tuplet.id)
+      const rests = notes.filter(n => n.isRest)
+
+      // Fill pointer = 1/2 + 1/3 = 5/6. Remaining actual = 1/6. Written = 1/6 × 3/2 = 1/4 → '16'
+      expect(rests).toHaveLength(1)
+      expect(rests[0].duration).toBe('16')
+
+      // Total actual must equal 1 beat for the voice to be complete
+      const totalActual = notes.reduce((sum, n) => {
+        const ad = n.actualDuration
+        return sum + (ad ? ad.num / ad.den : 0)
+      }, 0)
+      expect(totalActual).toBeCloseTo(1, 10)
+      void ratio // suppress unused warning
+    })
+
+    it('does nothing when tuplet is full', () => {
+      const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)
+      // Fill with 3 eighth notes (each actual = 1/3, total = 1)
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), tupletId: tuplet.id, actualDuration: frac(1, 3) })
+      model.addNote({ step: 'D', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 3), tupletId: tuplet.id, actualDuration: frac(1, 3) })
+      model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(2, 3), tupletId: tuplet.id, actualDuration: frac(1, 3) })
+
+      model.refillTupletRemainder(1, tuplet)
+
+      const notes = model.getNotesInTuplet(tuplet.id)
+      expect(notes.filter(n => n.isRest)).toHaveLength(0)
+      expect(notes.filter(n => !n.isRest)).toHaveLength(3)
+    })
+  })
 })

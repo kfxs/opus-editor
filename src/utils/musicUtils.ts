@@ -9,7 +9,6 @@ import {
   fracLt,
   fracGte,
   fracCompare,
-  fracToNumber,
 } from '@/utils/fraction'
 
 /**
@@ -310,31 +309,6 @@ export function getTupletTotalBeatsFrac(
 }
 
 /**
- * Exact beat positions for every note slot in a tuplet.
- * Positions are accumulated by repeated fraction addition — no floating-point drift.
- *
- * @param startBeat - Tuplet start position (as a Fraction, in beats)
- * @param baseDuration - Written note type of each tuplet slot
- * @param numNotes - N in N:M (e.g. 3 for triplet)
- * @param notesOccupied - M in N:M (e.g. 2 for triplet)
- */
-export function getTupletBeatPositionsFrac(
-  startBeat: Fraction,
-  baseDuration: NoteDuration,
-  numNotes: number,
-  notesOccupied: number,
-): Fraction[] {
-  const step = getTupletNoteDurationFrac(baseDuration, numNotes, notesOccupied)
-  const positions: Fraction[] = []
-  let current = startBeat
-  for (let i = 0; i < numNotes; i++) {
-    positions.push(current)
-    current = fracAdd(current, step)
-  }
-  return positions
-}
-
-/**
  * Exact check: does `beat` fall within the given tuplet's time span?
  * No epsilon — comparison is cross-multiplication of integers.
  *
@@ -343,31 +317,6 @@ export function getTupletBeatPositionsFrac(
 export function isBeatInTupletFrac(beat: Fraction, tuplet: Tuplet): boolean {
   const end = fracAdd(tuplet.startBeat, getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied))
   return fracGte(beat, tuplet.startBeat) && fracLt(beat, end)
-}
-
-/**
- * Find the nearest valid tuplet slot to `beat` (as a Fraction).
- * Returns the closest Fraction position from getTupletBeatPositionsFrac.
- */
-export function snapToTupletBeatFrac(beat: Fraction, tuplet: Tuplet): Fraction {
-  const positions = getTupletBeatPositionsFrac(
-    tuplet.startBeat,
-    tuplet.baseDuration,
-    tuplet.numNotes,
-    tuplet.notesOccupied,
-  )
-
-  let nearest = positions[0]
-  // Compare distances using cross-multiplication to stay exact
-  for (const pos of positions) {
-    // |beat - pos| vs |beat - nearest| — compare by squaring avoids abs on fractions
-    // Simpler: convert distances to number only for comparison (not for the result)
-    const dCurrent = Math.abs(fracToNumber(beat) - fracToNumber(pos))
-    const dBest = Math.abs(fracToNumber(beat) - fracToNumber(nearest))
-    if (dCurrent < dBest) nearest = pos
-  }
-
-  return nearest
 }
 
 /**

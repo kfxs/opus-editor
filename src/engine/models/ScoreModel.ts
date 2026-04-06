@@ -1,16 +1,17 @@
 import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter } from '@/types/music'
 import {
-  getTupletBeatPositionsFrac,
   isBeatInTupletFrac,
   getTupletTotalBeatsFrac,
   noteSpansOverlapFrac,
   beatToFrac,
+  splitBeatsIntoDurations,
 } from '@/utils/musicUtils'
 import {
   type Fraction,
   durationToFraction,
   fracCreate,
   fracAdd,
+  fracSub,
   fracMul,
   fracCompare,
   fracLt,
@@ -850,25 +851,6 @@ export class ScoreModel {
       return !noteSpansOverlapFrac(slot.beat, slotDurFrac, startBeat, tupletDurFrac)
     })
 
-    // Create rest slots at each tuplet beat position
-    const tupletActualDuration = fracMul(
-      durationToFraction(baseDuration),
-      fracCreate(notesOccupied, numNotes),
-    )
-    const beatPositions = getTupletBeatPositionsFrac(startBeat, baseDuration, numNotes, notesOccupied)
-    for (const beat of beatPositions) {
-      const rest: Rest = {
-        id: uuidv4(),
-        type: 'rest',
-        duration: baseDuration,
-        measure: measureNumber,
-        beat,
-        tupletId: tuplet.id,
-        actualDuration: tupletActualDuration,
-      }
-      measure.slots.push(rest)
-    }
-
     // Sort by beat
     measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
 
@@ -917,6 +899,61 @@ export class ScoreModel {
       }
     }
     return []
+  }
+
+  /**
+   * Recompute filler rests for a tuplet after any mutation (note entry, update, delete).
+   *
+   * Algorithm:
+   *   1. Delete all existing rests in the tuplet.
+   *   2. Find fill pointer = end of the last real (non-rest) note in the tuplet.
+   *      If no real notes, fill pointer = tuplet start.
+   *   3. Convert remaining actual duration → written duration (× numNotes/notesOccupied).
+   *   4. Split into standard durations and place as rests.
+   */
+  refillTupletRemainder(measureNumber: number, tuplet: Tuplet): void {
+    const ratio = fracCreate(tuplet.notesOccupied, tuplet.numNotes)
+    const tupletEnd = fracAdd(tuplet.startBeat, getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied))
+
+    // Snapshot then delete all rests
+    const allTupletNotes = this.getNotesInTuplet(tuplet.id)
+    for (const n of allTupletNotes) {
+      if (n.isRest) this.deleteNote(n.id)
+    }
+
+    // Compute fill pointer from real notes
+    const realNotes = allTupletNotes.filter(n => !n.isRest)
+    let fillPointer: Fraction
+    if (realNotes.length === 0) {
+      fillPointer = tuplet.startBeat
+    } else {
+      const sorted = [...realNotes].sort((a, b) => fracCompare(a.beat, b.beat))
+      const last = sorted[sorted.length - 1]
+      const lastActual = last.actualDuration
+        ?? fracMul(durationToFraction(last.duration, last.dots ?? 0), ratio)
+      fillPointer = fracAdd(last.beat, lastActual)
+    }
+
+    if (!fracLt(fillPointer, tupletEnd)) return
+
+    // Convert remaining actual → written, split, place rests
+    const remainingActual = fracSub(tupletEnd, fillPointer)
+    const remainingWritten = fracMul(remainingActual, fracCreate(tuplet.numNotes, tuplet.notesOccupied))
+    const durations = splitBeatsIntoDurations(fracToNumber(remainingWritten))
+
+    let beat = fillPointer
+    for (const dur of durations) {
+      const actualDur = fracMul(durationToFraction(dur), ratio)
+      this.addNote({
+        duration: dur,
+        measure: measureNumber,
+        beat,
+        isRest: true,
+        tupletId: tuplet.id,
+        actualDuration: actualDur,
+      })
+      beat = fracAdd(beat, actualDur)
+    }
   }
 
   /**

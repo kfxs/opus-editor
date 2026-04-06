@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MusicEngine } from './MusicEngine'
-import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
+import { fracCreate as frac } from '@/utils/fraction'
 
 // Stub VexFlowRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio)
 const fakeRegistry = {

@@ -5,7 +5,7 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
-import { durationToBeats, beatsToDuration, splitBeatsIntoDurations, midiToNoteName, beatToFrac, getTupletBeatPositionsFrac } from '@/utils/musicUtils'
+import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, beatToFrac } from '@/utils/musicUtils'
 import { fracToNumber, fracCompare, fracEq, fracAdd, durationToFraction } from '@/utils/fraction'
 import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
 import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling, GhostNote } from '@/types/music'
@@ -350,15 +350,15 @@ export class MusicEngine {
 
   /** Handles duration updates for notes inside a tuplet. */
   private updateTupletNote(ctx: NoteUpdateCtx, _measure: Measure, tuplet: Tuplet): Note {
-    let { noteId, updates, existingNote, measureNotes, chordNotes, isChord, oldBeats, newBeats, newDuration, newDots } = ctx
+    let { noteId, updates, existingNote, measureNotes, chordNotes, isChord, newBeats, newDuration, newDots } = ctx
 
-    const baseDurationBeats = durationToBeats(tuplet.baseDuration)
     const tupletRatio = tuplet.notesOccupied / tuplet.numNotes
-    const tupletTotalBeats = baseDurationBeats * tuplet.notesOccupied
+    const tupletTotalBeats = durationToBeats(tuplet.baseDuration) * tuplet.notesOccupied
     const tupletEndBeat = fracToNumber(tuplet.startBeat) + tupletTotalBeats
+    // Remaining space runs from this note's start to the tuplet end
     const remainingTupletBeats = tupletEndBeat - fracToNumber(existingNote.beat)
 
-    // Check if new duration fits in remaining tuplet space
+    // Clamp new duration if it exceeds remaining tuplet space
     const scaledNewDuration = newBeats * tupletRatio
     if (scaledNewDuration > remainingTupletBeats + 0.001) {
       const maxNormalBeats = remainingTupletBeats / tupletRatio
@@ -368,110 +368,26 @@ export class MusicEngine {
         updates = { ...updates, duration: fittingDuration, dots: 0 }
         newBeats = durationToBeats(fittingDuration)
       } else {
-        // Can't fit any duration, keep old
         return existingNote
       }
     }
 
-    // Calculate how many tuplet slots the new duration takes
-    const slotsConsumed = newBeats / baseDurationBeats
-    const isWholeSlots = Math.abs(slotsConsumed - Math.round(slotsConsumed)) < 0.001
-
-    // For fractional slots (like dotted notes), reject for simplicity
-    if (!isWholeSlots && slotsConsumed > 1) {
-      console.log('Tuplet note update rejected: fractional slots > 1 not supported')
-      return existingNote
-    }
-
+    // Delete any tuplet items that fall inside the new note's actual time span
     const actualNewDuration = newBeats * tupletRatio
-    const actualOldDuration = oldBeats * tupletRatio
     const noteEndBeat = fracToNumber(existingNote.beat) + actualNewDuration
-
-    if (newBeats > oldBeats) {
-      // Duration increased - delete overlapping tuplet items
-      const existingBeatNum = fracToNumber(existingNote.beat)
-      const tupletItemsToDelete = measureNotes.filter(n =>
-        n.tupletId === existingNote.tupletId &&
-        n.id !== noteId &&
-        fracToNumber(n.beat) > existingBeatNum + 0.001 &&
-        fracToNumber(n.beat) < noteEndBeat - 0.001
-      )
-      for (const item of tupletItemsToDelete) {
-        this.scoreModel.deleteNote(item.id)
-      }
-
-      // Create filler rest if there's remaining space and fractional slots
-      const fractionalSlots = slotsConsumed - Math.floor(slotsConsumed)
-      if (fractionalSlots > 0.001 && slotsConsumed < 1) {
-        const fillerDuration = beatsToDuration(fractionalSlots * baseDurationBeats)
-        if (fillerDuration && noteEndBeat < tupletEndBeat - 0.001) {
-          this.scoreModel.addNote({
-            duration: fillerDuration,
-            measure: existingNote.measure, beat: beatToFrac(noteEndBeat),
-            isRest: true, tupletId: existingNote.tupletId,
-          })
-        }
-      }
-    } else if (newBeats < oldBeats) {
-      // Duration decreased — reconstruct the freed zone with proper tuplet rests.
-      // The freed zone spans [noteEndBeat, oldEndBeat). It may contain:
-      //   (a) a sub-slot remainder within the current slot (filled with a shorter rest)
-      //   (b) one or more freed whole slots (each gets a full base-duration rest)
-      const oldEndBeat = fracToNumber(existingNote.beat) + actualOldDuration
-      const slotPositions = getTupletBeatPositionsFrac(
-        tuplet.startBeat, tuplet.baseDuration, tuplet.numNotes, tuplet.notesOccupied,
-      )
-
-      // Delete anything in the freed zone (e.g. rests from a previous sub-slot fill)
-      const toDelete = measureNotes.filter(n =>
-        n.tupletId === existingNote.tupletId &&
-        n.id !== noteId &&
-        fracToNumber(n.beat) > noteEndBeat - 0.001 &&
-        fracToNumber(n.beat) < oldEndBeat - 0.001
-      )
-      for (const n of toDelete) this.scoreModel.deleteNote(n.id)
-
-      // (a) Sub-slot filler: fill from noteEndBeat to the end of the current slot boundary.
-      // Slot duration in actual beats = baseDurationBeats * tupletRatio.
-      const slotActualDuration = baseDurationBeats * tupletRatio
-      const slotIndex = Math.floor(
-        (fracToNumber(existingNote.beat) - fracToNumber(tuplet.startBeat)) / slotActualDuration + 1e-9
-      )
-      const slotEndActual =
-        fracToNumber(tuplet.startBeat) + (slotIndex + 1) * slotActualDuration
-      const subSlotRemaining = slotEndActual - noteEndBeat
-      if (subSlotRemaining > 0.001) {
-        // splitBeatsIntoDurations handles non-power-of-2 remainders (e.g. 3/8 for a 32nd in triplet)
-        const fillerDurations = splitBeatsIntoDurations(subSlotRemaining / tupletRatio)
-        let fillerBeat = noteEndBeat
-        for (const dur of fillerDurations) {
-          this.scoreModel.addNote({
-            duration: dur,
-            measure: existingNote.measure, beat: beatToFrac(fillerBeat),
-            isRest: true, tupletId: existingNote.tupletId,
-          })
-          fillerBeat += durationToBeats(dur) * tupletRatio
-        }
-      }
-
-      // (b) Freed whole slots: add a base-duration rest at each slot boundary in the freed zone
-      for (const slotPos of slotPositions) {
-        const slotBeat = fracToNumber(slotPos)
-        if (slotBeat >= slotEndActual - 0.001 && slotBeat < oldEndBeat - 0.001) {
-          const alreadyThere = this.scoreModel.getNotesInMeasure(existingNote.measure)
-            .find(n => n.tupletId === existingNote.tupletId && Math.abs(fracToNumber(n.beat) - slotBeat) < 0.001)
-          if (!alreadyThere) {
-            this.scoreModel.addNote({
-              duration: tuplet.baseDuration,
-              measure: existingNote.measure, beat: slotPos,
-              isRest: true, tupletId: existingNote.tupletId,
-            })
-          }
-        }
-      }
-    }
+    const existingBeatNum = fracToNumber(existingNote.beat)
+    const itemsToDelete = measureNotes.filter(n =>
+      n.tupletId === existingNote.tupletId &&
+      n.id !== noteId &&
+      fracToNumber(n.beat) > existingBeatNum + 0.001 &&
+      fracToNumber(n.beat) < noteEndBeat - 0.001
+    )
+    for (const item of itemsToDelete) this.scoreModel.deleteNote(item.id)
 
     const updatedNote = this.scoreModel.updateNote(noteId, updates)
+
+    // Recompute all filler rests from the fill pointer
+    this.scoreModel.refillTupletRemainder(existingNote.measure, tuplet)
 
     // Also update chord notes to keep duration in sync
     if (isChord) {
