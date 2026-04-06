@@ -1,4 +1,4 @@
-import type { Accidental, NoteDuration } from '../types/music'
+import type { Accidental, NoteDuration, BeamMode } from '../types/music'
 
 export type ToolMode = 'entry' | 'selection'
 export type PlaybackState = 'stopped' | 'playing' | 'paused'
@@ -32,6 +32,7 @@ export interface EditorState {
   staccato: boolean
   tenuto: boolean
   tupletMode: boolean
+  selectedBeam: BeamMode
 
   // --- UI ---
   showCursor: boolean
@@ -55,6 +56,7 @@ export function createEditorState(): EditorState {
     staccato: false,
     tenuto: false,
     tupletMode: false,
+    selectedBeam: 'auto',
     showCursor: true,
     playbackState: 'stopped',
   }

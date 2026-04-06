@@ -57,6 +57,7 @@ export class SelectionController {
    */
   selectNote(noteId: string | null): void {
     this.state.selectedNoteId = noteId
+    this.state.selectedBeam = 'auto'
     this.state.selectedArticulationNoteId = null
     this.state.selectedArticulationType = null
     this.state.selectedAccidentalNoteId = null

@@ -145,6 +145,7 @@ export class KeyboardController {
         articulations: this.getPendingArticulations(),
         ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }),
         ...(existingTuplet && { tupletId: existingTuplet.id }),
+        ...(this.state.selectedBeam !== 'auto' && { beam: this.state.selectedBeam }),
       })
     }
 

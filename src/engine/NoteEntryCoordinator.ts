@@ -152,7 +152,8 @@ export class NoteEntryCoordinator {
     duration: NoteParams['duration'],
     accidental?: Accidental,
     dots?: number,
-    articulations?: ArticulationType[]
+    articulations?: ArticulationType[],
+    beam?: NoteParams['beam']
   ): Note | null {
     const measure = this.getScoreModel().getMeasure(1)
     if (!measure) return null
@@ -301,6 +302,7 @@ export class NoteEntryCoordinator {
       ...(dots && { dots }),
       ...(tupletId && { tupletId }),
       ...(articulations?.length && { articulations }),
+      ...(beam && beam !== 'auto' && { beam }),
     }
 
     // Get the target measure for overflow check

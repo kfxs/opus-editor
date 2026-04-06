@@ -135,3 +135,43 @@ describe('MusicEngine.updateNote — overflow handling', () => {
     expect(m2NonRests).toHaveLength(0)
   })
 })
+
+describe('BeamMode — storage and retrieval', () => {
+  let engine: MusicEngine
+
+  beforeEach(() => {
+    engine = makeEngine()
+  })
+
+  it('note created with beam:begin stores the value', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), beam: 'begin' })
+    expect(note.beam).toBe('begin')
+  })
+
+  it('note created without beam has no beam value', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
+    expect(note.beam).toBeUndefined()
+  })
+
+  it('updateNote sets beam on a chord', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
+    const updated = engine.updateNote(note.id, { beam: 'end' })
+    expect(updated.beam).toBe('end')
+  })
+
+  it('updateNote with beam:auto clears the beam value', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), beam: 'begin' })
+    const updated = engine.updateNote(note.id, { beam: 'auto' })
+    expect(updated.beam).toBeUndefined()
+  })
+
+  it('all five BeamMode values round-trip correctly', () => {
+    const modes = ['single', 'begin', 'continue', 'end'] as const
+    for (const mode of modes) {
+      const note = addNote(engine, { step: 'D', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), beam: mode })
+      expect(note.beam).toBe(mode)
+      // reset for next iteration
+      engine.updateNote(note.id, { beam: 'auto' })
+    }
+  })
+})

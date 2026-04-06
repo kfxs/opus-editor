@@ -263,6 +263,7 @@ export class MouseController {
             this.state.selectedAccidental || undefined,
             this.state.selectedDots || undefined,
             this.getPendingArticulations(),
+            this.state.selectedBeam !== 'auto' ? this.state.selectedBeam : undefined,
           )
 
           if (note) {
@@ -304,6 +305,7 @@ export class MouseController {
           this.state.selectedAccidental || undefined,
           this.state.selectedDots || undefined,
           this.getPendingArticulations(),
+          this.state.selectedBeam !== 'auto' ? this.state.selectedBeam : undefined,
         )
 
         if (note) {

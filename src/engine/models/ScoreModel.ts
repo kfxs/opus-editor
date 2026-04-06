@@ -215,6 +215,7 @@ export class ScoreModel {
       isRest: false,
       forceAccidental: pitch.forceAccidental,
       stemDirection: chord.stemDirection,
+      beam: chord.beam,
       tiedTo: pitch.tiedTo,
       tiedFrom: pitch.tiedFrom,
       dots: chord.dots,
@@ -330,6 +331,7 @@ export class ScoreModel {
       tupletId: params.tupletId,
       actualDuration: params.actualDuration,
       articulations: params.articulations,
+      beam: params.beam === 'auto' ? undefined : params.beam,
       notes: [notePitch],
     }
     chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
@@ -727,6 +729,7 @@ export class ScoreModel {
     if (updates.beat !== undefined) chord.beat = updates.beat
     if (updates.actualDuration !== undefined) chord.actualDuration = updates.actualDuration
     if (updates.stemDirection !== undefined) chord.stemDirection = updates.stemDirection === 'auto' ? undefined : updates.stemDirection
+    if (updates.beam !== undefined) chord.beam = updates.beam === 'auto' ? undefined : updates.beam
 
     // If measure is being changed, move the whole chord
     if (updates.measure !== undefined && updates.measure !== oldMeasure) {

@@ -382,54 +382,97 @@ export class VexFlowRenderer {
     let currentStaveNotes: StaveNote[] = []
     let currentSlots: ChordRest[] = []
     let currentBeatGroup: number | null = null
+    let isForced = false  // true when group was started by an explicit 'begin'
+
+    const flush = () => {
+      if (currentStaveNotes.length >= 2) {
+        beamGroups.push({ staveNotes: currentStaveNotes, slots: currentSlots })
+      }
+      currentStaveNotes = []
+      currentSlots = []
+      currentBeatGroup = null
+      isForced = false
+    }
 
     for (let i = 0; i < staveNotes.length && i < slots.length; i++) {
       const staveNote = staveNotes[i]
       const slot = slots[i]
 
-      // Rests break beams
-      if (slot.type === 'rest') {
-        if (currentStaveNotes.length >= 2) {
-          beamGroups.push({ staveNotes: currentStaveNotes, slots: currentSlots })
-        }
-        currentStaveNotes = []
-        currentSlots = []
-        currentBeatGroup = null
+      // Rests always break beams (can't beam silence)
+      if (slot.type === 'rest') { flush(); continue }
+
+      // Non-beamable durations (quarter and above) always break beams
+      if (!this.isBeamableDuration(slot.duration)) { flush(); continue }
+
+      const beam = slot.beam  // BeamMode | undefined
+
+      if (beam === 'single') {
+        // Force no beam — flush current group, skip this note
+        flush()
         continue
       }
 
-      // Non-beamable notes break the beam
-      if (!this.isBeamableDuration(slot.duration)) {
-        if (currentStaveNotes.length >= 2) {
-          beamGroups.push({ staveNotes: currentStaveNotes, slots: currentSlots })
-        }
-        currentStaveNotes = []
-        currentSlots = []
-        currentBeatGroup = null
-        continue
-      }
-
-      // Beamable chord — check beat boundary
-      const beatGroup = this.getBeatGroup(fracToNumber(slot.beat), beatsPerMeasure)
-
-      if (currentBeatGroup === null || beatGroup === currentBeatGroup) {
-        currentStaveNotes.push(staveNote)
-        currentSlots.push(slot)
-        currentBeatGroup = beatGroup
-      } else {
-        if (currentStaveNotes.length >= 2) {
-          beamGroups.push({ staveNotes: currentStaveNotes, slots: currentSlots })
-        }
+      if (beam === 'begin') {
+        // Start a new explicit group (flush any current one first)
+        flush()
         currentStaveNotes = [staveNote]
         currentSlots = [slot]
-        currentBeatGroup = beatGroup
+        currentBeatGroup = this.getBeatGroup(fracToNumber(slot.beat), beatsPerMeasure)
+        isForced = true
+        continue
+      }
+
+      if (beam === 'continue') {
+        // Bridge across a beat boundary — override normal grouping rules
+        if (currentStaveNotes.length > 0) {
+          currentStaveNotes.push(staveNote)
+          currentSlots.push(slot)
+        } else {
+          // Orphaned continue (no preceding group) — start one
+          currentStaveNotes = [staveNote]
+          currentSlots = [slot]
+          isForced = true
+        }
+        currentBeatGroup = this.getBeatGroup(fracToNumber(slot.beat), beatsPerMeasure)
+        continue
+      }
+
+      if (beam === 'end') {
+        // Close the current group after adding this note
+        if (currentStaveNotes.length > 0) {
+          currentStaveNotes.push(staveNote)
+          currentSlots.push(slot)
+        } else {
+          // Orphaned end — emit a single-note group (will be ignored by flush min-2 check)
+          currentStaveNotes = [staveNote]
+          currentSlots = [slot]
+        }
+        flush()
+        continue
+      }
+
+      // beam === undefined/'auto' — use standard beat-boundary logic
+      if (isForced) {
+        // Inside a forced group (between begin and a future end) — add without boundary check
+        currentStaveNotes.push(staveNote)
+        currentSlots.push(slot)
+        currentBeatGroup = this.getBeatGroup(fracToNumber(slot.beat), beatsPerMeasure)
+      } else {
+        const beatGroup = this.getBeatGroup(fracToNumber(slot.beat), beatsPerMeasure)
+        if (currentBeatGroup === null || beatGroup === currentBeatGroup) {
+          currentStaveNotes.push(staveNote)
+          currentSlots.push(slot)
+          currentBeatGroup = beatGroup
+        } else {
+          flush()
+          currentStaveNotes = [staveNote]
+          currentSlots = [slot]
+          currentBeatGroup = beatGroup
+        }
       }
     }
 
-    if (currentStaveNotes.length >= 2) {
-      beamGroups.push({ staveNotes: currentStaveNotes, slots: currentSlots })
-    }
-
+    flush()
     return beamGroups
   }
 

@@ -1,4 +1,4 @@
-import type { ArticulationType, Accidental, NoteDuration, PitchAlter } from '../types/music'
+import type { ArticulationType, Accidental, NoteDuration, PitchAlter, BeamMode } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
 import { fracLt, fracCompare } from '../utils/fraction'
@@ -195,6 +195,18 @@ export class PaletteController {
     }
   }
 
+  setBeam(beam: BeamMode): void {
+    this.state.selectedBeam = beam
+    const engine = this.getEngine()
+    if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
+      const note = engine.getNote(this.state.selectedNoteId)
+      if (note && !note.isRest) {
+        engine.updateNote(this.state.selectedNoteId, { beam })
+        this.renderScore()
+      }
+    }
+  }
+
   resetToDefaults(): void {
     this.state.selectedDuration = 'q'
     this.state.selectedAccidental = null
@@ -202,6 +214,7 @@ export class PaletteController {
     this.state.accent = false
     this.state.staccato = false
     this.state.tenuto = false
+    this.state.selectedBeam = 'auto'
   }
 
   // --- Toolbar button active-state helpers ---

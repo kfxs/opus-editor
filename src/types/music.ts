@@ -79,6 +79,16 @@ export type Clef = 'treble' | 'bass' | 'alto' | 'tenor'
 export type StemDirection = 'auto' | 'up' | 'down'
 
 /**
+ * Explicit beaming override for a note.
+ * - 'auto':     automatic beaming (default — uses beat-boundary rules)
+ * - 'single':   force no beam (isolate this note)
+ * - 'begin':    start an explicit beam group
+ * - 'continue': continue the beam across a boundary (bridge two auto groups)
+ * - 'end':      close the current explicit beam group
+ */
+export type BeamMode = 'auto' | 'single' | 'begin' | 'continue' | 'end'
+
+/**
  * Represents a single musical note (or rest).
  *
  * Pitch is stored as step + alter + octave (PitchSpelling), NOT as a raw MIDI integer.
@@ -123,6 +133,8 @@ export interface Note {
   actualDuration?: Fraction
   /** Articulations applied to this note */
   articulations?: ArticulationType[]
+  /** Explicit beaming override */
+  beam?: BeamMode
 }
 
 /**
@@ -168,6 +180,7 @@ export interface Chord {
   measure: number
   voice?: 0 | 1 | 2 | 3
   stemDirection?: StemDirection
+  beam?: BeamMode
   tupletId?: string
   actualDuration?: Fraction
   articulations?: ArticulationType[]
@@ -303,4 +316,5 @@ export interface NoteParams {
   tiedTo?: string
   tiedFrom?: string
   stemDirection?: StemDirection
+  beam?: BeamMode
 }

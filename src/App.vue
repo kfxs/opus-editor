@@ -237,6 +237,23 @@
             </button>
           </div>
 
+          <!-- Beam -->
+          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
+            <span class="text-sm text-gray-300">Beam:</span>
+            <button
+              v-for="b in (['auto', 'single', 'begin', 'continue', 'end'] as const)"
+              :key="b"
+              @click="palette.setBeam(b)"
+              :class="[
+                'px-2 py-1 rounded text-xs',
+                state.selectedBeam === b
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              :title="`Beam: ${b}`"
+            >{{ b }}</button>
+          </div>
+
           <!-- Tie -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Tie:</span>

@@ -238,9 +238,10 @@ export class MusicEngine {
     duration: NoteParams['duration'],
     accidental?: Accidental,
     dots?: number,
-    articulations?: ArticulationType[]
+    articulations?: ArticulationType[],
+    beam?: NoteParams['beam']
   ): Note | null {
-    return this.noteEntryCoordinator.addNoteAtPosition(coords, duration, accidental, dots, articulations)
+    return this.noteEntryCoordinator.addNoteAtPosition(coords, duration, accidental, dots, articulations, beam)
   }
 
   addRest(duration: NoteParams['duration'], measure: number, beat: Fraction): Note {
