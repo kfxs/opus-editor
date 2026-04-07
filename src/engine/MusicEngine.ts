@@ -288,8 +288,10 @@ export class MusicEngine {
       const availableBeats = measureTotalBeats - fracToNumber(existingNote.beat)
       const requestedBeats = durationToBeats(newDuration, newDots)
 
-      if (requestedBeats > availableBeats + 0.001) {
-        if (!existingNote.tupletId && !existingNote.isRest) {
+      // Tuplet overflow is handled by updateTupletNote (which uses the correct tuplet ratio).
+      // Measure-level overflow only applies to non-tuplet notes.
+      if (requestedBeats > availableBeats + 0.001 && !existingNote.tupletId) {
+        if (!existingNote.isRest) {
           // Non-tuplet, non-rest overflow: split with tie across the barline (Dorico-style)
           const overflowAmount = requestedBeats - availableBeats
           const oldNoteEnd = fracToNumber(existingNote.beat) + durationToBeats(oldDuration, oldDots)
@@ -317,7 +319,7 @@ export class MusicEngine {
           return this.scoreModel.getNote(noteId)!
         }
 
-        // Tuplet notes: clip to fit (updateTupletNote will also enforce its own constraints)
+        // Non-tuplet rest overflow: clip to fit within the measure
         const fittingDuration = this.findLargestFittingDuration(availableBeats)
         if (fittingDuration) {
           newDuration = fittingDuration
