@@ -325,6 +325,9 @@ export class ElementRegistry {
 
     // Convert staff line to MIDI pitch using clef-aware calculation, then to spelling
     const midi = this.staffLineToPitch(staffLine, clef)
+    // Degenerate geometry (e.g. zero line spacing) yields a non-finite MIDI, which
+    // would produce an undefined step. Return null so callers fall back.
+    if (!Number.isFinite(midi)) return null
     const clampedMidi = Math.max(21, Math.min(108, midi))
 
     // midiToSpelling with no hint gives natural (sharp) spelling;

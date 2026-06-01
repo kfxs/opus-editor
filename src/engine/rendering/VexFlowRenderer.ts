@@ -1584,6 +1584,12 @@ export class VexFlowRenderer {
         return false
       }
 
+      // Guard against a malformed spelling (no step) — skip the preview rather
+      // than crash the whole score render.
+      if (ghostNote.step === undefined) {
+        return false
+      }
+
       // Calculate X position by summing widths of previous measures on the same line
       let measureX = margin
       for (const m of score.measures) {

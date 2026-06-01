@@ -1030,9 +1030,12 @@ export class MusicEngine {
     const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
 
     // Get natural spelling from ElementRegistry (more accurate) with fallback.
-    // Pass X so mid-measure clef regions resolve to the correct clef.
-    const spelling = registry.pixelYToPitch(coords.y, measureNumber, coords.x)
-      ?? this.coordinateMapper.pixelYToPitch(coords.y, measureNumber)
+    // Pass X so mid-measure clef regions resolve to the correct clef. A registry
+    // result with an undefined step (degenerate geometry) is treated as a miss.
+    const registrySpelling = registry.pixelYToPitch(coords.y, measureNumber, coords.x)
+    const spelling = registrySpelling?.step !== undefined
+      ? registrySpelling
+      : this.coordinateMapper.pixelYToPitch(coords.y, measureNumber)
 
     // Get beat from ElementRegistry or coordinateMapper
     let beat: number
