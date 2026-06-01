@@ -128,6 +128,8 @@ export interface ElementInfo {
   measure?: number
   /** Beat position within measure (for notes/rests) */
   beat?: number
+  /** Clef that cannot be dragged (the big line-start clef) */
+  immovable?: boolean
   /** MIDI pitch (for notes) */
   pitch?: number
   /** Pixel bounding box */

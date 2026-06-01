@@ -3,7 +3,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
 import type { SelectionController } from './SelectionController'
 import type { RenderController } from './RenderController'
-import { fracToNumber } from '../utils/fraction'
+import { fracToNumber, fracEq } from '../utils/fraction'
 import { getMeasureNotes, beatToFrac } from '../utils/musicUtils'
 import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
 
@@ -20,6 +20,13 @@ export class MouseController {
   private draggedNoteOriginalPitch: PitchSpelling | null = null
   private dragStartTime: number | null = null
   private lastPreviewRender = 0
+
+  // --- Clef drag state (selection-tool horizontal drag) ---
+  private isDraggingClef = false
+  private draggedClefMeasure: number | null = null
+  private draggedClefBeat: Fraction | null = null      // current beat (updates during drag)
+  private draggedClefStartBeat: Fraction | null = null // beat at drag start (for undo/no-op check)
+  private clefDragStartTime: number | null = null
 
   private readonly DRAG_TIME_THRESHOLD_MS = 150
   private readonly PREVIEW_THROTTLE_MS = 50
@@ -150,6 +157,25 @@ export class MouseController {
       this.state.selectedClefBeat = clefAt.beat ?? 0
       const isProtected = clefAt.measure === 1 && (clefAt.beat ?? 0) === 0
       console.log(`✓ Clef selected | measure:${clefAt.measure} beat:${clefAt.beat ?? 0}${isProtected ? ' (measure 1 opening: change only, cannot remove)' : ''}`)
+
+      // Arm horizontal dragging for movable clefs (every clef except the big
+      // line-start one). Recover the exact Fraction beat from the model.
+      if (!clefAt.immovable) {
+        const measure = engine.getScore().measures.find(m => m.number === clefAt.measure)
+        const approxBeat = clefAt.beat ?? 0
+        const change = measure?.clefs?.find(c => Math.abs(fracToNumber(c.beat) - approxBeat) < 1e-6)
+        if (change) {
+          this.isDraggingClef = true
+          this.draggedClefMeasure = clefAt.measure
+          this.draggedClefBeat = change.beat
+          this.draggedClefStartBeat = change.beat
+          this.clefDragStartTime = Date.now()
+          // Freeze line breaks so sliding the clef re-pitches notes without
+          // reflowing the score; we settle the layout on drop.
+          engine.setLayoutFrozen(true)
+          event.preventDefault()
+        }
+      }
       this.render.renderScore()
       return
     }
@@ -251,6 +277,32 @@ export class MouseController {
       this.isDraggingNote = false
       this.draggedNoteOriginalPitch = null
       this.dragStartTime = null
+    }
+    if (this.isDraggingClef) {
+      this.endClefDrag()
+    }
+  }
+
+  /** Finish a clef drag: record one undo entry if it actually moved, then reset. */
+  private endClefDrag(): void {
+    const engine = this.getEngine()
+    if (engine
+      && this.draggedClefMeasure !== null
+      && this.draggedClefBeat !== null
+      && this.draggedClefStartBeat !== null
+      && !fracEq(this.draggedClefBeat, this.draggedClefStartBeat)) {
+      engine.commitClefMove(this.draggedClefMeasure, this.draggedClefBeat)
+      console.log(`Clef moved | measure:${this.draggedClefMeasure} beat:${fracToNumber(this.draggedClefBeat)}`)
+    }
+    this.isDraggingClef = false
+    this.draggedClefMeasure = null
+    this.draggedClefBeat = null
+    this.draggedClefStartBeat = null
+    this.clefDragStartTime = null
+    // Unfreeze and re-render once so the layout settles at the clef's final spot.
+    if (engine) {
+      engine.setLayoutFrozen(false)
+      this.render.renderScore()
     }
   }
 
@@ -428,6 +480,25 @@ export class MouseController {
       return
     }
 
+    // Clef drag: snap the cursor to a slot boundary in the clef's own measure
+    // and relocate the clef there (raw move; undo recorded on drop).
+    if (this.isDraggingClef && this.draggedClefMeasure !== null && this.draggedClefBeat !== null) {
+      if (this.clefDragStartTime !== null) {
+        const elapsed = Date.now() - this.clefDragStartTime
+        if (elapsed < this.DRAG_TIME_THRESHOLD_MS) return
+      }
+      const targetBeat = this.resolveClefBeat(engine, x, this.draggedClefMeasure)
+      if (!fracEq(targetBeat, this.draggedClefBeat)) {
+        if (engine.moveClefWithinMeasure(this.draggedClefMeasure, this.draggedClefBeat, targetBeat)) {
+          this.draggedClefBeat = targetBeat
+          this.state.selectedClefBeat = fracToNumber(targetBeat)
+          console.log(`Clef drag | measure:${this.draggedClefMeasure} beat:${fracToNumber(targetBeat)}`)
+          this.render.renderScore()
+        }
+      }
+      return
+    }
+
     if (this.state.selectedTool === 'selection') return
     if (this.isMouseButtonDown) return
 
@@ -456,6 +527,10 @@ export class MouseController {
       this.isDraggingNote = false
       this.draggedNoteOriginalPitch = null
       this.dragStartTime = null
+    }
+    if (this.isDraggingClef) {
+      console.log('Clef drag ended (mouse left canvas)')
+      this.endClefDrag()
     }
 
     this.lastCanvasMousePosition = null

@@ -254,6 +254,27 @@ export class ScoreModel {
     return this.removeClefAt(measureNumber, fracCreate(0, 1))
   }
 
+  /**
+   * Relocate a clef change to a new beat within the same measure. Raw move:
+   * no normalization and no undo (the caller records a single undo entry when
+   * the drag completes). Refuses to move onto a beat already held by another
+   * clef change, or onto measure 1 beat 0 (the protected score opening clef).
+   * @returns true if the clef was relocated.
+   */
+  moveClefWithinMeasure(measureNumber: number, fromBeat: Fraction, toBeat: Fraction): boolean {
+    if (fracEq(fromBeat, toBeat)) return false
+    if (measureNumber === 1 && fracIsZero(toBeat)) return false
+    const measure = this.getMeasure(measureNumber)
+    if (!measure?.clefs) return false
+    const change = measure.clefs.find(c => fracEq(c.beat, fromBeat))
+    if (!change) return false
+    // Don't clobber a different clef change already sitting at the target beat.
+    if (measure.clefs.some(c => c !== change && fracEq(c.beat, toBeat))) return false
+    change.beat = toBeat
+    measure.clefs.sort((a, b) => fracCompare(a.beat, b.beat))
+    return true
+  }
+
   /** Insert or replace a clef change at the given beat, keeping the list sorted. */
   private upsertClefChange(measure: Measure, beat: Fraction, clef: Clef): boolean {
     if (!measure.clefs) measure.clefs = []

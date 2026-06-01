@@ -519,6 +519,45 @@ describe('ScoreModel', () => {
       })
     })
 
+    describe('moveClefWithinMeasure', () => {
+      it('relocates a mid-measure change to a new beat', () => {
+        model.setClefAt(3, frac(2, 1), 'bass')
+        expect(model.moveClefWithinMeasure(3, frac(2, 1), frac(3, 1))).toBe(true)
+        expect(clefAt(3, 2)).toBeUndefined()
+        expect(clefAt(3, 3)).toBe('bass')
+        // The clef now governs from its new beat onward.
+        expect(model.getEffectiveClefAt(3, frac(2, 1))).toBe('treble')
+        expect(model.getEffectiveClefAt(3, frac(3, 1))).toBe('bass')
+      })
+
+      it('moves a beat-0 opening change to mid-measure (opening reverts to inherited)', () => {
+        model.setClef(3, 'bass')
+        expect(model.moveClefWithinMeasure(3, frac(0, 1), frac(2, 1))).toBe(true)
+        expect(model.getEffectiveClef(3)).toBe('treble')           // opening inherited again
+        expect(model.getEffectiveClefAt(3, frac(2, 1))).toBe('bass')
+      })
+
+      it('does not move onto a beat occupied by another clef change', () => {
+        model.setClefAt(3, frac(1, 1), 'bass')
+        model.setClefAt(3, frac(3, 1), 'alto')
+        expect(model.moveClefWithinMeasure(3, frac(1, 1), frac(3, 1))).toBe(false)
+        expect(clefAt(3, 1)).toBe('bass')
+        expect(clefAt(3, 3)).toBe('alto')
+      })
+
+      it('refuses to move onto measure 1 / beat 0 (protected opening)', () => {
+        model.setClefAt(1, frac(2, 1), 'bass')
+        expect(model.moveClefWithinMeasure(1, frac(2, 1), frac(0, 1))).toBe(false)
+        expect(clefAt(1, 2)).toBe('bass')
+      })
+
+      it('returns false for a no-op move or a missing source clef', () => {
+        model.setClefAt(3, frac(2, 1), 'bass')
+        expect(model.moveClefWithinMeasure(3, frac(2, 1), frac(2, 1))).toBe(false)
+        expect(model.moveClefWithinMeasure(3, frac(1, 1), frac(3, 1))).toBe(false)
+      })
+    })
+
     describe('JSON round-trip', () => {
       it('preserves opening and mid-measure clef changes', () => {
         model.setClef(1, 'bass')

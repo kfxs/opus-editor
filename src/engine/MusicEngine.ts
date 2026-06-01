@@ -261,6 +261,20 @@ export class MusicEngine {
     return this.removeClefAt(measureNumber, beatToFrac(0))
   }
 
+  /**
+   * Relocate a clef change to a new beat within its measure. Raw move used while
+   * dragging — does NOT record undo. Call commitClefMove once when the drag ends.
+   * @returns true if the clef was relocated.
+   */
+  moveClefWithinMeasure(measureNumber: number, fromBeat: Fraction, toBeat: Fraction): boolean {
+    return this.scoreModel.moveClefWithinMeasure(measureNumber, fromBeat, toBeat)
+  }
+
+  /** Record a single undo entry after a clef drag completes. */
+  commitClefMove(measureNumber: number, beat: Fraction): void {
+    this.saveUndoState(`Move clef to measure ${measureNumber} beat ${fracToNumber(beat)}`)
+  }
+
   // ==================== Note Operations ====================
 
   // --- Entry ---
@@ -856,6 +870,15 @@ export class MusicEngine {
     this.renderer.renderScore(this.scoreModel.getScore())
     // Update coordinate mapper with actual VexFlow bounds
     this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
+  }
+
+  /**
+   * Freeze/unfreeze the line layout. While frozen, renders reuse the cached
+   * measure widths and line assignments — used during a clef drag so the score
+   * doesn't reflow on every mouse move. Unfreeze and re-render to settle.
+   */
+  setLayoutFrozen(frozen: boolean): void {
+    this.renderer.setLayoutFrozen(frozen)
   }
 
   /**

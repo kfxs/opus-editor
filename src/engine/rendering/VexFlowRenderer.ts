@@ -102,6 +102,10 @@ export class VexFlowRenderer {
   private staveNoteMap: Map<string, { staveNote: StaveNote; noteIndex: number }> = new Map()
   /** Map of measure numbers to their layout info (including line number) */
   private measureLayoutInfo: Map<number, MeasureWidthInfo> = new Map()
+  /** Snapshot of the layout captured when frozen. While non-null, renderScore
+   *  reuses it instead of recomputing line breaks/widths — used during a clef
+   *  drag to stop the score reflowing. Survives clear() (kept off measureLayoutInfo). */
+  private frozenLayout: Map<number, MeasureWidthInfo> | null = null
 
   constructor(containerElement: HTMLElement) {
     this.svgContainer = containerElement
@@ -1372,6 +1376,8 @@ export class VexFlowRenderer {
         type: 'clef',
         measure: measure.number,
         beat: 0,
+        // The big line-start clef is anchored to the line and cannot be dragged.
+        immovable: true,
         bbox: { x, y, width: LAYOUT_CONFIG.CLEF_WIDTH, height: LAYOUT_CONFIG.STAVE_HEIGHT },
       })
     } else if (hasClefChange) {
@@ -1409,6 +1415,19 @@ export class VexFlowRenderer {
    * @param ghostNote - Optional ghost note preview (rawX for smooth cursor following)
    * @returns true if ghost note was rendered, false if not (or no ghost note provided)
    */
+  /**
+   * Freeze/unfreeze the line layout. Freezing snapshots the current measure
+   * widths and line assignments; while frozen, renderScore reuses that snapshot
+   * so dragging a clef redraws the notes (re-pitched by the moved clef) without
+   * reflowing the score. The snapshot is taken here (not in renderScore) because
+   * clearCanvas() wipes measureLayoutInfo before each render.
+   */
+  setLayoutFrozen(frozen: boolean): void {
+    this.frozenLayout = frozen && this.measureLayoutInfo.size > 0
+      ? new Map(this.measureLayoutInfo)
+      : null
+  }
+
   renderScore(score: Score, ghostNote?: GhostNote): boolean {
     if (!this.context || !this.renderer) {
       throw new Error('Renderer not initialized. Call initialize() first.')
@@ -1426,8 +1445,11 @@ export class VexFlowRenderer {
     // Resolve the clef in effect at each measure (handles per-measure changes)
     const effectiveClefs = this.computeEffectiveClefs(score)
 
-    // Calculate proportional widths for all measures
-    const measureWidths = this.calculateMeasureWidths(score, effectiveClefs)
+    // Calculate proportional widths for all measures (or reuse the frozen layout).
+    // Copy the frozen snapshot so the next clear() doesn't wipe it (same Map ref).
+    const measureWidths = this.frozenLayout
+      ? new Map(this.frozenLayout)
+      : this.calculateMeasureWidths(score, effectiveClefs)
     // Store for use in tie rendering (to determine which line each measure is on)
     this.measureLayoutInfo = measureWidths
 
