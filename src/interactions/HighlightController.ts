@@ -112,9 +112,11 @@ export class HighlightController {
     }
 
     const registry = engine.getElementRegistry()
+    // X of the selected note, used to resolve its clef region (mid-measure changes)
+    const noteCenterX = elementInfo.bbox.x + elementInfo.bbox.width / 2
     let targetY: number | null = null
     if (notePitch !== null && noteMeasure !== null) {
-      targetY = registry.pitchToPixelY(notePitch, noteMeasure)
+      targetY = registry.pitchToPixelY(notePitch, noteMeasure, noteCenterX)
     }
 
     const bbox = elementInfo.bbox
@@ -141,7 +143,7 @@ export class HighlightController {
           if (isInChord) {
             for (const chordNote of notesAtBeat) {
               if (chordNote.id !== this.state.selectedNoteId) {
-                const chordNoteY = registry.pitchToPixelY(spellingToMidi(chordNote.step!, chordNote.alter!, chordNote.octave!), noteMeasure)
+                const chordNoteY = registry.pitchToPixelY(spellingToMidi(chordNote.step!, chordNote.alter!, chordNote.octave!), noteMeasure, noteCenterX)
                 if (chordNoteY !== null) {
                   chordNoteYPositions.push(chordNoteY)
                 }

@@ -1,10 +1,10 @@
-import type { ArticulationType, PitchSpelling } from '../types/music'
+import type { ArticulationType, PitchSpelling, Fraction } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
 import type { SelectionController } from './SelectionController'
 import type { RenderController } from './RenderController'
 import { fracToNumber } from '../utils/fraction'
-import { getMeasureNotes } from '../utils/musicUtils'
+import { getMeasureNotes, beatToFrac } from '../utils/musicUtils'
 import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
 
 /**
@@ -64,6 +64,33 @@ export class MouseController {
     return { x: svgPoint.x, y: svgPoint.y }
   }
 
+  /**
+   * Resolve a click X within a measure to the beat of the nearest slot boundary
+   * (by the slot's left edge). A clef change anchors before that slot; clicking
+   * near the measure start resolves to beat 0 (the opening clef). Returns the
+   * slot's exact Fraction beat when available.
+   */
+  private resolveClefBeat(engine: MusicEngine, x: number, measureNum: number): Fraction {
+    const registry = engine.getElementRegistry()
+    const els = registry.getByMeasure(measureNum)
+      .filter(e => (e.type === 'note' || e.type === 'rest') && e.beat !== undefined)
+
+    let bestBeatNum = 0
+    let bestDist = Infinity
+    for (const e of els) {
+      const dist = Math.abs(x - e.bbox.x)
+      if (dist < bestDist) {
+        bestDist = dist
+        bestBeatNum = e.beat as number
+      }
+    }
+
+    // Recover the slot's exact Fraction beat from the model (numbers lose tuplet precision).
+    const measure = engine.getScore().measures.find(m => m.number === measureNum)
+    const slot = measure?.slots.find(s => Math.abs(fracToNumber(s.beat) - bestBeatNum) < 1e-6)
+    return slot ? slot.beat : beatToFrac(bestBeatNum)
+  }
+
   // --- Mouse handlers ---
 
   handleMouseDown(event: MouseEvent): void {
@@ -90,7 +117,7 @@ export class MouseController {
 
       for (const note of tupletNotes) {
         if (note.pitch !== undefined) {
-          const noteY = registry.pitchToPixelY(note.pitch, measureNum)
+          const noteY = registry.pitchToPixelY(note.pitch, measureNum, note.bbox.x + note.bbox.width / 2)
           if (noteY !== null) {
             const verticalDistance = Math.abs(y - noteY)
             minVerticalDistance = Math.min(minVerticalDistance, verticalDistance)
@@ -179,7 +206,7 @@ export class MouseController {
 
       let elementY: number
       if (closestElement.type === 'note' && closestElement.pitch !== undefined) {
-        const pitchY = registry.pitchToPixelY(closestElement.pitch, measureNum)
+        const pitchY = registry.pitchToPixelY(closestElement.pitch, measureNum, centerX)
         elementY = pitchY !== null ? pitchY : bbox.y + bbox.height / 2
       } else {
         elementY = bbox.y + bbox.height / 2
@@ -252,14 +279,15 @@ export class MouseController {
     const registry = engine.getElementRegistry()
     const measureNum = engine.pixelToMeasure({ x, y })
 
-    // Clef tool: set/change the clef of the clicked measure. A clef change
-    // attaches to the whole measure (drawn at its barline), so the beat position
-    // within the measure is intentionally ignored.
+    // Clef tool: set/change the clef at the nearest slot boundary. A clef change
+    // anchors to a slot (beat 0 = the measure's opening clef, drawn at the
+    // barline; beat > 0 = an inline mid-measure clef before that slot).
     if (this.state.selectedClef) {
-      const changed = engine.setClef(measureNum, this.state.selectedClef)
+      const beat = this.resolveClefBeat(engine, x, measureNum)
+      const changed = engine.setClefAt(measureNum, beat, this.state.selectedClef)
       console.log(changed
-        ? `✓ Clef set | ${this.state.selectedClef} at measure ${measureNum}`
-        : `Clef unchanged at measure ${measureNum}`)
+        ? `✓ Clef set | ${this.state.selectedClef} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`
+        : `Clef unchanged at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
       this.render.renderScore()
       return
     }

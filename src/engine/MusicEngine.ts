@@ -211,40 +211,54 @@ export class MusicEngine {
 
   // ==================== Clef Operations ====================
 
-  /**
-   * Resolve the clef in effect at a given measure (walks back to the last
-   * explicit clef, falling back to the score's opening clef, then 'treble').
-   */
+  /** Clef drawn at the start of a measure (its beat-0 change, or inherited). */
   getEffectiveClef(measureNumber: number): Clef {
     return this.scoreModel.getEffectiveClef(measureNumber)
   }
 
+  /** Resolve the clef in effect at a position (measure, beat). */
+  getEffectiveClefAt(measureNumber: number, beat: Fraction): Clef {
+    return this.scoreModel.getEffectiveClefAt(measureNumber, beat)
+  }
+
   /**
-   * Set/change the clef at a measure. Works on any measure including measure 1.
+   * Set/change the clef at (measure, beat). `beat` must be a slot-boundary beat.
    * Clef is visual-only, so playback is unaffected. Saves undo state when changed.
    * @returns true if the score changed.
    */
-  setClef(measureNumber: number, clef: Clef): boolean {
-    const changed = this.scoreModel.setClef(measureNumber, clef)
+  setClefAt(measureNumber: number, beat: Fraction, clef: Clef): boolean {
+    const changed = this.scoreModel.setClefAt(measureNumber, beat, clef)
     if (changed) {
       this.playbackEngine.setScore(this.scoreModel.getScore())
-      this.saveUndoState(`Set ${clef} clef at measure ${measureNumber}`)
+      this.saveUndoState(`Set ${clef} clef at measure ${measureNumber} beat ${fracToNumber(beat)}`)
     }
     return changed
   }
 
   /**
-   * Remove a clef change from a measure, reverting it to the inherited clef.
-   * Measure 1's clef cannot be removed (only changed). Saves undo state when changed.
-   * @returns true if an override was removed.
+   * Remove a clef change at (measure, beat), reverting to the inherited clef.
+   * Measure 1 / beat 0 cannot be removed (only changed). Saves undo state when changed.
+   * @returns true if a change was removed.
    */
-  removeClef(measureNumber: number): boolean {
-    const changed = this.scoreModel.removeClef(measureNumber)
+  removeClefAt(measureNumber: number, beat: Fraction): boolean {
+    const changed = this.scoreModel.removeClefAt(measureNumber, beat)
     if (changed) {
       this.playbackEngine.setScore(this.scoreModel.getScore())
-      this.saveUndoState(`Remove clef at measure ${measureNumber}`)
+      this.saveUndoState(`Remove clef at measure ${measureNumber} beat ${fracToNumber(beat)}`)
     }
     return changed
+  }
+
+  // --- Measure-level (beat 0) convenience wrappers ---
+
+  /** Set the measure's opening clef (beat 0). */
+  setClef(measureNumber: number, clef: Clef): boolean {
+    return this.setClefAt(measureNumber, beatToFrac(0), clef)
+  }
+
+  /** Remove the measure's opening clef (beat 0). */
+  removeClef(measureNumber: number): boolean {
+    return this.removeClefAt(measureNumber, beatToFrac(0))
   }
 
   // ==================== Note Operations ====================
@@ -815,7 +829,7 @@ export class MusicEngine {
       newDirection = 'auto'
     } else {
       // Auto state — compute natural direction and force the opposite
-      const clef = this.scoreModel.getScore().clef ?? 'treble'
+      const clef = this.scoreModel.getEffectiveClefAt(note.measure, note.beat)
       const middleLineDiatonic: Record<string, number> = {
         treble: 34, bass: 22, alto: 28, tenor: 26,
       }
@@ -979,8 +993,9 @@ export class MusicEngine {
     const registry = this.renderer.getElementRegistry()
     const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
 
-    // Get natural spelling from ElementRegistry (more accurate) with fallback
-    const spelling = registry.pixelYToPitch(coords.y, measureNumber)
+    // Get natural spelling from ElementRegistry (more accurate) with fallback.
+    // Pass X so mid-measure clef regions resolve to the correct clef.
+    const spelling = registry.pixelYToPitch(coords.y, measureNumber, coords.x)
       ?? this.coordinateMapper.pixelYToPitch(coords.y, measureNumber)
 
     // Get beat from ElementRegistry or coordinateMapper

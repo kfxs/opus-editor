@@ -19,8 +19,10 @@ import {
   fracGt,
   fracGte,
   fracEq,
+  fracIsZero,
   fracToNumber,
 } from '@/utils/fraction'
+import { effectiveClefAt, effectiveClefBefore, measureOpeningClef } from '@/utils/clefUtils'
 import { v4 as uuidv4 } from 'uuid'
 
 /**
@@ -182,72 +184,97 @@ export class ScoreModel {
   // ==================== Clef operations ====================
 
   /**
-   * Resolve the clef in effect at a given measure.
-   *
-   * Walks backward from the measure to find the most recent explicit
-   * `measure.clef`, falling back to the score's opening clef, then 'treble'.
-   *
-   * @param measureNumber - 1-indexed measure number
+   * Resolve the clef in effect at a position (measure, beat).
+   * Delegates to the shared resolver in utils/clefUtils.
    */
+  getEffectiveClefAt(measureNumber: number, beat: Fraction): Clef {
+    return effectiveClefAt(this.score, measureNumber, beat)
+  }
+
+  /** Clef drawn at the start of a measure (its beat-0 change, or inherited). */
   getEffectiveClef(measureNumber: number): Clef {
-    for (let n = measureNumber; n >= 1; n--) {
-      const measure = this.getMeasure(n)
-      if (measure?.clef) return measure.clef
-    }
-    return this.score.clef ?? 'treble'
+    return measureOpeningClef(this.score, measureNumber)
   }
 
   /**
-   * Set the clef at a measure.
+   * Set/change the clef at (measure, beat). `beat` must already be snapped to a
+   * slot boundary by the caller.
    *
-   * - Measure 1 always stores an explicit clef and mirrors it into `score.clef`
-   *   so the document keeps an opening clef.
-   * - For later measures, the clef is normalized: if the chosen clef equals the
-   *   clef already inherited from earlier measures, no visible change exists, so
-   *   any existing override is cleared instead of storing a redundant one.
+   * - Measure 1 / beat 0 always stores an explicit opening clef and mirrors it
+   *   into `score.clef` so the document keeps an opening clef.
+   * - Otherwise the change is normalized: if `clef` equals the clef already in
+   *   effect immediately before this beat, no visible change exists, so any
+   *   existing change at this beat is removed instead of storing a redundant one.
    *
-   * @returns true if the score changed, false if it was already in that state.
+   * @returns true if the score changed.
    */
-  setClef(measureNumber: number, clef: Clef): boolean {
+  setClefAt(measureNumber: number, beat: Fraction, clef: Clef): boolean {
     const measure = this.getMeasure(measureNumber)
     if (!measure) return false
 
-    if (measureNumber === 1) {
-      const changed = measure.clef !== clef || this.score.clef !== clef
-      measure.clef = clef
+    const isOpening = fracIsZero(beat)
+
+    if (measureNumber === 1 && isOpening) {
+      const scoreChanged = this.score.clef !== clef
       this.score.clef = clef
-      return changed
+      const upserted = this.upsertClefChange(measure, beat, clef)
+      return upserted || scoreChanged
     }
 
-    // Inherited clef from measures before this one
-    const inherited = this.getEffectiveClef(measureNumber - 1)
+    // Redundant change → remove any existing change at this beat instead
+    const inherited = effectiveClefBefore(this.score, measureNumber, beat)
     if (clef === inherited) {
-      // Redundant change — clear any existing override instead of storing it
-      if (measure.clef !== undefined) {
-        delete measure.clef
-        return true
-      }
-      return false
+      return this.removeClefChangeAt(measure, beat)
     }
 
-    if (measure.clef === clef) return false
-    measure.clef = clef
-    return true
+    return this.upsertClefChange(measure, beat, clef)
   }
 
   /**
-   * Remove a clef change from a measure, reverting it to the inherited clef.
-   *
-   * Measure 1's clef cannot be removed (the score must always open with a clef);
-   * use setClef to change it instead.
-   *
-   * @returns true if an override was removed, false otherwise.
+   * Remove a clef change at (measure, beat), reverting that position to the
+   * inherited clef. Measure 1 / beat 0 cannot be removed (only changed).
+   * @returns true if a change was removed.
    */
-  removeClef(measureNumber: number): boolean {
-    if (measureNumber === 1) return false
+  removeClefAt(measureNumber: number, beat: Fraction): boolean {
+    if (measureNumber === 1 && fracIsZero(beat)) return false
     const measure = this.getMeasure(measureNumber)
-    if (!measure || measure.clef === undefined) return false
-    delete measure.clef
+    if (!measure) return false
+    return this.removeClefChangeAt(measure, beat)
+  }
+
+  // --- Measure-level (beat 0) convenience wrappers ---
+
+  /** Set the measure's opening clef (beat 0). */
+  setClef(measureNumber: number, clef: Clef): boolean {
+    return this.setClefAt(measureNumber, fracCreate(0, 1), clef)
+  }
+
+  /** Remove the measure's opening clef (beat 0). */
+  removeClef(measureNumber: number): boolean {
+    return this.removeClefAt(measureNumber, fracCreate(0, 1))
+  }
+
+  /** Insert or replace a clef change at the given beat, keeping the list sorted. */
+  private upsertClefChange(measure: Measure, beat: Fraction, clef: Clef): boolean {
+    if (!measure.clefs) measure.clefs = []
+    const existing = measure.clefs.find(c => fracEq(c.beat, beat))
+    if (existing) {
+      if (existing.clef === clef) return false
+      existing.clef = clef
+      return true
+    }
+    measure.clefs.push({ id: uuidv4(), beat, clef })
+    measure.clefs.sort((a, b) => fracCompare(a.beat, b.beat))
+    return true
+  }
+
+  /** Remove a clef change at the given beat, if present. */
+  private removeClefChangeAt(measure: Measure, beat: Fraction): boolean {
+    if (!measure.clefs) return false
+    const idx = measure.clefs.findIndex(c => fracEq(c.beat, beat))
+    if (idx === -1) return false
+    measure.clefs.splice(idx, 1)
+    if (measure.clefs.length === 0) delete measure.clefs
     return true
   }
 
@@ -1099,8 +1126,15 @@ export class ScoreModel {
     const model = new ScoreModel()
     model.score = scoreData
 
-    // Recompute actualDuration for all slots (not stored reliably across versions)
     for (const measure of model.score.measures) {
+      // Migrate legacy per-measure clef (single `clef`) to the positioned list.
+      const legacyClef = (measure as { clef?: Clef }).clef
+      if (legacyClef && !measure.clefs) {
+        measure.clefs = [{ id: uuidv4(), beat: fracCreate(0, 1), clef: legacyClef }]
+        delete (measure as { clef?: Clef }).clef
+      }
+
+      // Recompute actualDuration for all slots (not stored reliably across versions)
       for (const slot of measure.slots ?? []) {
         slot.actualDuration = model.computeActualDurationForSlot(slot, measure)
       }

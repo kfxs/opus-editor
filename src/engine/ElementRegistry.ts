@@ -44,6 +44,18 @@ export interface BoundingBox {
 export type ClefType = 'treble' | 'bass' | 'alto' | 'tenor'
 
 /**
+ * A horizontal clef region within a measure: the clef applies from `fromX`
+ * rightward until the next segment. Boundaries are the measure start and each
+ * mid-measure (inline) clef's X position.
+ */
+export interface ClefSegment {
+  /** X position where this clef region begins */
+  fromX: number
+  /** Clef in effect from fromX onward */
+  clef: ClefType
+}
+
+/**
  * Staff geometry for a measure - stores actual Y positions of staff lines
  * Used for accurate pitch calculation from cursor Y position
  */
@@ -58,8 +70,14 @@ export interface StaffGeometry {
   noteStartX: number
   /** X where notes must end (before barline) */
   noteEndX: number
-  /** Clef type for this staff */
+  /** Opening clef type for this staff */
   clef: ClefType
+  /**
+   * Clef regions within the measure, sorted ascending by fromX. When present,
+   * pitch↔pixel conversions pick the clef of the region containing the X.
+   * The first segment is the opening clef; later ones are mid-measure changes.
+   */
+  clefSegments?: ClefSegment[]
 }
 
 /**
@@ -271,16 +289,33 @@ export class ElementRegistry {
   }
 
   /**
+   * Pick the clef in effect at a given X within a measure. Uses clef segments
+   * (mid-measure changes) when present and an X is supplied; otherwise the
+   * measure's opening clef.
+   */
+  private clefAtX(geometry: StaffGeometry, x?: number): ClefType {
+    if (x === undefined || !geometry.clefSegments?.length) return geometry.clef
+    let clef = geometry.clefSegments[0].clef
+    for (const seg of geometry.clefSegments) {
+      if (x >= seg.fromX) clef = seg.clef
+      else break
+    }
+    return clef
+  }
+
+  /**
    * Convert pixel Y coordinate to a natural PitchSpelling (alter=0) using staff geometry.
    * @param y - Pixel Y coordinate
    * @param measure - Measure number to get staff geometry from
+   * @param x - Optional pixel X, used to pick the clef region for mid-measure changes
    * @returns PitchSpelling (always natural), or null if geometry not available
    */
-  pixelYToPitch(y: number, measure: number): PitchSpelling | null {
+  pixelYToPitch(y: number, measure: number, x?: number): PitchSpelling | null {
     const geometry = this.staffGeometries.get(measure)
     if (!geometry) return null
 
-    const { lineYPositions, lineSpacing, clef } = geometry
+    const { lineYPositions, lineSpacing } = geometry
+    const clef = this.clefAtX(geometry, x)
 
     // Calculate staff line from Y position
     const topLineY = lineYPositions[0]
@@ -311,13 +346,15 @@ export class ElementRegistry {
    * Convert MIDI pitch to pixel Y coordinate using staff geometry
    * @param pitch - MIDI pitch number
    * @param measure - Measure number to get staff geometry from
+   * @param x - Optional pixel X, used to pick the clef region for mid-measure changes
    * @returns Pixel Y coordinate, or null if geometry not available
    */
-  pitchToPixelY(pitch: number, measure: number): number | null {
+  pitchToPixelY(pitch: number, measure: number, x?: number): number | null {
     const geometry = this.staffGeometries.get(measure)
     if (!geometry) return null
 
-    const { lineYPositions, lineSpacing, clef } = geometry
+    const { lineYPositions, lineSpacing } = geometry
+    const clef = this.clefAtX(geometry, x)
     const staffLine = this.pitchToStaffLine(pitch, clef)
 
     return lineYPositions[0] + staffLine * lineSpacing
@@ -481,8 +518,8 @@ export class ElementRegistry {
         // Use pitch-based Y position for accurate selection
         let noteY: number
         if (note.pitch !== undefined) {
-          // Calculate actual Y position from pitch using staff geometry
-          const pitchY = this.pitchToPixelY(note.pitch, measure)
+          // Calculate actual Y position from pitch using staff geometry (clef region at the note's X)
+          const pitchY = this.pitchToPixelY(note.pitch, measure, note.bbox.x + note.bbox.width / 2)
           noteY = pitchY !== null ? pitchY : note.bbox.y + note.bbox.height / 2
         } else {
           noteY = note.bbox.y + note.bbox.height / 2
@@ -529,8 +566,8 @@ export class ElementRegistry {
         let elementY: number
 
         if (element.type === 'note' && element.pitch !== undefined) {
-          // For notes in chords, use pitch-based Y position
-          const pitchY = this.pitchToPixelY(element.pitch, measure)
+          // For notes in chords, use pitch-based Y position (clef region at the note's X)
+          const pitchY = this.pitchToPixelY(element.pitch, measure, element.bbox.x + element.bbox.width / 2)
           elementY = pitchY !== null ? pitchY : element.bbox.y + element.bbox.height / 2
         } else {
           // For rests (and notes without pitch), use bbox center

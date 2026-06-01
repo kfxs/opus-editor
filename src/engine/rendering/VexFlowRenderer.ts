@@ -1,7 +1,9 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Beam, StaveTie, Dot, Barline, Tuplet as VexFlowTuplet } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet } from 'vexflow'
 import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Chord, Fraction, PitchStep, PitchAlter, GhostNote } from '@/types/music'
-import { fracToNumber, fracEq, fracCompare } from '@/utils/fraction'
-import { ElementRegistry, type TupletGeometry } from '@/engine/ElementRegistry'
+import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero } from '@/utils/fraction'
+import { measureOpeningClef, effectiveClefAt } from '@/utils/clefUtils'
+import { beatToFrac } from '@/utils/musicUtils'
+import { ElementRegistry, type TupletGeometry, type ClefSegment } from '@/engine/ElementRegistry'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
 
 /**
@@ -167,9 +169,15 @@ export class VexFlowRenderer {
    * Create StaveNotes directly from ChordRest slots.
    * One slot → one StaveNote. Rests → rest StaveNote; Chords → multi-key StaveNote.
    * @param slots - Slots already sorted by beat position
-   * @param clef - Clef type for stem direction calculation
+   * @param clefForBeat - Resolves the clef in effect at a given beat (for note
+   *   positioning and stem direction). A single Clef is accepted for convenience.
    */
-  private createStaveNotesFromSlots(slots: ChordRest[], clef: Clef = 'treble'): StaveNote[] {
+  private createStaveNotesFromSlots(
+    slots: ChordRest[],
+    clefForBeat: ((beat: Fraction) => Clef) | Clef = 'treble',
+  ): StaveNote[] {
+    const resolveClef: (beat: Fraction) => Clef =
+      typeof clefForBeat === 'function' ? clefForBeat : () => clefForBeat
     const staveNotes: StaveNote[] = []
 
     // Track the currently active alteration per diatonic staff position within this measure.
@@ -235,6 +243,9 @@ export class VexFlowRenderer {
       // Build VexFlow key strings directly from spelling — no MIDI lookup table needed
       const keys = sortedPitches.map(p => spellingToVexflowKey(p.step, p.alter, p.octave))
 
+      // Clef in effect at this slot's beat (mid-measure changes move notes).
+      const slotClef = resolveClef(slot.beat)
+
       // Stem direction — compare diatonic staff position against clef's middle line
       let stemDirection: number
       if (slot.stemDirection === 'up') {
@@ -242,7 +253,7 @@ export class VexFlowRenderer {
       } else if (slot.stemDirection === 'down') {
         stemDirection = -1
       } else {
-        const middleDiatonic = CLEF_CONFIG[clef].middleLineDiatonicPos
+        const middleDiatonic = CLEF_CONFIG[slotClef].middleLineDiatonicPos
         let maxDist = 0
         stemDirection = -1  // default down; middle-line notes follow this convention
         for (const p of slot.notes) {
@@ -256,7 +267,7 @@ export class VexFlowRenderer {
       }
 
       const vexDuration = this.convertDuration(slot.duration, slot.dots || 0)
-      const staveNote = new StaveNote({ keys, duration: vexDuration, clef, autoStem: false })
+      const staveNote = new StaveNote({ keys, duration: vexDuration, clef: slotClef, autoStem: false })
       staveNote.setStemDirection(stemDirection)
 
       // Add accidental modifiers — VexFlow accepts '#', 'b', 'n', '##', 'bb'
@@ -285,6 +296,81 @@ export class VexFlowRenderer {
     }
 
     return staveNotes
+  }
+
+  /**
+   * Build a resolver for the clef in effect at any beat within a measure.
+   * Starts from the measure's opening clef and applies each clef change whose
+   * beat is at/before the queried beat.
+   */
+  private makeClefResolver(measure: Measure, openingClef: Clef): (beat: Fraction) => Clef {
+    const changes = (measure.clefs ?? []).slice().sort((a, b) => fracCompare(a.beat, b.beat))
+    return (beat: Fraction): Clef => {
+      let current = openingClef
+      for (const ch of changes) {
+        if (fracLte(ch.beat, beat)) current = ch.clef
+        else break
+      }
+      return current
+    }
+  }
+
+  /**
+   * Interleave inline ClefNotes (for mid-measure clef changes) among the slot
+   * StaveNotes. Each change is inserted before the first slot at/after its beat.
+   * ClefNotes ignore ticks, so the voice's tick total is unaffected.
+   * @returns the combined tickable list and a map of beat→ClefNote for registration
+   */
+  private interleaveClefNotes(
+    sortedSlots: ChordRest[],
+    staveNotes: StaveNote[],
+    midChanges: { beat: Fraction; clef: Clef }[],
+  ): { tickables: (StaveNote | ClefNote)[]; clefNoteByBeat: Array<{ beat: Fraction; clef: Clef; clefNote: ClefNote }> } {
+    const tickables: (StaveNote | ClefNote)[] = []
+    const clefNoteByBeat: Array<{ beat: Fraction; clef: Clef; clefNote: ClefNote }> = []
+    const remaining = [...midChanges]
+
+    const emit = (change: { beat: Fraction; clef: Clef }) => {
+      const clefNote = new ClefNote(change.clef, 'small')
+      tickables.push(clefNote)
+      clefNoteByBeat.push({ beat: change.beat, clef: change.clef, clefNote })
+    }
+
+    for (let i = 0; i < sortedSlots.length; i++) {
+      const slotBeat = sortedSlots[i].beat
+      // Emit any pending clef change whose beat is at/before this slot's beat.
+      while (remaining.length && fracLte(remaining[0].beat, slotBeat)) {
+        emit(remaining.shift()!)
+      }
+      tickables.push(staveNotes[i])
+    }
+    // Any leftover changes (beat past all slots) append at the end.
+    for (const change of remaining) emit(change)
+
+    return { tickables, clefNoteByBeat }
+  }
+
+  /**
+   * Register rendered inline clef glyphs as 'clef' elements (with measure + beat)
+   * for hit detection (mid-measure clef removal) and clef-segment lookup.
+   */
+  private registerMidMeasureClefs(
+    clefNoteByBeat: Array<{ beat: Fraction; clefNote: ClefNote }>,
+    measure: Measure,
+  ): void {
+    for (const { beat, clefNote } of clefNoteByBeat) {
+      try {
+        const box = clefNote.getBoundingBox()
+        if (box) {
+          this.elementRegistry.add({
+            type: 'clef',
+            measure: measure.number,
+            beat: fracToNumber(beat),
+            bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+          })
+        }
+      } catch (e) { /* getBoundingBox may fail */ }
+    }
   }
 
   /**
@@ -581,18 +667,14 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Resolve the clef in effect at every measure in a single pass.
-   * Each measure inherits the previous measure's clef unless it carries an
-   * explicit `measure.clef` override. Falls back to the score's opening clef,
-   * then 'treble'. Mirrors ScoreModel.getEffectiveClef.
-   * @returns Map of measure number → effective clef
+   * Resolve the opening clef of every measure (the clef drawn at its barline /
+   * line start). Mid-measure changes are handled per-slot during rendering.
+   * @returns Map of measure number → opening clef
    */
   private computeEffectiveClefs(score: Score): Map<number, Clef> {
     const map = new Map<number, Clef>()
-    let current: Clef = score.clef || 'treble'
     for (const measure of score.measures) {
-      if (measure.clef) current = measure.clef
-      map.set(measure.number, current)
+      map.set(measure.number, measureOpeningClef(score, measure.number))
     }
     return map
   }
@@ -623,6 +705,10 @@ export class VexFlowRenderer {
       overhead += LAYOUT_CONFIG.TIME_SIG_WIDTH
     }
 
+    // Budget width for each mid-measure (inline) clef change
+    const midClefCount = (measure.clefs ?? []).filter(c => !fracIsZero(c.beat)).length
+    overhead += midClefCount * LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
+
     // If measure has no notes or only rests, use minimum width
     const actualNotes = measure.slots.filter(s => s.type === 'chord')
     if (actualNotes.length === 0) {
@@ -631,7 +717,7 @@ export class VexFlowRenderer {
 
     // Create temporary voice to calculate width
     const sortedSlots = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))
-    const staveNotes = this.createStaveNotesFromSlots(sortedSlots, clef)
+    const staveNotes = this.createStaveNotesFromSlots(sortedSlots, this.makeClefResolver(measure, clef))
 
     // Create VexFlow Tuplets BEFORE adding notes to voice (adjusts tick values)
     this.createTupletsForMeasure(measure, sortedSlots, staveNotes)
@@ -797,12 +883,29 @@ export class VexFlowRenderer {
 
     const stave = this.buildAndDrawStave(measure, x, y, width, isFirstInLine, clef, hasClefChange)
 
+    // Resolve the clef in effect at any beat within this measure: starts from the
+    // opening clef and applies each clef change at/after its beat.
+    const clefForBeat = this.makeClefResolver(measure, clef)
+    // Mid-measure changes (beat > 0) render as inline ClefNotes before their slot.
+    const midChanges = (measure.clefs ?? [])
+      .filter(c => !fracIsZero(c.beat))
+      .sort((a, b) => fracCompare(a.beat, b.beat))
+
+    // Clef regions for pixel↔pitch lookup; opening clef covers the whole measure,
+    // each inline clef (added after draw) starts a new region at its X.
+    const clefSegments: ClefSegment[] = [{ fromX: x, clef }]
+
     if (measure.slots.length > 0) {
       const sortedSlots = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))
-      const staveNotes = this.createStaveNotesFromSlots(sortedSlots, clef)
+      // notesOnly: one StaveNote per slot (used for beams, tuplets, registration).
+      const staveNotes = this.createStaveNotesFromSlots(sortedSlots, clefForBeat)
 
       // Tuplets must be created BEFORE adding notes to voice — VexFlow adjusts tick values
       const { vexTuplets, tupletStaveNoteMap } = this.buildVexTuplets(sortedSlots, staveNotes, measure, clef)
+
+      // tickables: notesOnly + inline ClefNotes interleaved at change boundaries.
+      // ClefNotes ignore ticks, so the voice tick total still matches the notes.
+      const { tickables, clefNoteByBeat } = this.interleaveClefNotes(sortedSlots, staveNotes, midChanges)
 
       const voice = new Voice({
         numBeats: measure.timeSignature.numerator,
@@ -810,9 +913,9 @@ export class VexFlowRenderer {
       })
 
       try {
-        voice.addTickables(staveNotes)
+        voice.addTickables(tickables)
 
-        const beams = this.buildBeams(staveNotes, sortedSlots, measure.timeSignature.numerator, clef)
+        const beams = this.buildBeams(staveNotes, sortedSlots, measure.timeSignature.numerator, clefForBeat)
 
         const noteAreaWidth = stave.getNoteEndX() - stave.getNoteStartX()
         const formatWidth = Math.max(noteAreaWidth - 15, 50)
@@ -826,13 +929,23 @@ export class VexFlowRenderer {
         this.drawAndRegisterTuplets(vexTuplets, tupletStaveNoteMap, measure)
         this.registerSlotElements(sortedSlots, staveNotes, measure)
         this.registerBeams(beams, measure)
+        this.registerMidMeasureClefs(clefNoteByBeat, measure)
+
+        // Extend clef regions with each inline clef's actual X position.
+        for (const { clef: segClef, clefNote } of clefNoteByBeat) {
+          try {
+            const box = clefNote.getBoundingBox()
+            if (box) clefSegments.push({ fromX: box.x, clef: segClef })
+          } catch (e) { /* getBoundingBox may fail */ }
+        }
+        clefSegments.sort((a, b) => a.fromX - b.fromX)
       } catch (error) {
         console.error(`  ❌ Could not render measure ${measure.number}: ${error}`)
         console.error(`  - Measure data:`, JSON.stringify(measure, null, 2))
       }
     }
 
-    this.registerStaffAndGeometry(stave, measure, x, y, width, isFirstInLine, clef, hasClefChange)
+    this.registerStaffAndGeometry(stave, measure, x, y, width, isFirstInLine, clef, hasClefChange, clefSegments)
   }
 
   private buildAndDrawStave(
@@ -916,14 +1029,16 @@ export class VexFlowRenderer {
     staveNotes: StaveNote[],
     sortedSlots: ChordRest[],
     numBeats: number,
-    clef: Clef,
+    clefForBeat: (beat: Fraction) => Clef,
   ): Beam[] {
     const beamGroups = this.createBeamGroups(staveNotes, sortedSlots, numBeats)
     const beams: Beam[] = []
 
     for (const beamGroup of beamGroups) {
       try {
-        const beamStemDirection = this.calculateBeamGroupStemDirection(beamGroup.slots, clef)
+        // A beam group lies within one clef region; use the clef at its first slot.
+        const groupClef = beamGroup.slots.length ? clefForBeat(beamGroup.slots[0].beat) : 'treble'
+        const beamStemDirection = this.calculateBeamGroupStemDirection(beamGroup.slots, groupClef)
         for (const staveNote of beamGroup.staveNotes) {
           staveNote.setStemDirection(beamStemDirection)
         }
@@ -1164,6 +1279,7 @@ export class VexFlowRenderer {
     isFirstInLine: boolean,
     clef: Clef,
     hasClefChange: boolean = false,
+    clefSegments?: ClefSegment[],
   ): void {
     try {
       const staveBox = stave.getBoundingBox()
@@ -1189,22 +1305,26 @@ export class VexFlowRenderer {
         noteStartX: stave.getNoteStartX(),
         noteEndX: stave.getNoteEndX(),
         clef,
+        clefSegments: clefSegments && clefSegments.length > 1 ? clefSegments : undefined,
       })
     } catch (e) { /* getBoundingBox or getYForLine may fail */ }
 
-    // Register the clef element when a clef glyph is actually drawn: at line
-    // starts (full clef) or mid-line clef changes (smaller clef). Used for hit
-    // detection (clef removal) and ghost-clef positioning.
+    // Register the opening clef (beat 0) when a clef glyph is drawn at the
+    // measure start: at line starts (full clef) or mid-line clef changes (smaller
+    // clef). Mid-measure (inline) clefs are registered separately after drawing.
+    // beat 0 lets clef removal target the opening clef specifically.
     if (measure.number === 1 || isFirstInLine) {
       this.elementRegistry.add({
         type: 'clef',
         measure: measure.number,
+        beat: 0,
         bbox: { x, y, width: LAYOUT_CONFIG.CLEF_WIDTH, height: LAYOUT_CONFIG.STAVE_HEIGHT },
       })
     } else if (hasClefChange) {
       this.elementRegistry.add({
         type: 'clef',
         measure: measure.number,
+        beat: 0,
         bbox: { x, y, width: LAYOUT_CONFIG.CLEF_CHANGE_WIDTH, height: LAYOUT_CONFIG.STAVE_HEIGHT },
       })
     }
@@ -1367,16 +1487,19 @@ export class VexFlowRenderer {
       const measureY = margin + widthInfo.lineNumber * (staveHeight + verticalSpacing)
       const staveWidth = widthInfo.finalWidth
       const effectiveClefs = this.computeEffectiveClefs(score)
-      const clef: Clef = effectiveClefs.get(ghostNote.measure) || 'treble'
+      const openingClef: Clef = effectiveClefs.get(ghostNote.measure) || 'treble'
       const prevClef = effectiveClefs.get(ghostNote.measure - 1)
-      const hasClefChange = prevClef !== undefined && clef !== prevClef
+      const hasClefChange = prevClef !== undefined && openingClef !== prevClef
+      // The ghost note must be positioned by the clef in effect at its beat
+      // (mid-measure changes), not just the measure's opening clef.
+      const clef: Clef = effectiveClefAt(score, ghostNote.measure, beatToFrac(ghostNote.beat))
 
       const tempStave = new Stave(measureX, measureY, staveWidth)
       const isFirstInLine = measureX === margin
       if (ghostNote.measure === 1 || isFirstInLine) {
-        tempStave.addClef(clef)
+        tempStave.addClef(openingClef)
       } else if (hasClefChange) {
-        tempStave.addClef(clef, 'small')
+        tempStave.addClef(openingClef, 'small')
       }
       if (ghostNote.measure === 1) {
         tempStave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)

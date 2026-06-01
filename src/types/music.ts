@@ -71,6 +71,23 @@ export type ArticulationType = 'accent' | 'staccato' | 'tenuto'
 export type Clef = 'treble' | 'bass' | 'alto' | 'tenor'
 
 /**
+ * A clef change positioned within a measure.
+ *
+ * Anchored to a beat that lands on a slot boundary (MusicXML / MuseScore model):
+ * the clef applies to all slots with beat >= this beat, until the next change.
+ * A change at beat 0 is the measure's opening clef (drawn at the barline / line
+ * start); changes at beat > 0 render as inline (small) clefs before that slot.
+ */
+export interface ClefChange {
+  /** Unique identifier */
+  id: string
+  /** Beat position within the measure (0 = opening clef) */
+  beat: Fraction
+  /** Clef that takes effect at this beat */
+  clef: Clef
+}
+
+/**
  * Stem direction for notes
  * - 'auto': Calculate based on pitch and clef (default)
  * - 'up': Force stem up
@@ -216,13 +233,13 @@ export interface Measure {
   /** Time signature for this measure */
   timeSignature: TimeSignature
   /**
-   * Optional clef change taking effect at this measure.
-   * When set, this measure (and following measures) render in this clef until
-   * the next measure that overrides it. When undefined, the measure inherits the
-   * effective clef from earlier measures (see ScoreModel.getEffectiveClef).
-   * Measure 1 always carries an explicit clef so the score has an opening clef.
+   * Clef changes within this measure, sorted ascending by beat.
+   * A change at beat 0 is the measure's opening clef; changes at beat > 0 are
+   * mid-measure changes rendered as inline clefs. When empty/undefined, the
+   * measure inherits the effective clef from earlier measures.
+   * Resolution helpers live in utils/clefUtils (effectiveClefAt, measureOpeningClef).
    */
-  clef?: Clef
+  clefs?: ClefChange[]
   /** Optional key signature (number of sharps/flats, positive = sharps, negative = flats) */
   keySignature?: number
   /** Tuplets in this measure */
