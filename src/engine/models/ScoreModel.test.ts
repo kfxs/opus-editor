@@ -560,6 +560,26 @@ describe('ScoreModel', () => {
       })
     })
 
+    describe('normalizeClefAt', () => {
+      it('removes a change that equals the clef in effect before it', () => {
+        model.setClefAt(3, frac(1, 1), 'bass')
+        model.setClefAt(3, frac(2, 1), 'treble') // differs from bass at 1 → kept
+        model.removeClefAt(3, frac(1, 1))         // now treble at 2 matches inherited treble
+        expect(model.normalizeClefAt(3, frac(2, 1))).toBe(true)
+        expect(clefAt(3, 2)).toBeUndefined()
+      })
+
+      it('keeps a change that actually differs from what precedes it', () => {
+        model.setClefAt(3, frac(2, 1), 'bass')
+        expect(model.normalizeClefAt(3, frac(2, 1))).toBe(false)
+        expect(clefAt(3, 2)).toBe('bass')
+      })
+
+      it('never removes measure 1 / beat 0', () => {
+        expect(model.normalizeClefAt(1, frac(0, 1))).toBe(false)
+      })
+    })
+
     describe('JSON round-trip', () => {
       it('preserves opening and mid-measure clef changes', () => {
         model.setClef(1, 'bass')

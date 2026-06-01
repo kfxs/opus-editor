@@ -173,6 +173,7 @@ export class MouseController {
           // Freeze line breaks so sliding the clef re-pitches notes without
           // reflowing the score; we settle the layout on drop.
           engine.setLayoutFrozen(true)
+          engine.setDraggingClef({ measure: clefAt.measure, beat: change.beat })
           event.preventDefault()
         }
       }
@@ -299,8 +300,10 @@ export class MouseController {
     this.draggedClefBeat = null
     this.draggedClefStartBeat = null
     this.clefDragStartTime = null
-    // Unfreeze and re-render once so the layout settles at the clef's final spot.
+    // Clear the ghost, unfreeze, and re-render once so the layout settles (and a
+    // redundant clef, now removed by commitClefMove, is gone) at its final spot.
     if (engine) {
+      engine.setDraggingClef(null)
       engine.setLayoutFrozen(false)
       this.render.renderScore()
     }
@@ -492,6 +495,7 @@ export class MouseController {
         if (engine.moveClefWithinMeasure(this.draggedClefMeasure, this.draggedClefBeat, targetBeat)) {
           this.draggedClefBeat = targetBeat
           this.state.selectedClefBeat = fracToNumber(targetBeat)
+          engine.setDraggingClef({ measure: this.draggedClefMeasure, beat: targetBeat })
           console.log(`Clef drag | measure:${this.draggedClefMeasure} beat:${fracToNumber(targetBeat)}`)
           this.render.renderScore()
         }

@@ -270,9 +270,21 @@ export class MusicEngine {
     return this.scoreModel.moveClefWithinMeasure(measureNumber, fromBeat, toBeat)
   }
 
-  /** Record a single undo entry after a clef drag completes. */
+  /**
+   * Finish a clef drag: drop the clef if it landed in a redundant position
+   * (equals the clef already in effect there), then record one undo entry.
+   */
   commitClefMove(measureNumber: number, beat: Fraction): void {
+    this.scoreModel.normalizeClefAt(measureNumber, beat)
     this.saveUndoState(`Move clef to measure ${measureNumber} beat ${fracToNumber(beat)}`)
+  }
+
+  /**
+   * Tell the renderer which clef is being dragged (or null when none), so a
+   * redundant dragged clef can be shown as a faded ghost instead of vanishing.
+   */
+  setDraggingClef(info: { measure: number; beat: Fraction } | null): void {
+    this.renderer.setDraggingClef(info)
   }
 
   // ==================== Note Operations ====================

@@ -279,6 +279,23 @@ export class ScoreModel {
     return true
   }
 
+  /**
+   * Remove the clef change at (measure, beat) if it is redundant — i.e. equals
+   * the clef already in effect immediately before it. Measure 1 / beat 0 (the
+   * protected opening) is never removed. Used to clean up after a clef drag,
+   * where redundant positions are allowed transiently but shouldn't persist.
+   * @returns true if a redundant change was removed.
+   */
+  normalizeClefAt(measureNumber: number, beat: Fraction): boolean {
+    if (measureNumber === 1 && fracIsZero(beat)) return false
+    const measure = this.getMeasure(measureNumber)
+    if (!measure?.clefs) return false
+    const change = measure.clefs.find(c => fracEq(c.beat, beat))
+    if (!change) return false
+    if (change.clef !== effectiveClefBefore(this.score, measureNumber, beat)) return false
+    return this.removeClefChangeAt(measure, beat)
+  }
+
   /** Insert or replace a clef change at the given beat, keeping the list sorted. */
   private upsertClefChange(measure: Measure, beat: Fraction, clef: Clef): boolean {
     if (!measure.clefs) measure.clefs = []

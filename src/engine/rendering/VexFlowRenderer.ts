@@ -1,7 +1,7 @@
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet } from 'vexflow'
 import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Chord, Fraction, PitchStep, PitchAlter, GhostNote } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero } from '@/utils/fraction'
-import { measureOpeningClef, measureEndingClef, effectiveClefAt } from '@/utils/clefUtils'
+import { measureOpeningClef, measureEndingClef, effectiveClefAt, effectiveClefBefore } from '@/utils/clefUtils'
 import { beatToFrac } from '@/utils/musicUtils'
 import { ElementRegistry, type TupletGeometry, type ClefSegment } from '@/engine/ElementRegistry'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
@@ -106,6 +106,10 @@ export class VexFlowRenderer {
    *  reuses it instead of recomputing line breaks/widths — used during a clef
    *  drag to stop the score reflowing. Survives clear() (kept off measureLayoutInfo). */
   private frozenLayout: Map<number, MeasureWidthInfo> | null = null
+  /** The clef currently being dragged (or null). Used to keep a dragged clef that
+   *  sits in a redundant position visible during the drag (it would otherwise be
+   *  hidden at beat 0), instead of disappearing under the cursor. */
+  private draggingClef: { measure: number; beat: Fraction } | null = null
 
   constructor(containerElement: HTMLElement) {
     this.svgContainer = containerElement
@@ -919,6 +923,8 @@ export class VexFlowRenderer {
    * @param hasClefChange - Whether this measure's clef differs from the previous measure
    * @param cautionaryEndClef - Clef to draw at the measure end as a cautionary warning
    *   (set when this is a line's last measure and the next line opens with a new clef)
+   * @param ghostClefBeat - Beat of a dragged-redundant clef in this measure to keep
+   *   visible during the drag even at beat 0, where it would otherwise be hidden
    */
   renderMeasure(
     measure: Measure,
@@ -928,7 +934,8 @@ export class VexFlowRenderer {
     isFirstInLine: boolean = false,
     clef: Clef = 'treble',
     hasClefChange: boolean = false,
-    cautionaryEndClef?: Clef
+    cautionaryEndClef?: Clef,
+    ghostClefBeat?: Fraction
   ): void {
     if (!this.context) {
       throw new Error('Renderer not initialized. Call initialize() first.')
@@ -940,9 +947,18 @@ export class VexFlowRenderer {
     // opening clef and applies each clef change at/after its beat.
     const clefForBeat = this.makeClefResolver(measure, clef)
     // Mid-measure changes (beat > 0) render as inline ClefNotes before their slot.
-    const midChanges = (measure.clefs ?? [])
+    const midChanges: { beat: Fraction; clef: Clef }[] = (measure.clefs ?? [])
       .filter(c => !fracIsZero(c.beat))
       .sort((a, b) => fracCompare(a.beat, b.beat))
+      .map(c => ({ beat: c.beat, clef: c.clef }))
+
+    // If the dragged-redundant clef sits at beat 0, the opening clef is suppressed
+    // (redundant), so render it as an inline clef at the measure start to keep it
+    // visible during the drag (it's removed on drop by commitClefMove).
+    if (ghostClefBeat !== undefined && fracIsZero(ghostClefBeat)) {
+      const opening = (measure.clefs ?? []).find(c => fracIsZero(c.beat))
+      if (opening) midChanges.unshift({ beat: opening.beat, clef: opening.clef })
+    }
 
     // Clef regions for pixel↔pitch lookup; opening clef covers the whole measure,
     // each inline clef (added after draw) starts a new region at its X.
@@ -1428,6 +1444,25 @@ export class VexFlowRenderer {
       : null
   }
 
+  /** Set/clear the clef currently being dragged (to keep a redundant one visible). */
+  setDraggingClef(info: { measure: number; beat: Fraction } | null): void {
+    this.draggingClef = info
+  }
+
+  /**
+   * If a clef is being dragged within this measure AND it's redundant (equals the
+   * clef in effect just before it, so it'll be removed on drop), return its beat
+   * so it can be force-rendered while dragging. Otherwise undefined.
+   */
+  private ghostClefBeatFor(score: Score, measureNumber: number): Fraction | undefined {
+    if (!this.draggingClef || this.draggingClef.measure !== measureNumber) return undefined
+    const beat = this.draggingClef.beat
+    const measure = score.measures.find(m => m.number === measureNumber)
+    const change = measure?.clefs?.find(c => fracEq(c.beat, beat))
+    if (!change) return undefined
+    return change.clef === effectiveClefBefore(score, measureNumber, beat) ? beat : undefined
+  }
+
   renderScore(score: Score, ghostNote?: GhostNote): boolean {
     if (!this.context || !this.renderer) {
       throw new Error('Renderer not initialized. Call initialize() first.')
@@ -1498,8 +1533,9 @@ export class VexFlowRenderer {
       const clef = effectiveClefs.get(measure.number) || 'treble'
       const prevEndClef = measure.number > 1 ? measureEndingClef(score, measure.number - 1) : undefined
       const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
+      const ghostClefBeat = this.ghostClefBeatFor(score, measure.number)
 
-      this.renderMeasure(measure, currentX, y, widthInfo.finalWidth, isFirstInLine, clef, hasClefChange, widthInfo.cautionaryEndClef)
+      this.renderMeasure(measure, currentX, y, widthInfo.finalWidth, isFirstInLine, clef, hasClefChange, widthInfo.cautionaryEndClef, ghostClefBeat)
 
       currentX += widthInfo.finalWidth
     })
