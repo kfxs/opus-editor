@@ -221,6 +221,7 @@ export class PaletteController {
       this.state.selectedTool = 'entry'
       this.state.selectedNoteId = null
       this.state.selectedClefMeasure = null
+      this.state.selectedClefBeat = null
     }
     this.renderScore()
   }

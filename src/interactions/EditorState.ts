@@ -38,8 +38,10 @@ export interface EditorState {
   /** Clef armed for placement (null = clef tool not active). When set, canvas
    *  clicks set/change a measure's clef and the ghost note is suppressed. */
   selectedClef: Clef | null
-  /** Measure whose clef is selected for removal (selection tool). */
+  /** Measure of the clef selected for removal (selection tool); null if none. */
   selectedClefMeasure: number | null
+  /** Beat of the selected clef within its measure (0 = opening clef). */
+  selectedClefBeat: number | null
 
   // --- UI ---
   showCursor: boolean
@@ -66,6 +68,7 @@ export function createEditorState(): EditorState {
     selectedBeam: 'auto',
     selectedClef: null,
     selectedClefMeasure: null,
+    selectedClefBeat: null,
     showCursor: true,
     playbackState: 'stopped',
   }

@@ -137,6 +137,7 @@ export class MouseController {
     this.state.selectedTupletId = null
     this.state.selectedTieFromNoteId = null
     this.state.selectedClefMeasure = null
+    this.state.selectedClefBeat = null
 
     // Clef change selection — click a clef glyph to select it for removal.
     const clefAt = registry.getByType('clef').find(el => {
@@ -146,7 +147,9 @@ export class MouseController {
     if (clefAt?.measure !== undefined) {
       this.selection.selectNote(null)
       this.state.selectedClefMeasure = clefAt.measure
-      console.log(`✓ Clef selected | measure:${clefAt.measure}${clefAt.measure === 1 ? ' (measure 1: change only, cannot remove)' : ''}`)
+      this.state.selectedClefBeat = clefAt.beat ?? 0
+      const isProtected = clefAt.measure === 1 && (clefAt.beat ?? 0) === 0
+      console.log(`✓ Clef selected | measure:${clefAt.measure} beat:${clefAt.beat ?? 0}${isProtected ? ' (measure 1 opening: change only, cannot remove)' : ''}`)
       this.render.renderScore()
       return
     }

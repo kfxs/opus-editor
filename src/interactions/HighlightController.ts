@@ -368,7 +368,10 @@ export class HighlightController {
     if (!engine || !scoreCanvas || this.state.selectedClefMeasure === null) return
 
     const registry = engine.getElementRegistry()
-    const clefEl = registry.getByType('clef').find(el => el.measure === this.state.selectedClefMeasure)
+    const targetBeat = this.state.selectedClefBeat ?? 0
+    const clefEl = registry.getByType('clef').find(
+      el => el.measure === this.state.selectedClefMeasure && (el.beat ?? 0) === targetBeat,
+    )
     if (!clefEl) return
 
     const svg = scoreCanvas.querySelector('svg')

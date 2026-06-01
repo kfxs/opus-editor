@@ -7,6 +7,7 @@ import type { PaletteController } from '../interactions/PaletteController'
 import type { KeyboardController } from '../interactions/KeyboardController'
 import type { RenderController } from '../interactions/RenderController'
 import { ShortcutManager } from '../shortcuts'
+import { beatToFrac } from '../utils/musicUtils'
 
 /**
  * Vue adapter that wires keyboard shortcuts to controller actions.
@@ -74,11 +75,13 @@ export function useShortcuts(
         state.selectedTupletId = null
         renderer.renderScore()
       } else if (state.selectedClefMeasure !== null && eng) {
-        const removed = eng.removeClef(state.selectedClefMeasure)
+        const beat = beatToFrac(state.selectedClefBeat ?? 0)
+        const removed = eng.removeClefAt(state.selectedClefMeasure, beat)
         if (!removed) {
-          console.log(`Cannot remove clef at measure ${state.selectedClefMeasure} (measure 1 can only be changed)`)
+          console.log(`Cannot remove clef at measure ${state.selectedClefMeasure} beat ${state.selectedClefBeat ?? 0} (measure 1 opening clef can only be changed)`)
         }
         state.selectedClefMeasure = null
+        state.selectedClefBeat = null
         renderer.renderScore()
       } else if (state.selectedNoteId && eng) {
         eng.deleteNote(state.selectedNoteId)
