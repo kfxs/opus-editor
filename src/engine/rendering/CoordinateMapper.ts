@@ -253,6 +253,12 @@ export class CoordinateMapper {
     const HEADROOM = 4
 
     const staffLine = ((y - measurePos.y) / SPACING) - HEADROOM
+    // Guard against an invalid measure position (e.g. cursor over an unrendered
+    // region): a NaN staffLine would yield an undefined step. Default to B4
+    // (treble middle line) so callers always receive a valid spelling.
+    if (!Number.isFinite(staffLine)) {
+      return { step: 'B', alter: 0, octave: 4 }
+    }
     // Round to nearest half-staff-line (one diatonic step)
     const roundedLine = Math.round(staffLine * 2) / 2
 

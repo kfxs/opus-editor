@@ -180,7 +180,10 @@ export class VexFlowRenderer {
     for (const slot of slots) {
       if (slot.type === 'rest') {
         const vexDuration = this.convertDuration(slot.duration, slot.dots || 0)
-        const staveNote = new StaveNote({ keys: ['b/4'], duration: vexDuration + 'r', clef })
+        // Rests are positioned at fixed staff positions independent of clef.
+        // The 'b/4' key anchors the rest to the middle line under the default
+        // (treble) clef — passing a clef would shift it (e.g. high in bass clef).
+        const staveNote = new StaveNote({ keys: ['b/4'], duration: vexDuration + 'r' })
         for (let d = 0; d < (slot.dots || 0); d++) {
           Dot.buildAndAttach([staveNote], { all: true })
         }
