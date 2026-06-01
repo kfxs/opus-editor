@@ -1,7 +1,7 @@
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet } from 'vexflow'
 import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Chord, Fraction, PitchStep, PitchAlter, GhostNote } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero } from '@/utils/fraction'
-import { measureOpeningClef, effectiveClefAt } from '@/utils/clefUtils'
+import { measureOpeningClef, measureEndingClef, effectiveClefAt } from '@/utils/clefUtils'
 import { beatToFrac } from '@/utils/musicUtils'
 import { ElementRegistry, type TupletGeometry, type ClefSegment } from '@/engine/ElementRegistry'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
@@ -806,8 +806,11 @@ export class VexFlowRenderer {
     for (const measure of score.measures) {
       const isFirstInLine = currentLineMeasures.length === 0
       const clef = effectiveClefs.get(measure.number) || 'treble'
-      const prevClef = effectiveClefs.get(measure.number - 1)
-      const hasClefChange = prevClef !== undefined && clef !== prevClef
+      // Redraw the clef at a mid-line measure start only when it actually changes
+      // across the barline — i.e. differs from the previous measure's *ending*
+      // clef (a mid-measure change already shows its clef inline in that measure).
+      const prevEndClef = measure.number > 1 ? measureEndingClef(score, measure.number - 1) : undefined
+      const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
       const minWidth = this.calculateMinimumMeasureWidth(measure, isFirstInLine, clef, hasClefChange)
 
       // Check if measure fits on current line
@@ -1420,8 +1423,8 @@ export class VexFlowRenderer {
       const y = margin + currentLine * (staveHeight + verticalSpacing)
       const isFirstInLine = currentX === margin
       const clef = effectiveClefs.get(measure.number) || 'treble'
-      const prevClef = effectiveClefs.get(measure.number - 1)
-      const hasClefChange = prevClef !== undefined && clef !== prevClef
+      const prevEndClef = measure.number > 1 ? measureEndingClef(score, measure.number - 1) : undefined
+      const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
 
       this.renderMeasure(measure, currentX, y, widthInfo.finalWidth, isFirstInLine, clef, hasClefChange)
 
@@ -1488,8 +1491,10 @@ export class VexFlowRenderer {
       const staveWidth = widthInfo.finalWidth
       const effectiveClefs = this.computeEffectiveClefs(score)
       const openingClef: Clef = effectiveClefs.get(ghostNote.measure) || 'treble'
-      const prevClef = effectiveClefs.get(ghostNote.measure - 1)
-      const hasClefChange = prevClef !== undefined && openingClef !== prevClef
+      // Match the real stave: only redraw the clef when it changes across the
+      // barline (vs the previous measure's ending clef), not opening-to-opening.
+      const prevEndClef = ghostNote.measure > 1 ? measureEndingClef(score, ghostNote.measure - 1) : undefined
+      const hasClefChange = prevEndClef !== undefined && openingClef !== prevEndClef
       // The ghost note must be positioned by the clef in effect at its beat
       // (mid-measure changes), not just the measure's opening clef.
       const clef: Clef = effectiveClefAt(score, ghostNote.measure, beatToFrac(ghostNote.beat))

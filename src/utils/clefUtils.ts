@@ -62,6 +62,18 @@ export function measureOpeningClef(score: Score, measureNumber: number): Clef {
   return effectiveClefAt(score, measureNumber, ZERO)
 }
 
+/**
+ * The clef in effect at the *end* of a measure — its last (highest-beat) change,
+ * else its opening clef. This is the clef carried silently into the next measure,
+ * so a mid-line measure only needs to redraw its clef when its opening differs
+ * from the previous measure's ending clef.
+ */
+export function measureEndingClef(score: Score, measureNumber: number): Clef {
+  const changes = measureClefChanges(score, measureNumber)
+  if (changes.length) return changes[changes.length - 1].clef
+  return measureOpeningClef(score, measureNumber)
+}
+
 /** Mid-measure clef changes (beat > 0) of a measure, sorted by beat. */
 export function midMeasureClefChanges(score: Score, measureNumber: number): ClefChange[] {
   return measureClefChanges(score, measureNumber).filter(c => !fracEq(c.beat, ZERO))
