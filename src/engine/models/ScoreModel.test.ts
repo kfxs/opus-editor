@@ -390,4 +390,116 @@ describe('ScoreModel', () => {
       expect(totalActual).toBeCloseTo(1, 10)
     })
   })
+
+  describe('clef operations', () => {
+    beforeEach(() => {
+      // Start each clef test with 5 measures (constructor creates measure 1)
+      for (let i = 0; i < 4; i++) model.addMeasure()
+    })
+
+    describe('getEffectiveClef', () => {
+      it('defaults to treble when nothing is set', () => {
+        expect(model.getEffectiveClef(1)).toBe('treble')
+        expect(model.getEffectiveClef(5)).toBe('treble')
+      })
+
+      it('falls back to the score opening clef', () => {
+        model.getScore().clef = 'bass'
+        expect(model.getEffectiveClef(3)).toBe('bass')
+      })
+
+      it('inherits the most recent explicit clef change', () => {
+        model.setClef(3, 'bass')
+        expect(model.getEffectiveClef(2)).toBe('treble')
+        expect(model.getEffectiveClef(3)).toBe('bass')
+        expect(model.getEffectiveClef(4)).toBe('bass')
+      })
+
+      it('uses the nearest preceding change when several exist', () => {
+        model.setClef(2, 'bass')
+        model.setClef(4, 'alto')
+        expect(model.getEffectiveClef(1)).toBe('treble')
+        expect(model.getEffectiveClef(2)).toBe('bass')
+        expect(model.getEffectiveClef(3)).toBe('bass')
+        expect(model.getEffectiveClef(4)).toBe('alto')
+        expect(model.getEffectiveClef(5)).toBe('alto')
+      })
+    })
+
+    describe('setClef', () => {
+      it('stores an explicit clef on measure 1 and mirrors it to score.clef', () => {
+        expect(model.setClef(1, 'bass')).toBe(true)
+        expect(model.getMeasure(1)!.clef).toBe('bass')
+        expect(model.getScore().clef).toBe('bass')
+      })
+
+      it('stores a clef change on a later measure', () => {
+        expect(model.setClef(3, 'alto')).toBe(true)
+        expect(model.getMeasure(3)!.clef).toBe('alto')
+      })
+
+      it('normalizes a redundant change to no override (clears it)', () => {
+        // Everything is treble; setting measure 3 to treble should not store an override
+        expect(model.setClef(3, 'treble')).toBe(false)
+        expect(model.getMeasure(3)!.clef).toBeUndefined()
+      })
+
+      it('clears an existing override when set back to the inherited clef', () => {
+        model.setClef(3, 'bass')
+        expect(model.getMeasure(3)!.clef).toBe('bass')
+        // Now reverting measure 3 to the inherited treble clears the override
+        expect(model.setClef(3, 'treble')).toBe(true)
+        expect(model.getMeasure(3)!.clef).toBeUndefined()
+      })
+
+      it('returns false when the clef is already set to that value', () => {
+        model.setClef(3, 'bass')
+        expect(model.setClef(3, 'bass')).toBe(false)
+      })
+    })
+
+    describe('removeClef', () => {
+      it('removes a clef change and reverts to the inherited clef', () => {
+        model.setClef(3, 'bass')
+        expect(model.removeClef(3)).toBe(true)
+        expect(model.getMeasure(3)!.clef).toBeUndefined()
+        expect(model.getEffectiveClef(3)).toBe('treble')
+      })
+
+      it('refuses to remove measure 1 clef', () => {
+        model.setClef(1, 'bass')
+        expect(model.removeClef(1)).toBe(false)
+        expect(model.getMeasure(1)!.clef).toBe('bass')
+      })
+
+      it('returns false when there is no override to remove', () => {
+        expect(model.removeClef(3)).toBe(false)
+      })
+    })
+
+    describe('JSON round-trip', () => {
+      it('preserves a mid-score clef change', () => {
+        model.setClef(1, 'bass')
+        model.setClef(3, 'alto')
+        const restored = ScoreModel.fromJSON(model.toJSON())
+        expect(restored.getMeasure(1)!.clef).toBe('bass')
+        expect(restored.getMeasure(3)!.clef).toBe('alto')
+        expect(restored.getEffectiveClef(4)).toBe('alto')
+      })
+
+      it('old files without measure clefs inherit via score.clef', () => {
+        const legacy = JSON.stringify({
+          id: 'x', title: 't', tempo: 120,
+          keySignature: { key: 'C', accidentals: 0 },
+          defaultTimeSignature: { numerator: 4, denominator: 4 },
+          clef: 'bass',
+          measures: [
+            { id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [] },
+          ],
+        })
+        const restored = ScoreModel.fromJSON(legacy)
+        expect(restored.getEffectiveClef(1)).toBe('bass')
+      })
+    })
+  })
 })

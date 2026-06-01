@@ -215,6 +215,14 @@ export interface Measure {
   slots: ChordRest[]
   /** Time signature for this measure */
   timeSignature: TimeSignature
+  /**
+   * Optional clef change taking effect at this measure.
+   * When set, this measure (and following measures) render in this clef until
+   * the next measure that overrides it. When undefined, the measure inherits the
+   * effective clef from earlier measures (see ScoreModel.getEffectiveClef).
+   * Measure 1 always carries an explicit clef so the score has an opening clef.
+   */
+  clef?: Clef
   /** Optional key signature (number of sharps/flats, positive = sharps, negative = flats) */
   keySignature?: number
   /** Tuplets in this measure */

@@ -360,6 +360,44 @@ export class HighlightController {
     }
   }
 
+  applyClefSelectionHighlight(): void {
+    const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
+    if (!engine || !scoreCanvas || this.state.selectedClefMeasure === null) return
+
+    const registry = engine.getElementRegistry()
+    const clefEl = registry.getByType('clef').find(el => el.measure === this.state.selectedClefMeasure)
+    if (!clefEl) return
+
+    const svg = scoreCanvas.querySelector('svg')
+    if (!svg) return
+
+    const SELECTION_COLOR = '#F59E0B'
+    const SELECTION_STROKE = '#D97706'
+    const bbox = clefEl.bbox
+
+    // The clef glyph is a filled path/text near the measure's left edge.
+    // Color glyphs whose center sits inside the clef bbox, skipping the wide
+    // staff lines (which also intersect this region).
+    const elements = svg.querySelectorAll('path, text')
+    for (const el of elements) {
+      const elBBox = (el as SVGGraphicsElement).getBBox?.()
+      if (!elBBox) continue
+      if (elBBox.width > 40) continue // skip staff lines / wide elements
+
+      const cx = elBBox.x + elBBox.width / 2
+      const cy = elBBox.y + elBBox.height / 2
+      if (cx >= bbox.x && cx <= bbox.x + bbox.width && cy >= bbox.y && cy <= bbox.y + bbox.height) {
+        const svgEl = el as SVGElement
+        const currentFill = svgEl.getAttribute('fill')
+        if (currentFill && currentFill !== 'none') svgEl.setAttribute('fill', SELECTION_COLOR)
+        svgEl.style.fill = SELECTION_COLOR
+        svgEl.setAttribute('stroke', SELECTION_STROKE)
+        svgEl.classList.add('selected-clef')
+      }
+    }
+  }
+
   applyTupletSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()

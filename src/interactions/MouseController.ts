@@ -109,6 +109,20 @@ export class MouseController {
 
     this.state.selectedTupletId = null
     this.state.selectedTieFromNoteId = null
+    this.state.selectedClefMeasure = null
+
+    // Clef change selection — click a clef glyph to select it for removal.
+    const clefAt = registry.getByType('clef').find(el => {
+      const b = el.bbox
+      return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
+    }) ?? null
+    if (clefAt?.measure !== undefined) {
+      this.selection.selectNote(null)
+      this.state.selectedClefMeasure = clefAt.measure
+      console.log(`✓ Clef selected | measure:${clefAt.measure}${clefAt.measure === 1 ? ' (measure 1: change only, cannot remove)' : ''}`)
+      this.render.renderScore()
+      return
+    }
 
     const tiePad = 6
     const tieAt = registry.getByType('tie').find(el => {
@@ -237,6 +251,19 @@ export class MouseController {
 
     const registry = engine.getElementRegistry()
     const measureNum = engine.pixelToMeasure({ x, y })
+
+    // Clef tool: set/change the clef of the clicked measure. A clef change
+    // attaches to the whole measure (drawn at its barline), so the beat position
+    // within the measure is intentionally ignored.
+    if (this.state.selectedClef) {
+      const changed = engine.setClef(measureNum, this.state.selectedClef)
+      console.log(changed
+        ? `✓ Clef set | ${this.state.selectedClef} at measure ${measureNum}`
+        : `Clef unchanged at measure ${measureNum}`)
+      this.render.renderScore()
+      return
+    }
+
     const nearestElement = registry.findNearestNoteOrRest(x, measureNum)
     const elementAt = registry.getAt(x, y)
     console.log(`Click | svg:(${x.toFixed(0)},${y.toFixed(0)}) measure:${measureNum} | nearestElement:`, nearestElement ? {
@@ -376,6 +403,14 @@ export class MouseController {
     const now = Date.now()
     if (now - this.lastPreviewRender < this.PREVIEW_THROTTLE_MS) return
     this.lastPreviewRender = now
+
+    // Clef tool armed: show a ghost clef at the hovered measure instead of a
+    // ghost note, and hide the keyboard cursor.
+    if (this.state.selectedClef) {
+      this.render.renderClefGhost({ x, y }, this.state.selectedClef)
+      this.state.showCursor = false
+      return
+    }
 
     const ghostNoteRendered = this.render.renderPreview({ x, y })
     this.state.showCursor = !ghostNoteRendered

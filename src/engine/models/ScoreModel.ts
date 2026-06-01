@@ -1,4 +1,4 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, Clef } from '@/types/music'
 import {
   isBeatInTupletFrac,
   getTupletTotalBeatsFrac,
@@ -176,6 +176,78 @@ export class ScoreModel {
         slot.measure = i + 1
       })
     }
+    return true
+  }
+
+  // ==================== Clef operations ====================
+
+  /**
+   * Resolve the clef in effect at a given measure.
+   *
+   * Walks backward from the measure to find the most recent explicit
+   * `measure.clef`, falling back to the score's opening clef, then 'treble'.
+   *
+   * @param measureNumber - 1-indexed measure number
+   */
+  getEffectiveClef(measureNumber: number): Clef {
+    for (let n = measureNumber; n >= 1; n--) {
+      const measure = this.getMeasure(n)
+      if (measure?.clef) return measure.clef
+    }
+    return this.score.clef ?? 'treble'
+  }
+
+  /**
+   * Set the clef at a measure.
+   *
+   * - Measure 1 always stores an explicit clef and mirrors it into `score.clef`
+   *   so the document keeps an opening clef.
+   * - For later measures, the clef is normalized: if the chosen clef equals the
+   *   clef already inherited from earlier measures, no visible change exists, so
+   *   any existing override is cleared instead of storing a redundant one.
+   *
+   * @returns true if the score changed, false if it was already in that state.
+   */
+  setClef(measureNumber: number, clef: Clef): boolean {
+    const measure = this.getMeasure(measureNumber)
+    if (!measure) return false
+
+    if (measureNumber === 1) {
+      const changed = measure.clef !== clef || this.score.clef !== clef
+      measure.clef = clef
+      this.score.clef = clef
+      return changed
+    }
+
+    // Inherited clef from measures before this one
+    const inherited = this.getEffectiveClef(measureNumber - 1)
+    if (clef === inherited) {
+      // Redundant change — clear any existing override instead of storing it
+      if (measure.clef !== undefined) {
+        delete measure.clef
+        return true
+      }
+      return false
+    }
+
+    if (measure.clef === clef) return false
+    measure.clef = clef
+    return true
+  }
+
+  /**
+   * Remove a clef change from a measure, reverting it to the inherited clef.
+   *
+   * Measure 1's clef cannot be removed (the score must always open with a clef);
+   * use setClef to change it instead.
+   *
+   * @returns true if an override was removed, false otherwise.
+   */
+  removeClef(measureNumber: number): boolean {
+    if (measureNumber === 1) return false
+    const measure = this.getMeasure(measureNumber)
+    if (!measure || measure.clef === undefined) return false
+    delete measure.clef
     return true
   }
 

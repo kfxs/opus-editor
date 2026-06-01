@@ -8,7 +8,7 @@ import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoord
 import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, beatToFrac } from '@/utils/musicUtils'
 import { fracToNumber, fracCompare, fracEq, fracAdd, durationToFraction } from '@/utils/fraction'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos } from '@/utils/pitchSpelling'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling, GhostNote } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling, GhostNote, Clef } from '@/types/music'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 
 /** Internal context passed to updateNote sub-methods */
@@ -207,6 +207,44 @@ export class MusicEngine {
   addMeasure(): void {
     this.scoreModel.addMeasure()
     this.saveUndoState('Add measure')
+  }
+
+  // ==================== Clef Operations ====================
+
+  /**
+   * Resolve the clef in effect at a given measure (walks back to the last
+   * explicit clef, falling back to the score's opening clef, then 'treble').
+   */
+  getEffectiveClef(measureNumber: number): Clef {
+    return this.scoreModel.getEffectiveClef(measureNumber)
+  }
+
+  /**
+   * Set/change the clef at a measure. Works on any measure including measure 1.
+   * Clef is visual-only, so playback is unaffected. Saves undo state when changed.
+   * @returns true if the score changed.
+   */
+  setClef(measureNumber: number, clef: Clef): boolean {
+    const changed = this.scoreModel.setClef(measureNumber, clef)
+    if (changed) {
+      this.playbackEngine.setScore(this.scoreModel.getScore())
+      this.saveUndoState(`Set ${clef} clef at measure ${measureNumber}`)
+    }
+    return changed
+  }
+
+  /**
+   * Remove a clef change from a measure, reverting it to the inherited clef.
+   * Measure 1's clef cannot be removed (only changed). Saves undo state when changed.
+   * @returns true if an override was removed.
+   */
+  removeClef(measureNumber: number): boolean {
+    const changed = this.scoreModel.removeClef(measureNumber)
+    if (changed) {
+      this.playbackEngine.setScore(this.scoreModel.getScore())
+      this.saveUndoState(`Remove clef at measure ${measureNumber}`)
+    }
+    return changed
   }
 
   // ==================== Note Operations ====================
@@ -881,6 +919,22 @@ export class MusicEngine {
     // Update coordinate mapper with actual VexFlow bounds
     this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
     return ghostNoteRendered
+  }
+
+  /**
+   * Render the score with a translucent ghost clef at the measure under the cursor.
+   * The clef attaches to a whole measure, so only the measure (not beat/pitch) is used.
+   * @returns true if a ghost clef was drawn, false otherwise
+   */
+  renderScoreWithClefGhost(coords: PixelCoordinates, clef: Clef): boolean {
+    const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
+    if (!this.scoreModel.getMeasure(measureNumber)) {
+      this.renderScore()
+      return false
+    }
+    const drawn = this.renderer.renderScoreWithClefGhost(this.scoreModel.getScore(), measureNumber, clef)
+    this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
+    return drawn
   }
 
   /**

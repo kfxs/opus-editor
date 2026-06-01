@@ -271,6 +271,23 @@
             </button>
           </div>
 
+          <!-- Clef Tool -->
+          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
+            <span class="text-sm text-gray-300">Clef:</span>
+            <button
+              v-for="c in (['treble', 'bass', 'alto'] as const)"
+              :key="c"
+              @click="palette.setClef(c)"
+              :class="[
+                'px-3 py-1 rounded text-lg font-bold leading-none',
+                state.selectedClef === c
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              :title="`${c[0].toUpperCase()}${c.slice(1)} clef — click a measure to place it`"
+            >{{ c === 'treble' ? '𝄞' : c === 'bass' ? '𝄢' : '𝄡' }}</button>
+          </div>
+
           <div class="border-l border-gray-600 mx-2"></div>
           <button
             @click="togglePlayback"
@@ -435,6 +452,16 @@ async function togglePlayback() {
 .ghost-note-preview line {
   stroke: #2563EB !important;
   opacity: 0.7 !important;
+}
+
+/* Translucent ghost clef shown while the clef tool hovers a measure */
+.ghost-clef-group {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.ghost-clef-group path {
+  fill: #2563EB !important;
+  stroke: #2563EB !important;
 }
 
 /* Style selected note elements */

@@ -1,4 +1,4 @@
-import type { Accidental, NoteDuration, BeamMode } from '../types/music'
+import type { Accidental, NoteDuration, BeamMode, Clef } from '../types/music'
 
 export type ToolMode = 'entry' | 'selection'
 export type PlaybackState = 'stopped' | 'playing' | 'paused'
@@ -34,6 +34,13 @@ export interface EditorState {
   tupletMode: boolean
   selectedBeam: BeamMode
 
+  // --- Clef tool ---
+  /** Clef armed for placement (null = clef tool not active). When set, canvas
+   *  clicks set/change a measure's clef and the ghost note is suppressed. */
+  selectedClef: Clef | null
+  /** Measure whose clef is selected for removal (selection tool). */
+  selectedClefMeasure: number | null
+
   // --- UI ---
   showCursor: boolean
   playbackState: PlaybackState
@@ -57,6 +64,8 @@ export function createEditorState(): EditorState {
     tenuto: false,
     tupletMode: false,
     selectedBeam: 'auto',
+    selectedClef: null,
+    selectedClefMeasure: null,
     showCursor: true,
     playbackState: 'stopped',
   }

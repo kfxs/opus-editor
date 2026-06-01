@@ -73,6 +73,13 @@ export function useShortcuts(
         eng.deleteTuplet(state.selectedTupletId)
         state.selectedTupletId = null
         renderer.renderScore()
+      } else if (state.selectedClefMeasure !== null && eng) {
+        const removed = eng.removeClef(state.selectedClefMeasure)
+        if (!removed) {
+          console.log(`Cannot remove clef at measure ${state.selectedClefMeasure} (measure 1 can only be changed)`)
+        }
+        state.selectedClefMeasure = null
+        renderer.renderScore()
       } else if (state.selectedNoteId && eng) {
         eng.deleteNote(state.selectedNoteId)
         selection.selectNote(null)

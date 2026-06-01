@@ -63,6 +63,7 @@ export class SelectionController {
     this.state.selectedAccidentalNoteId = null
     this.state.selectedAccidentalType = null
     this.state.selectedTieFromNoteId = null
+    this.state.selectedClefMeasure = null
 
     if (noteId) {
       const engine = this.getEngine()

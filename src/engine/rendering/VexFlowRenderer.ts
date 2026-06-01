@@ -39,6 +39,8 @@ const LAYOUT_CONFIG = {
   MAX_MEASURE_WIDTH: 400,
   /** Space for clef symbol on first measure of line */
   CLEF_WIDTH: 45,
+  /** Space for a mid-line clef change (smaller than a line-start clef) */
+  CLEF_CHANGE_WIDTH: 30,
   /** Space for time signature */
   TIME_SIG_WIDTH: 30,
   /** Padding before/after barlines */
@@ -178,7 +180,7 @@ export class VexFlowRenderer {
     for (const slot of slots) {
       if (slot.type === 'rest') {
         const vexDuration = this.convertDuration(slot.duration, slot.dots || 0)
-        const staveNote = new StaveNote({ keys: ['b/4'], duration: vexDuration + 'r' })
+        const staveNote = new StaveNote({ keys: ['b/4'], duration: vexDuration + 'r', clef })
         for (let d = 0; d < (slot.dots || 0); d++) {
           Dot.buildAndAttach([staveNote], { all: true })
         }
@@ -251,7 +253,7 @@ export class VexFlowRenderer {
       }
 
       const vexDuration = this.convertDuration(slot.duration, slot.dots || 0)
-      const staveNote = new StaveNote({ keys, duration: vexDuration, autoStem: false })
+      const staveNote = new StaveNote({ keys, duration: vexDuration, clef, autoStem: false })
       staveNote.setStemDirection(stemDirection)
 
       // Add accidental modifiers — VexFlow accepts '#', 'b', 'n', '##', 'bb'
@@ -576,13 +578,31 @@ export class VexFlowRenderer {
   }
 
   /**
+   * Resolve the clef in effect at every measure in a single pass.
+   * Each measure inherits the previous measure's clef unless it carries an
+   * explicit `measure.clef` override. Falls back to the score's opening clef,
+   * then 'treble'. Mirrors ScoreModel.getEffectiveClef.
+   * @returns Map of measure number → effective clef
+   */
+  private computeEffectiveClefs(score: Score): Map<number, Clef> {
+    const map = new Map<number, Clef>()
+    let current: Clef = score.clef || 'treble'
+    for (const measure of score.measures) {
+      if (measure.clef) current = measure.clef
+      map.set(measure.number, current)
+    }
+    return map
+  }
+
+  /**
    * Calculate minimum width needed for a single measure based on its content
    * Uses VexFlow's Formatter to estimate space needed for notes
    */
   private calculateMinimumMeasureWidth(
     measure: Measure,
     isFirstInLine: boolean,
-    clef: Clef
+    clef: Clef,
+    hasClefChange: boolean = false
   ): number {
     // Start with base overhead
     let overhead = LAYOUT_CONFIG.BARLINE_PADDING * 2
@@ -590,6 +610,9 @@ export class VexFlowRenderer {
     // Add clef width for first measure of each line
     if (isFirstInLine) {
       overhead += LAYOUT_CONFIG.CLEF_WIDTH
+    } else if (hasClefChange) {
+      // Mid-line clef change renders a smaller clef at the measure start
+      overhead += LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
     }
 
     // Add time signature width for measure 1
@@ -678,9 +701,11 @@ export class VexFlowRenderer {
    * Pass 1: Calculate minimum widths and group into lines
    * Pass 2: Distribute available space proportionally within each line
    */
-  private calculateMeasureWidths(score: Score): Map<number, MeasureWidthInfo> {
+  private calculateMeasureWidths(
+    score: Score,
+    effectiveClefs: Map<number, Clef>
+  ): Map<number, MeasureWidthInfo> {
     const results = new Map<number, MeasureWidthInfo>()
-    const clef: Clef = score.clef || 'treble'
     const margin = LAYOUT_CONFIG.MARGIN
     const availableWidth = LAYOUT_CONFIG.CONTAINER_WIDTH - (margin * 2)
 
@@ -691,7 +716,10 @@ export class VexFlowRenderer {
 
     for (const measure of score.measures) {
       const isFirstInLine = currentLineMeasures.length === 0
-      const minWidth = this.calculateMinimumMeasureWidth(measure, isFirstInLine, clef)
+      const clef = effectiveClefs.get(measure.number) || 'treble'
+      const prevClef = effectiveClefs.get(measure.number - 1)
+      const hasClefChange = prevClef !== undefined && clef !== prevClef
+      const minWidth = this.calculateMinimumMeasureWidth(measure, isFirstInLine, clef, hasClefChange)
 
       // Check if measure fits on current line
       if (currentLineWidth + minWidth > availableWidth && currentLineMeasures.length > 0) {
@@ -706,7 +734,8 @@ export class VexFlowRenderer {
         currentLineWidth = 0
         currentLineMeasures = []
 
-        // Recalculate width for new line (first-in-line overhead may differ)
+        // Recalculate width for new line (first-in-line gets a full clef, so a
+        // clef change is absorbed into the line-start clef — no extra width)
         const newMinWidth = this.calculateMinimumMeasureWidth(measure, true, clef)
 
         const info: MeasureWidthInfo = {
@@ -747,7 +776,8 @@ export class VexFlowRenderer {
    * @param y - Y position on canvas
    * @param width - Width of the measure
    * @param isFirstInLine - Whether this is the first measure in a line
-   * @param clef - Clef type for rendering and stem direction
+   * @param clef - Effective clef for this measure (rendering and stem direction)
+   * @param hasClefChange - Whether this measure's clef differs from the previous measure
    */
   renderMeasure(
     measure: Measure,
@@ -755,13 +785,14 @@ export class VexFlowRenderer {
     y: number,
     width: number,
     isFirstInLine: boolean = false,
-    clef: Clef = 'treble'
+    clef: Clef = 'treble',
+    hasClefChange: boolean = false
   ): void {
     if (!this.context) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
 
-    const stave = this.buildAndDrawStave(measure, x, y, width, isFirstInLine, clef)
+    const stave = this.buildAndDrawStave(measure, x, y, width, isFirstInLine, clef, hasClefChange)
 
     if (measure.slots.length > 0) {
       const sortedSlots = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))
@@ -798,7 +829,7 @@ export class VexFlowRenderer {
       }
     }
 
-    this.registerStaffAndGeometry(stave, measure, x, y, width, isFirstInLine, clef)
+    this.registerStaffAndGeometry(stave, measure, x, y, width, isFirstInLine, clef, hasClefChange)
   }
 
   private buildAndDrawStave(
@@ -808,11 +839,16 @@ export class VexFlowRenderer {
     width: number,
     isFirstInLine: boolean,
     clef: Clef,
+    hasClefChange: boolean = false,
   ): Stave {
     const stave = new Stave(x, y, width)
 
     if (measure.number === 1 || isFirstInLine) {
+      // Line start: full-size clef showing the effective clef for this measure
       stave.addClef(clef)
+    } else if (hasClefChange) {
+      // Mid-line clef change: smaller clef at the start of the measure it applies to
+      stave.addClef(clef, 'small')
     }
     if (measure.number === 1) {
       stave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
@@ -1124,6 +1160,7 @@ export class VexFlowRenderer {
     width: number,
     isFirstInLine: boolean,
     clef: Clef,
+    hasClefChange: boolean = false,
   ): void {
     try {
       const staveBox = stave.getBoundingBox()
@@ -1152,11 +1189,20 @@ export class VexFlowRenderer {
       })
     } catch (e) { /* getBoundingBox or getYForLine may fail */ }
 
+    // Register the clef element when a clef glyph is actually drawn: at line
+    // starts (full clef) or mid-line clef changes (smaller clef). Used for hit
+    // detection (clef removal) and ghost-clef positioning.
     if (measure.number === 1 || isFirstInLine) {
       this.elementRegistry.add({
         type: 'clef',
         measure: measure.number,
         bbox: { x, y, width: LAYOUT_CONFIG.CLEF_WIDTH, height: LAYOUT_CONFIG.STAVE_HEIGHT },
+      })
+    } else if (hasClefChange) {
+      this.elementRegistry.add({
+        type: 'clef',
+        measure: measure.number,
+        bbox: { x, y, width: LAYOUT_CONFIG.CLEF_CHANGE_WIDTH, height: LAYOUT_CONFIG.STAVE_HEIGHT },
       })
     }
 
@@ -1200,11 +1246,11 @@ export class VexFlowRenderer {
     const verticalSpacing = LAYOUT_CONFIG.VERTICAL_SPACING
     const containerWidth = LAYOUT_CONFIG.CONTAINER_WIDTH
 
-    // Get clef from score (default to treble)
-    const clef: Clef = score.clef || 'treble'
+    // Resolve the clef in effect at each measure (handles per-measure changes)
+    const effectiveClefs = this.computeEffectiveClefs(score)
 
     // Calculate proportional widths for all measures
-    const measureWidths = this.calculateMeasureWidths(score)
+    const measureWidths = this.calculateMeasureWidths(score, effectiveClefs)
     // Store for use in tie rendering (to determine which line each measure is on)
     this.measureLayoutInfo = measureWidths
 
@@ -1250,8 +1296,11 @@ export class VexFlowRenderer {
 
       const y = margin + currentLine * (staveHeight + verticalSpacing)
       const isFirstInLine = currentX === margin
+      const clef = effectiveClefs.get(measure.number) || 'treble'
+      const prevClef = effectiveClefs.get(measure.number - 1)
+      const hasClefChange = prevClef !== undefined && clef !== prevClef
 
-      this.renderMeasure(measure, currentX, y, widthInfo.finalWidth, isFirstInLine, clef)
+      this.renderMeasure(measure, currentX, y, widthInfo.finalWidth, isFirstInLine, clef, hasClefChange)
 
       currentX += widthInfo.finalWidth
     })
@@ -1314,12 +1363,17 @@ export class VexFlowRenderer {
 
       const measureY = margin + widthInfo.lineNumber * (staveHeight + verticalSpacing)
       const staveWidth = widthInfo.finalWidth
-      const clef: Clef = score.clef || 'treble'
+      const effectiveClefs = this.computeEffectiveClefs(score)
+      const clef: Clef = effectiveClefs.get(ghostNote.measure) || 'treble'
+      const prevClef = effectiveClefs.get(ghostNote.measure - 1)
+      const hasClefChange = prevClef !== undefined && clef !== prevClef
 
       const tempStave = new Stave(measureX, measureY, staveWidth)
       const isFirstInLine = measureX === margin
       if (ghostNote.measure === 1 || isFirstInLine) {
         tempStave.addClef(clef)
+      } else if (hasClefChange) {
+        tempStave.addClef(clef, 'small')
       }
       if (ghostNote.measure === 1) {
         tempStave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
@@ -1349,6 +1403,7 @@ export class VexFlowRenderer {
       const staveNote = new StaveNote({
         keys: [vexNote],
         duration: vexDuration,
+        clef,
         autoStem: false,
       })
       staveNote.setStemDirection(stemDirection)
@@ -1767,5 +1822,44 @@ export class VexFlowRenderer {
    */
   renderScoreWithGhostNote(score: Score, ghostNote?: GhostNote): boolean {
     return this.renderScore(score, ghostNote)
+  }
+
+  /**
+   * Render the score, then overlay a translucent ghost clef on the given measure.
+   * Drawn as a temporary stave (whose lines align exactly with the real measure)
+   * wrapped in a `.ghost-clef-group` so CSS can tint it. Communicates where a
+   * click will place/change the clef.
+   * @returns true if the ghost clef was drawn
+   */
+  renderScoreWithClefGhost(score: Score, measureNumber: number, clef: Clef): boolean {
+    this.renderScore(score)
+
+    const bounds = this.measureBounds.get(measureNumber)
+    const svg = this.getSVGElement()
+    if (!bounds || !svg) return false
+
+    try {
+      const childrenBefore = svg.children.length
+
+      const tempStave = new Stave(bounds.measureX, bounds.measureY, bounds.measureWidth)
+      tempStave.addClef(clef)
+      tempStave.setContext(this.context!).draw()
+
+      const newElements: Element[] = []
+      for (let i = childrenBefore; i < svg.children.length; i++) {
+        newElements.push(svg.children[i])
+      }
+      if (newElements.length === 0) return false
+
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+      group.setAttribute('class', 'ghost-clef-group')
+      for (const el of newElements) svg.removeChild(el)
+      for (const el of newElements) group.appendChild(el)
+      svg.appendChild(group)
+
+      return true
+    } catch (e) {
+      return false
+    }
   }
 }

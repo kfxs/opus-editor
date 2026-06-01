@@ -1,4 +1,4 @@
-import type { ArticulationType, Accidental, NoteDuration, PitchAlter, BeamMode } from '../types/music'
+import type { ArticulationType, Accidental, NoteDuration, PitchAlter, BeamMode, Clef } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
 import { fracLt, fracCompare } from '../utils/fraction'
@@ -32,6 +32,7 @@ export class PaletteController {
     this.state.selectedDuration = duration
     this.state.selectedDots = 0
     this.state.tupletMode = false
+    this.state.selectedClef = null
     const engine = this.getEngine()
     if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
       const before = engine.getNote(this.state.selectedNoteId)
@@ -207,6 +208,23 @@ export class PaletteController {
     }
   }
 
+  /**
+   * Arm/disarm a clef for placement. Clicking the active clef again disarms it.
+   * While armed, canvas clicks set/change a measure's clef (see MouseController)
+   * and the ghost note is suppressed. Switches to the entry tool so canvas clicks
+   * are handled (the selection tool ignores clicks for placement).
+   */
+  setClef(clef: Clef): void {
+    const newValue = this.state.selectedClef === clef ? null : clef
+    this.state.selectedClef = newValue
+    if (newValue) {
+      this.state.selectedTool = 'entry'
+      this.state.selectedNoteId = null
+      this.state.selectedClefMeasure = null
+    }
+    this.renderScore()
+  }
+
   resetToDefaults(): void {
     this.state.selectedDuration = 'q'
     this.state.selectedAccidental = null
@@ -215,6 +233,7 @@ export class PaletteController {
     this.state.staccato = false
     this.state.tenuto = false
     this.state.selectedBeam = 'auto'
+    this.state.selectedClef = null
   }
 
   // --- Toolbar button active-state helpers ---

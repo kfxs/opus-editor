@@ -1,4 +1,5 @@
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { Clef } from '../types/music'
 import type { EditorState } from './EditorState'
 import type { HighlightController } from './HighlightController'
 
@@ -19,6 +20,7 @@ export class RenderController {
     this.highlight.applyAccidentalHighlight()
     this.highlight.applyTupletSelectionHighlight()
     this.highlight.applyTieHighlight()
+    this.highlight.applyClefSelectionHighlight()
     this.highlight.applyKeyboardCursor()
   }
 
@@ -49,5 +51,13 @@ export class RenderController {
     )
     this.applyHighlights()
     return ghostRendered
+  }
+
+  /** Render the score with a translucent ghost clef at the hovered measure. */
+  renderClefGhost(coords: { x: number; y: number }, clef: Clef): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    engine.renderScoreWithClefGhost(coords, clef)
+    this.applyHighlights()
   }
 }
