@@ -560,6 +560,39 @@ describe('ScoreModel', () => {
       })
     })
 
+    describe('moveClef (cross-measure)', () => {
+      it('moves a clef change from one measure to another', () => {
+        model.setClefAt(2, frac(2, 1), 'bass')
+        expect(model.moveClef(2, frac(2, 1), 4, frac(1, 1))).toBe(true)
+        expect(clefAt(2, 2)).toBeUndefined()
+        expect(clefAt(4, 1)).toBe('bass')
+        // The clef now governs from measure 4 beat 1 onward; measure 2 reverts.
+        expect(model.getEffectiveClefAt(2, frac(2, 1))).toBe('treble')
+        expect(model.getEffectiveClefAt(4, frac(1, 1))).toBe('bass')
+      })
+
+      it('drops the source measure clefs array when it becomes empty', () => {
+        model.setClefAt(2, frac(2, 1), 'bass')
+        model.moveClef(2, frac(2, 1), 3, frac(0, 1))
+        expect(model.getMeasure(2)!.clefs).toBeUndefined()
+        expect(clefAt(3, 0)).toBe('bass')
+      })
+
+      it('overwrites a clef already at the target position in another measure', () => {
+        model.setClefAt(2, frac(2, 1), 'bass')
+        model.setClefAt(4, frac(1, 1), 'alto')
+        expect(model.moveClef(2, frac(2, 1), 4, frac(1, 1))).toBe(true)
+        expect(clefAt(4, 1)).toBe('bass')
+        expect(model.getMeasure(4)!.clefs?.length).toBe(1)
+      })
+
+      it('refuses to land on measure 1 / beat 0', () => {
+        model.setClefAt(2, frac(2, 1), 'bass')
+        expect(model.moveClef(2, frac(2, 1), 1, frac(0, 1))).toBe(false)
+        expect(clefAt(2, 2)).toBe('bass')
+      })
+    })
+
     describe('normalizeClefAt', () => {
       it('removes a change that equals the clef in effect before it', () => {
         model.setClefAt(3, frac(1, 1), 'bass')

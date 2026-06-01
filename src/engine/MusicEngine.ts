@@ -262,12 +262,13 @@ export class MusicEngine {
   }
 
   /**
-   * Relocate a clef change to a new beat within its measure. Raw move used while
-   * dragging — does NOT record undo. Call commitClefMove once when the drag ends.
+   * Relocate a clef change to a new position, possibly across measures. Raw move
+   * used while dragging — does NOT record undo. Call commitClefMove when the drag
+   * ends.
    * @returns true if the clef was relocated.
    */
-  moveClefWithinMeasure(measureNumber: number, fromBeat: Fraction, toBeat: Fraction): boolean {
-    return this.scoreModel.moveClefWithinMeasure(measureNumber, fromBeat, toBeat)
+  moveClef(fromMeasure: number, fromBeat: Fraction, toMeasure: number, toBeat: Fraction): boolean {
+    return this.scoreModel.moveClef(fromMeasure, fromBeat, toMeasure, toBeat)
   }
 
   /**
