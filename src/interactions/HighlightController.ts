@@ -1,8 +1,6 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
 import { buildBeatMap } from '../utils/beatMap'
-import { getMeasureNotes } from '../utils/musicUtils'
-import { spellingToMidi } from '../utils/pitchSpelling'
 
 /**
  * Applies SVG highlight classes/colors after each render.
@@ -77,176 +75,60 @@ export class HighlightController {
     const scoreCanvas = this.getScoreCanvas()
     if (!engine || !scoreCanvas || !this.state.selectedNoteId) return
 
-    const elementInfo = engine.getElementById(this.state.selectedNoteId)
-    if (!elementInfo) return
+    // Recolor the note's OWN rendered SVG group, never a document-wide region. VexFlow
+    // draws each StaveNote's ledger lines, stem and noteheads inside one
+    // `<g class="vf-stavenote">`, so confining the recolor to that group makes the
+    // selection highlight bleed-free in both directions (the old approach scanned a
+    // synthetic band that overlapped the staff line above or below).
+    const groupInfo = engine.getStaveNoteSVGGroup(this.state.selectedNoteId)
+    if (!groupInfo) return
+    const { group, noteIndex, stem } = groupInfo
 
-    const svg = scoreCanvas.querySelector('svg')
-    if (!svg) return
+    const isRest = engine.getElementById(this.state.selectedNoteId)?.type === 'rest'
 
     const SELECTION_COLOR = '#F59E0B'
     const SELECTION_STROKE = '#D97706'
 
-    const score = engine.getScore()
-    let notePitch: number | null = null
-    let noteMeasure: number | null = null
-    let isRest = false
-    let noteTupletId: string | null = null
-
-    for (const measure of score.measures) {
-      const element = getMeasureNotes(measure).find(n => n.id === this.state.selectedNoteId)
-      if (element) {
-        noteMeasure = element.measure
-        isRest = element.isRest || false
-        noteTupletId = element.tupletId || null
-        if (!element.isRest) {
-          notePitch = spellingToMidi(element.step!, element.alter!, element.octave!)
-        }
-        break
-      }
+    const colorFill = (el: Element) => {
+      const svgEl = el as SVGElement
+      svgEl.setAttribute('fill', SELECTION_COLOR)
+      svgEl.style.fill = SELECTION_COLOR
+      svgEl.classList.add('selected-note')
+    }
+    const colorStroke = (el: Element) => {
+      const svgEl = el as SVGElement
+      svgEl.setAttribute('stroke', SELECTION_STROKE)
+      svgEl.style.stroke = SELECTION_STROKE
+      svgEl.classList.add('selected-note')
     }
 
-    let tupletBbox: { x: number; y: number; width: number; height: number } | null = null
-    if (noteTupletId) {
-      const tupletInfo = engine.getTupletElementById(noteTupletId)
-      if (tupletInfo) tupletBbox = tupletInfo.bbox
+    if (isRest) {
+      // A rest is a single glyph — color every glyph in its group.
+      group.querySelectorAll('text, path').forEach(colorFill)
+      return
     }
 
-    const registry = engine.getElementRegistry()
-    // X of the selected note, used to resolve its clef region (mid-measure changes)
-    const noteCenterX = elementInfo.bbox.x + elementInfo.bbox.width / 2
-    let targetY: number | null = null
-    if (notePitch !== null && noteMeasure !== null) {
-      targetY = registry.pitchToPixelY(notePitch, noteMeasure, noteCenterX)
-    }
+    // Rule: color what belongs solely to this note — its notehead and stem — and never
+    // shared structure (the beam bar, staff lines, barlines).
+    //
+    // The flag (the hook on an unbeamed 8th/16th) is intentionally NOT highlighted: it
+    // is reserved to become its own selectable element later, like accidentals and ties.
+    // Do not add it here without revisiting that decision.
 
-    const bbox = elementInfo.bbox
-    const noteHeight = 25
-    const selectBbox = (targetY !== null && !isRest) ? {
-      x: bbox.x,
-      y: targetY - noteHeight / 2,
-      width: bbox.width,
-      height: noteHeight,
-    } : bbox
+    // Stem: resolved by identity, so it works whether the note drew its own stem
+    // (unbeamed) or the beam drew it (beamed). A chord's single stem is shared by its
+    // noteheads, which is correct — it is still this note's stem.
+    if (stem) stem.querySelectorAll('path, line').forEach(colorStroke)
 
-    let isInChord = false
-    let chordNoteYPositions: number[] = []
-    if (noteMeasure !== null && !isRest) {
-      const measureData = score.measures.find(m => m.number === noteMeasure)
-      if (measureData) {
-        const measureNotes = getMeasureNotes(measureData)
-        const noteData = measureNotes.find(n => n.id === this.state.selectedNoteId)
-        if (noteData) {
-          const notesAtBeat = measureNotes.filter(
-            n => !n.isRest && n.beat.num === noteData.beat.num && n.beat.den === noteData.beat.den,
-          )
-          isInChord = notesAtBeat.length > 1
-          if (isInChord) {
-            for (const chordNote of notesAtBeat) {
-              if (chordNote.id !== this.state.selectedNoteId) {
-                const chordNoteY = registry.pitchToPixelY(spellingToMidi(chordNote.step!, chordNote.alter!, chordNote.octave!), noteMeasure, noteCenterX)
-                if (chordNoteY !== null) {
-                  chordNoteYPositions.push(chordNoteY)
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    const hasTupletsInMeasure = noteMeasure !== null
-      ? registry.getTupletsByMeasure(noteMeasure).length > 0
-      : false
-
-    // Collect all tie bboxes so we can skip tie paths during note highlighting
-    const tieBboxes = registry.getByType('tie').map(el => el.bbox)
-
-    const allElements = svg.querySelectorAll('path, ellipse, circle, line, rect, text, use')
-
-    for (const el of allElements) {
-      const elBBox = (el as SVGGraphicsElement).getBBox?.()
-      if (!elBBox) continue
-
-      // Skip path elements that belong to a registered tie arc
-      if (el.tagName === 'path') {
-        const cx = elBBox.x + elBBox.width / 2
-        const cy = elBBox.y + elBBox.height / 2
-        const isTiePath = tieBboxes.some(tb =>
-          cx >= tb.x && cx <= tb.x + tb.width &&
-          cy >= tb.y - 4 && cy <= tb.y + tb.height + 4,
-        )
-        if (isTiePath) continue
-      }
-
-      const intersects = !(
-        elBBox.x + elBBox.width < selectBbox.x ||
-        elBBox.x > selectBbox.x + selectBbox.width ||
-        elBBox.y + elBBox.height < selectBbox.y ||
-        elBBox.y > selectBbox.y + selectBbox.height
-      )
-
-      if (intersects) {
-        if (elBBox.width < 50) {
-          const svgEl = el as SVGElement
-          const elCenterY = elBBox.y + elBBox.height / 2
-          const elCenterX = elBBox.x + elBBox.width / 2
-
-          if (tupletBbox) {
-            const xMargin = 5
-            if (
-              elCenterX >= tupletBbox.x - xMargin &&
-              elCenterX <= tupletBbox.x + tupletBbox.width + xMargin &&
-              elCenterY >= tupletBbox.y &&
-              elCenterY <= tupletBbox.y + tupletBbox.height
-            ) {
-              continue
-            }
-          }
-
-          if (hasTupletsInMeasure && el.tagName === 'text' && targetY !== null) {
-            if (Math.abs(elCenterY - targetY) > 8) {
-              continue
-            }
-          }
-
-          if (isInChord && targetY !== null) {
-            if (el.tagName === 'line') {
-              if (elBBox.height > 20) {
-                continue
-              }
-            }
-            const distToSelectedNote = Math.abs(elCenterY - targetY)
-            let isCloserToOtherNote = false
-            for (const otherNoteY of chordNoteYPositions) {
-              const distToOtherNote = Math.abs(elCenterY - otherNoteY)
-              if (distToOtherNote < distToSelectedNote) {
-                isCloserToOtherNote = true
-                break
-              }
-            }
-            if (isCloserToOtherNote) continue
-            if (distToSelectedNote > 20) continue
-          }
-
-          svgEl.dataset.originalFill = svgEl.getAttribute('fill') || ''
-          svgEl.dataset.originalStroke = svgEl.getAttribute('stroke') || ''
-
-          if (el.tagName === 'line') {
-            svgEl.setAttribute('stroke', SELECTION_STROKE)
-          } else if (el.tagName === 'text') {
-            svgEl.setAttribute('fill', SELECTION_COLOR)
-            svgEl.style.fill = SELECTION_COLOR
-          } else {
-            const currentFill = svgEl.getAttribute('fill')
-            if (currentFill && currentFill !== 'none') {
-              svgEl.setAttribute('fill', SELECTION_COLOR)
-            }
-            svgEl.setAttribute('stroke', SELECTION_STROKE)
-          }
-          svgEl.classList.add('selected-note')
-        }
-      }
-    }
+    // Notehead: noteheads draw in key order (low→high), matching the stored noteIndex,
+    // so in a chord we color exactly the selected head. Color only its first glyph (the
+    // head), not any accidental/dots drawn in the same group.
+    const noteheads = group.querySelectorAll('g.vf-notehead')
+    const target = noteheads[noteIndex] ?? (noteheads.length === 1 ? noteheads[0] : null)
+    const head = target
+      ? target.querySelector('text, path')
+      : group.querySelector('g.vf-notehead text, g.vf-notehead path')
+    if (head) colorFill(head)
   }
 
   applyArticulationHighlight(): void {
@@ -408,58 +290,32 @@ export class HighlightController {
     const scoreCanvas = this.getScoreCanvas()
     if (!engine || !scoreCanvas || !this.state.selectedTupletId) return
 
-    const elementInfo = engine.getTupletElementById(this.state.selectedTupletId)
-    if (!elementInfo) return
-
-    const svg = scoreCanvas.querySelector('svg')
-    if (!svg) return
+    // Recolor inside the tuplet's OWN group only — never a document-wide region — so it
+    // cannot bleed onto a neighbouring system (the old bbox scan did exactly that).
+    // The group holds the bracket (thin filled <rect>s), the number (<text>), and a
+    // transparent pointer-rect hit-area (opacity 0 — leave it alone).
+    const group = engine.getTupletSVGGroup(this.state.selectedTupletId)
+    if (!group) return
 
     const SELECTION_COLOR = '#F59E0B'
-    const SELECTION_STROKE = '#D97706'
-    const bbox = elementInfo.bbox
 
-    const allElements = svg.querySelectorAll('path, line, text, rect, polygon, polyline')
-
-    for (const el of allElements) {
-      const elBBox = (el as SVGGraphicsElement).getBBox?.()
-      if (!elBBox) continue
-
-      const elCenterX = elBBox.x + elBBox.width / 2
-      const elCenterY = elBBox.y + elBBox.height / 2
-      const xMargin = 5
-      const centerInBbox = (
-        elCenterX >= bbox.x - xMargin &&
-        elCenterX <= bbox.x + bbox.width + xMargin &&
-        elCenterY >= bbox.y &&
-        elCenterY <= bbox.y + bbox.height
-      )
-
-      if (centerInBbox) {
-        let shouldHighlight = false
-        if (el.tagName === 'text') {
-          shouldHighlight = elBBox.width < 30
-        } else {
-          shouldHighlight = elBBox.width < 80 && elBBox.height < 20
-        }
-
-        if (shouldHighlight) {
-          const svgEl = el as SVGElement
-          svgEl.dataset.originalFill = svgEl.getAttribute('fill') || ''
-          svgEl.dataset.originalStroke = svgEl.getAttribute('stroke') || ''
-
-          if (el.tagName === 'line' || el.tagName === 'path') {
-            svgEl.setAttribute('stroke', SELECTION_STROKE)
-          }
-          if (el.tagName === 'rect') {
-            svgEl.setAttribute('fill', SELECTION_COLOR)
-          }
-          if (el.tagName === 'text') {
-            svgEl.setAttribute('fill', SELECTION_COLOR)
-            svgEl.style.fill = SELECTION_COLOR
-          }
-          svgEl.classList.add('selected-tuplet')
-        }
+    // Bracket segments: thin rects (1px in one dimension). Skip the full-size pointer
+    // hit-area, which spans the whole tuplet bbox.
+    group.querySelectorAll('rect').forEach(rect => {
+      const w = rect.width.baseVal.value
+      const h = rect.height.baseVal.value
+      if (w <= 2 || h <= 2) {
+        rect.setAttribute('fill', SELECTION_COLOR)
+        rect.style.fill = SELECTION_COLOR
+        rect.classList.add('selected-tuplet')
       }
-    }
+    })
+
+    // The tuplet number (e.g. "3").
+    group.querySelectorAll('text').forEach(text => {
+      text.setAttribute('fill', SELECTION_COLOR)
+      text.style.fill = SELECTION_COLOR
+      text.classList.add('selected-tuplet')
+    })
   }
 }

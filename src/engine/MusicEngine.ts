@@ -1225,6 +1225,22 @@ export class MusicEngine {
     return this.renderer.getElementRegistry().getTupletById(tupletId)
   }
 
+  /**
+   * Get the rendered SVG group for a note/rest plus its key index within the chord.
+   * Used to recolor exactly one note for the selection highlight (no document scan).
+   */
+  getStaveNoteSVGGroup(noteId: string): { group: SVGGElement; noteIndex: number; stem: SVGGElement | null } | null {
+    return this.renderer.getStaveNoteSVGGroup(noteId)
+  }
+
+  /**
+   * Get the rendered SVG group for a tuplet (its bracket + number), to recolor exactly
+   * one tuplet for the selection highlight (no document scan).
+   */
+  getTupletSVGGroup(tupletId: string): SVGGElement | null {
+    return this.renderer.getTupletSVGGroup(tupletId)
+  }
+
   // ==================== Cleanup ====================
 
   /**

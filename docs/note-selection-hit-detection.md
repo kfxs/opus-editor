@@ -1,7 +1,32 @@
 # Note Selection Hit-Detection — Issue & Robust Fix Proposal
 
-**Status:** Phase 1 (selection) implemented 2026-06-01. Phase 2 (highlight bleed) still open.
+**Status:** Phase 1 (selection) and Phase 2 (highlight bleed) both implemented 2026-06-01.
 **Date:** 2026-06-01
+
+## Update — Phase 2 shipped (highlight bleed)
+
+The bleed lived in `HighlightController` (post-render DOM scans over a synthetic bbox
+band), NOT the renderer. Both the note highlight and the tuplet highlight bled into
+neighbouring systems. Fix: recolor inside each element's OWN VexFlow SVG group instead
+of scanning the document, so the recolor physically cannot reach another system.
+
+- **Notes** (`applySelectionHighlight`): recolor inside the note's `<g class="vf-stavenote">`.
+  Color rule = "what belongs solely to the note": the selected **notehead** (picked by the
+  stored chord `noteIndex`, which matches notehead DOM order low→high) and its **stem**.
+  The stem is resolved by identity via `staveNote.getStem().getSVGElement()` so it's found
+  whether the note drew it (unbeamed) or the **beam** drew it (beamed notes don't render
+  their own stem — `shouldRenderStem = hasStem() && !beam`). The **flag** is intentionally
+  NOT colored (reserved as a future separate selectable element, like accidentals/ties);
+  shared structure (beam bar, staff lines, barlines) is never colored.
+- **Tuplets** (`applyTupletSelectionHighlight`): recolor inside the tuplet's
+  `<g class="vf-tuplet">` — the bracket (thin `<rect>`s, 1px in one dimension) and the
+  number `<text>`. The full-size transparent pointer hit-area (`opacity:0`) is skipped.
+- Renderer accessors: `getStaveNoteSVGGroup(noteId)` (group + noteIndex + stem) and
+  `getTupletSVGGroup(tupletId)`, backed by `staveNoteMap` and a new `tupletObjectMap`.
+
+Still using the old document-scan pattern (not yet reported bleeding, left as-is):
+`applyAccidentalHighlight` (matches by X-column within 1px — latent cross-system risk),
+`applyTieHighlight`, `applyClefSelectionHighlight`, `applyArticulationHighlight`.
 
 ## Update — what shipped (Phase 1)
 

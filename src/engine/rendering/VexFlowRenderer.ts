@@ -100,6 +100,8 @@ export class VexFlowRenderer {
   private elementRegistry: ElementRegistry = new ElementRegistry()
   /** Map of note IDs to their rendered StaveNotes (for tie rendering) */
   private staveNoteMap: Map<string, { staveNote: StaveNote; noteIndex: number }> = new Map()
+  /** Map of tuplet IDs to their rendered VexFlow Tuplet objects (for scoped highlight) */
+  private tupletObjectMap: Map<string, VexFlowTuplet> = new Map()
   /** Map of measure numbers to their layout info (including line number) */
   private measureLayoutInfo: Map<number, MeasureWidthInfo> = new Map()
   /** Snapshot of the layout captured when frozen. While non-null, renderScore
@@ -1208,6 +1210,9 @@ export class VexFlowRenderer {
             bbox: { x: xStart, y: bracketY, width: tupletWidth, height: totalHeight },
             tupletGeometry,
           })
+          // Keep the VexFlow Tuplet so its own SVG group can be recolored for selection
+          // (avoids a document-wide scan that bleeds into neighbouring systems).
+          this.tupletObjectMap.set(tupletId, vexTuplet)
           break
         }
       } catch (e) {
@@ -2056,6 +2061,8 @@ export class VexFlowRenderer {
     this.elementRegistry.clear()
     // Clear the stave note map
     this.staveNoteMap.clear()
+    // Clear the tuplet object map
+    this.tupletObjectMap.clear()
     // Clear measure layout info
     this.measureLayoutInfo.clear()
   }
@@ -2065,6 +2072,43 @@ export class VexFlowRenderer {
    */
   getSVGElement(): SVGElement | null {
     return this.svgContainer.querySelector('svg')
+  }
+
+  /**
+   * Get the rendered SVG nodes for a note/rest needed to recolor exactly this note
+   * (the basis for a bleed-free selection highlight). Must be called after a render
+   * (the map and DOM ids are rebuilt each render).
+   *
+   * - `group`: the note's `<g class="vf-stavenote">` — VexFlow draws its ledger lines,
+   *   noteheads and flag inside it (and its stem too, when the note is NOT beamed).
+   * - `noteIndex`: the selected pitch's key index within the chord (low→high), matching
+   *   the DOM order of the notehead subgroups.
+   * - `stem`: the note's stem group, resolved by identity via the Stem object. A beamed
+   *   note's stem is drawn by the Beam (inside `<g class="vf-beam">`, NOT the note's
+   *   group), so this is the only reliable way to recolor a beamed note's stem.
+   */
+  getStaveNoteSVGGroup(noteId: string): { group: SVGGElement; noteIndex: number; stem: SVGGElement | null } | null {
+    const info = this.staveNoteMap.get(noteId)
+    if (!info) return null
+    const group = info.staveNote.getSVGElement?.()
+    if (!group) return null
+    const stem = info.staveNote.getStem?.()?.getSVGElement?.() ?? null
+    return {
+      group: group as unknown as SVGGElement,
+      noteIndex: info.noteIndex,
+      stem: (stem as unknown as SVGGElement) ?? null,
+    }
+  }
+
+  /**
+   * Get the rendered SVG group (`<g class="vf-tuplet">`) for a tuplet, containing its
+   * bracket and number. Lets the selection highlight recolor exactly this tuplet
+   * without a document-wide scan (which bled into neighbouring systems).
+   * Must be called after a render.
+   */
+  getTupletSVGGroup(tupletId: string): SVGGElement | null {
+    const group = this.tupletObjectMap.get(tupletId)?.getSVGElement?.()
+    return (group as unknown as SVGGElement) ?? null
   }
 
   /**
