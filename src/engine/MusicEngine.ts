@@ -922,17 +922,13 @@ export class MusicEngine {
   }
 
   /**
-   * Render the score with a translucent ghost clef at the measure under the cursor.
-   * The clef attaches to a whole measure, so only the measure (not beat/pitch) is used.
+   * Render the score with a free-floating translucent ghost clef that follows the
+   * cursor. The clef glyph tracks the mouse anywhere on the canvas; on click it is
+   * applied to whichever measure was clicked (see MouseController).
    * @returns true if a ghost clef was drawn, false otherwise
    */
   renderScoreWithClefGhost(coords: PixelCoordinates, clef: Clef): boolean {
-    const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
-    if (!this.scoreModel.getMeasure(measureNumber)) {
-      this.renderScore()
-      return false
-    }
-    const drawn = this.renderer.renderScoreWithClefGhost(this.scoreModel.getScore(), measureNumber, clef)
+    const drawn = this.renderer.renderScoreWithClefGhost(this.scoreModel.getScore(), coords.x, coords.y, clef)
     this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
     return drawn
   }

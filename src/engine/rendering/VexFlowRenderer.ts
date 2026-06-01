@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Beam, StaveTie, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Beam, StaveTie, Dot, Barline, Tuplet as VexFlowTuplet } from 'vexflow'
 import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Chord, Fraction, PitchStep, PitchAlter, GhostNote } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare } from '@/utils/fraction'
 import { ElementRegistry, type TupletGeometry } from '@/engine/ElementRegistry'
@@ -1828,23 +1828,26 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Render the score, then overlay a translucent ghost clef on the given measure.
-   * Drawn as a temporary stave (whose lines align exactly with the real measure)
-   * wrapped in a `.ghost-clef-group` so CSS can tint it. Communicates where a
-   * click will place/change the clef.
+   * Render the score, then overlay a free-floating translucent ghost clef that
+   * follows the cursor (like the ghost note). The clef glyph is drawn alone (via
+   * a 0-line stave so no staff lines appear), wrapped in a `.ghost-clef-group`
+   * for CSS tinting, and translated so its center sits at the cursor.
    * @returns true if the ghost clef was drawn
    */
-  renderScoreWithClefGhost(score: Score, measureNumber: number, clef: Clef): boolean {
+  renderScoreWithClefGhost(score: Score, cursorX: number, cursorY: number, clef: Clef): boolean {
     this.renderScore(score)
 
-    const bounds = this.measureBounds.get(measureNumber)
     const svg = this.getSVGElement()
-    if (!bounds || !svg) return false
+    if (!svg) return false
 
     try {
       const childrenBefore = svg.children.length
 
-      const tempStave = new Stave(bounds.measureX, bounds.measureY, bounds.measureWidth)
+      // Draw just the clef glyph: a stave with 0 lines and no barlines renders
+      // only the clef modifier. Initial position is arbitrary — we reposition below.
+      const tempStave = new Stave(0, cursorY, 120, { numLines: 0 })
+      tempStave.setBegBarType(Barline.type.NONE)
+      tempStave.setEndBarType(Barline.type.NONE)
       tempStave.addClef(clef)
       tempStave.setContext(this.context!).draw()
 
@@ -1859,6 +1862,14 @@ export class VexFlowRenderer {
       for (const el of newElements) svg.removeChild(el)
       for (const el of newElements) group.appendChild(el)
       svg.appendChild(group)
+
+      // Center the glyph on the cursor so it tracks the mouse freely.
+      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
+      if (gbox && gbox.width > 0) {
+        const dx = cursorX - (gbox.x + gbox.width / 2)
+        const dy = cursorY - (gbox.y + gbox.height / 2)
+        group.setAttribute('transform', `translate(${dx}, ${dy})`)
+      }
 
       return true
     } catch (e) {

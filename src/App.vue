@@ -454,13 +454,21 @@ async function togglePlayback() {
   opacity: 0.7 !important;
 }
 
-/* Translucent ghost clef shown while the clef tool hovers a measure */
+/* Free-floating translucent ghost clef that follows the cursor (matches ghost note) */
 .ghost-clef-group {
-  opacity: 0.45;
+  opacity: 0.7;
   pointer-events: none;
 }
-.ghost-clef-group path {
-  fill: #2563EB !important;
+.ghost-clef-group path,
+.ghost-clef-group ellipse,
+.ghost-clef-group circle {
+  fill: #3B82F6 !important;
+  stroke: #2563EB !important;
+}
+.ghost-clef-group text {
+  fill: #3B82F6 !important;
+}
+.ghost-clef-group line {
   stroke: #2563EB !important;
 }
 
