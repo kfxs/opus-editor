@@ -115,17 +115,21 @@ export class MouseController {
     const { x, y } = coords
 
     const registry = engine.getElementRegistry()
-    const measureNum = engine.pixelToMeasure({ x, y })
-    const closestElement = registry.findClosestNoteOrRest(x, y, measureNum)
-    const tupletAtClick = registry.getTupletAt(x, y, measureNum)
+    // Selection is resolved by each element's own rendered geometry, NOT by the
+    // click's vertical staff band: a note/tuplet drawn far from its staff (ledger
+    // lines, brackets) lands in a neighbouring band, so a band-derived measure would
+    // pick the wrong line and miss the element. (Band resolution via pixelToMeasure
+    // is still correct for note entry / clef tool / clef drag below.)
+    const closestElement = registry.findClosestNoteOrRest(x, y)
+    const tupletAtClick = registry.getTupletAt(x, y)
 
     if (tupletAtClick && tupletAtClick.tupletId) {
       const tupletNotes = registry.getNotesByTupletId(tupletAtClick.tupletId)
       let minVerticalDistance = Infinity
 
       for (const note of tupletNotes) {
-        if (note.pitch !== undefined) {
-          const noteY = registry.pitchToPixelY(note.pitch, measureNum, note.bbox.x + note.bbox.width / 2)
+        if (note.pitch !== undefined && note.measure !== undefined) {
+          const noteY = registry.pitchToPixelY(note.pitch, note.measure, note.bbox.x + note.bbox.width / 2)
           if (noteY !== null) {
             const verticalDistance = Math.abs(y - noteY)
             minVerticalDistance = Math.min(minVerticalDistance, verticalDistance)
@@ -237,8 +241,8 @@ export class MouseController {
       const centerX = bbox.x + bbox.width / 2
 
       let elementY: number
-      if (closestElement.type === 'note' && closestElement.pitch !== undefined) {
-        const pitchY = registry.pitchToPixelY(closestElement.pitch, measureNum, centerX)
+      if (closestElement.type === 'note' && closestElement.pitch !== undefined && closestElement.measure !== undefined) {
+        const pitchY = registry.pitchToPixelY(closestElement.pitch, closestElement.measure, centerX)
         elementY = pitchY !== null ? pitchY : bbox.y + bbox.height / 2
       } else {
         elementY = bbox.y + bbox.height / 2

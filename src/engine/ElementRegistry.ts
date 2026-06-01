@@ -544,17 +544,24 @@ export class ElementRegistry {
   }
 
   /**
-   * Find the closest note or rest to a given X,Y position
-   * Used for selecting notes and rests in selection mode
+   * Find the closest note or rest to a given X,Y position, searching ALL measures.
+   * Used for selecting notes and rests in selection mode.
+   *
+   * Selection must not be scoped to the click's vertical staff band: a note whose
+   * head is drawn far from its staff (ledger lines) is rendered into a neighbouring
+   * band, so a measure-restricted search would exclude the real note (the "too far
+   * from element" bug). Instead we scan every note/rest, compute each one's TRUE
+   * rendered Y from its OWN measure's geometry (clef-aware pitchToPixelY), and take
+   * the nearest within an X tolerance. Notes on other systems are excluded naturally:
+   * their pixel Y is a system-height away, so the Euclidean distance is large.
    * @param x - Pixel X coordinate
    * @param y - Pixel Y coordinate
-   * @param measure - Measure number
    * @param xTolerance - Max X distance in pixels (default 30)
    * @returns The closest note/rest element, or null if none found
    */
-  findClosestNoteOrRest(x: number, y: number, measure: number, xTolerance: number = 30): ElementInfo | null {
+  findClosestNoteOrRest(x: number, y: number, xTolerance: number = 30): ElementInfo | null {
     const elements = this.elements.filter(
-      el => el.measure === measure && (el.type === 'note' || el.type === 'rest')
+      el => el.type === 'note' || el.type === 'rest'
     )
 
     if (elements.length === 0) return null
@@ -570,9 +577,10 @@ export class ElementRegistry {
       if (xDist <= xTolerance) {
         let elementY: number
 
-        if (element.type === 'note' && element.pitch !== undefined) {
-          // For notes in chords, use pitch-based Y position (clef region at the note's X)
-          const pitchY = this.pitchToPixelY(element.pitch, measure, element.bbox.x + element.bbox.width / 2)
+        if (element.type === 'note' && element.pitch !== undefined && element.measure !== undefined) {
+          // For notes (incl. chords), use the pitch-based Y position computed from the
+          // note's OWN measure geometry (clef region at the note's X).
+          const pitchY = this.pitchToPixelY(element.pitch, element.measure, centerX)
           elementY = pitchY !== null ? pitchY : element.bbox.y + element.bbox.height / 2
         } else {
           // For rests (and notes without pitch), use bbox center
@@ -666,16 +674,18 @@ export class ElementRegistry {
   // ==================== Tuplet Lookup ====================
 
   /**
-   * Find a tuplet bracket at a given coordinate
+   * Find a tuplet bracket at a given coordinate, searching ALL measures.
+   *
+   * Like note selection, this must not be scoped to the click's vertical staff band:
+   * a tuplet bracket is drawn above/below the staff and can fall into a neighbouring
+   * band, so a measure-restricted search would miss it. The bracket's bbox is in real
+   * rendered coordinates, so containment alone is unambiguous across measures.
    * @param x - Pixel X coordinate
    * @param y - Pixel Y coordinate
-   * @param measure - Measure number
    * @returns The tuplet element info, or null if not found
    */
-  getTupletAt(x: number, y: number, measure: number): ElementInfo | null {
-    const tuplets = this.elements.filter(
-      el => el.type === 'tuplet' && el.measure === measure
-    )
+  getTupletAt(x: number, y: number): ElementInfo | null {
+    const tuplets = this.elements.filter(el => el.type === 'tuplet')
 
     for (const tuplet of tuplets) {
       const b = tuplet.bbox
