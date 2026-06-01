@@ -257,8 +257,11 @@ export class ScoreModel {
   /**
    * Relocate a clef change to a new beat within the same measure. Raw move:
    * no normalization and no undo (the caller records a single undo entry when
-   * the drag completes). Refuses to move onto a beat already held by another
-   * clef change, or onto measure 1 beat 0 (the protected score opening clef).
+   * the drag completes). The dragged clef has authority — if another clef change
+   * already sits at the target beat, it is overwritten (removed) so the dragged
+   * clef can take that position; this lets a drag pass through other clefs rather
+   * than getting stuck against them. Refuses only a no-op move or measure 1 beat 0
+   * (the protected score opening clef).
    * @returns true if the clef was relocated.
    */
   moveClefWithinMeasure(measureNumber: number, fromBeat: Fraction, toBeat: Fraction): boolean {
@@ -268,8 +271,9 @@ export class ScoreModel {
     if (!measure?.clefs) return false
     const change = measure.clefs.find(c => fracEq(c.beat, fromBeat))
     if (!change) return false
-    // Don't clobber a different clef change already sitting at the target beat.
-    if (measure.clefs.some(c => c !== change && fracEq(c.beat, toBeat))) return false
+    // Overwrite any other clef change sitting at the target beat.
+    const occupantIdx = measure.clefs.findIndex(c => c !== change && fracEq(c.beat, toBeat))
+    if (occupantIdx !== -1) measure.clefs.splice(occupantIdx, 1)
     change.beat = toBeat
     measure.clefs.sort((a, b) => fracCompare(a.beat, b.beat))
     return true

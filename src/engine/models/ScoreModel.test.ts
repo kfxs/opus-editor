@@ -537,12 +537,14 @@ describe('ScoreModel', () => {
         expect(model.getEffectiveClefAt(3, frac(2, 1))).toBe('bass')
       })
 
-      it('does not move onto a beat occupied by another clef change', () => {
+      it('overwrites a clef already sitting at the target beat (dragged clef wins)', () => {
         model.setClefAt(3, frac(1, 1), 'bass')
         model.setClefAt(3, frac(3, 1), 'alto')
-        expect(model.moveClefWithinMeasure(3, frac(1, 1), frac(3, 1))).toBe(false)
-        expect(clefAt(3, 1)).toBe('bass')
-        expect(clefAt(3, 3)).toBe('alto')
+        // Drag the alto onto the bass's beat: alto wins, bass is removed.
+        expect(model.moveClefWithinMeasure(3, frac(3, 1), frac(1, 1))).toBe(true)
+        expect(clefAt(3, 3)).toBeUndefined()
+        expect(clefAt(3, 1)).toBe('alto')
+        expect(model.getMeasure(3)!.clefs?.length).toBe(1)
       })
 
       it('refuses to move onto measure 1 / beat 0 (protected opening)', () => {
