@@ -125,6 +125,15 @@ describe('beaming — computeBeamGroups default grouping by meter', () => {
   })
 })
 
+describe('beaming — additive grouping (Phase 6b)', () => {
+  it('8/8 with a stored 3+3+2 grouping beams eighths 3+3+2', () => {
+    const m = getMeterInfo(ts(8, 8), [3, 3, 2]) // group lengths 1.5, 1.5, 1 quarters
+    expect(computeBeamGroups(run(8, '8', 2), m)).toEqual([
+      [0, 1, 2], [3, 4, 5], [6, 7],
+    ])
+  })
+})
+
 describe('beaming — breaks', () => {
   it('a rest breaks the beam group', () => {
     // 4/4: eighth, eighth, rest, eighth, eighth within first two beats.

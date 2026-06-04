@@ -94,14 +94,35 @@ export function isDyadicMeter(ts: TimeSignature): boolean {
 }
 
 /**
+ * True iff `grouping` is a usable additive grouping for `numerator`: a non-empty
+ * list of positive integers summing to the numerator. (An undefined/empty
+ * grouping is valid too — it means "use the algorithmic default".)
+ */
+export function isValidGrouping(grouping: number[] | undefined, numerator: number): boolean {
+  if (!grouping || grouping.length === 0) return true
+  if (grouping.some((g) => !Number.isInteger(g) || g < 1)) return false
+  return grouping.reduce((a, b) => a + b, 0) === numerator
+}
+
+/**
+ * True iff the whole time signature is representable: a dyadic meter whose
+ * optional additive grouping (if any) is valid for the numerator.
+ */
+export function isValidTimeSignature(ts: TimeSignature): boolean {
+  return isDyadicMeter(ts) && isValidGrouping(ts.grouping, ts.numerator)
+}
+
+/**
  * Derive the full metric structure of a bar.
  *
  * @param ts        Time signature.
  * @param grouping  Optional additive grouping in *denominator units* (e.g.
  *                  `[3,2,2]` for `3+2+2 / 8`). Must sum to the numerator.
+ *                  Defaults to `ts.grouping` so a stored additive grouping is
+ *                  honoured automatically by every caller.
  * @throws if the meter is non-dyadic or the grouping is invalid.
  */
-export function getMeterInfo(ts: TimeSignature, grouping?: number[]): MeterInfo {
+export function getMeterInfo(ts: TimeSignature, grouping: number[] | undefined = ts.grouping): MeterInfo {
   if (!isDyadicMeter(ts)) {
     throw new Error(
       `Unsupported time signature ${ts.numerator}/${ts.denominator}: ` +
@@ -283,9 +304,19 @@ export function meterBarQuarters(ts: TimeSignature): number {
 // Time-signature change markers (score-level)
 // ---------------------------------------------------------------------------
 
-/** True iff two time signatures are numerically identical. */
+/** True iff two time signatures are identical, including any additive grouping. */
 export function sameTimeSignature(a: TimeSignature, b: TimeSignature): boolean {
-  return a.numerator === b.numerator && a.denominator === b.denominator
+  return (
+    a.numerator === b.numerator &&
+    a.denominator === b.denominator &&
+    sameGrouping(a.grouping, b.grouping)
+  )
+}
+
+function sameGrouping(a: number[] | undefined, b: number[] | undefined): boolean {
+  if (!a || a.length === 0) return !b || b.length === 0
+  if (!b || a.length !== b.length) return false
+  return a.every((v, i) => v === b[i])
 }
 
 /** True iff this measure begins an explicit time-signature change. */

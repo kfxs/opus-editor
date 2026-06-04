@@ -165,6 +165,13 @@ export interface TimeSignature {
   numerator: number
   /** Note value that gets the beat (4 = quarter note, 8 = eighth note) */
   denominator: number
+  /**
+   * Optional additive beat grouping in denominator units (e.g. `[2,2,3]` for
+   * `2+2+3 / 8`). Must consist of positive integers summing to `numerator`.
+   * Drives beaming and rest-fill; when omitted, grouping is derived
+   * algorithmically (see utils/meter `getMeterInfo`).
+   */
+  grouping?: number[]
 }
 
 /**

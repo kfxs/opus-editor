@@ -736,6 +736,19 @@ describe('ScoreModel.setTimeSignature', () => {
     expect(totalLen(model, 1)).toBe(4) // notes (2) + trailing rests (2)
   })
 
+  it('stores an additive grouping and rejects an invalid one', () => {
+    expect(model.setTimeSignature(1, { numerator: 7, denominator: 8, grouping: [2, 2, 3] })).toBe(true)
+    expect(model.getMeasure(1)!.timeSignature.grouping).toEqual([2, 2, 3])
+    // Deep-copied (mutating the source array must not affect the stored meter).
+    expect(() => model.setTimeSignature(1, { numerator: 7, denominator: 8, grouping: [3, 3] })).toThrow()
+  })
+
+  it('changing only the grouping is not a no-op', () => {
+    model.setTimeSignature(1, { numerator: 7, denominator: 8, grouping: [2, 2, 3] })
+    expect(model.setTimeSignature(1, { numerator: 7, denominator: 8, grouping: [3, 2, 2] })).toBe(true)
+    expect(model.getMeasure(1)!.timeSignature.grouping).toEqual([3, 2, 2])
+  })
+
   it('over-full bar over notes keeps every note (no truncation)', () => {
     // Four quarters fill 4/4; shrinking to 3/4 leaves the 4th note past the barline.
     for (let b = 0; b < 4; b++) {

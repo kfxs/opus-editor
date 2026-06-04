@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getMeterInfo, isDyadicMeter, STRENGTH, type MeterInfo } from './meter'
+import { getMeterInfo, isDyadicMeter, isValidGrouping, isValidTimeSignature, sameTimeSignature, STRENGTH, type MeterInfo } from './meter'
 import { fracToNumber, fracCreate, fracEq } from './fraction'
 import type { TimeSignature } from '@/types/music'
 
@@ -220,6 +220,45 @@ describe('meter — getMeterInfo', () => {
     it('rejects a non-positive or non-integer numerator', () => {
       expect(isDyadicMeter(ts(0, 4))).toBe(false)
       expect(isDyadicMeter(ts(2.5, 4))).toBe(false)
+    })
+  })
+
+  describe('additive grouping (Phase 6b)', () => {
+    it('isValidGrouping: positive ints summing to the numerator', () => {
+      expect(isValidGrouping([2, 2, 3], 7)).toBe(true)
+      expect(isValidGrouping(undefined, 7)).toBe(true)   // default grouping
+      expect(isValidGrouping([], 7)).toBe(true)
+      expect(isValidGrouping([2, 2, 2], 7)).toBe(false)  // sums to 6
+      expect(isValidGrouping([2, 0, 3], 5)).toBe(false)  // non-positive
+      expect(isValidGrouping([2, 1.5], 4)).toBe(false)   // non-integer
+    })
+
+    it('isValidTimeSignature: dyadic AND a valid grouping', () => {
+      expect(isValidTimeSignature({ numerator: 7, denominator: 8, grouping: [2, 2, 3] })).toBe(true)
+      expect(isValidTimeSignature({ numerator: 7, denominator: 8, grouping: [3, 3] })).toBe(false)
+      expect(isValidTimeSignature({ numerator: 4, denominator: 3 })).toBe(false) // non-dyadic
+    })
+
+    it('sameTimeSignature distinguishes different groupings', () => {
+      expect(sameTimeSignature(ts(7, 8), ts(7, 8))).toBe(true)
+      expect(sameTimeSignature(
+        { numerator: 7, denominator: 8, grouping: [2, 2, 3] },
+        { numerator: 7, denominator: 8, grouping: [3, 2, 2] },
+      )).toBe(false)
+      expect(sameTimeSignature(
+        { numerator: 7, denominator: 8, grouping: [2, 2, 3] },
+        { numerator: 7, denominator: 8, grouping: [2, 2, 3] },
+      )).toBe(true)
+    })
+
+    it('getMeterInfo honours a stored ts.grouping by default', () => {
+      // 8/8 default would be 2+2+2+2; an explicit 3+3+2 grouping overrides it.
+      const info = getMeterInfo({ numerator: 8, denominator: 8, grouping: [3, 3, 2] })
+      expect(info.groups.map(fracToNumber)).toEqual([1.5, 1.5, 1]) // eighth units → quarters
+    })
+
+    it('getMeterInfo rejects a grouping that does not sum to the numerator', () => {
+      expect(() => getMeterInfo({ numerator: 7, denominator: 8, grouping: [3, 3] })).toThrow()
     })
   })
 })

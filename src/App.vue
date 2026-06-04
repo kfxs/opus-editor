@@ -303,6 +303,16 @@
               ]"
               :title="`${ts.numerator}/${ts.denominator} — click a measure to set its time signature`"
             >{{ ts.numerator }}/{{ ts.denominator }}</button>
+            <button
+              @click="openTimeSignatureDialog"
+              :class="[
+                'px-2 py-1 rounded text-sm leading-none',
+                isCustomTimeSignatureArmed
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Custom time signature (any dyadic meter + optional grouping)"
+            >Custom…</button>
           </div>
 
           <div class="border-l border-gray-600 mx-2"></div>
@@ -337,6 +347,55 @@
       <h3 class="text-xl mb-2">Score JSON:</h3>
       <pre class="bg-gray-900 p-4 rounded overflow-auto text-xs max-h-96">{{ scoreJSON }}</pre>
     </div>
+
+    <!-- Custom time-signature dialog -->
+    <div
+      v-if="showTimeSignatureDialog"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      @click.self="showTimeSignatureDialog = false"
+    >
+      <div class="bg-gray-800 rounded-lg p-6 w-80 text-left shadow-xl" @keydown.enter="applyCustomTimeSignature">
+        <h3 class="text-lg font-semibold mb-4">Custom Time Signature</h3>
+
+        <div class="flex items-center gap-3 mb-3">
+          <label class="text-sm text-gray-300 w-24">Numerator</label>
+          <input
+            type="number" min="1" step="1" v-model.number="tsNumerator"
+            class="flex-1 bg-gray-700 rounded px-2 py-1 text-white"
+          />
+        </div>
+
+        <div class="flex items-center gap-3 mb-3">
+          <label class="text-sm text-gray-300 w-24">Denominator</label>
+          <select v-model.number="tsDenominator" class="flex-1 bg-gray-700 rounded px-2 py-1 text-white">
+            <option v-for="d in tsDenominatorOptions" :key="d" :value="d">{{ d }}</option>
+          </select>
+        </div>
+
+        <div class="flex items-center gap-3 mb-1">
+          <label class="text-sm text-gray-300 w-24">Grouping</label>
+          <input
+            type="text" v-model="tsGrouping" placeholder="optional, e.g. 2+2+3"
+            class="flex-1 bg-gray-700 rounded px-2 py-1 text-white"
+          />
+        </div>
+        <p class="text-xs text-gray-400 mb-3 ml-[6.75rem]">In denominator units; must sum to the numerator.</p>
+
+        <p v-if="tsDialogError" class="text-sm text-red-400 mb-3">{{ tsDialogError }}</p>
+
+        <div class="flex justify-end gap-2 mt-2">
+          <button
+            @click="showTimeSignatureDialog = false"
+            class="px-3 py-1 rounded bg-gray-600 hover:bg-gray-500 text-sm"
+          >Cancel</button>
+          <button
+            @click="applyCustomTimeSignature"
+            :disabled="!!tsDialogError"
+            class="px-3 py-1 rounded text-sm bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed"
+          >Arm</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -351,6 +410,8 @@ import { usePalette } from './composables/usePalette'
 import { useKeyboardEntry } from './composables/useKeyboardEntry'
 import { useMouseInteraction } from './composables/useMouseInteraction'
 import { useShortcuts } from './composables/useShortcuts'
+import { isValidTimeSignature } from './utils/meter'
+import type { TimeSignature } from './types/music'
 
 // --- Engine and canvas ---
 const engine = shallowRef<MusicEngine | null>(null)
@@ -414,6 +475,62 @@ function isTimeSignatureArmed(ts: { numerator: number; denominator: number }): b
   const sel = state.selectedTimeSignature
   return !!sel && sel.numerator === ts.numerator && sel.denominator === ts.denominator
 }
+
+// --- Custom time-signature dialog ---
+// Exposes the engine's full generality: any dyadic meter + optional additive
+// grouping (e.g. 2+2+3). Presets are just shortcuts onto the same setter.
+const showTimeSignatureDialog = ref(false)
+const tsNumerator = ref(7)
+const tsDenominator = ref(8)
+const tsGrouping = ref('') // e.g. "2+2+3"; empty = algorithmic default
+const tsDenominatorOptions = [1, 2, 4, 8, 16, 32]
+
+/** Parse the grouping field ("2+2+3", "2,2,3", "2 2 3") into a number[]. */
+function parseGrouping(input: string): number[] | undefined {
+  const parts = input.split(/[+,\s]+/).map(s => s.trim()).filter(Boolean)
+  if (parts.length === 0) return undefined
+  return parts.map(Number)
+}
+
+/** The candidate time signature from the dialog fields, or null if unparseable. */
+const tsCandidate = computed<TimeSignature | null>(() => {
+  const numerator = Math.floor(Number(tsNumerator.value))
+  const denominator = Number(tsDenominator.value)
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator)) return null
+  const grouping = parseGrouping(tsGrouping.value)
+  if (grouping && grouping.some(g => !Number.isFinite(g))) return null
+  return grouping ? { numerator, denominator, grouping } : { numerator, denominator }
+})
+
+const tsDialogError = computed<string | null>(() => {
+  const ts = tsCandidate.value
+  if (!ts) return 'Enter whole numbers.'
+  if (!Number.isInteger(ts.numerator) || ts.numerator < 1) return 'Numerator must be a positive whole number.'
+  if (!tsDenominatorOptions.includes(ts.denominator)) return 'Denominator must be a power of two (1–32).'
+  if (ts.grouping && ts.grouping.reduce((a, b) => a + b, 0) !== ts.numerator) {
+    return `Grouping must sum to ${ts.numerator} (got ${ts.grouping.reduce((a, b) => a + b, 0)}).`
+  }
+  return isValidTimeSignature(ts) ? null : 'Not a representable time signature.'
+})
+
+function openTimeSignatureDialog(): void {
+  showTimeSignatureDialog.value = true
+}
+
+/** Arm the custom time signature (then the user clicks a measure to apply it). */
+function applyCustomTimeSignature(): void {
+  const ts = tsCandidate.value
+  if (!ts || tsDialogError.value) return
+  palette.setTimeSignature(ts)
+  showTimeSignatureDialog.value = false
+}
+
+/** True when a custom (non-preset) meter is currently armed. */
+const isCustomTimeSignatureArmed = computed(() => {
+  const sel = state.selectedTimeSignature
+  if (!sel) return false
+  return !timeSignaturePresets.some(p => p.numerator === sel.numerator && p.denominator === sel.denominator && !sel.grouping)
+})
 
 // --- Lifecycle ---
 onMounted(() => {

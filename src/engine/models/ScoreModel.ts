@@ -8,7 +8,7 @@ import {
 import { durationToFraction } from '@/utils/durations'
 import {
   getMeterInfo,
-  isDyadicMeter,
+  isValidTimeSignature,
   effectiveTimeSignature,
   sameTimeSignature,
   type MeterInfo,
@@ -335,10 +335,11 @@ export class ScoreModel {
     ts: TimeSignature,
     options?: { extent?: 'measure' | 'toNextChange' },
   ): boolean {
-    if (!isDyadicMeter(ts)) {
+    if (!isValidTimeSignature(ts)) {
       throw new Error(
         `Unsupported time signature ${ts.numerator}/${ts.denominator}: ` +
-          `denominator must be a power of two up to 32 and numerator a positive integer.`,
+          `denominator must be a power of two up to 32, numerator a positive integer, ` +
+          `and any grouping must sum to the numerator.`,
       )
     }
     const measure = this.getMeasure(measureNumber)
@@ -351,9 +352,9 @@ export class ScoreModel {
 
     const extent = options?.extent ?? 'toNextChange'
 
-    measure.timeSignature = { ...ts }
+    measure.timeSignature = copyTimeSignature(ts)
     measure.timeSignatureChange = true
-    if (measureNumber === 1) this.score.defaultTimeSignature = { ...ts }
+    if (measureNumber === 1) this.score.defaultTimeSignature = copyTimeSignature(ts)
     this.reconcileMeasureRests(measure)
 
     if (extent === 'toNextChange') {
@@ -375,7 +376,7 @@ export class ScoreModel {
 
     const inherited = effectiveTimeSignature(this.score, measureNumber - 1)
     delete measure.timeSignatureChange
-    measure.timeSignature = { ...inherited }
+    measure.timeSignature = copyTimeSignature(inherited)
     this.reconcileMeasureRests(measure)
     this.propagateTimeSignature(measureNumber, inherited)
     return true
@@ -389,7 +390,7 @@ export class ScoreModel {
     for (const m of this.score.measures) {
       if (m.number <= fromMeasure) continue
       if (m.timeSignatureChange) break // next explicit change owns its region
-      m.timeSignature = { ...ts }
+      m.timeSignature = copyTimeSignature(ts)
       this.reconcileMeasureRests(m)
     }
   }
@@ -1242,19 +1243,27 @@ export class ScoreModel {
 
   /**
    * Reject a loaded score that carries a non-dyadic / out-of-range time
-   * signature (on the default or any measure). Guards the only entry point a
-   * bad meter can take, since `TimeSignature` itself permits any integers.
+   * signature (or an invalid additive grouping) on the default or any measure.
+   * Guards the only entry point a bad meter can take, since `TimeSignature`
+   * itself permits any integers.
    */
   private static validateMeters(score: Score): void {
-    if (!isDyadicMeter(score.defaultTimeSignature)) {
+    if (!isValidTimeSignature(score.defaultTimeSignature)) {
       const { numerator, denominator } = score.defaultTimeSignature
-      throw new Error(`Invalid defaultTimeSignature ${numerator}/${denominator}: not a representable dyadic meter.`)
+      throw new Error(`Invalid defaultTimeSignature ${numerator}/${denominator}: not a representable dyadic meter (or its grouping is invalid).`)
     }
     for (const m of score.measures ?? []) {
-      if (!isDyadicMeter(m.timeSignature)) {
+      if (!isValidTimeSignature(m.timeSignature)) {
         const { numerator, denominator } = m.timeSignature
-        throw new Error(`Invalid time signature ${numerator}/${denominator} at measure ${m.number}: not a representable dyadic meter.`)
+        throw new Error(`Invalid time signature ${numerator}/${denominator} at measure ${m.number}: not a representable dyadic meter (or its grouping is invalid).`)
       }
     }
   }
+}
+
+/** Deep-copy a time signature, including any additive grouping array. */
+function copyTimeSignature(ts: TimeSignature): TimeSignature {
+  return ts.grouping
+    ? { numerator: ts.numerator, denominator: ts.denominator, grouping: [...ts.grouping] }
+    : { numerator: ts.numerator, denominator: ts.denominator }
 }

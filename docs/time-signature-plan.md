@@ -1,11 +1,9 @@
 # Time Signature — Implementation Plan
 
-Status: **in progress** — Phases 0–6 complete. The full engine (Phases 0–5: duration layer;
-coordinate/beat correctness; `meter.ts`; `restFill.ts`; rendering off STRICT + measure-rest;
-`beaming.ts`; `setTimeSignature` API + JSON v1→v2) is now **user-reachable**: Phase 6 added the
-time-signature palette (arm/click like the clef tool) and mid-score TS-glyph rendering. **First
-phase to manually test in the app.** Phase 6b (custom dyadic-meter dialog) and Phase 7
-(voice-awareness scaffolding) remain; Phase 8 (rebar-with-ties + pickup) is the deferred
+Status: **in progress** — Phases 0–6b complete. The full engine (Phases 0–5) is user-reachable
+via the time-signature palette (Phase 6: arm/click + mid-score TS-glyph rendering) and a custom
+meter dialog exposing any dyadic meter + optional additive grouping (Phase 6b). Phase 7
+(voice-awareness scaffolding) remains; Phase 8 (rebar-with-ties + pickup) is the deferred
 follow-up. This document is the authoritative plan and cross-session checklist.
 
 ---
@@ -637,6 +635,29 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
     no leftover whole rest, non-4/4 bar sums to the true length). 443 unit tests pass (+10);
     `build:check` clean. UI/visual = manual (user-tested: presets apply, compound beaming/rest-fill
     correct, propagation, over-full keeps notes, undo/redo).
-- [ ] Phase 6b — Custom time-signature dialog
+- [x] Phase 6b — Custom time-signature dialog (full generality exposed)
+  - **Grouping is now stored on the meter:** added `TimeSignature.grouping?: number[]` (additive
+    group sizes in denominator units, e.g. `[2,2,3]` for 2+2+3 / 8). `getMeterInfo(ts, grouping =
+    ts.grouping)` defaults to the stored grouping, so all 6 existing call sites honour it with **no
+    change** — beaming + rest-fill follow a custom grouping automatically.
+  - **meter.ts helpers:** `isValidGrouping(grouping, numerator)` (positive ints summing to the
+    numerator; undefined/empty = use default) and `isValidTimeSignature(ts)` (dyadic AND valid
+    grouping). `sameTimeSignature` now also compares grouping (so changing only the grouping isn't
+    a no-op, and the palette toggle distinguishes variants).
+  - **Model:** `setTimeSignature` validates with `isValidTimeSignature` (throws on bad grouping);
+    a new `copyTimeSignature` helper deep-copies the grouping array at every store/propagate site;
+    `validateMeters` (load boundary) rejects an invalid grouping too.
+  - **UI (App.vue):** a "Custom…" button opens a modal with numerator field, denominator dropdown
+    (1–32), and an optional grouping text field (`2+2+3` / `2,2,3` / `2 2 3`). Live validation
+    (`tsDialogError`) disables Arm on a bad meter; Arm calls `palette.setTimeSignature(ts)` to arm
+    the custom meter (then click a measure to apply, same flow + ghost preview as presets). The
+    Custom button shows armed (cyan) when a non-preset meter is armed.
+  - **Known limitation (documented):** the rendered TS glyph shows `numerator/denominator` only;
+    the additive grouping is reflected in beaming/rest-fill, not in the glyph (no `2+2+3` numerator
+    display). Acceptable for now.
+  - Tests: meter.test.ts (isValidGrouping / isValidTimeSignature / sameTimeSignature-with-grouping
+    / getMeterInfo honours ts.grouping / rejects bad sum); beaming.test.ts (8/8 [3,3,2] → 3+3+2);
+    ScoreModel.test.ts (stores + deep-copies grouping, rejects invalid, grouping-only change is not
+    a no-op). 453 unit tests pass (+8); `build:check` clean. UI/visual = manual.
 - [ ] Phase 7 — Voice-awareness scaffolding
 - [ ] Phase 8 — (Deferred) Rebar-with-ties + pickup
