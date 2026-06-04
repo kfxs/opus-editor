@@ -4,8 +4,8 @@ import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fra
 import { measureOpeningClef, measureEndingClef, effectiveClefAt, effectiveClefBefore } from '@/utils/clefUtils'
 import { beatToFrac } from '@/utils/musicUtils'
 import { durationToVexflow, durationToFraction } from '@/utils/durations'
-import { getMeterInfo } from '@/utils/meter'
-import { fillRests, type RestSlot } from '@/utils/restFill'
+import { getMeterInfo, type MeterInfo } from '@/utils/meter'
+import { fillRests, pickVoiceMode, type RestSlot } from '@/utils/restFill'
 import { ElementRegistry, type TupletGeometry, type ClefSegment } from '@/engine/ElementRegistry'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
 
@@ -168,6 +168,11 @@ export class VexFlowRenderer {
     return durationToVexflow(duration, dots)
   }
 
+  /** Map the pure {@link pickVoiceMode} policy onto VexFlow's Voice.Mode enum. */
+  private chooseVoiceMode(slots: ChordRest[], meter: MeterInfo): number {
+    return pickVoiceMode(slots, meter.barQuarters) === 'soft' ? Voice.Mode.SOFT : Voice.Mode.FULL
+  }
+
   /**
    * Create StaveNotes directly from ChordRest slots.
    * One slot → one StaveNote. Rests → rest StaveNote; Chords → multi-key StaveNote.
@@ -190,6 +195,13 @@ export class VexFlowRenderer {
 
     for (const slot of slots) {
       if (slot.type === 'rest') {
+        if (slot.isMeasureRest) {
+          // Whole-bar (measure) rest: a centred whole rest, drawn the same way at
+          // any bar length. Its voice runs in SOFT mode (see chooseVoiceMode) so
+          // the whole rest's fixed tick value never clashes with the bar capacity.
+          staveNotes.push(new StaveNote({ keys: ['b/4'], duration: 'wr', alignCenter: true }))
+          continue
+        }
         const vexDuration = this.convertDuration(slot.duration, slot.dots || 0)
         // Rests are positioned at fixed staff positions independent of clef.
         // The 'b/4' key anchors the rest to the middle line under the default
@@ -701,7 +713,7 @@ export class VexFlowRenderer {
     const voice = new Voice({
       numBeats: measure.timeSignature.numerator,
       beatValue: measure.timeSignature.denominator,
-    })
+    }).setMode(this.chooseVoiceMode(sortedSlots, getMeterInfo(measure.timeSignature)))
 
     try {
       voice.addTickables(staveNotes)
@@ -944,7 +956,7 @@ export class VexFlowRenderer {
       const voice = new Voice({
         numBeats: measure.timeSignature.numerator,
         beatValue: measure.timeSignature.denominator,
-      })
+      }).setMode(this.chooseVoiceMode(sortedSlots, getMeterInfo(measure.timeSignature)))
 
       try {
         voice.addTickables(tickables)

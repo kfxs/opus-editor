@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { fillRests, type RestSlot } from './restFill'
+import { fillRests, pickVoiceMode, type RestSlot } from './restFill'
 import { getMeterInfo } from './meter'
 import { fracCreate, fracToNumber } from './fraction'
 import { durationToFraction } from './durations'
-import type { TimeSignature } from '@/types/music'
+import type { TimeSignature, ChordRest } from '@/types/music'
 
 // --- helpers ---------------------------------------------------------------
 
@@ -95,6 +95,35 @@ describe('restFill — fillRests', () => {
         ['q', 0, 1],
         ['q', 1, 2],
       ])
+    })
+  })
+
+  describe('pickVoiceMode — STRICT is never chosen', () => {
+    const bar = getMeterInfo(ts(4, 4)).barQuarters // 4 quarters
+    const chord = (beat: number, duration: any, dots = 0): ChordRest => ({
+      id: `c${beat}`, type: 'chord', beat: fracCreate(beat, 1), duration, dots, measure: 1,
+      actualDuration: durationToFraction(duration, dots), notes: [],
+    })
+    const measureRest = (): ChordRest => ({
+      id: 'mr', type: 'rest', beat: fracCreate(0, 1), duration: 'w', measure: 1,
+      actualDuration: bar, isMeasureRest: true,
+    })
+
+    it('a normal, exactly-full bar → FULL', () => {
+      expect(pickVoiceMode([chord(0, 'h'), chord(2, 'h')], bar)).toBe('full')
+    })
+
+    it('an under-full (pickup-style) bar → FULL', () => {
+      expect(pickVoiceMode([chord(0, 'q')], bar)).toBe('full')
+    })
+
+    it('an over-full bar → SOFT (keep every note, render crowded)', () => {
+      expect(pickVoiceMode([chord(0, 'w'), chord(4, 'q')], bar)).toBe('soft')
+    })
+
+    it('a bar holding a measure rest → SOFT (whole-rest ticks ≠ capacity in general)', () => {
+      expect(pickVoiceMode([measureRest()], getMeterInfo(ts(3, 4)).barQuarters)).toBe('soft')
+      expect(pickVoiceMode([measureRest()], bar)).toBe('soft')
     })
   })
 

@@ -27,9 +27,10 @@
  * Pure: depends only on `fraction.ts`, `durations.ts`, and `meter.ts`.
  */
 
-import type { NoteDuration } from '@/types/music'
+import type { NoteDuration, ChordRest } from '@/types/music'
 import {
   type Fraction,
+  fracCreate,
   fracAdd,
   fracEq,
   fracLt,
@@ -124,6 +125,27 @@ export function fillRests(start: Fraction, end: Fraction, meter: MeterInfo): Res
   }
 
   return result
+}
+
+/**
+ * Choose a VexFlow voice mode for a measure's slots — STRICT is never used (it
+ * rejects both under-full and over-full bars, swallowing them via the render
+ * fallback). Returns:
+ *   - `'soft'` when the bar holds a measure rest (its fixed whole-rest ticks
+ *     need not equal the capacity) or is over-full (keep every note, drawn
+ *     crowded — notes are never trimmed);
+ *   - `'full'` otherwise: normal and under-full (pickup-style) bars render,
+ *     while a genuine over-tick is still surfaced as corruption.
+ *
+ * Pure and DOM-free so the policy is unit-testable without a renderer.
+ */
+export function pickVoiceMode(slots: ChordRest[], barQuarters: Fraction): 'soft' | 'full' {
+  let used: Fraction = fracCreate(0, 1)
+  for (const slot of slots) {
+    if (slot.type === 'rest' && slot.isMeasureRest) return 'soft'
+    used = fracAdd(used, slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0))
+  }
+  return fracGt(used, barQuarters) ? 'soft' : 'full'
 }
 
 // ---------------------------------------------------------------------------

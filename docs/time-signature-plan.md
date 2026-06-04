@@ -1,8 +1,8 @@
 # Time Signature — Implementation Plan
 
-Status: **in progress** — Phases 0–2b complete (duration layer; coordinate/beat correctness;
-`utils/meter.ts` metric-hierarchy generator; `utils/restFill.ts` meter-aware rest fill wired
-into the model + ghost preview); Phase 3 next. This document is the authoritative plan and
+Status: **in progress** — Phases 0–3 complete (duration layer; coordinate/beat correctness;
+`utils/meter.ts`; `utils/restFill.ts` wired into model + preview; rendering off STRICT +
+measure-rest). Phase 4 (meter-aware beaming) next. This document is the authoritative plan and
 cross-session checklist for adding full time-signature support to the editor.
 
 ---
@@ -515,7 +515,27 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
   - Tests: `restFill.test.ts` — measure rest per meter, 4/4 no-cross-middle, off-beat realign,
     6/8/12/8 compound, 5/8/7/8 irregular, sum-to-gap invariant. 393 unit tests pass (+19);
     `build:check` clean. 4/4 baseline unchanged (no regression in the only reachable meter).
-- [ ] Phase 3 — Rendering mode + measure-rest + TS-glyph gating
+- [x] Phase 3 — Rendering mode + measure-rest + TS-glyph gating
+  - **Spike done:** VexFlow 5 `NoteStruct` exposes `alignCenter?: boolean` (and
+    `durationOverride?: Fraction`). Measure rest = `new StaveNote({ keys:['b/4'],
+    duration:'wr', alignCenter:true })`; drawn in a SOFT voice so the whole rest's fixed tick
+    value never clashes with the bar capacity. `durationOverride` was not needed.
+  - **Voice mode off STRICT:** new pure `pickVoiceMode(slots, barQuarters) → 'soft'|'full'` in
+    `restFill.ts` — SOFT when a measure rest is present or the bar is over-full (keep notes,
+    render crowded), else FULL (normal + under-full/pickup render; a true over-tick still
+    surfaces). Applied at BOTH render voices (width-calc ~:701 and draw ~:944) via a thin
+    `VexFlowRenderer.chooseVoiceMode` wrapper. STRICT (the old default that silently swallowed
+    irregular bars into the MIN_MEASURE_WIDTH fallback) is no longer used.
+  - **Measure rest rendered:** `createStaveNotesFromSlots` emits the centred whole rest for an
+    `isMeasureRest` slot. (Visible 4/4 change: an empty bar's whole rest is now centred.)
+  - **TS-glyph gating** already correct: `addTimeSignature` is drawn only at `measure.number
+    === 1`. Extending to per-measure change bars + reserving mid-score TS-glyph width (reuse
+    the inline-clef width path) is deferred to Phase 5, when the change marker exists — nothing
+    to reserve width for yet. Shared per-measure VoiceTime (TickMismatch guard) is a Phase 7
+    multi-voice concern.
+  - Tests: `pickVoiceMode` cases (full / under-full / over-full / measure-rest) in
+    `restFill.test.ts`. 397 unit tests pass (+4); `build:check` clean. (Render correctness for
+    irregular/over-full bars is visual — manual-tested once meters are reachable in Phase 6.)
 - [ ] Phase 4 — Meter-aware beaming
 - [ ] Phase 5 — `setTimeSignature` engine API
 - [ ] Phase 6 — Palette UI + interaction
