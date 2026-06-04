@@ -1,8 +1,9 @@
 # Time Signature — Implementation Plan
 
-Status: **in progress** — Phases 0–2 complete (duration layer; coordinate/beat correctness;
-`utils/meter.ts` metric-hierarchy generator); Phase 2b next. This document is the authoritative
-plan and cross-session checklist for adding full time-signature support to the editor.
+Status: **in progress** — Phases 0–2b complete (duration layer; coordinate/beat correctness;
+`utils/meter.ts` metric-hierarchy generator; `utils/restFill.ts` meter-aware rest fill wired
+into the model + ghost preview); Phase 3 next. This document is the authoritative plan and
+cross-session checklist for adding full time-signature support to the editor.
 
 ---
 
@@ -488,7 +489,32 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
     32/16, 16/4, 15/8, 13/16, 7/4, additive 3+2+2/8, fallback 11/8, rejected 4/3) + strength
     hierarchy + groups-sum-to-bar. 374 unit tests pass (+30); `build:check` clean. Not yet
     imported anywhere (Phase 2b/4 consume it) → no user-facing change.
-- [ ] Phase 2b — `utils/restFill.ts` meter-aware fill
+- [x] Phase 2b — `utils/restFill.ts` meter-aware fill
+  - New pure `src/utils/restFill.ts`: `fillRests(start, end, meter) → RestSlot[]`
+    ({beat, duration, dots, isMeasureRest?}). Greedy longest-first; a rest may span
+    `[p,q)` only when `maxInteriorStrength(p,q) ≤ min(strength(p), strength(q))` (end-of-bar
+    treated as `STRENGTH.bar`). Candidate shapes = every NoteDuration × {0,1} dots that lands
+    on the 32nd grid (dotted-32nd excluded). Verified to reproduce the 4/4 baselines AND give
+    correct compound (6/8 dotted-quarter, 12/8 dotted-half split at mid) and irregular (5/8,
+    7/8) decompositions.
+  - **Measure rest:** a whole empty bar (start 0, end barQuarters) returns ONE
+    `{duration:'w', isMeasureRest:true}` in *every* meter (deviation from the plan's
+    "shortcut only when ≤4 / decompose otherwise" — a whole empty bar is always a measure
+    rest conceptually; cleaner and forward-correct, Phase 3 renders it centred). For 4/4 this
+    is duration 'w' = identical render today. New `Rest.isMeasureRest?` field added
+    (`types/music.ts`); measure rests store the true bar length as `actualDuration`.
+  - **Wiring (`ScoreModel`):** deleted float `createMusicalRests`/`getBeatUnit`/
+    `getMeasureTotalBeats` + the `WHOLE_NOTE_IN_QUARTERS` const. `fillMeasureWithRests` and
+    `fillGapsWithRests` now use `getMeterInfo` + `fillRests` via a `pushRestSlot` helper.
+    `fillGapsWithRests` is now **per-voice** (groups slots by `voice ?? 0`, gap-fills each
+    independently, records `voice` only when ≠ 0). Tuplet-gap skip/trim logic kept in the
+    caller (fillRests stays tuplet-unaware).
+  - **Second filler migrated:** `VexFlowRenderer.beatsToRestDurations` deleted; the ghost-note
+    preview now builds its surrounding rests via `fillRests` (and correctly accounts for the
+    ghost note's dots — a latent 4/4 over-fill on dotted-note previews is now fixed).
+  - Tests: `restFill.test.ts` — measure rest per meter, 4/4 no-cross-middle, off-beat realign,
+    6/8/12/8 compound, 5/8/7/8 irregular, sum-to-gap invariant. 393 unit tests pass (+19);
+    `build:check` clean. 4/4 baseline unchanged (no regression in the only reachable meter).
 - [ ] Phase 3 — Rendering mode + measure-rest + TS-glyph gating
 - [ ] Phase 4 — Meter-aware beaming
 - [ ] Phase 5 — `setTimeSignature` engine API

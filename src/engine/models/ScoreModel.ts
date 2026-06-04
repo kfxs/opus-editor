@@ -3,11 +3,11 @@ import {
   isBeatInTupletFrac,
   getTupletTotalBeatsFrac,
   noteSpansOverlapFrac,
-  beatToFrac,
   splitBeatsIntoDurations,
-  getMeasureDurationFrac,
 } from '@/utils/musicUtils'
 import { durationToFraction } from '@/utils/durations'
+import { getMeterInfo, type MeterInfo } from '@/utils/meter'
+import { fillRests, type RestSlot } from '@/utils/restFill'
 import {
   type Fraction,
   fracCreate,
@@ -25,18 +25,6 @@ import {
 } from '@/utils/fraction'
 import { effectiveClefAt, effectiveClefBefore, measureOpeningClef } from '@/utils/clefUtils'
 import { v4 as uuidv4 } from 'uuid'
-
-/**
- * A whole note equals 4 quarter notes.
- * This constant is used to convert time signature denominators to our internal beat system
- * where quarter note = 1 beat.
- *
- * Examples:
- * - 4/4: beatUnit = 4/4 = 1 (quarter note = 1 beat), totalBeats = 4 * 1 = 4
- * - 7/8: beatUnit = 4/8 = 0.5 (eighth note = 0.5 beats), totalBeats = 7 * 0.5 = 3.5
- * - 3/16: beatUnit = 4/16 = 0.25 (sixteenth = 0.25 beats), totalBeats = 3 * 0.25 = 0.75
- */
-const WHOLE_NOTE_IN_QUARTERS = 4
 
 /**
  * ScoreModel manages the musical score data and provides CRUD operations
@@ -106,54 +94,35 @@ export class ScoreModel {
   }
 
   /**
-   * Calculate total beats in a measure based on its time signature
-   * Converts to our internal system where quarter note = 1 beat
-   */
-  private getMeasureTotalBeats(timeSignature: TimeSignature): number {
-    const beatUnit = WHOLE_NOTE_IN_QUARTERS / timeSignature.denominator
-    return timeSignature.numerator * beatUnit
-  }
-
-  /**
-   * Get the beat unit (duration of one "count") for a time signature
-   * In 4/4: 1 (quarter note), in 7/8: 0.5 (eighth note), etc.
-   */
-  private getBeatUnit(timeSignature: TimeSignature): number {
-    return WHOLE_NOTE_IN_QUARTERS / timeSignature.denominator
-  }
-
-  /**
-   * Fill a measure with rests to complete its time signature
-   * For 4/4 time, this creates a whole rest (4 beats)
+   * Fill an empty measure with rests for its time signature. An empty bar
+   * collapses to a single measure rest in every meter (see {@link fillRests}).
    */
   private fillMeasureWithRests(measure: Measure): void {
-    const totalBeats = this.getMeasureTotalBeats(measure.timeSignature)
-
-    // For 4/4 time, use a single whole rest
-    if (totalBeats === 4 && measure.timeSignature.denominator === 4) {
-      const rest: Rest = {
-        id: uuidv4(),
-        type: 'rest',
-        duration: 'w',
-        measure: measure.number,
-        beat: fracCreate(0, 1),
-        actualDuration: durationToFraction('w'),
-      }
-      measure.slots.push(rest)
-    } else {
-      // For other time signatures, fill with musically appropriate rests
-      const rests = this.createMusicalRests(0, totalBeats, measure.timeSignature)
-      for (const rest of rests) {
-        measure.slots.push({
-          id: uuidv4(),
-          type: 'rest',
-          duration: rest.duration,
-          measure: measure.number,
-          beat: rest.beat,
-          actualDuration: durationToFraction(rest.duration),
-        })
-      }
+    const meter = getMeterInfo(measure.timeSignature)
+    const rests = fillRests(fracCreate(0, 1), meter.barQuarters, meter)
+    for (const rest of rests) {
+      this.pushRestSlot(measure, rest, meter, 0)
     }
+  }
+
+  /**
+   * Materialise a {@link RestSlot} produced by `fillRests` into a measure slot.
+   * Measure rests store the true bar length as `actualDuration` (the `duration`
+   * stays `'w'`); the voice is only recorded when non-default.
+   */
+  private pushRestSlot(measure: Measure, rest: RestSlot, meter: MeterInfo, voice: number): void {
+    const slot: Rest = {
+      id: uuidv4(),
+      type: 'rest',
+      duration: rest.duration,
+      measure: measure.number,
+      beat: rest.beat,
+      actualDuration: rest.isMeasureRest ? meter.barQuarters : durationToFraction(rest.duration, rest.dots),
+    }
+    if (rest.dots) slot.dots = rest.dots
+    if (rest.isMeasureRest) slot.isMeasureRest = true
+    if (voice !== 0) slot.voice = voice as 0 | 1 | 2 | 3
+    measure.slots.push(slot)
   }
 
   /**
@@ -569,149 +538,71 @@ export class ScoreModel {
   }
 
   /**
-   * Fill gaps in a measure with rests
+   * Fill gaps in a measure with engraving-correct rests, per voice.
+   *
+   * Each voice (defaulting to 0) is an independent rhythmic stream that must sum
+   * to the bar length, so gaps are found and filled per voice. Within a voice,
+   * tuplet spans are skipped and gaps are trimmed at tuplet boundaries — that
+   * tuplet-awareness stays here; the meter-aware decomposition is delegated to
+   * the tuplet-unaware {@link fillRests}.
    */
   private fillGapsWithRests(measure: Measure): void {
-    // Exact bar length — getMeasureDurationFrac stays correct for every dyadic
-    // meter, unlike the old Math.round(totalBeats * 8)/8 which lost precision
-    // for /16 and /32 denominators.
-    const totalBeatsFrac: Fraction = getMeasureDurationFrac(measure.timeSignature)
-
-    // Sort slots by beat position
-    const sortedSlots = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))
-
-    // Find gaps
-    const gaps: Array<{ start: Fraction; end: Fraction }> = []
-    let currentBeat: Fraction = fracCreate(0, 1)
-
-    for (const slot of sortedSlots) {
-      if (fracLt(currentBeat, slot.beat)) {
-        gaps.push({ start: currentBeat, end: slot.beat })
-      }
-      const slotDurFrac = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
-      currentBeat = fracAdd(slot.beat, slotDurFrac)
-    }
-
-    // Check for gap at the end of the measure
-    if (fracLt(currentBeat, totalBeatsFrac)) {
-      gaps.push({ start: currentBeat, end: totalBeatsFrac })
-    }
-
-    // Filter out gaps that start inside a tuplet's span
+    const meter = getMeterInfo(measure.timeSignature)
+    const barEnd = meter.barQuarters
     const tuplets = measure.tuplets || []
-    const filteredGaps = gaps.filter(gap => {
-      for (const tuplet of tuplets) {
-        const tupletEndFrac = fracAdd(
-          tuplet.startBeat,
-          getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied),
-        )
-        if (fracGte(gap.start, tuplet.startBeat) && fracLt(gap.start, tupletEndFrac)) {
-          return false
+
+    // Distinct voices present (always include voice 0 so an empty bar fills).
+    const voices = new Set<number>([0])
+    for (const slot of measure.slots) voices.add(slot.voice ?? 0)
+
+    for (const voice of voices) {
+      const voiceSlots = measure.slots
+        .filter(slot => (slot.voice ?? 0) === voice)
+        .sort((a, b) => fracCompare(a.beat, b.beat))
+
+      // Find gaps in this voice's stream.
+      const gaps: Array<{ start: Fraction; end: Fraction }> = []
+      let currentBeat: Fraction = fracCreate(0, 1)
+      for (const slot of voiceSlots) {
+        if (fracLt(currentBeat, slot.beat)) {
+          gaps.push({ start: currentBeat, end: slot.beat })
         }
+        const slotDurFrac = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
+        currentBeat = fracAdd(slot.beat, slotDurFrac)
       }
-      return true
-    })
+      if (fracLt(currentBeat, barEnd)) {
+        gaps.push({ start: currentBeat, end: barEnd })
+      }
 
-    // Fill each gap with musically appropriate rests
-    for (const gap of filteredGaps) {
-      let adjustedStart = gap.start
-      let adjustedEnd = gap.end
-
-      for (const tuplet of tuplets) {
-        if (fracGt(tuplet.startBeat, adjustedStart) && fracLt(tuplet.startBeat, adjustedEnd)) {
-          adjustedEnd = tuplet.startBeat
+      // Skip gaps that start inside a tuplet's span (the tuplet owns that time).
+      const filteredGaps = gaps.filter(gap => {
+        for (const tuplet of tuplets) {
+          const tupletEndFrac = fracAdd(
+            tuplet.startBeat,
+            getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied),
+          )
+          if (fracGte(gap.start, tuplet.startBeat) && fracLt(gap.start, tupletEndFrac)) {
+            return false
+          }
         }
-      }
+        return true
+      })
 
-      if (fracLte(adjustedEnd, adjustedStart)) continue
-
-      const rests = this.createMusicalRests(
-        fracToNumber(adjustedStart),
-        fracToNumber(adjustedEnd),
-        measure.timeSignature,
-      )
-      for (const rest of rests) {
-        measure.slots.push({
-          id: uuidv4(),
-          type: 'rest',
-          duration: rest.duration,
-          measure: measure.number,
-          beat: rest.beat,
-          actualDuration: durationToFraction(rest.duration),
-        })
-      }
-    }
-  }
-
-  /**
-   * Create musically appropriate rests for a gap
-   */
-  private createMusicalRests(
-    start: number,
-    end: number,
-    timeSignature: TimeSignature
-  ): Array<{ beat: Fraction; duration: Note['duration'] }> {
-    const rests: Array<{ beat: Fraction; duration: Note['duration'] }> = []
-    let current = start
-    const epsilon = 0.001
-
-    const beatUnit = this.getBeatUnit(timeSignature)
-
-    while (current < end - epsilon) {
-      const remaining = end - current
-      const beatFraction = current % beatUnit
-      const isOnBeat = beatFraction < epsilon || beatFraction > beatUnit - epsilon
-
-      if (!isOnBeat) {
-        const toNextBeat = beatUnit - beatFraction
-
-        if (toNextBeat >= 0.5 - epsilon && remaining >= 0.5 - epsilon) {
-          rests.push({ beat: beatToFrac(current), duration: '8' })
-          current += 0.5
-        } else if (toNextBeat >= 0.25 - epsilon && remaining >= 0.25 - epsilon) {
-          rests.push({ beat: beatToFrac(current), duration: '16' })
-          current += 0.25
-        } else if (toNextBeat >= 0.125 - epsilon && remaining >= 0.125 - epsilon) {
-          rests.push({ beat: beatToFrac(current), duration: '32' })
-          current += 0.125
-        } else {
-          break
+      for (const gap of filteredGaps) {
+        let adjustedEnd = gap.end
+        // Trim a gap that runs into a later tuplet so fillRests never spans one.
+        for (const tuplet of tuplets) {
+          if (fracGt(tuplet.startBeat, gap.start) && fracLt(tuplet.startBeat, adjustedEnd)) {
+            adjustedEnd = tuplet.startBeat
+          }
         }
-      } else {
-        if (remaining >= 4 - epsilon && Math.abs(current % 4) < epsilon) {
-          rests.push({ beat: beatToFrac(current), duration: 'w' })
-          current += 4
-        } else if (remaining >= 2 - epsilon && Math.abs(current % 2) < epsilon) {
-          rests.push({ beat: beatToFrac(current), duration: 'h' })
-          current += 2
-        } else if (remaining >= 1 - epsilon && beatUnit <= 1) {
-          rests.push({ beat: beatToFrac(current), duration: 'q' })
-          current += 1
-        } else if (remaining >= 0.5 - epsilon) {
-          rests.push({ beat: beatToFrac(current), duration: '8' })
-          current += 0.5
-        } else if (remaining >= 0.25 - epsilon && beatUnit <= 0.25) {
-          rests.push({ beat: beatToFrac(current), duration: '16' })
-          current += 0.25
-        } else if (remaining >= 0.125 - epsilon) {
-          rests.push({ beat: beatToFrac(current), duration: '32' })
-          current += 0.125
-        } else if (remaining >= 1 - epsilon) {
-          rests.push({ beat: beatToFrac(current), duration: 'q' })
-          current += 1
-        } else if (remaining >= 0.5 - epsilon) {
-          rests.push({ beat: beatToFrac(current), duration: '8' })
-          current += 0.5
-        } else if (remaining >= 0.25 - epsilon) {
-          rests.push({ beat: beatToFrac(current), duration: '16' })
-          current += 0.25
-        } else {
-          break
+        if (fracLte(adjustedEnd, gap.start)) continue
+
+        for (const rest of fillRests(gap.start, adjustedEnd, meter)) {
+          this.pushRestSlot(measure, rest, meter, voice)
         }
       }
     }
-
-    return rests
   }
 
   /**

@@ -1,9 +1,11 @@
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet } from 'vexflow'
 import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Chord, Fraction, PitchStep, PitchAlter, GhostNote } from '@/types/music'
-import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero } from '@/utils/fraction'
+import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureOpeningClef, measureEndingClef, effectiveClefAt, effectiveClefBefore } from '@/utils/clefUtils'
-import { beatToFrac, getMeasureDuration } from '@/utils/musicUtils'
-import { durationToVexflow, durationToBeats } from '@/utils/durations'
+import { beatToFrac } from '@/utils/musicUtils'
+import { durationToVexflow, durationToFraction } from '@/utils/durations'
+import { getMeterInfo } from '@/utils/meter'
+import { fillRests, type RestSlot } from '@/utils/restFill'
 import { ElementRegistry, type TupletGeometry, type ClefSegment } from '@/engine/ElementRegistry'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
 
@@ -372,26 +374,6 @@ export class VexFlowRenderer {
         }
       } catch (e) { /* getBoundingBox may fail */ }
     }
-  }
-
-  /**
-   * Calculate total beats used by notes in a measure
-   * Groups notes by beat to properly handle chords (chord = 1 beat, not N beats)
-   */
-  private beatsToRestDurations(beats: number): string[] {
-    const rests: string[] = []
-    let remaining = beats
-    const epsilon = 0.001
-    while (remaining > epsilon) {
-      if (remaining >= 4 - epsilon) { rests.push('wr'); remaining -= 4 }
-      else if (remaining >= 2 - epsilon) { rests.push('hr'); remaining -= 2 }
-      else if (remaining >= 1 - epsilon) { rests.push('qr'); remaining -= 1 }
-      else if (remaining >= 0.5 - epsilon) { rests.push('8r'); remaining -= 0.5 }
-      else if (remaining >= 0.25 - epsilon) { rests.push('16r'); remaining -= 0.25 }
-      else if (remaining >= 0.125 - epsilon) { rests.push('32r'); remaining -= 0.125 }
-      else break
-    }
-    return rests
   }
 
   /**
@@ -1666,25 +1648,22 @@ export class VexFlowRenderer {
         }
       }
 
-      // Rest-fill math is in quarter-note beats (ghostNote.beat / durations are quarters).
-      const barQuarters = getMeasureDuration(measure.timeSignature)
-      const noteDuration = durationToBeats(ghostNote.duration)
-      const beatsBeforeNote = ghostNote.beat
-      const beatsAfterNote = barQuarters - ghostNote.beat - noteDuration
-      const effectiveBeatsAfter = Math.max(0, beatsAfterNote)
+      // Meter-aware rest fill around the ghost note (same engine as the model).
+      // Positions are exact Fractions in quarter-note beats.
+      const meter = getMeterInfo(measure.timeSignature)
+      const noteStart = beatToFrac(ghostNote.beat)
+      const noteEnd = fracAdd(noteStart, durationToFraction(ghostNote.duration, ghostNote.dots || 0))
+
+      const makeRest = (r: RestSlot) => {
+        const sn = new StaveNote({ keys: ['b/4'], duration: durationToVexflow(r.duration, r.dots) + 'r' })
+        if (r.dots) Dot.buildAndAttach([sn], { all: true })
+        return sn
+      }
 
       const tickables: any[] = []
-      if (beatsBeforeNote > 0) {
-        for (const restDuration of this.beatsToRestDurations(beatsBeforeNote)) {
-          tickables.push(new StaveNote({ keys: ['b/4'], duration: restDuration }))
-        }
-      }
+      for (const r of fillRests(fracCreate(0, 1), noteStart, meter)) tickables.push(makeRest(r))
       tickables.push(staveNote)
-      if (effectiveBeatsAfter > 0) {
-        for (const restDuration of this.beatsToRestDurations(effectiveBeatsAfter)) {
-          tickables.push(new StaveNote({ keys: ['b/4'], duration: restDuration }))
-        }
-      }
+      for (const r of fillRests(noteEnd, meter.barQuarters, meter)) tickables.push(makeRest(r))
 
       // VexFlow wants the literal time signature, not quarter-beats.
       const voice = new Voice({

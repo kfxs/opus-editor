@@ -216,6 +216,12 @@ export interface Rest {
   tupletId?: string
   actualDuration?: Fraction
   tiedFrom?: string
+  /**
+   * True for the single rest that fills an entire empty bar (a measure rest).
+   * Rendered as a centred whole rest regardless of bar length (Phase 3); the
+   * stored `duration` is `'w'` and `actualDuration` carries the true bar length.
+   */
+  isMeasureRest?: boolean
 }
 
 export type ChordRest = Chord | Rest
