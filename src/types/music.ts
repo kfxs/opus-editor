@@ -236,8 +236,15 @@ export interface Measure {
   number: number
   /** Rhythmic slots (chords and rests) in this measure */
   slots: ChordRest[]
-  /** Time signature for this measure */
+  /** Time signature in effect for this measure (propagated from the last change). */
   timeSignature: TimeSignature
+  /**
+   * True when this measure begins an explicit time-signature change (a TS glyph
+   * is drawn here). Always true for measure 1. Measures without this marker
+   * inherit `timeSignature` from the most recent change. Resolution helpers live
+   * in utils/meter (effectiveTimeSignature, isTimeSignatureChange).
+   */
+  timeSignatureChange?: boolean
   /**
    * Clef changes within this measure, sorted ascending by beat.
    * A change at beat 0 is the measure's opening clef; changes at beat > 0 are
@@ -282,7 +289,7 @@ export interface Score {
   defaultTimeSignature: TimeSignature
   /** Clef for the score (default: 'treble') */
   clef?: Clef
-  /** Schema version for JSON forward-compatibility. Current: 1. */
+  /** Schema version for JSON forward-compatibility. Current: 2. */
   schemaVersion?: number
 }
 

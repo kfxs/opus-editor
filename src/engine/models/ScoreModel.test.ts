@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
 import type { NoteParams } from '@/types/music'
-import { fracCreate as frac, fracCompare } from '@/utils/fraction'
+import { fracCreate as frac, fracCompare, fracToNumber } from '@/utils/fraction'
+import type { ChordRest } from '@/types/music'
 
 describe('ScoreModel', () => {
   let model: ScoreModel
@@ -216,7 +217,7 @@ describe('ScoreModel', () => {
 
       expect(json).toContain('"title": "Test Score"')
       expect(json).toContain('"tempo": 120')
-      expect(parsed.schemaVersion).toBe(1)
+      expect(parsed.schemaVersion).toBe(2)
       const chord = parsed.measures[0].slots.find((s: any) => s.type === 'chord')
       expect(chord).toBeDefined()
       expect(chord.notes[0].step).toBe('C')
@@ -653,5 +654,156 @@ describe('ScoreModel', () => {
         expect(restored.getEffectiveClef(1)).toBe('bass')
       })
     })
+  })
+})
+
+// ===========================================================================
+// Phase 5 — time-signature engine API
+// ===========================================================================
+
+const ts = (numerator: number, denominator: number) => ({ numerator, denominator })
+
+/** Slots in a measure, sorted by beat. */
+function slotsOf(model: ScoreModel, measureNumber: number): ChordRest[] {
+  return [...(model.getMeasure(measureNumber)?.slots ?? [])].sort((a, b) => fracCompare(a.beat, b.beat))
+}
+
+/** Total sounding length of a measure's slots, as a float (quarters). */
+function totalLen(model: ScoreModel, measureNumber: number): number {
+  return slotsOf(model, measureNumber).reduce((sum, s) => {
+    const d = s.actualDuration ?? frac(0, 1)
+    return sum + fracToNumber(d)
+  }, 0)
+}
+
+const measureRest = (model: ScoreModel, n: number) =>
+  slotsOf(model, n).find((s) => s.type === 'rest' && s.isMeasureRest)
+
+describe('ScoreModel.setTimeSignature', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('TS', 120) })
+
+  it('changes an empty bar and resizes its measure rest', () => {
+    expect(model.setTimeSignature(1, ts(3, 4))).toBe(true)
+    const m = model.getMeasure(1)!
+    expect(m.timeSignature).toEqual(ts(3, 4))
+    expect(m.timeSignatureChange).toBe(true)
+    expect(model.getScore().defaultTimeSignature).toEqual(ts(3, 4))
+    const mr = measureRest(model, 1)!
+    expect(mr).toBeDefined()
+    expect(fracToNumber(mr.actualDuration!)).toBe(3) // 3/4 bar = 3 quarters
+  })
+
+  it('rejects a non-dyadic meter', () => {
+    expect(() => model.setTimeSignature(1, ts(4, 3))).toThrow()
+  })
+
+  it('is a no-op when re-applying the same signature', () => {
+    model.setTimeSignature(1, ts(3, 4))
+    expect(model.setTimeSignature(1, ts(3, 4))).toBe(false)
+  })
+
+  it('propagates forward to following measures (3/4 → 6/8)', () => {
+    model.addMeasure(); model.addMeasure() // measures 2, 3 (4/4)
+    model.setTimeSignature(1, ts(6, 8))
+    for (const n of [1, 2, 3]) {
+      expect(model.getMeasure(n)!.timeSignature).toEqual(ts(6, 8))
+      expect(fracToNumber(measureRest(model, n)!.actualDuration!)).toBe(3) // 6/8 = 3 quarters
+    }
+    // Only measure 1 carries the explicit change marker.
+    expect(model.getMeasure(1)!.timeSignatureChange).toBe(true)
+    expect(model.getMeasure(2)!.timeSignatureChange).toBeFalsy()
+  })
+
+  it('propagation stops at the next explicit change', () => {
+    model.addMeasure(); model.addMeasure(); model.addMeasure() // 2,3,4
+    model.setTimeSignature(3, ts(2, 4)) // explicit change at 3 → 3,4 = 2/4
+    model.setTimeSignature(1, ts(3, 4)) // 1,2 = 3/4, must not touch 3,4
+    expect(model.getMeasure(1)!.timeSignature).toEqual(ts(3, 4))
+    expect(model.getMeasure(2)!.timeSignature).toEqual(ts(3, 4))
+    expect(model.getMeasure(3)!.timeSignature).toEqual(ts(2, 4))
+    expect(model.getMeasure(3)!.timeSignatureChange).toBe(true)
+    expect(model.getMeasure(4)!.timeSignature).toEqual(ts(2, 4))
+  })
+
+  it('under-full bar over notes gains trailing rests, keeping the notes', () => {
+    model.setTimeSignature(1, ts(2, 4))
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    model.setTimeSignature(1, ts(4, 4)) // bar grows 2 → 4 quarters
+    const chords = slotsOf(model, 1).filter((s) => s.type === 'chord')
+    expect(chords.map((c) => fracToNumber(c.beat))).toEqual([0, 1])
+    expect(totalLen(model, 1)).toBe(4) // notes (2) + trailing rests (2)
+  })
+
+  it('over-full bar over notes keeps every note (no truncation)', () => {
+    // Four quarters fill 4/4; shrinking to 3/4 leaves the 4th note past the barline.
+    for (let b = 0; b < 4; b++) {
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
+    }
+    model.setTimeSignature(1, ts(3, 4))
+    const chordBeats = slotsOf(model, 1).filter((s) => s.type === 'chord').map((c) => fracToNumber(c.beat))
+    expect(chordBeats).toEqual([0, 1, 2, 3]) // all four kept, incl. the over-full one
+  })
+})
+
+describe('ScoreModel.removeTimeSignatureChange', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('TS', 120) })
+
+  it('reverts a change and its region to the inherited signature', () => {
+    model.addMeasure(); model.addMeasure() // 2, 3
+    model.setTimeSignature(2, ts(3, 4)) // 2,3 → 3/4
+    expect(model.removeTimeSignatureChange(2)).toBe(true)
+    for (const n of [1, 2, 3]) expect(model.getMeasure(n)!.timeSignature).toEqual(ts(4, 4))
+    expect(model.getMeasure(2)!.timeSignatureChange).toBeFalsy()
+  })
+
+  it('cannot remove the opening signature at measure 1', () => {
+    expect(model.removeTimeSignatureChange(1)).toBe(false)
+  })
+
+  it('returns false when there is no explicit change to remove', () => {
+    model.addMeasure()
+    expect(model.removeTimeSignatureChange(2)).toBe(false)
+  })
+})
+
+describe('ScoreModel JSON — time-signature migration & validation', () => {
+  /** Build a v1 (markerless) score JSON with the given per-measure meters. */
+  function v1Json(meters: Array<[number, number]>): string {
+    return JSON.stringify({
+      id: 'x', title: 't', tempo: 120, schemaVersion: 1,
+      keySignature: { key: 'C', accidentals: 0 },
+      defaultTimeSignature: { numerator: meters[0][0], denominator: meters[0][1] },
+      measures: meters.map(([n, d], i) => ({
+        id: `m${i + 1}`, number: i + 1, slots: [], tuplets: [],
+        timeSignature: { numerator: n, denominator: d },
+      })),
+    })
+  }
+
+  it('derives change markers from differing signatures (v1 → v2)', () => {
+    const model = ScoreModel.fromJSON(v1Json([[4, 4], [3, 4], [3, 4]]))
+    expect(model.getMeasure(1)!.timeSignatureChange).toBe(true) // measure 1 always
+    expect(model.getMeasure(2)!.timeSignatureChange).toBe(true) // differs from m1
+    expect(model.getMeasure(3)!.timeSignatureChange).toBeFalsy() // same as m2
+    expect(model.getScore().schemaVersion).toBe(2)
+  })
+
+  it('rejects a non-dyadic default time signature on load', () => {
+    expect(() => ScoreModel.fromJSON(v1Json([[4, 3]]))).toThrow()
+  })
+
+  it('rejects a non-dyadic per-measure time signature on load', () => {
+    expect(() => ScoreModel.fromJSON(v1Json([[4, 4], [5, 3]]))).toThrow()
+  })
+
+  it('restores a non-4/4 measure-rest with the correct bar-length actualDuration', () => {
+    const model = new ScoreModel('TS', 120)
+    model.setTimeSignature(1, ts(3, 4))
+    const restored = ScoreModel.fromJSON(model.toJSON())
+    const mr = restored.getMeasure(1)!.slots.find((s) => s.type === 'rest' && s.isMeasureRest)!
+    expect(fracToNumber(mr.actualDuration!)).toBe(3) // not 4 (the nominal 'w')
   })
 })

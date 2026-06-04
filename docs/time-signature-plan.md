@@ -1,10 +1,12 @@
 # Time Signature — Implementation Plan
 
-Status: **in progress** — Phases 0–4 complete (duration layer; coordinate/beat correctness;
+Status: **in progress** — Phases 0–5 complete (duration layer; coordinate/beat correctness;
 `utils/meter.ts`; `utils/restFill.ts` wired into model + preview; rendering off STRICT +
-measure-rest; `utils/beaming.ts` meter-aware beam grouping). Phase 5 (`setTimeSignature` engine
-API) next. This document is the authoritative plan and cross-session checklist for adding full
-time-signature support to the editor.
+measure-rest; `utils/beaming.ts` meter-aware beam grouping; `setTimeSignature` engine API with
+propagation + rest reconcile + JSON v1→v2 migration/validation + undo). Phase 6 (palette UI +
+interaction, incl. the deferred mid-score TS-glyph rendering) next. This document is the
+authoritative plan and cross-session checklist for adding full time-signature support to the
+editor.
 
 ---
 
@@ -560,7 +562,40 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
     quarter + four-16ths, 3/4, 6/8, 9/8, 7/8 2+2+3, 12/8), breaks (rest, quarter, lone eighth),
     explicit overrides (single, begin/end + begin/continue/end bridge), and the clef-change
     regression. 416 unit tests pass (+19); `build:check` clean. 4/4 beaming unchanged.
-- [ ] Phase 5 — `setTimeSignature` engine API
+- [x] Phase 5 — `setTimeSignature` engine API
+  - **Model marker:** added `Measure.timeSignatureChange?: boolean` (types/music.ts). `addMeasure`
+    sets it true for measure 1; `measure.timeSignature` stays "TS in effect" (propagated).
+    Helpers in `utils/meter.ts`: `isTimeSignatureChange(measure)`, `effectiveTimeSignature(score,
+    n)` (walks back to the nearest explicit change → that change's TS, else default — change
+    markers are authoritative), `sameTimeSignature(a,b)`.
+  - **`ScoreModel.setTimeSignature(measureNumber, ts, options?)`:** validates dyadic (throws
+    otherwise); no-ops when re-applying the same signature+marker; marks the change, sets the TS
+    (measure 1 also updates `score.defaultTimeSignature`), reconciles rests, then propagates
+    forward to each later measure until the next explicit change (`propagateTimeSignature`).
+    `options.extent` = `'toNextChange'` (default) | `'measure'`. `removeTimeSignatureChange(n)`
+    reverts a change (and its region) to the inherited signature; measure 1 can't be removed.
+  - **Rest reconcile (`reconcileMeasureRests`):** drops plain (non-tuplet) rests, keeps chords +
+    tuplet-owned rests, re-runs the per-voice meter-aware `fillGapsWithRests`. Under-full bars
+    gain trailing rests; **over-full bars keep every note** (no truncation; SOFT render handles
+    the crowding). True rebar-with-ties stays Phase 8.
+  - **JSON v1→v2 (`fromJSON`):** bumped `schemaVersion` to 2; `validateMeters` rejects non-dyadic
+    default/per-measure signatures at the load boundary (the only place a bad meter can enter);
+    v1 migration derives change markers (measure 1 + any measure whose TS differs from the prior
+    one). `computeActualDurationForSlot` is now measure-rest-aware (whole-bar length in every
+    meter, not the nominal `'w'`), fixing non-4/4 measure-rest round-trips everywhere (not just on
+    load).
+  - **`MusicEngine` wrappers:** `setTimeSignature` / `removeTimeSignatureChange` → model call +
+    `playbackEngine.setScore` + `saveUndoState`; undo/redo is snapshot-based so it works
+    automatically.
+  - **Deferred to Phase 6 (visual, not eyeball-testable until meters are reachable):** drawing the
+    TS glyph at mid-score change measures + reserving its width (reuse the inline-clef width path).
+    Phase 3 had tentatively parked this "in Phase 5"; moved to Phase 6 to keep Phase 5 a clean,
+    test-verified engine layer.
+  - Tests: `ScoreModel.test.ts` (+ empty-bar resize, reject non-dyadic, no-op, 3/4→6/8
+    propagation, propagation stops at next change, under-full trailing rests, over-full keeps
+    notes; removeTimeSignatureChange revert/guard; v1→v2 marker derivation, load validation ×2,
+    non-4/4 measure-rest round-trip) and `MusicEngine.test.ts` (set + undo/redo + remove).
+    433 unit tests pass (+17); `build:check` clean.
 - [ ] Phase 6 — Palette UI + interaction
 - [ ] Phase 6b — Custom time-signature dialog
 - [ ] Phase 7 — Voice-awareness scaffolding

@@ -9,7 +9,7 @@ import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, beatToFrac, g
 import { fracToNumber, fracCompare, fracEq, fracAdd } from '@/utils/fraction'
 import { durationToFraction } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos } from '@/utils/pitchSpelling'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling, GhostNote, Clef } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature } from '@/types/music'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 
 /** Internal context passed to updateNote sub-methods */
@@ -260,6 +260,44 @@ export class MusicEngine {
   /** Remove the measure's opening clef (beat 0). */
   removeClef(measureNumber: number): boolean {
     return this.removeClefAt(measureNumber, beatToFrac(0))
+  }
+
+  // ==================== Time Signature Operations ====================
+
+  /**
+   * Set the time signature at a measure: marks an explicit change, propagates it
+   * forward to the next change, and reconciles rests (never losing notes — an
+   * over-full bar renders crowded). Affects playback bar lengths. Saves undo
+   * state when changed.
+   * @throws if `ts` is non-dyadic / out of range.
+   * @returns true if the score changed.
+   */
+  setTimeSignature(
+    measureNumber: number,
+    ts: TimeSignature,
+    options?: { extent?: 'measure' | 'toNextChange' },
+  ): boolean {
+    const changed = this.scoreModel.setTimeSignature(measureNumber, ts, options)
+    if (changed) {
+      this.playbackEngine.setScore(this.scoreModel.getScore())
+      this.saveUndoState(`Set time signature ${ts.numerator}/${ts.denominator} at measure ${measureNumber}`)
+    }
+    return changed
+  }
+
+  /**
+   * Remove the explicit time-signature change at a measure, reverting it (and
+   * the measures after it, until the next change) to the inherited signature.
+   * Measure 1 cannot be removed. Saves undo state when changed.
+   * @returns true if a change was removed.
+   */
+  removeTimeSignatureChange(measureNumber: number): boolean {
+    const changed = this.scoreModel.removeTimeSignatureChange(measureNumber)
+    if (changed) {
+      this.playbackEngine.setScore(this.scoreModel.getScore())
+      this.saveUndoState(`Remove time signature change at measure ${measureNumber}`)
+    }
+    return changed
   }
 
   /**

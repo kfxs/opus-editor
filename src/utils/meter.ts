@@ -24,7 +24,7 @@
  * Pure: depends only on `fraction.ts` and the type declarations.
  */
 
-import type { TimeSignature } from '@/types/music'
+import type { TimeSignature, Measure, Score } from '@/types/music'
 import {
   type Fraction,
   fracCreate,
@@ -277,4 +277,32 @@ function subdivideTime(
 /** Convenience for tests/consumers: bar length as a float. */
 export function meterBarQuarters(ts: TimeSignature): number {
   return fracToNumber(getMeterInfo(ts).barQuarters)
+}
+
+// ---------------------------------------------------------------------------
+// Time-signature change markers (score-level)
+// ---------------------------------------------------------------------------
+
+/** True iff two time signatures are numerically identical. */
+export function sameTimeSignature(a: TimeSignature, b: TimeSignature): boolean {
+  return a.numerator === b.numerator && a.denominator === b.denominator
+}
+
+/** True iff this measure begins an explicit time-signature change. */
+export function isTimeSignatureChange(measure: Measure): boolean {
+  return measure.timeSignatureChange === true
+}
+
+/**
+ * The time signature in effect at a measure: the signature of the most recent
+ * explicit change at or before it, falling back to the score default. Change
+ * markers are authoritative, so this stays correct even if a measure's stored
+ * `timeSignature` drifts.
+ */
+export function effectiveTimeSignature(score: Score, measureNumber: number): TimeSignature {
+  for (let n = measureNumber; n >= 1; n--) {
+    const m = score.measures.find((mm) => mm.number === n)
+    if (m && isTimeSignatureChange(m)) return m.timeSignature
+  }
+  return score.defaultTimeSignature
 }

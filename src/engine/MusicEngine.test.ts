@@ -175,3 +175,32 @@ describe('BeamMode — storage and retrieval', () => {
     }
   })
 })
+
+describe('MusicEngine.setTimeSignature', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  it('sets the signature and reports the change', () => {
+    expect(engine.setTimeSignature(1, { numerator: 3, denominator: 4 })).toBe(true)
+    expect(engine.getScore().measures.find(m => m.number === 1)!.timeSignature)
+      .toEqual({ numerator: 3, denominator: 4 })
+  })
+
+  it('undo/redo restores and re-applies a time-signature change', () => {
+    engine.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    const tsOf = () => engine.getScore().measures.find(m => m.number === 1)!.timeSignature
+
+    expect(engine.undo()).toBe(true)
+    expect(tsOf()).toEqual({ numerator: 4, denominator: 4 })
+
+    expect(engine.redo()).toBe(true)
+    expect(tsOf()).toEqual({ numerator: 3, denominator: 4 })
+  })
+
+  it('removeTimeSignatureChange undoes a mid-score change', () => {
+    engine.setTimeSignature(2, { numerator: 3, denominator: 4 })
+    expect(engine.removeTimeSignatureChange(2)).toBe(true)
+    expect(engine.getScore().measures.find(m => m.number === 2)!.timeSignature)
+      .toEqual({ numerator: 4, denominator: 4 })
+  })
+})
