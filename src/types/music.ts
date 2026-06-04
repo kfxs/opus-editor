@@ -155,6 +155,12 @@ export interface Note {
   articulations?: ArticulationType[]
   /** Explicit beaming override */
   beam?: BeamMode
+  /**
+   * Voice index (0–3) this note belongs to. Voices are independent rhythmic
+   * streams within a bar. Only voice 0 is populated today (no multi-voice
+   * editing yet); the field exists so collision/fill/read paths are voice-ready.
+   */
+  voice?: 0 | 1 | 2 | 3
 }
 
 /**
@@ -365,4 +371,6 @@ export interface NoteParams {
   tiedFrom?: string
   stemDirection?: StemDirection
   beam?: BeamMode
+  /** Voice index (0–3). Defaults to 0. See {@link Note.voice}. */
+  voice?: 0 | 1 | 2 | 3
 }

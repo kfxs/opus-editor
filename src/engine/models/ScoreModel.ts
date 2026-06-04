@@ -449,6 +449,7 @@ export class ScoreModel {
       tupletId: chord.tupletId,
       actualDuration: chord.actualDuration,
       articulations: chord.articulations,
+      voice: chord.voice,
     }
   }
 
@@ -465,6 +466,7 @@ export class ScoreModel {
       tupletId: rest.tupletId,
       actualDuration: rest.actualDuration,
       tiedFrom: rest.tiedFrom,
+      voice: rest.voice,
     }
   }
 
@@ -498,15 +500,18 @@ export class ScoreModel {
         tupletId: params.tupletId,
         actualDuration: params.actualDuration,
       }
+      if (params.voice) rest.voice = params.voice
       rest.actualDuration = this.computeActualDurationForSlot(rest, measure)
       measure.slots.push(rest)
       measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
       return this.restToFlatNote(rest)
     }
 
-    // Regular note — look for existing Chord at same beat
+    // Regular note — look for an existing Chord at the same beat AND voice
+    // (different voices are independent streams and never merge into one chord).
+    const noteVoice = params.voice ?? 0
     const existingChord = measure.slots.find(
-      (s): s is Chord => s.type === 'chord' && fracEq(s.beat, params.beat)
+      (s): s is Chord => s.type === 'chord' && fracEq(s.beat, params.beat) && (s.voice ?? 0) === noteVoice
     )
 
     if (existingChord) {
@@ -562,6 +567,7 @@ export class ScoreModel {
       beam: params.beam === 'auto' ? undefined : params.beam,
       notes: [notePitch],
     }
+    if (params.voice) chord.voice = params.voice
     chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
 
     this.replaceRestsWithChord(measure, chord)
@@ -575,8 +581,10 @@ export class ScoreModel {
    */
   private replaceRestsWithChord(measure: Measure, chord: Chord): void {
     const chordDurFrac = chord.actualDuration ?? durationToFraction(chord.duration, chord.dots ?? 0)
+    const chordVoice = chord.voice ?? 0
 
-    // Remove overlapping rests; keep non-overlapping slots (both chords and rests)
+    // Remove overlapping rests IN THE SAME VOICE; keep everything else (chords, and
+    // rests belonging to other voices — voices are independent streams).
     let inheritedTupletId: string | undefined = chord.tupletId
     const remaining: ChordRest[] = []
 
@@ -584,7 +592,9 @@ export class ScoreModel {
       if (existing.type === 'rest') {
         const existingDurFrac =
           existing.actualDuration ?? durationToFraction(existing.duration, existing.dots ?? 0)
-        const overlaps = noteSpansOverlapFrac(chord.beat, chordDurFrac, existing.beat, existingDurFrac)
+        const overlaps =
+          (existing.voice ?? 0) === chordVoice &&
+          noteSpansOverlapFrac(chord.beat, chordDurFrac, existing.beat, existingDurFrac)
         if (overlaps) {
           if (existing.tupletId && !chord.tupletId) {
             inheritedTupletId = existing.tupletId

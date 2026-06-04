@@ -423,4 +423,32 @@ describe('CollisionDetector', () => {
       expect(quantized.beat.num / quantized.beat.den).toBeLessThanOrEqual(2) // Can't start past beat 2 with half note
     })
   })
+
+  describe('voice awareness (scaffolding)', () => {
+    it('does not collide with a note in a different voice at the same beat', () => {
+      const existing: Note = { ...C4, id: 'v0', duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 }
+      const newNote: NoteParams = { ...C4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 }
+      expect(detector.checkNoteCollision(newNote, [existing]).hasCollision).toBe(false)
+    })
+
+    it('still collides with a duplicate in the same voice', () => {
+      const existing: Note = { ...C4, id: 'v1', duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 }
+      const newNote: NoteParams = { ...C4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 }
+      expect(detector.checkNoteCollision(newNote, [existing]).hasCollision).toBe(true)
+    })
+
+    it('treats undefined voice as voice 0', () => {
+      const existing: Note = { ...C4, id: 'v0', duration: 'q', measure: 1, beat: frac(0, 1) } // no voice
+      const newNote: NoteParams = { ...C4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 }
+      expect(detector.checkNoteCollision(newNote, [existing]).hasCollision).toBe(true)
+    })
+
+    it('getAffectedNotes ignores notes in other voices', () => {
+      const v0: Note = { ...C4, id: 'a', duration: 'h', measure: 1, beat: frac(0, 1), voice: 0 }
+      const v1: Note = { ...G4, id: 'b', duration: 'h', measure: 1, beat: frac(0, 1), voice: 1 }
+      const newNote: NoteParams = { ...E4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 }
+      const affected = detector.getAffectedNotes(newNote, [v0, v1])
+      expect(affected.map(n => n.id)).toEqual(['b']) // only the voice-1 half note
+    })
+  })
 })

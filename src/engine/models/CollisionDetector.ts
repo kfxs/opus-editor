@@ -44,12 +44,16 @@ export class CollisionDetector {
   checkNoteCollision(newNote: NoteParams, existingNotes: Note[]): CollisionResult {
     const newNoteDurFrac = newNote.actualDuration ?? durationToFraction(newNote.duration, newNote.dots ?? 0)
     const newNoteEnd = fracAdd(newNote.beat, newNoteDurFrac)
+    const newVoice = newNote.voice ?? 0
 
     const collidingNotes: string[] = []
 
     for (const existing of existingNotes) {
       // Skip notes in different measures
       if (existing.measure !== newNote.measure) continue
+
+      // Skip notes in other voices — independent streams never collide
+      if ((existing.voice ?? 0) !== newVoice) continue
 
       // Skip rests - they don't participate in chords
       if (existing.isRest) continue
@@ -158,9 +162,11 @@ export class CollisionDetector {
   getAffectedNotes(newNote: NoteParams, existingNotes: Note[]): Note[] {
     const newNoteDurFrac = newNote.actualDuration ?? durationToFraction(newNote.duration, newNote.dots ?? 0)
     const newNoteEnd = fracAdd(newNote.beat, newNoteDurFrac)
+    const newVoice = newNote.voice ?? 0
 
     return existingNotes.filter(note => {
       if (note.measure !== newNote.measure) return false
+      if ((note.voice ?? 0) !== newVoice) return false
 
       const noteDurFrac = note.actualDuration ?? durationToFraction(note.duration, note.dots ?? 0)
       const noteEnd = fracAdd(note.beat, noteDurFrac)

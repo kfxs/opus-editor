@@ -760,6 +760,38 @@ describe('ScoreModel.setTimeSignature', () => {
   })
 })
 
+describe('ScoreModel voice-aware fill (scaffolding)', () => {
+  it('fills each voice independently up to the bar length', () => {
+    const model = new ScoreModel('V', 120)
+    // Voice 0 starts as a whole-bar measure rest. Add a voice-1 quarter at beat 0.
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+
+    const all = slotsOf(model, 1)
+    const v0 = all.filter(s => (s.voice ?? 0) === 0)
+    const v1 = all.filter(s => (s.voice ?? 0) === 1)
+
+    // Voice 0 untouched: still a single whole-bar measure rest.
+    expect(v0).toHaveLength(1)
+    expect((v0[0] as { isMeasureRest?: boolean }).isMeasureRest).toBe(true)
+
+    // Voice 1: the quarter note + rests, summing to the full 4/4 bar.
+    const v1Chord = v1.find(s => s.type === 'chord')!
+    expect(v1Chord.duration).toBe('q')
+    const v0Total = v0.reduce((sum, s) => sum + fracToNumber(s.actualDuration!), 0)
+    const v1Total = v1.reduce((sum, s) => sum + fracToNumber(s.actualDuration!), 0)
+    expect(v0Total).toBeCloseTo(4, 5)
+    expect(v1Total).toBeCloseTo(4, 5)
+  })
+
+  it('adding a note in one voice does not remove another voice\'s rests', () => {
+    const model = new ScoreModel('V', 120)
+    const before = slotsOf(model, 1).filter(s => (s.voice ?? 0) === 0).length
+    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1), voice: 1 })
+    const after = slotsOf(model, 1).filter(s => (s.voice ?? 0) === 0).length
+    expect(after).toBe(before) // voice 0 stream untouched
+  })
+})
+
 describe('ScoreModel measure-rest update (regression)', () => {
   let model: ScoreModel
   beforeEach(() => { model = new ScoreModel('TS', 120) })

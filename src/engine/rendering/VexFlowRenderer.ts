@@ -855,6 +855,11 @@ export class VexFlowRenderer {
       const { tickables, clefNoteByBeat } = this.interleaveClefNotes(sortedSlots, staveNotes, midChanges)
 
       const meter = getMeterInfo(measure.timeSignature)
+      // VOICE SCAFFOLDING: all slots render in a single VexFlow voice today (only
+      // voice 0 is populated). When multi-voice editing lands, group slots by
+      // `voice ?? 0` and build one Voice per group, all sharing this numBeats/
+      // beatValue (so Formatter.joinVoices won't TickMismatch), then format and
+      // draw them together. The model layer (fill/collision) is already per-voice.
       const voice = new Voice({
         numBeats: measure.timeSignature.numerator,
         beatValue: measure.timeSignature.denominator,

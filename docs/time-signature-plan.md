@@ -1,10 +1,12 @@
 # Time Signature — Implementation Plan
 
-Status: **in progress** — Phases 0–6b complete. The full engine (Phases 0–5) is user-reachable
-via the time-signature palette (Phase 6: arm/click + mid-score TS-glyph rendering) and a custom
-meter dialog exposing any dyadic meter + optional additive grouping (Phase 6b). Phase 7
-(voice-awareness scaffolding) remains; Phase 8 (rebar-with-ties + pickup) is the deferred
-follow-up. This document is the authoritative plan and cross-session checklist.
+Status: **in progress** — Phases 0–7 complete. The full engine (Phases 0–5) is user-reachable via
+the time-signature palette (Phase 6) + custom-meter dialog with additive grouping (Phase 6b), and
+the data/model layer is per-voice-ready (Phase 7 — collision/fill/addNote voice-scoped; the
+multi-voice *render loop* is deferred to a future voice phase, with the extension point
+documented). Only **Phase 8** (rebar-with-ties + forward overflow + pickup/anacrusis) remains —
+the large, deferred follow-up. This document is the authoritative plan and cross-session
+checklist.
 
 ---
 
@@ -659,5 +661,26 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
     / getMeterInfo honours ts.grouping / rejects bad sum); beaming.test.ts (8/8 [3,3,2] → 3+3+2);
     ScoreModel.test.ts (stores + deep-copies grouping, rejects invalid, grouping-only change is not
     a no-op). 453 unit tests pass (+8); `build:check` clean. UI/visual = manual.
-- [ ] Phase 7 — Voice-awareness scaffolding
+- [x] Phase 7 — Voice-awareness scaffolding (data/model layer; render loop deferred)
+  - **Scope:** voices are NOT implemented (no multi-voice editing) — this makes the data/model
+    layer per-voice-*ready* so a future voice phase can't silently corrupt cross-voice streams.
+    Only voice 0 is ever populated today, so every change below is a no-op (`0 === 0`) for the
+    current single-voice path.
+  - **Types:** added `voice?: 0|1|2|3` to the flat `Note` and to `NoteParams` (the model `Chord`/
+    `Rest` already had it). `toFlatNote`/`restToFlatNote` now carry `voice` through.
+  - **CollisionDetector is voice-scoped:** `checkNoteCollision` and `getAffectedNotes` skip notes
+    in a different voice (`(n.voice ?? 0) !== newVoice`) — independent streams never collide.
+  - **addNote is voice-scoped:** the existing-chord lookup matches same beat AND voice; the new
+    chord/rest carry `params.voice`; `replaceRestsWithChord` only removes overlapping rests **in
+    the same voice** (other voices' rests are preserved).
+  - **Rest-fill already per-voice** (Phase 2b's `fillGapsWithRests` groups by `voice ?? 0`);
+    confirmed + tested (a voice-1 note fills voice 1 independently without touching voice 0).
+  - **Renderer per-voice loop DEFERRED** (display-only, untestable without real voice data, and
+    risky to the well-tested single-voice render). The shared-capacity foundation is already
+    there (the VexFlow `Voice` uses `numBeats/beatValue` from the TS); a code comment at the voice
+    site documents the exact extension point (group slots by `voice ?? 0`, one Voice per group
+    sharing capacity, `joinVoices` to avoid `TickMismatch`). Build this with the voice phase.
+  - Tests: `CollisionDetector.test.ts` (cross-voice no-collision, same-voice duplicate, undefined=0,
+    getAffectedNotes voice filter); `ScoreModel.test.ts` (per-voice independent fill; adding a
+    voice-1 note doesn't disturb voice 0). 459 unit tests pass (+6); `build:check` clean.
 - [ ] Phase 8 — (Deferred) Rebar-with-ties + pickup
