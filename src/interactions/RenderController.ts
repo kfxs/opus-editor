@@ -1,5 +1,5 @@
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { Clef } from '../types/music'
+import type { Clef, TimeSignature } from '../types/music'
 import type { EditorState } from './EditorState'
 import type { HighlightController } from './HighlightController'
 
@@ -58,6 +58,14 @@ export class RenderController {
     const engine = this.getEngine()
     if (!engine) return
     engine.renderScoreWithClefGhost(coords, clef)
+    this.applyHighlights()
+  }
+
+  /** Render the score with a translucent ghost time signature following the cursor. */
+  renderTimeSignatureGhost(coords: { x: number; y: number }, ts: TimeSignature): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    engine.renderScoreWithTimeSignatureGhost(coords, ts)
     this.applyHighlights()
   }
 }

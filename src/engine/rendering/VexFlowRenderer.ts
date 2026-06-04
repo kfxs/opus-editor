@@ -1,5 +1,5 @@
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet } from 'vexflow'
-import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Chord, Fraction, PitchStep, PitchAlter, GhostNote } from '@/types/music'
+import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Chord, Fraction, PitchStep, PitchAlter, GhostNote, TimeSignature } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureOpeningClef, measureEndingClef, effectiveClefAt, effectiveClefBefore } from '@/utils/clefUtils'
 import { beatToFrac } from '@/utils/musicUtils'
@@ -560,6 +560,15 @@ export class VexFlowRenderer {
   }
 
   /**
+   * Whether a time-signature glyph is drawn at the start of this measure:
+   * measure 1 always, plus any measure that begins an explicit TS change
+   * (engraving standard). Drives both the drawing and its width reservation.
+   */
+  private drawsTimeSignature(measure: Measure): boolean {
+    return measure.number === 1 || measure.timeSignatureChange === true
+  }
+
+  /**
    * Calculate minimum width needed for a single measure based on its content
    * Uses VexFlow's Formatter to estimate space needed for notes
    */
@@ -580,8 +589,8 @@ export class VexFlowRenderer {
       overhead += LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
     }
 
-    // Add time signature width for measure 1
-    if (measure.number === 1) {
+    // Add time signature width wherever a TS glyph is drawn (measure 1 + changes)
+    if (this.drawsTimeSignature(measure)) {
       overhead += LAYOUT_CONFIG.TIME_SIG_WIDTH
     }
 
@@ -906,7 +915,7 @@ export class VexFlowRenderer {
       // Mid-line clef change: smaller clef at the start of the measure it applies to
       stave.addClef(clef, 'small')
     }
-    if (measure.number === 1) {
+    if (this.drawsTimeSignature(measure)) {
       stave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
     }
     if (cautionaryEndClef) {
@@ -1278,12 +1287,19 @@ export class VexFlowRenderer {
       })
     }
 
-    if (measure.number === 1) {
+    if (this.drawsTimeSignature(measure)) {
+      // Position after whatever clef glyph (if any) was drawn at the measure start.
+      const clefOffset =
+        measure.number === 1 || isFirstInLine
+          ? LAYOUT_CONFIG.CLEF_WIDTH
+          : hasClefChange
+            ? LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
+            : 0
       this.elementRegistry.add({
         type: 'timeSignature',
         measure: measure.number,
         bbox: {
-          x: x + LAYOUT_CONFIG.CLEF_WIDTH,
+          x: x + clefOffset,
           y,
           width: LAYOUT_CONFIG.TIME_SIG_WIDTH,
           height: LAYOUT_CONFIG.STAVE_HEIGHT,
@@ -1494,7 +1510,7 @@ export class VexFlowRenderer {
       } else if (hasClefChange) {
         tempStave.addClef(openingClef, 'small')
       }
-      if (ghostNote.measure === 1) {
+      if (this.drawsTimeSignature(measure)) {
         tempStave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
       }
       // Match the real stave's note area so the ghost note aligns with where the
@@ -2023,6 +2039,53 @@ export class VexFlowRenderer {
       svg.appendChild(group)
 
       // Center the glyph on the cursor so it tracks the mouse freely.
+      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
+      if (gbox && gbox.width > 0) {
+        const dx = cursorX - (gbox.x + gbox.width / 2)
+        const dy = cursorY - (gbox.y + gbox.height / 2)
+        group.setAttribute('transform', `translate(${dx}, ${dy})`)
+      }
+
+      return true
+    } catch (e) {
+      return false
+    }
+  }
+
+  /**
+   * Render the score with a free-floating translucent ghost time signature that
+   * follows the cursor (mirrors {@link renderScoreWithClefGhost}). Draws just the
+   * TS glyph on a 0-line stave, wrapped in a `.ghost-timesig-group` for CSS
+   * tinting, translated so its centre sits at the cursor.
+   * @returns true if the ghost time signature was drawn
+   */
+  renderScoreWithTimeSignatureGhost(score: Score, cursorX: number, cursorY: number, ts: TimeSignature): boolean {
+    this.renderScore(score)
+
+    const svg = this.getSVGElement()
+    if (!svg) return false
+
+    try {
+      const childrenBefore = svg.children.length
+
+      const tempStave = new Stave(0, cursorY, 120, { numLines: 0 })
+      tempStave.setBegBarType(Barline.type.NONE)
+      tempStave.setEndBarType(Barline.type.NONE)
+      tempStave.addTimeSignature(`${ts.numerator}/${ts.denominator}`)
+      tempStave.setContext(this.context!).draw()
+
+      const newElements: Element[] = []
+      for (let i = childrenBefore; i < svg.children.length; i++) {
+        newElements.push(svg.children[i])
+      }
+      if (newElements.length === 0) return false
+
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+      group.setAttribute('class', 'ghost-timesig-group')
+      for (const el of newElements) svg.removeChild(el)
+      for (const el of newElements) group.appendChild(el)
+      svg.appendChild(group)
+
       const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
       if (gbox && gbox.width > 0) {
         const dx = cursorX - (gbox.x + gbox.width / 2)

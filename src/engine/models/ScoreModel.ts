@@ -639,6 +639,17 @@ export class ScoreModel {
   }
 
   /**
+   * Public: refill a measure's gaps with engraving-correct, meter-aware rests
+   * (per voice). Used after an edit frees space — e.g. shortening a rest — so the
+   * remainder is regrouped for the measure's meter instead of by the legacy
+   * float splitter. No-op if the measure doesn't exist.
+   */
+  fillMeasureGaps(measureNumber: number): void {
+    const measure = this.getMeasure(measureNumber)
+    if (measure) this.fillGapsWithRests(measure)
+  }
+
+  /**
    * Fill gaps in a measure with engraving-correct rests, per voice.
    *
    * Each voice (defaulting to 0) is an independent rhythmic stream that must sum
@@ -837,10 +848,18 @@ export class ScoreModel {
         if (updates.beat !== undefined) rest.beat = updates.beat
         if (updates.tupletId !== undefined) rest.tupletId = updates.tupletId
         rest.measure = updates.measure
+        // A relocated rest is no longer the whole-bar measure rest.
+        delete rest.isMeasureRest
         rest.actualDuration = this.computeActualDurationForSlot(rest, newMeasureObj)
         newMeasureObj.slots.push(rest)
         newMeasureObj.slots.sort((a, b) => fracCompare(a.beat, b.beat))
       } else {
+        // Giving the rest a specific duration/dots/beat individualises it — it is
+        // no longer the whole-bar measure rest, so drop the flag (otherwise it keeps
+        // rendering as a centred whole rest and claiming the whole bar's length).
+        if (updates.duration !== undefined || updates.dots !== undefined || updates.beat !== undefined) {
+          delete rest.isMeasureRest
+        }
         if (updates.duration !== undefined) rest.duration = updates.duration
         if (updates.dots !== undefined) rest.dots = updates.dots
         if (updates.tupletId !== undefined) rest.tupletId = updates.tupletId

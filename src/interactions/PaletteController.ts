@@ -1,7 +1,8 @@
-import type { ArticulationType, Accidental, NoteDuration, PitchAlter, BeamMode, Clef } from '../types/music'
+import type { ArticulationType, Accidental, NoteDuration, PitchAlter, BeamMode, Clef, TimeSignature } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
 import { fracLt, fracCompare } from '../utils/fraction'
+import { sameTimeSignature } from '../utils/meter'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingDiatonicPos } from '../utils/pitchSpelling'
 
@@ -33,6 +34,7 @@ export class PaletteController {
     this.state.selectedDots = 0
     this.state.tupletMode = false
     this.state.selectedClef = null
+    this.state.selectedTimeSignature = null
     const engine = this.getEngine()
     if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
       const before = engine.getNote(this.state.selectedNoteId)
@@ -218,10 +220,29 @@ export class PaletteController {
     const newValue = this.state.selectedClef === clef ? null : clef
     this.state.selectedClef = newValue
     if (newValue) {
+      this.state.selectedTimeSignature = null
       this.state.selectedTool = 'entry'
       this.state.selectedNoteId = null
       this.state.selectedClefMeasure = null
       this.state.selectedClefBeat = null
+    }
+    this.renderScore()
+  }
+
+  /**
+   * Arm/disarm a time signature for placement. Clicking the active signature
+   * again disarms it. While armed, canvas clicks set/change a measure's time
+   * signature (see MouseController) and the ghost note is suppressed. Switches to
+   * the entry tool so canvas clicks are handled for placement.
+   */
+  setTimeSignature(ts: TimeSignature): void {
+    const current = this.state.selectedTimeSignature
+    const newValue = current && sameTimeSignature(current, ts) ? null : ts
+    this.state.selectedTimeSignature = newValue
+    if (newValue) {
+      this.state.selectedClef = null
+      this.state.selectedTool = 'entry'
+      this.state.selectedNoteId = null
     }
     this.renderScore()
   }
@@ -235,6 +256,7 @@ export class PaletteController {
     this.state.tenuto = false
     this.state.selectedBeam = 'auto'
     this.state.selectedClef = null
+    this.state.selectedTimeSignature = null
   }
 
   // --- Toolbar button active-state helpers ---

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MusicEngine } from './MusicEngine'
-import { fracCreate as frac } from '@/utils/fraction'
+import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 
 // Stub VexFlowRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio)
 const fakeRegistry = {
@@ -202,5 +202,37 @@ describe('MusicEngine.setTimeSignature', () => {
     expect(engine.removeTimeSignatureChange(2)).toBe(true)
     expect(engine.getScore().measures.find(m => m.number === 2)!.timeSignature)
       .toEqual({ numerator: 4, denominator: 4 })
+  })
+})
+
+describe('MusicEngine — measure rest duration change (regression)', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  it('changing the default measure rest to an 8th leaves no leftover whole rest', () => {
+    const m1 = engine.getScore().measures.find(m => m.number === 1)!
+    const mr = m1.slots.find(s => s.type === 'rest' && (s as { isMeasureRest?: boolean }).isMeasureRest)!
+    engine.updateNote(mr.id, { duration: '8' })
+
+    const slots = engine.getScore().measures.find(m => m.number === 1)!.slots
+    // The whole-bar measure rest is gone.
+    expect(slots.some(s => s.type === 'rest' && (s as { isMeasureRest?: boolean }).isMeasureRest)).toBe(false)
+    // Exactly one 8th rest sits at beat 0 (the formerly-whole rest, now individualised).
+    const eighthsAt0 = slots.filter(s => s.type === 'rest' && s.duration === '8' && s.beat.num === 0)
+    expect(eighthsAt0).toHaveLength(1)
+  })
+
+  it('refills a shortened measure rest to the actual bar length in a non-4/4 meter', () => {
+    // 6/8 bar = 3 quarter-beats. Changing its whole-bar rest to a quarter must
+    // leave a bar that sums to exactly 3 quarters — not 4 (the nominal 'w').
+    engine.setTimeSignature(1, { numerator: 6, denominator: 8 })
+    const mr = engine.getScore().measures.find(m => m.number === 1)!
+      .slots.find(s => s.type === 'rest' && (s as { isMeasureRest?: boolean }).isMeasureRest)!
+    engine.updateNote(mr.id, { duration: 'q' })
+
+    const slots = engine.getScore().measures.find(m => m.number === 1)!.slots
+    const total = slots.reduce((sum, s) => sum + fracToNumber(s.actualDuration!), 0)
+    expect(total).toBeCloseTo(3, 5)            // exactly the 6/8 bar length
+    expect(slots.some(s => s.type === 'rest' && (s as { isMeasureRest?: boolean }).isMeasureRest)).toBe(false)
   })
 })

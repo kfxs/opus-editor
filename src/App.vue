@@ -288,6 +288,23 @@
             >{{ c === 'treble' ? '𝄞' : c === 'bass' ? '𝄢' : '𝄡' }}</button>
           </div>
 
+          <!-- Time Signature Tool -->
+          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
+            <span class="text-sm text-gray-300">Time:</span>
+            <button
+              v-for="ts in timeSignaturePresets"
+              :key="`${ts.numerator}/${ts.denominator}`"
+              @click="palette.setTimeSignature({ numerator: ts.numerator, denominator: ts.denominator })"
+              :class="[
+                'px-2 py-1 rounded text-sm font-bold leading-none tabular-nums',
+                isTimeSignatureArmed(ts)
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              :title="`${ts.numerator}/${ts.denominator} — click a measure to set its time signature`"
+            >{{ ts.numerator }}/{{ ts.denominator }}</button>
+          </div>
+
           <div class="border-l border-gray-600 mx-2"></div>
           <button
             @click="togglePlayback"
@@ -380,6 +397,24 @@ const shortcuts = useShortcuts(
 // --- Computed ---
 const scoreJSON = computed(() => engine.value?.exportJSON() || '{}')
 
+// --- Time signature palette ---
+// Presets are shortcuts only; the engine supports any dyadic meter. Covers
+// simple (4/4 3/4 2/4), compound (6/8 9/8), and irregular (5/8 7/8) for testing.
+const timeSignaturePresets = [
+  { numerator: 4, denominator: 4 },
+  { numerator: 3, denominator: 4 },
+  { numerator: 2, denominator: 4 },
+  { numerator: 6, denominator: 8 },
+  { numerator: 9, denominator: 8 },
+  { numerator: 5, denominator: 8 },
+  { numerator: 7, denominator: 8 },
+] as const
+
+function isTimeSignatureArmed(ts: { numerator: number; denominator: number }): boolean {
+  const sel = state.selectedTimeSignature
+  return !!sel && sel.numerator === ts.numerator && sel.denominator === ts.denominator
+}
+
 // --- Lifecycle ---
 onMounted(() => {
   if (scoreCanvas.value) {
@@ -469,6 +504,24 @@ async function togglePlayback() {
   fill: #3B82F6 !important;
 }
 .ghost-clef-group line {
+  stroke: #2563EB !important;
+}
+
+/* Free-floating translucent ghost time signature that follows the cursor */
+.ghost-timesig-group {
+  opacity: 0.7;
+  pointer-events: none;
+}
+.ghost-timesig-group path,
+.ghost-timesig-group ellipse,
+.ghost-timesig-group circle {
+  fill: #3B82F6 !important;
+  stroke: #2563EB !important;
+}
+.ghost-timesig-group text {
+  fill: #3B82F6 !important;
+}
+.ghost-timesig-group line {
   stroke: #2563EB !important;
 }
 

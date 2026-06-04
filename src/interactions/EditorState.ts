@@ -1,4 +1,4 @@
-import type { Accidental, NoteDuration, BeamMode, Clef } from '../types/music'
+import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature } from '../types/music'
 
 export type ToolMode = 'entry' | 'selection'
 export type PlaybackState = 'stopped' | 'playing' | 'paused'
@@ -43,6 +43,12 @@ export interface EditorState {
   /** Beat of the selected clef within its measure (0 = opening clef). */
   selectedClefBeat: number | null
 
+  // --- Time signature tool ---
+  /** Time signature armed for placement (null = TS tool not active). When set,
+   *  canvas clicks set/change a measure's time signature and the ghost note is
+   *  suppressed. */
+  selectedTimeSignature: TimeSignature | null
+
   // --- UI ---
   showCursor: boolean
   playbackState: PlaybackState
@@ -69,6 +75,7 @@ export function createEditorState(): EditorState {
     selectedClef: null,
     selectedClefMeasure: null,
     selectedClefBeat: null,
+    selectedTimeSignature: null,
     showCursor: true,
     playbackState: 'stopped',
   }

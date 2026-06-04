@@ -343,6 +343,22 @@ export class MouseController {
     const registry = engine.getElementRegistry()
     const measureNum = engine.pixelToMeasure({ x, y })
 
+    // Time-signature tool: set/change the measure's time signature (always at
+    // beat 0). Propagation + rest reconcile are handled by the engine.
+    if (this.state.selectedTimeSignature) {
+      const ts = this.state.selectedTimeSignature
+      try {
+        const changed = engine.setTimeSignature(measureNum, ts)
+        console.log(changed
+          ? `✓ Time signature set | ${ts.numerator}/${ts.denominator} at measure ${measureNum}`
+          : `Time signature unchanged at measure ${measureNum}`)
+      } catch (e) {
+        console.warn(`✗ Time signature ${ts.numerator}/${ts.denominator} rejected:`, e)
+      }
+      this.render.renderScore()
+      return
+    }
+
     // Clef tool: set/change the clef at the nearest slot boundary. A clef change
     // anchors to a slot (beat 0 = the measure's opening clef, drawn at the
     // barline; beat > 0 = an inline mid-measure clef before that slot).
@@ -523,6 +539,14 @@ export class MouseController {
     // ghost note, and hide the keyboard cursor.
     if (this.state.selectedClef) {
       this.render.renderClefGhost({ x, y }, this.state.selectedClef)
+      this.state.showCursor = false
+      return
+    }
+
+    // Time-signature tool armed: show a ghost time signature following the cursor
+    // (mirrors the clef tool), and hide the keyboard cursor.
+    if (this.state.selectedTimeSignature) {
+      this.render.renderTimeSignatureGhost({ x, y }, this.state.selectedTimeSignature)
       this.state.showCursor = false
       return
     }

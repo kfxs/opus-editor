@@ -574,24 +574,33 @@ export class MusicEngine {
     // Apply all requested updates to the target note
     const note = this.scoreModel.updateNote(noteId, updates)
 
-    // If duration was shortened, fill the gap with rests
+    // If duration was shortened, fill the freed space with rests.
     if (beatDifference > 0.001) {
-      let currentBeat = fracAdd(note.beat, durationToFraction(newDuration, newDots))
-      for (const restDuration of splitBeatsIntoDurations(beatDifference)) {
-        this.scoreModel.addRest(restDuration, note.measure, currentBeat)
-        currentBeat = fracAdd(currentBeat, durationToFraction(restDuration))
-      }
+      if (existingNote.isRest) {
+        // Meter-aware refill: the shortened rest's remainder is regrouped for the
+        // bar's meter. This both fixes the bar length (a former measure rest's
+        // nominal 'w' is 4 quarters, not the real bar length) and groups rests
+        // correctly in compound/irregular meters — the legacy float splitter
+        // below does neither.
+        this.scoreModel.fillMeasureGaps(note.measure)
+      } else {
+        let currentBeat = fracAdd(note.beat, durationToFraction(newDuration, newDots))
+        for (const restDuration of splitBeatsIntoDurations(beatDifference)) {
+          this.scoreModel.addRest(restDuration, note.measure, currentBeat)
+          currentBeat = fracAdd(currentBeat, durationToFraction(restDuration))
+        }
 
-      // Break tiedTo if the shortened note no longer abuts its tie target
-      if (note.tiedTo) {
-        const tiedTarget = this.scoreModel.getNote(note.tiedTo)
-        if (tiedTarget) {
-          const noteEnd = fracToNumber(note.beat) + durationToBeats(newDuration, newDots)
-          const targetBeat = fracToNumber(tiedTarget.beat)
-          if (Math.abs(noteEnd - targetBeat) > 0.001 || note.measure !== tiedTarget.measure) {
-            console.log(`[Tie] broken — ${note.step}${note.octave} m${note.measure} no longer abuts tied target after duration change`)
-            this.scoreModel.updateNote(note.id, { tiedTo: undefined })
-            this.scoreModel.updateNote(tiedTarget.id, { tiedFrom: undefined })
+        // Break tiedTo if the shortened note no longer abuts its tie target
+        if (note.tiedTo) {
+          const tiedTarget = this.scoreModel.getNote(note.tiedTo)
+          if (tiedTarget) {
+            const noteEnd = fracToNumber(note.beat) + durationToBeats(newDuration, newDots)
+            const targetBeat = fracToNumber(tiedTarget.beat)
+            if (Math.abs(noteEnd - targetBeat) > 0.001 || note.measure !== tiedTarget.measure) {
+              console.log(`[Tie] broken — ${note.step}${note.octave} m${note.measure} no longer abuts tied target after duration change`)
+              this.scoreModel.updateNote(note.id, { tiedTo: undefined })
+              this.scoreModel.updateNote(tiedTarget.id, { tiedFrom: undefined })
+            }
           }
         }
       }
@@ -1017,6 +1026,17 @@ export class MusicEngine {
    */
   renderScoreWithClefGhost(coords: PixelCoordinates, clef: Clef): boolean {
     const drawn = this.renderer.renderScoreWithClefGhost(this.scoreModel.getScore(), coords.x, coords.y, clef)
+    this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
+    return drawn
+  }
+
+  /**
+   * Render the score with a free-floating translucent ghost time signature that
+   * follows the cursor; on click it is applied to the clicked measure.
+   * @returns true if a ghost time signature was drawn, false otherwise
+   */
+  renderScoreWithTimeSignatureGhost(coords: PixelCoordinates, ts: TimeSignature): boolean {
+    const drawn = this.renderer.renderScoreWithTimeSignatureGhost(this.scoreModel.getScore(), coords.x, coords.y, ts)
     this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
     return drawn
   }

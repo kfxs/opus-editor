@@ -747,6 +747,33 @@ describe('ScoreModel.setTimeSignature', () => {
   })
 })
 
+describe('ScoreModel measure-rest update (regression)', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('TS', 120) })
+
+  it('changing a measure rest\'s duration drops the measure-rest flag and resizes it', () => {
+    const mr = measureRest(model, 1)!
+    expect(mr).toBeDefined()
+    expect(fracToNumber(mr.actualDuration!)).toBe(4) // 4/4 whole-bar measure rest
+
+    model.updateNote(mr.id, { duration: '8' })
+
+    const after = model.getMeasure(1)!.slots.find((s) => s.id === mr.id)!
+    expect(after.type).toBe('rest')
+    // No longer a whole-bar measure rest...
+    expect((after as { isMeasureRest?: boolean }).isMeasureRest).toBeFalsy()
+    expect(after.duration).toBe('8')
+    // ...and its sounding length is the real 8th-note value, not the bar length.
+    expect(fracToNumber(after.actualDuration!)).toBe(0.5)
+  })
+
+  it('the resized rest no longer claims the whole bar (only one measure rest exists)', () => {
+    const mr = measureRest(model, 1)!
+    model.updateNote(mr.id, { duration: '8' })
+    expect(measureRest(model, 1)).toBeUndefined() // the lone measure rest is gone
+  })
+})
+
 describe('ScoreModel.removeTimeSignatureChange', () => {
   let model: ScoreModel
   beforeEach(() => { model = new ScoreModel('TS', 120) })

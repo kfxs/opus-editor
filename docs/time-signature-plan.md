@@ -1,12 +1,12 @@
 # Time Signature — Implementation Plan
 
-Status: **in progress** — Phases 0–5 complete (duration layer; coordinate/beat correctness;
-`utils/meter.ts`; `utils/restFill.ts` wired into model + preview; rendering off STRICT +
-measure-rest; `utils/beaming.ts` meter-aware beam grouping; `setTimeSignature` engine API with
-propagation + rest reconcile + JSON v1→v2 migration/validation + undo). Phase 6 (palette UI +
-interaction, incl. the deferred mid-score TS-glyph rendering) next. This document is the
-authoritative plan and cross-session checklist for adding full time-signature support to the
-editor.
+Status: **in progress** — Phases 0–6 complete. The full engine (Phases 0–5: duration layer;
+coordinate/beat correctness; `meter.ts`; `restFill.ts`; rendering off STRICT + measure-rest;
+`beaming.ts`; `setTimeSignature` API + JSON v1→v2) is now **user-reachable**: Phase 6 added the
+time-signature palette (arm/click like the clef tool) and mid-score TS-glyph rendering. **First
+phase to manually test in the app.** Phase 6b (custom dyadic-meter dialog) and Phase 7
+(voice-awareness scaffolding) remain; Phase 8 (rebar-with-ties + pickup) is the deferred
+follow-up. This document is the authoritative plan and cross-session checklist.
 
 ---
 
@@ -596,7 +596,47 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
     notes; removeTimeSignatureChange revert/guard; v1→v2 marker derivation, load validation ×2,
     non-4/4 measure-rest round-trip) and `MusicEngine.test.ts` (set + undo/redo + remove).
     433 unit tests pass (+17); `build:check` clean.
-- [ ] Phase 6 — Palette UI + interaction
+- [x] Phase 6 — Palette UI + interaction (first user-reachable meters)
+  - **Renderer (the piece deferred from Phase 3/5):** new `drawsTimeSignature(measure)` =
+    `measure.number === 1 || measure.timeSignatureChange === true`. Wired into all four TS-glyph
+    sites — width reservation (`calculateMinimumMeasureWidth` adds `TIME_SIG_WIDTH`), the real
+    draw (`renderMeasureStave`), the element-registry bbox (positioned after the measure's clef
+    glyph via a clef-width offset), and the ghost-note preview temp stave (keeps note alignment on
+    change measures). Mid-score TS changes now render their glyph and reserve space.
+  - **State:** `EditorState.selectedTimeSignature: TimeSignature | null` (armed meter; suppresses
+    the ghost note when set, mirroring `selectedClef`).
+  - **PaletteController.setTimeSignature(ts):** arm/disarm toggle (re-click same meter disarms, via
+    `sameTimeSignature`), switches to the entry tool, clears the note selection, and is mutually
+    exclusive with the clef tool. Cleared in `setDuration` + `resetToDefaults` alongside
+    `selectedClef`.
+  - **MouseController:** armed + click → `engine.setTimeSignature(measureNum, ts)` (always beat 0;
+    propagation + rest reconcile handled by the engine), wrapped in try/catch (a rejected meter
+    logs, never throws to the UI); re-renders.
+  - **Ghost TS preview** (parity with the clef tool): `renderScoreWithTimeSignatureGhost` draws the
+    TS glyph on a 0-line stave wrapped in `.ghost-timesig-group` (CSS-tinted translucent blue),
+    centred on the cursor; threaded MusicEngine → RenderController → MouseController hover path,
+    which hides the keyboard cursor while armed. (Initially skipped as "optional"; added after the
+    plain-cursor showed instead of a preview.)
+  - **App.vue:** a "Time:" palette section with presets 4/4 3/4 2/4 6/8 9/8 5/8 7/8 (simple /
+    compound / irregular for testing), cyan active-state like the clef buttons; `timeSignaturePresets`
+    + `isTimeSignatureArmed` helpers in script setup. Presets are shortcuts — the engine accepts any
+    dyadic meter (custom-entry dialog = Phase 6b).
+  - **Measure-rest bugfixes (latent Phase 2b bugs, only reachable now):**
+    1. *Editing a measure rest* (`ScoreModel.updateNote`): giving a measure rest a specific
+       duration/dots/beat now clears `isMeasureRest`, so it stops rendering as a centred whole rest
+       and stops claiming the whole bar length. (Before: the flag persisted, the new value was drawn
+       as the old centred whole rest, and the bar stayed over-full.)
+    2. *Refill after shortening a rest* (`MusicEngine.updateNonTupletNote`): a shortened **rest**
+       now refills the bar via the meter-aware `ScoreModel.fillMeasureGaps` (new public wrapper over
+       `fillGapsWithRests`) instead of the legacy float `splitBeatsIntoDurations`. Fixes the bar
+       **size** (a measure rest's nominal `'w'` is 4 quarters, not the real bar length → non-4/4
+       bars were over/under-filled) **and** rest grouping in compound/irregular meters. Note
+       shortening still uses the legacy path (Phase 8).
+  - Tests: `PaletteController.test.ts` (arm/toggle/replace/clef-exclusion/duration-disarm/reset);
+    `ScoreModel.test.ts` + `MusicEngine.test.ts` measure-rest regressions (flag cleared, resized,
+    no leftover whole rest, non-4/4 bar sums to the true length). 443 unit tests pass (+10);
+    `build:check` clean. UI/visual = manual (user-tested: presets apply, compound beaming/rest-fill
+    correct, propagation, over-full keeps notes, undo/redo).
 - [ ] Phase 6b — Custom time-signature dialog
 - [ ] Phase 7 — Voice-awareness scaffolding
 - [ ] Phase 8 — (Deferred) Rebar-with-ties + pickup
