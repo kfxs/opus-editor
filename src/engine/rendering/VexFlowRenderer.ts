@@ -6,6 +6,7 @@ import { beatToFrac } from '@/utils/musicUtils'
 import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, type MeterInfo } from '@/utils/meter'
 import { fillRests, pickVoiceMode, type RestSlot } from '@/utils/restFill'
+import { computeBeamGroups } from '@/utils/beaming'
 import { ElementRegistry, type TupletGeometry, type ClefSegment } from '@/engine/ElementRegistry'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
 
@@ -388,24 +389,6 @@ export class VexFlowRenderer {
     }
   }
 
-  /**
-   * Check if a duration is beamable (8th note or shorter)
-   */
-  private isBeamableDuration(duration: NoteDuration): boolean {
-    return duration === '8' || duration === '16' || duration === '32'
-  }
-
-  /**
-   * Get the beat boundary for grouping beams
-   * In 4/4, we typically beam per beat (quarter note)
-   * This returns which beat group a note belongs to
-   */
-  private getBeatGroup(beat: number, _beatsPerMeasure: number): number {
-    // For now, group by integer beat (beam within each beat)
-    // This can be enhanced later for different time signatures
-    // e.g., in 6/8, beam in groups of 3 eighth notes
-    return Math.floor(beat)
-  }
 
   /**
    * Calculate the stem direction for an entire beam group.
@@ -449,110 +432,19 @@ export class VexFlowRenderer {
    *
    * @param staveNotes - The VexFlow StaveNote objects (one per slot)
    * @param slots - ChordRest slots sorted by beat (parallel to staveNotes)
-   * @param beatsPerMeasure - Number of beats in the measure
+   * @param meter - The measure's metric hierarchy (drives default grouping)
    * @returns Array of beam group info with stave notes and slots
    */
   private createBeamGroups(
     staveNotes: StaveNote[],
     slots: ChordRest[],
-    beatsPerMeasure: number
+    meter: MeterInfo
   ): { staveNotes: StaveNote[]; slots: ChordRest[] }[] {
-    const beamGroups: { staveNotes: StaveNote[]; slots: ChordRest[] }[] = []
-    let currentStaveNotes: StaveNote[] = []
-    let currentSlots: ChordRest[] = []
-    let currentBeatGroup: number | null = null
-    let isForced = false  // true when group was started by an explicit 'begin'
-
-    const flush = () => {
-      if (currentStaveNotes.length >= 2) {
-        beamGroups.push({ staveNotes: currentStaveNotes, slots: currentSlots })
-      }
-      currentStaveNotes = []
-      currentSlots = []
-      currentBeatGroup = null
-      isForced = false
-    }
-
-    for (let i = 0; i < staveNotes.length && i < slots.length; i++) {
-      const staveNote = staveNotes[i]
-      const slot = slots[i]
-
-      // Rests always break beams (can't beam silence)
-      if (slot.type === 'rest') { flush(); continue }
-
-      // Non-beamable durations (quarter and above) always break beams
-      if (!this.isBeamableDuration(slot.duration)) { flush(); continue }
-
-      const beam = slot.beam  // BeamMode | undefined
-
-      if (beam === 'single') {
-        // Force no beam — flush current group, skip this note
-        flush()
-        continue
-      }
-
-      if (beam === 'begin') {
-        // Start a new explicit group (flush any current one first)
-        flush()
-        currentStaveNotes = [staveNote]
-        currentSlots = [slot]
-        currentBeatGroup = this.getBeatGroup(fracToNumber(slot.beat), beatsPerMeasure)
-        isForced = true
-        continue
-      }
-
-      if (beam === 'continue') {
-        // Bridge across a beat boundary — override normal grouping rules
-        if (currentStaveNotes.length > 0) {
-          currentStaveNotes.push(staveNote)
-          currentSlots.push(slot)
-        } else {
-          // Orphaned continue (no preceding group) — start one
-          currentStaveNotes = [staveNote]
-          currentSlots = [slot]
-          isForced = true
-        }
-        currentBeatGroup = this.getBeatGroup(fracToNumber(slot.beat), beatsPerMeasure)
-        continue
-      }
-
-      if (beam === 'end') {
-        // Close the current group after adding this note
-        if (currentStaveNotes.length > 0) {
-          currentStaveNotes.push(staveNote)
-          currentSlots.push(slot)
-        } else {
-          // Orphaned end — emit a single-note group (will be ignored by flush min-2 check)
-          currentStaveNotes = [staveNote]
-          currentSlots = [slot]
-        }
-        flush()
-        continue
-      }
-
-      // beam === undefined/'auto' — use standard beat-boundary logic
-      if (isForced) {
-        // Inside a forced group (between begin and a future end) — add without boundary check
-        currentStaveNotes.push(staveNote)
-        currentSlots.push(slot)
-        currentBeatGroup = this.getBeatGroup(fracToNumber(slot.beat), beatsPerMeasure)
-      } else {
-        const beatGroup = this.getBeatGroup(fracToNumber(slot.beat), beatsPerMeasure)
-        if (currentBeatGroup === null || beatGroup === currentBeatGroup) {
-          currentStaveNotes.push(staveNote)
-          currentSlots.push(slot)
-          currentBeatGroup = beatGroup
-        } else {
-          flush()
-          currentStaveNotes = [staveNote]
-          currentSlots = [slot]
-          currentBeatGroup = beatGroup
-        }
-      }
-    }
-
-    flush()
-    return beamGroups
+    // Pure grouping (slot indices) → map back onto the parallel StaveNotes.
+    return computeBeamGroups(slots, meter).map((indices) => ({
+      staveNotes: indices.map((i) => staveNotes[i]),
+      slots: indices.map((i) => slots[i]),
+    }))
   }
 
   /**
@@ -953,15 +845,16 @@ export class VexFlowRenderer {
       // ClefNotes ignore ticks, so the voice tick total still matches the notes.
       const { tickables, clefNoteByBeat } = this.interleaveClefNotes(sortedSlots, staveNotes, midChanges)
 
+      const meter = getMeterInfo(measure.timeSignature)
       const voice = new Voice({
         numBeats: measure.timeSignature.numerator,
         beatValue: measure.timeSignature.denominator,
-      }).setMode(this.chooseVoiceMode(sortedSlots, getMeterInfo(measure.timeSignature)))
+      }).setMode(this.chooseVoiceMode(sortedSlots, meter))
 
       try {
         voice.addTickables(tickables)
 
-        const beams = this.buildBeams(staveNotes, sortedSlots, measure.timeSignature.numerator, clefForBeat)
+        const beams = this.buildBeams(staveNotes, sortedSlots, meter, clefForBeat)
 
         const noteAreaWidth = stave.getNoteEndX() - stave.getNoteStartX()
         const formatWidth = Math.max(noteAreaWidth - 15, 50)
@@ -1079,10 +972,10 @@ export class VexFlowRenderer {
   private buildBeams(
     staveNotes: StaveNote[],
     sortedSlots: ChordRest[],
-    numBeats: number,
+    meter: MeterInfo,
     clefForBeat: (beat: Fraction) => Clef,
   ): Beam[] {
-    const beamGroups = this.createBeamGroups(staveNotes, sortedSlots, numBeats)
+    const beamGroups = this.createBeamGroups(staveNotes, sortedSlots, meter)
     const beams: Beam[] = []
 
     for (const beamGroup of beamGroups) {

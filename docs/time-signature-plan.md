@@ -1,9 +1,10 @@
 # Time Signature — Implementation Plan
 
-Status: **in progress** — Phases 0–3 complete (duration layer; coordinate/beat correctness;
+Status: **in progress** — Phases 0–4 complete (duration layer; coordinate/beat correctness;
 `utils/meter.ts`; `utils/restFill.ts` wired into model + preview; rendering off STRICT +
-measure-rest). Phase 4 (meter-aware beaming) next. This document is the authoritative plan and
-cross-session checklist for adding full time-signature support to the editor.
+measure-rest; `utils/beaming.ts` meter-aware beam grouping). Phase 5 (`setTimeSignature` engine
+API) next. This document is the authoritative plan and cross-session checklist for adding full
+time-signature support to the editor.
 
 ---
 
@@ -536,7 +537,29 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
   - Tests: `pickVoiceMode` cases (full / under-full / over-full / measure-rest) in
     `restFill.test.ts`. 397 unit tests pass (+4); `build:check` clean. (Render correctness for
     irregular/over-full bars is visual — manual-tested once meters are reachable in Phase 6.)
-- [ ] Phase 4 — Meter-aware beaming
+- [x] Phase 4 — Meter-aware beaming
+  - New pure `src/utils/beaming.ts` (depends only on `fraction.ts` + `meter.ts` + types).
+    Exports `getBeatGroup(beat, MeterInfo)`, `isBeamableDuration(duration)`, and
+    `computeBeamGroups(slots, meter) → number[][]` (slot-index groups, ≥2 members each).
+  - `getBeatGroup` replaces the old `Math.floor(beat)`: partitions the bar by the cumulative
+    starts of `meter.groups` (`groupStart[i] ≤ beat < groupStart[i+1]`), so 4/4 still beams per
+    quarter (identical to before), 6/8 → 3+3, 9/8 → 3+3+3, 12/8 → 4×3, 7/8 → 2+2+3. Over-full
+    beats past the bar end get one distinct index per overflow quarter (crowded SOFT bars don't
+    merge overflow notes into the last in-bar group). Exact (Fraction-based, no float epsilon).
+  - `computeBeamGroups` lifts the full grouping logic out of the renderer verbatim (rest break,
+    non-beamable break, explicit `BeamMode` begin/continue/end/single overrides, auto
+    beat-boundary grouping) — now pure and unit-testable. `VexFlowRenderer.createBeamGroups` is a
+    thin wrapper that maps the returned indices back onto its parallel `StaveNote[]`;
+    `buildBeams`/`createBeamGroups` now thread `MeterInfo` (built once per measure, shared with
+    `chooseVoiceMode`) instead of `numBeats`. Deleted the renderer's private `getBeatGroup` +
+    `isBeamableDuration`.
+  - **Clef-beam decision preserved:** grouping is purely metric — `computeBeamGroups` takes no
+    clef, so a beam group cannot split at a mid-measure clef change (clef still only sets stem
+    direction in `buildBeams`). Anchored by a regression test.
+  - Tests: `beaming.test.ts` — getBeatGroup (4/4, 6/8, overflow), default partitions (4/4 per
+    quarter + four-16ths, 3/4, 6/8, 9/8, 7/8 2+2+3, 12/8), breaks (rest, quarter, lone eighth),
+    explicit overrides (single, begin/end + begin/continue/end bridge), and the clef-change
+    regression. 416 unit tests pass (+19); `build:check` clean. 4/4 beaming unchanged.
 - [ ] Phase 5 — `setTimeSignature` engine API
 - [ ] Phase 6 — Palette UI + interaction
 - [ ] Phase 6b — Custom time-signature dialog
