@@ -2,7 +2,7 @@ import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation,
 import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Chord, Fraction, PitchStep, PitchAlter, GhostNote } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero } from '@/utils/fraction'
 import { measureOpeningClef, measureEndingClef, effectiveClefAt, effectiveClefBefore } from '@/utils/clefUtils'
-import { beatToFrac } from '@/utils/musicUtils'
+import { beatToFrac, getMeasureDuration } from '@/utils/musicUtils'
 import { durationToVexflow, durationToBeats } from '@/utils/durations'
 import { ElementRegistry, type TupletGeometry, type ClefSegment } from '@/engine/ElementRegistry'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
@@ -1666,10 +1666,11 @@ export class VexFlowRenderer {
         }
       }
 
-      const totalBeats = measure.timeSignature.numerator
+      // Rest-fill math is in quarter-note beats (ghostNote.beat / durations are quarters).
+      const barQuarters = getMeasureDuration(measure.timeSignature)
       const noteDuration = durationToBeats(ghostNote.duration)
       const beatsBeforeNote = ghostNote.beat
-      const beatsAfterNote = totalBeats - ghostNote.beat - noteDuration
+      const beatsAfterNote = barQuarters - ghostNote.beat - noteDuration
       const effectiveBeatsAfter = Math.max(0, beatsAfterNote)
 
       const tickables: any[] = []
@@ -1685,8 +1686,9 @@ export class VexFlowRenderer {
         }
       }
 
+      // VexFlow wants the literal time signature, not quarter-beats.
       const voice = new Voice({
-        numBeats: totalBeats,
+        numBeats: measure.timeSignature.numerator,
         beatValue: measure.timeSignature.denominator,
       }).setMode(Voice.Mode.SOFT)
       voice.addTickables(tickables)

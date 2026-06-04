@@ -111,14 +111,14 @@ export class CoordinateMapper {
    * Uses actual VexFlow bounds if available, otherwise falls back to calculated values
    * @param beat - Beat position (0-indexed, fractional allowed)
    * @param measureNumber - Measure number (1-indexed)
-   * @param beatsInMeasure - Total beats in the measure (e.g., 4 for 4/4)
+   * @param barQuarters - Total bar length in quarter-note beats (e.g. 4 for 4/4, 3 for 6/8, 4 for 2/2)
    */
-  beatToPixelX(beat: number, measureNumber: number, beatsInMeasure: number): number {
+  beatToPixelX(beat: number, measureNumber: number, barQuarters: number): number {
     // Use actual VexFlow bounds if available
     const bounds = this.measureBounds.get(measureNumber)
     if (bounds) {
       const usableWidth = bounds.noteEndX - bounds.noteStartX
-      const beatWidth = usableWidth / beatsInMeasure
+      const beatWidth = usableWidth / barQuarters
       return bounds.noteStartX + beat * beatWidth
     }
 
@@ -126,7 +126,7 @@ export class CoordinateMapper {
     const measurePos = this.getMeasurePosition(measureNumber)
     const leftMargin = this.getLeftMarginForMeasure(measureNumber)
     const usableWidth = this.config.measureWidth - leftMargin - 20 // 20px right margin
-    const beatWidth = usableWidth / beatsInMeasure
+    const beatWidth = usableWidth / barQuarters
 
     return measurePos.x + leftMargin + beat * beatWidth
   }
@@ -155,9 +155,9 @@ export class CoordinateMapper {
   /**
    * Convert a note to pixel coordinates
    */
-  noteToPixel(note: Note, beatsInMeasure: number): PixelCoordinates {
+  noteToPixel(note: Note, barQuarters: number): PixelCoordinates {
     return {
-      x: this.beatToPixelX(fracToNumber(note.beat), note.measure, beatsInMeasure),
+      x: this.beatToPixelX(fracToNumber(note.beat), note.measure, barQuarters),
       y: note.step !== undefined
         ? this.pitchToPixelY(note.step, note.alter ?? 0, note.octave!, note.measure)
         : this.getMeasurePosition(note.measure).y + 40, // rests: center of staff
@@ -214,7 +214,7 @@ export class CoordinateMapper {
    * Convert pixel X coordinate to beat position within a measure
    * Uses actual VexFlow bounds if available, otherwise falls back to calculated values
    */
-  pixelXToBeat(x: number, measureNumber: number, beatsInMeasure: number): number {
+  pixelXToBeat(x: number, measureNumber: number, barQuarters: number): number {
     // Use actual VexFlow bounds if available
     const bounds = this.measureBounds.get(measureNumber)
     if (bounds) {
@@ -222,9 +222,9 @@ export class CoordinateMapper {
       const usableWidth = bounds.noteEndX - bounds.noteStartX
 
       if (relativeX < 0) return 0
-      if (relativeX > usableWidth) return beatsInMeasure
+      if (relativeX > usableWidth) return barQuarters
 
-      const beat = (relativeX / usableWidth) * beatsInMeasure
+      const beat = (relativeX / usableWidth) * barQuarters
       return Math.round(beat * 4) / 4
     }
 
@@ -235,9 +235,9 @@ export class CoordinateMapper {
     const usableWidth = this.config.measureWidth - leftMargin - 20
 
     if (relativeX < 0) return 0
-    if (relativeX > usableWidth) return beatsInMeasure
+    if (relativeX > usableWidth) return barQuarters
 
-    const beat = (relativeX / usableWidth) * beatsInMeasure
+    const beat = (relativeX / usableWidth) * barQuarters
 
     // Snap to nearest quarter beat for easier note placement
     return Math.round(beat * 4) / 4
@@ -287,10 +287,10 @@ export class CoordinateMapper {
    */
   pixelToPosition(
     coords: PixelCoordinates,
-    beatsInMeasure: number
+    barQuarters: number
   ): { measure: number; beat: number; spelling: PitchSpelling } {
     const measure = this.pixelToMeasure(coords)
-    const beat = this.pixelXToBeat(coords.x, measure, beatsInMeasure)
+    const beat = this.pixelXToBeat(coords.x, measure, barQuarters)
     const spelling = this.pixelYToPitch(coords.y, measure)
 
     return { measure, beat, spelling }

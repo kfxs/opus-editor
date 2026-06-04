@@ -4,7 +4,7 @@ import type { EditorState } from './EditorState'
 import type { SelectionController } from './SelectionController'
 import type { RenderController } from './RenderController'
 import { fracToNumber, fracEq } from '../utils/fraction'
-import { getMeasureNotes, beatToFrac } from '../utils/musicUtils'
+import { getMeasureNotes, beatToFrac, getMeasureDuration } from '../utils/musicUtils'
 import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
 
 /**
@@ -368,10 +368,10 @@ export class MouseController {
       if (this.state.tupletMode) {
         const score = engine.getScore()
         const measure = score.measures.find(m => m.number === measureNum)
-        const beatsInMeasure = measure
-          ? (4 / measure.timeSignature.denominator) * measure.timeSignature.numerator
+        const barQuarters = measure
+          ? getMeasureDuration(measure.timeSignature)
           : 4
-        const position = engine.pixelToPosition({ x, y }, beatsInMeasure)
+        const position = engine.pixelToPosition({ x, y }, barQuarters)
         const existingTuplet = engine.getTupletAtBeat(measureNum, position.beat)
 
         if (existingTuplet) {
@@ -473,8 +473,8 @@ export class MouseController {
       if (selectedNote && !selectedNote.isRest) {
         const measure = engine.getScore().measures.find(m => m.number === selectedNote.measure)
         if (measure) {
-          const beatsInMeasure = measure.timeSignature.numerator
-          const position = engine.pixelToPosition({ x, y }, beatsInMeasure)
+          const barQuarters = getMeasureDuration(measure.timeSignature)
+          const position = engine.pixelToPosition({ x, y }, barQuarters)
           const cursorSpelling = position.spelling
           const cursorMidi = spellingToMidi(cursorSpelling.step, cursorSpelling.alter, cursorSpelling.octave)
           const noteMidi = spellingToMidi(selectedNote.step!, selectedNote.alter!, selectedNote.octave!)

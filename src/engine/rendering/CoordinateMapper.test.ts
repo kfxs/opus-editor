@@ -3,6 +3,7 @@ import { CoordinateMapper } from './CoordinateMapper'
 import type { Note } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'
+import { getMeasureDuration } from '@/utils/musicUtils'
 
 describe('CoordinateMapper', () => {
   let mapper: CoordinateMapper
@@ -160,6 +161,40 @@ describe('CoordinateMapper', () => {
       const beat = mapper.pixelXToBeat(1000, 1, 4)
       expect(beat).toBe(4)
     })
+  })
+
+  // Phase 1: callers pass bar length in QUARTER-NOTE beats (barQuarters =
+  // getMeasureDuration(ts)), not the time-signature numerator. These round-trips
+  // pin that contract for non-/4 meters, where numerator !== barQuarters.
+  describe('barQuarters (non-4/4 meters)', () => {
+    const usableWidth = 380 // measureWidth(500) - leftMargin(100) - 20 (see beatToPixelX)
+    const centerX = 110 + usableWidth / 2
+
+    // [label, timeSignature, expected barQuarters, expected center beat]
+    const cases: Array<[string, { numerator: number; denominator: number }, number, number]> = [
+      ['3/4', { numerator: 3, denominator: 4 }, 3, 1.5],
+      ['6/8', { numerator: 6, denominator: 8 }, 3, 1.5],
+      ['2/2', { numerator: 2, denominator: 2 }, 4, 2],
+    ]
+
+    for (const [label, ts, expectedQuarters, centerBeat] of cases) {
+      it(`${label}: getMeasureDuration is the quarter-beat bar length`, () => {
+        expect(getMeasureDuration(ts)).toBe(expectedQuarters)
+      })
+
+      it(`${label}: bar center maps to the correct quarter-beat (round-trip)`, () => {
+        const barQuarters = getMeasureDuration(ts)
+        // pixel -> beat: the visual middle of the bar is its center beat
+        expect(mapper.pixelXToBeat(centerX, 1, barQuarters)).toBeCloseTo(centerBeat, 5)
+        // beat -> pixel: the center beat lands at the visual middle
+        expect(mapper.beatToPixelX(centerBeat, 1, barQuarters)).toBeCloseTo(centerX, 1)
+      })
+
+      it(`${label}: clamps past the barline to barQuarters, not the numerator`, () => {
+        const barQuarters = getMeasureDuration(ts)
+        expect(mapper.pixelXToBeat(10000, 1, barQuarters)).toBe(barQuarters)
+      })
+    }
   })
 
   describe('pixelYToPitch', () => {

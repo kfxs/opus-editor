@@ -4,6 +4,7 @@ import { CollisionDetector } from './models/CollisionDetector'
 import {
   durationToBeats, splitBeatsIntoDurations, midiToNoteName,
   getTupletNoteDurationFrac, getTupletTotalBeatsFrac, beatToFrac,
+  getMeasureDuration,
 } from '@/utils/musicUtils'
 import {
   fracToNumber, fracEq, fracAdd, fracSub, fracMul,
@@ -158,7 +159,7 @@ export class NoteEntryCoordinator {
     const measure = this.getScoreModel().getMeasure(1)
     if (!measure) return null
 
-    const beatsInMeasure = measure.timeSignature.numerator
+    const barQuarters = getMeasureDuration(measure.timeSignature)
     const registry = this.elementRegistry
 
     // Get measure number from coordinates
@@ -212,7 +213,7 @@ export class NoteEntryCoordinator {
       beat: resolvedBeat, reason: resolvedReason,
       usedCoordCalc: useCoordinateCalculation,
       nearestLeft, nearestRight, leftDistance, rightDistance,
-    } = this.resolveClickToBeat(coords, measureNumber, beatsInMeasure, durationToBeats(duration))
+    } = this.resolveClickToBeat(coords, measureNumber, barQuarters, durationToBeats(duration))
     let finalBeat: Fraction = beatToFrac(resolvedBeat)
     let decisionReason = resolvedReason
 
@@ -415,7 +416,7 @@ export class NoteEntryCoordinator {
     const measure = this.getScoreModel().getMeasure(1)
     if (!measure) return null
 
-    const beatsInMeasure = measure.timeSignature.numerator
+    const barQuarters = getMeasureDuration(measure.timeSignature)
     const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
 
     // Validate measure exists
@@ -432,11 +433,11 @@ export class NoteEntryCoordinator {
     const {
       beat: resolvedBeat, reason: decisionReason,
       nearestLeft, nearestRight, leftDistance, rightDistance,
-    } = this.resolveClickToBeat(coords, measureNumber, beatsInMeasure, noteDurationInBeats)
+    } = this.resolveClickToBeat(coords, measureNumber, barQuarters, noteDurationInBeats)
     let beat = resolvedBeat
 
     // Clamp to valid range (tuplet must fit in measure)
-    beat = Math.max(0, Math.min(beat, beatsInMeasure - tupletTotalBeats))
+    beat = Math.max(0, Math.min(beat, barQuarters - tupletTotalBeats))
 
     // Check if there's already a tuplet at this position
     const existingTuplet = this.getScoreModel().getTupletAtBeat(measureNumber, beatToFrac(beat))
@@ -601,7 +602,7 @@ export class NoteEntryCoordinator {
   private resolveClickToBeat(
     coords: PixelCoordinates,
     measureNumber: number,
-    beatsInMeasure: number,
+    barQuarters: number,
     quantizationBeats: number
   ): {
     beat: number
@@ -620,10 +621,10 @@ export class NoteEntryCoordinator {
       nearestLeft ? leftDistance : Infinity,
       nearestRight ? rightDistance : Infinity
     )
-    const rawBeat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
+    const rawBeat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, barQuarters)
     const quantize = (raw: number) => {
       const q = Math.round(raw / quantizationBeats) * quantizationBeats
-      return Math.max(0, Math.min(q, beatsInMeasure - quantizationBeats))
+      return Math.max(0, Math.min(q, barQuarters - quantizationBeats))
     }
 
     let beat = 0

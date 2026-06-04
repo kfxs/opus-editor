@@ -5,7 +5,7 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
-import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, beatToFrac } from '@/utils/musicUtils'
+import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, beatToFrac, getMeasureDuration } from '@/utils/musicUtils'
 import { fracToNumber, fracCompare, fracEq, fracAdd } from '@/utils/fraction'
 import { durationToFraction } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos } from '@/utils/pitchSpelling'
@@ -363,8 +363,7 @@ export class MusicEngine {
     // Check for measure overflow (considering dots)
     const measure = this.scoreModel.getMeasure(existingNote.measure)
     if (measure && (updates.duration || updates.dots !== undefined)) {
-      const timeSignature = measure.timeSignature
-      const measureTotalBeats = (4 / timeSignature.denominator) * timeSignature.numerator
+      const measureTotalBeats = getMeasureDuration(measure.timeSignature)
       const availableBeats = measureTotalBeats - fracToNumber(existingNote.beat)
       const requestedBeats = durationToBeats(newDuration, newDots)
 
@@ -747,10 +746,10 @@ export class MusicEngine {
     const measure = this.scoreModel.getMeasure(1)
     if (!measure) return null
 
-    const beatsInMeasure = measure.timeSignature.numerator
+    const barQuarters = getMeasureDuration(measure.timeSignature)
 
     for (const note of allNotes) {
-      const noteCoords = this.coordinateMapper.noteToPixel(note, beatsInMeasure)
+      const noteCoords = this.coordinateMapper.noteToPixel(note, barQuarters)
 
       const distance = Math.sqrt(
         Math.pow(noteCoords.x - coords.x, 2) + Math.pow(noteCoords.y - coords.y, 2)
@@ -912,7 +911,7 @@ export class MusicEngine {
       console.warn('No measure found for preview')
       return false
     }
-    const beatsInMeasure = measure.timeSignature.numerator
+    const barQuarters = getMeasureDuration(measure.timeSignature)
     const registry = this.renderer.getElementRegistry()
 
     // Check if cursor is over an invalid element (clef, time signature, barline)
@@ -926,7 +925,7 @@ export class MusicEngine {
     }
 
     // Use centralized position calculation with duration for beat quantization
-    const position = this.getPositionFromPixels(coords, beatsInMeasure, duration)
+    const position = this.getPositionFromPixels(coords, barQuarters, duration)
 
     // Validate measure exists
     if (!this.scoreModel.getMeasure(position.measure)) {
@@ -1012,8 +1011,8 @@ export class MusicEngine {
    * Convert pixel coordinates to musical position
    * Uses ElementRegistry for accurate position calculation based on actual rendered elements
    */
-  pixelToPosition(coords: PixelCoordinates, beatsInMeasure: number): { measure: number; beat: Fraction; spelling: PitchSpelling } {
-    const { measure, beat, spelling } = this.getPositionFromPixels(coords, beatsInMeasure)
+  pixelToPosition(coords: PixelCoordinates, barQuarters: number): { measure: number; beat: Fraction; spelling: PitchSpelling } {
+    const { measure, beat, spelling } = this.getPositionFromPixels(coords, barQuarters)
     return { measure, beat: beatToFrac(beat), spelling }
   }
 
@@ -1024,7 +1023,7 @@ export class MusicEngine {
    */
   private getPositionFromPixels(
     coords: PixelCoordinates,
-    beatsInMeasure: number,
+    barQuarters: number,
     duration?: NoteParams['duration']
   ): { measure: number; beat: number; spelling: PitchSpelling } {
     const registry = this.renderer.getElementRegistry()
@@ -1047,19 +1046,19 @@ export class MusicEngine {
       if (distance < nearestElement.bbox.width * 1.5) {
         beat = nearestElement.beat
       } else {
-        beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
+        beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, barQuarters)
         if (duration) {
           const noteDurationInBeats = durationToBeats(duration)
           beat = Math.round(beat / noteDurationInBeats) * noteDurationInBeats
-          beat = Math.max(0, Math.min(beat, beatsInMeasure - noteDurationInBeats))
+          beat = Math.max(0, Math.min(beat, barQuarters - noteDurationInBeats))
         }
       }
     } else {
-      beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, beatsInMeasure)
+      beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, barQuarters)
       if (duration) {
         const noteDurationInBeats = durationToBeats(duration)
         beat = Math.round(beat / noteDurationInBeats) * noteDurationInBeats
-        beat = Math.max(0, Math.min(beat, beatsInMeasure - noteDurationInBeats))
+        beat = Math.max(0, Math.min(beat, barQuarters - noteDurationInBeats))
       }
     }
 
@@ -1069,8 +1068,8 @@ export class MusicEngine {
   /**
    * Convert note to pixel coordinates
    */
-  noteToPixel(note: Note, beatsInMeasure: number): PixelCoordinates {
-    return this.coordinateMapper.noteToPixel(note, beatsInMeasure)
+  noteToPixel(note: Note, barQuarters: number): PixelCoordinates {
+    return this.coordinateMapper.noteToPixel(note, barQuarters)
   }
 
   /**

@@ -2,7 +2,7 @@ import type { ArticulationType, NoteDuration, Note, PitchStep, PitchAlter } from
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
 import { buildBeatMap } from '../utils/beatMap'
-import { durationToBeats, getMeasureNotes } from '../utils/musicUtils'
+import { durationToBeats, getMeasureNotes, getMeasureDuration } from '../utils/musicUtils'
 import { fracToNumber, fracEq } from '../utils/fraction'
 import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
 
@@ -205,7 +205,7 @@ export class KeyboardController {
 
     const measureData = score.measures.find(m => m.number === targetMeasure)
     if (!measureData) return
-    const measureTotalBeats = measureData.timeSignature.numerator * (4 / measureData.timeSignature.denominator)
+    const measureTotalBeats = getMeasureDuration(measureData.timeSignature)
     const availableBeats = measureTotalBeats - fracToNumber(targetBeat)
     const actualDurationBeats = Math.min(newDurationBeats, availableBeats)
 
