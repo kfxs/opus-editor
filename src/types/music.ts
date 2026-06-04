@@ -131,6 +131,9 @@ export interface Note {
   forceAccidental?: boolean
   /** Whether this note is a rest */
   isRest?: boolean
+  /** True for a whole-bar measure rest (its `duration` is the nominal `'w'`, not
+   *  a real chosen value). Mirrors {@link Rest.isMeasureRest} on the flat view. */
+  isMeasureRest?: boolean
   /** Stem direction override (default: 'auto' - calculated from pitch and clef) */
   stemDirection?: StemDirection
   /** ID of the note this note is tied TO (forward tie) */

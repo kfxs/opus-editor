@@ -459,6 +459,7 @@ export class ScoreModel {
       measure: rest.measure,
       beat: rest.beat,
       isRest: true,
+      isMeasureRest: rest.isMeasureRest,
       dots: rest.dots,
       tupletId: rest.tupletId,
       actualDuration: rest.actualDuration,

@@ -56,11 +56,22 @@ export class KeyboardController {
     const targetMidi = naturalPitchClass + 12 * k
     const octave = Math.floor(targetMidi / 12) - 1
 
+    // A measure rest's duration is the nominal 'w' (= "fill the bar"), not a real
+    // chosen value, so converting it to a note must NOT inherit 'w' (a redonda
+    // that overflows any non-4/4 bar). Use the armed palette duration instead;
+    // the bar's remainder is rest-filled downstream. Normal rests keep their own
+    // duration (replace a quarter rest with a quarter note).
+    const selected = engine.getNote(this.state.selectedNoteId)
+    const measureRestDuration = selected?.isMeasureRest
+      ? { duration: this.state.selectedDuration, dots: this.state.selectedDots }
+      : {}
+
     const updatedNote = engine.updateNote(this.state.selectedNoteId, {
       step,
       alter,
       octave,
       isRest: false,
+      ...measureRestDuration,
       ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }),
     })
 

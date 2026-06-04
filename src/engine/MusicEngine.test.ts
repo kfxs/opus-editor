@@ -222,6 +222,29 @@ describe('MusicEngine — measure rest duration change (regression)', () => {
     expect(eighthsAt0).toHaveLength(1)
   })
 
+  it('exposes isMeasureRest on the flat note so callers can avoid inheriting the nominal "w"', () => {
+    const m1 = engine.getScore().measures.find(m => m.number === 1)!
+    const mrSlot = m1.slots.find(s => s.type === 'rest' && (s as { isMeasureRest?: boolean }).isMeasureRest)!
+    const flat = engine.getNote(mrSlot.id)!
+    expect(flat.isMeasureRest).toBe(true)
+  })
+
+  it('converting a measure rest to a note with an explicit duration sizes the bar correctly (3/4)', () => {
+    // Mirrors keyboard edit-in-place: the measure rest must NOT become a whole
+    // note (redonda) — using the chosen duration keeps the 3/4 bar = 3 quarters.
+    engine.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    const mr = engine.getScore().measures.find(m => m.number === 1)!
+      .slots.find(s => s.type === 'rest' && (s as { isMeasureRest?: boolean }).isMeasureRest)!
+    engine.updateNote(mr.id, { step: 'A', alter: 0, octave: 3, isRest: false, duration: 'q' })
+
+    const slots = engine.getScore().measures.find(m => m.number === 1)!.slots
+    const chord = slots.find(s => s.type === 'chord')!
+    expect(chord.duration).toBe('q')               // not 'w'
+    expect(slots.every(s => s.duration !== 'w')).toBe(true)
+    const total = slots.reduce((sum, s) => sum + fracToNumber(s.actualDuration!), 0)
+    expect(total).toBeCloseTo(3, 5)                 // bar stays exactly 3 quarters
+  })
+
   it('refills a shortened measure rest to the actual bar length in a non-4/4 meter', () => {
     // 6/8 bar = 3 quarter-beats. Changing its whole-bar rest to a quarter must
     // leave a bar that sums to exactly 3 quarters — not 4 (the nominal 'w').
