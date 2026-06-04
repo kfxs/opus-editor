@@ -1,7 +1,6 @@
 import type { NoteDuration, TimeSignature, Tuplet, Measure, Note } from '@/types/music'
 import {
   type Fraction,
-  durationToFraction,
   fracCreate,
   fracMul,
   fracAdd,
@@ -10,40 +9,23 @@ import {
   fracGte,
   fracCompare,
 } from '@/utils/fraction'
+import {
+  durationToFraction,
+  durationToBeats,
+  getDotMultiplier,
+  beatsToDuration,
+  splitBeatsIntoDurations,
+} from '@/utils/durations'
 
 /**
- * Music utility functions for calculations and conversions
+ * Music utility functions for calculations and conversions.
+ *
+ * The duration ↔ beats / Fraction / VexFlow maps now live in `utils/durations.ts`
+ * (single source of truth). The duration helpers below are re-exported from
+ * here so existing `@/utils/musicUtils` imports keep working.
  */
 
-/**
- * Get the multiplier for dotted notes
- * - 1 dot = 1.5x (2 - 1/2)
- * - 2 dots = 1.75x (2 - 1/4)
- * - 3 dots = 1.875x (2 - 1/8)
- * @param dots - Number of dots (0, 1, 2, etc.)
- * @returns Multiplier for the duration
- */
-export function getDotMultiplier(dots: number): number {
-  return dots > 0 ? 2 - Math.pow(0.5, dots) : 1
-}
-
-/**
- * Convert note duration to beat value
- * @param duration - Note duration string
- * @param dots - Number of dots (optional, default 0)
- * @returns Number of quarter note beats this duration represents
- */
-export function durationToBeats(duration: NoteDuration, dots: number = 0): number {
-  const durationMap: Record<NoteDuration, number> = {
-    w: 4, // Whole note = 4 beats
-    h: 2, // Half note = 2 beats
-    q: 1, // Quarter note = 1 beat
-    '8': 0.5, // Eighth note = 0.5 beats
-    '16': 0.25, // Sixteenth note = 0.25 beats
-    '32': 0.125, // Thirty-second note = 0.125 beats
-  }
-  return durationMap[duration] * getDotMultiplier(dots)
-}
+export { durationToBeats, getDotMultiplier, beatsToDuration, splitBeatsIntoDurations }
 
 /**
  * Calculate the total duration (in beats) of a measure given its time signature
@@ -55,6 +37,21 @@ export function getMeasureDuration(timeSignature: TimeSignature): number {
   // For example: 3/4 = 3 beats, 6/8 = 3 beats (6 * 0.5), 2/2 = 4 beats (2 * 2)
   const beatValue = 4 / timeSignature.denominator
   return timeSignature.numerator * beatValue
+}
+
+/**
+ * Exact bar length in quarter-note beats for a time signature.
+ *
+ * The `Fraction` counterpart of {@link getMeasureDuration}: every internal
+ * timing comparison should use this rather than float beats, so non-`/4`
+ * meters (and `/16`, `/32`) stay exact. 4/4 → 4/1, 6/8 → 3/1, 9/8 → 9/2,
+ * 5/8 → 5/2, 7/8 → 7/2.
+ */
+export function getMeasureDurationFrac(timeSignature: TimeSignature): Fraction {
+  return fracMul(
+    fracCreate(timeSignature.numerator, 1),
+    fracCreate(4, timeSignature.denominator),
+  )
 }
 
 /**
@@ -195,59 +192,8 @@ export function calculateTotalDuration(
   return notes.reduce((total, note) => total + durationToBeats(note.duration, note.dots || 0), 0)
 }
 
-/**
- * Convert a beat value to the closest note duration
- * @param beats - Number of beats
- * @returns The closest NoteDuration, or null if no match
- */
-export function beatsToDuration(beats: number): NoteDuration | null {
-  const epsilon = 0.001
-  if (Math.abs(beats - 4) < epsilon) return 'w'
-  if (Math.abs(beats - 2) < epsilon) return 'h'
-  if (Math.abs(beats - 1) < epsilon) return 'q'
-  if (Math.abs(beats - 0.5) < epsilon) return '8'
-  if (Math.abs(beats - 0.25) < epsilon) return '16'
-  if (Math.abs(beats - 0.125) < epsilon) return '32'
-  return null
-}
-
-/**
- * Split a duration into parts that fit within available beats
- * Returns an array of durations that sum to the original duration
- * Used for splitting notes across bar lines
- * @param totalBeats - Total beats to fill
- * @returns Array of NoteDuration values
- */
-export function splitBeatsIntoDurations(totalBeats: number): NoteDuration[] {
-  const durations: NoteDuration[] = []
-  let remaining = totalBeats
-  const epsilon = 0.001
-
-  // Available durations from largest to smallest
-  const availableDurations: { duration: NoteDuration; beats: number }[] = [
-    { duration: 'w', beats: 4 },
-    { duration: 'h', beats: 2 },
-    { duration: 'q', beats: 1 },
-    { duration: '8', beats: 0.5 },
-    { duration: '16', beats: 0.25 },
-    { duration: '32', beats: 0.125 },
-  ]
-
-  while (remaining > epsilon) {
-    let found = false
-    for (const { duration, beats } of availableDurations) {
-      if (remaining >= beats - epsilon) {
-        durations.push(duration)
-        remaining -= beats
-        found = true
-        break
-      }
-    }
-    if (!found) break // Prevent infinite loop for very small remainders
-  }
-
-  return durations
-}
+// beatsToDuration and splitBeatsIntoDurations now live in utils/durations.ts
+// (re-exported above).
 
 // ==================== Tuplet Utilities ====================
 

@@ -1,7 +1,8 @@
 import type { Note, NoteParams, Measure, TimeSignature } from '@/types/music'
 import { durationToBeats, getMeasureDuration } from '@/utils/musicUtils'
 import { spellingToMidi } from '@/utils/pitchSpelling'
-import { durationToFraction, fracAdd, fracCompare, fracEq, fracGt, fracGte, fracLt, fracToNumber, fracCreate } from '@/utils/fraction'
+import { fracAdd, fracCompare, fracEq, fracGt, fracGte, fracLt, fracToNumber, fracCreate } from '@/utils/fraction'
+import { durationToFraction } from '@/utils/durations'
 import { beatToFrac } from '@/utils/musicUtils'
 
 /**

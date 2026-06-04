@@ -3,6 +3,7 @@ import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, Chor
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero } from '@/utils/fraction'
 import { measureOpeningClef, measureEndingClef, effectiveClefAt, effectiveClefBefore } from '@/utils/clefUtils'
 import { beatToFrac } from '@/utils/musicUtils'
+import { durationToVexflow, durationToBeats } from '@/utils/durations'
 import { ElementRegistry, type TupletGeometry, type ClefSegment } from '@/engine/ElementRegistry'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
 
@@ -162,20 +163,7 @@ export class VexFlowRenderer {
    * Appends 'd' for each dot (e.g., "qd" for dotted quarter, "qdd" for double-dotted)
    */
   private convertDuration(duration: NoteDuration, dots: number = 0): string {
-    const durationMap: Record<NoteDuration, string> = {
-      w: 'w',
-      h: 'h',
-      q: 'q',
-      '8': '8',
-      '16': '16',
-      '32': '32',
-    }
-    let vexDuration = durationMap[duration]
-    // Append 'd' for each dot - VexFlow uses this to calculate correct ticks
-    for (let i = 0; i < dots; i++) {
-      vexDuration += 'd'
-    }
-    return vexDuration
+    return durationToVexflow(duration, dots)
   }
 
   /**
@@ -390,13 +378,6 @@ export class VexFlowRenderer {
    * Calculate total beats used by notes in a measure
    * Groups notes by beat to properly handle chords (chord = 1 beat, not N beats)
    */
-  private durationToBeats(duration: string, dots: number = 0): number {
-    const map: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25, '32': 0.125 }
-    const baseBeats = map[duration] || 1
-    const dotMultiplier = dots > 0 ? 2 - Math.pow(0.5, dots) : 1
-    return baseBeats * dotMultiplier
-  }
-
   private beatsToRestDurations(beats: number): string[] {
     const rests: string[] = []
     let remaining = beats
@@ -1686,7 +1667,7 @@ export class VexFlowRenderer {
       }
 
       const totalBeats = measure.timeSignature.numerator
-      const noteDuration = this.durationToBeats(ghostNote.duration)
+      const noteDuration = durationToBeats(ghostNote.duration)
       const beatsBeforeNote = ghostNote.beat
       const beatsAfterNote = totalBeats - ghostNote.beat - noteDuration
       const effectiveBeatsAfter = Math.max(0, beatsAfterNote)

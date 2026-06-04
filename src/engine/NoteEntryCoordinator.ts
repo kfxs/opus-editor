@@ -8,8 +8,8 @@ import {
 import {
   fracToNumber, fracEq, fracAdd, fracSub, fracMul,
   fracLt, fracGt, fracGte, fracFromInt, fracCreate,
-  durationToFraction, tupletNoteDurationFraction,
 } from '@/utils/fraction'
+import { durationToFraction, tupletNoteDurationFraction } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
 import type { Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling } from '@/types/music'
 import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'

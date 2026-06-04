@@ -18,8 +18,6 @@ import {
   fracIsPositive,
   fracIsNegative,
   fracToNumber,
-  durationToFraction,
-  tupletNoteDurationFraction,
 } from './fraction'
 
 // ---------------------------------------------------------------------------
@@ -329,102 +327,5 @@ describe('fracFromFloat', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// Musical duration mapping
-// ---------------------------------------------------------------------------
-
-describe('durationToFraction', () => {
-  it('whole note = 4 beats', () => {
-    expect(durationToFraction('w')).toEqual(frac(4, 1))
-  })
-
-  it('half note = 2 beats', () => {
-    expect(durationToFraction('h')).toEqual(frac(2, 1))
-  })
-
-  it('quarter note = 1 beat', () => {
-    expect(durationToFraction('q')).toEqual(frac(1, 1))
-  })
-
-  it('eighth note = 1/2 beat', () => {
-    expect(durationToFraction('8')).toEqual(frac(1, 2))
-  })
-
-  it('sixteenth note = 1/4 beat', () => {
-    expect(durationToFraction('16')).toEqual(frac(1, 4))
-  })
-
-  it('thirty-second note = 1/8 beat', () => {
-    expect(durationToFraction('32')).toEqual(frac(1, 8))
-  })
-
-  it('dotted quarter = 3/2 beats', () => {
-    expect(durationToFraction('q', 1)).toEqual(frac(3, 2))
-  })
-
-  it('dotted half = 3 beats', () => {
-    expect(durationToFraction('h', 1)).toEqual(frac(3, 1))
-  })
-
-  it('dotted eighth = 3/4 beats', () => {
-    expect(durationToFraction('8', 1)).toEqual(frac(3, 4))
-  })
-
-  it('double-dotted quarter = 7/4 beats', () => {
-    expect(durationToFraction('q', 2)).toEqual(frac(7, 4))
-  })
-
-  it('double-dotted half = 7/2 beats', () => {
-    expect(durationToFraction('h', 2)).toEqual(frac(7, 2))
-  })
-})
-
-// ---------------------------------------------------------------------------
-// Tuplet note duration
-// ---------------------------------------------------------------------------
-
-describe('tupletNoteDurationFraction', () => {
-  it('triplet quarter: 1 × 2/3 = 2/3', () => {
-    expect(tupletNoteDurationFraction('q', 0, 3, 2)).toEqual(frac(2, 3))
-  })
-
-  it('triplet eighth: 1/2 × 2/3 = 1/3', () => {
-    expect(tupletNoteDurationFraction('8', 0, 3, 2)).toEqual(frac(1, 3))
-  })
-
-  it('quintuplet eighth: 1/2 × 4/5 = 2/5', () => {
-    expect(tupletNoteDurationFraction('8', 0, 5, 4)).toEqual(frac(2, 5))
-  })
-
-  it('septuplet eighth: 1/2 × 4/7 = 2/7', () => {
-    expect(tupletNoteDurationFraction('8', 0, 7, 4)).toEqual(frac(2, 7))
-  })
-
-  it('11-tuplet eighth (11:8): 1/2 × 8/11 = 4/11', () => {
-    expect(tupletNoteDurationFraction('8', 0, 11, 8)).toEqual(frac(4, 11))
-  })
-
-  it('13-tuplet eighth (13:8): 1/2 × 8/13 = 4/13', () => {
-    expect(tupletNoteDurationFraction('8', 0, 13, 8)).toEqual(frac(4, 13))
-  })
-
-  it('three triplet quarters sum exactly to 2 beats', () => {
-    const d = tupletNoteDurationFraction('q', 0, 3, 2)
-    const sum = fracAdd(fracAdd(d, d), d)
-    expect(sum).toEqual(frac(2, 1))
-  })
-
-  it('five quintuplet quarters sum exactly to 4 beats', () => {
-    const d = tupletNoteDurationFraction('q', 0, 5, 4)
-    let acc = frac(0, 1)
-    for (let i = 0; i < 5; i++) acc = fracAdd(acc, d)
-    expect(acc).toEqual(frac(4, 1))
-  })
-
-  it('eleven 11-tuplet eighths sum exactly to 4 beats', () => {
-    const d = tupletNoteDurationFraction('8', 0, 11, 8)
-    let acc = frac(0, 1)
-    for (let i = 0; i < 11; i++) acc = fracAdd(acc, d)
-    expect(acc).toEqual(frac(4, 1))
-  })
-})
+// durationToFraction / tupletNoteDurationFraction moved to durations.ts;
+// their tests now live in durations.test.ts.

@@ -5,10 +5,11 @@ import {
   noteSpansOverlapFrac,
   beatToFrac,
   splitBeatsIntoDurations,
+  getMeasureDurationFrac,
 } from '@/utils/musicUtils'
+import { durationToFraction } from '@/utils/durations'
 import {
   type Fraction,
-  durationToFraction,
   fracCreate,
   fracAdd,
   fracSub,
@@ -571,11 +572,10 @@ export class ScoreModel {
    * Fill gaps in a measure with rests
    */
   private fillGapsWithRests(measure: Measure): void {
-    const totalBeats = this.getMeasureTotalBeats(measure.timeSignature)
-    const totalBeatsFrac: Fraction = fracCreate(
-      Math.round(totalBeats * 8),
-      8,
-    )
+    // Exact bar length — getMeasureDurationFrac stays correct for every dyadic
+    // meter, unlike the old Math.round(totalBeats * 8)/8 which lost precision
+    // for /16 and /32 denominators.
+    const totalBeatsFrac: Fraction = getMeasureDurationFrac(measure.timeSignature)
 
     // Sort slots by beat position
     const sortedSlots = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))

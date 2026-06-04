@@ -9,9 +9,10 @@
  * The numerator carries the sign.
  *
  * Unit: beats (quarter notes). A quarter note = {num:1, den:1}.
+ *
+ * This module is pure rational arithmetic — it has no knowledge of note
+ * durations. The duration ↔ Fraction mapping lives in `utils/durations.ts`.
  */
-
-import type { NoteDuration } from '../types/music'
 
 // ---------------------------------------------------------------------------
 // Type
@@ -172,63 +173,4 @@ export function fracIsNegative(f: Fraction): boolean {
  */
 export function fracToNumber(f: Fraction): number {
   return f.num / f.den
-}
-
-// ---------------------------------------------------------------------------
-// Musical duration mapping
-// ---------------------------------------------------------------------------
-
-/**
- * Duration values in beats (quarter note = 1 beat).
- *
- *   'w'  → 4/1   (whole note)
- *   'h'  → 2/1   (half note)
- *   'q'  → 1/1   (quarter note)
- *   '8'  → 1/2   (eighth note)
- *   '16' → 1/4   (sixteenth note)
- *   '32' → 1/8   (thirty-second note)
- *
- * Dots multiply by 3/2 (one dot) or 7/4 (two dots) — exact fractions.
- */
-const DURATION_FRACTIONS: Record<NoteDuration, Fraction> = {
-  w: { num: 4, den: 1 },
-  h: { num: 2, den: 1 },
-  q: { num: 1, den: 1 },
-  '8': { num: 1, den: 2 },
-  '16': { num: 1, den: 4 },
-  '32': { num: 1, den: 8 },
-}
-
-const DOT_MULTIPLIERS: Fraction[] = [
-  { num: 1, den: 1 }, // 0 dots — identity
-  { num: 3, den: 2 }, // 1 dot  — × 3/2
-  { num: 7, den: 4 }, // 2 dots — × 7/4
-]
-
-/**
- * Convert a NoteDuration + optional dot count to an exact Fraction in beats.
- */
-export function durationToFraction(duration: NoteDuration, dots = 0): Fraction {
-  const base = DURATION_FRACTIONS[duration]
-  const dotMul = DOT_MULTIPLIERS[Math.min(dots, 2)] ?? DOT_MULTIPLIERS[0]
-  return fracMul(base, dotMul)
-}
-
-/**
- * Compute the actual sounding duration of a tuplet note as an exact Fraction.
- *
- * @param duration   Written note duration
- * @param dots       Number of dots on the note
- * @param numNotes   N in "N notes fit in space of M" (e.g. 3 for triplet)
- * @param notesOccupied  M in the ratio (e.g. 2 for triplet)
- */
-export function tupletNoteDurationFraction(
-  duration: NoteDuration,
-  dots: number,
-  numNotes: number,
-  notesOccupied: number,
-): Fraction {
-  const written = durationToFraction(duration, dots)
-  // actual = written × (notesOccupied / numNotes)
-  return fracMul(written, fracCreate(notesOccupied, numNotes))
 }
