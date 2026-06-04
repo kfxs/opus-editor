@@ -1,8 +1,8 @@
 # Time Signature — Implementation Plan
 
-Status: **in progress** — Phase 0 complete (duration layer centralized + guardrails);
-Phase 1 next. This document is the authoritative plan and cross-session checklist for
-adding full time-signature support to the editor.
+Status: **in progress** — Phases 0–2 complete (duration layer; coordinate/beat correctness;
+`utils/meter.ts` metric-hierarchy generator); Phase 2b next. This document is the authoritative
+plan and cross-session checklist for adding full time-signature support to the editor.
 
 ---
 
@@ -448,8 +448,46 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
     matrix incl. 9/8→9/2, 5/8→5/2, 13/16, 32/16) and `restFill.baseline.test.ts`
     (4/4 rest-fill snapshots to be updated by Phase 2b). 335 unit tests pass;
     `build:check` clean.
-- [ ] Phase 1 — Coordinate correctness
-- [ ] Phase 2 — `utils/meter.ts` metric-hierarchy generator
+- [x] Phase 1 — Coordinate correctness
+  - Audit-driven (`grep -rn numerator src`). Replaced every `beatsInMeasure =
+    timeSignature.numerator` *assignment* with `getMeasureDuration(ts)` (quarter-beat
+    bar length) and renamed the threaded param `beatsInMeasure → barQuarters`.
+  - **Fixed (were bugs for non-/4):** `NoteEntryCoordinator` ×2 (addNoteAtPosition,
+    createTupletAtPosition), `MusicEngine` ×2 (`getNoteAtPosition`, ghost-preview
+    `previewNoteAtPosition`) + its `pixelToPosition`/`getPositionFromPixels`/`noteToPixel`
+    param rename, `MouseController` drag-pitch site, and **`VexFlowRenderer` ghost-preview**
+    rest-fill (`totalBeats → barQuarters`; the VexFlow `Voice` keeps the literal
+    `numBeats: numerator`/`beatValue: denominator` signature — only the rest math is quarters).
+  - **Centralized (were already correct inline):** `MusicEngine.updateNote` overflow check,
+    `MouseController` tuplet-mode site, `KeyboardController` — all now call `getMeasureDuration`.
+  - **Param-threaded rename only:** `CoordinateMapper.beatToPixelX/noteToPixel/pixelXToBeat/
+    pixelToPosition` (`beatsInMeasure → barQuarters`, JSDoc updated to "quarter-note beats").
+  - **Untouched (correctly):** real-render `Voice` `numBeats: numerator` (`:720/:963`),
+    `addTimeSignature` glyph strings, and `buildBeams(..., numerator, ...)` (Phase 4 rework).
+  - Tests: new `CoordinateMapper.test.ts` "barQuarters (non-4/4 meters)" block — 3/4, 6/8, 2/2
+    round-trips (bar-center → correct quarter-beat) + clamp-to-barQuarters. 344 unit tests pass
+    (+9); `build:check` clean. No 4/4 behavior change (numerator === barQuarters there).
+- [x] Phase 2 — `utils/meter.ts` metric-hierarchy generator
+  - New `src/utils/meter.ts` (pure; depends only on `fraction.ts` + types). Exports
+    `getMeterInfo(ts, grouping?) → MeterInfo` ({numerator, denominator, barQuarters,
+    isCompound, beatUnit, groups: Fraction[], boundaries: {at,strength}[]}), `isDyadicMeter(ts)`,
+    `meterBarQuarters(ts)`, and the `STRENGTH` constants (bar 6 > halfBar 5 > group 4 > …).
+  - **No tables.** `isCompound = num%3===0 && num>3 && denom>=8`. Default grouping (denominator
+    units): compound → 3s; simple denom≤4 → 1s; simple denom≥8 → quarter-pulses when the
+    numerator divides, else 2s with the odd leftover merged into a final 3 (5/8→2+3, 7/8→2+2+3,
+    13/16→2+2+2+2+2+3). Additive override via `grouping` arg (validated to sum to numerator).
+    beatUnit = group length when groups are uniform, else the bare denominator unit.
+  - **Boundaries** built by walking groups then subdividing (ternary at a 3-unit compound beat,
+    binary below) down to the 32nd grid; a group boundary on the bar midpoint is elevated to
+    `halfBar` (so 4/4, 2/2, 12/8 won't let rests/beams cross the metric centre). Strengths are
+    relative, not absolute.
+  - **Documented cut (not a bug):** compound gated at denom≥8, so 6/4, 9/4, 12/4 are *simple*.
+  - Validation: non-dyadic (4/3) and finer-than-32nd (denom 64) and non-positive/non-integer
+    numerators are rejected (`getMeterInfo` throws; `isDyadicMeter` returns false).
+  - Tests: `meter.test.ts` — full generality matrix (4/4, 3/4, 2/2, 6/8, 9/8, 12/8, 5/8, 7/8,
+    32/16, 16/4, 15/8, 13/16, 7/4, additive 3+2+2/8, fallback 11/8, rejected 4/3) + strength
+    hierarchy + groups-sum-to-bar. 374 unit tests pass (+30); `build:check` clean. Not yet
+    imported anywhere (Phase 2b/4 consume it) → no user-facing change.
 - [ ] Phase 2b — `utils/restFill.ts` meter-aware fill
 - [ ] Phase 3 — Rendering mode + measure-rest + TS-glyph gating
 - [ ] Phase 4 — Meter-aware beaming
