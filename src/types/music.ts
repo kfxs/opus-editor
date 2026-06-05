@@ -262,6 +262,14 @@ export interface Measure {
    */
   timeSignatureChange?: boolean
   /**
+   * Actual playable length of this bar in quarter-note beats, when it differs
+   * from the nominal time signature — i.e. a pickup / anacrusis bar (shorter
+   * than nominal). When undefined the bar uses its time signature's full length.
+   * Honoured by rest-fill, coordinate mapping, collision, playback and the
+   * render voice capacity (resolved via utils/musicUtils `measureCapacityFrac`).
+   */
+  actualDurationOverride?: Fraction
+  /**
    * Clef changes within this measure, sorted ascending by beat.
    * A change at beat 0 is the measure's opening clef; changes at beat > 0 are
    * mid-measure changes rendered as inline clefs. When empty/undefined, the

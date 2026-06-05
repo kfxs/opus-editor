@@ -8,8 +8,11 @@ import {
   getNextAvailableBeat,
   getStaffLinePosition,
   calculateTotalDuration,
+  measureCapacityFrac,
+  measureCapacityQuarters,
 } from './musicUtils'
-import type { TimeSignature, NoteDuration } from '@/types/music'
+import { fracCreate } from './fraction'
+import type { TimeSignature, NoteDuration, Measure } from '@/types/music'
 
 describe('musicUtils', () => {
   describe('durationToBeats', () => {
@@ -189,6 +192,25 @@ describe('musicUtils', () => {
 
     it('should return 0 for empty array', () => {
       expect(calculateTotalDuration([])).toBe(0)
+    })
+  })
+
+  describe('measureCapacity (pickup-aware bar length)', () => {
+    const bar = (ts: TimeSignature, override?: { num: number; den: number }): Measure => ({
+      id: 'm', number: 1, slots: [], tuplets: [], timeSignature: ts,
+      ...(override ? { actualDurationOverride: fracCreate(override.num, override.den) } : {}),
+    })
+
+    it('uses the nominal time-signature length when there is no override', () => {
+      expect(measureCapacityQuarters(bar({ numerator: 4, denominator: 4 }))).toBe(4)
+      expect(measureCapacityQuarters(bar({ numerator: 6, denominator: 8 }))).toBe(3)
+      expect(measureCapacityFrac(bar({ numerator: 7, denominator: 8 }))).toEqual(fracCreate(7, 2))
+    })
+
+    it('uses the override when present (a 1-beat pickup in 4/4)', () => {
+      const pickup = bar({ numerator: 4, denominator: 4 }, { num: 1, den: 1 })
+      expect(measureCapacityQuarters(pickup)).toBe(1)
+      expect(measureCapacityFrac(pickup)).toEqual(fracCreate(1, 1))
     })
   })
 })

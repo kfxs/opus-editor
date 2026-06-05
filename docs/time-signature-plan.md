@@ -1,12 +1,13 @@
 # Time Signature — Implementation Plan
 
-Status: **Phases 0–8 complete.** The full engine (Phases 0–5) is user-reachable via the
+Status: **Phases 0–9 complete.** The full engine (Phases 0–5) is user-reachable via the
 time-signature palette (Phase 6) + custom-meter dialog with additive grouping (Phase 6b); the
 data/model layer is per-voice-ready (Phase 7 — the multi-voice *render loop* is still deferred to a
-future voice phase, with the extension point documented); and a meter change now **re-bars** the
-following music with ties + forward overflow by default (Phase 8 — `utils/rebar.ts`). Remaining:
-**Phase 9** (pickup / anacrusis bars) is the deferred follow-up. This document is the authoritative
-plan and cross-session checklist.
+future voice phase, with the extension point documented); a meter change **re-bars** the following
+music with ties + forward overflow by default (Phase 8 — `utils/rebar.ts`); and a bar can be a
+**pickup / anacrusis** shorter than its time signature (Phase 9 — `Measure.actualDurationOverride`,
+"Pickup…" dialog). The only known remaining work is the deferred **multi-voice render loop** (a
+future voice phase). This document is the authoritative plan and cross-session checklist.
 
 ---
 
@@ -430,11 +431,25 @@ is the `rewrite: 'none'` fallback. Built per-voice-stream (voice 0 only today). 
   editing (`updateNote` throws on a missing id). `MusicEngine.toggleTie` is also hardened to skip a
   missing tie target.
 
-### Phase 9 — (Deferred) Pickup / anacrusis bars
-**Goal (future):** bars whose **actual length < nominal** (`Measure.actualDurationOverride?:
-Fraction`), renderable thanks to Phase 3's non-STRICT mode. Honour the override in rest-fill,
-rebar (`relayEvents` bar length), coordinate mapping, and a UI affordance to create a pickup bar.
-Split out of Phase 8 per the user.
+### Phase 9 — Pickup / anacrusis bars (DONE)
+**Goal:** a bar whose **actual length < nominal** (`Measure.actualDurationOverride?: Fraction`),
+renderable thanks to Phase 3's non-STRICT (FULL) mode. Two sub-phases:
+- **9a** — `Measure.actualDurationOverride` + the single capacity helper
+  `measureCapacityFrac(measure)` / `measureCapacityQuarters(measure)` (`utils/musicUtils.ts`) =
+  `override ?? getMeasureDurationFrac(ts)`. Routed every *capacity* read through it — rest-fill
+  (`ScoreModel.fillMeasureWithRests`/`fillGapsWithRests`), coordinate mapping (MouseController /
+  MusicEngine / NoteEntryCoordinator / KeyboardController — note entry now uses the *clicked*
+  measure's capacity, fixing a latent measure-1-only bug), collision (`CollisionDetector`),
+  playback timing (`PlaybackEngine`), and the render voice mode (`chooseVoiceMode`). Rest-fill needs
+  no logic change: `fillRests(0, capacity, meter)` only emits a whole-bar measure rest when
+  `end === barQuarters`, so a short bar decomposes into real rests. Model API
+  `ScoreModel.setMeasureActualDuration(n, frac|null)` (clears when `null`/≥ nominal; keeps notes
+  that exceed the shorter bar; re-fills rests) + `MusicEngine` wrapper (undo via snapshot).
+  `validateMeters` rejects a non-positive override; no schema bump (additive optional field).
+  **Re-barring clears the override** on rewritten bars (v1 limitation).
+- **9b** — App.vue **"Pickup…"** button + dialog (measure number + length as numerator/denominator,
+  e.g. `1/4` = one beat) → `engine.setMeasureActualDuration`; Apply / Clear; live validation
+  (shorter than the full bar). Manual-tested.
 
 ---
 
@@ -730,4 +745,19 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
     crowded, tuplet intact) + `MusicEngine.test.ts` (undo of a rebar). 485 tests pass; build clean.
   - **Limitations:** tuplets atomic (straddling tuplet not tie-split); mid-bar clefs on a rebar'd
     bar dropped (`measure.clefs` cleared); multi-voice render deferred; pickup = Phase 9.
-- [ ] Phase 9 — (Deferred) Pickup / anacrusis (`Measure.actualDurationOverride`)
+- [x] Phase 9 — Pickup / anacrusis bars (`Measure.actualDurationOverride`)
+  - **9a** — added `Measure.actualDurationOverride?: Fraction` (types/music.ts) + capacity helpers
+    `measureCapacityFrac`/`measureCapacityQuarters` (utils/musicUtils.ts). Routed ~12 capacity reads
+    through them across `ScoreModel` (fill/measure-rest length), `CollisionDetector`,
+    `PlaybackEngine`, `MouseController`, `MusicEngine`, `NoteEntryCoordinator`, `KeyboardController`,
+    `VexFlowRenderer` (`chooseVoiceMode` now takes a capacity `Fraction`; ghost trailing rest-fill).
+    Note-entry coordinate capacity now uses the *clicked* measure (was always measure 1).
+    `ScoreModel.setMeasureActualDuration(n, frac|null)` + `getMeasureCapacityFrac`; clears on
+    `null`/≥-nominal, keeps over-capacity notes, re-fills rests; `rebarRegion` deletes the override
+    on rewritten bars; `validateMeters` rejects a non-positive override. `MusicEngine` wrapper +
+    undo. Tests: capacity helper (musicUtils.test), 1-beat pickup → quarter rest, clear/≥-nominal,
+    over-content kept, rebar clears (ScoreModel.test), wrapper undo/redo (MusicEngine.test).
+  - **9b** — App.vue "Pickup…" button + dialog (measure + length num/den, Apply/Clear, live
+    validation that the pickup is shorter than the full bar). UI = manual.
+  - 493 tests pass; build:check clean.
+- [ ] (Deferred) Multi-voice render loop — the per-voice VexFlow render pass parked since Phase 7.

@@ -842,6 +842,47 @@ describe('ScoreModel.setTimeSignature', () => {
   })
 })
 
+describe('ScoreModel.setMeasureActualDuration (pickup / anacrusis)', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel() })
+
+  it('shrinks an empty 4/4 bar to a 1-beat pickup → a quarter rest, not a measure rest', () => {
+    expect(model.setMeasureActualDuration(1, frac(1, 1))).toBe(true)
+    const slots = slotsOf(model, 1)
+    expect(totalLen(model, 1)).toBe(1) // bar now sums to one quarter
+    expect(slots.every((s) => !(s.type === 'rest' && s.isMeasureRest))).toBe(true)
+    const rests = slots.filter((s) => s.type === 'rest')
+    expect(rests).toHaveLength(1)
+    expect(rests[0].duration).toBe('q')
+  })
+
+  it('clears the override when passed null or a length ≥ nominal', () => {
+    model.setMeasureActualDuration(1, frac(1, 1))
+    expect(model.getMeasure(1)!.actualDurationOverride).toBeDefined()
+    expect(model.setMeasureActualDuration(1, null)).toBe(true)
+    expect(model.getMeasure(1)!.actualDurationOverride).toBeUndefined()
+    // ≥ nominal also clears (a pickup must be shorter)
+    model.setMeasureActualDuration(1, frac(1, 1))
+    expect(model.setMeasureActualDuration(1, frac(4, 1))).toBe(true)
+    expect(model.getMeasure(1)!.actualDurationOverride).toBeUndefined()
+    // no-op when already clear
+    expect(model.setMeasureActualDuration(1, null)).toBe(false)
+  })
+
+  it('keeps notes that exceed a newly-shortened bar (over-full, never trimmed)', () => {
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.setMeasureActualDuration(1, frac(1, 1)) // shrink under the half note
+    const chords = slotsOf(model, 1).filter((s) => s.type === 'chord')
+    expect(chords).toHaveLength(1) // the half note is kept (renders crowded/SOFT)
+  })
+
+  it('re-barring a measure clears its pickup override (v1 limitation)', () => {
+    model.setMeasureActualDuration(1, frac(1, 1))
+    model.setTimeSignature(1, ts(3, 4)) // rebar rewrites the bar to nominal length
+    expect(model.getMeasure(1)!.actualDurationOverride).toBeUndefined()
+  })
+})
+
 describe('ScoreModel voice-aware fill (scaffolding)', () => {
   it('fills each voice independently up to the bar length', () => {
     const model = new ScoreModel('V', 120)

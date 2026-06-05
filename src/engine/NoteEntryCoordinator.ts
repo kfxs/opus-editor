@@ -4,7 +4,7 @@ import { CollisionDetector } from './models/CollisionDetector'
 import {
   durationToBeats, splitBeatsIntoDurations, midiToNoteName,
   getTupletNoteDurationFrac, getTupletTotalBeatsFrac, beatToFrac,
-  getMeasureDuration,
+  measureCapacityQuarters,
 } from '@/utils/musicUtils'
 import {
   fracToNumber, fracEq, fracAdd, fracSub, fracMul,
@@ -156,20 +156,18 @@ export class NoteEntryCoordinator {
     articulations?: ArticulationType[],
     beam?: NoteParams['beam']
   ): Note | null {
-    const measure = this.getScoreModel().getMeasure(1)
-    if (!measure) return null
-
-    const barQuarters = getMeasureDuration(measure.timeSignature)
     const registry = this.elementRegistry
 
     // Get measure number from coordinates
     const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
 
-    // Validate measure exists
-    if (!this.getScoreModel().getMeasure(measureNumber)) {
+    // Validate measure exists, then use ITS capacity (honours a pickup bar)
+    const measure = this.getScoreModel().getMeasure(measureNumber)
+    if (!measure) {
       console.log('✗ Invalid: measure does not exist')
       return null
     }
+    const barQuarters = measureCapacityQuarters(measure)
 
     // Check if click is over an invalid element (clef, time signature, barline)
     const elementAtCursor = registry.getAt(coords.x, coords.y)
@@ -413,18 +411,15 @@ export class NoteEntryCoordinator {
     numNotes: number = 3,
     notesOccupied: number = 2
   ): { tuplet: Tuplet; firstNote: Note } | null {
-    const measure = this.getScoreModel().getMeasure(1)
-    if (!measure) return null
-
-    const barQuarters = getMeasureDuration(measure.timeSignature)
     const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
 
-    // Validate measure exists
+    // Validate measure exists, then use ITS capacity (honours a pickup bar)
     const targetMeasure = this.getScoreModel().getMeasure(measureNumber)
     if (!targetMeasure) {
       console.log('✗ Invalid: measure does not exist')
       return null
     }
+    const barQuarters = measureCapacityQuarters(targetMeasure)
 
     const noteDurationInBeats = durationToBeats(duration)
     const tupletTotalBeats = noteDurationInBeats * notesOccupied

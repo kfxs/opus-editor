@@ -2,7 +2,7 @@ import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation,
 import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Chord, Fraction, PitchStep, PitchAlter, GhostNote, TimeSignature } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureOpeningClef, measureEndingClef, effectiveClefAt, effectiveClefBefore } from '@/utils/clefUtils'
-import { beatToFrac } from '@/utils/musicUtils'
+import { beatToFrac, measureCapacityFrac } from '@/utils/musicUtils'
 import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, type MeterInfo } from '@/utils/meter'
 import { fillRests, pickVoiceMode, type RestSlot } from '@/utils/restFill'
@@ -169,9 +169,13 @@ export class VexFlowRenderer {
     return durationToVexflow(duration, dots)
   }
 
-  /** Map the pure {@link pickVoiceMode} policy onto VexFlow's Voice.Mode enum. */
-  private chooseVoiceMode(slots: ChordRest[], meter: MeterInfo): number {
-    return pickVoiceMode(slots, meter.barQuarters) === 'soft' ? Voice.Mode.SOFT : Voice.Mode.FULL
+  /**
+   * Map the pure {@link pickVoiceMode} policy onto VexFlow's Voice.Mode enum.
+   * `capacity` is the measure's actual playable length (override or nominal), so
+   * a pickup bar is judged against its true length.
+   */
+  private chooseVoiceMode(slots: ChordRest[], capacity: Fraction): number {
+    return pickVoiceMode(slots, capacity) === 'soft' ? Voice.Mode.SOFT : Voice.Mode.FULL
   }
 
   /**
@@ -614,7 +618,7 @@ export class VexFlowRenderer {
     const voice = new Voice({
       numBeats: measure.timeSignature.numerator,
       beatValue: measure.timeSignature.denominator,
-    }).setMode(this.chooseVoiceMode(sortedSlots, getMeterInfo(measure.timeSignature)))
+    }).setMode(this.chooseVoiceMode(sortedSlots, measureCapacityFrac(measure)))
 
     try {
       voice.addTickables(staveNotes)
@@ -863,7 +867,7 @@ export class VexFlowRenderer {
       const voice = new Voice({
         numBeats: measure.timeSignature.numerator,
         beatValue: measure.timeSignature.denominator,
-      }).setMode(this.chooseVoiceMode(sortedSlots, meter))
+      }).setMode(this.chooseVoiceMode(sortedSlots, measureCapacityFrac(measure)))
 
       try {
         voice.addTickables(tickables)
@@ -1589,7 +1593,7 @@ export class VexFlowRenderer {
       const tickables: any[] = []
       for (const r of fillRests(fracCreate(0, 1), noteStart, meter)) tickables.push(makeRest(r))
       tickables.push(staveNote)
-      for (const r of fillRests(noteEnd, meter.barQuarters, meter)) tickables.push(makeRest(r))
+      for (const r of fillRests(noteEnd, measureCapacityFrac(measure), meter)) tickables.push(makeRest(r))
 
       // VexFlow wants the literal time signature, not quarter-beats.
       const voice = new Voice({

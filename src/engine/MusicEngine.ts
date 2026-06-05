@@ -5,7 +5,7 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
-import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, beatToFrac, getMeasureDuration } from '@/utils/musicUtils'
+import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, beatToFrac, measureCapacityQuarters } from '@/utils/musicUtils'
 import { fracToNumber, fracCompare, fracEq, fracAdd } from '@/utils/fraction'
 import { durationToFraction } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos } from '@/utils/pitchSpelling'
@@ -301,6 +301,23 @@ export class MusicEngine {
   }
 
   /**
+   * Set (or clear) a measure's actual playable length — a pickup / anacrusis bar.
+   * `actual` is in quarter-note beats (exact Fraction); pass `null` to clear, or a
+   * value ≥ the nominal bar length to clear. Saves undo state when changed.
+   * @returns true if the measure changed.
+   */
+  setMeasureActualDuration(measureNumber: number, actual: Fraction | null): boolean {
+    const changed = this.scoreModel.setMeasureActualDuration(measureNumber, actual)
+    if (changed) {
+      this.playbackEngine.setScore(this.scoreModel.getScore())
+      this.saveUndoState(
+        actual ? `Set pickup at measure ${measureNumber}` : `Clear pickup at measure ${measureNumber}`,
+      )
+    }
+    return changed
+  }
+
+  /**
    * Relocate a clef change to a new position, possibly across measures. Raw move
    * used while dragging — does NOT record undo. Call commitClefMove when the drag
    * ends.
@@ -401,7 +418,7 @@ export class MusicEngine {
     // Check for measure overflow (considering dots)
     const measure = this.scoreModel.getMeasure(existingNote.measure)
     if (measure && (updates.duration || updates.dots !== undefined)) {
-      const measureTotalBeats = getMeasureDuration(measure.timeSignature)
+      const measureTotalBeats = measureCapacityQuarters(measure)
       const availableBeats = measureTotalBeats - fracToNumber(existingNote.beat)
       const requestedBeats = durationToBeats(newDuration, newDots)
 
@@ -794,7 +811,7 @@ export class MusicEngine {
     const measure = this.scoreModel.getMeasure(1)
     if (!measure) return null
 
-    const barQuarters = getMeasureDuration(measure.timeSignature)
+    const barQuarters = measureCapacityQuarters(measure)
 
     for (const note of allNotes) {
       const noteCoords = this.coordinateMapper.noteToPixel(note, barQuarters)
@@ -959,7 +976,7 @@ export class MusicEngine {
       console.warn('No measure found for preview')
       return false
     }
-    const barQuarters = getMeasureDuration(measure.timeSignature)
+    const barQuarters = measureCapacityQuarters(measure)
     const registry = this.renderer.getElementRegistry()
 
     // Check if cursor is over an invalid element (clef, time signature, barline)

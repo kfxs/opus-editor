@@ -8,6 +8,7 @@ import {
   fracLt,
   fracGte,
   fracCompare,
+  fracToNumber,
 } from '@/utils/fraction'
 import {
   durationToFraction,
@@ -52,6 +53,22 @@ export function getMeasureDurationFrac(timeSignature: TimeSignature): Fraction {
     fracCreate(timeSignature.numerator, 1),
     fracCreate(4, timeSignature.denominator),
   )
+}
+
+/**
+ * The actual playable length of a measure in quarter-note beats: its
+ * {@link Measure.actualDurationOverride} (pickup / anacrusis) when present,
+ * else its nominal time-signature length. This is the single source of truth
+ * for a bar's *capacity*; use it instead of `getMeasureDuration(measure
+ * .timeSignature)` wherever the value means "how much fits in this bar".
+ */
+export function measureCapacityFrac(measure: Measure): Fraction {
+  return measure.actualDurationOverride ?? getMeasureDurationFrac(measure.timeSignature)
+}
+
+/** Float counterpart of {@link measureCapacityFrac}. */
+export function measureCapacityQuarters(measure: Measure): number {
+  return fracToNumber(measureCapacityFrac(measure))
 }
 
 /**

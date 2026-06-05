@@ -1,6 +1,6 @@
 import type * as ToneType from 'tone'
 import type { Score, Note, Chord } from '@/types/music'
-import { durationToBeats, getMeasureDuration } from '@/utils/musicUtils'
+import { durationToBeats, measureCapacityQuarters } from '@/utils/musicUtils'
 import { fracToNumber } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 
@@ -89,7 +89,7 @@ export class PlaybackEngine {
 
     let totalBeats = 0
     for (const measure of this.score.measures) {
-      totalBeats += getMeasureDuration(measure.timeSignature)
+      totalBeats += measureCapacityQuarters(measure)
     }
 
     // Convert beats to seconds based on tempo
@@ -111,7 +111,7 @@ export class PlaybackEngine {
     let beatInMeasure = 0
 
     for (const measure of this.score.measures) {
-      const measureDuration = getMeasureDuration(measure.timeSignature)
+      const measureDuration = measureCapacityQuarters(measure)
 
       if (accumulatedBeats + measureDuration > elapsedBeats) {
         currentMeasure = measure.number
@@ -174,7 +174,7 @@ export class PlaybackEngine {
           }
         }
       }
-      scanTime += getMeasureDuration(measure.timeSignature)
+      scanTime += measureCapacityQuarters(measure)
     }
 
     for (const measure of this.score.measures) {
@@ -232,7 +232,7 @@ export class PlaybackEngine {
         }
       }
 
-      currentTimeInBeats += getMeasureDuration(measure.timeSignature)
+      currentTimeInBeats += measureCapacityQuarters(measure)
     }
 
     this.state = 'playing'

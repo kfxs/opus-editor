@@ -4,6 +4,8 @@ import {
   getTupletTotalBeatsFrac,
   noteSpansOverlapFrac,
   splitBeatsIntoDurations,
+  measureCapacityFrac,
+  getMeasureDurationFrac,
 } from '@/utils/musicUtils'
 import { durationToFraction } from '@/utils/durations'
 import {
@@ -11,7 +13,6 @@ import {
   isValidTimeSignature,
   effectiveTimeSignature,
   sameTimeSignature,
-  type MeterInfo,
 } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { flattenRegion, relayEvents, type RebarPiece } from '@/utils/rebar'
@@ -28,6 +29,7 @@ import {
   fracGte,
   fracEq,
   fracIsZero,
+  fracIsPositive,
   fracToNumber,
 } from '@/utils/fraction'
 import { effectiveClefAt, effectiveClefBefore, measureOpeningClef } from '@/utils/clefUtils'
@@ -108,9 +110,9 @@ export class ScoreModel {
    */
   private fillMeasureWithRests(measure: Measure): void {
     const meter = getMeterInfo(measure.timeSignature)
-    const rests = fillRests(fracCreate(0, 1), meter.barQuarters, meter)
+    const rests = fillRests(fracCreate(0, 1), measureCapacityFrac(measure), meter)
     for (const rest of rests) {
-      this.pushRestSlot(measure, rest, meter, 0)
+      this.pushRestSlot(measure, rest, 0)
     }
   }
 
@@ -119,14 +121,14 @@ export class ScoreModel {
    * Measure rests store the true bar length as `actualDuration` (the `duration`
    * stays `'w'`); the voice is only recorded when non-default.
    */
-  private pushRestSlot(measure: Measure, rest: RestSlot, meter: MeterInfo, voice: number): void {
+  private pushRestSlot(measure: Measure, rest: RestSlot, voice: number): void {
     const slot: Rest = {
       id: uuidv4(),
       type: 'rest',
       duration: rest.duration,
       measure: measure.number,
       beat: rest.beat,
-      actualDuration: rest.isMeasureRest ? meter.barQuarters : durationToFraction(rest.duration, rest.dots),
+      actualDuration: rest.isMeasureRest ? measureCapacityFrac(measure) : durationToFraction(rest.duration, rest.dots),
     }
     if (rest.dots) slot.dots = rest.dots
     if (rest.isMeasureRest) slot.isMeasureRest = true
@@ -397,6 +399,39 @@ export class ScoreModel {
   }
 
   /**
+   * Set (or clear) a measure's actual playable length — a pickup / anacrusis bar
+   * (see {@link Measure.actualDurationOverride}). `actual` is in quarter-note
+   * beats; pass `null` to clear. An `actual` that is non-positive, or ≥ the bar's
+   * nominal length (a pickup must be shorter), clears the override instead.
+   * Existing notes are kept even if they now exceed the shorter bar (over-full →
+   * SOFT render, never trimmed); plain rests are re-filled to the new capacity.
+   * @returns true if the measure changed.
+   */
+  setMeasureActualDuration(measureNumber: number, actual: Fraction | null): boolean {
+    const measure = this.getMeasure(measureNumber)
+    if (!measure) return false
+
+    const nominal = getMeasureDurationFrac(measure.timeSignature)
+    const clear = actual === null || !fracIsPositive(actual) || fracGte(actual, nominal)
+
+    if (clear) {
+      if (measure.actualDurationOverride === undefined) return false
+      delete measure.actualDurationOverride
+    } else {
+      if (measure.actualDurationOverride && fracEq(measure.actualDurationOverride, actual)) return false
+      measure.actualDurationOverride = { num: actual.num, den: actual.den }
+    }
+    this.reconcileMeasureRests(measure)
+    return true
+  }
+
+  /** The measure's actual capacity in quarter beats (override or nominal). */
+  getMeasureCapacityFrac(measureNumber: number): Fraction | undefined {
+    const measure = this.getMeasure(measureNumber)
+    return measure ? measureCapacityFrac(measure) : undefined
+  }
+
+  /**
    * Copy `ts` into every measure after `fromMeasure`, reconciling rests, until
    * the next measure that carries its own explicit change (which is left alone).
    */
@@ -461,8 +496,12 @@ export class ScoreModel {
     // Flatten using the CURRENT (old) meter, before changing it.
     const events = flattenRegion(regionMeasures, 0)
 
-    // Apply the new meter to every region measure.
-    for (const m of regionMeasures) m.timeSignature = copyTimeSignature(ts)
+    // Apply the new meter to every region measure. Re-barring rewrites bars to
+    // nominal length, so any pickup override on a rewritten bar is cleared (v1).
+    for (const m of regionMeasures) {
+      m.timeSignature = copyTimeSignature(ts)
+      delete m.actualDurationOverride
+    }
 
     const meter = getMeterInfo(ts)
     const plan = relayEvents(events, meter, { targetBars, bounded })
@@ -477,7 +516,7 @@ export class ScoreModel {
     const created: Array<{ piece: RebarPiece; chord: Chord }> = []
     for (let i = 0; i < plan.length; i++) {
       const m = this.getMeasure(regionNumbers[i])
-      if (m) this.materializeBar(m, plan[i], meter, created)
+      if (m) this.materializeBar(m, plan[i], created)
     }
     this.linkRebarTies(created)
 
@@ -598,7 +637,6 @@ export class ScoreModel {
   private materializeBar(
     measure: Measure,
     plan: RebarPiece[],
-    meter: MeterInfo,
     created: Array<{ piece: RebarPiece; chord: Chord }>,
   ): void {
     measure.slots = []
@@ -614,7 +652,6 @@ export class ScoreModel {
         this.pushRestSlot(
           measure,
           { beat: piece.beat, duration: piece.duration, dots: piece.dots, isMeasureRest: piece.isMeasureRest },
-          meter,
           0,
         )
         continue
@@ -953,7 +990,7 @@ export class ScoreModel {
    */
   private fillGapsWithRests(measure: Measure): void {
     const meter = getMeterInfo(measure.timeSignature)
-    const barEnd = meter.barQuarters
+    const barEnd = measureCapacityFrac(measure)
     const tuplets = measure.tuplets || []
 
     // Distinct voices present (always include voice 0 so an empty bar fills).
@@ -1004,7 +1041,7 @@ export class ScoreModel {
         if (fracLte(adjustedEnd, gap.start)) continue
 
         for (const rest of fillRests(gap.start, adjustedEnd, meter)) {
-          this.pushRestSlot(measure, rest, meter, voice)
+          this.pushRestSlot(measure, rest, voice)
         }
       }
     }
@@ -1019,7 +1056,7 @@ export class ScoreModel {
    */
   private computeActualDurationForSlot(slot: ChordRest | { duration: NoteDuration; dots?: number; tupletId?: string; isMeasureRest?: boolean }, measure: Measure): Fraction {
     if ('isMeasureRest' in slot && slot.isMeasureRest) {
-      return getMeterInfo(measure.timeSignature).barQuarters
+      return measureCapacityFrac(measure)
     }
     const base = durationToFraction(slot.duration, slot.dots ?? 0)
     if (slot.tupletId && measure.tuplets) {
@@ -1547,6 +1584,9 @@ export class ScoreModel {
       if (!isValidTimeSignature(m.timeSignature)) {
         const { numerator, denominator } = m.timeSignature
         throw new Error(`Invalid time signature ${numerator}/${denominator} at measure ${m.number}: not a representable dyadic meter (or its grouping is invalid).`)
+      }
+      if (m.actualDurationOverride !== undefined && !fracIsPositive(m.actualDurationOverride)) {
+        throw new Error(`Invalid actualDurationOverride at measure ${m.number}: must be a positive length.`)
       }
     }
   }

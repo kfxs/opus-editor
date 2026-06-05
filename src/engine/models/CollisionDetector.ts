@@ -1,5 +1,5 @@
 import type { Note, NoteParams, Measure, TimeSignature } from '@/types/music'
-import { durationToBeats, getMeasureDuration } from '@/utils/musicUtils'
+import { durationToBeats, getMeasureDuration, measureCapacityQuarters } from '@/utils/musicUtils'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import { fracAdd, fracCompare, fracEq, fracGt, fracGte, fracLt, fracToNumber, fracCreate } from '@/utils/fraction'
 import { durationToFraction } from '@/utils/durations'
@@ -110,7 +110,7 @@ export class CollisionDetector {
   ): OverflowResult {
     const noteDurFrac = note.actualDuration ?? durationToFraction(note.duration, note.dots ?? 0)
     const noteEnd = fracToNumber(fracAdd(note.beat, noteDurFrac))
-    const measureDuration = getMeasureDuration(measure.timeSignature)
+    const measureDuration = measureCapacityQuarters(measure)
 
     if (noteEnd > measureDuration) {
       return {
@@ -133,7 +133,7 @@ export class CollisionDetector {
     startFromBeat: number = 0,
   ): number | null {
     const noteDuration = durationToBeats(duration as any)
-    const measureDuration = getMeasureDuration(measure.timeSignature)
+    const measureDuration = measureCapacityQuarters(measure)
 
     const sortedNotes = [...existingNotes].sort((a, b) => fracCompare(a.beat, b.beat))
 
@@ -187,7 +187,7 @@ export class CollisionDetector {
     available: number
     percentage: number
   } {
-    const measureDuration = getMeasureDuration(measure.timeSignature)
+    const measureDuration = measureCapacityQuarters(measure)
     const measureNotes = notes.filter(n => n.measure === measure.number)
 
     let maxEnd = 0
@@ -212,7 +212,7 @@ export class CollisionDetector {
     errors: string[]
   } {
     const errors: string[] = []
-    const measureDuration = getMeasureDuration(measure.timeSignature)
+    const measureDuration = measureCapacityQuarters(measure)
     const measureNotes = notes.filter(n => n.measure === measure.number)
 
     for (const note of measureNotes) {

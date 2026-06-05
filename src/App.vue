@@ -313,6 +313,11 @@
               ]"
               title="Custom time signature (any dyadic meter + optional grouping)"
             >Custom…</button>
+            <button
+              @click="openPickupDialog"
+              class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500"
+              title="Pickup / anacrusis bar (set a measure's actual length shorter than its time signature)"
+            >Pickup…</button>
           </div>
 
           <div class="border-l border-gray-600 mx-2"></div>
@@ -396,6 +401,57 @@
         </div>
       </div>
     </div>
+
+    <!-- Pickup / anacrusis dialog -->
+    <div
+      v-if="showPickupDialog"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      @click.self="showPickupDialog = false"
+    >
+      <div class="bg-gray-800 rounded-lg p-6 w-80 text-left shadow-xl" @keydown.enter="applyPickup">
+        <h3 class="text-lg font-semibold mb-4">Pickup / Anacrusis Bar</h3>
+
+        <div class="flex items-center gap-3 mb-3">
+          <label class="text-sm text-gray-300 w-24">Measure</label>
+          <input
+            type="number" min="1" step="1" v-model.number="pickupMeasure"
+            class="flex-1 bg-gray-700 rounded px-2 py-1 text-white"
+          />
+        </div>
+
+        <div class="flex items-center gap-3 mb-1">
+          <label class="text-sm text-gray-300 w-24">Pickup length</label>
+          <input
+            type="number" min="1" step="1" v-model.number="pickupNumerator"
+            class="w-16 bg-gray-700 rounded px-2 py-1 text-white"
+          />
+          <span class="text-gray-400">/</span>
+          <select v-model.number="pickupDenominator" class="flex-1 bg-gray-700 rounded px-2 py-1 text-white">
+            <option v-for="d in tsDenominatorOptions" :key="d" :value="d">{{ d }}</option>
+          </select>
+        </div>
+        <p class="text-xs text-gray-400 mb-3 ml-[6.75rem]">Actual bar length; must be shorter than the full bar (e.g. 1/4 = one beat).</p>
+
+        <p v-if="pickupDialogError" class="text-sm text-red-400 mb-3">{{ pickupDialogError }}</p>
+
+        <div class="flex justify-end gap-2 mt-2">
+          <button
+            @click="showPickupDialog = false"
+            class="px-3 py-1 rounded bg-gray-600 hover:bg-gray-500 text-sm"
+          >Cancel</button>
+          <button
+            @click="clearPickup"
+            class="px-3 py-1 rounded text-sm bg-gray-600 hover:bg-gray-500"
+            title="Remove the pickup, restoring the full bar"
+          >Clear</button>
+          <button
+            @click="applyPickup"
+            :disabled="!!pickupDialogError"
+            class="px-3 py-1 rounded text-sm bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed"
+          >Apply</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -411,6 +467,8 @@ import { useKeyboardEntry } from './composables/useKeyboardEntry'
 import { useMouseInteraction } from './composables/useMouseInteraction'
 import { useShortcuts } from './composables/useShortcuts'
 import { isValidTimeSignature } from './utils/meter'
+import { getMeasureDurationFrac } from './utils/musicUtils'
+import { fracCreate, fracGte, type Fraction } from './utils/fraction'
 import type { TimeSignature } from './types/music'
 
 // --- Engine and canvas ---
@@ -531,6 +589,55 @@ const isCustomTimeSignatureArmed = computed(() => {
   if (!sel) return false
   return !timeSignaturePresets.some(p => p.numerator === sel.numerator && p.denominator === sel.denominator && !sel.grouping)
 })
+
+// --- Pickup / anacrusis dialog ---
+// Sets a measure's actual playable length shorter than its time signature. The
+// length is entered as numerator/denominator (1/4 = one quarter beat); applied
+// directly to the chosen measure (not an arm/click tool).
+const showPickupDialog = ref(false)
+const pickupMeasure = ref(1)
+const pickupNumerator = ref(1)
+const pickupDenominator = ref(4)
+
+/** Pickup length in quarter beats (numerator × 4/denominator), or null if invalid. */
+const pickupActual = computed<Fraction | null>(() => {
+  const num = Math.floor(Number(pickupNumerator.value))
+  const den = Number(pickupDenominator.value)
+  if (!Number.isInteger(num) || num < 1 || !tsDenominatorOptions.includes(den)) return null
+  return fracCreate(num * 4, den)
+})
+
+/** Nominal length of the target measure, or null if it doesn't exist. */
+const pickupNominal = computed<Fraction | null>(() => {
+  const m = engine.value?.getScore().measures.find(mm => mm.number === Math.floor(Number(pickupMeasure.value)))
+  return m ? getMeasureDurationFrac(m.timeSignature) : null
+})
+
+const pickupDialogError = computed<string | null>(() => {
+  if (!pickupNominal.value) return 'No such measure.'
+  const actual = pickupActual.value
+  if (!actual) return 'Enter a valid pickup length.'
+  if (fracGte(actual, pickupNominal.value)) return 'Pickup must be shorter than the full bar.'
+  return null
+})
+
+function openPickupDialog(): void {
+  showPickupDialog.value = true
+}
+
+function applyPickup(): void {
+  if (pickupDialogError.value || !engine.value || !pickupActual.value) return
+  engine.value.setMeasureActualDuration(Math.floor(Number(pickupMeasure.value)), pickupActual.value)
+  renderer.renderScore()
+  showPickupDialog.value = false
+}
+
+function clearPickup(): void {
+  if (!engine.value) return
+  engine.value.setMeasureActualDuration(Math.floor(Number(pickupMeasure.value)), null)
+  renderer.renderScore()
+  showPickupDialog.value = false
+}
 
 // --- Lifecycle ---
 onMounted(() => {

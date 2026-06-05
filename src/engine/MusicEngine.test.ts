@@ -214,6 +214,17 @@ describe('MusicEngine.setTimeSignature', () => {
     expect(m[0].slots.filter(s => s.type === 'chord')).toHaveLength(4) // all four back in measure 1
   })
 
+  it('setMeasureActualDuration creates a pickup and undo/redo restores it', () => {
+    expect(engine.setMeasureActualDuration(1, frac(1, 1))).toBe(true)
+    const overrideOf = () => engine.getScore().measures.find(m => m.number === 1)!.actualDurationOverride
+
+    expect(overrideOf()).toMatchObject({ num: 1, den: 1 })
+    expect(engine.undo()).toBe(true)
+    expect(overrideOf()).toBeUndefined()
+    expect(engine.redo()).toBe(true)
+    expect(overrideOf()).toMatchObject({ num: 1, den: 1 })
+  })
+
   it('removeTimeSignatureChange undoes a mid-score change', () => {
     engine.setTimeSignature(2, { numerator: 3, denominator: 4 })
     expect(engine.removeTimeSignatureChange(2)).toBe(true)
