@@ -72,6 +72,11 @@ interface MeasureWidthInfo {
   /** Cautionary clef drawn at this measure's end when the next line opens with a
    *  different clef (last measure of a line only). */
   cautionaryEndClef?: Clef
+  /** Cautionary (courtesy) time signature drawn at this measure's end when the next
+   *  line opens with a meter change (last measure of a line only). Drawn FULL size
+   *  (unlike the cautionary clef), per standard engraving — it sits after the final
+   *  barline of the line. */
+  cautionaryEndTimeSig?: TimeSignature
 }
 
 /**
@@ -752,6 +757,7 @@ export class VexFlowRenderer {
     }
 
     this.applyCautionaryClefs(score, effectiveClefs, results, availableWidth)
+    this.applyCautionaryTimeSignatures(score, results, availableWidth)
 
     return results
   }
@@ -795,6 +801,43 @@ export class VexFlowRenderer {
   }
 
   /**
+   * Add a cautionary (courtesy) time signature to the last measure of any line
+   * whose *next* line opens with a meter change. The warning shows the upcoming
+   * time signature just before the line break, after the final barline (standard
+   * engraving). Drawn FULL size, unlike the cautionary clef.
+   *
+   * Runs after line assignment, so it reserves width on the affected measure and
+   * re-distributes that line only — line membership is never changed (no re-wrap).
+   */
+  private applyCautionaryTimeSignatures(
+    score: Score,
+    results: Map<number, MeasureWidthInfo>,
+    availableWidth: number
+  ): void {
+    const linesToRedistribute = new Set<number>()
+
+    for (let i = 0; i < score.measures.length - 1; i++) {
+      const current = results.get(score.measures[i].number)
+      const next = results.get(score.measures[i + 1].number)
+      if (!current || !next || next.lineNumber <= current.lineNumber) continue
+
+      // The next line opens here; warn only when it actually begins a meter change
+      // (same condition that draws the TS glyph at the new line's start).
+      const nextMeasure = score.measures[i + 1]
+      if (!nextMeasure.timeSignatureChange) continue
+
+      current.cautionaryEndTimeSig = nextMeasure.timeSignature
+      current.minWidth += LAYOUT_CONFIG.TIME_SIG_WIDTH
+      linesToRedistribute.add(current.lineNumber)
+    }
+
+    for (const lineNumber of linesToRedistribute) {
+      const lineMeasures = [...results.values()].filter(m => m.lineNumber === lineNumber)
+      this.distributeLineWidths(lineMeasures, availableWidth)
+    }
+  }
+
+  /**
    * Render a single measure
    * @param measure - Measure to render
    * @param x - X position on canvas
@@ -807,6 +850,8 @@ export class VexFlowRenderer {
    *   (set when this is a line's last measure and the next line opens with a new clef)
    * @param ghostClefBeat - Beat of a dragged-redundant clef in this measure to keep
    *   visible during the drag even at beat 0, where it would otherwise be hidden
+   * @param cautionaryEndTimeSig - Time signature to draw (full size) at the measure
+   *   end as a courtesy warning (set when the next line opens with a meter change)
    */
   renderMeasure(
     measure: Measure,
@@ -817,13 +862,14 @@ export class VexFlowRenderer {
     clef: Clef = 'treble',
     hasClefChange: boolean = false,
     cautionaryEndClef?: Clef,
-    ghostClefBeat?: Fraction
+    ghostClefBeat?: Fraction,
+    cautionaryEndTimeSig?: TimeSignature
   ): void {
     if (!this.context) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
 
-    const stave = this.buildAndDrawStave(measure, x, y, width, isFirstInLine, clef, hasClefChange, cautionaryEndClef)
+    const stave = this.buildAndDrawStave(measure, x, y, width, isFirstInLine, clef, hasClefChange, cautionaryEndClef, cautionaryEndTimeSig)
 
     // Resolve the clef in effect at any beat within this measure: starts from the
     // opening clef and applies each clef change at/after its beat.
@@ -914,6 +960,7 @@ export class VexFlowRenderer {
     clef: Clef,
     hasClefChange: boolean = false,
     cautionaryEndClef?: Clef,
+    cautionaryEndTimeSig?: TimeSignature,
   ): Stave {
     const stave = new Stave(x, y, width)
 
@@ -930,6 +977,11 @@ export class VexFlowRenderer {
     if (cautionaryEndClef) {
       // Cautionary clef before a line break: warns of the next line's new clef.
       stave.addEndClef(cautionaryEndClef, 'small')
+    }
+    if (cautionaryEndTimeSig) {
+      // Cautionary time signature before a line break: warns of the next line's new
+      // meter. Drawn full size (no 'small') and placed after the final barline.
+      stave.addEndTimeSignature(`${cautionaryEndTimeSig.numerator}/${cautionaryEndTimeSig.denominator}`)
     }
 
     stave.setContext(this.context!).draw()
@@ -1433,7 +1485,7 @@ export class VexFlowRenderer {
       const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
       const ghostClefBeat = this.ghostClefBeatFor(score, measure.number)
 
-      this.renderMeasure(measure, currentX, y, widthInfo.finalWidth, isFirstInLine, clef, hasClefChange, widthInfo.cautionaryEndClef, ghostClefBeat)
+      this.renderMeasure(measure, currentX, y, widthInfo.finalWidth, isFirstInLine, clef, hasClefChange, widthInfo.cautionaryEndClef, ghostClefBeat, widthInfo.cautionaryEndTimeSig)
 
       currentX += widthInfo.finalWidth
     })
@@ -1526,6 +1578,9 @@ export class VexFlowRenderer {
       // committed note will land (a cautionary end clef narrows the note area).
       if (widthInfo.cautionaryEndClef) {
         tempStave.addEndClef(widthInfo.cautionaryEndClef, 'small')
+      }
+      if (widthInfo.cautionaryEndTimeSig) {
+        tempStave.addEndTimeSignature(`${widthInfo.cautionaryEndTimeSig.numerator}/${widthInfo.cautionaryEndTimeSig.denominator}`)
       }
       tempStave.setContext(this.context!)
 
