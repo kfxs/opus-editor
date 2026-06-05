@@ -352,8 +352,13 @@ export class ScoreModel {
     const measure = this.getMeasure(measureNumber)
     if (!measure) return false
 
-    // No-op: this measure already carries exactly this signature as a change.
-    if (measure.timeSignatureChange === true && sameTimeSignature(measure.timeSignature, ts)) {
+    // No-op: this measure already carries exactly this signature as a change AND
+    // its glyph is visible. (A hidden glyph still unhides below, so it's not a no-op.)
+    if (
+      measure.timeSignatureChange === true &&
+      !measure.timeSignatureHidden &&
+      sameTimeSignature(measure.timeSignature, ts)
+    ) {
       return false
     }
 
@@ -362,6 +367,8 @@ export class ScoreModel {
 
     // Mark the explicit change on this measure (its TS is set below / by rebar).
     measure.timeSignatureChange = true
+    // Setting a signature always re-shows the glyph (un-hides a hidden measure 1).
+    delete measure.timeSignatureHidden
     if (measureNumber === 1) this.score.defaultTimeSignature = copyTimeSignature(ts)
 
     if (rewrite === 'rebar' && extent === 'toNextChange') {
@@ -382,19 +389,55 @@ export class ScoreModel {
   /**
    * Remove the explicit time-signature change at a measure, reverting it (and
    * the measures after it, until the next change) to the inherited signature.
-   * Measure 1 cannot be removed (it always carries the opening signature).
+   * Because the meter changes, the region is **re-barred** by default — exactly
+   * like {@link setTimeSignature} with `rewrite: 'rebar'`: existing music is
+   * re-laid into bars of the inherited meter's length, straddling notes split
+   * with ties, overflow flowing forward. `options.rewrite: 'none'` keeps the old
+   * keep-crowded behaviour (rests reconciled, barlines fixed).
+   * Measure 1 cannot be removed (it always carries the opening signature; use
+   * {@link setTimeSignatureHidden} to hide its glyph instead).
    * @returns true if a change was removed.
    */
-  removeTimeSignatureChange(measureNumber: number): boolean {
+  removeTimeSignatureChange(
+    measureNumber: number,
+    options?: { rewrite?: 'rebar' | 'none' },
+  ): boolean {
     if (measureNumber === 1) return false
     const measure = this.getMeasure(measureNumber)
     if (!measure || measure.timeSignatureChange !== true) return false
 
     const inherited = effectiveTimeSignature(this.score, measureNumber - 1)
+    const rewrite = options?.rewrite ?? 'rebar'
     delete measure.timeSignatureChange
-    measure.timeSignature = copyTimeSignature(inherited)
-    this.reconcileMeasureRests(measure)
-    this.propagateTimeSignature(measureNumber, inherited)
+
+    if (rewrite === 'rebar') {
+      // rebarRegion flattens the region using the CURRENT (removed) meter, then
+      // applies the inherited meter and re-lays the music across moved barlines.
+      this.rebarRegion(measureNumber, inherited)
+    } else {
+      measure.timeSignature = copyTimeSignature(inherited)
+      this.reconcileMeasureRests(measure)
+      this.propagateTimeSignature(measureNumber, inherited)
+    }
+    return true
+  }
+
+  /**
+   * Show or hide a measure's time-signature glyph without changing the meter in
+   * effect. Used when deleting the displayed signature on measure 1: a score must
+   * always have a meter, so the glyph is hidden (capacity / playback / rest-fill
+   * stay on `measure.timeSignature`) rather than removed. On other measures the
+   * glyph only exists for an explicit change, so deleting there removes the change
+   * (see {@link removeTimeSignatureChange}); hiding is still permitted generally.
+   * @returns true if the visibility changed.
+   */
+  setTimeSignatureHidden(measureNumber: number, hidden: boolean): boolean {
+    const measure = this.getMeasure(measureNumber)
+    if (!measure) return false
+    const current = measure.timeSignatureHidden === true
+    if (current === hidden) return false
+    if (hidden) measure.timeSignatureHidden = true
+    else delete measure.timeSignatureHidden
     return true
   }
 

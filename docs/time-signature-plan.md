@@ -1,13 +1,16 @@
 # Time Signature — Implementation Plan
 
-Status: **Phases 0–9 complete.** The full engine (Phases 0–5) is user-reachable via the
+Status: **Phases 0–11 complete.** The full engine (Phases 0–5) is user-reachable via the
 time-signature palette (Phase 6) + custom-meter dialog with additive grouping (Phase 6b); the
 data/model layer is per-voice-ready (Phase 7 — the multi-voice *render loop* is still deferred to a
 future voice phase, with the extension point documented); a meter change **re-bars** the following
-music with ties + forward overflow by default (Phase 8 — `utils/rebar.ts`); and a bar can be a
+music with ties + forward overflow by default (Phase 8 — `utils/rebar.ts`); a bar can be a
 **pickup / anacrusis** shorter than its time signature (Phase 9 — `Measure.actualDurationOverride`,
-"Pickup…" dialog). The only known remaining work is the deferred **multi-voice render loop** (a
-future voice phase). This document is the authoritative plan and cross-session checklist.
+"Pickup…" dialog); a meter change at a system start draws a **cautionary (courtesy) time
+signature** at the end of the previous line (Phase 10); and the on-score time-signature glyph is
+**clickable / selectable / deletable** — delete reverts to the prior meter and rebars, or hides the
+default on measure 1 (Phase 11). The only known remaining work is the deferred **multi-voice render
+loop** (a future voice phase). This document is the authoritative plan and cross-session checklist.
 
 ---
 
@@ -760,4 +763,56 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
   - **9b** — App.vue "Pickup…" button + dialog (measure + length num/den, Apply/Clear, live
     validation that the pickup is shorter than the full bar). UI = manual.
   - 493 tests pass; build:check clean.
+- [x] Phase 10 — Cautionary (courtesy) time signature at line breaks (`VexFlowRenderer.ts`)
+  - **Rule:** when the measure that opens the *next* system begins a meter change, the previous
+    line's last measure shows a courtesy time signature after its final barline. Unlike the
+    cautionary **clef** (drawn `'small'`), the courtesy **time signature is full size** — standard
+    engraving. Purely a rendering concern; no data-structure change (reads the existing
+    `measure.timeSignatureChange` marker + the next measure's `timeSignature`).
+  - **Implementation mirrors the existing `applyCautionaryClefs` path:**
+    - `MeasureWidthInfo.cautionaryEndTimeSig?: TimeSignature` — set on a line's last measure.
+    - `applyCautionaryTimeSignatures()` runs after line assignment (right after the clef pass):
+      for each line break where the next measure has `timeSignatureChange === true`, sets the
+      field, reserves `TIME_SIG_WIDTH`, and re-distributes only that line (no re-wrapping).
+    - `buildAndDrawStave` threads `cautionaryEndTimeSig` and draws it via
+      `stave.addEndTimeSignature(...)` (full size, after the end barline).
+    - The ghost-note temp stave mirrors it (`addEndTimeSignature`) so the preview note area stays
+      aligned, exactly like the cautionary clef does there.
+  - A line break with both a clef change and a meter change now shows both courtesies (clef small,
+    time sig full size, after the barline).
+  - No test/behaviour change in the engine (rendering-only, visual); 493 unit tests pass,
+    `vue-tsc` clean. UI = manual (user-verified the courtesy appears at the end of the previous
+    line on a system-start meter change). Committed `b06bd5f`.
+- [x] Phase 11 — Time-signature selection & deletion (click / highlight / Delete)
+  - **Goal:** the on-score TS glyph behaves like the clef glyph — click to select, amber highlight,
+    Delete to remove. Two delete semantics: a mid-score change reverts to the prior meter **and
+    rebars**; the default on measure 1 (a score must always have a meter) **hides the glyph** while
+    keeping the meter / bar sizing.
+  - **Registry:** the `timeSignature` element was already registered (`registerStaffAndGeometry`,
+    gated by `drawsTimeSignature` = measure 1 + change measures); nothing consumed it. This phase
+    adds the interaction pipeline on top, mirroring the clef select/highlight/delete plumbing.
+  - **Model (`ScoreModel.ts`) + types:** new display-only `Measure.timeSignatureHidden?: boolean`
+    (additive optional, no schema bump). `drawsTimeSignature` returns false when hidden (so the
+    glyph, its width reservation, AND the clickable registry element all disappear, while
+    `measure.timeSignature` still drives capacity/playback). `removeTimeSignatureChange(n, {rewrite})`
+    now **rebars by default** (routes through `rebarRegion(n, inherited)` — flattens the region with
+    the old meter, applies the inherited meter, re-lays across moved barlines with ties); `'none'`
+    keeps the old reconcile+propagate keep-crowded path. New `setTimeSignatureHidden(n, hidden)`.
+    `setTimeSignature` now **un-hides** a hidden measure (clears the flag; unhiding counts as a
+    change, not a no-op).
+  - **Engine (`MusicEngine.ts`):** `removeTimeSignatureChange` threads the `rewrite` option;
+    new `setTimeSignatureHidden` wrapper. Both snapshot-undo.
+  - **Interaction:** `EditorState.selectedTimeSignatureMeasure` (distinct from the armed-palette
+    `selectedTimeSignature`), cleared wherever `selectedClefMeasure` is (`SelectionController`,
+    `MouseController`, `PaletteController`). `MouseController.handleMouseDown` hit-tests the
+    `timeSignature` element (TS column sits right of the clef, no overlap). `HighlightController
+    .applyTimeSignatureSelectionHighlight()` recolors the glyph `#F59E0B` (modeled on the clef
+    highlight), wired into `RenderController.applyHighlights`. `useShortcuts` delete chain: measure 1
+    → `setTimeSignatureHidden(1, true)`; else → `removeTimeSignatureChange(n)` (rebar default).
+  - **Limitations:** the cautionary (Phase 10) end-of-line TS is NOT clickable (it mirrors the next
+    line's real change, which is). A hidden measure-1 glyph is re-shown by arming a meter in the
+    palette and clicking measure 1 (un-hide), not by clicking the now-absent glyph.
+  - Tests: `ScoreModel.test.ts` (remove → rebar back to inherited meter; `'none'` keeps barlines;
+    hide keeps meter/capacity; hide no-op; set-TS un-hides) + `MusicEngine.test.ts` (hide undo/redo).
+    499 unit tests pass (+6); `vue-tsc` + `build:check` clean. UI = manual.
 - [ ] (Deferred) Multi-voice render loop — the per-voice VexFlow render pass parked since Phase 7.

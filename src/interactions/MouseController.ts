@@ -150,6 +150,7 @@ export class MouseController {
     this.state.selectedTieFromNoteId = null
     this.state.selectedClefMeasure = null
     this.state.selectedClefBeat = null
+    this.state.selectedTimeSignatureMeasure = null
 
     // Clef change selection — click a clef glyph to select it for removal.
     const clefAt = registry.getByType('clef').find(el => {
@@ -183,6 +184,22 @@ export class MouseController {
           event.preventDefault()
         }
       }
+      this.render.renderScore()
+      return
+    }
+
+    // Time-signature selection — click the TS glyph to select it for removal.
+    // The TS column sits to the right of the clef (no overlap), and the glyph is
+    // only registered where it's drawn (measure 1 + change measures).
+    const timeSigAt = registry.getByType('timeSignature').find(el => {
+      const b = el.bbox
+      return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
+    }) ?? null
+    if (timeSigAt?.measure !== undefined) {
+      this.selection.selectNote(null)
+      this.state.selectedTimeSignatureMeasure = timeSigAt.measure
+      const isDefault = timeSigAt.measure === 1
+      console.log(`✓ Time signature selected | measure:${timeSigAt.measure}${isDefault ? ' (measure 1 default: delete hides the glyph, meter kept)' : ' (delete reverts to prior meter + rebars)'}`)
       this.render.renderScore()
       return
     }

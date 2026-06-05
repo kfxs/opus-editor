@@ -571,9 +571,13 @@ export class VexFlowRenderer {
   /**
    * Whether a time-signature glyph is drawn at the start of this measure:
    * measure 1 always, plus any measure that begins an explicit TS change
-   * (engraving standard). Drives both the drawing and its width reservation.
+   * (engraving standard) — UNLESS the glyph has been explicitly hidden
+   * (`timeSignatureHidden`, e.g. the deleted default on measure 1; the meter
+   * still applies, only the glyph is suppressed). Drives the drawing, its width
+   * reservation, AND the clickable registry element.
    */
   private drawsTimeSignature(measure: Measure): boolean {
+    if (measure.timeSignatureHidden === true) return false
     return measure.number === 1 || measure.timeSignatureChange === true
   }
 

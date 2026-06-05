@@ -83,6 +83,18 @@ export function useShortcuts(
         state.selectedClefMeasure = null
         state.selectedClefBeat = null
         renderer.renderScore()
+      } else if (state.selectedTimeSignatureMeasure !== null && eng) {
+        const measureNum = state.selectedTimeSignatureMeasure
+        if (measureNum === 1) {
+          // Measure 1 carries the score's default meter and can't be removed — hide
+          // the glyph instead (the 4/4 meter / bar sizing is kept).
+          eng.setTimeSignatureHidden(measureNum, true)
+        } else {
+          // A mid-score change: revert this region to the prior meter and rebar.
+          eng.removeTimeSignatureChange(measureNum)
+        }
+        state.selectedTimeSignatureMeasure = null
+        renderer.renderScore()
       } else if (state.selectedNoteId && eng) {
         eng.deleteNote(state.selectedNoteId)
         selection.selectNote(null)

@@ -262,6 +262,14 @@ export interface Measure {
    */
   timeSignatureChange?: boolean
   /**
+   * When true, the time-signature glyph is NOT drawn for this measure even though
+   * a meter is still in effect (capacity / playback / rest-fill use `timeSignature`
+   * as normal). Used when the user deletes the displayed signature on measure 1:
+   * a score must always have a meter, so the glyph is hidden rather than removed.
+   * Display-only; `drawsTimeSignature` gates on it. Cleared by `setTimeSignature`.
+   */
+  timeSignatureHidden?: boolean
+  /**
    * Actual playable length of this bar in quarter-note beats, when it differs
    * from the nominal time signature — i.e. a pickup / anacrusis bar (shorter
    * than nominal). When undefined the bar uses its time signature's full length.

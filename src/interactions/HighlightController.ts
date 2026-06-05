@@ -285,6 +285,46 @@ export class HighlightController {
     }
   }
 
+  applyTimeSignatureSelectionHighlight(): void {
+    const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
+    if (!engine || !scoreCanvas || this.state.selectedTimeSignatureMeasure === null) return
+
+    const registry = engine.getElementRegistry()
+    const tsEl = registry.getByType('timeSignature').find(
+      el => el.measure === this.state.selectedTimeSignatureMeasure,
+    )
+    if (!tsEl) return
+
+    const svg = scoreCanvas.querySelector('svg')
+    if (!svg) return
+
+    const SELECTION_COLOR = '#F59E0B'
+    const SELECTION_STROKE = '#D97706'
+    const bbox = tsEl.bbox
+
+    // The TS glyph is filled number paths/text in a narrow column after the clef.
+    // Color glyphs whose center sits inside the TS bbox, skipping wide elements
+    // (staff lines) that also intersect this region.
+    const elements = svg.querySelectorAll('path, text')
+    for (const el of elements) {
+      const elBBox = (el as SVGGraphicsElement).getBBox?.()
+      if (!elBBox) continue
+      if (elBBox.width > 40) continue // skip staff lines / wide elements
+
+      const cx = elBBox.x + elBBox.width / 2
+      const cy = elBBox.y + elBBox.height / 2
+      if (cx >= bbox.x && cx <= bbox.x + bbox.width && cy >= bbox.y && cy <= bbox.y + bbox.height) {
+        const svgEl = el as SVGElement
+        const currentFill = svgEl.getAttribute('fill')
+        if (currentFill && currentFill !== 'none') svgEl.setAttribute('fill', SELECTION_COLOR)
+        svgEl.style.fill = SELECTION_COLOR
+        svgEl.setAttribute('stroke', SELECTION_STROKE)
+        svgEl.classList.add('selected-timesig')
+      }
+    }
+  }
+
   applyTupletSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()

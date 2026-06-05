@@ -231,6 +231,20 @@ describe('MusicEngine.setTimeSignature', () => {
     expect(engine.getScore().measures.find(m => m.number === 2)!.timeSignature)
       .toEqual({ numerator: 4, denominator: 4 })
   })
+
+  it('setTimeSignatureHidden hides the glyph and undo/redo restores visibility', () => {
+    const hiddenOf = () => engine.getScore().measures.find(m => m.number === 1)!.timeSignatureHidden
+    expect(engine.setTimeSignatureHidden(1, true)).toBe(true)
+    expect(hiddenOf()).toBe(true)
+    // Meter is untouched — only the glyph is suppressed.
+    expect(engine.getScore().measures.find(m => m.number === 1)!.timeSignature)
+      .toEqual({ numerator: 4, denominator: 4 })
+
+    expect(engine.undo()).toBe(true)
+    expect(hiddenOf()).toBeFalsy()
+    expect(engine.redo()).toBe(true)
+    expect(hiddenOf()).toBe(true)
+  })
 })
 
 describe('MusicEngine — measure rest duration change (regression)', () => {

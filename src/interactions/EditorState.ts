@@ -48,6 +48,10 @@ export interface EditorState {
    *  canvas clicks set/change a measure's time signature and the ghost note is
    *  suppressed. */
   selectedTimeSignature: TimeSignature | null
+  /** Measure of the on-score time-signature glyph selected for removal (selection
+   *  tool); null if none. Distinct from `selectedTimeSignature` (the armed palette
+   *  meter for placement). */
+  selectedTimeSignatureMeasure: number | null
 
   // --- UI ---
   showCursor: boolean
@@ -76,6 +80,7 @@ export function createEditorState(): EditorState {
     selectedClefMeasure: null,
     selectedClefBeat: null,
     selectedTimeSignature: null,
+    selectedTimeSignatureMeasure: null,
     showCursor: true,
     playbackState: 'stopped',
   }

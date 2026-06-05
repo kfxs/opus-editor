@@ -288,14 +288,30 @@ export class MusicEngine {
   /**
    * Remove the explicit time-signature change at a measure, reverting it (and
    * the measures after it, until the next change) to the inherited signature.
-   * Measure 1 cannot be removed. Saves undo state when changed.
+   * Re-bars the region by default (the meter changes); pass `rewrite: 'none'` to
+   * keep barlines fixed. Measure 1 cannot be removed (use {@link setTimeSignatureHidden}).
+   * Saves undo state when changed.
    * @returns true if a change was removed.
    */
-  removeTimeSignatureChange(measureNumber: number): boolean {
-    const changed = this.scoreModel.removeTimeSignatureChange(measureNumber)
+  removeTimeSignatureChange(measureNumber: number, options?: { rewrite?: 'rebar' | 'none' }): boolean {
+    const changed = this.scoreModel.removeTimeSignatureChange(measureNumber, options)
     if (changed) {
       this.playbackEngine.setScore(this.scoreModel.getScore())
       this.saveUndoState(`Remove time signature change at measure ${measureNumber}`)
+    }
+    return changed
+  }
+
+  /**
+   * Show/hide a measure's time-signature glyph without changing the meter (used to
+   * delete the displayed default on measure 1: the meter stays, only the glyph is
+   * suppressed). Saves undo state when changed.
+   * @returns true if the visibility changed.
+   */
+  setTimeSignatureHidden(measureNumber: number, hidden: boolean): boolean {
+    const changed = this.scoreModel.setTimeSignatureHidden(measureNumber, hidden)
+    if (changed) {
+      this.saveUndoState(`${hidden ? 'Hide' : 'Show'} time signature at measure ${measureNumber}`)
     }
     return changed
   }

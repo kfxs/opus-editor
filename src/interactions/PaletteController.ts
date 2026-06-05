@@ -225,6 +225,7 @@ export class PaletteController {
       this.state.selectedNoteId = null
       this.state.selectedClefMeasure = null
       this.state.selectedClefBeat = null
+      this.state.selectedTimeSignatureMeasure = null
     }
     this.renderScore()
   }
@@ -243,6 +244,9 @@ export class PaletteController {
       this.state.selectedClef = null
       this.state.selectedTool = 'entry'
       this.state.selectedNoteId = null
+      this.state.selectedClefMeasure = null
+      this.state.selectedClefBeat = null
+      this.state.selectedTimeSignatureMeasure = null
     }
     this.renderScore()
   }
@@ -257,6 +261,7 @@ export class PaletteController {
     this.state.selectedBeam = 'auto'
     this.state.selectedClef = null
     this.state.selectedTimeSignature = null
+    this.state.selectedTimeSignatureMeasure = null
   }
 
   // --- Toolbar button active-state helpers ---

@@ -21,6 +21,7 @@ export class RenderController {
     this.highlight.applyTupletSelectionHighlight()
     this.highlight.applyTieHighlight()
     this.highlight.applyClefSelectionHighlight()
+    this.highlight.applyTimeSignatureSelectionHighlight()
     this.highlight.applyKeyboardCursor()
   }
 

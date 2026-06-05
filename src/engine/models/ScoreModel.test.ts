@@ -962,6 +962,57 @@ describe('ScoreModel.removeTimeSignatureChange', () => {
     model.addMeasure()
     expect(model.removeTimeSignatureChange(2)).toBe(false)
   })
+
+  it('re-bars the region back to the inherited meter (rebar default)', () => {
+    model.addMeasure(); model.addMeasure() // 2, 3
+    model.setTimeSignature(2, ts(2, 4)) // measures 2,3 → 2/4 (2 quarters each)
+    // Fill measures 2 and 3 with 2 quarters each (4 quarters of content total).
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(1, 1) })
+    model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 3, beat: frac(0, 1) })
+    model.addNote({ step: 'F', alter: 0, octave: 4, duration: 'q', measure: 3, beat: frac(1, 1) })
+    expect(model.removeTimeSignatureChange(2)).toBe(true)
+    // Reverted to 4/4 and re-barred: the 4 quarters now fill a single 4/4 bar (measure 2).
+    expect(model.getMeasure(2)!.timeSignature).toEqual(ts(4, 4))
+    expect(slotsOf(model, 2).filter((s) => s.type === 'chord').map((c) => fracToNumber(c.beat)))
+      .toEqual([0, 1, 2, 3])
+  })
+
+  it("with rewrite 'none' reverts the meter but keeps barlines fixed", () => {
+    model.addMeasure(); model.addMeasure() // 2, 3
+    model.setTimeSignature(2, ts(2, 4))
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 3, beat: frac(0, 1) })
+    expect(model.removeTimeSignatureChange(2, { rewrite: 'none' })).toBe(true)
+    expect(model.getMeasure(2)!.timeSignature).toEqual(ts(4, 4))
+    // No rebar/merge: measure 3 keeps its own note in place.
+    expect(slotsOf(model, 3).filter((s) => s.type === 'chord').map((c) => fracToNumber(c.beat)))
+      .toEqual([0])
+  })
+})
+
+describe('ScoreModel.setTimeSignatureHidden', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('TS', 120) })
+
+  it('hides the glyph but keeps the meter and bar capacity', () => {
+    expect(model.setTimeSignatureHidden(1, true)).toBe(true)
+    expect(model.getMeasure(1)!.timeSignatureHidden).toBe(true)
+    expect(model.getMeasure(1)!.timeSignature).toEqual(ts(4, 4)) // meter unchanged
+    expect(fracToNumber(measureRest(model, 1)!.actualDuration!)).toBe(4) // still a 4/4 bar
+  })
+
+  it('is a no-op when already in the requested visibility', () => {
+    expect(model.setTimeSignatureHidden(1, false)).toBe(false) // already visible
+    model.setTimeSignatureHidden(1, true)
+    expect(model.setTimeSignatureHidden(1, true)).toBe(false)
+  })
+
+  it('setTimeSignature un-hides a hidden measure (not a no-op)', () => {
+    model.setTimeSignatureHidden(1, true)
+    expect(model.setTimeSignature(1, ts(4, 4))).toBe(true) // re-applying the meter un-hides
+    expect(model.getMeasure(1)!.timeSignatureHidden).toBeFalsy()
+  })
 })
 
 describe('ScoreModel JSON — time-signature migration & validation', () => {
