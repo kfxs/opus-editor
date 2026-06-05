@@ -749,14 +749,96 @@ describe('ScoreModel.setTimeSignature', () => {
     expect(model.getMeasure(1)!.timeSignature.grouping).toEqual([3, 2, 2])
   })
 
-  it('over-full bar over notes keeps every note (no truncation)', () => {
-    // Four quarters fill 4/4; shrinking to 3/4 leaves the 4th note past the barline.
+  it('re-bars over-full music across moved barlines (rebar default)', () => {
+    // Four quarters fill 4/4; shrinking to 3/4 re-bars the 4th into measure 2.
     for (let b = 0; b < 4; b++) {
       model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
     }
     model.setTimeSignature(1, ts(3, 4))
+    expect(slotsOf(model, 1).filter((s) => s.type === 'chord').map((c) => fracToNumber(c.beat))).toEqual([0, 1, 2])
+    expect(slotsOf(model, 2).filter((s) => s.type === 'chord').map((c) => fracToNumber(c.beat))).toEqual([0])
+    expect(model.getMeasure(2)!.timeSignature).toEqual(ts(3, 4))
+    // No note lost: four quarter-notes across the region.
+    const chordCount = [1, 2].reduce((n, m) => n + slotsOf(model, m).filter((s) => s.type === 'chord').length, 0)
+    expect(chordCount).toBe(4)
+  })
+
+  it('splits a note straddling a moved barline with a tie (rebar default)', () => {
+    // Half note at beat 2 in 4/4 spans [2,4); in 3/4 it crosses the bar 1/2 line at 3.
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
+    model.setTimeSignature(1, ts(3, 4))
+    const a = slotsOf(model, 1).find((s) => s.type === 'chord') as any
+    const b = slotsOf(model, 2).find((s) => s.type === 'chord') as any
+    expect(fracToNumber(a.beat)).toBe(2)
+    expect(a.duration).toBe('q')
+    expect(fracToNumber(b.beat)).toBe(0)
+    expect(b.duration).toBe('q')
+    // Pitch-level tie links the two halves of the split note.
+    expect(a.notes[0].tiedTo).toBe(b.notes[0].id)
+    expect(b.notes[0].tiedFrom).toBe(a.notes[0].id)
+  })
+
+  it('keeps a tuplet intact (atomic) through a rebar', () => {
+    // An eighth-note triplet at beat 0 of measure 1; rebar 4/4 → 3/4.
+    const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)
+    model.refillTupletRemainder(1, tuplet) // fill the triplet with its filler rests
+    const before = model.getMeasure(1)!.slots.filter((s) => s.tupletId === tuplet.id).length
+    model.setTimeSignature(1, ts(3, 4))
+    // The triplet survives intact (same slot count, anchored at beat 0).
+    const m1 = model.getMeasure(1)!
+    expect(m1.tuplets).toHaveLength(1)
+    const tupletSlots = m1.slots.filter((s) => s.tupletId === m1.tuplets[0].id)
+    expect(tupletSlots).toHaveLength(before)
+    expect(fracToNumber(m1.tuplets[0].startBeat)).toBe(0)
+  })
+
+  it('preserves a tie crossing into a re-barred region (re-attaches, no dangle)', () => {
+    // C4 in measure 1 tied to C4 in measure 2; re-barring measure 2 regenerates
+    // its slot ids, so the incoming tie must be re-attached to the new C4.
+    const a = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addMeasure()
+    const b = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    model.updateNote(a.id, { tiedTo: b.id })
+    model.updateNote(b.id, { tiedFrom: a.id })
+
+    model.setTimeSignature(2, ts(5, 8)) // re-bars measure 2 → b gets a new id
+
+    // The tie is preserved: m1's C4 now points to the rebar'd C4 (a real note).
+    const aAfter = model.getNote(a.id)!
+    expect(aAfter.tiedTo).toBeDefined()
+    const target = model.getNote(aAfter.tiedTo!)
+    expect(target).toBeTruthy()
+    expect(target!.step).toBe('C')
+    expect(target!.octave).toBe(4)
+    expect(target!.measure).toBe(2)
+    expect(target!.tiedFrom).toBe(a.id)
+    // Global invariant: every tie pointer references an existing slot.
+    const ids = new Set<string>()
+    for (const m of model.getScore().measures)
+      for (const s of m.slots) {
+        if (s.type === 'chord') for (const p of s.notes) ids.add(p.id)
+        else ids.add(s.id)
+      }
+    let dangling = 0
+    for (const m of model.getScore().measures)
+      for (const s of m.slots) {
+        if (s.type === 'chord') {
+          for (const p of s.notes) {
+            if (p.tiedTo && !ids.has(p.tiedTo)) dangling++
+            if (p.tiedFrom && !ids.has(p.tiedFrom)) dangling++
+          }
+        } else if (s.tiedFrom && !ids.has(s.tiedFrom)) dangling++
+      }
+    expect(dangling).toBe(0)
+  })
+
+  it('rewrite:"none" keeps an over-full bar crowded (no rebar)', () => {
+    for (let b = 0; b < 4; b++) {
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
+    }
+    model.setTimeSignature(1, ts(3, 4), { rewrite: 'none' })
     const chordBeats = slotsOf(model, 1).filter((s) => s.type === 'chord').map((c) => fracToNumber(c.beat))
-    expect(chordBeats).toEqual([0, 1, 2, 3]) // all four kept, incl. the over-full one
+    expect(chordBeats).toEqual([0, 1, 2, 3]) // all four kept in one crowded bar
   })
 })
 

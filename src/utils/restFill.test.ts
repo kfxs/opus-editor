@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fillRests, pickVoiceMode, type RestSlot } from './restFill'
+import { fillRests, decomposeSpan, pickVoiceMode, type RestSlot } from './restFill'
 import { getMeterInfo } from './meter'
 import { fracCreate, fracToNumber } from './fraction'
 import { durationToFraction } from './durations'
@@ -124,6 +124,73 @@ describe('restFill — fillRests', () => {
     it('a bar holding a measure rest → SOFT (whole-rest ticks ≠ capacity in general)', () => {
       expect(pickVoiceMode([measureRest()], getMeterInfo(ts(3, 4)).barQuarters)).toBe('soft')
       expect(pickVoiceMode([measureRest()], bar)).toBe('soft')
+    })
+  })
+
+  describe('decomposeSpan — note-oriented (no measure-rest shortcut)', () => {
+    /** Decompose a span and return readable [duration, dots, beat] tuples. */
+    function seg(start: number, startDen: number, end: number, endDen: number, t: TimeSignature, grouping?: number[]) {
+      const parts = decomposeSpan(fracCreate(start, startDen), fracCreate(end, endDen), getMeterInfo(t, grouping))
+      return parts.map((p) => [p.duration, p.dots, fracToNumber(p.beat)] as [string, number, number])
+    }
+
+    it('a whole 4/4 bar stays a real whole note (NOT a measure rest)', () => {
+      expect(seg(0, 1, 4, 1, ts(4, 4))).toEqual([['w', 0, 0]])
+    })
+
+    it('4/4: a note straddling the bar middle [1,3) splits into two tied quarters', () => {
+      expect(seg(1, 1, 3, 1, ts(4, 4))).toEqual([
+        ['q', 0, 1],
+        ['q', 0, 2],
+      ])
+    })
+
+    it('4/4: half-bar [0,2) is a single half note', () => {
+      expect(seg(0, 1, 2, 1, ts(4, 4))).toEqual([['h', 0, 0]])
+    })
+
+    it('6/8: a quarter straddling the dotted-beat boundary [1,2) → two tied eighths', () => {
+      expect(seg(1, 1, 2, 1, ts(6, 8))).toEqual([
+        ['8', 0, 1],
+        ['8', 0, 1.5],
+      ])
+    })
+
+    it('6/8: a full felt beat [1.5,3) stays one dotted quarter', () => {
+      expect(seg(3, 2, 3, 1, ts(6, 8))).toEqual([['q', 1, 1.5]])
+    })
+
+    it('5/8 (2+3): span across the group boundary [0.5,2.5) → eighth + dotted-quarter', () => {
+      expect(seg(1, 2, 5, 2, ts(5, 8))).toEqual([
+        ['8', 0, 0.5],
+        ['q', 1, 1],
+      ])
+    })
+
+    it('7/8 (2+2+3): span [1,3.5) → quarter then dotted-quarter for the 3-group', () => {
+      expect(seg(1, 1, 7, 2, ts(7, 8))).toEqual([
+        ['q', 0, 1],
+        ['q', 1, 2],
+      ])
+    })
+
+    it('segments always sum exactly to the span length', () => {
+      const spans: Array<[number, number, number, number, TimeSignature]> = [
+        [0, 1, 4, 1, ts(4, 4)],
+        [1, 1, 3, 1, ts(4, 4)],
+        [1, 1, 2, 1, ts(6, 8)],
+        [1, 2, 5, 2, ts(5, 8)],
+        [1, 1, 7, 2, ts(7, 8)],
+      ]
+      for (const [sn, sd, en, ed, t] of spans) {
+        const parts = decomposeSpan(fracCreate(sn, sd), fracCreate(en, ed), getMeterInfo(t))
+        expect(totalLen(parts)).toBeCloseTo(en / ed - sn / sd, 9)
+      }
+    })
+
+    it('empty / inverted spans return nothing', () => {
+      expect(decomposeSpan(F(2), F(2), getMeterInfo(ts(4, 4)))).toEqual([])
+      expect(decomposeSpan(F(3), F(2), getMeterInfo(ts(4, 4)))).toEqual([])
     })
   })
 

@@ -197,6 +197,23 @@ describe('MusicEngine.setTimeSignature', () => {
     expect(tsOf()).toEqual({ numerator: 3, denominator: 4 })
   })
 
+  it('undo restores music re-barred by a meter change', () => {
+    // makeEngine starts with 2 measures. Four quarters fill measure 1 (4/4);
+    // switching to 3/4 re-bars the 4th quarter into measure 2.
+    for (let b = 0; b < 4; b++) {
+      addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
+    }
+    engine.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    const after = engine.getScore().measures
+    expect(after[0].slots.filter(s => s.type === 'chord').map(c => fracToNumber(c.beat))).toEqual([0, 1, 2])
+    expect(after[1].slots.filter(s => s.type === 'chord').map(c => fracToNumber(c.beat))).toEqual([0])
+
+    expect(engine.undo()).toBe(true)
+    const m = engine.getScore().measures
+    expect(m[0].timeSignature).toEqual({ numerator: 4, denominator: 4 })
+    expect(m[0].slots.filter(s => s.type === 'chord')).toHaveLength(4) // all four back in measure 1
+  })
+
   it('removeTimeSignatureChange undoes a mid-score change', () => {
     engine.setTimeSignature(2, { numerator: 3, denominator: 4 })
     expect(engine.removeTimeSignatureChange(2)).toBe(true)

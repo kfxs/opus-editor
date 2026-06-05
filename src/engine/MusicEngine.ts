@@ -275,7 +275,7 @@ export class MusicEngine {
   setTimeSignature(
     measureNumber: number,
     ts: TimeSignature,
-    options?: { extent?: 'measure' | 'toNextChange' },
+    options?: { extent?: 'measure' | 'toNextChange'; rewrite?: 'rebar' | 'none' },
   ): boolean {
     const changed = this.scoreModel.setTimeSignature(measureNumber, ts, options)
     if (changed) {
@@ -693,7 +693,8 @@ export class MusicEngine {
       console.log(`[Tie] removing existing tie → was tied to: ${tiedToNote ? fmt(tiedToNote) : 'NOT FOUND'}`)
       const tiedToId = note.tiedTo
       this.scoreModel.updateNote(noteId, { tiedTo: undefined })
-      this.scoreModel.updateNote(tiedToId, { tiedFrom: undefined })
+      // The target may be gone (e.g. severed by a re-bar) — only clear it if present.
+      if (tiedToNote) this.scoreModel.updateNote(tiedToId, { tiedFrom: undefined })
       this.playbackEngine.setScore(this.scoreModel.getScore())
       this.saveUndoState('Remove tie')
       return false

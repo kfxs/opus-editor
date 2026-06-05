@@ -40,11 +40,15 @@ import {
 import { DURATIONS_DESC, durationToFraction } from '@/utils/durations'
 import { type MeterInfo, STRENGTH } from '@/utils/meter'
 
-/** One emitted rest: position, base duration, and dot count. */
-export interface RestSlot {
+/** One position-anchored note/rest shape: position, base duration, dot count. */
+export interface DurationSegment {
   beat: Fraction
   duration: NoteDuration
   dots: number
+}
+
+/** One emitted rest: a {@link DurationSegment} plus the measure-rest flag. */
+export interface RestSlot extends DurationSegment {
   /** True for the single rest that fills an entire empty bar (measure rest). */
   isMeasureRest?: boolean
 }
@@ -93,8 +97,27 @@ export function fillRests(start: Fraction, end: Fraction, meter: MeterInfo): Res
     return [{ beat: start, duration: 'w', dots: 0, isMeasureRest: true }]
   }
 
+  return decomposeSpan(start, end, meter)
+}
+
+/**
+ * Decompose an arbitrary in-bar span `[start, end)` into engraving-correct,
+ * tie-able duration segments — the syncopation-free greedy core shared by
+ * rest-fill ({@link fillRests}) and note-splitting (rebar, Phase 8).
+ *
+ * Same governing rule as the module header: a single segment may span `[p, q)`
+ * only when no metric boundary strictly inside it is stronger than the weaker of
+ * its two endpoints. Starting from `start`, greedily take the longest such
+ * segment, emit it, advance. Unlike {@link fillRests} there is **no** whole-bar
+ * measure-rest shortcut: every segment is a real, drawable duration (notes are
+ * never collapsed to a measure rest). `start`/`end` must lie within a single bar
+ * `[0, barQuarters]`; cross-bar splitting is the caller's job.
+ */
+export function decomposeSpan(start: Fraction, end: Fraction, meter: MeterInfo): DurationSegment[] {
+  if (!fracLt(start, end)) return []
+
   const strengthOf = makeStrengthLookup(meter)
-  const result: RestSlot[] = []
+  const result: DurationSegment[] = []
 
   let current = start
   while (fracLt(current, end)) {

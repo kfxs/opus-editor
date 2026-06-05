@@ -1,12 +1,12 @@
 # Time Signature — Implementation Plan
 
-Status: **in progress** — Phases 0–7 complete. The full engine (Phases 0–5) is user-reachable via
-the time-signature palette (Phase 6) + custom-meter dialog with additive grouping (Phase 6b), and
-the data/model layer is per-voice-ready (Phase 7 — collision/fill/addNote voice-scoped; the
-multi-voice *render loop* is deferred to a future voice phase, with the extension point
-documented). Only **Phase 8** (rebar-with-ties + forward overflow + pickup/anacrusis) remains —
-the large, deferred follow-up. This document is the authoritative plan and cross-session
-checklist.
+Status: **Phases 0–8 complete.** The full engine (Phases 0–5) is user-reachable via the
+time-signature palette (Phase 6) + custom-meter dialog with additive grouping (Phase 6b); the
+data/model layer is per-voice-ready (Phase 7 — the multi-voice *render loop* is still deferred to a
+future voice phase, with the extension point documented); and a meter change now **re-bars** the
+following music with ties + forward overflow by default (Phase 8 — `utils/rebar.ts`). Remaining:
+**Phase 9** (pickup / anacrusis bars) is the deferred follow-up. This document is the authoritative
+plan and cross-session checklist.
 
 ---
 
@@ -401,16 +401,40 @@ function fillRests(start: Fraction, end: Fraction, meter: MeterInfo):
   `TickMismatch`.
 - Risk: low-med.
 
-### Phase 8 — (Deferred) Rebar-with-ties + pickup/anacrusis
-**Goal (future):** the Sibelius/Finale/MuseScore default — rewrite following music across new
-barlines with tie-splitting + forward overflow, bounded to next TS change / end; plus
-anacrusis (nominal-vs-actual bar length via `Measure.actualDurationOverride?: Fraction`,
-renderable thanks to Phase 3's non-strict mode). Large, self-contained follow-up.
-- **Heads-up for the implementer:** tie-splitting will lean on `splitBeatsIntoDurations` /
-  `beatsToDuration` (`musicUtils.ts`), which are **float + epsilon and meter-agnostic** (greedy
-  largest-first, no syncopation rules) — they violate the "internal unit stays `Fraction`"
-  invariant. Plan to replace them with a `Fraction`-exact, `MeterInfo`-aware splitter here;
-  don't inherit their float rounding into rebar.
+### Phase 8 — Rebar-with-ties (DONE) — default rewrite on meter change
+**Goal:** the Sibelius/Finale/MuseScore default — a meter change rewrites the following music
+across moved barlines, splitting straddling notes with **ties** and flowing overflow forward
+(bounded to the next TS change / end). Rebar is the **default**; the old keep-crowded behaviour
+is the `rewrite: 'none'` fallback. Built per-voice-stream (voice 0 only today). Three sub-phases:
+- **8a** — extracted `decomposeSpan(start, end, meter)` from `fillRests` (`utils/restFill.ts`):
+  the `Fraction`-exact, syncopation-free decomposer shared by rest-fill and note-splitting (no
+  measure-rest shortcut for notes). **Deliberately does NOT use** the float
+  `splitBeatsIntoDurations` / `beatsToDuration` (`musicUtils.ts`).
+- **8b** — new pure `utils/rebar.ts`: `flattenRegion(measures, voice)` (region → absolute event
+  stream; collapses tie chains, tuplets are atomic events captured from `measure.tuplets`, plain
+  rests become gaps) + `relayEvents(events, meter, {targetBars, bounded})` (re-lay into new-length
+  bars, split straddling notes via `decomposeSpan` with fresh tie topology, rest-fill gaps).
+  Unbounded regions grow / keep trailing rest bars; bounded fold overflow into the last bar (SOFT).
+- **8c** — `ScoreModel.setTimeSignature` gains `rewrite?: 'rebar' | 'none'` (default `'rebar'`);
+  `rebarRegion` flattens the region (old meter) before re-meter, relays, materialises pieces into
+  slots/tuplets with real `tiedTo`/`tiedFrom`, appends grown bars. Undo works via the snapshot.
+- **Limitations (documented):** tuplets stay atomic (a straddling tuplet renders crowded, never
+  tie-split); mid-bar clef changes anchored to a moved beat are dropped (`measure.clefs` cleared
+  on a rebar'd bar) — full remap is future; multi-voice render still deferred; pickup → Phase 9.
+- **Tie integrity:** re-barring regenerates the region's slot ids, which would orphan a tie that
+  *crosses the region boundary* (a note before/after pointing in). `rebarRegion` now **preserves**
+  such ties: `captureBoundaryTies` records them before the rebar, `restoreBoundaryTies` re-attaches
+  each to the rebar'd note at the same boundary position/pitch (`boundaryPitchId` + `linkTieById`).
+  Anything genuinely unrestorable (pitch no longer present) is then **severed** by
+  `repairDanglingTies` so no pointer dangles — a dangling `tiedTo`/`tiedFrom` otherwise crashed tie
+  editing (`updateNote` throws on a missing id). `MusicEngine.toggleTie` is also hardened to skip a
+  missing tie target.
+
+### Phase 9 — (Deferred) Pickup / anacrusis bars
+**Goal (future):** bars whose **actual length < nominal** (`Measure.actualDurationOverride?:
+Fraction`), renderable thanks to Phase 3's non-STRICT mode. Honour the override in rest-fill,
+rebar (`relayEvents` bar length), coordinate mapping, and a UI affordance to create a pickup bar.
+Split out of Phase 8 per the user.
 
 ---
 
@@ -683,4 +707,27 @@ Beyond the 3 preset test meters, Phases 2/2b must pass: `32/16`, `16/4`, `15/8`,
   - Tests: `CollisionDetector.test.ts` (cross-voice no-collision, same-voice duplicate, undefined=0,
     getAffectedNotes voice filter); `ScoreModel.test.ts` (per-voice independent fill; adding a
     voice-1 note doesn't disturb voice 0). 459 unit tests pass (+6); `build:check` clean.
-- [ ] Phase 8 — (Deferred) Rebar-with-ties + pickup
+- [x] Phase 8 — Rebar-with-ties (default rewrite on meter change)
+  - **8a** — `decomposeSpan(start, end, meter)` extracted from `fillRests` in `utils/restFill.ts`
+    (shared `Fraction`-exact, meter-aware decomposer; no measure-rest shortcut for notes). Rests
+    unchanged (baselines locked). Tests: `restFill.test.ts` "decomposeSpan — note-oriented" block.
+  - **8b** — new pure `utils/rebar.ts`. `flattenRegion(measures, voice=0)`: region measures →
+    ordered absolute event stream — plain rests dropped (gaps), tie chains collapsed into one
+    logical note, tuplets captured atomically from `measure.tuplets` (robust to empty/partial
+    tuplets), offsets advance by `max(nominal, occupied)`; events sorted by offset before collapse.
+    `relayEvents(events, meter, {targetBars, bounded})`: re-lay into new-length bars, split at
+    barlines + via `decomposeSpan`, generate `tieFromPrev`/`tieToNext` topology, rest-fill gaps;
+    unbounded → `max(needed, target)` bars (grow / trailing measure rests), bounded → exactly
+    `target` (overflow folded into last bar, crowded/SOFT). Tests: `rebar.test.ts` (relay +
+    flatten).
+  - **8c** — `ScoreModel.setTimeSignature` adds `rewrite?: 'rebar' | 'none'` (default `'rebar'`);
+    `rebarRegion` resolves region via the propagate boundary + `bounded` flag, flattens (old
+    meter) BEFORE re-meter, relays, then `materializeBar` / `materializeAtomicPiece` build slots +
+    tuplets (fresh ids, `structuredClone` for atomic payload) and `linkRebarTies` wires per-pitch
+    `tiedTo`/`tiedFrom`; grown bars appended via `addMeasure`. `MusicEngine.setTimeSignature`
+    threads the option; undo/redo works via the existing snapshot. The MouseController/UI now
+    re-bars by default. Tests: `ScoreModel.test.ts` (rebar moves overflow, tie split, `'none'`
+    crowded, tuplet intact) + `MusicEngine.test.ts` (undo of a rebar). 485 tests pass; build clean.
+  - **Limitations:** tuplets atomic (straddling tuplet not tie-split); mid-bar clefs on a rebar'd
+    bar dropped (`measure.clefs` cleared); multi-voice render deferred; pickup = Phase 9.
+- [ ] Phase 9 — (Deferred) Pickup / anacrusis (`Measure.actualDurationOverride`)

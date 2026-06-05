@@ -14,6 +14,7 @@ import {
   type MeterInfo,
 } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
+import { flattenRegion, relayEvents, type RebarPiece } from '@/utils/rebar'
 import {
   type Fraction,
   fracCreate,
@@ -319,13 +320,17 @@ export class ScoreModel {
    * propagating the new signature forward to every following measure until the
    * next explicit change (or the end of the score).
    *
-   * Per affected bar, rests are reconciled to the new meter: under-full bars are
-   * rest-filled; **notes are never lost** — a bar left over-full (notes beyond
-   * the shorter bar) keeps them and renders crowded (SOFT). Setting measure 1
-   * also updates `score.defaultTimeSignature`.
+   * `options.rewrite` controls what happens to existing music in that region:
+   *   - `'rebar'` (default): the Sibelius/Finale/MuseScore behaviour — the region
+   *     is **re-barred** to the new bar length, notes straddling a moved barline
+   *     are split with **ties**, and overflow flows forward (growing the region
+   *     when unbounded). Nothing is lost. See {@link rebarRegion}.
+   *   - `'none'`: only rests are reconciled (under-full bars rest-filled; over-full
+   *     bars keep every note and render crowded/SOFT). Barlines do not move.
    *
-   * True rebar-with-ties + pickup handling is deferred to Phase 8; `options`
-   * carries forward-compatible knobs (`extent` is honoured now).
+   * `options.extent` = `'toNextChange'` (default) applies to the whole region;
+   * `'measure'` touches only this bar and always uses the `'none'` rest reconcile.
+   * Setting measure 1 also updates `score.defaultTimeSignature`.
    *
    * @throws if `ts` is non-dyadic / out of range.
    * @returns true if the score changed.
@@ -333,7 +338,7 @@ export class ScoreModel {
   setTimeSignature(
     measureNumber: number,
     ts: TimeSignature,
-    options?: { extent?: 'measure' | 'toNextChange' },
+    options?: { extent?: 'measure' | 'toNextChange'; rewrite?: 'rebar' | 'none' },
   ): boolean {
     if (!isValidTimeSignature(ts)) {
       throw new Error(
@@ -351,12 +356,21 @@ export class ScoreModel {
     }
 
     const extent = options?.extent ?? 'toNextChange'
+    const rewrite = options?.rewrite ?? 'rebar'
 
-    measure.timeSignature = copyTimeSignature(ts)
+    // Mark the explicit change on this measure (its TS is set below / by rebar).
     measure.timeSignatureChange = true
     if (measureNumber === 1) this.score.defaultTimeSignature = copyTimeSignature(ts)
-    this.reconcileMeasureRests(measure)
 
+    if (rewrite === 'rebar' && extent === 'toNextChange') {
+      // rebarRegion flattens the region (old meter) first, then re-bars it.
+      this.rebarRegion(measureNumber, ts)
+      return true
+    }
+
+    // Legacy keep-crowded path: set the TS, reconcile rests, propagate.
+    measure.timeSignature = copyTimeSignature(ts)
+    this.reconcileMeasureRests(measure)
     if (extent === 'toNextChange') {
       this.propagateTimeSignature(measureNumber, ts)
     }
@@ -404,6 +418,273 @@ export class ScoreModel {
   private reconcileMeasureRests(measure: Measure): void {
     measure.slots = measure.slots.filter((s) => s.type !== 'rest' || !!s.tupletId)
     this.fillGapsWithRests(measure)
+  }
+
+  /**
+   * Re-bar the region starting at `fromMeasure` to `ts` (Phase 8). The region
+   * runs forward until the next explicit TS change (bounded) or the end of the
+   * score (unbounded). Existing music is flattened (old meter) into an absolute
+   * stream, the new meter is applied, then the stream is re-laid into bars of the
+   * new length with straddling notes split by ties and gaps rest-filled.
+   *
+   * Unbounded regions grow (extra bars appended) when the content needs more bars
+   * and keep trailing measure-rest bars when it needs fewer. Bounded regions fold
+   * any overflow into the last bar (crowded/SOFT) rather than crossing the next
+   * change. Single-voice today (voice 0); the relay is per-voice-ready.
+   *
+   * Known Phase-8 limitation: clef changes anchored to a moved beat are dropped
+   * (mid-bar clef remapping across moved barlines is future work); opening clefs
+   * (beat 0) and the key signature survive because they live on the measure.
+   */
+  private rebarRegion(fromMeasure: number, ts: TimeSignature): void {
+    const ordered = [...this.score.measures].sort((a, b) => a.number - b.number)
+    const fromIdx = ordered.findIndex((m) => m.number === fromMeasure)
+    if (fromIdx === -1) return
+
+    // Region [fromMeasure..endIdx]; bounded if a later explicit change pins the end.
+    let bounded = false
+    let endIdx = fromIdx
+    for (let i = fromIdx + 1; i < ordered.length; i++) {
+      if (ordered[i].timeSignatureChange) {
+        bounded = true
+        break
+      }
+      endIdx = i
+    }
+    const regionMeasures = ordered.slice(fromIdx, endIdx + 1)
+    const targetBars = regionMeasures.length
+
+    // Capture ties that cross the region boundary BEFORE ids are regenerated, so
+    // they can be re-attached to the rebar'd note at the same position/pitch.
+    const boundary = this.captureBoundaryTies(regionMeasures)
+
+    // Flatten using the CURRENT (old) meter, before changing it.
+    const events = flattenRegion(regionMeasures, 0)
+
+    // Apply the new meter to every region measure.
+    for (const m of regionMeasures) m.timeSignature = copyTimeSignature(ts)
+
+    const meter = getMeterInfo(ts)
+    const plan = relayEvents(events, meter, { targetBars, bounded })
+
+    // Numbers of the measures that hold the plan; append bars if it grew.
+    const regionNumbers = regionMeasures.map((m) => m.number)
+    for (let i = targetBars; i < plan.length; i++) {
+      regionNumbers.push(this.addMeasure(ts).number)
+    }
+
+    // Materialise each bar; collect chord pieces (in temporal order) for ties.
+    const created: Array<{ piece: RebarPiece; chord: Chord }> = []
+    for (let i = 0; i < plan.length; i++) {
+      const m = this.getMeasure(regionNumbers[i])
+      if (m) this.materializeBar(m, plan[i], meter, created)
+    }
+    this.linkRebarTies(created)
+
+    // Re-barring regenerated the region's slot ids, so a tie that crossed the
+    // region boundary now points at a deleted id. Re-attach it to the rebar'd
+    // note at the boundary (same pitch/position); anything unrestorable is then
+    // severed so no pointer is left dangling (would crash tie editing).
+    this.restoreBoundaryTies(fromMeasure, regionNumbers[regionNumbers.length - 1], boundary)
+    this.repairDanglingTies()
+  }
+
+  /**
+   * Record ties that cross the region's edges: an external note tied INTO the
+   * region (incoming) or tied FROM the region out to a later note (outgoing).
+   * Keyed by the external note id + its pitch, so the partner can be re-found in
+   * the rebar'd region by position/pitch.
+   */
+  private captureBoundaryTies(regionMeasures: Measure[]): {
+    incoming: Array<{ externalId: string; pitch: { step: Note['step']; alter: Note['alter']; octave: number } }>
+    outgoing: Array<{ externalId: string; pitch: { step: Note['step']; alter: Note['alter']; octave: number } }>
+  } {
+    const regionIds = new Set<string>()
+    for (const m of regionMeasures) {
+      for (const s of m.slots) {
+        if (s.type === 'chord') for (const p of s.notes) regionIds.add(p.id)
+        else regionIds.add(s.id)
+      }
+    }
+    const lo = regionMeasures[0].number
+    const hi = regionMeasures[regionMeasures.length - 1].number
+    const incoming: Array<{ externalId: string; pitch: { step: Note['step']; alter: Note['alter']; octave: number } }> = []
+    const outgoing: typeof incoming = []
+    for (const m of this.score.measures) {
+      if (m.number >= lo && m.number <= hi) continue // external notes only
+      for (const s of m.slots) {
+        if (s.type !== 'chord') continue
+        for (const p of s.notes) {
+          const pitch = { step: p.step, alter: p.alter, octave: p.octave }
+          if (p.tiedTo && regionIds.has(p.tiedTo)) incoming.push({ externalId: p.id, pitch })
+          if (p.tiedFrom && regionIds.has(p.tiedFrom)) outgoing.push({ externalId: p.id, pitch })
+        }
+      }
+    }
+    return { incoming, outgoing }
+  }
+
+  /** Re-attach captured boundary ties to the rebar'd note at the boundary. */
+  private restoreBoundaryTies(
+    firstMeasure: number,
+    lastMeasure: number,
+    boundary: ReturnType<ScoreModel['captureBoundaryTies']>,
+  ): void {
+    for (const { externalId, pitch } of boundary.incoming) {
+      const targetId = this.boundaryPitchId(firstMeasure, pitch, 'first')
+      if (targetId) this.linkTieById(externalId, targetId)
+    }
+    for (const { externalId, pitch } of boundary.outgoing) {
+      const sourceId = this.boundaryPitchId(lastMeasure, pitch, 'last')
+      if (sourceId) this.linkTieById(sourceId, externalId)
+    }
+  }
+
+  /** Id of the matching pitch in the first/last chord (by beat) of a measure. */
+  private boundaryPitchId(
+    measureNumber: number,
+    pitch: { step: Note['step']; alter: Note['alter']; octave: number },
+    which: 'first' | 'last',
+  ): string | undefined {
+    const m = this.getMeasure(measureNumber)
+    if (!m) return undefined
+    const chords = (m.slots.filter((s) => s.type === 'chord') as Chord[])
+      .sort((a, b) => fracCompare(a.beat, b.beat))
+    const ordered = which === 'first' ? chords : chords.reverse()
+    for (const c of ordered) {
+      const np = c.notes.find((p) => p.step === pitch.step && p.alter === pitch.alter && p.octave === pitch.octave)
+      if (np) return np.id
+    }
+    return undefined
+  }
+
+  /** Directly link `fromId` →(tiedTo)→ `toId` on their chord pitches. */
+  private linkTieById(fromId: string, toId: string): void {
+    const from = this.findSlot(fromId)
+    const to = this.findSlot(toId)
+    if (!from || from.type !== 'chord' || !to || to.type !== 'chord') return
+    from.pitch.tiedTo = toId
+    to.pitch.tiedFrom = fromId
+  }
+
+  /**
+   * Clear `tiedTo`/`tiedFrom` pointers that reference ids no longer present in the
+   * score (e.g. after re-barring regenerates region slot ids). Ties are severed,
+   * never left dangling, so tie editing/rendering can't hit a missing note.
+   */
+  private repairDanglingTies(): void {
+    const ids = new Set<string>()
+    for (const m of this.score.measures) {
+      for (const s of m.slots) {
+        if (s.type === 'chord') for (const p of s.notes) ids.add(p.id)
+        else ids.add(s.id)
+      }
+    }
+    for (const m of this.score.measures) {
+      for (const s of m.slots) {
+        if (s.type === 'chord') {
+          for (const p of s.notes) {
+            if (p.tiedTo && !ids.has(p.tiedTo)) delete p.tiedTo
+            if (p.tiedFrom && !ids.has(p.tiedFrom)) delete p.tiedFrom
+          }
+        } else if (s.tiedFrom && !ids.has(s.tiedFrom)) {
+          delete s.tiedFrom
+        }
+      }
+    }
+  }
+
+  /** Replace a measure's slots/tuplets with a rebar {@link RebarPiece} plan. */
+  private materializeBar(
+    measure: Measure,
+    plan: RebarPiece[],
+    meter: MeterInfo,
+    created: Array<{ piece: RebarPiece; chord: Chord }>,
+  ): void {
+    measure.slots = []
+    measure.tuplets = []
+    delete measure.clefs // mid-bar clefs anchored to moved beats are dropped (Phase 8 limitation)
+
+    for (const piece of plan) {
+      if (piece.atomic && piece.payload) {
+        this.materializeAtomicPiece(measure, piece)
+        continue
+      }
+      if (piece.isRest) {
+        this.pushRestSlot(
+          measure,
+          { beat: piece.beat, duration: piece.duration, dots: piece.dots, isMeasureRest: piece.isMeasureRest },
+          meter,
+          0,
+        )
+        continue
+      }
+      const chord: Chord = {
+        id: uuidv4(),
+        type: 'chord',
+        beat: piece.beat,
+        duration: piece.duration,
+        measure: measure.number,
+        actualDuration: durationToFraction(piece.duration, piece.dots ?? 0),
+        notes: (piece.pitches ?? []).map((p) => {
+          const np: NotePitch = { id: uuidv4(), step: p.step, alter: p.alter, octave: p.octave }
+          if (p.forceAccidental) np.forceAccidental = true
+          return np
+        }),
+      }
+      if (piece.dots) chord.dots = piece.dots
+      if (piece.stemDirection) chord.stemDirection = piece.stemDirection
+      if (piece.articulations) chord.articulations = piece.articulations
+      measure.slots.push(chord)
+      created.push({ piece, chord })
+    }
+
+    measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+  }
+
+  /** Re-create an atomic tuplet (verbatim slots, fresh ids) at the piece's beat. */
+  private materializeAtomicPiece(measure: Measure, piece: RebarPiece): void {
+    const payload = piece.payload
+    if (!payload) return
+    const newTupletId = uuidv4()
+    const delta = fracSub(piece.beat, payload.def.startBeat)
+    measure.tuplets.push({ ...payload.def, id: newTupletId, startBeat: piece.beat })
+
+    for (const src of payload.slots) {
+      const slot = structuredClone(src)
+      slot.id = uuidv4()
+      slot.tupletId = newTupletId
+      slot.measure = measure.number
+      slot.beat = fracAdd(src.beat, delta)
+      if (slot.type === 'chord') {
+        slot.notes = slot.notes.map((p) => ({
+          ...p,
+          id: uuidv4(),
+          tiedTo: undefined,
+          tiedFrom: undefined,
+        }))
+      }
+      measure.slots.push(slot)
+    }
+  }
+
+  /** Link `tiedTo`/`tiedFrom` across consecutive tied chord pieces from rebar. */
+  private linkRebarTies(created: Array<{ piece: RebarPiece; chord: Chord }>): void {
+    let pending: Chord | null = null
+    for (const { piece, chord } of created) {
+      if (piece.tieFromPrev && pending) {
+        for (const cur of chord.notes) {
+          const prev = pending.notes.find(
+            (p) => p.step === cur.step && p.alter === cur.alter && p.octave === cur.octave,
+          )
+          if (prev) {
+            prev.tiedTo = cur.id
+            cur.tiedFrom = prev.id
+          }
+        }
+      }
+      pending = piece.tieToNext ? chord : null
+    }
   }
 
   // ==================== Internal helpers ====================
