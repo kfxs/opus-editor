@@ -3,6 +3,7 @@ import type { Score, Note, Chord } from '@/types/music'
 import { durationToBeats, measureCapacityQuarters } from '@/utils/musicUtils'
 import { fracToNumber } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'
+import { DYNAMIC_VELOCITY, DEFAULT_DYNAMIC, resolveChordLevels } from '@/utils/dynamics'
 
 // Tone.js module - loaded dynamically to avoid AudioContext issues
 let Tone: typeof ToneType | null = null
@@ -177,6 +178,11 @@ export class PlaybackEngine {
       scanTime += measureCapacityQuarters(measure)
     }
 
+    // Dynamics as a per-voice step function: resolve the level governing every
+    // chord in one in-order pass (chord.id → level), then look up each chord's
+    // normalized velocity below. Text dynamics carry no loudness and are ignored.
+    const chordLevels = resolveChordLevels(this.score)
+
     for (const measure of this.score.measures) {
       const measureStartTime = currentTimeInBeats
 
@@ -185,6 +191,7 @@ export class PlaybackEngine {
 
         // slot is a Chord
         const chord = slot
+        const velocity = DYNAMIC_VELOCITY[chordLevels.get(chord.id) ?? DEFAULT_DYNAMIC]
         const noteTimeInBeats = measureStartTime + fracToNumber(chord.beat)
         const beatsPerSecond = tempo / 60
         const noteTimeInSeconds = noteTimeInBeats / beatsPerSecond
@@ -227,8 +234,8 @@ export class PlaybackEngine {
           // Convert MIDI to note name like testAudio
           const noteName = Tone.Frequency(soundingMidi, 'midi').toNote()
 
-          // Schedule exactly like testAudio does
-          synth.triggerAttackRelease(noteName, durationInSeconds, now + noteTimeInSeconds)
+          // Schedule with the resolved dynamic as Tone's normalized velocity (4th arg).
+          synth.triggerAttackRelease(noteName, durationInSeconds, now + noteTimeInSeconds, velocity)
         }
       }
 

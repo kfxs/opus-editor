@@ -1,6 +1,6 @@
 import type { ArticulationType, Accidental, NoteDuration, PitchAlter, BeamMode, Clef, TimeSignature } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { EditorState } from './EditorState'
+import type { EditorState, DynamicTool } from './EditorState'
 import { fracLt, fracCompare } from '../utils/fraction'
 import { sameTimeSignature } from '../utils/meter'
 import { getMeasureNotes } from '../utils/musicUtils'
@@ -35,6 +35,7 @@ export class PaletteController {
     this.state.tupletMode = false
     this.state.selectedClef = null
     this.state.selectedTimeSignature = null
+    this.state.selectedDynamic = null
     const engine = this.getEngine()
     if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
       const before = engine.getNote(this.state.selectedNoteId)
@@ -221,11 +222,13 @@ export class PaletteController {
     this.state.selectedClef = newValue
     if (newValue) {
       this.state.selectedTimeSignature = null
+      this.state.selectedDynamic = null
       this.state.selectedTool = 'entry'
       this.state.selectedNoteId = null
       this.state.selectedClefMeasure = null
       this.state.selectedClefBeat = null
       this.state.selectedTimeSignatureMeasure = null
+      this.state.selectedDynamicId = null
     }
     this.renderScore()
   }
@@ -242,11 +245,36 @@ export class PaletteController {
     this.state.selectedTimeSignature = newValue
     if (newValue) {
       this.state.selectedClef = null
+      this.state.selectedDynamic = null
       this.state.selectedTool = 'entry'
       this.state.selectedNoteId = null
       this.state.selectedClefMeasure = null
       this.state.selectedClefBeat = null
       this.state.selectedTimeSignatureMeasure = null
+      this.state.selectedDynamicId = null
+    }
+    this.renderScore()
+  }
+
+  /**
+   * Arm/disarm a dynamic for placement. Clicking the active value again disarms
+   * it. A level (`p`/`mp`/`mf`/`f`) places that mark on the next canvas click;
+   * `'text'` places a custom italic-text mark (MouseController prompts for the
+   * text). Mutually exclusive with the clef/time-signature tools, and switches to
+   * the entry tool so canvas clicks are handled for placement.
+   */
+  setDynamic(value: DynamicTool): void {
+    const newValue = this.state.selectedDynamic === value ? null : value
+    this.state.selectedDynamic = newValue
+    if (newValue) {
+      this.state.selectedClef = null
+      this.state.selectedTimeSignature = null
+      this.state.selectedTool = 'entry'
+      this.state.selectedNoteId = null
+      this.state.selectedClefMeasure = null
+      this.state.selectedClefBeat = null
+      this.state.selectedTimeSignatureMeasure = null
+      this.state.selectedDynamicId = null
     }
     this.renderScore()
   }
@@ -262,6 +290,8 @@ export class PaletteController {
     this.state.selectedClef = null
     this.state.selectedTimeSignature = null
     this.state.selectedTimeSignatureMeasure = null
+    this.state.selectedDynamic = null
+    this.state.selectedDynamicId = null
   }
 
   // --- Toolbar button active-state helpers ---

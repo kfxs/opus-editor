@@ -1,6 +1,6 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet } from 'vexflow'
-import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Chord, Fraction, PitchStep, PitchAlter, GhostNote, TimeSignature } from '@/types/music'
-import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet, TextDynamics } from 'vexflow'
+import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Chord, Fraction, PitchStep, PitchAlter, GhostNote, TimeSignature, Dynamic, DynamicLevel } from '@/types/music'
+import { fracToNumber, fracEq, fracCompare, fracLte, fracGte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureOpeningClef, measureEndingClef, effectiveClefAt, effectiveClefBefore } from '@/utils/clefUtils'
 import { beatToFrac, measureCapacityFrac } from '@/utils/musicUtils'
 import { durationToVexflow, durationToFraction } from '@/utils/durations'
@@ -17,6 +17,32 @@ import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/uti
  * To change the order in the future, edit this array.
  */
 const ARTICULATION_RENDER_ORDER: ArticulationType[] = ['staccato', 'tenuto', 'accent']
+
+/**
+ * Font sizes (px) for dynamics rendered as Annotations. Level marks use the SMuFL
+ * music glyph at music-glyph size; custom text uses a smaller italic text size.
+ * The font *family* is deliberately left as VexFlow's global stack (Bravura +
+ * text fallback) so level glyphs and custom text follow whatever engraving font
+ * the score uses — never hardcode 'Bravura' here (see docs/dynamics-plan.md §4).
+ */
+const DYNAMIC_GLYPH_SIZE = 30
+const DYNAMIC_TEXT_SIZE = 14
+/** Serif stack for custom-text dynamics — has a true italic face (the music font
+ *  doesn't), so expression text actually slants. Styling will be user-configurable later. */
+const DYNAMIC_TEXT_FONT = 'Georgia, "Times New Roman", Times, serif'
+
+/**
+ * Per-letter SMuFL codepoints for dynamics (`p`/`m`/`f`/`s`/`z`/`r`), reused from
+ * VexFlow's TextDynamics. `Glyphs.*` (with precomposed `dynamicMP`/`dynamicMF`)
+ * isn't exported by the package, so a level like `mp` is rendered by concatenating
+ * its letters' glyphs. This generalizes for free to future ppp…fff / sf / sfz.
+ */
+const DYNAMIC_LETTER_GLYPHS = TextDynamics.GLYPHS as Record<string, string | undefined>
+
+/** Map a dynamic level (e.g. 'mf') to its SMuFL glyph string. */
+function levelToGlyphString(level: DynamicLevel): string {
+  return [...level].map(ch => DYNAMIC_LETTER_GLYPHS[ch] ?? ch).join('')
+}
 
 /**
  * Clef configuration for stem direction calculation.
@@ -111,6 +137,8 @@ export class VexFlowRenderer {
   private staveNoteMap: Map<string, { staveNote: StaveNote; noteIndex: number }> = new Map()
   /** Map of tuplet IDs to their rendered VexFlow Tuplet objects (for scoped highlight) */
   private tupletObjectMap: Map<string, VexFlowTuplet> = new Map()
+  /** Map of dynamic IDs to their rendered VexFlow Annotation objects (for scoped highlight) */
+  private dynamicObjectMap: Map<string, Annotation> = new Map()
   /** Map of measure numbers to their layout info (including line number) */
   private measureLayoutInfo: Map<number, MeasureWidthInfo> = new Map()
   /** Snapshot of the layout captured when frozen. While non-null, renderScore
@@ -321,6 +349,72 @@ export class VexFlowRenderer {
     }
 
     return staveNotes
+  }
+
+  /**
+   * Attach the measure's dynamics as Annotation modifiers under (or above) the
+   * staff, anchored to the slot at each dynamic's beat in its voice. Must run
+   * before formatting so the annotation reserves vertical space alongside any
+   * articulations (VexFlow's ModifierContext stacks them automatically).
+   *
+   * Anchor rule: prefer the slot whose beat exactly matches in the same voice;
+   * if none (rare with auto rest-fill), use the nearest following slot in that
+   * voice, then the last slot in that voice, then the last slot overall. This
+   * keeps a dynamic visible even when it sits under an empty/rest beat.
+   *
+   * Each Annotation's DOM id is set to the Dynamic.id so its `<g class="vf-annotation">`
+   * group is individually addressable (Phase 6 highlight); the object is stashed
+   * in dynamicObjectMap for that lookup.
+   */
+  private attachDynamicsToSlots(sortedSlots: ChordRest[], staveNotes: StaveNote[], measure: Measure): void {
+    const dynamics = measure.dynamics
+    if (!dynamics?.length || staveNotes.length === 0) return
+
+    for (const dyn of dynamics) {
+      const voice = dyn.voice ?? 0
+
+      let targetIdx = sortedSlots.findIndex(s => (s.voice ?? 0) === voice && fracEq(s.beat, dyn.beat))
+      if (targetIdx === -1) {
+        targetIdx = sortedSlots.findIndex(s => (s.voice ?? 0) === voice && fracGte(s.beat, dyn.beat))
+      }
+      if (targetIdx === -1) {
+        for (let i = sortedSlots.length - 1; i >= 0; i--) {
+          if ((sortedSlots[i].voice ?? 0) === voice) { targetIdx = i; break }
+        }
+      }
+      if (targetIdx === -1) targetIdx = staveNotes.length - 1
+      if (targetIdx < 0 || targetIdx >= staveNotes.length) continue
+
+      const annotation = this.buildDynamicAnnotation(dyn)
+      staveNotes[targetIdx].addModifier(annotation, 0)
+      this.dynamicObjectMap.set(dyn.id, annotation)
+    }
+  }
+
+  /**
+   * Build the VexFlow Annotation for one dynamic. Level marks render the SMuFL
+   * dynamics glyph in the music font (global stack); custom-text marks render the
+   * user's text in an italic text font. Both default to below-staff placement.
+   */
+  private buildDynamicAnnotation(dyn: Dynamic): Annotation {
+    const isLevel = dyn.kind === 'level' && dyn.level !== undefined
+    const label = isLevel ? levelToGlyphString(dyn.level!) : (dyn.text ?? '')
+
+    const annotation = new Annotation(label)
+    annotation.setAttribute('id', dyn.id)
+    annotation.setVerticalJustification(dyn.placement === 'above' ? 'above' : 'below')
+
+    if (isLevel) {
+      // Level glyph: keep the default family (VexFlow's global Bravura+text stack)
+      // so the SMuFL dynamics glyph follows the score's engraving font.
+      annotation.setFont({ size: DYNAMIC_GLYPH_SIZE })
+    } else {
+      // Custom text: an italic serif — the notation convention for expression
+      // text (dolce, espr.). A real serif face guarantees a true italic slant
+      // (the music font has no italic). User-selectable styling is future work.
+      annotation.setFont({ family: DYNAMIC_TEXT_FONT, size: DYNAMIC_TEXT_SIZE, style: 'italic' })
+    }
+    return annotation
   }
 
   /**
@@ -901,6 +995,10 @@ export class VexFlowRenderer {
       // notesOnly: one StaveNote per slot (used for beams, tuplets, registration).
       const staveNotes = this.createStaveNotesFromSlots(sortedSlots, clefForBeat)
 
+      // Attach dynamics as Annotation modifiers BEFORE formatting so they reserve
+      // vertical space and stack with articulations.
+      this.attachDynamicsToSlots(sortedSlots, staveNotes, measure)
+
       // Tuplets must be created BEFORE adding notes to voice — VexFlow adjusts tick values
       const { vexTuplets, tupletStaveNoteMap } = this.buildVexTuplets(sortedSlots, staveNotes, measure, clef)
 
@@ -935,6 +1033,7 @@ export class VexFlowRenderer {
 
         this.drawAndRegisterTuplets(vexTuplets, tupletStaveNoteMap, measure)
         this.registerSlotElements(sortedSlots, staveNotes, measure)
+        this.registerDynamics(measure)
         this.registerBeams(beams, measure)
         this.registerMidMeasureClefs(clefNoteByBeat, measure)
 
@@ -1273,6 +1372,33 @@ export class VexFlowRenderer {
           }
         } catch (e) { /* getBoundingBox may fail */ }
       }
+    }
+  }
+
+  /**
+   * Register each rendered dynamic into the ElementRegistry (for hit-testing /
+   * selection) using its Annotation's bounding box. Runs as a post-pass over the
+   * measure's dynamics rather than inside the slot loop, so it covers dynamics
+   * anchored to BOTH chords and rests uniformly. The registry entry carries only
+   * id + bbox; kind/level/text are looked up from the model when needed.
+   */
+  private registerDynamics(measure: Measure): void {
+    if (!measure.dynamics?.length) return
+    for (const dyn of measure.dynamics) {
+      const annotation = this.dynamicObjectMap.get(dyn.id)
+      if (!annotation) continue
+      try {
+        const box = annotation.getBoundingBox()
+        if (box) {
+          this.elementRegistry.add({
+            type: 'dynamic',
+            id: dyn.id,
+            measure: measure.number,
+            beat: fracToNumber(dyn.beat),
+            bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+          })
+        }
+      } catch (e) { /* getBoundingBox may fail */ }
     }
   }
 
@@ -2014,6 +2140,8 @@ export class VexFlowRenderer {
     this.staveNoteMap.clear()
     // Clear the tuplet object map
     this.tupletObjectMap.clear()
+    // Clear the dynamic object map
+    this.dynamicObjectMap.clear()
     // Clear measure layout info
     this.measureLayoutInfo.clear()
   }
@@ -2059,6 +2187,16 @@ export class VexFlowRenderer {
    */
   getTupletSVGGroup(tupletId: string): SVGGElement | null {
     const group = this.tupletObjectMap.get(tupletId)?.getSVGElement?.()
+    return (group as unknown as SVGGElement) ?? null
+  }
+
+  /**
+   * Get the rendered SVG group (`<g class="vf-annotation">`) for a dynamic, so the
+   * selection highlight (Phase 6) can recolor exactly this dynamic without a
+   * document-wide scan. Must be called after a render. Mirrors getTupletSVGGroup.
+   */
+  getDynamicSVGGroup(dynamicId: string): SVGGElement | null {
+    const group = this.dynamicObjectMap.get(dynamicId)?.getSVGElement?.()
     return (group as unknown as SVGGElement) ?? null
   }
 

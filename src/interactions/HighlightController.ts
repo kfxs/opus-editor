@@ -358,4 +358,26 @@ export class HighlightController {
       text.classList.add('selected-tuplet')
     })
   }
+
+  applyDynamicSelectionHighlight(): void {
+    const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
+    if (!engine || !scoreCanvas || !this.state.selectedDynamicId) return
+
+    // Recolor inside the dynamic's OWN <g class="vf-annotation"> group only, so it
+    // can't bleed onto neighbouring marks. The group holds the glyph/text as <text>
+    // and/or <path> children (level glyphs render as paths in the music font;
+    // custom text renders as <text>).
+    const group = engine.getDynamicSVGGroup(this.state.selectedDynamicId)
+    if (!group) return
+
+    const SELECTION_COLOR = '#F59E0B'
+
+    group.querySelectorAll('text, path').forEach(el => {
+      const currentFill = el.getAttribute('fill')
+      if (currentFill !== 'none') el.setAttribute('fill', SELECTION_COLOR)
+      ;(el as SVGElement & { style: CSSStyleDeclaration }).style.fill = SELECTION_COLOR
+      el.classList.add('selected-dynamic')
+    })
+  }
 }

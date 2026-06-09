@@ -235,6 +235,35 @@ describe('ScoreModel', () => {
       const actualNotes = loaded.getAllNotes().filter(n => !n.isRest)
       expect(actualNotes).toHaveLength(1)
     })
+
+    it('round-trips dynamics (level + custom text) through JSON', () => {
+      model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })
+      model.addDynamic(1, { beat: frac(2, 1), kind: 'text', text: 'dolce', voice: 0 })
+
+      const loaded = ScoreModel.fromJSON(model.toJSON())
+      const dyns = loaded.getDynamics(1)
+      expect(dyns).toHaveLength(2)
+      expect(dyns[0]).toMatchObject({ kind: 'level', level: 'p' })
+      expect(dyns[0].beat).toEqual(frac(0, 1))
+      expect(dyns[1]).toMatchObject({ kind: 'text', text: 'dolce' })
+      // resolution still works after a load
+      expect(loaded.getActiveLevel(1, frac(1, 1))).toBe('p')
+    })
+
+    it('loads legacy JSON with no dynamics array (backward-compatible)', () => {
+      const legacy = JSON.stringify({
+        id: 'x', title: 'Legacy', tempo: 100,
+        keySignature: { key: 'C', accidentals: 0 },
+        defaultTimeSignature: { numerator: 4, denominator: 4 },
+        schemaVersion: 2,
+        measures: [
+          { id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [] },
+        ],
+      })
+      const loaded = ScoreModel.fromJSON(legacy)
+      expect(loaded.getDynamics(1)).toEqual([])
+      expect(loaded.getActiveLevel(1, frac(0, 1))).toBe('mf') // DEFAULT_DYNAMIC
+    })
   })
 
   // ==================== Tuplet Tests ====================
@@ -653,6 +682,92 @@ describe('ScoreModel', () => {
         const restored = ScoreModel.fromJSON(legacy)
         expect(restored.getEffectiveClef(1)).toBe('bass')
       })
+    })
+  })
+
+  describe('dynamic operations', () => {
+    beforeEach(() => {
+      // 3 measures (constructor creates measure 1)
+      model.addMeasure()
+      model.addMeasure()
+    })
+
+    it('adds a dynamic, generates an id, and stores it sorted by beat', () => {
+      model.addDynamic(1, { beat: frac(2, 1), kind: 'level', level: 'f' })
+      const first = model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })
+      expect(first?.id).toBeTruthy()
+      expect(model.getDynamics(1).map(d => [d.beat.num, d.level])).toEqual([
+        [0, 'p'],
+        [2, 'f'],
+      ])
+    })
+
+    it('returns null when the measure does not exist', () => {
+      expect(model.addDynamic(99, { beat: frac(0, 1), kind: 'level', level: 'p' })).toBeNull()
+    })
+
+    it('replaces an existing dynamic at the same (beat, voice)', () => {
+      model.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'p', voice: 0 })
+      model.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'f', voice: 0 })
+      const dyns = model.getDynamics(1)
+      expect(dyns).toHaveLength(1)
+      expect(dyns[0].level).toBe('f')
+    })
+
+    it('keeps separate dynamics at the same beat in different voices', () => {
+      model.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'p', voice: 0 })
+      model.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'f', voice: 1 })
+      expect(model.getDynamics(1)).toHaveLength(2)
+    })
+
+    it('stores a custom text dynamic', () => {
+      const d = model.addDynamic(2, { beat: frac(0, 1), kind: 'text', text: 'dolce' })
+      expect(d?.kind).toBe('text')
+      expect(model.getDynamics(2)[0].text).toBe('dolce')
+    })
+
+    it('updates a dynamic by id', () => {
+      const d = model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
+      const updated = model.updateDynamic(d.id, { level: 'f' })
+      expect(updated?.level).toBe('f')
+      expect(model.getDynamics(1)[0].level).toBe('f')
+    })
+
+    it('re-sorts when an update changes the beat', () => {
+      const a = model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
+      model.addDynamic(1, { beat: frac(2, 1), kind: 'level', level: 'f' })
+      model.updateDynamic(a.id, { beat: frac(3, 1) })
+      expect(model.getDynamics(1).map(d => d.level)).toEqual(['f', 'p'])
+    })
+
+    it('returns null when updating a missing id', () => {
+      expect(model.updateDynamic('nope', { level: 'f' })).toBeNull()
+    })
+
+    it('removes a dynamic by id and drops the empty array', () => {
+      const d = model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
+      expect(model.removeDynamic(d.id)).toBe(true)
+      expect(model.getDynamics(1)).toEqual([])
+      expect(model.getMeasure(1)!.dynamics).toBeUndefined()
+    })
+
+    it('returns false when removing a missing id', () => {
+      expect(model.removeDynamic('nope')).toBe(false)
+    })
+
+    it('resolves the active level via getActiveLevel', () => {
+      model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })
+      model.addDynamic(2, { beat: frac(0, 1), kind: 'level', level: 'f' })
+      expect(model.getActiveLevel(1, frac(1, 1))).toBe('p')
+      expect(model.getActiveLevel(3, frac(0, 1))).toBe('f') // inherited from m2
+    })
+
+    it('clears a measure\'s dynamics on a rebar (shares the clef limitation)', () => {
+      model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })
+      expect(model.getDynamics(1)).toHaveLength(1)
+      // A meter change rebars the region, rebuilding slots and dropping anchors.
+      model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+      expect(model.getMeasure(1)!.dynamics).toBeUndefined()
     })
   })
 })

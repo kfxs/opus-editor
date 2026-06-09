@@ -9,7 +9,8 @@ import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, beatToFrac, m
 import { fracToNumber, fracCompare, fracEq, fracAdd } from '@/utils/fraction'
 import { durationToFraction } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos } from '@/utils/pitchSpelling'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel } from '@/types/music'
+import { dynamicLabel } from '@/utils/dynamics'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 
 /** Internal context passed to updateNote sub-methods */
@@ -331,6 +332,60 @@ export class MusicEngine {
       )
     }
     return changed
+  }
+
+  // ==================== Dynamic Operations ====================
+
+  /**
+   * Add a dynamic at (measure, dynamic.beat). `beat` must be a slot-boundary beat.
+   * Replaces any existing dynamic at the same (beat, voice). Interpreted level
+   * marks affect playback loudness; custom text marks are silent. Saves undo state
+   * when added.
+   * @returns the stored Dynamic, or null if the measure does not exist.
+   */
+  addDynamic(measureNumber: number, dynamic: Omit<Dynamic, 'id'>): Dynamic | null {
+    const created = this.scoreModel.addDynamic(measureNumber, dynamic)
+    if (created) {
+      this.playbackEngine.setScore(this.scoreModel.getScore())
+      this.saveUndoState(`Add dynamic ${dynamicLabel(created)} at measure ${measureNumber}`)
+    }
+    return created
+  }
+
+  /**
+   * Edit an existing dynamic (level / text / placement / beat / voice) by id.
+   * Saves undo state when found. @returns the updated Dynamic, or null if missing.
+   */
+  updateDynamic(id: string, updates: Partial<Omit<Dynamic, 'id'>>): Dynamic | null {
+    const updated = this.scoreModel.updateDynamic(id, updates)
+    if (updated) {
+      this.playbackEngine.setScore(this.scoreModel.getScore())
+      this.saveUndoState(`Edit dynamic ${dynamicLabel(updated)}`)
+    }
+    return updated
+  }
+
+  /**
+   * Remove a dynamic by id. Saves undo state when removed.
+   * @returns true if a dynamic was removed.
+   */
+  removeDynamic(id: string): boolean {
+    const removed = this.scoreModel.removeDynamic(id)
+    if (removed) {
+      this.playbackEngine.setScore(this.scoreModel.getScore())
+      this.saveUndoState('Remove dynamic')
+    }
+    return removed
+  }
+
+  /** A measure's dynamics, sorted ascending by beat (a copy; empty if none). */
+  getDynamics(measureNumber: number): Dynamic[] {
+    return this.scoreModel.getDynamics(measureNumber)
+  }
+
+  /** The interpreted dynamic level in effect at (measure, beat) for a voice. */
+  getActiveLevel(measureNumber: number, beat: Fraction, voice: number = 0): DynamicLevel {
+    return this.scoreModel.getActiveLevel(measureNumber, beat, voice)
   }
 
   /**
@@ -1331,6 +1386,14 @@ export class MusicEngine {
    */
   getTupletSVGGroup(tupletId: string): SVGGElement | null {
     return this.renderer.getTupletSVGGroup(tupletId)
+  }
+
+  /**
+   * Get the rendered SVG group (`<g class="vf-annotation">`) for a dynamic, to
+   * recolor exactly one dynamic for the selection highlight (no document scan).
+   */
+  getDynamicSVGGroup(dynamicId: string): SVGGElement | null {
+    return this.renderer.getDynamicSVGGroup(dynamicId)
   }
 
   // ==================== Cleanup ====================

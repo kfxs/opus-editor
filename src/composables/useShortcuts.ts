@@ -95,6 +95,10 @@ export function useShortcuts(
         }
         state.selectedTimeSignatureMeasure = null
         renderer.renderScore()
+      } else if (state.selectedDynamicId && eng) {
+        eng.removeDynamic(state.selectedDynamicId)
+        state.selectedDynamicId = null
+        renderer.renderScore()
       } else if (state.selectedNoteId && eng) {
         eng.deleteNote(state.selectedNoteId)
         selection.selectNote(null)

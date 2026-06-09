@@ -7,6 +7,9 @@ import { fracToNumber, fracEq } from '../utils/fraction'
 import { getMeasureNotes, beatToFrac, measureCapacityQuarters } from '../utils/musicUtils'
 import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
 
+/** Placeholder text for a newly placed custom-text dynamic (editable later). */
+const DEFAULT_DYNAMIC_TEXT = 'Text'
+
 /**
  * Handles all mouse interactions: clicks, drags, ghost-note preview.
  * Framework-agnostic: no Vue/React/Angular imports.
@@ -74,11 +77,11 @@ export class MouseController {
 
   /**
    * Resolve a click X within a measure to the beat of the nearest slot boundary
-   * (by the slot's left edge). A clef change anchors before that slot; clicking
-   * near the measure start resolves to beat 0 (the opening clef). Returns the
-   * slot's exact Fraction beat when available.
+   * (by the slot's left edge). A beat-anchored marking (clef change, dynamic) is
+   * placed at that slot; clicking near the measure start resolves to beat 0.
+   * Returns the slot's exact Fraction beat when available.
    */
-  private resolveClefBeat(engine: MusicEngine, x: number, measureNum: number): Fraction {
+  private resolveSlotBeat(engine: MusicEngine, x: number, measureNum: number): Fraction {
     const registry = engine.getElementRegistry()
     const els = registry.getByMeasure(measureNum)
       .filter(e => (e.type === 'note' || e.type === 'rest') && e.beat !== undefined)
@@ -151,6 +154,7 @@ export class MouseController {
     this.state.selectedClefMeasure = null
     this.state.selectedClefBeat = null
     this.state.selectedTimeSignatureMeasure = null
+    this.state.selectedDynamicId = null
 
     // Clef change selection — click a clef glyph to select it for removal.
     const clefAt = registry.getByType('clef').find(el => {
@@ -200,6 +204,22 @@ export class MouseController {
       this.state.selectedTimeSignatureMeasure = timeSigAt.measure
       const isDefault = timeSigAt.measure === 1
       console.log(`✓ Time signature selected | measure:${timeSigAt.measure}${isDefault ? ' (measure 1 default: delete hides the glyph, meter kept)' : ' (delete reverts to prior meter + rebars)'}`)
+      this.render.renderScore()
+      return
+    }
+
+    // Dynamic selection — click a dynamic mark (below the staff) to select it for
+    // removal. Small pad makes the small glyph/text easier to hit.
+    const dynPad = 6
+    const dynamicAt = registry.getByType('dynamic').find(el => {
+      const b = el.bbox
+      return x >= b.x - dynPad && x <= b.x + b.width + dynPad
+        && y >= b.y - dynPad && y <= b.y + b.height + dynPad
+    }) ?? null
+    if (dynamicAt?.id) {
+      this.selection.selectNote(null)
+      this.state.selectedDynamicId = dynamicAt.id
+      console.log(`✓ Dynamic selected | id:${dynamicAt.id} (Delete to remove)`)
       this.render.renderScore()
       return
     }
@@ -380,11 +400,37 @@ export class MouseController {
     // anchors to a slot (beat 0 = the measure's opening clef, drawn at the
     // barline; beat > 0 = an inline mid-measure clef before that slot).
     if (this.state.selectedClef) {
-      const beat = this.resolveClefBeat(engine, x, measureNum)
+      const beat = this.resolveSlotBeat(engine, x, measureNum)
       const changed = engine.setClefAt(measureNum, beat, this.state.selectedClef)
       console.log(changed
         ? `✓ Clef set | ${this.state.selectedClef} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`
         : `Clef unchanged at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
+      this.render.renderScore()
+      return
+    }
+
+    // Dynamics tool: place a dynamic at the nearest slot boundary. A level mark is
+    // interpreted (drives playback); the `'text'` tool drops a silent custom mark.
+    // Always placed below the staff.
+    //
+    // VOICE SEAM: `voice: 0` is the only hardcoded voice in the dynamics feature —
+    // every resolution/render/playback path already keys on `voice ?? 0` (see
+    // utils/dynamics resolveActiveLevel/resolveChordLevels, ScoreModel.addDynamic,
+    // VexFlowRenderer.attachDynamicsToSlots). When multi-voice editing lands, the
+    // ONLY change here is to source the voice from a UI selector (or the active
+    // voice) instead of the literal 0; the timeline math needs no rework.
+    if (this.state.selectedDynamic) {
+      const tool = this.state.selectedDynamic
+      const beat = this.resolveSlotBeat(engine, x, measureNum)
+      if (tool === 'text') {
+        // Custom-text mark: drop a placeholder ("Text"); editing it in place is a
+        // deferred feature. The text is always user-editable by design.
+        engine.addDynamic(measureNum, { beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below' })
+        console.log(`✓ Dynamic text at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
+      } else {
+        engine.addDynamic(measureNum, { beat, kind: 'level', level: tool, voice: 0, placement: 'below' })
+        console.log(`✓ Dynamic ${tool} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
+      }
       this.render.renderScore()
       return
     }
@@ -530,7 +576,7 @@ export class MouseController {
         if (elapsed < this.DRAG_TIME_THRESHOLD_MS) return
       }
       const targetMeasure = engine.pixelToMeasure({ x, y })
-      const targetBeat = this.resolveClefBeat(engine, x, targetMeasure)
+      const targetBeat = this.resolveSlotBeat(engine, x, targetMeasure)
       if (targetMeasure !== this.draggedClefMeasure || !fracEq(targetBeat, this.draggedClefBeat)) {
         if (engine.moveClef(this.draggedClefMeasure, this.draggedClefBeat, targetMeasure, targetBeat)) {
           this.draggedClefMeasure = targetMeasure
@@ -564,6 +610,13 @@ export class MouseController {
     // (mirrors the clef tool), and hide the keyboard cursor.
     if (this.state.selectedTimeSignature) {
       this.render.renderTimeSignatureGhost({ x, y }, this.state.selectedTimeSignature)
+      this.state.showCursor = false
+      return
+    }
+
+    // Dynamics tool armed: suppress the ghost note and the keyboard cursor. (A
+    // ghost-dynamic preview is a deferred polish item — see docs/dynamics-plan.md.)
+    if (this.state.selectedDynamic) {
       this.state.showCursor = false
       return
     }

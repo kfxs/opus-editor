@@ -1,6 +1,6 @@
 # Dynamics — Implementation Plan
 
-Status: **Not started — this document is the authoritative plan and cross-session checklist.**
+Status: **ALL PHASES (0–7) DONE.** Dynamics are placeable (arm p/mp/mf/f or Text → click a beat), render under the staff (level glyph or italic serif text), drive playback (per-voice velocity step function), and are selectable + deletable (click in selection mode → Delete) with a scoped highlight; undo/redo + JSON round-trip throughout; voice-ready end-to-end (only voice 0 populated, single hardcoded seam at placement). **Deferred by user (not blockers):** (1) in-place editing of a placed dynamic — custom text drops a literal "Text" placeholder for now; (2) finer-beat placement — target is option C (slot-snap-else-grid); both are cheap + migration-free later. This document is the authoritative plan and cross-session checklist.
 
 Goal of this first pass is to **build the infrastructure**, not a complete dynamics vocabulary.
 Scope: `p`, `mp`, `mf`, `f` as interpreted (playback-affecting) dynamics, plus a **custom italic
@@ -309,12 +309,23 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
   fragile `width > 40` heuristic and document-wide scan are unnecessary. (Hit-testing for *selection*
   still uses the registry bbox; only the recolor uses the group.)
 
-### Phase 7 — Voice-awareness scaffolding (mostly free; document the seam)
-- Confirm every dynamic path keys on `voice ?? 0`: model storage, `resolveActiveLevel`, render
-  matching, playback lookup.
-- Document the extension point: when multi-voice editing lands, the only additions are (a) a voice
-  selector when placing a dynamic, and (b) "applies to all voices" semantics if desired (MuseScore's
-  model) — the timeline math already supports per-voice resolution.
+### Phase 7 — Voice-awareness scaffolding (mostly free; document the seam) — DONE
+**Audit result (verified):** every dynamic path already keys on `voice ?? 0`. Confirmed sites:
+- **Model storage** — `ScoreModel.addDynamic` derives `voice = dynamic.voice ?? 0` and the
+  one-per-(beat, voice) replace check uses `(d.voice ?? 0) === voice`.
+- **Resolution** — `utils/dynamics`: `dynamicVoice(d) = d.voice ?? 0`; `resolveActiveLevel` filters
+  on it walking back; `resolveChordLevels` keys its running map on `slot.voice ?? 0` / `d.voice ?? 0`.
+- **Render matching** — `VexFlowRenderer.attachDynamicsToSlots` matches `dyn.voice ?? 0` against
+  `slot.voice ?? 0` (exact-beat → nearest-following → last, all within the voice).
+- **Playback** — consumes `resolveChordLevels` (per-voice), so it inherits the same keying.
+
+**The single seam:** the *only* hardcoded voice is at placement — `MouseController` passes `voice: 0`
+to `engine.addDynamic` (correct today; only voice 0 is populated). A `VOICE SEAM` comment marks it.
+
+**Extension point (when multi-voice editing lands):** the only additions are (a) source the placement
+voice from a UI selector / the active voice instead of the literal `0`, and (b) optionally add an
+"applies to all voices" semantics (MuseScore's model). The timeline math needs **no** rework —
+per-voice resolution is already in place end-to-end.
 
 ---
 
@@ -356,11 +367,11 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
 
 ## 9. Progress
 
-- [ ] Phase 0 — Types + velocity table
-- [ ] Phase 1 — ScoreModel CRUD + per-voice resolution
-- [ ] Phase 2 — MusicEngine API + undo + serialization round-trip
-- [ ] Phase 3 — Playback velocity
-- [ ] Phase 4 — Rendering (modifier path) + ElementRegistry registration
-- [ ] Phase 5 — Palette UI + arm/click placement (incl. custom text input)
-- [ ] Phase 6 — Selection / edit / delete
-- [ ] Phase 7 — Voice-awareness scaffolding + documented seam
+- [x] Phase 0 — Types + velocity table
+- [x] Phase 1 — ScoreModel CRUD + per-voice resolution
+- [x] Phase 2 — MusicEngine API + undo + serialization round-trip
+- [x] Phase 3 — Playback velocity
+- [x] Phase 4 — Rendering (modifier path) + ElementRegistry registration
+- [x] Phase 5 — Palette UI + arm/click placement (incl. custom text input)
+- [x] Phase 6 — Selection / delete / highlight (inline EDIT deferred — see note)
+- [x] Phase 7 — Voice-awareness scaffolding + documented seam

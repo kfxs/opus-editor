@@ -320,6 +320,33 @@
             >Pickup…</button>
           </div>
 
+          <!-- Dynamics Tool -->
+          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
+            <span class="text-sm text-gray-300">Dyn:</span>
+            <button
+              v-for="d in dynamicLevels"
+              :key="d"
+              @click="palette.setDynamic(d)"
+              :class="[
+                'px-2 py-1 rounded text-sm italic font-bold leading-none',
+                state.selectedDynamic === d
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              :title="`${d} — click a beat to place it (drives playback loudness)`"
+            >{{ d }}</button>
+            <button
+              @click="palette.setDynamic('text')"
+              :class="[
+                'px-2 py-1 rounded text-sm leading-none',
+                state.selectedDynamic === 'text'
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Custom italic text dynamic (silent) — places editable “Text” placeholder"
+            >Text</button>
+          </div>
+
           <div class="border-l border-gray-600 mx-2"></div>
           <button
             @click="togglePlayback"
@@ -533,6 +560,11 @@ function isTimeSignatureArmed(ts: { numerator: number; denominator: number }): b
   const sel = state.selectedTimeSignature
   return !!sel && sel.numerator === ts.numerator && sel.denominator === ts.denominator
 }
+
+// --- Dynamics tool ---
+// Interpreted levels drive playback loudness; the custom mark is silent italic text.
+// The custom mark drops a "Text" placeholder; editing it in place is a later feature.
+const dynamicLevels = ['p', 'mp', 'mf', 'f'] as const
 
 // --- Custom time-signature dialog ---
 // Exposes the engine's full generality: any dyadic meter + optional additive

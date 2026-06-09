@@ -88,6 +88,41 @@ export interface ClefChange {
 }
 
 /**
+ * Interpreted dynamic levels — the marks that drive playback loudness.
+ *
+ * EXTEND THIS UNION to add more standard dynamics (ppp…fff, sf, sfz, …). Every
+ * member needs a matching row in DYNAMIC_VELOCITY (utils/dynamics.ts) and a
+ * glyph in the render layer; nothing else hardcodes this list.
+ */
+export type DynamicLevel = 'p' | 'mp' | 'mf' | 'f'
+
+/**
+ * A dynamic marking positioned within a measure, mirroring {@link ClefChange}:
+ * a beat-anchored, measure-owned, selectable/deletable marking.
+ *
+ * Three independent axes (see docs/dynamics-plan.md §5):
+ *  - glyph    — `level` (a SMuFL dynamics glyph) or `text` (custom italic)
+ *  - meaning  — interpreted level → velocity via DYNAMIC_VELOCITY; text is silent
+ *  - scope    — `voice` it governs, until the next dynamic in that voice
+ */
+export interface Dynamic {
+  /** Unique identifier */
+  id: string
+  /** Beat position within the measure (lands on a slot boundary, like clefs) */
+  beat: Fraction
+  /** 'level' = interpreted (drives playback); 'text' = custom italic, silent */
+  kind: 'level' | 'text'
+  /** The dynamic level when kind === 'level' */
+  level?: DynamicLevel
+  /** User-editable italic text when kind === 'text' (never interpreted) */
+  text?: string
+  /** Governed voice/stream; default 0. See {@link Note.voice}. */
+  voice?: 0 | 1 | 2 | 3
+  /** Vertical placement relative to the staff; default 'below'. */
+  placement?: 'above' | 'below'
+}
+
+/**
  * Stem direction for notes
  * - 'auto': Calculate based on pitch and clef (default)
  * - 'up': Force stem up
@@ -285,6 +320,13 @@ export interface Measure {
    * Resolution helpers live in utils/clefUtils (effectiveClefAt, measureOpeningClef).
    */
   clefs?: ClefChange[]
+  /**
+   * Dynamic markings within this measure, sorted ascending by beat (mirrors the
+   * `clefs` convention). At most one dynamic per (beat, voice). Optional/absent
+   * = no dynamics (backward-compatible JSON). Resolution helpers live in
+   * utils/dynamics (resolveActiveLevel).
+   */
+  dynamics?: Dynamic[]
   /** Optional key signature (number of sharps/flats, positive = sharps, negative = flats) */
   keySignature?: number
   /** Tuplets in this measure */

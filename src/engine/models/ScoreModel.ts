@@ -1,4 +1,4 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, Clef } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, Clef, Dynamic } from '@/types/music'
 import {
   isBeatInTupletFrac,
   getTupletTotalBeatsFrac,
@@ -33,6 +33,7 @@ import {
   fracToNumber,
 } from '@/utils/fraction'
 import { effectiveClefAt, effectiveClefBefore, measureOpeningClef } from '@/utils/clefUtils'
+import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
 import { v4 as uuidv4 } from 'uuid'
 
 /**
@@ -313,6 +314,79 @@ export class ScoreModel {
     measure.clefs.splice(idx, 1)
     if (measure.clefs.length === 0) delete measure.clefs
     return true
+  }
+
+  // ==================== Dynamic operations ====================
+
+  /**
+   * Add a dynamic at (measureNumber, dynamic.beat). `beat` must already be
+   * snapped to a slot boundary by the caller. At most one dynamic per
+   * (beat, voice): an existing dynamic at the same beat and voice is replaced.
+   * The list is kept sorted ascending by beat (mirrors the `clefs` convention).
+   * A fresh id is generated.
+   * @returns the stored Dynamic, or null if the measure does not exist.
+   */
+  addDynamic(measureNumber: number, dynamic: Omit<Dynamic, 'id'>): Dynamic | null {
+    const measure = this.getMeasure(measureNumber)
+    if (!measure) return null
+    if (!measure.dynamics) measure.dynamics = []
+
+    const voice = dynamic.voice ?? 0
+    // Replace any dynamic already at this (beat, voice).
+    const existingIdx = measure.dynamics.findIndex(
+      d => fracEq(d.beat, dynamic.beat) && (d.voice ?? 0) === voice,
+    )
+    if (existingIdx !== -1) measure.dynamics.splice(existingIdx, 1)
+
+    const created: Dynamic = { ...dynamic, id: uuidv4() }
+    measure.dynamics.push(created)
+    measure.dynamics.sort((a, b) => fracCompare(a.beat, b.beat))
+    return created
+  }
+
+  /**
+   * Edit an existing dynamic (level / text / placement / beat / voice) by id.
+   * The owning measure's list is re-sorted in case the beat changed.
+   * @returns the updated Dynamic, or null if no dynamic with that id exists.
+   */
+  updateDynamic(id: string, updates: Partial<Omit<Dynamic, 'id'>>): Dynamic | null {
+    for (const measure of this.score.measures) {
+      const dyn = measure.dynamics?.find(d => d.id === id)
+      if (!dyn) continue
+      Object.assign(dyn, updates)
+      measure.dynamics!.sort((a, b) => fracCompare(a.beat, b.beat))
+      return dyn
+    }
+    return null
+  }
+
+  /**
+   * Remove a dynamic by id, cleaning up the array when it becomes empty.
+   * @returns true if a dynamic was removed.
+   */
+  removeDynamic(id: string): boolean {
+    for (const measure of this.score.measures) {
+      if (!measure.dynamics) continue
+      const idx = measure.dynamics.findIndex(d => d.id === id)
+      if (idx === -1) continue
+      measure.dynamics.splice(idx, 1)
+      if (measure.dynamics.length === 0) delete measure.dynamics
+      return true
+    }
+    return false
+  }
+
+  /** A measure's dynamics, sorted ascending by beat (a copy; empty if none). */
+  getDynamics(measureNumber: number): Dynamic[] {
+    return measureDynamics(this.score, measureNumber)
+  }
+
+  /**
+   * The interpreted dynamic level in effect at (measure, beat) for a voice.
+   * Delegates to the shared resolver in utils/dynamics (walk-back reference).
+   */
+  getActiveLevel(measureNumber: number, beat: Fraction, voice: number = 0) {
+    return resolveActiveLevel(this.score, measureNumber, beat, voice)
   }
 
   // ==================== Time signature operations ====================
@@ -685,6 +759,7 @@ export class ScoreModel {
     measure.slots = []
     measure.tuplets = []
     delete measure.clefs // mid-bar clefs anchored to moved beats are dropped (Phase 8 limitation)
+    delete measure.dynamics // dynamics share the clef limitation: beat anchors don't survive a rebar
 
     for (const piece of plan) {
       if (piece.atomic && piece.payload) {

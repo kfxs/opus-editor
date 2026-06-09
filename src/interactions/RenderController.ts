@@ -22,6 +22,7 @@ export class RenderController {
     this.highlight.applyTieHighlight()
     this.highlight.applyClefSelectionHighlight()
     this.highlight.applyTimeSignatureSelectionHighlight()
+    this.highlight.applyDynamicSelectionHighlight()
     this.highlight.applyKeyboardCursor()
   }
 

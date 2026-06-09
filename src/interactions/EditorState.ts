@@ -1,4 +1,7 @@
-import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature } from '../types/music'
+import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, DynamicLevel } from '../types/music'
+
+/** A value armed on the dynamics palette: an interpreted level, or the custom-text tool. */
+export type DynamicTool = DynamicLevel | 'text'
 
 export type ToolMode = 'entry' | 'selection'
 export type PlaybackState = 'stopped' | 'playing' | 'paused'
@@ -53,6 +56,16 @@ export interface EditorState {
    *  meter for placement). */
   selectedTimeSignatureMeasure: number | null
 
+  // --- Dynamics tool ---
+  /** Dynamic armed for placement (null = dynamics tool not active). A level
+   *  (`p`/`mp`/`mf`/`f`) places that mark on click; `'text'` prompts for custom
+   *  italic text. When set, canvas clicks place a dynamic and the ghost note is
+   *  suppressed. */
+  selectedDynamic: DynamicTool | null
+  /** Id of the on-score dynamic selected for removal/edit (selection tool); null
+   *  if none. Distinct from `selectedDynamic` (the armed palette tool). */
+  selectedDynamicId: string | null
+
   // --- UI ---
   showCursor: boolean
   playbackState: PlaybackState
@@ -81,6 +94,8 @@ export function createEditorState(): EditorState {
     selectedClefBeat: null,
     selectedTimeSignature: null,
     selectedTimeSignatureMeasure: null,
+    selectedDynamic: null,
+    selectedDynamicId: null,
     showCursor: true,
     playbackState: 'stopped',
   }

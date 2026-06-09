@@ -301,3 +301,51 @@ describe('MusicEngine — measure rest duration change (regression)', () => {
     expect(slots.some(s => s.type === 'rest' && (s as { isMeasureRest?: boolean }).isMeasureRest)).toBe(false)
   })
 })
+
+describe('MusicEngine — dynamics', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  const dynsOf = (m: number) => engine.getScore().measures.find(x => x.number === m)!.dynamics
+
+  it('adds a dynamic and returns it with an id', () => {
+    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })
+    expect(d?.id).toBeTruthy()
+    expect(engine.getDynamics(1)).toHaveLength(1)
+  })
+
+  it('undo/redo restores and re-applies an added dynamic', () => {
+    engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f' })
+    expect(dynsOf(1)).toHaveLength(1)
+
+    expect(engine.undo()).toBe(true)
+    expect(dynsOf(1)).toBeUndefined()
+
+    expect(engine.redo()).toBe(true)
+    expect(dynsOf(1)![0].level).toBe('f')
+  })
+
+  it('updates a dynamic and undo restores the prior value', () => {
+    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
+    engine.updateDynamic(d.id, { level: 'f' })
+    expect(engine.getDynamics(1)[0].level).toBe('f')
+
+    expect(engine.undo()).toBe(true)
+    expect(engine.getDynamics(1)[0].level).toBe('p')
+  })
+
+  it('removes a dynamic and undo restores it', () => {
+    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
+    expect(engine.removeDynamic(d.id)).toBe(true)
+    expect(engine.getDynamics(1)).toEqual([])
+
+    expect(engine.undo()).toBe(true)
+    expect(engine.getDynamics(1)).toHaveLength(1)
+  })
+
+  it('resolves the active level through the engine', () => {
+    engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })
+    expect(engine.getActiveLevel(1, frac(2, 1))).toBe('p')
+    expect(engine.getActiveLevel(2, frac(0, 1))).toBe('p') // inherited into measure 2
+  })
+})

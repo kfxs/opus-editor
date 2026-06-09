@@ -27,6 +27,7 @@ export type ElementType =
   | 'accidental'
   | 'tuplet'
   | 'articulation'
+  | 'dynamic'
 
 /**
  * Bounding box in pixel coordinates
