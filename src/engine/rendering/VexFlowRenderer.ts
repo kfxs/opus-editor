@@ -365,6 +365,14 @@ export class VexFlowRenderer {
    * Multiple dynamics may share one anchor note (the user can stack marks at a
    * beat, e.g. `p dolce`). VexFlow would stack them vertically; we lay them out
    * left-to-right in placement order afterwards — see {@link layoutCoLocatedDynamics}.
+   *
+   * IMPORTANT: each annotation's modifier width is ZEROED ({@link buildDynamicAnnotation}
+   * calls setWidth(0)) so the formatter reserves no horizontal space for it — a long
+   * text mark must never push the notes apart. The notes rule the layout; dynamics
+   * are a secondary overlay (it overflows freely to the right of its note). The
+   * annotation is still a real modifier, so VexFlow's vertical placement (below the
+   * staff) and drawing happen normally. The registry bbox is taken from the rendered
+   * SVG ({@link registerDynamics}) since the zeroed width would otherwise mis-size it.
    * @returns the dynamic-id groups (size ≥ 2) sharing a note, in placement order.
    */
   private attachDynamicsToSlots(sortedSlots: ChordRest[], staveNotes: StaveNote[], measure: Measure): string[][] {
@@ -456,6 +464,9 @@ export class VexFlowRenderer {
     const annotation = new Annotation(label)
     annotation.setAttribute('id', dyn.id)
     annotation.setVerticalJustification(dyn.placement === 'above' ? 'above' : 'below')
+    // Left-justify so the FIRST character anchors on the note (the tick), not the
+    // text centre. Dynamics/expression text reads left-to-right from the note.
+    annotation.setJustification(Annotation.HorizontalJustify.LEFT)
 
     if (isLevel) {
       // Level glyph: keep the default family (VexFlow's global Bravura+text stack)
@@ -467,6 +478,12 @@ export class VexFlowRenderer {
       // (the music font has no italic). User-selectable styling is future work.
       annotation.setFont({ family: DYNAMIC_TEXT_FONT, size: DYNAMIC_TEXT_SIZE, style: 'italic' })
     }
+
+    // Zero the modifier width (AFTER setFont, which re-measures) so the formatter
+    // reserves no horizontal space — the mark never pushes the notes apart. The
+    // text still renders in full (renderText draws the string); only the reported
+    // width is 0. Vertical placement and drawing are unaffected. See attachDynamicsToSlots.
+    annotation.setWidth(0)
     return annotation
   }
 
@@ -1445,17 +1462,22 @@ export class VexFlowRenderer {
       const annotation = this.dynamicObjectMap.get(dyn.id)
       if (!annotation) continue
       try {
-        const box = annotation.getBoundingBox()
+        // Use the rendered SVG bounds, not Annotation.getBoundingBox(): the modifier
+        // width is zeroed (see buildDynamicAnnotation) so getBoundingBox would report
+        // a 0-width box, breaking hit-testing. getBBox gives the true painted extent.
+        // (Matches what layoutCoLocatedDynamics already uses.)
+        const el = annotation.getSVGElement?.() as SVGGraphicsElement | undefined
+        const box = el?.getBBox ? el.getBBox() : null
         if (box) {
           this.elementRegistry.add({
             type: 'dynamic',
             id: dyn.id,
             measure: measure.number,
             beat: fracToNumber(dyn.beat),
-            bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+            bbox: { x: box.x, y: box.y, width: box.width, height: box.height },
           })
         }
-      } catch (e) { /* getBoundingBox may fail */ }
+      } catch (e) { /* getBBox may fail before layout in some envs */ }
     }
   }
 
