@@ -322,9 +322,10 @@ export interface Measure {
   clefs?: ClefChange[]
   /**
    * Dynamic markings within this measure, sorted ascending by beat (mirrors the
-   * `clefs` convention). At most one dynamic per (beat, voice). Optional/absent
-   * = no dynamics (backward-compatible JSON). Resolution helpers live in
-   * utils/dynamics (resolveActiveLevel).
+   * `clefs` convention). Multiple dynamics MAY share a (beat, voice) — they stack
+   * and are rendered side-by-side (e.g. `p dolce`); placement order is preserved
+   * within a beat. Optional/absent = no dynamics (backward-compatible JSON).
+   * Resolution helpers live in utils/dynamics (resolveActiveLevel).
    */
   dynamics?: Dynamic[]
   /** Optional key signature (number of sharps/flats, positive = sharps, negative = flats) */

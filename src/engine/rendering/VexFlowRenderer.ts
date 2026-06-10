@@ -368,11 +368,17 @@ export class VexFlowRenderer {
    * Each Annotation's DOM id is set to the Dynamic.id so its `<g class="vf-annotation">`
    * group is individually addressable (Phase 6 highlight); the object is stashed
    * in dynamicObjectMap for that lookup.
+   *
+   * Multiple dynamics may share one anchor note (the user can stack marks at a
+   * beat, e.g. `p dolce`). VexFlow would stack them vertically; we lay them out
+   * left-to-right in placement order afterwards — see {@link layoutCoLocatedDynamics}.
+   * @returns the dynamic-id groups (size ≥ 2) sharing a note, in placement order.
    */
-  private attachDynamicsToSlots(sortedSlots: ChordRest[], staveNotes: StaveNote[], measure: Measure): void {
+  private attachDynamicsToSlots(sortedSlots: ChordRest[], staveNotes: StaveNote[], measure: Measure): string[][] {
     const dynamics = measure.dynamics
-    if (!dynamics?.length || staveNotes.length === 0) return
+    if (!dynamics?.length || staveNotes.length === 0) return []
 
+    const byTarget = new Map<number, string[]>()
     for (const dyn of dynamics) {
       const voice = dyn.voice ?? 0
 
@@ -391,6 +397,56 @@ export class VexFlowRenderer {
       const annotation = this.buildDynamicAnnotation(dyn)
       staveNotes[targetIdx].addModifier(annotation, 0)
       this.dynamicObjectMap.set(dyn.id, annotation)
+      const arr = byTarget.get(targetIdx) ?? []
+      arr.push(dyn.id)
+      byTarget.set(targetIdx, arr)
+    }
+
+    return [...byTarget.values()].filter(ids => ids.length >= 2)
+  }
+
+  /**
+   * Lay co-located dynamics out on one row, left-to-right in PLACEMENT ORDER
+   * (so the newest mark sits on the right), centered on their anchor and aligned
+   * on a common vertical center. VexFlow stacks multiple annotations vertically
+   * and its modifier offsets are awkward to control, so we reposition the rendered
+   * SVG groups directly (a translate), then update each one's registry bbox so
+   * hit-testing follows. Must run AFTER {@link registerDynamics}. Pure no-op in
+   * non-DOM tests (getBBox unavailable → entries skipped).
+   *
+   * @param groups dynamic-id groups (placement order) from {@link attachDynamicsToSlots}.
+   */
+  private layoutCoLocatedDynamics(groups: string[][]): void {
+    const GAP = 6
+    for (const ids of groups) {
+      const items: Array<{ id: string; el: SVGGraphicsElement; box: { x: number; y: number; width: number; height: number } }> = []
+      for (const id of ids) {
+        const el = this.dynamicObjectMap.get(id)?.getSVGElement?.() as SVGGraphicsElement | undefined
+        if (!el?.getBBox) continue
+        try {
+          const box = el.getBBox()
+          items.push({ id, el, box: { x: box.x, y: box.y, width: box.width, height: box.height } })
+        } catch { /* getBBox can throw before layout in some envs */ }
+      }
+      if (items.length < 2) continue
+
+      // Center the row where the group currently sits; align on the first mark's
+      // vertical center (placement-order first = leftmost).
+      const centerX = items[0].box.x + items[0].box.width / 2
+      const centerY = items[0].box.y + items[0].box.height / 2
+      const total = items.reduce((s, it) => s + it.box.width, 0) + GAP * (items.length - 1)
+
+      let cursor = 0
+      for (const it of items) {
+        const targetX = centerX - total / 2 + cursor
+        const dx = targetX - it.box.x
+        const dy = centerY - (it.box.y + it.box.height / 2)
+        it.el.setAttribute('transform', `translate(${dx}, ${dy})`)
+        cursor += it.box.width + GAP
+
+        const entry = this.elementRegistry.getById(it.id)
+        if (entry) entry.bbox = { x: it.box.x + dx, y: it.box.y + dy, width: it.box.width, height: it.box.height }
+      }
     }
   }
 
@@ -999,8 +1055,9 @@ export class VexFlowRenderer {
       const staveNotes = this.createStaveNotesFromSlots(sortedSlots, clefForBeat)
 
       // Attach dynamics as Annotation modifiers BEFORE formatting so they reserve
-      // vertical space and stack with articulations.
-      this.attachDynamicsToSlots(sortedSlots, staveNotes, measure)
+      // vertical space and stack with articulations. Co-located marks (stacked at
+      // one beat) come back as id-groups, repositioned onto one row after drawing.
+      const dynamicGroups = this.attachDynamicsToSlots(sortedSlots, staveNotes, measure)
 
       // Tuplets must be created BEFORE adding notes to voice — VexFlow adjusts tick values
       const { vexTuplets, tupletStaveNoteMap } = this.buildVexTuplets(sortedSlots, staveNotes, measure, clef)
@@ -1037,6 +1094,9 @@ export class VexFlowRenderer {
         this.drawAndRegisterTuplets(vexTuplets, tupletStaveNoteMap, measure)
         this.registerSlotElements(sortedSlots, staveNotes, measure)
         this.registerDynamics(measure)
+        // Co-located dynamics: reposition onto one row (placement order, newest
+        // right) AFTER registration so their bboxes are present to update.
+        this.layoutCoLocatedDynamics(dynamicGroups)
         this.registerBeams(beams, measure)
         this.registerMidMeasureClefs(clefNoteByBeat, measure)
 

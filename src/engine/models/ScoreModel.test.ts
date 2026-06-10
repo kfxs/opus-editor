@@ -706,12 +706,21 @@ describe('ScoreModel', () => {
       expect(model.addDynamic(99, { beat: frac(0, 1), kind: 'level', level: 'p' })).toBeNull()
     })
 
-    it('replaces an existing dynamic at the same (beat, voice)', () => {
+    it('stacks multiple dynamics at the same (beat, voice) without replacing', () => {
       model.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'p', voice: 0 })
+      model.addDynamic(1, { beat: frac(1, 1), kind: 'text', text: 'dolce', voice: 0 })
       model.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'f', voice: 0 })
       const dyns = model.getDynamics(1)
-      expect(dyns).toHaveLength(1)
-      expect(dyns[0].level).toBe('f')
+      expect(dyns).toHaveLength(3)
+      // Placement order is preserved within a beat (stable sort).
+      expect(dyns.map(d => d.level ?? d.text)).toEqual(['p', 'dolce', 'f'])
+    })
+
+    it('playback uses the last (rightmost) level when several are stacked at a beat', () => {
+      model.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'p' })
+      model.addDynamic(1, { beat: frac(1, 1), kind: 'text', text: 'dolce' })
+      model.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'f' })
+      expect(model.getActiveLevel(1, frac(1, 1))).toBe('f')
     })
 
     it('keeps separate dynamics at the same beat in different voices', () => {

@@ -329,23 +329,19 @@ export class ScoreModel {
 
   /**
    * Add a dynamic at (measureNumber, dynamic.beat). `beat` must already be
-   * snapped to a slot boundary by the caller. At most one dynamic per
-   * (beat, voice): an existing dynamic at the same beat and voice is replaced.
-   * The list is kept sorted ascending by beat (mirrors the `clefs` convention).
-   * A fresh id is generated.
+   * snapped to a slot boundary by the caller. Multiple dynamics may share the
+   * same (beat, voice) — nothing is replaced — so the user can freely stack
+   * marks at one spot (e.g. a level + expressive text like `p dolce`, or two
+   * levels). Co-located marks are laid out side-by-side by the renderer; if more
+   * than one is interpreted (a level), the last one wins for playback. The list
+   * is kept sorted ascending by beat (a stable sort preserves placement order
+   * within a beat). A fresh id is generated.
    * @returns the stored Dynamic, or null if the measure does not exist.
    */
   addDynamic(measureNumber: number, dynamic: Omit<Dynamic, 'id'>): Dynamic | null {
     const measure = this.getMeasure(measureNumber)
     if (!measure) return null
     if (!measure.dynamics) measure.dynamics = []
-
-    const voice = dynamic.voice ?? 0
-    // Replace any dynamic already at this (beat, voice).
-    const existingIdx = measure.dynamics.findIndex(
-      d => fracEq(d.beat, dynamic.beat) && (d.voice ?? 0) === voice,
-    )
-    if (existingIdx !== -1) measure.dynamics.splice(existingIdx, 1)
 
     const created: Dynamic = { ...dynamic, id: uuidv4() }
     measure.dynamics.push(created)
@@ -728,10 +724,8 @@ export class ScoreModel {
         m.clefs.push({ id: uuidv4(), beat, clef: a.clef })
         m.clefs.sort((x, y) => fracCompare(x.beat, y.beat))
       } else {
+        // Dynamics may stack at one (beat, voice) — keep them all (no dedupe).
         if (!m.dynamics) m.dynamics = []
-        const voice = a.dyn.voice ?? 0
-        const dup = m.dynamics.findIndex((d) => fracCompare(d.beat, beat) === 0 && (d.voice ?? 0) === voice)
-        if (dup !== -1) m.dynamics.splice(dup, 1)
         m.dynamics.push({ ...a.dyn, id: uuidv4(), beat })
         m.dynamics.sort((x, y) => fracCompare(x.beat, y.beat))
       }

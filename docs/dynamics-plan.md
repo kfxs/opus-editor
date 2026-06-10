@@ -208,8 +208,10 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
 
 ### Phase 1 — ScoreModel CRUD + per-voice resolution
 - `ScoreModel` methods (mirroring `setClefAt` / `removeClefAt`):
-  - `addDynamic(measureNumber, dynamic): Dynamic` — insert into `measure.dynamics`, keep sorted,
-    one dynamic per (beat, voice) (replace if present).
+  - `addDynamic(measureNumber, dynamic): Dynamic` — insert into `measure.dynamics`, keep sorted.
+    Multiple dynamics may share a (beat, voice) — nothing is replaced; they stack and render
+    side-by-side in placement order (newest to the right). UPDATED: was "one per (beat, voice),
+    replace if present"; that overwrote a level when a text was added at the same beat.
   - `updateDynamic(id, updates): Dynamic` — edit level/text/placement.
   - `removeDynamic(id): boolean`.
   - `getDynamics(measureNumber): Dynamic[]`.
@@ -333,8 +335,8 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
 
 ### Phase 7 — Voice-awareness scaffolding (mostly free; document the seam) — DONE
 **Audit result (verified):** every dynamic path already keys on `voice ?? 0`. Confirmed sites:
-- **Model storage** — `ScoreModel.addDynamic` derives `voice = dynamic.voice ?? 0` and the
-  one-per-(beat, voice) replace check uses `(d.voice ?? 0) === voice`.
+- **Model storage** — `ScoreModel.addDynamic` stores `voice = dynamic.voice ?? 0`. (It no longer
+  replaces a same-(beat, voice) mark — stacking is allowed; see Phase 1.)
 - **Resolution** — `utils/dynamics`: `dynamicVoice(d) = d.voice ?? 0`; `resolveActiveLevel` filters
   on it walking back; `resolveChordLevels` keys its running map on `slot.voice ?? 0` / `d.voice ?? 0`.
 - **Render matching** — `VexFlowRenderer.attachDynamicsToSlots` matches `dyn.voice ?? 0` against
