@@ -29,7 +29,7 @@
               Entry
             </button>
             <button
-              @click="state.selectedTool = 'selection'"
+              @click="palette.disarmPositionalTools(); state.selectedTool = 'selection'"
               :class="[
                 'px-3 py-1 rounded text-sm',
                 state.selectedTool === 'selection'

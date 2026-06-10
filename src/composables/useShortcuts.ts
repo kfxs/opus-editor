@@ -38,6 +38,9 @@ export function useShortcuts(
       renderer.renderScore()
     },
     setSelectionMode: () => {
+      // Leaving entry mode disarms the entry-only positional tools (clef / time
+      // signature / dynamic) so the palette stops showing them as selected.
+      palette.disarmPositionalTools()
       if (state.selectedTool === 'entry') {
         state.selectedTool = 'selection'
         selection.selectNote(state.selectedNoteId)
@@ -121,6 +124,7 @@ export function useShortcuts(
     selectNextNote: () => {
       if (state.selectedTool === 'entry') {
         console.log(`[Nav] ArrowRight in entry mode → switching to selection`)
+        palette.disarmPositionalTools()
         state.selectedTool = 'selection'
         selection.navigateSelection(1)
       } else {
@@ -130,6 +134,7 @@ export function useShortcuts(
     selectPreviousNote: () => {
       if (state.selectedTool === 'entry') {
         console.log(`[Nav] ArrowLeft in entry mode → switching to selection`)
+        palette.disarmPositionalTools()
         state.selectedTool = 'selection'
         renderer.renderScore()
       } else {

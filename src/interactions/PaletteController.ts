@@ -287,11 +287,22 @@ export class PaletteController {
     this.state.staccato = false
     this.state.tenuto = false
     this.state.selectedBeam = 'auto'
+    this.disarmPositionalTools()
+    this.state.selectedTimeSignatureMeasure = null
+    this.state.selectedDynamicId = null
+  }
+
+  /**
+   * Disarm the positional palette tools — clef, time signature, dynamic. These
+   * are entry-mode-only (arming one switches to entry mode and a canvas click
+   * places it); leaving entry mode makes them inert, so the palette should stop
+   * showing them as selected. Does NOT touch note-entry settings (duration,
+   * accidental, articulations) which carry over between modes.
+   */
+  disarmPositionalTools(): void {
     this.state.selectedClef = null
     this.state.selectedTimeSignature = null
-    this.state.selectedTimeSignatureMeasure = null
     this.state.selectedDynamic = null
-    this.state.selectedDynamicId = null
   }
 
   // --- Toolbar button active-state helpers ---

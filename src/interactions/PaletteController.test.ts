@@ -129,3 +129,33 @@ describe('PaletteController — dynamics tool', () => {
     expect(state.selectedDynamic).toBeNull()
   })
 })
+
+describe('PaletteController — disarmPositionalTools', () => {
+  let state: EditorState
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    palette = makeController(state)
+  })
+
+  it('clears the armed clef / time signature / dynamic', () => {
+    palette.setDynamic('f')
+    state.selectedClef = 'bass'
+    state.selectedTimeSignature = { numerator: 3, denominator: 4 }
+    palette.disarmPositionalTools()
+    expect(state.selectedClef).toBeNull()
+    expect(state.selectedTimeSignature).toBeNull()
+    expect(state.selectedDynamic).toBeNull()
+  })
+
+  it('leaves note-entry settings (duration, accidental) untouched', () => {
+    palette.setDuration('8')
+    palette.setAccidental('#')
+    palette.setClef('alto')
+    palette.disarmPositionalTools()
+    expect(state.selectedClef).toBeNull()
+    expect(state.selectedDuration).toBe('8')
+    expect(state.selectedAccidental).toBe('#')
+  })
+})
