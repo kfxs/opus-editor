@@ -37,6 +37,15 @@ import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
 import { v4 as uuidv4 } from 'uuid'
 
 /**
+ * A beat-anchored annotation (clef change or dynamic) snapshotted before a rebar,
+ * keyed by its absolute beat offset from the region start so it can be re-anchored
+ * into the new bar layout. See {@link ScoreModel.captureBeatAnchors}.
+ */
+type CapturedAnchor =
+  | { kind: 'clef'; absBeat: Fraction; clef: Clef }
+  | { kind: 'dynamic'; absBeat: Fraction; dyn: Dynamic }
+
+/**
  * ScoreModel manages the musical score data and provides CRUD operations
  * This is the core data model for Developer A's music engine
  */
@@ -613,6 +622,11 @@ export class ScoreModel {
     // Flatten using the CURRENT (old) meter, before changing it.
     const events = flattenRegion(regionMeasures, 0)
 
+    // Capture beat-anchored annotations (clef changes + dynamics) by their ABSOLUTE
+    // offset from the region start, using the OLD capacities — before the meter is
+    // overwritten below. They are re-anchored after rebar (see restoreBeatAnchors).
+    const anchors = this.captureBeatAnchors(regionMeasures)
+
     // Apply the new meter to every region measure. Re-barring rewrites bars to
     // nominal length, so any pickup override on a rewritten bar is cleared (v1).
     for (const m of regionMeasures) {
@@ -643,6 +657,85 @@ export class ScoreModel {
     // severed so no pointer is left dangling (would crash tie editing).
     this.restoreBoundaryTies(fromMeasure, regionNumbers[regionNumbers.length - 1], boundary)
     this.repairDanglingTies()
+
+    // Re-anchor the captured clef changes / dynamics into the new bar layout,
+    // mapping each absolute offset to the (measure, beat) it now lands on.
+    this.restoreBeatAnchors(regionNumbers, anchors)
+  }
+
+  /**
+   * Capture each region clef change / dynamic by its ABSOLUTE beat offset from the
+   * region start (cumulative measure capacities + the item's in-measure beat),
+   * measured with the measures' CURRENT (pre-rebar) capacities. Mirrors how
+   * {@link captureBoundaryTies} snapshots state before ids/bars are regenerated.
+   * The originals are wiped by {@link materializeBar}; {@link restoreBeatAnchors}
+   * re-creates them (fresh ids) at the position each offset maps to afterwards.
+   */
+  private captureBeatAnchors(regionMeasures: Measure[]): CapturedAnchor[] {
+    const out: CapturedAnchor[] = []
+    let base = fracCreate(0, 1)
+    for (const m of regionMeasures) {
+      const cap = measureCapacityFrac(m)
+      for (const c of m.clefs ?? []) {
+        out.push({ kind: 'clef', absBeat: fracAdd(base, c.beat), clef: c.clef })
+      }
+      for (const d of m.dynamics ?? []) {
+        out.push({ kind: 'dynamic', absBeat: fracAdd(base, d.beat), dyn: d })
+      }
+      base = fracAdd(base, cap)
+    }
+    return out
+  }
+
+  /**
+   * Re-anchor captured clef changes / dynamics into the rebar'd region: walk the
+   * new bars accumulating their capacities, find which measure each absolute offset
+   * now lands in, and re-create the annotation there at the local beat. An offset
+   * past the (defensively) rebuilt region is clamped to the last bar. A collision
+   * at the same beat (+ voice, for dynamics) is overwritten — last wins.
+   */
+  private restoreBeatAnchors(regionNumbers: number[], anchors: CapturedAnchor[]): void {
+    if (anchors.length === 0) return
+
+    const ranges: Array<{ measure: Measure; start: Fraction; cap: Fraction }> = []
+    let base = fracCreate(0, 1)
+    for (const num of regionNumbers) {
+      const m = this.getMeasure(num)
+      if (!m) continue
+      const cap = measureCapacityFrac(m)
+      ranges.push({ measure: m, start: base, cap })
+      base = fracAdd(base, cap)
+    }
+    if (ranges.length === 0) return
+
+    for (const a of anchors) {
+      let target = ranges[ranges.length - 1]
+      for (const r of ranges) {
+        if (fracGte(a.absBeat, r.start) && fracLt(a.absBeat, fracAdd(r.start, r.cap))) {
+          target = r
+          break
+        }
+      }
+      let beat = fracSub(a.absBeat, target.start)
+      if (fracLt(beat, fracCreate(0, 1))) beat = fracCreate(0, 1)
+      if (fracGte(beat, target.cap)) beat = target.cap // clamp into the bar (defensive)
+      const m = target.measure
+
+      if (a.kind === 'clef') {
+        if (!m.clefs) m.clefs = []
+        const dup = m.clefs.findIndex((c) => fracCompare(c.beat, beat) === 0)
+        if (dup !== -1) m.clefs.splice(dup, 1)
+        m.clefs.push({ id: uuidv4(), beat, clef: a.clef })
+        m.clefs.sort((x, y) => fracCompare(x.beat, y.beat))
+      } else {
+        if (!m.dynamics) m.dynamics = []
+        const voice = a.dyn.voice ?? 0
+        const dup = m.dynamics.findIndex((d) => fracCompare(d.beat, beat) === 0 && (d.voice ?? 0) === voice)
+        if (dup !== -1) m.dynamics.splice(dup, 1)
+        m.dynamics.push({ ...a.dyn, id: uuidv4(), beat })
+        m.dynamics.sort((x, y) => fracCompare(x.beat, y.beat))
+      }
+    }
   }
 
   /**

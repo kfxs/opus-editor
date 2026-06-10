@@ -148,10 +148,12 @@ Sources:
 4. **Custom text is never interpreted** by playback (velocity = inherit). It is the only editable
    text field.
 5. **Beat-anchored within a measure** (like clefs), not glued to a note id — so a dynamic can sit
-   under a rest/empty beat. **Caveat:** "survives the engine's note moves the same way clefs do"
-   includes the clef *limitation* — `ScoreModel.materializeBar` does `delete measure.clefs` on any
-   rebar (`ScoreModel.ts:687`), so beat anchors do **not** survive a re-bar. Dynamics inherit the
-   same policy; see Phase 1 for the explicit rebar rule.
+   under a rest/empty beat. **UPDATE (was a limitation, now fixed):** beat anchors now **survive a
+   rebar**. `materializeBar` still wipes `measure.clefs`/`measure.dynamics` while rebuilding slots, but
+   `rebarRegion` captures both families by their ABSOLUTE beat offset from the region start
+   (`captureBeatAnchors`) before the meter is overwritten, then re-anchors them into the new bar layout
+   afterwards (`restoreBeatAnchors`) — an offset that overflows its old bar lands in the bar it now
+   belongs to. Both clefs and dynamics share this remap (mirrors the boundary-tie capture/restore).
 6. **Backward-compatible JSON.** `Measure.dynamics?` optional; absence = no dynamics.
 
 ---
@@ -217,15 +219,16 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
     (they don't change level). Walk-back across earlier measures mirrors `clefUtils.inheritedClef`
     (`clefUtils.ts:21`). This is the *correctness* reference; playback uses an incremental scan
     instead (Phase 3) to avoid per-chord walk-back.
-- **Rebar policy (must decide here, mirroring clefs):** `ScoreModel.materializeBar` rebuilds a
-  measure's `slots` and does `delete measure.clefs` (`ScoreModel.ts:687`) on every meter change /
-  rebar-with-ties. It does **not** currently touch `measure.dynamics`, so stale dynamics would be
-  left anchored to beats that no longer match any slot (the renderer would then silently drop or
-  misattach them). **Add `delete measure.dynamics` alongside the `delete measure.clefs` line** so
-  dynamics share the clef limitation rather than rotting. (Preserving/remapping beat anchors across a
-  rebar is future work for both families.)
-- Unit-test resolution across measures and (synthetic) voices, **and** that a rebar clears
-  `measure.dynamics` (regression guard for the line above).
+- **Rebar policy (UPDATED — now preserved, mirroring clefs):** `ScoreModel.materializeBar` still
+  wipes `measure.clefs` / `measure.dynamics` while rebuilding `slots` on every meter change. But
+  `rebarRegion` now **captures both families by absolute beat offset before the rebar
+  (`captureBeatAnchors`) and re-anchors them after (`restoreBeatAnchors`)** into the new bar layout —
+  so a dynamic/clef stays at the same musical position (moving to the next bar if its beat overflows).
+  Earlier the plan called for `delete measure.dynamics` to match the clef *limitation*; instead both
+  families were upgraded to *preserve* anchors (the limitation is gone).
+- Unit-test resolution across measures and (synthetic) voices, **and** that a rebar **re-anchors**
+  `measure.dynamics` (same-bar when it fits, next-bar on overflow) — see the
+  `rebar preserves beat-anchored annotations` block in `ScoreModel.test.ts`.
 
 ### Phase 2 — MusicEngine API + undo + serialization
 - `MusicEngine`: `addDynamic / updateDynamic / removeDynamic` delegating to `ScoreModel`, each

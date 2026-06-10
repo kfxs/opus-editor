@@ -762,13 +762,67 @@ describe('ScoreModel', () => {
       expect(model.getActiveLevel(3, frac(0, 1))).toBe('f') // inherited from m2
     })
 
-    it('clears a measure\'s dynamics on a rebar (shares the clef limitation)', () => {
+    it('re-anchors a measure\'s dynamics across a rebar (same absolute position)', () => {
       model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })
       expect(model.getDynamics(1)).toHaveLength(1)
-      // A meter change rebars the region, rebuilding slots and dropping anchors.
+      // A meter change rebars the region; the dynamic at beat 0 stays at measure 1
+      // beat 0 (absolute offset 0 maps to the start of the rebar'd region).
       model.setTimeSignature(1, { numerator: 3, denominator: 4 })
-      expect(model.getMeasure(1)!.dynamics).toBeUndefined()
+      const dyns = model.getDynamics(1)
+      expect(dyns).toHaveLength(1)
+      expect(dyns[0].level).toBe('p')
+      expect(fracToNumber(dyns[0].beat)).toBe(0)
     })
+  })
+})
+
+describe('rebar preserves beat-anchored annotations (clefs + dynamics)', () => {
+  let model: ScoreModel
+  beforeEach(() => {
+    model = new ScoreModel() // measure 1, 4/4 by default
+    model.addMeasure()
+    model.addMeasure()
+  })
+
+  it('keeps a dynamic in place when its beat still fits the new bar', () => {
+    // The reported scenario: f at measure 2 beat 2, then change measure 2 → 3/4.
+    model.addDynamic(2, { beat: frac(2, 1), kind: 'level', level: 'f' })
+    model.setTimeSignature(2, { numerator: 3, denominator: 4 })
+    const dyns = model.getDynamics(2)
+    expect(dyns).toHaveLength(1)
+    expect(dyns[0].level).toBe('f')
+    expect(fracToNumber(dyns[0].beat)).toBe(2) // 3/4 bar still holds beat 2
+  })
+
+  it('moves a dynamic to the next bar when its beat overflows the new bar', () => {
+    // beat 3 of a 4/4 measure → absolute offset 3 → second 3/4 bar, beat 0.
+    model.addDynamic(1, { beat: frac(3, 1), kind: 'level', level: 'p' })
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    expect(model.getDynamics(1)).toHaveLength(0)
+    const moved = model.getDynamics(2)
+    expect(moved).toHaveLength(1)
+    expect(moved[0].level).toBe('p')
+    expect(fracToNumber(moved[0].beat)).toBe(0)
+  })
+
+  it('re-anchors a mid-measure clef change across a rebar', () => {
+    model.setClefAt(2, frac(2, 1), 'bass')
+    expect(model.getMeasure(2)!.clefs).toHaveLength(1)
+    model.setTimeSignature(2, { numerator: 3, denominator: 4 })
+    const clefs = model.getMeasure(2)!.clefs!
+    expect(clefs).toHaveLength(1)
+    expect(clefs[0].clef).toBe('bass')
+    expect(fracToNumber(clefs[0].beat)).toBe(2)
+  })
+
+  it('moves a clef change to the next bar when its beat overflows', () => {
+    model.setClefAt(1, frac(3, 1), 'bass')
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    expect(model.getMeasure(1)!.clefs).toBeUndefined()
+    const clefs = model.getMeasure(2)!.clefs!
+    expect(clefs).toHaveLength(1)
+    expect(clefs[0].clef).toBe('bass')
+    expect(fracToNumber(clefs[0].beat)).toBe(0)
   })
 })
 
