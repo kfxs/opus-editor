@@ -288,16 +288,14 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
     sets its own size). Fix: re-apply the annotation's resolved font (`annotation.fontInfo`) on the
     wrapper group. This is pure SVG/VexFlow behaviour — **not** framework-related; it would reproduce in
     React/Svelte/vanilla identically.
-  - **TODO (cross-cutting, framework-agnostic): extract notation CSS out of `App.vue`.** The ghost and
-    selection styling (`.ghost-note-preview`, `.ghost-clef-group`, `.ghost-timesig-group`,
-    `.ghost-dynamic-group`, `.selected-note`, and the other highlight classes) currently lives in
-    `App.vue`'s **global** `<style>` block. The engine creates the SVG nodes and assigns the class names
-    (portable), but the *rule definitions* sit in a `.vue` file and only work because that block is
-    `<style>` and **not** `<style scoped>` — making it `scoped` would silently break every ghost/highlight
-    (Vue rewrites the selectors with a `data-v-*` attribute that the engine-created nodes don't carry).
-    For the framework-agnostic goal, move these rules into an engine-owned stylesheet (e.g.
-    `src/engine/rendering/notation.css`) that any host imports once. Low-risk: cut the CSS, paste into the
-    new file, add one `import`. This decouples the rendering layer's visuals from Vue entirely.
+  - **DONE (cross-cutting, framework-agnostic): notation CSS extracted out of `App.vue`.** The ghost +
+    selection styling now lives in `src/engine/rendering/notation.css`, imported by `VexFlowRenderer.ts`
+    so it travels with the engine — any host (Vue/React/Svelte/vanilla) gets it for free, with no
+    `<style>` wiring. Previously these rules sat in `App.vue`'s **global** `<style>` block and only worked
+    because it wasn't `scoped` (making it `scoped` would have silently broken every ghost/highlight, since
+    Vue rewrites selectors with a `data-v-*` attribute the engine-created SVG nodes don't carry). Note:
+    the dead `.ghost-note-preview` rules were dropped — the ghost *note* is styled inline in code
+    (`VexFlowRenderer.applyGhostStyle`), not via a class, so it has no stylesheet dependency.
 
 ### Phase 5 — Palette UI + arm/click placement
 - (`ElementType` union already added in Phase 4.)

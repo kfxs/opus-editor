@@ -1,4 +1,7 @@
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet, TextDynamics } from 'vexflow'
+// Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
+// so they travel with the renderer — no UI-framework wiring required. See notation.css.
+import './notation.css'
 import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Chord, Fraction, PitchStep, PitchAlter, GhostNote, TimeSignature, Dynamic, DynamicLevel } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracGte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureOpeningClef, measureEndingClef, effectiveClefAt, effectiveClefBefore } from '@/utils/clefUtils'

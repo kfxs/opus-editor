@@ -731,90 +731,11 @@ async function togglePlayback() {
 </script>
 
 <style>
-/* Style ghost note preview elements */
-.ghost-note-preview path,
-.ghost-note-preview ellipse,
-.ghost-note-preview circle {
-  fill: #3B82F6 !important;
-  stroke: #2563EB !important;
-  opacity: 0.7 !important;
-}
-
-.ghost-note-preview line {
-  stroke: #2563EB !important;
-  opacity: 0.7 !important;
-}
-
-/* Free-floating translucent ghost clef that follows the cursor (matches ghost note) */
-.ghost-clef-group {
-  opacity: 0.7;
-  pointer-events: none;
-}
-.ghost-clef-group path,
-.ghost-clef-group ellipse,
-.ghost-clef-group circle {
-  fill: #3B82F6 !important;
-  stroke: #2563EB !important;
-}
-.ghost-clef-group text {
-  fill: #3B82F6 !important;
-}
-.ghost-clef-group line {
-  stroke: #2563EB !important;
-}
-
-/* Free-floating translucent ghost time signature that follows the cursor */
-.ghost-timesig-group {
-  opacity: 0.7;
-  pointer-events: none;
-}
-.ghost-timesig-group path,
-.ghost-timesig-group ellipse,
-.ghost-timesig-group circle {
-  fill: #3B82F6 !important;
-  stroke: #2563EB !important;
-}
-.ghost-timesig-group text {
-  fill: #3B82F6 !important;
-}
-.ghost-timesig-group line {
-  stroke: #2563EB !important;
-}
-
-/* Free-floating translucent ghost dynamic that follows the cursor */
-.ghost-dynamic-group {
-  opacity: 0.7;
-  pointer-events: none;
-}
-.ghost-dynamic-group path,
-.ghost-dynamic-group ellipse,
-.ghost-dynamic-group circle {
-  fill: #3B82F6 !important;
-  stroke: #2563EB !important;
-}
-.ghost-dynamic-group text {
-  fill: #3B82F6 !important;
-}
-
-/* Style selected note elements */
-.selected-note path,
-.selected-note ellipse,
-.selected-note circle,
-.selected-note rect {
-  fill: #F59E0B !important;
-  stroke: #D97706 !important;
-}
-
-.selected-note line {
-  stroke: #D97706 !important;
-}
-
-/* Force notehead fill color (VexFlow uses inline styles) */
-.selected-note [fill="black"],
-.selected-note [fill="#000"],
-.selected-note [fill="#000000"] {
-  fill: #F59E0B !important;
-}
+/*
+ * Notation rendering styles (cursor ghosts, selection highlight) now live with
+ * the engine in src/engine/rendering/notation.css, imported by VexFlowRenderer.
+ * Keep only app-layout styles here.
+ */
 
 /* Score container with rounded corners that work with scrollbars */
 .score-container {

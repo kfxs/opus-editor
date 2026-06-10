@@ -1,0 +1,84 @@
+/*
+ * Notation rendering styles — OWNED BY THE ENGINE, not the UI framework.
+ *
+ * VexFlowRenderer creates SVG nodes and tags them with these class names; the
+ * rules below give them their appearance (translucent blue cursor ghosts, amber
+ * selection highlight). They live here — imported by VexFlowRenderer.ts so they
+ * travel with the engine — rather than in App.vue, so the rendering layer's
+ * visuals are decoupled from Vue. A port to React/Svelte/vanilla needs no change:
+ * importing the renderer pulls these styles in automatically.
+ *
+ * NOTE: the ghost *note* preview is styled with inline attributes in code
+ * (VexFlowRenderer.applyGhostStyle), not via a class, so it has no rules here.
+ * Only the clef/time-signature/dynamic ghosts and the note selection highlight
+ * depend on CSS.
+ */
+
+/* Free-floating translucent ghost clef that follows the cursor */
+.ghost-clef-group {
+  opacity: 0.7;
+  pointer-events: none;
+}
+.ghost-clef-group path,
+.ghost-clef-group ellipse,
+.ghost-clef-group circle {
+  fill: #3B82F6 !important;
+  stroke: #2563EB !important;
+}
+.ghost-clef-group text {
+  fill: #3B82F6 !important;
+}
+.ghost-clef-group line {
+  stroke: #2563EB !important;
+}
+
+/* Free-floating translucent ghost time signature that follows the cursor */
+.ghost-timesig-group {
+  opacity: 0.7;
+  pointer-events: none;
+}
+.ghost-timesig-group path,
+.ghost-timesig-group ellipse,
+.ghost-timesig-group circle {
+  fill: #3B82F6 !important;
+  stroke: #2563EB !important;
+}
+.ghost-timesig-group text {
+  fill: #3B82F6 !important;
+}
+.ghost-timesig-group line {
+  stroke: #2563EB !important;
+}
+
+/* Free-floating translucent ghost dynamic that follows the cursor */
+.ghost-dynamic-group {
+  opacity: 0.7;
+  pointer-events: none;
+}
+.ghost-dynamic-group path,
+.ghost-dynamic-group ellipse,
+.ghost-dynamic-group circle {
+  fill: #3B82F6 !important;
+  stroke: #2563EB !important;
+}
+.ghost-dynamic-group text {
+  fill: #3B82F6 !important;
+}
+
+/* Selected note highlight */
+.selected-note path,
+.selected-note ellipse,
+.selected-note circle,
+.selected-note rect {
+  fill: #F59E0B !important;
+  stroke: #D97706 !important;
+}
+.selected-note line {
+  stroke: #D97706 !important;
+}
+/* Force notehead fill color (VexFlow uses inline styles) */
+.selected-note [fill="black"],
+.selected-note [fill="#000"],
+.selected-note [fill="#000000"] {
+  fill: #F59E0B !important;
+}
