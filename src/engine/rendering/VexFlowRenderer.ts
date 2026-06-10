@@ -2304,4 +2304,91 @@ export class VexFlowRenderer {
       return false
     }
   }
+
+  /**
+   * Render the score with a free-floating translucent ghost dynamic that follows
+   * the cursor (mirrors {@link renderScoreWithClefGhost}). Builds the real dynamic
+   * Annotation (level glyph in the music font, or custom italic text) on a
+   * throwaway note, then keeps only the annotation's SVG group — discarding the
+   * temp stave/notehead — wrapped in a `.ghost-dynamic-group` and centred on the
+   * cursor. On click the mark is applied to the clicked slot (see MouseController).
+   *
+   * GOTCHA (font-size inheritance): a dynamic level glyph's `<text>` is emitted
+   * with NO explicit `font-size` — VexFlow lets it inherit the size from its
+   * ancestors in the score's SVG tree. Re-parenting that `<text>` to a group at
+   * the SVG root (as we do here) breaks the inheritance chain, so the glyph would
+   * collapse to the browser default (~16px) and look tiny next to a placed mark.
+   * We therefore re-apply the annotation's resolved font on the wrapper group
+   * below. This is a pure SVG/VexFlow behaviour, unrelated to the UI framework.
+   * @returns true if the ghost dynamic was drawn
+   */
+  renderScoreWithDynamicGhost(score: Score, cursorX: number, cursorY: number, dynamic: Dynamic): boolean {
+    this.renderScore(score)
+
+    const svg = this.getSVGElement()
+    if (!svg) return false
+
+    try {
+      const childrenBefore = svg.children.length
+
+      // Draw the annotation on a throwaway quarter note. The note/stave glyphs are
+      // discarded below; we keep only the annotation's SVG group.
+      const tempStave = new Stave(0, cursorY, 200)
+      tempStave.setBegBarType(Barline.type.NONE)
+      tempStave.setEndBarType(Barline.type.NONE)
+      tempStave.setContext(this.context!)
+
+      const annotation = this.buildDynamicAnnotation(dynamic)
+      const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
+      note.setStave(tempStave)
+      note.addModifier(annotation, 0)
+
+      const voice = new Voice({ numBeats: 1, beatValue: 4 })
+      voice.setStrict(false)
+      voice.addTickables([note])
+      new Formatter().joinVoices([voice]).format([voice], 150)
+      voice.draw(this.context!, tempStave)
+
+      const annoEl = annotation.getSVGElement?.() as SVGGElement | undefined
+
+      const newElements: Element[] = []
+      for (let i = childrenBefore; i < svg.children.length; i++) {
+        newElements.push(svg.children[i])
+      }
+
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+      group.setAttribute('class', 'ghost-dynamic-group')
+      // The dynamic glyph's <text> carries no explicit font-size — it inherits it
+      // from its ancestors in the score. Extracting it to the SVG root breaks that
+      // chain (the glyph would shrink to the browser default), so re-apply the
+      // annotation's resolved font on the group for the <text> to inherit.
+      const f = annotation.fontInfo
+      if (f) {
+        group.setAttribute('font-family', f.family)
+        group.setAttribute('font-size', typeof f.size === 'number' ? `${f.size}pt` : String(f.size))
+        if (f.style) group.setAttribute('font-style', f.style)
+      }
+      // Move just the annotation group out (detaches it from the note's group)…
+      if (annoEl) group.appendChild(annoEl)
+      // …then discard the leftover temp stave/notehead/stem elements.
+      for (const el of newElements) {
+        if (el.parentNode === svg) svg.removeChild(el)
+      }
+      if (!annoEl) return false
+
+      svg.appendChild(group)
+
+      // Centre the glyph on the cursor so it tracks the mouse freely.
+      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
+      if (gbox && gbox.width > 0) {
+        const dx = cursorX - (gbox.x + gbox.width / 2)
+        const dy = cursorY - (gbox.y + gbox.height / 2)
+        group.setAttribute('transform', `translate(${dx}, ${dy})`)
+      }
+
+      return true
+    } catch (e) {
+      return false
+    }
+  }
 }

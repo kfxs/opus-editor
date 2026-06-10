@@ -1131,6 +1131,17 @@ export class MusicEngine {
   }
 
   /**
+   * Render the score with a free-floating translucent ghost dynamic that follows
+   * the cursor; on click it is applied to the clicked slot.
+   * @returns true if a ghost dynamic was drawn, false otherwise
+   */
+  renderScoreWithDynamicGhost(coords: PixelCoordinates, dynamic: Dynamic): boolean {
+    const drawn = this.renderer.renderScoreWithDynamicGhost(this.scoreModel.getScore(), coords.x, coords.y, dynamic)
+    this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
+    return drawn
+  }
+
+  /**
    * Clear the canvas
    */
   clearCanvas(): void {

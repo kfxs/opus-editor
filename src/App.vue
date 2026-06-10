@@ -781,6 +781,21 @@ async function togglePlayback() {
   stroke: #2563EB !important;
 }
 
+/* Free-floating translucent ghost dynamic that follows the cursor */
+.ghost-dynamic-group {
+  opacity: 0.7;
+  pointer-events: none;
+}
+.ghost-dynamic-group path,
+.ghost-dynamic-group ellipse,
+.ghost-dynamic-group circle {
+  fill: #3B82F6 !important;
+  stroke: #2563EB !important;
+}
+.ghost-dynamic-group text {
+  fill: #3B82F6 !important;
+}
+
 /* Style selected note elements */
 .selected-note path,
 .selected-note ellipse,

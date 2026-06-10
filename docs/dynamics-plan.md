@@ -277,6 +277,27 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
   articulation site covers rests — it doesn't.
 - Ghost preview (optional, nice-to-have): render a translucent dynamic at the armed cursor, like the
   clef/TS ghost (`renderScoreWithClefGhost`). Can defer to a polish pass.
+  - **DONE.** Implemented as `renderScoreWithDynamicGhost` (engine → renderer), wired through
+    `RenderController.renderDynamicGhost` and the dynamics branch in `MouseController.handleMouseMove`;
+    styled via global class `.ghost-dynamic-group` in `App.vue`.
+  - **GOTCHA worth remembering** (cost a debugging session): unlike the clef/TS ghosts, the dynamic
+    ghost *extracts just the annotation's `<g>`* and re-parents it to the SVG root. A level glyph's
+    `<text>` is emitted with **no explicit `font-size`** — VexFlow relies on it **inheriting** the size
+    from ancestors in the score tree. Re-parenting breaks that chain, so the glyph collapses to the
+    browser default (~16px) and renders tiny next to a placed mark (custom *text* was fine because it
+    sets its own size). Fix: re-apply the annotation's resolved font (`annotation.fontInfo`) on the
+    wrapper group. This is pure SVG/VexFlow behaviour — **not** framework-related; it would reproduce in
+    React/Svelte/vanilla identically.
+  - **TODO (cross-cutting, framework-agnostic): extract notation CSS out of `App.vue`.** The ghost and
+    selection styling (`.ghost-note-preview`, `.ghost-clef-group`, `.ghost-timesig-group`,
+    `.ghost-dynamic-group`, `.selected-note`, and the other highlight classes) currently lives in
+    `App.vue`'s **global** `<style>` block. The engine creates the SVG nodes and assigns the class names
+    (portable), but the *rule definitions* sit in a `.vue` file and only work because that block is
+    `<style>` and **not** `<style scoped>` — making it `scoped` would silently break every ghost/highlight
+    (Vue rewrites the selectors with a `data-v-*` attribute that the engine-created nodes don't carry).
+    For the framework-agnostic goal, move these rules into an engine-owned stylesheet (e.g.
+    `src/engine/rendering/notation.css`) that any host imports once. Low-risk: cut the CSS, paste into the
+    new file, add one `import`. This decouples the rendering layer's visuals from Vue entirely.
 
 ### Phase 5 — Palette UI + arm/click placement
 - (`ElementType` union already added in Phase 4.)

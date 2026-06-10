@@ -614,9 +614,10 @@ export class MouseController {
       return
     }
 
-    // Dynamics tool armed: suppress the ghost note and the keyboard cursor. (A
-    // ghost-dynamic preview is a deferred polish item — see docs/dynamics-plan.md.)
+    // Dynamics tool armed: show a ghost dynamic (level glyph or custom-text
+    // placeholder) following the cursor, and hide the keyboard cursor.
     if (this.state.selectedDynamic) {
+      this.render.renderDynamicGhost({ x, y }, this.state.selectedDynamic)
       this.state.showCursor = false
       return
     }

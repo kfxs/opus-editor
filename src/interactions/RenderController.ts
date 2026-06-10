@@ -1,6 +1,6 @@
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { Clef, TimeSignature } from '../types/music'
-import type { EditorState } from './EditorState'
+import type { Clef, TimeSignature, Dynamic } from '../types/music'
+import type { DynamicTool, EditorState } from './EditorState'
 import type { HighlightController } from './HighlightController'
 
 /**
@@ -68,6 +68,22 @@ export class RenderController {
     const engine = this.getEngine()
     if (!engine) return
     engine.renderScoreWithTimeSignatureGhost(coords, ts)
+    this.applyHighlights()
+  }
+
+  /**
+   * Render the score with a translucent ghost dynamic following the cursor. The
+   * `'text'` tool previews the custom-text placeholder; a level tool previews its
+   * glyph (p/mp/mf/f).
+   */
+  renderDynamicGhost(coords: { x: number; y: number }, tool: DynamicTool): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    const beat = { num: 0, den: 1 }
+    const ghost: Dynamic = tool === 'text'
+      ? { id: 'ghost-dynamic', beat, kind: 'text', text: 'Text', placement: 'below' }
+      : { id: 'ghost-dynamic', beat, kind: 'level', level: tool, placement: 'below' }
+    engine.renderScoreWithDynamicGhost(coords, ghost)
     this.applyHighlights()
   }
 }
