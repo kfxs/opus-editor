@@ -65,6 +65,28 @@
   fill: #3B82F6 !important;
 }
 
+/*
+ * In-canvas text editor overlay (DomTextEdit). A chrome-free, font-matched
+ * contentEditable placed exactly over a custom-text dynamic while editing — the
+ * engraved glyph is hidden (opacity:0) so the typed text reads as the score text.
+ * Geometry + font are set inline from the source's rect / fontCSS; these rules
+ * just strip the browser's default box and keep the caret tight to the baseline.
+ */
+.text-edit-overlay {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  /* Transparent — the engraved glyph is removed from the render while editing
+     (renderer skips the suppressed dynamic), so there's nothing underneath. */
+  background: transparent;
+  line-height: 1;
+  white-space: pre;
+  min-width: 1px;
+  z-index: 50;
+  caret-color: #2563EB;
+}
+
 /* Selected note highlight */
 .selected-note path,
 .selected-note ellipse,

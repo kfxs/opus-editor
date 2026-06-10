@@ -3,12 +3,14 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
 import type { SelectionController } from './SelectionController'
 import type { RenderController } from './RenderController'
+import type { TextEditController } from './TextEditController'
+import { DynamicTextSource } from './DynamicTextSource'
 import { fracToNumber, fracEq } from '../utils/fraction'
+
+/** Default text for a newly placed custom-text dynamic; edit it via double-click. */
+const DEFAULT_DYNAMIC_TEXT = 'Text'
 import { getMeasureNotes, beatToFrac, measureCapacityQuarters } from '../utils/musicUtils'
 import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
-
-/** Placeholder text for a newly placed custom-text dynamic (editable later). */
-const DEFAULT_DYNAMIC_TEXT = 'Text'
 
 /**
  * Handles all mouse interactions: clicks, drags, ghost-note preview.
@@ -35,6 +37,12 @@ export class MouseController {
   private readonly DRAG_TIME_THRESHOLD_MS = 150
   private readonly PREVIEW_THROTTLE_MS = 50
 
+  // --- Manual double-click detection for the in-canvas text editor (the native
+  // dblclick event is defeated by the re-render-on-select swapping SVG nodes) ---
+  private lastDynamicDownId: string | null = null
+  private lastDynamicDownTime = 0
+  private readonly DOUBLE_CLICK_MS = 400
+
   private readonly onDocMouseDown = () => { this.isMouseButtonDown = true }
   private readonly onDocMouseUp = () => { this.isMouseButtonDown = false }
 
@@ -45,6 +53,7 @@ export class MouseController {
     private selection: SelectionController,
     private render: RenderController,
     private getPendingArticulations: () => ArticulationType[] | undefined,
+    private getTextEdit: () => TextEditController | null,
   ) {}
 
   /** Register document-level event listeners. Call on mount. */
@@ -102,9 +111,30 @@ export class MouseController {
     return slot ? slot.beat : beatToFrac(bestBeatNum)
   }
 
+  /**
+   * Open the in-canvas text editor on a custom-text dynamic. Builds a
+   * {@link DynamicTextSource} (which carries the model write + positioning + glyph
+   * hide) and hands it to the shared {@link TextEditController}. No-op if the text
+   * editor isn't wired (e.g. before mount).
+   */
+  private openTextEditor(dynamicId: string, isNew: boolean): void {
+    const engine = this.getEngine()
+    const textEdit = this.getTextEdit()
+    if (!engine || !textEdit) return
+    const source = new DynamicTextSource(
+      dynamicId,
+      isNew,
+      engine,
+      () => this.getScoreCanvas(),
+      () => this.render.renderScore(),
+    )
+    textEdit.open(source)
+  }
+
   // --- Mouse handlers ---
 
   handleMouseDown(event: MouseEvent): void {
+    if (this.state.editingText) return // modal: a text edit is open (belt; DOM swallows the click-away)
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
     if (!engine || !scoreCanvas) return
@@ -217,9 +247,34 @@ export class MouseController {
         && y >= b.y - dynPad && y <= b.y + b.height + dynPad
     }) ?? null
     if (dynamicAt?.id) {
+      // Manual double-click detection: a second mousedown on the SAME dynamic within
+      // the threshold opens the in-canvas text editor. We can't use the native
+      // `dblclick` event here because selecting re-renders the score on every
+      // mousedown, swapping the SVG nodes — so the two clicks land on different
+      // element instances and the browser never fires dblclick.
+      const now = Date.now()
+      const isDoubleClick = this.lastDynamicDownId === dynamicAt.id
+        && (now - this.lastDynamicDownTime) < this.DOUBLE_CLICK_MS
+      this.lastDynamicDownId = dynamicAt.id
+      this.lastDynamicDownTime = now
+
+      if (isDoubleClick) {
+        const dyn = engine.getDynamicById(dynamicAt.id)
+        if (dyn && dyn.kind === 'text') {
+          this.lastDynamicDownId = null // consume, so a 3rd click isn't a double
+          // Stop the browser's default mousedown focus/selection — otherwise it
+          // steals focus back from the overlay right after we focus it, and typing
+          // goes nowhere.
+          event.preventDefault()
+          console.log(`✓ Editing dynamic text | id:${dynamicAt.id}`)
+          this.openTextEditor(dynamicAt.id, false)
+          return
+        }
+      }
+
       this.selection.selectNote(null)
       this.state.selectedDynamicId = dynamicAt.id
-      console.log(`✓ Dynamic selected | id:${dynamicAt.id} (Delete to remove)`)
+      console.log(`✓ Dynamic selected | id:${dynamicAt.id} (Delete to remove, double-click text to edit)`)
       this.render.renderScore()
       return
     }
@@ -353,6 +408,7 @@ export class MouseController {
   }
 
   handleClick(event: MouseEvent): void {
+    if (this.state.editingText) return // modal: a text edit is open (belt; DOM swallows the click-away)
     if (this.state.selectedTool === 'selection') return
 
     console.log(`Click RAW | client:(${event.clientX},${event.clientY})`)
@@ -423,14 +479,15 @@ export class MouseController {
       const tool = this.state.selectedDynamic
       const beat = this.resolveSlotBeat(engine, x, measureNum)
       if (tool === 'text') {
-        // Custom-text mark: drop a placeholder ("Text"); editing it in place is a
-        // deferred feature. The text is always user-editable by design.
+        // Custom-text mark: drop the default text. Edit it later by double-clicking
+        // the mark with the selection tool (→ MouseController.handleDoubleClick).
         engine.addDynamic(measureNum, { beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below' })
         console.log(`✓ Dynamic text at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
-      } else {
-        engine.addDynamic(measureNum, { beat, kind: 'level', level: tool, voice: 0, placement: 'below' })
-        console.log(`✓ Dynamic ${tool} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
+        this.render.renderScore()
+        return
       }
+      engine.addDynamic(measureNum, { beat, kind: 'level', level: tool, voice: 0, placement: 'below' })
+      console.log(`✓ Dynamic ${tool} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
       this.render.renderScore()
       return
     }
@@ -523,6 +580,7 @@ export class MouseController {
   }
 
   handleMouseMove(event: MouseEvent): void {
+    if (this.state.editingText) return // modal: suppress ghost/preview while a text edit is open
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
     if (!engine || !scoreCanvas) return

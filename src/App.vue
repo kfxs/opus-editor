@@ -492,6 +492,7 @@ import { useSelection } from './composables/useSelection'
 import { usePalette } from './composables/usePalette'
 import { useKeyboardEntry } from './composables/useKeyboardEntry'
 import { useMouseInteraction } from './composables/useMouseInteraction'
+import { useTextEditing } from './composables/useTextEditing'
 import { useShortcuts } from './composables/useShortcuts'
 import { isValidTimeSignature } from './utils/meter'
 import { getMeasureDurationFrac } from './utils/musicUtils'
@@ -529,9 +530,13 @@ const palette = usePalette(
 // KeyboardController depends on selection and palette
 const keyboard = useKeyboardEntry(state, engine, palette, () => renderer.renderScore(), selection)
 
-// MouseController depends on selection, renderer, highlight, palette.
+// TextEditController — the in-canvas text editor (seamless DOM overlay). Created
+// before mouse so MouseController can open it on double-click / new placement.
+const textEdit = useTextEditing(state)
+
+// MouseController depends on selection, renderer, highlight, palette, textEdit.
 // onMounted/onUnmounted are called internally by the composable.
-mouse = useMouseInteraction(state, engine, scoreCanvas, selection, renderer, palette)
+mouse = useMouseInteraction(state, engine, scoreCanvas, selection, renderer, palette, textEdit)
 
 // ShortcutManager — wires keyboard shortcuts to controller actions
 const shortcuts = useShortcuts(

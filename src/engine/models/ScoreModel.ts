@@ -386,6 +386,16 @@ export class ScoreModel {
     return measureDynamics(this.score, measureNumber)
   }
 
+  /** Find a dynamic anywhere in the score by id (live reference), or null. Used by
+   *  the in-canvas text editor to seed the overlay with the mark's current text. */
+  getDynamicById(id: string): Dynamic | null {
+    for (const measure of this.score.measures) {
+      const dyn = measure.dynamics?.find(d => d.id === id)
+      if (dyn) return dyn
+    }
+    return null
+  }
+
   /**
    * The interpreted dynamic level in effect at (measure, beat) for a voice.
    * Delegates to the shared resolver in utils/dynamics (walk-back reference).

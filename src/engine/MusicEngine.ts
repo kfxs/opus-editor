@@ -383,6 +383,11 @@ export class MusicEngine {
     return this.scoreModel.getDynamics(measureNumber)
   }
 
+  /** Find a dynamic anywhere in the score by id (live reference), or null. */
+  getDynamicById(id: string): Dynamic | null {
+    return this.scoreModel.getDynamicById(id)
+  }
+
   /** The interpreted dynamic level in effect at (measure, beat) for a voice. */
   getActiveLevel(measureNumber: number, beat: Fraction, voice: number = 0): DynamicLevel {
     return this.scoreModel.getActiveLevel(measureNumber, beat, voice)
@@ -1405,6 +1410,12 @@ export class MusicEngine {
    */
   getDynamicSVGGroup(dynamicId: string): SVGGElement | null {
     return this.renderer.getDynamicSVGGroup(dynamicId)
+  }
+
+  /** Suppress one dynamic from rendering (null = restore). Re-render to apply.
+   *  Used by the in-canvas text editor to remove the engraved glyph while editing. */
+  setSuppressedDynamicId(dynamicId: string | null): void {
+    this.renderer.setSuppressedDynamicId(dynamicId)
   }
 
   // ==================== Cleanup ====================

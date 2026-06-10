@@ -5,6 +5,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { SelectionController } from '../interactions/SelectionController'
 import type { RenderController } from '../interactions/RenderController'
 import type { PaletteController } from '../interactions/PaletteController'
+import type { TextEditController } from '../interactions/TextEditController'
 import { MouseController } from '../interactions/MouseController'
 
 /**
@@ -18,6 +19,7 @@ export function useMouseInteraction(
   selection: SelectionController,
   render: RenderController,
   palette: PaletteController,
+  textEdit: TextEditController,
 ): MouseController {
   const controller = new MouseController(
     () => engine.value,
@@ -26,6 +28,7 @@ export function useMouseInteraction(
     selection,
     render,
     () => palette.getPendingArticulations(),
+    () => textEdit,
   )
 
   onMounted(() => controller.setup())

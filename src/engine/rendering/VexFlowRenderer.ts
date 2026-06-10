@@ -12,6 +12,9 @@ import { fillRests, pickVoiceMode, type RestSlot } from '@/utils/restFill'
 import { computeBeamGroups } from '@/utils/beaming'
 import { ElementRegistry, type TupletGeometry, type ClefSegment } from '@/engine/ElementRegistry'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
+// Dynamics styling constants live in ./dynamicStyle so the in-canvas text editor can
+// font-match the engraving from the same source of truth (see docs/text-editing-plan.md §3).
+import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT } from './dynamicStyle'
 
 /**
  * Articulation render order — from note outward (first = closest to note head).
@@ -20,19 +23,6 @@ import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/uti
  * To change the order in the future, edit this array.
  */
 const ARTICULATION_RENDER_ORDER: ArticulationType[] = ['staccato', 'tenuto', 'accent']
-
-/**
- * Font sizes (px) for dynamics rendered as Annotations. Level marks use the SMuFL
- * music glyph at music-glyph size; custom text uses a smaller italic text size.
- * The font *family* is deliberately left as VexFlow's global stack (Bravura +
- * text fallback) so level glyphs and custom text follow whatever engraving font
- * the score uses — never hardcode 'Bravura' here (see docs/dynamics-plan.md §4).
- */
-const DYNAMIC_GLYPH_SIZE = 30
-const DYNAMIC_TEXT_SIZE = 14
-/** Serif stack for custom-text dynamics — has a true italic face (the music font
- *  doesn't), so expression text actually slants. Styling will be user-configurable later. */
-const DYNAMIC_TEXT_FONT = 'Georgia, "Times New Roman", Times, serif'
 
 /**
  * Per-letter SMuFL codepoints for dynamics (`p`/`m`/`f`/`s`/`z`/`r`), reused from
@@ -142,6 +132,9 @@ export class VexFlowRenderer {
   private tupletObjectMap: Map<string, VexFlowTuplet> = new Map()
   /** Map of dynamic IDs to their rendered VexFlow Annotation objects (for scoped highlight) */
   private dynamicObjectMap: Map<string, Annotation> = new Map()
+  /** Dynamic currently being edited in the in-canvas text overlay — skipped while
+   *  rendering so the engraved glyph doesn't show doubled under the editor. */
+  private suppressedDynamicId: string | null = null
   /** Map of measure numbers to their layout info (including line number) */
   private measureLayoutInfo: Map<number, MeasureWidthInfo> = new Map()
   /** Snapshot of the layout captured when frozen. While non-null, renderScore
@@ -380,6 +373,7 @@ export class VexFlowRenderer {
 
     const byTarget = new Map<number, string[]>()
     for (const dyn of dynamics) {
+      if (dyn.id === this.suppressedDynamicId) continue // being edited in the text overlay
       const voice = dyn.voice ?? 0
 
       let targetIdx = sortedSlots.findIndex(s => (s.voice ?? 0) === voice && fracEq(s.beat, dyn.beat))
@@ -2261,6 +2255,13 @@ export class VexFlowRenderer {
   getDynamicSVGGroup(dynamicId: string): SVGGElement | null {
     const group = this.dynamicObjectMap.get(dynamicId)?.getSVGElement?.()
     return (group as unknown as SVGGElement) ?? null
+  }
+
+  /** Suppress one dynamic from the next renders (pass null to restore). Used by the
+   *  in-canvas text editor so the engraved glyph isn't drawn under the overlay. The
+   *  caller must trigger a re-render for this to take effect. */
+  setSuppressedDynamicId(dynamicId: string | null): void {
+    this.suppressedDynamicId = dynamicId
   }
 
   /**

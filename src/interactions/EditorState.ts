@@ -66,6 +66,14 @@ export interface EditorState {
    *  if none. Distinct from `selectedDynamic` (the armed palette tool). */
   selectedDynamicId: string | null
 
+  // --- In-canvas text editing ---
+  /** Set while a seamless DOM-overlay text editor is open over a mark; null when
+   *  not editing. While non-null, the canvas mouse handlers (click / move) bail so
+   *  the edit is modal-ish and a commit-click can't plant a stray mark. `kind` is a
+   *  discriminator for future text types (lyric/technique/…); `isNew` carries the
+   *  empty-text rule's "just placed vs existing" signal to the source. */
+  editingText: { targetId: string; kind: 'dynamic'; isNew: boolean } | null
+
   // --- UI ---
   showCursor: boolean
   playbackState: PlaybackState
@@ -96,6 +104,7 @@ export function createEditorState(): EditorState {
     selectedTimeSignatureMeasure: null,
     selectedDynamic: null,
     selectedDynamicId: null,
+    editingText: null,
     showCursor: true,
     playbackState: 'stopped',
   }
