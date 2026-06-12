@@ -73,18 +73,31 @@ export class HighlightController {
   applySelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
-    if (!engine || !scoreCanvas || !this.state.selectedNoteId) return
+    if (!engine || !scoreCanvas) return
+
+    // Highlight every selected note. Each is recolored inside its own SVG group, so
+    // N highlights is just the single-note highlight applied N times (no cross-bleed).
+    // Uniform color for all in Phase 1 — no distinct anchor tint yet.
+    for (const item of this.state.selectedItems.values()) {
+      if (item.kind === 'note') this.highlightNote(item.id)
+    }
+  }
+
+  /** Recolor one note's notehead + stem (or a rest's glyph) inside its own SVG group. */
+  private highlightNote(noteId: string): void {
+    const engine = this.getEngine()
+    if (!engine) return
 
     // Recolor the note's OWN rendered SVG group, never a document-wide region. VexFlow
     // draws each StaveNote's ledger lines, stem and noteheads inside one
     // `<g class="vf-stavenote">`, so confining the recolor to that group makes the
     // selection highlight bleed-free in both directions (the old approach scanned a
     // synthetic band that overlapped the staff line above or below).
-    const groupInfo = engine.getStaveNoteSVGGroup(this.state.selectedNoteId)
+    const groupInfo = engine.getStaveNoteSVGGroup(noteId)
     if (!groupInfo) return
     const { group, noteIndex, stem } = groupInfo
 
-    const isRest = engine.getElementById(this.state.selectedNoteId)?.type === 'rest'
+    const isRest = engine.getElementById(noteId)?.type === 'rest'
 
     const SELECTION_COLOR = '#F59E0B'
     const SELECTION_STROKE = '#D97706'

@@ -156,6 +156,33 @@ export class MouseController {
     const closestElement = registry.findClosestNoteOrRest(x, y)
     const tupletAtClick = registry.getTupletAt(x, y)
 
+    // Ctrl/Cmd-click: toggle a note in/out of the multi-selection. Phase 1 is
+    // notes-only, so additive clicks ignore every other element kind and never
+    // clear the set — clicking empty space (or a non-note element) is a no-op,
+    // and no drag is armed (a toggle is not a move).
+    const additive = event.ctrlKey || event.metaKey
+    if (additive) {
+      if (closestElement && closestElement.id) {
+        const bbox = closestElement.bbox
+        const centerX = bbox.x + bbox.width / 2
+        let elementY: number
+        if (closestElement.type === 'note' && closestElement.pitch !== undefined && closestElement.measure !== undefined) {
+          const pitchY = registry.pitchToPixelY(closestElement.pitch, closestElement.measure, centerX)
+          elementY = pitchY !== null ? pitchY : bbox.y + bbox.height / 2
+        } else {
+          elementY = bbox.y + bbox.height / 2
+        }
+        const distance = Math.sqrt((x - centerX) ** 2 + (y - elementY) ** 2)
+        if (distance < 30) {
+          this.selection.toggleNote(closestElement.id)
+          const typeLabel = closestElement.type === 'rest' ? 'Rest' : 'Note'
+          console.log(`✓ ${typeLabel} toggled in selection | id:${closestElement.id} | size:${this.state.selectedItems.size}`)
+          this.render.renderScore()
+        }
+      }
+      return
+    }
+
     if (tupletAtClick && tupletAtClick.tupletId) {
       const tupletNotes = registry.getNotesByTupletId(tupletAtClick.tupletId)
       let minVerticalDistance = Infinity

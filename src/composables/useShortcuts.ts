@@ -102,8 +102,11 @@ export function useShortcuts(
         eng.removeDynamic(state.selectedDynamicId)
         state.selectedDynamicId = null
         renderer.renderScore()
-      } else if (state.selectedNoteId && eng) {
-        eng.deleteNote(state.selectedNoteId)
+      } else if (state.selectedItems.size > 0 && eng) {
+        // Delete every selected note (Phase 1: the set holds only notes).
+        for (const item of state.selectedItems.values()) {
+          if (item.kind === 'note') eng.deleteNote(item.id)
+        }
         selection.selectNote(null)
         renderer.renderScore()
       }

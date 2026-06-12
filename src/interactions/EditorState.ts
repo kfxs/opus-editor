@@ -1,4 +1,5 @@
 import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, DynamicLevel } from '../types/music'
+import type { SelectionItem } from './selection'
 
 /** A value armed on the dynamics palette: an interpreted level, or the custom-text tool. */
 export type DynamicTool = DynamicLevel | 'text'
@@ -19,6 +20,19 @@ export interface EditorState {
   selectedTool: ToolMode
 
   // --- Note selection ---
+  /**
+   * The multi-selection set, keyed by `itemKey(item)` (ordered: insertion = click
+   * order). Phase 1 holds only `note` items; other element kinds are still
+   * single-select via the scalar fields below.
+   */
+  selectedItems: Map<string, SelectionItem>
+  /**
+   * The selection ANCHOR: the id of the last-added note (or null when no note is
+   * selected). Single-target operations — keyboard nav, the entry cursor, drag,
+   * palette-sync — act on the anchor, so with exactly one selected note this is
+   * identical to the pre-multi-select behavior. Kept in sync with `selectedItems`
+   * by SelectionController.
+   */
   selectedNoteId: string | null
   selectedArticulationNoteId: string | null
   selectedArticulationType: string | null
@@ -82,6 +96,7 @@ export interface EditorState {
 export function createEditorState(): EditorState {
   return {
     selectedTool: 'entry',
+    selectedItems: new Map(),
     selectedNoteId: null,
     selectedArticulationNoteId: null,
     selectedArticulationType: null,

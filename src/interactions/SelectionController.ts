@@ -5,6 +5,7 @@ import { buildBeatMap } from '../utils/beatMap'
 import { fracLt, fracEq, fracCompare } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
+import { itemKey, selectedNoteIds, type SelectionItem } from './selection'
 
 /**
  * Handles note selection, navigation, pitch adjustment, and scroll-into-view.
@@ -50,13 +51,9 @@ export class SelectionController {
     }
   }
 
-  /**
-   * Select a note by ID and sync the palette (duration, accidental, dots) to its properties.
-   * Pass null to clear the selection.
-   * Also clears any articulation/accidental/tuplet sub-selections.
-   */
-  selectNote(noteId: string | null): void {
-    this.state.selectedNoteId = noteId
+  /** Clear the per-element scalar sub-selections (articulation/accidental/tie/clef/…).
+   *  Notes are mutually exclusive with these in Phase 1, so selecting a note clears them. */
+  private clearScalarSubSelections(): void {
     this.state.selectedBeam = 'auto'
     this.state.selectedArticulationNoteId = null
     this.state.selectedArticulationType = null
@@ -66,21 +63,65 @@ export class SelectionController {
     this.state.selectedClefMeasure = null
     this.state.selectedClefBeat = null
     this.state.selectedTimeSignatureMeasure = null
+  }
 
-    if (noteId) {
-      const engine = this.getEngine()
-      if (!engine) return
-      const score = engine.getScore()
-      for (const measure of score.measures) {
-        const note = getMeasureNotes(measure).find(n => n.id === noteId)
-        if (note) {
-          this.state.selectedDuration = note.duration
-          this.state.selectedAccidental = this.computeDisplayedAccidental(note, measure)
-          this.state.selectedDots = note.dots || 0
-          break
-        }
+  /** Sync the palette (duration, accidental, dots) to a note's properties. No-op if not found. */
+  private syncPaletteToNote(noteId: string): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    const score = engine.getScore()
+    for (const measure of score.measures) {
+      const note = getMeasureNotes(measure).find(n => n.id === noteId)
+      if (note) {
+        this.state.selectedDuration = note.duration
+        this.state.selectedAccidental = this.computeDisplayedAccidental(note, measure)
+        this.state.selectedDots = note.dots || 0
+        break
       }
     }
+  }
+
+  /** Recompute the anchor (selectedNoteId) as the last note item in the set, or null. */
+  private recomputeAnchor(): void {
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+    this.state.selectedNoteId = ids.length ? ids[ids.length - 1] : null
+  }
+
+  /**
+   * REPLACE the selection with a single note by ID (or clear it with null), and
+   * sync the palette to that note. Also clears any scalar sub-selections.
+   * This is the plain-click / navigation / entry path.
+   */
+  selectNote(noteId: string | null): void {
+    this.state.selectedItems.clear()
+    if (noteId) {
+      const item: SelectionItem = { kind: 'note', id: noteId }
+      this.state.selectedItems.set(itemKey(item), item)
+    }
+    this.state.selectedNoteId = noteId
+    this.clearScalarSubSelections()
+    if (noteId) this.syncPaletteToNote(noteId)
+  }
+
+  /**
+   * TOGGLE a note in/out of the multi-selection (ctrl/cmd-click). Adding a note
+   * makes it the anchor and syncs the palette; removing one recomputes the anchor
+   * to the remaining last note. Also clears scalar sub-selections, since notes are
+   * mutually exclusive with the other element kinds in Phase 1.
+   */
+  toggleNote(noteId: string): void {
+    const item: SelectionItem = { kind: 'note', id: noteId }
+    const key = itemKey(item)
+    if (this.state.selectedItems.has(key)) {
+      this.state.selectedItems.delete(key)
+      this.recomputeAnchor()
+      if (this.state.selectedNoteId) this.syncPaletteToNote(this.state.selectedNoteId)
+    } else {
+      this.state.selectedItems.set(key, item)
+      this.state.selectedNoteId = noteId
+      this.syncPaletteToNote(noteId)
+    }
+    this.clearScalarSubSelections()
   }
 
   /**
@@ -158,49 +199,44 @@ export class SelectionController {
     this.renderScore()
   }
 
-  /** Adjust pitch of selected note by one diatonic step. No-op on rests. */
+  /** Adjust pitch of EVERY selected note by one diatonic step. Rests are skipped. */
   adjustPitch(direction: number): void {
     const engine = this.getEngine()
-    if (!this.state.selectedNoteId || !engine) return
+    if (!engine) return
     if (this.state.selectedTool !== 'selection' && this.state.selectedTool !== 'entry') return
 
-    const score = engine.getScore()
-    let selectedNote = null
-    for (const measure of score.measures) {
-      const note = getMeasureNotes(measure).find(n => n.id === this.state.selectedNoteId)
-      if (note) { selectedNote = note; break }
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+    let moved = false
+    for (const id of ids) {
+      const note = engine.getNote(id)
+      if (!note || note.isRest) continue
+      const newSpelling = this.movePitchDiatonically(note.step!, note.alter!, note.octave!, direction)
+      engine.updateNote(id, {
+        step: newSpelling.step, alter: newSpelling.alter, octave: newSpelling.octave,
+      })
+      moved = true
     }
-
-    if (!selectedNote || selectedNote.isRest) return
-
-    const newSpelling = this.movePitchDiatonically(
-      selectedNote.step!, selectedNote.alter!, selectedNote.octave!, direction,
-    )
-    engine.updateNote(this.state.selectedNoteId, {
-      step: newSpelling.step, alter: newSpelling.alter, octave: newSpelling.octave,
-    })
-    const altStr = newSpelling.alter === 1 ? '#' : newSpelling.alter === -1 ? 'b' : ''
-    console.log(`[Pitch] ${direction > 0 ? '↑' : '↓'} → ${newSpelling.step}${altStr}${newSpelling.octave} (tool:${this.state.selectedTool})`)
+    if (!moved) return
+    console.log(`[Pitch] ${direction > 0 ? '↑' : '↓'} → ${ids.length} note(s) (tool:${this.state.selectedTool})`)
     this.renderScore()
   }
 
-  /** Adjust pitch of selected note by one octave. No-op on rests. */
+  /** Adjust pitch of EVERY selected note by one octave. Rests are skipped. */
   adjustOctave(direction: number): void {
     const engine = this.getEngine()
-    if (!this.state.selectedNoteId || !engine) return
+    if (!engine) return
     if (this.state.selectedTool !== 'selection' && this.state.selectedTool !== 'entry') return
 
-    const score = engine.getScore()
-    let selectedNote = null
-    for (const measure of score.measures) {
-      const note = getMeasureNotes(measure).find(n => n.id === this.state.selectedNoteId)
-      if (note) { selectedNote = note; break }
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+    let moved = false
+    for (const id of ids) {
+      const note = engine.getNote(id)
+      if (!note || note.isRest) continue
+      engine.updateNote(id, { octave: note.octave! + direction })
+      moved = true
     }
-
-    if (!selectedNote || selectedNote.isRest) return
-
-    engine.updateNote(this.state.selectedNoteId, { octave: selectedNote.octave! + direction })
-    console.log(`[Pitch] octave${direction > 0 ? '↑' : '↓'} → ${selectedNote.step}${selectedNote.octave! + direction}`)
+    if (!moved) return
+    console.log(`[Pitch] octave${direction > 0 ? '↑' : '↓'} → ${ids.length} note(s)`)
     this.renderScore()
   }
 
