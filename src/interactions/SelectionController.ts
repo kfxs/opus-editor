@@ -206,16 +206,17 @@ export class SelectionController {
     if (this.state.selectedTool !== 'selection' && this.state.selectedTool !== 'entry') return
 
     const ids = selectedNoteIds(this.state.selectedItems.values())
-    let moved = false
-    for (const id of ids) {
-      const note = engine.getNote(id)
-      if (!note || note.isRest) continue
-      const newSpelling = this.movePitchDiatonically(note.step!, note.alter!, note.octave!, direction)
-      engine.updateNote(id, {
-        step: newSpelling.step, alter: newSpelling.alter, octave: newSpelling.octave,
-      })
-      moved = true
-    }
+    // One undoable action for the whole selection (a single Ctrl-Z reverts it all).
+    const moved = engine.runBatch(`Transpose ${ids.length} note(s)`, () => {
+      for (const id of ids) {
+        const note = engine.getNote(id)
+        if (!note || note.isRest) continue
+        const newSpelling = this.movePitchDiatonically(note.step!, note.alter!, note.octave!, direction)
+        engine.updateNote(id, {
+          step: newSpelling.step, alter: newSpelling.alter, octave: newSpelling.octave,
+        })
+      }
+    })
     if (!moved) return
     console.log(`[Pitch] ${direction > 0 ? '↑' : '↓'} → ${ids.length} note(s) (tool:${this.state.selectedTool})`)
     this.renderScore()
@@ -228,13 +229,14 @@ export class SelectionController {
     if (this.state.selectedTool !== 'selection' && this.state.selectedTool !== 'entry') return
 
     const ids = selectedNoteIds(this.state.selectedItems.values())
-    let moved = false
-    for (const id of ids) {
-      const note = engine.getNote(id)
-      if (!note || note.isRest) continue
-      engine.updateNote(id, { octave: note.octave! + direction })
-      moved = true
-    }
+    // One undoable action for the whole selection (a single Ctrl-Z reverts it all).
+    const moved = engine.runBatch(`Octave ${ids.length} note(s)`, () => {
+      for (const id of ids) {
+        const note = engine.getNote(id)
+        if (!note || note.isRest) continue
+        engine.updateNote(id, { octave: note.octave! + direction })
+      }
+    })
     if (!moved) return
     console.log(`[Pitch] octave${direction > 0 ? '↑' : '↓'} → ${ids.length} note(s)`)
     this.renderScore()

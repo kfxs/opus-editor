@@ -349,3 +349,51 @@ describe('MusicEngine — dynamics', () => {
     expect(engine.getActiveLevel(2, frac(0, 1))).toBe('p') // inherited into measure 2
   })
 })
+
+describe('MusicEngine.runBatch — atomic multi-element undo', () => {
+  let engine: MusicEngine
+
+  const liveNotes = (m: number) =>
+    engine.getScore().measures.find(x => x.number === m)!.slots.filter(s => s.type !== 'rest')
+
+  beforeEach(() => {
+    engine = makeEngine()
+  })
+
+  it('deleting 3 notes in a batch is ONE undo step that restores all of them', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const c = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    expect(liveNotes(1)).toHaveLength(3)
+
+    const pushed = engine.runBatch('Delete 3 note(s)', () => {
+      engine.deleteNote(a.id); engine.deleteNote(b.id); engine.deleteNote(c.id)
+    })
+    expect(pushed).toBe(true)
+    expect(liveNotes(1)).toHaveLength(0)
+
+    // A SINGLE undo restores the whole group (not note-by-note).
+    expect(engine.undo()).toBe(true)
+    expect(liveNotes(1)).toHaveLength(3)
+  })
+
+  it('an empty batch (no change) pushes nothing and is not undoable', () => {
+    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const undoableBefore = engine.canUndo()
+    const pushed = engine.runBatch('noop', () => { /* nothing */ })
+    expect(pushed).toBe(false)
+    // History unchanged: the noop added no new entry.
+    expect(engine.canUndo()).toBe(undoableBefore)
+  })
+
+  it('redo replays the whole batched group', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    engine.runBatch('Delete 2 note(s)', () => { engine.deleteNote(a.id); engine.deleteNote(b.id) })
+
+    engine.undo()
+    expect(liveNotes(1)).toHaveLength(2)
+    expect(engine.redo()).toBe(true)
+    expect(liveNotes(1)).toHaveLength(0)
+  })
+})

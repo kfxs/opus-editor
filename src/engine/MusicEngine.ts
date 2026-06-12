@@ -104,10 +104,39 @@ export class MusicEngine {
 
   // ==================== Undo/Redo ====================
 
+  /** While true, individual mutations skip their undo snapshot — a surrounding
+   *  {@link runBatch} owns the single snapshot for the whole group. */
+  private undoSuppressed = false
+
+  /**
+   * Run several mutations as ONE undoable action. Every saveUndoState inside `fn`
+   * is suppressed; a single snapshot of the final state is pushed afterward (only
+   * if `fn` actually changed something). One Ctrl-Z then restores the whole group
+   * (e.g. deleting or transposing a multi-note selection), not one element at a
+   * time. Nested batches are flattened — only the outermost pushes.
+   *
+   * @returns true if a snapshot was pushed (something changed), false otherwise.
+   */
+  runBatch(description: string, fn: () => void): boolean {
+    if (this.undoSuppressed) { fn(); return false } // inner batch: outer owns the snapshot
+
+    const before = JSON.stringify(this.scoreModel.getScore())
+    this.undoSuppressed = true
+    try {
+      fn()
+    } finally {
+      this.undoSuppressed = false
+    }
+    const changed = JSON.stringify(this.scoreModel.getScore()) !== before
+    if (changed) this.saveUndoState(description)
+    return changed
+  }
+
   /**
    * Save current state to undo history (call after mutations)
    */
   private saveUndoState(description: string): void {
+    if (this.undoSuppressed) return // batched: the surrounding runBatch pushes once
     this.undoRedoManager.pushState(this.scoreModel.getScore(), description)
   }
 

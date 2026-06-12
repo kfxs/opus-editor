@@ -103,10 +103,12 @@ export function useShortcuts(
         state.selectedDynamicId = null
         renderer.renderScore()
       } else if (state.selectedItems.size > 0 && eng) {
-        // Delete every selected note (Phase 1: the set holds only notes).
-        for (const item of state.selectedItems.values()) {
-          if (item.kind === 'note') eng.deleteNote(item.id)
-        }
+        // Delete every selected note as ONE undoable action (Phase 1: the set holds
+        // only notes), so a single Ctrl-Z restores the whole group, not note-by-note.
+        const ids = [...state.selectedItems.values()].filter(i => i.kind === 'note').map(i => i.id)
+        eng.runBatch(`Delete ${ids.length} note(s)`, () => {
+          for (const id of ids) eng.deleteNote(id)
+        })
         selection.selectNote(null)
         renderer.renderScore()
       }
