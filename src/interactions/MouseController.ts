@@ -4,6 +4,7 @@ import type { EditorState } from './EditorState'
 import type { SelectionController } from './SelectionController'
 import type { RenderController } from './RenderController'
 import type { TextEditController } from './TextEditController'
+import type { ClipboardController } from './ClipboardController'
 import { DynamicTextSource } from './DynamicTextSource'
 import { fracToNumber, fracEq } from '../utils/fraction'
 
@@ -54,6 +55,7 @@ export class MouseController {
     private render: RenderController,
     private getPendingArticulations: () => ArticulationType[] | undefined,
     private getTextEdit: () => TextEditController | null,
+    private clipboard: ClipboardController,
   ) {}
 
   /** Register document-level event listeners. Call on mount. */
@@ -131,10 +133,27 @@ export class MouseController {
     textEdit.open(source)
   }
 
+  /** Resolve a paste-placement click to a (measure, slot beat) and commit the paste. */
+  private commitArmedPaste(event: MouseEvent): void {
+    const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
+    if (!engine || !scoreCanvas) return
+    const svg = scoreCanvas.querySelector('svg') as SVGSVGElement | null
+    if (!svg) return
+    const coords = this.clientToSvg(event, svg)
+    if (!coords) return
+    const measure = engine.pixelToMeasure(coords)
+    const beat = this.resolveSlotBeat(engine, coords.x, measure)
+    console.log(`Paste placement click | measure:${measure} beat:${fracToNumber(beat)}`)
+    this.clipboard.pasteAt(measure, beat)
+  }
+
   // --- Mouse handlers ---
 
   handleMouseDown(event: MouseEvent): void {
     if (this.state.editingText) return // modal: a text edit is open (belt; DOM swallows the click-away)
+    // Armed paste: this click chooses the insertion point.
+    if (this.state.pastePlacementArmed) { this.commitArmedPaste(event); return }
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
     if (!engine || !scoreCanvas) return
@@ -444,6 +463,8 @@ export class MouseController {
 
   handleClick(event: MouseEvent): void {
     if (this.state.editingText) return // modal: a text edit is open (belt; DOM swallows the click-away)
+    // Armed paste (e.g. while in entry mode): this click chooses the insertion point.
+    if (this.state.pastePlacementArmed) { this.commitArmedPaste(event); return }
     if (this.state.selectedTool === 'selection') return
 
     console.log(`Click RAW | client:(${event.clientX},${event.clientY})`)
@@ -628,6 +649,12 @@ export class MouseController {
     const { x, y } = coords
 
     this.lastCanvasMousePosition = { x, y }
+
+    // Armed paste: show a colored caret at the slot the click would target.
+    if (this.state.pastePlacementArmed) {
+      this.render.renderPasteCaret({ x, y })
+      return
+    }
 
     if (this.isDraggingNote && this.state.selectedNoteId && this.draggedNoteOriginalPitch !== null) {
       if (this.dragStartTime !== null) {

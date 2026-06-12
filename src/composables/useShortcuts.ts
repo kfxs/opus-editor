@@ -6,6 +6,7 @@ import type { SelectionController } from '../interactions/SelectionController'
 import type { PaletteController } from '../interactions/PaletteController'
 import type { KeyboardController } from '../interactions/KeyboardController'
 import type { RenderController } from '../interactions/RenderController'
+import type { ClipboardController } from '../interactions/ClipboardController'
 import { ShortcutManager } from '../shortcuts'
 import { beatToFrac } from '../utils/musicUtils'
 
@@ -20,6 +21,7 @@ export function useShortcuts(
   palette: PaletteController,
   keyboard: KeyboardController,
   renderer: RenderController,
+  clipboard: ClipboardController,
   getLastMousePosition: () => { x: number; y: number } | null,
 ): { enable: () => void; disable: () => void } {
   const shortcutManager = new ShortcutManager()
@@ -37,7 +39,14 @@ export function useShortcuts(
       state.selectedTool = 'entry'
       renderer.renderScore()
     },
+    copySelection: () => clipboard.copy(),
+    pasteClipboard: () => clipboard.paste(),
     setSelectionMode: () => {
+      // Esc first cancels a pending (armed) paste, if any.
+      if (state.pastePlacementArmed) {
+        clipboard.cancelArmedPaste()
+        return
+      }
       // Leaving entry mode disarms the entry-only positional tools (clef / time
       // signature / dynamic) so the palette stops showing them as selected.
       palette.disarmPositionalTools()

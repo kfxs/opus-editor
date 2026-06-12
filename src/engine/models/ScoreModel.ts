@@ -15,7 +15,7 @@ import {
   sameTimeSignature,
 } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
-import { flattenRegion, relayEvents, type RebarPiece } from '@/utils/rebar'
+import { flattenRegion, relayEvents, type RebarPiece, type RebarEvent } from '@/utils/rebar'
 import {
   type Fraction,
   fracCreate,
@@ -667,6 +667,92 @@ export class ScoreModel {
     // Re-anchor the captured clef changes / dynamics into the new bar layout,
     // mapping each absolute offset to the (measure, beat) it now lands on.
     this.restoreBeatAnchors(regionNumbers, anchors)
+  }
+
+  /**
+   * Paste a clipboard event stream at (targetMeasure, targetBeat), OVERWRITING the
+   * existing music forward for the clip's span. Reuses the rebar pipeline so the
+   * paste inherits its correctness for free: existing content overlapping the paste
+   * window is dropped, the clip's events are dropped in at the target offset, and
+   * the merged stream is re-barred (barline-crossing notes split with ties, gaps
+   * rest-filled, the region grown if it overflows).
+   *
+   * The region runs from `targetMeasure` to the next explicit TS change (or score
+   * end); a single meter governs it (Phase A: pasting across a meter change is not
+   * supported — the clip flows in the target region's meter).
+   *
+   * @returns the ids of the flat notes that landed inside the paste window, for
+   *          selecting the pasted material.
+   */
+  pasteEvents(targetMeasure: number, targetBeat: Fraction, clip: RebarEvent[], spanBeats: Fraction): string[] {
+    const ordered = [...this.score.measures].sort((a, b) => a.number - b.number)
+    const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
+    if (fromIdx === -1) return []
+
+    // Region [targetMeasure..endIdx]; bounded if a later explicit change pins the end.
+    let bounded = false
+    let endIdx = fromIdx
+    for (let i = fromIdx + 1; i < ordered.length; i++) {
+      if (ordered[i].timeSignatureChange) { bounded = true; break }
+      endIdx = i
+    }
+    const regionMeasures = ordered.slice(fromIdx, endIdx + 1)
+    const ts = regionMeasures[0].timeSignature
+
+    // The paste window, as offsets from the region start (= targetMeasure start).
+    const pasteStart = targetBeat
+    const pasteEnd = fracAdd(pasteStart, spanBeats)
+
+    const boundary = this.captureBoundaryTies(regionMeasures)
+    const existing = flattenRegion(regionMeasures, 0)
+    const anchors = this.captureBeatAnchors(regionMeasures)
+
+    // Overwrite: keep only existing events that lie wholly outside the paste window;
+    // anything overlapping it is replaced by the clip (and rest-fill for any remainder).
+    const kept = existing.filter((e) => {
+      const end = fracAdd(e.offset, e.duration)
+      return fracCompare(end, pasteStart) <= 0 || fracGte(e.offset, pasteEnd)
+    })
+    const shifted = clip.map((e) => ({ ...e, offset: fracAdd(e.offset, pasteStart) }))
+    const merged = [...kept, ...shifted].sort((a, b) => fracCompare(a.offset, b.offset))
+
+    const meter = getMeterInfo(ts)
+    const targetBars = regionMeasures.length
+    const plan = relayEvents(merged, meter, { targetBars, bounded })
+
+    const regionNumbers = regionMeasures.map((m) => m.number)
+    for (let i = targetBars; i < plan.length; i++) {
+      regionNumbers.push(this.addMeasure(ts).number)
+    }
+
+    const created: Array<{ piece: RebarPiece; chord: Chord }> = []
+    for (let i = 0; i < plan.length; i++) {
+      const m = this.getMeasure(regionNumbers[i])
+      if (m) this.materializeBar(m, plan[i], created)
+    }
+    this.linkRebarTies(created)
+    this.restoreBoundaryTies(targetMeasure, regionNumbers[regionNumbers.length - 1], boundary)
+    this.repairDanglingTies()
+    this.restoreBeatAnchors(regionNumbers, anchors)
+
+    // Collect the ids of notes whose absolute offset falls inside the paste window.
+    const startOfMeasure = new Map<number, Fraction>()
+    let base = fracCreate(0, 1)
+    for (const num of regionNumbers) {
+      startOfMeasure.set(num, base)
+      const m = this.getMeasure(num)
+      base = fracAdd(base, m ? measureCapacityFrac(m) : fracCreate(0, 1))
+    }
+    const pastedIds: string[] = []
+    for (const { chord } of created) {
+      const mStart = startOfMeasure.get(chord.measure)
+      if (!mStart) continue
+      const absOffset = fracAdd(mStart, chord.beat)
+      if (fracGte(absOffset, pasteStart) && fracLt(absOffset, pasteEnd)) {
+        for (const np of chord.notes) pastedIds.push(np.id)
+      }
+    }
+    return pastedIds
   }
 
   /**

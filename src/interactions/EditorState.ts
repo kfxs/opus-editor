@@ -100,6 +100,14 @@ export interface EditorState {
    *  empty-text rule's "just placed vs existing" signal to the source. */
   editingText: { targetId: string; kind: 'dynamic'; isNew: boolean } | null
 
+  // --- Clipboard ---
+  /** True while a paste is waiting for the user to click the insertion point —
+   *  entered when Ctrl+V is pressed with an empty selection. A colored caret
+   *  follows the pointer; the next canvas click commits the paste origin, Esc
+   *  cancels. (With a non-empty selection, paste lands at the selection start and
+   *  this stays false.) */
+  pastePlacementArmed: boolean
+
   // --- UI ---
   showCursor: boolean
   playbackState: PlaybackState
@@ -134,6 +142,7 @@ export function createEditorState(): EditorState {
     selectedDynamic: null,
     selectedDynamicId: null,
     editingText: null,
+    pastePlacementArmed: false,
     showCursor: true,
     playbackState: 'stopped',
   }

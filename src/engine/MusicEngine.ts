@@ -12,6 +12,7 @@ import { spellingToMidi, accidentalToAlter, spellingDiatonicPos } from '@/utils/
 import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
+import type { RebarEvent } from '@/utils/rebar'
 
 /** Internal context passed to updateNote sub-methods */
 interface NoteUpdateCtx {
@@ -471,6 +472,18 @@ export class MusicEngine {
     const noteName = params.step ? midiToNoteName(spellingToMidi(params.step, params.alter ?? 0, params.octave!)) : 'rest'
     this.saveUndoState(`Add chord note ${noteName}`)
     return note
+  }
+
+  /**
+   * Paste a clipboard event stream at (measure, beat), overwriting forward for the
+   * clip's span (see {@link ScoreModel.pasteEvents}). One undo entry.
+   * @returns the ids of the notes that landed inside the paste window.
+   */
+  pasteEvents(measure: number, beat: Fraction, events: RebarEvent[], spanBeats: Fraction): string[] {
+    const ids = this.scoreModel.pasteEvents(measure, beat, events, spanBeats)
+    this.playbackEngine.setScore(this.scoreModel.getScore())
+    this.saveUndoState('Paste')
+    return ids
   }
 
   addNoteAtPosition(

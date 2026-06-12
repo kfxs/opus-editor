@@ -6,6 +6,7 @@ import type { SelectionController } from '../interactions/SelectionController'
 import type { RenderController } from '../interactions/RenderController'
 import type { PaletteController } from '../interactions/PaletteController'
 import type { TextEditController } from '../interactions/TextEditController'
+import type { ClipboardController } from '../interactions/ClipboardController'
 import { MouseController } from '../interactions/MouseController'
 
 /**
@@ -20,6 +21,7 @@ export function useMouseInteraction(
   render: RenderController,
   palette: PaletteController,
   textEdit: TextEditController,
+  clipboard: ClipboardController,
 ): MouseController {
   const controller = new MouseController(
     () => engine.value,
@@ -29,6 +31,7 @@ export function useMouseInteraction(
     render,
     () => palette.getPendingArticulations(),
     () => textEdit,
+    clipboard,
   )
 
   onMounted(() => controller.setup())

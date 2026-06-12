@@ -154,6 +154,16 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Select next lower note in chord',
   },
 
+  // Clipboard
+  'Ctrl+c': {
+    action: 'copySelection',
+    description: 'Copy the selected notes',
+  },
+  'Ctrl+v': {
+    action: 'pasteClipboard',
+    description: 'Paste (overwrite-forward from the selection; or click to place when nothing is selected)',
+  },
+
   // Undo/Redo
   'Ctrl+z': {
     action: 'undo',

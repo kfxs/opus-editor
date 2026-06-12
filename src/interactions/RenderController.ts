@@ -86,4 +86,10 @@ export class RenderController {
     engine.renderScoreWithDynamicGhost(coords, ghost)
     this.applyHighlights()
   }
+
+  /** Render the score with a colored paste caret following the cursor (armed paste). */
+  renderPasteCaret(coords: { x: number; y: number }): void {
+    this.renderScore()
+    this.highlight.drawPasteCaret(coords)
+  }
 }

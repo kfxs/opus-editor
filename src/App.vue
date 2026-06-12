@@ -494,6 +494,7 @@ import { useKeyboardEntry } from './composables/useKeyboardEntry'
 import { useMouseInteraction } from './composables/useMouseInteraction'
 import { useTextEditing } from './composables/useTextEditing'
 import { useShortcuts } from './composables/useShortcuts'
+import { ClipboardController } from './interactions/ClipboardController'
 import { isValidTimeSignature } from './utils/meter'
 import { getMeasureDurationFrac } from './utils/musicUtils'
 import { fracCreate, fracGte, type Fraction } from './utils/fraction'
@@ -516,6 +517,9 @@ const renderer = useRenderer(state, engine, highlight)
 // SelectionController depends on renderer (for renderScore callback)
 const selection = useSelection(state, engine, scoreCanvas, () => renderer.renderScore())
 
+// ClipboardController (copy/paste) depends on selection + renderer.
+const clipboard = new ClipboardController(() => engine.value, state, selection, renderer)
+
 // PaletteController needs selection.selectNote and mouse.getLastMousePosition.
 // Mouse is created below — the closure resolves lazily at call time.
 let mouse: ReturnType<typeof useMouseInteraction>
@@ -536,12 +540,12 @@ const textEdit = useTextEditing(state)
 
 // MouseController depends on selection, renderer, highlight, palette, textEdit.
 // onMounted/onUnmounted are called internally by the composable.
-mouse = useMouseInteraction(state, engine, scoreCanvas, selection, renderer, palette, textEdit)
+mouse = useMouseInteraction(state, engine, scoreCanvas, selection, renderer, palette, textEdit, clipboard)
 
 // ShortcutManager — wires keyboard shortcuts to controller actions
 const shortcuts = useShortcuts(
   state, engine,
-  selection, palette, keyboard, renderer,
+  selection, palette, keyboard, renderer, clipboard,
   () => mouse.getLastMousePosition(),
 )
 

@@ -107,6 +107,25 @@ export class SelectionController {
   }
 
   /**
+   * REPLACE the selection with a set of notes by id (e.g. the freshly pasted
+   * notes). The last id becomes the anchor and the Shift pivot; the palette syncs
+   * to it. Empty list clears the selection.
+   */
+  selectNotes(noteIds: string[]): void {
+    this.state.selectedItems.clear()
+    for (const id of noteIds) {
+      const item: SelectionItem = { kind: 'note', id }
+      this.state.selectedItems.set(itemKey(item), item)
+    }
+    const anchor = noteIds.length ? noteIds[noteIds.length - 1] : null
+    this.state.selectedNoteId = anchor
+    this.state.selectionPivotId = anchor
+    this.state.selectionBase = Array.from(this.state.selectedItems.values())
+    this.clearScalarSubSelections()
+    if (anchor) this.syncPaletteToNote(anchor)
+  }
+
+  /**
    * TOGGLE a note in/out of the multi-selection (ctrl/cmd-click). Adding a note
    * makes it the anchor and syncs the palette; removing one recomputes the anchor
    * to the remaining last note. Also clears scalar sub-selections, since notes are
