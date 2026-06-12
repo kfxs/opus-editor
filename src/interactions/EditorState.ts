@@ -34,6 +34,18 @@ export interface EditorState {
    * by SelectionController.
    */
   selectedNoteId: string | null
+  /**
+   * The Shift-range PIVOT: the id of the last plainly/Ctrl-clicked note. Shift-click
+   * selects the temporal range pivot→target. Stays fixed across consecutive
+   * Shift-clicks so the range endpoint can be re-flowed from the same point.
+   */
+  selectionPivotId: string | null
+  /**
+   * The selection snapshot a Shift-range is unioned onto — captured at the last
+   * plain/Ctrl click. Lets Shift-click keep the already-selected (e.g. Ctrl-clicked)
+   * notes while re-flowing the new range, instead of piling range on range.
+   */
+  selectionBase: SelectionItem[]
   selectedArticulationNoteId: string | null
   selectedArticulationType: string | null
   selectedAccidentalNoteId: string | null
@@ -98,6 +110,8 @@ export function createEditorState(): EditorState {
     selectedTool: 'entry',
     selectedItems: new Map(),
     selectedNoteId: null,
+    selectionPivotId: null,
+    selectionBase: [],
     selectedArticulationNoteId: null,
     selectedArticulationType: null,
     selectedAccidentalNoteId: null,

@@ -1,7 +1,7 @@
 import type { Accidental, Note, Measure, PitchStep, PitchAlter } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
-import { buildBeatMap } from '../utils/beatMap'
+import { buildBeatMap, notesInRange } from '../utils/beatMap'
 import { fracLt, fracEq, fracCompare } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
@@ -99,6 +99,9 @@ export class SelectionController {
       this.state.selectedItems.set(itemKey(item), item)
     }
     this.state.selectedNoteId = noteId
+    // A plain click (re)sets the Shift pivot and the range base = this single note.
+    this.state.selectionPivotId = noteId
+    this.state.selectionBase = noteId ? [{ kind: 'note', id: noteId }] : []
     this.clearScalarSubSelections()
     if (noteId) this.syncPaletteToNote(noteId)
   }
@@ -121,7 +124,42 @@ export class SelectionController {
       this.state.selectedNoteId = noteId
       this.syncPaletteToNote(noteId)
     }
+    // The last Ctrl-clicked note becomes the Shift pivot; the range base is the
+    // current selection, so a following Shift-click keeps these notes.
+    this.state.selectionPivotId = noteId
+    this.state.selectionBase = Array.from(this.state.selectedItems.values())
     this.clearScalarSubSelections()
+  }
+
+  /**
+   * SHIFT-click: select the inclusive temporal range from the pivot to `targetId`
+   * (rests in between and whole chords included), unioned onto the range base (the
+   * selection as of the last plain/Ctrl click). The pivot stays fixed, so a further
+   * Shift-click re-flows the range from the same point while keeping the base.
+   * With no pivot yet, falls back to a plain single-select.
+   */
+  extendSelectionTo(targetId: string): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    if (!this.state.selectionPivotId) {
+      this.selectNote(targetId)
+      return
+    }
+
+    const rangeIds = notesInRange(engine.getScore(), this.state.selectionPivotId, targetId)
+
+    this.state.selectedItems.clear()
+    for (const item of this.state.selectionBase) {
+      this.state.selectedItems.set(itemKey(item), item)
+    }
+    for (const id of rangeIds) {
+      const item: SelectionItem = { kind: 'note', id }
+      this.state.selectedItems.set(itemKey(item), item)
+    }
+    // Nav anchor follows the Shift target; the pivot is intentionally left unchanged.
+    this.state.selectedNoteId = targetId
+    this.clearScalarSubSelections()
+    this.syncPaletteToNote(targetId)
   }
 
   /**

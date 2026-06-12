@@ -41,3 +41,36 @@ export function buildBeatMap(score: Score): { allFlat: FlatNote[]; beats: FlatNo
 
   return { allFlat, beats: Array.from(beatMap.values()) }
 }
+
+/** The (measure, beat) position key for a flat note — same form buildBeatMap keys by. */
+function posKey(n: FlatNote): string {
+  return `${n.measureNumber}:${n.beat.num}/${n.beat.den}`
+}
+
+/**
+ * Every note/rest id in the inclusive temporal range between two notes (by id),
+ * in score order. WHOLE CHORDS are included (every note sharing a beat in the
+ * range), and rests in between are included. Direction-agnostic: the two ids may
+ * be given in either order. Used by Shift-click range selection.
+ *
+ * Falls back to just the target's id when the anchor can't be located.
+ */
+export function notesInRange(score: Score, anchorId: string, targetId: string): string[] {
+  const { allFlat, beats } = buildBeatMap(score)
+  const anchor = allFlat.find(n => n.id === anchorId)
+  const target = allFlat.find(n => n.id === targetId)
+  if (!target) return []
+  if (!anchor) return [target.id]
+
+  const aIdx = beats.findIndex(b => posKey(b) === posKey(anchor))
+  const tIdx = beats.findIndex(b => posKey(b) === posKey(target))
+  if (aIdx === -1 || tIdx === -1) return [target.id]
+
+  const lo = Math.min(aIdx, tIdx)
+  const hi = Math.max(aIdx, tIdx)
+  const rangeKeys = new Set(beats.slice(lo, hi + 1).map(posKey))
+
+  // allFlat is already temporally sorted, so this yields the range in score order
+  // with every chord note at each in-range beat.
+  return allFlat.filter(n => rangeKeys.has(posKey(n))).map(n => n.id)
+}

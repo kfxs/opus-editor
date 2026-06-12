@@ -119,3 +119,75 @@ describe('SelectionController — multi-selection', () => {
     expect(engine.getNote(noteC)!.octave).toBe(4) // untouched
   })
 })
+
+describe('SelectionController — Shift range select', () => {
+  let engine: MusicEngine
+  let state: EditorState
+  let selection: SelectionController
+  let n0: string, n1: string, n2: string, n3: string
+
+  const selectedIds = () => new Set(state.selectedItems.keys())
+
+  beforeEach(() => {
+    engine = makeEngine()
+    state = createEditorState()
+    state.selectedTool = 'selection'
+    selection = new SelectionController(() => engine, state, () => null, () => {})
+
+    // Fill measure 1 (4/4): a note on each of beats 0..3.
+    n0 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    n1 = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    n2 = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
+    n3 = engine.addNoteAtBeat({ step: 'B', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })!.id
+  })
+
+  it('selects the inclusive range from the pivot to the target', () => {
+    selection.selectNote(n0)            // pivot = n0
+    selection.extendSelectionTo(n2)
+    expect(selectedIds()).toEqual(new Set([noteKey(n0), noteKey(n1), noteKey(n2)])) // n3 excluded
+  })
+
+  it('is direction-agnostic (target before pivot)', () => {
+    selection.selectNote(n2)            // pivot = n2
+    selection.extendSelectionTo(n0)
+    expect(selectedIds()).toEqual(new Set([noteKey(n0), noteKey(n1), noteKey(n2)]))
+  })
+
+  it('includes a rest that falls inside the range', () => {
+    engine.deleteNote(n1)               // beat 1 becomes a rest
+    const restId = engine.getScore().measures.find(m => m.number === 1)!
+      .slots.find(s => s.type === 'rest')!.id
+    selection.selectNote(n0)
+    selection.extendSelectionTo(n2)
+    expect(selectedIds()).toEqual(new Set([noteKey(n0), noteKey(restId), noteKey(n2)]))
+  })
+
+  it('includes the WHOLE chord at an in-range beat', () => {
+    const chordMate = engine.addChordNote({ step: 'A', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) }).id
+    selection.selectNote(n0)
+    selection.extendSelectionTo(n2)
+    expect(selectedIds()).toEqual(new Set([noteKey(n0), noteKey(n1), noteKey(chordMate), noteKey(n2)]))
+  })
+
+  it('unions the range onto the existing (Ctrl-built) selection', () => {
+    selection.selectNote(n0)            // {n0}, pivot n0
+    selection.toggleNote(n3)            // {n0, n3}, pivot n3, base {n0,n3}
+    selection.extendSelectionTo(n1)     // range n3..n1 = {n1,n2,n3} ∪ base
+    expect(selectedIds()).toEqual(new Set([noteKey(n0), noteKey(n1), noteKey(n2), noteKey(n3)]))
+  })
+
+  it('re-flows the range from the same pivot while keeping the base', () => {
+    selection.selectNote(n0)
+    selection.toggleNote(n3)            // base {n0,n3}, pivot n3
+    selection.extendSelectionTo(n1)     // {n0,n1,n2,n3}
+    selection.extendSelectionTo(n2)     // re-flow: range n3..n2 = {n2,n3} ∪ base {n0,n3}
+    expect(selectedIds()).toEqual(new Set([noteKey(n0), noteKey(n2), noteKey(n3)])) // n1 dropped
+  })
+
+  it('falls back to plain select when there is no pivot', () => {
+    expect(state.selectionPivotId).toBeNull()
+    selection.extendSelectionTo(n1)
+    expect(selectedIds()).toEqual(new Set([noteKey(n1)]))
+    expect(state.selectedNoteId).toBe(n1)
+  })
+})
