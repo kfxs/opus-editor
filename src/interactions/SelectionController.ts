@@ -1,7 +1,7 @@
 import type { Accidental, Note, Measure, PitchStep, PitchAlter } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
-import { buildBeatMap, notesInRange } from '../utils/beatMap'
+import { buildBeatMap, notesInRange, expandTieChains } from '../utils/beatMap'
 import { fracLt, fracEq, fracCompare } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
@@ -165,7 +165,12 @@ export class SelectionController {
       return
     }
 
-    const rangeIds = notesInRange(engine.getScore(), this.state.selectionPivotId, targetId)
+    // Shift-range respects ties (= duration): a range ending mid-tie grabs the
+    // whole held note. (Ctrl-click / single click stay literal — they don't expand.)
+    const rangeIds = expandTieChains(
+      engine.getScore(),
+      notesInRange(engine.getScore(), this.state.selectionPivotId, targetId),
+    )
 
     this.state.selectedItems.clear()
     for (const item of this.state.selectionBase) {

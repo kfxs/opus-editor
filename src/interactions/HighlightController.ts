@@ -268,10 +268,39 @@ export class HighlightController {
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
 
-    const TIE_COLOR = '#F59E0B'
-    const bbox = tieEl.bbox
+    this.colorTieArc(tieEl.bbox, svg)
+  }
 
-    // The tie is a filled SVG path — find it by matching its center to the bbox
+  /**
+   * Highlight the tie ARC for any selected tie chain. A range selection adds both
+   * tied notes to the set (their noteheads light up via applySelectionHighlight),
+   * but the connecting arc is a separate SVG path — colour it too when BOTH its
+   * endpoints are selected, so a held (tied) note reads as fully selected.
+   */
+  applySelectionTieHighlight(): void {
+    const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
+    if (!engine || !scoreCanvas || this.state.selectedItems.size < 2) return
+
+    const selected = new Set<string>()
+    for (const item of this.state.selectedItems.values()) {
+      if (item.kind === 'note') selected.add(item.id)
+    }
+
+    const svg = scoreCanvas.querySelector('svg')
+    if (!svg) return
+
+    for (const tieEl of engine.getElementRegistry().getByType('tie')) {
+      if (tieEl.fromNoteId && tieEl.toNoteId
+        && selected.has(tieEl.fromNoteId) && selected.has(tieEl.toNoteId)) {
+        this.colorTieArc(tieEl.bbox, svg)
+      }
+    }
+  }
+
+  /** Colour the tie's filled path — found by matching its center to the tie's bbox. */
+  private colorTieArc(bbox: { x: number; y: number; width: number; height: number }, svg: SVGSVGElement): void {
+    const TIE_COLOR = '#F59E0B'
     const paths = svg.querySelectorAll('path')
     for (const path of paths) {
       const elBBox = (path as SVGGraphicsElement).getBBox?.()

@@ -3,6 +3,7 @@ import { MusicEngine } from '../engine/MusicEngine'
 import { createEditorState, type EditorState } from './EditorState'
 import { SelectionController } from './SelectionController'
 import { itemKey } from './selection'
+import { expandTieChains } from '../utils/beatMap'
 import { fracCreate as frac } from '@/utils/fraction'
 
 // Stub VexFlowRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio).
@@ -189,5 +190,51 @@ describe('SelectionController — Shift range select', () => {
     selection.extendSelectionTo(n1)
     expect(selectedIds()).toEqual(new Set([noteKey(n1)]))
     expect(state.selectedNoteId).toBe(n1)
+  })
+})
+
+describe('Shift range + ties (multi-selection only)', () => {
+  let engine: MusicEngine
+  let state: EditorState
+  let selection: SelectionController
+  let c1: string, c2: string, d: string
+
+  const selectedIds = () => new Set(state.selectedItems.keys())
+
+  beforeEach(() => {
+    engine = makeEngine()
+    state = createEditorState()
+    state.selectedTool = 'selection'
+    selection = new SelectionController(() => engine, state, () => null, () => {})
+
+    // Two same-pitch C4 quarters tied together (one held note), then D4, E4.
+    c1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    c2 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
+    engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
+    engine.toggleTie(c1) // c1 —tie→ c2
+  })
+
+  it('expandTieChains pulls in the whole tie chain from any member', () => {
+    expect(new Set(expandTieChains(engine.getScore(), [c1]))).toEqual(new Set([c1, c2]))
+    expect(new Set(expandTieChains(engine.getScore(), [c2]))).toEqual(new Set([c1, c2]))
+    expect(expandTieChains(engine.getScore(), [d])).toEqual([d]) // untied note unchanged
+  })
+
+  it('Shift-range grabs the whole held note even if it ends mid-tie', () => {
+    selection.selectNote(c1)          // pivot = c1
+    selection.extendSelectionTo(c1)   // range is just beat 0 …
+    expect(selectedIds()).toEqual(new Set([noteKey(c1), noteKey(c2)])) // … but c2 joins (same held note)
+  })
+
+  it('Ctrl-click stays literal — it does NOT pull in the tied partner', () => {
+    selection.selectNote(d)           // {d}
+    selection.toggleNote(c1)          // Ctrl-click only the first tied note
+    expect(selectedIds()).toEqual(new Set([noteKey(d), noteKey(c1)])) // c2 NOT added
+  })
+
+  it('single click stays literal — only the clicked note', () => {
+    selection.selectNote(c1)
+    expect(selectedIds()).toEqual(new Set([noteKey(c1)])) // c2 NOT added
   })
 })

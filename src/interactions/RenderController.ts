@@ -20,6 +20,7 @@ export class RenderController {
     this.highlight.applyAccidentalHighlight()
     this.highlight.applyTupletSelectionHighlight()
     this.highlight.applyTieHighlight()
+    this.highlight.applySelectionTieHighlight()
     this.highlight.applyClefSelectionHighlight()
     this.highlight.applyTimeSignatureSelectionHighlight()
     this.highlight.applyDynamicSelectionHighlight()

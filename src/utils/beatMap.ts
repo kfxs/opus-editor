@@ -74,3 +74,38 @@ export function notesInRange(score: Score, anchorId: string, targetId: string): 
   // with every chord note at each in-range beat.
   return allFlat.filter(n => rangeKeys.has(posKey(n))).map(n => n.id)
 }
+
+/**
+ * Grow a set of note ids to include every note in each one's maximal TIE CHAIN.
+ *
+ * A tie chain (note → `tiedTo` … and back via `tiedFrom`) is one held note: same
+ * pitch, summed duration. Used by Shift-range selection so a range ending mid-tie
+ * still grabs the whole held note (ties = duration). Per-pitch: a partially-tied
+ * chord pulls in exactly the tied partner pitch, not the other chord notes.
+ *
+ * Order is not significant (the caller dedups into its set).
+ */
+export function expandTieChains(score: Score, ids: string[]): string[] {
+  const byId = new Map<string, FlatNote>()
+  for (const m of score.measures) {
+    for (const n of getMeasureNotes(m)) byId.set(n.id, { ...n, measureNumber: m.number })
+  }
+
+  const out = new Set<string>()
+  for (const id of ids) {
+    const seed = byId.get(id)
+    if (!seed) { out.add(id); continue }
+    // Walk back to the chain head, then forward collecting every member. The
+    // guards bound the walk defensively against a malformed cyclic tie pointer.
+    let head: FlatNote = seed
+    let guard = 0
+    while (head.tiedFrom && byId.has(head.tiedFrom) && guard++ < 10000) head = byId.get(head.tiedFrom)!
+    let cur: FlatNote | undefined = head
+    guard = 0
+    while (cur && !out.has(cur.id) && guard++ < 10000) {
+      out.add(cur.id)
+      cur = cur.tiedTo ? byId.get(cur.tiedTo) : undefined
+    }
+  }
+  return [...out]
+}
