@@ -4,6 +4,7 @@ import { durationToBeats, measureCapacityQuarters } from '@/utils/musicUtils'
 import { fracToNumber } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import { DYNAMIC_VELOCITY, DEFAULT_DYNAMIC, resolveChordLevels } from '@/utils/dynamics'
+import { legatoChordIds } from '@/utils/slurs'
 
 // Tone.js module - loaded dynamically to avoid AudioContext issues
 let Tone: typeof ToneType | null = null
@@ -183,6 +184,12 @@ export class PlaybackEngine {
     // normalized velocity below. Text dynamics carry no loudness and are ignored.
     const chordLevels = resolveChordLevels(this.score)
 
+    // Slurs → legato: chords that connect forward to the next event under a slur.
+    // Their notes extend slightly past their nominal end so they bind to the next
+    // onset instead of leaving a micro-gap. Notes outside any slur are unchanged.
+    const legatoChords = legatoChordIds(this.score)
+    const LEGATO_OVERLAP_BEATS = 0.12
+
     for (const measure of this.score.measures) {
       const measureStartTime = currentTimeInBeats
 
@@ -223,6 +230,12 @@ export class PlaybackEngine {
               : durationToBeats(next.chord.duration, next.chord.dots || 0)
             durationBeats += nextDur
             cursor = nextNp
+          }
+
+          // Legato (slur): bind to the next onset with a small overlap, capped so a
+          // short note doesn't over-smear. Notes outside any slur are untouched.
+          if (legatoChords.has(chord.id)) {
+            durationBeats += Math.min(LEGATO_OVERLAP_BEATS, baseDurationBeats * 0.5)
           }
 
           const durationInSeconds = durationBeats / beatsPerSecond

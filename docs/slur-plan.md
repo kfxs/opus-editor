@@ -253,11 +253,18 @@ Each phase is independently shippable and ends green (unit tests + manual check 
       tests + `build:check` green).
 
 ### Phase 4 (deferred, not a blocker)
-- [x] Auto `placement` from stem direction (DONE, not committed): default follows the stems
+- [x] Auto `placement` from stem direction (DONE & COMMITTED 175c52b): default follows the stems
       notehead-side — stems up → slur below, stems down → slur above (`renderSlurs` reads
       `getStemDirection()` of the start note; explicit `placement` override still wins). Uses the start
       note's stem for the whole slur (incl. both cross-system halves); a full-run vote is a later nicety.
-- [ ] Optional legato playback interpretation. (Not started — changes audio behavior; deferred.)
+- [x] Optional legato playback interpretation (DONE, not committed): **zero-regression / additive** —
+      `utils/slurs.legatoChordIds(score)` marks chords that connect forward under a slur (start..end-1,
+      chords only); `PlaybackEngine` extends those notes by a small overlap (`LEGATO_OVERLAP_BEATS`
+      0.12, capped at half the base duration) so they bind to the next onset. Notes outside any slur
+      are untouched. Pure util unit-tested (4 cases); the audio path itself isn't unit-testable.
+      (Subtle by design — the synth is already near-gapless. If a stronger legato/detached contrast is
+      wanted later, introduce a default detachment for non-slurred notes — a global feel change, so
+      left as an opt-in.)
 - [ ] Draggable control-point handles; nested-slur `number` disambiguation. (Not started — large
       interactive UI; deferred.)
 
