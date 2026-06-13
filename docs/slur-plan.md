@@ -257,7 +257,7 @@ Each phase is independently shippable and ends green (unit tests + manual check 
       notehead-side — stems up → slur below, stems down → slur above (`renderSlurs` reads
       `getStemDirection()` of the start note; explicit `placement` override still wins). Uses the start
       note's stem for the whole slur (incl. both cross-system halves); a full-run vote is a later nicety.
-- [x] Optional legato playback interpretation (DONE, not committed): **zero-regression / additive** —
+- [x] Optional legato playback interpretation (DONE & COMMITTED 6f1bb23): **zero-regression / additive** —
       `utils/slurs.legatoChordIds(score)` marks chords that connect forward under a slur (start..end-1,
       chords only); `PlaybackEngine` extends those notes by a small overlap (`LEGATO_OVERLAP_BEATS`
       0.12, capped at half the base duration) so they bind to the next onset. Notes outside any slur
