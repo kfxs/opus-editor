@@ -100,6 +100,12 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Toggle tie to next note of same pitch',
   },
 
+  // Slur (phrasing) — Sibelius-style 's' over the selection
+  's': {
+    action: 'toggleSlur',
+    description: 'Toggle a phrasing slur over the selection',
+  },
+
   // Articulations (numpad - Sibelius style)
   'NumpadDivide': {
     action: 'toggleAccent',

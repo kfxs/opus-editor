@@ -397,3 +397,84 @@ describe('MusicEngine.runBatch — atomic multi-element undo', () => {
     expect(liveNotes(1)).toHaveLength(0)
   })
 })
+
+describe('MusicEngine.toggleSlur — endpoint resolution', () => {
+  let engine: MusicEngine
+
+  beforeEach(() => {
+    engine = makeEngine()
+  })
+
+  it('single note slurs to the NEXT slot (note or rest)', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+
+    expect(engine.toggleSlur([a.id])).toBe(true)
+    const slurs = engine.getSlurs()
+    expect(slurs).toHaveLength(1)
+    expect(slurs[0]).toMatchObject({ startNoteId: a.id, endNoteId: b.id, voice: 0 })
+  })
+
+  it('range slurs first→last in SCORE order, regardless of id order passed', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const c = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+
+    // Pass ids out of order: last, first, middle.
+    expect(engine.toggleSlur([c.id, a.id, b.id])).toBe(true)
+    expect(engine.getSlurs()[0]).toMatchObject({ startNoteId: a.id, endNoteId: c.id })
+  })
+
+  it('a single chord member slurs to the next EVENT, not a sibling head at the same beat', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    // Stack a second pitch on the same beat → a chord (sibling head of `a`).
+    const sibling = engine.addChordNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const next = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+
+    expect(engine.toggleSlur([a.id])).toBe(true)
+    const slur = engine.getSlurs()[0]
+    expect(slur.startNoteId).toBe(a.id)
+    // NOT the sibling at the same beat:
+    expect(slur.endNoteId).not.toBe(sibling.id)
+    expect(slur.endNoteId).toBe(next.id)
+  })
+
+  it('pressing s again on the same span toggles the slur off', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+
+    expect(engine.toggleSlur([a.id])).toBe(true)
+    expect(engine.getSlurs()).toHaveLength(1)
+    expect(engine.toggleSlur([a.id])).toBe(false)
+    expect(engine.getSlurs()).toHaveLength(0)
+  })
+
+  it('returns null when there is no next slot to slur to', () => {
+    // Fill both measures, then target the very last note — nothing follows it.
+    for (let m = 1; m <= 2; m++) {
+      for (let b = 0; b < 4; b++) {
+        addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1) })
+      }
+    }
+    const all = engine.getScore().measures.flatMap(m => m.slots.filter(s => s.type === 'chord'))
+    const lastChord = all[all.length - 1] as { notes: { id: string }[] }
+    const lastId = lastChord.notes[0].id
+
+    expect(engine.toggleSlur([lastId])).toBeNull()
+    expect(engine.getSlurs()).toHaveLength(0)
+  })
+
+  it('add / remove are each one undo step', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+
+    engine.toggleSlur([a.id])
+    expect(engine.getSlurs()).toHaveLength(1)
+    expect(engine.undo()).toBe(true)
+    expect(engine.getSlurs()).toHaveLength(0) // undo removes the add
+    expect(engine.redo()).toBe(true)
+    expect(engine.getSlurs()).toHaveLength(1) // redo restores it
+  })
+  // (JSON round-trip of slurs is covered in ScoreModel.test.ts — the engine's
+  //  loadJSON triggers a full render, which the renderer stub here can't satisfy.)
+})

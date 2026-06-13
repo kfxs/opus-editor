@@ -1702,6 +1702,9 @@ export class VexFlowRenderer {
     // Render ties between measures after all measures are drawn
     this.renderTies(score)
 
+    // Render phrasing slurs (top-level spans) after ties, in the same post-measure pass
+    this.renderSlurs(score)
+
     // Render ghost note AFTER all measures (as an overlay)
     let ghostNoteRendered = false
     if (ghostNote) {
@@ -2158,6 +2161,109 @@ export class VexFlowRenderer {
         }
       }
     }
+  }
+
+  /** Measure number containing the chord-head / rest id, or undefined if absent. */
+  private measureOfNoteId(score: Score, noteId: string): number | undefined {
+    for (const m of score.measures) {
+      for (const s of m.slots) {
+        if (s.type === 'chord' && s.notes.some(p => p.id === noteId)) return m.number
+        if (s.type === 'rest' && s.id === noteId) return m.number
+      }
+    }
+    return undefined
+  }
+
+  /**
+   * Render phrasing slurs from {@link Score.slurs}. Each slur is anchored to a
+   * start/end head id; both resolve through `staveNoteMap` to their containing
+   * chord's StaveNote (a slur arcs over the whole event, not one pitch).
+   *
+   * Phase 1: same-line spans only — drawn by {@link drawFlatSlur} (a hand-drawn
+   * arc taking both endpoint Ys, mirroring the same-line tie's `drawFlatTie`) and
+   * registered in the ElementRegistry with a computed bbox. Cross-system spans are
+   * deferred to Phase 3 (two half-arcs); for now they're skipped.
+   */
+  private renderSlurs(score: Score): void {
+    if (!this.context || !score.slurs) return
+
+    for (const slur of score.slurs) {
+      const fromInfo = this.staveNoteMap.get(slur.startNoteId)
+      const toInfo = this.staveNoteMap.get(slur.endNoteId)
+      if (!fromInfo?.staveNote || !toInfo?.staveNote) continue
+
+      const fromMeasure = this.measureOfNoteId(score, slur.startNoteId)
+      const toMeasure = this.measureOfNoteId(score, slur.endNoteId)
+      if (fromMeasure === undefined || toMeasure === undefined) continue
+
+      const fromLine = this.measureLayoutInfo.get(fromMeasure)?.lineNumber ?? 0
+      const toLine = this.measureLayoutInfo.get(toMeasure)?.lineNumber ?? 0
+      // Phase 1: only same-line slurs. Cross-system (two half-arcs) is Phase 3.
+      if (fromLine !== toLine) continue
+
+      // Placement: honor an explicit override; default above (Phase 4 derives this
+      // from stem direction). direction -1 = arc above the notes, +1 = below.
+      const direction = slur.placement === 'below' ? 1 : -1
+
+      try {
+        const bbox = this.drawFlatSlur(fromInfo, toInfo, direction)
+        if (bbox) {
+          this.elementRegistry.add({
+            type: 'slur',
+            id: slur.id,
+            fromNoteId: slur.startNoteId,
+            toNoteId: slur.endNoteId,
+            fromMeasure,
+            toMeasure,
+            bbox,
+          })
+        }
+      } catch (e) {
+        console.error('Could not render slur:', e)
+      }
+    }
+  }
+
+  /**
+   * Draw a same-line phrasing slur as a filled crescent from the start note to the
+   * end note. Unlike {@link drawFlatTie} (which connects one pitch, so both ends
+   * share a Y), a slur spans different pitches — so it takes both endpoint Ys and
+   * bows away from the noteheads by a fixed height. Returns the arc's bbox for hit
+   * detection, or null if geometry is unavailable.
+   */
+  private drawFlatSlur(
+    fromInfo: { staveNote: StaveNote; noteIndex: number },
+    toInfo: { staveNote: StaveNote; noteIndex: number },
+    direction: number,
+  ): { x: number; y: number; width: number; height: number } | null {
+    if (!this.context) return null
+    const firstX = fromInfo.staveNote.getTieRightX()
+    const lastX = toInfo.staveNote.getTieLeftX()
+    const fromYs = fromInfo.staveNote.getYs()
+    const toYs = toInfo.staveNote.getYs()
+    const fromY = fromYs[fromInfo.noteIndex] ?? fromYs[0]
+    const toY = toYs[toInfo.noteIndex] ?? toYs[0]
+    if (fromY === undefined || toY === undefined || isNaN(fromY) || isNaN(toY)) return null
+
+    const LIFT = 10   // gap between the notehead and the arc's endpoints
+    const ARC = 14    // how far the arc bows away from the staff
+    const startY = fromY + LIFT * direction
+    const endY = toY + LIFT * direction
+    const cpX = (firstX + lastX) / 2
+    // Bow away from the more extreme endpoint so the arc clears both heads.
+    const baseY = direction < 0 ? Math.min(startY, endY) : Math.max(startY, endY)
+    const cpY = baseY + ARC * direction
+
+    this.context.beginPath()
+    this.context.moveTo(firstX, startY)
+    this.context.quadraticCurveTo(cpX, cpY, lastX, endY)
+    this.context.quadraticCurveTo(cpX, cpY + 3 * direction, firstX, startY)
+    this.context.closePath()
+    this.context.fill()
+
+    const top = Math.min(startY, endY, cpY)
+    const bottom = Math.max(startY, endY, cpY)
+    return { x: firstX, y: top, width: lastX - firstX, height: bottom - top }
   }
 
   /**

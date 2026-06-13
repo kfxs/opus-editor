@@ -135,6 +135,7 @@ export function useShortcuts(
     toggleStaccato: () => palette.toggleStaccato(),
     toggleTenuto: () => palette.toggleTenuto(),
     toggleTie: () => palette.toggleTie(),
+    toggleSlur: () => palette.toggleSlur(),
     selectNextNote: () => {
       if (state.selectedTool === 'entry') {
         console.log(`[Nav] ArrowRight in entry mode → switching to selection`)

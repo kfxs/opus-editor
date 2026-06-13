@@ -9,7 +9,7 @@ import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, beatToFrac, m
 import { fracToNumber, fracCompare, fracEq, fracAdd } from '@/utils/fraction'
 import { durationToFraction } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos } from '@/utils/pitchSpelling'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Slur } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 import type { RebarEvent } from '@/utils/rebar'
@@ -851,6 +851,71 @@ export class MusicEngine {
       this.saveUndoState('Add tie')
       return true
     }
+  }
+
+  // --- Slurs (phrasing) ---
+
+  /**
+   * Toggle a phrasing slur over the current selection (a span object on
+   * {@link Score.slurs}, distinct from ties). Endpoint resolution:
+   *  - **1 note**  → slur from it to the NEXT distinct slot (note or rest). The
+   *    next-slot scan dedupes by `(measure, beat)` so a chord member slurs to the
+   *    next *event*, not a sibling head at the same beat.
+   *  - **N notes** → slur first→last in score order (`measure`, then `beat`),
+   *    filtered to voice 0 (other voices ignored; see docs/slur-plan.md §1).
+   * If a slur with the same endpoints already exists, it is removed (toggle off).
+   * Slurs are notational only — no playback change — so the audio engine isn't touched.
+   * @returns true if added, false if removed, null if no valid span resolved.
+   */
+  toggleSlur(noteIds: string[]): boolean | null {
+    // Resolve selected ids → flat notes, keep voice 0 only, sort by (measure, beat).
+    const selected = noteIds
+      .map(id => this.scoreModel.getNote(id))
+      .filter((n): n is Note => !!n && (n.voice ?? 0) === 0)
+      .sort((a, b) => a.measure !== b.measure ? a.measure - b.measure : fracCompare(a.beat, b.beat))
+    if (selected.length === 0) return null
+
+    const startNote = selected[0]
+    const endNote = selected.length >= 2
+      ? selected[selected.length - 1]
+      : this.nextDistinctSlot(startNote)
+    if (!endNote || endNote.id === startNote.id) return null
+
+    const existing = this.scoreModel.findSlurByEndpoints(startNote.id, endNote.id)
+    if (existing) {
+      this.scoreModel.removeSlur(existing.id)
+      this.saveUndoState('Remove slur')
+      return false
+    }
+    this.scoreModel.addSlur({ startNoteId: startNote.id, endNoteId: endNote.id, voice: 0 })
+    this.saveUndoState('Add slur')
+    return true
+  }
+
+  /**
+   * The next slot after `start` whose `(measure, beat)` differs from it — i.e. the
+   * next musical event, skipping sibling chord heads that share `start`'s beat.
+   * `getAllNotes()` emits one entry per pitch, hence the dedupe.
+   */
+  private nextDistinctSlot(start: Note): Note | undefined {
+    const sorted = this.scoreModel.getAllNotes()
+      .sort((a, b) => a.measure !== b.measure ? a.measure - b.measure : fracCompare(a.beat, b.beat))
+    const idx = sorted.findIndex(n => n.id === start.id)
+    if (idx < 0) return undefined
+    for (let i = idx + 1; i < sorted.length; i++) {
+      if (sorted[i].measure !== start.measure || !fracEq(sorted[i].beat, start.beat)) return sorted[i]
+    }
+    return undefined
+  }
+
+  /** All phrasing slurs (live array; empty if none). */
+  getSlurs(): Slur[] {
+    return this.scoreModel.getSlurs()
+  }
+
+  /** Find a slur anywhere by id (live reference), or null. */
+  getSlurById(id: string): Slur | null {
+    return this.scoreModel.getSlurById(id)
   }
 
   // --- Query & Deletion ---

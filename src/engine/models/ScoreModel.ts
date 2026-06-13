@@ -1,4 +1,4 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, Clef, Dynamic } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, Clef, Dynamic, Slur } from '@/types/music'
 import {
   isBeatInTupletFrac,
   getTupletTotalBeatsFrac,
@@ -394,6 +394,40 @@ export class ScoreModel {
       if (dyn) return dyn
     }
     return null
+  }
+
+  // ==================== Slurs (top-level phrasing spans) ====================
+
+  /** All phrasing slurs (the live array; empty if none). See {@link Slur}. */
+  getSlurs(): Slur[] {
+    return this.score.slurs ?? []
+  }
+
+  /** Add a slur; returns the stored Slur (with a generated id). */
+  addSlur(slur: Omit<Slur, 'id'>): Slur {
+    const created: Slur = { ...slur, id: uuidv4() }
+    if (!this.score.slurs) this.score.slurs = []
+    this.score.slurs.push(created)
+    return created
+  }
+
+  /** Remove a slur by id. @returns true if one was removed. */
+  removeSlur(id: string): boolean {
+    if (!this.score.slurs) return false
+    const i = this.score.slurs.findIndex(s => s.id === id)
+    if (i < 0) return false
+    this.score.slurs.splice(i, 1)
+    return true
+  }
+
+  /** Find a slur by its exact (directional) endpoints, or undefined. */
+  findSlurByEndpoints(startNoteId: string, endNoteId: string): Slur | undefined {
+    return this.score.slurs?.find(s => s.startNoteId === startNoteId && s.endNoteId === endNoteId)
+  }
+
+  /** Find a slur anywhere by id (live reference), or null. */
+  getSlurById(id: string): Slur | null {
+    return this.score.slurs?.find(s => s.id === id) ?? null
   }
 
   /**

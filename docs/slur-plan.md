@@ -1,7 +1,10 @@
 # Slurs — Implementation Plan
 
-Status: **Phase 0 DONE (not committed); Phases 1–4 pending.** This document is the authoritative plan
-and cross-session checklist.
+Status: **Phase 0 COMMITTED; Phase 1 DONE (not committed); Phases 2–4 pending.** This document is the
+authoritative plan and cross-session checklist.
+
+> **Open correction (see Phase 1):** drop slur *toggling* — the user wants explicit **create** vs.
+> **delete**, not press-`s`-again-to-remove. Deferred until after implementation; details in Phase 1.
 
 Slurs are a **phrasing** mark and are a fundamentally different kind of data from **ties** (which
 are a *duration* mark). The two must stay separate — the same separation every major program and
@@ -196,25 +199,30 @@ Each phase is independently shippable and ends green (unit tests + manual check 
 - [x] Unit tests for the round-trip + legacy backward-compat (`ScoreModel.test.ts`).
 - 605 unit tests green; `npm run build:check` passes.
 
-### Phase 1 — Create / toggle via `s` (same-line only)
-- [ ] `MusicEngine.toggleSlur(selection)` — resolves endpoints:
-  - single note → current note → next slot (note or rest). Reuse the `toggleTie` next-slot sort **but
-    dedupe to distinct `(measure, beat)` slots**: `getAllNotes()` emits **one entry per pitch**
-    (`getNotesInMeasure` pushes per-`NotePitch`), so the raw next entry of a chord member is a *sibling
-    head at the same beat* — slurring to it would make a zero-width arc. Advance to the next distinct
-    event instead.
-  - range → first/last in score order, **filtered to voice 0** if multiple voices present;
-  - if a slur with the same endpoints exists → remove it (toggle off).
-- [ ] One atomic undo step ("Add slur" / "Remove slur"), `saveUndoState`.
-- [ ] `'s' → 'toggleSlur'` in `ShortcutConfig`; handler in the controller layer +
-      `useShortcuts`.
-- [ ] `renderSlurs` (called after `renderTies` in the post-measure pass), registered in
-      `ElementRegistry` with a bbox. **Default to a hand-drawn `drawFlatSlur`** mirroring `drawFlatTie`
-      but taking **both endpoint Ys** and returning a computed bbox — the same precedent the same-line
-      tie uses, and it sidesteps the unverified `Curve.getBoundingBox()`. (If `Curve` is used instead,
-      first confirm it yields a valid bbox after `draw()`, else derive bbox from the two notes' extents.)
-- [ ] Unit tests: endpoint resolution (single/range/score-order/voice-filter/**chord next-slot
-      dedupe**), toggle off.
+### Phase 1 — Create / toggle via `s` (same-line only) — DONE (not committed)
+
+> **⚠ POST-IMPLEMENTATION CORRECTION (user, 2026-06-13) — do not act on yet.**
+> The user does **not** want toggle semantics on `s`. The desired model is **create vs. delete as
+> distinct operations**, not "press `s` again to remove". Phase 1 currently ships the toggle-off
+> behavior (mirroring `toggleTie`) to keep momentum; **revisit after implementation** to split into an
+> explicit create (`s` only ever *adds*) and a separate delete path (Phase 2's Delete-key / arc
+> selection removes). When corrected: drop the "same endpoints exist → remove" branch from
+> `toggleSlur` (likely rename to `addSlur`/`createSlur`), keep removal in the select+Delete flow, and
+> revise the toggle-off unit test. Tracked here so it isn't lost.
+
+- [x] `MusicEngine.toggleSlur(noteIds: string[])` — resolves endpoints:
+  - single note → current note → next slot (note or rest), via `nextDistinctSlot` which **dedupes to
+    distinct `(measure, beat)` slots** (skips sibling chord heads at the same beat).
+  - range → first/last in score order, **filtered to voice 0**.
+  - if a slur with the same endpoints exists → removes it (toggle off — *see correction above*).
+- [x] One atomic undo step ("Add slur" / "Remove slur"), `saveUndoState`.
+- [x] `'s' → 'toggleSlur'` in `ShortcutConfig`; `PaletteController.toggleSlur` handler +
+      `useShortcuts` wiring (reads `selectedItems`, falls back to scalar `selectedNoteId`).
+- [x] `renderSlurs` (called after `renderTies` in the post-measure pass), registered in
+      `ElementRegistry` as `'slur'` with a bbox. Used a hand-drawn **`drawFlatSlur`** (both endpoint
+      Ys, computed bbox) — `Curve` avoided. Same-line only; cross-system spans are skipped (Phase 3).
+- [x] Unit tests: endpoint resolution (single / range / score-order / chord next-slot dedupe /
+      no-next-slot → null), toggle off, undo+redo. 611 tests green; `build:check` passes.
 
 ### Phase 2 — Select / highlight / delete
 - [ ] Hit-test the slur in selection mode → set `selectedSlurId` + `selectedItems`. **Bbox

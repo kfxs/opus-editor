@@ -5,6 +5,7 @@ import { fracLt, fracCompare } from '../utils/fraction'
 import { sameTimeSignature } from '../utils/meter'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingDiatonicPos } from '../utils/pitchSpelling'
+import { selectedNoteIds } from './selection'
 
 /**
  * Handles palette actions: duration, accidental, articulations, tie, dot, tuplet.
@@ -152,6 +153,22 @@ export class PaletteController {
     console.log(`[Tie] toggleTie on noteId:${this.state.selectedNoteId} (tool:${this.state.selectedTool})`)
     const result = engine.toggleTie(this.state.selectedNoteId)
     console.log(`[Tie] result:${result === null ? 'no candidate found' : result ? 'tie added' : 'tie removed'}`)
+    this.renderScore()
+  }
+
+  /**
+   * Toggle a phrasing slur over the current selection (key `s`). Reads the
+   * multi-select set (range) and falls back to the scalar anchor (single note);
+   * the engine resolves endpoints (single→next slot, range→first/last, voice 0).
+   */
+  toggleSlur(): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+    const noteIds = ids.length ? ids : (this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
+    if (noteIds.length === 0) return
+    const result = engine.toggleSlur(noteIds)
+    console.log(`[Slur] toggleSlur on ${noteIds.length} note(s) → ${result === null ? 'no valid span' : result ? 'slur added' : 'slur removed'}`)
     this.renderScore()
   }
 
