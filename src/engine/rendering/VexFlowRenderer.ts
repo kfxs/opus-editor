@@ -2176,18 +2176,27 @@ export class VexFlowRenderer {
     return undefined
   }
 
+  /** Vertical geometry shared by all slur arcs. */
+  private static readonly SLUR_LIFT = 10   // gap between the notehead and the arc's endpoints
+  private static readonly SLUR_ARC = 14    // how far the arc bows away from the staff
+
   /**
    * Render phrasing slurs from {@link Score.slurs}. Each slur is anchored to a
    * start/end head id; both resolve through `staveNoteMap` to their containing
    * chord's StaveNote (a slur arcs over the whole event, not one pitch).
    *
-   * Phase 1: same-line spans only — drawn by {@link drawFlatSlur} (a hand-drawn
-   * arc taking both endpoint Ys, mirroring the same-line tie's `drawFlatTie`) and
-   * registered in the ElementRegistry with a computed bbox. Cross-system spans are
-   * deferred to Phase 3 (two half-arcs); for now they're skipped.
+   * Same-line spans draw one arc. Cross-system spans (endpoints on different lines)
+   * draw **two half-arcs** (Gould / Sibelius): the first trails off the right edge
+   * of the start note's system, the second leads in from the left edge of the end
+   * note's system. Each slur (and both its partials) is wrapped in one
+   * `<g class="vf-slur">` group for scoped highlight, and registered in the
+   * ElementRegistry with sampled arc `points` for proximity hit-testing.
    */
   private renderSlurs(score: Score): void {
     if (!this.context || !score.slurs) return
+
+    const LIFT = VexFlowRenderer.SLUR_LIFT
+    const ARC = VexFlowRenderer.SLUR_ARC
 
     for (const slur of score.slurs) {
       const fromInfo = this.staveNoteMap.get(slur.startNoteId)
@@ -2200,35 +2209,69 @@ export class VexFlowRenderer {
 
       const fromLine = this.measureLayoutInfo.get(fromMeasure)?.lineNumber ?? 0
       const toLine = this.measureLayoutInfo.get(toMeasure)?.lineNumber ?? 0
-      // Phase 1: only same-line slurs. Cross-system (two half-arcs) is Phase 3.
-      if (fromLine !== toLine) continue
 
       // Placement: honor an explicit override; default above (Phase 4 derives this
       // from stem direction). direction -1 = arc above the notes, +1 = below.
       const direction = slur.placement === 'below' ? 1 : -1
 
-      try {
-        // Wrap the arc in its OWN SVG group so the selection highlight can recolor
-        // exactly this slur (no document-wide bbox path-scan, which would bleed onto
-        // beams/ties inside the span). Mirrors the per-element group pattern used for
-        // notes/tuplets/dynamics.
-        const group = this.context.openGroup?.('vf-slur', `vf-slur-${slur.id}`) as SVGGElement | undefined
-        const drawn = this.drawFlatSlur(fromInfo, toInfo, direction)
-        this.context.closeGroup?.()
+      // Endpoint anchor Ys (per chord head).
+      const fromYs = fromInfo.staveNote.getYs()
+      const toYs = toInfo.staveNote.getYs()
+      const fromY = fromYs[fromInfo.noteIndex] ?? fromYs[0]
+      const toY = toYs[toInfo.noteIndex] ?? toYs[0]
+      if (fromY === undefined || toY === undefined || isNaN(fromY) || isNaN(toY)) continue
 
-        if (drawn) {
-          if (group) this.slurGroupMap.set(slur.id, group)
-          this.elementRegistry.add({
-            type: 'slur',
-            id: slur.id,
-            fromNoteId: slur.startNoteId,
-            toNoteId: slur.endNoteId,
-            fromMeasure,
-            toMeasure,
-            bbox: drawn.bbox,
-            points: drawn.points,
-          })
+      const registerPartial = (
+        half: { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] },
+        partialType?: 'start' | 'end',
+      ) => this.elementRegistry.add({
+        type: 'slur', id: slur.id, fromNoteId: slur.startNoteId, toNoteId: slur.endNoteId,
+        fromMeasure, toMeasure, bbox: half.bbox, points: half.points,
+        ...(partialType ? { isPartial: true, partialType } : {}),
+      })
+
+      try {
+        // One SVG group per slur (both partials live inside it) so the selection
+        // highlight can recolor exactly this slur without a bbox path-scan.
+        const group = this.context.openGroup?.('vf-slur', `vf-slur-${slur.id}`) as SVGGElement | undefined
+
+        if (fromLine === toLine) {
+          // Same line: a single arc from the start note to the end note.
+          const firstX = fromInfo.staveNote.getTieRightX()
+          const lastX = toInfo.staveNote.getTieLeftX()
+          const startY = fromY + LIFT * direction
+          const endY = toY + LIFT * direction
+          const baseY = direction < 0 ? Math.min(startY, endY) : Math.max(startY, endY)
+          const cp = { x: (firstX + lastX) / 2, y: baseY + ARC * direction }
+          registerPartial(this.strokeSlurCrescent({ x: firstX, y: startY }, cp, { x: lastX, y: endY }, direction))
+        } else {
+          // Cross-system: two half-arcs.
+          const fromStave = fromInfo.staveNote.getStave()
+          const toStave = toInfo.staveNote.getStave()
+          if (fromStave && toStave) {
+            // First (trailing) half: from the start note rising to the system's right edge.
+            const firstX = fromInfo.staveNote.getTieRightX()
+            const rightEdge = fromStave.getNoteEndX()
+            const startY = fromY + LIFT * direction
+            const apex1 = startY + ARC * direction
+            registerPartial(
+              this.strokeSlurCrescent({ x: firstX, y: startY }, { x: (firstX + rightEdge) / 2, y: apex1 }, { x: rightEdge, y: apex1 }, direction),
+              'end',
+            )
+            // Second (leading) half: from the next system's left edge down into the end note.
+            const lastX = toInfo.staveNote.getTieLeftX()
+            const leftEdge = toStave.getNoteStartX()
+            const endY = toY + LIFT * direction
+            const apex2 = endY + ARC * direction
+            registerPartial(
+              this.strokeSlurCrescent({ x: leftEdge, y: apex2 }, { x: (leftEdge + lastX) / 2, y: apex2 }, { x: lastX, y: endY }, direction),
+              'start',
+            )
+          }
         }
+
+        this.context.closeGroup?.()
+        if (group) this.slurGroupMap.set(slur.id, group)
       } catch (e) {
         console.error('Could not render slur:', e)
       }
@@ -2236,58 +2279,42 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Draw a same-line phrasing slur as a filled crescent from the start note to the
-   * end note. Unlike {@link drawFlatTie} (which connects one pitch, so both ends
-   * share a Y), a slur spans different pitches — so it takes both endpoint Ys and
-   * bows away from the noteheads by a fixed height. Returns the arc's bbox plus
-   * sampled points along the curve (for arc-proximity hit-testing), or null if
-   * geometry is unavailable.
+   * Stroke a filled slur crescent: a quadratic Bézier from `p0` to `p1` bowing
+   * through `cp`, with a slightly offset return pass for thickness (mirrors the
+   * same-line tie's `drawFlatTie`). Used for both the same-line arc and each
+   * cross-system half. Returns the bbox plus sampled points (for arc-proximity
+   * hit-testing). `direction` is -1 (above) / +1 (below) and only sets the
+   * thickness offset side.
    */
-  private drawFlatSlur(
-    fromInfo: { staveNote: StaveNote; noteIndex: number },
-    toInfo: { staveNote: StaveNote; noteIndex: number },
+  private strokeSlurCrescent(
+    p0: { x: number; y: number },
+    cp: { x: number; y: number },
+    p1: { x: number; y: number },
     direction: number,
-  ): { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] } | null {
-    if (!this.context) return null
-    const firstX = fromInfo.staveNote.getTieRightX()
-    const lastX = toInfo.staveNote.getTieLeftX()
-    const fromYs = fromInfo.staveNote.getYs()
-    const toYs = toInfo.staveNote.getYs()
-    const fromY = fromYs[fromInfo.noteIndex] ?? fromYs[0]
-    const toY = toYs[toInfo.noteIndex] ?? toYs[0]
-    if (fromY === undefined || toY === undefined || isNaN(fromY) || isNaN(toY)) return null
-
-    const LIFT = 10   // gap between the notehead and the arc's endpoints
-    const ARC = 14    // how far the arc bows away from the staff
-    const startY = fromY + LIFT * direction
-    const endY = toY + LIFT * direction
-    const cpX = (firstX + lastX) / 2
-    // Bow away from the more extreme endpoint so the arc clears both heads.
-    const baseY = direction < 0 ? Math.min(startY, endY) : Math.max(startY, endY)
-    const cpY = baseY + ARC * direction
-
+  ): { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] } {
     this.context.beginPath()
-    this.context.moveTo(firstX, startY)
-    this.context.quadraticCurveTo(cpX, cpY, lastX, endY)
-    this.context.quadraticCurveTo(cpX, cpY + 3 * direction, firstX, startY)
+    this.context.moveTo(p0.x, p0.y)
+    this.context.quadraticCurveTo(cp.x, cp.y, p1.x, p1.y)
+    this.context.quadraticCurveTo(cp.x, cp.y + 3 * direction, p0.x, p0.y)
     this.context.closePath()
     this.context.fill()
 
-    // Sample the outer quadratic Bézier (P0=start, CP, P1=end) for hit-testing.
     const points: { x: number; y: number }[] = []
     const STEPS = 16
     for (let i = 0; i <= STEPS; i++) {
       const t = i / STEPS
       const mt = 1 - t
       points.push({
-        x: mt * mt * firstX + 2 * mt * t * cpX + t * t * lastX,
-        y: mt * mt * startY + 2 * mt * t * cpY + t * t * endY,
+        x: mt * mt * p0.x + 2 * mt * t * cp.x + t * t * p1.x,
+        y: mt * mt * p0.y + 2 * mt * t * cp.y + t * t * p1.y,
       })
     }
 
-    const top = Math.min(startY, endY, cpY)
-    const bottom = Math.max(startY, endY, cpY)
-    return { bbox: { x: firstX, y: top, width: lastX - firstX, height: bottom - top }, points }
+    const minX = Math.min(p0.x, cp.x, p1.x)
+    const maxX = Math.max(p0.x, cp.x, p1.x)
+    const minY = Math.min(p0.y, cp.y, p1.y)
+    const maxY = Math.max(p0.y, cp.y, p1.y)
+    return { bbox: { x: minX, y: minY, width: maxX - minX, height: maxY - minY }, points }
   }
 
   /** The rendered SVG group (`<g class="vf-slur">`) for a slur, or null. Scoped

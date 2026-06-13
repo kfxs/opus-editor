@@ -1,7 +1,7 @@
 # Slurs — Implementation Plan
 
-Status: **Phases 0–1 COMMITTED; Phase 2 DONE (not committed); Phases 3–4 pending.** This document is
-the authoritative plan and cross-session checklist. The create-vs-delete correction (no `s` toggle) is
+Status: **Phases 0–2 COMMITTED; Phase 3 DONE (not committed); Phase 4 deferred.** This document is the
+authoritative plan and cross-session checklist. The create-vs-delete correction (no `s` toggle) is
 **resolved** as of Phase 2.
 
 Slurs are a **phrasing** mark and are a fundamentally different kind of data from **ties** (which
@@ -223,7 +223,7 @@ Each phase is independently shippable and ends green (unit tests + manual check 
 - [x] Unit tests: endpoint resolution (single / range / score-order / chord next-slot dedupe /
       no-next-slot → null), idempotency, undo+redo. `build:check` passes.
 
-### Phase 2 — Select / highlight / delete — DONE (not committed)
+### Phase 2 — Select / highlight / delete — DONE & COMMITTED (adcfaaf)
 - [x] Hit-test the slur in selection mode → set `selectedSlurId`. Used **arc-proximity** (min distance
       to the sampled `points` ≤ 7px), not bbox containment — so clicking the curve selects it without
       the coarse rectangle swallowing clicks on the spanned notes. (`MouseController`, after the tie
@@ -240,14 +240,17 @@ Each phase is independently shippable and ends green (unit tests + manual check 
 - [x] Unit tests: create-only idempotency, removeSlur+undo, anchor-deletion cleanup (both
       chord-sibling and replacement-rest re-point). 613 tests green.
 
-### Phase 3 — System-break (two-half) rendering
-- [ ] When endpoints land on different systems, draw **two partial curves** (trailing half off the
-      first system, leading half into the next). The tie precedent (`VexFlowRenderer.ts:2094`) uses
-      `StaveTie` with only `firstNote` / only `lastNote`; if Phase 1 went with a hand-drawn
-      `drawFlatSlur`, extend it to take a synthetic trailing/leading endpoint X instead. Register both
-      partials.
-- [ ] Highlight + hit-test both halves as one logical slur.
-- [ ] Unit/visual check with a wrapped phrase.
+### Phase 3 — System-break (two-half) rendering — DONE (not committed)
+- [x] When endpoints land on different systems, draw **two partial curves**: first trails off the
+      start system's right edge (`fromStave.getNoteEndX()`), second leads in from the end system's left
+      edge (`toStave.getNoteStartX()`). `drawFlatSlur` was generalized into `strokeSlurCrescent(p0, cp,
+      p1, dir)`; `renderSlurs` computes same-line vs cross-line geometry and calls it once (full) or
+      twice (halves). Both partials registered as `'slur'` with `isPartial`/`partialType`.
+- [x] Highlight + hit-test both halves as one logical slur: both halves are drawn inside the **same**
+      `<g class="vf-slur">` group (recolored together) and each carries arc `points` under the same
+      slur `id` (clicking either half selects the slur; Delete removes the one `Slur`).
+- [ ] Visual check with a wrapped phrase (manual — renderer geometry isn't unit-testable; 613 unit
+      tests + `build:check` green).
 
 ### Phase 4 (deferred, not a blocker)
 - [ ] Auto `placement` from stem direction (above for stems-down runs, below for stems-up), with
