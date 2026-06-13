@@ -132,6 +132,8 @@ export class VexFlowRenderer {
   private tupletObjectMap: Map<string, VexFlowTuplet> = new Map()
   /** Map of dynamic IDs to their rendered VexFlow Annotation objects (for scoped highlight) */
   private dynamicObjectMap: Map<string, Annotation> = new Map()
+  /** Map of slur IDs to their rendered SVG group (`<g class="vf-slur">`) for scoped highlight */
+  private slurGroupMap: Map<string, SVGGElement> = new Map()
   /** Dynamic currently being edited in the in-canvas text overlay — skipped while
    *  rendering so the engraved glyph doesn't show doubled under the editor. */
   private suppressedDynamicId: string | null = null
@@ -2206,8 +2208,16 @@ export class VexFlowRenderer {
       const direction = slur.placement === 'below' ? 1 : -1
 
       try {
-        const bbox = this.drawFlatSlur(fromInfo, toInfo, direction)
-        if (bbox) {
+        // Wrap the arc in its OWN SVG group so the selection highlight can recolor
+        // exactly this slur (no document-wide bbox path-scan, which would bleed onto
+        // beams/ties inside the span). Mirrors the per-element group pattern used for
+        // notes/tuplets/dynamics.
+        const group = this.context.openGroup?.('vf-slur', `vf-slur-${slur.id}`) as SVGGElement | undefined
+        const drawn = this.drawFlatSlur(fromInfo, toInfo, direction)
+        this.context.closeGroup?.()
+
+        if (drawn) {
+          if (group) this.slurGroupMap.set(slur.id, group)
           this.elementRegistry.add({
             type: 'slur',
             id: slur.id,
@@ -2215,7 +2225,8 @@ export class VexFlowRenderer {
             toNoteId: slur.endNoteId,
             fromMeasure,
             toMeasure,
-            bbox,
+            bbox: drawn.bbox,
+            points: drawn.points,
           })
         }
       } catch (e) {
@@ -2228,14 +2239,15 @@ export class VexFlowRenderer {
    * Draw a same-line phrasing slur as a filled crescent from the start note to the
    * end note. Unlike {@link drawFlatTie} (which connects one pitch, so both ends
    * share a Y), a slur spans different pitches — so it takes both endpoint Ys and
-   * bows away from the noteheads by a fixed height. Returns the arc's bbox for hit
-   * detection, or null if geometry is unavailable.
+   * bows away from the noteheads by a fixed height. Returns the arc's bbox plus
+   * sampled points along the curve (for arc-proximity hit-testing), or null if
+   * geometry is unavailable.
    */
   private drawFlatSlur(
     fromInfo: { staveNote: StaveNote; noteIndex: number },
     toInfo: { staveNote: StaveNote; noteIndex: number },
     direction: number,
-  ): { x: number; y: number; width: number; height: number } | null {
+  ): { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] } | null {
     if (!this.context) return null
     const firstX = fromInfo.staveNote.getTieRightX()
     const lastX = toInfo.staveNote.getTieLeftX()
@@ -2261,9 +2273,27 @@ export class VexFlowRenderer {
     this.context.closePath()
     this.context.fill()
 
+    // Sample the outer quadratic Bézier (P0=start, CP, P1=end) for hit-testing.
+    const points: { x: number; y: number }[] = []
+    const STEPS = 16
+    for (let i = 0; i <= STEPS; i++) {
+      const t = i / STEPS
+      const mt = 1 - t
+      points.push({
+        x: mt * mt * firstX + 2 * mt * t * cpX + t * t * lastX,
+        y: mt * mt * startY + 2 * mt * t * cpY + t * t * endY,
+      })
+    }
+
     const top = Math.min(startY, endY, cpY)
     const bottom = Math.max(startY, endY, cpY)
-    return { x: firstX, y: top, width: lastX - firstX, height: bottom - top }
+    return { bbox: { x: firstX, y: top, width: lastX - firstX, height: bottom - top }, points }
+  }
+
+  /** The rendered SVG group (`<g class="vf-slur">`) for a slur, or null. Scoped
+   *  highlight uses this to recolor exactly one slur. Must be called after a render. */
+  getSlurSVGGroup(slurId: string): SVGGElement | null {
+    return this.slurGroupMap.get(slurId) ?? null
   }
 
   /**
@@ -2327,6 +2357,8 @@ export class VexFlowRenderer {
     this.tupletObjectMap.clear()
     // Clear the dynamic object map
     this.dynamicObjectMap.clear()
+    // Clear the slur group map
+    this.slurGroupMap.clear()
     // Clear measure layout info
     this.measureLayoutInfo.clear()
   }

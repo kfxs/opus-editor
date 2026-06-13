@@ -235,6 +235,7 @@ export class MouseController {
 
     this.state.selectedTupletId = null
     this.state.selectedTieFromNoteId = null
+    this.state.selectedSlurId = null
     this.state.selectedClefMeasure = null
     this.state.selectedClefBeat = null
     this.state.selectedTimeSignatureMeasure = null
@@ -347,6 +348,22 @@ export class MouseController {
       this.state.selectedAccidentalType = null
       this.state.selectedTieFromNoteId = tieAt.fromNoteId
       console.log(`✓ Tie selected | fromNoteId:${tieAt.fromNoteId} toNoteId:${tieAt.toNoteId} fromMeasure:${tieAt.fromMeasure} toMeasure:${tieAt.toMeasure}`)
+      this.render.renderScore()
+      return
+    }
+
+    // Slur selection — hit-test by proximity to the ARC (sampled points), not the
+    // coarse bbox rectangle (which sits over the spanned notes). Clicking near the
+    // curve selects it; Delete removes the arc (never the notes).
+    const slurPad = 7
+    const slurAt = registry.getByType('slur').find(el => {
+      if (!el.points?.length) return false
+      return el.points.some(p => (x - p.x) ** 2 + (y - p.y) ** 2 <= slurPad * slurPad)
+    }) ?? null
+    if (slurAt?.id) {
+      this.selection.selectNote(null)
+      this.state.selectedSlurId = slurAt.id
+      console.log(`✓ Slur selected | id:${slurAt.id} (Delete to remove)`)
       this.render.renderScore()
       return
     }

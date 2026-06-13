@@ -856,18 +856,23 @@ export class MusicEngine {
   // --- Slurs (phrasing) ---
 
   /**
-   * Toggle a phrasing slur over the current selection (a span object on
+   * Create a phrasing slur over the current selection (a span object on
    * {@link Score.slurs}, distinct from ties). Endpoint resolution:
    *  - **1 note**  → slur from it to the NEXT distinct slot (note or rest). The
    *    next-slot scan dedupes by `(measure, beat)` so a chord member slurs to the
    *    next *event*, not a sibling head at the same beat.
    *  - **N notes** → slur first→last in score order (`measure`, then `beat`),
    *    filtered to voice 0 (other voices ignored; see docs/slur-plan.md §1).
-   * If a slur with the same endpoints already exists, it is removed (toggle off).
+   *
+   * Create-only and **idempotent**: if a slur with the same endpoints already
+   * exists, the existing one is returned and nothing is added (no duplicate). There
+   * is intentionally no toggle-off here — removal is a separate operation (select
+   * the arc + Delete → {@link removeSlur}); see docs/slur-plan.md §1.
+   *
    * Slurs are notational only — no playback change — so the audio engine isn't touched.
-   * @returns true if added, false if removed, null if no valid span resolved.
+   * @returns the created (or pre-existing) Slur, or null if no valid span resolved.
    */
-  toggleSlur(noteIds: string[]): boolean | null {
+  createSlur(noteIds: string[]): Slur | null {
     // Resolve selected ids → flat notes, keep voice 0 only, sort by (measure, beat).
     const selected = noteIds
       .map(id => this.scoreModel.getNote(id))
@@ -882,14 +887,40 @@ export class MusicEngine {
     if (!endNote || endNote.id === startNote.id) return null
 
     const existing = this.scoreModel.findSlurByEndpoints(startNote.id, endNote.id)
-    if (existing) {
-      this.scoreModel.removeSlur(existing.id)
-      this.saveUndoState('Remove slur')
-      return false
-    }
-    this.scoreModel.addSlur({ startNoteId: startNote.id, endNoteId: endNote.id, voice: 0 })
+    if (existing) return existing // idempotent — never duplicate, never remove
+
+    const created = this.scoreModel.addSlur({ startNoteId: startNote.id, endNoteId: endNote.id, voice: 0 })
     this.saveUndoState('Add slur')
-    return true
+    return created
+  }
+
+  /** Remove a slur by id (the arc only — never the anchored notes). Saves undo
+   *  state when removed. @returns true if a slur was removed. */
+  removeSlur(id: string): boolean {
+    const removed = this.scoreModel.removeSlur(id)
+    if (removed) this.saveUndoState('Remove slur')
+    return removed
+  }
+
+  /**
+   * Re-anchor or drop every slur referencing `oldId` (a deleted/replaced head):
+   *  - `newId` given → re-point the anchor (e.g. to a surviving chord sibling, or
+   *    to the rest that replaced a deleted single note — like the tie re-link).
+   *  - `newId === null` → drop the slur (no surviving anchor).
+   * A re-anchor that collapses the span (start === end) drops the slur too.
+   * Mutates the live score in place; the caller owns the surrounding undo step.
+   */
+  private reanchorSlurs(oldId: string, newId: string | null): void {
+    const slurs = this.scoreModel.getScore().slurs
+    if (!slurs) return
+    for (let i = slurs.length - 1; i >= 0; i--) {
+      const s = slurs[i]
+      if (s.startNoteId !== oldId && s.endNoteId !== oldId) continue
+      if (newId === null) { slurs.splice(i, 1); continue }
+      if (s.startNoteId === oldId) s.startNoteId = newId
+      if (s.endNoteId === oldId) s.endNoteId = newId
+      if (s.startNoteId === s.endNoteId) slurs.splice(i, 1)
+    }
   }
 
   /**
@@ -950,6 +981,11 @@ export class MusicEngine {
     // so the tie arc remains visible (the owner of the tie is the source, not the target).
     const tiedFromSourceId = !note.isRest && !isPartOfChord ? note.tiedFrom : undefined
 
+    // A surviving chord sibling (if any) to re-anchor dependent slurs onto.
+    const slurSiblingId = isPartOfChord
+      ? notesAtSameBeat.find(n => n.id !== noteId)?.id
+      : undefined
+
     // Delete the note
     const result = this.scoreModel.deleteNote(noteId)
 
@@ -969,14 +1005,22 @@ export class MusicEngine {
         this.scoreModel.updateNote(tiedFromSourceId, { tiedTo: replacementRest.id })
         this.scoreModel.updateNote(replacementRest.id, { tiedFrom: tiedFromSourceId })
       }
+      // A slur anchored to this head follows the note onto its replacement rest
+      // (the rest gets a NEW id), or is dropped if the rest couldn't be placed.
+      if (result) this.reanchorSlurs(noteId, replacementRest?.id ?? null)
+    } else if (result && isPartOfChord) {
+      // Chord head removed but the chord survives — re-anchor slurs to a sibling head.
+      this.reanchorSlurs(noteId, slurSiblingId ?? null)
     } else if (result && !isPartOfChord && note.isRest && !note.tupletId) {
       // Standalone rest deleted without replacement — re-fill the measure to close the gap
       this.scoreModel.repairMeasureGaps(note.measure)
+      this.reanchorSlurs(noteId, null) // the rest anchor is gone — drop dependent slurs
     } else if (result && !isPartOfChord && note.isRest && note.tupletId) {
       // Rest inside a tuplet deleted — fill the empty gap it left behind
       const measure = this.scoreModel.getMeasure(note.measure)
       const tuplet = measure?.tuplets?.find(t => t.id === note.tupletId)
       if (tuplet) this.scoreModel.refillTupletRemainder(note.measure, tuplet)
+      this.reanchorSlurs(noteId, null)
     }
 
     this.playbackEngine.setScore(this.scoreModel.getScore())
@@ -1517,6 +1561,14 @@ export class MusicEngine {
    */
   getDynamicSVGGroup(dynamicId: string): SVGGElement | null {
     return this.renderer.getDynamicSVGGroup(dynamicId)
+  }
+
+  /**
+   * Get the rendered SVG group (`<g class="vf-slur">`) for a slur, to recolor
+   * exactly one slur for the selection highlight (no document-wide bbox scan).
+   */
+  getSlurSVGGroup(slurId: string): SVGGElement | null {
+    return this.renderer.getSlurSVGGroup(slurId)
   }
 
   /** Suppress one dynamic from rendering (null = restore). Re-render to apply.

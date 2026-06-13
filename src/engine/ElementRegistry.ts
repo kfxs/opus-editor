@@ -149,6 +149,12 @@ export interface ElementInfo {
   isPartial?: boolean
   /** Type of partial tie: 'start' or 'end' */
   partialType?: 'start' | 'end'
+  /**
+   * Sampled points along a curved element's arc (slurs), in pixel space. Used for
+   * arc-proximity hit-testing — clicking near the drawn curve, not anywhere inside
+   * the (coarse) bbox rectangle that sits over the spanned notes.
+   */
+  points?: { x: number; y: number }[]
   // Accidental-specific properties
   /** Type of accidental: '#', 'b', 'n', '##', 'bb' (for accidentals) */
   accidentalType?: string

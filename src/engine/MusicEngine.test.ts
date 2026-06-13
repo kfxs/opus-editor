@@ -398,7 +398,7 @@ describe('MusicEngine.runBatch — atomic multi-element undo', () => {
   })
 })
 
-describe('MusicEngine.toggleSlur — endpoint resolution', () => {
+describe('MusicEngine.createSlur — endpoint resolution', () => {
   let engine: MusicEngine
 
   beforeEach(() => {
@@ -409,20 +409,17 @@ describe('MusicEngine.toggleSlur — endpoint resolution', () => {
     const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
-    expect(engine.toggleSlur([a.id])).toBe(true)
-    const slurs = engine.getSlurs()
-    expect(slurs).toHaveLength(1)
-    expect(slurs[0]).toMatchObject({ startNoteId: a.id, endNoteId: b.id, voice: 0 })
+    expect(engine.createSlur([a.id])).toMatchObject({ startNoteId: a.id, endNoteId: b.id, voice: 0 })
+    expect(engine.getSlurs()).toHaveLength(1)
   })
 
   it('range slurs first→last in SCORE order, regardless of id order passed', () => {
     const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const c = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
 
     // Pass ids out of order: last, first, middle.
-    expect(engine.toggleSlur([c.id, a.id, b.id])).toBe(true)
-    expect(engine.getSlurs()[0]).toMatchObject({ startNoteId: a.id, endNoteId: c.id })
+    expect(engine.createSlur([c.id, a.id])).toMatchObject({ startNoteId: a.id, endNoteId: c.id })
   })
 
   it('a single chord member slurs to the next EVENT, not a sibling head at the same beat', () => {
@@ -431,22 +428,21 @@ describe('MusicEngine.toggleSlur — endpoint resolution', () => {
     const sibling = engine.addChordNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const next = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
-    expect(engine.toggleSlur([a.id])).toBe(true)
-    const slur = engine.getSlurs()[0]
+    const slur = engine.createSlur([a.id])!
     expect(slur.startNoteId).toBe(a.id)
-    // NOT the sibling at the same beat:
-    expect(slur.endNoteId).not.toBe(sibling.id)
+    expect(slur.endNoteId).not.toBe(sibling.id) // NOT the sibling at the same beat
     expect(slur.endNoteId).toBe(next.id)
   })
 
-  it('pressing s again on the same span toggles the slur off', () => {
+  it('is create-only and idempotent — pressing s again does NOT add a duplicate or remove', () => {
     const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
-    expect(engine.toggleSlur([a.id])).toBe(true)
+    const first = engine.createSlur([a.id])!
     expect(engine.getSlurs()).toHaveLength(1)
-    expect(engine.toggleSlur([a.id])).toBe(false)
-    expect(engine.getSlurs()).toHaveLength(0)
+    const second = engine.createSlur([a.id])! // same span again
+    expect(second.id).toBe(first.id)          // returns the existing slur
+    expect(engine.getSlurs()).toHaveLength(1) // still exactly one — no toggle-off, no dup
   })
 
   it('returns null when there is no next slot to slur to', () => {
@@ -460,21 +456,62 @@ describe('MusicEngine.toggleSlur — endpoint resolution', () => {
     const lastChord = all[all.length - 1] as { notes: { id: string }[] }
     const lastId = lastChord.notes[0].id
 
-    expect(engine.toggleSlur([lastId])).toBeNull()
+    expect(engine.createSlur([lastId])).toBeNull()
     expect(engine.getSlurs()).toHaveLength(0)
   })
 
-  it('add / remove are each one undo step', () => {
+  it('create then removeSlur are each one undo step', () => {
     const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
-    engine.toggleSlur([a.id])
+    const slur = engine.createSlur([a.id])!
     expect(engine.getSlurs()).toHaveLength(1)
     expect(engine.undo()).toBe(true)
     expect(engine.getSlurs()).toHaveLength(0) // undo removes the add
     expect(engine.redo()).toBe(true)
     expect(engine.getSlurs()).toHaveLength(1) // redo restores it
+
+    expect(engine.removeSlur(slur.id)).toBe(true)
+    expect(engine.getSlurs()).toHaveLength(0)
+    expect(engine.undo()).toBe(true)
+    expect(engine.getSlurs()).toHaveLength(1) // undo restores the removed slur
   })
   // (JSON round-trip of slurs is covered in ScoreModel.test.ts — the engine's
   //  loadJSON triggers a full render, which the renderer stub here can't satisfy.)
+})
+
+describe('MusicEngine — slur cleanup when an anchored note is deleted', () => {
+  let engine: MusicEngine
+
+  beforeEach(() => {
+    engine = makeEngine()
+  })
+
+  it('re-anchors to the replacement rest when a single anchor note is deleted', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const slur = engine.createSlur([a.id])! // a → b
+    expect(slur.endNoteId).toBe(b.id)
+
+    engine.deleteNote(b.id) // b becomes a rest with a NEW id
+    const slurs = engine.getSlurs()
+    expect(slurs).toHaveLength(1)               // slur survives
+    expect(slurs[0].endNoteId).not.toBe(b.id)   // re-pointed onto the replacement rest
+    // The new endpoint is a real slot at b's old (measure, beat).
+    const end = engine.getNote(slurs[0].endNoteId)
+    expect(end?.isRest).toBe(true)
+  })
+
+  it('re-anchors to a surviving sibling when a chord head anchor is deleted', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const sib = engine.addChordNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    engine.createSlur([a.id]) // a (chord head) → b
+
+    engine.deleteNote(a.id) // chord survives via `sib`
+    const slurs = engine.getSlurs()
+    expect(slurs).toHaveLength(1)
+    expect(slurs[0].startNoteId).toBe(sib.id) // re-anchored to the sibling head
+    expect(slurs[0].endNoteId).toBe(b.id)
+  })
 })

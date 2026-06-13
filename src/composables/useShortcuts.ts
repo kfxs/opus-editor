@@ -82,6 +82,10 @@ export function useShortcuts(
         eng.toggleTie(state.selectedTieFromNoteId)
         state.selectedTieFromNoteId = null
         renderer.renderScore()
+      } else if (state.selectedSlurId && eng) {
+        eng.removeSlur(state.selectedSlurId)
+        state.selectedSlurId = null
+        renderer.renderScore()
       } else if (state.selectedTupletId && eng) {
         eng.deleteTuplet(state.selectedTupletId)
         state.selectedTupletId = null
@@ -135,7 +139,7 @@ export function useShortcuts(
     toggleStaccato: () => palette.toggleStaccato(),
     toggleTenuto: () => palette.toggleTenuto(),
     toggleTie: () => palette.toggleTie(),
-    toggleSlur: () => palette.toggleSlur(),
+    createSlur: () => palette.createSlur(),
     selectNextNote: () => {
       if (state.selectedTool === 'entry') {
         console.log(`[Nav] ArrowRight in entry mode → switching to selection`)

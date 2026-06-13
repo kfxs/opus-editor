@@ -157,18 +157,19 @@ export class PaletteController {
   }
 
   /**
-   * Toggle a phrasing slur over the current selection (key `s`). Reads the
+   * Add a phrasing slur over the current selection (key `s`). Reads the
    * multi-select set (range) and falls back to the scalar anchor (single note);
    * the engine resolves endpoints (single→next slot, range→first/last, voice 0).
+   * Create-only and idempotent — removal is select-the-arc + Delete.
    */
-  toggleSlur(): void {
+  createSlur(): void {
     const engine = this.getEngine()
     if (!engine) return
     const ids = selectedNoteIds(this.state.selectedItems.values())
     const noteIds = ids.length ? ids : (this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
     if (noteIds.length === 0) return
-    const result = engine.toggleSlur(noteIds)
-    console.log(`[Slur] toggleSlur on ${noteIds.length} note(s) → ${result === null ? 'no valid span' : result ? 'slur added' : 'slur removed'}`)
+    const slur = engine.createSlur(noteIds)
+    console.log(`[Slur] createSlur on ${noteIds.length} note(s) → ${slur ? `slur ${slur.id}` : 'no valid span'}`)
     this.renderScore()
   }
 

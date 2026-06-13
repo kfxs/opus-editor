@@ -1,10 +1,8 @@
 # Slurs — Implementation Plan
 
-Status: **Phase 0 COMMITTED; Phase 1 DONE (not committed); Phases 2–4 pending.** This document is the
-authoritative plan and cross-session checklist.
-
-> **Open correction (see Phase 1):** drop slur *toggling* — the user wants explicit **create** vs.
-> **delete**, not press-`s`-again-to-remove. Deferred until after implementation; details in Phase 1.
+Status: **Phases 0–1 COMMITTED; Phase 2 DONE (not committed); Phases 3–4 pending.** This document is
+the authoritative plan and cross-session checklist. The create-vs-delete correction (no `s` toggle) is
+**resolved** as of Phase 2.
 
 Slurs are a **phrasing** mark and are a fundamentally different kind of data from **ties** (which
 are a *duration* mark). The two must stay separate — the same separation every major program and
@@ -25,10 +23,11 @@ Let the user draw a slur over a run of notes/chords in a single voice:
   reusing the same "next slot" logic `MusicEngine.toggleTie` already uses (`MusicEngine.ts:838`).
 - **`s`, range selected** → slur from the **first** to the **last** element in **score order**
   (`measure`, then `beat`) — *not* selection order.
-- **`s` again** on a span whose endpoints already carry a slur → **toggle it off** (remove), matching
-  `toggleTie`'s toggle semantics.
-- A slur is **selectable** (click its arc in selection mode) and **deletable** (Delete), with a
-  scoped highlight, just like ties.
+- **`s` is create-only and idempotent** (user decision, 2026-06-13): pressing it again on a span that
+  already carries a slur returns the existing slur and adds nothing — it does **not** toggle off. (This
+  replaced the original "toggle off on repeat" plan; see the resolved correction note under Phase 1.)
+- A slur is **selectable** (click its arc in selection mode) and **deletable** (Delete) — removal lives
+  **only** in the select+Delete path, not on `s` — with a scoped highlight, just like ties.
 - Undo/redo + JSON round-trip throughout.
 
 `s` is lowercase and is **not** a note-entry letter (only `a`–`g` are), so it is safe; it operates on
@@ -199,45 +198,47 @@ Each phase is independently shippable and ends green (unit tests + manual check 
 - [x] Unit tests for the round-trip + legacy backward-compat (`ScoreModel.test.ts`).
 - 605 unit tests green; `npm run build:check` passes.
 
-### Phase 1 — Create / toggle via `s` (same-line only) — DONE (not committed)
+### Phase 1 — Create / toggle via `s` (same-line only) — DONE & COMMITTED (d629a64)
 
-> **⚠ POST-IMPLEMENTATION CORRECTION (user, 2026-06-13) — do not act on yet.**
-> The user does **not** want toggle semantics on `s`. The desired model is **create vs. delete as
-> distinct operations**, not "press `s` again to remove". Phase 1 currently ships the toggle-off
-> behavior (mirroring `toggleTie`) to keep momentum; **revisit after implementation** to split into an
-> explicit create (`s` only ever *adds*) and a separate delete path (Phase 2's Delete-key / arc
-> selection removes). When corrected: drop the "same endpoints exist → remove" branch from
-> `toggleSlur` (likely rename to `addSlur`/`createSlur`), keep removal in the select+Delete flow, and
-> revise the toggle-off unit test. Tracked here so it isn't lost.
+> **✅ POST-IMPLEMENTATION CORRECTION (user, 2026-06-13) — RESOLVED in Phase 2.**
+> The user does **not** want toggle semantics on `s`. Phase 1 shipped the interim toggle-off; Phase 2
+> replaced it with **create vs. delete as distinct operations**: `toggleSlur` → **`createSlur`**
+> (create-only, idempotent — returns the existing slur on a repeat, never removes); removal lives only
+> in the select-the-arc + Delete path (`removeSlur`). The toggle-off test was replaced by an
+> idempotency test. No remaining action.
 
-- [x] `MusicEngine.toggleSlur(noteIds: string[])` — resolves endpoints:
+- [x] `MusicEngine.createSlur(noteIds: string[])` — resolves endpoints:
   - single note → current note → next slot (note or rest), via `nextDistinctSlot` which **dedupes to
     distinct `(measure, beat)` slots** (skips sibling chord heads at the same beat).
   - range → first/last in score order, **filtered to voice 0**.
-  - if a slur with the same endpoints exists → removes it (toggle off — *see correction above*).
-- [x] One atomic undo step ("Add slur" / "Remove slur"), `saveUndoState`.
-- [x] `'s' → 'toggleSlur'` in `ShortcutConfig`; `PaletteController.toggleSlur` handler +
+  - if a slur with the same endpoints exists → returns it unchanged (**idempotent, create-only**).
+- [x] One atomic undo step ("Add slur"), `saveUndoState`. (Removal's "Remove slur" undo step lives in
+      `removeSlur`, Phase 2.)
+- [x] `'s' → 'createSlur'` in `ShortcutConfig`; `PaletteController.createSlur` handler +
       `useShortcuts` wiring (reads `selectedItems`, falls back to scalar `selectedNoteId`).
 - [x] `renderSlurs` (called after `renderTies` in the post-measure pass), registered in
-      `ElementRegistry` as `'slur'` with a bbox. Used a hand-drawn **`drawFlatSlur`** (both endpoint
-      Ys, computed bbox) — `Curve` avoided. Same-line only; cross-system spans are skipped (Phase 3).
+      `ElementRegistry` as `'slur'` with a bbox + sampled arc `points`. Used a hand-drawn
+      **`drawFlatSlur`** (both endpoint Ys, computed bbox) — `Curve` avoided. Same-line only;
+      cross-system spans are skipped (Phase 3).
 - [x] Unit tests: endpoint resolution (single / range / score-order / chord next-slot dedupe /
-      no-next-slot → null), toggle off, undo+redo. 611 tests green; `build:check` passes.
+      no-next-slot → null), idempotency, undo+redo. `build:check` passes.
 
-### Phase 2 — Select / highlight / delete
-- [ ] Hit-test the slur in selection mode → set `selectedSlurId` + `selectedItems`. **Bbox
-      containment is coarse for a long slur** (the rectangle sits on top of the spanned notes), so
-      prefer arc-proximity (distance to the drawn curve) over plain rectangle containment, or at least
-      note the trade-off if shipping bbox-only first.
-- [ ] `HighlightController.applySlurHighlight` — **color the slur's own `Curve`/SVG group/element, not
-      a bbox path-scan** (see §3: a verbatim `colorTieArc` would bleed onto beams/arcs inside the span).
-- [ ] Delete removes the `Slur` object (not the notes); undo step.
-- [ ] Anchored-note hazards (mirror the tie handling in `deleteNote` `MusicEngine.ts:886`): when an
-      anchor head is deleted, **re-anchor or drop** the dependent slur, per the two cases in §4 —
-      (a) multi-note chord survives → re-anchor to a sibling head; (b) single note → the replacement
-      rest has a **new id**, so re-point the slur to it (like the tie re-link at `:902–905`) or drop it.
-- [ ] Unit tests: select, delete, anchor-deletion cleanup (**both chord-sibling and replacement-rest
-      re-point cases**).
+### Phase 2 — Select / highlight / delete — DONE (not committed)
+- [x] Hit-test the slur in selection mode → set `selectedSlurId`. Used **arc-proximity** (min distance
+      to the sampled `points` ≤ 7px), not bbox containment — so clicking the curve selects it without
+      the coarse rectangle swallowing clicks on the spanned notes. (`MouseController`, after the tie
+      hit-test.) Note: routed through the scalar `selectedSlurId`, not `selectedItems`, matching the
+      other non-note marks (ties/dynamics/clefs) — multi-select migration is a later phase.
+- [x] `HighlightController.applySlurSelectionHighlight` — colors **the slur's own `<g class="vf-slur">`
+      group** (via `getSlurSVGGroup`), not a bbox path-scan, so no bleed onto beams/arcs in the span.
+      Wired into `RenderController.applyHighlights`.
+- [x] Delete removes the `Slur` object (not the notes) via `removeSlur`; one undo step. Wired into
+      `useShortcuts` `deleteSelected` (after the tie branch).
+- [x] Anchored-note hazards (`MusicEngine.deleteNote` → `reanchorSlurs`): (a) multi-note chord survives
+      → re-anchor to a surviving sibling head; (b) single note → re-point onto the replacement rest's
+      **new id**; (c) rest deleted / span collapses → drop the slur.
+- [x] Unit tests: create-only idempotency, removeSlur+undo, anchor-deletion cleanup (both
+      chord-sibling and replacement-rest re-point). 613 tests green.
 
 ### Phase 3 — System-break (two-half) rendering
 - [ ] When endpoints land on different systems, draw **two partial curves** (trailing half off the
@@ -259,7 +260,8 @@ Each phase is independently shippable and ends green (unit tests + manual check 
 ## 6. Decisions locked (from user)
 1. **Key:** lowercase **`s`**.
 2. **Single note + `s`:** slur current note → next slot (note or rest).
-3. **Range + `s`:** first → last in **score order**, toggle off on repeat.
+3. **Range + `s`:** first → last in **score order**. `s` is **create-only / idempotent** (no toggle-off
+   — revised 2026-06-13); removal is select-the-arc + Delete.
 4. **Multi-voice range:** slur **only voice 0** ("voice 1"), ignore others.
 5. **System break:** draw as **two half-arcs** (Gould / Sibelius convention).
 6. **Storage:** top-level `Score.slurs[]`.

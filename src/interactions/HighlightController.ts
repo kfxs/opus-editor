@@ -455,4 +455,23 @@ export class HighlightController {
       el.classList.add('selected-dynamic')
     })
   }
+
+  applySlurSelectionHighlight(): void {
+    const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
+    if (!engine || !scoreCanvas || !this.state.selectedSlurId) return
+
+    // Recolor inside the slur's OWN <g class="vf-slur"> group only — never a
+    // document-wide bbox path-scan, which would bleed onto beams/ties/other arcs
+    // sitting inside a long slur's bounding rectangle (see docs/slur-plan.md §3).
+    const group = engine.getSlurSVGGroup(this.state.selectedSlurId)
+    if (!group) return
+
+    const SELECTION_COLOR = '#F59E0B'
+    group.querySelectorAll('path').forEach(el => {
+      el.setAttribute('fill', SELECTION_COLOR)
+      ;(el as SVGElement & { style: CSSStyleDeclaration }).style.fill = SELECTION_COLOR
+      el.classList.add('selected-slur')
+    })
+  }
 }

@@ -100,10 +100,11 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Toggle tie to next note of same pitch',
   },
 
-  // Slur (phrasing) — Sibelius-style 's' over the selection
+  // Slur (phrasing) — Sibelius-style 's' over the selection. Create-only;
+  // removal is select-the-arc + Delete (not a toggle).
   's': {
-    action: 'toggleSlur',
-    description: 'Toggle a phrasing slur over the selection',
+    action: 'createSlur',
+    description: 'Add a phrasing slur over the selection',
   },
 
   // Articulations (numpad - Sibelius style)
