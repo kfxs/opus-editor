@@ -2210,9 +2210,15 @@ export class VexFlowRenderer {
       const fromLine = this.measureLayoutInfo.get(fromMeasure)?.lineNumber ?? 0
       const toLine = this.measureLayoutInfo.get(toMeasure)?.lineNumber ?? 0
 
-      // Placement: honor an explicit override; default above (Phase 4 derives this
-      // from stem direction). direction -1 = arc above the notes, +1 = below.
-      const direction = slur.placement === 'below' ? 1 : -1
+      // Placement (direction -1 = arc above the notes, +1 = below):
+      //  - explicit `placement` override always wins;
+      //  - otherwise follow the stems, notehead-side (Gould): stems up → slur below,
+      //    stems down → slur above. VexFlow getStemDirection() is 1 (up) / -1 (down),
+      //    which maps directly onto our +1 (below) / -1 (above).
+      const autoDir = (fromInfo.staveNote.getStemDirection?.() ?? -1) === 1 ? 1 : -1
+      const direction = slur.placement === 'below' ? 1
+        : slur.placement === 'above' ? -1
+        : autoDir
 
       // Endpoint anchor Ys (per chord head).
       const fromYs = fromInfo.staveNote.getYs()

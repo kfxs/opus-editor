@@ -1,8 +1,8 @@
 # Slurs — Implementation Plan
 
-Status: **Phases 0–2 COMMITTED; Phase 3 DONE (not committed); Phase 4 deferred.** This document is the
-authoritative plan and cross-session checklist. The create-vs-delete correction (no `s` toggle) is
-**resolved** as of Phase 2.
+Status: **Phases 0–3 COMMITTED; Phase 4 deferred.** This document is the authoritative plan and
+cross-session checklist. The create-vs-delete correction (no `s` toggle) is **resolved** as of Phase 2.
+The core feature is complete; Phase 4 is optional polish.
 
 Slurs are a **phrasing** mark and are a fundamentally different kind of data from **ties** (which
 are a *duration* mark). The two must stay separate — the same separation every major program and
@@ -240,7 +240,7 @@ Each phase is independently shippable and ends green (unit tests + manual check 
 - [x] Unit tests: create-only idempotency, removeSlur+undo, anchor-deletion cleanup (both
       chord-sibling and replacement-rest re-point). 613 tests green.
 
-### Phase 3 — System-break (two-half) rendering — DONE (not committed)
+### Phase 3 — System-break (two-half) rendering — DONE & COMMITTED (2263374)
 - [x] When endpoints land on different systems, draw **two partial curves**: first trails off the
       start system's right edge (`fromStave.getNoteEndX()`), second leads in from the end system's left
       edge (`toStave.getNoteStartX()`). `drawFlatSlur` was generalized into `strokeSlurCrescent(p0, cp,
@@ -253,10 +253,13 @@ Each phase is independently shippable and ends green (unit tests + manual check 
       tests + `build:check` green).
 
 ### Phase 4 (deferred, not a blocker)
-- [ ] Auto `placement` from stem direction (above for stems-down runs, below for stems-up), with
-      override.
-- [ ] Optional legato playback interpretation.
-- [ ] Draggable control-point handles; nested-slur `number` disambiguation.
+- [x] Auto `placement` from stem direction (DONE, not committed): default follows the stems
+      notehead-side — stems up → slur below, stems down → slur above (`renderSlurs` reads
+      `getStemDirection()` of the start note; explicit `placement` override still wins). Uses the start
+      note's stem for the whole slur (incl. both cross-system halves); a full-run vote is a later nicety.
+- [ ] Optional legato playback interpretation. (Not started — changes audio behavior; deferred.)
+- [ ] Draggable control-point handles; nested-slur `number` disambiguation. (Not started — large
+      interactive UI; deferred.)
 
 ---
 
