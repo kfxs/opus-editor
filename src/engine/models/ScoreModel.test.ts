@@ -250,6 +250,35 @@ describe('ScoreModel', () => {
       expect(loaded.getActiveLevel(1, frac(1, 1))).toBe('p')
     })
 
+    it('round-trips top-level slurs through JSON', () => {
+      // No slur API yet (Phase 0 is types/serialization only) — set the
+      // top-level array directly and confirm it survives a save/load cycle.
+      model.getScore().slurs = [
+        { id: 'slur-1', startNoteId: 'n-a', endNoteId: 'n-b', voice: 0, placement: 'above' },
+      ]
+
+      const loaded = ScoreModel.fromJSON(model.toJSON())
+      expect(loaded.getScore().slurs).toEqual([
+        { id: 'slur-1', startNoteId: 'n-a', endNoteId: 'n-b', voice: 0, placement: 'above' },
+      ])
+    })
+
+    it('loads legacy JSON with no slurs array (backward-compatible)', () => {
+      const legacy = JSON.stringify({
+        id: 'x', title: 'Legacy', tempo: 100,
+        keySignature: { key: 'C', accidentals: 0 },
+        defaultTimeSignature: { numerator: 4, denominator: 4 },
+        schemaVersion: 2,
+        measures: [
+          { id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [] },
+        ],
+      })
+      const loaded = ScoreModel.fromJSON(legacy)
+      expect(loaded.getScore().slurs).toBeUndefined()
+      // Consumers treat absent as empty.
+      expect(loaded.getScore().slurs ?? []).toEqual([])
+    })
+
     it('loads legacy JSON with no dynamics array (backward-compatible)', () => {
       const legacy = JSON.stringify({
         id: 'x', title: 'Legacy', tempo: 100,

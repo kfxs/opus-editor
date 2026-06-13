@@ -52,6 +52,8 @@ export interface EditorState {
   selectedAccidentalType: string | null
   selectedTupletId: string | null
   selectedTieFromNoteId: string | null
+  /** Id of the on-score slur selected for removal (selection tool); null if none. */
+  selectedSlurId: string | null
 
   // --- Palette ---
   selectedDuration: NoteDuration
@@ -126,6 +128,7 @@ export function createEditorState(): EditorState {
     selectedAccidentalType: null,
     selectedTupletId: null,
     selectedTieFromNoteId: null,
+    selectedSlurId: null,
     selectedDuration: 'q',
     selectedAccidental: null,
     selectedDots: 0,

@@ -123,6 +123,33 @@ export interface Dynamic {
 }
 
 /**
+ * A phrasing slur spanning a run of note events within one voice.
+ *
+ * A slur is a PHRASING mark and is fundamentally different from a tie (a
+ * DURATION mark on a notehead, see {@link NotePitch.tiedTo}). It is modeled as a
+ * first-class span object anchored to a start and end note event — never as note
+ * attributes — mirroring MusicXML `<slur>` and MuseScore's Spanner. Stored
+ * top-level on {@link Score.slurs} because slurs cross barlines and systems
+ * freely. See docs/slur-plan.md.
+ */
+export interface Slur {
+  id: string
+  /** Anchor: the start note's head id (a {@link NotePitch} id, as used by selection). */
+  startNoteId: string
+  /** Anchor: the end note's head id. */
+  endNoteId: string
+  /** Voice this slur belongs to; both anchors share it. Default 0. See {@link Note.voice}. */
+  voice?: 0 | 1 | 2 | 3
+  /** Vertical placement; default auto (derived from stem direction). */
+  placement?: 'above' | 'below'
+  /**
+   * Reserved for future nested/overlapping-slur disambiguation (MusicXML `number`).
+   * Unused in this pass.
+   */
+  number?: number
+}
+
+/**
  * Stem direction for notes
  * - 'auto': Calculate based on pitch and clef (default)
  * - 'up': Force stem up
@@ -364,6 +391,12 @@ export interface Score {
   defaultTimeSignature: TimeSignature
   /** Clef for the score (default: 'treble') */
   clef?: Clef
+  /**
+   * Phrasing slurs spanning runs of note events. Top-level (not measure-owned)
+   * because a slur spans barlines and systems. Optional/absent = no slurs
+   * (backward-compatible JSON). See {@link Slur} and docs/slur-plan.md.
+   */
+  slurs?: Slur[]
   /** Schema version for JSON forward-compatibility. Current: 2. */
   schemaVersion?: number
 }

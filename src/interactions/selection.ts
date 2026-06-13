@@ -19,6 +19,7 @@ export type SelectionItem =
   | { kind: 'dynamic'; id: string }
   | { kind: 'tuplet'; id: string }
   | { kind: 'tie'; fromNoteId: string }
+  | { kind: 'slur'; id: string }
   | { kind: 'articulation'; noteId: string; type: string }
   | { kind: 'accidental'; noteId: string; type: string }
   | { kind: 'clef'; measure: number; beat: number }
@@ -35,6 +36,7 @@ export function itemKey(item: SelectionItem): string {
     case 'note':
     case 'dynamic':
     case 'tuplet':
+    case 'slur':
       return `${item.kind}:${item.id}`
     case 'tie':
       return `tie:${item.fromNoteId}`

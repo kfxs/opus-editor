@@ -24,6 +24,7 @@ export type ElementType =
   | 'beam'
   | 'staff'
   | 'tie'
+  | 'slur'
   | 'accidental'
   | 'tuplet'
   | 'articulation'
