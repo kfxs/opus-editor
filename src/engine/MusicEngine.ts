@@ -911,6 +911,18 @@ export class MusicEngine {
     return updated
   }
 
+  /** Live (preview) shape update used **while dragging a slur handle** — mutates the
+   *  slur's `cps` but does NOT record undo. Call {@link commitSlurShape} on drop to
+   *  push the single undo entry (mirrors `moveClef` / `commitClefMove`). */
+  previewSlurShape(id: string, cps: Slur['cps']): boolean {
+    return this.scoreModel.setSlurShape(id, cps)
+  }
+
+  /** Record one undo entry after a slur-handle drag settles. */
+  commitSlurShape(): void {
+    this.saveUndoState('Reshape slur')
+  }
+
   /**
    * Re-anchor or drop every slur referencing `oldId` (a deleted/replaced head):
    *  - `newId` given → re-point the anchor (e.g. to a surviving chord sibling, or

@@ -25,6 +25,7 @@ export type ElementType =
   | 'staff'
   | 'tie'
   | 'slur'
+  | 'slur-handle'
   | 'accidental'
   | 'tuplet'
   | 'articulation'
@@ -155,6 +156,17 @@ export interface ElementInfo {
    * the (coarse) bbox rectangle that sits over the spanned notes.
    */
   points?: { x: number; y: number }[]
+  // Slur-shape-editing properties (same-line slurs only; cross-system slurs omit
+  // these, which automatically suppresses their handles — a split slur shares one cps).
+  /** The two on-screen cubic control points (C0, C1) of a slur arc, in pixels.
+   *  Drawn as draggable handles when the slur is selected (Phase 7). */
+  controlPoints?: [{ x: number; y: number }, { x: number; y: number }]
+  /** The slur arc's endpoint geometry, so a handle drag can invert renderCurve's
+   *  control-point math (cp = f(handlePixel, endpoints)) back into `Slur.cps`. */
+  slurEndpoints?: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number }
+  /** For a 'slur-handle' element: the slur it belongs to and which control point. */
+  slurId?: string
+  cpIndex?: 0 | 1
   // Accidental-specific properties
   /** Type of accidental: '#', 'b', 'n', '##', 'bb' (for accidentals) */
   accidentalType?: string

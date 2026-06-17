@@ -35,6 +35,16 @@ export class MouseController {
   private draggedClefStartBeat: Fraction | null = null   // beat at drag start (no-op check)
   private clefDragStartTime: number | null = null
 
+  // --- Slur control-point handle drag (reshape the selected slur's curve) ---
+  private isDraggingSlurHandle = false
+  private draggedSlurId: string | null = null
+  private draggedCpIndex: 0 | 1 | undefined = undefined
+  private draggedSlurEndpoints: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number } | null = null
+  /** The slur's [cp0, cp1] at drag start; the non-dragged control point is held fixed. */
+  private draggedSlurBaselineCps: [{ x: number; y: number }, { x: number; y: number }] | null = null
+  private slurDragChanged = false
+  private slurDragStartTime: number | null = null
+
   private readonly DRAG_TIME_THRESHOLD_MS = 150
   private readonly PREVIEW_THROTTLE_MS = 50
 
@@ -230,6 +240,31 @@ export class MouseController {
         console.log(`✓ Tuplet selected on mousedown | id:${tupletAtClick.tupletId}`)
         this.render.renderScore()
         return
+      }
+    }
+
+    // Slur control-point handle drag — if a slur is already selected and the user
+    // grabbed one of its handle dots, arm a reshape drag. Checked BEFORE the selection
+    // clears below so the slur stays selected throughout the drag.
+    if (this.state.selectedSlurId) {
+      const handle = registry.getByType('slur-handle').find(el => {
+        const b = el.bbox
+        return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
+      })
+      if (handle?.slurId === this.state.selectedSlurId && handle.cpIndex !== undefined) {
+        const slurEl = registry.getByType('slur').find(e => e.id === handle.slurId && e.slurEndpoints && e.controlPoints)
+        if (slurEl?.slurEndpoints && slurEl.controlPoints) {
+          this.isDraggingSlurHandle = true
+          this.draggedSlurId = handle.slurId
+          this.draggedCpIndex = handle.cpIndex
+          this.draggedSlurEndpoints = slurEl.slurEndpoints
+          this.draggedSlurBaselineCps = this.cpsFromControlPoints(slurEl.controlPoints, slurEl.slurEndpoints)
+          this.slurDragChanged = false
+          this.slurDragStartTime = Date.now()
+          console.log(`Slur handle drag ready | id:${handle.slurId} cp:${handle.cpIndex}`)
+          event.preventDefault()
+          return
+        }
       }
     }
 
@@ -451,6 +486,9 @@ export class MouseController {
     if (this.isDraggingClef) {
       this.endClefDrag()
     }
+    if (this.isDraggingSlurHandle) {
+      this.endSlurHandleDrag()
+    }
   }
 
   /** Finish a clef drag: record one undo entry if it actually moved, then reset. */
@@ -476,6 +514,41 @@ export class MouseController {
       engine.setLayoutFrozen(false)
       this.render.renderScore()
     }
+  }
+
+  /**
+   * Invert `Curve.renderCurve`'s control-point math (the same math `drawSlurArc` uses
+   * forward) to recover the `Slur.cps` deltas from the two on-screen control points and
+   * the arc's endpoint geometry. With xShift/yShift = 0 and `cps.length === 2`,
+   * `spacing = (p1.x - p0.x) / 4`, `C0 = (p0.x+spacing+cp0.x, p0.y+cp0.y·dir)` and
+   * `C1 = (p1.x-spacing+cp1.x, p1.y+cp1.y·dir)`.
+   */
+  private cpsFromControlPoints(
+    cps: [{ x: number; y: number }, { x: number; y: number }],
+    ep: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number },
+  ): [{ x: number; y: number }, { x: number; y: number }] {
+    const { p0, p1, direction } = ep
+    const spacing = (p1.x - p0.x) / 4
+    return [
+      { x: cps[0].x - p0.x - spacing, y: (cps[0].y - p0.y) * direction },
+      { x: cps[1].x - p1.x + spacing, y: (cps[1].y - p1.y) * direction },
+    ]
+  }
+
+  /** Finish a slur-handle drag: record one undo entry if the shape changed, then reset. */
+  private endSlurHandleDrag(): void {
+    const engine = this.getEngine()
+    if (engine && this.slurDragChanged) {
+      engine.commitSlurShape()
+      console.log(`Slur reshaped | id:${this.draggedSlurId}`)
+    }
+    this.isDraggingSlurHandle = false
+    this.draggedSlurId = null
+    this.draggedCpIndex = undefined
+    this.draggedSlurEndpoints = null
+    this.draggedSlurBaselineCps = null
+    this.slurDragChanged = false
+    this.slurDragStartTime = null
   }
 
   handleClick(event: MouseEvent): void {
@@ -705,6 +778,27 @@ export class MouseController {
       return
     }
 
+    // Slur handle drag: the grabbed control point follows the cursor. Invert the
+    // renderCurve math to a cps delta, hold the other control point fixed, live-update
+    // (no undo) and re-render — the re-render redraws the handles at the new spots.
+    if (this.isDraggingSlurHandle && this.draggedSlurId && this.draggedCpIndex !== undefined
+        && this.draggedSlurEndpoints && this.draggedSlurBaselineCps) {
+      if (this.slurDragStartTime !== null && Date.now() - this.slurDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return
+      const { p0, p1, direction } = this.draggedSlurEndpoints
+      const spacing = (p1.x - p0.x) / 4
+      const dragged = this.draggedCpIndex === 0
+        ? { x: x - p0.x - spacing, y: (y - p0.y) * direction }
+        : { x: x - p1.x + spacing, y: (y - p1.y) * direction }
+      const cps: [{ x: number; y: number }, { x: number; y: number }] = this.draggedCpIndex === 0
+        ? [dragged, this.draggedSlurBaselineCps[1]]
+        : [this.draggedSlurBaselineCps[0], dragged]
+      if (engine.previewSlurShape(this.draggedSlurId, cps)) {
+        this.slurDragChanged = true
+        this.render.renderScore()
+      }
+      return
+    }
+
     // Clef drag: snap the cursor to a slot boundary in whatever measure it's over
     // and relocate the clef there (raw move, across measures; undo on drop).
     if (this.isDraggingClef && this.draggedClefMeasure !== null && this.draggedClefBeat !== null) {
@@ -776,6 +870,10 @@ export class MouseController {
     if (this.isDraggingClef) {
       console.log('Clef drag ended (mouse left canvas)')
       this.endClefDrag()
+    }
+    if (this.isDraggingSlurHandle) {
+      console.log('Slur handle drag ended (mouse left canvas)')
+      this.endSlurHandleDrag()
     }
 
     this.lastCanvasMousePosition = null

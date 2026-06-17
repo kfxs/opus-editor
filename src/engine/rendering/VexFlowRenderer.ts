@@ -10,7 +10,7 @@ import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, type MeterInfo } from '@/utils/meter'
 import { fillRests, pickVoiceMode, type RestSlot } from '@/utils/restFill'
 import { computeBeamGroups } from '@/utils/beaming'
-import { ElementRegistry, type TupletGeometry, type ClefSegment } from '@/engine/ElementRegistry'
+import { ElementRegistry, type TupletGeometry, type ClefSegment, type ElementInfo } from '@/engine/ElementRegistry'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
 // Dynamics styling constants live in ./dynamicStyle so the in-canvas text editor can
 // font-match the engraving from the same source of truth (see docs/text-editing-plan.md §3).
@@ -2274,10 +2274,12 @@ export class VexFlowRenderer {
       const registerPartial = (
         half: { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] },
         partialType?: 'start' | 'end',
+        extra?: Partial<ElementInfo>,
       ) => this.elementRegistry.add({
         type: 'slur', id: slur.id, fromNoteId: slur.startNoteId, toNoteId: slur.endNoteId,
         fromMeasure, toMeasure, bbox: half.bbox, points: half.points,
         ...(partialType ? { isPartial: true, partialType } : {}),
+        ...extra,
       })
 
       try {
@@ -2298,7 +2300,14 @@ export class VexFlowRenderer {
           const p1 = { x: lastX, y: endY }
           // A user-edited shape (slur.cps) overrides the auto arch; absent → auto.
           const cps = slur.cps ?? this.slurArchCps(p0, p1, direction)
-          registerPartial(this.drawSlurArc(p0, p1, cps, direction, fromNote, toNote))
+          const arc = this.drawSlurArc(p0, p1, cps, direction, fromNote, toNote)
+          // Store the on-screen control points + endpoint geometry so a selected
+          // slur can show draggable handles (Phase 7). Same-line only — a split slur
+          // shares one cps, so it gets no handles.
+          registerPartial(arc, undefined, {
+            controlPoints: [arc.c0, arc.c1],
+            slurEndpoints: { p0, p1, direction },
+          })
         } else {
           // Cross-system: two half-arcs.
           const fromStave = fromNote.getStave()
@@ -2360,7 +2369,7 @@ export class VexFlowRenderer {
     direction: number,
     fromNote: StaveNote,
     toNote: StaveNote,
-  ): { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] } {
+  ): { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[]; c0: { x: number; y: number }; c1: { x: number; y: number } } {
     const curve = new Curve(fromNote, toNote, {
       cps,
       thickness: VexFlowRenderer.SLUR_THICKNESS,
@@ -2399,7 +2408,7 @@ export class VexFlowRenderer {
     const ys = points.map(p => p.y)
     const minX = Math.min(...xs), maxX = Math.max(...xs)
     const minY = Math.min(...ys), maxY = Math.max(...ys)
-    return { bbox: { x: minX, y: minY, width: maxX - minX, height: maxY - minY }, points }
+    return { bbox: { x: minX, y: minY, width: maxX - minX, height: maxY - minY }, points, c0, c1 }
   }
 
   /** The rendered SVG group (`<g class="vf-slur">`) for a slur, or null. Scoped

@@ -481,4 +481,50 @@ export class HighlightController {
       el.classList.add('selected-slur')
     })
   }
+
+  /** Radius of a slur control-point handle dot (px) and its hit half-extent. */
+  private static readonly SLUR_HANDLE_R = 5
+  private static readonly SLUR_HANDLE_HIT = 9
+
+  /**
+   * Draw draggable control-point handles for the selected slur and register them
+   * for hit-testing (Phase 7). Only **same-line** slurs carry `controlPoints` in the
+   * registry, so split (cross-system) slurs get no handles automatically. The handle
+   * elements are added to the (post-render) registry so the next render clears them.
+   */
+  applySlurHandles(): void {
+    const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
+    if (!engine || !scoreCanvas || !this.state.selectedSlurId) return
+    const svg = scoreCanvas.querySelector('svg')
+    if (!svg) return
+
+    const registry = engine.getElementRegistry()
+    const slurEl = registry.getByType('slur').find(
+      e => e.id === this.state.selectedSlurId && e.controlPoints,
+    )
+    if (!slurEl?.controlPoints) return
+
+    const R = HighlightController.SLUR_HANDLE_R
+    const HIT = HighlightController.SLUR_HANDLE_HIT
+    slurEl.controlPoints.forEach((cp, i) => {
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+      dot.setAttribute('cx', String(cp.x))
+      dot.setAttribute('cy', String(cp.y))
+      dot.setAttribute('r', String(R))
+      dot.setAttribute('fill', '#F59E0B')
+      dot.setAttribute('stroke', '#ffffff')
+      dot.setAttribute('stroke-width', '1.5')
+      dot.setAttribute('class', 'slur-handle')
+      ;(dot as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'grab'
+      svg.appendChild(dot)
+
+      registry.add({
+        type: 'slur-handle',
+        slurId: this.state.selectedSlurId!,
+        cpIndex: i as 0 | 1,
+        bbox: { x: cp.x - HIT, y: cp.y - HIT, width: HIT * 2, height: HIT * 2 },
+      })
+    })
+  }
 }

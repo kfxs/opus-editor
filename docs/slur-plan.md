@@ -478,22 +478,29 @@ our own Bézier** — same endpoints, same above/below logic, same two-half syst
 - [x] Tests: `cps` JSON round-trip + `setSlurShape` set/clear (ScoreModel), and engine
       set/clear/undo/redo + unknown-id no-op. 620 unit tests + `build:check` green. No UI yet.
 
-### Phase 7 — Draggable control-point handles — PLANNED
-- [ ] When a slur is selected, render small handle dots at C0/C1 (the §7.2 control points) and register
-      them as a new `ElementType 'slur-handle'` (`ElementRegistry.ts:18`) with their own bboxes +
-      back-reference to the slur id and which control point (0/1).
-- [ ] Drag state in `MouseController` mirroring the **clef-drag state machine** (`isDraggingClef`,
-      `handleMouseDown` arm → `handleMouseMove` update → `handleMouseUp`/`endClefDrag` commit one undo
-      step; `MouseController.ts:31–36,263,710,457`). On drag, convert the screen delta into a `cps`
-      delta (account for the `direction` sign on `y`) and live-update via `setSlurShape`; commit one
-      undo entry on drop.
-- [ ] First slice: the **two main control handles** (C0/C1) — covers the bulk of real reshaping.
-      Endpoint handles / the full Sibelius six-handle set are a later nicety.
-- [ ] **Cross-system non-goal:** a system-break slur shares **one** `cps` pair across both half-arcs
-      (one `slur.cps`, §8 Phase 6), so the two halves cannot be shaped independently. For Phase 7,
-      either suppress handles on split slurs or attach them to the first half only; per-half shaping is
-      out of scope.
-- [ ] Tests: `setSlurShape` + undo/redo + JSON round-trip; drag math is integration (not unit-tested).
+### Phase 7 — Draggable control-point handles — DONE (not committed; pending manual UI test)
+- [x] When a slur is selected, two handle dots are drawn at C0/C1 and registered as
+      `ElementType 'slur-handle'` with their own hit bboxes + `slurId`/`cpIndex`. Drawn as an SVG
+      overlay in `HighlightController.applySlurHandles` (wired into `RenderController.applyHighlights`,
+      after the slur highlight) — the registry is post-render, so the next render clears the handles.
+      The renderer stores the on-screen `controlPoints` + `slurEndpoints` on the same-line slur element
+      (`drawSlurArc` now returns `c0`/`c1`); the highlight reads them.
+- [x] Drag state in `MouseController` mirroring the **clef-drag state machine**: `handleMouseDown` arms
+      the drag if a handle dot is hit (checked **before** the selection clears, so the slur stays
+      selected) → `handleMouseMove` converts the cursor pixel into a `cps` delta via
+      `cpsFromControlPoints` (inverts `renderCurve`'s control-point math), holds the other control point
+      fixed, and live-updates via `engine.previewSlurShape` (NO undo) → `handleMouseUp`/`MouseLeave`
+      → `endSlurHandleDrag` calls `engine.commitSlurShape()` for **one** undo entry if the shape changed.
+- [x] First slice: the **two main control handles** (C0/C1). Endpoint handles / the full six-handle set
+      remain a later nicety.
+- [x] **Cross-system handled by omission:** only same-line slurs carry `controlPoints`/`slurEndpoints`
+      in the registry, so a split slur shows **no** handles (per the one-shared-`cps` non-goal).
+- [x] Tests: `previewSlurShape` (no undo) + `commitSlurShape` (one undo) = single reshape step
+      (undo→auto, redo→final). The pixel drag itself is integration (not unit-tested). 621 unit tests +
+      `build:check` green.
+- [ ] **Manual UI test (user):** select a slur → two orange dots appear at the control points; drag a
+      dot to reshape the curve; release → one undo step (Ctrl+Z reverts to auto). Split (cross-system)
+      slurs show no handles. Deselecting clears the dots.
 
 ### Phase 8 — Nested / overlapping-slur `number` disambiguation — PLANNED (small)
 - [ ] The `Slur.number` field already exists (reserved). On create, detect an overlapping slur in the

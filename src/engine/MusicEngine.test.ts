@@ -499,6 +499,27 @@ describe('MusicEngine.createSlur — endpoint resolution', () => {
     // Unknown id is a no-op.
     expect(engine.setSlurShape('nope', cps)).toBe(false)
   })
+
+  it('previewSlurShape (no undo) + commitSlurShape (one undo) = a single reshape step', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const slur = engine.createSlur([a.id])!
+    expect(slur.cps).toBeUndefined()
+
+    // Several live preview updates during a "drag" — none record undo.
+    const cps1: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 1, y: 10 }, { x: 1, y: 10 }]
+    const cps2: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 5, y: 18 }, { x: -2, y: 16 }]
+    expect(engine.previewSlurShape(slur.id, cps1)).toBe(true)
+    expect(engine.previewSlurShape(slur.id, cps2)).toBe(true)
+    expect(engine.getSlurById(slur.id)!.cps).toEqual(cps2)
+
+    engine.commitSlurShape() // one undo entry for the whole drag
+
+    expect(engine.undo()).toBe(true)
+    expect(engine.getSlurById(slur.id)!.cps).toBeUndefined() // reverts past the entire drag to the auto shape
+    expect(engine.redo()).toBe(true)
+    expect(engine.getSlurById(slur.id)!.cps).toEqual(cps2) // redo restores the final dragged shape
+  })
   // (JSON round-trip of slurs is covered in ScoreModel.test.ts — the engine's
   //  loadJSON triggers a full render, which the renderer stub here can't satisfy.)
 })
