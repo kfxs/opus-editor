@@ -520,6 +520,27 @@ describe('MusicEngine.createSlur — endpoint resolution', () => {
     expect(engine.redo()).toBe(true)
     expect(engine.getSlurById(slur.id)!.cps).toEqual(cps2) // redo restores the final dragged shape
   })
+  it('flipSlur toggles placement above ↔ below as one undo step', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const slur = engine.createSlur([a.id])!
+    expect(slur.placement).toBeUndefined() // auto
+
+    // First flip from auto sets an explicit side (opposite of last drawn; default-above → below).
+    expect(engine.flipSlur(slur.id)).toBe(true)
+    const after = engine.getSlurById(slur.id)!.placement
+    expect(after === 'above' || after === 'below').toBe(true)
+
+    // Subsequent flips toggle the explicit side.
+    engine.flipSlur(slur.id)
+    expect(engine.getSlurById(slur.id)!.placement).toBe(after === 'below' ? 'above' : 'below')
+
+    // Undo reverts the last flip (one step).
+    expect(engine.undo()).toBe(true)
+    expect(engine.getSlurById(slur.id)!.placement).toBe(after)
+
+    expect(engine.flipSlur('nope')).toBe(false) // unknown id
+  })
   // (JSON round-trip of slurs is covered in ScoreModel.test.ts — the engine's
   //  loadJSON triggers a full render, which the renderer stub here can't satisfy.)
 })

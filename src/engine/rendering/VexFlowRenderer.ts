@@ -2207,6 +2207,28 @@ export class VexFlowRenderer {
    * `renderCurve` places each control point at `(endpointX ± dx/4, endpointY + cp.y·dir)`;
    * we target the chord line at 25%/75% lifted by `BOW`, then invert to recover the deltas.
    */
+  /**
+   * Stem-aware slur endpoint Y for one anchor note (Gould): if the slur sits on the
+   * **notehead side** (opposite the stems) it attaches at the notehead; if it sits on
+   * the **stem side** (same side as the stems) it attaches at the **stem tip** instead,
+   * so the arc springs from the stem end rather than crossing it. `direction` is the
+   * slur's side (-1 above / +1 below); the note's own `getStemDirection()` (1 up / -1
+   * down) decides which side the stem is on. Falls back to the notehead if there's no
+   * usable stem extent (e.g. whole notes).
+   */
+  private slurEndpointY(staveNote: StaveNote, noteIndex: number, direction: number): number {
+    const ys = staveNote.getYs()
+    const headY = ys[noteIndex] ?? ys[0]
+    const stemUp = (staveNote.getStemDirection?.() ?? -1) === 1
+    const slurAbove = direction === -1
+    if (slurAbove === stemUp) {
+      // Slur is on the stem side → attach at the stem tip.
+      const tipY = staveNote.getStemExtents?.()?.topY
+      if (tipY !== undefined && !isNaN(tipY)) return tipY
+    }
+    return headY
+  }
+
   private slurArchCps(
     p0: { x: number; y: number },
     p1: { x: number; y: number },
@@ -2270,11 +2292,11 @@ export class VexFlowRenderer {
         : slur.placement === 'above' ? -1
         : autoDir
 
-      // Endpoint anchor Ys (per chord head).
-      const fromYs = fromInfo.staveNote.getYs()
-      const toYs = toInfo.staveNote.getYs()
-      const fromY = fromYs[fromInfo.noteIndex] ?? fromYs[0]
-      const toY = toYs[toInfo.noteIndex] ?? toYs[0]
+      // Endpoint anchor Ys — stem-aware (Gould): a slur on the NOTEHEAD side attaches at
+      // the notehead; on the STEM side it attaches at the stem tip. Each endpoint uses
+      // its own note's stem, so a flipped (stem-side) slur springs from the stem tips.
+      const fromY = this.slurEndpointY(fromInfo.staveNote, fromInfo.noteIndex, direction)
+      const toY = this.slurEndpointY(toInfo.staveNote, toInfo.noteIndex, direction)
       if (fromY === undefined || toY === undefined || isNaN(fromY) || isNaN(toY)) continue
 
       const registerPartial = (
@@ -2283,7 +2305,7 @@ export class VexFlowRenderer {
         extra?: Partial<ElementInfo>,
       ) => this.elementRegistry.add({
         type: 'slur', id: slur.id, fromNoteId: slur.startNoteId, toNoteId: slur.endNoteId,
-        fromMeasure, toMeasure, bbox: half.bbox, points: half.points,
+        fromMeasure, toMeasure, bbox: half.bbox, points: half.points, slurDirection: direction,
         ...(partialType ? { isPartial: true, partialType } : {}),
         ...extra,
       })

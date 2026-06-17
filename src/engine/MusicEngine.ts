@@ -923,6 +923,27 @@ export class MusicEngine {
     this.saveUndoState('Reshape slur')
   }
 
+  /** Flip a slur to the opposite side (above ↔ below). Sets an explicit `placement`
+   *  that overrides auto stem-based placement. For an auto-placed slur the flip targets
+   *  the opposite of whatever was last *drawn* (read from the registry), so the first
+   *  press always visibly flips. Saves one undo step. @returns true if it flipped. */
+  flipSlur(id: string): boolean {
+    const slur = this.scoreModel.getSlurById(id)
+    if (!slur) return false
+    let currentDir: number
+    if (slur.placement === 'above') currentDir = -1
+    else if (slur.placement === 'below') currentDir = 1
+    else {
+      // Best-effort: read the side the renderer last drew (auto placement). Guarded
+      // so a stubbed/headless renderer just falls back to "above".
+      const el = this.renderer.getElementRegistry?.()?.getByType?.('slur').find(e => e.id === id)
+      currentDir = el?.slurDirection ?? -1 // default: treat as above
+    }
+    slur.placement = currentDir === -1 ? 'below' : 'above'
+    this.saveUndoState('Flip slur')
+    return true
+  }
+
   /**
    * Re-anchor or drop every slur referencing `oldId` (a deleted/replaced head):
    *  - `newId` given → re-point the anchor (e.g. to a surviving chord sibling, or

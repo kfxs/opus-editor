@@ -164,6 +164,9 @@ export interface ElementInfo {
   /** The slur arc's endpoint geometry, so a handle drag can invert renderCurve's
    *  control-point math (cp = f(handlePixel, endpoints)) back into `Slur.cps`. */
   slurEndpoints?: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number }
+  /** The side a slur was actually drawn on: -1 = above, +1 = below. Lets a flip
+   *  toggle an auto-placed slur to the opposite of what's on screen. */
+  slurDirection?: number
   /** For a 'slur-handle' element: the slur it belongs to and which control point. */
   slurId?: string
   cpIndex?: 0 | 1

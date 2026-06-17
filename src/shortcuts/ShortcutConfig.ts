@@ -202,7 +202,7 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   },
 
   // Stem direction
-  'x': { action: 'flipStemDirection', description: 'Flip stem direction (toggle auto ↔ forced opposite)' },
+  'x': { action: 'flipStemDirection', description: 'Flip: selected slur side (above ↔ below), else note stem direction' },
 
   // Rest entry in keyboard mode
   'r': { action: 'enterRest', description: 'Enter rest at cursor position (keyboard mode)' },

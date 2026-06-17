@@ -186,7 +186,14 @@ export function useShortcuts(
     },
     flipStemDirection: () => {
       const eng = engine.value
-      if (!eng || !state.selectedNoteId) return
+      if (!eng) return
+      // A selected slur flips side (above ↔ below); otherwise x flips a note's stem.
+      if (state.selectedSlurId) {
+        eng.flipSlur(state.selectedSlurId)
+        renderer.renderScore()
+        return
+      }
+      if (!state.selectedNoteId) return
       eng.flipStemDirection(state.selectedNoteId)
       renderer.renderScore()
     },
