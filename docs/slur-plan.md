@@ -1,7 +1,10 @@
 # Slurs — Implementation Plan
 
-Status: **Phases 0–4 COMMITTED; Phase 5 (Curve migration + auto-shape) DONE & user-verified
-"good default"; Phases 6–8 (editable handles) PLANNED.** This
+Status: **COMPLETE — Phases 0–9 all DONE & COMMITTED on `main`, user-verified (628 tests green).**
+Phases 0–4 = core feature; Phase 5 = VexFlow `Curve` migration + auto-shape ("good default"); Phase 6 =
+editable `cps` model; Phase 7 = draggable handles; Phase 8 = nested-slur concentric stacking; Phase 9 =
+flip side with `x` + stem-aware endpoints. Deferred (documented, not blockers): endpoint/tip handles &
+re-anchoring, dual-thickness taper, collision avoidance, stem-side clearance bump. This
 document is the authoritative plan and cross-session checklist. The create-vs-delete correction (no
 `s` toggle) is **resolved** as of Phase 2. The core feature is complete and shipped; what remains is
 **migrating the hand-drawn arc to VexFlow's `Curve` primitive** (Phase 5) so we inherit its
@@ -478,7 +481,7 @@ our own Bézier** — same endpoints, same above/below logic, same two-half syst
 - [x] Tests: `cps` JSON round-trip + `setSlurShape` set/clear (ScoreModel), and engine
       set/clear/undo/redo + unknown-id no-op. 620 unit tests + `build:check` green. No UI yet.
 
-### Phase 7 — Draggable control-point handles — DONE (not committed; pending manual UI test)
+### Phase 7 — Draggable control-point handles — DONE & COMMITTED (b735250), user-verified
 - [x] When a slur is selected, two handle dots are drawn at C0/C1 and registered as
       `ElementType 'slur-handle'` with their own hit bboxes + `slurId`/`cpIndex`. Drawn as an SVG
       overlay in `HighlightController.applySlurHandles` (wired into `RenderController.applyHighlights`,
@@ -502,7 +505,7 @@ our own Bézier** — same endpoints, same above/below logic, same two-half syst
       dot to reshape the curve; release → one undo step (Ctrl+Z reverts to auto). Split (cross-system)
       slurs show no handles. Deselecting clears the dots.
 
-### Phase 8 — Nested / overlapping-slur disambiguation — DONE (not committed; pending manual UI check)
+### Phase 8 — Nested / overlapping-slur disambiguation — DONE & COMMITTED (2d248e8)
 - [x] **Render-time containment depth, not a create-time counter (deviation from the original sketch).**
       `utils/slurs.slurNestDepths(score)` (pure, unit-tested) returns each slur's nesting *level* in its
       voice: innermost = 0; a slur enclosing nested slurs is `1 + max(level of slurs it strictly
@@ -517,8 +520,30 @@ our own Bézier** — same endpoints, same above/below logic, same two-half syst
       their own level. Siblings (disjoint inner slurs) lift a container only **one** level, not N.
 - [x] Tests: `slurNestDepths` — no slurs / non-overlapping / single nest / triple nest (0/1/2) /
       disjoint-siblings / cross-voice isolation. 627 unit tests + `build:check` green.
-- [ ] **Manual UI check (user):** draw a long slur over a run, then a shorter slur over notes inside it
-      → the outer arc should sit clearly above the inner one (concentric, not overlapping).
+- [x] **Manual UI check (user):** draw a long slur over a run, then a shorter slur over notes inside it
+      → the outer arc sits clearly above the inner one (concentric, not overlapping).
+
+### Phase 9 — Flip slur side (`x`) + stem-aware endpoints — DONE & COMMITTED (d49b1f7), user-verified
+Added post-plan (user request, 2026-06-17): a way to flip a selected slur to the other side.
+- [x] **`x` flips a selected slur** above ↔ below. The `x` key already mapped to `flipStemDirection`;
+      the `useShortcuts` handler now checks `selectedSlurId` first (flip the slur) and otherwise flips
+      the selected note's stem — so `x` is overloaded by selection type (like `deleteSelected`).
+- [x] `MusicEngine.flipSlur(id)` sets an **explicit `placement`** (overrides auto stem-based placement).
+      For an auto-placed slur the flip targets the opposite of what was **last drawn** — read from the
+      registry's `slurDirection` (stored on each slur element by `renderSlurs`), so the first press always
+      visibly flips. One undo step ("Flip slur"); `placement` already round-trips in JSON. The registry
+      read is guarded (`getElementRegistry?.()?.getByType?.(…)`) so a stubbed/headless renderer falls
+      back to "above".
+- [x] **Stem-aware endpoints (Gould), `slurEndpointY(staveNote, noteIndex, direction)`:** a slur on the
+      **notehead side** (opposite the stems) attaches at the notehead; on the **stem side** it attaches
+      at the **stem tip** (`getStemExtents().topY`, which is the tip; `baseY` is the notehead). Each
+      endpoint uses its **own** note's `getStemDirection()` (`slurAbove === stemUp` ⇒ stem side). Falls
+      back to the notehead for stemless notes (whole notes / NaN extent). Applies to auto slurs too but
+      only changes stem-side ones, so normal slurs are unchanged and a flipped slur springs from the
+      stem tips instead of crossing the stems.
+- [x] Tests: `flipSlur` toggle + one-step undo + unknown-id no-op. 628 unit tests + `build:check` green.
+- [ ] **Deferred polish (not built):** bow height is the same on both sides, so a stem-side slur can read
+      a touch cramped against the stems — a small stem-side clearance bump is a possible later tweak.
 
 ---
 
