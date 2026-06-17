@@ -10,6 +10,7 @@ import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, type MeterInfo } from '@/utils/meter'
 import { fillRests, pickVoiceMode, type RestSlot } from '@/utils/restFill'
 import { computeBeamGroups } from '@/utils/beaming'
+import { slurNestDepths } from '@/utils/slurs'
 import { ElementRegistry, type TupletGeometry, type ClefSegment, type ElementInfo } from '@/engine/ElementRegistry'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
 // Dynamics styling constants live in ./dynamicStyle so the in-canvas text editor can
@@ -2185,6 +2186,7 @@ export class VexFlowRenderer {
   private static readonly SLUR_BOW = 9.3        // base arch height (short slurs ≈ old look)
   private static readonly SLUR_BOW_PER_PX = 0.06 // arch height grows with horizontal span…
   private static readonly SLUR_BOW_MAX = 22      // …up to this ceiling (Gould: longer → taller, capped)
+  private static readonly SLUR_NEST_GAP = 10     // extra bow height per nesting level (concentric slurs)
   private static readonly SLUR_THICKNESS = 1.5  // Curve.renderCurve return-pass offset (mid swell)
   private static readonly SLUR_OUTLINE = 1      // stroke width pinned around the curve (sharp tips)
 
@@ -2209,15 +2211,17 @@ export class VexFlowRenderer {
     p0: { x: number; y: number },
     p1: { x: number; y: number },
     direction: number,
+    extraHeight = 0,
   ): [{ x: number; y: number }, { x: number; y: number }] {
     const dy = p1.y - p0.y
     // Arch height grows with horizontal span (Gould/MuseScore: a longer slur arcs higher),
     // floored at the base bow so seconds stay modest and capped so long slurs don't balloon.
+    // `extraHeight` lifts an outer slur clear of the slur(s) nested inside it (Phase 8).
     const span = Math.abs(p1.x - p0.x)
     const H = Math.min(
       VexFlowRenderer.SLUR_BOW + span * VexFlowRenderer.SLUR_BOW_PER_PX,
       VexFlowRenderer.SLUR_BOW_MAX,
-    )
+    ) + extraHeight
     return [
       { x: 0, y: H + 0.25 * dy * direction },
       { x: 0, y: H - 0.25 * dy * direction },
@@ -2241,6 +2245,8 @@ export class VexFlowRenderer {
 
     const LIFT = VexFlowRenderer.SLUR_LIFT
     const ARC = VexFlowRenderer.SLUR_ARC
+    // Nesting level per slur → extra bow height so concentric slurs don't collide.
+    const nestDepths = slurNestDepths(score)
 
     for (const slur of score.slurs) {
       const fromInfo = this.staveNoteMap.get(slur.startNoteId)
@@ -2289,6 +2295,9 @@ export class VexFlowRenderer {
 
         const fromNote = fromInfo.staveNote
         const toNote = toInfo.staveNote
+        // Outer slurs (those enclosing nested slurs) arch higher so concentric arcs
+        // don't collide. A manual `cps` shape opts out — the user controls that height.
+        const nestLift = (nestDepths.get(slur.id) ?? 0) * VexFlowRenderer.SLUR_NEST_GAP
 
         if (fromLine === toLine) {
           // Same line: a single arc from the start note to the end note.
@@ -2299,7 +2308,7 @@ export class VexFlowRenderer {
           const p0 = { x: firstX, y: startY }
           const p1 = { x: lastX, y: endY }
           // A user-edited shape (slur.cps) overrides the auto arch; absent → auto.
-          const cps = slur.cps ?? this.slurArchCps(p0, p1, direction)
+          const cps = slur.cps ?? this.slurArchCps(p0, p1, direction, nestLift)
           const arc = this.drawSlurArc(p0, p1, cps, direction, fromNote, toNote)
           // Store the on-screen control points + endpoint geometry so a selected
           // slur can show draggable handles (Phase 7). Same-line only — a split slur
@@ -2321,7 +2330,7 @@ export class VexFlowRenderer {
             const h1p0 = { x: firstX, y: startY }
             const h1p1 = { x: rightEdge, y: apex1 }
             registerPartial(
-              this.drawSlurArc(h1p0, h1p1, this.slurArchCps(h1p0, h1p1, direction), direction, fromNote, toNote),
+              this.drawSlurArc(h1p0, h1p1, this.slurArchCps(h1p0, h1p1, direction, nestLift), direction, fromNote, toNote),
               'end',
             )
             // Second (leading) half: from the next system's left edge down into the end note.
@@ -2332,7 +2341,7 @@ export class VexFlowRenderer {
             const h2p0 = { x: leftEdge, y: apex2 }
             const h2p1 = { x: lastX, y: endY }
             registerPartial(
-              this.drawSlurArc(h2p0, h2p1, this.slurArchCps(h2p0, h2p1, direction), direction, fromNote, toNote),
+              this.drawSlurArc(h2p0, h2p1, this.slurArchCps(h2p0, h2p1, direction, nestLift), direction, fromNote, toNote),
               'start',
             )
           }

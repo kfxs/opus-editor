@@ -502,10 +502,23 @@ our own Bézier** — same endpoints, same above/below logic, same two-half syst
       dot to reshape the curve; release → one undo step (Ctrl+Z reverts to auto). Split (cross-system)
       slurs show no handles. Deselecting clears the dots.
 
-### Phase 8 — Nested / overlapping-slur `number` disambiguation — PLANNED (small)
-- [ ] The `Slur.number` field already exists (reserved). On create, detect an overlapping slur in the
-      same voice and assign an incrementing `number`; in `renderSlurs`, offset the inner slur's bow
-      height by `number` so concentric slurs don't collide. Mostly a render tweak; no drag UI.
+### Phase 8 — Nested / overlapping-slur disambiguation — DONE (not committed; pending manual UI check)
+- [x] **Render-time containment depth, not a create-time counter (deviation from the original sketch).**
+      `utils/slurs.slurNestDepths(score)` (pure, unit-tested) returns each slur's nesting *level* in its
+      voice: innermost = 0; a slur enclosing nested slurs is `1 + max(level of slurs it strictly
+      contains)`. Computed from score-order spans, so it's **order-independent and always correct after
+      edits/deletes** — unlike incrementing `Slur.number` on create (which goes stale and conflates the
+      MusicXML start/stop id with a height index). `Slur.number` stays reserved for MusicXML export.
+- [x] `renderSlurs` lifts each slur's auto bow by `level · SLUR_NEST_GAP` (10px) via the new
+      `slurArchCps(..., extraHeight)` param, so outer slurs arch clear of inner ones (Gould). Applied to
+      same-line and both cross-system halves. **A manual `cps` shape opts out** of the lift (the user
+      controls that height); inner slurs still count toward an outer slur's level regardless of cps.
+- [x] Only true **containment** is stacked; partial overlaps (neither span contains the other) stay at
+      their own level. Siblings (disjoint inner slurs) lift a container only **one** level, not N.
+- [x] Tests: `slurNestDepths` — no slurs / non-overlapping / single nest / triple nest (0/1/2) /
+      disjoint-siblings / cross-voice isolation. 627 unit tests + `build:check` green.
+- [ ] **Manual UI check (user):** draw a long slur over a run, then a shorter slur over notes inside it
+      → the outer arc should sit clearly above the inner one (concentric, not overlapping).
 
 ---
 
