@@ -468,9 +468,16 @@ export class HighlightController {
     if (!group) return
 
     const SELECTION_COLOR = '#F59E0B'
+    // Curve.renderCurve strokes AND fills, so each <path> carries both a stroke and a
+    // fill — override both, or a selected slur shows an orange body with a dark outline
+    // (see docs/slur-plan.md §7.3). A re-render redraws the slur black, so no explicit
+    // clear is needed on deselect.
     group.querySelectorAll('path').forEach(el => {
+      const styled = el as SVGElement & { style: CSSStyleDeclaration }
       el.setAttribute('fill', SELECTION_COLOR)
-      ;(el as SVGElement & { style: CSSStyleDeclaration }).style.fill = SELECTION_COLOR
+      el.setAttribute('stroke', SELECTION_COLOR)
+      styled.style.fill = SELECTION_COLOR
+      styled.style.stroke = SELECTION_COLOR
       el.classList.add('selected-slur')
     })
   }

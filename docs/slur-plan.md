@@ -1,6 +1,7 @@
 # Slurs — Implementation Plan
 
-Status: **Phases 0–4 COMMITTED; Phases 5–8 (Curve migration + editable handles) PLANNED.** This
+Status: **Phases 0–4 COMMITTED; Phase 5 (Curve migration + auto-shape) DONE & user-verified
+"good default"; Phases 6–8 (editable handles) PLANNED.** This
 document is the authoritative plan and cross-session checklist. The create-vs-delete correction (no
 `s` toggle) is **resolved** as of Phase 2. The core feature is complete and shipped; what remains is
 **migrating the hand-drawn arc to VexFlow's `Curve` primitive** (Phase 5) so we inherit its
@@ -411,39 +412,58 @@ our own Bézier** — same endpoints, same above/below logic, same two-half syst
 *additionally* expose the `cps` control points for editing. We achieve this by driving
 `renderCurve(params)` ourselves, never `Curve.draw()`.
 
-### Phase 5 — Migrate `strokeSlurCrescent` → VexFlow `Curve.renderCurve` (no behavior change) — PLANNED
+### Phase 5 — Migrate `strokeSlurCrescent` → VexFlow `Curve.renderCurve` + auto-shape — DONE & user-verified
 
 > **Primitive DECIDED (§7.4): VexFlow `Curve` via `renderCurve`** — we drive it with our own
 > coordinates; we do **not** use `Curve.draw()`/`isPartial()`. Ties will later migrate the same way via
 > `StaveTie.renderTie`.
 
-- [ ] In `renderSlurs` (`VexFlowRenderer.ts:2195`), replace the body of `strokeSlurCrescent` so it
-      instantiates a `Curve(fromStaveNote, toStaveNote, { cps, thickness, yShift: 0 })` once and calls
+- [x] In `renderSlurs` (`VexFlowRenderer.ts:2195`), replaced `strokeSlurCrescent` with `drawSlurArc`,
+      which instantiates a `Curve(fromNote, toNote, { cps, thickness, xShift:0, yShift:0 })` and calls
       `curve.setContext(ctx).renderCurve({ firstX, firstY, lastX, lastY, direction })` with the
       endpoints we already compute (`getTieRightX()`/`getTieLeftX()`, per-chord-head `getYs()` + `LIFT`).
-      Set `yShift:0` so `LIFT` isn't double-applied (we already fold `LIFT` into firstY/lastY).
-- [ ] **Calibrate** a default `cps` (symmetric `[{x:0,y:H},{x:0,y:H}]`) and the `direction` sign so the
-      cubic visually matches today's bow. **Target H ≈ 9–10, NOT 18–19.** The current arc is a
-      *quadratic*, whose midpoint deviation is only **half** the control offset, so today's flat-slur
-      peak sits `LIFT + ARC/2 = 10 + 7 = 17px` from the notehead — **not** `LIFT + ARC`. The cubic peak
-      is `LIFT + 0.75·H` (with `LIFT` folded into `firstY`/`lastY` and `yShift:0`), so matching 17px
-      gives `0.75·H = 7 → H ≈ 9.3`. Starting at `H≈18–19` would draw a bow ~2× too tall. Above/below
-      must look identical to the current build (also account for the stroke+fill weight change, §7.3).
-- [ ] **Hit-test:** sample the cubic B(t) (§7.2) instead of the quadratic; keep the same 16 steps and
-      registry `add({ type:'slur', …, points })`. **Bbox** now spans the cubic's four points
-      (`min/max` of `{P0, C0, C1, P3}`) or is derived from the sampled `points` — not the old 3-point
-      `{p0, cp, p1}` formula.
-- [ ] **System break (5c):** keep our two-half split (`fromStave.getNoteEndX()` /
-      `toStave.getNoteStartX()`); call `renderCurve` **twice** with each half's endpoints. Do **not**
-      switch to `Curve.isPartial()` native partials — we keep control of the half geometry.
-- [ ] Keep the `<g class="vf-slur">` group wrap (highlight) and `slurGroupMap`. **Update
-      `applySlurSelectionHighlight` to also recolor `stroke`** (renderCurve strokes+fills — §7.3), not
-      just `fill`, or the selected slur shows an orange body with a dark outline.
-- [ ] Delete the now-unused quadratic drawing; `strokeSlurCrescent` either wraps `renderCurve` or is
-      replaced by a `drawSlurArc(p0, p1, cps, direction)` helper returning `{ bbox, points }`.
-- [ ] Verify: 617 unit tests + `build:check` green; **manual visual check** that same-line and
-      cross-system slurs look unchanged (renderer geometry isn't unit-testable). No model/JSON change
-      in this phase.
+      `yShift:0` so `LIFT` isn't double-applied (we fold `LIFT` into firstY/lastY).
+- [x] **Calibrated** the bow via `SLUR_BOW = 9.3`, reproducing the old quadratic peak
+      (`LIFT + ARC/2 = 17px`; cubic flat peak `LIFT + 0.75·H`, so `0.75·9.3 ≈ 7`).
+      `thickness = SLUR_THICKNESS = 2`.
+- [x] **Bow shape, settled on perpendicular (2026-06-17):** two earlier cuts both had failure modes —
+      (a) offsetting each control point from *its own* endpoint tilted/hooked the arc on steep runs;
+      (b) leveling both control points to the higher endpoint's height fixed gentle runs but left a
+      lopsided "air gap" over wide leaps. Final: `perpendicularSlurCps(p0, p1, direction)` bows the arc
+      **perpendicular to the endpoint line** by a constant `SLUR_BOW`, giving even clearance at any
+      slope. **Superseded same day:** perpendicular shifted the control points sideways by `∝ dy/len`,
+      which blew up for closely-spaced steps — seconds went flat-and-skewed and near-unisons looked
+      uneven/tilted (user-reported, the MuseScore "avoid forced tilt" failure). Final is `slurArchCps`:
+      bow `SLUR_BOW` **vertically above the chord line**, control points horizontally centered (no
+      sideways shift), following the slope — `[{0,BOW},{0,BOW}]` for flat/unison, gentle un-skewed lean
+      for seconds, clean parallel arch for leaps. **Final tweak — span-proportional height:** a constant
+      `SLUR_BOW` left long slurs reading as thin floating lines; arch height now grows with horizontal
+      span (`SLUR_BOW + span·0.06`, capped at `SLUR_BOW_MAX = 22`), per Gould/MuseScore (longer → taller,
+      capped). This is **not** a tradeoff — short slurs stay short because their span is short. **Auto-
+      shape declared "good default" and frozen here:** four formula iterations confirmed the research's
+      point that no global formula is beautiful in every context (why every pro app ships drag handles +
+      MuseScore an iterative optimizer). Remaining per-slur perfection is Phase 7's job, not more
+      constants. Tips were
+      blunt/heavy because `renderCurve` strokes with the context's *inherited* (thick) line width — fixed
+      by pinning `SLUR_OUTLINE = 1` in a save/restore around the draw, letting the fill's natural taper
+      show; `SLUR_THICKNESS` 2 → 1.5. **User-verified "much better"; further pixel-perfection deferred to
+      the draggable handles (Phase 7) — no auto-shape nails every slur, which is why every pro app ships
+      manual handles.**
+- [x] **Hit-test:** `drawSlurArc` samples the cubic B(t) (§7.2) with 16 steps and derives the bbox from
+      the sampled `points` (tighter than the 4-point hull). Registry `add({ type:'slur', …, points })`
+      unchanged.
+- [x] **System break (5c):** kept our two-half split (`fromStave.getNoteEndX()` /
+      `toStave.getNoteStartX()`); calls `drawSlurArc` twice with each half's endpoints. Did **not** switch
+      to `Curve.isPartial()` native partials.
+- [x] Kept the `<g class="vf-slur">` group wrap + `slurGroupMap`. Updated
+      `applySlurSelectionHighlight` to override **both `fill` and `stroke`** (renderCurve strokes+fills),
+      so a selected slur is fully orange (no dark outline). Re-render resets to black on deselect.
+- [x] Deleted the quadratic `strokeSlurCrescent`; replaced by `drawSlurArc(p0, p1, cps, direction,
+      fromNote, toNote)` returning `{ bbox, points }`.
+- [x] 617 unit tests + `build:check` green. No model/JSON change in this phase.
+- [x] **Manual visual check (user, 2026-06-17):** after iterating the auto-shape (see below) the user
+      confirmed the result is a "good default" — full clean arcs on leaps, even unisons, un-skewed
+      seconds, sharp tips, fully-orange selection. Renderer geometry isn't unit-testable.
 
 ### Phase 6 — Editable-shape model (`cps` on `Slur`) — PLANNED
 - [ ] Add optional `cps?: [{ x: number; y: number }, { x: number; y: number }]` to `Slur`
@@ -473,3 +493,96 @@ our own Bézier** — same endpoints, same above/below logic, same two-half syst
 - [ ] The `Slur.number` field already exists (reserved). On create, detect an overlapping slur in the
       same voice and assign an incrementing `number`; in `renderSlurs`, offset the inner slur's bow
       height by `number` so concentric slurs don't collide. Mostly a render tweak; no drag UI.
+
+---
+
+## 9. The slur-beauty problem & industry standards (research notes, 2026-06-17)
+
+This section captures *why* a slur never looks quite "perfect" from an auto-formula, what the three
+major editors and Elaine Gould actually do, what VexFlow's `Curve` can and cannot give us, and the
+exact knobs in our build. It exists so a future session does **not** restart the four-iteration
+shape-tuning treadmill we already ran.
+
+### 9.1 The core problem: no single formula is beautiful in every context
+
+A slur's *ideal* shape depends on context a constant cannot see: the pitch contour under it, the
+horizontal span, collisions with noteheads/stems/beams/articulations/staff lines, whether outer notes
+share stem direction, and aesthetic "non-ugliness" judgement. We empirically confirmed this by
+cycling through four auto-formulas, each fixing one case and worsening another:
+
+| # | Approach | Good at | Failure mode |
+|---|----------|---------|--------------|
+| 1 | Control points offset vertically from **their own endpoint** (`[{0,H},{0,H}]`) | flat/gentle runs | **hooked** on steep leaps (curve sagged below the steep chord line) |
+| 2 | **Leveled** — both control points at a common height (top endpoint + H) | gentle runs | lopsided **air-gap** over wide leaps |
+| 3 | **Perpendicular** bow (offset ⟂ to the endpoint line) | wide leaps | **skewed seconds** — sideways shift `∝ dy/len` blows up for close steps; near-unisons looked tilted (the MuseScore "avoid forced tilt" failure) |
+| 4 | **Vertical above the chord line** (`slurArchCps`, current) + span-proportional height | flat/unison even, seconds un-skewed, leaps clean & full | still not Gould-grade: constant-along-length thickness, no endpoint angling, no collision avoidance |
+
+**Conclusion (decision):** #4 is frozen as the **"good default."** Further per-slur perfection is the
+job of **draggable handles (Phase 7)**, not more constants — this is exactly the lesson the industry
+already learned (see 9.2). Do not re-litigate the formula; improve it only via genuinely
+context-free best-practices (like span-scaling) or move the work into handles/collision passes.
+
+### 9.2 What the industry does
+
+All three editors model a slur as a **cubic Bézier with editable control points** — the same `cps`
+model we adopted by migrating to `Curve.renderCurve` (Phase 5). The differences are in the *auto*
+shaping and the *thickness*:
+
+- **MuseScore** (slur-rewrite PR [#12280](https://github.com/musescore/MuseScore/pull/12280)):
+  - Optimizes **both height and width** of the arc, adjusting Bézier points and endpoints together.
+  - *"The arc is allowed to become slightly asymmetrical if the contour of the music is asymmetrical"*
+    but *"unnecessary asymmetries in end point height (making the slurs look **tilted**) are avoided."*
+    → our #4 (follow contour, no sideways tilt) matches this; #3 (perpendicular) violated it.
+  - Explicit **"non-ugliness" rules** + an **iterative collision-avoidance** loop: *"one step I adjust
+    the shape; next step I adjust the end points; … until there are no collisions."*
+- **Dorico** (dev diary [part 13](https://blog.dorico.com/2016/03/development-diary-part-13/);
+  [thickness docs](https://steinberg.help/dorico/v1/en/dorico/topics/notation_reference/notation_reference_slurs_thickness_changing_individually_t.html)):
+  - Drag Bézier control points in Engrave mode; endpoints keep their distance to the stem tip when
+    notes move (our `cps`-as-deltas gives the same "shape rides along" behavior for free).
+  - **Separate `endpoint thickness` and `midpoint thickness`** engraving options → the slur **tapers**
+    (thin at the ends, thicker in the middle), and the amount is tunable at each end vs. the middle.
+  - Chains two cubics for **S-shaped / flat-middle** slurs (future nicety).
+- **Sibelius:** slurs are Lines with the classic **six draggable handles**; same gesture (`s`) we use.
+- **Gould, *Behind Bars*:** arc height **proportional to length** (capped); slurs **taper** — fine at
+  the tips, fuller in the middle (SMuFL/standard ≈ 0.1 staff-space ends → ~0.2 middle); endpoints sit
+  a small gap off the notehead, angled into it.
+
+### 9.3 VexFlow `Curve` — what it gives and what it can't (the taper ceiling)
+
+`Curve.renderCurve` (driven by our own coords, §7) gives a **single** `thickness`: the body pinches to
+a point at each endpoint and stays ~constant in the middle — a *basic* taper. It does **not** support
+Dorico/Gould's **dual** endpoint-vs-midpoint thickness, nor asymmetric upper/lower edges, nor
+collision avoidance. So:
+
+- **Taper heaviness was an artifact, now fixed:** `renderCurve` strokes **and** fills, using the
+  context's *inherited* line width (left thick by the preceding beam/stem passes). That blunt, heavy
+  outline hid the taper. Fixed by pinning `SLUR_OUTLINE = 1` in a `save`/`restore` around the draw and
+  dropping `SLUR_THICKNESS` 2 → 1.5, letting the fill's natural taper read.
+- **The remaining beauty gap = dual-thickness taper.** Closing it needs a **self-rolled tapered
+  cubic** (vary stroke width along `t`), which is a *later beauty pass*. Crucially it costs nothing
+  strategically: the `cps` data model is identical, so handles (Phases 6–8) are unaffected. Defer it
+  until after handles — handles deliver more value per effort.
+- **Collision avoidance** (MuseScore-style iterative nudging around noteheads/beams/articulations) is a
+  large, separate future project; explicitly out of scope.
+
+### 9.4 Our current calibration (the only knobs; `VexFlowRenderer.ts`)
+
+| Constant | Value | Role |
+|---|---|---|
+| `SLUR_BOW` | 9.3 | base arch height; short slurs ≈ the old quadratic peak (`LIFT + 0.75·H ≈ 17px`) |
+| `SLUR_BOW_PER_PX` | 0.06 | arch height grows with horizontal span (Gould: longer → taller) |
+| `SLUR_BOW_MAX` | 22 | ceiling so long slurs don't balloon |
+| `SLUR_THICKNESS` | 1.5 | `renderCurve` return-pass offset = mid-body swell |
+| `SLUR_OUTLINE` | 1 | pinned stroke width around the curve (sharp tips, not inherited-thick) |
+| `SLUR_LIFT` | 10 | gap from notehead to the arc endpoints |
+| `SLUR_ARC` | 14 | cross-system half-arc apex rise above its endpoint line |
+
+Shape math lives in `slurArchCps(p0, p1, direction)` (vertical-above-chord-line + span height) and the
+draw/sample in `drawSlurArc(...)` (calls `renderCurve`, then reconstructs the cubic for the bbox +
+proximity `points`). See §7.2 for the control-point math we mirror.
+
+### 9.5 Sources
+- MuseScore slur rewrite — PR [#12280](https://github.com/musescore/MuseScore/pull/12280)
+- Dorico dev diary [part 13](https://blog.dorico.com/2016/03/development-diary-part-13/) ·
+  [individual slur thickness](https://steinberg.help/dorico/v1/en/dorico/topics/notation_reference/notation_reference_slurs_thickness_changing_individually_t.html)
+- Elaine Gould, *Behind Bars* — [overview](https://en.wikipedia.org/wiki/Behind_Bars_(book))

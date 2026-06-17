@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet, TextDynamics } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet, TextDynamics, Curve } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
@@ -2178,7 +2178,51 @@ export class VexFlowRenderer {
 
   /** Vertical geometry shared by all slur arcs. */
   private static readonly SLUR_LIFT = 10   // gap between the notehead and the arc's endpoints
-  private static readonly SLUR_ARC = 14    // how far the arc bows away from the staff
+  private static readonly SLUR_ARC = 14    // cross-system half-arc apex rise above its endpoint line
+  // Default cubic control-point bow height (the two symmetric `cps` deltas fed to
+  // Curve.renderCurve). A cubic's peak deviation is 0.75·H, so H≈9.3 reproduces the
+  // old quadratic's LIFT + ARC/2 = 17px peak. Phase 6 will let a slur override this.
+  private static readonly SLUR_BOW = 9.3        // base arch height (short slurs ≈ old look)
+  private static readonly SLUR_BOW_PER_PX = 0.06 // arch height grows with horizontal span…
+  private static readonly SLUR_BOW_MAX = 22      // …up to this ceiling (Gould: longer → taller, capped)
+  private static readonly SLUR_THICKNESS = 1.5  // Curve.renderCurve return-pass offset (mid swell)
+  private static readonly SLUR_OUTLINE = 1      // stroke width pinned around the curve (sharp tips)
+
+  /**
+   * Compute the cubic `cps` (control-point deltas for `Curve.renderCurve`) that bow the
+   * arc by `SLUR_BOW` **vertically above the line between its endpoints** — the two control
+   * points stay horizontally centered (no sideways shift) and lift straight up, *following*
+   * the chord's slope. This is the engraving default (MuseScore: "slight contour asymmetry,
+   * avoid forced tilt"):
+   *  - flat / unison → symmetric `[{0,BOW},{0,BOW}]` (perfectly even);
+   *  - small interval / close notes → full height, gentle lean, no sideways skew;
+   *  - wide leap → clean arch parallel to the contour, no hook and no lopsided air-gap.
+   *
+   * An earlier *perpendicular* offset shifted the control points sideways by `∝ dy/len`,
+   * which blew up for closely-spaced steps (seconds went flat-and-skewed) — hence the
+   * vertical-above-chord-line formula here.
+   *
+   * `renderCurve` places each control point at `(endpointX ± dx/4, endpointY + cp.y·dir)`;
+   * we target the chord line at 25%/75% lifted by `BOW`, then invert to recover the deltas.
+   */
+  private slurArchCps(
+    p0: { x: number; y: number },
+    p1: { x: number; y: number },
+    direction: number,
+  ): [{ x: number; y: number }, { x: number; y: number }] {
+    const dy = p1.y - p0.y
+    // Arch height grows with horizontal span (Gould/MuseScore: a longer slur arcs higher),
+    // floored at the base bow so seconds stay modest and capped so long slurs don't balloon.
+    const span = Math.abs(p1.x - p0.x)
+    const H = Math.min(
+      VexFlowRenderer.SLUR_BOW + span * VexFlowRenderer.SLUR_BOW_PER_PX,
+      VexFlowRenderer.SLUR_BOW_MAX,
+    )
+    return [
+      { x: 0, y: H + 0.25 * dy * direction },
+      { x: 0, y: H - 0.25 * dy * direction },
+    ]
+  }
 
   /**
    * Render phrasing slurs from {@link Score.slurs}. Each slur is anchored to a
@@ -2241,36 +2285,43 @@ export class VexFlowRenderer {
         // highlight can recolor exactly this slur without a bbox path-scan.
         const group = this.context.openGroup?.('vf-slur', `vf-slur-${slur.id}`) as SVGGElement | undefined
 
+        const fromNote = fromInfo.staveNote
+        const toNote = toInfo.staveNote
+
         if (fromLine === toLine) {
           // Same line: a single arc from the start note to the end note.
-          const firstX = fromInfo.staveNote.getTieRightX()
-          const lastX = toInfo.staveNote.getTieLeftX()
+          const firstX = fromNote.getTieRightX()
+          const lastX = toNote.getTieLeftX()
           const startY = fromY + LIFT * direction
           const endY = toY + LIFT * direction
-          const baseY = direction < 0 ? Math.min(startY, endY) : Math.max(startY, endY)
-          const cp = { x: (firstX + lastX) / 2, y: baseY + ARC * direction }
-          registerPartial(this.strokeSlurCrescent({ x: firstX, y: startY }, cp, { x: lastX, y: endY }, direction))
+          const p0 = { x: firstX, y: startY }
+          const p1 = { x: lastX, y: endY }
+          registerPartial(this.drawSlurArc(p0, p1, this.slurArchCps(p0, p1, direction), direction, fromNote, toNote))
         } else {
           // Cross-system: two half-arcs.
-          const fromStave = fromInfo.staveNote.getStave()
-          const toStave = toInfo.staveNote.getStave()
+          const fromStave = fromNote.getStave()
+          const toStave = toNote.getStave()
           if (fromStave && toStave) {
             // First (trailing) half: from the start note rising to the system's right edge.
-            const firstX = fromInfo.staveNote.getTieRightX()
+            const firstX = fromNote.getTieRightX()
             const rightEdge = fromStave.getNoteEndX()
             const startY = fromY + LIFT * direction
             const apex1 = startY + ARC * direction
+            const h1p0 = { x: firstX, y: startY }
+            const h1p1 = { x: rightEdge, y: apex1 }
             registerPartial(
-              this.strokeSlurCrescent({ x: firstX, y: startY }, { x: (firstX + rightEdge) / 2, y: apex1 }, { x: rightEdge, y: apex1 }, direction),
+              this.drawSlurArc(h1p0, h1p1, this.slurArchCps(h1p0, h1p1, direction), direction, fromNote, toNote),
               'end',
             )
             // Second (leading) half: from the next system's left edge down into the end note.
-            const lastX = toInfo.staveNote.getTieLeftX()
+            const lastX = toNote.getTieLeftX()
             const leftEdge = toStave.getNoteStartX()
             const endY = toY + LIFT * direction
             const apex2 = endY + ARC * direction
+            const h2p0 = { x: leftEdge, y: apex2 }
+            const h2p1 = { x: lastX, y: endY }
             registerPartial(
-              this.strokeSlurCrescent({ x: leftEdge, y: apex2 }, { x: (leftEdge + lastX) / 2, y: apex2 }, { x: lastX, y: endY }, direction),
+              this.drawSlurArc(h2p0, h2p1, this.slurArchCps(h2p0, h2p1, direction), direction, fromNote, toNote),
               'start',
             )
           }
@@ -2285,41 +2336,67 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Stroke a filled slur crescent: a quadratic Bézier from `p0` to `p1` bowing
-   * through `cp`, with a slightly offset return pass for thickness (mirrors the
-   * same-line tie's `drawFlatTie`). Used for both the same-line arc and each
-   * cross-system half. Returns the bbox plus sampled points (for arc-proximity
-   * hit-testing). `direction` is -1 (above) / +1 (below) and only sets the
-   * thickness offset side.
+   * Draw a slur arc as a cubic Bézier via VexFlow's `Curve.renderCurve`, driven by
+   * **our own** endpoint geometry (we never call `Curve.draw()`, which would re-derive
+   * endpoints from stems and discard our per-chord-head Ys / system-break geometry).
+   * Used for both the same-line arc and each cross-system half.
+   *
+   * `cps` are the two control-point deltas (the editable handle data); `direction` is
+   * -1 (above) / +1 (below). We pass `xShift:0`/`yShift:0` so `p0`/`p1` (which already
+   * fold in `SLUR_LIFT`) are exact. `renderCurve` strokes **and** fills, so each emitted
+   * `<path>` carries both — the selection highlight must override both (see
+   * HighlightController.applySlurSelectionHighlight).
+   *
+   * Returns the bbox plus sampled cubic points for arc-proximity hit-testing. The
+   * sampling mirrors `renderCurve`'s internal control-point math (`curve.js`) so the
+   * hit geometry matches the drawn path exactly.
    */
-  private strokeSlurCrescent(
+  private drawSlurArc(
     p0: { x: number; y: number },
-    cp: { x: number; y: number },
     p1: { x: number; y: number },
+    cps: [{ x: number; y: number }, { x: number; y: number }],
     direction: number,
+    fromNote: StaveNote,
+    toNote: StaveNote,
   ): { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] } {
-    this.context.beginPath()
-    this.context.moveTo(p0.x, p0.y)
-    this.context.quadraticCurveTo(cp.x, cp.y, p1.x, p1.y)
-    this.context.quadraticCurveTo(cp.x, cp.y + 3 * direction, p0.x, p0.y)
-    this.context.closePath()
-    this.context.fill()
+    const curve = new Curve(fromNote, toNote, {
+      cps,
+      thickness: VexFlowRenderer.SLUR_THICKNESS,
+      xShift: 0,
+      yShift: 0,
+    })
+    curve.setContext(this.context)
+    // renderCurve strokes the body with the context's *current* line width — left thick by
+    // the preceding beam/stem passes, which blunts the curve's tapered tips and over-weights
+    // it. Pin a thin slur outline so the fill's natural taper (it pinches to a point at each
+    // endpoint) reads as a proper slur. save/restore so we don't leak the width to later draws.
+    this.context.save?.()
+    this.context.setLineWidth?.(VexFlowRenderer.SLUR_OUTLINE)
+    curve.renderCurve({ firstX: p0.x, firstY: p0.y, lastX: p1.x, lastY: p1.y, direction })
+    this.context.restore?.()
+
+    // Mirror renderCurve's control-point math (xShift/yShift = 0 → endpoints are exact)
+    // to reconstruct the cubic for hit-testing. controlPointSpacing = (lastX-firstX)/(n+2).
+    const spacing = (p1.x - p0.x) / (cps.length + 2)
+    const c0 = { x: p0.x + spacing + cps[0].x, y: p0.y + cps[0].y * direction }
+    const c1 = { x: p1.x - spacing + cps[1].x, y: p1.y + cps[1].y * direction }
 
     const points: { x: number; y: number }[] = []
     const STEPS = 16
     for (let i = 0; i <= STEPS; i++) {
       const t = i / STEPS
       const mt = 1 - t
+      const a = mt * mt * mt, b = 3 * mt * mt * t, c = 3 * mt * t * t, d = t * t * t
       points.push({
-        x: mt * mt * p0.x + 2 * mt * t * cp.x + t * t * p1.x,
-        y: mt * mt * p0.y + 2 * mt * t * cp.y + t * t * p1.y,
+        x: a * p0.x + b * c0.x + c * c1.x + d * p1.x,
+        y: a * p0.y + b * c0.y + c * c1.y + d * p1.y,
       })
     }
 
-    const minX = Math.min(p0.x, cp.x, p1.x)
-    const maxX = Math.max(p0.x, cp.x, p1.x)
-    const minY = Math.min(p0.y, cp.y, p1.y)
-    const maxY = Math.max(p0.y, cp.y, p1.y)
+    const xs = points.map(p => p.x)
+    const ys = points.map(p => p.y)
+    const minX = Math.min(...xs), maxX = Math.max(...xs)
+    const minY = Math.min(...ys), maxY = Math.max(...ys)
     return { bbox: { x: minX, y: minY, width: maxX - minX, height: maxY - minY }, points }
   }
 
