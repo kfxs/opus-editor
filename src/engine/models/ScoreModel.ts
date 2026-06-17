@@ -431,6 +431,19 @@ export class ScoreModel {
   }
 
   /**
+   * Set (or clear) a slur's user-edited curve shape. Pass the two cubic control-point
+   * deltas to override the auto arch; pass `null` to drop the override and revert to the
+   * auto shape (see {@link Slur.cps}). @returns true if the slur exists and was updated.
+   */
+  setSlurShape(id: string, cps: Slur['cps'] | null): boolean {
+    const slur = this.getSlurById(id)
+    if (!slur) return false
+    if (cps) slur.cps = cps
+    else delete slur.cps
+    return true
+  }
+
+  /**
    * The interpreted dynamic level in effect at (measure, beat) for a voice.
    * Delegates to the shared resolver in utils/dynamics (walk-back reference).
    */

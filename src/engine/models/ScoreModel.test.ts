@@ -263,6 +263,25 @@ describe('ScoreModel', () => {
       ])
     })
 
+    it('round-trips a user-edited slur shape (cps) through JSON', () => {
+      model.getScore().slurs = [
+        { id: 'slur-1', startNoteId: 'n-a', endNoteId: 'n-b', cps: [{ x: 2, y: 14 }, { x: -3, y: 16 }] },
+      ]
+      const loaded = ScoreModel.fromJSON(model.toJSON())
+      expect(loaded.getScore().slurs?.[0].cps).toEqual([{ x: 2, y: 14 }, { x: -3, y: 16 }])
+    })
+
+    it('setSlurShape sets then clears the cps override', () => {
+      model.getScore().slurs = [{ id: 'slur-1', startNoteId: 'n-a', endNoteId: 'n-b' }]
+      expect(model.setSlurShape('slur-1', [{ x: 1, y: 10 }, { x: 1, y: 10 }])).toBe(true)
+      expect(model.getSlurById('slur-1')!.cps).toEqual([{ x: 1, y: 10 }, { x: 1, y: 10 }])
+
+      expect(model.setSlurShape('slur-1', null)).toBe(true)
+      expect(model.getSlurById('slur-1')!.cps).toBeUndefined() // 'cps' key removed, not set to null
+
+      expect(model.setSlurShape('missing', null)).toBe(false)
+    })
+
     it('loads legacy JSON with no slurs array (backward-compatible)', () => {
       const legacy = JSON.stringify({
         id: 'x', title: 'Legacy', tempo: 100,

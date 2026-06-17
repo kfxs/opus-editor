@@ -902,6 +902,15 @@ export class MusicEngine {
     return removed
   }
 
+  /** Set (or clear with `null`) a slur's user-edited curve shape (the two cubic
+   *  control-point deltas; see {@link Slur.cps}). Saves one undo step on success.
+   *  @returns true if the slur exists and was updated. */
+  setSlurShape(id: string, cps: Slur['cps'] | null): boolean {
+    const updated = this.scoreModel.setSlurShape(id, cps)
+    if (updated) this.saveUndoState(cps ? 'Reshape slur' : 'Reset slur shape')
+    return updated
+  }
+
   /**
    * Re-anchor or drop every slur referencing `oldId` (a deleted/replaced head):
    *  - `newId` given → re-point the anchor (e.g. to a surviving chord sibling, or

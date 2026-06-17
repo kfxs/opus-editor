@@ -465,12 +465,18 @@ our own Bézier** — same endpoints, same above/below logic, same two-half syst
       confirmed the result is a "good default" — full clean arcs on leaps, even unisons, un-skewed
       seconds, sharp tips, fully-orange selection. Renderer geometry isn't unit-testable.
 
-### Phase 6 — Editable-shape model (`cps` on `Slur`) — PLANNED
-- [ ] Add optional `cps?: [{ x: number; y: number }, { x: number; y: number }]` to `Slur`
-      (`types/music.ts:135`). **Absent = today's auto shape** (renderer falls back to the calibrated
-      default) → backward-compatible, JSON round-trips for free (same as `slurs` itself was added).
-- [ ] `renderSlurs` reads `slur.cps ?? DEFAULT_CPS`. No UI yet — pure plumbing + a model setter
-      (`ScoreModel.setSlurShape(id, cps)`), undo step, and a round-trip unit test.
+### Phase 6 — Editable-shape model (`cps` on `Slur`) — DONE (not committed)
+- [x] Added optional `cps?: [{ x: number; y: number }, { x: number; y: number }]` to `Slur`
+      (`types/music.ts`). **Absent = the auto arch** (`slurArchCps`) → backward-compatible, JSON
+      round-trips for free.
+- [x] `renderSlurs` same-line case reads `slur.cps ?? this.slurArchCps(p0, p1, direction)`. (Cross-
+      system halves stay auto — a split slur shares one `cps`, so per-half override is a Phase 7
+      non-goal; the override applies once handles land.)
+- [x] Model setter `ScoreModel.setSlurShape(id, cps | null)` (null clears the override → reverts to
+      auto, deletes the key) + engine wrapper `MusicEngine.setSlurShape` with one undo step
+      ("Reshape slur" / "Reset slur shape").
+- [x] Tests: `cps` JSON round-trip + `setSlurShape` set/clear (ScoreModel), and engine
+      set/clear/undo/redo + unknown-id no-op. 620 unit tests + `build:check` green. No UI yet.
 
 ### Phase 7 — Draggable control-point handles — PLANNED
 - [ ] When a slur is selected, render small handle dots at C0/C1 (the §7.2 control points) and register

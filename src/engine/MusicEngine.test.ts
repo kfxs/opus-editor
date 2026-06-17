@@ -476,6 +476,29 @@ describe('MusicEngine.createSlur — endpoint resolution', () => {
     expect(engine.undo()).toBe(true)
     expect(engine.getSlurs()).toHaveLength(1) // undo restores the removed slur
   })
+  it('setSlurShape sets/clears cps as one undo step', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const slur = engine.createSlur([a.id])!
+    expect(slur.cps).toBeUndefined() // default = auto shape
+
+    const cps: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 2, y: 14 }, { x: -3, y: 16 }]
+    expect(engine.setSlurShape(slur.id, cps)).toBe(true)
+    expect(engine.getSlurById(slur.id)!.cps).toEqual(cps)
+
+    expect(engine.undo()).toBe(true)
+    expect(engine.getSlurById(slur.id)!.cps).toBeUndefined() // undo reverts to auto
+
+    expect(engine.redo()).toBe(true)
+    expect(engine.getSlurById(slur.id)!.cps).toEqual(cps)
+
+    // Clearing with null drops the override back to auto.
+    expect(engine.setSlurShape(slur.id, null)).toBe(true)
+    expect(engine.getSlurById(slur.id)!.cps).toBeUndefined()
+
+    // Unknown id is a no-op.
+    expect(engine.setSlurShape('nope', cps)).toBe(false)
+  })
   // (JSON round-trip of slurs is covered in ScoreModel.test.ts — the engine's
   //  loadJSON triggers a full render, which the renderer stub here can't satisfy.)
 })

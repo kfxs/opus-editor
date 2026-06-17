@@ -143,6 +143,15 @@ export interface Slur {
   /** Vertical placement; default auto (derived from stem direction). */
   placement?: 'above' | 'below'
   /**
+   * Optional user-edited curve shape: the two cubic Bézier control-point **deltas**
+   * fed to VexFlow `Curve.renderCurve` (the editable "handle" data; see docs/slur-plan.md
+   * §6–§7). **Absent = the auto arch** computed from the contour/span at render time, so
+   * old scores and freshly-created slurs keep the default shape and JSON round-trips for
+   * free. Each `{x,y}` is an offset on top of the spacing-based base control point, so an
+   * edit rides along when the anchor notes move.
+   */
+  cps?: [{ x: number; y: number }, { x: number; y: number }]
+  /**
    * Reserved for future nested/overlapping-slur disambiguation (MusicXML `number`).
    * Unused in this pass.
    */

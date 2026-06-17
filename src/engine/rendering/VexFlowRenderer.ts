@@ -2296,7 +2296,9 @@ export class VexFlowRenderer {
           const endY = toY + LIFT * direction
           const p0 = { x: firstX, y: startY }
           const p1 = { x: lastX, y: endY }
-          registerPartial(this.drawSlurArc(p0, p1, this.slurArchCps(p0, p1, direction), direction, fromNote, toNote))
+          // A user-edited shape (slur.cps) overrides the auto arch; absent → auto.
+          const cps = slur.cps ?? this.slurArchCps(p0, p1, direction)
+          registerPartial(this.drawSlurArc(p0, p1, cps, direction, fromNote, toNote))
         } else {
           // Cross-system: two half-arcs.
           const fromStave = fromNote.getStave()
