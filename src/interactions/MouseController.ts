@@ -45,6 +45,17 @@ export class MouseController {
   private slurDragChanged = false
   private slurDragStartTime: number | null = null
 
+  // --- Slur endpoint handle drag (re-anchor the selected slur's in/out point) ---
+  private isDraggingSlurEndpoint = false
+  private draggedEndpointSlurId: string | null = null
+  private draggedEndpoint: 'start' | 'end' | undefined = undefined
+  /** True once a preview re-anchor fired, so the drop records one undo entry. */
+  private slurEndpointDragChanged = false
+  private slurEndpointDragStartTime: number | null = null
+
+  /** Max cursor→notehead distance (px) for an endpoint drag to snap onto a note. */
+  private readonly SLUR_ENDPOINT_SNAP_PX = 60
+
   private readonly DRAG_TIME_THRESHOLD_MS = 150
   private readonly PREVIEW_THROTTLE_MS = 50
 
@@ -265,6 +276,23 @@ export class MouseController {
           event.preventDefault()
           return
         }
+      }
+
+      // Slur endpoint (square) handle drag — re-anchor the in/out point onto a
+      // different note. Checked, like the reshape handle, before the selection clears.
+      const endHandle = registry.getByType('slur-endpoint').find(el => {
+        const b = el.bbox
+        return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
+      })
+      if (endHandle?.slurId === this.state.selectedSlurId && endHandle.endpoint) {
+        this.isDraggingSlurEndpoint = true
+        this.draggedEndpointSlurId = endHandle.slurId
+        this.draggedEndpoint = endHandle.endpoint
+        this.slurEndpointDragChanged = false
+        this.slurEndpointDragStartTime = Date.now()
+        console.log(`Slur endpoint drag ready | id:${endHandle.slurId} end:${endHandle.endpoint}`)
+        event.preventDefault()
+        return
       }
     }
 
@@ -489,6 +517,9 @@ export class MouseController {
     if (this.isDraggingSlurHandle) {
       this.endSlurHandleDrag()
     }
+    if (this.isDraggingSlurEndpoint) {
+      this.endSlurEndpointDrag()
+    }
   }
 
   /** Finish a clef drag: record one undo entry if it actually moved, then reset. */
@@ -549,6 +580,42 @@ export class MouseController {
     this.draggedSlurBaselineCps = null
     this.slurDragChanged = false
     this.slurDragStartTime = null
+  }
+
+  /**
+   * Nearest note head to (x, y) within {@link SLUR_ENDPOINT_SNAP_PX}, by distance to
+   * the notehead bbox center, excluding `excludeId` (the slur's other endpoint — both
+   * ends can't share a note). Returns the note id, or null if none is close enough.
+   */
+  private nearestNoteId(x: number, y: number, excludeId?: string): string | null {
+    const engine = this.getEngine()
+    if (!engine) return null
+    let bestId: string | null = null
+    let bestDist = this.SLUR_ENDPOINT_SNAP_PX
+    for (const el of engine.getElementRegistry().getByType('note')) {
+      if (!el.id || el.id === excludeId) continue
+      const cx = el.bbox.x + el.bbox.width / 2
+      const cy = el.bbox.y + el.bbox.height / 2
+      const d = Math.hypot(x - cx, y - cy)
+      if (d < bestDist) { bestDist = d; bestId = el.id }
+    }
+    return bestId
+  }
+
+  /** Finish a slur-endpoint drag: record one undo entry if it re-anchored, clear the
+   *  candidate tint, then reset. */
+  private endSlurEndpointDrag(): void {
+    const engine = this.getEngine()
+    if (engine && this.slurEndpointDragChanged) {
+      engine.commitSlurEndpoint()
+      console.log(`Slur re-anchored | id:${this.draggedEndpointSlurId} end:${this.draggedEndpoint}`)
+    }
+    this.isDraggingSlurEndpoint = false
+    this.draggedEndpointSlurId = null
+    this.draggedEndpoint = undefined
+    this.slurEndpointDragChanged = false
+    this.slurEndpointDragStartTime = null
+    this.state.slurEndpointCandidateNoteId = null
   }
 
   handleClick(event: MouseEvent): void {
@@ -799,6 +866,34 @@ export class MouseController {
       return
     }
 
+    // Slur endpoint drag: snap the grabbed in/out point to the nearest note head and
+    // re-anchor live (no undo). The candidate note is tinted so it's clear where the
+    // end will land; releasing over empty space keeps the last snapped note.
+    if (this.isDraggingSlurEndpoint && this.draggedEndpointSlurId && this.draggedEndpoint) {
+      if (this.slurEndpointDragStartTime !== null
+          && Date.now() - this.slurEndpointDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return
+      const slur = engine.getSlurById(this.draggedEndpointSlurId)
+      const otherId = slur
+        ? (this.draggedEndpoint === 'start' ? slur.endNoteId : slur.startNoteId)
+        : undefined
+      const candidate = this.nearestNoteId(x, y, otherId)
+      const prevCandidate = this.state.slurEndpointCandidateNoteId
+      this.state.slurEndpointCandidateNoteId = candidate
+      if (candidate) {
+        // previewSlurEndpoint no-ops when the target is already the anchor, so this
+        // only re-renders/flags on a real move.
+        if (engine.previewSlurEndpoint(this.draggedEndpointSlurId, this.draggedEndpoint, candidate)) {
+          this.slurEndpointDragChanged = true
+          this.render.renderScore()
+        } else if (candidate !== prevCandidate) {
+          this.render.renderScore() // candidate tint moved even if anchor unchanged
+        }
+      } else if (prevCandidate) {
+        this.render.renderScore() // cleared the tint
+      }
+      return
+    }
+
     // Clef drag: snap the cursor to a slot boundary in whatever measure it's over
     // and relocate the clef there (raw move, across measures; undo on drop).
     if (this.isDraggingClef && this.draggedClefMeasure !== null && this.draggedClefBeat !== null) {
@@ -874,6 +969,10 @@ export class MouseController {
     if (this.isDraggingSlurHandle) {
       console.log('Slur handle drag ended (mouse left canvas)')
       this.endSlurHandleDrag()
+    }
+    if (this.isDraggingSlurEndpoint) {
+      console.log('Slur endpoint drag ended (mouse left canvas)')
+      this.endSlurEndpointDrag()
     }
 
     this.lastCanvasMousePosition = null

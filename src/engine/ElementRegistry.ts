@@ -26,6 +26,7 @@ export type ElementType =
   | 'tie'
   | 'slur'
   | 'slur-handle'
+  | 'slur-endpoint'
   | 'accidental'
   | 'tuplet'
   | 'articulation'
@@ -170,6 +171,8 @@ export interface ElementInfo {
   /** For a 'slur-handle' element: the slur it belongs to and which control point. */
   slurId?: string
   cpIndex?: 0 | 1
+  /** For a 'slur-endpoint' handle: which end of the slur it re-anchors. */
+  endpoint?: 'start' | 'end'
   // Accidental-specific properties
   /** Type of accidental: '#', 'b', 'n', '##', 'bb' (for accidentals) */
   accidentalType?: string

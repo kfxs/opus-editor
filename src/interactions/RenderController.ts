@@ -26,6 +26,7 @@ export class RenderController {
     this.highlight.applyDynamicSelectionHighlight()
     this.highlight.applySlurSelectionHighlight()
     this.highlight.applySlurHandles()
+    this.highlight.applySlurEndpointCandidate()
     this.highlight.applyKeyboardCursor()
   }
 

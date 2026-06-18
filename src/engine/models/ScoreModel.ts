@@ -444,6 +444,25 @@ export class ScoreModel {
   }
 
   /**
+   * Re-anchor one end of a slur onto a different note (used by the draggable endpoint
+   * handles). Rewrites `startNoteId` or `endNoteId` and **drops any custom shape**
+   * (`cps`) — the hand-tuned arc was relative to the old span, so it re-bows to the
+   * auto arch for the new endpoints. Rejected (returns false) if the slur is missing,
+   * the target equals the current anchor, or it would collapse the span (start === end).
+   */
+  setSlurEndpoint(id: string, which: 'start' | 'end', noteId: string): boolean {
+    const slur = this.getSlurById(id)
+    if (!slur) return false
+    const otherId = which === 'start' ? slur.endNoteId : slur.startNoteId
+    const currentId = which === 'start' ? slur.startNoteId : slur.endNoteId
+    if (noteId === otherId || noteId === currentId) return false
+    if (which === 'start') slur.startNoteId = noteId
+    else slur.endNoteId = noteId
+    delete slur.cps // shape was relative to the old span — reset to auto
+    return true
+  }
+
+  /**
    * The interpreted dynamic level in effect at (measure, beat) for a voice.
    * Delegates to the shared resolver in utils/dynamics (walk-back reference).
    */

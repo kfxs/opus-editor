@@ -54,6 +54,9 @@ export interface EditorState {
   selectedTieFromNoteId: string | null
   /** Id of the on-score slur selected for removal (selection tool); null if none. */
   selectedSlurId: string | null
+  /** While dragging a slur endpoint handle: the note the slur would snap onto if
+   *  released now (highlighted as the candidate anchor); null when not dragging. */
+  slurEndpointCandidateNoteId: string | null
 
   // --- Palette ---
   selectedDuration: NoteDuration
@@ -129,6 +132,7 @@ export function createEditorState(): EditorState {
     selectedTupletId: null,
     selectedTieFromNoteId: null,
     selectedSlurId: null,
+    slurEndpointCandidateNoteId: null,
     selectedDuration: 'q',
     selectedAccidental: null,
     selectedDots: 0,

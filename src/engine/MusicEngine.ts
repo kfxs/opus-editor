@@ -923,6 +923,19 @@ export class MusicEngine {
     this.saveUndoState('Reshape slur')
   }
 
+  /** Live (preview) re-anchor used **while dragging a slur endpoint handle** — moves
+   *  one end of the slur onto `noteId` and resets its custom shape, WITHOUT recording
+   *  undo. Returns false (no-op) when the target is invalid (collapses the span or is
+   *  unchanged). Call {@link commitSlurEndpoint} on drop for the single undo entry. */
+  previewSlurEndpoint(id: string, which: 'start' | 'end', noteId: string): boolean {
+    return this.scoreModel.setSlurEndpoint(id, which, noteId)
+  }
+
+  /** Record one undo entry after a slur-endpoint re-anchor drag settles. */
+  commitSlurEndpoint(): void {
+    this.saveUndoState('Re-anchor slur')
+  }
+
   /** Flip a slur to the opposite side (above ↔ below). Sets an explicit `placement`
    *  that overrides auto stem-based placement. For an auto-placed slur the flip targets
    *  the opposite of whatever was last *drawn* (read from the registry), so the first

@@ -116,8 +116,14 @@ export class HighlightController {
     }
   }
 
-  /** Recolor one note's notehead + stem (or a rest's glyph) inside its own SVG group. */
-  private highlightNote(noteId: string): void {
+  /** Recolor one note's notehead + stem (or a rest's glyph) inside its own SVG group.
+   *  Colors default to the selection orange; callers (e.g. a slur-endpoint snap target)
+   *  may pass distinct fill/stroke to mark a different intent. */
+  private highlightNote(
+    noteId: string,
+    fillColor = '#F59E0B',
+    strokeColor = '#D97706',
+  ): void {
     const engine = this.getEngine()
     if (!engine) return
 
@@ -132,8 +138,8 @@ export class HighlightController {
 
     const isRest = engine.getElementById(noteId)?.type === 'rest'
 
-    const SELECTION_COLOR = '#F59E0B'
-    const SELECTION_STROKE = '#D97706'
+    const SELECTION_COLOR = fillColor
+    const SELECTION_STROKE = strokeColor
 
     const colorFill = (el: Element) => {
       const svgEl = el as SVGElement
@@ -507,6 +513,8 @@ export class HighlightController {
 
     const R = HighlightController.SLUR_HANDLE_R
     const HIT = HighlightController.SLUR_HANDLE_HIT
+
+    // Round handles: the two cubic control points — these reshape the arc.
     slurEl.controlPoints.forEach((cp, i) => {
       const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
       dot.setAttribute('cx', String(cp.x))
@@ -526,5 +534,42 @@ export class HighlightController {
         bbox: { x: cp.x - HIT, y: cp.y - HIT, width: HIT * 2, height: HIT * 2 },
       })
     })
+
+    // Square handles: the two endpoints (in/out) — these re-anchor the slur onto a
+    // different note. Squares distinguish anchor grips from the round shape grips.
+    if (slurEl.slurEndpoints) {
+      const ends: { p: { x: number; y: number }; which: 'start' | 'end' }[] = [
+        { p: slurEl.slurEndpoints.p0, which: 'start' },
+        { p: slurEl.slurEndpoints.p1, which: 'end' },
+      ]
+      const S = R + 1 // half-side: a touch larger than the round handles so squares read clearly
+      for (const { p, which } of ends) {
+        const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+        sq.setAttribute('x', String(p.x - S))
+        sq.setAttribute('y', String(p.y - S))
+        sq.setAttribute('width', String(S * 2))
+        sq.setAttribute('height', String(S * 2))
+        sq.setAttribute('fill', '#2563EB')
+        sq.setAttribute('stroke', '#ffffff')
+        sq.setAttribute('stroke-width', '1.5')
+        sq.setAttribute('class', 'slur-endpoint-handle')
+        ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'grab'
+        svg.appendChild(sq)
+
+        registry.add({
+          type: 'slur-endpoint',
+          slurId: this.state.selectedSlurId!,
+          endpoint: which,
+          bbox: { x: p.x - HIT, y: p.y - HIT, width: HIT * 2, height: HIT * 2 },
+        })
+      }
+    }
+  }
+
+  /** While dragging a slur endpoint, tint the note it would snap onto (the candidate
+   *  anchor) a distinct blue so it's clear where the end will land on release. */
+  applySlurEndpointCandidate(): void {
+    if (!this.state.slurEndpointCandidateNoteId) return
+    this.highlightNote(this.state.slurEndpointCandidateNoteId, '#2563EB', '#1D4ED8')
   }
 }
