@@ -1164,6 +1164,10 @@ export class VexFlowRenderer {
       stave.addEndTimeSignature(`${cautionaryEndTimeSig.numerator}/${cautionaryEndTimeSig.denominator}`)
     }
 
+    // VexFlow's Stem.draw() leaves ctx.lineWidth at Stem.WIDTH (1.5) and Stave.draw()
+    // strokes its lines with whatever width is current — so a prior measure's stems
+    // would thicken this staff. Pin it back to 1 before drawing the staff lines.
+    this.context!.setLineWidth?.(1)
     stave.setContext(this.context!).draw()
 
     this.measureBounds.set(measure.number, {
