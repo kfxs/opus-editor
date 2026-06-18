@@ -5,6 +5,7 @@ import { fracToNumber } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import { DYNAMIC_VELOCITY, DEFAULT_DYNAMIC, resolveChordLevels } from '@/utils/dynamics'
 import { legatoChordIds } from '@/utils/slurs'
+import { articulationEffect } from '@/utils/articulations'
 
 // Tone.js module - loaded dynamically to avoid AudioContext issues
 let Tone: typeof ToneType | null = null
@@ -201,7 +202,11 @@ export class PlaybackEngine {
 
         // slot is a Chord
         const chord = slot
-        const velocity = DYNAMIC_VELOCITY[chordLevels.get(chord.id) ?? DEFAULT_DYNAMIC]
+        // Articulations bend this chord's attack and length on top of the dynamic
+        // velocity: accent → louder, staccato → shorter, tenuto → held to full value.
+        const artic = articulationEffect(chord.articulations)
+        const baseVelocity = DYNAMIC_VELOCITY[chordLevels.get(chord.id) ?? DEFAULT_DYNAMIC]
+        const velocity = Math.min(1, baseVelocity * artic.velocityScale)
         const noteTimeInBeats = measureStartTime + fracToNumber(chord.beat)
         const beatsPerSecond = tempo / 60
         const noteTimeInSeconds = noteTimeInBeats / beatsPerSecond
@@ -241,7 +246,8 @@ export class PlaybackEngine {
             durationBeats += Math.min(LEGATO_OVERLAP_BEATS, baseDurationBeats * 0.5)
           }
 
-          const durationInSeconds = durationBeats / beatsPerSecond
+          // Staccato shortens, tenuto holds to full value (durationFactor).
+          const durationInSeconds = (durationBeats * artic.durationFactor) / beatsPerSecond
 
           // Derive sounding MIDI directly from the stored spelling —
           // alter already encodes the chromatic offset, so no manual adjustment needed.
