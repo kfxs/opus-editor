@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
+import type { Rect } from '../engine/ViewportModel'
 import { createEditorState, type EditorState } from './EditorState'
 import { SelectionController } from './SelectionController'
 import { itemKey } from './selection'
@@ -47,7 +48,7 @@ describe('SelectionController — multi-selection', () => {
     engine = makeEngine()
     state = createEditorState()
     state.selectedTool = 'selection'
-    selection = new SelectionController(() => engine, state, () => null, () => {})
+    selection = new SelectionController(() => engine, state, () => {}, () => {})
 
     noteA = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
     noteB = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
@@ -133,7 +134,7 @@ describe('SelectionController — Shift range select', () => {
     engine = makeEngine()
     state = createEditorState()
     state.selectedTool = 'selection'
-    selection = new SelectionController(() => engine, state, () => null, () => {})
+    selection = new SelectionController(() => engine, state, () => {}, () => {})
 
     // Fill measure 1 (4/4): a note on each of beats 0..3.
     n0 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
@@ -205,7 +206,7 @@ describe('Shift range + ties (multi-selection only)', () => {
     engine = makeEngine()
     state = createEditorState()
     state.selectedTool = 'selection'
-    selection = new SelectionController(() => engine, state, () => null, () => {})
+    selection = new SelectionController(() => engine, state, () => {}, () => {})
 
     // Two same-pitch C4 quarters tied together (one held note), then D4, E4.
     c1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
@@ -236,5 +237,43 @@ describe('Shift range + ties (multi-selection only)', () => {
   it('single click stays literal — only the clicked note', () => {
     selection.selectNote(c1)
     expect(selectedIds()).toEqual(new Set([noteKey(c1)])) // c2 NOT added
+  })
+})
+
+describe('SelectionController — scroll-into-view forwarding', () => {
+  let engine: MusicEngine
+  let state: EditorState
+  let ensureVisible: Mock<(rect: Rect) => void>
+  let selection: SelectionController
+
+  beforeEach(() => {
+    engine = makeEngine()
+    state = createEditorState()
+    ensureVisible = vi.fn<(rect: Rect) => void>()
+    selection = new SelectionController(() => engine, state, ensureVisible, () => {})
+  })
+
+  it('forwards the selected element bbox to ensureVisible', () => {
+    const bbox = { x: 120, y: 300, width: 12, height: 40 }
+    state.selectedNoteId = 'note-1'
+    vi.spyOn(engine, 'getElementById').mockReturnValue({ bbox } as ReturnType<MusicEngine['getElementById']>)
+
+    selection.scrollSelectedNoteIntoView()
+
+    expect(ensureVisible).toHaveBeenCalledTimes(1)
+    expect(ensureVisible).toHaveBeenCalledWith(bbox)
+  })
+
+  it('does nothing when there is no selection', () => {
+    state.selectedNoteId = null
+    selection.scrollSelectedNoteIntoView()
+    expect(ensureVisible).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when the element is not found', () => {
+    state.selectedNoteId = 'missing'
+    vi.spyOn(engine, 'getElementById').mockReturnValue(null)
+    selection.scrollSelectedNoteIntoView()
+    expect(ensureVisible).not.toHaveBeenCalled()
   })
 })

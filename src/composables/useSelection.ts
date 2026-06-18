@@ -1,6 +1,7 @@
 import type { Ref } from 'vue'
 import type { EditorState } from '../interactions/EditorState'
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { Rect } from '../engine/ViewportModel'
 import { SelectionController } from '../interactions/SelectionController'
 
 /**
@@ -10,13 +11,13 @@ import { SelectionController } from '../interactions/SelectionController'
 export function useSelection(
   state: EditorState,
   engine: Ref<MusicEngine | null>,
-  scoreCanvas: Ref<HTMLElement | null>,
+  ensureVisible: (rect: Rect) => void,
   renderScore: () => void,
 ): SelectionController {
   return new SelectionController(
     () => engine.value,
     state,
-    () => scoreCanvas.value,
+    ensureVisible,
     renderScore,
   )
 }

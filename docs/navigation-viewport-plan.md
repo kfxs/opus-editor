@@ -8,7 +8,12 @@ reserved; no wiring). **Phase 3 DONE 2026-06-18** (`src/composables/useViewport.
 the outer scroll box + inner content surface: scroll listener + two `ResizeObserver`s DOM→model,
 `scrollTo`/`ensureVisible` model→DOM with an echo guard; sizes read from `client*`/`scroll*`; wired in
 `App.vue` as `useViewport(scoreCanvas, scoreContent)`, return intentionally unused until Phase 4).
-Phase 4 (migrate `scrollSelectedNoteIntoView` → `ensureVisible`) NOT STARTED. Plan written
+**Phase 4 selection-migration DONE 2026-06-18** (`scrollSelectedNoteIntoView` now resolves the element
+bbox engine-side and forwards it to `viewport.ensureVisible`; `SelectionController`/`useSelection` take
+an injected `ensureVisible` instead of `getScoreCanvas`; +3 forwarding tests, suite 643). **Playback-
+follow DEFERRED** — `PlaybackEngine.onNotePlay` is declared but never fired, so there is no live
+per-note signal; following would need a measure/beat→bbox lookup off `onPositionChange` plus throttling,
+and is a UX change (scroll-follow can be jarring) — left for an opt-in pass. Plan written
 2026-06-18, corrected against code 2026-06-18 (ref-split / `innerHTML` / padding / existing
 scroll-into-view). This document is the
 authoritative plan and cross-session checklist for separating the score *viewport* (the fixed-size
@@ -199,13 +204,21 @@ fixes the visible problem.
   binding); Phase 4 binds it and routes `scrollSelectedNoteIntoView` through `ensureVisible`.
 
 ### Phase 4 — Migrate existing scroll-into-view into the model (refactor, not new feature)
-- **This is a migration, not a green-field feature:** `SelectionController.scrollSelectedNoteIntoView()`
-  (`SelectionController.ts:347-380`) already does both-axis scroll-into-view with padding and is
-  already wired on selection change (`SelectionController.ts:232`). Phase 4 moves that math into
-  `ViewportModel.ensureVisible(rect)` and has the composable apply the resulting scroll, so the logic
-  is portable and reusable for playback-follow — behavior is unchanged on day one.
-- Then extend the same call site to playback position change so the current note scrolls into the
-  window during playback. Pure model math; the composable applies the resulting scroll.
+**Selection migration ✅ DONE 2026-06-18.** Playback-follow ⏸ DEFERRED (see below).
+- `SelectionController.scrollSelectedNoteIntoView()` now resolves the selected element's bbox
+  engine-side (`engine.getElementById(...).bbox`, no DOM) and forwards it to an injected
+  `ensureVisible(rect)`; `ViewportModel.ensureVisible` owns the both-axis math and the `useViewport`
+  host applies the clamped scroll to the element. Behavior is preserved (the bbox is still in
+  SVG-internal coords, same as the old inline `scrollLeft/Top` comparison; the ~50px padding absorbs
+  the content-surface inset).
+- Plumbing: `SelectionController` and `useSelection` now take `ensureVisible: (rect: Rect) => void`
+  in place of `getScoreCanvas` (which had no other use). `App.vue` creates `useViewport` *before*
+  `useSelection` and passes `rect => viewport.ensureVisible(rect)`. +3 forwarding tests.
+- **Playback-follow — DEFERRED, needs a deliberate pass.** `PlaybackEngine.onNotePlay(note)` is
+  declared but never invoked, so there is no live per-note id to scroll to. Following the playhead
+  would mean mapping `onPositionChange`'s `{measure, beat}` to an element bbox and throttling
+  `ensureVisible` (don't call it every animation tick), and scroll-follow during playback is a UX
+  change that's usually opt-in. Out of scope until explicitly requested.
 
 ---
 

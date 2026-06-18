@@ -1,5 +1,6 @@
 import type { Accidental, Note, Measure, PitchStep, PitchAlter } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { Rect } from '../engine/ViewportModel'
 import type { EditorState } from './EditorState'
 import { buildBeatMap, notesInRange, expandTieChains } from '../utils/beatMap'
 import { fracLt, fracEq, fracCompare } from '../utils/fraction'
@@ -15,7 +16,8 @@ export class SelectionController {
   constructor(
     private getEngine: () => MusicEngine | null,
     private state: EditorState,
-    private getScoreCanvas: () => HTMLElement | null,
+    /** Scroll a content-coordinate rect into the viewport (ViewportModel-backed). */
+    private ensureVisible: (rect: Rect) => void,
     private renderScore: () => void,
   ) {}
 
@@ -343,40 +345,22 @@ export class SelectionController {
     return 60
   }
 
-  /** Scroll the canvas so the selected note is visible. */
+  /**
+   * Scroll the viewport so the selected note is visible. The both-axis, leading-edge math now
+   * lives in `ViewportModel.ensureVisible`; this just resolves the element's bbox (engine-side,
+   * no DOM) and hands it to the injected `ensureVisible`, which the `useViewport` host applies to
+   * the real scroll element. The bbox is in SVG-internal coordinates — the same space the old
+   * inline version compared against `scrollLeft/Top`, so behavior is preserved (the ~padding
+   * absorbs the content-surface inset).
+   */
   scrollSelectedNoteIntoView(): void {
     const engine = this.getEngine()
-    const scoreCanvas = this.getScoreCanvas()
-    if (!engine || !scoreCanvas || !this.state.selectedNoteId) return
+    if (!engine || !this.state.selectedNoteId) return
 
     const elementInfo = engine.getElementById(this.state.selectedNoteId)
     if (!elementInfo) return
 
-    const bbox = elementInfo.bbox
-    const padding = 50
-    const containerRect = scoreCanvas.getBoundingClientRect()
-
-    const elementLeft = bbox.x
-    const elementRight = bbox.x + bbox.width
-    const visibleLeft = scoreCanvas.scrollLeft
-    const visibleRight = scoreCanvas.scrollLeft + containerRect.width
-
-    if (elementLeft < visibleLeft + padding) {
-      scoreCanvas.scrollLeft = Math.max(0, elementLeft - padding)
-    } else if (elementRight > visibleRight - padding) {
-      scoreCanvas.scrollLeft = elementRight - containerRect.width + padding
-    }
-
-    const elementTop = bbox.y
-    const elementBottom = bbox.y + bbox.height
-    const visibleTop = scoreCanvas.scrollTop
-    const visibleBottom = scoreCanvas.scrollTop + containerRect.height
-
-    if (elementTop < visibleTop + padding) {
-      scoreCanvas.scrollTop = Math.max(0, elementTop - padding)
-    } else if (elementBottom > visibleBottom - padding) {
-      scoreCanvas.scrollTop = elementBottom - containerRect.height + padding
-    }
+    this.ensureVisible(elementInfo.bbox)
   }
 
   private movePitchDiatonically(

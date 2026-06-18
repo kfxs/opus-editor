@@ -178,6 +178,10 @@ export class MouseController {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
     if (!engine || !scoreCanvas) return
+    // A press on the viewport's own scrollbar/gutter targets the scroll container element
+    // itself, not the SVG inside it. Ignore it — otherwise dragging the scrollbar would map
+    // to empty space and clear the selection.
+    if (event.target === scoreCanvas) return
     if (this.state.selectedTool !== 'selection') return
 
     const svg = scoreCanvas.querySelector('svg') as SVGSVGElement | null
@@ -632,6 +636,9 @@ export class MouseController {
       console.log('✗ Click ignored: engine or canvas not ready')
       return
     }
+    // Scrollbar/gutter clicks target the scroll container element itself, not the SVG —
+    // ignore them so using the scrollbar in entry mode doesn't plant a stray note.
+    if (event.target === scoreCanvas) return
 
     const svg = scoreCanvas.querySelector('svg') as SVGSVGElement | null
     if (!svg) {

@@ -531,8 +531,19 @@ const highlight = useHighlight(state, engine, scoreCanvas)
 // RenderController depends on HighlightController
 const renderer = useRenderer(state, engine, highlight)
 
-// SelectionController depends on renderer (for renderScore callback)
-const selection = useSelection(state, engine, scoreCanvas, () => renderer.renderScore())
+// ViewportModel ⇄ DOM scroll wiring (the only DOM-aware viewport piece). Keeps a pure
+// ViewportModel in sync with the outer scroll box and inner content surface, and exposes
+// ensureVisible for scroll-into-view. onMounted/onUnmounted run inside the composable.
+const viewport = useViewport(scoreCanvas, scoreContent)
+
+// SelectionController depends on renderer (for renderScore callback) and the viewport
+// (scroll-into-view of the selected note now runs through ViewportModel.ensureVisible).
+const selection = useSelection(
+  state,
+  engine,
+  rect => viewport.ensureVisible(rect),
+  () => renderer.renderScore(),
+)
 
 // ClipboardController (copy/paste) depends on selection + renderer.
 const clipboard = new ClipboardController(() => engine.value, state, selection, renderer)
@@ -558,12 +569,6 @@ const textEdit = useTextEditing(state)
 // MouseController depends on selection, renderer, highlight, palette, textEdit.
 // onMounted/onUnmounted are called internally by the composable.
 mouse = useMouseInteraction(state, engine, scoreCanvas, selection, renderer, palette, textEdit, clipboard)
-
-// ViewportModel ⇄ DOM scroll wiring (the only DOM-aware viewport piece). Keeps a pure
-// ViewportModel in sync with the outer scroll box and inner content surface. The returned
-// host (model + scrollTo/ensureVisible) is unused for now — Phase 4 routes
-// scrollSelectedNoteIntoView through it. onMounted/onUnmounted run inside the composable.
-useViewport(scoreCanvas, scoreContent)
 
 // ShortcutManager — wires keyboard shortcuts to controller actions
 const shortcuts = useShortcuts(
