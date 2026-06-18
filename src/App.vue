@@ -717,9 +717,22 @@ onMounted(() => {
       height: 400,
     })
 
+    // Playback-follow: keep the playing measure inside the viewport. We react only when the
+    // measure number changes (not every position tick), and viewport.ensureVisible self-gates —
+    // it scrolls only when the measure nears the window edge — so this pages along by ~a line
+    // without continuous jitter. Reset on (re)start so playback re-follows from the top.
+    let lastFollowedMeasure = -1
     engine.value.setPlaybackCallbacks({
-      onStateChange: s => { state.playbackState = s },
-      onPositionChange: _pos => { /* future: update state.playbackPosition */ },
+      onStateChange: s => {
+        state.playbackState = s
+        if (s === 'playing') lastFollowedMeasure = -1
+      },
+      onPositionChange: pos => {
+        if (pos.measure === lastFollowedMeasure) return
+        lastFollowedMeasure = pos.measure
+        const rect = engine.value?.getMeasureRect(pos.measure)
+        if (rect) viewport.ensureVisible(rect)
+      },
       onPlaybackComplete: () => { state.playbackState = 'stopped' },
     })
 

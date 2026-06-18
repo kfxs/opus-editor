@@ -152,8 +152,11 @@ export class PlaybackEngine {
 
     if (this.state === 'playing') return
 
-    // Do EXACTLY what testAudio does - inline, no class methods
-    const Tone = await import('tone')
+    // Do EXACTLY what testAudio does - inline, no class methods.
+    // Assign the MODULE-LEVEL `Tone` (don't shadow with a local const): updatePosition and the
+    // other methods read this same variable, and its `!Tone` guard would otherwise stay true
+    // forever — which is why the position loop (onPositionChange / playback-follow) never ran.
+    Tone = await import('tone')
     await Tone.start()
 
     // Create fresh PolySynth for chord support (multiple simultaneous notes)
@@ -264,6 +267,11 @@ export class PlaybackEngine {
     if (this.callbacks.onStateChange) {
       this.callbacks.onStateChange(this.state)
     }
+
+    // Kick off the position-tracking rAF loop. updatePosition self-schedules while playing
+    // and drives onPositionChange (progress + playback-follow). Without this first call the
+    // loop never starts and onPositionChange never fires.
+    this.updatePosition()
 
     // Schedule auto-stop
     const totalSeconds = currentTimeInBeats / (tempo / 60)

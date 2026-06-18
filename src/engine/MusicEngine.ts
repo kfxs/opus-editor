@@ -1,5 +1,6 @@
 import { ScoreModel } from './models/ScoreModel'
-import { VexFlowRenderer } from './rendering/VexFlowRenderer'
+import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
+import type { Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
@@ -1585,6 +1586,18 @@ export class MusicEngine {
    */
   getElementById(id: string): ElementInfo | null {
     return this.renderer.getElementRegistry().getById(id)
+  }
+
+  /**
+   * Pixel rectangle of a rendered measure in content coordinates (height = one stave), or
+   * null if that measure isn't currently rendered. Used by playback-follow to scroll the
+   * playing measure into the viewport. `measureNumber` is the measure's `.number` (1-indexed),
+   * matching the playback position callback.
+   */
+  getMeasureRect(measureNumber: number): Rect | null {
+    const b = this.renderer.getMeasureBounds(measureNumber)
+    if (!b) return null
+    return { x: b.measureX, y: b.measureY, width: b.measureWidth, height: LAYOUT_CONFIG.STAVE_HEIGHT }
   }
 
   /**

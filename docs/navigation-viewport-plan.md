@@ -13,7 +13,8 @@ bbox engine-side and forwards it to `viewport.ensureVisible`; `SelectionControll
 an injected `ensureVisible` instead of `getScoreCanvas`; +3 forwarding tests, suite 643). **Playback-
 follow DEFERRED** — `PlaybackEngine.onNotePlay` is declared but never fired, so there is no live
 per-note signal; following would need a measure/beat→bbox lookup off `onPositionChange` plus throttling,
-and is a UX change (scroll-follow can be jarring) — left for an opt-in pass. Plan written
+and is a UX change (scroll-follow can be jarring) — left for an opt-in pass. **Superseded: Phase 5
+implemented playback-follow at measure granularity 2026-06-18** (see below). Plan written
 2026-06-18, corrected against code 2026-06-18 (ref-split / `innerHTML` / padding / existing
 scroll-into-view). This document is the
 authoritative plan and cross-session checklist for separating the score *viewport* (the fixed-size
@@ -172,6 +173,10 @@ fixes the visible problem.
   margins); the outer viewport has none.
 - Move the `@click/@mousedown/@mousemove/@mouseup/@mouseleave` handlers to whichever element keeps
   events working with the CTM mapping (they bubble, so the outer viewport is fine; confirm).
+  **Confirmed + caveat (resolved in Phase 4):** handlers stay on the outer viewport, but because that
+  div now owns the scrollbar, a scrollbar *press* fires `handleMouseDown`/`handleClick` on the scroll
+  container and (mapping to empty space) cleared the selection / planted a stray note. Fixed by
+  ignoring presses whose `event.target` is the scroll container itself (`MouseController`).
 - **Height must be an inline `:style`, not a Tailwind class.** Express it as a derived value
   (`≈ 2 * (STAVE_HEIGHT + VERTICAL_SPACING) + MARGIN*2`), but note that `LAYOUT_CONFIG` lives in the
   engine (`VexFlowRenderer.ts`) and a Tailwind utility class can't read a JS constant — bind it via
@@ -218,7 +223,20 @@ fixes the visible problem.
   declared but never invoked, so there is no live per-note id to scroll to. Following the playhead
   would mean mapping `onPositionChange`'s `{measure, beat}` to an element bbox and throttling
   `ensureVisible` (don't call it every animation tick), and scroll-follow during playback is a UX
-  change that's usually opt-in. Out of scope until explicitly requested.
+  change that's usually opt-in. Out of scope until explicitly requested. **→ Done in Phase 5.**
+
+### Phase 5 — Playback-follow (measure granularity) ✅ DONE 2026-06-18
+- Sidestepped the dead `onNotePlay` hook: follow at **measure** granularity off the live
+  `onPositionChange` measure number instead of per-note. Added `MusicEngine.getMeasureRect(n)`
+  (delegates to `renderer.getMeasureBounds`, height = `LAYOUT_CONFIG.STAVE_HEIGHT`); measure key is
+  `measure.number`, which matches the playback position (verified both sides).
+- `App.vue` position callback reacts **only when the measure number changes** (not every tick) and
+  calls `viewport.ensureVisible(rect)`. `ensureVisible` already self-gates (no scroll while the
+  measure is comfortably visible), so this pages along by ~a line with no continuous jitter and no
+  extra throttle. `lastFollowedMeasure` resets on (re)start (`onStateChange === 'playing'`) so replay
+  re-follows from the top.
+- Intentionally **not** built: smooth-scroll animation and an opt-in toggle — ship the jump-to-measure
+  (same jump selection uses) first; revisit only if it feels abrupt in real use.
 
 ---
 
