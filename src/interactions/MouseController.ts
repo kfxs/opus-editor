@@ -517,7 +517,7 @@ export class MouseController {
   }
 
   /**
-   * Invert `Curve.renderCurve`'s control-point math (the same math `drawSlurArc` uses
+   * Invert `Curve.renderCurve`'s control-point math (the same math `drawCurveArc` uses
    * forward) to recover the `Slur.cps` deltas from the two on-screen control points and
    * the arc's endpoint geometry. With xShift/yShift = 0 and `cps.length === 2`,
    * `spacing = (p1.x - p0.x) / 4`, `C0 = (p0.x+spacing+cp0.x, p0.y+cp0.y·dir)` and

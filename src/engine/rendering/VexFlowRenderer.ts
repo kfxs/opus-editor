@@ -1990,9 +1990,11 @@ export class VexFlowRenderer {
 
   /**
    * Draw a tie arc where both endpoints share the source note's Y position.
-   * Ties always connect the same pitch, so the arc must be horizontally flat.
-   * Replicates VexFlow's StaveTie.renderTie() algorithm with firstY === lastY.
-   * Returns the bounding box of the drawn arc, or null on failure.
+   * Ties always connect the same pitch, so the arc is horizontally flat with its
+   * apex at the X midpoint. Routes through the shared cubic `drawCurveArc` (same
+   * `Curve.renderCurve` path as slurs); flat endpoints + symmetric `cps` keep the
+   * peak centered, while tie-specific BOW/THICKNESS reproduce the old hand-drawn
+   * quadratic look. Returns the bounding box of the drawn arc, or null on failure.
    */
   private drawFlatTie(
     fromInfo: { staveNote: StaveNote; noteIndex: number },
@@ -2007,25 +2009,21 @@ export class VexFlowRenderer {
       const y = ys[fromInfo.noteIndex] ?? ys[0]
       if (y === undefined || isNaN(y)) return null
 
-      // Match VexFlow StaveTie defaults: cp1=8, cp2=12, yShift=7
-      const cp1 = 8
-      const cp2 = 12
-      const tieY = y + 7 * direction
-      const cpX = (firstX + lastX) / 2
-      const topCP = tieY + cp1 * direction
-      const bottomCP = tieY + cp2 * direction
-
-      this.context.beginPath()
-      this.context.moveTo(firstX, tieY)
-      this.context.quadraticCurveTo(cpX, topCP, lastX, tieY)
-      this.context.quadraticCurveTo(cpX, bottomCP, firstX, tieY)
-      this.context.closePath()
-      this.context.fill()
-
-      // Bounding box: x range is firstX→lastX, y range spans from tieY to the arc apex
-      const arcTop = Math.min(tieY, topCP)
-      const arcBottom = Math.max(tieY, bottomCP)
-      return { x: firstX, y: arcTop, width: lastX - firstX, height: arcBottom - arcTop }
+      // Flat endpoints, both lifted off the notehead by TIE_LIFT. Symmetric control
+      // heights (same Y, dy=0) → the cubic's peak lands exactly at the X midpoint.
+      const tieY = y + VexFlowRenderer.TIE_LIFT * direction
+      const p0 = { x: firstX, y: tieY }
+      const p1 = { x: lastX, y: tieY }
+      const bow = VexFlowRenderer.TIE_BOW
+      const cps: [{ x: number; y: number }, { x: number; y: number }] = [
+        { x: 0, y: bow },
+        { x: 0, y: bow },
+      ]
+      const arc = this.drawCurveArc(
+        p0, p1, cps, direction, VexFlowRenderer.TIE_THICKNESS,
+        fromInfo.staveNote, toInfo.staveNote,
+      )
+      return arc.bbox
     } catch (e) {
       console.error('Could not draw flat tie:', e)
       return null
@@ -2190,6 +2188,15 @@ export class VexFlowRenderer {
   private static readonly SLUR_THICKNESS = 1.5  // Curve.renderCurve return-pass offset (mid swell)
   private static readonly SLUR_OUTLINE = 1      // stroke width pinned around the curve (sharp tips)
 
+  // Tie geometry (same-line, flat). A tie joins one pitch, so both endpoints share a Y
+  // and the apex sits at the X midpoint. These reproduce the old hand-drawn quadratic
+  // (drawFlatTie: yShift 7, cp1 8, cp2 12) on the shared cubic path: a cubic's symmetric
+  // peak is 0.75·H, so BOW 5.3 → ~4px apex (old 0.5·cp1) and THICKNESS 2.7 → ~2px belly
+  // (old 0.5·(cp2−cp1)). Kept fuller than a slur — ties read heavier and hug the head.
+  private static readonly TIE_LIFT = 7        // gap between the notehead and the flat tie endpoints
+  private static readonly TIE_BOW = 5.3       // cubic control height → ~4px apex above the endpoint line
+  private static readonly TIE_THICKNESS = 2.7 // belly swell → ~2px at center, pinching to the tips
+
   /**
    * Compute the cubic `cps` (control-point deltas for `Curve.renderCurve`) that bow the
    * arc by `SLUR_BOW` **vertically above the line between its endpoints** — the two control
@@ -2331,7 +2338,7 @@ export class VexFlowRenderer {
           const p1 = { x: lastX, y: endY }
           // A user-edited shape (slur.cps) overrides the auto arch; absent → auto.
           const cps = slur.cps ?? this.slurArchCps(p0, p1, direction, nestLift)
-          const arc = this.drawSlurArc(p0, p1, cps, direction, fromNote, toNote)
+          const arc = this.drawCurveArc(p0, p1, cps, direction, VexFlowRenderer.SLUR_THICKNESS, fromNote, toNote)
           // Store the on-screen control points + endpoint geometry so a selected
           // slur can show draggable handles (Phase 7). Same-line only — a split slur
           // shares one cps, so it gets no handles.
@@ -2352,7 +2359,7 @@ export class VexFlowRenderer {
             const h1p0 = { x: firstX, y: startY }
             const h1p1 = { x: rightEdge, y: apex1 }
             registerPartial(
-              this.drawSlurArc(h1p0, h1p1, this.slurArchCps(h1p0, h1p1, direction, nestLift), direction, fromNote, toNote),
+              this.drawCurveArc(h1p0, h1p1, this.slurArchCps(h1p0, h1p1, direction, nestLift), direction, VexFlowRenderer.SLUR_THICKNESS, fromNote, toNote),
               'end',
             )
             // Second (leading) half: from the next system's left edge down into the end note.
@@ -2363,7 +2370,7 @@ export class VexFlowRenderer {
             const h2p0 = { x: leftEdge, y: apex2 }
             const h2p1 = { x: lastX, y: endY }
             registerPartial(
-              this.drawSlurArc(h2p0, h2p1, this.slurArchCps(h2p0, h2p1, direction, nestLift), direction, fromNote, toNote),
+              this.drawCurveArc(h2p0, h2p1, this.slurArchCps(h2p0, h2p1, direction, nestLift), direction, VexFlowRenderer.SLUR_THICKNESS, fromNote, toNote),
               'start',
             )
           }
@@ -2378,32 +2385,37 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Draw a slur arc as a cubic Bézier via VexFlow's `Curve.renderCurve`, driven by
-   * **our own** endpoint geometry (we never call `Curve.draw()`, which would re-derive
-   * endpoints from stems and discard our per-chord-head Ys / system-break geometry).
-   * Used for both the same-line arc and each cross-system half.
+   * Draw a curved arc (slur **or** tie) as a cubic Bézier via VexFlow's
+   * `Curve.renderCurve`, driven by **our own** endpoint geometry (we never call
+   * `Curve.draw()`, which would re-derive endpoints from stems and discard our
+   * per-chord-head Ys / system-break geometry). Used for the same-line slur arc,
+   * each cross-system slur half, and the same-line (flat) tie.
    *
-   * `cps` are the two control-point deltas (the editable handle data); `direction` is
-   * -1 (above) / +1 (below). We pass `xShift:0`/`yShift:0` so `p0`/`p1` (which already
-   * fold in `SLUR_LIFT`) are exact. `renderCurve` strokes **and** fills, so each emitted
-   * `<path>` carries both — the selection highlight must override both (see
-   * HighlightController.applySlurSelectionHighlight).
+   * `cps` are the two control-point deltas (the editable handle data); `direction`
+   * is -1 (above) / +1 (below). `thickness` is the belly swell — `renderCurve`
+   * strokes a forward pass at `cp.y` and a return pass at `cp.y + thickness`, so the
+   * fill bows out by `thickness` at center and pinches to a point at each endpoint
+   * (slurs pass a thin SLUR_THICKNESS, ties a fuller TIE_THICKNESS). We pass
+   * `xShift:0`/`yShift:0` so `p0`/`p1` (which already fold in the LIFT) are exact.
+   * `renderCurve` strokes **and** fills, so each emitted `<path>` carries both — the
+   * selection highlight must override both (see HighlightController).
    *
    * Returns the bbox plus sampled cubic points for arc-proximity hit-testing. The
    * sampling mirrors `renderCurve`'s internal control-point math (`curve.js`) so the
    * hit geometry matches the drawn path exactly.
    */
-  private drawSlurArc(
+  private drawCurveArc(
     p0: { x: number; y: number },
     p1: { x: number; y: number },
     cps: [{ x: number; y: number }, { x: number; y: number }],
     direction: number,
+    thickness: number,
     fromNote: StaveNote,
     toNote: StaveNote,
   ): { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[]; c0: { x: number; y: number }; c1: { x: number; y: number } } {
     const curve = new Curve(fromNote, toNote, {
       cps,
-      thickness: VexFlowRenderer.SLUR_THICKNESS,
+      thickness,
       xShift: 0,
       yShift: 0,
     })
