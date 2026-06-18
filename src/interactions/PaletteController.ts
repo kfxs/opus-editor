@@ -7,6 +7,9 @@ import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingDiatonicPos } from '../utils/pitchSpelling'
 import { selectedNoteIds } from './selection'
 
+/** Placeholder for a freshly placed custom-text dynamic (mirrors MouseController). */
+const DEFAULT_DYNAMIC_TEXT = 'Text'
+
 /**
  * Handles palette actions: duration, accidental, articulations, tie, dot, tuplet.
  * Framework-agnostic: reads/writes EditorState directly, no Vue/React/Angular imports.
@@ -282,6 +285,15 @@ export class PaletteController {
    * the entry tool so canvas clicks are handled for placement.
    */
   setDynamic(value: DynamicTool): void {
+    // Selection mode with a note/rest selected → place the dynamic directly at that
+    // element's slot (no arm-and-click), the same way articulations/accidentals apply
+    // to the current selection. Only when nothing is selected do we fall back to the
+    // arm-then-click placement flow below.
+    if (this.state.selectedTool === 'selection' && this.state.selectedNoteId) {
+      this.placeDynamicAtSelectedNote(value)
+      return
+    }
+
     const newValue = this.state.selectedDynamic === value ? null : value
     this.state.selectedDynamic = newValue
     if (newValue) {
@@ -293,6 +305,25 @@ export class PaletteController {
       this.state.selectedClefBeat = null
       this.state.selectedTimeSignatureMeasure = null
       this.state.selectedDynamicId = null
+    }
+    this.renderScore()
+  }
+
+  /**
+   * Place the dynamic for `tool` directly at the currently selected note/rest's slot
+   * (selection mode). The mark anchors to the element's (measure, beat); a level tool
+   * drops its glyph, `'text'` drops the editable placeholder (double-click to edit,
+   * matching canvas placement). Voice 0 — see the VOICE SEAM note in MouseController.
+   */
+  private placeDynamicAtSelectedNote(tool: DynamicTool): void {
+    const engine = this.getEngine()
+    if (!engine || !this.state.selectedNoteId) return
+    const note = engine.getNote(this.state.selectedNoteId)
+    if (!note) return
+    if (tool === 'text') {
+      engine.addDynamic(note.measure, { beat: note.beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below' })
+    } else {
+      engine.addDynamic(note.measure, { beat: note.beat, kind: 'level', level: tool, voice: 0, placement: 'below' })
     }
     this.renderScore()
   }
