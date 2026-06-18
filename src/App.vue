@@ -361,16 +361,26 @@
           </button>
         </div>
 
-        <!-- VexFlow Rendering Area (Score Container/Canvas) -->
+        <!--
+          Score area = fixed-size viewport (owns scroll) + inner content surface (holds the SVG).
+          The OUTER div keeps the `scoreCanvas` ref: it owns scrolling (read by
+          scrollSelectedNoteIntoView) and the svg is a descendant so `scoreCanvas.querySelector('svg')`
+          still works. The INNER div is the engine container — VexFlow wipes it with innerHTML='' on
+          every render, so it must NOT be the outer scroll box. Padding stays on the inner surface so
+          bbox coords stay aligned with the viewport scroll. See docs/navigation-viewport-plan.md §4.
+        -->
         <div
           ref="scoreCanvas"
-          class="score-container bg-white rounded-lg p-4 min-h-[300px] overflow-auto cursor-default"
+          class="score-container bg-white rounded-lg overflow-auto cursor-default"
+          :style="{ height: viewportHeight }"
           @click="(e) => mouse.handleClick(e)"
           @mousedown="(e) => mouse.handleMouseDown(e)"
           @mousemove="(e) => mouse.handleMouseMove(e)"
           @mouseup="(e) => mouse.handleMouseUp(e)"
           @mouseleave="mouse.handleMouseLeave()"
-        ></div>
+        >
+          <div ref="scoreContent" class="p-4"></div>
+        </div>
 
       </div>
     </div>
@@ -485,6 +495,7 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { MusicEngine } from './engine/MusicEngine'
+import { VIEWPORT_TWO_LINE_HEIGHT } from './engine/rendering/VexFlowRenderer'
 import { createEditorState } from './interactions/EditorState'
 import { useHighlight } from './composables/useHighlight'
 import { useRenderer } from './composables/useRenderer'
@@ -502,7 +513,12 @@ import type { TimeSignature } from './types/music'
 
 // --- Engine and canvas ---
 const engine = shallowRef<MusicEngine | null>(null)
+// Outer viewport (fixed height, owns scroll). Controllers read this for scroll + querySelector.
 const scoreCanvas = ref<HTMLElement | null>(null)
+// Inner content surface — the engine's render target (VexFlow mounts/wipes its SVG here).
+const scoreContent = ref<HTMLElement | null>(null)
+// Fixed viewport height (≈ two staff lines) so the JSON panel below stays visible.
+const viewportHeight = `${VIEWPORT_TWO_LINE_HEIGHT}px`
 
 // --- All editor state in one reactive plain object ---
 const state = reactive(createEditorState())
@@ -682,9 +698,9 @@ function clearPickup(): void {
 
 // --- Lifecycle ---
 onMounted(() => {
-  if (scoreCanvas.value) {
+  if (scoreCanvas.value && scoreContent.value) {
     engine.value = new MusicEngine({
-      container: scoreCanvas.value,
+      container: scoreContent.value,
       width: 1000,
       height: 400,
     })

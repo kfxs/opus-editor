@@ -56,7 +56,7 @@ const CLEF_CONFIG: Record<Clef, { middleLineDiatonicPos: number }> = {
 /**
  * Layout configuration for proportional measure spacing
  */
-const LAYOUT_CONFIG = {
+export const LAYOUT_CONFIG = {
   /** Minimum pixels between notes for clickability */
   MIN_NOTE_SPACING: 18,
   /** Minimum measure width even for empty measures */
@@ -80,6 +80,15 @@ const LAYOUT_CONFIG = {
   /** Vertical spacing between lines */
   VERTICAL_SPACING: 30,
 }
+
+/**
+ * Fixed height of the score *viewport* (the window you scroll inside), sized to ≈ two staff
+ * lines so the JSON panel below stays visible. Derived from LAYOUT_CONFIG so it tracks the
+ * per-line content height (STAVE_HEIGHT + VERTICAL_SPACING) + the score's top/bottom margins,
+ * rather than being a magic 340. See docs/navigation-viewport-plan.md §2.
+ */
+export const VIEWPORT_TWO_LINE_HEIGHT =
+  2 * (LAYOUT_CONFIG.STAVE_HEIGHT + LAYOUT_CONFIG.VERTICAL_SPACING) + LAYOUT_CONFIG.MARGIN * 2
 
 /**
  * Width calculation result for a measure
