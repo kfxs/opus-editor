@@ -2,8 +2,10 @@
 
 Status: **Phase 1 DONE & user-verified 2026-06-18** (two-div viewport/content split + fixed ≈2-line
 height; `scoreCanvas` ref kept on the outer scroll viewport, new `scoreContent` inner div is the engine
-container; `VIEWPORT_TWO_LINE_HEIGHT` derived from `LAYOUT_CONFIG`). Phases 2–4 (ViewportModel,
-`useViewport`, migrate `scrollSelectedNoteIntoView` → `ensureVisible`) NOT STARTED. Plan written
+container; `VIEWPORT_TWO_LINE_HEIGHT` derived from `LAYOUT_CONFIG`). **Phase 2 DONE 2026-06-18** (pure
+`src/engine/ViewportModel.ts` + 12 co-located tests; size/scroll/clamp/`ensureVisible`, zoom+viewMode
+reserved; no wiring). Phases 3–4 (`useViewport` composable, migrate `scrollSelectedNoteIntoView` →
+`ensureVisible`) NOT STARTED. Plan written
 2026-06-18, corrected against code 2026-06-18 (ref-split / `innerHTML` / padding / existing
 scroll-into-view). This document is the
 authoritative plan and cross-session checklist for separating the score *viewport* (the fixed-size
@@ -171,9 +173,13 @@ fixes the visible problem.
   **`scrollSelectedNoteIntoView` still scrolls the selected note into view** (don't regress it);
   text-edit overlay still aligns (already verified safe per §3).
 
-### Phase 2 — `ViewportModel` (plain, tested)
-- Add `src/engine/.../ViewportModel.ts` (or `src/interactions/`) with size/scroll/`ensureVisible`
-  and co-located unit tests. No wiring yet — pure model.
+### Phase 2 — `ViewportModel` (plain, tested) ✅ DONE 2026-06-18
+- Added `src/engine/ViewportModel.ts` + `ViewportModel.test.ts` (12 tests). Pure model, no wiring.
+- API: `setViewportSize`/`setContentSize`, `getViewportSize`/`getContentSize`/`getScroll`/`getMaxScroll`,
+  `scrollTo`/`scrollBy`, `ensureVisible(rect, padding=ENSURE_VISIBLE_PADDING=50)`. Every scroll path
+  funnels through `scrollTo`, the single clamp point (keeps scroll in `[0, maxScroll]`); size setters
+  re-clamp. `ensureVisible` mirrors the both-axis, leading-edge logic of the existing
+  `scrollSelectedNoteIntoView`. `zoom` and `viewMode` fields are reserved (§6), read by nothing yet.
 
 ### Phase 3 — `useViewport` composable wiring
 - Bind the model to the outer div: scroll events → `model`, `model.scrollTo` → element.
