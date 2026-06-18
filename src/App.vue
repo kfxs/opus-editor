@@ -504,6 +504,7 @@ import { usePalette } from './composables/usePalette'
 import { useKeyboardEntry } from './composables/useKeyboardEntry'
 import { useMouseInteraction } from './composables/useMouseInteraction'
 import { useTextEditing } from './composables/useTextEditing'
+import { useViewport } from './composables/useViewport'
 import { useShortcuts } from './composables/useShortcuts'
 import { ClipboardController } from './interactions/ClipboardController'
 import { isValidTimeSignature } from './utils/meter'
@@ -557,6 +558,12 @@ const textEdit = useTextEditing(state)
 // MouseController depends on selection, renderer, highlight, palette, textEdit.
 // onMounted/onUnmounted are called internally by the composable.
 mouse = useMouseInteraction(state, engine, scoreCanvas, selection, renderer, palette, textEdit, clipboard)
+
+// ViewportModel ⇄ DOM scroll wiring (the only DOM-aware viewport piece). Keeps a pure
+// ViewportModel in sync with the outer scroll box and inner content surface. The returned
+// host (model + scrollTo/ensureVisible) is unused for now — Phase 4 routes
+// scrollSelectedNoteIntoView through it. onMounted/onUnmounted run inside the composable.
+useViewport(scoreCanvas, scoreContent)
 
 // ShortcutManager — wires keyboard shortcuts to controller actions
 const shortcuts = useShortcuts(

@@ -4,8 +4,11 @@ Status: **Phase 1 DONE & user-verified 2026-06-18** (two-div viewport/content sp
 height; `scoreCanvas` ref kept on the outer scroll viewport, new `scoreContent` inner div is the engine
 container; `VIEWPORT_TWO_LINE_HEIGHT` derived from `LAYOUT_CONFIG`). **Phase 2 DONE 2026-06-18** (pure
 `src/engine/ViewportModel.ts` + 12 co-located tests; size/scroll/clamp/`ensureVisible`, zoom+viewMode
-reserved; no wiring). Phases 3–4 (`useViewport` composable, migrate `scrollSelectedNoteIntoView` →
-`ensureVisible`) NOT STARTED. Plan written
+reserved; no wiring). **Phase 3 DONE 2026-06-18** (`src/composables/useViewport.ts` binds the model to
+the outer scroll box + inner content surface: scroll listener + two `ResizeObserver`s DOM→model,
+`scrollTo`/`ensureVisible` model→DOM with an echo guard; sizes read from `client*`/`scroll*`; wired in
+`App.vue` as `useViewport(scoreCanvas, scoreContent)`, return intentionally unused until Phase 4).
+Phase 4 (migrate `scrollSelectedNoteIntoView` → `ensureVisible`) NOT STARTED. Plan written
 2026-06-18, corrected against code 2026-06-18 (ref-split / `innerHTML` / padding / existing
 scroll-into-view). This document is the
 authoritative plan and cross-session checklist for separating the score *viewport* (the fixed-size
@@ -181,9 +184,19 @@ fixes the visible problem.
   re-clamp. `ensureVisible` mirrors the both-axis, leading-edge logic of the existing
   `scrollSelectedNoteIntoView`. `zoom` and `viewMode` fields are reserved (§6), read by nothing yet.
 
-### Phase 3 — `useViewport` composable wiring
-- Bind the model to the outer div: scroll events → `model`, `model.scrollTo` → element.
-- Feed `contentSize` from the renderer's known SVG width/height after each `renderScore`.
+### Phase 3 — `useViewport` composable wiring ✅ DONE 2026-06-18
+- Added `src/composables/useViewport.ts`; wired in `App.vue` as `useViewport(scoreCanvas, scoreContent)`.
+- DOM→model: `scroll` listener mirrors user scroll; **two `ResizeObserver`s** (outer box + inner content
+  surface) keep sizes current. **Deviation from the original note:** instead of feeding `contentSize`
+  from the renderer's SVG attrs after each `renderScore` (which would mean threading a call through
+  every render/ghost site), the content `ResizeObserver` fires precisely when the SVG grows/shrinks and
+  reads `scoreCanvas.scrollWidth/Height` — same result, no render-callsite coupling, and it also catches
+  layout/window resizes for free. Sizes come from `client*` (viewport) / `scroll*` (content) so
+  `maxScroll` matches the browser exactly.
+- model→DOM: `scrollTo`/`ensureVisible` write the clamped model scroll onto the element, guarded by an
+  `applying` flag so the programmatic scroll's echo event isn't mirrored back.
+- The returned `ViewportHost` is intentionally unused this phase (`noUnusedLocals` ⇒ called without
+  binding); Phase 4 binds it and routes `scrollSelectedNoteIntoView` through `ensureVisible`.
 
 ### Phase 4 — Migrate existing scroll-into-view into the model (refactor, not new feature)
 - **This is a migration, not a green-field feature:** `SelectionController.scrollSelectedNoteIntoView()`
