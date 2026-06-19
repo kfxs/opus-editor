@@ -7,6 +7,7 @@ import type { PaletteController } from '../interactions/PaletteController'
 import type { KeyboardController } from '../interactions/KeyboardController'
 import type { RenderController } from '../interactions/RenderController'
 import type { ClipboardController } from '../interactions/ClipboardController'
+import type { ViewportHost } from './useViewport'
 import { ShortcutManager } from '../shortcuts'
 import { beatToFrac } from '../utils/musicUtils'
 
@@ -22,9 +23,17 @@ export function useShortcuts(
   keyboard: KeyboardController,
   renderer: RenderController,
   clipboard: ClipboardController,
+  viewport: ViewportHost,
   getLastMousePosition: () => { x: number; y: number } | null,
 ): { enable: () => void; disable: () => void } {
   const shortcutManager = new ShortcutManager()
+
+  // Focal point for keyboard zoom = the viewport center (screen coords); the keys carry no
+  // cursor position, so the center is the natural anchor (the wheel uses the cursor instead).
+  const viewportCenter = () => {
+    const { w, h } = viewport.model.getViewportSize()
+    return { x: w / 2, y: h / 2 }
+  }
 
   shortcutManager.registerActions({
     setEntryMode: () => {
@@ -41,6 +50,14 @@ export function useShortcuts(
     },
     copySelection: () => clipboard.copy(),
     pasteClipboard: () => clipboard.paste(),
+    zoomIn: () => viewport.zoomToStop(1, viewportCenter()),
+    zoomOut: () => viewport.zoomToStop(-1, viewportCenter()),
+    zoomReset: () => {
+      const z = viewport.model.getZoom()
+      if (z === 1) return
+      // factor 1/z lands exactly on 100%, anchored at the viewport center.
+      viewport.zoomAt(1 / z, viewportCenter())
+    },
     setSelectionMode: () => {
       // Esc first cancels a pending (armed) paste, if any.
       if (state.pastePlacementArmed) {

@@ -380,18 +380,27 @@
           @mouseup="(e) => mouse.handleMouseUp(e)"
           @mouseleave="mouse.handleMouseLeave()"
         >
-          <div ref="scoreContent" class="p-4"></div>
           <!--
-            Playback cursor — a green vertical bar at the start of the playing measure.
-            Sibling of scoreContent (NOT a child): VexFlow wipes scoreContent with
-            innerHTML='' on every render, so anything inside it is destroyed. As an
-            absolutely-positioned child of the scroll box it scrolls with the music.
+            Zoom DOM (docs/zoom-plan.md §3): the `sizer` takes an explicit size = naturalSvgSize ×
+            zoom so the scroll bars get their range; the `zoomLayer` carries transform: scale(zoom)
+            so the visuals scale without a re-render. useViewport writes both from the same scalar.
           -->
-          <div
-            v-show="playCursor.visible"
-            class="play-cursor"
-            :style="{ transform: `translate(${playCursor.x}px, ${playCursor.y}px)`, height: `${playCursor.height}px` }"
-          ></div>
+          <div ref="scoreSizer" class="score-sizer">
+            <div ref="scoreZoomLayer" class="score-zoom-layer">
+              <div ref="scoreContent" class="p-4"></div>
+              <!--
+                Playback cursor — a green vertical bar at the start of the playing measure.
+                Sibling of scoreContent INSIDE the zoomLayer (NOT a child of scoreContent, which
+                VexFlow wipes with innerHTML='' every render). Living in the scaled layer, it scales
+                and scrolls with the music for free, so its translate stays pure layout coords.
+              -->
+              <div
+                v-show="playCursor.visible"
+                class="play-cursor"
+                :style="{ transform: `translate(${playCursor.x}px, ${playCursor.y}px)`, height: `${playCursor.height}px` }"
+              ></div>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -530,6 +539,10 @@ const engine = shallowRef<MusicEngine | null>(null)
 const scoreCanvas = ref<HTMLElement | null>(null)
 // Inner content surface — the engine's render target (VexFlow mounts/wipes its SVG here).
 const scoreContent = ref<HTMLElement | null>(null)
+// Zoom DOM (docs/zoom-plan.md §3): sizer gives the scroll range (naturalSvgSize × zoom),
+// zoomLayer carries transform: scale(zoom). Both written by useViewport from one scalar.
+const scoreSizer = ref<HTMLElement | null>(null)
+const scoreZoomLayer = ref<HTMLElement | null>(null)
 // Fixed viewport height (≈ two staff lines) so the JSON panel below stays visible.
 const viewportHeight = `${VIEWPORT_TWO_LINE_HEIGHT}px`
 
@@ -545,6 +558,11 @@ const playCursor = reactive({ visible: false, x: 0, y: 0, height: 0 })
 // padding — so we shift the cursor by it to line up with the staves.
 const CONTENT_PADDING = 16
 
+// Ctrl+wheel (and trackpad pinch) zoom sensitivity: factor = exp(-deltaY · k), so zoom is
+// continuous and multiplicative. Tuned so one mouse notch (~100px deltaY) ≈ a ~15% step while a
+// trackpad pinch stays smooth. See docs/zoom-plan.md §7 Phase 3.
+const ZOOM_WHEEL_K = 0.0015
+
 // --- Wire up controllers in dependency order ---
 // HighlightController has no deps on other controllers
 const highlight = useHighlight(state, engine, scoreCanvas)
@@ -555,7 +573,7 @@ const renderer = useRenderer(state, engine, highlight)
 // ViewportModel ⇄ DOM scroll wiring (the only DOM-aware viewport piece). Keeps a pure
 // ViewportModel in sync with the outer scroll box and inner content surface, and exposes
 // ensureVisible for scroll-into-view. onMounted/onUnmounted run inside the composable.
-const viewport = useViewport(scoreCanvas, scoreContent)
+const viewport = useViewport(scoreCanvas, scoreContent, scoreSizer, scoreZoomLayer)
 
 // SelectionController depends on renderer (for renderScore callback) and the viewport
 // (scroll-into-view of the selected note now runs through ViewportModel.ensureVisible).
@@ -589,12 +607,13 @@ const textEdit = useTextEditing(state)
 
 // MouseController depends on selection, renderer, highlight, palette, textEdit.
 // onMounted/onUnmounted are called internally by the composable.
-mouse = useMouseInteraction(state, engine, scoreCanvas, selection, renderer, palette, textEdit, clipboard, (dx, dy) => viewport.scrollBy(dx, dy))
+mouse = useMouseInteraction(state, engine, scoreCanvas, selection, renderer, palette, textEdit, clipboard, (dx, dy) => viewport.scrollBy(dx, dy), () => viewport.model.getZoom())
 
 // ShortcutManager — wires keyboard shortcuts to controller actions
 const shortcuts = useShortcuts(
   state, engine,
   selection, palette, keyboard, renderer, clipboard,
+  viewport,
   () => mouse.getLastMousePosition(),
 )
 
@@ -737,7 +756,26 @@ function clearPickup(): void {
 }
 
 // --- Lifecycle ---
+// Ctrl+wheel zoom toward the cursor. A window-level listener registered { passive: false } so
+// preventDefault() actually kills the browser's page-zoom — done whenever Ctrl is held, regardless
+// of whether the pointer is over the score ("zoom is always score zoom", docs/zoom-plan.md §7).
+function handleZoomWheel(e: WheelEvent) {
+  if (!e.ctrlKey) return
+  e.preventDefault()
+  const el = scoreCanvas.value
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  // Focal = cursor relative to the viewport, clamped inside it so an out-of-bounds pointer still
+  // zooms toward the nearest edge rather than off-screen.
+  const focal = {
+    x: Math.min(Math.max(e.clientX - rect.left, 0), el.clientWidth),
+    y: Math.min(Math.max(e.clientY - rect.top, 0), el.clientHeight),
+  }
+  viewport.zoomAt(Math.exp(-e.deltaY * ZOOM_WHEEL_K), focal)
+}
+
 onMounted(() => {
+  window.addEventListener('wheel', handleZoomWheel, { passive: false })
   if (scoreCanvas.value && scoreContent.value) {
     engine.value = new MusicEngine({
       container: scoreContent.value,
@@ -781,6 +819,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('wheel', handleZoomWheel)
   shortcuts.disable()
   if (engine.value) {
     engine.value.dispose()
@@ -833,6 +872,19 @@ async function togglePlayback() {
   scrollbar-gutter: stable;
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* Zoom DOM (docs/zoom-plan.md §3). The sizer's explicit width/height (set by useViewport =
+   naturalSvgSize × zoom) is what the scroll box measures for its scroll range. The zoomLayer
+   sits at the sizer's top-left and carries transform: scale(zoom) (origin 0 0, set in JS); it is
+   also the containing block for the play-cursor, which therefore stays in pure layout coords. */
+.score-sizer {
+  position: relative;
+}
+.score-zoom-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 /* Playback cursor: thin green bar at the start of the playing measure. Positioned via

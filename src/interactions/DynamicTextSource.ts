@@ -22,6 +22,9 @@ export class DynamicTextSource implements EditableTextSource {
     private engine: MusicEngine,
     private getCanvas: () => HTMLElement | null,
     private render: () => void,
+    /** Current view zoom. The overlay is `position: fixed` (screen space), so unlike the box —
+     *  which scales for free via `getScreenCTM` — its font must be scaled by hand (§5.4). */
+    private getZoom: () => number = () => 1,
   ) {
     this.screenRect = this.computeScreenRect()
   }
@@ -67,7 +70,7 @@ export class DynamicTextSource implements EditableTextSource {
   getFontCSS(): { fontFamily: string; fontSize: string; fontStyle: string; color: string } {
     return {
       fontFamily: DYNAMIC_TEXT_FONT,
-      fontSize: `${DYNAMIC_TEXT_SIZE}pt`,
+      fontSize: `${DYNAMIC_TEXT_SIZE * this.getZoom()}pt`,
       fontStyle: 'italic',
       color: '#000000',
     }

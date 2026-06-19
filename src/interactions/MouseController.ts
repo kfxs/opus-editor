@@ -185,6 +185,8 @@ export class MouseController {
     private clipboard: ClipboardController,
     /** Scroll the viewport by a client-pixel delta (content follows the hand). */
     private panBy: (dx: number, dy: number) => void,
+    /** Current view zoom — handed to the text editor so its (fixed-position) font scales (§5.4). */
+    private getZoom: () => number = () => 1,
   ) {}
 
   /** Register document-level event listeners. Call on mount. */
@@ -259,6 +261,7 @@ export class MouseController {
       engine,
       () => this.getScoreCanvas(),
       () => this.render.renderScore(),
+      this.getZoom,
     )
     textEdit.open(source)
   }

@@ -23,6 +23,7 @@ export function useMouseInteraction(
   textEdit: TextEditController,
   clipboard: ClipboardController,
   panBy: (dx: number, dy: number) => void,
+  getZoom: () => number,
 ): MouseController {
   const controller = new MouseController(
     () => engine.value,
@@ -34,6 +35,7 @@ export function useMouseInteraction(
     () => textEdit,
     clipboard,
     panBy,
+    getZoom,
   )
 
   onMounted(() => controller.setup())

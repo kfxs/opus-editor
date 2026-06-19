@@ -171,6 +171,15 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Paste (overwrite-forward from the selection; or click to place when nothing is selected)',
   },
 
+  // Zoom (Ctrl+=/Ctrl+- snap the ladder toward the viewport center; Ctrl+0 resets to 100%).
+  // Routed through ShortcutManager so its preventDefault suppresses the browser's own page-zoom.
+  // '=' and numpad '+' map to Ctrl++ ; Shift+'=' arrives as Ctrl+Shift++ (the common Ctrl++ zoom).
+  'Ctrl+=': { action: 'zoomIn', description: 'Zoom in' },
+  'Ctrl++': { action: 'zoomIn', description: 'Zoom in (numpad +)' },
+  'Ctrl+Shift++': { action: 'zoomIn', description: 'Zoom in (Ctrl++)' },
+  'Ctrl+-': { action: 'zoomOut', description: 'Zoom out' },
+  'Ctrl+0': { action: 'zoomReset', description: 'Reset zoom to 100%' },
+
   // Undo/Redo
   'Ctrl+z': {
     action: 'undo',

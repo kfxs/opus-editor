@@ -36,12 +36,37 @@ export type ViewMode = 'galley' | 'pages' | 'continuous-scroll'
 /** Default gap (px) kept between an `ensureVisible` target and the viewport edge. */
 export const ENSURE_VISIBLE_PADDING = 50
 
+/** Zoom range — the layout→screen scalar is clamped to `[ZOOM_MIN, ZOOM_MAX]` (25%–400%). */
+export const ZOOM_MIN = 0.25
+export const ZOOM_MAX = 4
+
+/** Round-number stops the Ctrl+=/Ctrl+- keys snap along (25%–400%). */
+export const ZOOM_LADDER = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4] as const
+
+/**
+ * Next round-number zoom stop above (`dir > 0`) or below (`dir < 0`) the current zoom, clamped to
+ * the ladder ends. Pure helper for the Ctrl+=/Ctrl+- snap behaviour; the epsilon makes a zoom that
+ * sits exactly on a stop step to the *neighbouring* stop rather than to itself.
+ */
+export function nextLadderStop(zoom: number, dir: 1 | -1): number {
+  const eps = 1e-3
+  if (dir > 0) {
+    return ZOOM_LADDER.find((stop) => stop > zoom + eps) ?? ZOOM_MAX
+  }
+  return [...ZOOM_LADDER].reverse().find((stop) => stop < zoom - eps) ?? ZOOM_MIN
+}
+
 export class ViewportModel {
   private viewportSize: Size = { w: 0, h: 0 }
   private contentSize: Size = { w: 0, h: 0 }
   private scroll: Point = { x: 0, y: 0 }
 
-  /** Reserved for deferred zoom support (§6). Not applied to any math yet. */
+  /**
+   * The single layout→screen scalar: `screenPx = layoutPx × zoom`. The model works entirely in
+   * scaled (screen) pixels — `viewportSize`, `contentSize`, `scroll`, `maxScroll` all match the DOM
+   * — and `zoom` is the one bridge to layout coords (see §2 of docs/zoom-plan.md). Public so screen-
+   * space overlays (the text-edit font) can read it; mutate it only through `setZoom`/`zoomAt`.
+   */
   zoom = 1
   /** Reserved for deferred view-modes (§6). Not applied to any math yet. */
   viewMode: ViewMode = 'galley'
@@ -98,25 +123,82 @@ export class ViewportModel {
     this.scrollTo(this.scroll.x + dx, this.scroll.y + dy)
   }
 
+  // --- Zoom (the layout→screen scalar; all math stays in screen space) ---
+
+  getZoom(): number {
+    return this.zoom
+  }
+
+  /**
+   * Set the absolute zoom, keeping the top-left content corner fixed. Equivalent to zooming about
+   * the origin focal point.
+   */
+  setZoom(z: number): void {
+    this.zoomAbout(z, { x: 0, y: 0 })
+  }
+
+  /**
+   * Multiply the zoom by `factor`, keeping the content point currently under `focal` (a viewport-
+   * relative screen point) stationary. Used by Ctrl+wheel (focal = cursor).
+   */
+  zoomAt(factor: number, focal: Point): void {
+    this.zoomAbout(this.zoom * factor, focal)
+  }
+
+  /**
+   * Snap to the next/prev round-number stop on the zoom ladder, keeping `focal` stationary. Used by
+   * Ctrl+= / Ctrl+- (focal = viewport center).
+   */
+  zoomToStop(dir: 1 | -1, focal: Point): void {
+    this.zoomAbout(nextLadderStop(this.zoom, dir), focal)
+  }
+
+  /**
+   * Core zoom transform: clamp the requested zoom, then rescale `contentSize` and `scroll` by the
+   * zoom ratio so screen space stays consistent and the content point under `focal` stays put
+   * (`newScroll = (focal + scroll) × ratio − focal`). `contentSize` is held in screen pixels, so it
+   * must scale with zoom — this only multiplies the model's own mirror by the ratio (it never reads
+   * natural size), which equals `natural × newZoom`, so it does not fight `useViewport`'s natural-
+   * size feed. The final `scrollTo` re-clamps against the freshly grown content.
+   */
+  private zoomAbout(z: number, focal: Point): void {
+    const newZoom = clamp(z, ZOOM_MIN, ZOOM_MAX)
+    const ratio = newZoom / this.zoom
+    if (ratio === 1) return
+
+    this.contentSize = {
+      w: this.contentSize.w * ratio,
+      h: this.contentSize.h * ratio,
+    }
+    const nextX = (focal.x + this.scroll.x) * ratio - focal.x
+    const nextY = (focal.y + this.scroll.y) * ratio - focal.y
+    this.zoom = newZoom
+    this.scrollTo(nextX, nextY)
+  }
+
   /**
    * Scroll the minimum amount so `rect` (in content coordinates) sits at least `padding` px inside
    * the viewport on every overflowing edge. An axis already comfortably in view is left untouched;
    * a target larger than the viewport aligns its leading edge. Mirrors the both-axis, leading-edge
    * priority of the original `scrollSelectedNoteIntoView`, with clamping handled by `scrollTo`.
+   *
+   * `rect` arrives in unscaled **layout** coords (element bounding boxes), so it is multiplied by
+   * `this.zoom` to reach the screen space the rest of the model works in (§2 of the zoom plan).
    */
   ensureVisible(rect: Rect, padding: number = ENSURE_VISIBLE_PADDING): void {
+    const z = this.zoom
     const nextX = this.ensureAxis(
       this.scroll.x,
       this.viewportSize.w,
-      rect.x,
-      rect.width,
+      rect.x * z,
+      rect.width * z,
       padding,
     )
     const nextY = this.ensureAxis(
       this.scroll.y,
       this.viewportSize.h,
-      rect.y,
-      rect.height,
+      rect.y * z,
+      rect.height * z,
       padding,
     )
     this.scrollTo(nextX, nextY)
