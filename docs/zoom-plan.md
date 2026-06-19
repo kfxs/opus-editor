@@ -1,6 +1,7 @@
 # Zoom — Implementation Plan
 
-Status: **PLANNED (not started)**, settled 2026-06-19. Score zoom via a single layout→screen scalar
+Status: **Phases 1–4 DONE & COMMITTED 2026-06-19 (26133bb); only Phase 5 polish (optional) remains.**
+Settled 2026-06-19. Score zoom via a single layout→screen scalar
 held on `ViewportModel`, applied to the DOM as a `transform: scale()` on a layer above the content
 surface (a `sizer` + `zoomLayer` pair) — **not** a re-render and **not** a CSS hack on the lone SVG.
 Range **25%–400%**; **Ctrl+wheel** zooms toward the cursor (continuous, multiplicative), **Ctrl+=/Ctrl+-**
@@ -173,7 +174,7 @@ constant `16·z` of non-scrollable margin, which is negligible and harmless.
 
 ## 7. Phases
 
-### Phase 1 — `ViewportModel` zoom (pure, tested) — **DONE 2026-06-19 (uncommitted), 659 tests green**
+### Phase 1 — `ViewportModel` zoom (pure, tested) — **DONE 2026-06-19 (committed 26133bb), 659 tests green**
 - `getZoom()` / `setZoom(z)` (clamp to `[ZOOM_MIN=0.25, ZOOM_MAX=4]`). `setZoom` rescales `scroll`
   and `contentSize` consistently and re-clamps via the existing single clamp point.
 - **`zoomAt(factor, focal: Point)`** — multiply zoom by `factor`, clamp, and adjust `scroll` so the
@@ -196,7 +197,7 @@ constant `16·z` of non-scrollable margin, which is negligible and harmless.
   `this.zoom`. All routed through the private `zoomAbout(z, focal)` (single clamp + scroll/content
   rescale). See `ViewportModel.ts`, `ViewportModel.test.ts`.
 
-### Phase 2 — `useViewport` applies zoom to the DOM — **DONE 2026-06-19 (uncommitted)**
+### Phase 2 — `useViewport` applies zoom to the DOM — **DONE 2026-06-19 (committed 26133bb)**
 - Build the `sizer` + `zoomLayer` DOM (§3). Expose `setZoom(z)` / `zoomAt(factor, focal)` on the
   `ViewportHost`.
 - A shared `applyZoom()`: set `sizer` size = `naturalSvgSize × zoom`, set `zoomLayer.style.transform
@@ -219,7 +220,7 @@ constant `16·z` of non-scrollable margin, which is negligible and harmless.
   - **Option B (fallback):** read the SVG `width`/`height` attributes directly (the renderer sets
     them unscaled at `VexFlowRenderer.ts:1686`) in the size observer + on `setZoom`.
 
-### Phase 3 — Input handling (and suppressing the browser) — **DONE 2026-06-19 (uncommitted)**
+### Phase 3 — Input handling (and suppressing the browser) — **DONE 2026-06-19 (committed 26133bb)**
 - **Ctrl+wheel** (also trackpad pinch): a `window` listener registered `{ passive: false }` so
   `preventDefault()` actually kills browser page-zoom. Normalize across devices with a continuous,
   multiplicative factor `factor = exp(-deltaY × k)` (tune `k` so one mouse notch ≈ one 10% step while
@@ -236,7 +237,7 @@ constant `16·z` of non-scrollable margin, which is negligible and harmless.
   unnecessary. Only the **wheel** truly needs a bespoke `window` listener, because `wheel` isn't a
   keydown and needs `{ passive: false }`.)
 
-### Phase 4 — Fix zoom-aware overlays — **DONE 2026-06-19 (uncommitted)**
+### Phase 4 — Fix zoom-aware overlays — **DONE 2026-06-19 (committed 26133bb)**
 - **Play-cursor:** relocate it into `zoomLayer` (sibling of `scoreContent`) so it scales/scrolls for
   free; its translate stays `rect.x + CONTENT_PADDING` with no `×zoom` (§5.1, §6). No other
   scroll-box-level absolutely-positioned overlay should remain outside the layer — grep to confirm.
