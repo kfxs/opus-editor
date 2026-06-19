@@ -21,6 +21,8 @@ export interface ViewportHost {
   model: ViewportModel
   /** Set scroll (content coords), clamp via the model, and apply to the element. */
   scrollTo(x: number, y: number): void
+  /** Scroll by a delta (content coords), clamp via the model, and apply to the element. */
+  scrollBy(dx: number, dy: number): void
   /** Scroll `rect` into view via the model, then apply the result to the element. */
   ensureVisible(rect: Rect, padding?: number): void
 }
@@ -112,6 +114,10 @@ export function useViewport(
     model,
     scrollTo(x, y) {
       model.scrollTo(x, y)
+      applyScrollToElement()
+    },
+    scrollBy(dx, dy) {
+      model.scrollBy(dx, dy)
       applyScrollToElement()
     },
     ensureVisible(rect, padding) {

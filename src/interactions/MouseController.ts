@@ -59,6 +59,105 @@ export class MouseController {
   private readonly DRAG_TIME_THRESHOLD_MS = 150
   private readonly PREVIEW_THROTTLE_MS = 50
 
+  // --- Hand / grab-to-pan gesture (tool-agnostic navigation) ---
+  // A press on empty space ARMS a possible pan but changes nothing yet; we decide
+  // tap-vs-pan on RELEASE by movement distance (not time). Tracked in client (screen)
+  // pixels, NOT svg coords — svg coords shift as the view scrolls and would feed the
+  // scroll back on itself. Deltas drive `panBy(-dx, -dy)` so the content follows the hand.
+  private isPanArmed = false
+  private isPanning = false
+  private panStartClient: { x: number; y: number } = { x: 0, y: 0 }
+  private panLastClient: { x: number; y: number } = { x: 0, y: 0 }
+  /** True only when armed in the selection tool: a tap-release clears the selection. */
+  private pendingTapClearsSelection = false
+  /** Set on a pan-release so the trailing `click` doesn't run the tool's tap action. */
+  private suppressNextClick = false
+  /** Min cursor travel (px) from press before an armed press becomes a real pan. */
+  private readonly PAN_THRESHOLD_PX = 4
+
+  /** Clear all ephemeral pan flags. Called defensively at the top of every mousedown so
+   *  a flag (notably `suppressNextClick`) can never outlive the gesture that set it —
+   *  browsers don't reliably fire `click` after a movement-heavy press/release. */
+  private resetPanState(): void {
+    this.isPanArmed = false
+    this.isPanning = false
+    this.pendingTapClearsSelection = false
+    this.suppressNextClick = false
+    this.detachPanListeners()
+  }
+
+  /** Arm a possible pan from an empty-space press. Records the press point in client
+   *  coords and attaches the document-level drivers; the pan only becomes real once
+   *  movement crosses {@link PAN_THRESHOLD_PX}. */
+  private armPan(event: MouseEvent, clearsSelection: boolean): void {
+    this.isPanArmed = true
+    this.pendingTapClearsSelection = clearsSelection
+    this.panStartClient = { x: event.clientX, y: event.clientY }
+    this.panLastClient = { x: event.clientX, y: event.clientY }
+    this.attachPanListeners()
+  }
+
+  private attachPanListeners(): void {
+    if (this.panListenersAttached) return
+    document.addEventListener('mousemove', this.onDocPanMove, true)
+    document.addEventListener('mouseup', this.onDocPanUp, true)
+    this.panListenersAttached = true
+  }
+
+  private detachPanListeners(): void {
+    if (!this.panListenersAttached) return
+    document.removeEventListener('mousemove', this.onDocPanMove, true)
+    document.removeEventListener('mouseup', this.onDocPanUp, true)
+    this.panListenersAttached = false
+  }
+
+  /**
+   * Document-level pan move. Drives the pan from anywhere on screen (not just over the
+   * viewport), so leaving the viewport mid-drag keeps panning. Uses CLIENT coords — svg
+   * coords shift as we scroll and would feed the scroll back on itself.
+   */
+  private handleDocPanMove(event: MouseEvent): void {
+    if (!this.isPanArmed) return
+    const cx = event.clientX
+    const cy = event.clientY
+    if (!this.isPanning) {
+      const dist = Math.hypot(cx - this.panStartClient.x, cy - this.panStartClient.y)
+      if (dist < this.PAN_THRESHOLD_PX) return // still within the dead zone — maybe a tap
+      // Threshold crossed: a real pan has begun. Hide the OS pointer and measure deltas
+      // from here (the small threshold travel is absorbed, not applied as a jump).
+      this.isPanning = true
+      this.state.isPanning = true
+      this.panLastClient = { x: cx, y: cy }
+      console.log('Pan started')
+    }
+    const dx = cx - this.panLastClient.x
+    const dy = cy - this.panLastClient.y
+    this.panLastClient = { x: cx, y: cy }
+    this.panBy(-dx, -dy) // content follows the hand → scroll opposite to pointer motion
+  }
+
+  /** Document-level pan release. Resolves drag-vs-tap and tears the gesture down. */
+  private handleDocPanUp(): void {
+    if (!this.isPanArmed) return
+    const wasPanning = this.isPanning
+    const clears = this.pendingTapClearsSelection
+    this.detachPanListeners()
+    this.isPanArmed = false
+    this.isPanning = false
+    this.pendingTapClearsSelection = false
+    if (wasPanning) {
+      // Real pan: swallow the trailing click, restore the pointer, keep the selection.
+      this.suppressNextClick = true
+      this.state.isPanning = false
+      console.log('Pan ended')
+    } else if (clears) {
+      // Tap in the selection tool: clear now (deferred from mousedown).
+      this.selection.selectNote(null)
+      console.log('Selection cleared (tap)')
+      this.render.renderScore()
+    }
+  }
+
   // --- Manual double-click detection for the in-canvas text editor (the native
   // dblclick event is defeated by the re-render-on-select swapping SVG nodes) ---
   private lastDynamicDownId: string | null = null
@@ -67,6 +166,13 @@ export class MouseController {
 
   private readonly onDocMouseDown = () => { this.isMouseButtonDown = true }
   private readonly onDocMouseUp = () => { this.isMouseButtonDown = false }
+
+  // Document-level pan drivers: attached for the duration of an armed pan so the gesture
+  // keeps tracking movement and release even when the pointer leaves the viewport (the
+  // element's own mousemove/mouseup stop firing once the pointer exits scoreCanvas).
+  private readonly onDocPanMove = (e: MouseEvent) => this.handleDocPanMove(e)
+  private readonly onDocPanUp = () => this.handleDocPanUp()
+  private panListenersAttached = false
 
   constructor(
     private getEngine: () => MusicEngine | null,
@@ -77,6 +183,8 @@ export class MouseController {
     private getPendingArticulations: () => ArticulationType[] | undefined,
     private getTextEdit: () => TextEditController | null,
     private clipboard: ClipboardController,
+    /** Scroll the viewport by a client-pixel delta (content follows the hand). */
+    private panBy: (dx: number, dy: number) => void,
   ) {}
 
   /** Register document-level event listeners. Call on mount. */
@@ -89,6 +197,7 @@ export class MouseController {
   teardown(): void {
     document.removeEventListener('mousedown', this.onDocMouseDown, true)
     document.removeEventListener('mouseup', this.onDocMouseUp, true)
+    this.detachPanListeners()
   }
 
   getLastMousePosition(): { x: number; y: number } | null {
@@ -182,7 +291,18 @@ export class MouseController {
     // itself, not the SVG inside it. Ignore it — otherwise dragging the scrollbar would map
     // to empty space and clear the selection.
     if (event.target === scoreCanvas) return
-    if (this.state.selectedTool !== 'selection') return
+
+    // Defensive reset: a stale pan flag must never outlive its gesture (see resetPanState).
+    this.resetPanState()
+
+    // Non-selection tools (entry/clef/dynamic/TS) do their placement in handleClick, not
+    // here. Arm a pan on this empty-space press so a drag pans the view instead of placing;
+    // a tap falls through to handleClick (which suppresses nothing). These tools have no
+    // selection to clear, so pendingTapClearsSelection stays false.
+    if (this.state.selectedTool !== 'selection') {
+      this.armPan(event, false)
+      return
+    }
 
     const svg = scoreCanvas.querySelector('svg') as SVGSVGElement | null
     if (!svg) return
@@ -497,18 +617,20 @@ export class MouseController {
           event.preventDefault()
         }
       } else {
-        this.selection.selectNote(null)
-        console.log('Selection cleared (too far from element)')
-        this.render.renderScore()
+        // Empty space (too far from any element): don't clear the selection on press —
+        // arm a pan instead. A tap-release clears it (handleMouseUp); a drag pans the
+        // view and keeps the selection so the user can then shift-click to extend.
+        this.armPan(event, true)
       }
     } else {
-      this.selection.selectNote(null)
-      console.log('Selection cleared')
-      this.render.renderScore()
+      // Empty space (no element at all): same deferral — arm a pan, clear on tap-release.
+      this.armPan(event, true)
     }
   }
 
   handleMouseUp(_event: MouseEvent): void {
+    // Note: a hand/grab pan release is resolved by the document-level handleDocPanUp, not
+    // here — so it fires even when the pointer is released outside the viewport.
     if (this.isDraggingNote) {
       console.log(`Drag ended | note:${this.state.selectedNoteId}`)
       this.isDraggingNote = false
@@ -623,6 +745,10 @@ export class MouseController {
   }
 
   handleClick(event: MouseEvent): void {
+    // A pan just ended: swallow the trailing click so a drag in entry mode doesn't drop a
+    // stray note on release. Consume the flag here; the defensive reset in handleMouseDown
+    // covers the case where the browser never fires this click at all.
+    if (this.suppressNextClick) { this.suppressNextClick = false; return }
     if (this.state.editingText) return // modal: a text edit is open (belt; DOM swallows the click-away)
     // Armed paste (e.g. while in entry mode): this click chooses the insertion point.
     if (this.state.pastePlacementArmed) { this.commitArmedPaste(event); return }
@@ -924,6 +1050,12 @@ export class MouseController {
       return
     }
 
+    // A hand/grab pan is armed: bail before the ghost/preview logic. The pan itself is
+    // driven by the document-level handlers (handleDocPanMove) so it keeps working when
+    // the pointer leaves the viewport — this element handler only needs to not draw a
+    // ghost note underneath the gesture.
+    if (this.isPanArmed) return
+
     if (this.state.selectedTool === 'selection') return
     if (this.isMouseButtonDown) return
 
@@ -962,6 +1094,11 @@ export class MouseController {
   handleMouseLeave(): void {
     const engine = this.getEngine()
     if (!engine) return
+
+    // A hand/grab pan must SURVIVE the pointer leaving the viewport — it's driven by the
+    // document-level handlers and ends on the real mouseup wherever that happens. Bail
+    // here so we don't tear it down or re-render underneath it.
+    if (this.isPanArmed || this.isPanning) return
 
     if (this.isDraggingNote) {
       console.log('Drag ended (mouse left canvas)')

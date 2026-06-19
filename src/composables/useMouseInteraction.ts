@@ -22,6 +22,7 @@ export function useMouseInteraction(
   palette: PaletteController,
   textEdit: TextEditController,
   clipboard: ClipboardController,
+  panBy: (dx: number, dy: number) => void,
 ): MouseController {
   const controller = new MouseController(
     () => engine.value,
@@ -32,6 +33,7 @@ export function useMouseInteraction(
     () => palette.getPendingArticulations(),
     () => textEdit,
     clipboard,
+    panBy,
   )
 
   onMounted(() => controller.setup())

@@ -115,6 +115,11 @@ export interface EditorState {
 
   // --- UI ---
   showCursor: boolean
+  /** True while a hand/grab pan is actively moving the view (set once the drag crosses
+   *  the movement threshold, cleared on release). Bound in the template to hide the OS
+   *  mouse pointer via `cursor: none`. Distinct from `showCursor`, which toggles the
+   *  in-score keyboard caret, not the OS pointer. */
+  isPanning: boolean
   playbackState: PlaybackState
 }
 
@@ -151,6 +156,7 @@ export function createEditorState(): EditorState {
     editingText: null,
     pastePlacementArmed: false,
     showCursor: true,
+    isPanning: false,
     playbackState: 'stopped',
   }
 }

@@ -371,7 +371,8 @@
         -->
         <div
           ref="scoreCanvas"
-          class="score-container bg-white rounded-lg overflow-auto cursor-default"
+          class="score-container bg-white rounded-lg overflow-auto"
+          :class="state.isPanning ? 'cursor-none' : 'cursor-default'"
           :style="{ height: viewportHeight }"
           @click="(e) => mouse.handleClick(e)"
           @mousedown="(e) => mouse.handleMouseDown(e)"
@@ -493,7 +494,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, computed, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, shallowRef, computed, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { MusicEngine } from './engine/MusicEngine'
 import { VIEWPORT_TWO_LINE_HEIGHT } from './engine/rendering/VexFlowRenderer'
 import { createEditorState } from './interactions/EditorState'
@@ -568,7 +569,7 @@ const textEdit = useTextEditing(state)
 
 // MouseController depends on selection, renderer, highlight, palette, textEdit.
 // onMounted/onUnmounted are called internally by the composable.
-mouse = useMouseInteraction(state, engine, scoreCanvas, selection, renderer, palette, textEdit, clipboard)
+mouse = useMouseInteraction(state, engine, scoreCanvas, selection, renderer, palette, textEdit, clipboard, (dx, dy) => viewport.scrollBy(dx, dy))
 
 // ShortcutManager — wires keyboard shortcuts to controller actions
 const shortcuts = useShortcuts(
@@ -576,6 +577,13 @@ const shortcuts = useShortcuts(
   selection, palette, keyboard, renderer, clipboard,
   () => mouse.getLastMousePosition(),
 )
+
+// While a hand/grab pan is active, hide the OS pointer everywhere — not just over the
+// score — so it stays hidden when the drag crosses the viewport edge. (The score element
+// also carries `cursor-none` for the common in-bounds case; this covers off-bounds.)
+watch(() => state.isPanning, (panning) => {
+  document.body.style.cursor = panning ? 'none' : ''
+})
 
 // --- Computed ---
 const scoreJSON = computed(() => engine.value?.exportJSON() || '{}')
