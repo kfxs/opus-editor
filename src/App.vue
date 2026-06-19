@@ -381,6 +381,17 @@
           @mouseleave="mouse.handleMouseLeave()"
         >
           <div ref="scoreContent" class="p-4"></div>
+          <!--
+            Playback cursor — a green vertical bar at the start of the playing measure.
+            Sibling of scoreContent (NOT a child): VexFlow wipes scoreContent with
+            innerHTML='' on every render, so anything inside it is destroyed. As an
+            absolutely-positioned child of the scroll box it scrolls with the music.
+          -->
+          <div
+            v-show="playCursor.visible"
+            class="play-cursor"
+            :style="{ transform: `translate(${playCursor.x}px, ${playCursor.y}px)`, height: `${playCursor.height}px` }"
+          ></div>
         </div>
 
       </div>
@@ -524,6 +535,15 @@ const viewportHeight = `${VIEWPORT_TWO_LINE_HEIGHT}px`
 
 // --- All editor state in one reactive plain object ---
 const state = reactive(createEditorState())
+
+// Playback cursor: a green vertical bar pinned to the start of the playing measure.
+// Pure view state (pixel position in content coords) — the engine stays the source of
+// truth via getMeasureRect, so a non-Vue port just re-draws the same rect its own way.
+const playCursor = reactive({ visible: false, x: 0, y: 0, height: 0 })
+// scoreContent's own padding (Tailwind p-4 = 1rem). The cursor is a child of scoreCanvas
+// (the scroll box) while measure bounds are in the SVG's space, which starts inside this
+// padding — so we shift the cursor by it to line up with the staves.
+const CONTENT_PADDING = 16
 
 // --- Wire up controllers in dependency order ---
 // HighlightController has no deps on other controllers
@@ -734,14 +754,24 @@ onMounted(() => {
       onStateChange: s => {
         state.playbackState = s
         if (s === 'playing') lastFollowedMeasure = -1
+        // Hide the cursor whenever we're not actively playing (stop/pause).
+        else playCursor.visible = false
       },
       onPositionChange: pos => {
         if (pos.measure === lastFollowedMeasure) return
         lastFollowedMeasure = pos.measure
         const rect = engine.value?.getMeasureRect(pos.measure)
-        if (rect) viewport.ensureVisible(rect)
+        if (rect) {
+          viewport.ensureVisible(rect)
+          // Pin the green bar to the measure's left edge (start). Per-measure granularity
+          // for now; beat-level gliding would interpolate within rect using pos.beat.
+          playCursor.x = rect.x + CONTENT_PADDING
+          playCursor.y = rect.y + CONTENT_PADDING
+          playCursor.height = rect.height
+          playCursor.visible = true
+        }
       },
-      onPlaybackComplete: () => { state.playbackState = 'stopped' },
+      onPlaybackComplete: () => { state.playbackState = 'stopped'; playCursor.visible = false },
     })
 
     shortcuts.enable()
@@ -797,9 +827,24 @@ async function togglePlayback() {
 
 /* Score container with rounded corners that work with scrollbars */
 .score-container {
+  /* position: relative makes this the containing block for the playback cursor, so the
+     cursor's content-space coords resolve here and it scrolls together with the music. */
+  position: relative;
   scrollbar-gutter: stable;
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* Playback cursor: thin green bar at the start of the playing measure. Positioned via
+   transform (left/top stay 0); pointer-events:none so it never blocks score clicks. */
+.play-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  background-color: #22c55e; /* green-500 */
+  pointer-events: none;
+  z-index: 5;
 }
 
 /* Custom scrollbar styling to respect rounded corners */
