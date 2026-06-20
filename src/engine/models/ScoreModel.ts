@@ -45,6 +45,24 @@ type CapturedAnchor =
   | { kind: 'clef'; absBeat: Fraction; clef: Clef }
   | { kind: 'dynamic'; absBeat: Fraction; dyn: Dynamic }
 
+/** The pitch identity of a slur anchor (a chord pitch), used to re-find it post-rebar. */
+type SlurPitch = { step: NotePitch['step']; alter: NotePitch['alter']; octave: number }
+
+/**
+ * One end of a slur snapshotted before a rebar: an IN-region endpoint is keyed by its
+ * absolute onset offset from the region start + pitch (so it can be re-found on the
+ * rebar'd note); an endpoint OUTSIDE the region keeps its id verbatim (not regenerated).
+ */
+type CapturedSlurEnd =
+  | { offset: Fraction; pitch: SlurPitch; externalId?: undefined }
+  | { externalId: string; offset?: undefined; pitch?: undefined }
+
+/**
+ * A slur (live ref) with at least one endpoint inside the rebar region, captured before
+ * ids are regenerated. See {@link ScoreModel.captureSlurs}.
+ */
+type CapturedSlur = { slur: Slur; start: CapturedSlurEnd; end: CapturedSlurEnd }
+
 /**
  * ScoreModel manages the musical score data and provides CRUD operations
  * This is the core data model for Developer A's music engine
@@ -691,6 +709,10 @@ export class ScoreModel {
     // they can be re-attached to the rebar'd note at the same position/pitch.
     const boundary = this.captureBoundaryTies(regionMeasures)
 
+    // Capture slurs anchored inside the region before ids are regenerated, so they can
+    // be re-attached to the rebar'd notes (otherwise they'd dangle and vanish).
+    const slurState = this.captureSlurs(regionMeasures)
+
     // Flatten using the CURRENT (old) meter, before changing it.
     const events = flattenRegion(regionMeasures, 0)
 
@@ -729,6 +751,11 @@ export class ScoreModel {
     // severed so no pointer is left dangling (would crash tie editing).
     this.restoreBoundaryTies(fromMeasure, regionNumbers[regionNumbers.length - 1], boundary)
     this.repairDanglingTies()
+
+    // Re-attach captured slurs to the rebar'd notes (by onset offset + pitch); drop any
+    // that can't be re-found, so none is left pointing at a regenerated/deleted id.
+    this.restoreSlurs(regionNumbers, slurState)
+    this.repairDanglingSlurs()
 
     // Re-anchor the captured clef changes / dynamics into the new bar layout,
     // mapping each absolute offset to the (measure, beat) it now lands on.
@@ -770,6 +797,7 @@ export class ScoreModel {
     const pasteEnd = fracAdd(pasteStart, spanBeats)
 
     const boundary = this.captureBoundaryTies(regionMeasures)
+    const slurState = this.captureSlurs(regionMeasures)
     const existing = flattenRegion(regionMeasures, 0)
     const anchors = this.captureBeatAnchors(regionMeasures)
 
@@ -799,6 +827,8 @@ export class ScoreModel {
     this.linkRebarTies(created)
     this.restoreBoundaryTies(targetMeasure, regionNumbers[regionNumbers.length - 1], boundary)
     this.repairDanglingTies()
+    this.restoreSlurs(regionNumbers, slurState)
+    this.repairDanglingSlurs()
     this.restoreBeatAnchors(regionNumbers, anchors)
 
     // Collect the ids of notes whose absolute offset falls inside the paste window.
@@ -996,6 +1026,120 @@ export class ScoreModel {
           delete s.tiedFrom
         }
       }
+    }
+  }
+
+  /**
+   * Snapshot every slur with at least one endpoint inside the region BEFORE re-barring
+   * regenerates note ids. Each in-region endpoint is recorded by its ABSOLUTE onset
+   * offset from the region start (pre-rebar capacities) + pitch, so it can be re-found
+   * on the rebar'd note at the same position/pitch; an endpoint OUTSIDE the region keeps
+   * its id verbatim (those ids aren't regenerated). Mirrors {@link captureBoundaryTies}.
+   */
+  private captureSlurs(regionMeasures: Measure[]): CapturedSlur[] {
+    const slurs = this.score.slurs
+    if (!slurs || slurs.length === 0) return []
+
+    // Region pitch id -> its absolute onset offset + pitch identity.
+    const inRegion = new Map<string, { offset: Fraction; pitch: SlurPitch }>()
+    let base = fracCreate(0, 1)
+    for (const m of regionMeasures) {
+      const cap = measureCapacityFrac(m)
+      for (const s of m.slots) {
+        if (s.type !== 'chord') continue
+        const offset = fracAdd(base, s.beat)
+        for (const p of s.notes) {
+          inRegion.set(p.id, { offset, pitch: { step: p.step, alter: p.alter, octave: p.octave } })
+        }
+      }
+      base = fracAdd(base, cap)
+    }
+
+    const captured: CapturedSlur[] = []
+    for (const slur of slurs) {
+      const start = inRegion.get(slur.startNoteId)
+      const end = inRegion.get(slur.endNoteId)
+      if (!start && !end) continue // slur lies wholly outside the region — untouched
+      captured.push({
+        slur,
+        start: start ? { offset: start.offset, pitch: start.pitch } : { externalId: slur.startNoteId },
+        end: end ? { offset: end.offset, pitch: end.pitch } : { externalId: slur.endNoteId },
+      })
+    }
+    return captured
+  }
+
+  /** Canonical lookup key for a slur anchor: absolute onset offset + exact pitch. */
+  private slurAnchorKey(offset: Fraction, pitch: SlurPitch): string {
+    return `${offset.num}/${offset.den}|${pitch.step}/${pitch.alter}/${pitch.octave}`
+  }
+
+  /**
+   * Re-attach captured slurs to the rebar'd region: re-find each in-region endpoint by
+   * its absolute onset offset + pitch (the chord that now starts there), keeping any
+   * external endpoint id as-is. A slur whose endpoint can't be re-found (its note was
+   * overwritten/dropped), or that collapses to a single point, is removed — never left
+   * dangling. Mirrors {@link restoreBoundaryTies}.
+   */
+  private restoreSlurs(regionNumbers: number[], captured: CapturedSlur[]): void {
+    if (captured.length === 0) return
+    const slurs = this.score.slurs
+    if (!slurs) return
+
+    // New region: absolute onset offset + pitch -> pitch id (first chord at the offset wins).
+    const lookup = new Map<string, string>()
+    let base = fracCreate(0, 1)
+    for (const num of regionNumbers) {
+      const m = this.getMeasure(num)
+      if (!m) continue
+      const cap = measureCapacityFrac(m)
+      for (const s of m.slots) {
+        if (s.type !== 'chord') continue
+        const offset = fracAdd(base, s.beat)
+        for (const p of s.notes) {
+          const key = this.slurAnchorKey(offset, { step: p.step, alter: p.alter, octave: p.octave })
+          if (!lookup.has(key)) lookup.set(key, p.id)
+        }
+      }
+      base = fracAdd(base, cap)
+    }
+
+    const resolve = (end: CapturedSlurEnd): string | undefined =>
+      end.externalId !== undefined
+        ? end.externalId
+        : lookup.get(this.slurAnchorKey(end.offset, end.pitch))
+
+    for (const c of captured) {
+      const idx = slurs.indexOf(c.slur)
+      if (idx === -1) continue
+      const newStart = resolve(c.start)
+      const newEnd = resolve(c.end)
+      if (!newStart || !newEnd || newStart === newEnd) {
+        slurs.splice(idx, 1)
+        continue
+      }
+      c.slur.startNoteId = newStart
+      c.slur.endNoteId = newEnd
+    }
+  }
+
+  /**
+   * Drop any slur referencing a note id no longer present in the score (defensive belt
+   * to {@link restoreSlurs}: a slur must never point at a missing note, or rendering /
+   * endpoint editing would hit a hole). Mirrors {@link repairDanglingTies}.
+   */
+  private repairDanglingSlurs(): void {
+    const slurs = this.score.slurs
+    if (!slurs || slurs.length === 0) return
+    const ids = new Set<string>()
+    for (const m of this.score.measures) {
+      for (const s of m.slots) {
+        if (s.type === 'chord') for (const p of s.notes) ids.add(p.id)
+        else ids.add(s.id)
+      }
+    }
+    for (let i = slurs.length - 1; i >= 0; i--) {
+      if (!ids.has(slurs[i].startNoteId) || !ids.has(slurs[i].endNoteId)) slurs.splice(i, 1)
     }
   }
 

@@ -883,6 +883,74 @@ describe('rebar preserves beat-anchored annotations (clefs + dynamics)', () => {
   })
 })
 
+describe('rebar preserves slurs (phrasing spans)', () => {
+  let model: ScoreModel
+  beforeEach(() => {
+    model = new ScoreModel() // measure 1, 4/4 by default
+    model.addMeasure()
+    model.addMeasure()
+  })
+
+  // Fill measure 1's 4/4 bar with eighth notes C4 D4 E4 F4 G4 A4 B4 C5 (beats 0..3.5).
+  const steps: Array<[NoteParams['step'], number]> = [
+    ['C', 4], ['D', 4], ['E', 4], ['F', 4], ['G', 4], ['A', 4], ['B', 4], ['C', 5],
+  ]
+  const fillBar = () =>
+    steps.map(([step, octave], i) =>
+      model.addNote({ step, alter: 0, octave, duration: '8', measure: 1, beat: frac(i, 2) }),
+    )
+
+  it('re-attaches a slur to the rebar\'d notes across a time-signature change', () => {
+    const notes = fillBar()
+    const slur = model.addSlur({ startNoteId: notes[0].id, endNoteId: notes[7].id, voice: 0 })
+
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 }) // 4/4 content → two 3/4 bars
+
+    const slurs = model.getSlurs()
+    expect(slurs).toHaveLength(1)
+    expect(slurs[0].id).toBe(slur.id) // same slur, re-anchored (not dropped)
+
+    // Endpoints were regenerated, but now point at LIVE notes at the same pitch/onset.
+    expect(slurs[0].startNoteId).not.toBe(notes[0].id)
+    expect(slurs[0].endNoteId).not.toBe(notes[7].id)
+
+    const start = model.getNote(slurs[0].startNoteId)
+    const end = model.getNote(slurs[0].endNoteId)
+    expect(start).toBeDefined()
+    expect(end).toBeDefined()
+    expect(start!.step).toBe('C')
+    expect(start!.octave).toBe(4)
+    expect(start!.measure).toBe(1)
+    expect(fracToNumber(start!.beat)).toBe(0)
+    expect(end!.step).toBe('C')
+    expect(end!.octave).toBe(5)
+    expect(end!.measure).toBe(2) // offset 3.5 lands in the second 3/4 bar...
+    expect(fracToNumber(end!.beat)).toBe(0.5) // ...at beat 0.5
+  })
+
+  it('drops a slur whose anchor is overwritten by a paste (no dangling id)', () => {
+    const notes = fillBar()
+    model.addSlur({ startNoteId: notes[0].id, endNoteId: notes[7].id, voice: 0 })
+
+    // Overwrite the whole bar with a single whole rest's worth of content via paste of
+    // one note at beat 0; the slur's end anchor (C5 @3.5) no longer exists afterwards.
+    model.pasteEvents(1, frac(0, 1), [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }], frac(4, 1))
+
+    // Whatever the outcome, no slur may reference a missing note.
+    const ids = new Set<string>()
+    for (const m of model.getScore().measures) {
+      for (const s of m.slots) {
+        if (s.type === 'chord') for (const p of s.notes) ids.add(p.id)
+        else ids.add(s.id)
+      }
+    }
+    for (const sl of model.getSlurs()) {
+      expect(ids.has(sl.startNoteId)).toBe(true)
+      expect(ids.has(sl.endNoteId)).toBe(true)
+    }
+  })
+})
+
 // ===========================================================================
 // Phase 5 — time-signature engine API
 // ===========================================================================
