@@ -563,9 +563,9 @@ export class MouseController {
       return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
     }) ?? null
     if (accidentalAt?.noteId) {
-      this.state.selectedNoteId = null
-      this.state.selectedArticulationNoteId = null
-      this.state.selectedArticulationType = null
+      // Clear the whole note selection (the multi-select Map drives the note
+      // highlight, not just selectedNoteId) so only the accidental shows selected.
+      this.selection.selectNote(null)
       this.state.selectedAccidentalNoteId = accidentalAt.noteId
       this.state.selectedAccidentalType = accidentalAt.accidentalType || null
       console.log(`✓ Accidental selected | noteId:${accidentalAt.noteId} type:${accidentalAt.accidentalType}`)
@@ -590,9 +590,9 @@ export class MouseController {
         ? registry.noteOrRestHitDistance(closestElement, x, y)
         : Infinity
       if (artDist <= noteDist) {
-        this.state.selectedNoteId = null
-        this.state.selectedAccidentalNoteId = null
-        this.state.selectedAccidentalType = null
+        // Clear the whole note selection (the multi-select Map drives the note
+        // highlight, not just selectedNoteId) so only the articulation shows selected.
+        this.selection.selectNote(null)
         this.state.selectedArticulationNoteId = articulationAt.noteId
         this.state.selectedArticulationType = articulationAt.articulationType || null
         console.log(`✓ Articulation selected | noteId:${articulationAt.noteId} type:${articulationAt.articulationType} (artDist:${artDist.toFixed(1)} ≤ noteDist:${noteDist.toFixed(1)})`)
