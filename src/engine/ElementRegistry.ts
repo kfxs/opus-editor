@@ -151,6 +151,9 @@ export interface ElementInfo {
   isPartial?: boolean
   /** Type of partial tie: 'start' or 'end' */
   partialType?: 'start' | 'end'
+  /** Curve direction this tie was drawn with (-1 up / +1 down); lets a flip read
+   *  the last auto-resolved side so the first `x` press always visibly inverts it. */
+  tieDirection?: number
   /**
    * Sampled points along a curved element's arc (slurs), in pixel space. Used for
    * arc-proximity hit-testing — clicking near the drawn curve, not anywhere inside

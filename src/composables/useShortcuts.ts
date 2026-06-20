@@ -213,6 +213,12 @@ export function useShortcuts(
         renderer.renderScore()
         return
       }
+      // A selected tie flips its curve direction (up ↔ below), staying notehead-anchored.
+      if (state.selectedTieFromNoteId) {
+        eng.flipTie(state.selectedTieFromNoteId)
+        renderer.renderScore()
+        return
+      }
       const artNoteIds = selectedArticulationNoteIds(state.selectedItems.values())
       if (artNoteIds.length) {
         // Flip the side of every selected articulation group as ONE undoable action.

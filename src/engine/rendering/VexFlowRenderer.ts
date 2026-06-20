@@ -1984,6 +1984,9 @@ export class VexFlowRenderer {
    * @param measure - The measure to look up chord info in
    */
   private getTieDirection(notePitch: import('@/types/music').NotePitch, beat: Fraction, measure: Measure): number | undefined {
+    // An explicit override (set by flipping the tie with `x`) wins over auto placement.
+    if (notePitch.tieDirection !== undefined) return notePitch.tieDirection
+
     // Find the chord slot at this beat
     const chordAtBeat = measure.slots.find(
       s => s.type === 'chord' && fracEq(s.beat, beat)
@@ -2117,6 +2120,7 @@ export class VexFlowRenderer {
                     toNoteId: note.tiedTo!,
                     fromMeasure: fromMeasure,
                     toMeasure: toMeasure!,
+                    tieDirection: tieDirection ?? 1,
                     bbox,
                   })
                 }
@@ -2144,6 +2148,7 @@ export class VexFlowRenderer {
                       toMeasure: toMeasure!,
                       isPartial: true,
                       partialType: 'end', // ends at line break
+                      tieDirection: tieDirection ?? 1,
                       bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
                     })
                   }
@@ -2173,6 +2178,7 @@ export class VexFlowRenderer {
                       toMeasure: toMeasure!,
                       isPartial: true,
                       partialType: 'start', // starts at line break
+                      tieDirection: tieDirection ?? 1,
                       bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
                     })
                   }

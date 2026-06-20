@@ -572,11 +572,9 @@ export class MouseController {
         && y >= b.y - tiePad && y <= b.y + b.height + tiePad
     }) ?? null
     if (tieAt?.fromNoteId) {
-      this.state.selectedNoteId = null
-      this.state.selectedArticulationNoteId = null
-      this.state.selectedArticulationType = null
-      this.state.selectedAccidentalNoteId = null
-      this.state.selectedAccidentalType = null
+      // Clear the whole note selection (the multi-select Map, not just the anchor)
+      // and any scalar sub-selections, so only the tie ends up selected.
+      this.selection.selectNote(null)
       this.state.selectedTieFromNoteId = tieAt.fromNoteId
       console.log(`✓ Tie selected | fromNoteId:${tieAt.fromNoteId} toNoteId:${tieAt.toNoteId} fromMeasure:${tieAt.fromMeasure} toMeasure:${tieAt.toMeasure}`)
       this.render.renderScore()

@@ -853,6 +853,8 @@ export class MusicEngine {
       const tiedToNote = this.scoreModel.getNote(note.tiedTo)
       console.log(`[Tie] removing existing tie → was tied to: ${tiedToNote ? fmt(tiedToNote) : 'NOT FOUND'}`)
       const tiedToId = note.tiedTo
+      // Drop any flip override so a future re-tie starts from auto placement again.
+      this.scoreModel.clearTieDirection(noteId)
       this.scoreModel.updateNote(noteId, { tiedTo: undefined })
       // The target may be gone (e.g. severed by a re-bar) — only clear it if present.
       if (tiedToNote) this.scoreModel.updateNote(tiedToId, { tiedFrom: undefined })
@@ -980,6 +982,28 @@ export class MusicEngine {
     }
     slur.placement = currentDir === -1 ? 'below' : 'above'
     this.saveUndoState('Flip slur')
+    return true
+  }
+
+  /** Flip the tie starting at `fromNoteId` to the opposite curve direction (up ↔ down).
+   *  A tie stays flat and notehead-anchored, so this only inverts the arc (and its
+   *  endpoint lift), unlike {@link flipSlur} which is stem-aware. Sets an explicit
+   *  `tieDirection` override; for an auto tie the flip targets the opposite of whatever
+   *  was last *drawn* (read from the registry) so the first press always visibly flips.
+   *  Saves one undo step. @returns true if it flipped. */
+  flipTie(fromNoteId: string): boolean {
+    const pitch = this.scoreModel.getNotePitch(fromNoteId)
+    if (!pitch || !pitch.tiedTo) return false
+    let currentDir: number
+    if (pitch.tieDirection !== undefined) currentDir = pitch.tieDirection
+    else {
+      // Best-effort: read the side the renderer last drew (auto placement). Guarded
+      // so a stubbed/headless renderer just falls back to "down" (+1).
+      const el = this.renderer.getElementRegistry?.()?.getByType?.('tie').find(e => e.fromNoteId === fromNoteId)
+      currentDir = el?.tieDirection ?? 1
+    }
+    if (!this.scoreModel.setTieDirection(fromNoteId, currentDir === -1 ? 1 : -1)) return false
+    this.saveUndoState('Flip tie')
     return true
   }
 

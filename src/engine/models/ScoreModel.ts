@@ -1660,6 +1660,27 @@ export class ScoreModel {
     return this.toFlatNote(chord, pitch)
   }
 
+  /** The raw NotePitch behind a note id (chord head only; rests have no pitch). */
+  getNotePitch(noteId: string): NotePitch | null {
+    const found = this.findSlot(noteId)
+    return found && found.type === 'chord' ? found.pitch : null
+  }
+
+  /** Set the explicit tie-curve direction (-1 up / +1 down) on the tie starting at
+   *  `fromNoteId`. No-op (returns false) if the id isn't a chord head with a tie. */
+  setTieDirection(fromNoteId: string, direction: -1 | 1): boolean {
+    const found = this.findSlot(fromNoteId)
+    if (!found || found.type === 'rest' || !found.pitch.tiedTo) return false
+    found.pitch.tieDirection = direction
+    return true
+  }
+
+  /** Remove any explicit tie-curve override on `fromNoteId` (revert to auto). */
+  clearTieDirection(fromNoteId: string): void {
+    const found = this.findSlot(fromNoteId)
+    if (found && found.type === 'chord') delete found.pitch.tieDirection
+  }
+
   /** The side articulations land on by default — opposite the stem (notehead side). */
   private autoArticulationPlacement(chord: Chord): 'above' | 'below' {
     return this.resolveStemDirection(chord) === 'up' ? 'below' : 'above'

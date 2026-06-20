@@ -643,6 +643,36 @@ describe('MusicEngine.createSlur — endpoint resolution', () => {
 
     expect(engine.flipSlur('nope')).toBe(false) // unknown id
   })
+  it('flipTie inverts the tie curve direction as one undo step', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    expect(engine.toggleTie(a.id)).toBe(true) // tie C → C
+
+    const dirOf = () => {
+      const score = JSON.parse(engine.exportJSON())
+      for (const m of score.measures)
+        for (const s of m.slots)
+          if (s.type === 'chord')
+            for (const p of s.notes) if (p.id === a.id) return p.tieDirection
+      return undefined
+    }
+    expect(dirOf()).toBeUndefined() // auto (no override yet)
+
+    // First flip from auto stores an explicit ±1 direction.
+    expect(engine.flipTie(a.id)).toBe(true)
+    const after = dirOf()
+    expect(after === -1 || after === 1).toBe(true)
+
+    // Subsequent flips toggle the explicit direction.
+    engine.flipTie(a.id)
+    expect(dirOf()).toBe(after === 1 ? -1 : 1)
+
+    // Undo reverts the last flip (one step).
+    expect(engine.undo()).toBe(true)
+    expect(dirOf()).toBe(after)
+
+    expect(engine.flipTie('nope')).toBe(false) // unknown id
+  })
   // (JSON round-trip of slurs is covered in ScoreModel.test.ts — the engine's
   //  loadJSON triggers a full render, which the renderer stub here can't satisfy.)
 })

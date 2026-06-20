@@ -278,6 +278,14 @@ export interface NotePitch {
   forceAccidental?: boolean
   tiedTo?: string      // ID of another NotePitch in another Chord
   tiedFrom?: string
+  /**
+   * Explicit tie-curve direction override on the tie that STARTS at this pitch:
+   * -1 = curve up/over, +1 = curve down/under. Omitted = auto (derived from the
+   * note's staff position / its place in a chord, see VexFlowRenderer.getTieDirection).
+   * Set by flipping a selected tie with `x`. Unlike a slur a tie stays flat and
+   * anchored to the noteheads, so flipping only inverts the arc direction.
+   */
+  tieDirection?: -1 | 1
 }
 
 /** A rhythmic slot containing one or more pitches */
