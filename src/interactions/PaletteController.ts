@@ -111,12 +111,7 @@ export class PaletteController {
   }
 
   toggleAccent(): void {
-    const engine = this.getEngine()
-    if (this.state.selectedTool === 'selection' && this.state.selectedNoteId && engine) {
-      engine.toggleArticulation(this.state.selectedNoteId, 'accent')
-      engine.updateUndoNoteId(this.state.selectedNoteId)
-      this.renderScore()
-    } else {
+    if (!this.applyArticulationToSelection('accent')) {
       this.state.accent = !this.state.accent
       const pos = this.getLastMousePosition()
       if (pos) this.renderPreview(pos)
@@ -124,12 +119,7 @@ export class PaletteController {
   }
 
   toggleStaccato(): void {
-    const engine = this.getEngine()
-    if (this.state.selectedTool === 'selection' && this.state.selectedNoteId && engine) {
-      engine.toggleArticulation(this.state.selectedNoteId, 'staccato')
-      engine.updateUndoNoteId(this.state.selectedNoteId)
-      this.renderScore()
-    } else {
+    if (!this.applyArticulationToSelection('staccato')) {
       this.state.staccato = !this.state.staccato
       const pos = this.getLastMousePosition()
       if (pos) this.renderPreview(pos)
@@ -137,16 +127,46 @@ export class PaletteController {
   }
 
   toggleTenuto(): void {
-    const engine = this.getEngine()
-    if (this.state.selectedTool === 'selection' && this.state.selectedNoteId && engine) {
-      engine.toggleArticulation(this.state.selectedNoteId, 'tenuto')
-      engine.updateUndoNoteId(this.state.selectedNoteId)
-      this.renderScore()
-    } else {
+    if (!this.applyArticulationToSelection('tenuto')) {
       this.state.tenuto = !this.state.tenuto
       const pos = this.getLastMousePosition()
       if (pos) this.renderPreview(pos)
     }
+  }
+
+  /**
+   * Apply an articulation across the whole selection as ONE undoable action.
+   * Returns false when not applicable (not in selection tool, or nothing selected)
+   * so the caller can fall back to arming the articulation for the next note entry.
+   *
+   * Toggle direction is decided for the selection as a whole: if EVERY applicable
+   * (non-rest) selected note already has the articulation, it's removed from all;
+   * otherwise it's added to all. For a single selected note this is identical to the
+   * old per-note toggle.
+   */
+  private applyArticulationToSelection(type: ArticulationType): boolean {
+    const engine = this.getEngine()
+    if (this.state.selectedTool !== 'selection' || !this.state.selectedNoteId || !engine) return false
+
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+      .filter(id => {
+        const note = engine.getNote(id)
+        return note && !note.isRest
+      })
+    if (ids.length === 0) return false
+
+    const allHaveIt = ids.every(id => engine.getNote(id)?.articulations?.includes(type))
+    // toggleArticulation flips presence, so only call it on notes whose current
+    // state differs from the target (add → notes missing it; remove → notes with it).
+    engine.runBatch(allHaveIt ? `Remove ${type}` : `Add ${type}`, () => {
+      for (const id of ids) {
+        const hasIt = engine.getNote(id)?.articulations?.includes(type) ?? false
+        if (hasIt === allHaveIt) engine.toggleArticulation(id, type)
+      }
+    })
+    engine.updateUndoNoteId(this.state.selectedNoteId)
+    this.renderScore()
+    return true
   }
 
   toggleTie(): void {
