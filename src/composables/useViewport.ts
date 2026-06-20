@@ -73,8 +73,18 @@ export function useViewport(
   function readNaturalSize(): void {
     const svg = observedSvg
     if (!svg) return
-    const w = parseFloat(svg.getAttribute('width') || '0')
-    const h = parseFloat(svg.getAttribute('height') || '0')
+    let w = parseFloat(svg.getAttribute('width') || '0')
+    let h = parseFloat(svg.getAttribute('height') || '0')
+    // scoreContent's own padding (Tailwind p-4) wraps the SVG inside the zoom layer. The sizer's
+    // scroll range must include it on all four sides, or the right/bottom padding overflows past the
+    // sizer and gets clipped — leaving a visible margin on the left/top only. The padding lives in
+    // the (unscaled) zoom layer, so it belongs in the natural size; applyZoom multiplies by zoom.
+    const content = contentEl.value
+    if (content) {
+      const cs = getComputedStyle(content)
+      w += parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)
+      h += parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)
+    }
     if (w === naturalSize.w && h === naturalSize.h) return
     naturalSize.w = w
     naturalSize.h = h
