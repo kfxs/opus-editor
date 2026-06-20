@@ -371,7 +371,7 @@
         -->
         <div
           ref="scoreCanvas"
-          class="score-container bg-white rounded-lg overflow-auto"
+          class="score-container bg-slate-200 rounded-lg overflow-auto"
           :class="state.isPanning ? 'cursor-none' : 'cursor-default'"
           :style="{ height: viewportHeight }"
           @click="(e) => mouse.handleClick(e)"
@@ -885,6 +885,15 @@ async function togglePlayback() {
   position: absolute;
   top: 0;
   left: 0;
+}
+
+/* The score "paper": the SVG is transparent by default, so the gray container would show
+   through it. Paint it white here (a stylesheet rule, since VexFlow rebuilds the SVG via
+   innerHTML on every render and would drop an inline style). The SVG bounds match the sizer
+   exactly (= natural SVG size × zoom), so white = the page and the surrounding gray = empty
+   space — giving a visible boundary between the score and the viewport. */
+.score-zoom-layer svg {
+  background-color: #ffffff;
 }
 
 /* Playback cursor: thin green bar at the start of the playing measure. Positioned via
