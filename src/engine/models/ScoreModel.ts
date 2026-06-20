@@ -79,7 +79,6 @@ export class ScoreModel {
       keySignature: { key: 'C', accidentals: 0 },
       defaultTimeSignature: { numerator: 4, denominator: 4 },
       measures: [],
-      schemaVersion: 2,
     }
     // Initialize with one empty measure
     this.addMeasure()
@@ -2154,37 +2153,14 @@ export class ScoreModel {
     // range signatures here before they detonate in meter.ts or the renderer.
     ScoreModel.validateMeters(scoreData)
 
-    // v1 had no time-signature-change markers; derive them so the change-aware
-    // layers (and any future re-bar) have an authoritative source.
-    const needsTsMigration = (scoreData.schemaVersion ?? 1) < 2
-    let prevTs: TimeSignature | null = null
-
+    // actualDuration is derived state — recompute it rather than trust the wire.
+    // The helper handles measure rests (whole-bar length) in every meter.
     for (const measure of model.score.measures) {
-      // Migrate legacy per-measure clef (single `clef`) to the positioned list.
-      const legacyClef = (measure as { clef?: Clef }).clef
-      if (legacyClef && !measure.clefs) {
-        measure.clefs = [{ id: uuidv4(), beat: fracCreate(0, 1), clef: legacyClef }]
-        delete (measure as { clef?: Clef }).clef
-      }
-
-      // Measure 1 always begins the opening signature; any later measure whose
-      // signature differs from the previous one is an explicit change.
-      if (needsTsMigration) {
-        const isChange =
-          measure.number === 1 || (prevTs !== null && !sameTimeSignature(prevTs, measure.timeSignature))
-        if (isChange) measure.timeSignatureChange = true
-        else delete measure.timeSignatureChange
-      }
-      prevTs = measure.timeSignature
-
-      // Recompute actualDuration (not stored reliably across versions). The
-      // helper handles measure rests (whole-bar length) in every meter.
       for (const slot of measure.slots ?? []) {
         slot.actualDuration = model.computeActualDurationForSlot(slot, measure)
       }
     }
 
-    model.score.schemaVersion = 2
     return model
   }
 

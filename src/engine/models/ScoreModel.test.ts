@@ -254,7 +254,6 @@ describe('ScoreModel', () => {
 
       expect(json).toContain('"title": "Test Score"')
       expect(json).toContain('"tempo": 120')
-      expect(parsed.schemaVersion).toBe(2)
       const chord = parsed.measures[0].slots.find((s: any) => s.type === 'chord')
       expect(chord).toBeDefined()
       expect(chord.notes[0].step).toBe('C')
@@ -319,12 +318,11 @@ describe('ScoreModel', () => {
       expect(model.setSlurShape('missing', null)).toBe(false)
     })
 
-    it('loads legacy JSON with no slurs array (backward-compatible)', () => {
+    it('loads a score with no slurs array (absent = empty)', () => {
       const legacy = JSON.stringify({
         id: 'x', title: 'Legacy', tempo: 100,
         keySignature: { key: 'C', accidentals: 0 },
         defaultTimeSignature: { numerator: 4, denominator: 4 },
-        schemaVersion: 2,
         measures: [
           { id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [] },
         ],
@@ -335,12 +333,11 @@ describe('ScoreModel', () => {
       expect(loaded.getScore().slurs ?? []).toEqual([])
     })
 
-    it('loads legacy JSON with no dynamics array (backward-compatible)', () => {
+    it('loads a score with no dynamics array (absent = empty)', () => {
       const legacy = JSON.stringify({
         id: 'x', title: 'Legacy', tempo: 100,
         keySignature: { key: 'C', accidentals: 0 },
         defaultTimeSignature: { numerator: 4, denominator: 4 },
-        schemaVersion: 2,
         measures: [
           { id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [] },
         ],
@@ -738,23 +735,7 @@ describe('ScoreModel', () => {
         expect(restored.getEffectiveClefAt(3, frac(2, 1))).toBe('alto')
       })
 
-      it('migrates a legacy per-measure clef into the positioned list', () => {
-        const legacy = JSON.stringify({
-          id: 'x', title: 't', tempo: 120,
-          keySignature: { key: 'C', accidentals: 0 },
-          defaultTimeSignature: { numerator: 4, denominator: 4 },
-          clef: 'bass',
-          measures: [
-            { id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [], clef: 'alto' },
-          ],
-        })
-        const restored = ScoreModel.fromJSON(legacy)
-        expect(restored.getEffectiveClef(1)).toBe('alto')                  // measure clef migrated
-        expect(restored.getMeasure(1)!.clefs?.[0].clef).toBe('alto')
-        expect((restored.getMeasure(1) as { clef?: string }).clef).toBeUndefined() // legacy field removed
-      })
-
-      it('old files with neither measure clefs nor migration inherit via score.clef', () => {
+      it('a score with no measure clefs inherits via score.clef', () => {
         const legacy = JSON.stringify({
           id: 'x', title: 't', tempo: 120,
           keySignature: { key: 'C', accidentals: 0 },
@@ -1397,11 +1378,11 @@ describe('ScoreModel.setTimeSignatureHidden', () => {
   })
 })
 
-describe('ScoreModel JSON — time-signature migration & validation', () => {
-  /** Build a v1 (markerless) score JSON with the given per-measure meters. */
-  function v1Json(meters: Array<[number, number]>): string {
+describe('ScoreModel JSON — time-signature validation', () => {
+  /** Build a score JSON with the given per-measure meters. */
+  function scoreJson(meters: Array<[number, number]>): string {
     return JSON.stringify({
-      id: 'x', title: 't', tempo: 120, schemaVersion: 1,
+      id: 'x', title: 't', tempo: 120,
       keySignature: { key: 'C', accidentals: 0 },
       defaultTimeSignature: { numerator: meters[0][0], denominator: meters[0][1] },
       measures: meters.map(([n, d], i) => ({
@@ -1411,20 +1392,12 @@ describe('ScoreModel JSON — time-signature migration & validation', () => {
     })
   }
 
-  it('derives change markers from differing signatures (v1 → v2)', () => {
-    const model = ScoreModel.fromJSON(v1Json([[4, 4], [3, 4], [3, 4]]))
-    expect(model.getMeasure(1)!.timeSignatureChange).toBe(true) // measure 1 always
-    expect(model.getMeasure(2)!.timeSignatureChange).toBe(true) // differs from m1
-    expect(model.getMeasure(3)!.timeSignatureChange).toBeFalsy() // same as m2
-    expect(model.getScore().schemaVersion).toBe(2)
-  })
-
   it('rejects a non-dyadic default time signature on load', () => {
-    expect(() => ScoreModel.fromJSON(v1Json([[4, 3]]))).toThrow()
+    expect(() => ScoreModel.fromJSON(scoreJson([[4, 3]]))).toThrow()
   })
 
   it('rejects a non-dyadic per-measure time signature on load', () => {
-    expect(() => ScoreModel.fromJSON(v1Json([[4, 4], [5, 3]]))).toThrow()
+    expect(() => ScoreModel.fromJSON(scoreJson([[4, 4], [5, 3]]))).toThrow()
   })
 
   it('restores a non-4/4 measure-rest with the correct bar-length actualDuration', () => {

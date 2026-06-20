@@ -422,8 +422,6 @@ export interface Score {
    * (backward-compatible JSON). See {@link Slur} and docs/slur-plan.md.
    */
   slurs?: Slur[]
-  /** Schema version for JSON forward-compatibility. Current: 2. */
-  schemaVersion?: number
 }
 
 /**

@@ -158,10 +158,8 @@ const BLACK_FLAT: Record<number, SpellingEntry> = {
  *
  * White keys are always unambiguous regardless of hint.
  *
- * This function is the **migration helper** used in loadJSON() to convert
- * v1 score JSON (which stores `pitch: number, accidental?: string`) into
- * the new v2 PitchSpelling format. It will not be needed once all scores
- * have been saved in v2 format.
+ * Used to derive a spelling from a raw MIDI value — e.g. mapping a pixel
+ * position on the staff to a pitch during note entry/drag.
  *
  * @example
  * midiToSpelling(60)           // { step:'C', alter:0, octave:4 }  — middle C
