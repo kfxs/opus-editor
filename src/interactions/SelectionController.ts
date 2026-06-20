@@ -6,7 +6,7 @@ import { buildBeatMap, notesInRange, expandTieChains } from '../utils/beatMap'
 import { fracLt, fracEq, fracCompare } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
-import { itemKey, selectedNoteIds, type SelectionItem } from './selection'
+import { itemKey, selectedNoteIds, selectedArticulationNoteIds, type SelectionItem } from './selection'
 
 /**
  * Handles note selection, navigation, pitch adjustment, and scroll-into-view.
@@ -187,6 +187,52 @@ export class SelectionController {
     this.state.selectedNoteId = targetId
     this.clearScalarSubSelections()
     this.syncPaletteToNote(targetId)
+  }
+
+  /**
+   * REPLACE the selection with a single articulation GROUP (all articulations on
+   * `noteId`) — the plain-click path. Clears the note set and every scalar
+   * sub-selection, then records this note as the articulation anchor.
+   */
+  selectArticulation(noteId: string): void {
+    this.state.selectedItems.clear()
+    const item: SelectionItem = { kind: 'articulation', noteId, type: '' }
+    this.state.selectedItems.set(itemKey(item), item)
+    this.state.selectedNoteId = null
+    this.state.selectionPivotId = null
+    this.state.selectionBase = []
+    this.clearScalarSubSelections()
+    // Mark the group selection (type null) so highlight/delete/flip act on the whole note.
+    this.state.selectedArticulationNoteId = noteId
+    this.state.selectedArticulationType = null
+  }
+
+  /**
+   * TOGGLE an articulation GROUP in/out of the multi-selection (ctrl/cmd-click).
+   * Articulation groups are mutually exclusive with notes (Phase 1), so toggling one
+   * onto a note selection starts a fresh articulation-only set. The anchor follows the
+   * last remaining group.
+   */
+  toggleArticulation(noteId: string): void {
+    // Mixing kinds isn't supported yet: a Ctrl-click onto a note selection (or any
+    // other kind) restarts the set as articulations-only.
+    const onlyArticulations = [...this.state.selectedItems.values()].every(i => i.kind === 'articulation')
+    if (!onlyArticulations) this.state.selectedItems.clear()
+
+    const item: SelectionItem = { kind: 'articulation', noteId, type: '' }
+    const key = itemKey(item)
+    if (this.state.selectedItems.has(key)) {
+      this.state.selectedItems.delete(key)
+    } else {
+      this.state.selectedItems.set(key, item)
+    }
+    this.state.selectedNoteId = null
+    this.state.selectionPivotId = null
+    this.state.selectionBase = []
+    this.clearScalarSubSelections()
+    const ids = selectedArticulationNoteIds(this.state.selectedItems.values())
+    this.state.selectedArticulationNoteId = ids.length ? ids[ids.length - 1] : null
+    this.state.selectedArticulationType = null
   }
 
   /**

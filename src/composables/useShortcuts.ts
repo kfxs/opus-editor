@@ -9,6 +9,7 @@ import type { ClipboardController } from '../interactions/ClipboardController'
 import type { ViewportHost } from './useViewport'
 import { ShortcutManager } from '../shortcuts'
 import { beatToFrac } from '../utils/musicUtils'
+import { selectedArticulationNoteIds } from '../interactions/selection'
 
 /**
  * Vue adapter that wires keyboard shortcuts to controller actions.
@@ -80,13 +81,14 @@ export function useShortcuts(
     },
     deleteSelected: () => {
       const eng = engine.value
-      if (state.selectedArticulationNoteId && eng) {
-        // Group selection: Delete removes every articulation on the note.
-        const noteId = state.selectedArticulationNoteId
-        eng.clearArticulations(noteId)
-        state.selectedArticulationNoteId = null
-        state.selectedArticulationType = null
-        selection.selectNote(noteId)
+      const artNoteIds = selectedArticulationNoteIds(state.selectedItems.values())
+      if (artNoteIds.length && eng) {
+        // Group selection: Delete removes every articulation on every selected note,
+        // as ONE undoable action (a single Ctrl-Z restores them all).
+        eng.runBatch(`Clear articulations on ${artNoteIds.length} note(s)`, () => {
+          for (const noteId of artNoteIds) eng.clearArticulations(noteId)
+        })
+        selection.selectNote(null)
         renderer.renderScore()
       } else if (state.selectedAccidentalNoteId && eng) {
         const noteId = state.selectedAccidentalNoteId
@@ -211,8 +213,12 @@ export function useShortcuts(
         renderer.renderScore()
         return
       }
-      if (state.selectedArticulationNoteId) {
-        eng.flipArticulation(state.selectedArticulationNoteId)
+      const artNoteIds = selectedArticulationNoteIds(state.selectedItems.values())
+      if (artNoteIds.length) {
+        // Flip the side of every selected articulation group as ONE undoable action.
+        eng.runBatch(`Flip articulations on ${artNoteIds.length} note(s)`, () => {
+          for (const noteId of artNoteIds) eng.flipArticulation(noteId)
+        })
         renderer.renderScore()
         return
       }

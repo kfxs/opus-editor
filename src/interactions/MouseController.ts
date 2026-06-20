@@ -1,5 +1,6 @@
 import type { ArticulationType, PitchSpelling, Fraction } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { ElementInfo, ElementRegistry } from '../engine/ElementRegistry'
 import type { EditorState } from './EditorState'
 import type { SelectionController } from './SelectionController'
 import type { RenderController } from './RenderController'
@@ -283,6 +284,33 @@ export class MouseController {
 
   // --- Mouse handlers ---
 
+  /**
+   * Resolve the articulation under (x, y), or null. An accent/staccato/tenuto glyph
+   * sits right against its note head, and the padded bbox can cover the head too — so
+   * a click aimed at the note would be "stolen" by the articulation. We only take the
+   * articulation when the click is genuinely closer to the glyph than to the nearest
+   * note/rest; otherwise the caller falls through to note selection.
+   */
+  private articulationHit(
+    x: number, y: number, closestElement: ElementInfo | null, registry: ElementRegistry,
+  ): ElementInfo | null {
+    const artPad = 8
+    const articulationAt = registry.getByType('articulation').find(el => {
+      const b = el.bbox
+      return x >= b.x - artPad && x <= b.x + b.width + artPad && y >= b.y - artPad && y <= b.y + b.height + artPad
+    }) ?? null
+    if (!articulationAt?.noteId) return null
+    const artCx = articulationAt.bbox.x + articulationAt.bbox.width / 2
+    const artCy = articulationAt.bbox.y + articulationAt.bbox.height / 2
+    const artDist = Math.sqrt((x - artCx) ** 2 + (y - artCy) ** 2)
+    const noteDist = closestElement && closestElement.id
+      ? registry.noteOrRestHitDistance(closestElement, x, y)
+      : Infinity
+    if (artDist <= noteDist) return articulationAt
+    console.log(`· Articulation skipped — note closer (artDist:${artDist.toFixed(1)} > noteDist:${noteDist.toFixed(1)})`)
+    return null
+  }
+
   handleMouseDown(event: MouseEvent): void {
     if (this.state.editingText) return // modal: a text edit is open (belt; DOM swallows the click-away)
     // Armed paste: this click chooses the insertion point.
@@ -332,6 +360,19 @@ export class MouseController {
     const additive = event.ctrlKey || event.metaKey
     const range = event.shiftKey
     if (additive || range) {
+      // Ctrl/Cmd-click toggles an articulation GROUP into the multi-selection (so the
+      // user can grab several articulations and delete/flip them all at once). Checked
+      // before notes since a glyph sits right on its note head; Shift-range isn't
+      // supported for articulations yet, so only `additive` arms this path.
+      if (additive) {
+        const artHit = this.articulationHit(x, y, closestElement, registry)
+        if (artHit?.noteId) {
+          this.selection.toggleArticulation(artHit.noteId)
+          console.log(`✓ Articulation group toggled in selection | noteId:${artHit.noteId} | size:${this.state.selectedItems.size}`)
+          this.render.renderScore()
+          return
+        }
+      }
       if (closestElement && closestElement.id) {
         const bbox = closestElement.bbox
         const centerX = bbox.x + bbox.width / 2
@@ -573,36 +614,14 @@ export class MouseController {
       return
     }
 
-    const artPad = 8
-    const articulationAt = registry.getByType('articulation').find(el => {
-      const b = el.bbox
-      return x >= b.x - artPad && x <= b.x + b.width + artPad && y >= b.y - artPad && y <= b.y + b.height + artPad
-    }) ?? null
-    // An accent/staccato/tenuto glyph sits right against its note head, and the padded
-    // bbox above can cover the head too — so a click aimed at the note would be "stolen"
-    // by the articulation. Only take the articulation when the click is genuinely closer
-    // to the glyph than to the nearest note/rest; otherwise fall through to note selection.
+    const articulationAt = this.articulationHit(x, y, closestElement, registry)
     if (articulationAt?.noteId) {
-      const artCx = articulationAt.bbox.x + articulationAt.bbox.width / 2
-      const artCy = articulationAt.bbox.y + articulationAt.bbox.height / 2
-      const artDist = Math.sqrt((x - artCx) ** 2 + (y - artCy) ** 2)
-      const noteDist = closestElement && closestElement.id
-        ? registry.noteOrRestHitDistance(closestElement, x, y)
-        : Infinity
-      if (artDist <= noteDist) {
-        // Clear the whole note selection (the multi-select Map drives the note
-        // highlight, not just selectedNoteId) so only the articulation shows selected.
-        this.selection.selectNote(null)
-        // Sibelius-style: clicking any articulation selects the whole group on that
-        // note (all its articulations), not just the clicked glyph. Type is left null
-        // to mark a group selection — highlight/delete/flip act on every articulation.
-        this.state.selectedArticulationNoteId = articulationAt.noteId
-        this.state.selectedArticulationType = null
-        console.log(`✓ Articulation group selected | noteId:${articulationAt.noteId} (clicked:${articulationAt.articulationType}, artDist:${artDist.toFixed(1)} ≤ noteDist:${noteDist.toFixed(1)})`)
-        this.render.renderScore()
-        return
-      }
-      console.log(`· Articulation skipped — note closer (artDist:${artDist.toFixed(1)} > noteDist:${noteDist.toFixed(1)})`)
+      // Sibelius-style: clicking any articulation selects the whole group on that
+      // note (all its articulations), not just the clicked glyph.
+      this.selection.selectArticulation(articulationAt.noteId)
+      console.log(`✓ Articulation group selected | noteId:${articulationAt.noteId} (clicked:${articulationAt.articulationType})`)
+      this.render.renderScore()
+      return
     }
 
     if (closestElement && closestElement.id) {

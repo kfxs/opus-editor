@@ -240,6 +240,71 @@ describe('Shift range + ties (multi-selection only)', () => {
   })
 })
 
+describe('SelectionController — articulation group multi-selection', () => {
+  let engine: MusicEngine
+  let state: EditorState
+  let selection: SelectionController
+  let noteA: string
+  let noteB: string
+  let noteC: string
+
+  const artKey = (noteId: string) => itemKey({ kind: 'articulation', noteId, type: '' })
+
+  beforeEach(() => {
+    engine = makeEngine()
+    state = createEditorState()
+    state.selectedTool = 'selection'
+    selection = new SelectionController(() => engine, state, () => {}, () => {})
+
+    noteA = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    noteB = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    noteC = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
+  })
+
+  it('selectArticulation replaces the set with one group and sets the anchor', () => {
+    selection.selectArticulation(noteA)
+    expect([...state.selectedItems.keys()]).toEqual([artKey(noteA)])
+    expect(state.selectedArticulationNoteId).toBe(noteA)
+    expect(state.selectedArticulationType).toBeNull()
+    expect(state.selectedNoteId).toBeNull()
+
+    selection.selectArticulation(noteB)
+    expect([...state.selectedItems.keys()]).toEqual([artKey(noteB)])
+    expect(state.selectedArticulationNoteId).toBe(noteB)
+  })
+
+  it('toggleArticulation adds groups and tracks the anchor; toggling off removes them', () => {
+    selection.toggleArticulation(noteA)
+    selection.toggleArticulation(noteB)
+    expect([...state.selectedItems.keys()]).toEqual([artKey(noteA), artKey(noteB)])
+    expect(state.selectedArticulationNoteId).toBe(noteB)
+
+    selection.toggleArticulation(noteB)
+    expect([...state.selectedItems.keys()]).toEqual([artKey(noteA)])
+    expect(state.selectedArticulationNoteId).toBe(noteA)
+
+    selection.toggleArticulation(noteA)
+    expect(state.selectedItems.size).toBe(0)
+    expect(state.selectedArticulationNoteId).toBeNull()
+  })
+
+  it('toggling an articulation onto a note selection restarts as articulations-only', () => {
+    selection.selectNote(noteA)
+    selection.toggleArticulation(noteB)
+    expect([...state.selectedItems.keys()]).toEqual([artKey(noteB)])
+    expect(state.selectedNoteId).toBeNull()
+    expect(state.selectedArticulationNoteId).toBe(noteB)
+  })
+
+  it('selectNote clears articulation groups and the articulation anchor', () => {
+    selection.toggleArticulation(noteA)
+    selection.toggleArticulation(noteB)
+    selection.selectNote(noteC)
+    expect([...state.selectedItems.keys()]).toEqual([noteKey(noteC)])
+    expect(state.selectedArticulationNoteId).toBeNull()
+  })
+})
+
 describe('SelectionController — scroll-into-view forwarding', () => {
   let engine: MusicEngine
   let state: EditorState

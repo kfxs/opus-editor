@@ -186,13 +186,21 @@ export class HighlightController {
   applyArticulationHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
-    if (!engine || !scoreCanvas || !this.state.selectedArticulationNoteId) return
+    if (!engine || !scoreCanvas) return
 
-    // Sibelius-style group selection: highlight EVERY articulation on the note, not
-    // just one type. (selectedArticulationType is left null for a group selection.)
+    // Selected articulation groups live in the multi-select set (Ctrl-click adds more);
+    // fall back to the scalar anchor for safety. Each group covers EVERY articulation on
+    // its note (Sibelius-style), so highlight all of them.
+    const selectedNoteIds = new Set<string>()
+    for (const item of this.state.selectedItems.values()) {
+      if (item.kind === 'articulation') selectedNoteIds.add(item.noteId)
+    }
+    if (this.state.selectedArticulationNoteId) selectedNoteIds.add(this.state.selectedArticulationNoteId)
+    if (!selectedNoteIds.size) return
+
     const registry = engine.getElementRegistry()
     const artElements = registry.getByType('articulation').filter(
-      el => el.noteId === this.state.selectedArticulationNoteId,
+      el => el.noteId !== undefined && selectedNoteIds.has(el.noteId),
     )
     if (!artElements.length) return
 

@@ -41,6 +41,10 @@ export function itemKey(item: SelectionItem): string {
     case 'tie':
       return `tie:${item.fromNoteId}`
     case 'articulation':
+      // Group selection: one item per note covers ALL its articulations (the `type`
+      // field is carried for context but does not participate in identity), so toggling
+      // any articulation on a note toggles that note's whole group.
+      return `articulation:${item.noteId}`
     case 'accidental':
       return `${item.kind}:${item.noteId}:${item.type}`
     case 'clef':
@@ -61,5 +65,12 @@ export function selectionKinds(items: Iterable<SelectionItem>): Set<SelectionKin
 export function selectedNoteIds(items: Iterable<SelectionItem>): string[] {
   const ids: string[] = []
   for (const item of items) if (item.kind === 'note') ids.push(item.id)
+  return ids
+}
+
+/** The note ids of every selected articulation GROUP, in insertion order. */
+export function selectedArticulationNoteIds(items: Iterable<SelectionItem>): string[] {
+  const ids: string[] = []
+  for (const item of items) if (item.kind === 'articulation') ids.push(item.noteId)
   return ids
 }
