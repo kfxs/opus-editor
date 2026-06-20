@@ -80,6 +80,43 @@ describe('ScoreModel', () => {
     it('should return false when removing non-existent measure', () => {
       expect(model.removeMeasure(999)).toBe(false)
     })
+
+    describe('insertMeasureAfter', () => {
+      it('inserts after a measure and renumbers following measures + their slots', () => {
+        model.addMeasure(); model.addMeasure() // measures 1, 2, 3
+        // A note in (old) measure 3 lets us verify slot.measure is renumbered.
+        const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 3, beat: frac(0, 1) })
+        model.insertMeasureAfter(1)
+        expect(model.getScore().measures).toHaveLength(4)
+        expect(model.getMeasure(2)).toBeDefined()
+        // The note slid from measure 3 to measure 4; its slot's .measure followed.
+        const slot = model.getMeasure(4)!.slots.find((s) => s.type === 'chord')!
+        expect(slot.measure).toBe(4)
+        // The inserted measure carries the note's id nowhere — it is freshly rest-filled.
+        expect(model.getMeasure(2)!.slots.every((s) => s.type === 'rest')).toBe(true)
+        // measure numbers stay contiguous 1..4
+        expect(model.getScore().measures.map((m) => m.number)).toEqual([1, 2, 3, 4])
+        void note
+      })
+
+      it('appending via insertMeasureAfter(length) equals addMeasure', () => {
+        const m = model.insertMeasureAfter(model.getScore().measures.length)
+        expect(m.number).toBe(2)
+        expect(model.getScore().measures).toHaveLength(2)
+      })
+
+      it('a mid-score inserted bar is NOT marked as a time-signature change', () => {
+        model.addMeasure() // measures 1, 2
+        const inserted = model.insertMeasureAfter(1)
+        expect(inserted.number).toBe(2)
+        expect(inserted.timeSignatureChange).toBeFalsy()
+      })
+
+      it('measure 1 keeps its opening time-signature flag (constructor + delegate)', () => {
+        // Constructor builds measure 1 via addMeasure → insertMeasureAfter(0).
+        expect(model.getMeasure(1)!.timeSignatureChange).toBe(true)
+      })
+    })
   })
 
   describe('note operations', () => {
@@ -1133,6 +1170,57 @@ describe('ScoreModel.setTimeSignature', () => {
     model.setTimeSignature(1, ts(3, 4), { rewrite: 'none' })
     const chordBeats = slotsOf(model, 1).filter((s) => s.type === 'chord').map((c) => fracToNumber(c.beat))
     expect(chordBeats).toEqual([0, 1, 2, 3]) // all four kept in one crowded bar
+  })
+
+  it('pushes the next TS change forward instead of cramming the bounded region (repro)', () => {
+    // m1 & m2 each filled with 16 sixteenth-notes in 4/4 (4 beats each).
+    model.addMeasure() // measure 2
+    for (const m of [1, 2]) {
+      for (let k = 0; k < 16; k++) {
+        model.addNote({ step: 'C', alter: 0, octave: 4, duration: '16', measure: m, beat: frac(k, 4) })
+      }
+    }
+    // 5/8 at measure 2 → its 16 sixteenths grow to m2+m3 (10 + 6), m2 carries the change.
+    model.setTimeSignature(2, ts(5, 8))
+    expect(model.getMeasure(2)!.timeSignatureChange).toBe(true)
+
+    // 2/4 at measure 1 → its 16 sixteenths need TWO 2/4 bars; rather than cram them
+    // into a single bounded bar, a bar is inserted and the 5/8 change is PUSHED to m3.
+    model.setTimeSignature(1, ts(2, 4))
+
+    expect(model.getMeasure(1)!.timeSignature).toEqual(ts(2, 4))
+    expect(model.getMeasure(2)!.timeSignature).toEqual(ts(2, 4))
+    expect(model.getMeasure(2)!.timeSignatureChange).toBeFalsy() // continuation bar
+    expect(model.getMeasure(3)!.timeSignature).toEqual(ts(5, 8))
+    expect(model.getMeasure(3)!.timeSignatureChange).toBe(true) // change pushed here
+
+    // Each 2/4 bar holds exactly 8 sixteenths (no cram); two quarters of length each.
+    expect(slotsOf(model, 1).filter((s) => s.type === 'chord')).toHaveLength(8)
+    expect(slotsOf(model, 2).filter((s) => s.type === 'chord')).toHaveLength(8)
+    expect(totalLen(model, 1)).toBe(2)
+    expect(totalLen(model, 2)).toBe(2)
+    // No note lost: the 32 sixteenths still span the score.
+    const chordCount = model.getScore().measures.reduce(
+      (n, m) => n + m.slots.filter((s) => s.type === 'chord').length, 0)
+    expect(chordCount).toBe(32)
+  })
+
+  it('shrink case keeps freed bars as trailing rests and leaves the next change unmoved', () => {
+    model.addMeasure(); model.addMeasure() // m1, m2, m3 (all 4/4)
+    model.setTimeSignature(3, ts(3, 4)) // explicit change pins region [m1,m2]
+    model.setTimeSignature(1, ts(2, 4)) // m1, m2 → 2/4
+    // Two quarters exactly fill ONE 2/4 bar.
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+
+    // Widen to 4/4: the content now fits in a single bar, freeing measure 2.
+    model.setTimeSignature(1, ts(4, 4))
+    expect(model.getScore().measures).toHaveLength(3) // no bars added or removed
+    expect(slotsOf(model, 1).filter((s) => s.type === 'chord')).toHaveLength(2)
+    expect(slotsOf(model, 2).every((s) => s.type === 'rest')).toBe(true) // kept as a rest bar
+    // The next explicit change is untouched (not pulled earlier).
+    expect(model.getMeasure(3)!.timeSignature).toEqual(ts(3, 4))
+    expect(model.getMeasure(3)!.timeSignatureChange).toBe(true)
   })
 })
 

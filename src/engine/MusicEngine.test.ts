@@ -310,6 +310,43 @@ describe('MusicEngine.setTimeSignature', () => {
     expect(engine.redo()).toBe(true)
     expect(hiddenOf()).toBe(true)
   })
+
+  it('push-forward rebar is a single undo that restores the prior layout', () => {
+    // m1 & m2 each full of 16 sixteenths in 4/4; 5/8 at m2, then 2/4 at m1.
+    for (const m of [1, 2]) {
+      for (let k = 0; k < 16; k++) {
+        addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '16', measure: m, beat: frac(k, 4) })
+      }
+    }
+    engine.setTimeSignature(2, { numerator: 5, denominator: 8 })
+    const measuresBefore = engine.getScore().measures.length // m1(4/4) + m2,m3(5/8)
+    const tsBefore = engine.getScore().measures.map(m => `${m.timeSignature.numerator}/${m.timeSignature.denominator}`)
+
+    engine.setTimeSignature(1, { numerator: 2, denominator: 4 })
+    // The 5/8 change was pushed to m3 (a bar inserted), not crammed into m1.
+    expect(engine.getScore().measures.find(m => m.number === 3)!.timeSignature)
+      .toEqual({ numerator: 5, denominator: 8 })
+    expect(engine.getScore().measures.length).toBe(measuresBefore + 1)
+
+    // One undo restores the whole push-forward.
+    expect(engine.undo()).toBe(true)
+    expect(engine.getScore().measures.length).toBe(measuresBefore)
+    expect(engine.getScore().measures.map(m => `${m.timeSignature.numerator}/${m.timeSignature.denominator}`))
+      .toEqual(tsBefore)
+  })
+})
+
+describe('MusicEngine.insertMeasureAfter', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() }) // 2 measures
+
+  it('inserts a measure and is undoable', () => {
+    engine.insertMeasureAfter(1)
+    expect(engine.getScore().measures).toHaveLength(3)
+    expect(engine.getScore().measures.map(m => m.number)).toEqual([1, 2, 3])
+    expect(engine.undo()).toBe(true)
+    expect(engine.getScore().measures).toHaveLength(2)
+  })
 })
 
 describe('MusicEngine — measure rest duration change (regression)', () => {

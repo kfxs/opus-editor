@@ -110,22 +110,51 @@ export class ScoreModel {
   }
 
   /**
-   * Add a new measure to the score
-   * The measure is automatically filled with rests to match the time signature
+   * Add a new measure to the END of the score.
+   * The measure is automatically filled with rests to match the time signature.
+   * Appending is just an insert after the last measure, so this delegates to
+   * {@link insertMeasureAfter} (single code path).
    */
   addMeasure(timeSignature?: TimeSignature): Measure {
-    const measureNumber = this.score.measures.length + 1
+    return this.insertMeasureAfter(this.score.measures.length, timeSignature)
+  }
+
+  /**
+   * Insert a fresh measure immediately AFTER the measure numbered `afterNumber`
+   * (`afterNumber === 0` inserts at the very front; `afterNumber === length`
+   * appends). Subsequent measures — and each of their slots' `.measure` field —
+   * are renumbered, mirroring {@link removeMeasure}'s splice+renumber pattern.
+   *
+   * The new bar is rest-filled for its meter. A mid-score inserted bar is a
+   * continuation, NOT an explicit change, so it is left unmarked — EXCEPT measure
+   * 1, which always carries the score's opening time signature explicitly. Rebar
+   * uses this to push a downstream TS change forward by materialising over the
+   * inserted bars; `materializeBar` overwrites the rest-fill wholesale.
+   */
+  insertMeasureAfter(afterNumber: number, timeSignature?: TimeSignature): Measure {
     const ts = timeSignature || this.score.defaultTimeSignature
     const measure: Measure = {
       id: uuidv4(),
-      number: measureNumber,
+      number: afterNumber + 1,
       slots: [],
       timeSignature: ts,
       tuplets: [],
     }
     // Measure 1 always carries the score's opening time signature explicitly.
-    if (measureNumber === 1) measure.timeSignatureChange = true
-    this.score.measures.push(measure)
+    if (afterNumber === 0) measure.timeSignatureChange = true
+
+    // Splice in right after `afterNumber` (front when 0, end when not found).
+    const idx = afterNumber === 0 ? -1 : this.score.measures.findIndex((m) => m.number === afterNumber)
+    const insertIdx = idx === -1 ? (afterNumber === 0 ? 0 : this.score.measures.length) : idx + 1
+    this.score.measures.splice(insertIdx, 0, measure)
+
+    // Renumber this measure + everything after it (and their slots' .measure).
+    for (let i = insertIdx; i < this.score.measures.length; i++) {
+      this.score.measures[i].number = i + 1
+      this.score.measures[i].slots.forEach((slot) => {
+        slot.measure = i + 1
+      })
+    }
 
     // Fill the measure with rests to match the time signature
     this.fillMeasureWithRests(measure)
@@ -679,10 +708,12 @@ export class ScoreModel {
    * stream, the new meter is applied, then the stream is re-laid into bars of the
    * new length with straddling notes split by ties and gaps rest-filled.
    *
-   * Unbounded regions grow (extra bars appended) when the content needs more bars
-   * and keep trailing measure-rest bars when it needs fewer. Bounded regions fold
-   * any overflow into the last bar (crowded/SOFT) rather than crossing the next
-   * change. Single-voice today (voice 0); the relay is per-voice-ready.
+   * The region always grows when the content needs more bars: extra bars are
+   * inserted right after the region, pushing any following TS change (and all
+   * downstream content) forward — content is never crammed into a bounded last
+   * bar. When the content needs fewer bars, trailing measure-rest bars are kept
+   * (removing bars is an explicit action). Single-voice today (voice 0); the
+   * relay is per-voice-ready.
    *
    * Known Phase-8 limitation: clef changes anchored to a moved beat are dropped
    * (mid-bar clef remapping across moved barlines is future work); opening clefs
@@ -693,14 +724,12 @@ export class ScoreModel {
     const fromIdx = ordered.findIndex((m) => m.number === fromMeasure)
     if (fromIdx === -1) return
 
-    // Region [fromMeasure..endIdx]; bounded if a later explicit change pins the end.
-    let bounded = false
+    // Region [fromMeasure..endIdx]; the end is pinned by the next explicit TS
+    // change (or the score end). Overflow grows the region in place (pushing any
+    // such change forward) rather than cramming — see below.
     let endIdx = fromIdx
     for (let i = fromIdx + 1; i < ordered.length; i++) {
-      if (ordered[i].timeSignatureChange) {
-        bounded = true
-        break
-      }
+      if (ordered[i].timeSignatureChange) break
       endIdx = i
     }
     const regionMeasures = ordered.slice(fromIdx, endIdx + 1)
@@ -729,14 +758,24 @@ export class ScoreModel {
       delete m.actualDurationOverride
     }
 
+    // Always grow (bounded: false): overflow becomes MORE bars, never crammed.
     const meter = getMeterInfo(ts)
-    const plan = relayEvents(events, meter, { targetBars, bounded })
+    const plan = relayEvents(events, meter, { targetBars, bounded: false })
 
-    // Numbers of the measures that hold the plan; append bars if it grew.
-    const regionNumbers = regionMeasures.map((m) => m.number)
-    for (let i = targetBars; i < plan.length; i++) {
-      regionNumbers.push(this.addMeasure(ts).number)
+    // Grow the region in place: insert any extra bars immediately after the last
+    // region measure, PUSHING the next TS change (and all downstream content)
+    // forward. For an unbounded region the last region measure is the score's
+    // last, so this is identical to appending. Insert consecutively so the new
+    // bars stay contiguous with the region.
+    const lastRegionNumber = regionMeasures[regionMeasures.length - 1].number
+    const grow = plan.length - targetBars
+    for (let i = 0; i < grow; i++) {
+      this.insertMeasureAfter(lastRegionNumber + i, ts)
     }
+
+    // The region now occupies a contiguous run of `plan.length` bars from fromMeasure.
+    const regionNumbers: number[] = []
+    for (let i = 0; i < plan.length; i++) regionNumbers.push(fromMeasure + i)
 
     // Materialise each bar; collect chord pieces (in temporal order) for ties.
     const created: Array<{ piece: RebarPiece; chord: Chord }> = []

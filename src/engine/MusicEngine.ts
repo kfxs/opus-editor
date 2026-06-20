@@ -242,6 +242,17 @@ export class MusicEngine {
     this.saveUndoState('Add measure')
   }
 
+  /**
+   * Insert a measure immediately after `afterNumber` (0 = front), pushing every
+   * following measure forward. Building block for a future "add measure" GUI;
+   * records its own undo entry (rebar's internal inserts run under the enclosing
+   * setTimeSignature snapshot instead).
+   */
+  insertMeasureAfter(afterNumber: number): void {
+    this.scoreModel.insertMeasureAfter(afterNumber)
+    this.saveUndoState(`Insert measure after ${afterNumber}`)
+  }
+
   // ==================== Clef Operations ====================
 
   /** Clef drawn at the start of a measure (its beat-0 change, or inherited). */
