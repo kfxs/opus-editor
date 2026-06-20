@@ -224,6 +224,12 @@ export interface Note {
   actualDuration?: Fraction
   /** Articulations applied to this note */
   articulations?: ArticulationType[]
+  /**
+   * Explicit side for this slot's articulations (above/below the note).
+   * Omitted = auto (derived from stem direction, the common-case default).
+   * Set only when the user flips the side (the `x` shortcut).
+   */
+  articulationPlacement?: 'above' | 'below'
   /** Explicit beaming override */
   beam?: BeamMode
   /**
@@ -288,6 +294,8 @@ export interface Chord {
   tupletId?: string
   actualDuration?: Fraction
   articulations?: ArticulationType[]
+  /** Explicit side for articulations (above/below); omitted = auto (stem-derived). */
+  articulationPlacement?: 'above' | 'below'
   notes: NotePitch[]
 }
 
@@ -468,6 +476,8 @@ export interface NoteParams {
   tupletId?: string
   actualDuration?: Fraction
   articulations?: ArticulationType[]
+  /** Explicit side for articulations (above/below); omitted = auto (stem-derived). */
+  articulationPlacement?: 'above' | 'below'
   tiedTo?: string
   tiedFrom?: string
   stemDirection?: StemDirection

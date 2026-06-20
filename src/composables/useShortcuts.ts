@@ -204,9 +204,15 @@ export function useShortcuts(
     flipStemDirection: () => {
       const eng = engine.value
       if (!eng) return
-      // A selected slur flips side (above ↔ below); otherwise x flips a note's stem.
+      // A selected slur flips side (above ↔ below); a selected articulation flips its
+      // side; otherwise x flips a note's stem.
       if (state.selectedSlurId) {
         eng.flipSlur(state.selectedSlurId)
+        renderer.renderScore()
+        return
+      }
+      if (state.selectedArticulationNoteId) {
+        eng.flipArticulation(state.selectedArticulationNoteId)
         renderer.renderScore()
         return
       }

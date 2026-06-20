@@ -84,6 +84,7 @@ export interface RebarEvent {
   pitches?: RebarPitch[]
   stemDirection?: StemDirection
   articulations?: ArticulationType[]
+  articulationPlacement?: 'above' | 'below'
   /** True for an indivisible tuplet event (never tie-split). */
   atomic?: boolean
   /** Verbatim tuplet payload when `atomic`. */
@@ -105,6 +106,7 @@ export interface RebarPiece {
   tieToNext?: boolean
   stemDirection?: StemDirection
   articulations?: ArticulationType[]
+  articulationPlacement?: 'above' | 'below'
   /** True for an atomic tuplet passthrough piece (materialise from `payload`). */
   atomic?: boolean
   payload?: RebarTupletPayload
@@ -189,6 +191,7 @@ export function flattenRegion(measures: Measure[], voice: 0 | 1 | 2 | 3 = 0): Re
         })),
         stemDirection: slot.stemDirection,
         articulations: slot.articulations,
+        articulationPlacement: slot.articulationPlacement,
         // Collapse marker: the whole chord is tied forward into the next slot.
         tiedForward: slot.notes.length > 0 && slot.notes.every((p) => !!p.tiedTo),
       })
@@ -320,6 +323,7 @@ export function relayEvents(events: RebarEvent[], meter: MeterInfo, opts: RelayO
           pitches: ev.pitches,
           stemDirection: ev.stemDirection,
           articulations: ev.articulations,
+          articulationPlacement: ev.articulationPlacement,
         }
         bars[i].push(piece)
         pieces.push(piece)

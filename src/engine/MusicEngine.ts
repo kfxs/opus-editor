@@ -1220,6 +1220,18 @@ export class MusicEngine {
     return updated
   }
 
+  /**
+   * Flip the side (above/below) of a note's articulations. Default placement is
+   * auto (stem-derived); this stores an explicit override flipping to the other
+   * side, and flips back on a repeat. No-op for rests / notes with no articulation.
+   */
+  flipArticulation(noteId: string): Note | null {
+    const result = this.scoreModel.flipArticulationPlacement(noteId)
+    if (!result) return null
+    this.saveUndoState('Flip articulation')
+    return result
+  }
+
   // ==================== Rendering Operations ====================
 
   /**

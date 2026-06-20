@@ -345,7 +345,13 @@ export class VexFlowRenderer {
       // Articulations are per-chord (stored on slot, not per pitch).
       // Sorted by ARTICULATION_RENDER_ORDER so the first added sits closest to the note head.
       const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
-      const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
+      // Auto side = opposite the stem (notehead side); an explicit slot override flips it.
+      const autoArticulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
+      const articulationPosition = slot.articulationPlacement === 'above'
+        ? Modifier.Position.ABOVE
+        : slot.articulationPlacement === 'below'
+          ? Modifier.Position.BELOW
+          : autoArticulationPosition
       const sortedArticulations = (slot.articulations ?? []).slice().sort(
         (a, b) => ARTICULATION_RENDER_ORDER.indexOf(a) - ARTICULATION_RENDER_ORDER.indexOf(b)
       )

@@ -15,6 +15,7 @@ import {
   sameTimeSignature,
 } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
+import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { flattenRegion, relayEvents, type RebarPiece, type RebarEvent } from '@/utils/rebar'
 import {
   type Fraction,
@@ -1183,6 +1184,7 @@ export class ScoreModel {
       if (piece.dots) chord.dots = piece.dots
       if (piece.stemDirection) chord.stemDirection = piece.stemDirection
       if (piece.articulations) chord.articulations = piece.articulations
+      if (piece.articulationPlacement) chord.articulationPlacement = piece.articulationPlacement
       measure.slots.push(chord)
       created.push({ piece, chord })
     }
@@ -1278,6 +1280,7 @@ export class ScoreModel {
       tupletId: chord.tupletId,
       actualDuration: chord.actualDuration,
       articulations: chord.articulations,
+      articulationPlacement: chord.articulationPlacement,
       voice: chord.voice,
     }
   }
@@ -1393,6 +1396,7 @@ export class ScoreModel {
       tupletId: params.tupletId,
       actualDuration: params.actualDuration,
       articulations: params.articulations,
+      articulationPlacement: params.articulationPlacement,
       beam: params.beam === 'auto' ? undefined : params.beam,
       notes: [notePitch],
     }
@@ -1602,6 +1606,48 @@ export class ScoreModel {
   }
 
   /**
+   * Flip the side (above/below) of the articulations on the slot containing
+   * `noteId`. The first flip resolves the current auto side (stem-derived, the
+   * default) and stores the opposite; a further flip toggles back. No-op for
+   * rests or slots without articulations. Returns the flat note, or null.
+   */
+  flipArticulationPlacement(noteId: string): Note | null {
+    const found = this.findSlot(noteId)
+    if (!found || found.type === 'rest') return null
+    const { chord, pitch } = found
+    if (!chord.articulations?.length) return null
+    const current = chord.articulationPlacement ?? this.autoArticulationPlacement(chord)
+    chord.articulationPlacement = current === 'above' ? 'below' : 'above'
+    return this.toFlatNote(chord, pitch)
+  }
+
+  /** The side articulations land on by default — opposite the stem (notehead side). */
+  private autoArticulationPlacement(chord: Chord): 'above' | 'below' {
+    return this.resolveStemDirection(chord) === 'up' ? 'below' : 'above'
+  }
+
+  /** Resolve a chord's effective stem direction, mirroring the renderer: an explicit
+   *  override wins; otherwise the note furthest from the clef's middle line decides. */
+  private resolveStemDirection(chord: Chord): 'up' | 'down' {
+    if (chord.stemDirection === 'up') return 'up'
+    if (chord.stemDirection === 'down') return 'down'
+    const clef = this.getEffectiveClefAt(chord.measure, chord.beat)
+    const middleLineDiatonic: Record<Clef, number> = { treble: 34, bass: 22, alto: 28, tenor: 26 }
+    const middle = middleLineDiatonic[clef] ?? 34
+    let maxDist = 0
+    let dir: 'up' | 'down' = 'down' // middle-line notes follow this convention
+    for (const p of chord.notes) {
+      const dPos = spellingDiatonicPos(p.step, p.octave)
+      const dist = Math.abs(dPos - middle)
+      if (dist > maxDist) {
+        maxDist = dist
+        dir = dPos >= middle ? 'down' : 'up'
+      }
+    }
+    return dir
+  }
+
+  /**
    * Get all notes in a specific measure (as flat Note objects for backward compat)
    */
   getNotesInMeasure(measureNumber: number): Note[] {
@@ -1663,6 +1709,7 @@ export class ScoreModel {
           tupletId: updates.tupletId ?? rest.tupletId,
           actualDuration: rest.actualDuration,
           articulations: updates.articulations,
+          articulationPlacement: updates.articulationPlacement,
           notes: [notePitch],
         }
         chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
@@ -1731,6 +1778,7 @@ export class ScoreModel {
     if (updates.tiedTo !== undefined) pitch.tiedTo = updates.tiedTo
     if (updates.tiedFrom !== undefined) pitch.tiedFrom = updates.tiedFrom
     if (updates.articulations !== undefined) chord.articulations = updates.articulations
+    if ('articulationPlacement' in updates) chord.articulationPlacement = updates.articulationPlacement
 
     // Handle explicit undefined for tie fields
     if ('tiedTo' in updates && updates.tiedTo === undefined) pitch.tiedTo = undefined

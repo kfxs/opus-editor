@@ -176,6 +176,54 @@ describe('BeamMode — storage and retrieval', () => {
   })
 })
 
+describe('MusicEngine.flipArticulation — articulation side override', () => {
+  let engine: MusicEngine
+
+  beforeEach(() => {
+    engine = makeEngine()
+  })
+
+  it('notes default to auto placement (no override stored)', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    engine.toggleArticulation(note.id, 'staccato')
+    expect(engine.getNote(note.id)!.articulationPlacement).toBeUndefined()
+  })
+
+  it('first flip stores a side; a second flip toggles back to the other side', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    engine.toggleArticulation(note.id, 'accent')
+
+    const first = engine.flipArticulation(note.id)!.articulationPlacement
+    expect(first === 'above' || first === 'below').toBe(true)
+
+    const second = engine.flipArticulation(note.id)!.articulationPlacement
+    expect(second).toBe(first === 'above' ? 'below' : 'above')
+  })
+
+  it('the stored side is the opposite of the auto (stem-derived) side', () => {
+    // C4 sits below the treble middle line → stem up → articulations auto BELOW,
+    // so the first flip must store 'above'.
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    engine.toggleArticulation(note.id, 'tenuto')
+    expect(engine.flipArticulation(note.id)!.articulationPlacement).toBe('above')
+  })
+
+  it('is a no-op (returns null) for a note with no articulations', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    expect(engine.flipArticulation(note.id)).toBeNull()
+    expect(engine.getNote(note.id)!.articulationPlacement).toBeUndefined()
+  })
+
+  it('flip is undoable', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    engine.toggleArticulation(note.id, 'accent')
+    engine.flipArticulation(note.id)
+    expect(engine.getNote(note.id)!.articulationPlacement).toBe('above')
+    engine.undo()
+    expect(engine.getNote(note.id)!.articulationPlacement).toBeUndefined()
+  })
+})
+
 describe('MusicEngine.setTimeSignature', () => {
   let engine: MusicEngine
   beforeEach(() => { engine = makeEngine() })
