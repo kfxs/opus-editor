@@ -1,5 +1,4 @@
 import type { Ref } from 'vue'
-import type { ArticulationType } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from '../interactions/EditorState'
 import type { SelectionController } from '../interactions/SelectionController'
@@ -81,9 +80,10 @@ export function useShortcuts(
     },
     deleteSelected: () => {
       const eng = engine.value
-      if (state.selectedArticulationNoteId && state.selectedArticulationType && eng) {
+      if (state.selectedArticulationNoteId && eng) {
+        // Group selection: Delete removes every articulation on the note.
         const noteId = state.selectedArticulationNoteId
-        eng.toggleArticulation(noteId, state.selectedArticulationType as ArticulationType)
+        eng.clearArticulations(noteId)
         state.selectedArticulationNoteId = null
         state.selectedArticulationType = null
         selection.selectNote(noteId)

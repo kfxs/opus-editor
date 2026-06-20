@@ -788,6 +788,20 @@ export class MusicEngine {
   }
 
   /**
+   * Remove ALL articulations from a note (and drop any side override). Used by the
+   * Sibelius-style group selection where Delete clears the whole articulation group.
+   * No-op (returns null) for rests / notes that have none.
+   */
+  clearArticulations(noteId: string): Note | null {
+    const note = this.scoreModel.getNote(noteId)
+    if (!note || note.isRest || !note.articulations?.length) return null
+    const result = this.scoreModel.updateNote(noteId, { articulations: [], articulationPlacement: undefined })
+    this.playbackEngine.setScore(this.scoreModel.getScore())
+    this.saveUndoState('Remove articulations')
+    return result
+  }
+
+  /**
    * Directly link two notes with a tie (fromNoteId → toNoteId).
    * Used when the target note already exists (e.g. pending tie resolution in keyboard entry).
    */

@@ -378,45 +378,29 @@ export class PaletteController {
   // In selection mode: reflect the selected note's actual state.
   // In entry mode: reflect the pending palette state.
 
-  noteHasAccent(): boolean {
+  /** True if the articulation-relevant selection (a note, or a group-selected
+   *  articulation set) carries the given articulation. Group selection reflects the
+   *  note's real articulations — every one shows active in the palette. */
+  private selectedNoteHasArticulation(type: ArticulationType): boolean {
     const engine = this.getEngine()
-    if (this.state.selectedTool === 'selection' && engine) {
-      if (this.state.selectedArticulationNoteId) {
-        return this.state.selectedArticulationType === 'accent'
-      }
-      if (this.state.selectedNoteId) {
-        const note = engine.getNote(this.state.selectedNoteId)
-        return note?.articulations?.includes('accent') ?? false
-      }
-    }
+    if (this.state.selectedTool !== 'selection' || !engine) return false
+    const noteId = this.state.selectedArticulationNoteId ?? this.state.selectedNoteId
+    if (!noteId) return false
+    return engine.getNote(noteId)?.articulations?.includes(type) ?? false
+  }
+
+  noteHasAccent(): boolean {
+    if (this.state.selectedTool === 'selection') return this.selectedNoteHasArticulation('accent')
     return this.state.accent
   }
 
   noteHasStaccato(): boolean {
-    const engine = this.getEngine()
-    if (this.state.selectedTool === 'selection' && engine) {
-      if (this.state.selectedArticulationNoteId) {
-        return this.state.selectedArticulationType === 'staccato'
-      }
-      if (this.state.selectedNoteId) {
-        const note = engine.getNote(this.state.selectedNoteId)
-        return note?.articulations?.includes('staccato') ?? false
-      }
-    }
+    if (this.state.selectedTool === 'selection') return this.selectedNoteHasArticulation('staccato')
     return this.state.staccato
   }
 
   noteHasTenuto(): boolean {
-    const engine = this.getEngine()
-    if (this.state.selectedTool === 'selection' && engine) {
-      if (this.state.selectedArticulationNoteId) {
-        return this.state.selectedArticulationType === 'tenuto'
-      }
-      if (this.state.selectedNoteId) {
-        const note = engine.getNote(this.state.selectedNoteId)
-        return note?.articulations?.includes('tenuto') ?? false
-      }
-    }
+    if (this.state.selectedTool === 'selection') return this.selectedNoteHasArticulation('tenuto')
     return this.state.tenuto
   }
 

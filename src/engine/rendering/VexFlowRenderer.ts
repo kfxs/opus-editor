@@ -1415,6 +1415,12 @@ export class VexFlowRenderer {
               if (keyIndex === 0 && slot.articulations?.length) {
                 try {
                   const modifiers = staveNote.getModifiers()
+                  // Modifiers were added in ARTICULATION_RENDER_ORDER, NOT slot order — so
+                  // index the same sorted list, or the type↔glyph labels get swapped when a
+                  // note has multiple articulations (breaking highlight, delete and flip).
+                  const sortedArticulations = (slot.articulations ?? []).slice().sort(
+                    (a, b) => ARTICULATION_RENDER_ORDER.indexOf(a) - ARTICULATION_RENDER_ORDER.indexOf(b)
+                  )
                   let articulationIndex = 0
                   for (const modifier of modifiers) {
                     if (modifier.getCategory() === 'Articulation') {
@@ -1423,7 +1429,7 @@ export class VexFlowRenderer {
                         this.elementRegistry.add({
                           type: 'articulation',
                           noteId: pitch.id,
-                          articulationType: slot.articulations[articulationIndex],
+                          articulationType: sortedArticulations[articulationIndex],
                           measure: measure.number,
                           beat: fracToNumber(slot.beat),
                           bbox: { x: artBox.x, y: artBox.y, width: artBox.w, height: artBox.h },

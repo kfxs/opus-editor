@@ -593,9 +593,12 @@ export class MouseController {
         // Clear the whole note selection (the multi-select Map drives the note
         // highlight, not just selectedNoteId) so only the articulation shows selected.
         this.selection.selectNote(null)
+        // Sibelius-style: clicking any articulation selects the whole group on that
+        // note (all its articulations), not just the clicked glyph. Type is left null
+        // to mark a group selection — highlight/delete/flip act on every articulation.
         this.state.selectedArticulationNoteId = articulationAt.noteId
-        this.state.selectedArticulationType = articulationAt.articulationType || null
-        console.log(`✓ Articulation selected | noteId:${articulationAt.noteId} type:${articulationAt.articulationType} (artDist:${artDist.toFixed(1)} ≤ noteDist:${noteDist.toFixed(1)})`)
+        this.state.selectedArticulationType = null
+        console.log(`✓ Articulation group selected | noteId:${articulationAt.noteId} (clicked:${articulationAt.articulationType}, artDist:${artDist.toFixed(1)} ≤ noteDist:${noteDist.toFixed(1)})`)
         this.render.renderScore()
         return
       }

@@ -214,6 +214,23 @@ describe('MusicEngine.flipArticulation — articulation side override', () => {
     expect(engine.getNote(note.id)!.articulationPlacement).toBeUndefined()
   })
 
+  it('clearArticulations removes every articulation (and the side override) at once', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    engine.toggleArticulation(note.id, 'staccato')
+    engine.toggleArticulation(note.id, 'accent')
+    engine.flipArticulation(note.id)
+    expect(engine.getNote(note.id)!.articulations).toEqual(['staccato', 'accent'])
+
+    engine.clearArticulations(note.id)
+    expect(engine.getNote(note.id)!.articulations).toEqual([])
+    expect(engine.getNote(note.id)!.articulationPlacement).toBeUndefined()
+  })
+
+  it('clearArticulations is a no-op (returns null) when there are none', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    expect(engine.clearArticulations(note.id)).toBeNull()
+  })
+
   it('flip is undoable', () => {
     const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     engine.toggleArticulation(note.id, 'accent')

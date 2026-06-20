@@ -188,10 +188,11 @@ export class HighlightController {
     const scoreCanvas = this.getScoreCanvas()
     if (!engine || !scoreCanvas || !this.state.selectedArticulationNoteId) return
 
+    // Sibelius-style group selection: highlight EVERY articulation on the note, not
+    // just one type. (selectedArticulationType is left null for a group selection.)
     const registry = engine.getElementRegistry()
     const artElements = registry.getByType('articulation').filter(
-      el => el.noteId === this.state.selectedArticulationNoteId &&
-            el.articulationType === this.state.selectedArticulationType,
+      el => el.noteId === this.state.selectedArticulationNoteId,
     )
     if (!artElements.length) return
 
@@ -199,29 +200,31 @@ export class HighlightController {
     if (!svg) return
 
     const ARTICULATION_COLOR = '#F59E0B'
-    const articulationCharCodes: Record<string, number[]> = {
-      accent:   [0xE4A0, 0xE4A1],
-      staccato: [0xE1E7],
-      tenuto:   [0xE4A4, 0xE4A5],
-    }
-
-    const textEls = svg.querySelectorAll('text')
+    // Match by geometry, not glyph char codes: color the rendered glyph (text or path)
+    // whose bbox center is closest to each articulation's registered bbox. This is
+    // font-independent (no SMuFL code table to keep in sync) and naturally separates
+    // stacked articulations (staccato + accent) since each has a distinct center.
+    const glyphEls = svg.querySelectorAll<SVGGraphicsElement>('text, path')
 
     for (const artEl of artElements) {
-      const bbox = artEl.bbox
-      const expectedCodes = articulationCharCodes[artEl.articulationType ?? ''] ?? []
-
-      for (const svgEl of textEls) {
-        const charCode = svgEl.textContent?.charCodeAt(0) ?? 0
-        if (!expectedCodes.includes(charCode)) continue
-
-        const svgX = parseFloat(svgEl.getAttribute('x') || '0')
-        if (Math.abs(svgX - bbox.x) > 3) continue
-
-        const el = svgEl as SVGElement
-        el.setAttribute('fill', ARTICULATION_COLOR)
-        el.style.fill = ARTICULATION_COLOR
-        el.classList.add('selected-articulation')
+      const cx = artEl.bbox.x + artEl.bbox.width / 2
+      const cy = artEl.bbox.y + artEl.bbox.height / 2
+      let best: SVGElement | null = null
+      let bestDist = Infinity
+      for (const svgEl of glyphEls) {
+        const bb = svgEl.getBBox?.()
+        if (!bb || bb.width === 0 || bb.height === 0) continue
+        const dx = bb.x + bb.width / 2 - cx
+        const dy = bb.y + bb.height / 2 - cy
+        const dist = dx * dx + dy * dy
+        if (dist < bestDist) { bestDist = dist; best = svgEl as SVGElement }
+      }
+      // Only color when the nearest glyph is genuinely on top of the registered box
+      // (within ~6px), so we never recolor an unrelated glyph if none was found.
+      if (best && bestDist <= 36) {
+        best.setAttribute('fill', ARTICULATION_COLOR)
+        best.style.fill = ARTICULATION_COLOR
+        best.classList.add('selected-articulation')
       }
     }
   }
