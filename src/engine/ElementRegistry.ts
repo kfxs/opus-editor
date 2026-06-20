@@ -627,6 +627,54 @@ export class ElementRegistry {
   }
 
   /**
+   * Euclidean click→element distance using the SAME geometry as
+   * {@link findClosestNoteOrRest}: a note's clef-aware pitch Y (from its own measure)
+   * and bbox center X; bbox center for rests. Exposed so callers can compare a note's
+   * hit distance against a neighbouring glyph (e.g. an articulation sitting on the
+   * note head) and pick whichever the click is actually closest to.
+   */
+  noteOrRestHitDistance(el: ElementInfo, x: number, y: number): number {
+    const centerX = el.bbox.x + el.bbox.width / 2
+    let elementY: number
+    if (el.type === 'note' && el.pitch !== undefined && el.measure !== undefined) {
+      const pitchY = this.pitchToPixelY(el.pitch, el.measure, centerX)
+      elementY = pitchY !== null ? pitchY : el.bbox.y + el.bbox.height / 2
+    } else {
+      elementY = el.bbox.y + el.bbox.height / 2
+    }
+    return Math.sqrt((x - centerX) ** 2 + (y - elementY) ** 2)
+  }
+
+  /**
+   * Does (x, y) land on a note/rest's actual clickable body (not just "near" it)?
+   * Used to gate selection so clicking the empty staff space around a note — e.g. a
+   * space below it, where the user is really aiming to pan — doesn't grab the note.
+   *
+   * - Notes: a box around the NOTE HEAD. Center X = bbox center, center Y = the
+   *   clef-aware pitch Y (the head's true vertical position, even on ledger lines).
+   *   Half-extents are scaled to the staff's line spacing (a head is ≈ one space tall
+   *   and a little wider), plus a small click margin. This deliberately ignores the
+   *   stem, whose tall bbox is what made the old radius feel so over-eager.
+   * - Rests / pitchless notes: inside the glyph bbox plus a small pad (the rest bbox
+   *   already hugs the glyph).
+   */
+  hitsNoteOrRestBody(el: ElementInfo, x: number, y: number): boolean {
+    const centerX = el.bbox.x + el.bbox.width / 2
+    if (el.type === 'note' && el.pitch !== undefined && el.measure !== undefined) {
+      const pitchY = this.pitchToPixelY(el.pitch, el.measure, centerX)
+      if (pitchY !== null) {
+        const sp = this.staffGeometries.get(el.measure)?.lineSpacing ?? 10
+        const halfW = sp * 1.1 // head ≈ 1.3 spaces wide + click margin
+        const halfH = sp * 0.9 // head ≈ 1 space tall + click margin (< one full space)
+        return Math.abs(x - centerX) <= halfW && Math.abs(y - pitchY) <= halfH
+      }
+    }
+    const pad = 4
+    const b = el.bbox
+    return x >= b.x - pad && x <= b.x + b.width + pad && y >= b.y - pad && y <= b.y + b.height + pad
+  }
+
+  /**
    * Find notes/rests near a given X position (within tolerance)
    * @param x - Pixel X coordinate
    * @param measure - Measure number

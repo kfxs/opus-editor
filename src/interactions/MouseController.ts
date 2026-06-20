@@ -578,32 +578,34 @@ export class MouseController {
       const b = el.bbox
       return x >= b.x - artPad && x <= b.x + b.width + artPad && y >= b.y - artPad && y <= b.y + b.height + artPad
     }) ?? null
+    // An accent/staccato/tenuto glyph sits right against its note head, and the padded
+    // bbox above can cover the head too — so a click aimed at the note would be "stolen"
+    // by the articulation. Only take the articulation when the click is genuinely closer
+    // to the glyph than to the nearest note/rest; otherwise fall through to note selection.
     if (articulationAt?.noteId) {
-      this.state.selectedNoteId = null
-      this.state.selectedAccidentalNoteId = null
-      this.state.selectedAccidentalType = null
-      this.state.selectedArticulationNoteId = articulationAt.noteId
-      this.state.selectedArticulationType = articulationAt.articulationType || null
-      console.log(`✓ Articulation selected | noteId:${articulationAt.noteId} type:${articulationAt.articulationType}`)
-      this.render.renderScore()
-      return
+      const artCx = articulationAt.bbox.x + articulationAt.bbox.width / 2
+      const artCy = articulationAt.bbox.y + articulationAt.bbox.height / 2
+      const artDist = Math.sqrt((x - artCx) ** 2 + (y - artCy) ** 2)
+      const noteDist = closestElement && closestElement.id
+        ? registry.noteOrRestHitDistance(closestElement, x, y)
+        : Infinity
+      if (artDist <= noteDist) {
+        this.state.selectedNoteId = null
+        this.state.selectedAccidentalNoteId = null
+        this.state.selectedAccidentalType = null
+        this.state.selectedArticulationNoteId = articulationAt.noteId
+        this.state.selectedArticulationType = articulationAt.articulationType || null
+        console.log(`✓ Articulation selected | noteId:${articulationAt.noteId} type:${articulationAt.articulationType} (artDist:${artDist.toFixed(1)} ≤ noteDist:${noteDist.toFixed(1)})`)
+        this.render.renderScore()
+        return
+      }
+      console.log(`· Articulation skipped — note closer (artDist:${artDist.toFixed(1)} > noteDist:${noteDist.toFixed(1)})`)
     }
 
     if (closestElement && closestElement.id) {
-      const bbox = closestElement.bbox
-      const centerX = bbox.x + bbox.width / 2
-
-      let elementY: number
-      if (closestElement.type === 'note' && closestElement.pitch !== undefined && closestElement.measure !== undefined) {
-        const pitchY = registry.pitchToPixelY(closestElement.pitch, closestElement.measure, centerX)
-        elementY = pitchY !== null ? pitchY : bbox.y + bbox.height / 2
-      } else {
-        elementY = bbox.y + bbox.height / 2
-      }
-
-      const distance = Math.sqrt((x - centerX) ** 2 + (y - elementY) ** 2)
-
-      if (distance < 30) {
+      // Gate on the note HEAD (or rest glyph), not a wide radius: clicking the empty
+      // staff space around a note — e.g. a space below it to pan — must not select it.
+      if (registry.hitsNoteOrRestBody(closestElement, x, y)) {
         this.selection.selectNote(closestElement.id)
         const typeLabel = closestElement.type === 'rest' ? 'Rest' : 'Note'
         console.log(`✓ ${typeLabel} selected on mousedown | id:${closestElement.id}`)
