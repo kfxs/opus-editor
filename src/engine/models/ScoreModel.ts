@@ -33,7 +33,7 @@ import {
   fracIsPositive,
   fracToNumber,
 } from '@/utils/fraction'
-import { effectiveClefAt, effectiveClefBefore, measureOpeningClef } from '@/utils/clefUtils'
+import { effectiveClefAt, effectiveClefBefore, measureOpeningClef, middleLineDiatonicPos } from '@/utils/clefUtils'
 import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -1691,8 +1691,7 @@ export class ScoreModel {
     if (chord.stemDirection === 'up') return 'up'
     if (chord.stemDirection === 'down') return 'down'
     const clef = this.getEffectiveClefAt(chord.measure, chord.beat)
-    const middleLineDiatonic: Record<Clef, number> = { treble: 34, bass: 22, alto: 28, tenor: 26 }
-    const middle = middleLineDiatonic[clef] ?? 34
+    const middle = middleLineDiatonicPos(clef)
     let maxDist = 0
     let dir: 'up' | 'down' = 'down' // middle-line notes follow this convention
     for (const p of chord.notes) {

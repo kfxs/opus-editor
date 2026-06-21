@@ -94,6 +94,17 @@ export function durationToBeats(duration: NoteDuration, dots: number = 0): numbe
 }
 
 /**
+ * Snap a float beat to the nearest `duration`-sized grid step, clamped so a note of
+ * that duration fits within the bar. Float BY DESIGN — this runs at the pixel
+ * boundary (see the Fraction/float invariant in docs/ARCHITECTURE.md); the result is
+ * re-entered into exact `Fraction` land by `beatToFrac()` downstream.
+ */
+export function quantizeBeat(beat: number, duration: NoteDuration, barQuarters: number): number {
+  const d = durationToBeats(duration)
+  return Math.max(0, Math.min(Math.round(beat / d) * d, barQuarters - d))
+}
+
+/**
  * Convert a note duration (+ optional dots) to an exact `Fraction` in beats.
  */
 export function durationToFraction(duration: NoteDuration, dots = 0): Fraction {

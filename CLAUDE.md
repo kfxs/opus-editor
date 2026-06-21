@@ -77,7 +77,6 @@ The `MusicEngine` class is the main interface between UI and engine:
 addNote(params: NoteParams): Note
 updateNote(noteId: string, updates: Partial<NoteParams>): Note
 deleteNote(noteId: string): boolean
-getNoteAtPosition(coords: PixelCoordinates, tolerance?: number): Note | null
 
 // Rendering
 renderScore(): void

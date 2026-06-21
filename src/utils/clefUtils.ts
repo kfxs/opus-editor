@@ -5,10 +5,34 @@
  * the latest clef change at or before it, walking back across measures, falling
  * back to the score's opening clef, then 'treble'.
  */
-import type { Score, Clef, ClefChange, Fraction } from '@/types/music'
+import type { Score, Clef, ClefChange, Fraction, PitchStep } from '@/types/music'
 import { fracCreate, fracEq, fracLte, fracLt, fracGt } from './fraction'
+import { spellingDiatonicPos } from './pitchSpelling'
 
 const ZERO: Fraction = fracCreate(0, 1)
+
+/**
+ * Diatonic position (`spellingDiatonicPos`) of each clef's middle (3rd) staff line —
+ * the reference for natural stem direction and the default tie/slur side. Single
+ * source of truth; do not re-inline this table. treble=B4, bass=D3, alto=C4, tenor=A3.
+ */
+export const CLEF_MIDDLE_LINE_DIATONIC: Record<Clef, number> = {
+  treble: 34, bass: 22, alto: 28, tenor: 26,
+}
+
+/** Middle-line diatonic position for a clef, defaulting to treble's (34 = B4). */
+export function middleLineDiatonicPos(clef: Clef): number {
+  return CLEF_MIDDLE_LINE_DIATONIC[clef] ?? 34
+}
+
+/**
+ * Natural (un-forced) stem direction for a single note: at or above the clef's middle
+ * line points the stem **down**, below it points **up**. Matches the convention used
+ * across the renderer and data model.
+ */
+export function naturalStemDirection(step: PitchStep, octave: number, clef: Clef): 'up' | 'down' {
+  return spellingDiatonicPos(step, octave) >= middleLineDiatonicPos(clef) ? 'down' : 'up'
+}
 
 /** Clef changes of a measure, sorted ascending by beat (empty if none). */
 export function measureClefChanges(score: Score, measureNumber: number): ClefChange[] {

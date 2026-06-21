@@ -4,7 +4,7 @@ import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation,
 import './notation.css'
 import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Chord, Fraction, PitchStep, PitchAlter, GhostNote, TimeSignature, Dynamic, DynamicLevel } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracGte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
-import { measureOpeningClef, measureEndingClef, effectiveClefAt, effectiveClefBefore } from '@/utils/clefUtils'
+import { measureOpeningClef, measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos } from '@/utils/clefUtils'
 import { beatToFrac, measureCapacityFrac } from '@/utils/musicUtils'
 import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, type MeterInfo } from '@/utils/meter'
@@ -36,21 +36,6 @@ const DYNAMIC_LETTER_GLYPHS = TextDynamics.GLYPHS as Record<string, string | und
 /** Map a dynamic level (e.g. 'mf') to its SMuFL glyph string. */
 function levelToGlyphString(level: DynamicLevel): string {
   return [...level].map(ch => DYNAMIC_LETTER_GLYPHS[ch] ?? ch).join('')
-}
-
-/**
- * Clef configuration for stem direction calculation.
- * middleLineDiatonicPos: spellingDiatonicPos() of the middle (3rd) staff line.
- *   treble B4  = diatonic 34  (4×7+6)
- *   bass   D3  = diatonic 22  (3×7+1)
- *   alto   C4  = diatonic 28  (4×7+0)
- *   tenor  A3  = diatonic 26  (3×7+5)
- */
-const CLEF_CONFIG: Record<Clef, { middleLineDiatonicPos: number }> = {
-  treble: { middleLineDiatonicPos: 34 },  // B4
-  bass:   { middleLineDiatonicPos: 22 },  // D3
-  alto:   { middleLineDiatonicPos: 28 },  // C4
-  tenor:  { middleLineDiatonicPos: 26 },  // A3
 }
 
 /**
@@ -314,7 +299,7 @@ export class VexFlowRenderer {
       } else if (slot.stemDirection === 'down') {
         stemDirection = -1
       } else {
-        const middleDiatonic = CLEF_CONFIG[slotClef].middleLineDiatonicPos
+        const middleDiatonic = middleLineDiatonicPos(slotClef)
         let maxDist = 0
         stemDirection = -1  // default down; middle-line notes follow this convention
         for (const p of slot.notes) {
@@ -596,7 +581,7 @@ export class VexFlowRenderer {
     }
 
     // No override — use the pitch furthest from the middle line
-    const middleDiatonic = CLEF_CONFIG[clef].middleLineDiatonicPos
+    const middleDiatonic = middleLineDiatonicPos(clef)
     let maxDistance = 0
     let furthestDiatonic = middleDiatonic
     let hasPitch = false
@@ -1829,7 +1814,7 @@ export class VexFlowRenderer {
 
       // Stem direction — same diatonic approach as createStaveNotesFromSlots.
       // Include any existing notes at the same beat so the ghost matches the chord's stem.
-      const middleDiatonic = CLEF_CONFIG[clef].middleLineDiatonicPos
+      const middleDiatonic = middleLineDiatonicPos(clef)
       let stemDirection = -1  // default down; middle-line notes follow this convention
       let maxDist = 0
       const checkDiatonic = (step: PitchStep, octave: number) => {
@@ -1996,7 +1981,7 @@ export class VexFlowRenderer {
 
     if (!chordAtBeat || chordAtBeat.notes.length <= 1) {
       // Single note — tie direction based on diatonic distance from middle line (treble B4=34)
-      const middleDiatonic = CLEF_CONFIG['treble'].middleLineDiatonicPos
+      const middleDiatonic = middleLineDiatonicPos('treble')
       return thisDiatonic >= middleDiatonic ? -1 : 1
     }
 

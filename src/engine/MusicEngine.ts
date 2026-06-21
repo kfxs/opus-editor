@@ -6,10 +6,11 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
-import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, beatToFrac, measureCapacityQuarters } from '@/utils/musicUtils'
-import { fracToNumber, fracCompare, fracEq, fracAdd } from '@/utils/fraction'
-import { durationToFraction } from '@/utils/durations'
-import { spellingToMidi, accidentalToAlter, spellingDiatonicPos } from '@/utils/pitchSpelling'
+import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, beatToFrac, measureCapacityQuarters, compareByPosition } from '@/utils/musicUtils'
+import { fracToNumber, fracEq, fracAdd } from '@/utils/fraction'
+import { durationToFraction, quantizeBeat } from '@/utils/durations'
+import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
+import { naturalStemDirection } from '@/utils/clefUtils'
 import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Measure, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Slur } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
@@ -97,8 +98,7 @@ export class MusicEngine {
       this.collisionDetector,
       this.renderer.getElementRegistry(),
       (description) => {
-        this.playbackEngine.setScore(this.scoreModel.getScore())
-        this.saveUndoState(description)
+        this.commit(description)
       }
     )
 
@@ -148,6 +148,24 @@ export class MusicEngine {
   private saveUndoState(description: string): void {
     if (this.undoSuppressed) return // batched: the surrounding runBatch pushes once
     this.undoRedoManager.pushState(this.scoreModel.getScore(), description)
+  }
+
+  /**
+   * Sync playback with the current score, then snapshot for undo. Use for any score
+   * mutation that changes what plays. setScore always runs; saveUndoState self-
+   * suppresses inside a runBatch.
+   */
+  private commit(description: string): void {
+    this.playbackEngine.setScore(this.scoreModel.getScore())
+    this.saveUndoState(description)
+  }
+
+  /**
+   * Snapshot for undo WITHOUT a playback resync. Use only for changes that do not
+   * affect audible output (title, display-only flags, slur/tie/clef visual edits).
+   */
+  private saveOnly(description: string): void {
+    this.saveUndoState(description)
   }
 
   /**
@@ -230,7 +248,7 @@ export class MusicEngine {
    */
   setTitle(title: string): void {
     this.scoreModel.setTitle(title)
-    this.saveUndoState(`Set title to "${title}"`)
+    this.saveOnly(`Set title to "${title}"`)
   }
 
   /**
@@ -238,8 +256,7 @@ export class MusicEngine {
    */
   setTempo(tempo: number): void {
     this.scoreModel.setTempo(tempo)
-    this.playbackEngine.setScore(this.scoreModel.getScore())
-    this.saveUndoState(`Set tempo to ${tempo}`)
+    this.commit(`Set tempo to ${tempo}`)
   }
 
   /**
@@ -247,7 +264,7 @@ export class MusicEngine {
    */
   addMeasure(): void {
     this.scoreModel.addMeasure()
-    this.saveUndoState('Add measure')
+    this.saveOnly('Add measure')
   }
 
   /**
@@ -258,7 +275,7 @@ export class MusicEngine {
    */
   insertMeasureAfter(afterNumber: number): void {
     this.scoreModel.insertMeasureAfter(afterNumber)
-    this.saveUndoState(`Insert measure after ${afterNumber}`)
+    this.saveOnly(`Insert measure after ${afterNumber}`)
   }
 
   // ==================== Clef Operations ====================
@@ -281,8 +298,7 @@ export class MusicEngine {
   setClefAt(measureNumber: number, beat: Fraction, clef: Clef): boolean {
     const changed = this.scoreModel.setClefAt(measureNumber, beat, clef)
     if (changed) {
-      this.playbackEngine.setScore(this.scoreModel.getScore())
-      this.saveUndoState(`Set ${clef} clef at measure ${measureNumber} beat ${fracToNumber(beat)}`)
+      this.commit(`Set ${clef} clef at measure ${measureNumber} beat ${fracToNumber(beat)}`)
     }
     return changed
   }
@@ -295,8 +311,7 @@ export class MusicEngine {
   removeClefAt(measureNumber: number, beat: Fraction): boolean {
     const changed = this.scoreModel.removeClefAt(measureNumber, beat)
     if (changed) {
-      this.playbackEngine.setScore(this.scoreModel.getScore())
-      this.saveUndoState(`Remove clef at measure ${measureNumber} beat ${fracToNumber(beat)}`)
+      this.commit(`Remove clef at measure ${measureNumber} beat ${fracToNumber(beat)}`)
     }
     return changed
   }
@@ -330,8 +345,7 @@ export class MusicEngine {
   ): boolean {
     const changed = this.scoreModel.setTimeSignature(measureNumber, ts, options)
     if (changed) {
-      this.playbackEngine.setScore(this.scoreModel.getScore())
-      this.saveUndoState(`Set time signature ${ts.numerator}/${ts.denominator} at measure ${measureNumber}`)
+      this.commit(`Set time signature ${ts.numerator}/${ts.denominator} at measure ${measureNumber}`)
     }
     return changed
   }
@@ -347,8 +361,7 @@ export class MusicEngine {
   removeTimeSignatureChange(measureNumber: number, options?: { rewrite?: 'rebar' | 'none' }): boolean {
     const changed = this.scoreModel.removeTimeSignatureChange(measureNumber, options)
     if (changed) {
-      this.playbackEngine.setScore(this.scoreModel.getScore())
-      this.saveUndoState(`Remove time signature change at measure ${measureNumber}`)
+      this.commit(`Remove time signature change at measure ${measureNumber}`)
     }
     return changed
   }
@@ -362,7 +375,7 @@ export class MusicEngine {
   setTimeSignatureHidden(measureNumber: number, hidden: boolean): boolean {
     const changed = this.scoreModel.setTimeSignatureHidden(measureNumber, hidden)
     if (changed) {
-      this.saveUndoState(`${hidden ? 'Hide' : 'Show'} time signature at measure ${measureNumber}`)
+      this.saveOnly(`${hidden ? 'Hide' : 'Show'} time signature at measure ${measureNumber}`)
     }
     return changed
   }
@@ -376,8 +389,7 @@ export class MusicEngine {
   setMeasureActualDuration(measureNumber: number, actual: Fraction | null): boolean {
     const changed = this.scoreModel.setMeasureActualDuration(measureNumber, actual)
     if (changed) {
-      this.playbackEngine.setScore(this.scoreModel.getScore())
-      this.saveUndoState(
+      this.commit(
         actual ? `Set pickup at measure ${measureNumber}` : `Clear pickup at measure ${measureNumber}`,
       )
     }
@@ -396,8 +408,7 @@ export class MusicEngine {
   addDynamic(measureNumber: number, dynamic: Omit<Dynamic, 'id'>): Dynamic | null {
     const created = this.scoreModel.addDynamic(measureNumber, dynamic)
     if (created) {
-      this.playbackEngine.setScore(this.scoreModel.getScore())
-      this.saveUndoState(`Add dynamic ${dynamicLabel(created)} at measure ${measureNumber}`)
+      this.commit(`Add dynamic ${dynamicLabel(created)} at measure ${measureNumber}`)
     }
     return created
   }
@@ -409,8 +420,7 @@ export class MusicEngine {
   updateDynamic(id: string, updates: Partial<Omit<Dynamic, 'id'>>): Dynamic | null {
     const updated = this.scoreModel.updateDynamic(id, updates)
     if (updated) {
-      this.playbackEngine.setScore(this.scoreModel.getScore())
-      this.saveUndoState(`Edit dynamic ${dynamicLabel(updated)}`)
+      this.commit(`Edit dynamic ${dynamicLabel(updated)}`)
     }
     return updated
   }
@@ -422,8 +432,7 @@ export class MusicEngine {
   removeDynamic(id: string): boolean {
     const removed = this.scoreModel.removeDynamic(id)
     if (removed) {
-      this.playbackEngine.setScore(this.scoreModel.getScore())
-      this.saveUndoState('Remove dynamic')
+      this.commit('Remove dynamic')
     }
     return removed
   }
@@ -459,7 +468,7 @@ export class MusicEngine {
    */
   commitClefMove(measureNumber: number, beat: Fraction): void {
     this.scoreModel.normalizeClefAt(measureNumber, beat)
-    this.saveUndoState(`Move clef to measure ${measureNumber} beat ${fracToNumber(beat)}`)
+    this.saveOnly(`Move clef to measure ${measureNumber} beat ${fracToNumber(beat)}`)
   }
 
   /**
@@ -488,9 +497,8 @@ export class MusicEngine {
    */
   addChordNote(params: NoteParams): Note {
     const note = this.scoreModel.addNote(params)
-    this.playbackEngine.setScore(this.scoreModel.getScore())
     const noteName = params.step ? midiToNoteName(spellingToMidi(params.step, params.alter ?? 0, params.octave!)) : 'rest'
-    this.saveUndoState(`Add chord note ${noteName}`)
+    this.commit(`Add chord note ${noteName}`)
     return note
   }
 
@@ -501,8 +509,7 @@ export class MusicEngine {
    */
   pasteEvents(measure: number, beat: Fraction, events: RebarEvent[], spanBeats: Fraction): string[] {
     const ids = this.scoreModel.pasteEvents(measure, beat, events, spanBeats)
-    this.playbackEngine.setScore(this.scoreModel.getScore())
-    this.saveUndoState('Paste')
+    this.commit('Paste')
     return ids
   }
 
@@ -519,8 +526,7 @@ export class MusicEngine {
 
   addRest(duration: NoteParams['duration'], measure: number, beat: Fraction): Note {
     const rest = this.scoreModel.addRest(duration, measure, beat)
-    this.playbackEngine.setScore(this.scoreModel.getScore())
-    this.saveUndoState('Add rest')
+    this.commit('Add rest')
     return rest
   }
 
@@ -586,8 +592,7 @@ export class MusicEngine {
           // Split the target note itself
           this.noteEntryCoordinator.splitExistingNoteWithTie(existingNote, newDuration, overflowAmount, newDots)
 
-          this.playbackEngine.setScore(this.scoreModel.getScore())
-          this.saveUndoState('Update note duration')
+          this.commit('Update note duration')
           return this.scoreModel.getNote(noteId)!
         }
 
@@ -673,8 +678,7 @@ export class MusicEngine {
       }
     }
 
-    this.playbackEngine.setScore(this.scoreModel.getScore())
-    this.saveUndoState('Update tuplet note')
+    this.commit('Update tuplet note')
     return updatedNote
   }
 
@@ -761,8 +765,7 @@ export class MusicEngine {
       }
     }
 
-    this.playbackEngine.setScore(this.scoreModel.getScore())
-    this.saveUndoState('Update note')
+    this.commit('Update note')
     return note
   }
 
@@ -801,8 +804,7 @@ export class MusicEngine {
     const updated = hasIt ? existing.filter(a => a !== type) : [...existing, type]
 
     const result = this.scoreModel.updateNote(noteId, { articulations: updated })
-    this.playbackEngine.setScore(this.scoreModel.getScore())
-    this.saveUndoState(hasIt ? `Remove ${type}` : `Add ${type}`)
+    this.commit(hasIt ? `Remove ${type}` : `Add ${type}`)
     return result
   }
 
@@ -815,34 +817,8 @@ export class MusicEngine {
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest || !note.articulations?.length) return null
     const result = this.scoreModel.updateNote(noteId, { articulations: [], articulationPlacement: undefined })
-    this.playbackEngine.setScore(this.scoreModel.getScore())
-    this.saveUndoState('Remove articulations')
+    this.commit('Remove articulations')
     return result
-  }
-
-  /**
-   * Directly link two notes with a tie (fromNoteId → toNoteId).
-   * Used when the target note already exists (e.g. pending tie resolution in keyboard entry).
-   */
-  /**
-   * If toNoteId is a valid pending-tie target for fromNoteId (same pitch, comes after),
-   * link the tie and return true. Otherwise return false without side effects.
-   * Call this after any note placement or pitch change when a pending tie is armed.
-   */
-  /**
-  linkTie(fromNoteId: string, toNoteId: string): void {
-    const fromNote = this.scoreModel.getNote(fromNoteId)
-    const toNote = this.scoreModel.getNote(toNoteId)
-    if (!fromNote || !toNote) {
-      console.log(`[Tie] linkTie FAILED — fromNote:${fromNote ? 'ok' : 'NOT FOUND'} toNote:${toNote ? 'ok' : 'NOT FOUND'}`)
-      return
-    }
-    const fmt = (n: typeof fromNote) => n.isRest ? `rest` : `${n.step}${n.alter === 2 ? '##' : n.alter === 1 ? '#' : n.alter === -1 ? 'b' : n.alter === -2 ? 'bb' : ''}${n.octave} m${n.measure} beat:${fracToNumber(n.beat).toFixed(3)}`
-    console.log(`[Tie] linkTie | FROM: ${fmt(fromNote)} → TO: ${fmt(toNote)}`)
-    this.scoreModel.updateNote(fromNoteId, { tiedTo: toNoteId })
-    this.scoreModel.updateNote(toNoteId, { tiedFrom: fromNoteId })
-    this.playbackEngine.setScore(this.scoreModel.getScore())
-    this.saveUndoState('Add tie')
   }
 
   /**
@@ -866,13 +842,12 @@ export class MusicEngine {
       this.scoreModel.updateNote(noteId, { tiedTo: undefined })
       // The target may be gone (e.g. severed by a re-bar) — only clear it if present.
       if (tiedToNote) this.scoreModel.updateNote(tiedToId, { tiedFrom: undefined })
-      this.playbackEngine.setScore(this.scoreModel.getScore())
-      this.saveUndoState('Remove tie')
+      this.commit('Remove tie')
       return false
     } else {
       // Tie to the immediately next slot (rest or note — no pitch filter)
       const allSlots = this.scoreModel.getAllNotes()
-        .sort((a, b) => a.measure !== b.measure ? a.measure - b.measure : fracCompare(a.beat, b.beat))
+        .sort(compareByPosition)
       const idx = allSlots.findIndex(n => n.id === noteId)
       const nextNote = allSlots[idx + 1]
       if (!nextNote) {
@@ -883,8 +858,7 @@ export class MusicEngine {
 
       this.scoreModel.updateNote(noteId, { tiedTo: nextNote.id })
       this.scoreModel.updateNote(nextNote.id, { tiedFrom: noteId })
-      this.playbackEngine.setScore(this.scoreModel.getScore())
-      this.saveUndoState('Add tie')
+      this.commit('Add tie')
       return true
     }
   }
@@ -913,7 +887,7 @@ export class MusicEngine {
     const selected = noteIds
       .map(id => this.scoreModel.getNote(id))
       .filter((n): n is Note => !!n && (n.voice ?? 0) === 0)
-      .sort((a, b) => a.measure !== b.measure ? a.measure - b.measure : fracCompare(a.beat, b.beat))
+      .sort(compareByPosition)
     if (selected.length === 0) return null
 
     const startNote = selected[0]
@@ -926,7 +900,7 @@ export class MusicEngine {
     if (existing) return existing // idempotent — never duplicate, never remove
 
     const created = this.scoreModel.addSlur({ startNoteId: startNote.id, endNoteId: endNote.id, voice: 0 })
-    this.saveUndoState('Add slur')
+    this.saveOnly('Add slur')
     return created
   }
 
@@ -934,7 +908,7 @@ export class MusicEngine {
    *  state when removed. @returns true if a slur was removed. */
   removeSlur(id: string): boolean {
     const removed = this.scoreModel.removeSlur(id)
-    if (removed) this.saveUndoState('Remove slur')
+    if (removed) this.saveOnly('Remove slur')
     return removed
   }
 
@@ -943,7 +917,7 @@ export class MusicEngine {
    *  @returns true if the slur exists and was updated. */
   setSlurShape(id: string, cps: Slur['cps'] | null): boolean {
     const updated = this.scoreModel.setSlurShape(id, cps)
-    if (updated) this.saveUndoState(cps ? 'Reshape slur' : 'Reset slur shape')
+    if (updated) this.saveOnly(cps ? 'Reshape slur' : 'Reset slur shape')
     return updated
   }
 
@@ -956,7 +930,7 @@ export class MusicEngine {
 
   /** Record one undo entry after a slur-handle drag settles. */
   commitSlurShape(): void {
-    this.saveUndoState('Reshape slur')
+    this.saveOnly('Reshape slur')
   }
 
   /** Live (preview) re-anchor used **while dragging a slur endpoint handle** — moves
@@ -969,7 +943,7 @@ export class MusicEngine {
 
   /** Record one undo entry after a slur-endpoint re-anchor drag settles. */
   commitSlurEndpoint(): void {
-    this.saveUndoState('Re-anchor slur')
+    this.saveOnly('Re-anchor slur')
   }
 
   /** Flip a slur to the opposite side (above ↔ below). Sets an explicit `placement`
@@ -989,7 +963,7 @@ export class MusicEngine {
       currentDir = el?.slurDirection ?? -1 // default: treat as above
     }
     slur.placement = currentDir === -1 ? 'below' : 'above'
-    this.saveUndoState('Flip slur')
+    this.saveOnly('Flip slur')
     return true
   }
 
@@ -1011,7 +985,7 @@ export class MusicEngine {
       currentDir = el?.tieDirection ?? 1
     }
     if (!this.scoreModel.setTieDirection(fromNoteId, currentDir === -1 ? 1 : -1)) return false
-    this.saveUndoState('Flip tie')
+    this.saveOnly('Flip tie')
     return true
   }
 
@@ -1043,7 +1017,7 @@ export class MusicEngine {
    */
   private nextDistinctSlot(start: Note): Note | undefined {
     const sorted = this.scoreModel.getAllNotes()
-      .sort((a, b) => a.measure !== b.measure ? a.measure - b.measure : fracCompare(a.beat, b.beat))
+      .sort(compareByPosition)
     const idx = sorted.findIndex(n => n.id === start.id)
     if (idx < 0) return undefined
     for (let i = idx + 1; i < sorted.length; i++) {
@@ -1144,37 +1118,11 @@ export class MusicEngine {
   }
 
   /**
-   * Get note at pixel position
-   */
-  getNoteAtPosition(coords: PixelCoordinates, tolerance: number = 10): Note | null {
-    const allNotes = this.scoreModel.getAllNotes()
-    const measure = this.scoreModel.getMeasure(1)
-    if (!measure) return null
-
-    const barQuarters = measureCapacityQuarters(measure)
-
-    for (const note of allNotes) {
-      const noteCoords = this.coordinateMapper.noteToPixel(note, barQuarters)
-
-      const distance = Math.sqrt(
-        Math.pow(noteCoords.x - coords.x, 2) + Math.pow(noteCoords.y - coords.y, 2)
-      )
-
-      if (distance <= tolerance) {
-        return note
-      }
-    }
-
-    return null
-  }
-
-  /**
    * Clear all notes
    */
   clearAllNotes(): void {
     this.scoreModel.clearAllNotes()
-    this.playbackEngine.setScore(this.scoreModel.getScore())
-    this.saveUndoState('Clear all notes')
+    this.commit('Clear all notes')
   }
 
   // ==================== Tuplet Operations ====================
@@ -1224,8 +1172,7 @@ export class MusicEngine {
   deleteTuplet(tupletId: string): boolean {
     const result = this.scoreModel.deleteTuplet(tupletId)
     if (result) {
-      this.playbackEngine.setScore(this.scoreModel.getScore())
-      this.saveUndoState('Delete triplet')
+      this.commit('Delete triplet')
     }
     return result
   }
@@ -1262,18 +1209,12 @@ export class MusicEngine {
     } else {
       // Auto state — compute natural direction and force the opposite
       const clef = this.scoreModel.getEffectiveClefAt(note.measure, note.beat)
-      const middleLineDiatonic: Record<string, number> = {
-        treble: 34, bass: 22, alto: 28, tenor: 26,
-      }
-      const middleDiatonic = middleLineDiatonic[clef] ?? 34
-      const dPos = spellingDiatonicPos(note.step!, note.octave!)
-      // Natural: at/above middle → down; below → up. Force the opposite.
-      newDirection = dPos >= middleDiatonic ? 'up' : 'down'
+      const natural = naturalStemDirection(note.step!, note.octave!, clef)
+      newDirection = natural === 'down' ? 'up' : 'down'
     }
 
     const updated = this.scoreModel.updateNote(noteId, { stemDirection: newDirection })
-    this.playbackEngine.setScore(this.scoreModel.getScore())
-    this.saveUndoState('Flip stem direction')
+    this.commit('Flip stem direction')
     return updated
   }
 
@@ -1285,7 +1226,7 @@ export class MusicEngine {
   flipArticulation(noteId: string): Note | null {
     const result = this.scoreModel.flipArticulationPlacement(noteId)
     if (!result) return null
-    this.saveUndoState('Flip articulation')
+    this.saveOnly('Flip articulation')
     return result
   }
 
@@ -1486,19 +1427,11 @@ export class MusicEngine {
         beat = nearestElement.beat
       } else {
         beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, barQuarters)
-        if (duration) {
-          const noteDurationInBeats = durationToBeats(duration)
-          beat = Math.round(beat / noteDurationInBeats) * noteDurationInBeats
-          beat = Math.max(0, Math.min(beat, barQuarters - noteDurationInBeats))
-        }
+        if (duration) beat = quantizeBeat(beat, duration, barQuarters)
       }
     } else {
       beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, barQuarters)
-      if (duration) {
-        const noteDurationInBeats = durationToBeats(duration)
-        beat = Math.round(beat / noteDurationInBeats) * noteDurationInBeats
-        beat = Math.max(0, Math.min(beat, barQuarters - noteDurationInBeats))
-      }
+      if (duration) beat = quantizeBeat(beat, duration, barQuarters)
     }
 
     return { measure: measureNumber, beat, spelling }

@@ -291,6 +291,16 @@ export function sortBeatsFrac(positions: Fraction[]): Fraction[] {
 }
 
 /**
+ * Compare two notes by their position ACROSS the whole score: measure first, then
+ * exact beat. Use this for cross-measure ordering; within a single measure use
+ * `fracCompare(a.beat, b.beat)` directly (no measure tiebreak needed there).
+ */
+export const compareByPosition = (
+  a: { measure: number; beat: Fraction },
+  b: { measure: number; beat: Fraction },
+): number => (a.measure !== b.measure ? a.measure - b.measure : fracCompare(a.beat, b.beat))
+
+/**
  * Convert a numeric beat value to an exact Fraction.
  * Used wherever beat positions are computed via float arithmetic (coordinate mapping,
  * tuplet ratios, quantization) and need to be passed to APIs that expect Fraction.
