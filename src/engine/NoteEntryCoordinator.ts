@@ -12,7 +12,7 @@ import {
 } from '@/utils/fraction'
 import { durationToFraction, tupletNoteDurationFraction } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
-import type { Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling } from '@/types/music'
+import type { Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, Measure } from '@/types/music'
 import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
 import { ElementRegistry } from './ElementRegistry'
 import type { ElementInfo } from './ElementRegistry'
@@ -22,6 +22,24 @@ const FAR_THRESHOLD = 40
 /** Safety cap on the addMeasure() loop that extends the score to reach a target measure. */
 const MAX_MEASURE_CREATE_ATTEMPTS = 20
 export const INVALID_NOTE_ENTRY_TYPES = ['clef', 'timeSignature', 'barline', 'keySignature']
+
+/** Float beat-comparison epsilon (pixel-boundary tolerance; see docs/ARCHITECTURE.md). */
+const BEAT_EPSILON = 0.001
+
+/** Internal context passed to the updateNote sub-methods. */
+interface NoteUpdateCtx {
+  noteId: string
+  updates: Partial<NoteParams>
+  existingNote: Note
+  measureNotes: Note[]
+  chordNotes: Note[]
+  isChord: boolean
+  oldBeats: number
+  newBeats: number
+  newDuration: NoteDuration
+  newDots: number
+  beatDifference: number
+}
 
 /**
  * Handles all note/tuplet entry logic (keyboard and mouse).
@@ -438,6 +456,265 @@ export class NoteEntryCoordinator {
       this.onCommit(`Add ${midiToNoteName(pitchMidi)}`)
     }
     return splitNote
+  }
+
+  // ==================== Public: Note Update ====================
+
+  /** All non-rest notes at the given beat in a measure (chord members). */
+  private getChordNotesAt(measureNumber: number, beat: Fraction): Note[] {
+    return this.getScoreModel().getNotesInMeasure(measureNumber)
+      .filter(n => !n.isRest && fracEq(n.beat, beat))
+  }
+
+  /**
+   * Update a note.
+   * Dispatches to updateTupletNote or updateNonTupletNote based on context.
+   * When duration is shortened, fills the gap with rests.
+   * When duration is lengthened, removes overlapping notes/rests (splitting across the
+   * barline with a tie when it overflows the bar).
+   */
+  updateNote(noteId: string, updates: Partial<NoteParams>): Note {
+    const existingNote = this.getScoreModel().getNote(noteId)
+    if (!existingNote) throw new Error(`Note ${noteId} not found`)
+
+    const oldDuration = existingNote.duration
+    const oldDots = existingNote.dots || 0
+    let newDuration = updates.duration || oldDuration
+    // Handle dots: if dots is explicitly set in updates (even to 0), use it; otherwise keep old
+    const newDots = updates.dots !== undefined ? updates.dots : oldDots
+
+    const measureNotes = this.getScoreModel().getNotesInMeasure(existingNote.measure)
+    const chordNotes = this.getChordNotesAt(existingNote.measure, existingNote.beat)
+    const isChord = chordNotes.length > 1
+
+    // Check for measure overflow (considering dots)
+    const measure = this.getScoreModel().getMeasure(existingNote.measure)
+    if (measure && (updates.duration || updates.dots !== undefined)) {
+      const measureTotalBeats = measureCapacityQuarters(measure)
+      const availableBeats = measureTotalBeats - fracToNumber(existingNote.beat)
+      const requestedBeats = durationToBeats(newDuration, newDots)
+
+      // Tuplet overflow is handled by updateTupletNote (which uses the correct tuplet ratio).
+      // Measure-level overflow only applies to non-tuplet notes.
+      if (requestedBeats > availableBeats + BEAT_EPSILON && !existingNote.tupletId) {
+        if (!existingNote.isRest) {
+          // Non-tuplet, non-rest overflow: split with tie across the barline (Dorico-style)
+          const overflowAmount = requestedBeats - availableBeats
+          const oldNoteEnd = fracToNumber(existingNote.beat) + durationToBeats(oldDuration, oldDots)
+
+          // Clear notes in the current measure that fall within the newly extended range
+          for (const n of measureNotes) {
+            if (n.id === noteId || chordNotes.some(c => c.id === n.id)) continue
+            const nStart = fracToNumber(n.beat)
+            if (nStart >= oldNoteEnd - BEAT_EPSILON && nStart < fracToNumber(existingNote.beat) + availableBeats - BEAT_EPSILON) {
+              this.getScoreModel().deleteNote(n.id)
+            }
+          }
+
+          // Split chord members (other notes at the same beat)
+          for (const chordNote of chordNotes) {
+            if (chordNote.id === noteId) continue
+            this.splitExistingNoteWithTie(chordNote, newDuration, overflowAmount, newDots)
+          }
+
+          // Split the target note itself
+          this.splitExistingNoteWithTie(existingNote, newDuration, overflowAmount, newDots)
+
+          this.onCommit('Update note duration')
+          return this.getScoreModel().getNote(noteId)!
+        }
+
+        // Non-tuplet rest overflow: clip to fit within the measure
+        const fittingDuration = this.findLargestFittingDuration(availableBeats)
+        if (fittingDuration) {
+          newDuration = fittingDuration
+          updates = { ...updates, duration: fittingDuration, dots: 0 }
+        } else {
+          // No standard duration fits, keep the old duration
+          newDuration = oldDuration
+          delete updates.duration
+          delete updates.dots
+        }
+      }
+    }
+
+    const oldBeats = durationToBeats(oldDuration, oldDots)
+    const newBeats = durationToBeats(newDuration, newDots)
+    const beatDifference = oldBeats - newBeats
+
+    const ctx: NoteUpdateCtx = {
+      noteId, updates, existingNote, measureNotes,
+      chordNotes, isChord, oldBeats, newBeats, newDuration, newDots, beatDifference,
+    }
+
+    // Tuplet notes have special duration constraints and filler rest logic
+    if (existingNote.tupletId && measure) {
+      const tuplet = measure.tuplets?.find(t => t.id === existingNote.tupletId)
+      if (tuplet) return this.updateTupletNote(ctx, measure, tuplet)
+    }
+
+    return this.updateNonTupletNote(ctx)
+  }
+
+  /** Handles duration updates for notes inside a tuplet. */
+  private updateTupletNote(ctx: NoteUpdateCtx, _measure: Measure, tuplet: Tuplet): Note {
+    let { updates, newBeats, newDuration } = ctx
+    const { noteId, existingNote, measureNotes, chordNotes, isChord, newDots } = ctx
+
+    const tupletRatio = tuplet.notesOccupied / tuplet.numNotes
+    const tupletTotalBeats = durationToBeats(tuplet.baseDuration) * tuplet.notesOccupied
+    const tupletEndBeat = fracToNumber(tuplet.startBeat) + tupletTotalBeats
+    // Remaining space runs from this note's start to the tuplet end
+    const remainingTupletBeats = tupletEndBeat - fracToNumber(existingNote.beat)
+
+    // Clamp new duration if it exceeds remaining tuplet space
+    const scaledNewDuration = newBeats * tupletRatio
+    if (scaledNewDuration > remainingTupletBeats + BEAT_EPSILON) {
+      const maxNormalBeats = remainingTupletBeats / tupletRatio
+      const fittingDuration = this.findLargestFittingDuration(maxNormalBeats)
+      if (fittingDuration) {
+        newDuration = fittingDuration
+        updates = { ...updates, duration: fittingDuration, dots: 0 }
+        newBeats = durationToBeats(fittingDuration)
+      } else {
+        return existingNote
+      }
+    }
+
+    // Delete any tuplet items that fall inside the new note's actual time span
+    const actualNewDuration = newBeats * tupletRatio
+    const noteEndBeat = fracToNumber(existingNote.beat) + actualNewDuration
+    const existingBeatNum = fracToNumber(existingNote.beat)
+    const itemsToDelete = measureNotes.filter(n =>
+      n.tupletId === existingNote.tupletId &&
+      n.id !== noteId &&
+      fracToNumber(n.beat) > existingBeatNum + BEAT_EPSILON &&
+      fracToNumber(n.beat) < noteEndBeat - BEAT_EPSILON
+    )
+    for (const item of itemsToDelete) this.getScoreModel().deleteNote(item.id)
+
+    const updatedNote = this.getScoreModel().updateNote(noteId, updates)
+
+    // Recompute all filler rests from the fill pointer
+    this.getScoreModel().refillTupletRemainder(existingNote.measure, tuplet)
+
+    // Also update chord notes to keep duration in sync
+    if (isChord) {
+      for (const chordNote of chordNotes) {
+        if (chordNote.id !== noteId) {
+          this.getScoreModel().updateNote(chordNote.id, { duration: newDuration, dots: newDots })
+        }
+      }
+    }
+
+    this.onCommit('Update tuplet note')
+    return updatedNote
+  }
+
+  /** Handles duration updates for regular (non-tuplet) notes, both chords and singles. */
+  private updateNonTupletNote(ctx: NoteUpdateCtx): Note {
+    const { noteId, updates, existingNote, measureNotes, chordNotes, isChord, oldBeats, newBeats, newDuration, newDots, beatDifference } = ctx
+
+    // If duration is being lengthened, remove overlapping notes/rests first
+    if (beatDifference < -BEAT_EPSILON) {
+      const existingBeatNum = fracToNumber(existingNote.beat)
+      const noteEndBeat = existingBeatNum + newBeats
+      const chordNoteIds = new Set(chordNotes.map(n => n.id))
+      const notesToRemove: string[] = []
+      let beatsToRecover = 0
+
+      for (const n of measureNotes) {
+        if (n.id === noteId || chordNoteIds.has(n.id)) continue
+        const nStart = fracToNumber(n.beat)
+        const nEnd = nStart + durationToBeats(n.duration, n.dots || 0)
+        // Note starts within the extended range - remove it entirely
+        if (nStart >= existingBeatNum + oldBeats && nStart < noteEndBeat) {
+          notesToRemove.push(n.id)
+          beatsToRecover += durationToBeats(n.duration, n.dots || 0)
+        // Note starts before but extends into the range - remove it
+        } else if (nStart < existingBeatNum + oldBeats && nEnd > existingBeatNum + oldBeats && nEnd <= noteEndBeat) {
+          notesToRemove.push(n.id)
+          beatsToRecover += durationToBeats(n.duration, n.dots || 0)
+        }
+      }
+
+      for (const id of notesToRemove) this.getScoreModel().deleteNote(id)
+
+      // If we removed more beats than needed, add rests to fill the excess
+      const excessBeats = beatsToRecover - Math.abs(beatDifference)
+      if (excessBeats > BEAT_EPSILON) {
+        this.getScoreModel().fillGapWithRests(
+          existingNote.measure,
+          fracAdd(existingNote.beat, durationToFraction(newDuration, newDots)),
+          excessBeats,
+        )
+      }
+    }
+
+    // For chords, update all members' duration and dots so they stay in sync
+    if (isChord && (updates.duration || updates.dots !== undefined)) {
+      for (const chordNote of chordNotes) {
+        if (chordNote.id === noteId) continue
+        this.getScoreModel().updateNote(chordNote.id, { duration: newDuration, dots: newDots })
+      }
+    }
+
+    // Apply all requested updates to the target note
+    const note = this.getScoreModel().updateNote(noteId, updates)
+
+    // If duration was shortened, fill the freed space with rests.
+    if (beatDifference > BEAT_EPSILON) {
+      if (existingNote.isRest) {
+        // Meter-aware refill: the shortened rest's remainder is regrouped for the
+        // bar's meter. This both fixes the bar length (a former measure rest's
+        // nominal 'w' is 4 quarters, not the real bar length) and groups rests
+        // correctly in compound/irregular meters — the legacy float splitter
+        // below does neither.
+        this.getScoreModel().fillMeasureGaps(note.measure)
+      } else {
+        this.getScoreModel().fillGapWithRests(
+          note.measure,
+          fracAdd(note.beat, durationToFraction(newDuration, newDots)),
+          beatDifference,
+        )
+
+        // Break tiedTo if the shortened note no longer abuts its tie target
+        if (note.tiedTo) {
+          const tiedTarget = this.getScoreModel().getNote(note.tiedTo)
+          if (tiedTarget) {
+            const noteEnd = fracToNumber(note.beat) + durationToBeats(newDuration, newDots)
+            const targetBeat = fracToNumber(tiedTarget.beat)
+            if (Math.abs(noteEnd - targetBeat) > BEAT_EPSILON || note.measure !== tiedTarget.measure) {
+              console.log(`[Tie] broken — ${note.step}${note.octave} m${note.measure} no longer abuts tied target after duration change`)
+              this.getScoreModel().updateNote(note.id, { tiedTo: undefined })
+              this.getScoreModel().updateNote(tiedTarget.id, { tiedFrom: undefined })
+            }
+          }
+        }
+      }
+    }
+
+    this.onCommit('Update note')
+    return note
+  }
+
+  /** Find the largest standard note duration that fits within available beats. */
+  private findLargestFittingDuration(availableBeats: number): NoteParams['duration'] | null {
+    const durations: { duration: NoteParams['duration']; beats: number }[] = [
+      { duration: 'w', beats: 4 },
+      { duration: 'h', beats: 2 },
+      { duration: 'q', beats: 1 },
+      { duration: '8', beats: 0.5 },
+      { duration: '16', beats: 0.25 },
+      { duration: '32', beats: 0.125 },
+    ]
+
+    for (const { duration, beats } of durations) {
+      if (beats <= availableBeats + BEAT_EPSILON) {
+        return duration
+      }
+    }
+    return null
   }
 
   // ==================== Public: Tuplet Entry ====================
