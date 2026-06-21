@@ -589,7 +589,7 @@ export class MouseController {
 
   /** Select a dynamic mark for removal, or open the text editor on a double-click. */
   private handleDynamicMouseDown(ctx: MouseDownCtx): boolean {
-    const { engine, event, registry, x, y } = ctx
+    const { engine, event, registry, x, y, closestElement } = ctx
     // Dynamic selection — click a dynamic mark (below the staff) to select it for
     // removal. Small pad makes the small glyph/text easier to hit.
     const dynPad = 6
@@ -599,6 +599,10 @@ export class MouseController {
         && y >= b.y - dynPad && y <= b.y + b.height + dynPad
     }) ?? null
     if (!dynamicAt?.id) return false
+
+    // A dynamic's padded hit-box can overlap a notehead/rest; never let it steal a
+    // click that actually lands on a note/rest body — the note is the intended target.
+    if (closestElement && registry.hitsNoteOrRestBody(closestElement, x, y)) return false
 
     // Manual double-click detection: a second mousedown on the SAME dynamic within
     // the threshold opens the in-canvas text editor. We can't use the native
