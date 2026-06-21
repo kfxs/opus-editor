@@ -1,0 +1,31 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": [
+              "vue",
+              "vue/*",
+              "pinia",
+              "@/composables",
+              "@/composables/*",
+              "**/composables",
+              "**/composables/*",
+              "@/App.vue",
+              "**/App.vue"
+            ],
+            "message": "Framework-agnostic boundary: files in src/engine and src/interactions must not import Vue, Pinia, composables, or App.vue. Keep framework glue in src/composables/ and App.vue. See docs/ARCHITECTURE.md."
+          }
+        ]
+      }
+    ]
+  }
+}

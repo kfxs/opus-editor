@@ -19,6 +19,8 @@ import type { ElementInfo } from './ElementRegistry'
 
 const CLOSE_THRESHOLD = 25
 const FAR_THRESHOLD = 40
+/** Safety cap on the addMeasure() loop that extends the score to reach a target measure. */
+const MAX_MEASURE_CREATE_ATTEMPTS = 20
 export const INVALID_NOTE_ENTRY_TYPES = ['clef', 'timeSignature', 'barline', 'keySignature']
 
 /**
@@ -725,7 +727,7 @@ export class NoteEntryCoordinator {
     // Check if next measure exists, if not create it
     const nextMeasureNumber = existingNote.measure + 1
     if (!this.getScoreModel().getMeasure(nextMeasureNumber)) {
-      let attempts = 20
+      let attempts = MAX_MEASURE_CREATE_ATTEMPTS
       while (!this.getScoreModel().getMeasure(nextMeasureNumber) && attempts-- > 0) {
         this.getScoreModel().addMeasure()
       }
@@ -808,7 +810,7 @@ export class NoteEntryCoordinator {
     const nextMeasureNumber = noteParams.measure + 1
     let nextMeasure = this.getScoreModel().getMeasure(nextMeasureNumber)
     if (!nextMeasure) {
-      let attempts = 20
+      let attempts = MAX_MEASURE_CREATE_ATTEMPTS
       while (!this.getScoreModel().getMeasure(nextMeasureNumber) && attempts-- > 0) {
         this.getScoreModel().addMeasure()
       }

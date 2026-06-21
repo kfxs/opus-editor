@@ -15,6 +15,14 @@ import { dynamicLabel } from '@/utils/dynamics'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 import type { RebarEvent } from '@/utils/rebar'
 
+/**
+ * Tolerance for comparing FLOAT beat values at the pixel/quantization boundary.
+ * Beats are exact `Fraction`s in the model; this epsilon only guards the float
+ * round-trip (see the Fraction/float invariant in docs/ARCHITECTURE.md). New code
+ * should prefer fracCompare/fracEq over this.
+ */
+const BEAT_EPSILON = 0.001
+
 /** Internal context passed to updateNote sub-methods */
 interface NoteUpdateCtx {
   noteId: string
@@ -554,7 +562,7 @@ export class MusicEngine {
 
       // Tuplet overflow is handled by updateTupletNote (which uses the correct tuplet ratio).
       // Measure-level overflow only applies to non-tuplet notes.
-      if (requestedBeats > availableBeats + 0.001 && !existingNote.tupletId) {
+      if (requestedBeats > availableBeats + BEAT_EPSILON && !existingNote.tupletId) {
         if (!existingNote.isRest) {
           // Non-tuplet, non-rest overflow: split with tie across the barline (Dorico-style)
           const overflowAmount = requestedBeats - availableBeats
@@ -564,7 +572,7 @@ export class MusicEngine {
           for (const n of measureNotes) {
             if (n.id === noteId || chordNotes.some(c => c.id === n.id)) continue
             const nStart = fracToNumber(n.beat)
-            if (nStart >= oldNoteEnd - 0.001 && nStart < fracToNumber(existingNote.beat) + availableBeats - 0.001) {
+            if (nStart >= oldNoteEnd - BEAT_EPSILON && nStart < fracToNumber(existingNote.beat) + availableBeats - BEAT_EPSILON) {
               this.scoreModel.deleteNote(n.id)
             }
           }
@@ -627,7 +635,7 @@ export class MusicEngine {
 
     // Clamp new duration if it exceeds remaining tuplet space
     const scaledNewDuration = newBeats * tupletRatio
-    if (scaledNewDuration > remainingTupletBeats + 0.001) {
+    if (scaledNewDuration > remainingTupletBeats + BEAT_EPSILON) {
       const maxNormalBeats = remainingTupletBeats / tupletRatio
       const fittingDuration = this.findLargestFittingDuration(maxNormalBeats)
       if (fittingDuration) {
@@ -646,8 +654,8 @@ export class MusicEngine {
     const itemsToDelete = measureNotes.filter(n =>
       n.tupletId === existingNote.tupletId &&
       n.id !== noteId &&
-      fracToNumber(n.beat) > existingBeatNum + 0.001 &&
-      fracToNumber(n.beat) < noteEndBeat - 0.001
+      fracToNumber(n.beat) > existingBeatNum + BEAT_EPSILON &&
+      fracToNumber(n.beat) < noteEndBeat - BEAT_EPSILON
     )
     for (const item of itemsToDelete) this.scoreModel.deleteNote(item.id)
 
@@ -675,7 +683,7 @@ export class MusicEngine {
     const { noteId, updates, existingNote, measureNotes, chordNotes, isChord, oldBeats, newBeats, newDuration, newDots, beatDifference } = ctx
 
     // If duration is being lengthened, remove overlapping notes/rests first
-    if (beatDifference < -0.001) {
+    if (beatDifference < -BEAT_EPSILON) {
       const existingBeatNum = fracToNumber(existingNote.beat)
       const noteEndBeat = existingBeatNum + newBeats
       const chordNoteIds = new Set(chordNotes.map(n => n.id))
@@ -701,7 +709,7 @@ export class MusicEngine {
 
       // If we removed more beats than needed, add rests to fill the excess
       const excessBeats = beatsToRecover - Math.abs(beatDifference)
-      if (excessBeats > 0.001) {
+      if (excessBeats > BEAT_EPSILON) {
         let currentBeat = fracAdd(existingNote.beat, durationToFraction(newDuration, newDots))
         for (const restDuration of splitBeatsIntoDurations(excessBeats)) {
           this.scoreModel.addRest(restDuration, existingNote.measure, currentBeat)
@@ -722,7 +730,7 @@ export class MusicEngine {
     const note = this.scoreModel.updateNote(noteId, updates)
 
     // If duration was shortened, fill the freed space with rests.
-    if (beatDifference > 0.001) {
+    if (beatDifference > BEAT_EPSILON) {
       if (existingNote.isRest) {
         // Meter-aware refill: the shortened rest's remainder is regrouped for the
         // bar's meter. This both fixes the bar length (a former measure rest's
@@ -743,7 +751,7 @@ export class MusicEngine {
           if (tiedTarget) {
             const noteEnd = fracToNumber(note.beat) + durationToBeats(newDuration, newDots)
             const targetBeat = fracToNumber(tiedTarget.beat)
-            if (Math.abs(noteEnd - targetBeat) > 0.001 || note.measure !== tiedTarget.measure) {
+            if (Math.abs(noteEnd - targetBeat) > BEAT_EPSILON || note.measure !== tiedTarget.measure) {
               console.log(`[Tie] broken — ${note.step}${note.octave} m${note.measure} no longer abuts tied target after duration change`)
               this.scoreModel.updateNote(note.id, { tiedTo: undefined })
               this.scoreModel.updateNote(tiedTarget.id, { tiedFrom: undefined })
@@ -772,7 +780,7 @@ export class MusicEngine {
     ]
 
     for (const { duration, beats } of durations) {
-      if (beats <= availableBeats + 0.001) {
+      if (beats <= availableBeats + BEAT_EPSILON) {
         return duration
       }
     }

@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:check": "vue-tsc --noEmit && vite build",
+    "build:check": "npm run lint:boundary && vue-tsc --noEmit && vite build",
+    "lint:boundary": "eslint --no-eslintrc -c .eslintrc.boundary.json \"src/engine/**/*.ts\" \"src/interactions/**/*.ts\"",
+    "lint": "eslint . --ext .ts,.vue",
     "preview": "vite preview",
     "test": "vitest",
     "test:e2e": "playwright test"
