@@ -1,7 +1,7 @@
 import type { ArticulationType, Accidental, NoteDuration, PitchAlter, BeamMode, Clef, TimeSignature } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState, DynamicTool } from './EditorState'
-import { fracLt, fracCompare } from '../utils/fraction'
+import { fracLt, fracCompare, fracToNumber } from '../utils/fraction'
 import { sameTimeSignature } from '../utils/meter'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingDiatonicPos } from '../utils/pitchSpelling'
@@ -340,10 +340,13 @@ export class PaletteController {
     if (!engine || !this.state.selectedNoteId) return
     const note = engine.getNote(this.state.selectedNoteId)
     if (!note) return
+    const beatStr = fracToNumber(note.beat).toFixed(3)
     if (tool === 'text') {
       engine.addDynamic(note.measure, { beat: note.beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below' })
+      console.log(`✓ Dynamic text at measure ${note.measure} beat ${beatStr} (on selected note ${this.state.selectedNoteId})`)
     } else {
       engine.addDynamic(note.measure, { beat: note.beat, kind: 'level', level: tool, voice: 0, placement: 'below' })
+      console.log(`✓ Dynamic ${tool} at measure ${note.measure} beat ${beatStr} (on selected note ${this.state.selectedNoteId})`)
     }
     this.renderScore()
   }
