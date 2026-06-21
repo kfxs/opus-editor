@@ -6,7 +6,7 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
-import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, beatToFrac, measureCapacityQuarters, compareByPosition } from '@/utils/musicUtils'
+import { durationToBeats, midiToNoteName, beatToFrac, measureCapacityQuarters, compareByPosition } from '@/utils/musicUtils'
 import { fracToNumber, fracEq, fracAdd } from '@/utils/fraction'
 import { durationToFraction, quantizeBeat } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
@@ -714,11 +714,11 @@ export class MusicEngine {
       // If we removed more beats than needed, add rests to fill the excess
       const excessBeats = beatsToRecover - Math.abs(beatDifference)
       if (excessBeats > BEAT_EPSILON) {
-        let currentBeat = fracAdd(existingNote.beat, durationToFraction(newDuration, newDots))
-        for (const restDuration of splitBeatsIntoDurations(excessBeats)) {
-          this.scoreModel.addRest(restDuration, existingNote.measure, currentBeat)
-          currentBeat = fracAdd(currentBeat, durationToFraction(restDuration))
-        }
+        this.scoreModel.fillGapWithRests(
+          existingNote.measure,
+          fracAdd(existingNote.beat, durationToFraction(newDuration, newDots)),
+          excessBeats,
+        )
       }
     }
 
@@ -743,11 +743,11 @@ export class MusicEngine {
         // below does neither.
         this.scoreModel.fillMeasureGaps(note.measure)
       } else {
-        let currentBeat = fracAdd(note.beat, durationToFraction(newDuration, newDots))
-        for (const restDuration of splitBeatsIntoDurations(beatDifference)) {
-          this.scoreModel.addRest(restDuration, note.measure, currentBeat)
-          currentBeat = fracAdd(currentBeat, durationToFraction(restDuration))
-        }
+        this.scoreModel.fillGapWithRests(
+          note.measure,
+          fracAdd(note.beat, durationToFraction(newDuration, newDots)),
+          beatDifference,
+        )
 
         // Break tiedTo if the shortened note no longer abuts its tie target
         if (note.tiedTo) {

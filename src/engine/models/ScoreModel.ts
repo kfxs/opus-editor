@@ -1533,6 +1533,20 @@ export class ScoreModel {
   }
 
   /**
+   * Fill `beats` of empty space starting at `fromBeat` with plain rests, walking the
+   * beat cursor forward one split-duration piece at a time. The legacy float splitter
+   * (not meter-aware) — used by the overflow/duration-change paths that already work
+   * in float beats. For meter-correct regrouping prefer {@link fillMeasureGaps}.
+   */
+  fillGapWithRests(measureNumber: number, fromBeat: Fraction, beats: number): void {
+    let currentBeat = fromBeat
+    for (const restDuration of splitBeatsIntoDurations(beats)) {
+      this.addRest(restDuration, measureNumber, currentBeat)
+      currentBeat = fracAdd(currentBeat, durationToFraction(restDuration))
+    }
+  }
+
+  /**
    * Fill gaps in a measure with engraving-correct rests, per voice.
    *
    * Each voice (defaulting to 0) is an independent rhythmic stream that must sum

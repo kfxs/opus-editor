@@ -706,182 +706,135 @@ export class NoteEntryCoordinator {
   }
 
   /**
-   * Split an existing note with a tie when its duration changes to overflow.
+   * Place a note that spans across one barline by splitting it into a tied chain:
+   * `currentMeasureDurations` in the start measure, `nextMeasureDurations` in the next.
+   * The single primitive behind both note-entry and duration-change overflow.
+   *
+   * The ONLY difference between those two callers is the chain head: pass
+   * `existingHeadId` to reuse an existing note as the first link (duration change),
+   * or omit it to create the head fresh (note entry). Returns the first note in the
+   * chain (the reused/created head), or null if the split or measure creation fails.
    */
-  splitExistingNoteWithTie(existingNote: Note, newDuration: NoteParams['duration'], overflowAmount: number, newDots: number = 0): void {
-    const totalBeats = durationToBeats(newDuration, newDots)
-    const beatsInCurrentMeasure = totalBeats - overflowAmount
-    const beatsInNextMeasure = overflowAmount
+  private placeSpanningNote(p: {
+    step: NoteParams['step']
+    alter: NoteParams['alter']
+    octave: NoteParams['octave']
+    startMeasure: number
+    startBeat: Fraction
+    totalBeats: number
+    overflowAmount: number
+    existingHeadId?: string
+  }): Note | null {
+    const beatsInCurrentMeasure = p.totalBeats - p.overflowAmount
+    const beatsInNextMeasure = p.overflowAmount
 
     const currentMeasureDurations = splitBeatsIntoDurations(beatsInCurrentMeasure)
     const nextMeasureDurations = splitBeatsIntoDurations(beatsInNextMeasure)
 
     if (currentMeasureDurations.length === 0 || nextMeasureDurations.length === 0) {
-      console.warn('Could not split existing note into valid durations')
-      return
+      console.warn('Could not split spanning note into valid durations')
+      return null
     }
 
-    // Update the existing note's duration to the first part (clear dots — split durations are always plain)
-    this.getScoreModel().updateNote(existingNote.id, { duration: currentMeasureDurations[0], dots: 0 })
-
-    // Check if next measure exists, if not create it
-    const nextMeasureNumber = existingNote.measure + 1
-    if (!this.getScoreModel().getMeasure(nextMeasureNumber)) {
-      let attempts = MAX_MEASURE_CREATE_ATTEMPTS
-      while (!this.getScoreModel().getMeasure(nextMeasureNumber) && attempts-- > 0) {
-        this.getScoreModel().addMeasure()
-      }
-      if (!this.getScoreModel().getMeasure(nextMeasureNumber)) {
-        console.warn('Could not create next measure for tie split')
-        return
-      }
+    const nextMeasureNumber = p.startMeasure + 1
+    if (!this.ensureMeasureExists(nextMeasureNumber)) {
+      console.warn('Could not create next measure for tie split')
+      return null
     }
 
     // Erode notes in the overflow zone of the next measure (Sibelius-style)
     this.erodeOverflowZone(nextMeasureNumber, beatsInNextMeasure)
 
-    // Build a chain of tied notes across the barline.
-    // Chain: existingNote → [extra current-measure notes if needed] → [next-measure notes]
-    let previousNoteId = existingNote.id
+    const model = this.getScoreModel()
+    const pitch = { step: p.step, alter: p.alter, octave: p.octave }
 
-    // Add any extra tied notes within the current measure (when split needs > 1 duration, e.g. 3 beats → h + q)
-    let currentBeat = fracAdd(existingNote.beat, durationToFraction(currentMeasureDurations[0]))
-    for (let i = 1; i < currentMeasureDurations.length; i++) {
-      const dur = currentMeasureDurations[i]
-      const extraNote = this.getScoreModel().addNote({
-        step: existingNote.step,
-        alter: existingNote.alter,
-        octave: existingNote.octave,
-        duration: dur,
-        measure: existingNote.measure,
-        beat: currentBeat,
-      })
-      this.getScoreModel().updateNote(previousNoteId, { tiedTo: extraNote.id })
-      this.getScoreModel().updateNote(extraNote.id, { tiedFrom: previousNoteId })
-      previousNoteId = extraNote.id
-      currentBeat = fracAdd(currentBeat, durationToFraction(dur))
+    // Build the tied chain. Split durations are always plain (dots cleared).
+    let firstNote: Note | null = null
+    let previousNoteId: string | null = null
+    let currentBeat = p.startBeat
+    let startIndex = 0
+
+    if (p.existingHeadId) {
+      // Reuse the existing note as the head: retitle its duration to the first piece.
+      model.updateNote(p.existingHeadId, { duration: currentMeasureDurations[0], dots: 0 })
+      firstNote = model.getNote(p.existingHeadId) ?? null
+      previousNoteId = p.existingHeadId
+      currentBeat = fracAdd(currentBeat, durationToFraction(currentMeasureDurations[0]))
+      startIndex = 1
     }
 
-    // Add tied continuation notes in the next measure
+    // Remaining current-measure pieces (when the split needs > 1, e.g. 3 beats → h + q)
+    for (let i = startIndex; i < currentMeasureDurations.length; i++) {
+      const note = model.addNote({ ...pitch, duration: currentMeasureDurations[i], measure: p.startMeasure, beat: currentBeat })
+      if (!firstNote) firstNote = note
+      if (previousNoteId) {
+        model.updateNote(previousNoteId, { tiedTo: note.id })
+        model.updateNote(note.id, { tiedFrom: previousNoteId })
+      }
+      previousNoteId = note.id
+      currentBeat = fracAdd(currentBeat, durationToFraction(currentMeasureDurations[i]))
+    }
+
+    // Tied continuation pieces in the next measure
     let nextBeat = fracFromInt(0)
     for (const duration of nextMeasureDurations) {
-      const continuationNote = this.getScoreModel().addNote({
-        step: existingNote.step,
-        alter: existingNote.alter,
-        octave: existingNote.octave,
-        duration,
-        measure: nextMeasureNumber,
-        beat: nextBeat,
-      })
-      this.getScoreModel().updateNote(previousNoteId, { tiedTo: continuationNote.id })
-      this.getScoreModel().updateNote(continuationNote.id, { tiedFrom: previousNoteId })
-      previousNoteId = continuationNote.id
+      const note = model.addNote({ ...pitch, duration, measure: nextMeasureNumber, beat: nextBeat })
+      if (previousNoteId) {
+        model.updateNote(previousNoteId, { tiedTo: note.id })
+        model.updateNote(note.id, { tiedFrom: previousNoteId })
+      }
+      previousNoteId = note.id
       nextBeat = fracAdd(nextBeat, durationToFraction(duration))
     }
 
-    console.log('Split existing note with tie:', {
-      noteId: existingNote.id,
+    console.log('Placed spanning note with tie:', {
+      head: p.existingHeadId ?? firstNote?.id, currentDurations: currentMeasureDurations,
+      nextMeasure: nextMeasureNumber, nextDurations: nextMeasureDurations,
+    })
+    return firstNote
+  }
+
+  /** Extend the score with empty measures until `measureNumber` exists. */
+  private ensureMeasureExists(measureNumber: number): boolean {
+    let attempts = MAX_MEASURE_CREATE_ATTEMPTS
+    while (!this.getScoreModel().getMeasure(measureNumber) && attempts-- > 0) {
+      this.getScoreModel().addMeasure()
+    }
+    return !!this.getScoreModel().getMeasure(measureNumber)
+  }
+
+  /**
+   * Split an existing note with a tie when its duration changes to overflow.
+   * Thin wrapper: reuses the note as the chain head via {@link placeSpanningNote}.
+   */
+  splitExistingNoteWithTie(existingNote: Note, newDuration: NoteParams['duration'], overflowAmount: number, newDots: number = 0): void {
+    this.placeSpanningNote({
       step: existingNote.step,
       alter: existingNote.alter,
       octave: existingNote.octave,
-      currentDurations: currentMeasureDurations,
-      nextDurations: nextMeasureDurations,
+      startMeasure: existingNote.measure,
+      startBeat: existingNote.beat,
+      totalBeats: durationToBeats(newDuration, newDots),
+      overflowAmount,
+      existingHeadId: existingNote.id,
     })
   }
 
   /**
    * Add a note that spans across a bar line by splitting it with a tie.
-   * Returns the first note (in current measure) or null if failed.
+   * Thin wrapper: creates a fresh chain head via {@link placeSpanningNote}.
+   * Returns the first note (in the current measure) or null if failed.
    */
   private addSplitNoteWithTie(noteParams: NoteParams, overflowAmount: number): Note | null {
-    const totalBeats = durationToBeats(noteParams.duration, noteParams.dots || 0)
-    const beatsInCurrentMeasure = totalBeats - overflowAmount
-    const beatsInNextMeasure = overflowAmount
-
-    const currentMeasureDurations = splitBeatsIntoDurations(beatsInCurrentMeasure)
-    const nextMeasureDurations = splitBeatsIntoDurations(beatsInNextMeasure)
-
-    if (currentMeasureDurations.length === 0 || nextMeasureDurations.length === 0) {
-      console.warn('Could not split note into valid durations')
-      return null
-    }
-
-    // Check if next measure exists, if not create it
-    const nextMeasureNumber = noteParams.measure + 1
-    let nextMeasure = this.getScoreModel().getMeasure(nextMeasureNumber)
-    if (!nextMeasure) {
-      let attempts = MAX_MEASURE_CREATE_ATTEMPTS
-      while (!this.getScoreModel().getMeasure(nextMeasureNumber) && attempts-- > 0) {
-        this.getScoreModel().addMeasure()
-      }
-      nextMeasure = this.getScoreModel().getMeasure(nextMeasureNumber)
-      if (!nextMeasure) {
-        console.warn('Could not create next measure for tie split')
-        return null
-      }
-    }
-
-    // Erode notes in the overflow zone of the next measure (Sibelius-style)
-    this.erodeOverflowZone(nextMeasureNumber, beatsInNextMeasure)
-
-    // Add notes in current measure (may need multiple if duration splits, e.g., dotted notes)
-    let currentBeat = noteParams.beat
-    let firstNote: Note | null = null
-    let previousNote: Note | null = null
-
-    for (const duration of currentMeasureDurations) {
-      const note = this.getScoreModel().addNote({
-        step: noteParams.step,
-        alter: noteParams.alter,
-        octave: noteParams.octave,
-        duration,
-        measure: noteParams.measure,
-        beat: currentBeat,
-        // No dots - split durations are standard non-dotted durations
-      })
-      if (!firstNote) firstNote = note
-
-      // Link with previous note in current measure if there are multiple
-      if (previousNote) {
-        this.getScoreModel().updateNote(previousNote.id, { tiedTo: note.id })
-        this.getScoreModel().updateNote(note.id, { tiedFrom: previousNote.id })
-      }
-
-      previousNote = note
-      currentBeat = fracAdd(currentBeat, durationToFraction(duration))
-    }
-
-    // Add notes in next measure
-    let nextBeat = fracFromInt(0)
-    for (const duration of nextMeasureDurations) {
-      const note = this.getScoreModel().addNote({
-        step: noteParams.step,
-        alter: noteParams.alter,
-        octave: noteParams.octave,
-        duration,
-        measure: nextMeasureNumber,
-        beat: nextBeat,
-        // No dots - split durations are standard non-dotted durations
-      })
-
-      // Link with previous note (tie across bar line)
-      if (previousNote) {
-        this.getScoreModel().updateNote(previousNote.id, { tiedTo: note.id })
-        this.getScoreModel().updateNote(note.id, { tiedFrom: previousNote.id })
-      }
-
-      previousNote = note
-      nextBeat = fracAdd(nextBeat, durationToFraction(duration))
-    }
-
-    console.log('Split note with tie:', {
-      currentMeasure: noteParams.measure,
-      currentDurations: currentMeasureDurations,
-      nextMeasure: nextMeasureNumber,
-      nextDurations: nextMeasureDurations,
+    return this.placeSpanningNote({
+      step: noteParams.step,
+      alter: noteParams.alter,
+      octave: noteParams.octave,
+      startMeasure: noteParams.measure,
+      startBeat: noteParams.beat,
+      totalBeats: durationToBeats(noteParams.duration, noteParams.dots || 0),
+      overflowAmount,
     })
-
-    return firstNote
   }
 
   /**
