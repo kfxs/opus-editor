@@ -351,13 +351,23 @@ export class HighlightController {
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
 
+    // The clef glyph is a filled path/text near the measure's left edge.
+    this.highlightGlyphsInBBox(svg, clefEl.bbox, 'selected-clef')
+  }
+
+  /**
+   * Recolor every glyph (`<path>`/`<text>`) whose center sits inside `bbox`, skipping
+   * wide elements (the staff lines that also intersect the region). Shared by the clef
+   * and time-signature selection highlights, which scan the SVG for the narrow glyph
+   * column near a measure's left edge.
+   */
+  private highlightGlyphsInBBox(
+    svg: SVGSVGElement,
+    bbox: { x: number; y: number; width: number; height: number },
+    className: string,
+  ): void {
     const SELECTION_COLOR = '#F59E0B'
     const SELECTION_STROKE = '#D97706'
-    const bbox = clefEl.bbox
-
-    // The clef glyph is a filled path/text near the measure's left edge.
-    // Color glyphs whose center sits inside the clef bbox, skipping the wide
-    // staff lines (which also intersect this region).
     const elements = svg.querySelectorAll('path, text')
     for (const el of elements) {
       const elBBox = (el as SVGGraphicsElement).getBBox?.()
@@ -372,7 +382,7 @@ export class HighlightController {
         if (currentFill && currentFill !== 'none') svgEl.setAttribute('fill', SELECTION_COLOR)
         svgEl.style.fill = SELECTION_COLOR
         svgEl.setAttribute('stroke', SELECTION_STROKE)
-        svgEl.classList.add('selected-clef')
+        svgEl.classList.add(className)
       }
     }
   }
@@ -391,30 +401,8 @@ export class HighlightController {
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
 
-    const SELECTION_COLOR = '#F59E0B'
-    const SELECTION_STROKE = '#D97706'
-    const bbox = tsEl.bbox
-
     // The TS glyph is filled number paths/text in a narrow column after the clef.
-    // Color glyphs whose center sits inside the TS bbox, skipping wide elements
-    // (staff lines) that also intersect this region.
-    const elements = svg.querySelectorAll('path, text')
-    for (const el of elements) {
-      const elBBox = (el as SVGGraphicsElement).getBBox?.()
-      if (!elBBox) continue
-      if (elBBox.width > 40) continue // skip staff lines / wide elements
-
-      const cx = elBBox.x + elBBox.width / 2
-      const cy = elBBox.y + elBBox.height / 2
-      if (cx >= bbox.x && cx <= bbox.x + bbox.width && cy >= bbox.y && cy <= bbox.y + bbox.height) {
-        const svgEl = el as SVGElement
-        const currentFill = svgEl.getAttribute('fill')
-        if (currentFill && currentFill !== 'none') svgEl.setAttribute('fill', SELECTION_COLOR)
-        svgEl.style.fill = SELECTION_COLOR
-        svgEl.setAttribute('stroke', SELECTION_STROKE)
-        svgEl.classList.add('selected-timesig')
-      }
-    }
+    this.highlightGlyphsInBBox(svg, tsEl.bbox, 'selected-timesig')
   }
 
   applyTupletSelectionHighlight(): void {
