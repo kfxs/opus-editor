@@ -30,3 +30,10 @@ body {
   margin: 0 auto;
   text-align: center;
 }
+
+/* Suppress the focus outline left on a toolbar button after a MOUSE click (e.g. arming
+   then Esc-ing out of a dynamic leaves an ugly box). Keyboard focus still shows a ring
+   via :focus-visible, so accessibility is preserved. */
+button:focus:not(:focus-visible) {
+  outline: none;
+}

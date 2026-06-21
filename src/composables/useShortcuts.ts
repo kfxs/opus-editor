@@ -64,20 +64,23 @@ export function useShortcuts(
         clipboard.cancelArmedPaste()
         return
       }
+      // Drop focus from the last-clicked toolbar button. Without this it keeps a focus
+      // ring — and the Esc keypress itself marks it as keyboard-focused (:focus-visible),
+      // so it shows even after the armed tool is disarmed below.
+      if (typeof document !== 'undefined') (document.activeElement as HTMLElement | null)?.blur()
       // Leaving entry mode disarms the entry-only positional tools (clef / time
       // signature / dynamic) so the palette stops showing them as selected.
       palette.disarmPositionalTools()
       if (state.selectedTool === 'entry') {
+        // Entry → selection: keep the cursor note as the selected note.
         state.selectedTool = 'selection'
         selection.selectNote(state.selectedNoteId)
-        renderer.renderScore()
-      } else if (state.selectedTool === 'selection' && state.selectedNoteId) {
-        selection.selectNote(null)
-        renderer.renderScore()
       } else {
-        state.selectedTool = 'selection'
-        renderer.renderScore()
+        // Already in selection mode: Esc clears the whole current selection — a note OR
+        // a scalar element (dynamic, clef, tie, slur, accidental, tuplet, time signature).
+        selection.deselectAll()
       }
+      renderer.renderScore()
     },
     deleteSelected: () => {
       const eng = engine.value

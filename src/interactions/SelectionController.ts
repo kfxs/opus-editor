@@ -110,6 +110,17 @@ export class SelectionController {
   }
 
   /**
+   * Clear the ENTIRE selection: the multi-select set + note anchor (and the scalar
+   * sub-selections those reset), plus the dynamic and tuplet selections that
+   * `clearScalarSubSelections` doesn't cover. The Esc / deselect-everything path.
+   */
+  deselectAll(): void {
+    this.selectNote(null)
+    this.state.selectedDynamicId = null
+    this.state.selectedTupletId = null
+  }
+
+  /**
    * REPLACE the selection with a set of notes by id (e.g. the freshly pasted
    * notes). The last id becomes the anchor and the Shift pivot; the palette syncs
    * to it. Empty list clears the selection.
