@@ -15,6 +15,20 @@ import { getMeasureNotes, beatToFrac, measureCapacityQuarters } from '../utils/m
 import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
 
 /**
+ * Resolved targets for one selection-tool mousedown, computed once and shared by the
+ * per-gesture `handle*MouseDown` methods so they don't each re-hit-test.
+ */
+interface MouseDownCtx {
+  event: MouseEvent
+  engine: MusicEngine
+  registry: ElementRegistry
+  x: number
+  y: number
+  closestElement: ElementInfo | null
+  tupletAtClick: ElementInfo | null
+}
+
+/**
  * Handles all mouse interactions: clicks, drags, ghost-note preview.
  * Framework-agnostic: no Vue/React/Angular imports.
  * Call setup() after mount and teardown() before unmount.
@@ -340,17 +354,52 @@ export class MouseController {
 
     const coords = this.clientToSvg(event, svg)
     if (!coords) return
-    const { x, y } = coords
-
     const registry = engine.getElementRegistry()
     // Selection is resolved by each element's own rendered geometry, NOT by the
     // click's vertical staff band: a note/tuplet drawn far from its staff (ledger
     // lines, brackets) lands in a neighbouring band, so a band-derived measure would
     // pick the wrong line and miss the element. (Band resolution via pixelToMeasure
     // is still correct for note entry / clef tool / clef drag below.)
-    const closestElement = registry.findClosestNoteOrRest(x, y)
-    const tupletAtClick = registry.getTupletAt(x, y)
+    const ctx: MouseDownCtx = {
+      event, engine, registry,
+      x: coords.x, y: coords.y,
+      closestElement: registry.findClosestNoteOrRest(coords.x, coords.y),
+      tupletAtClick: registry.getTupletAt(coords.x, coords.y),
+    }
 
+    // Multi-select and handle-drags run BEFORE the scalar sub-selection clear below,
+    // so they keep the existing selection / selected slur intact through the gesture.
+    if (this.handleModifierMouseDown(ctx)) return
+    if (this.handleTupletMouseDown(ctx)) return
+    if (this.handleSlurHandleMouseDown(ctx)) return
+
+    this.state.selectedTupletId = null
+    this.state.selectedTieFromNoteId = null
+    this.state.selectedSlurId = null
+    this.state.selectedClefMeasure = null
+    this.state.selectedClefBeat = null
+    this.state.selectedTimeSignatureMeasure = null
+    this.state.selectedDynamicId = null
+
+    // Single-click element hit-tests, in priority order. Each returns true if it
+    // consumed the press; otherwise we fall through to the next kind.
+    if (this.handleClefMouseDown(ctx)) return
+    if (this.handleTimeSignatureMouseDown(ctx)) return
+    if (this.handleDynamicMouseDown(ctx)) return
+    if (this.handleTieMouseDown(ctx)) return
+    if (this.handleSlurMouseDown(ctx)) return
+    if (this.handleAccidentalMouseDown(ctx)) return
+    if (this.handleArticulationMouseDown(ctx)) return
+    this.handleNoteOrEmptyMouseDown(ctx)
+  }
+
+  /**
+   * Ctrl/Cmd or Shift click → build a multi-selection (notes/articulation groups
+   * only). Always "consumes" the press when a modifier is held (it never falls
+   * through to single-select), so returns true whenever additive/range is active.
+   */
+  private handleModifierMouseDown(ctx: MouseDownCtx): boolean {
+    const { event, registry, x, y, closestElement } = ctx
     // Modifier clicks build a multi-selection (Phase 1: notes only, so they ignore
     // every other element kind, never clear the set, and arm no drag — clicking
     // empty space or a non-note element is a no-op):
@@ -359,46 +408,51 @@ export class MouseController {
     //   - Ctrl/Cmd → toggle the clicked note in/out.
     const additive = event.ctrlKey || event.metaKey
     const range = event.shiftKey
-    if (additive || range) {
-      // Ctrl/Cmd-click toggles an articulation GROUP into the multi-selection (so the
-      // user can grab several articulations and delete/flip them all at once). Checked
-      // before notes since a glyph sits right on its note head; Shift-range isn't
-      // supported for articulations yet, so only `additive` arms this path.
-      if (additive) {
-        const artHit = this.articulationHit(x, y, closestElement, registry)
-        if (artHit?.noteId) {
-          this.selection.toggleArticulation(artHit.noteId)
-          console.log(`✓ Articulation group toggled in selection | noteId:${artHit.noteId} | size:${this.state.selectedItems.size}`)
-          this.render.renderScore()
-          return
-        }
-      }
-      if (closestElement && closestElement.id) {
-        const bbox = closestElement.bbox
-        const centerX = bbox.x + bbox.width / 2
-        let elementY: number
-        if (closestElement.type === 'note' && closestElement.pitch !== undefined && closestElement.measure !== undefined) {
-          const pitchY = registry.pitchToPixelY(closestElement.pitch, closestElement.measure, centerX)
-          elementY = pitchY !== null ? pitchY : bbox.y + bbox.height / 2
-        } else {
-          elementY = bbox.y + bbox.height / 2
-        }
-        const distance = Math.sqrt((x - centerX) ** 2 + (y - elementY) ** 2)
-        if (distance < 30) {
-          const typeLabel = closestElement.type === 'rest' ? 'Rest' : 'Note'
-          if (range) {
-            this.selection.extendSelectionTo(closestElement.id)
-            console.log(`✓ Range extended to ${typeLabel} | id:${closestElement.id} | size:${this.state.selectedItems.size}`)
-          } else {
-            this.selection.toggleNote(closestElement.id)
-            console.log(`✓ ${typeLabel} toggled in selection | id:${closestElement.id} | size:${this.state.selectedItems.size}`)
-          }
-          this.render.renderScore()
-        }
-      }
-      return
-    }
+    if (!(additive || range)) return false
 
+    // Ctrl/Cmd-click toggles an articulation GROUP into the multi-selection (so the
+    // user can grab several articulations and delete/flip them all at once). Checked
+    // before notes since a glyph sits right on its note head; Shift-range isn't
+    // supported for articulations yet, so only `additive` arms this path.
+    if (additive) {
+      const artHit = this.articulationHit(x, y, closestElement, registry)
+      if (artHit?.noteId) {
+        this.selection.toggleArticulation(artHit.noteId)
+        console.log(`✓ Articulation group toggled in selection | noteId:${artHit.noteId} | size:${this.state.selectedItems.size}`)
+        this.render.renderScore()
+        return true
+      }
+    }
+    if (closestElement && closestElement.id) {
+      const bbox = closestElement.bbox
+      const centerX = bbox.x + bbox.width / 2
+      let elementY: number
+      if (closestElement.type === 'note' && closestElement.pitch !== undefined && closestElement.measure !== undefined) {
+        const pitchY = registry.pitchToPixelY(closestElement.pitch, closestElement.measure, centerX)
+        elementY = pitchY !== null ? pitchY : bbox.y + bbox.height / 2
+      } else {
+        elementY = bbox.y + bbox.height / 2
+      }
+      const distance = Math.sqrt((x - centerX) ** 2 + (y - elementY) ** 2)
+      if (distance < 30) {
+        const typeLabel = closestElement.type === 'rest' ? 'Rest' : 'Note'
+        if (range) {
+          this.selection.extendSelectionTo(closestElement.id)
+          console.log(`✓ Range extended to ${typeLabel} | id:${closestElement.id} | size:${this.state.selectedItems.size}`)
+        } else {
+          this.selection.toggleNote(closestElement.id)
+          console.log(`✓ ${typeLabel} toggled in selection | id:${closestElement.id} | size:${this.state.selectedItems.size}`)
+        }
+        this.render.renderScore()
+      }
+    }
+    return true
+  }
+
+  /** Select a whole tuplet when the click is on its bracket/number (far enough from
+   *  any of its notes); falls through (returns false) when the click is near a note. */
+  private handleTupletMouseDown(ctx: MouseDownCtx): boolean {
+    const { registry, y, tupletAtClick } = ctx
     if (tupletAtClick && tupletAtClick.tupletId) {
       const tupletNotes = registry.getNotesByTupletId(tupletAtClick.tupletId)
       let minVerticalDistance = Infinity
@@ -418,96 +472,104 @@ export class MouseController {
         this.state.selectedNoteId = null
         console.log(`✓ Tuplet selected on mousedown | id:${tupletAtClick.tupletId}`)
         this.render.renderScore()
-        return
+        return true
       }
     }
+    return false
+  }
 
-    // Slur control-point handle drag — if a slur is already selected and the user
-    // grabbed one of its handle dots, arm a reshape drag. Checked BEFORE the selection
-    // clears below so the slur stays selected throughout the drag.
-    if (this.state.selectedSlurId) {
-      const handle = registry.getByType('slur-handle').find(el => {
-        const b = el.bbox
-        return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
-      })
-      if (handle?.slurId === this.state.selectedSlurId && handle.cpIndex !== undefined) {
-        const slurEl = registry.getByType('slur').find(e => e.id === handle.slurId && e.slurEndpoints && e.controlPoints)
-        if (slurEl?.slurEndpoints && slurEl.controlPoints) {
-          this.isDraggingSlurHandle = true
-          this.draggedSlurId = handle.slurId
-          this.draggedCpIndex = handle.cpIndex
-          this.draggedSlurEndpoints = slurEl.slurEndpoints
-          this.draggedSlurBaselineCps = this.cpsFromControlPoints(slurEl.controlPoints, slurEl.slurEndpoints)
-          this.slurDragChanged = false
-          this.slurDragStartTime = Date.now()
-          console.log(`Slur handle drag ready | id:${handle.slurId} cp:${handle.cpIndex}`)
-          event.preventDefault()
-          return
-        }
-      }
+  /**
+   * If a slur is already selected and the user grabbed one of its handle dots, arm a
+   * reshape or endpoint-re-anchor drag. Runs before the selection clears so the slur
+   * stays selected throughout the drag.
+   */
+  private handleSlurHandleMouseDown(ctx: MouseDownCtx): boolean {
+    const { event, registry, x, y } = ctx
+    if (!this.state.selectedSlurId) return false
 
-      // Slur endpoint (square) handle drag — re-anchor the in/out point onto a
-      // different note. Checked, like the reshape handle, before the selection clears.
-      const endHandle = registry.getByType('slur-endpoint').find(el => {
-        const b = el.bbox
-        return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
-      })
-      if (endHandle?.slurId === this.state.selectedSlurId && endHandle.endpoint) {
-        this.isDraggingSlurEndpoint = true
-        this.draggedEndpointSlurId = endHandle.slurId
-        this.draggedEndpoint = endHandle.endpoint
-        this.slurEndpointDragChanged = false
-        this.slurEndpointDragStartTime = Date.now()
-        console.log(`Slur endpoint drag ready | id:${endHandle.slurId} end:${endHandle.endpoint}`)
+    // Slur control-point handle drag.
+    const handle = registry.getByType('slur-handle').find(el => {
+      const b = el.bbox
+      return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
+    })
+    if (handle?.slurId === this.state.selectedSlurId && handle.cpIndex !== undefined) {
+      const slurEl = registry.getByType('slur').find(e => e.id === handle.slurId && e.slurEndpoints && e.controlPoints)
+      if (slurEl?.slurEndpoints && slurEl.controlPoints) {
+        this.isDraggingSlurHandle = true
+        this.draggedSlurId = handle.slurId
+        this.draggedCpIndex = handle.cpIndex
+        this.draggedSlurEndpoints = slurEl.slurEndpoints
+        this.draggedSlurBaselineCps = this.cpsFromControlPoints(slurEl.controlPoints, slurEl.slurEndpoints)
+        this.slurDragChanged = false
+        this.slurDragStartTime = Date.now()
+        console.log(`Slur handle drag ready | id:${handle.slurId} cp:${handle.cpIndex}`)
         event.preventDefault()
-        return
+        return true
       }
     }
 
-    this.state.selectedTupletId = null
-    this.state.selectedTieFromNoteId = null
-    this.state.selectedSlurId = null
-    this.state.selectedClefMeasure = null
-    this.state.selectedClefBeat = null
-    this.state.selectedTimeSignatureMeasure = null
-    this.state.selectedDynamicId = null
+    // Slur endpoint (square) handle drag — re-anchor the in/out point onto a
+    // different note.
+    const endHandle = registry.getByType('slur-endpoint').find(el => {
+      const b = el.bbox
+      return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
+    })
+    if (endHandle?.slurId === this.state.selectedSlurId && endHandle.endpoint) {
+      this.isDraggingSlurEndpoint = true
+      this.draggedEndpointSlurId = endHandle.slurId
+      this.draggedEndpoint = endHandle.endpoint
+      this.slurEndpointDragChanged = false
+      this.slurEndpointDragStartTime = Date.now()
+      console.log(`Slur endpoint drag ready | id:${endHandle.slurId} end:${endHandle.endpoint}`)
+      event.preventDefault()
+      return true
+    }
+    return false
+  }
 
+  /** Select a clef glyph for removal, and arm a horizontal drag for movable clefs. */
+  private handleClefMouseDown(ctx: MouseDownCtx): boolean {
+    const { engine, event, registry, x, y } = ctx
     // Clef change selection — click a clef glyph to select it for removal.
     const clefAt = registry.getByType('clef').find(el => {
       const b = el.bbox
       return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
     }) ?? null
-    if (clefAt?.measure !== undefined) {
-      this.selection.selectNote(null)
-      this.state.selectedClefMeasure = clefAt.measure
-      this.state.selectedClefBeat = clefAt.beat ?? 0
-      const isProtected = clefAt.measure === 1 && (clefAt.beat ?? 0) === 0
-      console.log(`✓ Clef selected | measure:${clefAt.measure} beat:${clefAt.beat ?? 0}${isProtected ? ' (measure 1 opening: change only, cannot remove)' : ''}`)
+    if (clefAt?.measure === undefined) return false
 
-      // Arm horizontal dragging for movable clefs (every clef except the big
-      // line-start one). Recover the exact Fraction beat from the model.
-      if (!clefAt.immovable) {
-        const measure = engine.getScore().measures.find(m => m.number === clefAt.measure)
-        const approxBeat = clefAt.beat ?? 0
-        const change = measure?.clefs?.find(c => Math.abs(fracToNumber(c.beat) - approxBeat) < 1e-6)
-        if (change) {
-          this.isDraggingClef = true
-          this.draggedClefMeasure = clefAt.measure
-          this.draggedClefBeat = change.beat
-          this.draggedClefStartMeasure = clefAt.measure
-          this.draggedClefStartBeat = change.beat
-          this.clefDragStartTime = Date.now()
-          // Freeze line breaks so sliding the clef re-pitches notes without
-          // reflowing the score; we settle the layout on drop.
-          engine.setLayoutFrozen(true)
-          engine.setDraggingClef({ measure: clefAt.measure, beat: change.beat })
-          event.preventDefault()
-        }
+    this.selection.selectNote(null)
+    this.state.selectedClefMeasure = clefAt.measure
+    this.state.selectedClefBeat = clefAt.beat ?? 0
+    const isProtected = clefAt.measure === 1 && (clefAt.beat ?? 0) === 0
+    console.log(`✓ Clef selected | measure:${clefAt.measure} beat:${clefAt.beat ?? 0}${isProtected ? ' (measure 1 opening: change only, cannot remove)' : ''}`)
+
+    // Arm horizontal dragging for movable clefs (every clef except the big
+    // line-start one). Recover the exact Fraction beat from the model.
+    if (!clefAt.immovable) {
+      const measure = engine.getScore().measures.find(m => m.number === clefAt.measure)
+      const approxBeat = clefAt.beat ?? 0
+      const change = measure?.clefs?.find(c => Math.abs(fracToNumber(c.beat) - approxBeat) < 1e-6)
+      if (change) {
+        this.isDraggingClef = true
+        this.draggedClefMeasure = clefAt.measure
+        this.draggedClefBeat = change.beat
+        this.draggedClefStartMeasure = clefAt.measure
+        this.draggedClefStartBeat = change.beat
+        this.clefDragStartTime = Date.now()
+        // Freeze line breaks so sliding the clef re-pitches notes without
+        // reflowing the score; we settle the layout on drop.
+        engine.setLayoutFrozen(true)
+        engine.setDraggingClef({ measure: clefAt.measure, beat: change.beat })
+        event.preventDefault()
       }
-      this.render.renderScore()
-      return
     }
+    this.render.renderScore()
+    return true
+  }
 
+  /** Select a time-signature glyph for removal. */
+  private handleTimeSignatureMouseDown(ctx: MouseDownCtx): boolean {
+    const { registry, x, y } = ctx
     // Time-signature selection — click the TS glyph to select it for removal.
     // The TS column sits to the right of the clef (no overlap), and the glyph is
     // only registered where it's drawn (measure 1 + change measures).
@@ -515,15 +577,19 @@ export class MouseController {
       const b = el.bbox
       return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
     }) ?? null
-    if (timeSigAt?.measure !== undefined) {
-      this.selection.selectNote(null)
-      this.state.selectedTimeSignatureMeasure = timeSigAt.measure
-      const isDefault = timeSigAt.measure === 1
-      console.log(`✓ Time signature selected | measure:${timeSigAt.measure}${isDefault ? ' (measure 1 default: delete hides the glyph, meter kept)' : ' (delete reverts to prior meter + rebars)'}`)
-      this.render.renderScore()
-      return
-    }
+    if (timeSigAt?.measure === undefined) return false
 
+    this.selection.selectNote(null)
+    this.state.selectedTimeSignatureMeasure = timeSigAt.measure
+    const isDefault = timeSigAt.measure === 1
+    console.log(`✓ Time signature selected | measure:${timeSigAt.measure}${isDefault ? ' (measure 1 default: delete hides the glyph, meter kept)' : ' (delete reverts to prior meter + rebars)'}`)
+    this.render.renderScore()
+    return true
+  }
+
+  /** Select a dynamic mark for removal, or open the text editor on a double-click. */
+  private handleDynamicMouseDown(ctx: MouseDownCtx): boolean {
+    const { engine, event, registry, x, y } = ctx
     // Dynamic selection — click a dynamic mark (below the staff) to select it for
     // removal. Small pad makes the small glyph/text easier to hit.
     const dynPad = 6
@@ -532,55 +598,63 @@ export class MouseController {
       return x >= b.x - dynPad && x <= b.x + b.width + dynPad
         && y >= b.y - dynPad && y <= b.y + b.height + dynPad
     }) ?? null
-    if (dynamicAt?.id) {
-      // Manual double-click detection: a second mousedown on the SAME dynamic within
-      // the threshold opens the in-canvas text editor. We can't use the native
-      // `dblclick` event here because selecting re-renders the score on every
-      // mousedown, swapping the SVG nodes — so the two clicks land on different
-      // element instances and the browser never fires dblclick.
-      const now = Date.now()
-      const isDoubleClick = this.lastDynamicDownId === dynamicAt.id
-        && (now - this.lastDynamicDownTime) < this.DOUBLE_CLICK_MS
-      this.lastDynamicDownId = dynamicAt.id
-      this.lastDynamicDownTime = now
+    if (!dynamicAt?.id) return false
 
-      if (isDoubleClick) {
-        const dyn = engine.getDynamicById(dynamicAt.id)
-        if (dyn && dyn.kind === 'text') {
-          this.lastDynamicDownId = null // consume, so a 3rd click isn't a double
-          // Stop the browser's default mousedown focus/selection — otherwise it
-          // steals focus back from the overlay right after we focus it, and typing
-          // goes nowhere.
-          event.preventDefault()
-          console.log(`✓ Editing dynamic text | id:${dynamicAt.id}`)
-          this.openTextEditor(dynamicAt.id, false)
-          return
-        }
+    // Manual double-click detection: a second mousedown on the SAME dynamic within
+    // the threshold opens the in-canvas text editor. We can't use the native
+    // `dblclick` event here because selecting re-renders the score on every
+    // mousedown, swapping the SVG nodes — so the two clicks land on different
+    // element instances and the browser never fires dblclick.
+    const now = Date.now()
+    const isDoubleClick = this.lastDynamicDownId === dynamicAt.id
+      && (now - this.lastDynamicDownTime) < this.DOUBLE_CLICK_MS
+    this.lastDynamicDownId = dynamicAt.id
+    this.lastDynamicDownTime = now
+
+    if (isDoubleClick) {
+      const dyn = engine.getDynamicById(dynamicAt.id)
+      if (dyn && dyn.kind === 'text') {
+        this.lastDynamicDownId = null // consume, so a 3rd click isn't a double
+        // Stop the browser's default mousedown focus/selection — otherwise it
+        // steals focus back from the overlay right after we focus it, and typing
+        // goes nowhere.
+        event.preventDefault()
+        console.log(`✓ Editing dynamic text | id:${dynamicAt.id}`)
+        this.openTextEditor(dynamicAt.id, false)
+        return true
       }
-
-      this.selection.selectNote(null)
-      this.state.selectedDynamicId = dynamicAt.id
-      console.log(`✓ Dynamic selected | id:${dynamicAt.id} (Delete to remove, double-click text to edit)`)
-      this.render.renderScore()
-      return
     }
 
+    this.selection.selectNote(null)
+    this.state.selectedDynamicId = dynamicAt.id
+    console.log(`✓ Dynamic selected | id:${dynamicAt.id} (Delete to remove, double-click text to edit)`)
+    this.render.renderScore()
+    return true
+  }
+
+  /** Select a tie arc for removal. */
+  private handleTieMouseDown(ctx: MouseDownCtx): boolean {
+    const { registry, x, y } = ctx
     const tiePad = 6
     const tieAt = registry.getByType('tie').find(el => {
       const b = el.bbox
       return x >= b.x - tiePad && x <= b.x + b.width + tiePad
         && y >= b.y - tiePad && y <= b.y + b.height + tiePad
     }) ?? null
-    if (tieAt?.fromNoteId) {
-      // Clear the whole note selection (the multi-select Map, not just the anchor)
-      // and any scalar sub-selections, so only the tie ends up selected.
-      this.selection.selectNote(null)
-      this.state.selectedTieFromNoteId = tieAt.fromNoteId
-      console.log(`✓ Tie selected | fromNoteId:${tieAt.fromNoteId} toNoteId:${tieAt.toNoteId} fromMeasure:${tieAt.fromMeasure} toMeasure:${tieAt.toMeasure}`)
-      this.render.renderScore()
-      return
-    }
+    if (!tieAt?.fromNoteId) return false
 
+    // Clear the whole note selection (the multi-select Map, not just the anchor)
+    // and any scalar sub-selections, so only the tie ends up selected.
+    this.selection.selectNote(null)
+    this.state.selectedTieFromNoteId = tieAt.fromNoteId
+    console.log(`✓ Tie selected | fromNoteId:${tieAt.fromNoteId} toNoteId:${tieAt.toNoteId} fromMeasure:${tieAt.fromMeasure} toMeasure:${tieAt.toMeasure}`)
+    this.render.renderScore()
+    return true
+  }
+
+  /** Select a slur arc for removal (hit-tested against the sampled curve points). */
+  private handleSlurMouseDown(ctx: MouseDownCtx): boolean {
+    const { registry, x, y } = ctx
     // Slur selection — hit-test by proximity to the ARC (sampled points), not the
     // coarse bbox rectangle (which sits over the spanned notes). Clicking near the
     // curve selects it; Delete removes the arc (never the notes).
@@ -589,39 +663,54 @@ export class MouseController {
       if (!el.points?.length) return false
       return el.points.some(p => (x - p.x) ** 2 + (y - p.y) ** 2 <= slurPad * slurPad)
     }) ?? null
-    if (slurAt?.id) {
-      this.selection.selectNote(null)
-      this.state.selectedSlurId = slurAt.id
-      console.log(`✓ Slur selected | id:${slurAt.id} (Delete to remove)`)
-      this.render.renderScore()
-      return
-    }
+    if (!slurAt?.id) return false
 
+    this.selection.selectNote(null)
+    this.state.selectedSlurId = slurAt.id
+    console.log(`✓ Slur selected | id:${slurAt.id} (Delete to remove)`)
+    this.render.renderScore()
+    return true
+  }
+
+  /** Select an accidental glyph for removal. */
+  private handleAccidentalMouseDown(ctx: MouseDownCtx): boolean {
+    const { registry, x, y } = ctx
     const accidentalAt = registry.getByType('accidental').find(el => {
       const b = el.bbox
       return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
     }) ?? null
-    if (accidentalAt?.noteId) {
-      // Clear the whole note selection (the multi-select Map drives the note
-      // highlight, not just selectedNoteId) so only the accidental shows selected.
-      this.selection.selectNote(null)
-      this.state.selectedAccidentalNoteId = accidentalAt.noteId
-      this.state.selectedAccidentalType = accidentalAt.accidentalType || null
-      console.log(`✓ Accidental selected | noteId:${accidentalAt.noteId} type:${accidentalAt.accidentalType}`)
-      this.render.renderScore()
-      return
-    }
+    if (!accidentalAt?.noteId) return false
 
+    // Clear the whole note selection (the multi-select Map drives the note
+    // highlight, not just selectedNoteId) so only the accidental shows selected.
+    this.selection.selectNote(null)
+    this.state.selectedAccidentalNoteId = accidentalAt.noteId
+    this.state.selectedAccidentalType = accidentalAt.accidentalType || null
+    console.log(`✓ Accidental selected | noteId:${accidentalAt.noteId} type:${accidentalAt.accidentalType}`)
+    this.render.renderScore()
+    return true
+  }
+
+  /** Select a whole articulation group (Sibelius-style) on the clicked note. */
+  private handleArticulationMouseDown(ctx: MouseDownCtx): boolean {
+    const { registry, x, y, closestElement } = ctx
     const articulationAt = this.articulationHit(x, y, closestElement, registry)
-    if (articulationAt?.noteId) {
-      // Sibelius-style: clicking any articulation selects the whole group on that
-      // note (all its articulations), not just the clicked glyph.
-      this.selection.selectArticulation(articulationAt.noteId)
-      console.log(`✓ Articulation group selected | noteId:${articulationAt.noteId} (clicked:${articulationAt.articulationType})`)
-      this.render.renderScore()
-      return
-    }
+    if (!articulationAt?.noteId) return false
 
+    // Sibelius-style: clicking any articulation selects the whole group on that
+    // note (all its articulations), not just the clicked glyph.
+    this.selection.selectArticulation(articulationAt.noteId)
+    console.log(`✓ Articulation group selected | noteId:${articulationAt.noteId} (clicked:${articulationAt.articulationType})`)
+    this.render.renderScore()
+    return true
+  }
+
+  /**
+   * Last resort: select the note/rest under the cursor (and arm a pitch drag for a
+   * note), or — on empty staff space — arm a pan whose tap-release clears the selection.
+   */
+  private handleNoteOrEmptyMouseDown(ctx: MouseDownCtx): void {
+    const { engine, event, registry, x, y, closestElement } = ctx
     if (closestElement && closestElement.id) {
       // Gate on the note HEAD (or rest glyph), not a wide radius: clicking the empty
       // staff space around a note — e.g. a space below it to pan — must not select it.
@@ -807,62 +896,82 @@ export class MouseController {
     const registry = engine.getElementRegistry()
     const measureNum = engine.pixelToMeasure({ x, y })
 
-    // Time-signature tool: set/change the measure's time signature (always at
-    // beat 0). Propagation + rest reconcile are handled by the engine.
-    if (this.state.selectedTimeSignature) {
-      const ts = this.state.selectedTimeSignature
-      try {
-        const changed = engine.setTimeSignature(measureNum, ts)
-        console.log(changed
-          ? `✓ Time signature set | ${ts.numerator}/${ts.denominator} at measure ${measureNum}`
-          : `Time signature unchanged at measure ${measureNum}`)
-      } catch (e) {
-        console.warn(`✗ Time signature ${ts.numerator}/${ts.denominator} rejected:`, e)
-      }
-      this.render.renderScore()
-      return
-    }
+    // Marking tools place at the click; each returns true if it consumed the click.
+    if (this.placeTimeSignatureAtClick(engine, measureNum)) return
+    if (this.placeClefAtClick(engine, x, measureNum)) return
+    if (this.placeDynamicAtClick(engine, x, measureNum)) return
 
-    // Clef tool: set/change the clef at the nearest slot boundary. A clef change
-    // anchors to a slot (beat 0 = the measure's opening clef, drawn at the
-    // barline; beat > 0 = an inline mid-measure clef before that slot).
-    if (this.state.selectedClef) {
-      const beat = this.resolveSlotBeat(engine, x, measureNum)
-      const changed = engine.setClefAt(measureNum, beat, this.state.selectedClef)
+    // No marking tool armed → note/tuplet entry.
+    this.placeNoteAtClick(engine, registry, x, y, measureNum)
+  }
+
+  /**
+   * Time-signature tool: set/change the measure's time signature (always at beat 0).
+   * Propagation + rest reconcile are handled by the engine.
+   */
+  private placeTimeSignatureAtClick(engine: MusicEngine, measureNum: number): boolean {
+    if (!this.state.selectedTimeSignature) return false
+    const ts = this.state.selectedTimeSignature
+    try {
+      const changed = engine.setTimeSignature(measureNum, ts)
       console.log(changed
-        ? `✓ Clef set | ${this.state.selectedClef} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`
-        : `Clef unchanged at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
-      this.render.renderScore()
-      return
+        ? `✓ Time signature set | ${ts.numerator}/${ts.denominator} at measure ${measureNum}`
+        : `Time signature unchanged at measure ${measureNum}`)
+    } catch (e) {
+      console.warn(`✗ Time signature ${ts.numerator}/${ts.denominator} rejected:`, e)
     }
+    this.render.renderScore()
+    return true
+  }
 
-    // Dynamics tool: place a dynamic at the nearest slot boundary. A level mark is
-    // interpreted (drives playback); the `'text'` tool drops a silent custom mark.
-    // Always placed below the staff.
-    //
-    // VOICE SEAM: `voice: 0` is the only hardcoded voice in the dynamics feature —
-    // every resolution/render/playback path already keys on `voice ?? 0` (see
-    // utils/dynamics resolveActiveLevel/resolveChordLevels, ScoreModel.addDynamic,
-    // VexFlowRenderer.attachDynamicsToSlots). When multi-voice editing lands, the
-    // ONLY change here is to source the voice from a UI selector (or the active
-    // voice) instead of the literal 0; the timeline math needs no rework.
-    if (this.state.selectedDynamic) {
-      const tool = this.state.selectedDynamic
-      const beat = this.resolveSlotBeat(engine, x, measureNum)
-      if (tool === 'text') {
-        // Custom-text mark: drop the default text. Edit it later by double-clicking
-        // the mark with the selection tool (→ MouseController.handleDoubleClick).
-        engine.addDynamic(measureNum, { beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below' })
-        console.log(`✓ Dynamic text at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
-        this.render.renderScore()
-        return
-      }
-      engine.addDynamic(measureNum, { beat, kind: 'level', level: tool, voice: 0, placement: 'below' })
-      console.log(`✓ Dynamic ${tool} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
+  /**
+   * Clef tool: set/change the clef at the nearest slot boundary. A clef change anchors
+   * to a slot (beat 0 = the measure's opening clef, drawn at the barline; beat > 0 = an
+   * inline mid-measure clef before that slot).
+   */
+  private placeClefAtClick(engine: MusicEngine, x: number, measureNum: number): boolean {
+    if (!this.state.selectedClef) return false
+    const beat = this.resolveSlotBeat(engine, x, measureNum)
+    const changed = engine.setClefAt(measureNum, beat, this.state.selectedClef)
+    console.log(changed
+      ? `✓ Clef set | ${this.state.selectedClef} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`
+      : `Clef unchanged at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
+    this.render.renderScore()
+    return true
+  }
+
+  /**
+   * Dynamics tool: place a dynamic at the nearest slot boundary. A level mark is
+   * interpreted (drives playback); the `'text'` tool drops a silent custom mark.
+   * Always placed below the staff.
+   *
+   * VOICE SEAM: `voice: 0` is the only hardcoded voice in the dynamics feature —
+   * every resolution/render/playback path already keys on `voice ?? 0` (see
+   * utils/dynamics resolveActiveLevel/resolveChordLevels, ScoreModel.addDynamic,
+   * VexFlowRenderer.attachDynamicsToSlots). When multi-voice editing lands, the
+   * ONLY change here is to source the voice from a UI selector (or the active
+   * voice) instead of the literal 0; the timeline math needs no rework.
+   */
+  private placeDynamicAtClick(engine: MusicEngine, x: number, measureNum: number): boolean {
+    if (!this.state.selectedDynamic) return false
+    const tool = this.state.selectedDynamic
+    const beat = this.resolveSlotBeat(engine, x, measureNum)
+    if (tool === 'text') {
+      // Custom-text mark: drop the default text. Edit it later by double-clicking
+      // the mark with the selection tool (→ MouseController.handleDoubleClick).
+      engine.addDynamic(measureNum, { beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below' })
+      console.log(`✓ Dynamic text at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
       this.render.renderScore()
-      return
+      return true
     }
+    engine.addDynamic(measureNum, { beat, kind: 'level', level: tool, voice: 0, placement: 'below' })
+    console.log(`✓ Dynamic ${tool} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
+    this.render.renderScore()
+    return true
+  }
 
+  /** Default click action when no marking tool is armed: enter a note or tuplet. */
+  private placeNoteAtClick(engine: MusicEngine, registry: ElementRegistry, x: number, y: number, measureNum: number): void {
     const nearestElement = registry.findNearestNoteOrRest(x, measureNum)
     const elementAt = registry.getAt(x, y)
     console.log(`Click | svg:(${x.toFixed(0)},${y.toFixed(0)}) measure:${measureNum} | nearestElement:`, nearestElement ? {
@@ -971,109 +1080,11 @@ export class MouseController {
       return
     }
 
-    if (this.isDraggingNote && this.state.selectedNoteId && this.draggedNoteOriginalPitch !== null) {
-      if (this.dragStartTime !== null) {
-        const elapsed = Date.now() - this.dragStartTime
-        if (elapsed < this.DRAG_TIME_THRESHOLD_MS) return
-      }
-
-      const score = engine.getScore()
-      let selectedNote = null
-      for (const measure of score.measures) {
-        const note = getMeasureNotes(measure).find(n => n.id === this.state.selectedNoteId)
-        if (note) { selectedNote = note; break }
-      }
-
-      if (selectedNote && !selectedNote.isRest) {
-        const measure = engine.getScore().measures.find(m => m.number === selectedNote.measure)
-        if (measure) {
-          const barQuarters = measureCapacityQuarters(measure)
-          const position = engine.pixelToPosition({ x, y }, barQuarters)
-          const cursorSpelling = position.spelling
-          const cursorMidi = spellingToMidi(cursorSpelling.step, cursorSpelling.alter, cursorSpelling.octave)
-          const noteMidi = spellingToMidi(selectedNote.step!, selectedNote.alter!, selectedNote.octave!)
-
-          if (cursorMidi !== noteMidi) {
-            console.log(`Drag pitch change | midi:${noteMidi} -> ${cursorMidi}`)
-            engine.updateNote(this.state.selectedNoteId, { step: cursorSpelling.step, alter: cursorSpelling.alter, octave: cursorSpelling.octave })
-            this.render.renderScore()
-          }
-        }
-      }
-      return
-    }
-
-    // Slur handle drag: the grabbed control point follows the cursor. Invert the
-    // renderCurve math to a cps delta, hold the other control point fixed, live-update
-    // (no undo) and re-render — the re-render redraws the handles at the new spots.
-    if (this.isDraggingSlurHandle && this.draggedSlurId && this.draggedCpIndex !== undefined
-        && this.draggedSlurEndpoints && this.draggedSlurBaselineCps) {
-      if (this.slurDragStartTime !== null && Date.now() - this.slurDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return
-      const { p0, p1, direction } = this.draggedSlurEndpoints
-      const spacing = (p1.x - p0.x) / 4
-      const dragged = this.draggedCpIndex === 0
-        ? { x: x - p0.x - spacing, y: (y - p0.y) * direction }
-        : { x: x - p1.x + spacing, y: (y - p1.y) * direction }
-      const cps: [{ x: number; y: number }, { x: number; y: number }] = this.draggedCpIndex === 0
-        ? [dragged, this.draggedSlurBaselineCps[1]]
-        : [this.draggedSlurBaselineCps[0], dragged]
-      if (engine.previewSlurShape(this.draggedSlurId, cps)) {
-        this.slurDragChanged = true
-        this.render.renderScore()
-      }
-      return
-    }
-
-    // Slur endpoint drag: snap the grabbed in/out point to the nearest note head and
-    // re-anchor live (no undo). The candidate note is tinted so it's clear where the
-    // end will land; releasing over empty space keeps the last snapped note.
-    if (this.isDraggingSlurEndpoint && this.draggedEndpointSlurId && this.draggedEndpoint) {
-      if (this.slurEndpointDragStartTime !== null
-          && Date.now() - this.slurEndpointDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return
-      const slur = engine.getSlurById(this.draggedEndpointSlurId)
-      const otherId = slur
-        ? (this.draggedEndpoint === 'start' ? slur.endNoteId : slur.startNoteId)
-        : undefined
-      const candidate = this.nearestNoteId(x, y, otherId)
-      const prevCandidate = this.state.slurEndpointCandidateNoteId
-      this.state.slurEndpointCandidateNoteId = candidate
-      if (candidate) {
-        // previewSlurEndpoint no-ops when the target is already the anchor, so this
-        // only re-renders/flags on a real move.
-        if (engine.previewSlurEndpoint(this.draggedEndpointSlurId, this.draggedEndpoint, candidate)) {
-          this.slurEndpointDragChanged = true
-          this.render.renderScore()
-        } else if (candidate !== prevCandidate) {
-          this.render.renderScore() // candidate tint moved even if anchor unchanged
-        }
-      } else if (prevCandidate) {
-        this.render.renderScore() // cleared the tint
-      }
-      return
-    }
-
-    // Clef drag: snap the cursor to a slot boundary in whatever measure it's over
-    // and relocate the clef there (raw move, across measures; undo on drop).
-    if (this.isDraggingClef && this.draggedClefMeasure !== null && this.draggedClefBeat !== null) {
-      if (this.clefDragStartTime !== null) {
-        const elapsed = Date.now() - this.clefDragStartTime
-        if (elapsed < this.DRAG_TIME_THRESHOLD_MS) return
-      }
-      const targetMeasure = engine.pixelToMeasure({ x, y })
-      const targetBeat = this.resolveSlotBeat(engine, x, targetMeasure)
-      if (targetMeasure !== this.draggedClefMeasure || !fracEq(targetBeat, this.draggedClefBeat)) {
-        if (engine.moveClef(this.draggedClefMeasure, this.draggedClefBeat, targetMeasure, targetBeat)) {
-          this.draggedClefMeasure = targetMeasure
-          this.draggedClefBeat = targetBeat
-          this.state.selectedClefMeasure = targetMeasure
-          this.state.selectedClefBeat = fracToNumber(targetBeat)
-          engine.setDraggingClef({ measure: targetMeasure, beat: targetBeat })
-          console.log(`Clef drag | measure:${targetMeasure} beat:${fracToNumber(targetBeat)}`)
-          this.render.renderScore()
-        }
-      }
-      return
-    }
+    // Live drag gestures — each returns true if it owns the move.
+    if (this.handleNoteDrag(engine, x, y)) return
+    if (this.handleSlurHandleDrag(engine, x, y)) return
+    if (this.handleSlurEndpointDrag(engine, x, y)) return
+    if (this.handleClefDrag(engine, x, y)) return
 
     // A hand/grab pan is armed: bail before the ghost/preview logic. The pan itself is
     // driven by the document-level handlers (handleDocPanMove) so it keeps working when
@@ -1088,6 +1099,133 @@ export class MouseController {
     if (now - this.lastPreviewRender < this.PREVIEW_THROTTLE_MS) return
     this.lastPreviewRender = now
 
+    this.renderToolGhost(x, y)
+  }
+
+  /** Note pitch drag: the selected note follows the cursor's pitch (after a small time
+   *  threshold so a click doesn't nudge it). Returns true while a note drag is active. */
+  private handleNoteDrag(engine: MusicEngine, x: number, y: number): boolean {
+    if (!(this.isDraggingNote && this.state.selectedNoteId && this.draggedNoteOriginalPitch !== null)) return false
+    if (this.dragStartTime !== null) {
+      const elapsed = Date.now() - this.dragStartTime
+      if (elapsed < this.DRAG_TIME_THRESHOLD_MS) return true
+    }
+
+    const score = engine.getScore()
+    let selectedNote = null
+    for (const measure of score.measures) {
+      const note = getMeasureNotes(measure).find(n => n.id === this.state.selectedNoteId)
+      if (note) { selectedNote = note; break }
+    }
+
+    if (selectedNote && !selectedNote.isRest) {
+      const measure = engine.getScore().measures.find(m => m.number === selectedNote.measure)
+      if (measure) {
+        const barQuarters = measureCapacityQuarters(measure)
+        const position = engine.pixelToPosition({ x, y }, barQuarters)
+        const cursorSpelling = position.spelling
+        const cursorMidi = spellingToMidi(cursorSpelling.step, cursorSpelling.alter, cursorSpelling.octave)
+        const noteMidi = spellingToMidi(selectedNote.step!, selectedNote.alter!, selectedNote.octave!)
+
+        if (cursorMidi !== noteMidi) {
+          console.log(`Drag pitch change | midi:${noteMidi} -> ${cursorMidi}`)
+          engine.updateNote(this.state.selectedNoteId, { step: cursorSpelling.step, alter: cursorSpelling.alter, octave: cursorSpelling.octave })
+          this.render.renderScore()
+        }
+      }
+    }
+    return true
+  }
+
+  /**
+   * Slur handle drag: the grabbed control point follows the cursor. Invert the
+   * renderCurve math to a cps delta, hold the other control point fixed, live-update
+   * (no undo) and re-render — the re-render redraws the handles at the new spots.
+   * Returns true while a slur-handle drag is active.
+   */
+  private handleSlurHandleDrag(engine: MusicEngine, x: number, y: number): boolean {
+    if (!(this.isDraggingSlurHandle && this.draggedSlurId && this.draggedCpIndex !== undefined
+        && this.draggedSlurEndpoints && this.draggedSlurBaselineCps)) return false
+    if (this.slurDragStartTime !== null && Date.now() - this.slurDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
+    const { p0, p1, direction } = this.draggedSlurEndpoints
+    const spacing = (p1.x - p0.x) / 4
+    const dragged = this.draggedCpIndex === 0
+      ? { x: x - p0.x - spacing, y: (y - p0.y) * direction }
+      : { x: x - p1.x + spacing, y: (y - p1.y) * direction }
+    const cps: [{ x: number; y: number }, { x: number; y: number }] = this.draggedCpIndex === 0
+      ? [dragged, this.draggedSlurBaselineCps[1]]
+      : [this.draggedSlurBaselineCps[0], dragged]
+    if (engine.previewSlurShape(this.draggedSlurId, cps)) {
+      this.slurDragChanged = true
+      this.render.renderScore()
+    }
+    return true
+  }
+
+  /**
+   * Slur endpoint drag: snap the grabbed in/out point to the nearest note head and
+   * re-anchor live (no undo). The candidate note is tinted so it's clear where the end
+   * will land; releasing over empty space keeps the last snapped note. Returns true
+   * while a slur-endpoint drag is active.
+   */
+  private handleSlurEndpointDrag(engine: MusicEngine, x: number, y: number): boolean {
+    if (!(this.isDraggingSlurEndpoint && this.draggedEndpointSlurId && this.draggedEndpoint)) return false
+    if (this.slurEndpointDragStartTime !== null
+        && Date.now() - this.slurEndpointDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
+    const slur = engine.getSlurById(this.draggedEndpointSlurId)
+    const otherId = slur
+      ? (this.draggedEndpoint === 'start' ? slur.endNoteId : slur.startNoteId)
+      : undefined
+    const candidate = this.nearestNoteId(x, y, otherId)
+    const prevCandidate = this.state.slurEndpointCandidateNoteId
+    this.state.slurEndpointCandidateNoteId = candidate
+    if (candidate) {
+      // previewSlurEndpoint no-ops when the target is already the anchor, so this
+      // only re-renders/flags on a real move.
+      if (engine.previewSlurEndpoint(this.draggedEndpointSlurId, this.draggedEndpoint, candidate)) {
+        this.slurEndpointDragChanged = true
+        this.render.renderScore()
+      } else if (candidate !== prevCandidate) {
+        this.render.renderScore() // candidate tint moved even if anchor unchanged
+      }
+    } else if (prevCandidate) {
+      this.render.renderScore() // cleared the tint
+    }
+    return true
+  }
+
+  /**
+   * Clef drag: snap the cursor to a slot boundary in whatever measure it's over and
+   * relocate the clef there (raw move, across measures; undo on drop). Returns true
+   * while a clef drag is active.
+   */
+  private handleClefDrag(engine: MusicEngine, x: number, y: number): boolean {
+    if (!(this.isDraggingClef && this.draggedClefMeasure !== null && this.draggedClefBeat !== null)) return false
+    if (this.clefDragStartTime !== null) {
+      const elapsed = Date.now() - this.clefDragStartTime
+      if (elapsed < this.DRAG_TIME_THRESHOLD_MS) return true
+    }
+    const targetMeasure = engine.pixelToMeasure({ x, y })
+    const targetBeat = this.resolveSlotBeat(engine, x, targetMeasure)
+    if (targetMeasure !== this.draggedClefMeasure || !fracEq(targetBeat, this.draggedClefBeat)) {
+      if (engine.moveClef(this.draggedClefMeasure, this.draggedClefBeat, targetMeasure, targetBeat)) {
+        this.draggedClefMeasure = targetMeasure
+        this.draggedClefBeat = targetBeat
+        this.state.selectedClefMeasure = targetMeasure
+        this.state.selectedClefBeat = fracToNumber(targetBeat)
+        engine.setDraggingClef({ measure: targetMeasure, beat: targetBeat })
+        console.log(`Clef drag | measure:${targetMeasure} beat:${fracToNumber(targetBeat)}`)
+        this.render.renderScore()
+      }
+    }
+    return true
+  }
+
+  /**
+   * Hover preview when an entry/marking tool is armed: a ghost clef/time-signature/
+   * dynamic following the cursor (hiding the keyboard cursor), else a ghost note.
+   */
+  private renderToolGhost(x: number, y: number): void {
     // Clef tool armed: show a ghost clef at the hovered measure instead of a
     // ghost note, and hide the keyboard cursor.
     if (this.state.selectedClef) {
