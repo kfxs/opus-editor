@@ -171,35 +171,8 @@ export class NoteEntryCoordinator {
     }
     const barQuarters = measureCapacityQuarters(measure)
 
-    // Check if click is over an invalid element (clef, time signature, barline)
-    const elementAtCursor = registry.getAt(coords.x, coords.y)
-    if (elementAtCursor) {
-      if (INVALID_NOTE_ENTRY_TYPES.includes(elementAtCursor.type)) {
-        console.log(`✗ Invalid: clicked on ${elementAtCursor.type}`)
-        return null
-      }
-    }
-
-    // Check if click is within valid staff area (X range)
-    const staffGeometry = registry.getStaffGeometry(measureNumber)
-    if (staffGeometry) {
-      if (coords.x < staffGeometry.noteStartX || coords.x > staffGeometry.noteEndX) {
-        console.log('✗ Invalid: X outside note entry area')
-        return null
-      }
-
-      // Check if click is within valid Y range (reasonable pitch range)
-      // Allow ~2 octaves above/below staff (staff lines span ~4 lines = 40px typically)
-      const topLineY = staffGeometry.lineYPositions[0]
-      const bottomLineY = staffGeometry.lineYPositions[4]
-      const staffHeight = bottomLineY - topLineY
-      const maxDistance = staffHeight * 2  // Allow 2x staff height above/below
-
-      if (coords.y < topLineY - maxDistance || coords.y > bottomLineY + maxDistance) {
-        console.log(`✗ Invalid: Y outside valid range (y=${coords.y.toFixed(0)}, valid=${(topLineY - maxDistance).toFixed(0)}-${(bottomLineY + maxDistance).toFixed(0)})`)
-        return null
-      }
-    }
+    // Reject clicks on invalid targets or outside the staff's note-entry area.
+    if (!this.isValidEntryClick(coords, measureNumber)) return null
 
     // Get natural pitch spelling from Y coordinate, then apply accidental from palette
     const naturalSpelling = registry.pixelYToPitch(coords.y, measureNumber)
@@ -317,55 +290,14 @@ export class NoteEntryCoordinator {
       this.getScoreModel().getNotesInMeasure(measureNumber)
     )
 
-    // Find and delete notes that would be overwritten by this note
-    // This includes: notes within the duration range AND same-pitch notes at same beat (replacement)
-    const notesToOverwrite = this.findNotesToOverwrite(measureNumber, finalBeat, duration, pitchMidi, false, tupletAtBeat)
-    if (notesToOverwrite.length > 0) {
-      console.log('Overwriting notes:', notesToOverwrite.map(n => {
-        const a = n.alter === 2 ? '##' : n.alter === 1 ? '#' : n.alter === -1 ? 'b' : n.alter === -2 ? 'bb' : ''
-        return `${n.step}${a}${n.octave}@beat:${fracToNumber(n.beat).toFixed(3)}`
-      }).join(', '))
-      for (const noteToDelete of notesToOverwrite) {
-        this.getScoreModel().deleteNote(noteToDelete.id)
-      }
-    }
+    // Delete anything the new note overwrites (range/same-pitch replacements, plus
+    // tuplet items inside a multi-slot tuplet note's actual-time span).
+    this.applyEntryOverwrites(measureNumber, finalBeat, duration, dots, pitchMidi, tupletId, tupletAtBeat)
 
-    // For tuplet notes that span multiple slots (e.g., quarter note in eighth triplet),
-    // delete any existing tuplet notes/rests that fall within the note's actual time range
-    if (tupletId && tupletAtBeat) {
-      const actualNoteDurationFrac = tupletNoteDurationFraction(duration, dots ?? 0, tupletAtBeat.numNotes, tupletAtBeat.notesOccupied)
-      const noteEndBeat = fracAdd(finalBeat, actualNoteDurationFrac)
-
-      const tupletItemsToDelete = this.getScoreModel().getNotesInMeasure(measureNumber)
-        .filter(n =>
-          n.tupletId === tupletId &&
-          fracGt(n.beat, finalBeat) && // After the note's start (exclusive)
-          fracLt(n.beat, noteEndBeat)  // Before the note's end (exclusive)
-        )
-
-      for (const itemToDelete of tupletItemsToDelete) {
-        this.getScoreModel().deleteNote(itemToDelete.id)
-      }
-    }
-
-    // Handle overflow by splitting note across bar line with tie
-    // SKIP for tuplet notes - tuplets have shorter actual durations and are designed to fit within their span
+    // Handle overflow by splitting the note across the bar line with a tie.
+    // SKIP for tuplet notes — tuplets have shorter actual durations, designed to fit their span.
     if (overflow.willOverflow && overflow.overflowAmount && !tupletId) {
-      // Also update existing chord notes at the same beat to have the same duration and ties
-      // Skip notes that are already tied (already split) to avoid creating duplicates
-      const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
-        .filter(n => !n.isRest && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi && !n.tiedTo)
-
-      // Split each existing chord note with ties
-      for (const chordNote of existingChordNotes) {
-        this.splitExistingNoteWithTie(chordNote, duration, overflow.overflowAmount, dots)
-      }
-
-      const splitNote = this.addSplitNoteWithTie(noteParams, overflow.overflowAmount)
-      if (splitNote) {
-        this.onCommit(`Add ${midiToNoteName(pitchMidi)}`)
-      }
-      return splitNote
+      return this.placeSplitNote(noteParams, overflow.overflowAmount, measureNumber, finalBeat, pitchMidi, duration, dots)
     }
 
     // For non-overflow cases, update existing chord notes to match duration
@@ -398,6 +330,114 @@ export class NoteEntryCoordinator {
     }
 
     return note
+  }
+
+  /**
+   * Reject a note-entry click on an invalid target (clef/TS/barline) or outside the
+   * staff's note-entry X/Y area. Returns false (with a log) when no note can be placed.
+   */
+  private isValidEntryClick(coords: PixelCoordinates, measureNumber: number): boolean {
+    const registry = this.elementRegistry
+
+    // Check if click is over an invalid element (clef, time signature, barline)
+    const elementAtCursor = registry.getAt(coords.x, coords.y)
+    if (elementAtCursor && INVALID_NOTE_ENTRY_TYPES.includes(elementAtCursor.type)) {
+      console.log(`✗ Invalid: clicked on ${elementAtCursor.type}`)
+      return false
+    }
+
+    // Check if click is within valid staff area (X range)
+    const staffGeometry = registry.getStaffGeometry(measureNumber)
+    if (staffGeometry) {
+      if (coords.x < staffGeometry.noteStartX || coords.x > staffGeometry.noteEndX) {
+        console.log('✗ Invalid: X outside note entry area')
+        return false
+      }
+
+      // Check if click is within valid Y range (reasonable pitch range)
+      // Allow ~2 octaves above/below staff (staff lines span ~4 lines = 40px typically)
+      const topLineY = staffGeometry.lineYPositions[0]
+      const bottomLineY = staffGeometry.lineYPositions[4]
+      const staffHeight = bottomLineY - topLineY
+      const maxDistance = staffHeight * 2  // Allow 2x staff height above/below
+
+      if (coords.y < topLineY - maxDistance || coords.y > bottomLineY + maxDistance) {
+        console.log(`✗ Invalid: Y outside valid range (y=${coords.y.toFixed(0)}, valid=${(topLineY - maxDistance).toFixed(0)}-${(bottomLineY + maxDistance).toFixed(0)})`)
+        return false
+      }
+    }
+    return true
+  }
+
+  /**
+   * Delete everything the incoming note overwrites: notes in its duration range or a
+   * same-pitch note at its beat (replacement), plus — for a multi-slot tuplet note —
+   * any tuplet items inside its actual-time span.
+   */
+  private applyEntryOverwrites(
+    measureNumber: number,
+    finalBeat: Fraction,
+    duration: NoteParams['duration'],
+    dots: number | undefined,
+    pitchMidi: number,
+    tupletId: string | undefined,
+    tupletAtBeat: Tuplet | undefined,
+  ): void {
+    const notesToOverwrite = this.findNotesToOverwrite(measureNumber, finalBeat, duration, pitchMidi, false, tupletAtBeat)
+    if (notesToOverwrite.length > 0) {
+      console.log('Overwriting notes:', notesToOverwrite.map(n => {
+        const a = n.alter === 2 ? '##' : n.alter === 1 ? '#' : n.alter === -1 ? 'b' : n.alter === -2 ? 'bb' : ''
+        return `${n.step}${a}${n.octave}@beat:${fracToNumber(n.beat).toFixed(3)}`
+      }).join(', '))
+      for (const noteToDelete of notesToOverwrite) {
+        this.getScoreModel().deleteNote(noteToDelete.id)
+      }
+    }
+
+    // For tuplet notes that span multiple slots (e.g., quarter note in eighth triplet),
+    // delete any existing tuplet notes/rests that fall within the note's actual time range
+    if (tupletId && tupletAtBeat) {
+      const actualNoteDurationFrac = tupletNoteDurationFraction(duration, dots ?? 0, tupletAtBeat.numNotes, tupletAtBeat.notesOccupied)
+      const noteEndBeat = fracAdd(finalBeat, actualNoteDurationFrac)
+
+      const tupletItemsToDelete = this.getScoreModel().getNotesInMeasure(measureNumber)
+        .filter(n =>
+          n.tupletId === tupletId &&
+          fracGt(n.beat, finalBeat) && // After the note's start (exclusive)
+          fracLt(n.beat, noteEndBeat)  // Before the note's end (exclusive)
+        )
+
+      for (const itemToDelete of tupletItemsToDelete) {
+        this.getScoreModel().deleteNote(itemToDelete.id)
+      }
+    }
+  }
+
+  /**
+   * Overflow path: split the new note across the barline with a tie, and split any
+   * same-beat chord notes too (skipping ones already tied, to avoid duplicates).
+   * Records one undo entry. Returns the first (current-measure) note, or null.
+   */
+  private placeSplitNote(
+    noteParams: NoteParams,
+    overflowAmount: number,
+    measureNumber: number,
+    finalBeat: Fraction,
+    pitchMidi: number,
+    duration: NoteParams['duration'],
+    dots: number | undefined,
+  ): Note | null {
+    const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
+      .filter(n => !n.isRest && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi && !n.tiedTo)
+    for (const chordNote of existingChordNotes) {
+      this.splitExistingNoteWithTie(chordNote, duration, overflowAmount, dots)
+    }
+
+    const splitNote = this.addSplitNoteWithTie(noteParams, overflowAmount)
+    if (splitNote) {
+      this.onCommit(`Add ${midiToNoteName(pitchMidi)}`)
+    }
+    return splitNote
   }
 
   // ==================== Public: Tuplet Entry ====================
