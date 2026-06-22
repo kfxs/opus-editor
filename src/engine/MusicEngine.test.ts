@@ -712,3 +712,59 @@ describe('MusicEngine — slur cleanup when an anchored note is deleted', () => 
     expect(slurs[0].endNoteId).toBe(b.id)
   })
 })
+
+describe('MusicEngine — multi-voice (Phase 1)', () => {
+  let engine: MusicEngine
+
+  beforeEach(() => {
+    engine = makeEngine()
+  })
+
+  it('entering a voice-2 note at an occupied beat does not clobber voice 1', () => {
+    const v1 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const v2 = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+
+    // Both notes survive as independent slots (not merged into one chord).
+    expect(engine.getNote(v1.id)?.step).toBe('C')
+    expect(engine.getNote(v2.id)?.step).toBe('E')
+
+    const m1 = engine.getScore().measures[0]
+    const chordsAtBeat0 = m1.slots.filter(s => s.type === 'chord' && fracToNumber(s.beat) === 0)
+    expect(chordsAtBeat0).toHaveLength(2)
+
+    // The second voice's stream is rest-filled for its remaining 3 beats.
+    const v2Rests = m1.slots.filter(s => s.type === 'rest' && (s.voice ?? 0) === 1)
+    expect(v2Rests.length).toBeGreaterThan(0)
+    // Voice 1 keeps its own rests too (independent stream).
+    const v1Rests = m1.slots.filter(s => s.type === 'rest' && (s.voice ?? 0) === 0)
+    expect(v1Rests.length).toBeGreaterThan(0)
+  })
+
+  it('deleting the last note of voice 2 collapses the bar back to a single voice', () => {
+    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+    const v2 = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+
+    engine.deleteNote(v2.id)
+
+    const m1 = engine.getScore().measures[0]
+    const voice2Slots = m1.slots.filter(s => (s.voice ?? 0) === 1)
+    expect(voice2Slots).toHaveLength(0) // collapsed — no leftover voice-2 rests
+    // Voice 1 is untouched.
+    expect(m1.slots.some(s => s.type === 'chord' && (s.voice ?? 0) === 0)).toBe(true)
+  })
+
+  it('deleting one of several voice-2 notes keeps voice 2 (rest replacement, no collapse)', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    addNote(engine, { step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+
+    engine.deleteNote(a.id)
+
+    const m1 = engine.getScore().measures[0]
+    // Voice 2 still has the surviving note...
+    const v2Chords = m1.slots.filter(s => s.type === 'chord' && (s.voice ?? 0) === 1)
+    expect(v2Chords).toHaveLength(1)
+    // ...and the deleted note became a voice-2 rest (stream stays full).
+    const v2Rests = m1.slots.filter(s => s.type === 'rest' && (s.voice ?? 0) === 1)
+    expect(v2Rests.length).toBeGreaterThan(0)
+  })
+})

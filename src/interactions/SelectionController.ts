@@ -118,6 +118,8 @@ export class SelectionController {
     this.selectNote(null)
     this.state.selectedDynamicId = null
     this.state.selectedTupletId = null
+    // Clearing the selection returns entry to the default voice 1 (Sibelius-style).
+    this.state.activeVoice = 1
   }
 
   /**

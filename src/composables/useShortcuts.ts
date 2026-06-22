@@ -48,6 +48,8 @@ export function useShortcuts(
       state.selectedTool = 'entry'
       renderer.renderScore()
     },
+    setActiveVoice1: () => palette.setActiveVoice(1),
+    setActiveVoice2: () => palette.setActiveVoice(2),
     copySelection: () => clipboard.copy(),
     pasteClipboard: () => clipboard.paste(),
     zoomIn: () => viewport.zoomToStop(1, viewportCenter()),
@@ -71,6 +73,9 @@ export function useShortcuts(
       // Leaving entry mode disarms the entry-only positional tools (clef / time
       // signature / dynamic) so the palette stops showing them as selected.
       palette.disarmPositionalTools()
+      // Esc returns entry to the default voice 1 (Sibelius-style); the selection-mode
+      // branch resets it via deselectAll() below, the entry branch needs it explicitly.
+      state.activeVoice = 1
       if (state.selectedTool === 'entry') {
         // Entry → selection: keep the cursor note as the selected note.
         state.selectedTool = 'selection'

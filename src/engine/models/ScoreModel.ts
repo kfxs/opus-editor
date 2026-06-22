@@ -1843,6 +1843,30 @@ export class ScoreModel {
   }
 
   /**
+   * Drop any secondary voice (model voice ≠ 0) in a measure that has no notes left
+   * — only rests — so the bar reverts to a single stream. Voice 0 is the primary
+   * stream and is never collapsed (an empty bar stays one voice of rests). Called
+   * after deletions; a no-op for single-voice bars.
+   */
+  collapseEmptyVoices(measureNumber: number): void {
+    const measure = this.getMeasure(measureNumber)
+    if (!measure) return
+
+    const secondaryVoices = new Set<number>()
+    for (const slot of measure.slots) {
+      const v = slot.voice ?? 0
+      if (v !== 0) secondaryVoices.add(v)
+    }
+
+    for (const voice of secondaryVoices) {
+      const hasNote = measure.slots.some(s => (s.voice ?? 0) === voice && s.type === 'chord')
+      if (!hasNote) {
+        measure.slots = measure.slots.filter(s => (s.voice ?? 0) !== voice)
+      }
+    }
+  }
+
+  /**
    * Get all notes in the score (as flat Note objects for backward compat)
    */
   getAllNotes(): Note[] {

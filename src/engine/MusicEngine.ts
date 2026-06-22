@@ -496,9 +496,10 @@ export class MusicEngine {
     accidental?: Accidental,
     dots?: number,
     articulations?: ArticulationType[],
-    beam?: NoteParams['beam']
+    beam?: NoteParams['beam'],
+    voice: NoteParams['voice'] = 0
   ): Note | null {
-    return this.noteEntryCoordinator.addNoteAtPosition(coords, duration, accidental, dots, articulations, beam)
+    return this.noteEntryCoordinator.addNoteAtPosition(coords, duration, accidental, dots, articulations, beam, voice)
   }
 
   addRest(duration: NoteParams['duration'], measure: number, beat: Fraction): Note {
@@ -510,9 +511,9 @@ export class MusicEngine {
   // --- Mutation ---
 
   /** Returns all non-rest notes at the given beat in a measure (chord members). */
-  private getChordNotesAt(measureNumber: number, beat: Fraction): Note[] {
+  private getChordNotesAt(measureNumber: number, beat: Fraction, voice: number = 0): Note[] {
     return this.scoreModel.getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && fracEq(n.beat, beat))
+      .filter(n => !n.isRest && (n.voice ?? 0) === voice && fracEq(n.beat, beat))
   }
 
   /**
@@ -794,7 +795,7 @@ export class MusicEngine {
       : 'Delete rest'
 
     // Check if this note is part of a chord (multiple notes at same beat, same measure)
-    const notesAtSameBeat = this.getChordNotesAt(note.measure, note.beat)
+    const notesAtSameBeat = this.getChordNotesAt(note.measure, note.beat, note.voice ?? 0)
     const isPartOfChord = notesAtSameBeat.length > 1
 
     // Save the tiedFrom source before deletion clears it.
@@ -819,6 +820,7 @@ export class MusicEngine {
         isRest: true,
         dots: note.dots,
         tupletId: note.tupletId, // Preserve tuplet membership
+        ...(note.voice && { voice: note.voice }), // keep the rest in the note's own voice
       })
 
       // Re-link the source tie to the new rest so the tie arc is preserved
@@ -843,6 +845,10 @@ export class MusicEngine {
       if (tuplet) this.scoreModel.refillTupletRemainder(note.measure, tuplet)
       this.reanchorSlurs(noteId, null)
     }
+
+    // If that deletion emptied a secondary voice (no notes left, only rests), drop it
+    // so the bar reverts to a single voice (Sibelius-style collapse).
+    if (result) this.scoreModel.collapseEmptyVoices(note.measure)
 
     this.playbackEngine.setScore(this.scoreModel.getScore())
     if (result) {
@@ -996,7 +1002,8 @@ export class MusicEngine {
     duration: NoteParams['duration'],
     accidental?: Accidental,
     dots?: number,
-    articulations?: ArticulationType[]
+    articulations?: ArticulationType[],
+    ghostColor?: { fill: string; stroke: string }
   ): boolean {
     const measure = this.scoreModel.getMeasure(1)
     if (!measure) {
@@ -1050,6 +1057,7 @@ export class MusicEngine {
       rawY: coords.y,
       ...(dots && { dots }),
       ...(articulations?.length && { articulations }),
+      ...(ghostColor && { fillColor: ghostColor.fill, strokeColor: ghostColor.stroke }),
     }
 
     // Pass raw cursor coordinates for smooth visual positioning

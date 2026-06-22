@@ -211,12 +211,15 @@ export class VexFlowRenderer {
    * @param clef - Clef type for middle line reference
    * @returns VexFlow stem direction value (1 = UP, -1 = DOWN)
    */
-  private calculateBeamGroupStemDirection(slots: ChordRest[], clef: Clef = 'treble'): number {
+  private calculateBeamGroupStemDirection(slots: ChordRest[], clef: Clef = 'treble', forcedStemDirection?: number): number {
     // Explicit override on any note in the group takes priority over pitch calculation
     for (const slot of slots) {
       if (slot.type === 'chord' && slot.stemDirection === 'up') return 1
       if (slot.type === 'chord' && slot.stemDirection === 'down') return -1
     }
+
+    // Multi-voice default (V1 up / V2 down) wins over the pitch calculation.
+    if (forcedStemDirection !== undefined) return forcedStemDirection
 
     // No override — use the pitch furthest from the middle line
     const middleDiatonic = middleLineDiatonicPos(clef)
@@ -379,45 +382,73 @@ export class VexFlowRenderer {
     const clefSegments: ClefSegment[] = [{ fromX: x, clef }]
 
     if (measure.slots.length > 0) {
-      const sortedSlots = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))
-      // notesOnly: one StaveNote per slot (used for beams, tuplets, registration).
-      const staveNotes = createStaveNotesFromSlots(sortedSlots, clefForBeat)
+      const sortedAll = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))
+
+      // Group slots by model voice (0 = primary). With more than one voice, engrave
+      // them as independent streams (Sibelius-style): V1 (voice 0) stems up, V2
+      // (voice 1) stems down, and rests are pushed apart so they don't collide.
+      const REST_LINE_SHIFT = 2
+      const voiceIds = [...new Set(sortedAll.map(s => s.voice ?? 0))].sort((a, b) => a - b)
+      const multiVoice = voiceIds.length > 1
+      const groups = voiceIds.map(v => {
+        const slots = sortedAll.filter(s => (s.voice ?? 0) === v)
+        const forcedStem = multiVoice ? (v === 0 ? 1 : -1) : undefined
+        const restShift = multiVoice ? (v === 0 ? REST_LINE_SHIFT : -REST_LINE_SHIFT) : 0
+        // notesOnly: one StaveNote per slot (used for beams, tuplets, registration).
+        const staveNotes = createStaveNotesFromSlots(slots, clefForBeat, forcedStem, restShift)
+        return { voice: v, slots, staveNotes, forcedStem }
+      })
+
+      // Combined parallel arrays (group order) for the once-per-measure passes that
+      // already key on voice / tupletId internally — dynamics, tuplets, registration.
+      const sortedSlots = groups.flatMap(g => g.slots)
+      const staveNotes = groups.flatMap(g => g.staveNotes)
 
       // Attach dynamics as Annotation modifiers BEFORE formatting so they reserve
       // vertical space and stack with articulations. Co-located marks (stacked at
       // one beat) come back as id-groups, repositioned onto one row after drawing.
       const dynamicGroups = attachDynamicsToSlots(pass, sortedSlots, staveNotes, measure)
 
-      // Tuplets must be created BEFORE adding notes to voice — VexFlow adjusts tick values
+      // Tuplets must be created BEFORE adding notes to voice — VexFlow adjusts tick
+      // values. A tuplet belongs to one voice, so grouping by tupletId is voice-safe.
       const { vexTuplets, tupletStaveNoteMap } = this.buildVexTuplets(sortedSlots, staveNotes, measure, clef)
 
-      // tickables: notesOnly + inline ClefNotes interleaved at change boundaries.
-      // ClefNotes ignore ticks, so the voice tick total still matches the notes.
-      const { tickables, clefNoteByBeat } = this.interleaveClefNotes(sortedSlots, staveNotes, midChanges)
-
       const meter = getMeterInfo(measure.timeSignature)
-      // VOICE SCAFFOLDING: all slots render in a single VexFlow voice today (only
-      // voice 0 is populated). When multi-voice editing lands, group slots by
-      // `voice ?? 0` and build one Voice per group, all sharing this numBeats/
-      // beatValue (so Formatter.joinVoices won't TickMismatch), then format and
-      // draw them together. The model layer (fill/collision) is already per-voice.
-      const voice = new Voice({
-        numBeats: measure.timeSignature.numerator,
-        beatValue: measure.timeSignature.denominator,
-      }).setMode(chooseVoiceMode(sortedSlots, measureCapacityFrac(measure)))
+      const capacity = measureCapacityFrac(measure)
+
+      // One VexFlow Voice per group. Mid-measure clef glyphs are staff-wide, so only
+      // the primary voice carries the inline ClefNotes (they're tickless, so the
+      // voices still share a tick total and Formatter.joinVoices won't mismatch).
+      const built = groups.map((g, gi) => {
+        let tickables: (StaveNote | ClefNote)[]
+        let clefNoteByBeat: Array<{ beat: Fraction; clef: Clef; clefNote: ClefNote }> = []
+        if (gi === 0) {
+          const r = this.interleaveClefNotes(g.slots, g.staveNotes, midChanges)
+          tickables = r.tickables
+          clefNoteByBeat = r.clefNoteByBeat
+        } else {
+          tickables = g.staveNotes
+        }
+        const voice = new Voice({
+          numBeats: measure.timeSignature.numerator,
+          beatValue: measure.timeSignature.denominator,
+        }).setMode(chooseVoiceMode(g.slots, capacity))
+        voice.addTickables(tickables)
+        const beams = this.buildBeams(g.staveNotes, g.slots, meter, clefForBeat, g.forcedStem)
+        return { voice, beams, clefNoteByBeat }
+      })
 
       try {
-        voice.addTickables(tickables)
-
-        const beams = this.buildBeams(staveNotes, sortedSlots, meter, clefForBeat)
-
+        const vexVoices = built.map(b => b.voice)
         const noteAreaWidth = stave.getNoteEndX() - stave.getNoteStartX()
         const formatWidth = Math.max(noteAreaWidth - 15, 50)
-        new Formatter().joinVoices([voice]).format([voice], formatWidth)
-        voice.draw(this.context, stave)
+        new Formatter().joinVoices(vexVoices).format(vexVoices, formatWidth)
 
-        for (const beam of beams) {
-          beam.setContext(this.context).draw()
+        for (const b of built) {
+          b.voice.draw(this.context, stave)
+          for (const beam of b.beams) {
+            beam.setContext(this.context).draw()
+          }
         }
 
         this.drawAndRegisterTuplets(vexTuplets, tupletStaveNoteMap, measure)
@@ -426,11 +457,14 @@ export class VexFlowRenderer {
         // Co-located dynamics: reposition onto one row (placement order, newest
         // right) AFTER registration so their bboxes are present to update.
         layoutCoLocatedDynamics(pass, dynamicGroups)
-        this.registerBeams(beams, measure)
-        this.registerMidMeasureClefs(clefNoteByBeat, measure)
+        for (const b of built) this.registerBeams(b.beams, measure)
+
+        // Mid-measure clefs are carried by the primary voice only.
+        const primaryClefNotes = built[0]?.clefNoteByBeat ?? []
+        this.registerMidMeasureClefs(primaryClefNotes, measure)
 
         // Extend clef regions with each inline clef's actual X position.
-        for (const { clef: segClef, clefNote } of clefNoteByBeat) {
+        for (const { clef: segClef, clefNote } of primaryClefNotes) {
           try {
             const box = clefNote.getBoundingBox()
             if (box) clefSegments.push({ fromX: box.x, clef: segClef })
@@ -543,6 +577,7 @@ export class VexFlowRenderer {
     sortedSlots: ChordRest[],
     meter: MeterInfo,
     clefForBeat: (beat: Fraction) => Clef,
+    forcedStemDirection?: number,
   ): Beam[] {
     const beamGroups = this.createBeamGroups(staveNotes, sortedSlots, meter)
     const beams: Beam[] = []
@@ -551,7 +586,7 @@ export class VexFlowRenderer {
       try {
         // A beam group lies within one clef region; use the clef at its first slot.
         const groupClef = beamGroup.slots.length ? clefForBeat(beamGroup.slots[0].beat) : 'treble'
-        const beamStemDirection = this.calculateBeamGroupStemDirection(beamGroup.slots, groupClef)
+        const beamStemDirection = this.calculateBeamGroupStemDirection(beamGroup.slots, groupClef, forcedStemDirection)
         for (const staveNote of beamGroup.staveNotes) {
           staveNote.setStemDirection(beamStemDirection)
         }
@@ -1215,24 +1250,27 @@ export class VexFlowRenderer {
         svg.appendChild(ghostGroup)
       }
 
+      // Ghost paints in the active voice's colour (V1 blue / V2 green); default blue.
+      const ghostFill = ghostNote.fillColor ?? '#3B82F6'
+      const ghostStroke = ghostNote.strokeColor ?? '#2563EB'
       const applyGhostStyle = (element: Element) => {
         const tagName = element.tagName.toLowerCase()
         if (tagName === 'path' || tagName === 'ellipse' || tagName === 'circle') {
-          element.setAttribute('fill', '#3B82F6')
-          element.setAttribute('stroke', '#2563EB')
+          element.setAttribute('fill', ghostFill)
+          element.setAttribute('stroke', ghostStroke)
           element.setAttribute('opacity', '0.7')
           const currentStyle = element.getAttribute('style') || ''
-          element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; stroke: #2563EB !important; opacity: 0.7 !important;')
+          element.setAttribute('style', currentStyle + `; fill: ${ghostFill} !important; stroke: ${ghostStroke} !important; opacity: 0.7 !important;`)
         } else if (tagName === 'text') {
-          element.setAttribute('fill', '#3B82F6')
+          element.setAttribute('fill', ghostFill)
           element.setAttribute('opacity', '0.7')
           const currentStyle = element.getAttribute('style') || ''
-          element.setAttribute('style', currentStyle + '; fill: #3B82F6 !important; opacity: 0.7 !important;')
+          element.setAttribute('style', currentStyle + `; fill: ${ghostFill} !important; opacity: 0.7 !important;`)
         } else if (tagName === 'line') {
-          element.setAttribute('stroke', '#2563EB')
+          element.setAttribute('stroke', ghostStroke)
           element.setAttribute('opacity', '0.7')
           const currentStyle = element.getAttribute('style') || ''
-          element.setAttribute('style', currentStyle + '; stroke: #2563EB !important; opacity: 0.7 !important;')
+          element.setAttribute('style', currentStyle + `; stroke: ${ghostStroke} !important; opacity: 0.7 !important;`)
         }
         for (let i = 0; i < element.children.length; i++) {
           applyGhostStyle(element.children[i])

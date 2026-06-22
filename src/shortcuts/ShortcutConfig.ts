@@ -161,6 +161,16 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Select next lower note in chord',
   },
 
+  // Voice selection (Sibelius-style Alt+number). Notes are entered into the active voice.
+  'Alt+1': {
+    action: 'setActiveVoice1',
+    description: 'Enter notes into voice 1',
+  },
+  'Alt+2': {
+    action: 'setActiveVoice2',
+    description: 'Enter notes into voice 2',
+  },
+
   // Clipboard
   'Ctrl+c': {
     action: 'copySelection',

@@ -1,6 +1,7 @@
 import type { ArticulationType, NoteDuration, Note, PitchStep, PitchAlter } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
+import { activeVoiceToModel } from './EditorState'
 import { buildBeatMap } from '../utils/beatMap'
 import { durationToBeats, getMeasureNotes, measureCapacityQuarters } from '../utils/musicUtils'
 import { fracToNumber, fracEq } from '../utils/fraction'
@@ -144,6 +145,9 @@ export class KeyboardController {
       )
       newNote = result ? result.firstNote : null
     } else {
+      // Joining an existing tuplet keeps voice 0 (tuplets are voice-0-only this pass);
+      // otherwise the note enters the active voice.
+      const entryVoice = existingTuplet ? 0 : activeVoiceToModel(this.state.activeVoice)
       newNote = engine.addNoteAtBeat({
         step,
         alter,
@@ -157,6 +161,7 @@ export class KeyboardController {
         ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }),
         ...(existingTuplet && { tupletId: existingTuplet.id }),
         ...(this.state.selectedBeam !== 'auto' && { beam: this.state.selectedBeam }),
+        ...(entryVoice && { voice: entryVoice }),
       })
     }
 
@@ -229,11 +234,13 @@ export class KeyboardController {
 
     console.log(`[Keyboard] Entering rest: dur=${fittingDur.dur} (${fittingDur.beats} beats) at measure=${targetMeasure} beat=${fracToNumber(targetBeat).toFixed(3)}${fittingDur.dur !== this.state.selectedDuration ? ` (capped from ${this.state.selectedDuration})` : ''}`)
 
+    const restVoice = activeVoiceToModel(this.state.activeVoice)
     const newRest = engine.addNoteAtBeat({
       duration: fittingDur.dur,
       measure: targetMeasure,
       beat: targetBeat,
       isRest: true,
+      ...(restVoice && { voice: restVoice }),
     })
 
     if (!newRest) {

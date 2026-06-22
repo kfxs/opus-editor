@@ -111,8 +111,11 @@ export class NoteEntryCoordinator {
     // Rests are intentionally skipped here — replaceRestsWithChord (inside addNote) handles
     // rest removal with proper tie migration, so deleting rests here would break that.
     const epsilon = 0.001
+    const entryVoice = params.voice ?? 0
     const toDelete = this.getScoreModel().getNotesInMeasure(params.measure).filter(n => {
       if (n.isRest) return false
+      // Other voices are independent streams — never clobber them.
+      if ((n.voice ?? 0) !== entryVoice) return false
       let nDuration = durationToBeats(n.duration, n.dots || 0)
       if (n.tupletId) {
         const nTuplet = (targetMeasure.tuplets || []).find(t => t.id === n.tupletId)
@@ -174,9 +177,11 @@ export class NoteEntryCoordinator {
     accidental?: Accidental,
     dots?: number,
     articulations?: ArticulationType[],
-    beam?: NoteParams['beam']
+    beam?: NoteParams['beam'],
+    voice: NoteParams['voice'] = 0
   ): Note | null {
     const registry = this.elementRegistry
+    const entryVoice = voice ?? 0
 
     // Get measure number from coordinates
     const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
@@ -211,7 +216,10 @@ export class NoteEntryCoordinator {
     // When using coordinate calculation, we need to find if there's a rest at that beat
     // or if we'd be creating a new note position
     if (useCoordinateCalculation) {
+      // Scope rest/chord/nearest-rest decisions to the entry voice — other voices are
+      // independent streams and must not steer (or be clobbered by) this placement.
       const notesInMeasure = this.getScoreModel().getNotesInMeasure(measureNumber)
+        .filter(n => (n.voice ?? 0) === entryVoice)
       const restAtBeat = this.findRestAtBeat(notesInMeasure, finalBeat)
       if (!restAtBeat) {
         // Check if there's a note at this beat we could chord with
@@ -295,6 +303,7 @@ export class NoteEntryCoordinator {
       ...(tupletId && { tupletId }),
       ...(articulations?.length && { articulations }),
       ...(beam && beam !== 'auto' && { beam }),
+      ...(entryVoice && { voice: entryVoice }),
     }
 
     // Get the target measure for overflow check
@@ -310,7 +319,7 @@ export class NoteEntryCoordinator {
 
     // Delete anything the new note overwrites (range/same-pitch replacements, plus
     // tuplet items inside a multi-slot tuplet note's actual-time span).
-    this.applyEntryOverwrites(measureNumber, finalBeat, duration, dots, pitchMidi, tupletId, tupletAtBeat)
+    this.applyEntryOverwrites(measureNumber, finalBeat, duration, dots, pitchMidi, tupletId, tupletAtBeat, entryVoice)
 
     // Handle overflow by splitting the note across the bar line with a tie.
     // SKIP for tuplet notes — tuplets have shorter actual durations, designed to fit their span.
@@ -318,9 +327,9 @@ export class NoteEntryCoordinator {
       return this.placeSplitNote(noteParams, overflow.overflowAmount, measureNumber, finalBeat, pitchMidi, duration, dots)
     }
 
-    // For non-overflow cases, update existing chord notes to match duration
+    // For non-overflow cases, update existing chord notes (same beat + voice) to match duration
     const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi)
+      .filter(n => !n.isRest && (n.voice ?? 0) === entryVoice && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi)
     for (const chordNote of existingChordNotes) {
       if (chordNote.duration !== duration) {
         this.getScoreModel().updateNote(chordNote.id, { duration })
@@ -400,8 +409,9 @@ export class NoteEntryCoordinator {
     pitchMidi: number,
     tupletId: string | undefined,
     tupletAtBeat: Tuplet | undefined,
+    voice: number = 0,
   ): void {
-    const notesToOverwrite = this.findNotesToOverwrite(measureNumber, finalBeat, duration, pitchMidi, false, tupletAtBeat)
+    const notesToOverwrite = this.findNotesToOverwrite(measureNumber, finalBeat, duration, pitchMidi, false, tupletAtBeat, voice)
     if (notesToOverwrite.length > 0) {
       console.log('Overwriting notes:', notesToOverwrite.map(n => {
         const a = n.alter === 2 ? '##' : n.alter === 1 ? '#' : n.alter === -1 ? 'b' : n.alter === -2 ? 'bb' : ''
@@ -445,8 +455,9 @@ export class NoteEntryCoordinator {
     duration: NoteParams['duration'],
     dots: number | undefined,
   ): Note | null {
+    const splitVoice = noteParams.voice ?? 0
     const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi && !n.tiedTo)
+      .filter(n => !n.isRest && (n.voice ?? 0) === splitVoice && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi && !n.tiedTo)
     for (const chordNote of existingChordNotes) {
       this.splitExistingNoteWithTie(chordNote, duration, overflowAmount, dots)
     }
@@ -1040,6 +1051,7 @@ export class NoteEntryCoordinator {
     startBeat: Fraction
     totalBeats: number
     overflowAmount: number
+    voice?: NoteParams['voice']
     existingHeadId?: string
   }): Note | null {
     const beatsInCurrentMeasure = p.totalBeats - p.overflowAmount
@@ -1060,10 +1072,10 @@ export class NoteEntryCoordinator {
     }
 
     // Erode notes in the overflow zone of the next measure (Sibelius-style)
-    this.erodeOverflowZone(nextMeasureNumber, beatsInNextMeasure)
+    this.erodeOverflowZone(nextMeasureNumber, beatsInNextMeasure, p.voice ?? 0)
 
     const model = this.getScoreModel()
-    const pitch = { step: p.step, alter: p.alter, octave: p.octave }
+    const pitch = { step: p.step, alter: p.alter, octave: p.octave, ...(p.voice && { voice: p.voice }) }
 
     // Build the tied chain. Split durations are always plain (dots cleared).
     let firstNote: Note | null = null
@@ -1133,6 +1145,7 @@ export class NoteEntryCoordinator {
       startBeat: existingNote.beat,
       totalBeats: durationToBeats(newDuration, newDots),
       overflowAmount,
+      voice: existingNote.voice,
       existingHeadId: existingNote.id,
     })
   }
@@ -1151,6 +1164,7 @@ export class NoteEntryCoordinator {
       startBeat: noteParams.beat,
       totalBeats: durationToBeats(noteParams.duration, noteParams.dots || 0),
       overflowAmount,
+      voice: noteParams.voice,
     })
   }
 
@@ -1160,11 +1174,13 @@ export class NoteEntryCoordinator {
    * Notes that straddle the boundary are trimmed and moved to start at overflowBeats.
    * Notes with a downstream tiedTo are deleted (punt case).
    */
-  private erodeOverflowZone(measureNumber: number, overflowBeats: number): void {
+  private erodeOverflowZone(measureNumber: number, overflowBeats: number, voice: number = 0): void {
     const epsilon = 0.001
     const notes = this.getScoreModel().getNotesInMeasure(measureNumber)
     for (const note of notes) {
       if (note.isRest) continue
+      // Only erode the overflowing note's own voice — other streams are independent.
+      if ((note.voice ?? 0) !== voice) continue
       const noteBeat = fracToNumber(note.beat)
       if (noteBeat >= overflowBeats - epsilon) continue
       this.erodeNoteAtBoundary(note, overflowBeats)
@@ -1233,6 +1249,7 @@ export class NoteEntryCoordinator {
           duration: dur,
           measure: note.measure,
           beat: currentBeat,
+          ...(note.voice && { voice: note.voice }),
         })
         this.getScoreModel().updateNote(prevId, { tiedTo: tailNote.id })
         this.getScoreModel().updateNote(tailNote.id, { tiedFrom: prevId })
@@ -1256,7 +1273,8 @@ export class NoteEntryCoordinator {
     duration: NoteParams['duration'],
     pitch: number,
     isTiedContinuation: boolean = false,
-    tupletInfo?: Tuplet
+    tupletInfo?: Tuplet,
+    voice: number = 0,
   ): Note[] {
     // For tuplet notes, use the actual tuplet note duration, not the base duration
     const noteDurationFrac = tupletInfo
@@ -1268,6 +1286,9 @@ export class NoteEntryCoordinator {
     return notesInMeasure.filter(existing => {
       // Skip rests - they're handled separately by ScoreModel
       if (existing.isRest) return false
+
+      // Other voices are independent streams — never overwrite them.
+      if ((existing.voice ?? 0) !== voice) return false
 
       // Never delete notes that are in the same tuplet (except for same-beat replacement)
       // Notes within a tuplet should coexist and not overwrite each other based on range

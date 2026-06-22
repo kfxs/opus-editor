@@ -44,6 +44,37 @@
 
           <div class="border-l border-gray-600 mx-2"></div>
 
+          <!-- Voice Selector (Sibelius-style: V1 blue, V2 green) -->
+          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
+            <span class="text-sm text-gray-300">Voice:</span>
+            <button
+              @click="palette.setActiveVoice(1)"
+              :class="[
+                'px-3 py-1 rounded text-sm font-bold',
+                state.activeVoice === 1
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Voice 1 (Alt+1) — primary stream"
+            >
+              1
+            </button>
+            <button
+              @click="palette.setActiveVoice(2)"
+              :class="[
+                'px-3 py-1 rounded text-sm font-bold',
+                state.activeVoice === 2
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Voice 2 (Alt+2) — second stream"
+            >
+              2
+            </button>
+          </div>
+
+          <div class="border-l border-gray-600 mx-2"></div>
+
           <!-- Note Duration Selector -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Duration:</span>

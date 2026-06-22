@@ -2,6 +2,7 @@ import type { ArticulationType, PitchSpelling, Fraction } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry } from '../engine/ElementRegistry'
 import type { EditorState } from './EditorState'
+import { activeVoiceToModel } from './EditorState'
 import type { SelectionController } from './SelectionController'
 import type { RenderController } from './RenderController'
 import type { TextEditController } from './TextEditController'
@@ -1045,6 +1046,7 @@ export class MouseController {
           this.state.selectedDots || undefined,
           this.getPendingArticulations(),
           this.state.selectedBeam !== 'auto' ? this.state.selectedBeam : undefined,
+          activeVoiceToModel(this.state.activeVoice),
         )
 
         if (note) {

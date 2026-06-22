@@ -59,6 +59,13 @@ export interface EditorState {
   slurEndpointCandidateNoteId: string | null
 
   // --- Palette ---
+  /**
+   * The voice notes are entered into (Sibelius-style). Voice 1 is the default and
+   * always present in every bar; voice 2 is the optional second stream. Resets to
+   * `1` on selection-clear / fresh entry. (The model supports 1–4 voices; the UI
+   * exposes 2 for now.)
+   */
+  activeVoice: 1 | 2
   selectedDuration: NoteDuration
   selectedAccidental: Accidental | null
   selectedDots: number
@@ -123,9 +130,20 @@ export interface EditorState {
   playbackState: PlaybackState
 }
 
+/**
+ * Map the 1-based UI active voice (`1`|`2`, Sibelius display convention) to the
+ * 0-based model voice (`0`|`1`). The model's primary/default stream is voice 0 —
+ * every existing note is voice 0 — so UI "Voice 1" is model voice 0 and UI
+ * "Voice 2" is model voice 1.
+ */
+export function activeVoiceToModel(activeVoice: 1 | 2): 0 | 1 {
+  return (activeVoice - 1) as 0 | 1
+}
+
 export function createEditorState(): EditorState {
   return {
     selectedTool: 'entry',
+    activeVoice: 1,
     selectedItems: new Map(),
     selectedNoteId: null,
     selectionPivotId: null,

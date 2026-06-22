@@ -449,6 +449,10 @@ export interface GhostNote {
   rawY?: number
   dots?: number
   articulations?: ArticulationType[]
+  /** Ghost paint colour = the active voice's colour (V1 blue, V2 green). Defaults
+   *  to the app's blue when omitted. See utils/voiceColors. */
+  fillColor?: string
+  strokeColor?: string
 }
 
 /**

@@ -351,7 +351,26 @@ export class PaletteController {
     this.renderScore()
   }
 
+  /**
+   * Choose the active voice for note entry (Sibelius-style; palette buttons + Alt+1/Alt+2).
+   * Notes entered go into this voice. Phase 0: state + ghost refresh only — the
+   * per-voice notation (stems, rests) and voice colours land in later phases.
+   */
+  setActiveVoice(voice: 1 | 2): void {
+    this.state.activeVoice = voice
+    console.log(`[Voice] active voice → ${voice}`)
+    // Choosing a voice means "I want to enter notes here": in selection mode with
+    // nothing selected, flip to entry mode (mirrors the duration/accidental tools).
+    // With a note selected we stay put — voice reassignment is a later phase.
+    if (this.state.selectedTool === 'selection' && !this.state.selectedNoteId) {
+      this.state.selectedTool = 'entry'
+    }
+    const pos = this.getLastMousePosition()
+    if (pos) this.renderPreview(pos)
+  }
+
   resetToDefaults(): void {
+    this.state.activeVoice = 1
     this.state.selectedDuration = 'q'
     this.state.selectedAccidental = null
     this.state.selectedDots = 0

@@ -1,7 +1,9 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Clef, TimeSignature, Dynamic } from '../types/music'
 import type { DynamicTool, EditorState } from './EditorState'
+import { activeVoiceToModel } from './EditorState'
 import type { HighlightController } from './HighlightController'
+import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 
 /**
  * Orchestrates score rendering and ghost-note preview.
@@ -42,6 +44,7 @@ export class RenderController {
   renderPreview(coords: { x: number; y: number }): boolean {
     const engine = this.getEngine()
     if (!engine) return false
+    const v = activeVoiceToModel(this.state.activeVoice)
     const ghostRendered = engine.renderScoreWithPreview(
       coords,
       this.state.selectedDuration,
@@ -54,6 +57,7 @@ export class RenderController {
             ...(this.state.tenuto ? ['tenuto'] : []),
           ] as import('../types/music').ArticulationType[])
         : undefined,
+      { fill: voiceFillColor(v), stroke: voiceStrokeColor(v) },
     )
     this.applyHighlights()
     return ghostRendered

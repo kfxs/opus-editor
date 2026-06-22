@@ -60,28 +60,35 @@ function calculateMinimumMeasureWidth(
     return Math.max(LAYOUT_CONFIG.MIN_MEASURE_WIDTH, overhead + 40)
   }
 
-  // Create temporary voice to calculate width
-  const sortedSlots = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))
-  const staveNotes = createStaveNotesFromSlots(sortedSlots, makeClefResolver(measure, clef))
+  // Create temporary voice(s) to calculate width — one per model voice, so a
+  // two-voice bar reserves room for both interleaved streams (mirrors the render
+  // loop's grouping; stem/rest offsets don't affect width so they're omitted here).
+  const sortedAll = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))
+  const clefResolver = makeClefResolver(measure, clef)
+  const capacity = measureCapacityFrac(measure)
+  const voiceIds = [...new Set(sortedAll.map(s => s.voice ?? 0))].sort((a, b) => a - b)
 
-  // Create VexFlow Tuplets BEFORE adding notes to voice (adjusts tick values)
-  createTupletsForMeasure(measure, sortedSlots, staveNotes)
-
-  const voice = new Voice({
-    numBeats: measure.timeSignature.numerator,
-    beatValue: measure.timeSignature.denominator,
-  }).setMode(chooseVoiceMode(sortedSlots, measureCapacityFrac(measure)))
+  const voices = voiceIds.map(v => {
+    const slots = sortedAll.filter(s => (s.voice ?? 0) === v)
+    const sn = createStaveNotesFromSlots(slots, clefResolver)
+    // Create VexFlow Tuplets BEFORE adding notes to voice (adjusts tick values)
+    createTupletsForMeasure(measure, slots, sn)
+    const voice = new Voice({
+      numBeats: measure.timeSignature.numerator,
+      beatValue: measure.timeSignature.denominator,
+    }).setMode(chooseVoiceMode(slots, capacity))
+    voice.addTickables(sn)
+    return voice
+  })
 
   try {
-    voice.addTickables(staveNotes)
-
-    // Use VexFlow's formatter to calculate minimum width
+    // Use VexFlow's formatter to calculate minimum width (voices formatted together)
     const formatter = new Formatter()
-    formatter.joinVoices([voice])
-    const minNoteWidth = formatter.preCalculateMinTotalWidth([voice])
+    formatter.joinVoices(voices)
+    const minNoteWidth = formatter.preCalculateMinTotalWidth(voices)
 
     // Add safety buffer (15%) and ensure minimum note spacing
-    const noteCount = sortedSlots.filter(s => s.type === 'chord').length
+    const noteCount = sortedAll.filter(s => s.type === 'chord').length
     const minSpacingWidth = noteCount * LAYOUT_CONFIG.MIN_NOTE_SPACING
     const calculatedWidth = Math.max(minNoteWidth * 1.15, minSpacingWidth)
 

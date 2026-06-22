@@ -1,6 +1,8 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
+import { activeVoiceToModel } from './EditorState'
 import { buildBeatMap } from '../utils/beatMap'
+import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 
 /**
  * Applies SVG highlight classes/colors after each render.
@@ -63,7 +65,8 @@ export class HighlightController {
     line.setAttribute('y1', String(topY - 6))
     line.setAttribute('x2', String(cursorX))
     line.setAttribute('y2', String(bottomY + 6))
-    line.setAttribute('stroke', '#3B82F6')
+    // Cursor paints in the active voice's colour (V1 blue, V2 green).
+    line.setAttribute('stroke', voiceFillColor(activeVoiceToModel(this.state.activeVoice)))
     line.setAttribute('stroke-width', '2')
     line.setAttribute('stroke-linecap', 'round')
     line.setAttribute('class', 'keyboard-cursor')
@@ -108,11 +111,14 @@ export class HighlightController {
     const scoreCanvas = this.getScoreCanvas()
     if (!engine || !scoreCanvas) return
 
-    // Highlight every selected note. Each is recolored inside its own SVG group, so
-    // N highlights is just the single-note highlight applied N times (no cross-bleed).
-    // Uniform color for all in Phase 1 — no distinct anchor tint yet.
+    // Highlight every selected note in ITS voice's colour (V1 blue, V2 green —
+    // Sibelius-style; replaces the old uniform orange for notes/rests). Each is
+    // recolored inside its own SVG group, so N highlights is the single-note
+    // highlight applied N times (no cross-bleed).
     for (const item of this.state.selectedItems.values()) {
-      if (item.kind === 'note') this.highlightNote(item.id)
+      if (item.kind !== 'note') continue
+      const voice = engine.getNote(item.id)?.voice ?? 0
+      this.highlightNote(item.id, voiceFillColor(voice), voiceStrokeColor(voice))
     }
   }
 

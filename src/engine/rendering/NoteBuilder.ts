@@ -74,10 +74,17 @@ export function makeClefResolver(measure: Measure, openingClef: Clef): (beat: Fr
  * @param slots - Slots already sorted by beat position
  * @param clefForBeat - Resolves the clef in effect at a given beat (for note
  *   positioning and stem direction). A single Clef is accepted for convenience.
+ * @param forcedStemDirection - Multi-voice default stem (1 = up, -1 = down) applied
+ *   to every chord that has no explicit `stemDirection` override. Used to engrave
+ *   V1 up / V2 down; omit (undefined) for the single-voice pitch-based default.
+ * @param restLineShift - Vertical line offset for rests (multi-voice rest separation:
+ *   +up for V1, -down for V2). 0 = centred (single-voice, unchanged).
  */
 export function createStaveNotesFromSlots(
   slots: ChordRest[],
   clefForBeat: ((beat: Fraction) => Clef) | Clef = 'treble',
+  forcedStemDirection?: number,
+  restLineShift: number = 0,
 ): StaveNote[] {
   const resolveClef: (beat: Fraction) => Clef =
     typeof clefForBeat === 'function' ? clefForBeat : () => clefForBeat
@@ -94,7 +101,9 @@ export function createStaveNotesFromSlots(
         // Whole-bar (measure) rest: a centred whole rest, drawn the same way at
         // any bar length. Its voice runs in SOFT mode (see chooseVoiceMode) so
         // the whole rest's fixed tick value never clashes with the bar capacity.
-        staveNotes.push(new StaveNote({ keys: ['b/4'], duration: 'wr', alignCenter: true }))
+        const measureRest = new StaveNote({ keys: ['b/4'], duration: 'wr', alignCenter: true })
+        if (restLineShift) measureRest.setKeyLine(0, measureRest.getLineForRest() + restLineShift)
+        staveNotes.push(measureRest)
         continue
       }
       const vexDuration = convertDuration(slot.duration, slot.dots || 0)
@@ -105,6 +114,8 @@ export function createStaveNotesFromSlots(
       for (let d = 0; d < (slot.dots || 0); d++) {
         Dot.buildAndAttach([staveNote], { all: true })
       }
+      // Multi-voice: lift V1 rests / drop V2 rests so the two streams don't collide.
+      if (restLineShift) staveNote.setKeyLine(0, staveNote.getLineForRest() + restLineShift)
       staveNotes.push(staveNote)
       continue
     }
@@ -162,6 +173,9 @@ export function createStaveNotesFromSlots(
       stemDirection = 1
     } else if (slot.stemDirection === 'down') {
       stemDirection = -1
+    } else if (forcedStemDirection !== undefined) {
+      // Multi-voice default (V1 up / V2 down); an explicit override above still wins.
+      stemDirection = forcedStemDirection
     } else {
       const middleDiatonic = middleLineDiatonicPos(slotClef)
       let maxDist = 0
