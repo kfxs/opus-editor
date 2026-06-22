@@ -1,6 +1,5 @@
 import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, Clef, Dynamic, Slur } from '@/types/music'
 import {
-  isBeatInTupletFrac,
   getTupletTotalBeatsFrac,
   noteSpansOverlapFrac,
   splitBeatsIntoDurations,
@@ -29,11 +28,12 @@ import {
   fracGt,
   fracGte,
   fracEq,
-  fracIsZero,
   fracIsPositive,
-  fracToNumber,
 } from '@/utils/fraction'
-import { effectiveClefAt, effectiveClefBefore, measureOpeningClef, middleLineDiatonicPos } from '@/utils/clefUtils'
+import { effectiveClefAt, measureOpeningClef, middleLineDiatonicPos } from '@/utils/clefUtils'
+import * as clefOps from './clefOps'
+import { toFlatNote, restToFlatNote } from './noteProjection'
+import * as tupletOps from './tupletOps'
 import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -247,25 +247,7 @@ export class ScoreModel {
    * @returns true if the score changed.
    */
   setClefAt(measureNumber: number, beat: Fraction, clef: Clef): boolean {
-    const measure = this.getMeasure(measureNumber)
-    if (!measure) return false
-
-    const isOpening = fracIsZero(beat)
-
-    if (measureNumber === 1 && isOpening) {
-      const scoreChanged = this.score.clef !== clef
-      this.score.clef = clef
-      const upserted = this.upsertClefChange(measure, beat, clef)
-      return upserted || scoreChanged
-    }
-
-    // Redundant change → remove any existing change at this beat instead
-    const inherited = effectiveClefBefore(this.score, measureNumber, beat)
-    if (clef === inherited) {
-      return this.removeClefChangeAt(measure, beat)
-    }
-
-    return this.upsertClefChange(measure, beat, clef)
+    return clefOps.setClefAt(this.score, measureNumber, beat, clef)
   }
 
   /**
@@ -274,10 +256,7 @@ export class ScoreModel {
    * @returns true if a change was removed.
    */
   removeClefAt(measureNumber: number, beat: Fraction): boolean {
-    if (measureNumber === 1 && fracIsZero(beat)) return false
-    const measure = this.getMeasure(measureNumber)
-    if (!measure) return false
-    return this.removeClefChangeAt(measure, beat)
+    return clefOps.removeClefAt(this.score, measureNumber, beat)
   }
 
   // --- Measure-level (beat 0) convenience wrappers ---
@@ -303,32 +282,12 @@ export class ScoreModel {
    * @returns true if the clef was relocated.
    */
   moveClef(fromMeasure: number, fromBeat: Fraction, toMeasure: number, toBeat: Fraction): boolean {
-    if (fromMeasure === toMeasure && fracEq(fromBeat, toBeat)) return false
-    if (toMeasure === 1 && fracIsZero(toBeat)) return false
-    const src = this.getMeasure(fromMeasure)
-    if (!src?.clefs) return false
-    const idx = src.clefs.findIndex(c => fracEq(c.beat, fromBeat))
-    if (idx === -1) return false
-    const dst = this.getMeasure(toMeasure)
-    if (!dst) return false
-
-    const [moving] = src.clefs.splice(idx, 1)
-    if (src.clefs.length === 0 && fromMeasure !== toMeasure) delete src.clefs
-
-    if (!dst.clefs) dst.clefs = []
-    // Overwrite any clef already sitting at the target beat.
-    const occupantIdx = dst.clefs.findIndex(c => fracEq(c.beat, toBeat))
-    if (occupantIdx !== -1) dst.clefs.splice(occupantIdx, 1)
-
-    moving.beat = toBeat
-    dst.clefs.push(moving)
-    dst.clefs.sort((a, b) => fracCompare(a.beat, b.beat))
-    return true
+    return clefOps.moveClef(this.score, fromMeasure, fromBeat, toMeasure, toBeat)
   }
 
   /** Relocate a clef change within a single measure (see {@link moveClef}). */
   moveClefWithinMeasure(measureNumber: number, fromBeat: Fraction, toBeat: Fraction): boolean {
-    return this.moveClef(measureNumber, fromBeat, measureNumber, toBeat)
+    return clefOps.moveClefWithinMeasure(this.score, measureNumber, fromBeat, toBeat)
   }
 
   /**
@@ -339,37 +298,7 @@ export class ScoreModel {
    * @returns true if a redundant change was removed.
    */
   normalizeClefAt(measureNumber: number, beat: Fraction): boolean {
-    if (measureNumber === 1 && fracIsZero(beat)) return false
-    const measure = this.getMeasure(measureNumber)
-    if (!measure?.clefs) return false
-    const change = measure.clefs.find(c => fracEq(c.beat, beat))
-    if (!change) return false
-    if (change.clef !== effectiveClefBefore(this.score, measureNumber, beat)) return false
-    return this.removeClefChangeAt(measure, beat)
-  }
-
-  /** Insert or replace a clef change at the given beat, keeping the list sorted. */
-  private upsertClefChange(measure: Measure, beat: Fraction, clef: Clef): boolean {
-    if (!measure.clefs) measure.clefs = []
-    const existing = measure.clefs.find(c => fracEq(c.beat, beat))
-    if (existing) {
-      if (existing.clef === clef) return false
-      existing.clef = clef
-      return true
-    }
-    measure.clefs.push({ id: uuidv4(), beat, clef })
-    measure.clefs.sort((a, b) => fracCompare(a.beat, b.beat))
-    return true
-  }
-
-  /** Remove a clef change at the given beat, if present. */
-  private removeClefChangeAt(measure: Measure, beat: Fraction): boolean {
-    if (!measure.clefs) return false
-    const idx = measure.clefs.findIndex(c => fracEq(c.beat, beat))
-    if (idx === -1) return false
-    measure.clefs.splice(idx, 1)
-    if (measure.clefs.length === 0) delete measure.clefs
-    return true
+    return clefOps.normalizeClefAt(this.score, measureNumber, beat)
   }
 
   // ==================== Dynamic operations ====================
@@ -1300,44 +1229,12 @@ export class ScoreModel {
 
   /** Assemble a flat Note from a Chord + NotePitch. */
   private toFlatNote(chord: Chord, pitch: NotePitch): Note {
-    return {
-      id: pitch.id,
-      step: pitch.step,
-      alter: pitch.alter,
-      octave: pitch.octave,
-      duration: chord.duration,
-      measure: chord.measure,
-      beat: chord.beat,
-      isRest: false,
-      forceAccidental: pitch.forceAccidental,
-      stemDirection: chord.stemDirection,
-      beam: chord.beam,
-      tiedTo: pitch.tiedTo,
-      tiedFrom: pitch.tiedFrom,
-      dots: chord.dots,
-      tupletId: chord.tupletId,
-      actualDuration: chord.actualDuration,
-      articulations: chord.articulations,
-      articulationPlacement: chord.articulationPlacement,
-      voice: chord.voice,
-    }
+    return toFlatNote(chord, pitch)
   }
 
   /** Assemble a flat Note from a Rest. */
   private restToFlatNote(rest: Rest): Note {
-    return {
-      id: rest.id,
-      duration: rest.duration,
-      measure: rest.measure,
-      beat: rest.beat,
-      isRest: true,
-      isMeasureRest: rest.isMeasureRest,
-      dots: rest.dots,
-      tupletId: rest.tupletId,
-      actualDuration: rest.actualDuration,
-      tiedFrom: rest.tiedFrom,
-      voice: rest.voice,
-    }
+    return restToFlatNote(rest)
   }
 
   // ==================== Note Entry ====================
@@ -1964,156 +1861,42 @@ export class ScoreModel {
     numNotes: number = 3,
     notesOccupied: number = 2,
   ): Tuplet {
-    const measure = this.getMeasure(measureNumber)
-    if (!measure) {
-      throw new Error(`Measure ${measureNumber} does not exist`)
-    }
-
-    const tuplet: Tuplet = {
-      id: uuidv4(),
-      startBeat,
-      baseDuration,
-      numNotes,
-      notesOccupied,
-    }
-
-    if (!measure.tuplets) {
-      measure.tuplets = []
-    }
-    measure.tuplets.push(tuplet)
-
-    // Remove any existing slots that overlap with the tuplet's time span
-    const tupletDurFrac = getTupletTotalBeatsFrac(baseDuration, notesOccupied)
-    measure.slots = measure.slots.filter(slot => {
-      const slotDurFrac = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
-      return !noteSpansOverlapFrac(slot.beat, slotDurFrac, startBeat, tupletDurFrac)
-    })
-
-    // Sort by beat
-    measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
-
-    return tuplet
+    return tupletOps.createTuplet(this.score, measureNumber, startBeat, baseDuration, numNotes, notesOccupied)
   }
 
   /**
    * Get a tuplet by its ID
    */
   getTuplet(tupletId: string): Tuplet | undefined {
-    for (const measure of this.score.measures) {
-      if (!measure.tuplets) continue
-      const tuplet = measure.tuplets.find(t => t.id === tupletId)
-      if (tuplet) return tuplet
-    }
-    return undefined
+    return tupletOps.getTuplet(this.score, tupletId)
   }
 
   /**
    * Get the tuplet at a specific beat position in a measure
    */
   getTupletAtBeat(measureNumber: number, beat: Fraction): Tuplet | undefined {
-    const measure = this.getMeasure(measureNumber)
-    if (!measure || !measure.tuplets) return undefined
-    return measure.tuplets.find(tuplet => isBeatInTupletFrac(beat, tuplet))
+    return tupletOps.getTupletAtBeat(this.score, measureNumber, beat)
   }
 
   /**
    * Get all notes that belong to a specific tuplet (as flat Notes)
    */
   getNotesInTuplet(tupletId: string): Note[] {
-    for (const measure of this.score.measures) {
-      const slots = measure.slots.filter(s => s.tupletId === tupletId)
-      if (slots.length > 0) {
-        const result: Note[] = []
-        for (const slot of slots) {
-          if (slot.type === 'rest') {
-            result.push(this.restToFlatNote(slot))
-          } else {
-            for (const pitch of slot.notes) {
-              result.push(this.toFlatNote(slot, pitch))
-            }
-          }
-        }
-        return result
-      }
-    }
-    return []
+    return tupletOps.getNotesInTuplet(this.score, tupletId)
   }
 
   /**
-   * Fill any empty gaps in a tuplet with filler rests.
-   *
-   * Algorithm:
-   *   1. Collect all existing slots (notes AND rests) in the tuplet, sorted by beat.
-   *   2. Walk the tuplet's time span looking for empty gaps (ranges with no slot).
-   *   3. Fill only those empty gaps with new rests.
-   *
-   * Rests are treated as first-class slots and are never deleted here.
-   * Callers are responsible for removing slots before calling this (e.g. when a
-   * note grows into a rest's time span).
+   * Fill any empty gaps in a tuplet with filler rests. See {@link tupletOps.refillTupletRemainder}.
    */
   refillTupletRemainder(measureNumber: number, tuplet: Tuplet): void {
-    const ratio = fracCreate(tuplet.notesOccupied, tuplet.numNotes)
-    const inverseRatio = fracCreate(tuplet.numNotes, tuplet.notesOccupied)
-    const tupletEnd = fracAdd(tuplet.startBeat, getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied))
-
-    // Get ALL existing slots (notes and rests) sorted by beat
-    const allSlots = this.getNotesInTuplet(tuplet.id)
-      .sort((a, b) => fracCompare(a.beat, b.beat))
-
-    // Fill a gap in actual-time [from, to) with tuplet filler rests
-    const fillGap = (from: Fraction, to: Fraction): void => {
-      if (!fracLt(from, to)) return
-      const actualGap = fracSub(to, from)
-      const writtenGap = fracMul(actualGap, inverseRatio)
-      const durations = splitBeatsIntoDurations(fracToNumber(writtenGap))
-      let beat = from
-      for (const dur of durations) {
-        const actualDur = fracMul(durationToFraction(dur), ratio)
-        this.addNote({
-          duration: dur,
-          measure: measureNumber,
-          beat,
-          isRest: true,
-          tupletId: tuplet.id,
-          actualDuration: actualDur,
-        })
-        beat = fracAdd(beat, actualDur)
-      }
-    }
-
-    // Walk through all slots filling empty gaps between them
-    let pointer: Fraction = tuplet.startBeat
-    for (const slot of allSlots) {
-      fillGap(pointer, slot.beat)
-      const slotActual = slot.actualDuration
-        ?? fracMul(durationToFraction(slot.duration, slot.dots ?? 0), ratio)
-      pointer = fracAdd(slot.beat, slotActual)
-    }
-    fillGap(pointer, tupletEnd)
+    tupletOps.refillTupletRemainder(this.score, measureNumber, tuplet, params => this.addNote(params))
   }
 
   /**
    * Delete a tuplet and replace it with an appropriate rest
    */
   deleteTuplet(tupletId: string): boolean {
-    for (const measure of this.score.measures) {
-      if (!measure.tuplets) continue
-
-      const tupletIndex = measure.tuplets.findIndex(t => t.id === tupletId)
-      if (tupletIndex === -1) continue
-
-      // Remove all slots belonging to this tuplet
-      measure.slots = measure.slots.filter(s => s.tupletId !== tupletId)
-
-      // Remove the tuplet
-      measure.tuplets.splice(tupletIndex, 1)
-
-      // Re-fill gaps with rests
-      this.fillGapsWithRests(measure)
-
-      return true
-    }
-    return false
+    return tupletOps.deleteTuplet(this.score, tupletId, measure => this.fillGapsWithRests(measure))
   }
 
   /**
