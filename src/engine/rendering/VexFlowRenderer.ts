@@ -16,6 +16,7 @@ import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/uti
 // Dynamics styling constants live in ./dynamicStyle so the in-canvas text editor can
 // font-match the engraving from the same source of truth (see docs/text-editing-plan.md §3).
 import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT } from './dynamicStyle'
+import type { RenderPass } from './RenderPass'
 
 /**
  * Articulation render order — from note outward (first = closest to note head).
@@ -78,7 +79,7 @@ export const VIEWPORT_TWO_LINE_HEIGHT =
 /**
  * Width calculation result for a measure
  */
-interface MeasureWidthInfo {
+export interface MeasureWidthInfo {
   measureNumber: number
   minWidth: number
   finalWidth: number
@@ -166,6 +167,25 @@ export class VexFlowRenderer {
    */
   getAllMeasureBounds(): Map<number, MeasureBounds> {
     return this.measureBounds
+  }
+
+  /**
+   * Bundle this render's per-render state into a {@link RenderPass}. The pass carries
+   * **references** to the instance-field maps (not copies), so the sub-renderers that
+   * consume it populate the very maps the post-render accessors later read. Call only
+   * after `measureLayoutInfo` has been (re)assigned for this render.
+   */
+  private createRenderPass(): RenderPass {
+    return {
+      context: this.context,
+      staveNoteMap: this.staveNoteMap,
+      tupletObjectMap: this.tupletObjectMap,
+      dynamicObjectMap: this.dynamicObjectMap,
+      slurGroupMap: this.slurGroupMap,
+      measureLayoutInfo: this.measureLayoutInfo,
+      measureBounds: this.measureBounds,
+      elementRegistry: this.elementRegistry,
+    }
   }
 
   /**
@@ -1712,11 +1732,15 @@ export class VexFlowRenderer {
       currentX += widthInfo.finalWidth
     })
 
+    // Bundle this render's per-render state (references to the instance-field maps —
+    // see RenderPass for the lifetime contract) for the extracted sub-renderers.
+    const pass = this.createRenderPass()
+
     // Render ties between measures after all measures are drawn
-    this.renderTies(score)
+    this.renderTies(pass, score)
 
     // Render phrasing slurs (top-level spans) after ties, in the same post-measure pass
-    this.renderSlurs(score)
+    this.renderSlurs(pass, score)
 
     // Render ghost note AFTER all measures (as an overlay)
     let ghostNoteRendered = false
@@ -2010,11 +2034,12 @@ export class VexFlowRenderer {
    * quadratic look. Returns the bounding box of the drawn arc, or null on failure.
    */
   private drawFlatTie(
+    pass: RenderPass,
     fromInfo: { staveNote: StaveNote; noteIndex: number },
     toInfo: { staveNote: StaveNote; noteIndex: number },
     direction: number,
   ): { x: number; y: number; width: number; height: number } | null {
-    if (!this.context) return null
+    if (!pass.context) return null
     try {
       const firstX = fromInfo.staveNote.getTieRightX()
       const lastX = toInfo.staveNote.getTieLeftX()
@@ -2033,7 +2058,7 @@ export class VexFlowRenderer {
         { x: 0, y: bow },
       ]
       const arc = this.drawCurveArc(
-        p0, p1, cps, direction, VexFlowRenderer.TIE_THICKNESS,
+        pass, p0, p1, cps, direction, VexFlowRenderer.TIE_THICKNESS,
         fromInfo.staveNote, toInfo.staveNote,
       )
       return arc.bbox
@@ -2046,8 +2071,8 @@ export class VexFlowRenderer {
   /**
    * Render ties between notes that have tiedTo/tiedFrom properties
    */
-  private renderTies(score: Score): void {
-    if (!this.context) return
+  private renderTies(pass: RenderPass, score: Score): void {
+    if (!pass.context) return
 
     // Track which ties we've already processed to avoid duplicates
     const processedTies = new Set<string>()
@@ -2063,8 +2088,8 @@ export class VexFlowRenderer {
           if (processedTies.has(tieKey)) continue
           processedTies.add(tieKey)
 
-          const fromInfo = this.staveNoteMap.get(pitch.id)
-          const toInfo = this.staveNoteMap.get(pitch.tiedTo)
+          const fromInfo = pass.staveNoteMap.get(pitch.id)
+          const toInfo = pass.staveNoteMap.get(pitch.tiedTo)
 
           if (fromInfo?.staveNote && toInfo?.staveNote) {
             try {
@@ -2084,8 +2109,8 @@ export class VexFlowRenderer {
                 }
               }
 
-              const fromLayout = this.measureLayoutInfo.get(fromMeasure)
-              const toLayout = toMeasure ? this.measureLayoutInfo.get(toMeasure) : undefined
+              const fromLayout = pass.measureLayoutInfo.get(fromMeasure)
+              const toLayout = toMeasure ? pass.measureLayoutInfo.get(toMeasure) : undefined
               const fromLine = fromLayout?.lineNumber ?? 0
               const toLine = toLayout?.lineNumber ?? 0
               const sameLine = fromLine === toLine
@@ -2097,9 +2122,9 @@ export class VexFlowRenderer {
               if (sameLine) {
                 // Same line: draw flat arc anchored at the source note's Y
                 // (ties always connect the same pitch, so both endpoints share the same Y)
-                const bbox = this.drawFlatTie(fromInfo, toInfo, tieDirection ?? 1)
+                const bbox = this.drawFlatTie(pass, fromInfo, toInfo, tieDirection ?? 1)
                 if (bbox) {
-                  this.elementRegistry.add({
+                  pass.elementRegistry.add({
                     type: 'tie',
                     fromNoteId: note.id,
                     toNoteId: note.tiedTo!,
@@ -2119,13 +2144,13 @@ export class VexFlowRenderer {
                 if (tieDirection !== undefined) {
                   firstPartialTie.setDirection(tieDirection)
                 }
-                firstPartialTie.setContext(this.context!).draw()
+                firstPartialTie.setContext(pass.context!).draw()
 
                 // Register first partial tie
                 try {
                   const box = firstPartialTie.getBoundingBox()
                   if (box) {
-                    this.elementRegistry.add({
+                    pass.elementRegistry.add({
                       type: 'tie',
                       fromNoteId: note.id,
                       toNoteId: note.tiedTo!,
@@ -2149,13 +2174,13 @@ export class VexFlowRenderer {
                 if (tieDirection !== undefined) {
                   secondPartialTie.setDirection(tieDirection)
                 }
-                secondPartialTie.setContext(this.context!).draw()
+                secondPartialTie.setContext(pass.context!).draw()
 
                 // Register second partial tie
                 try {
                   const box = secondPartialTie.getBoundingBox()
                   if (box) {
-                    this.elementRegistry.add({
+                    pass.elementRegistry.add({
                       type: 'tie',
                       fromNoteId: note.id,
                       toNoteId: note.tiedTo!,
@@ -2285,8 +2310,8 @@ export class VexFlowRenderer {
    * `<g class="vf-slur">` group for scoped highlight, and registered in the
    * ElementRegistry with sampled arc `points` for proximity hit-testing.
    */
-  private renderSlurs(score: Score): void {
-    if (!this.context || !score.slurs) return
+  private renderSlurs(pass: RenderPass, score: Score): void {
+    if (!pass.context || !score.slurs) return
 
     const LIFT = VexFlowRenderer.SLUR_LIFT
     const ARC = VexFlowRenderer.SLUR_ARC
@@ -2294,16 +2319,16 @@ export class VexFlowRenderer {
     const nestDepths = slurNestDepths(score)
 
     for (const slur of score.slurs) {
-      const fromInfo = this.staveNoteMap.get(slur.startNoteId)
-      const toInfo = this.staveNoteMap.get(slur.endNoteId)
+      const fromInfo = pass.staveNoteMap.get(slur.startNoteId)
+      const toInfo = pass.staveNoteMap.get(slur.endNoteId)
       if (!fromInfo?.staveNote || !toInfo?.staveNote) continue
 
       const fromMeasure = this.measureOfNoteId(score, slur.startNoteId)
       const toMeasure = this.measureOfNoteId(score, slur.endNoteId)
       if (fromMeasure === undefined || toMeasure === undefined) continue
 
-      const fromLine = this.measureLayoutInfo.get(fromMeasure)?.lineNumber ?? 0
-      const toLine = this.measureLayoutInfo.get(toMeasure)?.lineNumber ?? 0
+      const fromLine = pass.measureLayoutInfo.get(fromMeasure)?.lineNumber ?? 0
+      const toLine = pass.measureLayoutInfo.get(toMeasure)?.lineNumber ?? 0
 
       // Placement (direction -1 = arc above the notes, +1 = below):
       //  - explicit `placement` override always wins;
@@ -2326,7 +2351,7 @@ export class VexFlowRenderer {
         half: { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] },
         partialType?: 'start' | 'end',
         extra?: Partial<ElementInfo>,
-      ) => this.elementRegistry.add({
+      ) => pass.elementRegistry.add({
         type: 'slur', id: slur.id, fromNoteId: slur.startNoteId, toNoteId: slur.endNoteId,
         fromMeasure, toMeasure, bbox: half.bbox, points: half.points, slurDirection: direction,
         ...(partialType ? { isPartial: true, partialType } : {}),
@@ -2336,7 +2361,7 @@ export class VexFlowRenderer {
       try {
         // One SVG group per slur (both partials live inside it) so the selection
         // highlight can recolor exactly this slur without a bbox path-scan.
-        const group = this.context.openGroup?.('vf-slur', `vf-slur-${slur.id}`) as SVGGElement | undefined
+        const group = pass.context.openGroup?.('vf-slur', `vf-slur-${slur.id}`) as SVGGElement | undefined
 
         const fromNote = fromInfo.staveNote
         const toNote = toInfo.staveNote
@@ -2354,7 +2379,7 @@ export class VexFlowRenderer {
           const p1 = { x: lastX, y: endY }
           // A user-edited shape (slur.cps) overrides the auto arch; absent → auto.
           const cps = slur.cps ?? this.slurArchCps(p0, p1, direction, nestLift)
-          const arc = this.drawCurveArc(p0, p1, cps, direction, VexFlowRenderer.SLUR_THICKNESS, fromNote, toNote)
+          const arc = this.drawCurveArc(pass, p0, p1, cps, direction, VexFlowRenderer.SLUR_THICKNESS, fromNote, toNote)
           // Store the on-screen control points + endpoint geometry so a selected
           // slur can show draggable handles (Phase 7). Same-line only — a split slur
           // shares one cps, so it gets no handles.
@@ -2375,7 +2400,7 @@ export class VexFlowRenderer {
             const h1p0 = { x: firstX, y: startY }
             const h1p1 = { x: rightEdge, y: apex1 }
             registerPartial(
-              this.drawCurveArc(h1p0, h1p1, this.slurArchCps(h1p0, h1p1, direction, nestLift), direction, VexFlowRenderer.SLUR_THICKNESS, fromNote, toNote),
+              this.drawCurveArc(pass, h1p0, h1p1, this.slurArchCps(h1p0, h1p1, direction, nestLift), direction, VexFlowRenderer.SLUR_THICKNESS, fromNote, toNote),
               'end',
             )
             // Second (leading) half: from the next system's left edge down into the end note.
@@ -2386,14 +2411,14 @@ export class VexFlowRenderer {
             const h2p0 = { x: leftEdge, y: apex2 }
             const h2p1 = { x: lastX, y: endY }
             registerPartial(
-              this.drawCurveArc(h2p0, h2p1, this.slurArchCps(h2p0, h2p1, direction, nestLift), direction, VexFlowRenderer.SLUR_THICKNESS, fromNote, toNote),
+              this.drawCurveArc(pass, h2p0, h2p1, this.slurArchCps(h2p0, h2p1, direction, nestLift), direction, VexFlowRenderer.SLUR_THICKNESS, fromNote, toNote),
               'start',
             )
           }
         }
 
-        this.context.closeGroup?.()
-        if (group) this.slurGroupMap.set(slur.id, group)
+        pass.context.closeGroup?.()
+        if (group) pass.slurGroupMap.set(slur.id, group)
       } catch (e) {
         console.error('Could not render slur:', e)
       }
@@ -2421,6 +2446,7 @@ export class VexFlowRenderer {
    * hit geometry matches the drawn path exactly.
    */
   private drawCurveArc(
+    pass: RenderPass,
     p0: { x: number; y: number },
     p1: { x: number; y: number },
     cps: [{ x: number; y: number }, { x: number; y: number }],
@@ -2435,15 +2461,15 @@ export class VexFlowRenderer {
       xShift: 0,
       yShift: 0,
     })
-    curve.setContext(this.context)
+    curve.setContext(pass.context)
     // renderCurve strokes the body with the context's *current* line width — left thick by
     // the preceding beam/stem passes, which blunts the curve's tapered tips and over-weights
     // it. Pin a thin slur outline so the fill's natural taper (it pinches to a point at each
     // endpoint) reads as a proper slur. save/restore so we don't leak the width to later draws.
-    this.context.save?.()
-    this.context.setLineWidth?.(VexFlowRenderer.SLUR_OUTLINE)
+    pass.context.save?.()
+    pass.context.setLineWidth?.(VexFlowRenderer.SLUR_OUTLINE)
     curve.renderCurve({ firstX: p0.x, firstY: p0.y, lastX: p1.x, lastY: p1.y, direction })
-    this.context.restore?.()
+    pass.context.restore?.()
 
     // Mirror renderCurve's control-point math (xShift/yShift = 0 → endpoints are exact)
     // to reconstruct the cubic for hit-testing. controlPointSpacing = (lastX-firstX)/(n+2).
