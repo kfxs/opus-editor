@@ -2,13 +2,13 @@ import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation,
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
-import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, PitchAlter, GhostNote, TimeSignature, Dynamic } from '@/types/music'
+import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureOpeningClef, measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos } from '@/utils/clefUtils'
 import { beatToFrac, measureCapacityFrac } from '@/utils/musicUtils'
 import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, type MeterInfo } from '@/utils/meter'
-import { fillRests, pickVoiceMode, type RestSlot } from '@/utils/restFill'
+import { fillRests, type RestSlot } from '@/utils/restFill'
 import { computeBeamGroups } from '@/utils/beaming'
 import { ElementRegistry, type TupletGeometry, type ClefSegment } from '@/engine/ElementRegistry'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
@@ -16,69 +16,20 @@ import type { RenderPass } from './RenderPass'
 import { renderTies, getTieDirection } from './TieRenderer'
 import { renderSlurs } from './SlurRenderer'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, buildDynamicAnnotation, registerDynamics } from './DynamicsLayout'
+import {
+  convertDuration,
+  chooseVoiceMode,
+  createStaveNotesFromSlots,
+  makeClefResolver,
+  drawsTimeSignature,
+  ARTICULATION_RENDER_ORDER,
+} from './NoteBuilder'
+import { calculateMeasureWidths } from './MeasureLayout'
+import { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo } from './layoutConfig'
 
-/**
- * Articulation render order — from note outward (first = closest to note head).
- * Staccato always hugs the note, tenuto sits next, accent is outermost.
- * This applies whether the group is above or below the staff.
- * To change the order in the future, edit this array.
- */
-const ARTICULATION_RENDER_ORDER: ArticulationType[] = ['staccato', 'tenuto', 'accent']
-
-/**
- * Layout configuration for proportional measure spacing
- */
-export const LAYOUT_CONFIG = {
-  /** Minimum pixels between notes for clickability */
-  MIN_NOTE_SPACING: 18,
-  /** Minimum measure width even for empty measures */
-  MIN_MEASURE_WIDTH: 100,
-  /** Maximum measure width to prevent one measure dominating */
-  MAX_MEASURE_WIDTH: 400,
-  /** Space for clef symbol on first measure of line */
-  CLEF_WIDTH: 45,
-  /** Space for a mid-line clef change (smaller than a line-start clef) */
-  CLEF_CHANGE_WIDTH: 30,
-  /** Space for time signature */
-  TIME_SIG_WIDTH: 30,
-  /** Padding before/after barlines */
-  BARLINE_PADDING: 10,
-  /** Default container width */
-  CONTAINER_WIDTH: 1000,
-  /** Margin around the score */
-  MARGIN: 20,
-  /** Stave height */
-  STAVE_HEIGHT: 120,
-  /** Vertical spacing between lines */
-  VERTICAL_SPACING: 30,
-}
-
-/**
- * Fixed height of the score *viewport* (the window you scroll inside), sized to ≈ two staff
- * lines so the JSON panel below stays visible. Derived from LAYOUT_CONFIG so it tracks the
- * per-line content height (STAVE_HEIGHT + VERTICAL_SPACING) + the score's top/bottom margins,
- * rather than being a magic 340. See docs/navigation-viewport-plan.md §2.
- */
-export const VIEWPORT_TWO_LINE_HEIGHT =
-  2 * (LAYOUT_CONFIG.STAVE_HEIGHT + LAYOUT_CONFIG.VERTICAL_SPACING) + LAYOUT_CONFIG.MARGIN * 2
-
-/**
- * Width calculation result for a measure
- */
-export interface MeasureWidthInfo {
-  measureNumber: number
-  minWidth: number
-  finalWidth: number
-  lineNumber: number
-  /** Cautionary clef drawn at this measure's end when the next line opens with a
-   *  different clef (last measure of a line only). */
-  cautionaryEndClef?: Clef
-  /** Cautionary (courtesy) time signature drawn at this measure's end when the next
-   *  line opens with a meter change (last measure of a line only). Drawn FULL size
-   *  (unlike the cautionary clef), per standard engraving — it sits after the final
-   *  barline of the line. */
-  cautionaryEndTimeSig?: TimeSignature
-}
+// Re-exported for existing importers (MusicEngine, App.vue, RenderPass) that referenced
+// these from the renderer before they moved to ./layoutConfig.
+export { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo }
 
 /**
  * Bounds information for a rendered measure
@@ -192,186 +143,6 @@ export class VexFlowRenderer {
     // Disable save/restore to avoid structuredClone issues with Vue reactivity
     this.context.save = () => {}
     this.context.restore = () => {}
-  }
-
-  /**
-   * Convert our NoteDuration to VexFlow duration format
-   * Appends 'd' for each dot (e.g., "qd" for dotted quarter, "qdd" for double-dotted)
-   */
-  private convertDuration(duration: NoteDuration, dots: number = 0): string {
-    return durationToVexflow(duration, dots)
-  }
-
-  /**
-   * Map the pure {@link pickVoiceMode} policy onto VexFlow's Voice.Mode enum.
-   * `capacity` is the measure's actual playable length (override or nominal), so
-   * a pickup bar is judged against its true length.
-   */
-  private chooseVoiceMode(slots: ChordRest[], capacity: Fraction): number {
-    return pickVoiceMode(slots, capacity) === 'soft' ? Voice.Mode.SOFT : Voice.Mode.FULL
-  }
-
-  /**
-   * Create StaveNotes directly from ChordRest slots.
-   * One slot → one StaveNote. Rests → rest StaveNote; Chords → multi-key StaveNote.
-   * @param slots - Slots already sorted by beat position
-   * @param clefForBeat - Resolves the clef in effect at a given beat (for note
-   *   positioning and stem direction). A single Clef is accepted for convenience.
-   */
-  private createStaveNotesFromSlots(
-    slots: ChordRest[],
-    clefForBeat: ((beat: Fraction) => Clef) | Clef = 'treble',
-  ): StaveNote[] {
-    const resolveClef: (beat: Fraction) => Clef =
-      typeof clefForBeat === 'function' ? clefForBeat : () => clefForBeat
-    const staveNotes: StaveNote[] = []
-
-    // Track the currently active alteration per diatonic staff position within this measure.
-    // Key = spellingDiatonicPos(step, octave). Value = active PitchAlter (0 = natural).
-    // A position absent from the map has not yet appeared in this measure.
-    const activeMeasureAlterations = new Map<number, PitchAlter>()
-
-    for (const slot of slots) {
-      if (slot.type === 'rest') {
-        if (slot.isMeasureRest) {
-          // Whole-bar (measure) rest: a centred whole rest, drawn the same way at
-          // any bar length. Its voice runs in SOFT mode (see chooseVoiceMode) so
-          // the whole rest's fixed tick value never clashes with the bar capacity.
-          staveNotes.push(new StaveNote({ keys: ['b/4'], duration: 'wr', alignCenter: true }))
-          continue
-        }
-        const vexDuration = this.convertDuration(slot.duration, slot.dots || 0)
-        // Rests are positioned at fixed staff positions independent of clef.
-        // The 'b/4' key anchors the rest to the middle line under the default
-        // (treble) clef — passing a clef would shift it (e.g. high in bass clef).
-        const staveNote = new StaveNote({ keys: ['b/4'], duration: vexDuration + 'r' })
-        for (let d = 0; d < (slot.dots || 0); d++) {
-          Dot.buildAndAttach([staveNote], { all: true })
-        }
-        staveNotes.push(staveNote)
-        continue
-      }
-
-      // Chord slot — decide which accidental sign (if any) to display for each pitch.
-      // displayAccidentals: noteId → VexFlow accidental string, or null if suppressed.
-      const displayAccidentals = new Map<string, string | null>()
-      for (const p of slot.notes) {
-        if (p.tiedFrom) {
-          // Tied continuation: never re-show the accidental
-          displayAccidentals.set(p.id, null)
-          continue
-        }
-        const dPos = spellingDiatonicPos(p.step, p.octave)
-        const activeAlter = activeMeasureAlterations.get(dPos)  // undefined = not seen yet
-
-        if (p.alter !== 0) {
-          // Non-natural pitch — show sign unless the same alteration is already active
-          if (!p.forceAccidental && activeAlter === p.alter) {
-            displayAccidentals.set(p.id, null)  // suppress: redundant
-          } else {
-            const sign = p.alter === 2 ? '##' : p.alter === 1 ? '#' : p.alter === -1 ? 'b' : 'bb'
-            displayAccidentals.set(p.id, sign)
-            activeMeasureAlterations.set(dPos, p.alter)
-          }
-        } else {
-          // Natural pitch (alter === 0)
-          if (activeAlter !== undefined && activeAlter !== 0) {
-            // A previous note on this staff position was altered — show ♮ to cancel it
-            displayAccidentals.set(p.id, 'n')
-            activeMeasureAlterations.set(dPos, 0)
-          } else if (p.forceAccidental) {
-            // Caller explicitly wants a courtesy natural sign
-            displayAccidentals.set(p.id, 'n')
-            activeMeasureAlterations.set(dPos, 0)
-          } else {
-            displayAccidentals.set(p.id, null)  // no sign needed
-          }
-        }
-      }
-
-      // Sort pitches low→high by MIDI value (VexFlow requires ascending key order for chords)
-      const sortedPitches = [...slot.notes].sort(
-        (a, b) => spellingToMidi(a.step, a.alter, a.octave) - spellingToMidi(b.step, b.alter, b.octave)
-      )
-      // Build VexFlow key strings directly from spelling — no MIDI lookup table needed
-      const keys = sortedPitches.map(p => spellingToVexflowKey(p.step, p.alter, p.octave))
-
-      // Clef in effect at this slot's beat (mid-measure changes move notes).
-      const slotClef = resolveClef(slot.beat)
-
-      // Stem direction — compare diatonic staff position against clef's middle line
-      let stemDirection: number
-      if (slot.stemDirection === 'up') {
-        stemDirection = 1
-      } else if (slot.stemDirection === 'down') {
-        stemDirection = -1
-      } else {
-        const middleDiatonic = middleLineDiatonicPos(slotClef)
-        let maxDist = 0
-        stemDirection = -1  // default down; middle-line notes follow this convention
-        for (const p of slot.notes) {
-          const dPos = spellingDiatonicPos(p.step, p.octave)
-          const dist = Math.abs(dPos - middleDiatonic)
-          if (dist > maxDist) {
-            maxDist = dist
-            stemDirection = dPos >= middleDiatonic ? -1 : 1
-          }
-        }
-      }
-
-      const vexDuration = this.convertDuration(slot.duration, slot.dots || 0)
-      const staveNote = new StaveNote({ keys, duration: vexDuration, clef: slotClef, autoStem: false })
-      staveNote.setStemDirection(stemDirection)
-
-      // Add accidental modifiers — VexFlow accepts '#', 'b', 'n', '##', 'bb'
-      sortedPitches.forEach((p, idx) => {
-        const acc = displayAccidentals.get(p.id) ?? null
-        if (acc) staveNote.addModifier(new Accidental(acc), idx)
-      })
-
-      // Dots
-      for (let d = 0; d < (slot.dots || 0); d++) {
-        Dot.buildAndAttach([staveNote], { all: true })
-      }
-
-      // Articulations are per-chord (stored on slot, not per pitch).
-      // Sorted by ARTICULATION_RENDER_ORDER so the first added sits closest to the note head.
-      const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
-      // Auto side = opposite the stem (notehead side); an explicit slot override flips it.
-      const autoArticulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
-      const articulationPosition = slot.articulationPlacement === 'above'
-        ? Modifier.Position.ABOVE
-        : slot.articulationPlacement === 'below'
-          ? Modifier.Position.BELOW
-          : autoArticulationPosition
-      const sortedArticulations = (slot.articulations ?? []).slice().sort(
-        (a, b) => ARTICULATION_RENDER_ORDER.indexOf(a) - ARTICULATION_RENDER_ORDER.indexOf(b)
-      )
-      for (const art of sortedArticulations) {
-        staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
-      }
-
-      staveNotes.push(staveNote)
-    }
-
-    return staveNotes
-  }
-
-  /**
-   * Build a resolver for the clef in effect at any beat within a measure.
-   * Starts from the measure's opening clef and applies each clef change whose
-   * beat is at/before the queried beat.
-   */
-  private makeClefResolver(measure: Measure, openingClef: Clef): (beat: Fraction) => Clef {
-    const changes = (measure.clefs ?? []).slice().sort((a, b) => fracCompare(a.beat, b.beat))
-    return (beat: Fraction): Clef => {
-      let current = openingClef
-      for (const ch of changes) {
-        if (fracLte(ch.beat, beat)) current = ch.clef
-        else break
-      }
-      return current
-    }
   }
 
   /**
@@ -539,57 +310,6 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Create VexFlow Tuplet objects for a measure (adjusts tick values on notes).
-   * Must be called BEFORE voice.addTickables() for correct tick calculation.
-   * @param measure - The measure containing tuplet definitions
-   * @param slots - ChordRest slots sorted by beat (parallel to staveNotes)
-   * @param staveNotes - The VexFlow StaveNotes array
-   * @returns Map of tupletId to VexFlow Tuplet objects
-   */
-  private createTupletsForMeasure(
-    measure: Measure,
-    slots: ChordRest[],
-    staveNotes: StaveNote[]
-  ): Map<string, VexFlowTuplet> {
-    const vexTuplets = new Map<string, VexFlowTuplet>()
-
-    if (!measure.tuplets || measure.tuplets.length === 0) {
-      return vexTuplets
-    }
-
-    // Build mapping from tupletId to StaveNotes (one slot → one StaveNote)
-    const tupletStaveNoteMap = new Map<string, StaveNote[]>()
-
-    for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
-      const slot = slots[i]
-      if (slot.tupletId) {
-        if (!tupletStaveNoteMap.has(slot.tupletId)) {
-          tupletStaveNoteMap.set(slot.tupletId, [])
-        }
-        tupletStaveNoteMap.get(slot.tupletId)!.push(staveNotes[i])
-      }
-    }
-
-    // Create VexFlow Tuplet objects
-    for (const [tupletId, tupletStaveNotes] of tupletStaveNoteMap) {
-      const tupletData = measure.tuplets.find(t => t.id === tupletId)
-      if (tupletData && tupletStaveNotes.length >= 2) {
-        try {
-          const vexTuplet = new VexFlowTuplet(tupletStaveNotes, {
-            numNotes: tupletData.numNotes,
-            notesOccupied: tupletData.notesOccupied,
-          })
-          vexTuplets.set(tupletId, vexTuplet)
-        } catch (e) {
-          // Ignore tuplet creation errors
-        }
-      }
-    }
-
-    return vexTuplets
-  }
-
-  /**
    * Resolve the opening clef of every measure (the clef drawn at its barline /
    * line start). Mid-measure changes are handled per-slot during rendering.
    * @returns Map of measure number → opening clef
@@ -600,279 +320,6 @@ export class VexFlowRenderer {
       map.set(measure.number, measureOpeningClef(score, measure.number))
     }
     return map
-  }
-
-  /**
-   * Whether a time-signature glyph is drawn at the start of this measure:
-   * measure 1 always, plus any measure that begins an explicit TS change
-   * (engraving standard) — UNLESS the glyph has been explicitly hidden
-   * (`timeSignatureHidden`, e.g. the deleted default on measure 1; the meter
-   * still applies, only the glyph is suppressed). Drives the drawing, its width
-   * reservation, AND the clickable registry element.
-   */
-  private drawsTimeSignature(measure: Measure): boolean {
-    if (measure.timeSignatureHidden === true) return false
-    return measure.number === 1 || measure.timeSignatureChange === true
-  }
-
-  /**
-   * Calculate minimum width needed for a single measure based on its content
-   * Uses VexFlow's Formatter to estimate space needed for notes
-   */
-  private calculateMinimumMeasureWidth(
-    measure: Measure,
-    isFirstInLine: boolean,
-    clef: Clef,
-    hasClefChange: boolean = false
-  ): number {
-    // Start with base overhead
-    let overhead = LAYOUT_CONFIG.BARLINE_PADDING * 2
-
-    // Add clef width for first measure of each line
-    if (isFirstInLine) {
-      overhead += LAYOUT_CONFIG.CLEF_WIDTH
-    } else if (hasClefChange) {
-      // Mid-line clef change renders a smaller clef at the measure start
-      overhead += LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
-    }
-
-    // Add time signature width wherever a TS glyph is drawn (measure 1 + changes)
-    if (this.drawsTimeSignature(measure)) {
-      overhead += LAYOUT_CONFIG.TIME_SIG_WIDTH
-    }
-
-    // Budget width for each mid-measure (inline) clef change
-    const midClefCount = (measure.clefs ?? []).filter(c => !fracIsZero(c.beat)).length
-    overhead += midClefCount * LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
-
-    // If measure has no notes or only rests, use minimum width
-    const actualNotes = measure.slots.filter(s => s.type === 'chord')
-    if (actualNotes.length === 0) {
-      return Math.max(LAYOUT_CONFIG.MIN_MEASURE_WIDTH, overhead + 40)
-    }
-
-    // Create temporary voice to calculate width
-    const sortedSlots = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))
-    const staveNotes = this.createStaveNotesFromSlots(sortedSlots, this.makeClefResolver(measure, clef))
-
-    // Create VexFlow Tuplets BEFORE adding notes to voice (adjusts tick values)
-    this.createTupletsForMeasure(measure, sortedSlots, staveNotes)
-
-    const voice = new Voice({
-      numBeats: measure.timeSignature.numerator,
-      beatValue: measure.timeSignature.denominator,
-    }).setMode(this.chooseVoiceMode(sortedSlots, measureCapacityFrac(measure)))
-
-    try {
-      voice.addTickables(staveNotes)
-
-      // Use VexFlow's formatter to calculate minimum width
-      const formatter = new Formatter()
-      formatter.joinVoices([voice])
-      const minNoteWidth = formatter.preCalculateMinTotalWidth([voice])
-
-      // Add safety buffer (15%) and ensure minimum note spacing
-      const noteCount = sortedSlots.filter(s => s.type === 'chord').length
-      const minSpacingWidth = noteCount * LAYOUT_CONFIG.MIN_NOTE_SPACING
-      const calculatedWidth = Math.max(minNoteWidth * 1.15, minSpacingWidth)
-
-      // Total width = note space + overhead
-      let totalWidth = calculatedWidth + overhead
-
-      // Apply min/max constraints
-      totalWidth = Math.max(totalWidth, LAYOUT_CONFIG.MIN_MEASURE_WIDTH)
-      totalWidth = Math.min(totalWidth, LAYOUT_CONFIG.MAX_MEASURE_WIDTH)
-
-      return totalWidth
-    } catch (error) {
-      // If calculation fails, fall back to minimum width
-      console.warn(`Could not calculate width for measure ${measure.number}:`, error)
-      return LAYOUT_CONFIG.MIN_MEASURE_WIDTH
-    }
-  }
-
-  /**
-   * Distribute available width proportionally among measures on a line
-   */
-  private distributeLineWidths(
-    measureInfos: MeasureWidthInfo[],
-    availableWidth: number
-  ): void {
-    if (measureInfos.length === 0) return
-
-    const totalMinWidth = measureInfos.reduce((sum, m) => sum + m.minWidth, 0)
-
-    if (totalMinWidth >= availableWidth) {
-      // Need to compress - distribute proportionally to minimum widths
-      const compressionRatio = availableWidth / totalMinWidth
-      if (compressionRatio < 0.7) {
-        console.warn(`Severe measure compression (${(compressionRatio * 100).toFixed(0)}%) on line - measures may be crowded`)
-      }
-      for (const info of measureInfos) {
-        info.finalWidth = info.minWidth * compressionRatio
-      }
-    } else {
-      // Have extra space - distribute proportionally
-      const extraSpace = availableWidth - totalMinWidth
-      for (const info of measureInfos) {
-        const proportion = info.minWidth / totalMinWidth
-        info.finalWidth = info.minWidth + (extraSpace * proportion)
-      }
-    }
-  }
-
-  /**
-   * Calculate widths for all measures using a two-pass algorithm
-   * Pass 1: Calculate minimum widths and group into lines
-   * Pass 2: Distribute available space proportionally within each line
-   */
-  private calculateMeasureWidths(
-    score: Score,
-    effectiveClefs: Map<number, Clef>
-  ): Map<number, MeasureWidthInfo> {
-    const results = new Map<number, MeasureWidthInfo>()
-    const margin = LAYOUT_CONFIG.MARGIN
-    const availableWidth = LAYOUT_CONFIG.CONTAINER_WIDTH - (margin * 2)
-
-    // Pass 1: Calculate minimum widths and assign to lines
-    let currentLine = 0
-    let currentLineWidth = 0
-    let currentLineMeasures: MeasureWidthInfo[] = []
-
-    for (const measure of score.measures) {
-      const isFirstInLine = currentLineMeasures.length === 0
-      const clef = effectiveClefs.get(measure.number) || 'treble'
-      // Redraw the clef at a mid-line measure start only when it actually changes
-      // across the barline — i.e. differs from the previous measure's *ending*
-      // clef (a mid-measure change already shows its clef inline in that measure).
-      const prevEndClef = measure.number > 1 ? measureEndingClef(score, measure.number - 1) : undefined
-      const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
-      const minWidth = this.calculateMinimumMeasureWidth(measure, isFirstInLine, clef, hasClefChange)
-
-      // Check if measure fits on current line
-      if (currentLineWidth + minWidth > availableWidth && currentLineMeasures.length > 0) {
-        // Finalize current line
-        this.distributeLineWidths(currentLineMeasures, availableWidth)
-        for (const info of currentLineMeasures) {
-          results.set(info.measureNumber, info)
-        }
-
-        // Start new line
-        currentLine++
-        currentLineWidth = 0
-        currentLineMeasures = []
-
-        // Recalculate width for new line (first-in-line gets a full clef, so a
-        // clef change is absorbed into the line-start clef — no extra width)
-        const newMinWidth = this.calculateMinimumMeasureWidth(measure, true, clef)
-
-        const info: MeasureWidthInfo = {
-          measureNumber: measure.number,
-          minWidth: newMinWidth,
-          finalWidth: newMinWidth,
-          lineNumber: currentLine,
-        }
-        currentLineMeasures.push(info)
-        currentLineWidth = newMinWidth
-      } else {
-        const info: MeasureWidthInfo = {
-          measureNumber: measure.number,
-          minWidth,
-          finalWidth: minWidth,
-          lineNumber: currentLine,
-        }
-        currentLineMeasures.push(info)
-        currentLineWidth += minWidth
-      }
-    }
-
-    // Finalize last line
-    if (currentLineMeasures.length > 0) {
-      this.distributeLineWidths(currentLineMeasures, availableWidth)
-      for (const info of currentLineMeasures) {
-        results.set(info.measureNumber, info)
-      }
-    }
-
-    this.applyCautionaryClefs(score, effectiveClefs, results, availableWidth)
-    this.applyCautionaryTimeSignatures(score, results, availableWidth)
-
-    return results
-  }
-
-  /**
-   * Add a cautionary clef to the last measure of any line whose *next* line opens
-   * with a different clef. The warning shows the upcoming clef just before the
-   * line break (standard engraving). Runs after line assignment, so it reserves
-   * width on the affected measure and re-distributes that line only — line
-   * membership is never changed (no re-wrapping).
-   */
-  private applyCautionaryClefs(
-    score: Score,
-    effectiveClefs: Map<number, Clef>,
-    results: Map<number, MeasureWidthInfo>,
-    availableWidth: number
-  ): void {
-    const linesToRedistribute = new Set<number>()
-
-    for (let i = 0; i < score.measures.length - 1; i++) {
-      const current = results.get(score.measures[i].number)
-      const next = results.get(score.measures[i + 1].number)
-      if (!current || !next || next.lineNumber <= current.lineNumber) continue
-
-      // The next line opens here; warn only if the clef actually changes across
-      // the break (its opening clef differs from this measure's ending clef).
-      const nextOpeningClef = effectiveClefs.get(next.measureNumber) || 'treble'
-      if (nextOpeningClef === measureEndingClef(score, current.measureNumber)) continue
-
-      current.cautionaryEndClef = nextOpeningClef
-      current.minWidth += LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
-      linesToRedistribute.add(current.lineNumber)
-    }
-
-    // Re-distribute each affected line so the reserved width shrinks note spacing
-    // rather than overflowing the margin.
-    for (const lineNumber of linesToRedistribute) {
-      const lineMeasures = [...results.values()].filter(m => m.lineNumber === lineNumber)
-      this.distributeLineWidths(lineMeasures, availableWidth)
-    }
-  }
-
-  /**
-   * Add a cautionary (courtesy) time signature to the last measure of any line
-   * whose *next* line opens with a meter change. The warning shows the upcoming
-   * time signature just before the line break, after the final barline (standard
-   * engraving). Drawn FULL size, unlike the cautionary clef.
-   *
-   * Runs after line assignment, so it reserves width on the affected measure and
-   * re-distributes that line only — line membership is never changed (no re-wrap).
-   */
-  private applyCautionaryTimeSignatures(
-    score: Score,
-    results: Map<number, MeasureWidthInfo>,
-    availableWidth: number
-  ): void {
-    const linesToRedistribute = new Set<number>()
-
-    for (let i = 0; i < score.measures.length - 1; i++) {
-      const current = results.get(score.measures[i].number)
-      const next = results.get(score.measures[i + 1].number)
-      if (!current || !next || next.lineNumber <= current.lineNumber) continue
-
-      // The next line opens here; warn only when it actually begins a meter change
-      // (same condition that draws the TS glyph at the new line's start).
-      const nextMeasure = score.measures[i + 1]
-      if (!nextMeasure.timeSignatureChange) continue
-
-      current.cautionaryEndTimeSig = nextMeasure.timeSignature
-      current.minWidth += LAYOUT_CONFIG.TIME_SIG_WIDTH
-      linesToRedistribute.add(current.lineNumber)
-    }
-
-    for (const lineNumber of linesToRedistribute) {
-      const lineMeasures = [...results.values()].filter(m => m.lineNumber === lineNumber)
-      this.distributeLineWidths(lineMeasures, availableWidth)
-    }
   }
 
   /**
@@ -912,7 +359,7 @@ export class VexFlowRenderer {
 
     // Resolve the clef in effect at any beat within this measure: starts from the
     // opening clef and applies each clef change at/after its beat.
-    const clefForBeat = this.makeClefResolver(measure, clef)
+    const clefForBeat = makeClefResolver(measure, clef)
     // Mid-measure changes (beat > 0) render as inline ClefNotes before their slot.
     const midChanges: { beat: Fraction; clef: Clef }[] = (measure.clefs ?? [])
       .filter(c => !fracIsZero(c.beat))
@@ -934,7 +381,7 @@ export class VexFlowRenderer {
     if (measure.slots.length > 0) {
       const sortedSlots = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))
       // notesOnly: one StaveNote per slot (used for beams, tuplets, registration).
-      const staveNotes = this.createStaveNotesFromSlots(sortedSlots, clefForBeat)
+      const staveNotes = createStaveNotesFromSlots(sortedSlots, clefForBeat)
 
       // Attach dynamics as Annotation modifiers BEFORE formatting so they reserve
       // vertical space and stack with articulations. Co-located marks (stacked at
@@ -957,7 +404,7 @@ export class VexFlowRenderer {
       const voice = new Voice({
         numBeats: measure.timeSignature.numerator,
         beatValue: measure.timeSignature.denominator,
-      }).setMode(this.chooseVoiceMode(sortedSlots, measureCapacityFrac(measure)))
+      }).setMode(chooseVoiceMode(sortedSlots, measureCapacityFrac(measure)))
 
       try {
         voice.addTickables(tickables)
@@ -1019,7 +466,7 @@ export class VexFlowRenderer {
       // Mid-line clef change: smaller clef at the start of the measure it applies to
       stave.addClef(clef, 'small')
     }
-    if (this.drawsTimeSignature(measure)) {
+    if (drawsTimeSignature(measure)) {
       stave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
     }
     if (cautionaryEndClef) {
@@ -1406,7 +853,7 @@ export class VexFlowRenderer {
       })
     }
 
-    if (this.drawsTimeSignature(measure)) {
+    if (drawsTimeSignature(measure)) {
       // Position after whatever clef glyph (if any) was drawn at the measure start.
       const clefOffset =
         measure.number === 1 || isFirstInLine
@@ -1492,7 +939,7 @@ export class VexFlowRenderer {
     // Copy the frozen snapshot so the next clear() doesn't wipe it (same Map ref).
     const measureWidths = this.frozenLayout
       ? new Map(this.frozenLayout)
-      : this.calculateMeasureWidths(score, effectiveClefs)
+      : calculateMeasureWidths(score, effectiveClefs)
     // Store for use in tie rendering (to determine which line each measure is on)
     this.measureLayoutInfo = measureWidths
 
@@ -1638,7 +1085,7 @@ export class VexFlowRenderer {
       } else if (hasClefChange) {
         tempStave.addClef(openingClef, 'small')
       }
-      if (this.drawsTimeSignature(measure)) {
+      if (drawsTimeSignature(measure)) {
         tempStave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
       }
       // Match the real stave's note area so the ghost note aligns with where the
@@ -1652,7 +1099,7 @@ export class VexFlowRenderer {
       tempStave.setContext(this.context!)
 
       const vexNote = spellingToVexflowKey(ghostNote.step, ghostNote.alter, ghostNote.octave)
-      const vexDuration = this.convertDuration(ghostNote.duration as any, ghostNote.dots || 0)
+      const vexDuration = convertDuration(ghostNote.duration as any, ghostNote.dots || 0)
 
       // Stem direction — same diatonic approach as createStaveNotesFromSlots.
       // Include any existing notes at the same beat so the ghost matches the chord's stem.
