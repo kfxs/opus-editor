@@ -1,8 +1,8 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet, TextDynamics, Curve } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet, TextDynamics } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
-import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Chord, Fraction, PitchStep, PitchAlter, GhostNote, TimeSignature, Dynamic, DynamicLevel } from '@/types/music'
+import type { Score, Measure, NoteDuration, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, PitchAlter, GhostNote, TimeSignature, Dynamic, DynamicLevel } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracGte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureOpeningClef, measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos } from '@/utils/clefUtils'
 import { beatToFrac, measureCapacityFrac } from '@/utils/musicUtils'
@@ -17,6 +17,8 @@ import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/uti
 // font-match the engraving from the same source of truth (see docs/text-editing-plan.md §3).
 import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT } from './dynamicStyle'
 import type { RenderPass } from './RenderPass'
+import { renderTies, getTieDirection } from './TieRenderer'
+import { drawCurveArc } from './curveArc'
 
 /**
  * Articulation render order — from note outward (first = closest to note head).
@@ -1737,7 +1739,7 @@ export class VexFlowRenderer {
     const pass = this.createRenderPass()
 
     // Render ties between measures after all measures are drawn
-    this.renderTies(pass, score)
+    renderTies(pass, score)
 
     // Render phrasing slurs (top-level spans) after ties, in the same post-measure pass
     this.renderSlurs(pass, score)
@@ -1985,226 +1987,6 @@ export class VexFlowRenderer {
     }
   }
 
-  /**
-   * Determine tie direction for a pitch within a chord.
-   * Returns: -1 for UP (top note), 1 for DOWN (bottom note).
-   * @param pitch - MIDI pitch of the note being tied
-   * @param beat - Beat position of the chord containing this pitch
-   * @param measure - The measure to look up chord info in
-   */
-  private getTieDirection(notePitch: import('@/types/music').NotePitch, beat: Fraction, measure: Measure): number | undefined {
-    // An explicit override (set by flipping the tie with `x`) wins over auto placement.
-    if (notePitch.tieDirection !== undefined) return notePitch.tieDirection
-
-    // Find the chord slot at this beat
-    const chordAtBeat = measure.slots.find(
-      s => s.type === 'chord' && fracEq(s.beat, beat)
-    ) as Chord | undefined
-
-    const thisDiatonic = spellingDiatonicPos(notePitch.step, notePitch.octave)
-
-    if (!chordAtBeat || chordAtBeat.notes.length <= 1) {
-      // Single note — tie direction based on diatonic distance from middle line (treble B4=34)
-      const middleDiatonic = middleLineDiatonicPos('treble')
-      return thisDiatonic >= middleDiatonic ? -1 : 1
-    }
-
-    // Sort all chord notes by diatonic staff position
-    const sortedDiatonics = chordAtBeat.notes
-      .map(n => spellingDiatonicPos(n.step, n.octave))
-      .sort((a, b) => a - b)
-    const lowestDiatonic  = sortedDiatonics[0]
-    const highestDiatonic = sortedDiatonics[sortedDiatonics.length - 1]
-
-    if (thisDiatonic === highestDiatonic) return -1  // Top note: tie curves UP
-    if (thisDiatonic === lowestDiatonic)  return 1   // Bottom note: tie curves DOWN
-
-    // Middle note: follow nearest outer voice
-    const distToTop    = highestDiatonic - thisDiatonic
-    const distToBottom = thisDiatonic    - lowestDiatonic
-    return distToTop <= distToBottom ? -1 : 1
-  }
-
-  /**
-   * Draw a tie arc where both endpoints share the source note's Y position.
-   * Ties always connect the same pitch, so the arc is horizontally flat with its
-   * apex at the X midpoint. Routes through the shared cubic `drawCurveArc` (same
-   * `Curve.renderCurve` path as slurs); flat endpoints + symmetric `cps` keep the
-   * peak centered, while tie-specific BOW/THICKNESS reproduce the old hand-drawn
-   * quadratic look. Returns the bounding box of the drawn arc, or null on failure.
-   */
-  private drawFlatTie(
-    pass: RenderPass,
-    fromInfo: { staveNote: StaveNote; noteIndex: number },
-    toInfo: { staveNote: StaveNote; noteIndex: number },
-    direction: number,
-  ): { x: number; y: number; width: number; height: number } | null {
-    if (!pass.context) return null
-    try {
-      const firstX = fromInfo.staveNote.getTieRightX()
-      const lastX = toInfo.staveNote.getTieLeftX()
-      const ys = fromInfo.staveNote.getYs()
-      const y = ys[fromInfo.noteIndex] ?? ys[0]
-      if (y === undefined || isNaN(y)) return null
-
-      // Flat endpoints, both lifted off the notehead by TIE_LIFT. Symmetric control
-      // heights (same Y, dy=0) → the cubic's peak lands exactly at the X midpoint.
-      const tieY = y + VexFlowRenderer.TIE_LIFT * direction
-      const p0 = { x: firstX, y: tieY }
-      const p1 = { x: lastX, y: tieY }
-      const bow = VexFlowRenderer.TIE_BOW
-      const cps: [{ x: number; y: number }, { x: number; y: number }] = [
-        { x: 0, y: bow },
-        { x: 0, y: bow },
-      ]
-      const arc = this.drawCurveArc(
-        pass, p0, p1, cps, direction, VexFlowRenderer.TIE_THICKNESS,
-        fromInfo.staveNote, toInfo.staveNote,
-      )
-      return arc.bbox
-    } catch (e) {
-      console.error('Could not draw flat tie:', e)
-      return null
-    }
-  }
-
-  /**
-   * Render ties between notes that have tiedTo/tiedFrom properties
-   */
-  private renderTies(pass: RenderPass, score: Score): void {
-    if (!pass.context) return
-
-    // Track which ties we've already processed to avoid duplicates
-    const processedTies = new Set<string>()
-
-    // Find all notes with ties by iterating chord slots directly
-    for (const measure of score.measures) {
-      for (const slot of measure.slots) {
-        if (slot.type !== 'chord') continue
-        for (const pitch of slot.notes) {
-          if (!pitch.tiedTo) continue
-
-          const tieKey = `${pitch.id}->${pitch.tiedTo}`
-          if (processedTies.has(tieKey)) continue
-          processedTies.add(tieKey)
-
-          const fromInfo = pass.staveNoteMap.get(pitch.id)
-          const toInfo = pass.staveNoteMap.get(pitch.tiedTo)
-
-          if (fromInfo?.staveNote && toInfo?.staveNote) {
-            try {
-              const fromMeasure = slot.measure
-              // Find the measure containing the target pitch
-              let toMeasure: number | undefined
-              outer: for (const m of score.measures) {
-                for (const s of m.slots) {
-                  if (s.type === 'chord' && s.notes.some(p => p.id === pitch.tiedTo)) {
-                    toMeasure = m.number
-                    break outer
-                  }
-                  if (s.type === 'rest' && s.id === pitch.tiedTo) {
-                    toMeasure = m.number
-                    break outer
-                  }
-                }
-              }
-
-              const fromLayout = pass.measureLayoutInfo.get(fromMeasure)
-              const toLayout = toMeasure ? pass.measureLayoutInfo.get(toMeasure) : undefined
-              const fromLine = fromLayout?.lineNumber ?? 0
-              const toLine = toLayout?.lineNumber ?? 0
-              const sameLine = fromLine === toLine
-
-              const tieDirection = this.getTieDirection(pitch, slot.beat, measure)
-              // note alias for registry callbacks below
-              const note = { id: pitch.id, tiedTo: pitch.tiedTo, measure: fromMeasure }
-
-              if (sameLine) {
-                // Same line: draw flat arc anchored at the source note's Y
-                // (ties always connect the same pitch, so both endpoints share the same Y)
-                const bbox = this.drawFlatTie(pass, fromInfo, toInfo, tieDirection ?? 1)
-                if (bbox) {
-                  pass.elementRegistry.add({
-                    type: 'tie',
-                    fromNoteId: note.id,
-                    toNoteId: note.tiedTo!,
-                    fromMeasure: fromMeasure,
-                    toMeasure: toMeasure!,
-                    tieDirection: tieDirection ?? 1,
-                    bbox,
-                  })
-                }
-              } else {
-                // Different lines (line break): two partial ties
-                // First partial: from note to end of line
-                const firstPartialTie = new StaveTie({
-                  firstNote: fromInfo.staveNote,
-                  firstIndexes: [fromInfo.noteIndex],
-                })
-                if (tieDirection !== undefined) {
-                  firstPartialTie.setDirection(tieDirection)
-                }
-                firstPartialTie.setContext(pass.context!).draw()
-
-                // Register first partial tie
-                try {
-                  const box = firstPartialTie.getBoundingBox()
-                  if (box) {
-                    pass.elementRegistry.add({
-                      type: 'tie',
-                      fromNoteId: note.id,
-                      toNoteId: note.tiedTo!,
-                      fromMeasure: fromMeasure,
-                      toMeasure: toMeasure!,
-                      isPartial: true,
-                      partialType: 'end', // ends at line break
-                      tieDirection: tieDirection ?? 1,
-                      bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
-                    })
-                  }
-                } catch (e) {
-                  // getBoundingBox may fail
-                }
-
-                // Second partial: from start of line to note
-                const secondPartialTie = new StaveTie({
-                  lastNote: toInfo.staveNote,
-                  lastIndexes: [toInfo.noteIndex],
-                })
-                if (tieDirection !== undefined) {
-                  secondPartialTie.setDirection(tieDirection)
-                }
-                secondPartialTie.setContext(pass.context!).draw()
-
-                // Register second partial tie
-                try {
-                  const box = secondPartialTie.getBoundingBox()
-                  if (box) {
-                    pass.elementRegistry.add({
-                      type: 'tie',
-                      fromNoteId: note.id,
-                      toNoteId: note.tiedTo!,
-                      fromMeasure: fromMeasure,
-                      toMeasure: toMeasure!,
-                      isPartial: true,
-                      partialType: 'start', // starts at line break
-                      tieDirection: tieDirection ?? 1,
-                      bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
-                    })
-                  }
-                } catch (e) {
-                  // getBoundingBox may fail
-                }
-              }
-            } catch (e) {
-              console.error('Could not render tie:', e)
-            }
-          }
-        }
-      }
-    }
-  }
-
   /** Measure number containing the chord-head / rest id, or undefined if absent. */
   private measureOfNoteId(score: Score, noteId: string): number | undefined {
     for (const m of score.measures) {
@@ -2227,16 +2009,6 @@ export class VexFlowRenderer {
   private static readonly SLUR_BOW_MAX = 22      // …up to this ceiling (Gould: longer → taller, capped)
   private static readonly SLUR_NEST_GAP = 10     // extra bow height per nesting level (concentric slurs)
   private static readonly SLUR_THICKNESS = 1.5  // Curve.renderCurve return-pass offset (mid swell)
-  private static readonly SLUR_OUTLINE = 1      // stroke width pinned around the curve (sharp tips)
-
-  // Tie geometry (same-line, flat). A tie joins one pitch, so both endpoints share a Y
-  // and the apex sits at the X midpoint. These reproduce the old hand-drawn quadratic
-  // (drawFlatTie: yShift 7, cp1 8, cp2 12) on the shared cubic path: a cubic's symmetric
-  // peak is 0.75·H, so BOW 5.3 → ~4px apex (old 0.5·cp1) and THICKNESS 2.7 → ~2px belly
-  // (old 0.5·(cp2−cp1)). Kept fuller than a slur — ties read heavier and hug the head.
-  private static readonly TIE_LIFT = 7        // gap between the notehead and the flat tie endpoints
-  private static readonly TIE_BOW = 5.3       // cubic control height → ~4px apex above the endpoint line
-  private static readonly TIE_THICKNESS = 2.7 // belly swell → ~2px at center, pinching to the tips
 
   /**
    * Compute the cubic `cps` (control-point deltas for `Curve.renderCurve`) that bow the
@@ -2379,7 +2151,7 @@ export class VexFlowRenderer {
           const p1 = { x: lastX, y: endY }
           // A user-edited shape (slur.cps) overrides the auto arch; absent → auto.
           const cps = slur.cps ?? this.slurArchCps(p0, p1, direction, nestLift)
-          const arc = this.drawCurveArc(pass, p0, p1, cps, direction, VexFlowRenderer.SLUR_THICKNESS, fromNote, toNote)
+          const arc = drawCurveArc(pass, p0, p1, cps, direction, VexFlowRenderer.SLUR_THICKNESS, fromNote, toNote)
           // Store the on-screen control points + endpoint geometry so a selected
           // slur can show draggable handles (Phase 7). Same-line only — a split slur
           // shares one cps, so it gets no handles.
@@ -2400,7 +2172,7 @@ export class VexFlowRenderer {
             const h1p0 = { x: firstX, y: startY }
             const h1p1 = { x: rightEdge, y: apex1 }
             registerPartial(
-              this.drawCurveArc(pass, h1p0, h1p1, this.slurArchCps(h1p0, h1p1, direction, nestLift), direction, VexFlowRenderer.SLUR_THICKNESS, fromNote, toNote),
+              drawCurveArc(pass, h1p0, h1p1, this.slurArchCps(h1p0, h1p1, direction, nestLift), direction, VexFlowRenderer.SLUR_THICKNESS, fromNote, toNote),
               'end',
             )
             // Second (leading) half: from the next system's left edge down into the end note.
@@ -2411,7 +2183,7 @@ export class VexFlowRenderer {
             const h2p0 = { x: leftEdge, y: apex2 }
             const h2p1 = { x: lastX, y: endY }
             registerPartial(
-              this.drawCurveArc(pass, h2p0, h2p1, this.slurArchCps(h2p0, h2p1, direction, nestLift), direction, VexFlowRenderer.SLUR_THICKNESS, fromNote, toNote),
+              drawCurveArc(pass, h2p0, h2p1, this.slurArchCps(h2p0, h2p1, direction, nestLift), direction, VexFlowRenderer.SLUR_THICKNESS, fromNote, toNote),
               'start',
             )
           }
@@ -2423,77 +2195,6 @@ export class VexFlowRenderer {
         console.error('Could not render slur:', e)
       }
     }
-  }
-
-  /**
-   * Draw a curved arc (slur **or** tie) as a cubic Bézier via VexFlow's
-   * `Curve.renderCurve`, driven by **our own** endpoint geometry (we never call
-   * `Curve.draw()`, which would re-derive endpoints from stems and discard our
-   * per-chord-head Ys / system-break geometry). Used for the same-line slur arc,
-   * each cross-system slur half, and the same-line (flat) tie.
-   *
-   * `cps` are the two control-point deltas (the editable handle data); `direction`
-   * is -1 (above) / +1 (below). `thickness` is the belly swell — `renderCurve`
-   * strokes a forward pass at `cp.y` and a return pass at `cp.y + thickness`, so the
-   * fill bows out by `thickness` at center and pinches to a point at each endpoint
-   * (slurs pass a thin SLUR_THICKNESS, ties a fuller TIE_THICKNESS). We pass
-   * `xShift:0`/`yShift:0` so `p0`/`p1` (which already fold in the LIFT) are exact.
-   * `renderCurve` strokes **and** fills, so each emitted `<path>` carries both — the
-   * selection highlight must override both (see HighlightController).
-   *
-   * Returns the bbox plus sampled cubic points for arc-proximity hit-testing. The
-   * sampling mirrors `renderCurve`'s internal control-point math (`curve.js`) so the
-   * hit geometry matches the drawn path exactly.
-   */
-  private drawCurveArc(
-    pass: RenderPass,
-    p0: { x: number; y: number },
-    p1: { x: number; y: number },
-    cps: [{ x: number; y: number }, { x: number; y: number }],
-    direction: number,
-    thickness: number,
-    fromNote: StaveNote,
-    toNote: StaveNote,
-  ): { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[]; c0: { x: number; y: number }; c1: { x: number; y: number } } {
-    const curve = new Curve(fromNote, toNote, {
-      cps,
-      thickness,
-      xShift: 0,
-      yShift: 0,
-    })
-    curve.setContext(pass.context)
-    // renderCurve strokes the body with the context's *current* line width — left thick by
-    // the preceding beam/stem passes, which blunts the curve's tapered tips and over-weights
-    // it. Pin a thin slur outline so the fill's natural taper (it pinches to a point at each
-    // endpoint) reads as a proper slur. save/restore so we don't leak the width to later draws.
-    pass.context.save?.()
-    pass.context.setLineWidth?.(VexFlowRenderer.SLUR_OUTLINE)
-    curve.renderCurve({ firstX: p0.x, firstY: p0.y, lastX: p1.x, lastY: p1.y, direction })
-    pass.context.restore?.()
-
-    // Mirror renderCurve's control-point math (xShift/yShift = 0 → endpoints are exact)
-    // to reconstruct the cubic for hit-testing. controlPointSpacing = (lastX-firstX)/(n+2).
-    const spacing = (p1.x - p0.x) / (cps.length + 2)
-    const c0 = { x: p0.x + spacing + cps[0].x, y: p0.y + cps[0].y * direction }
-    const c1 = { x: p1.x - spacing + cps[1].x, y: p1.y + cps[1].y * direction }
-
-    const points: { x: number; y: number }[] = []
-    const STEPS = 16
-    for (let i = 0; i <= STEPS; i++) {
-      const t = i / STEPS
-      const mt = 1 - t
-      const a = mt * mt * mt, b = 3 * mt * mt * t, c = 3 * mt * t * t, d = t * t * t
-      points.push({
-        x: a * p0.x + b * c0.x + c * c1.x + d * p1.x,
-        y: a * p0.y + b * c0.y + c * c1.y + d * p1.y,
-      })
-    }
-
-    const xs = points.map(p => p.x)
-    const ys = points.map(p => p.y)
-    const minX = Math.min(...xs), maxX = Math.max(...xs)
-    const minY = Math.min(...ys), maxY = Math.max(...ys)
-    return { bbox: { x: minX, y: minY, width: maxX - minX, height: maxY - minY }, points, c0, c1 }
   }
 
   /** The rendered SVG group (`<g class="vf-slur">`) for a slur, or null. Scoped
@@ -2532,7 +2233,7 @@ export class VexFlowRenderer {
 
     if (!foundNotePitch || !foundBeat || !foundMeasure) return
 
-    const tieDirection = this.getTieDirection(foundNotePitch, foundBeat, foundMeasure)
+    const tieDirection = getTieDirection(foundNotePitch, foundBeat, foundMeasure)
     const pendingTie = new StaveTie({
       firstNote: info.staveNote,
       firstIndexes: [info.noteIndex],
