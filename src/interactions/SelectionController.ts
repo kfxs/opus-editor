@@ -267,7 +267,9 @@ export class SelectionController {
     if (this.state.selectedTool !== 'selection' || !this.state.selectedNoteId || !engine) return
 
     const score = engine.getScore()
-    const { allFlat, beats } = buildBeatMap(score)
+    // Arrow nav stays within the selected note's own voice (independent streams).
+    const selectedVoice = engine.getNote(this.state.selectedNoteId)?.voice ?? 0
+    const { allFlat, beats } = buildBeatMap(score, selectedVoice)
 
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
     if (!currentNote) return

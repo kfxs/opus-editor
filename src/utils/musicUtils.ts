@@ -364,6 +364,7 @@ export function getMeasureNotes(measure: Measure): Note[] {
         dots: slot.dots,
         tupletId: slot.tupletId,
         actualDuration: slot.actualDuration,
+        voice: slot.voice,
       })
     } else {
       for (const pitch of slot.notes) {
@@ -384,6 +385,7 @@ export function getMeasureNotes(measure: Measure): Note[] {
           tupletId: slot.tupletId,
           actualDuration: slot.actualDuration,
           articulations: slot.articulations,
+          voice: slot.voice,
         })
       }
     }

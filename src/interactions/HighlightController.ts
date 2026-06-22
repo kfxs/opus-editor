@@ -1,7 +1,7 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
-import { buildBeatMap } from '../utils/beatMap'
+import { navBeatMap } from '../utils/beatMap'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 
 /**
@@ -29,7 +29,8 @@ export class HighlightController {
 
     const score = engine.getScore()
     const registry = engine.getElementRegistry()
-    const { allFlat, beats } = buildBeatMap(score)
+    // Cursor follows the active voice's stream (matches enterNoteAtCursorPosition).
+    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, activeVoiceToModel(this.state.activeVoice))
 
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
     if (!currentNote) return

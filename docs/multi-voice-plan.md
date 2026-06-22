@@ -160,9 +160,17 @@ voice-blind `buildBeatMap` (mouse is the reliable voice-2 entry path) — nav re
 Verified: `build:check` + 702 tests + `lint:boundary` green. Not committed.
 
 ### Phase 5 — Polish / deferred
+- **Per-voice keyboard navigation — ✅ DONE 2026-06-22.** `buildBeatMap(score, voice?)` now takes an optional
+  0-based model voice and filters the flat stream to it; new `navBeatMap(score, currentNoteId, voice)` returns
+  the active voice's map when the cursor note is in it, else falls back to all voices (covers the moment just
+  after switching voices, before the new voice has a slot). Wired into `KeyboardController` (note + rest entry),
+  `HighlightController.applyKeyboardCursor` (cursor matches the active voice's stream), and
+  `SelectionController.navigateSelection` (arrow keys stay within the SELECTED note's own voice).
+  **Bug fixed:** `getMeasureNotes` (musicUtils) didn't project the `voice` field, so a voice-scoped beat map
+  came back empty — now projects `voice` on both rests and chord notes. 704 tests (2 new) + build + boundary green.
 - Voice-coloured selection for dynamics/slurs that belong to a voice (kept orange in this pass).
 - 3rd / 4th voice (orange / purple), and the `> 2 voices` formatter caveat.
-- Navigation refinements; "Paste into voice"; explode/implode.
+- "Paste into voice"; explode/implode.
 
 **No change needed**: `PlaybackEngine`, dynamics resolution, rebar.
 

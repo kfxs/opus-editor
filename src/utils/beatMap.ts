@@ -16,10 +16,14 @@ export type FlatNote = Note & { measureNumber: number }
  *   Preference order: non-rest over rest; among non-rests, lowest pitch.
  *   This collapses chords into a single entry so horizontal navigation
  *   moves between beats, not between individual chord notes.
+ *
+ * @param voice - When given, restrict to that model voice's stream (0-based), so
+ *   keyboard nav/entry steps within a single voice. Omit for all voices.
  */
-export function buildBeatMap(score: Score): { allFlat: FlatNote[]; beats: FlatNote[] } {
+export function buildBeatMap(score: Score, voice?: number): { allFlat: FlatNote[]; beats: FlatNote[] } {
   const allFlat: FlatNote[] = score.measures
     .flatMap(m => getMeasureNotes(m).map(n => ({ ...n, measureNumber: m.number })))
+    .filter(n => voice === undefined || (n.voice ?? 0) === voice)
     .sort((a, b) =>
       a.measureNumber !== b.measureNumber
         ? a.measureNumber - b.measureNumber
@@ -40,6 +44,22 @@ export function buildBeatMap(score: Score): { allFlat: FlatNote[]; beats: FlatNo
   }
 
   return { allFlat, beats: Array.from(beatMap.values()) }
+}
+
+/**
+ * Pick the beat map for keyboard navigation/entry: the active voice's stream when
+ * the cursor note belongs to it (so stepping stays within that voice), otherwise the
+ * whole score. The fallback covers the moment just after switching voices, when the
+ * cursor still sits on another voice's note and the new voice has no slot there yet.
+ */
+export function navBeatMap(
+  score: Score,
+  currentNoteId: string | null,
+  voice: number,
+): { allFlat: FlatNote[]; beats: FlatNote[] } {
+  const scoped = buildBeatMap(score, voice)
+  if (currentNoteId && scoped.allFlat.some(n => n.id === currentNoteId)) return scoped
+  return buildBeatMap(score)
 }
 
 /** The (measure, beat) position key for a flat note — same form buildBeatMap keys by. */

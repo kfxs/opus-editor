@@ -2,7 +2,7 @@ import type { ArticulationType, NoteDuration, Note, PitchStep, PitchAlter } from
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
-import { buildBeatMap } from '../utils/beatMap'
+import { navBeatMap } from '../utils/beatMap'
 import { durationToBeats, getMeasureNotes, measureCapacityQuarters } from '../utils/musicUtils'
 import { fracToNumber, fracEq } from '../utils/fraction'
 import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
@@ -94,7 +94,9 @@ export class KeyboardController {
     if (!this.state.selectedNoteId || !engine) return
 
     const score = engine.getScore()
-    const { allFlat, beats } = buildBeatMap(score)
+    // Step within the active voice's stream (falls back to all voices when the
+    // cursor still sits on another voice — e.g. just after switching voices).
+    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, activeVoiceToModel(this.state.activeVoice))
 
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
     if (!currentNote) {
@@ -201,7 +203,8 @@ export class KeyboardController {
     if (this.state.selectedTool !== 'entry' || !this.state.selectedNoteId || !engine) return
 
     const score = engine.getScore()
-    const { allFlat, beats } = buildBeatMap(score)
+    // Step within the active voice's stream (see enterNoteAtCursorPosition).
+    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, activeVoiceToModel(this.state.activeVoice))
 
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
     if (!currentNote) return

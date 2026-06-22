@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MusicEngine } from './MusicEngine'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
+import { buildBeatMap, navBeatMap } from '@/utils/beatMap'
 
 // Stub VexFlowRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio)
 const fakeRegistry = {
@@ -766,5 +767,34 @@ describe('MusicEngine — multi-voice (Phase 1)', () => {
     // ...and the deleted note became a voice-2 rest (stream stays full).
     const v2Rests = m1.slots.filter(s => s.type === 'rest' && (s.voice ?? 0) === 1)
     expect(v2Rests.length).toBeGreaterThan(0)
+  })
+
+  it('buildBeatMap scopes to a single voice (guards the getMeasureNotes voice projection)', () => {
+    const c = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const e = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+    const score = engine.getScore()
+
+    const v1 = buildBeatMap(score, 0)
+    expect(v1.allFlat.some(n => n.id === c.id)).toBe(true)
+    expect(v1.allFlat.some(n => n.id === e.id)).toBe(false) // voice 2 excluded
+
+    const v2 = buildBeatMap(score, 1)
+    expect(v2.allFlat.some(n => n.id === e.id)).toBe(true)
+    expect(v2.allFlat.some(n => n.id === c.id)).toBe(false) // voice 1 excluded
+    expect(v2.allFlat.every(n => (n.voice ?? 0) === 1)).toBe(true)
+  })
+
+  it('navBeatMap falls back to all voices when the cursor sits on another voice', () => {
+    const c = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const score = engine.getScore()
+
+    // Active voice 2, but the cursor is a voice-1 note (just switched) → fall back so
+    // the first voice-2 note can still be placed relative to it.
+    const fallback = navBeatMap(score, c.id, 1)
+    expect(fallback.allFlat.some(n => n.id === c.id)).toBe(true)
+
+    // Cursor on a voice it belongs to → stays scoped to that voice.
+    const scoped = navBeatMap(score, c.id, 0)
+    expect(scoped.allFlat.every(n => (n.voice ?? 0) === 0)).toBe(true)
   })
 })
