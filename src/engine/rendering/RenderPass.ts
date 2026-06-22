@@ -39,4 +39,7 @@ export interface RenderPass {
   measureBounds: Map<number, MeasureBounds>
   /** Authoritative registry of all rendered elements + positions (hit-testing). */
   elementRegistry: ElementRegistry
+  /** Dynamic id currently being edited in the text overlay — skipped this render so
+   *  the engraved glyph doesn't double under the editor (constant during a render). */
+  suppressedDynamicId: string | null
 }
