@@ -32,37 +32,53 @@ npm run test:e2e   # Run E2E tests (playwright)
 
 ## Project Structure
 
+See `docs/ARCHITECTURE.md` for the full layer map, the framework-agnostic
+boundary, the "where does X live?" table, and the domain glossary. The
+dependency direction is `App.vue → composables → interactions → engine`.
+
 ```
 src/
-  App.vue                 # Main Vue component (UI + interaction)
-  main.ts                 # App entry point
-  style.css               # Global styles
-
-  engine/                 # Music engine layer
-    MusicEngine.ts        # Main API - coordinates all components
-    models/
-      ScoreModel.ts       # Score/measure/note data management
-      CollisionDetector.ts # Note collision detection
-    rendering/
-      VexFlowRenderer.ts  # VexFlow wrapper for notation rendering
-      CoordinateMapper.ts # Pixel <-> musical position conversion
-    audio/
-      PlaybackEngine.ts   # Tone.js playback
-
-  types/
-    music.ts              # TypeScript interfaces (Note, Measure, Score, etc.)
-
-  utils/
-    musicUtils.ts         # Pitch conversion, duration utilities
+  App.vue           # Main Vue component (UI shell + palette)
+  composables/      # Thin Vue glue — bind reactivity, wrap the controllers
+  interactions/     # Framework-agnostic controllers (Mouse/Keyboard/Selection/
+                    #   Highlight/Palette/Clipboard…) + EditorState. NO Vue imports.
+  shortcuts/        # Keyboard shortcut definitions
+  engine/           # Framework-agnostic music engine
+    MusicEngine.ts        # Facade — coordinates the components below
+    NoteEntryCoordinator.ts # Note placement, overflow, cross-barline tie-splits
+    ElementRegistry.ts    # Authoritative hit-testing + pixel↔position
+    ViewportModel.ts      # Scroll/zoom viewport state
+    models/               # ScoreModel (data model), CollisionDetector
+    rendering/            # VexFlowRenderer, CoordinateMapper
+    audio/                # PlaybackEngine (Tone.js)
+  types/music.ts    # TypeScript interfaces (Note, Measure, Score, etc.)
+  utils/            # Pure helpers — fraction, meter, rebar, restFill,
+                    #   beaming, clefUtils, pitchSpelling, dynamics, durations
 ```
+
+**The `interactions/` + `engine/` framework-agnostic boundary is enforced by
+`npm run lint:boundary`** (no `vue`/composable imports may leak inward).
 
 ## Core Types (src/types/music.ts)
 
+Pitch is stored as **spelling** (`step` + `alter` + `octave`, MusicXML/music21
+convention), **not** as a raw MIDI integer — use `spellingToMidi()` from
+`utils/pitchSpelling.ts` to derive MIDI. Rests leave the pitch fields undefined.
+`beat` is an exact `Fraction` (see the Fraction/float invariant in ARCHITECTURE.md).
+
 ```typescript
-Note: { id, pitch (MIDI), duration, measure, beat, accidental?, isRest?, stemDirection? }
+// Public flat projection (this is what addNote/JSON use):
+Note: { id, step?, alter?, octave?, duration, dots?, measure, beat (Fraction),
+        isRest?, stemDirection?, tiedTo?, tiedFrom?, ... }
 Measure: { id, number, notes[], timeSignature }
-Score: { id, title, measures[], tempo, keySignature, defaultTimeSignature, clef? }
+Score: { id, title, composer?, measures[], tempo, keySignature,
+         defaultTimeSignature, clef?, slurs? }
 ```
+
+> Note: `ScoreModel` works internally on a richer `Chord / NotePitch / Rest /
+> ChordRest` model and projects the flat `Note` above for the public API and JSON
+> (this is the "voice-ready" data shape). See `src/types/music.ts` for the full,
+> authoritative definitions.
 
 **Duration values**: `'w'` (whole), `'h'` (half), `'q'` (quarter), `'8'`, `'16'`, `'32'`
 
