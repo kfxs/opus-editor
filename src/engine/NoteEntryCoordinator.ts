@@ -233,14 +233,17 @@ export class NoteEntryCoordinator {
           }
           // Different pitch - will form chord (continue with finalBeat)
         } else {
-          // No rest and no notes at this beat - find nearest rest
+          // No rest and no notes at this beat - snap onto the nearest existing rest
+          // in this voice, if any.
           const nearestRest = this.findNearestRestToBeat(notesInMeasure, finalBeat)
           if (nearestRest) {
             finalBeat = nearestRest.beat
-          } else {
-            console.warn('No available position for note')
-            return null
           }
+          // Otherwise the entry voice is empty/absent in this bar (secondary voices
+          // are collapsed when they hold no notes — see ScoreModel.collapseEmptyVoices).
+          // There is nothing to snap to, so keep the quantized coordCalc beat, which is
+          // already clamped to the bar by resolveClickToBeat. Returning null here would
+          // make voice 2 unwritable in any measure where it doesn't exist yet.
         }
       }
     }
