@@ -250,3 +250,53 @@ describe('NoteEntryCoordinator — Sibelius-style erosion', () => {
     expect(fracToNumber(a4!.beat)).toBeCloseTo(2)
   })
 })
+
+describe('NoteEntryCoordinator — multi-voice duration change isolation', () => {
+  let scoreModel: ScoreModel
+  let coordinator: NoteEntryCoordinator
+
+  beforeEach(() => {
+    scoreModel = new ScoreModel('Test', 120)
+    coordinator = makeCoordinator(scoreModel)
+    // Two voices, identical streams: q-note@0 + q-rest@1 + h-rest@2 each.
+    coordinator.addNoteAtBeat({ step: 'B', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    coordinator.addNoteAtBeat({ step: 'F', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+  })
+
+  // voice-1 (model 0) projection of a measure's slots
+  const voiceSlots = (model: ScoreModel, measure: number, voice: number) =>
+    model.getNotesInMeasure(measure)
+      .filter(n => (n.voice ?? 0) === voice)
+      .sort((a, b) => fracToNumber(a.beat) - fracToNumber(b.beat))
+
+  it('lengthening a rest in one voice leaves the other voice untouched', () => {
+    const v1Rest = voiceSlots(scoreModel, 1, 0).find(n => n.isRest && fracToNumber(n.beat) === 1)!
+    coordinator.updateNote(v1Rest.id, { duration: 'h' })
+
+    // Edited voice: note@0, half-rest@1 (spans 1–3), quarter-rest@3 — sums to the bar.
+    const v0 = voiceSlots(scoreModel, 1, 0)
+    expect(v0.map(n => `${n.isRest ? 'r' : 'n'}${n.duration}@${fracToNumber(n.beat)}`))
+      .toEqual(['nq@0', 'rh@1', 'rq@3'])
+
+    // Other voice: completely unchanged.
+    const v1 = voiceSlots(scoreModel, 1, 1)
+    expect(v1.map(n => `${n.isRest ? 'r' : 'n'}${n.duration}@${fracToNumber(n.beat)}`))
+      .toEqual(['nq@0', 'rq@1', 'rh@2'])
+
+    // No stray rests past the bar.
+    expect(scoreModel.getNotesInMeasure(1).every(n => fracToNumber(n.beat) < 4)).toBe(true)
+  })
+
+  it('lengthening a note in voice 2 does not disturb voice 1', () => {
+    const v2Note = voiceSlots(scoreModel, 1, 1).find(n => !n.isRest)!
+    coordinator.updateNote(v2Note.id, { duration: 'h' })
+
+    const v0 = voiceSlots(scoreModel, 1, 0)
+    expect(v0.map(n => `${n.isRest ? 'r' : 'n'}${n.duration}@${fracToNumber(n.beat)}`))
+      .toEqual(['nq@0', 'rq@1', 'rh@2'])
+
+    const v1 = voiceSlots(scoreModel, 1, 1)
+    expect(v1.map(n => `${n.isRest ? 'r' : 'n'}${n.duration}@${fracToNumber(n.beat)}`))
+      .toEqual(['nh@0', 'rh@2'])
+  })
+})

@@ -1435,10 +1435,10 @@ export class ScoreModel {
    * (not meter-aware) — used by the overflow/duration-change paths that already work
    * in float beats. For meter-correct regrouping prefer {@link fillMeasureGaps}.
    */
-  fillGapWithRests(measureNumber: number, fromBeat: Fraction, beats: number): void {
+  fillGapWithRests(measureNumber: number, fromBeat: Fraction, beats: number, voice: number = 0): void {
     let currentBeat = fromBeat
     for (const restDuration of splitBeatsIntoDurations(beats)) {
-      this.addRest(restDuration, measureNumber, currentBeat)
+      this.addRest(restDuration, measureNumber, currentBeat, voice)
       currentBeat = fracAdd(currentBeat, durationToFraction(restDuration))
     }
   }
@@ -1535,12 +1535,13 @@ export class ScoreModel {
   /**
    * Add a rest to the score
    */
-  addRest(duration: NoteParams['duration'], measure: number, beat: Fraction): Note {
+  addRest(duration: NoteParams['duration'], measure: number, beat: Fraction, voice: number = 0): Note {
     return this.addNote({
       duration,
       measure,
       beat,
       isRest: true,
+      ...(voice ? { voice: voice as 0 | 1 | 2 | 3 } : {}),
     })
   }
 

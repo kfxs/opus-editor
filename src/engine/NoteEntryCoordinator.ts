@@ -474,10 +474,10 @@ export class NoteEntryCoordinator {
 
   // ==================== Public: Note Update ====================
 
-  /** All non-rest notes at the given beat in a measure (chord members). */
-  private getChordNotesAt(measureNumber: number, beat: Fraction): Note[] {
+  /** All non-rest notes at the given beat AND voice in a measure (chord members). */
+  private getChordNotesAt(measureNumber: number, beat: Fraction, voice: number = 0): Note[] {
     return this.getScoreModel().getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && fracEq(n.beat, beat))
+      .filter(n => !n.isRest && (n.voice ?? 0) === voice && fracEq(n.beat, beat))
   }
 
   /**
@@ -497,8 +497,13 @@ export class NoteEntryCoordinator {
     // Handle dots: if dots is explicitly set in updates (even to 0), use it; otherwise keep old
     const newDots = updates.dots !== undefined ? updates.dots : oldDots
 
+    // Edits act on ONE voice's stream. Scope the measure view + chord lookup to the
+    // edited note's voice so a duration change never deletes or fills another voice's
+    // notes/rests (voices are independent streams that each sum to the bar length).
+    const editVoice = existingNote.voice ?? 0
     const measureNotes = this.getScoreModel().getNotesInMeasure(existingNote.measure)
-    const chordNotes = this.getChordNotesAt(existingNote.measure, existingNote.beat)
+      .filter(n => (n.voice ?? 0) === editVoice)
+    const chordNotes = this.getChordNotesAt(existingNote.measure, existingNote.beat, editVoice)
     const isChord = chordNotes.length > 1
 
     // Check for measure overflow (considering dots)
@@ -628,6 +633,7 @@ export class NoteEntryCoordinator {
   /** Handles duration updates for regular (non-tuplet) notes, both chords and singles. */
   private updateNonTupletNote(ctx: NoteUpdateCtx): Note {
     const { noteId, updates, existingNote, measureNotes, chordNotes, isChord, oldBeats, newBeats, newDuration, newDots, beatDifference } = ctx
+    const editVoice = existingNote.voice ?? 0
 
     // If duration is being lengthened, remove overlapping notes/rests first
     if (beatDifference < -BEAT_EPSILON) {
@@ -661,6 +667,7 @@ export class NoteEntryCoordinator {
           existingNote.measure,
           fracAdd(existingNote.beat, durationToFraction(newDuration, newDots)),
           excessBeats,
+          editVoice,
         )
       }
     }
@@ -690,6 +697,7 @@ export class NoteEntryCoordinator {
           note.measure,
           fracAdd(note.beat, durationToFraction(newDuration, newDots)),
           beatDifference,
+          editVoice,
         )
 
         // Break tiedTo if the shortened note no longer abuts its tie target
