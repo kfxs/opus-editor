@@ -54,6 +54,11 @@ export class PaletteController {
       this.state.selectedTool = 'entry'
       const pos = this.getLastMousePosition()
       if (pos) this.renderPreview(pos)
+    } else if (this.state.selectedTool === 'entry') {
+      // Already in entry mode: refresh the ghost note so it shows the new
+      // duration immediately, without waiting for the next mouse move.
+      const pos = this.getLastMousePosition()
+      if (pos) this.renderPreview(pos)
     }
   }
 
