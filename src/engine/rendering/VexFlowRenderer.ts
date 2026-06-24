@@ -444,6 +444,16 @@ export class VexFlowRenderer {
         const formatWidth = Math.max(noteAreaWidth - 15, 50)
         new Formatter().joinVoices(vexVoices).format(vexVoices, formatWidth)
 
+        // VexFlow's StaveNote.format() merges two voices' same-duration rests at
+        // the same beat into one by setting the lower rest's renderOptions.draw =
+        // false. We always want every voice's rest visible (they're already pushed
+        // apart by restShift), so re-enable drawing on all rests after formatting.
+        if (multiVoice) {
+          for (const sn of staveNotes) {
+            if (sn.isRest()) (sn.renderOptions as { draw?: boolean }).draw = true
+          }
+        }
+
         for (const b of built) {
           b.voice.draw(this.context, stave)
           for (const beam of b.beams) {
