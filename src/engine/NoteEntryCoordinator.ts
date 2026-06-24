@@ -781,11 +781,15 @@ export class NoteEntryCoordinator {
     const noteDurationInBeats = durationToBeats(duration)
     const tupletTotalBeats = noteDurationInBeats * notesOccupied
 
-    // Resolve beat using directional element logic
+    // Resolve beat using directional element logic. Quantize the tuplet START to
+    // the tuplet's OWN SPAN (e.g. a whole beat for an 8th-triplet), not the inner
+    // note duration — a tuplet conventionally begins on a beat, so a click near
+    // the start of a bar should land on beat 0, and successive tuplets tile on
+    // beat boundaries (0/1/2/3) instead of snapping to an off-beat like 0.5.
     const {
       beat: resolvedBeat, reason: decisionReason,
       nearestLeft, nearestRight, leftDistance, rightDistance,
-    } = this.resolveClickToBeat(coords, measureNumber, barQuarters, noteDurationInBeats)
+    } = this.resolveClickToBeat(coords, measureNumber, barQuarters, tupletTotalBeats)
     let beat = resolvedBeat
 
     // Clamp to valid range (tuplet must fit in measure)
