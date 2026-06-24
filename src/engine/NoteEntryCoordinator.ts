@@ -125,6 +125,9 @@ export class NoteEntryCoordinator {
       const nEnd = nBeat + nDuration
       return nBeat + epsilon < noteEnd && nEnd - epsilon > finalBeat
     })
+    if (toDelete.length) {
+      console.log(`[Entry] v${entryVoice} overwrites ${toDelete.length} same-voice note(s): ${toDelete.map(n => `${n.step}${n.octave}@b${fracToNumber(n.beat).toFixed(3)}`).join(', ')}`)
+    }
     for (const n of toDelete) {
       this.getScoreModel().deleteNote(n.id)
     }
@@ -137,7 +140,7 @@ export class NoteEntryCoordinator {
 
     if (overflow.willOverflow && overflow.overflowAmount) {
       const alt = params.alter === 2 ? '##' : params.alter === 1 ? '#' : params.alter === -1 ? 'b' : params.alter === -2 ? 'bb' : ''
-      console.log(`KeyboardEntry | ${params.step}${alt}${params.octave} dur:${params.duration} measure:${params.measure} beat:${finalBeat.toFixed(3)} → overflow ${overflow.overflowAmount.toFixed(3)}b — splitting with tie`)
+      console.log(`[Entry] KeyboardEntry | v${entryVoice} ${params.step}${alt}${params.octave} dur:${params.duration} measure:${params.measure} beat:${finalBeat.toFixed(3)} → overflow ${overflow.overflowAmount.toFixed(3)}b — splitting with tie`)
       const splitNote = this.addSplitNoteWithTie(finalParams, overflow.overflowAmount)
       if (splitNote) {
         this.onCommit('Keyboard enter note')
@@ -147,7 +150,7 @@ export class NoteEntryCoordinator {
 
     const note = this.getScoreModel().addNote(finalParams)
     const noteAlt = note.alter === 2 ? '##' : note.alter === 1 ? '#' : note.alter === -1 ? 'b' : note.alter === -2 ? 'bb' : ''
-    console.log(`✓ KeyboardEntry | ${note.step}${noteAlt}${note.octave} dur:${note.duration} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}${tupletAtBeat ? ` tuplet:${tupletAtBeat.id}` : ''}`)
+    console.log(`✓ [Entry] KeyboardEntry | v${note.voice ?? 0} ${note.step}${noteAlt}${note.octave} dur:${note.duration} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}${tupletAtBeat ? ` tuplet:${tupletAtBeat.id}` : ''}`)
 
     if (tupletAtBeat && tupletId) {
       this.getScoreModel().refillTupletRemainder(params.measure, tupletAtBeat)
@@ -347,7 +350,11 @@ export class NoteEntryCoordinator {
 
     // Debug logging with full context
     if (note) {
-      console.log('NoteEntry:', {
+      console.log('[Entry] NoteEntry:', {
+        voice: entryVoice,
+        pitch: `${note.step}${note.octave}`,
+        duration: note.duration,
+        measure: measureNumber,
         decision: decisionReason,
         left: nearestLeft ? `${nearestLeft.type}@${nearestLeft.beat} (${leftDistance.toFixed(0)}px)` : null,
         right: nearestRight ? `${nearestRight.type}@${nearestRight.beat} (${rightDistance.toFixed(0)}px)` : null,
@@ -506,6 +513,9 @@ export class NoteEntryCoordinator {
     const chordNotes = this.getChordNotesAt(existingNote.measure, existingNote.beat, editVoice)
     const isChord = chordNotes.length > 1
 
+    const target = existingNote.isRest ? 'REST' : `${existingNote.step}${existingNote.octave}`
+    console.log(`[Edit] v${editVoice} ${target} m${existingNote.measure} b${fracToNumber(existingNote.beat).toFixed(3)} | dur ${oldDuration}${oldDots ? '.'.repeat(oldDots) : ''}→${newDuration}${newDots ? '.'.repeat(newDots) : ''}${isChord ? ` (chord of ${chordNotes.length})` : ''} | scoped to ${measureNotes.length} same-voice slot(s)`, updates)
+
     // Check for measure overflow (considering dots)
     const measure = this.getScoreModel().getMeasure(existingNote.measure)
     if (measure && (updates.duration || updates.dots !== undefined)) {
@@ -658,11 +668,13 @@ export class NoteEntryCoordinator {
         }
       }
 
+      console.log(`[Edit] lengthen v${editVoice}: removing ${notesToRemove.length} overlapped same-voice slot(s), recovered ${beatsToRecover.toFixed(3)}b (need ${Math.abs(beatDifference).toFixed(3)}b)`)
       for (const id of notesToRemove) this.getScoreModel().deleteNote(id)
 
       // If we removed more beats than needed, add rests to fill the excess
       const excessBeats = beatsToRecover - Math.abs(beatDifference)
       if (excessBeats > BEAT_EPSILON) {
+        console.log(`[Edit] lengthen v${editVoice}: ${excessBeats.toFixed(3)}b excess → fill with rests`)
         this.getScoreModel().fillGapWithRests(
           existingNote.measure,
           fracAdd(existingNote.beat, durationToFraction(newDuration, newDots)),
@@ -685,6 +697,7 @@ export class NoteEntryCoordinator {
 
     // If duration was shortened, fill the freed space with rests.
     if (beatDifference > BEAT_EPSILON) {
+      console.log(`[Edit] shorten v${editVoice}: freed ${beatDifference.toFixed(3)}b → fill with rests (${existingNote.isRest ? 'meter-aware whole-measure refill' : `from b${fracToNumber(fracAdd(note.beat, durationToFraction(newDuration, newDots))).toFixed(3)}`})`)
       if (existingNote.isRest) {
         // Meter-aware refill: the shortened rest's remainder is regrouped for the
         // bar's meter. This both fixes the bar length (a former measure rest's
