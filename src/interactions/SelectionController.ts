@@ -2,6 +2,7 @@ import type { Accidental, Note, Measure, PitchStep, PitchAlter } from '../types/
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Rect } from '../engine/ViewportModel'
 import type { EditorState } from './EditorState'
+import { modelVoiceToActive } from './EditorState'
 import { buildBeatMap, notesInRange, expandTieChains } from '../utils/beatMap'
 import { fracLt, fracEq, fracCompare } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
@@ -79,6 +80,10 @@ export class SelectionController {
         this.state.selectedDuration = note.duration
         this.state.selectedAccidental = this.computeDisplayedAccidental(note, measure)
         this.state.selectedDots = note.dots || 0
+        // Selecting a note makes its voice the active voice, so keyboard entry
+        // continues in that voice (and the cursor advances along its stream)
+        // rather than silently falling back to voice 1.
+        this.state.activeVoice = modelVoiceToActive(note.voice)
         break
       }
     }

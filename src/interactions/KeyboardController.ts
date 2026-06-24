@@ -94,9 +94,13 @@ export class KeyboardController {
     if (!this.state.selectedNoteId || !engine) return
 
     const score = engine.getScore()
-    // Step within the active voice's stream (falls back to all voices when the
-    // cursor still sits on another voice — e.g. just after switching voices).
-    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, activeVoiceToModel(this.state.activeVoice))
+    // Keyboard entry CONTINUES the voice of the note the cursor sits on — you're
+    // extending that voice's stream, so the new note (and the cursor's advance)
+    // must stay in it, not in whatever voice the palette toggle last held. Fall
+    // back to the active voice only when the cursor note has no resolvable voice.
+    const cursorNote = engine.getNote(this.state.selectedNoteId)
+    const cursorVoice = cursorNote ? (cursorNote.voice ?? 0) : activeVoiceToModel(this.state.activeVoice)
+    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, cursorVoice)
 
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
     if (!currentNote) {
@@ -130,7 +134,7 @@ export class KeyboardController {
     const targetMidi = naturalPitchClass + 12 * k
     const octave = Math.floor(targetMidi / 12) - 1
 
-    const existingTuplet = engine.getTupletAtBeat(targetMeasure, targetBeat, activeVoiceToModel(this.state.activeVoice))
+    const existingTuplet = engine.getTupletAtBeat(targetMeasure, targetBeat, cursorVoice)
     console.log(`KeyboardEntry RAW | ${step}${alter !== 0 ? (alter > 0 ? '#' : 'b') : ''} dur:${this.state.selectedDuration} measure:${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(3)} tupletMode:${this.state.tupletMode} existingTuplet:${existingTuplet ? existingTuplet.id : 'none'}`)
 
     const measure = score.measures.find(m => m.number === targetMeasure)
@@ -148,8 +152,8 @@ export class KeyboardController {
       newNote = result ? result.firstNote : null
     } else {
       // Joining an existing tuplet keeps voice 0 (tuplets are voice-0-only this pass);
-      // otherwise the note enters the active voice.
-      const entryVoice = existingTuplet ? 0 : activeVoiceToModel(this.state.activeVoice)
+      // otherwise the note continues the cursor note's own voice.
+      const entryVoice = existingTuplet ? 0 : cursorVoice
       newNote = engine.addNoteAtBeat({
         step,
         alter,
@@ -203,8 +207,10 @@ export class KeyboardController {
     if (this.state.selectedTool !== 'entry' || !this.state.selectedNoteId || !engine) return
 
     const score = engine.getScore()
-    // Step within the active voice's stream (see enterNoteAtCursorPosition).
-    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, activeVoiceToModel(this.state.activeVoice))
+    // Continue the cursor note's own voice (see enterNoteAtCursorPosition).
+    const cursorNote = engine.getNote(this.state.selectedNoteId)
+    const cursorVoice = cursorNote ? (cursorNote.voice ?? 0) : activeVoiceToModel(this.state.activeVoice)
+    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, cursorVoice)
 
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
     if (!currentNote) return
@@ -237,7 +243,7 @@ export class KeyboardController {
 
     console.log(`[Keyboard] Entering rest: dur=${fittingDur.dur} (${fittingDur.beats} beats) at measure=${targetMeasure} beat=${fracToNumber(targetBeat).toFixed(3)}${fittingDur.dur !== this.state.selectedDuration ? ` (capped from ${this.state.selectedDuration})` : ''}`)
 
-    const restVoice = activeVoiceToModel(this.state.activeVoice)
+    const restVoice = cursorVoice
     const newRest = engine.addNoteAtBeat({
       duration: fittingDur.dur,
       measure: targetMeasure,

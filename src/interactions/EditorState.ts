@@ -140,6 +140,15 @@ export function activeVoiceToModel(activeVoice: 1 | 2): 0 | 1 {
   return (activeVoice - 1) as 0 | 1
 }
 
+/**
+ * Inverse of {@link activeVoiceToModel}: map a 0-based model voice back to the
+ * 1-based UI active voice. Only voices 0/1 are editable today, so anything else
+ * clamps into that range (voice 0 → UI "Voice 1").
+ */
+export function modelVoiceToActive(voice: number | undefined): 1 | 2 {
+  return (voice ?? 0) >= 1 ? 2 : 1
+}
+
 export function createEditorState(): EditorState {
   return {
     selectedTool: 'entry',
