@@ -974,8 +974,8 @@ export class MusicEngine {
   /**
    * Get the tuplet at a specific beat position in a measure
    */
-  getTupletAtBeat(measureNumber: number, beat: Fraction): Tuplet | undefined {
-    return this.scoreModel.getTupletAtBeat(measureNumber, beat)
+  getTupletAtBeat(measureNumber: number, beat: Fraction, voice?: number): Tuplet | undefined {
+    return this.scoreModel.getTupletAtBeat(measureNumber, beat, voice)
   }
 
   /**

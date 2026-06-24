@@ -993,7 +993,7 @@ export class MouseController {
           ? measureCapacityQuarters(measure)
           : 4
         const position = engine.pixelToPosition({ x, y }, barQuarters)
-        const existingTuplet = engine.getTupletAtBeat(measureNum, position.beat)
+        const existingTuplet = engine.getTupletAtBeat(measureNum, position.beat, activeVoiceToModel(this.state.activeVoice))
 
         if (existingTuplet) {
           console.log(`Tuplet mode: clicking inside existing tuplet at beat ${fracToNumber(position.beat).toFixed(3)}, adding note instead`)

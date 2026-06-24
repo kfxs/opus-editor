@@ -1962,8 +1962,8 @@ export class ScoreModel {
   /**
    * Get the tuplet at a specific beat position in a measure
    */
-  getTupletAtBeat(measureNumber: number, beat: Fraction): Tuplet | undefined {
-    return tupletOps.getTupletAtBeat(this.score, measureNumber, beat)
+  getTupletAtBeat(measureNumber: number, beat: Fraction, voice?: number): Tuplet | undefined {
+    return tupletOps.getTupletAtBeat(this.score, measureNumber, beat, voice)
   }
 
   /**

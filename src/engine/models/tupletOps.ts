@@ -97,11 +97,28 @@ export function setTupletPlacement(
   return true
 }
 
-/** Get the tuplet at a specific beat position in a measure. */
-export function getTupletAtBeat(score: Score, measureNumber: number, beat: Fraction): Tuplet | undefined {
+/**
+ * Get the tuplet at a specific beat position in a measure.
+ *
+ * When `voice` is given, only tuplets belonging to that voice match — a tuplet's
+ * voice is derived from its member slots (a tuplet is always a single-voice run).
+ * This stops a tuplet in one voice from governing note entry in another: e.g. a
+ * voice-0 triplet must not reject or steer a plain voice-2 note placed over it.
+ */
+export function getTupletAtBeat(
+  score: Score,
+  measureNumber: number,
+  beat: Fraction,
+  voice?: number,
+): Tuplet | undefined {
   const measure = getMeasure(score, measureNumber)
   if (!measure || !measure.tuplets) return undefined
-  return measure.tuplets.find(tuplet => isBeatInTupletFrac(beat, tuplet))
+  return measure.tuplets.find(tuplet => {
+    if (!isBeatInTupletFrac(beat, tuplet)) return false
+    if (voice === undefined) return true
+    const slot = measure.slots.find(s => s.tupletId === tuplet.id)
+    return (slot?.voice ?? 0) === voice
+  })
 }
 
 /** Get all notes that belong to a specific tuplet (as flat Notes). */

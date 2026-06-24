@@ -71,7 +71,7 @@ export class NoteEntryCoordinator {
     let tupletId = params.tupletId
     const tupletAtBeat = tupletId
       ? (targetMeasure.tuplets || []).find(t => t.id === tupletId)
-      : this.getScoreModel().getTupletAtBeat(params.measure, params.beat)
+      : this.getScoreModel().getTupletAtBeat(params.measure, params.beat, params.voice ?? 0)
 
     if (tupletAtBeat && !tupletId) {
       tupletId = tupletAtBeat.id
@@ -254,7 +254,9 @@ export class NoteEntryCoordinator {
     // Check if the final beat falls within a tuplet
     // If so, snap to the nearest tuplet beat and inherit the tuplet ID
     let tupletId: string | undefined
-    const tupletAtBeat = this.getScoreModel().getTupletAtBeat(measureNumber, finalBeat)
+    // Scope to the entry voice — a tuplet in another voice must not govern this
+    // placement (e.g. a voice-0 triplet must not reject a plain voice-2 note).
+    const tupletAtBeat = this.getScoreModel().getTupletAtBeat(measureNumber, finalBeat, entryVoice)
 
     if (tupletAtBeat) {
       const selectedDurationFrac = durationToFraction(duration, dots)
