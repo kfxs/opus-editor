@@ -1491,7 +1491,15 @@ export class ScoreModel {
     // Distinct voices present (always include voice 0 so an empty bar fills).
     const voices = new Set<number>([0])
     for (const slot of measure.slots) voices.add(slot.voice ?? 0)
-    console.log(`[Model.fillGaps] m${measure.number} barLen=${fracToNumber(barEnd).toFixed(3)} TS=${measure.timeSignature.numerator}/${measure.timeSignature.denominator} voices=[${[...voices].join(',')}]`)
+
+    // The measure header is logged lazily — only once, and only if some voice
+    // actually has a gap to fill. A bar with nothing to do stays silent.
+    let headerLogged = false
+    const logHeaderOnce = () => {
+      if (headerLogged) return
+      headerLogged = true
+      console.log(`[Model.fillGaps] m${measure.number} barLen=${fracToNumber(barEnd).toFixed(3)} TS=${measure.timeSignature.numerator}/${measure.timeSignature.denominator} voices=[${[...voices].join(',')}]`)
+    }
 
     for (const voice of voices) {
       const voiceSlots = measure.slots
@@ -1526,10 +1534,12 @@ export class ScoreModel {
         return true
       })
 
-      const gapStr = filteredGaps.length
-        ? filteredGaps.map(g => `[${fracToNumber(g.start).toFixed(3)}→${fracToNumber(g.end).toFixed(3)}]`).join(' ')
-        : 'none'
-      console.log(`[Model.fillGaps]   v${voice}: ${voiceSlots.length} existing slot(s), gaps=${gapStr}`)
+      // Only log a voice that actually has gaps — "gaps=none" lines are pure noise.
+      if (filteredGaps.length) {
+        logHeaderOnce()
+        const gapStr = filteredGaps.map(g => `[${fracToNumber(g.start).toFixed(3)}→${fracToNumber(g.end).toFixed(3)}]`).join(' ')
+        console.log(`[Model.fillGaps]   v${voice}: ${voiceSlots.length} existing slot(s), gaps=${gapStr}`)
+      }
 
       for (const gap of filteredGaps) {
         let adjustedEnd = gap.end

@@ -95,6 +95,17 @@ export class MusicEngine {
    *  {@link runBatch} owns the single snapshot for the whole group. */
   private undoSuppressed = false
 
+  /** Set whenever the data model changes (any edit, undo/redo, or load); cleared
+   *  after {@link renderScore} repairs measure gaps. Lets a pure re-render (selection,
+   *  scroll, zoom, playback cursor) skip the gap-repair pass — it only needs to run
+   *  after a real change, not on every paint. Starts true so the first render repairs. */
+  private modelDirty = true
+
+  /** Mark the data model as changed so the next render repairs measure gaps. */
+  private markModelDirty(): void {
+    this.modelDirty = true
+  }
+
   /**
    * Run several mutations as ONE undoable action. Every saveUndoState inside `fn`
    * is suppressed; a single snapshot of the final state is pushed afterward (only
@@ -123,6 +134,9 @@ export class MusicEngine {
    * Save current state to undo history (call after mutations)
    */
   private saveUndoState(description: string): void {
+    // Any save means the model changed (even a batched one the runBatch will push later),
+    // so flag it dirty before the suppressed-return so the next render repairs gaps.
+    this.markModelDirty()
     if (this.undoSuppressed) return // batched: the surrounding runBatch pushes once
     this.undoRedoManager.pushState(this.scoreModel.getScore(), description)
   }
@@ -156,6 +170,7 @@ export class MusicEngine {
     // Restore the state
     this.scoreModel = ScoreModel.fromJSON(JSON.stringify(previousState))
     this.playbackEngine.setScore(this.scoreModel.getScore())
+    this.markModelDirty()
     return true
   }
 
@@ -170,6 +185,7 @@ export class MusicEngine {
     // Restore the state
     this.scoreModel = ScoreModel.fromJSON(JSON.stringify(nextState))
     this.playbackEngine.setScore(this.scoreModel.getScore())
+    this.markModelDirty()
     return true
   }
 
@@ -1007,8 +1023,12 @@ export class MusicEngine {
    * Render the score
    */
   renderScore(): void {
-    // Repair any data model gaps before rendering (defensive safety net)
-    this.scoreModel.repairAllMeasureGaps()
+    // Repair measure gaps only after a real data change — a pure re-render (selection,
+    // scroll, zoom, playback cursor) leaves the model untouched and needs no repair.
+    if (this.modelDirty) {
+      this.scoreModel.repairAllMeasureGaps()
+      this.modelDirty = false
+    }
     this.renderer.renderScore(this.scoreModel.getScore())
     // Update coordinate mapper with actual VexFlow bounds
     this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
@@ -1335,6 +1355,7 @@ export class MusicEngine {
     const loaded = ScoreModel.fromJSON(json)
     this.scoreModel = loaded
     this.playbackEngine.setScore(this.scoreModel.getScore())
+    this.markModelDirty()
     this.renderScore()
     // Reset undo history with loaded state as initial
     this.undoRedoManager.saveInitialState(this.scoreModel.getScore())
