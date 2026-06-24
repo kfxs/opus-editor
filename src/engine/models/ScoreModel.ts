@@ -1943,6 +1943,13 @@ export class ScoreModel {
   }
 
   /**
+   * Set (or clear) a tuplet's explicit bracket/number placement override.
+   */
+  setTupletPlacement(tupletId: string, placement: 'above' | 'below' | undefined): boolean {
+    return tupletOps.setTupletPlacement(this.score, tupletId, placement)
+  }
+
+  /**
    * Get the tuplet at a specific beat position in a measure
    */
   getTupletAtBeat(measureNumber: number, beat: Fraction): Tuplet | undefined {

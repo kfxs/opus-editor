@@ -227,6 +227,12 @@ export function useShortcuts(
         renderer.renderScore()
         return
       }
+      // A selected tuplet flips its bracket/number side (above ↔ below).
+      if (state.selectedTupletId) {
+        eng.flipTuplet(state.selectedTupletId)
+        renderer.renderScore()
+        return
+      }
       const artNoteIds = selectedArticulationNoteIds(state.selectedItems.values())
       if (artNoteIds.length) {
         // Flip the side of every selected articulation group as ONE undoable action.

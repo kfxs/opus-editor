@@ -24,6 +24,12 @@ export interface Tuplet {
   numNotes: number
   /** Number of base notes the tuplet occupies (e.g., 2 for triplet) */
   notesOccupied: number
+  /**
+   * Explicit bracket/number placement override. When undefined the side is
+   * auto-derived from stem direction (bracket opposite the stems); setting this
+   * forces the side, e.g. via the `x` flip. 'above' = LOCATION_TOP, 'below' = LOCATION_BOTTOM.
+   */
+  placement?: 'above' | 'below'
 }
 
 /**

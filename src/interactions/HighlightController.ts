@@ -424,7 +424,8 @@ export class HighlightController {
     const group = engine.getTupletSVGGroup(this.state.selectedTupletId)
     if (!group) return
 
-    const SELECTION_COLOR = '#F59E0B'
+    // Paint in the tuplet's own voice colour, matching note/cursor selection.
+    const SELECTION_COLOR = voiceFillColor(engine.getTupletVoice(this.state.selectedTupletId))
 
     // Bracket segments: thin rects (1px in one dimension). Skip the full-size pointer
     // hit-area, which spans the whole tuplet bbox.

@@ -702,6 +702,28 @@ export class MusicEngine {
     return true
   }
 
+  /** Flip a tuplet's bracket/number to the opposite side (above ↔ below). Sets an
+   *  explicit `placement` that overrides auto stem-based placement. For an auto-placed
+   *  tuplet the flip targets the opposite of whatever was last *drawn* (read from the
+   *  registry), so the first press always visibly flips. Saves one undo step.
+   *  @returns true if it flipped. */
+  flipTuplet(id: string): boolean {
+    const tuplet = this.scoreModel.getTuplet(id)
+    if (!tuplet) return false
+    let currentDir: number
+    if (tuplet.placement === 'above') currentDir = 1
+    else if (tuplet.placement === 'below') currentDir = -1
+    else {
+      // Best-effort: read the side the renderer last drew (auto placement). Guarded
+      // so a stubbed/headless renderer just falls back to "above" (LOCATION_TOP = 1).
+      const el = this.renderer.getElementRegistry?.()?.getTupletById?.(id)
+      currentDir = el?.tupletGeometry?.location ?? 1
+    }
+    this.scoreModel.setTupletPlacement(id, currentDir === 1 ? 'below' : 'above')
+    this.saveOnly('Flip tuplet')
+    return true
+  }
+
   /** Flip the tie starting at `fromNoteId` to the opposite curve direction (up ↔ down).
    *  A tie stays flat and notehead-anchored, so this only inverts the arc (and its
    *  endpoint lift), unlike {@link flipSlur} which is stem-aware. Sets an explicit
@@ -922,6 +944,15 @@ export class MusicEngine {
    */
   getTuplet(tupletId: string): Tuplet | undefined {
     return this.scoreModel.getTuplet(tupletId)
+  }
+
+  /**
+   * Get the model voice (0-based) a tuplet belongs to, derived from its slots.
+   * Defaults to voice 0 if the tuplet has no slots yet.
+   */
+  getTupletVoice(tupletId: string): number {
+    const notes = this.scoreModel.getNotesInTuplet(tupletId)
+    return notes[0]?.voice ?? 0
   }
 
   /**

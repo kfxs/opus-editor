@@ -565,7 +565,13 @@ export class VexFlowRenderer {
     for (const [_tupletId, { staveNotes: tupletStaveNotes, tuplet: tupletData }] of tupletStaveNoteMap) {
       if (tupletStaveNotes.length >= 2) {
         try {
-          const location = this.calculateTupletLocation(tupletStaveNotes, clef)
+          // An explicit placement override (e.g. from the `x` flip) wins; otherwise
+          // auto-derive the side from stem direction.
+          const location = tupletData.placement === 'above'
+            ? 1
+            : tupletData.placement === 'below'
+              ? -1
+              : this.calculateTupletLocation(tupletStaveNotes, clef)
           const vexTuplet = new VexFlowTuplet(tupletStaveNotes, {
             numNotes: tupletData.numNotes,
             notesOccupied: tupletData.notesOccupied,

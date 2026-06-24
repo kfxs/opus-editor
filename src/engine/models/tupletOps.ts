@@ -84,6 +84,19 @@ export function getTuplet(score: Score, tupletId: string): Tuplet | undefined {
   return undefined
 }
 
+/** Set (or clear) a tuplet's explicit placement override. Returns true if found. */
+export function setTupletPlacement(
+  score: Score,
+  tupletId: string,
+  placement: 'above' | 'below' | undefined,
+): boolean {
+  const tuplet = getTuplet(score, tupletId)
+  if (!tuplet) return false
+  if (placement === undefined) delete tuplet.placement
+  else tuplet.placement = placement
+  return true
+}
+
 /** Get the tuplet at a specific beat position in a measure. */
 export function getTupletAtBeat(score: Score, measureNumber: number, beat: Fraction): Tuplet | undefined {
   const measure = getMeasure(score, measureNumber)
