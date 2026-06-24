@@ -912,16 +912,24 @@ export class VexFlowRenderer {
           : hasClefChange
             ? LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
             : 0
-      this.elementRegistry.add({
-        type: 'timeSignature',
-        measure: measure.number,
-        bbox: {
-          x: x + clefOffset,
-          y,
-          width: LAYOUT_CONFIG.TIME_SIG_WIDTH,
-          height: LAYOUT_CONFIG.STAVE_HEIGHT,
-        },
-      })
+      // Clamp the TS hit-box so its right edge never crosses noteStartX. The
+      // approximate TIME_SIG_WIDTH over-estimates the real glyph and would
+      // otherwise bleed into the note-entry zone, swallowing clicks that land
+      // just right of the glyph (rejected as "clicked on timeSignature").
+      const tsX = x + clefOffset
+      const tsWidth = Math.min(LAYOUT_CONFIG.TIME_SIG_WIDTH, stave.getNoteStartX() - tsX)
+      if (tsWidth > 0) {
+        this.elementRegistry.add({
+          type: 'timeSignature',
+          measure: measure.number,
+          bbox: {
+            x: tsX,
+            y,
+            width: tsWidth,
+            height: LAYOUT_CONFIG.STAVE_HEIGHT,
+          },
+        })
+      }
     }
 
     this.elementRegistry.add({
