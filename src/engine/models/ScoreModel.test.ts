@@ -370,6 +370,28 @@ describe('ScoreModel', () => {
       const after = model.getNotesInMeasure(1).filter(n => !n.tupletId)
       expect(after.every(n => !n.isRest || frac(0, 1) !== n.beat)).toBe(true)
     })
+
+    it('clears only its own voice, leaving other voices intact', () => {
+      // Voice 1 has a note at beat 0 (with rest-fill across the bar).
+      model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+      const v1Before = model.getNotesInMeasure(1).filter(n => (n.voice ?? 0) === 1).length
+      expect(v1Before).toBeGreaterThan(0)
+
+      // A voice-0 triplet over beats 0–1 must not wipe voice 1's slots.
+      model.createTuplet(1, frac(0, 1), '8', 3, 2, 0)
+
+      const v1After = model.getNotesInMeasure(1).filter(n => (n.voice ?? 0) === 1)
+      expect(v1After.length).toBe(v1Before) // voice 1 untouched
+    })
+
+    it('places filler rests in the tuplet\'s own voice', () => {
+      const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2, 1)
+      model.refillTupletRemainder(1, tuplet, 1)
+
+      const notes = model.getNotesInTuplet(tuplet.id)
+      expect(notes.length).toBeGreaterThan(0)
+      expect(notes.every(n => (n.voice ?? 0) === 1)).toBe(true)
+    })
   })
 
   describe('refillTupletRemainder', () => {

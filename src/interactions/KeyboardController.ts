@@ -148,12 +148,16 @@ export class KeyboardController {
         fracToNumber(targetBeat),
         this.state.selectedDuration,
         { step, alter, octave },
+        3,
+        2,
+        cursorVoice,
       )
       newNote = result ? result.firstNote : null
     } else {
-      // Joining an existing tuplet keeps voice 0 (tuplets are voice-0-only this pass);
-      // otherwise the note continues the cursor note's own voice.
-      const entryVoice = existingTuplet ? 0 : cursorVoice
+      // The note continues the cursor note's voice. An existing tuplet found here
+      // is already in that voice (getTupletAtBeat is voice-scoped), so joining it
+      // stays in the same stream.
+      const entryVoice = cursorVoice
       newNote = engine.addNoteAtBeat({
         step,
         alter,

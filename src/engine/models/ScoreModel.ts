@@ -1950,8 +1950,9 @@ export class ScoreModel {
     baseDuration: NoteDuration,
     numNotes: number = 3,
     notesOccupied: number = 2,
+    voice: number = 0,
   ): Tuplet {
-    return tupletOps.createTuplet(this.score, measureNumber, startBeat, baseDuration, numNotes, notesOccupied)
+    return tupletOps.createTuplet(this.score, measureNumber, startBeat, baseDuration, numNotes, notesOccupied, voice)
   }
 
   /**
@@ -1976,6 +1977,14 @@ export class ScoreModel {
   }
 
   /**
+   * True if a same-voice tuplet already overlaps the span starting at `startBeat`.
+   * See {@link tupletOps.tupletSpanOverlaps}.
+   */
+  tupletSpanOverlaps(measureNumber: number, startBeat: Fraction, totalBeats: Fraction, voice: number): boolean {
+    return tupletOps.tupletSpanOverlaps(this.score, measureNumber, startBeat, totalBeats, voice)
+  }
+
+  /**
    * Get all notes that belong to a specific tuplet (as flat Notes)
    */
   getNotesInTuplet(tupletId: string): Note[] {
@@ -1985,8 +1994,8 @@ export class ScoreModel {
   /**
    * Fill any empty gaps in a tuplet with filler rests. See {@link tupletOps.refillTupletRemainder}.
    */
-  refillTupletRemainder(measureNumber: number, tuplet: Tuplet): void {
-    tupletOps.refillTupletRemainder(this.score, measureNumber, tuplet, params => this.addNote(params))
+  refillTupletRemainder(measureNumber: number, tuplet: Tuplet, voice: number = 0): void {
+    tupletOps.refillTupletRemainder(this.score, measureNumber, tuplet, params => this.addNote(params), voice)
   }
 
   /**

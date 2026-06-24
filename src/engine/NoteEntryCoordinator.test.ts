@@ -300,3 +300,63 @@ describe('NoteEntryCoordinator — multi-voice duration change isolation', () =>
       .toEqual(['nh@0', 'rh@2'])
   })
 })
+
+describe('NoteEntryCoordinator — tuplet in a secondary voice', () => {
+  let scoreModel: ScoreModel
+  let coordinator: NoteEntryCoordinator
+
+  beforeEach(() => {
+    scoreModel = new ScoreModel('Test', 120)
+    coordinator = makeCoordinator(scoreModel)
+  })
+
+  const voiceSlots = (model: ScoreModel, measure: number, voice: number) =>
+    model.getNotesInMeasure(measure).filter(n => (n.voice ?? 0) === voice)
+
+  it('applies a tuplet to a voice-2 note without touching voice 1', () => {
+    // Voice 0 (UI voice 1) gets a quarter at beat 0, then a voice-1 quarter at beat 0.
+    coordinator.addNoteAtBeat({ step: 'B', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const v2Note = coordinator.addNoteAtBeat({ step: 'F', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!
+
+    const v0Before = voiceSlots(scoreModel, 1, 0).length
+    const result = coordinator.applyTupletToNote(v2Note.id)
+    expect(result).not.toBeNull()
+
+    // Every slot in the new tuplet is voice 1.
+    const tupletSlots = scoreModel.getNotesInTuplet(result!.tuplet.id)
+    expect(tupletSlots.length).toBeGreaterThan(0)
+    expect(tupletSlots.every(n => (n.voice ?? 0) === 1)).toBe(true)
+
+    // Voice 0 is untouched by the voice-1 tuplet.
+    expect(voiceSlots(scoreModel, 1, 0).length).toBe(v0Before)
+    expect(voiceSlots(scoreModel, 1, 0).some(n => !n.isRest && n.step === 'B')).toBe(true)
+  })
+
+  it('keeps every slot of a voice-2 tuplet in voice 2 after adding a note inside it', () => {
+    // A voice-1 (UI voice 2) triplet, then add a second note inside it.
+    const tuplet = scoreModel.createTuplet(1, frac(0, 1), '8', 3, 2, 1)
+    scoreModel.refillTupletRemainder(1, tuplet, 1)
+    coordinator.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 3), voice: 1 })
+
+    // No slot of this tuplet may leak into voice 0 — a mixed-voice tuplet is what
+    // scattered the bracket across both voices and made VexFlow throw on a
+    // negative bracket width.
+    const tupletSlots = scoreModel.getNotesInTuplet(tuplet.id)
+    expect(tupletSlots.length).toBeGreaterThan(0)
+    expect(tupletSlots.every(n => (n.voice ?? 0) === 1)).toBe(true)
+  })
+
+  it('refuses to create a tuplet whose span overlaps an existing same-voice tuplet', () => {
+    // First triplet spans beats 0–1.
+    const first = coordinator.createTupletAtBeat(1, 0, '8', { step: 'C', alter: 0, octave: 5 })
+    expect(first).not.toBeNull()
+
+    // A second triplet starting at beat 0.5 would span 0.5–1.5 and collide with
+    // the first — even though beat 0.5 isn't the first tuplet's start beat.
+    const second = coordinator.createTupletAtBeat(1, 0.5, '8', { step: 'A', alter: 0, octave: 4 })
+    expect(second).toBeNull()
+
+    // Only the original tuplet survives.
+    expect(scoreModel.getMeasure(1)!.tuplets!.length).toBe(1)
+  })
+})

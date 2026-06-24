@@ -880,7 +880,7 @@ export class MusicEngine {
       // Rest inside a tuplet deleted — fill the empty gap it left behind
       const measure = this.scoreModel.getMeasure(note.measure)
       const tuplet = measure?.tuplets?.find(t => t.id === note.tupletId)
-      if (tuplet) this.scoreModel.refillTupletRemainder(note.measure, tuplet)
+      if (tuplet) this.scoreModel.refillTupletRemainder(note.measure, tuplet, note.voice ?? 0)
       this.reanchorSlurs(noteId, null)
     }
 
@@ -911,9 +911,10 @@ export class MusicEngine {
     duration: NoteDuration,
     spelling: PitchSpelling,
     numNotes: number = 3,
-    notesOccupied: number = 2
+    notesOccupied: number = 2,
+    voice: number = 0
   ): { tuplet: Tuplet; firstNote: Note } | null {
-    return this.noteEntryCoordinator.createTupletAtPosition(coords, duration, spelling, numNotes, notesOccupied)
+    return this.noteEntryCoordinator.createTupletAtPosition(coords, duration, spelling, numNotes, notesOccupied, voice)
   }
 
   /**
@@ -926,9 +927,10 @@ export class MusicEngine {
     duration: NoteDuration,
     spelling: PitchSpelling,
     numNotes: number = 3,
-    notesOccupied: number = 2
+    notesOccupied: number = 2,
+    voice: number = 0
   ): { tuplet: Tuplet; firstNote: Note } | null {
-    return this.noteEntryCoordinator.createTupletAtBeat(measureNumber, beat, duration, spelling, numNotes, notesOccupied)
+    return this.noteEntryCoordinator.createTupletAtBeat(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice)
   }
 
   /**

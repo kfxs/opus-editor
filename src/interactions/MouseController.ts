@@ -1004,6 +1004,7 @@ export class MouseController {
             this.state.selectedDots || undefined,
             this.getPendingArticulations(),
             this.state.selectedBeam !== 'auto' ? this.state.selectedBeam : undefined,
+            activeVoiceToModel(this.state.activeVoice),
           )
 
           if (note) {
@@ -1025,6 +1026,9 @@ export class MouseController {
             { x, y },
             this.state.selectedDuration,
             spelling,
+            3,
+            2,
+            activeVoiceToModel(this.state.activeVoice),
           )
 
           if (result) {

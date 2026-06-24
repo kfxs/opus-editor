@@ -34,7 +34,13 @@ function getMeasure(score: Score, measureNumber: number): Measure | undefined {
   return score.measures.find(m => m.number === measureNumber)
 }
 
-/** Create a tuplet in a measure, removing any slots that overlap its time span. */
+/**
+ * Create a tuplet in a measure, removing slots that overlap its time span.
+ *
+ * Only slots in the tuplet's own `voice` are cleared — a tuplet is a single-voice
+ * run, so a voice-1 triplet must not wipe the notes/rests of another voice that
+ * happen to share the same beats.
+ */
 export function createTuplet(
   score: Score,
   measureNumber: number,
@@ -42,6 +48,7 @@ export function createTuplet(
   baseDuration: NoteDuration,
   numNotes: number = 3,
   notesOccupied: number = 2,
+  voice: number = 0,
 ): Tuplet {
   const measure = getMeasure(score, measureNumber)
   if (!measure) {
@@ -61,9 +68,10 @@ export function createTuplet(
   }
   measure.tuplets.push(tuplet)
 
-  // Remove any existing slots that overlap with the tuplet's time span
+  // Remove existing slots in THIS voice that overlap the tuplet's time span.
   const tupletDurFrac = getTupletTotalBeatsFrac(baseDuration, notesOccupied)
   measure.slots = measure.slots.filter(slot => {
+    if ((slot.voice ?? 0) !== voice) return true // other voices are untouched
     const slotDurFrac = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
     return !noteSpansOverlapFrac(slot.beat, slotDurFrac, startBeat, tupletDurFrac)
   })
@@ -121,6 +129,29 @@ export function getTupletAtBeat(
   })
 }
 
+/**
+ * True if a tuplet in `voice` already overlaps the time span
+ * `[startBeat, startBeat + totalBeats)`. Used to reject creating a tuplet whose
+ * body would collide with an existing one in the same voice — even when the new
+ * tuplet's start beat itself is free (so a single-beat check would miss it).
+ */
+export function tupletSpanOverlaps(
+  score: Score,
+  measureNumber: number,
+  startBeat: Fraction,
+  totalBeats: Fraction,
+  voice: number,
+): boolean {
+  const measure = getMeasure(score, measureNumber)
+  if (!measure || !measure.tuplets) return false
+  return measure.tuplets.some(t => {
+    const slot = measure.slots.find(s => s.tupletId === t.id)
+    if ((slot?.voice ?? 0) !== voice) return false
+    const existingSpan = getTupletTotalBeatsFrac(t.baseDuration, t.notesOccupied)
+    return noteSpansOverlapFrac(t.startBeat, existingSpan, startBeat, totalBeats)
+  })
+}
+
 /** Get all notes that belong to a specific tuplet (as flat Notes). */
 export function getNotesInTuplet(score: Score, tupletId: string): Note[] {
   for (const measure of score.measures) {
@@ -161,6 +192,7 @@ export function refillTupletRemainder(
   measureNumber: number,
   tuplet: Tuplet,
   addNote: (params: NoteParams) => Note,
+  voice: number = 0,
 ): void {
   const ratio = fracCreate(tuplet.notesOccupied, tuplet.numNotes)
   const inverseRatio = fracCreate(tuplet.numNotes, tuplet.notesOccupied)
@@ -186,6 +218,7 @@ export function refillTupletRemainder(
         isRest: true,
         tupletId: tuplet.id,
         actualDuration: actualDur,
+        ...(voice ? { voice: voice as 0 | 1 | 2 | 3 } : {}),
       })
       beat = fracAdd(beat, actualDur)
     }

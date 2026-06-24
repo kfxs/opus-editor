@@ -153,7 +153,7 @@ export class NoteEntryCoordinator {
     console.log(`✓ [Entry] KeyboardEntry | v${note.voice ?? 0} ${note.step}${noteAlt}${note.octave} dur:${note.duration} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}${tupletAtBeat ? ` tuplet:${tupletAtBeat.id}` : ''}`)
 
     if (tupletAtBeat && tupletId) {
-      this.getScoreModel().refillTupletRemainder(params.measure, tupletAtBeat)
+      this.getScoreModel().refillTupletRemainder(params.measure, tupletAtBeat, params.voice ?? 0)
     }
 
     this.onCommit('Keyboard enter note')
@@ -347,7 +347,7 @@ export class NoteEntryCoordinator {
     const note = this.getScoreModel().addNote(noteParams)
 
     if (note && tupletAtBeat && tupletId) {
-      this.getScoreModel().refillTupletRemainder(measureNumber, tupletAtBeat)
+      this.getScoreModel().refillTupletRemainder(measureNumber, tupletAtBeat, entryVoice)
     }
 
     // Debug logging with full context
@@ -626,8 +626,8 @@ export class NoteEntryCoordinator {
 
     const updatedNote = this.getScoreModel().updateNote(noteId, updates)
 
-    // Recompute all filler rests from the fill pointer
-    this.getScoreModel().refillTupletRemainder(existingNote.measure, tuplet)
+    // Recompute all filler rests from the fill pointer (in the tuplet's own voice)
+    this.getScoreModel().refillTupletRemainder(existingNote.measure, tuplet, existingNote.voice ?? 0)
 
     // Also update chord notes to keep duration in sync
     if (isChord) {
@@ -765,7 +765,8 @@ export class NoteEntryCoordinator {
     duration: NoteDuration,
     spelling: PitchSpelling,
     numNotes: number = 3,
-    notesOccupied: number = 2
+    notesOccupied: number = 2,
+    voice: number = 0
   ): { tuplet: Tuplet; firstNote: Note } | null {
     const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
 
@@ -790,8 +791,8 @@ export class NoteEntryCoordinator {
     // Clamp to valid range (tuplet must fit in measure)
     beat = Math.max(0, Math.min(beat, barQuarters - tupletTotalBeats))
 
-    // Check if there's already a tuplet at this position
-    const existingTuplet = this.getScoreModel().getTupletAtBeat(measureNumber, beatToFrac(beat))
+    // Check if there's already a tuplet in this voice at this position
+    const existingTuplet = this.getScoreModel().getTupletAtBeat(measureNumber, beatToFrac(beat), voice)
     if (existingTuplet) {
       console.log('✗ Tuplet already exists at this beat')
       return null
@@ -807,7 +808,7 @@ export class NoteEntryCoordinator {
       config: `${numNotes}:${notesOccupied} ${duration}`,
     })
 
-    return this.buildTupletWithFirstNote(measureNumber, beat, duration, spelling, numNotes, notesOccupied)
+    return this.buildTupletWithFirstNote(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice)
   }
 
   /**
@@ -820,15 +821,16 @@ export class NoteEntryCoordinator {
     duration: NoteDuration,
     spelling: PitchSpelling,
     numNotes: number = 3,
-    notesOccupied: number = 2
+    notesOccupied: number = 2,
+    voice: number = 0
   ): { tuplet: Tuplet; firstNote: Note } | null {
     const targetMeasure = this.getScoreModel().getMeasure(measureNumber)
     if (!targetMeasure) return null
 
-    const existingTuplet = this.getScoreModel().getTupletAtBeat(measureNumber, beatToFrac(beat))
+    const existingTuplet = this.getScoreModel().getTupletAtBeat(measureNumber, beatToFrac(beat), voice)
     if (existingTuplet) return null
 
-    return this.buildTupletWithFirstNote(measureNumber, beat, duration, spelling, numNotes, notesOccupied)
+    return this.buildTupletWithFirstNote(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice)
   }
 
   /**
@@ -843,17 +845,21 @@ export class NoteEntryCoordinator {
     const note = this.getScoreModel().getNote(noteId)
     if (!note || note.tupletId) return null
 
-    const existingTuplet = this.getScoreModel().getTupletAtBeat(note.measure, note.beat)
-    if (existingTuplet) return null
+    // The tuplet inherits the selected note's voice (a tuplet is a single-voice
+    // run). Reject if any same-voice tuplet already overlaps the span the new
+    // tuplet would occupy (not just the exact start beat).
+    const voice = note.voice ?? 0
+    const applySpan = getTupletTotalBeatsFrac(note.duration, notesOccupied)
+    if (this.getScoreModel().tupletSpanOverlaps(note.measure, note.beat, applySpan, voice)) return null
 
-    // createTuplet removes overlapping slots; places no initial rests
-    const tuplet = this.getScoreModel().createTuplet(note.measure, note.beat, note.duration, numNotes, notesOccupied)
+    // createTuplet removes overlapping slots (same voice only); places no initial rests
+    const tuplet = this.getScoreModel().createTuplet(note.measure, note.beat, note.duration, numNotes, notesOccupied, voice)
     const actualDuration = fracMul(durationToFraction(note.duration), fracCreate(notesOccupied, numNotes))
 
     let resultNote: Note
     if (note.isRest) {
       // Tuplet starts empty — refill will place the full-span filler rest
-      this.getScoreModel().refillTupletRemainder(note.measure, tuplet)
+      this.getScoreModel().refillTupletRemainder(note.measure, tuplet, voice)
       const rests = this.getScoreModel().getNotesInTuplet(tuplet.id)
       resultNote = rests[0]
       if (!resultNote) return null
@@ -868,9 +874,10 @@ export class NoteEntryCoordinator {
         beat: tuplet.startBeat,
         tupletId: tuplet.id,
         actualDuration,
+        ...(voice ? { voice: voice as 0 | 1 | 2 | 3 } : {}),
         ...(note.stemDirection && { stemDirection: note.stemDirection }),
       })
-      this.getScoreModel().refillTupletRemainder(note.measure, tuplet)
+      this.getScoreModel().refillTupletRemainder(note.measure, tuplet, voice)
     }
 
     this.onCommit('Apply tuplet')
@@ -889,18 +896,30 @@ export class NoteEntryCoordinator {
     duration: NoteDuration,
     spelling: PitchSpelling,
     numNotes: number,
-    notesOccupied: number
+    notesOccupied: number,
+    voice: number = 0
   ): { tuplet: Tuplet; firstNote: Note } | null {
-    // Save any existing note at the start position before createTuplet deletes it
+    // Refuse to create a tuplet whose span would overlap an existing same-voice
+    // tuplet. Two overlapping tuplets in one voice corrupt entry: a beat inside
+    // both resolves ambiguously and notes/rests get pulled into the wrong one.
+    const beatFracGuard = beatToFrac(beat)
+    const newSpan = getTupletTotalBeatsFrac(duration, notesOccupied)
+    if (this.getScoreModel().tupletSpanOverlaps(measureNumber, beatFracGuard, newSpan, voice)) {
+      console.log(`✗ Tuplet not created: span overlaps an existing v${voice} tuplet`)
+      return null
+    }
+
+    const voiceParam = voice ? { voice: voice as 0 | 1 | 2 | 3 } : {}
+    // Save any existing same-voice note at the start position before createTuplet deletes it
     const existingNoteAtStart = this.getScoreModel().getNotesInMeasure(measureNumber)
-      .find(n => !n.isRest && !n.tupletId && Math.abs(fracToNumber(n.beat) - beat) < 0.001)
+      .find(n => !n.isRest && !n.tupletId && (n.voice ?? 0) === voice && Math.abs(fracToNumber(n.beat) - beat) < 0.001)
     const existingNoteData = existingNoteAtStart
       ? { step: existingNoteAtStart.step, alter: existingNoteAtStart.alter, octave: existingNoteAtStart.octave }
       : null
 
-    // Create the tuplet (removes overlapping slots, places no initial rests)
+    // Create the tuplet (removes overlapping same-voice slots, places no initial rests)
     const beatFrac = beatToFrac(beat)
-    const tuplet = this.getScoreModel().createTuplet(measureNumber, beatFrac, duration, numNotes, notesOccupied)
+    const tuplet = this.getScoreModel().createTuplet(measureNumber, beatFrac, duration, numNotes, notesOccupied, voice)
     const actualDuration = fracMul(durationToFraction(duration), fracCreate(notesOccupied, numNotes))
 
     let firstNote: Note
@@ -916,6 +935,7 @@ export class NoteEntryCoordinator {
         beat: beatFrac,
         tupletId: tuplet.id,
         actualDuration,
+        ...voiceParam,
       })
       firstNote = this.getScoreModel().addNote({
         step: spelling.step,
@@ -926,6 +946,7 @@ export class NoteEntryCoordinator {
         beat: beatFrac,
         tupletId: tuplet.id,
         actualDuration,
+        ...voiceParam,
       })
     } else {
       firstNote = this.getScoreModel().addNote({
@@ -937,10 +958,11 @@ export class NoteEntryCoordinator {
         beat: beatFrac,
         tupletId: tuplet.id,
         actualDuration,
+        ...voiceParam,
       })
     }
 
-    this.getScoreModel().refillTupletRemainder(measureNumber, tuplet)
+    this.getScoreModel().refillTupletRemainder(measureNumber, tuplet, voice)
     this.onCommit('Create triplet')
     return { tuplet, firstNote }
   }
