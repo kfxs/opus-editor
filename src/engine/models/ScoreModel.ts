@@ -1506,6 +1506,14 @@ export class ScoreModel {
         .filter(slot => (slot.voice ?? 0) === voice)
         .sort((a, b) => fracCompare(a.beat, b.beat))
 
+      // Only this voice's tuplets may govern its gaps. A tuplet's voice is
+      // derived from its member slots (a tuplet is a single-voice run), so a
+      // voice-0 triplet must not block the rest-fill of an empty voice-1 bar.
+      const voiceTuplets = tuplets.filter(tuplet => {
+        const slot = measure.slots.find(s => s.tupletId === tuplet.id)
+        return (slot?.voice ?? 0) === voice
+      })
+
       // Find gaps in this voice's stream.
       const gaps: Array<{ start: Fraction; end: Fraction }> = []
       let currentBeat: Fraction = fracCreate(0, 1)
@@ -1522,7 +1530,7 @@ export class ScoreModel {
 
       // Skip gaps that start inside a tuplet's span (the tuplet owns that time).
       const filteredGaps = gaps.filter(gap => {
-        for (const tuplet of tuplets) {
+        for (const tuplet of voiceTuplets) {
           const tupletEndFrac = fracAdd(
             tuplet.startBeat,
             getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied),
@@ -1544,7 +1552,7 @@ export class ScoreModel {
       for (const gap of filteredGaps) {
         let adjustedEnd = gap.end
         // Trim a gap that runs into a later tuplet so fillRests never spans one.
-        for (const tuplet of tuplets) {
+        for (const tuplet of voiceTuplets) {
           if (fracGt(tuplet.startBeat, gap.start) && fracLt(tuplet.startBeat, adjustedEnd)) {
             adjustedEnd = tuplet.startBeat
           }
@@ -1729,6 +1737,7 @@ export class ScoreModel {
           duration: updates.duration ?? rest.duration,
           dots: updates.dots ?? rest.dots,
           measure: rest.measure,
+          voice: rest.voice,  // a rest converted to a note keeps its voice
           tupletId: updates.tupletId ?? rest.tupletId,
           actualDuration: rest.actualDuration,
           articulations: updates.articulations,

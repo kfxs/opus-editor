@@ -1276,6 +1276,44 @@ describe('ScoreModel voice-aware fill (scaffolding)', () => {
     const after = slotsOf(model, 1).filter(s => (s.voice ?? 0) === 0).length
     expect(after).toBe(before) // voice 0 stream untouched
   })
+
+  it('a voice-0 tuplet does not block rest-fill in another voice', () => {
+    const model = new ScoreModel('V', 120)
+    // Voice 0: a triplet at beat 0 (spans beats 0→1).
+    model.createTuplet(1, frac(0, 1), '8', 3, 2)
+    // Voice 1: a single 8th note at beat 0, also inside the v0 tuplet's span.
+    model.addNote({ step: 'F', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), voice: 1 })
+
+    const v1 = slotsOf(model, 1).filter(s => (s.voice ?? 0) === 1)
+    // The note plus filler rests must sum to the full 4/4 bar — the v0 triplet
+    // must not steal voice 1's time and leave the bar short.
+    const v1Total = v1.reduce((sum, s) => sum + fracToNumber(s.actualDuration!), 0)
+    expect(v1Total).toBeCloseTo(4, 5)
+    expect(v1.some(s => s.type === 'rest')).toBe(true) // rests actually filled
+  })
+
+  it('converting a voice-1 rest into a note keeps it in voice 1', () => {
+    const model = new ScoreModel('V', 120)
+    // Voice 1 gets an 8th note, leaving filler rests in the same voice.
+    model.addNote({ step: 'D', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), voice: 1 })
+    const restAtHalf = slotsOf(model, 1).find(
+      s => (s.voice ?? 0) === 1 && s.type === 'rest' && fracToNumber(s.beat) === 0.5,
+    )!
+    expect(restAtHalf).toBeDefined()
+
+    // Edit that rest in place into a pitch (the rest→chord conversion path).
+    model.updateNote(restAtHalf.id, { step: 'C', alter: 0, octave: 5, isRest: false })
+
+    const converted = slotsOf(model, 1).find(
+      s => s.type === 'chord' && fracToNumber(s.beat) === 0.5,
+    )!
+    expect(converted).toBeDefined()
+    expect(converted.voice).toBe(1) // did not fall back to voice 0
+    // And no stray rest was dropped on top of it (voice 1 still sums to one bar).
+    const v1 = slotsOf(model, 1).filter(s => (s.voice ?? 0) === 1)
+    const v1Total = v1.reduce((sum, s) => sum + fracToNumber(s.actualDuration!), 0)
+    expect(v1Total).toBeCloseTo(4, 5)
+  })
 })
 
 describe('ScoreModel measure-rest update (regression)', () => {
