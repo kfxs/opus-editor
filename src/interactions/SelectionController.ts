@@ -1,10 +1,11 @@
-import type { Accidental, Note, Measure, PitchStep, PitchAlter } from '../types/music'
+import type { Accidental, Note, Measure, PitchStep, PitchAlter, Clef } from '../types/music'
+import { middleLineDiatonicPos } from '../utils/clefUtils'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Rect } from '../engine/ViewportModel'
 import type { EditorState } from './EditorState'
 import { modelVoiceToActive } from './EditorState'
 import { buildBeatMap, notesInRange, expandTieChains } from '../utils/beatMap'
-import { fracLt, fracEq, fracCompare } from '../utils/fraction'
+import { fracLt, fracEq, fracCompare, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
 import { itemKey, selectedNoteIds, selectedArticulationNoteIds, type SelectionItem } from './selection'
@@ -302,6 +303,8 @@ export class SelectionController {
 
   /**
    * Navigate within a chord by pitch (up/down). Clamped at top/bottom note.
+   * Scoped to the selected note's OWN voice — in a multi-voice bar this must not walk
+   * into the other voice's noteheads at the same beat (that's navigateVoice's job).
    */
   navigateChord(direction: number): void {
     const engine = this.getEngine()
@@ -314,8 +317,9 @@ export class SelectionController {
     const measure = score.measures.find(m => m.number === note.measure)
     if (!measure) return
 
+    const noteVoice = note.voice ?? 0
     const chordNotes = getMeasureNotes(measure)
-      .filter(n => !n.isRest && fracEq(n.beat, note.beat))
+      .filter(n => !n.isRest && fracEq(n.beat, note.beat) && (n.voice ?? 0) === noteVoice)
       .sort((a, b) => spellingToMidi(a.step!, a.alter!, a.octave!) - spellingToMidi(b.step!, b.alter!, b.octave!))
 
     if (chordNotes.length <= 1) return
@@ -327,6 +331,86 @@ export class SelectionController {
     if (newIndex === currentIndex) return
 
     this.selectNote(chordNotes[newIndex].id)
+    this.renderScore()
+  }
+
+  /**
+   * The vertical staff position of an element, used to order voices geometrically.
+   * A note uses its diatonic pitch position; a rest has no pitch, so we place it in its
+   * voice's rendered lane (upper voice above the middle line, lower voice below) — the
+   * same V1-up / V2-down separation the renderer draws. All values share one clef-aware
+   * diatonic scale so notes and rests across voices are directly comparable.
+   *
+   * ⚠️ FUTURE / REST POSITIONING: the rest branch ASSUMES a rest sits in its voice's
+   * default lane (derived purely from the voice index). That holds today because rest
+   * vertical offset is not user-editable. The moment we add manual rest positioning
+   * (a per-rest vertical offset / line override), this derivation goes stale and the
+   * voice hop will jump to the wrong place. When that lands, read the rest's ACTUAL
+   * vertical offset here (e.g. `n.restLine`/`restYOffset`) instead of the voice lane,
+   * mirroring however the renderer ends up drawing it — keep these two in lockstep.
+   */
+  private elementVerticalPos(n: Note, clef: Clef): number {
+    if (n.isRest) {
+      // TODO(rest-positioning): replace this voice-lane default with the rest's real
+      // vertical offset once rests become vertically movable (see method doc above).
+      const lane = (n.voice ?? 0) === 0 ? 2 : -2
+      return middleLineDiatonicPos(clef) + lane
+    }
+    return spellingDiatonicPos(n.step!, n.octave!)
+  }
+
+  /**
+   * Jump the selection to the nearest element in an ADJACENT voice (Alt+Shift+up/down),
+   * Sibelius-style — a direct voice-to-voice hop, NOT a walk through the current chord
+   * (that's navigateChord on Alt+up/down). "Above/below" is decided geometrically by
+   * vertical staff position, so voice-crossing is handled automatically: pressing up
+   * lands in whichever voice sits higher AT THIS BEAT, regardless of voice number.
+   * Notes and rests are both valid landing targets.
+   */
+  navigateVoice(direction: number): void {
+    const engine = this.getEngine()
+    if (this.state.selectedTool !== 'selection' || !this.state.selectedNoteId || !engine) return
+
+    const current = engine.getNote(this.state.selectedNoteId)
+    if (!current) return
+
+    const score = engine.getScore()
+    const measure = score.measures.find(m => m.number === current.measure)
+    if (!measure) return
+
+    const currentVoice = current.voice ?? 0
+    const clef = engine.getEffectiveClefAt(current.measure, current.beat)
+    const currentPos = this.elementVerticalPos(current, clef)
+
+    // Candidate elements live in OTHER voices (a voice hop never targets our own chord).
+    const others = getMeasureNotes(measure).filter(n => (n.voice ?? 0) !== currentVoice)
+    if (!others.length) return
+
+    // Prefer elements sounding at this exact beat; only if no other voice has anything
+    // here (rhythmically offset) fall back to the nearest beat that does.
+    let pool = others.filter(n => fracEq(n.beat, current.beat))
+    if (!pool.length) {
+      const nearest = Math.min(...others.map(n => Math.abs(fracToNumber(n.beat) - fracToNumber(current.beat))))
+      pool = others.filter(n => Math.abs(fracToNumber(n.beat) - fracToNumber(current.beat)) === nearest)
+    }
+
+    // Keep only the elements in the requested vertical direction, then pick the closest
+    // one (nearest notehead/rest above for up, below for down). No match → no jump
+    // (e.g. pressing up from the top voice). Ties break toward the nearer beat.
+    const dirElements = pool
+      .map(n => ({ n, pos: this.elementVerticalPos(n, clef) }))
+      .filter(({ pos }) => direction > 0 ? pos > currentPos : pos < currentPos)
+    if (!dirElements.length) return
+
+    dirElements.sort((a, b) => {
+      const da = Math.abs(a.pos - currentPos)
+      const db = Math.abs(b.pos - currentPos)
+      if (da !== db) return da - db
+      return Math.abs(fracToNumber(a.n.beat) - fracToNumber(current.beat)) -
+             Math.abs(fracToNumber(b.n.beat) - fracToNumber(current.beat))
+    })
+
+    this.selectNote(dirElements[0].n.id)
     this.renderScore()
   }
 

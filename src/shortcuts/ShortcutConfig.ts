@@ -161,6 +161,19 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Select next lower note in chord',
   },
 
+  // Voice navigation (Sibelius-style Alt+Shift+arrow). Jumps directly to the nearest
+  // note in the voice geometrically above/below by pitch — handles voice-crossing
+  // since the target is decided by pitch, not voice index. (Modifier order is
+  // Ctrl+Shift+Alt, so the lookup key is 'Shift+Alt+…'.)
+  'Shift+Alt+ArrowUp': {
+    action: 'voiceNavUp',
+    description: 'Select nearest note in the voice above',
+  },
+  'Shift+Alt+ArrowDown': {
+    action: 'voiceNavDown',
+    description: 'Select nearest note in the voice below',
+  },
+
   // Voice selection (Sibelius-style Alt+number). Notes are entered into the active voice.
   'Alt+1': {
     action: 'setActiveVoice1',

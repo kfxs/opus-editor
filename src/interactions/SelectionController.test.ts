@@ -5,7 +5,8 @@ import { createEditorState, type EditorState } from './EditorState'
 import { SelectionController } from './SelectionController'
 import { itemKey } from './selection'
 import { expandTieChains } from '../utils/beatMap'
-import { fracCreate as frac } from '@/utils/fraction'
+import { fracCreate as frac, fracEq } from '@/utils/fraction'
+import { getMeasureNotes } from '@/utils/musicUtils'
 
 // Stub VexFlowRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio).
 const fakeRegistry = {
@@ -340,5 +341,95 @@ describe('SelectionController — scroll-into-view forwarding', () => {
     vi.spyOn(engine, 'getElementById').mockReturnValue(null)
     selection.scrollSelectedNoteIntoView()
     expect(ensureVisible).not.toHaveBeenCalled()
+  })
+})
+
+describe('SelectionController — navigateVoice (Alt+Shift+up/down voice hop)', () => {
+  let engine: MusicEngine
+  let state: EditorState
+  let selection: SelectionController
+
+  beforeEach(() => {
+    engine = makeEngine()
+    state = createEditorState()
+    state.selectedTool = 'selection'
+    selection = new SelectionController(() => engine, state, () => {}, () => {})
+  })
+
+  it('jumps up to the note in the voice above and makes that voice active', () => {
+    const v1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    const v2 = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id
+
+    selection.selectNote(v2)
+    selection.navigateVoice(1) // up
+    expect(state.selectedNoteId).toBe(v1)
+    expect(state.activeVoice).toBe(1) // model voice 0 → UI voice 1
+  })
+
+  it('jumps down to the note in the voice below', () => {
+    const v1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    const v2 = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id
+
+    selection.selectNote(v1)
+    selection.navigateVoice(-1) // down
+    expect(state.selectedNoteId).toBe(v2)
+    expect(state.activeVoice).toBe(2)
+  })
+
+  it('does nothing pressing up from the top voice (no voice above)', () => {
+    const v1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+
+    selection.selectNote(v1)
+    selection.navigateVoice(1) // up — nothing above
+    expect(state.selectedNoteId).toBe(v1)
+  })
+
+  it('can land on a REST in the adjacent voice', () => {
+    const v1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    // Voice 2 only has a note at beat 1, so beat 0 in voice 2 is a (gap-filled) rest.
+    engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+
+    const measure = engine.getScore().measures.find(m => m.number === 1)!
+    const v2Rest = getMeasureNotes(measure).find(n => n.isRest && (n.voice ?? 0) === 1 && fracEq(n.beat, frac(0, 1)))!
+    expect(v2Rest).toBeDefined()
+
+    selection.selectNote(v1)
+    selection.navigateVoice(-1) // down → voice 2's rest at this beat
+    expect(state.selectedNoteId).toBe(v2Rest.id)
+  })
+})
+
+describe('SelectionController — navigateChord is voice-scoped', () => {
+  let engine: MusicEngine
+  let state: EditorState
+  let selection: SelectionController
+
+  beforeEach(() => {
+    engine = makeEngine()
+    state = createEditorState()
+    state.selectedTool = 'selection'
+    selection = new SelectionController(() => engine, state, () => {}, () => {})
+  })
+
+  it('stays within the selected note\'s voice, ignoring the other voice at the same beat', () => {
+    // Voice 1 chord C5+E5; voice 2 chord G3+B3, all at beat 0.
+    const v1lo = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    engine.addChordNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })
+    engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    engine.addChordNote({ step: 'B', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+
+    // From the bottom of voice 1's chord, up → top of voice 1 (E5), NOT into voice 2.
+    selection.selectNote(v1lo)
+    selection.navigateChord(1)
+    const landed = engine.getNote(state.selectedNoteId!)!
+    expect(landed.step).toBe('E')
+    expect(landed.octave).toBe(5)
+    expect(landed.voice ?? 0).toBe(0)
+
+    // Already at the top of its voice's chord — another up is a clamp no-op (no jump to v2).
+    const top = state.selectedNoteId
+    selection.navigateChord(1)
+    expect(state.selectedNoteId).toBe(top)
   })
 })

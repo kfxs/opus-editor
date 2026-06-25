@@ -189,6 +189,8 @@ export function useShortcuts(
     },
     chordNoteUp: () => selection.navigateChord(1),
     chordNoteDown: () => selection.navigateChord(-1),
+    voiceNavUp: () => selection.navigateVoice(1),
+    voiceNavDown: () => selection.navigateVoice(-1),
     pitchUp: () => selection.adjustPitch(1),
     pitchDown: () => selection.adjustPitch(-1),
     octaveUp: () => selection.adjustOctave(1),
