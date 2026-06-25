@@ -35,10 +35,25 @@ export function getTieDirection(notePitch: NotePitch, beat: Fraction, measure: M
   // An explicit override (set by flipping the tie with `x`) wins over auto placement.
   if (notePitch.tieDirection !== undefined) return notePitch.tieDirection
 
-  // Find the chord slot at this beat
-  const chordAtBeat = measure.slots.find(
-    s => s.type === 'chord' && fracEq(s.beat, beat)
+  // Find the chord slot that CONTAINS this pitch. In a multi-voice bar each voice
+  // has its own chord at the same beat, so matching on beat alone returns the wrong
+  // voice's slot (usually voice 1's) — match by the pitch id, then fall back to beat.
+  const chordAtBeat = (
+    measure.slots.find(
+      s => s.type === 'chord' && s.notes.some(p => p.id === notePitch.id),
+    ) ?? measure.slots.find(s => s.type === 'chord' && fracEq(s.beat, beat))
   ) as Chord | undefined
+
+  // Multi-voice default: a tie follows its VOICE's outer side so the two voices'
+  // ties never collide in the middle — upper voice (V1) curves UP, lower voices
+  // (V2) curve DOWN — regardless of the pitch's staff position. Mirrors the forced
+  // stem / articulation side / tuplet-bracket rule (Gould). The pitch-based rule
+  // below only applies when the bar has a single voice. (`x` override handled above.)
+  const voiceCount = new Set(measure.slots.map(s => s.voice ?? 0)).size
+  if (voiceCount > 1) {
+    const voice = chordAtBeat?.voice ?? 0
+    return voice === 0 ? -1 : 1
+  }
 
   const thisDiatonic = spellingDiatonicPos(notePitch.step, notePitch.octave)
 
