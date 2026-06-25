@@ -498,7 +498,12 @@ export class HighlightController {
     const group = engine.getSlurSVGGroup(this.state.selectedSlurId)
     if (!group) return
 
-    const SELECTION_COLOR = '#F59E0B'
+    // Paint the slur in ITS voice's colour (V1 blue, V2 green — Sibelius-style;
+    // matches the notehead/tie highlight) rather than a uniform orange. Slur.voice
+    // is unreliable (created as 0), so derive it from the start-note's voice.
+    const slur = engine.getScore().slurs?.find(s => s.id === this.state.selectedSlurId)
+    const voice = slur ? (engine.getNote(slur.startNoteId)?.voice ?? 0) : 0
+    const SELECTION_COLOR = voiceFillColor(voice)
     // Curve.renderCurve strokes AND fills, so each <path> carries both a stroke and a
     // fill — override both, or a selected slur shows an orange body with a dark outline
     // (see docs/slur-plan.md §7.3). A re-render redraws the slur black, so no explicit
