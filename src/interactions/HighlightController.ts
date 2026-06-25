@@ -282,14 +282,20 @@ export class HighlightController {
 
     for (const accEl of accElements) {
       const bbox = accEl.bbox
+      const centerX_bbox = bbox.x + bbox.width / 2
+      const centerY_bbox = bbox.y + bbox.height / 2
       const textEls = svg.querySelectorAll('text')
       for (const svgEl of textEls) {
         const elBBox = (svgEl as SVGGraphicsElement).getBBox?.()
         if (!elBBox) continue
 
-        const centerX_bbox = bbox.x + bbox.width / 2
         const centerX_el = elBBox.x + elBBox.width / 2
-        if (Math.abs(centerX_el - centerX_bbox) < 1.0) {
+        const centerY_el = elBBox.y + elBBox.height / 2
+        // Match on BOTH axes: an X-only match paints every glyph in the accidental
+        // column — the other voice's accidental and any notehead sharing that X —
+        // when stacked voices put a sharp and flat in the same column.
+        if (Math.abs(centerX_el - centerX_bbox) < 1.0 &&
+            Math.abs(centerY_el - centerY_bbox) < bbox.height / 2 + 1.0) {
           const el = svgEl as SVGElement
           el.setAttribute('fill', ACCIDENTAL_COLOR)
           el.style.fill = ACCIDENTAL_COLOR
