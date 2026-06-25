@@ -634,10 +634,17 @@ export class MusicEngine {
    * @returns the created (or pre-existing) Slur, or null if no valid span resolved.
    */
   createSlur(noteIds: string[]): Slur | null {
-    // Resolve selected ids → flat notes, keep voice 0 only, sort by (measure, beat).
-    const selected = noteIds
+    // A slur lives in ONE voice. Derive it from the selection (the first resolved
+    // note's voice) and keep only that voice's notes — so a voice-2 selection makes a
+    // voice-2 slur. (Was hardcoded to voice 0, so `s` did nothing in any other voice.)
+    const resolved = noteIds
       .map(id => this.scoreModel.getNote(id))
-      .filter((n): n is Note => !!n && (n.voice ?? 0) === 0)
+      .filter((n): n is Note => !!n)
+    if (resolved.length === 0) return null
+
+    const slurVoice = resolved[0].voice ?? 0
+    const selected = resolved
+      .filter(n => (n.voice ?? 0) === slurVoice)
       .sort(compareByPosition)
     if (selected.length === 0) return null
 
@@ -650,7 +657,7 @@ export class MusicEngine {
     const existing = this.scoreModel.findSlurByEndpoints(startNote.id, endNote.id)
     if (existing) return existing // idempotent — never duplicate, never remove
 
-    const created = this.scoreModel.addSlur({ startNoteId: startNote.id, endNoteId: endNote.id, voice: 0 })
+    const created = this.scoreModel.addSlur({ startNoteId: startNote.id, endNoteId: endNote.id, voice: slurVoice })
     this.saveOnly('Add slur')
     return created
   }
@@ -795,7 +802,11 @@ export class MusicEngine {
    * `getAllNotes()` emits one entry per pitch, hence the dedupe.
    */
   private nextDistinctSlot(start: Note): Note | undefined {
+    // Stay within the start note's own voice — a slur's end anchor must be the next
+    // slot in the SAME voice, not whatever event comes next in another voice.
+    const startVoice = start.voice ?? 0
     const sorted = this.scoreModel.getAllNotes()
+      .filter(n => (n.voice ?? 0) === startVoice)
       .sort(compareByPosition)
     const idx = sorted.findIndex(n => n.id === start.id)
     if (idx < 0) return undefined
