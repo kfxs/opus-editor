@@ -525,6 +525,14 @@ our own Bézier** — same endpoints, same above/below logic, same two-half syst
 
 ### Phase 9 — Flip slur side (`x`) + stem-aware endpoints — DONE & COMMITTED (d49b1f7), user-verified
 Added post-plan (user request, 2026-06-17): a way to flip a selected slur to the other side.
+
+> **UPDATE 2026-06-25 (commit 8a59444):** `x` is now a **Sibelius-style auto ↔ flipped toggle**, not an
+> absolute above↔below setter. An explicit `placement` clears back to the context-aware auto default;
+> an auto slur pins the opposite of the last-drawn side (still a visible first flip). Two presses
+> round-trip to auto. Same change applied to `flipTie` and `flipTuplet`. Rationale + scope in
+> `docs/tuplet-control-plan.md` §4b. The "sets an explicit placement / toggles the explicit side"
+> wording below describes the *original* Phase-9 behaviour and is superseded by this toggle.
+
 - [x] **`x` flips a selected slur** above ↔ below. The `x` key already mapped to `flipStemDirection`;
       the `useShortcuts` handler now checks `selectedSlurId` first (flip the slur) and otherwise flips
       the selected note's stem — so `x` is overloaded by selection type (like `deleteSelected`).
@@ -637,3 +645,24 @@ proximity `points`). See §7.2 for the control-point math we mirror.
 - Dorico dev diary [part 13](https://blog.dorico.com/2016/03/development-diary-part-13/) ·
   [individual slur thickness](https://steinberg.help/dorico/v1/en/dorico/topics/notation_reference/notation_reference_slurs_thickness_changing_individually_t.html)
 - Elaine Gould, *Behind Bars* — [overview](https://en.wikipedia.org/wiki/Behind_Bars_(book))
+
+---
+
+## 10. Multi-voice (2026-06-25, on main, not pushed)
+Slurs brought up to the multi-voice standard the notes already had (parallels the tie work the same
+session — see `docs/multi-voice-plan.md`):
+- **Creation (`s`) is voice-aware** (`a354a4c`): `createSlur` previously filtered the selection to
+  voice 0 only and hardcoded `voice: 0`, so `s` did nothing in voice 2. Now it derives the slur's
+  voice from the selection's first note, filters to that voice, and stores it; `nextDistinctSlot`
+  (the single-note end-anchor resolver) is scoped to the start note's voice so the end anchor stays
+  in the same voice.
+- **Direction default is voice-aware** (`9b1b46d`): in a multi-voice bar a slur follows its
+  **voice's outer side** — V1 above, V2 below — instead of the stem/notehead side. The old
+  stem-following default *inverted* the rule under multi-voice (V1 stems forced up → slur below;
+  V2 stems forced down → slur above). Single-voice keeps the notehead-side default; `x`/`placement`
+  still wins. Voice read from the start note's chord slot (fallback `slur.voice`); multi-voice is
+  the shared `new Set(slots.map(voice)).size > 1` test.
+- **Selection colour = voice colour** (`27ba657`): a selected slur paints in its voice's colour
+  (V1 blue / V2 green) not orange. `Slur.voice` is unreliable (created 0 historically), so the
+  highlight derives the voice from the start note. Group-scoped recolor + dual fill+stroke override
+  unchanged.

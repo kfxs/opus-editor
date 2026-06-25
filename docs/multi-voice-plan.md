@@ -25,6 +25,11 @@ collision, rest-fill, rebar, dynamics and playback all key on `voice ?? 0` today
 - **Stems**: when a bar has >1 voice, **voice 1 stems up, voice 2 stems down** by default (engraving
   rule). The user can still flip a selected note's stem (existing `stemDirection` override / `x`), and
   the override always wins.
+- **Tuplet brackets** (added 2026-06-25): when a bar has >1 voice, a tuplet's bracket follows the
+  voice's stem side — **voice 1 → above, lower voices → below** — so the voices' brackets spread to the
+  outer edges instead of colliding in the middle (single-voice keeps the stem-derived default). A
+  bracket flipped to the *inner* side is nudged next to its own notes (out of VexFlow's staff-edge
+  clamp). Full design in `docs/tuplet-control-plan.md`.
 - **Colours** (Sibelius): **voice 1 = blue, voice 2 = green**. The **selection highlight colour *is* the
   voice colour** (a selected V1 note shows blue, a selected V2 note shows green — not the old uniform
   orange). The **ghost note** and the **keyboard cursor** paint in the **active voice's** colour.
@@ -189,8 +194,36 @@ only; clefs, time-sigs, tuplets stay orange this pass).
 ## 6. Sub-decisions settled
 - **Navigation scope**: stay within the active voice; if the landing measure lacks that voice, fall back
   to voice 1 (always present). (§1)
-- **Selection colour = voice colour** for notes/rests (Sibelius). Other element kinds stay orange for now.
+- **Selection colour = voice colour** for notes/rests, **ties and slurs** (Sibelius). A selected
+  tie/slur paints in its voice's colour (V1 blue / V2 green); the colour is derived from the start
+  note's voice (the span's own `voice` field is unreliable for slurs — created as 0). Other element
+  kinds (dynamics, clef, time-sig, tuplet, articulation) — articulation is already voice-coloured;
+  the rest stay orange for now.
 - **Switching**: palette panel **and** Alt+1 / Alt+2.
+
+### Session 2026-06-25 — ties & slurs made fully voice-aware (7 commits, on main, NOT pushed)
+Span elements (ties, slurs) brought up to the same multi-voice standard the notes already had:
+- **Tie/slur selection colour = voice colour** (`3a7f832` tie, `27ba657` slur). Curve.renderCurve
+  strokes **and** fills, so the highlight must override **both** fill and stroke or the arc reads
+  black with a hint of colour.
+- **Tie highlight no longer bleeds onto staff lines** (`d7a9d88`). Root cause: ties (unlike slurs)
+  weren't wrapped in an SVG group, so the highlight did a document-wide `<path>` bbox-scan that
+  caught staff-line segments. Fix mirrors the slur group approach: wrap each tie's arc (both
+  cross-line partials) in its own `<g class="vf-tie">` (`tieGroupMap` → `getTieSVGGroup`) and
+  recolor only inside it.
+- **Multi-voice tie direction** (`85e30da`) and **slur direction** (`9b1b46d`): default now follows
+  the **voice's outer side** (V1 above, V2 below) instead of the single-voice pitch/stem rule, so
+  the two voices' arcs don't collide (Gould). KEY tie bug fixed along the way: in a multi-voice bar
+  both voices share a beat, so resolving the tie's voice by `fracEq(beat)` returned the *wrong*
+  voice's slot — resolve it by the slot that **contains the pitch id** instead. The `x` flip
+  override still wins everywhere.
+- **Slur creation (`s`) is voice-aware** (`a354a4c`): was filtered to voice 0 only, so `s` did
+  nothing in voice 2; now derives the slur's voice from the selection and scopes `nextDistinctSlot`
+  (the single-note end-anchor) to that voice.
+- **Letter-entry octave guess scoped to the selected note's voice** (`6c66d89`): `getContextPitch`
+  scanned all voices flattened by beat, so editing a v2 rest grabbed a v1/v0 note stacked at the
+  same beat as the octave reference and landed an octave off (typing A on a v2 rest beside a v0 F4
+  gave A4 not A3). Filter the scan to the selected note's own voice.
 
 ---
 
