@@ -424,6 +424,12 @@ export class HighlightController {
     const group = engine.getTupletSVGGroup(this.state.selectedTupletId)
     if (!group) return
 
+    // Float the selected tuplet to the front of its siblings. Two voices' tuplets can
+    // sit at the exact same pixels (e.g. a flipped voice-2 bracket landing on top of
+    // voice 1); whichever is drawn last wins, so without this the unselected bracket
+    // would paint over the recoloured one and the selection would be invisible.
+    group.parentNode?.appendChild(group)
+
     // Paint in the tuplet's own voice colour, matching note/cursor selection.
     const SELECTION_COLOR = voiceFillColor(engine.getTupletVoice(this.state.selectedTupletId))
 

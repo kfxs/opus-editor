@@ -647,49 +647,36 @@ export class VexFlowRenderer {
           const location = (vt.options?.location ?? 1) as 1 | -1
           const bracketed = vt.options?.bracketed ?? true
 
-          // Compute stem Y extents across all notes in the tuplet
-          let stemMinY = Infinity
-          let stemMaxY = -Infinity
-          for (const note of notes) {
-            try {
-              const stemExtents = note.getStemExtents?.()
-              if (stemExtents) {
-                stemMinY = Math.min(stemMinY, stemExtents.topY, stemExtents.baseY)
-                stemMaxY = Math.max(stemMaxY, stemExtents.topY, stemExtents.baseY)
-              }
-            } catch (e) { /* ignore */ }
-          }
-          if (stemMinY === Infinity || stemMaxY === -Infinity) {
-            for (const note of notes) {
-              try {
-                const noteBox = note.getBoundingBox()
-                if (noteBox) {
-                  stemMinY = Math.min(stemMinY, noteBox.getY())
-                  stemMaxY = Math.max(stemMaxY, noteBox.getY() + noteBox.getH())
-                }
-              } catch (e) { /* ignore */ }
-            }
-          }
-
+          // Use VexFlow's OWN post-draw geometry so the registered hit-box matches the
+          // drawn bracket exactly. VexFlow draws the horizontal bracket line at
+          // getYPosition(), the legs hanging toward the notes (length location*10), and
+          // the number on the outer side. Our previous stem-extent estimate (fixed
+          // gap/height) drifted off the real bracket — badly in multi-voice / flipped
+          // tuplets, where VexFlow anchors a top bracket above the whole system.
           const bracketPadding = 5
           const xStart = bracketed ? firstNote.getTieLeftX() - bracketPadding : firstNote.getStemX()
           const xEnd = bracketed ? lastNote.getTieRightX() + bracketPadding : lastNote.getStemX()
           const tupletWidth = xEnd - xStart
 
-          // Position bracket above or below stems with a fixed gap
-          const bracketGap = 10
-          const totalHeight = 45
-          const bracketY = location === 1
-            ? stemMinY - bracketGap - totalHeight
-            : stemMaxY + bracketGap
+          const bracketLineY = vexTuplet.getYPosition() // the horizontal bracket line
+          const bracketLegLength = 10
+          const numberHeight = vt.textElement?.getHeight?.() ?? 14
+          // The number sits on the outer side of the line, the legs hang inward. Cover
+          // both (plus a little padding) so a click anywhere on the visible bracket or
+          // its number registers.
+          const vPad = 6
+          const bboxY = location === 1
+            ? bracketLineY - numberHeight - vPad
+            : bracketLineY - bracketLegLength - vPad
+          const bboxHeight = numberHeight + bracketLegLength + 2 * vPad
 
           const tupletGeometry: TupletGeometry = {
             x: xStart,
-            y: bracketY,
+            y: bracketLineY,
             width: tupletWidth,
             bracketed,
             location,
-            bracketLegLength: 10,
+            bracketLegLength,
             bracketThickness: 1,
             bracketPadding,
             notationCenterX: xStart + tupletWidth / 2,
@@ -703,7 +690,7 @@ export class VexFlowRenderer {
             measure: measure.number,
             startBeat: fracToNumber(tupletData.startBeat),
             numNotes: tupletData.numNotes,
-            bbox: { x: xStart, y: bracketY, width: tupletWidth, height: totalHeight },
+            bbox: { x: xStart, y: bboxY, width: tupletWidth, height: bboxHeight },
             tupletGeometry,
           })
           // Keep the VexFlow Tuplet so its own SVG group can be recolored for selection
