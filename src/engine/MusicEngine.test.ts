@@ -502,6 +502,80 @@ describe('MusicEngine.runBatch — atomic multi-element undo', () => {
   })
 })
 
+describe('MusicEngine.moveNoteToVoice — facade (Phase 1)', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  const voiceOf = (m: number, id: string) => {
+    for (const s of engine.getScore().measures.find(x => x.number === m)!.slots) {
+      if (s.type === 'chord' && s.notes.some(n => n.id === id)) return s.voice ?? 0
+    }
+    return undefined
+  }
+
+  it('moves a note to another voice, preserving its id, in one undo step', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    expect(voiceOf(1, note.id)).toBe(0)
+
+    expect(engine.moveNoteToVoice(note.id, 1)).toBe(true)
+    expect(voiceOf(1, note.id)).toBe(1) // moved, same id
+
+    expect(engine.undo()).toBe(true)
+    expect(voiceOf(1, note.id)).toBe(0) // restored in one step
+  })
+
+  it('returns false (no undo entry) for a no-op move', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const couldUndo = engine.canUndo()
+    expect(engine.moveNoteToVoice(note.id, 0)).toBe(false)
+    expect(engine.canUndo()).toBe(couldUndo) // history unchanged
+  })
+})
+
+describe('MusicEngine.moveSelectionToVoice — atomic multi-note move (Phase 3)', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  const voiceOf = (m: number, id: string) => {
+    for (const s of engine.getScore().measures.find(x => x.number === m)!.slots) {
+      if (s.type === 'chord' && s.notes.some(n => n.id === id)) return s.voice ?? 0
+    }
+    return undefined
+  }
+
+  it('moves several notes to a voice in ONE undo step, ids preserved', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const c = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+
+    expect(engine.moveSelectionToVoice([c.id, a.id, b.id], 1)).toBe(true)
+    expect(voiceOf(1, a.id)).toBe(1)
+    expect(voiceOf(1, b.id)).toBe(1)
+    expect(voiceOf(1, c.id)).toBe(1)
+
+    // ONE undo restores all three to voice 0.
+    expect(engine.undo()).toBe(true)
+    expect(voiceOf(1, a.id)).toBe(0)
+    expect(voiceOf(1, b.id)).toBe(0)
+    expect(voiceOf(1, c.id)).toBe(0)
+  })
+
+  it('returns false (no undo entry) when every note is a no-op', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const couldUndo = engine.canUndo()
+    expect(engine.moveSelectionToVoice([a.id], 0)).toBe(false) // already voice 0
+    expect(engine.canUndo()).toBe(couldUndo)
+  })
+
+  it('ignores rest ids in the selection', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    // The bar has filler rests after the quarter; grab one's id.
+    const restId = engine.getScore().measures[0].slots.find(s => s.type === 'rest')!.id
+    expect(engine.moveSelectionToVoice([a.id, restId], 1)).toBe(true)
+    expect(voiceOf(1, a.id)).toBe(1) // the note moved; the rest id was harmlessly skipped
+  })
+})
+
 describe('MusicEngine.createSlur — endpoint resolution', () => {
   let engine: MusicEngine
 

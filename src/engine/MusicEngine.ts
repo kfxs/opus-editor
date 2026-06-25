@@ -913,6 +913,38 @@ export class MusicEngine {
   }
 
   /**
+   * Move a single note's pitch into another voice, preserving its id so ties,
+   * slurs, articulations and the live selection stay anchored (move-note-to-voice
+   * plan, Phase 1). Plain notes only for now — tuplet members are deferred.
+   * Commits (sync playback + undo, marks the model dirty); the caller re-renders,
+   * and the render loop repairs/regroups. Returns true if it moved.
+   */
+  moveNoteToVoice(pitchId: string, targetVoice: number): boolean {
+    const moved = this.scoreModel.moveNoteToVoice(pitchId, targetVoice)
+    if (moved) this.commit(`Move note to voice ${targetVoice + 1}`)
+    return moved
+  }
+
+  /**
+   * Move several notes' pitches into a voice as ONE atomic, single-undo action
+   * (move-note-to-voice plan, Phase 3). Notes are processed in a stable order
+   * (measure, then beat) so chord-merge "shorter wins" is deterministic; each
+   * per-note move skips no-ops and rests itself. Ids are preserved, so the
+   * caller's selection stays valid (just re-render). Returns true if anything
+   * actually moved.
+   */
+  moveSelectionToVoice(pitchIds: string[], targetVoice: number): boolean {
+    const ordered = pitchIds
+      .map(id => ({ id, note: this.scoreModel.getNote(id) }))
+      .filter((x): x is { id: string; note: Note } => !!x.note)
+      .sort((a, b) => compareByPosition(a.note, b.note))
+
+    return this.runBatch(`Move ${ordered.length} note(s) to voice ${targetVoice + 1}`, () => {
+      for (const { id } of ordered) this.moveNoteToVoice(id, targetVoice)
+    })
+  }
+
+  /**
    * Clear all notes
    */
   clearAllNotes(): void {

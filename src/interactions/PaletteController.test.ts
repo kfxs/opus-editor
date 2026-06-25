@@ -159,3 +159,66 @@ describe('PaletteController — disarmPositionalTools', () => {
     expect(state.selectedAccidental).toBe('#')
   })
 })
+
+describe('PaletteController — setActiveVoice (move selection vs arm entry)', () => {
+  let state: EditorState
+  let moveSelectionToVoice: ReturnType<typeof vi.fn>
+  let renderScore: ReturnType<typeof vi.fn>
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    moveSelectionToVoice = vi.fn(() => true)
+    renderScore = vi.fn()
+    const fakeEngine = { moveSelectionToVoice } as unknown as import('../engine/MusicEngine').MusicEngine
+    palette = new PaletteController(
+      () => fakeEngine,
+      state,
+      renderScore as unknown as () => void,
+      vi.fn(),       // renderPreview
+      () => null,    // getLastMousePosition
+      vi.fn(),       // selectNote
+    )
+  })
+
+  it('moves the selected note(s) into the chosen voice (selection mode) — UI voice 2 → model voice 1', () => {
+    state.selectedTool = 'selection'
+    state.selectedNoteId = 'note-1'
+    state.selectedItems.set('note:note-1', { kind: 'note', id: 'note-1' })
+
+    palette.setActiveVoice(2)
+
+    expect(moveSelectionToVoice).toHaveBeenCalledWith(['note-1'], 1)
+    expect(renderScore).toHaveBeenCalled()
+    expect(state.selectedTool).toBe('selection') // stayed in selection, did NOT arm entry
+    expect(state.activeVoice).toBe(2)
+  })
+
+  it('falls back to selectedNoteId when the multi-select map is empty', () => {
+    state.selectedTool = 'selection'
+    state.selectedNoteId = 'solo'
+
+    palette.setActiveVoice(1)
+
+    expect(moveSelectionToVoice).toHaveBeenCalledWith(['solo'], 0)
+  })
+
+  it('arms entry (no move) when in selection mode with nothing selected', () => {
+    state.selectedTool = 'selection'
+    state.selectedNoteId = null
+
+    palette.setActiveVoice(2)
+
+    expect(moveSelectionToVoice).not.toHaveBeenCalled()
+    expect(state.selectedTool).toBe('entry')
+  })
+
+  it('does not move while in entry mode (just arms the voice)', () => {
+    state.selectedTool = 'entry'
+
+    palette.setActiveVoice(2)
+
+    expect(moveSelectionToVoice).not.toHaveBeenCalled()
+    expect(state.activeVoice).toBe(2)
+  })
+})

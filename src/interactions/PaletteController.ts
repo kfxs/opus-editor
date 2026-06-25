@@ -1,6 +1,7 @@
 import type { ArticulationType, Accidental, NoteDuration, PitchAlter, BeamMode, Clef, TimeSignature } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState, DynamicTool } from './EditorState'
+import { activeVoiceToModel } from './EditorState'
 import { fracLt, fracCompare, fracToNumber } from '../utils/fraction'
 import { sameTimeSignature } from '../utils/meter'
 import { getMeasureNotes } from '../utils/musicUtils'
@@ -357,16 +358,37 @@ export class PaletteController {
   }
 
   /**
-   * Choose the active voice for note entry (Sibelius-style; palette buttons + Alt+1/Alt+2).
-   * Notes entered go into this voice. Phase 0: state + ghost refresh only — the
-   * per-voice notation (stems, rests) and voice colours land in later phases.
+   * Choose the active voice (Sibelius-style; palette buttons + Alt+1/Alt+2).
+   *
+   * In selection mode with a selection, a voice press MOVES the selected note(s)
+   * into that voice (Sibelius Alt+1/2-on-selection) — preserving their ids so
+   * ties/slurs/selection survive, as one atomic undo. Otherwise it arms the voice
+   * for note entry: with nothing selected, flip to entry mode (mirrors the
+   * duration/accidental tools).
    */
   setActiveVoice(voice: 1 | 2): void {
     this.state.activeVoice = voice
     console.log(`[Voice] active voice → ${voice}`)
-    // Choosing a voice means "I want to enter notes here": in selection mode with
-    // nothing selected, flip to entry mode (mirrors the duration/accidental tools).
-    // With a note selected we stay put — voice reassignment is a later phase.
+
+    // Selection-mode + a selection → reassign voice instead of arming entry.
+    const engine = this.getEngine()
+    if (engine && this.state.selectedTool === 'selection') {
+      const ids = selectedNoteIds(this.state.selectedItems.values())
+      if (ids.length === 0 && this.state.selectedNoteId) ids.push(this.state.selectedNoteId)
+      if (ids.length > 0) {
+        const moved = engine.moveSelectionToVoice(ids, activeVoiceToModel(voice))
+        if (moved) {
+          // Ids are unchanged, so the selection Map stays valid — just re-render
+          // (notes recolour to their new voice).
+          this.renderScore()
+          return
+        }
+        // Nothing moved (all already in the target voice, or rests) — leave the
+        // selection as-is and fall through to the entry-arming refresh below.
+      }
+    }
+
+    // Entry-arming behaviour (no selection, or nothing actually moved).
     if (this.state.selectedTool === 'selection' && !this.state.selectedNoteId) {
       this.state.selectedTool = 'entry'
     }

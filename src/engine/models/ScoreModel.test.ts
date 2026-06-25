@@ -1338,6 +1338,158 @@ describe('ScoreModel voice-aware fill (scaffolding)', () => {
   })
 })
 
+describe('ScoreModel.moveNoteToVoice — Phase 1 (plain notes)', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('MV', 120) })
+
+  const v = (s: ChordRest) => s.voice ?? 0
+  const total = (slots: ChordRest[]) =>
+    slots.reduce((sum, s) => sum + fracToNumber(s.actualDuration!), 0)
+
+  it('moves a plain note into another voice, keeping its pitch id', () => {
+    const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    expect(model.moveNoteToVoice(note.id, 1)).toBe(true)
+
+    const slots = slotsOf(model, 1)
+    const v1Chords = slots.filter(s => s.type === 'chord' && v(s) === 1)
+    expect(v1Chords).toHaveLength(1)
+    expect((v1Chords[0] as any).notes[0].id).toBe(note.id) // SAME id (the spine)
+    expect(fracToNumber(v1Chords[0].beat)).toBe(0)
+
+    // Source voice 0 left with rests only; both voices still sum to the bar.
+    const v0 = slots.filter(s => v(s) === 0)
+    expect(v0.every(s => s.type === 'rest')).toBe(true)
+    expect(total(v0)).toBeCloseTo(4, 5)
+    expect(total(slots.filter(s => v(s) === 1))).toBeCloseTo(4, 5)
+  })
+
+  it('collapses the source secondary voice when its last note leaves', () => {
+    const note = model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    expect(model.moveNoteToVoice(note.id, 0)).toBe(true)
+
+    const slots = slotsOf(model, 1)
+    expect(slots.some(s => v(s) === 1)).toBe(false) // voice 1 collapsed away
+    const moved = slots.find(s => s.type === 'chord') as any
+    expect(moved.notes[0].id).toBe(note.id)
+    expect(v(moved)).toBe(0)
+  })
+
+  it('is a no-op (returns false) when the note is already in the target voice', () => {
+    const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    expect(model.moveNoteToVoice(note.id, 0)).toBe(false)
+  })
+
+  it('refuses to move a tuplet member (deferred to the tuplet path)', () => {
+    const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)
+    model.refillTupletRemainder(1, tuplet)
+    // Turn the first tuplet rest into a real note so we have a pitch to try to move.
+    const firstRest = slotsOf(model, 1).find(s => s.tupletId === tuplet.id && s.type === 'rest')!
+    const note = model.updateNote(firstRest.id, { step: 'E', alter: 0, octave: 4, isRest: false })
+    expect(model.moveNoteToVoice(note.id, 1)).toBe(false)
+    // Still a tuplet member in voice 0.
+    const after = model.getNote(note.id)!
+    expect(after.tupletId).toBe(tuplet.id)
+    expect(after.voice ?? 0).toBe(0)
+  })
+
+  it('moves just one pitch out of a chord, leaving the others behind', () => {
+    const c = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const e = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const g = model.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+
+    expect(model.moveNoteToVoice(g.id, 1)).toBe(true)
+
+    const slots = slotsOf(model, 1)
+    const v0Chord = slots.find(s => s.type === 'chord' && v(s) === 0) as any
+    expect(v0Chord.notes.map((n: any) => n.id).sort()).toEqual([c.id, e.id].sort())
+    const v1Chord = slots.find(s => s.type === 'chord' && v(s) === 1) as any
+    expect(v1Chord.notes).toHaveLength(1)
+    expect(v1Chord.notes[0].id).toBe(g.id)
+  })
+
+  it('drops a tie whose partner stays behind (both reciprocal sides cleared)', () => {
+    const a = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    model.updateNote(a.id, { tiedTo: b.id })
+    model.updateNote(b.id, { tiedFrom: a.id })
+
+    expect(model.moveNoteToVoice(a.id, 1)).toBe(true)
+
+    expect(model.getNote(a.id)!.tiedTo).toBeUndefined()
+    expect(model.getNote(b.id)!.tiedFrom).toBeUndefined()
+  })
+
+  it('keeps a slur valid by preserving the moved note id', () => {
+    const a = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const slur = model.addSlur({ startNoteId: a.id, endNoteId: b.id, voice: 0 })
+
+    expect(model.moveNoteToVoice(a.id, 1)).toBe(true)
+
+    const kept = model.getSlurs().find(s => s.id === slur.id)!
+    expect(kept.startNoteId).toBe(a.id)
+    expect(model.getNote(a.id)).toBeDefined() // anchor still resolves
+  })
+
+  it('ignores a rest id (returns false)', () => {
+    const rest = slotsOf(model, 1).find(s => s.type === 'rest')!
+    expect(model.moveNoteToVoice(rest.id, 1)).toBe(false)
+  })
+})
+
+describe('ScoreModel.moveNoteToVoice — Phase 2 (collision: shorter wins)', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('MV', 120) })
+
+  const v = (s: ChordRest) => s.voice ?? 0
+  const total = (slots: ChordRest[]) =>
+    slots.reduce((sum, s) => sum + fracToNumber(s.actualDuration!), 0)
+  const v1ChordAt = (beat: number) =>
+    slotsOf(model, 1).find(s => s.type === 'chord' && v(s) === 1 && fracToNumber(s.beat) === beat) as any
+
+  it('chords with target when both share a beat; keeps the EXISTING shorter duration', () => {
+    // Target voice 1 has a quarter at beat 1; move a voice-0 HALF onto it.
+    model.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+    const half = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(1, 1) })
+
+    expect(model.moveNoteToVoice(half.id, 1)).toBe(true)
+
+    const chord = v1ChordAt(1)
+    expect(chord.notes).toHaveLength(2)                 // chorded
+    expect(chord.notes.map((n: any) => n.id)).toContain(half.id)
+    expect(chord.duration).toBe('q')                    // quarter (shorter) wins, half's extra length discarded
+    expect(total(slotsOf(model, 1).filter(s => v(s) === 1))).toBeCloseTo(4, 5)
+  })
+
+  it('adopts the INCOMING shorter duration and rest-fills the freed time', () => {
+    // Target voice 1 has a quarter at beat 0; move a voice-0 EIGHTH onto it.
+    model.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const eighth = model.addNote({ step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
+
+    expect(model.moveNoteToVoice(eighth.id, 1)).toBe(true)
+
+    const chord = v1ChordAt(0)
+    expect(chord.notes).toHaveLength(2)
+    expect(chord.duration).toBe('8')                    // eighth (shorter) wins
+    // Freed half-beat is now a voice-1 rest; the voice still sums to a full bar.
+    const v1 = slotsOf(model, 1).filter(s => v(s) === 1)
+    expect(v1.some(s => s.type === 'rest' && fracToNumber(s.beat) === 0.5)).toBe(true)
+    expect(total(v1)).toBeCloseTo(4, 5)
+  })
+
+  it('equal durations just chord together, no extra rests', () => {
+    model.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const q = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+
+    expect(model.moveNoteToVoice(q.id, 1)).toBe(true)
+
+    const chord = v1ChordAt(0)
+    expect(chord.notes).toHaveLength(2)
+    expect(chord.duration).toBe('q')
+    expect(total(slotsOf(model, 1).filter(s => v(s) === 1))).toBeCloseTo(4, 5)
+  })
+})
+
 describe('ScoreModel measure-rest update (regression)', () => {
   let model: ScoreModel
   beforeEach(() => { model = new ScoreModel('TS', 120) })

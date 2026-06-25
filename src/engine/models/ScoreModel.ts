@@ -1,4 +1,4 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, Clef, Dynamic, Slur } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur } from '@/types/music'
 import {
   getTupletTotalBeatsFrac,
   noteSpansOverlapFrac,
@@ -1943,6 +1943,190 @@ export class ScoreModel {
       const hasNote = measure.slots.some(s => (s.voice ?? 0) === voice && s.type === 'chord')
       if (!hasNote) {
         measure.slots = measure.slots.filter(s => (s.voice ?? 0) !== voice)
+      }
+    }
+  }
+
+  /**
+   * Move a single plain note's pitch into another voice, **preserving its
+   * `pitch.id`** so ties/slurs/articulations/selection all stay anchored to it
+   * (see the move-note-to-voice plan §2 — choice B, mutate in place). The source
+   * voice closes its gap with rests (and collapses if it was a now-empty
+   * secondary voice); the target voice opens to receive the note.
+   *
+   * Plain (non-tuplet) notes only — a tuplet member returns false and is left for
+   * the tuplet path (plan Phase 4). Rests and unknown ids are ignored.
+   *
+   * @returns true if the note actually moved.
+   */
+  moveNoteToVoice(pitchId: string, targetVoice: number): boolean {
+    const found = this.findSlot(pitchId)
+    if (!found || found.type !== 'chord') return false // rests / unknown ids ignored
+
+    const { chord, pitch } = found
+    const from = chord.voice ?? 0
+    if (from === targetVoice) return false // no-op: already in the target voice
+
+    // Phases 1–3 are plain notes only; a tuplet member routes to the tuplet path later.
+    if (chord.tupletId) return false
+
+    const measure = this.getMeasure(chord.measure)
+    if (!measure) return false
+
+    console.log(`[Model.moveNoteToVoice] ${pitch.step}${alterMarks(pitch.alter)}${pitch.octave} (id ${pitch.id.slice(0, 8)}) v${from}→v${targetVoice} @ m${chord.measure} b${fracToNumber(chord.beat).toFixed(3)}`)
+
+    // Capture the pitch payload before mutating anything (reuse the SAME id).
+    const payload = {
+      id: pitch.id,
+      step: pitch.step,
+      alter: pitch.alter,
+      octave: pitch.octave,
+      forceAccidental: pitch.forceAccidental,
+      tiedTo: pitch.tiedTo,
+      tiedFrom: pitch.tiedFrom,
+      tieDirection: pitch.tieDirection,
+      duration: chord.duration,
+      dots: chord.dots,
+      beat: chord.beat,
+      voice: targetVoice,
+    }
+
+    // Remove the pitch from the source slot.
+    let removedWholeSlot = false
+    if (chord.notes.length > 1) {
+      // One pitch of a chord leaves; the chord (and the beat it holds) stays.
+      chord.notes = chord.notes.filter(n => n.id !== pitch.id)
+    } else {
+      // Last/only pitch — remove the whole slot; the source voice now has a gap.
+      measure.slots = measure.slots.filter(s => s.id !== chord.id)
+      removedWholeSlot = true
+    }
+
+    // Insert into the target voice (merges into a same-beat chord, or makes a new
+    // one and clears the target-voice rest there). Reuses the captured id.
+    this.insertPitch(measure, payload)
+
+    // A tie whose partner stayed behind would now span two voices — drop it (plan
+    // §5). Only ties whose partner is also in the target voice survive.
+    this.dropCrossVoiceTies(pitch.id, targetVoice)
+
+    // Repair the source voice if removing a whole slot left a gap, THEN collapse
+    // an emptied secondary voice (order matters — plan Phase 1 step 8).
+    if (removedWholeSlot) {
+      this.fillGapsWithRests(measure)
+      this.collapseEmptyVoices(measure.number)
+    }
+
+    measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+    return true
+  }
+
+  /**
+   * Insert a pitch into a measure at a given beat/voice, **reusing the supplied
+   * `pitch.id`** (unlike {@link addNote}, which always mints a fresh uuid). Mirrors
+   * addNote's two branches: merge into a same-beat/same-voice chord, or build a
+   * new chord and clear the target-voice rest via {@link replaceRestsWithChord}.
+   * Used by {@link moveNoteToVoice} so a moved note keeps its anchored ties/slurs.
+   */
+  private insertPitch(
+    measure: Measure,
+    payload: {
+      id: string
+      step: PitchStep
+      alter: PitchAlter
+      octave: number
+      forceAccidental?: boolean
+      tiedTo?: string
+      tiedFrom?: string
+      tieDirection?: -1 | 1
+      duration: NoteDuration
+      dots?: number
+      beat: Fraction
+      voice: number
+    },
+  ): void {
+    const notePitch: NotePitch = {
+      id: payload.id,
+      step: payload.step,
+      alter: payload.alter,
+      octave: payload.octave,
+      forceAccidental: payload.forceAccidental,
+      tiedTo: payload.tiedTo,
+      tiedFrom: payload.tiedFrom,
+      tieDirection: payload.tieDirection,
+    }
+    const targetVoice = payload.voice
+
+    const existingChord = measure.slots.find(
+      (s): s is Chord => s.type === 'chord' && fracEq(s.beat, payload.beat) && (s.voice ?? 0) === targetVoice,
+    )
+
+    if (existingChord) {
+      // Merge into the existing chord (collision). If neither side is a tuplet and
+      // the durations differ, the SHORTER duration wins (plan §0.2 / Phase 2): the
+      // merged chord takes the smaller duration and fillGapsWithRests reclaims the
+      // freed time in this voice. A longer incoming note is simply cramped in.
+      existingChord.notes.push(notePitch)
+      if (!existingChord.tupletId) {
+        const incomingFrac = durationToFraction(payload.duration, payload.dots ?? 0)
+        const existingFrac = durationToFraction(existingChord.duration, existingChord.dots ?? 0)
+        if (fracCompare(incomingFrac, existingFrac) < 0) {
+          existingChord.duration = payload.duration
+          existingChord.dots = payload.dots
+          existingChord.actualDuration = this.computeActualDurationForSlot(existingChord, measure)
+          this.fillGapsWithRests(measure) // reclaim the freed time as rests
+        }
+      }
+      console.log(`[Model.insertPitch] merge ${notePitch.step}${alterMarks(notePitch.alter)}${notePitch.octave} → chord ${fmtSlot(existingChord)} (now ${existingChord.notes.length} note(s), dur ${existingChord.duration})`)
+      return
+    }
+
+    // No chord at this beat/voice — build one and clear the target-voice rest.
+    const chord: Chord = {
+      id: uuidv4(),
+      type: 'chord',
+      beat: payload.beat,
+      duration: payload.duration,
+      dots: payload.dots,
+      measure: measure.number,
+      notes: [notePitch],
+    }
+    if (targetVoice) chord.voice = targetVoice as 0 | 1 | 2 | 3
+    chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
+    console.log(`[Model.insertPitch] new chord ${fmtSlot(chord)} → replacing v${targetVoice} rests`)
+    this.replaceRestsWithChord(measure, chord)
+  }
+
+  /**
+   * After a pitch changes voice, clear any tie whose partner is NOT in the same
+   * voice (a tie spanning two voices is invalid). Clears both reciprocal sides.
+   */
+  private dropCrossVoiceTies(pitchId: string, voice: number): void {
+    const found = this.findSlot(pitchId)
+    if (!found || found.type !== 'chord') return
+    const pitch = found.pitch
+
+    if (pitch.tiedTo) {
+      const partner = this.findSlot(pitch.tiedTo)
+      const partnerVoice =
+        partner?.type === 'chord' ? (partner.chord.voice ?? 0)
+        : partner?.type === 'rest' ? (partner.rest.voice ?? 0)
+        : undefined
+      if (partnerVoice !== voice) {
+        if (partner?.type === 'chord') partner.pitch.tiedFrom = undefined
+        else if (partner?.type === 'rest') partner.rest.tiedFrom = undefined
+        pitch.tiedTo = undefined
+        console.log(`[Model.dropCrossVoiceTies] dropped tiedTo (partner v${partnerVoice ?? '?'} ≠ v${voice})`)
+      }
+    }
+    if (pitch.tiedFrom) {
+      const partner = this.findSlot(pitch.tiedFrom)
+      // A tie's source is always a chord pitch (a rest can't start a tie).
+      const partnerVoice = partner?.type === 'chord' ? (partner.chord.voice ?? 0) : undefined
+      if (partnerVoice !== voice) {
+        if (partner?.type === 'chord') partner.pitch.tiedTo = undefined
+        pitch.tiedFrom = undefined
+        console.log(`[Model.dropCrossVoiceTies] dropped tiedFrom (partner v${partnerVoice ?? '?'} ≠ v${voice})`)
       }
     }
   }
