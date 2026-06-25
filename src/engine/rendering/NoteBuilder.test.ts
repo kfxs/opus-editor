@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   resolveTupletLocation,
+  innerFlipTupletYOffset,
   TUPLET_LOCATION_ABOVE,
   TUPLET_LOCATION_BELOW,
+  type TupletNoteStem,
 } from './NoteBuilder'
 
 describe('resolveTupletLocation', () => {
@@ -32,5 +34,51 @@ describe('resolveTupletLocation', () => {
   it('single voice: uses the stem-derived fallback', () => {
     expect(resolveTupletLocation(undefined, false, 0, TUPLET_LOCATION_ABOVE)).toBe(TUPLET_LOCATION_ABOVE)
     expect(resolveTupletLocation(undefined, false, 0, TUPLET_LOCATION_BELOW)).toBe(TUPLET_LOCATION_BELOW)
+  })
+})
+
+describe('innerFlipTupletYOffset', () => {
+  // A lower voice (voice 1) with stems down; noteheads (baseY) low on the page.
+  const downStems: TupletNoteStem[] = [
+    { stemUp: false, topY: 220, baseY: 160 },
+    { stemUp: false, topY: 225, baseY: 165 },
+  ]
+  // The primary voice (voice 0) with stems up; noteheads (baseY) around the staff.
+  const upStems: TupletNoteStem[] = [
+    { stemUp: true, topY: 40, baseY: 110 },
+    { stemUp: true, topY: 45, baseY: 115 },
+  ]
+
+  it('is a no-op for a single voice', () => {
+    expect(innerFlipTupletYOffset(downStems, TUPLET_LOCATION_ABOVE, 1, false, 5)).toBe(0)
+  })
+
+  it('is a no-op for an OUTER bracket (voice 0 above, lower voice below)', () => {
+    expect(innerFlipTupletYOffset(upStems, TUPLET_LOCATION_ABOVE, 0, true, 5)).toBe(0)
+    expect(innerFlipTupletYOffset(downStems, TUPLET_LOCATION_BELOW, 1, true, 300)).toBe(0)
+  })
+
+  it('lower voice flipped ABOVE: nudges DOWN toward its own notes (positive offset)', () => {
+    // clampedY = 5 (VexFlow shoved it above the system); desired = min(baseY-20) = 140.
+    const off = innerFlipTupletYOffset(downStems, TUPLET_LOCATION_ABOVE, 1, true, 5)
+    expect(off).toBe(140 - 5)
+    expect(off).toBeGreaterThan(0)
+  })
+
+  it('voice 0 flipped BELOW: nudges UP toward its own notes (negative offset)', () => {
+    // clampedY = 300 (shoved below the system); desired = max(baseY+20) = 135.
+    const off = innerFlipTupletYOffset(upStems, TUPLET_LOCATION_BELOW, 0, true, 300)
+    expect(off).toBe(135 - 300)
+    expect(off).toBeLessThan(0)
+  })
+
+  it('never nudges further toward the edge (clamped to 0)', () => {
+    // Above-flip where desired is already higher than clamped → would push up; clamp to 0.
+    expect(innerFlipTupletYOffset(downStems, TUPLET_LOCATION_ABOVE, 1, true, 999)).toBe(140 - 999 < 0 ? 0 : 140 - 999)
+    expect(innerFlipTupletYOffset(downStems, TUPLET_LOCATION_ABOVE, 1, true, 999)).toBe(0)
+  })
+
+  it('is a no-op with no notes', () => {
+    expect(innerFlipTupletYOffset([], TUPLET_LOCATION_ABOVE, 1, true, 5)).toBe(0)
   })
 })

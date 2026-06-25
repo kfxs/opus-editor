@@ -24,6 +24,8 @@ import {
   drawsTimeSignature,
   ARTICULATION_RENDER_ORDER,
   resolveTupletLocation,
+  innerFlipTupletYOffset,
+  type TupletNoteStem,
 } from './NoteBuilder'
 import { calculateMeasureWidths } from './MeasureLayout'
 import { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo } from './layoutConfig'
@@ -462,7 +464,7 @@ export class VexFlowRenderer {
           }
         }
 
-        this.drawAndRegisterTuplets(vexTuplets, tupletStaveNoteMap, measure)
+        this.drawAndRegisterTuplets(vexTuplets, tupletStaveNoteMap, measure, multiVoice)
         this.registerSlotElements(sortedSlots, staveNotes, measure)
         registerDynamics(pass, measure)
         // Co-located dynamics: reposition onto one row (placement order, newest
@@ -627,15 +629,14 @@ export class VexFlowRenderer {
     vexTuplets: VexFlowTuplet[],
     tupletStaveNoteMap: Map<string, { staveNotes: StaveNote[]; tuplet: Tuplet; voice: number }>,
     measure: Measure,
+    multiVoice: boolean,
   ): void {
     for (const vexTuplet of vexTuplets) {
       try {
-        vexTuplet.setContext(this.context!).draw()
-
         const tupletNotes = vexTuplet.getNotes() as StaveNote[]
         if (tupletNotes.length === 0) continue
 
-        for (const [tupletId, { staveNotes: tStaveNotes, tuplet: tupletData }] of tupletStaveNoteMap) {
+        for (const [tupletId, { staveNotes: tStaveNotes, tuplet: tupletData, voice }] of tupletStaveNoteMap) {
           if (!tStaveNotes.includes(tupletNotes[0])) continue
 
           const vt = vexTuplet as any
@@ -646,6 +647,20 @@ export class VexFlowRenderer {
 
           const location = (vt.options?.location ?? 1) as 1 | -1
           const bracketed = vt.options?.bracketed ?? true
+
+          // A bracket flipped to the INNER side (toward the other voice) would be shoved
+          // to the far edge of the system by VexFlow's staff-edge clamp; nudge it back
+          // next to its own notes via yOffset. Must be set BEFORE draw(), which reads it.
+          const stems: TupletNoteStem[] = notes.map(n => {
+            const ext = (n.getStemExtents?.() ?? { topY: 0, baseY: 0 }) as { topY: number; baseY: number }
+            return { stemUp: n.getStemDirection?.() === 1, topY: ext.topY, baseY: ext.baseY }
+          })
+          const flipOffset = innerFlipTupletYOffset(
+            stems, location, voice, multiVoice, vexTuplet.getYPosition()
+          )
+          if (flipOffset !== 0) vt.options.yOffset = (vt.options.yOffset ?? 0) + flipOffset
+
+          vexTuplet.setContext(this.context!).draw()
 
           // Use VexFlow's OWN post-draw geometry so the registered hit-box matches the
           // drawn bracket exactly. VexFlow draws the horizontal bracket line at

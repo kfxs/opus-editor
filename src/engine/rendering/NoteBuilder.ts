@@ -312,3 +312,75 @@ export function resolveTupletLocation(
   if (multiVoice) return voice === 0 ? TUPLET_LOCATION_ABOVE : TUPLET_LOCATION_BELOW
   return singleVoiceFallback
 }
+
+/**
+ * The "outer" bracket side for a voice in a multi-voice measure: voice 0 brackets
+ * outward above, lower voices outward below (mirrors the forced stem directions).
+ */
+export function outerTupletLocation(voice: number): number {
+  return voice === 0 ? TUPLET_LOCATION_ABOVE : TUPLET_LOCATION_BELOW
+}
+
+/** Per-note stem geometry needed to place a tuplet bracket next to its own notes. */
+export interface TupletNoteStem {
+  /** True if the note's stem points up. */
+  stemUp: boolean
+  /** Y of the stem tip (top end). */
+  topY: number
+  /** Y of the stem base (notehead end). */
+  baseY: number
+}
+
+/**
+ * Vertical offset (in px, +down) to nudge a *flipped inner* multi-voice tuplet bracket
+ * out of VexFlow's staff-edge clamp and place it adjacent to its own notes (in the gap
+ * between the voices) instead of overshooting past the other voice.
+ *
+ * Why this exists: VexFlow's `getYPosition()` clamps an *above* bracket to ≥1.5 lines
+ * above the TOP staff line and a *below* bracket to ≥2 lines below the BOTTOM staff line.
+ * That is right for an OUTER bracket, but when the user flips a bracket to the INNER side
+ * (a lower voice placed above, or voice 0 placed below) the clamp shoves it to the far
+ * edge of the system — above the upper voice / below the lower voice — which reads wrong
+ * and can perfectly overlap the other voice's outer bracket.
+ *
+ * We recompute the bracket Y from the tuplet's OWN notes using the same per-note term
+ * VexFlow uses, but WITHOUT the staff-line ceiling/floor, then return the delta from the
+ * clamped Y. Returns 0 when this isn't a flipped inner bracket, or when the correction
+ * would push the bracket further toward the edge rather than inward (never make it worse).
+ *
+ * @param notes - Per-note stem geometry for the tuplet's notes
+ * @param location - Resolved bracket side (1 = above, -1 = below)
+ * @param voice - The tuplet's model voice (0 = primary)
+ * @param multiVoice - Whether the measure has more than one voice
+ * @param clampedY - VexFlow's `getYPosition()` result (with yOffset 0)
+ * @param lineDistance - Staff line spacing in px (VexFlow STAVE_LINE_DISTANCE = 10)
+ */
+export function innerFlipTupletYOffset(
+  notes: TupletNoteStem[],
+  location: number,
+  voice: number,
+  multiVoice: boolean,
+  clampedY: number,
+  lineDistance = 10
+): number {
+  if (!multiVoice || notes.length === 0) return 0
+  // Only correct a bracket flipped to the INNER side (toward the other voice).
+  const isInner = location !== outerTupletLocation(voice)
+  if (!isInner) return 0
+
+  let desiredY: number
+  if (location === TUPLET_LOCATION_ABOVE) {
+    // Highest point just past the notes, mirroring VexFlow's per-note term minus ceiling.
+    desiredY = Math.min(
+      ...notes.map(n => (n.stemUp ? n.topY - lineDistance : n.baseY - 2 * lineDistance))
+    )
+    // Only nudge DOWNWARD (inward); never push further above the system.
+    return Math.max(0, desiredY - clampedY)
+  } else {
+    desiredY = Math.max(
+      ...notes.map(n => (n.stemUp ? n.baseY + 2 * lineDistance : n.topY + lineDistance))
+    )
+    // Only nudge UPWARD (inward); never push further below the system.
+    return Math.min(0, desiredY - clampedY)
+  }
+}
