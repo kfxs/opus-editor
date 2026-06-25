@@ -433,3 +433,36 @@ describe('SelectionController — navigateChord is voice-scoped', () => {
     expect(state.selectedNoteId).toBe(top)
   })
 })
+
+describe('SelectionController — setSelectedNote keeps the highlight set in sync', () => {
+  let engine: MusicEngine
+  let state: EditorState
+  let selection: SelectionController
+
+  beforeEach(() => {
+    engine = makeEngine()
+    state = createEditorState()
+    state.selectedTool = 'selection'
+    selection = new SelectionController(() => engine, state, () => {}, () => {})
+  })
+
+  it('replaces selectedItems (not just the anchor) so navigation/highlight agree', () => {
+    // Chord E4 + E5 in voice 0 (entering the upper note via the keyboard path).
+    const lo = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    const hi = engine.addChordNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 }).id
+
+    selection.selectNote(lo)         // lower note selected (and highlighted)
+    selection.setSelectedNote(hi)    // entry lands the NEW top note
+
+    // The multi-select set (what the highlight reads) must now hold the top note,
+    // not the stale lower one — otherwise Alt+Up is a no-op (already "at the top").
+    expect(state.selectedNoteId).toBe(hi)
+    expect([...state.selectedItems.keys()]).toEqual([noteKey(hi)])
+
+    // Down then back up must traverse cleanly from the very first press.
+    selection.navigateChord(-1)
+    expect(state.selectedNoteId).toBe(lo)
+    selection.navigateChord(1)
+    expect(state.selectedNoteId).toBe(hi)
+  })
+})

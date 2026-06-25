@@ -255,11 +255,18 @@ export class SelectionController {
   }
 
   /**
-   * Set selectedNoteId and notify the engine's undo manager.
-   * Use this instead of selectNote when the change should be tracked for undo/redo.
+   * Select a single note AND notify the engine's undo manager. Use this instead of
+   * selectNote when the change should be tracked for undo/redo (note entry, chord-note
+   * entry, rest entry — anywhere a model edit lands a fresh selection).
+   *
+   * It must run the FULL selectNote sync, not just set selectedNoteId: the highlight is
+   * driven by state.selectedItems, so setting only the anchor leaves the previous note
+   * highlighted while navigation/edits target the new one. That split is what made
+   * Alt+Up after entering a chord note a no-op (selectedNoteId was the new top note, but
+   * selectedItems still held the lower note, so chord nav was already "at the top").
    */
   setSelectedNote(id: string | null): void {
-    this.state.selectedNoteId = id
+    this.selectNote(id)
     const engine = this.getEngine()
     if (engine) engine.updateUndoNoteId(id)
   }
