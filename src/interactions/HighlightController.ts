@@ -301,20 +301,16 @@ export class HighlightController {
 
   applyTieHighlight(): void {
     const engine = this.getEngine()
-    const scoreCanvas = this.getScoreCanvas()
-    if (!engine || !scoreCanvas || !this.state.selectedTieFromNoteId) return
+    if (!engine || !this.state.selectedTieFromNoteId) return
 
-    const registry = engine.getElementRegistry()
-    const tieEl = registry.getByType('tie').find(el => el.fromNoteId === this.state.selectedTieFromNoteId)
-    if (!tieEl) return
-
-    const svg = scoreCanvas.querySelector('svg')
-    if (!svg) return
+    const fromNoteId = this.state.selectedTieFromNoteId
+    const group = engine.getTieSVGGroup(fromNoteId)
+    if (!group) return
 
     // Paint the tie in ITS voice's colour (V1 blue, V2 green — Sibelius-style;
     // matches the notehead highlight) rather than a uniform orange.
-    const voice = engine.getNote(tieEl.fromNoteId!)?.voice ?? 0
-    this.colorTieArc(tieEl.bbox, svg, voiceFillColor(voice))
+    const voice = engine.getNote(fromNoteId)?.voice ?? 0
+    this.colorTieGroup(group, voiceFillColor(voice))
   }
 
   /**
@@ -325,55 +321,38 @@ export class HighlightController {
    */
   applySelectionTieHighlight(): void {
     const engine = this.getEngine()
-    const scoreCanvas = this.getScoreCanvas()
-    if (!engine || !scoreCanvas || this.state.selectedItems.size < 2) return
+    if (!engine || this.state.selectedItems.size < 2) return
 
     const selected = new Set<string>()
     for (const item of this.state.selectedItems.values()) {
       if (item.kind === 'note') selected.add(item.id)
     }
 
-    const svg = scoreCanvas.querySelector('svg')
-    if (!svg) return
-
     for (const tieEl of engine.getElementRegistry().getByType('tie')) {
       if (tieEl.fromNoteId && tieEl.toNoteId
         && selected.has(tieEl.fromNoteId) && selected.has(tieEl.toNoteId)) {
+        const group = engine.getTieSVGGroup(tieEl.fromNoteId)
+        if (!group) continue
         const voice = engine.getNote(tieEl.fromNoteId)?.voice ?? 0
-        this.colorTieArc(tieEl.bbox, svg, voiceFillColor(voice))
+        this.colorTieGroup(group, voiceFillColor(voice))
       }
     }
   }
 
-  /** Colour the tie's filled path — found by matching its center to the tie's bbox. */
-  private colorTieArc(
-    bbox: { x: number; y: number; width: number; height: number },
-    svg: SVGSVGElement,
-    tieColor = '#F59E0B',
-  ): void {
-    const TIE_COLOR = tieColor
-    const paths = svg.querySelectorAll('path')
-    for (const path of paths) {
-      const elBBox = (path as SVGGraphicsElement).getBBox?.()
-      if (!elBBox) continue
-
-      const centerX = elBBox.x + elBBox.width / 2
-      const centerY = elBBox.y + elBBox.height / 2
-      if (
-        centerX >= bbox.x && centerX <= bbox.x + bbox.width &&
-        centerY >= bbox.y - 4 && centerY <= bbox.y + bbox.height + 4
-      ) {
-        // Curve.renderCurve strokes AND fills, so the tie's <path> carries both a
-        // stroke and a fill — override both, or the black outline stays and the tie
-        // reads mostly black with only a hint of colour (see curveArc.ts).
-        const svgEl = path as SVGElement & { style: CSSStyleDeclaration }
-        svgEl.setAttribute('fill', TIE_COLOR)
-        svgEl.setAttribute('stroke', TIE_COLOR)
-        svgEl.style.fill = TIE_COLOR
-        svgEl.style.stroke = TIE_COLOR
-        svgEl.classList.add('selected-tie')
-      }
-    }
+  /** Colour the tie inside its OWN `<g class="vf-tie">` group — never a document-wide
+   *  bbox path-scan, which bled onto staff lines whose bbox fell inside the tie's
+   *  rectangle (mirrors the slur fix). Curve.renderCurve strokes AND fills, so each
+   *  `<path>` carries both — override both, or a selected tie shows a coloured body
+   *  with a black outline (see curveArc.ts). */
+  private colorTieGroup(group: SVGGElement, tieColor: string): void {
+    group.querySelectorAll('path').forEach(el => {
+      const styled = el as SVGElement & { style: CSSStyleDeclaration }
+      el.setAttribute('fill', tieColor)
+      el.setAttribute('stroke', tieColor)
+      styled.style.fill = tieColor
+      styled.style.stroke = tieColor
+      el.classList.add('selected-tie')
+    })
   }
 
   applyClefSelectionHighlight(): void {

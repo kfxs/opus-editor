@@ -13,6 +13,7 @@ import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
  *   - `measureBounds`     → `getMeasureBounds` / `getAllMeasureBounds` (CoordinateMapper, pixel↔position)
  *   - `staveNoteMap`      → `renderPendingTie` (tie preview), `getStaveNoteSVGGroup` (drag/highlight)
  *   - `slurGroupMap`      → `getSlurSVGGroup` (slur drag/highlight)
+ *   - `tieGroupMap`       → `getTieSVGGroup` (tie highlight)
  *   - `tupletObjectMap`   → `getTupletSVGGroup`
  *   - `dynamicObjectMap`  → `getDynamicSVGGroup`
  *   - `elementRegistry`   → `getElementRegistry` (the authoritative hit-test registry)
@@ -33,6 +34,8 @@ export interface RenderPass {
   dynamicObjectMap: Map<string, Annotation>
   /** Slur id → its `<g class="vf-slur">` SVG group, for scoped highlight. */
   slurGroupMap: Map<string, SVGGElement>
+  /** Tie from-note id → its `<g class="vf-tie">` SVG group, for scoped highlight. */
+  tieGroupMap: Map<string, SVGGElement>
   /** Measure number → computed width/line info (which line a measure landed on, etc.). */
   measureLayoutInfo: Map<number, MeasureWidthInfo>
   /** Measure number → rendered geometry bounds (read post-render by CoordinateMapper). */

@@ -1447,6 +1447,13 @@ export class MusicEngine {
     return this.renderer.getSlurSVGGroup(slurId)
   }
 
+  /** The rendered SVG group (`<g class="vf-tie">`) for a tie, keyed by its from-note id.
+   *  Lets the highlight recolor exactly one tie for the selection highlight (no
+   *  document-wide bbox scan, which bled onto staff lines). */
+  getTieSVGGroup(fromNoteId: string): SVGGElement | null {
+    return this.renderer.getTieSVGGroup(fromNoteId)
+  }
+
   /** Suppress one dynamic from rendering (null = restore). Re-render to apply.
    *  Used by the in-canvas text editor to remove the engraved glyph while editing. */
   setSuppressedDynamicId(dynamicId: string | null): void {

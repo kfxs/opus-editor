@@ -70,6 +70,8 @@ export class VexFlowRenderer {
   private dynamicObjectMap: Map<string, Annotation> = new Map()
   /** Map of slur IDs to their rendered SVG group (`<g class="vf-slur">`) for scoped highlight */
   private slurGroupMap: Map<string, SVGGElement> = new Map()
+  /** Map of tie from-note IDs to their rendered SVG group (`<g class="vf-tie">`) for scoped highlight */
+  private tieGroupMap: Map<string, SVGGElement> = new Map()
   /** Dynamic currently being edited in the in-canvas text overlay — skipped while
    *  rendering so the engraved glyph doesn't show doubled under the editor. */
   private suppressedDynamicId: string | null = null
@@ -122,6 +124,7 @@ export class VexFlowRenderer {
       tupletObjectMap: this.tupletObjectMap,
       dynamicObjectMap: this.dynamicObjectMap,
       slurGroupMap: this.slurGroupMap,
+      tieGroupMap: this.tieGroupMap,
       measureLayoutInfo: this.measureLayoutInfo,
       measureBounds: this.measureBounds,
       elementRegistry: this.elementRegistry,
@@ -1328,6 +1331,13 @@ export class VexFlowRenderer {
     return this.slurGroupMap.get(slurId) ?? null
   }
 
+  /** The rendered SVG group (`<g class="vf-tie">`) for a tie, keyed by its from-note id,
+   *  or null. Scoped highlight uses this to recolor exactly one tie without a document-wide
+   *  bbox path-scan (which bled onto staff lines). Must be called after a render. */
+  getTieSVGGroup(fromNoteId: string): SVGGElement | null {
+    return this.tieGroupMap.get(fromNoteId) ?? null
+  }
+
   /**
    * Render a dangling (pending) tie from a note with no target yet.
    * Draws a partial arc extending to the right — same as the first half of a cross-barline tie.
@@ -1391,6 +1401,8 @@ export class VexFlowRenderer {
     this.dynamicObjectMap.clear()
     // Clear the slur group map
     this.slurGroupMap.clear()
+    // Clear the tie group map
+    this.tieGroupMap.clear()
     // Clear measure layout info
     this.measureLayoutInfo.clear()
   }

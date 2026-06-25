@@ -173,6 +173,12 @@ export function renderTies(pass: RenderPass, score: Score): void {
             // note alias for registry callbacks below
             const note = { id: pitch.id, tiedTo: pitch.tiedTo, measure: fromMeasure }
 
+            // One SVG group per tie (keyed by its from-note id; both cross-line partials
+            // live inside it) so the selection highlight can recolor exactly this tie
+            // without a document-wide bbox path-scan — that scan bled onto staff lines
+            // whose bbox fell inside the tie's rectangle (mirrors the slur fix).
+            const tieGroup = pass.context.openGroup?.('vf-tie', `vf-tie-${pitch.id}`) as SVGGElement | undefined
+
             if (sameLine) {
               // Same line: draw flat arc anchored at the source note's Y
               // (ties always connect the same pitch, so both endpoints share the same Y)
@@ -250,6 +256,9 @@ export function renderTies(pass: RenderPass, score: Score): void {
                 // getBoundingBox may fail
               }
             }
+
+            pass.context.closeGroup?.()
+            if (tieGroup) pass.tieGroupMap.set(pitch.id, tieGroup)
           } catch (e) {
             console.error('Could not render tie:', e)
           }
