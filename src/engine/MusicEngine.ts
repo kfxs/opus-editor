@@ -1014,9 +1014,13 @@ export class MusicEngine {
   }
 
   /**
-   * Flip the side (above/below) of a note's articulations. Default placement is
-   * auto (stem-derived); this stores an explicit override flipping to the other
-   * side, and flips back on a repeat. No-op for rests / notes with no articulation.
+   * Flip a note's articulations with a Sibelius-style `x` toggle: auto ↔ flipped.
+   * Default placement is the context-aware auto (voice-aware in multi-voice bars,
+   * stem-derived otherwise). When a note already carries an explicit override this
+   * clears it back to auto; otherwise it pins the opposite of the current drawn side.
+   * Two presses round-trip to auto, so a flipped-then-unflipped mark follows the
+   * voice default again when a 2nd voice is added later. No-op for rests / notes with
+   * no articulation.
    */
   flipArticulation(noteId: string): Note | null {
     const result = this.scoreModel.flipArticulationPlacement(noteId)

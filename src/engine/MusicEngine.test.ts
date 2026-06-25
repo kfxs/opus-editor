@@ -190,15 +190,16 @@ describe('MusicEngine.flipArticulation — articulation side override', () => {
     expect(engine.getNote(note.id)!.articulationPlacement).toBeUndefined()
   })
 
-  it('first flip stores a side; a second flip toggles back to the other side', () => {
+  it('Sibelius toggle: first flip pins a side, second flip returns to auto', () => {
     const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     engine.toggleArticulation(note.id, 'accent')
 
     const first = engine.flipArticulation(note.id)!.articulationPlacement
     expect(first === 'above' || first === 'below').toBe(true)
 
+    // Second press clears the override back to the context-aware auto default.
     const second = engine.flipArticulation(note.id)!.articulationPlacement
-    expect(second).toBe(first === 'above' ? 'below' : 'above')
+    expect(second).toBeUndefined()
   })
 
   it('the stored side is the opposite of the auto (stem-derived) side', () => {

@@ -1623,8 +1623,17 @@ export class ScoreModel {
     if (!found || found.type === 'rest') return null
     const { chord, pitch } = found
     if (!chord.articulations?.length) return null
-    const current = chord.articulationPlacement ?? this.autoArticulationPlacement(chord)
-    chord.articulationPlacement = current === 'above' ? 'below' : 'above'
+    // Sibelius-style `x` toggle: auto ↔ flipped (mirrors flipTuplet/flipSlur/flipTie).
+    // An explicit override returns to the context-aware auto default; an auto mark pins
+    // the opposite of the side it's currently drawn on, so the first press always visibly
+    // flips and two presses round-trip back to auto. Crucially this lets a mark that was
+    // flipped-and-flipped-back follow the voice-aware default again when a 2nd voice is
+    // later added (the old absolute flip pinned a side forever).
+    if (chord.articulationPlacement !== undefined) {
+      delete chord.articulationPlacement
+    } else {
+      chord.articulationPlacement = this.autoArticulationPlacement(chord) === 'above' ? 'below' : 'above'
+    }
     return this.toFlatNote(chord, pitch)
   }
 
@@ -1649,8 +1658,14 @@ export class ScoreModel {
     if (found && found.type === 'chord') delete found.pitch.tieDirection
   }
 
-  /** The side articulations land on by default — opposite the stem (notehead side). */
+  /** The side articulations land on by default, mirroring NoteBuilder's auto rule:
+   *  - multi-voice measure: the voice's OUTER side — upper voice (0) ABOVE, any lower
+   *    voice BELOW — regardless of stem, so the two voices' marks never collide.
+   *  - single voice: opposite the stem (the note-head side). */
   private autoArticulationPlacement(chord: Chord): 'above' | 'below' {
+    const measure = this.getMeasure(chord.measure)
+    const multiVoice = measure ? new Set(measure.slots.map(s => s.voice ?? 0)).size > 1 : false
+    if (multiVoice) return (chord.voice ?? 0) === 0 ? 'above' : 'below'
     return this.resolveStemDirection(chord) === 'up' ? 'below' : 'above'
   }
 
