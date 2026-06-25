@@ -311,7 +311,10 @@ export class HighlightController {
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
 
-    this.colorTieArc(tieEl.bbox, svg)
+    // Paint the tie in ITS voice's colour (V1 blue, V2 green — Sibelius-style;
+    // matches the notehead highlight) rather than a uniform orange.
+    const voice = engine.getNote(tieEl.fromNoteId!)?.voice ?? 0
+    this.colorTieArc(tieEl.bbox, svg, voiceFillColor(voice))
   }
 
   /**
@@ -336,14 +339,19 @@ export class HighlightController {
     for (const tieEl of engine.getElementRegistry().getByType('tie')) {
       if (tieEl.fromNoteId && tieEl.toNoteId
         && selected.has(tieEl.fromNoteId) && selected.has(tieEl.toNoteId)) {
-        this.colorTieArc(tieEl.bbox, svg)
+        const voice = engine.getNote(tieEl.fromNoteId)?.voice ?? 0
+        this.colorTieArc(tieEl.bbox, svg, voiceFillColor(voice))
       }
     }
   }
 
   /** Colour the tie's filled path — found by matching its center to the tie's bbox. */
-  private colorTieArc(bbox: { x: number; y: number; width: number; height: number }, svg: SVGSVGElement): void {
-    const TIE_COLOR = '#F59E0B'
+  private colorTieArc(
+    bbox: { x: number; y: number; width: number; height: number },
+    svg: SVGSVGElement,
+    tieColor = '#F59E0B',
+  ): void {
+    const TIE_COLOR = tieColor
     const paths = svg.querySelectorAll('path')
     for (const path of paths) {
       const elBBox = (path as SVGGraphicsElement).getBBox?.()
@@ -355,8 +363,14 @@ export class HighlightController {
         centerX >= bbox.x && centerX <= bbox.x + bbox.width &&
         centerY >= bbox.y - 4 && centerY <= bbox.y + bbox.height + 4
       ) {
-        const svgEl = path as SVGElement
+        // Curve.renderCurve strokes AND fills, so the tie's <path> carries both a
+        // stroke and a fill — override both, or the black outline stays and the tie
+        // reads mostly black with only a hint of colour (see curveArc.ts).
+        const svgEl = path as SVGElement & { style: CSSStyleDeclaration }
         svgEl.setAttribute('fill', TIE_COLOR)
+        svgEl.setAttribute('stroke', TIE_COLOR)
+        svgEl.style.fill = TIE_COLOR
+        svgEl.style.stroke = TIE_COLOR
         svgEl.classList.add('selected-tie')
       }
     }
