@@ -23,6 +23,7 @@ import {
   makeClefResolver,
   drawsTimeSignature,
   ARTICULATION_RENDER_ORDER,
+  resolveTupletLocation,
 } from './NoteBuilder'
 import { calculateMeasureWidths } from './MeasureLayout'
 import { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo } from './layoutConfig'
@@ -411,7 +412,7 @@ export class VexFlowRenderer {
 
       // Tuplets must be created BEFORE adding notes to voice — VexFlow adjusts tick
       // values. A tuplet belongs to one voice, so grouping by tupletId is voice-safe.
-      const { vexTuplets, tupletStaveNoteMap } = this.buildVexTuplets(sortedSlots, staveNotes, measure, clef)
+      const { vexTuplets, tupletStaveNoteMap } = this.buildVexTuplets(sortedSlots, staveNotes, measure, clef, multiVoice)
 
       const meter = getMeterInfo(measure.timeSignature)
       const capacity = measureCapacityFrac(measure)
@@ -545,8 +546,9 @@ export class VexFlowRenderer {
     staveNotes: StaveNote[],
     measure: Measure,
     clef: Clef,
-  ): { vexTuplets: VexFlowTuplet[]; tupletStaveNoteMap: Map<string, { staveNotes: StaveNote[]; tuplet: Tuplet }> } {
-    const tupletStaveNoteMap = new Map<string, { staveNotes: StaveNote[]; tuplet: Tuplet }>()
+    multiVoice: boolean,
+  ): { vexTuplets: VexFlowTuplet[]; tupletStaveNoteMap: Map<string, { staveNotes: StaveNote[]; tuplet: Tuplet; voice: number }> } {
+    const tupletStaveNoteMap = new Map<string, { staveNotes: StaveNote[]; tuplet: Tuplet; voice: number }>()
 
     for (let idx = 0; idx < sortedSlots.length && idx < staveNotes.length; idx++) {
       const slot = sortedSlots[idx]
@@ -554,7 +556,9 @@ export class VexFlowRenderer {
         const tupletData = (measure.tuplets || []).find(t => t.id === slot.tupletId)
         if (tupletData) {
           if (!tupletStaveNoteMap.has(slot.tupletId)) {
-            tupletStaveNoteMap.set(slot.tupletId, { staveNotes: [], tuplet: tupletData })
+            // A tuplet lives in exactly one voice, so the first slot's voice is the
+            // tuplet's voice (0 = primary).
+            tupletStaveNoteMap.set(slot.tupletId, { staveNotes: [], tuplet: tupletData, voice: slot.voice ?? 0 })
           }
           tupletStaveNoteMap.get(slot.tupletId)!.staveNotes.push(staveNotes[idx])
         }
@@ -562,16 +566,20 @@ export class VexFlowRenderer {
     }
 
     const vexTuplets: VexFlowTuplet[] = []
-    for (const [_tupletId, { staveNotes: tupletStaveNotes, tuplet: tupletData }] of tupletStaveNoteMap) {
+    for (const [_tupletId, { staveNotes: tupletStaveNotes, tuplet: tupletData, voice }] of tupletStaveNoteMap) {
       if (tupletStaveNotes.length >= 2) {
         try {
-          // An explicit placement override (e.g. from the `x` flip) wins; otherwise
-          // auto-derive the side from stem direction.
-          const location = tupletData.placement === 'above'
-            ? 1
-            : tupletData.placement === 'below'
-              ? -1
-              : this.calculateTupletLocation(tupletStaveNotes, clef)
+          // An explicit placement override (e.g. from the `x` flip) always wins.
+          // Otherwise: with multiple voices the bracket follows the voice's stem
+          // side (V1 stems up → above, lower voices stems down → below) so the two
+          // voices' brackets spread to the outer edges instead of colliding in the
+          // middle. With a single voice, fall back to the stem-derived default.
+          const location = resolveTupletLocation(
+            tupletData.placement,
+            multiVoice,
+            voice,
+            this.calculateTupletLocation(tupletStaveNotes, clef)
+          )
           const vexTuplet = new VexFlowTuplet(tupletStaveNotes, {
             numNotes: tupletData.numNotes,
             notesOccupied: tupletData.notesOccupied,
@@ -617,7 +625,7 @@ export class VexFlowRenderer {
 
   private drawAndRegisterTuplets(
     vexTuplets: VexFlowTuplet[],
-    tupletStaveNoteMap: Map<string, { staveNotes: StaveNote[]; tuplet: Tuplet }>,
+    tupletStaveNoteMap: Map<string, { staveNotes: StaveNote[]; tuplet: Tuplet; voice: number }>,
     measure: Measure,
   ): void {
     for (const vexTuplet of vexTuplets) {

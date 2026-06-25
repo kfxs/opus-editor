@@ -278,3 +278,37 @@ export function createTupletsForMeasure(
 
   return vexTuplets
 }
+
+/** VexFlow tuplet bracket side: above the staff. */
+export const TUPLET_LOCATION_ABOVE = 1
+/** VexFlow tuplet bracket side: below the staff. */
+export const TUPLET_LOCATION_BELOW = -1
+
+/**
+ * Decide which side (above / below) a tuplet's bracket and number sit on.
+ *
+ * Precedence:
+ *   1. An explicit `placement` override (e.g. set by the `x` flip) always wins.
+ *   2. With multiple voices, the bracket follows the voice's stem side so the
+ *      voices' brackets spread to the outer edges instead of colliding in the
+ *      middle: voice 0 (primary, stems up) → above, lower voices (stems down)
+ *      → below.
+ *   3. With a single voice, fall back to the stem-derived default.
+ *
+ * @param placement - Explicit override, or undefined for auto
+ * @param multiVoice - Whether the measure has more than one voice
+ * @param voice - The tuplet's model voice (0 = primary)
+ * @param singleVoiceFallback - Stem-derived location to use when single-voice
+ * @returns TUPLET_LOCATION_ABOVE (1) or TUPLET_LOCATION_BELOW (-1)
+ */
+export function resolveTupletLocation(
+  placement: 'above' | 'below' | undefined,
+  multiVoice: boolean,
+  voice: number,
+  singleVoiceFallback: number
+): number {
+  if (placement === 'above') return TUPLET_LOCATION_ABOVE
+  if (placement === 'below') return TUPLET_LOCATION_BELOW
+  if (multiVoice) return voice === 0 ? TUPLET_LOCATION_ABOVE : TUPLET_LOCATION_BELOW
+  return singleVoiceFallback
+}
