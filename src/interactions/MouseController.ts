@@ -167,8 +167,11 @@ export class MouseController {
       this.state.isPanning = false
       console.log('Pan ended')
     } else if (clears) {
-      // Tap in the selection tool: clear now (deferred from mousedown).
-      this.selection.selectNote(null)
+      // Tap on empty space in the selection tool: clear EVERYTHING now (deferred from
+      // mousedown), same as Esc — incl. tuplet/dynamic selections and resetting entry
+      // back to the default voice 1 (Sibelius-style). selectNote(null) alone would leave
+      // the active voice stuck on a previously chosen voice.
+      this.selection.deselectAll()
       console.log('Selection cleared (tap)')
       this.render.renderScore()
     }
