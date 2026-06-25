@@ -131,10 +131,24 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
 
     // Placement (direction -1 = arc above the notes, +1 = below):
     //  - explicit `placement` override always wins;
-    //  - otherwise follow the stems, notehead-side (Gould): stems up → slur below,
-    //    stems down → slur above. VexFlow getStemDirection() is 1 (up) / -1 (down),
-    //    which maps directly onto our +1 (below) / -1 (above).
-    const autoDir = (fromInfo.staveNote.getStemDirection?.() ?? -1) === 1 ? 1 : -1
+    //  - in a MULTI-VOICE bar, follow the VOICE's outer side (Gould): upper voice
+    //    (V1) above, lower voices (V2) below — regardless of stem/contour — so the
+    //    two voices' slurs spread apart instead of colliding. Mirrors the tie /
+    //    stem / articulation / tuplet-bracket rule;
+    //  - otherwise (single voice) follow the stems, notehead-side (Gould): stems up →
+    //    slur below, stems down → slur above. VexFlow getStemDirection() is 1 (up) /
+    //    -1 (down), which maps directly onto our +1 (below) / -1 (above).
+    const fromMeasureData = score.measures.find(m => m.number === fromMeasure)
+    const startSlot = fromMeasureData?.slots.find(
+      s => s.type === 'chord' && s.notes.some(p => p.id === slur.startNoteId),
+    )
+    const slurVoice = startSlot?.voice ?? slur.voice ?? 0
+    const multiVoice = fromMeasureData
+      ? new Set(fromMeasureData.slots.map(s => s.voice ?? 0)).size > 1
+      : false
+    const autoDir = multiVoice
+      ? (slurVoice === 0 ? -1 : 1)
+      : ((fromInfo.staveNote.getStemDirection?.() ?? -1) === 1 ? 1 : -1)
     const direction = slur.placement === 'below' ? 1
       : slur.placement === 'above' ? -1
       : autoDir
