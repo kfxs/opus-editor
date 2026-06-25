@@ -431,8 +431,23 @@ user drives the app, we don't launch browsers).
        `validateMeasure(n)` (per-voice tiling check) asserted `[]` in all 4 tuplet
        tests. Removed the now-obsolete Phase-1 "refuses tuplet" guard test. 755
        green + build + boundary clean.
-6. [ ] Follow-up (separate) — **cosmetic** span (tie/slur) `voice`-field
-       reassignment for surviving spans (direction/colour only; the cross-voice
-       *drop* is already done in Phase 1); 3rd/4th voice mapping.
+6. [~] Follow-up (separate) — **cosmetic** span (tie/slur) `voice`-field
+       reassignment for surviving spans. **tie/slur part DONE (uncommitted)**;
+       3rd/4th voice mapping NOT done (bigger, no UI). Findings + work:
+       - Render ALREADY auto-follows the live note voice — `SlurRenderer` uses
+         `startSlot?.voice ?? slur.voice`, the slur highlight colour uses
+         `getNote(startNoteId).voice`, `TieRenderer` uses the chord's voice. So
+         direction + colour were correct already (user confirmed). The stored
+         `slur.voice` was the only stale bit (JSON / renderer fallback).
+       - Added `ScoreModel.resyncSlurVoiceForPitch` (called at the end of both
+         move paths): if both anchors now share a voice, adopt it; a slur left
+         spanning two voices keeps its field.
+       - **Real bug fixed:** a tie between two notes moved together in one batch
+         was being DROPPED (each per-note move saw its partner still behind).
+         Threaded a `movingIds` set (moveSelectionToVoice → moveNoteToVoice →
+         moveTupletNoteToVoice → dropCrossVoiceTies); a partner in the set is
+         kept, so the tie survives. Single-note moves still drop as before.
+       - 4 tests (tie co-move survives / one-end still drops / slur voice sync).
+         759 green + build + boundary clean.
 
 Nothing is committed without explicit user say-so (project rule).

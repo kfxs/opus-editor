@@ -919,8 +919,8 @@ export class MusicEngine {
    * Commits (sync playback + undo, marks the model dirty); the caller re-renders,
    * and the render loop repairs/regroups. Returns true if it moved.
    */
-  moveNoteToVoice(pitchId: string, targetVoice: number): boolean {
-    const moved = this.scoreModel.moveNoteToVoice(pitchId, targetVoice)
+  moveNoteToVoice(pitchId: string, targetVoice: number, movingIds?: ReadonlySet<string>): boolean {
+    const moved = this.scoreModel.moveNoteToVoice(pitchId, targetVoice, movingIds)
     if (moved) this.commit(`Move note to voice ${targetVoice + 1}`)
     return moved
   }
@@ -939,8 +939,12 @@ export class MusicEngine {
       .filter((x): x is { id: string; note: Note } => !!x.note)
       .sort((a, b) => compareByPosition(a.note, b.note))
 
+    // The full set of moving pitch ids — so a tie/slur whose BOTH ends are in the
+    // selection survives the move (its partner is moving to the same voice too).
+    const movingIds = new Set(ordered.map(o => o.id))
+
     return this.runBatch(`Move ${ordered.length} note(s) to voice ${targetVoice + 1}`, () => {
-      for (const { id } of ordered) this.moveNoteToVoice(id, targetVoice)
+      for (const { id } of ordered) this.moveNoteToVoice(id, targetVoice, movingIds)
     })
   }
 

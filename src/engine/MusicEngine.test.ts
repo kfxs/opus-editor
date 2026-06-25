@@ -574,6 +574,30 @@ describe('MusicEngine.moveSelectionToVoice — atomic multi-note move (Phase 3)'
     expect(engine.moveSelectionToVoice([a.id, restId], 1)).toBe(true)
     expect(voiceOf(1, a.id)).toBe(1) // the note moved; the rest id was harmlessly skipped
   })
+
+  it('keeps a tie when BOTH tied notes move together (surviving span)', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    engine.toggleTie(a.id) // tie a → b
+
+    expect(engine.moveSelectionToVoice([a.id, b.id], 1)).toBe(true)
+
+    // Both moved to voice 1 and the tie survived (partner co-moved, not dropped).
+    expect(voiceOf(1, a.id)).toBe(1)
+    expect(voiceOf(1, b.id)).toBe(1)
+    expect(engine.getNote(a.id)!.tiedTo).toBe(b.id)
+    expect(engine.getNote(b.id)!.tiedFrom).toBe(a.id)
+  })
+
+  it('still drops the tie when only ONE of the tied notes moves', () => {
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    engine.toggleTie(a.id)
+
+    expect(engine.moveSelectionToVoice([a.id], 1)).toBe(true)
+    expect(engine.getNote(a.id)!.tiedTo).toBeUndefined()
+    expect(engine.getNote(b.id)!.tiedFrom).toBeUndefined()
+  })
 })
 
 describe('MusicEngine.createSlur — endpoint resolution', () => {

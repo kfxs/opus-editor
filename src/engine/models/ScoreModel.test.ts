@@ -1418,6 +1418,20 @@ describe('ScoreModel.moveNoteToVoice — Phase 1 (plain notes)', () => {
     expect(model.getNote(a.id)).toBeDefined() // anchor still resolves
   })
 
+  it("syncs a slur's stored voice once BOTH its anchors have moved", () => {
+    const a = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const slur = model.addSlur({ startNoteId: a.id, endNoteId: b.id, voice: 0 })
+
+    model.moveNoteToVoice(a.id, 1)
+    // Only one anchor moved → slur spans two voices → stored field left as-is.
+    expect(model.getSlurs().find(s => s.id === slur.id)!.voice ?? 0).toBe(0)
+
+    model.moveNoteToVoice(b.id, 1)
+    // Both anchors now in voice 1 → the slur adopts it.
+    expect(model.getSlurs().find(s => s.id === slur.id)!.voice).toBe(1)
+  })
+
   it('ignores a rest id (returns false)', () => {
     const rest = slotsOf(model, 1).find(s => s.type === 'rest')!
     expect(model.moveNoteToVoice(rest.id, 1)).toBe(false)

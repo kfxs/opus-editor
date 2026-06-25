@@ -1960,7 +1960,7 @@ export class ScoreModel {
    *
    * @returns true if the note actually moved.
    */
-  moveNoteToVoice(pitchId: string, targetVoice: number): boolean {
+  moveNoteToVoice(pitchId: string, targetVoice: number, movingIds?: ReadonlySet<string>): boolean {
     const found = this.findSlot(pitchId)
     if (!found || found.type !== 'chord') return false // rests / unknown ids ignored
 
@@ -1974,7 +1974,7 @@ export class ScoreModel {
     // Tuplet member → the ordinal-fill tuplet path (creates a matching tuplet in
     // the target voice). Plain notes continue below.
     if (chord.tupletId) {
-      return this.moveTupletNoteToVoice(measure, chord, pitch, targetVoice)
+      return this.moveTupletNoteToVoice(measure, chord, pitch, targetVoice, movingIds)
     }
 
     console.log(`[Model.moveNoteToVoice] ${pitch.step}${alterMarks(pitch.alter)}${pitch.octave} (id ${pitch.id.slice(0, 8)}) v${from}→v${targetVoice} @ m${chord.measure} b${fracToNumber(chord.beat).toFixed(3)}`)
@@ -2011,8 +2011,9 @@ export class ScoreModel {
     this.insertPitch(measure, payload)
 
     // A tie whose partner stayed behind would now span two voices — drop it (plan
-    // §5). Only ties whose partner is also in the target voice survive.
-    this.dropCrossVoiceTies(pitch.id, targetVoice)
+    // §5). A partner that's also moving in this batch (movingIds) is kept: it will
+    // land in the same target voice, so the tie survives.
+    this.dropCrossVoiceTies(pitch.id, targetVoice, movingIds)
 
     // Repair the source voice if removing a whole slot left a gap, THEN collapse
     // an emptied secondary voice (order matters — plan Phase 1 step 8).
@@ -2020,6 +2021,9 @@ export class ScoreModel {
       this.fillGapsWithRests(measure)
       this.collapseEmptyVoices(measure.number)
     }
+
+    // Keep any slur's stored voice in sync with its (now-moved) anchors.
+    this.resyncSlurVoiceForPitch(pitch.id)
 
     measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
     return true
@@ -2104,8 +2108,11 @@ export class ScoreModel {
   /**
    * After a pitch changes voice, clear any tie whose partner is NOT in the same
    * voice (a tie spanning two voices is invalid). Clears both reciprocal sides.
+   * A partner whose id is in `movingIds` is kept — it is moving to the same target
+   * voice in this batch, so the tie survives (plan §5: ties whose both endpoints
+   * land in the same target voice survive).
    */
-  private dropCrossVoiceTies(pitchId: string, voice: number): void {
+  private dropCrossVoiceTies(pitchId: string, voice: number, movingIds?: ReadonlySet<string>): void {
     const found = this.findSlot(pitchId)
     if (!found || found.type !== 'chord') return
     const pitch = found.pitch
@@ -2116,7 +2123,7 @@ export class ScoreModel {
         partner?.type === 'chord' ? (partner.chord.voice ?? 0)
         : partner?.type === 'rest' ? (partner.rest.voice ?? 0)
         : undefined
-      if (partnerVoice !== voice) {
+      if (partnerVoice !== voice && !movingIds?.has(pitch.tiedTo)) {
         if (partner?.type === 'chord') partner.pitch.tiedFrom = undefined
         else if (partner?.type === 'rest') partner.rest.tiedFrom = undefined
         pitch.tiedTo = undefined
@@ -2127,10 +2134,31 @@ export class ScoreModel {
       const partner = this.findSlot(pitch.tiedFrom)
       // A tie's source is always a chord pitch (a rest can't start a tie).
       const partnerVoice = partner?.type === 'chord' ? (partner.chord.voice ?? 0) : undefined
-      if (partnerVoice !== voice) {
+      if (partnerVoice !== voice && !movingIds?.has(pitch.tiedFrom)) {
         if (partner?.type === 'chord') partner.pitch.tiedTo = undefined
         pitch.tiedFrom = undefined
         console.log(`[Model.dropCrossVoiceTies] dropped tiedFrom (partner v${partnerVoice ?? '?'} ≠ v${voice})`)
+      }
+    }
+  }
+
+  /**
+   * Keep a slur's stored `voice` field in sync with its anchors after a move. If
+   * both endpoints now sit in the same voice, adopt it (so JSON export and the
+   * renderer's fallback path agree with what's drawn — direction/colour already
+   * derive from the live start-note voice). A slur left spanning two voices keeps
+   * its old field (ambiguous; nothing to reassign).
+   */
+  private resyncSlurVoiceForPitch(pitchId: string): void {
+    for (const slur of this.score.slurs ?? []) {
+      if (slur.startNoteId !== pitchId && slur.endNoteId !== pitchId) continue
+      const start = this.findSlot(slur.startNoteId)
+      const end = this.findSlot(slur.endNoteId)
+      const sv = start?.type === 'chord' ? (start.chord.voice ?? 0) : undefined
+      const ev = end?.type === 'chord' ? (end.chord.voice ?? 0) : undefined
+      if (sv !== undefined && sv === ev && (slur.voice ?? 0) !== sv) {
+        console.log(`[Model.resyncSlurVoice] slur ${slur.id.slice(0, 8)} voice ${slur.voice ?? 0}→${sv}`)
+        slur.voice = sv as 0 | 1 | 2 | 3
       }
     }
   }
@@ -2144,7 +2172,7 @@ export class ScoreModel {
    * the moved note's own slot → chorded). The source tuplet's gap is refilled (and
    * the tuplet dropped if it ends up all rests). Ids are preserved throughout.
    */
-  private moveTupletNoteToVoice(measure: Measure, chord: Chord, pitch: NotePitch, targetVoice: number): boolean {
+  private moveTupletNoteToVoice(measure: Measure, chord: Chord, pitch: NotePitch, targetVoice: number, movingIds?: ReadonlySet<string>): boolean {
     const sourceTuplet = measure.tuplets?.find(t => t.id === chord.tupletId)
     if (!sourceTuplet) return false // defensive: tupletId with no tuplet record
 
@@ -2248,8 +2276,9 @@ export class ScoreModel {
     // Fill the target tuplet's empty slots with tuplet rests.
     this.refillTupletRemainder(measure.number, targetTuplet, targetVoice)
 
-    // Drop any tie of the moved note that would now span two voices.
-    this.dropCrossVoiceTies(pitch.id, targetVoice)
+    // Drop any tie of the moved note that would now span two voices (a co-moving
+    // partner in movingIds is kept — it lands in the same target voice).
+    this.dropCrossVoiceTies(pitch.id, targetVoice, movingIds)
 
     // Source side: close the source tuplet's gap; drop it if now all rests.
     if (removedSourceSlot) {
@@ -2268,6 +2297,9 @@ export class ScoreModel {
     if (measure.tuplets) {
       measure.tuplets = measure.tuplets.filter(t => measure.slots.some(s => s.tupletId === t.id))
     }
+
+    // Keep any slur's stored voice in sync with its (now-moved) anchors.
+    this.resyncSlurVoiceForPitch(pitch.id)
 
     measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
     return true
