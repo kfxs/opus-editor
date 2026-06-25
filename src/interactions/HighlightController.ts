@@ -278,7 +278,10 @@ export class HighlightController {
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
 
-    const ACCIDENTAL_COLOR = '#F59E0B'
+    // Paint the accidental in ITS voice's colour (V1 blue, V2 green — Sibelius-style;
+    // matches the notehead/tie highlight) rather than a uniform orange.
+    const voice = engine.getNote(this.state.selectedAccidentalNoteId)?.voice ?? 0
+    const ACCIDENTAL_COLOR = voiceFillColor(voice)
 
     for (const accEl of accElements) {
       const bbox = accEl.bbox
