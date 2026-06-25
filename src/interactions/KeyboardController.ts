@@ -291,8 +291,11 @@ export class KeyboardController {
 
     const score = engine.getScore()
     const measure = score.measures.find(m => m.number === note.measure)
+    // Stack onto the selected note's OWN voice — both the existing-pitch scan and the
+    // new note must stay in that voice, or the chord note lands in voice 1 by default.
+    const noteVoice = note.voice ?? 0
     const chordMidis = (measure ? getMeasureNotes(measure) : [])
-      .filter(n => !n.isRest && fracEq(n.beat, note.beat))
+      .filter(n => !n.isRest && fracEq(n.beat, note.beat) && (n.voice ?? 0) === noteVoice)
       .map(n => spellingToMidi(n.step!, n.alter!, n.octave!))
     const baseMidi = chordMidis.length > 0
       ? Math.max(...chordMidis)
@@ -315,6 +318,7 @@ export class KeyboardController {
       dots: note.dots,
       isRest: false,
       tupletId: note.tupletId,
+      voice: noteVoice,
     })
     this.setSelectedNote(newNote.id)
     this.renderScore()

@@ -167,6 +167,22 @@ describe('KeyboardController', () => {
       expect(chord.some(n => n.step === 'E' && n.octave === 4)).toBe(true)
     })
 
+    it('stacks the chord note in the SELECTED note\'s voice (multi-voice)', () => {
+      engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })
+      const v2 = engine.addNoteAtBeat({ step: 'A', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id
+      state.selectedTool = 'selection'
+      state.selectedNoteId = v2
+
+      kb.addChordNoteByLetter('c') // C above the A3 in voice 2
+
+      const chord = notesAtBeat(engine, 0)
+      const added = chord.find(n => n.step === 'C' && n.octave === 4 && (n.voice ?? 0) === 1)
+      expect(added).toBeDefined()                 // landed in voice 2, not voice 1
+      // voice 1 still just its single C4; the new note did not merge there
+      expect(chord.filter(n => (n.voice ?? 0) === 0)).toHaveLength(1)
+      expect(chord.filter(n => (n.voice ?? 0) === 1)).toHaveLength(2)
+    })
+
     it('falls back to edit-in-place when a rest is selected', () => {
       engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
       const rest = getMeasureNotes(measure1(engine)).find(n => n.isRest && fracEq(n.beat, frac(1, 1)))!
