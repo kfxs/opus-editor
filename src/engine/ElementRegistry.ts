@@ -138,6 +138,14 @@ export interface ElementInfo {
   pitch?: number
   /** Pixel bounding box */
   bbox: BoundingBox
+  /**
+   * True notehead-center X (for notes), from VexFlow's notehead span — EXCLUDING
+   * accidentals/dots that widen the full stavenote bbox. The plain `bbox.x +
+   * width/2` skews left when a note carries a left-hanging accidental (or sits in a
+   * stacked voice), which misplaces the head hit-box; selection/distance use this
+   * instead. Falls back to bbox center when absent.
+   */
+  headX?: number
   // Tie-specific properties
   /** ID of the note this tie starts from (for ties) */
   fromNoteId?: string
@@ -599,7 +607,8 @@ export class ElementRegistry {
     let minDistance = Infinity
 
     for (const element of elements) {
-      const centerX = element.bbox.x + element.bbox.width / 2
+      const centerX = (element.type === 'note' ? element.headX : undefined)
+        ?? element.bbox.x + element.bbox.width / 2
       const xDist = Math.abs(x - centerX)
 
       // Only consider elements within X tolerance
@@ -637,7 +646,7 @@ export class ElementRegistry {
    * note head) and pick whichever the click is actually closest to.
    */
   noteOrRestHitDistance(el: ElementInfo, x: number, y: number): number {
-    const centerX = el.bbox.x + el.bbox.width / 2
+    const centerX = el.headX ?? el.bbox.x + el.bbox.width / 2
     let elementY: number
     if (el.type === 'note' && el.pitch !== undefined && el.measure !== undefined) {
       const pitchY = this.pitchToPixelY(el.pitch, el.measure, centerX)
@@ -662,7 +671,9 @@ export class ElementRegistry {
    *   already hugs the glyph).
    */
   hitsNoteOrRestBody(el: ElementInfo, x: number, y: number): boolean {
-    const centerX = el.bbox.x + el.bbox.width / 2
+    // Prefer the true notehead-center X (excludes a left-hanging accidental that
+    // would otherwise skew the bbox center and misplace the head hit-box).
+    const centerX = el.headX ?? el.bbox.x + el.bbox.width / 2
     if (el.type === 'note' && el.pitch !== undefined && el.measure !== undefined) {
       const pitchY = this.pitchToPixelY(el.pitch, el.measure, centerX)
       if (pitchY !== null) {

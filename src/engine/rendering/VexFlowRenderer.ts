@@ -757,6 +757,14 @@ export class VexFlowRenderer {
               (a, b) => spellingToMidi(a.step, a.alter, a.octave) - spellingToMidi(b.step, b.alter, b.octave)
             )
 
+            // True notehead-center X (excludes accidentals/dots, unlike the full bbox
+            // whose center skews left when an accidental hangs off the head). Used to
+            // place the head hit-box so the click target lands ON the notehead.
+            let headCenterX: number | undefined
+            try {
+              headCenterX = (staveNote.getNoteHeadBeginX() + staveNote.getNoteHeadEndX()) / 2
+            } catch (e) { /* not available before draw */ }
+
             for (let keyIndex = 0; keyIndex < sortedPitches.length; keyIndex++) {
               const pitch = sortedPitches[keyIndex]
               const pitchMidi = spellingToMidi(pitch.step, pitch.alter, pitch.octave)
@@ -770,6 +778,7 @@ export class VexFlowRenderer {
                 duration: slot.duration,
                 tupletId: slot.tupletId,
                 bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+                headX: headCenterX,
               })
 
               // keyIndex matches VexFlow's sorted pitch order
