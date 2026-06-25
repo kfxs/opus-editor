@@ -473,8 +473,14 @@ export class SelectionController {
     if (!engine || !this.state.selectedNoteId) return 60
 
     const score = engine.getScore()
+    // The octave reference must come from the SELECTED note's OWN voice — scanning all
+    // voices lets an adjacent voice's pitch (e.g. a voice-1 note stacked at the same beat)
+    // hijack the guess, so editing a voice-2 rest to a letter lands an octave off. Filter
+    // to the selected note's voice before finding the nearest prev/next pitch.
+    const selVoice = engine.getNote(this.state.selectedNoteId)?.voice ?? 0
     const allNotes = score.measures
       .flatMap(m => getMeasureNotes(m).map(n => ({ ...n, measureNumber: m.number })))
+      .filter(n => (n.voice ?? 0) === selVoice)
       .sort((a, b) =>
         a.measureNumber !== b.measureNumber
           ? a.measureNumber - b.measureNumber
