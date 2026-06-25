@@ -1,6 +1,7 @@
 import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur } from '@/types/music'
 import {
   getTupletTotalBeatsFrac,
+  getTupletNoteDurationFrac,
   noteSpansOverlapFrac,
   splitBeatsIntoDurations,
   measureCapacityFrac,
@@ -1967,11 +1968,14 @@ export class ScoreModel {
     const from = chord.voice ?? 0
     if (from === targetVoice) return false // no-op: already in the target voice
 
-    // Phases 1–3 are plain notes only; a tuplet member routes to the tuplet path later.
-    if (chord.tupletId) return false
-
     const measure = this.getMeasure(chord.measure)
     if (!measure) return false
+
+    // Tuplet member → the ordinal-fill tuplet path (creates a matching tuplet in
+    // the target voice). Plain notes continue below.
+    if (chord.tupletId) {
+      return this.moveTupletNoteToVoice(measure, chord, pitch, targetVoice)
+    }
 
     console.log(`[Model.moveNoteToVoice] ${pitch.step}${alterMarks(pitch.alter)}${pitch.octave} (id ${pitch.id.slice(0, 8)}) v${from}→v${targetVoice} @ m${chord.measure} b${fracToNumber(chord.beat).toFixed(3)}`)
 
@@ -2129,6 +2133,178 @@ export class ScoreModel {
         console.log(`[Model.dropCrossVoiceTies] dropped tiedFrom (partner v${partnerVoice ?? '?'} ≠ v${voice})`)
       }
     }
+  }
+
+  /**
+   * Move a tuplet member into another voice — the "ordinal fill" rule
+   * (move-note-to-voice plan, Phase 4). A matching tuplet is created in the target
+   * voice over the SAME span; the moved note lands in its own relative slot; any
+   * notes the target voice already had in that span are poured into the remaining
+   * slots left-to-right (empty → tuplet rests, overflow → dropped, a collision on
+   * the moved note's own slot → chorded). The source tuplet's gap is refilled (and
+   * the tuplet dropped if it ends up all rests). Ids are preserved throughout.
+   */
+  private moveTupletNoteToVoice(measure: Measure, chord: Chord, pitch: NotePitch, targetVoice: number): boolean {
+    const sourceTuplet = measure.tuplets?.find(t => t.id === chord.tupletId)
+    if (!sourceTuplet) return false // defensive: tupletId with no tuplet record
+
+    const from = chord.voice ?? 0
+    const { startBeat, baseDuration, numNotes, notesOccupied } = sourceTuplet
+    // Slot spacing is the ACTUAL (scaled) duration, not the written baseDuration.
+    const slot = getTupletNoteDurationFrac(baseDuration, numNotes, notesOccupied)
+    const span = getTupletTotalBeatsFrac(baseDuration, notesOccupied)
+    const spanEnd = fracAdd(startBeat, span)
+
+    // Relative slot index of the moved note within the tuplet grid.
+    const rawIdx = Math.round(fracToNumber(fracSub(chord.beat, startBeat)) / fracToNumber(slot))
+    const idx = rawIdx >= 0 && rawIdx < numNotes ? rawIdx : 0
+
+    console.log(`[Model.moveTupletNoteToVoice] ${pitch.step}${alterMarks(pitch.alter)}${pitch.octave} slot ${idx}/${numNotes} v${from}→v${targetVoice} @ m${measure.number} tuplet b${fracToNumber(startBeat).toFixed(3)}`)
+
+    // The moved pitch, reusing its id (tie/slur/selection anchor).
+    const movedPitch: NotePitch = {
+      id: pitch.id,
+      step: pitch.step,
+      alter: pitch.alter,
+      octave: pitch.octave,
+      forceAccidental: pitch.forceAccidental,
+      tiedTo: pitch.tiedTo,
+      tiedFrom: pitch.tiedFrom,
+      tieDirection: pitch.tieDirection,
+    }
+
+    // Capture the target voice's existing notes in the span BEFORE createTuplet
+    // wipes them, keeping each chord's beat. Each existing CHORD slot is one unit
+    // (keeps its pitches + ids), ordered left-to-right; durations are discarded
+    // (the tuplet wins). The beat lets us tell a note already sitting on a grid
+    // slot (it KEEPS that slot) from a loose note (ordinal pour).
+    const existing = measure.slots
+      .filter((s): s is Chord => s.type === 'chord' && (s.voice ?? 0) === targetVoice
+        && fracGte(s.beat, startBeat) && fracLt(s.beat, spanEnd))
+      .sort((a, b) => fracCompare(a.beat, b.beat))
+      .map(c => ({ beat: c.beat, notes: c.notes }))
+
+    // Remove the moved pitch from the source slot.
+    let removedSourceSlot = false
+    if (chord.notes.length > 1) {
+      chord.notes = chord.notes.filter(n => n.id !== pitch.id)
+    } else {
+      measure.slots = measure.slots.filter(s => s.id !== chord.id)
+      removedSourceSlot = true
+    }
+
+    // Create the matching tuplet in the target voice (clears its span there).
+    const targetTuplet = this.createTuplet(measure.number, startBeat, baseDuration, numNotes, notesOccupied, targetVoice)
+
+    // Which grid slot a beat lands on exactly (−1 if it's between slots).
+    const gridIndexOf = (beat: Fraction): number => {
+      for (let g = 0; g < numNotes; g++) {
+        if (fracEq(fracAdd(startBeat, fracMul(slot, fracCreate(g, 1))), beat)) return g
+      }
+      return -1
+    }
+
+    // Ordinal-fill assignment. The moved note takes its slot; an existing note
+    // already on a grid slot KEEPS it (chord on collision); loose notes pour into
+    // the remaining free slots in order, overflow dropped.
+    const assignment: (NotePitch[] | undefined)[] = new Array(numNotes).fill(undefined)
+    const placeAt = (g: number, pitches: NotePitch[]) => {
+      assignment[g] = assignment[g] ? [...assignment[g]!, ...pitches] : pitches
+    }
+    placeAt(idx, [movedPitch])
+    const loose: NotePitch[][] = []
+    for (const e of existing) {
+      const g = gridIndexOf(e.beat)
+      if (g >= 0) placeAt(g, e.notes) // grid-aligned → keep its own slot
+      else loose.push(e.notes)        // loose → ordinal pour below
+    }
+    let k = 0
+    for (const pitches of loose) {
+      while (k < numNotes && assignment[k] !== undefined) k++
+      if (k >= numNotes) break // overflow — drop the rest
+      assignment[k] = pitches
+      k++
+    }
+
+    // Materialise each occupied grid position as a tuplet chord.
+    for (let g = 0; g < numNotes; g++) {
+      const pitches = assignment[g]
+      if (!pitches || pitches.length === 0) continue
+      const beatG = fracAdd(startBeat, fracMul(slot, fracCreate(g, 1)))
+      const newChord: Chord = {
+        id: uuidv4(),
+        type: 'chord',
+        beat: beatG,
+        duration: baseDuration,
+        measure: measure.number,
+        tupletId: targetTuplet.id,
+        actualDuration: slot,
+        notes: pitches,
+      }
+      if (targetVoice) newChord.voice = targetVoice as 0 | 1 | 2 | 3
+      measure.slots.push(newChord)
+    }
+
+    // Fill the target tuplet's empty slots with tuplet rests.
+    this.refillTupletRemainder(measure.number, targetTuplet, targetVoice)
+
+    // Drop any tie of the moved note that would now span two voices.
+    this.dropCrossVoiceTies(pitch.id, targetVoice)
+
+    // Source side: close the source tuplet's gap; drop it if now all rests.
+    if (removedSourceSlot) {
+      this.refillTupletRemainder(measure.number, sourceTuplet, from)
+      const sourceHasNote = measure.slots.some(s => s.tupletId === sourceTuplet.id && s.type === 'chord')
+      if (!sourceHasNote) {
+        tupletOps.deleteTuplet(this.score, sourceTuplet.id, m => this.fillGapsWithRests(m))
+      }
+    }
+
+    // Fill any remaining per-voice gaps (e.g. a brand-new target voice's bar
+    // outside the tuplet span), collapse an emptied secondary voice, and prune
+    // any tuplet left with no member slots.
+    this.fillGapsWithRests(measure)
+    this.collapseEmptyVoices(measure.number)
+    if (measure.tuplets) {
+      measure.tuplets = measure.tuplets.filter(t => measure.slots.some(s => s.tupletId === t.id))
+    }
+
+    measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+    return true
+  }
+
+  /**
+   * Dev/test invariant checker for a measure: each voice present must tile
+   * `[0, capacity)` exactly — contiguous slots, no gaps/overlaps, summing to the
+   * bar length. Returns a list of human-readable problems (empty = healthy). Used
+   * by tests after voice/tuplet moves to catch half-formed bars before render
+   * (a malformed tuplet bar has crashed VexFlow before).
+   */
+  validateMeasure(measureNumber: number): string[] {
+    const measure = this.getMeasure(measureNumber)
+    if (!measure) return [`measure ${measureNumber} missing`]
+    const problems: string[] = []
+    const cap = measureCapacityFrac(measure)
+    const voices = new Set<number>([0])
+    for (const s of measure.slots) voices.add(s.voice ?? 0)
+    for (const voice of voices) {
+      const vs = measure.slots
+        .filter(s => (s.voice ?? 0) === voice)
+        .sort((a, b) => fracCompare(a.beat, b.beat))
+      if (vs.length === 0) continue
+      let cursor = fracCreate(0, 1)
+      for (const s of vs) {
+        if (!fracEq(s.beat, cursor)) {
+          problems.push(`v${voice}: slot at b${fracToNumber(s.beat).toFixed(3)} expected b${fracToNumber(cursor).toFixed(3)} (gap/overlap)`)
+        }
+        const dur = s.actualDuration ?? durationToFraction(s.duration, s.dots ?? 0)
+        cursor = fracAdd(s.beat, dur)
+      }
+      if (!fracEq(cursor, cap)) {
+        problems.push(`v${voice}: sums to ${fracToNumber(cursor).toFixed(3)}, expected ${fracToNumber(cap).toFixed(3)}`)
+      }
+    }
+    return problems
   }
 
   /**

@@ -1379,19 +1379,6 @@ describe('ScoreModel.moveNoteToVoice — Phase 1 (plain notes)', () => {
     expect(model.moveNoteToVoice(note.id, 0)).toBe(false)
   })
 
-  it('refuses to move a tuplet member (deferred to the tuplet path)', () => {
-    const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)
-    model.refillTupletRemainder(1, tuplet)
-    // Turn the first tuplet rest into a real note so we have a pitch to try to move.
-    const firstRest = slotsOf(model, 1).find(s => s.tupletId === tuplet.id && s.type === 'rest')!
-    const note = model.updateNote(firstRest.id, { step: 'E', alter: 0, octave: 4, isRest: false })
-    expect(model.moveNoteToVoice(note.id, 1)).toBe(false)
-    // Still a tuplet member in voice 0.
-    const after = model.getNote(note.id)!
-    expect(after.tupletId).toBe(tuplet.id)
-    expect(after.voice ?? 0).toBe(0)
-  })
-
   it('moves just one pitch out of a chord, leaving the others behind', () => {
     const c = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const e = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
@@ -1487,6 +1474,122 @@ describe('ScoreModel.moveNoteToVoice — Phase 2 (collision: shorter wins)', () 
     expect(chord.notes).toHaveLength(2)
     expect(chord.duration).toBe('q')
     expect(total(slotsOf(model, 1).filter(s => v(s) === 1))).toBeCloseTo(4, 5)
+  })
+})
+
+describe('ScoreModel.moveNoteToVoice — Phase 4 (tuplets, ordinal fill)', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('MV', 120) })
+
+  const v = (s: ChordRest) => s.voice ?? 0
+  const tupletChords = (voice: number) =>
+    slotsOf(model, 1).filter(s => s.type === 'chord' && v(s) === voice && s.tupletId) as any[]
+
+  /** Build a full eighth-triplet (3 notes) in `voice` at beat 0; returns the 3 pitch ids. */
+  function buildTriplet(voice: number, steps: Array<{ step: string; octave: number }>): string[] {
+    const t = model.createTuplet(1, frac(0, 1), '8', 3, 2, voice)
+    const slot = frac(1, 3) // actual spacing of an eighth-triplet slot
+    return steps.map((st, i) =>
+      model.addNote({
+        step: st.step as any, alter: 0, octave: st.octave,
+        duration: '8', measure: 1, beat: frac(i, 3), voice: (voice || undefined) as any,
+        tupletId: t.id, actualDuration: slot,
+      }).id)
+  }
+
+  it('4a: moves a tuplet note into an empty voice → rest·B·rest, source A·rest·C', () => {
+    const [a, b, c] = buildTriplet(0, [{ step: 'A', octave: 4 }, { step: 'B', octave: 4 }, { step: 'C', octave: 5 }])
+
+    expect(model.moveNoteToVoice(b, 1)).toBe(true)
+    expect(model.validateMeasure(1)).toEqual([])
+
+    // Voice 1: a triplet with B in slot 1, rests either side.
+    const v1 = tupletChords(1)
+    expect(v1).toHaveLength(1)
+    expect(v1[0].notes[0].id).toBe(b)
+    expect(fracToNumber(v1[0].beat)).toBeCloseTo(1 / 3, 5) // slot index 1 (actual spacing 1/3)
+    expect(v1[0].duration).toBe('8')
+    const v1Rests = slotsOf(model, 1).filter(s => v(s) === 1 && s.tupletId && s.type === 'rest')
+    expect(v1Rests).toHaveLength(2)
+
+    // Voice 0: A and C survive, B's slot is now a rest.
+    const v0 = tupletChords(0)
+    expect(v0.flatMap(ch => ch.notes.map((n: any) => n.id)).sort()).toEqual([a, c].sort())
+    expect(model.getNote(a)!.voice ?? 0).toBe(0)
+    expect(model.getNote(c)!.voice ?? 0).toBe(0)
+    expect(model.getNote(b)!.voice).toBe(1)
+  })
+
+  it('4b: pours existing target-voice notes into the free slots → d·B·e', () => {
+    const [, b] = buildTriplet(0, [{ step: 'A', octave: 4 }, { step: 'B', octave: 4 }, { step: 'C', octave: 5 }])
+    // Voice 1 already has two eighths d, e on beat 1's span.
+    const d = model.addNote({ step: 'D', alter: 0, octave: 5, duration: '8', measure: 1, beat: frac(0, 1), voice: 1 })
+    const e = model.addNote({ step: 'E', alter: 0, octave: 5, duration: '8', measure: 1, beat: frac(1, 2), voice: 1 })
+
+    expect(model.moveNoteToVoice(b, 1)).toBe(true)
+    expect(model.validateMeasure(1)).toEqual([])
+
+    const v1 = tupletChords(1).sort((x, y) => fracCompare(x.beat, y.beat))
+    expect(v1).toHaveLength(3)                                  // d · B · e, all in the triplet
+    expect(v1.map(ch => ch.notes[0].id)).toEqual([d.id, b, e.id])
+    expect(v1.every(ch => ch.duration === '8')).toBe(true)     // all re-expressed as triplet eighths
+    expect(v1.every(ch => !!ch.tupletId)).toBe(true)
+  })
+
+  it('4b overflow: extra target notes beyond the free slots are dropped', () => {
+    const [, b] = buildTriplet(0, [{ step: 'A', octave: 4 }, { step: 'B', octave: 4 }, { step: 'C', octave: 5 }])
+    // Voice 1 has FOUR sixteenths in beat 1's span — more than the 2 free slots.
+    const ids = [0, 1, 2, 3].map(i =>
+      model.addNote({ step: 'D', alter: 0, octave: 5, duration: '16', measure: 1, beat: frac(i, 4), voice: 1 }).id)
+
+    expect(model.moveNoteToVoice(b, 1)).toBe(true)
+    expect(model.validateMeasure(1)).toEqual([]) // no crash / no half-formed bar
+
+    const v1 = tupletChords(1)
+    expect(v1).toHaveLength(3)                  // 2 poured + the moved B; no rests, no overflow
+    // The moved B is present; only the first two sixteenths survived.
+    const survivors = v1.flatMap(ch => ch.notes.map((n: any) => n.id))
+    expect(survivors).toContain(b)
+    expect(survivors.filter(id => ids.includes(id))).toHaveLength(2)
+  })
+
+  it('a note already on a target grid slot keeps its slot when a second note arrives', () => {
+    // Regression: moving G (slot 2) then E (slot 0) of a triplet into voice 1 must
+    // give E·rest·G — G must NOT get re-poured down to slot 1.
+    const [e, , g] = buildTriplet(0, [{ step: 'E', octave: 4 }, { step: 'F', octave: 4 }, { step: 'G', octave: 4 }])
+
+    expect(model.moveNoteToVoice(g, 1)).toBe(true) // G → voice 1 slot 2
+    expect(model.moveNoteToVoice(e, 1)).toBe(true) // E → voice 1 slot 0
+    expect(model.validateMeasure(1)).toEqual([])
+
+    const v1 = tupletChords(1).sort((x, y) => fracCompare(x.beat, y.beat))
+    expect(v1).toHaveLength(2)
+    expect(v1[0].notes[0].id).toBe(e)
+    expect(fracToNumber(v1[0].beat)).toBeCloseTo(0, 5)        // E stayed at slot 0
+    expect(v1[1].notes[0].id).toBe(g)
+    expect(fracToNumber(v1[1].beat)).toBeCloseTo(2 / 3, 5)    // G stayed at slot 2 (NOT 1/3)
+    // Voice 1 slot 1 is a rest; F is still alone in voice 0.
+    expect(slotsOf(model, 1).some(s => v(s) === 1 && s.tupletId && s.type === 'rest'
+      && fracToNumber(s.beat) === 1 / 3)).toBe(true)
+  })
+
+  it('drops the source tuplet when its last note leaves (becomes plain rests)', () => {
+    // A triplet whose only note is B (slots 0 and 2 stay rests).
+    const t = model.createTuplet(1, frac(0, 1), '8', 3, 2, 0)
+    model.refillTupletRemainder(1, t, 0)
+    const midRest = slotsOf(model, 1)
+      .filter(s => s.tupletId === t.id && s.type === 'rest')
+      .sort((a, b) => fracCompare(a.beat, b.beat))[1]
+    const b = model.updateNote(midRest.id, { step: 'B', alter: 0, octave: 4, isRest: false }).id
+
+    expect(model.moveNoteToVoice(b, 1)).toBe(true)
+    expect(model.validateMeasure(1)).toEqual([])
+
+    // Source voice 0 no longer has the tuplet; voice 1 has it.
+    expect(slotsOf(model, 1).some(s => v(s) === 0 && s.tupletId)).toBe(false)
+    expect(model.getMeasure(1)!.tuplets!.every(tup =>
+      model.getMeasure(1)!.slots.some(s => s.tupletId === tup.id))).toBe(true) // no dangling tuplet
+    expect(model.getNote(b)!.voice).toBe(1)
   })
 })
 

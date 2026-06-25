@@ -416,9 +416,21 @@ user drives the app, we don't launch browsers).
        `setActiveVoice` with NO mode gating. Tests: 3 facade (atomic undo, all-
        no-op, rest-skip) + 4 PaletteController (move vs arm, fallback, empty-sel
        arms entry, entry-mode no-move). 752 green + build + boundary clean.
-4. [ ] Phase 4a — tuplet move into empty span. `validateMeasure` dev assert.
-       Tests. **User verify.**
-5. [ ] Phase 4b — ordinal pour-in + overflow drop. Tests. **User verify.**
+4. [x] Phase 4a — tuplet move into empty span. `validateMeasure` dev assert.
+       Tests. **DONE (uncommitted), pending user verify.**
+5. [x] Phase 4b — ordinal pour-in + overflow drop. Tests. **DONE (uncommitted),
+       pending user verify.** 4a+4b built together as one
+       `ScoreModel.moveTupletNoteToVoice` (4b's pour-in subsumes 4a's empty case):
+       idx via `getTupletNoteDurationFrac` actual spacing; capture target-voice
+       chords in span BEFORE `createTuplet` wipes them; ordinal-fill assignment
+       (moved note at idx, existing poured into free slots in order, overflow
+       dropped); materialise tuplet chords (reuse pitch ids, `actualDuration=slot`)
+       + `refillTupletRemainder` for empty slots; `dropCrossVoiceTies`; source
+       refill + `deleteTuplet` if all-rests; final `fillGapsWithRests` +
+       `collapseEmptyVoices` + dangling-tuplet prune. Added public
+       `validateMeasure(n)` (per-voice tiling check) asserted `[]` in all 4 tuplet
+       tests. Removed the now-obsolete Phase-1 "refuses tuplet" guard test. 755
+       green + build + boundary clean.
 6. [ ] Follow-up (separate) — **cosmetic** span (tie/slur) `voice`-field
        reassignment for surviving spans (direction/colour only; the cross-voice
        *drop* is already done in Phase 1); 3rd/4th voice mapping.
