@@ -623,7 +623,7 @@ describe('MusicEngine.createSlur — endpoint resolution', () => {
     expect(engine.redo()).toBe(true)
     expect(engine.getSlurById(slur.id)!.cps).toEqual(cps2) // redo restores the final dragged shape
   })
-  it('flipSlur toggles placement above ↔ below as one undo step', () => {
+  it('flipSlur toggles auto ↔ flipped as one undo step', () => {
     const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const slur = engine.createSlur([a.id])!
@@ -634,11 +634,11 @@ describe('MusicEngine.createSlur — endpoint resolution', () => {
     const after = engine.getSlurById(slur.id)!.placement
     expect(after === 'above' || after === 'below').toBe(true)
 
-    // Subsequent flips toggle the explicit side.
+    // Second flip round-trips back to auto (Sibelius-style x).
     engine.flipSlur(slur.id)
-    expect(engine.getSlurById(slur.id)!.placement).toBe(after === 'below' ? 'above' : 'below')
+    expect(engine.getSlurById(slur.id)!.placement).toBeUndefined()
 
-    // Undo reverts the last flip (one step).
+    // Undo reverts the reset (one step) → back to the explicit side.
     expect(engine.undo()).toBe(true)
     expect(engine.getSlurById(slur.id)!.placement).toBe(after)
 
@@ -664,15 +664,36 @@ describe('MusicEngine.createSlur — endpoint resolution', () => {
     const after = dirOf()
     expect(after === -1 || after === 1).toBe(true)
 
-    // Subsequent flips toggle the explicit direction.
+    // Second flip round-trips back to auto (Sibelius-style x).
     engine.flipTie(a.id)
-    expect(dirOf()).toBe(after === 1 ? -1 : 1)
+    expect(dirOf()).toBeUndefined()
 
-    // Undo reverts the last flip (one step).
+    // Undo reverts the reset (one step) → back to the explicit direction.
     expect(engine.undo()).toBe(true)
     expect(dirOf()).toBe(after)
 
     expect(engine.flipTie('nope')).toBe(false) // unknown id
+  })
+
+  it('flipTuplet toggles auto ↔ flipped as one undo step', () => {
+    const tuplet = engine.createTupletAtBeat(1, 0, '8', { step: 'E', alter: 0, octave: 4 }, 3, 2, 0)!.tuplet
+    const find = () => engine.getScore().measures[0].tuplets!.find(t => t.id === tuplet.id)!
+    expect(find().placement).toBeUndefined() // auto
+
+    // First flip from auto pins an explicit side.
+    expect(engine.flipTuplet(tuplet.id)).toBe(true)
+    const after = find().placement
+    expect(after === 'above' || after === 'below').toBe(true)
+
+    // Second flip round-trips back to auto (Sibelius-style x).
+    engine.flipTuplet(tuplet.id)
+    expect(find().placement).toBeUndefined()
+
+    // Undo reverts the reset (one step) → back to the explicit side.
+    expect(engine.undo()).toBe(true)
+    expect(find().placement).toBe(after)
+
+    expect(engine.flipTuplet('nope')).toBe(false) // unknown id
   })
   // (JSON round-trip of slurs is covered in ScoreModel.test.ts — the engine's
   //  loadJSON triggers a full render, which the renderer stub here can't satisfy.)

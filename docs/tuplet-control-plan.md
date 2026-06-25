@@ -1,8 +1,9 @@
 # Tuplet Positioning & Control — Plan
 
-Status: **Phase 1 (multi-voice flip inconsistency) — IN PROGRESS.** Tier-1 user-facing
-controls (Phase 2) documented but DEFERRED. Tier 2 (self-rendering / handles) explicitly
-**out of scope** for now.
+Status: **Phase 1 (multi-voice flip inconsistency) — DONE. Phase 1b (Sibelius-style `x`
+round-trip) — DONE** (tuplet/slur/tie now toggle auto ↔ flipped). Tier-1 user-facing controls
+(Phase 2) documented but DEFERRED. Tier 2 (self-rendering / handles) explicitly **out of
+scope** for now.
 
 This document records *why* tuplet bracket positioning behaves the way it does, what VexFlow
 can and cannot do for us, and the phased path toward professional tuplet control. The
@@ -140,6 +141,65 @@ and the own-notes Y, returns the yOffset), mirroring `resolveTupletLocation`.
 - No model field for user-set yOffset yet (this is an automatic engraving correction, not a
   user override). The `x` flip remains the only persisted override.
 - No change to single-voice behaviour.
+
+---
+
+## 4b. Phase 1b (NOW) — Sibelius-style flip (`x` round-trips to default)
+
+### Problem
+
+`x` flips a selected tuplet/slur/tie by storing an **absolute** side
+(`MusicEngine.flipTuplet/flipSlur/flipTie`): it reads the current side and writes the
+*opposite* absolute side (`'above'`/`'below'`, or `tieDirection ±1`). The override then has
+only two reachable values — there is **no path back to `undefined` (auto)** via `x`.
+
+Two consequences:
+
+1. **No round-trip to default.** Once touched, `x` ping-pongs above↔below forever; the user
+   can never get back to "auto". A user who flips and then flips again *thinks* they're back
+   to default but is actually **pinned** to a side.
+2. **A pinned side ignores context.** An auto mark re-derives its side every render
+   (voice/stem/pitch aware — e.g. the multi-voice rule in §1). A pinned absolute side does
+   not, so it can silently stop tracking the rule.
+
+### Model (matches Sibelius `X` = flip)
+
+Make `x` a **2-state toggle between auto and flipped**, not an absolute above/below setter:
+
+- override **set** (flipped) → **clear to `undefined`** (back to the context-aware default);
+- override **unset** (auto) → set to the **opposite of the last-drawn side** (a visible flip).
+
+So: auto → flipped → auto → flipped… Two presses always return to default, and the first
+press always visibly flips (the project already wants "first press always visibly flips").
+This is exactly Sibelius's `X` behaviour; absolute Above/Below pinning, if ever wanted, belongs
+in a future properties menu (Above / Below / Auto), not on the key.
+
+The two reachable states (default and not-default) cover both sides, so nothing is lost: to
+reach the other side you're either at default or one flip away.
+
+### Scope
+
+- Rewrite `flipTuplet`, `flipSlur`, `flipTie` (`MusicEngine.ts`) to the toggle above. The
+  "opposite of last-drawn side" branch is already implemented (they read the registry for the
+  auto case) — we only add the "if already overridden, clear instead of inverting" branch.
+- Setters already exist: `setTupletPlacement(id, undefined)`, `clearTieDirection(fromNoteId)`,
+  and slur `placement` is directly clearable. **No data-model or JSON change** — `undefined`
+  is already the auto state on load/save.
+- Update the existing flip unit tests (e.g. MusicEngine.test.ts "flipSlur toggles placement
+  above ↔ below") to assert the new auto↔flipped round-trip.
+
+### Difficulty: LOW
+
+Three small symmetric method edits + test updates. No migration, no rendering change (render
+already resolves `undefined` → context-aware default).
+
+### Deferred refinement (NOT now)
+
+A *relative* `flipped` flag (render side = `flipped XOR autoDefault`) would also make the
+**flipped** state track context, not just the auto state. That needs a data-model + JSON change
+across all three mark types, and beyond Sibelius's own behaviour. The 2-state toggle above
+already fixes the reported problem (round-trip + auto tracks context); the relative flag is a
+later upgrade if we find the flipped state going stale in practice.
 
 ---
 

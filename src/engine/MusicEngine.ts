@@ -697,66 +697,72 @@ export class MusicEngine {
     this.saveOnly('Re-anchor slur')
   }
 
-  /** Flip a slur to the opposite side (above ↔ below). Sets an explicit `placement`
-   *  that overrides auto stem-based placement. For an auto-placed slur the flip targets
-   *  the opposite of whatever was last *drawn* (read from the registry), so the first
-   *  press always visibly flips. Saves one undo step. @returns true if it flipped. */
+  /** Flip a slur with a Sibelius-style `x` toggle: auto ↔ flipped. When the slur already
+   *  carries an explicit `placement`, clear it back to the context-aware auto default;
+   *  otherwise set an explicit side opposite to whatever was last *drawn* (read from the
+   *  registry), so the first press always visibly flips. Two presses round-trip to auto.
+   *  Saves one undo step. @returns true if it flipped. */
   flipSlur(id: string): boolean {
     const slur = this.scoreModel.getSlurById(id)
     if (!slur) return false
-    let currentDir: number
-    if (slur.placement === 'above') currentDir = -1
-    else if (slur.placement === 'below') currentDir = 1
-    else {
-      // Best-effort: read the side the renderer last drew (auto placement). Guarded
-      // so a stubbed/headless renderer just falls back to "above".
-      const el = this.renderer.getElementRegistry?.()?.getByType?.('slur').find(e => e.id === id)
-      currentDir = el?.slurDirection ?? -1 // default: treat as above
+    if (slur.placement !== undefined) {
+      // Overridden → return to the auto (stem-derived) default.
+      delete slur.placement
+      this.saveOnly('Reset slur to auto')
+      return true
     }
+    // Auto → pin the opposite of the last-drawn side. Guarded so a stubbed/headless
+    // renderer just falls back to "above" (dir -1).
+    const el = this.renderer.getElementRegistry?.()?.getByType?.('slur').find(e => e.id === id)
+    const currentDir = el?.slurDirection ?? -1
     slur.placement = currentDir === -1 ? 'below' : 'above'
     this.saveOnly('Flip slur')
     return true
   }
 
-  /** Flip a tuplet's bracket/number to the opposite side (above ↔ below). Sets an
-   *  explicit `placement` that overrides auto stem-based placement. For an auto-placed
-   *  tuplet the flip targets the opposite of whatever was last *drawn* (read from the
-   *  registry), so the first press always visibly flips. Saves one undo step.
-   *  @returns true if it flipped. */
+  /** Flip a tuplet's bracket/number with a Sibelius-style `x` toggle: auto ↔ flipped. When
+   *  the tuplet already carries an explicit `placement`, clear it back to the context-aware
+   *  auto default (voice/stem rule); otherwise set an explicit side opposite to whatever was
+   *  last *drawn* (read from the registry), so the first press always visibly flips. Two
+   *  presses round-trip to auto. Saves one undo step. @returns true if it flipped. */
   flipTuplet(id: string): boolean {
     const tuplet = this.scoreModel.getTuplet(id)
     if (!tuplet) return false
-    let currentDir: number
-    if (tuplet.placement === 'above') currentDir = 1
-    else if (tuplet.placement === 'below') currentDir = -1
-    else {
-      // Best-effort: read the side the renderer last drew (auto placement). Guarded
-      // so a stubbed/headless renderer just falls back to "above" (LOCATION_TOP = 1).
-      const el = this.renderer.getElementRegistry?.()?.getTupletById?.(id)
-      currentDir = el?.tupletGeometry?.location ?? 1
+    if (tuplet.placement !== undefined) {
+      // Overridden → return to the auto (voice/stem-derived) default.
+      this.scoreModel.setTupletPlacement(id, undefined)
+      this.saveOnly('Reset tuplet to auto')
+      return true
     }
+    // Auto → pin the opposite of the last-drawn side. Guarded so a stubbed/headless
+    // renderer just falls back to "above" (LOCATION_TOP = 1).
+    const el = this.renderer.getElementRegistry?.()?.getTupletById?.(id)
+    const currentDir = el?.tupletGeometry?.location ?? 1
     this.scoreModel.setTupletPlacement(id, currentDir === 1 ? 'below' : 'above')
     this.saveOnly('Flip tuplet')
     return true
   }
 
-  /** Flip the tie starting at `fromNoteId` to the opposite curve direction (up ↔ down).
-   *  A tie stays flat and notehead-anchored, so this only inverts the arc (and its
-   *  endpoint lift), unlike {@link flipSlur} which is stem-aware. Sets an explicit
-   *  `tieDirection` override; for an auto tie the flip targets the opposite of whatever
-   *  was last *drawn* (read from the registry) so the first press always visibly flips.
-   *  Saves one undo step. @returns true if it flipped. */
+  /** Flip the tie starting at `fromNoteId` with a Sibelius-style `x` toggle: auto ↔ flipped.
+   *  A tie stays flat and notehead-anchored, so this only inverts the arc (and its endpoint
+   *  lift), unlike {@link flipSlur} which is stem-aware. When the tie already carries an
+   *  explicit `tieDirection`, clear it back to the auto default; otherwise set an explicit
+   *  direction opposite to whatever was last *drawn* (read from the registry), so the first
+   *  press always visibly flips. Two presses round-trip to auto. Saves one undo step.
+   *  @returns true if it flipped. */
   flipTie(fromNoteId: string): boolean {
     const pitch = this.scoreModel.getNotePitch(fromNoteId)
     if (!pitch || !pitch.tiedTo) return false
-    let currentDir: number
-    if (pitch.tieDirection !== undefined) currentDir = pitch.tieDirection
-    else {
-      // Best-effort: read the side the renderer last drew (auto placement). Guarded
-      // so a stubbed/headless renderer just falls back to "down" (+1).
-      const el = this.renderer.getElementRegistry?.()?.getByType?.('tie').find(e => e.fromNoteId === fromNoteId)
-      currentDir = el?.tieDirection ?? 1
+    if (pitch.tieDirection !== undefined) {
+      // Overridden → return to the auto default.
+      this.scoreModel.clearTieDirection(fromNoteId)
+      this.saveOnly('Reset tie to auto')
+      return true
     }
+    // Auto → pin the opposite of the last-drawn side. Guarded so a stubbed/headless
+    // renderer just falls back to "down" (+1).
+    const el = this.renderer.getElementRegistry?.()?.getByType?.('tie').find(e => e.fromNoteId === fromNoteId)
+    const currentDir = el?.tieDirection ?? 1
     if (!this.scoreModel.setTieDirection(fromNoteId, currentDir === -1 ? 1 : -1)) return false
     this.saveOnly('Flip tie')
     return true
