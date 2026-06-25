@@ -596,15 +596,23 @@ export class MusicEngine {
       this.commit('Remove tie')
       return false
     } else {
-      // Tie to the immediately next slot (rest or note — no pitch filter)
-      const allSlots = this.scoreModel.getAllNotes()
-        .sort(compareByPosition)
-      const idx = allSlots.findIndex(n => n.id === noteId)
-      const nextNote = allSlots[idx + 1]
-      if (!nextNote) {
+      // Tie to the next slot STRICTLY AFTER this note's position — never a sibling
+      // sharing the same chord/beat (that would tie two notes of one chord to each
+      // other). Within that next slot (itself possibly a chord) prefer the SAME
+      // pitch so a chord tie joins like to like; otherwise fall back to the first
+      // event there (incl. a rest, for the tie-into-rest case).
+      const allSlots = this.scoreModel.getAllNotes().sort(compareByPosition)
+      const source = allSlots.find(n => n.id === noteId)
+      if (!source) return null
+      const nextStart = allSlots.find(n => compareByPosition(n, source) > 0)
+      if (!nextStart) {
         console.log(`[Tie] no next slot found — tie not created`)
         return null
       }
+      const samePitch = allSlots.find(n =>
+        compareByPosition(n, nextStart) === 0 && !n.isRest
+        && n.step === source.step && (n.alter ?? 0) === (source.alter ?? 0) && n.octave === source.octave)
+      const nextNote = samePitch ?? nextStart
       console.log(`[Tie] tying to next slot: ${fmt(nextNote)}`)
 
       this.scoreModel.updateNote(noteId, { tiedTo: nextNote.id })

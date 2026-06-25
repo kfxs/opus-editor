@@ -636,6 +636,18 @@ describe('MusicEngine.createSlur — endpoint resolution', () => {
     expect(slur.endNoteId).toBe(next.id)
   })
 
+  it('toggleTie on a chord member ties to the matching pitch in the NEXT slot, not a sibling head', () => {
+    // Chord G4 + D5 at beat 1, then a lone G4 at beat 2.
+    const g1 = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const d5 = engine.addChordNote({ step: 'D', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const g2 = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+
+    expect(engine.toggleTie(g1.id)).toBe(true)
+    expect(engine.getNote(g1.id)!.tiedTo).toBe(g2.id)   // tied across to G4@2
+    expect(engine.getNote(g1.id)!.tiedTo).not.toBe(d5.id) // NOT the chord sibling
+    expect(engine.getNote(g2.id)!.tiedFrom).toBe(g1.id)
+  })
+
   it('is create-only and idempotent — pressing s again does NOT add a duplicate or remove', () => {
     const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
