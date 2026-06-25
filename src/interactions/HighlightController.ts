@@ -214,32 +214,51 @@ export class HighlightController {
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
 
-    const ARTICULATION_COLOR = '#F59E0B'
-    // Match by geometry, not glyph char codes: color the rendered glyph (text or path)
-    // whose bbox center is closest to each articulation's registered bbox. This is
-    // font-independent (no SMuFL code table to keep in sync) and naturally separates
-    // stacked articulations (staccato + accent) since each has a distinct center.
-    const glyphEls = svg.querySelectorAll<SVGGraphicsElement>('text, path')
-
+    // KEY DOM FACT: VexFlow renders a note's articulation glyphs INSIDE that note's
+    // own `vf-notehead` group — NoteHead.draw() opens the group, draws the head, then
+    // calls stavenote.drawModifiers(this) before closing it (notehead.js). So an
+    // articulation lives at `vf-stavenote > vf-notehead[noteIndex] > <text>`, scoped to
+    // the very note it belongs to. We register articulations on the lowest-pitch note
+    // (noteIndex 0), so we look up that note's group and search ONLY within its notehead
+    // sub-group. A document-wide nearest-glyph scan was the bug: with two voices stacked
+    // at the same beat it could grab the OTHER voice's notehead, which lives in a
+    // different group — impossible once the search is scoped here.
     for (const artEl of artElements) {
+      // Paint each articulation in ITS note's voice colour (V1 blue, V2 green —
+      // Sibelius-style; matches the notehead highlight) rather than a uniform orange.
+      const voice = engine.getNote(artEl.noteId!)?.voice ?? 0
+      const articulationColor = voiceFillColor(voice)
+
+      const groupInfo = engine.getStaveNoteSVGGroup(artEl.noteId!)
+      if (!groupInfo) continue
+      const noteheadGroups = groupInfo.group.querySelectorAll('g.vf-notehead')
+      const noteheadGroup = noteheadGroups[groupInfo.noteIndex] ?? noteheadGroups[0]
+      if (!noteheadGroup) continue
+
+      // The notehead glyph itself is drawn FIRST (before its modifiers), so it's the
+      // first text/path in the group; skip it. The remaining glyphs are this note's
+      // modifiers (accidental/dots/articulations). Geometry then picks the one whose
+      // centre is closest to the articulation's registered bbox — robust against a note
+      // carrying several stacked marks (staccato + accent), each with a distinct centre.
+      const glyphEls = noteheadGroup.querySelectorAll<SVGGraphicsElement>('text, path')
       const cx = artEl.bbox.x + artEl.bbox.width / 2
       const cy = artEl.bbox.y + artEl.bbox.height / 2
-      let best: SVGElement | null = null
+      let best: SVGGraphicsElement | null = null
       let bestDist = Infinity
-      for (const svgEl of glyphEls) {
+      glyphEls.forEach((svgEl, i) => {
+        if (i === 0) return // the notehead glyph itself
         const bb = svgEl.getBBox?.()
-        if (!bb || bb.width === 0 || bb.height === 0) continue
+        if (!bb || bb.width === 0 || bb.height === 0) return
         const dx = bb.x + bb.width / 2 - cx
         const dy = bb.y + bb.height / 2 - cy
         const dist = dx * dx + dy * dy
-        if (dist < bestDist) { bestDist = dist; best = svgEl as SVGElement }
-      }
-      // Only color when the nearest glyph is genuinely on top of the registered box
-      // (within ~6px), so we never recolor an unrelated glyph if none was found.
-      if (best && bestDist <= 36) {
-        best.setAttribute('fill', ARTICULATION_COLOR)
-        best.style.fill = ARTICULATION_COLOR
-        best.classList.add('selected-articulation')
+        if (dist < bestDist) { bestDist = dist; best = svgEl }
+      })
+      if (best) {
+        const el = best as SVGGraphicsElement
+        el.setAttribute('fill', articulationColor)
+        el.style.fill = articulationColor
+        el.classList.add('selected-articulation')
       }
     }
   }

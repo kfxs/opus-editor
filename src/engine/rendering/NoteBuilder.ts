@@ -208,8 +208,16 @@ export function createStaveNotesFromSlots(
     // Articulations are per-chord (stored on slot, not per pitch).
     // Sorted by ARTICULATION_RENDER_ORDER so the first added sits closest to the note head.
     const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
-    // Auto side = opposite the stem (notehead side); an explicit slot override flips it.
-    const autoArticulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
+    // Auto side:
+    //  - Single voice: opposite the stem (the note-head side), the usual convention.
+    //  - Multi-voice (forcedStemDirection set): the voice's OUTER side regardless of
+    //    the individual note's stem — upper voice (V1, forced up) ABOVE, lower voice
+    //    (V2, forced down) BELOW — so the two voices' marks never collide in the
+    //    middle. This matches standard engraving (Gould). An explicit slot
+    //    placement override (the `x` flip) still wins below.
+    const autoArticulationPosition = forcedStemDirection !== undefined
+      ? (forcedStemDirection === 1 ? Modifier.Position.ABOVE : Modifier.Position.BELOW)
+      : (stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE)
     const articulationPosition = slot.articulationPlacement === 'above'
       ? Modifier.Position.ABOVE
       : slot.articulationPlacement === 'below'
