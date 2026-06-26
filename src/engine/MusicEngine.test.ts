@@ -822,6 +822,47 @@ describe('MusicEngine.createSlur — endpoint resolution', () => {
     expect(engine.redo()).toBe(true)
     expect(shapeOf(slur.id)).toEqual(cps2) // redo restores the final dragged shape
   })
+
+  // --- Phase 2: conservative auto-reset of the curve-shape override ---
+  describe('curve-shape override auto-reset (Phase 2)', () => {
+    const cps: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 0.2, y: 1.4 }, { x: -0.3, y: 1.6 }]
+    const shapeOf = (id: string) => curveShapeOverrideOf(engine.getScore(), id)?.cps
+
+    it('drops the override when the slur is deleted (and prunes the compartment)', () => {
+      const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+      const slur = engine.createSlur([a.id])!
+      engine.setSlurShape(slur.id, cps)
+      expect(shapeOf(slur.id)).toEqual(cps)
+
+      expect(engine.removeSlur(slur.id)).toBe(true)
+      expect(shapeOf(slur.id)).toBeUndefined()
+      expect(engine.getScore().engravingOverrides).toBeUndefined() // pruned clean
+    })
+
+    it('drops the override when an endpoint note is deleted (re-anchored onto the replacement rest)', () => {
+      const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+      const slur = engine.createSlur([a.id, b.id])! // spans a → b
+      engine.setSlurShape(slur.id, cps)
+      expect(shapeOf(slur.id)).toEqual(cps)
+
+      engine.deleteNote(b.id) // b → rest; slur re-anchors its end onto the rest (different element)
+      expect(engine.getSlurById(slur.id)).not.toBeNull() // slur survives, re-anchored
+      expect(shapeOf(slur.id)).toBeUndefined() // but its hand-tuned shape is gone
+    })
+
+    it('stays sticky across a non-breaking edit (anchors survive)', () => {
+      const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+      const slur = engine.createSlur([a.id])!
+      engine.setSlurShape(slur.id, cps)
+
+      // Add a note elsewhere — neither slur endpoint is touched, so the shape persists.
+      addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+      expect(shapeOf(slur.id)).toEqual(cps)
+    })
+  })
   it('flipSlur toggles auto ↔ flipped as one undo step', () => {
     const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })

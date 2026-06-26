@@ -1,7 +1,9 @@
 # Engraving Overrides — Infrastructure Plan
 
-Status: **Phases 0 + 1 DONE (2026-06-26); Phase 2 next.** This started as a
-*design* document, settled in conversation (2026-06-26) before any code.
+Status: **Phases 0 + 1 + 2 DONE (2026-06-26) — near-term commitment complete.** This
+started as a *design* document, settled in conversation (2026-06-26) before any code.
+Phase 3+ is a *menu* (independent, opt-in, any order — see §5), not owed; nothing past
+Phase 2 is scheduled.
 
 > **Phase 0 — done (committed 2f71a78).** Compartment + staff-space helper, no clients:
 > `Score.engravingOverrides?: EngravingOverrides` (`Record<elementId, EngravingOverride[]>`,
@@ -30,7 +32,28 @@ Status: **Phases 0 + 1 DONE (2026-06-26); Phase 2 next.** This started as a
 >   moves it into the compartment, strips the inline field. New-format wins if both coexist.
 > - `DESIGN-PRINCIPLES.md` boundary case marked **RESOLVED**.
 > - Tests updated/added (migration round-trip both directions, compartment write/clear,
->   no-op + no-clobber). build:check (boundary + vue-tsc + vite build) + full suite (792) green. It generalizes today's one-off `Slur.cps` into a reusable
+>   no-op + no-clobber). build:check (boundary + vue-tsc + vite build) + full suite (792) green.
+
+> **Phase 2 — done (NOT committed).** Today's slur-specific "drop the shape on re-anchor"
+> lifted into a **general, operation-driven invalidation rule** over the compartment:
+> - `ScoreModel.clearEngravingOverride` is documented as the single auto-reset primitive.
+>   It fires ONLY when an edit *provably* breaks an anchor — element **deleted** (clear all
+>   kinds) or a span endpoint **re-pointed onto a different element** (clear `curveShape`);
+>   gray-zone edits (anchors survive, basis shifted) stay sticky. It is **operation-driven,
+>   not a sweep** ("what looks orphaned" would mis-fire on churning rest ids).
+> - Wired into the explicit, finite set of slur ops (grep `auto-reset (§3.3)`):
+>   `removeSlur` (delete → clear all), `restoreSlurs` + `repairDanglingSlurs` drops (rebar /
+>   missing-note → clear all), `MusicEngine.reanchorSlurs` (note-delete drop → all;
+>   re-point → `curveShape`), and `setSlurEndpoint` (handle re-anchor → `curveShape`,
+>   from Phase 1). A *successful* rebar re-attach to equivalent notes is the gray zone — it
+>   keeps the shape (NOT cleared). `flipSlur` (a semantic side flip) keeps it too.
+> - Closed a latent leak: pre-Phase-2 `removeSlur` / `reanchorSlurs` left orphaned
+>   compartment entries (keyed by a now-dead/re-pointed slur).
+> - Hard gate respected: only slur ops are wired (durable ids); rests/beams are NOT, per §3.6.
+> - Tests: +3 (delete slur → pruned; delete endpoint note → re-anchored + shape gone; sticky
+>   across a non-breaking edit). build:check + full suite (795) green.
+
+This plan generalizes today's one-off `Slur.cps` into a reusable
 **engraving-overrides layer** so that future hand-positioning of score elements (nudges,
 curve reshapes, re-angling, breaks, spacing — including on auto-generated rests/beams) has a
 single, principled home instead of pixels metastasizing across every model interface.

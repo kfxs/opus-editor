@@ -421,6 +421,7 @@ export class ScoreModel {
     const i = this.score.slurs.findIndex(s => s.id === id)
     if (i < 0) return false
     this.score.slurs.splice(i, 1)
+    this.clearEngravingOverride(id) // auto-reset (§3.3): slur deleted → its overrides die with it
     return true
   }
 
@@ -470,7 +471,7 @@ export class ScoreModel {
     if (noteId === otherId || noteId === currentId) return false
     if (which === 'start') slur.startNoteId = noteId
     else slur.endNoteId = noteId
-    this.clearEngravingOverride(id, 'curveShape') // shape was relative to the old span — reset to auto
+    this.clearEngravingOverride(id, 'curveShape') // auto-reset (§3.3): endpoint re-pointed onto a different element
     return true
   }
 
@@ -512,6 +513,17 @@ export class ScoreModel {
    * the element. Prunes the element's entry (and the whole compartment) once it
    * empties, so "absent = none" holds and the JSON stays clean.
    * @returns true if anything was removed.
+   *
+   * **This is also the conservative auto-reset primitive (plan §3.3 / Phase 2).** The
+   * compartment drops an override on its own ONLY when an edit *provably* breaks its
+   * anchor — the element is **deleted** (clear all kinds) or a span endpoint is
+   * **re-pointed onto a different element** (clear the span-relative `curveShape`). Gray
+   * zone edits (anchors survive, basis merely shifted — e.g. notes inserted under a slur)
+   * stay sticky; when unsure, keep and show. The rule is **operation-driven**: its callers
+   * are the explicit, finite set of edit ops that remove/re-anchor an overridable element
+   * (grep `auto-reset (§3.3)`), NOT a sweep over "what looks orphaned". Today that set is
+   * slur-only — slurs have durable ids; it must NOT be wired to auto-rests/beams until
+   * their ids stop churning across regeneration (plan §3.6, "Adding an element").
    */
   clearEngravingOverride(elementId: string, kind?: string): boolean {
     const all = this.score.engravingOverrides
@@ -1234,6 +1246,7 @@ export class ScoreModel {
       const newEnd = resolve(c.end)
       if (!newStart || !newEnd || newStart === newEnd) {
         slurs.splice(idx, 1)
+        this.clearEngravingOverride(c.slur.id) // auto-reset (§3.3): endpoint unrecoverable on rebar → slur dropped
         continue
       }
       c.slur.startNoteId = newStart
@@ -1257,7 +1270,10 @@ export class ScoreModel {
       }
     }
     for (let i = slurs.length - 1; i >= 0; i--) {
-      if (!ids.has(slurs[i].startNoteId) || !ids.has(slurs[i].endNoteId)) slurs.splice(i, 1)
+      if (!ids.has(slurs[i].startNoteId) || !ids.has(slurs[i].endNoteId)) {
+        const [dropped] = slurs.splice(i, 1)
+        this.clearEngravingOverride(dropped.id) // auto-reset (§3.3): slur points at a missing note → dropped
+      }
     }
   }
 

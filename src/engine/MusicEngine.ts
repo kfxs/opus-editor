@@ -864,6 +864,11 @@ export class MusicEngine {
    *  - `newId === null` → drop the slur (no surviving anchor).
    * A re-anchor that collapses the span (start === end) drops the slur too.
    * Mutates the live score in place; the caller owns the surrounding undo step.
+   *
+   * Both outcomes provably break any hand-tuned shape (plan §3.3): a drop ends the
+   * slur, a re-point moves an endpoint onto a *different* element — so the
+   * engraving-overrides auto-reset fires here too (drop → clear all; re-point → clear
+   * the span-relative `curveShape`), matching {@link ScoreModel.setSlurEndpoint}.
    */
   private reanchorSlurs(oldId: string, newId: string | null): void {
     const slurs = this.scoreModel.getScore().slurs
@@ -871,10 +876,19 @@ export class MusicEngine {
     for (let i = slurs.length - 1; i >= 0; i--) {
       const s = slurs[i]
       if (s.startNoteId !== oldId && s.endNoteId !== oldId) continue
-      if (newId === null) { slurs.splice(i, 1); continue }
+      if (newId === null) {
+        slurs.splice(i, 1)
+        this.scoreModel.clearEngravingOverride(s.id) // auto-reset (§3.3): no surviving anchor → slur dropped
+        continue
+      }
       if (s.startNoteId === oldId) s.startNoteId = newId
       if (s.endNoteId === oldId) s.endNoteId = newId
-      if (s.startNoteId === s.endNoteId) slurs.splice(i, 1)
+      if (s.startNoteId === s.endNoteId) {
+        slurs.splice(i, 1)
+        this.scoreModel.clearEngravingOverride(s.id) // auto-reset (§3.3): re-anchor collapsed the span → dropped
+      } else {
+        this.scoreModel.clearEngravingOverride(s.id, 'curveShape') // auto-reset (§3.3): endpoint re-pointed onto a different element
+      }
     }
   }
 
