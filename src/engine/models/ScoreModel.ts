@@ -57,8 +57,8 @@ type SlurPitch = { step: NotePitch['step']; alter: NotePitch['alter']; octave: n
  * rebar'd note); an endpoint OUTSIDE the region keeps its id verbatim (not regenerated).
  */
 type CapturedSlurEnd =
-  | { offset: Fraction; pitch: SlurPitch; externalId?: undefined }
-  | { externalId: string; offset?: undefined; pitch?: undefined }
+  | { offset: Fraction; pitch: SlurPitch; voice: number; externalId?: undefined }
+  | { externalId: string; offset?: undefined; pitch?: undefined; voice?: undefined }
 
 /**
  * A slur (live ref) with at least one endpoint inside the rebar region, captured before
@@ -954,8 +954,8 @@ export class ScoreModel {
    * the rebar'd region by position/pitch.
    */
   private captureBoundaryTies(regionMeasures: Measure[]): {
-    incoming: Array<{ externalId: string; pitch: { step: Note['step']; alter: Note['alter']; octave: number } }>
-    outgoing: Array<{ externalId: string; pitch: { step: Note['step']; alter: Note['alter']; octave: number } }>
+    incoming: Array<{ externalId: string; pitch: { step: Note['step']; alter: Note['alter']; octave: number }; voice: number }>
+    outgoing: Array<{ externalId: string; pitch: { step: Note['step']; alter: Note['alter']; octave: number }; voice: number }>
   } {
     const regionIds = new Set<string>()
     for (const m of regionMeasures) {
@@ -966,16 +966,20 @@ export class ScoreModel {
     }
     const lo = regionMeasures[0].number
     const hi = regionMeasures[regionMeasures.length - 1].number
-    const incoming: Array<{ externalId: string; pitch: { step: Note['step']; alter: Note['alter']; octave: number } }> = []
+    const incoming: Array<{ externalId: string; pitch: { step: Note['step']; alter: Note['alter']; octave: number }; voice: number }> = []
     const outgoing: typeof incoming = []
     for (const m of this.score.measures) {
       if (m.number >= lo && m.number <= hi) continue // external notes only
       for (const s of m.slots) {
         if (s.type !== 'chord') continue
+        // A tie never crosses voices, so the in-region partner shares this external
+        // note's voice — record it so the re-find can filter to the right voice
+        // (a unison in another voice at the boundary must not steal the tie).
+        const voice = s.voice ?? 0
         for (const p of s.notes) {
           const pitch = { step: p.step, alter: p.alter, octave: p.octave }
-          if (p.tiedTo && regionIds.has(p.tiedTo)) incoming.push({ externalId: p.id, pitch })
-          if (p.tiedFrom && regionIds.has(p.tiedFrom)) outgoing.push({ externalId: p.id, pitch })
+          if (p.tiedTo && regionIds.has(p.tiedTo)) incoming.push({ externalId: p.id, pitch, voice })
+          if (p.tiedFrom && regionIds.has(p.tiedFrom)) outgoing.push({ externalId: p.id, pitch, voice })
         }
       }
     }
@@ -988,25 +992,27 @@ export class ScoreModel {
     lastMeasure: number,
     boundary: ReturnType<ScoreModel['captureBoundaryTies']>,
   ): void {
-    for (const { externalId, pitch } of boundary.incoming) {
-      const targetId = this.boundaryPitchId(firstMeasure, pitch, 'first')
+    for (const { externalId, pitch, voice } of boundary.incoming) {
+      const targetId = this.boundaryPitchId(firstMeasure, pitch, 'first', voice)
       if (targetId) this.linkTieById(externalId, targetId)
     }
-    for (const { externalId, pitch } of boundary.outgoing) {
-      const sourceId = this.boundaryPitchId(lastMeasure, pitch, 'last')
+    for (const { externalId, pitch, voice } of boundary.outgoing) {
+      const sourceId = this.boundaryPitchId(lastMeasure, pitch, 'last', voice)
       if (sourceId) this.linkTieById(sourceId, externalId)
     }
   }
 
-  /** Id of the matching pitch in the first/last chord (by beat) of a measure. */
+  /** Id of the matching pitch in the first/last chord (by beat) of a measure, within a voice. */
   private boundaryPitchId(
     measureNumber: number,
     pitch: { step: Note['step']; alter: Note['alter']; octave: number },
     which: 'first' | 'last',
+    voice: number,
   ): string | undefined {
     const m = this.getMeasure(measureNumber)
     if (!m) return undefined
     const chords = (m.slots.filter((s) => s.type === 'chord') as Chord[])
+      .filter((c) => (c.voice ?? 0) === voice) // ties never cross voices
       .sort((a, b) => fracCompare(a.beat, b.beat))
     const ordered = which === 'first' ? chords : chords.reverse()
     for (const c of ordered) {
@@ -1063,16 +1069,17 @@ export class ScoreModel {
     const slurs = this.score.slurs
     if (!slurs || slurs.length === 0) return []
 
-    // Region pitch id -> its absolute onset offset + pitch identity.
-    const inRegion = new Map<string, { offset: Fraction; pitch: SlurPitch }>()
+    // Region pitch id -> its absolute onset offset + pitch identity + voice.
+    const inRegion = new Map<string, { offset: Fraction; pitch: SlurPitch; voice: number }>()
     let base = fracCreate(0, 1)
     for (const m of regionMeasures) {
       const cap = measureCapacityFrac(m)
       for (const s of m.slots) {
         if (s.type !== 'chord') continue
         const offset = fracAdd(base, s.beat)
+        const voice = s.voice ?? 0
         for (const p of s.notes) {
-          inRegion.set(p.id, { offset, pitch: { step: p.step, alter: p.alter, octave: p.octave } })
+          inRegion.set(p.id, { offset, pitch: { step: p.step, alter: p.alter, octave: p.octave }, voice })
         }
       }
       base = fracAdd(base, cap)
@@ -1085,16 +1092,16 @@ export class ScoreModel {
       if (!start && !end) continue // slur lies wholly outside the region — untouched
       captured.push({
         slur,
-        start: start ? { offset: start.offset, pitch: start.pitch } : { externalId: slur.startNoteId },
-        end: end ? { offset: end.offset, pitch: end.pitch } : { externalId: slur.endNoteId },
+        start: start ? { offset: start.offset, pitch: start.pitch, voice: start.voice } : { externalId: slur.startNoteId },
+        end: end ? { offset: end.offset, pitch: end.pitch, voice: end.voice } : { externalId: slur.endNoteId },
       })
     }
     return captured
   }
 
-  /** Canonical lookup key for a slur anchor: absolute onset offset + exact pitch. */
-  private slurAnchorKey(offset: Fraction, pitch: SlurPitch): string {
-    return `${offset.num}/${offset.den}|${pitch.step}/${pitch.alter}/${pitch.octave}`
+  /** Canonical lookup key for a slur anchor: absolute onset offset + exact pitch + voice. */
+  private slurAnchorKey(offset: Fraction, pitch: SlurPitch, voice: number): string {
+    return `${offset.num}/${offset.den}|${pitch.step}/${pitch.alter}/${pitch.octave}|v${voice}`
   }
 
   /**
@@ -1119,8 +1126,9 @@ export class ScoreModel {
       for (const s of m.slots) {
         if (s.type !== 'chord') continue
         const offset = fracAdd(base, s.beat)
+        const voice = s.voice ?? 0
         for (const p of s.notes) {
-          const key = this.slurAnchorKey(offset, { step: p.step, alter: p.alter, octave: p.octave })
+          const key = this.slurAnchorKey(offset, { step: p.step, alter: p.alter, octave: p.octave }, voice)
           if (!lookup.has(key)) lookup.set(key, p.id)
         }
       }
@@ -1130,7 +1138,7 @@ export class ScoreModel {
     const resolve = (end: CapturedSlurEnd): string | undefined =>
       end.externalId !== undefined
         ? end.externalId
-        : lookup.get(this.slurAnchorKey(end.offset, end.pitch))
+        : lookup.get(this.slurAnchorKey(end.offset, end.pitch, end.voice))
 
     for (const c of captured) {
       const idx = slurs.indexOf(c.slur)

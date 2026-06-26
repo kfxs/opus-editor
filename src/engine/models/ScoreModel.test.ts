@@ -1066,6 +1066,61 @@ describe('rebar preserves secondary voices', () => {
   })
 })
 
+describe('rebar voice-scopes ties and slurs (P2)', () => {
+  let model: ScoreModel
+  beforeEach(() => {
+    model = new ScoreModel() // measure 1, 4/4 by default
+  })
+
+  it('re-attaches boundary ties to the right voice when both voices are a unison at the edge', () => {
+    // m1 (external): C4 in voice 0 AND C4 in voice 1, both at the last beat.
+    const a0 = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
+    const a1 = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1), voice: 1 })
+    // m2 (the region we re-bar): a unison C4 in both voices at beat 0.
+    model.addMeasure()
+    const b0 = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    const b1 = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1), voice: 1 })
+    model.updateNote(a0.id, { tiedTo: b0.id })
+    model.updateNote(b0.id, { tiedFrom: a0.id })
+    model.updateNote(a1.id, { tiedTo: b1.id })
+    model.updateNote(b1.id, { tiedFrom: a1.id })
+
+    model.setTimeSignature(2, { numerator: 3, denominator: 4 }) // re-bars m2 → b0/b1 get new ids
+
+    // Each external tie re-attaches WITHIN its own voice (not stolen by the unison).
+    const t0 = model.getNote(model.getNote(a0.id)!.tiedTo!)
+    const t1 = model.getNote(model.getNote(a1.id)!.tiedTo!)
+    expect(t0).toBeTruthy()
+    expect(t1).toBeTruthy()
+    expect(t0!.voice ?? 0).toBe(0)
+    expect(t1!.voice).toBe(1)
+    expect(t0!.id).not.toBe(t1!.id) // distinct targets, one per voice
+  })
+
+  it('keeps a voice-2 slur on its own voice when voice 0 is a unison at the same beats', () => {
+    // Voice 0 and voice 1 share pitch+beat columns (C4@0, D4@1). The slur is voice 1.
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const s0 = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const s1 = model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+    const slur = model.addSlur({ startNoteId: s0.id, endNoteId: s1.id, voice: 1 })
+
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+
+    const slurs = model.getSlurs()
+    expect(slurs).toHaveLength(1)
+    expect(slurs[0].id).toBe(slur.id)
+    expect(slurs[0].voice).toBe(1)
+    // Both re-anchored endpoints land on voice-1 notes (not the voice-0 unison).
+    const start = model.getNote(slurs[0].startNoteId)!
+    const end = model.getNote(slurs[0].endNoteId)!
+    expect(start.voice).toBe(1)
+    expect(end.voice).toBe(1)
+    expect(start.step).toBe('C')
+    expect(end.step).toBe('D')
+  })
+})
+
 // ===========================================================================
 // Phase 5 — time-signature engine API
 // ===========================================================================
