@@ -814,7 +814,11 @@ export class VexFlowRenderer {
                 } catch (e) { /* Articulation bounding box may not be available */ }
               }
 
-              if (pitch.alter !== 0 || pitch.forceAccidental) {
+              // Register whatever accidental VexFlow actually drew — including a
+              // courtesy/auto natural (alter 0, not forced) that shows because an
+              // earlier note in the measure altered this pitch. The inner loop only
+              // acts when an Accidental modifier exists, so no guard on alter/force.
+              {
                 try {
                   const modifiers = staveNote.getModifiers()
                   for (const modifier of modifiers) {

@@ -2,10 +2,8 @@ import type { ArticulationType, Accidental, NoteDuration, PitchAlter, BeamMode, 
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState, DynamicTool } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
-import { fracLt, fracCompare, fracToNumber } from '../utils/fraction'
+import { fracToNumber } from '../utils/fraction'
 import { sameTimeSignature } from '../utils/meter'
-import { getMeasureNotes } from '../utils/musicUtils'
-import { spellingDiatonicPos } from '../utils/pitchSpelling'
 import { selectedNoteIds } from './selection'
 
 /** Placeholder for a freshly placed custom-text dynamic (mirrors MouseController). */
@@ -73,28 +71,16 @@ export class PaletteController {
       // Rests have no accidental — keep palette value armed for next note entry.
       if (note?.isRest) return
       if (newValue === null) {
-        if (note?.forceAccidental) {
-          engine.updateNote(this.state.selectedNoteId, { forceAccidental: undefined })
-        } else {
-          engine.updateNote(this.state.selectedNoteId, { alter: 0, forceAccidental: undefined })
-        }
+        // Remove the accidental: revert to the measure's prevailing alteration so the
+        // sign disappears in every case (lone sharp → natural; required ♮ → its sharp).
+        engine.updateNote(this.state.selectedNoteId, {
+          alter: engine.getPrevailingAlter(this.state.selectedNoteId),
+          forceAccidental: undefined,
+        })
       } else if (newValue === 'n') {
-        const score = engine.getScore()
-        const measure = score.measures.find(m => m.number === note!.measure)
-        let wouldAutoShow = false
-        if (measure) {
-          const active = new Map<number, PitchAlter>()
-          const preceding = getMeasureNotes(measure)
-            .filter(n => !n.isRest && !n.tiedFrom && fracLt(n.beat, note!.beat))
-            .sort((a, b) => fracCompare(a.beat, b.beat))
-          for (const n of preceding) {
-            const dPos = spellingDiatonicPos(n.step!, n.octave!)
-            active.set(dPos, n.alter ?? 0)
-          }
-          const dPos = spellingDiatonicPos(note!.step!, note!.octave!)
-          const activeAlter = active.get(dPos)
-          wouldAutoShow = activeAlter !== undefined && activeAlter !== 0
-        }
+        // A ♮ that cancels an earlier sharp/flat shows automatically; otherwise it's a
+        // courtesy natural that must be forced to appear.
+        const wouldAutoShow = engine.getPrevailingAlter(this.state.selectedNoteId) !== 0
         engine.updateNote(this.state.selectedNoteId, {
           alter: 0,
           forceAccidental: wouldAutoShow ? undefined : true,

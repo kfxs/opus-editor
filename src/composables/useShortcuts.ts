@@ -100,7 +100,11 @@ export function useShortcuts(
         renderer.renderScore()
       } else if (state.selectedAccidentalNoteId && eng) {
         const noteId = state.selectedAccidentalNoteId
-        eng.updateNote(noteId, { forceAccidental: undefined })
+        // Remove the accidental by reverting the note to the measure's prevailing
+        // alteration, then clearing any forced sign. This makes the glyph disappear in
+        // every case: a lone sharp/flat → natural (prevailing 0); a required natural
+        // (♮ cancelling an earlier sharp) → back to that sharp (prevailing ±1).
+        eng.updateNote(noteId, { alter: eng.getPrevailingAlter(noteId), forceAccidental: undefined })
         state.selectedAccidentalNoteId = null
         state.selectedAccidentalType = null
         selection.selectNote(noteId)

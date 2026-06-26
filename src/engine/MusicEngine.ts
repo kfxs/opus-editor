@@ -6,12 +6,12 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
-import { midiToNoteName, beatToFrac, measureCapacityQuarters, compareByPosition } from '@/utils/musicUtils'
-import { fracToNumber, fracEq } from '@/utils/fraction'
+import { midiToNoteName, beatToFrac, measureCapacityQuarters, compareByPosition, getMeasureNotes } from '@/utils/musicUtils'
+import { fracToNumber, fracEq, fracLt, fracCompare } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
-import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
+import { spellingToMidi, accidentalToAlter, spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Slur } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Slur, PitchAlter } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 import type { RebarEvent } from '@/utils/rebar'
@@ -841,6 +841,32 @@ export class MusicEngine {
    */
   getNote(noteId: string): Note | undefined {
     return this.scoreModel.getNote(noteId)
+  }
+
+  /**
+   * The alteration (sharp/flat/natural) in effect for a note's staff position from
+   * running accidentals earlier in its measure — i.e. what the note would sound as
+   * if it carried no explicit accidental. Returns 0 when nothing earlier altered it.
+   *
+   * Mirrors the renderer's running-accidental logic (NoteBuilder): only preceding,
+   * non-tied notes on the same diatonic position count; key signature is not folded
+   * in (VexFlow draws those separately). Used by "remove accidental" so the note
+   * reverts to the prevailing alteration and its sign disappears.
+   */
+  getPrevailingAlter(noteId: string): PitchAlter {
+    const note = this.scoreModel.getNote(noteId)
+    if (!note || note.isRest || note.step === undefined || note.octave === undefined) return 0
+    const measure = this.scoreModel.getScore().measures.find(m => m.number === note.measure)
+    if (!measure) return 0
+    const targetPos = spellingDiatonicPos(note.step, note.octave)
+    let active: PitchAlter = 0
+    const preceding = getMeasureNotes(measure)
+      .filter(n => !n.isRest && !n.tiedFrom && n.step !== undefined && fracLt(n.beat, note.beat))
+      .sort((a, b) => fracCompare(a.beat, b.beat))
+    for (const n of preceding) {
+      if (spellingDiatonicPos(n.step!, n.octave!) === targetPos) active = n.alter ?? 0
+    }
+    return active
   }
 
   /**
