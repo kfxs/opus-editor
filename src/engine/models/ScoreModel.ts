@@ -16,7 +16,7 @@ import {
 } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
-import { flattenRegion, relayEvents, type RebarPiece, type RebarEvent } from '@/utils/rebar'
+import { flattenRegion, relayEvents, type RebarPiece, type RebarEvent, type BarPlan } from '@/utils/rebar'
 import {
   type Fraction,
   fracCreate,
@@ -698,13 +698,21 @@ export class ScoreModel {
     // be re-attached to the rebar'd notes (otherwise they'd dangle and vanish).
     const slurState = this.captureSlurs(regionMeasures)
 
-    // Flatten using the CURRENT (old) meter, before changing it.
-    const events = flattenRegion(regionMeasures, 0)
-
     // Capture beat-anchored annotations (clef changes + dynamics) by their ABSOLUTE
     // offset from the region start, using the OLD capacities — before the meter is
     // overwritten below. They are re-anchored after rebar (see restoreBeatAnchors).
     const anchors = this.captureBeatAnchors(regionMeasures)
+
+    // Distinct voices present in the region (always include voice 0).
+    const voices = new Set<number>([0])
+    for (const m of regionMeasures) for (const s of m.slots) voices.add(s.voice ?? 0)
+
+    // Flatten EVERY voice against the CURRENT (old) meter — this MUST happen before
+    // the meter overwrite, because flattenRegion reads each measure's timeSignature
+    // to compute offsets. (Folding the overwrite into a per-voice loop would flatten
+    // later voices against the new meter = the exact corruption this fixes.)
+    const eventsByVoice = new Map<number, RebarEvent[]>()
+    for (const v of voices) eventsByVoice.set(v, flattenRegion(regionMeasures, v as 0 | 1 | 2 | 3))
 
     // Apply the new meter to every region measure. Re-barring rewrites bars to
     // nominal length, so any pickup override on a rewritten bar is cleared (v1).
@@ -713,9 +721,17 @@ export class ScoreModel {
       delete m.actualDurationOverride
     }
 
-    // Always grow (bounded: false): overflow becomes MORE bars, never crammed.
+    // Relay EACH voice against the NEW meter. Always grow (bounded: false):
+    // overflow becomes MORE bars, never crammed. The region grows to the LONGEST
+    // voice's plan.
     const meter = getMeterInfo(ts)
-    const plan = relayEvents(events, meter, { targetBars, bounded: false })
+    const plans = new Map<number, BarPlan[]>()
+    let maxBars = targetBars
+    for (const v of voices) {
+      const plan = relayEvents(eventsByVoice.get(v)!, meter, { targetBars, bounded: false })
+      plans.set(v, plan)
+      if (plan.length > maxBars) maxBars = plan.length
+    }
 
     // Grow the region in place: insert any extra bars immediately after the last
     // region measure, PUSHING the next TS change (and all downstream content)
@@ -723,22 +739,17 @@ export class ScoreModel {
     // last, so this is identical to appending. Insert consecutively so the new
     // bars stay contiguous with the region.
     const lastRegionNumber = regionMeasures[regionMeasures.length - 1].number
-    const grow = plan.length - targetBars
+    const grow = maxBars - targetBars
     for (let i = 0; i < grow; i++) {
       this.insertMeasureAfter(lastRegionNumber + i, ts)
     }
 
-    // The region now occupies a contiguous run of `plan.length` bars from fromMeasure.
+    // The region now occupies a contiguous run of `maxBars` bars from fromMeasure.
     const regionNumbers: number[] = []
-    for (let i = 0; i < plan.length; i++) regionNumbers.push(fromMeasure + i)
+    for (let i = 0; i < maxBars; i++) regionNumbers.push(fromMeasure + i)
 
-    // Materialise each bar; collect chord pieces (in temporal order) for ties.
-    const created: Array<{ piece: RebarPiece; chord: Chord }> = []
-    for (let i = 0; i < plan.length; i++) {
-      const m = this.getMeasure(regionNumbers[i])
-      if (m) this.materializeBar(m, plan[i], created)
-    }
-    this.linkRebarTies(created)
+    // Materialise every voice additively (clear-once → per-voice fill → collapse).
+    this.materializeRegion(regionNumbers, plans)
 
     // Re-barring regenerated the region's slot ids, so a tie that crossed the
     // region boundary now points at a deleted id. Re-attach it to the rebar'd
@@ -793,8 +804,18 @@ export class ScoreModel {
 
     const boundary = this.captureBoundaryTies(regionMeasures)
     const slurState = this.captureSlurs(regionMeasures)
-    const existing = flattenRegion(regionMeasures, 0)
     const anchors = this.captureBeatAnchors(regionMeasures)
+
+    // Voice 0 is the paste target. Capture every OTHER voice in the region now, so
+    // they survive the shared (all-voice) clear and are re-laid verbatim — a paste
+    // must not erase voice 2 (the materialise step used to wipe it; see plan §Paste).
+    const voices = new Set<number>([0])
+    for (const m of regionMeasures) for (const s of m.slots) voices.add(s.voice ?? 0)
+    const existing = flattenRegion(regionMeasures, 0)
+    const otherEvents = new Map<number, RebarEvent[]>()
+    for (const v of voices) {
+      if (v !== 0) otherEvents.set(v, flattenRegion(regionMeasures, v as 0 | 1 | 2 | 3))
+    }
 
     // Overwrite: keep only existing events that lie wholly outside the paste window;
     // anything overlapping it is replaced by the clip (and rest-fill for any remainder).
@@ -807,19 +828,25 @@ export class ScoreModel {
 
     const meter = getMeterInfo(ts)
     const targetBars = regionMeasures.length
-    const plan = relayEvents(merged, meter, { targetBars, bounded })
+
+    // Voice 0 = the paste window; every other voice re-lays verbatim (passthrough,
+    // same meter — barlines don't move, growth only appends a tail they ignore).
+    const plans = new Map<number, BarPlan[]>()
+    const v0plan = relayEvents(merged, meter, { targetBars, bounded })
+    plans.set(0, v0plan)
+    let maxBars = Math.max(targetBars, v0plan.length)
+    for (const [v, ev] of otherEvents) {
+      const p = relayEvents(ev, meter, { targetBars, bounded })
+      plans.set(v, p)
+      if (p.length > maxBars) maxBars = p.length
+    }
 
     const regionNumbers = regionMeasures.map((m) => m.number)
-    for (let i = targetBars; i < plan.length; i++) {
+    for (let i = targetBars; i < maxBars; i++) {
       regionNumbers.push(this.addMeasure(ts).number)
     }
 
-    const created: Array<{ piece: RebarPiece; chord: Chord }> = []
-    for (let i = 0; i < plan.length; i++) {
-      const m = this.getMeasure(regionNumbers[i])
-      if (m) this.materializeBar(m, plan[i], created)
-    }
-    this.linkRebarTies(created)
+    const created = this.materializeRegion(regionNumbers, plans)
     this.restoreBoundaryTies(targetMeasure, regionNumbers[regionNumbers.length - 1], boundary)
     this.repairDanglingTies()
     this.restoreSlurs(regionNumbers, slurState)
@@ -836,6 +863,7 @@ export class ScoreModel {
     }
     const pastedIds: string[] = []
     for (const { chord } of created) {
+      if ((chord.voice ?? 0) !== 0) continue // only the pasted (voice-0) notes
       const mStart = startOfMeasure.get(chord.measure)
       if (!mStart) continue
       const absOffset = fracAdd(mStart, chord.beat)
@@ -1138,19 +1166,33 @@ export class ScoreModel {
     }
   }
 
-  /** Replace a measure's slots/tuplets with a rebar {@link RebarPiece} plan. */
-  private materializeBar(
-    measure: Measure,
-    plan: RebarPiece[],
-    created: Array<{ piece: RebarPiece; chord: Chord }>,
-  ): void {
+  /**
+   * Wipe a measure's slots/tuplets and beat-anchored annotations ahead of a rebar
+   * materialise. Called ONCE per region measure (clears ALL voices) before any
+   * voice's plan is materialised — see {@link materializeRegion}.
+   */
+  private clearMeasureForRebar(measure: Measure): void {
     measure.slots = []
     measure.tuplets = []
     delete measure.clefs // mid-bar clefs anchored to moved beats are dropped (Phase 8 limitation)
     delete measure.dynamics // dynamics share the clef limitation: beat anchors don't survive a rebar
+  }
 
+  /**
+   * Materialise ONE voice's rebar {@link RebarPiece} plan into a measure
+   * ADDITIVELY — does NOT wipe the measure (call {@link clearMeasureForRebar} once
+   * per measure first). Each created chord/rest is tagged with `voice`; voice 0
+   * stays stored as `undefined` (data-model invariant — see {@link pushRestSlot}).
+   */
+  private materializeVoiceBar(
+    measure: Measure,
+    plan: RebarPiece[],
+    voice: number,
+    created: Array<{ piece: RebarPiece; chord: Chord }>,
+  ): void {
     for (const piece of plan) {
       if (piece.atomic && piece.payload) {
+        // Tuplet: structuredClone preserves the source slot's voice — no voice arg.
         this.materializeAtomicPiece(measure, piece)
         continue
       }
@@ -1158,7 +1200,7 @@ export class ScoreModel {
         this.pushRestSlot(
           measure,
           { beat: piece.beat, duration: piece.duration, dots: piece.dots, isMeasureRest: piece.isMeasureRest },
-          0,
+          voice,
         )
         continue
       }
@@ -1175,6 +1217,7 @@ export class ScoreModel {
           return np
         }),
       }
+      if (voice) chord.voice = voice as 0 | 1 | 2 | 3
       if (piece.dots) chord.dots = piece.dots
       if (piece.stemDirection) chord.stemDirection = piece.stemDirection
       if (piece.articulations) chord.articulations = piece.articulations
@@ -1184,6 +1227,47 @@ export class ScoreModel {
     }
 
     measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+  }
+
+  /**
+   * Materialise a whole region from a per-voice plan map — the shared additive
+   * core behind both {@link rebarRegion} and {@link pasteEvents}. Steps (plan
+   * Phase 1 §4–7):
+   *   1. clear every region measure once (all voices),
+   *   2. materialise each voice additively with a PER-VOICE tie chain
+   *      ({@link linkRebarTies} must not bridge voices),
+   *   3. voice-0 safety rest-fill for any grown bars,
+   *   4. collapse rests-only secondary voices.
+   * Returns every created chord piece (across all voices) for caller-side use
+   * (e.g. paste needs the voice-0 pieces to report pasted ids).
+   */
+  private materializeRegion(
+    regionNumbers: number[],
+    plans: Map<number, BarPlan[]>,
+  ): Array<{ piece: RebarPiece; chord: Chord }> {
+    for (const num of regionNumbers) {
+      const m = this.getMeasure(num)
+      if (m) this.clearMeasureForRebar(m)
+    }
+
+    const allCreated: Array<{ piece: RebarPiece; chord: Chord }> = []
+    for (const [voice, plan] of plans) {
+      const created: Array<{ piece: RebarPiece; chord: Chord }> = []
+      for (let i = 0; i < plan.length; i++) {
+        const m = this.getMeasure(regionNumbers[i])
+        if (m) this.materializeVoiceBar(m, plan[i], voice, created)
+      }
+      this.linkRebarTies(created) // per-voice chain only
+      allCreated.push(...created)
+    }
+
+    for (const num of regionNumbers) {
+      const m = this.getMeasure(num)
+      if (m) this.fillGapsWithRests(m) // adds the missing voice-0 rest in grown bars
+      this.collapseEmptyVoices(num) // drop a secondary voice that re-laid to all-rests
+    }
+
+    return allCreated
   }
 
   /** Re-create an atomic tuplet (verbatim slots, fresh ids) at the piece's beat. */
