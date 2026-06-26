@@ -127,6 +127,26 @@ describe('KeyboardController', () => {
       expect(state.selectedNoteId).toBe(placed[0].id)
       expect(state.selectedNoteId).not.toBe(n0)
     })
+
+    it('flows a secondary voice into the next measure even when that voice is empty there', () => {
+      // Two measures; voice 2 fills measure 1 (a whole note) but has NO content in
+      // measure 2. The voice-2 beat stream therefore ends at the m1 barline.
+      while (engine.getScore().measures.length < 2) engine.addMeasure()
+      const v2 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'w', measure: 1, beat: frac(0, 1), voice: 1 })!.id
+      state.selectedTool = 'entry'
+      state.selectedDuration = 'q'
+      state.selectedNoteId = v2
+
+      kb.enterNoteByLetter('d') // entry mode → enterNoteAtCursorPosition
+
+      // The note must land at the downbeat of measure 2, in voice 2 (not stall at the barline).
+      const m2 = engine.getScore().measures.find(m => m.number === 2)!
+      const placed = getMeasureNotes(m2).filter(n => !n.isRest && (n.voice ?? 0) === 1)
+      expect(placed).toHaveLength(1)
+      expect(placed[0].step).toBe('D')
+      expect(fracEq(placed[0].beat, frac(0, 1))).toBe(true)
+      expect(state.selectedNoteId).toBe(placed[0].id) // cursor followed into measure 2
+    })
   })
 
   describe('enterRestAtCursorPosition (entry mode only)', () => {

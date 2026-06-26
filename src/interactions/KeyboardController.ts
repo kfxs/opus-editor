@@ -1,10 +1,10 @@
-import type { ArticulationType, NoteDuration, Note, PitchStep, PitchAlter } from '../types/music'
+import type { ArticulationType, NoteDuration, Note, PitchStep, PitchAlter, Fraction, Score } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
-import { navBeatMap } from '../utils/beatMap'
+import { navBeatMap, type FlatNote } from '../utils/beatMap'
 import { durationToBeats, getMeasureNotes, measureCapacityQuarters } from '../utils/musicUtils'
-import { fracToNumber, fracEq } from '../utils/fraction'
+import { fracToNumber, fracEq, fracFromInt } from '../utils/fraction'
 import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
 
 /** Natural (no-accidental) semitone offsets for each step letter */
@@ -89,6 +89,35 @@ export class KeyboardController {
    * Overwrites whatever is there, filling leftover space with rests.
    * Handles measure overflow via tie splitting. Advances selectedNoteId.
    */
+  /**
+   * Where the next keyboard entry should land, given the cursor's position in its
+   * voice-scoped beat stream. Returns the next slot when it's in the SAME measure;
+   * otherwise — the cursor is on this voice's last slot in the current measure —
+   * flows into the immediately-following measure's downbeat so entry continues into
+   * the next bar even when this voice has no content there yet (it gets materialised
+   * on placement). Returns null only at the genuine end of the score.
+   *
+   * This makes secondary-voice entry behave like voice 1: voice 1's stream has a slot
+   * (a rest) in every measure, so it never stalls at a barline; a sparse voice would,
+   * without this boundary fallback.
+   */
+  private nextEntryPosition(
+    currentNote: FlatNote,
+    beats: FlatNote[],
+    currentIndex: number,
+    score: Score,
+  ): { targetMeasure: number; targetBeat: Fraction } | null {
+    const nextBeat = beats[currentIndex + 1]
+    if (nextBeat && nextBeat.measureNumber === currentNote.measureNumber) {
+      return { targetMeasure: nextBeat.measureNumber, targetBeat: nextBeat.beat }
+    }
+    const nextMeasure = score.measures
+      .filter(m => m.number > currentNote.measureNumber)
+      .sort((a, b) => a.number - b.number)[0]
+    if (!nextMeasure) return null // genuine end of score
+    return { targetMeasure: nextMeasure.number, targetBeat: fracFromInt(0) }
+  }
+
   enterNoteAtCursorPosition(step: PitchStep): void {
     const engine = this.getEngine()
     if (!this.state.selectedNoteId || !engine) return
@@ -114,16 +143,14 @@ export class KeyboardController {
       return
     }
 
-    let nextBeat = beats[currentIndex + 1]
-    if (!nextBeat) {
+    const next = this.nextEntryPosition(currentNote, beats, currentIndex, score)
+    if (!next) {
       console.log('[Cursor] enterNoteAtCursorPosition: cursor is at end of score, nowhere to place note')
       return
     }
+    const { targetMeasure, targetBeat } = next
 
-    console.log(`[Cursor] position: m${currentNote.measureNumber} beat:${fracToNumber(currentNote.beat).toFixed(4)} (${currentNote.isRest ? 'rest' : `${currentNote.step ?? '?'}${currentNote.octave ?? ''}`}${currentNote.tupletId ? ' tuplet' : ''}) → targeting m${nextBeat.measureNumber} beat:${fracToNumber(nextBeat.beat).toFixed(4)}`)
-
-    const targetMeasure = nextBeat.measureNumber
-    const targetBeat = nextBeat.beat
+    console.log(`[Cursor] position: m${currentNote.measureNumber} beat:${fracToNumber(currentNote.beat).toFixed(4)} (${currentNote.isRest ? 'rest' : `${currentNote.step ?? '?'}${currentNote.octave ?? ''}`}${currentNote.tupletId ? ' tuplet' : ''}) → targeting m${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(4)}`)
 
     const alter: PitchAlter = accidentalToAlter(this.state.selectedAccidental)
     const referenceMidi = (!currentNote.isRest && currentNote.step)
@@ -222,14 +249,12 @@ export class KeyboardController {
     const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat.num}/${n.beat.den}` === currentKey)
     if (currentIndex === -1) return
 
-    const nextBeat = beats[currentIndex + 1]
-    if (!nextBeat) {
+    const next = this.nextEntryPosition(currentNote, beats, currentIndex, score)
+    if (!next) {
       console.log('[Keyboard] enterRestAtCursorPosition: cursor is at end of score')
       return
     }
-
-    const targetMeasure = nextBeat.measureNumber
-    const targetBeat = nextBeat.beat
+    const { targetMeasure, targetBeat } = next
     const newDurationBeats = durationToBeats(this.state.selectedDuration, this.state.selectedDots)
 
     const measureData = score.measures.find(m => m.number === targetMeasure)
