@@ -1,4 +1,5 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, EngravingOverride } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride } from '@/types/music'
+import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps } from './engravingOverrides'
 import {
   getTupletTotalBeatsFrac,
   getTupletNoteDurationFrac,
@@ -435,23 +436,31 @@ export class ScoreModel {
 
   /**
    * Set (or clear) a slur's user-edited curve shape. Pass the two cubic control-point
-   * deltas to override the auto arch; pass `null` to drop the override and revert to the
-   * auto shape (see {@link Slur.cps}). @returns true if the slur exists and was updated.
+   * deltas (in **staff-spaces**, anchor-relative — the caller converts from pixels) to
+   * override the auto arch; pass `null` to drop the override and revert to the auto
+   * shape. The shape lives in the engraving-overrides compartment keyed by the slur id
+   * (a {@link CurveShapeOverride}), NOT on the `Slur` — pixels stay out of the content
+   * model (Phase 1; see docs/engraving-overrides-plan.md). @returns true if the slur
+   * exists and was updated.
    */
-  setSlurShape(id: string, cps: Slur['cps'] | null): boolean {
+  setSlurShape(id: string, cps: CurveControlPointDeltas | null): boolean {
     const slur = this.getSlurById(id)
     if (!slur) return false
-    if (cps) slur.cps = cps
-    else delete slur.cps
+    if (cps) {
+      const override: CurveShapeOverride = { kind: 'curveShape', cps }
+      this.setEngravingOverride(id, override)
+    } else {
+      this.clearEngravingOverride(id, 'curveShape')
+    }
     return true
   }
 
   /**
    * Re-anchor one end of a slur onto a different note (used by the draggable endpoint
-   * handles). Rewrites `startNoteId` or `endNoteId` and **drops any custom shape**
-   * (`cps`) — the hand-tuned arc was relative to the old span, so it re-bows to the
-   * auto arch for the new endpoints. Rejected (returns false) if the slur is missing,
-   * the target equals the current anchor, or it would collapse the span (start === end).
+   * handles). Rewrites `startNoteId` or `endNoteId` and **drops any custom shape** — the
+   * hand-tuned arc was relative to the old span, so it re-bows to the auto arch for the
+   * new endpoints. Rejected (returns false) if the slur is missing, the target equals
+   * the current anchor, or it would collapse the span (start === end).
    */
   setSlurEndpoint(id: string, which: 'start' | 'end', noteId: string): boolean {
     const slur = this.getSlurById(id)
@@ -461,7 +470,7 @@ export class ScoreModel {
     if (noteId === otherId || noteId === currentId) return false
     if (which === 'start') slur.startNoteId = noteId
     else slur.endNoteId = noteId
-    delete slur.cps // shape was relative to the old span — reset to auto
+    this.clearEngravingOverride(id, 'curveShape') // shape was relative to the old span — reset to auto
     return true
   }
 
@@ -475,12 +484,12 @@ export class ScoreModel {
 
   /** Every override recorded for an element id (the live array, or [] if none). */
   getEngravingOverrides(elementId: string): EngravingOverride[] {
-    return this.score.engravingOverrides?.[elementId] ?? []
+    return engravingOverridesOf(this.score, elementId)
   }
 
   /** The override of a given `kind` on an element, or undefined when absent. */
   getEngravingOverride(elementId: string, kind: string): EngravingOverride | undefined {
-    return this.score.engravingOverrides?.[elementId]?.find(o => o.kind === kind)
+    return engravingOverrideOf(this.score, elementId, kind)
   }
 
   /**
@@ -2631,6 +2640,10 @@ export class ScoreModel {
     // TimeSignature type permits any integers), so reject non-dyadic / out-of-
     // range signatures here before they detonate in meter.ts or the renderer.
     ScoreModel.validateMeters(scoreData)
+
+    // Forward-migrate the pre-Phase-1 inline `Slur.cps` (pixels) into the
+    // engraving-overrides compartment (staff-spaces). No-op for new-format scores.
+    migrateLegacySlurCps(scoreData)
 
     // actualDuration is derived state — recompute it rather than trust the wire.
     // The helper handles measure rests (whole-bar length) in every meter.

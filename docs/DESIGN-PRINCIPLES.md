@@ -85,14 +85,19 @@ assumes a fixed number of staves; entry paths that only work for the "main" staf
 Places where today's code touches one of these principles and the decision should
 be made *consciously* before more code piles onto it.
 
-- **`Slur.cps` stores geometry in the model (re: principle 3).** The two Bézier
-  control-point deltas `{x, y}` on `Score.slurs` are pixel-space and round-trip in
-  JSON. This is a *deliberate exception*, not a leak: it is a user-authored manual
-  shape override (composer intent that must persist), mirroring MusicXML's bezier
-  offsets. It is currently the **only** place content and geometry touch. Before
-  adding more drag-shaped/hand-positioned objects, decide whether such geometry
-  overrides belong in the model or in a separate "engraving overrides" side-layer —
-  don't let `cps` become an unexamined precedent.
+- **~~`Slur.cps` stores geometry in the model (re: principle 3).~~ RESOLVED (Phase 1,
+  engraving-overrides plan).** The hand-edited slur shape no longer lives on `Slur`.
+  Authored geometry now goes in a dedicated **engraving-overrides compartment**
+  (`score.engravingOverrides`, an id-keyed sub-tree of `Score`), stored in
+  **staff-spaces** and anchor-relative — not pixels — so the content model and its JSON
+  are pixel-free (principle 3 held) and a tweak is resolution-independent. The slur
+  `curveShape` override is client #1; old scores carrying inline `Slur.cps` are
+  forward-migrated on load (`migrateLegacySlurCps`). The "decide before adding more
+  drag-shaped objects" question this entry raised is answered by
+  `docs/engraving-overrides-plan.md`: a separate compartment keyed by element id, with
+  a per-element recipe for any future adjustable element. Semantic side/direction flips
+  (`placement`, `stemDirection`, `tieDirection`) deliberately stay on the content model
+  — they are notational meaning, not geometry.
 
 - **`measures` lives directly on `Score`, and "measure N" is a global key (re:
   principle 4).** `getMeasure(n)`, `measure.number`, and renumber-on-insert all

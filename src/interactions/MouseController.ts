@@ -58,6 +58,9 @@ export class MouseController {
   private draggedSlurEndpoints: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number } | null = null
   /** The slur's [cp0, cp1] at drag start; the non-dragged control point is held fixed. */
   private draggedSlurBaselineCps: [{ x: number; y: number }, { x: number; y: number }] | null = null
+  /** Stave line spacing (px) where the dragged slur was drawn — converts the new pixel
+   *  shape to staff-spaces before storing (the override is resolution-independent). */
+  private draggedStaffSpacePx = 10
   private slurDragChanged = false
   private slurDragStartTime: number | null = null
 
@@ -504,6 +507,7 @@ export class MouseController {
         this.draggedCpIndex = handle.cpIndex
         this.draggedSlurEndpoints = slurEl.slurEndpoints
         this.draggedSlurBaselineCps = this.cpsFromControlPoints(slurEl.controlPoints, slurEl.slurEndpoints)
+        this.draggedStaffSpacePx = slurEl.staffSpacePx ?? 10
         this.slurDragChanged = false
         this.slurDragStartTime = Date.now()
         console.log(`Slur handle drag ready | id:${handle.slurId} cp:${handle.cpIndex}`)
@@ -797,8 +801,9 @@ export class MouseController {
 
   /**
    * Invert `Curve.renderCurve`'s control-point math (the same math `drawCurveArc` uses
-   * forward) to recover the `Slur.cps` deltas from the two on-screen control points and
-   * the arc's endpoint geometry. With xShift/yShift = 0 and `cps.length === 2`,
+   * forward) to recover the **pixel** control-point deltas from the two on-screen control
+   * points and the arc's endpoint geometry (the caller converts to staff-spaces before
+   * storing). With xShift/yShift = 0 and `cps.length === 2`,
    * `spacing = (p1.x - p0.x) / 4`, `C0 = (p0.x+spacing+cp0.x, p0.y+cp0.y·dir)` and
    * `C1 = (p1.x-spacing+cp1.x, p1.y+cp1.y·dir)`.
    */
@@ -1168,7 +1173,14 @@ export class MouseController {
     const cps: [{ x: number; y: number }, { x: number; y: number }] = this.draggedCpIndex === 0
       ? [dragged, this.draggedSlurBaselineCps[1]]
       : [this.draggedSlurBaselineCps[0], dragged]
-    if (engine.previewSlurShape(this.draggedSlurId, cps)) {
+    // The drag math is in pixels; the override is stored in staff-spaces (resolution-
+    // independent), so divide by the stave line spacing before handing it to the model.
+    const ss = this.draggedStaffSpacePx
+    const cpsStaffSpaces: [{ x: number; y: number }, { x: number; y: number }] = [
+      { x: cps[0].x / ss, y: cps[0].y / ss },
+      { x: cps[1].x / ss, y: cps[1].y / ss },
+    ]
+    if (engine.previewSlurShape(this.draggedSlurId, cpsStaffSpaces)) {
       this.slurDragChanged = true
       this.render.renderScore()
     }

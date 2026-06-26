@@ -174,8 +174,13 @@ export interface ElementInfo {
    *  Drawn as draggable handles when the slur is selected (Phase 7). */
   controlPoints?: [{ x: number; y: number }, { x: number; y: number }]
   /** The slur arc's endpoint geometry, so a handle drag can invert renderCurve's
-   *  control-point math (cp = f(handlePixel, endpoints)) back into `Slur.cps`. */
+   *  control-point math (cp = f(handlePixel, endpoints)) back into pixel control-point
+   *  deltas. */
   slurEndpoints?: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number }
+  /** The stave's line spacing (px) where this slur was drawn. Lets a handle drag convert
+   *  the new pixel shape to **staff-spaces** before storing it in the engraving-overrides
+   *  compartment (so the saved shape is resolution-independent). See docs/engraving-overrides-plan.md. */
+  staffSpacePx?: number
   /** The side a slur was actually drawn on: -1 = above, +1 = below. Lets a flip
    *  toggle an auto-placed slur to the opposite of what's on screen. */
   slurDirection?: number

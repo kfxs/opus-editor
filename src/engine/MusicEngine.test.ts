@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MusicEngine } from './MusicEngine'
+import { curveShapeOverrideOf } from './models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { buildBeatMap, navBeatMap } from '@/utils/beatMap'
 
@@ -772,49 +773,54 @@ describe('MusicEngine.createSlur — endpoint resolution', () => {
     expect(engine.undo()).toBe(true)
     expect(engine.getSlurs()).toHaveLength(1) // undo restores the removed slur
   })
-  it('setSlurShape sets/clears cps as one undo step', () => {
+  it('setSlurShape sets/clears the curve-shape override as one undo step', () => {
+    // The shape now lives in the engraving-overrides compartment (staff-spaces), not on
+    // the Slur. The engine/model pass the cps through verbatim — the px↔staff-space
+    // conversion happens at the render/drag boundary, not here.
+    const shapeOf = (id: string) => curveShapeOverrideOf(engine.getScore(), id)?.cps
     const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const slur = engine.createSlur([a.id])!
-    expect(slur.cps).toBeUndefined() // default = auto shape
+    expect(shapeOf(slur.id)).toBeUndefined() // default = auto shape
 
-    const cps: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 2, y: 14 }, { x: -3, y: 16 }]
+    const cps: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 0.2, y: 1.4 }, { x: -0.3, y: 1.6 }]
     expect(engine.setSlurShape(slur.id, cps)).toBe(true)
-    expect(engine.getSlurById(slur.id)!.cps).toEqual(cps)
+    expect(shapeOf(slur.id)).toEqual(cps)
 
     expect(engine.undo()).toBe(true)
-    expect(engine.getSlurById(slur.id)!.cps).toBeUndefined() // undo reverts to auto
+    expect(shapeOf(slur.id)).toBeUndefined() // undo reverts to auto
 
     expect(engine.redo()).toBe(true)
-    expect(engine.getSlurById(slur.id)!.cps).toEqual(cps)
+    expect(shapeOf(slur.id)).toEqual(cps)
 
     // Clearing with null drops the override back to auto.
     expect(engine.setSlurShape(slur.id, null)).toBe(true)
-    expect(engine.getSlurById(slur.id)!.cps).toBeUndefined()
+    expect(shapeOf(slur.id)).toBeUndefined()
 
     // Unknown id is a no-op.
     expect(engine.setSlurShape('nope', cps)).toBe(false)
   })
 
   it('previewSlurShape (no undo) + commitSlurShape (one undo) = a single reshape step', () => {
+    const shapeOf = (id: string) => curveShapeOverrideOf(engine.getScore(), id)?.cps
     const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const slur = engine.createSlur([a.id])!
-    expect(slur.cps).toBeUndefined()
+    expect(shapeOf(slur.id)).toBeUndefined()
 
     // Several live preview updates during a "drag" — none record undo.
-    const cps1: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 1, y: 10 }, { x: 1, y: 10 }]
-    const cps2: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 5, y: 18 }, { x: -2, y: 16 }]
+    const cps1: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 0.1, y: 1.0 }, { x: 0.1, y: 1.0 }]
+    const cps2: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 0.5, y: 1.8 }, { x: -0.2, y: 1.6 }]
     expect(engine.previewSlurShape(slur.id, cps1)).toBe(true)
     expect(engine.previewSlurShape(slur.id, cps2)).toBe(true)
-    expect(engine.getSlurById(slur.id)!.cps).toEqual(cps2)
+    expect(shapeOf(slur.id)).toEqual(cps2)
 
     engine.commitSlurShape() // one undo entry for the whole drag
 
     expect(engine.undo()).toBe(true)
-    expect(engine.getSlurById(slur.id)!.cps).toBeUndefined() // reverts past the entire drag to the auto shape
+    expect(shapeOf(slur.id)).toBeUndefined() // reverts past the entire drag to the auto shape
     expect(engine.redo()).toBe(true)
-    expect(engine.getSlurById(slur.id)!.cps).toEqual(cps2) // redo restores the final dragged shape
+    expect(shapeOf(slur.id)).toEqual(cps2) // redo restores the final dragged shape
   })
   it('flipSlur toggles auto ↔ flipped as one undo step', () => {
     const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })

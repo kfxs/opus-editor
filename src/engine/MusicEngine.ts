@@ -11,7 +11,7 @@ import { fracToNumber, fracEq, fracLt, fracCompare } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Slur, PitchAlter } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Slur, PitchAlter, CurveControlPointDeltas } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 import type { RebarEvent } from '@/utils/rebar'
@@ -750,18 +750,21 @@ export class MusicEngine {
   }
 
   /** Set (or clear with `null`) a slur's user-edited curve shape (the two cubic
-   *  control-point deltas; see {@link Slur.cps}). Saves one undo step on success.
+   *  control-point deltas, in **staff-spaces** — the caller converts from pixels). Stored
+   *  in the engraving-overrides compartment, not on the slur (see
+   *  {@link CurveShapeOverride}). Saves one undo step on success.
    *  @returns true if the slur exists and was updated. */
-  setSlurShape(id: string, cps: Slur['cps'] | null): boolean {
+  setSlurShape(id: string, cps: CurveControlPointDeltas | null): boolean {
     const updated = this.scoreModel.setSlurShape(id, cps)
     if (updated) this.saveOnly(cps ? 'Reshape slur' : 'Reset slur shape')
     return updated
   }
 
-  /** Live (preview) shape update used **while dragging a slur handle** — mutates the
-   *  slur's `cps` but does NOT record undo. Call {@link commitSlurShape} on drop to
-   *  push the single undo entry (mirrors `moveClef` / `commitClefMove`). */
-  previewSlurShape(id: string, cps: Slur['cps']): boolean {
+  /** Live (preview) shape update used **while dragging a slur handle** — updates the
+   *  slur's curve-shape override (staff-spaces) but does NOT record undo. Call
+   *  {@link commitSlurShape} on drop to push the single undo entry (mirrors `moveClef` /
+   *  `commitClefMove`). */
+  previewSlurShape(id: string, cps: CurveControlPointDeltas): boolean {
     return this.scoreModel.setSlurShape(id, cps)
   }
 

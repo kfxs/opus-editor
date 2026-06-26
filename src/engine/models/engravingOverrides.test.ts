@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import type { EngravingOverride } from '@/types/music'
+import { curveShapeOverrideOf, migrateLegacySlurCps, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './engravingOverrides'
+import type { EngravingOverride, CurveShapeOverride, Score, Slur } from '@/types/music'
 
 /**
  * Phase 0 of the engraving-overrides plan: the compartment is pure infrastructure —
@@ -99,5 +100,54 @@ describe('ScoreModel engraving overrides (Phase 0 compartment)', () => {
     // Mirror UndoRedoManager's deep copy: structuredClone-free JSON round-trip.
     const snapshot = JSON.parse(JSON.stringify(model.getScore()))
     expect(snapshot.engravingOverrides['note-1']).toEqual([{ kind: 'offset', dy: 4 }])
+  })
+})
+
+/**
+ * Phase 1: the `curveShape` kind (client #1) + the legacy `Slur.cps` forward-migration.
+ */
+describe('curveShape override + legacy Slur.cps migration (Phase 1)', () => {
+  // A minimal score carrying a legacy pixel-space slur cps inline (pre-Phase-1 shape).
+  const legacyScore = (cps: [{ x: number; y: number }, { x: number; y: number }]): Score => ({
+    id: 's', title: 't', tempo: 120,
+    keySignature: { key: 'C', accidentals: 0 },
+    defaultTimeSignature: { numerator: 4, denominator: 4 },
+    measures: [],
+    slurs: [{ id: 'slur-1', startNoteId: 'n-a', endNoteId: 'n-b', cps } as unknown as Slur],
+  })
+
+  it('moves inline pixel cps into the compartment as staff-spaces (px / default spacing)', () => {
+    const score = legacyScore([{ x: 20, y: 10 }, { x: -5, y: 30 }])
+    migrateLegacySlurCps(score)
+    const k = VEXFLOW_DEFAULT_STAFF_SPACE_PX
+    expect(curveShapeOverrideOf(score, 'slur-1')?.cps).toEqual([
+      { x: 20 / k, y: 10 / k },
+      { x: -5 / k, y: 30 / k },
+    ])
+    // The legacy inline field is stripped.
+    expect((score.slurs![0] as { cps?: unknown }).cps).toBeUndefined()
+  })
+
+  it('is a no-op for a new-format score (no inline cps, no compartment churn)', () => {
+    const score = legacyScore([{ x: 1, y: 1 }, { x: 1, y: 1 }])
+    delete (score.slurs![0] as { cps?: unknown }).cps // already migrated / fresh
+    migrateLegacySlurCps(score)
+    expect(score.engravingOverrides).toBeUndefined()
+  })
+
+  it('does not clobber an existing new-format curveShape override', () => {
+    const score = legacyScore([{ x: 99, y: 99 }, { x: 99, y: 99 }])
+    const existing: CurveShapeOverride = { kind: 'curveShape', cps: [{ x: 0.5, y: 0.5 }, { x: 0.5, y: 0.5 }] }
+    score.engravingOverrides = { 'slur-1': [existing] }
+    migrateLegacySlurCps(score)
+    // New-format entry wins; the legacy inline cps is still cleared.
+    expect(curveShapeOverrideOf(score, 'slur-1')?.cps).toEqual([{ x: 0.5, y: 0.5 }, { x: 0.5, y: 0.5 }])
+    expect((score.slurs![0] as { cps?: unknown }).cps).toBeUndefined()
+  })
+
+  it('curveShapeOverrideOf returns undefined when the element has no curve shape', () => {
+    const score = legacyScore([{ x: 1, y: 1 }, { x: 1, y: 1 }])
+    delete (score.slurs![0] as { cps?: unknown }).cps
+    expect(curveShapeOverrideOf(score, 'slur-1')).toBeUndefined()
   })
 })

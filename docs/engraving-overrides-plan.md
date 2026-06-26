@@ -1,18 +1,36 @@
 # Engraving Overrides — Infrastructure Plan
 
-Status: **Phase 0 DONE (2026-06-26); Phases 1–2 next, one at a time.** This started as a
+Status: **Phases 0 + 1 DONE (2026-06-26); Phase 2 next.** This started as a
 *design* document, settled in conversation (2026-06-26) before any code.
 
-> **Phase 0 — done.** Compartment + staff-space helper shipped, no clients (as scoped):
+> **Phase 0 — done (committed 2f71a78).** Compartment + staff-space helper, no clients:
 > `Score.engravingOverrides?: EngravingOverrides` (`Record<elementId, EngravingOverride[]>`,
 > a plain object so it JSON-round-trips / undoes with the score), open-ended
-> `EngravingOverride { kind: string }` (concrete kinds deferred to Phase 1), ScoreModel
-> accessors `getEngravingOverrides / getEngravingOverride / setEngravingOverride (upsert by
-> kind) / clearEngravingOverride (one kind or all; prunes empties so absent = none)`, and a
-> render-boundary helper `pixelsToStaffSpaces / staffSpacesToPixels(px|ss, stave)` in
-> `src/engine/rendering/staffSpace.ts` (no callers yet). Tests:
-> `engravingOverrides.test.ts` + `staffSpace.test.ts`. Type-check + boundary lint + full
-> suite (788) green. NOT committed. It generalizes today's one-off `Slur.cps` into a reusable
+> `EngravingOverride { kind: string }`, ScoreModel accessors `getEngravingOverrides /
+> getEngravingOverride / setEngravingOverride (upsert by kind) / clearEngravingOverride (one
+> kind or all; prunes empties so absent = none)`, and a render-boundary helper
+> `pixelsToStaffSpaces / staffSpacesToPixels(px|ss, stave)` in
+> `src/engine/rendering/staffSpace.ts`.
+
+> **Phase 1 — done (NOT committed).** Slur `cps` migrated into the compartment as client
+> #1 — identical on-screen behavior, content model + JSON now pixel-free:
+> - New types `CurveControlPointDeltas` + `CurveShapeOverride { kind:'curveShape'; cps }`
+>   (cps in **staff-spaces**); **`Slur.cps` removed** from the interface.
+> - Pure reads in `src/engine/models/engravingOverrides.ts`
+>   (`engravingOverridesOf / engravingOverrideOf / curveShapeOverrideOf`); ScoreModel
+>   getters delegate there. `ScoreModel.setSlurShape` writes/clears a `curveShape` entry;
+>   `setSlurEndpoint` drops it on re-anchor (unchanged behavior, new home).
+> - Renderer reads `curveShapeOverrideOf(score, slur.id)` and converts staff-spaces→pixels
+>   via the live stave (`staffSpacesToPixels`), falling back to `slurArchCps` when absent
+>   (same `override ?? auto` semantics). Same-line slurs only, as before.
+> - Write path: `SlurRenderer` registers the stave's `staffSpacePx` on the slur element;
+>   `MouseController` divides its pixel cps by it before `previewSlurShape` (px→staff-spaces).
+> - JSON migration: `migrateLegacySlurCps` (in `fromJSON`) reads old inline pixel `Slur.cps`,
+>   divides by `VEXFLOW_DEFAULT_STAFF_SPACE_PX` (=10, the constant spacing this app draws at),
+>   moves it into the compartment, strips the inline field. New-format wins if both coexist.
+> - `DESIGN-PRINCIPLES.md` boundary case marked **RESOLVED**.
+> - Tests updated/added (migration round-trip both directions, compartment write/clear,
+>   no-op + no-clobber). build:check (boundary + vue-tsc + vite build) + full suite (792) green. It generalizes today's one-off `Slur.cps` into a reusable
 **engraving-overrides layer** so that future hand-positioning of score elements (nudges,
 curve reshapes, re-angling, breaks, spacing — including on auto-generated rests/beams) has a
 single, principled home instead of pixels metastasizing across every model interface.

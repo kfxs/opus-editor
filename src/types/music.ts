@@ -149,14 +149,12 @@ export interface Slur {
   /** Vertical placement; default auto (derived from stem direction). */
   placement?: 'above' | 'below'
   /**
-   * Optional user-edited curve shape: the two cubic Bézier control-point **deltas**
-   * fed to VexFlow `Curve.renderCurve` (the editable "handle" data; see docs/slur-plan.md
-   * §6–§7). **Absent = the auto arch** computed from the contour/span at render time, so
-   * old scores and freshly-created slurs keep the default shape and JSON round-trips for
-   * free. Each `{x,y}` is an offset on top of the spacing-based base control point, so an
-   * edit rides along when the anchor notes move.
+   * A user-edited curve shape no longer lives here. As of Phase 1 of the
+   * engraving-overrides plan, the hand-tuned arc is stored in the
+   * {@link EngravingOverrides} compartment (`score.engravingOverrides[slur.id]` as a
+   * {@link CurveShapeOverride}, in staff-spaces) — keeping pixels out of the content
+   * model. Absent override = the auto arch. See docs/engraving-overrides-plan.md.
    */
-  cps?: [{ x: number; y: number }, { x: number; y: number }]
   /**
    * Reserved for future nested/overlapping-slur disambiguation (MusicXML `number`).
    * Unused in this pass.
@@ -186,6 +184,27 @@ export interface EngravingOverride {
   /** Discriminator: which kind of adjustment this is. Concrete kinds are introduced
    *  incrementally; see docs/engraving-overrides-plan.md §4. */
   kind: string
+}
+
+/**
+ * Two cubic Bézier control-point **deltas** fed to VexFlow `Curve.renderCurve` — the
+ * editable "handle" data for a slur/curve shape. Each `{x,y}` is an offset on top of
+ * the spacing-based base control point, so an edit rides along when the anchor notes
+ * move. See docs/slur-plan.md §6–§7 and {@link CurveShapeOverride}.
+ */
+export type CurveControlPointDeltas = [{ x: number; y: number }, { x: number; y: number }]
+
+/**
+ * Client #1 of the engraving-overrides compartment (Phase 1): a hand-edited curve
+ * shape, migrated from the former `Slur.cps`. The two control-point deltas are stored
+ * in **staff-spaces**, anchor-relative — NOT pixels (the old `Slur.cps` flaw: a pixel
+ * offset is tied to the current font/zoom/spacing). The renderer converts staff-spaces
+ * → pixels at draw time against the live stave; absent = the auto arch.
+ */
+export interface CurveShapeOverride extends EngravingOverride {
+  kind: 'curveShape'
+  /** Control-point deltas in **staff-spaces**, anchor-relative. */
+  cps: CurveControlPointDeltas
 }
 
 /**

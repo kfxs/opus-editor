@@ -13,6 +13,8 @@ import { slurNestDepths } from '@/utils/slurs'
 import type { ElementInfo } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
 import { drawCurveArc } from './curveArc'
+import { curveShapeOverrideOf } from '@/engine/models/engravingOverrides'
+import { staffSpacesToPixels } from './staffSpace'
 
 // Vertical geometry shared by all slur arcs.
 const SLUR_LIFT = 10   // gap between the notehead and the arc's endpoints
@@ -190,15 +192,26 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         const endY = toY + LIFT * direction
         const p0 = { x: firstX, y: startY }
         const p1 = { x: lastX, y: endY }
-        // A user-edited shape (slur.cps) overrides the auto arch; absent → auto.
-        const cps = slur.cps ?? slurArchCps(p0, p1, direction, nestLift)
+        // A hand-edited shape in the engraving-overrides compartment (stored in
+        // staff-spaces) overrides the auto arch; absent → auto. Convert the override's
+        // deltas to pixels against the live stave (resolution-independent storage).
+        const stave = fromNote.getStave()
+        const override = curveShapeOverrideOf(score, slur.id)
+        const cps = override && stave
+          ? [
+              { x: staffSpacesToPixels(override.cps[0].x, stave), y: staffSpacesToPixels(override.cps[0].y, stave) },
+              { x: staffSpacesToPixels(override.cps[1].x, stave), y: staffSpacesToPixels(override.cps[1].y, stave) },
+            ] as [{ x: number; y: number }, { x: number; y: number }]
+          : slurArchCps(p0, p1, direction, nestLift)
         const arc = drawCurveArc(pass, p0, p1, cps, direction, SLUR_THICKNESS, fromNote, toNote)
-        // Store the on-screen control points + endpoint geometry so a selected
-        // slur can show draggable handles (Phase 7). Same-line only — a split slur
-        // shares one cps, so it gets no handles.
+        // Store the on-screen control points + endpoint geometry so a selected slur can
+        // show draggable handles (Phase 7), plus the stave's staff-space size so a handle
+        // drag can convert the new pixel shape back to staff-spaces for storage. Same-line
+        // only — a split slur shares one shape, so it gets no handles.
         registerPartial(arc, undefined, {
           controlPoints: [arc.c0, arc.c1],
           slurEndpoints: { p0, p1, direction },
+          staffSpacePx: stave?.getSpacingBetweenLines(),
         })
       } else {
         // Cross-system: two half-arcs.

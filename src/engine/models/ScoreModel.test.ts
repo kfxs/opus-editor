@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import type { NoteParams } from '@/types/music'
+import { curveShapeOverrideOf } from './engravingOverrides'
+import type { NoteParams, Slur } from '@/types/music'
 import { fracCreate as frac, fracCompare, fracToNumber } from '@/utils/fraction'
 import type { ChordRest } from '@/types/music'
 
@@ -299,21 +300,25 @@ describe('ScoreModel', () => {
       ])
     })
 
-    it('round-trips a user-edited slur shape (cps) through JSON', () => {
+    it('migrates a legacy pixel-space slur cps into the staff-space override compartment', () => {
+      // Pre-Phase-1 scores stored the hand-edited shape inline on the slur, in pixels.
       model.getScore().slurs = [
-        { id: 'slur-1', startNoteId: 'n-a', endNoteId: 'n-b', cps: [{ x: 2, y: 14 }, { x: -3, y: 16 }] },
+        { id: 'slur-1', startNoteId: 'n-a', endNoteId: 'n-b', cps: [{ x: 2, y: 14 }, { x: -3, y: 16 }] } as unknown as Slur,
       ]
       const loaded = ScoreModel.fromJSON(model.toJSON())
-      expect(loaded.getScore().slurs?.[0].cps).toEqual([{ x: 2, y: 14 }, { x: -3, y: 16 }])
+      // Inline cps is gone; the shape now lives in the compartment in staff-spaces (px / 10).
+      expect((loaded.getScore().slurs?.[0] as { cps?: unknown }).cps).toBeUndefined()
+      expect(curveShapeOverrideOf(loaded.getScore(), 'slur-1')?.cps).toEqual([{ x: 0.2, y: 1.4 }, { x: -0.3, y: 1.6 }])
     })
 
-    it('setSlurShape sets then clears the cps override', () => {
+    it('setSlurShape writes then clears the curve-shape override (compartment)', () => {
       model.getScore().slurs = [{ id: 'slur-1', startNoteId: 'n-a', endNoteId: 'n-b' }]
-      expect(model.setSlurShape('slur-1', [{ x: 1, y: 10 }, { x: 1, y: 10 }])).toBe(true)
-      expect(model.getSlurById('slur-1')!.cps).toEqual([{ x: 1, y: 10 }, { x: 1, y: 10 }])
+      expect(model.setSlurShape('slur-1', [{ x: 0.1, y: 1.0 }, { x: 0.1, y: 1.0 }])).toBe(true)
+      expect(curveShapeOverrideOf(model.getScore(), 'slur-1')?.cps).toEqual([{ x: 0.1, y: 1.0 }, { x: 0.1, y: 1.0 }])
 
       expect(model.setSlurShape('slur-1', null)).toBe(true)
-      expect(model.getSlurById('slur-1')!.cps).toBeUndefined() // 'cps' key removed, not set to null
+      expect(curveShapeOverrideOf(model.getScore(), 'slur-1')).toBeUndefined() // override removed
+      expect(model.getScore().engravingOverrides).toBeUndefined() // compartment pruned clean
 
       expect(model.setSlurShape('missing', null)).toBe(false)
     })
