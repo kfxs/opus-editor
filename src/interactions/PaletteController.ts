@@ -163,11 +163,18 @@ export class PaletteController {
 
   toggleTie(): void {
     const engine = this.getEngine()
-    if (!this.state.selectedNoteId || !engine) return
+    if (!engine) return
 
-    console.log(`[Tie] toggleTie on noteId:${this.state.selectedNoteId} (tool:${this.state.selectedTool})`)
-    const result = engine.toggleTie(this.state.selectedNoteId)
-    console.log(`[Tie] result:${result === null ? 'no candidate found' : result ? 'tie added' : 'tie removed'}`)
+    // Read the multi-select set (so a whole chord / a run ties together); fall back
+    // to the scalar anchor. The engine ties each note to the same pitch in the next
+    // slot, so chords tie pitch-for-pitch.
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+    const noteIds = ids.length ? ids : (this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
+    if (noteIds.length === 0) return
+
+    console.log(`[Tie] toggleTie on ${noteIds.length} note(s) (tool:${this.state.selectedTool})`)
+    const result = engine.tieSelection(noteIds)
+    console.log(`[Tie] result:${result === null ? 'no candidate found' : result ? 'tie(s) added' : 'tie(s) removed'}`)
     this.renderScore()
   }
 

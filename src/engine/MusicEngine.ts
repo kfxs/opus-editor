@@ -628,6 +628,65 @@ export class MusicEngine {
     }
   }
 
+  /**
+   * Tie a whole selection at once (key Enter with >1 note selected). Each selected
+   * note ties to the SAME PITCH in the next slot, so a chord ties pitch-for-pitch to
+   * the next chord. Notes at the last selected position don't tie forward (nothing
+   * within the selection follows them) — but a single-position selection (one chord)
+   * does tie to the next slot, matching the single-note behaviour. One undo entry;
+   * toggles off when every resolved pair is already tied.
+   *
+   * A single selected note routes to {@link toggleTie} (preserves tie-into-rest and
+   * the flip-direction reset on removal).
+   */
+  tieSelection(noteIds: string[]): boolean | null {
+    const ids = [...new Set(noteIds)]
+    if (ids.length <= 1) return ids[0] ? this.toggleTie(ids[0]) : null
+
+    const all = this.scoreModel.getAllNotes().sort(compareByPosition)
+    const selected = ids
+      .map((id) => all.find((n) => n.id === id))
+      .filter((n): n is Note => !!n && !n.isRest)
+      .sort(compareByPosition)
+    if (selected.length === 0) return null
+
+    // Distinct selected positions, in order. Notes at the LAST position never tie
+    // forward; a single-position selection (one chord) ties to the next slot.
+    const posKey = (n: Note) => `${n.measure}:${fracToNumber(n.beat)}`
+    const positions = [...new Set(selected.map(posKey))]
+    const lastPos = positions[positions.length - 1]
+    const sources = positions.length > 1 ? selected.filter((n) => posKey(n) !== lastPos) : selected
+
+    // Resolve each source's forward target = the same pitch in the next slot.
+    const pairs: { source: Note; target: Note }[] = []
+    for (const source of sources) {
+      const next = all.find((n) => compareByPosition(n, source) > 0)
+      if (!next) continue
+      const target = all.find(
+        (n) =>
+          compareByPosition(n, next) === 0 && !n.isRest &&
+          n.step === source.step && (n.alter ?? 0) === (source.alter ?? 0) && n.octave === source.octave,
+      )
+      if (target) pairs.push({ source, target })
+    }
+    if (pairs.length === 0) return null
+
+    const allTied = pairs.every((p) => p.source.tiedTo === p.target.id)
+    this.runBatch(allTied ? 'Remove ties' : 'Add ties', () => {
+      for (const { source, target } of pairs) {
+        if (allTied) {
+          this.scoreModel.clearTieDirection(source.id)
+          this.scoreModel.updateNote(source.id, { tiedTo: undefined })
+          this.scoreModel.updateNote(target.id, { tiedFrom: undefined })
+        } else if (source.tiedTo !== target.id) {
+          this.scoreModel.updateNote(source.id, { tiedTo: target.id })
+          this.scoreModel.updateNote(target.id, { tiedFrom: source.id })
+        }
+      }
+    })
+    return !allTied
+  }
+
   // --- Slurs (phrasing) ---
 
   /**
