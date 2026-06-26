@@ -783,7 +783,13 @@ export class ScoreModel {
    * @returns the ids of the flat notes that landed inside the paste window, for
    *          selecting the pasted material.
    */
-  pasteEvents(targetMeasure: number, targetBeat: Fraction, clip: RebarEvent[], spanBeats: Fraction): string[] {
+  pasteEvents(
+    targetMeasure: number,
+    targetBeat: Fraction,
+    clipVoices: { voice: number; events: RebarEvent[] }[],
+    spanBeats: Fraction,
+    targetVoice: number,
+  ): string[] {
     const ordered = [...this.score.measures].sort((a, b) => a.number - b.number)
     const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
     if (fromIdx === -1) return []
@@ -806,37 +812,50 @@ export class ScoreModel {
     const slurState = this.captureSlurs(regionMeasures)
     const anchors = this.captureBeatAnchors(regionMeasures)
 
-    // Voice 0 is the paste target. Capture every OTHER voice in the region now, so
-    // they survive the shared (all-voice) clear and are re-laid verbatim — a paste
-    // must not erase voice 2 (the materialise step used to wipe it; see plan §Paste).
-    const voices = new Set<number>([0])
-    for (const m of regionMeasures) for (const s of m.slots) voices.add(s.voice ?? 0)
-    const existing = flattenRegion(regionMeasures, 0)
-    const otherEvents = new Map<number, RebarEvent[]>()
-    for (const v of voices) {
-      if (v !== 0) otherEvents.set(v, flattenRegion(regionMeasures, v as 0 | 1 | 2 | 3))
+    // Re-voicing contract (decision (a)): a single-voice clip drops into the paste
+    // target voice (so copy voice 1 → paste into voice 2 works); a multi-voice clip
+    // preserves each event's original voice. `destVoices` maps the destination voice
+    // → the clip events that overwrite its paste window.
+    const destVoices = new Map<number, RebarEvent[]>()
+    if (clipVoices.length === 1) {
+      destVoices.set(targetVoice, clipVoices[0].events)
+    } else {
+      for (const cv of clipVoices) destVoices.set(cv.voice, cv.events)
     }
 
-    // Overwrite: keep only existing events that lie wholly outside the paste window;
-    // anything overlapping it is replaced by the clip (and rest-fill for any remainder).
-    const kept = existing.filter((e) => {
-      const end = fracAdd(e.offset, e.duration)
-      return fracCompare(end, pasteStart) <= 0 || fracGte(e.offset, pasteEnd)
-    })
-    const shifted = clip.map((e) => ({ ...e, offset: fracAdd(e.offset, pasteStart) }))
-    const merged = [...kept, ...shifted].sort((a, b) => fracCompare(a.offset, b.offset))
+    // Every voice we must re-lay: those already in the region, plus any new
+    // destination voice. Voice 0 is always re-laid so a grown region keeps its
+    // rest spine. A voice that is NOT a destination is passed through verbatim, so
+    // a paste must not erase the other voices.
+    const voices = new Set<number>([0])
+    for (const m of regionMeasures) for (const s of m.slots) voices.add(s.voice ?? 0)
+    for (const dv of destVoices.keys()) voices.add(dv)
 
     const meter = getMeterInfo(ts)
     const targetBars = regionMeasures.length
 
-    // Voice 0 = the paste window; every other voice re-lays verbatim (passthrough,
-    // same meter — barlines don't move, growth only appends a tail they ignore).
     const plans = new Map<number, BarPlan[]>()
-    const v0plan = relayEvents(merged, meter, { targetBars, bounded })
-    plans.set(0, v0plan)
-    let maxBars = Math.max(targetBars, v0plan.length)
-    for (const [v, ev] of otherEvents) {
-      const p = relayEvents(ev, meter, { targetBars, bounded })
+    let maxBars = targetBars
+    for (const v of voices) {
+      const existing = flattenRegion(regionMeasures, v as 0 | 1 | 2 | 3)
+      const clip = destVoices.get(v)
+      let events: RebarEvent[]
+      if (clip) {
+        // Overwrite: keep existing events wholly outside the paste window; anything
+        // overlapping it is replaced by the (shifted) clip, with rest-fill covering
+        // any remainder.
+        const kept = existing.filter((e) => {
+          const end = fracAdd(e.offset, e.duration)
+          return fracCompare(end, pasteStart) <= 0 || fracGte(e.offset, pasteEnd)
+        })
+        const shifted = clip.map((e) => ({ ...e, offset: fracAdd(e.offset, pasteStart) }))
+        events = [...kept, ...shifted].sort((a, b) => fracCompare(a.offset, b.offset))
+      } else {
+        // Passthrough (same meter — barlines don't move, growth only appends a tail
+        // this voice ignores).
+        events = existing
+      }
+      const p = relayEvents(events, meter, { targetBars, bounded })
       plans.set(v, p)
       if (p.length > maxBars) maxBars = p.length
     }
@@ -863,7 +882,7 @@ export class ScoreModel {
     }
     const pastedIds: string[] = []
     for (const { chord } of created) {
-      if ((chord.voice ?? 0) !== 0) continue // only the pasted (voice-0) notes
+      if (!destVoices.has(chord.voice ?? 0)) continue // only the pasted notes
       const mStart = startOfMeasure.get(chord.measure)
       if (!mStart) continue
       const absOffset = fracAdd(mStart, chord.beat)

@@ -4,6 +4,7 @@ import type { EditorState } from './EditorState'
 import type { SelectionController } from './SelectionController'
 import type { RenderController } from './RenderController'
 import { selectedNoteIds } from './selection'
+import { activeVoiceToModel } from './EditorState'
 import { fracToNumber } from '../utils/fraction'
 import {
   buildClipboardFromSelection,
@@ -75,14 +76,17 @@ export class ClipboardController {
       console.log('[Clipboard] paste armed — click an insertion point (Esc to cancel)')
       return
     }
+    // Paste onto a selection → overwrite forward from the earliest selected note,
+    // into that note's voice (the destination for a single-voice clip).
     const target = earliestSelectedPosition(engine.getScore(), ids)
-    if (target) this.placeAt(target.measure, target.beat)
+    if (target) this.placeAt(target.measure, target.beat, target.voice)
   }
 
   /** Commit an armed paste at a clicked position (called by MouseController). */
   pasteAt(measure: number, beat: Fraction): void {
     this.state.pastePlacementArmed = false
-    this.placeAt(measure, beat)
+    // Armed click → the active voice is the destination for a single-voice clip.
+    this.placeAt(measure, beat, activeVoiceToModel(this.state.activeVoice))
   }
 
   /** Cancel an armed paste (Esc / leaving the mode). */
@@ -94,10 +98,10 @@ export class ClipboardController {
     console.log('[Clipboard] paste cancelled')
   }
 
-  private placeAt(measure: number, beat: Fraction): void {
+  private placeAt(measure: number, beat: Fraction, targetVoice: number): void {
     const engine = this.getEngine()
     if (!engine || !this.payload) return
-    const pastedIds = engine.pasteEvents(measure, beat, this.payload.events, this.payload.spanBeats)
+    const pastedIds = engine.pasteEvents(measure, beat, this.payload.voices, this.payload.spanBeats, targetVoice)
     console.log(`[Clipboard] pasted ${pastedIds.length} note(s) at measure ${measure} beat ${fracToNumber(beat)}`)
     this.selection.selectNotes(pastedIds)
     this.state.showCursor = true

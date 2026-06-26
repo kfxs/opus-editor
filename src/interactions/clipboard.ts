@@ -17,19 +17,31 @@ import { durationToFraction } from '../utils/durations'
  * rebar relay on paste, and tuplets travel as atomic payloads. That is what makes
  * a payload safely re-pasteable any number of times.
  */
+/** One copied voice: its model voice number (0-based) and event stream. */
+export interface ClipboardVoice {
+  /** Model voice number (0-based). */
+  voice: number
+  /**
+   * The rhythmic stream for this voice, offsets relative to the selection start
+   * (quarter beats). Internal ties are collapsed into single logical notes;
+   * tuplets are atomic. Unselected gaps are implicit — rest-filled on paste.
+   */
+  events: RebarEvent[]
+}
+
 export interface ClipboardPayload {
   format: 'opus-editor/clipboard'
-  version: 1
+  version: 2
   /** Where it was copied from (reference / debugging only). */
   origin: { measure: number; beat: Fraction }
   /** Total covered length, in quarter-note beats. */
   spanBeats: Fraction
   /**
-   * The rhythmic stream, offsets relative to the selection start (quarter beats).
-   * Internal ties are collapsed into single logical notes; tuplets are atomic.
-   * Unselected gaps are implicit — rest-filled on paste by the rebar relay.
+   * One entry per voice that contained a selected note. A single-voice clip is
+   * re-voiced into the paste target voice; a multi-voice clip preserves each
+   * voice. Voices are stored as an array (not a Map) to stay JSON-serializable.
    */
-  events: RebarEvent[]
+  voices: ClipboardVoice[]
   // future: dynamics?: ClipboardDynamic[]; clefs?: ClipboardClef[]; ...
 }
 
@@ -61,14 +73,27 @@ function selectedSpans(score: Score, noteIds: Set<string>): { start: Fraction; e
   return spans
 }
 
+/** The set of voices (0-based) that contain at least one selected note. */
+function selectedVoices(score: Score, noteIds: Set<string>): number[] {
+  const out = new Set<number>()
+  for (const m of score.measures) {
+    for (const n of getMeasureNotes(m)) {
+      if (noteIds.has(n.id)) out.add(n.voice ?? 0)
+    }
+  }
+  return [...out].sort((a, b) => a - b)
+}
+
 /**
- * Build a {@link ClipboardPayload} from a note selection. Phase A copies the
- * contiguous musical span from the first to the last selected note (so a Shift
- * range copies exactly; a scattered Ctrl selection copies the whole span between
- * its endpoints, with the in-between content included). Ties and tuplets come out
- * correct because the span is taken from {@link flattenRegion}'s event stream.
+ * Build a {@link ClipboardPayload} from a note selection. Copies the contiguous
+ * musical span from the first to the last selected note (so a Shift range copies
+ * exactly; a scattered Ctrl selection copies the whole span between its endpoints,
+ * with the in-between content included). Ties and tuplets come out correct because
+ * the span is taken from {@link flattenRegion}'s event stream.
  *
- * Returns null when nothing usable is selected.
+ * Multi-voice aware: every voice that holds a selected note is captured in its own
+ * stream (sliced to the same window), so a passage spanning voices 1 and 2 copies
+ * both. Returns null when nothing usable is selected.
  */
 export function buildClipboardFromSelection(score: Score, noteIds: string[]): ClipboardPayload | null {
   const idSet = new Set(noteIds)
@@ -79,13 +104,18 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
   const spanEnd = spans.reduce((a, s) => (fracCompare(s.end, a) > 0 ? s.end : a), spans[0].end)
   const spanBeats = fracSub(spanEnd, spanStart)
 
-  // Flatten the whole score (offsets from measure 1), then slice to the selection
-  // window and re-base offsets to the window start.
-  const all = flattenRegion([...score.measures].sort((a, b) => a.number - b.number), 0)
-  const events = all
-    .filter((e) => fracGte(e.offset, spanStart) && fracLt(e.offset, spanEnd))
-    .map((e) => ({ ...e, offset: fracSub(e.offset, spanStart) }))
-  if (events.length === 0) return null
+  // For each selected voice, flatten the whole score (offsets from measure 1) for
+  // that voice, slice to the selection window, and re-base offsets to the window
+  // start. A voice with only a selected rest yields an empty stream (a paste then
+  // rest-fills/clears that window in that voice).
+  const ordered = [...score.measures].sort((a, b) => a.number - b.number)
+  const voices: ClipboardVoice[] = selectedVoices(score, idSet).map((v) => ({
+    voice: v,
+    events: flattenRegion(ordered, v as 0 | 1 | 2 | 3)
+      .filter((e) => fracGte(e.offset, spanStart) && fracLt(e.offset, spanEnd))
+      .map((e) => ({ ...e, offset: fracSub(e.offset, spanStart) })),
+  }))
+  if (voices.every((vv) => vv.events.length === 0)) return null
 
   // Origin = the (measure, beat) of the earliest selected note, for reference.
   const starts = measureStartOffsets(score)
@@ -101,36 +131,46 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
     }
   }
 
-  return { format: 'opus-editor/clipboard', version: 1, origin, spanBeats, events }
+  return { format: 'opus-editor/clipboard', version: 2, origin, spanBeats, voices }
 }
 
-/** The (measure, beat) of the earliest note in a selection — the paste target when
- *  pasting onto a selection (overwrite-forward from the selection start). */
-export function earliestSelectedPosition(score: Score, noteIds: string[]): { measure: number; beat: Fraction } | null {
+/** The (measure, beat, voice) of the earliest note in a selection — the paste target
+ *  when pasting onto a selection (overwrite-forward from the selection start). The
+ *  voice is the paste destination for a single-voice clip. */
+export function earliestSelectedPosition(
+  score: Score,
+  noteIds: string[],
+): { measure: number; beat: Fraction; voice: number } | null {
   const idSet = new Set(noteIds)
   const starts = measureStartOffsets(score)
-  let best: { measure: number; beat: Fraction; abs: Fraction } | null = null
+  let best: { measure: number; beat: Fraction; voice: number; abs: Fraction } | null = null
   for (const m of score.measures) {
     const mStart = starts.get(m.number)
     if (!mStart) continue
     for (const n of getMeasureNotes(m)) {
       if (!idSet.has(n.id)) continue
       const abs = fracAdd(mStart, n.beat)
-      if (!best || fracCompare(abs, best.abs) < 0) best = { measure: m.number, beat: n.beat, abs }
+      if (!best || fracCompare(abs, best.abs) < 0) {
+        best = { measure: m.number, beat: n.beat, voice: n.voice ?? 0, abs }
+      }
     }
   }
-  return best ? { measure: best.measure, beat: best.beat } : null
+  return best ? { measure: best.measure, beat: best.beat, voice: best.voice } : null
 }
 
 /** A short human-readable line for the copy/paste console dump. */
 export function clipboardSummary(p: ClipboardPayload): string {
-  const parts = p.events.map((e) => {
-    if (e.atomic) return '[tuplet]'
-    const pitches = (e.pitches ?? []).map((pt) => {
-      const acc = pt.alter === 2 ? '##' : pt.alter === 1 ? '#' : pt.alter === -1 ? 'b' : pt.alter === -2 ? 'bb' : ''
-      return `${pt.step}${acc}${pt.octave}`
-    }).join('+')
-    return `[${pitches || 'rest'} ${fracToNumber(e.duration)}b @${fracToNumber(e.offset)}]`
+  const total = p.voices.reduce((a, v) => a + v.events.length, 0)
+  const perVoice = p.voices.map((vv) => {
+    const parts = vv.events.map((e) => {
+      if (e.atomic) return '[tuplet]'
+      const pitches = (e.pitches ?? []).map((pt) => {
+        const acc = pt.alter === 2 ? '##' : pt.alter === 1 ? '#' : pt.alter === -1 ? 'b' : pt.alter === -2 ? 'bb' : ''
+        return `${pt.step}${acc}${pt.octave}`
+      }).join('+')
+      return `[${pitches || 'rest'} ${fracToNumber(e.duration)}b @${fracToNumber(e.offset)}]`
+    })
+    return `v${vv.voice + 1}: ${parts.join(' ') || '(empty)'}`
   })
-  return `${p.events.length} event(s), span ${fracToNumber(p.spanBeats)}b: ${parts.join(' ')}`
+  return `${total} event(s) across ${p.voices.length} voice(s), span ${fracToNumber(p.spanBeats)}b — ${perVoice.join(' | ')}`
 }

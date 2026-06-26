@@ -500,8 +500,14 @@ export class MusicEngine {
    * clip's span (see {@link ScoreModel.pasteEvents}). One undo entry.
    * @returns the ids of the notes that landed inside the paste window.
    */
-  pasteEvents(measure: number, beat: Fraction, events: RebarEvent[], spanBeats: Fraction): string[] {
-    const ids = this.scoreModel.pasteEvents(measure, beat, events, spanBeats)
+  pasteEvents(
+    measure: number,
+    beat: Fraction,
+    voices: { voice: number; events: RebarEvent[] }[],
+    spanBeats: Fraction,
+    targetVoice: number,
+  ): string[] {
+    const ids = this.scoreModel.pasteEvents(measure, beat, voices, spanBeats, targetVoice)
     this.commit('Paste')
     return ids
   }
