@@ -398,6 +398,21 @@ describe('SelectionController — navigateVoice (Alt+Shift+up/down voice hop)', 
     selection.navigateVoice(-1) // down → voice 2's rest at this beat
     expect(state.selectedNoteId).toBe(v2Rest.id)
   })
+
+  it('hops between voices at a UNISON (same pitch) — V1 is up, V2 is down', () => {
+    const v1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    const v2 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id
+
+    // From the lower voice, up lands on the upper voice (despite equal pitch)…
+    selection.selectNote(v2)
+    selection.navigateVoice(1)
+    expect(state.selectedNoteId).toBe(v1)
+
+    // …and from the upper voice, down lands on the lower voice.
+    selection.selectNote(v1)
+    selection.navigateVoice(-1)
+    expect(state.selectedNoteId).toBe(v2)
+  })
 })
 
 describe('SelectionController — navigateChord is voice-scoped', () => {

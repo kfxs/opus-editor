@@ -348,6 +348,14 @@ export class SelectionController {
    * same V1-up / V2-down separation the renderer draws. All values share one clef-aware
    * diatonic scale so notes and rests across voices are directly comparable.
    *
+   * UNISON / SAME-PITCH VOICES: two voices at the same pitch (a unison) share the same
+   * diatonic position, which would make them geometrically indistinguishable and break
+   * the up/down hop. To keep voices orderable we add a sub-integer voice rank: a lower
+   * voice index sits slightly higher (voice 0 above voice 1 above voice 2…), matching
+   * the renderer's V1-up / V2-down lane convention and generalising to N voices. The
+   * offset is < 1, so it only ever breaks ties — it never reorders genuinely different
+   * pitches (which differ by whole diatonic steps).
+   *
    * ⚠️ FUTURE / REST POSITIONING: the rest branch ASSUMES a rest sits in its voice's
    * default lane (derived purely from the voice index). That holds today because rest
    * vertical offset is not user-editable. The moment we add manual rest positioning
@@ -357,13 +365,17 @@ export class SelectionController {
    * mirroring however the renderer ends up drawing it — keep these two in lockstep.
    */
   private elementVerticalPos(n: Note, clef: Clef): number {
+    const voice = n.voice ?? 0
+    // Tiebreak only: lower voice index ranks higher. < 1 so it never crosses a real
+    // pitch step. (Supports many voices before the cumulative offset approaches 1.)
+    const voiceRank = -voice * 0.01
     if (n.isRest) {
       // TODO(rest-positioning): replace this voice-lane default with the rest's real
       // vertical offset once rests become vertically movable (see method doc above).
-      const lane = (n.voice ?? 0) === 0 ? 2 : -2
-      return middleLineDiatonicPos(clef) + lane
+      const lane = voice === 0 ? 2 : -2
+      return middleLineDiatonicPos(clef) + lane + voiceRank
     }
-    return spellingDiatonicPos(n.step!, n.octave!)
+    return spellingDiatonicPos(n.step!, n.octave!) + voiceRank
   }
 
   /**
