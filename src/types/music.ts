@@ -165,6 +165,43 @@ export interface Slur {
 }
 
 /**
+ * One authored engraving adjustment on a score element — an entry in the
+ * **engraving-overrides compartment** (see docs/engraving-overrides-plan.md).
+ *
+ * An override is *authored geometry*: continuous, measured, hand-positioned data
+ * that is deliberately kept OUT of the musical content model, so transposition,
+ * playback and re-barring never trip over pixels. Positional kinds store
+ * **staff-spaces**, relative to the element's natural (auto) position — never raw
+ * pixels, never an absolute canvas coordinate — so a tweak renders correctly at any
+ * font/zoom/spacing and rides along when the music reflows.
+ *
+ * Open-ended by design: each entry is tagged by `kind`; adding a new kind later is
+ * additive (a new tagged member), never a teardown. Phase 0 ships the compartment
+ * with no concrete kinds yet — the first kind (`curveShape`, migrating today's
+ * {@link Slur.cps}) lands in Phase 1. Distinct from *semantic* side/direction flips
+ * (`stemDirection`, `*.placement`, `tieDirection`), which are notational meaning and
+ * stay on the content model above — only continuous geometry lives here.
+ */
+export interface EngravingOverride {
+  /** Discriminator: which kind of adjustment this is. Concrete kinds are introduced
+   *  incrementally; see docs/engraving-overrides-plan.md §4. */
+  kind: string
+}
+
+/**
+ * The engraving-overrides compartment: an id-keyed table of authored geometry held
+ * as a sub-tree of {@link Score} (so it clones / serializes / undoes with the score
+ * value — principle 1). Keyed by the *element id* an override hangs off (a note /
+ * chord-pitch / slur / dynamic id…), each value an open-ended list of
+ * {@link EngravingOverride} (an element may be nudged *and* reshaped).
+ *
+ * Absent/empty = no overrides (backward-compatible JSON); every kind degrades to its
+ * render-time default when no entry exists. Stored as a plain object — NOT a Map — so
+ * it round-trips through `JSON.stringify` (undo snapshots, export) unchanged.
+ */
+export type EngravingOverrides = Record<string, EngravingOverride[]>
+
+/**
  * Stem direction for notes
  * - 'auto': Calculate based on pitch and clef (default)
  * - 'up': Force stem up
@@ -428,6 +465,14 @@ export interface Score {
    * (backward-compatible JSON). See {@link Slur} and docs/slur-plan.md.
    */
   slurs?: Slur[]
+  /**
+   * Authored engraving overrides — hand-positioning that is NOT musical content: an
+   * id-keyed compartment of staff-space, anchor-relative geometry. A sub-tree of
+   * `Score` so it clones / serializes / undoes with the score value. Optional/absent
+   * = none (backward-compatible JSON). See {@link EngravingOverrides} and
+   * docs/engraving-overrides-plan.md.
+   */
+  engravingOverrides?: EngravingOverrides
 }
 
 /**

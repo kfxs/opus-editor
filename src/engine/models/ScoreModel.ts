@@ -1,4 +1,4 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, EngravingOverride } from '@/types/music'
 import {
   getTupletTotalBeatsFrac,
   getTupletNoteDurationFrac,
@@ -463,6 +463,65 @@ export class ScoreModel {
     else slur.endNoteId = noteId
     delete slur.cps // shape was relative to the old span — reset to auto
     return true
+  }
+
+  // ============ Engraving overrides (authored-geometry compartment) ============
+  // A separate id-addressed compartment for hand-positioning data (staff-space,
+  // anchor-relative), kept OUT of the musical content model. It is a sub-tree of
+  // `Score` (`score.engravingOverrides`), so it clones / serializes / undoes with
+  // the score value for free. Phase 0 is infrastructure only — storage + accessors +
+  // JSON round-trip, NO clients yet; slur `cps` migrates in as client #1 in Phase 1.
+  // See docs/engraving-overrides-plan.md.
+
+  /** Every override recorded for an element id (the live array, or [] if none). */
+  getEngravingOverrides(elementId: string): EngravingOverride[] {
+    return this.score.engravingOverrides?.[elementId] ?? []
+  }
+
+  /** The override of a given `kind` on an element, or undefined when absent. */
+  getEngravingOverride(elementId: string, kind: string): EngravingOverride | undefined {
+    return this.score.engravingOverrides?.[elementId]?.find(o => o.kind === kind)
+  }
+
+  /**
+   * Upsert an override: replaces any existing entry of the same `kind` on this
+   * element, otherwise appends. Lazily creates the compartment. An element may hold
+   * several overrides of *different* kinds (e.g. a nudge AND a reshape) but only one
+   * per kind.
+   */
+  setEngravingOverride(elementId: string, override: EngravingOverride): void {
+    if (!this.score.engravingOverrides) this.score.engravingOverrides = {}
+    const all = this.score.engravingOverrides
+    const list = all[elementId] ?? (all[elementId] = [])
+    const i = list.findIndex(o => o.kind === override.kind)
+    if (i >= 0) list[i] = override
+    else list.push(override)
+  }
+
+  /**
+   * Clear overrides on an element: just one `kind` when given, else ALL overrides for
+   * the element. Prunes the element's entry (and the whole compartment) once it
+   * empties, so "absent = none" holds and the JSON stays clean.
+   * @returns true if anything was removed.
+   */
+  clearEngravingOverride(elementId: string, kind?: string): boolean {
+    const all = this.score.engravingOverrides
+    const list = all?.[elementId]
+    if (!all || !list) return false
+    let removed = false
+    if (kind === undefined) {
+      delete all[elementId]
+      removed = true
+    } else {
+      const i = list.findIndex(o => o.kind === kind)
+      if (i >= 0) {
+        list.splice(i, 1)
+        removed = true
+      }
+      if (list.length === 0) delete all[elementId]
+    }
+    if (Object.keys(all).length === 0) delete this.score.engravingOverrides
+    return removed
   }
 
   /**
