@@ -188,6 +188,13 @@ export class HighlightController {
       ? target.querySelector('text, path')
       : group.querySelector('g.vf-notehead text, g.vf-notehead path')
     if (head) colorFill(head)
+
+    // Multi-voice unison: the other voice draws a notehead at the SAME pixel spot in a
+    // sibling `vf-stavenote` group. Whichever is later in the DOM paints on top, so the
+    // recolored head can be hidden behind the other voice. Raise this note's group to
+    // the front of its parent so its (now coloured) head is the one that shows. Safe:
+    // the next render rebuilds the SVG, resetting DOM order.
+    group.parentNode?.appendChild(group)
   }
 
   applyArticulationHighlight(): void {
