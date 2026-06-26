@@ -618,6 +618,11 @@ export class MusicEngine {
       const samePitch = allSlots.find(n =>
         compareByPosition(n, nextStart) === 0 && !n.isRest
         && n.step === source.step && (n.alter ?? 0) === (source.alter ?? 0) && n.octave === source.octave)
+      // Prefer the same pitch in the next slot (chord ties join like to like); otherwise
+      // tie forward to whatever is there (incl. a different pitch or a rest) — a "let
+      // ring" / l.v. tie. Two notes tying into one target is fine: the tie is owned by
+      // each source's `tiedTo`, and deleting the target reassigns ALL of them onto the
+      // replacement rest (see deleteNote), so nothing is left dangling.
       const nextNote = samePitch ?? nextStart
       console.log(`[Tie] tying to next slot: ${fmt(nextNote)}`)
 
@@ -657,17 +662,18 @@ export class MusicEngine {
     const lastPos = positions[positions.length - 1]
     const sources = positions.length > 1 ? selected.filter((n) => posKey(n) !== lastPos) : selected
 
-    // Resolve each source's forward target = the same pitch in the next slot.
+    // Resolve each source's forward target: prefer the same pitch in the next slot
+    // (chords join like to like), else tie to whatever is there (let-ring / l.v.).
     const pairs: { source: Note; target: Note }[] = []
     for (const source of sources) {
       const next = all.find((n) => compareByPosition(n, source) > 0)
       if (!next) continue
-      const target = all.find(
+      const samePitch = all.find(
         (n) =>
           compareByPosition(n, next) === 0 && !n.isRest &&
           n.step === source.step && (n.alter ?? 0) === (source.alter ?? 0) && n.octave === source.octave,
       )
-      if (target) pairs.push({ source, target })
+      pairs.push({ source, target: samePitch ?? next })
     }
     if (pairs.length === 0) return null
 
@@ -952,10 +958,14 @@ export class MusicEngine {
     const notesAtSameBeat = this.getChordNotesAt(note.measure, note.beat, note.voice ?? 0)
     const isPartOfChord = notesAtSameBeat.length > 1
 
-    // Save the tiedFrom source before deletion clears it.
-    // When a single note is replaced by a rest, we re-link the source tie to the new rest
-    // so the tie arc remains visible (the owner of the tie is the source, not the target).
-    const tiedFromSourceId = !note.isRest && !isPartOfChord ? note.tiedFrom : undefined
+    // Save EVERY tie that targets this note before deletion clears them. When a single
+    // note is replaced by a rest, we re-link each source tie onto the new rest so the
+    // tie survives the delete (the owner of the tie is the source, not the target) and
+    // simply re-points to the rest. Scan-based (not the note's single `tiedFrom`) so a
+    // chord tied into this note keeps every arc, and no tie is left dangling.
+    const tieSourceIds = !note.isRest && !isPartOfChord
+      ? this.scoreModel.getAllNotes().filter(n => !n.isRest && n.tiedTo === noteId).map(n => n.id)
+      : []
 
     // A surviving chord sibling (if any) to re-anchor dependent slurs onto.
     const slurSiblingId = isPartOfChord
@@ -977,10 +987,15 @@ export class MusicEngine {
         ...(note.voice && { voice: note.voice }), // keep the rest in the note's own voice
       })
 
-      // Re-link the source tie to the new rest so the tie arc is preserved
-      if (tiedFromSourceId && replacementRest) {
-        this.scoreModel.updateNote(tiedFromSourceId, { tiedTo: replacementRest.id })
-        this.scoreModel.updateNote(replacementRest.id, { tiedFrom: tiedFromSourceId })
+      // Re-point every tie that targeted the deleted note onto the replacement rest,
+      // so deleting a tie's target reassigns the tie instead of dropping it. (The rest
+      // records one `tiedFrom` for bookkeeping; the arcs themselves are owned by the
+      // source notes' `tiedTo`, which all now point at the rest.)
+      if (replacementRest && tieSourceIds.length) {
+        for (const sid of tieSourceIds) {
+          this.scoreModel.updateNote(sid, { tiedTo: replacementRest.id })
+        }
+        this.scoreModel.updateNote(replacementRest.id, { tiedFrom: tieSourceIds[0] })
       }
       // A slur anchored to this head follows the note onto its replacement rest
       // (the rest gets a NEW id), or is dropped if the rest couldn't be placed.

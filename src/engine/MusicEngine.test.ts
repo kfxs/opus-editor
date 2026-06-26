@@ -698,6 +698,38 @@ describe('MusicEngine.createSlur — endpoint resolution', () => {
     expect(engine.getNote(b.id)!.tiedFrom).toBeUndefined()
   })
 
+  it('toggleTie ties a chord member with no same pitch ahead to the next slot (let-ring)', () => {
+    // Chord C4+C5 at beat 0, then a lone C4 at beat 1 — C5 has no partner.
+    const c4 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const c5 = engine.addChordNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const c4next = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+
+    expect(engine.toggleTie(c4.id)).toBe(true) // C4 → C4 (same pitch)
+    expect(engine.getNote(c4.id)!.tiedTo).toBe(c4next.id)
+    expect(engine.toggleTie(c5.id)).toBe(true) // C5 → next slot (let-ring), even without a C5
+    expect(engine.getNote(c5.id)!.tiedTo).toBe(c4next.id)
+  })
+
+  it('deleting a target with TWO incoming ties reassigns BOTH to the replacement rest', () => {
+    // Reproduces the reported bug: a chord C4+C5 tied forward to a lone C4 (C5 let-ring).
+    const c4 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const c5 = engine.addChordNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const target = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    expect(engine.toggleTie(c4.id)).toBe(true)
+    expect(engine.toggleTie(c5.id)).toBe(true)
+    expect(engine.getNote(c4.id)!.tiedTo).toBe(target.id)
+    expect(engine.getNote(c5.id)!.tiedTo).toBe(target.id)
+
+    engine.deleteNote(target.id) // target becomes a rest
+
+    const rest = engine.getScore().measures[0].slots.find(
+      s => s.type === 'rest' && fracToNumber(s.beat) === 1,
+    )!
+    // BOTH ties survive and point at the rest — neither is dropped or left dangling.
+    expect(engine.getNote(c4.id)!.tiedTo).toBe(rest.id)
+    expect(engine.getNote(c5.id)!.tiedTo).toBe(rest.id)
+  })
+
   it('is create-only and idempotent — pressing s again does NOT add a duplicate or remove', () => {
     const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
