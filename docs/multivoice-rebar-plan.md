@@ -31,10 +31,18 @@ destructive `materializeBar`).
 
 ## What is already in our favour
 
-- `rebar.ts` needs **no change**. `flattenRegion(measures, voice)` takes the
-  voice; `relayEvents` is voice-agnostic (it just re-lays whatever event stream
-  it is handed). We drive it once per voice and keep the plans separate — no
-  `voice` field has to be threaded through `RebarPiece`.
+- `rebar.ts` needs **one small change** (the original plan said "no change" —
+  that was wrong). `flattenRegion(measures, voice)` takes the voice and filters
+  *slots* by it, and `relayEvents` is voice-agnostic — so we drive it once per
+  voice and keep the plans separate (no `voice` on `RebarPiece`). BUT
+  `flattenRegion`'s tuplet loop iterated `m.tuplets` unfiltered, emitting an
+  atomic event for **every** tuplet regardless of voice — so a voice-0 triplet
+  leaked a phantom atomic into voice 1's stream (and vice versa), corrupting the
+  re-lay (phantom leading rests). Fixed by deriving each tuplet's voice from its
+  member slots (`m.slots.find(s => s.tupletId === def.id)?.voice ?? 0`) and
+  `continue`-ing when it isn't the voice being flattened — same rule
+  `fillGapsWithRests` already uses. Latent before P1 (we only ever flattened
+  voice 0, and the materialise wipe dropped voice 1 anyway).
 - `fillGapsWithRests(measure)` (`:1487`) is **fully voice-aware**: it discovers
   the voices present, rest-fills each independently, always includes voice 0 so
   an empty bar still fills. We reuse it as the safety net for grown bars.

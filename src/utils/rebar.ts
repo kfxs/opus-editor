@@ -164,6 +164,12 @@ export function flattenRegion(measures: Measure[], voice: 0 | 1 | 2 | 3 = 0): Re
     // Each tuplet is one atomic event, captured from its definition (so an empty
     // or partially-filled tuplet is preserved too — slots may not exist yet).
     for (const def of m.tuplets ?? []) {
+      // A tuplet belongs to a single voice (derived from its member slots, as in
+      // ScoreModel.fillGapsWithRests). Only flatten tuplets of the voice being
+      // flattened — otherwise a voice-0 triplet pollutes voice 1's event stream
+      // with a phantom atomic, and vice versa.
+      const owner = m.slots.find((s) => s.tupletId === def.id)
+      if ((owner?.voice ?? 0) !== voice) continue
       const tupletDur = getTupletTotalBeatsFrac(def.baseDuration, def.notesOccupied)
       events.push({
         offset: fracAdd(runningOffset, def.startBeat),

@@ -1064,6 +1064,29 @@ describe('rebar preserves secondary voices', () => {
     expect(voiceNotes(1, 0).find(n => fracToNumber(n.beat) === 0)?.step).toBe('A')
     expect(model.validateMeasure(1)).toEqual([])
   })
+
+  it('does not inject phantom rests into voice 1 when voice 0 has a tuplet', () => {
+    // Voice 0: an eighth-note triplet at beat 0. Voice 1: four quarters filling 4/4.
+    // Regression: flattenRegion used to emit a voice-0 tuplet as a phantom atomic
+    // into voice 1's stream, corrupting the re-lay (extra leading rests).
+    const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)
+    model.refillTupletRemainder(1, tuplet)
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+    model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1), voice: 1 })
+    model.addNote({ step: 'F', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1), voice: 1 })
+
+    model.setTimeSignature(1, { numerator: 2, denominator: 4 }) // 4 quarters → two 2/4 bars
+
+    // Voice 1 keeps exactly its four quarters across the two bars — no phantom rests.
+    const v1 = [...voiceNotes(1, 1), ...voiceNotes(2, 1)]
+    expect(v1.map(n => n.step)).toEqual(['C', 'D', 'E', 'F'])
+    expect(v1.every(n => n.voice === 1)).toBe(true)
+    // The voice-0 tuplet stays atomic in bar 1 (not duplicated into voice 1).
+    expect(model.getMeasure(1)!.tuplets).toHaveLength(1)
+    expect(model.validateMeasure(1)).toEqual([])
+    expect(model.validateMeasure(2)).toEqual([])
+  })
 })
 
 describe('rebar voice-scopes ties and slurs (P2)', () => {
