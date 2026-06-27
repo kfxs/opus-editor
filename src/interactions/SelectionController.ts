@@ -4,7 +4,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { Rect } from '../engine/ViewportModel'
 import type { EditorState } from './EditorState'
 import { modelVoiceToActive } from './EditorState'
-import { buildBeatMap, notesInRange, expandTieChains } from '../utils/beatMap'
+import { buildVoiceNavBeatMap, notesInRange, expandTieChains } from '../utils/beatMap'
 import { fracLt, fracEq, fracCompare, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
@@ -282,9 +282,12 @@ export class SelectionController {
     if (this.state.selectedTool !== 'selection' || !this.state.selectedNoteId || !engine) return
 
     const score = engine.getScore()
-    // Arrow nav stays within the selected note's own voice (independent streams).
+    // Arrow nav stays within the selected note's own voice (independent streams), but
+    // with a per-measure fallback to voice 0: stepping out of a non-default voice into
+    // a measure that lacks it lands on the default voice there rather than losing the
+    // selection (see buildVoiceNavBeatMap).
     const selectedVoice = engine.getNote(this.state.selectedNoteId)?.voice ?? 0
-    const { allFlat, beats } = buildBeatMap(score, selectedVoice)
+    const { allFlat, beats } = buildVoiceNavBeatMap(score, selectedVoice)
 
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
     if (!currentNote) return

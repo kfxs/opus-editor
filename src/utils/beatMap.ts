@@ -30,7 +30,45 @@ export function buildBeatMap(score: Score, voice?: number): { allFlat: FlatNote[
         : fracCompare(a.beat, b.beat),
     )
 
-  // Key uses num/den so {num:1,den:3} and {num:2,den:6} (same value) reduce to the same key
+  return { allFlat, beats: collapseToBeats(allFlat) }
+}
+
+/**
+ * Beat map for selection-tool arrow navigation, with a PER-MEASURE voice fallback:
+ * use the requested voice in measures that contain it, but fall back to voice 0 (the
+ * default voice) in measures that don't. This keeps horizontal nav alive when stepping
+ * out of the last note of a non-default voice into a measure that has no slot for it —
+ * instead of the selection vanishing (or skipping to a far-off measure that happens to
+ * carry the voice), it lands on voice 0 of the next measure, as expected.
+ *
+ * (Note ENTRY navigation deliberately does NOT use this — there you stay in your own
+ * voice to extend its stream; see navBeatMap.)
+ */
+export function buildVoiceNavBeatMap(score: Score, voice: number): { allFlat: FlatNote[]; beats: FlatNote[] } {
+  const allFlat: FlatNote[] = score.measures
+    .flatMap(m => {
+      const notes = getMeasureNotes(m)
+      const hasVoice = notes.some(n => (n.voice ?? 0) === voice)
+      const useVoice = hasVoice ? voice : 0
+      return notes
+        .filter(n => (n.voice ?? 0) === useVoice)
+        .map(n => ({ ...n, measureNumber: m.number }))
+    })
+    .sort((a, b) =>
+      a.measureNumber !== b.measureNumber
+        ? a.measureNumber - b.measureNumber
+        : fracCompare(a.beat, b.beat),
+    )
+
+  return { allFlat, beats: collapseToBeats(allFlat) }
+}
+
+/**
+ * Collapse a sorted flat note list to one representative entry per (measure, beat):
+ * non-rest over rest, and among non-rests the lowest pitch. Chords thus reduce to a
+ * single horizontal step. Key uses num/den so {1,3} and {2,6} reduce to the same key.
+ */
+function collapseToBeats(allFlat: FlatNote[]): FlatNote[] {
   const beatMap = new Map<string, FlatNote>()
   for (const n of allFlat) {
     const key = `${n.measureNumber}:${n.beat.num}/${n.beat.den}`
@@ -42,8 +80,7 @@ export function buildBeatMap(score: Score, voice?: number): { allFlat: FlatNote[
       beatMap.set(key, n)
     }
   }
-
-  return { allFlat, beats: Array.from(beatMap.values()) }
+  return Array.from(beatMap.values())
 }
 
 /**
