@@ -528,17 +528,12 @@ export class VexFlowRenderer {
       const line = restSupportingLedgerLine(slot.duration, !!slot.isMeasureRest, sn.getKeyLine(0))
       if (line === null) continue
 
-      // Centre the ledger on the actually-drawn glyph; fall back to the note's x + width.
-      let cx: number
-      let halfW: number
-      try {
-        const box = sn.getBoundingBox()
-        cx = box.x + box.w / 2
-        halfW = box.w / 2 + PAD
-      } catch {
-        cx = sn.getAbsoluteX()
-        halfW = sn.getGlyphWidth() / 2 + PAD
-      }
+      // Span only the rest GLYPH (head begin→end), NOT the note's bounding box — the latter
+      // includes the augmentation dot, which would stretch the ledger out under the dot.
+      const xBegin = sn.getNoteHeadBeginX()
+      const xEnd = sn.getNoteHeadEndX()
+      const cx = (xBegin + xEnd) / 2
+      const halfW = (xEnd - xBegin) / 2 + PAD
 
       ctx.save()
       stave.applyStyle(ctx, stave.getDefaultLedgerLineStyle())
