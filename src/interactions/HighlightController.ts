@@ -539,10 +539,13 @@ export class HighlightController {
   private static readonly SLUR_HANDLE_HIT = 9
 
   /**
-   * Draw draggable control-point handles for the selected slur and register them
-   * for hit-testing (Phase 7). Only **same-line** slurs carry `controlPoints` in the
-   * registry, so split (cross-system) slurs get no handles automatically. The handle
-   * elements are added to the (post-render) registry so the next render clears them.
+   * Draw draggable handles for the selected slur and register them for hit-testing.
+   * Two independent kinds: **round** control-point handles that reshape the arc, and
+   * **square** endpoint handles that re-anchor the slur onto a different note.
+   * Same-line slurs carry both `controlPoints` + `slurEndpoints` → round + square.
+   * Split (cross-system) slurs carry only `slurEndpoints` (a split slur has no single
+   * shared shape to reshape) → squares only. The handle elements are added to the
+   * (post-render) registry so the next render clears them.
    */
   applySlurHandles(): void {
     const engine = this.getEngine()
@@ -553,15 +556,16 @@ export class HighlightController {
 
     const registry = engine.getElementRegistry()
     const slurEl = registry.getByType('slur').find(
-      e => e.id === this.state.selectedSlurId && e.controlPoints,
+      e => e.id === this.state.selectedSlurId && (e.controlPoints || e.slurEndpoints),
     )
-    if (!slurEl?.controlPoints) return
+    if (!slurEl) return
 
     const R = HighlightController.SLUR_HANDLE_R
     const HIT = HighlightController.SLUR_HANDLE_HIT
 
-    // Round handles: the two cubic control points — these reshape the arc.
-    slurEl.controlPoints.forEach((cp, i) => {
+    // Round handles: the two cubic control points — these reshape the arc. Same-line
+    // slurs only; a split slur has slurEndpoints but no controlPoints, so this no-ops.
+    if (slurEl.controlPoints) slurEl.controlPoints.forEach((cp, i) => {
       const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
       dot.setAttribute('cx', String(cp.x))
       dot.setAttribute('cy', String(cp.y))

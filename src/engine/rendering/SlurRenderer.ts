@@ -111,6 +111,28 @@ export function planSlurSegments(
 }
 
 /**
+ * The two TRUE, anchorable endpoints of a slur — the beginning point `p0` and the end
+ * point `p1` — in screen pixels. Pure geometry: mirrors the same-line `p0`/`p1` that
+ * carry the square re-anchor handles, so a cross-system slur can expose the same two
+ * endpoints WITHOUT the round-shape control points. `lift`/`direction` match the render
+ * path (`firstX`/`lastX` are the note tie edges; `fromY`/`toY` the stem-aware anchor Ys).
+ */
+export function slurTrueEndpoints(
+  firstX: number,
+  lastX: number,
+  fromY: number,
+  toY: number,
+  lift: number,
+  direction: number,
+): { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number } {
+  return {
+    p0: { x: firstX, y: fromY + lift * direction },
+    p1: { x: lastX, y: toY + lift * direction },
+    direction,
+  }
+}
+
+/**
  * A live `Stave` from any chord/rest rendered on `line`, used only for a MIDDLE
  * segment's vertical reference (staff top/bottom line). Returns undefined if the
  * line has no rendered element in `staveNoteMap` (e.g. not yet laid out).
@@ -310,13 +332,27 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         // that hid the arc on any non-boundary measure / dropped middle systems).
         const firstX = fromNote.getTieRightX()
         const lastX = toNote.getTieLeftX()
+        // The two true endpoints (square re-anchor handles). Attach them to the FIRST
+        // partial that actually registers — independent of which segment draws, since
+        // planSlurSegments may defensively skip a system edge it can't resolve, so we
+        // can't assume the BEGIN partial exists. NO controlPoints/staffSpacePx, so the
+        // round shape handles stay off for a split slur (it has no single shared shape).
+        const trueEnds = slurTrueEndpoints(firstX, lastX, fromY, toY, LIFT, direction)
+        let endpointsAttached = false
+        const registerSeg = (
+          half: { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] },
+          partialType: 'start' | 'end' | 'middle',
+        ) => {
+          registerPartial(half, partialType, endpointsAttached ? undefined : { slurEndpoints: trueEnds })
+          endpointsAttached = true
+        }
         for (const seg of planSlurSegments(pass, fromLine, toLine, firstX, lastX)) {
           if (seg.type === 'begin') {
             // Start note → system right edge, rising to an open (flat-ish) right end.
             const startY = fromY + LIFT * direction
             const p0 = { x: seg.firstX, y: startY }
             const p1 = { x: seg.rightX, y: startY + ARC * direction }
-            registerPartial(
+            registerSeg(
               drawCurveArc(pass, p0, p1, slurArchCps(p0, p1, direction, nestLift), direction, SLUR_THICKNESS, fromNote, toNote),
               'end',
             )
@@ -326,7 +362,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             const endY = toY + LIFT * direction
             const p0 = { x: seg.leftX, y: endY + ARC * direction }
             const p1 = { x: seg.lastX, y: endY }
-            registerPartial(
+            registerSeg(
               drawCurveArc(pass, p0, p1, slurArchCps(p0, p1, direction, nestLift), direction, SLUR_THICKNESS, fromNote, toNote),
               'start',
             )
@@ -341,7 +377,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               : stave.getBottomLineBottomY() + LIFT
             const p0 = { x: seg.leftX, y: baselineY }
             const p1 = { x: seg.rightX, y: baselineY }
-            registerPartial(
+            registerSeg(
               drawCurveArc(pass, p0, p1, slurArchCps(p0, p1, direction, nestLift), direction, SLUR_THICKNESS, fromNote, toNote),
               'middle',
             )

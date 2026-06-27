@@ -3,6 +3,7 @@ import {
   lineLeftEdgeX,
   lineRightEdgeX,
   planSlurSegments,
+  slurTrueEndpoints,
   type SlurLayoutLookup,
   type SlurSegment,
 } from './SlurRenderer'
@@ -108,5 +109,30 @@ describe('planSlurSegments', () => {
     expect(segs.map(s => s.type)).toEqual(['begin', 'middle', 'middle', 'end'])
     expect(segs[1]).toMatchObject({ type: 'middle', line: 1, leftX: 100, rightX: 480 })
     expect(segs[2]).toMatchObject({ type: 'middle', line: 2, leftX: 100, rightX: 470 })
+  })
+})
+
+describe('slurTrueEndpoints (re-anchor handle geometry)', () => {
+  it('places p0/p1 at the note tie-edge Xs lifted by LIFT·direction (above)', () => {
+    // direction -1 = arc above → endpoints lifted UP (smaller Y).
+    const { p0, p1, direction } = slurTrueEndpoints(120, 360, 200, 180, 10, -1)
+    expect(p0).toEqual({ x: 120, y: 190 }) // 200 + 10·(-1)
+    expect(p1).toEqual({ x: 360, y: 170 }) // 180 + 10·(-1)
+    expect(direction).toBe(-1)
+  })
+
+  it('lifts DOWN when the slur sits below (direction +1)', () => {
+    const { p0, p1 } = slurTrueEndpoints(120, 360, 200, 180, 10, 1)
+    expect(p0).toEqual({ x: 120, y: 210 }) // 200 + 10·1
+    expect(p1).toEqual({ x: 360, y: 190 }) // 180 + 10·1
+  })
+
+  it('matches the same-line p0/p1 formula used for the square handles', () => {
+    // The render path computes startY = fromY + LIFT·dir at firstX; this helper must
+    // reproduce exactly that so cross-system squares land on the same spot as same-line.
+    const firstX = 50, lastX = 400, fromY = 300, toY = 305, LIFT = 10, dir = 1
+    const { p0, p1 } = slurTrueEndpoints(firstX, lastX, fromY, toY, LIFT, dir)
+    expect(p0).toEqual({ x: firstX, y: fromY + LIFT * dir })
+    expect(p1).toEqual({ x: lastX, y: toY + LIFT * dir })
   })
 })
