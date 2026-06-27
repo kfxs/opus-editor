@@ -164,6 +164,11 @@ export class HighlightController {
     if (isRest) {
       // A rest is a single glyph — color every glyph in its group.
       group.querySelectorAll('text, path').forEach(colorFill)
+      // Two voices' rests can be vertically nudged to the same spot; whichever group
+      // is later in the DOM paints on top, so the recolored rest can be hidden behind
+      // the other voice. Raise this rest's group to the front (same reasoning as the
+      // unison-notehead case below). Safe: the next render rebuilds the SVG.
+      group.parentNode?.appendChild(group)
       return
     }
 
