@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, CurveControlPointDeltas } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, CurveControlPointDeltas } from '@/types/music'
 
 /**
  * Pure reads over the engraving-overrides compartment (a sub-tree of `Score`; see
@@ -24,6 +24,50 @@ export function engravingOverrideOf(score: Score, elementId: string, kind: strin
  */
 export function curveShapeOverrideOf(score: Score, elementId: string): CurveShapeOverride | undefined {
   return engravingOverrideOf(score, elementId, 'curveShape') as CurveShapeOverride | undefined
+}
+
+/**
+ * The element's per-segment cross-system slur shape, if any (client #2 — cross-system
+ * slurs). See docs/multisystem-slur-segment-shape-plan.md. Absent = every segment draws
+ * its auto arch. Read it through {@link reconcileSegmentShape} to apply the count-signature
+ * staleness rule before using the `middles`.
+ */
+export function segmentCurveShapeOverrideOf(score: Score, elementId: string): SegmentCurveShapeOverride | undefined {
+  return engravingOverrideOf(score, elementId, 'segmentCurveShape') as SegmentCurveShapeOverride | undefined
+}
+
+/** The cps to apply per segment of a cross-system slur, after the staleness rule. A field
+ *  left undefined means "no override for that segment → draw the auto arch". */
+export interface ResolvedSegmentShapes {
+  begin?: CurveControlPointDeltas
+  end?: CurveControlPointDeltas
+  /** MIDDLE cps by ordinal. Empty when the override is absent OR its `spanCount` is stale. */
+  middles: Record<number, CurveControlPointDeltas>
+}
+
+/**
+ * Pure read-only apply rule for a {@link SegmentCurveShapeOverride} (plan §3). Given the
+ * override (or undefined) and the **live** system count, decide which segment cps to use:
+ *  - no override → nothing applied (all auto);
+ *  - `spanCount` matches the live count → `begin`/`end`/`middles` all applied;
+ *  - `spanCount` differs → `begin`/`end` applied, **`middles` ignored** (they are anchored
+ *    to system margins that no longer exist; begin/end are note-anchored so they survive).
+ *
+ * No mutation — staleness is decided fresh every render, so this is correct without ever
+ * writing back. (The optional lazy *clear* is out of scope; see plan §3.) Pure & VexFlow-free
+ * for isolated unit testing, mirroring `planSlurSegments` / `slurTrueEndpoints`.
+ */
+export function reconcileSegmentShape(
+  override: SegmentCurveShapeOverride | undefined,
+  liveSpanCount: number,
+): ResolvedSegmentShapes {
+  if (!override) return { middles: {} }
+  const sameCount = override.spanCount === liveSpanCount
+  return {
+    begin: override.begin,
+    end: override.end,
+    middles: sameCount ? { ...(override.middles ?? {}) } : {},
+  }
 }
 
 /**

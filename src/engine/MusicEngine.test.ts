@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MusicEngine } from './MusicEngine'
-import { curveShapeOverrideOf } from './models/engravingOverrides'
+import { curveShapeOverrideOf, segmentCurveShapeOverrideOf } from './models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { buildBeatMap, navBeatMap } from '@/utils/beatMap'
 
@@ -821,6 +821,24 @@ describe('MusicEngine.createSlur — endpoint resolution', () => {
     expect(shapeOf(slur.id)).toBeUndefined() // reverts past the entire drag to the auto shape
     expect(engine.redo()).toBe(true)
     expect(shapeOf(slur.id)).toEqual(cps2) // redo restores the final dragged shape
+  })
+
+  it('previewSlurShape routes a segment address to the per-segment override, not curveShape', () => {
+    const curveOf = (id: string) => curveShapeOverrideOf(engine.getScore(), id)
+    const segOf = (id: string) => segmentCurveShapeOverrideOf(engine.getScore(), id)
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const slur = engine.createSlur([a.id])!
+    const cps: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 0.3, y: 1.2 }, { x: -0.1, y: 1.4 }]
+
+    // A cross-system drag carries a segment address + the live span count → segmentCurveShape.
+    expect(engine.previewSlurShape(slur.id, cps, { role: 'middle', ordinal: 0 }, 3)).toBe(true)
+    expect(curveOf(slur.id)).toBeUndefined()                 // NOT the whole-arc shape
+    expect(segOf(slur.id)).toMatchObject({ spanCount: 3, middles: { 0: cps } })
+
+    // No address (a same-line drag) still routes to the single-arc curveShape.
+    expect(engine.previewSlurShape(slur.id, cps)).toBe(true)
+    expect(curveOf(slur.id)).toMatchObject({ cps })
   })
 
   // --- Phase 2: conservative auto-reset of the curve-shape override ---

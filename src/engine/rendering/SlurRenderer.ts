@@ -9,12 +9,12 @@
  */
 import { StaveNote } from 'vexflow'
 import type { Stave } from 'vexflow'
-import type { Score } from '@/types/music'
+import type { Score, CurveControlPointDeltas } from '@/types/music'
 import { slurNestDepths } from '@/utils/slurs'
 import type { ElementInfo } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
 import { drawCurveArc } from './curveArc'
-import { curveShapeOverrideOf } from '@/engine/models/engravingOverrides'
+import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 
 // Vertical geometry shared by all slur arcs.
@@ -212,6 +212,30 @@ function slurArchCps(
 }
 
 /**
+ * Resolve the cubic `cps` for one arc: a hand-edited override (stored in **staff-spaces**,
+ * anchor-relative) converted to pixels against the live `stave`, else the auto arch. Shared
+ * by the single-arc path and each cross-system segment (BEGIN/MIDDLE/END), so the
+ * staff-space→pixel conversion lives in exactly one place. `extraHeight` only affects the
+ * auto arch (a manual shape is fully authored — no nest lift on top).
+ */
+export function resolveCps(
+  override: CurveControlPointDeltas | undefined,
+  stave: Stave | undefined,
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  direction: number,
+  extraHeight: number,
+): [{ x: number; y: number }, { x: number; y: number }] {
+  if (override && stave) {
+    return [
+      { x: staffSpacesToPixels(override[0].x, stave), y: staffSpacesToPixels(override[0].y, stave) },
+      { x: staffSpacesToPixels(override[1].x, stave), y: staffSpacesToPixels(override[1].y, stave) },
+    ]
+  }
+  return slurArchCps(p0, p1, direction, extraHeight)
+}
+
+/**
  * Render phrasing slurs from {@link Score.slurs}. Each slur is anchored to a
  * start/end head id; both resolve through `staveNoteMap` to their containing
  * chord's StaveNote (a slur arcs over the whole event, not one pitch).
@@ -308,13 +332,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         // staff-spaces) overrides the auto arch; absent → auto. Convert the override's
         // deltas to pixels against the live stave (resolution-independent storage).
         const stave = fromNote.getStave()
-        const override = curveShapeOverrideOf(score, slur.id)
-        const cps = override && stave
-          ? [
-              { x: staffSpacesToPixels(override.cps[0].x, stave), y: staffSpacesToPixels(override.cps[0].y, stave) },
-              { x: staffSpacesToPixels(override.cps[1].x, stave), y: staffSpacesToPixels(override.cps[1].y, stave) },
-            ] as [{ x: number; y: number }, { x: number; y: number }]
-          : slurArchCps(p0, p1, direction, nestLift)
+        const cps = resolveCps(curveShapeOverrideOf(score, slur.id)?.cps, stave, p0, p1, direction, nestLift)
         const arc = drawCurveArc(pass, p0, p1, cps, direction, SLUR_THICKNESS, fromNote, toNote)
         // Store the on-screen control points + endpoint geometry so a selected slur can
         // show draggable handles (Phase 7), plus the stave's staff-space size so a handle
@@ -338,23 +356,49 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         // can't assume the BEGIN partial exists. NO controlPoints/staffSpacePx, so the
         // round shape handles stay off for a split slur (it has no single shared shape).
         const trueEnds = slurTrueEndpoints(firstX, lastX, fromY, toY, LIFT, direction)
+        const spanCount = toLine - fromLine + 1
         let endpointsAttached = false
+        // Register one segment partial: its round-handle context (controlPoints + the
+        // SEGMENT's own endpoints + staff spacing + segment address + spanCount) plus, on
+        // the FIRST registered partial only, the slur's TRUE ends for the square re-anchor
+        // handles. `slurEndpoints` (trueEnds) and `segmentEndpoints` are deliberately
+        // separate: squares re-anchor the whole slur, round handles bend this one segment.
         const registerSeg = (
-          half: { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] },
+          arc: { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[]; c0: { x: number; y: number }; c1: { x: number; y: number } },
           partialType: 'start' | 'end' | 'middle',
+          segEnds: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number },
+          stave: Stave | undefined,
+          segmentRole: 'begin' | 'middle' | 'end',
+          segmentOrdinal?: number,
         ) => {
-          registerPartial(half, partialType, endpointsAttached ? undefined : { slurEndpoints: trueEnds })
+          registerPartial(arc, partialType, {
+            controlPoints: [arc.c0, arc.c1],
+            segmentEndpoints: segEnds,
+            staffSpacePx: stave?.getSpacingBetweenLines(),
+            segmentRole,
+            ...(segmentOrdinal !== undefined ? { segmentOrdinal } : {}),
+            slurSpanCount: spanCount,
+            ...(endpointsAttached ? {} : { slurEndpoints: trueEnds }),
+          })
           endpointsAttached = true
         }
+        // Per-segment hand-edited shapes (plan §3): read the override and apply the live
+        // span-count staleness rule. BEGIN/END are note-anchored (durable) and use their
+        // own note's stave; MIDDLEs are keyed by ordinal (reset on a count change) and use
+        // the system's representative stave. Absent/stale entries fall back to the auto arch.
+        const segShape = reconcileSegmentShape(segmentCurveShapeOverrideOf(score, slur.id), spanCount)
+        let middleOrdinal = 0
         for (const seg of planSlurSegments(pass, fromLine, toLine, firstX, lastX)) {
           if (seg.type === 'begin') {
             // Start note → system right edge, rising to an open (flat-ish) right end.
             const startY = fromY + LIFT * direction
             const p0 = { x: seg.firstX, y: startY }
             const p1 = { x: seg.rightX, y: startY + ARC * direction }
+            const stave = fromNote.getStave()
+            const cps = resolveCps(segShape.begin, stave, p0, p1, direction, nestLift)
             registerSeg(
-              drawCurveArc(pass, p0, p1, slurArchCps(p0, p1, direction, nestLift), direction, SLUR_THICKNESS, fromNote, toNote),
-              'end',
+              drawCurveArc(pass, p0, p1, cps, direction, SLUR_THICKNESS, fromNote, toNote),
+              'end', { p0, p1, direction }, stave, 'begin',
             )
           } else if (seg.type === 'end') {
             // System left edge → end note, the mirror of BEGIN. THIS is the 2-line
@@ -362,9 +406,11 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             const endY = toY + LIFT * direction
             const p0 = { x: seg.leftX, y: endY + ARC * direction }
             const p1 = { x: seg.lastX, y: endY }
+            const stave = toNote.getStave()
+            const cps = resolveCps(segShape.end, stave, p0, p1, direction, nestLift)
             registerSeg(
-              drawCurveArc(pass, p0, p1, slurArchCps(p0, p1, direction, nestLift), direction, SLUR_THICKNESS, fromNote, toNote),
-              'start',
+              drawCurveArc(pass, p0, p1, cps, direction, SLUR_THICKNESS, fromNote, toNote),
+              'start', { p0, p1, direction }, stave, 'end',
             )
           } else if (seg.type === 'middle') {
             // A full-width bow across a system the slur merely passes over. Both ends
@@ -377,9 +423,11 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               : stave.getBottomLineBottomY() + LIFT
             const p0 = { x: seg.leftX, y: baselineY }
             const p1 = { x: seg.rightX, y: baselineY }
+            const ordinal = middleOrdinal++
+            const cps = resolveCps(segShape.middles[ordinal], stave, p0, p1, direction, nestLift)
             registerSeg(
-              drawCurveArc(pass, p0, p1, slurArchCps(p0, p1, direction, nestLift), direction, SLUR_THICKNESS, fromNote, toNote),
-              'middle',
+              drawCurveArc(pass, p0, p1, cps, direction, SLUR_THICKNESS, fromNote, toNote),
+              'middle', { p0, p1, direction }, stave, 'middle', ordinal,
             )
           }
         }

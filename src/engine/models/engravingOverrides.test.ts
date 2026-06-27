@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { curveShapeOverrideOf, migrateLegacySlurCps, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './engravingOverrides'
-import type { EngravingOverride, CurveShapeOverride, Score, Slur } from '@/types/music'
+import { curveShapeOverrideOf, migrateLegacySlurCps, reconcileSegmentShape, segmentCurveShapeOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './engravingOverrides'
+import type { EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, CurveControlPointDeltas, Score, Slur } from '@/types/music'
 
 /**
  * Phase 0 of the engraving-overrides plan: the compartment is pure infrastructure —
@@ -149,5 +149,101 @@ describe('curveShape override + legacy Slur.cps migration (Phase 1)', () => {
     const score = legacyScore([{ x: 1, y: 1 }, { x: 1, y: 1 }])
     delete (score.slurs![0] as { cps?: unknown }).cps
     expect(curveShapeOverrideOf(score, 'slur-1')).toBeUndefined()
+  })
+})
+
+/**
+ * P0 of the multi-system slur per-segment shape plan: the `segmentCurveShape` kind (client
+ * #2) + the pure read-only `reconcileSegmentShape` apply rule + the `setSlurSegmentShape`
+ * model mutator + the `setSlurEndpoint` clear of the new kind. No VexFlow / render here —
+ * just storage + the count-signature staleness rule.
+ */
+describe('reconcileSegmentShape (pure apply rule, plan §3)', () => {
+  const cp = (n: number): CurveControlPointDeltas => [{ x: n, y: n }, { x: -n, y: n }]
+  const override = (spanCount: number): SegmentCurveShapeOverride => ({
+    kind: 'segmentCurveShape', spanCount, begin: cp(1), end: cp(2), middles: { 0: cp(3), 1: cp(4) },
+  })
+
+  it('no override → nothing applied, empty middles', () => {
+    expect(reconcileSegmentShape(undefined, 3)).toEqual({ middles: {} })
+  })
+
+  it('matching span count → begin, end, AND middles all applied', () => {
+    expect(reconcileSegmentShape(override(3), 3)).toEqual({
+      begin: cp(1), end: cp(2), middles: { 0: cp(3), 1: cp(4) },
+    })
+  })
+
+  it('differing span count → begin + end applied, middles dropped (stale margins)', () => {
+    expect(reconcileSegmentShape(override(3), 2)).toEqual({
+      begin: cp(1), end: cp(2), middles: {},
+    })
+  })
+
+  it('does not mutate the override (returns a fresh middles object)', () => {
+    const o = override(3)
+    const r = reconcileSegmentShape(o, 3)
+    r.middles[0] = cp(99)
+    expect(o.middles![0]).toEqual(cp(3)) // original untouched
+  })
+})
+
+describe('ScoreModel.setSlurSegmentShape + setSlurEndpoint clear (P0 storage)', () => {
+  let model: ScoreModel
+  let slurId: string
+  const cp = (n: number): CurveControlPointDeltas => [{ x: n, y: n }, { x: -n, y: n }]
+  const seg = (id: string) => segmentCurveShapeOverrideOf(model.getScore(), id)
+
+  beforeEach(() => {
+    model = new ScoreModel('Test Score', 120)
+    slurId = model.addSlur({ startNoteId: 'n-a', endNoteId: 'n-b' }).id
+  })
+
+  it('returns false for an unknown slur', () => {
+    expect(model.setSlurSegmentShape('ghost', { role: 'begin' }, cp(1), 3)).toBe(false)
+  })
+
+  it('writes begin / end / middle[ordinal] into one override with the live spanCount', () => {
+    model.setSlurSegmentShape(slurId, { role: 'begin' }, cp(1), 3)
+    model.setSlurSegmentShape(slurId, { role: 'end' }, cp(2), 3)
+    model.setSlurSegmentShape(slurId, { role: 'middle', ordinal: 0 }, cp(3), 3)
+    expect(seg(slurId)).toEqual({
+      kind: 'segmentCurveShape', spanCount: 3, begin: cp(1), end: cp(2), middles: { 0: cp(3) },
+    })
+  })
+
+  it('a same-count edit preserves the other segments', () => {
+    model.setSlurSegmentShape(slurId, { role: 'middle', ordinal: 0 }, cp(3), 3)
+    model.setSlurSegmentShape(slurId, { role: 'middle', ordinal: 1 }, cp(4), 3)
+    expect(seg(slurId)!.middles).toEqual({ 0: cp(3), 1: cp(4) })
+  })
+
+  it('a count-changed edit drops stale middles but keeps durable begin/end', () => {
+    model.setSlurSegmentShape(slurId, { role: 'begin' }, cp(1), 3)
+    model.setSlurSegmentShape(slurId, { role: 'middle', ordinal: 0 }, cp(3), 3)
+    // Re-edit end at a NEW span count → middles authored at count 3 are stale.
+    model.setSlurSegmentShape(slurId, { role: 'end' }, cp(2), 2)
+    expect(seg(slurId)).toEqual({
+      kind: 'segmentCurveShape', spanCount: 2, begin: cp(1), end: cp(2), middles: {},
+    })
+  })
+
+  it('null clears just the addressed segment; pruning removes an emptied override', () => {
+    model.setSlurSegmentShape(slurId, { role: 'begin' }, cp(1), 3)
+    model.setSlurSegmentShape(slurId, { role: 'middle', ordinal: 0 }, cp(3), 3)
+    model.setSlurSegmentShape(slurId, { role: 'middle', ordinal: 0 }, null, 3)
+    expect(seg(slurId)!.middles).toEqual({})
+    expect(seg(slurId)!.begin).toEqual(cp(1))
+
+    model.setSlurSegmentShape(slurId, { role: 'begin' }, null, 3) // last edit gone
+    expect(seg(slurId)).toBeUndefined()
+    expect(model.getScore().engravingOverrides).toBeUndefined()
+  })
+
+  it('setSlurEndpoint re-anchor clears the segment shape (begin/end were on the old anchor)', () => {
+    model.setSlurSegmentShape(slurId, { role: 'begin' }, cp(1), 3)
+    expect(seg(slurId)).toBeDefined()
+    model.setSlurEndpoint(slurId, 'end', 'n-z')
+    expect(seg(slurId)).toBeUndefined()
   })
 })

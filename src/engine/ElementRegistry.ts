@@ -186,6 +186,21 @@ export interface ElementInfo {
   /** The side a slur was actually drawn on: -1 = above, +1 = below. Lets a flip
    *  toggle an auto-placed slur to the opposite of what's on screen. */
   slurDirection?: number
+  // --- Cross-system per-segment shape (multi-system slur segment-shape plan) ---
+  // A cross-system slur registers one partial PER segment; each carries its OWN
+  // round-handle drag context here, distinct from `slurEndpoints` (which on a
+  // cross-system slur holds the TRUE note ends for the square re-anchor handles).
+  /** This segment's own arc endpoints (begin/middle/end), for the round-handle drag
+   *  math. On a same-line slur this is absent and the handles use `slurEndpoints`. */
+  segmentEndpoints?: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number }
+  /** Which segment of a cross-system slur this is. Absent = a same-line single arc
+   *  (its shape edit routes to the slur's `curveShape`, not `segmentCurveShape`). */
+  segmentRole?: 'begin' | 'middle' | 'end'
+  /** 0-based ordinal among MIDDLE segments (only set when `segmentRole === 'middle'`). */
+  segmentOrdinal?: number
+  /** Live system count (`toLine − fromLine + 1`) the segment was drawn at — the reset
+   *  signature a handle drag writes into the `segmentCurveShape` override. */
+  slurSpanCount?: number
   /** For a 'slur-handle' element: the slur it belongs to and which control point. */
   slurId?: string
   cpIndex?: 0 | 1

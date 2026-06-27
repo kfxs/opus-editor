@@ -4,10 +4,12 @@ import {
   lineRightEdgeX,
   planSlurSegments,
   slurTrueEndpoints,
+  resolveCps,
   type SlurLayoutLookup,
   type SlurSegment,
 } from './SlurRenderer'
 import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
+import type { Stave } from 'vexflow'
 
 /**
  * Fabricate the narrow {@link SlurLayoutLookup} slice the system-edge helpers + the
@@ -134,5 +136,46 @@ describe('slurTrueEndpoints (re-anchor handle geometry)', () => {
     const { p0, p1 } = slurTrueEndpoints(firstX, lastX, fromY, toY, LIFT, dir)
     expect(p0).toEqual({ x: firstX, y: fromY + LIFT * dir })
     expect(p1).toEqual({ x: lastX, y: toY + LIFT * dir })
+  })
+})
+
+describe('resolveCps (per-segment + single-arc shape resolution, P1)', () => {
+  // staffSpacesToPixels only reads getSpacingBetweenLines() — stub just that.
+  const stave = (spacing: number) => ({ getSpacingBetweenLines: () => spacing } as unknown as Stave)
+  const p0 = { x: 0, y: 0 }
+  const p1 = { x: 100, y: 0 } // flat 100px span
+
+  it('no override → the auto arch (slurArchCps), independent of any stave', () => {
+    // Flat 100px span, above: H = 9.3 + 100·0.06 = 15.3, symmetric, no sideways shift.
+    expect(resolveCps(undefined, stave(10), p0, p1, -1, 0)).toEqual([
+      { x: 0, y: 15.3 }, { x: 0, y: 15.3 },
+    ])
+  })
+
+  it('override present → staff-spaces converted to pixels against the live stave spacing', () => {
+    const override: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 2, y: 3 }, { x: -1, y: 4 }]
+    expect(resolveCps(override, stave(10), p0, p1, -1, 0)).toEqual([
+      { x: 20, y: 30 }, { x: -10, y: 40 },
+    ])
+    // A different stave spacing rescales (resolution independence).
+    expect(resolveCps(override, stave(8), p0, p1, -1, 0)).toEqual([
+      { x: 16, y: 24 }, { x: -8, y: 32 },
+    ])
+  })
+
+  it('override present but NO stave → falls back to the auto arch (defensive)', () => {
+    const override: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 9, y: 9 }, { x: 9, y: 9 }]
+    expect(resolveCps(override, undefined, p0, p1, -1, 0)).toEqual([
+      { x: 0, y: 15.3 }, { x: 0, y: 15.3 },
+    ])
+  })
+
+  it('extraHeight (nest lift) raises ONLY the auto arch, never a manual override', () => {
+    const auto = resolveCps(undefined, stave(10), p0, p1, -1, 10)
+    expect(auto).toEqual([{ x: 0, y: 25.3 }, { x: 0, y: 25.3 }]) // 15.3 + 10
+    const override: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 1, y: 1 }, { x: 1, y: 1 }]
+    expect(resolveCps(override, stave(10), p0, p1, -1, 10)).toEqual([
+      { x: 10, y: 10 }, { x: 10, y: 10 }, // extraHeight ignored — fully authored
+    ])
   })
 })

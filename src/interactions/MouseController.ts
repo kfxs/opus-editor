@@ -1,4 +1,4 @@
-import type { ArticulationType, PitchSpelling, Fraction } from '../types/music'
+import type { ArticulationType, PitchSpelling, Fraction, SlurSegmentAddress } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry } from '../engine/ElementRegistry'
 import type { EditorState } from './EditorState'
@@ -75,6 +75,12 @@ export class MouseController {
   /** Stave line spacing (px) where the dragged slur was drawn — converts the new pixel
    *  shape to staff-spaces before storing (the override is resolution-independent). */
   private draggedStaffSpacePx = 10
+  /** For a cross-system slur, which segment the grabbed handle reshapes (begin/end/middle
+   *  ordinal). Undefined = a same-line single arc → routes to the slur's `curveShape`. */
+  private draggedSlurSegment: SlurSegmentAddress | undefined = undefined
+  /** Live system count carried from the handle, written as the `segmentCurveShape` reset
+   *  signature (only used when `draggedSlurSegment` is set). */
+  private draggedSlurSpanCount: number | undefined = undefined
   private slurDragChanged = false
   private slurDragStartTime: number | null = null
 
@@ -513,21 +519,27 @@ export class MouseController {
       const b = el.bbox
       return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
     })
-    if (handle?.slurId === this.state.selectedSlurId && handle.cpIndex !== undefined) {
-      const slurEl = registry.getByType('slur').find(e => e.id === handle.slurId && e.slurEndpoints && e.controlPoints)
-      if (slurEl?.slurEndpoints && slurEl.controlPoints) {
-        this.isDraggingSlurHandle = true
-        this.draggedSlurId = handle.slurId
-        this.draggedCpIndex = handle.cpIndex
-        this.draggedSlurEndpoints = slurEl.slurEndpoints
-        this.draggedSlurBaselineCps = this.cpsFromControlPoints(slurEl.controlPoints, slurEl.slurEndpoints)
-        this.draggedStaffSpacePx = slurEl.staffSpacePx ?? 10
-        this.slurDragChanged = false
-        this.slurDragStartTime = Date.now()
-        console.log(`Slur handle drag ready | id:${handle.slurId} cp:${handle.cpIndex}`)
-        event.preventDefault()
-        return true
-      }
+    // The handle carries its OWN segment's drag context (endpoints + control points +
+    // staff spacing + segment address + span count), so we read everything straight off it
+    // — no re-lookup of a 'slur' partial, which on a cross-system slur would ambiguously
+    // resolve to the wrong segment (§4a). cpIndex disambiguates the two dots within it.
+    if (handle?.slurId === this.state.selectedSlurId && handle.cpIndex !== undefined
+        && handle.slurEndpoints && handle.controlPoints) {
+      this.isDraggingSlurHandle = true
+      this.draggedSlurId = handle.slurId
+      this.draggedCpIndex = handle.cpIndex
+      this.draggedSlurEndpoints = handle.slurEndpoints
+      this.draggedSlurBaselineCps = this.cpsFromControlPoints(handle.controlPoints, handle.slurEndpoints)
+      this.draggedStaffSpacePx = handle.staffSpacePx ?? 10
+      this.draggedSlurSegment = handle.segmentRole === undefined ? undefined
+        : handle.segmentRole === 'middle' ? { role: 'middle', ordinal: handle.segmentOrdinal ?? 0 }
+        : { role: handle.segmentRole }
+      this.draggedSlurSpanCount = handle.slurSpanCount
+      this.slurDragChanged = false
+      this.slurDragStartTime = Date.now()
+      console.log(`Slur handle drag ready | id:${handle.slurId} cp:${handle.cpIndex} seg:${handle.segmentRole ?? 'single'}${handle.segmentRole === 'middle' ? `#${handle.segmentOrdinal}` : ''}`)
+      event.preventDefault()
+      return true
     }
 
     // Slur endpoint (square) handle drag — re-anchor the in/out point onto a
@@ -854,6 +866,8 @@ export class MouseController {
     this.draggedCpIndex = undefined
     this.draggedSlurEndpoints = null
     this.draggedSlurBaselineCps = null
+    this.draggedSlurSegment = undefined
+    this.draggedSlurSpanCount = undefined
     this.slurDragChanged = false
     this.slurDragStartTime = null
   }
@@ -1203,7 +1217,7 @@ export class MouseController {
       { x: cps[0].x / ss, y: cps[0].y / ss },
       { x: cps[1].x / ss, y: cps[1].y / ss },
     ]
-    if (engine.previewSlurShape(this.draggedSlurId, cpsStaffSpaces)) {
+    if (engine.previewSlurShape(this.draggedSlurId, cpsStaffSpaces, this.draggedSlurSegment, this.draggedSlurSpanCount)) {
       this.slurDragChanged = true
       this.render.renderScore()
     }

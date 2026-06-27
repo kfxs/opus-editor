@@ -542,9 +542,16 @@ export class HighlightController {
    * Draw draggable handles for the selected slur and register them for hit-testing.
    * Two independent kinds: **round** control-point handles that reshape the arc, and
    * **square** endpoint handles that re-anchor the slur onto a different note.
-   * Same-line slurs carry both `controlPoints` + `slurEndpoints` → round + square.
-   * Split (cross-system) slurs carry only `slurEndpoints` (a split slur has no single
-   * shared shape to reshape) → squares only. The handle elements are added to the
+   *
+   * A same-line slur is ONE partial carrying `controlPoints` + `slurEndpoints` → one
+   * round-handle pair + squares. A cross-system slur is N partials (BEGIN/MIDDLE…/END),
+   * EACH carrying its own `controlPoints` + `segmentEndpoints` → a round-handle pair per
+   * segment; the squares are the slur's TRUE ends, carried as `slurEndpoints` on a single
+   * partial. So we loop ALL partials for round handles and pick the one true-ends partial
+   * for squares (the §4a fix — a single `.find` would have served only the first segment).
+   * Each round handle carries its OWN segment's drag context (endpoints, control points,
+   * staff spacing, segment address, span count) so the drag reads everything off the picked
+   * handle without re-resolving which segment it belongs to. Handles are added to the
    * (post-render) registry so the next render clears them.
    */
   applySlurHandles(): void {
@@ -555,42 +562,55 @@ export class HighlightController {
     if (!svg) return
 
     const registry = engine.getElementRegistry()
-    const slurEl = registry.getByType('slur').find(
-      e => e.id === this.state.selectedSlurId && (e.controlPoints || e.slurEndpoints),
-    )
-    if (!slurEl) return
+    const partials = registry.getByType('slur').filter(e => e.id === this.state.selectedSlurId)
+    if (partials.length === 0) return
 
     const R = HighlightController.SLUR_HANDLE_R
     const HIT = HighlightController.SLUR_HANDLE_HIT
 
-    // Round handles: the two cubic control points — these reshape the arc. Same-line
-    // slurs only; a split slur has slurEndpoints but no controlPoints, so this no-ops.
-    if (slurEl.controlPoints) slurEl.controlPoints.forEach((cp, i) => {
-      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
-      dot.setAttribute('cx', String(cp.x))
-      dot.setAttribute('cy', String(cp.y))
-      dot.setAttribute('r', String(R))
-      dot.setAttribute('fill', '#F59E0B')
-      dot.setAttribute('stroke', '#ffffff')
-      dot.setAttribute('stroke-width', '1.5')
-      dot.setAttribute('class', 'slur-handle')
-      ;(dot as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'grab'
-      svg.appendChild(dot)
+    // Round handles: one pair per shape-bearing partial (a same-line slur has one; a
+    // cross-system slur has one per segment). The drag endpoints are the segment's own
+    // ends (`segmentEndpoints`), falling back to `slurEndpoints` for a same-line arc.
+    for (const partial of partials) {
+      if (!partial.controlPoints) continue
+      const dragEnds = partial.segmentEndpoints ?? partial.slurEndpoints
+      if (!dragEnds) continue
+      partial.controlPoints.forEach((cp, i) => {
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+        dot.setAttribute('cx', String(cp.x))
+        dot.setAttribute('cy', String(cp.y))
+        dot.setAttribute('r', String(R))
+        dot.setAttribute('fill', '#F59E0B')
+        dot.setAttribute('stroke', '#ffffff')
+        dot.setAttribute('stroke-width', '1.5')
+        dot.setAttribute('class', 'slur-handle')
+        ;(dot as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'grab'
+        svg.appendChild(dot)
 
-      registry.add({
-        type: 'slur-handle',
-        slurId: this.state.selectedSlurId!,
-        cpIndex: i as 0 | 1,
-        bbox: { x: cp.x - HIT, y: cp.y - HIT, width: HIT * 2, height: HIT * 2 },
+        registry.add({
+          type: 'slur-handle',
+          slurId: this.state.selectedSlurId!,
+          cpIndex: i as 0 | 1,
+          // This segment's full drag context, read straight off the handle on mousedown.
+          controlPoints: partial.controlPoints,
+          slurEndpoints: dragEnds,
+          staffSpacePx: partial.staffSpacePx,
+          segmentRole: partial.segmentRole,
+          segmentOrdinal: partial.segmentOrdinal,
+          slurSpanCount: partial.slurSpanCount,
+          bbox: { x: cp.x - HIT, y: cp.y - HIT, width: HIT * 2, height: HIT * 2 },
+        })
       })
-    })
+    }
 
-    // Square handles: the two endpoints (in/out) — these re-anchor the slur onto a
-    // different note. Squares distinguish anchor grips from the round shape grips.
-    if (slurEl.slurEndpoints) {
+    // Square handles: the two TRUE endpoints (in/out) — these re-anchor the whole slur
+    // onto a different note. Carried as `slurEndpoints` on exactly one partial (same-line:
+    // the single arc; cross-system: the first registered segment).
+    const trueEnds = partials.find(e => e.slurEndpoints)?.slurEndpoints
+    if (trueEnds) {
       const ends: { p: { x: number; y: number }; which: 'start' | 'end' }[] = [
-        { p: slurEl.slurEndpoints.p0, which: 'start' },
-        { p: slurEl.slurEndpoints.p1, which: 'end' },
+        { p: trueEnds.p0, which: 'start' },
+        { p: trueEnds.p1, which: 'end' },
       ]
       const S = R + 1 // half-side: a touch larger than the round handles so squares read clearly
       for (const { p, which } of ends) {

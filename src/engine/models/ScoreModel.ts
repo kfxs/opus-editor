@@ -1,4 +1,4 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurSegmentAddress } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps } from './engravingOverrides'
 import {
   getTupletTotalBeatsFrac,
@@ -471,7 +471,57 @@ export class ScoreModel {
     if (noteId === otherId || noteId === currentId) return false
     if (which === 'start') slur.startNoteId = noteId
     else slur.endNoteId = noteId
-    this.clearEngravingOverride(id, 'curveShape') // auto-reset (§3.3): endpoint re-pointed onto a different element
+    // auto-reset (§3.3): endpoint re-pointed onto a different element → both the single-arc
+    // shape AND the cross-system per-segment shape were authored against the OLD anchors.
+    this.clearEngravingOverride(id, 'curveShape')
+    this.clearEngravingOverride(id, 'segmentCurveShape')
+    return true
+  }
+
+  /**
+   * Set (or clear) the shape of ONE segment of a cross-system slur (BEGIN, END, or a MIDDLE
+   * addressed by ordinal). Stored in the engraving-overrides compartment as a
+   * {@link SegmentCurveShapeOverride}, separate from the single-arc `curveShape`. `cps` are
+   * in **staff-spaces**, anchor-relative (the caller converts from pixels); pass `null` to
+   * drop just that segment's edit. `spanCount` is the **live** system count at the time of
+   * the edit — it becomes the override's reset signature.
+   *
+   * Count-change handling on write: if the stored override was authored against a *different*
+   * `spanCount`, its MIDDLE edits are stale, so they are dropped here (begin/end are durable
+   * and kept) before the live count is adopted — otherwise a stale middle could resurrect at
+   * the wrong geometry once the signatures matched again. Mirrors the read-time apply rule
+   * in `reconcileSegmentShape`. See docs/multisystem-slur-segment-shape-plan.md §2–§3.
+   * @returns true if the slur exists and was updated.
+   */
+  setSlurSegmentShape(
+    id: string,
+    segment: SlurSegmentAddress,
+    cps: CurveControlPointDeltas | null,
+    spanCount: number,
+  ): boolean {
+    if (!this.getSlurById(id)) return false
+    const prev = this.getEngravingOverride(id, 'segmentCurveShape') as SegmentCurveShapeOverride | undefined
+    // Rebuild the override fresh (cheap, avoids in-place aliasing). Adopt the live spanCount;
+    // keep begin/end always (durable), keep middles only when the count is unchanged.
+    const keepMiddles = prev !== undefined && prev.spanCount === spanCount
+    const next: SegmentCurveShapeOverride = {
+      kind: 'segmentCurveShape',
+      spanCount,
+      ...(prev?.begin ? { begin: prev.begin } : {}),
+      ...(prev?.end ? { end: prev.end } : {}),
+      middles: keepMiddles ? { ...(prev!.middles ?? {}) } : {},
+    }
+    if (segment.role === 'middle') {
+      if (cps) next.middles![segment.ordinal] = cps
+      else delete next.middles![segment.ordinal]
+    } else if (segment.role === 'begin') {
+      if (cps) next.begin = cps; else delete next.begin
+    } else {
+      if (cps) next.end = cps; else delete next.end
+    }
+    const hasAny = next.begin || next.end || Object.keys(next.middles ?? {}).length > 0
+    if (hasAny) this.setEngravingOverride(id, next)
+    else this.clearEngravingOverride(id, 'segmentCurveShape')
     return true
   }
 

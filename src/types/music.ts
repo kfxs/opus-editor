@@ -208,6 +208,45 @@ export interface CurveShapeOverride extends EngravingOverride {
 }
 
 /**
+ * Per-segment shape for a **cross-system** slur (one drawn as `BEGIN + k×MIDDLE + END`,
+ * see docs/multisystem-slur-segment-shape-plan.md). A same-line slur is a single arc and
+ * uses {@link CurveShapeOverride} instead — this is a deliberately SEPARATE kind, so the
+ * single↔multi boundary needs no special logic (a collapsed-to-one-line slur reads its
+ * empty `curveShape` and draws the default).
+ *
+ * Unlike every other override, this one is **deliberately layout-ephemeral**: a MIDDLE
+ * segment is anchored to nothing but its system's margins (a pure layout artifact), so its
+ * shape is meaningful only while that middle exists. `begin`/`end` are tied to the real
+ * start/end notes and are durable. The reset signature is {@link spanCount}: when the live
+ * system count (`toLine − fromLine + 1`) differs from the authored `spanCount`, the
+ * `middles` are stale and ignored at read time (begin/end still apply). See
+ * `reconcileSegmentShape` for the read-only apply rule.
+ */
+/**
+ * Addresses ONE segment of a cross-system slur for a shape edit: a role-keyed BEGIN/END
+ * (durable, note-anchored) or an ordinal-keyed MIDDLE (layout-bound). Used by the handle
+ * drag → `setSlurSegmentShape` write path. A same-line slur has no address (its whole arc
+ * is the single-arc `curveShape`).
+ */
+export type SlurSegmentAddress =
+  | { role: 'begin' | 'end' }
+  | { role: 'middle'; ordinal: number }
+
+export interface SegmentCurveShapeOverride extends EngravingOverride {
+  kind: 'segmentCurveShape'
+  /** System count this was authored against (`toLine − fromLine + 1`). The reset
+   *  signature: a live count differing from this means the `middles` are stale. */
+  spanCount: number
+  /** BEGIN segment cps (staff-spaces, anchor-relative). Role-keyed → durable. */
+  begin?: CurveControlPointDeltas
+  /** END segment cps (staff-spaces, anchor-relative). Role-keyed → durable. */
+  end?: CurveControlPointDeltas
+  /** MIDDLE segment cps keyed by **ordinal** among middles (0-based, NOT lineNumber) —
+   *  survives a same-count reflow, dropped on a count change via `spanCount`. */
+  middles?: Record<number, CurveControlPointDeltas>
+}
+
+/**
  * The engraving-overrides compartment: an id-keyed table of authored geometry held
  * as a sub-tree of {@link Score} (so it clones / serializes / undoes with the score
  * value — principle 1). Keyed by the *element id* an override hangs off (a note /

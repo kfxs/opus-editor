@@ -11,7 +11,7 @@ import { fracToNumber, fracEq, fracLt, fracCompare } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Slur, PitchAlter, CurveControlPointDeltas } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 import type { RebarEvent } from '@/utils/rebar'
@@ -763,9 +763,20 @@ export class MusicEngine {
   /** Live (preview) shape update used **while dragging a slur handle** — updates the
    *  slur's curve-shape override (staff-spaces) but does NOT record undo. Call
    *  {@link commitSlurShape} on drop to push the single undo entry (mirrors `moveClef` /
-   *  `commitClefMove`). */
-  previewSlurShape(id: string, cps: CurveControlPointDeltas): boolean {
-    return this.scoreModel.setSlurShape(id, cps)
+   *  `commitClefMove`).
+   *
+   *  A same-line slur (no `segment`) reshapes its whole-arc `curveShape`. A cross-system
+   *  slur passes the grabbed segment's address + the live `spanCount`, routing the edit
+   *  into the per-segment `segmentCurveShape` override instead. */
+  previewSlurShape(
+    id: string,
+    cps: CurveControlPointDeltas,
+    segment?: SlurSegmentAddress,
+    spanCount?: number,
+  ): boolean {
+    return segment && spanCount !== undefined
+      ? this.scoreModel.setSlurSegmentShape(id, segment, cps, spanCount)
+      : this.scoreModel.setSlurShape(id, cps)
   }
 
   /** Record one undo entry after a slur-handle drag settles. */
