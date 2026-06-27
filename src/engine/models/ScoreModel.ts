@@ -1,5 +1,5 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress } from '@/types/music'
-import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps } from './engravingOverrides'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride } from '@/types/music'
+import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restPositionKey } from './engravingOverrides'
 import {
   getTupletTotalBeatsFrac,
   getTupletNoteDurationFrac,
@@ -48,6 +48,13 @@ import { v4 as uuidv4 } from 'uuid'
 type CapturedAnchor =
   | { kind: 'clef'; absBeat: Fraction; clef: Clef }
   | { kind: 'dynamic'; absBeat: Fraction; dyn: Dynamic }
+
+/**
+ * A rest's manual vertical shift snapshotted before a rebar/paste, keyed by its absolute
+ * beat offset from the region start (per voice) so it can travel into the new bar layout.
+ * The position-keyed twin of {@link CapturedAnchor}. See {@link ScoreModel.captureRestShifts}.
+ */
+type CapturedRestShift = { voice: number; absBeat: Fraction; steps: number }
 
 /** The pitch identity of a slur anchor (a chord pitch), used to re-find it post-rebar. */
 type SlurPitch = { step: NotePitch['step']; alter: NotePitch['alter']; octave: number }
@@ -597,6 +604,31 @@ export class ScoreModel {
     return true
   }
 
+  /**
+   * Nudge a rest's manual vertical shift by `delta` whole staff-steps, **accumulating** onto
+   * any existing shift (the ↑/↓ keyboard fine-positioning — see docs/rest-shift-plan.md).
+   * Stored as a {@link RestShiftOverride} in the engraving-overrides compartment, keyed by the
+   * rest's **position address** (`posKey`, built by `restPositionKey`) rather than an id —
+   * rests have no durable id (rest-fill mints fresh ones every edit). The override is a delta
+   * on top of the automatic multi-voice placement; render adds it back in.
+   *
+   * Returning to a net shift of 0 clears the entry (so "absent = default" holds and the JSON
+   * stays clean). No undo snapshot here — the facade (`MusicEngine.nudgeRestShift`) owns the
+   * per-press `saveOnly`, mirroring `setSlurEndpointOffset` / `nudgeSlurEndpoint`.
+   * @returns true (the override always exists/updates for a valid position key).
+   */
+  nudgeRestShift(posKey: string, delta: number): boolean {
+    const prev = restShiftOverrideOf(this.score, posKey)
+    const steps = (prev?.steps ?? 0) + delta
+    if (steps === 0) {
+      this.clearEngravingOverride(posKey, 'restShift')
+    } else {
+      const next: RestShiftOverride = { kind: 'restShift', steps }
+      this.setEngravingOverride(posKey, next)
+    }
+    return true
+  }
+
   // ============ Engraving overrides (authored-geometry compartment) ============
   // A separate id-addressed compartment for hand-positioning data (staff-space,
   // anchor-relative), kept OUT of the musical content model. It is a sub-tree of
@@ -905,6 +937,10 @@ export class ScoreModel {
     // overwritten below. They are re-anchored after rebar (see restoreBeatAnchors).
     const anchors = this.captureBeatAnchors(regionMeasures)
 
+    // Capture manual rest shifts the same way — by absolute region-relative offset, before
+    // rest-fill regenerates every rest with a fresh id. Re-stamped after materialise.
+    const restShifts = this.captureRestShifts(regionMeasures)
+
     // Distinct voices present in the region (always include voice 0).
     const voices = new Set<number>([0])
     for (const m of regionMeasures) for (const s of m.slots) voices.add(s.voice ?? 0)
@@ -968,6 +1004,10 @@ export class ScoreModel {
     // Re-anchor the captured clef changes / dynamics into the new bar layout,
     // mapping each absolute offset to the (measure, beat) it now lands on.
     this.restoreBeatAnchors(regionNumbers, anchors)
+
+    // Re-stamp the captured rest shifts onto whatever rest now starts at each offset
+    // (dropped where the new tiling has no rest start — plan §4).
+    this.restoreRestShifts(regionNumbers, restShifts)
   }
 
   /**
@@ -991,6 +1031,7 @@ export class ScoreModel {
     clipVoices: { voice: number; events: RebarEvent[] }[],
     spanBeats: Fraction,
     targetVoice: number,
+    clipRestShifts: { voice: number; restShifts: Array<{ offset: Fraction; steps: number }> }[] = [],
   ): string[] {
     const ordered = [...this.score.measures].sort((a, b) => a.number - b.number)
     const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
@@ -1013,6 +1054,10 @@ export class ScoreModel {
     const boundary = this.captureBoundaryTies(regionMeasures)
     const slurState = this.captureSlurs(regionMeasures)
     const anchors = this.captureBeatAnchors(regionMeasures)
+    // Preserve the destination's own rest shifts across the rebar (those outside the paste
+    // window survive; ones whose rest the paste overwrites are dropped). The clip's shifts
+    // are stamped ON TOP afterwards (last wins) — see §6.5 threading.
+    const restShifts = this.captureRestShifts(regionMeasures)
 
     // Re-voicing contract (decision (a)): a single-voice clip drops into the paste
     // target voice (so copy voice 1 → paste into voice 2 works); a multi-voice clip
@@ -1073,6 +1118,21 @@ export class ScoreModel {
     this.restoreSlurs(regionNumbers, slurState)
     this.repairDanglingSlurs()
     this.restoreBeatAnchors(regionNumbers, anchors)
+    // Re-stamp the destination's own rest shifts; the clip's shifts are applied after this,
+    // so they win on any position collision.
+    this.restoreRestShifts(regionNumbers, restShifts)
+
+    // Apply the clip's rest shifts at the paste window: re-base each clip-relative offset by
+    // the paste start, and re-voice a single-voice clip into the target voice (mirroring the
+    // destVoices rule above). restoreRestShifts drops any whose rest the paste didn't produce.
+    const clipCaptured: CapturedRestShift[] = []
+    for (const { voice, restShifts: shifts } of clipRestShifts) {
+      const destVoice = clipVoices.length === 1 ? targetVoice : voice
+      for (const rs of shifts) {
+        clipCaptured.push({ voice: destVoice, absBeat: fracAdd(pasteStart, rs.offset), steps: rs.steps })
+      }
+    }
+    this.restoreRestShifts(regionNumbers, clipCaptured)
 
     // Collect the ids of notes whose absolute offset falls inside the paste window.
     const startOfMeasure = new Map<number, Fraction>()
@@ -1165,6 +1225,80 @@ export class ScoreModel {
         m.dynamics.push({ ...a.dyn, id: uuidv4(), beat })
         m.dynamics.sort((x, y) => fracCompare(x.beat, y.beat))
       }
+    }
+  }
+
+  /**
+   * Capture each region rest-shift override by its ABSOLUTE beat offset from the region
+   * start (per voice), measured with the measures' CURRENT (pre-rebar) capacities, then
+   * CLEAR the stored override — it is re-stamped by {@link restoreRestShifts} after the bars
+   * are regenerated, or intentionally dropped if the new tiling has no rest at that offset.
+   * The position-keyed twin of {@link captureBeatAnchors}. See docs/rest-shift-plan.md §3.2.
+   */
+  private captureRestShifts(regionMeasures: Measure[]): CapturedRestShift[] {
+    const out: CapturedRestShift[] = []
+    let base = fracCreate(0, 1)
+    for (const m of regionMeasures) {
+      const cap = measureCapacityFrac(m)
+      for (const s of m.slots) {
+        if (s.type !== 'rest') continue
+        const voice = s.voice ?? 0
+        const key = restPositionKey(m.id, voice, s.beat)
+        const ov = restShiftOverrideOf(this.score, key)
+        if (!ov) continue
+        out.push({ voice, absBeat: fracAdd(base, s.beat), steps: ov.steps })
+        this.clearEngravingOverride(key, 'restShift')
+      }
+      base = fracAdd(base, cap)
+    }
+    return out
+  }
+
+  /**
+   * Re-stamp captured rest shifts into the rebar'd/pasted region: walk the new bars
+   * accumulating capacities, find which measure each absolute offset now lands in, and —
+   * ONLY IF a rest of that voice actually STARTS at the local beat — write the override
+   * there. Unlike {@link restoreBeatAnchors} (which always re-creates the annotation at the
+   * clamped beat), a rest shift is meaningless without a rest, so an offset whose rest the
+   * new tiling moved/merged away is silently DROPPED (plan §4, benign). Overwrites on a
+   * collision (last wins), so paste can stamp the clip's shifts on top of the destination's
+   * by calling this again — the captured offsets are region-relative, so paste re-bases the
+   * clip's offsets by the paste start and routes them through this same path.
+   * See docs/rest-shift-plan.md §3.2 / §6.4.
+   */
+  private restoreRestShifts(regionNumbers: number[], captured: CapturedRestShift[]): void {
+    if (captured.length === 0) return
+
+    const ranges: Array<{ measure: Measure; start: Fraction; cap: Fraction }> = []
+    let base = fracCreate(0, 1)
+    for (const num of regionNumbers) {
+      const m = this.getMeasure(num)
+      if (!m) continue
+      const cap = measureCapacityFrac(m)
+      ranges.push({ measure: m, start: base, cap })
+      base = fracAdd(base, cap)
+    }
+    if (ranges.length === 0) return
+
+    for (const c of captured) {
+      if (c.steps === 0) continue
+      let target = ranges[ranges.length - 1]
+      for (const r of ranges) {
+        if (fracGte(c.absBeat, r.start) && fracLt(c.absBeat, fracAdd(r.start, r.cap))) {
+          target = r
+          break
+        }
+      }
+      const beat = fracSub(c.absBeat, target.start)
+      const m = target.measure
+      // Stamp ONLY when a rest of this voice STARTS exactly here (plan §6.4). No accessor
+      // exists post-materialise, so read the slots directly.
+      const hasRest = m.slots.some(
+        (s) => s.type === 'rest' && (s.voice ?? 0) === c.voice && fracCompare(s.beat, beat) === 0,
+      )
+      if (!hasRest) continue
+      const next: RestShiftOverride = { kind: 'restShift', steps: c.steps }
+      this.setEngravingOverride(restPositionKey(m.id, c.voice, beat), next)
     }
   }
 

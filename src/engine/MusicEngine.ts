@@ -1,4 +1,5 @@
 import { ScoreModel } from './models/ScoreModel'
+import { restPositionKey } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
 import type { Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
@@ -506,8 +507,9 @@ export class MusicEngine {
     voices: { voice: number; events: RebarEvent[] }[],
     spanBeats: Fraction,
     targetVoice: number,
+    clipRestShifts: { voice: number; restShifts: Array<{ offset: Fraction; steps: number }> }[] = [],
   ): string[] {
-    const ids = this.scoreModel.pasteEvents(measure, beat, voices, spanBeats, targetVoice)
+    const ids = this.scoreModel.pasteEvents(measure, beat, voices, spanBeats, targetVoice, clipRestShifts)
     this.commit('Paste')
     return ids
   }
@@ -803,6 +805,24 @@ export class MusicEngine {
   nudgeSlurEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
     const ok = this.scoreModel.setSlurEndpointOffset(id, which, dx, dy)
     if (ok) this.saveOnly('Nudge slur endpoint')
+    return ok
+  }
+
+  /**
+   * Nudge a selected rest's vertical shift by `delta` whole staff-steps and save ONE undo step
+   * (the ↑/↓ keyboard fine-positioning — see docs/rest-shift-plan.md). Resolves the rest id to
+   * its position address here (the override is position-keyed, since rests have no durable id)
+   * and delegates the accumulate/clear to the model. A no-op for a non-rest / missing id.
+   * @returns true if a rest was nudged.
+   */
+  nudgeRestShift(restId: string, delta: number): boolean {
+    const note = this.scoreModel.getNote(restId)
+    if (!note || !note.isRest) return false
+    const measure = this.scoreModel.getMeasure(note.measure)
+    if (!measure) return false
+    const key = restPositionKey(measure.id, note.voice ?? 0, note.beat)
+    const ok = this.scoreModel.nudgeRestShift(key, delta)
+    if (ok) this.saveOnly('Nudge rest')
     return ok
   }
 

@@ -4,6 +4,7 @@ import { flattenRegion } from '../utils/rebar'
 import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracToNumber } from '../utils/fraction'
 import { measureCapacityFrac, getMeasureNotes } from '../utils/musicUtils'
 import { durationToFraction } from '../utils/durations'
+import { restShiftOverrideOf, restPositionKey } from '../engine/models/engravingOverrides'
 
 /**
  * A position-independent snapshot of copied musical material.
@@ -27,6 +28,13 @@ export interface ClipboardVoice {
    * tuplets are atomic. Unselected gaps are implicit — rest-filled on paste.
    */
   events: RebarEvent[]
+  /**
+   * Manual rest shifts inside the selection window, offsets relative to the selection
+   * start (same basis as {@link events}) so they re-base by the paste start. Carried
+   * separately because rests are not events — a shifted rest must travel even though it
+   * produces no note. Absent/empty = no shifted rests. See docs/rest-shift-plan.md §6.5.
+   */
+  restShifts?: Array<{ offset: Fraction; steps: number }>
 }
 
 export interface ClipboardPayload {
@@ -73,6 +81,35 @@ function selectedSpans(score: Score, noteIds: Set<string>): { start: Fraction; e
   return spans
 }
 
+/**
+ * Manual rest shifts of one voice whose rest onset falls inside the copy window
+ * `[spanStart, spanEnd)`, as `{ offset, steps }` re-based to the window start (the same
+ * basis as the voice's events). Read straight off the `Score` value via
+ * `restShiftOverrideOf`. See docs/rest-shift-plan.md §6.5.
+ */
+function restShiftsInWindow(
+  score: Score,
+  voice: number,
+  spanStart: Fraction,
+  spanEnd: Fraction,
+): Array<{ offset: Fraction; steps: number }> {
+  const starts = measureStartOffsets(score)
+  const out: Array<{ offset: Fraction; steps: number }> = []
+  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
+    const mStart = starts.get(m.number)
+    if (!mStart) continue
+    for (const n of getMeasureNotes(m)) {
+      if (!n.isRest || (n.voice ?? 0) !== voice) continue
+      const abs = fracAdd(mStart, n.beat)
+      if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
+      const ov = restShiftOverrideOf(score, restPositionKey(m.id, voice, n.beat))
+      if (!ov) continue
+      out.push({ offset: fracSub(abs, spanStart), steps: ov.steps })
+    }
+  }
+  return out
+}
+
 /** The set of voices (0-based) that contain at least one selected note. */
 function selectedVoices(score: Score, noteIds: Set<string>): number[] {
   const out = new Set<number>()
@@ -109,13 +146,19 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
   // start. A voice with only a selected rest yields an empty stream (a paste then
   // rest-fills/clears that window in that voice).
   const ordered = [...score.measures].sort((a, b) => a.number - b.number)
-  const voices: ClipboardVoice[] = selectedVoices(score, idSet).map((v) => ({
-    voice: v,
-    events: flattenRegion(ordered, v as 0 | 1 | 2 | 3)
-      .filter((e) => fracGte(e.offset, spanStart) && fracLt(e.offset, spanEnd))
-      .map((e) => ({ ...e, offset: fracSub(e.offset, spanStart) })),
-  }))
-  if (voices.every((vv) => vv.events.length === 0)) return null
+  const voices: ClipboardVoice[] = selectedVoices(score, idSet).map((v) => {
+    const restShifts = restShiftsInWindow(score, v, spanStart, spanEnd)
+    return {
+      voice: v,
+      events: flattenRegion(ordered, v as 0 | 1 | 2 | 3)
+        .filter((e) => fracGte(e.offset, spanStart) && fracLt(e.offset, spanEnd))
+        .map((e) => ({ ...e, offset: fracSub(e.offset, spanStart) })),
+      // Omit the key entirely when there are no shifted rests (clean payload / old-clip parity).
+      ...(restShifts.length ? { restShifts } : {}),
+    }
+  })
+  // Usable if any voice carries note events OR a shifted rest (a lone shifted rest still copies).
+  if (voices.every((vv) => vv.events.length === 0 && !vv.restShifts?.length)) return null
 
   // Origin = the (measure, beat) of the earliest selected note, for reference.
   const starts = measureStartOffsets(score)

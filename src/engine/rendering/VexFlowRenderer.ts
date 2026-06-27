@@ -28,6 +28,7 @@ import {
   type TupletNoteStem,
 } from './NoteBuilder'
 import { calculateMeasureWidths } from './MeasureLayout'
+import { restShiftOverrideOf, restPositionKey } from '@/engine/models/engravingOverrides'
 import { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo } from './layoutConfig'
 
 // Re-exported for existing importers (MusicEngine, App.vue, RenderPass) that referenced
@@ -117,8 +118,9 @@ export class VexFlowRenderer {
    * consume it populate the very maps the post-render accessors later read. Call only
    * after `measureLayoutInfo` has been (re)assigned for this render.
    */
-  private createRenderPass(): RenderPass {
+  private createRenderPass(score: Score): RenderPass {
     return {
+      score,
       context: this.context,
       staveNoteMap: this.staveNoteMap,
       tupletObjectMap: this.tupletObjectMap,
@@ -400,8 +402,11 @@ export class VexFlowRenderer {
         const slots = sortedAll.filter(s => (s.voice ?? 0) === v)
         const forcedStem = multiVoice ? (v === 0 ? 1 : -1) : undefined
         const restShift = multiVoice ? (v === 0 ? REST_LINE_SHIFT : -REST_LINE_SHIFT) : 0
-        // notesOnly: one StaveNote per slot (used for beams, tuplets, registration).
-        const staveNotes = createStaveNotesFromSlots(slots, clefForBeat, forcedStem, restShift)
+        // notesOnly: one StaveNote per slot (used for beams, tuplets, registration). The
+        // resolver adds each rest's manual vertical shift (if any) on top of the voice base.
+        const restShiftFor = (slot: ChordRest): number =>
+          restShift + (restShiftOverrideOf(pass.score, restPositionKey(measure.id, slot.voice ?? 0, slot.beat))?.steps ?? 0)
+        const staveNotes = createStaveNotesFromSlots(slots, clefForBeat, forcedStem, restShiftFor)
         return { voice: v, slots, staveNotes, forcedStem }
       })
 
@@ -1032,7 +1037,7 @@ export class VexFlowRenderer {
     // see RenderPass for the lifetime contract). Created here, before the measure loop,
     // so the per-measure sub-renderers (dynamics) and the post-measure ones (ties/slurs)
     // share one pass.
-    const pass = this.createRenderPass()
+    const pass = this.createRenderPass(score)
 
     // Find the number of lines from the calculated widths
     let maxLine = 0

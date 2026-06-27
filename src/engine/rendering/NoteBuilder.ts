@@ -78,16 +78,20 @@ export function makeClefResolver(measure: Measure, openingClef: Clef): (beat: Fr
  *   to every chord that has no explicit `stemDirection` override. Used to engrave
  *   V1 up / V2 down; omit (undefined) for the single-voice pitch-based default.
  * @param restLineShift - Vertical line offset for rests (multi-voice rest separation:
- *   +up for V1, -down for V2). 0 = centred (single-voice, unchanged).
+ *   +up for V1, -down for V2). 0 = centred (single-voice, unchanged). A resolver
+ *   `(slot) => number` is accepted so the caller can add a per-rest manual shift on top of
+ *   the voice base (see docs/rest-shift-plan.md §6.8) — mirroring the `clefForBeat` overload.
  */
 export function createStaveNotesFromSlots(
   slots: ChordRest[],
   clefForBeat: ((beat: Fraction) => Clef) | Clef = 'treble',
   forcedStemDirection?: number,
-  restLineShift: number = 0,
+  restLineShift: number | ((slot: ChordRest) => number) = 0,
 ): StaveNote[] {
   const resolveClef: (beat: Fraction) => Clef =
     typeof clefForBeat === 'function' ? clefForBeat : () => clefForBeat
+  const resolveRestShift: (slot: ChordRest) => number =
+    typeof restLineShift === 'function' ? restLineShift : () => restLineShift
   const staveNotes: StaveNote[] = []
 
   // Track the currently active alteration per diatonic staff position within this measure.
@@ -97,12 +101,14 @@ export function createStaveNotesFromSlots(
 
   for (const slot of slots) {
     if (slot.type === 'rest') {
+      // Voice base (multi-voice separation) + any per-rest manual shift, resolved per slot.
+      const shift = resolveRestShift(slot)
       if (slot.isMeasureRest) {
         // Whole-bar (measure) rest: a centred whole rest, drawn the same way at
         // any bar length. Its voice runs in SOFT mode (see chooseVoiceMode) so
         // the whole rest's fixed tick value never clashes with the bar capacity.
         const measureRest = new StaveNote({ keys: ['b/4'], duration: 'wr', alignCenter: true })
-        if (restLineShift) measureRest.setKeyLine(0, measureRest.getLineForRest() + restLineShift)
+        if (shift) measureRest.setKeyLine(0, measureRest.getLineForRest() + shift)
         staveNotes.push(measureRest)
         continue
       }
@@ -115,7 +121,7 @@ export function createStaveNotesFromSlots(
         Dot.buildAndAttach([staveNote], { all: true })
       }
       // Multi-voice: lift V1 rests / drop V2 rests so the two streams don't collide.
-      if (restLineShift) staveNote.setKeyLine(0, staveNote.getLineForRest() + restLineShift)
+      if (shift) staveNote.setKeyLine(0, staveNote.getLineForRest() + shift)
       staveNotes.push(staveNote)
       continue
     }

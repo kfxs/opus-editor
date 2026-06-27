@@ -101,7 +101,11 @@ export class ClipboardController {
   private placeAt(measure: number, beat: Fraction, targetVoice: number): void {
     const engine = this.getEngine()
     if (!engine || !this.payload) return
-    const pastedIds = engine.pasteEvents(measure, beat, this.payload.voices, this.payload.spanBeats, targetVoice)
+    // Carry each voice's rest shifts (clip-relative offsets) so they re-base by the paste start.
+    const clipRestShifts = this.payload.voices
+      .filter((v) => v.restShifts?.length)
+      .map((v) => ({ voice: v.voice, restShifts: v.restShifts! }))
+    const pastedIds = engine.pasteEvents(measure, beat, this.payload.voices, this.payload.spanBeats, targetVoice, clipRestShifts)
     console.log(`[Clipboard] pasted ${pastedIds.length} note(s) at measure ${measure} beat ${fracToNumber(beat)}`)
     this.selection.selectNotes(pastedIds)
     this.state.showCursor = true

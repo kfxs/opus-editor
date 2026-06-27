@@ -2,10 +2,13 @@ import { describe, it, expect } from 'vitest'
 import {
   resolveTupletLocation,
   innerFlipTupletYOffset,
+  createStaveNotesFromSlots,
   TUPLET_LOCATION_ABOVE,
   TUPLET_LOCATION_BELOW,
   type TupletNoteStem,
 } from './NoteBuilder'
+import { fracCreate as frac } from '@/utils/fraction'
+import type { ChordRest } from '@/types/music'
 
 describe('resolveTupletLocation', () => {
   // A stem-derived fallback distinct from both voice defaults, so we can tell
@@ -80,5 +83,26 @@ describe('innerFlipTupletYOffset', () => {
 
   it('is a no-op with no notes', () => {
     expect(innerFlipTupletYOffset([], TUPLET_LOCATION_ABOVE, 1, true, 5)).toBe(0)
+  })
+})
+
+describe('createStaveNotesFromSlots — per-rest vertical shift (docs/rest-shift-plan.md §6.8)', () => {
+  const restSlot = (id: string, beatNum: number): ChordRest =>
+    ({ type: 'rest', id, beat: frac(beatNum, 1), duration: 'q', voice: 0 } as unknown as ChordRest)
+
+  it('a numeric restLineShift lifts every rest by that many lines (the voice base)', () => {
+    const [base] = createStaveNotesFromSlots([restSlot('r', 0)], 'treble', undefined, 0)
+    const [lifted] = createStaveNotesFromSlots([restSlot('r', 0)], 'treble', undefined, 2)
+    expect(lifted.getKeyLine(0)).toBe(base.getKeyLine(0) + 2)
+  })
+
+  it('a resolver applies a DIFFERENT shift per rest slot (base + override)', () => {
+    const notes = createStaveNotesFromSlots(
+      [restSlot('a', 0), restSlot('b', 1)],
+      'treble',
+      undefined,
+      (s) => (s.id === 'b' ? 3 : 0),
+    )
+    expect(notes[1].getKeyLine(0) - notes[0].getKeyLine(0)).toBe(3)
   })
 })

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { curveShapeOverrideOf } from './engravingOverrides'
+import { curveShapeOverrideOf, restPositionKey, restShiftOverrideOf } from './engravingOverrides'
 import type { NoteParams, Slur } from '@/types/music'
 import { fracCreate as frac, fracCompare, fracToNumber } from '@/utils/fraction'
 import type { ChordRest } from '@/types/music'
@@ -1893,5 +1893,90 @@ describe('ScoreModel JSON — time-signature validation', () => {
     const restored = ScoreModel.fromJSON(model.toJSON())
     const mr = restored.getMeasure(1)!.slots.find((s) => s.type === 'rest' && s.isMeasureRest)!
     expect(fracToNumber(mr.actualDuration!)).toBe(3) // not 4 (the nominal 'w')
+  })
+})
+
+/**
+ * Rest-shift TRAVEL (docs/rest-shift-plan.md §3–§4): the position-keyed override survives
+ * plain edits / measure inserts on its own (position-key + measure-id wins), and is carried
+ * across a rebar by captureRestShifts/restoreRestShifts — re-stamped where a rest still
+ * starts at the same region-relative offset, dropped otherwise.
+ */
+describe('rest-shift travel (option 3)', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('Test Score', 120) })
+
+  /** Add a quarter C on beat 0 of measure 1, then return the first rest slot it leaves. */
+  const firstRest = (measureNumber: number) =>
+    model.getMeasure(measureNumber)!.slots.find((s) => s.type === 'rest')!
+
+  it('survives a plain same-bar edit of ANOTHER beat (position-key win)', () => {
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const m1 = model.getMeasure(1)!
+    const rest = firstRest(1)
+    const key = restPositionKey(m1.id, rest.voice ?? 0, rest.beat)
+    model.nudgeRestShift(key, 2)
+
+    // Edit a DIFFERENT beat (last beat). Rests regenerate (fresh ids) but the shifted rest
+    // keeps its onset → its position key is unchanged → the shift re-attaches.
+    model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
+    expect(restShiftOverrideOf(model.getScore(), key)?.steps).toBe(2)
+  })
+
+  it('survives inserting a measure before it (measure-id key, not number)', () => {
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const m1 = model.getMeasure(1)!
+    const rest = firstRest(1)
+    const key = restPositionKey(m1.id, rest.voice ?? 0, rest.beat)
+    model.nudgeRestShift(key, -1)
+
+    model.insertMeasureAfter(0) // new bar at the front → old m1 renumbers to m2, id unchanged
+
+    expect(model.getMeasure(2)!.id).toBe(m1.id)         // same object, new number
+    expect(restShiftOverrideOf(model.getScore(), key)?.steps).toBe(-1) // key still resolves
+  })
+
+  it('resurrects on a plain rest→note→rest (no prune, §4 accepted)', () => {
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const m1 = model.getMeasure(1)!
+    const rest = firstRest(1)
+    const key = restPositionKey(m1.id, rest.voice ?? 0, rest.beat)
+    model.nudgeRestShift(key, 3)
+
+    // Put a note ON the shifted rest's beat: no rebar fires, so the stored override stays.
+    const onTop = model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: rest.beat })
+    expect(restShiftOverrideOf(model.getScore(), key)?.steps).toBe(3) // still stored (not drawn)
+
+    // Remove the note → a rest returns at that beat → the prior shift resurrects.
+    model.deleteNote(onTop.id)
+    expect(restShiftOverrideOf(model.getScore(), key)?.steps).toBe(3)
+  })
+
+  it('rebar KEEPS the shift when a rest still starts at the same offset', () => {
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const m1 = model.getMeasure(1)!
+    // Shift the rest on beat 1 (absolute offset 1 from the region start).
+    const beat1 = frac(1, 1)
+    model.nudgeRestShift(restPositionKey(m1.id, 0, beat1), 2)
+
+    // Rebar 4/4 → 2/4: offset 1 lands on measure 1 beat 1, where a rest still starts.
+    model.setTimeSignature(1, { numerator: 2, denominator: 4 })
+
+    const after = model.getMeasure(1)!
+    expect(restShiftOverrideOf(model.getScore(), restPositionKey(after.id, 0, beat1))?.steps).toBe(2)
+  })
+
+  it('rebar DROPS the shift when the new tiling has no rest START at that offset', () => {
+    // 4/4: C@0(q), rest@1(q), rest@2(HALF). Shift the half rest on beat 2 (offset 2).
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const m1 = model.getMeasure(1)!
+    model.nudgeRestShift(restPositionKey(m1.id, 0, frac(2, 1)), 2)
+    expect(model.getScore().engravingOverrides).toBeDefined()
+
+    // Rebar 4/4 → 3/4: the gap re-tiles to C@0(q) + a HALF rest starting at beat 1, so
+    // nothing STARTS at offset 2 → the shift is dropped (plan §4 / §9, the merge case).
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+
+    expect(model.getScore().engravingOverrides).toBeUndefined()
   })
 })

@@ -1,4 +1,5 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, CurveControlPointDeltas } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, RestShiftOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
+import { fracCreate } from '@/utils/fraction'
 
 /**
  * Pure reads over the engraving-overrides compartment (a sub-tree of `Score`; see
@@ -126,6 +127,30 @@ export function reconcileSegmentEndpointOffset(
     end: override.end,
     middles: sameCount ? { ...(override.middles ?? {}) } : {},
   }
+}
+
+/**
+ * Canonical position address for a rest-shift override (client #5 — see
+ * docs/rest-shift-plan.md). Rests are regenerated with fresh ids on every edit, so the
+ * override cannot hang off a rest id; it hangs off the rest's **position**:
+ * `{measureId}:v{voice}:b{num}/{den}`. The beat fraction is reduced (via {@link fracCreate})
+ * so `2/4` and `1/2` collapse to one key. The `measureId` (not the measure *number*) keeps
+ * the key stable across insert/remove-measure renumbering and across rebar. Pure & exported
+ * for unit testing.
+ */
+export function restPositionKey(measureId: string, voice: number, beat: Fraction): string {
+  const b = fracCreate(beat.num, beat.den) // reduce defensively
+  return `${measureId}:v${voice}:b${b.num}/${b.den}`
+}
+
+/**
+ * The manual vertical shift on the rest at this position address, if any (client #5 — see
+ * docs/rest-shift-plan.md). `steps` is in whole staff-steps (signed, +up), added on top of
+ * the automatic multi-voice placement at render. Key it with {@link restPositionKey}. Absent
+ * = no shift (the rest renders at its default voice position).
+ */
+export function restShiftOverrideOf(score: Score, posKey: string): RestShiftOverride | undefined {
+  return engravingOverrideOf(score, posKey, 'restShift') as RestShiftOverride | undefined
 }
 
 /**

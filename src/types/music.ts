@@ -302,11 +302,34 @@ export interface SegmentEndpointOffsetOverride extends EngravingOverride {
 }
 
 /**
- * The engraving-overrides compartment: an id-keyed table of authored geometry held
+ * Client #5 of the engraving-overrides compartment: a manual vertical shift of a rest,
+ * in whole **staff-steps** (signed, +up), added on top of the automatic multi-voice
+ * placement (see docs/rest-shift-plan.md). A rest is pitchless, so its vertical position
+ * carries no musical meaning — this is pure engraving/clarity geometry, not content, and
+ * staff-steps keep it resolution-independent (no pixels in the model, principle 3).
+ *
+ * Unlike every other client, this one is **position-keyed, not element-id-keyed**: rests
+ * are regenerated (fresh ids) on every edit, so the override hangs off the rest's
+ * position address (`restPositionKey`, `{measureId}:v{voice}:b{num}/{den}`) instead. The
+ * shift travels with the music across paste/rebar via `captureRestShifts`/`restoreRestShifts`.
+ */
+export interface RestShiftOverride extends EngravingOverride {
+  kind: 'restShift'
+  /** Whole staff-steps, signed. Added on top of the default voice shift. +up. */
+  steps: number
+}
+
+/**
+ * The engraving-overrides compartment: a keyed table of authored geometry held
  * as a sub-tree of {@link Score} (so it clones / serializes / undoes with the score
- * value — principle 1). Keyed by the *element id* an override hangs off (a note /
+ * value — principle 1). Usually keyed by the *element id* an override hangs off (a note /
  * chord-pitch / slur / dynamic id…), each value an open-ended list of
  * {@link EngravingOverride} (an element may be nudged *and* reshaped).
+ *
+ * **Not every key is an element id.** {@link RestShiftOverride} (client #5) is
+ * position-keyed (`restPositionKey`) because rests have no durable id — a future reader
+ * must not assume a key resolves to an element. Safe to mix: position keys contain `:`/`/`
+ * so they can never collide with a uuid; nothing enumerates the table assuming id-keys.
  *
  * Absent/empty = no overrides (backward-compatible JSON); every kind degrades to its
  * render-time default when no entry exists. Stored as a plain object — NOT a Map — so

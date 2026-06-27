@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { curveShapeOverrideOf, endpointOffsetOverrideOf, migrateLegacySlurCps, reconcileSegmentShape, reconcileSegmentEndpointOffset, segmentCurveShapeOverrideOf, segmentEndpointOffsetOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './engravingOverrides'
+import { curveShapeOverrideOf, endpointOffsetOverrideOf, migrateLegacySlurCps, reconcileSegmentShape, reconcileSegmentEndpointOffset, segmentCurveShapeOverrideOf, segmentEndpointOffsetOverrideOf, restPositionKey, restShiftOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './engravingOverrides'
 import type { EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SegmentEndpointOffsetOverride, CurveControlPointDeltas, Score, Slur } from '@/types/music'
+import { fracCreate as frac } from '@/utils/fraction'
 
 /**
  * Phase 0 of the engraving-overrides plan: the compartment is pure infrastructure —
@@ -423,5 +424,60 @@ describe('ScoreModel.setSlurSegmentEndpointOffset', () => {
     model.removeSlur(slurId)
     expect(segOff(slurId)).toBeUndefined()
     expect(model.getScore().engravingOverrides).toBeUndefined()
+  })
+})
+
+/**
+ * Client #5: the rest-shift override (docs/rest-shift-plan.md). Unlike every other client it
+ * is POSITION-keyed (`restPositionKey`), not element-id-keyed — rests have no durable id. Here
+ * we pin the pure key builder + reader + the `nudgeRestShift` accumulate/clear mutator. The
+ * travel-across-rebar/paste behavior lives in ScoreModel.test.ts / clipboard.test.ts.
+ */
+describe('restPositionKey (pure key builder)', () => {
+  it('canonicalizes the beat fraction so 2/4 and 1/2 collapse to one key', () => {
+    expect(restPositionKey('m1', 0, frac(2, 4))).toBe('m1:v0:b1/2')
+    expect(restPositionKey('m1', 0, frac(2, 4))).toBe(restPositionKey('m1', 0, frac(1, 2)))
+  })
+
+  it('encodes the measure id and voice (independent seats)', () => {
+    expect(restPositionKey('mA', 1, frac(0, 1))).toBe('mA:v1:b0/1')
+    expect(restPositionKey('mA', 0, frac(0, 1))).not.toBe(restPositionKey('mB', 0, frac(0, 1)))
+    expect(restPositionKey('mA', 0, frac(0, 1))).not.toBe(restPositionKey('mA', 1, frac(0, 1)))
+  })
+})
+
+describe('ScoreModel.nudgeRestShift (accumulate / clear, position-keyed)', () => {
+  let model: ScoreModel
+  const key = restPositionKey('m1', 0, frac(1, 1))
+  const shift = (k: string) => restShiftOverrideOf(model.getScore(), k)
+
+  beforeEach(() => { model = new ScoreModel('Test Score', 120) })
+
+  it('reader returns undefined when no shift is stored', () => {
+    expect(shift(key)).toBeUndefined()
+  })
+
+  it('ACCUMULATES up/down nudges into one running total', () => {
+    model.nudgeRestShift(key, 1)
+    model.nudgeRestShift(key, 1)
+    expect(shift(key)).toEqual({ kind: 'restShift', steps: 2 })
+    model.nudgeRestShift(key, -1)
+    expect(shift(key)!.steps).toBe(1)
+  })
+
+  it('clears the entry (and prunes the compartment) when the net shift returns to 0', () => {
+    model.nudgeRestShift(key, 2)
+    model.nudgeRestShift(key, -2)
+    expect(shift(key)).toBeUndefined()
+    expect(model.getScore().engravingOverrides).toBeUndefined()
+  })
+
+  it('keeps per-voice seats independent (V1 up, V2 down on the same beat)', () => {
+    const v0 = restPositionKey('m1', 0, frac(1, 1))
+    const v1 = restPositionKey('m1', 1, frac(1, 1))
+    model.nudgeRestShift(v0, 1)
+    model.nudgeRestShift(v1, -1)
+    expect(shift(v0)!.steps).toBe(1)
+    expect(shift(v1)!.steps).toBe(-1)
   })
 })

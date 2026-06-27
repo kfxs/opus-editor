@@ -1,5 +1,6 @@
 import type { StaveNote, Annotation, Tuplet as VexFlowTuplet } from 'vexflow'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
+import type { Score } from '@/types/music'
 import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
 
 /**
@@ -24,6 +25,9 @@ import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
  * object is just a typed bundle of references threaded through one render.
  */
 export interface RenderPass {
+  /** The score being rendered this pass — read for engraving-override lookups (e.g. per-rest
+   *  vertical shifts; see docs/rest-shift-plan.md §6.8). */
+  score: Score
   /** The VexFlow SVG rendering context for this pass (rebuilt by `initialize`). */
   context: any
   /** Note/rest id → its rendered StaveNote (+ chord-head index), for ties & slurs. */

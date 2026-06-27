@@ -3,6 +3,8 @@ import { MusicEngine } from '../engine/MusicEngine'
 import { buildClipboardFromSelection } from './clipboard'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
+import { restPositionKey, restShiftOverrideOf } from '../engine/models/engravingOverrides'
+import type { ClipboardPayload } from './clipboard'
 
 const fakeRegistry = {
   clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
@@ -135,5 +137,61 @@ describe('clipboard — copy/paste of notes', () => {
   it('returns null when nothing is selected', () => {
     fillM1()
     expect(buildClipboardFromSelection(engine.getScore(), [])).toBeNull()
+  })
+})
+
+/**
+ * Rest-shift travel through copy/paste (docs/rest-shift-plan.md §4–§6.5): a shifted rest in
+ * the copy window rides along at its clip-relative offset (the canon effect), and a paste
+ * that overwrites a destination rest with a note drops that destination's shift.
+ */
+describe('clipboard — rest-shift travel', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  const restAt = (m: number, beatNum: number) =>
+    flat(engine, m).find((n) => n.isRest && fracToNumber(n.beat) === beatNum)!
+
+  const clipRestShiftsOf = (p: ClipboardPayload) =>
+    p.voices.filter((v) => v.restShifts?.length).map((v) => ({ voice: v.voice, restShifts: v.restShifts! }))
+
+  it('copies a shifted rest and travels it to the pasted position (same meter / canon)', () => {
+    // m1 4/4: C@0(q), D@3(q) → a rest in between. Shift the rest at beat 1.
+    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })!.id
+    engine.nudgeRestShift(restAt(1, 1).id, 2)
+
+    const payload = buildClipboardFromSelection(engine.getScore(), [c, d])!
+    expect(payload.voices[0].restShifts).toEqual([{ offset: frac(1, 1), steps: 2 }])
+
+    // Paste at measure 2 beat 0 (empty, same 4/4) → the regenerated rest at offset 1 is stamped.
+    engine.pasteEvents(2, frac(0, 1), payload.voices, payload.spanBeats, 0, clipRestShiftsOf(payload))
+
+    const m2 = engine.getScore().measures.find((x) => x.number === 2)!
+    expect(restShiftOverrideOf(engine.getScore(), restPositionKey(m2.id, 0, frac(1, 1)))?.steps).toBe(2)
+  })
+
+  it('a lone shifted rest (no note events) still produces a copyable payload', () => {
+    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const rest = restAt(1, 1)
+    engine.nudgeRestShift(rest.id, 1)
+    const payload = buildClipboardFromSelection(engine.getScore(), [rest.id])
+    expect(payload).not.toBeNull()
+    expect(payload!.voices[0].restShifts).toEqual([{ offset: frac(0, 1), steps: 1 }])
+  })
+
+  it('a paste that overwrites a shifted rest with a note drops that destination shift', () => {
+    // m2 4/4: C@0(q) → rest@1(q), rest@2(half). Shift the rest at beat 2.
+    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    const m2 = engine.getScore().measures.find((x) => x.number === 2)!
+    engine.nudgeRestShift(restAt(2, 2).id, 3)
+    expect(engine.getScore().engravingOverrides).toBeDefined()
+
+    // Copy a quarter note from m1 and paste onto m2 beat 2 → a NOTE now starts there.
+    const c = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const payload = buildClipboardFromSelection(engine.getScore(), [c])!
+    engine.pasteEvents(2, frac(2, 1), payload.voices, payload.spanBeats, 0, clipRestShiftsOf(payload))
+
+    expect(restShiftOverrideOf(engine.getScore(), restPositionKey(m2.id, 0, frac(2, 1)))).toBeUndefined()
   })
 })

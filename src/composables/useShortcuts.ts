@@ -68,6 +68,20 @@ export function useShortcuts(
   const nudgeArmedSlurPoint = (dx: number, dy: number): boolean =>
     nudgeArmedEndpoint(dx, dy) || nudgeArmedSegmentEndpoint(dx, dy)
 
+  // ↑/↓ on a SINGLE selected rest = nudge its vertical shift by one staff-step (+up), instead
+  // of the pitch edit (which skips rests anyway). One undo per press. See docs/rest-shift-plan.md.
+  const nudgeSelectedRest = (delta: number): boolean => {
+    const eng = engine.value
+    if (!eng || state.selectedItems.size !== 1) return false
+    const item = [...state.selectedItems.values()][0]
+    if (item.kind !== 'note') return false
+    const note = eng.getNote(item.id)
+    if (!note || !note.isRest) return false
+    if (!eng.nudgeRestShift(item.id, delta)) return false
+    renderer.renderScore()
+    return true
+  }
+
   shortcutManager.registerActions({
     setEntryMode: () => {
       state.selectedTool = 'entry'
@@ -237,8 +251,8 @@ export function useShortcuts(
     // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.
     // (These keys are already bound, so they always consume — the nudge branch returns void
     // via the early return, so preventDefault still fires.)
-    pitchUp: () => { if (!nudgeArmedSlurPoint(0, -NUDGE_FINE_SS)) selection.adjustPitch(1) },
-    pitchDown: () => { if (!nudgeArmedSlurPoint(0, NUDGE_FINE_SS)) selection.adjustPitch(-1) },
+    pitchUp: () => { if (nudgeArmedSlurPoint(0, -NUDGE_FINE_SS) || nudgeSelectedRest(1)) return; selection.adjustPitch(1) },
+    pitchDown: () => { if (nudgeArmedSlurPoint(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1)) return; selection.adjustPitch(-1) },
     octaveUp: () => { if (!nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS)) selection.adjustOctave(1) },
     octaveDown: () => { if (!nudgeArmedSlurPoint(0, NUDGE_COARSE_SS)) selection.adjustOctave(-1) },
     // Horizontal COARSE nudge (Ctrl+←/→) is unbound otherwise → DECLINE (return the false
