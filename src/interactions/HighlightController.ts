@@ -567,6 +567,7 @@ export class HighlightController {
 
     const R = HighlightController.SLUR_HANDLE_R
     const HIT = HighlightController.SLUR_HANDLE_HIT
+    const S = R + 1 // square half-side: a touch larger than the round handles so squares read clearly
 
     // Round handles: one pair per shape-bearing partial (a same-line slur has one; a
     // cross-system slur has one per segment). The drag endpoints are the segment's own
@@ -612,7 +613,6 @@ export class HighlightController {
         { p: trueEnds.p0, which: 'start' },
         { p: trueEnds.p1, which: 'end' },
       ]
-      const S = R + 1 // half-side: a touch larger than the round handles so squares read clearly
       for (const { p, which } of ends) {
         // The point armed for keyboard nudging reads as "selected": larger, a darker fill
         // and a thicker white ring versus the plain re-anchor squares. Pure cosmetic — the
@@ -635,6 +635,51 @@ export class HighlightController {
           type: 'slur-endpoint',
           slurId: this.state.selectedSlurId!,
           endpoint: which,
+          bbox: { x: p.x - HIT, y: p.y - HIT, width: HIT * 2, height: HIT * 2 },
+        })
+      }
+    }
+
+    // Orange squares: the OPEN join points of a cross-system slur (where it leaves one
+    // system and resumes on the next) — keyboard-nudge-only (no note to re-anchor onto).
+    // One on the BEGIN segment's right end, one on the END segment's left end, two on each
+    // MIDDLE. Same color as the round angle handles (same family — layout-ephemeral, resets
+    // with the span count); square shape marks it a position handle, not a curve bend. A
+    // same-line slur has no segments → no orange squares.
+    const armed = this.state.selectedSlurSegmentEndpoint
+    for (const partial of partials) {
+      if (!partial.segmentRole || !partial.segmentEndpoints) continue
+      const role = partial.segmentRole
+      const ends = partial.segmentEndpoints
+      const opens: { p: { x: number; y: number }; side: 'left' | 'right' }[] =
+        role === 'begin' ? [{ p: ends.p1, side: 'right' }]          // p0 is the true start
+        : role === 'end' ? [{ p: ends.p0, side: 'left' }]           // p1 is the true end
+        : [{ p: ends.p0, side: 'left' }, { p: ends.p1, side: 'right' }] // middle: both open
+      for (const { p, side } of opens) {
+        const isSel = !armed ? false
+          : role === 'middle'
+            ? armed.role === 'middle' && armed.ordinal === partial.segmentOrdinal && armed.side === side
+            : armed.role === role
+        const half = isSel ? S + 2 : S
+        const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+        sq.setAttribute('x', String(p.x - half))
+        sq.setAttribute('y', String(p.y - half))
+        sq.setAttribute('width', String(half * 2))
+        sq.setAttribute('height', String(half * 2))
+        sq.setAttribute('fill', '#F59E0B')
+        sq.setAttribute('stroke', '#ffffff')
+        sq.setAttribute('stroke-width', isSel ? '2.5' : '1.5')
+        sq.setAttribute('class', isSel ? 'slur-segment-endpoint-handle slur-segment-endpoint-handle--selected' : 'slur-segment-endpoint-handle')
+        ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'grab'
+        svg.appendChild(sq)
+
+        registry.add({
+          type: 'slur-segment-endpoint',
+          slurId: this.state.selectedSlurId!,
+          segmentRole: role,
+          segmentOrdinal: partial.segmentOrdinal,
+          segmentSide: role === 'middle' ? side : undefined,
+          slurSpanCount: partial.slurSpanCount,
           bbox: { x: p.x - HIT, y: p.y - HIT, width: HIT * 2, height: HIT * 2 },
         })
       }

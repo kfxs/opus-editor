@@ -27,6 +27,7 @@ export type ElementType =
   | 'slur'
   | 'slur-handle'
   | 'slur-endpoint'
+  | 'slur-segment-endpoint'
   | 'accidental'
   | 'tuplet'
   | 'articulation'
@@ -206,6 +207,10 @@ export interface ElementInfo {
   cpIndex?: 0 | 1
   /** For a 'slur-endpoint' handle: which end of the slur it re-anchors. */
   endpoint?: 'start' | 'end'
+  /** For a 'slur-segment-endpoint' handle (the orange open-join squares): which side of a
+   *  MIDDLE segment this open end is. Begin/end open joins need no side (one each). Combined
+   *  with `segmentRole` + `segmentOrdinal` + `slurSpanCount` it forms the nudge address. */
+  segmentSide?: 'left' | 'right'
   // Accidental-specific properties
   /** Type of accidental: '#', 'b', 'n', '##', 'bb' (for accidentals) */
   accidentalType?: string

@@ -59,6 +59,19 @@ export interface EditorState {
    *  while {@link selectedSlurId} is set; reset to null whenever `selectedSlurId` is
    *  assigned or cleared, so a stale endpoint can't nudge a newly-selected slur. */
   selectedSlurEndpoint: 'start' | 'end' | null
+  /** Which OPEN join of a cross-system slur is armed for keyboard nudging — set by clicking
+   *  an orange segment-endpoint square (docs/multisystem-slur-segment-endpoint-offset-plan.md).
+   *  Mutually exclusive with {@link selectedSlurEndpoint} (arming one disarms the other); reset
+   *  to null at every selection change so a stale join can't nudge a newly-selected slur. */
+  selectedSlurSegmentEndpoint:
+    | { role: 'begin' }
+    | { role: 'end' }
+    | { role: 'middle'; ordinal: number; side: 'left' | 'right' }
+    | null
+  /** The live system count captured when {@link selectedSlurSegmentEndpoint} was armed — passed
+   *  to `nudgeSlurSegmentEndpoint` as the override's reset signature (matches the count the
+   *  handle was registered with). Only meaningful while the segment endpoint is armed. */
+  selectedSlurSegmentSpanCount: number
   /** While dragging a slur endpoint handle: the note the slur would snap onto if
    *  released now (highlighted as the candidate anchor); null when not dragging. */
   slurEndpointCandidateNoteId: string | null
@@ -170,6 +183,8 @@ export function createEditorState(): EditorState {
     selectedTieFromNoteId: null,
     selectedSlurId: null,
     selectedSlurEndpoint: null,
+    selectedSlurSegmentEndpoint: null,
+    selectedSlurSegmentSpanCount: 0,
     slurEndpointCandidateNoteId: null,
     selectedDuration: 'q',
     selectedAccidental: null,

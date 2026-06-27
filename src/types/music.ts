@@ -265,6 +265,43 @@ export interface SlurEndpointOffsetOverride extends EngravingOverride {
 }
 
 /**
+ * Addresses ONE open join of a cross-system slur for an endpoint-offset nudge (the
+ * point where the slur leaves one system and resumes on the next). BEGIN has only an
+ * open RIGHT end and END only an open LEFT end (so no `side`); a MIDDLE has both.
+ * Distinct from {@link SlurSegmentAddress} (shape edits never carry a side). The two
+ * TRUE note-anchored ends are addressed by `'start'`/`'end'` (see
+ * {@link SlurEndpointOffsetOverride}), not here.
+ */
+export type SlurSegmentEndpointAddress =
+  | { role: 'begin' }
+  | { role: 'end' }
+  | { role: 'middle'; ordinal: number; side: 'left' | 'right' }
+
+/**
+ * Client #4 of the engraving-overrides compartment: free positional nudges of the OPEN
+ * join points of a cross-system slur (see docs/multisystem-slur-segment-endpoint-offset-plan.md).
+ * Each offset is in **staff-spaces**, margin-relative — added to the auto open-end position
+ * at render against that segment's own stave. Structurally parallel to
+ * {@link SegmentCurveShapeOverride}: `begin`/`end` are durable (their system margins are
+ * stable references), `middles` reset on a `spanCount` change. The two TRUE note-anchored
+ * ends use {@link SlurEndpointOffsetOverride} instead — deliberately a SEPARATE kind, just
+ * as `curveShape` (single arc) is separate from `segmentCurveShape` (per segment).
+ */
+export interface SegmentEndpointOffsetOverride extends EngravingOverride {
+  kind: 'segmentEndpointOffset'
+  /** System count this was authored against (`toLine − fromLine + 1`). Reset signature:
+   *  a live count differing from this means the `middles` are stale. */
+  spanCount: number
+  /** BEGIN segment's open RIGHT end offset (staff-spaces). Role-keyed → durable. */
+  begin?: { x: number; y: number }
+  /** END segment's open LEFT end offset (staff-spaces). Role-keyed → durable. */
+  end?: { x: number; y: number }
+  /** MIDDLE open-end offsets keyed by **ordinal** among middles (0-based, NOT lineNumber):
+   *  `left` and/or `right`. Survives a same-count reflow, dropped on a count change. */
+  middles?: Record<number, { left?: { x: number; y: number }; right?: { x: number; y: number } }>
+}
+
+/**
  * The engraving-overrides compartment: an id-keyed table of authored geometry held
  * as a sub-tree of {@link Score} (so it clones / serializes / undoes with the score
  * value — principle 1). Keyed by the *element id* an override hangs off (a note /

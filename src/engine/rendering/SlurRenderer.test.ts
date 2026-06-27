@@ -6,6 +6,7 @@ import {
   slurTrueEndpoints,
   resolveCps,
   slurEndpointOffsetPx,
+  segmentEndpointOffsetPx,
   type SlurLayoutLookup,
   type SlurSegment,
 } from './SlurRenderer'
@@ -211,5 +212,21 @@ describe('slurEndpointOffsetPx (endpoint nudge → px, P0)', () => {
     // fromStave undefined → start contributes 0; toStave present → end converts.
     expect(slurEndpointOffsetPx(o, undefined, stave(10)))
       .toEqual({ startX: 0, startY: 0, endX: 30, endY: 30 })
+  })
+})
+
+describe('segmentEndpointOffsetPx (open-join nudge → px, P0)', () => {
+  const stave = (spacing: number) => ({ getSpacingBetweenLines: () => spacing } as unknown as Stave)
+
+  it('no offset → zero delta (caller adds it unconditionally)', () => {
+    expect(segmentEndpointOffsetPx(undefined, stave(10))).toEqual({ x: 0, y: 0 })
+  })
+
+  it('converts staff-spaces → px against the segment stave', () => {
+    expect(segmentEndpointOffsetPx({ x: 0.5, y: -1 }, stave(10))).toEqual({ x: 5, y: -10 })
+  })
+
+  it('an undefined stave yields 0 (guard against a not-yet-laid-out middle system)', () => {
+    expect(segmentEndpointOffsetPx({ x: 3, y: 3 }, undefined)).toEqual({ x: 0, y: 0 })
   })
 })

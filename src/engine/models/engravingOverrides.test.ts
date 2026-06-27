@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { curveShapeOverrideOf, endpointOffsetOverrideOf, migrateLegacySlurCps, reconcileSegmentShape, segmentCurveShapeOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './engravingOverrides'
-import type { EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, CurveControlPointDeltas, Score, Slur } from '@/types/music'
+import { curveShapeOverrideOf, endpointOffsetOverrideOf, migrateLegacySlurCps, reconcileSegmentShape, reconcileSegmentEndpointOffset, segmentCurveShapeOverrideOf, segmentEndpointOffsetOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './engravingOverrides'
+import type { EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SegmentEndpointOffsetOverride, CurveControlPointDeltas, Score, Slur } from '@/types/music'
 
 /**
  * Phase 0 of the engraving-overrides plan: the compartment is pure infrastructure —
@@ -324,6 +324,104 @@ describe('ScoreModel.setSlurEndpointOffset', () => {
     model.setSlurEndpointOffset(slurId, 'start', 1, 1)
     model.removeSlur(slurId)
     expect(off(slurId)).toBeUndefined()
+    expect(model.getScore().engravingOverrides).toBeUndefined()
+  })
+})
+
+/**
+ * P0 of the multi-system slur segment-endpoint offset plan
+ * (docs/multisystem-slur-segment-endpoint-offset-plan.md): the `segmentEndpointOffset` kind
+ * (client #4) + the `reconcileSegmentEndpointOffset` apply rule (twin of reconcileSegmentShape)
+ * + the `setSlurSegmentEndpointOffset` accumulate mutator + the `setSlurEndpoint` clear. Pure
+ * storage + the count-signature staleness rule; no VexFlow / render here.
+ */
+describe('reconcileSegmentEndpointOffset (pure apply rule, open-join twin)', () => {
+  const p = (n: number) => ({ x: n, y: -n })
+  const override = (spanCount: number): SegmentEndpointOffsetOverride => ({
+    kind: 'segmentEndpointOffset', spanCount, begin: p(1), end: p(2),
+    middles: { 0: { left: p(3), right: p(4) }, 1: { left: p(5) } },
+  })
+
+  it('no override → nothing applied, empty middles', () => {
+    expect(reconcileSegmentEndpointOffset(undefined, 3)).toEqual({ middles: {} })
+  })
+
+  it('matching span count → begin, end, AND middles all applied', () => {
+    expect(reconcileSegmentEndpointOffset(override(3), 3)).toEqual({
+      begin: p(1), end: p(2), middles: { 0: { left: p(3), right: p(4) }, 1: { left: p(5) } },
+    })
+  })
+
+  it('differing span count → begin + end applied, middles dropped (stale margins)', () => {
+    expect(reconcileSegmentEndpointOffset(override(3), 2)).toEqual({
+      begin: p(1), end: p(2), middles: {},
+    })
+  })
+
+  it('does not mutate the override (returns a fresh middles object)', () => {
+    const o = override(3)
+    const r = reconcileSegmentEndpointOffset(o, 3)
+    r.middles[0] = { left: p(99) }
+    expect(o.middles![0]).toEqual({ left: p(3), right: p(4) }) // original untouched
+  })
+})
+
+describe('ScoreModel.setSlurSegmentEndpointOffset', () => {
+  let model: ScoreModel
+  let slurId: string
+  const segOff = (id: string) => segmentEndpointOffsetOverrideOf(model.getScore(), id)
+
+  beforeEach(() => {
+    model = new ScoreModel('Test Score', 120)
+    slurId = model.addSlur({ startNoteId: 'n-a', endNoteId: 'n-b' }).id
+  })
+
+  it('returns false for an unknown slur', () => {
+    expect(model.setSlurSegmentEndpointOffset('ghost', { role: 'begin' }, 1, 1, 3)).toBe(false)
+  })
+
+  it('writes begin / end / middle[ordinal].side with the live spanCount', () => {
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'begin' }, 1, -1, 3)
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'end' }, 2, -2, 3)
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'middle', ordinal: 0, side: 'right' }, 3, -3, 3)
+    expect(segOff(slurId)).toEqual({
+      kind: 'segmentEndpointOffset', spanCount: 3,
+      begin: { x: 1, y: -1 }, end: { x: 2, y: -2 }, middles: { 0: { right: { x: 3, y: -3 } } },
+    })
+  })
+
+  it('ACCUMULATES repeated nudges on the same open join', () => {
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'begin' }, 0.25, 0, 3)
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'begin' }, 0.25, -0.5, 3)
+    expect(segOff(slurId)!.begin).toEqual({ x: 0.5, y: -0.5 })
+  })
+
+  it('keeps a middle’s left and right ends independent', () => {
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'middle', ordinal: 0, side: 'left' }, 1, 1, 3)
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'middle', ordinal: 0, side: 'right' }, -2, 3, 3)
+    expect(segOff(slurId)!.middles![0]).toEqual({ left: { x: 1, y: 1 }, right: { x: -2, y: 3 } })
+  })
+
+  it('a count-changed edit drops stale middles but keeps durable begin/end', () => {
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'begin' }, 1, 1, 3)
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'middle', ordinal: 0, side: 'left' }, 3, 3, 3)
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'end' }, 2, 2, 2) // new span count
+    expect(segOff(slurId)).toEqual({
+      kind: 'segmentEndpointOffset', spanCount: 2, begin: { x: 1, y: 1 }, end: { x: 2, y: 2 }, middles: {},
+    })
+  })
+
+  it('setSlurEndpoint re-anchor clears the open-join offsets (margin-bound, span-relative)', () => {
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'begin' }, 1, 1, 3)
+    expect(segOff(slurId)).toBeDefined()
+    model.setSlurEndpoint(slurId, 'end', 'n-z')
+    expect(segOff(slurId)).toBeUndefined()
+  })
+
+  it('dies with the slur (removeSlur clears all kinds)', () => {
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'begin' }, 1, 1, 3)
+    model.removeSlur(slurId)
+    expect(segOff(slurId)).toBeUndefined()
     expect(model.getScore().engravingOverrides).toBeUndefined()
   })
 })

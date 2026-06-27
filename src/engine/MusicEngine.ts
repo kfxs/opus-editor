@@ -11,7 +11,7 @@ import { fracToNumber, fracEq, fracLt, fracCompare } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 import type { RebarEvent } from '@/utils/rebar'
@@ -803,6 +803,16 @@ export class MusicEngine {
   nudgeSlurEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
     const ok = this.scoreModel.setSlurEndpointOffset(id, which, dx, dy)
     if (ok) this.saveOnly('Nudge slur endpoint')
+    return ok
+  }
+
+  /** Nudge one OPEN join of a cross-system slur by a staff-space delta and save ONE undo step
+   *  (the keyboard fine-positioning for the orange segment-endpoint squares — see
+   *  docs/multisystem-slur-segment-endpoint-offset-plan.md). `spanCount` is the live system
+   *  count at the time of the edit (the override's reset signature). */
+  nudgeSlurSegmentEndpoint(id: string, address: SlurSegmentEndpointAddress, dx: number, dy: number, spanCount: number): boolean {
+    const ok = this.scoreModel.setSlurSegmentEndpointOffset(id, address, dx, dy, spanCount)
+    if (ok) this.saveOnly('Nudge slur segment endpoint')
     return ok
   }
 

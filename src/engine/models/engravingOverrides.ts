@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, CurveControlPointDeltas } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, CurveControlPointDeltas } from '@/types/music'
 
 /**
  * Pure reads over the engraving-overrides compartment (a sub-tree of `Score`; see
@@ -73,6 +73,52 @@ export function reconcileSegmentShape(
   override: SegmentCurveShapeOverride | undefined,
   liveSpanCount: number,
 ): ResolvedSegmentShapes {
+  if (!override) return { middles: {} }
+  const sameCount = override.spanCount === liveSpanCount
+  return {
+    begin: override.begin,
+    end: override.end,
+    middles: sameCount ? { ...(override.middles ?? {}) } : {},
+  }
+}
+
+/**
+ * The slur's hand-nudged OPEN-join offsets, if any (client #4 — cross-system slurs). See
+ * docs/multisystem-slur-segment-endpoint-offset-plan.md. Each `{x,y}` is in **staff-spaces**,
+ * margin-relative; the renderer converts to pixels against that segment's own stave and adds
+ * it to the auto open-end position. Read through {@link reconcileSegmentEndpointOffset} to
+ * apply the count-signature staleness rule before using the `middles`.
+ */
+export function segmentEndpointOffsetOverrideOf(score: Score, elementId: string): SegmentEndpointOffsetOverride | undefined {
+  return engravingOverrideOf(score, elementId, 'segmentEndpointOffset') as SegmentEndpointOffsetOverride | undefined
+}
+
+/** The open-join offsets to apply per segment of a cross-system slur, after the staleness
+ *  rule. A field left undefined means "no nudge for that open end → draw at the auto margin
+ *  position". Mirrors {@link ResolvedSegmentShapes}. */
+export interface ResolvedSegmentEndpointOffsets {
+  begin?: { x: number; y: number }
+  end?: { x: number; y: number }
+  /** MIDDLE open-end offsets by ordinal. Empty when the override is absent OR `spanCount`
+   *  is stale (the middles' system margins no longer exist). */
+  middles: Record<number, { left?: { x: number; y: number }; right?: { x: number; y: number } }>
+}
+
+/**
+ * Pure read-only apply rule for a {@link SegmentEndpointOffsetOverride} — the open-join twin
+ * of {@link reconcileSegmentShape}, with the identical staleness rule:
+ *  - no override → nothing applied (all auto margins);
+ *  - `spanCount` matches the live count → `begin`/`end`/`middles` all applied;
+ *  - `spanCount` differs → `begin`/`end` applied, **`middles` ignored** (their system margins
+ *    no longer exist; begin/end are tied to the stable start/end system edges so they survive).
+ *
+ * No mutation — staleness is decided fresh every render. Pure & VexFlow-free for isolated
+ * unit testing.
+ */
+export function reconcileSegmentEndpointOffset(
+  override: SegmentEndpointOffsetOverride | undefined,
+  liveSpanCount: number,
+): ResolvedSegmentEndpointOffsets {
   if (!override) return { middles: {} }
   const sameCount = override.spanCount === liveSpanCount
   return {

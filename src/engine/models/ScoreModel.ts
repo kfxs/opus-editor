@@ -1,4 +1,4 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SlurSegmentAddress } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps } from './engravingOverrides'
 import {
   getTupletTotalBeatsFrac,
@@ -477,6 +477,10 @@ export class ScoreModel {
     // the nudge rides onto the new anchor and stays meaningful (slur-endpoint-offset-plan).
     this.clearEngravingOverride(id, 'curveShape')
     this.clearEngravingOverride(id, 'segmentCurveShape')
+    // The open-join nudges are margin-bound and span-relative (like segmentCurveShape), so a
+    // re-anchor — which can change the span — wipes them too. The durable note-anchored
+    // 'endpointOffset' above is the only override that survives a re-anchor.
+    this.clearEngravingOverride(id, 'segmentEndpointOffset')
     return true
   }
 
@@ -547,6 +551,49 @@ export class ScoreModel {
     const hasAny = next.begin || next.end || Object.keys(next.middles ?? {}).length > 0
     if (hasAny) this.setEngravingOverride(id, next)
     else this.clearEngravingOverride(id, 'segmentCurveShape')
+    return true
+  }
+
+  /**
+   * Nudge one OPEN join of a cross-system slur by a staff-space delta, **accumulating** onto
+   * any existing offset (keyboard fine-positioning — see
+   * docs/multisystem-slur-segment-endpoint-offset-plan.md). Stored as a
+   * {@link SegmentEndpointOffsetOverride}, separate from the durable note-anchored
+   * `endpointOffset`. `dx`/`dy` are in **staff-spaces**, margin-relative. `spanCount` is the
+   * **live** system count at the time of the edit — the override's reset signature.
+   *
+   * Count-change handling on write mirrors {@link setSlurSegmentShape}: if the stored override
+   * was authored against a different `spanCount`, its MIDDLE offsets are stale and dropped here
+   * (begin/end durable, kept) before the live count is adopted. @returns true if the slur exists.
+   */
+  setSlurSegmentEndpointOffset(
+    id: string,
+    address: SlurSegmentEndpointAddress,
+    dx: number, dy: number,
+    spanCount: number,
+  ): boolean {
+    if (!this.getSlurById(id)) return false
+    const prev = this.getEngravingOverride(id, 'segmentEndpointOffset') as SegmentEndpointOffsetOverride | undefined
+    const keepMiddles = prev !== undefined && prev.spanCount === spanCount
+    const next: SegmentEndpointOffsetOverride = {
+      kind: 'segmentEndpointOffset',
+      spanCount,
+      ...(prev?.begin ? { begin: prev.begin } : {}),
+      ...(prev?.end ? { end: prev.end } : {}),
+      middles: keepMiddles ? { ...(prev!.middles ?? {}) } : {},
+    }
+    const add = (base: { x: number; y: number } | undefined) =>
+      ({ x: (base?.x ?? 0) + dx, y: (base?.y ?? 0) + dy })
+    if (address.role === 'begin') {
+      next.begin = add(next.begin)
+    } else if (address.role === 'end') {
+      next.end = add(next.end)
+    } else {
+      const slot = { ...(next.middles![address.ordinal] ?? {}) }
+      slot[address.side] = add(slot[address.side])
+      next.middles![address.ordinal] = slot
+    }
+    this.setEngravingOverride(id, next)
     return true
   }
 

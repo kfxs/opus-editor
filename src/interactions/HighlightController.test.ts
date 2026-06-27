@@ -19,7 +19,11 @@ import type { MusicEngine } from '../engine/MusicEngine'
  *
  * We fabricate the `slur` partial(s), run `applySlurHandles`, and count what it pushes back.
  */
-function runPartials(partialExtras: Partial<ElementInfo>[], selectedEndpoint: 'start' | 'end' | null = null) {
+function runPartials(
+  partialExtras: Partial<ElementInfo>[],
+  selectedEndpoint: 'start' | 'end' | null = null,
+  selectedSegment: EditorStateSegmentSel = null,
+) {
   const registry = new ElementRegistry()
   for (const extra of partialExtras) {
     registry.add({ type: 'slur', id: 'S1', bbox: { x: 0, y: 0, width: 0, height: 0 }, ...extra })
@@ -33,6 +37,7 @@ function runPartials(partialExtras: Partial<ElementInfo>[], selectedEndpoint: 's
   const state = createEditorState()
   state.selectedSlurId = 'S1'
   state.selectedSlurEndpoint = selectedEndpoint
+  state.selectedSlurSegmentEndpoint = selectedSegment
 
   const hc = new HighlightController(() => engine, () => canvas, state)
   hc.applySlurHandles()
@@ -41,13 +46,19 @@ function runPartials(partialExtras: Partial<ElementInfo>[], selectedEndpoint: 's
     handles: registry.getByType('slur-handle'),
     rounds: registry.getByType('slur-handle').length,
     squares: registry.getByType('slur-endpoint').length,
+    segSquares: registry.getByType('slur-segment-endpoint'),
     circles: svg.querySelectorAll('circle').length,
     rects: svg.querySelectorAll('rect').length,
     selectedRects: svg.querySelectorAll('.slur-endpoint-handle--selected').length,
+    selectedSegRects: svg.querySelectorAll('.slur-segment-endpoint-handle--selected').length,
   }
 }
-const run = (slurExtra: Partial<ElementInfo>, selectedEndpoint: 'start' | 'end' | null = null) =>
-  runPartials([slurExtra], selectedEndpoint)
+type EditorStateSegmentSel = ReturnType<typeof createEditorState>['selectedSlurSegmentEndpoint']
+const run = (
+  slurExtra: Partial<ElementInfo>,
+  selectedEndpoint: 'start' | 'end' | null = null,
+  selectedSegment: EditorStateSegmentSel = null,
+) => runPartials([slurExtra], selectedEndpoint, selectedSegment)
 
 const CPS: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 10, y: 20 }, { x: 30, y: 20 }]
 const ENDS = { p0: { x: 5, y: 15 }, p1: { x: 40, y: 15 }, direction: -1 }
@@ -108,8 +119,10 @@ describe('HighlightController slur-handle gate', () => {
     expect(r.rounds).toBe(6)  // 2 per segment × 3 segments — the §4a loop, not a single .find
     expect(r.squares).toBe(2) // true ends drawn exactly once (from the partial with slurEndpoints)
     expect(r.circles).toBe(6)
-    expect(r.rects).toBe(2)
-    // Each segment's handles carry that segment's role.
+    // Orange OPEN-join squares: begin right (1) + middle both (2) + end left (1) = 4.
+    expect(r.segSquares.length).toBe(4)
+    expect(r.rects).toBe(6)   // 2 blue true-end squares + 4 orange open-join squares
+    // Each segment's round handles carry that segment's role.
     expect(r.handles.map(h => h.segmentRole).sort()).toEqual(
       ['begin', 'begin', 'end', 'end', 'middle', 'middle'],
     )
@@ -132,5 +145,45 @@ describe('HighlightController slur-handle gate', () => {
     expect(r.rects).toBe(2)         // still two squares, hit-boxes unchanged
     expect(r.squares).toBe(2)
     expect(r.selectedRects).toBe(1) // only the armed (start) square is highlighted
+  })
+})
+
+/**
+ * The orange OPEN-join squares (segment-endpoint nudge handles) of a cross-system slur —
+ * docs/multisystem-slur-segment-endpoint-offset-plan.md. One per BEGIN (right) / END (left),
+ * two per MIDDLE; carried as `slur-segment-endpoint` registry entries with the nudge address.
+ */
+describe('HighlightController orange open-join squares', () => {
+  it('a same-line slur draws NO orange squares (no segments)', () => {
+    const r = run({ controlPoints: CPS, slurEndpoints: ENDS })
+    expect(r.segSquares.length).toBe(0)
+  })
+
+  it('BEGIN partial → one orange square addressed {role:begin}, no side', () => {
+    const r = run({ segmentEndpoints: SEG_ENDS, segmentRole: 'begin', slurSpanCount: 2 })
+    expect(r.segSquares.length).toBe(1)
+    expect(r.segSquares[0]).toMatchObject({
+      type: 'slur-segment-endpoint', slurId: 'S1', segmentRole: 'begin', slurSpanCount: 2,
+    })
+    expect(r.segSquares[0].segmentSide).toBeUndefined()
+  })
+
+  it('MIDDLE partial → two orange squares, left and right, carrying ordinal + side', () => {
+    const r = run({ segmentEndpoints: SEG_ENDS, segmentRole: 'middle', segmentOrdinal: 0, slurSpanCount: 3 })
+    expect(r.segSquares.length).toBe(2)
+    expect(r.segSquares.map(s => s.segmentSide).sort()).toEqual(['left', 'right'])
+    for (const s of r.segSquares) {
+      expect(s).toMatchObject({ segmentRole: 'middle', segmentOrdinal: 0, slurSpanCount: 3 })
+    }
+  })
+
+  it('an armed open join → exactly that orange square gets the selected border', () => {
+    const r = run(
+      { segmentEndpoints: SEG_ENDS, segmentRole: 'middle', segmentOrdinal: 0, slurSpanCount: 3 },
+      null,
+      { role: 'middle', ordinal: 0, side: 'left' },
+    )
+    expect(r.rects).toBe(2)            // two orange squares (no blue — this partial has no slurEndpoints)
+    expect(r.selectedSegRects).toBe(1) // only the armed (middle/0/left) square is highlighted
   })
 })

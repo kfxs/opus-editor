@@ -14,7 +14,7 @@ import { slurNestDepths } from '@/utils/slurs'
 import type { ElementInfo } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
 import { drawCurveArc } from './curveArc'
-import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf } from '@/engine/models/engravingOverrides'
+import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 
 // Vertical geometry shared by all slur arcs.
@@ -258,6 +258,22 @@ export function slurEndpointOffsetPx(
 }
 
 /**
+ * Resolve ONE open-join offset (a {@link SegmentEndpointOffsetOverride} slot, in
+ * **staff-spaces**, margin-relative) to a PIXEL delta against that segment's own stave. A
+ * missing offset — or a not-yet-laid-out stave (`undefined`) — yields `{0,0}`, so the caller
+ * adds it unconditionally without risking a throw inside `staffSpacesToPixels`. The single-
+ * point twin of `slurEndpointOffsetPx`, used for each cross-system open join (begin right /
+ * end left / both middle ends).
+ */
+export function segmentEndpointOffsetPx(
+  offset: { x: number; y: number } | undefined,
+  stave: Stave | undefined,
+): { x: number; y: number } {
+  if (!offset || !stave) return { x: 0, y: 0 }
+  return { x: staffSpacesToPixels(offset.x, stave), y: staffSpacesToPixels(offset.y, stave) }
+}
+
+/**
  * Render phrasing slurs from {@link Score.slurs}. Each slur is anchored to a
  * start/end head id; both resolve through `staveNoteMap` to their containing
  * chord's StaveNote (a slur arcs over the whole event, not one pitch).
@@ -420,6 +436,10 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         // own note's stave; MIDDLEs are keyed by ordinal (reset on a count change) and use
         // the system's representative stave. Absent/stale entries fall back to the auto arch.
         const segShape = reconcileSegmentShape(segmentCurveShapeOverrideOf(score, slur.id), spanCount)
+        // Per-open-join hand nudges (orange squares): same staleness rule as segShape — begin/end
+        // durable, middles dropped on a count change. Added to each segment's OPEN end below,
+        // BEFORE resolveCps, so the arch follows the moved point (mirrors the true-end offset).
+        const segEndOff = reconcileSegmentEndpointOffset(segmentEndpointOffsetOverrideOf(score, slur.id), spanCount)
         let middleOrdinal = 0
         for (const seg of planSlurSegments(pass, fromLine, toLine, firstX, lastX)) {
           if (seg.type === 'begin') {
@@ -428,6 +448,9 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             const p0 = { x: seg.firstX, y: startY }
             const p1 = { x: seg.rightX, y: startY + ARC * direction }
             const stave = fromNote.getStave()
+            // Open RIGHT end nudge (the true start p0 carries `endpointOffset` instead).
+            const o = segmentEndpointOffsetPx(segEndOff.begin, stave)
+            p1.x += o.x; p1.y += o.y
             const cps = resolveCps(segShape.begin, stave, p0, p1, direction, nestLift)
             registerSeg(
               drawCurveArc(pass, p0, p1, cps, direction, SLUR_THICKNESS, fromNote, toNote),
@@ -440,6 +463,9 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             const p0 = { x: seg.leftX, y: endY + ARC * direction }
             const p1 = { x: seg.lastX, y: endY }
             const stave = toNote.getStave()
+            // Open LEFT end nudge (the true end p1 carries `endpointOffset` instead).
+            const o = segmentEndpointOffsetPx(segEndOff.end, stave)
+            p0.x += o.x; p0.y += o.y
             const cps = resolveCps(segShape.end, stave, p0, p1, direction, nestLift)
             registerSeg(
               drawCurveArc(pass, p0, p1, cps, direction, SLUR_THICKNESS, fromNote, toNote),
@@ -457,6 +483,13 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             const p0 = { x: seg.leftX, y: baselineY }
             const p1 = { x: seg.rightX, y: baselineY }
             const ordinal = middleOrdinal++
+            // Both open ends nudge independently (left + right) — ordinal-keyed, reset on a
+            // count change with the rest of the middles.
+            const mo = segEndOff.middles[ordinal]
+            const ol = segmentEndpointOffsetPx(mo?.left, stave)
+            const or = segmentEndpointOffsetPx(mo?.right, stave)
+            p0.x += ol.x; p0.y += ol.y
+            p1.x += or.x; p1.y += or.y
             const cps = resolveCps(segShape.middles[ordinal], stave, p0, p1, direction, nestLift)
             registerSeg(
               drawCurveArc(pass, p0, p1, cps, direction, SLUR_THICKNESS, fromNote, toNote),

@@ -66,6 +66,7 @@ export class SelectionController {
     this.state.selectedTieFromNoteId = null
     this.state.selectedSlurId = null
     this.state.selectedSlurEndpoint = null
+    this.state.selectedSlurSegmentEndpoint = null
     this.state.selectedClefMeasure = null
     this.state.selectedClefBeat = null
     this.state.selectedTimeSignatureMeasure = null

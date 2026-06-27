@@ -404,6 +404,7 @@ export class MouseController {
     this.state.selectedTieFromNoteId = null
     this.state.selectedSlurId = null
     this.state.selectedSlurEndpoint = null
+    this.state.selectedSlurSegmentEndpoint = null
     this.state.selectedClefMeasure = null
     this.state.selectedClefBeat = null
     this.state.selectedTimeSignatureMeasure = null
@@ -541,8 +542,9 @@ export class MouseController {
       // Grabbing a round (angle) handle disarms any armed endpoint square — the two are
       // different editing targets, so the arrows shouldn't keep nudging an endpoint after
       // you reach for the curve shape (slur-endpoint-offset-plan).
-      if (this.state.selectedSlurEndpoint !== null) {
+      if (this.state.selectedSlurEndpoint !== null || this.state.selectedSlurSegmentEndpoint !== null) {
         this.state.selectedSlurEndpoint = null
+        this.state.selectedSlurSegmentEndpoint = null
         this.render.renderScore()
       }
       console.log(`Slur handle drag ready | id:${handle.slurId} cp:${handle.cpIndex} seg:${handle.segmentRole ?? 'single'}${handle.segmentRole === 'middle' ? `#${handle.segmentOrdinal}` : ''}`)
@@ -566,8 +568,31 @@ export class MouseController {
       // Either way the point stays armed afterward, so arrows can fine-tune it. Re-render so
       // the selected square's highlighted border shows immediately (slur-endpoint-offset-plan).
       this.state.selectedSlurEndpoint = endHandle.endpoint
+      this.state.selectedSlurSegmentEndpoint = null // arming a blue square disarms an orange one
       this.render.renderScore()
       console.log(`Slur endpoint armed | id:${endHandle.slurId} end:${endHandle.endpoint}`)
+      event.preventDefault()
+      return true
+    }
+
+    // Slur SEGMENT endpoint (orange square) — an OPEN join of a cross-system slur. Click ARMS
+    // it for keyboard nudging; there is NO drag/re-anchor (no note to anchor onto). Arming
+    // disarms the blue endpoint (mutually exclusive). See
+    // docs/multisystem-slur-segment-endpoint-offset-plan.md.
+    const segEndHandle = registry.getByType('slur-segment-endpoint').find(el => {
+      const b = el.bbox
+      return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
+    })
+    if (segEndHandle?.slurId === this.state.selectedSlurId && segEndHandle.segmentRole) {
+      const role = segEndHandle.segmentRole
+      this.state.selectedSlurEndpoint = null
+      this.state.selectedSlurSegmentEndpoint =
+        role === 'middle' ? { role: 'middle', ordinal: segEndHandle.segmentOrdinal!, side: segEndHandle.segmentSide! }
+        : role === 'begin' ? { role: 'begin' }
+        : { role: 'end' }
+      this.state.selectedSlurSegmentSpanCount = segEndHandle.slurSpanCount ?? 0
+      this.render.renderScore()
+      console.log(`Slur segment endpoint armed | id:${segEndHandle.slurId} role:${role}${role === 'middle' ? `#${segEndHandle.segmentOrdinal} ${segEndHandle.segmentSide}` : ''}`)
       event.preventDefault()
       return true
     }
@@ -728,8 +753,9 @@ export class MouseController {
     this.selection.selectNote(null)
     this.state.selectedSlurId = slurAt.id
     // Selecting the slur by its arc disarms any previously-armed endpoint nudge — clicking
-    // a blue square is the only thing that re-arms one (slur-endpoint-offset-plan).
+    // a blue (true end) or orange (open join) square is the only thing that re-arms one.
     this.state.selectedSlurEndpoint = null
+    this.state.selectedSlurSegmentEndpoint = null
     console.log(`✓ Slur selected | id:${slurAt.id} (Delete to remove)`)
     this.render.renderScore()
     return true

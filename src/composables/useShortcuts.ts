@@ -51,6 +51,23 @@ export function useShortcuts(
     return true
   }
 
+  // Same, but for an armed OPEN join (orange square) of a cross-system slur. Passes the
+  // captured spanCount as the override's reset signature. See
+  // docs/multisystem-slur-segment-endpoint-offset-plan.md.
+  const nudgeArmedSegmentEndpoint = (dx: number, dy: number): boolean => {
+    const eng = engine.value
+    if (!eng || !state.selectedSlurId || !state.selectedSlurSegmentEndpoint) return false
+    eng.nudgeSlurSegmentEndpoint(state.selectedSlurId, state.selectedSlurSegmentEndpoint, dx, dy, state.selectedSlurSegmentSpanCount)
+    renderer.renderScore()
+    return true
+  }
+
+  // The arrow keys serve EITHER kind of armed slur point (blue true end OR orange open join);
+  // the two are mutually exclusive, so try the true end first, then the open join. Returns
+  // true if either consumed the key (so the caller skips its default action / DECLINEs).
+  const nudgeArmedSlurPoint = (dx: number, dy: number): boolean =>
+    nudgeArmedEndpoint(dx, dy) || nudgeArmedSegmentEndpoint(dx, dy)
+
   shortcutManager.registerActions({
     setEntryMode: () => {
       state.selectedTool = 'entry'
@@ -133,6 +150,7 @@ export function useShortcuts(
         eng.removeSlur(state.selectedSlurId)
         state.selectedSlurId = null
         state.selectedSlurEndpoint = null
+        state.selectedSlurSegmentEndpoint = null
         renderer.renderScore()
       } else if (state.selectedTupletId && eng) {
         eng.deleteTuplet(state.selectedTupletId)
@@ -189,8 +207,8 @@ export function useShortcuts(
     toggleTie: () => palette.toggleTie(),
     createSlur: () => palette.createSlur(),
     selectNextNote: () => {
-      // Armed slur endpoint → fine nudge right instead of navigating.
-      if (nudgeArmedEndpoint(NUDGE_FINE_SS, 0)) return
+      // Armed slur point → fine nudge right instead of navigating.
+      if (nudgeArmedSlurPoint(NUDGE_FINE_SS, 0)) return
       if (state.selectedTool === 'entry') {
         console.log(`[Nav] ArrowRight in entry mode → switching to selection`)
         palette.disarmPositionalTools()
@@ -201,8 +219,8 @@ export function useShortcuts(
       }
     },
     selectPreviousNote: () => {
-      // Armed slur endpoint → fine nudge left instead of navigating.
-      if (nudgeArmedEndpoint(-NUDGE_FINE_SS, 0)) return
+      // Armed slur point → fine nudge left instead of navigating.
+      if (nudgeArmedSlurPoint(-NUDGE_FINE_SS, 0)) return
       if (state.selectedTool === 'entry') {
         console.log(`[Nav] ArrowLeft in entry mode → switching to selection`)
         palette.disarmPositionalTools()
@@ -219,14 +237,14 @@ export function useShortcuts(
     // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.
     // (These keys are already bound, so they always consume — the nudge branch returns void
     // via the early return, so preventDefault still fires.)
-    pitchUp: () => { if (!nudgeArmedEndpoint(0, -NUDGE_FINE_SS)) selection.adjustPitch(1) },
-    pitchDown: () => { if (!nudgeArmedEndpoint(0, NUDGE_FINE_SS)) selection.adjustPitch(-1) },
-    octaveUp: () => { if (!nudgeArmedEndpoint(0, -NUDGE_COARSE_SS)) selection.adjustOctave(1) },
-    octaveDown: () => { if (!nudgeArmedEndpoint(0, NUDGE_COARSE_SS)) selection.adjustOctave(-1) },
+    pitchUp: () => { if (!nudgeArmedSlurPoint(0, -NUDGE_FINE_SS)) selection.adjustPitch(1) },
+    pitchDown: () => { if (!nudgeArmedSlurPoint(0, NUDGE_FINE_SS)) selection.adjustPitch(-1) },
+    octaveUp: () => { if (!nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS)) selection.adjustOctave(1) },
+    octaveDown: () => { if (!nudgeArmedSlurPoint(0, NUDGE_COARSE_SS)) selection.adjustOctave(-1) },
     // Horizontal COARSE nudge (Ctrl+←/→) is unbound otherwise → DECLINE (return the false
-    // from nudgeArmedEndpoint) when no endpoint is armed, keeping the key free.
-    nudgeSlurEndpointCoarseLeft: () => nudgeArmedEndpoint(-NUDGE_COARSE_SS, 0),
-    nudgeSlurEndpointCoarseRight: () => nudgeArmedEndpoint(NUDGE_COARSE_SS, 0),
+    // from nudgeArmedSlurPoint) when no slur point is armed, keeping the key free.
+    nudgeSlurEndpointCoarseLeft: () => nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0),
+    nudgeSlurEndpointCoarseRight: () => nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0),
     undo: () => {
       const eng = engine.value
       if (eng?.undo()) {
