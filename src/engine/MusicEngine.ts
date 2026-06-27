@@ -1,5 +1,5 @@
 import { ScoreModel } from './models/ScoreModel'
-import { restPositionKey } from './models/engravingOverrides'
+import { restPositionKey, restShiftOverrideOf } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
 import type { Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
@@ -822,7 +822,11 @@ export class MusicEngine {
     if (!measure) return false
     const key = restPositionKey(measure.id, note.voice ?? 0, note.beat)
     const ok = this.scoreModel.nudgeRestShift(key, delta)
-    if (ok) this.saveOnly('Nudge rest')
+    if (ok) {
+      this.saveOnly('Nudge rest')
+      const steps = restShiftOverrideOf(this.scoreModel.getScore(), key)?.steps ?? 0
+      console.log(`[Rest] ${delta > 0 ? '↑' : '↓'} shift rest ${restId} (${key}) by ${delta} → total ${steps} step(s)`)
+    }
     return ok
   }
 
