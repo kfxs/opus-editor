@@ -8,6 +8,7 @@
  * ties). Nesting, stem-aware endpoints and the auto arch shape live here.
  */
 import { StaveNote } from 'vexflow'
+import type { Stave } from 'vexflow'
 import type { Score } from '@/types/music'
 import { slurNestDepths } from '@/utils/slurs'
 import type { ElementInfo } from '@/engine/ElementRegistry'
@@ -34,6 +35,95 @@ function measureOfNoteId(score: Score, noteId: string): number | undefined {
     for (const s of m.slots) {
       if (s.type === 'chord' && s.notes.some(p => p.id === noteId)) return m.number
       if (s.type === 'rest' && s.id === noteId) return m.number
+    }
+  }
+  return undefined
+}
+
+/** The post-render lookup data the system-edge helpers + segment planner need. A
+ *  narrow slice of {@link RenderPass} so they stay pure & trivially unit-testable. */
+export type SlurLayoutLookup = Pick<RenderPass, 'measureLayoutInfo' | 'measureBounds'>
+
+/** X of a system's LEFT margin = the `noteStartX` of the **first** measure that
+ *  landed on `line`. Undefined if no measure (or no bounds) on that line. */
+export function lineLeftEdgeX(pass: SlurLayoutLookup, line: number): number | undefined {
+  let firstMeasure: number | undefined
+  for (const [num, info] of pass.measureLayoutInfo) {
+    if (info.lineNumber !== line) continue
+    if (firstMeasure === undefined || num < firstMeasure) firstMeasure = num
+  }
+  return firstMeasure === undefined ? undefined : pass.measureBounds.get(firstMeasure)?.noteStartX
+}
+
+/** X of a system's RIGHT margin = the `noteEndX` of the **last** measure that
+ *  landed on `line`. Undefined if no measure (or no bounds) on that line. */
+export function lineRightEdgeX(pass: SlurLayoutLookup, line: number): number | undefined {
+  let lastMeasure: number | undefined
+  for (const [num, info] of pass.measureLayoutInfo) {
+    if (info.lineNumber !== line) continue
+    if (lastMeasure === undefined || num > lastMeasure) lastMeasure = num
+  }
+  return lastMeasure === undefined ? undefined : pass.measureBounds.get(lastMeasure)?.noteEndX
+}
+
+/**
+ * One drawn piece of a slur. A same-line slur is a single `single`; a slur crossing
+ * N systems is `begin` + (N−2)×`middle` + `end`, each anchored to the **system**
+ * edges (not the endpoint notes' own measures — that measure-vs-system confusion was
+ * the original bug). `firstX`/`lastX` are the note tie-edge Xs; `leftX`/`rightX` are
+ * the system margins from the helpers above.
+ */
+export type SlurSegment =
+  | { type: 'single' }
+  | { type: 'begin'; firstX: number; rightX: number }
+  | { type: 'middle'; leftX: number; rightX: number; line: number }
+  | { type: 'end'; leftX: number; lastX: number }
+
+/**
+ * Pure decision: given the start/end lines and the two note tie-edge Xs, return the
+ * ordered segments to draw. No VexFlow / ctx / StaveNote — the heart of the
+ * multi-system fix, so it's unit-testable in isolation. A line whose system edge
+ * can't be resolved is skipped (defensive; shouldn't happen for a rendered line).
+ */
+export function planSlurSegments(
+  pass: SlurLayoutLookup,
+  fromLine: number,
+  toLine: number,
+  firstX: number,
+  lastX: number,
+): SlurSegment[] {
+  if (fromLine === toLine) return [{ type: 'single' }]
+  const segments: SlurSegment[] = []
+  for (let line = fromLine; line <= toLine; line++) {
+    if (line === fromLine) {
+      const rightX = lineRightEdgeX(pass, line)
+      if (rightX !== undefined) segments.push({ type: 'begin', firstX, rightX })
+    } else if (line === toLine) {
+      const leftX = lineLeftEdgeX(pass, line)
+      if (leftX !== undefined) segments.push({ type: 'end', leftX, lastX })
+    } else {
+      const leftX = lineLeftEdgeX(pass, line)
+      const rightX = lineRightEdgeX(pass, line)
+      if (leftX !== undefined && rightX !== undefined) segments.push({ type: 'middle', leftX, rightX, line })
+    }
+  }
+  return segments
+}
+
+/**
+ * A live `Stave` from any chord/rest rendered on `line`, used only for a MIDDLE
+ * segment's vertical reference (staff top/bottom line). Returns undefined if the
+ * line has no rendered element in `staveNoteMap` (e.g. not yet laid out).
+ */
+function representativeStaveOnLine(
+  pass: RenderPass, score: Score, line: number,
+): Stave | undefined {
+  for (const m of score.measures) {
+    if ((pass.measureLayoutInfo.get(m.number)?.lineNumber ?? 0) !== line) continue
+    for (const s of m.slots) {
+      const id = s.type === 'rest' ? s.id : s.type === 'chord' ? s.notes[0]?.id : undefined
+      const stave = id ? pass.staveNoteMap.get(id)?.staveNote.getStave?.() : undefined
+      if (stave) return stave
     }
   }
   return undefined
@@ -164,7 +254,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
 
     const registerPartial = (
       half: { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] },
-      partialType?: 'start' | 'end',
+      partialType?: 'start' | 'end' | 'middle',
       extra?: Partial<ElementInfo>,
     ) => pass.elementRegistry.add({
       type: 'slur', id: slur.id, fromNoteId: slur.startNoteId, toNoteId: slur.endNoteId,
@@ -214,32 +304,48 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           staffSpacePx: stave?.getSpacingBetweenLines(),
         })
       } else {
-        // Cross-system: two half-arcs.
-        const fromStave = fromNote.getStave()
-        const toStave = toNote.getStave()
-        if (fromStave && toStave) {
-          // First (trailing) half: from the start note rising to the system's right edge.
-          const firstX = fromNote.getTieRightX()
-          const rightEdge = fromStave.getNoteEndX()
-          const startY = fromY + LIFT * direction
-          const apex1 = startY + ARC * direction
-          const h1p0 = { x: firstX, y: startY }
-          const h1p1 = { x: rightEdge, y: apex1 }
-          registerPartial(
-            drawCurveArc(pass, h1p0, h1p1, slurArchCps(h1p0, h1p1, direction, nestLift), direction, SLUR_THICKNESS, fromNote, toNote),
-            'end',
-          )
-          // Second (leading) half: from the next system's left edge down into the end note.
-          const lastX = toNote.getTieLeftX()
-          const leftEdge = toStave.getNoteStartX()
-          const endY = toY + LIFT * direction
-          const apex2 = endY + ARC * direction
-          const h2p0 = { x: leftEdge, y: apex2 }
-          const h2p1 = { x: lastX, y: endY }
-          registerPartial(
-            drawCurveArc(pass, h2p0, h2p1, slurArchCps(h2p0, h2p1, direction, nestLift), direction, SLUR_THICKNESS, fromNote, toNote),
-            'start',
-          )
+        // Cross-system: one open-ended segment per system the slur crosses
+        // (BEGIN + N×MIDDLE + END), each anchored to the **system** edges — not the
+        // endpoint notes' own measures (that measure-vs-system confusion was the bug
+        // that hid the arc on any non-boundary measure / dropped middle systems).
+        const firstX = fromNote.getTieRightX()
+        const lastX = toNote.getTieLeftX()
+        for (const seg of planSlurSegments(pass, fromLine, toLine, firstX, lastX)) {
+          if (seg.type === 'begin') {
+            // Start note → system right edge, rising to an open (flat-ish) right end.
+            const startY = fromY + LIFT * direction
+            const p0 = { x: seg.firstX, y: startY }
+            const p1 = { x: seg.rightX, y: startY + ARC * direction }
+            registerPartial(
+              drawCurveArc(pass, p0, p1, slurArchCps(p0, p1, direction, nestLift), direction, SLUR_THICKNESS, fromNote, toNote),
+              'end',
+            )
+          } else if (seg.type === 'end') {
+            // System left edge → end note, the mirror of BEGIN. THIS is the 2-line
+            // fix: leftX is the SYSTEM's left margin, not the end note's measure edge.
+            const endY = toY + LIFT * direction
+            const p0 = { x: seg.leftX, y: endY + ARC * direction }
+            const p1 = { x: seg.lastX, y: endY }
+            registerPartial(
+              drawCurveArc(pass, p0, p1, slurArchCps(p0, p1, direction, nestLift), direction, SLUR_THICKNESS, fromNote, toNote),
+              'start',
+            )
+          } else if (seg.type === 'middle') {
+            // A full-width bow across a system the slur merely passes over. Both ends
+            // sit flat at a staff-relative baseline (above the top line / below the
+            // bottom line per the slur's side); slurArchCps bows it symmetrically.
+            const stave = representativeStaveOnLine(pass, score, seg.line)
+            if (!stave) continue
+            const baselineY = direction === -1
+              ? stave.getTopLineTopY() - LIFT
+              : stave.getBottomLineBottomY() + LIFT
+            const p0 = { x: seg.leftX, y: baselineY }
+            const p1 = { x: seg.rightX, y: baselineY }
+            registerPartial(
+              drawCurveArc(pass, p0, p1, slurArchCps(p0, p1, direction, nestLift), direction, SLUR_THICKNESS, fromNote, toNote),
+              'middle',
+            )
+          }
         }
       }
 

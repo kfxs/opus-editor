@@ -15,6 +15,20 @@ const DEFAULT_DYNAMIC_TEXT = 'Text'
 import { getMeasureNotes, beatToFrac, measureCapacityQuarters } from '../utils/musicUtils'
 import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
 
+/** Shortest distance from point (px,py) to the line segment a→b (clamped to the
+ *  segment, so endpoints don't over-grab). Used for arc-proximity slur hit-testing. */
+function distToSegment(
+  px: number, py: number,
+  a: { x: number; y: number }, b: { x: number; y: number },
+): number {
+  const dx = b.x - a.x, dy = b.y - a.y
+  const lenSq = dx * dx + dy * dy
+  if (lenSq === 0) return Math.hypot(px - a.x, py - a.y)
+  let t = ((px - a.x) * dx + (py - a.y) * dy) / lenSq
+  t = Math.max(0, Math.min(1, t))
+  return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy))
+}
+
 /**
  * Resolved targets for one selection-tool mousedown, computed once and shared by the
  * per-gesture `handle*MouseDown` methods so they don't each re-hit-test.
@@ -667,13 +681,22 @@ export class MouseController {
   /** Select a slur arc for removal (hit-tested against the sampled curve points). */
   private handleSlurMouseDown(ctx: MouseDownCtx): boolean {
     const { registry, x, y } = ctx
-    // Slur selection — hit-test by proximity to the ARC (sampled points), not the
-    // coarse bbox rectangle (which sits over the spanned notes). Clicking near the
-    // curve selects it; Delete removes the arc (never the notes).
+    // Slur selection — hit-test by proximity to the ARC, not the coarse bbox
+    // rectangle (which sits over the spanned notes). Clicking near the curve selects
+    // it; Delete removes the arc (never the notes). We measure distance to the line
+    // SEGMENTS between consecutive sampled points (a continuous ribbon along the
+    // curve), not to the discrete points — otherwise wide arcs (cross-system BEGIN/
+    // MIDDLE/END segments span a whole system, so the fixed ~17 samples sit tens of
+    // px apart) would only be clickable right on a sample dot.
     const slurPad = 7
     const slurAt = registry.getByType('slur').find(el => {
-      if (!el.points?.length) return false
-      return el.points.some(p => (x - p.x) ** 2 + (y - p.y) ** 2 <= slurPad * slurPad)
+      const pts = el.points
+      if (!pts?.length) return false
+      if (pts.length === 1) return (x - pts[0].x) ** 2 + (y - pts[0].y) ** 2 <= slurPad * slurPad
+      for (let i = 1; i < pts.length; i++) {
+        if (distToSegment(x, y, pts[i - 1], pts[i]) <= slurPad) return true
+      }
+      return false
     }) ?? null
     if (!slurAt?.id) return false
 

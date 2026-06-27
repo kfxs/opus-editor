@@ -157,8 +157,10 @@ export interface ElementInfo {
   toMeasure?: number
   /** Whether this is a partial tie (line break) */
   isPartial?: boolean
-  /** Type of partial tie: 'start' or 'end' */
-  partialType?: 'start' | 'end'
+  /** Type of partial span: 'start' / 'end' (tie or slur), or 'middle' (a slur's
+   *  full-width segment over a system it merely crosses). Informational — written
+   *  for hit-test/debug parity, never switched on. */
+  partialType?: 'start' | 'end' | 'middle'
   /** Curve direction this tie was drawn with (-1 up / +1 down); lets a flip read
    *  the last auto-resolved side so the first `x` press always visibly inverts it. */
   tieDirection?: number
