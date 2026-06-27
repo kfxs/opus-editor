@@ -273,12 +273,38 @@ the score lookup lives in the renderer's resolver closure.
 - Cross-meter paste (clip meter ≠ target meter) re-tiles like a rebar → best-effort
   by the same offset rule.
 
-## 10. Deferred render polish (after the plan ships)
-- **Ledger lines for shifted rests.** A half rest hangs from a staff line and a whole
-  rest sits under one; their vertical position is read against those lines. When a rest is
-  shifted far enough to sit **above or below the staff**, VexFlow draws **no ledger lines
-  for rests**, so the eye loses the reference and a quarter/half/whole rest's exact
-  position becomes ambiguous. This is a pure rendering concern (the stored shift is already
-  correct); fixing it means drawing ledger line(s) through a rest that lands outside the
-  staff, like a notehead would get. Deferred — NOT a blocker for the storage/travel logic
-  above. Revisit once the core feature is in.
+## 10. Render polish — supporting ledger line for off-staff whole/half rests (DONE 2026-06-27)
+
+**The CONVENTION (researched — Wikipedia "Ledger line"; Open Music Theory):** ledger support
+for rests is **only** for **whole (redonda) and half (blanca) rests** — including dotted, and
+whole-measure rests — because those are **line-attached**: a whole rest *hangs from* a staff
+line, a half rest *sits on* one, so their vertical reference is a specific line. Quarter
+(negra) and shorter rests are **not** line-attached (symmetric glyphs that float in a space),
+so they get **no** ledger. And it is **ONE** supporting line — the line the rest attaches to —
+**not** the full stack a notehead gets. (Earlier first attempt was wrong on both counts: it
+drew a full stack for *every* rest. Corrected.)
+
+**Why VexFlow won't do it:** `StaveNote.drawLedgerLines()` hard-returns on
+`if (this.isRest()) return` (vexflow esm stavenote.js:692) — no option. Structural reason:
+ledger X comes from `getNoteHeadBounds()` over `_noteHeads`, and a rest has none → no anchor X.
+So we draw it ourselves (NOT a subclass — that would need fake notehead bounds).
+
+**Editor-specific fact:** this codebase anchors EVERY rest to `b/4` (line 3) regardless of
+duration (NoteBuilder), so `getKeyLine(0)` returns `3 + shift` for all of them — the duration
+is NOT recoverable from the line and must come from the slot. The supporting line is the rest's
+own key line (a whole rest hangs from it, a half rest sits on it; both attach AT that line).
+
+**IMPLEMENTED 2026-06-27:**
+- pure `restSupportingLedgerLine(duration, isMeasureRest, restLine)` in NoteBuilder.ts —
+  returns the single line (= `restLine`) only for a line-attached rest (`w`/`h`/measure) that
+  is off-staff (`restLine ≥ 6` above or `≤ 0` below; staff = lines 1–5), else `null`.
+  Unit-tested (shorter rests → null; inside staff → null; off-staff → exactly one line).
+- `VexFlowRenderer.drawRestLedgerLines(slots, staveNotes, stave)` (parallel arrays) called in
+  the per-measure draw loop after `voice.draw`. For each rest slot it reads the live line from
+  `sn.getKeyLine(0)`, asks the pure helper, and if non-null strokes ONE line at
+  `stave.getYForNote(line)`, centred on the rest's bounding box (fallback `getAbsoluteX` +
+  `getGlyphWidth`), styled via `stave.getDefaultLedgerLineStyle()`. Skips
+  `renderOptions.draw===false` (co-located merges).
+- **VISUAL-VERIFY pending:** the ledger Y uses `getYForNote(keyLine)` assuming VexFlow draws the
+  whole-rest hang-line / half-rest sit-line AT the key line's Y. If it reads off by a line in
+  the app, adjust the Y by ±0.5–1 line per the glyph's actual anchor.

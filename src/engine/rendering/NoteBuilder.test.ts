@@ -3,6 +3,7 @@ import {
   resolveTupletLocation,
   innerFlipTupletYOffset,
   createStaveNotesFromSlots,
+  restSupportingLedgerLine,
   TUPLET_LOCATION_ABOVE,
   TUPLET_LOCATION_BELOW,
   type TupletNoteStem,
@@ -104,5 +105,33 @@ describe('createStaveNotesFromSlots — per-rest vertical shift (docs/rest-shift
       (s) => (s.id === 'b' ? 3 : 0),
     )
     expect(notes[1].getKeyLine(0) - notes[0].getKeyLine(0)).toBe(3)
+  })
+})
+
+describe('restSupportingLedgerLine (off-staff whole/half rest support, docs/rest-shift-plan.md §10)', () => {
+  it('only whole/half rests are line-attached — shorter rests never get a ledger', () => {
+    for (const d of ['q', '8', '16', '32'] as const) {
+      expect(restSupportingLedgerLine(d, false, 8)).toBeNull()   // even far off-staff
+      expect(restSupportingLedgerLine(d, false, -3)).toBeNull()
+    }
+  })
+
+  it('a whole or half rest INSIDE the staff (lines 1–5) needs no ledger', () => {
+    for (const line of [1, 2, 3, 4, 5]) {
+      expect(restSupportingLedgerLine('w', false, line)).toBeNull()
+      expect(restSupportingLedgerLine('h', false, line)).toBeNull()
+    }
+  })
+
+  it('a whole/half rest OFF the staff gets exactly ONE supporting line, at its key line', () => {
+    expect(restSupportingLedgerLine('w', false, 6)).toBe(6)   // first above
+    expect(restSupportingLedgerLine('h', false, 7)).toBe(7)   // higher above — still just one
+    expect(restSupportingLedgerLine('w', false, 0)).toBe(0)   // first below
+    expect(restSupportingLedgerLine('h', false, -2)).toBe(-2) // lower below — still just one
+  })
+
+  it('treats a whole-measure rest as line-attached regardless of its stored duration', () => {
+    expect(restSupportingLedgerLine('q', true, 6)).toBe(6)
+    expect(restSupportingLedgerLine('q', true, 3)).toBeNull() // measure rest inside staff
   })
 })

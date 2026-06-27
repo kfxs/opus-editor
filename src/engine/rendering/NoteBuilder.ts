@@ -69,6 +69,28 @@ export function makeClefResolver(measure: Measure, openingClef: Clef): (beat: Fr
 }
 
 /**
+ * The SINGLE supporting ledger line for a rest forced off the staff, or `null` if none is
+ * needed. Only WHOLE and HALF rests (incl. dotted, and whole-measure rests) are
+ * **line-attached** — a whole rest *hangs from* a line, a half rest *sits on* one — so when a
+ * manual shift pushes them outside the staff they get **one** supporting ledger at their key
+ * line, the line they attach to. This is unlike a notehead (which gets the full stack of
+ * ledgers out to its position) and unlike shorter rests (quarter/eighth/… are not
+ * line-attached, so they get none). Staff lines are 1–5 in VexFlow's line system, so a rest
+ * is off the staff when its line is ≥ 6 (above) or ≤ 0 (below). See docs/rest-shift-plan.md
+ * §10 (convention: Wikipedia "Ledger line" — half/whole rest support in multi-voice). Pure &
+ * VexFlow-free for isolated testing.
+ */
+export function restSupportingLedgerLine(
+  duration: NoteDuration,
+  isMeasureRest: boolean,
+  restLine: number,
+): number | null {
+  const lineAttached = isMeasureRest || duration === 'w' || duration === 'h'
+  if (!lineAttached) return null
+  return restLine >= 6 || restLine <= 0 ? restLine : null
+}
+
+/**
  * Create StaveNotes directly from ChordRest slots.
  * One slot → one StaveNote. Rests → rest StaveNote; Chords → multi-key StaveNote.
  * @param slots - Slots already sorted by beat position

@@ -20,6 +20,7 @@ import {
   convertDuration,
   chooseVoiceMode,
   createStaveNotesFromSlots,
+  restSupportingLedgerLine,
   makeClefResolver,
   drawsTimeSignature,
   ARTICULATION_RENDER_ORDER,
@@ -472,6 +473,10 @@ export class VexFlowRenderer {
           }
         }
 
+        // Supporting ledger line for any whole/half rest a shift pushed off the staff
+        // (VexFlow skips ledgers for rests — see drawRestLedgerLines).
+        this.drawRestLedgerLines(sortedSlots, staveNotes, stave)
+
         this.drawAndRegisterTuplets(vexTuplets, tupletStaveNoteMap, measure, multiVoice)
         this.registerSlotElements(sortedSlots, staveNotes, measure)
         registerDynamics(pass, measure)
@@ -499,6 +504,51 @@ export class VexFlowRenderer {
     }
 
     this.registerStaffAndGeometry(stave, measure, x, y, width, isFirstInLine, clef, hasClefChange, clefSegments)
+  }
+
+  /**
+   * Draw the supporting ledger line for any WHOLE or HALF rest (incl. dotted / whole-measure)
+   * that a manual vertical shift (engraving client #5) pushed outside the staff. Those rests
+   * are line-attached (hang from / sit on a line), so off-staff they need the ONE line they
+   * attach to — at their key line. Shorter rests are not line-attached and get nothing.
+   * VexFlow's `StaveNote.drawLedgerLines()` hard-returns for rests (no noteheads → no anchor
+   * X), so we draw it ourselves, centred on the rest glyph and styled like VexFlow's ledgers.
+   * `slots` and `staveNotes` are parallel (same order). See docs/rest-shift-plan.md §10.
+   */
+  private drawRestLedgerLines(slots: ChordRest[], staveNotes: StaveNote[], stave: Stave): void {
+    const ctx = this.context
+    if (!ctx) return
+    const PAD = 2 // px the ledger overhangs the rest glyph on each side
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i]
+      const sn = staveNotes[i]
+      if (!slot || slot.type !== 'rest' || !sn) continue
+      // Skip rests VexFlow merged away (renderOptions.draw=false on a co-located duplicate).
+      if ((sn.renderOptions as { draw?: boolean }).draw === false) continue
+      const line = restSupportingLedgerLine(slot.duration, !!slot.isMeasureRest, sn.getKeyLine(0))
+      if (line === null) continue
+
+      // Centre the ledger on the actually-drawn glyph; fall back to the note's x + width.
+      let cx: number
+      let halfW: number
+      try {
+        const box = sn.getBoundingBox()
+        cx = box.x + box.w / 2
+        halfW = box.w / 2 + PAD
+      } catch {
+        cx = sn.getAbsoluteX()
+        halfW = sn.getGlyphWidth() / 2 + PAD
+      }
+
+      ctx.save()
+      stave.applyStyle(ctx, stave.getDefaultLedgerLineStyle())
+      const y = stave.getYForNote(line)
+      ctx.beginPath()
+      ctx.moveTo(cx - halfW, y)
+      ctx.lineTo(cx + halfW, y)
+      ctx.stroke()
+      ctx.restore()
+    }
   }
 
   private buildAndDrawStave(
