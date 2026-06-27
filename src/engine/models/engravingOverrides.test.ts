@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { curveShapeOverrideOf, migrateLegacySlurCps, reconcileSegmentShape, segmentCurveShapeOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './engravingOverrides'
+import { curveShapeOverrideOf, endpointOffsetOverrideOf, migrateLegacySlurCps, reconcileSegmentShape, segmentCurveShapeOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './engravingOverrides'
 import type { EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, CurveControlPointDeltas, Score, Slur } from '@/types/music'
 
 /**
@@ -245,5 +245,85 @@ describe('ScoreModel.setSlurSegmentShape + setSlurEndpoint clear (P0 storage)', 
     expect(seg(slurId)).toBeDefined()
     model.setSlurEndpoint(slurId, 'end', 'n-z')
     expect(seg(slurId)).toBeUndefined()
+  })
+})
+
+/**
+ * P0 of the slur endpoint-offset plan (docs/slur-endpoint-offset-plan.md): the
+ * `endpointOffset` kind (client #3) + the `endpointOffsetOverrideOf` reader +
+ * `setSlurEndpointOffset` (accumulate) + the deliberate "survives a re-anchor" exception
+ * to the §3.3 auto-reset. Pure storage — no VexFlow / render here.
+ */
+describe('endpointOffsetOverrideOf reader', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('Test Score', 120) })
+
+  it('returns undefined when the slur has no endpoint offset', () => {
+    const id = model.addSlur({ startNoteId: 'n-a', endNoteId: 'n-b' }).id
+    expect(endpointOffsetOverrideOf(model.getScore(), id)).toBeUndefined()
+  })
+
+  it('returns the stored offset once set', () => {
+    const id = model.addSlur({ startNoteId: 'n-a', endNoteId: 'n-b' }).id
+    model.setSlurEndpointOffset(id, 'start', 0.25, -0.5)
+    expect(endpointOffsetOverrideOf(model.getScore(), id)).toEqual({
+      kind: 'endpointOffset', start: { x: 0.25, y: -0.5 },
+    })
+  })
+})
+
+describe('ScoreModel.setSlurEndpointOffset', () => {
+  let model: ScoreModel
+  let slurId: string
+  const off = (id: string) => endpointOffsetOverrideOf(model.getScore(), id)
+
+  beforeEach(() => {
+    model = new ScoreModel('Test Score', 120)
+    slurId = model.addSlur({ startNoteId: 'n-a', endNoteId: 'n-b' }).id
+  })
+
+  it('returns false for an unknown slur', () => {
+    expect(model.setSlurEndpointOffset('ghost', 'start', 1, 1)).toBe(false)
+  })
+
+  it('creates the offset for one end, leaving the other absent', () => {
+    expect(model.setSlurEndpointOffset(slurId, 'end', 1, 2)).toBe(true)
+    expect(off(slurId)).toEqual({ kind: 'endpointOffset', end: { x: 1, y: 2 } })
+  })
+
+  it('ACCUMULATES repeated nudges on the same end (one running total)', () => {
+    model.setSlurEndpointOffset(slurId, 'start', 0.25, 0)
+    model.setSlurEndpointOffset(slurId, 'start', 0.25, -0.5)
+    model.setSlurEndpointOffset(slurId, 'start', 0, -0.5)
+    expect(off(slurId)!.start).toEqual({ x: 0.5, y: -1 })
+  })
+
+  it('keeps the two ends independent', () => {
+    model.setSlurEndpointOffset(slurId, 'start', 1, 1)
+    model.setSlurEndpointOffset(slurId, 'end', -2, 3)
+    expect(off(slurId)).toEqual({
+      kind: 'endpointOffset', start: { x: 1, y: 1 }, end: { x: -2, y: 3 },
+    })
+  })
+
+  it('SURVIVES a re-anchor (anchor-relative) while curveShape/segmentCurveShape are cleared', () => {
+    model.setSlurEndpointOffset(slurId, 'start', 0.5, 0.5)
+    model.setSlurShape(slurId, [{ x: 1, y: 1 }, { x: 1, y: 1 }])
+    model.setSlurSegmentShape(slurId, { role: 'begin' }, [{ x: 2, y: 2 }, { x: 2, y: 2 }], 3)
+
+    model.setSlurEndpoint(slurId, 'end', 'n-z')
+
+    // The span-relative shapes were authored against the old geometry → gone.
+    expect(curveShapeOverrideOf(model.getScore(), slurId)).toBeUndefined()
+    expect(segmentCurveShapeOverrideOf(model.getScore(), slurId)).toBeUndefined()
+    // The endpoint nudge is anchor-relative → it rides onto the new anchor, untouched.
+    expect(off(slurId)!.start).toEqual({ x: 0.5, y: 0.5 })
+  })
+
+  it('dies with the slur (removeSlur clears all kinds, including the offset)', () => {
+    model.setSlurEndpointOffset(slurId, 'start', 1, 1)
+    model.removeSlur(slurId)
+    expect(off(slurId)).toBeUndefined()
+    expect(model.getScore().engravingOverrides).toBeUndefined()
   })
 })

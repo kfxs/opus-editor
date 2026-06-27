@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MusicEngine } from './MusicEngine'
-import { curveShapeOverrideOf, segmentCurveShapeOverrideOf } from './models/engravingOverrides'
+import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, endpointOffsetOverrideOf } from './models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { buildBeatMap, navBeatMap } from '@/utils/beatMap'
 
@@ -799,6 +799,27 @@ describe('MusicEngine.createSlur — endpoint resolution', () => {
 
     // Unknown id is a no-op.
     expect(engine.setSlurShape('nope', cps)).toBe(false)
+  })
+
+  it('nudgeSlurEndpoint accumulates the offset and saves exactly one undo step per press', () => {
+    const offOf = (id: string) => endpointOffsetOverrideOf(engine.getScore(), id)?.start
+    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const slur = engine.createSlur([a.id])!
+    expect(offOf(slur.id)).toBeUndefined() // no nudge yet
+
+    // Two presses → accumulated total, each undoable on its own.
+    expect(engine.nudgeSlurEndpoint(slur.id, 'start', 0.25, 0)).toBe(true)
+    expect(engine.nudgeSlurEndpoint(slur.id, 'start', 0.25, -0.5)).toBe(true)
+    expect(offOf(slur.id)).toEqual({ x: 0.5, y: -0.5 })
+
+    expect(engine.undo()).toBe(true) // undo the 2nd press only
+    expect(offOf(slur.id)).toEqual({ x: 0.25, y: 0 })
+    expect(engine.undo()).toBe(true) // undo the 1st press
+    expect(offOf(slur.id)).toBeUndefined()
+
+    // Unknown id is a no-op.
+    expect(engine.nudgeSlurEndpoint('nope', 'start', 1, 1)).toBe(false)
   })
 
   it('previewSlurShape (no undo) + commitSlurShape (one undo) = a single reshape step', () => {

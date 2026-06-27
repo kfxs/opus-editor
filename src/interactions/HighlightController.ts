@@ -614,15 +614,20 @@ export class HighlightController {
       ]
       const S = R + 1 // half-side: a touch larger than the round handles so squares read clearly
       for (const { p, which } of ends) {
+        // The point armed for keyboard nudging reads as "selected": larger, a darker fill
+        // and a thicker white ring versus the plain re-anchor squares. Pure cosmetic — the
+        // hit-box (registry bbox) is unchanged (slur-endpoint-offset-plan).
+        const selected = which === this.state.selectedSlurEndpoint
+        const half = selected ? S + 2 : S
         const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-        sq.setAttribute('x', String(p.x - S))
-        sq.setAttribute('y', String(p.y - S))
-        sq.setAttribute('width', String(S * 2))
-        sq.setAttribute('height', String(S * 2))
-        sq.setAttribute('fill', '#2563EB')
+        sq.setAttribute('x', String(p.x - half))
+        sq.setAttribute('y', String(p.y - half))
+        sq.setAttribute('width', String(half * 2))
+        sq.setAttribute('height', String(half * 2))
+        sq.setAttribute('fill', selected ? '#1D4ED8' : '#2563EB')
         sq.setAttribute('stroke', '#ffffff')
-        sq.setAttribute('stroke-width', '1.5')
-        sq.setAttribute('class', 'slur-endpoint-handle')
+        sq.setAttribute('stroke-width', selected ? '2.5' : '1.5')
+        sq.setAttribute('class', selected ? 'slur-endpoint-handle slur-endpoint-handle--selected' : 'slur-endpoint-handle')
         ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'grab'
         svg.appendChild(sq)
 

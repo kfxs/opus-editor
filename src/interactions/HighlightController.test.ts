@@ -19,7 +19,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
  *
  * We fabricate the `slur` partial(s), run `applySlurHandles`, and count what it pushes back.
  */
-function runPartials(partialExtras: Partial<ElementInfo>[]) {
+function runPartials(partialExtras: Partial<ElementInfo>[], selectedEndpoint: 'start' | 'end' | null = null) {
   const registry = new ElementRegistry()
   for (const extra of partialExtras) {
     registry.add({ type: 'slur', id: 'S1', bbox: { x: 0, y: 0, width: 0, height: 0 }, ...extra })
@@ -32,6 +32,7 @@ function runPartials(partialExtras: Partial<ElementInfo>[]) {
 
   const state = createEditorState()
   state.selectedSlurId = 'S1'
+  state.selectedSlurEndpoint = selectedEndpoint
 
   const hc = new HighlightController(() => engine, () => canvas, state)
   hc.applySlurHandles()
@@ -42,9 +43,11 @@ function runPartials(partialExtras: Partial<ElementInfo>[]) {
     squares: registry.getByType('slur-endpoint').length,
     circles: svg.querySelectorAll('circle').length,
     rects: svg.querySelectorAll('rect').length,
+    selectedRects: svg.querySelectorAll('.slur-endpoint-handle--selected').length,
   }
 }
-const run = (slurExtra: Partial<ElementInfo>) => runPartials([slurExtra])
+const run = (slurExtra: Partial<ElementInfo>, selectedEndpoint: 'start' | 'end' | null = null) =>
+  runPartials([slurExtra], selectedEndpoint)
 
 const CPS: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 10, y: 20 }, { x: 30, y: 20 }]
 const ENDS = { p0: { x: 5, y: 15 }, p1: { x: 40, y: 15 }, direction: -1 }
@@ -116,5 +119,18 @@ describe('HighlightController slur-handle gate', () => {
     const r = run({})
     expect(r.rounds).toBe(0)
     expect(r.squares).toBe(0)
+  })
+
+  it('no armed endpoint → neither square gets the selected border', () => {
+    const r = run({ slurEndpoints: ENDS })
+    expect(r.rects).toBe(2)
+    expect(r.selectedRects).toBe(0)
+  })
+
+  it('an armed endpoint → exactly that square gets the selected border', () => {
+    const r = run({ slurEndpoints: ENDS }, 'start')
+    expect(r.rects).toBe(2)         // still two squares, hit-boxes unchanged
+    expect(r.squares).toBe(2)
+    expect(r.selectedRects).toBe(1) // only the armed (start) square is highlighted
   })
 })

@@ -9,12 +9,12 @@
  */
 import { StaveNote } from 'vexflow'
 import type { Stave } from 'vexflow'
-import type { Score, CurveControlPointDeltas } from '@/types/music'
+import type { Score, CurveControlPointDeltas, SlurEndpointOffsetOverride } from '@/types/music'
 import { slurNestDepths } from '@/utils/slurs'
 import type { ElementInfo } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
 import { drawCurveArc } from './curveArc'
-import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape } from '@/engine/models/engravingOverrides'
+import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 
 // Vertical geometry shared by all slur arcs.
@@ -236,6 +236,28 @@ export function resolveCps(
 }
 
 /**
+ * Resolve a slur's endpoint nudge (a {@link SlurEndpointOffsetOverride}, stored in
+ * **staff-spaces**, anchor-relative) to per-end PIXEL deltas against each end's OWN stave
+ * (see docs/slur-endpoint-offset-plan.md). A missing offset for an end — or a
+ * not-yet-laid-out stave (`undefined`) — yields 0 for that end, so the caller can add the
+ * result unconditionally without risking a throw inside `staffSpacesToPixels`. Pure +
+ * VexFlow-light (reads only `getSpacingBetweenLines`), mirroring `resolveCps`.
+ */
+export function slurEndpointOffsetPx(
+  offset: SlurEndpointOffsetOverride | undefined,
+  fromStave: Stave | undefined,
+  toStave: Stave | undefined,
+): { startX: number; startY: number; endX: number; endY: number } {
+  const conv = (o: { x: number; y: number } | undefined, stave: Stave | undefined) =>
+    o && stave
+      ? { x: staffSpacesToPixels(o.x, stave), y: staffSpacesToPixels(o.y, stave) }
+      : { x: 0, y: 0 }
+  const s = conv(offset?.start, fromStave)
+  const e = conv(offset?.end, toStave)
+  return { startX: s.x, startY: s.y, endX: e.x, endY: e.y }
+}
+
+/**
  * Render phrasing slurs from {@link Score.slurs}. Each slur is anchored to a
  * start/end head id; both resolve through `staveNoteMap` to their containing
  * chord's StaveNote (a slur arcs over the whole event, not one pitch).
@@ -294,8 +316,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
     // Endpoint anchor Ys — stem-aware (Gould): a slur on the NOTEHEAD side attaches at
     // the notehead; on the STEM side it attaches at the stem tip. Each endpoint uses
     // its own note's stem, so a flipped (stem-side) slur springs from the stem tips.
-    const fromY = slurEndpointY(fromInfo.staveNote, fromInfo.noteIndex, direction)
-    const toY = slurEndpointY(toInfo.staveNote, toInfo.noteIndex, direction)
+    let fromY = slurEndpointY(fromInfo.staveNote, fromInfo.noteIndex, direction)
+    let toY = slurEndpointY(toInfo.staveNote, toInfo.noteIndex, direction)
     if (fromY === undefined || toY === undefined || isNaN(fromY) || isNaN(toY)) continue
 
     const registerPartial = (
@@ -320,10 +342,22 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
       // don't collide. A manual `cps` shape opts out — the user controls that height.
       const nestLift = (nestDepths.get(slur.id) ?? 0) * SLUR_NEST_GAP
 
+      // Endpoint nudge (docs/slur-endpoint-offset-plan.md): a free anchor-relative offset
+      // (staff-spaces) on top of each note anchor. Applied ONCE here, before the
+      // single-vs-cross branch, so every downstream consumer — the arc, the auto-arch cps,
+      // `slurTrueEndpoints`, and therefore the blue squares — flows from the shifted values.
+      // `slurEndpointOffsetPx` converts against each end's OWN stave and yields 0 for a
+      // not-yet-laid-out stave (no throw). The note tie-edge Xs are identical in both
+      // branches, so lift them out here; Y folds into fromY/toY (both branches derive from
+      // those).
+      const off = slurEndpointOffsetPx(endpointOffsetOverrideOf(score, slur.id), fromNote.getStave(), toNote.getStave())
+      const firstX = fromNote.getTieRightX() + off.startX
+      const lastX = toNote.getTieLeftX() + off.endX
+      fromY += off.startY
+      toY += off.endY
+
       if (fromLine === toLine) {
         // Same line: a single arc from the start note to the end note.
-        const firstX = fromNote.getTieRightX()
-        const lastX = toNote.getTieLeftX()
         const startY = fromY + LIFT * direction
         const endY = toY + LIFT * direction
         const p0 = { x: firstX, y: startY }
@@ -348,8 +382,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         // (BEGIN + N×MIDDLE + END), each anchored to the **system** edges — not the
         // endpoint notes' own measures (that measure-vs-system confusion was the bug
         // that hid the arc on any non-boundary measure / dropped middle systems).
-        const firstX = fromNote.getTieRightX()
-        const lastX = toNote.getTieLeftX()
+        // `firstX`/`lastX` (incl. the endpoint nudge) were lifted above the branch.
         // The two true endpoints (square re-anchor handles). Attach them to the FIRST
         // partial that actually registers — independent of which segment draws, since
         // planSlurSegments may defensively skip a system edge it can't resolve, so we

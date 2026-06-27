@@ -10,7 +10,14 @@
 
 import { SHORTCUTS, type ShortcutDefinition } from './ShortcutConfig'
 
-export type ActionHandler = () => void
+/**
+ * A shortcut handler. Returning `false` **declines** the key — the manager then skips
+ * `preventDefault`, so the keypress falls through to the browser / a future binding, exactly
+ * as if no handler had run. Returning `void`/`undefined` (every existing handler) = handled
+ * → `preventDefault`. This lets a binding claim a key only conditionally (e.g. the slur
+ * endpoint nudge owns `Ctrl+←/→` ONLY while an endpoint is armed) without globally stealing it.
+ */
+export type ActionHandler = () => boolean | void
 
 export class ShortcutManager {
   private handlers: Map<string, ActionHandler> = new Map()
@@ -119,11 +126,12 @@ export class ShortcutManager {
       return
     }
 
-    // Prevent default browser behavior for this key
-    event.preventDefault()
-
-    // Execute the action
-    handler()
+    // Run the handler FIRST, then preventDefault unless it DECLINED (returned false). A
+    // declining handler keeps the key free (browser default / future binding) — used so a
+    // conditional binding only claims its key when it actually acts. void/undefined =
+    // handled → preventDefault (backward-compatible: every legacy handler returns void).
+    const declined = handler() === false
+    if (!declined) event.preventDefault()
   }
 
   /**

@@ -151,6 +151,19 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Lower selected note by one octave',
   },
 
+  // Slur endpoint COARSE horizontal nudge. The plain/Ctrl VERTICAL + plain horizontal
+  // arrows are handled modally inside the pitch/nav/octave handlers above; only this
+  // horizontal-coarse pair is otherwise unbound. Its handlers DECLINE (return false) when
+  // no slur endpoint is armed, so Ctrl+←/→ stay free for the rest of the app until then.
+  'Ctrl+ArrowLeft': {
+    action: 'nudgeSlurEndpointCoarseLeft',
+    description: 'Nudge the selected slur endpoint left (coarse)',
+  },
+  'Ctrl+ArrowRight': {
+    action: 'nudgeSlurEndpointCoarseRight',
+    description: 'Nudge the selected slur endpoint right (coarse)',
+  },
+
   // Chord navigation (Alt + arrow keys)
   'Alt+ArrowUp': {
     action: 'chordNoteUp',

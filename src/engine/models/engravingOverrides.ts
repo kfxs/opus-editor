@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, CurveControlPointDeltas } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, CurveControlPointDeltas } from '@/types/music'
 
 /**
  * Pure reads over the engraving-overrides compartment (a sub-tree of `Score`; see
@@ -34,6 +34,18 @@ export function curveShapeOverrideOf(score: Score, elementId: string): CurveShap
  */
 export function segmentCurveShapeOverrideOf(score: Score, elementId: string): SegmentCurveShapeOverride | undefined {
   return engravingOverrideOf(score, elementId, 'segmentCurveShape') as SegmentCurveShapeOverride | undefined
+}
+
+/**
+ * The slur's hand-nudged endpoint offsets, if any (client #3 — see
+ * docs/slur-endpoint-offset-plan.md). Each `start`/`end` `{x,y}` is in **staff-spaces**,
+ * anchor-relative; the renderer converts to pixels against that end's own stave and adds
+ * it to the auto endpoint position. Durable — both ends are note-anchored, so this reads
+ * straight through (no reconcile rule, unlike {@link reconcileSegmentShape}). Absent = no
+ * nudge.
+ */
+export function endpointOffsetOverrideOf(score: Score, elementId: string): SlurEndpointOffsetOverride | undefined {
+  return engravingOverrideOf(score, elementId, 'endpointOffset') as SlurEndpointOffsetOverride | undefined
 }
 
 /** The cps to apply per segment of a cross-system slur, after the staleness rule. A field

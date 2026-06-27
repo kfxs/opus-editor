@@ -247,6 +247,24 @@ export interface SegmentCurveShapeOverride extends EngravingOverride {
 }
 
 /**
+ * Client #3 of the engraving-overrides compartment: a free positional nudge of a slur's
+ * in/out endpoint(s), on top of its note anchor (see docs/slur-endpoint-offset-plan.md).
+ * Each offset is in **staff-spaces**, anchor-relative — added to the auto endpoint
+ * position at render against that end's own stave. Unlike {@link CurveShapeOverride} /
+ * {@link SegmentCurveShapeOverride}, this is **durable across a re-anchor**: both ends are
+ * note-anchored on same-line AND cross-system slurs (no `spanCount` staleness), and the
+ * relative nudge rides onto the new anchor. Read straight through (no reconcile rule);
+ * cleared only when the slur is deleted.
+ */
+export interface SlurEndpointOffsetOverride extends EngravingOverride {
+  kind: 'endpointOffset'
+  /** Start (in) point offset in staff-spaces, relative to the start anchor. */
+  start?: { x: number; y: number }
+  /** End (out) point offset in staff-spaces, relative to the end anchor. */
+  end?: { x: number; y: number }
+}
+
+/**
  * The engraving-overrides compartment: an id-keyed table of authored geometry held
  * as a sub-tree of {@link Score} (so it clones / serializes / undoes with the score
  * value — principle 1). Keyed by the *element id* an override hangs off (a note /

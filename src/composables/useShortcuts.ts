@@ -35,6 +35,22 @@ export function useShortcuts(
     return { x: w / 2, y: h / 2 }
   }
 
+  // Slur endpoint keyboard nudge step (staff-spaces; see docs/slur-endpoint-offset-plan.md):
+  // a plain arrow is fine, Ctrl+arrow is coarse.
+  const NUDGE_FINE_SS = 0.25
+  const NUDGE_COARSE_SS = 1.0
+
+  // Nudge the armed slur endpoint by a staff-space delta (screen-down is +y, so "up arrow
+  // lifts the point" passes a negative dy). Returns true when it consumed the key (an
+  // endpoint was armed), false to DECLINE so the key falls through to its normal action.
+  const nudgeArmedEndpoint = (dx: number, dy: number): boolean => {
+    const eng = engine.value
+    if (!eng || !state.selectedSlurId || !state.selectedSlurEndpoint) return false
+    eng.nudgeSlurEndpoint(state.selectedSlurId, state.selectedSlurEndpoint, dx, dy)
+    renderer.renderScore()
+    return true
+  }
+
   shortcutManager.registerActions({
     setEntryMode: () => {
       state.selectedTool = 'entry'
@@ -116,6 +132,7 @@ export function useShortcuts(
       } else if (state.selectedSlurId && eng) {
         eng.removeSlur(state.selectedSlurId)
         state.selectedSlurId = null
+        state.selectedSlurEndpoint = null
         renderer.renderScore()
       } else if (state.selectedTupletId && eng) {
         eng.deleteTuplet(state.selectedTupletId)
@@ -172,6 +189,8 @@ export function useShortcuts(
     toggleTie: () => palette.toggleTie(),
     createSlur: () => palette.createSlur(),
     selectNextNote: () => {
+      // Armed slur endpoint → fine nudge right instead of navigating.
+      if (nudgeArmedEndpoint(NUDGE_FINE_SS, 0)) return
       if (state.selectedTool === 'entry') {
         console.log(`[Nav] ArrowRight in entry mode → switching to selection`)
         palette.disarmPositionalTools()
@@ -182,6 +201,8 @@ export function useShortcuts(
       }
     },
     selectPreviousNote: () => {
+      // Armed slur endpoint → fine nudge left instead of navigating.
+      if (nudgeArmedEndpoint(-NUDGE_FINE_SS, 0)) return
       if (state.selectedTool === 'entry') {
         console.log(`[Nav] ArrowLeft in entry mode → switching to selection`)
         palette.disarmPositionalTools()
@@ -195,10 +216,17 @@ export function useShortcuts(
     chordNoteDown: () => selection.navigateChord(-1),
     voiceNavUp: () => selection.navigateVoice(1),
     voiceNavDown: () => selection.navigateVoice(-1),
-    pitchUp: () => selection.adjustPitch(1),
-    pitchDown: () => selection.adjustPitch(-1),
-    octaveUp: () => selection.adjustOctave(1),
-    octaveDown: () => selection.adjustOctave(-1),
+    // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.
+    // (These keys are already bound, so they always consume — the nudge branch returns void
+    // via the early return, so preventDefault still fires.)
+    pitchUp: () => { if (!nudgeArmedEndpoint(0, -NUDGE_FINE_SS)) selection.adjustPitch(1) },
+    pitchDown: () => { if (!nudgeArmedEndpoint(0, NUDGE_FINE_SS)) selection.adjustPitch(-1) },
+    octaveUp: () => { if (!nudgeArmedEndpoint(0, -NUDGE_COARSE_SS)) selection.adjustOctave(1) },
+    octaveDown: () => { if (!nudgeArmedEndpoint(0, NUDGE_COARSE_SS)) selection.adjustOctave(-1) },
+    // Horizontal COARSE nudge (Ctrl+←/→) is unbound otherwise → DECLINE (return the false
+    // from nudgeArmedEndpoint) when no endpoint is armed, keeping the key free.
+    nudgeSlurEndpointCoarseLeft: () => nudgeArmedEndpoint(-NUDGE_COARSE_SS, 0),
+    nudgeSlurEndpointCoarseRight: () => nudgeArmedEndpoint(NUDGE_COARSE_SS, 0),
     undo: () => {
       const eng = engine.value
       if (eng?.undo()) {

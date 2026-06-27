@@ -403,6 +403,7 @@ export class MouseController {
     this.state.selectedTupletId = null
     this.state.selectedTieFromNoteId = null
     this.state.selectedSlurId = null
+    this.state.selectedSlurEndpoint = null
     this.state.selectedClefMeasure = null
     this.state.selectedClefBeat = null
     this.state.selectedTimeSignatureMeasure = null
@@ -537,6 +538,13 @@ export class MouseController {
       this.draggedSlurSpanCount = handle.slurSpanCount
       this.slurDragChanged = false
       this.slurDragStartTime = Date.now()
+      // Grabbing a round (angle) handle disarms any armed endpoint square — the two are
+      // different editing targets, so the arrows shouldn't keep nudging an endpoint after
+      // you reach for the curve shape (slur-endpoint-offset-plan).
+      if (this.state.selectedSlurEndpoint !== null) {
+        this.state.selectedSlurEndpoint = null
+        this.render.renderScore()
+      }
       console.log(`Slur handle drag ready | id:${handle.slurId} cp:${handle.cpIndex} seg:${handle.segmentRole ?? 'single'}${handle.segmentRole === 'middle' ? `#${handle.segmentOrdinal}` : ''}`)
       event.preventDefault()
       return true
@@ -554,7 +562,12 @@ export class MouseController {
       this.draggedEndpoint = endHandle.endpoint
       this.slurEndpointDragChanged = false
       this.slurEndpointDragStartTime = Date.now()
-      console.log(`Slur endpoint drag ready | id:${endHandle.slurId} end:${endHandle.endpoint}`)
+      // Click = select this point for keyboard nudging; drag (decided on move) re-anchors.
+      // Either way the point stays armed afterward, so arrows can fine-tune it. Re-render so
+      // the selected square's highlighted border shows immediately (slur-endpoint-offset-plan).
+      this.state.selectedSlurEndpoint = endHandle.endpoint
+      this.render.renderScore()
+      console.log(`Slur endpoint armed | id:${endHandle.slurId} end:${endHandle.endpoint}`)
       event.preventDefault()
       return true
     }
@@ -714,6 +727,9 @@ export class MouseController {
 
     this.selection.selectNote(null)
     this.state.selectedSlurId = slurAt.id
+    // Selecting the slur by its arc disarms any previously-armed endpoint nudge — clicking
+    // a blue square is the only thing that re-arms one (slur-endpoint-offset-plan).
+    this.state.selectedSlurEndpoint = null
     console.log(`✓ Slur selected | id:${slurAt.id} (Delete to remove)`)
     this.render.renderScore()
     return true

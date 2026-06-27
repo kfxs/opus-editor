@@ -1,4 +1,4 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurSegmentAddress } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SlurSegmentAddress } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps } from './engravingOverrides'
 import {
   getTupletTotalBeatsFrac,
@@ -473,8 +473,33 @@ export class ScoreModel {
     else slur.endNoteId = noteId
     // auto-reset (§3.3): endpoint re-pointed onto a different element → both the single-arc
     // shape AND the cross-system per-segment shape were authored against the OLD anchors.
+    // NOTE: 'endpointOffset' is deliberately NOT cleared here — it is anchor-relative, so
+    // the nudge rides onto the new anchor and stays meaningful (slur-endpoint-offset-plan).
     this.clearEngravingOverride(id, 'curveShape')
     this.clearEngravingOverride(id, 'segmentCurveShape')
+    return true
+  }
+
+  /**
+   * Nudge one endpoint of a slur by a staff-space delta, **accumulating** onto any existing
+   * offset (the in/out keyboard fine-positioning — see docs/slur-endpoint-offset-plan.md).
+   * Stored as a {@link SlurEndpointOffsetOverride} in the engraving-overrides compartment
+   * (staff-spaces, anchor-relative — so it survives a re-anchor and any font/zoom/reflow).
+   * `dx`/`dy` are in staff-spaces. A future "reset" simply calls
+   * `clearEngravingOverride(id, 'endpointOffset')`. @returns true if the slur exists.
+   */
+  setSlurEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
+    if (!this.getSlurById(id)) return false
+    const prev = this.getEngravingOverride(id, 'endpointOffset') as SlurEndpointOffsetOverride | undefined
+    const base = which === 'start' ? prev?.start : prev?.end
+    const moved = { x: (base?.x ?? 0) + dx, y: (base?.y ?? 0) + dy }
+    const next: SlurEndpointOffsetOverride = {
+      kind: 'endpointOffset',
+      ...(prev?.start ? { start: prev.start } : {}),
+      ...(prev?.end ? { end: prev.end } : {}),
+      [which]: moved,
+    }
+    this.setEngravingOverride(id, next)
     return true
   }
 

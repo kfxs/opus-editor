@@ -54,6 +54,11 @@ export interface EditorState {
   selectedTieFromNoteId: string | null
   /** Id of the on-score slur selected for removal (selection tool); null if none. */
   selectedSlurId: string | null
+  /** Which endpoint (in/out) of the selected slur is armed for keyboard nudging — set by
+   *  clicking a blue endpoint square (docs/slur-endpoint-offset-plan.md). Only meaningful
+   *  while {@link selectedSlurId} is set; reset to null whenever `selectedSlurId` is
+   *  assigned or cleared, so a stale endpoint can't nudge a newly-selected slur. */
+  selectedSlurEndpoint: 'start' | 'end' | null
   /** While dragging a slur endpoint handle: the note the slur would snap onto if
    *  released now (highlighted as the candidate anchor); null when not dragging. */
   slurEndpointCandidateNoteId: string | null
@@ -164,6 +169,7 @@ export function createEditorState(): EditorState {
     selectedTupletId: null,
     selectedTieFromNoteId: null,
     selectedSlurId: null,
+    selectedSlurEndpoint: null,
     slurEndpointCandidateNoteId: null,
     selectedDuration: 'q',
     selectedAccidental: null,

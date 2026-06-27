@@ -5,11 +5,13 @@ import {
   planSlurSegments,
   slurTrueEndpoints,
   resolveCps,
+  slurEndpointOffsetPx,
   type SlurLayoutLookup,
   type SlurSegment,
 } from './SlurRenderer'
 import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
 import type { Stave } from 'vexflow'
+import type { SlurEndpointOffsetOverride } from '@/types/music'
 
 /**
  * Fabricate the narrow {@link SlurLayoutLookup} slice the system-edge helpers + the
@@ -177,5 +179,37 @@ describe('resolveCps (per-segment + single-arc shape resolution, P1)', () => {
     expect(resolveCps(override, stave(10), p0, p1, -1, 10)).toEqual([
       { x: 10, y: 10 }, { x: 10, y: 10 }, // extraHeight ignored — fully authored
     ])
+  })
+})
+
+describe('slurEndpointOffsetPx (endpoint nudge → px, P0)', () => {
+  // staffSpacesToPixels only reads getSpacingBetweenLines() — stub just that.
+  const stave = (spacing: number) => ({ getSpacingBetweenLines: () => spacing } as unknown as Stave)
+  const offset = (o: Partial<SlurEndpointOffsetOverride>): SlurEndpointOffsetOverride =>
+    ({ kind: 'endpointOffset', ...o })
+
+  it('no offset → all-zero deltas (caller adds them unconditionally)', () => {
+    expect(slurEndpointOffsetPx(undefined, stave(10), stave(10)))
+      .toEqual({ startX: 0, startY: 0, endX: 0, endY: 0 })
+  })
+
+  it('converts each end staff-spaces → px against its OWN stave', () => {
+    // start on a 10px stave, end on an 8px stave → independent scaling (cross-system).
+    const o = offset({ start: { x: 0.5, y: -1 }, end: { x: 2, y: 1 } })
+    expect(slurEndpointOffsetPx(o, stave(10), stave(8)))
+      .toEqual({ startX: 5, startY: -10, endX: 16, endY: 8 })
+  })
+
+  it('a missing end contributes 0 for that end only', () => {
+    const o = offset({ start: { x: 1, y: 1 } }) // no end
+    expect(slurEndpointOffsetPx(o, stave(10), stave(10)))
+      .toEqual({ startX: 10, startY: 10, endX: 0, endY: 0 })
+  })
+
+  it('an undefined stave yields 0 for that end (guard against not-yet-laid-out staves)', () => {
+    const o = offset({ start: { x: 3, y: 3 }, end: { x: 3, y: 3 } })
+    // fromStave undefined → start contributes 0; toStave present → end converts.
+    expect(slurEndpointOffsetPx(o, undefined, stave(10)))
+      .toEqual({ startX: 0, startY: 0, endX: 30, endY: 30 })
   })
 })

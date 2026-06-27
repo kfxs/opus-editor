@@ -797,6 +797,15 @@ export class MusicEngine {
     this.saveOnly('Re-anchor slur')
   }
 
+  /** Nudge a slur endpoint by a staff-space delta and save ONE undo step (the keyboard
+   *  fine-positioning — see docs/slur-endpoint-offset-plan.md). Unlike a mouse drag each
+   *  arrow press is already a discrete commit, so there is no preview/commit split. */
+  nudgeSlurEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
+    const ok = this.scoreModel.setSlurEndpointOffset(id, which, dx, dy)
+    if (ok) this.saveOnly('Nudge slur endpoint')
+    return ok
+  }
+
   /** Flip a slur with a Sibelius-style `x` toggle: auto ↔ flipped. When the slur already
    *  carries an explicit `placement`, clear it back to the context-aware auto default;
    *  otherwise set an explicit side opposite to whatever was last *drawn* (read from the
