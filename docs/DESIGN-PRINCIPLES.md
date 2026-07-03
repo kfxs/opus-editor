@@ -107,6 +107,22 @@ be made *consciously* before more code piles onto it.
   Design the composable instrument/staff layer **before** much more code hardcodes
   `getMeasure(n)`, and keep single-staff as the N=1 case, not a special default.
 
+  **Multi-staff Phase 0 (2026-07-03) took the first, deliberate step.** The staff axis
+  is now modeled as a **flat `staffId` discriminator** on `Chord`/`Rest`/`ClefChange`/
+  `Dynamic`/`Tuplet` (absent = staff 0, exactly parallel to `voice`), with `Score.staves`
+  the ordered staff list. `Score.measures` **stays the shared horizontal spine** (barlines,
+  meter aligned across staves) — correct for the grand-staff/piano case, and a
+  **deliberately *removable* assumption**, never fused into content. Two invariants keep
+  the harder contemporary future (per-staff meters, polymeter, staves of *different*
+  measure counts / non-aligned barlines) reachable *additively*, never a teardown:
+    1. **Each staff's music stays independently extractable as a position-independent
+       stream** (principle 2 — `flattenRegion`/`relayEvents` thread staff alongside voice),
+       so "re-bar each staff on its own grid" is always expressible.
+    2. **The shared-spine assumption must never be baked into content** — breaking it later
+       (per-`StaffContent` meter/barlines; the outer `Measure` as a re-sync unit) is the
+       documented path to different measure counts per staff. See docs/multi-staff-plan.md
+       §11. The addressing seam is one helper, `engine/models/staffContent.ts`.
+
 ## How to use this
 
 When adding a feature, ask: *does this make one of the four assumptions above?* If

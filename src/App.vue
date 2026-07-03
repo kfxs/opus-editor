@@ -395,6 +395,14 @@
             >+ After</button>
           </div>
 
+          <!-- TEMPORARY (multi-staff Phase 1): seed a 2nd staff to eyeball stacked rendering.
+               Remove when the real "Staff:" panel lands (Phase 4). -->
+          <button
+            @click="palette.addTempSecondStaff()"
+            class="px-2 py-1 rounded text-sm leading-none bg-purple-700 hover:bg-purple-600"
+            title="TEMP: add a second staff to preview multi-staff rendering (Phase 1)"
+          >+ Staff (temp)</button>
+
           <div class="border-l border-gray-600 mx-2"></div>
           <button
             @click="togglePlayback"

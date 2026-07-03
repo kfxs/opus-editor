@@ -9,8 +9,14 @@
  */
 import type { Note, Chord, NotePitch, Rest } from '@/types/music'
 
-/** Assemble a flat Note from one pitch of a Chord. */
-export function toFlatNote(chord: Chord, pitch: NotePitch): Note {
+/**
+ * Assemble a flat Note from one pitch of a Chord.
+ *
+ * `staffIndex` is the 0-based staff ordinal (the `staffId → index` projection resolved by
+ * the caller against {@link Score.staves}); it defaults to 0, the single-staff case. See
+ * docs/multi-staff-plan.md §4.
+ */
+export function toFlatNote(chord: Chord, pitch: NotePitch, staffIndex = 0): Note {
   return {
     id: pitch.id,
     step: pitch.step,
@@ -31,11 +37,13 @@ export function toFlatNote(chord: Chord, pitch: NotePitch): Note {
     articulations: chord.articulations,
     articulationPlacement: chord.articulationPlacement,
     voice: chord.voice,
+    // Mirror voice: the default (0) staff is left absent, so N=1 Notes are unchanged.
+    staff: staffIndex === 0 ? undefined : staffIndex,
   }
 }
 
-/** Assemble a flat Note from a Rest. */
-export function restToFlatNote(rest: Rest): Note {
+/** Assemble a flat Note from a Rest. `staffIndex` defaults to 0 (single staff). */
+export function restToFlatNote(rest: Rest, staffIndex = 0): Note {
   return {
     id: rest.id,
     duration: rest.duration,
@@ -48,5 +56,6 @@ export function restToFlatNote(rest: Rest): Note {
     actualDuration: rest.actualDuration,
     tiedFrom: rest.tiedFrom,
     voice: rest.voice,
+    staff: staffIndex === 0 ? undefined : staffIndex,
   }
 }

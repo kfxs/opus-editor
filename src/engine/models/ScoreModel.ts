@@ -36,6 +36,7 @@ import {
 import { effectiveClefAt, measureOpeningClef, middleLineDiatonicPos } from '@/utils/clefUtils'
 import * as clefOps from './clefOps'
 import { toFlatNote, restToFlatNote } from './noteProjection'
+import { staffIndexOfId, matchesStaff } from './staffContent'
 import * as tupletOps from './tupletOps'
 import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
 import { v4 as uuidv4 } from 'uuid'
@@ -114,6 +115,9 @@ export class ScoreModel {
       keySignature: { key: 'C', accidentals: 0 },
       defaultTimeSignature: { numerator: 4, denominator: 4 },
       measures: [],
+      // The staff axis: one staff by default (N=1). Content carries no explicit
+      // `staffId` at N=1 — absent = this staff. See docs/multi-staff-plan.md §4.
+      staves: [{ id: uuidv4() }],
     }
     // Initialize with one empty measure
     this.addMeasure()
@@ -151,6 +155,37 @@ export class ScoreModel {
    */
   addMeasure(timeSignature?: TimeSignature): Measure {
     return this.insertMeasureAfter(this.score.measures.length, timeSignature)
+  }
+
+  /**
+   * TEMPORARY (multi-staff Phase 1 render smoke-test). Appends a second staff below the
+   * existing one and seeds it with a bass clef + two half notes in measure 1, so the
+   * per-staff render path (stacking, shared barlines, per-staff clef, per-staff content
+   * routing) is actually visible before the real "+ Staff" panel exists (Phase 4). No-op
+   * once there is already more than one staff. Delete this method when Phase 4 lands.
+   */
+  addTempSecondStaff(): void {
+    if ((this.score.staves?.length ?? 1) > 1) return
+    const staffId = uuidv4()
+    this.score.staves = [...(this.score.staves ?? []), { id: staffId }]
+
+    const m1 = this.score.measures[0]
+    if (!m1) return
+    // Per-staff bass clef (proves per-staff clef resolution; it inherits into later bars).
+    m1.clefs = [...(m1.clefs ?? []), { id: uuidv4(), beat: fracCreate(0, 1), clef: 'bass', staffId }]
+    // Two half notes filling the bar (beats are in quarter-note units; a half note spans 2).
+    // This proves the content view routes only this staff's slots; empty bars get their own
+    // staff-tagged rest-fill via the now staff-aware fillGapsWithRests.
+    const makeHalf = (beatQuarters: number, step: PitchStep, octave: number): Chord => ({
+      id: uuidv4(),
+      type: 'chord',
+      beat: fracCreate(beatQuarters, 1),
+      duration: 'h',
+      measure: m1.number,
+      staffId,
+      notes: [{ id: uuidv4(), step, alter: 0, octave }],
+    })
+    m1.slots.push(makeHalf(0, 'C', 3), makeHalf(2, 'G', 3))
   }
 
   /**
@@ -213,7 +248,7 @@ export class ScoreModel {
    * Measure rests store the true bar length as `actualDuration` (the `duration`
    * stays `'w'`); the voice is only recorded when non-default.
    */
-  private pushRestSlot(measure: Measure, rest: RestSlot, voice: number): void {
+  private pushRestSlot(measure: Measure, rest: RestSlot, voice: number, staffId?: string): void {
     const slot: Rest = {
       id: uuidv4(),
       type: 'rest',
@@ -225,6 +260,9 @@ export class ScoreModel {
     if (rest.dots) slot.dots = rest.dots
     if (rest.isMeasureRest) slot.isMeasureRest = true
     if (voice !== 0) slot.voice = voice as 0 | 1 | 2 | 3
+    // Multi-staff: filler rests belong to the staff whose gap they fill. The first staff
+    // uses an absent staffId (the N=1 convention), so single-staff output is unchanged.
+    if (staffId !== undefined) slot.staffId = staffId
     measure.slots.push(slot)
   }
 
@@ -1750,14 +1788,15 @@ export class ScoreModel {
     return undefined
   }
 
-  /** Assemble a flat Note from a Chord + NotePitch. */
+  /** Assemble a flat Note from a Chord + NotePitch, resolving the chord's `staffId`
+   *  back-pointer to its 0-based staff index for the flat view. */
   private toFlatNote(chord: Chord, pitch: NotePitch): Note {
-    return toFlatNote(chord, pitch)
+    return toFlatNote(chord, pitch, staffIndexOfId(this.score, chord.staffId))
   }
 
-  /** Assemble a flat Note from a Rest. */
+  /** Assemble a flat Note from a Rest, resolving its `staffId` to a staff index. */
   private restToFlatNote(rest: Rest): Note {
-    return restToFlatNote(rest)
+    return restToFlatNote(rest, staffIndexOfId(this.score, rest.staffId))
   }
 
   // ==================== Note Entry ====================
@@ -1985,81 +2024,98 @@ export class ScoreModel {
     const barEnd = measureCapacityFrac(measure)
     const tuplets = measure.tuplets || []
 
-    // Distinct voices present (always include voice 0 so an empty bar fills).
-    const voices = new Set<number>([0])
-    for (const slot of measure.slots) voices.add(slot.voice ?? 0)
+    // Partition by STAFF before voice (multi-staff): each staff is an independent
+    // rest-fill lane, exactly like each voice — a note on staff 2 must not suppress the
+    // rest-fill of staff 1's own stream. `match` selects the lane's slots; `stamp` is put
+    // on its filler rests. The first staff stamps `undefined` (the absent-staffId = staff 0
+    // convention), so a single-staff score is byte-identical to the pre-multi-staff model.
+    const staves = this.score.staves ?? []
+    const staffLanes: Array<{ match: string | undefined; stamp: string | undefined }> =
+      staves.length > 0
+        ? staves.map((s, i) => ({ match: s.id, stamp: i === 0 ? undefined : s.id }))
+        : [{ match: undefined, stamp: undefined }]
 
-    // The measure header is logged lazily — only once, and only if some voice
+    // The measure header is logged lazily — only once, and only if some lane/voice
     // actually has a gap to fill. A bar with nothing to do stays silent.
     let headerLogged = false
     const logHeaderOnce = () => {
       if (headerLogged) return
       headerLogged = true
-      console.log(`[Model.fillGaps] m${measure.number} barLen=${fracToNumber(barEnd).toFixed(3)} TS=${measure.timeSignature.numerator}/${measure.timeSignature.denominator} voices=[${[...voices].join(',')}]`)
+      console.log(`[Model.fillGaps] m${measure.number} barLen=${fracToNumber(barEnd).toFixed(3)} TS=${measure.timeSignature.numerator}/${measure.timeSignature.denominator} staves=${staffLanes.length}`)
     }
 
-    for (const voice of voices) {
-      const voiceSlots = measure.slots
-        .filter(slot => (slot.voice ?? 0) === voice)
-        .sort((a, b) => fracCompare(a.beat, b.beat))
+    for (let laneIndex = 0; laneIndex < staffLanes.length; laneIndex++) {
+      const lane = staffLanes[laneIndex]
+      const laneSlots = measure.slots.filter(slot => matchesStaff(slot.staffId, lane.match, this.score))
+      const laneTuplets = tuplets.filter(tuplet => matchesStaff(tuplet.staffId, lane.match, this.score))
 
-      // Only this voice's tuplets may govern its gaps. A tuplet's voice is
-      // derived from its member slots (a tuplet is a single-voice run), so a
-      // voice-0 triplet must not block the rest-fill of an empty voice-1 bar.
-      const voiceTuplets = tuplets.filter(tuplet => {
-        const slot = measure.slots.find(s => s.tupletId === tuplet.id)
-        return (slot?.voice ?? 0) === voice
-      })
+      // Distinct voices present in THIS staff (always include voice 0 so an empty bar fills).
+      const voices = new Set<number>([0])
+      for (const slot of laneSlots) voices.add(slot.voice ?? 0)
 
-      // Find gaps in this voice's stream.
-      const gaps: Array<{ start: Fraction; end: Fraction }> = []
-      let currentBeat: Fraction = fracCreate(0, 1)
-      for (const slot of voiceSlots) {
-        if (fracLt(currentBeat, slot.beat)) {
-          gaps.push({ start: currentBeat, end: slot.beat })
-        }
-        const slotDurFrac = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
-        currentBeat = fracAdd(slot.beat, slotDurFrac)
-      }
-      if (fracLt(currentBeat, barEnd)) {
-        gaps.push({ start: currentBeat, end: barEnd })
-      }
+      for (const voice of voices) {
+        const voiceSlots = laneSlots
+          .filter(slot => (slot.voice ?? 0) === voice)
+          .sort((a, b) => fracCompare(a.beat, b.beat))
 
-      // Skip gaps that start inside a tuplet's span (the tuplet owns that time).
-      const filteredGaps = gaps.filter(gap => {
-        for (const tuplet of voiceTuplets) {
-          const tupletEndFrac = fracAdd(
-            tuplet.startBeat,
-            getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied),
-          )
-          if (fracGte(gap.start, tuplet.startBeat) && fracLt(gap.start, tupletEndFrac)) {
-            return false
+        // Only this staff+voice's tuplets may govern its gaps. A tuplet's voice is
+        // derived from its member slots (a tuplet is a single-voice run), so a
+        // voice-0 triplet must not block the rest-fill of an empty voice-1 bar.
+        const voiceTuplets = laneTuplets.filter(tuplet => {
+          const slot = laneSlots.find(s => s.tupletId === tuplet.id)
+          return (slot?.voice ?? 0) === voice
+        })
+
+        // Find gaps in this voice's stream.
+        const gaps: Array<{ start: Fraction; end: Fraction }> = []
+        let currentBeat: Fraction = fracCreate(0, 1)
+        for (const slot of voiceSlots) {
+          if (fracLt(currentBeat, slot.beat)) {
+            gaps.push({ start: currentBeat, end: slot.beat })
           }
+          const slotDurFrac = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
+          currentBeat = fracAdd(slot.beat, slotDurFrac)
         }
-        return true
-      })
+        if (fracLt(currentBeat, barEnd)) {
+          gaps.push({ start: currentBeat, end: barEnd })
+        }
 
-      // Only log a voice that actually has gaps — "gaps=none" lines are pure noise.
-      if (filteredGaps.length) {
-        logHeaderOnce()
-        const gapStr = filteredGaps.map(g => `[${fracToNumber(g.start).toFixed(3)}→${fracToNumber(g.end).toFixed(3)}]`).join(' ')
-        console.log(`[Model.fillGaps]   v${voice}: ${voiceSlots.length} existing slot(s), gaps=${gapStr}`)
-      }
-
-      for (const gap of filteredGaps) {
-        let adjustedEnd = gap.end
-        // Trim a gap that runs into a later tuplet so fillRests never spans one.
-        for (const tuplet of voiceTuplets) {
-          if (fracGt(tuplet.startBeat, gap.start) && fracLt(tuplet.startBeat, adjustedEnd)) {
-            adjustedEnd = tuplet.startBeat
+        // Skip gaps that start inside a tuplet's span (the tuplet owns that time).
+        const filteredGaps = gaps.filter(gap => {
+          for (const tuplet of voiceTuplets) {
+            const tupletEndFrac = fracAdd(
+              tuplet.startBeat,
+              getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied),
+            )
+            if (fracGte(gap.start, tuplet.startBeat) && fracLt(gap.start, tupletEndFrac)) {
+              return false
+            }
           }
-        }
-        if (fracLte(adjustedEnd, gap.start)) continue
+          return true
+        })
 
-        for (const rest of fillRests(gap.start, adjustedEnd, meter)) {
-          this.pushRestSlot(measure, rest, voice)
-          const dots = rest.dots ? '.'.repeat(rest.dots) : ''
-          console.log(`[Model.fillGaps]     fill v${voice} REST ${rest.duration}${dots} @b${fracToNumber(rest.beat).toFixed(3)}${rest.isMeasureRest ? ' [measure-rest]' : ''}`)
+        // Only log a voice that actually has gaps — "gaps=none" lines are pure noise.
+        if (filteredGaps.length) {
+          logHeaderOnce()
+          const gapStr = filteredGaps.map(g => `[${fracToNumber(g.start).toFixed(3)}→${fracToNumber(g.end).toFixed(3)}]`).join(' ')
+          console.log(`[Model.fillGaps]   staff${laneIndex} v${voice}: ${voiceSlots.length} existing slot(s), gaps=${gapStr}`)
+        }
+
+        for (const gap of filteredGaps) {
+          let adjustedEnd = gap.end
+          // Trim a gap that runs into a later tuplet so fillRests never spans one.
+          for (const tuplet of voiceTuplets) {
+            if (fracGt(tuplet.startBeat, gap.start) && fracLt(tuplet.startBeat, adjustedEnd)) {
+              adjustedEnd = tuplet.startBeat
+            }
+          }
+          if (fracLte(adjustedEnd, gap.start)) continue
+
+          for (const rest of fillRests(gap.start, adjustedEnd, meter)) {
+            this.pushRestSlot(measure, rest, voice, lane.stamp)
+            const dots = rest.dots ? '.'.repeat(rest.dots) : ''
+            console.log(`[Model.fillGaps]     fill staff${laneIndex} v${voice} REST ${rest.duration}${dots} @b${fracToNumber(rest.beat).toFixed(3)}${rest.isMeasureRest ? ' [measure-rest]' : ''}`)
+          }
         }
       }
     }
@@ -2952,6 +3008,14 @@ export class ScoreModel {
     const scoreData = JSON.parse(json) as Score
     const model = new ScoreModel()
     model.score = scoreData
+
+    // The staff axis: a live model always carries a `staves` array. Hand-written /
+    // pre-multi-staff JSON may omit it — default to one staff (N=1). This is defaulting,
+    // NOT a migration (no legacy scores exist in the wild); content with absent `staffId`
+    // resolves to this staff. See docs/multi-staff-plan.md §4.
+    if (!scoreData.staves || scoreData.staves.length === 0) {
+      scoreData.staves = [{ id: uuidv4() }]
+    }
 
     // The load boundary is the only place a bad meter can enter (the
     // TimeSignature type permits any integers), so reject non-dyadic / out-of-

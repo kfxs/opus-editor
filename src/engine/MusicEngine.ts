@@ -262,6 +262,16 @@ export class MusicEngine {
   }
 
   /**
+   * TEMPORARY (multi-staff Phase 1 render check). Adds a second staff seeded with a bass
+   * clef + two notes so stacked-staff rendering is visible before the real "+ Staff" panel
+   * (Phase 4). Delete alongside {@link ScoreModel.addTempSecondStaff} when Phase 4 lands.
+   */
+  addTempSecondStaff(): void {
+    this.scoreModel.addTempSecondStaff()
+    this.saveOnly('Add temp second staff')
+  }
+
+  /**
    * Insert a measure immediately after `afterNumber` (0 = front), pushing every
    * following measure forward. Building block for a future "add measure" GUI;
    * records its own undo entry (rebar's internal inserts run under the enclosing

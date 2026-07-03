@@ -34,17 +34,31 @@ export function naturalStemDirection(step: PitchStep, octave: number, clef: Clef
   return spellingDiatonicPos(step, octave) >= middleLineDiatonicPos(clef) ? 'down' : 'up'
 }
 
-/** Clef changes of a measure, sorted ascending by beat (empty if none). */
-export function measureClefChanges(score: Score, measureNumber: number): ClefChange[] {
+/**
+ * Does a clef change belong to the staff addressed by `staffId`? Clef is per-staff
+ * (multi-staff, docs/multi-staff-plan.md §4): an absent `staffId` on either side resolves
+ * to the first staff, so at N=1 (all absent, query undefined) every clef matches the one
+ * staff and behavior is identical to the pre-multi-staff code.
+ */
+function clefOnStaff(c: ClefChange, staffId: string | undefined, score: Score): boolean {
+  const first = score.staves?.[0]?.id
+  return (c.staffId ?? first) === (staffId ?? first)
+}
+
+/** Clef changes of a measure, sorted ascending by beat (empty if none). Filtered to
+ *  `staffId`'s staff when given (absent = staff 0 / the single staff at N=1). */
+export function measureClefChanges(score: Score, measureNumber: number, staffId?: string): ClefChange[] {
   const measure = score.measures.find(m => m.number === measureNumber)
   if (!measure?.clefs?.length) return []
-  return [...measure.clefs].sort((a, b) => (fracLt(a.beat, b.beat) ? -1 : fracGt(a.beat, b.beat) ? 1 : 0))
+  return measure.clefs
+    .filter(c => clefOnStaff(c, staffId, score))
+    .sort((a, b) => (fracLt(a.beat, b.beat) ? -1 : fracGt(a.beat, b.beat) ? 1 : 0))
 }
 
 /** The last (highest-beat) clef change in the nearest earlier measure, if any. */
-function inheritedClef(score: Score, measureNumber: number): Clef | undefined {
+function inheritedClef(score: Score, measureNumber: number, staffId?: string): Clef | undefined {
   for (let n = measureNumber - 1; n >= 1; n--) {
-    const changes = measureClefChanges(score, n)
+    const changes = measureClefChanges(score, n, staffId)
     if (changes.length) return changes[changes.length - 1].clef
   }
   return undefined
@@ -55,35 +69,35 @@ function inheritedClef(score: Score, measureNumber: number): Clef | undefined {
  * target in this measure, else inherited from earlier measures, else score
  * default, else 'treble'.
  */
-export function effectiveClefAt(score: Score, measureNumber: number, beat: Fraction): Clef {
-  const changes = measureClefChanges(score, measureNumber)
+export function effectiveClefAt(score: Score, measureNumber: number, beat: Fraction, staffId?: string): Clef {
+  const changes = measureClefChanges(score, measureNumber, staffId)
   let best: ClefChange | undefined
   for (const c of changes) {
     if (fracLte(c.beat, beat)) best = c // changes are sorted, so the last match wins
     else break
   }
   if (best) return best.clef
-  return inheritedClef(score, measureNumber) ?? score.clef ?? 'treble'
+  return inheritedClef(score, measureNumber, staffId) ?? score.clef ?? 'treble'
 }
 
 /**
  * Clef in effect strictly before (measureNumber, beat) — ignores a change exactly
  * at that beat. Used to detect redundant changes during normalization.
  */
-export function effectiveClefBefore(score: Score, measureNumber: number, beat: Fraction): Clef {
-  const changes = measureClefChanges(score, measureNumber)
+export function effectiveClefBefore(score: Score, measureNumber: number, beat: Fraction, staffId?: string): Clef {
+  const changes = measureClefChanges(score, measureNumber, staffId)
   let best: ClefChange | undefined
   for (const c of changes) {
     if (fracLt(c.beat, beat)) best = c
     else break
   }
   if (best) return best.clef
-  return inheritedClef(score, measureNumber) ?? score.clef ?? 'treble'
+  return inheritedClef(score, measureNumber, staffId) ?? score.clef ?? 'treble'
 }
 
 /** The clef drawn at the start of a measure (its beat-0 change, or inherited). */
-export function measureOpeningClef(score: Score, measureNumber: number): Clef {
-  return effectiveClefAt(score, measureNumber, ZERO)
+export function measureOpeningClef(score: Score, measureNumber: number, staffId?: string): Clef {
+  return effectiveClefAt(score, measureNumber, ZERO, staffId)
 }
 
 /**
@@ -92,13 +106,13 @@ export function measureOpeningClef(score: Score, measureNumber: number): Clef {
  * so a mid-line measure only needs to redraw its clef when its opening differs
  * from the previous measure's ending clef.
  */
-export function measureEndingClef(score: Score, measureNumber: number): Clef {
-  const changes = measureClefChanges(score, measureNumber)
+export function measureEndingClef(score: Score, measureNumber: number, staffId?: string): Clef {
+  const changes = measureClefChanges(score, measureNumber, staffId)
   if (changes.length) return changes[changes.length - 1].clef
-  return measureOpeningClef(score, measureNumber)
+  return measureOpeningClef(score, measureNumber, staffId)
 }
 
 /** Mid-measure clef changes (beat > 0) of a measure, sorted by beat. */
-export function midMeasureClefChanges(score: Score, measureNumber: number): ClefChange[] {
-  return measureClefChanges(score, measureNumber).filter(c => !fracEq(c.beat, ZERO))
+export function midMeasureClefChanges(score: Score, measureNumber: number, staffId?: string): ClefChange[] {
+  return measureClefChanges(score, measureNumber, staffId).filter(c => !fracEq(c.beat, ZERO))
 }

@@ -78,6 +78,16 @@ export class PaletteController {
     this.renderScore()
   }
 
+  /** TEMPORARY (multi-staff Phase 1). Adds a second staff so stacked-staff rendering is
+   *  visible before the real "+ Staff" panel (Phase 4). Remove when Phase 4 lands. */
+  addTempSecondStaff(): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    engine.addTempSecondStaff()
+    console.log('✓ Added temporary second staff (Phase 1 render check)')
+    this.renderScore()
+  }
+
   setDuration(duration: NoteDuration): void {
     this.state.selectedDuration = duration
     this.state.selectedDots = 0

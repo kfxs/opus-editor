@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet } from 'vexflow'
+import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
@@ -30,6 +30,7 @@ import {
 } from './NoteBuilder'
 import { calculateMeasureWidths } from './MeasureLayout'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey } from '@/engine/models/engravingOverrides'
+import { getStaves, staffMeasureView, firstStaffId } from '@/engine/models/staffContent'
 import { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo } from './layoutConfig'
 
 // Re-exported for existing importers (MusicEngine, App.vue, RenderPass) that referenced
@@ -329,10 +330,12 @@ export class VexFlowRenderer {
    * line start). Mid-measure changes are handled per-slot during rendering.
    * @returns Map of measure number → opening clef
    */
-  private computeEffectiveClefs(score: Score): Map<number, Clef> {
+  /** Per-measure opening clef for one staff (multi-staff: clef is per-staff). `staffId`
+   *  absent resolves to staff 0 / the single staff at N=1 — identical to the old map. */
+  private computeEffectiveClefs(score: Score, staffId?: string): Map<number, Clef> {
     const map = new Map<number, Clef>()
     for (const measure of score.measures) {
-      map.set(measure.number, measureOpeningClef(score, measure.number))
+      map.set(measure.number, measureOpeningClef(score, measure.number, staffId))
     }
     return map
   }
@@ -364,13 +367,14 @@ export class VexFlowRenderer {
     hasClefChange: boolean = false,
     cautionaryEndClef?: Clef,
     ghostClefBeat?: Fraction,
-    cautionaryEndTimeSig?: TimeSignature
-  ): void {
+    cautionaryEndTimeSig?: TimeSignature,
+    staffIndex: number = 0,
+  ): Stave {
     if (!this.context) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
 
-    const stave = this.buildAndDrawStave(measure, x, y, width, isFirstInLine, clef, hasClefChange, cautionaryEndClef, cautionaryEndTimeSig)
+    const stave = this.buildAndDrawStave(measure, x, y, width, isFirstInLine, clef, hasClefChange, cautionaryEndClef, cautionaryEndTimeSig, staffIndex)
 
     // Resolve the clef in effect at any beat within this measure: starts from the
     // opening clef and applies each clef change at/after its beat.
@@ -510,7 +514,17 @@ export class VexFlowRenderer {
       }
     }
 
-    this.registerStaffAndGeometry(stave, measure, x, y, width, isFirstInLine, clef, hasClefChange, clefSegments)
+    // Per-measure GEOMETRY (staff bbox, pitch↔y line positions, opening-clef hit box) is
+    // still keyed by measure.number, so only the primary staff (index 0) registers it — a
+    // second staff would clobber the first. Rekeying to (measure, staffId) + click→staff
+    // disambiguation is Phase 2. Per-slot content (notes/rests/dynamics/tuplets/beams) is
+    // registered for every staff above (keyed on global ids, collision-free). At N=1 the
+    // staff loop runs once with index 0, so this guard changes nothing.
+    if (staffIndex === 0) {
+      this.registerStaffAndGeometry(stave, measure, x, y, width, isFirstInLine, clef, hasClefChange, clefSegments)
+    }
+
+    return stave
   }
 
   /**
@@ -592,6 +606,7 @@ export class VexFlowRenderer {
     hasClefChange: boolean = false,
     cautionaryEndClef?: Clef,
     cautionaryEndTimeSig?: TimeSignature,
+    staffIndex: number = 0,
   ): Stave {
     const stave = new Stave(x, y, width)
 
@@ -621,13 +636,19 @@ export class VexFlowRenderer {
     this.context!.setLineWidth?.(1)
     stave.setContext(this.context!).draw()
 
-    this.measureBounds.set(measure.number, {
-      measureX: x,
-      measureY: y,
-      measureWidth: width,
-      noteStartX: stave.getNoteStartX(),
-      noteEndX: stave.getNoteEndX(),
-    })
+    // measureBounds is keyed by measure.number and drives tie/slur X and pixel↔position.
+    // Its X fields are shared across staves (barlines align); its measureY is the primary
+    // staff's. Only staff 0 writes it so a lower staff doesn't overwrite the reference Y.
+    // (Per-staff bounds arrive with the Phase 2 (measure, staffId) rekey.)
+    if (staffIndex === 0) {
+      this.measureBounds.set(measure.number, {
+        measureX: x,
+        measureY: y,
+        measureWidth: width,
+        noteStartX: stave.getNoteStartX(),
+        noteEndX: stave.getNoteEndX(),
+      })
+    }
 
     return stave
   }
@@ -1103,8 +1124,26 @@ export class VexFlowRenderer {
     const verticalSpacing = LAYOUT_CONFIG.VERTICAL_SPACING
     const containerWidth = LAYOUT_CONFIG.CONTAINER_WIDTH
 
-    // Resolve the clef in effect at each measure (handles per-measure changes)
+    // The staff axis (multi-staff): staves stack vertically within each system, sharing
+    // barlines. N = 1 is the single-staff default. Each system now holds N staves, so the
+    // per-line vertical stride is multiplied by N; a staff's own offset within a system is
+    // `staffIndex * staffStride`. At N=1 this reduces exactly to the old `line * stride`.
+    // A live model always has ≥1 staff (constructor seeds it, fromJSON defaults it), but a
+    // hand-built staveless score still renders as one staff (undefined staffId → matches all
+    // absent-staffId content) rather than drawing nothing.
+    const staves = getStaves(score)
+    const staffList = staves.length > 0 ? staves : [{ id: firstStaffId(score) }]
+    const numStaves = staffList.length
+    const staffStride = staveHeight + verticalSpacing
+
+    // Resolve the clef in effect at each measure (handles per-measure changes). Clef is
+    // per-staff, so compute one map per staff; the width calc below uses the primary
+    // staff's map (widths are shared across staves — barlines align).
     const effectiveClefs = this.computeEffectiveClefs(score)
+    const effectiveClefsByStaff = new Map<string | undefined, Map<number, Clef>>()
+    for (const staff of staffList) {
+      effectiveClefsByStaff.set(staff.id, this.computeEffectiveClefs(score, staff.id))
+    }
 
     // Calculate proportional widths for all measures (or reuse the frozen layout).
     // Copy the frozen snapshot so the next clear() doesn't wipe it (same Map ref).
@@ -1126,7 +1165,8 @@ export class VexFlowRenderer {
       maxLine = Math.max(maxLine, info.lineNumber)
     }
     const numLines = maxLine + 1
-    const totalHeight = numLines * (staveHeight + verticalSpacing) + margin * 2
+    // Each system stacks N staves, so its vertical span is N strides (N=1 → unchanged).
+    const totalHeight = numLines * numStaves * staffStride + margin * 2
 
     // Check if SVG exists (should always exist after initialization)
     const svg = this.getSVGElement()
@@ -1160,14 +1200,40 @@ export class VexFlowRenderer {
         currentX = margin
       }
 
-      const y = margin + currentLine * (staveHeight + verticalSpacing)
+      // Top of this system (line). Staves stack downward from here, one stride apart.
+      const systemTop = margin + currentLine * numStaves * staffStride
       const isFirstInLine = currentX === margin
-      const clef = effectiveClefs.get(measure.number) || 'treble'
-      const prevEndClef = measure.number > 1 ? measureEndingClef(score, measure.number - 1) : undefined
-      const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
-      const ghostClefBeat = this.ghostClefBeatFor(score, measure.number)
 
-      this.renderMeasure(pass, measure, currentX, y, widthInfo.finalWidth, isFirstInLine, clef, hasClefChange, widthInfo.cautionaryEndClef, ghostClefBeat, widthInfo.cautionaryEndTimeSig)
+      // Draw each staff of this measure at its own Y with its own clef and its own slice
+      // of the measure's content (staffMeasureView filters slots/clefs/dynamics/tuplets to
+      // the staff). Barlines align because every staff shares this measure's x/width.
+      const measureStaves: Stave[] = []
+      staffList.forEach((staff, staffIndex) => {
+        const y = systemTop + staffIndex * staffStride
+        const clef = effectiveClefsByStaff.get(staff.id)?.get(measure.number) || 'treble'
+        const prevEndClef = measure.number > 1 ? measureEndingClef(score, measure.number - 1, staff.id) : undefined
+        const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
+        // Clef-drag ghost and the cautionary end-clef are the primary staff's concern for
+        // now (drag has no staff axis yet; cautionary clef width isn't per-staff). The
+        // cautionary end time-sig is shared meter, so it applies to every staff.
+        const ghostClefBeat = staffIndex === 0 ? this.ghostClefBeatFor(score, measure.number) : undefined
+        const cautionaryEndClef = staffIndex === 0 ? widthInfo.cautionaryEndClef : undefined
+        const view = staffMeasureView(measure, staff.id, score)
+
+        measureStaves.push(
+          this.renderMeasure(pass, view, currentX, y, widthInfo.finalWidth, isFirstInLine, clef, hasClefChange, cautionaryEndClef, ghostClefBeat, widthInfo.cautionaryEndTimeSig, staffIndex)
+        )
+      })
+
+      // Join the stacked staves into one system with a vertical line at the left edge of
+      // each line's first measure (grand-staff look). A single connecting line only — the
+      // brace/bracket grouping symbol (StaffGroup) is deferred (docs/multi-staff-plan.md §0).
+      if (isFirstInLine && measureStaves.length > 1) {
+        new StaveConnector(measureStaves[0], measureStaves[measureStaves.length - 1])
+          .setType('singleLeft')
+          .setContext(this.context!)
+          .draw()
+      }
 
       currentX += widthInfo.finalWidth
     })
@@ -1237,7 +1303,10 @@ export class VexFlowRenderer {
         }
       }
 
-      const measureY = margin + widthInfo.lineNumber * (staveHeight + verticalSpacing)
+      // Ghost note previews entry on the primary staff (index 0); note entry gains a staff
+      // axis in Phase 3. Its system top uses the same N-staff stride as the real render.
+      const numStaves = Math.max(getStaves(score).length, 1)
+      const measureY = margin + widthInfo.lineNumber * numStaves * (staveHeight + verticalSpacing)
       const staveWidth = widthInfo.finalWidth
       const effectiveClefs = this.computeEffectiveClefs(score)
       const openingClef: Clef = effectiveClefs.get(ghostNote.measure) || 'treble'

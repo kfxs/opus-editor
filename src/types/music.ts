@@ -30,6 +30,9 @@ export interface Tuplet {
    * forces the side, e.g. via the `x` flip. 'above' = LOCATION_TOP, 'below' = LOCATION_BOTTOM.
    */
   placement?: 'above' | 'below'
+  /** Staff this tuplet belongs to (a {@link StaffInfo} id); absent = staff 0. See
+   *  docs/multi-staff-plan.md §4. Orthogonal to voice (the owning slots carry it). */
+  staffId?: string
 }
 
 /**
@@ -91,6 +94,12 @@ export interface ClefChange {
   beat: Fraction
   /** Clef that takes effect at this beat */
   clef: Clef
+  /**
+   * Staff this clef change belongs to (a {@link StaffInfo} id). Clef is per-staff.
+   * Absent = staff 0 (the first staff), mirroring absent {@link Note.voice} = voice 0.
+   * See docs/multi-staff-plan.md §4.
+   */
+  staffId?: string
 }
 
 /**
@@ -126,6 +135,9 @@ export interface Dynamic {
   voice?: 0 | 1 | 2 | 3
   /** Vertical placement relative to the staff; default 'below'. */
   placement?: 'above' | 'below'
+  /** Staff this dynamic belongs to (a {@link StaffInfo} id); absent = staff 0. See
+   *  docs/multi-staff-plan.md §4. Orthogonal to {@link Dynamic.voice}. */
+  staffId?: string
 }
 
 /**
@@ -432,6 +444,13 @@ export interface Note {
    * editing yet); the field exists so collision/fill/read paths are voice-ready.
    */
   voice?: 0 | 1 | 2 | 3
+  /**
+   * 0-based index of this note's staff in {@link Score.staves} (default 0). This is the
+   * **positional** projection of the internal `staffId` back-pointer (mirrors `measure`
+   * being an ordinal), for staff-aware addressing in the flat public API. Note-**id**
+   * lookups stay global and are unaffected. See docs/multi-staff-plan.md §4.
+   */
+  staff?: number
 }
 
 /**
@@ -498,6 +517,12 @@ export interface Chord {
   articulations?: ArticulationType[]
   /** Explicit side for articulations (above/below); omitted = auto (stem-derived). */
   articulationPlacement?: 'above' | 'below'
+  /**
+   * Staff this chord belongs to (a {@link StaffInfo} id). Absent = staff 0 (the first
+   * staff), mirroring absent {@link Note.voice} = voice 0. Orthogonal to voice: a slot's
+   * vertical identity is the pair `(staffId, voice)`. See docs/multi-staff-plan.md §4.
+   */
+  staffId?: string
   notes: NotePitch[]
 }
 
@@ -513,6 +538,11 @@ export interface Rest {
   tupletId?: string
   actualDuration?: Fraction
   tiedFrom?: string
+  /**
+   * Staff this rest belongs to (a {@link StaffInfo} id); absent = staff 0. Orthogonal
+   * to voice, exactly like {@link Chord.staffId}. See docs/multi-staff-plan.md §4.
+   */
+  staffId?: string
   /**
    * True for the single rest that fills an entire empty bar (a measure rest).
    * Rendered as a centred whole rest regardless of bar length (Phase 3); the
@@ -581,6 +611,39 @@ export interface Measure {
 }
 
 /**
+ * One staff in the vertical **staff axis** — a single lane of five lines (the concrete
+ * thing "+ Staff Above/Below" adds). Ordered top→bottom in {@link Score.staves}; a
+ * single-staff score has exactly one. See docs/multi-staff-plan.md.
+ *
+ * Identity is a **stable string id**, never a positional index: "add staff above"
+ * prepends to `Score.staves` with no mass-renumber of back-pointers (contrast measure
+ * insert, which renumbers). The 0-based index is *derived* from `Score.staves` order at
+ * projection time (that is what flat {@link Note.staff} carries).
+ *
+ * Deferred by design (not modeled here): name, transposition, timbre — timbre is a
+ * *playback* concern, never content. See docs/multi-staff-plan.md §1, §10.
+ */
+export interface StaffInfo {
+  /** Stable identity. Slot/clef/dynamic/tuplet `staffId` back-pointers use this. */
+  id: string
+}
+
+/**
+ * An optional **grouping overlay**: an ordered set of staves forming one unit (a piano
+ * = one group of two staves). Genuine *content* — it is what will later gate cross-staff
+ * legality (allowed within a group, never between groups) and drive the brace/bracket —
+ * so it lives in the model, but its rendering is DEFERRED. A sketch has no groups
+ * (`Score.staffGroups` absent). See docs/multi-staff-plan.md §1, §4.
+ */
+export interface StaffGroup {
+  id: string
+  /** Ordered member staff ids of this unit (a piano = its two staff ids). */
+  staffIds: string[]
+  /** Bracket/brace symbol; rendering DEFERRED, default 'brace' when drawn. */
+  symbol?: 'brace' | 'bracket'
+}
+
+/**
  * Key signature representation
  */
 export interface KeySignature {
@@ -600,8 +663,23 @@ export interface Score {
   title: string
   /** Composer name */
   composer?: string
-  /** Measures in the score */
+  /** Measures in the score — the shared horizontal spine (barlines, meter), aligned
+   *  across all staves. See docs/multi-staff-plan.md §4. */
   measures: Measure[]
+  /**
+   * The **staff axis**: staves ordered top→bottom. Length 1 for a single-staff score
+   * (the default, not a special case). A live model always has this populated (the
+   * constructor seeds one; {@link fromJSON} defaults it when absent in hand-written JSON).
+   * Content back-references a staff by its {@link StaffInfo.id}; absent `staffId` on a
+   * slot/clef/dynamic/tuplet means staff 0. See docs/multi-staff-plan.md §1, §4.
+   */
+  staves?: StaffInfo[]
+  /**
+   * Optional **grouping overlay** (a piano = one group of two staves). Genuine content
+   * (gates future cross-staff legality + brace), but its rendering is DEFERRED; absent =
+   * no groups (a sketch). See {@link StaffGroup} and docs/multi-staff-plan.md §1.
+   */
+  staffGroups?: StaffGroup[]
   /** Default tempo in BPM */
   tempo: number
   /** Key signature for the score */
@@ -696,4 +774,6 @@ export interface NoteParams {
   beam?: BeamMode
   /** Voice index (0–3). Defaults to 0. See {@link Note.voice}. */
   voice?: 0 | 1 | 2 | 3
+  /** 0-based staff index in {@link Score.staves}. Defaults to 0. See {@link Note.staff}. */
+  staff?: number
 }
