@@ -320,6 +320,21 @@ export interface RestShiftOverride extends EngravingOverride {
 }
 
 /**
+ * Client #6 of the engraving-overrides compartment: a hidden rest (Sibelius-style
+ * Ctrl+Shift+H — see docs/rest-hide-plan.md). The rest is still real content (an empty
+ * beat stays filled); this only suppresses its normal engraving. The override carries no
+ * payload — **presence = hidden, absence = visible** — so JSON stays clean and absent
+ * degrades to the default (drawn) just like every other client.
+ *
+ * Like {@link RestShiftOverride}, it is **position-keyed, not element-id-keyed** (rests get
+ * fresh ids on every edit): the key is the rest's position address (`restPositionKey`). It
+ * travels with the music across paste/rebar via `captureRestShifts`/`restoreRestShifts`.
+ */
+export interface RestHiddenOverride extends EngravingOverride {
+  kind: 'restHidden'
+}
+
+/**
  * The engraving-overrides compartment: a keyed table of authored geometry held
  * as a sub-tree of {@link Score} (so it clones / serializes / undoes with the score
  * value — principle 1). Usually keyed by the *element id* an override hangs off (a note /

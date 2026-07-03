@@ -220,6 +220,22 @@ export function useShortcuts(
     toggleTenuto: () => palette.toggleTenuto(),
     toggleTie: () => palette.toggleTie(),
     createSlur: () => palette.createSlur(),
+    toggleRestHidden: () => {
+      // Sibelius-style hide/show: toggle every selected REST's own hidden state, all in one
+      // undo step (mirrors how deleteSelected batches articulations). Non-rest selections are
+      // ignored (notes/text not supported yet). See docs/rest-hide-plan.md.
+      const eng = engine.value
+      if (!eng) return
+      const restIds = [...state.selectedItems.values()]
+        .filter((i) => i.kind === 'note')
+        .map((i) => i.id)
+        .filter((id) => eng.getNote(id)?.isRest)
+      if (!restIds.length) return
+      eng.runBatch(`Hide/Show ${restIds.length} rest(s)`, () => {
+        for (const id of restIds) eng.toggleRestHidden(id)
+      })
+      renderer.renderScore()
+    },
     selectNextNote: () => {
       // Armed slur point → fine nudge right instead of navigating.
       if (nudgeArmedSlurPoint(NUDGE_FINE_SS, 0)) return

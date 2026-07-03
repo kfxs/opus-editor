@@ -3,7 +3,7 @@ import { MusicEngine } from '../engine/MusicEngine'
 import { buildClipboardFromSelection } from './clipboard'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
-import { restPositionKey, restShiftOverrideOf } from '../engine/models/engravingOverrides'
+import { restPositionKey, restShiftOverrideOf, restHiddenOf } from '../engine/models/engravingOverrides'
 import type { ClipboardPayload } from './clipboard'
 
 const fakeRegistry = {
@@ -193,5 +193,42 @@ describe('clipboard — rest-shift travel', () => {
     engine.pasteEvents(2, frac(2, 1), payload.voices, payload.spanBeats, 0, clipRestShiftsOf(payload))
 
     expect(restShiftOverrideOf(engine.getScore(), restPositionKey(m2.id, 0, frac(2, 1)))).toBeUndefined()
+  })
+})
+
+describe('clipboard — hidden-rest travel (client #6)', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  const restAt = (m: number, beatNum: number) =>
+    flat(engine, m).find((n) => n.isRest && fracToNumber(n.beat) === beatNum)!
+
+  const clipOf = (p: ClipboardPayload) => ({
+    shifts: p.voices.filter((v) => v.restShifts?.length).map((v) => ({ voice: v.voice, restShifts: v.restShifts! })),
+    hidden: p.voices.filter((v) => v.restHidden?.length).map((v) => ({ voice: v.voice, restHidden: v.restHidden! })),
+  })
+
+  it('copies a hidden rest and travels it to the pasted position', () => {
+    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })!.id
+    engine.toggleRestHidden(restAt(1, 1).id)
+
+    const payload = buildClipboardFromSelection(engine.getScore(), [c, d])!
+    expect(payload.voices[0].restHidden).toEqual([{ offset: frac(1, 1) }])
+
+    const { shifts, hidden } = clipOf(payload)
+    engine.pasteEvents(2, frac(0, 1), payload.voices, payload.spanBeats, 0, shifts, hidden)
+
+    const m2 = engine.getScore().measures.find((x) => x.number === 2)!
+    expect(restHiddenOf(engine.getScore(), restPositionKey(m2.id, 0, frac(1, 1)))).toBe(true)
+  })
+
+  it('a lone hidden rest (no note events) still produces a copyable payload', () => {
+    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const rest = restAt(1, 1)
+    engine.toggleRestHidden(rest.id)
+    const payload = buildClipboardFromSelection(engine.getScore(), [rest.id])
+    expect(payload).not.toBeNull()
+    expect(payload!.voices[0].restHidden).toEqual([{ offset: frac(0, 1) }])
   })
 })

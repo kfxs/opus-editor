@@ -252,6 +252,10 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // Rest entry in keyboard mode
   'r': { action: 'enterRest', description: 'Enter rest at cursor position (keyboard mode)' },
 
+  // Hide/show selected rest(s) — Sibelius-style. Single keys are lowercased by the manager,
+  // so Ctrl+Shift+H arrives as 'Ctrl+Shift+h'.
+  'Ctrl+Shift+h': { action: 'toggleRestHidden', description: 'Hide or show the selected rest(s)' },
+
   // Note letter entry (replaces selected note/rest with the given pitch)
   'a': { action: 'enterNoteA', description: 'Enter note A at selected position' },
   'b': { action: 'enterNoteB', description: 'Enter note B at selected position' },

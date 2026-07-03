@@ -1,5 +1,5 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride } from '@/types/music'
-import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restPositionKey } from './engravingOverrides'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride } from '@/types/music'
+import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, restPositionKey } from './engravingOverrides'
 import {
   getTupletTotalBeatsFrac,
   getTupletNoteDurationFrac,
@@ -54,7 +54,7 @@ type CapturedAnchor =
  * beat offset from the region start (per voice) so it can travel into the new bar layout.
  * The position-keyed twin of {@link CapturedAnchor}. See {@link ScoreModel.captureRestShifts}.
  */
-type CapturedRestShift = { voice: number; absBeat: Fraction; steps: number }
+type CapturedRestShift = { voice: number; absBeat: Fraction; steps: number; hidden: boolean }
 
 /** The pitch identity of a slur anchor (a chord pitch), used to re-find it post-rebar. */
 type SlurPitch = { step: NotePitch['step']; alter: NotePitch['alter']; octave: number }
@@ -629,6 +629,25 @@ export class ScoreModel {
     return true
   }
 
+  /**
+   * Toggle whether the rest at this position address is hidden (the Sibelius-style
+   * Ctrl+Shift+H — see docs/rest-hide-plan.md). A {@link RestHiddenOverride} is payloadless,
+   * so the toggle is presence-based: set it when absent, clear it when present. Position-keyed
+   * (`posKey` from `restPositionKey`) for the same reason as {@link nudgeRestShift} — rests
+   * have no durable id. No undo snapshot here; the facade (`MusicEngine.toggleRestHidden`) /
+   * its multi-rest batch owns the snapshot.
+   * @returns true (the override always toggles for a valid position key).
+   */
+  toggleRestHidden(posKey: string): boolean {
+    if (restHiddenOf(this.score, posKey)) {
+      this.clearEngravingOverride(posKey, 'restHidden')
+    } else {
+      const next: RestHiddenOverride = { kind: 'restHidden' }
+      this.setEngravingOverride(posKey, next)
+    }
+    return true
+  }
+
   // ============ Engraving overrides (authored-geometry compartment) ============
   // A separate id-addressed compartment for hand-positioning data (staff-space,
   // anchor-relative), kept OUT of the musical content model. It is a sub-tree of
@@ -1032,6 +1051,7 @@ export class ScoreModel {
     spanBeats: Fraction,
     targetVoice: number,
     clipRestShifts: { voice: number; restShifts: Array<{ offset: Fraction; steps: number }> }[] = [],
+    clipRestHidden: { voice: number; restHidden: Array<{ offset: Fraction }> }[] = [],
   ): string[] {
     const ordered = [...this.score.measures].sort((a, b) => a.number - b.number)
     const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
@@ -1129,7 +1149,15 @@ export class ScoreModel {
     for (const { voice, restShifts: shifts } of clipRestShifts) {
       const destVoice = clipVoices.length === 1 ? targetVoice : voice
       for (const rs of shifts) {
-        clipCaptured.push({ voice: destVoice, absBeat: fracAdd(pasteStart, rs.offset), steps: rs.steps })
+        clipCaptured.push({ voice: destVoice, absBeat: fracAdd(pasteStart, rs.offset), steps: rs.steps, hidden: false })
+      }
+    }
+    // The clip's hidden rests travel the same way (client #6). A hidden rest may carry no
+    // shift, so it arrives as its own captured entry (steps 0, hidden true).
+    for (const { voice, restHidden } of clipRestHidden) {
+      const destVoice = clipVoices.length === 1 ? targetVoice : voice
+      for (const rh of restHidden) {
+        clipCaptured.push({ voice: destVoice, absBeat: fracAdd(pasteStart, rh.offset), steps: 0, hidden: true })
       }
     }
     this.restoreRestShifts(regionNumbers, clipCaptured)
@@ -1244,10 +1272,14 @@ export class ScoreModel {
         if (s.type !== 'rest') continue
         const voice = s.voice ?? 0
         const key = restPositionKey(m.id, voice, s.beat)
-        const ov = restShiftOverrideOf(this.score, key)
-        if (!ov) continue
-        out.push({ voice, absBeat: fracAdd(base, s.beat), steps: ov.steps })
-        this.clearEngravingOverride(key, 'restShift')
+        // One pass captures BOTH rest engraving overrides (shift + hidden, client #5/#6) —
+        // they share the position address, so they travel together. Capture when either is set.
+        const steps = restShiftOverrideOf(this.score, key)?.steps ?? 0
+        const hidden = restHiddenOf(this.score, key)
+        if (steps === 0 && !hidden) continue
+        out.push({ voice, absBeat: fracAdd(base, s.beat), steps, hidden })
+        if (steps !== 0) this.clearEngravingOverride(key, 'restShift')
+        if (hidden) this.clearEngravingOverride(key, 'restHidden')
       }
       base = fracAdd(base, cap)
     }
@@ -1281,7 +1313,7 @@ export class ScoreModel {
     if (ranges.length === 0) return
 
     for (const c of captured) {
-      if (c.steps === 0) continue
+      if (c.steps === 0 && !c.hidden) continue
       let target = ranges[ranges.length - 1]
       for (const r of ranges) {
         if (fracGte(c.absBeat, r.start) && fracLt(c.absBeat, fracAdd(r.start, r.cap))) {
@@ -1297,8 +1329,16 @@ export class ScoreModel {
         (s) => s.type === 'rest' && (s.voice ?? 0) === c.voice && fracCompare(s.beat, beat) === 0,
       )
       if (!hasRest) continue
-      const next: RestShiftOverride = { kind: 'restShift', steps: c.steps }
-      this.setEngravingOverride(restPositionKey(m.id, c.voice, beat), next)
+      const key = restPositionKey(m.id, c.voice, beat)
+      // Re-stamp BOTH captured rest engraving overrides at the new position (client #5/#6).
+      if (c.steps !== 0) {
+        const next: RestShiftOverride = { kind: 'restShift', steps: c.steps }
+        this.setEngravingOverride(key, next)
+      }
+      if (c.hidden) {
+        const next: RestHiddenOverride = { kind: 'restHidden' }
+        this.setEngravingOverride(key, next)
+      }
     }
   }
 

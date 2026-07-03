@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { curveShapeOverrideOf, endpointOffsetOverrideOf, migrateLegacySlurCps, reconcileSegmentShape, reconcileSegmentEndpointOffset, segmentCurveShapeOverrideOf, segmentEndpointOffsetOverrideOf, restPositionKey, restShiftOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './engravingOverrides'
+import { curveShapeOverrideOf, endpointOffsetOverrideOf, migrateLegacySlurCps, reconcileSegmentShape, reconcileSegmentEndpointOffset, segmentCurveShapeOverrideOf, segmentEndpointOffsetOverrideOf, restPositionKey, restShiftOverrideOf, restHiddenOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './engravingOverrides'
 import type { EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SegmentEndpointOffsetOverride, CurveControlPointDeltas, Score, Slur } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
 
@@ -479,5 +479,37 @@ describe('ScoreModel.nudgeRestShift (accumulate / clear, position-keyed)', () =>
     model.nudgeRestShift(v1, -1)
     expect(shift(v0)!.steps).toBe(1)
     expect(shift(v1)!.steps).toBe(-1)
+  })
+})
+
+// Client #6 (rest hidden) — payloadless, presence-based toggle, position-keyed like #5.
+describe('ScoreModel.toggleRestHidden (presence toggle, position-keyed)', () => {
+  let model: ScoreModel
+  const key = restPositionKey('m1', 0, frac(1, 1))
+  const hidden = (k: string) => restHiddenOf(model.getScore(), k)
+
+  beforeEach(() => { model = new ScoreModel('Test Score', 120) })
+
+  it('reader returns false when nothing is stored', () => {
+    expect(hidden(key)).toBe(false)
+  })
+
+  it('toggles hidden on, then off (and prunes the compartment)', () => {
+    model.toggleRestHidden(key)
+    expect(hidden(key)).toBe(true)
+    model.toggleRestHidden(key)
+    expect(hidden(key)).toBe(false)
+    expect(model.getScore().engravingOverrides).toBeUndefined()
+  })
+
+  it('coexists with a rest shift at the same position (independent kinds)', () => {
+    model.nudgeRestShift(key, 1)
+    model.toggleRestHidden(key)
+    expect(restShiftOverrideOf(model.getScore(), key)!.steps).toBe(1)
+    expect(hidden(key)).toBe(true)
+    // Clearing the shift leaves the hidden flag intact.
+    model.nudgeRestShift(key, -1)
+    expect(restShiftOverrideOf(model.getScore(), key)).toBeUndefined()
+    expect(hidden(key)).toBe(true)
   })
 })

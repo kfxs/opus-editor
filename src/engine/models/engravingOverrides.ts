@@ -154,6 +154,15 @@ export function restShiftOverrideOf(score: Score, posKey: string): RestShiftOver
 }
 
 /**
+ * Whether the rest at this position address is hidden (client #6 — see
+ * docs/rest-hide-plan.md). The override is payloadless, so presence alone means hidden;
+ * key it with {@link restPositionKey}. Absent = visible (the rest draws normally).
+ */
+export function restHiddenOf(score: Score, posKey: string): boolean {
+  return !!engravingOverrideOf(score, posKey, 'restHidden')
+}
+
+/**
  * The line spacing (px) a VexFlow `Stave` uses by default — `getSpacingBetweenLines()`
  * returns this unless a stave is explicitly built with a different `spacingBetweenLinesPx`,
  * which this editor never does (zoom is a CSS transform on a layer above the rendered

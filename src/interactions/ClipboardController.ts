@@ -105,7 +105,11 @@ export class ClipboardController {
     const clipRestShifts = this.payload.voices
       .filter((v) => v.restShifts?.length)
       .map((v) => ({ voice: v.voice, restShifts: v.restShifts! }))
-    const pastedIds = engine.pasteEvents(measure, beat, this.payload.voices, this.payload.spanBeats, targetVoice, clipRestShifts)
+    // Likewise the hidden rests (client #6) — re-based and re-voiced the same way.
+    const clipRestHidden = this.payload.voices
+      .filter((v) => v.restHidden?.length)
+      .map((v) => ({ voice: v.voice, restHidden: v.restHidden! }))
+    const pastedIds = engine.pasteEvents(measure, beat, this.payload.voices, this.payload.spanBeats, targetVoice, clipRestShifts, clipRestHidden)
     console.log(`[Clipboard] pasted ${pastedIds.length} note(s) at measure ${measure} beat ${fracToNumber(beat)}`)
     this.selection.selectNotes(pastedIds)
     this.state.showCursor = true

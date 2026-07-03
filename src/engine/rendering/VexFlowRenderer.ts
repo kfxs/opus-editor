@@ -29,12 +29,15 @@ import {
   type TupletNoteStem,
 } from './NoteBuilder'
 import { calculateMeasureWidths } from './MeasureLayout'
-import { restShiftOverrideOf, restPositionKey } from '@/engine/models/engravingOverrides'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey } from '@/engine/models/engravingOverrides'
 import { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo } from './layoutConfig'
 
 // Re-exported for existing importers (MusicEngine, App.vue, RenderPass) that referenced
 // these from the renderer before they moved to ./layoutConfig.
 export { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo }
+
+/** Gray a hidden rest renders in (Tailwind gray-400 family) — see docs/rest-hide-plan.md. */
+const HIDDEN_REST_COLOR = '#9CA3AF'
 
 /**
  * Bounds information for a rendered measure
@@ -475,10 +478,14 @@ export class VexFlowRenderer {
 
         // Supporting ledger line for any whole/half rest a shift pushed off the staff
         // (VexFlow skips ledgers for rests — see drawRestLedgerLines).
-        this.drawRestLedgerLines(sortedSlots, staveNotes, stave)
+        this.drawRestLedgerLines(sortedSlots, staveNotes, stave, measure, pass.score)
 
         this.drawAndRegisterTuplets(vexTuplets, tupletStaveNoteMap, measure, multiVoice)
         this.registerSlotElements(sortedSlots, staveNotes, measure)
+        // Hidden rests (client #6) render gray. Recolor them via the DOM AFTER draw/register —
+        // the established pattern (ghost notes, selection highlight). NOT VexFlow setStyle: that
+        // leaks the stroke colour into the shared context and grays the rest of the score.
+        this.recolorHiddenRests(sortedSlots, measure, pass.score)
         registerDynamics(pass, measure)
         // Co-located dynamics: reposition onto one row (placement order, newest
         // right) AFTER registration so their bboxes are present to update.
@@ -515,7 +522,7 @@ export class VexFlowRenderer {
    * X), so we draw it ourselves, centred on the rest glyph and styled like VexFlow's ledgers.
    * `slots` and `staveNotes` are parallel (same order). See docs/rest-shift-plan.md §10.
    */
-  private drawRestLedgerLines(slots: ChordRest[], staveNotes: StaveNote[], stave: Stave): void {
+  private drawRestLedgerLines(slots: ChordRest[], staveNotes: StaveNote[], stave: Stave, measure: Measure, score: Score): void {
     const ctx = this.context
     if (!ctx) return
     const PAD = 2 // px the ledger overhangs the rest glyph on each side
@@ -535,14 +542,43 @@ export class VexFlowRenderer {
       const cx = (xBegin + xEnd) / 2
       const halfW = (xEnd - xBegin) / 2 + PAD
 
+      // Keep the ledger in lockstep with a hidden rest: tint it the same gray. The save/restore
+      // around the stroke keeps this style local — it does NOT leak into later drawing.
+      const hidden = restHiddenOf(score, restPositionKey(measure.id, slot.voice ?? 0, slot.beat))
+      const ledgerStyle = hidden
+        ? { ...stave.getDefaultLedgerLineStyle(), strokeStyle: HIDDEN_REST_COLOR }
+        : stave.getDefaultLedgerLineStyle()
       ctx.save()
-      stave.applyStyle(ctx, stave.getDefaultLedgerLineStyle())
+      stave.applyStyle(ctx, ledgerStyle)
       const y = stave.getYForNote(line)
       ctx.beginPath()
       ctx.moveTo(cx - halfW, y)
       ctx.lineTo(cx + halfW, y)
       ctx.stroke()
       ctx.restore()
+    }
+  }
+
+  /**
+   * Recolor hidden rests (client #6) gray by editing their rendered SVG, the same post-draw
+   * DOM approach as the ghost note and the selection highlight — NOT VexFlow `setStyle`, which
+   * mutates the shared drawing context and leaks the color onto everything drawn afterwards.
+   * Each rest is a single glyph in its own `vf-stavenote` group, so coloring every `text`/`path`
+   * in the group tints the whole rest (incl. augmentation dots) and nothing else. The rest stays
+   * registered/hit-testable; the selection highlight (voice color) runs later and overrides this.
+   * Must be called after `registerSlotElements` (the staveNoteMap drives `getStaveNoteSVGGroup`).
+   */
+  private recolorHiddenRests(slots: ChordRest[], measure: Measure, score: Score): void {
+    for (const slot of slots) {
+      if (slot.type !== 'rest') continue
+      if (!restHiddenOf(score, restPositionKey(measure.id, slot.voice ?? 0, slot.beat))) continue
+      const groupInfo = this.getStaveNoteSVGGroup(slot.id)
+      if (!groupInfo) continue
+      groupInfo.group.querySelectorAll('text, path').forEach((el) => {
+        const svgEl = el as SVGElement
+        svgEl.setAttribute('fill', HIDDEN_REST_COLOR)
+        svgEl.style.fill = HIDDEN_REST_COLOR
+      })
     }
   }
 

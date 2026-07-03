@@ -1,5 +1,5 @@
 import { ScoreModel } from './models/ScoreModel'
-import { restPositionKey, restShiftOverrideOf } from './models/engravingOverrides'
+import { restPositionKey, restShiftOverrideOf, restHiddenOf } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
 import type { Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
@@ -508,8 +508,9 @@ export class MusicEngine {
     spanBeats: Fraction,
     targetVoice: number,
     clipRestShifts: { voice: number; restShifts: Array<{ offset: Fraction; steps: number }> }[] = [],
+    clipRestHidden: { voice: number; restHidden: Array<{ offset: Fraction }> }[] = [],
   ): string[] {
-    const ids = this.scoreModel.pasteEvents(measure, beat, voices, spanBeats, targetVoice, clipRestShifts)
+    const ids = this.scoreModel.pasteEvents(measure, beat, voices, spanBeats, targetVoice, clipRestShifts, clipRestHidden)
     this.commit('Paste')
     return ids
   }
@@ -828,6 +829,26 @@ export class MusicEngine {
       console.log(`[Rest] ${delta > 0 ? '↑' : '↓'} shift rest ${restId} (${key}) by ${delta} → total ${steps} step(s)`)
     }
     return ok
+  }
+
+  /**
+   * Toggle whether a selected rest is hidden (the Sibelius-style Ctrl+Shift+H — see
+   * docs/rest-hide-plan.md). Resolves the rest id to its position address (the override is
+   * position-keyed, since rests have no durable id) and delegates the set/clear to the model.
+   * A no-op for a non-rest / missing id. NO undo snapshot here — the multi-rest batch in the
+   * shortcut handler owns the single snapshot (mirroring how Delete batches articulations).
+   * @returns true if a rest was toggled.
+   */
+  toggleRestHidden(restId: string): boolean {
+    const note = this.scoreModel.getNote(restId)
+    if (!note || !note.isRest) return false
+    const measure = this.scoreModel.getMeasure(note.measure)
+    if (!measure) return false
+    const key = restPositionKey(measure.id, note.voice ?? 0, note.beat)
+    const nowHidden = !restHiddenOf(this.scoreModel.getScore(), key)
+    this.scoreModel.toggleRestHidden(key)
+    console.log(`[Rest] ${nowHidden ? 'hide' : 'show'} rest ${restId} (${key})`)
+    return true
   }
 
   /** Nudge one OPEN join of a cross-system slur by a staff-space delta and save ONE undo step

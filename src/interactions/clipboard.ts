@@ -4,7 +4,7 @@ import { flattenRegion } from '../utils/rebar'
 import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracToNumber } from '../utils/fraction'
 import { measureCapacityFrac, getMeasureNotes } from '../utils/musicUtils'
 import { durationToFraction } from '../utils/durations'
-import { restShiftOverrideOf, restPositionKey } from '../engine/models/engravingOverrides'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey } from '../engine/models/engravingOverrides'
 
 /**
  * A position-independent snapshot of copied musical material.
@@ -35,6 +35,13 @@ export interface ClipboardVoice {
    * produces no note. Absent/empty = no shifted rests. See docs/rest-shift-plan.md §6.5.
    */
   restShifts?: Array<{ offset: Fraction; steps: number }>
+  /**
+   * Hidden rests inside the selection window, offsets relative to the selection start
+   * (same basis as {@link events}). Carried separately for the same reason as
+   * {@link restShifts} — a hidden rest produces no note but must travel. Absent/empty =
+   * none hidden. See docs/rest-hide-plan.md.
+   */
+  restHidden?: Array<{ offset: Fraction }>
 }
 
 export interface ClipboardPayload {
@@ -110,6 +117,33 @@ function restShiftsInWindow(
   return out
 }
 
+/**
+ * Hidden rests of one voice whose onset falls inside the copy window `[spanStart, spanEnd)`,
+ * as `{ offset }` re-based to the window start (same basis as the voice's events). The hidden
+ * twin of {@link restShiftsInWindow}. See docs/rest-hide-plan.md.
+ */
+function restHiddenInWindow(
+  score: Score,
+  voice: number,
+  spanStart: Fraction,
+  spanEnd: Fraction,
+): Array<{ offset: Fraction }> {
+  const starts = measureStartOffsets(score)
+  const out: Array<{ offset: Fraction }> = []
+  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
+    const mStart = starts.get(m.number)
+    if (!mStart) continue
+    for (const n of getMeasureNotes(m)) {
+      if (!n.isRest || (n.voice ?? 0) !== voice) continue
+      const abs = fracAdd(mStart, n.beat)
+      if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
+      if (!restHiddenOf(score, restPositionKey(m.id, voice, n.beat))) continue
+      out.push({ offset: fracSub(abs, spanStart) })
+    }
+  }
+  return out
+}
+
 /** The set of voices (0-based) that contain at least one selected note. */
 function selectedVoices(score: Score, noteIds: Set<string>): number[] {
   const out = new Set<number>()
@@ -148,17 +182,19 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
   const ordered = [...score.measures].sort((a, b) => a.number - b.number)
   const voices: ClipboardVoice[] = selectedVoices(score, idSet).map((v) => {
     const restShifts = restShiftsInWindow(score, v, spanStart, spanEnd)
+    const restHidden = restHiddenInWindow(score, v, spanStart, spanEnd)
     return {
       voice: v,
       events: flattenRegion(ordered, v as 0 | 1 | 2 | 3)
         .filter((e) => fracGte(e.offset, spanStart) && fracLt(e.offset, spanEnd))
         .map((e) => ({ ...e, offset: fracSub(e.offset, spanStart) })),
-      // Omit the key entirely when there are no shifted rests (clean payload / old-clip parity).
+      // Omit each key entirely when empty (clean payload / old-clip parity).
       ...(restShifts.length ? { restShifts } : {}),
+      ...(restHidden.length ? { restHidden } : {}),
     }
   })
-  // Usable if any voice carries note events OR a shifted rest (a lone shifted rest still copies).
-  if (voices.every((vv) => vv.events.length === 0 && !vv.restShifts?.length)) return null
+  // Usable if any voice carries note events OR a shifted/hidden rest (a lone one still copies).
+  if (voices.every((vv) => vv.events.length === 0 && !vv.restShifts?.length && !vv.restHidden?.length)) return null
 
   // Origin = the (measure, beat) of the earliest selected note, for reference.
   const starts = measureStartOffsets(score)
