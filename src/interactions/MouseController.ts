@@ -1,6 +1,6 @@
 import type { ArticulationType, PitchSpelling, Fraction, SlurSegmentAddress } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { ElementInfo, ElementRegistry } from '../engine/ElementRegistry'
+import type { ElementInfo, ElementRegistry, ElementType } from '../engine/ElementRegistry'
 import type { EditorState } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
 import type { SelectionController } from './SelectionController'
@@ -14,6 +14,11 @@ import { fracToNumber, fracEq } from '../utils/fraction'
 const DEFAULT_DYNAMIC_TEXT = 'Text'
 import { getMeasureNotes, beatToFrac, measureCapacityQuarters } from '../utils/musicUtils'
 import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
+
+/** Registry element types that are staff background / structure rather than clickable
+ *  notational objects. A Ctrl+Shift+click landing only on one of these is still "empty
+ *  space" for the measure-box gesture (see handleModifierMouseDown). */
+const MEASURE_BOX_IGNORE_TYPES = new Set<ElementType>(['staff', 'barline', 'beam'])
 
 /** Shortest distance from point (px,py) to the line segment a→b (clamped to the
  *  segment, so endpoints don't over-grab). Used for arc-proximity slur hit-testing. */
@@ -409,6 +414,7 @@ export class MouseController {
     this.state.selectedClefBeat = null
     this.state.selectedTimeSignatureMeasure = null
     this.state.selectedDynamicId = null
+    this.state.selectedMeasureRange = null
 
     // Single-click element hit-tests, in priority order. Each returns true if it
     // consumed the press; otherwise we fall through to the next kind.
@@ -438,6 +444,35 @@ export class MouseController {
     const additive = event.ctrlKey || event.metaKey
     const range = event.shiftKey
     if (!(additive || range)) return false
+
+    // Any modifier press dismisses a showing measure box — but capture the current span
+    // FIRST so a Ctrl+Shift+click can extend from its anchor (re-set in selectMeasureBox).
+    const prevRange = this.state.selectedMeasureRange
+    this.state.selectedMeasureRange = null
+
+    // Ctrl+Shift+click on empty space inside a bar → Sibelius-style blue measure box.
+    // Purely visual: NO objects are selected. Fires only when the click misses every
+    // rendered element (strict registry hit-test), so Ctrl+Shift directly on a note
+    // still range-extends the note selection below. A repeat click extends the span.
+    if (additive && range) {
+      const hitEl = registry.getAt(x, y)
+      const hitTuplet = ctx.tupletAtClick?.tupletId ?? null
+      // The registry also registers the staff/barline/beam as elements — those are
+      // background/structure, not notational objects, so a click on them is still
+      // "empty space" for the measure-box gesture. Only a real object blocks the box.
+      const onObject = hitEl != null && !MEASURE_BOX_IGNORE_TYPES.has(hitEl.type)
+      console.log(
+        `⎇ Ctrl+Shift+click | pos:(${Math.round(x)},${Math.round(y)}) | ` +
+        `element:${hitEl ? `${hitEl.type}#${hitEl.id ?? '?'}` : 'none'}` +
+        `${hitEl && !onObject ? ' (background→empty)' : ''} | ` +
+        `tuplet:${hitTuplet ?? 'none'}`,
+      )
+      if (!onObject && !hitTuplet) {
+        if (this.selectMeasureBox(ctx, prevRange)) return true
+      } else {
+        console.log('  ↳ landed on an object — falling through to note range/toggle (no box)')
+      }
+    }
 
     // Ctrl/Cmd-click toggles an articulation GROUP into the multi-selection (so the
     // user can grab several articulations and delete/flip them all at once). Checked
@@ -475,6 +510,49 @@ export class MouseController {
         this.render.renderScore()
       }
     }
+    return true
+  }
+
+  /**
+   * Outline the clicked measure with the Sibelius-style blue double box. Returns false
+   * (so the caller keeps looking) when the click, though empty of elements, doesn't land
+   * inside any measure's rectangle — `pixelToMeasure` falls back to the nearest measure on
+   * the line, which we don't want to hijack for a stray click below/above the staff.
+   */
+  private selectMeasureBox(ctx: MouseDownCtx, prevRange: { anchor: number; focus: number } | null): boolean {
+    const { engine, x, y } = ctx
+    const measure = engine.pixelToMeasure({ x, y })
+    const rect = engine.getMeasureRect(measure)
+    if (!rect) {
+      console.log(`  ↳ no rect for measure ${measure} — box not drawn`)
+      return false
+    }
+    const inside = x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height
+    if (!inside) {
+      console.log(
+        `  ↳ click outside measure ${measure} rect ` +
+        `(x:${Math.round(rect.x)}–${Math.round(rect.x + rect.width)}, ` +
+        `y:${Math.round(rect.y)}–${Math.round(rect.y + rect.height)}) — box not drawn`,
+      )
+      return false
+    }
+    // GROW the span to include the clicked bar (union with the current span), so a
+    // repeat Ctrl+Shift+click on either side only ever makes the selection bigger; a
+    // click already inside the span is a no-op. Start a fresh single-bar span when none
+    // is active. (To shrink/restart, plain-click first to clear, then Ctrl+Shift+click.)
+    const lo = prevRange ? Math.min(prevRange.anchor, prevRange.focus, measure) : measure
+    const hi = prevRange ? Math.max(prevRange.anchor, prevRange.focus, measure) : measure
+    // The box stands alone — clear any prior selection first, then set the span
+    // (deselectAll resets selectedMeasureRange via clearScalarSubSelections, so order
+    // matters: we set it AFTER).
+    this.selection.deselectAll()
+    this.state.selectedMeasureRange = { anchor: lo, focus: hi }
+    console.log(
+      lo === hi
+        ? `✓ Measure box selected | measure:${measure}`
+        : `✓ Measure span selected | measures:${lo}–${hi} (grew to include ${measure})`,
+    )
+    this.render.renderScore()
     return true
   }
 

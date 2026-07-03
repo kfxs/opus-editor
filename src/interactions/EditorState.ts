@@ -112,6 +112,15 @@ export interface EditorState {
    *  meter for placement). */
   selectedTimeSignatureMeasure: number | null
 
+  // --- Measure box selection ---
+  /** The contiguous run of measures outlined by the Sibelius-style blue double box
+   *  (Ctrl+Shift+click on empty space inside a bar); null if none. `anchor`/`focus` hold
+   *  the span's low/high bounds (every measure between them inclusive is selected). A
+   *  repeat Ctrl+Shift+click GROWS the span to also include the clicked bar (union) — it
+   *  only ever gets bigger; a plain click clears it to start fresh. Purely a visual
+   *  marker — NO objects in the measures are selected. Cleared on any other interaction. */
+  selectedMeasureRange: { anchor: number; focus: number } | null
+
   // --- Dynamics tool ---
   /** Dynamic armed for placement (null = dynamics tool not active). A level
    *  (`p`/`mp`/`mf`/`f`) places that mark on click; `'text'` prompts for custom
@@ -199,6 +208,7 @@ export function createEditorState(): EditorState {
     selectedClefBeat: null,
     selectedTimeSignature: null,
     selectedTimeSignatureMeasure: null,
+    selectedMeasureRange: null,
     selectedDynamic: null,
     selectedDynamicId: null,
     editingText: null,

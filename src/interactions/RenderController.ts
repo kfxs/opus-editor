@@ -17,6 +17,7 @@ export class RenderController {
   ) {}
 
   private applyHighlights(): void {
+    this.highlight.applyMeasureBox()
     this.highlight.applySelectionHighlight()
     this.highlight.applyArticulationHighlight()
     this.highlight.applyAccidentalHighlight()

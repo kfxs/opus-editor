@@ -251,6 +251,11 @@ export class ScoreModel {
         slot.measure = i + 1
       })
     }
+    // The removed measure's notes are gone, so any tie/slur that referenced them (or
+    // crossed its boundary) now points at a missing id — sever/prune them so tie &
+    // slur editing/rendering can't hit a hole. (Same sweeps rebar uses.)
+    this.repairDanglingTies()
+    this.repairDanglingSlurs()
     return true
   }
 

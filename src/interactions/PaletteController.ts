@@ -32,6 +32,52 @@ export class PaletteController {
     return arts.length ? arts : undefined
   }
 
+  /**
+   * The measure span the "Add Measure" buttons act on: ONLY the box-selected range
+   * (Ctrl+Shift+click). Null when no measure is box-selected — the feature is measure-
+   * selection driven, so a note selection does NOT count. Returns inclusive low/high bars.
+   */
+  private measureContext(): { lo: number; hi: number } | null {
+    const range = this.state.selectedMeasureRange
+    if (!range) return null
+    return { lo: Math.min(range.anchor, range.focus), hi: Math.max(range.anchor, range.focus) }
+  }
+
+  /** Add one empty measure immediately BEFORE the box-selected span. Keeps the box on
+   *  the same musical bars (they shift up by one). No-op unless a measure is selected. */
+  addMeasureBefore(): void {
+    const engine = this.getEngine()
+    const ctx = this.measureContext()
+    if (!engine || !ctx) {
+      console.log('Add measure before: no measure selected (Ctrl+Shift+click a bar first)')
+      return
+    }
+    engine.insertMeasureAfter(ctx.lo - 1) // 0 = insert at the very front
+    if (this.state.selectedMeasureRange) {
+      // The selected bars moved forward by one; follow them so repeat clicks stack.
+      this.state.selectedMeasureRange = {
+        anchor: this.state.selectedMeasureRange.anchor + 1,
+        focus: this.state.selectedMeasureRange.focus + 1,
+      }
+    }
+    console.log(`✓ Added measure before ${ctx.lo}`)
+    this.renderScore()
+  }
+
+  /** Add one empty measure immediately AFTER the box-selected span. The selected bars
+   *  keep their numbers. No-op unless a measure is selected. */
+  addMeasureAfter(): void {
+    const engine = this.getEngine()
+    const ctx = this.measureContext()
+    if (!engine || !ctx) {
+      console.log('Add measure after: no measure selected (Ctrl+Shift+click a bar first)')
+      return
+    }
+    engine.insertMeasureAfter(ctx.hi)
+    console.log(`✓ Added measure after ${ctx.hi}`)
+    this.renderScore()
+  }
+
   setDuration(duration: NoteDuration): void {
     this.state.selectedDuration = duration
     this.state.selectedDots = 0

@@ -70,6 +70,7 @@ export class SelectionController {
     this.state.selectedClefMeasure = null
     this.state.selectedClefBeat = null
     this.state.selectedTimeSignatureMeasure = null
+    this.state.selectedMeasureRange = null
   }
 
   /** Sync the palette (duration, accidental, dots) to a note's properties. No-op if not found. */

@@ -137,7 +137,16 @@ export function useShortcuts(
     deleteSelected: () => {
       const eng = engine.value
       const artNoteIds = selectedArticulationNoteIds(state.selectedItems.values())
-      if (artNoteIds.length && eng) {
+      if (state.selectedMeasureRange !== null && eng) {
+        // A measure span is box-selected (Ctrl+Shift+click, extendable) — Delete removes
+        // every WHOLE bar in the span and its contents (Sibelius-style), pulling later
+        // bars back and renumbering, all as one undo step.
+        const { anchor, focus } = state.selectedMeasureRange
+        const removed = eng.removeMeasureRange(anchor, focus)
+        console.log(`✓ Removed ${removed} measure(s) in span ${Math.min(anchor, focus)}–${Math.max(anchor, focus)}`)
+        state.selectedMeasureRange = null
+        renderer.renderScore()
+      } else if (artNoteIds.length && eng) {
         // Group selection: Delete removes every articulation on every selected note,
         // as ONE undoable action (a single Ctrl-Z restores them all).
         eng.runBatch(`Clear articulations on ${artNoteIds.length} note(s)`, () => {

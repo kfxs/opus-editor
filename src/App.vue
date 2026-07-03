@@ -378,6 +378,23 @@
             >Text</button>
           </div>
 
+          <!-- Add Measure (relative to the box-selected measure span; Ctrl+Shift+click a bar) -->
+          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
+            <span class="text-sm text-gray-300">Measure:</span>
+            <button
+              @click="palette.addMeasureBefore()"
+              :disabled="!hasMeasureContext"
+              class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Insert an empty measure before the selected bar — Ctrl+Shift+click a measure to select it first"
+            >+ Before</button>
+            <button
+              @click="palette.addMeasureAfter()"
+              :disabled="!hasMeasureContext"
+              class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Insert an empty measure after the selected bar — Ctrl+Shift+click a measure to select it first"
+            >+ After</button>
+          </div>
+
           <div class="border-l border-gray-600 mx-2"></div>
           <button
             @click="togglePlayback"
@@ -736,6 +753,10 @@ const isCustomTimeSignatureArmed = computed(() => {
   if (!sel) return false
   return !timeSignaturePresets.some(p => p.numerator === sel.numerator && p.denominator === sel.denominator && !sel.grouping)
 })
+
+// The "Add Measure" buttons act on a box-selected measure span ONLY (Ctrl+Shift+click).
+// Enabled only then, so the feature's measure-selection requirement is self-evident.
+const hasMeasureContext = computed(() => state.selectedMeasureRange !== null)
 
 // --- Pickup / anacrusis dialog ---
 // Sets a measure's actual playable length shorter than its time signature. The

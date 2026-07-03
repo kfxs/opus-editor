@@ -107,6 +107,66 @@ export class HighlightController {
     svg.appendChild(line)
   }
 
+  /**
+   * Draw the Sibelius-style blue double box around the measure selected via
+   * Ctrl+Shift+click on empty space (state.selectedMeasureBox). Two nested rectangles
+   * in first-voice blue, no fill — a purely visual marker (NO objects are selected).
+   * Redrawn every render and wiped with the SVG on the next one.
+   */
+  applyMeasureBox(): void {
+    const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
+    const range = this.state.selectedMeasureRange
+    if (range == null || !engine || !scoreCanvas) return
+
+    const svg = scoreCanvas.querySelector('svg')
+    if (!svg) return
+
+    const lo = Math.min(range.anchor, range.focus)
+    const hi = Math.max(range.anchor, range.focus)
+    const registry = engine.getElementRegistry()
+
+    // Group the span's measures by system line (shared measureY) so a passage that wraps
+    // across a line break draws one box per line — the box ends at the line edge and
+    // resumes on the next, exactly like Sibelius. Each line's box hugs min→max x and a
+    // little above/below the staff so it clears ledger-heavy notes.
+    const lines = new Map<number, { left: number; right: number; top: number; bottom: number }>()
+    for (let m = lo; m <= hi; m++) {
+      const rect = engine.getMeasureRect(m)
+      const geometry = registry.getStaffGeometry(m)
+      if (!rect || !geometry) continue
+      const top = geometry.lineYPositions[0] - 12
+      const bottom = geometry.lineYPositions[4] + 12
+      const key = Math.round(rect.y)
+      const seg = lines.get(key)
+      if (seg) {
+        seg.left = Math.min(seg.left, rect.x)
+        seg.right = Math.max(seg.right, rect.x + rect.width)
+        seg.top = Math.min(seg.top, top)
+        seg.bottom = Math.max(seg.bottom, bottom)
+      } else {
+        lines.set(key, { left: rect.x, right: rect.x + rect.width, top, bottom })
+      }
+    }
+
+    const color = voiceFillColor(0) // first-voice blue (#3B82F6)
+    const GAP = 3 // inset between the two nested rectangles = the "double box"
+    for (const seg of lines.values()) {
+      for (const inset of [0, GAP]) {
+        const box = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+        box.setAttribute('x', String(seg.left + inset))
+        box.setAttribute('y', String(seg.top + inset))
+        box.setAttribute('width', String(Math.max(0, seg.right - seg.left - inset * 2)))
+        box.setAttribute('height', String(Math.max(0, seg.bottom - seg.top - inset * 2)))
+        box.setAttribute('fill', 'none')
+        box.setAttribute('stroke', color)
+        box.setAttribute('stroke-width', '1.5')
+        box.setAttribute('class', 'measure-box')
+        svg.appendChild(box)
+      }
+    }
+  }
+
   applySelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()

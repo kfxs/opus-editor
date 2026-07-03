@@ -272,6 +272,42 @@ export class MusicEngine {
     this.saveOnly(`Insert measure after ${afterNumber}`)
   }
 
+  /**
+   * Remove an entire measure and its contents, pulling every following measure back
+   * one and renumbering (Sibelius-style bar delete). Dangling ties/slurs are pruned
+   * inside {@link ScoreModel.removeMeasure}. Refuses to remove the last remaining
+   * measure (a score always keeps at least one bar). Records its own undo entry.
+   * @returns true if a measure was removed.
+   */
+  removeMeasure(measureNumber: number): boolean {
+    if (this.scoreModel.getScore().measures.length <= 1) {
+      console.log('Cannot remove the last remaining measure')
+      return false
+    }
+    const removed = this.scoreModel.removeMeasure(measureNumber)
+    if (removed) this.saveOnly(`Remove measure ${measureNumber}`)
+    return removed
+  }
+
+  /**
+   * Remove a contiguous run of measures [from..to] (inclusive, order-agnostic) as ONE
+   * undoable action — the box-selected passage delete. Removes from the high number
+   * down so earlier numbers stay valid across the splices, and always keeps at least
+   * one bar in the score.
+   * @returns how many measures were actually removed.
+   */
+  removeMeasureRange(fromNumber: number, toNumber: number): number {
+    const lo = Math.min(fromNumber, toNumber)
+    const hi = Math.max(fromNumber, toNumber)
+    let removedCount = 0
+    for (let m = hi; m >= lo; m--) {
+      if (this.scoreModel.getScore().measures.length <= 1) break // keep at least one bar
+      if (this.scoreModel.removeMeasure(m)) removedCount++
+    }
+    if (removedCount > 0) this.saveOnly(`Remove ${removedCount} measure(s)`)
+    return removedCount
+  }
+
   // ==================== Clef Operations ====================
 
   /** Clef drawn at the start of a measure (its beat-0 change, or inherited). */
