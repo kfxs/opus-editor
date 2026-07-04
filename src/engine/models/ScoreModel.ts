@@ -36,7 +36,7 @@ import {
 import { effectiveClefAt, measureOpeningClef, middleLineDiatonicPos } from '@/utils/clefUtils'
 import * as clefOps from './clefOps'
 import { toFlatNote, restToFlatNote } from './noteProjection'
-import { staffIndexOfId, matchesStaff } from './staffContent'
+import { staffIndexOfId, matchesStaff, staffIdAtIndex } from './staffContent'
 import * as tupletOps from './tupletOps'
 import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
 import { v4 as uuidv4 } from 'uuid'
@@ -1806,6 +1806,17 @@ export class ScoreModel {
    * If adding a regular note (not a rest), this will replace overlapping rests
    * and may join an existing Chord at the same beat.
    */
+  /**
+   * Resolve a 0-based staff index (from {@link NoteParams.staff}) to the `staffId` to stamp
+   * on a new slot. Mirrors the voice convention: the FIRST staff (index 0 / undefined) stamps
+   * NO `staffId` (absent = staff 0, keeps single-staff output byte-identical); any later staff
+   * stamps its real id. See docs/multi-staff-plan.md §4.
+   */
+  private staffIdForParams(staff: number | undefined): string | undefined {
+    if (!staff) return undefined
+    return staffIdAtIndex(this.score, staff)
+  }
+
   addNote(params: NoteParams): Note {
     const measure = this.getMeasure(params.measure)
     if (!measure) {
@@ -1816,6 +1827,11 @@ export class ScoreModel {
     if (!params.isRest && !params.step) {
       throw new Error('Non-rest notes must have a step')
     }
+
+    // Which staff this slot belongs to (absent = staff 0). Everything below scopes chord
+    // merging / rest replacement to this staff so a note on one staff never joins or
+    // clobbers content on another that happens to share the same beat + voice.
+    const targetStaffId = this.staffIdForParams(params.staff)
 
     if (params.isRest) {
       // Create a Rest slot
@@ -1830,6 +1846,7 @@ export class ScoreModel {
         actualDuration: params.actualDuration,
       }
       if (params.voice) rest.voice = params.voice
+      if (targetStaffId !== undefined) rest.staffId = targetStaffId
       rest.actualDuration = this.computeActualDurationForSlot(rest, measure)
       measure.slots.push(rest)
       measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
@@ -1842,6 +1859,7 @@ export class ScoreModel {
     const noteVoice = params.voice ?? 0
     const existingChord = measure.slots.find(
       (s): s is Chord => s.type === 'chord' && fracEq(s.beat, params.beat) && (s.voice ?? 0) === noteVoice
+        && matchesStaff(s.staffId, targetStaffId, this.score)
     )
 
     if (existingChord) {
@@ -1900,6 +1918,7 @@ export class ScoreModel {
       notes: [notePitch],
     }
     if (params.voice) chord.voice = params.voice
+    if (targetStaffId !== undefined) chord.staffId = targetStaffId
     chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
 
     console.log(`[Model.addNote] new chord ${fmtSlot(chord)} → replacing same-voice rests`)
@@ -1916,8 +1935,8 @@ export class ScoreModel {
     const chordDurFrac = chord.actualDuration ?? durationToFraction(chord.duration, chord.dots ?? 0)
     const chordVoice = chord.voice ?? 0
 
-    // Remove overlapping rests IN THE SAME VOICE; keep everything else (chords, and
-    // rests belonging to other voices — voices are independent streams).
+    // Remove overlapping rests IN THE SAME VOICE AND STAFF; keep everything else (chords, and
+    // rests belonging to other voices/staves — those are independent streams).
     let inheritedTupletId: string | undefined = chord.tupletId
     const remaining: ChordRest[] = []
 
@@ -1927,6 +1946,7 @@ export class ScoreModel {
           existing.actualDuration ?? durationToFraction(existing.duration, existing.dots ?? 0)
         const overlaps =
           (existing.voice ?? 0) === chordVoice &&
+          matchesStaff(existing.staffId, chord.staffId, this.score) &&
           noteSpansOverlapFrac(chord.beat, chordDurFrac, existing.beat, existingDurFrac)
         if (overlaps) {
           console.log(`[Model.replaceRests] remove overlapping ${fmtSlot(existing)} (same voice v${chordVoice} as new chord)`)
@@ -2001,11 +2021,11 @@ export class ScoreModel {
    * (not meter-aware) — used by the overflow/duration-change paths that already work
    * in float beats. For meter-correct regrouping prefer {@link fillMeasureGaps}.
    */
-  fillGapWithRests(measureNumber: number, fromBeat: Fraction, beats: number, voice: number = 0): void {
-    console.log(`[Model.fillGapWithRests] m${measureNumber} v${voice} from b${fracToNumber(fromBeat).toFixed(3)} for ${beats.toFixed(3)}b → [${splitBeatsIntoDurations(beats).join(', ')}]`)
+  fillGapWithRests(measureNumber: number, fromBeat: Fraction, beats: number, voice: number = 0, staff: number = 0): void {
+    console.log(`[Model.fillGapWithRests] m${measureNumber} v${voice} s${staff} from b${fracToNumber(fromBeat).toFixed(3)} for ${beats.toFixed(3)}b → [${splitBeatsIntoDurations(beats).join(', ')}]`)
     let currentBeat = fromBeat
     for (const restDuration of splitBeatsIntoDurations(beats)) {
-      this.addRest(restDuration, measureNumber, currentBeat, voice)
+      this.addRest(restDuration, measureNumber, currentBeat, voice, staff)
       currentBeat = fracAdd(currentBeat, durationToFraction(restDuration))
     }
   }
@@ -2145,13 +2165,14 @@ export class ScoreModel {
   /**
    * Add a rest to the score
    */
-  addRest(duration: NoteParams['duration'], measure: number, beat: Fraction, voice: number = 0): Note {
+  addRest(duration: NoteParams['duration'], measure: number, beat: Fraction, voice: number = 0, staff: number = 0): Note {
     return this.addNote({
       duration,
       measure,
       beat,
       isRest: true,
       ...(voice ? { voice: voice as 0 | 1 | 2 | 3 } : {}),
+      ...(staff ? { staff } : {}),
     })
   }
 

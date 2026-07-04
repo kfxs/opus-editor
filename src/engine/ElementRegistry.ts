@@ -67,6 +67,9 @@ export interface ClefSegment {
 export interface StaffGeometry {
   /** Measure number (1-indexed) */
   measure: number
+  /** 0-based staff index within the system (multi-staff). Absent-content resolves to
+   *  0; the first staff. Together with `measure` this forms the geometry key. */
+  staff: number
   /** Y positions of staff lines 0-4 (top to bottom) */
   lineYPositions: [number, number, number, number, number]
   /** Spacing between staff lines in pixels */
@@ -131,6 +134,10 @@ export interface ElementInfo {
   id?: string
   /** Measure number (1-indexed) */
   measure?: number
+  /** 0-based staff index within the system (multi-staff; absent = staff 0). Carried on
+   *  notes/rests/geometry so a hit result knows which staff it landed on and pitch↔y
+   *  resolves against that staff's own clef/lines. */
+  staff?: number
   /** Beat position within measure (for notes/rests) */
   beat?: number
   /** Clef that cannot be dragged (the big line-start clef) */
@@ -240,7 +247,14 @@ const DIATONIC_STEPS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const
  */
 export class ElementRegistry {
   private elements: ElementInfo[] = []
-  private staffGeometries: Map<number, StaffGeometry> = new Map()
+  /** Keyed by `(measure, staffIndex)` — see {@link geomKey}. A single measure yields one
+   *  geometry per stacked staff (multi-staff); at N=1 there is just `(measure, 0)`. */
+  private staffGeometries: Map<string, StaffGeometry> = new Map()
+
+  /** Composite key for {@link staffGeometries}: a measure has one geometry per staff. */
+  private geomKey(measure: number, staff: number): string {
+    return `${measure}:${staff}`
+  }
 
   /**
    * Clear all stored elements (call before each render)
@@ -251,17 +265,41 @@ export class ElementRegistry {
   }
 
   /**
-   * Set staff geometry for a measure
+   * Set staff geometry for a (measure, staff) lane
    */
   setStaffGeometry(geometry: StaffGeometry): void {
-    this.staffGeometries.set(geometry.measure, geometry)
+    this.staffGeometries.set(this.geomKey(geometry.measure, geometry.staff), geometry)
   }
 
   /**
-   * Get staff geometry for a measure
+   * Get staff geometry for a measure's staff (defaults to the first staff — the N=1 case).
    */
-  getStaffGeometry(measure: number): StaffGeometry | undefined {
-    return this.staffGeometries.get(measure)
+  getStaffGeometry(measure: number, staff: number = 0): StaffGeometry | undefined {
+    return this.staffGeometries.get(this.geomKey(measure, staff))
+  }
+
+  /**
+   * Which staff (0-based index) does a click Y fall on, within a measure? Picks the staff
+   * whose lines are vertically nearest the click (by distance to the staff's [top,bottom]
+   * band, so a click in the gap between two staves resolves to the closer one, and a click
+   * on ledger lines above/below still resolves to its own staff). Falls back to 0 when the
+   * measure has no registered geometry. At N=1 there is one staff, so this always returns 0.
+   */
+  staffIndexAtY(measure: number, y: number): number {
+    let best = 0
+    let bestDist = Infinity
+    for (const g of this.staffGeometries.values()) {
+      if (g.measure !== measure) continue
+      const top = g.lineYPositions[0]
+      const bottom = g.lineYPositions[4]
+      // Distance from y to the staff's line band (0 when inside it).
+      const dist = y < top ? top - y : y > bottom ? y - bottom : 0
+      if (dist < bestDist) {
+        bestDist = dist
+        best = g.staff
+      }
+    }
+    return best
   }
 
   /**
@@ -374,10 +412,12 @@ export class ElementRegistry {
    * @param y - Pixel Y coordinate
    * @param measure - Measure number to get staff geometry from
    * @param x - Optional pixel X, used to pick the clef region for mid-measure changes
+   * @param staff - 0-based staff index (default first staff); resolves pitch against that
+   *   staff's own clef and line positions.
    * @returns PitchSpelling (always natural), or null if geometry not available
    */
-  pixelYToPitch(y: number, measure: number, x?: number): PitchSpelling | null {
-    const geometry = this.staffGeometries.get(measure)
+  pixelYToPitch(y: number, measure: number, x?: number, staff: number = 0): PitchSpelling | null {
+    const geometry = this.staffGeometries.get(this.geomKey(measure, staff))
     if (!geometry) return null
 
     const { lineYPositions, lineSpacing } = geometry
@@ -416,10 +456,11 @@ export class ElementRegistry {
    * @param pitch - MIDI pitch number
    * @param measure - Measure number to get staff geometry from
    * @param x - Optional pixel X, used to pick the clef region for mid-measure changes
+   * @param staff - 0-based staff index (default first staff)
    * @returns Pixel Y coordinate, or null if geometry not available
    */
-  pitchToPixelY(pitch: number, measure: number, x?: number): number | null {
-    const geometry = this.staffGeometries.get(measure)
+  pitchToPixelY(pitch: number, measure: number, x?: number, staff: number = 0): number | null {
+    const geometry = this.staffGeometries.get(this.geomKey(measure, staff))
     if (!geometry) return null
 
     const { lineYPositions, lineSpacing } = geometry
@@ -536,9 +577,10 @@ export class ElementRegistry {
    * @param measure - Measure number
    * @returns The nearest note/rest element, or null if none found
    */
-  findNearestNoteOrRest(x: number, measure: number): ElementInfo | null {
+  findNearestNoteOrRest(x: number, measure: number, staff?: number): ElementInfo | null {
     const notesAndRests = this.elements.filter(
       el => el.measure === measure && (el.type === 'note' || el.type === 'rest')
+        && (staff === undefined || (el.staff ?? 0) === staff)
     )
 
     if (notesAndRests.length === 0) return null
@@ -588,7 +630,7 @@ export class ElementRegistry {
         let noteY: number
         if (note.pitch !== undefined) {
           // Calculate actual Y position from pitch using staff geometry (clef region at the note's X)
-          const pitchY = this.pitchToPixelY(note.pitch, measure, note.bbox.x + note.bbox.width / 2)
+          const pitchY = this.pitchToPixelY(note.pitch, measure, note.bbox.x + note.bbox.width / 2, note.staff)
           noteY = pitchY !== null ? pitchY : note.bbox.y + note.bbox.height / 2
         } else {
           noteY = note.bbox.y + note.bbox.height / 2
@@ -644,8 +686,8 @@ export class ElementRegistry {
 
         if (element.type === 'note' && element.pitch !== undefined && element.measure !== undefined) {
           // For notes (incl. chords), use the pitch-based Y position computed from the
-          // note's OWN measure geometry (clef region at the note's X).
-          const pitchY = this.pitchToPixelY(element.pitch, element.measure, centerX)
+          // note's OWN (measure, staff) geometry (clef region at the note's X).
+          const pitchY = this.pitchToPixelY(element.pitch, element.measure, centerX, element.staff)
           elementY = pitchY !== null ? pitchY : element.bbox.y + element.bbox.height / 2
         } else {
           // For rests (and notes without pitch), use bbox center
@@ -676,7 +718,7 @@ export class ElementRegistry {
     const centerX = el.headX ?? el.bbox.x + el.bbox.width / 2
     let elementY: number
     if (el.type === 'note' && el.pitch !== undefined && el.measure !== undefined) {
-      const pitchY = this.pitchToPixelY(el.pitch, el.measure, centerX)
+      const pitchY = this.pitchToPixelY(el.pitch, el.measure, centerX, el.staff)
       elementY = pitchY !== null ? pitchY : el.bbox.y + el.bbox.height / 2
     } else {
       elementY = el.bbox.y + el.bbox.height / 2
@@ -702,9 +744,9 @@ export class ElementRegistry {
     // would otherwise skew the bbox center and misplace the head hit-box).
     const centerX = el.headX ?? el.bbox.x + el.bbox.width / 2
     if (el.type === 'note' && el.pitch !== undefined && el.measure !== undefined) {
-      const pitchY = this.pitchToPixelY(el.pitch, el.measure, centerX)
+      const pitchY = this.pitchToPixelY(el.pitch, el.measure, centerX, el.staff)
       if (pitchY !== null) {
-        const sp = this.staffGeometries.get(el.measure)?.lineSpacing ?? 10
+        const sp = this.getStaffGeometry(el.measure, el.staff)?.lineSpacing ?? 10
         const halfW = sp * 1.1 // head ≈ 1.3 spaces wide + click margin
         const halfH = sp * 0.9 // head ≈ 1 space tall + click margin (< one full space)
         return Math.abs(x - centerX) <= halfW && Math.abs(y - pitchY) <= halfH
@@ -747,7 +789,7 @@ export class ElementRegistry {
    * @param measure - Measure number
    * @returns Object with nearestLeft and nearestRight elements (can be null)
    */
-  findNotesLeftRight(x: number, measure: number): {
+  findNotesLeftRight(x: number, measure: number, staff?: number): {
     nearestLeft: ElementInfo | null,
     nearestRight: ElementInfo | null,
     leftDistance: number,
@@ -755,6 +797,7 @@ export class ElementRegistry {
   } {
     const notesAndRests = this.elements.filter(
       el => el.measure === measure && (el.type === 'note' || el.type === 'rest')
+        && (staff === undefined || (el.staff ?? 0) === staff)
     )
 
     let nearestLeft: ElementInfo | null = null

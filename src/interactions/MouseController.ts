@@ -492,7 +492,7 @@ export class MouseController {
       const centerX = bbox.x + bbox.width / 2
       let elementY: number
       if (closestElement.type === 'note' && closestElement.pitch !== undefined && closestElement.measure !== undefined) {
-        const pitchY = registry.pitchToPixelY(closestElement.pitch, closestElement.measure, centerX)
+        const pitchY = registry.pitchToPixelY(closestElement.pitch, closestElement.measure, centerX, closestElement.staff)
         elementY = pitchY !== null ? pitchY : bbox.y + bbox.height / 2
       } else {
         elementY = bbox.y + bbox.height / 2
@@ -566,7 +566,7 @@ export class MouseController {
 
       for (const note of tupletNotes) {
         if (note.pitch !== undefined && note.measure !== undefined) {
-          const noteY = registry.pitchToPixelY(note.pitch, note.measure, note.bbox.x + note.bbox.width / 2)
+          const noteY = registry.pitchToPixelY(note.pitch, note.measure, note.bbox.x + note.bbox.width / 2, note.staff)
           if (noteY !== null) {
             const verticalDistance = Math.abs(y - noteY)
             minVerticalDistance = Math.min(minVerticalDistance, verticalDistance)

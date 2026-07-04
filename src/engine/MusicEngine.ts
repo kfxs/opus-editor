@@ -7,6 +7,7 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
+import { getStaves } from './models/staffContent'
 import { midiToNoteName, beatToFrac, measureCapacityQuarters, compareByPosition, getMeasureNotes } from '@/utils/musicUtils'
 import { fracToNumber, fracEq, fracLt, fracCompare } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
@@ -58,7 +59,8 @@ export class MusicEngine {
 
     this.coordinateMapper = new CoordinateMapper({
       measureWidth: staveWidth, // No gaps between measures
-      staffHeight: 120 + 30, // staveHeight + verticalSpacing
+      staffHeight: 120 + 30, // per-staff stride: staveHeight + verticalSpacing
+      numStaves: 1, // multi-staff: kept in sync with the model on each render
       startX: margin,
       startY: margin,
       measuresPerLine: measuresPerLine,
@@ -1342,7 +1344,19 @@ export class MusicEngine {
     }
     this.renderer.renderScore(this.scoreModel.getScore())
     // Update coordinate mapper with actual VexFlow bounds
+    this.syncCoordinateMapperBounds()
+  }
+
+  /**
+   * Push VexFlow's post-render measure bounds into the coordinate mapper, and keep its
+   * `numStaves` in sync with the model so Y→measure/line math spans the whole (multi-)staff
+   * system. Called after every render path (score, ghost note/clef/time-sig/dynamic previews).
+   */
+  private syncCoordinateMapperBounds(): void {
     this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
+    this.coordinateMapper.updateConfig({
+      numStaves: Math.max(getStaves(this.scoreModel.getScore()).length, 1),
+    })
   }
 
   /**
@@ -1395,7 +1409,7 @@ export class MusicEngine {
     }
 
     // Check if cursor is within valid staff area (note entry zone)
-    const staffGeometry = registry.getStaffGeometry(position.measure)
+    const staffGeometry = registry.getStaffGeometry(position.measure, position.staff)
     if (staffGeometry) {
       // Check if X is within the note entry area (between noteStartX and noteEndX)
       if (coords.x < staffGeometry.noteStartX || coords.x > staffGeometry.noteEndX) {
@@ -1415,6 +1429,7 @@ export class MusicEngine {
       duration,
       measure: position.measure,
       beat: position.beat,
+      staff: position.staff,
       rawX: coords.x,
       rawY: coords.y,
       ...(dots && { dots }),
@@ -1429,7 +1444,7 @@ export class MusicEngine {
     )
 
     // Update coordinate mapper with actual VexFlow bounds
-    this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
+    this.syncCoordinateMapperBounds()
     return ghostNoteRendered
   }
 
@@ -1441,7 +1456,7 @@ export class MusicEngine {
    */
   renderScoreWithClefGhost(coords: PixelCoordinates, clef: Clef): boolean {
     const drawn = this.renderer.renderScoreWithClefGhost(this.scoreModel.getScore(), coords.x, coords.y, clef)
-    this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
+    this.syncCoordinateMapperBounds()
     return drawn
   }
 
@@ -1452,7 +1467,7 @@ export class MusicEngine {
    */
   renderScoreWithTimeSignatureGhost(coords: PixelCoordinates, ts: TimeSignature): boolean {
     const drawn = this.renderer.renderScoreWithTimeSignatureGhost(this.scoreModel.getScore(), coords.x, coords.y, ts)
-    this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
+    this.syncCoordinateMapperBounds()
     return drawn
   }
 
@@ -1463,7 +1478,7 @@ export class MusicEngine {
    */
   renderScoreWithDynamicGhost(coords: PixelCoordinates, dynamic: Dynamic): boolean {
     const drawn = this.renderer.renderScoreWithDynamicGhost(this.scoreModel.getScore(), coords.x, coords.y, dynamic)
-    this.coordinateMapper.setMeasureBounds(this.renderer.getAllMeasureBounds())
+    this.syncCoordinateMapperBounds()
     return drawn
   }
 
@@ -1495,9 +1510,9 @@ export class MusicEngine {
    * Convert pixel coordinates to musical position
    * Uses ElementRegistry for accurate position calculation based on actual rendered elements
    */
-  pixelToPosition(coords: PixelCoordinates, barQuarters: number): { measure: number; beat: Fraction; spelling: PitchSpelling } {
-    const { measure, beat, spelling } = this.getPositionFromPixels(coords, barQuarters)
-    return { measure, beat: beatToFrac(beat), spelling }
+  pixelToPosition(coords: PixelCoordinates, barQuarters: number): { measure: number; beat: Fraction; spelling: PitchSpelling; staff: number } {
+    const { measure, beat, spelling, staff } = this.getPositionFromPixels(coords, barQuarters)
+    return { measure, beat: beatToFrac(beat), spelling, staff }
   }
 
   /**
@@ -1509,21 +1524,26 @@ export class MusicEngine {
     coords: PixelCoordinates,
     barQuarters: number,
     duration?: NoteParams['duration']
-  ): { measure: number; beat: number; spelling: PitchSpelling } {
+  ): { measure: number; beat: number; spelling: PitchSpelling; staff: number } {
     const registry = this.renderer.getElementRegistry()
     const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
+    // Which stacked staff (0-based) does this click fall on? Resolved from the real per-staff
+    // line Y-bands; at N=1 always 0. Drives the staff-aware pitch resolution below and is
+    // returned so entry can target it (used in Phase 3). The X spine is shared across staves.
+    const staff = registry.staffIndexAtY(measureNumber, coords.y)
 
     // Get natural spelling from ElementRegistry (more accurate) with fallback.
-    // Pass X so mid-measure clef regions resolve to the correct clef. A registry
-    // result with an undefined step (degenerate geometry) is treated as a miss.
-    const registrySpelling = registry.pixelYToPitch(coords.y, measureNumber, coords.x)
+    // Pass X so mid-measure clef regions resolve to the correct clef, and the staff so pitch
+    // resolves against THAT staff's clef/lines. A registry result with an undefined step
+    // (degenerate geometry) is treated as a miss.
+    const registrySpelling = registry.pixelYToPitch(coords.y, measureNumber, coords.x, staff)
     const spelling = registrySpelling?.step !== undefined
       ? registrySpelling
       : this.coordinateMapper.pixelYToPitch(coords.y, measureNumber)
 
     // Get beat from ElementRegistry or coordinateMapper
     let beat: number
-    const nearestElement = registry.findNearestNoteOrRest(coords.x, measureNumber)
+    const nearestElement = registry.findNearestNoteOrRest(coords.x, measureNumber, staff)
     if (nearestElement && nearestElement.beat !== undefined) {
       const elementCenterX = nearestElement.bbox.x + nearestElement.bbox.width / 2
       const distance = Math.abs(coords.x - elementCenterX)
@@ -1538,7 +1558,7 @@ export class MusicEngine {
       if (duration) beat = quantizeBeat(beat, duration, barQuarters)
     }
 
-    return { measure: measureNumber, beat, spelling }
+    return { measure: measureNumber, beat, spelling, staff }
   }
 
   /**

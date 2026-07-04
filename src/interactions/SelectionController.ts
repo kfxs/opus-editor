@@ -4,7 +4,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { Rect } from '../engine/ViewportModel'
 import type { EditorState } from './EditorState'
 import { modelVoiceToActive } from './EditorState'
-import { buildVoiceNavBeatMap, notesInRange, expandTieChains } from '../utils/beatMap'
+import { buildVoiceNavBeatMap, notesInBox, expandTieChains } from '../utils/beatMap'
 import { fracLt, fracEq, fracCompare, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
@@ -79,7 +79,7 @@ export class SelectionController {
     if (!engine) return
     const score = engine.getScore()
     for (const measure of score.measures) {
-      const note = getMeasureNotes(measure).find(n => n.id === noteId)
+      const note = getMeasureNotes(measure, score).find(n => n.id === noteId)
       if (note) {
         this.state.selectedDuration = note.duration
         this.state.selectedAccidental = this.computeDisplayedAccidental(note, measure)
@@ -88,6 +88,8 @@ export class SelectionController {
         // continues in that voice (and the cursor advances along its stream)
         // rather than silently falling back to voice 1.
         this.state.activeVoice = modelVoiceToActive(note.voice)
+        // Likewise its staff becomes active, so keyboard entry/nav stays on that staff.
+        this.state.activeStaff = note.staff ?? 0
         break
       }
     }
@@ -127,8 +129,9 @@ export class SelectionController {
     this.selectNote(null)
     this.state.selectedDynamicId = null
     this.state.selectedTupletId = null
-    // Clearing the selection returns entry to the default voice 1 (Sibelius-style).
+    // Clearing the selection returns entry to the default voice 1 / staff 0 (Sibelius-style).
     this.state.activeVoice = 1
+    this.state.activeStaff = 0
   }
 
   /**
@@ -176,11 +179,13 @@ export class SelectionController {
   }
 
   /**
-   * SHIFT-click: select the inclusive temporal range from the pivot to `targetId`
-   * (rests in between and whole chords included), unioned onto the range base (the
-   * selection as of the last plain/Ctrl click). The pivot stays fixed, so a further
-   * Shift-click re-flows the range from the same point while keeping the base.
-   * With no pivot yet, falls back to a plain single-select.
+   * SHIFT-click: ADDITIVELY grow the selection to the RECTANGULAR bounding box that encloses
+   * everything currently selected plus `targetId` — the beat extent × the staff extent of all
+   * those notes. The box can only expand, so a Shift-click never drops notes: `click 3 →
+   * shift 6 → shift 1` accumulates 1…6 (not a re-flow back to 1…3), and shift-clicking a note
+   * on another staff fills in the whole grand-staff rectangle between them rather than a jagged
+   * staircase. Whole chords and interior rests are included. With no pivot yet, falls back to a
+   * plain single-select.
    */
   extendSelectionTo(targetId: string): void {
     const engine = this.getEngine()
@@ -190,22 +195,22 @@ export class SelectionController {
       return
     }
 
-    // Shift-range respects ties (= duration): a range ending mid-tie grabs the
-    // whole held note. (Ctrl-click / single click stay literal — they don't expand.)
-    const rangeIds = expandTieChains(
+    // Bounding box over the current selection + the new target. Ties (= duration) are
+    // respected: a box edge landing mid-tie grabs the whole held note.
+    const currentIds = selectedNoteIds(this.state.selectedItems.values())
+    const boxIds = expandTieChains(
       engine.getScore(),
-      notesInRange(engine.getScore(), this.state.selectionPivotId, targetId),
+      notesInBox(engine.getScore(), currentIds, targetId),
     )
 
     this.state.selectedItems.clear()
-    for (const item of this.state.selectionBase) {
-      this.state.selectedItems.set(itemKey(item), item)
-    }
-    for (const id of rangeIds) {
+    for (const id of boxIds) {
       const item: SelectionItem = { kind: 'note', id }
       this.state.selectedItems.set(itemKey(item), item)
     }
-    // Nav anchor follows the Shift target; the pivot is intentionally left unchanged.
+    // Bake the grown box in as the base and move the pivot + nav anchor to the target.
+    this.state.selectionBase = Array.from(this.state.selectedItems.values())
+    this.state.selectionPivotId = targetId
     this.state.selectedNoteId = targetId
     this.clearScalarSubSelections()
     this.syncPaletteToNote(targetId)
@@ -287,8 +292,12 @@ export class SelectionController {
     // with a per-measure fallback to voice 0: stepping out of a non-default voice into
     // a measure that lacks it lands on the default voice there rather than losing the
     // selection (see buildVoiceNavBeatMap).
-    const selectedVoice = engine.getNote(this.state.selectedNoteId)?.voice ?? 0
-    const { allFlat, beats } = buildVoiceNavBeatMap(score, selectedVoice)
+    const selectedNote = engine.getNote(this.state.selectedNoteId)
+    const selectedVoice = selectedNote?.voice ?? 0
+    // Arrow nav is also confined to the selected note's STAFF — the vertical staff axis is a
+    // hard boundary (no fallback), so stepping never crosses from one staff into another.
+    const selectedStaff = selectedNote?.staff ?? 0
+    const { allFlat, beats } = buildVoiceNavBeatMap(score, selectedVoice, selectedStaff)
 
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
     if (!currentNote) return
@@ -331,8 +340,9 @@ export class SelectionController {
     if (!measure) return
 
     const noteVoice = note.voice ?? 0
-    const chordNotes = getMeasureNotes(measure)
-      .filter(n => !n.isRest && fracEq(n.beat, note.beat) && (n.voice ?? 0) === noteVoice)
+    const noteStaff = note.staff ?? 0
+    const chordNotes = getMeasureNotes(measure, score)
+      .filter(n => !n.isRest && fracEq(n.beat, note.beat) && (n.voice ?? 0) === noteVoice && (n.staff ?? 0) === noteStaff)
       .sort((a, b) => spellingToMidi(a.step!, a.alter!, a.octave!) - spellingToMidi(b.step!, b.alter!, b.octave!))
 
     if (chordNotes.length <= 1) return
@@ -404,11 +414,13 @@ export class SelectionController {
     if (!measure) return
 
     const currentVoice = current.voice ?? 0
+    const currentStaff = current.staff ?? 0
     const clef = engine.getEffectiveClefAt(current.measure, current.beat)
     const currentPos = this.elementVerticalPos(current, clef)
 
-    // Candidate elements live in OTHER voices (a voice hop never targets our own chord).
-    const others = getMeasureNotes(measure).filter(n => (n.voice ?? 0) !== currentVoice)
+    // Candidate elements live in OTHER voices OF THE SAME STAFF (a voice hop never targets our
+    // own chord, and never crosses into another staff — that's a different vertical axis).
+    const others = getMeasureNotes(measure, score).filter(n => (n.voice ?? 0) !== currentVoice && (n.staff ?? 0) === currentStaff)
     if (!others.length) return
 
     // Prefer elements sounding at this exact beat; only if no other voice has anything
@@ -495,10 +507,12 @@ export class SelectionController {
     // voices lets an adjacent voice's pitch (e.g. a voice-1 note stacked at the same beat)
     // hijack the guess, so editing a voice-2 rest to a letter lands an octave off. Filter
     // to the selected note's voice before finding the nearest prev/next pitch.
-    const selVoice = engine.getNote(this.state.selectedNoteId)?.voice ?? 0
+    const selNote = engine.getNote(this.state.selectedNoteId)
+    const selVoice = selNote?.voice ?? 0
+    const selStaff = selNote?.staff ?? 0
     const allNotes = score.measures
-      .flatMap(m => getMeasureNotes(m).map(n => ({ ...n, measureNumber: m.number })))
-      .filter(n => (n.voice ?? 0) === selVoice)
+      .flatMap(m => getMeasureNotes(m, score).map(n => ({ ...n, measureNumber: m.number })))
+      .filter(n => (n.voice ?? 0) === selVoice && (n.staff ?? 0) === selStaff)
       .sort((a, b) =>
         a.measureNumber !== b.measureNumber
           ? a.measureNumber - b.measureNumber

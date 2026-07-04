@@ -434,10 +434,56 @@ Mirror the "Measure:" pattern exactly (`App.vue:381-396`):
       `StaveConnector('singleLeft')`** joins the stacked staves into one system at each
       line's first measure (`renderMeasure` now returns its `Stave`); a plain line only —
       the brace/bracket (`StaffGroup`) stays deferred. 904 tests green (+1 staff-aware fill).
-- [ ] **Phase 2 — Coordinate + hit-test staff-aware.** `(measure, staff)` geometry keys;
-      click→staff disambiguation; per-staff clef pitch↔y.
-- [ ] **Phase 3 — Active staff + entry.** `EditorState.activeStaff`; entry/nav/selection
-      staff-scoped; voice-blind loops become staff+voice scoped.
+- [x] **Phase 2 — Coordinate + hit-test staff-aware.** **DONE (UNCOMMITTED) 2026-07-04.**
+      `ElementRegistry.staffGeometries` rekeyed from `measure` → composite `(measure, staff)`
+      string (`geomKey`); `StaffGeometry` gained `staff: number` (the 0-based index — the
+      projection of `staffId`, consistent with flat `Note.staff`) and `ElementInfo` gained an
+      optional `staff`. Every stacked staff now registers its own geometry + `staff`-stamped
+      `staff`/`clef`/`timeSignature`/`barline`/`note`/`rest`/`accidental`/`articulation`
+      ElementInfo (the Phase-1 `staffIndex === 0` geometry guard is gone; `registerStaffAndGeometry`
+      + `registerSlotElements` take `staffIndex`). New `ElementRegistry.staffIndexAtY(measure, y)`
+      resolves a click to a staff by nearest line-band (gap → closer staff; ledger notes → own
+      staff). `pixelYToPitch`/`pitchToPixelY` gained a trailing `staff = 0` arg and look up the
+      per-staff geometry; `findClosestNote`/`findClosestNoteOrRest`/`noteOrRestHitDistance`/
+      `hitsNoteOrRestBody` thread `el.staff`, so a bass 2nd staff resolves pitch against its OWN
+      clef. `MusicEngine.getPositionFromPixels` resolves `staff = staffIndexAtY(...)`, feeds it to
+      `pixelYToPitch`, and returns it; `pixelToPosition` now returns `staff` (consumers wire it in
+      Phase 3). Hardcoded stride replaced: `CoordinateMapper` config gained `numStaves` +
+      private `systemHeight() = staffHeight * numStaves`; `pixelToMeasure`/`getMeasurePosition`
+      Y-band math spans the whole system (a click on staff 2 lands in the right measure). New
+      `MusicEngine.syncCoordinateMapperBounds()` pushes bounds AND syncs `numStaves` from the
+      model on every render path (replaced the 5 bare `setMeasureBounds` calls). **`measureBounds`
+      stays keyed by `measure.number`** (deliberate — X shared across staves, `measureY` = system
+      top; per-staff Y lives in `staffGeometries`). **N=1 byte-identical** (staff always 0,
+      `numStaves=1` → `systemHeight===staffHeight`); 912 unit tests green (+8: `staffIndexAtY`,
+      per-staff keying + clef-aware pitch↔y); build + boundary lint clean. **OPEN (deferred,
+      matches plan's "opportunistic"):** `CoordinateMapper`'s own treble-only pitch↔y fallback
+      (`:143`) is left treble/staff-0 — it only fires when a rendered staff has NO registry
+      geometry (≈never), so the staff-aware registry path covers real clicks.
+- [x] **Phase 3 — Active staff + entry.** **DONE (UNCOMMITTED) 2026-07-04.** `EditorState.activeStaff`
+      (0-based index, default 0; the multi-staff analogue of `activeVoice` but a raw model index).
+      **Model (ScoreModel):** new `staffIdForParams(staff)` (index→staffId, absent for staff 0 =
+      byte-identical convention); `addNote` stamps `staffId` on rest+chord AND scopes the
+      same-beat chord-merge lookup + `replaceRestsWithChord` rest-removal by `matchesStaff` — this
+      is the fix for the cross-staff merge bug (a treble note was joining the bass staff's
+      same-beat/voice chord). `addRest`/`fillGapWithRests` gained a trailing `staff` index arg.
+      **NoteEntryCoordinator:** mouse entry resolves `entryStaff = staffIndexAtY(measure, y)` from
+      the click (like pitch); keyboard entry takes `params.staff`. Added `&& (n.staff??0)===entryStaff`
+      to every voice-scoped `getNotesInMeasure` filter and threaded staff through `applyEntryOverwrites`/
+      `findNotesToOverwrite`/`getChordNotesAt`/`resolveClickToBeat`/`placeSplitNote`/`placeSpanningNote`/
+      `splitExistingNoteWithTie`/`addSplitNoteWithTie`/`erodeOverflowZone`/`erodeNoteAtBoundary`/
+      `isValidEntryClick`/`updateNote`+`updateNonTupletNote` (editStaff → per-staff gap-fill).
+      **ElementRegistry:** `findNotesLeftRight`/`findNearestNoteOrRest` gained an optional `staff`
+      filter (used by beat resolution). **beatMap:** `buildBeatMap`/`buildVoiceNavBeatMap`/`navBeatMap`
+      gained an optional `staff` (a HARD boundary — no per-measure fallback like voice). **Interaction:**
+      `SelectionController` syncs `activeStaff` on select + resets on deselect; `navigateSelection`/
+      `navigateChord`/`navigateVoice` staff-scoped. `KeyboardController` entry/rest continue the cursor
+      note's staff. `HighlightController` cursor uses active-staff nav map + geometry. Esc resets
+      `activeStaff=0`. **N=1 byte-identical** (staff always 0, absent staffId); **915 unit tests green**
+      (+3: no cross-staff merge, staffId stamping, staff-0 stays absent); build + boundary lint clean.
+      **DEFERRED (documented limitations, not regressions):** tuplet creation still lands on staff 0
+      (`createTuplet` not staff-aware); copy/paste stays active-staff-scoped (plan §4/§11);
+      `getEffectiveClefAt` in voice-hop isn't per-staff (relative ordering still correct).
 - [ ] **Phase 4 — "Staff:" panel + add.** `addStaffAbove/Below` (treble default,
       rest-filled every bar) + toolbar group gated by box-selected measure.
 - [ ] **Phase 5 — Playback multi-staff.** Shared per-measure clock; loop staves; one

@@ -725,6 +725,8 @@ export interface GhostNote {
   duration: NoteDuration
   measure: number
   beat: number
+  /** 0-based staff index the preview renders on (multi-staff; absent = staff 0). */
+  staff?: number
   rawX?: number
   rawY?: number
   dots?: number

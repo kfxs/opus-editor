@@ -179,12 +179,20 @@ describe('SelectionController — Shift range select', () => {
     expect(selectedIds()).toEqual(new Set([noteKey(n0), noteKey(n1), noteKey(n2), noteKey(n3)]))
   })
 
-  it('re-flows the range from the same pivot while keeping the base', () => {
+  it('is additive: successive Shift-clicks only grow the selection (pivot moves to target)', () => {
+    // click n1 → shift n3 → shift n0 accumulates the whole span, rather than re-flowing back
+    // to n0..n1 from a stuck anchor.
+    selection.selectNote(n1)            // {n1}, pivot n1
+    selection.extendSelectionTo(n3)     // union n1..n3 = {n1,n2,n3}, pivot now n3
+    selection.extendSelectionTo(n0)     // union n3..n0 = {n0,n1,n2,n3} — nothing dropped
+    expect(selectedIds()).toEqual(new Set([noteKey(n0), noteKey(n1), noteKey(n2), noteKey(n3)]))
+  })
+
+  it('does not shrink a range when Shift-clicking back inside it (additive)', () => {
     selection.selectNote(n0)
-    selection.toggleNote(n3)            // base {n0,n3}, pivot n3
-    selection.extendSelectionTo(n1)     // {n0,n1,n2,n3}
-    selection.extendSelectionTo(n2)     // re-flow: range n3..n2 = {n2,n3} ∪ base {n0,n3}
-    expect(selectedIds()).toEqual(new Set([noteKey(n0), noteKey(n2), noteKey(n3)])) // n1 dropped
+    selection.extendSelectionTo(n3)     // {n0,n1,n2,n3}, pivot n3
+    selection.extendSelectionTo(n1)     // union n3..n1 = {n1,n2,n3} → still {n0,n1,n2,n3}
+    expect(selectedIds()).toEqual(new Set([noteKey(n0), noteKey(n1), noteKey(n2), noteKey(n3)]))
   })
 
   it('falls back to plain select when there is no pivot', () => {

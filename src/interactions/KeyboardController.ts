@@ -129,7 +129,10 @@ export class KeyboardController {
     // back to the active voice only when the cursor note has no resolvable voice.
     const cursorNote = engine.getNote(this.state.selectedNoteId)
     const cursorVoice = cursorNote ? (cursorNote.voice ?? 0) : activeVoiceToModel(this.state.activeVoice)
-    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, cursorVoice)
+    // Keyboard entry also CONTINUES the cursor note's staff (falling back to the active staff
+    // when the cursor note has none), so a run of entered notes stays on one staff.
+    const cursorStaff = cursorNote ? (cursorNote.staff ?? 0) : this.state.activeStaff
+    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, cursorVoice, cursorStaff)
 
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
     if (!currentNote) {
@@ -199,6 +202,7 @@ export class KeyboardController {
         ...(existingTuplet && { tupletId: existingTuplet.id }),
         ...(this.state.selectedBeam !== 'auto' && { beam: this.state.selectedBeam }),
         ...(entryVoice && { voice: entryVoice }),
+        ...(cursorStaff && { staff: cursorStaff }),
       })
     }
 
@@ -241,7 +245,8 @@ export class KeyboardController {
     // Continue the cursor note's own voice (see enterNoteAtCursorPosition).
     const cursorNote = engine.getNote(this.state.selectedNoteId)
     const cursorVoice = cursorNote ? (cursorNote.voice ?? 0) : activeVoiceToModel(this.state.activeVoice)
-    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, cursorVoice)
+    const cursorStaff = cursorNote ? (cursorNote.staff ?? 0) : this.state.activeStaff
+    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, cursorVoice, cursorStaff)
 
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
     if (!currentNote) return
@@ -279,6 +284,7 @@ export class KeyboardController {
       beat: targetBeat,
       isRest: true,
       ...(restVoice && { voice: restVoice }),
+      ...(cursorStaff && { staff: cursorStaff }),
     })
 
     if (!newRest) {
@@ -319,8 +325,9 @@ export class KeyboardController {
     // Stack onto the selected note's OWN voice — both the existing-pitch scan and the
     // new note must stay in that voice, or the chord note lands in voice 1 by default.
     const noteVoice = note.voice ?? 0
-    const chordMidis = (measure ? getMeasureNotes(measure) : [])
-      .filter(n => !n.isRest && fracEq(n.beat, note.beat) && (n.voice ?? 0) === noteVoice)
+    const noteStaff = note.staff ?? 0
+    const chordMidis = (measure ? getMeasureNotes(measure, score) : [])
+      .filter(n => !n.isRest && fracEq(n.beat, note.beat) && (n.voice ?? 0) === noteVoice && (n.staff ?? 0) === noteStaff)
       .map(n => spellingToMidi(n.step!, n.alter!, n.octave!))
     const baseMidi = chordMidis.length > 0
       ? Math.max(...chordMidis)
@@ -344,6 +351,7 @@ export class KeyboardController {
       isRest: false,
       tupletId: note.tupletId,
       voice: noteVoice,
+      ...(noteStaff && { staff: noteStaff }),
     })
     this.setSelectedNote(newNote.id)
     this.renderScore()

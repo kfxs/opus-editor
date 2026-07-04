@@ -19,11 +19,15 @@ export type FlatNote = Note & { measureNumber: number }
  *
  * @param voice - When given, restrict to that model voice's stream (0-based), so
  *   keyboard nav/entry steps within a single voice. Omit for all voices.
+ * @param staff - When given, restrict to that model staff (0-based index; absent = staff 0),
+ *   so nav/entry stays within one staff — the vertical staff axis is a hard boundary, unlike
+ *   voice. Omit for all staves.
  */
-export function buildBeatMap(score: Score, voice?: number): { allFlat: FlatNote[]; beats: FlatNote[] } {
+export function buildBeatMap(score: Score, voice?: number, staff?: number): { allFlat: FlatNote[]; beats: FlatNote[] } {
   const allFlat: FlatNote[] = score.measures
-    .flatMap(m => getMeasureNotes(m).map(n => ({ ...n, measureNumber: m.number })))
+    .flatMap(m => getMeasureNotes(m, score).map(n => ({ ...n, measureNumber: m.number })))
     .filter(n => voice === undefined || (n.voice ?? 0) === voice)
+    .filter(n => staff === undefined || (n.staff ?? 0) === staff)
     .sort((a, b) =>
       a.measureNumber !== b.measureNumber
         ? a.measureNumber - b.measureNumber
@@ -44,10 +48,12 @@ export function buildBeatMap(score: Score, voice?: number): { allFlat: FlatNote[
  * (Note ENTRY navigation deliberately does NOT use this — there you stay in your own
  * voice to extend its stream; see navBeatMap.)
  */
-export function buildVoiceNavBeatMap(score: Score, voice: number): { allFlat: FlatNote[]; beats: FlatNote[] } {
+export function buildVoiceNavBeatMap(score: Score, voice: number, staff?: number): { allFlat: FlatNote[]; beats: FlatNote[] } {
   const allFlat: FlatNote[] = score.measures
     .flatMap(m => {
-      const notes = getMeasureNotes(m)
+      // Staff is a HARD boundary (no per-measure fallback like voice): filter to the staff
+      // first, then apply the voice fallback WITHIN that staff's notes.
+      const notes = getMeasureNotes(m, score).filter(n => staff === undefined || (n.staff ?? 0) === staff)
       const hasVoice = notes.some(n => (n.voice ?? 0) === voice)
       const useVoice = hasVoice ? voice : 0
       return notes
@@ -93,10 +99,13 @@ export function navBeatMap(
   score: Score,
   currentNoteId: string | null,
   voice: number,
+  staff?: number,
 ): { allFlat: FlatNote[]; beats: FlatNote[] } {
-  const scoped = buildBeatMap(score, voice)
+  const scoped = buildBeatMap(score, voice, staff)
   if (currentNoteId && scoped.allFlat.some(n => n.id === currentNoteId)) return scoped
-  return buildBeatMap(score)
+  // Voice fallback (cursor still on another voice's note) stays scoped to the staff — a
+  // fresh entry never hops staves.
+  return buildBeatMap(score, undefined, staff)
 }
 
 /** The (measure, beat) position key for a flat note — same form buildBeatMap keys by. */
@@ -110,26 +119,70 @@ function posKey(n: FlatNote): string {
  * range), and rests in between are included. Direction-agnostic: the two ids may
  * be given in either order. Used by Shift-click range selection.
  *
+ * Multi-staff (Sibelius-style): the two endpoints define BOTH the beat span AND the staff
+ * span. Shift-click on the SAME staff → a single-staff passage; Shift-click on a DIFFERENT
+ * staff → the passage extends vertically to cover every staff between the two (a grand-staff
+ * / system passage). The barline/beat spine is shared, so the beat range is taken from the
+ * all-staff position map and then filtered to the staff band [anchorStaff … targetStaff].
+ *
  * Falls back to just the target's id when the anchor can't be located.
  */
 export function notesInRange(score: Score, anchorId: string, targetId: string): string[] {
+  // Full (all-staff, all-voice) map: locates the endpoints, orders positions, and carries staff.
   const { allFlat, beats } = buildBeatMap(score)
-  const anchor = allFlat.find(n => n.id === anchorId)
-  const target = allFlat.find(n => n.id === targetId)
-  if (!target) return []
-  if (!anchor) return [target.id]
+  const anchorFull = allFlat.find(n => n.id === anchorId)
+  const targetFull = allFlat.find(n => n.id === targetId)
+  if (!targetFull) return []
+  if (!anchorFull) return [targetFull.id]
 
-  const aIdx = beats.findIndex(b => posKey(b) === posKey(anchor))
-  const tIdx = beats.findIndex(b => posKey(b) === posKey(target))
-  if (aIdx === -1 || tIdx === -1) return [target.id]
+  const aIdx = beats.findIndex(b => posKey(b) === posKey(anchorFull))
+  const tIdx = beats.findIndex(b => posKey(b) === posKey(targetFull))
+  if (aIdx === -1 || tIdx === -1) return [targetFull.id]
 
   const lo = Math.min(aIdx, tIdx)
   const hi = Math.max(aIdx, tIdx)
   const rangeKeys = new Set(beats.slice(lo, hi + 1).map(posKey))
 
-  // allFlat is already temporally sorted, so this yields the range in score order
-  // with every chord note at each in-range beat.
-  return allFlat.filter(n => rangeKeys.has(posKey(n))).map(n => n.id)
+  // Staff band spanned by the two endpoints (same staff → just that one staff).
+  const staffLo = Math.min(anchorFull.staff ?? 0, targetFull.staff ?? 0)
+  const staffHi = Math.max(anchorFull.staff ?? 0, targetFull.staff ?? 0)
+
+  // allFlat is already temporally sorted, so this yields the range in score order with every
+  // chord note at each in-range beat, across every staff in the band.
+  return allFlat
+    .filter(n => rangeKeys.has(posKey(n)) && (n.staff ?? 0) >= staffLo && (n.staff ?? 0) <= staffHi)
+    .map(n => n.id)
+}
+
+/**
+ * Every note/rest id inside the RECTANGULAR bounding box that encloses a set of already-
+ * selected ids PLUS a new target — the beat extent [min…max] × the staff extent [min…max]
+ * of all those endpoints. Used by additive Shift-click: each click grows the box (it can
+ * only expand), and the whole rectangle is (re)selected — so a passage that spans two staves
+ * fills in every note in between rather than leaving a jagged staircase, and successive
+ * clicks keep accumulating without ever dropping notes. Whole chords + interior rests are
+ * included (they share an in-range position). Falls back to just the target when nothing is
+ * locatable.
+ */
+export function notesInBox(score: Score, currentIds: string[], targetId: string): string[] {
+  const { allFlat, beats } = buildBeatMap(score)
+  const byId = new Map(allFlat.map(n => [n.id, n]))
+  const endpoints = [...currentIds, targetId].map(id => byId.get(id)).filter(Boolean) as FlatNote[]
+  if (!endpoints.length) return byId.has(targetId) ? [targetId] : []
+
+  let idxLo = Infinity, idxHi = -Infinity, staffLo = Infinity, staffHi = -Infinity
+  for (const n of endpoints) {
+    const i = beats.findIndex(b => posKey(b) === posKey(n))
+    if (i < 0) continue
+    idxLo = Math.min(idxLo, i); idxHi = Math.max(idxHi, i)
+    staffLo = Math.min(staffLo, n.staff ?? 0); staffHi = Math.max(staffHi, n.staff ?? 0)
+  }
+  if (idxHi < 0) return byId.has(targetId) ? [targetId] : []
+
+  const rangeKeys = new Set(beats.slice(idxLo, idxHi + 1).map(posKey))
+  return allFlat
+    .filter(n => rangeKeys.has(posKey(n)) && (n.staff ?? 0) >= staffLo && (n.staff ?? 0) <= staffHi)
+    .map(n => n.id)
 }
 
 /**
@@ -145,7 +198,7 @@ export function notesInRange(score: Score, anchorId: string, targetId: string): 
 export function expandTieChains(score: Score, ids: string[]): string[] {
   const byId = new Map<string, FlatNote>()
   for (const m of score.measures) {
-    for (const n of getMeasureNotes(m)) byId.set(n.id, { ...n, measureNumber: m.number })
+    for (const n of getMeasureNotes(m, score)) byId.set(n.id, { ...n, measureNumber: m.number })
   }
 
   const out = new Set<string>()

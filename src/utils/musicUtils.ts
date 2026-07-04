@@ -1,4 +1,4 @@
-import type { NoteDuration, TimeSignature, Tuplet, Measure, Note } from '@/types/music'
+import type { NoteDuration, TimeSignature, Tuplet, Measure, Note, Score } from '@/types/music'
 import {
   type Fraction,
   fracCreate,
@@ -351,8 +351,28 @@ export function spanContainedInFrac(
  * Each Rest slot becomes one Note with isRest=true.
  * Each Chord slot becomes one Note per pitch.
  */
-export function getMeasureNotes(measure: Measure): Note[] {
+/**
+ * Resolve a slot's `staffId` (string) to a 0-based staff index for the flat {@link Note}
+ * projection. Absent `staffId`, no score, or an unknown id all resolve to staff 0 (the N=1
+ * default). Inlined here (rather than importing the engine's staffContent seam) so this leaf
+ * util keeps no upward dependency on the engine layer.
+ */
+function resolveStaffIndex(score: Score | undefined, staffId: string | undefined): number {
+  if (!score || staffId === undefined) return 0
+  const idx = score.staves?.findIndex(s => s.id === staffId) ?? -1
+  return idx < 0 ? 0 : idx
+}
+
+/**
+ * Flatten a measure's slots to `Note[]`. Pass `score` to also project each note's 0-based
+ * `staff` index (multi-staff) — the interaction layer needs it for staff-scoped nav/entry/
+ * selection. Without `score`, `staff` is left undefined (= staff 0), preserving the
+ * single-staff behaviour of every existing caller.
+ */
+export function getMeasureNotes(measure: Measure, score?: Score): Note[] {
   const result: Note[] = []
+  const staffOf = (staffId: string | undefined): number | undefined =>
+    score ? resolveStaffIndex(score, staffId) : undefined
   for (const slot of measure.slots) {
     if (slot.type === 'rest') {
       result.push({
@@ -365,6 +385,7 @@ export function getMeasureNotes(measure: Measure): Note[] {
         tupletId: slot.tupletId,
         actualDuration: slot.actualDuration,
         voice: slot.voice,
+        staff: staffOf(slot.staffId),
       })
     } else {
       for (const pitch of slot.notes) {
@@ -386,6 +407,7 @@ export function getMeasureNotes(measure: Measure): Note[] {
           actualDuration: slot.actualDuration,
           articulations: slot.articulations,
           voice: slot.voice,
+          staff: staffOf(slot.staffId),
         })
       }
     }

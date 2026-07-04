@@ -1979,4 +1979,49 @@ describe('rest-shift travel (option 3)', () => {
 
     expect(model.getScore().engravingOverrides).toBeUndefined()
   })
+
+  // Multi-staff Phase 3: note entry is staff-scoped. A note added to one staff must never
+  // merge into, or clobber the rests of, another staff that shares the same beat + voice.
+  describe('addNote staff scoping', () => {
+    beforeEach(() => {
+      // Seeds a 2nd staff (index 1) with a C3 half note at m1 beat 0 and G3 at beat 2.
+      model.addTempSecondStaff()
+    })
+
+    it('does NOT merge a staff-0 note into a staff-1 chord at the same beat/voice', () => {
+      // Before the fix, addNote matched by (beat, voice) only, so this A4 joined the bass
+      // staff's C3 chord. It must instead create a separate chord on staff 0.
+      const staff1Id = model.getScore().staves![1].id
+      const note = model.addNote({ step: 'A', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1), staff: 0 })
+      expect(note.staff ?? 0).toBe(0)
+
+      const slots = model.getSlotsInMeasure(1)
+      // The staff-1 C3 chord at beat 0 is untouched — still exactly one pitch (C3).
+      const bassChord = slots.find(s => s.type === 'chord' && s.staffId === staff1Id && fracToNumber(s.beat) === 0)
+      expect(bassChord && bassChord.type === 'chord' && bassChord.notes).toHaveLength(1)
+      expect(bassChord && bassChord.type === 'chord' && bassChord.notes[0].step).toBe('C')
+      // A4 is a distinct chord on staff 0 (absent staffId), not chorded with C3.
+      const trebleChord = slots.find(s => s.type === 'chord' && s.staffId === undefined && fracToNumber(s.beat) === 0)
+      expect(trebleChord && trebleChord.type === 'chord' && trebleChord.notes[0].step).toBe('A')
+    })
+
+    it('stamps the target staffId on a note added to a later staff', () => {
+      const staff1Id = model.getScore().staves![1].id
+      const note = model.addNote({ step: 'E', octave: 3, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 })
+      expect(note.staff).toBe(1)
+      // It joined staff 1's existing C3 chord at beat 0 (same staff + beat + voice).
+      const slots = model.getSlotsInMeasure(1)
+      const bassChord = slots.find(s => s.type === 'chord' && s.staffId === staff1Id && fracToNumber(s.beat) === 0)
+      expect(bassChord && bassChord.type === 'chord' && bassChord.notes.map(n => n.step).sort()).toEqual(['C', 'E'])
+    })
+
+    it('keeps a note on staff 0 with no staffId (single-staff byte-identical convention)', () => {
+      const note = model.addNote({ step: 'D', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })
+      expect(note.staff ?? 0).toBe(0)
+      const slots = model.getSlotsInMeasure(1)
+      const trebleChord = slots.find(s => s.type === 'chord' && s.staffId === undefined && fracToNumber(s.beat) === 0)
+      expect(trebleChord).toBeDefined()
+      expect(trebleChord!.staffId).toBeUndefined()
+    })
+  })
 })

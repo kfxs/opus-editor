@@ -84,6 +84,13 @@ export interface EditorState {
    * exposes 2 for now.)
    */
   activeVoice: 1 | 2
+  /**
+   * The staff (0-based index into `Score.staves`) that entry/nav target — the multi-staff
+   * analogue of {@link activeVoice}, but a raw model index (staff 0 is the default, always
+   * present). A click sets it to the clicked staff; selecting a note syncs it to that note's
+   * staff; it resets to 0 on selection-clear. Keyboard entry stays on the cursor note's staff.
+   */
+  activeStaff: number
   selectedDuration: NoteDuration
   selectedAccidental: Accidental | null
   selectedDots: number
@@ -180,6 +187,7 @@ export function createEditorState(): EditorState {
   return {
     selectedTool: 'entry',
     activeVoice: 1,
+    activeStaff: 0,
     selectedItems: new Map(),
     selectedNoteId: null,
     selectionPivotId: null,

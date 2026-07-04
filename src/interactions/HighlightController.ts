@@ -29,8 +29,9 @@ export class HighlightController {
 
     const score = engine.getScore()
     const registry = engine.getElementRegistry()
-    // Cursor follows the active voice's stream (matches enterNoteAtCursorPosition).
-    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, activeVoiceToModel(this.state.activeVoice))
+    // Cursor follows the active voice's stream ON the active staff (matches
+    // enterNoteAtCursorPosition).
+    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, activeVoiceToModel(this.state.activeVoice), this.state.activeStaff)
 
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
     if (!currentNote) return
@@ -55,7 +56,8 @@ export class HighlightController {
       cursorMeasure = currentNote.measureNumber
     }
 
-    const staffGeometry = registry.getStaffGeometry(cursorMeasure)
+    // The cursor draws on the active staff's lines (the note it advances from lives there).
+    const staffGeometry = registry.getStaffGeometry(cursorMeasure, this.state.activeStaff)
     if (!staffGeometry) return
 
     const topY = staffGeometry.lineYPositions[0]

@@ -30,7 +30,7 @@ import {
 } from './NoteBuilder'
 import { calculateMeasureWidths } from './MeasureLayout'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey } from '@/engine/models/engravingOverrides'
-import { getStaves, staffMeasureView, firstStaffId } from '@/engine/models/staffContent'
+import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex } from '@/engine/models/staffContent'
 import { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo } from './layoutConfig'
 
 // Re-exported for existing importers (MusicEngine, App.vue, RenderPass) that referenced
@@ -485,7 +485,7 @@ export class VexFlowRenderer {
         this.drawRestLedgerLines(sortedSlots, staveNotes, stave, measure, pass.score)
 
         this.drawAndRegisterTuplets(vexTuplets, tupletStaveNoteMap, measure, multiVoice)
-        this.registerSlotElements(sortedSlots, staveNotes, measure)
+        this.registerSlotElements(sortedSlots, staveNotes, measure, staffIndex)
         // Hidden rests (client #6) render gray. Recolor them via the DOM AFTER draw/register —
         // the established pattern (ghost notes, selection highlight). NOT VexFlow setStyle: that
         // leaks the stroke colour into the shared context and grays the rest of the score.
@@ -515,14 +515,11 @@ export class VexFlowRenderer {
     }
 
     // Per-measure GEOMETRY (staff bbox, pitch↔y line positions, opening-clef hit box) is
-    // still keyed by measure.number, so only the primary staff (index 0) registers it — a
-    // second staff would clobber the first. Rekeying to (measure, staffId) + click→staff
-    // disambiguation is Phase 2. Per-slot content (notes/rests/dynamics/tuplets/beams) is
-    // registered for every staff above (keyed on global ids, collision-free). At N=1 the
-    // staff loop runs once with index 0, so this guard changes nothing.
-    if (staffIndex === 0) {
-      this.registerStaffAndGeometry(stave, measure, x, y, width, isFirstInLine, clef, hasClefChange, clefSegments)
-    }
+    // keyed by (measure, staffIndex) (Phase 2), so every stacked staff registers its own —
+    // pitch↔y then resolves against each staff's real clef + line Y positions, and a click
+    // is attributed to a staff by its y-band (ElementRegistry.staffIndexAtY). At N=1 the
+    // staff loop runs once with index 0, identical to the pre-multi-staff single geometry.
+    this.registerStaffAndGeometry(stave, measure, x, y, width, isFirstInLine, clef, hasClefChange, staffIndex, clefSegments)
 
     return stave
   }
@@ -636,10 +633,11 @@ export class VexFlowRenderer {
     this.context!.setLineWidth?.(1)
     stave.setContext(this.context!).draw()
 
-    // measureBounds is keyed by measure.number and drives tie/slur X and pixel↔position.
-    // Its X fields are shared across staves (barlines align); its measureY is the primary
-    // staff's. Only staff 0 writes it so a lower staff doesn't overwrite the reference Y.
-    // (Per-staff bounds arrive with the Phase 2 (measure, staffId) rekey.)
+    // measureBounds stays keyed by measure.number (Phase 2 deliberately did NOT split it
+    // per staff): its X fields are shared across staves (barlines align) and its measureY is
+    // the system top (staff 0). That's exactly what beatToPixelX (X only) and pixelToMeasure
+    // (which measure/system) need — per-staff Y lives in staffGeometries instead. So only
+    // staff 0 writes it, leaving the systemTop reference Y intact for the whole system.
     if (staffIndex === 0) {
       this.measureBounds.set(measure.number, {
         measureX: x,
@@ -833,6 +831,7 @@ export class VexFlowRenderer {
     sortedSlots: ChordRest[],
     staveNotes: StaveNote[],
     measure: Measure,
+    staffIndex: number = 0,
   ): void {
     for (let si = 0; si < sortedSlots.length && si < staveNotes.length; si++) {
       const slot = sortedSlots[si]
@@ -846,6 +845,7 @@ export class VexFlowRenderer {
               type: 'rest',
               id: slot.id,
               measure: measure.number,
+              staff: staffIndex,
               beat: fracToNumber(slot.beat),
               duration: slot.duration,
               tupletId: slot.tupletId,
@@ -880,6 +880,7 @@ export class VexFlowRenderer {
                 type: 'note',
                 id: pitch.id,
                 measure: measure.number,
+                staff: staffIndex,
                 beat: fracToNumber(slot.beat),
                 pitch: pitchMidi,
                 duration: slot.duration,
@@ -911,6 +912,7 @@ export class VexFlowRenderer {
                           noteId: pitch.id,
                           articulationType: sortedArticulations[articulationIndex],
                           measure: measure.number,
+                          staff: staffIndex,
                           beat: fracToNumber(slot.beat),
                           bbox: { x: artBox.x, y: artBox.y, width: artBox.w, height: artBox.h },
                         })
@@ -942,6 +944,7 @@ export class VexFlowRenderer {
                             type: 'accidental',
                             noteId: pitch.id,
                             measure: measure.number,
+                            staff: staffIndex,
                             beat: fracToNumber(slot.beat),
                             pitch: pitchMidi,
                             accidentalType: accStr,
@@ -985,6 +988,7 @@ export class VexFlowRenderer {
     isFirstInLine: boolean,
     clef: Clef,
     hasClefChange: boolean = false,
+    staffIndex: number = 0,
     clefSegments?: ClefSegment[],
   ): void {
     try {
@@ -993,6 +997,7 @@ export class VexFlowRenderer {
         this.elementRegistry.add({
           type: 'staff',
           measure: measure.number,
+          staff: staffIndex,
           bbox: { x: staveBox.x, y: staveBox.y, width: staveBox.w, height: staveBox.h },
         })
       }
@@ -1006,6 +1011,7 @@ export class VexFlowRenderer {
       ]
       this.elementRegistry.setStaffGeometry({
         measure: measure.number,
+        staff: staffIndex,
         lineYPositions,
         lineSpacing: lineYPositions[1] - lineYPositions[0],
         noteStartX: stave.getNoteStartX(),
@@ -1023,6 +1029,7 @@ export class VexFlowRenderer {
       this.elementRegistry.add({
         type: 'clef',
         measure: measure.number,
+        staff: staffIndex,
         beat: 0,
         // The big line-start clef is anchored to the line and cannot be dragged.
         immovable: true,
@@ -1032,6 +1039,7 @@ export class VexFlowRenderer {
       this.elementRegistry.add({
         type: 'clef',
         measure: measure.number,
+        staff: staffIndex,
         beat: 0,
         bbox: { x, y, width: LAYOUT_CONFIG.CLEF_CHANGE_WIDTH, height: LAYOUT_CONFIG.STAVE_HEIGHT },
       })
@@ -1055,6 +1063,7 @@ export class VexFlowRenderer {
         this.elementRegistry.add({
           type: 'timeSignature',
           measure: measure.number,
+          staff: staffIndex,
           bbox: {
             x: tsX,
             y,
@@ -1068,6 +1077,7 @@ export class VexFlowRenderer {
     this.elementRegistry.add({
       type: 'barline',
       measure: measure.number,
+      staff: staffIndex,
       bbox: { x: x + width - 2, y, width: 4, height: LAYOUT_CONFIG.STAVE_HEIGHT },
     })
   }
@@ -1303,20 +1313,24 @@ export class VexFlowRenderer {
         }
       }
 
-      // Ghost note previews entry on the primary staff (index 0); note entry gains a staff
-      // axis in Phase 3. Its system top uses the same N-staff stride as the real render.
+      // The ghost previews entry on the staff the cursor is over (multi-staff): its Y is that
+      // staff's row within the system (systemTop + staffIndex*stride) and its clef is that
+      // staff's own clef — so the preview lands exactly where the click will place the note.
       const numStaves = Math.max(getStaves(score).length, 1)
-      const measureY = margin + widthInfo.lineNumber * numStaves * (staveHeight + verticalSpacing)
+      const staffIndex = ghostNote.staff ?? 0
+      const staffId = staffIdAtIndex(score, staffIndex)
+      const systemTop = margin + widthInfo.lineNumber * numStaves * (staveHeight + verticalSpacing)
+      const measureY = systemTop + staffIndex * (staveHeight + verticalSpacing)
       const staveWidth = widthInfo.finalWidth
-      const effectiveClefs = this.computeEffectiveClefs(score)
+      const effectiveClefs = this.computeEffectiveClefs(score, staffId)
       const openingClef: Clef = effectiveClefs.get(ghostNote.measure) || 'treble'
       // Match the real stave: only redraw the clef when it changes across the
       // barline (vs the previous measure's ending clef), not opening-to-opening.
-      const prevEndClef = ghostNote.measure > 1 ? measureEndingClef(score, ghostNote.measure - 1) : undefined
+      const prevEndClef = ghostNote.measure > 1 ? measureEndingClef(score, ghostNote.measure - 1, staffId) : undefined
       const hasClefChange = prevEndClef !== undefined && openingClef !== prevEndClef
       // The ghost note must be positioned by the clef in effect at its beat
       // (mid-measure changes), not just the measure's opening clef.
-      const clef: Clef = effectiveClefAt(score, ghostNote.measure, beatToFrac(ghostNote.beat))
+      const clef: Clef = effectiveClefAt(score, ghostNote.measure, beatToFrac(ghostNote.beat), staffId)
 
       const tempStave = new Stave(measureX, measureY, staveWidth)
       const isFirstInLine = measureX === margin
@@ -1351,7 +1365,9 @@ export class VexFlowRenderer {
         const dist = Math.abs(dPos - middleDiatonic)
         if (dist > maxDist) { maxDist = dist; stemDirection = dPos >= middleDiatonic ? -1 : 1 }
       }
-      for (const slot of measure.slots) {
+      // Only this staff's chords at the beat influence the ghost's stem (a chord on another
+      // staff at the same beat is an independent stream).
+      for (const slot of staffMeasureView(measure, staffId, score).slots) {
         if (slot.type === 'chord' && Math.abs(fracToNumber(slot.beat) - ghostNote.beat) < 0.001) {
           for (const p of slot.notes) checkDiatonic(p.step, p.octave)
         }

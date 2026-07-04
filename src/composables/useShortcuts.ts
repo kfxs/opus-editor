@@ -120,9 +120,10 @@ export function useShortcuts(
       // Leaving entry mode disarms the entry-only positional tools (clef / time
       // signature / dynamic) so the palette stops showing them as selected.
       palette.disarmPositionalTools()
-      // Esc returns entry to the default voice 1 (Sibelius-style); the selection-mode
-      // branch resets it via deselectAll() below, the entry branch needs it explicitly.
+      // Esc returns entry to the default voice 1 / staff 0 (Sibelius-style); the
+      // selection-mode branch resets them via deselectAll() below, entry needs it explicitly.
       state.activeVoice = 1
+      state.activeStaff = 0
       if (state.selectedTool === 'entry') {
         // Entry → selection: keep the cursor note as the selected note.
         state.selectedTool = 'selection'

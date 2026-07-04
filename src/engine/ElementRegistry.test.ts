@@ -15,6 +15,7 @@ describe('ElementRegistry selection hit-detection', () => {
   // Two systems (lines), each one measure. Treble clef: G4 (MIDI 67) sits on line 3.
   const m1Geometry: StaffGeometry = {
     measure: 1,
+    staff: 0,
     lineYPositions: [40, 50, 60, 70, 80],
     lineSpacing: 10,
     noteStartX: 50,
@@ -23,6 +24,7 @@ describe('ElementRegistry selection hit-detection', () => {
   }
   const m2Geometry: StaffGeometry = {
     measure: 2,
+    staff: 0,
     lineYPositions: [190, 200, 210, 220, 230],
     lineSpacing: 10,
     noteStartX: 50,
@@ -99,5 +101,83 @@ describe('ElementRegistry selection hit-detection', () => {
       })
       expect(registry.getTupletAt(400, 300)).toBeNull()
     })
+  })
+})
+
+/**
+ * Multi-staff (Phase 2): geometry is keyed by (measure, staff), so ONE measure holds a
+ * separate lane per stacked staff. A click's staff is resolved by its Y-band, and pitch↔y
+ * runs against that staff's OWN clef/lines — a bass second staff resolves differently from
+ * the treble first at the same pixel Y.
+ */
+describe('ElementRegistry multi-staff geometry', () => {
+  let registry: ElementRegistry
+
+  // One system, two staves stacked. Staff 0 treble (lines 40..80), staff 1 bass (190..230).
+  const staff0: StaffGeometry = {
+    measure: 1, staff: 0,
+    lineYPositions: [40, 50, 60, 70, 80], lineSpacing: 10,
+    noteStartX: 50, noteEndX: 450, clef: 'treble',
+  }
+  const staff1: StaffGeometry = {
+    measure: 1, staff: 1,
+    lineYPositions: [190, 200, 210, 220, 230], lineSpacing: 10,
+    noteStartX: 50, noteEndX: 450, clef: 'bass',
+  }
+
+  beforeEach(() => {
+    registry = new ElementRegistry()
+    registry.setStaffGeometry(staff0)
+    registry.setStaffGeometry(staff1)
+  })
+
+  it('keeps a separate geometry per staff of the same measure', () => {
+    expect(registry.getStaffGeometry(1, 0)?.clef).toBe('treble')
+    expect(registry.getStaffGeometry(1, 1)?.clef).toBe('bass')
+    // Default arg resolves to staff 0 (the N=1 convention).
+    expect(registry.getStaffGeometry(1)?.clef).toBe('treble')
+  })
+
+  describe('staffIndexAtY', () => {
+    it('resolves a click inside each staff band to that staff', () => {
+      expect(registry.staffIndexAtY(1, 60)).toBe(0)  // middle of staff 0
+      expect(registry.staffIndexAtY(1, 210)).toBe(1) // middle of staff 1
+    })
+    it('resolves a click above the top staff to staff 0', () => {
+      expect(registry.staffIndexAtY(1, 10)).toBe(0)
+    })
+    it('resolves a click in the gap to the nearer staff', () => {
+      expect(registry.staffIndexAtY(1, 100)).toBe(0) // 20 below staff0, 90 above staff1
+      expect(registry.staffIndexAtY(1, 170)).toBe(1) // 90 below staff0, 20 above staff1
+    })
+    it('falls back to 0 for a measure with no geometry', () => {
+      expect(registry.staffIndexAtY(99, 500)).toBe(0)
+    })
+  })
+
+  describe('per-staff pitch↔y', () => {
+    it('resolves the same Y to different pitches per staff clef', () => {
+      // Staff 0 line 3 (y=70) is treble G4; staff 1 line 3 (y=220) is bass B2.
+      const treblePitch = registry.pixelYToPitch(70, 1, undefined, 0)
+      const bassPitch = registry.pixelYToPitch(220, 1, undefined, 1)
+      expect(treblePitch).toEqual({ step: 'G', alter: 0, octave: 4 })
+      expect(bassPitch).toEqual({ step: 'B', alter: 0, octave: 2 })
+    })
+
+    it('pitchToPixelY uses the requested staff geometry', () => {
+      // Treble G4 (67) → staff 0 line 3 = y70; bass F3 (53) → staff 1 line 1 = y200.
+      expect(registry.pitchToPixelY(67, 1, undefined, 0)).toBe(70)
+      expect(registry.pitchToPixelY(53, 1, undefined, 1)).toBe(200)
+    })
+  })
+
+  it('findClosestNoteOrRest computes a note Y from its own staff geometry', () => {
+    // A bass-clef note on staff 1: F3 (53) draws at staff-1 line 1 (y=200), NOT where
+    // staff-0 treble geometry would put it. A click there must select it.
+    registry.add({
+      type: 'note', id: 'bassF3', measure: 1, staff: 1, beat: 0, pitch: 53,
+      bbox: { x: 90, y: 190, width: 20, height: 40 },
+    })
+    expect(registry.findClosestNoteOrRest(100, 200)?.id).toBe('bassF3')
   })
 })

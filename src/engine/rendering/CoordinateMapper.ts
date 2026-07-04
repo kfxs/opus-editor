@@ -12,8 +12,12 @@ const TREBLE_TOP_DIATONIC_POS = 38
 export interface CoordinateMapperConfig {
   /** Width of each measure in pixels */
   measureWidth: number
-  /** Height of the staff in pixels */
+  /** Vertical stride of ONE staff in pixels (staveHeight + verticalSpacing). Multi-staff
+   *  stacks `numStaves` of these per system, so the per-system stride is
+   *  `staffHeight * numStaves` (see {@link systemHeight}). */
   staffHeight: number
+  /** Number of stacked staves per system (multi-staff; 1 = single-staff default). */
+  numStaves: number
   /** X offset for the first measure */
   startX: number
   /** Y offset for the first staff line */
@@ -39,6 +43,7 @@ export class CoordinateMapper {
     this.config = {
       measureWidth: 500,
       staffHeight: 150,
+      numStaves: 1,
       startX: 10,
       startY: 40,
       measuresPerLine: 2,
@@ -73,6 +78,16 @@ export class CoordinateMapper {
   }
 
   /**
+   * Vertical stride of a whole system (one horizontal row) in pixels. Multi-staff stacks
+   * `numStaves` staves per system, so a click anywhere in a system falls within one
+   * `systemHeight` band below the system top — this is the stride line/measure detection
+   * uses (NOT the single-staff `staffHeight`). At N=1 it equals `staffHeight`.
+   */
+  private systemHeight(): number {
+    return this.config.staffHeight * Math.max(this.config.numStaves, 1)
+  }
+
+  /**
    * Calculate the pixel position for a measure
    */
   getMeasurePosition(measureNumber: number): PixelCoordinates {
@@ -82,7 +97,7 @@ export class CoordinateMapper {
 
     return {
       x: this.config.startX + positionInLine * this.config.measureWidth,
-      y: this.config.startY + line * this.config.staffHeight,
+      y: this.config.startY + line * this.systemHeight(),
     }
   }
 
@@ -169,7 +184,10 @@ export class CoordinateMapper {
    * Uses actual VexFlow bounds if available for accurate hit detection with dynamic widths
    */
   pixelToMeasure(coords: PixelCoordinates): number {
-    // First, try using actual measure bounds if available (supports dynamic widths)
+    // First, try using actual measure bounds if available (supports dynamic widths).
+    // `measureY` is the system top (staff 0); a click on any stacked staff falls within one
+    // systemHeight below it, so the vertical band spans the whole system, not one staff.
+    const systemHeight = this.systemHeight()
     if (this.measureBounds.size > 0) {
       // Find which measure contains the click coordinates
       for (const [measureNumber, bounds] of this.measureBounds.entries()) {
@@ -177,19 +195,19 @@ export class CoordinateMapper {
           coords.x >= bounds.measureX &&
           coords.x < bounds.measureX + bounds.measureWidth &&
           coords.y >= bounds.measureY &&
-          coords.y < bounds.measureY + this.config.staffHeight
+          coords.y < bounds.measureY + systemHeight
         ) {
           return measureNumber
         }
       }
 
       // If no exact match found, find the closest measure on the correct line
-      const line = Math.max(0, Math.floor((coords.y - this.config.startY) / this.config.staffHeight))
+      const line = Math.max(0, Math.floor((coords.y - this.config.startY) / systemHeight))
       let closestMeasure = 1
       let closestDistance = Infinity
 
       for (const [measureNumber, bounds] of this.measureBounds.entries()) {
-        const measureLine = Math.floor((bounds.measureY - this.config.startY) / this.config.staffHeight)
+        const measureLine = Math.floor((bounds.measureY - this.config.startY) / systemHeight)
         if (measureLine === line) {
           const measureCenterX = bounds.measureX + bounds.measureWidth / 2
           const distance = Math.abs(coords.x - measureCenterX)
@@ -204,7 +222,7 @@ export class CoordinateMapper {
     }
 
     // Fallback to calculated values (for uniform widths or when bounds not set)
-    const line = Math.max(0, Math.floor((coords.y - this.config.startY) / this.config.staffHeight))
+    const line = Math.max(0, Math.floor((coords.y - this.config.startY) / systemHeight))
     const posInLine = Math.max(0, Math.floor((coords.x - this.config.startX) / this.config.measureWidth))
 
     return line * this.config.measuresPerLine + posInLine + 1 // Convert to 1-indexed
