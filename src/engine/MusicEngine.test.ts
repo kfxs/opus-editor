@@ -419,6 +419,21 @@ describe('MusicEngine — dynamics', () => {
     expect(engine.getDynamics(1)).toHaveLength(1)
   })
 
+  // Multi-staff: dynamics are stamped with the placing staff's id so they render on that
+  // staff (the placement paths resolve it via engine.staffIdForIndex). Index 0 → absent.
+  it('staffIdForIndex follows the write convention (0 → absent, later → real id)', () => {
+    engine.addTempSecondStaff()
+    expect(engine.staffIdForIndex(0)).toBeUndefined()
+    expect(engine.staffIdForIndex(1)).toBe(engine.getScore().staves![1].id)
+  })
+
+  it('stamps the staffId on a dynamic placed on a later staff', () => {
+    engine.addTempSecondStaff()
+    const staff1Id = engine.getScore().staves![1].id
+    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f', staffId: staff1Id })
+    expect(d?.staffId).toBe(staff1Id)
+  })
+
   it('undo/redo restores and re-applies an added dynamic', () => {
     engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f' })
     expect(dynsOf(1)).toHaveLength(1)

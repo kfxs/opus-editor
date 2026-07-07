@@ -396,12 +396,16 @@ export class PaletteController {
     const note = engine.getNote(this.state.selectedNoteId)
     if (!note) return
     const beatStr = fracToNumber(note.beat).toFixed(3)
+    // The mark anchors to the selected note's STAFF (else it renders on staff 0). Absent
+    // staffId = staff 0 keeps single-staff output byte-identical.
+    const staffId = engine.staffIdForIndex(note.staff ?? 0)
+    const staffParam = staffId ? { staffId } : {}
     if (tool === 'text') {
-      engine.addDynamic(note.measure, { beat: note.beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below' })
-      console.log(`✓ Dynamic text at measure ${note.measure} beat ${beatStr} (on selected note ${this.state.selectedNoteId})`)
+      engine.addDynamic(note.measure, { beat: note.beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below', ...staffParam })
+      console.log(`✓ Dynamic text at measure ${note.measure} beat ${beatStr} staff ${note.staff ?? 0} (on selected note ${this.state.selectedNoteId})`)
     } else {
-      engine.addDynamic(note.measure, { beat: note.beat, kind: 'level', level: tool, voice: 0, placement: 'below' })
-      console.log(`✓ Dynamic ${tool} at measure ${note.measure} beat ${beatStr} (on selected note ${this.state.selectedNoteId})`)
+      engine.addDynamic(note.measure, { beat: note.beat, kind: 'level', level: tool, voice: 0, placement: 'below', ...staffParam })
+      console.log(`✓ Dynamic ${tool} at measure ${note.measure} beat ${beatStr} staff ${note.staff ?? 0} (on selected note ${this.state.selectedNoteId})`)
     }
     this.renderScore()
   }

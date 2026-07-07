@@ -1069,7 +1069,7 @@ export class MouseController {
     // Marking tools place at the click; each returns true if it consumed the click.
     if (this.placeTimeSignatureAtClick(engine, measureNum)) return
     if (this.placeClefAtClick(engine, x, measureNum)) return
-    if (this.placeDynamicAtClick(engine, x, measureNum)) return
+    if (this.placeDynamicAtClick(engine, x, y, measureNum)) return
 
     // No marking tool armed → note/tuplet entry.
     this.placeNoteAtClick(engine, registry, x, y, measureNum)
@@ -1122,20 +1122,24 @@ export class MouseController {
    * ONLY change here is to source the voice from a UI selector (or the active
    * voice) instead of the literal 0; the timeline math needs no rework.
    */
-  private placeDynamicAtClick(engine: MusicEngine, x: number, measureNum: number): boolean {
+  private placeDynamicAtClick(engine: MusicEngine, x: number, y: number, measureNum: number): boolean {
     if (!this.state.selectedDynamic) return false
     const tool = this.state.selectedDynamic
     const beat = this.resolveSlotBeat(engine, x, measureNum)
+    // Anchor the mark to the STAFF the click landed on (else it renders on staff 0).
+    const staff = engine.getElementRegistry().staffIndexAtY(measureNum, y)
+    const staffId = engine.staffIdForIndex(staff)
+    const staffParam = staffId ? { staffId } : {}
     if (tool === 'text') {
       // Custom-text mark: drop the default text. Edit it later by double-clicking
       // the mark with the selection tool (→ MouseController.handleDoubleClick).
-      engine.addDynamic(measureNum, { beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below' })
-      console.log(`✓ Dynamic text at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
+      engine.addDynamic(measureNum, { beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below', ...staffParam })
+      console.log(`✓ Dynamic text at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
       this.render.renderScore()
       return true
     }
-    engine.addDynamic(measureNum, { beat, kind: 'level', level: tool, voice: 0, placement: 'below' })
-    console.log(`✓ Dynamic ${tool} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
+    engine.addDynamic(measureNum, { beat, kind: 'level', level: tool, voice: 0, placement: 'below', ...staffParam })
+    console.log(`✓ Dynamic ${tool} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
     this.render.renderScore()
     return true
   }

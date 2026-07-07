@@ -7,7 +7,7 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
-import { getStaves } from './models/staffContent'
+import { getStaves, staffIdAtIndex } from './models/staffContent'
 import { midiToNoteName, beatToFrac, measureCapacityQuarters, compareByPosition, getMeasureNotes } from '@/utils/musicUtils'
 import { fracToNumber, fracEq, fracLt, fracCompare } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
@@ -439,6 +439,18 @@ export class MusicEngine {
   }
 
   // ==================== Dynamic Operations ====================
+
+  /**
+   * The `staffId` string to stamp for a 0-based staff index, following the write
+   * convention shared with note entry: the FIRST staff (index 0) stamps NO id (absent =
+   * staff 0, keeps single-staff output byte-identical); any later staff stamps its real
+   * id. Used by callers that place staff-anchored content storing a `staffId` directly
+   * (dynamics, clefs) — the analogue of {@link NoteParams.staff} → id for slots.
+   */
+  staffIdForIndex(index: number | undefined): string | undefined {
+    if (!index) return undefined
+    return staffIdAtIndex(this.scoreModel.getScore(), index)
+  }
 
   /**
    * Add a dynamic at (measure, dynamic.beat). `beat` must be a slot-boundary beat.
