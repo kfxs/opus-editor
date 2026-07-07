@@ -688,7 +688,18 @@ watch(() => state.isPanning, (panning) => {
 })
 
 // --- Computed ---
-const scoreJSON = computed(() => engine.value?.exportJSON() || '{}')
+// Dev-only Score JSON viewer. The engine's ScoreModel isn't a Vue reactive object, so a
+// `computed` never sees edits — just poll it into a ref. Cheap and easy to rip out later.
+const scoreJSON = ref('{}')
+let scoreJSONTimer: ReturnType<typeof setInterval> | undefined
+onMounted(() => {
+  scoreJSONTimer = setInterval(() => {
+    scoreJSON.value = engine.value?.exportJSON() || '{}'
+  }, 400)
+})
+onUnmounted(() => {
+  if (scoreJSONTimer) clearInterval(scoreJSONTimer)
+})
 
 // --- Time signature palette ---
 // Presets are shortcuts only; the engine supports any dyadic meter. Covers
