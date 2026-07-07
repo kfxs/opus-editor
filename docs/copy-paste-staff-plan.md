@@ -94,9 +94,16 @@ No migration needed (no persisted clips) — bump `version`, keep round-trip.
       dropped (`survivingAnchors` filter) so the clip's replaces it (no stacking). `ClipDynamicInput`
       declared in ScoreModel (engine never imports inward). Tests: capture+paste, offset re-base,
       fully-enclosed-only, overwrite-no-stack, cross-staff 1+2→3+4.
-- [ ] **Phase 3 — slurs travel.** Capture fully-enclosed slurs by endpoint
-      `(staff, voice, offset, pitch)`; re-anchor to the freshly-pasted notes' new ids —
-      reusing the existing `captureSlurs`/`restoreSlurs` re-anchor machinery from rebar.
+- [x] **Phase 3 — slurs travel. DONE.** `buildClipboardFromSelection` captures slurs with BOTH
+      endpoints inside the window (`slursInWindow`) as `ClipSlur{start/end Staff(rel),Voice,Offset,
+      Pitch, placement}` on `payload.slurs`; `pasteEvents` re-anchors via new `restoreClipSlurs` —
+      a STAFF-AWARE `(staff|voice|offset|pitch)→pitchId` lookup over the pasted region (the
+      existing `restoreSlurs` is staff-blind), rel→abs staff (drop overflow) + single-voice
+      re-voice + offset re-base, then `addSlur` on the re-found ids (skips if an endpoint is
+      unrecoverable or collapses to a point). `ClipSlurInput` declared in ScoreModel (boundary).
+      Carries endpoints + placement; the hand-tuned curveShape override does NOT travel yet
+      (deferred — pasted slurs get the auto arch). Tests: capture+re-anchor, offset re-base,
+      fully-enclosed-only, cross-staff 1+2→3+4.
 - [ ] **Phase 4 (optional) — clef changes travel; OS-clipboard JSON.**
 
 ## Reuse notes

@@ -211,10 +211,16 @@ export function useShortcuts(
         const items = [...state.selectedItems.values()]
         const noteIds = items.filter(i => i.kind === 'note').map(i => i.id)
         const dynIds = items.filter(i => i.kind === 'dynamic').map(i => i.id)
-        const label = `Delete ${noteIds.length} note(s)${dynIds.length ? ` + ${dynIds.length} dynamic(s)` : ''}`
+        const slurIds = items.filter(i => i.kind === 'slur').map(i => i.id)
+        const extra = [
+          dynIds.length ? `${dynIds.length} dynamic(s)` : '',
+          slurIds.length ? `${slurIds.length} slur(s)` : '',
+        ].filter(Boolean).join(' + ')
+        const label = `Delete ${noteIds.length} note(s)${extra ? ` + ${extra}` : ''}`
         eng.runBatch(label, () => {
           for (const id of noteIds) eng.deleteNote(id)
           for (const id of dynIds) eng.removeDynamic(id)
+          for (const id of slurIds) eng.removeSlur(id)
         })
         selection.selectNote(null)
         renderer.renderScore()

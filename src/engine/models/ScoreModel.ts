@@ -66,6 +66,21 @@ export type ClipDynamicInput = {
   placement?: 'above' | 'below'
 }
 
+/** A pitch identity used to re-find a clip slur endpoint on the pasted notes. */
+type ClipSlurPitchInput = { step: string; alter: number; octave: number }
+
+/**
+ * A clipboard slur handed to {@link ScoreModel.pasteEvents} for re-anchoring at paste time.
+ * Structurally identical to the interaction-layer `ClipSlur` (declared here so the engine
+ * never imports inward). Each endpoint is RELATIVE staff (0 = topmost copied staff) / voice /
+ * clip-relative offset / pitch. See docs/copy-paste-staff-plan.md P3.
+ */
+export type ClipSlurInput = {
+  startStaff: number; startVoice: number; startOffset: Fraction; startPitch: ClipSlurPitchInput
+  endStaff: number;   endVoice: number;   endOffset: Fraction;   endPitch: ClipSlurPitchInput
+  placement?: 'above' | 'below'
+}
+
 /**
  * A rest's manual vertical shift snapshotted before a rebar/paste, keyed by its absolute
  * beat offset from the region start (per voice) so it can travel into the new bar layout.
@@ -1171,6 +1186,7 @@ export class ScoreModel {
     clipRestHidden: { staff: number; voice: number; restHidden: Array<{ offset: Fraction }> }[] = [],
     targetStaff: number = 0,
     clipDynamics: ClipDynamicInput[] = [],
+    clipSlurs: ClipSlurInput[] = [],
   ): string[] {
     const ordered = [...this.score.measures].sort((a, b) => a.number - b.number)
     const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
@@ -1293,6 +1309,9 @@ export class ScoreModel {
     this.repairDanglingTies()
     this.restoreSlurs(regionNumbers, slurState)
     this.repairDanglingSlurs()
+    // Re-anchor the clip's own slurs onto the freshly-pasted notes (Phase 3), mapping rel→abs
+    // staff (drop overflow) + re-voicing single-voice clips — the slur analogue of clip dynamics.
+    this.restoreClipSlurs(regionNumbers, clipSlurs, targetStaff, targetVoice, singleVoice, pasteStart, staffCount)
     this.restoreBeatAnchors(regionNumbers, survivingAnchors)
     // Re-anchor the clip's own dynamics on top (Phase 2): re-base each clip-relative offset by the
     // paste start, map the RELATIVE staff onto an absolute one (clamped — drop overflow lanes), and
@@ -1732,6 +1751,72 @@ export class ScoreModel {
       }
       c.slur.startNoteId = newStart
       c.slur.endNoteId = newEnd
+    }
+  }
+
+  /**
+   * Create the clip's own slurs on the freshly-pasted notes (paste Phase 3). Each captured
+   * endpoint is addressed by RELATIVE staff / voice / clip-relative offset / pitch; this maps
+   * the staff onto an absolute one (`targetStaff + relStaff`, dropped if it overflows the staff
+   * count), re-voices a single-voice clip into the target voice, re-bases the offset by the
+   * paste start, and re-finds the note now sitting there — then adds a fresh {@link Slur}. A
+   * slur whose endpoint can't be re-found (note overwritten/clamped) or that collapses to a
+   * point is skipped. Uses a STAFF-AWARE lookup (unlike {@link restoreSlurs}, which is
+   * staff-blind) so a multi-staff paste anchors each endpoint on the intended staff.
+   */
+  private restoreClipSlurs(
+    regionNumbers: number[],
+    clipSlurs: ClipSlurInput[],
+    targetStaff: number,
+    targetVoice: number,
+    singleVoice: boolean,
+    pasteStart: Fraction,
+    staffCount: number,
+  ): void {
+    if (clipSlurs.length === 0) return
+
+    // (staff | voice | offset | pitch) -> pitch id, over the pasted region (first chord wins).
+    const offKey = (off: Fraction): string => { const r = fracCreate(off.num, off.den); return `${r.num}/${r.den}` }
+    const key = (staff: number, voice: number, off: Fraction, p: ClipSlurPitchInput): string =>
+      `${staff}|v${voice}|${offKey(off)}|${p.step}/${p.alter}/${p.octave}`
+
+    const lookup = new Map<string, string>()
+    let base = fracCreate(0, 1)
+    for (const num of regionNumbers) {
+      const m = this.getMeasure(num)
+      if (!m) continue
+      const cap = measureCapacityFrac(m)
+      for (const s of m.slots) {
+        if (s.type !== 'chord') continue
+        const staff = staffIndexOfId(this.score, s.staffId)
+        const voice = s.voice ?? 0
+        const offset = fracAdd(base, s.beat)
+        for (const p of s.notes) {
+          const k = key(staff, voice, offset, { step: p.step, alter: p.alter, octave: p.octave })
+          if (!lookup.has(k)) lookup.set(k, p.id)
+        }
+      }
+      base = fracAdd(base, cap)
+    }
+
+    const resolve = (relStaff: number, endVoice: number, relOffset: Fraction, pitch: ClipSlurPitchInput): string | undefined => {
+      const absStaff = targetStaff + relStaff
+      if (absStaff < 0 || absStaff >= staffCount) return undefined
+      const voice = singleVoice ? targetVoice : endVoice
+      return lookup.get(key(absStaff, voice, fracAdd(pasteStart, relOffset), pitch))
+    }
+
+    for (const cs of clipSlurs) {
+      const startId = resolve(cs.startStaff, cs.startVoice, cs.startOffset, cs.startPitch)
+      const endId = resolve(cs.endStaff, cs.endVoice, cs.endOffset, cs.endPitch)
+      if (!startId || !endId || startId === endId) continue
+      const voice = (singleVoice ? targetVoice : cs.startVoice) as 0 | 1 | 2 | 3
+      this.addSlur({
+        startNoteId: startId,
+        endNoteId: endId,
+        voice,
+        ...(cs.placement !== undefined ? { placement: cs.placement } : {}),
+      })
     }
   }
 

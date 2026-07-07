@@ -112,7 +112,7 @@ export class ClipboardController {
     const clipRestHidden = this.payload.lanes
       .filter((l) => l.restHidden?.length)
       .map((l) => ({ staff: l.staff, voice: l.voice, restHidden: l.restHidden! }))
-    const pastedIds = engine.pasteEvents(measure, beat, this.payload.lanes, this.payload.spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, this.payload.dynamics)
+    const pastedIds = engine.pasteEvents(measure, beat, this.payload.lanes, this.payload.spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, this.payload.dynamics, this.payload.slurs)
     console.log(`[Clipboard] pasted ${pastedIds.length} note(s) at measure ${measure} beat ${fracToNumber(beat)}`)
     this.selection.selectNotes(pastedIds)
     this.state.showCursor = true

@@ -586,18 +586,33 @@ export class HighlightController {
   applySlurSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
-    if (!engine || !scoreCanvas || !this.state.selectedSlurId) return
+    if (!engine || !scoreCanvas) return
 
+    // Highlight every selected slur: the scalar single-click selection (selectedSlurId, which
+    // also gets draggable handles) AND any slur fully covered by a Shift-click box (kind 'slur'
+    // items in selectedItems, colour only — no handles).
+    const ids = new Set<string>()
+    if (this.state.selectedSlurId) ids.add(this.state.selectedSlurId)
+    for (const item of this.state.selectedItems.values()) {
+      if (item.kind === 'slur') ids.add(item.id)
+    }
+    for (const id of ids) this.recolorSlur(id)
+  }
+
+  /** Paint one slur in its voice's colour, inside its OWN `<g class="vf-slur">` group only. */
+  private recolorSlur(slurId: string): void {
+    const engine = this.getEngine()
+    if (!engine) return
     // Recolor inside the slur's OWN <g class="vf-slur"> group only — never a
     // document-wide bbox path-scan, which would bleed onto beams/ties/other arcs
     // sitting inside a long slur's bounding rectangle (see docs/slur-plan.md §3).
-    const group = engine.getSlurSVGGroup(this.state.selectedSlurId)
+    const group = engine.getSlurSVGGroup(slurId)
     if (!group) return
 
     // Paint the slur in ITS voice's colour (V1 blue, V2 green — Sibelius-style;
     // matches the notehead/tie highlight) rather than a uniform orange. Slur.voice
     // is unreliable (created as 0), so derive it from the start-note's voice.
-    const slur = engine.getScore().slurs?.find(s => s.id === this.state.selectedSlurId)
+    const slur = engine.getScore().slurs?.find(s => s.id === slurId)
     const voice = slur ? (engine.getNote(slur.startNoteId)?.voice ?? 0) : 0
     const SELECTION_COLOR = voiceFillColor(voice)
     // Curve.renderCurve strokes AND fills, so each <path> carries both a stroke and a

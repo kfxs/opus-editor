@@ -71,6 +71,21 @@ export interface ClipDynamic {
   placement?: 'above' | 'below'
 }
 
+/** A pitch identity used to re-find a slur endpoint on the pasted notes. */
+interface ClipSlurPitch { step: string; alter: number; octave: number }
+
+/**
+ * A slur captured inside the copy window, re-anchored on paste (Phase 3). Both endpoints are
+ * addressed by RELATIVE staff (0 = topmost copied staff), voice, clip-relative offset, and
+ * pitch — so paste re-finds the freshly-pasted note that now sits at that position. Only slurs
+ * with BOTH endpoints fully inside the window travel (decision: fully-enclosed-only).
+ */
+export interface ClipSlur {
+  startStaff: number; startVoice: number; startOffset: Fraction; startPitch: ClipSlurPitch
+  endStaff: number;   endVoice: number;   endOffset: Fraction;   endPitch: ClipSlurPitch
+  placement?: 'above' | 'below'
+}
+
 export interface ClipboardPayload {
   format: 'opus-editor/clipboard'
   version: 3
@@ -89,7 +104,9 @@ export interface ClipboardPayload {
   lanes: ClipboardLane[]
   /** Dynamics fully inside the copy window, re-anchored on paste (Phase 2). Absent/empty = none. */
   dynamics: ClipDynamic[]
-  // future: slurs?: ClipSlur[]; clefs?: ClipboardClef[]; ...
+  /** Slurs fully inside the copy window, re-anchored on paste (Phase 3). Absent/empty = none. */
+  slurs: ClipSlur[]
+  // future: clefs?: ClipboardClef[]; ...
 }
 
 /** Cumulative quarter-beat offset of each measure's start, keyed by measure number. */
@@ -236,6 +253,57 @@ function dynamicsInWindow(
 }
 
 /**
+ * Slurs with BOTH endpoints fully inside the copy window `[spanStart, spanEnd)` and on staves
+ * within the copied span, as {@link ClipSlur}s: each endpoint addressed by relative staff /
+ * voice / offset / pitch so paste can re-find the freshly-pasted note. A slur with an endpoint
+ * outside the window is left behind (decision: fully-enclosed-only).
+ */
+function slursInWindow(
+  score: Score,
+  topStaff: number,
+  maxStaff: number,
+  spanStart: Fraction,
+  spanEnd: Fraction,
+): ClipSlur[] {
+  const slurs = score.slurs
+  if (!slurs || slurs.length === 0) return []
+
+  // Endpoint note id → its absolute onset / staff / voice / pitch (non-rest notes only).
+  type EP = { abs: Fraction; staff: number; voice: number; pitch: ClipSlurPitch }
+  const info = new Map<string, EP>()
+  const starts = measureStartOffsets(score)
+  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
+    const mStart = starts.get(m.number)
+    if (!mStart) continue
+    for (const n of getMeasureNotes(m, score)) {
+      if (n.isRest || n.step === undefined || n.octave === undefined) continue
+      info.set(n.id, {
+        abs: fracAdd(mStart, n.beat),
+        staff: n.staff ?? 0,
+        voice: n.voice ?? 0,
+        pitch: { step: n.step, alter: n.alter ?? 0, octave: n.octave },
+      })
+    }
+  }
+
+  const enclosed = (e: EP | undefined): e is EP =>
+    !!e && fracGte(e.abs, spanStart) && fracLt(e.abs, spanEnd) && e.staff >= topStaff && e.staff <= maxStaff
+
+  const out: ClipSlur[] = []
+  for (const slur of slurs) {
+    const s = info.get(slur.startNoteId)
+    const e = info.get(slur.endNoteId)
+    if (!enclosed(s) || !enclosed(e)) continue
+    out.push({
+      startStaff: s.staff - topStaff, startVoice: s.voice, startOffset: fracSub(s.abs, spanStart), startPitch: s.pitch,
+      endStaff: e.staff - topStaff, endVoice: e.voice, endOffset: fracSub(e.abs, spanStart), endPitch: e.pitch,
+      ...(slur.placement !== undefined ? { placement: slur.placement } : {}),
+    })
+  }
+  return out
+}
+
+/**
  * Build a {@link ClipboardPayload} from a note selection. Copies the contiguous
  * musical span from the first to the last selected note (so a Shift range copies
  * exactly; a scattered Ctrl selection copies the whole span between its endpoints,
@@ -289,8 +357,10 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
   // Usable if any lane carries note events OR a shifted/hidden rest (a lone one still copies).
   if (lanes.every((l) => l.events.length === 0 && !l.restShifts?.length && !l.restHidden?.length)) return null
 
-  // Dynamics fully inside the window travel too (Phase 2), staff re-based to the topmost copied staff.
+  // Dynamics (Phase 2) and slurs (Phase 3) fully inside the window travel too, staff re-based
+  // to the topmost copied staff.
   const dynamics = dynamicsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
+  const slurs = slursInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
 
   // Origin = the (measure, beat) of the earliest selected note, for reference.
   const starts = measureStartOffsets(score)
@@ -306,7 +376,7 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
     }
   }
 
-  return { format: 'opus-editor/clipboard', version: 3, origin, spanBeats, spanStaves, lanes, dynamics }
+  return { format: 'opus-editor/clipboard', version: 3, origin, spanBeats, spanStaves, lanes, dynamics, slurs }
 }
 
 /** The (measure, beat, voice, staff) of the earliest note in a selection — the paste target
@@ -349,5 +419,6 @@ export function clipboardSummary(p: ClipboardPayload): string {
     return `s${ln.staff}v${ln.voice + 1}: ${parts.join(' ') || '(empty)'}`
   })
   const dyn = p.dynamics.length ? `, ${p.dynamics.length} dynamic(s)` : ''
-  return `${total} event(s) across ${p.lanes.length} lane(s) / ${p.spanStaves} staff(s)${dyn}, span ${fracToNumber(p.spanBeats)}b — ${perLane.join(' | ')}`
+  const slr = p.slurs.length ? `, ${p.slurs.length} slur(s)` : ''
+  return `${total} event(s) across ${p.lanes.length} lane(s) / ${p.spanStaves} staff(s)${dyn}${slr}, span ${fracToNumber(p.spanBeats)}b — ${perLane.join(' | ')}`
 }

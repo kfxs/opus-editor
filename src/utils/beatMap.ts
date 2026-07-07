@@ -236,6 +236,18 @@ export function dynamicsInBox(score: Score, noteIds: string[]): string[] {
 }
 
 /**
+ * Slur ids whose BOTH endpoints are among `noteIds` — the slurs fully covered by a Shift-click
+ * box, so they highlight with the selection (and match the fully-enclosed rule copy uses). A
+ * slur with only one endpoint in the box is left out.
+ */
+export function slursInBox(score: Score, noteIds: string[]): string[] {
+  const slurs = score.slurs
+  if (!slurs || slurs.length === 0 || !noteIds.length) return []
+  const ids = new Set(noteIds)
+  return slurs.filter(s => ids.has(s.startNoteId) && ids.has(s.endNoteId)).map(s => s.id)
+}
+
+/**
  * Grow a set of note ids to include every note in each one's maximal TIE CHAIN.
  *
  * A tie chain (note → `tiedTo` … and back via `tiedFrom`) is one held note: same

@@ -414,3 +414,81 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     expect(dynsOf(2, 2)).toEqual([])       // nothing spurious on staff 2
   })
 })
+
+describe('clipboard — slurs travel (Phase 3)', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  /** Id of the non-rest note at `label` (e.g. 'C4@0') on a given staff of a measure. */
+  const idAt = (m: number, staff: number, label: string) => {
+    const score = engine.getScore()
+    const meas = score.measures.find(x => x.number === m)!
+    return getMeasureNotes(meas, score)
+      .find(n => !n.isRest && (n.staff ?? 0) === staff && `${n.step}${n.octave}@${fracToNumber(n.beat)}` === label)?.id
+  }
+
+  /** Add C D E F quarters on beats 0..3 of a measure/staff; return their ids. */
+  const fill = (m: number, staff = 0) => (['C', 'D', 'E', 'F'] as const).map((s, b) =>
+    engine.addNoteAtBeat({ step: s, alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1), staff })!.id)
+
+  it('copies a slur and re-anchors it onto the pasted notes', () => {
+    const ids = fill(1)
+    engine.createSlur([ids[0], ids[3]]) // slur C4@0 → F4@3
+
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
+    expect(payload.slurs).toHaveLength(1)
+    expect(payload.slurs[0].startPitch).toMatchObject({ step: 'C', octave: 4 })
+    expect(payload.slurs[0].endPitch).toMatchObject({ step: 'F', octave: 4 })
+
+    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, payload.dynamics, payload.slurs)
+
+    const pasted = (engine.getScore().slurs ?? []).filter(s => s.startNoteId === idAt(2, 0, 'C4@0'))
+    expect(pasted).toHaveLength(1)
+    expect(pasted[0].endNoteId).toBe(idAt(2, 0, 'F4@3')) // re-anchored to the pasted notes
+  })
+
+  it('leaves a slur with an endpoint outside the copy window behind (fully-enclosed-only)', () => {
+    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    const e = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
+    engine.createSlur([c, e]) // C@0 → E@2
+
+    // Copy only C+D → window [0,2); E@2 is on the boundary → slur not enclosed.
+    const payload = buildClipboardFromSelection(engine.getScore(), [c, d])!
+    expect(payload.slurs).toHaveLength(0)
+  })
+
+  it('re-bases a slur to the paste offset', () => {
+    const ids = fill(1) // C D E F @ 0..3
+    engine.createSlur([ids[1], ids[2]]) // slur D4@1 → E4@2
+
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
+    // Paste at m2 beat 0: the slur's D (clip offset 1) and E (offset 2) land at beats 1 and 2.
+    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, payload.dynamics, payload.slurs)
+
+    const pasted = (engine.getScore().slurs ?? []).filter(s => s.startNoteId === idAt(2, 0, 'D4@1'))
+    expect(pasted).toHaveLength(1)
+    expect(pasted[0].endNoteId).toBe(idAt(2, 0, 'E4@2'))
+  })
+
+  it('carries a slur across staves (1+2 → 3+4)', () => {
+    engine.addStaffBelow(0)
+    engine.addStaffBelow(1)
+    engine.addStaffBelow(2) // staves 0..3
+    const s0 = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
+    const a = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
+    const b = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), staff: 1 })!.id
+    engine.createSlur([a, b]) // slur on staff 1
+
+    const payload = buildClipboardFromSelection(engine.getScore(), [s0, a, b])!
+    expect(payload.slurs).toHaveLength(1)
+    expect(payload.slurs[0].startStaff).toBe(1) // relative staff 1 (bottom copied)
+
+    // Paste onto staff 2 → the slur re-anchors on staff 3 (relStaff 1 + target 2).
+    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 2, payload.dynamics, payload.slurs)
+
+    const pasted = (engine.getScore().slurs ?? []).filter(s => s.startNoteId === idAt(2, 3, 'C4@0'))
+    expect(pasted).toHaveLength(1)
+    expect(pasted[0].endNoteId).toBe(idAt(2, 3, 'D4@1'))
+  })
+})

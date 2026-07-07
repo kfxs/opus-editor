@@ -1,4 +1,4 @@
-import { ScoreModel, type ClipDynamicInput } from './models/ScoreModel'
+import { ScoreModel, type ClipDynamicInput, type ClipSlurInput } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
 import type { Rect } from './ViewportModel'
@@ -581,8 +581,9 @@ export class MusicEngine {
     clipRestHidden: { staff: number; voice: number; restHidden: Array<{ offset: Fraction }> }[] = [],
     targetStaff: number = 0,
     clipDynamics: ClipDynamicInput[] = [],
+    clipSlurs: ClipSlurInput[] = [],
   ): string[] {
-    const ids = this.scoreModel.pasteEvents(measure, beat, lanes, spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, clipDynamics)
+    const ids = this.scoreModel.pasteEvents(measure, beat, lanes, spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, clipDynamics, clipSlurs)
     this.commit('Paste')
     return ids
   }
