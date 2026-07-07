@@ -36,7 +36,7 @@ import {
 import { effectiveClefAt, measureOpeningClef, middleLineDiatonicPos } from '@/utils/clefUtils'
 import * as clefOps from './clefOps'
 import { toFlatNote, restToFlatNote } from './noteProjection'
-import { staffIndexOfId, matchesStaff, staffIdAtIndex } from './staffContent'
+import { staffIndexOfId, matchesStaff, staffIdAtIndex, staffMeasureView } from './staffContent'
 import * as tupletOps from './tupletOps'
 import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
 import { v4 as uuidv4 } from 'uuid'
@@ -47,7 +47,7 @@ import { v4 as uuidv4 } from 'uuid'
  * into the new bar layout. See {@link ScoreModel.captureBeatAnchors}.
  */
 type CapturedAnchor =
-  | { kind: 'clef'; absBeat: Fraction; clef: Clef }
+  | { kind: 'clef'; absBeat: Fraction; clef: Clef; staffId?: string }
   | { kind: 'dynamic'; absBeat: Fraction; dyn: Dynamic }
 
 /**
@@ -1003,16 +1003,28 @@ export class ScoreModel {
     // rest-fill regenerates every rest with a fresh id. Re-stamped after materialise.
     const restShifts = this.captureRestShifts(regionMeasures)
 
-    // Distinct voices present in the region (always include voice 0).
-    const voices = new Set<number>([0])
-    for (const m of regionMeasures) for (const s of m.slots) voices.add(s.voice ?? 0)
+    // Rebar runs one lane per (STAFF, voice): each staff is an independent stream on the
+    // shared bar spine, exactly like each voice. Flattening the whole measure per-voice
+    // (the pre-multi-staff path) merged every staff's notes into one stream — a TS change
+    // then collapsed staff 2's music onto staff 1. Narrow each region measure to the staff
+    // first (staffMeasureView filters slots+tuplets) so flattenRegion stays staff-agnostic.
+    const staffIndices = (this.score.staves ?? []).length > 0
+      ? (this.score.staves ?? []).map((_, i) => i)
+      : [0]
 
-    // Flatten EVERY voice against the CURRENT (old) meter — this MUST happen before
-    // the meter overwrite, because flattenRegion reads each measure's timeSignature
-    // to compute offsets. (Folding the overwrite into a per-voice loop would flatten
-    // later voices against the new meter = the exact corruption this fixes.)
-    const eventsByVoice = new Map<number, RebarEvent[]>()
-    for (const v of voices) eventsByVoice.set(v, flattenRegion(regionMeasures, v as 0 | 1 | 2 | 3))
+    // Flatten EVERY (staff, voice) lane against the CURRENT (old) meter — this MUST happen
+    // before the meter overwrite, because flattenRegion reads each measure's timeSignature
+    // to compute offsets.
+    const laneEvents: Array<{ staff: number; voice: number; events: RebarEvent[] }> = []
+    for (const staff of staffIndices) {
+      const staffId = staffIdAtIndex(this.score, staff)
+      const narrowed = regionMeasures.map(m => staffMeasureView(m, staffId, this.score))
+      const voices = new Set<number>([0])
+      for (const nm of narrowed) for (const s of nm.slots) voices.add(s.voice ?? 0)
+      for (const v of voices) {
+        laneEvents.push({ staff, voice: v, events: flattenRegion(narrowed, v as 0 | 1 | 2 | 3) })
+      }
+    }
 
     // Apply the new meter to every region measure. Re-barring rewrites bars to
     // nominal length, so any pickup override on a rewritten bar is cleared (v1).
@@ -1021,15 +1033,14 @@ export class ScoreModel {
       delete m.actualDurationOverride
     }
 
-    // Relay EACH voice against the NEW meter. Always grow (bounded: false):
-    // overflow becomes MORE bars, never crammed. The region grows to the LONGEST
-    // voice's plan.
+    // Relay EACH lane against the NEW meter. Always grow (bounded: false): overflow
+    // becomes MORE bars, never crammed. The region grows to the LONGEST lane's plan.
     const meter = getMeterInfo(ts)
-    const plans = new Map<number, BarPlan[]>()
+    const lanes: Array<{ staff: number; voice: number; plan: BarPlan[] }> = []
     let maxBars = targetBars
-    for (const v of voices) {
-      const plan = relayEvents(eventsByVoice.get(v)!, meter, { targetBars, bounded: false })
-      plans.set(v, plan)
+    for (const lane of laneEvents) {
+      const plan = relayEvents(lane.events, meter, { targetBars, bounded: false })
+      lanes.push({ staff: lane.staff, voice: lane.voice, plan })
       if (plan.length > maxBars) maxBars = plan.length
     }
 
@@ -1048,8 +1059,8 @@ export class ScoreModel {
     const regionNumbers: number[] = []
     for (let i = 0; i < maxBars; i++) regionNumbers.push(fromMeasure + i)
 
-    // Materialise every voice additively (clear-once → per-voice fill → collapse).
-    this.materializeRegion(regionNumbers, plans)
+    // Materialise every (staff, voice) lane additively (clear-once → per-lane fill → collapse).
+    this.materializeRegion(regionNumbers, lanes)
 
     // Re-barring regenerated the region's slot ids, so a tie that crossed the
     // region boundary now points at a deleted id. Re-attach it to the rebar'd
@@ -1175,7 +1186,10 @@ export class ScoreModel {
       regionNumbers.push(this.addMeasure(ts).number)
     }
 
-    const created = this.materializeRegion(regionNumbers, plans)
+    // Paste stays active-staff-scoped (staff axis deferred — docs/multi-staff-plan.md §4/§11):
+    // materialise its per-voice plans as staff-0 lanes (byte-identical to the pre-lane path).
+    const pasteLanes = [...plans.entries()].map(([voice, plan]) => ({ staff: 0, voice, plan }))
+    const created = this.materializeRegion(regionNumbers, pasteLanes)
     this.restoreBoundaryTies(targetMeasure, regionNumbers[regionNumbers.length - 1], boundary)
     this.repairDanglingTies()
     this.restoreSlurs(regionNumbers, slurState)
@@ -1240,7 +1254,7 @@ export class ScoreModel {
     for (const m of regionMeasures) {
       const cap = measureCapacityFrac(m)
       for (const c of m.clefs ?? []) {
-        out.push({ kind: 'clef', absBeat: fracAdd(base, c.beat), clef: c.clef })
+        out.push({ kind: 'clef', absBeat: fracAdd(base, c.beat), clef: c.clef, staffId: c.staffId })
       }
       for (const d of m.dynamics ?? []) {
         out.push({ kind: 'dynamic', absBeat: fracAdd(base, d.beat), dyn: d })
@@ -1286,9 +1300,10 @@ export class ScoreModel {
 
       if (a.kind === 'clef') {
         if (!m.clefs) m.clefs = []
-        const dup = m.clefs.findIndex((c) => fracCompare(c.beat, beat) === 0)
+        // Dedupe within the SAME staff only — a staff-0 and staff-1 clef change may share a beat.
+        const dup = m.clefs.findIndex((c) => fracCompare(c.beat, beat) === 0 && matchesStaff(c.staffId, a.staffId, this.score))
         if (dup !== -1) m.clefs.splice(dup, 1)
-        m.clefs.push({ id: uuidv4(), beat, clef: a.clef })
+        m.clefs.push({ id: uuidv4(), beat, clef: a.clef, ...(a.staffId !== undefined ? { staffId: a.staffId } : {}) })
         m.clefs.sort((x, y) => fracCompare(x.beat, y.beat))
       } else {
         // Dynamics may stack at one (beat, voice) — keep them all (no dedupe).
@@ -1638,11 +1653,15 @@ export class ScoreModel {
     measure: Measure,
     plan: RebarPiece[],
     voice: number,
+    staff: number,
     created: Array<{ piece: RebarPiece; chord: Chord }>,
   ): void {
+    // The staffId this lane's slots carry (absent = staff 0, byte-identical at N=1). Tuplet
+    // (atomic) slots already carry it via structuredClone of the captured source slots.
+    const staffId = this.staffIdForParams(staff)
     for (const piece of plan) {
       if (piece.atomic && piece.payload) {
-        // Tuplet: structuredClone preserves the source slot's voice — no voice arg.
+        // Tuplet: structuredClone preserves the source slot's voice AND staff — no args.
         this.materializeAtomicPiece(measure, piece)
         continue
       }
@@ -1651,6 +1670,7 @@ export class ScoreModel {
           measure,
           { beat: piece.beat, duration: piece.duration, dots: piece.dots, isMeasureRest: piece.isMeasureRest },
           voice,
+          staffId,
         )
         continue
       }
@@ -1668,6 +1688,7 @@ export class ScoreModel {
         }),
       }
       if (voice) chord.voice = voice as 0 | 1 | 2 | 3
+      if (staffId !== undefined) chord.staffId = staffId
       if (piece.dots) chord.dots = piece.dots
       if (piece.stemDirection) chord.stemDirection = piece.stemDirection
       if (piece.articulations) chord.articulations = piece.articulations
@@ -1693,7 +1714,7 @@ export class ScoreModel {
    */
   private materializeRegion(
     regionNumbers: number[],
-    plans: Map<number, BarPlan[]>,
+    lanes: Array<{ staff: number; voice: number; plan: BarPlan[] }>,
   ): Array<{ piece: RebarPiece; chord: Chord }> {
     for (const num of regionNumbers) {
       const m = this.getMeasure(num)
@@ -1701,13 +1722,13 @@ export class ScoreModel {
     }
 
     const allCreated: Array<{ piece: RebarPiece; chord: Chord }> = []
-    for (const [voice, plan] of plans) {
+    for (const { staff, voice, plan } of lanes) {
       const created: Array<{ piece: RebarPiece; chord: Chord }> = []
       for (let i = 0; i < plan.length; i++) {
         const m = this.getMeasure(regionNumbers[i])
-        if (m) this.materializeVoiceBar(m, plan[i], voice, created)
+        if (m) this.materializeVoiceBar(m, plan[i], voice, staff, created)
       }
-      this.linkRebarTies(created) // per-voice chain only
+      this.linkRebarTies(created) // per-(staff,voice) chain only
       allCreated.push(...created)
     }
 

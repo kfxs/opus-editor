@@ -2067,4 +2067,38 @@ describe('rest-shift travel (option 3)', () => {
       expect(overlaps).toBe(false)
     })
   })
+
+  // Multi-staff rebar: a TS change re-bars every staff on the shared spine INDEPENDENTLY.
+  // Before the (staff,voice) lane fix, flattenRegion merged both staves into one voice-0
+  // stream, so a TS change collapsed staff 1's music onto staff 0.
+  describe('rebar staff scoping (TS change)', () => {
+    beforeEach(() => {
+      model.addMeasure() // measure 2
+      model.addTempSecondStaff()
+    })
+
+    it('keeps each staff\'s pitches on its own staff after a time-signature change', () => {
+      const staff1Id = model.getScore().staves![1].id
+      // Distinct content per staff in m2: treble G4 quarters, bass C3 quarters.
+      model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1), staff: 0 })
+      model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 2, beat: frac(1, 1), staff: 0 })
+      model.addNote({ step: 'C', octave: 3, duration: 'q', measure: 2, beat: frac(0, 1), staff: 1 })
+      model.addNote({ step: 'C', octave: 3, duration: 'q', measure: 2, beat: frac(1, 1), staff: 1 })
+
+      model.setTimeSignature(2, { numerator: 2, denominator: 4 })
+
+      // Scope to m2 (the region m1 keeps the temp staff's own seeded notes).
+      const notes = model.getNotesInMeasure(2).filter(n => !n.isRest)
+      const treble = notes.filter(n => (n.staff ?? 0) === 0)
+      const bass = notes.filter(n => (n.staff ?? 0) === 1)
+      // Neither staff's notes leaked onto the other; pitches stayed put.
+      expect(treble.length).toBeGreaterThan(0)
+      expect(treble.every(n => n.step === 'G' && n.octave === 4)).toBe(true)
+      expect(bass.length).toBeGreaterThan(0)
+      expect(bass.every(n => n.step === 'C' && n.octave === 3)).toBe(true)
+      // Bass notes carry the real staffId (didn't collapse to absent = staff 0).
+      const bassSlots = model.getSlotsInMeasure(2).filter(s => s.type === 'chord' && s.staffId === staff1Id)
+      expect(bassSlots.length).toBeGreaterThan(0)
+    })
+  })
 })
