@@ -1235,9 +1235,10 @@ export class MusicEngine {
     spelling: PitchSpelling,
     numNotes: number = 3,
     notesOccupied: number = 2,
-    voice: number = 0
+    voice: number = 0,
+    staff: number = 0
   ): { tuplet: Tuplet; firstNote: Note } | null {
-    return this.noteEntryCoordinator.createTupletAtBeat(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice)
+    return this.noteEntryCoordinator.createTupletAtBeat(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice, staff)
   }
 
   /**
@@ -1283,8 +1284,8 @@ export class MusicEngine {
   /**
    * Get the tuplet at a specific beat position in a measure
    */
-  getTupletAtBeat(measureNumber: number, beat: Fraction, voice?: number): Tuplet | undefined {
-    return this.scoreModel.getTupletAtBeat(measureNumber, beat, voice)
+  getTupletAtBeat(measureNumber: number, beat: Fraction, voice?: number, staff?: number): Tuplet | undefined {
+    return this.scoreModel.getTupletAtBeat(measureNumber, beat, voice, staff)
   }
 
   /**

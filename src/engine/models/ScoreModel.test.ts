@@ -3,6 +3,7 @@ import { ScoreModel } from './ScoreModel'
 import { curveShapeOverrideOf, restPositionKey, restShiftOverrideOf } from './engravingOverrides'
 import type { NoteParams, Slur } from '@/types/music'
 import { fracCreate as frac, fracCompare, fracToNumber } from '@/utils/fraction'
+import { getTupletTotalBeatsFrac } from '@/utils/musicUtils'
 import type { ChordRest } from '@/types/music'
 
 describe('ScoreModel', () => {
@@ -2022,6 +2023,48 @@ describe('rest-shift travel (option 3)', () => {
       const trebleChord = slots.find(s => s.type === 'chord' && s.staffId === undefined && fracToNumber(s.beat) === 0)
       expect(trebleChord).toBeDefined()
       expect(trebleChord!.staffId).toBeUndefined()
+    })
+
+    // Converting a rest → note in place (keyboard edit-in-place) must KEEP the rest's staff.
+    // Before the fix the new chord dropped staffId and jumped to staff 0.
+    it('preserves the staff when a staff-1 rest is converted to a note', () => {
+      const staff1Id = model.getScore().staves![1].id
+      // A rest on staff 1 at m1 beat 2 (staff 1's half note there is replaced first).
+      const rest = model.addNote({ duration: 'h', measure: 1, beat: frac(2, 1), isRest: true, staff: 1 })
+      expect(rest.staff).toBe(1)
+      const updated = model.updateNote(rest.id, { step: 'E', alter: 0, octave: 3, isRest: false })
+      expect(updated.staff).toBe(1)
+      const chord = model.getSlotsInMeasure(1).find(s => s.type === 'chord' && s.staffId === staff1Id && fracToNumber(s.beat) === 2)
+      expect(chord).toBeDefined()
+    })
+  })
+
+  // Multi-staff tuplet entry: a tuplet created on staff 1 must stamp its staffId and place
+  // its filler rests on staff 1 — not silently on staff 0.
+  describe('createTuplet staff scoping', () => {
+    beforeEach(() => {
+      model.addTempSecondStaff()
+    })
+
+    it('stamps the target staffId on a tuplet created on a later staff', () => {
+      const staff1Id = model.getScore().staves![1].id
+      const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2, 0, 1)
+      expect(tuplet.staffId).toBe(staff1Id)
+    })
+
+    it('places filler rests on the tuplet\'s own staff', () => {
+      const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2, 0, 1)
+      model.refillTupletRemainder(1, tuplet, 0)
+      const restsInTuplet = model.getNotesInTuplet(tuplet.id)
+      expect(restsInTuplet.length).toBeGreaterThan(0)
+      expect(restsInTuplet.every(n => (n.staff ?? 0) === 1)).toBe(true)
+    })
+
+    it('leaves a staff-0 tuplet free to coexist with a staff-1 tuplet at the same beat', () => {
+      model.createTuplet(1, frac(0, 1), '8', 3, 2, 0, 0)
+      // A staff-1 tuplet at the same beat is NOT blocked by the staff-0 one.
+      const overlaps = model.tupletSpanOverlaps(1, frac(0, 1), getTupletTotalBeatsFrac('8', 2), 0, 1)
+      expect(overlaps).toBe(false)
     })
   })
 })

@@ -164,7 +164,7 @@ export class KeyboardController {
     const targetMidi = naturalPitchClass + 12 * k
     const octave = Math.floor(targetMidi / 12) - 1
 
-    const existingTuplet = engine.getTupletAtBeat(targetMeasure, targetBeat, cursorVoice)
+    const existingTuplet = engine.getTupletAtBeat(targetMeasure, targetBeat, cursorVoice, cursorStaff)
     console.log(`KeyboardEntry RAW | ${step}${alter !== 0 ? (alter > 0 ? '#' : 'b') : ''} dur:${this.state.selectedDuration} measure:${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(3)} tupletMode:${this.state.tupletMode} existingTuplet:${existingTuplet ? existingTuplet.id : 'none'}`)
 
     const measure = score.measures.find(m => m.number === targetMeasure)
@@ -181,6 +181,7 @@ export class KeyboardController {
         3,
         2,
         cursorVoice,
+        cursorStaff,
       )
       newNote = result ? result.firstNote : null
     } else {

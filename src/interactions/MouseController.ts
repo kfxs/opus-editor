@@ -1182,7 +1182,9 @@ export class MouseController {
             console.log('✗ Note NOT added to tuplet (collision or invalid location)')
           }
         } else {
-          const naturalSpelling = registry.pixelYToPitch(y, measureNum)
+          // Spell the first note against the CLICKED staff's clef (bass 2nd staff ≠ treble).
+          const tupletStaff = registry.staffIndexAtY(measureNum, y)
+          const naturalSpelling = registry.pixelYToPitch(y, measureNum, x, tupletStaff)
           const spelling: PitchSpelling = naturalSpelling
             ? { ...naturalSpelling, alter: accidentalToAlter(this.state.selectedAccidental) }
             : { step: 'B', alter: 0, octave: 4 }

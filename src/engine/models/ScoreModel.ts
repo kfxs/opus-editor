@@ -2327,6 +2327,7 @@ export class ScoreModel {
           dots: updates.dots ?? rest.dots,
           measure: rest.measure,
           voice: rest.voice,  // a rest converted to a note keeps its voice
+          staffId: rest.staffId,  // ...and its staff — else it jumps to staff 0
           tupletId: updates.tupletId ?? rest.tupletId,
           actualDuration: rest.actualDuration,
           articulations: updates.articulations,
@@ -2794,8 +2795,11 @@ export class ScoreModel {
       removedSourceSlot = true
     }
 
-    // Create the matching tuplet in the target voice (clears its span there).
-    const targetTuplet = this.createTuplet(measure.number, startBeat, baseDuration, numNotes, notesOccupied, targetVoice)
+    // Create the matching tuplet in the target voice, on the note's OWN staff (a
+    // voice-move stays on the same staff), so a staff-1 note doesn't drop to staff 0.
+    const targetStaffId = chord.staffId
+    const targetStaff = staffIndexOfId(this.score, targetStaffId)
+    const targetTuplet = this.createTuplet(measure.number, startBeat, baseDuration, numNotes, notesOccupied, targetVoice, targetStaff)
 
     // Which grid slot a beat lands on exactly (−1 if it's between slots).
     const gridIndexOf = (beat: Fraction): number => {
@@ -2843,6 +2847,7 @@ export class ScoreModel {
         notes: pitches,
       }
       if (targetVoice) newChord.voice = targetVoice as 0 | 1 | 2 | 3
+      if (targetStaffId !== undefined) newChord.staffId = targetStaffId
       measure.slots.push(newChord)
     }
 
@@ -2931,8 +2936,9 @@ export class ScoreModel {
     numNotes: number = 3,
     notesOccupied: number = 2,
     voice: number = 0,
+    staff: number = 0,
   ): Tuplet {
-    return tupletOps.createTuplet(this.score, measureNumber, startBeat, baseDuration, numNotes, notesOccupied, voice)
+    return tupletOps.createTuplet(this.score, measureNumber, startBeat, baseDuration, numNotes, notesOccupied, voice, staff)
   }
 
   /**
@@ -2952,16 +2958,16 @@ export class ScoreModel {
   /**
    * Get the tuplet at a specific beat position in a measure
    */
-  getTupletAtBeat(measureNumber: number, beat: Fraction, voice?: number): Tuplet | undefined {
-    return tupletOps.getTupletAtBeat(this.score, measureNumber, beat, voice)
+  getTupletAtBeat(measureNumber: number, beat: Fraction, voice?: number, staff?: number): Tuplet | undefined {
+    return tupletOps.getTupletAtBeat(this.score, measureNumber, beat, voice, staff)
   }
 
   /**
    * True if a same-voice tuplet already overlaps the span starting at `startBeat`.
    * See {@link tupletOps.tupletSpanOverlaps}.
    */
-  tupletSpanOverlaps(measureNumber: number, startBeat: Fraction, totalBeats: Fraction, voice: number): boolean {
-    return tupletOps.tupletSpanOverlaps(this.score, measureNumber, startBeat, totalBeats, voice)
+  tupletSpanOverlaps(measureNumber: number, startBeat: Fraction, totalBeats: Fraction, voice: number, staff?: number): boolean {
+    return tupletOps.tupletSpanOverlaps(this.score, measureNumber, startBeat, totalBeats, voice, staff)
   }
 
   /**

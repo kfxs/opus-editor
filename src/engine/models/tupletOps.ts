@@ -27,6 +27,7 @@ import {
   fracToNumber,
 } from '@/utils/fraction'
 import { toFlatNote, restToFlatNote } from './noteProjection'
+import { staffIndexOfId, staffIdAtIndex } from './staffContent'
 import { v4 as uuidv4 } from 'uuid'
 
 /** Find a measure by its number (mirrors `ScoreModel.getMeasure`). */
@@ -37,9 +38,12 @@ function getMeasure(score: Score, measureNumber: number): Measure | undefined {
 /**
  * Create a tuplet in a measure, removing slots that overlap its time span.
  *
- * Only slots in the tuplet's own `voice` are cleared — a tuplet is a single-voice
- * run, so a voice-1 triplet must not wipe the notes/rests of another voice that
- * happen to share the same beats.
+ * Only slots in the tuplet's own `voice` AND `staff` are cleared — a tuplet is a
+ * single-voice run on one staff, so a voice-1 triplet on staff 0 must not wipe the
+ * notes/rests of another voice, or of another staff, that share the same beats.
+ *
+ * `staff` is a 0-based index (mirrors `NoteParams.staff`); the first staff (index 0)
+ * stamps NO `staffId` (absent = staff 0, keeps single-staff output byte-identical).
  */
 export function createTuplet(
   score: Score,
@@ -49,6 +53,7 @@ export function createTuplet(
   numNotes: number = 3,
   notesOccupied: number = 2,
   voice: number = 0,
+  staff: number = 0,
 ): Tuplet {
   const measure = getMeasure(score, measureNumber)
   if (!measure) {
@@ -62,16 +67,19 @@ export function createTuplet(
     numNotes,
     notesOccupied,
   }
+  const staffId = staff ? staffIdAtIndex(score, staff) : undefined
+  if (staffId !== undefined) tuplet.staffId = staffId
 
   if (!measure.tuplets) {
     measure.tuplets = []
   }
   measure.tuplets.push(tuplet)
 
-  // Remove existing slots in THIS voice that overlap the tuplet's time span.
+  // Remove existing slots in THIS voice AND staff that overlap the tuplet's time span.
   const tupletDurFrac = getTupletTotalBeatsFrac(baseDuration, notesOccupied)
   measure.slots = measure.slots.filter(slot => {
     if ((slot.voice ?? 0) !== voice) return true // other voices are untouched
+    if (staffIndexOfId(score, slot.staffId) !== staff) return true // other staves untouched
     const slotDurFrac = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
     return !noteSpansOverlapFrac(slot.beat, slotDurFrac, startBeat, tupletDurFrac)
   })
@@ -112,17 +120,22 @@ export function setTupletPlacement(
  * voice is derived from its member slots (a tuplet is always a single-voice run).
  * This stops a tuplet in one voice from governing note entry in another: e.g. a
  * voice-0 triplet must not reject or steer a plain voice-2 note placed over it.
+ *
+ * `staff` (0-based index) scopes the same way on the staff axis — a triplet on staff
+ * 0 must not block or steer entry on staff 1 at the same beat.
  */
 export function getTupletAtBeat(
   score: Score,
   measureNumber: number,
   beat: Fraction,
   voice?: number,
+  staff?: number,
 ): Tuplet | undefined {
   const measure = getMeasure(score, measureNumber)
   if (!measure || !measure.tuplets) return undefined
   return measure.tuplets.find(tuplet => {
     if (!isBeatInTupletFrac(beat, tuplet)) return false
+    if (staff !== undefined && staffIndexOfId(score, tuplet.staffId) !== staff) return false
     if (voice === undefined) return true
     const slot = measure.slots.find(s => s.tupletId === tuplet.id)
     return (slot?.voice ?? 0) === voice
@@ -141,10 +154,12 @@ export function tupletSpanOverlaps(
   startBeat: Fraction,
   totalBeats: Fraction,
   voice: number,
+  staff?: number,
 ): boolean {
   const measure = getMeasure(score, measureNumber)
   if (!measure || !measure.tuplets) return false
   return measure.tuplets.some(t => {
+    if (staff !== undefined && staffIndexOfId(score, t.staffId) !== staff) return false
     const slot = measure.slots.find(s => s.tupletId === t.id)
     if ((slot?.voice ?? 0) !== voice) return false
     const existingSpan = getTupletTotalBeatsFrac(t.baseDuration, t.notesOccupied)
@@ -159,11 +174,13 @@ export function getNotesInTuplet(score: Score, tupletId: string): Note[] {
     if (slots.length > 0) {
       const result: Note[] = []
       for (const slot of slots) {
+        // Project the slot's staff too — else a staff-1 tuplet's notes/rests read as staff 0.
+        const staffIndex = staffIndexOfId(score, slot.staffId)
         if (slot.type === 'rest') {
-          result.push(restToFlatNote(slot))
+          result.push(restToFlatNote(slot, staffIndex))
         } else {
           for (const pitch of slot.notes) {
-            result.push(toFlatNote(slot, pitch))
+            result.push(toFlatNote(slot, pitch, staffIndex))
           }
         }
       }
@@ -197,6 +214,9 @@ export function refillTupletRemainder(
   const ratio = fracCreate(tuplet.notesOccupied, tuplet.numNotes)
   const inverseRatio = fracCreate(tuplet.numNotes, tuplet.notesOccupied)
   const tupletEnd = fracAdd(tuplet.startBeat, getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied))
+  // Filler rests inherit the tuplet's own staff (derived from its stamped staffId), so
+  // gaps in a staff-1 triplet fill on staff 1 — not on staff 0. Absent staffId → index 0.
+  const staff = staffIndexOfId(score, tuplet.staffId)
 
   // Get ALL existing slots (notes and rests) sorted by beat
   const allSlots = getNotesInTuplet(score, tuplet.id)
@@ -219,6 +239,7 @@ export function refillTupletRemainder(
         tupletId: tuplet.id,
         actualDuration: actualDur,
         ...(voice ? { voice: voice as 0 | 1 | 2 | 3 } : {}),
+        ...(staff ? { staff } : {}),
       })
       beat = fracAdd(beat, actualDur)
     }
