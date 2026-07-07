@@ -574,13 +574,14 @@ export class MusicEngine {
   pasteEvents(
     measure: number,
     beat: Fraction,
-    voices: { voice: number; events: RebarEvent[] }[],
+    lanes: { staff: number; voice: number; events: RebarEvent[] }[],
     spanBeats: Fraction,
     targetVoice: number,
-    clipRestShifts: { voice: number; restShifts: Array<{ offset: Fraction; steps: number }> }[] = [],
-    clipRestHidden: { voice: number; restHidden: Array<{ offset: Fraction }> }[] = [],
+    clipRestShifts: { staff: number; voice: number; restShifts: Array<{ offset: Fraction; steps: number }> }[] = [],
+    clipRestHidden: { staff: number; voice: number; restHidden: Array<{ offset: Fraction }> }[] = [],
+    targetStaff: number = 0,
   ): string[] {
-    const ids = this.scoreModel.pasteEvents(measure, beat, voices, spanBeats, targetVoice, clipRestShifts, clipRestHidden)
+    const ids = this.scoreModel.pasteEvents(measure, beat, lanes, spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff)
     this.commit('Paste')
     return ids
   }

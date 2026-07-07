@@ -1148,11 +1148,12 @@ export class ScoreModel {
   pasteEvents(
     targetMeasure: number,
     targetBeat: Fraction,
-    clipVoices: { voice: number; events: RebarEvent[] }[],
+    clipLanes: { staff: number; voice: number; events: RebarEvent[] }[],
     spanBeats: Fraction,
     targetVoice: number,
-    clipRestShifts: { voice: number; restShifts: Array<{ offset: Fraction; steps: number }> }[] = [],
-    clipRestHidden: { voice: number; restHidden: Array<{ offset: Fraction }> }[] = [],
+    clipRestShifts: { staff: number; voice: number; restShifts: Array<{ offset: Fraction; steps: number }> }[] = [],
+    clipRestHidden: { staff: number; voice: number; restHidden: Array<{ offset: Fraction }> }[] = [],
+    targetStaff: number = 0,
   ): string[] {
     const ordered = [...this.score.measures].sort((a, b) => a.number - b.number)
     const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
@@ -1180,52 +1181,77 @@ export class ScoreModel {
     // are stamped ON TOP afterwards (last wins) — see §6.5 threading.
     const restShifts = this.captureRestShifts(regionMeasures)
 
-    // Re-voicing contract (decision (a)): a single-voice clip drops into the paste
-    // target voice (so copy voice 1 → paste into voice 2 works); a multi-voice clip
-    // preserves each event's original voice. `destVoices` maps the destination voice
-    // → the clip events that overwrite its paste window.
-    const destVoices = new Map<number, RebarEvent[]>()
-    if (clipVoices.length === 1) {
-      destVoices.set(targetVoice, clipVoices[0].events)
-    } else {
-      for (const cv of clipVoices) destVoices.set(cv.voice, cv.events)
-    }
+    const staffIndices = (this.score.staves ?? []).length > 0
+      ? (this.score.staves ?? []).map((_, i) => i)
+      : [0]
+    const staffCount = staffIndices.length
 
-    // Every voice we must re-lay: those already in the region, plus any new
-    // destination voice. Voice 0 is always re-laid so a grown region keeps its
-    // rest spine. A voice that is NOT a destination is passed through verbatim, so
-    // a paste must not erase the other voices.
-    const voices = new Set<number>([0])
-    for (const m of regionMeasures) for (const s of m.slots) voices.add(s.voice ?? 0)
-    for (const dv of destVoices.keys()) voices.add(dv)
+    // Re-voicing contract (decision (a)): a clip with exactly ONE distinct voice (across all its
+    // staff lanes) drops into the paste target voice (so copy voice 1 → paste into voice 2 works);
+    // a multi-voice clip preserves each event's original voice.
+    const singleVoice = new Set(clipLanes.map((l) => l.voice)).size === 1
+
+    // Map each RELATIVE-staff lane onto an ABSOLUTE staff: `absStaff = targetStaff + lane.staff`,
+    // clamped to the score's staff count. Lanes past the bottom staff are DROPPED + warned — a
+    // paste never creates or reorders staves (decision: clamp+warn). `destByStaff[absStaff]` maps
+    // that staff's destination voice → the clip events that overwrite its paste window.
+    const destByStaff = new Map<number, Map<number, RebarEvent[]>>()
+    for (const lane of clipLanes) {
+      const absStaff = targetStaff + lane.staff
+      if (absStaff < 0 || absStaff >= staffCount) {
+        console.warn(`[Paste] clip lane relStaff ${lane.staff} → staff ${absStaff} out of range [0,${staffCount}); dropped`)
+        continue
+      }
+      const destVoice = singleVoice ? targetVoice : lane.voice
+      if (!destByStaff.has(absStaff)) destByStaff.set(absStaff, new Map())
+      destByStaff.get(absStaff)!.set(destVoice, lane.events)
+    }
 
     const meter = getMeterInfo(ts)
     const targetBars = regionMeasures.length
 
-    const plans = new Map<number, BarPlan[]>()
+    // Paste runs one lane per (STAFF, voice), exactly like rebar: each staff is an independent
+    // stream on the shared bar spine. Only a DESTINATION staff's destination voices get their paste
+    // window overwritten by the clip; every other (staff, voice) is passed through verbatim.
+    // Narrowing each measure to the staff first (staffMeasureView) means flattenRegion sees only
+    // that staff's slots — otherwise the clip drops onto staff 0 AND materializeRegion's clear-all
+    // wipes the other staves' content (the "paste deletes the copied staff" bug).
+    const lanes: Array<{ staff: number; voice: number; plan: BarPlan[] }> = []
     let maxBars = targetBars
-    for (const v of voices) {
-      const existing = flattenRegion(regionMeasures, v as 0 | 1 | 2 | 3)
-      const clip = destVoices.get(v)
-      let events: RebarEvent[]
-      if (clip) {
-        // Overwrite: keep existing events wholly outside the paste window; anything
-        // overlapping it is replaced by the (shifted) clip, with rest-fill covering
-        // any remainder.
-        const kept = existing.filter((e) => {
-          const end = fracAdd(e.offset, e.duration)
-          return fracCompare(end, pasteStart) <= 0 || fracGte(e.offset, pasteEnd)
-        })
-        const shifted = clip.map((e) => ({ ...e, offset: fracAdd(e.offset, pasteStart) }))
-        events = [...kept, ...shifted].sort((a, b) => fracCompare(a.offset, b.offset))
-      } else {
-        // Passthrough (same meter — barlines don't move, growth only appends a tail
-        // this voice ignores).
-        events = existing
+    for (const staff of staffIndices) {
+      const staffId = staffIdAtIndex(this.score, staff)
+      const narrowed = regionMeasures.map((m) => staffMeasureView(m, staffId, this.score))
+      const destVoices = destByStaff.get(staff)
+
+      // Voice 0 is always re-laid so a grown region keeps its rest spine. On a destination staff we
+      // also re-lay the clip's destination voices (they may not exist there yet).
+      const voices = new Set<number>([0])
+      for (const nm of narrowed) for (const s of nm.slots) voices.add(s.voice ?? 0)
+      if (destVoices) for (const dv of destVoices.keys()) voices.add(dv)
+
+      for (const v of voices) {
+        const existing = flattenRegion(narrowed, v as 0 | 1 | 2 | 3)
+        const clip = destVoices?.get(v)
+        let events: RebarEvent[]
+        if (clip) {
+          // Overwrite: keep existing events wholly outside the paste window; anything
+          // overlapping it is replaced by the (shifted) clip, with rest-fill covering
+          // any remainder.
+          const kept = existing.filter((e) => {
+            const end = fracAdd(e.offset, e.duration)
+            return fracCompare(end, pasteStart) <= 0 || fracGte(e.offset, pasteEnd)
+          })
+          const shifted = clip.map((e) => ({ ...e, offset: fracAdd(e.offset, pasteStart) }))
+          events = [...kept, ...shifted].sort((a, b) => fracCompare(a.offset, b.offset))
+        } else {
+          // Passthrough (same meter — barlines don't move, growth only appends a tail
+          // this lane ignores). This is what keeps the non-target staves intact.
+          events = existing
+        }
+        const p = relayEvents(events, meter, { targetBars, bounded })
+        lanes.push({ staff, voice: v, plan: p })
+        if (p.length > maxBars) maxBars = p.length
       }
-      const p = relayEvents(events, meter, { targetBars, bounded })
-      plans.set(v, p)
-      if (p.length > maxBars) maxBars = p.length
     }
 
     const regionNumbers = regionMeasures.map((m) => m.number)
@@ -1233,10 +1259,7 @@ export class ScoreModel {
       regionNumbers.push(this.addMeasure(ts).number)
     }
 
-    // Paste stays active-staff-scoped (staff axis deferred — docs/multi-staff-plan.md §4/§11):
-    // materialise its per-voice plans as staff-0 lanes (byte-identical to the pre-lane path).
-    const pasteLanes = [...plans.entries()].map(([voice, plan]) => ({ staff: 0, voice, plan }))
-    const created = this.materializeRegion(regionNumbers, pasteLanes)
+    const created = this.materializeRegion(regionNumbers, lanes)
     this.restoreBoundaryTies(targetMeasure, regionNumbers[regionNumbers.length - 1], boundary)
     this.repairDanglingTies()
     this.restoreSlurs(regionNumbers, slurState)
@@ -1249,9 +1272,12 @@ export class ScoreModel {
     // Apply the clip's rest shifts at the paste window: re-base each clip-relative offset by
     // the paste start, and re-voice a single-voice clip into the target voice (mirroring the
     // destVoices rule above). restoreRestShifts drops any whose rest the paste didn't produce.
+    // (Rest overrides are position-keyed by (measure, voice, beat) with no staff axis, so a
+    // multi-staff clip's shifts travel by voice+offset only — the same limitation as direct
+    // multi-staff editing.)
     const clipCaptured: CapturedRestShift[] = []
     for (const { voice, restShifts: shifts } of clipRestShifts) {
-      const destVoice = clipVoices.length === 1 ? targetVoice : voice
+      const destVoice = singleVoice ? targetVoice : voice
       for (const rs of shifts) {
         clipCaptured.push({ voice: destVoice, absBeat: fracAdd(pasteStart, rs.offset), steps: rs.steps, hidden: false })
       }
@@ -1259,7 +1285,7 @@ export class ScoreModel {
     // The clip's hidden rests travel the same way (client #6). A hidden rest may carry no
     // shift, so it arrives as its own captured entry (steps 0, hidden true).
     for (const { voice, restHidden } of clipRestHidden) {
-      const destVoice = clipVoices.length === 1 ? targetVoice : voice
+      const destVoice = singleVoice ? targetVoice : voice
       for (const rh of restHidden) {
         clipCaptured.push({ voice: destVoice, absBeat: fracAdd(pasteStart, rh.offset), steps: 0, hidden: true })
       }
@@ -1276,7 +1302,10 @@ export class ScoreModel {
     }
     const pastedIds: string[] = []
     for (const { chord } of created) {
-      if (!destVoices.has(chord.voice ?? 0)) continue // only the pasted notes
+      // Only the pasted notes: a destination staff's destination voices (passthrough lanes on
+      // other staves can share a voice number, so scope by staff too).
+      const dv = destByStaff.get(staffIndexOfId(this.score, chord.staffId))
+      if (!dv || !dv.has(chord.voice ?? 0)) continue
       const mStart = startOfMeasure.get(chord.measure)
       if (!mStart) continue
       const absOffset = fracAdd(mStart, chord.beat)

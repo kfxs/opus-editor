@@ -52,7 +52,7 @@ describe('MouseController', () => {
     canvas.querySelector = ((sel: string) => (sel === 'svg' ? svg : null)) as typeof canvas.querySelector
 
     engine = {
-      getElementRegistry: () => ({ getByMeasure: vi.fn(() => []) }),
+      getElementRegistry: () => ({ getByMeasure: vi.fn(() => []), staffIndexAtY: vi.fn(() => 0) }),
       pixelToMeasure: vi.fn(() => 3),
       getScore: () => ({ measures: [{ number: 3, slots: [] }] }),
     }

@@ -324,8 +324,10 @@ export class MouseController {
     if (!coords) return
     const measure = engine.pixelToMeasure(coords)
     const beat = this.resolveSlotBeat(engine, coords.x, measure)
-    console.log(`Paste placement click | measure:${measure} beat:${fracToNumber(beat)}`)
-    this.clipboard.pasteAt(measure, beat)
+    // Which stacked staff the click landed on is the paste destination staff (multi-staff).
+    const staff = engine.getElementRegistry().staffIndexAtY(measure, coords.y)
+    console.log(`Paste placement click | measure:${measure} beat:${fracToNumber(beat)} staff:${staff}`)
+    this.clipboard.pasteAt(measure, beat, staff)
   }
 
   // --- Mouse handlers ---

@@ -5,6 +5,7 @@ import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracToNumbe
 import { measureCapacityFrac, getMeasureNotes } from '../utils/musicUtils'
 import { durationToFraction } from '../utils/durations'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey } from '../engine/models/engravingOverrides'
+import { staffMeasureView, staffIdAtIndex } from '../engine/models/staffContent'
 
 /**
  * A position-independent snapshot of copied musical material.
@@ -18,12 +19,19 @@ import { restShiftOverrideOf, restHiddenOf, restPositionKey } from '../engine/mo
  * rebar relay on paste, and tuplets travel as atomic payloads. That is what makes
  * a payload safely re-pasteable any number of times.
  */
-/** One copied voice: its model voice number (0-based) and event stream. */
-export interface ClipboardVoice {
+/**
+ * One copied lane: a `(staff, voice)` pair and its event stream. The staff is a
+ * RELATIVE index (0 = topmost copied staff) so a clip spanning staves 1+2 can land
+ * on staves 3+4 — paste adds the paste-target staff to it (payload v3, docs/copy-paste-staff-plan.md).
+ */
+export interface ClipboardLane {
+  /** RELATIVE staff index within the clip (0 = topmost copied staff). Paste maps it to
+   *  `targetStaff + staff`, clamped to the score's staff count. */
+  staff: number
   /** Model voice number (0-based). */
   voice: number
   /**
-   * The rhythmic stream for this voice, offsets relative to the selection start
+   * The rhythmic stream for this lane, offsets relative to the selection start
    * (quarter beats). Internal ties are collapsed into single logical notes;
    * tuplets are atomic. Unselected gaps are implicit — rest-filled on paste.
    */
@@ -46,17 +54,20 @@ export interface ClipboardVoice {
 
 export interface ClipboardPayload {
   format: 'opus-editor/clipboard'
-  version: 2
+  version: 3
   /** Where it was copied from (reference / debugging only). */
   origin: { measure: number; beat: Fraction }
   /** Total covered length, in quarter-note beats. */
   spanBeats: Fraction
+  /** Number of staves the selection covered (for clamp math / UX). 1 for a single-staff clip. */
+  spanStaves: number
   /**
-   * One entry per voice that contained a selected note. A single-voice clip is
-   * re-voiced into the paste target voice; a multi-voice clip preserves each
-   * voice. Voices are stored as an array (not a Map) to stay JSON-serializable.
+   * One entry per `(staff, voice)` lane that contained a selected note, with the staff
+   * stored as a RELATIVE index (0 = topmost copied staff). A single-voice clip is
+   * re-voiced into the paste target voice; a multi-voice clip preserves each voice.
+   * Lanes are stored as an array (not a Map) to stay JSON-serializable.
    */
-  voices: ClipboardVoice[]
+  lanes: ClipboardLane[]
   // future: dynamics?: ClipboardDynamic[]; clefs?: ClipboardClef[]; ...
 }
 
@@ -89,13 +100,14 @@ function selectedSpans(score: Score, noteIds: Set<string>): { start: Fraction; e
 }
 
 /**
- * Manual rest shifts of one voice whose rest onset falls inside the copy window
+ * Manual rest shifts of one `(staff, voice)` lane whose rest onset falls inside the copy window
  * `[spanStart, spanEnd)`, as `{ offset, steps }` re-based to the window start (the same
- * basis as the voice's events). Read straight off the `Score` value via
+ * basis as the lane's events). Read straight off the `Score` value via
  * `restShiftOverrideOf`. See docs/rest-shift-plan.md §6.5.
  */
 function restShiftsInWindow(
   score: Score,
+  staff: number,
   voice: number,
   spanStart: Fraction,
   spanEnd: Fraction,
@@ -105,8 +117,8 @@ function restShiftsInWindow(
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
     if (!mStart) continue
-    for (const n of getMeasureNotes(m)) {
-      if (!n.isRest || (n.voice ?? 0) !== voice) continue
+    for (const n of getMeasureNotes(m, score)) {
+      if (!n.isRest || (n.voice ?? 0) !== voice || (n.staff ?? 0) !== staff) continue
       const abs = fracAdd(mStart, n.beat)
       if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
       const ov = restShiftOverrideOf(score, restPositionKey(m.id, voice, n.beat))
@@ -118,12 +130,13 @@ function restShiftsInWindow(
 }
 
 /**
- * Hidden rests of one voice whose onset falls inside the copy window `[spanStart, spanEnd)`,
- * as `{ offset }` re-based to the window start (same basis as the voice's events). The hidden
- * twin of {@link restShiftsInWindow}. See docs/rest-hide-plan.md.
+ * Hidden rests of one `(staff, voice)` lane whose onset falls inside the copy window
+ * `[spanStart, spanEnd)`, as `{ offset }` re-based to the window start (same basis as the
+ * lane's events). The hidden twin of {@link restShiftsInWindow}. See docs/rest-hide-plan.md.
  */
 function restHiddenInWindow(
   score: Score,
+  staff: number,
   voice: number,
   spanStart: Fraction,
   spanEnd: Fraction,
@@ -133,8 +146,8 @@ function restHiddenInWindow(
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
     if (!mStart) continue
-    for (const n of getMeasureNotes(m)) {
-      if (!n.isRest || (n.voice ?? 0) !== voice) continue
+    for (const n of getMeasureNotes(m, score)) {
+      if (!n.isRest || (n.voice ?? 0) !== voice || (n.staff ?? 0) !== staff) continue
       const abs = fracAdd(mStart, n.beat)
       if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
       if (!restHiddenOf(score, restPositionKey(m.id, voice, n.beat))) continue
@@ -144,15 +157,24 @@ function restHiddenInWindow(
   return out
 }
 
-/** The set of voices (0-based) that contain at least one selected note. */
-function selectedVoices(score: Score, noteIds: Set<string>): number[] {
-  const out = new Set<number>()
+/**
+ * The `(staff, voice)` pairs that contain at least one selected note, grouped as
+ * `staff → sorted voices`. This is the lane spine: one lane per selected staff×voice.
+ * `score` is threaded into getMeasureNotes so the staff projection isn't dropped.
+ */
+function selectedStaffVoices(score: Score, noteIds: Set<string>): Map<number, number[]> {
+  const raw = new Map<number, Set<number>>()
   for (const m of score.measures) {
-    for (const n of getMeasureNotes(m)) {
-      if (noteIds.has(n.id)) out.add(n.voice ?? 0)
+    for (const n of getMeasureNotes(m, score)) {
+      if (!noteIds.has(n.id)) continue
+      const staff = n.staff ?? 0
+      if (!raw.has(staff)) raw.set(staff, new Set())
+      raw.get(staff)!.add(n.voice ?? 0)
     }
   }
-  return [...out].sort((a, b) => a - b)
+  const out = new Map<number, number[]>()
+  for (const [staff, voices] of raw) out.set(staff, [...voices].sort((a, b) => a - b))
+  return out
 }
 
 /**
@@ -162,9 +184,11 @@ function selectedVoices(score: Score, noteIds: Set<string>): number[] {
  * with the in-between content included). Ties and tuplets come out correct because
  * the span is taken from {@link flattenRegion}'s event stream.
  *
- * Multi-voice aware: every voice that holds a selected note is captured in its own
- * stream (sliced to the same window), so a passage spanning voices 1 and 2 copies
- * both. Returns null when nothing usable is selected.
+ * Multi-voice AND multi-staff aware: every `(staff, voice)` lane that holds a selected note
+ * is captured in its own stream (sliced to the same window), so a passage spanning voices 1
+ * and 2 or staves 1 and 2 copies all of them. Staves are stored RELATIVE to the topmost
+ * copied staff (0 = topmost), so a staves-1+2 clip can paste onto staves 3+4. Returns null
+ * when nothing usable is selected.
  */
 export function buildClipboardFromSelection(score: Score, noteIds: string[]): ClipboardPayload | null {
   const idSet = new Set(noteIds)
@@ -175,26 +199,37 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
   const spanEnd = spans.reduce((a, s) => (fracCompare(s.end, a) > 0 ? s.end : a), spans[0].end)
   const spanBeats = fracSub(spanEnd, spanStart)
 
-  // For each selected voice, flatten the whole score (offsets from measure 1) for
-  // that voice, slice to the selection window, and re-base offsets to the window
-  // start. A voice with only a selected rest yields an empty stream (a paste then
-  // rest-fills/clears that window in that voice).
-  const ordered = [...score.measures].sort((a, b) => a.number - b.number)
-  const voices: ClipboardVoice[] = selectedVoices(score, idSet).map((v) => {
-    const restShifts = restShiftsInWindow(score, v, spanStart, spanEnd)
-    const restHidden = restHiddenInWindow(score, v, spanStart, spanEnd)
-    return {
-      voice: v,
-      events: flattenRegion(ordered, v as 0 | 1 | 2 | 3)
-        .filter((e) => fracGte(e.offset, spanStart) && fracLt(e.offset, spanEnd))
-        .map((e) => ({ ...e, offset: fracSub(e.offset, spanStart) })),
-      // Omit each key entirely when empty (clean payload / old-clip parity).
-      ...(restShifts.length ? { restShifts } : {}),
-      ...(restHidden.length ? { restHidden } : {}),
+  // One lane per selected (staff, voice). Staves are re-based to the topmost selected staff so
+  // the clip stores RELATIVE offsets: staff 1+2 → relStaff 0+1, paste-able onto any base staff.
+  // Each lane is captured by narrowing the score to its own staff (staffMeasureView) before the
+  // flatten — otherwise the per-voice flatten merges every staff's notes into one stream.
+  const staffVoices = selectedStaffVoices(score, idSet)
+  const staves = [...staffVoices.keys()].sort((a, b) => a - b)
+  const topStaff = staves[0]
+  const spanStaves = staves[staves.length - 1] - topStaff + 1
+
+  const orderedMeasures = [...score.measures].sort((a, b) => a.number - b.number)
+  const lanes: ClipboardLane[] = []
+  for (const staff of staves) {
+    const staffId = staffIdAtIndex(score, staff)
+    const ordered = orderedMeasures.map((m) => staffMeasureView(m, staffId, score))
+    for (const v of staffVoices.get(staff)!) {
+      const restShifts = restShiftsInWindow(score, staff, v, spanStart, spanEnd)
+      const restHidden = restHiddenInWindow(score, staff, v, spanStart, spanEnd)
+      lanes.push({
+        staff: staff - topStaff,
+        voice: v,
+        events: flattenRegion(ordered, v as 0 | 1 | 2 | 3)
+          .filter((e) => fracGte(e.offset, spanStart) && fracLt(e.offset, spanEnd))
+          .map((e) => ({ ...e, offset: fracSub(e.offset, spanStart) })),
+        // Omit each key entirely when empty (clean payload / old-clip parity).
+        ...(restShifts.length ? { restShifts } : {}),
+        ...(restHidden.length ? { restHidden } : {}),
+      })
     }
-  })
-  // Usable if any voice carries note events OR a shifted/hidden rest (a lone one still copies).
-  if (voices.every((vv) => vv.events.length === 0 && !vv.restShifts?.length && !vv.restHidden?.length)) return null
+  }
+  // Usable if any lane carries note events OR a shifted/hidden rest (a lone one still copies).
+  if (lanes.every((l) => l.events.length === 0 && !l.restShifts?.length && !l.restHidden?.length)) return null
 
   // Origin = the (measure, beat) of the earliest selected note, for reference.
   const starts = measureStartOffsets(score)
@@ -210,38 +245,39 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
     }
   }
 
-  return { format: 'opus-editor/clipboard', version: 2, origin, spanBeats, voices }
+  return { format: 'opus-editor/clipboard', version: 3, origin, spanBeats, spanStaves, lanes }
 }
 
-/** The (measure, beat, voice) of the earliest note in a selection — the paste target
- *  when pasting onto a selection (overwrite-forward from the selection start). The
- *  voice is the paste destination for a single-voice clip. */
+/** The (measure, beat, voice, staff) of the earliest note in a selection — the paste target
+ *  when pasting onto a selection (overwrite-forward from the selection start). The voice/staff
+ *  are the paste destination for a single-voice/single-staff clip. `score` is threaded into
+ *  getMeasureNotes so the staff projection isn't silently dropped (the two-projection gotcha). */
 export function earliestSelectedPosition(
   score: Score,
   noteIds: string[],
-): { measure: number; beat: Fraction; voice: number } | null {
+): { measure: number; beat: Fraction; voice: number; staff: number } | null {
   const idSet = new Set(noteIds)
   const starts = measureStartOffsets(score)
-  let best: { measure: number; beat: Fraction; voice: number; abs: Fraction } | null = null
+  let best: { measure: number; beat: Fraction; voice: number; staff: number; abs: Fraction } | null = null
   for (const m of score.measures) {
     const mStart = starts.get(m.number)
     if (!mStart) continue
-    for (const n of getMeasureNotes(m)) {
+    for (const n of getMeasureNotes(m, score)) {
       if (!idSet.has(n.id)) continue
       const abs = fracAdd(mStart, n.beat)
       if (!best || fracCompare(abs, best.abs) < 0) {
-        best = { measure: m.number, beat: n.beat, voice: n.voice ?? 0, abs }
+        best = { measure: m.number, beat: n.beat, voice: n.voice ?? 0, staff: n.staff ?? 0, abs }
       }
     }
   }
-  return best ? { measure: best.measure, beat: best.beat, voice: best.voice } : null
+  return best ? { measure: best.measure, beat: best.beat, voice: best.voice, staff: best.staff } : null
 }
 
 /** A short human-readable line for the copy/paste console dump. */
 export function clipboardSummary(p: ClipboardPayload): string {
-  const total = p.voices.reduce((a, v) => a + v.events.length, 0)
-  const perVoice = p.voices.map((vv) => {
-    const parts = vv.events.map((e) => {
+  const total = p.lanes.reduce((a, l) => a + l.events.length, 0)
+  const perLane = p.lanes.map((ln) => {
+    const parts = ln.events.map((e) => {
       if (e.atomic) return '[tuplet]'
       const pitches = (e.pitches ?? []).map((pt) => {
         const acc = pt.alter === 2 ? '##' : pt.alter === 1 ? '#' : pt.alter === -1 ? 'b' : pt.alter === -2 ? 'bb' : ''
@@ -249,7 +285,7 @@ export function clipboardSummary(p: ClipboardPayload): string {
       }).join('+')
       return `[${pitches || 'rest'} ${fracToNumber(e.duration)}b @${fracToNumber(e.offset)}]`
     })
-    return `v${vv.voice + 1}: ${parts.join(' ') || '(empty)'}`
+    return `s${ln.staff}v${ln.voice + 1}: ${parts.join(' ') || '(empty)'}`
   })
-  return `${total} event(s) across ${p.voices.length} voice(s), span ${fracToNumber(p.spanBeats)}b — ${perVoice.join(' | ')}`
+  return `${total} event(s) across ${p.lanes.length} lane(s) / ${p.spanStaves} staff(s), span ${fracToNumber(p.spanBeats)}b — ${perLane.join(' | ')}`
 }

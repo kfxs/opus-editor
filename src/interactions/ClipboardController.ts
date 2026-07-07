@@ -77,16 +77,18 @@ export class ClipboardController {
       return
     }
     // Paste onto a selection → overwrite forward from the earliest selected note,
-    // into that note's voice (the destination for a single-voice clip).
+    // into that note's voice AND staff (the destination for a single-voice/single-staff clip).
     const target = earliestSelectedPosition(engine.getScore(), ids)
-    if (target) this.placeAt(target.measure, target.beat, target.voice)
+    if (target) this.placeAt(target.measure, target.beat, target.voice, target.staff)
   }
 
-  /** Commit an armed paste at a clicked position (called by MouseController). */
-  pasteAt(measure: number, beat: Fraction): void {
+  /** Commit an armed paste at a clicked position (called by MouseController). `staff` is the
+   *  0-based stacked staff the click landed on — the paste destination staff. */
+  pasteAt(measure: number, beat: Fraction, staff: number = 0): void {
     this.state.pastePlacementArmed = false
-    // Armed click → the active voice is the destination for a single-voice clip.
-    this.placeAt(measure, beat, activeVoiceToModel(this.state.activeVoice))
+    // Armed click → the active voice is the destination for a single-voice clip; the clicked
+    // staff is the destination staff.
+    this.placeAt(measure, beat, activeVoiceToModel(this.state.activeVoice), staff)
   }
 
   /** Cancel an armed paste (Esc / leaving the mode). */
@@ -98,18 +100,19 @@ export class ClipboardController {
     console.log('[Clipboard] paste cancelled')
   }
 
-  private placeAt(measure: number, beat: Fraction, targetVoice: number): void {
+  private placeAt(measure: number, beat: Fraction, targetVoice: number, targetStaff: number = 0): void {
     const engine = this.getEngine()
     if (!engine || !this.payload) return
-    // Carry each voice's rest shifts (clip-relative offsets) so they re-base by the paste start.
-    const clipRestShifts = this.payload.voices
-      .filter((v) => v.restShifts?.length)
-      .map((v) => ({ voice: v.voice, restShifts: v.restShifts! }))
-    // Likewise the hidden rests (client #6) — re-based and re-voiced the same way.
-    const clipRestHidden = this.payload.voices
-      .filter((v) => v.restHidden?.length)
-      .map((v) => ({ voice: v.voice, restHidden: v.restHidden! }))
-    const pastedIds = engine.pasteEvents(measure, beat, this.payload.voices, this.payload.spanBeats, targetVoice, clipRestShifts, clipRestHidden)
+    // Carry each lane's rest shifts (clip-relative offsets + relative staff) so they re-base by
+    // the paste start and re-map onto the paste target staves.
+    const clipRestShifts = this.payload.lanes
+      .filter((l) => l.restShifts?.length)
+      .map((l) => ({ staff: l.staff, voice: l.voice, restShifts: l.restShifts! }))
+    // Likewise the hidden rests (client #6) — re-based, re-voiced and re-staffed the same way.
+    const clipRestHidden = this.payload.lanes
+      .filter((l) => l.restHidden?.length)
+      .map((l) => ({ staff: l.staff, voice: l.voice, restHidden: l.restHidden! }))
+    const pastedIds = engine.pasteEvents(measure, beat, this.payload.lanes, this.payload.spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff)
     console.log(`[Clipboard] pasted ${pastedIds.length} note(s) at measure ${measure} beat ${fracToNumber(beat)}`)
     this.selection.selectNotes(pastedIds)
     this.state.showCursor = true
