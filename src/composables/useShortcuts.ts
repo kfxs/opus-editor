@@ -182,7 +182,7 @@ export function useShortcuts(
         renderer.renderScore()
       } else if (state.selectedClefMeasure !== null && eng) {
         const beat = beatToFrac(state.selectedClefBeat ?? 0)
-        const removed = eng.removeClefAt(state.selectedClefMeasure, beat)
+        const removed = eng.removeClefAt(state.selectedClefMeasure, beat, state.selectedClefStaff)
         if (!removed) {
           console.log(`Cannot remove clef at measure ${state.selectedClefMeasure} beat ${state.selectedClefBeat ?? 0} (measure 1 opening clef can only be changed)`)
         }

@@ -2101,4 +2101,46 @@ describe('rest-shift travel (option 3)', () => {
       expect(bassSlots.length).toBeGreaterThan(0)
     })
   })
+
+  // Multi-staff clefs: a clef change lands on the placing staff, and per-staff clefs at
+  // the same beat coexist without one clobbering the other or touching score.clef.
+  describe('clef staff scoping', () => {
+    beforeEach(() => {
+      model.addMeasure() // measure 2
+      model.addTempSecondStaff()
+    })
+
+    // Staff 1 inherits BASS (the temp staff's seeded opening clef), so use a clef that
+    // differs from it — otherwise the change is (correctly) dropped as redundant.
+    it('stamps the staffId on a clef change placed on a later staff', () => {
+      const staff1Id = model.getScore().staves![1].id
+      const scoreClefBefore = model.getScore().clef
+      expect(model.setClefAt(2, frac(2, 1), 'treble', staff1Id)).toBe(true)
+      const clef = model.getMeasure(2)!.clefs!.find(c => c.staffId === staff1Id)
+      expect(clef?.clef).toBe('treble')
+      // A later staff's clef must NOT hijack the document opening clef.
+      expect(model.getScore().clef).toBe(scoreClefBefore)
+    })
+
+    it('lets a staff-0 and staff-1 clef change coexist at the same beat', () => {
+      const staff1Id = model.getScore().staves![1].id
+      model.setClefAt(2, frac(2, 1), 'alto')              // staff 0 (absent id; inherits treble)
+      model.setClefAt(2, frac(2, 1), 'treble', staff1Id)  // staff 1 (inherits bass)
+      const clefs = model.getMeasure(2)!.clefs!.filter(c => fracToNumber(c.beat) === 2)
+      expect(clefs).toHaveLength(2)
+      expect(clefs.find(c => c.staffId === undefined)?.clef).toBe('alto')
+      expect(clefs.find(c => c.staffId === staff1Id)?.clef).toBe('treble')
+    })
+
+    it('removes only the addressed staff\'s clef change', () => {
+      const staff1Id = model.getScore().staves![1].id
+      model.setClefAt(2, frac(2, 1), 'alto')              // staff 0
+      model.setClefAt(2, frac(2, 1), 'treble', staff1Id)  // staff 1
+      model.removeClefAt(2, frac(2, 1), staff1Id)         // remove only staff 1's
+      const clefs = model.getMeasure(2)!.clefs!.filter(c => fracToNumber(c.beat) === 2)
+      expect(clefs).toHaveLength(1)
+      expect(clefs[0].staffId).toBeUndefined()
+      expect(clefs[0].clef).toBe('alto')
+    })
+  })
 })

@@ -324,8 +324,8 @@ export class ScoreModel {
    *
    * @returns true if the score changed.
    */
-  setClefAt(measureNumber: number, beat: Fraction, clef: Clef): boolean {
-    return clefOps.setClefAt(this.score, measureNumber, beat, clef)
+  setClefAt(measureNumber: number, beat: Fraction, clef: Clef, staffId?: string): boolean {
+    return clefOps.setClefAt(this.score, measureNumber, beat, clef, staffId)
   }
 
   /**
@@ -333,20 +333,20 @@ export class ScoreModel {
    * inherited clef. Measure 1 / beat 0 cannot be removed (only changed).
    * @returns true if a change was removed.
    */
-  removeClefAt(measureNumber: number, beat: Fraction): boolean {
-    return clefOps.removeClefAt(this.score, measureNumber, beat)
+  removeClefAt(measureNumber: number, beat: Fraction, staffId?: string): boolean {
+    return clefOps.removeClefAt(this.score, measureNumber, beat, staffId)
   }
 
   // --- Measure-level (beat 0) convenience wrappers ---
 
   /** Set the measure's opening clef (beat 0). */
-  setClef(measureNumber: number, clef: Clef): boolean {
-    return this.setClefAt(measureNumber, fracCreate(0, 1), clef)
+  setClef(measureNumber: number, clef: Clef, staffId?: string): boolean {
+    return this.setClefAt(measureNumber, fracCreate(0, 1), clef, staffId)
   }
 
   /** Remove the measure's opening clef (beat 0). */
-  removeClef(measureNumber: number): boolean {
-    return this.removeClefAt(measureNumber, fracCreate(0, 1))
+  removeClef(measureNumber: number, staffId?: string): boolean {
+    return this.removeClefAt(measureNumber, fracCreate(0, 1), staffId)
   }
 
   /**
@@ -375,8 +375,8 @@ export class ScoreModel {
    * where redundant positions are allowed transiently but shouldn't persist.
    * @returns true if a redundant change was removed.
    */
-  normalizeClefAt(measureNumber: number, beat: Fraction): boolean {
-    return clefOps.normalizeClefAt(this.score, measureNumber, beat)
+  normalizeClefAt(measureNumber: number, beat: Fraction, staffId?: string): boolean {
+    return clefOps.normalizeClefAt(this.score, measureNumber, beat, staffId)
   }
 
   // ==================== Dynamic operations ====================

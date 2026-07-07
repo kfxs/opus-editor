@@ -690,6 +690,7 @@ export class MouseController {
     this.selection.selectNote(null)
     this.state.selectedClefMeasure = clefAt.measure
     this.state.selectedClefBeat = clefAt.beat ?? 0
+    this.state.selectedClefStaff = clefAt.staff ?? 0
     const isProtected = clefAt.measure === 1 && (clefAt.beat ?? 0) === 0
     console.log(`✓ Clef selected | measure:${clefAt.measure} beat:${clefAt.beat ?? 0}${isProtected ? ' (measure 1 opening: change only, cannot remove)' : ''}`)
 
@@ -1068,7 +1069,7 @@ export class MouseController {
 
     // Marking tools place at the click; each returns true if it consumed the click.
     if (this.placeTimeSignatureAtClick(engine, measureNum)) return
-    if (this.placeClefAtClick(engine, x, measureNum)) return
+    if (this.placeClefAtClick(engine, x, y, measureNum)) return
     if (this.placeDynamicAtClick(engine, x, y, measureNum)) return
 
     // No marking tool armed → note/tuplet entry.
@@ -1099,13 +1100,15 @@ export class MouseController {
    * to a slot (beat 0 = the measure's opening clef, drawn at the barline; beat > 0 = an
    * inline mid-measure clef before that slot).
    */
-  private placeClefAtClick(engine: MusicEngine, x: number, measureNum: number): boolean {
+  private placeClefAtClick(engine: MusicEngine, x: number, y: number, measureNum: number): boolean {
     if (!this.state.selectedClef) return false
     const beat = this.resolveSlotBeat(engine, x, measureNum)
-    const changed = engine.setClefAt(measureNum, beat, this.state.selectedClef)
+    // Anchor the clef to the staff the click landed on (else it changes staff 0's clef).
+    const staff = engine.getElementRegistry().staffIndexAtY(measureNum, y)
+    const changed = engine.setClefAt(measureNum, beat, this.state.selectedClef, staff)
     console.log(changed
-      ? `✓ Clef set | ${this.state.selectedClef} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`
-      : `Clef unchanged at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
+      ? `✓ Clef set | ${this.state.selectedClef} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`
+      : `Clef unchanged at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
     this.render.renderScore()
     return true
   }

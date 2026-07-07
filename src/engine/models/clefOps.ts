@@ -8,10 +8,20 @@
  * normalize). Every function takes the `score` it operates on as a parameter — no
  * shared instance state — matching the `utils/rebar.ts` / `utils/restFill.ts` idiom.
  */
-import type { Score, Measure, Clef, Fraction } from '@/types/music'
+import type { Score, Measure, Clef, ClefChange, Fraction } from '@/types/music'
 import { fracEq, fracCompare, fracIsZero } from '@/utils/fraction'
 import { effectiveClefBefore } from '@/utils/clefUtils'
 import { v4 as uuidv4 } from 'uuid'
+
+/**
+ * Same-staff test for two clef changes. Staff 0 always stores an ABSENT `staffId`
+ * (the write convention — {@link MusicEngine.staffIdForIndex} yields undefined for
+ * index 0), and any later staff stores its real id, so strict equality is exact: two
+ * clefs on one staff share the same (possibly undefined) id. See docs/multi-staff-plan.md §4.
+ */
+function sameStaff(a: string | undefined, b: string | undefined): boolean {
+  return a === b
+}
 
 /** Find a measure by its number (mirrors `ScoreModel.getMeasure`). */
 function getMeasure(score: Score, measureNumber: number): Measure | undefined {
@@ -30,26 +40,28 @@ function getMeasure(score: Score, measureNumber: number): Measure | undefined {
  *
  * @returns true if the score changed.
  */
-export function setClefAt(score: Score, measureNumber: number, beat: Fraction, clef: Clef): boolean {
+export function setClefAt(score: Score, measureNumber: number, beat: Fraction, clef: Clef, staffId?: string): boolean {
   const measure = getMeasure(score, measureNumber)
   if (!measure) return false
 
   const isOpening = fracIsZero(beat)
 
-  if (measureNumber === 1 && isOpening) {
+  // Only the FIRST staff (absent staffId) owns `score.clef`, the document's single
+  // opening clef. A later staff's beat-0 clef is an ordinary per-staff change.
+  if (measureNumber === 1 && isOpening && staffId === undefined) {
     const scoreChanged = score.clef !== clef
     score.clef = clef
-    const upserted = upsertClefChange(measure, beat, clef)
+    const upserted = upsertClefChange(measure, beat, clef, staffId)
     return upserted || scoreChanged
   }
 
-  // Redundant change → remove any existing change at this beat instead
-  const inherited = effectiveClefBefore(score, measureNumber, beat)
+  // Redundant change (equals THIS staff's inherited clef) → remove any change here instead
+  const inherited = effectiveClefBefore(score, measureNumber, beat, staffId)
   if (clef === inherited) {
-    return removeClefChangeAt(measure, beat)
+    return removeClefChangeAt(measure, beat, staffId)
   }
 
-  return upsertClefChange(measure, beat, clef)
+  return upsertClefChange(measure, beat, clef, staffId)
 }
 
 /**
@@ -57,11 +69,11 @@ export function setClefAt(score: Score, measureNumber: number, beat: Fraction, c
  * inherited clef. Measure 1 / beat 0 cannot be removed (only changed).
  * @returns true if a change was removed.
  */
-export function removeClefAt(score: Score, measureNumber: number, beat: Fraction): boolean {
-  if (measureNumber === 1 && fracIsZero(beat)) return false
+export function removeClefAt(score: Score, measureNumber: number, beat: Fraction, staffId?: string): boolean {
+  if (measureNumber === 1 && fracIsZero(beat) && staffId === undefined) return false
   const measure = getMeasure(score, measureNumber)
   if (!measure) return false
-  return removeClefChangeAt(measure, beat)
+  return removeClefChangeAt(measure, beat, staffId)
 }
 
 /**
@@ -88,8 +100,9 @@ export function moveClef(score: Score, fromMeasure: number, fromBeat: Fraction, 
   if (src.clefs.length === 0 && fromMeasure !== toMeasure) delete src.clefs
 
   if (!dst.clefs) dst.clefs = []
-  // Overwrite any clef already sitting at the target beat.
-  const occupantIdx = dst.clefs.findIndex(c => fracEq(c.beat, toBeat))
+  // Overwrite any clef already sitting at the target beat ON THE SAME STAFF (a clef on
+  // another staff at the same beat is an independent change and must survive the move).
+  const occupantIdx = dst.clefs.findIndex(c => fracEq(c.beat, toBeat) && sameStaff(c.staffId, moving.staffId))
   if (occupantIdx !== -1) dst.clefs.splice(occupantIdx, 1)
 
   moving.beat = toBeat
@@ -110,34 +123,36 @@ export function moveClefWithinMeasure(score: Score, measureNumber: number, fromB
  * where redundant positions are allowed transiently but shouldn't persist.
  * @returns true if a redundant change was removed.
  */
-export function normalizeClefAt(score: Score, measureNumber: number, beat: Fraction): boolean {
-  if (measureNumber === 1 && fracIsZero(beat)) return false
+export function normalizeClefAt(score: Score, measureNumber: number, beat: Fraction, staffId?: string): boolean {
+  if (measureNumber === 1 && fracIsZero(beat) && staffId === undefined) return false
   const measure = getMeasure(score, measureNumber)
   if (!measure?.clefs) return false
-  const change = measure.clefs.find(c => fracEq(c.beat, beat))
+  const change = measure.clefs.find(c => fracEq(c.beat, beat) && sameStaff(c.staffId, staffId))
   if (!change) return false
-  if (change.clef !== effectiveClefBefore(score, measureNumber, beat)) return false
-  return removeClefChangeAt(measure, beat)
+  if (change.clef !== effectiveClefBefore(score, measureNumber, beat, staffId)) return false
+  return removeClefChangeAt(measure, beat, staffId)
 }
 
-/** Insert or replace a clef change at the given beat, keeping the list sorted. */
-function upsertClefChange(measure: Measure, beat: Fraction, clef: Clef): boolean {
+/** Insert or replace a clef change at the given beat ON A STAFF, keeping the list sorted. */
+function upsertClefChange(measure: Measure, beat: Fraction, clef: Clef, staffId?: string): boolean {
   if (!measure.clefs) measure.clefs = []
-  const existing = measure.clefs.find(c => fracEq(c.beat, beat))
+  const existing = measure.clefs.find(c => fracEq(c.beat, beat) && sameStaff(c.staffId, staffId))
   if (existing) {
     if (existing.clef === clef) return false
     existing.clef = clef
     return true
   }
-  measure.clefs.push({ id: uuidv4(), beat, clef })
+  const change: ClefChange = { id: uuidv4(), beat, clef }
+  if (staffId !== undefined) change.staffId = staffId
+  measure.clefs.push(change)
   measure.clefs.sort((a, b) => fracCompare(a.beat, b.beat))
   return true
 }
 
-/** Remove a clef change at the given beat, if present. */
-function removeClefChangeAt(measure: Measure, beat: Fraction): boolean {
+/** Remove a clef change at the given beat ON A STAFF, if present. */
+function removeClefChangeAt(measure: Measure, beat: Fraction, staffId?: string): boolean {
   if (!measure.clefs) return false
-  const idx = measure.clefs.findIndex(c => fracEq(c.beat, beat))
+  const idx = measure.clefs.findIndex(c => fracEq(c.beat, beat) && sameStaff(c.staffId, staffId))
   if (idx === -1) return false
   measure.clefs.splice(idx, 1)
   if (measure.clefs.length === 0) delete measure.clefs

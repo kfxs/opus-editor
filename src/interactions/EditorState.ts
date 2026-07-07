@@ -108,6 +108,8 @@ export interface EditorState {
   selectedClefMeasure: number | null
   /** Beat of the selected clef within its measure (0 = opening clef). */
   selectedClefBeat: number | null
+  /** 0-based staff of the selected clef (multi-staff); a delete/edit stays on it. */
+  selectedClefStaff: number
 
   // --- Time signature tool ---
   /** Time signature armed for placement (null = TS tool not active). When set,
@@ -214,6 +216,7 @@ export function createEditorState(): EditorState {
     selectedClef: null,
     selectedClefMeasure: null,
     selectedClefBeat: null,
+    selectedClefStaff: 0,
     selectedTimeSignature: null,
     selectedTimeSignatureMeasure: null,
     selectedMeasureRange: null,

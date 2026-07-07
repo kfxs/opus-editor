@@ -337,10 +337,10 @@ export class MusicEngine {
    * Clef is visual-only, so playback is unaffected. Saves undo state when changed.
    * @returns true if the score changed.
    */
-  setClefAt(measureNumber: number, beat: Fraction, clef: Clef): boolean {
-    const changed = this.scoreModel.setClefAt(measureNumber, beat, clef)
+  setClefAt(measureNumber: number, beat: Fraction, clef: Clef, staff: number = 0): boolean {
+    const changed = this.scoreModel.setClefAt(measureNumber, beat, clef, this.staffIdForIndex(staff))
     if (changed) {
-      this.commit(`Set ${clef} clef at measure ${measureNumber} beat ${fracToNumber(beat)}`)
+      this.commit(`Set ${clef} clef at measure ${measureNumber} beat ${fracToNumber(beat)} staff ${staff}`)
     }
     return changed
   }
@@ -350,10 +350,10 @@ export class MusicEngine {
    * Measure 1 / beat 0 cannot be removed (only changed). Saves undo state when changed.
    * @returns true if a change was removed.
    */
-  removeClefAt(measureNumber: number, beat: Fraction): boolean {
-    const changed = this.scoreModel.removeClefAt(measureNumber, beat)
+  removeClefAt(measureNumber: number, beat: Fraction, staff: number = 0): boolean {
+    const changed = this.scoreModel.removeClefAt(measureNumber, beat, this.staffIdForIndex(staff))
     if (changed) {
-      this.commit(`Remove clef at measure ${measureNumber} beat ${fracToNumber(beat)}`)
+      this.commit(`Remove clef at measure ${measureNumber} beat ${fracToNumber(beat)} staff ${staff}`)
     }
     return changed
   }
@@ -361,13 +361,13 @@ export class MusicEngine {
   // --- Measure-level (beat 0) convenience wrappers ---
 
   /** Set the measure's opening clef (beat 0). */
-  setClef(measureNumber: number, clef: Clef): boolean {
-    return this.setClefAt(measureNumber, beatToFrac(0), clef)
+  setClef(measureNumber: number, clef: Clef, staff: number = 0): boolean {
+    return this.setClefAt(measureNumber, beatToFrac(0), clef, staff)
   }
 
   /** Remove the measure's opening clef (beat 0). */
-  removeClef(measureNumber: number): boolean {
-    return this.removeClefAt(measureNumber, beatToFrac(0))
+  removeClef(measureNumber: number, staff: number = 0): boolean {
+    return this.removeClefAt(measureNumber, beatToFrac(0), staff)
   }
 
   // ==================== Time Signature Operations ====================
