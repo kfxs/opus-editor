@@ -1,7 +1,5 @@
 <template>
   <div class="min-h-screen bg-gray-900 text-white p-8">
-    <h1 class="text-4xl font-bold mb-8">Opus Score Editor</h1>
-
     <div class="mb-8">
       <div class="bg-gray-800 p-4 rounded-lg">
         <div class="mb-4 flex gap-2 flex-wrap">
