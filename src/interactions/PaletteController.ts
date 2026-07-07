@@ -78,13 +78,52 @@ export class PaletteController {
     this.renderScore()
   }
 
-  /** TEMPORARY (multi-staff Phase 1). Adds a second staff so stacked-staff rendering is
-   *  visible before the real "+ Staff" panel (Phase 4). Remove when Phase 4 lands. */
-  addTempSecondStaff(): void {
+  /**
+   * The reference staff the "Staff:" buttons act on: the 0-based staff of the box-selected
+   * measure (Ctrl+Shift+click a bar). Null when no measure box is selected — like the
+   * "Measure:" buttons, the feature is measure-selection driven.
+   */
+  private staffContext(): number | null {
+    if (this.state.selectedMeasureRange === null) return null
+    return this.state.selectedMeasureStaff
+  }
+
+  /** Add a new staff immediately ABOVE the box-selected measure's staff. No-op unless a
+   *  measure is box-selected (Ctrl+Shift+click a bar first). */
+  addStaffAbove(): void {
+    this.addStaffRelative('above')
+  }
+
+  /** Add a new staff immediately BELOW the box-selected measure's staff. No-op unless a
+   *  measure is box-selected (Ctrl+Shift+click a bar first). */
+  addStaffBelow(): void {
+    this.addStaffRelative('below')
+  }
+
+  /**
+   * Insert a staff above/below the box-selected staff, keeping the box on the SAME staff the
+   * user had selected. `selectedMeasureStaff` is a raw index into `score.staves`, and inserting
+   * a staff shifts every index at/below the insertion point — so an "+ Above" would leave the
+   * selection pointing at the freshly inserted staff instead of the one that was selected. Fix
+   * generally: resolve the selected staff to its stable id before the insert, then restore its
+   * (possibly shifted) index after. Index-free, so it survives future reorder/remove too.
+   */
+  private addStaffRelative(position: 'above' | 'below'): void {
     const engine = this.getEngine()
-    if (!engine) return
-    engine.addTempSecondStaff()
-    console.log('✓ Added temporary second staff (Phase 1 render check)')
+    const ref = this.staffContext()
+    if (!engine || ref === null) {
+      console.log(`Add staff ${position}: no measure selected (Ctrl+Shift+click a bar first)`)
+      return
+    }
+    const selectedId = engine.getScore().staves?.[this.state.selectedMeasureStaff]?.id
+    if (position === 'above') engine.addStaffAbove(ref)
+    else engine.addStaffBelow(ref)
+    // Re-anchor the box to the originally-selected staff by id (its index may have shifted).
+    if (selectedId !== undefined) {
+      const idx = engine.getScore().staves?.findIndex(s => s.id === selectedId) ?? -1
+      if (idx >= 0) this.state.selectedMeasureStaff = idx
+    }
+    console.log(`✓ Added staff ${position} staff ${ref}`)
     this.renderScore()
   }
 

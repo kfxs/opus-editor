@@ -130,6 +130,11 @@ export interface EditorState {
    *  marker — NO objects in the measures are selected. Cleared on any other interaction. */
   selectedMeasureRange: { anchor: number; focus: number } | null
 
+  /** The 0-based staff the last measure box-select landed on (which stacked staff the
+   *  Ctrl+Shift+click fell on). The reference staff the "Staff: + Above / + Below" buttons
+   *  insert relative to. Only meaningful while {@link selectedMeasureRange} is non-null. */
+  selectedMeasureStaff: number
+
   // --- Dynamics tool ---
   /** Dynamic armed for placement (null = dynamics tool not active). A level
    *  (`p`/`mp`/`mf`/`f`) places that mark on click; `'text'` prompts for custom
@@ -220,6 +225,7 @@ export function createEditorState(): EditorState {
     selectedTimeSignature: null,
     selectedTimeSignatureMeasure: null,
     selectedMeasureRange: null,
+    selectedMeasureStaff: 0,
     selectedDynamic: null,
     selectedDynamicId: null,
     editingText: null,

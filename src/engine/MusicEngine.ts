@@ -264,13 +264,23 @@ export class MusicEngine {
   }
 
   /**
-   * TEMPORARY (multi-staff Phase 1 render check). Adds a second staff seeded with a bass
-   * clef + two notes so stacked-staff rendering is visible before the real "+ Staff" panel
-   * (Phase 4). Delete alongside {@link ScoreModel.addTempSecondStaff} when Phase 4 lands.
+   * Add a new (rest-filled, treble-default) staff immediately ABOVE the staff at the given
+   * 0-based index, growing the staff group. Records its own undo entry. @returns the new id.
    */
-  addTempSecondStaff(): void {
-    this.scoreModel.addTempSecondStaff()
-    this.saveOnly('Add temp second staff')
+  addStaffAbove(refStaffIndex: number): string {
+    const id = this.scoreModel.addStaffAbove(refStaffIndex)
+    this.saveOnly(`Add staff above ${refStaffIndex}`)
+    return id
+  }
+
+  /**
+   * Add a new (rest-filled, treble-default) staff immediately BELOW the staff at the given
+   * 0-based index, growing the staff group. Records its own undo entry. @returns the new id.
+   */
+  addStaffBelow(refStaffIndex: number): string {
+    const id = this.scoreModel.addStaffBelow(refStaffIndex)
+    this.saveOnly(`Add staff below ${refStaffIndex}`)
+    return id
   }
 
   /**
@@ -1737,15 +1747,22 @@ export class MusicEngine {
   }
 
   /**
-   * Pixel rectangle of a rendered measure in content coordinates (height = one stave), or
-   * null if that measure isn't currently rendered. Used by playback-follow to scroll the
-   * playing measure into the viewport. `measureNumber` is the measure's `.number` (1-indexed),
-   * matching the playback position callback.
+   * Pixel rectangle of a rendered measure in content coordinates, or null if that measure
+   * isn't currently rendered. The height spans the whole **system** — every stacked staff of
+   * a shared-spine bar, not just staff 0 — so a multi-staff bar's hit-box (Ctrl+Shift+click
+   * measure-box select) and playback scroll-into-view cover the lower staves too. At N=1 this
+   * is exactly one stave. `measureNumber` is the measure's `.number` (1-indexed), matching the
+   * playback position callback.
    */
   getMeasureRect(measureNumber: number): Rect | null {
     const b = this.renderer.getMeasureBounds(measureNumber)
     if (!b) return null
-    return { x: b.measureX, y: b.measureY, width: b.measureWidth, height: LAYOUT_CONFIG.STAVE_HEIGHT }
+    const numStaves = Math.max(1, this.scoreModel.getScore().staves?.length ?? 1)
+    const staffStride = LAYOUT_CONFIG.STAVE_HEIGHT + LAYOUT_CONFIG.VERTICAL_SPACING
+    // Top of staff 0 → bottom of the last staff (the trailing inter-staff gap is not part of
+    // the bar, so subtract one VERTICAL_SPACING from a naive numStaves*staffStride).
+    const height = (numStaves - 1) * staffStride + LAYOUT_CONFIG.STAVE_HEIGHT
+    return { x: b.measureX, y: b.measureY, width: b.measureWidth, height }
   }
 
   /**

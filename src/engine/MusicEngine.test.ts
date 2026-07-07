@@ -422,13 +422,13 @@ describe('MusicEngine — dynamics', () => {
   // Multi-staff: dynamics are stamped with the placing staff's id so they render on that
   // staff (the placement paths resolve it via engine.staffIdForIndex). Index 0 → absent.
   it('staffIdForIndex follows the write convention (0 → absent, later → real id)', () => {
-    engine.addTempSecondStaff()
+    engine.addStaffBelow(0)
     expect(engine.staffIdForIndex(0)).toBeUndefined()
     expect(engine.staffIdForIndex(1)).toBe(engine.getScore().staves![1].id)
   })
 
   it('stamps the staffId on a dynamic placed on a later staff', () => {
-    engine.addTempSecondStaff()
+    engine.addStaffBelow(0)
     const staff1Id = engine.getScore().staves![1].id
     const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f', staffId: staff1Id })
     expect(d?.staffId).toBe(staff1Id)
@@ -621,7 +621,7 @@ describe('MusicEngine.toggleTie — staff scoping (multi-staff)', () => {
 
   beforeEach(() => {
     engine = makeEngine()
-    engine.addTempSecondStaff()
+    engine.addStaffBelow(0)
   })
 
   it('ties within the source note\'s own staff, not across staves at the same position', () => {

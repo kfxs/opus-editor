@@ -395,13 +395,22 @@
             >+ After</button>
           </div>
 
-          <!-- TEMPORARY (multi-staff Phase 1): seed a 2nd staff to eyeball stacked rendering.
-               Remove when the real "Staff:" panel lands (Phase 4). -->
-          <button
-            @click="palette.addTempSecondStaff()"
-            class="px-2 py-1 rounded text-sm leading-none bg-purple-700 hover:bg-purple-600"
-            title="TEMP: add a second staff to preview multi-staff rendering (Phase 1)"
-          >+ Staff (temp)</button>
+          <!-- Add Staff (relative to the box-selected measure's staff; Ctrl+Shift+click a bar) -->
+          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
+            <span class="text-sm text-gray-300">Staff:</span>
+            <button
+              @click="palette.addStaffAbove()"
+              :disabled="!hasStaffContext"
+              class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Add a staff above the selected bar's staff — Ctrl+Shift+click a measure to select it first"
+            >+ Above</button>
+            <button
+              @click="palette.addStaffBelow()"
+              :disabled="!hasStaffContext"
+              class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Add a staff below the selected bar's staff — Ctrl+Shift+click a measure to select it first"
+            >+ Below</button>
+          </div>
 
           <div class="border-l border-gray-600 mx-2"></div>
           <button
@@ -765,6 +774,9 @@ const isCustomTimeSignatureArmed = computed(() => {
 // The "Add Measure" buttons act on a box-selected measure span ONLY (Ctrl+Shift+click).
 // Enabled only then, so the feature's measure-selection requirement is self-evident.
 const hasMeasureContext = computed(() => state.selectedMeasureRange !== null)
+// The "Staff:" buttons share the measure-box gate — they add a staff relative to the
+// box-selected bar's staff (multi-staff Phase 4).
+const hasStaffContext = computed(() => state.selectedMeasureRange !== null)
 
 // --- Pickup / anacrusis dialog ---
 // Sets a measure's actual playable length shorter than its time signature. The

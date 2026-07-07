@@ -1,4 +1,4 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, restPositionKey } from './engravingOverrides'
 import {
   getTupletTotalBeatsFrac,
@@ -36,7 +36,7 @@ import {
 import { effectiveClefAt, measureOpeningClef, middleLineDiatonicPos } from '@/utils/clefUtils'
 import * as clefOps from './clefOps'
 import { toFlatNote, restToFlatNote } from './noteProjection'
-import { staffIndexOfId, matchesStaff, staffIdAtIndex, staffMeasureView } from './staffContent'
+import { staffIndexOfId, matchesStaff, staffIdAtIndex, staffMeasureView, firstStaffId } from './staffContent'
 import * as tupletOps from './tupletOps'
 import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
 import { v4 as uuidv4 } from 'uuid'
@@ -158,34 +158,81 @@ export class ScoreModel {
   }
 
   /**
-   * TEMPORARY (multi-staff Phase 1 render smoke-test). Appends a second staff below the
-   * existing one and seeds it with a bass clef + two half notes in measure 1, so the
-   * per-staff render path (stacking, shared barlines, per-staff clef, per-staff content
-   * routing) is actually visible before the real "+ Staff" panel exists (Phase 4). No-op
-   * once there is already more than one staff. Delete this method when Phase 4 lands.
+   * Add a new staff to the score, above or below the staff at `refStaffIndex` (0-based),
+   * and return its stable id. The new staff is rest-filled in **every** measure (treble
+   * default — a fresh staff carries no clef change, so it resolves to `score.clef ?? 'treble'`;
+   * the user re-clefs it afterward) and joins the single staff group (created on the first
+   * add, grown thereafter). See docs/multi-staff-plan.md §9.
+   *
+   * The first staff owns the absent-`staffId` = staff-0 convention, so **inserting at index
+   * 0** (prepending above the top staff) first {@link solidifyFirstStaffContent solidifies}
+   * the outgoing first staff's untagged content — otherwise `absent = staff 0` would silently
+   * re-point every existing note at the freshly inserted (empty) top staff.
    */
-  addTempSecondStaff(): void {
-    if ((this.score.staves?.length ?? 1) > 1) return
-    const staffId = uuidv4()
-    this.score.staves = [...(this.score.staves ?? []), { id: staffId }]
+  addStaff(refStaffIndex: number, position: 'above' | 'below'): string {
+    const staves = [...(this.score.staves ?? [])]
+    const ref = Math.max(0, Math.min(refStaffIndex, staves.length - 1))
+    const insertAt = position === 'above' ? ref : ref + 1
+    if (insertAt === 0) this.solidifyFirstStaffContent()
 
-    const m1 = this.score.measures[0]
-    if (!m1) return
-    // Per-staff bass clef (proves per-staff clef resolution; it inherits into later bars).
-    m1.clefs = [...(m1.clefs ?? []), { id: uuidv4(), beat: fracCreate(0, 1), clef: 'bass', staffId }]
-    // Two half notes filling the bar (beats are in quarter-note units; a half note spans 2).
-    // This proves the content view routes only this staff's slots; empty bars get their own
-    // staff-tagged rest-fill via the now staff-aware fillGapsWithRests.
-    const makeHalf = (beatQuarters: number, step: PitchStep, octave: number): Chord => ({
-      id: uuidv4(),
-      type: 'chord',
-      beat: fracCreate(beatQuarters, 1),
-      duration: 'h',
-      measure: m1.number,
-      staffId,
-      notes: [{ id: uuidv4(), step, alter: 0, octave }],
-    })
-    m1.slots.push(makeHalf(0, 'C', 3), makeHalf(2, 'G', 3))
+    const newStaff: StaffInfo = { id: uuidv4() }
+    staves.splice(insertAt, 0, newStaff)
+    this.score.staves = staves
+    this.ensureSingleGroupSpansAllStaves()
+
+    // fillGapsWithRests loops score.staves, so this rest-fills the new (empty) lane in every bar.
+    this.repairAllMeasureGaps()
+    return newStaff.id
+  }
+
+  /** Add a staff immediately ABOVE the staff at `refStaffIndex`. @returns the new staff's id. */
+  addStaffAbove(refStaffIndex: number): string {
+    return this.addStaff(refStaffIndex, 'above')
+  }
+
+  /** Add a staff immediately BELOW the staff at `refStaffIndex`. @returns the new staff's id. */
+  addStaffBelow(refStaffIndex: number): string {
+    return this.addStaff(refStaffIndex, 'below')
+  }
+
+  /**
+   * Stamp the current first staff's explicit id onto every piece of content that currently
+   * relies on the absent-`staffId` = staff-0 convention (slots, clefs, dynamics, tuplets,
+   * across all measures). Called right before a prepend changes which staff is index 0, so
+   * the existing music stays anchored to its (now non-first) staff instead of being read as
+   * belonging to the newly inserted top staff. A no-op degenerate score (no staves) is skipped.
+   */
+  private solidifyFirstStaffContent(): void {
+    const firstId = firstStaffId(this.score)
+    if (firstId === undefined) return
+    for (const m of this.score.measures) {
+      for (const slot of m.slots) if (slot.staffId === undefined) slot.staffId = firstId
+      for (const clef of m.clefs ?? []) if (clef.staffId === undefined) clef.staffId = firstId
+      for (const dyn of m.dynamics ?? []) if (dyn.staffId === undefined) dyn.staffId = firstId
+      for (const tup of m.tuplets ?? []) if (tup.staffId === undefined) tup.staffId = firstId
+    }
+  }
+
+  /**
+   * Keep the one staff group spanning all staves in top→bottom order. This subsumes both the
+   * **0→1 group creation** (the first time a 2nd staff appears there is no group yet — §9) and
+   * growing that single group on later adds. Scope this pass is a single group (organ/piano
+   * growth); adding a SEPARATE group is a §10 future-open op. A lone staff is not a group, so
+   * the overlay is cleared below N=2.
+   */
+  private ensureSingleGroupSpansAllStaves(): void {
+    const staves = this.score.staves ?? []
+    if (staves.length < 2) {
+      this.score.staffGroups = undefined
+      return
+    }
+    const existing = this.score.staffGroups?.[0]
+    const group: StaffGroup = {
+      id: existing?.id ?? uuidv4(),
+      staffIds: staves.map(s => s.id),
+      ...(existing?.symbol ? { symbol: existing.symbol } : {}),
+    }
+    this.score.staffGroups = [group]
   }
 
   /**

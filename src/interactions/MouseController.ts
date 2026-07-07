@@ -547,6 +547,9 @@ export class MouseController {
     // matters: we set it AFTER).
     this.selection.deselectAll()
     this.state.selectedMeasureRange = { anchor: lo, focus: hi }
+    // Remember which stacked staff the click fell on — the reference staff the "Staff:"
+    // add-above/below buttons insert relative to (multi-staff Phase 4). N=1 → always 0.
+    this.state.selectedMeasureStaff = engine.getElementRegistry().staffIndexAtY(measure, y)
     console.log(
       lo === hi
         ? `✓ Measure box selected | measure:${measure}`

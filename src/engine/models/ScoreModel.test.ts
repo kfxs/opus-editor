@@ -6,6 +6,20 @@ import { fracCreate as frac, fracCompare, fracToNumber } from '@/utils/fraction'
 import { getTupletTotalBeatsFrac } from '@/utils/musicUtils'
 import type { ChordRest } from '@/types/music'
 
+/**
+ * Build a 2nd staff (index 1) exactly as the removed `addTempSecondStaff` scaffold did —
+ * via the real {@link ScoreModel.addStaffBelow}, then seeded with a bass opening clef and
+ * C3 + G3 half notes in m1 — so the staff-scoping fixtures below are unchanged. Returns
+ * the new staff's id.
+ */
+function seedSecondStaff(model: ScoreModel): string {
+  const staffId = model.addStaffBelow(0)
+  model.setClefAt(1, frac(0, 1), 'bass', staffId)
+  model.addNote({ step: 'C', octave: 3, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 })
+  model.addNote({ step: 'G', octave: 3, duration: 'h', measure: 1, beat: frac(2, 1), staff: 1 })
+  return staffId
+}
+
 describe('ScoreModel', () => {
   let model: ScoreModel
 
@@ -1986,7 +2000,7 @@ describe('rest-shift travel (option 3)', () => {
   describe('addNote staff scoping', () => {
     beforeEach(() => {
       // Seeds a 2nd staff (index 1) with a C3 half note at m1 beat 0 and G3 at beat 2.
-      model.addTempSecondStaff()
+      seedSecondStaff(model)
     })
 
     it('does NOT merge a staff-0 note into a staff-1 chord at the same beat/voice', () => {
@@ -2043,7 +2057,7 @@ describe('rest-shift travel (option 3)', () => {
   // its filler rests on staff 1 — not silently on staff 0.
   describe('createTuplet staff scoping', () => {
     beforeEach(() => {
-      model.addTempSecondStaff()
+      seedSecondStaff(model)
     })
 
     it('stamps the target staffId on a tuplet created on a later staff', () => {
@@ -2074,7 +2088,7 @@ describe('rest-shift travel (option 3)', () => {
   describe('rebar staff scoping (TS change)', () => {
     beforeEach(() => {
       model.addMeasure() // measure 2
-      model.addTempSecondStaff()
+      seedSecondStaff(model)
     })
 
     it('keeps each staff\'s pitches on its own staff after a time-signature change', () => {
@@ -2107,7 +2121,7 @@ describe('rest-shift travel (option 3)', () => {
   describe('clef staff scoping', () => {
     beforeEach(() => {
       model.addMeasure() // measure 2
-      model.addTempSecondStaff()
+      seedSecondStaff(model)
     })
 
     // Staff 1 inherits BASS (the temp staff's seeded opening clef), so use a clef that
@@ -2142,5 +2156,63 @@ describe('rest-shift travel (option 3)', () => {
       expect(clefs[0].staffId).toBeUndefined()
       expect(clefs[0].clef).toBe('alto')
     })
+  })
+})
+
+// Multi-staff Phase 4: the real "add staff" operation behind the "Staff:" toolbar group.
+describe('ScoreModel.addStaff (multi-staff Phase 4)', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('Staff', 120) }) // one measure, one staff
+
+  it('addStaffBelow appends a staff and rest-fills every measure', () => {
+    model.addMeasure() // two measures now
+    const id = model.addStaffBelow(0)
+    const staves = model.getScore().staves!
+    expect(staves).toHaveLength(2)
+    expect(staves[1].id).toBe(id)
+    // Every bar has a rest lane for the new staff (index 1) — nothing was left empty.
+    for (const m of [1, 2]) {
+      const staff1Rests = model.getSlotsInMeasure(m).filter(s => s.type === 'rest' && s.staffId === id)
+      expect(staff1Rests.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('creates a single group spanning both staves on the FIRST add (0→1 transition)', () => {
+    expect(model.getScore().staffGroups).toBeUndefined() // a lone staff is not a group
+    const id = model.addStaffBelow(0)
+    const groups = model.getScore().staffGroups!
+    expect(groups).toHaveLength(1)
+    expect(groups[0].staffIds).toEqual([model.getScore().staves![0].id, id])
+  })
+
+  it('GROWS the one group (not a new group) on a later add', () => {
+    model.addStaffBelow(0)                              // 2 staves, 1 group
+    const groupId = model.getScore().staffGroups![0].id
+    model.addStaffBelow(1)                              // add a 3rd staff below
+    const groups = model.getScore().staffGroups!
+    expect(groups).toHaveLength(1)
+    expect(groups[0].id).toBe(groupId)                 // same group object, grown
+    expect(groups[0].staffIds).toEqual(model.getScore().staves!.map(s => s.id))
+  })
+
+  it('addStaffAbove(0) prepends and keeps existing content on its (now 2nd) staff', () => {
+    // A note on the original (only) staff is stored with an ABSENT staffId (= staff 0).
+    const note = model.addNote({ step: 'A', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const originalStaffId = model.getScore().staves![0].id
+
+    const newTopId = model.addStaffAbove(0)
+    const staves = model.getScore().staves!
+    expect(staves[0].id).toBe(newTopId)                // the new staff is on top (index 0)
+    expect(staves[1].id).toBe(originalStaffId)         // the original slid to index 1
+
+    // The A4 stayed on the ORIGINAL staff (now index 1) — it did NOT jump to the new top
+    // staff, because the prepend solidified its absent staffId into the explicit original id.
+    expect(model.getNote(note.id)!.staff).toBe(1)
+    const slot = model.getSlotsInMeasure(1).find(s => s.type === 'chord')
+    expect(slot!.staffId).toBe(originalStaffId)
+
+    // The freshly inserted top staff carries only rests (no pitched content leaked up to it).
+    const topPitched = model.getNotesInMeasure(1).filter(n => (n.staff ?? 0) === 0 && !n.isRest)
+    expect(topPitched).toHaveLength(0)
   })
 })
