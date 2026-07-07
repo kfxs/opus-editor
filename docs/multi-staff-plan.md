@@ -484,10 +484,14 @@ Mirror the "Measure:" pattern exactly (`App.vue:381-396`):
       **DEFERRED (documented limitations, not regressions):** tuplet creation still lands on staff 0
       (`createTuplet` not staff-aware); copy/paste stays active-staff-scoped (plan §4/§11);
       `getEffectiveClefAt` in voice-hop isn't per-staff (relative ordering still correct).
-- [ ] **Phase 4 — "Staff:" panel + add.** `addStaffAbove/Below` (treble default,
-      rest-filled every bar) + toolbar group gated by box-selected measure.
-- [ ] **Phase 5 — Playback multi-staff.** Shared per-measure clock; loop staves; one
-      shared synth.
+- [x] **Phase 4 — "Staff:" panel + add.** `addStaffAbove/Below` (treble default,
+      rest-filled every bar) + toolbar group gated by box-selected measure. DONE (8a251d3):
+      single staff group create(0→1)/grow; prepend solidifies absent-staffId content; box-select
+      captures + re-anchors the reference staff by id across the index shift.
+- [x] **Phase 5 — Playback multi-staff.** Shared per-measure clock; loop staves; one
+      shared synth. DONE (uncommitted): the flat model already schedules all staves against a
+      per-measure clock (measure.slots interleaves staves). Extracted a pure, tested
+      `collectScheduledNotes()` to verify it. Per-staff dynamics loudness + timbre stay deferred.
 
 ## 11. Future-open points (not built — landing spots kept open)
 
