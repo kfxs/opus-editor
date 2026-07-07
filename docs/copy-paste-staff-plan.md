@@ -85,8 +85,15 @@ No migration needed (no persisted clips) — bump `version`, keep round-trip.
       carry the relative staff too (though the override key still lacks a staff axis — same
       pre-existing limitation as direct multi-staff editing). Supersedes the single-staff
       fix as its general case. Tests: `1+2 → 3+4` round-trip + clamp+warn overflow.
-- [ ] **Phase 2 — dynamics travel.** Capture fully-enclosed dynamics by
-      `(staff, voice, offset)`; restore on paste (offset→beat, staff/voice mapped).
+- [x] **Phase 2 — dynamics travel. DONE.** `buildClipboardFromSelection` captures
+      fully-enclosed dynamics (`dynamicsInWindow`) as `ClipDynamic{staff(rel),voice,offset,
+      kind,level|text,placement}` on `payload.dynamics`; `pasteEvents` re-bases each offset by
+      the paste start, maps rel→abs staff (clamp/drop overflow) + re-voices single-voice clips,
+      and re-anchors via the existing `restoreBeatAnchors` path. Overwrite semantics: a
+      destination dynamic inside the paste window on a destination `(staff,voice)` lane is
+      dropped (`survivingAnchors` filter) so the clip's replaces it (no stacking). `ClipDynamicInput`
+      declared in ScoreModel (engine never imports inward). Tests: capture+paste, offset re-base,
+      fully-enclosed-only, overwrite-no-stack, cross-staff 1+2→3+4.
 - [ ] **Phase 3 — slurs travel.** Capture fully-enclosed slurs by endpoint
       `(staff, voice, offset, pitch)`; re-anchor to the freshly-pasted notes' new ids —
       reusing the existing `captureSlurs`/`restoreSlurs` re-anchor machinery from rebar.

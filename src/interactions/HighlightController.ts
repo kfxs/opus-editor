@@ -555,23 +555,32 @@ export class HighlightController {
   applyDynamicSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
-    if (!engine || !scoreCanvas || !this.state.selectedDynamicId) return
+    if (!engine || !scoreCanvas) return
 
-    // Recolor inside the dynamic's OWN <g class="vf-annotation"> group only, so it
-    // can't bleed onto neighbouring marks. The group holds the glyph/text as <text>
-    // and/or <path> children (level glyphs render as paths in the music font;
-    // custom text renders as <text>).
-    const group = engine.getDynamicSVGGroup(this.state.selectedDynamicId)
-    if (!group) return
+    // Highlight every selected dynamic: the scalar single-click selection (selectedDynamicId)
+    // AND any dynamics pulled into a Shift-click box (kind 'dynamic' items in selectedItems).
+    const ids = new Set<string>()
+    if (this.state.selectedDynamicId) ids.add(this.state.selectedDynamicId)
+    for (const item of this.state.selectedItems.values()) {
+      if (item.kind === 'dynamic') ids.add(item.id)
+    }
+    if (ids.size === 0) return
 
     const SELECTION_COLOR = '#F59E0B'
-
-    group.querySelectorAll('text, path').forEach(el => {
-      const currentFill = el.getAttribute('fill')
-      if (currentFill !== 'none') el.setAttribute('fill', SELECTION_COLOR)
-      ;(el as SVGElement & { style: CSSStyleDeclaration }).style.fill = SELECTION_COLOR
-      el.classList.add('selected-dynamic')
-    })
+    for (const id of ids) {
+      // Recolor inside the dynamic's OWN <g class="vf-annotation"> group only, so it
+      // can't bleed onto neighbouring marks. The group holds the glyph/text as <text>
+      // and/or <path> children (level glyphs render as paths in the music font;
+      // custom text renders as <text>).
+      const group = engine.getDynamicSVGGroup(id)
+      if (!group) continue
+      group.querySelectorAll('text, path').forEach(el => {
+        const currentFill = el.getAttribute('fill')
+        if (currentFill !== 'none') el.setAttribute('fill', SELECTION_COLOR)
+        ;(el as SVGElement & { style: CSSStyleDeclaration }).style.fill = SELECTION_COLOR
+        el.classList.add('selected-dynamic')
+      })
+    }
   }
 
   applySlurSelectionHighlight(): void {

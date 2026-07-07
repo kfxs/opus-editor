@@ -1,11 +1,11 @@
-import type { Fraction, Score } from '../types/music'
+import type { Fraction, Score, DynamicLevel } from '../types/music'
 import type { RebarEvent } from '../utils/rebar'
 import { flattenRegion } from '../utils/rebar'
 import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracToNumber } from '../utils/fraction'
 import { measureCapacityFrac, getMeasureNotes } from '../utils/musicUtils'
 import { durationToFraction } from '../utils/durations'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey } from '../engine/models/engravingOverrides'
-import { staffMeasureView, staffIdAtIndex } from '../engine/models/staffContent'
+import { staffMeasureView, staffIdAtIndex, staffIndexOfId } from '../engine/models/staffContent'
 
 /**
  * A position-independent snapshot of copied musical material.
@@ -52,6 +52,25 @@ export interface ClipboardLane {
   restHidden?: Array<{ offset: Fraction }>
 }
 
+/**
+ * A dynamic marking captured inside the copy window, re-anchored on paste. Staff is a
+ * RELATIVE index (0 = topmost copied staff), like {@link ClipboardLane.staff}; `offset` is
+ * relative to the selection start (quarter beats). Only dynamics whose position is FULLY
+ * inside the window travel (decision: fully-enclosed-only). See docs/copy-paste-staff-plan.md.
+ */
+export interface ClipDynamic {
+  /** RELATIVE staff index (0 = topmost copied staff). Paste maps it to `targetStaff + staff`. */
+  staff: number
+  /** Governed voice (0-based). */
+  voice: number
+  /** Beat offset from the selection start (same basis as {@link ClipboardLane.events}). */
+  offset: Fraction
+  kind: 'level' | 'text'
+  level?: DynamicLevel
+  text?: string
+  placement?: 'above' | 'below'
+}
+
 export interface ClipboardPayload {
   format: 'opus-editor/clipboard'
   version: 3
@@ -68,7 +87,9 @@ export interface ClipboardPayload {
    * Lanes are stored as an array (not a Map) to stay JSON-serializable.
    */
   lanes: ClipboardLane[]
-  // future: dynamics?: ClipboardDynamic[]; clefs?: ClipboardClef[]; ...
+  /** Dynamics fully inside the copy window, re-anchored on paste (Phase 2). Absent/empty = none. */
+  dynamics: ClipDynamic[]
+  // future: slurs?: ClipSlur[]; clefs?: ClipboardClef[]; ...
 }
 
 /** Cumulative quarter-beat offset of each measure's start, keyed by measure number. */
@@ -178,6 +199,43 @@ function selectedStaffVoices(score: Score, noteIds: Set<string>): Map<number, nu
 }
 
 /**
+ * Dynamics whose position falls FULLY inside the copy window `[spanStart, spanEnd)` and whose
+ * staff is within the copied staff span `[topStaff, maxStaff]`, as {@link ClipDynamic}s with
+ * the staff re-based to `topStaff` (relative) and the offset re-based to the window start.
+ * Straddling / out-of-band dynamics are left behind (decision: fully-enclosed-only).
+ */
+function dynamicsInWindow(
+  score: Score,
+  topStaff: number,
+  maxStaff: number,
+  spanStart: Fraction,
+  spanEnd: Fraction,
+): ClipDynamic[] {
+  const starts = measureStartOffsets(score)
+  const out: ClipDynamic[] = []
+  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
+    const mStart = starts.get(m.number)
+    if (!mStart) continue
+    for (const d of m.dynamics ?? []) {
+      const abs = fracAdd(mStart, d.beat)
+      if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
+      const staffIdx = staffIndexOfId(score, d.staffId)
+      if (staffIdx < topStaff || staffIdx > maxStaff) continue
+      out.push({
+        staff: staffIdx - topStaff,
+        voice: d.voice ?? 0,
+        offset: fracSub(abs, spanStart),
+        kind: d.kind,
+        ...(d.level !== undefined ? { level: d.level } : {}),
+        ...(d.text !== undefined ? { text: d.text } : {}),
+        ...(d.placement !== undefined ? { placement: d.placement } : {}),
+      })
+    }
+  }
+  return out
+}
+
+/**
  * Build a {@link ClipboardPayload} from a note selection. Copies the contiguous
  * musical span from the first to the last selected note (so a Shift range copies
  * exactly; a scattered Ctrl selection copies the whole span between its endpoints,
@@ -231,6 +289,9 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
   // Usable if any lane carries note events OR a shifted/hidden rest (a lone one still copies).
   if (lanes.every((l) => l.events.length === 0 && !l.restShifts?.length && !l.restHidden?.length)) return null
 
+  // Dynamics fully inside the window travel too (Phase 2), staff re-based to the topmost copied staff.
+  const dynamics = dynamicsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
+
   // Origin = the (measure, beat) of the earliest selected note, for reference.
   const starts = measureStartOffsets(score)
   let origin = { measure: score.measures[0].number, beat: fracCreate(0, 1) }
@@ -245,7 +306,7 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
     }
   }
 
-  return { format: 'opus-editor/clipboard', version: 3, origin, spanBeats, spanStaves, lanes }
+  return { format: 'opus-editor/clipboard', version: 3, origin, spanBeats, spanStaves, lanes, dynamics }
 }
 
 /** The (measure, beat, voice, staff) of the earliest note in a selection — the paste target
@@ -287,5 +348,6 @@ export function clipboardSummary(p: ClipboardPayload): string {
     })
     return `s${ln.staff}v${ln.voice + 1}: ${parts.join(' ') || '(empty)'}`
   })
-  return `${total} event(s) across ${p.lanes.length} lane(s) / ${p.spanStaves} staff(s), span ${fracToNumber(p.spanBeats)}b — ${perLane.join(' | ')}`
+  const dyn = p.dynamics.length ? `, ${p.dynamics.length} dynamic(s)` : ''
+  return `${total} event(s) across ${p.lanes.length} lane(s) / ${p.spanStaves} staff(s)${dyn}, span ${fracToNumber(p.spanBeats)}b — ${perLane.join(' | ')}`
 }

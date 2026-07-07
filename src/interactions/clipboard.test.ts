@@ -329,3 +329,88 @@ describe('clipboard — multi-staff copy/paste', () => {
     warn.mockRestore()
   })
 })
+
+describe('clipboard — dynamics travel (Phase 2)', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  /** Dynamics of a measure on a given staff, as `level@beat` (or `text@beat`). */
+  const dynsOf = (m: number, staff: number) => {
+    const score = engine.getScore()
+    return engine.getDynamics(m)
+      .filter(d => (d.staffId ? score.staves!.findIndex(s => s.id === d.staffId) : 0) === staff)
+      .map(d => `${d.level ?? d.text}@${fracToNumber(d.beat)}`)
+  }
+
+  const clipDynsPass = (p: ClipboardPayload) => p.dynamics
+
+  it('copies a dynamic under the selection and pastes it into the target bar', () => {
+    const ids = [
+      engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id,
+      engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id,
+    ]
+    engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f', voice: 0 })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
+    expect(payload.dynamics).toHaveLength(1)
+    expect(payload.dynamics[0]).toMatchObject({ staff: 0, voice: 0, kind: 'level', level: 'f' })
+    expect(fracToNumber(payload.dynamics[0].offset)).toBe(0)
+
+    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, clipDynsPass(payload))
+    expect(dynsOf(2, 0)).toEqual(['f@0'])
+  })
+
+  it('re-bases a dynamic to its clip-relative offset on paste', () => {
+    // C@0, D@1, E@2, F@3 — copy the whole bar; dynamic on beat 2.
+    const ids = [0, 1, 2, 3].map(b =>
+      engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id)
+    engine.addDynamic(1, { beat: frac(2, 1), kind: 'level', level: 'p', voice: 0 })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
+    expect(fracToNumber(payload.dynamics[0].offset)).toBe(2)
+
+    // Paste at m2 beat 1 → the dynamic lands at beat 1 + offset 2 = beat 3.
+    engine.pasteEvents(2, frac(1, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, clipDynsPass(payload))
+    expect(dynsOf(2, 0)).toEqual(['p@3'])
+  })
+
+  it('leaves a dynamic outside the copy window behind (fully-enclosed-only)', () => {
+    // Select only C@0 + D@1 (window [0,2)); dynamic at beat 2 is on the boundary → excluded.
+    const ids = [
+      engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id,
+      engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id,
+    ]
+    engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    engine.addDynamic(1, { beat: frac(2, 1), kind: 'level', level: 'f', voice: 0 })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
+    expect(payload.dynamics).toHaveLength(0)
+  })
+
+  it('overwrites a destination dynamic in the paste window (no stacking)', () => {
+    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f', voice: 0 })
+    // Destination bar already has a 'p' at beat 0 that the paste should replace.
+    engine.addDynamic(2, { beat: frac(0, 1), kind: 'level', level: 'p', voice: 0 })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), [c])!
+    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, clipDynsPass(payload))
+    expect(dynsOf(2, 0)).toEqual(['f@0']) // only the clip's, not ['p@0','f@0']
+  })
+
+  it('carries a dynamic across staves (1+2 → 3+4)', () => {
+    engine.addStaffBelow(0)
+    engine.addStaffBelow(1)
+    engine.addStaffBelow(2) // staves 0..3
+    const s0 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
+    const s1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
+    engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'mf', voice: 0, staffId: engine.staffIdForIndex(1) })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), [s0, s1])!
+    expect(payload.dynamics[0]).toMatchObject({ staff: 1, level: 'mf' }) // relative staff 1 (bottom copied)
+
+    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 2, clipDynsPass(payload))
+    expect(dynsOf(2, 3)).toEqual(['mf@0']) // relStaff 1 → staff 3
+    expect(dynsOf(2, 2)).toEqual([])       // nothing spurious on staff 2
+  })
+})

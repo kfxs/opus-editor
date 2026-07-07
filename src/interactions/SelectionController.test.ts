@@ -201,6 +201,21 @@ describe('SelectionController — Shift range select', () => {
     expect(selectedIds()).toEqual(new Set([noteKey(n1)]))
     expect(state.selectedNoteId).toBe(n1)
   })
+
+  it('pulls a dynamic inside the box into the selection (so it highlights)', () => {
+    const dynKey = (id: string) => itemKey({ kind: 'dynamic', id })
+    // A dynamic under beat 1 (inside the n0..n2 box) and one under beat 3 (outside it).
+    const dIn = engine.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'f', voice: 0 })!.id
+    const dOut = engine.addDynamic(1, { beat: frac(3, 1), kind: 'level', level: 'p', voice: 0 })!.id
+
+    selection.selectNote(n0)
+    selection.extendSelectionTo(n2)      // box = beats 0..2
+
+    expect(state.selectedItems.has(dynKey(dIn))).toBe(true)   // enclosed dynamic selected
+    expect(state.selectedItems.has(dynKey(dOut))).toBe(false) // beat 3 is outside the box
+    // The notes are still all there too.
+    expect(selectedIds().has(noteKey(n1))).toBe(true)
+  })
 })
 
 describe('Shift range + ties (multi-selection only)', () => {

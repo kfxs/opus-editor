@@ -1,4 +1,4 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, DynamicLevel, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, restPositionKey } from './engravingOverrides'
 import {
   getTupletTotalBeatsFrac,
@@ -49,6 +49,22 @@ import { v4 as uuidv4 } from 'uuid'
 type CapturedAnchor =
   | { kind: 'clef'; absBeat: Fraction; clef: Clef; staffId?: string }
   | { kind: 'dynamic'; absBeat: Fraction; dyn: Dynamic }
+
+/**
+ * A clipboard dynamic handed to {@link ScoreModel.pasteEvents} for re-anchoring at paste time.
+ * Structurally identical to the interaction-layer `ClipDynamic`, but declared here so the
+ * engine never imports inward (the framework-agnostic boundary). Staff is RELATIVE (0 = topmost
+ * copied staff); `offset` is relative to the clip start. See docs/copy-paste-staff-plan.md P2.
+ */
+export type ClipDynamicInput = {
+  staff: number
+  voice: number
+  offset: Fraction
+  kind: 'level' | 'text'
+  level?: DynamicLevel
+  text?: string
+  placement?: 'above' | 'below'
+}
 
 /**
  * A rest's manual vertical shift snapshotted before a rebar/paste, keyed by its absolute
@@ -1154,6 +1170,7 @@ export class ScoreModel {
     clipRestShifts: { staff: number; voice: number; restShifts: Array<{ offset: Fraction; steps: number }> }[] = [],
     clipRestHidden: { staff: number; voice: number; restHidden: Array<{ offset: Fraction }> }[] = [],
     targetStaff: number = 0,
+    clipDynamics: ClipDynamicInput[] = [],
   ): string[] {
     const ordered = [...this.score.measures].sort((a, b) => a.number - b.number)
     const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
@@ -1206,6 +1223,18 @@ export class ScoreModel {
       if (!destByStaff.has(absStaff)) destByStaff.set(absStaff, new Map())
       destByStaff.get(absStaff)!.set(destVoice, lane.events)
     }
+
+    // Overwrite semantics for dynamics (Phase 2): a captured destination dynamic that falls inside
+    // the paste window ON A DESTINATION (staff, voice) lane is dropped here so the clip's dynamics
+    // replace it (rather than stacking). Dynamics outside the window, or on passthrough lanes,
+    // survive via the normal restoreBeatAnchors path below.
+    const survivingAnchors = anchors.filter((a) => {
+      if (a.kind !== 'dynamic') return true
+      const inWindow = fracGte(a.absBeat, pasteStart) && fracLt(a.absBeat, pasteEnd)
+      if (!inWindow) return true
+      const dv = destByStaff.get(staffIndexOfId(this.score, a.dyn.staffId))
+      return !dv || !dv.has(a.dyn.voice ?? 0)
+    })
 
     const meter = getMeterInfo(ts)
     const targetBars = regionMeasures.length
@@ -1264,7 +1293,29 @@ export class ScoreModel {
     this.repairDanglingTies()
     this.restoreSlurs(regionNumbers, slurState)
     this.repairDanglingSlurs()
-    this.restoreBeatAnchors(regionNumbers, anchors)
+    this.restoreBeatAnchors(regionNumbers, survivingAnchors)
+    // Re-anchor the clip's own dynamics on top (Phase 2): re-base each clip-relative offset by the
+    // paste start, map the RELATIVE staff onto an absolute one (clamped — drop overflow lanes), and
+    // re-voice a single-voice clip into the target voice (mirroring the destVoices rule). Routed
+    // through the same restoreBeatAnchors path the destination's dynamics use.
+    const clipAnchors: CapturedAnchor[] = []
+    for (const cd of clipDynamics) {
+      const absStaff = targetStaff + cd.staff
+      if (absStaff < 0 || absStaff >= staffCount) continue // overflow — already warned for its lane
+      const staffId = staffIdAtIndex(this.score, absStaff)
+      const dyn: Dynamic = {
+        id: uuidv4(),
+        beat: fracCreate(0, 1), // restoreBeatAnchors overwrites this from absBeat
+        kind: cd.kind,
+        voice: (singleVoice ? targetVoice : cd.voice) as 0 | 1 | 2 | 3,
+        ...(cd.level !== undefined ? { level: cd.level } : {}),
+        ...(cd.text !== undefined ? { text: cd.text } : {}),
+        ...(cd.placement !== undefined ? { placement: cd.placement } : {}),
+        ...(staffId !== undefined ? { staffId } : {}),
+      }
+      clipAnchors.push({ kind: 'dynamic', absBeat: fracAdd(pasteStart, cd.offset), dyn })
+    }
+    this.restoreBeatAnchors(regionNumbers, clipAnchors)
     // Re-stamp the destination's own rest shifts; the clip's shifts are applied after this,
     // so they win on any position collision.
     this.restoreRestShifts(regionNumbers, restShifts)

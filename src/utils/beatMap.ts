@@ -1,4 +1,4 @@
-import type { Note, Score } from '../types/music'
+import type { Note, Score, Fraction } from '../types/music'
 import { fracCompare } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingToMidi } from '../utils/pitchSpelling'
@@ -183,6 +183,56 @@ export function notesInBox(score: Score, currentIds: string[], targetId: string)
   return allFlat
     .filter(n => rangeKeys.has(posKey(n)) && (n.staff ?? 0) >= staffLo && (n.staff ?? 0) <= staffHi)
     .map(n => n.id)
+}
+
+/**
+ * Dynamic ids sitting inside the rectangular box a Shift-click builds over `noteIds` — the
+ * (measure, beat) extent × the staff extent of those notes. A box that encloses notes should
+ * also grab the dynamics under them so Shift-selection highlights them too. A dynamic is IN the
+ * box when its temporal position lies within `[firstNote…lastNote]` (inclusive, same endpoints
+ * {@link notesInBox} uses) and its staff is within the notes' staff band. Returns [] when the
+ * notes can't be located.
+ */
+export function dynamicsInBox(score: Score, noteIds: string[]): string[] {
+  if (!noteIds.length) return []
+  const ids = new Set(noteIds)
+
+  // (measure, beat) temporal order: measures are sequential, beats are within-measure.
+  const before = (aM: number, aB: Fraction, bM: number, bB: Fraction): number =>
+    aM !== bM ? aM - bM : fracCompare(aB, bB)
+
+  // Box extent = temporal min/max + staff band of the selected notes.
+  let lo: { m: number; beat: Fraction } | null = null
+  let hi: { m: number; beat: Fraction } | null = null
+  let staffLo = Infinity, staffHi = -Infinity
+  for (const m of score.measures) {
+    for (const n of getMeasureNotes(m, score)) {
+      if (!ids.has(n.id)) continue
+      if (!lo || before(m.number, n.beat, lo.m, lo.beat) < 0) lo = { m: m.number, beat: n.beat }
+      if (!hi || before(m.number, n.beat, hi.m, hi.beat) > 0) hi = { m: m.number, beat: n.beat }
+      const st = n.staff ?? 0
+      staffLo = Math.min(staffLo, st); staffHi = Math.max(staffHi, st)
+    }
+  }
+  if (!lo || !hi) return []
+
+  const staffIndexOf = (staffId?: string): number => {
+    if (staffId === undefined) return 0
+    const i = (score.staves ?? []).findIndex(s => s.id === staffId)
+    return i < 0 ? 0 : i
+  }
+
+  const out: string[] = []
+  for (const m of score.measures) {
+    for (const d of m.dynamics ?? []) {
+      const st = staffIndexOf(d.staffId)
+      if (st < staffLo || st > staffHi) continue
+      if (before(m.number, d.beat, lo.m, lo.beat) < 0) continue
+      if (before(m.number, d.beat, hi.m, hi.beat) > 0) continue
+      out.push(d.id)
+    }
+  }
+  return out
 }
 
 /**

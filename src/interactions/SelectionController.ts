@@ -4,7 +4,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { Rect } from '../engine/ViewportModel'
 import type { EditorState } from './EditorState'
 import { modelVoiceToActive } from './EditorState'
-import { buildVoiceNavBeatMap, notesInBox, expandTieChains } from '../utils/beatMap'
+import { buildVoiceNavBeatMap, notesInBox, dynamicsInBox, expandTieChains } from '../utils/beatMap'
 import { fracLt, fracEq, fracCompare, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
@@ -206,6 +206,12 @@ export class SelectionController {
     this.state.selectedItems.clear()
     for (const id of boxIds) {
       const item: SelectionItem = { kind: 'note', id }
+      this.state.selectedItems.set(itemKey(item), item)
+    }
+    // A box that encloses notes also grabs the dynamics under them, so they highlight with the
+    // selection (they ride along on copy via the fully-enclosed rule regardless).
+    for (const id of dynamicsInBox(engine.getScore(), boxIds)) {
+      const item: SelectionItem = { kind: 'dynamic', id }
       this.state.selectedItems.set(itemKey(item), item)
     }
     // Bake the grown box in as the base and move the pivot + nav anchor to the target.
