@@ -601,6 +601,30 @@ describe('MusicEngine.moveSelectionToVoice — atomic multi-note move (Phase 3)'
   })
 })
 
+describe('MusicEngine.toggleTie — staff scoping (multi-staff)', () => {
+  let engine: MusicEngine
+
+  beforeEach(() => {
+    engine = makeEngine()
+    engine.addTempSecondStaff()
+  })
+
+  it('ties within the source note\'s own staff, not across staves at the same position', () => {
+    // Same pitch on BOTH staves at the next beat. Without staff scoping the tie would grab
+    // whichever E3 the position-sorted search hit first (possibly staff 0); it must pick
+    // the SAME-staff one.
+    const s1a = addNote(engine, { step: 'E', alter: 0, octave: 3, duration: 'q', measure: 2, beat: frac(0, 1), staff: 1 })
+    const s1b = addNote(engine, { step: 'E', alter: 0, octave: 3, duration: 'q', measure: 2, beat: frac(1, 1), staff: 1 })
+    const s0b = addNote(engine, { step: 'E', alter: 0, octave: 3, duration: 'q', measure: 2, beat: frac(1, 1), staff: 0 })
+
+    expect(engine.toggleTie(s1a.id)).toBe(true)
+    expect(engine.getNote(s1a.id)!.tiedTo).toBe(s1b.id)
+    expect(engine.getNote(s1b.id)!.tiedFrom).toBe(s1a.id)
+    // The staff-0 note at the same beat is untouched.
+    expect(engine.getNote(s0b.id)!.tiedFrom).toBeUndefined()
+  })
+})
+
 describe('MusicEngine.createSlur — endpoint resolution', () => {
   let engine: MusicEngine
 

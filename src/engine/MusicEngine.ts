@@ -661,12 +661,16 @@ export class MusicEngine {
       const allSlots = this.scoreModel.getAllNotes().sort(compareByPosition)
       const source = allSlots.find(n => n.id === noteId)
       if (!source) return null
-      const nextStart = allSlots.find(n => compareByPosition(n, source) > 0)
+      // A tie stays within ONE stream — the source's own voice AND staff. Searching all
+      // slots would tie a staff-1 note to whatever staff-0 note happens to sit at the next
+      // position (voices/staves are independent streams).
+      const stream = allSlots.filter(n => (n.voice ?? 0) === (source.voice ?? 0) && (n.staff ?? 0) === (source.staff ?? 0))
+      const nextStart = stream.find(n => compareByPosition(n, source) > 0)
       if (!nextStart) {
         console.log(`[Tie] no next slot found — tie not created`)
         return null
       }
-      const samePitch = allSlots.find(n =>
+      const samePitch = stream.find(n =>
         compareByPosition(n, nextStart) === 0 && !n.isRest
         && n.step === source.step && (n.alter ?? 0) === (source.alter ?? 0) && n.octave === source.octave)
       // Prefer the same pitch in the next slot (chord ties join like to like); otherwise
@@ -717,9 +721,11 @@ export class MusicEngine {
     // (chords join like to like), else tie to whatever is there (let-ring / l.v.).
     const pairs: { source: Note; target: Note }[] = []
     for (const source of sources) {
-      const next = all.find((n) => compareByPosition(n, source) > 0)
+      // Scope the forward target to the source's own voice AND staff (independent streams).
+      const stream = all.filter((n) => (n.voice ?? 0) === (source.voice ?? 0) && (n.staff ?? 0) === (source.staff ?? 0))
+      const next = stream.find((n) => compareByPosition(n, source) > 0)
       if (!next) continue
-      const samePitch = all.find(
+      const samePitch = stream.find(
         (n) =>
           compareByPosition(n, next) === 0 && !n.isRest &&
           n.step === source.step && (n.alter ?? 0) === (source.alter ?? 0) && n.octave === source.octave,
@@ -773,8 +779,9 @@ export class MusicEngine {
     if (resolved.length === 0) return null
 
     const slurVoice = resolved[0].voice ?? 0
+    const slurStaff = resolved[0].staff ?? 0
     const selected = resolved
-      .filter(n => (n.voice ?? 0) === slurVoice)
+      .filter(n => (n.voice ?? 0) === slurVoice && (n.staff ?? 0) === slurStaff)
       .sort(compareByPosition)
     if (selected.length === 0) return null
 
@@ -1021,11 +1028,12 @@ export class MusicEngine {
    * `getAllNotes()` emits one entry per pitch, hence the dedupe.
    */
   private nextDistinctSlot(start: Note): Note | undefined {
-    // Stay within the start note's own voice — a slur's end anchor must be the next
-    // slot in the SAME voice, not whatever event comes next in another voice.
+    // Stay within the start note's own voice AND staff — a slur's end anchor must be the
+    // next slot in the SAME stream, not whatever event comes next in another voice/staff.
     const startVoice = start.voice ?? 0
+    const startStaff = start.staff ?? 0
     const sorted = this.scoreModel.getAllNotes()
-      .filter(n => (n.voice ?? 0) === startVoice)
+      .filter(n => (n.voice ?? 0) === startVoice && (n.staff ?? 0) === startStaff)
       .sort(compareByPosition)
     const idx = sorted.findIndex(n => n.id === start.id)
     if (idx < 0) return undefined
