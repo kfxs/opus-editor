@@ -185,44 +185,50 @@ export class CoordinateMapper {
    */
   pixelToMeasure(coords: PixelCoordinates): number {
     // First, try using actual measure bounds if available (supports dynamic widths).
-    // `measureY` is the system top (staff 0); a click on any stacked staff falls within one
-    // systemHeight below it, so the vertical band spans the whole system, not one staff.
-    const systemHeight = this.systemHeight()
+    // `measureY` is the system top (staff 0); a click on any stacked staff falls within the
+    // system's REAL height below it (`bounds.systemHeight`, which includes per-staff spacing),
+    // so the vertical band spans the whole spaced-apart system. The uniform `this.systemHeight()`
+    // is only a fallback for bounds captured before Client #7 populated the real height — it
+    // under-covers once staves are dragged far apart (docs/staff-spacing-plan.md §3).
+    const uniformHeight = this.systemHeight()
     if (this.measureBounds.size > 0) {
-      // Find which measure contains the click coordinates
+      // Find which measure contains the click coordinates (real per-system height).
       for (const [measureNumber, bounds] of this.measureBounds.entries()) {
+        const h = bounds.systemHeight ?? uniformHeight
         if (
           coords.x >= bounds.measureX &&
           coords.x < bounds.measureX + bounds.measureWidth &&
           coords.y >= bounds.measureY &&
-          coords.y < bounds.measureY + systemHeight
+          coords.y < bounds.measureY + h
         ) {
           return measureNumber
         }
       }
 
-      // If no exact match found, find the closest measure on the correct line
-      const line = Math.max(0, Math.floor((coords.y - this.config.startY) / systemHeight))
+      // No exact hit: pick the measure whose real vertical band is nearest to the click, tie-
+      // broken by horizontal distance. This uses each measure's own drawn band instead of the
+      // uniform line-index math, so it stays correct when systems have unequal spacing.
       let closestMeasure = 1
-      let closestDistance = Infinity
-
+      let bestVGap = Infinity
+      let bestHGap = Infinity
       for (const [measureNumber, bounds] of this.measureBounds.entries()) {
-        const measureLine = Math.floor((bounds.measureY - this.config.startY) / systemHeight)
-        if (measureLine === line) {
-          const measureCenterX = bounds.measureX + bounds.measureWidth / 2
-          const distance = Math.abs(coords.x - measureCenterX)
-          if (distance < closestDistance) {
-            closestDistance = distance
-            closestMeasure = measureNumber
-          }
+        const h = bounds.systemHeight ?? uniformHeight
+        const vGap = coords.y < bounds.measureY ? bounds.measureY - coords.y
+          : coords.y > bounds.measureY + h ? coords.y - (bounds.measureY + h)
+          : 0
+        const hGap = Math.abs(coords.x - (bounds.measureX + bounds.measureWidth / 2))
+        // Same band (or both inside) → nearer in x wins; otherwise the nearer band wins.
+        if (vGap < bestVGap - 0.5 || (Math.abs(vGap - bestVGap) <= 0.5 && hGap < bestHGap)) {
+          bestVGap = vGap
+          bestHGap = hGap
+          closestMeasure = measureNumber
         }
       }
-
       return closestMeasure
     }
 
     // Fallback to calculated values (for uniform widths or when bounds not set)
-    const line = Math.max(0, Math.floor((coords.y - this.config.startY) / systemHeight))
+    const line = Math.max(0, Math.floor((coords.y - this.config.startY) / uniformHeight))
     const posInLine = Math.max(0, Math.floor((coords.x - this.config.startX) / this.config.measureWidth))
 
     return line * this.config.measuresPerLine + posInLine + 1 // Convert to 1-indexed

@@ -54,6 +54,11 @@ export interface MeasureBounds {
   noteStartX: number
   /** X position where notes must end */
   noteEndX: number
+  /** REAL vertical span of this measure's whole system in px (staff 0's top → below the last
+   *  staff), including any Client #7 per-system staff-spacing extra. Undefined until a render
+   *  populates it; `pixelToMeasure` falls back to the uniform `staffHeight·numStaves` when
+   *  absent, which is wrong once staves are spaced apart — hence this real height. */
+  systemHeight?: number
 }
 
 /**
@@ -1155,6 +1160,7 @@ export class VexFlowRenderer {
   private staffSpacingLayout(score: Score, measureWidths: Map<number, MeasureWidthInfo>): {
     lineTopPx: number[]
     cumPx: number[][]
+    lineHeightPx: number[]
     contentHeightPx: number
   } {
     const staves = getStaves(score)
@@ -1176,6 +1182,7 @@ export class VexFlowRenderer {
 
     const cumPx: number[][] = []
     const lineTopPx: number[] = []
+    const lineHeightPx: number[] = []
     let top = margin
     let contentHeightPx = 0
     for (let line = 0; line < numLines; line++) {
@@ -1190,10 +1197,11 @@ export class VexFlowRenderer {
       cumPx.push(cum)
       lineTopPx.push(top)
       const systemHeight = numStaves * staffStride + acc
+      lineHeightPx.push(systemHeight)
       top += systemHeight
       contentHeightPx += systemHeight
     }
-    return { lineTopPx, cumPx, contentHeightPx }
+    return { lineTopPx, cumPx, lineHeightPx, contentHeightPx }
   }
 
   renderScore(score: Score, ghostNote?: GhostNote): boolean {
@@ -1312,6 +1320,12 @@ export class VexFlowRenderer {
           this.renderMeasure(pass, view, currentX, y, widthInfo.finalWidth, isFirstInLine, clef, hasClefChange, cautionaryEndClef, ghostClefBeat, widthInfo.cautionaryEndTimeSig, staffIndex)
         )
       })
+
+      // Record this measure's REAL system height (staff-0 measureBounds was just written by the
+      // forEach) so pixelToMeasure's vertical band matches the drawn layout — the uniform
+      // fallback under-covers once a staff is spaced far down (docs/staff-spacing-plan.md §3).
+      const mb = this.measureBounds.get(measure.number)
+      if (mb) mb.systemHeight = spacing.lineHeightPx[currentLine]
 
       // Join the stacked staves into one system with a vertical line at the left edge of
       // each line's first measure (grand-staff look). A single connecting line only — the
