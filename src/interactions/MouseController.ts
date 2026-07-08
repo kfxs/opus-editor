@@ -20,6 +20,12 @@ import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
  *  space" for the measure-box gesture (see handleModifierMouseDown). */
 const MEASURE_BOX_IGNORE_TYPES = new Set<ElementType>(['staff', 'barline', 'beam'])
 
+/** Vertical margin (px) added above/below a staff's five lines to define the band a plain
+ *  click must land in to select that bar. Matches the drawn single box's ±12 extent
+ *  (HighlightController.applyMeasureBox), so "click where the box would be → select"; a click
+ *  in the GAP between two staves falls outside every band and selects nothing. */
+const STAFF_BAND_PAD_PX = 12
+
 /** Shortest distance from point (px,py) to the line segment a→b (clamped to the
  *  segment, so endpoints don't over-grab). Used for arc-proximity slur hit-testing. */
 function distToSegment(
@@ -575,9 +581,11 @@ export class MouseController {
    * Sibelius plain-click passage select: a tap on empty space inside a bar selects that
    * whole bar on the clicked staff — its notes/rests plus enclosed dynamics and slurs
    * (ties ride along via their notes) — and outlines it with a SINGLE blue box. Returns
-   * false (→ caller clears the selection instead) when the tap, though empty, doesn't land
-   * inside any bar's rectangle: `pixelToMeasure` snaps to the nearest bar on the line, so a
-   * stray click below/above the staff must not hijack it (mirrors selectMeasureBox).
+   * false (→ caller clears the selection instead) when the tap doesn't land ON a staff:
+   * horizontally outside the bar (`pixelToMeasure` snaps to the nearest bar on the line), or
+   * vertically off the clicked staff's band — crucially the GAP BETWEEN STAVES, since the
+   * bar's `getMeasureRect` spans all staves top-to-bottom and would otherwise grab a gap
+   * click for whichever staff is nearest.
    */
   private selectMeasureAt(x: number, y: number): boolean {
     const engine = this.getEngine()
@@ -585,10 +593,19 @@ export class MouseController {
     const measure = engine.pixelToMeasure({ x, y })
     const rect = engine.getMeasureRect(measure)
     if (!rect) return false
-    const inside = x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height
-    if (!inside) return false
+    // Horizontal: within this bar's x-range (reject the nearest-bar snap for a click past
+    // the last bar on a line).
+    if (x < rect.x || x >= rect.x + rect.width) return false
 
-    const staff = engine.getElementRegistry().staffIndexAtY(measure, y)
+    const registry = engine.getElementRegistry()
+    const staff = registry.staffIndexAtY(measure, y)
+    // Vertical: must land ON the clicked staff's own band (its five lines + a small ledger
+    // margin, matching the drawn box). A click in the gap between staves — or well above/
+    // below the system — is not on any staff, so it selects nothing and the caller clears.
+    const geo = registry.getStaffGeometry(measure, staff)
+    if (!geo) return false
+    if (y < geo.lineYPositions[0] - STAFF_BAND_PAD_PX || y > geo.lineYPositions[4] + STAFF_BAND_PAD_PX) return false
+
     const score = engine.getScore()
     const m = score.measures.find(mm => mm.number === measure)
     if (!m) return false

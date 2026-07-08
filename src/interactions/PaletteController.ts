@@ -33,13 +33,14 @@ export class PaletteController {
   }
 
   /**
-   * The measure span the "Add Measure" buttons act on: ONLY the box-selected range
-   * (Ctrl+Shift+click). Null when no measure is box-selected — the feature is measure-
-   * selection driven, so a note selection does NOT count. Returns inclusive low/high bars.
+   * The measure span the "Add Measure" buttons act on: ONLY a Ctrl+Shift+click box span
+   * (the DOUBLE box). A plain-click passage select (single box) is a content selection, not
+   * a measure-structure context, so it does NOT count — and neither does a note selection.
+   * Returns inclusive low/high bars, or null when no double box is selected.
    */
   private measureContext(): { lo: number; hi: number } | null {
     const range = this.state.selectedMeasureRange
-    if (!range) return null
+    if (!range || this.state.selectedMeasureBoxStyle !== 'double') return null
     return { lo: Math.min(range.anchor, range.focus), hi: Math.max(range.anchor, range.focus) }
   }
 
@@ -79,23 +80,24 @@ export class PaletteController {
   }
 
   /**
-   * The reference staff the "Staff:" buttons act on: the 0-based staff of the box-selected
-   * measure (Ctrl+Shift+click a bar). Null when no measure box is selected — like the
-   * "Measure:" buttons, the feature is measure-selection driven.
+   * The reference staff the "Staff:" buttons act on: the 0-based staff of a PLAIN-click
+   * bar selection (the SINGLE box). Null otherwise — staff add is now driven by the plain-
+   * click passage select, NOT the Ctrl+Shift measure-span box (which is reserved for the
+   * "Add Measure" ops), so the two structure edits stay separate gestures.
    */
   private staffContext(): number | null {
-    if (this.state.selectedMeasureRange === null) return null
+    if (this.state.selectedMeasureRange === null || this.state.selectedMeasureBoxStyle !== 'single') return null
     return this.state.selectedMeasureStaff
   }
 
-  /** Add a new staff immediately ABOVE the box-selected measure's staff. No-op unless a
-   *  measure is box-selected (Ctrl+Shift+click a bar first). */
+  /** Add a new staff immediately ABOVE the plain-click-selected bar's staff. No-op unless a
+   *  bar is plain-click-selected (click empty space in a bar first). */
   addStaffAbove(): void {
     this.addStaffRelative('above')
   }
 
-  /** Add a new staff immediately BELOW the box-selected measure's staff. No-op unless a
-   *  measure is box-selected (Ctrl+Shift+click a bar first). */
+  /** Add a new staff immediately BELOW the plain-click-selected bar's staff. No-op unless a
+   *  bar is plain-click-selected (click empty space in a bar first). */
   addStaffBelow(): void {
     this.addStaffRelative('below')
   }
@@ -112,7 +114,7 @@ export class PaletteController {
     const engine = this.getEngine()
     const ref = this.staffContext()
     if (!engine || ref === null) {
-      console.log(`Add staff ${position}: no measure selected (Ctrl+Shift+click a bar first)`)
+      console.log(`Add staff ${position}: no bar selected (click empty space in a bar first)`)
       return
     }
     const selectedId = engine.getScore().staves?.[this.state.selectedMeasureStaff]?.id

@@ -135,17 +135,28 @@ export class HighlightController {
     // across a line break draws one box per line — the box ends at the line edge and
     // resumes on the next, exactly like Sibelius. Each line's box hugs min→max x and a
     // little above/below the staff so it clears ledger-heavy notes.
-    // The box outlines ONE staff's bar — the staff the Ctrl+Shift+click landed on
-    // (`selectedMeasureStaff`) — so it reads as a single-staff selection (the reference the
-    // "Staff: + Above/Below" buttons act on). At N=1 that is always staff 0.
-    const staff = this.state.selectedMeasureStaff
+    //
+    // Vertical extent depends on the box style (they are different operations):
+    //   - 'single' (plain-click passage select) → ONE staff's band, the staff the click
+    //     landed on (`selectedMeasureStaff`); a content selection on that staff.
+    //   - 'double' (Ctrl+Shift measure select) → the whole measure COLUMN across EVERY
+    //     staff (staff 0's top → the last staff's bottom), because add/remove-measure is a
+    //     system-wide edit that hits all staves. At N=1 both collapse to the single staff.
+    const isSingle = this.state.selectedMeasureBoxStyle === 'single'
+    const staffCount = engine.getScore().staves?.length ?? 1
     const lines = new Map<number, { left: number; right: number; top: number; bottom: number }>()
     for (let m = lo; m <= hi; m++) {
       const rect = engine.getMeasureRect(m)
-      const geometry = registry.getStaffGeometry(m, staff) ?? registry.getStaffGeometry(m, 0)
-      if (!rect || !geometry) continue
-      const top = geometry.lineYPositions[0] - 12
-      const bottom = geometry.lineYPositions[4] + 12
+      if (!rect) continue
+      const topGeo = isSingle
+        ? (registry.getStaffGeometry(m, this.state.selectedMeasureStaff) ?? registry.getStaffGeometry(m, 0))
+        : registry.getStaffGeometry(m, 0)
+      const bottomGeo = isSingle
+        ? topGeo
+        : (registry.getStaffGeometry(m, staffCount - 1) ?? registry.getStaffGeometry(m, 0))
+      if (!topGeo || !bottomGeo) continue
+      const top = topGeo.lineYPositions[0] - 12
+      const bottom = bottomGeo.lineYPositions[4] + 12
       const key = Math.round(rect.y)
       const seg = lines.get(key)
       if (seg) {

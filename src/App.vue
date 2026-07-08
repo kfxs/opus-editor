@@ -393,20 +393,20 @@
             >+ After</button>
           </div>
 
-          <!-- Add Staff (relative to the box-selected measure's staff; Ctrl+Shift+click a bar) -->
+          <!-- Add Staff (relative to the plain-click-selected bar's staff; click empty space in a bar) -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Staff:</span>
             <button
               @click="palette.addStaffAbove()"
               :disabled="!hasStaffContext"
               class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Add a staff above the selected bar's staff — Ctrl+Shift+click a measure to select it first"
+              title="Add a staff above the selected bar's staff — click empty space in a measure to select it first"
             >+ Above</button>
             <button
               @click="palette.addStaffBelow()"
               :disabled="!hasStaffContext"
               class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Add a staff below the selected bar's staff — Ctrl+Shift+click a measure to select it first"
+              title="Add a staff below the selected bar's staff — click empty space in a measure to select it first"
             >+ Below</button>
           </div>
 
@@ -780,15 +780,14 @@ const isCustomTimeSignatureArmed = computed(() => {
   return !timeSignaturePresets.some(p => p.numerator === sel.numerator && p.denominator === sel.denominator && !sel.grouping)
 })
 
-// The "Add Measure" buttons act on a box-selected measure span ONLY (Ctrl+Shift+click, the
-// DOUBLE box). The plain-click passage select (single box) also sets selectedMeasureRange but
-// is a pure content selection, so it must NOT expose these measure-structure buttons.
+// The two toolbar groups are driven by DIFFERENT measure-selection gestures (they're
+// different concerns): the "Add Measure" buttons work on a Ctrl+Shift+click span (the DOUBLE
+// box) — a measure-structure edit — while the "Staff:" add-above/below buttons work on a
+// plain-click bar (the SINGLE box) — a staff-structure edit relative to the clicked staff.
 const hasMeasureContext = computed(() =>
   state.selectedMeasureRange !== null && state.selectedMeasureBoxStyle === 'double')
-// The "Staff:" buttons share the measure-box gate — they add a staff relative to the
-// box-selected bar's staff (multi-staff Phase 4).
 const hasStaffContext = computed(() =>
-  state.selectedMeasureRange !== null && state.selectedMeasureBoxStyle === 'double')
+  state.selectedMeasureRange !== null && state.selectedMeasureBoxStyle === 'single')
 
 // --- Pickup / anacrusis dialog ---
 // Sets a measure's actual playable length shorter than its time signature. The
