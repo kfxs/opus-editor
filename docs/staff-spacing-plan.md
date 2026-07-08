@@ -229,8 +229,14 @@ bottom-margin term later if it ever matters; additive, no teardown).
   moved off `Ctrl+Alt+↑/↓` (Linux WMs grab it for workspace switching). `CoordinateMapper.systemHeight()`
   fallback drift left as documented (§3, not a blocker). 962 unit tests green. Manual test
   pending: user nudges spacing via keyboard, saves/loads, undoes.
-- **Phase 2 — vertical drag.** Slur-handle-style drag on the selected box; live preview;
-  atomic commit. Optional "Reset spacing" palette button.
+- **Phase 2 — vertical drag. DONE (drag) / reset-button OPEN.** `MouseController` grabs when a
+  press lands inside the already-selected single box (`handleStaffSpacingMouseDown`, mirrors the
+  slur-handle "select then grab"); `handleStaffSpacingDrag` turns cursor-Y travel into an
+  absolute `above` via `previewStaffSpacing` (no undo), box highlight follows the live re-render;
+  `endStaffSpacingDrag` → `commitStaffSpacing` records ONE undo on drop (only if it moved). New
+  facade: `getStaffSpacingAbove` (baseline read) / `previewStaffSpacing` / `commitStaffSpacing`.
+  Reset UX (§8.3) still open — spacing already auto-clears at 0, so nudging back to baseline is a
+  working reset; a dedicated palette button is deferred pending the decision.
 - **Phase 3 (future, opt-in) — per-system (option C).** Anchor to the system's opening
   measure id, resolve membership as a render view, fall back to the Phase-1 per-staff value;
   reset-on-reflow rule per §4. Only if the global-per-staff granularity proves insufficient.

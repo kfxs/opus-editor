@@ -943,6 +943,28 @@ export class MusicEngine {
     return ok
   }
 
+  /** The staff's current "space above" in staff-spaces (0 when none), by staff *index* —
+   *  the drag reads this as its baseline at grab time. */
+  getStaffSpacingAbove(staffIndex: number): number {
+    const staffId = staffIdAtIndex(this.scoreModel.getScore(), staffIndex)
+    return staffId ? staffSpacingAbove(this.scoreModel.getScore(), staffId) : 0
+  }
+
+  /** Live (preview) staff-spacing update used **while dragging** — sets the staff's absolute
+   *  "space above" (staff-spaces) but does NOT record undo. Call {@link commitStaffSpacing} on
+   *  drop for the single undo entry (mirrors `previewSlurShape` / `commitSlurShape`). A no-op
+   *  if the index has no staff. @returns true if a staff was updated. */
+  previewStaffSpacing(staffIndex: number, above: number): boolean {
+    const staffId = staffIdAtIndex(this.scoreModel.getScore(), staffIndex)
+    if (!staffId) return false
+    return this.scoreModel.setStaffSpacing(staffId, above)
+  }
+
+  /** Record one undo entry after a staff-spacing drag settles. */
+  commitStaffSpacing(): void {
+    this.saveOnly('Adjust staff spacing')
+  }
+
   /**
    * Toggle whether a selected rest is hidden (the Sibelius-style Ctrl+Shift+H — see
    * docs/rest-hide-plan.md). Resolves the rest id to its position address (the override is

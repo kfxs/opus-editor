@@ -103,6 +103,14 @@ export class MouseController {
   private slurEndpointDragChanged = false
   private slurEndpointDragStartTime: number | null = null
 
+  // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
+  private isDraggingStaffSpacing = false
+  private draggedSpacingStaff = 0            // staff index being spaced
+  private draggedSpacingBaseline = 0         // its `above` (staff-spaces) at drag start
+  private draggedSpacingStartY = 0           // cursor Y (px) at drag start
+  private staffSpacingDragChanged = false
+  private staffSpacingDragStartTime: number | null = null
+
   /** Max cursor→notehead distance (px) for an endpoint drag to snap onto a note. */
   private readonly SLUR_ENDPOINT_SNAP_PX = 60
 
@@ -421,6 +429,7 @@ export class MouseController {
     if (this.handleModifierMouseDown(ctx)) return
     if (this.handleTupletMouseDown(ctx)) return
     if (this.handleSlurHandleMouseDown(ctx)) return
+    if (this.handleStaffSpacingMouseDown(ctx)) return
 
     this.state.selectedTupletId = null
     this.state.selectedTieFromNoteId = null
@@ -743,6 +752,46 @@ export class MouseController {
     return false
   }
 
+  /**
+   * If a plain-click SINGLE measure box is already selected and this press lands inside its
+   * band, arm a vertical drag that adjusts the staff's "space above" (Sibelius staff drag —
+   * Client #7, docs/staff-spacing-plan.md §6). Runs before the selection clear so the box
+   * stays selected through the drag; the box highlight follows live as the model re-renders.
+   * Mirrors {@link handleSlurHandleMouseDown}: you first select the box, then grab it.
+   */
+  private handleStaffSpacingMouseDown(ctx: MouseDownCtx): boolean {
+    const { engine, event, registry, x, y } = ctx
+    if (this.state.selectedMeasureRange === null || this.state.selectedMeasureBoxStyle !== 'single') return false
+    const measure = this.state.selectedMeasureRange.anchor // single box: anchor === focus
+    const rect = engine.getMeasureRect(measure)
+    if (!rect) return false
+    // Hit-test the exact drawn box: this bar's x-range × the selected staff's band (its five
+    // lines + the same ±STAFF_BAND_PAD_PX the box and the plain-click select use).
+    if (x < rect.x || x >= rect.x + rect.width) return false
+    const staff = this.state.selectedMeasureStaff
+    const geo = registry.getStaffGeometry(measure, staff)
+    if (!geo) return false
+    if (y < geo.lineYPositions[0] - STAFF_BAND_PAD_PX || y > geo.lineYPositions[4] + STAFF_BAND_PAD_PX) return false
+
+    this.armStaffSpacingDrag(engine, y)
+    console.log(`Staff-spacing drag ready | measure:${measure} staff:${staff} baseline:${this.draggedSpacingBaseline} ss`)
+    event.preventDefault()
+    return true
+  }
+
+  /** Arm the vertical staff-spacing drag on the currently-selected single box's staff,
+   *  capturing its current `above` as the baseline and `startY` as the grab origin. Shared by
+   *  the "grab an already-selected box" path and the "select-and-grab in one press" path. */
+  private armStaffSpacingDrag(engine: MusicEngine, startY: number): void {
+    const staff = this.state.selectedMeasureStaff
+    this.isDraggingStaffSpacing = true
+    this.draggedSpacingStaff = staff
+    this.draggedSpacingBaseline = engine.getStaffSpacingAbove(staff)
+    this.draggedSpacingStartY = startY
+    this.staffSpacingDragChanged = false
+    this.staffSpacingDragStartTime = Date.now()
+  }
+
   /** Select a clef glyph for removal, and arm a horizontal drag for movable clefs. */
   private handleClefMouseDown(ctx: MouseDownCtx): boolean {
     const { engine, event, registry, x, y } = ctx
@@ -940,8 +989,9 @@ export class MouseController {
   }
 
   /**
-   * Last resort: select the note/rest under the cursor (and arm a pitch drag for a
-   * note), or — on empty staff space — arm a pan whose tap-release clears the selection.
+   * Last resort: select the note/rest under the cursor (and arm a pitch drag for a note), or —
+   * on empty staff space — hand off to {@link beginBoxSelectOrPan}: select the bar's box on this
+   * press and arm the staff-spacing drag if it's on a staff, else arm a pan.
    */
   private handleNoteOrEmptyMouseDown(ctx: MouseDownCtx): void {
     const { engine, event, registry, x, y, closestElement } = ctx
@@ -965,18 +1015,37 @@ export class MouseController {
           event.preventDefault()
         }
       } else {
-        // Empty space (too far from any element): don't act on press — arm a pan instead.
-        // A tap-release selects the bar it fell in, or clears if outside every bar
-        // (handleDocPanUp); a drag pans the view and keeps the selection so the user can
-        // then shift-click to extend.
-        this.pendingTapCoords = { x, y }
-        this.armPan(event, true)
+        // Empty space (too far from any element): select-and-grab, or arm a pan.
+        this.beginBoxSelectOrPan(ctx)
       }
     } else {
-      // Empty space (no element at all): same deferral — arm a pan, resolve on tap-release.
-      this.pendingTapCoords = { x, y }
-      this.armPan(event, true)
+      // Empty space (no element at all): same — select-and-grab, or arm a pan.
+      this.beginBoxSelectOrPan(ctx)
     }
+  }
+
+  /**
+   * A press on empty staff space. If it lands ON a staff inside a bar, select that bar's SINGLE
+   * box NOW — on mousedown, not release — and arm the vertical staff-spacing drag, so one
+   * fluid press-drag both selects and adjusts the staff's "space above" (no select-then-regrab).
+   * A press that misses every staff (the gap between staves, the margins, past the last bar)
+   * has no box to grab, so it falls back to arming a pan whose tap-release clears the selection.
+   *
+   * This is why plain measure-select fires on DOWN: a tap that never drags still lands here,
+   * selects the box, and — since the drag never crosses the move threshold — commits nothing
+   * (endStaffSpacingDrag is a no-op), leaving exactly the old tap-to-select behavior.
+   */
+  private beginBoxSelectOrPan(ctx: MouseDownCtx): void {
+    const { engine, event, x, y } = ctx
+    if (this.selectMeasureAt(x, y)) {
+      this.render.renderScore()
+      this.armStaffSpacingDrag(engine, y)
+      event.preventDefault()
+      return
+    }
+    // Not on a staff/bar: defer to a pan (drag pans; tap-release clears the selection).
+    this.pendingTapCoords = { x, y }
+    this.armPan(event, true)
   }
 
   handleMouseUp(_event: MouseEvent): void {
@@ -996,6 +1065,9 @@ export class MouseController {
     }
     if (this.isDraggingSlurEndpoint) {
       this.endSlurEndpointDrag()
+    }
+    if (this.isDraggingStaffSpacing) {
+      this.endStaffSpacingDrag()
     }
   }
 
@@ -1060,6 +1132,39 @@ export class MouseController {
     this.draggedSlurSpanCount = undefined
     this.slurDragChanged = false
     this.slurDragStartTime = null
+  }
+
+  /**
+   * Vertical staff-spacing drag: turn the cursor's Y travel since grab into a new "space
+   * above" for the selected staff and preview it live (no undo until drop — mirrors the slur
+   * handle). Screen-down (+dy) widens the space (pushes the staff and everything below it
+   * down); the box highlight follows because the model re-renders each move. One staff-space
+   * = the stored line spacing (px), so dy ÷ that is the delta in staff-spaces.
+   */
+  private handleStaffSpacingDrag(engine: MusicEngine, _x: number, y: number): boolean {
+    if (!this.isDraggingStaffSpacing) return false
+    if (this.staffSpacingDragStartTime !== null && Date.now() - this.staffSpacingDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
+    const dy = y - this.draggedSpacingStartY
+    const above = this.draggedSpacingBaseline + dy / this.draggedStaffSpacePx
+    if (engine.previewStaffSpacing(this.draggedSpacingStaff, above)) {
+      // Only a real change from the baseline arms the commit — so a press that never moves
+      // vertically (a plain tap-to-select, or a horizontal wiggle) records no undo entry.
+      if (above !== this.draggedSpacingBaseline) this.staffSpacingDragChanged = true
+      this.render.renderScore()
+    }
+    return true
+  }
+
+  /** Finish a staff-spacing drag: record one undo entry if it actually moved, then reset. */
+  private endStaffSpacingDrag(): void {
+    const engine = this.getEngine()
+    if (engine && this.staffSpacingDragChanged) {
+      engine.commitStaffSpacing()
+      console.log(`Staff spacing set | staff:${this.draggedSpacingStaff} → ${engine.getStaffSpacingAbove(this.draggedSpacingStaff)} ss`)
+    }
+    this.isDraggingStaffSpacing = false
+    this.staffSpacingDragChanged = false
+    this.staffSpacingDragStartTime = null
   }
 
   /**
@@ -1337,6 +1442,7 @@ export class MouseController {
     if (this.handleNoteDrag(engine, x, y)) return
     if (this.handleSlurHandleDrag(engine, x, y)) return
     if (this.handleSlurEndpointDrag(engine, x, y)) return
+    if (this.handleStaffSpacingDrag(engine, x, y)) return
     if (this.handleClefDrag(engine, x, y)) return
 
     // A hand/grab pan is armed: bail before the ghost/preview logic. The pan itself is
@@ -1540,6 +1646,10 @@ export class MouseController {
     if (this.isDraggingSlurEndpoint) {
       console.log('Slur endpoint drag ended (mouse left canvas)')
       this.endSlurEndpointDrag()
+    }
+    if (this.isDraggingStaffSpacing) {
+      console.log('Staff-spacing drag ended (mouse left canvas)')
+      this.endStaffSpacingDrag()
     }
 
     this.lastCanvasMousePosition = null
