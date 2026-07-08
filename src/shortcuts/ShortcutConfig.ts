@@ -187,6 +187,13 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Widen space above the selected staff (fine)',
   },
 
+  // Add one measure after the selected measure box (Sibelius Ctrl+Shift+B single-bar insert;
+  // "before" is palette-only). Ctrl+Shift+click a bar first — see PaletteController.addMeasureAfter.
+  'Ctrl+Shift+b': {
+    action: 'addMeasureAfter',
+    description: 'Add a measure after the selected measure box',
+  },
+
   // Voice navigation (Sibelius-style Alt+Shift+arrow). Jumps directly to the nearest
   // note in the voice geometrically above/below by pitch — handles voice-crossing
   // since the target is decided by pitch, not voice index. (Modifier order is

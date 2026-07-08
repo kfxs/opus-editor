@@ -278,6 +278,10 @@ export function useShortcuts(
     toggleTenuto: () => palette.toggleTenuto(),
     toggleTie: () => palette.toggleTie(),
     createSlur: () => palette.createSlur(),
+    // Ctrl+Shift+B: keyboard accelerator for the "Add Measure" button — inserts one bar
+    // after the Ctrl+Shift-selected measure span (Sibelius's single-bar shortcut). No-op
+    // (logged) unless a measure box is selected; PaletteController owns the gating.
+    addMeasureAfter: () => palette.addMeasureAfter(),
     toggleRestHidden: () => {
       // Sibelius-style hide/show: toggle every selected REST's own hidden state, all in one
       // undo step (mirrors how deleteSelected batches articulations). Non-rest selections are
