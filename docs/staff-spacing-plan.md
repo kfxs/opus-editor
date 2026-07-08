@@ -190,6 +190,16 @@ grabbed this staff" state — no new selection kind needed.
 **Undo:** each committed nudge/drag is one atomic history entry (the compartment rides the
 score-value snapshot — free via P1).
 
+## 6b. Shrink floor (collision boundary) — DECIDED 2026-07-08
+
+`above` is signed, so shrinking (negative) can push a staff up INTO the staff above it — and
+for the TOP staff, push the whole system up into the previous system. Because every consecutive
+gap (inter-staff AND inter-system) is `VERTICAL_SPACING + above·ss`, a single lower bound on
+`above` floors every gap at once. `MusicEngine.clampSpacingAbove` applies it in `nudge` +
+`preview` (so keyboard and drag both stop at the floor; widening is unbounded).
+`MIN_STAFF_STRIDE_PX` (starting 90px — tunable) is the smallest stave-top-to-top distance;
+`minAbove = (MIN_STAFF_STRIDE_PX − (STAVE_HEIGHT+VERTICAL_SPACING)) / ss`.
+
 ## 7. Space below — not a separate control (DECIDED 2026-07-08)
 
 There is **one knob: space-above, per staff.** In a stack, the gap *below* staff *N* and

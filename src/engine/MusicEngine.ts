@@ -942,6 +942,25 @@ export class MusicEngine {
     return { key: staffSystemSpacingKey(staffId, openingMeasureId), staffId, openingMeasureId }
   }
 
+  /** The smallest stave-top-to-top distance (px) staff-spacing may shrink TO — the collision
+   *  floor. Default distance is `STAVE_HEIGHT + VERTICAL_SPACING`; this keeps enough of it that a
+   *  staff (or a whole system, for the top staff) can't be dragged/nudged up INTO the one above.
+   *  Tunable — start conservative and adjust against the rendered look. */
+  private static readonly MIN_STAFF_STRIDE_PX = 90
+
+  /**
+   * Clamp a requested space-above so shrinking can't collide the staff/system with the one
+   * above it. `above` is an offset from the default stride, and every consecutive gap (staves
+   * within a system AND system-to-system for the top staff) is `VERTICAL_SPACING + above·ss`, so
+   * a single lower bound on `above` floors every gap at once. No upper bound — you can widen
+   * freely. See docs/staff-spacing-plan.md.
+   */
+  private clampSpacingAbove(above: number): number {
+    const staffStride = LAYOUT_CONFIG.STAVE_HEIGHT + LAYOUT_CONFIG.VERTICAL_SPACING
+    const minAbove = (MusicEngine.MIN_STAFF_STRIDE_PX - staffStride) / VEXFLOW_DEFAULT_STAFF_SPACE_PX
+    return Math.max(above, minAbove)
+  }
+
   /**
    * Nudge the space above staff `staffIndex` on the system containing `measureNumber` by
    * `delta` staff-spaces, saving ONE undo step (Shift+↑/↓ fine / Alt+↑/↓ coarse — see
@@ -952,7 +971,7 @@ export class MusicEngine {
   nudgeStaffSpacing(staffIndex: number, measureNumber: number, delta: number): boolean {
     const t = this.staffSpacingTarget(staffIndex, measureNumber)
     if (!t) return false
-    const above = resolveStaffSpacingAbove(this.scoreModel.getScore(), t.staffId, t.openingMeasureId) + delta
+    const above = this.clampSpacingAbove(resolveStaffSpacingAbove(this.scoreModel.getScore(), t.staffId, t.openingMeasureId) + delta)
     this.scoreModel.setStaffSpacing(t.key, above) // absolute; clears at 0
     this.saveOnly('Nudge staff spacing')
     console.log(`[Staff] ${delta > 0 ? '↓' : '↑'} space above staff ${staffIndex} @sys(${t.openingMeasureId}) by ${delta} → ${above} ss`)
@@ -993,7 +1012,7 @@ export class MusicEngine {
   previewStaffSpacing(staffIndex: number, measureNumber: number, above: number): boolean {
     const t = this.staffSpacingTarget(staffIndex, measureNumber)
     if (!t) return false
-    return this.scoreModel.setStaffSpacing(t.key, above)
+    return this.scoreModel.setStaffSpacing(t.key, this.clampSpacingAbove(above))
   }
 
   /** Record one undo entry after a staff-spacing drag settles. */
