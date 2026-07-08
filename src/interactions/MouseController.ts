@@ -106,6 +106,7 @@ export class MouseController {
   // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
   private isDraggingStaffSpacing = false
   private draggedSpacingStaff = 0            // staff index being spaced
+  private draggedSpacingMeasure = 0          // a measure on the target SYSTEM (per-system key)
   private draggedSpacingBaseline = 0         // its `above` (staff-spaces) at drag start
   private draggedSpacingStartY = 0           // cursor Y (px) at drag start
   private staffSpacingDragChanged = false
@@ -773,20 +774,22 @@ export class MouseController {
     if (!geo) return false
     if (y < geo.lineYPositions[0] - STAFF_BAND_PAD_PX || y > geo.lineYPositions[4] + STAFF_BAND_PAD_PX) return false
 
-    this.armStaffSpacingDrag(engine, y)
+    this.armStaffSpacingDrag(engine, measure, y)
     console.log(`Staff-spacing drag ready | measure:${measure} staff:${staff} baseline:${this.draggedSpacingBaseline} ss`)
     event.preventDefault()
     return true
   }
 
   /** Arm the vertical staff-spacing drag on the currently-selected single box's staff,
-   *  capturing its current `above` as the baseline and `startY` as the grab origin. Shared by
-   *  the "grab an already-selected box" path and the "select-and-grab in one press" path. */
-  private armStaffSpacingDrag(engine: MusicEngine, startY: number): void {
+   *  capturing its current per-system `above` as the baseline and `startY` as the grab origin.
+   *  `measure` fixes the target SYSTEM (per-system key). Shared by the "grab an already-selected
+   *  box" path and the "select-and-grab in one press" path. */
+  private armStaffSpacingDrag(engine: MusicEngine, measure: number, startY: number): void {
     const staff = this.state.selectedMeasureStaff
     this.isDraggingStaffSpacing = true
     this.draggedSpacingStaff = staff
-    this.draggedSpacingBaseline = engine.getStaffSpacingAbove(staff)
+    this.draggedSpacingMeasure = measure
+    this.draggedSpacingBaseline = engine.getStaffSpacingAbove(staff, measure)
     this.draggedSpacingStartY = startY
     this.staffSpacingDragChanged = false
     this.staffSpacingDragStartTime = Date.now()
@@ -1039,7 +1042,7 @@ export class MouseController {
     const { engine, event, x, y } = ctx
     if (this.selectMeasureAt(x, y)) {
       this.render.renderScore()
-      this.armStaffSpacingDrag(engine, y)
+      this.armStaffSpacingDrag(engine, this.state.selectedMeasureRange!.anchor, y)
       event.preventDefault()
       return
     }
@@ -1146,7 +1149,7 @@ export class MouseController {
     if (this.staffSpacingDragStartTime !== null && Date.now() - this.staffSpacingDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
     const dy = y - this.draggedSpacingStartY
     const above = this.draggedSpacingBaseline + dy / this.draggedStaffSpacePx
-    if (engine.previewStaffSpacing(this.draggedSpacingStaff, above)) {
+    if (engine.previewStaffSpacing(this.draggedSpacingStaff, this.draggedSpacingMeasure, above)) {
       // Only a real change from the baseline arms the commit — so a press that never moves
       // vertically (a plain tap-to-select, or a horizontal wiggle) records no undo entry.
       if (above !== this.draggedSpacingBaseline) this.staffSpacingDragChanged = true
@@ -1160,7 +1163,7 @@ export class MouseController {
     const engine = this.getEngine()
     if (engine && this.staffSpacingDragChanged) {
       engine.commitStaffSpacing()
-      console.log(`Staff spacing set | staff:${this.draggedSpacingStaff} → ${engine.getStaffSpacingAbove(this.draggedSpacingStaff)} ss`)
+      console.log(`Staff spacing set | staff:${this.draggedSpacingStaff} → ${engine.getStaffSpacingAbove(this.draggedSpacingStaff, this.draggedSpacingMeasure)} ss`)
     }
     this.isDraggingStaffSpacing = false
     this.staffSpacingDragChanged = false

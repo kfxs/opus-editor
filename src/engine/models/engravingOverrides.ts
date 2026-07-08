@@ -172,10 +172,47 @@ export function staffSpacingOverrideOf(score: Score, staffId: string): StaffSpac
   return engravingOverrideOf(score, staffId, 'staffSpacing') as StaffSpacingOverride | undefined
 }
 
-/** Convenience read: the staff's extra space-above in staff-spaces, 0 when absent. The
- *  renderer's Y math sums this over the staves of a system (plan §3). */
+/** Convenience read: the staff's GLOBAL extra space-above in staff-spaces, 0 when absent —
+ *  the per-staff default applied on every system, and the fallback under a per-system override
+ *  ({@link resolveStaffSpacingAbove}). */
 export function staffSpacingAbove(score: Score, staffId: string): number {
   return staffSpacingOverrideOf(score, staffId)?.above ?? 0
+}
+
+/**
+ * Composite key for a PER-SYSTEM staff-spacing override (Client #7, plan option C): the staff's
+ * durable id joined to the durable id of the measure that OPENS the target system. The tweak is
+ * resolved at render time against whichever system a measure currently opens; an entry whose
+ * anchor measure no longer opens a system is simply never looked up (self-healing, so no stored
+ * layout index — Design Principle 3). The `@` separator can't collide with a bare uuid key or a
+ * rest position key (which uses `:`/`/`). Pure & exported for unit testing.
+ */
+export function staffSystemSpacingKey(staffId: string, openingMeasureId: string): string {
+  return `${staffId}@${openingMeasureId}`
+}
+
+/** The per-system space-above (staff-spaces) for a staff on the system opened by
+ *  `openingMeasureId`, or undefined when this system carries no per-system override. Stored as a
+ *  {@link StaffSpacingOverride} under {@link staffSystemSpacingKey}. */
+export function perSystemStaffSpacingOf(score: Score, staffId: string, openingMeasureId: string): number | undefined {
+  return (engravingOverrideOf(score, staffSystemSpacingKey(staffId, openingMeasureId), 'staffSpacing') as StaffSpacingOverride | undefined)?.above
+}
+
+/**
+ * Resolve the effective space-above for a staff on the system opened by `openingMeasureId`
+ * (plan option C, per-system by default with the global value as fallback):
+ *  - a per-system override on THIS system → use it;
+ *  - else the global-per-staff value ({@link staffSpacingAbove});
+ *  - else 0.
+ * `openingMeasureId` undefined (system not resolvable) → global/0, never a per-system entry.
+ * Pure — the render seam calls it once per (staff, system) each frame.
+ */
+export function resolveStaffSpacingAbove(score: Score, staffId: string, openingMeasureId: string | undefined): number {
+  if (openingMeasureId !== undefined) {
+    const ps = perSystemStaffSpacingOf(score, staffId, openingMeasureId)
+    if (ps !== undefined) return ps
+  }
+  return staffSpacingAbove(score, staffId)
 }
 
 /**

@@ -1,7 +1,10 @@
 # Staff Spacing (Sibelius-style vertical staff drag) — Plan
 
-Status: **DESIGN — not started.** Settled in conversation (2026-07-08) before any code.
-This is a *geometry / presentation* feature (Design Principle 3), so it deliberately
+Status: **IMPLEMENTED — Phases 0-3 done (per-system is the default).** Keyboard nudge
+(`Shift+↑/↓` fine, `Alt+↑/↓` coarse) + vertical drag (select-and-grab on mousedown); each
+tweak is per-system, anchored to the durable id of the measure that opens its system, with the
+global-per-staff value as fallback. Reset wired end-to-end (palette button still TODO — pure
+UI). This is a *geometry / presentation* feature (Design Principle 3), so it deliberately
 reuses the **engraving-overrides** machinery rather than inventing a new storage path.
 
 ---
@@ -237,9 +240,18 @@ bottom-margin term later if it ever matters; additive, no teardown).
   facade: `getStaffSpacingAbove` (baseline read) / `previewStaffSpacing` / `commitStaffSpacing`.
   Reset UX (§8.3) still open — spacing already auto-clears at 0, so nudging back to baseline is a
   working reset; a dedicated palette button is deferred pending the decision.
-- **Phase 3 (future, opt-in) — per-system (option C).** Anchor to the system's opening
-  measure id, resolve membership as a render view, fall back to the Phase-1 per-staff value;
-  reset-on-reflow rule per §4. Only if the global-per-staff granularity proves insufficient.
+- **Phase 3 — per-system (option C). DONE, and now the DEFAULT (not opt-in).** The drag/nudge
+  targets the system the selected bar sits on: keyed by `staffSystemSpacingKey(staffId,
+  openingMeasureId)` (the durable id of the measure that opens that system), resolved at render
+  time via `resolveStaffSpacingAbove` (per-system value, else the global-per-staff fallback,
+  else 0). The renderer computes spacing PER LINE (`staffSpacingLayout`: `lineTopPx` / `cumPx` /
+  `contentHeightPx`), so systems with different spacing stack correctly; the ghost preview +
+  `getMeasureRect` resolve per-system too. `VexFlowRenderer.getSystemOpeningMeasureNumber` maps a
+  bar → its system's opener; `MusicEngine.staffSpacingTarget` maps that → the durable key. The
+  **reset-on-reflow rule is automatic**: an override whose anchor measure no longer opens a
+  system is never looked up (self-heals; orphaned entry lingers harmlessly in JSON). No stored
+  layout index → Design Principle 3 held. Global-per-staff stays as the fallback layer but the
+  UI no longer writes it (so in practice every override is per-system). 966 unit tests green.
 
 ## 10. Files touched (Phases 0-1)
 

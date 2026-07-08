@@ -95,7 +95,8 @@ export function useShortcuts(
   const nudgeStaffSpacingIfBoxSelected = (delta: number): boolean => {
     const eng = engine.value
     if (!eng || state.selectedMeasureRange === null || state.selectedMeasureBoxStyle !== 'single') return false
-    if (!eng.nudgeStaffSpacing(state.selectedMeasureStaff, delta)) return false
+    // Per-system (plan option C): the tweak targets the system the selected bar sits on.
+    if (!eng.nudgeStaffSpacing(state.selectedMeasureStaff, state.selectedMeasureRange.anchor, delta)) return false
     renderer.renderScore()
     return true
   }

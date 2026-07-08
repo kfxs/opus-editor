@@ -29,7 +29,7 @@ import {
   type TupletNoteStem,
 } from './NoteBuilder'
 import { calculateMeasureWidths } from './MeasureLayout'
-import { restShiftOverrideOf, restHiddenOf, restPositionKey, staffSpacingAbove, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
 import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex } from '@/engine/models/staffContent'
 import { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo } from './layoutConfig'
 
@@ -115,6 +115,23 @@ export class VexFlowRenderer {
    */
   getAllMeasureBounds(): Map<number, MeasureBounds> {
     return this.measureBounds
+  }
+
+  /**
+   * The measure NUMBER that opens the system currently containing `measureNumber` (the
+   * smallest number sharing its line), per the last render's layout — or undefined if that
+   * measure isn't laid out. This is how a per-system staff-spacing tweak finds its durable
+   * anchor (Client #7, docs/staff-spacing-plan.md option C): the caller maps this number to
+   * the opening measure's id. Reflow-dependent by design — resolved fresh from `measureLayoutInfo`.
+   */
+  getSystemOpeningMeasureNumber(measureNumber: number): number | undefined {
+    const info = this.measureLayoutInfo.get(measureNumber)
+    if (!info) return undefined
+    let opener = measureNumber
+    for (const [num, other] of this.measureLayoutInfo) {
+      if (other.lineNumber === info.lineNumber && num < opener) opener = num
+    }
+    return opener
   }
 
   /**
@@ -1121,25 +1138,62 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Per-staff vertical push-down from Client #7 staff-spacing overrides (Sibelius "space
-   * above staff" — docs/staff-spacing-plan.md). Returns, per staff index, the INCLUSIVE
-   * prefix sum (px) of every staff's "space above" at or before it: a staff's own space-above
-   * pushes *it and everything below it in the system* down, so index `i` accumulates staves
-   * `0..i`. `systemExtraPx` is the full per-system total (the last prefix) — added once per
-   * system so multi-system scores stack correctly and `totalHeight` grows to fit. Converts
-   * with the constant default line spacing (this editor never builds a stave with custom
-   * spacing — zoom is a CSS transform), so no live stave is needed before Y is computed.
+   * PER-SYSTEM vertical push-down from Client #7 staff-spacing overrides (Sibelius "space above
+   * staff" — docs/staff-spacing-plan.md, option C). Each *system* (line) can carry a different
+   * amount, so this resolves the spacing per line and returns:
+   *  - `cumPx[line][staffIndex]` — INCLUSIVE prefix sum (px) of the resolved space-above of every
+   *    staff at/above index `i` on that line (a staff's own space-above pushes it and everything
+   *    below it in its system down);
+   *  - `lineTopPx[line]` — the system's top Y (margin + the stacked heights of every earlier
+   *    system, each grown by its own extra), so systems with different spacing still abut cleanly;
+   *  - `contentHeightPx` — Σ over lines of (numStaves·stride + that line's extra), for `totalHeight`.
+   * The opening measure id per line (the durable per-system anchor) comes from `measureWidths`:
+   * the first measure seen for each `lineNumber`. Converts with the constant default line spacing
+   * (this editor never builds a stave with custom spacing — zoom is a CSS transform), so no live
+   * stave is needed before Y is computed.
    */
-  private staffAboveOffsets(score: Score): { cumulativePx: number[]; systemExtraPx: number } {
+  private staffSpacingLayout(score: Score, measureWidths: Map<number, MeasureWidthInfo>): {
+    lineTopPx: number[]
+    cumPx: number[][]
+    contentHeightPx: number
+  } {
     const staves = getStaves(score)
     const staffList = staves.length > 0 ? staves : [{ id: firstStaffId(score) }]
-    const cumulativePx: number[] = []
-    let acc = 0
-    for (const staff of staffList) {
-      acc += (staff.id ? staffSpacingAbove(score, staff.id) : 0) * VEXFLOW_DEFAULT_STAFF_SPACE_PX
-      cumulativePx.push(acc)
+    const numStaves = staffList.length
+    const staffStride = LAYOUT_CONFIG.STAVE_HEIGHT + LAYOUT_CONFIG.VERTICAL_SPACING
+    const margin = LAYOUT_CONFIG.MARGIN
+
+    let numLines = 0
+    for (const info of measureWidths.values()) numLines = Math.max(numLines, info.lineNumber + 1)
+
+    // The measure that OPENS each line (first one encountered in score order) is the per-system
+    // anchor a spacing override is keyed to.
+    const openingMeasureId = new Map<number, string>()
+    for (const m of score.measures) {
+      const info = measureWidths.get(m.number)
+      if (info && !openingMeasureId.has(info.lineNumber)) openingMeasureId.set(info.lineNumber, m.id)
     }
-    return { cumulativePx, systemExtraPx: acc }
+
+    const cumPx: number[][] = []
+    const lineTopPx: number[] = []
+    let top = margin
+    let contentHeightPx = 0
+    for (let line = 0; line < numLines; line++) {
+      const openId = openingMeasureId.get(line)
+      const cum: number[] = []
+      let acc = 0
+      for (const staff of staffList) {
+        const above = staff.id ? resolveStaffSpacingAbove(score, staff.id, openId) : 0
+        acc += above * VEXFLOW_DEFAULT_STAFF_SPACE_PX
+        cum.push(acc)
+      }
+      cumPx.push(cum)
+      lineTopPx.push(top)
+      const systemHeight = numStaves * staffStride + acc
+      top += systemHeight
+      contentHeightPx += systemHeight
+    }
+    return { lineTopPx, cumPx, contentHeightPx }
   }
 
   renderScore(score: Score, ghostNote?: GhostNote): boolean {
@@ -1165,12 +1219,7 @@ export class VexFlowRenderer {
     // absent-staffId content) rather than drawing nothing.
     const staves = getStaves(score)
     const staffList = staves.length > 0 ? staves : [{ id: firstStaffId(score) }]
-    const numStaves = staffList.length
     const staffStride = staveHeight + verticalSpacing
-    // Client #7 staff-spacing: each staff's cumulative push-down and the per-system total
-    // extra. In Phase 1 the override is global-per-staff, so these are the same on every
-    // system — a system's height grows uniformly by `systemExtraPx`.
-    const { cumulativePx: staffAbovePx, systemExtraPx } = this.staffAboveOffsets(score)
 
     // Resolve the clef in effect at each measure (handles per-measure changes). Clef is
     // per-staff, so compute one map per staff; the width calc below uses the primary
@@ -1189,21 +1238,20 @@ export class VexFlowRenderer {
     // Store for use in tie rendering (to determine which line each measure is on)
     this.measureLayoutInfo = measureWidths
 
+    // Client #7 staff-spacing (per-system): resolve each line's own per-staff push-down and
+    // system top from the overrides + this render's line assignment (needs `measureWidths`).
+    const spacing = this.staffSpacingLayout(score, measureWidths)
+
     // Bundle this render's per-render state (references to the instance-field maps —
     // see RenderPass for the lifetime contract). Created here, before the measure loop,
     // so the per-measure sub-renderers (dynamics) and the post-measure ones (ties/slurs)
     // share one pass.
     const pass = this.createRenderPass(score)
 
-    // Find the number of lines from the calculated widths
-    let maxLine = 0
-    for (const info of measureWidths.values()) {
-      maxLine = Math.max(maxLine, info.lineNumber)
-    }
-    const numLines = maxLine + 1
-    // Each system stacks N staves, so its vertical span is N strides (N=1 → unchanged), plus
-    // any per-system staff-spacing extra so the SVG grows to fit the pushed-down staves.
-    const totalHeight = numLines * (numStaves * staffStride + systemExtraPx) + margin * 2
+    // Each system stacks N staves (N=1 → unchanged); its span grows by that system's own
+    // staff-spacing extra, summed across all systems (in `staffSpacingLayout`) so the SVG fits
+    // the pushed-down staves.
+    const totalHeight = spacing.contentHeightPx + margin * 2
 
     // Check if SVG exists (should always exist after initialization)
     const svg = this.getSVGElement()
@@ -1237,9 +1285,9 @@ export class VexFlowRenderer {
         currentX = margin
       }
 
-      // Top of this system (line). Staves stack downward from here, one stride apart. Each
-      // system also carries the full staff-spacing extra of every system above it.
-      const systemTop = margin + currentLine * (numStaves * staffStride + systemExtraPx)
+      // Top of this system (line): margin + the stacked heights of every system above it, each
+      // grown by its own per-system staff-spacing extra (precomputed in `spacing.lineTopPx`).
+      const systemTop = spacing.lineTopPx[currentLine]
       const isFirstInLine = currentX === margin
 
       // Draw each staff of this measure at its own Y with its own clef and its own slice
@@ -1247,9 +1295,9 @@ export class VexFlowRenderer {
       // the staff). Barlines align because every staff shares this measure's x/width.
       const measureStaves: Stave[] = []
       staffList.forEach((staff, staffIndex) => {
-        // `staffAbovePx[i]` already includes this staff's own space-above plus every staff
-        // above it in the system (inclusive prefix) — push it and everything below it down.
-        const y = systemTop + staffIndex * staffStride + staffAbovePx[staffIndex]
+        // `spacing.cumPx[line][i]` already includes this staff's own space-above plus every
+        // staff above it on THIS system (inclusive prefix) — push it and everything below down.
+        const y = systemTop + staffIndex * staffStride + spacing.cumPx[currentLine][staffIndex]
         const clef = effectiveClefsByStaff.get(staff.id)?.get(measure.number) || 'treble'
         const prevEndClef = measure.number > 1 ? measureEndingClef(score, measure.number - 1, staff.id) : undefined
         const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
@@ -1346,14 +1394,15 @@ export class VexFlowRenderer {
       // The ghost previews entry on the staff the cursor is over (multi-staff): its Y is that
       // staff's row within the system (systemTop + staffIndex*stride) and its clef is that
       // staff's own clef — so the preview lands exactly where the click will place the note.
-      const numStaves = Math.max(getStaves(score).length, 1)
       const staffIndex = ghostNote.staff ?? 0
       const staffId = staffIdAtIndex(score, staffIndex)
-      // Match the real render's staff-spacing push-down (Client #7) so the translucent ghost
-      // lands exactly where the committed note will, on any staff with spacing ≠ 0.
-      const { cumulativePx, systemExtraPx } = this.staffAboveOffsets(score)
-      const systemTop = margin + widthInfo.lineNumber * (numStaves * (staveHeight + verticalSpacing) + systemExtraPx)
-      const measureY = systemTop + staffIndex * (staveHeight + verticalSpacing) + (cumulativePx[staffIndex] ?? 0)
+      // Match the real render's PER-SYSTEM staff-spacing push-down (Client #7) so the
+      // translucent ghost lands exactly where the committed note will, on any staff/system
+      // with spacing ≠ 0. Resolve against this ghost's own line.
+      const spacing = this.staffSpacingLayout(score, measureWidths)
+      const line = widthInfo.lineNumber
+      const systemTop = spacing.lineTopPx[line] ?? margin
+      const measureY = systemTop + staffIndex * (staveHeight + verticalSpacing) + (spacing.cumPx[line]?.[staffIndex] ?? 0)
       const staveWidth = widthInfo.finalWidth
       const effectiveClefs = this.computeEffectiveClefs(score, staffId)
       const openingClef: Clef = effectiveClefs.get(ghostNote.measure) || 'treble'

@@ -1,5 +1,5 @@
 import { ScoreModel, type ClipDynamicInput, type ClipSlurInput } from './models/ScoreModel'
-import { restPositionKey, restShiftOverrideOf, restHiddenOf, staffSpacingAbove, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
+import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
 import type { Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
@@ -925,57 +925,75 @@ export class MusicEngine {
   }
 
   /**
-   * Nudge a staff's "space above" by `delta` staff-spaces and save ONE undo step (the
-   * Sibelius-style Shift+↑/↓ fine / Alt+↑/↓ coarse vertical nudge — see docs/staff-spacing-plan.md).
-   * Resolves the staff *index* (what the single measure-box selection carries) to its durable
-   * `staffId` — the override is id-keyed — and delegates the accumulate/clear to the model.
-   * A no-op if the index has no staff. @returns true if a staff was nudged.
+   * The durable `staffSystemSpacingKey` for staff `staffIndex` on the system that currently
+   * contains `measureNumber`. Resolves the system via the last render's layout (per-system,
+   * plan option C) and maps its opening measure NUMBER → durable id. Returns undefined when the
+   * index has no staff or the system isn't laid out (score not yet rendered). Also returns the
+   * `openingMeasureId` and `staffId` so callers can resolve/fall back without re-deriving them.
    */
-  nudgeStaffSpacing(staffIndex: number, delta: number): boolean {
+  private staffSpacingTarget(staffIndex: number, measureNumber: number):
+    { key: string; staffId: string; openingMeasureId: string } | null {
     const staffId = staffIdAtIndex(this.scoreModel.getScore(), staffIndex)
-    if (!staffId) return false
-    const ok = this.scoreModel.nudgeStaffSpacing(staffId, delta)
-    if (ok) {
-      this.saveOnly('Nudge staff spacing')
-      const above = staffSpacingAbove(this.scoreModel.getScore(), staffId)
-      console.log(`[Staff] ${delta > 0 ? '↓' : '↑'} space above staff ${staffIndex} (${staffId}) by ${delta} → total ${above} ss`)
-    }
-    return ok
+    if (!staffId) return null
+    const openerNum = this.renderer.getSystemOpeningMeasureNumber(measureNumber)
+    if (openerNum === undefined) return null
+    const openingMeasureId = this.scoreModel.getMeasure(openerNum)?.id
+    if (!openingMeasureId) return null
+    return { key: staffSystemSpacingKey(staffId, openingMeasureId), staffId, openingMeasureId }
   }
 
   /**
-   * Reset a staff to default spacing (Layout → Reset Space Above): drops any staff-spacing
-   * override on the staff and saves ONE undo step. Resolves the staff *index* to its durable
-   * `staffId` like {@link nudgeStaffSpacing}. This is the write path a future "Reset spacing"
-   * palette button / keybinding calls; nudging/dragging back to 0 already clears it too.
+   * Nudge the space above staff `staffIndex` on the system containing `measureNumber` by
+   * `delta` staff-spaces, saving ONE undo step (Shift+↑/↓ fine / Alt+↑/↓ coarse — see
+   * docs/staff-spacing-plan.md). Per-system (plan option C): the tweak is keyed to that system's
+   * opening measure. Accumulates onto the currently-shown value (per-system, else the global
+   * fallback) so nudging is continuous even over a global default. Clears at 0. @returns true.
+   */
+  nudgeStaffSpacing(staffIndex: number, measureNumber: number, delta: number): boolean {
+    const t = this.staffSpacingTarget(staffIndex, measureNumber)
+    if (!t) return false
+    const above = resolveStaffSpacingAbove(this.scoreModel.getScore(), t.staffId, t.openingMeasureId) + delta
+    this.scoreModel.setStaffSpacing(t.key, above) // absolute; clears at 0
+    this.saveOnly('Nudge staff spacing')
+    console.log(`[Staff] ${delta > 0 ? '↓' : '↑'} space above staff ${staffIndex} @sys(${t.openingMeasureId}) by ${delta} → ${above} ss`)
+    return true
+  }
+
+  /**
+   * Reset staff `staffIndex` to default spacing on the system containing `measureNumber`
+   * (Layout → Reset Space Above): drops that system's per-system override and saves ONE undo
+   * step. Per-system, keyed like {@link nudgeStaffSpacing}. This is the write path a future
+   * "Reset spacing" palette button / keybinding calls; nudging/dragging to 0 clears it too.
    * @returns true if an override was removed (false when there was nothing to reset).
    */
-  resetStaffSpacing(staffIndex: number): boolean {
-    const staffId = staffIdAtIndex(this.scoreModel.getScore(), staffIndex)
-    if (!staffId) return false
-    const removed = this.scoreModel.resetStaffSpacing(staffId)
+  resetStaffSpacing(staffIndex: number, measureNumber: number): boolean {
+    const t = this.staffSpacingTarget(staffIndex, measureNumber)
+    if (!t) return false
+    const removed = this.scoreModel.resetStaffSpacing(t.key)
     if (removed) {
       this.saveOnly('Reset staff spacing')
-      console.log(`[Staff] reset space above staff ${staffIndex} (${staffId})`)
+      console.log(`[Staff] reset space above staff ${staffIndex} @sys(${t.openingMeasureId})`)
     }
     return removed
   }
 
-  /** The staff's current "space above" in staff-spaces (0 when none), by staff *index* —
-   *  the drag reads this as its baseline at grab time. */
-  getStaffSpacingAbove(staffIndex: number): number {
-    const staffId = staffIdAtIndex(this.scoreModel.getScore(), staffIndex)
-    return staffId ? staffSpacingAbove(this.scoreModel.getScore(), staffId) : 0
+  /** The space above staff `staffIndex` on the system containing `measureNumber`, in
+   *  staff-spaces (per-system value, else the global fallback, else 0) — the drag reads this as
+   *  its baseline at grab time. */
+  getStaffSpacingAbove(staffIndex: number, measureNumber: number): number {
+    const t = this.staffSpacingTarget(staffIndex, measureNumber)
+    if (!t) return 0
+    return resolveStaffSpacingAbove(this.scoreModel.getScore(), t.staffId, t.openingMeasureId)
   }
 
-  /** Live (preview) staff-spacing update used **while dragging** — sets the staff's absolute
-   *  "space above" (staff-spaces) but does NOT record undo. Call {@link commitStaffSpacing} on
-   *  drop for the single undo entry (mirrors `previewSlurShape` / `commitSlurShape`). A no-op
-   *  if the index has no staff. @returns true if a staff was updated. */
-  previewStaffSpacing(staffIndex: number, above: number): boolean {
-    const staffId = staffIdAtIndex(this.scoreModel.getScore(), staffIndex)
-    if (!staffId) return false
-    return this.scoreModel.setStaffSpacing(staffId, above)
+  /** Live (preview) staff-spacing update used **while dragging** — sets the absolute space
+   *  above staff `staffIndex` on the system containing `measureNumber` (per-system) but does NOT
+   *  record undo. Call {@link commitStaffSpacing} on drop for the single undo entry (mirrors
+   *  `previewSlurShape` / `commitSlurShape`). @returns true if a staff was updated. */
+  previewStaffSpacing(staffIndex: number, measureNumber: number, above: number): boolean {
+    const t = this.staffSpacingTarget(staffIndex, measureNumber)
+    if (!t) return false
+    return this.scoreModel.setStaffSpacing(t.key, above)
   }
 
   /** Record one undo entry after a staff-spacing drag settles. */
@@ -1839,10 +1857,13 @@ export class MusicEngine {
     // Client #7 staff-spacing pushes the lower staves further down. `b.measureY` is staff 0's
     // real drawn top (already reflects its own space-above), so extend the height by the extra
     // space introduced BETWEEN staff 0 and the last staff — the sum of every lower staff's
-    // space-above (staff 0's own doesn't grow this bar's span).
+    // space-above (staff 0's own doesn't grow this bar's span). Resolve PER-SYSTEM against the
+    // opening measure of the system this bar sits on (plan option C).
+    const openerNum = this.renderer.getSystemOpeningMeasureNumber(measureNumber)
+    const openingMeasureId = openerNum !== undefined ? this.scoreModel.getMeasure(openerNum)?.id : undefined
     let betweenPx = 0
     for (let i = 1; i < staffList.length; i++) {
-      betweenPx += staffSpacingAbove(score, staffList[i].id) * VEXFLOW_DEFAULT_STAFF_SPACE_PX
+      betweenPx += resolveStaffSpacingAbove(score, staffList[i].id, openingMeasureId) * VEXFLOW_DEFAULT_STAFF_SPACE_PX
     }
     // Top of staff 0 → bottom of the last staff (the trailing inter-staff gap is not part of
     // the bar, so subtract one VERTICAL_SPACING from a naive numStaves*staffStride).

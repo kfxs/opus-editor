@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { curveShapeOverrideOf, endpointOffsetOverrideOf, migrateLegacySlurCps, reconcileSegmentShape, reconcileSegmentEndpointOffset, segmentCurveShapeOverrideOf, segmentEndpointOffsetOverrideOf, restPositionKey, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, staffSpacingAbove, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './engravingOverrides'
+import { curveShapeOverrideOf, endpointOffsetOverrideOf, migrateLegacySlurCps, reconcileSegmentShape, reconcileSegmentEndpointOffset, segmentCurveShapeOverrideOf, segmentEndpointOffsetOverrideOf, restPositionKey, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, staffSpacingAbove, staffSystemSpacingKey, perSystemStaffSpacingOf, resolveStaffSpacingAbove, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './engravingOverrides'
 import type { EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SegmentEndpointOffsetOverride, CurveControlPointDeltas, Score, Slur } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
 
@@ -585,5 +585,49 @@ describe('ScoreModel.setStaffSpacing / resetStaffSpacing (absolute, id-keyed)', 
     expect(staffSpacingAbove(restored.getScore(), 'staff-1')).toBe(-2)
     const snapshot = JSON.parse(JSON.stringify(model.getScore()))
     expect(snapshot.engravingOverrides['staff-1']).toEqual([{ kind: 'staffSpacing', above: -2 }])
+  })
+})
+
+// Per-system staff spacing (plan option C): keyed by staffId@openingMeasureId, resolves to the
+// global-per-staff value as fallback, and self-heals when the anchor no longer opens a system.
+describe('per-system staff spacing (staffSystemSpacingKey / resolveStaffSpacingAbove)', () => {
+  it('builds a composite key that cannot collide with a bare id or a rest key', () => {
+    expect(staffSystemSpacingKey('staff-1', 'm-9')).toBe('staff-1@m-9')
+    expect(staffSystemSpacingKey('staff-1', 'm-9')).toContain('@')
+    // distinct systems (opening measures) get distinct keys for the same staff
+    expect(staffSystemSpacingKey('staff-1', 'm-1')).not.toBe(staffSystemSpacingKey('staff-1', 'm-5'))
+  })
+
+  it('perSystemStaffSpacingOf reads the entry under the composite key, undefined when absent', () => {
+    const model = new ScoreModel('T', 120)
+    expect(perSystemStaffSpacingOf(model.getScore(), 'staff-1', 'm-5')).toBeUndefined()
+    model.setStaffSpacing(staffSystemSpacingKey('staff-1', 'm-5'), 3)
+    expect(perSystemStaffSpacingOf(model.getScore(), 'staff-1', 'm-5')).toBe(3)
+    // a different system is unaffected
+    expect(perSystemStaffSpacingOf(model.getScore(), 'staff-1', 'm-9')).toBeUndefined()
+  })
+
+  it('resolve prefers the per-system value, else the global fallback, else 0', () => {
+    const model = new ScoreModel('T', 120)
+    const s = model.getScore()
+    // nothing set → 0
+    expect(resolveStaffSpacingAbove(s, 'staff-1', 'm-5')).toBe(0)
+    // global only → global on every system
+    model.setStaffSpacing('staff-1', 2)
+    expect(resolveStaffSpacingAbove(model.getScore(), 'staff-1', 'm-5')).toBe(2)
+    expect(resolveStaffSpacingAbove(model.getScore(), 'staff-1', 'm-9')).toBe(2)
+    // per-system on m-5 overrides the global there, but not on m-9
+    model.setStaffSpacing(staffSystemSpacingKey('staff-1', 'm-5'), 7)
+    expect(resolveStaffSpacingAbove(model.getScore(), 'staff-1', 'm-5')).toBe(7)
+    expect(resolveStaffSpacingAbove(model.getScore(), 'staff-1', 'm-9')).toBe(2)
+  })
+
+  it('self-heals: an override anchored to a measure that no longer opens a system is ignored', () => {
+    const model = new ScoreModel('T', 120)
+    model.setStaffSpacing(staffSystemSpacingKey('staff-1', 'm-orphan'), 5)
+    // Resolving against a DIFFERENT opening measure (the reflowed system) never sees it → 0.
+    expect(resolveStaffSpacingAbove(model.getScore(), 'staff-1', 'm-2')).toBe(0)
+    // No opening measure resolvable at all (undefined) → global/0, never the orphan.
+    expect(resolveStaffSpacingAbove(model.getScore(), 'staff-1', undefined)).toBe(0)
   })
 })
