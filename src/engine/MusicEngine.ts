@@ -926,7 +926,7 @@ export class MusicEngine {
 
   /**
    * Nudge a staff's "space above" by `delta` staff-spaces and save ONE undo step (the
-   * Sibelius-style Alt+↑/↓ / Ctrl+Alt+↑/↓ vertical staff drag — see docs/staff-spacing-plan.md).
+   * Sibelius-style Shift+↑/↓ fine / Alt+↑/↓ coarse vertical nudge — see docs/staff-spacing-plan.md).
    * Resolves the staff *index* (what the single measure-box selection carries) to its durable
    * `staffId` — the override is id-keyed — and delegates the accumulate/clear to the model.
    * A no-op if the index has no staff. @returns true if a staff was nudged.
@@ -941,6 +941,24 @@ export class MusicEngine {
       console.log(`[Staff] ${delta > 0 ? '↓' : '↑'} space above staff ${staffIndex} (${staffId}) by ${delta} → total ${above} ss`)
     }
     return ok
+  }
+
+  /**
+   * Reset a staff to default spacing (Layout → Reset Space Above): drops any staff-spacing
+   * override on the staff and saves ONE undo step. Resolves the staff *index* to its durable
+   * `staffId` like {@link nudgeStaffSpacing}. This is the write path a future "Reset spacing"
+   * palette button / keybinding calls; nudging/dragging back to 0 already clears it too.
+   * @returns true if an override was removed (false when there was nothing to reset).
+   */
+  resetStaffSpacing(staffIndex: number): boolean {
+    const staffId = staffIdAtIndex(this.scoreModel.getScore(), staffIndex)
+    if (!staffId) return false
+    const removed = this.scoreModel.resetStaffSpacing(staffId)
+    if (removed) {
+      this.saveOnly('Reset staff spacing')
+      console.log(`[Staff] reset space above staff ${staffIndex} (${staffId})`)
+    }
+    return removed
   }
 
   /** The staff's current "space above" in staff-spaces (0 when none), by staff *index* —
