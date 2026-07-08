@@ -40,6 +40,11 @@ export function useShortcuts(
   const NUDGE_FINE_SS = 0.25
   const NUDGE_COARSE_SS = 1.0
 
+  // Staff-spacing nudge step (staff-spaces; docs/staff-spacing-plan.md §8). Shift+↑/↓ moves by
+  // one, Alt+↑/↓ by four — starting conservative (rest-shift shipped too large), tune live.
+  const STAFF_SPACING_FINE_SS = 1
+  const STAFF_SPACING_COARSE_SS = 4
+
   // Nudge the armed slur endpoint by a staff-space delta (screen-down is +y, so "up arrow
   // lifts the point" passes a negative dy). Returns true when it consumed the key (an
   // endpoint was armed), false to DECLINE so the key falls through to its normal action.
@@ -78,6 +83,19 @@ export function useShortcuts(
     const note = eng.getNote(item.id)
     if (!note || !note.isRest) return false
     if (!eng.nudgeRestShift(item.id, delta)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  // Shift+↑/↓ (fine) / Alt+↑/↓ (coarse) on a plain-click SINGLE measure box = Sibelius
+  // "space above staff": nudge the clicked staff's vertical spacing by `delta` staff-spaces
+  // (+down). Gated to the single-box selection — disjoint from the chord-nav that Alt+↑/↓
+  // otherwise drives (see docs/staff-spacing-plan.md §6). One undo per press. Returns true
+  // when it consumed the key, false to DECLINE so it falls through to its normal action.
+  const nudgeStaffSpacingIfBoxSelected = (delta: number): boolean => {
+    const eng = engine.value
+    if (!eng || state.selectedMeasureRange === null || state.selectedMeasureBoxStyle !== 'single') return false
+    if (!eng.nudgeStaffSpacing(state.selectedMeasureStaff, delta)) return false
     renderer.renderScore()
     return true
   }
@@ -299,8 +317,15 @@ export function useShortcuts(
         selection.navigateSelection(-1)
       }
     },
-    chordNoteUp: () => selection.navigateChord(1),
-    chordNoteDown: () => selection.navigateChord(-1),
+    // Alt+↑/↓ modally overloads by selection kind: a single measure box → nudge staff spacing
+    // by the COARSE step (↑ lifts the staff = less space above = negative delta); otherwise →
+    // chord navigation. The two selection states are disjoint (plan §6, the `pitchUp` precedent).
+    chordNoteUp: () => { if (nudgeStaffSpacingIfBoxSelected(-STAFF_SPACING_COARSE_SS)) return; selection.navigateChord(1) },
+    chordNoteDown: () => { if (nudgeStaffSpacingIfBoxSelected(STAFF_SPACING_COARSE_SS)) return; selection.navigateChord(-1) },
+    // Shift+↑/↓ fine staff-spacing (only fires on a single measure box → no fallthrough
+    // needed; Shift+Arrow is otherwise unbound).
+    staffSpacingFineUp: () => { nudgeStaffSpacingIfBoxSelected(-STAFF_SPACING_FINE_SS) },
+    staffSpacingFineDown: () => { nudgeStaffSpacingIfBoxSelected(STAFF_SPACING_FINE_SS) },
     voiceNavUp: () => selection.navigateVoice(1),
     voiceNavDown: () => selection.navigateVoice(-1),
     // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.

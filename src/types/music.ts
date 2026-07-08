@@ -347,6 +347,23 @@ export interface RestHiddenOverride extends EngravingOverride {
 }
 
 /**
+ * Client #7 of the engraving-overrides compartment: extra vertical space ABOVE a staff
+ * (Sibelius "space above staff" — see docs/staff-spacing-plan.md). Stored in STAFF-SPACES,
+ * signed (+ = push the staff and everything below it in its system downward). Absent =
+ * default spacing.
+ *
+ * Unlike the position-keyed rest clients, this is **element-id-keyed** in the usual way —
+ * the key is the durable `staffId`, so single-staff is just the N=1 case (its "space above"
+ * is the top-margin gap). Phase 1 is global-per-staff (applies on every system); a future
+ * per-system refinement anchors to the system's opening measure and falls back to this value.
+ */
+export interface StaffSpacingOverride extends EngravingOverride {
+  kind: 'staffSpacing'
+  /** Extra space above the staff, in staff-spaces. Signed; + pushes down. */
+  above: number
+}
+
+/**
  * The engraving-overrides compartment: a keyed table of authored geometry held
  * as a sub-tree of {@link Score} (so it clones / serializes / undoes with the score
  * value — principle 1). Usually keyed by the *element id* an override hangs off (a note /

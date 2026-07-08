@@ -29,7 +29,7 @@ import {
   type TupletNoteStem,
 } from './NoteBuilder'
 import { calculateMeasureWidths } from './MeasureLayout'
-import { restShiftOverrideOf, restHiddenOf, restPositionKey } from '@/engine/models/engravingOverrides'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey, staffSpacingAbove, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
 import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex } from '@/engine/models/staffContent'
 import { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo } from './layoutConfig'
 
@@ -1120,6 +1120,28 @@ export class VexFlowRenderer {
     return change.clef === effectiveClefBefore(score, measureNumber, beat) ? beat : undefined
   }
 
+  /**
+   * Per-staff vertical push-down from Client #7 staff-spacing overrides (Sibelius "space
+   * above staff" — docs/staff-spacing-plan.md). Returns, per staff index, the INCLUSIVE
+   * prefix sum (px) of every staff's "space above" at or before it: a staff's own space-above
+   * pushes *it and everything below it in the system* down, so index `i` accumulates staves
+   * `0..i`. `systemExtraPx` is the full per-system total (the last prefix) — added once per
+   * system so multi-system scores stack correctly and `totalHeight` grows to fit. Converts
+   * with the constant default line spacing (this editor never builds a stave with custom
+   * spacing — zoom is a CSS transform), so no live stave is needed before Y is computed.
+   */
+  private staffAboveOffsets(score: Score): { cumulativePx: number[]; systemExtraPx: number } {
+    const staves = getStaves(score)
+    const staffList = staves.length > 0 ? staves : [{ id: firstStaffId(score) }]
+    const cumulativePx: number[] = []
+    let acc = 0
+    for (const staff of staffList) {
+      acc += (staff.id ? staffSpacingAbove(score, staff.id) : 0) * VEXFLOW_DEFAULT_STAFF_SPACE_PX
+      cumulativePx.push(acc)
+    }
+    return { cumulativePx, systemExtraPx: acc }
+  }
+
   renderScore(score: Score, ghostNote?: GhostNote): boolean {
     if (!this.context || !this.renderer) {
       throw new Error('Renderer not initialized. Call initialize() first.')
@@ -1145,6 +1167,10 @@ export class VexFlowRenderer {
     const staffList = staves.length > 0 ? staves : [{ id: firstStaffId(score) }]
     const numStaves = staffList.length
     const staffStride = staveHeight + verticalSpacing
+    // Client #7 staff-spacing: each staff's cumulative push-down and the per-system total
+    // extra. In Phase 1 the override is global-per-staff, so these are the same on every
+    // system — a system's height grows uniformly by `systemExtraPx`.
+    const { cumulativePx: staffAbovePx, systemExtraPx } = this.staffAboveOffsets(score)
 
     // Resolve the clef in effect at each measure (handles per-measure changes). Clef is
     // per-staff, so compute one map per staff; the width calc below uses the primary
@@ -1175,8 +1201,9 @@ export class VexFlowRenderer {
       maxLine = Math.max(maxLine, info.lineNumber)
     }
     const numLines = maxLine + 1
-    // Each system stacks N staves, so its vertical span is N strides (N=1 → unchanged).
-    const totalHeight = numLines * numStaves * staffStride + margin * 2
+    // Each system stacks N staves, so its vertical span is N strides (N=1 → unchanged), plus
+    // any per-system staff-spacing extra so the SVG grows to fit the pushed-down staves.
+    const totalHeight = numLines * (numStaves * staffStride + systemExtraPx) + margin * 2
 
     // Check if SVG exists (should always exist after initialization)
     const svg = this.getSVGElement()
@@ -1210,8 +1237,9 @@ export class VexFlowRenderer {
         currentX = margin
       }
 
-      // Top of this system (line). Staves stack downward from here, one stride apart.
-      const systemTop = margin + currentLine * numStaves * staffStride
+      // Top of this system (line). Staves stack downward from here, one stride apart. Each
+      // system also carries the full staff-spacing extra of every system above it.
+      const systemTop = margin + currentLine * (numStaves * staffStride + systemExtraPx)
       const isFirstInLine = currentX === margin
 
       // Draw each staff of this measure at its own Y with its own clef and its own slice
@@ -1219,7 +1247,9 @@ export class VexFlowRenderer {
       // the staff). Barlines align because every staff shares this measure's x/width.
       const measureStaves: Stave[] = []
       staffList.forEach((staff, staffIndex) => {
-        const y = systemTop + staffIndex * staffStride
+        // `staffAbovePx[i]` already includes this staff's own space-above plus every staff
+        // above it in the system (inclusive prefix) — push it and everything below it down.
+        const y = systemTop + staffIndex * staffStride + staffAbovePx[staffIndex]
         const clef = effectiveClefsByStaff.get(staff.id)?.get(measure.number) || 'treble'
         const prevEndClef = measure.number > 1 ? measureEndingClef(score, measure.number - 1, staff.id) : undefined
         const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
@@ -1319,8 +1349,11 @@ export class VexFlowRenderer {
       const numStaves = Math.max(getStaves(score).length, 1)
       const staffIndex = ghostNote.staff ?? 0
       const staffId = staffIdAtIndex(score, staffIndex)
-      const systemTop = margin + widthInfo.lineNumber * numStaves * (staveHeight + verticalSpacing)
-      const measureY = systemTop + staffIndex * (staveHeight + verticalSpacing)
+      // Match the real render's staff-spacing push-down (Client #7) so the translucent ghost
+      // lands exactly where the committed note will, on any staff with spacing ≠ 0.
+      const { cumulativePx, systemExtraPx } = this.staffAboveOffsets(score)
+      const systemTop = margin + widthInfo.lineNumber * (numStaves * (staveHeight + verticalSpacing) + systemExtraPx)
+      const measureY = systemTop + staffIndex * (staveHeight + verticalSpacing) + (cumulativePx[staffIndex] ?? 0)
       const staveWidth = widthInfo.finalWidth
       const effectiveClefs = this.computeEffectiveClefs(score, staffId)
       const openingClef: Clef = effectiveClefs.get(ghostNote.measure) || 'treble'

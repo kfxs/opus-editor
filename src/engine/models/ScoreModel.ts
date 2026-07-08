@@ -1,5 +1,5 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, DynamicLevel, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride } from '@/types/music'
-import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, restPositionKey } from './engravingOverrides'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, DynamicLevel, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride } from '@/types/music'
+import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, restPositionKey, staffSpacingOverrideOf } from './engravingOverrides'
 import {
   getTupletTotalBeatsFrac,
   getTupletNoteDurationFrac,
@@ -793,6 +793,55 @@ export class ScoreModel {
       this.setEngravingOverride(posKey, next)
     }
     return true
+  }
+
+  /**
+   * Nudge a staff's extra "space above" by `delta` staff-spaces, **accumulating** onto any
+   * existing value (the Sibelius-style Alt+↑/↓ vertical staff drag — see
+   * docs/staff-spacing-plan.md). Stored as a {@link StaffSpacingOverride} in the
+   * engraving-overrides compartment, keyed by the durable `staffId` (unlike the position-keyed
+   * rest clients). Render adds the accumulated per-system `above` back into each stave's Y.
+   *
+   * Returning to a net `above` of 0 clears the entry (so "absent = default" holds and the JSON
+   * stays clean). No undo snapshot here — the facade owns the per-press snapshot, mirroring
+   * {@link nudgeRestShift}.
+   * @returns true (the override always exists/updates for a valid staffId).
+   */
+  nudgeStaffSpacing(staffId: string, delta: number): boolean {
+    const prev = staffSpacingOverrideOf(this.score, staffId)
+    const above = (prev?.above ?? 0) + delta
+    if (above === 0) {
+      this.clearEngravingOverride(staffId, 'staffSpacing')
+    } else {
+      const next: StaffSpacingOverride = { kind: 'staffSpacing', above }
+      this.setEngravingOverride(staffId, next)
+    }
+    return true
+  }
+
+  /**
+   * Set a staff's extra "space above" to an absolute `above` (staff-spaces). The drag path
+   * (Phase 2) commits an absolute value rather than accumulating. Keyed by the durable
+   * `staffId`; clears the entry when `above` lands on 0 so "absent = default" holds.
+   * @returns true.
+   */
+  setStaffSpacing(staffId: string, above: number): boolean {
+    if (above === 0) {
+      this.clearEngravingOverride(staffId, 'staffSpacing')
+    } else {
+      const next: StaffSpacingOverride = { kind: 'staffSpacing', above }
+      this.setEngravingOverride(staffId, next)
+    }
+    return true
+  }
+
+  /**
+   * Reset a staff to default spacing (Layout → Reset Space Above): drops any
+   * {@link StaffSpacingOverride} on this `staffId`.
+   * @returns true if an override was removed.
+   */
+  resetStaffSpacing(staffId: string): boolean {
+    return this.clearEngravingOverride(staffId, 'staffSpacing')
   }
 
   // ============ Engraving overrides (authored-geometry compartment) ============

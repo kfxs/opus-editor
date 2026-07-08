@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { curveShapeOverrideOf, endpointOffsetOverrideOf, migrateLegacySlurCps, reconcileSegmentShape, reconcileSegmentEndpointOffset, segmentCurveShapeOverrideOf, segmentEndpointOffsetOverrideOf, restPositionKey, restShiftOverrideOf, restHiddenOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './engravingOverrides'
+import { curveShapeOverrideOf, endpointOffsetOverrideOf, migrateLegacySlurCps, reconcileSegmentShape, reconcileSegmentEndpointOffset, segmentCurveShapeOverrideOf, segmentEndpointOffsetOverrideOf, restPositionKey, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, staffSpacingAbove, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './engravingOverrides'
 import type { EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SegmentEndpointOffsetOverride, CurveControlPointDeltas, Score, Slur } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
 
@@ -511,5 +511,79 @@ describe('ScoreModel.toggleRestHidden (presence toggle, position-keyed)', () => 
     model.nudgeRestShift(key, -1)
     expect(restShiftOverrideOf(model.getScore(), key)).toBeUndefined()
     expect(hidden(key)).toBe(true)
+  })
+})
+
+// Client #7 (staff spacing) — id-keyed by the durable staffId, signed staff-spaces,
+// clears on 0. See docs/staff-spacing-plan.md.
+describe('staffSpacingAbove reader (convenience, 0 when absent)', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('Test Score', 120) })
+
+  it('returns 0 when no override is stored', () => {
+    expect(staffSpacingAbove(model.getScore(), 'staff-1')).toBe(0)
+    expect(staffSpacingOverrideOf(model.getScore(), 'staff-1')).toBeUndefined()
+  })
+
+  it('returns the stored above once set', () => {
+    model.setStaffSpacing('staff-1', 3)
+    expect(staffSpacingAbove(model.getScore(), 'staff-1')).toBe(3)
+    expect(staffSpacingOverrideOf(model.getScore(), 'staff-1')).toEqual({ kind: 'staffSpacing', above: 3 })
+  })
+})
+
+describe('ScoreModel.nudgeStaffSpacing (accumulate / clear, id-keyed)', () => {
+  let model: ScoreModel
+  const above = (id: string) => staffSpacingOverrideOf(model.getScore(), id)?.above ?? 0
+  beforeEach(() => { model = new ScoreModel('Test Score', 120) })
+
+  it('ACCUMULATES up/down nudges into one running total', () => {
+    model.nudgeStaffSpacing('staff-1', 1)
+    model.nudgeStaffSpacing('staff-1', 4)
+    expect(above('staff-1')).toBe(5)
+    model.nudgeStaffSpacing('staff-1', -1)
+    expect(above('staff-1')).toBe(4)
+  })
+
+  it('clears the entry (and prunes the compartment) when the net value returns to 0', () => {
+    model.nudgeStaffSpacing('staff-1', 4)
+    model.nudgeStaffSpacing('staff-1', -4)
+    expect(staffSpacingOverrideOf(model.getScore(), 'staff-1')).toBeUndefined()
+    expect(model.getScore().engravingOverrides).toBeUndefined()
+  })
+
+  it('keeps per-staff seats independent', () => {
+    model.nudgeStaffSpacing('staff-1', 2)
+    model.nudgeStaffSpacing('staff-2', -3)
+    expect(above('staff-1')).toBe(2)
+    expect(above('staff-2')).toBe(-3)
+  })
+})
+
+describe('ScoreModel.setStaffSpacing / resetStaffSpacing (absolute, id-keyed)', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('Test Score', 120) })
+
+  it('sets an absolute value and clears on 0', () => {
+    model.setStaffSpacing('staff-1', 6)
+    expect(staffSpacingAbove(model.getScore(), 'staff-1')).toBe(6)
+    model.setStaffSpacing('staff-1', 0)
+    expect(staffSpacingOverrideOf(model.getScore(), 'staff-1')).toBeUndefined()
+    expect(model.getScore().engravingOverrides).toBeUndefined()
+  })
+
+  it('resetStaffSpacing drops the override and reports whether anything was removed', () => {
+    model.setStaffSpacing('staff-1', 5)
+    expect(model.resetStaffSpacing('staff-1')).toBe(true)
+    expect(staffSpacingAbove(model.getScore(), 'staff-1')).toBe(0)
+    expect(model.resetStaffSpacing('staff-1')).toBe(false)
+  })
+
+  it('round-trips through JSON and rides the undo snapshot unchanged', () => {
+    model.setStaffSpacing('staff-1', -2)
+    const restored = ScoreModel.fromJSON(model.toJSON())
+    expect(staffSpacingAbove(restored.getScore(), 'staff-1')).toBe(-2)
+    const snapshot = JSON.parse(JSON.stringify(model.getScore()))
+    expect(snapshot.engravingOverrides['staff-1']).toEqual([{ kind: 'staffSpacing', above: -2 }])
   })
 })

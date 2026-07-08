@@ -174,6 +174,19 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Select next lower note in chord',
   },
 
+  // Staff spacing fine nudge (Sibelius "space above staff") — only fires when a single
+  // measure box is selected; the coarse step rides Alt+↑/↓ (chordNoteUp/Down overloaded by
+  // selection kind). Shift+↑/↓ (not Ctrl+Alt, which Linux WMs grab for workspace switching).
+  // See docs/staff-spacing-plan.md.
+  'Shift+ArrowUp': {
+    action: 'staffSpacingFineUp',
+    description: 'Tighten space above the selected staff (fine)',
+  },
+  'Shift+ArrowDown': {
+    action: 'staffSpacingFineDown',
+    description: 'Widen space above the selected staff (fine)',
+  },
+
   // Voice navigation (Sibelius-style Alt+Shift+arrow). Jumps directly to the nearest
   // note in the voice geometrically above/below by pitch — handles voice-crossing
   // since the target is decided by pitch, not voice index. (Modifier order is

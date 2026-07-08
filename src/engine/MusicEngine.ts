@@ -1,5 +1,5 @@
 import { ScoreModel, type ClipDynamicInput, type ClipSlurInput } from './models/ScoreModel'
-import { restPositionKey, restShiftOverrideOf, restHiddenOf } from './models/engravingOverrides'
+import { restPositionKey, restShiftOverrideOf, restHiddenOf, staffSpacingAbove, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
 import type { Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
@@ -925,6 +925,25 @@ export class MusicEngine {
   }
 
   /**
+   * Nudge a staff's "space above" by `delta` staff-spaces and save ONE undo step (the
+   * Sibelius-style Alt+↑/↓ / Ctrl+Alt+↑/↓ vertical staff drag — see docs/staff-spacing-plan.md).
+   * Resolves the staff *index* (what the single measure-box selection carries) to its durable
+   * `staffId` — the override is id-keyed — and delegates the accumulate/clear to the model.
+   * A no-op if the index has no staff. @returns true if a staff was nudged.
+   */
+  nudgeStaffSpacing(staffIndex: number, delta: number): boolean {
+    const staffId = staffIdAtIndex(this.scoreModel.getScore(), staffIndex)
+    if (!staffId) return false
+    const ok = this.scoreModel.nudgeStaffSpacing(staffId, delta)
+    if (ok) {
+      this.saveOnly('Nudge staff spacing')
+      const above = staffSpacingAbove(this.scoreModel.getScore(), staffId)
+      console.log(`[Staff] ${delta > 0 ? '↓' : '↑'} space above staff ${staffIndex} (${staffId}) by ${delta} → total ${above} ss`)
+    }
+    return ok
+  }
+
+  /**
    * Toggle whether a selected rest is hidden (the Sibelius-style Ctrl+Shift+H — see
    * docs/rest-hide-plan.md). Resolves the rest id to its position address (the override is
    * position-keyed, since rests have no durable id) and delegates the set/clear to the model.
@@ -1773,11 +1792,21 @@ export class MusicEngine {
   getMeasureRect(measureNumber: number): Rect | null {
     const b = this.renderer.getMeasureBounds(measureNumber)
     if (!b) return null
-    const numStaves = Math.max(1, this.scoreModel.getScore().staves?.length ?? 1)
+    const score = this.scoreModel.getScore()
+    const staffList = getStaves(score)
+    const numStaves = Math.max(1, staffList.length)
     const staffStride = LAYOUT_CONFIG.STAVE_HEIGHT + LAYOUT_CONFIG.VERTICAL_SPACING
+    // Client #7 staff-spacing pushes the lower staves further down. `b.measureY` is staff 0's
+    // real drawn top (already reflects its own space-above), so extend the height by the extra
+    // space introduced BETWEEN staff 0 and the last staff — the sum of every lower staff's
+    // space-above (staff 0's own doesn't grow this bar's span).
+    let betweenPx = 0
+    for (let i = 1; i < staffList.length; i++) {
+      betweenPx += staffSpacingAbove(score, staffList[i].id) * VEXFLOW_DEFAULT_STAFF_SPACE_PX
+    }
     // Top of staff 0 → bottom of the last staff (the trailing inter-staff gap is not part of
     // the bar, so subtract one VERTICAL_SPACING from a naive numStaves*staffStride).
-    const height = (numStaves - 1) * staffStride + LAYOUT_CONFIG.STAVE_HEIGHT
+    const height = (numStaves - 1) * staffStride + LAYOUT_CONFIG.STAVE_HEIGHT + betweenPx
     return { x: b.measureX, y: b.measureY, width: b.measureWidth, height }
   }
 

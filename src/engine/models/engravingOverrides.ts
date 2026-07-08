@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, RestShiftOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, RestShiftOverride, StaffSpacingOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 
 /**
@@ -160,6 +160,22 @@ export function restShiftOverrideOf(score: Score, posKey: string): RestShiftOver
  */
 export function restHiddenOf(score: Score, posKey: string): boolean {
   return !!engravingOverrideOf(score, posKey, 'restHidden')
+}
+
+/**
+ * The extra vertical space above this staff, if any (client #7 — see
+ * docs/staff-spacing-plan.md). `above` is in **staff-spaces**, signed (+ pushes the staff
+ * and everything below it in its system down). Keyed by the durable `staffId` (id-keyed,
+ * the usual case — unlike the position-keyed rest clients). Absent = default spacing.
+ */
+export function staffSpacingOverrideOf(score: Score, staffId: string): StaffSpacingOverride | undefined {
+  return engravingOverrideOf(score, staffId, 'staffSpacing') as StaffSpacingOverride | undefined
+}
+
+/** Convenience read: the staff's extra space-above in staff-spaces, 0 when absent. The
+ *  renderer's Y math sums this over the staves of a system (plan §3). */
+export function staffSpacingAbove(score: Score, staffId: string): number {
+  return staffSpacingOverrideOf(score, staffId)?.above ?? 0
 }
 
 /**
