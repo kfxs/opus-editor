@@ -138,14 +138,33 @@ export function useShortcuts(
     deleteSelected: () => {
       const eng = engine.value
       const artNoteIds = selectedArticulationNoteIds(state.selectedItems.values())
-      if (state.selectedMeasureRange !== null && eng) {
-        // A measure span is box-selected (Ctrl+Shift+click, extendable) — Delete removes
-        // every WHOLE bar in the span and its contents (Sibelius-style), pulling later
-        // bars back and renumbering, all as one undo step.
+      if (state.selectedMeasureRange !== null && state.selectedMeasureBoxStyle === 'double' && eng) {
+        // A measure span is box-selected via Ctrl+Shift+click (the DOUBLE box, extendable) —
+        // Delete removes every WHOLE bar in the span and its contents (Sibelius-style),
+        // pulling later bars back and renumbering, all as one undo step. Removing the actual
+        // bar is reserved for this gesture; the plain-click box only clears content (below).
         const { anchor, focus } = state.selectedMeasureRange
         const removed = eng.removeMeasureRange(anchor, focus)
         console.log(`✓ Removed ${removed} measure(s) in span ${Math.min(anchor, focus)}–${Math.max(anchor, focus)}`)
         state.selectedMeasureRange = null
+        renderer.renderScore()
+      } else if (state.selectedMeasureRange !== null && eng) {
+        // A single bar is plain-click-selected (the SINGLE box) — Delete CLEARS its content
+        // rather than removing the bar: the clicked staff's notes/rests reset to the default
+        // rest fill (one measure rest, not a per-gap recompute) and the dynamics/slurs the box
+        // pulled in are removed, all as ONE undo step (runBatch coalesces).
+        const measure = state.selectedMeasureRange.anchor // single box: anchor === focus
+        const staff = state.selectedMeasureStaff
+        const items = [...state.selectedItems.values()]
+        const dynIds = items.filter(i => i.kind === 'dynamic').map(i => i.id)
+        const slurIds = items.filter(i => i.kind === 'slur').map(i => i.id)
+        eng.runBatch(`Clear measure ${measure}`, () => {
+          eng.clearMeasureStaff(measure, staff)
+          for (const id of dynIds) eng.removeDynamic(id)
+          for (const id of slurIds) eng.removeSlur(id)
+        })
+        console.log(`✓ Cleared measure ${measure} (staff ${staff}) to default rest`)
+        selection.deselectAll()
         renderer.renderScore()
       } else if (artNoteIds.length && eng) {
         // Group selection: Delete removes every articulation on every selected note,

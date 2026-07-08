@@ -114,6 +114,10 @@ export class MouseController {
   private panLastClient: { x: number; y: number } = { x: 0, y: 0 }
   /** True only when armed in the selection tool: a tap-release clears the selection. */
   private pendingTapClearsSelection = false
+  /** SVG coords of the armed empty-space press. On a tap-release we try to select the
+   *  measure they fell inside (Sibelius plain-click passage select); only a tap OUTSIDE
+   *  every bar falls back to clearing the selection. Null when no clearing pan is armed. */
+  private pendingTapCoords: { x: number; y: number } | null = null
   /** Set on a pan-release so the trailing `click` doesn't run the tool's tap action. */
   private suppressNextClick = false
   /** Min cursor travel (px) from press before an armed press becomes a real pan. */
@@ -185,22 +189,27 @@ export class MouseController {
     if (!this.isPanArmed) return
     const wasPanning = this.isPanning
     const clears = this.pendingTapClearsSelection
+    const tapCoords = this.pendingTapCoords
     this.detachPanListeners()
     this.isPanArmed = false
     this.isPanning = false
     this.pendingTapClearsSelection = false
+    this.pendingTapCoords = null
     if (wasPanning) {
       // Real pan: swallow the trailing click, restore the pointer, keep the selection.
       this.suppressNextClick = true
       this.state.isPanning = false
       console.log('Pan ended')
     } else if (clears) {
-      // Tap on empty space in the selection tool: clear EVERYTHING now (deferred from
-      // mousedown), same as Esc — incl. tuplet/dynamic selections and resetting entry
-      // back to the default voice 1 (Sibelius-style). selectNote(null) alone would leave
-      // the active voice stuck on a previously chosen voice.
-      this.selection.deselectAll()
-      console.log('Selection cleared (tap)')
+      // Tap on empty space in the selection tool (deferred from mousedown). Sibelius-style:
+      // a tap INSIDE a bar selects that whole bar (single blue box + its contents); only a
+      // tap OUTSIDE every bar clears EVERYTHING, same as Esc — incl. tuplet/dynamic
+      // selections and resetting entry to the default voice 1 (selectNote(null) alone would
+      // leave the active voice stuck on a previously chosen voice).
+      if (!tapCoords || !this.selectMeasureAt(tapCoords.x, tapCoords.y)) {
+        this.selection.deselectAll()
+        console.log('Selection cleared (tap)')
+      }
       this.render.renderScore()
     }
   }
@@ -549,6 +558,7 @@ export class MouseController {
     // matters: we set it AFTER).
     this.selection.deselectAll()
     this.state.selectedMeasureRange = { anchor: lo, focus: hi }
+    this.state.selectedMeasureBoxStyle = 'double'
     // Remember which stacked staff the click fell on — the reference staff the "Staff:"
     // add-above/below buttons insert relative to (multi-staff Phase 4). N=1 → always 0.
     this.state.selectedMeasureStaff = engine.getElementRegistry().staffIndexAtY(measure, y)
@@ -558,6 +568,40 @@ export class MouseController {
         : `✓ Measure span selected | measures:${lo}–${hi} (grew to include ${measure})`,
     )
     this.render.renderScore()
+    return true
+  }
+
+  /**
+   * Sibelius plain-click passage select: a tap on empty space inside a bar selects that
+   * whole bar on the clicked staff — its notes/rests plus enclosed dynamics and slurs
+   * (ties ride along via their notes) — and outlines it with a SINGLE blue box. Returns
+   * false (→ caller clears the selection instead) when the tap, though empty, doesn't land
+   * inside any bar's rectangle: `pixelToMeasure` snaps to the nearest bar on the line, so a
+   * stray click below/above the staff must not hijack it (mirrors selectMeasureBox).
+   */
+  private selectMeasureAt(x: number, y: number): boolean {
+    const engine = this.getEngine()
+    if (!engine) return false
+    const measure = engine.pixelToMeasure({ x, y })
+    const rect = engine.getMeasureRect(measure)
+    if (!rect) return false
+    const inside = x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height
+    if (!inside) return false
+
+    const staff = engine.getElementRegistry().staffIndexAtY(measure, y)
+    const score = engine.getScore()
+    const m = score.measures.find(mm => mm.number === measure)
+    if (!m) return false
+    // Every note/rest on the clicked staff of this bar (rests included — a bar always has
+    // content). These ids drive both the selection and the enclosed-dynamics/slurs pull.
+    const ids = getMeasureNotes(m, score).filter(n => (n.staff ?? 0) === staff).map(n => n.id)
+    if (!ids.length) return false
+
+    this.selection.selectMeasureContents(ids)
+    this.state.selectedMeasureRange = { anchor: measure, focus: measure }
+    this.state.selectedMeasureStaff = staff
+    this.state.selectedMeasureBoxStyle = 'single'
+    console.log(`✓ Measure selected (plain click) | measure:${measure} staff:${staff} | items:${this.state.selectedItems.size}`)
     return true
   }
 
@@ -904,13 +948,16 @@ export class MouseController {
           event.preventDefault()
         }
       } else {
-        // Empty space (too far from any element): don't clear the selection on press —
-        // arm a pan instead. A tap-release clears it (handleMouseUp); a drag pans the
-        // view and keeps the selection so the user can then shift-click to extend.
+        // Empty space (too far from any element): don't act on press — arm a pan instead.
+        // A tap-release selects the bar it fell in, or clears if outside every bar
+        // (handleDocPanUp); a drag pans the view and keeps the selection so the user can
+        // then shift-click to extend.
+        this.pendingTapCoords = { x, y }
         this.armPan(event, true)
       }
     } else {
-      // Empty space (no element at all): same deferral — arm a pan, clear on tap-release.
+      // Empty space (no element at all): same deferral — arm a pan, resolve on tap-release.
+      this.pendingTapCoords = { x, y }
       this.armPan(event, true)
     }
   }

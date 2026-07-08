@@ -154,6 +154,41 @@ export class SelectionController {
   }
 
   /**
+   * REPLACE the selection with EVERYTHING inside one bar (the Sibelius-style plain-click
+   * passage selection): the given notes/rests PLUS the dynamics sitting under them and any
+   * slur fully covered by them — the same "what's enclosed" rule a Shift-click box uses.
+   * Ties need no explicit item: a tie's arc highlights once BOTH its notes are selected
+   * (see HighlightController.applySelectionTieHighlight), which holds for every tie whose
+   * two ends live in this bar. `noteIds` should already be scoped to one measure + staff.
+   * The last note becomes the anchor / Shift pivot; the palette syncs to it.
+   */
+  selectMeasureContents(noteIds: string[]): void {
+    const engine = this.getEngine()
+    this.state.selectedItems.clear()
+    for (const id of noteIds) {
+      const item: SelectionItem = { kind: 'note', id }
+      this.state.selectedItems.set(itemKey(item), item)
+    }
+    if (engine) {
+      const score = engine.getScore()
+      for (const id of dynamicsInBox(score, noteIds)) {
+        const item: SelectionItem = { kind: 'dynamic', id }
+        this.state.selectedItems.set(itemKey(item), item)
+      }
+      for (const id of slursInBox(score, noteIds)) {
+        const item: SelectionItem = { kind: 'slur', id }
+        this.state.selectedItems.set(itemKey(item), item)
+      }
+    }
+    const anchor = noteIds.length ? noteIds[noteIds.length - 1] : null
+    this.state.selectedNoteId = anchor
+    this.state.selectionPivotId = anchor
+    this.state.selectionBase = Array.from(this.state.selectedItems.values())
+    this.clearScalarSubSelections()
+    if (anchor) this.syncPaletteToNote(anchor)
+  }
+
+  /**
    * TOGGLE a note in/out of the multi-selection (ctrl/cmd-click). Adding a note
    * makes it the anchor and syncs the palette; removing one recomputes the anchor
    * to the remaining last note. Also clears scalar sub-selections, since notes are

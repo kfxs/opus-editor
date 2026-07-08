@@ -330,6 +330,19 @@ export class MusicEngine {
     return removedCount
   }
 
+  /**
+   * Clear one staff's content in a measure back to a single default rest (the plain-click
+   * "select bar + Delete"). Delegates to {@link ScoreModel.clearMeasureStaff}; audio-
+   * affecting (notes removed), so it commits. Inside a runBatch the commit coalesces, so
+   * clearing + removing the bar's dynamics/slurs lands as ONE undo step.
+   * @returns true if the measure existed.
+   */
+  clearMeasureStaff(measureNumber: number, staff: number): boolean {
+    const cleared = this.scoreModel.clearMeasureStaff(measureNumber, staff)
+    if (cleared) this.commit(`Clear measure ${measureNumber}`)
+    return cleared
+  }
+
   // ==================== Clef Operations ====================
 
   /** Clef drawn at the start of a measure (its beat-0 change, or inherited). */

@@ -135,6 +135,13 @@ export interface EditorState {
    *  insert relative to. Only meaningful while {@link selectedMeasureRange} is non-null. */
   selectedMeasureStaff: number
 
+  /** Which box the {@link selectedMeasureRange} renders as. `'double'` = the visual-only
+   *  Ctrl+Shift+click marker (two nested rectangles, no objects selected). `'single'` = the
+   *  Sibelius-style plain-click passage selection: ONE rectangle around a single bar whose
+   *  contents (notes/rests + enclosed dynamics/slurs) ARE selected. Only meaningful while
+   *  {@link selectedMeasureRange} is non-null. */
+  selectedMeasureBoxStyle: 'single' | 'double'
+
   // --- Dynamics tool ---
   /** Dynamic armed for placement (null = dynamics tool not active). A level
    *  (`p`/`mp`/`mf`/`f`) places that mark on click; `'text'` prompts for custom
@@ -226,6 +233,7 @@ export function createEditorState(): EditorState {
     selectedTimeSignatureMeasure: null,
     selectedMeasureRange: null,
     selectedMeasureStaff: 0,
+    selectedMeasureBoxStyle: 'double',
     selectedDynamic: null,
     selectedDynamicId: null,
     editingText: null,

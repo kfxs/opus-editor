@@ -345,6 +345,32 @@ export class ScoreModel {
   }
 
   /**
+   * Clear ONE staff's musical content in a measure back to a single default rest — the
+   * Sibelius "select bar + Delete" behaviour. It does NOT remove the bar (that is
+   * {@link removeMeasure} / removeMeasureRange, reserved for the Ctrl+Shift box); it drops
+   * this staff's notes/rests/tuplets across every voice and refills the whole bar with the
+   * DEFAULT rest fill — one measure rest in every meter (see {@link fillMeasureWithRests}),
+   * NOT a per-gap recompute of the deleted durations. Other staves are untouched.
+   * Beat-anchored dynamics/slurs are the caller's concern (removed via their own ops).
+   * @returns true if the measure exists.
+   */
+  clearMeasureStaff(measureNumber: number, staff: number): boolean {
+    const measure = this.getMeasure(measureNumber)
+    if (!measure) return false
+    const staffId = this.staffIdForParams(staff)
+    // Drop every slot/tuplet on this staff (all voices); leave the other staves' content.
+    measure.slots = measure.slots.filter(s => !matchesStaff(s.staffId, staffId, this.score))
+    if (measure.tuplets) {
+      measure.tuplets = measure.tuplets.filter(t => !matchesStaff(t.staffId, staffId, this.score))
+    }
+    // Refill this staff with the default rest fill (collapses to one measure rest per meter).
+    const meter = getMeterInfo(measure.timeSignature)
+    const rests = fillRests(fracCreate(0, 1), measureCapacityFrac(measure), meter)
+    for (const rest of rests) this.pushRestSlot(measure, rest, 0, staffId)
+    return true
+  }
+
+  /**
    * Get a measure by its number
    */
   getMeasure(measureNumber: number): Measure | undefined {

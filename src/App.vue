@@ -780,12 +780,15 @@ const isCustomTimeSignatureArmed = computed(() => {
   return !timeSignaturePresets.some(p => p.numerator === sel.numerator && p.denominator === sel.denominator && !sel.grouping)
 })
 
-// The "Add Measure" buttons act on a box-selected measure span ONLY (Ctrl+Shift+click).
-// Enabled only then, so the feature's measure-selection requirement is self-evident.
-const hasMeasureContext = computed(() => state.selectedMeasureRange !== null)
+// The "Add Measure" buttons act on a box-selected measure span ONLY (Ctrl+Shift+click, the
+// DOUBLE box). The plain-click passage select (single box) also sets selectedMeasureRange but
+// is a pure content selection, so it must NOT expose these measure-structure buttons.
+const hasMeasureContext = computed(() =>
+  state.selectedMeasureRange !== null && state.selectedMeasureBoxStyle === 'double')
 // The "Staff:" buttons share the measure-box gate — they add a staff relative to the
 // box-selected bar's staff (multi-staff Phase 4).
-const hasStaffContext = computed(() => state.selectedMeasureRange !== null)
+const hasStaffContext = computed(() =>
+  state.selectedMeasureRange !== null && state.selectedMeasureBoxStyle === 'double')
 
 // --- Pickup / anacrusis dialog ---
 // Sets a measure's actual playable length shorter than its time signature. The

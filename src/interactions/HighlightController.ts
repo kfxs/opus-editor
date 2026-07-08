@@ -110,9 +110,12 @@ export class HighlightController {
   }
 
   /**
-   * Draw the Sibelius-style blue double box around the measure selected via
-   * Ctrl+Shift+click on empty space (state.selectedMeasureBox). Two nested rectangles
-   * in first-voice blue, no fill — a purely visual marker (NO objects are selected).
+   * Draw the Sibelius-style blue box around the measure span in state.selectedMeasureRange.
+   * In first-voice blue with no fill; `state.selectedMeasureBoxStyle` picks the look:
+   *   - `'single'` — ONE rectangle: the plain-click passage selection, whose contents
+   *     (notes/rests + enclosed dynamics/slurs) ARE selected and highlighted separately.
+   *   - `'double'` — two nested rectangles: the Ctrl+Shift+click marker (visual only, NO
+   *     objects selected).
    * Redrawn every render and wiped with the SVG on the next one.
    */
   applyMeasureBox(): void {
@@ -157,8 +160,11 @@ export class HighlightController {
 
     const color = voiceFillColor(0) // first-voice blue (#3B82F6)
     const GAP = 3 // inset between the two nested rectangles = the "double box"
+    // A plain-click passage selection draws ONE rectangle (Sibelius's single light-blue
+    // box); the Ctrl+Shift+click visual marker draws two nested ones (the "double box").
+    const insets = this.state.selectedMeasureBoxStyle === 'single' ? [0] : [0, GAP]
     for (const seg of lines.values()) {
-      for (const inset of [0, GAP]) {
+      for (const inset of insets) {
         const box = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
         box.setAttribute('x', String(seg.left + inset))
         box.setAttribute('y', String(seg.top + inset))
