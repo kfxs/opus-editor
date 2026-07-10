@@ -66,8 +66,9 @@ function inheritedClef(score: Score, measureNumber: number, staffId?: string): C
 
 /**
  * Clef in effect at (measureNumber, beat): the latest change with beat <= the
- * target in this measure, else inherited from earlier measures, else score
- * default, else 'treble'.
+ * target in this measure, else inherited from earlier measures on THIS staff,
+ * else the universal 'treble' default. Clef is per-staff content — there is no
+ * document-level clef, so an unset staff cannot inherit another staff's clef.
  */
 export function effectiveClefAt(score: Score, measureNumber: number, beat: Fraction, staffId?: string): Clef {
   const changes = measureClefChanges(score, measureNumber, staffId)
@@ -77,7 +78,7 @@ export function effectiveClefAt(score: Score, measureNumber: number, beat: Fract
     else break
   }
   if (best) return best.clef
-  return inheritedClef(score, measureNumber, staffId) ?? score.clef ?? 'treble'
+  return inheritedClef(score, measureNumber, staffId) ?? 'treble'
 }
 
 /**
@@ -92,7 +93,7 @@ export function effectiveClefBefore(score: Score, measureNumber: number, beat: F
     else break
   }
   if (best) return best.clef
-  return inheritedClef(score, measureNumber, staffId) ?? score.clef ?? 'treble'
+  return inheritedClef(score, measureNumber, staffId) ?? 'treble'
 }
 
 /** The clef drawn at the start of a measure (its beat-0 change, or inherited). */

@@ -557,8 +557,8 @@ describe('ScoreModel', () => {
         expect(model.getEffectiveClef(5)).toBe('treble')
       })
 
-      it('falls back to the score opening clef', () => {
-        model.getScore().clef = 'bass'
+      it('inherits an explicit opening clef forward', () => {
+        model.setClef(1, 'bass')
         expect(model.getEffectiveClef(3)).toBe('bass')
       })
 
@@ -775,20 +775,6 @@ describe('ScoreModel', () => {
         expect(restored.getEffectiveClef(1)).toBe('bass')
         expect(restored.getEffectiveClefAt(3, frac(1, 1))).toBe('bass')   // inherited before the change
         expect(restored.getEffectiveClefAt(3, frac(2, 1))).toBe('alto')
-      })
-
-      it('a score with no measure clefs inherits via score.clef', () => {
-        const legacy = JSON.stringify({
-          id: 'x', title: 't', tempo: 120,
-          keySignature: { key: 'C', accidentals: 0 },
-          defaultTimeSignature: { numerator: 4, denominator: 4 },
-          clef: 'bass',
-          measures: [
-            { id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [] },
-          ],
-        })
-        const restored = ScoreModel.fromJSON(legacy)
-        expect(restored.getEffectiveClef(1)).toBe('bass')
       })
     })
   })
