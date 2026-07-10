@@ -15,10 +15,10 @@
   },
   "dependencies": {
     "pinia": "^2.1.7",
-    "tone": "^15.0.4",
     "uuid": "^13.0.0",
     "vexflow": "^5.0.0",
-    "vue": "^3.4.0"
+    "vue": "^3.4.0",
+    "webaudiofont": "^3.0.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",

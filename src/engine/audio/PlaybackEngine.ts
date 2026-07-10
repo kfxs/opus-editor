@@ -1,10 +1,8 @@
-import type * as ToneType from 'tone'
 import type { Score, Note } from '@/types/music'
 import { measureCapacityQuarters } from '@/utils/musicUtils'
 import { collectScheduledNotes, scoreTotalBeats } from './playbackSchedule'
-
-// Tone.js module - loaded dynamically to avoid AudioContext issues
-let Tone: typeof ToneType | null = null
+import { WebAudioFontInstrument } from './WebAudioFontInstrument'
+import type { InstrumentPlayer } from './InstrumentPlayer'
 
 /**
  * Playback state
@@ -36,11 +34,19 @@ export interface PlaybackCallbacks {
 }
 
 /**
- * PlaybackEngine handles audio playback of musical scores using Tone.js
- * Uses direct scheduling (like Tone.now()) instead of Transport for reliability
+ * PlaybackEngine handles audio playback of musical scores.
+ *
+ * It owns the clock and the beats→seconds math and drives the position-follow loop, then
+ * hands each sounding note to an {@link InstrumentPlayer} (the swappable sound source — see
+ * `docs/soundfont-plan.md`). Scheduling is direct against the shared {@link AudioContext}'s
+ * `currentTime` (no Web-Audio transport), which is why pause/seek behave as documented below.
  */
 export class PlaybackEngine {
-  private synth: ToneType.Synth | ToneType.PolySynth | null = null
+  // The AudioContext + instrument are created lazily on first play() (inside the user gesture)
+  // and then PERSIST across play/stop — the instrument keeps its loaded samples cached.
+  private ctx: AudioContext | null = null
+  private instrument: InstrumentPlayer | null = null
+  private volume: number = 1 // remembered so setVolume() applies before the instrument exists
   private score: Score | null = null
   private state: PlaybackState = 'stopped'
   private callbacks: PlaybackCallbacks = {}
@@ -50,10 +56,6 @@ export class PlaybackEngine {
   private playbackStartTime: number = 0
   private totalDuration: number = 0
   private playbackTimeoutId: ReturnType<typeof setTimeout> | null = null
-
-  constructor() {
-    // Synth is created fresh on each play() to avoid AudioContext state issues
-  }
 
   /**
    * Set the score to play
@@ -95,12 +97,23 @@ export class PlaybackEngine {
   }
 
   /**
+   * Lazily create the one AudioContext + instrument. Both persist across play/stop so the
+   * loaded samples stay cached and setVolume() has something to hold. Called from play(),
+   * i.e. from inside the play-button click gesture — required so ctx.resume() can unlock audio.
+   */
+  private ensureAudio(): { ctx: AudioContext; instrument: InstrumentPlayer } {
+    if (!this.ctx) this.ctx = new AudioContext()
+    if (!this.instrument) this.instrument = new WebAudioFontInstrument(this.ctx, this.volume)
+    return { ctx: this.ctx, instrument: this.instrument }
+  }
+
+  /**
    * Update playback position
    */
   private updatePosition(): void {
-    if (!this.score || this.state !== 'playing' || !Tone) return
+    if (!this.score || this.state !== 'playing' || !this.ctx) return
 
-    const elapsedSeconds = Tone.now() - this.playbackStartTime
+    const elapsedSeconds = this.ctx.currentTime - this.playbackStartTime
     const elapsedBeats = (elapsedSeconds * this.score.tempo) / 60
 
     let accumulatedBeats = 0
@@ -147,36 +160,31 @@ export class PlaybackEngine {
 
     if (this.state === 'playing') return
 
-    // Do EXACTLY what testAudio does - inline, no class methods.
-    // Assign the MODULE-LEVEL `Tone` (don't shadow with a local const): updatePosition and the
-    // other methods read this same variable, and its `!Tone` guard would otherwise stay true
-    // forever — which is why the position loop (onPositionChange / playback-follow) never ran.
-    Tone = await import('tone')
-    await Tone.start()
+    const { ctx, instrument } = this.ensureAudio()
+    // ctx.resume() unlocks audio — MUST be reached from the play-button click (it is:
+    // button → MusicEngine.play() → here). First play() also blocks on the ~100 KB CDN
+    // preset fetch; later plays are instant (browser cache + memoized load()).
+    await ctx.resume()
+    await instrument.load()
 
-    // Create fresh PolySynth for chord support (multiple simultaneous notes)
-    const synth = new Tone.PolySynth(Tone.Synth).toDestination()
-    const now = Tone.now()
+    // Read the clock AFTER the awaits so onsets aren't scheduled in the past.
+    const now = ctx.currentTime
     const beatsPerSecond = this.score.tempo / 60
 
     // Flatten the score into sounding notes (shared per-measure clock across ALL staves —
     // see collectScheduledNotes). This pure pass carries ties/legato/dynamics/articulation;
-    // here we only convert beats→seconds and hand each note to Tone.
+    // here we only convert beats→seconds and hand each note (MIDI straight in) to the player.
     for (const ev of collectScheduledNotes(this.score)) {
-      const noteName = Tone.Frequency(ev.midi, 'midi').toNote()
-      synth.triggerAttackRelease(
-        noteName,
-        ev.durationBeats / beatsPerSecond,
+      instrument.noteOn(
+        ev.midi,
         now + ev.startBeats / beatsPerSecond,
+        ev.durationBeats / beatsPerSecond,
         ev.velocity,
       )
     }
 
     this.state = 'playing'
     this.playbackStartTime = now
-
-    // Store synth reference for stop
-    this.synth = synth
 
     if (this.callbacks.onStateChange) {
       this.callbacks.onStateChange(this.state)
@@ -229,15 +237,9 @@ export class PlaybackEngine {
       this.playbackTimeoutId = null
     }
 
-    // Dispose the synth to stop all sound immediately
-    if (this.synth) {
-      try {
-        this.synth.dispose()
-      } catch {
-        // Ignore dispose errors - synth may already be disposed
-      }
-      this.synth = null
-    }
+    // Silence + cancel everything still scheduled. We KEEP the instrument (and its loaded
+    // samples) so the next play() is instant — only the sound is stopped, not torn down.
+    this.instrument?.allOff()
 
     if (this.callbacks.onStateChange) {
       this.callbacks.onStateChange(this.state)
@@ -262,8 +264,8 @@ export class PlaybackEngine {
    */
   getPosition(): PlaybackPosition {
     let elapsedSeconds = 0
-    if (this.state === 'playing' && Tone) {
-      elapsedSeconds = Tone.now() - this.playbackStartTime
+    if (this.state === 'playing' && this.ctx) {
+      elapsedSeconds = this.ctx.currentTime - this.playbackStartTime
     }
     const progress = this.totalDuration > 0 ? elapsedSeconds / this.totalDuration : 0
 
@@ -276,13 +278,12 @@ export class PlaybackEngine {
   }
 
   /**
-   * Set playback volume (0-1)
-   * Note: Volume only applies when synth exists (during playback)
+   * Set playback volume (0-1). Persistent — applies whether or not we're currently playing,
+   * and is remembered for an instrument that hasn't been created yet.
    */
   setVolume(volume: number): void {
-    if (this.synth && Tone) {
-      this.synth.volume.value = Tone.gainToDb(volume)
-    }
+    this.volume = volume
+    this.instrument?.setVolume(volume)
   }
 
   /**
@@ -290,13 +291,8 @@ export class PlaybackEngine {
    */
   dispose(): void {
     this.stop()
-    if (this.synth) {
-      try {
-        this.synth.dispose()
-      } catch {
-        // Ignore dispose errors
-      }
-      this.synth = null
-    }
+    this.instrument = null
+    this.ctx?.close()
+    this.ctx = null
   }
 }
