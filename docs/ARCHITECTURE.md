@@ -47,7 +47,7 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 │                              testing (authoritative)           │
 │      ViewportModel ......... scroll/zoom box over the content  │
 │      UndoRedoManager ....... snapshot stack                    │
-│      audio/PlaybackEngine .. Tone.js scheduling/playback       │
+│      audio/PlaybackEngine .. WebAudioFont sampled voices       │
 ├─────────────────────────────────────────────────────────────┤
 │  utils/  pure functions: fraction, meter, rebar, restFill,    │  Pure
 │          beaming, beatMap, clefUtils, durations, dynamics,     │  helpers
@@ -101,7 +101,8 @@ should only translate Vue reactivity/events to controller calls and back.
 | Hit-testing / "what element is at (x,y)" | `engine/ElementRegistry.ts` |
 | Pixel ↔ beat/pitch conversion | `engine/rendering/CoordinateMapper.ts` (+ `ElementRegistry`) |
 | Scroll / zoom / viewport | `engine/ViewportModel.ts`, `composables/useViewport.ts` |
-| Playback / audio | `engine/audio/PlaybackEngine.ts` |
+| Playback / audio | `engine/audio/PlaybackEngine.ts` (clock + scheduling) |
+| The sound source (swappable) | `engine/audio/InstrumentPlayer.ts` seam → `WebAudioFontInstrument.ts` |
 | The public API the UI calls | `engine/MusicEngine.ts` (facade) |
 | All editor UI state | `interactions/EditorState.ts` |
 | A keybinding | `shortcuts/ShortcutConfig.ts` |

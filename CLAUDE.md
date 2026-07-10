@@ -8,13 +8,13 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-A music score editor built with Vue 3, VexFlow, and Tone.js. Users can add/edit notes on a staff, play back the score, and export/import JSON.
+A music score editor built with Vue 3, VexFlow, and WebAudioFont. Users can add/edit notes on a staff, play back the score, and export/import JSON.
 
 ## Tech Stack
 
 - **Framework**: Vue 3 with Composition API
 - **Notation Rendering**: VexFlow 5
-- **Audio Playback**: Tone.js
+- **Audio Playback**: WebAudioFont (sampled General MIDI; samples fetched from CDN at play time)
 - **State Management**: Pinia
 - **Styling**: Tailwind CSS
 - **Build Tool**: Vite
@@ -50,7 +50,7 @@ src/
     ViewportModel.ts      # Scroll/zoom viewport state
     models/               # ScoreModel (data model), CollisionDetector
     rendering/            # VexFlowRenderer, CoordinateMapper
-    audio/                # PlaybackEngine (Tone.js)
+    audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)
   types/music.ts    # TypeScript interfaces (Note, Measure, Score, etc.)
   utils/            # Pure helpers — fraction, meter, rebar, restFill,
                     #   beaming, clefUtils, pitchSpelling, dynamics, durations

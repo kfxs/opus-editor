@@ -1,6 +1,6 @@
 # Opus Score Editor
 
-A music score editor built with Vue, VexFlow, and Tone.js.
+A music score editor built with Vue, VexFlow, and WebAudioFont.
 
 Work in progress — this is an experiment under development.
 
@@ -19,7 +19,7 @@ Work in progress — this is an experiment under development.
 
 - Vue 3 (Composition API)
 - VexFlow 5 — notation rendering
-- Tone.js — audio playback
+- WebAudioFont — sampled General-MIDI audio playback (samples fetched from CDN at play time)
 - Pinia — state
 - Tailwind CSS — styling
 - Vite — build

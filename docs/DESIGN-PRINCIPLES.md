@@ -22,8 +22,8 @@ ambient, or assumed-unique.
 - The code stays able to hold and operate on more than one score at once
   (multiple documents, embedding, side-by-side comparison, fixtures, tests).
 
-**Exception — audio is a single global resource.** Tone.js owns one audio context,
-so playback is realistically singular. Keep "what plays" a *parameter* pointed at a
+**Exception — audio is a single global resource.** `PlaybackEngine` owns one
+`AudioContext`, so playback is realistically singular. Keep "what plays" a *parameter* pointed at a
 score (`PlaybackEngine.setScore`), never an identity baked into the engine. Data
 may be plural; sound output is one.
 
