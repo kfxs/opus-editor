@@ -460,7 +460,7 @@ export class SelectionController {
 
     const currentVoice = current.voice ?? 0
     const currentStaff = current.staff ?? 0
-    const clef = engine.getEffectiveClefAt(current.measure, current.beat)
+    const clef = engine.getEffectiveClefAt(current.measure, current.beat, currentStaff)
     const currentPos = this.elementVerticalPos(current, clef)
 
     // Candidate elements live in OTHER voices OF THE SAME STAFF (a voice hop never targets our

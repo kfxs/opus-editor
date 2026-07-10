@@ -404,16 +404,17 @@ export class ScoreModel {
   // ==================== Clef operations ====================
 
   /**
-   * Resolve the clef in effect at a position (measure, beat).
-   * Delegates to the shared resolver in utils/clefUtils.
+   * Resolve the clef in effect at a position (measure, beat) on a staff.
+   * Delegates to the shared resolver in utils/clefUtils. Clef is per-staff, so
+   * pass the `staffId` — omitting it resolves staff 0 (absent-id convention).
    */
-  getEffectiveClefAt(measureNumber: number, beat: Fraction): Clef {
-    return effectiveClefAt(this.score, measureNumber, beat)
+  getEffectiveClefAt(measureNumber: number, beat: Fraction, staffId?: string): Clef {
+    return effectiveClefAt(this.score, measureNumber, beat, staffId)
   }
 
-  /** Clef drawn at the start of a measure (its beat-0 change, or inherited). */
-  getEffectiveClef(measureNumber: number): Clef {
-    return measureOpeningClef(this.score, measureNumber)
+  /** Clef drawn at the start of a measure (its beat-0 change, or inherited) on a staff. */
+  getEffectiveClef(measureNumber: number, staffId?: string): Clef {
+    return measureOpeningClef(this.score, measureNumber, staffId)
   }
 
   /**
@@ -2558,7 +2559,7 @@ export class ScoreModel {
   private resolveStemDirection(chord: Chord): 'up' | 'down' {
     if (chord.stemDirection === 'up') return 'up'
     if (chord.stemDirection === 'down') return 'down'
-    const clef = this.getEffectiveClefAt(chord.measure, chord.beat)
+    const clef = this.getEffectiveClefAt(chord.measure, chord.beat, chord.staffId)
     const middle = middleLineDiatonicPos(clef)
     let maxDist = 0
     let dir: 'up' | 'down' = 'down' // middle-line notes follow this convention

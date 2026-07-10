@@ -345,14 +345,14 @@ export class MusicEngine {
 
   // ==================== Clef Operations ====================
 
-  /** Clef drawn at the start of a measure (its beat-0 change, or inherited). */
-  getEffectiveClef(measureNumber: number): Clef {
-    return this.scoreModel.getEffectiveClef(measureNumber)
+  /** Clef drawn at the start of a measure (its beat-0 change, or inherited) on `staff`. */
+  getEffectiveClef(measureNumber: number, staff?: number): Clef {
+    return this.scoreModel.getEffectiveClef(measureNumber, this.staffIdForIndex(staff))
   }
 
-  /** Resolve the clef in effect at a position (measure, beat). */
-  getEffectiveClefAt(measureNumber: number, beat: Fraction): Clef {
-    return this.scoreModel.getEffectiveClefAt(measureNumber, beat)
+  /** Resolve the clef in effect at a position (measure, beat) on `staff`. */
+  getEffectiveClefAt(measureNumber: number, beat: Fraction, staff?: number): Clef {
+    return this.scoreModel.getEffectiveClefAt(measureNumber, beat, this.staffIdForIndex(staff))
   }
 
   /**
@@ -1447,7 +1447,7 @@ export class MusicEngine {
       newDirection = 'auto'
     } else {
       // Auto state — compute natural direction and force the opposite
-      const clef = this.scoreModel.getEffectiveClefAt(note.measure, note.beat)
+      const clef = this.scoreModel.getEffectiveClefAt(note.measure, note.beat, this.staffIdForIndex(note.staff))
       const natural = naturalStemDirection(note.step!, note.octave!, clef)
       newDirection = natural === 'down' ? 'up' : 'down'
     }

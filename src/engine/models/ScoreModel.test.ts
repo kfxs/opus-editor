@@ -2157,6 +2157,17 @@ describe('rest-shift travel (option 3)', () => {
       expect(model.removeClefAt(1, frac(0, 1), staff1Id)).toBe(false) // lower staff opening protected
       expect(model.removeClefAt(1, frac(0, 1))).toBe(false)           // staff 0 opening protected too
     })
+
+    // getEffectiveClef(At) used to drop the staffId and always resolve staff 0's clef,
+    // so stem-direction / articulation-side on a staff 1+ chord were computed against the
+    // wrong clef. They now resolve per-staff.
+    it('getEffectiveClef(At) resolves per-staff, not always staff 0', () => {
+      const staff1Id = seedSecondStaff(model) // staff 0 = treble, staff 1 = bass
+      expect(model.getEffectiveClef(1)).toBe('treble')          // staff 0 (absent id)
+      expect(model.getEffectiveClef(1, staff1Id)).toBe('bass')  // staff 1
+      expect(model.getEffectiveClefAt(1, frac(2, 1))).toBe('treble')
+      expect(model.getEffectiveClefAt(1, frac(2, 1), staff1Id)).toBe('bass')
+    })
   })
 })
 
