@@ -23,5 +23,6 @@ export function useKeyboardEntry(
     renderScore,
     (id) => selection.setSelectedNote(id),
     () => selection.getContextPitch(),
+    () => selection.scrollSelectedNoteIntoView(),
   )
 }

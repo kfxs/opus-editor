@@ -29,6 +29,10 @@ export class KeyboardController {
     private renderScore: () => void,
     private setSelectedNote: (id: string | null) => void,
     private getContextPitch: () => number,
+    // Scroll the viewport so the just-entered/advanced note stays visible. Called AFTER
+    // renderScore() so the note's fresh bbox is in the registry (mirrors navigateNote's
+    // select→render→scroll order). Defaults to a no-op for headless/test construction.
+    private scrollSelectedNoteIntoView: () => void = () => {},
   ) {}
 
   /**
@@ -82,6 +86,7 @@ export class KeyboardController {
     this.state.selectedAccidental = null
     this.state.selectedTool = 'entry'
     this.renderScore()
+    this.scrollSelectedNoteIntoView()
   }
 
   /**
@@ -232,6 +237,7 @@ export class KeyboardController {
     console.log(`[Cursor] → cursor lands on: m${lastNote.measure} beat:${fracToNumber(lastNote.beat).toFixed(4)} (${lastNote.isRest ? 'rest' : `${lastNote.step}${lastNote.octave}`}${lastNote.tupletId ? ' tuplet' : ''})`)
     this.setSelectedNote(lastNote.id)
     this.renderScore()
+    this.scrollSelectedNoteIntoView()
   }
 
   /**
@@ -298,6 +304,7 @@ export class KeyboardController {
     this.state.selectedAccidental = null
     this.setSelectedNote(newRest.id)
     this.renderScore()
+    this.scrollSelectedNoteIntoView()
   }
 
   /**
@@ -356,5 +363,6 @@ export class KeyboardController {
     })
     this.setSelectedNote(newNote.id)
     this.renderScore()
+    this.scrollSelectedNoteIntoView()
   }
 }
