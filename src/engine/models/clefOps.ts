@@ -32,28 +32,19 @@ function getMeasure(score: Score, measureNumber: number): Measure | undefined {
  * Set/change the clef at (measure, beat). `beat` must already be snapped to a
  * slot boundary by the caller.
  *
- * - Measure 1 / beat 0 always stores an explicit opening clef and mirrors it
- *   into `score.clef` so the document keeps an opening clef.
- * - Otherwise the change is normalized: if `clef` equals the clef already in
- *   effect immediately before this beat, no visible change exists, so any
- *   existing change at this beat is removed instead of storing a redundant one.
+ * Clef is per-staff content — there is no document-level clef. The change is
+ * normalized uniformly for every staff (including m1 b0): if `clef` equals the
+ * clef already in effect immediately before this beat on this staff, no visible
+ * change exists, so any change at this beat is removed instead of storing a
+ * redundant one. At m1 b0 the "inherited before" is the universal 'treble'
+ * default, so setting `treble` there stores nothing and the opening renders
+ * `treble` via the default.
  *
  * @returns true if the score changed.
  */
 export function setClefAt(score: Score, measureNumber: number, beat: Fraction, clef: Clef, staffId?: string): boolean {
   const measure = getMeasure(score, measureNumber)
   if (!measure) return false
-
-  const isOpening = fracIsZero(beat)
-
-  // Only the FIRST staff (absent staffId) owns `score.clef`, the document's single
-  // opening clef. A later staff's beat-0 clef is an ordinary per-staff change.
-  if (measureNumber === 1 && isOpening && staffId === undefined) {
-    const scoreChanged = score.clef !== clef
-    score.clef = clef
-    const upserted = upsertClefChange(measure, beat, clef, staffId)
-    return upserted || scoreChanged
-  }
 
   // Redundant change (equals THIS staff's inherited clef) → remove any change here instead
   const inherited = effectiveClefBefore(score, measureNumber, beat, staffId)
@@ -66,11 +57,12 @@ export function setClefAt(score: Score, measureNumber: number, beat: Fraction, c
 
 /**
  * Remove a clef change at (measure, beat), reverting that position to the
- * inherited clef. Measure 1 / beat 0 cannot be removed (only changed).
+ * inherited clef. Measure 1 / beat 0 (each staff's opening clef) cannot be
+ * removed (only changed) — protected on every staff for symmetry.
  * @returns true if a change was removed.
  */
 export function removeClefAt(score: Score, measureNumber: number, beat: Fraction, staffId?: string): boolean {
-  if (measureNumber === 1 && fracIsZero(beat) && staffId === undefined) return false
+  if (measureNumber === 1 && fracIsZero(beat)) return false
   const measure = getMeasure(score, measureNumber)
   if (!measure) return false
   return removeClefChangeAt(measure, beat, staffId)

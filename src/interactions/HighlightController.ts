@@ -466,8 +466,12 @@ export class HighlightController {
 
     const registry = engine.getElementRegistry()
     const targetBeat = this.state.selectedClefBeat ?? 0
+    // Scope by staff — clef is per-staff, so at (measure, beat) each stacked staff has
+    // its own opening-clef element. Matching on measure+beat alone highlights the first
+    // (staff 0) regardless of which staff's clef was actually selected.
     const clefEl = registry.getByType('clef').find(
-      el => el.measure === this.state.selectedClefMeasure && (el.beat ?? 0) === targetBeat,
+      el => el.measure === this.state.selectedClefMeasure && (el.beat ?? 0) === targetBeat
+        && (el.staff ?? 0) === this.state.selectedClefStaff,
     )
     if (!clefEl) return
 

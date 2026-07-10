@@ -585,10 +585,9 @@ describe('ScoreModel', () => {
       model.getMeasure(m)!.clefs?.find(c => c.beat.num === beatNum && c.beat.den === 1)?.clef
 
     describe('setClef (beat 0 / opening)', () => {
-      it('stores an explicit clef on measure 1 and mirrors it to score.clef', () => {
+      it('stores an explicit opening clef on measure 1', () => {
         expect(model.setClef(1, 'bass')).toBe(true)
         expect(clefAt(1, 0)).toBe('bass')
-        expect(model.getScore().clef).toBe('bass')
       })
 
       it('stores a clef change on a later measure', () => {
