@@ -422,6 +422,27 @@
           >
             {{ state.playbackState === 'playing' ? '⏹ Stop' : '▶ Play' }}
           </button>
+
+          <!--
+            ⚠️ TEMPORARY dev-only sound picker — NOT a final editor feature. Lets us audition
+            GM timbres during development; the choice is not persisted (not in score/JSON) and
+            takes effect on the next Play. Deliberately styled as scaffolding (dashed amber,
+            🔧 DEV). Remove this block + onDevSoundChange + DEV_SOUNDS when a real per-staff
+            instrument model is designed.
+          -->
+          <label
+            class="flex items-center gap-1 ml-2 px-2 py-1 rounded border border-dashed border-amber-500/70 text-amber-300 text-xs"
+            title="Temporary dev-only sound picker — not a final editor feature. Applies on next Play."
+          >
+            🔧 DEV sound:
+            <select
+              v-model.number="devSoundProgram"
+              @change="onDevSoundChange"
+              class="bg-gray-700 rounded px-1 py-0.5 text-white text-xs"
+            >
+              <option v-for="s in DEV_SOUNDS" :key="s.program" :value="s.program">{{ s.label }}</option>
+            </select>
+          </label>
         </div>
 
         <!--
@@ -579,6 +600,8 @@
 <script setup lang="ts">
 import { ref, shallowRef, computed, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { MusicEngine } from './engine/MusicEngine'
+// ⚠️ TEMPORARY dev-only sound picker — remove when a real instrument model lands.
+import { DEV_SOUNDS } from './engine/audio/WebAudioFontInstrument'
 import { VIEWPORT_TWO_LINE_HEIGHT } from './engine/rendering/VexFlowRenderer'
 import { createEditorState } from './interactions/EditorState'
 import { useHighlight } from './composables/useHighlight'
@@ -937,6 +960,15 @@ async function togglePlayback() {
       console.error('Playback error:', error)
     }
   }
+}
+
+// ⚠️ TEMPORARY dev-only sound picker. Which GM program the whole score plays as, for
+// auditioning timbres during development. NOT persisted (not in score/JSON/undo) and NOT a
+// final editor feature — delete this + the markup + DEV_SOUNDS when the real instrument
+// model is designed. Change takes effect on the next Play (current playback keeps running).
+const devSoundProgram = ref(DEV_SOUNDS[0].program)
+function onDevSoundChange() {
+  engine.value?.setInstrumentProgram(devSoundProgram.value)
 }
 </script>
 

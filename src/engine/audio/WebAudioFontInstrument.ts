@@ -42,18 +42,66 @@ const WebAudioFontPlayer = new Function(
   `${playerSource}\n;return WebAudioFontPlayer;`,
 )() as new () => WafPlayer
 
-// GM program 0 — Acoustic Grand Piano. The preset script assigns a global named after the
-// file; `queueWaveTable` reads that decoded object. (Other GM presets swap in behind the
-// seam in Phase 2.)
-const PIANO_PRESET_URL =
-  'https://surikov.github.io/webaudiofontdata/sound/0000_JCLive_sf2_file.js'
-const PIANO_PRESET_VAR = '_tone_0000_JCLive_sf2_file'
+const PRESET_BASE = 'https://surikov.github.io/webaudiofontdata/sound/'
+
+/**
+ * GM program → WebAudioFont preset key. The preset script (`<key>.js`) assigns a global
+ * `_tone_<key>`; `queueWaveTable` reads that decoded object. Keys are taken from the
+ * player's own `instrumentKeys()` list. Program 0 keeps the JCLive piano (the Phase-1
+ * default sound); the rest are the consistent FluidR3 GM set.
+ *
+ * ⚠️ TEMPORARY / dev-only. This map exists purely so {@link DEV_SOUNDS} can drive the
+ * dev sound-picker (audition different timbres while building). It is NOT the editor's
+ * instrument model — when a real per-staff instrument feature is designed this goes away.
+ */
+const GM_PRESETS: Record<number, string> = {
+  0: '0000_JCLive_sf2_file', // Acoustic Grand Piano (Phase-1 default — unchanged)
+  4: '0040_FluidR3_GM_sf2_file', // Electric Piano
+  11: '0110_FluidR3_GM_sf2_file', // Vibraphone
+  19: '0190_FluidR3_GM_sf2_file', // Church Organ
+  24: '0240_FluidR3_GM_sf2_file', // Nylon Guitar
+  26: '0260_FluidR3_GM_sf2_file', // Jazz Guitar
+  33: '0330_FluidR3_GM_sf2_file', // Finger Bass
+  40: '0400_FluidR3_GM_sf2_file', // Violin
+  42: '0420_FluidR3_GM_sf2_file', // Cello
+  48: '0480_FluidR3_GM_sf2_file', // String Ensemble
+  52: '0520_FluidR3_GM_sf2_file', // Choir Aahs
+  56: '0560_FluidR3_GM_sf2_file', // Trumpet
+  65: '0650_FluidR3_GM_sf2_file', // Alto Sax
+  71: '0710_FluidR3_GM_sf2_file', // Clarinet
+  73: '0730_FluidR3_GM_sf2_file', // Flute
+}
+
+/**
+ * Curated (program, label) shortlist for the **dev-only** sound picker, in menu order.
+ * ⚠️ TEMPORARY — see {@link GM_PRESETS}. Delete alongside the picker when a real
+ * instrument model lands.
+ */
+export const DEV_SOUNDS: ReadonlyArray<{ program: number; label: string }> = [
+  { program: 0, label: 'Piano' },
+  { program: 4, label: 'E. Piano' },
+  { program: 11, label: 'Vibraphone' },
+  { program: 19, label: 'Church Organ' },
+  { program: 24, label: 'Nylon Guitar' },
+  { program: 26, label: 'Jazz Guitar' },
+  { program: 33, label: 'Finger Bass' },
+  { program: 40, label: 'Violin' },
+  { program: 42, label: 'Cello' },
+  { program: 48, label: 'Strings' },
+  { program: 52, label: 'Choir' },
+  { program: 56, label: 'Trumpet' },
+  { program: 65, label: 'Alto Sax' },
+  { program: 71, label: 'Clarinet' },
+  { program: 73, label: 'Flute' },
+]
 
 export class WebAudioFontInstrument implements InstrumentPlayer {
   private readonly player: WafPlayer
   private readonly master: GainNode
-  private preset: unknown = null
-  private loading: Promise<void> | null = null
+  // Decoded presets + in-flight loads, memoized per GM program (each is a separate CDN fetch).
+  private readonly presets = new Map<number, unknown>()
+  private readonly loading = new Map<number, Promise<void>>()
+  private currentProgram = 0
 
   constructor(private readonly ctx: AudioContext, volume = 1) {
     this.player = new WebAudioFontPlayer()
@@ -64,22 +112,30 @@ export class WebAudioFontInstrument implements InstrumentPlayer {
     this.master.connect(ctx.destination)
   }
 
-  load(): Promise<void> {
-    if (this.loading) return this.loading // memoized; the browser caches the fetch anyway
-    this.loading = new Promise<void>(resolve => {
+  load(program = 0): Promise<void> {
+    this.currentProgram = program // subsequent noteOn() uses this program once it's decoded
+    const inFlight = this.loading.get(program)
+    if (inFlight) return inFlight // memoized; the browser caches the fetch anyway
+
+    const key = GM_PRESETS[program] ?? GM_PRESETS[0]
+    const url = PRESET_BASE + key + '.js'
+    const varName = '_tone_' + key
+    const p = new Promise<void>(resolve => {
       // startLoad injects a <script src=URL> tag; waitLoad fires once every zone is decoded.
-      this.player.loader.startLoad(this.ctx, PIANO_PRESET_URL, PIANO_PRESET_VAR)
+      this.player.loader.startLoad(this.ctx, url, varName)
       this.player.loader.waitLoad(() => {
-        this.preset = (window as unknown as Record<string, unknown>)[PIANO_PRESET_VAR]
+        this.presets.set(program, (window as unknown as Record<string, unknown>)[varName])
         resolve()
       })
     })
-    return this.loading
+    this.loading.set(program, p)
+    return p
   }
 
   noteOn(midi: number, when: number, durationSec: number, velocity: number): void {
-    if (!this.preset) return // load() not finished yet — drop rather than throw
-    this.player.queueWaveTable(this.ctx, this.master, this.preset, when, midi, durationSec, velocity)
+    const preset = this.presets.get(this.currentProgram)
+    if (!preset) return // current program not decoded yet — drop rather than throw
+    this.player.queueWaveTable(this.ctx, this.master, preset, when, midi, durationSec, velocity)
   }
 
   allOff(): void {

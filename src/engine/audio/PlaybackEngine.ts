@@ -47,6 +47,10 @@ export class PlaybackEngine {
   private ctx: AudioContext | null = null
   private instrument: InstrumentPlayer | null = null
   private volume: number = 1 // remembered so setVolume() applies before the instrument exists
+  // ⚠️ TEMPORARY (dev-only sound picker): which GM program the whole score plays as.
+  // Lives ONLY here — never in the score/JSON/undo. Default 0 = piano. Remove when a real
+  // per-staff instrument model lands. See WebAudioFontInstrument.DEV_SOUNDS.
+  private program: number = 0
   private score: Score | null = null
   private state: PlaybackState = 'stopped'
   private callbacks: PlaybackCallbacks = {}
@@ -165,7 +169,7 @@ export class PlaybackEngine {
     // button → MusicEngine.play() → here). First play() also blocks on the ~100 KB CDN
     // preset fetch; later plays are instant (browser cache + memoized load()).
     await ctx.resume()
-    await instrument.load()
+    await instrument.load(this.program)
 
     // Read the clock AFTER the awaits so onsets aren't scheduled in the past.
     const now = ctx.currentTime
@@ -284,6 +288,19 @@ export class PlaybackEngine {
   setVolume(volume: number): void {
     this.volume = volume
     this.instrument?.setVolume(volume)
+  }
+
+  /**
+   * ⚠️ TEMPORARY — dev-only sound picker. Set the GM program the score plays as. Takes
+   * effect on the NEXT play() (current playback keeps running with the old sound). Stored
+   * only in the engine, never in the score/JSON/undo. Remove with the picker when a real
+   * instrument model lands.
+   */
+  setInstrumentProgram(program: number): void {
+    this.program = program
+    // Preload if the instrument already exists (post-first-play) so the next play is instant;
+    // otherwise it loads on next play(). Fire-and-forget — the sound only swaps on next play.
+    void this.instrument?.load(program)
   }
 
   /**

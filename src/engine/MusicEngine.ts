@@ -1807,6 +1807,15 @@ export class MusicEngine {
   }
 
   /**
+   * ⚠️ TEMPORARY — dev-only sound picker. Set the GM program the whole score plays as
+   * (takes effect on the next play()). Not part of the score/JSON; remove when a real
+   * instrument model lands. See WebAudioFontInstrument.DEV_SOUNDS.
+   */
+  setInstrumentProgram(program: number): void {
+    this.playbackEngine.setInstrumentProgram(program)
+  }
+
+  /**
    * Register playback callbacks
    */
   setPlaybackCallbacks(callbacks: PlaybackCallbacks): void {

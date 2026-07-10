@@ -9,11 +9,12 @@
  */
 export interface InstrumentPlayer {
   /**
-   * Trigger the CDN preload of the wavetable(s) we'll need and resolve once they're
-   * decoded and playable. Idempotent — safe to await on every `play()`; the browser
-   * caches the fetch and the promise is memoized.
+   * Trigger the CDN preload of the wavetable for a GM program and resolve once it's
+   * decoded and playable, making it the current sound. Idempotent per program — safe to
+   * await on every `play()`; the browser caches the fetch and each program is memoized.
+   * Defaults to program 0 (Acoustic Grand Piano).
    */
-  load(): Promise<void>
+  load(program?: number): Promise<void>
 
   /**
    * Schedule one sounding note at absolute AudioContext time `when` (seconds).
