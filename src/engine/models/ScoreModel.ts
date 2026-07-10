@@ -191,8 +191,8 @@ export class ScoreModel {
   /**
    * Add a new staff to the score, above or below the staff at `refStaffIndex` (0-based),
    * and return its stable id. The new staff is rest-filled in **every** measure (treble
-   * default — a fresh staff carries no clef change, so it resolves to `score.clef ?? 'treble'`;
-   * the user re-clefs it afterward) and joins the single staff group (created on the first
+   * default — a fresh staff carries no clef change, so it resolves to the universal
+   * `'treble'` default; the user re-clefs it afterward) and joins the single staff group (created on the first
    * add, grown thereafter). See docs/multi-staff-plan.md §9.
    *
    * The first staff owns the absent-`staffId` = staff-0 convention, so **inserting at index
@@ -418,13 +418,14 @@ export class ScoreModel {
 
   /**
    * Set/change the clef at (measure, beat). `beat` must already be snapped to a
-   * slot boundary by the caller.
+   * slot boundary by the caller. Clef is per-staff content — there is no
+   * document-level clef.
    *
-   * - Measure 1 / beat 0 always stores an explicit opening clef and mirrors it
-   *   into `score.clef` so the document keeps an opening clef.
-   * - Otherwise the change is normalized: if `clef` equals the clef already in
-   *   effect immediately before this beat, no visible change exists, so any
-   *   existing change at this beat is removed instead of storing a redundant one.
+   * The change is normalized uniformly for every staff (including m1 b0): if
+   * `clef` equals the clef already in effect immediately before this beat on this
+   * staff, no visible change exists, so any change at this beat is removed instead
+   * of storing a redundant one. At m1 b0 the inherited-before is the universal
+   * `'treble'` default.
    *
    * @returns true if the score changed.
    */
@@ -434,7 +435,8 @@ export class ScoreModel {
 
   /**
    * Remove a clef change at (measure, beat), reverting that position to the
-   * inherited clef. Measure 1 / beat 0 cannot be removed (only changed).
+   * inherited clef. Measure 1 / beat 0 (each staff's opening clef) cannot be
+   * removed (only changed) — protected on every staff.
    * @returns true if a change was removed.
    */
   removeClefAt(measureNumber: number, beat: Fraction, staffId?: string): boolean {
@@ -460,7 +462,7 @@ export class ScoreModel {
    * clef change already sits at the target beat, it is overwritten (removed) so
    * the dragged clef can take that position; this lets a drag pass through other
    * clefs rather than getting stuck. Refuses only a no-op move or landing on
-   * measure 1 beat 0 (the protected score opening clef).
+   * measure 1 beat 0 (each staff's protected opening clef).
    * @returns true if the clef was relocated.
    */
   moveClef(fromMeasure: number, fromBeat: Fraction, toMeasure: number, toBeat: Fraction): boolean {

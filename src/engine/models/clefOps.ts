@@ -75,7 +75,7 @@ export function removeClefAt(score: Score, measureNumber: number, beat: Fraction
  * clef change already sits at the target beat, it is overwritten (removed) so
  * the dragged clef can take that position; this lets a drag pass through other
  * clefs rather than getting stuck. Refuses only a no-op move or landing on
- * measure 1 beat 0 (the protected score opening clef).
+ * measure 1 beat 0 (each staff's protected opening clef).
  * @returns true if the clef was relocated.
  */
 export function moveClef(score: Score, fromMeasure: number, fromBeat: Fraction, toMeasure: number, toBeat: Fraction): boolean {

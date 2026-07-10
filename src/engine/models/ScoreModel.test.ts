@@ -4,6 +4,7 @@ import { curveShapeOverrideOf, restPositionKey, restShiftOverrideOf } from './en
 import type { NoteParams, Slur } from '@/types/music'
 import { fracCreate as frac, fracCompare, fracToNumber } from '@/utils/fraction'
 import { getTupletTotalBeatsFrac } from '@/utils/musicUtils'
+import { measureOpeningClef } from '@/utils/clefUtils'
 import type { ChordRest } from '@/types/music'
 
 /**
@@ -2102,7 +2103,7 @@ describe('rest-shift travel (option 3)', () => {
   })
 
   // Multi-staff clefs: a clef change lands on the placing staff, and per-staff clefs at
-  // the same beat coexist without one clobbering the other or touching score.clef.
+  // the same beat coexist without one clobbering the other.
   describe('clef staff scoping', () => {
     beforeEach(() => {
       model.addMeasure() // measure 2
@@ -2113,12 +2114,9 @@ describe('rest-shift travel (option 3)', () => {
     // differs from it — otherwise the change is (correctly) dropped as redundant.
     it('stamps the staffId on a clef change placed on a later staff', () => {
       const staff1Id = model.getScore().staves![1].id
-      const scoreClefBefore = model.getScore().clef
       expect(model.setClefAt(2, frac(2, 1), 'treble', staff1Id)).toBe(true)
       const clef = model.getMeasure(2)!.clefs!.find(c => c.staffId === staff1Id)
       expect(clef?.clef).toBe('treble')
-      // A later staff's clef must NOT hijack the document opening clef.
-      expect(model.getScore().clef).toBe(scoreClefBefore)
     })
 
     it('lets a staff-0 and staff-1 clef change coexist at the same beat', () => {
@@ -2140,6 +2138,24 @@ describe('rest-shift travel (option 3)', () => {
       expect(clefs).toHaveLength(1)
       expect(clefs[0].staffId).toBeUndefined()
       expect(clefs[0].clef).toBe('alto')
+    })
+  })
+
+  // Regression: clef is per-staff content — there is no document-level clef, so a staff
+  // without its own opening clef falls back to the universal 'treble' default, never to
+  // another staff's clef. (The `score.clef` removal; the cross-staff opening-clef bleed.)
+  describe('clef per-staff independence (no document clef)', () => {
+    it('changing one staff opening clef does not bleed to a staff without its own', () => {
+      const staff1Id = model.addStaffBelow(0) // staff 1: no opening clef of its own
+      model.setClefAt(1, frac(0, 1), 'alto')  // staff 0 (absent id)
+      expect(measureOpeningClef(model.getScore(), 1)).toBe('alto')        // staff 0 changed
+      expect(measureOpeningClef(model.getScore(), 1, staff1Id)).toBe('treble') // staff 1 stays default
+    })
+
+    it('protects a lower staff opening clef from removal (decision b)', () => {
+      const staff1Id = seedSecondStaff(model) // staff 1 opens bass
+      expect(model.removeClefAt(1, frac(0, 1), staff1Id)).toBe(false) // lower staff opening protected
+      expect(model.removeClefAt(1, frac(0, 1))).toBe(false)           // staff 0 opening protected too
     })
   })
 })

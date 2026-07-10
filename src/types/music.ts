@@ -703,8 +703,6 @@ export interface Score {
   keySignature: KeySignature
   /** Default time signature */
   defaultTimeSignature: TimeSignature
-  /** Clef for the score (default: 'treble') */
-  clef?: Clef
   /**
    * Phrasing slurs spanning runs of note events. Top-level (not measure-owned)
    * because a slur spans barlines and systems. Optional/absent = no slurs
