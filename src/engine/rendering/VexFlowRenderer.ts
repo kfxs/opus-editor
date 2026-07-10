@@ -222,6 +222,7 @@ export class VexFlowRenderer {
   private registerMidMeasureClefs(
     clefNoteByBeat: Array<{ beat: Fraction; clefNote: ClefNote }>,
     measure: Measure,
+    staffIndex: number = 0,
   ): void {
     for (const { beat, clefNote } of clefNoteByBeat) {
       try {
@@ -231,6 +232,10 @@ export class VexFlowRenderer {
             type: 'clef',
             measure: measure.number,
             beat: fracToNumber(beat),
+            // Attribute the glyph to its staff — clef is per-staff, so removal/selection
+            // must target the right one. Without this, a mid-measure clef on staff 1+
+            // defaulted to staff 0 and couldn't be removed (matchesStaff never matched).
+            staff: staffIndex,
             bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
           })
         }
@@ -520,7 +525,7 @@ export class VexFlowRenderer {
 
         // Mid-measure clefs are carried by the primary voice only.
         const primaryClefNotes = built[0]?.clefNoteByBeat ?? []
-        this.registerMidMeasureClefs(primaryClefNotes, measure)
+        this.registerMidMeasureClefs(primaryClefNotes, measure, staffIndex)
 
         // Extend clef regions with each inline clef's actual X position.
         for (const { clef: segClef, clefNote } of primaryClefNotes) {
