@@ -28,7 +28,7 @@ describe('NoteEntryCoordinator.splitExistingNoteWithTie', () => {
   let coordinator: NoteEntryCoordinator
 
   beforeEach(() => {
-    scoreModel = new ScoreModel('Test', 120)
+    scoreModel = new ScoreModel('Test')
     // Ensure we have 2 measures
     scoreModel.addMeasure()
     coordinator = makeCoordinator(scoreModel)
@@ -91,7 +91,7 @@ describe('NoteEntryCoordinator.splitExistingNoteWithTie', () => {
 
   it('creates the next measure automatically if it does not exist', () => {
     // ScoreModel starts with 1 measure; remove the extra one we added
-    const freshModel = new ScoreModel('Test', 120)
+    const freshModel = new ScoreModel('Test')
     const freshCoord = makeCoordinator(freshModel)
     expect(freshModel.getScore().measures).toHaveLength(1)
 
@@ -122,7 +122,7 @@ describe('NoteEntryCoordinator — Sibelius-style erosion', () => {
   let coordinator: NoteEntryCoordinator
 
   beforeEach(() => {
-    scoreModel = new ScoreModel('Test', 120)
+    scoreModel = new ScoreModel('Test')
     scoreModel.addMeasure()
     coordinator = makeCoordinator(scoreModel)
   })
@@ -256,7 +256,7 @@ describe('NoteEntryCoordinator — multi-voice duration change isolation', () =>
   let coordinator: NoteEntryCoordinator
 
   beforeEach(() => {
-    scoreModel = new ScoreModel('Test', 120)
+    scoreModel = new ScoreModel('Test')
     coordinator = makeCoordinator(scoreModel)
     // Two voices, identical streams: q-note@0 + q-rest@1 + h-rest@2 each.
     coordinator.addNoteAtBeat({ step: 'B', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
@@ -306,7 +306,7 @@ describe('NoteEntryCoordinator — tuplet in a secondary voice', () => {
   let coordinator: NoteEntryCoordinator
 
   beforeEach(() => {
-    scoreModel = new ScoreModel('Test', 120)
+    scoreModel = new ScoreModel('Test')
     coordinator = makeCoordinator(scoreModel)
   })
 

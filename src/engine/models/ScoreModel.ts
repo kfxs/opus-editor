@@ -138,11 +138,10 @@ function fmtSlot(slot: ChordRest): string {
 export class ScoreModel {
   private score: Score
 
-  constructor(title: string = 'Untitled Score', tempo: number = 120) {
+  constructor(title: string = 'Untitled Score') {
     this.score = {
       id: uuidv4(),
       title,
-      tempo,
       keySignature: { key: 'C', accidentals: 0 },
       defaultTimeSignature: { numerator: 4, denominator: 4 },
       measures: [],
@@ -166,16 +165,6 @@ export class ScoreModel {
    */
   setTitle(title: string): void {
     this.score.title = title
-  }
-
-  /**
-   * Set the tempo in BPM
-   */
-  setTempo(tempo: number): void {
-    if (tempo < 20 || tempo > 300) {
-      throw new Error('Tempo must be between 20 and 300 BPM')
-    }
-    this.score.tempo = tempo
   }
 
   /**

@@ -1,5 +1,13 @@
 import type { Score, Note } from '@/types/music'
 import { measureCapacityQuarters } from '@/utils/musicUtils'
+import {
+  buildTempoMap,
+  beatsToSeconds,
+  secondsToBeats,
+  totalSeconds,
+  DEFAULT_TEMPO,
+  type TempoSegment,
+} from '@/utils/tempoMap'
 import { collectScheduledNotes, scoreTotalBeats } from './playbackSchedule'
 import { WebAudioFontInstrument } from './WebAudioFontInstrument'
 import type { InstrumentPlayer } from './InstrumentPlayer'
@@ -60,6 +68,16 @@ export class PlaybackEngine {
   private playbackStartTime: number = 0
   private totalDuration: number = 0
   private playbackTimeoutId: ReturnType<typeof setTimeout> | null = null
+  /**
+   * The score's speed as a step function over the beat axis — the ONLY thing that knows
+   * how a beat becomes a second. Rebuilt from the score (never stored in it) whenever the
+   * score is set and again at play(). A score with no tempo marks yields a single
+   * DEFAULT_TEMPO segment, which is why there is no `tempo` field anywhere.
+   *
+   * v1 builds ONE map (`scope = undefined` = the whole system). Polytempo would build one
+   * per scope and mix them at absolute seconds — see docs/tempo-marks-plan.md §0 rule 2.
+   */
+  private tempoMap: TempoSegment[] = [{ startBeats: 0, qpm: DEFAULT_TEMPO, startSeconds: 0 }]
 
   /**
    * Set the score to play
@@ -84,10 +102,14 @@ export class PlaybackEngine {
   }
 
   /**
-   * Calculate total duration of the score in seconds
+   * Rebuild the tempo map and, from it, the score's total length in seconds.
+   *
+   * The map must be rebuilt here, not just at play(): placing/deleting a tempo mark
+   * changes the score's duration, and the auto-stop timeout + progress bar read it.
    */
   private calculateTotalDuration(): void {
     if (!this.score) {
+      this.tempoMap = [{ startBeats: 0, qpm: DEFAULT_TEMPO, startSeconds: 0 }]
       this.totalDuration = 0
       return
     }
@@ -95,9 +117,10 @@ export class PlaybackEngine {
     // Shared spine: total length is the sum of per-measure capacity (staff-agnostic).
     const totalBeats = scoreTotalBeats(this.score)
 
-    // Convert beats to seconds based on tempo
-    const beatsPerSecond = this.score.tempo / 60
-    this.totalDuration = totalBeats / beatsPerSecond
+    // Beats→seconds is piecewise (a tempo mark anywhere splits it), so it goes through
+    // the map — never through one scalar.
+    this.tempoMap = buildTempoMap(this.score)
+    this.totalDuration = totalSeconds(this.tempoMap, totalBeats)
   }
 
   /**
@@ -118,7 +141,9 @@ export class PlaybackEngine {
     if (!this.score || this.state !== 'playing' || !this.ctx) return
 
     const elapsedSeconds = this.ctx.currentTime - this.playbackStartTime
-    const elapsedBeats = (elapsedSeconds * this.score.tempo) / 60
+    // The INVERSE of the map that scheduled the notes. A scalar here would let the
+    // playhead drift away from the sound the moment the score has one tempo change.
+    const elapsedBeats = secondsToBeats(this.tempoMap, elapsedSeconds)
 
     let accumulatedBeats = 0
     let currentMeasure = 1
@@ -164,6 +189,11 @@ export class PlaybackEngine {
 
     if (this.state === 'playing') return
 
+    // Rebuild the map (and totalDuration) from the score as it stands NOW: a tempo mark
+    // may have been placed since the last setScore, and every onset below is scheduled
+    // up-front against this map — there is no live re-tempo once playback starts.
+    this.calculateTotalDuration()
+
     const { ctx, instrument } = this.ensureAudio()
     // ctx.resume() unlocks audio — MUST be reached from the play-button click (it is:
     // button → MusicEngine.play() → here). First play() also blocks on the ~100 KB CDN
@@ -173,18 +203,17 @@ export class PlaybackEngine {
 
     // Read the clock AFTER the awaits so onsets aren't scheduled in the past.
     const now = ctx.currentTime
-    const beatsPerSecond = this.score.tempo / 60
 
     // Flatten the score into sounding notes (shared per-measure clock across ALL staves —
     // see collectScheduledNotes). This pure pass carries ties/legato/dynamics/articulation;
     // here we only convert beats→seconds and hand each note (MIDI straight in) to the player.
     for (const ev of collectScheduledNotes(this.score)) {
-      instrument.noteOn(
-        ev.midi,
-        now + ev.startBeats / beatsPerSecond,
-        ev.durationBeats / beatsPerSecond,
-        ev.velocity,
-      )
+      const startSeconds = beatsToSeconds(this.tempoMap, ev.startBeats)
+      // A note may STRADDLE a tempo change, so its sounding length is the DIFFERENCE of two
+      // map lookups — not its beat-length times one rate (that would use the tempo at the
+      // onset for the whole note and overrun the next change).
+      const endSeconds = beatsToSeconds(this.tempoMap, ev.startBeats + ev.durationBeats)
+      instrument.noteOn(ev.midi, now + startSeconds, endSeconds - startSeconds, ev.velocity)
     }
 
     this.state = 'playing'

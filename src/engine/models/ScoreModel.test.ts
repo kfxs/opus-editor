@@ -25,22 +25,29 @@ describe('ScoreModel', () => {
   let model: ScoreModel
 
   beforeEach(() => {
-    model = new ScoreModel('Test Score', 120)
+    model = new ScoreModel('Test Score')
   })
 
   describe('initialization', () => {
     it('should create a score with default values', () => {
       const score = model.getScore()
       expect(score.title).toBe('Test Score')
-      expect(score.tempo).toBe(120)
       expect(score.measures).toHaveLength(1)
     })
 
-    it('should create score with default title and tempo', () => {
+    it('should create score with default title', () => {
       const defaultModel = new ScoreModel()
-      const score = defaultModel.getScore()
-      expect(score.title).toBe('Untitled Score')
-      expect(score.tempo).toBe(120)
+      expect(defaultModel.getScore().title).toBe('Untitled Score')
+    })
+
+    // Tempo is NOT a score field: a fresh score makes no tempo statement at all. It plays
+    // at the engine constant DEFAULT_TEMPO and prints nothing. A stored global would also
+    // be, implicitly, "the tempo at bar 1" — the conflation that made score.clef bleed.
+    // See docs/tempo-marks-plan.md §0.
+    it('should NOT carry a tempo field (tempo is resolved from marks, not stored)', () => {
+      const score = model.getScore()
+      expect('tempo' in score).toBe(false)
+      expect(score.measures[0].tempos).toBeUndefined()
     })
   })
 
@@ -48,21 +55,6 @@ describe('ScoreModel', () => {
     it('should update the score title', () => {
       model.setTitle('New Title')
       expect(model.getScore().title).toBe('New Title')
-    })
-  })
-
-  describe('setTempo', () => {
-    it('should update the tempo', () => {
-      model.setTempo(90)
-      expect(model.getScore().tempo).toBe(90)
-    })
-
-    it('should throw error for tempo below 20', () => {
-      expect(() => model.setTempo(10)).toThrow('Tempo must be between 20 and 300 BPM')
-    })
-
-    it('should throw error for tempo above 300', () => {
-      expect(() => model.setTempo(400)).toThrow('Tempo must be between 20 and 300 BPM')
     })
   })
 
@@ -270,7 +262,7 @@ describe('ScoreModel', () => {
       const parsed = JSON.parse(json)
 
       expect(json).toContain('"title": "Test Score"')
-      expect(json).toContain('"tempo": 120')
+      expect(json).not.toContain('"tempo"') // no global tempo is serialized — it does not exist
       const chord = parsed.measures[0].slots.find((s: any) => s.type === 'chord')
       expect(chord).toBeDefined()
       expect(chord.notes[0].step).toBe('C')
@@ -284,7 +276,6 @@ describe('ScoreModel', () => {
 
       const loaded = ScoreModel.fromJSON(json)
       expect(loaded.getScore().title).toBe('Test Score')
-      expect(loaded.getScore().tempo).toBe(120)
       const actualNotes = loaded.getAllNotes().filter(n => !n.isRest)
       expect(actualNotes).toHaveLength(1)
     })
@@ -1174,7 +1165,7 @@ const measureRest = (model: ScoreModel, n: number) =>
 
 describe('ScoreModel.setTimeSignature', () => {
   let model: ScoreModel
-  beforeEach(() => { model = new ScoreModel('TS', 120) })
+  beforeEach(() => { model = new ScoreModel('TS') })
 
   it('changes an empty bar and resizes its measure rest', () => {
     expect(model.setTimeSignature(1, ts(3, 4))).toBe(true)
@@ -1429,7 +1420,7 @@ describe('ScoreModel.setMeasureActualDuration (pickup / anacrusis)', () => {
 
 describe('ScoreModel voice-aware fill (scaffolding)', () => {
   it('fills each voice independently up to the bar length', () => {
-    const model = new ScoreModel('V', 120)
+    const model = new ScoreModel('V')
     // Voice 0 starts as a whole-bar measure rest. Add a voice-1 quarter at beat 0.
     model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
 
@@ -1451,7 +1442,7 @@ describe('ScoreModel voice-aware fill (scaffolding)', () => {
   })
 
   it('adding a note in one voice does not remove another voice\'s rests', () => {
-    const model = new ScoreModel('V', 120)
+    const model = new ScoreModel('V')
     const before = slotsOf(model, 1).filter(s => (s.voice ?? 0) === 0).length
     model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1), voice: 1 })
     const after = slotsOf(model, 1).filter(s => (s.voice ?? 0) === 0).length
@@ -1459,7 +1450,7 @@ describe('ScoreModel voice-aware fill (scaffolding)', () => {
   })
 
   it('a voice-0 tuplet does not block rest-fill in another voice', () => {
-    const model = new ScoreModel('V', 120)
+    const model = new ScoreModel('V')
     // Voice 0: a triplet at beat 0 (spans beats 0→1).
     model.createTuplet(1, frac(0, 1), '8', 3, 2)
     // Voice 1: a single 8th note at beat 0, also inside the v0 tuplet's span.
@@ -1474,7 +1465,7 @@ describe('ScoreModel voice-aware fill (scaffolding)', () => {
   })
 
   it('converting a voice-1 rest into a note keeps it in voice 1', () => {
-    const model = new ScoreModel('V', 120)
+    const model = new ScoreModel('V')
     // Voice 1 gets an 8th note, leaving filler rests in the same voice.
     model.addNote({ step: 'D', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), voice: 1 })
     const restAtHalf = slotsOf(model, 1).find(
@@ -1499,7 +1490,7 @@ describe('ScoreModel voice-aware fill (scaffolding)', () => {
 
 describe('ScoreModel.moveNoteToVoice — Phase 1 (plain notes)', () => {
   let model: ScoreModel
-  beforeEach(() => { model = new ScoreModel('MV', 120) })
+  beforeEach(() => { model = new ScoreModel('MV') })
 
   const v = (s: ChordRest) => s.voice ?? 0
   const total = (slots: ChordRest[]) =>
@@ -1599,7 +1590,7 @@ describe('ScoreModel.moveNoteToVoice — Phase 1 (plain notes)', () => {
 
 describe('ScoreModel.moveNoteToVoice — Phase 2 (collision: shorter wins)', () => {
   let model: ScoreModel
-  beforeEach(() => { model = new ScoreModel('MV', 120) })
+  beforeEach(() => { model = new ScoreModel('MV') })
 
   const v = (s: ChordRest) => s.voice ?? 0
   const total = (slots: ChordRest[]) =>
@@ -1652,7 +1643,7 @@ describe('ScoreModel.moveNoteToVoice — Phase 2 (collision: shorter wins)', () 
 
 describe('ScoreModel.moveNoteToVoice — Phase 4 (tuplets, ordinal fill)', () => {
   let model: ScoreModel
-  beforeEach(() => { model = new ScoreModel('MV', 120) })
+  beforeEach(() => { model = new ScoreModel('MV') })
 
   const v = (s: ChordRest) => s.voice ?? 0
   const tupletChords = (voice: number) =>
@@ -1768,7 +1759,7 @@ describe('ScoreModel.moveNoteToVoice — Phase 4 (tuplets, ordinal fill)', () =>
 
 describe('ScoreModel measure-rest update (regression)', () => {
   let model: ScoreModel
-  beforeEach(() => { model = new ScoreModel('TS', 120) })
+  beforeEach(() => { model = new ScoreModel('TS') })
 
   it('changing a measure rest\'s duration drops the measure-rest flag and resizes it', () => {
     const mr = measureRest(model, 1)!
@@ -1795,7 +1786,7 @@ describe('ScoreModel measure-rest update (regression)', () => {
 
 describe('ScoreModel.removeTimeSignatureChange', () => {
   let model: ScoreModel
-  beforeEach(() => { model = new ScoreModel('TS', 120) })
+  beforeEach(() => { model = new ScoreModel('TS') })
 
   it('reverts a change and its region to the inherited signature', () => {
     model.addMeasure(); model.addMeasure() // 2, 3
@@ -1844,7 +1835,7 @@ describe('ScoreModel.removeTimeSignatureChange', () => {
 
 describe('ScoreModel.setTimeSignatureHidden', () => {
   let model: ScoreModel
-  beforeEach(() => { model = new ScoreModel('TS', 120) })
+  beforeEach(() => { model = new ScoreModel('TS') })
 
   it('hides the glyph but keeps the meter and bar capacity', () => {
     expect(model.setTimeSignatureHidden(1, true)).toBe(true)
@@ -1889,7 +1880,7 @@ describe('ScoreModel JSON — time-signature validation', () => {
   })
 
   it('restores a non-4/4 measure-rest with the correct bar-length actualDuration', () => {
-    const model = new ScoreModel('TS', 120)
+    const model = new ScoreModel('TS')
     model.setTimeSignature(1, ts(3, 4))
     const restored = ScoreModel.fromJSON(model.toJSON())
     const mr = restored.getMeasure(1)!.slots.find((s) => s.type === 'rest' && s.isMeasureRest)!
@@ -1905,7 +1896,7 @@ describe('ScoreModel JSON — time-signature validation', () => {
  */
 describe('rest-shift travel (option 3)', () => {
   let model: ScoreModel
-  beforeEach(() => { model = new ScoreModel('Test Score', 120) })
+  beforeEach(() => { model = new ScoreModel('Test Score') })
 
   /** Add a quarter C on beat 0 of measure 1, then return the first rest slot it leaves. */
   const firstRest = (measureNumber: number) =>
@@ -2174,7 +2165,7 @@ describe('rest-shift travel (option 3)', () => {
 // Multi-staff Phase 4: the real "add staff" operation behind the "Staff:" toolbar group.
 describe('ScoreModel.addStaff (multi-staff Phase 4)', () => {
   let model: ScoreModel
-  beforeEach(() => { model = new ScoreModel('Staff', 120) }) // one measure, one staff
+  beforeEach(() => { model = new ScoreModel('Staff') }) // one measure, one staff
 
   it('addStaffBelow appends a staff and rest-fills every measure', () => {
     model.addMeasure() // two measures now

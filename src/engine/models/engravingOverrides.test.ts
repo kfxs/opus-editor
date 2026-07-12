@@ -21,7 +21,7 @@ describe('ScoreModel engraving overrides (Phase 0 compartment)', () => {
   const reshape = (): EngravingOverride => ({ kind: 'curveShape' } as EngravingOverride)
 
   beforeEach(() => {
-    model = new ScoreModel('Test Score', 120)
+    model = new ScoreModel('Test Score')
   })
 
   it('starts empty: no compartment on a fresh score, accessors degrade to none', () => {
@@ -110,7 +110,7 @@ describe('ScoreModel engraving overrides (Phase 0 compartment)', () => {
 describe('curveShape override + legacy Slur.cps migration (Phase 1)', () => {
   // A minimal score carrying a legacy pixel-space slur cps inline (pre-Phase-1 shape).
   const legacyScore = (cps: [{ x: number; y: number }, { x: number; y: number }]): Score => ({
-    id: 's', title: 't', tempo: 120,
+    id: 's', title: 't',
     keySignature: { key: 'C', accidentals: 0 },
     defaultTimeSignature: { numerator: 4, denominator: 4 },
     measures: [],
@@ -196,7 +196,7 @@ describe('ScoreModel.setSlurSegmentShape + setSlurEndpoint clear (P0 storage)', 
   const seg = (id: string) => segmentCurveShapeOverrideOf(model.getScore(), id)
 
   beforeEach(() => {
-    model = new ScoreModel('Test Score', 120)
+    model = new ScoreModel('Test Score')
     slurId = model.addSlur({ startNoteId: 'n-a', endNoteId: 'n-b' }).id
   })
 
@@ -257,7 +257,7 @@ describe('ScoreModel.setSlurSegmentShape + setSlurEndpoint clear (P0 storage)', 
  */
 describe('endpointOffsetOverrideOf reader', () => {
   let model: ScoreModel
-  beforeEach(() => { model = new ScoreModel('Test Score', 120) })
+  beforeEach(() => { model = new ScoreModel('Test Score') })
 
   it('returns undefined when the slur has no endpoint offset', () => {
     const id = model.addSlur({ startNoteId: 'n-a', endNoteId: 'n-b' }).id
@@ -279,7 +279,7 @@ describe('ScoreModel.setSlurEndpointOffset', () => {
   const off = (id: string) => endpointOffsetOverrideOf(model.getScore(), id)
 
   beforeEach(() => {
-    model = new ScoreModel('Test Score', 120)
+    model = new ScoreModel('Test Score')
     slurId = model.addSlur({ startNoteId: 'n-a', endNoteId: 'n-b' }).id
   })
 
@@ -373,7 +373,7 @@ describe('ScoreModel.setSlurSegmentEndpointOffset', () => {
   const segOff = (id: string) => segmentEndpointOffsetOverrideOf(model.getScore(), id)
 
   beforeEach(() => {
-    model = new ScoreModel('Test Score', 120)
+    model = new ScoreModel('Test Score')
     slurId = model.addSlur({ startNoteId: 'n-a', endNoteId: 'n-b' }).id
   })
 
@@ -451,7 +451,7 @@ describe('ScoreModel.nudgeRestShift (accumulate / clear, position-keyed)', () =>
   const key = restPositionKey('m1', 0, frac(1, 1))
   const shift = (k: string) => restShiftOverrideOf(model.getScore(), k)
 
-  beforeEach(() => { model = new ScoreModel('Test Score', 120) })
+  beforeEach(() => { model = new ScoreModel('Test Score') })
 
   it('reader returns undefined when no shift is stored', () => {
     expect(shift(key)).toBeUndefined()
@@ -488,7 +488,7 @@ describe('ScoreModel.toggleRestHidden (presence toggle, position-keyed)', () => 
   const key = restPositionKey('m1', 0, frac(1, 1))
   const hidden = (k: string) => restHiddenOf(model.getScore(), k)
 
-  beforeEach(() => { model = new ScoreModel('Test Score', 120) })
+  beforeEach(() => { model = new ScoreModel('Test Score') })
 
   it('reader returns false when nothing is stored', () => {
     expect(hidden(key)).toBe(false)
@@ -518,7 +518,7 @@ describe('ScoreModel.toggleRestHidden (presence toggle, position-keyed)', () => 
 // clears on 0. See docs/staff-spacing-plan.md.
 describe('staffSpacingAbove reader (convenience, 0 when absent)', () => {
   let model: ScoreModel
-  beforeEach(() => { model = new ScoreModel('Test Score', 120) })
+  beforeEach(() => { model = new ScoreModel('Test Score') })
 
   it('returns 0 when no override is stored', () => {
     expect(staffSpacingAbove(model.getScore(), 'staff-1')).toBe(0)
@@ -535,7 +535,7 @@ describe('staffSpacingAbove reader (convenience, 0 when absent)', () => {
 describe('ScoreModel.nudgeStaffSpacing (accumulate / clear, id-keyed)', () => {
   let model: ScoreModel
   const above = (id: string) => staffSpacingOverrideOf(model.getScore(), id)?.above ?? 0
-  beforeEach(() => { model = new ScoreModel('Test Score', 120) })
+  beforeEach(() => { model = new ScoreModel('Test Score') })
 
   it('ACCUMULATES up/down nudges into one running total', () => {
     model.nudgeStaffSpacing('staff-1', 1)
@@ -562,7 +562,7 @@ describe('ScoreModel.nudgeStaffSpacing (accumulate / clear, id-keyed)', () => {
 
 describe('ScoreModel.setStaffSpacing / resetStaffSpacing (absolute, id-keyed)', () => {
   let model: ScoreModel
-  beforeEach(() => { model = new ScoreModel('Test Score', 120) })
+  beforeEach(() => { model = new ScoreModel('Test Score') })
 
   it('sets an absolute value and clears on 0', () => {
     model.setStaffSpacing('staff-1', 6)
@@ -599,7 +599,7 @@ describe('per-system staff spacing (staffSystemSpacingKey / resolveStaffSpacingA
   })
 
   it('perSystemStaffSpacingOf reads the entry under the composite key, undefined when absent', () => {
-    const model = new ScoreModel('T', 120)
+    const model = new ScoreModel('T')
     expect(perSystemStaffSpacingOf(model.getScore(), 'staff-1', 'm-5')).toBeUndefined()
     model.setStaffSpacing(staffSystemSpacingKey('staff-1', 'm-5'), 3)
     expect(perSystemStaffSpacingOf(model.getScore(), 'staff-1', 'm-5')).toBe(3)
@@ -608,7 +608,7 @@ describe('per-system staff spacing (staffSystemSpacingKey / resolveStaffSpacingA
   })
 
   it('resolve prefers the per-system value, else the global fallback, else 0', () => {
-    const model = new ScoreModel('T', 120)
+    const model = new ScoreModel('T')
     const s = model.getScore()
     // nothing set → 0
     expect(resolveStaffSpacingAbove(s, 'staff-1', 'm-5')).toBe(0)
@@ -623,7 +623,7 @@ describe('per-system staff spacing (staffSystemSpacingKey / resolveStaffSpacingA
   })
 
   it('self-heals: an override anchored to a measure that no longer opens a system is ignored', () => {
-    const model = new ScoreModel('T', 120)
+    const model = new ScoreModel('T')
     model.setStaffSpacing(staffSystemSpacingKey('staff-1', 'm-orphan'), 5)
     // Resolving against a DIFFERENT opening measure (the reflowed system) never sees it → 0.
     expect(resolveStaffSpacingAbove(model.getScore(), 'staff-1', 'm-2')).toBe(0)

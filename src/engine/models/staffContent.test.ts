@@ -67,7 +67,6 @@ function twoStaffScore(): Score {
     title: 't',
     measures: [measure],
     staves: [{ id: S0 }, { id: S1 }],
-    tempo: 120,
     keySignature: { key: 'C', accidentals: 0 },
     defaultTimeSignature: { numerator: 4, denominator: 4 },
   }
@@ -160,7 +159,7 @@ describe('staff-aware clef resolution', () => {
 
 describe('staffContent on a single-staff (N=1) measure', () => {
   it('returns the whole measure for the only staff', () => {
-    const model = new ScoreModel('t', 120)
+    const model = new ScoreModel('t')
     model.addNote({ measure: 1, beat: frac(0, 4), duration: 'q', step: 'C', octave: 4, alter: 0 })
     const score = model.getScore()
     const measure = score.measures[0]
@@ -172,7 +171,7 @@ describe('staffContent on a single-staff (N=1) measure', () => {
 
 describe('staff-aware rest fill (repairMeasureGaps partitions by staff)', () => {
   it('fills each staff’s own gap independently and does not pollute the other staff', () => {
-    const model = new ScoreModel('t', 120)
+    const model = new ScoreModel('t')
     // Add a second staff and give it a lone quarter note at beat 0 (leaving beats 1..4 open),
     // WITHOUT touching staff 0 (which holds its default whole-measure rest).
     const s2 = 'staff-2'
@@ -201,13 +200,13 @@ describe('staff-aware rest fill (repairMeasureGaps partitions by staff)', () => 
 
 describe('ScoreModel staff-axis scaffolding (N=1)', () => {
   it('a fresh score has exactly one staff', () => {
-    const model = new ScoreModel('t', 120)
+    const model = new ScoreModel('t')
     expect(model.getScore().staves).toHaveLength(1)
     expect(model.getScore().staves![0].id).toBeTruthy()
   })
 
   it('round-trips the staves array through JSON', () => {
-    const model = new ScoreModel('t', 120)
+    const model = new ScoreModel('t')
     const id = model.getScore().staves![0].id
     const reloaded = ScoreModel.fromJSON(model.toJSON())
     expect(reloaded.getScore().staves).toHaveLength(1)
@@ -221,7 +220,6 @@ describe('ScoreModel staff-axis scaffolding (N=1)', () => {
       measures: [
         { id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [] },
       ],
-      tempo: 120,
       keySignature: { key: 'C', accidentals: 0 },
       defaultTimeSignature: { numerator: 4, denominator: 4 },
     }
@@ -230,7 +228,7 @@ describe('ScoreModel staff-axis scaffolding (N=1)', () => {
   })
 
   it('N=1 note projection carries no staff field (byte-identical output)', () => {
-    const model = new ScoreModel('t', 120)
+    const model = new ScoreModel('t')
     model.addNote({ measure: 1, beat: frac(0, 4), duration: 'q', step: 'D', octave: 4, alter: 0 })
     for (const note of model.getAllNotes()) {
       expect(note.staff).toBeUndefined()

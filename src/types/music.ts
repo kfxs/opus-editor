@@ -141,6 +141,53 @@ export interface Dynamic {
 }
 
 /**
+ * A tempo mark: a verbal indication ('Allegro'), a metronome mark (♩ = 120), or both
+ * ('Allegro (♩ = 120)'). ONE object with three display settings — not three types.
+ *
+ * SYSTEM-level: it governs the clock, not a staff, so unlike {@link Dynamic} it has
+ * **no `staffId` and no `voice`**. It rides the shared measure spine (measure-owned,
+ * beat-anchored, exactly like `clefs`/`dynamics`), which is what makes it system-level
+ * for free. See docs/tempo-marks-plan.md.
+ *
+ * Two rules the model encodes deliberately:
+ * - **A mark always carries a sounding value; `showMetronome` only decides what is
+ *   PRINTED.** Placing the word 'Allegro' really does speed playback up — that is what
+ *   every real program does. (So this is NOT {@link Dynamic}'s interpreted/silent split.)
+ * - **The beat unit is half the meaning.** `♩ = 60`, `♩. = 60` and `𝅗𝅥 = 60` are three
+ *   different speeds, so `{unit, dots, bpm}` is stored and quarter-notes-per-minute is
+ *   DERIVED (utils/tempoMap `markToQpm`).
+ */
+export interface TempoMark {
+  /** Unique identifier */
+  id: string
+  /** Beat position within the measure (lands on a slot boundary, like clefs/dynamics) */
+  beat: Fraction
+  /**
+   * Verbal indication ('Allegro', 'Allegro con brio', 'Schnell'). **FREE TEXT, never an
+   * enum** — the palette words are presets that pre-fill it, not the set of legal values,
+   * so the later text-edit is not a migration. Playback never looks this word up: `bpm`
+   * is the source of truth (docs/tempo-marks-plan.md D2).
+   */
+  text?: string
+  /** Metronome beat unit. Defaults to 'q' when a metronome is printed. */
+  unit?: NoteDuration
+  /** Dots on the metronome beat unit (♩. = 60 is not ♩ = 60). */
+  dots?: number
+  /** BPM **of the unit** (not of a quarter). Stored, never derived from {@link text}. */
+  bpm?: number
+  /** Print the "♩ = 120"? An 'Allegro' can sound 144 without showing the number. */
+  showMetronome?: boolean
+  /**
+   * Which clock this mark governs. ABSENT = the whole system (v1 marks are always
+   * absent). Reserved for polytempo (Stockhausen, *Gruppen*: three orchestras, three
+   * simultaneous tempi) — it would name a {@link StaffGroup} id. The insurance costs one
+   * optional field now; retrofitting "the number of clocks is a parameter, not 1" later
+   * costs a rewrite. See docs/tempo-marks-research.md §7.
+   */
+  scopeId?: string
+}
+
+/**
  * A phrasing slur spanning a run of note events within one voice.
  *
  * A slur is a PHRASING mark and is fundamentally different from a tie (a
@@ -621,6 +668,14 @@ export interface Measure {
    * Resolution helpers live in utils/dynamics (resolveActiveLevel).
    */
   dynamics?: Dynamic[]
+  /**
+   * Tempo marks within this measure, sorted ascending by beat (mirrors the `clefs`
+   * convention — at most ONE mark per beat, last wins). SYSTEM-level, so there is no
+   * per-staff list: this one array governs every staff. Optional/absent = no marks;
+   * the score's speed then falls back to `DEFAULT_TEMPO`.
+   * Resolution helpers live in utils/tempoMap (buildTempoMap, effectiveTempoAt).
+   */
+  tempos?: TempoMark[]
   /** Optional key signature (number of sharps/flats, positive = sharps, negative = flats) */
   keySignature?: number
   /** Tuplets in this measure */
@@ -697,8 +752,14 @@ export interface Score {
    * no groups (a sketch). See {@link StaffGroup} and docs/multi-staff-plan.md §1.
    */
   staffGroups?: StaffGroup[]
-  /** Default tempo in BPM */
-  tempo: number
+  /**
+   * NOTE: there is deliberately **no `tempo` field**. Tempo is resolved positionally from
+   * {@link Measure.tempos}, falling back to the engine constant `DEFAULT_TEMPO` (utils/
+   * tempoMap) — never to a value stored on the score. A global "default tempo" would also
+   * be, implicitly, "the tempo at bar 1 beat 0"; that exact conflation is what made
+   * `score.clef` bleed across staves (docs/clef-model-plan.md). One way to state a tempo,
+   * not two. See docs/tempo-marks-plan.md §0.
+   */
   /** Key signature for the score */
   keySignature: KeySignature
   /** Default time signature */

@@ -248,14 +248,6 @@ export class MusicEngine {
   }
 
   /**
-   * Set tempo
-   */
-  setTempo(tempo: number): void {
-    this.scoreModel.setTempo(tempo)
-    this.commit(`Set tempo to ${tempo}`)
-  }
-
-  /**
    * Add a measure
    */
   addMeasure(): void {

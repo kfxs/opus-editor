@@ -13,7 +13,7 @@ describe('rest-fill baseline (4/4) — pre-Phase-2b', () => {
   let model: ScoreModel
 
   beforeEach(() => {
-    model = new ScoreModel('Baseline', 120)
+    model = new ScoreModel('Baseline')
   })
 
   /** [duration, beatNum/beatDen] tuples for every rest in measure 1, in order. */
