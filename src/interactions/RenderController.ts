@@ -1,3 +1,4 @@
+import { tempoFieldsFromTool } from '../utils/tempoText'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Clef, TimeSignature, Dynamic, TempoMark } from '../types/music'
 import type { DynamicTool, TempoTool, EditorState } from './EditorState'
@@ -88,7 +89,10 @@ export class RenderController {
   renderTempoGhost(coords: { x: number; y: number }, tool: TempoTool): void {
     const engine = this.getEngine()
     if (!engine) return
-    const ghost: TempoMark = { id: 'ghost-tempo', beat: { num: 0, den: 1 }, ...tool }
+    // Through the SAME tool→text step the click uses (MouseController), so the preview shows the
+    // string that will actually be engraved. Spreading the raw tool instead left a bare-metronome
+    // ghost with no `text` — and a mark with no text draws nothing, so it never appeared.
+    const ghost: TempoMark = { id: 'ghost-tempo', beat: { num: 0, den: 1 }, ...tempoFieldsFromTool(tool) }
     engine.renderScoreWithTempoGhost(coords, ghost)
     this.applyHighlights()
   }

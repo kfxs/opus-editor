@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseTempoText, composeTempoText } from './tempoText'
+import { parseTempoText, composeTempoText, tempoFieldsFromTool } from './tempoText'
 import { fracCreate as frac } from './fraction'
 import type { TempoMark } from '@/types/music'
 
@@ -94,5 +94,27 @@ describe('composeTempoText — the string the palette places', () => {
   it('round-trips: what the palette places, the parser reads back unchanged', () => {
     const placed = composeTempoText({ text: 'Andante', unit: 'h', dots: 1, bpm: 66, showMetronome: true })
     expect(parseTempoText(placed)).toEqual({ ok: true, text: placed, unit: 'h', dots: 1, bpm: 66 })
+  })
+})
+
+/**
+ * The GHOST and the CLICK must compose the same string, or the preview lies about what will be
+ * engraved. They didn't: the ghost spread the raw tool, and a bare-metronome tool has NO `text` —
+ * so the ghost had nothing to draw and no preview appeared at all while the tool was armed.
+ */
+describe('tempoFieldsFromTool — the one place the palette becomes a mark', () => {
+  it('gives a BARE METRONOME tool its text (it has none of its own — the ghost drew nothing)', () => {
+    expect(tempoFieldsFromTool({ unit: 'q', bpm: 120, showMetronome: true }))
+      .toEqual({ text: '♩ = 120', unit: 'q', dots: undefined, bpm: 120 })
+  })
+
+  it('carries the speed through even when the number is not printed (the word still sounds)', () => {
+    expect(tempoFieldsFromTool({ text: 'Allegro', unit: 'q', bpm: 144, showMetronome: false }))
+      .toEqual({ text: 'Allegro', unit: 'q', dots: undefined, bpm: 144 })
+  })
+
+  it('drops showMetronome — it is a property of the FORM, not of the mark', () => {
+    expect(tempoFieldsFromTool({ text: 'Adagio', bpm: 60, showMetronome: true }))
+      .not.toHaveProperty('showMetronome')
   })
 })

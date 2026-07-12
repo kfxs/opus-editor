@@ -4,7 +4,7 @@ import type { ElementInfo, ElementRegistry, ElementType } from '../engine/Elemen
 import type { EditorState } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
 import { tempoLabel } from '../utils/tempoMap'
-import { composeTempoText } from '../utils/tempoText'
+import { tempoFieldsFromTool } from '../utils/tempoText'
 import { TempoTextSource } from './TempoTextSource'
 import type { SelectionController } from './SelectionController'
 import type { RenderController } from './RenderController'
@@ -1404,10 +1404,10 @@ export class MouseController {
     const tool = this.state.selectedTempo
     const beat = this.resolveSlotBeat(engine, x, measureNum)
     // The TOOL is a form (word? metronome? bracketed?); the MARK is the text that form produces.
-    // Composing here is the one place the two meet — from then on the string is the truth, and
-    // deleting the brackets in the editor deletes them for good.
-    const { showMetronome: _showMetronome, ...speed } = tool
-    const created = engine.addTempoMark(measureNum, { beat, ...speed, text: composeTempoText(tool) })
+    // `tempoFieldsFromTool` is the one place the two meet — from then on the string is the truth,
+    // and deleting the brackets in the editor deletes them for good. The ghost preview goes
+    // through it too, so what you see under the cursor is what gets engraved.
+    const created = engine.addTempoMark(measureNum, { beat, ...tempoFieldsFromTool(tool) })
     if (created) {
       console.log(`✓ Tempo ${tempoLabel(created)} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
     }

@@ -118,6 +118,15 @@ export function parseTempoText(input: string, prev?: TempoMark): ParsedTempo {
   }
 }
 
+/** The palette's arming state: a form (word? metronome? printed?), not yet a mark. */
+export interface TempoToolFields {
+  text?: string
+  unit?: NoteDuration
+  dots?: number
+  bpm?: number
+  showMetronome?: boolean
+}
+
 /**
  * The string the PALETTE should place: a word, a metronome, or both — `Allegro (♩ = 144)`.
  *
@@ -125,16 +134,27 @@ export function parseTempoText(input: string, prev?: TempoMark): ParsedTempo {
  * preset produces). They are only a default: they live in the text from here on, so deleting them
  * in the editor deletes them for good.
  */
-export function composeTempoText(tool: {
-  text?: string
-  unit?: NoteDuration
-  dots?: number
-  bpm?: number
-  showMetronome?: boolean
-}): string {
+export function composeTempoText(tool: TempoToolFields): string {
   const showsMetronome = tool.showMetronome === true && tool.bpm !== undefined
   if (!showsMetronome) return tool.text ?? ''
 
   const met = `${UNIT_GLYPH[tool.unit ?? 'q']}${'.'.repeat(tool.dots ?? 0)} = ${tool.bpm}`
   return tool.text ? `${tool.text} (${met})` : met
+}
+
+/**
+ * The armed tool as a MARK's fields — the one place the palette's form becomes text.
+ *
+ * Used by BOTH the placement and the ghost preview, because they must agree: a bare metronome tool
+ * carries no `text` at all, so a ghost built by spreading the tool had nothing to draw and simply
+ * did not appear. `showMetronome` is a property of the FORM, not of the mark — it decides whether
+ * the number makes it into the string, and then it is gone.
+ */
+export function tempoFieldsFromTool(tool: TempoToolFields): {
+  text: string
+  unit?: NoteDuration
+  dots?: number
+  bpm?: number
+} {
+  return { text: composeTempoText(tool), unit: tool.unit, dots: tool.dots, bpm: tool.bpm }
 }
