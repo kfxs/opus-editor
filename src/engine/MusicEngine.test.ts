@@ -1165,15 +1165,17 @@ describe('MusicEngine tempo marks', () => {
 
   const marksOf = (m: number) => engine.getTempoMarks(m)
 
-  it('adds a word, a metronome, or both — one object, three display settings', () => {
+  it('adds a word, a metronome, or both — the TEXT says which; the bpm says how fast', () => {
+    // A word that sounds without printing its number; a bare metronome; both together. The mark is
+    // its text, so "is the metronome printed?" is answered by looking at it — there is no flag.
     engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro', bpm: 144 })
-    engine.addTempoMark(1, { beat: frac(1, 1), unit: 'q', bpm: 120, showMetronome: true })
-    engine.addTempoMark(1, { beat: frac(2, 1), text: 'Adagio', unit: 'q', bpm: 65, showMetronome: true })
+    engine.addTempoMark(1, { beat: frac(1, 1), text: '♩ = 120', unit: 'q', bpm: 120 })
+    engine.addTempoMark(1, { beat: frac(2, 1), text: 'Adagio (♩ = 65)', unit: 'q', bpm: 65 })
 
-    expect(marksOf(1).map(t => [t.text, t.bpm, t.showMetronome])).toEqual([
-      ['Allegro', 144, undefined],
-      [undefined, 120, true],
-      ['Adagio', 65, true],
+    expect(marksOf(1).map(t => [t.text, t.bpm])).toEqual([
+      ['Allegro', 144],
+      ['♩ = 120', 120],
+      ['Adagio (♩ = 65)', 65],
     ])
   })
 

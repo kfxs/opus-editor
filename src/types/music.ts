@@ -142,17 +142,22 @@ export interface Dynamic {
 
 /**
  * A tempo mark: a verbal indication ('Allegro'), a metronome mark (♩ = 120), or both
- * ('Allegro (♩ = 120)'). ONE object with three display settings — not three types.
+ * ('Allegro (♩ = 120)'). ONE object — not three types.
  *
  * SYSTEM-level: it governs the clock, not a staff, so unlike {@link Dynamic} it has
  * **no `staffId` and no `voice`**. It rides the shared measure spine (measure-owned,
  * beat-anchored, exactly like `clefs`/`dynamics`), which is what makes it system-level
  * for free. See docs/tempo-marks-plan.md.
  *
- * Two rules the model encodes deliberately:
- * - **A mark always carries a sounding value; `showMetronome` only decides what is
- *   PRINTED.** Placing the word 'Allegro' really does speed playback up — that is what
- *   every real program does. (So this is NOT {@link Dynamic}'s interpreted/silent split.)
+ * Three rules the model encodes deliberately:
+ * - **The mark IS its text.** {@link text} is the whole printed string, verbatim — brackets,
+ *   word order, a trailing 'sempre' and all. Nothing re-composes it from pieces, so nothing can
+ *   lose what you typed. (It used to store `{word} + {unit,dots,bpm} + showMetronome` and rebuild
+ *   the string on every render, which silently threw away deleted brackets and any text after the
+ *   number: the string couldn't say what the fields couldn't hold.)
+ * - **The number can sound without being printed.** {@link bpm} is a separate field, so the word
+ *   'Allegro' really does speed playback up even though its 144 appears nowhere in the text — what
+ *   every real program does. Printed ⟺ the text contains a metronome; there is no flag for it.
  * - **The beat unit is half the meaning.** `♩ = 60`, `♩. = 60` and `𝅗𝅥 = 60` are three
  *   different speeds, so `{unit, dots, bpm}` is stored and quarter-notes-per-minute is
  *   DERIVED (utils/tempoMap `markToQpm`).
@@ -163,20 +168,26 @@ export interface TempoMark {
   /** Beat position within the measure (lands on a slot boundary, like clefs/dynamics) */
   beat: Fraction
   /**
-   * Verbal indication ('Allegro', 'Allegro con brio', 'Schnell'). **FREE TEXT, never an
-   * enum** — the palette words are presets that pre-fill it, not the set of legal values,
-   * so the later text-edit is not a migration. Playback never looks this word up: `bpm`
-   * is the source of truth (docs/tempo-marks-plan.md D2).
+   * **The mark exactly as printed** — `Allegro`, `♩ = 120`, `Allegro (♩ = 120)`, `Moderato ♩ = 112
+   * sempre`. Free text, never an enum: the palette words pre-fill it, they are not the legal
+   * values. The note is a real character (`♩`), so the string is the whole truth about the
+   * engraving and the renderer just draws it (utils/tempoText, engine/rendering/TempoLayout).
+   *
+   * Speed is NOT read from here at playback time — {@link bpm} is. The two are kept in step by
+   * parsing the text on every edit (utils/tempoText `parseTempoText`).
    */
   text?: string
-  /** Metronome beat unit. Defaults to 'q' when a metronome is printed. */
+  /** Metronome beat unit. Defaults to 'q'. Derived from {@link text} when it shows a metronome. */
   unit?: NoteDuration
   /** Dots on the metronome beat unit (♩. = 60 is not ♩ = 60). */
   dots?: number
-  /** BPM **of the unit** (not of a quarter). Stored, never derived from {@link text}. */
+  /**
+   * BPM **of the unit** (not of a quarter) — what the mark SOUNDS. Usually parsed out of
+   * {@link text}, but it can be set with no metronome in the text at all: that is the word
+   * 'Allegro' quietly meaning 144. Absent = the mark makes no speed statement (a phrase like
+   * 'sempre più mosso' prints and changes nothing).
+   */
   bpm?: number
-  /** Print the "♩ = 120"? An 'Allegro' can sound 144 without showing the number. */
-  showMetronome?: boolean
   /**
    * Which clock this mark governs. ABSENT = the whole system (v1 marks are always
    * absent). Reserved for polytempo (Stockhausen, *Gruppen*: three orchestras, three

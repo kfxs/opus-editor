@@ -309,13 +309,13 @@ describe('ScoreModel', () => {
     })
 
     it('round-trips tempo marks through JSON (and still sounds the same)', () => {
-      model.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro', unit: 'q', dots: 1, bpm: 96, showMetronome: true })
+      model.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro (♩. = 96)', unit: 'q', dots: 1, bpm: 96 })
       model.addTempoMark(1, { beat: frac(2, 1), text: 'meno mosso' }) // word only, no bpm
 
       const loaded = ScoreModel.fromJSON(model.toJSON())
       const marks = loaded.getTempoMarks(1)
       expect(marks).toHaveLength(2)
-      expect(marks[0]).toMatchObject({ text: 'Allegro', unit: 'q', dots: 1, bpm: 96, showMetronome: true })
+      expect(marks[0]).toMatchObject({ text: 'Allegro (♩. = 96)', unit: 'q', dots: 1, bpm: 96 })
       expect(marks[1]).toMatchObject({ text: 'meno mosso' })
       expect(marks[1].bpm).toBeUndefined()
       // The Fraction beat survives as an exact fraction, so the mark still sounds where it was:
@@ -981,14 +981,14 @@ describe('rebar preserves beat-anchored annotations (tempo marks)', () => {
     expect(fracToNumber(moved[0].beat)).toBe(0) // absolute offset 3 → 2nd 3/4 bar, beat 0
   })
 
-  it('carries the whole mark through a rebar (unit, dots, showMetronome, scopeId)', () => {
+  it('carries the whole mark through a rebar (text, unit, dots, scopeId)', () => {
     place(2, frac(1, 1), {
-      text: 'Adagio', unit: 'h', dots: 1, bpm: 40, showMetronome: true, scopeId: 'orch-1',
+      text: 'Adagio (𝅗𝅥. = 40)', unit: 'h', dots: 1, bpm: 40, scopeId: 'orch-1',
     })
     model.setTimeSignature(2, { numerator: 3, denominator: 4 })
     const t = model.getMeasure(2)!.tempos![0]
     expect(t).toMatchObject({
-      text: 'Adagio', unit: 'h', dots: 1, bpm: 40, showMetronome: true, scopeId: 'orch-1',
+      text: 'Adagio (𝅗𝅥. = 40)', unit: 'h', dots: 1, bpm: 40, scopeId: 'orch-1',
     })
   })
 

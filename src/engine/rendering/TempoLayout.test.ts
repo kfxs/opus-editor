@@ -1,47 +1,104 @@
 import { describe, it, expect } from 'vitest'
-import { tempoOptions } from './TempoLayout'
+import { anchorX, splitRuns } from './TempoLayout'
 import { fracCreate as frac } from '@/utils/fraction'
-import type { TempoMark } from '@/types/music'
+import type { ChordRest, TempoMark } from '@/types/music'
+import type { Stave, StaveNote } from 'vexflow'
 
 const mark = (extra: Partial<TempoMark>): TempoMark => ({ id: 't', beat: frac(0, 1), ...extra })
 
 /**
- * These guard the ONE thing VexFlow's StaveTempo.draw() gets wrong: it gates the whole
- * metronome on `duration` and prints `bpm` in an `else if` INSIDE that block. So the unit
- * and the number must travel together or not at all.
+ * A stave laid out like an opening bar: barline at 20, clef next, the time signature formatted
+ * at 60, and the first note pushed out to 140. `timeSigX = null` = a bar that prints no time
+ * signature (i.e. every bar but an opening or a change) — null, not undefined, so passing it
+ * explicitly doesn't just re-trigger the default.
  */
-describe('tempoOptions — the StaveTempo print gate', () => {
-  it('prints the word alone when the metronome is hidden (it still SOUNDS — D1)', () => {
-    // The naive reading passes {name, duration, bpm: undefined} → StaveTempo engraves the
-    // broken "Allegro (♩ = )": open paren, notehead, equals, NOTHING, close paren.
-    const opts = tempoOptions(mark({ text: 'Allegro', unit: 'q', bpm: 144, showMetronome: false }))
-    expect(opts).toEqual({ name: 'Allegro' })
-    expect(opts.duration).toBeUndefined() // ← the trap
-    expect(opts.bpm).toBeUndefined()
+const fakeStave = (timeSigX: number | null = 60, x = 20, noteStartX = 100) =>
+  ({
+    getX: () => x,
+    getNoteStartX: () => noteStartX,
+    getModifiers: () => (timeSigX === null ? [] : [{ getX: () => timeSigX }]),
+  }) as unknown as Stave
+const fakeNotes = (...xs: number[]) => xs.map(x => ({ getAbsoluteX: () => x })) as unknown as StaveNote[]
+const slotsAt = (...beats: number[]) => beats.map(b => ({ beat: frac(b, 1) })) as unknown as ChordRest[]
+
+describe('anchorX — what a tempo mark hangs off', () => {
+  it('aligns a downbeat mark with the TIME SIGNATURE, not the first note (it marks the bar)', () => {
+    // The bug: anchoring to the first note put `Allegro` a clef+time-signature width into
+    // the bar (x=140). It belongs at the bar's opening, clear of the clef.
+    const x = anchorX(mark({ beat: frac(0, 1) }), slotsAt(0, 2), fakeNotes(140, 200), fakeStave())
+    expect(x).toBe(60)
   })
 
-  it('treats an absent showMetronome as "do not print" (same trap)', () => {
-    expect(tempoOptions(mark({ text: 'Largo', unit: 'q', bpm: 50 }))).toEqual({ name: 'Largo' })
+  it('falls back to the barline for a downbeat in a bar that prints no time signature', () => {
+    const x = anchorX(mark({ beat: frac(0, 1) }), slotsAt(0), fakeNotes(140), fakeStave(null))
+    expect(x).toBe(20)
   })
 
-  it('never passes a bpm without a unit (StaveTempo would print NOTHING at all)', () => {
-    // A metronome mark with no unit stored: default to a quarter rather than engrave nothing.
-    const opts = tempoOptions(mark({ bpm: 120, showMetronome: true }))
-    expect(opts.duration).toBe('q')
-    expect(opts.bpm).toBe(120)
+  it('anchors a mid-bar mark to the first note at-or-after its beat (no bar opening to use)', () => {
+    const x = anchorX(mark({ beat: frac(2, 1) }), slotsAt(0, 2), fakeNotes(140, 200), fakeStave())
+    expect(x).toBe(200)
   })
 
-  it('passes unit + dots + bpm together when the metronome is printed', () => {
-    expect(tempoOptions(mark({ text: 'Andante', unit: 'h', dots: 1, bpm: 60, showMetronome: true })))
-      .toEqual({ name: 'Andante', duration: 'h', dots: 1, bpm: 60 })
+  it('falls back to the note-start X for a mid-bar beat with nothing at or after it', () => {
+    const x = anchorX(mark({ beat: frac(3, 1) }), slotsAt(0, 2), fakeNotes(140, 200), fakeStave())
+    expect(x).toBe(100)
   })
 
-  it('prints a metronome with no word (VexFlow omits the parens when name is absent)', () => {
-    expect(tempoOptions(mark({ unit: 'q', bpm: 120, showMetronome: true })))
-      .toEqual({ name: undefined, duration: 'q', dots: undefined, bpm: 120 })
+  it('still finds the bar opening when the bar has no notes at all', () => {
+    expect(anchorX(mark({ beat: frac(0, 1) }), [], [], fakeStave())).toBe(60)
+  })
+})
+
+/**
+ * The mark is drawn as RUNS: note characters are engraved from the music font as real SMuFL
+ * glyphs, everything else in the text font. This is what replaced VexFlow's StaveTempo — which
+ * could only ever print `Word (\u2669 = n)`, its way, brackets forced and word first.
+ */
+describe('splitRuns \u2014 what is drawn from the music font, and what is not', () => {
+  const NOTE_Q = '\uECA5'  // metNoteQuarterUp
+  const NOTE_H = '\uECA3'  // metNoteHalfUp
+  const DOT = '\uECB7'     // metAugmentationDot
+
+  it('splits a mark into words and note glyphs, in the order typed', () => {
+    expect(splitRuns('Moderato \u2669 = 112 sempre')).toEqual([
+      { text: 'Moderato ' },
+      { glyph: NOTE_Q },
+      { text: ' = 112 sempre' },   // words AFTER the number stay after it
+    ])
   })
 
-  it('cannot print a metronome for a word-only mark (no bpm to print)', () => {
-    expect(tempoOptions(mark({ text: 'a tempo', showMetronome: true }))).toEqual({ name: 'a tempo' })
+  it('keeps the brackets — they are just characters, so deleting them sticks', () => {
+    expect(splitRuns('Allegro (\u2669 = 144)')).toEqual([
+      { text: 'Allegro (' },
+      { glyph: NOTE_Q },
+      { text: ' = 144)' },
+    ])
+    expect(splitRuns('Allegro \u2669 = 144')).toEqual([
+      { text: 'Allegro ' },
+      { glyph: NOTE_Q },
+      { text: ' = 144' },
+    ])
+  })
+
+  /**
+   * The half note is NOT one character: it is a notehead (U+1D157) plus a COMBINING STEM
+   * (U+1D165) \u2014 and the 16th adds a combining flag on top of that, three code points. A scanner
+   * that walks one character at a time misses every one of them, and a `\ud834\udd57\ud834\udd65 = 60` metronome prints
+   * as raw text instead of a glyph. That was a real bug; this is the test that caught it.
+   */
+  it('matches a note written as a SEQUENCE of code points, not just a single character', () => {
+    expect(splitRuns('\u{1D157}\u{1D165}. = 60')).toEqual([
+      { glyph: NOTE_H },
+      { glyph: DOT },   // the augmentation dot rides with the note \u2014 \u2669. is a dotted quarter
+      { text: ' = 60' },
+    ])
+  })
+
+  it('a full stop that does NOT follow a note is just a full stop', () => {
+    expect(splitRuns('a tempo. Allegro')).toEqual([{ text: 'a tempo. Allegro' }])
+  })
+
+  it('a word with no metronome is one plain text run', () => {
+    expect(splitRuns('sempre pi\u00f9 mosso')).toEqual([{ text: 'sempre pi\u00f9 mosso' }])
   })
 })

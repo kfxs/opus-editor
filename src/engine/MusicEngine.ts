@@ -526,8 +526,9 @@ export class MusicEngine {
   /**
    * Add a tempo mark at (measure, mark.beat) — a word ('Allegro'), a metronome (♩ = 120),
    * or both. `beat` must be a slot-boundary beat; an existing mark on that beat is
-   * REPLACED (one clock statement per point in time). The mark always carries a sounding
-   * value: `showMetronome` decides only whether the number is printed.
+   * REPLACED (one clock statement per point in time). `text` is what gets PRINTED, `bpm` what
+   * SOUNDS — and a mark can sound without printing its number (the word 'Allegro' quietly
+   * meaning 144), which is why they are separate fields.
    * Saves undo state when added.
    * @returns the stored TempoMark, or null if the measure does not exist.
    * @throws if bpm is outside 20..300.
@@ -541,8 +542,9 @@ export class MusicEngine {
   }
 
   /**
-   * Edit an existing tempo mark by id (text / unit / dots / bpm / showMetronome / beat).
-   * Renaming the word leaves `bpm` untouched and vice versa (decision D2).
+   * Edit an existing tempo mark by id (text / unit / dots / bpm / beat). The mark IS its text:
+   * `text` is stored verbatim and `unit`/`dots`/`bpm` are the speed parsed out of it, so the two
+   * are written together (utils/tempoText).
    * Saves undo state when found. @returns the updated TempoMark, or null if missing.
    */
   updateTempoMark(id: string, updates: Partial<Omit<TempoMark, 'id'>>): TempoMark | null {

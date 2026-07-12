@@ -70,8 +70,8 @@ describe('markToQpm — the unit is half the meaning', () => {
     expect(markToQpm(mark(0, 144, { text: 'Adagio' }))).toBe(144)
   })
 
-  it('sounds even when the metronome is not printed (showMetronome is display only)', () => {
-    expect(markToQpm(mark(0, 144, { text: 'Allegro', showMetronome: false }))).toBe(144)
+  it('sounds even when its number is nowhere in the text (the word Allegro quietly means 144)', () => {
+    expect(markToQpm(mark(0, 144, { text: 'Allegro' }))).toBe(144)
   })
 })
 

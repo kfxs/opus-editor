@@ -4,6 +4,7 @@ import type { ElementInfo, ElementRegistry, ElementType } from '../engine/Elemen
 import type { EditorState } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
 import { tempoLabel } from '../utils/tempoMap'
+import { composeTempoText } from '../utils/tempoText'
 import { TempoTextSource } from './TempoTextSource'
 import type { SelectionController } from './SelectionController'
 import type { RenderController } from './RenderController'
@@ -880,9 +881,8 @@ export class MouseController {
     // mark's padded box (it is engraved on a fixed line above the staff).
     if (closestElement && registry.hitsNoteOrRestBody(closestElement, x, y)) return false
 
-    // Double-click → edit in place. A mark WITH a word edits the word ('Allegro' →
-    // 'Allegro con brio', bpm untouched); a bare metronome mark edits its number. Which
-    // face is editable is TempoTextSource's call — see it for the rule.
+    // Double-click → edit the whole mark in place, as one string ('Allegro (♩ = 144)'). The
+    // model is read back out of what was typed — see TempoTextSource / utils/tempoText.
     const now = Date.now()
     const isDoubleClick = this.lastTempoDownId === tempoAt.id
       && (now - this.lastTempoDownTime) < this.DOUBLE_CLICK_MS
@@ -901,12 +901,13 @@ export class MouseController {
 
     this.selection.selectNote(null)
     this.state.selectedTempoId = tempoAt.id
-    console.log(`✓ Tempo mark selected | id:${tempoAt.id} (Delete to remove, double-click to edit)`)
+    console.log(`✓ Tempo mark selected | id:${tempoAt.id}`)
     this.render.renderScore()
     return true
   }
 
-  /** Open the in-canvas text overlay over a tempo mark (word, or number if it has no word). */
+  /** Open the in-canvas text overlay over a tempo mark — the WHOLE mark, `Allegro (♩ = 144)`,
+   *  as one editable string (TempoTextSource parses the model back out of it). */
   private openTempoTextEditor(tempoId: string, isNew: boolean): void {
     const engine = this.getEngine()
     const textEdit = this.getTextEdit()
@@ -965,7 +966,7 @@ export class MouseController {
 
     this.selection.selectNote(null)
     this.state.selectedDynamicId = dynamicAt.id
-    console.log(`✓ Dynamic selected | id:${dynamicAt.id} (Delete to remove, double-click text to edit)`)
+    console.log(`✓ Dynamic selected | id:${dynamicAt.id}`)
     this.render.renderScore()
     return true
   }
@@ -1018,7 +1019,7 @@ export class MouseController {
     // a blue (true end) or orange (open join) square is the only thing that re-arms one.
     this.state.selectedSlurEndpoint = null
     this.state.selectedSlurSegmentEndpoint = null
-    console.log(`✓ Slur selected | id:${slurAt.id} (Delete to remove)`)
+    console.log(`✓ Slur selected | id:${slurAt.id}`)
     this.render.renderScore()
     return true
   }
@@ -1402,7 +1403,11 @@ export class MouseController {
     if (!this.state.selectedTempo) return false
     const tool = this.state.selectedTempo
     const beat = this.resolveSlotBeat(engine, x, measureNum)
-    const created = engine.addTempoMark(measureNum, { beat, ...tool })
+    // The TOOL is a form (word? metronome? bracketed?); the MARK is the text that form produces.
+    // Composing here is the one place the two meet — from then on the string is the truth, and
+    // deleting the brackets in the editor deletes them for good.
+    const { showMetronome: _showMetronome, ...speed } = tool
+    const created = engine.addTempoMark(measureNum, { beat, ...speed, text: composeTempoText(tool) })
     if (created) {
       console.log(`✓ Tempo ${tempoLabel(created)} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
     }

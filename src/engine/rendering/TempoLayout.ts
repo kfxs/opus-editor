@@ -6,52 +6,160 @@
  * Called once per measure from `renderMeasure`, AFTER the voices are formatted and drawn
  * (an anchor note's absolute X does not exist before that).
  *
- * ## Why this does not use `Stave.setTempo()` / the stave-modifier path
+ * ## Why this does not use VexFlow's `StaveTempo`
  *
- * VexFlow's `StaveTempo` is the right primitive — it engraves `Allegro (♩ = 120)` with the
- * SMuFL `metNote*` glyphs and auto-parenthesizes the metronome when a word is present. But
- * three things make the built-in path unusable here, and all three are handled below:
+ * `StaveTempo` engraves `Allegro (♩ = 120)` for you — but only ever THAT, its way. It brackets
+ * the metronome whenever a word is present (no way off), it always puts the word first, and it
+ * gates the whole metronome on `duration` (so a unit with no number engraves a broken
+ * `Allegro (♩ = )`). A mark is text: the writer decides whether to bracket it, what goes after
+ * the number, whether there is a number at all. None of that fits through `StaveTempo`.
  *
- * 1. `Stave.setTempo()` hardcodes `x = stave.x`, so it can only mark the START of a bar.
- *    We construct `StaveTempo` ourselves with an x taken from the anchor note.
- * 2. `StaveTempo.draw()` never calls `ctx.openGroup()` — it emits bare `<text>` nodes into
- *    whatever group is open (inside the stave's, via `Stave.draw()`). There would be NO
- *    element carrying the mark's id, so hit-testing, selection-highlight and text-edit
- *    suppression would all have nothing to hold. We open the group ourselves.
- * 3. `draw()` adds `stave.getModifierXShift(this.getPosition())` to x — which, in VexFlow,
- *    indexes `stave.modifiers` BY THE POSITION ENUM (3 = ABOVE). For a stave that isn't
- *    carrying ≥4 modifiers that is `undefined.getPosition()` — a crash. We neutralize it
- *    (see `staveWithoutModifierShift`) and position the mark ourselves.
+ * So we draw the mark's string ourselves — which turns out to be less code than the workarounds
+ * were. It is split into RUNS: the note characters (`♩`) are engraved from the music font as real
+ * SMuFL glyphs, everything else in the text font, laid left to right. `Element` is VexFlow's own
+ * text/glyph primitive with its own metrics — the same one `StaveTempo.draw()` uses internally —
+ * so we lose no engraving quality, only its opinions.
  */
-import { StaveTempo } from 'vexflow'
-import type { Stave, StaveNote } from 'vexflow'
+import { Element, Metrics, MetricsDefaults, StaveModifierPosition, TimeSignature } from 'vexflow'
+import type { RenderContext, Stave, StaveNote } from 'vexflow'
 import type { ChordRest, Measure, TempoMark } from '@/types/music'
 import { fracCompare, fracToNumber } from '@/utils/fraction'
+import { UNIT_GLYPH } from '@/utils/tempoText'
+import { textFirstFamily } from '@/utils/fontStack'
 import type { RenderPass } from './RenderPass'
 
 /**
- * The ctor's own `setXShift(10)`, which `draw()` adds to every glyph it paints. Subtracted
- * from the anchor so the mark actually lands where we asked for it.
+ * The size of the metronome's note glyph (`♩`), overriding VexFlow's default.
+ *
+ * VexFlow engraves it at 25 against a 14 word — nearly 1.8× — so the notehead dwarfs the text it
+ * sits in. Printed metronome marks size the note to roughly the word's own height; 16 puts it just
+ * above the caps, which is what `Allegro (♩ = 144)` is supposed to look like.
+ *
+ * `MetricsDefaults` is VexFlow's override surface, but it is GLOBAL and read at `Element`
+ * construction, so this is a one-time write at import. `Metrics.getFontInfo` memoizes per key, so
+ * the stale FontInfo must be evicted or the write is silently ignored.
  */
-export const STAVE_TEMPO_X_SHIFT = 10
+export const TEMPO_GLYPH_FONT_SIZE = 16
+MetricsDefaults.StaveTempo.glyph.fontSize = TEMPO_GLYPH_FONT_SIZE
+Metrics.clear('StaveTempo.glyph')
 
 /**
- * A stave façade whose `getModifierXShift()` is 0 (see the header, point 3). Prototype
- * delegation, so every other field/method — `checkContext()`, `getYForTopText()` — is the
- * REAL stave's. Cheaper and far less fragile than re-implementing `StaveTempo.draw()`.
+ * The SMuFL glyph each note character is engraved as (`♩` → `metNoteQuarterUp`) — the same
+ * codepoints VexFlow's `Glyphs` enum uses, and the same ones `StaveTempo` drew.
+ *
+ * Written out rather than imported: `Glyphs` is exported from VexFlow's CJS bundle but NOT from
+ * its ESM entry (nor its type declarations), so `import { Glyphs } from 'vexflow'` type-checks
+ * against the CJS shape and then resolves to `undefined` in the browser. These are SMuFL's
+ * standardized codepoints; they do not move.
  */
-export function staveWithoutModifierShift(stave: Stave): Stave {
-  const proxy = Object.create(stave) as Stave & { getModifierXShift: () => number }
-  proxy.getModifierXShift = () => 0
-  return proxy
+const METRONOME_DOT = '\uECB7' // metAugmentationDot
+const NOTE_GLYPH: Record<string, string> = {
+  [UNIT_GLYPH.w]: '\uECA2',    // metNoteWhole
+  [UNIT_GLYPH.h]: '\uECA3',    // metNoteHalfUp
+  [UNIT_GLYPH.q]: '\uECA5',    // metNoteQuarterUp
+  [UNIT_GLYPH['8']]: '\uECA7',  // metNote8thUp
+  [UNIT_GLYPH['16']]: '\uECA9', // metNote16thUp
+  [UNIT_GLYPH['32']]: '\uECAB', // metNote32ndUp
+}
+
+/** A piece of the mark's string: a stretch of words, or one music glyph. */
+type Run = { glyph: string; text?: undefined } | { text: string; glyph?: undefined }
+
+/**
+ * Split the mark's text into what must be drawn from the MUSIC font and what must not.
+ *
+ * The note characters (and the dots that follow one — `♩.` is a dotted quarter, not a full stop)
+ * are engraved as SMuFL glyphs; everything else is text. Note that a '.' is only a dot if it
+ * follows a note: 'a tempo. Allegro' keeps its full stop.
+ */
+export function splitRuns(text: string): Run[] {
+  const runs: Run[] = []
+  let pending = ''
+  const flush = () => { if (pending) { runs.push({ text: pending }); pending = '' } }
+
+  // Matched by SEQUENCE, not by character: the note symbols are not all one code point. `♩` is
+  // (U+2669), but `𝅗𝅥` is a notehead plus a combining stem, and `𝅘𝅥𝅯` adds a combining flag on top —
+  // 2 and 3 code points. Scanning character-by-character silently misses every one of those, and
+  // a half-note metronome prints as raw text instead of a glyph. Longest first, so `𝅘𝅥𝅯` is never
+  // mistaken for the shorter sequence that prefixes it.
+  const notes = Object.entries(NOTE_GLYPH).sort(([a], [b]) => b.length - a.length)
+
+  for (let i = 0; i < text.length;) {
+    const note = notes.find(([symbol]) => text.startsWith(symbol, i))
+    if (!note) { pending += text[i]; i++; continue }
+
+    flush()
+    runs.push({ glyph: note[1] })
+    i += note[0].length
+    while (text[i] === '.') { // the note's augmentation dots ride with it
+      runs.push({ glyph: METRONOME_DOT })
+      i++
+    }
+  }
+  flush()
+  return runs
 }
 
 /**
- * The x a mark anchors to: the absolute X of the first note/rest at-or-after its beat
- * (the gesture `DynamicsLayout` uses), else the bar's note-start X — so a mark on an
- * empty beat, or on a bar whose notes were all deleted, still renders.
+ * Engrave a tempo mark's string at (x, y) — the shared draw used by the score and by the armed
+ * tool's ghost preview, so the preview cannot drift from the thing it previews.
+ *
+ * `Element` is VexFlow's text/glyph primitive: it carries the font from Metrics and measures its
+ * own width, which is how the runs are laid end to end.
  */
-function anchorX(mark: TempoMark, slots: ChordRest[], staveNotes: StaveNote[], stave: Stave): number {
+export function drawTempoText(ctx: RenderContext, text: string, x: number, y: number): void {
+  for (const run of splitRuns(text)) {
+    // 'StaveTempo.name' is the mark's text font (bold, VexFlow's text face); 'StaveTempo.glyph' is
+    // the music font, at the size set above. Both resolved from Metrics, exactly as StaveTempo did.
+    const el = new Element(run.glyph ? 'StaveTempo.glyph' : 'StaveTempo.name')
+
+    if (!run.glyph) {
+      // …except that VexFlow resolves BOTH from a stack that LEADS with the music font
+      // ('Bravura,Academico'). The letters fall through to the text face and look right, but the
+      // SPACES do not: Bravura has a space glyph, and a music font's space is next to nothing
+      // wide — which is why the mark engraved as `Allegro(♩=144)` however many spaces were in the
+      // string. Text runs take the text face first; the glyph run still wants Bravura.
+      const f = el.fontInfo
+      el.setFont(textFirstFamily(f.family), f.size, f.weight, f.style)
+    }
+
+    el.setText(run.glyph ?? keepSpaces(run.text!))
+    el.renderText(ctx, x, y)
+    x += el.getWidth()
+  }
+}
+
+/**
+ * Spaces that SVG cannot swallow.
+ *
+ * A run is a fragment of the mark — `'Moderato '`, `' = 112'` — so its spaces are at the EDGES,
+ * and SVG collapses leading/trailing whitespace in a `<text>` node. The word then paints hard
+ * against the ♩ and the ♩ hard against the `=`, even though the layout advanced past the space
+ * (our width is measured WITH it) — the mark looked right in the editor and wrong on the page.
+ *
+ * `xml:space="preserve"` is the documented cure and it did NOT work here, so we sidestep the
+ * renderer's whitespace rules entirely: a non-breaking space is not whitespace to collapse. It is
+ * the same width as the space it replaces, and the string on the page is unaffected — this is a
+ * RENDER-time substitution only, never stored (the model keeps the plain spaces you typed).
+ */
+function keepSpaces(text: string): string {
+  return text.replace(/ /g, '\u00A0') // U+00A0 NO-BREAK SPACE
+}
+
+/**
+ * The x a mark anchors to.
+ *
+ * A mark ON THE DOWNBEAT belongs to the BAR, not to the note that happens to open it, so it is
+ * left-aligned with the START OF THE BAR — {@link barOpeningX}. Anchoring it to the first note
+ * instead pushed `Allegro` a clef-plus-time-signature width into the bar.
+ *
+ * A mark placed LATER in the bar has no bar opening to hang off, so it takes the absolute X of
+ * the first note/rest at-or-after its beat (the gesture `DynamicsLayout` uses), falling back to
+ * the bar's note-start X when the beat is empty or the bar's notes were all deleted.
+ */
+export function anchorX(mark: TempoMark, slots: ChordRest[], staveNotes: StaveNote[], stave: Stave): number {
+  if (fracToNumber(mark.beat) === 0) return barOpeningX(stave)
+
   for (let i = 0; i < slots.length; i++) {
     if (fracCompare(slots[i].beat, mark.beat) >= 0) {
       try {
@@ -65,31 +173,32 @@ function anchorX(mark: TempoMark, slots: ChordRest[], staveNotes: StaveNote[], s
 }
 
 /**
- * The options handed to `StaveTempo`, honouring the ONE rule its `draw()` gets wrong.
+ * Where a bar "opens", for a mark on its downbeat: the TIME SIGNATURE if the bar prints one, else
+ * the barline.
  *
- * `draw()` gates the whole metronome on `duration`, printing `bpm` in an `else if` INSIDE
- * that block. So passing a unit while withholding the number (the naive reading of
- * `showMetronome: false`) engraves a broken **`Allegro (♩ = )`** — open paren, notehead,
- * equals, nothing, close paren. And passing a `bpm` with no `duration` engraves NOTHING.
+ * Not the clef. A tempo mark sits clear of it — this is LilyPond's default (metronome marks
+ * break-align to the time signature) and what printed scores look like.
  *
- * Hence: the unit and the number travel together or not at all. A mark still SOUNDS when
- * its metronome is hidden — `showMetronome` is display, never meaning (decision D1).
+ * The x is read off the glyph rather than derived from a clef width: `Stave.format()` assigns
+ * every begin-modifier its x, and the stave is drawn before we run, so the number is exact and
+ * survives a clef change, a key signature, or a wider time signature. Most bars carry no time
+ * signature at all (only openings and changes do) — and there the barline IS the bar's opening,
+ * with nothing between it and the notes.
  */
-export function tempoOptions(mark: TempoMark): { name?: string; duration?: string; dots?: number; bpm?: number } {
-  const showsMetronome = mark.showMetronome === true && mark.bpm !== undefined
-  if (!showsMetronome) return { name: mark.text }
-  return { name: mark.text, duration: mark.unit ?? 'q', dots: mark.dots, bpm: mark.bpm }
+function barOpeningX(stave: Stave): number {
+  const [timeSig] = stave.getModifiers(StaveModifierPosition.BEGIN, TimeSignature.CATEGORY)
+  return timeSig ? timeSig.getX() : stave.getX()
 }
 
 /**
- * Draw the measure's tempo marks above the staff and register each one's rendered bbox
- * for hit-testing.
+ * Draw the measure's tempo marks above the staff and register each one's rendered bbox for
+ * hit-testing.
  *
- * SCOPE: a mark is drawn above its scope's TOP staff — it governs the clock, not a staff,
- * so it is engraved once per system, not once per staff. v1 has exactly one scope (the
- * whole system), which resolves to staff 0; the guard is written in terms of the scope so
- * polytempo only has to change the resolver, not this call. Without it, a grand staff
- * would print `Allegro` above every staff and register duplicate ids.
+ * SCOPE: a mark is drawn above its scope's TOP staff — it governs the clock, not a staff, so it is
+ * engraved once per system, not once per staff. v1 has exactly one scope (the whole system), which
+ * resolves to staff 0; the guard is written in terms of the scope so polytempo only has to change
+ * the resolver, not this call. Without it, a grand staff would print `Allegro` above every staff
+ * and register duplicate ids.
  */
 export function drawTempoMarks(
   pass: RenderPass,
@@ -103,19 +212,19 @@ export function drawTempoMarks(
   if (staffIndex !== topStaffIndexForScope(undefined)) return
 
   const ctx = pass.context
-  const proxyStave = staveWithoutModifierShift(stave)
 
   for (const mark of measure.tempos) {
     if (mark.id === pass.suppressedTempoId) continue // being edited in the text overlay
+    if (!mark.text) continue // nothing printed (a mark that only sounds)
 
-    const x = anchorX(mark, slots, staveNotes, stave) - STAVE_TEMPO_X_SHIFT
+    const y = stave.getYForTopText(1)
+    let x = anchorX(mark, slots, staveNotes, stave)
 
-    // OUR group, carrying the mark's id → '#vf-<id>', which is what the registry bbox,
-    // the selection highlight and the text-edit overlay all address it by. VexFlow's
-    // StaveTempo opens none of its own.
+    // OUR group, carrying the mark's id → '#vf-<id>', which is what the registry bbox, the
+    // selection highlight and the text-edit overlay all address it by.
     const group = ctx.openGroup('tempo', mark.id) as SVGGElement
     try {
-      new StaveTempo(tempoOptions(mark), x, 0).setStave(proxyStave).setContext(ctx).draw()
+      drawTempoText(ctx, mark.text, x, y)
     } finally {
       ctx.closeGroup() // never leave the group open — everything after would nest inside it
     }
@@ -138,8 +247,8 @@ export function drawTempoMarks(
 }
 
 /**
- * The index of the staff a scope's marks are engraved above. v1: one scope = the whole
- * system = the top staff. Polytempo would map a StaffGroup id → its topmost staff.
+ * The index of the staff a scope's marks are engraved above. v1: one scope = the whole system =
+ * the top staff. Polytempo would map a StaffGroup id → its topmost staff.
  */
 function topStaffIndexForScope(_scopeId: string | undefined): number {
   return 0

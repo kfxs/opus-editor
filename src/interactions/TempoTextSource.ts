@@ -1,5 +1,7 @@
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { TempoMark } from '../types/music'
 import type { EditableTextSource } from './TextEditController'
+import { parseTempoText } from '../utils/tempoText'
 import { MIN_BPM, MAX_BPM } from '../utils/tempoMap'
 
 /**
@@ -14,34 +16,29 @@ const FALLBACK_FONT = { family: 'Academico, serif', size: '14pt', weight: 'bold'
  * {@link EditableTextSource} for a {@link TempoMark}. The twin of {@link DynamicTextSource},
  * bridging the generic text editor to the tempo model + renderer.
  *
- * **What a double-click edits depends on the mark's visible face:**
- * - A mark with a WORD ('Allegro', 'Allegro (♩ = 120)') edits the **word**. `bpm`, `unit`
- *   and `dots` are left strictly untouched — renaming never moves the tempo (decision D2).
- *   That is what makes "Allegro" → "Allegro con brio" safe, and it is why `text` was
- *   modeled as free text rather than an enum in the first place.
- * - A mark with NO word (a bare `♩ = 120`) edits the **number** — the only text it shows.
- *   The typed value is parsed and validated; garbage or an out-of-range bpm is rejected
- *   (the edit is treated as a cancel) rather than silently producing a nonsense clock.
+ * **A double-click edits the WHOLE mark as one string** — `Allegro (♩ = 144)` — and the model is
+ * READ BACK OUT of what you typed (`utils/tempoText`). That is how Sibelius works, and it is the
+ * only version that isn't a lie: the number you can see is the number that plays. Retype 144 as
+ * 120 and the score plays at 120; delete the metronome and the mark stops stating a speed; type
+ * a word beside it and it keeps its number.
  *
- * ⚠️ **KNOWN ISSUE (open): the overlay still sits slightly too HIGH.** The two big causes are
- * fixed (see {@link findEditedTextNode} and {@link measureFont}), but a residual offset remains:
- * SVG text is positioned by its BASELINE, an HTML box by the TOP OF ITS LINE BOX, so `top =
- * inkTop` leaves the browser's internal leading above the glyph. The fix is to align the two
- * BASELINES (offset `top` by the HTML font's ascent), probably by adding a `baselineY` to
- * `EditableTextSource` so `DomTextEdit` corrects it once for dynamics and tempo alike.
- * See docs/tempo-marks-plan.md §8b.
+ * The alternative — one editable "face" per double-click, word or number — was tried and thrown
+ * out: it can't express `Allegro` → `Allegro (♩ = 144)` (adding a metronome that wasn't there),
+ * and it makes the mark feel like a form rather than a piece of text.
+ *
+ * Placing the overlay takes three measurements off the ENGRAVED mark, all snapshotted at
+ * construction while it is still drawn (once {@link hideOriginal} runs, it is gone from the
+ * render and there is nothing left to measure): where it sits, the font it is painted in
+ * ({@link measureFont}), and its BASELINE ({@link measureBaseline}) — the last because SVG text
+ * hangs off its baseline while an HTML box hangs off the top of its line box, so aligning tops
+ * leaves the browser's leading wedged in between.
  */
 export class TempoTextSource implements EditableTextSource {
   readonly kind = 'tempo' as const
 
-  /** True when this mark shows no word, so the editable face is its bpm number. */
-  private readonly editsNumber: boolean
-
-  /** Screen rect + font captured at construction — i.e. BEFORE hideOriginal suppresses the
-   *  mark from the render. Once suppressed the mark is no longer in the DOM to measure, so
-   *  both must be snapshotted while it is still drawn. (Same constraint as DynamicTextSource.) */
   private readonly screenRect: { x: number; y: number; width: number; height: number }
   private readonly font: { fontFamily: string; fontSize: string; fontStyle: string; fontWeight: string; color: string }
+  private readonly baselineY: number | undefined
 
   constructor(
     readonly targetId: string,
@@ -51,60 +48,85 @@ export class TempoTextSource implements EditableTextSource {
     private render: () => void,
     private getZoom: () => number = () => 1,
   ) {
-    const mark = this.engine.getTempoMarkById(targetId)
-    this.editsNumber = !mark?.text
-    // Measure the ENGRAVED mark itself rather than deriving anything: its <g> is in the
-    // DOM (TempoLayout opens it with the mark's id), so the browser can tell us exactly
-    // where it is painted and in what font. Both are then true by construction — no CTM
-    // math to drift, no font constant to fall out of sync with VexFlow's Metrics.
+    // Measure the ENGRAVED mark itself rather than deriving anything: its <g> is in the DOM
+    // (TempoLayout opens it with the mark's id), so the browser can tell us exactly where it is
+    // painted and in what font. Both are then true by construction — no CTM math to drift, no
+    // font constant to fall out of sync with VexFlow's Metrics.
     const group = this.engine.getTempoSVGGroup(targetId)
-    const target = this.findEditedTextNode(group)
-    this.screenRect = this.measureRect(target)
-    this.font = this.measureFont(target)
+    const anchor = this.textPiece(group)
+    this.screenRect = this.measureRect(group, anchor)
+    this.font = this.measureFont(anchor)
+    this.baselineY = this.measureBaseline(anchor)
   }
 
   /**
-   * The ONE `<text>` node the overlay is editing — the word, or the digits.
+   * The `<text>` node the overlay's TEXT is measured against — its font and its baseline.
    *
-   * NOT the mark's whole `<g>`: that group also holds the metronome, whose notehead glyph
-   * is engraved at a much larger font size (25 vs the word's ~14) and therefore reaches
-   * HIGHER than the word does. Measuring the group would put the caret above the word,
-   * on the notehead's line. (The registry bbox is the same whole-mark box — right for
-   * hit-testing the mark, wrong for editing one word inside it.)
-   *
-   * Matched by content, so it holds for either editable face; falls back to the first
-   * text node (StaveTempo paints the word first) if the match fails.
+   * `StaveTempo` paints the mark as a row of separate nodes (`Allegro`, `(`, `♩`, `=`, `144`,
+   * `)`), and the notehead among them is NOT one of them for this purpose: it is engraved in the
+   * music font at a much larger size, so its box reaches higher up the page and its font is not
+   * the font the words are set in. Measuring it — or the group, which it dominates — floats the
+   * caret above the text and sizes it wrong. So we take the first node that is real text: any
+   * node but the glyph.
    */
-  private findEditedTextNode(group: SVGGElement | null): SVGTextElement | null {
+  private textPiece(group: SVGGElement | null): SVGTextElement | null {
     if (!group || typeof getComputedStyle !== 'function') return null
     const texts = Array.from(group.querySelectorAll('text')) as SVGTextElement[]
     if (texts.length === 0) return null
-    const wanted = this.getText().trim()
-    return texts.find(t => (t.textContent ?? '').trim() === wanted) ?? texts[0]
+    // The glyph nodes are the ones VexFlow fills with a SMuFL codepoint (Private Use Area);
+    // every other node is a word, a digit, a paren or an '='.
+    const isGlyph = (t: SVGTextElement) => /[\uE000-\uF8FF]/.test(t.textContent ?? '')
+    return texts.find(t => !isGlyph(t)) ?? texts[0]
   }
 
   /**
-   * The painted box of that node, in viewport pixels. `getBoundingClientRect()` is already
-   * client-space and already accounts for scroll, the SVG's CTM and the zoom transform —
-   * exactly what the `position: fixed` overlay needs, with no CTM math to drift.
+   * Where the overlay goes: the mark's LEFT edge (it replaces the whole mark, so it starts where
+   * the mark starts), on the text's own line. `getBoundingClientRect()` is already client-space
+   * and already accounts for scroll, the SVG's CTM and the zoom transform — exactly what the
+   * `position: fixed` overlay needs, with no CTM math to drift.
    */
-  private measureRect(target: SVGTextElement | null): { x: number; y: number; width: number; height: number } {
-    if (!target) return this.rectFromRegistry() // no DOM (tests) — best effort
-    const r = target.getBoundingClientRect()
-    if (r.width === 0 && r.height === 0) return this.rectFromRegistry()
-    return { x: r.x, y: r.y, width: r.width, height: r.height }
+  private measureRect(
+    group: SVGGElement | null,
+    anchor: SVGTextElement | null,
+  ): { x: number; y: number; width: number; height: number } {
+    if (!group || !anchor || typeof group.getBoundingClientRect !== 'function') return this.rectFromRegistry()
+    const whole = group.getBoundingClientRect()
+    const text = anchor.getBoundingClientRect()
+    if (whole.width === 0 && whole.height === 0) return this.rectFromRegistry()
+    // x/width from the whole mark; y/height from the text line inside it — the mark's own box is
+    // taller than its text, because the notehead glyph is engraved larger than the words.
+    return { x: whole.x, y: text.y, width: whole.width, height: text.height }
   }
 
   /**
-   * The font the mark is ACTUALLY engraved in, read off its first `<text>` node. VexFlow
-   * resolves it from Metrics (`StaveTempo.name` — bold, and in VexFlow's own text font),
-   * so reading it back is the only way to guarantee the overlay matches. Computed style is
-   * used, not the attributes, so an inherited font resolves too.
+   * The screen Y the engraved text is SITTING ON. VexFlow emits `<text x y>` with the default
+   * alphabetic baseline, so the node's own `y` — pushed through its screen CTM, which folds in
+   * scroll and the zoom transform — is the baseline, in the same viewport pixels the `fixed`
+   * overlay is positioned in. `undefined` outside a real browser: the overlay then falls back
+   * to top-alignment (see {@link EditableTextSource.getBaselineY}).
    */
-  private measureFont(text: SVGTextElement | null): { fontFamily: string; fontSize: string; fontStyle: string; fontWeight: string; color: string } {
-    // Read the font off the very node being edited — the word's, not the notehead glyph's
-    // (which is a different, much larger font in the same group).
-    if (!text) {
+  private measureBaseline(anchor: SVGTextElement | null): number | undefined {
+    if (!anchor || typeof anchor.getScreenCTM !== 'function' || typeof DOMPoint !== 'function') return undefined
+    const ctm = anchor.getScreenCTM()
+    if (!ctm) return undefined
+    const y = anchor.y?.baseVal?.numberOfItems ? anchor.y.baseVal.getItem(0).value : 0
+    const x = anchor.x?.baseVal?.numberOfItems ? anchor.x.baseVal.getItem(0).value : 0
+    return new DOMPoint(x, y).matrixTransform(ctm).y
+  }
+
+  /** The engraved text's baseline, snapshotted at construction (see {@link measureBaseline}). */
+  getBaselineY(): number | undefined {
+    return this.baselineY
+  }
+
+  /**
+   * The font the mark is ACTUALLY engraved in, read off a text node. VexFlow resolves it from
+   * Metrics (`StaveTempo.name` — bold, and in VexFlow's own text font), so reading it back is the
+   * only way to guarantee the overlay matches. Computed style is used, not the attributes, so an
+   * inherited font resolves too.
+   */
+  private measureFont(anchor: SVGTextElement | null): { fontFamily: string; fontSize: string; fontStyle: string; fontWeight: string; color: string } {
+    if (!anchor) {
       return {
         fontFamily: FALLBACK_FONT.family,
         fontSize: `${parseFloat(FALLBACK_FONT.size) * this.getZoom()}pt`,
@@ -113,11 +135,11 @@ export class TempoTextSource implements EditableTextSource {
         color: '#000000',
       }
     }
-    const cs = getComputedStyle(text)
-    // Zoom is a CSS `transform: scale()` on the score layer: it scales what is PAINTED but
-    // not the computed font-size. The rect above (getBoundingClientRect) already includes
-    // that scale; the font size does not — so it is the one thing we must scale by hand,
-    // since the overlay is `position: fixed` and lives outside the zoomed layer.
+    const cs = getComputedStyle(anchor)
+    // Zoom is a CSS `transform: scale()` on the score layer: it scales what is PAINTED but not
+    // the computed font-size. The rect above (getBoundingClientRect) already includes that scale;
+    // the font size does not — so it is the one thing we must scale by hand, since the overlay is
+    // `position: fixed` and lives outside the zoomed layer.
     const px = parseFloat(cs.fontSize) || 14
     return {
       fontFamily: cs.fontFamily || FALLBACK_FONT.family,
@@ -128,10 +150,9 @@ export class TempoTextSource implements EditableTextSource {
     }
   }
 
+  /** The mark IS its text — no formatting step, nothing to drift. */
   getText(): string {
-    const mark = this.engine.getTempoMarkById(this.targetId)
-    if (!mark) return ''
-    return this.editsNumber ? String(mark.bpm ?? '') : (mark.text ?? '')
+    return this.engine.getTempoMarkById(this.targetId)?.text ?? ''
   }
 
   getScreenRect(): { x: number; y: number; width: number; height: number } {
@@ -164,43 +185,38 @@ export class TempoTextSource implements EditableTextSource {
   }
 
   /**
-   * Persist the edit.
+   * Persist the edit: read the typed string back into the mark (`parseTempoText` owns the rules —
+   * including the one about not letting an edit delete a metronome it couldn't see).
    *
-   * Editing the NUMBER: a non-numeric or out-of-range value is rejected outright (kept as
-   * it was) — a tempo of 0 is an infinite clock, and `updateTempoMark` would throw. Editing
-   * the WORD: an empty word erases just the word, keeping the metronome, when there is a
-   * number left to carry the mark's meaning; a mark left with neither word nor number is
-   * meaningless, so it is removed (the dynamics empty-text rule, applied honestly).
+   * A string that says NOTHING removes the mark (a blank mark is meaningless — the dynamics rule,
+   * applied honestly). A string whose metronome carries a nonsense number is rejected outright
+   * and the mark left as it was: `♩ = 0` is an infinite clock, and `updateTempoMark` would throw.
    */
   commit(text: string): void {
-    const trimmed = text.trim()
     const mark = this.engine.getTempoMarkById(this.targetId)
     if (!mark) return
 
-    if (this.editsNumber) {
-      const bpm = Number(trimmed)
-      if (!Number.isFinite(bpm) || bpm < MIN_BPM || bpm > MAX_BPM) {
-        console.warn(`[Tempo] "${trimmed}" is not a bpm between ${MIN_BPM} and ${MAX_BPM} — edit discarded`)
-        return
-      }
-      this.engine.updateTempoMark(this.targetId, { bpm })
-      this.render()
-      return
-    }
+    const parsed = parseTempoText(text, mark)
 
-    if (trimmed === '') {
-      // No word left. Keep the mark only if its metronome still says something.
-      if (mark.bpm !== undefined && mark.showMetronome) {
-        this.engine.updateTempoMark(this.targetId, { text: undefined })
-      } else {
+    if (!parsed.ok) {
+      if (parsed.reason === 'empty') {
         this.engine.removeTempoMark(this.targetId)
+        this.render()
+      } else {
+        console.warn(`[Tempo] "${text}" — bpm must be between ${MIN_BPM} and ${MAX_BPM}; edit discarded`)
       }
-      this.render()
       return
     }
 
-    // The word, and ONLY the word — bpm/unit/dots are not in the update (decision D2).
-    this.engine.updateTempoMark(this.targetId, { text: trimmed })
+    // The string is stored AS TYPED (bar a shorthand unit becoming its glyph); unit/dots/bpm are
+    // what playback reads, parsed back out of it. Nothing re-composes the string, so nothing can
+    // lose the brackets you deleted or the words you put after the number.
+    this.engine.updateTempoMark(this.targetId, {
+      text: parsed.text,
+      unit: parsed.unit,
+      dots: parsed.dots,
+      bpm: parsed.bpm,
+    })
     this.render()
   }
 
@@ -212,8 +228,9 @@ export class TempoTextSource implements EditableTextSource {
     }
   }
 
-  /** Suppress the engraved mark while the overlay is open, so there is no doubled text
-   *  under it (the renderer skips a suppressed mark — no fragile DOM hiding). */
+  /** Suppress the engraved mark while the overlay is open — the overlay shows the WHOLE mark, so
+   *  the whole mark comes off the page or the two would be drawn on top of each other. (The
+   *  renderer skips a suppressed mark; no fragile DOM hiding.) */
   hideOriginal(hidden: boolean): void {
     this.engine.setSuppressedTempoId(hidden ? this.targetId : null)
     this.render()

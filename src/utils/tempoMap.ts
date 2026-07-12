@@ -206,16 +206,9 @@ export function effectiveTempoAt(
  * is separate from the dynamics glyph.
  */
 export function tempoLabel(mark: TempoMark): string {
-  const met = mark.bpm !== undefined && mark.showMetronome !== false
-    ? `${UNIT_GLYPH[mark.unit ?? 'q']}${'.'.repeat(mark.dots ?? 0)} = ${mark.bpm}`
-    : ''
-  if (mark.text && met) return `${mark.text} (${met})`
-  return mark.text || met || '(tempo)'
-}
-
-/** Note-value glyphs for {@link tempoLabel}. Display-only. */
-const UNIT_GLYPH: Record<string, string> = {
-  w: '𝅝', h: '𝅗𝅥', q: '♩', '8': '♪', '16': '𝅘𝅥𝅯', '32': '𝅘𝅥𝅰',
+  // The mark IS its text, so there is nothing to compose: a mark with no text prints nothing and
+  // only sounds (the word 'Allegro' quietly meaning 144 has text; a bare speed change may not).
+  return mark.text || (mark.bpm !== undefined ? `♩ = ${mark.bpm}` : '(tempo)')
 }
 
 /** Tempo marks of a measure, sorted ascending by beat (empty if none). */

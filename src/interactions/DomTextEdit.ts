@@ -1,4 +1,5 @@
 import type { TextEditDom, TextEditMountOptions } from './TextEditController'
+import { textFirstFamily } from '../utils/fontStack'
 
 /**
  * Real-DOM implementation of {@link TextEditDom}: a transparent, font-matched
@@ -28,7 +29,7 @@ export class DomTextEdit implements TextEditDom {
     s.position = 'fixed'
     s.left = `${rect.x}px`
     s.top = `${rect.y}px`
-    s.fontFamily = font.fontFamily
+    s.fontFamily = textFirstFamily(font.fontFamily)
     s.fontSize = font.fontSize
     s.fontStyle = font.fontStyle
     if (font.fontWeight) s.fontWeight = font.fontWeight
@@ -39,6 +40,10 @@ export class DomTextEdit implements TextEditDom {
     document.addEventListener('mousedown', this.onDocPointerDown, true)
     document.body.appendChild(el)
     this.el = el
+
+    // Only now that it's laid out can we ask where its baseline landed, and slide the box
+    // so that baseline sits exactly where the engraved one did.
+    if (opts.baselineY !== undefined) this.alignBaseline(el, rect.y, opts.baselineY)
 
     // Focus + place the caret at the end on the next frame: doing it synchronously
     // inside the opening mousedown can race with the browser's own focus handling.
@@ -101,6 +106,27 @@ export class DomTextEdit implements TextEditDom {
     e.preventDefault()
     e.stopPropagation()
     document.removeEventListener('click', this.swallowNextClick, true)
+  }
+
+  /**
+   * Sit the overlay's text on the engraved text's baseline.
+   *
+   * The offset between an HTML box's top and the baseline inside it depends on the font's
+   * ascent and the line box's leading — numbers we'd have to guess at, and they'd change
+   * with the font. So we don't compute it: we MEASURE it. A zero-height inline-block is
+   * baseline-aligned by definition, so its rect sits precisely on the line's baseline. Drop
+   * one in, read where the baseline actually is, shift the box by the difference, take it
+   * out. True by construction for any font, any zoom.
+   */
+  private alignBaseline(el: HTMLElement, top: number, baselineY: number): void {
+    if (typeof el.getBoundingClientRect !== 'function') return // no layout (tests)
+    const probe = document.createElement('span')
+    probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline'
+    el.appendChild(probe)
+    const measured = probe.getBoundingClientRect().bottom
+    probe.remove()
+    if (!Number.isFinite(measured) || measured === 0) return
+    el.style.top = `${top + (baselineY - measured)}px`
   }
 
   /** Place the caret at the end of the seeded text (collapsed — nothing selected). */

@@ -16,6 +16,14 @@ export interface EditableTextSource {
   getText(): string
   /** Where to place the overlay, in viewport (client) pixels. */
   getScreenRect(): { x: number; y: number; width: number; height: number }
+  /**
+   * The engraved text's BASELINE, in viewport pixels — optional, but the only way the
+   * overlay can sit exactly on top of the glyph it replaces. SVG text is positioned by
+   * its baseline, an HTML box by the top of its line box, so aligning the two *tops*
+   * always leaves the HTML font's internal leading in between. A source that can measure
+   * its `<text>` node reports the baseline here and {@link TextEditDom} corrects for it.
+   */
+  getBaselineY?(): number | undefined
   /** Font to match the engraving so the typed text looks identical. */
   getFontCSS(): { fontFamily: string; fontSize: string; fontStyle: string; color: string; fontWeight?: string }
   /** Persist the typed text (model write + re-render). The empty-text rule lives
@@ -32,6 +40,9 @@ export interface EditableTextSource {
 export interface TextEditMountOptions {
   text: string
   rect: { x: number; y: number; width: number; height: number }
+  /** Viewport-pixel baseline of the engraved text, when the source can measure it
+   *  (see {@link EditableTextSource.getBaselineY}). Absent ⇒ align tops. */
+  baselineY?: number
   font: { fontFamily: string; fontSize: string; fontStyle: string; color: string; fontWeight?: string }
   /** Called by the DOM layer on Enter / click-away. */
   onCommit: () => void
@@ -83,6 +94,7 @@ export class TextEditController {
     this.dom.mount({
       text: source.getText(),
       rect: source.getScreenRect(),
+      baselineY: source.getBaselineY?.(),
       font: source.getFontCSS(),
       onCommit: () => this.commit(),
       onCancel: () => this.cancel(),

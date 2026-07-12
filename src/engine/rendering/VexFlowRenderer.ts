@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, StaveTempo, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet } from 'vexflow'
+import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
@@ -16,7 +16,7 @@ import type { RenderPass } from './RenderPass'
 import { renderTies, getTieDirection } from './TieRenderer'
 import { renderSlurs } from './SlurRenderer'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, buildDynamicAnnotation, registerDynamics } from './DynamicsLayout'
-import { drawTempoMarks, tempoOptions, staveWithoutModifierShift } from './TempoLayout'
+import { drawTempoMarks, drawTempoText } from './TempoLayout'
 import {
   convertDuration,
   chooseVoiceMode,
@@ -1902,27 +1902,23 @@ export class VexFlowRenderer {
    * note-entry ghost is shown while a tempo tool is armed, which says the wrong thing about
    * what the next click will do.
    *
-   * Simpler than the dynamic ghost: a dynamic must be hung off a throwaway StaveNote (it is
-   * a note modifier), whereas StaveTempo paints text straight onto the context — so there
-   * are no leftover notehead/stem elements to discard afterwards. The stave exists only to
-   * satisfy `checkStave()`; it is never drawn.
+   * Simpler than the dynamic ghost: a dynamic must be hung off a throwaway StaveNote (it is a
+   * note modifier), whereas a tempo mark is text painted straight onto the context — so there are
+   * no leftover notehead/stem elements to discard afterwards, and no stave is needed at all. It
+   * is drawn by the same `drawTempoText` the score uses, so the preview cannot drift from it.
    */
   renderScoreWithTempoGhost(score: Score, cursorX: number, cursorY: number, mark: TempoMark): boolean {
     this.renderScore(score)
 
     const svg = this.getSVGElement()
     if (!svg || !this.context) return false
+    if (!mark.text) return false // nothing to preview (a mark that only sounds)
 
     try {
-      const tempStave = new Stave(0, cursorY, 200)
-      tempStave.setContext(this.context)
-
       const group = this.context.openGroup('ghost-tempo') as SVGGElement
       try {
-        new StaveTempo(tempoOptions(mark), 0, 0)
-          .setStave(staveWithoutModifierShift(tempStave))
-          .setContext(this.context)
-          .draw()
+        // Drawn at the origin and translated into place below, once its real size is known.
+        drawTempoText(this.context, mark.text, 0, cursorY)
       } finally {
         this.context.closeGroup()
       }

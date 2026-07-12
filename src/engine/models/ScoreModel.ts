@@ -580,7 +580,7 @@ export class ScoreModel {
   }
 
   /**
-   * Edit an existing tempo mark by id (text / unit / dots / bpm / showMetronome / beat).
+   * Edit an existing tempo mark by id (text / unit / dots / bpm / beat).
    * The owning measure's list is re-sorted in case the beat changed.
    *
    * Renaming the word NEVER moves the tempo and changing the number never rewrites the
