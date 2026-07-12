@@ -13,8 +13,9 @@ import { fracToNumber, fracEq, fracLt, fracCompare } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
+import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 import type { RebarEvent } from '@/utils/rebar'
 
@@ -514,6 +515,73 @@ export class MusicEngine {
   /** Find a dynamic anywhere in the score by id (live reference), or null. */
   getDynamicById(id: string): Dynamic | null {
     return this.scoreModel.getDynamicById(id)
+  }
+
+  // ==================== Tempo Mark Operations ====================
+  //
+  // A tempo mark is SYSTEM-level — it governs the clock, not a staff — so unlike the
+  // dynamics facades above, none of these take a staff index. commit() gives undo/redo
+  // and JSON for free. There is no setTempo(): the global was deleted (P1).
+
+  /**
+   * Add a tempo mark at (measure, mark.beat) — a word ('Allegro'), a metronome (♩ = 120),
+   * or both. `beat` must be a slot-boundary beat; an existing mark on that beat is
+   * REPLACED (one clock statement per point in time). The mark always carries a sounding
+   * value: `showMetronome` decides only whether the number is printed.
+   * Saves undo state when added.
+   * @returns the stored TempoMark, or null if the measure does not exist.
+   * @throws if bpm is outside 20..300.
+   */
+  addTempoMark(measureNumber: number, mark: Omit<TempoMark, 'id'>): TempoMark | null {
+    const created = this.scoreModel.addTempoMark(measureNumber, mark)
+    if (created) {
+      this.commit(`Add tempo ${tempoLabel(created)} at measure ${measureNumber}`)
+    }
+    return created
+  }
+
+  /**
+   * Edit an existing tempo mark by id (text / unit / dots / bpm / showMetronome / beat).
+   * Renaming the word leaves `bpm` untouched and vice versa (decision D2).
+   * Saves undo state when found. @returns the updated TempoMark, or null if missing.
+   */
+  updateTempoMark(id: string, updates: Partial<Omit<TempoMark, 'id'>>): TempoMark | null {
+    const updated = this.scoreModel.updateTempoMark(id, updates)
+    if (updated) {
+      this.commit(`Edit tempo ${tempoLabel(updated)}`)
+    }
+    return updated
+  }
+
+  /**
+   * Remove a tempo mark by id. The score reverts to the previous mark's tempo (or
+   * DEFAULT_TEMPO if it was the only one). Saves undo state when removed.
+   * @returns true if a mark was removed.
+   */
+  removeTempoMark(id: string): boolean {
+    const removed = this.scoreModel.removeTempoMark(id)
+    if (removed) {
+      this.commit('Remove tempo mark')
+    }
+    return removed
+  }
+
+  /** A measure's tempo marks, sorted ascending by beat (a copy; empty if none). */
+  getTempoMarks(measureNumber: number): TempoMark[] {
+    return this.scoreModel.getTempoMarks(measureNumber)
+  }
+
+  /** Find a tempo mark anywhere in the score by id (live reference), or null. */
+  getTempoMarkById(id: string): TempoMark | null {
+    return this.scoreModel.getTempoMarkById(id)
+  }
+
+  /**
+   * The sounding tempo (quarter-notes per minute) at a position — for a "what's the tempo
+   * here?" readout. DEFAULT_TEMPO when the score states none; there is no score.tempo.
+   */
+  getEffectiveTempoAt(measureNumber: number, beat: Fraction, scope?: string): number {
+    return this.scoreModel.getEffectiveTempoAt(measureNumber, beat, scope)
   }
 
   /** The interpreted dynamic level in effect at (measure, beat) for a voice. */
@@ -1918,6 +1986,12 @@ export class MusicEngine {
    * Get the rendered SVG group (`<g class="vf-annotation">`) for a dynamic, to
    * recolor exactly one dynamic for the selection highlight (no document scan).
    */
+  /** The `<g>` a tempo mark was drawn into (TempoLayout opens it — StaveTempo does not).
+   *  Used by the selection highlight to recolor the mark and nothing else. */
+  getTempoSVGGroup(tempoId: string): SVGGElement | null {
+    return this.renderer.getTempoSVGGroup(tempoId)
+  }
+
   getDynamicSVGGroup(dynamicId: string): SVGGElement | null {
     return this.renderer.getDynamicSVGGroup(dynamicId)
   }

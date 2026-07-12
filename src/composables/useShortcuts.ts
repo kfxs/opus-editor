@@ -243,6 +243,12 @@ export function useShortcuts(
         eng.removeDynamic(state.selectedDynamicId)
         state.selectedDynamicId = null
         renderer.renderScore()
+      } else if (state.selectedTempoId && eng) {
+        // Removing the mark reverts the score to the previous mark's tempo (or
+        // DEFAULT_TEMPO if it was the only one) — there is no global to fall back to.
+        eng.removeTempoMark(state.selectedTempoId)
+        state.selectedTempoId = null
+        renderer.renderScore()
       } else if (state.selectedItems.size > 0 && eng) {
         // Delete the whole selection as ONE undoable action so a single Ctrl-Z restores the
         // group. The set holds notes plus any dynamics a Shift-click box pulled in.

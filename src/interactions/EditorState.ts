@@ -4,6 +4,20 @@ import type { SelectionItem } from './selection'
 /** A value armed on the dynamics palette: an interpreted level, or the custom-text tool. */
 export type DynamicTool = DynamicLevel | 'text'
 
+/**
+ * A tempo mark armed on the palette, ready to be placed by the next canvas click. The
+ * palette's preset words pre-FILL this (they are not an enum of legal values — the word is
+ * free text, see decision D2), and the metronome builder fills unit/dots/bpm. It carries
+ * everything except the beat, which the click supplies.
+ */
+export type TempoTool = {
+  text?: string
+  unit?: NoteDuration
+  dots?: number
+  bpm?: number
+  showMetronome?: boolean
+}
+
 export type ToolMode = 'entry' | 'selection'
 export type PlaybackState = 'stopped' | 'playing' | 'paused'
 
@@ -152,6 +166,15 @@ export interface EditorState {
    *  if none. Distinct from `selectedDynamic` (the armed palette tool). */
   selectedDynamicId: string | null
 
+  // --- Tempo tool ---
+  /** Tempo mark armed for placement (null = tempo tool not active). Placed on the next
+   *  canvas click, at the clicked bar's nearest slot beat. System-level: no staff, no
+   *  voice — clicking any staff places ONE mark governing the whole system. */
+  selectedTempo: TempoTool | null
+  /** Id of the on-score tempo mark selected for removal/edit (selection tool); null if
+   *  none. Distinct from `selectedTempo` (the armed palette tool). */
+  selectedTempoId: string | null
+
   // --- In-canvas text editing ---
   /** Set while a seamless DOM-overlay text editor is open over a mark; null when
    *  not editing. While non-null, the canvas mouse handlers (click / move) bail so
@@ -236,6 +259,8 @@ export function createEditorState(): EditorState {
     selectedMeasureBoxStyle: 'double',
     selectedDynamic: null,
     selectedDynamicId: null,
+    selectedTempo: null,
+    selectedTempoId: null,
     editingText: null,
     pastePlacementArmed: false,
     showCursor: true,

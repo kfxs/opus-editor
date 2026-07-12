@@ -27,6 +27,7 @@ export class RenderController {
     this.highlight.applyClefSelectionHighlight()
     this.highlight.applyTimeSignatureSelectionHighlight()
     this.highlight.applyDynamicSelectionHighlight()
+    this.highlight.applyTempoSelectionHighlight()
     this.highlight.applySlurSelectionHighlight()
     this.highlight.applySlurHandles()
     this.highlight.applySlurEndpointCandidate()

@@ -573,6 +573,27 @@ export class HighlightController {
     })
   }
 
+  /**
+   * Highlight the selected tempo mark. Recolors inside the mark's OWN `<g>` — the one
+   * TempoLayout opens (`#vf-<id>`), since VexFlow's StaveTempo opens none — so the colour
+   * can't bleed onto neighbouring marks. DOM `fill`, never VexFlow `setStyle`: setStyle
+   * leaks the colour into the shared draw context and grays the rest of the score.
+   */
+  applyTempoSelectionHighlight(): void {
+    const engine = this.getEngine()
+    if (!engine || !this.state.selectedTempoId) return
+
+    const SELECTION_COLOR = '#F59E0B'
+    const group = engine.getTempoSVGGroup(this.state.selectedTempoId)
+    if (!group) return
+    group.querySelectorAll('text, path').forEach(el => {
+      const currentFill = el.getAttribute('fill')
+      if (currentFill !== 'none') el.setAttribute('fill', SELECTION_COLOR)
+      ;(el as SVGElement & { style: CSSStyleDeclaration }).style.fill = SELECTION_COLOR
+      el.classList.add('selected-tempo')
+    })
+  }
+
   applyDynamicSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()

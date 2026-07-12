@@ -199,6 +199,25 @@ export function effectiveTempoAt(
   return DEFAULT_TEMPO
 }
 
+/**
+ * A short human label for a mark ('Allegro', '♩ = 120', 'Allegro (♩ = 120)') — for undo
+ * descriptions and any semantic UI. This is the MEANING axis; how the glyph is actually
+ * engraved is the render layer's job (VexFlow's StaveTempo), exactly as `dynamicLabel`
+ * is separate from the dynamics glyph.
+ */
+export function tempoLabel(mark: TempoMark): string {
+  const met = mark.bpm !== undefined && mark.showMetronome !== false
+    ? `${UNIT_GLYPH[mark.unit ?? 'q']}${'.'.repeat(mark.dots ?? 0)} = ${mark.bpm}`
+    : ''
+  if (mark.text && met) return `${mark.text} (${met})`
+  return mark.text || met || '(tempo)'
+}
+
+/** Note-value glyphs for {@link tempoLabel}. Display-only. */
+const UNIT_GLYPH: Record<string, string> = {
+  w: '𝅝', h: '𝅗𝅥', q: '♩', '8': '♪', '16': '𝅘𝅥𝅯', '32': '𝅘𝅥𝅰',
+}
+
 /** Tempo marks of a measure, sorted ascending by beat (empty if none). */
 export function tempoMarks(score: Score, measureNumber: number): TempoMark[] {
   const measure = score.measures.find(m => m.number === measureNumber)

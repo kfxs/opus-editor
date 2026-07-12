@@ -3,6 +3,7 @@ import { MusicEngine } from './MusicEngine'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf } from './models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { buildBeatMap, navBeatMap } from '@/utils/beatMap'
+import { DEFAULT_TEMPO } from '@/utils/tempoMap'
 
 // Stub VexFlowRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio)
 const fakeRegistry = {
@@ -1155,5 +1156,93 @@ describe('MusicEngine — multi-voice (Phase 1)', () => {
     // Cursor on a voice it belongs to → stays scoped to that voice.
     const scoped = navBeatMap(score, c.id, 0)
     expect(scoped.allFlat.every(n => (n.voice ?? 0) === 0)).toBe(true)
+  })
+})
+
+describe('MusicEngine tempo marks', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  const marksOf = (m: number) => engine.getTempoMarks(m)
+
+  it('adds a word, a metronome, or both — one object, three display settings', () => {
+    engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro', bpm: 144 })
+    engine.addTempoMark(1, { beat: frac(1, 1), unit: 'q', bpm: 120, showMetronome: true })
+    engine.addTempoMark(1, { beat: frac(2, 1), text: 'Adagio', unit: 'q', bpm: 65, showMetronome: true })
+
+    expect(marksOf(1).map(t => [t.text, t.bpm, t.showMetronome])).toEqual([
+      ['Allegro', 144, undefined],
+      [undefined, 120, true],
+      ['Adagio', 65, true],
+    ])
+  })
+
+  it('a word-only mark sounds at the prevailing tempo (it prints, it does not re-clock)', () => {
+    engine.addTempoMark(1, { beat: frac(0, 1), bpm: 60 })
+    engine.addTempoMark(1, { beat: frac(2, 1), text: 'dolce' }) // no bpm
+    expect(engine.getEffectiveTempoAt(1, frac(3, 1))).toBe(60)
+  })
+
+  it('resolves the tempo positionally, falling back to DEFAULT_TEMPO (no score.tempo)', () => {
+    expect(engine.getEffectiveTempoAt(1, frac(0, 1))).toBe(DEFAULT_TEMPO)
+    engine.addTempoMark(1, { beat: frac(2, 1), unit: 'h', bpm: 60 }) // 𝅗𝅥 = 60 → 120 qpm
+    expect(engine.getEffectiveTempoAt(1, frac(1, 1))).toBe(DEFAULT_TEMPO) // before the mark
+    expect(engine.getEffectiveTempoAt(1, frac(2, 1))).toBe(120) // the unit is half the meaning
+  })
+
+  it('replaces a mark already on the beat (one clock statement per point in time)', () => {
+    engine.addTempoMark(1, { beat: frac(0, 1), text: 'Largo', bpm: 50 })
+    engine.addTempoMark(1, { beat: frac(0, 1), text: 'Presto', bpm: 185 })
+    expect(marksOf(1)).toHaveLength(1) // NOT stacked (that is the dynamics rule)
+    expect(marksOf(1)[0].text).toBe('Presto')
+  })
+
+  it('rejects a bpm that would make the clock nonsense', () => {
+    expect(() => engine.addTempoMark(1, { beat: frac(0, 1), bpm: 0 })).toThrow(/between 20 and 300/)
+    expect(() => engine.addTempoMark(1, { beat: frac(0, 1), bpm: 500 })).toThrow(/between 20 and 300/)
+    expect(marksOf(1)).toHaveLength(0)
+  })
+
+  it('editing the word leaves the bpm untouched, and vice versa (decision D2)', () => {
+    const mark = engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro', bpm: 144 })!
+
+    engine.updateTempoMark(mark.id, { text: 'Allegro con brio' })
+    expect(marksOf(1)[0]).toMatchObject({ id: mark.id, text: 'Allegro con brio', bpm: 144 })
+
+    engine.updateTempoMark(mark.id, { bpm: 152 })
+    expect(marksOf(1)[0]).toMatchObject({ id: mark.id, text: 'Allegro con brio', bpm: 152 })
+  })
+
+  it('removes a mark, reverting to the previous tempo', () => {
+    engine.addTempoMark(1, { beat: frac(0, 1), bpm: 60 })
+    const second = engine.addTempoMark(1, { beat: frac(2, 1), bpm: 180 })!
+
+    expect(engine.removeTempoMark(second.id)).toBe(true)
+    expect(engine.getEffectiveTempoAt(1, frac(3, 1))).toBe(60)
+    expect(engine.removeTempoMark('nope')).toBe(false)
+  })
+
+  it('drops the array when the last mark is removed (no empty tempos: [] in JSON)', () => {
+    const mark = engine.addTempoMark(1, { beat: frac(0, 1), bpm: 60 })!
+    engine.removeTempoMark(mark.id)
+    expect(engine.getScore().measures[0].tempos).toBeUndefined()
+  })
+
+  it('undo/redo restores and re-applies add, edit and remove', () => {
+    const mark = engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro', bpm: 144 })!
+    expect(engine.undo()).toBe(true)
+    expect(marksOf(1)).toHaveLength(0) // the add is undone
+    expect(engine.redo()).toBe(true)
+    expect(marksOf(1)).toHaveLength(1)
+
+    engine.updateTempoMark(marksOf(1)[0].id, { bpm: 60 })
+    expect(engine.undo()).toBe(true)
+    expect(marksOf(1)[0].bpm).toBe(144) // the edit is undone
+
+    engine.removeTempoMark(marksOf(1)[0].id)
+    expect(marksOf(1)).toHaveLength(0)
+    expect(engine.undo()).toBe(true)
+    expect(marksOf(1)[0]).toMatchObject({ text: 'Allegro', bpm: 144 }) // the removal is undone
+    void mark
   })
 })

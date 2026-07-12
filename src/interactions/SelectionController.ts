@@ -128,6 +128,7 @@ export class SelectionController {
   deselectAll(): void {
     this.selectNote(null)
     this.state.selectedDynamicId = null
+    this.state.selectedTempoId = null
     this.state.selectedTupletId = null
     // Clearing the selection returns entry to the default voice 1 / staff 0 (Sibelius-style).
     this.state.activeVoice = 1

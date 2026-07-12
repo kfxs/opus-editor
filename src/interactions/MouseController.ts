@@ -3,6 +3,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry, ElementType } from '../engine/ElementRegistry'
 import type { EditorState } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
+import { tempoLabel } from '../utils/tempoMap'
 import type { SelectionController } from './SelectionController'
 import type { RenderController } from './RenderController'
 import type { TextEditController } from './TextEditController'
@@ -441,12 +442,14 @@ export class MouseController {
     this.state.selectedClefBeat = null
     this.state.selectedTimeSignatureMeasure = null
     this.state.selectedDynamicId = null
+    this.state.selectedTempoId = null
     this.state.selectedMeasureRange = null
 
     // Single-click element hit-tests, in priority order. Each returns true if it
     // consumed the press; otherwise we fall through to the next kind.
     if (this.handleClefMouseDown(ctx)) return
     if (this.handleTimeSignatureMouseDown(ctx)) return
+    if (this.handleTempoMouseDown(ctx)) return
     if (this.handleDynamicMouseDown(ctx)) return
     if (this.handleTieMouseDown(ctx)) return
     if (this.handleSlurMouseDown(ctx)) return
@@ -856,6 +859,31 @@ export class MouseController {
     return true
   }
 
+  /**
+   * Select a tempo mark (above the staff) for removal. A tempo mark is system-level, so
+   * this is NOT scoped to the clicked staff — the mark is drawn once, above the top staff.
+   */
+  private handleTempoMouseDown(ctx: MouseDownCtx): boolean {
+    const { registry, x, y, closestElement } = ctx
+    const pad = 6
+    const tempoAt = registry.getByType('tempo').find(el => {
+      const b = el.bbox
+      return x >= b.x - pad && x <= b.x + b.width + pad
+        && y >= b.y - pad && y <= b.y + b.height + pad
+    }) ?? null
+    if (!tempoAt?.id) return false
+
+    // Never steal a click that lands on a note/rest body — a high note can sit under the
+    // mark's padded box (it is engraved on a fixed line above the staff).
+    if (closestElement && registry.hitsNoteOrRestBody(closestElement, x, y)) return false
+
+    this.selection.selectNote(null)
+    this.state.selectedTempoId = tempoAt.id
+    console.log(`✓ Tempo mark selected | id:${tempoAt.id} (Delete to remove)`)
+    this.render.renderScore()
+    return true
+  }
+
   /** Select a dynamic mark for removal, or open the text editor on a double-click. */
   private handleDynamicMouseDown(ctx: MouseDownCtx): boolean {
     const { engine, event, registry, x, y, closestElement } = ctx
@@ -1248,6 +1276,7 @@ export class MouseController {
     if (this.placeTimeSignatureAtClick(engine, measureNum)) return
     if (this.placeClefAtClick(engine, x, y, measureNum)) return
     if (this.placeDynamicAtClick(engine, x, y, measureNum)) return
+    if (this.placeTempoAtClick(engine, x, measureNum)) return
 
     // No marking tool armed → note/tuplet entry.
     this.placeNoteAtClick(engine, registry, x, y, measureNum)
@@ -1320,6 +1349,26 @@ export class MouseController {
     }
     engine.addDynamic(measureNum, { beat, kind: 'level', level: tool, voice: 0, placement: 'below', ...staffParam })
     console.log(`✓ Dynamic ${tool} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
+    this.render.renderScore()
+    return true
+  }
+
+  /**
+   * Tempo tool: place the armed mark at the nearest slot boundary of the clicked bar.
+   *
+   * NO staff and NO voice, deliberately — unlike `placeDynamicAtClick`, which anchors the
+   * mark to the staff the click landed on. A tempo mark governs the clock, so clicking any
+   * staff of a grand staff places ONE system-level mark (rendered above the top staff).
+   * The armed preset carries the word/unit/bpm; the click supplies only the beat.
+   */
+  private placeTempoAtClick(engine: MusicEngine, x: number, measureNum: number): boolean {
+    if (!this.state.selectedTempo) return false
+    const tool = this.state.selectedTempo
+    const beat = this.resolveSlotBeat(engine, x, measureNum)
+    const created = engine.addTempoMark(measureNum, { beat, ...tool })
+    if (created) {
+      console.log(`✓ Tempo ${tempoLabel(created)} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
+    }
     this.render.renderScore()
     return true
   }

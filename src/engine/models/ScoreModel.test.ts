@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
 import { curveShapeOverrideOf, restPositionKey, restShiftOverrideOf } from './engravingOverrides'
-import type { NoteParams, Slur } from '@/types/music'
+import type { NoteParams, Slur, TempoMark, Fraction } from '@/types/music'
 import { fracCreate as frac, fracCompare, fracToNumber } from '@/utils/fraction'
 import { getTupletTotalBeatsFrac } from '@/utils/musicUtils'
 import { measureOpeningClef } from '@/utils/clefUtils'
+import { buildTempoMap } from '@/utils/tempoMap'
 import type { ChordRest } from '@/types/music'
 
 /**
@@ -305,6 +306,25 @@ describe('ScoreModel', () => {
       expect(loaded.getScore().slurs).toEqual([
         { id: 'slur-1', startNoteId: 'n-a', endNoteId: 'n-b', voice: 0, placement: 'above' },
       ])
+    })
+
+    it('round-trips tempo marks through JSON (and still sounds the same)', () => {
+      model.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro', unit: 'q', dots: 1, bpm: 96, showMetronome: true })
+      model.addTempoMark(1, { beat: frac(2, 1), text: 'meno mosso' }) // word only, no bpm
+
+      const loaded = ScoreModel.fromJSON(model.toJSON())
+      const marks = loaded.getTempoMarks(1)
+      expect(marks).toHaveLength(2)
+      expect(marks[0]).toMatchObject({ text: 'Allegro', unit: 'q', dots: 1, bpm: 96, showMetronome: true })
+      expect(marks[1]).toMatchObject({ text: 'meno mosso' })
+      expect(marks[1].bpm).toBeUndefined()
+      // The Fraction beat survives as an exact fraction, so the mark still sounds where it was:
+      // ♩. = 96 → 144 qpm (the unit is half the meaning).
+      expect(loaded.getEffectiveTempoAt(1, frac(3, 1))).toBe(144)
+    })
+
+    it('serializes no tempos key for a mark-free score', () => {
+      expect(model.toJSON()).not.toContain('"tempos"')
     })
 
     it('migrates a legacy pixel-space slur cps into the staff-space override compartment', () => {
@@ -917,6 +937,112 @@ describe('rebar preserves beat-anchored annotations (clefs + dynamics)', () => {
     expect(clefs).toHaveLength(1)
     expect(clefs[0].clef).toBe('bass')
     expect(fracToNumber(clefs[0].beat)).toBe(0)
+  })
+})
+
+/**
+ * A tempo mark is beat-anchored, so a meter change would SILENTLY DELETE it
+ * (clearMeasureForRebar drops `measure.tempos`) unless it rides the same
+ * captureBeatAnchors/restoreBeatAnchors seam that carries clefs + dynamics.
+ * Marks are written straight onto the measure here — the ScoreModel ops land in P3.
+ * See docs/tempo-marks-plan.md §4.
+ */
+describe('rebar preserves beat-anchored annotations (tempo marks)', () => {
+  let model: ScoreModel
+  beforeEach(() => {
+    model = new ScoreModel() // measure 1, 4/4 by default
+    model.addMeasure()
+    model.addMeasure()
+  })
+
+  /** Place a mark directly (P3 adds addTempoMark). */
+  const place = (measure: number, beat: Fraction, mark: Partial<TempoMark> = {}): void => {
+    const m = model.getMeasure(measure)!
+    m.tempos = [...(m.tempos ?? []), { id: `tm-${measure}-${fracToNumber(beat)}`, beat, bpm: 90, ...mark }]
+  }
+
+  it('keeps a tempo mark in place when its beat still fits the new bar', () => {
+    place(2, frac(2, 1), { text: 'Allegro', bpm: 144 })
+    model.setTimeSignature(2, { numerator: 3, denominator: 4 })
+    const tempos = model.getMeasure(2)!.tempos!
+    expect(tempos).toHaveLength(1)
+    expect(tempos[0].text).toBe('Allegro')
+    expect(tempos[0].bpm).toBe(144)
+    expect(fracToNumber(tempos[0].beat)).toBe(2) // a 3/4 bar still holds beat 2
+  })
+
+  it('moves a tempo mark to the next bar when its beat overflows the new bar', () => {
+    place(1, frac(3, 1), { bpm: 60 })
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    expect(model.getMeasure(1)!.tempos).toBeUndefined()
+    const moved = model.getMeasure(2)!.tempos!
+    expect(moved).toHaveLength(1)
+    expect(moved[0].bpm).toBe(60)
+    expect(fracToNumber(moved[0].beat)).toBe(0) // absolute offset 3 → 2nd 3/4 bar, beat 0
+  })
+
+  it('carries the whole mark through a rebar (unit, dots, showMetronome, scopeId)', () => {
+    place(2, frac(1, 1), {
+      text: 'Adagio', unit: 'h', dots: 1, bpm: 40, showMetronome: true, scopeId: 'orch-1',
+    })
+    model.setTimeSignature(2, { numerator: 3, denominator: 4 })
+    const t = model.getMeasure(2)!.tempos![0]
+    expect(t).toMatchObject({
+      text: 'Adagio', unit: 'h', dots: 1, bpm: 40, showMetronome: true, scopeId: 'orch-1',
+    })
+  })
+
+  it('keeps the tempo SOUNDING at the same absolute position after a meter change', () => {
+    // The point of the seam: the map must be unchanged where it matters. ♩=60 at m2 b2
+    // of 4/4 is absolute beat 6; after m2 → 3/4 it is m2 b2 again = absolute beat 6.
+    place(2, frac(2, 1), { bpm: 60 })
+    const before = buildTempoMap(model.getScore())
+    model.setTimeSignature(2, { numerator: 3, denominator: 4 })
+    const after = buildTempoMap(model.getScore())
+    expect(after).toEqual(before)
+    expect(after[1]).toMatchObject({ startBeats: 6, qpm: 60 })
+  })
+
+  it('dedupes two marks landing on one beat — last wins (the clef rule)', () => {
+    // Beats 3 and 4 of 4/4 bar 1 (absolute 3 and 4) both collapse onto... different bars
+    // in 3/4; instead force the collision directly: two marks on the same beat.
+    place(1, frac(1, 1), { bpm: 60 })
+    place(1, frac(1, 1), { bpm: 90 })
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    const tempos = model.getMeasure(1)!.tempos!
+    expect(tempos).toHaveLength(1) // NOT stacked (that is the dynamics rule)
+    expect(tempos[0].bpm).toBe(90)
+  })
+
+  it('a tempo mark survives a rebar triggered elsewhere in the region', () => {
+    place(3, frac(0, 1), { text: 'Presto', bpm: 185 })
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 }) // rebars forward
+    const found = model.getScore().measures.flatMap(m => m.tempos ?? [])
+    expect(found).toHaveLength(1)
+    expect(found[0].text).toBe('Presto')
+  })
+
+  // A DECISION, not an accident (docs/tempo-marks-plan.md §4): the clipboard carries
+  // staff-relative musical material, and a tempo mark is a system object governing the
+  // clock. So pasting notes over a bar must leave that bar's tempo mark standing — unlike
+  // a dynamic in the paste window, which the clip overwrites.
+  it('does NOT let a paste overwrite the destination’s tempo mark (system object)', () => {
+    place(1, frac(0, 1), { text: 'Largo', bpm: 50 })
+    model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f' })
+
+    model.pasteEvents(
+      1, frac(0, 1),
+      [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }],
+      frac(4, 1), 0,
+    )
+
+    const tempos = model.getMeasure(1)!.tempos!
+    expect(tempos).toHaveLength(1)
+    expect(tempos[0].text).toBe('Largo')
+    expect(fracToNumber(tempos[0].beat)).toBe(0)
+    // The dynamic in the paste window IS overwritten (the clip carried none) — the
+    // contrast is the point: dynamics are staff content, tempo is not.
+    expect(model.getDynamics(1)).toHaveLength(0)
   })
 })
 

@@ -1,10 +1,19 @@
 import type { ArticulationType, Accidental, NoteDuration, PitchAlter, BeamMode, Clef, TimeSignature } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { EditorState, DynamicTool } from './EditorState'
+import type { EditorState, DynamicTool, TempoTool } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
 import { fracToNumber } from '../utils/fraction'
 import { sameTimeSignature } from '../utils/meter'
+import { tempoLabel } from '../utils/tempoMap'
 import { selectedNoteIds } from './selection'
+
+/** Two armed tempo presets are "the same button" when every field matches — so clicking the
+ *  active preset a second time disarms it (the toggle behaviour of the other palette tools). */
+function sameTempoTool(a: TempoTool | null, b: TempoTool): boolean {
+  if (!a) return false
+  return a.text === b.text && a.unit === b.unit && a.dots === b.dots
+    && a.bpm === b.bpm && a.showMetronome === b.showMetronome
+}
 
 /** Placeholder for a freshly placed custom-text dynamic (mirrors MouseController). */
 const DEFAULT_DYNAMIC_TEXT = 'Text'
@@ -366,6 +375,8 @@ export class PaletteController {
       this.state.selectedClefBeat = null
       this.state.selectedTimeSignatureMeasure = null
       this.state.selectedDynamicId = null
+      this.state.selectedTempo = null
+      this.state.selectedTempoId = null
     }
     this.renderScore()
   }
@@ -389,6 +400,8 @@ export class PaletteController {
       this.state.selectedClefBeat = null
       this.state.selectedTimeSignatureMeasure = null
       this.state.selectedDynamicId = null
+      this.state.selectedTempo = null
+      this.state.selectedTempoId = null
     }
     this.renderScore()
   }
@@ -421,6 +434,56 @@ export class PaletteController {
       this.state.selectedClefBeat = null
       this.state.selectedTimeSignatureMeasure = null
       this.state.selectedDynamicId = null
+      this.state.selectedTempo = null
+      this.state.selectedTempoId = null
+    }
+    this.renderScore()
+  }
+
+  /**
+   * Arm/disarm a tempo mark for placement. Clicking the armed preset again disarms it.
+   * Mutually exclusive with the clef/time-signature/dynamic tools, and switches to the
+   * entry tool so canvas clicks are handled for placement.
+   *
+   * A tempo mark is SYSTEM-level, so — unlike a dynamic — it carries no staff and no
+   * voice: whichever staff you click, one mark is placed governing the whole system.
+   */
+  setTempo(tool: TempoTool | null): void {
+    // Selection mode with a note/rest selected → place at that element's slot directly
+    // (no arm-and-click), exactly like the dynamics tool.
+    if (tool && this.state.selectedTool === 'selection' && this.state.selectedNoteId) {
+      this.placeTempoAtSelectedNote(tool)
+      return
+    }
+
+    const same = tool !== null && sameTempoTool(this.state.selectedTempo, tool)
+    const newValue = same ? null : tool
+    this.state.selectedTempo = newValue
+    if (newValue) {
+      this.state.selectedClef = null
+      this.state.selectedTimeSignature = null
+      this.state.selectedDynamic = null
+      this.state.selectedTool = 'entry'
+      this.state.selectedNoteId = null
+      this.state.selectedClefMeasure = null
+      this.state.selectedClefBeat = null
+      this.state.selectedTimeSignatureMeasure = null
+      this.state.selectedDynamicId = null
+      this.state.selectedTempoId = null
+    }
+    this.renderScore()
+  }
+
+  /** Place the armed tempo mark at the currently selected note/rest's (measure, beat). */
+  private placeTempoAtSelectedNote(tool: TempoTool): void {
+    const engine = this.getEngine()
+    if (!engine || !this.state.selectedNoteId) return
+    const note = engine.getNote(this.state.selectedNoteId)
+    if (!note) return
+    // No staffId, no voice — the mark governs the clock, not the staff it was placed from.
+    const created = engine.addTempoMark(note.measure, { beat: note.beat, ...tool })
+    if (created) {
+      console.log(`✓ Tempo ${tempoLabel(created)} at measure ${note.measure} beat ${fracToNumber(note.beat).toFixed(3)} (on selected note)`)
     }
     this.renderScore()
   }
@@ -515,6 +578,7 @@ export class PaletteController {
     this.state.selectedClef = null
     this.state.selectedTimeSignature = null
     this.state.selectedDynamic = null
+    this.state.selectedTempo = null
   }
 
   // --- Toolbar button active-state helpers ---

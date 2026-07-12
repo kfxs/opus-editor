@@ -376,6 +376,66 @@
             >Text</button>
           </div>
 
+          <!-- Tempo Tool — a word, a metronome mark, or both. System-level: one mark
+               governs the whole score, whichever staff you click. -->
+          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
+            <span class="text-sm text-gray-300">Tempo:</span>
+            <button
+              v-for="w in tempoWords"
+              :key="w.text"
+              @click="palette.setTempo({ text: w.text, bpm: w.bpm, unit: 'q', showMetronome: tempoShowMetronome })"
+              :class="[
+                'px-2 py-1 rounded text-sm italic leading-none',
+                isTempoArmed({ text: w.text, bpm: w.bpm, unit: 'q', showMetronome: tempoShowMetronome })
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              :title="`${w.text} (♩ = ${w.bpm}) — click a beat to place it. The word sounds even when the number is hidden.`"
+            >{{ w.text }}</button>
+
+            <span class="w-px h-5 bg-gray-600"></span>
+
+            <!-- Metronome-only: unit + dots + bpm, no word. -->
+            <select
+              v-model="tempoUnit"
+              class="bg-gray-600 rounded text-sm px-1 py-1 leading-none"
+              title="Metronome beat unit — ♩ = 60 and 𝅗𝅥 = 60 are different speeds"
+            >
+              <option v-for="u in tempoUnits" :key="u.value" :value="u.value">{{ u.glyph }}</option>
+            </select>
+            <button
+              @click="tempoDots = tempoDots === 1 ? 0 : 1"
+              :class="[
+                'px-2 py-1 rounded text-sm leading-none',
+                tempoDots === 1 ? 'bg-cyan-600 text-white' : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Dotted beat unit (♩. = 60 is 90 quarter-notes per minute, not 60)"
+            >.</button>
+            <input
+              v-model.number="tempoBpm"
+              type="number"
+              min="20"
+              max="300"
+              class="w-16 bg-gray-600 rounded text-sm px-2 py-1 leading-none"
+              title="Beats per minute — of the chosen unit, not of a quarter"
+            />
+            <button
+              @click="palette.setTempo({ unit: tempoUnit, dots: tempoDots, bpm: tempoBpm, showMetronome: true })"
+              :class="[
+                'px-2 py-1 rounded text-sm leading-none',
+                isTempoArmed({ unit: tempoUnit, dots: tempoDots, bpm: tempoBpm, showMetronome: true })
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              :title="`Place ${metronomePreview} on its own (no word) — click a beat`"
+            >{{ metronomePreview }}</button>
+
+            <label class="flex items-center gap-1 text-xs text-gray-300" title="Print the ♩ = N next to the word? The word sounds either way.">
+              <input type="checkbox" v-model="tempoShowMetronome" />
+              show ♩=
+            </label>
+          </div>
+
           <!-- Add Measure (relative to the box-selected measure span; Ctrl+Shift+click a bar) -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Measure:</span>
@@ -604,6 +664,8 @@ import { MusicEngine } from './engine/MusicEngine'
 import { DEV_SOUNDS } from './engine/audio/WebAudioFontInstrument'
 import { VIEWPORT_TWO_LINE_HEIGHT } from './engine/rendering/VexFlowRenderer'
 import { createEditorState } from './interactions/EditorState'
+import type { TempoTool } from './interactions/EditorState'
+import type { NoteDuration } from './types/music'
 import { useHighlight } from './composables/useHighlight'
 import { useRenderer } from './composables/useRenderer'
 import { useSelection } from './composables/useSelection'
@@ -746,6 +808,50 @@ function isTimeSignatureArmed(ts: { numerator: number; denominator: number }): b
 // Interpreted levels drive playback loudness; the custom mark is silent italic text.
 // The custom mark drops a "Text" placeholder; editing it in place is a later feature.
 const dynamicLevels = ['p', 'mp', 'mf', 'f'] as const
+
+// --- Tempo tool ---
+// A tempo mark is ONE object with three display settings: a word, a metronome mark, or
+// both ("Allegro (♩ = 120)"). The word ALWAYS sounds — `showMetronome` decides only
+// whether the number is printed (decision D1). The words below are PRESETS that pre-fill
+// free text + a conventional bpm, not an enum of legal values (D2): both stay editable,
+// and renaming the word never moves the tempo.
+const tempoWords = [
+  { text: 'Grave', bpm: 35 },
+  { text: 'Largo', bpm: 50 },
+  { text: 'Adagio', bpm: 65 },
+  { text: 'Andante', bpm: 90 },
+  { text: 'Moderato', bpm: 112 },
+  { text: 'Allegro', bpm: 144 },
+  { text: 'Presto', bpm: 185 },
+] as const
+
+// The beat unit is half the meaning: ♩ = 60, ♩. = 60 and 𝅗𝅥 = 60 are three different speeds.
+const tempoUnits = [
+  { value: 'h', glyph: '𝅗𝅥' },
+  { value: 'q', glyph: '♩' },
+  { value: '8', glyph: '♪' },
+] as const
+
+const tempoUnit = ref<NoteDuration>('q')
+const tempoDots = ref(0)
+const tempoBpm = ref(120)
+const tempoShowMetronome = ref(true)
+
+/** What the metronome-only button will place, e.g. "♩. = 120" — so the button shows the mark
+ *  rather than a bare "=". A metronome mark with no word prints exactly this (VexFlow only
+ *  adds the parentheses when a word is present). */
+const metronomePreview = computed(() => {
+  const glyph = tempoUnits.find(u => u.value === tempoUnit.value)?.glyph ?? '♩'
+  return `${glyph}${tempoDots.value === 1 ? '.' : ''} = ${tempoBpm.value}`
+})
+
+/** Is this exact preset the one currently armed? (Mirrors PaletteController.sameTempoTool.) */
+function isTempoArmed(tool: TempoTool): boolean {
+  const armed = state.selectedTempo
+  if (!armed) return false
+  return armed.text === tool.text && armed.unit === tool.unit && armed.dots === tool.dots
+    && armed.bpm === tool.bpm && armed.showMetronome === tool.showMetronome
+}
 
 // --- Custom time-signature dialog ---
 // Exposes the engine's full generality: any dyadic meter + optional additive

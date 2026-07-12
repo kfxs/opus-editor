@@ -32,6 +32,7 @@ export type ElementType =
   | 'tuplet'
   | 'articulation'
   | 'dynamic'
+  | 'tempo'
 
 /**
  * Bounding box in pixel coordinates

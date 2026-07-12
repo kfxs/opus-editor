@@ -49,4 +49,7 @@ export interface RenderPass {
   /** Dynamic id currently being edited in the text overlay — skipped this render so
    *  the engraved glyph doesn't double under the editor (constant during a render). */
   suppressedDynamicId: string | null
+  /** Tempo mark currently being edited in the text overlay — skipped while it is open,
+   *  so the engraved word isn't drawn under the DOM input. Mirrors suppressedDynamicId. */
+  suppressedTempoId: string | null
 }

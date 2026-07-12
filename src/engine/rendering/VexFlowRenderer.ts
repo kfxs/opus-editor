@@ -16,6 +16,7 @@ import type { RenderPass } from './RenderPass'
 import { renderTies, getTieDirection } from './TieRenderer'
 import { renderSlurs } from './SlurRenderer'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, buildDynamicAnnotation, registerDynamics } from './DynamicsLayout'
+import { drawTempoMarks } from './TempoLayout'
 import {
   convertDuration,
   chooseVoiceMode,
@@ -86,6 +87,8 @@ export class VexFlowRenderer {
   /** Dynamic currently being edited in the in-canvas text overlay — skipped while
    *  rendering so the engraved glyph doesn't show doubled under the editor. */
   private suppressedDynamicId: string | null = null
+  /** Tempo mark suppressed while its text overlay is open (mirrors suppressedDynamicId). */
+  private suppressedTempoId: string | null = null
   /** Map of measure numbers to their layout info (including line number) */
   private measureLayoutInfo: Map<number, MeasureWidthInfo> = new Map()
   /** Snapshot of the layout captured when frozen. While non-null, renderScore
@@ -158,6 +161,7 @@ export class VexFlowRenderer {
       measureBounds: this.measureBounds,
       elementRegistry: this.elementRegistry,
       suppressedDynamicId: this.suppressedDynamicId,
+      suppressedTempoId: this.suppressedTempoId,
     }
   }
 
@@ -521,6 +525,10 @@ export class VexFlowRenderer {
         // Co-located dynamics: reposition onto one row (placement order, newest
         // right) AFTER registration so their bboxes are present to update.
         layoutCoLocatedDynamics(pass, dynamicGroups)
+        // Tempo marks: system-level, so drawn once above the scope's top staff (NOT per
+        // staff). Must come after the voices are drawn — a mark anchors to a note's
+        // absolute X, which does not exist before formatting.
+        drawTempoMarks(pass, measure, stave, staffIndex, sortedSlots, staveNotes)
         for (const b of built) this.registerBeams(b.beams, measure)
 
         // Mid-measure clefs are carried by the primary voice only.
@@ -1749,6 +1757,19 @@ export class VexFlowRenderer {
   /** Suppress one dynamic from the next renders (pass null to restore). Used by the
    *  in-canvas text editor so the engraved glyph isn't drawn under the overlay. The
    *  caller must trigger a re-render for this to take effect. */
+  /** The `<g>` a tempo mark was drawn into (see TempoLayout — we open it ourselves;
+   *  StaveTempo opens none). Used by the selection highlight. */
+  getTempoSVGGroup(tempoId: string): SVGGElement | null {
+    const svg = this.context?.svg as SVGSVGElement | undefined
+    return (svg?.querySelector(`#vf-${tempoId}`) as SVGGElement | null) ?? null
+  }
+
+  /** Suppress one tempo mark from the next renders (pass null to restore) — the text-edit
+   *  overlay's twin of {@link setSuppressedDynamicId}. */
+  setSuppressedTempoId(tempoId: string | null): void {
+    this.suppressedTempoId = tempoId
+  }
+
   setSuppressedDynamicId(dynamicId: string | null): void {
     this.suppressedDynamicId = dynamicId
   }

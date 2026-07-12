@@ -1,4 +1,4 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, DynamicLevel, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, DynamicLevel, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, restPositionKey, staffSpacingOverrideOf } from './engravingOverrides'
 import {
   getTupletTotalBeatsFrac,
@@ -39,16 +39,18 @@ import { toFlatNote, restToFlatNote } from './noteProjection'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, staffMeasureView, firstStaffId } from './staffContent'
 import * as tupletOps from './tupletOps'
 import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
+import { tempoMarks, effectiveTempoAt, MIN_BPM, MAX_BPM } from '@/utils/tempoMap'
 import { v4 as uuidv4 } from 'uuid'
 
 /**
- * A beat-anchored annotation (clef change or dynamic) snapshotted before a rebar,
- * keyed by its absolute beat offset from the region start so it can be re-anchored
+ * A beat-anchored annotation (clef change, dynamic or tempo mark) snapshotted before a
+ * rebar, keyed by its absolute beat offset from the region start so it can be re-anchored
  * into the new bar layout. See {@link ScoreModel.captureBeatAnchors}.
  */
 type CapturedAnchor =
   | { kind: 'clef'; absBeat: Fraction; clef: Clef; staffId?: string }
   | { kind: 'dynamic'; absBeat: Fraction; dyn: Dynamic }
+  | { kind: 'tempo'; absBeat: Fraction; mark: TempoMark }
 
 /**
  * A clipboard dynamic handed to {@link ScoreModel.pasteEvents} for re-anchoring at paste time.
@@ -544,6 +546,104 @@ export class ScoreModel {
       if (dyn) return dyn
     }
     return null
+  }
+
+  // ==================== Tempo Mark Operations ====================
+  //
+  // Mirrors the Dynamic ops above, with two deliberate differences:
+  //   - A tempo mark is SYSTEM-level: no staffId, no voice. One list per measure governs
+  //     every staff, so the beat alone is the key.
+  //   - At most ONE mark per beat (add REPLACES; the clef rule), where dynamics stack.
+  // There is no `setTempo` global to keep in sync — it does not exist. See
+  // docs/tempo-marks-plan.md §5.
+
+  /**
+   * Add a tempo mark at (measure, mark.beat), REPLACING any mark already on that beat.
+   * @throws if `bpm` is present and outside {@link MIN_BPM}..{@link MAX_BPM} (the guard the
+   *   deleted global `setTempo` used to carry, now per-mark — a 0 bpm would be an infinite
+   *   clock and a 10000 bpm an inaudible one).
+   * @returns the stored TempoMark, or null if the measure does not exist.
+   */
+  addTempoMark(measureNumber: number, mark: Omit<TempoMark, 'id'>): TempoMark | null {
+    const measure = this.getMeasure(measureNumber)
+    if (!measure) return null
+    ScoreModel.validateBpm(mark.bpm)
+    if (!measure.tempos) measure.tempos = []
+
+    const at = measure.tempos.findIndex(t => fracCompare(t.beat, mark.beat) === 0)
+    if (at !== -1) measure.tempos.splice(at, 1) // one mark per beat — last wins
+
+    const created: TempoMark = { ...mark, id: uuidv4() }
+    measure.tempos.push(created)
+    measure.tempos.sort((a, b) => fracCompare(a.beat, b.beat))
+    return created
+  }
+
+  /**
+   * Edit an existing tempo mark by id (text / unit / dots / bpm / showMetronome / beat).
+   * The owning measure's list is re-sorted in case the beat changed.
+   *
+   * Renaming the word NEVER moves the tempo and changing the number never rewrites the
+   * word (decision D2) — that falls out of this being a plain field update, and the
+   * text-edit overlay (P5) relies on it.
+   * @returns the updated TempoMark, or null if no mark with that id exists.
+   */
+  updateTempoMark(id: string, updates: Partial<Omit<TempoMark, 'id'>>): TempoMark | null {
+    if ('bpm' in updates) ScoreModel.validateBpm(updates.bpm)
+    for (const measure of this.score.measures) {
+      const mark = measure.tempos?.find(t => t.id === id)
+      if (!mark) continue
+      Object.assign(mark, updates)
+      measure.tempos!.sort((a, b) => fracCompare(a.beat, b.beat))
+      return mark
+    }
+    return null
+  }
+
+  /**
+   * Remove a tempo mark by id, cleaning up the array when it becomes empty (so a
+   * mark-free measure serializes without an empty `tempos: []`).
+   * @returns true if a mark was removed.
+   */
+  removeTempoMark(id: string): boolean {
+    for (const measure of this.score.measures) {
+      if (!measure.tempos) continue
+      const idx = measure.tempos.findIndex(t => t.id === id)
+      if (idx === -1) continue
+      measure.tempos.splice(idx, 1)
+      if (measure.tempos.length === 0) delete measure.tempos
+      return true
+    }
+    return false
+  }
+
+  /** A measure's tempo marks, sorted ascending by beat (a copy; empty if none). */
+  getTempoMarks(measureNumber: number): TempoMark[] {
+    return tempoMarks(this.score, measureNumber)
+  }
+
+  /** Find a tempo mark anywhere in the score by id (live reference), or null. Used by
+   *  the in-canvas text editor to seed the overlay with the mark's current word. */
+  getTempoMarkById(id: string): TempoMark | null {
+    for (const measure of this.score.measures) {
+      const mark = measure.tempos?.find(t => t.id === id)
+      if (mark) return mark
+    }
+    return null
+  }
+
+  /** The sounding tempo (quarter-notes per minute) at a position — DEFAULT_TEMPO if the
+   *  score states none. A mark with only a word inherits the prevailing tempo. */
+  getEffectiveTempoAt(measureNumber: number, beat: Fraction, scope?: string): number {
+    return effectiveTempoAt(this.score, measureNumber, beat, scope)
+  }
+
+  /** Reject a bpm that would make the clock nonsense. Absent bpm is fine (a word-only mark). */
+  private static validateBpm(bpm: number | undefined): void {
+    if (bpm === undefined) return
+    if (!Number.isFinite(bpm) || bpm < MIN_BPM || bpm > MAX_BPM) {
+      throw new Error(`Tempo must be between ${MIN_BPM} and ${MAX_BPM} BPM`)
+    }
   }
 
   // ==================== Slurs (top-level phrasing spans) ====================
@@ -1454,7 +1554,7 @@ export class ScoreModel {
   }
 
   /**
-   * Capture each region clef change / dynamic by its ABSOLUTE beat offset from the
+   * Capture each region clef change / dynamic / tempo mark by its ABSOLUTE beat offset from the
    * region start (cumulative measure capacities + the item's in-measure beat),
    * measured with the measures' CURRENT (pre-rebar) capacities. Mirrors how
    * {@link captureBoundaryTies} snapshots state before ids/bars are regenerated.
@@ -1472,13 +1572,19 @@ export class ScoreModel {
       for (const d of m.dynamics ?? []) {
         out.push({ kind: 'dynamic', absBeat: fracAdd(base, d.beat), dyn: d })
       }
+      // Tempo marks are beat-anchored too, so a meter change would silently DELETE them
+      // (clearMeasureForRebar drops the array) unless they ride this seam. They carry no
+      // staff/voice — a tempo mark is system-level — so the offset is the whole key.
+      for (const t of m.tempos ?? []) {
+        out.push({ kind: 'tempo', absBeat: fracAdd(base, t.beat), mark: t })
+      }
       base = fracAdd(base, cap)
     }
     return out
   }
 
   /**
-   * Re-anchor captured clef changes / dynamics into the rebar'd region: walk the
+   * Re-anchor captured clef changes / dynamics / tempo marks into the rebar’d region: walk the
    * new bars accumulating their capacities, find which measure each absolute offset
    * now lands in, and re-create the annotation there at the local beat. An offset
    * past the (defensively) rebuilt region is clamped to the last bar. A collision
@@ -1518,6 +1624,14 @@ export class ScoreModel {
         if (dup !== -1) m.clefs.splice(dup, 1)
         m.clefs.push({ id: uuidv4(), beat, clef: a.clef, ...(a.staffId !== undefined ? { staffId: a.staffId } : {}) })
         m.clefs.sort((x, y) => fracCompare(x.beat, y.beat))
+      } else if (a.kind === 'tempo') {
+        // Tempo takes the CLEF rule, not the dynamics rule: at most one mark per beat, last
+        // wins. Two tempo marks on one beat is not a thing (docs/tempo-marks-plan.md §4).
+        if (!m.tempos) m.tempos = []
+        const dup = m.tempos.findIndex((t) => fracCompare(t.beat, beat) === 0)
+        if (dup !== -1) m.tempos.splice(dup, 1)
+        m.tempos.push({ ...a.mark, id: uuidv4(), beat })
+        m.tempos.sort((x, y) => fracCompare(x.beat, y.beat))
       } else {
         // Dynamics may stack at one (beat, voice) — keep them all (no dedupe).
         if (!m.dynamics) m.dynamics = []
@@ -1920,6 +2034,7 @@ export class ScoreModel {
     measure.tuplets = []
     delete measure.clefs // mid-bar clefs anchored to moved beats are dropped (Phase 8 limitation)
     delete measure.dynamics // dynamics share the clef limitation: beat anchors don't survive a rebar
+    delete measure.tempos // ditto — re-anchored by absolute offset in restoreBeatAnchors
   }
 
   /**
