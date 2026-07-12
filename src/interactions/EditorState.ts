@@ -181,7 +181,7 @@ export interface EditorState {
    *  the edit is modal-ish and a commit-click can't plant a stray mark. `kind` is a
    *  discriminator for future text types (lyric/technique/…); `isNew` carries the
    *  empty-text rule's "just placed vs existing" signal to the source. */
-  editingText: { targetId: string; kind: 'dynamic'; isNew: boolean } | null
+  editingText: { targetId: string; kind: 'dynamic' | 'tempo'; isNew: boolean } | null
 
   // --- Clipboard ---
   /** True while a paste is waiting for the user to click the insertion point —

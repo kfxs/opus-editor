@@ -1679,6 +1679,13 @@ export class MusicEngine {
    * the cursor; on click it is applied to the clicked slot.
    * @returns true if a ghost dynamic was drawn, false otherwise
    */
+  /** Render the score with a ghost tempo mark following the cursor (armed tempo tool). */
+  renderScoreWithTempoGhost(coords: PixelCoordinates, mark: TempoMark): boolean {
+    const drawn = this.renderer.renderScoreWithTempoGhost(this.scoreModel.getScore(), coords.x, coords.y, mark)
+    this.syncCoordinateMapperBounds()
+    return drawn
+  }
+
   renderScoreWithDynamicGhost(coords: PixelCoordinates, dynamic: Dynamic): boolean {
     const drawn = this.renderer.renderScoreWithDynamicGhost(this.scoreModel.getScore(), coords.x, coords.y, dynamic)
     this.syncCoordinateMapperBounds()
@@ -1990,6 +1997,12 @@ export class MusicEngine {
    *  Used by the selection highlight to recolor the mark and nothing else. */
   getTempoSVGGroup(tempoId: string): SVGGElement | null {
     return this.renderer.getTempoSVGGroup(tempoId)
+  }
+
+  /** Hide one tempo mark from the next renders (null = restore) — used by the text-edit
+   *  overlay so the engraved word isn't drawn under the DOM input. */
+  setSuppressedTempoId(tempoId: string | null): void {
+    this.renderer.setSuppressedTempoId(tempoId)
   }
 
   getDynamicSVGGroup(dynamicId: string): SVGGElement | null {

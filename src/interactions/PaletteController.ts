@@ -449,6 +449,22 @@ export class PaletteController {
    * voice: whichever staff you click, one mark is placed governing the whole system.
    */
   setTempo(tool: TempoTool | null): void {
+    // A tempo mark is SELECTED → the palette edits it in place instead of arming a new
+    // one (a Sibelius-style inspector). This is the only way to change a placed mark's
+    // NUMBER without deleting it: select it, set the bpm, press the metronome button.
+    //
+    // The update is PARTIAL, which is what makes it safe: the metronome button's tool
+    // carries no `text`, so re-numbering leaves the word alone; a word preset carries no
+    // `dots`, so re-wording leaves a dotted unit alone. Renaming never moves the tempo and
+    // re-numbering never rewrites the word (decision D2).
+    if (tool && this.state.selectedTempoId) {
+      const engine = this.getEngine()
+      const updated = engine?.updateTempoMark(this.state.selectedTempoId, tool)
+      if (updated) console.log(`✓ Tempo mark → ${tempoLabel(updated)}`)
+      this.renderScore()
+      return
+    }
+
     // Selection mode with a note/rest selected → place at that element's slot directly
     // (no arm-and-click), exactly like the dynamics tool.
     if (tool && this.state.selectedTool === 'selection' && this.state.selectedNoteId) {

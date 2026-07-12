@@ -275,6 +275,42 @@ arrow-nudge later: `engravingOverrides` client #8 (geometry never goes on the ma
 
 P0–P2 are the infrastructure; P3–P5 are the surface. P4 is the first phase the user can *see*.
 
+**All six phases are BUILT** (P5 also folded in in-place NUMBER editing, which was not originally
+scoped: select a mark and the palette's metronome controls become an inspector).
+
+---
+
+## 8b. KNOWN ISSUE — the text-edit overlay's vertical position (open)
+
+**Symptom (user, on screen):** double-clicking a mark opens the edit box slightly **too high**. Two
+causes were found and fixed; a residual offset remains, so this is *better, not right*.
+
+**Fixed already (do not regress):**
+1. *Wrong font.* The overlay hardcoded a serif italic. VexFlow resolves `StaveTempo.name` from its
+   own `Metrics` — **bold**, in its own text font. The overlay now READS the engraved node's
+   computed font instead of guessing, and `fontWeight` had to be plumbed through
+   `EditableTextSource` / `TextEditMountOptions` / `DomTextEdit` (it did not exist — dynamics only
+   ever needed italic).
+2. *Wrong box.* The mark's `<g>` holds several `<text>` nodes: the word at ~14, and the metronome's
+   ♩ notehead glyph at **25**. The notehead is far taller, so it reaches HIGHER than the word — and
+   the group bbox (and the identical `ElementRegistry` bbox) therefore has the NOTEHEAD's top, not
+   the word's. `TempoTextSource` now measures the ONE `<text>` node being edited (matched by
+   content), not the group. Pinned by a test with a word at y=44 and a glyph at y=30.
+   ⚠️ *The registry bbox is correct for hit-testing the whole mark — it is simply the wrong box for
+   putting a caret on one word inside it. Do not "fix" this by going back to it.*
+
+**Still open — the likely remaining cause:** SVG text is positioned by its **baseline**; an HTML
+element is positioned by the **top of its line box**. Setting `top = inkTop` therefore leaves a
+small, roughly constant offset (a few px, scaling with font size), because the browser's line box
+adds internal leading above the glyph's ink. `DomTextEdit` sets `line-height: 1`, which shrinks but
+does not remove it.
+
+**Fix when picked up:** align by BASELINE rather than by box top — take the edited `<text>` node's
+baseline in client coords (its `y` attribute through `getScreenCTM`, or `getBoundingClientRect()`
+plus the font's ascent) and offset the overlay's `top` by the HTML font's ascent so the two
+baselines coincide. Cleanest is probably to add an optional `baselineY` to `EditableTextSource`'s
+rect and let `DomTextEdit` do the ascent correction once, for dynamics and tempo alike.
+
 ---
 
 ## 9. Deferred (recorded so they stay reachable, not so they get built)

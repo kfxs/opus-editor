@@ -1,6 +1,6 @@
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { Clef, TimeSignature, Dynamic } from '../types/music'
-import type { DynamicTool, EditorState } from './EditorState'
+import type { Clef, TimeSignature, Dynamic, TempoMark } from '../types/music'
+import type { DynamicTool, TempoTool, EditorState } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
 import type { HighlightController } from './HighlightController'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
@@ -78,6 +78,18 @@ export class RenderController {
     const engine = this.getEngine()
     if (!engine) return
     engine.renderScoreWithTimeSignatureGhost(coords, ts)
+    this.applyHighlights()
+  }
+
+  /**
+   * Render the score with a translucent ghost tempo mark following the cursor — showing
+   * exactly what the armed preset will engrave ('Allegro', '♩ = 120', 'Allegro (♩ = 120)').
+   */
+  renderTempoGhost(coords: { x: number; y: number }, tool: TempoTool): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    const ghost: TempoMark = { id: 'ghost-tempo', beat: { num: 0, den: 1 }, ...tool }
+    engine.renderScoreWithTempoGhost(coords, ghost)
     this.applyHighlights()
   }
 

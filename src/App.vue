@@ -379,7 +379,9 @@
           <!-- Tempo Tool — a word, a metronome mark, or both. System-level: one mark
                governs the whole score, whichever staff you click. -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">Tempo:</span>
+            <span class="text-sm" :class="state.selectedTempoId ? 'text-amber-400 font-semibold' : 'text-gray-300'">
+              {{ state.selectedTempoId ? 'Tempo ✎:' : 'Tempo:' }}
+            </span>
             <button
               v-for="w in tempoWords"
               :key="w.text"
@@ -390,7 +392,9 @@
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
-              :title="`${w.text} (♩ = ${w.bpm}) — click a beat to place it. The word sounds even when the number is hidden.`"
+              :title="state.selectedTempoId
+                ? `Change the selected mark to ${w.text} (♩ = ${w.bpm})`
+                : `${w.text} (♩ = ${w.bpm}) — click a beat to place it. The word sounds even when the number is hidden.`"
             >{{ w.text }}</button>
 
             <span class="w-px h-5 bg-gray-600"></span>
@@ -427,7 +431,9 @@
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
-              :title="`Place ${metronomePreview} on its own (no word) — click a beat`"
+              :title="state.selectedTempoId
+                ? `Set the selected mark's metronome to ${metronomePreview} (its word is kept)`
+                : `Place ${metronomePreview} on its own (no word) — click a beat`"
             >{{ metronomePreview }}</button>
 
             <label class="flex items-center gap-1 text-xs text-gray-300" title="Print the ♩ = N next to the word? The word sounds either way.">

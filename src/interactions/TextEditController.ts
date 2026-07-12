@@ -9,7 +9,7 @@ export interface EditableTextSource {
   /** Stable id of the target (mirrored into `state.editingText.targetId`). */
   readonly targetId: string
   /** Discriminator for the kind of target (mirrored into `state.editingText.kind`). */
-  readonly kind: 'dynamic'
+  readonly kind: 'dynamic' | 'tempo'
   /** True when the target was *just placed*; an empty commit deletes it. */
   readonly isNew: boolean
   /** Current text to seed the editor with. */
@@ -17,7 +17,7 @@ export interface EditableTextSource {
   /** Where to place the overlay, in viewport (client) pixels. */
   getScreenRect(): { x: number; y: number; width: number; height: number }
   /** Font to match the engraving so the typed text looks identical. */
-  getFontCSS(): { fontFamily: string; fontSize: string; fontStyle: string; color: string }
+  getFontCSS(): { fontFamily: string; fontSize: string; fontStyle: string; color: string; fontWeight?: string }
   /** Persist the typed text (model write + re-render). The empty-text rule lives
    *  here, keyed on {@link isNew}: empty + new ⇒ delete; empty + existing ⇒ keep. */
   commit(text: string): void
@@ -32,7 +32,7 @@ export interface EditableTextSource {
 export interface TextEditMountOptions {
   text: string
   rect: { x: number; y: number; width: number; height: number }
-  font: { fontFamily: string; fontSize: string; fontStyle: string; color: string }
+  font: { fontFamily: string; fontSize: string; fontStyle: string; color: string; fontWeight?: string }
   /** Called by the DOM layer on Enter / click-away. */
   onCommit: () => void
   /** Called by the DOM layer on Escape. */

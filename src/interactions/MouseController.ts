@@ -4,6 +4,7 @@ import type { ElementInfo, ElementRegistry, ElementType } from '../engine/Elemen
 import type { EditorState } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
 import { tempoLabel } from '../utils/tempoMap'
+import { TempoTextSource } from './TempoTextSource'
 import type { SelectionController } from './SelectionController'
 import type { RenderController } from './RenderController'
 import type { TextEditController } from './TextEditController'
@@ -234,6 +235,8 @@ export class MouseController {
   // dblclick event is defeated by the re-render-on-select swapping SVG nodes) ---
   private lastDynamicDownId: string | null = null
   private lastDynamicDownTime = 0
+  private lastTempoDownId: string | null = null
+  private lastTempoDownTime = 0
   private readonly DOUBLE_CLICK_MS = 400
 
   private readonly onDocMouseDown = () => { this.isMouseButtonDown = true }
@@ -877,11 +880,45 @@ export class MouseController {
     // mark's padded box (it is engraved on a fixed line above the staff).
     if (closestElement && registry.hitsNoteOrRestBody(closestElement, x, y)) return false
 
+    // Double-click → edit in place. A mark WITH a word edits the word ('Allegro' →
+    // 'Allegro con brio', bpm untouched); a bare metronome mark edits its number. Which
+    // face is editable is TempoTextSource's call — see it for the rule.
+    const now = Date.now()
+    const isDoubleClick = this.lastTempoDownId === tempoAt.id
+      && (now - this.lastTempoDownTime) < this.DOUBLE_CLICK_MS
+    this.lastTempoDownId = tempoAt.id
+    this.lastTempoDownTime = now
+
+    if (isDoubleClick) {
+      this.lastTempoDownId = null // consume, so a 3rd click isn't another double
+      // Stop the browser's default mousedown focus/selection — it would steal focus back
+      // from the overlay right after we focus it, and typing would go nowhere.
+      ctx.event.preventDefault()
+      console.log(`✓ Editing tempo mark | id:${tempoAt.id}`)
+      this.openTempoTextEditor(tempoAt.id, false)
+      return true
+    }
+
     this.selection.selectNote(null)
     this.state.selectedTempoId = tempoAt.id
-    console.log(`✓ Tempo mark selected | id:${tempoAt.id} (Delete to remove)`)
+    console.log(`✓ Tempo mark selected | id:${tempoAt.id} (Delete to remove, double-click to edit)`)
     this.render.renderScore()
     return true
+  }
+
+  /** Open the in-canvas text overlay over a tempo mark (word, or number if it has no word). */
+  private openTempoTextEditor(tempoId: string, isNew: boolean): void {
+    const engine = this.getEngine()
+    const textEdit = this.getTextEdit()
+    if (!engine || !textEdit) return
+    textEdit.open(new TempoTextSource(
+      tempoId,
+      isNew,
+      engine,
+      () => this.getScoreCanvas(),
+      () => this.render.renderScore(),
+      this.getZoom,
+    ))
   }
 
   /** Select a dynamic mark for removal, or open the text editor on a double-click. */
@@ -1664,6 +1701,14 @@ export class MouseController {
     // placeholder) following the cursor, and hide the keyboard cursor.
     if (this.state.selectedDynamic) {
       this.render.renderDynamicGhost({ x, y }, this.state.selectedDynamic)
+      this.state.showCursor = false
+      return
+    }
+
+    // Tempo tool armed: preview the actual MARK ('Allegro (♩ = 120)') under the cursor —
+    // not a ghost note, which would say the next click enters a note.
+    if (this.state.selectedTempo) {
+      this.render.renderTempoGhost({ x, y }, this.state.selectedTempo)
       this.state.showCursor = false
       return
     }

@@ -33,14 +33,14 @@ import type { RenderPass } from './RenderPass'
  * The ctor's own `setXShift(10)`, which `draw()` adds to every glyph it paints. Subtracted
  * from the anchor so the mark actually lands where we asked for it.
  */
-const STAVE_TEMPO_X_SHIFT = 10
+export const STAVE_TEMPO_X_SHIFT = 10
 
 /**
  * A stave façade whose `getModifierXShift()` is 0 (see the header, point 3). Prototype
  * delegation, so every other field/method — `checkContext()`, `getYForTopText()` — is the
  * REAL stave's. Cheaper and far less fragile than re-implementing `StaveTempo.draw()`.
  */
-function staveWithoutModifierShift(stave: Stave): Stave {
+export function staveWithoutModifierShift(stave: Stave): Stave {
   const proxy = Object.create(stave) as Stave & { getModifierXShift: () => number }
   proxy.getModifierXShift = () => 0
   return proxy

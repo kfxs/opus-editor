@@ -31,6 +31,7 @@ export class DomTextEdit implements TextEditDom {
     s.fontFamily = font.fontFamily
     s.fontSize = font.fontSize
     s.fontStyle = font.fontStyle
+    if (font.fontWeight) s.fontWeight = font.fontWeight
     s.color = font.color
 
     el.addEventListener('keydown', this.onKeyDown)

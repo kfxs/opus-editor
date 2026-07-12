@@ -1,8 +1,8 @@
-import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet } from 'vexflow'
+import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, StaveTempo, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
-import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic } from '@/types/music'
+import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureOpeningClef, measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos } from '@/utils/clefUtils'
 import { beatToFrac, measureCapacityFrac } from '@/utils/musicUtils'
@@ -16,7 +16,7 @@ import type { RenderPass } from './RenderPass'
 import { renderTies, getTieDirection } from './TieRenderer'
 import { renderSlurs } from './SlurRenderer'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, buildDynamicAnnotation, registerDynamics } from './DynamicsLayout'
-import { drawTempoMarks } from './TempoLayout'
+import { drawTempoMarks, tempoOptions, staveWithoutModifierShift } from './TempoLayout'
 import {
   convertDuration,
   chooseVoiceMode,
@@ -1896,6 +1896,61 @@ export class VexFlowRenderer {
    * below. This is a pure SVG/VexFlow behaviour, unrelated to the UI framework.
    * @returns true if the ghost dynamic was drawn
    */
+  /**
+   * Render the score with a GHOST tempo mark following the cursor — the preview for the
+   * armed tempo tool, mirroring the clef / time-signature / dynamic ghosts. Without it the
+   * note-entry ghost is shown while a tempo tool is armed, which says the wrong thing about
+   * what the next click will do.
+   *
+   * Simpler than the dynamic ghost: a dynamic must be hung off a throwaway StaveNote (it is
+   * a note modifier), whereas StaveTempo paints text straight onto the context — so there
+   * are no leftover notehead/stem elements to discard afterwards. The stave exists only to
+   * satisfy `checkStave()`; it is never drawn.
+   */
+  renderScoreWithTempoGhost(score: Score, cursorX: number, cursorY: number, mark: TempoMark): boolean {
+    this.renderScore(score)
+
+    const svg = this.getSVGElement()
+    if (!svg || !this.context) return false
+
+    try {
+      const tempStave = new Stave(0, cursorY, 200)
+      tempStave.setContext(this.context)
+
+      const group = this.context.openGroup('ghost-tempo') as SVGGElement
+      try {
+        new StaveTempo(tempoOptions(mark), 0, 0)
+          .setStave(staveWithoutModifierShift(tempStave))
+          .setContext(this.context)
+          .draw()
+      } finally {
+        this.context.closeGroup()
+      }
+
+      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
+      if (!gbox || gbox.width === 0) {
+        group.remove()
+        return false
+      }
+
+      // Paint it in the ghost blue (the same colour the ghost note uses) at 0.7 opacity —
+      // it is a preview, not yet content.
+      group.setAttribute('opacity', '0.7')
+      group.querySelectorAll('text, path').forEach(el => {
+        if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
+      })
+
+      // Start at the cursor horizontally (that is where the mark will anchor) and center
+      // it vertically on the pointer, so the preview reads as "this lands here".
+      const dx = cursorX - gbox.x
+      const dy = cursorY - (gbox.y + gbox.height / 2)
+      group.setAttribute('transform', `translate(${dx}, ${dy})`)
+      return true
+    } catch {
+      return false
+    }
+  }
+
   renderScoreWithDynamicGhost(score: Score, cursorX: number, cursorY: number, dynamic: Dynamic): boolean {
     this.renderScore(score)
 
