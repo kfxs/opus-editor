@@ -4,7 +4,7 @@ import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidenta
 import './notation.css'
 import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
-import { measureOpeningClef, measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos } from '@/utils/clefUtils'
+import { measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { beatToFrac, measureCapacityFrac } from '@/utils/musicUtils'
 import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, type MeterInfo } from '@/utils/meter'
@@ -30,6 +30,7 @@ import {
   type TupletNoteStem,
 } from './NoteBuilder'
 import { calculateMeasureWidths } from './MeasureLayout'
+import { MeasureWidthCache } from './MeasureWidthCache'
 import { renderCensus } from '@/dev/renderCensus' // P0 instrument — temporary, see §8
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
 import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex } from '@/engine/models/staffContent'
@@ -75,6 +76,10 @@ export class VexFlowRenderer {
   private measureBounds: Map<number, MeasureBounds> = new Map()
   /** Registry tracking all rendered elements and their positions */
   private elementRegistry: ElementRegistry = new ElementRegistry()
+  /** Memo for each (measure, staff) lane's note-space width, keyed by that lane's content (P2).
+   *  Owned here — not a module singleton — so two documents and two tests cannot share one.
+   *  Survives `clear()`: the SVG is thrown away every render, the widths are not. */
+  private widthCache = new MeasureWidthCache()
   /** Map of note IDs to their rendered StaveNotes (for tie rendering) */
   private staveNoteMap: Map<string, { staveNote: StaveNote; noteIndex: number }> = new Map()
   /** Map of tuplet IDs to their rendered VexFlow Tuplet objects (for scoped highlight) */
@@ -422,11 +427,7 @@ export class VexFlowRenderer {
   /** Per-measure opening clef for one staff (multi-staff: clef is per-staff). `staffId`
    *  absent resolves to staff 0 / the single staff at N=1 — identical to the old map. */
   private computeEffectiveClefs(score: Score, staffId?: string): Map<number, Clef> {
-    const map = new Map<number, Clef>()
-    for (const measure of score.measures) {
-      map.set(measure.number, measureOpeningClef(score, measure.number, staffId))
-    }
-    return map
+    return resolveStaffClefs(score, staffId).opening
   }
 
   /**
@@ -1316,9 +1317,12 @@ export class VexFlowRenderer {
     // per-staff, so compute one map per staff — and hand the whole thing to the width calc,
     // which now takes each staff's own lane and clefs and maxes over them (P1). Widths are
     // still shared across staves (barlines align); what changed is how they are derived.
-    const effectiveClefsByStaff = new Map<string | undefined, Map<number, Clef>>()
+    // ONE forward pass per staff (resolveStaffClefs). The per-measure helpers inherit by scanning
+    // backwards over every earlier measure, so calling them per measure per staff — as this and the
+    // draw loop below both used to — was cubic over the score, and dominated a cached layout.
+    const clefsByStaff = new Map<string | undefined, StaffClefs>()
     for (const staff of staffList) {
-      effectiveClefsByStaff.set(staff.id, this.computeEffectiveClefs(score, staff.id))
+      clefsByStaff.set(staff.id, resolveStaffClefs(score, staff.id))
     }
 
     // Calculate proportional widths for all measures (or reuse the frozen layout).
@@ -1326,7 +1330,7 @@ export class VexFlowRenderer {
     renderCensus.beginLayout()
     const measureWidths = this.frozenLayout
       ? new Map(this.frozenLayout)
-      : calculateMeasureWidths(score, effectiveClefsByStaff, this.viewMode)
+      : calculateMeasureWidths(score, clefsByStaff, this.viewMode, this.widthCache)
     renderCensus.endLayout()
     // Store for use in tie rendering (to determine which line each measure is on)
     this.measureLayoutInfo = measureWidths
@@ -1402,8 +1406,9 @@ export class VexFlowRenderer {
         // `spacing.cumPx[line][i]` already includes this staff's own space-above plus every
         // staff above it on THIS system (inclusive prefix) — push it and everything below down.
         const y = systemTop + staffIndex * staffStride + spacing.cumPx[currentLine][staffIndex]
-        const clef = effectiveClefsByStaff.get(staff.id)?.get(measure.number) || 'treble'
-        const prevEndClef = measure.number > 1 ? measureEndingClef(score, measure.number - 1, staff.id) : undefined
+        const staffClefs = clefsByStaff.get(staff.id)
+        const clef = staffClefs?.opening.get(measure.number) || 'treble'
+        const prevEndClef = measure.number > 1 ? staffClefs?.ending.get(measure.number - 1) : undefined
         const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
         // Clef-drag ghost and the cautionary end-clef are the primary staff's concern for
         // now (drag has no staff axis yet; cautionary clef width isn't per-staff). The

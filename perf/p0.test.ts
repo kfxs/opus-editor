@@ -13,8 +13,10 @@ import { describe, it } from 'vitest'
 import { appendFileSync } from 'fs'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { calculateMeasureWidths } from '@/engine/rendering/MeasureLayout'
+import { MeasureWidthCache } from '@/engine/rendering/MeasureWidthCache'
 import { staffMeasureView, getStaves } from '@/engine/models/staffContent'
-import type { Score, Clef, PitchStep } from '@/types/music'
+import { resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
+import type { Score, PitchStep } from '@/types/music'
 
 /**
  * Skipped in the normal suite — stage C builds a 500×25 score and needs ~12 GB of heap.
@@ -51,10 +53,9 @@ function buildScore(bars: number, staves: number): Score {
   return model.getScore()
 }
 
-/** What the renderer feeds calculateMeasureWidths: one clef map per staff (P1). */
-function trebleClefs(score: Score): Map<string | undefined, Map<number, Clef>> {
-  const perMeasure = new Map(score.measures.map((m) => [m.number, 'treble' as Clef]))
-  return new Map(getStaves(score).map((s) => [s.id, perMeasure]))
+/** What the renderer feeds calculateMeasureWidths: one clef fold per staff (P1/P2). */
+function trebleClefs(score: Score): Map<string | undefined, StaffClefs> {
+  return new Map(getStaves(score).map((s) => [s.id, resolveStaffClefs(score, s.id)]))
 }
 
 const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
@@ -164,5 +165,22 @@ describe('P0 — render performance measurement', () => {
     say(`  P1 shape (25 per-staff passes):            ${ms(p1).padStart(9)}`)
     say(`  => P1 alone changes layout by:             ${((p1 / today - 1) * 100).toFixed(0)}%`)
     say(`  (P1's real win: each per-staff width becomes CACHEABLE. That's P2.)`)
+  }, 900_000)
+
+  perfIt('F. P2 — the cached steady state (what a render costs when you edited ONE bar)', () => {
+    say('\n=== F. P2: layout, uncached vs warm cache ===')
+    for (const [bars, staves] of [[400, 1], [100, 25], [500, 25]] as const) {
+      const score = buildScore(bars, staves)
+      const clefs = trebleClefs(score)
+
+      const uncached = time(3, () => calculateMeasureWidths(score, clefs, 'wrapped'))
+
+      // One cache, reused across renders — exactly how the renderer holds it.
+      const cache = new MeasureWidthCache()
+      calculateMeasureWidths(score, clefs, 'wrapped', cache) // cold: fills it
+      const warm = time(5, () => calculateMeasureWidths(score, clefs, 'wrapped', cache))
+
+      say(`  ${String(bars).padStart(3)} bars × ${String(staves).padStart(2)} staves:  uncached ${ms(uncached).padStart(9)}  →  warm ${ms(warm).padStart(8)}   (${(uncached / warm).toFixed(0)}× faster)`)
+    }
   }, 900_000)
 })

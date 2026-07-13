@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
 import { calculateMeasureWidths } from './MeasureLayout'
 import { LAYOUT_CONFIG } from './layoutConfig'
-import type { Clef, Score } from '@/types/music'
+import { resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
+import type { Score } from '@/types/music'
 
 /**
  * The linear-view break policy (docs/linear-view-plan.md §P1): one endless system, measures at
@@ -15,10 +16,9 @@ function scoreWith(measureCount: number) {
   return model.getScore()
 }
 
-/** The per-staff clef maps the layout now takes: staffId → (measure → clef). */
-function trebleEverywhere(score: Score, count: number): Map<string | undefined, Map<number, Clef>> {
-  const perMeasure = new Map(Array.from({ length: count }, (_, i) => [i + 1, 'treble' as Clef]))
-  return new Map((score.staves ?? [{ id: undefined }]).map(s => [s.id, perMeasure]))
+/** The per-staff clef folds the layout now takes: staffId → { opening, ending }. */
+function trebleEverywhere(score: Score, _count: number): Map<string | undefined, StaffClefs> {
+  return new Map((score.staves ?? [{ id: undefined }]).map(s => [s.id, resolveStaffClefs(score, s.id)]))
 }
 
 describe('calculateMeasureWidths — linear mode', () => {

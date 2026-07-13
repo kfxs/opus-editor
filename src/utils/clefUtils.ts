@@ -45,6 +45,53 @@ function clefOnStaff(c: ClefChange, staffId: string | undefined, score: Score): 
   return (c.staffId ?? first) === (staffId ?? first)
 }
 
+/**
+ * Every measure's opening and ending clef for ONE staff, resolved in a **single forward pass**.
+ *
+ * The per-measure helpers below ({@link measureOpeningClef}, {@link measureEndingClef}) each
+ * inherit by scanning *backwards* over every earlier measure, and each step of that scan does its
+ * own `measures.find`. Asking them for every measure — which the layout and the render loop both
+ * do, per staff — is quadratic per measure and cubic over the score, and it never short-circuits
+ * on the common case of a score with no clef changes at all. That was the whole remaining cost of
+ * a cached layout (docs/render-performance-plan.md §4).
+ *
+ * Inheritance is a fold: carry the clef forward and read it off. Same semantics, O(measures).
+ */
+export function resolveStaffClefs(score: Score, staffId?: string): StaffClefs {
+  const opening = new Map<number, Clef>()
+  const ending = new Map<number, Clef>()
+
+  let carried: Clef = 'treble' // no earlier change → the universal default
+  for (const measure of score.measures) {
+    const changes = (measure.clefs ?? [])
+      .filter(c => clefOnStaff(c, staffId, score))
+      .sort((a, b) => (fracLt(a.beat, b.beat) ? -1 : fracGt(a.beat, b.beat) ? 1 : 0))
+
+    // A change AT beat 0 is the measure's opening clef; anything later is mid-measure.
+    let openingClef: Clef = carried
+    for (const c of changes) {
+      if (fracLte(c.beat, ZERO)) openingClef = c.clef
+      else break
+    }
+    opening.set(measure.number, openingClef)
+
+    // The clef carried out of the measure: its last change, else its opening.
+    const endingClef: Clef = changes.length ? changes[changes.length - 1].clef : openingClef
+    ending.set(measure.number, endingClef)
+    carried = endingClef
+  }
+
+  return { opening, ending }
+}
+
+/** One staff's clef at the start of, and carried out of, each measure. @see resolveStaffClefs */
+export interface StaffClefs {
+  /** measure number → the clef in effect at its first beat. */
+  opening: Map<number, Clef>
+  /** measure number → the clef carried into the NEXT measure (its last change, else its opening). */
+  ending: Map<number, Clef>
+}
+
 /** Clef changes of a measure, sorted ascending by beat (empty if none). Filtered to
  *  `staffId`'s staff when given (absent = staff 0 / the single staff at N=1). */
 export function measureClefChanges(score: Score, measureNumber: number, staffId?: string): ClefChange[] {
