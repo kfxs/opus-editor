@@ -1,6 +1,10 @@
 # Linear view — one endless system, and the override rule it forces
 
-**Status:** planned, not started; every code claim below verified against the codebase (2026-07-13).
+**Status (2026-07-13): SHIPPED — P0–P3 and the §4.2b view knob.** Toggle in the palette or
+Ctrl+Shift+L. Only **P4 (virtualization) is left, and it is parked on purpose** (see §P4 — linear
+view creates the same number of DOM nodes as wrapped, so it is no worse than what already ships).
+The phase sections below are kept as written, since they are the reasoning, not just the recipe;
+where the build taught us something the phase didn't know, it says so inline.
 
 A second way to *look at* a fragment: a single, endless horizontal system instead of
 music wrapped into stacked systems. Sibelius calls it Panorama, Finale calls it Scroll
@@ -135,16 +139,16 @@ Sorting the existing compartment by that rule:
 | `restShift`, `restHidden` | `measureId : voice : beat` | **honour, gestures stay live** — vertical-only, view-independent |
 | `curveShape`, `endpointOffset` | slur id, note-anchored | **honour**, read-only — the shape depends on horizontal spacing |
 | `segmentCurveShape` / `segmentEndpointOffset` *middles* | slur id + segment (= a system) | **already self-suppress** at `spanCount 1` — free, no code |
-| per-system staff spacing | `staffId @ openingMeasureId` | **suppress** on read; **forbid** the gesture |
+| per-system staff spacing | `staffId @ openingMeasureId` | **suppress** on read; **never written** — the key names a system, and linear view has none |
 
-(Forbidding the gesture leaves linear view with *no* way to move a staff vertically at all —
-see §4.2b, which is the missing category that fixes it.)
+(Suppressing it leaves linear view with *no* way to move a staff vertically at all. §4.2b is the
+missing category that fixes that: the gesture stays, and writes a **view knob** instead.)
 
 This is a restatement of **Design Principle 3** one level up: the model holds no layout —
 *and an override keyed to a layout artifact is not a model fact either.* It is a fact about
 one particular casting-off. It has meaning only inside the view that produced it.
 
-### 4.2b The third category: a *view knob* is not an override at all
+### 4.2b The third category: a *view knob* is not an override at all — **SHIPPED**
 
 The table above sorts everything into "musical fact" or "layout artifact", and staff spacing
 lands in the second bucket — so linear view forbids the gesture, and you end up unable to move
@@ -172,9 +176,16 @@ is a real, persisted engraving decision that happens to pass §4.2's test (it is
 so it means the same thing at any measure width). Writing *that* from linear view is a separate,
 defensible option — but it is a different feature, and it is not what a convenience knob is for.
 
-**Not scheduled.** Do it when linear view is actually being used to work in and the missing knob
-bites — i.e. after P3, not before. Building it earlier means guessing at a gesture nobody has
-wanted yet.
+**As built.** `MusicEngine.linearStaffSpacing: Map<staffId, number>`, pushed down to the renderer
+exactly like `viewMode`. The gestures are **unchanged** — the same staff drag and Shift/Alt+↑↓ — and
+the *engine* decides what they write, so `staffSpacingTarget` still returns `null` in linear view
+and §4.1's system-keyed write stays impossible. No undo entry: `commitStaffSpacing` is a no-op
+here, because nothing about the score changed. The global (`staffId`-keyed) value remains the
+baseline the knob starts from.
+
+The four tests in `MusicEngine.test.ts` are a **tripwire, not coverage**: they assert that the
+score, its JSON and the undo stack are all untouched. If one of them ever has to be relaxed, the
+knob has stopped being a view knob — go to §7, not to a field on `Score`.
 
 ### 4.3 Read-only is permanent, not a phase-1 shortcut
 
@@ -238,12 +249,18 @@ This is the whole layout change, and it is one function.
   `resolveStaffSpacingAbove` already falls back to the **global** per-staff value. Nice
   consequence: global staff spacing (keyed by `staffId` alone — a content entity, not a
   system) stays honoured in linear view, exactly as §4.2 prescribes.
-- **Guard the write inside the engine**, not only at the gestures:
-  `nudgeStaffSpacing` / `previewStaffSpacing` / `resetStaffSpacing` refuse in linear
-  mode. This is the defense in depth P0's engine-owned mode buys — the one dangerous
-  write path (§4.1) is blocked at the source even if a gesture site is missed.
-- Gate the gestures on top (UX, not the safety layer): no staff drag, no Shift/Alt+↑↓
-  spacing nudge, no slur handles rendered.
+- **Guard the write inside the engine**, not only at the gestures. It collapsed to ONE line:
+  every staff-spacing path (nudge / reset / preview / the drag's baseline read) resolves its
+  key through the private `staffSpacingTarget`, so that resolver returns `null` in linear
+  mode and refuses all four at the source. This is the defense in depth P0's engine-owned
+  mode buys — the one dangerous write path (§4.1) cannot be reached even if a gesture site
+  is missed.
+- Gate the gestures on top (UX, not the safety layer): no slur handles rendered — which, since
+  handles enter the hit-test registry *as a side effect of being drawn*, is also what makes
+  them ungrabbable.
+  *(P2 also forbade the staff drag outright, leaving linear view unable to move a staff at all.
+  §4.2b is the missing category that fixed it: the gesture is back, and now writes an ephemeral
+  view knob instead of a system-keyed override.)*
 - **The view toggle clears armed slur-handle state** (`selectedSlurEndpoint`,
   `selectedSlurSegmentEndpoint` + `selectedSlurSegmentSpanCount`). Otherwise: arm an
   orange join in wrapped view, switch to linear, press an arrow — and a segment override
@@ -263,10 +280,43 @@ left edge.
 - Zoom is a CSS transform on the score surface; the pinned gutter SVG sits **outside**
   that layer, so it must apply the zoom scalar itself.
 
+**As built** — and the four things the plan above did not know:
+
+- **No meter.** The music draws its own wherever it changes; repeating it in the gutter is noise.
+  It shows the **clef**, the **system connector** (with >1 staff — once the system's opening has
+  scrolled away, that line is the only thing still saying "these staves are one system"), and the
+  **bar number** (the clef says *what* you are reading; the number says *where you are*, which is
+  the harder question in an endless system).
+- ⚠️ **Read the music at the gutter's RIGHT edge, not the viewport's left edge.** The gutter is
+  opaque and covers the leftmost `GUTTER_WIDTH` of music, so the layout-x under the viewport's left
+  edge is music you *cannot see*: a barline slides under the gutter and hides there while the
+  gutter still names the bar before it. The clef and bar number lag by a gutter's width of
+  scrolling. The first **visible** music is the honest answer.
+- ⚠️ **`StaveConnector` draws at the stave's own x.** A gutter stave at x=0 puts the system line
+  half outside the viewBox, where it is clipped to nothing — hence `GUTTER_INSET`. (The score never
+  hits this: its staves start at the margin.)
+- The screen↔layout mapping lives in **`interactions/GutterController`**, not in the Vue
+  composable. It is the one real piece of logic in the feature — the mapping CSS gives the score
+  for free (`layoutX = scrollX/zoom − padX + GUTTER_WIDTH`, `screenY = (padY + layoutY)·zoom −
+  scrollY`) — and a framework port must not have to rewrite it.
+
+Look: the divider is **white**, because a dark rule across a staff reads as a *barline* — an
+engraved mark where the music has none. The ink is blue (`#1D4ED8`), Sibelius-style, and
+deliberately **darker than voice 1's `#3B82F6`** so a gutter clef can never be misread as
+voice-coloured notation. The gutter's white tracks the score SVG's own vertical bounds, so the two
+whites read as one sheet of paper.
+
 ### P4 — Virtualization — **deliberately out of scope**
-Today we already pay a full VexFlow re-layout and a full-score SVG draw on *every
-keystroke*, in wrapped view. Linear view creates the **same number of DOM nodes**, merely
-arranged wide instead of tall — so it is **not worse than what ships today**.
+
+*Virtualization = draw only the bars you can actually see.* Today every keystroke re-lays-out and
+re-draws the **whole** score: at 1000 bars, 992 of them are SVG nodes sitting off-screen that the
+browser still has to carry. Virtualizing means drawing the screenful in view, discarding the rest,
+and re-drawing as you scroll — the score behaves as if it is all there, but only a windowful ever
+exists. (Same trick as a long chat list or a big spreadsheet.)
+
+We already pay that full re-layout and full-score draw on *every keystroke*, in wrapped view.
+Linear view creates the **same number of DOM nodes**, merely arranged wide instead of tall — so it
+is **not worse than what ships today**. It only makes the existing waste more *visible*.
 
 Virtualization is real work and a **separate** piece: `ElementRegistry` — our authoritative
 hit-test map — is populated *as a side effect of drawing*, so culling a measure would erase
