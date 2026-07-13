@@ -139,6 +139,11 @@ export class MusicEngine {
     this.renderer.clearGhosts()
   }
 
+  /** How many times an undo snapshot has been ASKED for — incremented even when the ask is
+   *  suppressed inside a batch. {@link runBatch} reads it to answer "did `fn` change anything?"
+   *  without serializing the score. @see runBatch */
+  private undoRequests = 0
+
   /**
    * Run several mutations as ONE undoable action. Every saveUndoState inside `fn`
    * is suppressed; a single snapshot of the final state is pushed afterward (only
@@ -146,19 +151,31 @@ export class MusicEngine {
    * (e.g. deleting or transposing a multi-note selection), not one element at a
    * time. Nested batches are flattened — only the outermost pushes.
    *
-   * @returns true if a snapshot was pushed (something changed), false otherwise.
+   * "Did `fn` change anything?" used to be answered by stringifying the WHOLE SCORE before and
+   * after and comparing — two full serializations per batched edit, on top of the deep clone
+   * `pushState` already does. At orchestral scale that is ~150 ms of the ~220 ms an edit spends
+   * in undo (docs/render-performance-plan.md §7). But every mutation that wants an undo entry
+   * calls {@link saveUndoState}, which bumps {@link undoRequests} *even while suppressed* — so
+   * the answer is already known, for free.
+   *
+   * **The trade, honestly:** this is "did anything ASK to be saved", where the stringify-compare
+   * was "did the content actually differ". They diverge for an operation that saves without
+   * changing anything (setting a value to what it already was) — that now pushes a no-op undo
+   * step, costing one wasted Ctrl-Z rather than a wrong picture.
+   *
+   * @returns true if a snapshot was pushed, false otherwise.
    */
   runBatch(description: string, fn: () => void): boolean {
     if (this.undoSuppressed) { fn(); return false } // inner batch: outer owns the snapshot
 
-    const before = JSON.stringify(this.scoreModel.getScore())
+    const requestsBefore = this.undoRequests
     this.undoSuppressed = true
     try {
       fn()
     } finally {
       this.undoSuppressed = false
     }
-    const changed = JSON.stringify(this.scoreModel.getScore()) !== before
+    const changed = this.undoRequests > requestsBefore
     if (changed) this.saveUndoState(description)
     return changed
   }
@@ -167,9 +184,12 @@ export class MusicEngine {
    * Save current state to undo history (call after mutations)
    */
   private saveUndoState(description: string): void {
-    // Any save means the model changed (even a batched one the runBatch will push later),
-    // so flag it dirty before the suppressed-return so the next render repairs gaps.
+    // Any save means the model changed (even a batched one the runBatch will push later), so
+    // flag it dirty and count the request BEFORE the suppressed-return: the next render needs
+    // the former to repair gaps, and the surrounding runBatch needs the latter to know that
+    // `fn` did something.
     this.markModelDirty()
+    this.undoRequests++
     if (this.undoSuppressed) return // batched: the surrounding runBatch pushes once
     this.undoRedoManager.pushState(this.scoreModel.getScore(), description)
   }
@@ -204,6 +224,7 @@ export class MusicEngine {
    * Inside a `runBatch` the surrounding batch owns the snapshot, exactly as in `saveUndoState`.
    */
   private commitPreviewed(description: string): void {
+    this.undoRequests++ // a batch around it must still see that something happened
     if (this.undoSuppressed) return
     this.undoRedoManager.pushState(this.scoreModel.getScore(), description)
   }

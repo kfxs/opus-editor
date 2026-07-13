@@ -1412,3 +1412,60 @@ describe('isRenderStale (P3 skip test)', () => {
     expect(engine.isRenderStale()).toBe(true)
   })
 })
+
+/**
+ * `runBatch` used to answer "did `fn` change anything?" by stringifying the WHOLE SCORE before
+ * and after and comparing — two full serializations per batched edit, on top of the deep clone
+ * `pushState` already does (docs/render-performance-plan.md §7). Every mutation that wants an undo
+ * entry already calls `saveUndoState`, which counts the request even while suppressed, so the
+ * answer was there for free.
+ */
+describe('runBatch — change detection without serializing the score', () => {
+  it('a batch that edits pushes ONE undo entry for the whole group', () => {
+    const engine = makeEngine()
+    addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const before = engine.getUndoDescription()
+
+    const changed = engine.runBatch('Batch of edits', () => {
+      addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+      addNote(engine, { step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    })
+
+    expect(changed).toBe(true)
+    expect(engine.getUndoDescription()).toBe('Batch of edits') // one entry, not two
+    expect(engine.getUndoDescription()).not.toBe(before)
+
+    // …and ONE undo takes the whole group back: three chords → one.
+    const chords = () => engine.getScore().measures[0].slots.filter(s => s.type === 'chord').length
+    expect(chords()).toBe(3)
+    expect(engine.undo()).toBe(true)
+    expect(chords()).toBe(1)
+  })
+
+  it('a batch that does nothing pushes nothing', () => {
+    const engine = makeEngine()
+    addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const before = engine.getUndoDescription()
+
+    const changed = engine.runBatch('Nothing happens', () => {
+      engine.getScore()                 // a read
+      engine.deleteNote('no-such-note') // a no-op
+    })
+
+    expect(changed).toBe(false)
+    expect(engine.getUndoDescription()).toBe(before) // no entry pushed
+  })
+
+  it('a nested batch is flattened — only the outermost pushes', () => {
+    const engine = makeEngine()
+
+    engine.runBatch('Outer', () => {
+      const inner = engine.runBatch('Inner', () => {
+        addNote(engine, { step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      })
+      expect(inner).toBe(false) // the outer batch owns the snapshot
+    })
+
+    expect(engine.getUndoDescription()).toBe('Outer')
+  })
+})

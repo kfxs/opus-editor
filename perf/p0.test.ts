@@ -183,4 +183,19 @@ describe('P0 — render performance measurement', () => {
       say(`  ${String(bars).padStart(3)} bars × ${String(staves).padStart(2)} staves:  uncached ${ms(uncached).padStart(9)}  →  warm ${ms(warm).padStart(8)}   (${(uncached / warm).toFixed(0)}× faster)`)
     }
   }, 900_000)
+
+  perfIt('G. the undo term after the runBatch fix (2 of 3 serializations gone)', () => {
+    say('\n=== G. undo per batched edit: before vs after ===')
+    for (const [bars, staves] of [[400, 1], [500, 25]] as const) {
+      const score = buildScore(bars, staves)
+      const stringify = time(5, () => { JSON.stringify(score) })
+      const clone = time(5, () => { JSON.parse(JSON.stringify(score)) })
+
+      // Before: runBatch stringified the whole score TWICE to detect change, then pushState
+      // deep-cloned it. After: the change is a counter, so only pushState's clone remains.
+      const before = stringify * 2 + clone
+      const after = clone
+      say(`  ${String(bars).padStart(3)} bars × ${String(staves).padStart(2)} staves:  before ${ms(before).padStart(8)}  →  after ${ms(after).padStart(8)}   (${((1 - after / before) * 100).toFixed(0)}% less)`)
+    }
+  }, 900_000)
 })
