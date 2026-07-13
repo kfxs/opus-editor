@@ -144,7 +144,6 @@ export class ScoreModel {
     this.score = {
       id: uuidv4(),
       title,
-      defaultTimeSignature: { numerator: 4, denominator: 4 },
       measures: [],
       // The staff axis: one staff by default (N=1). Content carries no explicit
       // `staffId` at N=1 — absent = this staff. See docs/multi-staff-plan.md §4.
@@ -267,9 +266,14 @@ export class ScoreModel {
    * 1, which always carries the score's opening time signature explicitly. Rebar
    * uses this to push a downstream TS change forward by materialising over the
    * inserted bars; `materializeBar` overwrites the rest-fill wholesale.
+   *
+   * With no explicit `timeSignature`, the bar inherits the meter in effect at the
+   * measure it follows — so a bar added inside a 3/4 region is a 3/4 bar. (An empty
+   * score has nothing to inherit from: DEFAULT_TIME_SIGNATURE.)
    */
   insertMeasureAfter(afterNumber: number, timeSignature?: TimeSignature): Measure {
-    const ts = timeSignature || this.score.defaultTimeSignature
+    // Resolved BEFORE the splice below, so `afterNumber` still means the preceding bar.
+    const ts = copyTimeSignature(timeSignature ?? effectiveTimeSignature(this.score, afterNumber))
     const measure: Measure = {
       id: uuidv4(),
       number: afterNumber + 1,
@@ -1030,7 +1034,6 @@ export class ScoreModel {
    *
    * `options.extent` = `'toNextChange'` (default) applies to the whole region;
    * `'measure'` touches only this bar and always uses the `'none'` rest reconcile.
-   * Setting measure 1 also updates `score.defaultTimeSignature`.
    *
    * @throws if `ts` is non-dyadic / out of range.
    * @returns true if the score changed.
@@ -1067,7 +1070,6 @@ export class ScoreModel {
     measure.timeSignatureChange = true
     // Setting a signature always re-shows the glyph (un-hides a hidden measure 1).
     delete measure.timeSignatureHidden
-    if (measureNumber === 1) this.score.defaultTimeSignature = copyTimeSignature(ts)
 
     if (rewrite === 'rebar' && extent === 'toNextChange') {
       // rebarRegion flattens the region (old meter) first, then re-bars it.
@@ -3480,15 +3482,11 @@ export class ScoreModel {
 
   /**
    * Reject a loaded score that carries a non-dyadic / out-of-range time
-   * signature (or an invalid additive grouping) on the default or any measure.
-   * Guards the only entry point a bad meter can take, since `TimeSignature`
-   * itself permits any integers.
+   * signature (or an invalid additive grouping) on any measure. Guards the only
+   * entry point a bad meter can take, since `TimeSignature` itself permits any
+   * integers.
    */
   private static validateMeters(score: Score): void {
-    if (!isValidTimeSignature(score.defaultTimeSignature)) {
-      const { numerator, denominator } = score.defaultTimeSignature
-      throw new Error(`Invalid defaultTimeSignature ${numerator}/${denominator}: not a representable dyadic meter (or its grouping is invalid).`)
-    }
     for (const m of score.measures ?? []) {
       if (!isValidTimeSignature(m.timeSignature)) {
         const { numerator, denominator } = m.timeSignature

@@ -28,7 +28,6 @@ function scoreOf(...measureTempos: TempoMark[][]): Score {
     id: 's',
     title: 't',
     measures,
-    defaultTimeSignature: TS,
   }
 }
 

@@ -768,9 +768,13 @@ export interface Score {
    * `tempos`), resolving positionally to a constant "no accidentals" — never to a value
    * stored on the score. A global key would be, implicitly, "the key at bar 1 beat 0"; that
    * conflation is what made `score.clef` bleed across staves (docs/clef-model-plan.md).
+   *
+   * Nor is there a **`defaultTimeSignature`**, for the same reason (it was, in truth,
+   * "the meter at bar 1"). Meter is resolved positionally from the `timeSignatureChange`
+   * markers — {@link effectiveTimeSignature} in utils/meter — falling back to the constant
+   * `DEFAULT_TIME_SIGNATURE`. It also has to go before per-staff meters / polymeter can
+   * land (docs/multi-staff-plan.md §10).
    */
-  /** Default time signature */
-  defaultTimeSignature: TimeSignature
   /**
    * Phrasing slurs spanning runs of note events. Top-level (not measure-owned)
    * because a slur spans barlines and systems. Optional/absent = no slurs

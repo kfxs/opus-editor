@@ -67,7 +67,6 @@ function twoStaffScore(): Score {
     title: 't',
     measures: [measure],
     staves: [{ id: S0 }, { id: S1 }],
-    defaultTimeSignature: { numerator: 4, denominator: 4 },
   }
 }
 
@@ -219,7 +218,6 @@ describe('ScoreModel staff-axis scaffolding (N=1)', () => {
       measures: [
         { id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [] },
       ],
-      defaultTimeSignature: { numerator: 4, denominator: 4 },
     }
     const model = ScoreModel.fromJSON(JSON.stringify(legacy))
     expect(model.getScore().staves).toHaveLength(1)

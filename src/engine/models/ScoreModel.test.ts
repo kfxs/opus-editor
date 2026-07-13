@@ -353,7 +353,6 @@ describe('ScoreModel', () => {
     it('loads a score with no slurs array (absent = empty)', () => {
       const legacy = JSON.stringify({
         id: 'x', title: 'Legacy', tempo: 100,
-        defaultTimeSignature: { numerator: 4, denominator: 4 },
         measures: [
           { id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [] },
         ],
@@ -367,7 +366,6 @@ describe('ScoreModel', () => {
     it('loads a score with no dynamics array (absent = empty)', () => {
       const legacy = JSON.stringify({
         id: 'x', title: 'Legacy', tempo: 100,
-        defaultTimeSignature: { numerator: 4, denominator: 4 },
         measures: [
           { id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [] },
         ],
@@ -1287,6 +1285,41 @@ function totalLen(model: ScoreModel, measureNumber: number): number {
 const measureRest = (model: ScoreModel, n: number) =>
   slotsOf(model, n).find((s) => s.type === 'rest' && s.isMeasureRest)
 
+/**
+ * A new bar with no explicit meter inherits the meter IN EFFECT where it lands — not a
+ * score-wide "default" (which was only ever bar 1's meter in disguise; see the note on
+ * `Score` in types/music.ts). A bar added inside a 3/4 region is a 3/4 bar.
+ */
+describe('ScoreModel — a new measure inherits the meter in effect', () => {
+  it('appends in the meter of the last bar, not the opening one', () => {
+    const model = new ScoreModel('TS') // bar 1 = 4/4
+    model.addMeasure()
+    model.setTimeSignature(2, ts(3, 4)) // bars 2.. are 3/4
+    expect(model.addMeasure().timeSignature).toEqual(ts(3, 4))
+  })
+
+  it('inserts inside a region in that region\'s meter', () => {
+    const model = new ScoreModel('TS')
+    model.addMeasure()
+    model.addMeasure()
+    model.setTimeSignature(2, ts(7, 8)) // bars 2..3 are 7/8
+    expect(model.insertMeasureAfter(2).timeSignature).toEqual(ts(7, 8))
+  })
+
+  it('inserts at the very front in the constant default (nothing precedes it)', () => {
+    const model = new ScoreModel('TS')
+    model.setTimeSignature(1, ts(3, 4))
+    expect(model.insertMeasureAfter(0).timeSignature).toEqual(ts(4, 4))
+  })
+
+  it('does not alias the constant — editing the new bar cannot corrupt later ones', () => {
+    const model = new ScoreModel('TS')
+    const a = model.addMeasure()
+    const b = model.addMeasure()
+    expect(a.timeSignature).not.toBe(b.timeSignature)
+  })
+})
+
 describe('ScoreModel.setTimeSignature', () => {
   let model: ScoreModel
   beforeEach(() => { model = new ScoreModel('TS') })
@@ -1296,7 +1329,6 @@ describe('ScoreModel.setTimeSignature', () => {
     const m = model.getMeasure(1)!
     expect(m.timeSignature).toEqual(ts(3, 4))
     expect(m.timeSignatureChange).toBe(true)
-    expect(model.getScore().defaultTimeSignature).toEqual(ts(3, 4))
     const mr = measureRest(model, 1)!
     expect(mr).toBeDefined()
     expect(fracToNumber(mr.actualDuration!)).toBe(3) // 3/4 bar = 3 quarters
@@ -1985,8 +2017,7 @@ describe('ScoreModel JSON — time-signature validation', () => {
   /** Build a score JSON with the given per-measure meters. */
   function scoreJson(meters: Array<[number, number]>): string {
     return JSON.stringify({
-      id: 'x', title: 't', tempo: 120,
-      defaultTimeSignature: { numerator: meters[0][0], denominator: meters[0][1] },
+      id: 'x', title: 't',
       measures: meters.map(([n, d], i) => ({
         id: `m${i + 1}`, number: i + 1, slots: [], tuplets: [],
         timeSignature: { numerator: n, denominator: d },
@@ -1994,7 +2025,7 @@ describe('ScoreModel JSON — time-signature validation', () => {
     })
   }
 
-  it('rejects a non-dyadic default time signature on load', () => {
+  it('rejects a non-dyadic opening time signature on load', () => {
     expect(() => ScoreModel.fromJSON(scoreJson([[4, 3]]))).toThrow()
   })
 

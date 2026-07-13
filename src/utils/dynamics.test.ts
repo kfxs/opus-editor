@@ -29,7 +29,6 @@ function scoreOf(...measureDyns: Dynamic[][]): Score {
     id: 's',
     title: 't',
     measures,
-    defaultTimeSignature: TS,
   }
 }
 
@@ -66,7 +65,6 @@ function scoreWithChords(...measures: { dynamics?: Dynamic[]; chords?: Chord[] }
   }))
   return {
     id: 's', title: 't', measures: ms,
-    defaultTimeSignature: TS,
   }
 }
 

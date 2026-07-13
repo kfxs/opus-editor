@@ -111,7 +111,6 @@ describe('curveShape override + legacy Slur.cps migration (Phase 1)', () => {
   // A minimal score carrying a legacy pixel-space slur cps inline (pre-Phase-1 shape).
   const legacyScore = (cps: [{ x: number; y: number }, { x: number; y: number }]): Score => ({
     id: 's', title: 't',
-    defaultTimeSignature: { numerator: 4, denominator: 4 },
     measures: [],
     slurs: [{ id: 'slur-1', startNoteId: 'n-a', endNoteId: 'n-b', cps } as unknown as Slur],
   })

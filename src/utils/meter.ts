@@ -325,9 +325,18 @@ export function isTimeSignatureChange(measure: Measure): boolean {
 }
 
 /**
+ * The meter of a score that states none — common time. A CONSTANT, never a field
+ * on the score: a "score default meter" would be, implicitly, "the meter at bar 1
+ * beat 0", and that conflation is what made `score.clef` bleed (docs/clef-model-
+ * plan.md). Measure 1 always carries its meter explicitly, so this is reached only
+ * by an empty score. Mirrors DEFAULT_TEMPO in utils/tempoMap.
+ */
+export const DEFAULT_TIME_SIGNATURE: TimeSignature = { numerator: 4, denominator: 4 }
+
+/**
  * The time signature in effect at a measure: the signature of the most recent
- * explicit change at or before it, falling back to the score default. Change
- * markers are authoritative, so this stays correct even if a measure's stored
+ * explicit change at or before it, falling back to {@link DEFAULT_TIME_SIGNATURE}.
+ * Change markers are authoritative, so this stays correct even if a measure's stored
  * `timeSignature` drifts.
  */
 export function effectiveTimeSignature(score: Score, measureNumber: number): TimeSignature {
@@ -335,5 +344,5 @@ export function effectiveTimeSignature(score: Score, measureNumber: number): Tim
     const m = score.measures.find((mm) => mm.number === n)
     if (m && isTimeSignatureChange(m)) return m.timeSignature
   }
-  return score.defaultTimeSignature
+  return DEFAULT_TIME_SIGNATURE
 }
