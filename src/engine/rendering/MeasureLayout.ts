@@ -2,6 +2,7 @@ import { Voice, Formatter } from 'vexflow'
 import type { Score, Measure, Clef } from '@/types/music'
 import { fracCompare, fracIsZero } from '@/utils/fraction'
 import { measureEndingClef } from '@/utils/clefUtils'
+import { getStaves, firstStaffId, staffMeasureView } from '@/engine/models/staffContent'
 import { measureCapacityFrac } from '@/utils/musicUtils'
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import {
@@ -17,94 +18,142 @@ import {
  * minimum/final width and which line it lands on, plus the cautionary clef/TS width
  * reservations at line breaks.
  *
- * Pure over `(score, effectiveClefs)`: holds no renderer state and writes no
+ * Pure over `(score, clefsByStaff)`: holds no renderer state and writes no
  * per-render lookup maps. It does build throwaway VexFlow voices and uses
  * `Formatter.preCalculateMinTotalWidth`, so it is NOT framework-agnostic — it
  * quarantines that VexFlow coupling rather than removing it. The note-building it
  * needs comes from {@link ./NoteBuilder}.
  */
 
+/** Width of an empty (or all-rest) staff lane's note area. */
+const EMPTY_LANE_NOTE_SPACE = 40
+
 /**
- * Calculate minimum width needed for a single measure based on its content.
- * Uses VexFlow's Formatter to estimate space needed for notes.
+ * The horizontal space **one staff's lane** needs for its notes — the expensive half of the
+ * width calc, and the only half that depends on the staff.
+ *
+ * `laneView` is a {@link staffMeasureView}: the measure narrowed to one staff, so its slots,
+ * clefs and tuplets are that staff's only. Voices *within* the lane are still grouped and
+ * formatted together — a two-voice bar must reserve room for both interleaved streams.
  */
-function calculateMinimumMeasureWidth(
-  measure: Measure,
-  isFirstInLine: boolean,
-  clef: Clef,
-  hasClefChange: boolean = false
-): number {
-  // Start with base overhead
-  let overhead = LAYOUT_CONFIG.BARLINE_PADDING * 2
+function noteSpaceForLane(laneView: Measure, clef: Clef): number {
+  const chords = laneView.slots.filter(s => s.type === 'chord')
+  if (chords.length === 0) return EMPTY_LANE_NOTE_SPACE
 
-  // Add clef width for first measure of each line
-  if (isFirstInLine) {
-    overhead += LAYOUT_CONFIG.CLEF_WIDTH
-  } else if (hasClefChange) {
-    // Mid-line clef change renders a smaller clef at the measure start
-    overhead += LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
-  }
-
-  // Add time signature width wherever a TS glyph is drawn (measure 1 + changes)
-  if (drawsTimeSignature(measure)) {
-    overhead += LAYOUT_CONFIG.TIME_SIG_WIDTH
-  }
-
-  // Budget width for each mid-measure (inline) clef change
-  const midClefCount = (measure.clefs ?? []).filter(c => !fracIsZero(c.beat)).length
-  overhead += midClefCount * LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
-
-  // If measure has no notes or only rests, use minimum width
-  const actualNotes = measure.slots.filter(s => s.type === 'chord')
-  if (actualNotes.length === 0) {
-    return Math.max(LAYOUT_CONFIG.MIN_MEASURE_WIDTH, overhead + 40)
-  }
-
-  // Create temporary voice(s) to calculate width — one per model voice, so a
-  // two-voice bar reserves room for both interleaved streams (mirrors the render
-  // loop's grouping; stem/rest offsets don't affect width so they're omitted here).
-  const sortedAll = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))
-  const clefResolver = makeClefResolver(measure, clef)
-  const capacity = measureCapacityFrac(measure)
-  const voiceIds = [...new Set(sortedAll.map(s => s.voice ?? 0))].sort((a, b) => a - b)
+  const sorted = [...laneView.slots].sort((a, b) => fracCompare(a.beat, b.beat))
+  const clefResolver = makeClefResolver(laneView, clef)
+  const capacity = measureCapacityFrac(laneView)
+  const voiceIds = [...new Set(sorted.map(s => s.voice ?? 0))].sort((a, b) => a - b)
 
   const voices = voiceIds.map(v => {
-    const slots = sortedAll.filter(s => (s.voice ?? 0) === v)
+    const slots = sorted.filter(s => (s.voice ?? 0) === v)
     const sn = createStaveNotesFromSlots(slots, clefResolver)
     // Create VexFlow Tuplets BEFORE adding notes to voice (adjusts tick values)
-    createTupletsForMeasure(measure, slots, sn)
+    createTupletsForMeasure(laneView, slots, sn)
     const voice = new Voice({
-      numBeats: measure.timeSignature.numerator,
-      beatValue: measure.timeSignature.denominator,
+      numBeats: laneView.timeSignature.numerator,
+      beatValue: laneView.timeSignature.denominator,
     }).setMode(chooseVoiceMode(slots, capacity))
     voice.addTickables(sn)
     return voice
   })
 
   try {
-    // Use VexFlow's formatter to calculate minimum width (voices formatted together)
     const formatter = new Formatter()
     formatter.joinVoices(voices)
     const minNoteWidth = formatter.preCalculateMinTotalWidth(voices)
 
-    // Add safety buffer (15%) and ensure minimum note spacing
-    const noteCount = sortedAll.filter(s => s.type === 'chord').length
-    const minSpacingWidth = noteCount * LAYOUT_CONFIG.MIN_NOTE_SPACING
-    const calculatedWidth = Math.max(minNoteWidth * 1.15, minSpacingWidth)
-
-    // Total width = note space + overhead
-    let totalWidth = calculatedWidth + overhead
-
-    // Apply min/max constraints
-    totalWidth = Math.max(totalWidth, LAYOUT_CONFIG.MIN_MEASURE_WIDTH)
-    totalWidth = Math.min(totalWidth, LAYOUT_CONFIG.MAX_MEASURE_WIDTH)
-
-    return totalWidth
+    // Safety buffer (15%), floored at a minimum spacing per note.
+    const minSpacingWidth = chords.length * LAYOUT_CONFIG.MIN_NOTE_SPACING
+    return Math.max(minNoteWidth * 1.15, minSpacingWidth)
   } catch (error) {
-    // If calculation fails, fall back to minimum width
-    console.warn(`Could not calculate width for measure ${measure.number}:`, error)
-    return LAYOUT_CONFIG.MIN_MEASURE_WIDTH
+    console.warn(`Could not calculate width for measure ${laneView.number}:`, error)
+    return EMPTY_LANE_NOTE_SPACE
   }
+}
+
+/**
+ * Minimum width of a measure — **the max over its staves**, not the sum of them.
+ *
+ * A measure spans every staff (they share barlines), so its width is the width of its *widest*
+ * staff. The old code poured every staff's notes into one voice set and formatted them together,
+ * which is both wrong (it engraves a width nobody asked for — a 25-staff bar reserved room for
+ * 25 staves' notes interleaved into one imaginary stream) and the reason layout cost scaled with
+ * the staff axis: the formatter was fed N× the notes. See docs/render-performance-plan.md §3.
+ *
+ * The clef terms live *inside* the max because a clef is per-staff (staff 1 may change clef where
+ * staff 2 does not). The time-signature and barline padding are shared by every staff, so they sit
+ * outside it.
+ */
+function calculateMinimumMeasureWidth(
+  score: Score,
+  measure: Measure,
+  isFirstInLine: boolean,
+  clefsByStaff: Map<string | undefined, Map<number, Clef>>,
+): number {
+  // Shared by every staff: the barline padding, and the meter glyph where one is drawn
+  // (measure 1 + changes).
+  let sharedOverhead = LAYOUT_CONFIG.BARLINE_PADDING * 2
+  if (drawsTimeSignature(measure)) sharedOverhead += LAYOUT_CONFIG.TIME_SIG_WIDTH
+
+  const staffIds = staffIdsOf(score, clefsByStaff)
+
+  // At N=1 the lane IS the measure (every slot matches the only staff), so skip the filter —
+  // it would copy four arrays per measure per render to arrive back at what it was given.
+  const single = staffIds.length === 1
+
+  let widest = 0
+  for (const staffId of staffIds) {
+    const lane = single ? measure : staffMeasureView(measure, staffId, score)
+    const clef = clefsByStaff.get(staffId)?.get(measure.number) ?? 'treble'
+
+    // This staff's own clef overhead. A line-opening measure draws a full clef on every staff;
+    // mid-line, a staff draws a small clef only where ITS clef changes across the barline.
+    let clefOverhead = 0
+    if (isFirstInLine) {
+      clefOverhead += LAYOUT_CONFIG.CLEF_WIDTH
+    } else {
+      const prevEndClef = measure.number > 1
+        ? measureEndingClef(score, measure.number - 1, staffId)
+        : undefined
+      if (prevEndClef !== undefined && clef !== prevEndClef) {
+        clefOverhead += LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
+      }
+    }
+    // Each mid-measure (inline) clef change on THIS staff draws its own small clef.
+    const midClefs = (lane.clefs ?? []).filter(c => !fracIsZero(c.beat)).length
+    clefOverhead += midClefs * LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
+
+    widest = Math.max(widest, noteSpaceForLane(lane, clef) + clefOverhead)
+  }
+
+  const totalWidth = widest + sharedOverhead
+  return Math.min(
+    Math.max(totalWidth, LAYOUT_CONFIG.MIN_MEASURE_WIDTH),
+    LAYOUT_CONFIG.MAX_MEASURE_WIDTH,
+  )
+}
+
+/** The staves to lay out. A hand-built staveless score still has one (undefined) lane, which is
+ *  how `staffMeasureView` addresses "all the content that carries no staffId". */
+function staffIdsOf(
+  score: Score,
+  clefsByStaff: Map<string | undefined, Map<number, Clef>>,
+): (string | undefined)[] {
+  const staves = getStaves(score)
+  if (staves.length > 0) return staves.map(s => s.id)
+  return clefsByStaff.size > 0 ? [...clefsByStaff.keys()] : [undefined]
+}
+
+/** The clef map of the staff that owns the shared, not-per-staff decisions (the cautionary end
+ *  clef at a line break — see {@link applyCautionaryClefs}). */
+function primaryClefs(
+  score: Score,
+  clefsByStaff: Map<string | undefined, Map<number, Clef>>,
+): Map<number, Clef> {
+  return clefsByStaff.get(firstStaffId(score))
+    ?? clefsByStaff.values().next().value
+    ?? new Map<number, Clef>()
 }
 
 /**
@@ -223,16 +272,12 @@ function applyCautionaryTimeSignatures(
  */
 function calculateLinearMeasureWidths(
   score: Score,
-  effectiveClefs: Map<number, Clef>
+  clefsByStaff: Map<string | undefined, Map<number, Clef>>
 ): Map<number, MeasureWidthInfo> {
   const results = new Map<number, MeasureWidthInfo>()
 
   score.measures.forEach((measure, index) => {
-    const isFirst = index === 0
-    const clef = effectiveClefs.get(measure.number) || 'treble'
-    const prevEndClef = measure.number > 1 ? measureEndingClef(score, measure.number - 1) : undefined
-    const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
-    const minWidth = calculateMinimumMeasureWidth(measure, isFirst, clef, hasClefChange)
+    const minWidth = calculateMinimumMeasureWidth(score, measure, index === 0, clefsByStaff)
 
     results.set(measure.number, {
       measureNumber: measure.number,
@@ -254,10 +299,10 @@ function calculateLinearMeasureWidths(
  */
 export function calculateMeasureWidths(
   score: Score,
-  effectiveClefs: Map<number, Clef>,
+  clefsByStaff: Map<string | undefined, Map<number, Clef>>,
   mode: ViewMode = 'wrapped'
 ): Map<number, MeasureWidthInfo> {
-  if (mode === 'linear') return calculateLinearMeasureWidths(score, effectiveClefs)
+  if (mode === 'linear') return calculateLinearMeasureWidths(score, clefsByStaff)
 
   const results = new Map<number, MeasureWidthInfo>()
   const margin = LAYOUT_CONFIG.MARGIN
@@ -270,13 +315,7 @@ export function calculateMeasureWidths(
 
   for (const measure of score.measures) {
     const isFirstInLine = currentLineMeasures.length === 0
-    const clef = effectiveClefs.get(measure.number) || 'treble'
-    // Redraw the clef at a mid-line measure start only when it actually changes
-    // across the barline — i.e. differs from the previous measure's *ending*
-    // clef (a mid-measure change already shows its clef inline in that measure).
-    const prevEndClef = measure.number > 1 ? measureEndingClef(score, measure.number - 1) : undefined
-    const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
-    const minWidth = calculateMinimumMeasureWidth(measure, isFirstInLine, clef, hasClefChange)
+    const minWidth = calculateMinimumMeasureWidth(score, measure, isFirstInLine, clefsByStaff)
 
     // Check if measure fits on current line
     if (currentLineWidth + minWidth > availableWidth && currentLineMeasures.length > 0) {
@@ -293,7 +332,7 @@ export function calculateMeasureWidths(
 
       // Recalculate width for new line (first-in-line gets a full clef, so a
       // clef change is absorbed into the line-start clef — no extra width)
-      const newMinWidth = calculateMinimumMeasureWidth(measure, true, clef)
+      const newMinWidth = calculateMinimumMeasureWidth(score, measure, true, clefsByStaff)
 
       const info: MeasureWidthInfo = {
         measureNumber: measure.number,
@@ -323,7 +362,7 @@ export function calculateMeasureWidths(
     }
   }
 
-  applyCautionaryClefs(score, effectiveClefs, results, availableWidth)
+  applyCautionaryClefs(score, primaryClefs(score, clefsByStaff), results, availableWidth)
   applyCautionaryTimeSignatures(score, results, availableWidth)
 
   return results

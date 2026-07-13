@@ -1313,9 +1313,9 @@ export class VexFlowRenderer {
     const staffStride = staveHeight + verticalSpacing
 
     // Resolve the clef in effect at each measure (handles per-measure changes). Clef is
-    // per-staff, so compute one map per staff; the width calc below uses the primary
-    // staff's map (widths are shared across staves — barlines align).
-    const effectiveClefs = this.computeEffectiveClefs(score)
+    // per-staff, so compute one map per staff — and hand the whole thing to the width calc,
+    // which now takes each staff's own lane and clefs and maxes over them (P1). Widths are
+    // still shared across staves (barlines align); what changed is how they are derived.
     const effectiveClefsByStaff = new Map<string | undefined, Map<number, Clef>>()
     for (const staff of staffList) {
       effectiveClefsByStaff.set(staff.id, this.computeEffectiveClefs(score, staff.id))
@@ -1323,9 +1323,11 @@ export class VexFlowRenderer {
 
     // Calculate proportional widths for all measures (or reuse the frozen layout).
     // Copy the frozen snapshot so the next clear() doesn't wipe it (same Map ref).
+    renderCensus.beginLayout()
     const measureWidths = this.frozenLayout
       ? new Map(this.frozenLayout)
-      : calculateMeasureWidths(score, effectiveClefs, this.viewMode)
+      : calculateMeasureWidths(score, effectiveClefsByStaff, this.viewMode)
+    renderCensus.endLayout()
     // Store for use in tie rendering (to determine which line each measure is on)
     this.measureLayoutInfo = measureWidths
 
