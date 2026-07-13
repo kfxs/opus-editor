@@ -792,12 +792,12 @@ export class MouseController {
    *  `measure` fixes the target SYSTEM (per-system key). Shared by the "grab an already-selected
    *  box" path and the "select-and-grab in one press" path.
    *
-   *  Declines in LINEAR view: the value it would write is keyed to a system, and linear view has
-   *  no system worth naming (docs/linear-view-plan.md §4). The engine refuses the write anyway —
-   *  this just stops the press from arming a drag that could never commit.
+   *  Works in BOTH views, but writes different things: in wrapped view the drag engraves a
+   *  per-system override; in linear view it moves an ephemeral VIEW KNOB that persists nothing
+   *  (docs/linear-view-plan.md §4.2b). Same gesture, and the engine decides which — so nothing
+   *  keyed to a system can be written from a view that has no system worth naming (§4.1).
    *  @returns true if a drag was armed. */
   private armStaffSpacingDrag(engine: MusicEngine, measure: number, startY: number): boolean {
-    if (engine.getViewMode() === 'linear') return false
     const staff = this.state.selectedMeasureStaff
     this.isDraggingStaffSpacing = true
     this.draggedSpacingStaff = staff

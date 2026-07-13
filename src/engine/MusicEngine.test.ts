@@ -11,11 +11,19 @@ const fakeRegistry = {
   findAt: vi.fn(() => null), getByNoteId: vi.fn(() => null),
   registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
 }
-vi.mock('./rendering/VexFlowRenderer', () => ({
+vi.mock('./rendering/VexFlowRenderer', async (importOriginal) => ({
+  // Keep the module's real constants (LAYOUT_CONFIG — the staff-spacing clamp reads it); only the
+  // renderer class needs stubbing, since it wants a canvas/SVG.
+  ...(await importOriginal<typeof import('./rendering/VexFlowRenderer')>()),
   VexFlowRenderer: class {
     initialize = vi.fn()
     renderScore = vi.fn()
     getElementRegistry = vi.fn(() => fakeRegistry)
+    setViewMode = vi.fn()
+    setLinearStaffSpacing = vi.fn()
+    // Nothing is laid out in a stubbed renderer, so no measure opens a system: the per-system
+    // staff-spacing key can't be resolved, exactly as before a first render.
+    getSystemOpeningMeasureNumber = vi.fn(() => undefined)
   },
 }))
 vi.mock('./audio/PlaybackEngine', () => ({
@@ -1246,5 +1254,64 @@ describe('MusicEngine tempo marks', () => {
     expect(engine.undo()).toBe(true)
     expect(marksOf(1)[0]).toMatchObject({ text: 'Allegro', bpm: 144 }) // the removal is undone
     void mark
+  })
+})
+
+/**
+ * Linear view's staff-spacing VIEW KNOB (docs/linear-view-plan.md §4.2b). The point of the
+ * feature is what it does NOT do: it moves the staves you are looking at, and touches neither the
+ * score nor the undo stack. These tests exist to keep it that way — the moment one of them has to
+ * be relaxed, the knob has stopped being a view knob and belongs in a real layout scope.
+ */
+describe('MusicEngine — linear-view staff spacing (the view knob)', () => {
+  it('moves the staves in linear view, and writes NOTHING to the score', () => {
+    const engine = makeEngine()
+    engine.addStaffBelow(0)
+    engine.setViewMode('linear')
+
+    expect(engine.nudgeStaffSpacing(1, 1, 4)).toBe(true)
+    expect(engine.getStaffSpacingAbove(1, 1)).toBe(4) // the view moved…
+
+    // …and the score did not. No engravingOverrides, nothing in the JSON at all.
+    expect(engine.getScore().engravingOverrides).toBeUndefined()
+    expect(engine.exportJSON()).not.toContain('taffSpacing')
+  })
+
+  it('records no undo step — nothing about the score changed', () => {
+    const engine = makeEngine()
+    engine.addStaffBelow(0)
+    engine.setViewMode('linear')
+
+    const before = engine.canUndo()
+    engine.nudgeStaffSpacing(1, 1, 4)
+    engine.previewStaffSpacing(1, 1, 7)
+    engine.commitStaffSpacing()
+    expect(engine.canUndo()).toBe(before)
+  })
+
+  it('is invisible to wrapped view, and survives a round trip back to linear', () => {
+    const engine = makeEngine()
+    engine.addStaffBelow(0)
+    engine.setViewMode('linear')
+    engine.nudgeStaffSpacing(1, 1, 4)
+
+    // Wrapped view resolves its own (unset) spacing — the knob does not leak into it.
+    engine.setViewMode('wrapped')
+    expect(engine.getStaffSpacingAbove(1, 1)).toBe(0)
+
+    // Back in linear, it is still where the user left it (ephemeral, but not amnesiac).
+    engine.setViewMode('linear')
+    expect(engine.getStaffSpacingAbove(1, 1)).toBe(4)
+  })
+
+  it('resets back to the score-derived spacing', () => {
+    const engine = makeEngine()
+    engine.addStaffBelow(0)
+    engine.setViewMode('linear')
+    engine.nudgeStaffSpacing(1, 1, 4)
+
+    expect(engine.resetStaffSpacing(1, 1)).toBe(true)
+    expect(engine.getStaffSpacingAbove(1, 1)).toBe(0)
+    expect(engine.resetStaffSpacing(1, 1)).toBe(false) // nothing left to reset
   })
 })

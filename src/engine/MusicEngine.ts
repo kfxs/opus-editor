@@ -1033,14 +1033,56 @@ export class MusicEngine {
     return Math.max(above, minAbove)
   }
 
+  // ---- Linear view's staff-spacing VIEW KNOB (docs/linear-view-plan.md §4.2b) ----
+
+  /**
+   * Space above each staff *as you are currently looking at it in linear view*, keyed by staffId,
+   * in staff-spaces. A **view knob**, not an override: pulling two staves closer together to read
+   * them while you work is a viewing decision, in the same family as scroll and zoom. So it lives
+   * here on the engine beside {@link viewMode} — **never in `score`, never in
+   * `engravingOverrides`, never in `toJSON`, and never in an undo snapshot.** It is ephemeral:
+   * gone on reload, and invisible to wrapped view.
+   *
+   * This is emphatically NOT the forbidden `score.linearStaffSpacing` (§4.4). That ban is on a
+   * second set of *persisted* overrides sitting beside the wrapped ones — a hand-rolled second
+   * layout. Nobody would call `zoom` an override, and this is the same category.
+   *
+   * ⚠️ The line to hold: **the moment this must survive a reload it stops being a view knob** and
+   * belongs in a real layout scope (§7) — not in a field on Score. That wish will arrive dressed
+   * as a convenience; it is exactly the trap §4.4 exists to catch.
+   */
+  private linearStaffSpacing = new Map<string, number>()
+
+  /** Push the knob down to the renderer, which needs it on every linear-view draw. */
+  private syncLinearStaffSpacing(): void {
+    this.renderer.setLinearStaffSpacing(new Map(this.linearStaffSpacing))
+  }
+
+  /** The staffId the spacing gestures act on, or null if the index has no staff. */
+  private staffIdForSpacing(staffIndex: number): string | null {
+    return staffIdAtIndex(this.scoreModel.getScore(), staffIndex) ?? null
+  }
+
   /**
    * Nudge the space above staff `staffIndex` on the system containing `measureNumber` by
    * `delta` staff-spaces, saving ONE undo step (Shift+↑/↓ fine / Alt+↑/↓ coarse — see
    * docs/staff-spacing-plan.md). Per-system (plan option C): the tweak is keyed to that system's
    * opening measure. Accumulates onto the currently-shown value (per-system, else the global
-   * fallback) so nudging is continuous even over a global default. Clears at 0. @returns true.
+   * fallback) so nudging is continuous even over a global default. Clears at 0.
+   *
+   * In LINEAR view it moves the {@link linearStaffSpacing} view knob instead — same gesture, and
+   * deliberately **no undo entry**, because nothing about the score changed. @returns true.
    */
   nudgeStaffSpacing(staffIndex: number, measureNumber: number, delta: number): boolean {
+    if (this.viewMode === 'linear') {
+      const staffId = this.staffIdForSpacing(staffIndex)
+      if (!staffId) return false
+      const above = this.clampSpacingAbove(this.getStaffSpacingAbove(staffIndex, measureNumber) + delta)
+      this.linearStaffSpacing.set(staffId, above)
+      this.syncLinearStaffSpacing()
+      console.log(`[Staff/linear] ${delta > 0 ? '↓' : '↑'} view spacing above staff ${staffIndex} by ${delta} → ${above} ss (view only, not saved)`)
+      return true
+    }
     const t = this.staffSpacingTarget(staffIndex, measureNumber)
     if (!t) return false
     const above = this.clampSpacingAbove(resolveStaffSpacingAbove(this.scoreModel.getScore(), t.staffId, t.openingMeasureId) + delta)
@@ -1058,6 +1100,14 @@ export class MusicEngine {
    * @returns true if an override was removed (false when there was nothing to reset).
    */
   resetStaffSpacing(staffIndex: number, measureNumber: number): boolean {
+    if (this.viewMode === 'linear') {
+      const staffId = this.staffIdForSpacing(staffIndex)
+      if (!staffId || !this.linearStaffSpacing.has(staffId)) return false
+      this.linearStaffSpacing.delete(staffId)
+      this.syncLinearStaffSpacing()
+      console.log(`[Staff/linear] reset view spacing above staff ${staffIndex}`)
+      return true
+    }
     const t = this.staffSpacingTarget(staffIndex, measureNumber)
     if (!t) return false
     const removed = this.scoreModel.resetStaffSpacing(t.key)
@@ -1068,10 +1118,23 @@ export class MusicEngine {
     return removed
   }
 
-  /** The space above staff `staffIndex` on the system containing `measureNumber`, in
-   *  staff-spaces (per-system value, else the global fallback, else 0) — the drag reads this as
-   *  its baseline at grab time. */
+  /**
+   * The space above staff `staffIndex` on the system containing `measureNumber`, in staff-spaces
+   * — the drag reads this as its baseline at grab time.
+   *
+   * Wrapped: the per-system value, else the global fallback, else 0.
+   * Linear: the view knob, else the **global** value (a content-keyed engraving fact, so it is
+   * honoured here — see §4.2), else 0. Never the per-system value, which is a layout artifact of
+   * the wrapped casting-off and means nothing in a view with one system.
+   */
   getStaffSpacingAbove(staffIndex: number, measureNumber: number): number {
+    if (this.viewMode === 'linear') {
+      const staffId = this.staffIdForSpacing(staffIndex)
+      if (!staffId) return 0
+      const knob = this.linearStaffSpacing.get(staffId)
+      if (knob !== undefined) return knob
+      return resolveStaffSpacingAbove(this.scoreModel.getScore(), staffId, undefined)
+    }
     const t = this.staffSpacingTarget(staffIndex, measureNumber)
     if (!t) return 0
     return resolveStaffSpacingAbove(this.scoreModel.getScore(), t.staffId, t.openingMeasureId)
@@ -1080,15 +1143,25 @@ export class MusicEngine {
   /** Live (preview) staff-spacing update used **while dragging** — sets the absolute space
    *  above staff `staffIndex` on the system containing `measureNumber` (per-system) but does NOT
    *  record undo. Call {@link commitStaffSpacing} on drop for the single undo entry (mirrors
-   *  `previewSlurShape` / `commitSlurShape`). @returns true if a staff was updated. */
+   *  `previewSlurShape` / `commitSlurShape`). In LINEAR view it drives the view knob instead, and
+   *  there is nothing to commit. @returns true if a staff was updated. */
   previewStaffSpacing(staffIndex: number, measureNumber: number, above: number): boolean {
+    if (this.viewMode === 'linear') {
+      const staffId = this.staffIdForSpacing(staffIndex)
+      if (!staffId) return false
+      this.linearStaffSpacing.set(staffId, this.clampSpacingAbove(above))
+      this.syncLinearStaffSpacing()
+      return true
+    }
     const t = this.staffSpacingTarget(staffIndex, measureNumber)
     if (!t) return false
     return this.scoreModel.setStaffSpacing(t.key, this.clampSpacingAbove(above))
   }
 
-  /** Record one undo entry after a staff-spacing drag settles. */
+  /** Record one undo entry after a staff-spacing drag settles. A no-op in linear view: the drag
+   *  moved a view knob, not the score, so there is nothing to undo. */
   commitStaffSpacing(): void {
+    if (this.viewMode === 'linear') return
     this.saveOnly('Adjust staff spacing')
   }
 

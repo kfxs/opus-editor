@@ -103,9 +103,17 @@ export class VexFlowRenderer {
    *  and pushed down here — this is the only place it changes anything: the break/justify policy
    *  it hands to `calculateMeasureWidths`, and the SVG width that follows from it. */
   private viewMode: ViewMode = 'wrapped'
+  /** Linear view's ephemeral staff-spacing VIEW KNOB, staffId → space-above in staff-spaces.
+   *  Owned by MusicEngine (it is view state, like viewMode) and pushed down here; read ONLY in
+   *  linear mode. Never persisted — see MusicEngine.linearStaffSpacing. */
+  private linearStaffSpacing = new Map<string, number>()
 
   setViewMode(mode: ViewMode): void {
     this.viewMode = mode
+  }
+
+  setLinearStaffSpacing(spacing: Map<string, number>): void {
+    this.linearStaffSpacing = spacing
   }
 
   constructor(containerElement: HTMLElement) {
@@ -1217,7 +1225,13 @@ export class VexFlowRenderer {
       const cum: number[] = []
       let acc = 0
       for (const staff of staffList) {
-        const above = staff.id ? resolveStaffSpacingAbove(score, staff.id, openId) : 0
+        // Linear view's view knob wins over the global value when set — it is what the user is
+        // looking at right now. It is never written to the score (§4.2b), so this read is the
+        // only place it exists.
+        const knob = this.viewMode === 'linear' && staff.id
+          ? this.linearStaffSpacing.get(staff.id)
+          : undefined
+        const above = knob ?? (staff.id ? resolveStaffSpacingAbove(score, staff.id, openId) : 0)
         acc += above * VEXFLOW_DEFAULT_STAFF_SPACE_PX
         cum.push(acc)
       }
