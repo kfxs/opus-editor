@@ -134,13 +134,29 @@ function fmtSlot(slot: ChordRest): string {
 }
 
 /**
+ * The default title of a freshly created, unnamed model.
+ *
+ * "Fragment", not "Score": what this model holds is **musical content** — staves, bars,
+ * notes — with no page, margins, or print size. A *score* is the finished, engraved result,
+ * which is content PLUS those engraving concerns (see docs/instruments-plan.md §1: the
+ * finished thing wraps the fragment, never the reverse).
+ *
+ * The trailing "1" is just part of the default label, NOT a live counter — numbering
+ * fragments would mean asking "how many exist?", i.e. ambient global state, which
+ * DESIGN-PRINCIPLES §1 forbids (a score is a value, never a singleton). When several
+ * fragments can be open at once, whoever OPENS them supplies the number via the `title`
+ * argument; the model must never invent it.
+ */
+export const DEFAULT_FRAGMENT_TITLE = 'Fragment 1'
+
+/**
  * ScoreModel manages the musical score data and provides CRUD operations
  * This is the core data model for Developer A's music engine
  */
 export class ScoreModel {
   private score: Score
 
-  constructor(title: string = 'Untitled Score') {
+  constructor(title: string = DEFAULT_FRAGMENT_TITLE) {
     this.score = {
       id: uuidv4(),
       title,

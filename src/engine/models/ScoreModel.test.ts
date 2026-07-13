@@ -38,7 +38,7 @@ describe('ScoreModel', () => {
 
     it('should create score with default title', () => {
       const defaultModel = new ScoreModel()
-      expect(defaultModel.getScore().title).toBe('Untitled Score')
+      expect(defaultModel.getScore().title).toBe('Fragment 1')
     })
 
     // Tempo is NOT a score field: a fresh score makes no tempo statement at all. It plays
