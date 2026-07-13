@@ -46,8 +46,15 @@ export function useViewport(
   sizerEl: Ref<HTMLElement | null>,
   /** The `zoomLayer` — carries `transform: scale(zoom)` above the content surface. */
   zoomLayerEl: Ref<HTMLElement | null>,
+  /**
+   * Called after any scroll / zoom / viewport-resize settles. The linear-view gutter listens
+   * here: it must repaint when the window onto the music moves, and it is the one thing on
+   * screen that scrolling changes without the score itself re-rendering.
+   */
+  onViewChange?: () => void,
 ): ViewportHost {
   const model = new ViewportModel()
+  const notify = () => onViewChange?.()
   // True while we are writing the model's scroll onto the element, so the `scroll` event it
   // triggers is ignored instead of being mirrored straight back into the model.
   let applying = false
@@ -66,6 +73,7 @@ export function useViewport(
     if (!el) return
     model.setViewportSize(el.clientWidth, el.clientHeight)
     syncScrollFromElement()
+    notify()
   }
 
   // --- Natural SVG size → naturalSize, then re-apply zoom (the single contentSize writer) ---
@@ -113,6 +121,7 @@ export function useViewport(
     }
     model.setContentSize(w, h)
     applyScrollToElement()
+    notify()
   }
 
   // --- Scroll sync ---
@@ -121,6 +130,7 @@ export function useViewport(
     const el = viewportEl.value
     if (!el || applying) return
     model.scrollTo(el.scrollLeft, el.scrollTop)
+    notify()
   }
 
   function applyScrollToElement(): void {
@@ -131,6 +141,7 @@ export function useViewport(
     applying = true
     el.scrollLeft = x
     el.scrollTop = y
+    notify()
     // The programmatic scroll fires its `scroll` event asynchronously; drop the guard next frame.
     requestAnimationFrame(() => { applying = false })
   }

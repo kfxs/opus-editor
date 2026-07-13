@@ -60,6 +60,26 @@ export const VIEWPORT_TWO_LINE_HEIGHT =
 export type ViewMode = 'wrapped' | 'linear'
 
 /**
+ * Width of the frozen left gutter in linear view (layout px): a clef, with a little breathing
+ * room. No meter — the music draws its own wherever it changes, and repeating it here is noise.
+ */
+export const GUTTER_WIDTH = LAYOUT_CONFIG.CLEF_WIDTH + 35
+
+/** One staff's worth of what the frozen gutter shows: where it sits, and the clef in force. */
+export interface GutterStaffState {
+  /** Y of the staff's TOP line, in layout (unzoomed) coords — straight off the last render. */
+  topLineY: number
+  lineSpacing: number
+  /** The clef in force at the gutter's x — mid-measure changes included. */
+  clef: Clef
+}
+
+/** Everything the frozen left gutter draws at a given scroll-x. See MusicEngine.getGutterState. */
+export interface GutterState {
+  staves: GutterStaffState[]
+}
+
+/**
  * Width calculation result for a measure
  */
 export interface MeasureWidthInfo {

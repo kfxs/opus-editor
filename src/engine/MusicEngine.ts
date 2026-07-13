@@ -1,7 +1,7 @@
 import { ScoreModel, type ClipDynamicInput, type ClipSlurInput } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
-import type { ViewMode } from './rendering/layoutConfig'
+import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
 import type { Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
@@ -1571,6 +1571,52 @@ export class MusicEngine {
   setViewMode(mode: ViewMode): void {
     this.viewMode = mode
     this.renderer.setViewMode(mode)
+  }
+
+  /**
+   * What the frozen left gutter must show at layout-x `x` (docs/linear-view-plan.md §P3): the
+   * clef *in force* there, per staff, plus the y each staff sits at — everything the gutter needs
+   * and nothing about how it is drawn. No meter: the music draws its own where it changes.
+   *
+   * Pure read off the last render's geometry, so scrolling never re-renders the score: the
+   * caller redraws only its own small pinned SVG. Clef resolution goes through the registry's
+   * `clefAtX`, the same function the pitch math uses, so a mid-measure clef change shows in the
+   * gutter the moment you scroll past it — not at the next barline.
+   *
+   * Null in wrapped view (no gutter) or before the first render (no geometry yet).
+   */
+  getGutterState(x: number): GutterState | null {
+    if (this.viewMode !== 'linear') return null
+    const score = this.scoreModel.getScore()
+    const bounds = this.renderer.getAllMeasureBounds()
+    if (bounds.size === 0) return null
+
+    // The measure containing `x` = the last one that starts at/before it. Scrolled left of the
+    // first measure (or past the last), the nearest end measure's state is the right answer.
+    let measureNumber = score.measures[0]?.number
+    if (measureNumber === undefined) return null
+    for (const m of score.measures) {
+      const b = bounds.get(m.number)
+      if (b && b.measureX <= x) measureNumber = m.number
+      else if (b) break
+    }
+    const registry = this.renderer.getElementRegistry()
+    const staves = getStaves(score)
+    const staffList = staves.length > 0 ? staves : [{ id: staffIdAtIndex(score, 0) }]
+
+    const gutterStaves: GutterStaffState[] = []
+    staffList.forEach((_staff, staffIndex) => {
+      const geo = registry.getStaffGeometry(measureNumber, staffIndex)
+      if (!geo) return
+      gutterStaves.push({
+        topLineY: geo.lineYPositions[0],
+        lineSpacing: geo.lineSpacing,
+        clef: registry.clefAtX(geo, x) as Clef,
+      })
+    })
+    if (gutterStaves.length === 0) return null
+
+    return { staves: gutterStaves }
   }
 
   /**

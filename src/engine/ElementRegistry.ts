@@ -396,8 +396,12 @@ export class ElementRegistry {
    * Pick the clef in effect at a given X within a measure. Uses clef segments
    * (mid-measure changes) when present and an X is supplied; otherwise the
    * measure's opening clef.
+   *
+   * Public because the linear-view gutter asks the same question the pitch math does —
+   * "which clef is in force at this X?" — and must answer it identically, mid-measure
+   * changes included.
    */
-  private clefAtX(geometry: StaffGeometry, x?: number): ClefType {
+  clefAtX(geometry: StaffGeometry, x?: number): ClefType {
     if (x === undefined || !geometry.clefSegments?.length) return geometry.clef
     let clef = geometry.clefSegments[0].clef
     for (const seg of geometry.clefSegments) {

@@ -12,10 +12,12 @@ export function useRenderer(
   state: EditorState,
   engine: Ref<MusicEngine | null>,
   highlight: HighlightController,
+  afterRender?: () => void,
 ): RenderController {
   return new RenderController(
     () => engine.value,
     state,
     highlight,
+    afterRender,
   )
 }

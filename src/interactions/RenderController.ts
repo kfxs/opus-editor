@@ -15,6 +15,10 @@ export class RenderController {
     private getEngine: () => MusicEngine | null,
     private state: EditorState,
     private highlight: HighlightController,
+    /** Run after a full score render. The linear-view gutter hangs off this: a render can move
+     *  the music under a fixed scroll-x (an added note widens a bar), so what the gutter shows
+     *  may change even though the viewport never moved. Optional — nothing else needs it. */
+    private afterRender?: () => void,
   ) {}
 
   private applyHighlights(): void {
@@ -41,6 +45,7 @@ export class RenderController {
     engine.clearCanvas()
     engine.renderScore()
     this.applyHighlights()
+    this.afterRender?.()
   }
 
   /** Returns true if a ghost note was actually rendered (used to hide the cursor). */

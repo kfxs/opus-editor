@@ -550,6 +550,11 @@
           every render, so it must NOT be the outer scroll box. Padding stays on the inner surface so
           bbox coords stay aligned with the viewport scroll. See docs/navigation-viewport-plan.md §4.
         -->
+        <!-- Positioning context for the linear-view gutter, which is pinned OUTSIDE the scroll
+             box (a child of it would scroll away with the music — the one thing it must not do).
+             overflow-hidden clips it: the gutter tracks the score SVG's vertical bounds, so when
+             the music is scrolled it hangs past the top/bottom of the window. -->
+        <div class="relative overflow-hidden rounded-lg">
         <div
           ref="scoreCanvas"
           class="score-container bg-slate-200 rounded-lg overflow-auto"
@@ -582,6 +587,20 @@
               ></div>
             </div>
           </div>
+        </div>
+
+          <!--
+            The frozen left gutter (docs/linear-view-plan.md §P3) — the clef and meter in force at
+            the current scroll-x, so they stay readable at bar 400. A SEPARATE, DOM-pinned SVG:
+            drawing it into the score SVG at scrollX would re-render the whole score on every
+            scroll event. It also sits outside the zoom layer, so useGutter applies the zoom
+            scalar (and the content padding) by hand. Linear view only.
+          -->
+          <div
+            v-if="state.viewMode === 'linear'"
+            ref="scoreGutter"
+            class="score-gutter bg-slate-200"
+          ></div>
         </div>
 
       </div>
@@ -711,6 +730,7 @@ import { useKeyboardEntry } from './composables/useKeyboardEntry'
 import { useMouseInteraction } from './composables/useMouseInteraction'
 import { useTextEditing } from './composables/useTextEditing'
 import { useViewport } from './composables/useViewport'
+import { useGutter } from './composables/useGutter'
 import { useShortcuts } from './composables/useShortcuts'
 import { ClipboardController } from './interactions/ClipboardController'
 import { isValidTimeSignature } from './utils/meter'
@@ -728,6 +748,8 @@ const scoreContent = ref<HTMLElement | null>(null)
 // zoomLayer carries transform: scale(zoom). Both written by useViewport from one scalar.
 const scoreSizer = ref<HTMLElement | null>(null)
 const scoreZoomLayer = ref<HTMLElement | null>(null)
+// Linear view's frozen gutter — pinned OUTSIDE the scroll box and outside the zoom layer.
+const scoreGutter = ref<HTMLElement | null>(null)
 // Fixed viewport height (≈ two staff lines) so the JSON panel below stays visible.
 const viewportHeight = `${VIEWPORT_TWO_LINE_HEIGHT}px`
 
@@ -753,12 +775,20 @@ const ZOOM_WHEEL_K = 0.0015
 const highlight = useHighlight(state, engine, scoreCanvas)
 
 // RenderController depends on HighlightController
-const renderer = useRenderer(state, engine, highlight)
+// A render can move the music under a fixed scroll-x, so the gutter refreshes after each one.
+const renderer = useRenderer(state, engine, highlight, () => gutter.refresh())
 
 // ViewportModel ⇄ DOM scroll wiring (the only DOM-aware viewport piece). Keeps a pure
 // ViewportModel in sync with the outer scroll box and inner content surface, and exposes
 // ensureVisible for scroll-into-view. onMounted/onUnmounted run inside the composable.
-const viewport = useViewport(scoreCanvas, scoreContent, scoreSizer, scoreZoomLayer)
+const viewport = useViewport(
+  scoreCanvas, scoreContent, scoreSizer, scoreZoomLayer,
+  // The gutter is the one thing on screen that a scroll changes without the score re-rendering.
+  () => gutter.refresh(),
+)
+
+// Linear view's frozen left gutter (clef + meter in force at the current scroll-x).
+const gutter = useGutter(engine, scoreGutter, scoreContent, viewport)
 
 // SelectionController depends on renderer (for renderScore callback) and the viewport
 // (scroll-into-view of the selected note now runs through ViewportModel.ensureVisible).
@@ -1151,6 +1181,27 @@ function onDevSoundChange() {
    exactly (= natural SVG size × zoom), so white = the page and the surrounding gray = empty
    space — giving a visible boundary between the score and the viewport. */
 .score-zoom-layer svg {
+  background-color: #ffffff;
+}
+
+/* Linear view's frozen gutter (docs/linear-view-plan.md §P3): the clef in force at the current
+   scroll-x, pinned to the left edge so it stays readable at bar 400. Absolutely positioned OVER
+   the scroll box (a child of it would scroll away with the music) and outside the zoom layer — so
+   GutterController applies the zoom scalar itself, and writes `top`/`height` to track the score
+   SVG's own vertical bounds (the two whites must read as one sheet of paper).
+
+   The divider is WHITE, not a rule: a dark line would read as a barline — an engraved mark in
+   music that has none there. It exists only to stop the music's noteheads touching the frozen
+   clef, so it should separate without drawing the eye. pointer-events:none keeps the music
+   underneath clickable. */
+.score-gutter {
+  position: absolute;
+  left: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-right: 2px solid #ffffff;
+}
+.score-gutter svg {
   background-color: #ffffff;
 }
 
