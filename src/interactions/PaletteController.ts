@@ -120,6 +120,13 @@ export class PaletteController {
     if (!engine || engine.getViewMode() === mode) return
     engine.setViewMode(mode)
     this.state.viewMode = mode
+    // Disarm any armed slur point on the way through. Not rendering the handles (linear view
+    // draws none) only stops NEW arming — it does not disarm what is already armed. Without
+    // this: arm an orange join in wrapped view, switch to linear, press an arrow, and a segment
+    // override gets written from inside linear view with a wrapped-captured span count.
+    this.state.selectedSlurEndpoint = null
+    this.state.selectedSlurSegmentEndpoint = null
+    this.state.selectedSlurSegmentSpanCount = 0
     this.renderScore()
   }
 

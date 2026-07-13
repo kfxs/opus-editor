@@ -137,9 +137,44 @@ Sorting the existing compartment by that rule:
 | `segmentCurveShape` / `segmentEndpointOffset` *middles* | slur id + segment (= a system) | **already self-suppress** at `spanCount 1` — free, no code |
 | per-system staff spacing | `staffId @ openingMeasureId` | **suppress** on read; **forbid** the gesture |
 
+(Forbidding the gesture leaves linear view with *no* way to move a staff vertically at all —
+see §4.2b, which is the missing category that fixes it.)
+
 This is a restatement of **Design Principle 3** one level up: the model holds no layout —
 *and an override keyed to a layout artifact is not a model fact either.* It is a fact about
 one particular casting-off. It has meaning only inside the view that produced it.
+
+### 4.2b The third category: a *view knob* is not an override at all
+
+The table above sorts everything into "musical fact" or "layout artifact", and staff spacing
+lands in the second bucket — so linear view forbids the gesture, and you end up unable to move
+a staff there at all. That is too strict, and it is too strict because the table is missing a
+category.
+
+Wanting the staves closer together while you work is not an engraving decision. It is a
+**viewing** decision, in the same family as scroll and zoom: "let me see these two staves near
+each other right now." It engraves nothing, and it should persist nothing.
+
+> **A view knob lives on the engine, beside `viewMode` — not in `score`, not in
+> `engravingOverrides`, never in `toJSON`.** It is ephemeral: gone on reload, and invisible to
+> wrapped view.
+
+This does **not** breach §4.4. That ban is on a second set of *persisted overrides* sitting
+beside the wrapped ones — which is a hand-rolled second layout. A transient knob is not that;
+it is the same category as `zoom`, which nobody would call an override.
+
+The line to hold: **the moment anyone wants it to survive a reload, it stops being a view knob**
+and must go into a real layout scope (§7) — never into a `score.linearStaffSpacing` field. That
+wish is precisely the trap §4.4 exists to catch, and it will arrive dressed as a convenience.
+
+Note what this is *not*: it is not the global (`staffId`-keyed) staff-spacing override. That one
+is a real, persisted engraving decision that happens to pass §4.2's test (it is vertical-only,
+so it means the same thing at any measure width). Writing *that* from linear view is a separate,
+defensible option — but it is a different feature, and it is not what a convenience knob is for.
+
+**Not scheduled.** Do it when linear view is actually being used to work in and the missing knob
+bites — i.e. after P3, not before. Building it earlier means guessing at a gesture nobody has
+wanted yet.
 
 ### 4.3 Read-only is permanent, not a phase-1 shortcut
 

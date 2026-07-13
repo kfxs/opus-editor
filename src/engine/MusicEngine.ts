@@ -993,9 +993,18 @@ export class MusicEngine {
    * plan option C) and maps its opening measure NUMBER → durable id. Returns undefined when the
    * index has no staff or the system isn't laid out (score not yet rendered). Also returns the
    * `openingMeasureId` and `staffId` so callers can resolve/fall back without re-deriving them.
+   *
+   * **Null in linear view, always** — and that one line is the whole safety layer of
+   * docs/linear-view-plan.md §4.1. This key is a *system* address, and linear view's single
+   * system opens at measure 1: resolving it here would hand every caller the key of wrapped
+   * view's first system, so a staff drag in linear view would silently rewrite the wrapped
+   * layout. Since every staff-spacing path (nudge / reset / preview / the drag's baseline read)
+   * comes through this one resolver, refusing here refuses all of them at the source — the UI
+   * gates on top are convenience, not the guard.
    */
   private staffSpacingTarget(staffIndex: number, measureNumber: number):
     { key: string; staffId: string; openingMeasureId: string } | null {
+    if (this.viewMode === 'linear') return null
     const staffId = staffIdAtIndex(this.scoreModel.getScore(), staffIndex)
     if (!staffId) return null
     const openerNum = this.renderer.getSystemOpeningMeasureNumber(measureNumber)

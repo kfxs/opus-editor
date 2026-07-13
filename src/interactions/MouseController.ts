@@ -781,7 +781,7 @@ export class MouseController {
     if (!geo) return false
     if (y < geo.lineYPositions[0] - STAFF_BAND_PAD_PX || y > geo.lineYPositions[4] + STAFF_BAND_PAD_PX) return false
 
-    this.armStaffSpacingDrag(engine, measure, y)
+    if (!this.armStaffSpacingDrag(engine, measure, y)) return false
     console.log(`Staff-spacing drag ready | measure:${measure} staff:${staff} baseline:${this.draggedSpacingBaseline} ss`)
     event.preventDefault()
     return true
@@ -790,8 +790,14 @@ export class MouseController {
   /** Arm the vertical staff-spacing drag on the currently-selected single box's staff,
    *  capturing its current per-system `above` as the baseline and `startY` as the grab origin.
    *  `measure` fixes the target SYSTEM (per-system key). Shared by the "grab an already-selected
-   *  box" path and the "select-and-grab in one press" path. */
-  private armStaffSpacingDrag(engine: MusicEngine, measure: number, startY: number): void {
+   *  box" path and the "select-and-grab in one press" path.
+   *
+   *  Declines in LINEAR view: the value it would write is keyed to a system, and linear view has
+   *  no system worth naming (docs/linear-view-plan.md §4). The engine refuses the write anyway —
+   *  this just stops the press from arming a drag that could never commit.
+   *  @returns true if a drag was armed. */
+  private armStaffSpacingDrag(engine: MusicEngine, measure: number, startY: number): boolean {
+    if (engine.getViewMode() === 'linear') return false
     const staff = this.state.selectedMeasureStaff
     this.isDraggingStaffSpacing = true
     this.draggedSpacingStaff = staff
@@ -800,6 +806,7 @@ export class MouseController {
     this.draggedSpacingStartY = startY
     this.staffSpacingDragChanged = false
     this.staffSpacingDragStartTime = Date.now()
+    return true
   }
 
   /** Select a clef glyph for removal, and arm a horizontal drag for movable clefs. */

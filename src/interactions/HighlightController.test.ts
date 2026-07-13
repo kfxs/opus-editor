@@ -4,6 +4,7 @@ import { HighlightController } from './HighlightController'
 import { createEditorState } from './EditorState'
 import { ElementRegistry, type ElementInfo } from '../engine/ElementRegistry'
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { ViewMode } from '../engine/rendering/layoutConfig'
 
 /**
  * Guards slur-handle drawing across same-line AND cross-system slurs.
@@ -23,12 +24,16 @@ function runPartials(
   partialExtras: Partial<ElementInfo>[],
   selectedEndpoint: 'start' | 'end' | null = null,
   selectedSegment: EditorStateSegmentSel = null,
+  viewMode: ViewMode = 'wrapped',
 ) {
   const registry = new ElementRegistry()
   for (const extra of partialExtras) {
     registry.add({ type: 'slur', id: 'S1', bbox: { x: 0, y: 0, width: 0, height: 0 }, ...extra })
   }
-  const engine = { getElementRegistry: () => registry } as unknown as MusicEngine
+  const engine = {
+    getElementRegistry: () => registry,
+    getViewMode: () => viewMode,
+  } as unknown as MusicEngine
 
   const canvas = document.createElement('div')
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
@@ -60,6 +65,8 @@ const run = (
   selectedSegment: EditorStateSegmentSel = null,
 ) => runPartials([slurExtra], selectedEndpoint, selectedSegment)
 
+const runLinear = (slurExtra: Partial<ElementInfo>) => runPartials([slurExtra], null, null, 'linear')
+
 const CPS: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 10, y: 20 }, { x: 30, y: 20 }]
 const ENDS = { p0: { x: 5, y: 15 }, p1: { x: 40, y: 15 }, direction: -1 }
 const SEG_ENDS = { p0: { x: 50, y: 15 }, p1: { x: 90, y: 15 }, direction: -1 }
@@ -71,6 +78,17 @@ describe('HighlightController slur-handle gate', () => {
     expect(r.rounds).toBe(0)
     expect(r.rects).toBe(2)
     expect(r.circles).toBe(0)
+  })
+
+  // Slur geometry is read-only in linear view: the shape is relative to endpoints whose
+  // horizontal span differs between the views (docs/linear-view-plan.md §4.2). Drawing no
+  // handles is also what keeps them out of the registry, so there is nothing to grab.
+  it('linear view → no handles drawn, and none registered to grab', () => {
+    const r = runLinear({ controlPoints: CPS, slurEndpoints: ENDS })
+    expect(r.rounds).toBe(0)
+    expect(r.squares).toBe(0)
+    expect(r.circles).toBe(0)
+    expect(r.rects).toBe(0)
   })
 
   it('same-line slur (controlPoints + slurEndpoints) → both round and square handles', () => {

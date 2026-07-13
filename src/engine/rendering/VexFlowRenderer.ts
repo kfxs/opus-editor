@@ -1207,7 +1207,13 @@ export class VexFlowRenderer {
     let top = margin
     let contentHeightPx = 0
     for (let line = 0; line < numLines; line++) {
-      const openId = openingMeasureId.get(line)
+      // A per-system spacing override is keyed to the system's opening measure — a LAYOUT
+      // artifact, meaningful only inside the casting-off that produced it. Linear view has one
+      // system opening at measure 1, so honouring the key here would silently show (and, via a
+      // drag, overwrite) wrapped view's FIRST-SYSTEM spacing. Pass no opener instead: the
+      // resolver falls back to the per-staff GLOBAL value, which is keyed to a content entity
+      // and so travels between views exactly as it should. (docs/linear-view-plan.md §4)
+      const openId = this.viewMode === 'linear' ? undefined : openingMeasureId.get(line)
       const cum: number[] = []
       let acc = 0
       for (const staff of staffList) {
