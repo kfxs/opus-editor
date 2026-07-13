@@ -205,10 +205,18 @@ and Tone only provides `now()`, `start()`, `Frequency`, and `gainToDb`. So:
   `synth.triggerAttackRelease`. Wire `stop()` (master-gain kill) and `setVolume()`
   to the seam. Whole score plays as piano.
   **Milestone: real sound, nothing in git, samples served from the CDN.**
-- **Phase 2 — GM instrument switching (later).** Preload a handful of GM presets
-  from the CDN; add a `program`/instrument field per staff (or a global picker
-  first); map GM program number → WebAudioFont preset; `load()` on demand. This is
-  where the "score editor with many instruments" payoff lands.
+- **Phase 2 — GM instrument switching (later).** ⚠️ **SUPERSEDED by
+  `docs/instruments-plan.md` — do NOT build the per-staff field sketched below.**
+  `staff.program` is `score.clef` one level down: it is really "the instrument at bar 1",
+  and it cannot express a piano (one instrument, two staves), a condensed score (several
+  instruments on one staff, one per voice), or an instrument change at bar 40. The dropdown
+  may look the same, but it must **write a positional (staff, voice, position) → instrument
+  assignment**, with the GM program bound to the *instrument*. See instruments-plan §7.
+  ~~Preload a handful of GM presets from the CDN; add a `program`/instrument field per staff
+  (or a global picker first); map GM program number → WebAudioFont preset; `load()` on
+  demand.~~ Still true: preloading presets, the GM→preset mapping, and on-demand `load()` —
+  but the seam goes **multi-timbral** (load a *set* of programs; `noteOn` names its program),
+  and `collectScheduledNotes` must carry each note's lane (staff, voice).
 - **Phase 3 — polish (deferred).** Reverb/effects, velocity realism, preload
   strategy, and possibly clock-approach **B** (drop Tone). Optional: if truly
   offline playback ever becomes a requirement, fetch the specific presets we use
