@@ -1,5 +1,6 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import { GutterRenderer } from '../engine/rendering/GutterRenderer'
+import { GUTTER_WIDTH } from '../engine/rendering/layoutConfig'
 import type { ViewportModel } from '../engine/ViewportModel'
 
 /**
@@ -11,8 +12,8 @@ import type { ViewportModel } from '../engine/ViewportModel'
  * and the pure {@link ViewportModel}, and it owns the one piece of real logic in the feature —
  * **the mapping between the viewport's SCREEN space and the score's LAYOUT space**:
  *
- *   layoutX = scrollX / zoom − padX          (which music sits at the left edge)
- *   screenY = (padY + layoutY) · zoom − scrollY   (where a staff lands on screen)
+ *   layoutX = scrollX / zoom − padX + GUTTER_WIDTH   (the first music you can actually SEE)
+ *   screenY = (padY + layoutY) · zoom − scrollY      (where a staff lands on screen)
  *
  * The score gets that mapping for free from CSS (a scroll box and a `transform: scale`). The
  * gutter is pinned OUTSIDE both, on purpose — drawing it into the score's SVG at `scrollX` would
@@ -58,7 +59,14 @@ export class GutterController {
     const pad = this.contentPadding()
     const svgHeight = this.scoreSvgHeight()
 
-    const state = svgHeight > 0 ? this.getEngine()?.getGutterState(x / zoom - pad.x) ?? null : null
+    // Query the music at the gutter's RIGHT edge, not the viewport's left edge. The gutter is
+    // opaque and covers the leftmost GUTTER_WIDTH of music, so the layout-x under the viewport's
+    // left edge is music you cannot see — describing it means the bar number (and the clef) lag
+    // by a gutter's width of scrolling: a barline slides under the gutter and stays hidden there
+    // while the gutter still names the bar before it. The first VISIBLE music is the honest
+    // answer to "where am I".
+    const layoutX = x / zoom - pad.x + GUTTER_WIDTH
+    const state = svgHeight > 0 ? this.getEngine()?.getGutterState(layoutX) ?? null : null
     if (!state) {
       this.renderer.clear() // wrapped view, or nothing rendered yet
       return

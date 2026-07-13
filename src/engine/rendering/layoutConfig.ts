@@ -76,6 +76,8 @@ export interface GutterStaffState {
 
 /** Everything the frozen left gutter draws at a given scroll-x. See MusicEngine.getGutterState. */
 export interface GutterState {
+  /** The measure you are currently looking at — the gutter's "where am I". */
+  measureNumber: number
   staves: GutterStaffState[]
 }
 

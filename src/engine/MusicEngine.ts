@@ -1575,8 +1575,9 @@ export class MusicEngine {
 
   /**
    * What the frozen left gutter must show at layout-x `x` (docs/linear-view-plan.md §P3): the
-   * clef *in force* there, per staff, plus the y each staff sits at — everything the gutter needs
-   * and nothing about how it is drawn. No meter: the music draws its own where it changes.
+   * clef *in force* there, per staff, the y each staff sits at, and the measure you are looking
+   * at — everything the gutter needs and nothing about how it is drawn. No meter: the music draws
+   * its own where it changes.
    *
    * Pure read off the last render's geometry, so scrolling never re-renders the score: the
    * caller redraws only its own small pinned SVG. Clef resolution goes through the registry's
@@ -1616,7 +1617,7 @@ export class MusicEngine {
     })
     if (gutterStaves.length === 0) return null
 
-    return { staves: gutterStaves }
+    return { measureNumber, staves: gutterStaves }
   }
 
   /**

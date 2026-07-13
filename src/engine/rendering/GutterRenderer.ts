@@ -7,10 +7,19 @@ import { GUTTER_WIDTH, type GutterState } from './layoutConfig'
  * DARKER blue than voice 1's (#3B82F6) so a gutter clef can never be misread as voice-coloured
  * notation.
  */
-const GUTTER_INK = '#1E40AF'
+const GUTTER_INK = '#1D4ED8'
 
 /** Left inset of the gutter's staves (layout px) — see the StaveConnector note in `render`. */
 const GUTTER_INSET = 10
+
+/**
+ * Bar number: font, size, and how far its baseline sits above the top staff's first line (px).
+ * A plain text stack on purpose — NOT VexFlow's, which leads with Bravura: a music font has no
+ * business setting the metrics of type (see utils/fontStack for the two bugs that came of it).
+ */
+const GUTTER_NUMBER_FONT = 'Arial, Helvetica, sans-serif'
+const GUTTER_NUMBER_SIZE_PX = 11
+const GUTTER_NUMBER_LIFT_PX = 8
 
 /**
  * The frozen left gutter of linear view (docs/linear-view-plan.md §P3): the clef *in force at the
@@ -102,5 +111,12 @@ export class GutterRenderer {
         .setContext(ctx)
         .draw()
     }
+
+    // The bar number: the clef says WHAT you are reading, this says WHERE you are — the other
+    // half of the question linear view makes hard to answer. Sits above the top staff, where an
+    // engraved measure number goes.
+    const top = state.staves[0]
+    ctx.setFont(GUTTER_NUMBER_FONT, GUTTER_NUMBER_SIZE_PX)
+    ctx.fillText(String(state.measureNumber), GUTTER_INSET, top.topLineY - GUTTER_NUMBER_LIFT_PX)
   }
 }
