@@ -44,6 +44,22 @@ export const VIEWPORT_TWO_LINE_HEIGHT =
   2 * (LAYOUT_CONFIG.STAVE_HEIGHT + LAYOUT_CONFIG.VERTICAL_SPACING) + LAYOUT_CONFIG.MARGIN * 2
 
 /**
+ * How the music is laid out on the surface: `wrapped` = today's view, measures broken into
+ * stacked systems and justified to the line; `linear` = one endless system, measures at their
+ * intrinsic width (Sibelius Panorama / Dorico galley / MuseScore continuous-horizontal).
+ *
+ * Two things it deliberately is NOT. It is not a *score* field — it is view state, owned by
+ * MusicEngine and never written to JSON (docs/linear-view-plan.md §5, P0). And pagination is
+ * not a third member: pages, if they ever come, are a property of `wrapped` (a casting-off),
+ * not a sibling of it (§1).
+ *
+ * Lives here, beside the layout config, because that is exactly what it decides — the break
+ * and justify policy in MeasureLayout — and because both the renderer and MeasureLayout need
+ * it without importing each other.
+ */
+export type ViewMode = 'wrapped' | 'linear'
+
+/**
  * Width calculation result for a measure
  */
 export interface MeasureWidthInfo {

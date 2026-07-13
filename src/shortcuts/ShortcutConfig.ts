@@ -236,6 +236,13 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   'Ctrl+-': { action: 'zoomOut', description: 'Zoom out' },
   'Ctrl+0': { action: 'zoomReset', description: 'Reset zoom to 100%' },
 
+  // View mode (docs/linear-view-plan.md). Sibelius binds Panorama to Ctrl+Shift+P, but Firefox
+  // owns that (private window), so: Ctrl+Shift+L for "linear".
+  'Ctrl+Shift+l': {
+    action: 'toggleViewMode',
+    description: 'Toggle linear view (one endless system) / wrapped view',
+  },
+
   // Undo/Redo
   'Ctrl+z': {
     action: 'undo',

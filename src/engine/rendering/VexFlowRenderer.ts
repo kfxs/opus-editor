@@ -32,7 +32,7 @@ import {
 import { calculateMeasureWidths } from './MeasureLayout'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
 import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex } from '@/engine/models/staffContent'
-import { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo } from './layoutConfig'
+import { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 
 // Re-exported for existing importers (MusicEngine, App.vue, RenderPass) that referenced
 // these from the renderer before they moved to ./layoutConfig.
@@ -99,6 +99,14 @@ export class VexFlowRenderer {
    *  sits in a redundant position visible during the drag (it would otherwise be
    *  hidden at beat 0), instead of disappearing under the cursor. */
   private draggingClef: { measure: number; beat: Fraction } | null = null
+  /** Wrapped (stacked, justified systems) vs linear (one endless system). Owned by MusicEngine
+   *  and pushed down here — this is the only place it changes anything: the break/justify policy
+   *  it hands to `calculateMeasureWidths`, and the SVG width that follows from it. */
+  private viewMode: ViewMode = 'wrapped'
+
+  setViewMode(mode: ViewMode): void {
+    this.viewMode = mode
+  }
 
   constructor(containerElement: HTMLElement) {
     this.svgContainer = containerElement
@@ -1229,7 +1237,6 @@ export class VexFlowRenderer {
     const margin = LAYOUT_CONFIG.MARGIN
     const staveHeight = LAYOUT_CONFIG.STAVE_HEIGHT
     const verticalSpacing = LAYOUT_CONFIG.VERTICAL_SPACING
-    const containerWidth = LAYOUT_CONFIG.CONTAINER_WIDTH
 
     // The staff axis (multi-staff): staves stack vertically within each system, sharing
     // barlines. N = 1 is the single-staff default. Each system now holds N staves, so the
@@ -1255,9 +1262,20 @@ export class VexFlowRenderer {
     // Copy the frozen snapshot so the next clear() doesn't wipe it (same Map ref).
     const measureWidths = this.frozenLayout
       ? new Map(this.frozenLayout)
-      : calculateMeasureWidths(score, effectiveClefs)
+      : calculateMeasureWidths(score, effectiveClefs, this.viewMode)
     // Store for use in tie rendering (to determine which line each measure is on)
     this.measureLayoutInfo = measureWidths
+
+    // Wrapped view justifies every line to one fixed page width, so the surface is that width.
+    // Linear view has no line to justify to: the music runs off to the right and the surface has
+    // to grow with it — 2·margin + the intrinsic widths, floored at the wrapped width so a short
+    // fragment doesn't render on a stub of a page. (docs/linear-view-plan.md §P1)
+    const contentWidth = this.viewMode === 'linear'
+      ? Math.max(
+          LAYOUT_CONFIG.CONTAINER_WIDTH,
+          margin * 2 + [...measureWidths.values()].reduce((sum, m) => sum + m.finalWidth, 0),
+        )
+      : LAYOUT_CONFIG.CONTAINER_WIDTH
 
     // Client #7 staff-spacing (per-system): resolve each line's own per-staff push-down and
     // system top from the overrides + this render's line assignment (needs `measureWidths`).
@@ -1285,8 +1303,8 @@ export class VexFlowRenderer {
     const currentHeight = parseInt(svg.getAttribute('height') || '0')
 
     // Only resize if dimensions changed (following VexFlow best practice)
-    if (currentWidth !== containerWidth || currentHeight !== totalHeight) {
-      this.renderer!.resize(containerWidth, totalHeight)
+    if (currentWidth !== contentWidth || currentHeight !== totalHeight) {
+      this.renderer!.resize(contentWidth, totalHeight)
     }
 
     // Render each measure with calculated widths

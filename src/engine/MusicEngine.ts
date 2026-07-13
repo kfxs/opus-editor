@@ -1,6 +1,7 @@
 import { ScoreModel, type ClipDynamicInput, type ClipSlurInput } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
+import type { ViewMode } from './rendering/layoutConfig'
 import type { Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
@@ -1536,6 +1537,32 @@ export class MusicEngine {
   }
 
   // ==================== Rendering Operations ====================
+
+  /**
+   * Wrapped (stacked systems, justified) vs linear (one endless system, intrinsic widths).
+   * View state, not score data: it lives on the engine, never in the model, and never in
+   * `toJSON`. See docs/linear-view-plan.md §5.
+   *
+   * The engine owns it — not EditorState, not a `renderScore` parameter — because the engine
+   * re-renders *itself* from several internal call sites that never pass through
+   * RenderController, so a mode held anywhere else would go stale exactly there. Engine
+   * ownership is also what lets P2 refuse the system-keyed staff-spacing writes at the source.
+   */
+  private viewMode: ViewMode = 'wrapped'
+
+  getViewMode(): ViewMode {
+    return this.viewMode
+  }
+
+  /**
+   * Switch the layout mode. Sets state only — the caller repaints through RenderController,
+   * so the highlight pass runs too (an engine-level `renderScore()` here would paint a score
+   * with every selection highlight dropped).
+   */
+  setViewMode(mode: ViewMode): void {
+    this.viewMode = mode
+    this.renderer.setViewMode(mode)
+  }
 
   /**
    * Render the score

@@ -42,6 +42,37 @@
 
           <div class="border-l border-gray-600 mx-2"></div>
 
+          <!-- View mode: wrapped systems vs one endless system (docs/linear-view-plan.md) -->
+          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
+            <span class="text-sm text-gray-300">View:</span>
+            <button
+              @click="palette.setViewMode('wrapped')"
+              :class="[
+                'px-3 py-1 rounded text-sm',
+                state.viewMode === 'wrapped'
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Wrapped view — music broken into stacked systems (Ctrl+Shift+L toggles)"
+            >
+              Wrapped
+            </button>
+            <button
+              @click="palette.setViewMode('linear')"
+              :class="[
+                'px-3 py-1 rounded text-sm',
+                state.viewMode === 'linear'
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-600 hover:bg-gray-500'
+              ]"
+              title="Linear view — one endless system, scroll left to right (Ctrl+Shift+L toggles)"
+            >
+              Linear
+            </button>
+          </div>
+
+          <div class="border-l border-gray-600 mx-2"></div>
+
           <!-- Voice Selector (Sibelius-style: V1 blue, V2 green) -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Voice:</span>

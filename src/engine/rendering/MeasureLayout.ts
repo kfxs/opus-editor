@@ -3,7 +3,7 @@ import type { Score, Measure, Clef } from '@/types/music'
 import { fracCompare, fracIsZero } from '@/utils/fraction'
 import { measureEndingClef } from '@/utils/clefUtils'
 import { measureCapacityFrac } from '@/utils/musicUtils'
-import { LAYOUT_CONFIG, type MeasureWidthInfo } from './layoutConfig'
+import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import {
   createStaveNotesFromSlots,
   makeClefResolver,
@@ -213,14 +213,52 @@ function applyCautionaryTimeSignatures(
 }
 
 /**
- * Calculate widths for all measures using a two-pass algorithm.
- * Pass 1: Calculate minimum widths and group into lines.
- * Pass 2: Distribute available space proportionally within each line.
+ * Linear view's break policy: there isn't one. Every measure lands on line 0 at its intrinsic
+ * width — never break, never justify (docs/linear-view-plan.md §P1). Only the very first
+ * measure opens a line, so only it carries a full clef; every later measure pays the smaller
+ * mid-line clef-change width, and only when the clef actually changes across the barline.
+ *
+ * No cautionary clef/TS pass: those are drawn at line breaks, and there are none — they
+ * self-disable rather than being suppressed.
  */
-export function calculateMeasureWidths(
+function calculateLinearMeasureWidths(
   score: Score,
   effectiveClefs: Map<number, Clef>
 ): Map<number, MeasureWidthInfo> {
+  const results = new Map<number, MeasureWidthInfo>()
+
+  score.measures.forEach((measure, index) => {
+    const isFirst = index === 0
+    const clef = effectiveClefs.get(measure.number) || 'treble'
+    const prevEndClef = measure.number > 1 ? measureEndingClef(score, measure.number - 1) : undefined
+    const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
+    const minWidth = calculateMinimumMeasureWidth(measure, isFirst, clef, hasClefChange)
+
+    results.set(measure.number, {
+      measureNumber: measure.number,
+      minWidth,
+      finalWidth: minWidth, // intrinsic width — nothing to justify to
+      lineNumber: 0,
+    })
+  })
+
+  return results
+}
+
+/**
+ * Calculate widths for all measures using a two-pass algorithm.
+ * Pass 1: Calculate minimum widths and group into lines.
+ * Pass 2: Distribute available space proportionally within each line.
+ *
+ * In `linear` mode both passes are skipped — see {@link calculateLinearMeasureWidths}.
+ */
+export function calculateMeasureWidths(
+  score: Score,
+  effectiveClefs: Map<number, Clef>,
+  mode: ViewMode = 'wrapped'
+): Map<number, MeasureWidthInfo> {
+  if (mode === 'linear') return calculateLinearMeasureWidths(score, effectiveClefs)
+
   const results = new Map<number, MeasureWidthInfo>()
   const margin = LAYOUT_CONFIG.MARGIN
   const availableWidth = LAYOUT_CONFIG.CONTAINER_WIDTH - (margin * 2)

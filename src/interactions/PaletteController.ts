@@ -1,5 +1,6 @@
 import type { ArticulationType, Accidental, NoteDuration, PitchAlter, BeamMode, Clef, TimeSignature } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
 import { fracToNumber } from '../utils/fraction'
@@ -97,6 +98,34 @@ export class PaletteController {
   private staffContext(): number | null {
     if (this.state.selectedMeasureRange === null || this.state.selectedMeasureBoxStyle !== 'single') return null
     return this.state.selectedMeasureStaff
+  }
+
+  // ==================== View mode (wrapped ↔ linear) ====================
+
+  /** The layout mode in force, straight from its owner (the engine). */
+  getViewMode(): ViewMode {
+    return this.getEngine()?.getViewMode() ?? 'wrapped'
+  }
+
+  /**
+   * Switch between wrapped systems and one endless linear system, and repaint. The ONLY write
+   * path for the mode: it sets the engine (the owner) and `state.viewMode` (the palette's
+   * reactive mirror) together, so they cannot drift apart.
+   *
+   * See docs/linear-view-plan.md — P2 also clears the armed slur-handle state here, so that
+   * an orange join armed in wrapped view can't be nudged from inside linear view.
+   */
+  setViewMode(mode: ViewMode): void {
+    const engine = this.getEngine()
+    if (!engine || engine.getViewMode() === mode) return
+    engine.setViewMode(mode)
+    this.state.viewMode = mode
+    this.renderScore()
+  }
+
+  /** Flip to the other mode (the keyboard shortcut / the palette button both toggle). */
+  toggleViewMode(): void {
+    this.setViewMode(this.getViewMode() === 'linear' ? 'wrapped' : 'linear')
   }
 
   /** Add a new staff immediately ABOVE the plain-click-selected bar's staff. No-op unless a

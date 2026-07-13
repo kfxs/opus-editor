@@ -126,6 +126,7 @@ export function useShortcuts(
       // factor 1/z lands exactly on 100%, anchored at the viewport center.
       viewport.zoomAt(1 / z, viewportCenter())
     },
+    toggleViewMode: () => palette.toggleViewMode(),
     setSelectionMode: () => {
       // Esc first cancels a pending (armed) paste, if any.
       if (state.pastePlacementArmed) {

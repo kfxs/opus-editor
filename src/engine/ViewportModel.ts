@@ -9,8 +9,10 @@
  * inlines against the live DOM; Phase 4 of docs/navigation-viewport-plan.md migrates that call site
  * onto `ensureVisible` so the same logic also drives playback-follow.
  *
- * `zoom` and `viewMode` are reserved for the deferred view-modes / zoom work (§6); they are held
- * here so later features slot in without reshaping the model, but nothing reads them yet.
+ * It owns `zoom` (the one layout→screen scalar) but NOT the view mode: wrapped-vs-linear is a
+ * layout decision, and layout is engine work — the mode lives on MusicEngine instead. Zoom is
+ * only here because it never touches layout (it is a CSS transform). See
+ * docs/linear-view-plan.md §5, P0.
  */
 
 export interface Size {
@@ -30,8 +32,6 @@ export interface Rect {
   width: number
   height: number
 }
-
-export type ViewMode = 'galley' | 'pages' | 'continuous-scroll'
 
 /** Default gap (px) kept between an `ensureVisible` target and the viewport edge. */
 export const ENSURE_VISIBLE_PADDING = 50
@@ -68,8 +68,6 @@ export class ViewportModel {
    * space overlays (the text-edit font) can read it; mutate it only through `setZoom`/`zoomAt`.
    */
   zoom = 1
-  /** Reserved for deferred view-modes (§6). Not applied to any math yet. */
-  viewMode: ViewMode = 'galley'
 
   // --- Size setters (re-clamp scroll so it can never point past the content) ---
 

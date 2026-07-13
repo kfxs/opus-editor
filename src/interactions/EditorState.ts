@@ -1,5 +1,6 @@
 import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, DynamicLevel } from '../types/music'
 import type { SelectionItem } from './selection'
+import type { ViewMode } from '../engine/rendering/layoutConfig'
 
 /** A value armed on the dynamics palette: an interpreted level, or the custom-text tool. */
 export type DynamicTool = DynamicLevel | 'text'
@@ -199,6 +200,13 @@ export interface EditorState {
    *  in-score keyboard caret, not the OS pointer. */
   isPanning: boolean
   playbackState: PlaybackState
+  /** MIRROR of the engine's view mode (wrapped ↔ linear), for the palette button's lit state —
+   *  the engine OWNS it (docs/linear-view-plan.md §5), and a MusicEngine is not a reactive
+   *  object, so a Vue template cannot track `engine.getViewMode()` directly. Written only by
+   *  `PaletteController.setViewMode`, alongside the engine itself, so the two cannot diverge:
+   *  never assign this field from anywhere else, and never read it to DECIDE anything — the
+   *  gestures and the renderer ask the engine (the owner). */
+  viewMode: ViewMode
 }
 
 /**
@@ -266,5 +274,6 @@ export function createEditorState(): EditorState {
     showCursor: true,
     isPanning: false,
     playbackState: 'stopped',
+    viewMode: 'wrapped',
   }
 }

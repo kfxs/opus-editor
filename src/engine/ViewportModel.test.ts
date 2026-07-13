@@ -22,13 +22,12 @@ describe('ViewportModel', () => {
     m.setContentSize(1000, 1500)
   })
 
-  it('starts at origin with reserved zoom/viewMode defaults', () => {
+  it('starts at origin at 100% zoom', () => {
     const fresh = new ViewportModel()
     expect(fresh.getScroll()).toEqual({ x: 0, y: 0 })
     expect(fresh.getViewportSize()).toEqual({ w: 0, h: 0 })
     expect(fresh.getContentSize()).toEqual({ w: 0, h: 0 })
     expect(fresh.zoom).toBe(1)
-    expect(fresh.viewMode).toBe('galley')
   })
 
   it('reports max scroll as the content overhang, never negative', () => {
