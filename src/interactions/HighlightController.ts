@@ -16,6 +16,80 @@ export class HighlightController {
   ) {}
 
   /**
+   * The inverse of everything the last highlight pass did to the DOM, newest last.
+   *
+   * Highlights used to reset themselves by being wiped along with the SVG — the code said so
+   * out loud: *"Safe: the next render rebuilds the SVG."* Once a selection change stops
+   * redrawing the score (docs/render-performance-plan.md §5a) that reset is gone, so every
+   * mutation needs a real inverse. Nothing here touches the DOM directly any more; it goes
+   * through the helpers below, and each records how to undo itself.
+   */
+  private undoLog: Array<() => void> = []
+
+  /** Set an attribute, remembering its PREVIOUS value — not "remove it on clear". Voice 2's
+   *  noteheads are green by default, so a naive `removeAttribute('fill')` would blacken them. */
+  private setAttr(el: Element, name: string, value: string): void {
+    const prev = el.getAttribute(name)
+    this.undoLog.push(() => (prev === null ? el.removeAttribute(name) : el.setAttribute(name, prev)))
+    el.setAttribute(name, value)
+  }
+
+  /** The same, for an inline style property — the colours are set both ways (attribute and
+   *  `style`), because the two have different precedence against the stylesheet. */
+  private setStyleProp(el: SVGElement, name: string, value: string): void {
+    const prev = el.style.getPropertyValue(name)
+    this.undoLog.push(() => (prev ? el.style.setProperty(name, prev) : el.style.removeProperty(name)))
+    el.style.setProperty(name, value)
+  }
+
+  private addClass(el: Element, cls: string): void {
+    if (el.classList.contains(cls)) return
+    this.undoLog.push(() => el.classList.remove(cls))
+    el.classList.add(cls)
+  }
+
+  /** Append a node the highlight layer OWNS (keyboard cursor, paste caret, measure box, slur
+   *  handle) — as opposed to recolouring an engraved one. */
+  private addNode(parent: Element, node: Element): void {
+    this.undoLog.push(() => node.remove())
+    parent.appendChild(node)
+  }
+
+  /** Raise a group above a coincident sibling so the recoloured glyph is the one that paints:
+   *  unison noteheads, two voices' rests nudged to the same spot, overlapping tuplet brackets.
+   *  Restores the original sibling position on clear — the reorder only means anything while
+   *  the element is selected, and leaving it would slowly permute the SVG. */
+  private raiseToFront(group: Element): void {
+    const parent = group.parentNode
+    if (!parent || parent.lastChild === group) return
+    const next = group.nextSibling
+    this.undoLog.push(() => { parent.insertBefore(group, next) })
+    parent.appendChild(group)
+  }
+
+  /**
+   * Undo the last highlight pass **in place**. This is what a skipped render calls instead of
+   * rebuilding the SVG: the engraving underneath is already correct, so only the highlight
+   * layer has to be taken back off before the new selection is painted on.
+   */
+  clearHighlights(): void {
+    for (let i = this.undoLog.length - 1; i >= 0; i--) this.undoLog[i]()
+    this.undoLog.length = 0
+    // Slur handles register their own hit-boxes after the render, and a skipped render no
+    // longer clears the registry for them — so the highlight pass removes its own entries.
+    const registry = this.getEngine()?.getElementRegistry()
+    registry?.removeByType('slur-handle')
+    registry?.removeByType('slur-endpoint')
+    registry?.removeByType('slur-segment-endpoint')
+  }
+
+  /** A full redraw already threw the old SVG away, so the log's targets are detached nodes:
+   *  drop it WITHOUT running it. (Running it would be harmless but pointless work.) */
+  discardHighlights(): void {
+    this.undoLog.length = 0
+  }
+
+  /**
    * Draw a vertical cursor line on the staff AFTER the currently selected note,
    * indicating where the next keyboard entry will land (like Sibelius's blue cursor).
    */
@@ -73,7 +147,7 @@ export class HighlightController {
     line.setAttribute('stroke-width', '2')
     line.setAttribute('stroke-linecap', 'round')
     line.setAttribute('class', 'keyboard-cursor')
-    svg.appendChild(line)
+    this.addNode(svg, line)
   }
 
   /**
@@ -106,7 +180,7 @@ export class HighlightController {
     line.setAttribute('stroke-dasharray', '4 3')
     line.setAttribute('stroke-linecap', 'round')
     line.setAttribute('class', 'paste-caret')
-    svg.appendChild(line)
+    this.addNode(svg, line)
   }
 
   /**
@@ -185,7 +259,7 @@ export class HighlightController {
         box.setAttribute('stroke', color)
         box.setAttribute('stroke-width', '1.5')
         box.setAttribute('class', 'measure-box')
-        svg.appendChild(box)
+        this.addNode(svg, box)
       }
     }
   }
@@ -233,15 +307,15 @@ export class HighlightController {
 
     const colorFill = (el: Element) => {
       const svgEl = el as SVGElement
-      svgEl.setAttribute('fill', SELECTION_COLOR)
-      svgEl.style.fill = SELECTION_COLOR
-      svgEl.classList.add('selected-note')
+      this.setAttr(svgEl, 'fill', SELECTION_COLOR)
+      this.setStyleProp(svgEl, 'fill', SELECTION_COLOR)
+      this.addClass(svgEl, 'selected-note')
     }
     const colorStroke = (el: Element) => {
       const svgEl = el as SVGElement
-      svgEl.setAttribute('stroke', SELECTION_STROKE)
-      svgEl.style.stroke = SELECTION_STROKE
-      svgEl.classList.add('selected-note')
+      this.setAttr(svgEl, 'stroke', SELECTION_STROKE)
+      this.setStyleProp(svgEl, 'stroke', SELECTION_STROKE)
+      this.addClass(svgEl, 'selected-note')
     }
 
     if (isRest) {
@@ -250,8 +324,8 @@ export class HighlightController {
       // Two voices' rests can be vertically nudged to the same spot; whichever group
       // is later in the DOM paints on top, so the recolored rest can be hidden behind
       // the other voice. Raise this rest's group to the front (same reasoning as the
-      // unison-notehead case below). Safe: the next render rebuilds the SVG.
-      group.parentNode?.appendChild(group)
+      // unison-notehead case below); clearHighlights puts it back where it was.
+      this.raiseToFront(group)
       return
     }
 
@@ -280,9 +354,9 @@ export class HighlightController {
     // Multi-voice unison: the other voice draws a notehead at the SAME pixel spot in a
     // sibling `vf-stavenote` group. Whichever is later in the DOM paints on top, so the
     // recolored head can be hidden behind the other voice. Raise this note's group to
-    // the front of its parent so its (now coloured) head is the one that shows. Safe:
-    // the next render rebuilds the SVG, resetting DOM order.
-    group.parentNode?.appendChild(group)
+    // the front of its parent so its (now coloured) head is the one that shows;
+    // clearHighlights restores the original sibling order.
+    this.raiseToFront(group)
   }
 
   applyArticulationHighlight(): void {
@@ -351,9 +425,9 @@ export class HighlightController {
       })
       if (best) {
         const el = best as SVGGraphicsElement
-        el.setAttribute('fill', articulationColor)
-        el.style.fill = articulationColor
-        el.classList.add('selected-articulation')
+        this.setAttr(el, 'fill', articulationColor)
+        this.setStyleProp(el, 'fill', articulationColor)
+        this.addClass(el, 'selected-articulation')
       }
     }
   }
@@ -395,9 +469,9 @@ export class HighlightController {
         if (Math.abs(centerX_el - centerX_bbox) < 1.0 &&
             Math.abs(centerY_el - centerY_bbox) < bbox.height / 2 + 1.0) {
           const el = svgEl as SVGElement
-          el.setAttribute('fill', ACCIDENTAL_COLOR)
-          el.style.fill = ACCIDENTAL_COLOR
-          el.classList.add('selected-accidental')
+          this.setAttr(el, 'fill', ACCIDENTAL_COLOR)
+          this.setStyleProp(el, 'fill', ACCIDENTAL_COLOR)
+          this.addClass(el, 'selected-accidental')
         }
       }
     }
@@ -450,12 +524,11 @@ export class HighlightController {
    *  with a black outline (see curveArc.ts). */
   private colorTieGroup(group: SVGGElement, tieColor: string): void {
     group.querySelectorAll('path').forEach(el => {
-      const styled = el as SVGElement & { style: CSSStyleDeclaration }
-      el.setAttribute('fill', tieColor)
-      el.setAttribute('stroke', tieColor)
-      styled.style.fill = tieColor
-      styled.style.stroke = tieColor
-      el.classList.add('selected-tie')
+      this.setAttr(el, 'fill', tieColor)
+      this.setAttr(el, 'stroke', tieColor)
+      this.setStyleProp(el, 'fill', tieColor)
+      this.setStyleProp(el, 'stroke', tieColor)
+      this.addClass(el, 'selected-tie')
     })
   }
 
@@ -506,10 +579,10 @@ export class HighlightController {
       if (cx >= bbox.x && cx <= bbox.x + bbox.width && cy >= bbox.y && cy <= bbox.y + bbox.height) {
         const svgEl = el as SVGElement
         const currentFill = svgEl.getAttribute('fill')
-        if (currentFill && currentFill !== 'none') svgEl.setAttribute('fill', SELECTION_COLOR)
-        svgEl.style.fill = SELECTION_COLOR
-        svgEl.setAttribute('stroke', SELECTION_STROKE)
-        svgEl.classList.add(className)
+        if (currentFill && currentFill !== 'none') this.setAttr(svgEl, 'fill', SELECTION_COLOR)
+        this.setStyleProp(svgEl, 'fill', SELECTION_COLOR)
+        this.setAttr(svgEl, 'stroke', SELECTION_STROKE)
+        this.addClass(svgEl, className)
       }
     }
   }
@@ -544,11 +617,12 @@ export class HighlightController {
     const group = engine.getTupletSVGGroup(this.state.selectedTupletId)
     if (!group) return
 
+
     // Float the selected tuplet to the front of its siblings. Two voices' tuplets can
     // sit at the exact same pixels (e.g. a flipped voice-2 bracket landing on top of
     // voice 1); whichever is drawn last wins, so without this the unselected bracket
     // would paint over the recoloured one and the selection would be invisible.
-    group.parentNode?.appendChild(group)
+    this.raiseToFront(group)
 
     // Paint in the tuplet's own voice colour, matching note/cursor selection.
     const SELECTION_COLOR = voiceFillColor(engine.getTupletVoice(this.state.selectedTupletId))
@@ -559,17 +633,17 @@ export class HighlightController {
       const w = rect.width.baseVal.value
       const h = rect.height.baseVal.value
       if (w <= 2 || h <= 2) {
-        rect.setAttribute('fill', SELECTION_COLOR)
-        rect.style.fill = SELECTION_COLOR
-        rect.classList.add('selected-tuplet')
+        this.setAttr(rect, 'fill', SELECTION_COLOR)
+        this.setStyleProp(rect, 'fill', SELECTION_COLOR)
+        this.addClass(rect, 'selected-tuplet')
       }
     })
 
     // The tuplet number (e.g. "3").
     group.querySelectorAll('text').forEach(text => {
-      text.setAttribute('fill', SELECTION_COLOR)
-      text.style.fill = SELECTION_COLOR
-      text.classList.add('selected-tuplet')
+      this.setAttr(text, 'fill', SELECTION_COLOR)
+      this.setStyleProp(text, 'fill', SELECTION_COLOR)
+      this.addClass(text, 'selected-tuplet')
     })
   }
 
@@ -588,9 +662,9 @@ export class HighlightController {
     if (!group) return
     group.querySelectorAll('text, path').forEach(el => {
       const currentFill = el.getAttribute('fill')
-      if (currentFill !== 'none') el.setAttribute('fill', SELECTION_COLOR)
-      ;(el as SVGElement & { style: CSSStyleDeclaration }).style.fill = SELECTION_COLOR
-      el.classList.add('selected-tempo')
+      if (currentFill !== 'none') this.setAttr(el, 'fill', SELECTION_COLOR)
+      this.setStyleProp(el as SVGElement, 'fill', SELECTION_COLOR)
+      this.addClass(el, 'selected-tempo')
     })
   }
 
@@ -618,9 +692,9 @@ export class HighlightController {
       if (!group) continue
       group.querySelectorAll('text, path').forEach(el => {
         const currentFill = el.getAttribute('fill')
-        if (currentFill !== 'none') el.setAttribute('fill', SELECTION_COLOR)
-        ;(el as SVGElement & { style: CSSStyleDeclaration }).style.fill = SELECTION_COLOR
-        el.classList.add('selected-dynamic')
+        if (currentFill !== 'none') this.setAttr(el, 'fill', SELECTION_COLOR)
+        this.setStyleProp(el as SVGElement, 'fill', SELECTION_COLOR)
+        this.addClass(el, 'selected-dynamic')
       })
     }
   }
@@ -662,12 +736,11 @@ export class HighlightController {
     // (see docs/slur-plan.md §7.3). A re-render redraws the slur black, so no explicit
     // clear is needed on deselect.
     group.querySelectorAll('path').forEach(el => {
-      const styled = el as SVGElement & { style: CSSStyleDeclaration }
-      el.setAttribute('fill', SELECTION_COLOR)
-      el.setAttribute('stroke', SELECTION_COLOR)
-      styled.style.fill = SELECTION_COLOR
-      styled.style.stroke = SELECTION_COLOR
-      el.classList.add('selected-slur')
+      this.setAttr(el, 'fill', SELECTION_COLOR)
+      this.setAttr(el, 'stroke', SELECTION_COLOR)
+      this.setStyleProp(el, 'fill', SELECTION_COLOR)
+      this.setStyleProp(el, 'stroke', SELECTION_COLOR)
+      this.addClass(el, 'selected-slur')
     })
   }
 
@@ -729,7 +802,7 @@ export class HighlightController {
         dot.setAttribute('stroke-width', '1.5')
         dot.setAttribute('class', 'slur-handle')
         ;(dot as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'grab'
-        svg.appendChild(dot)
+        this.addNode(svg, dot)
 
         registry.add({
           type: 'slur-handle',
@@ -772,7 +845,7 @@ export class HighlightController {
         sq.setAttribute('stroke-width', selected ? '2.5' : '1.5')
         sq.setAttribute('class', selected ? 'slur-endpoint-handle slur-endpoint-handle--selected' : 'slur-endpoint-handle')
         ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'grab'
-        svg.appendChild(sq)
+        this.addNode(svg, sq)
 
         registry.add({
           type: 'slur-endpoint',
@@ -814,7 +887,7 @@ export class HighlightController {
         sq.setAttribute('stroke-width', isSel ? '2.5' : '1.5')
         sq.setAttribute('class', isSel ? 'slur-segment-endpoint-handle slur-segment-endpoint-handle--selected' : 'slur-segment-endpoint-handle')
         ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'grab'
-        svg.appendChild(sq)
+        this.addNode(svg, sq)
 
         registry.add({
           type: 'slur-segment-endpoint',

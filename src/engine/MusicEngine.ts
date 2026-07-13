@@ -111,6 +111,34 @@ export class MusicEngine {
     this.modelDirty = true
   }
 
+  /** The view state as of the last full render — half of {@link isRenderStale}'s key. */
+  private lastViewStateKey: string | null = null
+
+  /**
+   * Is the drawn SVG still a correct picture of the score? (docs/render-performance-plan.md §5a)
+   *
+   * Three ways it can be wrong, and **the selection is none of them** — that is the point of P3.
+   * A selection change only needs the highlight pass repainted, not a 200-bar score re-laid-out
+   * and redrawn.
+   *
+   *  1. **Content** — {@link modelDirty}. Every edit funnels through `commit`/`saveUndoState`
+   *     (the ARCHITECTURE invariant), which sets it. A direct write to `scoreModel` that bypasses
+   *     the facade would defeat this — but that write is already a bug.
+   *  2. **View state** — {@link VexFlowRenderer.viewStateKey}: view mode, the linear staff-spacing
+   *     knob, a suppressed (being-text-edited) dynamic/tempo, a frozen layout, a dragged clef.
+   *
+   * A ghost on the canvas is deliberately NOT a third reason: since P4 the preview is an overlay,
+   * so taking it down is a DOM removal ({@link clearGhosts}), not a reason to re-engrave.
+   */
+  isRenderStale(): boolean {
+    return this.modelDirty || this.renderer.viewStateKey() !== this.lastViewStateKey
+  }
+
+  /** Take down the preview ghost, if any. O(1) — see {@link VexFlowRenderer.clearGhosts}. */
+  clearGhosts(): void {
+    this.renderer.clearGhosts()
+  }
+
   /**
    * Run several mutations as ONE undoable action. Every saveUndoState inside `fn`
    * is suppressed; a single snapshot of the final state is pushed afterward (only
@@ -933,6 +961,10 @@ export class MusicEngine {
     segment?: SlurSegmentAddress,
     spanCount?: number,
   ): boolean {
+    // Live drag: mutates the model but defers its undo entry to commitSlurShape, so it never
+    // passes through saveUndoState — the one place that flags the model dirty. Flag it here or
+    // the next render would skip, and the drag would not appear (render-performance-plan §5a).
+    this.markModelDirty()
     return segment && spanCount !== undefined
       ? this.scoreModel.setSlurSegmentShape(id, segment, cps, spanCount)
       : this.scoreModel.setSlurShape(id, cps)
@@ -948,6 +980,7 @@ export class MusicEngine {
    *  undo. Returns false (no-op) when the target is invalid (collapses the span or is
    *  unchanged). Call {@link commitSlurEndpoint} on drop for the single undo entry. */
   previewSlurEndpoint(id: string, which: 'start' | 'end', noteId: string): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitSlurEndpoint — see previewSlurShape
     return this.scoreModel.setSlurEndpoint(id, which, noteId)
   }
 
@@ -1146,6 +1179,10 @@ export class MusicEngine {
    *  `previewSlurShape` / `commitSlurShape`). In LINEAR view it drives the view knob instead, and
    *  there is nothing to commit. @returns true if a staff was updated. */
   previewStaffSpacing(staffIndex: number, measureNumber: number, above: number): boolean {
+    // Live drag, undo deferred to commitStaffSpacing — see previewSlurShape. (The linear branch
+    // below writes the view knob, which the view-state key already covers; flagging both is
+    // harmless and keeps the rule "a preview marks dirty" without an exception.)
+    this.markModelDirty()
     if (this.viewMode === 'linear') {
       const staffId = this.staffIdForSpacing(staffIndex)
       if (!staffId) return false
@@ -1704,6 +1741,9 @@ export class MusicEngine {
       this.modelDirty = false
     }
     this.renderer.renderScore(this.scoreModel.getScore())
+    // The SVG now matches the model AND this view state — record the latter so the next
+    // render can tell whether anything but the selection moved (see isRenderStale).
+    this.lastViewStateKey = this.renderer.viewStateKey()
     // Update coordinate mapper with actual VexFlow bounds
     this.syncCoordinateMapperBounds()
   }
@@ -1754,8 +1794,9 @@ export class MusicEngine {
     const elementAtCursor = registry.getAt(coords.x, coords.y)
     if (elementAtCursor) {
       if (INVALID_NOTE_ENTRY_TYPES.includes(elementAtCursor.type)) {
-        // Don't show ghost note over these elements
-        this.renderScore()
+        // No ghost over a clef/TS/barline. Erasing the last one is a DOM removal, not a full
+        // render — this branch used to re-engrave the whole score to hide one notehead (P4).
+        this.renderer.clearGhosts()
         return false
       }
     }
@@ -1765,7 +1806,7 @@ export class MusicEngine {
 
     // Validate measure exists
     if (!this.scoreModel.getMeasure(position.measure)) {
-      this.renderScore()
+      this.renderer.clearGhosts()
       return false
     }
 
@@ -1775,7 +1816,7 @@ export class MusicEngine {
       // Check if X is within the note entry area (between noteStartX and noteEndX)
       if (coords.x < staffGeometry.noteStartX || coords.x > staffGeometry.noteEndX) {
         // Cursor is outside the note entry area (over clef, time sig, or past barline)
-        this.renderScore()
+        this.renderer.clearGhosts()
         return false
       }
     }
@@ -1799,14 +1840,7 @@ export class MusicEngine {
     }
 
     // Pass raw cursor coordinates for smooth visual positioning
-    const ghostNoteRendered = this.renderer.renderScoreWithGhostNote(
-      this.scoreModel.getScore(),
-      ghostNote
-    )
-
-    // Update coordinate mapper with actual VexFlow bounds
-    this.syncCoordinateMapperBounds()
-    return ghostNoteRendered
+    return this.renderer.drawGhostNote(this.scoreModel.getScore(), ghostNote)
   }
 
   /**
@@ -1816,9 +1850,7 @@ export class MusicEngine {
    * @returns true if a ghost clef was drawn, false otherwise
    */
   renderScoreWithClefGhost(coords: PixelCoordinates, clef: Clef): boolean {
-    const drawn = this.renderer.renderScoreWithClefGhost(this.scoreModel.getScore(), coords.x, coords.y, clef)
-    this.syncCoordinateMapperBounds()
-    return drawn
+    return this.renderer.renderScoreWithClefGhost(coords.x, coords.y, clef)
   }
 
   /**
@@ -1827,9 +1859,7 @@ export class MusicEngine {
    * @returns true if a ghost time signature was drawn, false otherwise
    */
   renderScoreWithTimeSignatureGhost(coords: PixelCoordinates, ts: TimeSignature): boolean {
-    const drawn = this.renderer.renderScoreWithTimeSignatureGhost(this.scoreModel.getScore(), coords.x, coords.y, ts)
-    this.syncCoordinateMapperBounds()
-    return drawn
+    return this.renderer.renderScoreWithTimeSignatureGhost(coords.x, coords.y, ts)
   }
 
   /**
@@ -1839,15 +1869,11 @@ export class MusicEngine {
    */
   /** Render the score with a ghost tempo mark following the cursor (armed tempo tool). */
   renderScoreWithTempoGhost(coords: PixelCoordinates, mark: TempoMark): boolean {
-    const drawn = this.renderer.renderScoreWithTempoGhost(this.scoreModel.getScore(), coords.x, coords.y, mark)
-    this.syncCoordinateMapperBounds()
-    return drawn
+    return this.renderer.renderScoreWithTempoGhost(coords.x, coords.y, mark)
   }
 
   renderScoreWithDynamicGhost(coords: PixelCoordinates, dynamic: Dynamic): boolean {
-    const drawn = this.renderer.renderScoreWithDynamicGhost(this.scoreModel.getScore(), coords.x, coords.y, dynamic)
-    this.syncCoordinateMapperBounds()
-    return drawn
+    return this.renderer.renderScoreWithDynamicGhost(coords.x, coords.y, dynamic)
   }
 
   /**

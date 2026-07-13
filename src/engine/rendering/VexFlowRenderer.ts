@@ -30,6 +30,7 @@ import {
   type TupletNoteStem,
 } from './NoteBuilder'
 import { calculateMeasureWidths } from './MeasureLayout'
+import { renderCensus } from '@/dev/renderCensus' // P0 instrument — temporary, see §8
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
 import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex } from '@/engine/models/staffContent'
 import { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
@@ -108,6 +109,26 @@ export class VexFlowRenderer {
    *  linear mode. Never persisted — see MusicEngine.linearStaffSpacing. */
   private linearStaffSpacing = new Map<string, number>()
 
+  /**
+   * The preview ghosts (note / clef / time-sig / dynamic / tempo) each draw into their own
+   * class-tagged `<g>`, appended last. That makes them a true **overlay**: putting one up or
+   * taking one down is a DOM append/remove against the already-drawn score, never a re-layout
+   * and re-draw of it (docs/render-performance-plan.md §5b).
+   *
+   * `ghost-tempo` has no `-group` suffix because VexFlow's `openGroup` names it.
+   */
+  private static readonly GHOST_GROUP_SELECTOR =
+    '.ghost-note-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .ghost-tempo'
+
+  /** Take down whatever ghost is showing. O(1) in the score's size — this is the whole point
+   *  of P4: hovering an invalid element, or leaving the canvas, used to cost a FULL render
+   *  whose only job was to erase one translucent notehead. */
+  clearGhosts(): void {
+    this.getSVGElement()
+      ?.querySelectorAll(VexFlowRenderer.GHOST_GROUP_SELECTOR)
+      .forEach((g) => g.remove())
+  }
+
   setViewMode(mode: ViewMode): void {
     this.viewMode = mode
   }
@@ -115,6 +136,27 @@ export class VexFlowRenderer {
   setLinearStaffSpacing(spacing: Map<string, number>): void {
     this.linearStaffSpacing = spacing
   }
+
+  /**
+   * Everything that changes the *picture* without changing the *score* — the second half of
+   * the "may we skip this render?" key (docs/render-performance-plan.md §5a). Content is the
+   * first half and is answered by `MusicEngine.modelDirty`; the selection is deliberately in
+   * neither, which is the whole point of P3.
+   *
+   * Container width is absent because it is a constant (`LAYOUT_CONFIG.CONTAINER_WIDTH`); add
+   * it here the day it becomes settable, along with page dimensions (§6c).
+   */
+  viewStateKey(): string {
+    return JSON.stringify([
+      this.viewMode,
+      [...this.linearStaffSpacing.entries()].sort((a, b) => a[0].localeCompare(b[0])),
+      this.suppressedDynamicId,
+      this.suppressedTempoId,
+      this.frozenLayout !== null,
+      this.draggingClef && [this.draggingClef.measure, this.draggingClef.beat],
+    ])
+  }
+
 
   constructor(containerElement: HTMLElement) {
     this.svgContainer = containerElement
@@ -1249,6 +1291,7 @@ export class VexFlowRenderer {
     if (!this.context || !this.renderer) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
+    renderCensus.beginRender() // P0 instrument — remove with docs/render-performance-plan.md §8
 
     // Always clear before rendering to prevent accumulation
     this.clear()
@@ -1414,6 +1457,7 @@ export class VexFlowRenderer {
       }
     }
 
+    renderCensus.endRender() // P0 instrument
     return ghostNoteRendered
   }
 
@@ -1605,10 +1649,14 @@ export class VexFlowRenderer {
         newElements.push(svg.children[i])
       }
 
-      if (newElements.length > 0 && targetShiftX !== null) {
+      if (newElements.length > 0) {
+        // ALWAYS wrap, even with no shift to apply: the group is what makes the ghost an
+        // overlay — loose elements in the SVG could never be taken down again (P4).
         const ghostGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
         ghostGroup.setAttribute('class', 'ghost-note-group')
-        ghostGroup.setAttribute('transform', `translate(${targetShiftX}, 0)`)
+        if (targetShiftX !== null) {
+          ghostGroup.setAttribute('transform', `translate(${targetShiftX}, 0)`)
+        }
         for (const element of newElements) {
           svg.removeChild(element)
         }
@@ -1816,8 +1864,25 @@ export class VexFlowRenderer {
    * Render score with an optional ghost note overlay (preview note during mouse hover)
    * Returns true if ghost note was rendered
    */
-  renderScoreWithGhostNote(score: Score, ghostNote?: GhostNote): boolean {
-    return this.renderScore(score, ghostNote)
+  /**
+   * Draw the note ghost as an **overlay** on the already-rendered score (P4). The layout it
+   * needs — `measureLayoutInfo` — is still sitting on the renderer from the last real render,
+   * so following the cursor costs one small draw, not a re-layout of every bar.
+   *
+   * The caller (MusicEngine) guarantees the score underneath is current; if nothing has ever
+   * been rendered there is no layout to place the ghost against, so it declines to draw.
+   */
+  drawGhostNote(score: Score, ghostNote: GhostNote): boolean {
+    this.clearGhosts()
+    if (this.measureLayoutInfo.size === 0) return false
+    return this.renderGhostNoteWithDynamicWidths(
+      ghostNote,
+      score,
+      this.measureLayoutInfo,
+      LAYOUT_CONFIG.MARGIN,
+      LAYOUT_CONFIG.STAVE_HEIGHT,
+      LAYOUT_CONFIG.VERTICAL_SPACING,
+    )
   }
 
   /**
@@ -1827,8 +1892,8 @@ export class VexFlowRenderer {
    * for CSS tinting, and translated so its center sits at the cursor.
    * @returns true if the ghost clef was drawn
    */
-  renderScoreWithClefGhost(score: Score, cursorX: number, cursorY: number, clef: Clef): boolean {
-    this.renderScore(score)
+  renderScoreWithClefGhost(cursorX: number, cursorY: number, clef: Clef): boolean {
+    this.clearGhosts() // P4: an overlay — take the old ghost down, leave the score alone
 
     const svg = this.getSVGElement()
     if (!svg) return false
@@ -1877,8 +1942,8 @@ export class VexFlowRenderer {
    * tinting, translated so its centre sits at the cursor.
    * @returns true if the ghost time signature was drawn
    */
-  renderScoreWithTimeSignatureGhost(score: Score, cursorX: number, cursorY: number, ts: TimeSignature): boolean {
-    this.renderScore(score)
+  renderScoreWithTimeSignatureGhost(cursorX: number, cursorY: number, ts: TimeSignature): boolean {
+    this.clearGhosts() // P4: an overlay — take the old ghost down, leave the score alone
 
     const svg = this.getSVGElement()
     if (!svg) return false
@@ -1945,8 +2010,8 @@ export class VexFlowRenderer {
    * no leftover notehead/stem elements to discard afterwards, and no stave is needed at all. It
    * is drawn by the same `drawTempoText` the score uses, so the preview cannot drift from it.
    */
-  renderScoreWithTempoGhost(score: Score, cursorX: number, cursorY: number, mark: TempoMark): boolean {
-    this.renderScore(score)
+  renderScoreWithTempoGhost(cursorX: number, cursorY: number, mark: TempoMark): boolean {
+    this.clearGhosts() // P4: an overlay — take the old ghost down, leave the score alone
 
     const svg = this.getSVGElement()
     if (!svg || !this.context) return false
@@ -1985,8 +2050,8 @@ export class VexFlowRenderer {
     }
   }
 
-  renderScoreWithDynamicGhost(score: Score, cursorX: number, cursorY: number, dynamic: Dynamic): boolean {
-    this.renderScore(score)
+  renderScoreWithDynamicGhost(cursorX: number, cursorY: number, dynamic: Dynamic): boolean {
+    this.clearGhosts() // P4: an overlay — take the old ghost down, leave the score alone
 
     const svg = this.getSVGElement()
     if (!svg) return false

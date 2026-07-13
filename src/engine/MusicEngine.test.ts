@@ -21,6 +21,13 @@ vi.mock('./rendering/VexFlowRenderer', async (importOriginal) => ({
     getElementRegistry = vi.fn(() => fakeRegistry)
     setViewMode = vi.fn()
     setLinearStaffSpacing = vi.fn()
+    // P3's skip test (docs/render-performance-plan.md §5a) reads the view state off the
+    // renderer. The stub's view state never changes, so `isRenderStale` here answers purely
+    // "did the content change?" — which is exactly what the tests below exercise.
+    viewStateKey = vi.fn(() => 'stub-view-state')
+    clearGhosts = vi.fn()
+    // Nothing is drawn, so there are no bounds to feed the coordinate mapper.
+    getAllMeasureBounds = vi.fn(() => new Map())
     // Nothing is laid out in a stubbed renderer, so no measure opens a system: the per-system
     // staff-spacing key can't be resolved, exactly as before a first render.
     getSystemOpeningMeasureNumber = vi.fn(() => undefined)
@@ -1313,5 +1320,75 @@ describe('MusicEngine — linear-view staff spacing (the view knob)', () => {
     expect(engine.resetStaffSpacing(1, 1)).toBe(true)
     expect(engine.getStaffSpacingAbove(1, 1)).toBe(0)
     expect(engine.resetStaffSpacing(1, 1)).toBe(false) // nothing left to reset
+  })
+})
+
+/**
+ * P3 — a selection change must not redraw the score (docs/render-performance-plan.md §5a).
+ *
+ * The skip is only safe if `isRenderStale()` is honest about *content*: a missed dirty-flag is a
+ * measure that renders stale forever. So the contract is pinned here — including the three live-drag
+ * paths (`preview*`) that mutate the model but defer their undo entry, and therefore never pass
+ * through `saveUndoState`, the one place that used to set the flag.
+ */
+describe('isRenderStale (P3 skip test)', () => {
+  it('is clean right after a render, and no selection-shaped read dirties it', () => {
+    const engine = makeEngine()
+    engine.renderScore()
+    expect(engine.isRenderStale()).toBe(false)
+
+    // The whole point: reading the score / looking things up is not a content change.
+    engine.getScore()
+    engine.getNote('nope')
+    expect(engine.isRenderStale()).toBe(false)
+  })
+
+  it('goes stale on an edit, and clean again once rendered', () => {
+    const engine = makeEngine()
+    engine.renderScore()
+
+    const note = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    expect(engine.isRenderStale()).toBe(true)
+
+    engine.renderScore()
+    expect(engine.isRenderStale()).toBe(false)
+
+    engine.deleteNote(note.id)
+    expect(engine.isRenderStale()).toBe(true)
+  })
+
+  it('goes stale on undo and redo', () => {
+    const engine = makeEngine()
+    addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    engine.renderScore()
+
+    expect(engine.undo()).toBe(true)
+    expect(engine.isRenderStale()).toBe(true)
+    engine.renderScore()
+
+    expect(engine.redo()).toBe(true)
+    expect(engine.isRenderStale()).toBe(true)
+  })
+
+  it('goes stale on a live slur-shape drag — which defers its undo entry, so nothing else flags it', () => {
+    const engine = makeEngine()
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const slur = engine.createSlur([a.id, b.id])!
+    engine.renderScore()
+    expect(engine.isRenderStale()).toBe(false)
+
+    engine.previewSlurShape(slur.id, [{ x: 1, y: 2 }, { x: 3, y: 4 }])
+    expect(engine.isRenderStale()).toBe(true)
+  })
+
+  it('goes stale on a live staff-spacing drag (same deferred-undo shape)', () => {
+    const engine = makeEngine()
+    engine.addStaffBelow(0)
+    engine.renderScore()
+    expect(engine.isRenderStale()).toBe(false)
+
+    engine.previewStaffSpacing(1, 1, 3)
+    expect(engine.isRenderStale()).toBe(true)
   })
 })

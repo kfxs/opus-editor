@@ -310,6 +310,16 @@ export class ElementRegistry {
   }
 
   /**
+   * Drop every element of a type. Needed by the highlight layer: it registers its own
+   * hit-boxes (slur handles) *after* the render, and those used to be wiped by the next
+   * render's `clear()`. Once a render can be skipped (docs/render-performance-plan.md §5a),
+   * the highlight pass must remove its own entries instead, or they accumulate.
+   */
+  removeByType(type: ElementType): void {
+    this.elements = this.elements.filter(el => el.type !== type)
+  }
+
+  /**
    * Get all registered elements
    */
   getAll(): ElementInfo[] {

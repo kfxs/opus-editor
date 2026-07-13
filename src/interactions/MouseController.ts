@@ -69,7 +69,6 @@ export class MouseController {
   private isDraggingNote = false
   private draggedNoteOriginalPitch: PitchSpelling | null = null
   private dragStartTime: number | null = null
-  private lastPreviewRender = 0
 
   // --- Clef drag state (selection-tool drag, across slots and measures) ---
   private isDraggingClef = false
@@ -119,7 +118,6 @@ export class MouseController {
   private readonly SLUR_ENDPOINT_SNAP_PX = 60
 
   private readonly DRAG_TIME_THRESHOLD_MS = 150
-  private readonly PREVIEW_THROTTLE_MS = 50
 
   // --- Hand / grab-to-pan gesture (tool-agnostic navigation) ---
   // A press on empty space ARMS a possible pan but changes nothing yet; we decide
@@ -1555,10 +1553,9 @@ export class MouseController {
     if (this.state.selectedTool === 'selection') return
     if (this.isMouseButtonDown) return
 
-    const now = Date.now()
-    if (now - this.lastPreviewRender < this.PREVIEW_THROTTLE_MS) return
-    this.lastPreviewRender = now
-
+    // No throttle: since P4 the ghost is an overlay, so following the cursor costs one small
+    // draw rather than a re-layout of the whole score. The old 50 ms gate existed only to
+    // ration that cost, and capped the preview at 20 fps (docs/render-performance-plan.md §5b).
     this.renderToolGhost(x, y)
   }
 

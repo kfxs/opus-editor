@@ -732,6 +732,7 @@ import { useTextEditing } from './composables/useTextEditing'
 import { useViewport } from './composables/useViewport'
 import { useGutter } from './composables/useGutter'
 import { useShortcuts } from './composables/useShortcuts'
+import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
 import { ClipboardController } from './interactions/ClipboardController'
 import { isValidTimeSignature } from './utils/meter'
 import { getMeasureDurationFrac } from './utils/musicUtils'
@@ -1094,8 +1095,35 @@ onMounted(() => {
     shortcuts.enable()
     initializeEmptyScore()
     renderer.renderScore()
+    installPerfInstruments()
   }
 })
+
+/**
+ * TEMPORARY — the P0 render-performance instrument (docs/render-performance-plan.md §8).
+ * Dev builds only; delete when P0 closes. From the DevTools console:
+ *
+ *   __perf.load(200)      // a synthetic 200-bar score (4 quarters/bar), same density as the bench
+ *   __census.enable()     // start recording renders, tagged by what caused them
+ *   …edit, click, hover…
+ *   __census.dump()       // a table: renders per cause, and the layout:draw split per render
+ */
+function installPerfInstruments() {
+  // Cast: this project has no vite/client types, and a temporary instrument shouldn't add one.
+  if (!(import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) return
+  const w = window as unknown as Record<string, unknown>
+  w.__census = renderCensus
+  w.__perf = {
+    load: (bars: number, staves = 1) => {
+      if (!engine.value) return
+      selection.selectNote(null)
+      engine.value.loadJSON(buildSyntheticScore(bars, staves))
+      renderer.renderScore()
+      console.log(`[perf] loaded ${bars} bars × ${staves} staves`)
+    },
+  }
+  console.log('[perf] P0 instruments: __perf.load(200), __census.enable(), __census.dump()')
+}
 
 onUnmounted(() => {
   window.removeEventListener('wheel', handleZoomWheel)
