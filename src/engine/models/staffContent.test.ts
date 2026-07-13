@@ -67,7 +67,6 @@ function twoStaffScore(): Score {
     title: 't',
     measures: [measure],
     staves: [{ id: S0 }, { id: S1 }],
-    keySignature: { key: 'C', accidentals: 0 },
     defaultTimeSignature: { numerator: 4, denominator: 4 },
   }
 }
@@ -220,7 +219,6 @@ describe('ScoreModel staff-axis scaffolding (N=1)', () => {
       measures: [
         { id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [] },
       ],
-      keySignature: { key: 'C', accidentals: 0 },
       defaultTimeSignature: { numerator: 4, denominator: 4 },
     }
     const model = ScoreModel.fromJSON(JSON.stringify(legacy))

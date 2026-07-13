@@ -21,7 +21,7 @@ const CLOSE_THRESHOLD = 25
 const FAR_THRESHOLD = 40
 /** Safety cap on the addMeasure() loop that extends the score to reach a target measure. */
 const MAX_MEASURE_CREATE_ATTEMPTS = 20
-export const INVALID_NOTE_ENTRY_TYPES = ['clef', 'timeSignature', 'barline', 'keySignature']
+export const INVALID_NOTE_ENTRY_TYPES = ['clef', 'timeSignature', 'barline']
 
 /** Float beat-comparison epsilon (pixel-boundary tolerance; see docs/ARCHITECTURE.md). */
 const BEAT_EPSILON = 0.001

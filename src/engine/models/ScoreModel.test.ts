@@ -353,7 +353,6 @@ describe('ScoreModel', () => {
     it('loads a score with no slurs array (absent = empty)', () => {
       const legacy = JSON.stringify({
         id: 'x', title: 'Legacy', tempo: 100,
-        keySignature: { key: 'C', accidentals: 0 },
         defaultTimeSignature: { numerator: 4, denominator: 4 },
         measures: [
           { id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [] },
@@ -368,7 +367,6 @@ describe('ScoreModel', () => {
     it('loads a score with no dynamics array (absent = empty)', () => {
       const legacy = JSON.stringify({
         id: 'x', title: 'Legacy', tempo: 100,
-        keySignature: { key: 'C', accidentals: 0 },
         defaultTimeSignature: { numerator: 4, denominator: 4 },
         measures: [
           { id: 'm1', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [] },
@@ -1988,7 +1986,6 @@ describe('ScoreModel JSON — time-signature validation', () => {
   function scoreJson(meters: Array<[number, number]>): string {
     return JSON.stringify({
       id: 'x', title: 't', tempo: 120,
-      keySignature: { key: 'C', accidentals: 0 },
       defaultTimeSignature: { numerator: meters[0][0], denominator: meters[0][1] },
       measures: meters.map(([n, d], i) => ({
         id: `m${i + 1}`, number: i + 1, slots: [], tuplets: [],

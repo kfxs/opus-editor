@@ -19,7 +19,6 @@ export type ElementType =
   | 'rest'
   | 'clef'
   | 'timeSignature'
-  | 'keySignature'
   | 'barline'
   | 'beam'
   | 'staff'

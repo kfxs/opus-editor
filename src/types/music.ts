@@ -687,8 +687,6 @@ export interface Measure {
    * Resolution helpers live in utils/tempoMap (buildTempoMap, effectiveTempoAt).
    */
   tempos?: TempoMark[]
-  /** Optional key signature (number of sharps/flats, positive = sharps, negative = flats) */
-  keySignature?: number
   /** Tuplets in this measure */
   tuplets: Tuplet[]
 }
@@ -727,16 +725,6 @@ export interface StaffGroup {
 }
 
 /**
- * Key signature representation
- */
-export interface KeySignature {
-  /** Key name (e.g., 'C', 'G', 'Dm') */
-  key: string
-  /** Number of sharps (positive) or flats (negative) */
-  accidentals: number
-}
-
-/**
  * Represents a complete musical score
  */
 export interface Score {
@@ -771,8 +759,16 @@ export interface Score {
    * `score.clef` bleed across staves (docs/clef-model-plan.md). One way to state a tempo,
    * not two. See docs/tempo-marks-plan.md §0.
    */
-  /** Key signature for the score */
-  keySignature: KeySignature
+  /**
+   * NOTE: there is deliberately **no `keySignature` field** (and none on {@link Measure}).
+   * The editor has no key-signature feature yet; when one is built, a key signature is
+   * positional AND per-staff — a modulation is a positional event like a clef change, and
+   * a transposing instrument's key differs from the score's. It will therefore land as
+   * `Measure.keys?: KeyChange[]` carrying a `staffId` (the shape of `clefs` / `dynamics` /
+   * `tempos`), resolving positionally to a constant "no accidentals" — never to a value
+   * stored on the score. A global key would be, implicitly, "the key at bar 1 beat 0"; that
+   * conflation is what made `score.clef` bleed across staves (docs/clef-model-plan.md).
+   */
   /** Default time signature */
   defaultTimeSignature: TimeSignature
   /**

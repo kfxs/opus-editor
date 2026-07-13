@@ -144,7 +144,6 @@ export class ScoreModel {
     this.score = {
       id: uuidv4(),
       title,
-      keySignature: { key: 'C', accidentals: 0 },
       defaultTimeSignature: { numerator: 4, denominator: 4 },
       measures: [],
       // The staff axis: one staff by default (N=1). Content carries no explicit
