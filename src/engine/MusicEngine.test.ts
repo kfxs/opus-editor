@@ -1382,6 +1382,26 @@ describe('isRenderStale (P3 skip test)', () => {
     expect(engine.isRenderStale()).toBe(true)
   })
 
+  it('the DROP of a drag is undoable but not stale — the picture is already on screen', () => {
+    // commitSlurShape records history; it changes no content (previewSlurShape already did, and
+    // its render already showed it). Flagging it dirty re-engraved the whole score to paint what
+    // was already there — a full render on every drag release.
+    const engine = makeEngine()
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const slur = engine.createSlur([a.id, b.id])!
+
+    engine.previewSlurShape(slur.id, [{ x: 1, y: 2 }, { x: 3, y: 4 }])
+    expect(engine.isRenderStale()).toBe(true) // the drag itself DOES need a redraw
+    engine.renderScore()
+
+    engine.commitSlurShape()
+
+    expect(engine.canUndo()).toBe(true)
+    expect(engine.getUndoDescription()).toBe('Reshape slur') // history recorded…
+    expect(engine.isRenderStale()).toBe(false)               // …but nothing to redraw
+  })
+
   it('goes stale on a live staff-spacing drag (same deferred-undo shape)', () => {
     const engine = makeEngine()
     engine.addStaffBelow(0)

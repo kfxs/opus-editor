@@ -193,6 +193,22 @@ export class MusicEngine {
   }
 
   /**
+   * Record the undo entry for a change the model has **already taken and the screen has already
+   * shown** — the drop of a live drag, whose every frame went through a `preview*` method.
+   *
+   * It records history; it does not change content. So unlike {@link saveUndoState} it must NOT
+   * flag the model dirty: doing so re-engraves the entire score to paint a picture that is
+   * already on screen. That was costing a full render on every drag release (visible in the
+   * census as `handleMouseLeave` — docs/render-performance-plan.md §5a).
+   *
+   * Inside a `runBatch` the surrounding batch owns the snapshot, exactly as in `saveUndoState`.
+   */
+  private commitPreviewed(description: string): void {
+    if (this.undoSuppressed) return
+    this.undoRedoManager.pushState(this.scoreModel.getScore(), description)
+  }
+
+  /**
    * Undo the last action
    * @returns true if undo was successful
    */
@@ -972,7 +988,7 @@ export class MusicEngine {
 
   /** Record one undo entry after a slur-handle drag settles. */
   commitSlurShape(): void {
-    this.saveOnly('Reshape slur')
+    this.commitPreviewed('Reshape slur')
   }
 
   /** Live (preview) re-anchor used **while dragging a slur endpoint handle** — moves
@@ -986,7 +1002,7 @@ export class MusicEngine {
 
   /** Record one undo entry after a slur-endpoint re-anchor drag settles. */
   commitSlurEndpoint(): void {
-    this.saveOnly('Re-anchor slur')
+    this.commitPreviewed('Re-anchor slur')
   }
 
   /** Nudge a slur endpoint by a staff-space delta and save ONE undo step (the keyboard
@@ -1199,7 +1215,7 @@ export class MusicEngine {
    *  moved a view knob, not the score, so there is nothing to undo. */
   commitStaffSpacing(): void {
     if (this.viewMode === 'linear') return
-    this.saveOnly('Adjust staff spacing')
+    this.commitPreviewed('Adjust staff spacing')
   }
 
   /**
