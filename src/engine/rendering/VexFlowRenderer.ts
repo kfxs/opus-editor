@@ -10,7 +10,8 @@ import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, type MeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { computeBeamGroups } from '@/utils/beaming'
-import { ElementRegistry, type TupletGeometry, type ClefSegment } from '@/engine/ElementRegistry'
+import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
+import { measureShapeKey } from './MeasureRedrawKey'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
 import type { RenderPass } from './RenderPass'
 import { renderTies, getTieDirection } from './TieRenderer'
@@ -68,12 +69,106 @@ export interface MeasureBounds {
  * VexFlow wrapper service for rendering musical notation
  * This service abstracts VexFlow complexity and provides a clean API
  */
+
+/**
+ * The identity of one drawn measure-on-a-staff. VexFlow's `openGroup` prefixes it, so this becomes
+ * `id="vf-m7-s2"` in the SVG — measure 7, staff 2.
+ */
+export function measureGroupKey(measureNumber: number, staffIndex: number): string {
+  return `m${measureNumber}-s${staffIndex}`
+}
+
+/**
+ * **Tier 1** — where one (measure, staff) sits, and the `Stave` that knows its geometry
+ * (docs/render-performance-plan.md §7).
+ *
+ * Everything here is derived from the casting-off — `MeasureLayout`'s widths plus the staff-spacing
+ * layout — and **nothing here needs a drawing context**. The `stave` is built but not painted; it
+ * already answers `getYForLine` / `getNoteStartX` / `getBoundingBox` (pinned by
+ * `staveGeometry.test.ts`), which is what lets a measure have a *position* without having a
+ * *picture*.
+ *
+ * That is the whole point of the tier: **P6 will produce one of these for every measure in the
+ * score, and hand only the on-screen ones to `renderMeasure`.** Hit-testing, scroll-into-view,
+ * playback-follow and pixel↔position all read tier 1, so they keep working off-screen.
+ */
+export interface MeasurePlacement {
+  /** This staff's own lane of the measure (`staffMeasureView`), not the shared measure. */
+  view: Measure
+  measureNumber: number
+  staffIndex: number
+  line: number
+  x: number
+  y: number
+  width: number
+  isFirstInLine: boolean
+  clef: Clef
+  hasClefChange: boolean
+  cautionaryEndClef?: Clef
+  cautionaryEndTimeSig?: TimeSignature
+  ghostClefBeat?: Fraction
+  /** The real height of the system this measure sits on (staff-spacing aware). */
+  systemHeight: number
+  /** Built by tier 1 when the measure is (re)drawn; restored from the snapshot when it is reused. */
+  stave: Stave
+}
+
+/**
+ * Everything one drawn (measure, staff) produced, kept so the **next** render can reuse it instead
+ * of drawing it again (docs/render-performance-plan.md §7a).
+ *
+ * Reuse is sound only because a measure is reused **only when its redraw key is identical**, and
+ * that key contains its x, y and justified width — so nothing in here can be stale. The moment the
+ * measure moves, re-justifies, or changes by a single glyph, the key differs and it is redrawn from
+ * scratch rather than patched.
+ */
+interface MeasureSnapshot {
+  /** The **shape** key — what this measure looks like, independent of where it sits. */
+  key: string
+  measureNumber: number
+  staffIndex: number
+  /** Where the group was actually PAINTED. A later render that reuses it computes its transform as
+   *  `current - drawn`, so a bar that moves ten times still carries one exact offset rather than ten
+   *  accumulated ones. */
+  drawnX: number
+  drawnY: number
+  group: SVGGElement | null
+  stave: Stave
+  /** Registry entries — tier 1 AND tier 2 — captured contiguously via `ElementRegistry.sliceFrom`. */
+  elements: ElementInfo[]
+  staffGeometry?: StaffGeometry
+  bounds?: MeasureBounds
+  staveNotes: [string, { staveNote: StaveNote; noteIndex: number }][]
+  tuplets: [string, VexFlowTuplet][]
+  dynamics: [string, Annotation][]
+}
+
 export class VexFlowRenderer {
   private renderer: Renderer | null = null
   private context: any = null
   private readonly svgContainer: HTMLElement
   /** Stored bounds for each rendered measure (keyed by measure number) */
   private measureBounds: Map<number, MeasureBounds> = new Map()
+  /** The drawn `<g>` per (measure, staff) — see {@link renderMeasure}. The handle by which a single
+   *  measure can be redrawn, moved or dropped without touching the rest of the score. Lives and dies
+   *  with the SVG, so `clear()` empties it. */
+  private measureGroups: Map<string, SVGGElement> = new Map()
+  /**
+   * Which placements **tier 2** paints. `null` = all of them, which is what ships.
+   *
+   * This is §7's "tier 2 takes the measure set as a parameter" made real, and for now its only
+   * caller is the test that proves tier 1 stands on its own — you cannot demonstrate that an
+   * undrawn measure keeps its geometry without being able to *not draw* one.
+   *
+   * ⚠️ It is NOT yet a culling switch. Cross-measure spans (ties, slurs) still resolve through
+   * `staveNoteMap`, which only drawn measures populate, so a filter that hides a span's anchor drops
+   * the span. Teaching spans to draw on **intersection with the window** rather than on "were my
+   * anchors drawn" is P6's job (§8), and until then this belongs to tests.
+   */
+  private drawFilter: ((p: MeasurePlacement) => boolean) | null = null
+  /** Last render's output per (measure, staff) — what P5.4 reuses instead of redrawing.
+   *  See {@link MeasureSnapshot}. */
+  private snapshots: Map<string, MeasureSnapshot> = new Map()
   /** Registry tracking all rendered elements and their positions */
   private elementRegistry: ElementRegistry = new ElementRegistry()
   /** Memo for each (measure, staff) lane's note-space width, keyed by that lane's content (P2).
@@ -120,10 +215,16 @@ export class VexFlowRenderer {
    * taking one down is a DOM append/remove against the already-drawn score, never a re-layout
    * and re-draw of it (docs/render-performance-plan.md §5b).
    *
-   * `ghost-tempo` has no `-group` suffix because VexFlow's `openGroup` names it.
+   * ⚠️ `vf-ghost-tempo`, not `ghost-tempo`. The other four ghosts build their `<g>` by hand
+   * (`setAttribute('class', 'ghost-…-group')`); the tempo ghost is the one that goes through
+   * VexFlow's `openGroup('ghost-tempo')` — **which prefixes the class with `vf-` itself**. The
+   * selector used to say `.ghost-tempo`, matched nothing, and so never took a tempo ghost down:
+   * they piled up, one per mouse position, as a permanent blue smear. (Nothing swept them either,
+   * since P4 made ghosts overlays — hovering no longer forces the full render that used to hide
+   * the leak.)
    */
   private static readonly GHOST_GROUP_SELECTOR =
-    '.ghost-note-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .ghost-tempo'
+    '.ghost-note-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-tempo'
 
   /** Take down whatever ghost is showing. O(1) in the score's size — this is the whole point
    *  of P4: hovering an invalid element, or leaving the canvas, used to cost a FULL render
@@ -446,25 +547,203 @@ export class VexFlowRenderer {
    * @param cautionaryEndTimeSig - Time signature to draw (full size) at the measure
    *   end as a courtesy warning (set when the next line opens with a meter change)
    */
-  renderMeasure(
-    pass: RenderPass,
-    measure: Measure,
-    x: number,
-    y: number,
-    width: number,
-    isFirstInLine: boolean = false,
-    clef: Clef = 'treble',
-    hasClefChange: boolean = false,
-    cautionaryEndClef?: Clef,
-    ghostClefBeat?: Fraction,
-    cautionaryEndTimeSig?: TimeSignature,
-    staffIndex: number = 0,
-  ): Stave {
+  /**
+   * The addressable unit of the drawn score (docs/render-performance-plan.md §7).
+   *
+   * One `<g class="vf-measure" id="vf-m{n}-s{i}">` per **(measure, staff)** — not per measure. The
+   * staff axis is addressable because P6 must cull **vertically** too: you cannot see forty staves
+   * at once, so a bar of the piccolo line must be droppable without dropping the same bar of the
+   * cellos.
+   *
+   * Everything drawn between open and close lands inside the group, which is what later lets one
+   * measure be re-drawn, moved or dropped on its own. Tier-1 work (`buildStave`,
+   * `recordMeasureBounds`) deliberately happens *outside* it: it emits no DOM, and it must keep
+   * working for measures that are never drawn at all.
+   */
+  /**
+   * **Tier 1** (docs/render-performance-plan.md §7) — place every (measure, staff) in the score and
+   * register its geometry. **Draws nothing.**
+   *
+   * This is the pass that has to run for the WHOLE score even once P6 only draws a window of it —
+   * so it is deliberately kept to things a measure can know without being painted:
+   *
+   * - `measureBounds` — the measure's box (what `CoordinateMapper` maps pixels through);
+   * - `staffGeometry` — the five line Y positions, note start/end X, the governing clef (what
+   *   pixel↔pitch resolves against);
+   * - the hit-boxes for the staff, the opening clef, the meter and the barline.
+   *
+   * What it deliberately does NOT register is anything whose position only exists once the voice is
+   * formatted and drawn: noteheads, accidentals, beams, tuplets, dynamics, and the inline-clef
+   * segments. Those are tier 2 (`drawMeasureContent`), and a measure nobody can see does not need
+   * them — see the note there.
+   */
+  private layoutTier1(
+    score: Score,
+    staffList: { id?: string }[],
+    clefsByStaff: Map<string | undefined, StaffClefs>,
+    measureWidths: Map<number, MeasureWidthInfo>,
+    spacing: { lineTopPx: number[]; cumPx: number[][]; lineHeightPx: number[] },
+    staffStride: number,
+    margin: number,
+  ): Omit<MeasurePlacement, 'stave'>[] {
+    const placements: Omit<MeasurePlacement, 'stave'>[] = []
+    let currentLine = -1
+    let currentX = margin
+
+    for (const measure of score.measures) {
+      const widthInfo = measureWidths.get(measure.number)
+      if (!widthInfo) {
+        console.error(`No width info for measure ${measure.number}`)
+        continue
+      }
+
+      if (widthInfo.lineNumber !== currentLine) {
+        currentLine = widthInfo.lineNumber
+        currentX = margin
+      }
+
+      // Top of this system (line): margin + the stacked heights of every system above it, each
+      // grown by its own per-system staff-spacing extra (precomputed in `spacing.lineTopPx`).
+      const systemTop = spacing.lineTopPx[currentLine]
+      const isFirstInLine = currentX === margin
+
+      // Each staff of this measure sits at its own Y with its own clef and its own slice of the
+      // content (staffMeasureView filters slots/clefs/dynamics/tuplets to the staff). Barlines
+      // align because every staff shares this measure's x/width.
+      staffList.forEach((staff, staffIndex) => {
+        // `spacing.cumPx[line][i]` already includes this staff's own space-above plus every
+        // staff above it on THIS system (inclusive prefix) — push it and everything below down.
+        const y = systemTop + staffIndex * staffStride + spacing.cumPx[currentLine][staffIndex]
+        const staffClefs = clefsByStaff.get(staff.id)
+        const clef = (staffClefs?.opening.get(measure.number) || 'treble') as Clef
+        const prevEndClef = measure.number > 1 ? staffClefs?.ending.get(measure.number - 1) : undefined
+        const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
+        // Clef-drag ghost and the cautionary end-clef are the primary staff's concern for now
+        // (drag has no staff axis yet; cautionary clef width isn't per-staff). The cautionary end
+        // time-sig is shared meter, so it applies to every staff.
+        const ghostClefBeat = staffIndex === 0 ? this.ghostClefBeatFor(score, measure.number) : undefined
+        const cautionaryEndClef = staffIndex === 0 ? widthInfo.cautionaryEndClef : undefined
+        const view = staffMeasureView(measure, staff.id, score)
+
+        placements.push({
+          view,
+          measureNumber: measure.number,
+          staffIndex,
+          line: currentLine,
+          x: currentX,
+          y,
+          width: widthInfo.finalWidth,
+          isFirstInLine,
+          clef,
+          hasClefChange,
+          cautionaryEndClef,
+          cautionaryEndTimeSig: widthInfo.cautionaryEndTimeSig,
+          ghostClefBeat,
+          systemHeight: spacing.lineHeightPx[currentLine],
+        })
+      })
+
+      currentX += widthInfo.finalWidth
+    }
+
+    return placements
+  }
+
+  /**
+   * The measures that a tie or slur is **anchored in** — the ones P5.4b may NOT move by transform.
+   *
+   * Ties and slurs live outside the measure groups and are redrawn from scratch every render, by
+   * asking `staveNoteMap` where their endpoint notes are. A transform-reused measure keeps its
+   * *previous* `StaveNote` objects, and those still report the coordinates they were **drawn** at —
+   * so a span anchored in one would be drawn back at the bar's old position, detached from its
+   * notes.
+   *
+   * Rather than teach every span renderer to add an offset (many call sites, easy to miss one), the
+   * rule is blunt and provably safe:
+   *
+   * > **A measure holding a span anchor is redrawn whenever it moves.** Its `StaveNote`s are then
+   * > fresh, so no offset is ever needed anywhere.
+   *
+   * The cost is small and bounded: only the two *endpoint* bars of a span, never the bars it merely
+   * crosses. A slur over bars 4–15 redraws 4 and 15; 5–14 still just translate.
+   */
+  private spanAnchorMeasures(score: Score): Set<number> {
+    const anchors = new Set<number>()
+
+    // Ties are carried on the pitches themselves.
+    for (const measure of score.measures) {
+      for (const slot of measure.slots) {
+        if (slot.type !== 'chord') continue
+        if (slot.notes.some(p => p.tiedTo || p.tiedFrom)) anchors.add(measure.number)
+      }
+    }
+
+    // Slurs name their endpoints by note id, so resolve those back to their measures.
+    if (score.slurs?.length) {
+      const measureOfNote = new Map<string, number>()
+      for (const measure of score.measures) {
+        for (const slot of measure.slots) {
+          if (slot.type !== 'chord') continue
+          for (const pitch of slot.notes) measureOfNote.set(pitch.id, measure.number)
+        }
+      }
+      for (const slur of score.slurs) {
+        const from = measureOfNote.get(slur.startNoteId)
+        const to = measureOfNote.get(slur.endNoteId)
+        if (from !== undefined) anchors.add(from)
+        if (to !== undefined) anchors.add(to)
+      }
+    }
+
+    return anchors
+  }
+
+  /**
+   * **Tier 1, per measure** — build the Stave and register the geometry of one (measure, staff).
+   * Draws nothing. Run only for measures this render is actually rebuilding; a reused measure
+   * replays its snapshot instead, which is the same thing at zero cost.
+   */
+  private registerTier1(p: Omit<MeasurePlacement, 'stave'>): Stave {
+    const stave = this.buildStave(p.view, p.x, p.y, p.width, p.isFirstInLine, p.clef, p.hasClefChange, p.cautionaryEndClef, p.cautionaryEndTimeSig)
+
+    this.recordMeasureBounds(stave, p.view, p.x, p.y, p.width, p.staffIndex)
+    // Per-measure geometry is keyed by (measure, staffIndex), so every stacked staff registers its
+    // own — pitch↔y resolves against each staff's real clef + line Y positions, and a click is
+    // attributed to a staff by its y-band (ElementRegistry.staffIndexAtY).
+    this.registerStaffAndGeometry(stave, p.view, p.x, p.y, p.width, p.isFirstInLine, p.clef, p.hasClefChange, p.staffIndex)
+
+    // This measure's REAL system height, so pixelToMeasure's vertical band matches the drawn layout
+    // — the uniform fallback under-covers once a staff is spaced far down
+    // (docs/staff-spacing-plan.md §3). Written by staff 0, which owns measureBounds.
+    const bounds = this.measureBounds.get(p.measureNumber)
+    if (bounds) bounds.systemHeight = p.systemHeight
+
+    return stave
+  }
+
+  renderMeasure(pass: RenderPass, placement: MeasurePlacement): Stave {
     if (!this.context) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
 
-    const stave = this.buildAndDrawStave(measure, x, y, width, isFirstInLine, clef, hasClefChange, cautionaryEndClef, cautionaryEndTimeSig, staffIndex)
+    const key = measureGroupKey(placement.measureNumber, placement.staffIndex)
+    const group = this.context.openGroup('measure', key) as SVGGElement
+    this.measureGroups.set(key, group)
+    try {
+      return this.drawMeasureContent(pass, placement)
+    } finally {
+      // ALWAYS close, even if the draw threw. VexFlow's openGroup pushes the context's append
+      // target; leaving it open would nest the entire rest of the score — every later measure, the
+      // ties, the slurs, the ghosts — inside this one measure's group (cf. TempoLayout's own note).
+      this.context.closeGroup()
+    }
+  }
+
+  private drawMeasureContent(pass: RenderPass, placement: MeasurePlacement): Stave {
+    const { view: measure, x, clef, ghostClefBeat, staffIndex, stave } = placement
+
+    // The stave was BUILT by tier 1 (`layoutTier1`); tier 2 only paints it.
+    this.drawStave(stave)
 
     // Resolve the clef in effect at any beat within this measure: starts from the
     // opening clef and applies each clef change at/after its beat.
@@ -608,12 +887,16 @@ export class VexFlowRenderer {
       }
     }
 
-    // Per-measure GEOMETRY (staff bbox, pitch↔y line positions, opening-clef hit box) is
-    // keyed by (measure, staffIndex) (Phase 2), so every stacked staff registers its own —
-    // pitch↔y then resolves against each staff's real clef + line Y positions, and a click
-    // is attributed to a staff by its y-band (ElementRegistry.staffIndexAtY). At N=1 the
-    // staff loop runs once with index 0, identical to the pre-multi-staff single geometry.
-    this.registerStaffAndGeometry(stave, measure, x, y, width, isFirstInLine, clef, hasClefChange, staffIndex, clefSegments)
+    // **Tier 2 geometry.** The staff's own geometry was registered by tier 1, which cannot know
+    // this: an inline clef's X comes from the FORMATTED voice, and formatting is part of the draw.
+    //
+    // That is the right place for it. `clefSegments` exist solely to answer "which clef governs
+    // this PIXEL?" (ElementRegistry.clefAtX → pixelToPitch), and pixels only exist where you can
+    // look. A culled measure is never under the mouse, and the registry already falls back to the
+    // measure's opening clef when the segments are absent.
+    if (clefSegments.length > 1) {
+      this.elementRegistry.setClefSegments(measure.number, staffIndex, clefSegments)
+    }
 
     return stave
   }
@@ -687,7 +970,18 @@ export class VexFlowRenderer {
     }
   }
 
-  private buildAndDrawStave(
+  /**
+   * **Tier 1** (docs/render-performance-plan.md §7) — construct the Stave and its modifiers.
+   *
+   * Nothing here touches the drawing context, and that is the point, not an accident: the returned
+   * Stave already knows its full geometry (`getNoteStartX`, `getYForLine`, `getBoundingBox`) purely
+   * from the modifiers added below. That is what will let P6 cull a measure's **draw** without
+   * losing its **position** — the registry can be populated for a measure nobody paints.
+   *
+   * The property belongs to VexFlow, not to us, so it is pinned by `staveGeometry.test.ts` rather
+   * than trusted.
+   */
+  private buildStave(
     measure: Measure,
     x: number,
     y: number,
@@ -697,7 +991,6 @@ export class VexFlowRenderer {
     hasClefChange: boolean = false,
     cautionaryEndClef?: Clef,
     cautionaryEndTimeSig?: TimeSignature,
-    staffIndex: number = 0,
   ): Stave {
     const stave = new Stave(x, y, width)
 
@@ -721,28 +1014,45 @@ export class VexFlowRenderer {
       stave.addEndTimeSignature(`${cautionaryEndTimeSig.numerator}/${cautionaryEndTimeSig.denominator}`)
     }
 
+    return stave
+  }
+
+  /**
+   * **Tier 1** — the measure's box: where it is, not what is in it.
+   *
+   * Reads only the Stave, so it is correct for a measure that is never drawn.
+   *
+   * measureBounds stays keyed by measure.number (multi-staff Phase 2 deliberately did NOT split it
+   * per staff): its X fields are shared across staves (barlines align) and its measureY is the
+   * system top (staff 0). That's exactly what beatToPixelX (X only) and pixelToMeasure (which
+   * measure/system) need — per-staff Y lives in staffGeometries instead. So only staff 0 writes it,
+   * leaving the systemTop reference Y intact for the whole system.
+   */
+  private recordMeasureBounds(
+    stave: Stave,
+    measure: Measure,
+    x: number,
+    y: number,
+    width: number,
+    staffIndex: number,
+  ): void {
+    if (staffIndex !== 0) return
+    this.measureBounds.set(measure.number, {
+      measureX: x,
+      measureY: y,
+      measureWidth: width,
+      noteStartX: stave.getNoteStartX(),
+      noteEndX: stave.getNoteEndX(),
+    })
+  }
+
+  /** **Tier 2** — paint the staff lines. The only part of a stave that a culled measure skips. */
+  private drawStave(stave: Stave): void {
     // VexFlow's Stem.draw() leaves ctx.lineWidth at Stem.WIDTH (1.5) and Stave.draw()
     // strokes its lines with whatever width is current — so a prior measure's stems
     // would thicken this staff. Pin it back to 1 before drawing the staff lines.
     this.context!.setLineWidth?.(1)
     stave.setContext(this.context!).draw()
-
-    // measureBounds stays keyed by measure.number (Phase 2 deliberately did NOT split it
-    // per staff): its X fields are shared across staves (barlines align) and its measureY is
-    // the system top (staff 0). That's exactly what beatToPixelX (X only) and pixelToMeasure
-    // (which measure/system) need — per-staff Y lives in staffGeometries instead. So only
-    // staff 0 writes it, leaving the systemTop reference Y intact for the whole system.
-    if (staffIndex === 0) {
-      this.measureBounds.set(measure.number, {
-        measureX: x,
-        measureY: y,
-        measureWidth: width,
-        noteStartX: stave.getNoteStartX(),
-        noteEndX: stave.getNoteEndX(),
-      })
-    }
-
-    return stave
   }
 
   private buildVexTuplets(
@@ -1073,6 +1383,16 @@ export class VexFlowRenderer {
     }
   }
 
+  /**
+   * **Tier 1** — everything a measure knows about itself without being painted: its staff box, its
+   * five line Y positions, its note start/end X, and the hit-boxes for the staff, the opening clef,
+   * the meter and the barline.
+   *
+   * Every value below comes off the `Stave` or off plain layout arithmetic, so this is correct for a
+   * measure that is never drawn. The mid-measure clef segments used to be registered here too; they
+   * are tier 2 now (see `drawMeasureContent`), because an inline clef's X only exists once the voice
+   * is formatted.
+   */
   private registerStaffAndGeometry(
     stave: Stave,
     measure: Measure,
@@ -1083,7 +1403,6 @@ export class VexFlowRenderer {
     clef: Clef,
     hasClefChange: boolean = false,
     staffIndex: number = 0,
-    clefSegments?: ClefSegment[],
   ): void {
     try {
       const staveBox = stave.getBoundingBox()
@@ -1111,7 +1430,6 @@ export class VexFlowRenderer {
         noteStartX: stave.getNoteStartX(),
         noteEndX: stave.getNoteEndX(),
         clef,
-        clefSegments: clefSegments && clefSegments.length > 1 ? clefSegments : undefined,
       })
     } catch (e) { /* getBoundingBox or getYForLine may fail */ }
 
@@ -1294,8 +1612,8 @@ export class VexFlowRenderer {
     }
     renderCensus.beginRender() // P0 instrument — remove with docs/render-performance-plan.md §8
 
-    // Always clear before rendering to prevent accumulation
-    this.clear()
+    // NOTE: no unconditional `clear()` here any more. The SVG is torn down *selectively*, below,
+    // once we know which measures actually changed — see `clearForRender`.
 
     // Use layout configuration
     const margin = LAYOUT_CONFIG.MARGIN
@@ -1376,70 +1694,122 @@ export class VexFlowRenderer {
       this.renderer!.resize(contentWidth, totalHeight)
     }
 
-    // Render each measure with calculated widths
-    let currentLine = -1
-    let currentX = margin
+    // ---- TIER 1 (§7): place every measure. Pure arithmetic over the casting-off; draws nothing. ----
+    // Runs over the WHOLE score, and must keep doing so once P6 draws only a window of it.
+    const plans = this.layoutTier1(score, staffList, clefsByStaff, measureWidths, spacing, staffStride, margin)
 
-    score.measures.forEach((measure) => {
-      const widthInfo = measureWidths.get(measure.number)
-      if (!widthInfo) {
-        console.error(`No width info for measure ${measure.number}`)
+    // ---- The redraw decision (§7a). Three outcomes, not two. ----
+    //
+    //   SAME     — same shape, same place  → touch nothing at all.
+    //   MOVED    — same shape, new place   → **translate** the group. No re-engraving. (P5.4b)
+    //   REDRAW   — different shape         → re-engrave it.
+    //
+    // The middle case is the one that matters. Before it existed, a bar that had merely *slid* was
+    // treated as a bar that had *changed*: dragging a staff down re-engraved 66% of the score on
+    // every mouse-move frame, and that single gesture was 53% of all render time. Nothing about
+    // those bars was different — they had moved.
+    const keys = plans.map(p => measureShapeKey(score, p, this.suppressedDynamicId, this.suppressedTempoId))
+
+    // A span's endpoint bar must be REDRAWN when it moves, never translated — see spanAnchorMeasures.
+    const anchors = this.spanAnchorMeasures(score)
+    // A system connector is drawn from the Stave of the line's first measure, and a translated
+    // measure's Stave still reports its old coordinates. Only relevant with a staff axis.
+    const multiStaff = staffList.length > 1
+
+    type Reuse = { snapshot: MeasureSnapshot; dx: number; dy: number }
+    const reuse = new Map<string, Reuse>()
+
+    plans.forEach((plan, i) => {
+      const groupKey = measureGroupKey(plan.measureNumber, plan.staffIndex)
+      const prev = this.snapshots.get(groupKey)
+      // `isConnected` guards the case where something else tore the SVG down under us.
+      if (!prev || prev.key !== keys[i] || !prev.group?.isConnected) return
+
+      const dx = plan.x - prev.drawnX
+      const dy = plan.y - prev.drawnY
+      if (dx === 0 && dy === 0) {
+        reuse.set(groupKey, { snapshot: prev, dx: 0, dy: 0 })
         return
       }
 
-      // Check if we've moved to a new line
-      if (widthInfo.lineNumber !== currentLine) {
-        currentLine = widthInfo.lineNumber
-        currentX = margin
+      // It moved. May it be translated rather than re-engraved?
+      if (anchors.has(plan.measureNumber)) return
+      if (multiStaff && plan.isFirstInLine) return
+      reuse.set(groupKey, { snapshot: prev, dx, dy })
+    })
+
+    // Take down everything this render is responsible for rebuilding — but leave the reused measure
+    // groups standing. This is what replaces the old unconditional `clear()`. (`reuse` already holds
+    // the snapshots it needs, so wiping `this.snapshots` here is safe.)
+    this.clearForRender(new Set(reuse.keys()))
+
+    const placements: MeasurePlacement[] = []
+    let redrawn = 0
+
+    for (let i = 0; i < plans.length; i++) {
+      const plan = plans[i]
+      const groupKey = measureGroupKey(plan.measureNumber, plan.staffIndex)
+
+      const reused = reuse.get(groupKey)
+      if (reused) {
+        this.replaySnapshot(groupKey, reused.snapshot, plan, reused.dx, reused.dy)
+        placements.push({ ...plan, stave: reused.snapshot.stave })
+        continue
       }
 
-      // Top of this system (line): margin + the stacked heights of every system above it, each
-      // grown by its own per-system staff-spacing extra (precomputed in `spacing.lineTopPx`).
-      const systemTop = spacing.lineTopPx[currentLine]
-      const isFirstInLine = currentX === margin
+      // ---- Rebuild: tier 1, then tier 2 (unless culled). ----
+      // Registry entries are captured contiguously, so `sliceFrom` gets exactly this measure's.
+      const registryStart = this.elementRegistry.count
+      const stave = this.registerTier1(plan)
+      const placement: MeasurePlacement = { ...plan, stave }
+      placements.push(placement)
 
-      // Draw each staff of this measure at its own Y with its own clef and its own slice
-      // of the measure's content (staffMeasureView filters slots/clefs/dynamics/tuplets to
-      // the staff). Barlines align because every staff shares this measure's x/width.
-      const measureStaves: Stave[] = []
-      staffList.forEach((staff, staffIndex) => {
-        // `spacing.cumPx[line][i]` already includes this staff's own space-above plus every
-        // staff above it on THIS system (inclusive prefix) — push it and everything below down.
-        const y = systemTop + staffIndex * staffStride + spacing.cumPx[currentLine][staffIndex]
-        const staffClefs = clefsByStaff.get(staff.id)
-        const clef = staffClefs?.opening.get(measure.number) || 'treble'
-        const prevEndClef = measure.number > 1 ? staffClefs?.ending.get(measure.number - 1) : undefined
-        const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
-        // Clef-drag ghost and the cautionary end-clef are the primary staff's concern for
-        // now (drag has no staff axis yet; cautionary clef width isn't per-staff). The
-        // cautionary end time-sig is shared meter, so it applies to every staff.
-        const ghostClefBeat = staffIndex === 0 ? this.ghostClefBeatFor(score, measure.number) : undefined
-        const cautionaryEndClef = staffIndex === 0 ? widthInfo.cautionaryEndClef : undefined
-        const view = staffMeasureView(measure, staff.id, score)
+      // Which measures get painted is a *choice*, not an assumption — §7's `draw(measures, surface)`.
+      // Default: all of them. P6 replaces the filter with a viewport-intersection test.
+      const draw = !this.drawFilter || this.drawFilter(placement)
+      if (draw) {
+        this.renderMeasure(pass, placement)
+        redrawn++
+      }
 
-        measureStaves.push(
-          this.renderMeasure(pass, view, currentX, y, widthInfo.finalWidth, isFirstInLine, clef, hasClefChange, cautionaryEndClef, ghostClefBeat, widthInfo.cautionaryEndTimeSig, staffIndex)
-        )
+      this.snapshots.set(groupKey, {
+        key: keys[i],
+        measureNumber: plan.measureNumber,
+        staffIndex: plan.staffIndex,
+        // Where it was actually painted — the origin every later translation is measured from.
+        drawnX: plan.x,
+        drawnY: plan.y,
+        group: draw ? this.measureGroups.get(groupKey) ?? null : null,
+        stave,
+        elements: this.elementRegistry.sliceFrom(registryStart),
+        staffGeometry: this.elementRegistry.getStaffGeometry(plan.measureNumber, plan.staffIndex),
+        bounds: plan.staffIndex === 0 ? this.measureBounds.get(plan.measureNumber) : undefined,
+        staveNotes: this.captureById(plan.view, this.staveNoteMap),
+        tuplets: this.captureById({ ...plan.view, slots: [] }, this.tupletObjectMap, plan.view.tuplets?.map(t => t.id)),
+        dynamics: this.captureById({ ...plan.view, slots: [] }, this.dynamicObjectMap, plan.view.dynamics?.map(d => d.id)),
       })
+    }
 
-      // Record this measure's REAL system height (staff-0 measureBounds was just written by the
-      // forEach) so pixelToMeasure's vertical band matches the drawn layout — the uniform
-      // fallback under-covers once a staff is spaced far down (docs/staff-spacing-plan.md §3).
-      const mb = this.measureBounds.get(measure.number)
-      if (mb) mb.systemHeight = spacing.lineHeightPx[currentLine]
+    renderCensus.measuresRedrawn(redrawn, plans.length)
 
-      // Join the stacked staves into one system with a vertical line at the left edge of
-      // each line's first measure (grand-staff look). A single connecting line only — the
-      // brace/bracket grouping symbol (StaffGroup) is deferred (docs/multi-staff-plan.md §0).
-      if (isFirstInLine && measureStaves.length > 1) {
-        new StaveConnector(measureStaves[0], measureStaves[measureStaves.length - 1])
+    // Join the stacked staves into one system with a vertical line at the left edge of each line's
+    // first measure (grand-staff look). A single connecting line only — the brace/bracket grouping
+    // symbol (StaffGroup) is deferred (docs/multi-staff-plan.md §0). Connectors live at the SVG's
+    // top level, not inside a measure group, so they are torn down and redrawn every render — which
+    // is why a REUSED measure still has to keep its `Stave` around (see MeasureSnapshot).
+    if (staffList.length > 1) {
+      const byKey = new Map(placements.map(p => [measureGroupKey(p.measureNumber, p.staffIndex), p]))
+      const bottomStaff = staffList.length - 1
+      for (const p of placements) {
+        if (!p.isFirstInLine || p.staffIndex !== 0) continue
+        const bottom = byKey.get(measureGroupKey(p.measureNumber, bottomStaff))
+        if (!bottom) continue
+        new StaveConnector(p.stave, bottom.stave)
           .setType('singleLeft')
           .setContext(this.context!)
           .draw()
       }
-
-      currentX += widthInfo.finalWidth
-    })
+    }
 
     // Render ties between measures after all measures are drawn
     renderTies(pass, score)
@@ -1711,6 +2081,149 @@ export class VexFlowRenderer {
     }
   }
 
+  /** The drawn `<g>` for one (measure, staff) — the handle P5's incremental redraw and P6's culling
+   *  address a single measure by. Null for a measure that was not drawn. Must be called after a
+   *  render. See {@link renderMeasure}. */
+  getMeasureSVGGroup(measureNumber: number, staffIndex: number): SVGGElement | null {
+    return this.measureGroups.get(measureGroupKey(measureNumber, staffIndex)) ?? null
+  }
+
+  /** Restrict tier 2 to a subset of the score. See the {@link drawFilter} field for the hazard —
+   *  this is a test seam, not yet a culling switch. */
+  setDrawFilter(filter: ((p: MeasurePlacement) => boolean) | null): void {
+    this.drawFilter = filter
+  }
+
+  /**
+   * Take down everything this render will rebuild, and **leave the reused measure groups standing**
+   * (docs/render-performance-plan.md §7a). The incremental replacement for the old unconditional
+   * `clear()`.
+   *
+   * What survives: measure `<g>`s whose redraw key is unchanged. What does not, and why:
+   *
+   * - **Ties and slurs.** They span measures, so they belong to no measure's group and sit at the
+   *   SVG's top level. They are cheap (a handful of curves against ~35 DOM nodes per bar per staff),
+   *   so they are simply redrawn every render rather than tracked. P6 will select them by
+   *   intersection with the window (§8).
+   * - **System connectors.** Same reason — they belong to a system, not a measure.
+   * - **Ghosts and highlight nodes.** Overlays; they are re-applied after the render.
+   *
+   * The maps are cleared wholesale and then *replayed* for reused measures, rather than being
+   * selectively pruned. Replay is O(what a measure holds); a selective prune would be O(everything)
+   * per measure, which is quadratic over the score.
+   */
+  private clearForRender(reusable: Set<string>): void {
+    const svg = this.getSVGElement()
+    if (svg) {
+      for (const child of Array.from(svg.children)) {
+        const id = child.getAttribute('id') ?? ''
+        // `openGroup` prefixed it: 'vf-m7-s2' → 'm7-s2'.
+        const groupKey = id.startsWith('vf-m') ? id.slice(3) : null
+        if (groupKey && reusable.has(groupKey)) continue
+        svg.removeChild(child)
+      }
+    }
+
+    this.elementRegistry.clear()
+    this.staveNoteMap.clear()
+    this.tupletObjectMap.clear()
+    this.dynamicObjectMap.clear()
+    this.slurGroupMap.clear()
+    this.tieGroupMap.clear()
+    this.measureGroups.clear()
+    // NOT measureLayoutInfo. It is ASSIGNED (`this.measureLayoutInfo = measureWidths`) earlier in
+    // this same render, so clearing it here would empty the very layout we just computed — and the
+    // ghost note, which is an overlay drawn against the last render's layout (P4), would find an
+    // empty map and silently draw nothing. The old `clear()` ran BEFORE that assignment; this runs
+    // after it. Every render reassigns it, so there is nothing to clear.
+    // Cleared, not merely overwritten: a DELETED measure's bounds used to linger here for the life
+    // of the renderer, because nothing ever removed them.
+    this.measureBounds.clear()
+    this.snapshots = new Map()
+  }
+
+  /**
+   * Restore one measure that this render chose NOT to redraw. Its `<g>` is already in the DOM, so
+   * only the bookkeeping the wholesale clear just wiped has to come back — and, if the measure
+   * **moved**, the group is translated into its new place rather than re-engraved (P5.4b).
+   *
+   * `(dx, dy)` is measured from where the group was *painted*, never from where it was last seen, so
+   * the `transform` is always absolute and a bar that moves on every frame of a drag accumulates no
+   * drift. The snapshot itself is never mutated: its coordinates stay the drawn ones.
+   *
+   * Every consumer of geometry must see the moved coordinates, not the drawn ones — the registry
+   * (hit-testing), the staff geometry (pixel↔pitch) and the measure bounds (CoordinateMapper). Miss
+   * one and the glyph and its hit-box part company. See `offsetElement` for why that is guarded by a
+   * test rather than by care.
+   */
+  private replaySnapshot(
+    groupKey: string,
+    snapshot: MeasureSnapshot,
+    plan: Omit<MeasurePlacement, 'stave'>,
+    dx: number,
+    dy: number,
+  ): void {
+    const moved = dx !== 0 || dy !== 0
+
+    if (moved && snapshot.group) {
+      snapshot.group.setAttribute('transform', `translate(${dx}, ${dy})`)
+    } else if (snapshot.group) {
+      // Back at its drawn position (a drag returning to baseline) — drop any stale transform.
+      snapshot.group.removeAttribute('transform')
+    }
+
+    this.elementRegistry.addAll(snapshot.elements, dx, dy)
+
+    if (snapshot.staffGeometry) {
+      this.elementRegistry.setStaffGeometry(
+        moved ? offsetStaffGeometry(snapshot.staffGeometry, dx, dy) : snapshot.staffGeometry,
+      )
+    }
+
+    if (snapshot.bounds) {
+      const bounds = snapshot.bounds
+      this.measureBounds.set(snapshot.measureNumber, {
+        ...bounds,
+        measureX: bounds.measureX + dx,
+        measureY: bounds.measureY + dy,
+        noteStartX: bounds.noteStartX + dx,
+        noteEndX: bounds.noteEndX + dx,
+        // NOT from the snapshot. The system's height is not part of a measure's SHAPE, so a
+        // staff-spacing drag changes it while every bar reuses its group — and a stale height would
+        // leave pixelToMeasure's vertical band describing the layout as it used to be.
+        systemHeight: plan.systemHeight,
+      })
+    }
+
+    // The VexFlow objects keep their DRAWN coordinates. That is safe because a measure holding a
+    // span anchor is never translated (see spanAnchorMeasures) — nothing reads these for a moved
+    // measure's absolute position.
+    for (const [id, value] of snapshot.staveNotes) this.staveNoteMap.set(id, value)
+    for (const [id, value] of snapshot.tuplets) this.tupletObjectMap.set(id, value)
+    for (const [id, value] of snapshot.dynamics) this.dynamicObjectMap.set(id, value)
+
+    if (snapshot.group) this.measureGroups.set(groupKey, snapshot.group)
+    this.snapshots.set(groupKey, snapshot)
+  }
+
+  /**
+   * The entries a measure contributed to an id-keyed map. Driven by the measure's OWN ids (its
+   * slots, its pitches, or an explicit list) rather than by diffing the map — a diff is O(map) per
+   * measure, and the map holds the whole score.
+   */
+  private captureById<T>(view: Measure, map: Map<string, T>, explicitIds?: string[]): [string, T][] {
+    const ids = explicitIds ?? [
+      ...view.slots.map(s => s.id),
+      ...view.slots.flatMap(s => (s.type === 'chord' ? s.notes.map(n => n.id) : [])),
+    ]
+    const captured: [string, T][] = []
+    for (const id of ids) {
+      const value = map.get(id)
+      if (value !== undefined) captured.push([id, value])
+    }
+    return captured
+  }
+
   /** The rendered SVG group (`<g class="vf-slur">`) for a slur, or null. Scoped
    *  highlight uses this to recolor exactly one slur. Must be called after a render. */
   getSlurSVGGroup(slurId: string): SVGGElement | null {
@@ -1789,6 +2302,8 @@ export class VexFlowRenderer {
     this.slurGroupMap.clear()
     // Clear the tie group map
     this.tieGroupMap.clear()
+    // The measure groups just went with the SVG above — drop the dangling references.
+    this.measureGroups.clear()
     // Clear measure layout info
     this.measureLayoutInfo.clear()
   }

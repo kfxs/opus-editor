@@ -61,13 +61,19 @@ export class RenderController {
     // removal). Erasing a ghost used to be reason enough for a full render — it is not.
     engine.clearGhosts()
 
+    // Take the highlight layer OFF before re-engraving, and put it back after.
+    //
+    // This used to be conditional: a real render could just DISCARD the undo log, on the grounds
+    // that "the SVG the highlights were painted on no longer exists". Since P5.4 that is false —
+    // a render REUSES the measure groups it did not have to redraw, so a recolour left on a reused
+    // group survives the render, and discarding the log would strand it there: a note that stays
+    // blue forever. The inverse has to actually run, while the DOM it applies to is still intact.
+    this.highlight.clearHighlights()
+
     if (engine.isRenderStale()) {
-      engine.clearCanvas()
+      // No clearCanvas() — that wiped the whole SVG, which is exactly what P5.4 must not do.
+      // renderScore now tears down only what it is going to rebuild (`clearForRender`).
       engine.renderScore()
-      // The SVG the highlights were painted on no longer exists.
-      this.highlight.discardHighlights()
-    } else {
-      this.highlight.clearHighlights()
     }
 
     this.applyHighlights()

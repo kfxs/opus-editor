@@ -350,7 +350,9 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
     try {
       // One SVG group per slur (both partials live inside it) so the selection
       // highlight can recolor exactly this slur without a bbox path-scan.
-      const group = pass.context.openGroup?.('vf-slur', `vf-slur-${slur.id}`) as SVGGElement | undefined
+      // `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-slur' here would
+      // yield `class="vf-vf-slur"`, which is what this used to do.
+      const group = pass.context.openGroup?.('slur', `slur-${slur.id}`) as SVGGElement | undefined
 
       const fromNote = fromInfo.staveNote
       const toNote = toInfo.staveNote

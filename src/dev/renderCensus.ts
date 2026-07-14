@@ -26,6 +26,11 @@ interface Bucket {
   layout: number
   /** Worst single render (ms). */
   max: number
+  /** Measure-staves actually re-engraved (P5.4). */
+  redrawn: number
+  /** Measure-staves the render was responsible for. `redrawn/of` is the incremental-redraw hit
+   *  rate — the single number that says whether P5 is working. */
+  of: number
 }
 
 const now = () => performance.now()
@@ -37,6 +42,8 @@ class RenderCensus {
   private t0 = 0
   private tLayoutStart = 0
   private layoutMs = 0
+  private redrawn = 0
+  private of = 0
 
   enable(): void {
     this.on = true
@@ -67,7 +74,23 @@ class RenderCensus {
   beginRender(): void {
     if (!this.on) return
     this.layoutMs = 0
+    this.redrawn = 0
+    this.of = 0
     this.t0 = now()
+  }
+
+  /**
+   * How many (measure, staff) groups this render actually re-engraved, out of how many it was
+   * responsible for (P5.4).
+   *
+   * This is the number that says whether P5 works. A slur drag should report **0 of N** — the score
+   * did not change, so not one bar should be re-engraved to move a Bézier control point. An ordinary
+   * note edit in wrapped view should report roughly *one system's worth*, not the whole score.
+   */
+  measuresRedrawn(redrawn: number, of: number): void {
+    if (!this.on) return
+    this.redrawn = redrawn
+    this.of = of
   }
 
   beginLayout(): void {
@@ -84,11 +107,13 @@ class RenderCensus {
   endRender(): void {
     if (!this.on) return
     const total = now() - this.t0
-    const b = this.buckets.get(this.cause) ?? { n: 0, total: 0, layout: 0, max: 0 }
+    const b = this.buckets.get(this.cause) ?? { n: 0, total: 0, layout: 0, max: 0, redrawn: 0, of: 0 }
     b.n++
     b.total += total
     b.layout += this.layoutMs
     b.max = Math.max(b.max, total)
+    b.redrawn += this.redrawn
+    b.of += this.of
     this.buckets.set(this.cause, b)
     this.cause = '?'
   }
@@ -103,6 +128,9 @@ class RenderCensus {
         'avg ms': +(b.total / b.n).toFixed(1),
         'worst ms': +b.max.toFixed(1),
         'layout ms (avg)': +(b.layout / b.n).toFixed(1),
+        // P5.4: bars actually re-engraved vs bars on the page. 0% is the goal for anything that
+        // changes no content (a slur drag); ~one system for an ordinary edit.
+        'redrawn %': b.of === 0 ? 0 : +((100 * b.redrawn) / b.of).toFixed(1),
         'draw ms (avg)': +((b.total - b.layout) / b.n).toFixed(1),
       }))
     const n = rows.reduce((s, r) => s + r.renders, 0)

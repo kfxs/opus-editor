@@ -239,6 +239,75 @@ export interface ElementInfo {
   tupletGeometry?: TupletGeometry
 }
 
+/**
+ * Translate one registered element by (dx, dy) — P5.4b, a measure that **moved** rather than
+ * changed (docs/render-performance-plan.md §7a).
+ *
+ * ⚠️ **Every coordinate-bearing field must be listed here.** A missed one does not crash and does
+ * not look wrong: it makes the *hit-box* drift away from the *glyph*, so clicks land on the wrong
+ * thing — but only for bars that happened to move, and only by however far they moved. That is the
+ * worst failure shape available, so it is not guarded by care: `incrementalRedraw.test.ts` compares
+ * a *shifted* incremental render against a fresh one **field for field**, and goes red if anything
+ * below is forgotten.
+ *
+ * Returns a copy; the captured snapshot is never mutated (see {@link ElementRegistry.addAll}).
+ */
+export function offsetElement(element: ElementInfo, dx: number, dy: number): ElementInfo {
+  const moved: ElementInfo = {
+    ...element,
+    bbox: {
+      x: element.bbox.x + dx,
+      y: element.bbox.y + dy,
+      width: element.bbox.width,
+      height: element.bbox.height,
+    },
+  }
+
+  // True notehead-centre X — the hit-box selection actually uses (not the bbox centre).
+  if (element.headX !== undefined) moved.headX = element.headX + dx
+
+  // Sampled arc points (slur proximity hit-testing).
+  if (element.points) moved.points = element.points.map(p => ({ x: p.x + dx, y: p.y + dy }))
+
+  // Slur handle geometry.
+  if (element.controlPoints) {
+    moved.controlPoints = [
+      { x: element.controlPoints[0].x + dx, y: element.controlPoints[0].y + dy },
+      { x: element.controlPoints[1].x + dx, y: element.controlPoints[1].y + dy },
+    ]
+  }
+  if (element.slurEndpoints) {
+    moved.slurEndpoints = {
+      p0: { x: element.slurEndpoints.p0.x + dx, y: element.slurEndpoints.p0.y + dy },
+      p1: { x: element.slurEndpoints.p1.x + dx, y: element.slurEndpoints.p1.y + dy },
+      direction: element.slurEndpoints.direction,
+    }
+  }
+
+  // Tuplet bracket: x/y/notationCenterX are absolute; width and the *Offset fields are relative.
+  if (element.tupletGeometry) {
+    moved.tupletGeometry = {
+      ...element.tupletGeometry,
+      x: element.tupletGeometry.x + dx,
+      y: element.tupletGeometry.y + dy,
+      notationCenterX: element.tupletGeometry.notationCenterX + dx,
+    }
+  }
+
+  return moved
+}
+
+/** Translate a staff's geometry by (dx, dy). See {@link offsetElement} for the hazard. */
+export function offsetStaffGeometry(geometry: StaffGeometry, dx: number, dy: number): StaffGeometry {
+  return {
+    ...geometry,
+    lineYPositions: geometry.lineYPositions.map(y => y + dy) as [number, number, number, number, number],
+    noteStartX: geometry.noteStartX + dx,
+    noteEndX: geometry.noteEndX + dx,
+    clefSegments: geometry.clefSegments?.map(s => ({ ...s, fromX: s.fromX + dx })),
+  }
+}
+
 /** Diatonic step names in order C=0…B=6 */
 const DIATONIC_STEPS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const
 
@@ -265,10 +334,49 @@ export class ElementRegistry {
   }
 
   /**
+   * The elements registered since {@link count} read `start` — how P5.4 captures exactly what one
+   * measure contributed: read `count` before registering it, `sliceFrom(n)` after.
+   *
+   * Index-slicing rather than filtering by (measure, staff): a filter is O(all elements) per
+   * measure, which is quadratic over the score — at orchestral scale that is the whole budget.
+   * Contiguity holds because a measure is registered in one uninterrupted go.
+   */
+  sliceFrom(start: number): ElementInfo[] {
+    return this.elements.slice(start)
+  }
+
+  /**
+   * Re-register elements captured by {@link sliceFrom} — P5.4 replaying a measure it chose not to
+   * redraw, shifted by (dx, dy) if the measure merely **moved** (P5.4b).
+   *
+   * The captured elements are never mutated: the offset is always computed against the coordinates
+   * the measure was actually *drawn* at, so a bar that moves twice does not accumulate error.
+   */
+  addAll(elements: ElementInfo[], dx = 0, dy = 0): void {
+    for (const element of elements) {
+      this.elements.push(dx === 0 && dy === 0 ? element : offsetElement(element, dx, dy))
+    }
+  }
+
+  /**
    * Set staff geometry for a (measure, staff) lane
    */
   setStaffGeometry(geometry: StaffGeometry): void {
     this.staffGeometries.set(this.geomKey(geometry.measure, geometry.staff), geometry)
+  }
+
+  /**
+   * Attach a measure's mid-measure clef regions — a **tier-2** addition to a **tier-1** record
+   * (docs/render-performance-plan.md §7).
+   *
+   * The staff's geometry is registered without drawing, but an inline clef's X only exists once the
+   * voice has been formatted, which is part of the draw. So a drawn measure adds its segments here,
+   * on top of the geometry it already has, and an undrawn one simply never does — {@link clefAtX}
+   * then falls back to the measure's opening clef, which is all a measure nobody can see needs.
+   */
+  setClefSegments(measure: number, staff: number, clefSegments: ClefSegment[]): void {
+    const geometry = this.staffGeometries.get(this.geomKey(measure, staff))
+    if (geometry) geometry.clefSegments = clefSegments
   }
 
   /**

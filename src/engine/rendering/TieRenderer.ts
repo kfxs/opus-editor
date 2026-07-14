@@ -177,7 +177,8 @@ export function renderTies(pass: RenderPass, score: Score): void {
             // live inside it) so the selection highlight can recolor exactly this tie
             // without a document-wide bbox path-scan — that scan bled onto staff lines
             // whose bbox fell inside the tie's rectangle (mirrors the slur fix).
-            const tieGroup = pass.context.openGroup?.('vf-tie', `vf-tie-${pitch.id}`) as SVGGElement | undefined
+            // `openGroup` prefixes class and id with `vf-` itself (see SlurRenderer).
+            const tieGroup = pass.context.openGroup?.('tie', `tie-${pitch.id}`) as SVGGElement | undefined
 
             if (sameLine) {
               // Same line: draw flat arc anchored at the source note's Y
