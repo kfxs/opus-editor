@@ -139,6 +139,50 @@ score — this is exactly the class of bug the `commit()` helper exists to preve
 
 ---
 
+## Adding a new engraved element
+
+You are adding a hairpin, a trill, an 8va bracket, an invisible bar — anything the renderer draws.
+The renderer will **not** draw it just because you put it in the model. It redraws a bar only when it
+thinks the bar changed, and it decides that from two cache keys. Answer three questions.
+
+**1. Does it take horizontal space?**
+Yes → it belongs in the **width key** (`laneFingerprint`, in `MeasureWidthCache.ts`). An accidental
+does. A hairpin does not.
+
+**2. Does it change how the bar LOOKS?**
+Yes → it belongs in the **shape key** (`measureShapeKey`, in `MeasureRedrawKey.ts`). Everything drawn
+does, including the weightless things. The shape key *embeds* the width key, so anything with width
+is covered automatically; the reverse is not true.
+
+**3. Does it SPAN bars?**
+Yes → it must be a **span anchor** (`VexFlowRenderer.spanAnchors`). Otherwise culling removes the bar
+holding its endpoint and your element draws detached, or vanishes when the user scrolls. Slurs and
+ties already do this.
+
+### Every wrong answer here is silent
+
+Nothing throws. No test goes red. Miss the **shape key** and your element simply *never redraws* —
+you edit it, the screen doesn't change, and you go hunting in the renderer for a bug that isn't
+there. Miss the **width key** and bars sit at a stale width. So:
+
+> **When unsure, include it.** Putting something in a key where it doesn't belong is merely *slow* —
+> the governing clef sat in the width key for months, cost **47% of all layout time**, and never
+> mis-drew a single note. Correct-and-slow is recoverable. A stale picture is not.
+
+### The compiler will make you answer
+
+`MEASURE_RENDER_ROLE` (`measureRenderRoles.ts`) classifies every field of `Measure`, typed as
+`Record<keyof Measure, …>`. **Add a field to `Measure` and that file stops compiling** until you say
+which key it belongs to — and `measureRenderRoles.test.ts` then perturbs your field and checks the
+keys actually respond the way you claimed, so a *wrong* answer fails too, not just a missing one.
+
+Fields *inside* a slot (a new `NotePitch.foo`) need no entry: the width key serializes the whole
+slot, so they're picked up by construction. That is why it's a content fingerprint and not a list of
+fields — see the long comment in `MeasureWidthCache.ts` for what it cost to learn that, and for why
+the governing clef and the raw note ids are each deliberately in exactly one of the two keys.
+
+---
+
 ## Glossary
 
 Vocabulary that is otherwise tribal knowledge.
