@@ -35,12 +35,12 @@ import { MeasureWidthCache } from './MeasureWidthCache'
 import { renderCensus } from '@/dev/renderCensus' // P0 instrument — temporary, see §8
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
 import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex, staffIndexOfId } from '@/engine/models/staffContent'
-import { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
+import { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import type { Rect } from '@/engine/ViewportModel'
 
 // Re-exported for existing importers (MusicEngine, App.vue, RenderPass) that referenced
 // these from the renderer before they moved to ./layoutConfig.
-export { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo }
+export { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo }
 
 /** Gray a hidden rest renders in (Tailwind gray-400 family) — see docs/rest-hide-plan.md. */
 const HIDDEN_REST_COLOR = '#9CA3AF'

@@ -1,0 +1,321 @@
+# Windows — a primitive
+
+**Status: BUILT** (`src/windows/`). `Window`, `WindowManager`, `WindowLayer`, and a small widget
+vocabulary. Wired to the palette's *Open Window* button as a test rig.
+
+## What this is
+
+**A `Window` primitive.** You instantiate one — or two, or as many as you need. It appears in the
+viewport. You drag it by its title bar, resize it, click it to raise it, and close it.
+
+```ts
+const w = windows.open({ title: 'Foo', content: new ScrollText(paras) })
+w.setTitle('Bar')
+w.close()
+```
+
+## Two axes of variation, and NEITHER is subclassing
+
+This is the load-bearing decision of the whole system.
+
+- **The frame varies by PROPERTIES.** `title`, `resizable`, `closable`, `minWidth`, `minHeight`,
+  size, position. **One `Window` class**, options in the constructor, defaults for everything.
+- **The inside varies by COMPOSITION.** A tree of {@link Widget}s handed to the window.
+
+Never a subclass per kind of window. The moment windows vary, inheritance forces you to name every
+*combination* — `ResizableTwoColumnWindow` — while properties just compose: `{resizable: false}`.
+A window is never *a different kind of thing*; it is the same frame with different settings. **Ten
+kinds of window means ten widget trees and still exactly one `Window` class.**
+
+Ask what a subclass would *override* and the answer is: nothing. It would set a field. **That is the
+tell — a subclass that only sets values wanted to be a constructor argument.** (Widgets, by contrast,
+*are* an interface with many implementations, and rightly so: `Button.mount()` and
+`ScrollText.mount()` build genuinely different DOM. They differ in what they DO. Windows differ only
+in what they are SET TO.)
+
+### ⚠️ And behaviour varies by CALLBACK — never by flag
+
+Properties are an answer for **data**. They are not an answer for **behaviour**, and the day a window
+needs to vary in behaviour is the day this design gets tested. A Save window that must confirm before
+closing; a modal that blocks clicks to the score; a window that refuses to be raised — none of those
+is a *value*, each is a decision taken at a moment.
+
+The answer is a callback in the options bag — `onBeforeClose?: () => boolean` — and **not** a
+subclass, and **not** a flag. If it isn't, the pressure lands on `WindowOptions`, which grows one
+boolean per case: `modal`, `confirmOnClose`, `persistPosition`, `alwaysOnTop`… **That is the same
+disease as subclass explosion wearing the other hat, and it is worse**, because ten booleans that
+secretly cannot be combined at least *look* legitimate, while ten subclasses were honest about it.
+
+So `WindowOptions` is guarded exactly like the widget vocabulary below: **a new option earns its
+place only when a THIRD window needs it.** Two windows wanting a thing is a coincidence; three is a
+vocabulary.
+
+## What this is NOT (yet, or ever)
+
+- **Not docking.** Docking = panels that snap into the frame, split the app, tab together, and
+  reflow the score when they open. That is a *layout tree* (geometry is **computed** by dividing
+  available space), not a *list of rectangles* (geometry is **stored**). It is a large, fiddly piece
+  of work — drop-targeting an abstract tree, splitter min-sizes that propagate, collapsing degenerate
+  nodes. **If we ever want it, we buy it** (Golden Layout or dockview core, both vanilla). We do not
+  hand-build it. Sibelius 6 — the reference shape here — has no docking at all.
+- **Not a panel registry or layout persistence.** No named panel types, no ids to register, no saved
+  workspace. If any of those turn out to be wanted, they get designed then.
+- **⚠️ Not a UI framework.** See the warning below — this is the failure mode to fear.
+
+---
+
+## The four rules that are actually about the window
+
+These are properties of *a window in this app*, not decisions about what goes inside one, and getting
+them wrong is expensive to unpick later. Everything else is open.
+
+### 1. Outside the zoom layer, outside the scroll box
+
+The score DOM today:
+
+```
+div.relative.overflow-hidden            ← positioning context, CLIPS
+  div.score-container   (scroll box, fixed height = VIEWPORT_HEIGHT)
+    div.score-sizer     (natural size × zoom → gives the scrollbars their range)
+      div.score-zoom-layer               ← transform: scale(zoom)
+        div.p-4  (scoreContent — the VexFlow SVG, wiped by innerHTML='' each render)
+        div.play-cursor                  (inside the layer on purpose: it SHOULD scale and scroll)
+  div.score-gutter                       ← OUTSIDE the scroll box, OUTSIDE the zoom layer
+```
+
+A window is a **sibling of `.score-container`** — i.e. a child of the `.relative.overflow-hidden`
+wrapper — positioned in **viewport pixels**.
+
+> **Windows live INSIDE the viewport.** The whole application is meant to live inside the viewport,
+> so the layer is mounted in that wrapper: `overflow-hidden` clips windows to the score area, and
+> the drag arithmetic is clamped to **the host's box, not the browser's**, so a window cannot be
+> dragged out over the palette or the JSON panel. Mounting it at the app root instead — letting
+> windows float over the whole application, Sibelius-style — was considered and **rejected**.
+
+- Outside the **zoom layer** ⇒ `transform: scale(zoom)` never touches it. **Window size is UI scale;
+  score zoom is music scale — independent axes.** At 25% a window stays legible; at 400% it doesn't
+  become a wall. Scaling chrome with the music is a bug, not a feature.
+- Outside the **scroll box** ⇒ it doesn't scroll away with the music. A window that slides off-screen
+  when you scroll to bar 40 isn't a window, it's a sticker on the paper.
+
+**"In the viewport" describes where a window _appears_, not where it lives in the DOM.** The frozen
+linear-view gutter already proves the pattern: same three requirements, same solution — a sibling of
+the scroll box, with `GutterController` applying the zoom scalar by hand where it needs it. A window
+needs the scalar even less than the gutter does: not at all.
+
+*Corollary (P6, docs/render-performance-plan.md):* zoom also moves the **visible rect**, which
+`onViewChange` hands to the engine to decide whether to re-engrave. A window outside the scroll box
+participates in neither half of zoom — it doesn't scale, and merely *covering* the score doesn't
+change the visible rect. Correct: music under a window is still engraved, just hidden.
+
+### 2. `pointer-events: none` on the layer, `auto` on each window
+
+An overlay spanning the viewport otherwise **eats every click meant for the score** — the score's
+mouse handlers are on the scroll box, and a full-size sibling on top intercepts them. With the layer
+transparent to the pointer and each window opaque to it, clicks pass straight through empty space to
+the music.
+
+### 3. Content never knows where it is
+
+*(This is the one rule that keeps a later move to docking cheap — see the coupling section below.)*
+
+A window's content **fills the box it is handed**, and never reads its own `x`/`y`/size from
+anywhere but that box. **Geometry lives in the window system, never in the content.**
+
+That is the whole insurance policy, and it costs nothing to obey now. Floating **stores** geometry
+(a flat list of rectangles); docking **computes** it (a tree, dividing up available space). The two
+shapes have nothing in common — but if the content never *asks* where it is, swapping one for the
+other doesn't touch the content at all.
+
+The practical consequence, worth stating on its own: **content must survive being handed any size.**
+A docking layout resizes things to sizes nobody chose. Content that only works at its "natural" size
+is content that can never be docked.
+
+### 4. Closed means the nodes are GONE
+
+Not `display: none`, not a hidden `v-if` branch, and **not a pile of window `<div>`s sitting in
+`App.vue`'s template**. Open ⇒ code creates the elements. Close ⇒ code removes them. The DOM reflects
+exactly the windows that exist right now, and `App.vue` never mentions a window at all.
+
+---
+
+# 🚨 NOTHING ABOUT A WINDOW IS EVER WRITTEN IN `App.vue`
+
+## Defining a window is composing widgets. That is plain TS. It has NOTHING to do with Vue.
+
+**`App.vue`'s entire share of the window system is TWO LINES — forever:**
+
+```ts
+import { windows } from '@/windows'
+
+onMounted(()   => windows.mount(scoreViewport.value))  // here is the box
+onUnmounted(() => windows.destroy())                   // and here is how long it lives
+```
+
+Those two exist only because **Vue owns the DOM node and the lifecycle hooks** — the layer must be
+handed a host element, and told when that element starts and stops existing. **That is the whole
+reason, and it does not generalise to anything else. The app donates a box; the window system does
+everything else.**
+
+The layer *instance* is deliberately NOT one of those lines: it lives in `src/windows/index.ts`, so
+any framework-agnostic module can `import { windows }` and open one — a shortcut handler, a
+controller in `interactions/`, the engine. Were the instance owned by the component, the component
+would have to hand it to every opener, and "add a window" would once again mean "edit `App.vue`".
+
+**The test of this design: adding a window with a text input touches zero Vue.** A new `.ts` module
+composing the widgets, and something plain-TS to call it. No template edit, no ref, no flag.
+
+The ways to erase even those two lines are all worse, and it is worth knowing why:
+
+- `WindowLayer` calling `document.querySelector('.score-viewport')` itself ⇒ the vanilla layer now
+  has a hidden dependency on the Vue app's markup. **More** coupled, not less.
+- a `useWindows()` composable, or a `v-windows` directive ⇒ *relocation*, not elimination — and it
+  puts Vue code **inside** the window system, which is the exact thing being prevented.
+
+**Every window lives in its own plain-TS module** — `src/windows/demo/loremWindows.ts` is the
+pattern: `export function openLoremWindow(windows: WindowLayer): Window`. A `.vue` file may *call*
+it. It may never *contain* it.
+
+| ❌ never in a `.vue` file | ✅ where it goes |
+|---|---|
+| the widget tree (`new Column([...])`) | a plain `.ts` module |
+| window options (title, size, `fitContent`) | same module |
+| button callbacks, content, layout | same module |
+| a window `<div>`, a `v-if`, a `<FloatingWindow>` | nowhere. Ever. |
+
+**Why this matters more than it looks.** The window system is vanilla by construction — it imports
+no framework, so it ports to React/Lit/anything for free. **The moment a window's definition sits in
+`App.vue`, that window does not port.** You'd have preserved the engine and thrown away every actual
+window. The value of "framework-agnostic" is not in the `WindowLayer`; it is in *the windows*.
+
+It also has a plain day-to-day payoff: **adding a window touches zero markup.** No template edit, no
+`v-if` flag, no ref. You write a module and call it.
+
+*(This drifted once already: the Lorem tree was written inline in `App.vue` and had to be moved out.
+It reads as harmless — it is one function — which is exactly why it needs a rule and not judgement.)*
+
+---
+
+## What goes inside: widgets
+
+A window holds **one** child. To get a tree, that child is a **container** that holds more. Every
+node in the tree — window child, grid cell, row item — satisfies the same three-line contract, which
+is why they nest with no special cases:
+
+```ts
+interface Widget {
+  mount(host: HTMLElement): void   // you are handed a box; fill it
+  destroy?(): void                 // the window closed; release anything outside your own subtree
+}
+```
+
+The vocabulary, and it is meant to stay this short:
+
+| | |
+|---|---|
+| `Column`, `Row` | children stacked / laid out, with a `gap` and one optional `grow` child |
+| `Columns` | equal side-by-side cells, each independent — one can scroll while another doesn't |
+| `ScrollText`, `Label`, `Button`, `TextInput` | the leaves. `Button` takes an `onClick` callback and knows nothing about what it is for |
+
+A Save window is then assembled, not written:
+
+```ts
+windows.open({
+  title: 'Save', width: 380, height: 150, resizable: false,
+  content: new Column([
+    new Label('File name'),
+    name,                                            // a TextInput
+    new Row([new Button('Cancel', () => w.close()),
+             new Button('Save', () => save(name.value), { variant: 'primary' })],
+            { align: 'end' }),
+  ], { grow: 1 }),
+})
+```
+
+Nothing in that tree measures itself or asks where it is — rule 3, doing real work rather than
+sitting there as a principle. Resize the window to its floor and every widget still behaves.
+
+### ⚠️ The toolkit STAYS TINY — this is the failure mode to fear
+
+This is exactly the road on which people accidentally rebuild React: add layout, then events, then
+data binding, then form state, and eighteen months later you have a worse Vue that only you maintain.
+
+The discipline that prevents it:
+
+- **Widgets are dumb DOM builders.** No reactivity, no data binding, no layout engine, no lifecycle
+  beyond `mount`/`destroy`.
+- **The vocabulary above is close to complete.** Add a widget only when a *third* window needs the
+  same thing. The toolkit earns its keep on what REPEATS.
+- **Anything genuinely complicated does not get a widget.** It gets a framework component mounted
+  into the box — that is what the `mount(host)` contract is *for*, and it is the one place a
+  framework is allowed to touch the window system. A Vue `<Teleport>` into the host today; a React
+  `createPortal` tomorrow.
+
+---
+
+## Pure JS, because the DOM is not a framework
+
+> "Framework-agnostic" has never meant "no DOM". It means **no Vue**.
+
+So the window **chrome itself is vanilla DOM** — `document.createElement` for the frame, title bar
+and resize handles; direct `style.transform` / `width` / `height` writes while dragging; `remove()`
+on close. It imports no framework, therefore **there is nothing to port**: it runs unchanged in a
+React, Lit, or hand-rolled app.
+
+Built, and all of it under `npm run lint:boundary`, so Vue cannot leak in:
+
+| file | what it is |
+|---|---|
+| `Window.ts` | the class you instantiate and hold. Properties + its own geometry. No DOM. |
+| `WindowManager.ts` | only what one window can't know: who else is open, who's on top, how big the world is. No DOM. |
+| `WindowLayer.ts` | the DOM. Builds the frame, drags it, removes it. No framework. |
+| `index.ts` | the app's one layer instance, so any plain-TS module can open a window. |
+| `content/Widget.ts`, `layout.ts`, `widgets.ts` | the widget contract, the containers, the leaves. |
+
+`App.vue` holds two lines of it: `windows.mount(scoreViewport)` and `windows.destroy()`.
+
+Two things fall out of that:
+
+- **Dragging is faster this way.** Direct style writes on `pointermove` never go through a reactive
+  system. The slur handles and the staff-spacing drag already work exactly like this.
+- **The geometry is pure and testable.** Drag delta → clamped position, resize from an edge or
+  corner, bring-to-front, z-order: plain functions over plain state, no browser needed. `lint:boundary`
+  keeps the framework out.
+
+`App.vue` gains **one line** — mounting the layer — and never mentions a window again.
+
+### Why not WinBox.js?
+
+It's the good vanilla floating-window library (no deps, ~10 kB, genuinely framework-agnostic) and we
+still shouldn't use it. What it gives is exactly **the cheap part** — drag, resize, z-order, minimize.
+What it charges is that a **third-party** library now **owns that DOM**: its elements, its theming,
+its lifecycle, sitting in the middle of the one layer we're trying to keep replaceable. Bad trade for
+a few hundred lines of geometry we can unit-test.
+
+Per [[feedback_prefer_library_primitive_and_proportionate]], the question is "does the library
+already do it?" — here the answer is *yes, and the doing is the easy half.* (The judgement flips for
+docking, which is why that one gets bought if it's ever wanted.)
+
+---
+
+## If docking is ever wanted, what does the move cost?
+
+Two things, and only two. Neither is work to do *now* — this section exists so we don't accidentally
+make them expensive.
+
+**1. It costs nothing on the content side — if rule 3 held.** Content that never asked where it was
+doesn't care that geometry is suddenly computed by a tree instead of stored in a rectangle. The move
+is then: drop in Golden Layout (or dockview core), hand it the same content, throw away the rectangle
+list. **Building the cheap floating thing correctly _is_ the preparation** — there is no separate
+prep task to schedule, and nothing to build ahead of time. There is only rule 3.
+
+**2. It would eat `VIEWPORT_HEIGHT`.** This is the one genuine coupling. The score viewport is a
+fixed height computed from `VIEWPORT_LINES` staff lines (`engine/rendering/layoutConfig.ts`). A
+*docked* score is "whatever space is left over" after the docked things take their bites, so its
+height would come from the layout, not from a constant. **Floating windows never ask this question**
+— they *cover* the score, they don't *displace* it.
+
+Nothing to do now. If we ever touch that constant again, the cheap hedge is to treat the viewport
+height as **an input the app supplies to the renderer**, not something the renderer decides for
+itself. Then the app supplies a constant today and a layout-derived number later, and the renderer
+never knows the difference.

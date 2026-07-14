@@ -4,10 +4,10 @@
       <div class="bg-gray-800 p-4 rounded-lg">
         <div class="mb-4 flex gap-2 flex-wrap">
           <button
-            @click="clearNotes"
+            @click="openTestWindow"
             class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded"
           >
-            Clear Notes
+            Lorem Window
           </button>
           <div class="border-l border-gray-600 mx-2"></div>
 
@@ -554,7 +554,7 @@
              box (a child of it would scroll away with the music — the one thing it must not do).
              overflow-hidden clips it: the gutter tracks the score SVG's vertical bounds, so when
              the music is scrolled it hangs past the top/bottom of the window. -->
-        <div class="relative overflow-hidden rounded-lg">
+        <div ref="scoreViewport" class="relative overflow-hidden rounded-lg">
         <div
           ref="scoreCanvas"
           class="score-container bg-slate-200 rounded-lg overflow-auto"
@@ -718,7 +718,7 @@ import { ref, shallowRef, computed, reactive, watch, onMounted, onUnmounted } fr
 import { MusicEngine } from './engine/MusicEngine'
 // ⚠️ TEMPORARY dev-only sound picker — remove when a real instrument model lands.
 import { DEV_SOUNDS } from './engine/audio/WebAudioFontInstrument'
-import { VIEWPORT_TWO_LINE_HEIGHT } from './engine/rendering/VexFlowRenderer'
+import { VIEWPORT_HEIGHT } from './engine/rendering/VexFlowRenderer'
 import { createEditorState } from './interactions/EditorState'
 import type { TempoTool } from './interactions/EditorState'
 import type { NoteDuration } from './types/music'
@@ -734,6 +734,8 @@ import { useGutter } from './composables/useGutter'
 import { useShortcuts } from './composables/useShortcuts'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
 import { ClipboardController } from './interactions/ClipboardController'
+import { windows } from './windows'
+import { openLoremWindow } from './windows/demo/loremWindows'
 import { isValidTimeSignature } from './utils/meter'
 import { getMeasureDurationFrac } from './utils/musicUtils'
 import { fracCreate, fracGte, type Fraction } from './utils/fraction'
@@ -751,8 +753,10 @@ const scoreSizer = ref<HTMLElement | null>(null)
 const scoreZoomLayer = ref<HTMLElement | null>(null)
 // Linear view's frozen gutter — pinned OUTSIDE the scroll box and outside the zoom layer.
 const scoreGutter = ref<HTMLElement | null>(null)
+// The viewport wrapper: the score's positioning context, and the world the windows live in.
+const scoreViewport = ref<HTMLElement | null>(null)
 // Fixed viewport height (≈ two staff lines) so the JSON panel below stays visible.
-const viewportHeight = `${VIEWPORT_TWO_LINE_HEIGHT}px`
+const viewportHeight = `${VIEWPORT_HEIGHT}px`
 
 // --- All editor state in one reactive plain object ---
 const state = reactive(createEditorState())
@@ -1082,6 +1086,10 @@ function handleZoomWheel(e: WheelEvent) {
 
 onMounted(() => {
   window.addEventListener('wheel', handleZoomWheel, { passive: false })
+  // Mounted INSIDE the viewport wrapper but OUTSIDE the scroll box (a sibling of it), so a window
+  // lives in the score area — clipped to it, and clamped to it when dragged — while sitting outside
+  // the transform: scale(zoom) layer: it neither scrolls away with the music nor zooms with it.
+  if (scoreViewport.value) windows.mount(scoreViewport.value)
   if (scoreCanvas.value && scoreContent.value) {
     engine.value = new MusicEngine({
       container: scoreContent.value,
@@ -1159,6 +1167,7 @@ function installPerfInstruments() {
 onUnmounted(() => {
   window.removeEventListener('wheel', handleZoomWheel)
   shortcuts.disable()
+  windows.destroy()
   if (engine.value) {
     engine.value.dispose()
   }
@@ -1174,11 +1183,15 @@ function initializeEmptyScore() {
   }
 }
 
-function clearNotes() {
-  if (!engine.value) return
-  engine.value.clearAllNotes()
-  selection.selectNote(null)
-  renderer.renderScore()
+/**
+ * What a window CONTAINS is plain TS (src/windows/demo/loremWindows.ts) — composing widgets has
+ * nothing to do with Vue. App.vue's entire share of the window system is two lines — mount the layer
+ * and destroy it — because Vue owns the DOM node and the lifecycle, and nothing more. The layer
+ * itself lives in src/windows/index.ts, so a window can be opened from anywhere without touching
+ * this file at all. See docs/windows-design.md.
+ */
+function openTestWindow(): void {
+  openLoremWindow(windows)
 }
 
 async function togglePlayback() {

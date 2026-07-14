@@ -34,14 +34,18 @@ export const LAYOUT_CONFIG = {
   VERTICAL_SPACING: 30,
 }
 
+/** How many staff lines of music the viewport shows at once. */
+export const VIEWPORT_LINES = 2.5
+
 /**
- * Fixed height of the score *viewport* (the window you scroll inside), sized to ≈ two staff
- * lines so the JSON panel below stays visible. Derived from LAYOUT_CONFIG so it tracks the
+ * Fixed height of the score *viewport* (the window you scroll inside), sized to VIEWPORT_LINES
+ * staff lines so the JSON panel below stays visible. Derived from LAYOUT_CONFIG so it tracks the
  * per-line content height (STAVE_HEIGHT + VERTICAL_SPACING) + the score's top/bottom margins,
- * rather than being a magic 340. See docs/navigation-viewport-plan.md §2.
+ * rather than being a magic number. See docs/navigation-viewport-plan.md §2.
  */
-export const VIEWPORT_TWO_LINE_HEIGHT =
-  2 * (LAYOUT_CONFIG.STAVE_HEIGHT + LAYOUT_CONFIG.VERTICAL_SPACING) + LAYOUT_CONFIG.MARGIN * 2
+export const VIEWPORT_HEIGHT =
+  VIEWPORT_LINES * (LAYOUT_CONFIG.STAVE_HEIGHT + LAYOUT_CONFIG.VERTICAL_SPACING) +
+  LAYOUT_CONFIG.MARGIN * 2
 
 /**
  * How the music is laid out on the surface: `wrapped` = today's view, measures broken into
