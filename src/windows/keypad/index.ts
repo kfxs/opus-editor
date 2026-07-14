@@ -20,8 +20,16 @@ function isOpen(windows: WindowLayer): boolean {
 export function openKeypadWindow(windows: WindowLayer): Window {
   if (isOpen(windows)) return keypad!
 
+  // Pinned to the RIGHT edge instead of joining the cascade: the Keypad is not one of a stack of
+  // windows, it is the panel that is always there, and it opens in the same place every time — out
+  // of the way of the music, which grows from the left.
+  const margin = 8
+  const x = Math.max(margin, windows.manager.bounds().width - KEYPAD_WIDTH - margin)
+
   keypad = windows.open({
     title: 'Keypad',
+    x,
+    y: 150,
     width: KEYPAD_WIDTH,
     // Its own floor, or the DEFAULT floor (160) silently widens it: `fitContent` resizes through
     // `setSize`, which clamps to minWidth, and the extra pixels all land on the right — the panel

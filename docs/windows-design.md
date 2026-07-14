@@ -19,7 +19,8 @@ w.close()
 This is the load-bearing decision of the whole system.
 
 - **The frame varies by PROPERTIES.** `title`, `resizable`, `closable`, `minWidth`, `minHeight`,
-  size, position. **One `Window` class**, options in the constructor, defaults for everything.
+  `fitContent`, `opacity`, size, position. **One `Window` class**, options in the constructor,
+  defaults for everything.
 - **The inside varies by COMPOSITION.** A tree of {@link Widget}s handed to the window.
 
 Never a subclass per kind of window. The moment windows vary, inheritance forces you to name every
@@ -49,6 +50,18 @@ secretly cannot be combined at least *look* legitimate, while ten subclasses wer
 So `WindowOptions` is guarded exactly like the widget vocabulary below: **a new option earns its
 place only when a THIRD window needs it.** Two windows wanting a thing is a coincidence; three is a
 vocabulary.
+
+> **`opacity` was let in on ONE client, and that is a debt, not a precedent.** The Keypad needs it
+> and nothing else does yet. It was allowed because it is unmistakably *data* (a number, 0–1, that
+> composes with every other setting and can never secretly conflict with one) and because the
+> alternative — the Keypad reaching up out of its box to restyle its own frame — breaks rule 3, which
+> is worth more than the rule it bends. **If the next option to ask for entry is a `boolean`, it does
+> not get this deal.**
+
+What `opacity` actually is: the **frame background's alpha**, and nothing else. Not `style.opacity`,
+which would fade the content too — the glyphs, the keys, the text — and *a panel you can see through
+is not the same thing as a panel that has gone faint*. The title bar stays solid whatever the value
+(it is the handle you grab and the name you read), and so does whatever the content chooses to draw.
 
 ## What this is NOT (yet, or ever)
 
@@ -194,7 +207,51 @@ It also has a plain day-to-day payoff: **adding a window touches zero markup.** 
 *(This drifted once already: the Lorem tree was written inline in `App.vue` and had to be moved out.
 It reads as harmless — it is one function — which is exactly why it needs a rule and not judgement.)*
 
+### Opening a window at STARTUP: `windows.whenMounted(fn)`
+
+A window cannot open before the app has donated the box — `open()` throws if the layer has no frame
+to put it in. So anything that wants to be up when the editor starts **queues** instead of racing
+Vue's `onMounted`:
+
+```ts
+windows.whenMounted(() => openKeypadWindow(windows))   // runs the moment there IS a box
+```
+
+The alternative was for the opener to *be* the third line of `App.vue`, and the whole point of the
+section above is that there is no third line. If the layer is already mounted, `fn` simply runs now.
+
 ---
+
+## The first real panel: the Keypad (`src/windows/keypad/`)
+
+The Lorem window proved the system worked; the **Keypad** is the first window that is actually *for*
+something, and it is the pattern to copy. Three files, zero Vue:
+
+| file | what it is |
+|---|---|
+| `keypadLayouts.ts` | **data only.** 17 cells in reading order, each with the numpad key it sits on, an action name, an icon, and how it LIGHTS. No DOM. |
+| `KeypadWidget.ts` | one `Widget` that builds the grid, holds which keys are lit, and paints from that state. |
+| `index.ts` | `openKeypadWindow()` + the Ctrl+Alt+K toggle. |
+
+Three things it established that the next panel will want:
+
+- **A panel that is a picture of state.** The lit keys ARE the panel's reason to exist — this
+  duration, this accidental, these articulations. *What* a key's light means (exclusive-and-always-on,
+  exclusive-or-none, independent, or no light at all) is declared **per cell in the data**, not coded
+  per button, so the rules stay a column of a table.
+- **Its own DOM, not new toolkit widgets.** A 4×5 grid with merged keys is not new layout
+  *vocabulary*; it is one panel that happens to be shaped like a numeric keypad. See the toolkit
+  warning below. *If a SECOND window ever wants a grid of icon keys, that is when `Grid` moves into
+  the toolkit — with the Keypad as its first client, not before.*
+- **A widget may tighten the box it is handed** (`host.style.padding`, `overflow`) — the containers
+  already do this. It still never asks *where* that box is. Rule 3 holds.
+
+### ⚠️ `fitContent` resizes through `setSize`, which clamps to `minWidth`
+
+The trap, and it cost real time: the Keypad is 149px wide, the DEFAULT `minWidth` is **160**. The
+window silently came out 11px too wide and every one of those pixels landed on one side of the grid,
+which looks exactly like a padding bug and is not one. **A window narrower than the defaults must
+declare its own `minWidth`.** (The defaults are written for a dialog; a panel is not a dialog.)
 
 ## What goes inside: widgets
 
