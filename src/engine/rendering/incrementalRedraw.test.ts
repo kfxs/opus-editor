@@ -118,13 +118,13 @@ describe('P5.4 — incremental redraw', () => {
     const before = groupNodes(renderer, 12)
 
     const laneBefore = model.getScore().measures[0]
-    const widthKeyBefore = laneFingerprint(laneBefore, 'treble')
+    const widthKeyBefore = laneFingerprint(laneBefore)
     const drawKeyBefore = measureShapeKey(model.getScore(), keyInputs(laneBefore), null, null)
 
     model.addDynamic(1, { kind: 'level', level: 'mf', beat: frac(0, 1), voice: 0 })
 
     const laneAfter = model.getScore().measures[0]
-    expect(laneFingerprint(laneAfter, 'treble'), 'the WIDTH key must be blind to a dynamic').toBe(widthKeyBefore)
+    expect(laneFingerprint(laneAfter), 'the WIDTH key must be blind to a dynamic').toBe(widthKeyBefore)
     expect(measureShapeKey(model.getScore(), keyInputs(laneAfter), null, null), 'the DRAW key must not be').not.toBe(drawKeyBefore)
 
     renderer.renderScore(model.getScore())

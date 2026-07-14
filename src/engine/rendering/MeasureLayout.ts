@@ -6,6 +6,7 @@ import { getStaves, firstStaffId, staffMeasureView } from '@/engine/models/staff
 import { measureCapacityFrac } from '@/utils/musicUtils'
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import { laneFingerprint, type MeasureWidthCache } from './MeasureWidthCache'
+import { renderCensus } from '@/dev/renderCensus' // TEMPORARY — the §9 layout-breakdown probes
 import {
   createStaveNotesFromSlots,
   makeClefResolver,
@@ -46,11 +47,18 @@ function noteSpaceForLane(laneView: Measure, clef: Clef, cache?: MeasureWidthCac
   const chords = laneView.slots.filter(s => s.type === 'chord')
   if (chords.length === 0) return EMPTY_LANE_NOTE_SPACE
 
-  const key = cache ? laneFingerprint(laneView, clef) : undefined
+  // TEMPORARY probes — the §9 question (see renderCensus.layoutSub). `recording` is false in every
+  // ordinary session, so this is one boolean read, not a clock call.
+  const probing = renderCensus.recording
+  const t0 = probing ? performance.now() : 0
+  const key = cache ? laneFingerprint(laneView) : undefined
+  if (probing) renderCensus.layoutSub('fingerprint', performance.now() - t0)
   if (key !== undefined) {
     const hit = cache!.get(key)
+    renderCensus.layoutCacheProbe(hit !== undefined)
     if (hit !== undefined) return hit
   }
+  const tFormat = probing ? performance.now() : 0
 
   const sorted = [...laneView.slots].sort((a, b) => fracCompare(a.beat, b.beat))
   const clefResolver = makeClefResolver(laneView, clef)
@@ -79,6 +87,7 @@ function noteSpaceForLane(laneView: Measure, clef: Clef, cache?: MeasureWidthCac
     const minSpacingWidth = chords.length * LAYOUT_CONFIG.MIN_NOTE_SPACING
     const noteSpace = Math.max(minNoteWidth * 1.15, minSpacingWidth)
     if (key !== undefined) cache!.set(key, noteSpace)
+    if (probing) renderCensus.layoutSub('format', performance.now() - tFormat)
     return noteSpace
   } catch (error) {
     console.warn(`Could not calculate width for measure ${laneView.number}:`, error)
@@ -119,7 +128,10 @@ function calculateMinimumMeasureWidth(
 
   let widest = 0
   for (const staffId of staffIds) {
+    // TEMPORARY probe — see renderCensus.layoutSub.
+    const tView = renderCensus.recording ? performance.now() : 0
     const lane = single ? measure : staffMeasureView(measure, staffId, score)
+    if (renderCensus.recording) renderCensus.layoutSub('laneView', performance.now() - tView)
     const staffClefs = clefsByStaff.get(staffId)
     const clef = staffClefs?.opening.get(measure.number) ?? 'treble'
 

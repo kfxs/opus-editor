@@ -65,6 +65,23 @@ export interface ShapeKeyInputs {
 }
 
 /**
+ * Every id in this lane that a *drawn* measure hands to the outside world: the ids the
+ * ElementRegistry hit-tests on and the ids `staveNoteMap`/`tupletObjectMap` are keyed by.
+ *
+ * The width key erases these (it canonicalizes ids to ordinals, so a renumber is free); the shape
+ * key must not. See the comment at the call site.
+ */
+function laneIds(lane: Measure): string {
+  const ids: string[] = []
+  for (const slot of lane.slots) {
+    ids.push(slot.id)
+    if (slot.type === 'chord') for (const pitch of slot.notes) ids.push(pitch.id)
+  }
+  for (const tuplet of lane.tuplets ?? []) ids.push(tuplet.id)
+  return ids.join(',')
+}
+
+/**
  * The engraving overrides anchored inside this measure. Keys are `{measureId}:v{voice}:b{n}/{d}`
  * (see `restPositionKey`), so a measure owns exactly the keys carrying its own id — a rest shifted
  * up, a rest hidden, and whatever §10c adds next (a note offset, a manual break).
@@ -102,7 +119,35 @@ export function measureShapeKey(
 
   return JSON.stringify([
     // ── content that takes width (P2's key, reused wholesale — never re-derived) ──
-    laneFingerprint(view, clef),
+    laneFingerprint(view),
+
+    // ⚠️ THE GOVERNING CLEF, and it must be here even though it is NOT in the width key.
+    //
+    // Those two facts look contradictory and are not. A clef does not change how *wide* a bar is —
+    // it moves every notehead the same distance vertically, and spacing is driven by durations and
+    // glyphs (proven in clefWidthIndependence.test.ts, which is why it left the width key). But it
+    // absolutely changes how a bar *looks*: the noteheads sit on different lines. WIDTH and PICTURE
+    // are different questions, and this key asks the second one.
+    //
+    // Take this away and the bug is silent and horrible: an alto clef at bar 40 would leave every
+    // later bar's key unchanged, so P5 would reuse their drawn groups — the new clef on the stave,
+    // the old noteheads underneath it, at the wrong pitches, forever.
+    clef,
+
+    // ⚠️ THE RAW IDS, and they too must be here even though the width key deliberately erases them.
+    //
+    // The width key canonicalizes ids to ordinals, so a rebar that renumbers a bar while leaving its
+    // music untouched keeps its cached width — that is the whole point, and it is sound, because
+    // width does not know what a note is called.
+    //
+    // A DRAWN measure does. Reusing a measure reuses its `<g>` *and replays its ElementRegistry
+    // entries and staveNoteMap* (VexFlowRenderer.replaySnapshot), both keyed by note id. Let a
+    // renumbered-but-identical bar reuse its group and every hit-test in it resolves to ids the model
+    // no longer contains: the notes are visibly right there and unclickable.
+    //
+    // Cheap, too — ids only, not the slots again. The bars that pay for it are exactly the bars a
+    // renumber touched, which had to be re-engraved regardless.
+    laneIds(view),
 
     // ── drawn, but weightless: invisible to the width key, and that is exactly why they are here ──
     view.dynamics ?? null,

@@ -1,4 +1,4 @@
-import type { Clef, Measure } from '@/types/music'
+import type { Measure } from '@/types/music'
 
 /**
  * Memo for the expensive half of the width calc: the VexFlow `Formatter` call that decides how
@@ -67,18 +67,78 @@ export class MeasureWidthCache {
  * feeds the `Voice` and its mode. All of that is here. Dynamics are absent — they do not affect
  * width.
  *
- * Slot ids ride along even though width doesn't depend on them. Stripping them would need a
- * replacer on every serialization to buy a few extra hits on operations that renumber ids
- * wholesale (rebar); not worth the per-render cost, and including them can only cause a
- * recompute, never a wrong width.
+ * ## Ids are CANONICALIZED, not included and not dropped
+ *
+ * Raw ids used to ride along, on the theory that they "can only cause a recompute, never a wrong
+ * width". True, and it cost 74% of the layout term. Add a staff to a 300-bar score and you mint 300
+ * whole-rest lanes that are musically *identical* — same duration, same meter — but each carries a
+ * freshly-minted rest id, so each got its own key and the formatter measured 300 bars that all come
+ * out the same width. Paste is the same story: the rebar pipeline renumbers ids wholesale, so bars
+ * whose music never changed missed the cache.
+ *
+ * They cannot simply be **deleted**, either: `tupletId` is what says *which slots are in the same
+ * tuplet*, and two different groupings of the same notes would collide on one key and take each
+ * other's width. So instead every id is rewritten to its **first-appearance ordinal within this
+ * lane** ({@link canonicalizeIds}). Identical music mints an identical key no matter which UUIDs it
+ * happens to hold, and the grouping structure survives intact.
+ *
+ * Tie targets (`tiedTo`/`tiedFrom`) are ids too, and usually point *out* of this lane. Canonicalizing
+ * them collapses "tied to some note elsewhere" to a single token — which is exactly right: width
+ * cares only that a tie *suppresses the accidental*, never which note is on the far end.
+ *
+ * ## ⚠️ The GOVERNING CLEF is deliberately NOT here — and it used to be
+ *
+ * It was the single most expensive thing in the editor. A clef is *inherited*: an alto clef at bar
+ * 40 is the governing clef of **every bar after it**. With `clef` in this key, changing one clef
+ * minted a fresh key for 260 bars and re-ran the formatter on all of them — and *dragging* that clef
+ * did it again on every mouse-move. The census caught it: 1,175 formatter re-runs, **293 ms, 47% of
+ * all layout time**, against a 3% cache miss rate. The cache was working; the key was wrong.
+ *
+ * And the clef cannot change the answer. It moves every notehead the same distance *vertically*.
+ * Width is driven by durations, notehead glyphs, and accidental stacking — and stacking depends on
+ * the notes' *relative* positions, which a clef does not disturb. `clefWidthIndependence.test.ts`
+ * pins this: identical widths under treble, bass, alto and tenor, with controls proving the harness
+ * would have seen a difference if there were one.
+ *
+ * A **mid-measure** clef change is a different animal and stays in the key via `lane.clefs` — it
+ * re-pitches the notes after it *within this bar*, and that is content, not inheritance.
  */
-export function laneFingerprint(lane: Measure, clef: Clef): string {
-  return JSON.stringify([
-    lane.slots,
-    lane.clefs ?? null,
-    lane.tuplets ?? null,
-    lane.timeSignature,
-    lane.actualDurationOverride ?? null, // a pickup bar's capacity → the Voice's mode
-    clef,
-  ])
+export function laneFingerprint(lane: Measure): string {
+  return JSON.stringify(
+    [
+      lane.slots,
+      lane.clefs ?? null,
+      lane.tuplets ?? null,
+      lane.timeSignature,
+      lane.actualDurationOverride ?? null, // a pickup bar's capacity → the Voice's mode
+    ],
+    canonicalizeIds(),
+  )
+}
+
+/** Any property whose value is an id. `*Id` catches `tupletId` and whatever §10 adds next. */
+function isIdKey(key: string): boolean {
+  return key === 'id' || key === 'tiedTo' || key === 'tiedFrom' || key.endsWith('Id')
+}
+
+/**
+ * A `JSON.stringify` replacer that rewrites each distinct id to `#0`, `#1`, … in the order it is
+ * first seen. Two lanes holding the same music produce the same string even though every UUID in
+ * them differs.
+ *
+ * Stateful, so it must be built fresh per serialization — hence a factory, not a constant. That is
+ * also what keeps the numbering *lane-local*: an ordinal means "the 3rd distinct id in this bar",
+ * which is a property of the bar's own structure and cannot leak in from a neighbour.
+ */
+function canonicalizeIds(): (key: string, value: unknown) => unknown {
+  const seen = new Map<string, string>()
+  return (key, value) => {
+    if (typeof value !== 'string' || !isIdKey(key)) return value
+    let ordinal = seen.get(value)
+    if (ordinal === undefined) {
+      ordinal = `#${seen.size}`
+      seen.set(value, ordinal)
+    }
+    return ordinal
+  }
 }
