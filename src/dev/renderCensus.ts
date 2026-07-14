@@ -103,6 +103,42 @@ class RenderCensus {
     this.layoutMs = now() - this.tLayoutStart
   }
 
+  /**
+   * **TEMPORARY, and the point of this round.** Split the layout term three ways, because §9 rests
+   * on an assumption nobody has checked: that the cost is the *fingerprint walk*.
+   *
+   * The three suspects, and what each would mean:
+   *
+   *  - `laneView` — `staffMeasureView` rebuilding one `Measure` object per (measure, staff), every
+   *    render. Copy-on-write fixes it (the lane can be cached on the measure's identity).
+   *  - `fingerprint` — `JSON.stringify`ing every lane to make its cache key. **This is what §9
+   *    assumes dominates**, and what a `WeakMap` on the measure object would delete outright.
+   *  - `format` — the VexFlow `Formatter` actually re-running, on lanes whose key legitimately
+   *    changed. Copy-on-write **does not help here at all**: the width really is unknown. If this
+   *    is the bulk of it, §9 is the wrong fix and the answer lies in the key (a clef change puts a
+   *    new `clef` in every later bar's fingerprint, so every later bar re-formats — even though a
+   *    clef barely moves a notehead).
+   *
+   * Session-global, not per-cause: it is one question, asked once.
+   */
+  private sub = { laneView: 0, fingerprint: 0, format: 0, hits: 0, misses: 0 }
+
+  layoutSub(part: 'laneView' | 'fingerprint' | 'format', ms: number): void {
+    if (!this.on) return
+    this.sub[part] += ms
+  }
+
+  layoutCacheProbe(hit: boolean): void {
+    if (!this.on) return
+    if (hit) this.sub.hits++
+    else this.sub.misses++
+  }
+
+  /** Is the instrument recording? Lets hot call sites skip `performance.now()` entirely when off. */
+  get recording(): boolean {
+    return this.on
+  }
+
   /** Called at the bottom of VexFlowRenderer.renderScore. */
   endRender(): void {
     if (!this.on) return
@@ -137,7 +173,28 @@ class RenderCensus {
     const total = rows.reduce((s, r) => s + (r['total ms'] as number), 0)
     console.log(`[census] ${n} renders, ${total.toFixed(0)} ms of render time total`)
     console.table(rows)
+
+    // The §9 question: WHERE does the layout term actually go?
+    const s = this.sub
+    const layoutTotal = rows.reduce((sum, r) => sum + (r['layout ms (avg)'] as number) * r.renders, 0)
+    const probes = s.hits + s.misses
+    console.log(
+      `[census] layout breakdown — of ${layoutTotal.toFixed(0)} ms of layout across the session:`,
+    )
+    console.table([
+      { part: 'laneView (staffMeasureView)', ms: +s.laneView.toFixed(0), share: pct(s.laneView, layoutTotal), 'fixed by CoW?': 'yes' },
+      { part: 'fingerprint (JSON.stringify)', ms: +s.fingerprint.toFixed(0), share: pct(s.fingerprint, layoutTotal), 'fixed by CoW?': 'yes' },
+      { part: 'format (VexFlow Formatter)', ms: +s.format.toFixed(0), share: pct(s.format, layoutTotal), 'fixed by CoW?': 'NO' },
+    ])
+    console.log(
+      `[census] width cache: ${s.hits} hits / ${s.misses} misses (${pct(s.misses, probes)} miss rate). ` +
+        `A high miss rate means the FORMATTER is re-running — which copy-on-write cannot help.`,
+    )
   }
+}
+
+function pct(part: number, whole: number): string {
+  return whole === 0 ? '—' : `${((100 * part) / whole).toFixed(0)}%`
 }
 
 /** The frame that called RenderController.renderScore — e.g. "MouseController.handleMouseDown". */
