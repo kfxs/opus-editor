@@ -159,9 +159,20 @@ export class MusicEngine {
    * the answer is already known, for free.
    *
    * **The trade, honestly:** this is "did anything ASK to be saved", where the stringify-compare
-   * was "did the content actually differ". They diverge for an operation that saves without
-   * changing anything (setting a value to what it already was) — that now pushes a no-op undo
-   * step, costing one wasted Ctrl-Z rather than a wrong picture.
+   * was "did the content actually differ". They diverge in BOTH directions:
+   *
+   * 1. An operation that **saves without changing anything** (setting a value to what it already
+   *    was) pushes a no-op undo step — one wasted Ctrl-Z. Harmless.
+   * 2. ⚠️ An operation that **changes without asking to be saved** is INVISIBLE here. `fn` mutates
+   *    the model, this counts zero requests, concludes nothing happened, and never calls
+   *    `saveUndoState` — which is the only thing that calls `markModelDirty()`. So the edit lands
+   *    in the model, the next render is skipped as "nothing changed", and there is no undo entry.
+   *    A wrong picture AND a lost undo, from an operation that looked correct.
+   *
+   * (2) is not hypothetical: `toggleRestHidden` was written that way, deliberately skipping its
+   * snapshot on the grounds that "the batch owns it" — which is exactly the circle this cannot
+   * close. **Every mutator must call `saveUndoState`, batched or not.** Inside a batch that is free:
+   * it marks dirty, counts the request, and returns without pushing.
    *
    * @returns true if a snapshot was pushed, false otherwise.
    */
@@ -1243,8 +1254,20 @@ export class MusicEngine {
    * Toggle whether a selected rest is hidden (the Sibelius-style Ctrl+Shift+H — see
    * docs/rest-hide-plan.md). Resolves the rest id to its position address (the override is
    * position-keyed, since rests have no durable id) and delegates the set/clear to the model.
-   * A no-op for a non-rest / missing id. NO undo snapshot here — the multi-rest batch in the
-   * shortcut handler owns the single snapshot (mirroring how Delete batches articulations).
+   * A no-op for a non-rest / missing id.
+   *
+   * **It must call `saveUndoState`, even though the surrounding batch owns the actual snapshot.**
+   * It used to skip it, reasoning that the multi-rest `runBatch` in the shortcut handler would push
+   * the one snapshot for the group. That was circular: `runBatch` decides whether `fn` did anything
+   * by *counting `saveUndoState` requests*, so an operation that mutates without asking to be saved
+   * is invisible to it. The batch concluded nothing had happened, never called `saveUndoState`, and
+   * therefore never called `markModelDirty()` — so the hide landed in the model but the next render
+   * was skipped as "nothing changed", and no undo entry was pushed either.
+   *
+   * Calling it here is not a double-snapshot: inside a batch, `saveUndoState` marks the model dirty
+   * and counts the request, then returns WITHOUT pushing (see its own note). Outside a batch — a
+   * lone toggle — pushing is exactly right.
+   *
    * @returns true if a rest was toggled.
    */
   toggleRestHidden(restId: string): boolean {
@@ -1255,6 +1278,7 @@ export class MusicEngine {
     const key = restPositionKey(measure.id, note.voice ?? 0, note.beat)
     const nowHidden = !restHiddenOf(this.scoreModel.getScore(), key)
     this.scoreModel.toggleRestHidden(key)
+    this.saveUndoState(`${nowHidden ? 'Hide' : 'Show'} rest`)
     console.log(`[Rest] ${nowHidden ? 'hide' : 'show'} rest ${restId} (${key})`)
     return true
   }

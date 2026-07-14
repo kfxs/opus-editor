@@ -1468,4 +1468,33 @@ describe('runBatch — change detection without serializing the score', () => {
 
     expect(engine.getUndoDescription()).toBe('Outer')
   })
+
+  /**
+   * REGRESSION. `runBatch` asks "did anything ASK to be saved?", so a mutator that changes the model
+   * without calling `saveUndoState` is invisible to it: the batch pushes nothing, and — because
+   * `saveUndoState` is the ONLY caller of `markModelDirty()` — the model is never flagged dirty
+   * either. The next render is then skipped as "nothing changed".
+   *
+   * `toggleRestHidden` was written exactly that way, on the reasoning that the batch would own its
+   * snapshot. Hiding a rest therefore did nothing visible until some *other* edit forced a redraw,
+   * and Ctrl+Z could not bring it back.
+   */
+  it('hiding a rest inside a batch marks the score dirty AND is undoable', () => {
+    const engine = makeEngine()
+    // A quarter note at beat 0 leaves rests filling the rest of the bar.
+    addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const rest = engine.getScore().measures[0].slots.find(s => s.type === 'rest')!
+    engine.renderScore() // settle: the render below must be provoked by the hide, not by the note
+
+    const changed = engine.runBatch('Hide/Show 1 rest(s)', () => {
+      expect(engine.toggleRestHidden(rest.id)).toBe(true)
+    })
+
+    // The batch must SEE the mutation...
+    expect(changed, 'the batch did not notice the rest was hidden').toBe(true)
+    // ...so the next render actually happens...
+    expect(engine.isRenderStale(), 'the hide would not repaint until some other edit').toBe(true)
+    // ...and it is undoable.
+    expect(engine.getUndoDescription()).toBe('Hide/Show 1 rest(s)')
+  })
 })
