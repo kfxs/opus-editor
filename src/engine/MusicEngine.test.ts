@@ -21,6 +21,8 @@ vi.mock('./rendering/VexFlowRenderer', async (importOriginal) => ({
     getElementRegistry = vi.fn(() => fakeRegistry)
     setViewMode = vi.fn()
     setLinearStaffSpacing = vi.fn()
+    setCullWindow = vi.fn()
+    setLayoutReusable = vi.fn()
     // P3's skip test (docs/render-performance-plan.md §5a) reads the view state off the
     // renderer. The stub's view state never changes, so `isRenderStale` here answers purely
     // "did the content change?" — which is exactly what the tests below exercise.
@@ -1496,5 +1498,50 @@ describe('runBatch — change detection without serializing the score', () => {
     expect(engine.isRenderStale(), 'the hide would not repaint until some other edit').toBe(true)
     // ...and it is undoable.
     expect(engine.getUndoDescription()).toBe('Hide/Show 1 rest(s)')
+  })
+})
+
+/**
+ * P6 — the virtualization window (docs/render-performance-plan.md §8).
+ *
+ * The whole risk of culling is that it turns scrolling — today a free CSS scroll — into a redraw. It
+ * doesn't, and this is why: the engine draws a window *larger* than the viewport, and only re-cuts it
+ * when the viewport escapes what it already drew. `setVisibleRect` answering `false` IS the promise
+ * that a scroll costs nothing.
+ */
+describe('MusicEngine.setVisibleRect — P6 virtualization window', () => {
+  let engine: MusicEngine
+
+  beforeEach(() => {
+    engine = makeEngine()
+  })
+
+  const VIEW = { x: 1000, y: 1000, width: 800, height: 600 }
+
+  it('the FIRST sighting always owes a render — nothing has been culled yet', () => {
+    expect(engine.setVisibleRect(VIEW)).toBe(true)
+  })
+
+  it('a small scroll owes NOTHING — it stays inside the overscan already drawn', () => {
+    engine.setVisibleRect(VIEW)
+    // 50px down, well inside a 0.5-viewport (300px) overscan margin.
+    expect(engine.setVisibleRect({ ...VIEW, y: VIEW.y + 50 })).toBe(false)
+  })
+
+  it('a scroll that ESCAPES the drawn window owes a render', () => {
+    engine.setVisibleRect(VIEW)
+    // Past the bottom of the overscan: bars below have never been engraved.
+    expect(engine.setVisibleRect({ ...VIEW, y: VIEW.y + 1000 })).toBe(true)
+  })
+
+  it('a viewport with no size yet culls NOTHING — the whole score still draws', () => {
+    // Before layout the DOM reports 0×0. Culling against that would erase the score.
+    expect(engine.setVisibleRect({ x: 0, y: 0, width: 0, height: 0 })).toBe(false)
+  })
+
+  it('zooming out far enough to see everything re-cuts the window', () => {
+    engine.setVisibleRect(VIEW)
+    // Ctrl+- to 25%: the same screen box now covers 4× the music (§8's inverted cost curve).
+    expect(engine.setVisibleRect({ x: 0, y: 0, width: 3200, height: 2400 })).toBe(true)
   })
 })

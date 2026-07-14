@@ -5,6 +5,8 @@ import {
   ZOOM_MIN,
   ZOOM_MAX,
   nextLadderStop,
+  expandRect,
+  rectContains,
 } from './ViewportModel'
 
 /**
@@ -191,6 +193,57 @@ describe('ViewportModel', () => {
     it('clamps at the ladder ends', () => {
       expect(nextLadderStop(ZOOM_MAX, 1)).toBe(ZOOM_MAX)
       expect(nextLadderStop(ZOOM_MIN, -1)).toBe(ZOOM_MIN)
+    })
+  })
+  /**
+   * P6 — the window the renderer culls against (docs/render-performance-plan.md §8). The model works
+   * in screen pixels; measure boxes are in layout pixels; `getVisibleRect` is the one place the two
+   * are divided apart.
+   */
+  describe('getVisibleRect — the window P6 culls against', () => {
+    it('is the scroll offset and viewport size, in LAYOUT coords', () => {
+      m.setViewportSize(800, 600)
+      m.setContentSize(4000, 3000)
+      m.scrollTo(200, 100)
+
+      expect(m.getVisibleRect()).toEqual({ x: 200, y: 100, width: 800, height: 600 })
+    })
+
+    it('divides out the zoom — at 2× the same screen window shows HALF as much music', () => {
+      m.setViewportSize(800, 600)
+      m.setContentSize(4000, 3000)
+      m.setZoom(2)
+      m.scrollTo(200, 100)
+
+      // 800 screen px of an 2×-scaled score is 400 layout px of music.
+      expect(m.getVisibleRect()).toEqual({ x: 100, y: 50, width: 400, height: 300 })
+    })
+
+    it('at 25% it shows FOUR TIMES as much — the case §8 warns inverts the cost curve', () => {
+      m.setViewportSize(800, 600)
+      m.setContentSize(4000, 3000)
+      m.setZoom(0.25)
+
+      const rect = m.getVisibleRect()
+      expect(rect.width).toBe(3200)
+      expect(rect.height).toBe(2400)
+    })
+  })
+
+  describe('expandRect / rectContains — the overscan contract', () => {
+    it('grows the rect by a fraction of its own size on all four sides', () => {
+      expect(expandRect({ x: 100, y: 100, width: 200, height: 100 }, 0.5)).toEqual({
+        x: 0, y: 50, width: 400, height: 200,
+      })
+    })
+
+    it('a window containing the viewport is what makes scrolling free', () => {
+      const window = expandRect({ x: 100, y: 100, width: 200, height: 100 }, 0.5)
+
+      // Scrolled a little: still inside the drawn window, so no render is owed.
+      expect(rectContains(window, { x: 150, y: 110, width: 200, height: 100 })).toBe(true)
+      // Scrolled past its right edge: the window must move, and bars must be drawn.
+      expect(rectContains(window, { x: 220, y: 110, width: 200, height: 100 })).toBe(false)
     })
   })
 })

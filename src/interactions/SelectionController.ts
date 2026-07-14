@@ -598,10 +598,12 @@ export class SelectionController {
     const engine = this.getEngine()
     if (!engine || !this.state.selectedNoteId) return
 
-    const elementInfo = engine.getElementById(this.state.selectedNoteId)
-    if (!elementInfo) return
+    // Not `getElementById`. Under P6 the note may not be drawn — that is precisely when scrolling to
+    // it matters — so the engine falls back to its measure's (tier-1) box. See getScrollRectForNote.
+    const rect = engine.getScrollRectForNote(this.state.selectedNoteId)
+    if (!rect) return
 
-    this.ensureVisible(elementInfo.bbox)
+    this.ensureVisible(rect)
   }
 
   private movePitchDiatonically(

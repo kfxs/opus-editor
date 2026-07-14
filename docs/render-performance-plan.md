@@ -26,8 +26,8 @@ That target moves the problem by two orders of magnitude and changed which fix c
 | P5.3 | Two-tier geometry — tier 1 without drawing | **done** |
 | P5.4 | Incremental redraw: only changed bars re-engrave | **done** |
 | P5.4b | A bar that only MOVED is translated, not re-engraved | **done** |
-| P6 | Virtualization, both axes, zoom-aware | **not started** |
-| — | Copy-on-write measures | **not started** — probable end-state |
+| P6 | Virtualization, both axes, zoom-aware | **done** — §8 |
+| — | Copy-on-write measures | **not started** — probable end-state, and now the largest cost left |
 
 **What is finished: the render count, the layout term, AND the draw — for everything except a
 whole-score reflow.**
@@ -47,17 +47,23 @@ Measured in Chrome at 200 bars, before P5 → after:
 | **staff-spacing drag** | 87.5 ms/frame | **14.6 ms** | **5.8%** |
 | note entry, accidental, stem flip, dynamic… | 80–170 ms | **4–8 ms** | ~0.3% |
 
-**What is left: the whole-score reflow.** Three causes still redraw most of the score, and *all
-three are correct to do so* — nothing about them is waste:
+**The whole-score reflow was what P5 could not fix.** Three causes redrew most of the score, and *all
+three were correct to do so* — nothing about them is waste:
 
-| cause | cost | why it is not a bug |
+| cause | cost after P5 | why it is not a bug |
 |---|---:|---|
 | clef change | 196 ms, 100% | an alto clef at bar 2 changes the governing clef of **every later bar**; they really do all draw differently |
 | view-mode switch, add staff | 134–188 ms | the entire casting-off changes |
 | paste | 196 ms, 93% | widening 16 bars **re-wraps** the score, so bars move between systems and their **justified width** changes — a genuinely different picture (§7a) |
 
-Those cannot be made cheaper by *reuse*. They get cheaper only by **drawing fewer bars** — which is
-P6. There is no low-hanging fruit left in P5.
+None of it could be made cheaper by *reuse*. It gets cheaper only by **drawing fewer bars** — which is
+P6, and P6 is now built (§8). "100% of bars" is still 100% of the bars that are *on screen*; what
+changed is that the score behind them is no longer one of them. The cost stopped scaling with the
+score and started scaling with the screen.
+
+**What is left is no longer a render cost at all.** `UndoRedoManager.pushState` still deep-clones the
+whole score on every edit (§9) — 95 ms per edit at 500×25, on the *hot* path, where a clef change is
+a once-in-a-while thing. That is now the biggest number in this document.
 
 ### Where the plan was wrong
 
@@ -497,54 +503,114 @@ next time the unit tests are green and that feels like evidence.
 lingered for the life of the renderer — a click in empty space could still resolve to a bar that no
 longer existed.
 
-# Remaining
+## 8. P6 — Virtualization, on both axes, zoom-aware — **BUILT**
 
-## 8. P6 — Virtualization, on both axes, zoom-aware
+After P5 the census had exactly three expensive causes — a clef change (196 ms, 100% of bars), a
+view-mode switch or added staff, and a paste (196 ms, 93%) — and **all three were correct to redraw
+what they redrew.** An alto clef at bar 2 really does change how every later bar draws. A paste that
+widens 16 bars really does re-wrap the score, and a bar that lands on a different system really does
+get a different justified width, which really is a different picture (§7a). None of it was waste;
+none of it could be recovered by *reuse*.
 
-**The only phase left, and now the only thing that can help.** After P5 the census has exactly three
-expensive causes — a clef change (196 ms, 100% of bars), a view-mode switch or added staff, and a
-paste (196 ms, 93%) — and **all three are correct to redraw what they redraw.** An alto clef at bar 2
-really does change how every later bar draws. A paste that widens 16 bars really does re-wrap the
-score, and a bar that lands on a different system really does get a different justified width, which
-really is a different picture (§7a). None of it is waste; none of it can be recovered by *reuse*.
+So the only remaining lever was to **draw fewer bars**, and that is what P6 does: tier 2 paints only
+the measure groups whose tier-1 box intersects the viewport, plus overscan — **on both axes**, since
+at 40 staves you cannot see them all and must not draw them.
 
-The only remaining lever is to **draw fewer bars**.
+### 8.1 What it turned out to be
 
-Only draw the measure groups whose tier-1 box intersects the viewport, plus overscan. At 40 staves
-this must cull **vertically** as well as horizontally — you cannot see 40 staves at once, so do not
-draw them.
+Very little new machinery, because P5 had already done the hard part: tier 1 was complete without
+drawing, tier 2 already took its measure set as a parameter, and each measure was individually
+addressable. The window replaced the parameter, and four things had to be true around it.
 
-Everything P6 needs is now in place: tier 1 is complete without drawing (§7, proven by rendering with
-every measure culled), tier 2 already takes its measure set as a **parameter** (`setDrawFilter`), and
-each measure is individually addressable. ⚠️ But `drawFilter` is **not yet a culling switch** — see
-the cross-measure-span bullet below; that is the work P6 actually has to do.
+| piece | where |
+|---|---|
+| **The window.** `ViewportModel.getVisibleRect()` — the one place screen px are divided back into layout px by `zoom`. | `ViewportModel.ts` |
+| **The overscan.** `MusicEngine.setVisibleRect()` draws a window *larger* than the viewport and only re-cuts it when the viewport escapes what was already drawn. It **returns whether a render is owed** — and for almost every scroll event the answer is *no*. | `MusicEngine.ts` |
+| **The cull.** `VexFlowRenderer.setCullWindow()` + `inCullWindow()`. Gates the draw, the reuse, and the system connectors. | `VexFlowRenderer.ts` |
+| **The trigger.** The cull window joins `viewStateKey()`, so `isRenderStale()` answers *yes* when the window moves — scrolling changes no content, and without this the bars newly scrolled into view would never be painted. | `VexFlowRenderer.viewStateKey` |
 
-**It is also what bounds the worst case P5 cannot.** A *global* casting-off change — locking N bars
-per system, resizing the container — re-wraps the whole document, so by §7a's invariant every bar's
-justified width changes and P5's incremental redraw degenerates to a full one. That is not a flaw in
-P5; **every engraver re-wraps on a global re-wrap.** The way out is not to redraw less per bar, it is
-to draw fewer bars: under P6 the cost becomes a full **tier-1** recompute (cheap arithmetic over the
-cached widths) plus a redraw of **only the visible window**. The cost stops scaling with the score and
-starts scaling with the screen.
+Culling is a **removal**, not a skipped repaint: a bar that leaves the window is excluded from the
+reuse set, which is exactly what makes `clearForRender` take its `<g>` back out of the DOM. Leaving
+it standing would be worse than useless — it would still be there, stale, when the score changed
+underneath it.
 
-Four costs to be honest about:
+### 8.2 The four costs, and what each actually cost
 
-- **Scrolling is free today** (pure CSS scroll; zoom is a CSS transform, no re-render). Under
-  virtualization it becomes a redraw. It needs rAF throttling and generous overscan or it will feel
-  *worse* than what ships now.
-- **Zoom stops being free too, and inverts the cost curve.** Zooming out to 25% to copy a passage
-  deliberately puts ~16× more music on screen, and all of it must be drawn. The cheapest moment for
+The plan called these out in advance. Three were paid; one was not, and is still owed.
+
+- **Scrolling was free (pure CSS scroll) and must stay free.** It does — because the overscan is the
+  thing that is drawn, and a scroll inside it owes nothing. `setVisibleRect` returning `false` *is*
+  that promise, and it is pinned by a test. At `CULL_OVERSCAN = 0.5` you scroll half a screen before
+  paying anything, and what you then pay is bounded: crossing the boundary advances the window by
+  half a viewport, so the strip actually engraved is half a screen of music, never a score. rAF
+  throttling turned out to be unnecessary — the *render* is already gated on the boundary crossing,
+  which is a far coarser filter than a frame.
+- **Cross-measure spans.** Ties and slurs are drawn in a post-measure pass that asks `staveNoteMap`
+  where their endpoint notes are, and only a *drawn* measure populates it. A slur over bars 3–9 with
+  only 5–7 on screen would have found neither end and vanished. The fix makes "select by intersection
+  with the window" true *by implication* rather than by rewriting every span renderer against tier-1
+  geometry:
+
+  > **A span that intersects the window forces its two anchor bars to be drawn**, wherever they are.
+
+  They may land far off-screen; that is harmless (the SVG is scrolled, not clipped). The cost is two
+  bars per *crossing* span — a tie into the next bar is inside the overscan and pays nothing.
+- **Geometry consumers that read the renderer.** Tier 1 still runs over **every measure in the
+  score**, drawn or not, so `getAllMeasureBounds()` still feeds `CoordinateMapper` a complete map and
+  pixel↔position keeps working off-screen. The one place that *did* break was
+  `scrollSelectedNoteIntoView`, which resolved the selected note's **bbox** — tier-2 geometry, absent
+  for a note that has not been drawn. And that is precisely the case where scrolling to it matters:
+  the selection jumps somewhere distant, the bbox is missing, and the viewport would simply not move.
+  `MusicEngine.getScrollRectForNote` now falls back to the note's **measure** box (tier 1, always
+  known). Bar-accurate rather than notehead-accurate for one frame; the alternative was not scrolling
+  at all.
+- **⚠️ Zoom stops being free too, and inverts the cost curve — STILL OWED.** Zooming out to 25%
+  deliberately puts ~16× more music on screen, and all of it is now drawn. The cheapest moment for
   the renderer (note entry at 100%, two systems visible) is the one where you need it least. The
   known way out is **level-of-detail** — draw fewer glyphs per bar when zoomed far out, since an
-  articulation dot is invisible at 25% anyway. Do not design it in now; just do not design it *out*.
-- **Cross-measure spans.** Ties, slurs and beams are drawn in a post-measure pass from
-  `staveNoteMap`, which will only exist for *drawn* measures. A slur spanning bars 3–9 with only 5–7
-  on screen must still draw, clipped — so spans must be selected by **intersection with the window**,
-  not by whether their anchors happen to be drawn.
-- **Geometry consumers that read the renderer.** `syncCoordinateMapperBounds` feeds
-  `CoordinateMapper` from `getAllMeasureBounds()` after every render. Under culling, bounds for
-  undrawn measures must come from **tier 1**, not from the drawn set — otherwise pixel↔position
-  breaks off-screen exactly the way the registry would have.
+  articulation dot is invisible at 25% anyway. P6 did not design it out (the window is already
+  zoom-aware; `getVisibleRect` divides by zoom, so a 25% window *is* four times as wide), but it did
+  not build it. **If anything about this feels slow, this is where to look first.** (Zoom does not
+  get its own census row — it moves the visible rect, so it is counted under `onViewChange`.)
+
+### 8.3 What the census said — and the second pass it forced
+
+The first cut of P6 worked, and the census immediately found the cost it had introduced.
+
+Measured in Chrome, 200 bars, an ordinary editing session:
+
+| cause | after P5 | after P6, first cut | bars redrawn |
+|---|---:|---:|---:|
+| **paste** | 196 ms | **79.7 ms** | 93% → **9.1%** |
+| **add staff** | 134–188 ms | **77.3 ms** | → **7%** |
+| **`onViewChange`** (scroll + zoom) | *did not exist* | **27 renders, 515 ms — 40% of ALL render time** | 18% |
+
+Culling did what it was for. But the new scroll render cost 19 ms, and **13.3 ms of that was
+`calculateMeasureWidths`** — the census times nothing else as "layout". Not the draw. The *widths*,
+recomputed on a scroll, where the score had not changed by one note and every width therefore came
+back identical.
+
+That is §9's **fingerprint walk**, arriving early. P2 memoizes each measure's intrinsic width, but it
+still walks every measure's content to build the key that finds it — the 101 ms measured at 500×25.
+Culling had turned a walk that used to happen on edits into one that happened on *scrolls*.
+
+Two things were being re-derived for bars nobody could see and nothing had touched, and **the window
+cannot change either of them**:
+
+- **The casting-off.** Cached across renders (`VexFlowRenderer.layoutCache`) and reused when the
+  model is unchanged and the *layout-relevant* view state is unchanged. That second half is why
+  `viewStateKey` was split: `layoutStateKey` is the same key **minus the cull window**, because the
+  window is the one piece of view state that cannot move a barline. Only `MusicEngine` may license
+  the reuse (`setLayoutReusable`) — it owns `modelDirty` and is the only thing that knows. The
+  default is `false`, which matters: a renderer driven directly, as every test in that directory
+  does, has no engine to clear a stale layout.
+- **Every culled bar's tier-1 `Stave`.** A bar that was *already* culled last render has an unchanged
+  snapshot and no `<g>` at all, so its geometry is replayed instead of rebuilt. The guard is
+  `group === null`: it means "culled last time too". A bar only *now* leaving the window still has a
+  group standing in the DOM and must fall through to a rebuild — staying out of the reuse set is
+  exactly what makes `clearForRender` take that group down.
+
+# Remaining
 
 ## 9. Copy-on-write measures — the probable end-state
 

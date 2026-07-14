@@ -784,9 +784,35 @@ const renderer = useRenderer(state, engine, highlight, () => gutter.refresh())
 // ensureVisible for scroll-into-view. onMounted/onUnmounted run inside the composable.
 const viewport = useViewport(
   scoreCanvas, scoreContent, scoreSizer, scoreZoomLayer,
-  // The gutter is the one thing on screen that a scroll changes without the score re-rendering.
-  () => gutter.refresh(),
+  () => onViewChange(),
 )
+
+/**
+ * Scroll / zoom / resize settled. Two things hang off it.
+ *
+ * The gutter, because it is the one thing on screen that a scroll changes without the score
+ * re-rendering — and, since P6, the **virtualization window**: the engine is told where the user is
+ * looking, and re-engraves only if the viewport has escaped the strip of music it already drew
+ * (`setVisibleRect` answers that; it is false for almost every scroll event, so this stays the free
+ * CSS scroll it was). The render goes through `renderer.renderScore()` rather than the engine
+ * directly, so a note scrolling back into view is repainted *with its highlight*.
+ */
+function onViewChange(): void {
+  const e = engine.value
+  if (e) {
+    const v = viewport.model.getVisibleRect()
+    // The viewport rect is measured from the zoom layer's origin, which sits CONTENT_PADDING inside
+    // the SVG's; measure boxes are in the SVG's own space. Shift to match.
+    const needsRender = e.setVisibleRect({
+      x: v.x - CONTENT_PADDING,
+      y: v.y - CONTENT_PADDING,
+      width: v.width,
+      height: v.height,
+    })
+    if (needsRender) renderer.renderScore()
+  }
+  gutter.refresh()
+}
 
 // Linear view's frozen left gutter (clef + meter in force at the current scroll-x).
 const gutter = useGutter(engine, scoreGutter, scoreContent, viewport)
@@ -1095,6 +1121,11 @@ onMounted(() => {
     shortcuts.enable()
     initializeEmptyScore()
     renderer.renderScore()
+    // Now that the engine exists, hand it the window (P6). The first render above drew the whole
+    // score, because until this moment nothing had told the engine where the viewport is. Doing it
+    // explicitly rather than waiting for the next scroll/resize observer to fire keeps the moment
+    // culling switches on deterministic.
+    onViewChange()
     installPerfInstruments()
   }
 })

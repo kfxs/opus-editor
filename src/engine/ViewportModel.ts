@@ -36,6 +36,48 @@ export interface Rect {
 /** Default gap (px) kept between an `ensureVisible` target and the viewport edge. */
 export const ENSURE_VISIBLE_PADDING = 50
 
+/**
+ * P6 overscan: how far past each edge of the visible rect the renderer actually draws, as a
+ * fraction of the viewport's own size (docs/render-performance-plan.md §8).
+ *
+ * It buys two different things at once, which is why it is not just "a bit of margin":
+ *
+ *  - **Scrolling stays free inside it.** A render only happens when the visible rect *escapes* the
+ *    drawn window, so at 0.5 you scroll half a screen before paying anything. Without overscan every
+ *    scrolled pixel would re-cull and re-render, and P6 would make scrolling worse than the CSS
+ *    scroll it replaced.
+ *  - **It bounds what each of those renders costs.** Crossing the boundary advances the window by
+ *    half a viewport, so the newly-exposed strip — the only bars actually drawn — is half a screen
+ *    of music, not a whole score.
+ *
+ * Raising it means rarer, fatter renders; lowering it means more frequent, thinner ones. 0.5 draws
+ * 2×2 viewports' worth of music at rest.
+ */
+export const CULL_OVERSCAN = 0.5
+
+/** Grow `rect` by `fraction` of its own size on all four sides. The drawn window is the visible
+ *  rect expanded this way; see {@link CULL_OVERSCAN}. */
+export function expandRect(rect: Rect, fraction: number): Rect {
+  const padX = rect.width * fraction
+  const padY = rect.height * fraction
+  return {
+    x: rect.x - padX,
+    y: rect.y - padY,
+    width: rect.width + padX * 2,
+    height: rect.height + padY * 2,
+  }
+}
+
+/** Does `outer` fully contain `inner`? The test that decides whether a scroll needs a render. */
+export function rectContains(outer: Rect, inner: Rect): boolean {
+  return (
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.width <= outer.x + outer.width &&
+    inner.y + inner.height <= outer.y + outer.height
+  )
+}
+
 /** Zoom range — the layout→screen scalar is clamped to `[ZOOM_MIN, ZOOM_MAX]` (25%–400%). */
 export const ZOOM_MIN = 0.25
 export const ZOOM_MAX = 4
@@ -172,6 +214,26 @@ export class ViewportModel {
     const nextY = (focal.y + this.scroll.y) * ratio - focal.y
     this.zoom = newZoom
     this.scrollTo(nextX, nextY)
+  }
+
+  /**
+   * The window onto the music, in **layout** (unscaled) coordinates — the space measure boxes and
+   * element bounding boxes live in. The model itself works in screen pixels, so this is the one
+   * place that divides back out by zoom: `layoutPx = screenPx / zoom`.
+   *
+   * This is what P6 culls against (docs/render-performance-plan.md §8). Note the coordinate origin
+   * is the zoom layer's, which includes the content surface's own padding — the caller subtracts
+   * that inset to reach SVG-internal coords. Overscan swamps the difference, but the subtraction is
+   * still made rather than hand-waved.
+   */
+  getVisibleRect(): Rect {
+    const z = this.zoom
+    return {
+      x: this.scroll.x / z,
+      y: this.scroll.y / z,
+      width: this.viewportSize.w / z,
+      height: this.viewportSize.h / z,
+    }
   }
 
   /**

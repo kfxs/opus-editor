@@ -2,7 +2,7 @@ import { ScoreModel, type ClipDynamicInput, type ClipSlurInput } from './models/
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
-import type { Rect } from './ViewportModel'
+import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
@@ -1797,10 +1797,16 @@ export class MusicEngine {
   renderScore(): void {
     // Repair measure gaps only after a real data change — a pure re-render (selection,
     // scroll, zoom, playback cursor) leaves the model untouched and needs no repair.
-    if (this.modelDirty) {
+    const contentChanged = this.modelDirty
+    if (contentChanged) {
       this.scoreModel.repairAllMeasureGaps()
       this.modelDirty = false
     }
+    // The engine is the ONLY thing that can vouch for "the model did not change", so it is the only
+    // thing that may license the renderer to reuse the last render's casting-off. Under P6 this is
+    // what makes scrolling free again: a scroll moves the window, the window cannot change a bar's
+    // width, and recomputing all of them cost 13 ms a frame at 200 bars (VexFlowRenderer.layoutCache).
+    this.renderer.setLayoutReusable(!contentChanged)
     this.renderer.renderScore(this.scoreModel.getScore())
     // The SVG now matches the model AND this view state — record the latter so the next
     // render can tell whether anything but the selection moved (see isRenderStale).
@@ -1828,6 +1834,47 @@ export class MusicEngine {
    */
   setLayoutFrozen(frozen: boolean): void {
     this.renderer.setLayoutFrozen(frozen)
+  }
+
+  // ==================== Virtualization (P6) ====================
+
+  /** The window tier 2 last painted — the visible rect plus overscan. See {@link setVisibleRect}. */
+  private cullWindow: Rect | null = null
+
+  /**
+   * **P6 — tell the engine where the user is looking** (docs/render-performance-plan.md §8).
+   *
+   * `visible` is the viewport in layout coordinates. The engine keeps a *larger* window around it —
+   * the visible rect grown by {@link CULL_OVERSCAN} — and that grown window is what the renderer
+   * actually paints. So:
+   *
+   *  - while the viewport stays inside the drawn window, this does **nothing at all**, and scrolling
+   *    remains the free CSS scroll it has always been;
+   *  - the moment it escapes, the window is recentred and the renderer is told. The new window
+   *    overlaps the old almost everywhere, so the bars that were already drawn are *reused* (their
+   *    shape and position are unchanged — P5.4 handles them for free) and only the newly-exposed
+   *    strip is engraved.
+   *
+   * @returns whether the window moved — i.e. whether the caller now owes a `renderScore()`. The
+   *          caller renders rather than this method, so the render goes through the one path that
+   *          also repaints the highlights (`RenderController.renderScore`); a note that scrolls back
+   *          into view must come back with its selection colour on it.
+   */
+  setVisibleRect(visible: Rect | null): boolean {
+    if (!visible) {
+      if (!this.cullWindow) return false
+      this.cullWindow = null
+      this.renderer.setCullWindow(null)
+      return true
+    }
+    // A zero-sized viewport (not laid out yet) would cull the entire score. Draw everything until
+    // the DOM tells us how big the window really is.
+    if (visible.width <= 0 || visible.height <= 0) return false
+    if (this.cullWindow && rectContains(this.cullWindow, visible)) return false
+
+    this.cullWindow = expandRect(visible, CULL_OVERSCAN)
+    this.renderer.setCullWindow(this.cullWindow)
+    return true
   }
 
   /**
@@ -2177,6 +2224,29 @@ export class MusicEngine {
    */
   getElementById(id: string): ElementInfo | null {
     return this.renderer.getElementRegistry().getById(id)
+  }
+
+  /**
+   * Where to scroll to bring a note into view — its own bounding box if it has one, else the
+   * rectangle of the **measure holding it**.
+   *
+   * The fallback is P6's doing. A note's bbox is tier-2 geometry: it exists only once the note has
+   * been *drawn*, and under virtualization a note far outside the window has not been. Scrolling to
+   * a note you cannot see is exactly the case that then breaks — the selection jumps somewhere
+   * distant (paste, undo, a click on a search result) and `getElementById` finds nothing, so the
+   * viewport would simply not move and the note would stay invisible, selected, off-screen.
+   *
+   * Its *measure*, though, is always known: measure bounds are tier 1 and are computed for every bar
+   * in the score, drawn or not (§8, "geometry consumers that read the renderer"). So we scroll to
+   * the bar, which brings the note inside the window, which draws it. Bar-accurate rather than
+   * notehead-accurate for one frame; the alternative is not scrolling at all.
+   */
+  getScrollRectForNote(noteId: string): Rect | null {
+    const element = this.getElementById(noteId)
+    if (element) return element.bbox
+
+    const note = this.scoreModel.getNote(noteId)
+    return note ? this.getMeasureRect(note.measure) : null
   }
 
   /**

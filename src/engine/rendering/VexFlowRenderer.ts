@@ -34,8 +34,9 @@ import { calculateMeasureWidths } from './MeasureLayout'
 import { MeasureWidthCache } from './MeasureWidthCache'
 import { renderCensus } from '@/dev/renderCensus' // P0 instrument — temporary, see §8
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
-import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex } from '@/engine/models/staffContent'
+import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex, staffIndexOfId } from '@/engine/models/staffContent'
 import { LAYOUT_CONFIG, VIEWPORT_TWO_LINE_HEIGHT, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
+import type { Rect } from '@/engine/ViewportModel'
 
 // Re-exported for existing importers (MusicEngine, App.vue, RenderPass) that referenced
 // these from the renderer before they moved to ./layoutConfig.
@@ -88,9 +89,10 @@ export function measureGroupKey(measureNumber: number, staffIndex: number): stri
  * `staveGeometry.test.ts`), which is what lets a measure have a *position* without having a
  * *picture*.
  *
- * That is the whole point of the tier: **P6 will produce one of these for every measure in the
- * score, and hand only the on-screen ones to `renderMeasure`.** Hit-testing, scroll-into-view,
- * playback-follow and pixel↔position all read tier 1, so they keep working off-screen.
+ * That is the whole point of the tier, and since P6 it is exactly what happens: **one of these is
+ * produced for every measure in the score, and only the on-screen ones reach `renderMeasure`.**
+ * Hit-testing, scroll-into-view, playback-follow and pixel↔position all read tier 1, so they keep
+ * working off-screen.
  */
 export interface MeasurePlacement {
   /** This staff's own lane of the measure (`staffMeasureView`), not the shared measure. */
@@ -122,6 +124,20 @@ export interface MeasurePlacement {
  * measure moves, re-justifies, or changes by a single glyph, the key differs and it is redrawn from
  * scratch rather than patched.
  */
+/**
+ * Every tie and slur in the score, in the two shapes the render loop needs them:
+ *
+ *  - `measures` — the bars holding an anchor. **P5.4b** may not translate one of these (see
+ *    {@link VexFlowRenderer.spanAnchors}).
+ *  - `list` — each span as a measure range plus its two anchor `<g>` keys. **P6** uses this to force
+ *    the anchors of a window-crossing span to be drawn (see
+ *    {@link VexFlowRenderer.forcedSpanGroups}).
+ */
+interface SpanAnchors {
+  measures: Set<number>
+  list: Array<{ lo: number; hi: number; groups: [string, string] }>
+}
+
 interface MeasureSnapshot {
   /** The **shape** key — what this measure looks like, independent of where it sits. */
   key: string
@@ -160,12 +176,53 @@ export class VexFlowRenderer {
    * caller is the test that proves tier 1 stands on its own — you cannot demonstrate that an
    * undrawn measure keeps its geometry without being able to *not draw* one.
    *
-   * ⚠️ It is NOT yet a culling switch. Cross-measure spans (ties, slurs) still resolve through
-   * `staveNoteMap`, which only drawn measures populate, so a filter that hides a span's anchor drops
-   * the span. Teaching spans to draw on **intersection with the window** rather than on "were my
-   * anchors drawn" is P6's job (§8), and until then this belongs to tests.
+   * A **test seam**, and now only that: P6's real culling switch is {@link cullWindow}, which this
+   * is ANDed with. Kept because a test that wants to cull one named measure should not have to
+   * compute a rectangle that happens to miss it.
    */
-  private drawFilter: ((p: MeasurePlacement) => boolean) | null = null
+  private drawFilter: ((p: Omit<MeasurePlacement, 'stave'>) => boolean) | null = null
+  /**
+   * **P6 — the window tier 2 paints** (docs/render-performance-plan.md §8), in layout coordinates.
+   * `null` = draw the whole score, which is what every render did before P6 and what still happens
+   * before the viewport has reported a size.
+   *
+   * It already carries its overscan: `MusicEngine.setVisibleRect` expands the visible rect and only
+   * hands a *new* window down when the visible rect escapes the old one. So this rectangle changes
+   * rarely — a scroll inside the overscan margin is still the free CSS scroll it always was — and
+   * when it does change, it is part of {@link viewStateKey}, which is what makes the resulting
+   * render happen at all.
+   *
+   * Culling is **tier 2 only**. Tier 1 (`layoutTier1`, `registerTier1`) still runs over every
+   * measure in the score, so measure bounds, staff geometry and pixel↔position keep working
+   * off-screen — see §8's "geometry consumers that read the renderer".
+   */
+  private cullWindow: Rect | null = null
+  /**
+   * **The casting-off of the last render, kept so a scroll doesn't recompute it.**
+   *
+   * The P6 census exposed this: a scroll render cost 19 ms, of which **13.3 ms was
+   * `calculateMeasureWidths`** — at 200 bars. Not the draw, not tier 1: the *widths*. And on a
+   * scroll the score has not changed by one note, so every one of those widths came back identical.
+   *
+   * The cost is the width cache's own **fingerprint walk** (§9): P2 memoizes each measure's
+   * intrinsic width, but it still has to walk every measure's content to build the key that finds
+   * it. That walk is the 101 ms measured at 500×25, and it was being paid on every scroll.
+   *
+   * So the layout is cached across renders and reused when *nothing it depends on* changed:
+   *   - the model didn't change ({@link layoutReusable}, which only `MusicEngine` can vouch for), and
+   *   - the layout-relevant view state didn't change ({@link layoutStateKey} — the window is
+   *     excluded, and that exclusion is exactly what makes a scroll free again).
+   */
+  private layoutCache: { key: string; widths: Map<number, MeasureWidthInfo> } | null = null
+  /**
+   * May this render reuse {@link layoutCache}? **Only `MusicEngine` can answer this**, because only
+   * it knows whether the model changed (`modelDirty`), and it is set per-render.
+   *
+   * Defaults to `false`, and that default is load-bearing: a renderer driven directly (every test in
+   * this directory) mutates its `ScoreModel` and re-renders with no engine in the loop, so nobody
+   * would clear a stale layout. Opt in, never opt out.
+   */
+  private layoutReusable = false
   /** Last render's output per (measure, staff) — what P5.4 reuses instead of redrawing.
    *  See {@link MeasureSnapshot}. */
   private snapshots: Map<string, MeasureSnapshot> = new Map()
@@ -251,8 +308,29 @@ export class VexFlowRenderer {
    *
    * Container width is absent because it is a constant (`LAYOUT_CONFIG.CONTAINER_WIDTH`); add
    * it here the day it becomes settable, along with page dimensions (§6c).
+   *
+   * The **cull window** is here, and it is what makes P6 work at all: scrolling changes no content,
+   * so without it `isRenderStale()` would answer "no" and the bars newly scrolled into view would
+   * never be painted. It is the *expanded* (overscan-carrying) window, not the raw visible rect —
+   * which is precisely why an ordinary scroll still renders nothing. `MusicEngine.setVisibleRect`
+   * only hands a new window down when the visible rect escapes the old one.
    */
   viewStateKey(): string {
+    const w = this.cullWindow
+    return JSON.stringify([
+      this.layoutStateKey(),
+      w && [Math.round(w.x), Math.round(w.y), Math.round(w.width), Math.round(w.height)],
+    ])
+  }
+
+  /**
+   * The view state **the casting-off depends on** — `viewStateKey` minus the cull window.
+   *
+   * The split is the whole point: scrolling moves the window, and the window is the *one* piece of
+   * view state that cannot change a single measure's width or which system it lands on. So a
+   * scroll-only render may reuse the layout wholesale. See {@link layoutCache}.
+   */
+  private layoutStateKey(): string {
     return JSON.stringify([
       this.viewMode,
       [...this.linearStaffSpacing.entries()].sort((a, b) => a[0].localeCompare(b[0])),
@@ -667,35 +745,98 @@ export class VexFlowRenderer {
    * The cost is small and bounded: only the two *endpoint* bars of a span, never the bars it merely
    * crosses. A slur over bars 4–15 redraws 4 and 15; 5–14 still just translate.
    */
-  private spanAnchorMeasures(score: Score): Set<number> {
-    const anchors = new Set<number>()
+  private spanAnchors(score: Score): SpanAnchors {
+    const measures = new Set<number>()
+    const list: SpanAnchors['list'] = []
+
+    // Where every pitch sits — the (measure, staff) a span endpoint resolves to. One walk; both
+    // ties and slurs read it.
+    const homeOfPitch = new Map<string, { measure: number; staffIndex: number }>()
+    for (const measure of score.measures) {
+      for (const slot of measure.slots) {
+        if (slot.type !== 'chord') continue
+        const staffIndex = staffIndexOfId(score, slot.staffId)
+        for (const pitch of slot.notes) {
+          homeOfPitch.set(pitch.id, { measure: measure.number, staffIndex })
+        }
+      }
+    }
+
+    const add = (
+      from: { measure: number; staffIndex: number } | undefined,
+      to: { measure: number; staffIndex: number } | undefined,
+    ) => {
+      // Each END that resolves is marked, independently — a half-resolvable span still pins the bar
+      // it can find. Only the (from, to) PAIR needs both, since a span with one end missing has no
+      // range to intersect the window with and draws nothing anyway.
+      if (from) measures.add(from.measure)
+      if (to) measures.add(to.measure)
+      if (!from || !to) return
+      list.push({
+        lo: Math.min(from.measure, to.measure),
+        hi: Math.max(from.measure, to.measure),
+        groups: [
+          measureGroupKey(from.measure, from.staffIndex),
+          measureGroupKey(to.measure, to.staffIndex),
+        ],
+      })
+    }
 
     // Ties are carried on the pitches themselves.
     for (const measure of score.measures) {
       for (const slot of measure.slots) {
         if (slot.type !== 'chord') continue
-        if (slot.notes.some(p => p.tiedTo || p.tiedFrom)) anchors.add(measure.number)
-      }
-    }
-
-    // Slurs name their endpoints by note id, so resolve those back to their measures.
-    if (score.slurs?.length) {
-      const measureOfNote = new Map<string, number>()
-      for (const measure of score.measures) {
-        for (const slot of measure.slots) {
-          if (slot.type !== 'chord') continue
-          for (const pitch of slot.notes) measureOfNote.set(pitch.id, measure.number)
+        for (const pitch of slot.notes) {
+          // The no-translate mark is taken from the FLAG, not from a resolved pair. A tie whose
+          // counterpart cannot be found (a dangling `tiedTo`, a `tiedFrom` whose source is gone)
+          // still has to keep its bar from being translated — a translated bar hands the span
+          // renderers stale StaveNote coordinates, and the tie is drawn detached from its notes.
+          // Resolution is allowed to fail; the protection is not allowed to depend on it.
+          if (pitch.tiedTo || pitch.tiedFrom) measures.add(measure.number)
+          if (pitch.tiedTo) add(homeOfPitch.get(pitch.id), homeOfPitch.get(pitch.tiedTo))
         }
       }
-      for (const slur of score.slurs) {
-        const from = measureOfNote.get(slur.startNoteId)
-        const to = measureOfNote.get(slur.endNoteId)
-        if (from !== undefined) anchors.add(from)
-        if (to !== undefined) anchors.add(to)
-      }
     }
 
-    return anchors
+    // Slurs name their endpoints by note id.
+    for (const slur of score.slurs ?? []) {
+      add(homeOfPitch.get(slur.startNoteId), homeOfPitch.get(slur.endNoteId))
+    }
+
+    return { measures, list }
+  }
+
+  /**
+   * **P6, the cross-measure-span rule** (docs/render-performance-plan.md §8).
+   *
+   * Ties and slurs are drawn in a post-measure pass that asks `staveNoteMap` where their endpoint
+   * notes are — and only a *drawn* measure puts anything in `staveNoteMap`. So a slur over bars 3–9
+   * with only 5–7 on screen would find neither endpoint and silently vanish, even though most of its
+   * arc crosses the window.
+   *
+   * §8 says spans must be selected "by intersection with the window, not by whether their anchors
+   * happen to be drawn". The way to honour that without teaching every span renderer to work from
+   * tier-1 geometry is to make the second thing imply the first:
+   *
+   * > **A span that intersects the window forces its two anchor bars to be drawn**, wherever they
+   * > are. They may land far off-screen; that is harmless (the SVG is scrolled, not clipped), and it
+   * > means the span renderers keep resolving endpoints exactly as they do today.
+   *
+   * The cost is two bars per crossing span, and only for spans that actually straddle the window
+   * edge — a tie into the next bar is inside the overscan and pays nothing.
+   */
+  private forcedSpanGroups(spans: SpanAnchors, visibleMeasures: Set<number>): Set<string> {
+    const forced = new Set<string>()
+    for (const span of spans.list) {
+      let intersects = false
+      for (let m = span.lo; m <= span.hi && !intersects; m++) {
+        if (visibleMeasures.has(m)) intersects = true
+      }
+      if (!intersects) continue
+      forced.add(span.groups[0])
+      forced.add(span.groups[1])
+    }
+    return forced
   }
 
   /**
@@ -1643,12 +1784,23 @@ export class VexFlowRenderer {
       clefsByStaff.set(staff.id, resolveStaffClefs(score, staff.id))
     }
 
-    // Calculate proportional widths for all measures (or reuse the frozen layout).
-    // Copy the frozen snapshot so the next clear() doesn't wipe it (same Map ref).
+    // Calculate proportional widths for all measures — or reuse a layout we already have.
+    //
+    // Three sources, cheapest first:
+    //   1. the frozen layout (a clef drag: don't reflow while dragging). Copy it, so the next
+    //      clear() doesn't wipe it (same Map ref).
+    //   2. `layoutCache` — the last render's casting-off, when neither the model nor the
+    //      layout-relevant view state changed. This is what makes SCROLLING free again: the cull
+    //      window moved, and the window cannot change a single width. (See `layoutCache`.)
+    //   3. compute it.
     renderCensus.beginLayout()
+    const layoutKey = this.layoutStateKey()
+    const cachedLayout =
+      this.layoutReusable && this.layoutCache?.key === layoutKey ? this.layoutCache.widths : null
     const measureWidths = this.frozenLayout
       ? new Map(this.frozenLayout)
-      : calculateMeasureWidths(score, clefsByStaff, this.viewMode, this.widthCache)
+      : cachedLayout ?? calculateMeasureWidths(score, clefsByStaff, this.viewMode, this.widthCache)
+    if (!this.frozenLayout) this.layoutCache = { key: layoutKey, widths: measureWidths }
     renderCensus.endLayout()
     // Store for use in tie rendering (to determine which line each measure is on)
     this.measureLayoutInfo = measureWidths
@@ -1710,23 +1862,62 @@ export class VexFlowRenderer {
     // those bars was different — they had moved.
     const keys = plans.map(p => measureShapeKey(score, p, this.suppressedDynamicId, this.suppressedTempoId))
 
-    // A span's endpoint bar must be REDRAWN when it moves, never translated — see spanAnchorMeasures.
-    const anchors = this.spanAnchorMeasures(score)
+    const spans = this.spanAnchors(score)
+    // A span's endpoint bar must be REDRAWN when it moves, never translated — see spanAnchors.
+    const anchors = spans.measures
     // A system connector is drawn from the Stave of the line's first measure, and a translated
     // measure's Stave still reports its old coordinates. Only relevant with a staff axis.
     const multiStaff = staffList.length > 1
+
+    // ---- P6: WHICH bars does tier 2 paint at all? (§8) ----
+    // The window first, then the spans that cross it drag their off-screen anchors in with them.
+    // `drawFilter` is the test seam, ANDed on top.
+    const visibleMeasures = new Set<number>()
+    const windowed = plans.map(p => {
+      const inside = this.inCullWindow(p, staveHeight)
+      if (inside) visibleMeasures.add(p.measureNumber)
+      return inside
+    })
+    const forced = this.cullWindow ? this.forcedSpanGroups(spans, visibleMeasures) : null
+    const groupKeys = plans.map(p => measureGroupKey(p.measureNumber, p.staffIndex))
+    const draws = plans.map((plan, i) =>
+      (windowed[i] || (forced?.has(groupKeys[i]) ?? false)) &&
+      (!this.drawFilter || this.drawFilter(plan)),
+    )
 
     type Reuse = { snapshot: MeasureSnapshot; dx: number; dy: number }
     const reuse = new Map<string, Reuse>()
 
     plans.forEach((plan, i) => {
-      const groupKey = measureGroupKey(plan.measureNumber, plan.staffIndex)
+      const groupKey = groupKeys[i]
       const prev = this.snapshots.get(groupKey)
-      // `isConnected` guards the case where something else tore the SVG down under us.
-      if (!prev || prev.key !== keys[i] || !prev.group?.isConnected) return
+      if (!prev || prev.key !== keys[i]) return
 
       const dx = plan.x - prev.drawnX
       const dy = plan.y - prev.drawnY
+
+      // ---- The culled case: reuse the GEOMETRY, with no picture attached. ----
+      //
+      // Tier 1 still runs for every bar in the score (that is what keeps hit-testing and
+      // pixel↔position honest off-screen), and at 200 bars that is 200 `Stave`s rebuilt on every
+      // render — including every scroll, for bars nobody can see and nothing has touched. A bar that
+      // was already culled last render has an unchanged tier-1 snapshot and no `<g>` at all, so
+      // replaying it is exactly equivalent and free.
+      //
+      // The `group === null` test is the safety: it says *this bar was culled last time too*. A bar
+      // that is only NOW leaving the window still has a `<g>` standing in the DOM, and must fall
+      // through to a rebuild — staying out of `reuse` is precisely what makes `clearForRender` take
+      // that `<g>` back out. Culling is a *removal*, not a skipped repaint: leave the group up and a
+      // scrolled-past bar lingers, and a stale one is still standing when the score changes under it.
+      if (!draws[i]) {
+        if (prev.group !== null) return
+        reuse.set(groupKey, { snapshot: prev, dx, dy })
+        return
+      }
+
+      // ---- The drawn case. `isConnected` guards something else tearing the SVG down under us. ----
+      if (!prev.group?.isConnected) return
+
       if (dx === 0 && dy === 0) {
         reuse.set(groupKey, { snapshot: prev, dx: 0, dy: 0 })
         return
@@ -1748,7 +1939,7 @@ export class VexFlowRenderer {
 
     for (let i = 0; i < plans.length; i++) {
       const plan = plans[i]
-      const groupKey = measureGroupKey(plan.measureNumber, plan.staffIndex)
+      const groupKey = groupKeys[i]
 
       const reused = reuse.get(groupKey)
       if (reused) {
@@ -1757,7 +1948,7 @@ export class VexFlowRenderer {
         continue
       }
 
-      // ---- Rebuild: tier 1, then tier 2 (unless culled). ----
+      // ---- Rebuild: tier 1 always, tier 2 only inside the window. ----
       // Registry entries are captured contiguously, so `sliceFrom` gets exactly this measure's.
       const registryStart = this.elementRegistry.count
       const stave = this.registerTier1(plan)
@@ -1765,8 +1956,7 @@ export class VexFlowRenderer {
       placements.push(placement)
 
       // Which measures get painted is a *choice*, not an assumption — §7's `draw(measures, surface)`.
-      // Default: all of them. P6 replaces the filter with a viewport-intersection test.
-      const draw = !this.drawFilter || this.drawFilter(placement)
+      const draw = draws[i]
       if (draw) {
         this.renderMeasure(pass, placement)
         redrawn++
@@ -1799,11 +1989,16 @@ export class VexFlowRenderer {
     // is why a REUSED measure still has to keep its `Stave` around (see MeasureSnapshot).
     if (staffList.length > 1) {
       const byKey = new Map(placements.map(p => [measureGroupKey(p.measureNumber, p.staffIndex), p]))
+      const drawnKeys = new Set(groupKeys.filter((_, i) => draws[i]))
       const bottomStaff = staffList.length - 1
       for (const p of placements) {
         if (!p.isFirstInLine || p.staffIndex !== 0) continue
         const bottom = byKey.get(measureGroupKey(p.measureNumber, bottomStaff))
         if (!bottom) continue
+        // A connector joins the TOP and BOTTOM staves of a system. Under vertical culling neither
+        // may be on screen while the middle of the system is, so it is drawn whenever *any* staff of
+        // its opening measure is — not when its own two endpoints happen to be.
+        if (this.cullWindow && !this.systemIsDrawn(p.measureNumber, staffList.length, drawnKeys)) continue
         new StaveConnector(p.stave, bottom.stave)
           .setType('singleLeft')
           .setContext(this.context!)
@@ -2088,10 +2283,46 @@ export class VexFlowRenderer {
     return this.measureGroups.get(measureGroupKey(measureNumber, staffIndex)) ?? null
   }
 
-  /** Restrict tier 2 to a subset of the score. See the {@link drawFilter} field for the hazard —
-   *  this is a test seam, not yet a culling switch. */
-  setDrawFilter(filter: ((p: MeasurePlacement) => boolean) | null): void {
+  /** Restrict tier 2 to a subset of the score, by predicate. A test seam — the shipping culling
+   *  switch is {@link setCullWindow}, and the two are ANDed. */
+  setDrawFilter(filter: ((p: Omit<MeasurePlacement, 'stave'>) => boolean) | null): void {
     this.drawFilter = filter
+  }
+
+  /** P6: the window tier 2 paints, overscan already included, in layout coords. `null` draws the
+   *  whole score. See {@link cullWindow}. */
+  setCullWindow(window: Rect | null): void {
+    this.cullWindow = window
+  }
+
+  /** Tell the renderer whether this render may reuse the last one's casting-off. Only `MusicEngine`
+   *  knows (it owns `modelDirty`); see {@link layoutReusable} for why the default is `false`. */
+  setLayoutReusable(reusable: boolean): void {
+    this.layoutReusable = reusable
+  }
+
+  /** Is any staff of this measure being painted? (The system connector's own two staves may both be
+   *  culled while the system is on screen — see the call site.) */
+  private systemIsDrawn(measureNumber: number, numStaves: number, drawnKeys: Set<string>): boolean {
+    for (let s = 0; s < numStaves; s++) {
+      if (drawnKeys.has(measureGroupKey(measureNumber, s))) return true
+    }
+    return false
+  }
+
+  /** Is this measure inside the window this render is painting? Tier 1 runs for it either way. */
+  private inCullWindow(p: Omit<MeasurePlacement, 'stave'>, staveHeight: number): boolean {
+    const w = this.cullWindow
+    if (!w) return true
+    // The box is the staff's own rectangle. Anything hanging off it — ledger lines, a dynamic
+    // below, a slur arching above — is covered by the overscan the window already carries, which
+    // is a whole fraction of a viewport and dwarfs a few staff-spaces of overhang.
+    return (
+      p.x < w.x + w.width &&
+      p.x + p.width > w.x &&
+      p.y < w.y + w.height &&
+      p.y + staveHeight > w.y
+    )
   }
 
   /**
@@ -2103,8 +2334,8 @@ export class VexFlowRenderer {
    *
    * - **Ties and slurs.** They span measures, so they belong to no measure's group and sit at the
    *   SVG's top level. They are cheap (a handful of curves against ~35 DOM nodes per bar per staff),
-   *   so they are simply redrawn every render rather than tracked. P6 will select them by
-   *   intersection with the window (§8).
+   *   so they are simply redrawn every render rather than tracked. Under P6 a span that crosses the
+   *   window forces its anchor bars to be drawn, which is what keeps them resolvable (§8.2).
    * - **System connectors.** Same reason — they belong to a system, not a measure.
    * - **Ghosts and highlight nodes.** Overlays; they are re-applied after the render.
    *
