@@ -58,13 +58,24 @@ const CSS = `
   min-width: 180px;
   max-width: 320px;
   padding: 4px;
-  background: #1f2937;
+  /* Glass, like the Keypad — the music stays visible under a menu instead of having a hole punched
+     in it. But LESS glass than the Keypad's 0.45: that panel is a picture of state you glance at,
+     and this is TEXT you must read. A stave showing through a label is a label you read twice. The
+     blur does the other half of the job: it stops the stave lines competing with the rows on top of
+     them. Heavier here (4px) than under the Keypad (1px) for that reason — a menu is READ, and it is
+     transient, so the music going soft behind it for a moment is not read as a rendering fault. */
+  background: rgba(31, 41, 55, 0.85);
+  backdrop-filter: blur(4px);
   color: #f3f4f6;
   border: 1px solid #4b5563;
   border-radius: 6px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   font-family: system-ui, sans-serif;
   font-size: 13px;
+  /* Explicit, because alignment INHERITS: the panel sits inside the score wrapper, and whatever
+     centres the music was centring the rows too. A menu is a list you scan down the left edge of —
+     ragged-right is what makes the labels line up as a column. */
+  text-align: left;
   /* A menu is chrome, not a document: dragging across it must not smear a text selection. */
   user-select: none;
   /* Taller than the world only if the world is tiny — then it scrolls rather than hanging off it. */

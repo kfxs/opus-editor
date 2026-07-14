@@ -106,6 +106,24 @@ so a `.vue` file never learns that menus exist. Same shape as `installKeypad`.
 
 All of it under `npm run lint:boundary`.
 
+## The look, and the three things that were wrong before they were right
+
+- **Glass, like the Keypad — but less of it.** `rgba(31,41,55,0.85)` + `backdrop-filter: blur(4px)`.
+  The Keypad can sit at 0.45 because it is a *picture of state you glance at*; a menu is **text you
+  read**, and a stave running through a label is a label you read twice. The blur does the other
+  half — it pushes the stave lines back so they stop competing with the rows on top of them, and it
+  is heavier here (4px) than under the Keypad (1px) precisely because a menu is transient: the music
+  going soft for a moment is not read as a rendering fault. The highlighted row stays **fully
+  opaque**, so the row under the pointer is unambiguous against whatever music is behind it.
+- **Highlight needs BOTH `:hover` and `data-active`.** Hover paints the row under the pointer —
+  reading a menu *is* hovering it, and a row you cannot see yourself on is a row you are not sure you
+  are about to click. `data-active` is set by the layer on the row that OWNS the open flyout, because
+  that row must stay lit once the pointer has left it *for* its flyout, where `:hover` no longer
+  holds. Shipping only the second one left the plain rows dead under the pointer.
+- **`text-align: left`, explicitly.** Alignment INHERITS: the panel lives inside the score wrapper,
+  and whatever centres the music was quietly centring the menu rows too. A menu is a list you scan
+  down the left edge of.
+
 ## ⚠️ The trap it walked into: `mousedown` had no button guard
 
 `MouseController.handleMouseDown` ran on **any** button. Nobody noticed, because the `click` event
