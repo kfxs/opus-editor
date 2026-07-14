@@ -20,33 +20,64 @@ That target moves the problem by two orders of magnitude and changed which fix c
 | P2 | Memoize the intrinsic width | **done** — `9de2de2` |
 | P3 | Selection must not redraw | **done** — `c62f0f0` |
 | P4 | Ghost/caret as an overlay group | **done** — `c62f0f0` |
-| — | `runBatch`'s double-stringify (the §7 slice) | **done** — `a114cd3` |
-| P5 | Two-tier geometry; measures as addressable groups | **not started** |
+| — | `runBatch`'s double-stringify | **done** — `a114cd3` |
+| P5.1 | Split the Stave BUILD from the DRAW | **done** |
+| P5.2 | Measures as addressable `<g>`s | **done** |
+| P5.3 | Two-tier geometry — tier 1 without drawing | **done** |
+| P5.4 | Incremental redraw: only changed bars re-engrave | **done** |
+| P5.4b | A bar that only MOVED is translated, not re-engraved | **done** |
 | P6 | Virtualization, both axes, zoom-aware | **not started** |
 | — | Copy-on-write measures | **not started** — probable end-state |
 
-**What is finished: the render count, and the layout term.**
+**What is finished: the render count, the layout term, AND the draw — for everything except a
+whole-score reflow.**
 
-- Selection, arrow-key navigation, panning, hover ghosts, mouse-leave and drag-releases now
-  produce **zero renders**. Before, 82% of the renders in an ordinary editing session changed no
-  content at all.
+- Selection, arrow-key navigation, panning, hover ghosts, mouse-leave and drag-releases produce
+  **zero renders** (P3/P4). Before, 82% of the renders in an ordinary session changed no content.
 - Layout is **under 2 ms per render** at ordinary sizes (was 50–80 ms), and **10.5 s → 101 ms** at
-  500 bars × 25 staves.
+  500 bars × 25 staves (P1/P2).
+- A render now re-engraves **only the bars whose picture actually changed** (P5.4), and a bar that
+  merely *moved* is **translated, not redrawn** (P5.4b).
 
-**What is left: the draw.** It is now ~100% of what a render costs (~105–170 ms at 200 bars), and
-it is what P5 and P6 exist for.
+Measured in Chrome at 200 bars, before P5 → after:
+
+| gesture | before | after | bars re-engraved |
+|---|---:|---:|---:|
+| **slur curve drag** (§7's loudest case) | ~104 ms/frame | **2.6 ms** | **0%** |
+| **staff-spacing drag** | 87.5 ms/frame | **14.6 ms** | **5.8%** |
+| note entry, accidental, stem flip, dynamic… | 80–170 ms | **4–8 ms** | ~0.3% |
+
+**What is left: the whole-score reflow.** Three causes still redraw most of the score, and *all
+three are correct to do so* — nothing about them is waste:
+
+| cause | cost | why it is not a bug |
+|---|---:|---|
+| clef change | 196 ms, 100% | an alto clef at bar 2 changes the governing clef of **every later bar**; they really do all draw differently |
+| view-mode switch, add staff | 134–188 ms | the entire casting-off changes |
+| paste | 196 ms, 93% | widening 16 bars **re-wraps** the score, so bars move between systems and their **justified width** changes — a genuinely different picture (§7a) |
+
+Those cannot be made cheaper by *reuse*. They get cheaper only by **drawing fewer bars** — which is
+P6. There is no low-hanging fruit left in P5.
 
 ### Where the plan was wrong
 
-Worth stating, because both errors were confidently argued in the original draft:
+Worth stating, because each was confidently argued in an earlier draft:
 
 1. **"jsdom's draw is pessimistic, so layout is a larger share than it looks."** No. In Chrome the
    split was ~28% layout / 72% draw — almost exactly what jsdom reported. Only the absolute numbers
    shrank. The draw was always the bigger half, which is why P1+P2 (a 175× win on layout) still
-   leave a 120 ms render.
+   left a 120 ms render.
 2. **"Expect P4 to jump ahead of P3, since hover fires continuously and selection fires per
    click."** No. The census found hover at 10 renders and selection-shaped causes at 34 of 51. P3
    was the bigger fish, and P3 came first.
+3. **"The transform-only case is a nice-to-have; identity-reuse gets the wins."** ⚠️ **The most
+   costly of the three.** P5.4 shipped with `x`/`y` in the redraw key, so a bar that had merely
+   *slid* was treated as a bar that had *changed*. The census then showed a staff-spacing drag
+   re-engraving **66% of the score per frame** and consuming **53% of all render time in an ordinary
+   session** — to change nothing but a y-offset. Every other remaining cost in that census was the
+   same bug wearing a different hat (paste, delete, duration change: all downstream bars *shifted*,
+   none *changed*). P5.4b was not a polish pass; it was most of the win. **Measure before deciding
+   what is a nice-to-have.**
 
 One thing the plan got right and should be kept in mind: **P1 alone is not a speed-up** (−21%). Its
 value is that the width is *correct* and that each per-staff width becomes cacheable. All the speed
@@ -64,12 +95,15 @@ welded together four derivations with four completely different invalidation key
 |---|---|---|---|---|
 | 1 | **Intrinsic measure width** | one measure's contents + its clef | VexFlow `Formatter`, ~1.2 ms/bar, not memoized | memoized (P2) |
 | 2 | **Casting-off** — line breaks, justification, staff-spacing Y | the widths + container width + view mode | O(N) arithmetic, microseconds | unchanged; never was the problem |
-| 3 | **Draw + registry population** | the casting-off + content | O(N) DOM, ~35 nodes/bar/staff | **unchanged — this is what's left** |
+| 3 | **Draw + registry population** | the casting-off + content | O(N) DOM, ~35 nodes/bar/staff | split in two — geometry without drawing (tier 1), and a per-measure draw that runs **only for bars whose picture changed** (P5) |
 | 4 | **Highlight paint** | the *selection*, nothing else | ran the whole pipeline above | its own path (P3) |
 
 The whole plan was one sentence: **give each of these its own trigger.** Nothing required a new
 field on the model. Design Principle 3 already blessed the direction — *"layout results (positions,
 breaks, spacing) are derived/cached views over content."* We had simply never cached them.
+
+All four now have their own trigger. What is left is not a *derivation* that is too slow — it is
+drawing bars nobody is looking at (§8).
 
 ## 2. The real target, in numbers
 
@@ -292,42 +326,206 @@ The trade, stated plainly: this is "did anything *ask* to be saved", where the s
 
 ---
 
+## 7. P5 — Two tiers of geometry; measures as addressable groups ✅
+
+**The largest phase, and the one that took the draw apart.** It stands on a codebase where the layout
+was already cheap — which was the whole point of doing P1–P4 first.
+
+The blocker `linear-view-plan.md` named was real: `ElementRegistry` — the authoritative hit-test map —
+was populated **as a side effect of drawing**, so culling a measure erased its geometry and broke
+selection, scroll-into-view and playback-follow for anything off-screen. It is now split:
+
+- **Tier 1 — every measure.** The measure's box, its five staff-line Y positions, its note start/end
+  X, and the hit-boxes for the staff, opening clef, meter and barline. Built from a `Stave` that is
+  **never drawn**, so it is correct for a measure nobody paints.
+- **Tier 2 — drawn measures only.** Noteheads, accidentals, beams, tuplets, dynamics, and the inline
+  clef segments — everything whose position only exists once the voice is *formatted and drawn*, each
+  measure inside its own addressable `<g id="vf-m7-s2">`.
+
+The rule the split runs on, and the one that settled every judgement call:
+
+> **Tier 1 is what a measure you cannot see must still know. Tier 2 is what only a measure you can
+> see needs.**
+
+That is what put `clefSegments` in tier 2 — they answer "which clef governs this *pixel*?", and
+pixels only exist where you can look. A culled measure is never under the mouse.
+
+**The whole design rests on one property of VexFlow, not of our code:** a `Stave`'s geometry
+(`getNoteStartX`, `getYForLine`, `getBoundingBox`) is valid **without ever calling `draw()`**. It is
+true, and it is asserted in `staveGeometry.test.ts` rather than assumed — because if a VexFlow upgrade
+ever broke it, culling would return stale boxes and hit-testing would fail *silently, only
+off-screen*, which is about the worst failure shape available.
+
+### 7.0 What each step did
+
+| step | what | proof |
+|---|---|---|
+| **P5.1** | `buildStave` (construct, no context) split from `drawStave`. Tier-1 geometry recorded *before* the draw, so its independence is structural rather than merely true. | `staveGeometry.test.ts` |
+| **P5.2** | Every (measure, staff) draws into its own `<g>`, via VexFlow's own `openGroup`. Keyed by **staff too** — P6 must cull vertically, so a bar of the piccolo must be droppable without the same bar of the cellos. | `measureGroups.test.ts` |
+| **P5.3** | Tier 1 runs for the whole score without drawing; which measures tier 2 paints is a **parameter** (§7's `draw(measures, surface)`), not an assumption. | `tier1Geometry.test.ts` — renders with **every measure culled** and asserts the tier-1 registry is byte-identical to a full render |
+| **P5.4** | Per-measure **shape key**; a bar whose key is unchanged keeps its `<g>` and its registry entries. | `incrementalRedraw.test.ts` |
+| **P5.4b** | A bar whose key is unchanged but whose **position** moved is **translated**, not re-engraved. | ditto — including a *shifted* render compared to a fresh one **field for field** |
+
+Reuse needed no test-only API to observe: **a reused measure is the same DOM node; a redrawn one is a
+new node.**
+
+### 7a. Two keys, and they are not the same key
+
+The single easiest way to build P5 wrong is to reuse P2's width fingerprint as the "is this group
+still good?" test. It is the wrong key, in both directions.
+
+**The move-vs-redraw invariant:**
+
+> A measure group can be moved by **transform alone** only if its **justified width** is unchanged.
+> Otherwise it must be **redrawn**.
+
+Payoff 2 above states this too loosely, and the loose version would ship a wrong picture. It is
+exactly true in **linear** view (no justification — a bar's drawn shape is independent of its
+neighbours, so a shift really is a transform). In **wrapped** view, justification stretches every bar
+on a line to fill the width, so a bar's internal note positions depend on *how many bars share its
+line*. Concretely:
+
+| edit | what redraws |
+|---|---|
+| note added to bar 7, no re-wrap | **the one system bar 7 is on** — its bars re-share the stretch. Everything below is untouched: not even a transform, since nothing moved. |
+| a line break inserted (§10c) | the two lines either side of it; every line below gets a new Y **transform** and is never redrawn |
+| a global casting-off change (bars-per-system, container resize) | in principle everything — see §8 |
+
+That first row is the common case, and it is the prize: **an ordinary edit redraws one system.**
+
+**The SHAPE key is a superset of the width key.** P2's key is deliberately *narrow* — only content
+that takes horizontal space (§4b even excludes dynamics). The shape key must be *wide* — everything
+that paints — and it must contain **no position at all**:
+
+```
+shapeKey(measure, staff) = widthKey                       // P2's fingerprint
+                         + justifiedWidth                 // the stretch its line gives it — NOT x, NOT y
+                         + linePosition                   // first-in-line clef? cautionary end clef?
+                         + every engravingOverride anchored in it   // §10c
+                         + dynamics, and anything else drawn but weightless
+```
+
+Both halves of that are load-bearing, and each was got wrong once:
+
+- **Too narrow** (reuse P2's width key): a dynamic added, or a rest hidden, changes no width — the
+  memo says *clean*, the group is reused, and the `mf` **never appears**. The picture silently rots
+  while every test about widths stays green.
+- **Too wide** (leave `x`/`y` in): a bar that merely *slid* is treated as a bar that *changed*. This
+  shipped in P5.4 and cost **53% of all render time** — see §0's "where the plan was wrong" #3.
+
+### 7b. What P5.4b had to get right to make a translation safe
+
+Three things, all of which produce *silent* wrongness rather than a crash:
+
+1. **Every coordinate-bearing field must be offset**, not just `bbox`: `headX`, sampled arc `points`,
+   slur `controlPoints` and `slurEndpoints`, `tupletGeometry`, the staff's line Y positions,
+   `noteStartX`/`noteEndX`, the measure bounds. Miss one and the **hit-box drifts away from the
+   glyph** — clicks land on the wrong thing, only for bars that moved, only by how far they moved.
+   Guarded by comparing a *shifted* incremental render to a fresh one **field for field**, so a
+   forgotten field goes red rather than shipping.
+2. **`systemHeight` comes from the fresh plan, never the snapshot.** A staff-spacing drag changes the
+   system's height but not any bar's *shape*, so every bar reuses its group — and a stale height
+   would leave `pixelToMeasure`'s vertical band describing the layout as it used to be.
+3. **A bar holding a span anchor is redrawn when it moves, never translated.** Ties and slurs live
+   outside the measure groups and are redrawn every render from their endpoint notes' `StaveNote`s —
+   and a translated bar keeps the `StaveNote`s it was *drawn* with, which still report the old
+   coordinates. Rather than teach every span renderer to add an offset (many call sites, one miss is
+   a detached slur), the rule is blunt and provably safe. The cost is bounded to the two *endpoint*
+   bars: a slur over bars 4–15 redraws 4 and 15; 5–14 still translate.
+
+Offsets are measured from where the group was **painted**, never from where it was last seen, so a bar
+dragged across a hundred frames carries one exact transform rather than a hundred compounding ones.
+
+### 7c. The groups must not clip
+
+A ledger line, a beam, a slur, and (§10c) a nudged notehead all legitimately paint **outside** their
+measure's box. The addressable `<g>`s position by transform; they must never `clip-path` to their
+tier-1 rect. This costs nothing to honour and silently breaks note offsets later.
+
+**The loudest case this was built for was the slur drag** — the top cost in the post-P2 census, 626 ms
+across 6 frames at 200 bars, re-engraving the whole score per mousemove to move one Bézier control
+point. **It now costs 2.6 ms a frame and re-engraves zero bars.**
+
+### 7d. Two shape constraints, so that §10b stays possible
+
+Both were free to honour and would have been invasive to retrofit:
+
+- **Tier 2 takes the measure set and the target surface as parameters** — `draw(measures, surface)`,
+  never an implicit "the visible window of the main canvas". Then culling is
+  `draw(visibleMeasures, liveSvg)` and printing is `draw(everyMeasure, offscreenSvg)`: the same code,
+  two call sites.
+- **Level of detail is a parameter too**, not a global read off the zoom level. Print is always full
+  detail, however "zoomed out" the page happens to be.
+
+### 7e. What P5 broke, and what it merely revealed
+
+All four were found by **manual testing in the browser**, none by the suite — and three of them live
+in code paths jsdom physically cannot execute (`getBBox` does not exist there). Worth remembering the
+next time the unit tests are green and that feels like evidence.
+
+**P5 broke one thing:**
+
+- **The ghost note vanished in entry mode.** `measureLayoutInfo` is *assigned* during a render, so it
+  and `measureWidths` are the same object. The old `clear()` ran *before* that assignment; the new
+  incremental teardown ran *after* it — and emptied the layout it had just computed. `drawGhostNote`
+  bails on an empty layout, so entry mode silently showed no ghost while every test stayed green.
+  **The overlays (ghost, ties, slurs, tuplet brackets) draw against the LAST render's layout — they
+  are what a partial render can starve without anyone noticing.**
+
+**P5 revealed three that were already committed:**
+
+- **Hiding a rest (Ctrl+Shift+H) did nothing until some other edit forced a redraw** — and was not
+  undoable either. `runBatch` (since `a114cd3`) decides whether anything happened by *counting
+  `saveUndoState` requests*, while `toggleRestHidden` deliberately made none ("the batch owns the
+  snapshot"). A circle: each waited for the other. Since `saveUndoState` is the only caller of
+  `markModelDirty()`, the model was flagged clean and the render was skipped. **Rule, now in
+  `runBatch`'s docblock: every mutator must call `saveUndoState`, batched or not** — inside a batch it
+  is free (it marks dirty and counts, and returns without pushing).
+- **Tempo ghosts smeared across the score.** `openGroup('ghost-tempo')` — VexFlow prefixes the class
+  with `vf-` — so the real class is `vf-ghost-tempo`, while `clearGhosts()` looked for `.ghost-tempo`.
+  It matched nothing, so no tempo ghost was ever taken down. Broken since P4 made ghosts overlays:
+  before that, hovering forced a full render that swept the leak away. *The optimization did not cause
+  the leak; it stopped hiding it.*
+- **`vf-vf-slur`.** Same trap, opposite direction: `SlurRenderer` passed `'vf-slur'` to `openGroup`,
+  which prefixes again. Latent only because every consumer holds the node reference `openGroup`
+  returns — but six comments in the codebase invite `querySelector('.vf-slur')`, which would have
+  matched nothing.
+
+**⚠️ VexFlow's `openGroup(cls, id)` prefixes BOTH with `vf-`.** Three bugs from one misunderstanding.
+
+**A latent bug fixed on the way:** `measureBounds` was never cleared, so a deleted measure's bounds
+lingered for the life of the renderer — a click in empty space could still resolve to a bar that no
+longer existed.
+
 # Remaining
 
-## 7. P5 — Two tiers of geometry; measures as addressable groups
-
-**This is the next phase, and it is the largest.** Everything below stands on a codebase where the
-layout is already cheap — which was the whole point of doing P1–P4 first.
-
-The blocker `linear-view-plan.md` names is real: `ElementRegistry` — the authoritative hit-test map —
-is populated **as a side effect of drawing**, so culling a measure erases its geometry and breaks
-selection, scroll-into-view and playback-follow for anything off-screen. Split it:
-
-- **Tier 1 — every measure.** Measure boxes (x, y, width, line), computed from the cached widths
-  without drawing anything. Pure arithmetic over P2's output. *Almost everything that needs offscreen
-  geometry needs only this tier.*
-- **Tier 2 — drawn measures only.** Element bounding boxes (noteheads, accidentals, handles),
-  produced by drawing that measure into its **own addressable `<g>`**, positioned by a transform.
-
-Two payoffs, not one:
-
-1. It is the prerequisite for culling (P6); and
-2. it makes **incremental redraw** possible. In linear view, adding a note to bar 7 shifts bars
-   8–400 to the right — so a naive "only redraw what changed" degenerates instantly to a full
-   redraw. With addressable groups, those unchanged bars get a new `transform` and are **never
-   redrawn at all**.
-
-**The loudest case waiting for this is the slur drag.** Post-P2 it is the top cost in the census
-(626 ms across 6 frames at 200 bars) and it is now *pure draw*: 200 bars of SVG re-engraved per
-mousemove to move one Bézier control point. A cheap partial fix exists — the `frozenLayout` mechanism
-already used during clef drags would remove the (now small) layout term — but the real fix is here:
-redraw the slur's own group, not the score.
-
 ## 8. P6 — Virtualization, on both axes, zoom-aware
+
+**The only phase left, and now the only thing that can help.** After P5 the census has exactly three
+expensive causes — a clef change (196 ms, 100% of bars), a view-mode switch or added staff, and a
+paste (196 ms, 93%) — and **all three are correct to redraw what they redraw.** An alto clef at bar 2
+really does change how every later bar draws. A paste that widens 16 bars really does re-wrap the
+score, and a bar that lands on a different system really does get a different justified width, which
+really is a different picture (§7a). None of it is waste; none of it can be recovered by *reuse*.
+
+The only remaining lever is to **draw fewer bars**.
 
 Only draw the measure groups whose tier-1 box intersects the viewport, plus overscan. At 40 staves
 this must cull **vertically** as well as horizontally — you cannot see 40 staves at once, so do not
 draw them.
+
+Everything P6 needs is now in place: tier 1 is complete without drawing (§7, proven by rendering with
+every measure culled), tier 2 already takes its measure set as a **parameter** (`setDrawFilter`), and
+each measure is individually addressable. ⚠️ But `drawFilter` is **not yet a culling switch** — see
+the cross-measure-span bullet below; that is the work P6 actually has to do.
+
+**It is also what bounds the worst case P5 cannot.** A *global* casting-off change — locking N bars
+per system, resizing the container — re-wraps the whole document, so by §7a's invariant every bar's
+justified width changes and P5's incremental redraw degenerates to a full one. That is not a flaw in
+P5; **every engraver re-wraps on a global re-wrap.** The way out is not to redraw less per bar, it is
+to draw fewer bars: under P6 the cost becomes a full **tier-1** recompute (cheap arithmetic over the
+cached widths) plus a redraw of **only the visible window**. The cost stops scaling with the score and
+starts scaling with the screen.
 
 Four costs to be honest about:
 
@@ -386,6 +584,175 @@ Nothing here fights that:
 - **P5's addressable groups are how pages get cheap.** A measure group positioned by transform can be
   assigned to any page surface without redrawing; P6's culling generalizes to "draw the visible
   pages" — which is what the big engraving apps do.
+
+## 10b. Printing — the one constraint P6 must respect
+
+There is no print path today (no `window.print`, no `@media print`, no SVG serialization; the only
+export is JSON). This note exists so that P6 does not quietly make one hard.
+
+**P5 helps printing.** Addressable measure groups positioned by transform are exactly what a page
+surface wants — see §10.
+
+**P6 sets the rule**, and it is one line:
+
+> **Printing must never read the live DOM.** It renders its own full-score pass — every measure,
+> unculled, at page geometry — into an offscreen surface.
+
+Under virtualization the on-screen SVG is *deliberately incomplete*: it holds the visible window plus
+overscan. Serializing it would print two systems and a lot of nothing.
+
+But note that this is **not a cost P6 imposes** — it is a requirement that already exists and that
+culling merely makes non-optional. Print geometry is not screen geometry under any regime: the screen
+is `wrapped` at container width, the page is paginated at paper width with vertical justification. You
+could never have printed the on-screen SVG. So printing was always going to be a fresh full pass over
+the cached widths, which — thanks to P1+P2 — is now the cheap part (101 ms of layout for a Mahler
+movement, once, for a job the user waits on anyway).
+
+The §7 constraints are what keep that fresh pass a *reuse* rather than a second renderer.
+
+## 10c. Engraving features, later — where they land
+
+Also not a phase. Several features are on the horizon — a **custom note offset**, a **manual bar
+break**, a **custom measure count per system**, and (§10d) a **custom measure width** — and the useful
+thing to say now is that **they do not land in the same row of §1's table**, so they do not cost the
+same thing and must not be reasoned about as one feature:
+
+| feature | row | cost |
+|---|---|---|
+| manual bar break | 2 — casting-off | free; two lines redraw (§7a) |
+| bars per system | 2 — casting-off | free; a global re-wrap, bounded by §8 |
+| custom note offset | 3 — draw | one system redraws; **must not touch the width** |
+| custom measure width | 1 — **the width** | still zero formatter calls — **§10d** |
+| note-spacing inside a bar | 1 — **the width** | one formatter call, on one bar — §10d |
+| ragged-last | 2 — casting-off | free — but it proves §7a's ordering rule — **§10e** |
+
+**Bar break and bars-per-system are casting-off (row 2) — the row that was never the problem.** Both
+are *break policies*: "break here because I said so" and "break every N bars", instead of "break when
+the width runs out". They consume the cached widths and emit different line assignments. Microseconds.
+
+They are free **by construction, not by luck**: §4a caches the note-space and *not* the total width
+precisely so that a measure moving to a new line keeps its cached width and merely pays different
+overhead (a full clef when it lands first-in-line, a cautionary clef when it lands last). That was
+designed for *automatic* re-wrapping — and a manual break is the same event with a different cause.
+The width cache is already correct for both. Their cost is §7a's table: a local break redraws two
+lines, a global bars-per-system lock re-wraps everything and is bounded by §8.
+
+**A custom note offset is draw-only (row 3), and the rule that keeps it there:**
+
+> **A cosmetic offset must never feed back into the width.** It moves the glyph within the space
+> already allotted to it; it does not re-space the bar.
+
+Otherwise: the offset widens the bar → the score re-wraps → the bar lands somewhere else → the anchor
+the offset is measured against has moved. Sibelius and Dorico both keep the nudge cosmetic for exactly
+this reason. Kept cosmetic, the offset never enters the width fingerprint — the same reason §4b
+already excludes dynamics — and it is **§7a and §7b that make it work**: it must enter the *redraw*
+key, and its glyph must be allowed to paint outside the measure box.
+
+**One thing they will want that P5 hands over for free.** Force ten bars onto one system and they may
+not fit at their minimum widths. The engraving answer is to **scale the system down**, not to squeeze
+below the intrinsic minimum (which is not a thing). A system-level scale factor is one attribute on an
+addressable group.
+
+**Where they live in the model.** A bar break and a bars-per-system lock are *authored layout
+instructions that must survive save/load* — so by the standing rule (a notational statement that can
+change mid-score is never a `Score` field) they are **position-keyed entries in
+`score.engravingOverrides`**, alongside the rest-shift and the slur curve shape, and they inherit
+auto-reset-on-broken-anchor for free: delete the bar carrying the break and the break goes with it.
+Contrast the linear staff-spacing knob, which stayed *out* of the model because it is an ephemeral
+view knob, not an authored statement. Both are "layout", and they still go to different places.
+
+## 10d. Custom measure width — the one that touches the width
+
+Sibelius lets you drag a barline to widen or narrow a bar. Of the features on the horizon it is the
+**only one that lands in row 1** — the width itself, the expensive row — so it deserves its own note.
+
+**It still costs zero formatter calls.** §4a caches the **note-space**; the total width also carries
+*overhead*, computed outside the cache (`sharedOverhead` in `MeasureLayout`). A user's width delta is
+overhead-shaped: it is added on top. So the width cache sails straight through a barline drag
+untouched.
+
+> **The user's width delta is overhead, not content. It rides on top of the cached note-space; it
+> never enters the fingerprint.**
+
+That is also the trap, stated as a rule because getting it backwards is not obviously wrong at the
+call site: put the delta in the *fingerprint* and every mousemove mints a new key, so every frame
+re-runs the formatter over the bar. A drag gesture built on a formatter call per frame is the disease
+P2 just cured.
+
+**The sibling feature that goes the other way.** Sibelius *also* lets you drag individual notes
+horizontally — note-spacing overrides *inside* a bar. Those genuinely change the note-space; they are
+the formatter's own business, so they **must** enter the fingerprint and **will** re-run the formatter
+for that bar. That is fine — it is one bar — but it is a different feature with a different cost, and
+calling both "custom spacing" would hide exactly the distinction that matters.
+
+**Store a delta, not an absolute width.** `+3.5 staff-spaces`, not `width = 240px`. An absolute width
+is fragile: add a note and the intrinsic minimum grows past the stored width, and the glyphs collide.
+A delta rides on a recomputed intrinsic, so a content edit and the override compose — and staff-space,
+anchor-relative is already the compartment's convention (§10c). Clamp it:
+
+```
+finalWidth = max(minWidth, minWidth + delta)
+```
+
+which is also what stops the user dragging a barline through the notes. `MeasureWidthInfo` already
+carries `minWidth` and `finalWidth` separately, so the distinction the clamp needs is in the code
+today.
+
+**Cost per drag frame, given P5.** The cache is untouched, casting-off is microseconds, so the frame
+is pure draw — and by §7a only the bar's own system redraws. **One system per frame.** Without P5 it
+is the slur drag all over again: a full re-engrave per mousemove (§7's 626 ms census entry). This
+feature is a *reason for* P5, not a thing P5 endangers.
+
+**Two open decisions, deliberately not settled here** — they are engraving taste, not performance:
+
+1. **Where the delta applies relative to justification.** Applied to `minWidth`, justification then
+   stretches everything proportionally and the bar does *not* end up at the width you dragged it to.
+   Applied *after* justification, the bar gets exactly the dragged width and the rest of the system
+   absorbs the difference — which is what Sibelius does. P5 is indifferent (either way the system
+   redraws); the *feel* is completely different.
+2. **Keying.** A measure's width is shared by every staff — one barline down the system — so the
+   override keys by **measure**, not by (measure, staff), mirroring `sharedOverhead`. If the shared
+   measures spine ever dissolves (the polymeter vision), the key follows the barline.
+
+## 10e. Ragged-last — and the ordering rule it exposes
+
+**A live bug, not a hypothetical.** `calculateMeasureWidths`'s "finalize last line" branch calls
+`distributeLineWidths(currentLineMeasures, availableWidth)` — the same justification every other line
+gets. So a **one-measure score** is one line, which is the last line, which is stretched edge to edge
+across the container. Every short final system in a longer piece is disfigured the same way.
+
+The convention, separating the settled part from the taste part:
+
+- **LilyPond** names it: `ragged-last` / `ragged-right`, and a score of a **single system is
+  ragged-right by default** — precisely so a short example is not stretched across the page.
+- **Sibelius** makes it a threshold: *justify the last system when it is at least N% full*, so a
+  nearly-complete final system still justifies and a stub does not.
+
+The **rule** (do not stretch a short final system) is settled. The **threshold** is taste, and is the
+author's to pick — not a number to invent.
+
+**Cost: row 2, casting-off. Free.** A justification policy over the same cached widths; §4a's
+note-space does not care whether anyone stretches it afterwards. The unjustified machinery already
+exists — linear view simply never calls `distributeLineWidths`. The fix is to not call it for the last
+line, behind a fill-ratio test. *Not done — deliberately parked; it wants a threshold and a human
+looking at it, and it is an engraving change, not a perf one.*
+
+**What it teaches P5**, which is why it is in this doc at all. The last system's justification depends
+on **how full it is** — a *global* property, decided by where the final break landed, which depends on
+every bar before it. So:
+
+> Type a note into bar 3 → the re-wrap pushes one bar down onto the last system → its fill crosses the
+> threshold → it flips from ragged to justified → **every bar on the last system changes its drawn
+> width, with no change to its content at all.**
+
+§7a's key already covers this, via `justifiedWidth` — but only under an ordering constraint that is
+easy to violate and worth stating outright:
+
+> **The redraw key is computed on the casting-off's *output*, not on the model.** A key derived from
+> the model alone cannot see a system re-justify.
+
+"Hash the measure" is the natural thing to reach for, and it is wrong here. This is the cheapest
+available proof that **content unchanged ≠ picture unchanged**.
 
 ---
 
