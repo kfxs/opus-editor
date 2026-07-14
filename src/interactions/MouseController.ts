@@ -387,6 +387,11 @@ export class MouseController {
   }
 
   handleMouseDown(event: MouseEvent): void {
+    // Primary button only. A right-click is not an editing gesture — it opens the context menu
+    // (src/menus) — and without this it would ALSO run this whole path: change the selection, arm a
+    // drag, arm a box-select. The `click` event never fires for button 2, so only mousedown needed
+    // guarding, which is exactly why this went unnoticed until there was a menu to notice it.
+    if (event.button !== 0) return
     if (this.state.editingText) return // modal: a text edit is open (belt; DOM swallows the click-away)
     // Armed paste: this click chooses the insertion point.
     if (this.state.pastePlacementArmed) { this.commitArmedPaste(event); return }

@@ -42,8 +42,10 @@ describe('MouseController', () => {
   let getEngineImpl: () => unknown
 
   // A plain fake mouse event for DIRECT handler calls (full control over .target).
-  const ev = (over: Partial<{ clientX: number; clientY: number; target: unknown; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }> = {}) =>
-    ({ clientX: 0, clientY: 0, ctrlKey: false, metaKey: false, shiftKey: false, target: svg, ...over }) as unknown as MouseEvent
+  // `button: 0` because a REAL MouseEvent defaults to the primary button, and the handler now checks
+  // it — a fake without one is a right-click that never happened.
+  const ev = (over: Partial<{ clientX: number; clientY: number; target: unknown; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; button: number }> = {}) =>
+    ({ clientX: 0, clientY: 0, button: 0, ctrlKey: false, metaKey: false, shiftKey: false, target: svg, ...over }) as unknown as MouseEvent
 
   beforeEach(() => {
     state = createEditorState()
@@ -98,6 +100,15 @@ describe('MouseController', () => {
     it('is a no-op when there is no engine', () => {
       getEngineImpl = () => null
       mc.handleMouseDown(ev())
+      expect(panBy).not.toHaveBeenCalled()
+    })
+
+    it('ignores a RIGHT-click: that gesture belongs to the context menu, not to editing', () => {
+      state.selectedTool = 'entry'
+      state.pastePlacementArmed = true // the loudest thing a stray mousedown could do
+      mc.handleMouseDown(ev({ clientX: 100, clientY: 100, button: 2 }))
+      expect(clipboard.pasteAt).not.toHaveBeenCalled()
+      expect(selection.selectNote).not.toHaveBeenCalled()
       expect(panBy).not.toHaveBeenCalled()
     })
   })

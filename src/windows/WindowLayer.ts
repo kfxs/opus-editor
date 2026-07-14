@@ -167,20 +167,25 @@ export class WindowLayer {
   readonly manager = new WindowManager()
 
   private layer: HTMLElement | null = null
+  private host: HTMLElement | null = null
   private frames = new Map<string, HTMLElement>()
   private contents = new Map<string, Widget>()
   private drag: DragSession | null = null
   private unsubscribe: (() => void) | null = null
   private resizeObserver: ResizeObserver | null = null
-  private pending: (() => void)[] = []
+  private pending: ((host: HTMLElement) => void)[] = []
 
   /**
    * Run something once the layer HAS a box — i.e. once the app has donated one. A window opened
    * before that has nowhere to be, so anything that wants to open on startup waits here instead of
    * racing the app's mount. If the layer is already up, it runs now.
+   *
+   * The HOST is handed through because the app donates exactly ONE box and other overlays want it
+   * too — the menu layer mounts into the same element (docs/menus-design.md). Whoever needs the box
+   * asks the layer that already has it, so `App.vue` never grows a third line.
    */
-  whenMounted(fn: () => void): void {
-    if (this.layer) fn()
+  whenMounted(fn: (host: HTMLElement) => void): void {
+    if (this.host) fn(this.host)
     else this.pending.push(fn)
   }
 
@@ -203,6 +208,7 @@ export class WindowLayer {
     layer.className = 'window-layer'
     host.appendChild(layer)
     this.layer = layer
+    this.host = host
 
     // Windows are clamped to the HOST's box, not the browser's: dragging cannot take one out of
     // the score area. ResizeObserver rather than window.onresize, because the viewport can change
@@ -220,7 +226,7 @@ export class WindowLayer {
 
     const pending = this.pending
     this.pending = []
-    for (const fn of pending) fn()
+    for (const fn of pending) fn(host)
   }
 
   destroy(): void {
@@ -234,6 +240,7 @@ export class WindowLayer {
     this.manager.closeAll()
     this.layer?.remove()
     this.layer = null
+    this.host = null
     this.frames.clear()
   }
 
