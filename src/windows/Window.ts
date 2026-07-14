@@ -40,6 +40,15 @@ export interface WindowOptions {
    * the opening height. The DOM layer measures it, because only the DOM knows how tall text is.
    */
   fitContent?: boolean
+  /**
+   * How solid the window's BACKGROUND is, 0–1 — the title bar and the content stay as they are.
+   * Below 1 the score shows through, so a panel that lives ON TOP of the music — a Keypad, a mixer —
+   * does not take the music away while it is up. A window that must be READ stays at 1.
+   *
+   * A property and not a subclass, for the reason at the top of this file: it composes with every
+   * other setting, and no one has to name the translucent-fixed-size-unclosable window.
+   */
+  opacity?: number
   content?: Widget
 }
 
@@ -60,6 +69,8 @@ export const WINDOW_DEFAULTS = {
   closable: true,
   minWidth: 160,
   minHeight: 90,
+  /** Solid: a window you can see through is the exception, and it has to ask. */
+  opacity: 1,
 }
 
 /** Set by the manager, which owns the list and the stacking. A window never closes/raises itself. */
@@ -72,6 +83,11 @@ export interface WindowHost {
   changed(win: Window): void
 }
 
+/** An opacity outside 0–1 is a typo, not an intention: a window is never MORE than solid. */
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value))
+}
+
 export class Window {
   readonly id: string
   readonly resizable: boolean
@@ -79,6 +95,8 @@ export class Window {
   readonly minWidth: number
   readonly minHeight: number
   readonly fitContent: boolean
+  /** 0–1. See {@link WindowOptions.opacity}. */
+  readonly opacity: number
   readonly content: Widget | null
 
   rect: Rect
@@ -96,6 +114,7 @@ export class Window {
     this.minWidth = opts.minWidth ?? WINDOW_DEFAULTS.minWidth
     this.minHeight = opts.minHeight ?? WINDOW_DEFAULTS.minHeight
     this.fitContent = opts.fitContent ?? false
+    this.opacity = clamp01(opts.opacity ?? WINDOW_DEFAULTS.opacity)
     this.content = opts.content ?? null
     this.rect = {
       x: opts.x ?? 0,

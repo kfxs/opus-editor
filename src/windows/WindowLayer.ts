@@ -58,7 +58,10 @@ const CSS = `
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: #1f2937;
+  /* The frame's ALPHA is the window's own (WindowOptions.opacity); the colour is the system's. A
+     translucent window floats over the music instead of punching a hole in it — and the music behind
+     it stays SHARP: no backdrop blur, because a blurred stave reads as a rendering fault. */
+  background: rgba(31, 41, 55, var(--window-alpha, 1));
   color: #f3f4f6;
   border: 1px solid #4b5563;
   border-radius: 8px;
@@ -67,6 +70,12 @@ const CSS = `
   font-family: system-ui, sans-serif;
   /* A window is chrome, not a document: dragging one must not smear a text selection across it. */
   user-select: none;
+}
+/* A see-through window softens what is behind it — just enough that the stave stops competing with
+   the keys on top of it, and not so much that the score looks out of focus. Opaque windows have no
+   backdrop filter at all: it would be a cost with nothing to show. */
+.window-frame[data-translucent="true"] {
+  backdrop-filter: blur(1px);
 }
 /* …except where text selection IS the point. A field you cannot select inside is broken. */
 .window-frame input,
@@ -78,6 +87,8 @@ const CSS = `
   align-items: center;
   gap: 8px;
   padding: 6px 8px 6px 12px;
+  /* SOLID, whatever the window's opacity. The title bar is the handle you grab and the name you
+     read; a see-through handle is a worse handle. Only the window's BODY is glass. */
   background: #374151;
   border-bottom: 1px solid #4b5563;
   cursor: move;
@@ -161,6 +172,17 @@ export class WindowLayer {
   private drag: DragSession | null = null
   private unsubscribe: (() => void) | null = null
   private resizeObserver: ResizeObserver | null = null
+  private pending: (() => void)[] = []
+
+  /**
+   * Run something once the layer HAS a box — i.e. once the app has donated one. A window opened
+   * before that has nowhere to be, so anything that wants to open on startup waits here instead of
+   * racing the app's mount. If the layer is already up, it runs now.
+   */
+  whenMounted(fn: () => void): void {
+    if (this.layer) fn()
+    else this.pending.push(fn)
+  }
 
   /**
    * @param host the element the layer fills — the score viewport. It must be a positioning context
@@ -195,6 +217,10 @@ export class WindowLayer {
     layer.addEventListener('pointercancel', this.onPointerUp)
 
     this.unsubscribe = this.manager.subscribe(() => this.sync())
+
+    const pending = this.pending
+    this.pending = []
+    for (const fn of pending) fn()
   }
 
   destroy(): void {
@@ -275,6 +301,12 @@ export class WindowLayer {
     const frame = document.createElement('div')
     frame.className = 'window-frame'
     frame.dataset.windowId = win.id
+
+    // The alpha of the frame's background. NOT `style.opacity`: that would fade the CONTENT too —
+    // the glyphs, the text, the keys — and a panel you can see THROUGH is not the same thing as a
+    // panel that has gone faint.
+    frame.style.setProperty('--window-alpha', String(win.opacity))
+    if (win.opacity < 1) frame.dataset.translucent = 'true'
 
     const bar = document.createElement('div')
     bar.className = 'window-titlebar'

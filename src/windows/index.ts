@@ -1,4 +1,5 @@
 import { WindowLayer } from './WindowLayer'
+import { installKeypad } from './keypad'
 
 /**
  * The app's one window layer.
@@ -17,3 +18,6 @@ import { WindowLayer } from './WindowLayer'
  * The app donates a box. The window system does everything else.
  */
 export const windows = new WindowLayer()
+
+/** The Keypad: up on startup, toggled by Ctrl+Alt+K. Wired here, not in App.vue — see above. */
+installKeypad(windows)

@@ -230,7 +230,7 @@ export function modelVoiceToActive(voice: number | undefined): 1 | 2 {
 
 export function createEditorState(): EditorState {
   return {
-    selectedTool: 'entry',
+    selectedTool: 'selection',
     activeVoice: 1,
     activeStaff: 0,
     selectedItems: new Map(),
