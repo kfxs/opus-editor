@@ -738,6 +738,7 @@ import { windows } from './windows'
 import { toolMode } from './interactions/toolMode'
 import { durationSelection } from './interactions/durationSelection'
 import { accidentalSelection } from './interactions/accidentalSelection'
+import { articulationSelection } from './interactions/articulationSelection'
 import { openLoremWindow } from './windows/demo/loremWindows'
 import { isValidTimeSignature } from './utils/meter'
 import { getMeasureDurationFrac } from './utils/musicUtils'
@@ -914,6 +915,26 @@ watch(highlightedDuration, (d) => durationSelection.setHighlight(d), { immediate
 watch(highlightedAccidental, (a) => accidentalSelection.setHighlight(a), { immediate: true })
 const stopDurationPress = durationSelection.onPress((d) => palette.setDuration(d))
 const stopAccidentalPress = accidentalSelection.onPress((a) => palette.setAccidental(a))
+
+// The Keypad's articulation keys (accent / staccato / tenuto) — the same seam, but SET-valued, since
+// a note can carry all three at once. The RULE (which are lit) lives in PaletteController, next to
+// the noteHasX the Vue buttons read; the Vue side here is only a POKE — on any selection / mode / arm
+// change (none of which the store can observe on its own) recompute and push. It carries no logic, so
+// it retires cleanly when the Vue palette does. A press routes OUT through the palette's own toggleX
+// (which re-pushes the highlight itself), the SAME method the Vue button calls.
+watch(
+  () => [
+    state.selectedTool, state.selectedNoteId, state.selectedArticulationNoteId,
+    state.accent, state.staccato, state.tenuto,
+  ],
+  () => palette.refreshArticulationSelection(),
+  { immediate: true },
+)
+const stopArticulationPress = articulationSelection.onPress((type) => {
+  if (type === 'accent') palette.toggleAccent()
+  else if (type === 'staccato') palette.toggleStaccato()
+  else palette.toggleTenuto()
+})
 
 // --- Computed ---
 // Dev-only Score JSON viewer. The engine's ScoreModel isn't a Vue reactive object, so a
@@ -1215,6 +1236,7 @@ onUnmounted(() => {
   stopToolModeSync()
   stopDurationPress()
   stopAccidentalPress()
+  stopArticulationPress()
   windows.destroy()
   if (engine.value) {
     engine.value.dispose()

@@ -1,4 +1,5 @@
 import type { Widget } from './Widget'
+import { CHROME } from '../../utils/chromeColors'
 
 /**
  * The leaf widgets. Dumb DOM builders, no state, no binding — see the warning in Widget.ts before
@@ -70,9 +71,9 @@ export class Button implements Widget {
     const s = el.style
     s.padding = '6px 14px'
     s.borderRadius = '6px'
-    s.border = primary ? '1px solid #2563eb' : '1px solid #4b5563'
-    s.background = primary ? '#2563eb' : '#374151'
-    s.color = '#f3f4f6'
+    s.border = `1px solid ${primary ? CHROME.accent : CHROME.edge}`
+    s.background = primary ? CHROME.accent : CHROME.surface
+    s.color = CHROME.ink
     s.font = 'inherit'
     s.fontWeight = '600'
     s.cursor = el.disabled ? 'default' : 'pointer'
@@ -105,7 +106,7 @@ export class Label implements Widget {
     const el = document.createElement('div')
     el.textContent = this.text
     el.style.flex = 'none'
-    if (this.opts.muted) el.style.color = '#9ca3af'
+    if (this.opts.muted) el.style.color = CHROME.inkMuted
     host.appendChild(el)
     this.el = el
   }
@@ -133,9 +134,9 @@ export class TextInput implements Widget {
     const s = el.style
     s.padding = '6px 10px'
     s.borderRadius = '6px'
-    s.border = '1px solid #4b5563'
-    s.background = '#111827'
-    s.color = '#f3f4f6'
+    s.border = `1px solid ${CHROME.edge}`
+    s.background = CHROME.field
+    s.color = CHROME.ink
     s.font = 'inherit'
     s.flex = 'none'
     s.minWidth = '0'

@@ -1,6 +1,7 @@
 import { WindowManager } from './WindowManager'
 import { Window, type ResizeEdges, type WindowOptions } from './Window'
 import type { Widget } from './content/Widget'
+import { CHROME } from '../utils/chromeColors'
 
 /**
  * The window primitive — vanilla DOM, ZERO framework.
@@ -61,11 +62,11 @@ const CSS = `
   /* The frame's ALPHA is the window's own (WindowOptions.opacity); the colour is the system's. A
      translucent window floats over the music instead of punching a hole in it — and the music behind
      it stays SHARP: no backdrop blur, because a blurred stave reads as a rendering fault. */
-  background: rgba(31, 41, 55, var(--window-alpha, 1));
-  color: #f3f4f6;
-  border: 1px solid #4b5563;
+  background: rgba(${CHROME.glassRgb}, var(--window-alpha, 1));
+  color: ${CHROME.ink};
+  border: 1px solid ${CHROME.edge};
   border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: ${CHROME.shadow};
   overflow: hidden;
   font-family: system-ui, sans-serif;
   /* A window is chrome, not a document: dragging one must not smear a text selection across it. */
@@ -89,8 +90,8 @@ const CSS = `
   padding: 6px 8px 6px 12px;
   /* SOLID, whatever the window's opacity. The title bar is the handle you grab and the name you
      read; a see-through handle is a worse handle. Only the window's BODY is glass. */
-  background: #374151;
-  border-bottom: 1px solid #4b5563;
+  background: ${CHROME.surface};
+  border-bottom: 1px solid ${CHROME.edge};
   cursor: move;
   user-select: none;
   flex: none;

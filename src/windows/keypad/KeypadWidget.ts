@@ -2,7 +2,9 @@ import type { Widget } from '../content/Widget'
 import { toolMode } from '../../interactions/toolMode'
 import { durationSelection } from '../../interactions/durationSelection'
 import { accidentalSelection } from '../../interactions/accidentalSelection'
+import { articulationSelection } from '../../interactions/articulationSelection'
 import { voiceFillColor } from '../../utils/voiceColors'
+import { CHROME } from '../../utils/chromeColors'
 import { KEYPAD_PAGES, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
 
 /**
@@ -46,25 +48,27 @@ export const KEYPAD_WIDTH = 4 * CELL + 3 * GAP + 2 * PAD + 2
 const COLOR = {
   // The KEYS are solid — it is the panel's background that is glass. A key is a thing you aim at
   // and read a glyph off; make it see-through and the stave behind it fights the glyph. So the
-  // score shows in the gaps and around the grid, and never through a key.
-  face: '#374151',
-  edge: '#4b5563',
-  hover: '#4b5563',
-  lit: '#2563eb',
-  // The select arrow's lit blue. It matches the linear-view gutter ink (GutterRenderer's
-  // GUTTER_INK, #1D4ED8 / blue-700) on purpose: both are a NON-voice indicator, and that blue is
-  // deliberately darker than voice-1's (#3B82F6) so it can never be misread as voice-coloured — the
-  // same reason the arrow is the one key that opts out of the voice colour.
+  // score shows in the gaps and around the grid, and never through a key. The neutrals are the
+  // shared chrome palette (utils/chromeColors) — a key is the same slate as a window's, on purpose.
+  face: CHROME.surface,
+  edge: CHROME.edge,
+  hover: CHROME.edge, // a hover brightens face one step up the gray scale — which is the edge grey
+  lit: CHROME.accent,
+  // The select arrow's lit blue. It is NOT the chrome accent: it matches the linear-view gutter ink
+  // (GutterRenderer's GUTTER_INK, #1D4ED8 / blue-700) on purpose — both are a NON-voice indicator,
+  // and that blue is deliberately darker than voice-1's (#3B82F6) so it can never be misread as
+  // voice-coloured. So it stays a local literal, free of the chrome token.
   mode: '#1D4ED8',
-  glyph: '#f3f4f6',
+  glyph: CHROME.ink,
 }
 
 /** Bravura first — these are glyphs, not text, so the music font MUST lead the stack. */
 const MUSIC_FONT = "Bravura, Academico, 'Noto Music', serif"
 
 export class KeypadWidget implements Widget {
-  /** The `toggle` keys currently lit, by action (articulations, rest, dot, tie). The duration, the
-   *  accidental and the tool mode are NOT here — those live in their own stores and light from them. */
+  /** The purely-local `toggle` keys currently lit, by action (rest, dot, tie — not yet wired to the
+   *  score). The duration, the accidental, the articulations and the tool mode are NOT here — those
+   *  live in their own editor stores and light from them. */
   private readonly lit = new Set<string>()
   private voice = 0
 
@@ -82,6 +86,7 @@ export class KeypadWidget implements Widget {
   private unsubscribeToolMode: (() => void) | null = null
   private unsubscribeDuration: (() => void) | null = null
   private unsubscribeAccidental: (() => void) | null = null
+  private unsubscribeArticulation: (() => void) | null = null
 
   mount(host: HTMLElement): void {
     // A little more air under the title bar than around the rest: the bar is a solid band, and the
@@ -108,6 +113,7 @@ export class KeypadWidget implements Widget {
     this.unsubscribeToolMode = toolMode.subscribe(() => this.paint())
     this.unsubscribeDuration = durationSelection.onHighlight(() => this.paint())
     this.unsubscribeAccidental = accidentalSelection.onHighlight(() => this.paint())
+    this.unsubscribeArticulation = articulationSelection.onHighlight(() => this.paint())
 
     // The numpad `+` turns the page too — the panel IS the numpad, so the key its `+` cell mirrors
     // drives it. Global, so it works with the score focused, and only while the panel is open (removed
@@ -127,6 +133,8 @@ export class KeypadWidget implements Widget {
     this.unsubscribeDuration = null
     this.unsubscribeAccidental?.()
     this.unsubscribeAccidental = null
+    this.unsubscribeArticulation?.()
+    this.unsubscribeArticulation = null
     document.removeEventListener('keydown', this.onKeyDown)
   }
 
@@ -205,6 +213,12 @@ export class KeypadWidget implements Widget {
         // value pressed again and clears it. A state-mirror would swallow the repeat as "no change".
         if (cell.accidental) accidentalSelection.press(cell.accidental)
         break
+      case 'articulation':
+        // Independent toggles on a set-valued store. PRESS the value; App.vue routes it to the
+        // palette's toggleX, which flips the score AND re-pushes the lit set — the store lights it
+        // back, so the panel maps nothing. `articulation` is always present here (keypadLayouts).
+        if (cell.articulation) articulationSelection.press(cell.articulation)
+        break
       case 'toggle':
         if (this.lit.has(cell.action)) this.lit.delete(cell.action)
         else this.lit.add(cell.action)
@@ -230,13 +244,14 @@ export class KeypadWidget implements Widget {
 
   /**
    * Is this key lit? The one place the question is answered, for both {@link paint} and the press log.
-   * Three sources, by kind: the tool mode (the arrow), the armed duration (the duration keys), and the
-   * panel's own lit set (every other toggle).
+   * Four sources, by kind: the tool mode (the arrow), the armed duration/accidental, the active
+   * articulations (a set), and the panel's own lit set (the not-yet-wired toggles: rest, dot, tie).
    */
   private isLit(cell: KeypadCell): boolean {
     if (cell.select === 'mode') return toolMode.get() === 'selection'
     if (cell.select === 'duration') return cell.duration === durationSelection.get()
     if (cell.select === 'accidental') return cell.accidental === accidentalSelection.get()
+    if (cell.select === 'articulation') return !!cell.articulation && articulationSelection.isActive(cell.articulation)
     return this.lit.has(cell.action)
   }
 
@@ -312,16 +327,24 @@ export class KeypadWidget implements Widget {
     s.color = COLOR.glyph
     s.font = 'inherit'
     s.cursor = 'pointer'
-    s.transition = 'background 80ms linear'
+    // No transition by default: the HIGHLIGHT is the state itself, not an animation of it, so it must
+    // snap the instant a note is selected or a key pressed — a fade would wash the fill in behind the
+    // border/glow (which never faded) and read as lag. The gentle ease is a HOVER affordance only, so
+    // the hover handlers switch it on for their own change and `light()` switches it back off.
 
     button.addEventListener('mousedown', (e) => e.preventDefault())
     // Hover brightens an UNLIT key only: a lit key is already saying something, and dulling it under
-    // the cursor would read as "not pressed".
+    // the cursor would read as "not pressed". The fade is turned on HERE (never on `light()`), so only
+    // the hover eases; setting transition before the background means it animates at the next flush.
     button.addEventListener('mouseenter', () => {
-      if (button.dataset.lit !== 'true') button.style.background = COLOR.hover
+      if (button.dataset.lit === 'true') return
+      button.style.transition = 'background 80ms linear'
+      button.style.background = COLOR.hover
     })
     button.addEventListener('mouseleave', () => {
-      if (button.dataset.lit !== 'true') button.style.background = COLOR.face
+      if (button.dataset.lit === 'true') return
+      button.style.transition = 'background 80ms linear'
+      button.style.background = COLOR.face
     })
     return button
   }
@@ -329,6 +352,10 @@ export class KeypadWidget implements Widget {
 
 function light(button: HTMLButtonElement, on: boolean, litColor: string = COLOR.lit): void {
   button.dataset.lit = on ? 'true' : 'false'
+  // Snap, don't fade: setting transition to none in the same synchronous write as the colours means
+  // the browser sees zero duration at the next style flush, so the highlight appears instantly. (The
+  // hover handlers re-arm the 80ms ease for their own change — this only ever governs the lit state.)
+  button.style.transition = 'none'
   button.style.background = on ? litColor : COLOR.face
   button.style.borderColor = on ? litColor : COLOR.edge
   button.style.boxShadow = on ? `inset 0 0 0 1px ${COLOR.glyph}33` : 'none'

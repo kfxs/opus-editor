@@ -32,7 +32,7 @@
  * note on this panel is the quarter note that lands on the staff. The few marks SMuFL has no glyph
  * for (the tie, the drag hints) are hand-drawn SVG.
  */
-import type { Accidental, NoteDuration } from '../../types/music'
+import type { Accidental, ArticulationType, NoteDuration } from '../../types/music'
 
 /** One music-font glyph, its `size` and `dy` both quoted against a 26px reference (see {@link g}). */
 export type GlyphSpec = { glyph: string; size?: number; dy?: number }
@@ -52,8 +52,11 @@ export type Icon = GlyphSpec | { glyphs: GlyphSpec[] } | { svg: string; dy?: num
  * - `duration` — one of a set, and always one of them: a note has SOME length, so the lit key can
  *   only move, never go out. Clicking the lit one again does nothing.
  * - `accidental` — one of a set, or none: ♯ then ♭ moves the light; ♯ then ♯ puts it out.
- * - `toggle` — its own light, independent of every other key. Staccato and tenuto light together,
- *   because a note really can be both.
+ * - `articulation` — its own light, independent of every other articulation: accent, staccato and
+ *   tenuto light together, because a note really can wear all three. Backed by the editor's
+ *   {@link articulationSelection} store (a SET), so the panel reflects the note under the cursor.
+ * - `toggle` — its own light too, but purely LOCAL to the panel — a not-yet-wired key (rest, dot,
+ *   tie) that lights on its own click and drives nothing. Becomes `articulation`-like once wired.
  * - `momentary` — no light at all. A blank, unassigned slot that just logs; it is not a state.
  * - `mode` — the odd one out: its light is not the panel's own, it is the EDITOR's tool mode. The
  *   arrow lights exactly when the score is in selection mode, and clicking it puts the score there.
@@ -62,7 +65,7 @@ export type Icon = GlyphSpec | { glyphs: GlyphSpec[] } | { svg: string; dy?: num
  *   like `momentary`, but it re-lays the grid rather than acting on a note. On every page, so you
  *   can always turn back.
  */
-export type Select = 'duration' | 'accidental' | 'toggle' | 'momentary' | 'mode' | 'page'
+export type Select = 'duration' | 'accidental' | 'articulation' | 'toggle' | 'momentary' | 'mode' | 'page'
 
 export interface KeypadCell {
   /** The numpad key this cell mirrors. It is the cell's identity, and its tooltip. */
@@ -71,11 +74,13 @@ export interface KeypadCell {
   action: string
   icon: Icon
   select: Select
-  /** The model value a wired key carries, so the widget maps NOTHING — a duration/accidental key
-   *  presses its own value into the matching store, and the store lights it back. Exactly one is set,
-   *  by `select` (a `duration` cell has {@link duration}, an `accidental` cell has {@link accidental}). */
+  /** The model value a wired key carries, so the widget maps NOTHING — a duration/accidental/
+   *  articulation key presses its own value into the matching store, and the store lights it back.
+   *  Exactly one is set, by `select` (a `duration` cell has {@link duration}, an `accidental` cell
+   *  has {@link accidental}, an `articulation` cell has {@link articulation}). */
   duration?: NoteDuration
   accidental?: Accidental
+  articulation?: ArticulationType
 }
 
 /**
@@ -151,19 +156,48 @@ export const VOICES = ['1', '2', '3', '4', 'All']
 
 /** One cell, before it grows a `key`: action, picture, lighting rule, and — for a wired key — the
  *  model value it carries (the 4th slot: a NoteDuration on a duration key, an Accidental on an
- *  accidental key; absent otherwise). `toCells` files it under the field `select` calls for. */
-type CellSpec = [string, Icon, Select, (NoteDuration | Accidental)?]
+ *  accidental key, an ArticulationType on an articulation key; absent otherwise). `toCells` files it
+ *  under the field `select` calls for. */
+type CellSpec = [string, Icon, Select, (NoteDuration | Accidental | ArticulationType)?]
 
 /** The two controls every page carries, in their fixed spots — the select arrow (top-left) and the
- *  page-turn `+`. Written once and spread into each page so a page cannot forget how to turn back. */
+ *  page-turn `+`. A page never lists these itself; {@link withControls} injects them, so a new page
+ *  defines only its OWN keys and can neither forget the arrow nor misplace the `+`. */
 const SELECT_CELL: CellSpec = ['select', ICON.select, 'mode']
 const PAGE_CELL: CellSpec = ['nextPage', ICON.nextPage, 'page']
 
-/** Page 1 — note entry: durations, accidentals, articulations, rest, dot, tie. The duration keys
- *  carry their model value (`'q'`, `'8'`, …); the rest of the panel is not wired to the score yet. */
+/** Where the two shared controls sit on EVERY page — read off {@link KEYS} (the arrow on the top-left
+ *  key, the page-turn on `+`) rather than hard-coded, so they stay right if the numpad is re-described. */
+const SELECT_SLOT = KEYS.indexOf('NumLock')
+const PAGE_SLOT = KEYS.indexOf('+')
+
+/** How many keys a page defines on its own — every slot but the two the controls occupy. */
+const PAGE_OWN_KEYS = KEYS.length - 2
+
+/**
+ * Drop the two shared controls back into a page's own keys, at their fixed slots. A page lists only
+ * its {@link PAGE_OWN_KEYS} keys in reading order AROUND those slots; this reinserts the arrow and the
+ * `+`. Throws if the page is the wrong length, so a miscounted page fails LOUD at load instead of
+ * silently sliding every key one seat over. (Slots are inserted low-to-high so each lands at its final
+ * index — `SELECT_SLOT` before `PAGE_SLOT`.)
+ */
+const withControls = (own: CellSpec[]): CellSpec[] => {
+  if (own.length !== PAGE_OWN_KEYS) {
+    throw new Error(`Keypad page needs ${PAGE_OWN_KEYS} keys, got ${own.length}`)
+  }
+  const cells = [...own]
+  cells.splice(SELECT_SLOT, 0, SELECT_CELL)
+  cells.splice(PAGE_SLOT, 0, PAGE_CELL)
+  return cells
+}
+
+/** Page 1 — note entry: articulations, accidentals, durations, tie, rest, dot. The duration,
+ *  accidental and articulation keys carry their model value (`'q'`, `'#'`, `'accent'`, …); tie, rest
+ *  and dot are not wired to the score yet. Its OWN keys only — the arrow and `+` come from
+ *  {@link withControls}. */
 const page1: CellSpec[] = [
-  SELECT_CELL, ['accent', g(ARTIC.accent, ARTIC_SIZE), 'toggle'], ['staccato', g(ARTIC.staccato, ARTIC_SIZE), 'toggle'], ['tenuto', g(ARTIC.tenuto, ARTIC_SIZE), 'toggle'],
-  ['natural', g(ACC.natural, ACC_SIZE), 'accidental', 'n'], ['sharp', g(ACC.sharp, ACC_SIZE), 'accidental', '#'], ['flat', g(ACC.flat, ACC_SIZE, 3), 'accidental', 'b'], PAGE_CELL,
+  ['accent', g(ARTIC.accent, ARTIC_SIZE), 'articulation', 'accent'], ['staccato', g(ARTIC.staccato, ARTIC_SIZE), 'articulation', 'staccato'], ['tenuto', g(ARTIC.tenuto, ARTIC_SIZE), 'articulation', 'tenuto'],
+  ['natural', g(ACC.natural, ACC_SIZE), 'accidental', 'n'], ['sharp', g(ACC.sharp, ACC_SIZE), 'accidental', '#'], ['flat', g(ACC.flat, ACC_SIZE, 3), 'accidental', 'b'],
   ['quarter', g(NOTE.quarter, undefined, STEM_DROP), 'duration', 'q'], ['half', g(NOTE.half, undefined, STEM_DROP), 'duration', 'h'], ['whole', g(NOTE.whole, undefined, STEM_DROP), 'duration', 'w'],
   ['thirtySecond', g(NOTE.thirtySecond, undefined, STEM_DROP), 'duration', '32'], ['sixteenth', g(NOTE.sixteenth, undefined, STEM_DROP), 'duration', '16'], ['eighth', g(NOTE.eighth, undefined, STEM_DROP), 'duration', '8'], ['tie', ICON.tie, 'toggle'],
   ['rest', { glyphs: [g(REST_QUARTER), g(REST_EIGHTH, 34)] }, 'toggle'], ['dot', g(NOTE.dot, 34), 'toggle'],
@@ -173,17 +207,11 @@ const page1: CellSpec[] = [
 const BLANK: CellSpec = ['unassigned', { glyph: '' }, 'momentary']
 
 /**
- * Page 2 — infrastructure only, for now. Every key but the two shared controls is a {@link BLANK}
- * slot: it shows nothing and only logs its key on click. Glyphs and actions come later; the point
- * today is that the page EXISTS and the `+` turns to it.
+ * Page 2 — infrastructure only, for now: every own key is a {@link BLANK} that shows nothing and only
+ * logs its key on click. Glyphs and actions come later; the point today is that the page EXISTS and
+ * the `+` turns to it. (The arrow and `+` are injected, so even a blank page can always turn back.)
  */
-const page2: CellSpec[] = [
-  SELECT_CELL, BLANK, BLANK, BLANK,
-  BLANK, BLANK, BLANK, PAGE_CELL,
-  BLANK, BLANK, BLANK,
-  BLANK, BLANK, BLANK, BLANK,
-  BLANK, BLANK,
-]
+const page2: CellSpec[] = Array.from({ length: PAGE_OWN_KEYS }, () => BLANK)
 
 const toCells = (page: CellSpec[]): KeypadCell[] =>
   page.map(([action, icon, select, value], i) => ({
@@ -194,7 +222,9 @@ const toCells = (page: CellSpec[]): KeypadCell[] =>
     // The 4th slot is typed by `select`; file it under the field the widget reads for that kind.
     duration: select === 'duration' ? (value as NoteDuration) : undefined,
     accidental: select === 'accidental' ? (value as Accidental) : undefined,
+    articulation: select === 'articulation' ? (value as ArticulationType) : undefined,
   }))
 
-/** Every page of the Keypad, in order. The `+` key steps through them; index 0 is the opening page. */
-export const KEYPAD_PAGES: KeypadCell[][] = [page1, page2].map(toCells)
+/** Every page of the Keypad, in order — each page's own keys with the two shared controls injected.
+ *  The `+` key steps through them; index 0 is the opening page. */
+export const KEYPAD_PAGES: KeypadCell[][] = [page1, page2].map(page => toCells(withControls(page)))

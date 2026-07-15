@@ -1,4 +1,5 @@
 import { Container, type Widget } from './Widget'
+import { CHROME } from '../../utils/chromeColors'
 
 /**
  * The three containers. Between them they lay out anything a window has needed so far, and they are
@@ -82,7 +83,7 @@ export class Columns extends Container {
       cell.style.minHeight = '0'
       cell.style.minWidth = '0'
       if (i > 0 && this.opts.divider !== false) {
-        cell.style.borderLeft = '1px solid #4b5563'
+        cell.style.borderLeft = `1px solid ${CHROME.edge}`
         cell.style.paddingLeft = `${this.opts.gap ?? 16}px`
       }
       child.mount(cell)

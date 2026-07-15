@@ -1,5 +1,6 @@
 import { isSeparator, isSubmenu, type MenuItem } from './MenuItem'
 import { placeFlyout, placeRoot, type Point, type Rect } from './placement'
+import { CHROME } from '../utils/chromeColors'
 
 /**
  * The menu primitive — vanilla DOM, ZERO framework. Sibling to `Window`, never a kind of one.
@@ -64,12 +65,12 @@ const CSS = `
      blur does the other half of the job: it stops the stave lines competing with the rows on top of
      them. Heavier here (4px) than under the Keypad (1px) for that reason — a menu is READ, and it is
      transient, so the music going soft behind it for a moment is not read as a rendering fault. */
-  background: rgba(31, 41, 55, 0.85);
+  background: rgba(${CHROME.glassRgb}, 0.85);
   backdrop-filter: blur(4px);
-  color: #f3f4f6;
-  border: 1px solid #4b5563;
+  color: ${CHROME.ink};
+  border: 1px solid ${CHROME.edge};
   border-radius: 6px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: ${CHROME.shadow};
   font-family: system-ui, sans-serif;
   font-size: 13px;
   /* Explicit, because alignment INHERITS: the panel sits inside the score wrapper, and whatever
@@ -97,7 +98,7 @@ const CSS = `
 }
 .menu-row-arrow {
   flex: none;
-  color: #9ca3af;
+  color: ${CHROME.inkMuted};
   font-size: 10px;
 }
 /* TWO sources of highlight, and a menu needs both.
@@ -106,13 +107,13 @@ const CSS = `
    [data-active] — the row that OWNS the open flyout. Set by the layer, because that row must stay
              lit once the pointer has left it FOR its flyout, where :hover no longer holds. */
 .menu-row:hover,
-.menu-row[data-active="true"] { background: #2563eb; }
+.menu-row[data-active="true"] { background: ${CHROME.accent}; }
 .menu-row:hover .menu-row-arrow,
 .menu-row[data-active="true"] .menu-row-arrow { color: #dbeafe; }
 .menu-separator {
   height: 1px;
   margin: 4px 6px;
-  background: #4b5563;
+  background: ${CHROME.edge};
 }
 `
 

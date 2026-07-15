@@ -7,6 +7,7 @@ import { fracToNumber } from '../utils/fraction'
 import { sameTimeSignature } from '../utils/meter'
 import { tempoLabel } from '../utils/tempoMap'
 import { selectedNoteIds } from './selection'
+import { articulationSelection } from './articulationSelection'
 
 /** Two armed tempo presets are "the same button" when every field matches — so clicking the
  *  active preset a second time disarms it (the toggle behaviour of the other palette tools). */
@@ -250,6 +251,7 @@ export class PaletteController {
       const pos = this.getLastMousePosition()
       if (pos) this.renderPreview(pos)
     }
+    this.refreshArticulationSelection()
   }
 
   toggleStaccato(): void {
@@ -258,6 +260,7 @@ export class PaletteController {
       const pos = this.getLastMousePosition()
       if (pos) this.renderPreview(pos)
     }
+    this.refreshArticulationSelection()
   }
 
   toggleTenuto(): void {
@@ -266,6 +269,7 @@ export class PaletteController {
       const pos = this.getLastMousePosition()
       if (pos) this.renderPreview(pos)
     }
+    this.refreshArticulationSelection()
   }
 
   /**
@@ -661,6 +665,26 @@ export class PaletteController {
   noteHasTenuto(): boolean {
     if (this.state.selectedTool === 'selection') return this.selectedNoteHasArticulation('tenuto')
     return this.state.tenuto
+  }
+
+  /**
+   * Push which articulations are lit into the {@link articulationSelection} store, so the Keypad
+   * reflects the note under the cursor (or the armed entry-mode flags). This is the RULE — the same
+   * `noteHasX` the Vue palette buttons read — and it lives HERE, framework-agnostic, on purpose: the
+   * Vue side only ever POKES this (on a selection/mode/arm change it cannot express as a store event);
+   * it holds no logic of its own. So when the Vue palette is retired, this rule does not move — only
+   * the poke does, onto a framework-agnostic selection observer.
+   *
+   * `setActive` short-circuits on an unchanged set, and a relight is a handful of `setAttribute`s on
+   * the panel's buttons — never a score re-render. Called after every toggle (all sources funnel
+   * through toggleAccent/Staccato/Tenuto) and on the Vue poke.
+   */
+  refreshArticulationSelection(): void {
+    const active: ArticulationType[] = []
+    if (this.noteHasAccent()) active.push('accent')
+    if (this.noteHasStaccato()) active.push('staccato')
+    if (this.noteHasTenuto()) active.push('tenuto')
+    articulationSelection.setActive(active)
   }
 
   noteHasTie(): boolean {
