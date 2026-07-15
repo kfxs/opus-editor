@@ -719,7 +719,7 @@ import { MusicEngine } from './engine/MusicEngine'
 // ⚠️ TEMPORARY dev-only sound picker — remove when a real instrument model lands.
 import { DEV_SOUNDS } from './engine/audio/WebAudioFontInstrument'
 import { VIEWPORT_HEIGHT } from './engine/rendering/VexFlowRenderer'
-import { createEditorState } from './interactions/EditorState'
+import { createObservableEditorState } from './interactions/EditorState'
 import type { TempoTool } from './interactions/EditorState'
 import type { Accidental, NoteDuration } from './types/music'
 import { useHighlight } from './composables/useHighlight'
@@ -735,12 +735,7 @@ import { useShortcuts } from './composables/useShortcuts'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
 import { ClipboardController } from './interactions/ClipboardController'
 import { windows } from './windows'
-import { toolMode } from './interactions/toolMode'
-import { durationSelection } from './interactions/durationSelection'
-import { accidentalSelection } from './interactions/accidentalSelection'
-import { articulationSelection } from './interactions/articulationSelection'
-import { dotSelection } from './interactions/dotSelection'
-import { tieSelection } from './interactions/tieSelection'
+import { wireKeypadSync, noNoteInSelection } from './interactions/keypadSync'
 import { openLoremWindow } from './windows/demo/loremWindows'
 import { isValidTimeSignature } from './utils/meter'
 import { getMeasureDurationFrac } from './utils/musicUtils'
@@ -765,7 +760,13 @@ const scoreViewport = ref<HTMLElement | null>(null)
 const viewportHeight = `${VIEWPORT_HEIGHT}px`
 
 // --- All editor state in one reactive plain object ---
-const state = reactive(createEditorState())
+// The editor state carries its OWN change-notification (an emitting Proxy, framework-agnostic —
+// see docs/observable-editorstate-plan.md). Vue wraps that Proxy: one assignment fires BOTH Vue's
+// dependents and the plain-TS `onStateChange` subscribers. ⚠️ One-write-path rule during the Vue
+// transition: every writer holds the Vue-wrapped `state`; `bareState` never escapes to anything
+// that writes, or that write goes invisible to Vue's templates.
+const { state: bareState, subscribe: onStateChange } = createObservableEditorState()
+const state = reactive(bareState)
 
 // Playback cursor: a green vertical bar pinned to the start of the playing measure.
 // Pure view state (pixel position in content coords) — the engine stays the source of
@@ -876,81 +877,25 @@ watch(() => state.isPanning, (panning) => {
   document.body.style.cursor = panning ? 'none' : ''
 })
 
-// The tool mode lives in the reactive state, but a plain-TS panel (the Keypad) can't watch a Vue
-// ref — so mirror it into the framework-agnostic `toolMode` store and back. This is the ONLY seam
-// between the two, and it is deliberately here in App.vue (the Vue glue), not in the panel: the day
-// the toolbar goes away, selection/entry can drive `toolMode` directly and this watch just retires.
-watch(() => state.selectedTool, (m) => toolMode.set(m), { immediate: true })
-const stopToolModeSync = toolMode.subscribe(() => {
-  const m = toolMode.get()
-  if (state.selectedTool === m) return
-  // This runs ONLY for a mode change that originated OUTSIDE Vue — today, the Keypad. The toolbar,
-  // Esc and the mouse set state.selectedTool directly (and render themselves), so this subscription
-  // early-returns for them above. So the keypad's own follow-through belongs here:
-  if (m === 'selection') palette.disarmPositionalTools() // match the toolbar's Select button
-  state.selectedTool = m
-  // …and the render, which is the keypad's equivalent of the renderScore() Esc's setSelectionMode
-  // already does. Cheap: RenderController only re-engraves when the score is STALE, and a mode flip
-  // is not — so it just rebuilds the highlight layer, taking the blue keyboard cursor down.
-  renderer.renderScore()
-})
-
 // The duration/accidental to HIGHLIGHT — the rule, in one place. A value is shown only when it means
 // something: in entry mode (the armed value), or in selection mode with a note selected (the note's,
 // kept in sync by SelectionController). Select a non-note or clear the canvas and there is no note to
 // reflect, so nothing is highlighted — in the Vue palette AND the Keypad.
-const noNoteInSelection = () => state.selectedTool === 'selection' && !state.selectedNoteId
+// These two computeds highlight the VUE palette's own buttons (the template binds them). The
+// shared `noNoteInSelection` rule and the Keypad's read-sync now live in interactions/keypadSync;
+// these are just Vue rendering itself — one subscriber among many.
 const highlightedDuration = computed<NoteDuration | null>(() =>
-  noNoteInSelection() ? null : state.selectedDuration,
+  noNoteInSelection(state) ? null : state.selectedDuration,
 )
 const highlightedAccidental = computed<Accidental | null>(() =>
-  noNoteInSelection() ? null : state.selectedAccidental,
-)
-// The dot follows the same rule, from the reactive selectedDots count: 'dot' when the armed/selected
-// note is dotted, null otherwise (and nothing when no note is selected).
-const highlightedDot = computed<'dot' | null>(() =>
-  noNoteInSelection() || state.selectedDots < 1 ? null : 'dot',
+  noNoteInSelection(state) ? null : state.selectedAccidental,
 )
 
-// The Keypad's duration (1–6) and accidental (♮ ♯ ♭) keys, both on the same two-channel seam
-// (PaletteSelection). HIGHLIGHT: mirror the computed in, so the panel reflects the palette. PRESS: a
-// key press routes OUT through the palette's own setX — the SAME method the Vue button calls, so a
-// retuned note / armed ghost / an accidental toggling OFF all happen identically. The press channel
-// only fires on a real Keypad press (never from the mirror), so the action never double-applies —
-// no guard needed, unlike a plain state-mirror.
-watch(highlightedDuration, (d) => durationSelection.setHighlight(d), { immediate: true })
-watch(highlightedAccidental, (a) => accidentalSelection.setHighlight(a), { immediate: true })
-const stopDurationPress = durationSelection.onPress((d) => palette.setDuration(d))
-const stopAccidentalPress = accidentalSelection.onPress((a) => palette.setAccidental(a))
-// The dot: mirror selectedDots→highlight, route a press through toggleDot (which toggles it off on a
-// re-press). Same reactive seam as the accidental — selectedDots is kept in sync in both modes.
-watch(highlightedDot, (d) => dotSelection.setHighlight(d), { immediate: true })
-const stopDotPress = dotSelection.onPress(() => palette.toggleDot())
-
-// The Keypad's ENGINE-DERIVED highlights — the articulation keys (accent / staccato / tenuto, a SET
-// since a note can carry all three) and the tie (Enter). Their lit state is read live from the engine
-// (articulations / tiedTo), not a reactive field, so no computed can mirror it. The RULE lives in
-// PaletteController next to the noteHasX the Vue buttons read; the Vue side here is only a POKE — on
-// any selection / mode / arm change (none of which the stores can observe on their own) recompute and
-// push. It carries no logic, so it retires cleanly when the Vue palette does. A press routes OUT
-// through the palette's own toggleX (which re-pushes the highlight), the SAME method the Vue button calls.
-watch(
-  () => [
-    state.selectedTool, state.selectedNoteId, state.selectedArticulationNoteId,
-    state.accent, state.staccato, state.tenuto,
-  ],
-  () => {
-    palette.refreshArticulationSelection()
-    palette.refreshTieSelection()
-  },
-  { immediate: true },
-)
-const stopArticulationPress = articulationSelection.onPress((type) => {
-  if (type === 'accent') palette.toggleAccent()
-  else if (type === 'staccato') palette.toggleStaccato()
-  else palette.toggleTenuto()
-})
-const stopTiePress = tieSelection.onPress(() => palette.toggleTie())
+// The cord-cut: the Keypad's five wired controls (duration, accidental, articulation, dot, tie) sync
+// through the state's OWN change-notification (`onStateChange`), NOT through Vue watches. All the
+// highlight rules and press routes moved into interactions/keypadSync — no Vue in the Keypad's loop.
+// When the Vue palette goes, this one call stays; only its `subscribe` argument loses the Vue wrapper.
+const stopKeypadSync = wireKeypadSync(state, palette, onStateChange)
 
 // --- Computed ---
 // Dev-only Score JSON viewer. The engine's ScoreModel isn't a Vue reactive object, so a
@@ -1249,12 +1194,7 @@ function installPerfInstruments() {
 onUnmounted(() => {
   window.removeEventListener('wheel', handleZoomWheel)
   shortcuts.disable()
-  stopToolModeSync()
-  stopDurationPress()
-  stopAccidentalPress()
-  stopArticulationPress()
-  stopDotPress()
-  stopTiePress()
+  stopKeypadSync()
   windows.destroy()
   if (engine.value) {
     engine.value.dispose()

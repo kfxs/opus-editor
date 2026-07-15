@@ -64,7 +64,8 @@ export type Icon = GlyphSpec | { glyphs: GlyphSpec[] } | { svg: string; dy?: num
  * - `momentary` — no light at all. A blank, unassigned slot that just logs; it is not a state.
  * - `mode` — the odd one out: its light is not the panel's own, it is the EDITOR's tool mode. The
  *   arrow lights exactly when the score is in selection mode, and clicking it puts the score there.
- *   The panel reads that from the {@link toolMode} store, never from its own `lit` set.
+ *   Backed by {@link modeSelection}, the same two-channel seam as `duration`/`accidental` — the
+ *   highlight follows the editor (pushed by keypadSync), the press enters selection mode.
  * - `page` — the `+` key: turns to the next Keypad page (Sibelius's second numpad layout). No light,
  *   like `momentary`, but it re-lays the grid rather than acting on a note. On every page, so you
  *   can always turn back.

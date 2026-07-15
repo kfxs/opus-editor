@@ -639,6 +639,20 @@ export class PaletteController {
     this.state.selectedTempo = null
   }
 
+  /**
+   * Enter selection mode from the Keypad's Select arrow — the framework-agnostic twin of the toolbar's
+   * Select button. Disarms any positional tool (an armed clef/TS/dynamic is entry-only), flips the
+   * mode, and repaints so the blue keyboard cursor comes down. This is the keypad-origin follow-through
+   * that used to live in App.vue's `toolMode.subscribe`; it moved here when `toolMode` collapsed. No-op
+   * if already in selection mode, so a redundant arrow click costs nothing (matches the toolbar).
+   */
+  enterSelectionMode(): void {
+    if (this.state.selectedTool === 'selection') return
+    this.disarmPositionalTools()
+    this.state.selectedTool = 'selection'
+    this.renderScore()
+  }
+
   // --- Toolbar button active-state helpers ---
   // In selection mode: reflect the selected note's actual state.
   // In entry mode: reflect the pending palette state.

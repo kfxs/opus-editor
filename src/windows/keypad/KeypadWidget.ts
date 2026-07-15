@@ -1,5 +1,5 @@
 import type { Widget } from '../content/Widget'
-import { toolMode } from '../../interactions/toolMode'
+import { modeSelection } from '../../interactions/modeSelection'
 import { durationSelection } from '../../interactions/durationSelection'
 import { accidentalSelection } from '../../interactions/accidentalSelection'
 import { articulationSelection } from '../../interactions/articulationSelection'
@@ -85,7 +85,7 @@ export class KeypadWidget implements Widget {
   /** The arrow, the duration keys and the accidental keys light from the EDITOR's stores, not the
    *  panel's own — so the panel listens to each and repaints when it changes elsewhere (the Vue
    *  palette, a shortcut, selecting a note). */
-  private unsubscribeToolMode: (() => void) | null = null
+  private unsubscribeMode: (() => void) | null = null
   private unsubscribeDuration: (() => void) | null = null
   private unsubscribeAccidental: (() => void) | null = null
   private unsubscribeArticulation: (() => void) | null = null
@@ -114,7 +114,7 @@ export class KeypadWidget implements Widget {
 
     // Repaint whenever the tool mode / armed duration / armed accidental changes ANYWHERE — the
     // toolbar, a shortcut, clicking a note. These keys track the editor's state, not just their clicks.
-    this.unsubscribeToolMode = toolMode.subscribe(() => this.paint())
+    this.unsubscribeMode = modeSelection.onHighlight(() => this.paint())
     this.unsubscribeDuration = durationSelection.onHighlight(() => this.paint())
     this.unsubscribeAccidental = accidentalSelection.onHighlight(() => this.paint())
     this.unsubscribeArticulation = articulationSelection.onHighlight(() => this.paint())
@@ -133,8 +133,8 @@ export class KeypadWidget implements Widget {
   /** Document-wide handles (the tool-mode subscription, the numpad key) outlive this widget's DOM, so
    *  they must be released when it closes. */
   destroy(): void {
-    this.unsubscribeToolMode?.()
-    this.unsubscribeToolMode = null
+    this.unsubscribeMode?.()
+    this.unsubscribeMode = null
     this.unsubscribeDuration?.()
     this.unsubscribeDuration = null
     this.unsubscribeAccidental?.()
@@ -247,8 +247,9 @@ export class KeypadWidget implements Widget {
         break
       case 'mode':
         // The arrow ACTIVATES selection mode. Its light follows the editor, not this click, so there
-        // is no local state to flip — `set` emits, the subscription repaints. (No-op if already there.)
-        toolMode.set('selection')
+        // is no local state to flip — the press routes to enterSelectionMode (via keypadSync), the
+        // editor's mode changes, and keypadSync's sync() repaints us. (No-op if already there.)
+        modeSelection.press('selection')
         break
       case 'page':
         // Turns the page and re-lays the grid. It has its own paint + log, and the cell we were
@@ -268,7 +269,7 @@ export class KeypadWidget implements Widget {
    * articulations (a set), and the panel's own lit set (the last not-yet-wired toggle: rest).
    */
   private isLit(cell: KeypadCell): boolean {
-    if (cell.select === 'mode') return toolMode.get() === 'selection'
+    if (cell.select === 'mode') return modeSelection.get() === 'selection'
     if (cell.select === 'duration') return cell.duration === durationSelection.get()
     if (cell.select === 'accidental') return cell.accidental === accidentalSelection.get()
     if (cell.select === 'articulation') return !!cell.articulation && articulationSelection.isActive(cell.articulation)
