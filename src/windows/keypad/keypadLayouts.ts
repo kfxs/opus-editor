@@ -32,6 +32,7 @@
  * note on this panel is the quarter note that lands on the staff. The few marks SMuFL has no glyph
  * for (the tie, the drag hints) are hand-drawn SVG.
  */
+import type { NoteDuration } from '../../types/music'
 
 /** One music-font glyph, its `size` and `dy` both quoted against a 26px reference (see {@link g}). */
 export type GlyphSpec = { glyph: string; size?: number; dy?: number }
@@ -70,6 +71,9 @@ export interface KeypadCell {
   action: string
   icon: Icon
   select: Select
+  /** For a `duration` cell, the model duration it arms — the cell carries its own value, so the
+   *  widget maps NOTHING (a duration key sets {@link durationSelection}; the store lights it back). */
+  duration?: NoteDuration
 }
 
 /**
@@ -143,29 +147,34 @@ export const KEYS = [
 /** The row along the bottom. In Sibelius these pick the voice you are writing into. */
 export const VOICES = ['1', '2', '3', '4', 'All']
 
+/** One cell, before it grows a `key`: action, picture, lighting rule, and — for a duration — the
+ *  model value it arms (the 4th slot, present ONLY on the six duration keys). */
+type CellSpec = [string, Icon, Select, NoteDuration?]
+
 /** The two controls every page carries, in their fixed spots — the select arrow (top-left) and the
  *  page-turn `+`. Written once and spread into each page so a page cannot forget how to turn back. */
-const SELECT_CELL: [string, Icon, Select] = ['select', ICON.select, 'mode']
-const PAGE_CELL: [string, Icon, Select] = ['nextPage', ICON.nextPage, 'page']
+const SELECT_CELL: CellSpec = ['select', ICON.select, 'mode']
+const PAGE_CELL: CellSpec = ['nextPage', ICON.nextPage, 'page']
 
-/** Page 1 — note entry: durations, accidentals, articulations, rest, dot, tie. */
-const page1: [string, Icon, Select][] = [
+/** Page 1 — note entry: durations, accidentals, articulations, rest, dot, tie. The duration keys
+ *  carry their model value (`'q'`, `'8'`, …); the rest of the panel is not wired to the score yet. */
+const page1: CellSpec[] = [
   SELECT_CELL, ['accent', g(ARTIC.accent, ARTIC_SIZE), 'toggle'], ['staccato', g(ARTIC.staccato, ARTIC_SIZE), 'toggle'], ['tenuto', g(ARTIC.tenuto, ARTIC_SIZE), 'toggle'],
   ['natural', g(ACC.natural, ACC_SIZE), 'accidental'], ['sharp', g(ACC.sharp, ACC_SIZE), 'accidental'], ['flat', g(ACC.flat, ACC_SIZE, 3), 'accidental'], PAGE_CELL,
-  ['quarter', g(NOTE.quarter, undefined, STEM_DROP), 'duration'], ['half', g(NOTE.half, undefined, STEM_DROP), 'duration'], ['whole', g(NOTE.whole, undefined, STEM_DROP), 'duration'],
-  ['thirtySecond', g(NOTE.thirtySecond, undefined, STEM_DROP), 'duration'], ['sixteenth', g(NOTE.sixteenth, undefined, STEM_DROP), 'duration'], ['eighth', g(NOTE.eighth, undefined, STEM_DROP), 'duration'], ['tie', ICON.tie, 'toggle'],
+  ['quarter', g(NOTE.quarter, undefined, STEM_DROP), 'duration', 'q'], ['half', g(NOTE.half, undefined, STEM_DROP), 'duration', 'h'], ['whole', g(NOTE.whole, undefined, STEM_DROP), 'duration', 'w'],
+  ['thirtySecond', g(NOTE.thirtySecond, undefined, STEM_DROP), 'duration', '32'], ['sixteenth', g(NOTE.sixteenth, undefined, STEM_DROP), 'duration', '16'], ['eighth', g(NOTE.eighth, undefined, STEM_DROP), 'duration', '8'], ['tie', ICON.tie, 'toggle'],
   ['rest', { glyphs: [g(REST_QUARTER), g(REST_EIGHTH, 34)] }, 'toggle'], ['dot', g(NOTE.dot, 34), 'toggle'],
 ]
 
 /** An empty, unassigned slot — no glyph, no light. It just logs on click (see {@link KeypadWidget}). */
-const BLANK: [string, Icon, Select] = ['unassigned', { glyph: '' }, 'momentary']
+const BLANK: CellSpec = ['unassigned', { glyph: '' }, 'momentary']
 
 /**
  * Page 2 — infrastructure only, for now. Every key but the two shared controls is a {@link BLANK}
  * slot: it shows nothing and only logs its key on click. Glyphs and actions come later; the point
  * today is that the page EXISTS and the `+` turns to it.
  */
-const page2: [string, Icon, Select][] = [
+const page2: CellSpec[] = [
   SELECT_CELL, BLANK, BLANK, BLANK,
   BLANK, BLANK, BLANK, PAGE_CELL,
   BLANK, BLANK, BLANK,
@@ -173,11 +182,8 @@ const page2: [string, Icon, Select][] = [
   BLANK, BLANK,
 ]
 
-const toCells = (page: [string, Icon, Select][]): KeypadCell[] =>
-  page.map(([action, icon, select], i) => ({ key: KEYS[i], action, icon, select }))
+const toCells = (page: CellSpec[]): KeypadCell[] =>
+  page.map(([action, icon, select, duration], i) => ({ key: KEYS[i], action, icon, select, duration }))
 
 /** Every page of the Keypad, in order. The `+` key steps through them; index 0 is the opening page. */
 export const KEYPAD_PAGES: KeypadCell[][] = [page1, page2].map(toCells)
-
-/** The duration the panel opens on — a note always has a length, so one duration key is always lit. */
-export const DEFAULT_DURATION = 'quarter'

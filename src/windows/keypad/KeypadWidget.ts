@@ -1,7 +1,8 @@
 import type { Widget } from '../content/Widget'
 import { toolMode } from '../../interactions/toolMode'
+import { durationSelection } from '../../interactions/durationSelection'
 import { voiceFillColor } from '../../utils/voiceColors'
-import { DEFAULT_DURATION, KEYPAD_PAGES, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
+import { KEYPAD_PAGES, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
 
 /**
  * The Keypad, as a window's content.
@@ -61,8 +62,9 @@ const COLOR = {
 const MUSIC_FONT = "Bravura, Academico, 'Noto Music', serif"
 
 export class KeypadWidget implements Widget {
-  /** Every key that is currently lit, by action. The panel's whole state, and the score's shadow. */
-  private readonly lit = new Set<string>([DEFAULT_DURATION])
+  /** The toggle keys currently lit, by action (accidentals, articulations, rest, dot, tie). The
+   *  duration and the tool mode are NOT here — those live in their own stores and light from them. */
+  private readonly lit = new Set<string>()
   private voice = 0
 
   private readonly keys: { cell: KeypadCell; button: HTMLButtonElement }[] = []
@@ -73,8 +75,10 @@ export class KeypadWidget implements Widget {
   /** The grid element, held so a page turn can swap it out without touching the voice row. */
   private gridEl: HTMLElement | null = null
 
-  /** The arrow's light is the EDITOR's tool mode, not the panel's own — so the panel listens for it. */
+  /** The arrow and the duration keys light from the EDITOR's stores, not the panel's own — so the
+   *  panel listens to both and repaints when either changes elsewhere (the Vue palette, a shortcut). */
   private unsubscribeToolMode: (() => void) | null = null
+  private unsubscribeDuration: (() => void) | null = null
 
   mount(host: HTMLElement): void {
     // A little more air under the title bar than around the rest: the bar is a solid band, and the
@@ -96,9 +100,10 @@ export class KeypadWidget implements Widget {
     root.appendChild(this.buildVoices())
     host.appendChild(root)
 
-    // Repaint whenever the tool mode changes ANYWHERE — the toolbar, a keyboard shortcut, clicking a
-    // note. The arrow must track the editor's mode, not just its own clicks.
+    // Repaint whenever the tool mode or the armed duration changes ANYWHERE — the toolbar, a keyboard
+    // shortcut, clicking a note. These keys must track the editor's state, not just their own clicks.
     this.unsubscribeToolMode = toolMode.subscribe(() => this.paint())
+    this.unsubscribeDuration = durationSelection.subscribe(() => this.paint())
 
     // The numpad `+` turns the page too — the panel IS the numpad, so the key its `+` cell mirrors
     // drives it. Global, so it works with the score focused, and only while the panel is open (removed
@@ -114,6 +119,8 @@ export class KeypadWidget implements Widget {
   destroy(): void {
     this.unsubscribeToolMode?.()
     this.unsubscribeToolMode = null
+    this.unsubscribeDuration?.()
+    this.unsubscribeDuration = null
     document.removeEventListener('keydown', this.onKeyDown)
   }
 
@@ -182,14 +189,19 @@ export class KeypadWidget implements Widget {
   private press(cell: KeypadCell): void {
     switch (cell.select) {
       case 'duration':
+        // The armed duration lives in the editor's store, not the panel's lit set — set the seam and
+        // the subscription lights it back (and App.vue runs the full setDuration path). Exactly the
+        // select-arrow pattern. `duration` is always present on a duration cell (see keypadLayouts).
+        if (cell.duration) durationSelection.set(cell.duration)
+        break
       case 'accidental': {
+        // Still panel-local (not wired to the score yet): a radio among the accidentals, or none.
         const wasLit = this.lit.has(cell.action)
         // Siblings are within the SAME page — a radio set doesn't reach across a page turn.
         for (const sibling of KEYPAD_PAGES[this.page]) {
-          if (sibling.select === cell.select) this.lit.delete(sibling.action)
+          if (sibling.select === 'accidental') this.lit.delete(sibling.action)
         }
-        // A duration can only move; an accidental can also be taken back off.
-        if (!(wasLit && cell.select === 'accidental')) this.lit.add(cell.action)
+        if (!wasLit) this.lit.add(cell.action) // ♯ then ♯ puts it out
         break
       }
       case 'toggle':
@@ -211,9 +223,19 @@ export class KeypadWidget implements Widget {
     }
 
     this.paint()
-    const on = cell.select === 'mode' ? toolMode.get() === 'selection' : this.lit.has(cell.action)
-    const state = cell.select === 'momentary' ? '' : on ? ' on' : ' off'
+    const state = cell.select === 'momentary' ? '' : this.isLit(cell) ? ' on' : ' off'
     console.log(`[keypad] ${cell.action}${state} — key ${cell.key}, voice ${VOICES[this.voice]}`)
+  }
+
+  /**
+   * Is this key lit? The one place the question is answered, for both {@link paint} and the press log.
+   * Three sources, by kind: the tool mode (the arrow), the armed duration (the duration keys), and the
+   * panel's own lit set (every other toggle).
+   */
+  private isLit(cell: KeypadCell): boolean {
+    if (cell.select === 'mode') return toolMode.get() === 'selection'
+    if (cell.select === 'duration') return cell.duration === durationSelection.get()
+    return this.lit.has(cell.action)
   }
 
   /**
@@ -255,9 +277,7 @@ export class KeypadWidget implements Widget {
     // mark, so it keeps the panel's own blue.
     const voiceColor = this.activeVoiceColor()
     for (const { cell, button } of this.keys) {
-      // The arrow reads the EDITOR's mode; every other key reads the panel's own lit set.
-      const on = cell.select === 'mode' ? toolMode.get() === 'selection' : this.lit.has(cell.action)
-      light(button, on, cell.select === 'mode' ? COLOR.mode : voiceColor)
+      light(button, this.isLit(cell), cell.select === 'mode' ? COLOR.mode : voiceColor)
     }
     // Only the active voice's own button is lit, so it too shows the active voice's colour.
     this.voiceButtons.forEach((button, i) =>

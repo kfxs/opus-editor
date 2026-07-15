@@ -111,7 +111,7 @@
               @click="palette.setDuration('w')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                state.selectedDuration === 'w'
+                highlightedDuration === 'w'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -123,7 +123,7 @@
               @click="palette.setDuration('h')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                state.selectedDuration === 'h'
+                highlightedDuration === 'h'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -135,7 +135,7 @@
               @click="palette.setDuration('q')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                state.selectedDuration === 'q'
+                highlightedDuration === 'q'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -147,7 +147,7 @@
               @click="palette.setDuration('8')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                state.selectedDuration === '8'
+                highlightedDuration === '8'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -159,7 +159,7 @@
               @click="palette.setDuration('16')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                state.selectedDuration === '16'
+                highlightedDuration === '16'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -171,7 +171,7 @@
               @click="palette.setDuration('32')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
-                state.selectedDuration === '32'
+                highlightedDuration === '32'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -736,6 +736,7 @@ import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 ins
 import { ClipboardController } from './interactions/ClipboardController'
 import { windows } from './windows'
 import { toolMode } from './interactions/toolMode'
+import { durationSelection } from './interactions/durationSelection'
 import { openLoremWindow } from './windows/demo/loremWindows'
 import { isValidTimeSignature } from './utils/meter'
 import { getMeasureDurationFrac } from './utils/musicUtils'
@@ -888,6 +889,28 @@ const stopToolModeSync = toolMode.subscribe(() => {
   // already does. Cheap: RenderController only re-engraves when the score is STALE, and a mode flip
   // is not — so it just rebuilds the highlight layer, taking the blue keyboard cursor down.
   renderer.renderScore()
+})
+
+// The duration to HIGHLIGHT — the rule, in one place. A duration is shown only when it means
+// something: in entry mode (the armed duration), or in selection mode with a note selected (that
+// note's, kept in sync by SelectionController). Select a non-note or clear the canvas and there is
+// no note to reflect, so nothing is highlighted — in the Vue palette AND the Keypad.
+const highlightedDuration = computed<NoteDuration | null>(() =>
+  state.selectedTool === 'selection' && !state.selectedNoteId ? null : state.selectedDuration,
+)
+
+// Same seam as the tool mode, for the Keypad's 1–6 keys. Mirror the highlight into the store so the
+// panel reflects the palette; and when a real duration comes back OUT of the store (the Keypad,
+// today) route it through `palette.setDuration` — the SAME method the Vue button calls, so retuning a
+// selected note / arming the ghost / disarming positional tools all happen identically. The guard
+// fires the branch only for a keypad-origin change: `null` is App's own "highlight nothing" and a
+// Vue-origin change has already updated state before the watch pushes it here — so setDuration never
+// runs on null, nor twice.
+watch(highlightedDuration, (d) => durationSelection.set(d), { immediate: true })
+const stopDurationSync = durationSelection.subscribe(() => {
+  const d = durationSelection.get()
+  if (d === null || state.selectedDuration === d) return
+  palette.setDuration(d)
 })
 
 // --- Computed ---
@@ -1188,6 +1211,7 @@ onUnmounted(() => {
   window.removeEventListener('wheel', handleZoomWheel)
   shortcuts.disable()
   stopToolModeSync()
+  stopDurationSync()
   windows.destroy()
   if (engine.value) {
     engine.value.dispose()
