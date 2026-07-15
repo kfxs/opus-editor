@@ -181,104 +181,6 @@
             </button>
           </div>
 
-          <!-- Accidental Selector -->
-          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">Alteration:</span>
-            <button
-              @click="palette.setAccidental('#')"
-              :class="[
-                'px-3 py-1 rounded text-lg font-bold',
-                highlightedAccidental === '#'
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Sharp (Sostenido)"
-            >
-              ♯
-            </button>
-            <button
-              @click="palette.setAccidental('b')"
-              :class="[
-                'px-3 py-1 rounded text-lg font-bold',
-                highlightedAccidental === 'b'
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Flat (Bemol)"
-            >
-              ♭
-            </button>
-            <button
-              @click="palette.setAccidental('n')"
-              :class="[
-                'px-3 py-1 rounded text-lg font-bold',
-                highlightedAccidental === 'n'
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Natural (Becuadro)"
-            >
-              ♮
-            </button>
-          </div>
-
-          <!-- Articulations -->
-          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">Articulation:</span>
-            <button
-              @click="palette.toggleAccent()"
-              :class="[
-                'px-3 py-1 rounded text-sm font-bold',
-                palette.noteHasAccent()
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Accent (Numpad /)"
-            >
-              &gt;
-            </button>
-            <button
-              @click="palette.toggleStaccato()"
-              :class="[
-                'px-3 py-1 rounded text-sm font-bold',
-                palette.noteHasStaccato()
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Staccato (Numpad *)"
-            >
-              •
-            </button>
-            <button
-              @click="palette.toggleTenuto()"
-              :class="[
-                'px-3 py-1 rounded text-sm font-bold',
-                palette.noteHasTenuto()
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Tenuto (Numpad -)"
-            >
-              —
-            </button>
-          </div>
-
-          <!-- Dot Selector -->
-          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">Dot:</span>
-            <button
-              @click="palette.toggleDot()"
-              :class="[
-                'px-3 py-1 rounded text-lg font-bold',
-                state.selectedDots > 0
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Toggle dot (.) - adds 50% duration"
-            >
-              •
-            </button>
-          </div>
 
           <!-- Tuplet Selector -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
@@ -312,23 +214,6 @@
               ]"
               :title="`Beam: ${b}`"
             >{{ b }}</button>
-          </div>
-
-          <!-- Tie -->
-          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">Tie:</span>
-            <button
-              @click="palette.toggleTie()"
-              :class="[
-                'px-3 py-1 rounded text-sm font-bold',
-                palette.noteHasTie()
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Toggle tie to next note of same pitch (Numpad Enter)"
-            >
-              ⌒
-            </button>
           </div>
 
           <!-- Clef Tool -->
@@ -721,7 +606,7 @@ import { DEV_SOUNDS } from './engine/audio/WebAudioFontInstrument'
 import { VIEWPORT_HEIGHT } from './engine/rendering/VexFlowRenderer'
 import { createObservableEditorState } from './interactions/EditorState'
 import type { TempoTool } from './interactions/EditorState'
-import type { Accidental, NoteDuration } from './types/music'
+import type { NoteDuration } from './types/music'
 import { useHighlight } from './composables/useHighlight'
 import { useRenderer } from './composables/useRenderer'
 import { useSelection } from './composables/useSelection'
@@ -886,9 +771,6 @@ watch(() => state.isPanning, (panning) => {
 // these are just Vue rendering itself — one subscriber among many.
 const highlightedDuration = computed<NoteDuration | null>(() =>
   noNoteInSelection(state) ? null : state.selectedDuration,
-)
-const highlightedAccidental = computed<Accidental | null>(() =>
-  noNoteInSelection(state) ? null : state.selectedAccidental,
 )
 
 // The cord-cut: the Keypad's five wired controls (duration, accidental, articulation, dot, tie) sync
