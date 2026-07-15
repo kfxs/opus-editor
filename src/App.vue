@@ -188,7 +188,7 @@
               @click="palette.setAccidental('#')"
               :class="[
                 'px-3 py-1 rounded text-lg font-bold',
-                state.selectedAccidental === '#'
+                highlightedAccidental === '#'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -200,7 +200,7 @@
               @click="palette.setAccidental('b')"
               :class="[
                 'px-3 py-1 rounded text-lg font-bold',
-                state.selectedAccidental === 'b'
+                highlightedAccidental === 'b'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -212,7 +212,7 @@
               @click="palette.setAccidental('n')"
               :class="[
                 'px-3 py-1 rounded text-lg font-bold',
-                state.selectedAccidental === 'n'
+                highlightedAccidental === 'n'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -721,7 +721,7 @@ import { DEV_SOUNDS } from './engine/audio/WebAudioFontInstrument'
 import { VIEWPORT_HEIGHT } from './engine/rendering/VexFlowRenderer'
 import { createEditorState } from './interactions/EditorState'
 import type { TempoTool } from './interactions/EditorState'
-import type { NoteDuration } from './types/music'
+import type { Accidental, NoteDuration } from './types/music'
 import { useHighlight } from './composables/useHighlight'
 import { useRenderer } from './composables/useRenderer'
 import { useSelection } from './composables/useSelection'
@@ -737,6 +737,7 @@ import { ClipboardController } from './interactions/ClipboardController'
 import { windows } from './windows'
 import { toolMode } from './interactions/toolMode'
 import { durationSelection } from './interactions/durationSelection'
+import { accidentalSelection } from './interactions/accidentalSelection'
 import { openLoremWindow } from './windows/demo/loremWindows'
 import { isValidTimeSignature } from './utils/meter'
 import { getMeasureDurationFrac } from './utils/musicUtils'
@@ -891,27 +892,28 @@ const stopToolModeSync = toolMode.subscribe(() => {
   renderer.renderScore()
 })
 
-// The duration to HIGHLIGHT — the rule, in one place. A duration is shown only when it means
-// something: in entry mode (the armed duration), or in selection mode with a note selected (that
-// note's, kept in sync by SelectionController). Select a non-note or clear the canvas and there is
-// no note to reflect, so nothing is highlighted — in the Vue palette AND the Keypad.
+// The duration/accidental to HIGHLIGHT — the rule, in one place. A value is shown only when it means
+// something: in entry mode (the armed value), or in selection mode with a note selected (the note's,
+// kept in sync by SelectionController). Select a non-note or clear the canvas and there is no note to
+// reflect, so nothing is highlighted — in the Vue palette AND the Keypad.
+const noNoteInSelection = () => state.selectedTool === 'selection' && !state.selectedNoteId
 const highlightedDuration = computed<NoteDuration | null>(() =>
-  state.selectedTool === 'selection' && !state.selectedNoteId ? null : state.selectedDuration,
+  noNoteInSelection() ? null : state.selectedDuration,
+)
+const highlightedAccidental = computed<Accidental | null>(() =>
+  noNoteInSelection() ? null : state.selectedAccidental,
 )
 
-// Same seam as the tool mode, for the Keypad's 1–6 keys. Mirror the highlight into the store so the
-// panel reflects the palette; and when a real duration comes back OUT of the store (the Keypad,
-// today) route it through `palette.setDuration` — the SAME method the Vue button calls, so retuning a
-// selected note / arming the ghost / disarming positional tools all happen identically. The guard
-// fires the branch only for a keypad-origin change: `null` is App's own "highlight nothing" and a
-// Vue-origin change has already updated state before the watch pushes it here — so setDuration never
-// runs on null, nor twice.
-watch(highlightedDuration, (d) => durationSelection.set(d), { immediate: true })
-const stopDurationSync = durationSelection.subscribe(() => {
-  const d = durationSelection.get()
-  if (d === null || state.selectedDuration === d) return
-  palette.setDuration(d)
-})
+// The Keypad's duration (1–6) and accidental (♮ ♯ ♭) keys, both on the same two-channel seam
+// (PaletteSelection). HIGHLIGHT: mirror the computed in, so the panel reflects the palette. PRESS: a
+// key press routes OUT through the palette's own setX — the SAME method the Vue button calls, so a
+// retuned note / armed ghost / an accidental toggling OFF all happen identically. The press channel
+// only fires on a real Keypad press (never from the mirror), so the action never double-applies —
+// no guard needed, unlike a plain state-mirror.
+watch(highlightedDuration, (d) => durationSelection.setHighlight(d), { immediate: true })
+watch(highlightedAccidental, (a) => accidentalSelection.setHighlight(a), { immediate: true })
+const stopDurationPress = durationSelection.onPress((d) => palette.setDuration(d))
+const stopAccidentalPress = accidentalSelection.onPress((a) => palette.setAccidental(a))
 
 // --- Computed ---
 // Dev-only Score JSON viewer. The engine's ScoreModel isn't a Vue reactive object, so a
@@ -1211,7 +1213,8 @@ onUnmounted(() => {
   window.removeEventListener('wheel', handleZoomWheel)
   shortcuts.disable()
   stopToolModeSync()
-  stopDurationSync()
+  stopDurationPress()
+  stopAccidentalPress()
   windows.destroy()
   if (engine.value) {
     engine.value.dispose()

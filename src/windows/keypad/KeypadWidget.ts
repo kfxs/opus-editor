@@ -1,6 +1,7 @@
 import type { Widget } from '../content/Widget'
 import { toolMode } from '../../interactions/toolMode'
 import { durationSelection } from '../../interactions/durationSelection'
+import { accidentalSelection } from '../../interactions/accidentalSelection'
 import { voiceFillColor } from '../../utils/voiceColors'
 import { KEYPAD_PAGES, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
 
@@ -62,8 +63,8 @@ const COLOR = {
 const MUSIC_FONT = "Bravura, Academico, 'Noto Music', serif"
 
 export class KeypadWidget implements Widget {
-  /** The toggle keys currently lit, by action (accidentals, articulations, rest, dot, tie). The
-   *  duration and the tool mode are NOT here — those live in their own stores and light from them. */
+  /** The `toggle` keys currently lit, by action (articulations, rest, dot, tie). The duration, the
+   *  accidental and the tool mode are NOT here — those live in their own stores and light from them. */
   private readonly lit = new Set<string>()
   private voice = 0
 
@@ -75,10 +76,12 @@ export class KeypadWidget implements Widget {
   /** The grid element, held so a page turn can swap it out without touching the voice row. */
   private gridEl: HTMLElement | null = null
 
-  /** The arrow and the duration keys light from the EDITOR's stores, not the panel's own — so the
-   *  panel listens to both and repaints when either changes elsewhere (the Vue palette, a shortcut). */
+  /** The arrow, the duration keys and the accidental keys light from the EDITOR's stores, not the
+   *  panel's own — so the panel listens to each and repaints when it changes elsewhere (the Vue
+   *  palette, a shortcut, selecting a note). */
   private unsubscribeToolMode: (() => void) | null = null
   private unsubscribeDuration: (() => void) | null = null
+  private unsubscribeAccidental: (() => void) | null = null
 
   mount(host: HTMLElement): void {
     // A little more air under the title bar than around the rest: the bar is a solid band, and the
@@ -100,10 +103,11 @@ export class KeypadWidget implements Widget {
     root.appendChild(this.buildVoices())
     host.appendChild(root)
 
-    // Repaint whenever the tool mode or the armed duration changes ANYWHERE — the toolbar, a keyboard
-    // shortcut, clicking a note. These keys must track the editor's state, not just their own clicks.
+    // Repaint whenever the tool mode / armed duration / armed accidental changes ANYWHERE — the
+    // toolbar, a shortcut, clicking a note. These keys track the editor's state, not just their clicks.
     this.unsubscribeToolMode = toolMode.subscribe(() => this.paint())
-    this.unsubscribeDuration = durationSelection.subscribe(() => this.paint())
+    this.unsubscribeDuration = durationSelection.onHighlight(() => this.paint())
+    this.unsubscribeAccidental = accidentalSelection.onHighlight(() => this.paint())
 
     // The numpad `+` turns the page too — the panel IS the numpad, so the key its `+` cell mirrors
     // drives it. Global, so it works with the score focused, and only while the panel is open (removed
@@ -121,6 +125,8 @@ export class KeypadWidget implements Widget {
     this.unsubscribeToolMode = null
     this.unsubscribeDuration?.()
     this.unsubscribeDuration = null
+    this.unsubscribeAccidental?.()
+    this.unsubscribeAccidental = null
     document.removeEventListener('keydown', this.onKeyDown)
   }
 
@@ -189,21 +195,16 @@ export class KeypadWidget implements Widget {
   private press(cell: KeypadCell): void {
     switch (cell.select) {
       case 'duration':
-        // The armed duration lives in the editor's store, not the panel's lit set — set the seam and
-        // the subscription lights it back (and App.vue runs the full setDuration path). Exactly the
-        // select-arrow pattern. `duration` is always present on a duration cell (see keypadLayouts).
-        if (cell.duration) durationSelection.set(cell.duration)
+        // The armed duration lives in the editor's store, not the panel's lit set — PRESS the value
+        // and the store lights it back (App.vue runs the full setDuration path). The store decides the
+        // radio; the panel maps nothing. `duration` is always present on a duration cell (keypadLayouts).
+        if (cell.duration) durationSelection.press(cell.duration)
         break
-      case 'accidental': {
-        // Still panel-local (not wired to the score yet): a radio among the accidentals, or none.
-        const wasLit = this.lit.has(cell.action)
-        // Siblings are within the SAME page — a radio set doesn't reach across a page turn.
-        for (const sibling of KEYPAD_PAGES[this.page]) {
-          if (sibling.select === 'accidental') this.lit.delete(sibling.action)
-        }
-        if (!wasLit) this.lit.add(cell.action) // ♯ then ♯ puts it out
+      case 'accidental':
+        // Same, and the press channel is what lets ♯-then-♯ toggle OFF: setAccidental sees the armed
+        // value pressed again and clears it. A state-mirror would swallow the repeat as "no change".
+        if (cell.accidental) accidentalSelection.press(cell.accidental)
         break
-      }
       case 'toggle':
         if (this.lit.has(cell.action)) this.lit.delete(cell.action)
         else this.lit.add(cell.action)
@@ -235,6 +236,7 @@ export class KeypadWidget implements Widget {
   private isLit(cell: KeypadCell): boolean {
     if (cell.select === 'mode') return toolMode.get() === 'selection'
     if (cell.select === 'duration') return cell.duration === durationSelection.get()
+    if (cell.select === 'accidental') return cell.accidental === accidentalSelection.get()
     return this.lit.has(cell.action)
   }
 

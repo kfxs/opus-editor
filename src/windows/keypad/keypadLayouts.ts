@@ -32,7 +32,7 @@
  * note on this panel is the quarter note that lands on the staff. The few marks SMuFL has no glyph
  * for (the tie, the drag hints) are hand-drawn SVG.
  */
-import type { NoteDuration } from '../../types/music'
+import type { Accidental, NoteDuration } from '../../types/music'
 
 /** One music-font glyph, its `size` and `dy` both quoted against a 26px reference (see {@link g}). */
 export type GlyphSpec = { glyph: string; size?: number; dy?: number }
@@ -71,9 +71,11 @@ export interface KeypadCell {
   action: string
   icon: Icon
   select: Select
-  /** For a `duration` cell, the model duration it arms — the cell carries its own value, so the
-   *  widget maps NOTHING (a duration key sets {@link durationSelection}; the store lights it back). */
+  /** The model value a wired key carries, so the widget maps NOTHING — a duration/accidental key
+   *  presses its own value into the matching store, and the store lights it back. Exactly one is set,
+   *  by `select` (a `duration` cell has {@link duration}, an `accidental` cell has {@link accidental}). */
   duration?: NoteDuration
+  accidental?: Accidental
 }
 
 /**
@@ -147,9 +149,10 @@ export const KEYS = [
 /** The row along the bottom. In Sibelius these pick the voice you are writing into. */
 export const VOICES = ['1', '2', '3', '4', 'All']
 
-/** One cell, before it grows a `key`: action, picture, lighting rule, and — for a duration — the
- *  model value it arms (the 4th slot, present ONLY on the six duration keys). */
-type CellSpec = [string, Icon, Select, NoteDuration?]
+/** One cell, before it grows a `key`: action, picture, lighting rule, and — for a wired key — the
+ *  model value it carries (the 4th slot: a NoteDuration on a duration key, an Accidental on an
+ *  accidental key; absent otherwise). `toCells` files it under the field `select` calls for. */
+type CellSpec = [string, Icon, Select, (NoteDuration | Accidental)?]
 
 /** The two controls every page carries, in their fixed spots — the select arrow (top-left) and the
  *  page-turn `+`. Written once and spread into each page so a page cannot forget how to turn back. */
@@ -160,7 +163,7 @@ const PAGE_CELL: CellSpec = ['nextPage', ICON.nextPage, 'page']
  *  carry their model value (`'q'`, `'8'`, …); the rest of the panel is not wired to the score yet. */
 const page1: CellSpec[] = [
   SELECT_CELL, ['accent', g(ARTIC.accent, ARTIC_SIZE), 'toggle'], ['staccato', g(ARTIC.staccato, ARTIC_SIZE), 'toggle'], ['tenuto', g(ARTIC.tenuto, ARTIC_SIZE), 'toggle'],
-  ['natural', g(ACC.natural, ACC_SIZE), 'accidental'], ['sharp', g(ACC.sharp, ACC_SIZE), 'accidental'], ['flat', g(ACC.flat, ACC_SIZE, 3), 'accidental'], PAGE_CELL,
+  ['natural', g(ACC.natural, ACC_SIZE), 'accidental', 'n'], ['sharp', g(ACC.sharp, ACC_SIZE), 'accidental', '#'], ['flat', g(ACC.flat, ACC_SIZE, 3), 'accidental', 'b'], PAGE_CELL,
   ['quarter', g(NOTE.quarter, undefined, STEM_DROP), 'duration', 'q'], ['half', g(NOTE.half, undefined, STEM_DROP), 'duration', 'h'], ['whole', g(NOTE.whole, undefined, STEM_DROP), 'duration', 'w'],
   ['thirtySecond', g(NOTE.thirtySecond, undefined, STEM_DROP), 'duration', '32'], ['sixteenth', g(NOTE.sixteenth, undefined, STEM_DROP), 'duration', '16'], ['eighth', g(NOTE.eighth, undefined, STEM_DROP), 'duration', '8'], ['tie', ICON.tie, 'toggle'],
   ['rest', { glyphs: [g(REST_QUARTER), g(REST_EIGHTH, 34)] }, 'toggle'], ['dot', g(NOTE.dot, 34), 'toggle'],
@@ -183,7 +186,15 @@ const page2: CellSpec[] = [
 ]
 
 const toCells = (page: CellSpec[]): KeypadCell[] =>
-  page.map(([action, icon, select, duration], i) => ({ key: KEYS[i], action, icon, select, duration }))
+  page.map(([action, icon, select, value], i) => ({
+    key: KEYS[i],
+    action,
+    icon,
+    select,
+    // The 4th slot is typed by `select`; file it under the field the widget reads for that kind.
+    duration: select === 'duration' ? (value as NoteDuration) : undefined,
+    accidental: select === 'accidental' ? (value as Accidental) : undefined,
+  }))
 
 /** Every page of the Keypad, in order. The `+` key steps through them; index 0 is the opening page. */
 export const KEYPAD_PAGES: KeypadCell[][] = [page1, page2].map(toCells)
