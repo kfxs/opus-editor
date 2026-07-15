@@ -229,8 +229,8 @@ something, and it is the pattern to copy. Three files, zero Vue:
 
 | file | what it is |
 |---|---|
-| `keypadLayouts.ts` | **data only.** 17 cells in reading order, each with the numpad key it sits on, an action name, an icon, and how it LIGHTS. No DOM. |
-| `KeypadWidget.ts` | one `Widget` that builds the grid, holds which keys are lit, and paints from that state. |
+| `keypadLayouts.ts` | **data only.** `KEYPAD_PAGES` — pages of 17 cells in reading order, each with the numpad key it sits on, an action name, an icon, how it LIGHTS, and (for a wired key) the model value it carries. No DOM. |
+| `KeypadWidget.ts` | one `Widget` that builds the current page's grid, turns pages (the `+` key / numpad `+`), and paints each key from the right source (see the seam below). |
 | `index.ts` | `openKeypadWindow()` + the Ctrl+Alt+K toggle. |
 
 Three things it established that the next panel will want:
@@ -245,6 +245,34 @@ Three things it established that the next panel will want:
   the toolkit — with the Keypad as its first client, not before.*
 - **A widget may tighten the box it is handed** (`host.style.padding`, `overflow`) — the containers
   already do this. It still never asks *where* that box is. Rule 3 holds.
+
+### Connecting a Vue-free panel back to the editor: the seam
+
+The Keypad is no longer only a picture — its keys drive the score (select mode, note duration,
+accidentals). But a `windows/` module **must not import Vue** (`lint:boundary`), and it cannot watch a
+Vue ref. So the connection is a plain-TS **observable in `interactions/`** that App.vue mirrors the
+reactive `EditorState` into and out of. The panel imports the store, never Vue; App.vue is the only
+place the two worlds touch.
+
+Two shapes, by need:
+
+- **`toolMode`** — a single value both sides agree on (entry ↔ selection). App.vue `watch`es the
+  reactive tool into it and `subscribe`s back out; `set` short-circuits on no change so the round-trip
+  can't loop.
+- **`PaletteSelection<T>`** (`durationSelection`, `accidentalSelection`) — a palette value is *two*
+  things, so it has **two channels**: **HIGHLIGHT** (which value to light, nullable — a pure mirror of
+  state, for the lit key) and **PRESS** (a command that ALWAYS fires — the user hit this key). The
+  press channel exists because an accidental *toggles off*: re-pressing the armed value is a real
+  event that a state-mirror's "no change" guard would swallow. Because the mirror only ever touches
+  HIGHLIGHT and a key press only ever fires PRESS, a Keypad press and a Vue-palette click stay
+  distinct — the action never double-applies, and no guard is needed. App.vue routes a press out
+  through the palette's own `setDuration`/`setAccidental`, the SAME method the Vue button calls, so
+  both drive the identical path.
+
+One thing lives on the Vue side *for now*: the RULE for **what to highlight** (a value is shown only
+in entry mode, or in selection mode with a note selected — never when nothing/​a non-note is selected)
+is a `computed` in App.vue, read by both the Keypad (via the mirror) and the Vue palette buttons. When
+the Vue palette eventually retires, that rule moves into `interactions/` and the panel is unchanged.
 
 ### ⚠️ `fitContent` resizes through `setSize`, which clamps to `minWidth`
 
