@@ -739,6 +739,8 @@ import { toolMode } from './interactions/toolMode'
 import { durationSelection } from './interactions/durationSelection'
 import { accidentalSelection } from './interactions/accidentalSelection'
 import { articulationSelection } from './interactions/articulationSelection'
+import { dotSelection } from './interactions/dotSelection'
+import { tieSelection } from './interactions/tieSelection'
 import { openLoremWindow } from './windows/demo/loremWindows'
 import { isValidTimeSignature } from './utils/meter'
 import { getMeasureDurationFrac } from './utils/musicUtils'
@@ -904,6 +906,11 @@ const highlightedDuration = computed<NoteDuration | null>(() =>
 const highlightedAccidental = computed<Accidental | null>(() =>
   noNoteInSelection() ? null : state.selectedAccidental,
 )
+// The dot follows the same rule, from the reactive selectedDots count: 'dot' when the armed/selected
+// note is dotted, null otherwise (and nothing when no note is selected).
+const highlightedDot = computed<'dot' | null>(() =>
+  noNoteInSelection() || state.selectedDots < 1 ? null : 'dot',
+)
 
 // The Keypad's duration (1–6) and accidental (♮ ♯ ♭) keys, both on the same two-channel seam
 // (PaletteSelection). HIGHLIGHT: mirror the computed in, so the panel reflects the palette. PRESS: a
@@ -915,19 +922,27 @@ watch(highlightedDuration, (d) => durationSelection.setHighlight(d), { immediate
 watch(highlightedAccidental, (a) => accidentalSelection.setHighlight(a), { immediate: true })
 const stopDurationPress = durationSelection.onPress((d) => palette.setDuration(d))
 const stopAccidentalPress = accidentalSelection.onPress((a) => palette.setAccidental(a))
+// The dot: mirror selectedDots→highlight, route a press through toggleDot (which toggles it off on a
+// re-press). Same reactive seam as the accidental — selectedDots is kept in sync in both modes.
+watch(highlightedDot, (d) => dotSelection.setHighlight(d), { immediate: true })
+const stopDotPress = dotSelection.onPress(() => palette.toggleDot())
 
-// The Keypad's articulation keys (accent / staccato / tenuto) — the same seam, but SET-valued, since
-// a note can carry all three at once. The RULE (which are lit) lives in PaletteController, next to
-// the noteHasX the Vue buttons read; the Vue side here is only a POKE — on any selection / mode / arm
-// change (none of which the store can observe on its own) recompute and push. It carries no logic, so
-// it retires cleanly when the Vue palette does. A press routes OUT through the palette's own toggleX
-// (which re-pushes the highlight itself), the SAME method the Vue button calls.
+// The Keypad's ENGINE-DERIVED highlights — the articulation keys (accent / staccato / tenuto, a SET
+// since a note can carry all three) and the tie (Enter). Their lit state is read live from the engine
+// (articulations / tiedTo), not a reactive field, so no computed can mirror it. The RULE lives in
+// PaletteController next to the noteHasX the Vue buttons read; the Vue side here is only a POKE — on
+// any selection / mode / arm change (none of which the stores can observe on their own) recompute and
+// push. It carries no logic, so it retires cleanly when the Vue palette does. A press routes OUT
+// through the palette's own toggleX (which re-pushes the highlight), the SAME method the Vue button calls.
 watch(
   () => [
     state.selectedTool, state.selectedNoteId, state.selectedArticulationNoteId,
     state.accent, state.staccato, state.tenuto,
   ],
-  () => palette.refreshArticulationSelection(),
+  () => {
+    palette.refreshArticulationSelection()
+    palette.refreshTieSelection()
+  },
   { immediate: true },
 )
 const stopArticulationPress = articulationSelection.onPress((type) => {
@@ -935,6 +950,7 @@ const stopArticulationPress = articulationSelection.onPress((type) => {
   else if (type === 'staccato') palette.toggleStaccato()
   else palette.toggleTenuto()
 })
+const stopTiePress = tieSelection.onPress(() => palette.toggleTie())
 
 // --- Computed ---
 // Dev-only Score JSON viewer. The engine's ScoreModel isn't a Vue reactive object, so a
@@ -1237,6 +1253,8 @@ onUnmounted(() => {
   stopDurationPress()
   stopAccidentalPress()
   stopArticulationPress()
+  stopDotPress()
+  stopTiePress()
   windows.destroy()
   if (engine.value) {
     engine.value.dispose()

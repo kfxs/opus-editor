@@ -8,6 +8,7 @@ import { sameTimeSignature } from '../utils/meter'
 import { tempoLabel } from '../utils/tempoMap'
 import { selectedNoteIds } from './selection'
 import { articulationSelection } from './articulationSelection'
+import { tieSelection } from './tieSelection'
 
 /** Two armed tempo presets are "the same button" when every field matches — so clicking the
  *  active preset a second time disarms it (the toggle behaviour of the other palette tools). */
@@ -322,6 +323,7 @@ export class PaletteController {
     const result = engine.tieSelection(noteIds)
     console.log(`[Tie] result:${result === null ? 'no candidate found' : result ? 'tie(s) added' : 'tie(s) removed'}`)
     this.renderScore()
+    this.refreshTieSelection()
   }
 
   /**
@@ -692,5 +694,16 @@ export class PaletteController {
     if (!this.state.selectedNoteId || !engine) return false
     const note = engine.getNote(this.state.selectedNoteId)
     return !!note?.tiedTo
+  }
+
+  /**
+   * Push whether the tie is lit into the {@link tieSelection} store, so the Keypad's Enter key reflects
+   * the selected note. Like {@link refreshArticulationSelection}, the RULE ({@link noteHasTie}, reading
+   * the engine's `tiedTo`) lives HERE, framework-agnostic — a note's tie is not a reactive field, so no
+   * App.vue computed can mirror it. Called after every `toggleTie` (all sources funnel through it) and
+   * on the Vue selection-change poke. `setHighlight` short-circuits on no change.
+   */
+  refreshTieSelection(): void {
+    tieSelection.setHighlight(this.noteHasTie() ? 'tie' : null)
   }
 }

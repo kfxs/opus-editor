@@ -55,8 +55,12 @@ export type Icon = GlyphSpec | { glyphs: GlyphSpec[] } | { svg: string; dy?: num
  * - `articulation` — its own light, independent of every other articulation: accent, staccato and
  *   tenuto light together, because a note really can wear all three. Backed by the editor's
  *   {@link articulationSelection} store (a SET), so the panel reflects the note under the cursor.
- * - `toggle` — its own light too, but purely LOCAL to the panel — a not-yet-wired key (rest, dot,
- *   tie) that lights on its own click and drives nothing. Becomes `articulation`-like once wired.
+ * - `dot` — on or off, a nullable single value like `accidental`: the `.` lights when the note is
+ *   dotted and re-pressing it clears the dot. Backed by the {@link dotSelection} store.
+ * - `tie` — on or off too, the same nullable-single shape as `dot`, but its state is read from the
+ *   engine (a note's `tiedTo`), not a reactive field. Backed by {@link tieSelection}.
+ * - `toggle` — its own light too, but purely LOCAL to the panel — a not-yet-wired key (rest) that
+ *   lights on its own click and drives nothing. Becomes store-backed once wired, like `dot`/`tie` did.
  * - `momentary` — no light at all. A blank, unassigned slot that just logs; it is not a state.
  * - `mode` — the odd one out: its light is not the panel's own, it is the EDITOR's tool mode. The
  *   arrow lights exactly when the score is in selection mode, and clicking it puts the score there.
@@ -65,7 +69,7 @@ export type Icon = GlyphSpec | { glyphs: GlyphSpec[] } | { svg: string; dy?: num
  *   like `momentary`, but it re-lays the grid rather than acting on a note. On every page, so you
  *   can always turn back.
  */
-export type Select = 'duration' | 'accidental' | 'articulation' | 'toggle' | 'momentary' | 'mode' | 'page'
+export type Select = 'duration' | 'accidental' | 'articulation' | 'dot' | 'tie' | 'toggle' | 'momentary' | 'mode' | 'page'
 
 export interface KeypadCell {
   /** The numpad key this cell mirrors. It is the cell's identity, and its tooltip. */
@@ -199,8 +203,8 @@ const page1: CellSpec[] = [
   ['accent', g(ARTIC.accent, ARTIC_SIZE), 'articulation', 'accent'], ['staccato', g(ARTIC.staccato, ARTIC_SIZE), 'articulation', 'staccato'], ['tenuto', g(ARTIC.tenuto, ARTIC_SIZE), 'articulation', 'tenuto'],
   ['natural', g(ACC.natural, ACC_SIZE), 'accidental', 'n'], ['sharp', g(ACC.sharp, ACC_SIZE), 'accidental', '#'], ['flat', g(ACC.flat, ACC_SIZE, 3), 'accidental', 'b'],
   ['quarter', g(NOTE.quarter, undefined, STEM_DROP), 'duration', 'q'], ['half', g(NOTE.half, undefined, STEM_DROP), 'duration', 'h'], ['whole', g(NOTE.whole, undefined, STEM_DROP), 'duration', 'w'],
-  ['thirtySecond', g(NOTE.thirtySecond, undefined, STEM_DROP), 'duration', '32'], ['sixteenth', g(NOTE.sixteenth, undefined, STEM_DROP), 'duration', '16'], ['eighth', g(NOTE.eighth, undefined, STEM_DROP), 'duration', '8'], ['tie', ICON.tie, 'toggle'],
-  ['rest', { glyphs: [g(REST_QUARTER), g(REST_EIGHTH, 34)] }, 'toggle'], ['dot', g(NOTE.dot, 34), 'toggle'],
+  ['thirtySecond', g(NOTE.thirtySecond, undefined, STEM_DROP), 'duration', '32'], ['sixteenth', g(NOTE.sixteenth, undefined, STEM_DROP), 'duration', '16'], ['eighth', g(NOTE.eighth, undefined, STEM_DROP), 'duration', '8'], ['tie', ICON.tie, 'tie'],
+  ['rest', { glyphs: [g(REST_QUARTER), g(REST_EIGHTH, 34)] }, 'toggle'], ['dot', g(NOTE.dot, 34), 'dot'],
 ]
 
 /** An empty, unassigned slot — no glyph, no light. It just logs on click (see {@link KeypadWidget}). */

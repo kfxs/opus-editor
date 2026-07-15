@@ -3,6 +3,8 @@ import { toolMode } from '../../interactions/toolMode'
 import { durationSelection } from '../../interactions/durationSelection'
 import { accidentalSelection } from '../../interactions/accidentalSelection'
 import { articulationSelection } from '../../interactions/articulationSelection'
+import { dotSelection } from '../../interactions/dotSelection'
+import { tieSelection } from '../../interactions/tieSelection'
 import { voiceFillColor } from '../../utils/voiceColors'
 import { CHROME } from '../../utils/chromeColors'
 import { KEYPAD_PAGES, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
@@ -66,9 +68,9 @@ const COLOR = {
 const MUSIC_FONT = "Bravura, Academico, 'Noto Music', serif"
 
 export class KeypadWidget implements Widget {
-  /** The purely-local `toggle` keys currently lit, by action (rest, dot, tie — not yet wired to the
-   *  score). The duration, the accidental, the articulations and the tool mode are NOT here — those
-   *  live in their own editor stores and light from them. */
+  /** The purely-local `toggle` keys currently lit, by action (just rest — not yet wired to the score).
+   *  The duration, accidental, articulations, dot, tie and tool mode are NOT here — those live in their
+   *  own editor stores and light from them. */
   private readonly lit = new Set<string>()
   private voice = 0
 
@@ -87,6 +89,8 @@ export class KeypadWidget implements Widget {
   private unsubscribeDuration: (() => void) | null = null
   private unsubscribeAccidental: (() => void) | null = null
   private unsubscribeArticulation: (() => void) | null = null
+  private unsubscribeDot: (() => void) | null = null
+  private unsubscribeTie: (() => void) | null = null
 
   mount(host: HTMLElement): void {
     // A little more air under the title bar than around the rest: the bar is a solid band, and the
@@ -114,6 +118,8 @@ export class KeypadWidget implements Widget {
     this.unsubscribeDuration = durationSelection.onHighlight(() => this.paint())
     this.unsubscribeAccidental = accidentalSelection.onHighlight(() => this.paint())
     this.unsubscribeArticulation = articulationSelection.onHighlight(() => this.paint())
+    this.unsubscribeDot = dotSelection.onHighlight(() => this.paint())
+    this.unsubscribeTie = tieSelection.onHighlight(() => this.paint())
 
     // The numpad `+` turns the page too — the panel IS the numpad, so the key its `+` cell mirrors
     // drives it. Global, so it works with the score focused, and only while the panel is open (removed
@@ -135,6 +141,10 @@ export class KeypadWidget implements Widget {
     this.unsubscribeAccidental = null
     this.unsubscribeArticulation?.()
     this.unsubscribeArticulation = null
+    this.unsubscribeDot?.()
+    this.unsubscribeDot = null
+    this.unsubscribeTie?.()
+    this.unsubscribeTie = null
     document.removeEventListener('keydown', this.onKeyDown)
   }
 
@@ -219,6 +229,16 @@ export class KeypadWidget implements Widget {
         // back, so the panel maps nothing. `articulation` is always present here (keypadLayouts).
         if (cell.articulation) articulationSelection.press(cell.articulation)
         break
+      case 'dot':
+        // On/off, like the accidental: PRESS always fires so re-pressing toggles the dot OFF. App.vue
+        // routes it through palette.toggleDot and mirrors selectedDots back in as the highlight.
+        dotSelection.press('dot')
+        break
+      case 'tie':
+        // On/off like the dot, but engine-backed: PRESS routes to palette.toggleTie, which flips the
+        // note's tie AND re-pushes the highlight (tiedTo isn't reactive, so it can't be mirrored).
+        tieSelection.press('tie')
+        break
       case 'toggle':
         if (this.lit.has(cell.action)) this.lit.delete(cell.action)
         else this.lit.add(cell.action)
@@ -244,14 +264,16 @@ export class KeypadWidget implements Widget {
 
   /**
    * Is this key lit? The one place the question is answered, for both {@link paint} and the press log.
-   * Four sources, by kind: the tool mode (the arrow), the armed duration/accidental, the active
-   * articulations (a set), and the panel's own lit set (the not-yet-wired toggles: rest, dot, tie).
+   * By kind: the tool mode (the arrow), the armed duration/accidental/dot, the tie, the active
+   * articulations (a set), and the panel's own lit set (the last not-yet-wired toggle: rest).
    */
   private isLit(cell: KeypadCell): boolean {
     if (cell.select === 'mode') return toolMode.get() === 'selection'
     if (cell.select === 'duration') return cell.duration === durationSelection.get()
     if (cell.select === 'accidental') return cell.accidental === accidentalSelection.get()
     if (cell.select === 'articulation') return !!cell.articulation && articulationSelection.isActive(cell.articulation)
+    if (cell.select === 'dot') return dotSelection.get() === 'dot'
+    if (cell.select === 'tie') return tieSelection.get() === 'tie'
     return this.lit.has(cell.action)
   }
 
