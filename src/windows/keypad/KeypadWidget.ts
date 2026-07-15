@@ -1,5 +1,7 @@
 import type { Widget } from '../content/Widget'
-import { DEFAULT_DURATION, KEYPAD_CELLS, VOICES, type Icon, type KeypadCell } from './keypadLayouts'
+import { toolMode } from '../../interactions/toolMode'
+import { voiceFillColor } from '../../utils/voiceColors'
+import { DEFAULT_DURATION, KEYPAD_PAGES, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
 
 /**
  * The Keypad, as a window's content.
@@ -47,6 +49,11 @@ const COLOR = {
   edge: '#4b5563',
   hover: '#4b5563',
   lit: '#2563eb',
+  // The select arrow's lit blue. It matches the linear-view gutter ink (GutterRenderer's
+  // GUTTER_INK, #1D4ED8 / blue-700) on purpose: both are a NON-voice indicator, and that blue is
+  // deliberately darker than voice-1's (#3B82F6) so it can never be misread as voice-coloured — the
+  // same reason the arrow is the one key that opts out of the voice colour.
+  mode: '#1D4ED8',
   glyph: '#f3f4f6',
 }
 
@@ -60,6 +67,14 @@ export class KeypadWidget implements Widget {
 
   private readonly keys: { cell: KeypadCell; button: HTMLButtonElement }[] = []
   private readonly voiceButtons: HTMLButtonElement[] = []
+
+  /** Which page is showing. The `+` key steps it; the voice row and window are unaffected. */
+  private page = 0
+  /** The grid element, held so a page turn can swap it out without touching the voice row. */
+  private gridEl: HTMLElement | null = null
+
+  /** The arrow's light is the EDITOR's tool mode, not the panel's own — so the panel listens for it. */
+  private unsubscribeToolMode: (() => void) | null = null
 
   mount(host: HTMLElement): void {
     // A little more air under the title bar than around the rest: the bar is a solid band, and the
@@ -76,11 +91,43 @@ export class KeypadWidget implements Widget {
     root.style.gap = `${GAP * 2}px`
     root.style.flex = 'none'
 
-    root.appendChild(this.buildGrid())
+    this.gridEl = this.buildGrid()
+    root.appendChild(this.gridEl)
     root.appendChild(this.buildVoices())
     host.appendChild(root)
 
+    // Repaint whenever the tool mode changes ANYWHERE — the toolbar, a keyboard shortcut, clicking a
+    // note. The arrow must track the editor's mode, not just its own clicks.
+    this.unsubscribeToolMode = toolMode.subscribe(() => this.paint())
+
+    // The numpad `+` turns the page too — the panel IS the numpad, so the key its `+` cell mirrors
+    // drives it. Global, so it works with the score focused, and only while the panel is open (removed
+    // in destroy). Bound here rather than in the app's ShortcutManager because it is the WIDGET's
+    // behaviour and its lifecycle is the window's, not the editor's.
+    document.addEventListener('keydown', this.onKeyDown)
+
     this.paint()
+  }
+
+  /** Document-wide handles (the tool-mode subscription, the numpad key) outlive this widget's DOM, so
+   *  they must be released when it closes. */
+  destroy(): void {
+    this.unsubscribeToolMode?.()
+    this.unsubscribeToolMode = null
+    document.removeEventListener('keydown', this.onKeyDown)
+  }
+
+  /**
+   * The numpad `+` (and only the numpad `+` — `code`, not `key`, so the main-row `+` is untouched)
+   * turns the page. Skipped while typing in a field, or with a modifier held — Ctrl+`+` is the
+   * browser's own zoom, and hijacking it would be a surprise.
+   */
+  private onKeyDown = (e: KeyboardEvent): void => {
+    if (e.code !== 'NumpadAdd' || e.ctrlKey || e.metaKey || e.altKey) return
+    const el = document.activeElement
+    if (el instanceof HTMLElement && (el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return
+    e.preventDefault()
+    this.turnPage()
   }
 
   /**
@@ -95,9 +142,13 @@ export class KeypadWidget implements Widget {
     grid.style.gridAutoRows = `${CELL}px`
     grid.style.gap = `${GAP}px`
 
-    for (const cell of KEYPAD_CELLS) {
+    // A page turn rebuilds the grid, so the key list is rebuilt with it — clear last page's buttons.
+    this.keys.length = 0
+    for (const cell of KEYPAD_PAGES[this.page]) {
       const button = this.baseButton()
-      button.title = `${cell.action}  (${cell.key})`
+      // Just the name — the numpad key it mirrors is not (yet) a wired shortcut, so quoting it in the
+      // tooltip only promised a keystroke that does nothing.
+      button.title = cell.select === 'mode' ? 'Select' : cell.action
       button.appendChild(renderIcon(cell.icon))
       button.addEventListener('click', () => this.press(cell))
 
@@ -111,6 +162,20 @@ export class KeypadWidget implements Widget {
   }
 
   /**
+   * Turn to the next page (the `+` key). Rebuilds ONLY the grid — the voice row and the window are
+   * untouched — then repaints so the new page's lights are right. The lit set is shared across pages,
+   * so a duration chosen on page 1 is still chosen when you come back to it.
+   */
+  private turnPage(): void {
+    this.page = (this.page + 1) % KEYPAD_PAGES.length
+    const grid = this.buildGrid()
+    this.gridEl?.replaceWith(grid)
+    this.gridEl = grid
+    this.paint()
+    console.log(`[keypad] page ${this.page + 1}`)
+  }
+
+  /**
    * A press. What it means to the lights depends only on the cell's `select` — see the doc on
    * {@link Select}. Nothing else in the panel needs to know that ♯ and ♭ are related.
    */
@@ -119,7 +184,8 @@ export class KeypadWidget implements Widget {
       case 'duration':
       case 'accidental': {
         const wasLit = this.lit.has(cell.action)
-        for (const sibling of KEYPAD_CELLS) {
+        // Siblings are within the SAME page — a radio set doesn't reach across a page turn.
+        for (const sibling of KEYPAD_PAGES[this.page]) {
           if (sibling.select === cell.select) this.lit.delete(sibling.action)
         }
         // A duration can only move; an accidental can also be taken back off.
@@ -132,10 +198,21 @@ export class KeypadWidget implements Widget {
         break
       case 'momentary':
         break
+      case 'mode':
+        // The arrow ACTIVATES selection mode. Its light follows the editor, not this click, so there
+        // is no local state to flip — `set` emits, the subscription repaints. (No-op if already there.)
+        toolMode.set('selection')
+        break
+      case 'page':
+        // Turns the page and re-lays the grid. It has its own paint + log, and the cell we were
+        // handed belongs to the page we are leaving — so return before the generic tail below.
+        this.turnPage()
+        return
     }
 
     this.paint()
-    const state = cell.select === 'momentary' ? '' : this.lit.has(cell.action) ? ' on' : ' off'
+    const on = cell.select === 'mode' ? toolMode.get() === 'selection' : this.lit.has(cell.action)
+    const state = cell.select === 'momentary' ? '' : on ? ' on' : ' off'
     console.log(`[keypad] ${cell.action}${state} — key ${cell.key}, voice ${VOICES[this.voice]}`)
   }
 
@@ -172,8 +249,26 @@ export class KeypadWidget implements Widget {
 
   /** The lights, redrawn from the state. There is no other place a button's colour is set. */
   private paint(): void {
-    for (const { cell, button } of this.keys) light(button, this.lit.has(cell.action))
-    this.voiceButtons.forEach((button, i) => light(button, i === this.voice))
+    // Every lit key wears the ACTIVE voice's colour, so the whole panel says which voice you are
+    // writing into (utils/voiceColors — the same map the score paints selection with: V1 blue, V2
+    // green). The lone exception is the select arrow: it is a MODE indicator, not a voice-coloured
+    // mark, so it keeps the panel's own blue.
+    const voiceColor = this.activeVoiceColor()
+    for (const { cell, button } of this.keys) {
+      // The arrow reads the EDITOR's mode; every other key reads the panel's own lit set.
+      const on = cell.select === 'mode' ? toolMode.get() === 'selection' : this.lit.has(cell.action)
+      light(button, on, cell.select === 'mode' ? COLOR.mode : voiceColor)
+    }
+    // Only the active voice's own button is lit, so it too shows the active voice's colour.
+    this.voiceButtons.forEach((button, i) =>
+      light(button, i === this.voice, VOICES[i] === 'All' ? COLOR.lit : voiceFillColor(i)),
+    )
+  }
+
+  /** The colour every lit key wears: the active voice's (V1 blue, V2 green). 'All' is not a single
+   *  voice, so it falls back to the panel's default blue. */
+  private activeVoiceColor(): string {
+    return VOICES[this.voice] === 'All' ? COLOR.lit : voiceFillColor(this.voice)
   }
 
   /**
@@ -210,10 +305,10 @@ export class KeypadWidget implements Widget {
   }
 }
 
-function light(button: HTMLButtonElement, on: boolean): void {
+function light(button: HTMLButtonElement, on: boolean, litColor: string = COLOR.lit): void {
   button.dataset.lit = on ? 'true' : 'false'
-  button.style.background = on ? COLOR.lit : COLOR.face
-  button.style.borderColor = on ? COLOR.lit : COLOR.edge
+  button.style.background = on ? litColor : COLOR.face
+  button.style.borderColor = on ? litColor : COLOR.edge
   button.style.boxShadow = on ? `inset 0 0 0 1px ${COLOR.glyph}33` : 'none'
 }
 
@@ -224,19 +319,30 @@ function renderIcon(icon: Icon): HTMLElement {
   el.style.justifyContent = 'center'
   el.style.lineHeight = '1'
 
-  if (icon.dy) el.style.transform = `translateY(${(GLYPH * icon.dy) / 26}px)`
-
   if ('svg' in icon) {
+    if (icon.dy) el.style.transform = `translateY(${(GLYPH * icon.dy) / 26}px)`
     el.innerHTML = icon.svg
     const svg = el.firstElementChild as SVGElement
     svg.setAttribute('width', `${Math.round(40 * ICON_SCALE)}`)
     svg.setAttribute('height', `${Math.round(26 * ICON_SCALE)}`)
     return el
   }
-  el.textContent = icon.glyph
+
+  // A row of glyphs (the quarter + eighth rest on one key) or a single glyph — one builder either way.
+  const parts = 'glyphs' in icon ? icon.glyphs : [icon]
+  if (parts.length > 1) el.style.gap = `${Math.round(GLYPH * 0.24)}px`
+  for (const part of parts) el.appendChild(glyphSpan(part))
+  return el
+}
+
+/** One music-font glyph. Its `size` and `dy` are both quoted against a 26px glyph, so a mark that
+ *  needs to be bigger or lower stays proportionally so at any key size. */
+function glyphSpan(spec: GlyphSpec): HTMLElement {
+  const el = document.createElement('span')
+  el.textContent = spec.glyph
   el.style.fontFamily = MUSIC_FONT
-  // A cell's own `size` and `dy` are quoted against a 26px glyph, so a mark that needs to be bigger
-  // or lower stays proportionally so at any key size.
-  el.style.fontSize = `${Math.round(GLYPH * (icon.size ?? 26) / 26)}px`
+  el.style.lineHeight = '1'
+  el.style.fontSize = `${Math.round(GLYPH * (spec.size ?? 26) / 26)}px`
+  if (spec.dy) el.style.transform = `translateY(${(GLYPH * spec.dy) / 26}px)`
   return el
 }

@@ -735,6 +735,7 @@ import { useShortcuts } from './composables/useShortcuts'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
 import { ClipboardController } from './interactions/ClipboardController'
 import { windows } from './windows'
+import { toolMode } from './interactions/toolMode'
 import { openLoremWindow } from './windows/demo/loremWindows'
 import { isValidTimeSignature } from './utils/meter'
 import { getMeasureDurationFrac } from './utils/musicUtils'
@@ -868,6 +869,25 @@ const shortcuts = useShortcuts(
 // also carries `cursor-none` for the common in-bounds case; this covers off-bounds.)
 watch(() => state.isPanning, (panning) => {
   document.body.style.cursor = panning ? 'none' : ''
+})
+
+// The tool mode lives in the reactive state, but a plain-TS panel (the Keypad) can't watch a Vue
+// ref — so mirror it into the framework-agnostic `toolMode` store and back. This is the ONLY seam
+// between the two, and it is deliberately here in App.vue (the Vue glue), not in the panel: the day
+// the toolbar goes away, selection/entry can drive `toolMode` directly and this watch just retires.
+watch(() => state.selectedTool, (m) => toolMode.set(m), { immediate: true })
+const stopToolModeSync = toolMode.subscribe(() => {
+  const m = toolMode.get()
+  if (state.selectedTool === m) return
+  // This runs ONLY for a mode change that originated OUTSIDE Vue — today, the Keypad. The toolbar,
+  // Esc and the mouse set state.selectedTool directly (and render themselves), so this subscription
+  // early-returns for them above. So the keypad's own follow-through belongs here:
+  if (m === 'selection') palette.disarmPositionalTools() // match the toolbar's Select button
+  state.selectedTool = m
+  // …and the render, which is the keypad's equivalent of the renderScore() Esc's setSelectionMode
+  // already does. Cheap: RenderController only re-engraves when the score is STALE, and a mode flip
+  // is not — so it just rebuilds the highlight layer, taking the blue keyboard cursor down.
+  renderer.renderScore()
 })
 
 // --- Computed ---
@@ -1167,6 +1187,7 @@ function installPerfInstruments() {
 onUnmounted(() => {
   window.removeEventListener('wheel', handleZoomWheel)
   shortcuts.disable()
+  stopToolModeSync()
   windows.destroy()
   if (engine.value) {
     engine.value.dispose()

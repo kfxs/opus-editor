@@ -20,17 +20,29 @@
  *     │        0        │   .    │        │   ← 0 is WIDE (columns 1–2)
  *     └─────────────────┴────────┴────────┘
  *
- * Hence {@link KEYPAD_CELLS} is 17 long and strictly in reading order — a merged key is written
- * ONCE, where it starts. {@link KeypadWidget} places them from that order alone, so the panel
- * cannot drift out of shape.
+ * Hence each page of {@link KEYPAD_PAGES} is 17 cells long and strictly in reading order — a merged
+ * key is written ONCE, where it starts. {@link KeypadWidget} places them from that order alone, so
+ * the panel cannot drift out of shape.
+ *
+ * The Keypad is MULTI-PAGE (Sibelius has several numpad layouts): the `+` key turns the page, and
+ * every page shares the same geometry and the same two controls in fixed spots — the select arrow
+ * (top-left) and the page-turn `+`. Only the other keys change from page to page.
  *
  * Glyphs are SMuFL codepoints in Bravura — the same font the score is engraved in, so a quarter
  * note on this panel is the quarter note that lands on the staff. The few marks SMuFL has no glyph
  * for (the tie, the drag hints) are hand-drawn SVG.
  */
 
-/** A glyph from the music font, or a hand-drawn icon. Nothing else — a Keypad cell is never text. */
-export type Icon = { glyph: string; size?: number; dy?: number } | { svg: string; dy?: number }
+/** One music-font glyph, its `size` and `dy` both quoted against a 26px reference (see {@link g}). */
+export type GlyphSpec = { glyph: string; size?: number; dy?: number }
+
+/**
+ * A cell's picture: a single glyph, a ROW of glyphs each sized on its own, or a hand-drawn icon.
+ * Nothing else — a Keypad cell is never text. The row exists because two marks on one key (the
+ * quarter + eighth rest) are drawn at DIFFERENT ems in the font, so they need independent sizes to
+ * look balanced; one string in one span cannot.
+ */
+export type Icon = GlyphSpec | { glyphs: GlyphSpec[] } | { svg: string; dy?: number }
 
 /**
  * How a key LIGHTS — which is to say, what kind of statement it makes. Three kinds, and the panel
@@ -41,9 +53,15 @@ export type Icon = { glyph: string; size?: number; dy?: number } | { svg: string
  * - `accidental` — one of a set, or none: ♯ then ♭ moves the light; ♯ then ♯ puts it out.
  * - `toggle` — its own light, independent of every other key. Staccato and tenuto light together,
  *   because a note really can be both.
- * - `momentary` — no light at all. `+` goes somewhere; it is not a state you are in.
+ * - `momentary` — no light at all. A blank, unassigned slot that just logs; it is not a state.
+ * - `mode` — the odd one out: its light is not the panel's own, it is the EDITOR's tool mode. The
+ *   arrow lights exactly when the score is in selection mode, and clicking it puts the score there.
+ *   The panel reads that from the {@link toolMode} store, never from its own `lit` set.
+ * - `page` — the `+` key: turns to the next Keypad page (Sibelius's second numpad layout). No light,
+ *   like `momentary`, but it re-lays the grid rather than acting on a note. On every page, so you
+ *   can always turn back.
  */
-export type Select = 'duration' | 'accidental' | 'toggle' | 'momentary'
+export type Select = 'duration' | 'accidental' | 'toggle' | 'momentary' | 'mode' | 'page'
 
 export interface KeypadCell {
   /** The numpad key this cell mirrors. It is the cell's identity, and its tooltip. */
@@ -72,6 +90,7 @@ const NOTE = {
   dot: '\uE1E7',
 }
 const REST_QUARTER = '\uE4E5'
+const REST_EIGHTH = '\uE4E6'
 const ACC = { flat: '\uE260', natural: '\uE261', sharp: '\uE262' }
 const ARTIC = { accent: '\uE4A0', staccato: '\uE4A2', tenuto: '\uE4A4' }
 
@@ -85,8 +104,8 @@ const draw = (body: string, dy?: number): Icon => ({
 const ICON = {
   /** Enter. The big curve — the one cell everybody recognises the panel by. */
   tie: draw('<path d="M5 8 Q20 22 35 8" stroke-width="2.4"/>', 5),
-  /** NumLock: note input on/off — drawn as the plain mouse pointer. */
-  noteInput: draw(
+  /** Select mode — the selection arrow, drawn as the plain mouse pointer. Top-left, like Sibelius. */
+  select: draw(
     '<path d="M16 3 L16 21 L20.5 16.8 L23.5 23 L26.5 21.6 L23.5 15.6 L29 15.2 Z"' +
       ' fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>',
   ),
@@ -100,10 +119,17 @@ const ICON = {
  * where the eye expects it. Both `size` and `dy` are quoted against a 26px glyph and scale with
  * the key.
  */
-const g = (glyph: string, size?: number, dy?: number): Icon => ({ glyph, size, dy })
+const g = (glyph: string, size?: number, dy?: number): GlyphSpec => ({ glyph, size, dy })
 
 /** How far a stemmed note drops, so its NOTEHEAD sits centred rather than its bounding box. */
 const STEM_DROP = 6
+
+/** The articulations (accent, staccato, tenuto) are tiny marks in SMuFL — nudge them up a touch so
+ *  they read on the key at the size the note glyphs do. */
+const ARTIC_SIZE = 34
+
+/** The accidentals (natural, sharp, flat) — already tall, so a gentler bump than the articulations. */
+const ACC_SIZE = 32
 
 /** The numpad keys, in the reading order the cells must follow. Three of them are merged keys. */
 export const KEYS = [
@@ -117,20 +143,41 @@ export const KEYS = [
 /** The row along the bottom. In Sibelius these pick the voice you are writing into. */
 export const VOICES = ['1', '2', '3', '4', 'All']
 
-const cells: [string, Icon, Select][] = [
-  ['noteInput', ICON.noteInput, 'toggle'], ['accent', g(ARTIC.accent), 'toggle'], ['staccato', g(ARTIC.staccato), 'toggle'], ['tenuto', g(ARTIC.tenuto), 'toggle'],
-  ['natural', g(ACC.natural), 'accidental'], ['sharp', g(ACC.sharp), 'accidental'], ['flat', g(ACC.flat), 'accidental'], ['nextPage', ICON.nextPage, 'momentary'],
+/** The two controls every page carries, in their fixed spots — the select arrow (top-left) and the
+ *  page-turn `+`. Written once and spread into each page so a page cannot forget how to turn back. */
+const SELECT_CELL: [string, Icon, Select] = ['select', ICON.select, 'mode']
+const PAGE_CELL: [string, Icon, Select] = ['nextPage', ICON.nextPage, 'page']
+
+/** Page 1 — note entry: durations, accidentals, articulations, rest, dot, tie. */
+const page1: [string, Icon, Select][] = [
+  SELECT_CELL, ['accent', g(ARTIC.accent, ARTIC_SIZE), 'toggle'], ['staccato', g(ARTIC.staccato, ARTIC_SIZE), 'toggle'], ['tenuto', g(ARTIC.tenuto, ARTIC_SIZE), 'toggle'],
+  ['natural', g(ACC.natural, ACC_SIZE), 'accidental'], ['sharp', g(ACC.sharp, ACC_SIZE), 'accidental'], ['flat', g(ACC.flat, ACC_SIZE, 3), 'accidental'], PAGE_CELL,
   ['quarter', g(NOTE.quarter, undefined, STEM_DROP), 'duration'], ['half', g(NOTE.half, undefined, STEM_DROP), 'duration'], ['whole', g(NOTE.whole, undefined, STEM_DROP), 'duration'],
   ['thirtySecond', g(NOTE.thirtySecond, undefined, STEM_DROP), 'duration'], ['sixteenth', g(NOTE.sixteenth, undefined, STEM_DROP), 'duration'], ['eighth', g(NOTE.eighth, undefined, STEM_DROP), 'duration'], ['tie', ICON.tie, 'toggle'],
-  ['rest', g(REST_QUARTER), 'toggle'], ['dot', g(NOTE.dot, 34), 'toggle'],
+  ['rest', { glyphs: [g(REST_QUARTER), g(REST_EIGHTH, 34)] }, 'toggle'], ['dot', g(NOTE.dot, 34), 'toggle'],
 ]
 
-export const KEYPAD_CELLS: KeypadCell[] = cells.map(([action, icon, select], i) => ({
-  key: KEYS[i],
-  action,
-  icon,
-  select,
-}))
+/** An empty, unassigned slot — no glyph, no light. It just logs on click (see {@link KeypadWidget}). */
+const BLANK: [string, Icon, Select] = ['unassigned', { glyph: '' }, 'momentary']
+
+/**
+ * Page 2 — infrastructure only, for now. Every key but the two shared controls is a {@link BLANK}
+ * slot: it shows nothing and only logs its key on click. Glyphs and actions come later; the point
+ * today is that the page EXISTS and the `+` turns to it.
+ */
+const page2: [string, Icon, Select][] = [
+  SELECT_CELL, BLANK, BLANK, BLANK,
+  BLANK, BLANK, BLANK, PAGE_CELL,
+  BLANK, BLANK, BLANK,
+  BLANK, BLANK, BLANK, BLANK,
+  BLANK, BLANK,
+]
+
+const toCells = (page: [string, Icon, Select][]): KeypadCell[] =>
+  page.map(([action, icon, select], i) => ({ key: KEYS[i], action, icon, select }))
+
+/** Every page of the Keypad, in order. The `+` key steps through them; index 0 is the opening page. */
+export const KEYPAD_PAGES: KeypadCell[][] = [page1, page2].map(toCells)
 
 /** The duration the panel opens on — a note always has a length, so one duration key is always lit. */
 export const DEFAULT_DURATION = 'quarter'
