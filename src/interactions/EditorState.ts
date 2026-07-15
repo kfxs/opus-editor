@@ -277,3 +277,61 @@ export function createEditorState(): EditorState {
     viewMode: 'wrapped',
   }
 }
+
+/** A framework-agnostic change-notification: fired with the top-level key that was written. */
+export type StateListener = (key: keyof EditorState) => void
+
+/**
+ * An {@link EditorState} that carries its OWN change-notification, independent of any
+ * framework. Read and write `state` exactly as a plain object; `subscribe(fn)` registers a
+ * listener called with the key on every top-level write.
+ *
+ * The whole mechanism is a Proxy `set` trap (see docs/observable-editorstate-plan.md). It
+ * composes with Vue: `reactive(observable.state)` wraps the emitting Proxy, so a single
+ * assignment fires BOTH Vue's dependents and these listeners. When Vue eventually leaves,
+ * this `subscribe` is the end-state reactivity — nothing here is scaffolding.
+ *
+ * Contract for subscribers (emits are synchronous, one per write — NOT batched like Vue):
+ *   1. Idempotent — called several times per gesture; the last call settles it.
+ *   2. Torn-state tolerant — early emits run against mid-transition state.
+ *   3. Never a state writer — a write from inside a callback is a re-entrant emit.
+ *
+ * Limit: only TOP-LEVEL writes emit. Mutating a nested value in place
+ * (`state.selectedItems.set(…)`) does not — the trap never sees it. Every current writer
+ * ends by assigning a top-level scalar, so coverage is complete; keep it that way.
+ */
+export interface ObservableEditorState {
+  /** Read & write exactly as a plain EditorState; every top-level write notifies subscribers. */
+  state: EditorState
+  /** Register a change listener; returns an unsubscribe fn. */
+  subscribe(fn: StateListener): () => void
+}
+
+export function createObservableEditorState(): ObservableEditorState {
+  const raw = createEditorState()
+  const listeners = new Set<StateListener>()
+  const state = new Proxy(raw, {
+    set(target, key, value) {
+      const changed = target[key as keyof EditorState] !== value
+      Reflect.set(target, key, value)
+      // The write has already landed, so a throwing subscriber must not starve the others.
+      if (changed) {
+        for (const fn of listeners) {
+          try {
+            fn(key as keyof EditorState)
+          } catch (e) {
+            console.error('[EditorState] listener failed:', e)
+          }
+        }
+      }
+      return true
+    },
+  })
+  return {
+    state,
+    subscribe(fn) {
+      listeners.add(fn)
+      return () => listeners.delete(fn)
+    },
+  }
+}
