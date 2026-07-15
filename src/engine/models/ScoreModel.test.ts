@@ -203,6 +203,41 @@ describe('ScoreModel', () => {
       expect(updated?.duration).toBe('h')
     })
 
+    it('should evict overlapping rests when a note is lengthened in place', () => {
+      // A short note leaves the rest of the 4/4 bar as trailing rests. Growing it
+      // to a whole note must reclaim that space, not leave the bar overfull.
+      const note = model.addNote({ ...noteParams, duration: '16' })
+      model.updateNote(note.id, { duration: 'w' })
+
+      const slots = model.getSlotsInMeasure(1)
+      const total = slots.reduce(
+        (sum, s) => fracToNumber(s.actualDuration!) + sum,
+        0,
+      )
+      expect(total).toBe(4) // exactly one 4/4 bar, not overfull
+      // The grown note occupies the whole bar, so it is the only slot left.
+      expect(slots).toHaveLength(1)
+      expect(slots[0].type).toBe('chord')
+    })
+
+    it('should evict overlapping rests when a lengthened note is one of several', () => {
+      // Fill the bar with quarters, then grow the first to a half note: the rest
+      // (or note) sitting on beat 1 is inside the new span and must be evicted.
+      model.addNote({ ...noteParams, duration: 'q', beat: frac(0, 1) })
+      const first = model.getNotesInMeasure(1).find(n => !n.isRest && fracToNumber(n.beat) === 0)!
+      model.updateNote(first.id, { duration: 'h' })
+
+      const slots = model.getSlotsInMeasure(1)
+      const total = slots.reduce((sum, s) => fracToNumber(s.actualDuration!) + sum, 0)
+      expect(total).toBe(4)
+      // Nothing else may start inside [0,2) — the half note owns that span.
+      const inSpan = slots.filter(s => {
+        const b = fracToNumber(s.beat)
+        return b > 0 && b < 2
+      })
+      expect(inSpan).toHaveLength(0)
+    })
+
     it('should move note to different measure when updating', () => {
       model.addMeasure()
       const note = model.addNote(noteParams)
@@ -253,6 +288,52 @@ describe('ScoreModel', () => {
 
       const remainingNotes = model.getAllNotes().filter(n => !n.isRest)
       expect(remainingNotes).toHaveLength(0)
+    })
+  })
+
+  describe('measure integrity check', () => {
+    // A well-formed 4/4 bar: a whole-note chord fills it exactly.
+    const wellFormed = JSON.stringify({
+      title: 'ok',
+      measures: [{
+        id: 'm1', number: 1,
+        timeSignature: { numerator: 4, denominator: 4 },
+        tuplets: [],
+        slots: [{
+          id: 'c1', type: 'chord', beat: { num: 0, den: 1 }, duration: 'w', measure: 1,
+          notes: [{ id: 'n1', step: 'C', alter: 0, octave: 4 }],
+        }],
+      }],
+      staves: [{ id: 's1' }],
+    })
+
+    // The bug shape from the report: a whole-note chord (4 beats) AND a leftover
+    // quarter rest in the same 4/4 bar → 5 beats, overfull by one.
+    const overfull = JSON.stringify({
+      title: 'bad',
+      measures: [{
+        id: 'm1', number: 1,
+        timeSignature: { numerator: 4, denominator: 4 },
+        tuplets: [],
+        slots: [
+          {
+            id: 'c1', type: 'chord', beat: { num: 0, den: 1 }, duration: 'w', measure: 1,
+            notes: [{ id: 'n1', step: 'C', alter: 0, octave: 4 }],
+          },
+          { id: 'r1', type: 'rest', beat: { num: 0, den: 1 }, duration: 'q', measure: 1 },
+        ],
+      }],
+      staves: [{ id: 's1' }],
+    })
+
+    it('passes a well-formed bar (no throw)', () => {
+      const m = ScoreModel.fromJSON(wellFormed)
+      expect(() => m.repairAllMeasureGaps()).not.toThrow()
+    })
+
+    it('throws on an overfull bar under strict (test) mode', () => {
+      const m = ScoreModel.fromJSON(overfull)
+      expect(() => m.repairAllMeasureGaps()).toThrow(/integrity.*OVERFULL/)
     })
   })
 

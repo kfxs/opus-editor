@@ -150,6 +150,22 @@ function fmtSlot(slot: ChordRest): string {
 export const DEFAULT_FRAGMENT_TITLE = 'Fragment 1'
 
 /**
+ * True under the unit-test runner (Vitest). It flips the measure-integrity check
+ * ({@link ScoreModel.checkMeasuresWellFormed}) from a dev-console `console.error`
+ * into a thrown error — so a malformed bar fails the test that produced it instead
+ * of passing silently. In the browser (dev or prod) it stays a log: a bad bar is a
+ * bug to notice, not a reason to crash the editor out from under the user.
+ */
+const STRICT_INVARIANTS: boolean = (() => {
+  try {
+    // Vitest injects both of these; Vite dev/prod builds set MODE to development/production.
+    const env = (import.meta as unknown as { env?: Record<string, unknown> }).env
+    if (env && (env.VITEST || env.MODE === 'test' || env.TEST === true)) return true
+  } catch { /* `import.meta.env` may be absent */ }
+  return false
+})()
+
+/**
  * ScoreModel manages the musical score data and provides CRUD operations
  * This is the core data model for Developer A's music engine
  */
@@ -2419,6 +2435,46 @@ export class ScoreModel {
   }
 
   /**
+   * A chord already in the measure has grown (its duration was lengthened in
+   * place) and its sounding span may now overlap later same-voice/staff rests.
+   * Evict every such rest — migrating any tie that pointed at it onto the chord's
+   * first note — then re-fill the tail so the bar stays exactly full.
+   *
+   * This is the in-place counterpart to {@link replaceRestsWithChord} (which
+   * assumes the chord is not yet in `slots`). No-op when nothing overlaps, so it
+   * is safe to call on any duration change; only a genuine grow evicts anything.
+   */
+  private evictRestsOverlappingChord(measure: Measure, chord: Chord): void {
+    const chordDurFrac = chord.actualDuration ?? durationToFraction(chord.duration, chord.dots ?? 0)
+    const chordVoice = chord.voice ?? 0
+
+    let removedAny = false
+    const remaining: ChordRest[] = []
+    for (const existing of measure.slots) {
+      if (existing.type === 'rest' && existing.id !== chord.id) {
+        const existingDurFrac =
+          existing.actualDuration ?? durationToFraction(existing.duration, existing.dots ?? 0)
+        const overlaps =
+          (existing.voice ?? 0) === chordVoice &&
+          matchesStaff(existing.staffId, chord.staffId, this.score) &&
+          noteSpansOverlapFrac(chord.beat, chordDurFrac, existing.beat, existingDurFrac)
+        if (overlaps) {
+          console.log(`[Model.evictRests] remove overlapping ${fmtSlot(existing)} (chord grew, v${chordVoice})`)
+          if (chord.notes.length > 0) this.migrateRestTieTo(existing.id, chord.notes[0].id)
+          removedAny = true
+          continue
+        }
+      }
+      remaining.push(existing)
+    }
+
+    if (!removedAny) return
+    measure.slots = remaining
+    this.fillGapsWithRests(measure)
+    measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+  }
+
+  /**
    * Update all NotePitch.tiedTo pointers that reference a deleted rest ID,
    * redirecting them to newNotePitchId.
    */
@@ -2839,6 +2895,7 @@ export class ScoreModel {
     if ('tiedFrom' in updates && updates.tiedFrom === undefined) pitch.tiedFrom = undefined
 
     // Chord-level timing and style updates
+    const oldActualDuration = chord.actualDuration
     if (updates.duration !== undefined) chord.duration = updates.duration
     if (updates.dots !== undefined) chord.dots = updates.dots
     if (updates.tupletId !== undefined) chord.tupletId = updates.tupletId
@@ -2866,7 +2923,14 @@ export class ScoreModel {
       }
       if (updates.duration !== undefined || updates.dots !== undefined || updates.tupletId !== undefined) {
         const m = this.getMeasure(chord.measure)
-        if (m) chord.actualDuration = this.computeActualDurationForSlot(chord, m)
+        if (m) {
+          chord.actualDuration = this.computeActualDurationForSlot(chord, m)
+          // A chord lengthened in place now overlaps the rests that used to sit
+          // in the space it grew into — evict them, or the bar goes overfull.
+          if (oldActualDuration === undefined || fracGt(chord.actualDuration, oldActualDuration)) {
+            this.evictRestsOverlappingChord(m, chord)
+          }
+        }
       }
     }
 
@@ -3439,6 +3503,63 @@ export class ScoreModel {
   repairAllMeasureGaps(): void {
     for (const measure of this.score.measures) {
       this.fillGapsWithRests(measure)
+    }
+    this.checkMeasuresWellFormed()
+  }
+
+  /**
+   * Assert every measure is rhythmically well-formed: for each staff-lane and each
+   * voice present (voice 0 always), the slots' actual durations sum to EXACTLY the
+   * bar's capacity. Capacity is {@link measureCapacityFrac} — the very length
+   * {@link fillGapsWithRests} fills up to — so pickups, odd meters, and tuplets
+   * (whose fractional `actualDuration` is summed directly) are all handled for free.
+   *
+   * A mismatch is never something the user can cause; it means a WRITE PATH left the
+   * bar over- or under-full and gap-repair could not heal it — the classic example
+   * being a chord lengthened in place over its neighbours (see
+   * {@link evictRestsOverlappingChord}). fillGaps only *adds* rests into holes; it
+   * cannot remove an overlap, so an overfull bar survives repair and lands here.
+   *
+   * This is a DETECTOR, not a repair. It runs once per committed change, right after
+   * {@link repairAllMeasureGaps}, so the model is in its final shape. In the browser
+   * it logs (with the exact bar / staff / voice / delta so the culprit edit's own
+   * `[Model.*]` traces sit right above it); under test it throws — turning this whole
+   * class of bug into a red test instead of a screenshot someone happens to notice.
+   */
+  private checkMeasuresWellFormed(): void {
+    const staves = this.score.staves ?? []
+    const laneMatches: Array<string | undefined> =
+      staves.length > 0 ? staves.map(s => s.id) : [undefined]
+
+    for (const measure of this.score.measures) {
+      const cap = measureCapacityFrac(measure)
+      for (const laneMatch of laneMatches) {
+        const laneSlots = measure.slots.filter(s => matchesStaff(s.staffId, laneMatch, this.score))
+
+        // Voice 0 is always a stream (an empty lane must show as under-full, not be
+        // skipped) — then add every other voice actually present in the lane.
+        const voices = new Set<number>([0])
+        for (const s of laneSlots) voices.add(s.voice ?? 0)
+
+        for (const voice of voices) {
+          const sum = laneSlots
+            .filter(s => (s.voice ?? 0) === voice)
+            .reduce(
+              (acc, s) => fracAdd(acc, s.actualDuration ?? durationToFraction(s.duration, s.dots ?? 0)),
+              fracCreate(0, 1),
+            )
+          if (!fracEq(sum, cap)) {
+            const staffLabel = laneMatch !== undefined ? ` staff${staffIndexOfId(this.score, laneMatch)}` : ''
+            const delta = fracToNumber(fracSub(sum, cap))
+            const msg =
+              `[integrity] m${measure.number}${staffLabel} v${voice}: slots sum to ` +
+              `${fracToNumber(sum)} beats, bar capacity is ${fracToNumber(cap)} ` +
+              `(Δ ${delta > 0 ? '+' : ''}${delta} — ${delta > 0 ? 'OVERFULL' : 'underfull'})`
+            console.error(msg)
+            if (STRICT_INVARIANTS) throw new Error(msg)
+          }
+        }
+      }
     }
   }
 
