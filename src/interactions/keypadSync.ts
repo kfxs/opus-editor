@@ -52,9 +52,14 @@ export function wireKeypadSync(
     // The Select arrow lights whenever the editor is in selection mode — from ANY source (toolbar,
     // Esc, mouse, or the arrow), because this runs on the state's own change-notification.
     modeSelection.setHighlight(state.selectedTool === 'selection' ? 'selection' : null)
-    durationSelection.setHighlight(noNoteInSelection(state) ? null : state.selectedDuration)
-    accidentalSelection.setHighlight(noNoteInSelection(state) ? null : state.selectedAccidental)
-    dotSelection.setHighlight(dotHighlight(state))
+    // The articulation stamp tool arms into entry mode, but it is a pure articulation gesture — no
+    // note is being entered — so the note-entry keys (duration / accidental / dot) must NOT light;
+    // only the armed articulation does (via refreshArticulationSelection below). Without this the
+    // duration key would light the moment you arm the stamp, reading as "a note will be placed".
+    const stamping = state.selectedArticulationTools.length > 0
+    durationSelection.setHighlight(stamping || noNoteInSelection(state) ? null : state.selectedDuration)
+    accidentalSelection.setHighlight(stamping || noNoteInSelection(state) ? null : state.selectedAccidental)
+    dotSelection.setHighlight(stamping ? null : dotHighlight(state))
     // Engine-derived highlights (articulations are a SET, tie reads tiedTo): read live, not from a
     // reactive field, so they can't be mirrored — recompute and push on any change.
     palette.refreshArticulationSelection()

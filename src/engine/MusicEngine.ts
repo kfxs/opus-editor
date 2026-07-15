@@ -1984,6 +1984,10 @@ export class MusicEngine {
     return this.renderer.renderScoreWithDynamicGhost(coords.x, coords.y, dynamic)
   }
 
+  renderScoreWithArticulationGhost(coords: PixelCoordinates, types: ArticulationType[]): boolean {
+    return this.renderer.renderScoreWithArticulationGhost(coords.x, coords.y, types)
+  }
+
   /**
    * Clear the canvas
    */

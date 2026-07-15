@@ -177,6 +177,11 @@ export class PaletteController {
   }
 
   setDuration(duration: NoteDuration): void {
+    // Picking a duration while the articulation STAMP tool is armed promotes it into note entry:
+    // the armed articulations become the arm-for-next-note flags, so this becomes "enter notes
+    // carrying these articulations" (ghost NOTE with the articulation, clicks place notes) — the
+    // "articulation + duration" mode. Must run before the branch below reads selectedTool.
+    this.promoteArticulationStampToNoteEntry()
     this.state.selectedDuration = duration
     this.state.selectedDots = 0
     this.state.tupletMode = false
@@ -247,30 +252,106 @@ export class PaletteController {
   }
 
   toggleAccent(): void {
-    if (!this.applyArticulationToSelection('accent')) {
-      this.state.accent = !this.state.accent
-      const pos = this.getLastMousePosition()
-      if (pos) this.renderPreview(pos)
-    }
-    this.refreshArticulationSelection()
+    this.pressArticulation('accent')
   }
 
   toggleStaccato(): void {
-    if (!this.applyArticulationToSelection('staccato')) {
-      this.state.staccato = !this.state.staccato
-      const pos = this.getLastMousePosition()
-      if (pos) this.renderPreview(pos)
-    }
-    this.refreshArticulationSelection()
+    this.pressArticulation('staccato')
   }
 
   toggleTenuto(): void {
-    if (!this.applyArticulationToSelection('tenuto')) {
-      this.state.tenuto = !this.state.tenuto
-      const pos = this.getLastMousePosition()
-      if (pos) this.renderPreview(pos)
+    this.pressArticulation('tenuto')
+  }
+
+  /**
+   * One articulation-key press, routed to the right of THREE behaviours by context:
+   *  1. Selection mode with a real selection → toggle the articulation across the selection.
+   *  2. Selection mode with NOTHING to apply to → arm the articulation STAMP tool (this is the new
+   *     behaviour): switch to entry mode with a ghost articulation, then clicks add it to the
+   *     notes clicked. A second press of the armed key (or a different articulation key) toggles
+   *     it off / switches which one; Esc / Select disarms too.
+   *  3. Entry mode (note entry) → arm/disarm the articulation for the NEXT note entered.
+   *
+   * "Nothing to apply to" is decided by {@link applyArticulationToSelection} returning false, NOT by
+   * `selectedNoteId`: after note entry, Select/Esc leaves the cursor note in `selectedNoteId` while
+   * the multi-select set is empty — that reads as "nothing selected" to the user, so a press there
+   * arms the stamp (it used to fall through and draw a ghost NOTE, forcing a duration choice).
+   */
+  private pressArticulation(type: ArticulationType): void {
+    // (2a) The stamp tool is already live (we are in entry mode): ADD this articulation to the
+    // armed set, or REMOVE it if already armed; when the set empties, disarm back to selection.
+    // Handled first so the entry-mode note-entry arm in (3) never swallows it.
+    if (this.state.selectedArticulationTools.length > 0) {
+      const armed = this.state.selectedArticulationTools
+      const next = armed.includes(type) ? armed.filter(t => t !== type) : [...armed, type]
+      if (next.length === 0) {
+        this.state.selectedArticulationTools = []
+        this.state.selectedTool = 'selection'
+      } else {
+        this.state.selectedArticulationTools = next
+      }
+      this.renderScore() // ghost re-forms on the next mouse move (matches clef/dynamic)
+      this.refreshArticulationSelection()
+      return
     }
+
+    // Selection mode: (1) apply across a real selection, or (2b) arm the stamp when there is none.
+    if (this.state.selectedTool === 'selection') {
+      if (!this.applyArticulationToSelection(type)) this.armArticulationTool([type])
+      this.refreshArticulationSelection()
+      return
+    }
+
+    // (3) Entry mode (note entry): arm/disarm for the next note entered.
+    if (type === 'accent') this.state.accent = !this.state.accent
+    else if (type === 'staccato') this.state.staccato = !this.state.staccato
+    else this.state.tenuto = !this.state.tenuto
+    const pos = this.getLastMousePosition()
+    if (pos) this.renderPreview(pos)
     this.refreshArticulationSelection()
+  }
+
+  /**
+   * Arm `types` as the articulation stamp tool and switch to entry mode. Mirrors the clef/dynamic
+   * arming: mutually exclusive with the other marking tools and clears the note selection, so the
+   * ghost reads unambiguously as "the next click adds these articulations". Further articulation
+   * presses grow/shrink the armed set (see {@link pressArticulation}). The ghost appears on the
+   * next mouse move (via MouseController.renderToolGhost).
+   */
+  private armArticulationTool(types: ArticulationType[]): void {
+    this.state.selectedArticulationTools = types
+    this.state.selectedClef = null
+    this.state.selectedTimeSignature = null
+    this.state.selectedDynamic = null
+    this.state.selectedTempo = null
+    this.state.selectedNoteId = null
+    this.state.selectedClefMeasure = null
+    this.state.selectedClefBeat = null
+    this.state.selectedTimeSignatureMeasure = null
+    this.state.selectedDynamicId = null
+    this.state.selectedTempoId = null
+    this.state.selectedTool = 'entry'
+    // Like setClef/setDynamic: just repaint (drops the keyboard cursor). The ghost articulation
+    // itself appears on the next mouse move via MouseController.renderToolGhost — renderPreview
+    // here would draw a ghost NOTE, which is the wrong preview.
+    this.renderScore()
+  }
+
+  /**
+   * Promote an armed articulation stamp into the note-entry articulation flags. Called when a
+   * note-entry action (a duration press) arrives while the stamp tool is armed: the armed set
+   * becomes exactly the `accent`/`staccato`/`tenuto` arm-for-next-note flags and the stamp set is
+   * cleared. Net effect — the tool flips from "click existing notes to add these articulations" to
+   * "enter new notes carrying these articulations", with no articulation lost. No-op when the stamp
+   * tool isn't armed (a normal duration press is untouched).
+   */
+  private promoteArticulationStampToNoteEntry(): void {
+    const armed = this.state.selectedArticulationTools
+    if (armed.length === 0) return
+    this.state.accent = armed.includes('accent')
+    this.state.staccato = armed.includes('staccato')
+    this.state.tenuto = armed.includes('tenuto')
+    this.state.selectedArticulationTools = []
   }
 
   /**
@@ -626,17 +707,20 @@ export class PaletteController {
   }
 
   /**
-   * Disarm the positional palette tools — clef, time signature, dynamic. These
-   * are entry-mode-only (arming one switches to entry mode and a canvas click
-   * places it); leaving entry mode makes them inert, so the palette should stop
-   * showing them as selected. Does NOT touch note-entry settings (duration,
-   * accidental, articulations) which carry over between modes.
+   * Disarm the positional palette tools — clef, time signature, dynamic, tempo, and the
+   * articulation stamp tool. These are entry-mode-only (arming one switches to entry mode and a
+   * canvas click places/stamps it); leaving entry mode makes them inert, so the palette should
+   * stop showing them as selected. Does NOT touch note-entry settings (duration, accidental, and
+   * the accent/staccato/tenuto arm-for-next-note flags) which carry over between modes.
    */
   disarmPositionalTools(): void {
     this.state.selectedClef = null
     this.state.selectedTimeSignature = null
     this.state.selectedDynamic = null
     this.state.selectedTempo = null
+    // The articulation stamp tool is entry-only too (arming it switches to entry mode; a click
+    // stamps the hovered note) — so leaving entry mode makes it inert and it disarms with the rest.
+    this.state.selectedArticulationTools = []
   }
 
   /**
@@ -669,16 +753,21 @@ export class PaletteController {
   }
 
   noteHasAccent(): boolean {
+    // Stamp tool armed → ONLY the armed set lights; the leftover arm-for-next-note flags below must
+    // not leak (they can be stale from an earlier note-entry session — hence the early return).
+    if (this.state.selectedArticulationTools.length > 0) return this.state.selectedArticulationTools.includes('accent')
     if (this.state.selectedTool === 'selection') return this.selectedNoteHasArticulation('accent')
     return this.state.accent
   }
 
   noteHasStaccato(): boolean {
+    if (this.state.selectedArticulationTools.length > 0) return this.state.selectedArticulationTools.includes('staccato')
     if (this.state.selectedTool === 'selection') return this.selectedNoteHasArticulation('staccato')
     return this.state.staccato
   }
 
   noteHasTenuto(): boolean {
+    if (this.state.selectedArticulationTools.length > 0) return this.state.selectedArticulationTools.includes('tenuto')
     if (this.state.selectedTool === 'selection') return this.selectedNoteHasArticulation('tenuto')
     return this.state.tenuto
   }

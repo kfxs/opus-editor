@@ -281,7 +281,7 @@ export class VexFlowRenderer {
    * the leak.)
    */
   private static readonly GHOST_GROUP_SELECTOR =
-    '.ghost-note-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-tempo'
+    '.ghost-note-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-tempo'
 
   /** Take down whatever ghost is showing. O(1) in the score's size — this is the whole point
    *  of P4: hovering an invalid element, or leaving the canvas, used to cost a FULL render
@@ -2867,6 +2867,88 @@ export class VexFlowRenderer {
         group.setAttribute('transform', `translate(${dx}, ${dy})`)
       }
 
+      return true
+    } catch (e) {
+      return false
+    }
+  }
+
+  /**
+   * Render the score with a free-floating translucent ghost articulation (accent/staccato/tenuto
+   * glyph) that follows the cursor — the preview for the armed articulation stamp tool. On click the
+   * articulation is added to the clicked note (see MouseController).
+   *
+   * Unlike the dynamic ghost, we do NOT keep the modifier's own SVG group and discard a temp note:
+   * an Articulation's `draw()` opens no group of its own (it renders straight onto the context via
+   * `renderText`, and normally lands INSIDE the note's `vf-stavenote` group), so there is nothing to
+   * extract. Instead — like the tempo ghost — we open OUR group, draw ONLY the articulation into it,
+   * and close: `note.setStave()` populates the note's Y-values and `Formatter.format()` its tick
+   * position, which is everything `Articulation.draw()` reads, so it renders standalone without the
+   * note ever being drawn. The group carries VexFlow's `vf-` prefix (→ `.vf-ghost-articulation`,
+   * registered in {@link GHOST_GROUP_SELECTOR}).
+   *
+   * ADDITIVE: `types` may hold more than one armed articulation; they are drawn STACKED (sorted by
+   * {@link ARTICULATION_RENDER_ORDER}, an explicit `textLine` per glyph) exactly as a real note with
+   * several articulations engraves — so the ghost reads as everything the click will stamp.
+   * @returns true if a ghost articulation was drawn
+   */
+  renderScoreWithArticulationGhost(cursorX: number, cursorY: number, types: ArticulationType[]): boolean {
+    this.clearGhosts() // P4: an overlay — take the old ghost down, leave the score alone
+
+    const svg = this.getSVGElement()
+    if (!svg || !this.context || types.length === 0) return false
+
+    try {
+      const tempStave = new Stave(0, cursorY, 200)
+      tempStave.setBegBarType(Barline.type.NONE)
+      tempStave.setEndBarType(Barline.type.NONE)
+      tempStave.setContext(this.context)
+
+      const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
+      const sorted = types.slice().sort(
+        (a, b) => ARTICULATION_RENDER_ORDER.indexOf(a) - ARTICULATION_RENDER_ORDER.indexOf(b)
+      )
+      const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
+      note.setStave(tempStave) // populates note.ys (what Articulation.draw reads for its Y)
+      const articulations = sorted.map(t => {
+        const art = new Articulation(articulationVexCodes[t]).setPosition(Modifier.Position.ABOVE)
+        note.addModifier(art, 0) // attaches the note to the modifier (checkAttachedNote)
+        return art
+      })
+
+      const voice = new Voice({ numBeats: 1, beatValue: 4 })
+      voice.setStrict(false)
+      voice.addTickables([note])
+      new Formatter().joinVoices([voice]).format([voice], 150) // sets the note's tick X position
+      note.setStave(tempStave)
+
+      const group = this.context.openGroup('ghost-articulation') as SVGGElement
+      try {
+        // Stack them: an explicit textLine per glyph so multiple armed articulations don't overlap
+        // (we draw the modifiers by hand, so the note's ModifierContext isn't doing the spacing).
+        articulations.forEach((art, i) => art.setTextLine(i).setContext(this.context!).draw())
+      } finally {
+        this.context.closeGroup()
+      }
+
+      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
+      if (!gbox || gbox.width === 0) {
+        group.remove()
+        return false
+      }
+
+      // Paint it the ghost blue at 0.7 opacity — a preview, not yet content (mirrors the tempo ghost).
+      group.setAttribute('opacity', '0.7')
+      group.querySelectorAll('text, path').forEach(el => {
+        if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
+      })
+
+      // Centre the glyph on the cursor horizontally, but lift it a few px so the lowest glyph
+      // (staccato) doesn't sit right under the pointer — a small breathing gap reads cleaner.
+      const CURSOR_GAP_PX = 8
+      const dx = cursorX - (gbox.x + gbox.width / 2)
+      const dy = cursorY - (gbox.y + gbox.height / 2) - CURSOR_GAP_PX
+      group.setAttribute('transform', `translate(${dx}, ${dy})`)
       return true
     } catch (e) {
       return false

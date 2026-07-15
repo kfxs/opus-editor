@@ -1325,6 +1325,7 @@ export class MouseController {
     if (this.placeClefAtClick(engine, x, y, measureNum)) return
     if (this.placeDynamicAtClick(engine, x, y, measureNum)) return
     if (this.placeTempoAtClick(engine, x, measureNum)) return
+    if (this.stampArticulationAtClick(engine, registry, x, y)) return
 
     // No marking tool armed → note/tuplet entry.
     this.placeNoteAtClick(engine, registry, x, y, measureNum)
@@ -1421,6 +1422,43 @@ export class MouseController {
     if (created) {
       console.log(`✓ Tempo ${tempoLabel(created)} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
     }
+    this.render.renderScore()
+    return true
+  }
+
+  /**
+   * Articulation stamp tool: add the armed articulation(s) to the note clicked. Only a real note
+   * counts — a rest, empty staff space, or any other element is a no-op (but still consumes the
+   * click, since the tool is armed). Uses the same note-body hit-test as selection-mode clicks
+   * ({@link ElementRegistry.hitsNoteOrRestBody}), so clicking near-but-not-on a note does nothing.
+   * Only the armed articulations the note LACKS are added (adding one it already has is meaningless);
+   * the additions land as ONE undo entry via runBatch. Returns true whenever the stamp tool is armed
+   * (the click is ours either way).
+   */
+  private stampArticulationAtClick(engine: MusicEngine, registry: ElementRegistry, x: number, y: number): boolean {
+    const types = this.state.selectedArticulationTools
+    if (types.length === 0) return false
+
+    const el = registry.findClosestNoteOrRest(x, y)
+    if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
+      console.log(`· Articulation stamp: click not on a note — no change`)
+      return true
+    }
+    const noteId = el.id
+    const note = engine.getNote(noteId)
+    if (!note || note.isRest) {
+      console.log(`· Articulation stamp: ${note?.isRest ? 'rest' : 'non-note'} — no change`)
+      return true
+    }
+    const missing = types.filter(t => !note.articulations?.includes(t))
+    if (missing.length === 0) {
+      console.log(`· Articulation stamp: note ${noteId} already has ${types.join('+')} — no change`)
+      return true
+    }
+    engine.runBatch(`Add ${missing.join('+')}`, () => {
+      for (const t of missing) engine.toggleArticulation(noteId, t) // each adds (note lacks it)
+    })
+    console.log(`✓ Articulation stamped | ${missing.join('+')} on note ${noteId}`)
     this.render.renderScore()
     return true
   }
@@ -1723,6 +1761,14 @@ export class MouseController {
     // not a ghost note, which would say the next click enters a note.
     if (this.state.selectedTempo) {
       this.render.renderTempoGhost({ x, y }, this.state.selectedTempo)
+      this.state.showCursor = false
+      return
+    }
+
+    // Articulation stamp tool armed: preview the armed articulation glyph(s) following the cursor —
+    // not a ghost note. A click adds them to the hovered note (see stampArticulationAtClick).
+    if (this.state.selectedArticulationTools.length > 0) {
+      this.render.renderArticulationGhost({ x, y }, this.state.selectedArticulationTools)
       this.state.showCursor = false
       return
     }

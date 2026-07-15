@@ -1,4 +1,4 @@
-import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, DynamicLevel } from '../types/music'
+import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, DynamicLevel, ArticulationType } from '../types/music'
 import type { SelectionItem } from './selection'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 
@@ -112,6 +112,17 @@ export interface EditorState {
   accent: boolean
   staccato: boolean
   tenuto: boolean
+  /**
+   * Articulations armed as a STAMP tool (empty = not active). Distinct from the
+   * `accent`/`staccato`/`tenuto` flags above, which arm an articulation for the NEXT note
+   * ENTERED. This is a marking tool (like {@link selectedClef}): armed from selection mode with no
+   * note/group selected, it switches to entry mode, shows a ghost of the armed articulations
+   * following the cursor, and a click ADDS them to the note clicked (existing notes only — no note
+   * entry). ADDITIVE: pressing another articulation key adds it to the armed set (all get stamped
+   * together); pressing an armed one removes it; emptying the set disarms back to selection mode.
+   * Mutually exclusive with the clef/TS/dynamic/tempo tools. Always REASSIGNED (never mutated in
+   * place) so the observable state emits a change. */
+  selectedArticulationTools: ArticulationType[]
   tupletMode: boolean
   selectedBeam: BeamMode
 
@@ -254,6 +265,7 @@ export function createEditorState(): EditorState {
     accent: false,
     staccato: false,
     tenuto: false,
+    selectedArticulationTools: [],
     tupletMode: false,
     selectedBeam: 'auto',
     selectedClef: null,

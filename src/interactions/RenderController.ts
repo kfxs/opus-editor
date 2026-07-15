@@ -1,6 +1,6 @@
 import { tempoFieldsFromTool } from '../utils/tempoText'
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { Clef, TimeSignature, Dynamic, TempoMark } from '../types/music'
+import type { Clef, TimeSignature, Dynamic, TempoMark, ArticulationType } from '../types/music'
 import type { DynamicTool, TempoTool, EditorState } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
 import type { HighlightController } from './HighlightController'
@@ -175,6 +175,16 @@ export class RenderController {
       : { id: 'ghost-dynamic', beat, kind: 'level', level: tool, placement: 'below' }
     this.ensureScoreDrawn(engine)
     engine.renderScoreWithDynamicGhost(coords, ghost)
+  }
+
+  /** Render the score with translucent ghost articulation glyph(s) following the cursor — the
+   *  preview for the armed articulation stamp tool (additive: all armed articulations, stacked). */
+  renderArticulationGhost(coords: { x: number; y: number }, types: ArticulationType[]): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    renderCensus.setCause('ghost:articulation')
+    this.ensureScoreDrawn(engine)
+    engine.renderScoreWithArticulationGhost(coords, types)
   }
 
   /** Render the score with a colored paste caret following the cursor (armed paste). */
