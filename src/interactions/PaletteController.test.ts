@@ -420,3 +420,114 @@ describe('PaletteController — editing a selected accidental glyph', () => {
     expect(state.selectedTool).toBe('selection')
   })
 })
+
+describe('PaletteController — editing a selected articulation group', () => {
+  let state: EditorState
+  let selectNote: ReturnType<typeof vi.fn>
+  let arts: Record<string, string[]> // per-note articulation sets, mutated by toggleArticulation
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    selectNote = vi.fn()
+    arts = {}
+    const fakeEngine = {
+      getNote: (id: string) => ({ id, articulations: arts[id] ?? [] }),
+      toggleArticulation: (id: string, type: string) => {
+        const set = arts[id] ?? (arts[id] = [])
+        const i = set.indexOf(type)
+        if (i >= 0) set.splice(i, 1)
+        else set.push(type)
+      },
+      runBatch: (_label: string, fn: () => void) => fn(),
+    } as unknown as import('../engine/MusicEngine').MusicEngine
+    palette = new PaletteController(
+      () => fakeEngine,
+      state,
+      vi.fn(),
+      vi.fn(),
+      () => null,
+      selectNote as unknown as (id: string | null) => void,
+    )
+    // A standalone articulation GROUP on note "n1" (currently an accent) is selected.
+    state.selectedTool = 'selection'
+    arts['n1'] = ['accent']
+    state.selectedItems.set('articulation:n1', { kind: 'articulation', noteId: 'n1', type: '' })
+    state.selectedArticulationNoteId = 'n1'
+  })
+
+  it('additively ADDS a missing articulation, keeping the group selected', () => {
+    palette.toggleStaccato()
+    expect(arts['n1'].sort()).toEqual(['accent', 'staccato'])
+    expect(state.selectedArticulationNoteId).toBe('n1') // still selected
+    expect(state.selectedArticulationTools).toEqual([]) // did NOT arm the stamp
+  })
+
+  it('removes an articulation the group has; the group stays selected while others remain', () => {
+    arts['n1'] = ['accent', 'staccato']
+    palette.toggleAccent()
+    expect(arts['n1']).toEqual(['staccato'])
+    expect(state.selectedArticulationNoteId).toBe('n1')
+  })
+
+  it('toggling off the LAST articulation clears the selection (nothing to keep selected)', () => {
+    palette.toggleAccent() // n1 had only 'accent' → now empty
+    expect(arts['n1']).toEqual([])
+    expect(state.selectedArticulationNoteId).toBeNull()
+    expect(selectNote).toHaveBeenCalledWith(null)
+  })
+
+  it('does not arm the stamp while an articulation group is selected', () => {
+    palette.toggleTenuto()
+    expect(state.selectedArticulationTools).toEqual([])
+    expect(state.selectedTool).toBe('selection')
+  })
+})
+
+describe('PaletteController — enterSelectionMode (Keypad Select arrow)', () => {
+  let state: EditorState
+  let deselectAll: ReturnType<typeof vi.fn>
+  let selectNote: ReturnType<typeof vi.fn>
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    deselectAll = vi.fn()
+    selectNote = vi.fn()
+    palette = new PaletteController(
+      () => null,
+      state,
+      vi.fn(),
+      vi.fn(),
+      () => null,
+      selectNote as unknown as (id: string | null) => void,
+      deselectAll as unknown as () => void,
+    )
+  })
+
+  it('clears the whole selection even when already in selection mode', () => {
+    state.selectedTool = 'selection'
+    state.selectedNoteId = 'n1'
+    palette.enterSelectionMode()
+    expect(deselectAll).toHaveBeenCalled()
+    expect(state.selectedTool).toBe('selection')
+  })
+
+  it('switches from entry mode to selection mode and clears', () => {
+    state.selectedTool = 'entry'
+    palette.enterSelectionMode()
+    expect(deselectAll).toHaveBeenCalled()
+    expect(state.selectedTool).toBe('selection')
+  })
+
+  it('falls back to selectNote(null) when no deselectAll callback is provided', () => {
+    const p = new PaletteController(
+      () => null, state, vi.fn(), vi.fn(), () => null,
+      selectNote as unknown as (id: string | null) => void,
+    )
+    state.selectedTool = 'entry'
+    p.enterSelectionMode()
+    expect(selectNote).toHaveBeenCalledWith(null)
+    expect(state.selectedTool).toBe('selection')
+  })
+})

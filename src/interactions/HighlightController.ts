@@ -351,9 +351,10 @@ export class HighlightController {
       : group.querySelector('g.vf-notehead text, g.vf-notehead path')
     if (head) colorFill(head)
 
-    // Also light this note's accidental (♯/♭/♮), so a selected note reads as fully selected —
-    // head + stem + its accidental — not just the head.
+    // Also light this note's accidental (♯/♭/♮) and its articulations, so a selected note reads as
+    // fully selected — head + stem + accidental + articulations — not just the head.
     this.highlightNoteAccidental(noteId, group, SELECTION_COLOR)
+    this.colorNoteArticulations(noteId, SELECTION_COLOR)
 
     // Multi-voice unison: the other voice draws a notehead at the SAME pixel spot in a
     // sibling `vf-stavenote` group. Whichever is later in the DOM paints on top, so the
@@ -399,55 +400,51 @@ export class HighlightController {
 
   applyArticulationHighlight(): void {
     const engine = this.getEngine()
-    const scoreCanvas = this.getScoreCanvas()
-    if (!engine || !scoreCanvas) return
+    if (!engine) return
 
     // Selected articulation groups live in the multi-select set (Ctrl-click adds more);
     // fall back to the scalar anchor for safety. Each group covers EVERY articulation on
-    // its note (Sibelius-style), so highlight all of them.
+    // its note (Sibelius-style), so highlight all of them, each in its note's voice colour.
     const selectedNoteIds = new Set<string>()
     for (const item of this.state.selectedItems.values()) {
       if (item.kind === 'articulation') selectedNoteIds.add(item.noteId)
     }
     if (this.state.selectedArticulationNoteId) selectedNoteIds.add(this.state.selectedArticulationNoteId)
-    if (!selectedNoteIds.size) return
 
-    const registry = engine.getElementRegistry()
-    const artElements = registry.getByType('articulation').filter(
-      el => el.noteId !== undefined && selectedNoteIds.has(el.noteId),
-    )
+    for (const noteId of selectedNoteIds) {
+      const voice = engine.getNote(noteId)?.voice ?? 0
+      this.colorNoteArticulations(noteId, voiceFillColor(voice))
+    }
+  }
+
+  /**
+   * Colour every articulation glyph on `noteId` in `color`. Shared by the articulation-GROUP
+   * highlight ({@link applyArticulationHighlight}) and the selected-NOTE highlight
+   * ({@link highlightNote}), so a note reads as fully selected (head + stem + accidental +
+   * articulations). Uses the logged setAttr so {@link clearHighlights} reverts it.
+   *
+   * KEY DOM FACT: VexFlow renders a note's articulation glyphs INSIDE that note's own
+   * `vf-notehead` group — NoteHead.draw() opens the group, draws the head, then calls
+   * stavenote.drawModifiers(this) before closing it. So an articulation lives at
+   * `vf-stavenote > vf-notehead[noteIndex] > <text>`, scoped to the very note it belongs to;
+   * searching ONLY within that notehead sub-group avoids grabbing a stacked voice's glyph (a
+   * document-wide nearest-glyph scan was the old bug). Within the group, the notehead glyph is
+   * drawn FIRST (skip index 0); geometry then picks the glyph whose centre is closest to the
+   * registered articulation bbox — robust for a note carrying several stacked marks.
+   */
+  private colorNoteArticulations(noteId: string, color: string): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    const artElements = engine.getElementRegistry().getByType('articulation').filter(el => el.noteId === noteId)
     if (!artElements.length) return
+    const groupInfo = engine.getStaveNoteSVGGroup(noteId)
+    if (!groupInfo) return
+    const noteheadGroups = groupInfo.group.querySelectorAll('g.vf-notehead')
+    const noteheadGroup = noteheadGroups[groupInfo.noteIndex] ?? noteheadGroups[0]
+    if (!noteheadGroup) return
 
-    const svg = scoreCanvas.querySelector('svg')
-    if (!svg) return
-
-    // KEY DOM FACT: VexFlow renders a note's articulation glyphs INSIDE that note's
-    // own `vf-notehead` group — NoteHead.draw() opens the group, draws the head, then
-    // calls stavenote.drawModifiers(this) before closing it (notehead.js). So an
-    // articulation lives at `vf-stavenote > vf-notehead[noteIndex] > <text>`, scoped to
-    // the very note it belongs to. We register articulations on the lowest-pitch note
-    // (noteIndex 0), so we look up that note's group and search ONLY within its notehead
-    // sub-group. A document-wide nearest-glyph scan was the bug: with two voices stacked
-    // at the same beat it could grab the OTHER voice's notehead, which lives in a
-    // different group — impossible once the search is scoped here.
+    const glyphEls = noteheadGroup.querySelectorAll<SVGGraphicsElement>('text, path')
     for (const artEl of artElements) {
-      // Paint each articulation in ITS note's voice colour (V1 blue, V2 green —
-      // Sibelius-style; matches the notehead highlight) rather than a uniform orange.
-      const voice = engine.getNote(artEl.noteId!)?.voice ?? 0
-      const articulationColor = voiceFillColor(voice)
-
-      const groupInfo = engine.getStaveNoteSVGGroup(artEl.noteId!)
-      if (!groupInfo) continue
-      const noteheadGroups = groupInfo.group.querySelectorAll('g.vf-notehead')
-      const noteheadGroup = noteheadGroups[groupInfo.noteIndex] ?? noteheadGroups[0]
-      if (!noteheadGroup) continue
-
-      // The notehead glyph itself is drawn FIRST (before its modifiers), so it's the
-      // first text/path in the group; skip it. The remaining glyphs are this note's
-      // modifiers (accidental/dots/articulations). Geometry then picks the one whose
-      // centre is closest to the articulation's registered bbox — robust against a note
-      // carrying several stacked marks (staccato + accent), each with a distinct centre.
-      const glyphEls = noteheadGroup.querySelectorAll<SVGGraphicsElement>('text, path')
       const cx = artEl.bbox.x + artEl.bbox.width / 2
       const cy = artEl.bbox.y + artEl.bbox.height / 2
       let best: SVGGraphicsElement | null = null
@@ -463,8 +460,8 @@ export class HighlightController {
       })
       if (best) {
         const el = best as SVGGraphicsElement
-        this.setAttr(el, 'fill', articulationColor)
-        this.setStyleProp(el, 'fill', articulationColor)
+        this.setAttr(el, 'fill', color)
+        this.setStyleProp(el, 'fill', color)
         this.addClass(el, 'selected-articulation')
       }
     }

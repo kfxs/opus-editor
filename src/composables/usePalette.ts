@@ -23,5 +23,6 @@ export function usePalette(
     renderPreview,
     getLastMousePosition,
     (id) => selection.selectNote(id),
+    () => selection.deselectAll(),
   )
 }

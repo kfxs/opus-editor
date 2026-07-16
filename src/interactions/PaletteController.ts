@@ -7,7 +7,7 @@ import { fracToNumber } from '../utils/fraction'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
 import { sameTimeSignature } from '../utils/meter'
 import { tempoLabel } from '../utils/tempoMap'
-import { selectedNoteIds } from './selection'
+import { selectedNoteIds, selectedArticulationNoteIds } from './selection'
 import { articulationSelection } from './articulationSelection'
 import { tieSelection } from './tieSelection'
 
@@ -34,6 +34,9 @@ export class PaletteController {
     private renderPreview: (coords: { x: number; y: number }) => void,
     private getLastMousePosition: () => { x: number; y: number } | null,
     private selectNote: (id: string | null) => void,
+    // Full deselect (the Esc / Select-arrow path). Optional so existing 6-arg constructions still
+    // work, falling back to selectNote(null) which clears the note + scalar sub-selections.
+    private deselectAll?: () => void,
   ) {}
 
   /** Returns the articulations currently armed for the next note entry. */
@@ -400,12 +403,14 @@ export class PaletteController {
   }
 
   /**
-   * One articulation-key press, routed to the right of THREE behaviours by context:
-   *  1. Selection mode with a real selection → toggle the articulation across the selection.
-   *  2. Selection mode with NOTHING to apply to → arm the articulation STAMP tool (this is the new
-   *     behaviour): switch to entry mode with a ghost articulation, then clicks add it to the
-   *     notes clicked. A second press of the armed key (or a different articulation key) toggles
-   *     it off / switches which one; Esc / Select disarms too.
+   * One articulation-key press, routed by context:
+   *  0. A standalone articulation GROUP is selected in the score → additively toggle this
+   *     articulation on it (see {@link editSelectedArticulation}).
+   *  1. Selection mode with a real note selection → toggle the articulation across the selection.
+   *  2. Selection mode with NOTHING to apply to → arm the articulation STAMP tool: switch to entry
+   *     mode with a ghost articulation, then clicks add it to the notes clicked. A second press of
+   *     the armed key (or a different articulation key) toggles it off / switches which one; Esc /
+   *     Select disarms too.
    *  3. Entry mode (note entry) → arm/disarm the articulation for the NEXT note entered.
    *
    * "Nothing to apply to" is decided by {@link applyArticulationToSelection} returning false, NOT by
@@ -435,6 +440,17 @@ export class PaletteController {
     // so the marking tools stay mutually exclusive.
     if (this.state.selectedAccidentalTool !== null) {
       this.armArticulationTool([type])
+      this.refreshArticulationSelection()
+      return
+    }
+
+    // A standalone articulation GROUP is selected in the score → the press EDITS it: additively
+    // toggle this articulation on the group (add if missing, remove if present). Mirrors the
+    // accidental-glyph editing, but additive (a note can carry several articulations). Handled
+    // before the branch below, whose applyArticulationToSelection would return false (no note
+    // selected) and wrongly arm the stamp.
+    if (this.state.selectedArticulationNoteId) {
+      this.editSelectedArticulation(type)
       this.refreshArticulationSelection()
       return
     }
@@ -532,6 +548,40 @@ export class PaletteController {
     engine.updateUndoNoteId(this.state.selectedNoteId)
     this.renderScore()
     return true
+  }
+
+  /**
+   * Edit the standalone articulation GROUP(s) selected in the score (see
+   * {@link EditorState.selectedArticulationNoteId}) from the Keypad: additively toggle `type` on
+   * them. Group-toggle semantics like {@link applyArticulationToSelection} — if EVERY selected group
+   * already has it, remove from all; else add to all. When a group is left with NO articulations it
+   * has nothing to keep selected, so once ALL selected groups are empty the selection is cleared
+   * (nothing highlighted), matching the accidental switch-off. (Del still clears a whole group.)
+   */
+  private editSelectedArticulation(type: ArticulationType): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    const ids = selectedArticulationNoteIds(this.state.selectedItems.values())
+    const noteIds = ids.length ? ids : (this.state.selectedArticulationNoteId ? [this.state.selectedArticulationNoteId] : [])
+    if (noteIds.length === 0) return
+
+    const allHaveIt = noteIds.every(id => engine.getNote(id)?.articulations?.includes(type))
+    engine.runBatch(allHaveIt ? `Remove ${type}` : `Add ${type}`, () => {
+      for (const id of noteIds) {
+        const hasIt = engine.getNote(id)?.articulations?.includes(type) ?? false
+        if (hasIt === allHaveIt) engine.toggleArticulation(id, type)
+      }
+    })
+
+    // If every selected group is now empty, there's nothing left to select → clear it (like the
+    // accidental switch-off leaving nothing selected).
+    const anyRemain = noteIds.some(id => (engine.getNote(id)?.articulations?.length ?? 0) > 0)
+    if (!anyRemain) {
+      this.state.selectedArticulationNoteId = null
+      this.state.selectedArticulationType = null
+      this.selectNote(null)
+    }
+    this.renderScore()
   }
 
   toggleTie(): void {
@@ -871,14 +921,15 @@ export class PaletteController {
   }
 
   /**
-   * Enter selection mode from the Keypad's Select arrow — the framework-agnostic twin of the toolbar's
-   * Select button. Disarms any positional tool (an armed clef/TS/dynamic is entry-only), flips the
-   * mode, and repaints so the blue keyboard cursor comes down. This is the keypad-origin follow-through
-   * that used to live in App.vue's `toolMode.subscribe`; it moved here when `toolMode` collapsed. No-op
-   * if already in selection mode, so a redundant arrow click costs nothing (matches the toolbar).
+   * The Keypad's Select arrow: CLEAR the whole selection and enter selection mode. Deselects
+   * everything (the Esc path — notes, accidental/articulation/tie/… sub-selections, dynamics,
+   * tuplets), disarms any positional tool, flips the mode, and repaints so the blue keyboard cursor
+   * comes down. Unlike before, it is NOT a no-op when already in selection mode — pressing the arrow
+   * with something selected clears it (its whole point now).
    */
   enterSelectionMode(): void {
-    if (this.state.selectedTool === 'selection') return
+    if (this.deselectAll) this.deselectAll()
+    else this.selectNote(null)
     this.disarmPositionalTools()
     this.state.selectedTool = 'selection'
     this.renderScore()
