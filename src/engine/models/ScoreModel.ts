@@ -2296,9 +2296,13 @@ export class ScoreModel {
       if (params.voice) rest.voice = params.voice
       if (targetStaffId !== undefined) rest.staffId = targetStaffId
       rest.actualDuration = this.computeActualDurationForSlot(rest, measure)
+      // Through the SAME rule a new chord uses: a rest evicts the same-voice rests it overlaps.
+      // This branch used to `push` and nothing else, which is how a bar reached six beats in 4/4
+      // (see evictRestsOverlapping). No gap fill here: this is often the gap-filler's OWN addNote.
+      console.log(`[Model.addNote] add REST ${fmtSlot(rest)} → m${measure.number}, replacing same-voice rests`)
+      this.evictRestsOverlapping(measure, rest)
       measure.slots.push(rest)
       measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
-      console.log(`[Model.addNote] add REST ${fmtSlot(rest)} → m${measure.number} now ${measure.slots.length} slot(s)`)
       return this.restToFlatNote(rest)
     }
 
@@ -2376,46 +2380,73 @@ export class ScoreModel {
   }
 
   /**
-   * Replace rests overlapping a new Chord and fill gaps with new rests.
-   * Also inherits tupletId from any replaced tuplet rest.
+   * Evict the same-voice, same-staff RESTS that `incoming`'s span overlaps, migrating any tie that
+   * pointed at one onto whatever replaces it. Returns the tupletId inherited from a replaced tuplet
+   * rest, if any. Does NOT place `incoming`, and deliberately does NOT fill gaps — see below.
+   *
+   * The rule is about TIME, not pitch: one voice cannot be two things over one beat, so anything
+   * arriving evicts the rests its span covers — a chord or another rest alike. It lived inside the
+   * chord's half of {@link addNote}'s if/else, so the rest branch never got it and simply pushed:
+   * a quarter rest entered where a half rest already sat left BOTH, and the bar went to six beats in
+   * 4/4 (`[integrity] … Δ +2 — OVERFULL`). Pulling the rule out of the chord path is what lets both
+   * branches obey it.
+   *
+   * FILLING IS THE CALLER'S. A rest is often being added BY the gap-filler itself, and re-entering
+   * the filler from inside it closes the very hole the caller was opening — the bar is meant to be
+   * inconsistent mid-repair. The chord path fills afterwards because it is done at that point;
+   * that difference is real, so it stays at the call sites rather than becoming a flag here.
+   *
+   * The tie target is the only thing that varies by kind: a chord's first pitch, or the rest itself
+   * (both can be tied INTO — the let-ring rule; see MusicEngine.deleteNote).
    */
-  private replaceRestsWithChord(measure: Measure, chord: Chord): void {
-    const chordDurFrac = chord.actualDuration ?? durationToFraction(chord.duration, chord.dots ?? 0)
-    const chordVoice = chord.voice ?? 0
+  private evictRestsOverlapping(measure: Measure, incoming: ChordRest): string | undefined {
+    const incomingDurFrac = incoming.actualDuration ?? durationToFraction(incoming.duration, incoming.dots ?? 0)
+    const incomingVoice = incoming.voice ?? 0
+    const tieTarget: { id: string; tiedFrom?: string } | undefined =
+      incoming.type === 'chord' ? incoming.notes[0] : incoming
 
-    // Remove overlapping rests IN THE SAME VOICE AND STAFF; keep everything else (chords, and
-    // rests belonging to other voices/staves — those are independent streams).
-    let inheritedTupletId: string | undefined = chord.tupletId
+    let inheritedTupletId: string | undefined = incoming.tupletId
     const remaining: ChordRest[] = []
 
     for (const existing of measure.slots) {
+      // `incoming` may already be in `slots`; its span always overlaps its own — never self-evict.
+      if (existing.id === incoming.id) {
+        remaining.push(existing)
+        continue
+      }
       if (existing.type === 'rest') {
         const existingDurFrac =
           existing.actualDuration ?? durationToFraction(existing.duration, existing.dots ?? 0)
         const overlaps =
-          (existing.voice ?? 0) === chordVoice &&
-          matchesStaff(existing.staffId, chord.staffId, this.score) &&
-          noteSpansOverlapFrac(chord.beat, chordDurFrac, existing.beat, existingDurFrac)
+          (existing.voice ?? 0) === incomingVoice &&
+          matchesStaff(existing.staffId, incoming.staffId, this.score) &&
+          noteSpansOverlapFrac(incoming.beat, incomingDurFrac, existing.beat, existingDurFrac)
         if (overlaps) {
-          console.log(`[Model.replaceRests] remove overlapping ${fmtSlot(existing)} (same voice v${chordVoice} as new chord)`)
-          if (existing.tupletId && !chord.tupletId) {
+          console.log(`[Model.replaceRests] remove overlapping ${fmtSlot(existing)} (same voice v${incomingVoice} as new ${incoming.type})`)
+          if (existing.tupletId && !incoming.tupletId) {
             inheritedTupletId = existing.tupletId
           }
-          // Migrate any tie pointing TO this rest onto the new chord's first note
-          if (chord.notes.length > 0) {
-            const newNp = chord.notes[0]
-            if (existing.tiedFrom) newNp.tiedFrom = existing.tiedFrom
-            this.migrateRestTieTo(existing.id, newNp.id)
+          // Migrate any tie pointing TO this rest onto whatever replaces it
+          if (tieTarget) {
+            if (existing.tiedFrom) tieTarget.tiedFrom = existing.tiedFrom
+            this.migrateRestTieTo(existing.id, tieTarget.id)
           }
-          // Remove (don't keep)
-        } else {
-          remaining.push(existing)
+          continue // remove
         }
-      } else {
-        // Existing chord — keep it
-        remaining.push(existing)
       }
+      remaining.push(existing) // a chord, or a rest of another voice/staff — independent streams
     }
+
+    measure.slots = remaining
+    return inheritedTupletId
+  }
+
+  /**
+   * Replace rests overlapping a new Chord and fill gaps with new rests.
+   * Also inherits tupletId from any replaced tuplet rest.
+   */
+  private replaceRestsWithChord(measure: Measure, chord: Chord): void {
+    const inheritedTupletId = this.evictRestsOverlapping(measure, chord)
 
     // Apply inherited tupletId
     if (inheritedTupletId && !chord.tupletId) {
@@ -2424,7 +2455,6 @@ export class ScoreModel {
       chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
     }
 
-    measure.slots = remaining
     measure.slots.push(chord)
 
     // Fill gaps with rests

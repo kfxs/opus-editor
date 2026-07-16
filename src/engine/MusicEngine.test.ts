@@ -693,6 +693,56 @@ describe('MusicEngine.moveSelectionToVoice — atomic multi-note move (Phase 3)'
  * leaves a gap and lets the meter-aware fill re-decide, which is right for a hole and wrong for a
  * silence that has a length. These tests pin the cases where the two would disagree.
  */
+/**
+ * A new REST evicts the same-voice rests it overlaps, exactly as a new chord does. It did not: the
+ * rest branch of ScoreModel.addNote pushed and evicted nothing, so a quarter rest entered where a
+ * half rest already sat left BOTH — the bar summed to 6 beats in 4/4 and only the render-time
+ * integrity check noticed ("Δ +2 — OVERFULL"). Found live, from the console trace of a rest entered
+ * at beat 2 of a bar holding a half rest there.
+ *
+ * `renderScore()` runs `repairAllMeasureGaps`, whose integrity check THROWS under Vitest — so these
+ * tests fail loudly on a malformed bar rather than asserting a shape by hand.
+ */
+describe('MusicEngine — a new rest evicts the rests it overlaps', () => {
+  let engine: MusicEngine
+
+  beforeEach(() => {
+    engine = makeEngine()
+  })
+
+  it('does not overfill the bar when a rest lands on a LONGER rest (the reported bug)', () => {
+    // Two quarters at 0 and 1 leave an auto-filled half rest at beat 2 — the reported state.
+    addNote(engine, { step: 'A', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'A', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const restAt2 = engine.getScore().measures[0].slots.find(s => fracToNumber(s.beat) === 2)!
+    expect(restAt2.type).toBe('rest')
+    expect(restAt2.duration).toBe('h') // the rest that gets landed on
+
+    // A quarter rest at beat 2 must REPLACE that half rest, not stack on it.
+    engine.addNoteAtBeat({ duration: 'q', measure: 1, beat: frac(2, 1), isRest: true })
+    engine.renderScore() // throws if the bar is overfull
+
+    const slots = engine.getScore().measures[0].slots
+    expect(slots.filter(s => fracToNumber(s.beat) === 2)).toHaveLength(1)
+  })
+
+  it('replaces the whole-measure rest of an empty bar', () => {
+    engine.addNoteAtBeat({ duration: 'q', measure: 1, beat: frac(0, 1), isRest: true })
+    engine.renderScore()
+    const atZero = engine.getScore().measures[0].slots.filter(s => fracToNumber(s.beat) === 0)
+    expect(atZero).toHaveLength(1)
+    expect(atZero[0].duration).toBe('q')
+  })
+
+  it('leaves the OTHER staff\'s rest alone', () => {
+    engine.addStaffBelow(0)
+    engine.addNoteAtBeat({ duration: 'q', measure: 1, beat: frac(0, 1), isRest: true, staff: 0 })
+    engine.renderScore() // both staves must stay exactly full
+    const staff1 = engine.getScore().measures[0].slots.filter(s => s.staffId === engine.getScore().staves![1].id)
+    expect(staff1.length).toBeGreaterThan(0) // still has its own rest fill
+  })
+})
+
 describe('MusicEngine.convertToRest', () => {
   let engine: MusicEngine
 
