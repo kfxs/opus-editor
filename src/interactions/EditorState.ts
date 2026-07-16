@@ -65,6 +65,16 @@ export interface EditorState {
   selectedArticulationType: string | null
   selectedAccidentalNoteId: string | null
   selectedAccidentalType: string | null
+  /**
+   * The slot whose augmentation DOTS are selected (null = none). One id for ALL of them: `dots` is
+   * a single value on the `Chord`/`Rest` (it modifies the duration), even though VexFlow draws one
+   * dot per notehead per dot — so a chord's dots select and delete together, and "dot one head of a
+   * chord" has no representation. Holds the chord's lowest pitch id (the anchor its dots register
+   * against, like articulations) or a rest's own id — a rest IS its slot. A dotted REST is ordinary,
+   * not exotic: you can author one, and `restFill` picks them for compound beats (6/8 is full of
+   * them). No companion `selectedDotCount` — the count is read live off the note, exactly as the tie
+   * is read off `tiedTo`. */
+  selectedDotNoteId: string | null
   selectedTupletId: string | null
   selectedTieFromNoteId: string | null
   /** Id of the on-score slur selected for removal (selection tool); null if none. */
@@ -275,6 +285,7 @@ export function createEditorState(): EditorState {
     selectedArticulationType: null,
     selectedAccidentalNoteId: null,
     selectedAccidentalType: null,
+    selectedDotNoteId: null,
     selectedTupletId: null,
     selectedTieFromNoteId: null,
     selectedSlurId: null,

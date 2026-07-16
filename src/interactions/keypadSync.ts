@@ -19,8 +19,14 @@ export function noNoteInSelection(state: EditorState): boolean {
   return state.selectedTool === 'selection' && !state.selectedNoteId
 }
 
-/** The dot follows the same rule, from the reactive `selectedDots` count. */
+/**
+ * The dot follows the same rule, from the reactive `selectedDots` count — except when the DOTS
+ * themselves are selected on the score, which lights the key regardless: clicking a dot clears the
+ * note selection (so `noNoteInSelection` is true) and never touches `selectedDots`, yet the key is
+ * exactly what removes them. Mirrors how a selected accidental lights its own key.
+ */
 export function dotHighlight(state: EditorState): 'dot' | null {
+  if (state.selectedDotNoteId) return 'dot'
   return noNoteInSelection(state) || state.selectedDots < 1 ? null : 'dot'
 }
 

@@ -729,10 +729,28 @@ export class PaletteController {
     this.renderScore()
   }
 
+  /**
+   * One dot-key press. A slot's DOTS are selected in the score → the press REMOVES them (the only
+   * edit the key can mean: the dot is on or off, so there is no "change it to a different dot").
+   * Routed first, mirroring {@link editSelectedAccidental} — clicking a dot clears the note
+   * selection, so the branches below would see nothing selected and just flip to entry mode.
+   * Switch-off leaves NOTHING selected, like the accidental's.
+   */
   toggleDot(): void {
+    const engine = this.getEngine()
+    if (this.state.selectedDotNoteId && engine) {
+      const noteId = this.state.selectedDotNoteId
+      console.log(`[Dot] removing selected dot(s) | noteId:${noteId}`)
+      engine.runBatch('Remove dot', () => engine.updateNote(noteId, { dots: 0 }))
+      this.state.selectedDotNoteId = null
+      this.state.selectedDots = 0
+      this.selectNote(null)
+      this.renderScore()
+      return
+    }
+
     const newValue = this.state.selectedDots >= 1 ? 0 : 1
     this.state.selectedDots = newValue
-    const engine = this.getEngine()
     if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
       const before = engine.getNote(this.state.selectedNoteId)
       engine.updateNote(this.state.selectedNoteId, { dots: newValue })

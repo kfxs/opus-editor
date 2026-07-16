@@ -351,10 +351,11 @@ export class HighlightController {
       : group.querySelector('g.vf-notehead text, g.vf-notehead path')
     if (head) colorFill(head)
 
-    // Also light this note's accidental (♯/♭/♮), its articulations and its tie, so a selected note
-    // reads as fully selected — head + stem + accidental + articulations + tie — not just the head.
+    // Also light this note's accidental (♯/♭/♮), articulations, dots and tie, so a selected note
+    // reads as fully selected — head + stem + accidental + articulations + dots + tie.
     this.highlightNoteAccidental(noteId, group, SELECTION_COLOR)
     this.colorNoteArticulations(noteId, SELECTION_COLOR)
+    this.colorNoteDots(noteId, SELECTION_COLOR)
     this.colorNoteTie(noteId, SELECTION_COLOR)
 
     // Multi-voice unison: the other voice draws a notehead at the SAME pixel spot in a
@@ -466,6 +467,62 @@ export class HighlightController {
         this.addClass(el, 'selected-articulation')
       }
     }
+  }
+
+  /**
+   * Colour every augmentation-dot glyph of the slot anchored at `noteId`. Shared by the selected-DOT
+   * highlight ({@link applyDotHighlight}) and the selected-NOTE highlight ({@link highlightNote}),
+   * exactly as {@link colorNoteArticulations} is shared — so a dotted note reads as fully selected
+   * and clicking one dot lights them all.
+   *
+   * Scoped to the whole `vf-stavenote` group, NOT to one `vf-notehead` like articulations are: a
+   * chord's dots are spread across EVERY notehead group (VexFlow attaches one Dot per head, drawn
+   * inside that head's group), yet they are one model value on the slot. Each registered dot bbox
+   * then claims the nearest glyph in the group; a dot sits clear to the right of the head it belongs
+   * to, so nearest is unambiguous, and requiring the glyph's centre to fall inside the (slightly
+   * grown) bbox keeps a notehead from ever being picked when a dot glyph is missing.
+   */
+  private colorNoteDots(noteId: string, color: string): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    const dotElements = engine.getElementRegistry().getByType('dot').filter(el => el.noteId === noteId)
+    if (!dotElements.length) return
+    const groupInfo = engine.getStaveNoteSVGGroup(noteId)
+    if (!groupInfo) return
+
+    const glyphEls = groupInfo.group.querySelectorAll<SVGGraphicsElement>('text')
+    for (const dotEl of dotElements) {
+      const cx = dotEl.bbox.x + dotEl.bbox.width / 2
+      const cy = dotEl.bbox.y + dotEl.bbox.height / 2
+      let best: SVGGraphicsElement | null = null
+      let bestDist = Infinity
+      glyphEls.forEach(svgEl => {
+        const bb = svgEl.getBBox?.()
+        if (!bb || bb.width === 0 || bb.height === 0) return
+        const ex = bb.x + bb.width / 2
+        const ey = bb.y + bb.height / 2
+        if (Math.abs(ex - cx) > dotEl.bbox.width / 2 + 1.0) return
+        if (Math.abs(ey - cy) > dotEl.bbox.height / 2 + 1.0) return
+        const dist = (ex - cx) ** 2 + (ey - cy) ** 2
+        if (dist < bestDist) { bestDist = dist; best = svgEl }
+      })
+      if (best) {
+        const el = best as SVGGraphicsElement
+        this.setAttr(el, 'fill', color)
+        this.setStyleProp(el, 'fill', color)
+        this.addClass(el, 'selected-dot')
+      }
+    }
+  }
+
+  /** Highlight the dots selected on the score (a click on any one of them). Paints in the slot's
+   *  voice colour, like every other sub-element highlight. */
+  applyDotHighlight(): void {
+    const engine = this.getEngine()
+    if (!engine || !this.state.selectedDotNoteId) return
+    const noteId = this.state.selectedDotNoteId
+    const voice = engine.getNote(noteId)?.voice ?? 0
+    this.colorNoteDots(noteId, voiceFillColor(voice))
   }
 
   applyAccidentalHighlight(): void {

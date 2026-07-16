@@ -28,6 +28,7 @@ export type ElementType =
   | 'slur-endpoint'
   | 'slur-segment-endpoint'
   | 'accidental'
+  | 'dot'
   | 'tuplet'
   | 'articulation'
   | 'dynamic'
@@ -221,7 +222,9 @@ export interface ElementInfo {
   // Accidental-specific properties
   /** Type of accidental: '#', 'b', 'n', '##', 'bb' (for accidentals) */
   accidentalType?: string
-  /** ID of the note this accidental belongs to (for accidentals) */
+  /** ID of the note this accidental belongs to (for accidentals) — and, for a 'dot', the ANCHOR the
+   *  slot's dots hang off (see VexFlowRenderer.registerDots): EVERY dot glyph of one chord/rest
+   *  shares it, because `dots` is one value on the slot. */
   noteId?: string
   // Articulation-specific properties
   /** Articulation type (for articulations) */

@@ -205,6 +205,15 @@ export function useShortcuts(
         state.selectedAccidentalType = null
         selection.selectNote(noteId)
         renderer.renderScore()
+      } else if (state.selectedDotNoteId && eng) {
+        // Removes ALL of the slot's dots at once (`dots` is one value on the chord/rest), including
+        // both of a double dot — there is no half-undotting. Keeps the note selected to keep
+        // editing, like the accidental above.
+        const noteId = state.selectedDotNoteId
+        eng.updateNote(noteId, { dots: 0 })
+        state.selectedDotNoteId = null
+        selection.selectNote(noteId)
+        renderer.renderScore()
       } else if (state.selectedTieFromNoteId && eng) {
         eng.toggleTie(state.selectedTieFromNoteId)
         state.selectedTieFromNoteId = null

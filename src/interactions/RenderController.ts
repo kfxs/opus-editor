@@ -27,6 +27,7 @@ export class RenderController {
     this.highlight.applySelectionHighlight()
     this.highlight.applyArticulationHighlight()
     this.highlight.applyAccidentalHighlight()
+    this.highlight.applyDotHighlight()
     this.highlight.applyTupletSelectionHighlight()
     this.highlight.applyTieHighlight()
     this.highlight.applyClefSelectionHighlight()

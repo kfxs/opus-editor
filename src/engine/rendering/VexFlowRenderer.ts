@@ -440,6 +440,40 @@ export class VexFlowRenderer {
   }
 
   /**
+   * Register every dot glyph VexFlow drew on `staveNote`, all against ONE `anchorNoteId`.
+   *
+   * `dots` is a property of the SLOT (`Chord` or `Rest`) — it modifies the duration — not of a
+   * notehead, the way `alter` is. But VexFlow draws one dot per notehead per dot, so a
+   * double-dotted three-note chord emits SIX glyphs for that one value. Registering them against a
+   * shared anchor (the chord's lowest pitch, exactly as articulations anchor; a rest's own id) is
+   * what makes clicking ANY of them select the slot's dots and light all of them. "Dot one head of
+   * a chord" is not expressible in the model, so there is no individual dot to select.
+   */
+  private registerDots(
+    staveNote: StaveNote,
+    anchorNoteId: string,
+    measureNumber: number,
+    staffIndex: number,
+    beat: number,
+  ): void {
+    try {
+      for (const modifier of staveNote.getModifiers()) {
+        if (modifier.getCategory() !== 'Dot') continue
+        const box = modifier.getBoundingBox()
+        if (!box) continue
+        this.elementRegistry.add({
+          type: 'dot',
+          noteId: anchorNoteId,
+          measure: measureNumber,
+          staff: staffIndex,
+          beat,
+          bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+        })
+      }
+    } catch (_e) { /* Dot bounding box may not be available */ }
+  }
+
+  /**
    * Interleave inline ClefNotes (for mid-measure clef changes) among the slot
    * StaveNotes. Each change is inserted before the first slot at/after its beat.
    * ClefNotes ignore ticks, so the voice's tick total is unaffected.
@@ -1415,6 +1449,14 @@ export class VexFlowRenderer {
             })
             // Add rest to staveNoteMap so ties pointing to this rest can be rendered
             this.staveNoteMap.set(slot.id, { staveNote, noteIndex: 0 })
+            // A rest carries its dots on its own id — it IS the slot, so it is its own anchor.
+            // Rest dots are AUTHORED, not just auto-fill: you can enter a dotted rest outright, or
+            // dot an existing one (the bar reflows around it — a dotted quarter rest in 4/4 leaves
+            // q + 8 behind it). They are also what `restFill` picks for a compound beat, so 6/8 is
+            // full of them. Only ONE dot glyph either way: a rest has a single "notehead".
+            if (slot.dots) {
+              this.registerDots(staveNote, slot.id, measure.number, staffIndex, fracToNumber(slot.beat))
+            }
           }
         } catch (_e) { /* getBoundingBox may fail */ }
       } else {
@@ -1483,6 +1525,11 @@ export class VexFlowRenderer {
                     }
                   }
                 } catch (_e) { /* Articulation bounding box may not be available */ }
+              }
+
+              // Dots: chord-level data like articulations, so anchor them on the lowest pitch too.
+              if (keyIndex === 0 && slot.dots) {
+                this.registerDots(staveNote, pitch.id, measure.number, staffIndex, fracToNumber(slot.beat))
               }
 
               // Register whatever accidental VexFlow actually drew — including a
