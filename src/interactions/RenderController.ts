@@ -218,6 +218,18 @@ export class RenderController {
     engine.renderScoreWithDotGhost(coords)
   }
 
+  /** Render the score with a translucent ghost REST following the cursor — the preview for the armed
+   *  rest stamp. The ONLY stamp ghost with a value to show, and it reads it from the armed length
+   *  rather than the tool: a rest IS its duration + dots, and those are the note-entry fields the
+   *  duration/dot keys go on setting while the tool is live (see MARKING_TOOL_USES_ARMED_LENGTH). */
+  renderRestGhost(coords: { x: number; y: number }): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    renderCensus.setCause('ghost:rest')
+    this.ensureScoreDrawn(engine)
+    engine.renderScoreWithRestGhost(coords, this.state.selectedDuration, this.state.selectedDots)
+  }
+
   /**
    * Draw the preview for WHATEVER is armed, at `coords` — the single answer to "what does the next
    * click do?". A marking tool (clef / time signature / dynamic / tempo / the four stamps) previews
@@ -256,6 +268,8 @@ export class RenderController {
       // WHICH note it lands on is resolved at click time.
       case 'tie': this.renderTieGhost(coords); return
       case 'dot': this.renderDotGhost(coords); return
+      // The one stamp whose ghost carries a VALUE — the armed length, which is what a rest is.
+      case 'rest': this.renderRestGhost(coords); return
       default: assertNeverTool(tool)
     }
   }

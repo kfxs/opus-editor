@@ -24,7 +24,7 @@
  */
 
 import type { NoteDuration } from '@/types/music'
-import { type Fraction, fracCreate, fracMul, fracToNumber } from '@/utils/fraction'
+import { type Fraction, fracCreate, fracLte, fracMul, fracToNumber } from '@/utils/fraction'
 
 /** The three parallel facts about a single (undotted) note duration. */
 export interface DurationInfo {
@@ -111,6 +111,35 @@ export function durationToFraction(duration: NoteDuration, dots = 0): Fraction {
   const base = DURATION_INFO[duration].fraction
   const dotMul = DOT_MULTIPLIERS[Math.min(dots, 2)] ?? DOT_MULTIPLIERS[0]
   return fracMul(base, dotMul)
+}
+
+/**
+ * The longest rest that FITS in `available` beats, given the one you asked for.
+ *
+ * Returns the armed length unchanged when it fits — dots and all, so a dotted quarter rest stays a
+ * dotted quarter rest. Only when it does not fit does it fall back, to the longest PLAIN rest that
+ * does: past the point where the bar can hold what you asked for, a dot is a second guess about a
+ * length the caller no longer controls, and the leftover becomes rests anyway via the meter-aware
+ * fill. Returns null when nothing fits (no space at all).
+ *
+ * Exact (`Fraction`), not float: this decides a model value — what gets written into the score —
+ * and the Fraction/float invariant (docs/ARCHITECTURE.md) puts it on the exact side of the line.
+ *
+ * Pure, so the rule has ONE home. It is the "if the armed duration exceeds the space left in the
+ * bar, just place the rest that fills it" rule, and it belongs to any caller placing a rest against
+ * a barline — today the rest stamp.
+ */
+export function fitRestDuration(
+  duration: NoteDuration,
+  dots: number,
+  available: Fraction,
+): { duration: NoteDuration; dots: number } | null {
+  if (fracLte(available, fracCreate(0, 1))) return null
+  if (fracLte(durationToFraction(duration, dots), available)) return { duration, dots }
+  for (const d of DURATIONS_DESC) {
+    if (fracLte(durationToFraction(d, 0), available)) return { duration: d, dots: 0 }
+  }
+  return null
 }
 
 /**

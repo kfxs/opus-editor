@@ -1505,6 +1505,25 @@ export class MusicEngine {
   }
 
   /**
+   * The rest STAMP's click: place a rest of the ARMED length at the clicked position. Returns the
+   * new rest, or null if nothing could be placed there.
+   *
+   * POSITION-based, like note entry with the mouse — not a hit-test on a glyph. You click a place in
+   * the bar and the rest goes there, replacing whatever it covers; you do not have to find and hit
+   * the existing rest. (It was built the other way first, off `findClosestNoteOrRest`, and it made
+   * the tool nearly unusable: every click in open space reported "not on a note or rest — no change"
+   * and only a direct hit on the default rest did anything.)
+   *
+   * The sibling of {@link convertToRest}, and the difference is whose length wins. Convert is an
+   * EDIT of what is there ("this same length, but silent"); the stamp PLACES a length of its own
+   * ("a half rest, here"), so it goes through note entry — which is exactly what it is, with
+   * `isRest`. See {@link NoteEntryCoordinator.addRestAtPosition}.
+   */
+  stampRestAtPosition(coords: PixelCoordinates, duration: NoteDuration, dots: number, voice: NoteParams['voice'] = 0): Note | null {
+    return this.noteEntryCoordinator.addRestAtPosition(coords, duration, dots, voice)
+  }
+
+  /**
    * Silence the slot holding `noteId`: it becomes a rest of its OWN duration, keeping its beat,
    * dots, tuplet membership, voice and staff. Returns the new rest, or null if nothing changed.
    *
@@ -2090,6 +2109,12 @@ export class MusicEngine {
 
   renderScoreWithDotGhost(coords: PixelCoordinates): boolean {
     return this.renderer.renderScoreWithDotGhost(coords.x, coords.y)
+  }
+
+  /** Ghost REST at the cursor, showing the armed length (duration + dots) — see
+   *  {@link VexFlowRenderer.renderScoreWithRestGhost}. */
+  renderScoreWithRestGhost(coords: PixelCoordinates, duration: NoteDuration, dots: number): boolean {
+    return this.renderer.renderScoreWithRestGhost(coords.x, coords.y, duration, dots)
   }
 
   /**

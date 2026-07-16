@@ -2,7 +2,7 @@ import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSi
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorState'
-import { activeVoiceToModel, armedTool } from './EditorState'
+import { activeVoiceToModel, armedTool, armedToolUsesLength } from './EditorState'
 import { fracToNumber } from '../utils/fraction'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
 import { sameTimeSignature } from '../utils/meter'
@@ -261,6 +261,19 @@ export class PaletteController {
   }
 
   setDuration(duration: NoteDuration): void {
+    // …unless the armed tool USES the length, in which case the press is not "enter notes", it is
+    // "make the armed rest a different length". The tool stays armed and its ghost restacks — the
+    // one tool a duration press does not end. Dots clear as they do on any fresh duration press, so
+    // the dotted-rest flow is the dotted-note flow: press the duration, then the dot.
+    if (armedToolUsesLength(this.state)) {
+      this.state.selectedDuration = duration
+      this.state.selectedDots = 0
+      this.state.tupletMode = false
+      const pos = this.getLastMousePosition()
+      if (pos) this.renderArmedGhost(pos)
+      return
+    }
+
     // A duration press means "enter notes", so whatever marking tool was armed gives way — after
     // any value it holds is carried into note entry. ONE call does both (and is the only clear):
     // this used to be four separate resets which between them still forgot the tempo tool.
@@ -460,6 +473,12 @@ export class PaletteController {
         return 0
       case 'dot':
         return 1 // the ONLY promotion that carries dots; a plain press must still clear a stale one
+      case 'rest':
+        // UNREACHABLE: setDuration returns before this for any tool that uses the armed length —
+        // a duration press retunes the armed rest rather than ending it. Listed because the switch
+        // is exhaustive, and answering "no entry-mode home" is also the truth: the rest tool has
+        // nowhere to be promoted TO. Placing rests with the mouse is not a property of a note.
+        return this.state.selectedDots
       case 'tie':          // valueless — there is no armed entry-mode tie to become
       case 'clef':         // the four below place OBJECTS, not note properties: nothing to carry
       case 'timeSignature':
@@ -764,6 +783,16 @@ export class PaletteController {
     const engine = this.getEngine()
 
     const armed = this.state.selectedMarkingTool
+
+    // (0a) A tool that uses the armed length is live → the dot belongs to IT: the armed rest becomes
+    // dotted (or stops being), and the tool stays armed. Before the switch below, which would
+    // otherwise trade a dotted-rest gesture for the dot stamp.
+    if (armedToolUsesLength(this.state)) {
+      this.state.selectedDots = this.state.selectedDots ? 0 : 1
+      const pos = this.getLastMousePosition()
+      if (pos) this.renderArmedGhost(pos)
+      return
+    }
 
     // (0) The dot stamp is live → the key toggles it off, back to selection mode.
     if (armed?.kind === 'dot') {
@@ -1180,6 +1209,9 @@ export class PaletteController {
    * a clef waiting to be placed, the selection it would report has already been cleared.
    */
   selectionIsRest(): boolean {
+    // The rest stamp is armed → the key lights because the TOOL is, exactly as every other stamp
+    // lights its own key. Ahead of the reads below, which would see the (cleared) note selection.
+    if (armedTool(this.state, 'rest')) return true
     if (this.state.selectedMarkingTool) return false
     const engine = this.getEngine()
     if (this.state.selectedTool !== 'selection' || !this.state.selectedNoteId || !engine) return false
@@ -1198,24 +1230,61 @@ export class PaletteController {
   }
 
   /**
-   * The rest key's press (Keypad `0` / Numpad 0): silence the selection — every selected note
-   * becomes a rest of its own duration — and leave the resulting rest SELECTED, so the score keeps
-   * the place you were working in and the Keypad immediately lights `0` + that duration. That last
-   * part is what separates it from Delete, which leaves nothing selected.
+   * The rest key's press (Keypad `0` / Numpad 0) — the fifth stamp's entry point, and the same
+   * shape as its four siblings:
+   *
+   * 1. the rest stamp is live → the key toggles it OFF, back to selection mode;
+   * 2. a DIFFERENT tool is armed → switch to this one (ONE check — see setAccidental);
+   * 3. selection mode with something selected → SILENCE it ({@link convertSelectionToRest});
+   * 4. selection mode with nothing selected → ARM the stamp;
+   * 5. entry mode → arm the stamp too, which is what "place rests instead of notes" IS.
+   *
+   * (5) is where it parts from the others. They have an entry-mode meaning of their own (arm an
+   * accidental for the next note); a rest has none — placing rests with the mouse is not a property
+   * of the next note, it is a different thing to place. So the stamp is the answer in both modes.
+   */
+  pressRest(): void {
+    // (1) / (2) — the armed-tool checks come first: they must not read the (cleared) selection.
+    if (armedTool(this.state, 'rest')) {
+      this.disarmMarkingTool()
+      return
+    }
+    if (this.state.selectedMarkingTool) {
+      this.armRestTool()
+      return
+    }
+    // (3) — something is selected: silence it. Returns false when there was nothing to silence…
+    if (this.convertSelectionToRest()) return
+    // (4) / (5) — …so the key arms the stamp instead, in either mode.
+    this.armRestTool()
+  }
+
+  /** Arm the rest stamp. It carries no value: the armed LENGTH is `selectedDuration`/`selectedDots`,
+   *  which the duration and dot keys go on setting while it is live (see MARKING_TOOL_USES_ARMED_LENGTH). */
+  private armRestTool(): void {
+    this.armMarkingTool({ kind: 'rest' })
+    console.log(`[palette] rest stamp armed | ${this.state.selectedDuration}${'.'.repeat(this.state.selectedDots)}`)
+  }
+
+  /**
+   * Silence the selection — every selected note becomes a rest of its own duration — leaving the
+   * resulting rest SELECTED, so the score keeps the place you were working in and the Keypad
+   * immediately lights `0` + that duration. That last part is what separates it from Delete, which
+   * leaves nothing selected. Returns whether anything was silenced, so {@link pressRest} can fall
+   * back to arming the stamp when there was nothing to act on.
    *
    * ONE undo step for the whole selection (`runBatch`), like every other multi-select action.
    *
-   * Selection-mode only, and a no-op unless something non-rest is selected — pressing it with a rest
-   * already selected does nothing, deliberately: "un-rest this" would have to invent a pitch. So the
-   * key's light is not a toggle you can switch off, it is a statement about the selection.
+   * Note this converts at the SLOT's own duration, not the armed one: it is an edit of what is
+   * already there. The armed length belongs to the STAMP, which places new rests.
    */
-  convertSelectionToRest(): void {
+  convertSelectionToRest(): boolean {
     const engine = this.getEngine()
-    if (!engine || this.state.selectedTool !== 'selection') return
+    if (!engine || this.state.selectedTool !== 'selection') return false
 
     const ids = selectedNoteIds(this.state.selectedItems.values())
       .filter(id => !engine.getNote(id)?.isRest)
-    if (!ids.length) return
+    if (!ids.length) return false
 
     // Converting a CHORD silences the whole slot, so its heads all resolve to the same slot: convert
     // once, and skip any id whose slot a previous conversion already took. Without this, the second
@@ -1229,12 +1298,13 @@ export class PaletteController {
         if (rest) converted.push(rest.id)
       }
     })
-    if (!converted.length) return
+    if (!converted.length) return false
 
     // The LAST rest becomes the selection, matching how the anchor is the last note of a set.
     this.selectNote(converted[converted.length - 1])
     console.log(`[palette] converted ${converted.length} slot(s) to rest — selected ${converted[converted.length - 1]}`)
     this.refreshRestSelection()
     this.renderScore()
+    return true
   }
 }

@@ -9,6 +9,7 @@ import {
   beatsToDuration,
   splitBeatsIntoDurations,
   getDotMultiplier,
+  fitRestDuration,
 } from './durations'
 import { getMeasureDurationFrac } from './musicUtils'
 import { fracCreate, fracAdd, fracEq, fracToNumber } from './fraction'
@@ -255,5 +256,49 @@ describe('getMeasureDurationFrac', () => {
   it('agrees with the float getMeasureDuration for /4 meters', () => {
     // 4/4 = 4/1, reduced fraction equals the float
     expect(getMeasureDurationFrac({ numerator: 4, denominator: 4 })).toEqual(frac(4, 1))
+  })
+})
+
+/**
+ * The barline cap for a placed rest: a rest cannot split and tie across a barline the way an
+ * overflowing note does, so when the armed length does not fit, the longest one that DOES is placed.
+ */
+describe('fitRestDuration', () => {
+  const q = (num: number, den = 1) => fracCreate(num, den)
+
+  it('keeps the armed length when it fits', () => {
+    expect(fitRestDuration('h', 0, q(4))).toEqual({ duration: 'h', dots: 0 })
+  })
+
+  it('keeps the DOTS when it fits — a dotted rest is ordinary, not exotic', () => {
+    expect(fitRestDuration('q', 1, q(4))).toEqual({ duration: 'q', dots: 1 })
+  })
+
+  it('keeps a length that fits EXACTLY', () => {
+    expect(fitRestDuration('h', 0, q(2))).toEqual({ duration: 'h', dots: 0 })
+    expect(fitRestDuration('q', 1, q(3, 2))).toEqual({ duration: 'q', dots: 1 })
+  })
+
+  it('caps to the longest PLAIN rest that fits when the armed one does not', () => {
+    // A whole armed with one beat left → a quarter. (The leftover, if any, becomes rests via the
+    // meter-aware fill; this only answers "what single rest goes here".)
+    expect(fitRestDuration('w', 0, q(1))).toEqual({ duration: 'q', dots: 0 })
+    expect(fitRestDuration('w', 0, q(2))).toEqual({ duration: 'h', dots: 0 })
+    expect(fitRestDuration('w', 0, q(3))).toEqual({ duration: 'h', dots: 0 })
+  })
+
+  it('drops the dot when capping — past the point it fits, the dot is a second guess', () => {
+    // A dotted half (3 beats) with 2 left: a half fits, so the dot goes rather than the length.
+    expect(fitRestDuration('h', 1, q(2))).toEqual({ duration: 'h', dots: 0 })
+  })
+
+  it('caps to a fraction of a beat', () => {
+    expect(fitRestDuration('w', 0, q(1, 2))).toEqual({ duration: '8', dots: 0 })
+    expect(fitRestDuration('w', 0, q(1, 4))).toEqual({ duration: '16', dots: 0 })
+  })
+
+  it('returns null when nothing fits at all', () => {
+    expect(fitRestDuration('q', 0, q(0))).toBeNull()
+    expect(fitRestDuration('q', 0, q(1, 64))).toBeNull() // shorter than the shortest rest
   })
 })

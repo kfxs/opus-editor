@@ -4,13 +4,13 @@ import { CollisionDetector } from './models/CollisionDetector'
 import {
   durationToBeats, splitBeatsIntoDurations, midiToNoteName,
   getTupletNoteDurationFrac, getTupletTotalBeatsFrac, beatToFrac,
-  measureCapacityQuarters,
+  measureCapacityQuarters, measureCapacityFrac,
 } from '@/utils/musicUtils'
 import {
   fracToNumber, fracEq, fracAdd, fracSub, fracMul,
   fracLt, fracGt, fracGte, fracFromInt, fracCreate,
 } from '@/utils/fraction'
-import { durationToFraction, tupletNoteDurationFraction } from '@/utils/durations'
+import { durationToFraction, tupletNoteDurationFraction, fitRestDuration } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
 import type { Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, Measure } from '@/types/music'
 import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
@@ -108,8 +108,10 @@ export class NoteEntryCoordinator {
     const noteEnd = finalBeat + effectiveDuration
 
     // Remove overlapping CHORD notes atomically, using scaled durations for tuplet notes.
-    // Rests are intentionally skipped here — replaceRestsWithChord (inside addNote) handles
+    // Rests are intentionally skipped here — replaceRestsWith (inside addNote) handles
     // rest removal with proper tie migration, so deleting rests here would break that.
+    // NOTE this runs for an incoming REST too, which is what lets a stamped rest overwrite the
+    // notes it covers; the rests it covers are evicted by addNote, one layer down.
     const epsilon = 0.001
     const entryVoice = params.voice ?? 0
     const entryStaff = params.staff ?? 0
@@ -176,6 +178,75 @@ export class NoteEntryCoordinator {
    * 4. If only LEFT element and it's close → use LEFT's beat
    * 5. If same pitch collision → find next rest
    */
+  /**
+   * Place a REST at a clicked position — the rest stamp's click. Note entry with `isRest`, and it is
+   * deliberately built out of the same parts: the click resolves to a BEAT the same way a note's
+   * does (`resolveClickToBeat`, the same quantization and the same snap to the nearest slot), lands
+   * on the same staff, and goes through the same `addNoteAtBeat`, which evicts whatever it covers.
+   *
+   * Half of {@link addNoteAtPosition}'s body has no meaning here and is absent rather than skipped:
+   * a rest has no pitch, so nothing reads Y for a spelling, nothing can collide at a pitch, and
+   * nothing can chord. The cursor's Y is read for ONE thing — which staff was clicked.
+   *
+   * The armed length is capped to what the bar has left ({@link fitRestDuration}); a rest cannot
+   * split and tie across a barline the way an overflowing note does.
+   */
+  addRestAtPosition(
+    coords: PixelCoordinates,
+    duration: NoteParams['duration'],
+    dots: number,
+    voice: NoteParams['voice'] = 0,
+  ): Note | null {
+    const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
+    const entryStaff = this.elementRegistry.staffIndexAtY(measureNumber, coords.y)
+
+    const measure = this.getScoreModel().getMeasure(measureNumber)
+    if (!measure) {
+      console.log('✗ Rest stamp: measure does not exist')
+      return null
+    }
+    // The same gate note entry uses: a click on the clef / meter / past the barline places nothing.
+    if (!this.isValidEntryClick(coords, measureNumber, entryStaff)) return null
+
+    const barQuarters = measureCapacityQuarters(measure)
+    const { beat, reason } = this.resolveClickToBeat(
+      coords, measureNumber, barQuarters, durationToBeats(duration, dots), entryStaff,
+    )
+    let finalBeat = beatToFrac(beat)
+
+    // Snap onto the slot already at this beat in the entry stream, so a stamp lands on the grid the
+    // bar actually has rather than a pixel-derived beat between two slots. A note does this via its
+    // rest/chord branches; a rest has one case — whatever is there, notes included, is replaced.
+    const stream = this.getScoreModel().getNotesInMeasure(measureNumber)
+      .filter(n => (n.voice ?? 0) === (voice ?? 0) && (n.staff ?? 0) === entryStaff)
+    const covering = stream.find(n => {
+      const end = fracAdd(n.beat, n.actualDuration ?? durationToFraction(n.duration, n.dots || 0))
+      return fracGte(finalBeat, n.beat) && fracLt(finalBeat, end)
+    })
+    if (covering) finalBeat = covering.beat
+
+    const available = fracSub(measureCapacityFrac(measure), finalBeat)
+    const fitted = fitRestDuration(duration, dots, available)
+    if (!fitted) {
+      console.log(`✗ Rest stamp: no room at m${measureNumber} b${fracToNumber(finalBeat).toFixed(3)}`)
+      return null
+    }
+    if (fitted.duration !== duration || fitted.dots !== dots) {
+      console.log(`[Rest stamp] ${duration}${'.'.repeat(dots)} exceeds the ${fracToNumber(available).toFixed(3)} beat(s) left in m${measureNumber} → ${fitted.duration}${'.'.repeat(fitted.dots)}`)
+    }
+    console.log(`[Rest stamp] click → m${measureNumber} b${fracToNumber(finalBeat).toFixed(3)} staff${entryStaff} v${voice ?? 0} (${reason})`)
+
+    return this.addNoteAtBeat({
+      duration: fitted.duration,
+      measure: measureNumber,
+      beat: finalBeat,
+      isRest: true,
+      ...(fitted.dots && { dots: fitted.dots }),
+      ...(voice && { voice }),
+      ...(entryStaff && { staff: entryStaff }),
+    })
+  }
+
   addNoteAtPosition(
     coords: PixelCoordinates,
     duration: NoteParams['duration'],

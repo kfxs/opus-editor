@@ -1382,6 +1382,7 @@ export class MouseController {
     if (this.stampAccidentalAtClick(engine, registry, x, y)) return
     if (this.stampTieAtClick(engine, registry, x, y)) return
     if (this.stampDotAtClick(engine, registry, x, y)) return
+    if (this.stampRestAtClick(engine, x, y)) return
 
     // No marking tool armed → note/tuplet entry.
     this.placeNoteAtClick(engine, registry, x, y, measureNum)
@@ -1619,6 +1620,34 @@ export class MouseController {
     if (engine.getNote(noteId)?.dots) console.log(`✓ Dot stamped | on ${note.isRest ? 'rest' : 'note'} ${noteId}`)
     else console.log(`· Dot stamp: no room to dot ${noteId} — the bar cannot hold the longer value`)
     this.render.renderScore()
+    return true
+  }
+
+  /**
+   * Rest stamp tool: a click PLACES a rest of the armed length at that position, replacing what it
+   * covers. It is note entry with `isRest`, and behaves like it — click anywhere in the bar, not on
+   * a glyph. (See MusicEngine.stampRestAtPosition for why it is not a hit-test.)
+   *
+   * Still the odd one out among the stamps: the others ADD a mark to the note clicked and are
+   * idempotent; this one replaces the slot, so clicking a note destroys it. That is the point.
+   *
+   * The cursor's Y picks only the STAFF — a rest has no pitch, so the click chooses a slot and the
+   * rest lands at its standard height. The ghost floats with the pointer to show WHAT is being
+   * placed, the same split every stamp makes (the accidental ghost hovers, then lands on a note).
+   */
+  private stampRestAtClick(engine: MusicEngine, x: number, y: number): boolean {
+    if (!armedTool(this.state, 'rest')) return false
+
+    const rest = engine.stampRestAtPosition(
+      { x, y },
+      this.state.selectedDuration,
+      this.state.selectedDots,
+      activeVoiceToModel(this.state.activeVoice),
+    )
+    if (rest) {
+      console.log(`✓ Rest stamped | ${rest.duration}${'.'.repeat(rest.dots ?? 0)} at m${rest.measure} b${fracToNumber(rest.beat).toFixed(3)}`)
+      this.render.renderScore()
+    }
     return true
   }
 

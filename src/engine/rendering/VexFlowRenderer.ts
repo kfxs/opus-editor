@@ -283,7 +283,7 @@ export class VexFlowRenderer {
    * the leak.)
    */
   private static readonly GHOST_GROUP_SELECTOR =
-    '.ghost-note-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tempo'
+    '.ghost-note-group, .ghost-rest-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tempo'
 
   /** Take down whatever ghost is showing. O(1) in the score's size — this is the whole point
    *  of P4: hovering an invalid element, or leaving the canvas, used to cost a FULL render
@@ -2713,6 +2713,97 @@ export class VexFlowRenderer {
    * for CSS tinting, and translated so its center sits at the cursor.
    * @returns true if the ghost clef was drawn
    */
+  /**
+   * Overlay a free-floating translucent ghost REST that follows the cursor — the preview for the
+   * armed rest stamp. Drawn as a real rest {@link StaveNote} of the armed duration + dots, on a
+   * 0-line stave (so no staff lines come with it), then translated to the cursor: the same trick
+   * the clef ghost uses, because both are one glyph shown loose rather than engraved in a bar.
+   *
+   * A real StaveNote and not a bare glyph, because the ghost must answer "how long, and dotted?" —
+   * the two things a rest IS. VexFlow draws the dots at the right offset for each duration; hand-
+   * placing them would be inventing a rule the font already knows.
+   *
+   * THE ATTACH LINE. A whole and a half rest are the same rectangle: what tells them apart is that
+   * a whole rest HANGS from a line and a half rest SITS on one. Floating at the cursor, the ghost
+   * touches no line at all, so both would read the same — a coin-flip on the most basic choice the
+   * tool offers. So for the line-attached rests (whole/half, dotted or not) the ghost draws the ONE
+   * line it attaches to, exactly as the score does for a rest a shift has pushed off the staff
+   * (drawRestLedgerLines / restSupportingLedgerLine). Shorter rests are not line-attached and get
+   * nothing — an eighth rest is unmistakable on its own.
+   *
+   * @returns true if the ghost rest was drawn
+   */
+  renderScoreWithRestGhost(cursorX: number, cursorY: number, duration: NoteDuration, dots: number): boolean {
+    this.clearGhosts() // P4: an overlay — take the old ghost down, leave the score alone
+
+    const svg = this.getSVGElement()
+    if (!svg || !this.context) return false
+
+    try {
+      const childrenBefore = svg.children.length
+
+      // A 0-line stave draws nothing itself, and gives the rest something to be positioned against.
+      const tempStave = new Stave(0, cursorY, 120, { numLines: 0 })
+      tempStave.setBegBarType(Barline.type.NONE)
+      tempStave.setEndBarType(Barline.type.NONE)
+      tempStave.setContext(this.context)
+
+      // 'b/4' anchors a rest to the middle line under the default clef — the same key NoteBuilder
+      // uses, so the ghost is positioned by the same rule as the real thing.
+      const rest = new StaveNote({ keys: ['b/4'], duration: convertDuration(duration, dots) + 'r' })
+      for (let d = 0; d < dots; d++) Dot.buildAndAttach([rest], { all: true })
+      rest.setStave(tempStave)
+      rest.setContext(this.context)
+
+      // A voice+formatter gives the note a tickcontext (it will not draw without one).
+      const voice = new Voice({ numBeats: 4, beatValue: 4 }).setMode(Voice.Mode.SOFT).addTickable(rest)
+      new Formatter().joinVoices([voice]).format([voice], 100)
+      rest.draw()
+
+      // The attach line, for the two rests that have one — drawn with the glyph so it travels with
+      // it under the transform below.
+      const line = restSupportingLedgerLine(duration, false, rest.getLineForRest())
+      if (line !== null || duration === 'w' || duration === 'h') {
+        const xBegin = rest.getNoteHeadBeginX()
+        const xEnd = rest.getNoteHeadEndX()
+        const PAD = 3 // px the line overhangs the glyph on each side — reads as a staff line, not a strike-through
+        const y = tempStave.getYForNote(rest.getLineForRest())
+        this.context.beginPath()
+        this.context.moveTo(xBegin - PAD, y)
+        this.context.lineTo(xEnd + PAD, y)
+        this.context.stroke()
+      }
+
+      const newElements: Element[] = []
+      for (let i = childrenBefore; i < svg.children.length; i++) newElements.push(svg.children[i])
+      if (newElements.length === 0) return false
+
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+      group.setAttribute('class', 'ghost-rest-group')
+      for (const el of newElements) svg.removeChild(el)
+      for (const el of newElements) group.appendChild(el)
+      svg.appendChild(group)
+
+      // Park it clear of the pointer — LEFT and UP — rather than centred on it, which buries the
+      // glyph under the arrow (whose body extends down-right from its tip). The same reason the
+      // accidental ghost parks left and the dot ghost right-and-up: a ghost you cannot see is not a
+      // preview. Up matters more here than for those two, because the rest is a solid block and the
+      // arrow sits squarely on it.
+      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
+      if (gbox && gbox.width > 0) {
+        const GAP_X = 5
+        const LIFT_Y = 10
+        const dx = cursorX - GAP_X - (gbox.x + gbox.width / 2)
+        const dy = cursorY - LIFT_Y - (gbox.y + gbox.height / 2)
+        group.setAttribute('transform', `translate(${dx}, ${dy})`)
+      }
+
+      return true
+    } catch (_e) {
+      return false
+    }
+  }
+
   renderScoreWithClefGhost(cursorX: number, cursorY: number, clef: Clef): boolean {
     this.clearGhosts() // P4: an overlay — take the old ghost down, leave the score alone
 

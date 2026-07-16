@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { PaletteController } from './PaletteController'
 import { createEditorState, armedTool, type EditorState, type MarkingTool } from './EditorState'
-import { dotHighlight } from './keypadSync'
+import { dotHighlight, durationHighlight } from './keypadSync'
 
 // PaletteController is framework-agnostic; stub its callbacks.
 function makeController(state: EditorState): PaletteController {
@@ -132,7 +132,7 @@ describe('PaletteController — dynamics tool', () => {
 })
 
 /**
- * The eight marking tools are mutually exclusive, and `selectedMarkingTool` is what makes that TRUE
+ * The nine marking tools are mutually exclusive, and `selectedMarkingTool` is what makes that TRUE
  * rather than merely maintained: one field cannot hold two tools. These tests pin the property from
  * the outside, because the old shape — eight independent fields, each arm-site clearing the other
  * seven — could express "two armed at once" and did:
@@ -173,11 +173,16 @@ describe('PaletteController — only ONE marking tool can be armed', () => {
     ['accidental', () => palette.setAccidental('#')],
     ['tie', () => palette.toggleTie()],
     ['dot', () => palette.toggleDot()],
+    ['rest', () => palette.pressRest()],
   ]
 
   for (const [firstName, armFirst] of TOOLS) {
     for (const [secondName, armSecond] of TOOLS) {
       if (firstName === secondName) continue
+      // THE ONE EXCEPTION, and it is the feature: with the rest stamp armed, the dot key belongs to
+      // the armed REST (it dots it — a rest has a length, and a length can be dotted), so it does not
+      // arm the dot stamp. Every other pair excludes. Reach the dot stamp from selection mode.
+      if (firstName === 'rest' && secondName === 'dot') continue
       it(`arming ${secondName} disarms ${firstName}`, () => {
         state.selectedTool = 'selection'
         armFirst()
@@ -186,6 +191,15 @@ describe('PaletteController — only ONE marking tool can be armed', () => {
       })
     }
   }
+
+  it('the dot key does NOT swap the armed rest for the dot stamp — it dots the rest', () => {
+    // The exception skipped in the matrix above, pinned in its own right.
+    state.selectedTool = 'selection'
+    palette.pressRest()
+    palette.toggleDot()
+    expect(state.selectedMarkingTool?.kind).toBe('rest')
+    expect(state.selectedDots).toBe(1)
+  })
 
   it('ANY armed tool darkens the note-entry keys — the Keypad must not claim a note is coming', () => {
     // Every marking tool arms into ENTRY mode but enters no note, so duration / accidental / dot /
@@ -204,7 +218,12 @@ describe('PaletteController — only ONE marking tool can be armed', () => {
       // Re-read through the declared type: TS narrows the field to `never` after the null above.
       const armed = state.selectedMarkingTool as MarkingTool | null
       expect(armed?.kind, `${name} should be armed`).toBe(name)
-      expect(dotHighlight(state), `${name}: the dot key`).toBe(name === 'dot' ? 'dot' : null)
+      // The REST tool is the one exception, and a principled one: a rest IS a length, so its keys
+      // stay live and report the armed rest (see MARKING_TOOL_USES_ARMED_LENGTH). Every other tool
+      // darkens them — with a clef armed, a lit duration key would be a lie.
+      const usesLength = name === 'rest'
+      expect(dotHighlight(state), `${name}: the dot key`).toBe(name === 'dot' || usesLength ? 'dot' : null)
+      expect(durationHighlight(state), `${name}: the duration key`).toBe(usesLength ? 'q' : null)
       expect(palette.noteHasAccent(), `${name}: the accent key`).toBe(name === 'articulation')
     }
   })
@@ -501,6 +520,99 @@ describe('PaletteController — rest key highlight', () => {
  * The rest key's PRESS. The difference from Delete is the selection: the resulting rest stays
  * selected, so the score keeps your place and the Keypad lights `0` + the duration.
  */
+/**
+ * The rest stamp is the ONLY tool the note-entry length keys stay live under — a rest IS a duration,
+ * so pressing one retunes the armed rest instead of ending the tool and starting note entry. Every
+ * other marking tool darkens them (92fbe3d).
+ */
+describe('PaletteController — the rest stamp keeps the length keys live', () => {
+  let state: EditorState
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    const fakeEngine = { getNote: () => null } as unknown as import('../engine/MusicEngine').MusicEngine
+    palette = new PaletteController(() => fakeEngine, state, vi.fn(), vi.fn(), () => null, vi.fn())
+  })
+
+  it('a duration press RETUNES the armed rest instead of disarming it', () => {
+    state.selectedTool = 'selection'
+    palette.pressRest() // nothing selected → arms the stamp
+    expect(armedTool(state, 'rest')).not.toBeNull()
+
+    palette.setDuration('h')
+    expect(armedTool(state, 'rest')).not.toBeNull() // still armed — the tool did NOT give way
+    expect(state.selectedDuration).toBe('h')
+    expect(state.selectedTool).toBe('entry')
+  })
+
+  it('a duration press still ENDS every other tool (the rule it excepts)', () => {
+    state.selectedTool = 'selection'
+    palette.toggleTie() // arms the tie stamp
+    expect(armedTool(state, 'tie')).not.toBeNull()
+    palette.setDuration('h')
+    expect(state.selectedMarkingTool).toBeNull() // gave way to note entry, as before
+  })
+
+  it('the dot key dots the armed REST rather than switching to the dot stamp', () => {
+    state.selectedTool = 'selection'
+    palette.pressRest()
+    palette.toggleDot()
+    expect(armedTool(state, 'rest')).not.toBeNull() // still the rest tool
+    expect(state.selectedDots).toBe(1)
+    palette.toggleDot()
+    expect(state.selectedDots).toBe(0) // and it toggles back off
+    expect(armedTool(state, 'rest')).not.toBeNull()
+  })
+
+  it('a fresh duration press clears the dot, as in note entry', () => {
+    state.selectedTool = 'selection'
+    palette.pressRest()
+    palette.toggleDot()
+    expect(state.selectedDots).toBe(1)
+    palette.setDuration('8')
+    expect(state.selectedDots).toBe(0)
+  })
+
+  it('lights the duration and dot keys while armed (they are the armed rest)', () => {
+    state.selectedTool = 'selection'
+    palette.pressRest()
+    palette.setDuration('h')
+    palette.toggleDot()
+    expect(durationHighlight(state)).toBe('h')
+    expect(dotHighlight(state)).toBe('dot')
+  })
+
+  it('darkens them under any OTHER tool', () => {
+    state.selectedTool = 'selection'
+    palette.toggleTie()
+    expect(durationHighlight(state)).toBeNull()
+    expect(dotHighlight(state)).toBeNull()
+  })
+
+  it('lights the rest key while its own tool is armed', () => {
+    state.selectedTool = 'selection'
+    palette.pressRest()
+    expect(palette.selectionIsRest()).toBe(true)
+  })
+
+  it('re-pressing the rest key disarms, back to selection mode', () => {
+    state.selectedTool = 'selection'
+    palette.pressRest()
+    palette.pressRest()
+    expect(state.selectedMarkingTool).toBeNull()
+    expect(state.selectedTool).toBe('selection')
+  })
+
+  it('a different tool SWITCHES to the rest stamp', () => {
+    state.selectedTool = 'selection'
+    palette.toggleTie()
+    palette.pressRest()
+    expect(armedTool(state, 'rest')).not.toBeNull()
+    expect(armedTool(state, 'tie')).toBeNull()
+  })
+})
+
 describe('PaletteController — convertSelectionToRest', () => {
   let state: EditorState
   let notes: Record<string, { id: string; isRest?: boolean }>

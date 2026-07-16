@@ -58,6 +58,45 @@ export type MarkingTool =
   | { kind: 'tie' }
   /** VALUELESS — the UI's dot is on or off. The one stamp that also applies to RESTS. */
   | { kind: 'dot' }
+  /** VALUELESS, but not for the others' reason: a rest is nothing WITHOUT a length, so rather than
+   *  carry its own it READS the armed one (`selectedDuration` + `selectedDots`) — the very fields the
+   *  duration and dot keys already set. One source of truth: a `{ duration }` here would be a second
+   *  copy to keep in step, which is the N² problem this union was built to delete. It is why this is
+   *  the only tool the note-entry keys stay LIVE under — see {@link MARKING_TOOL_USES_ARMED_LENGTH}. */
+  | { kind: 'rest' }
+
+/**
+ * Does the armed tool USE the note-entry armed length (`selectedDuration` + `selectedDots`)?
+ *
+ * This is the ONE question that decides whether the duration and dot keys stay live while a tool is
+ * armed. The answer used to be "never": every marking tool arms into entry mode but enters no note,
+ * so a lit duration key would claim a quarter note was coming while what was really armed was a clef
+ * (`92fbe3d`). The rest tool is the first counter-example — a rest IS a duration, so its keys must
+ * keep working, and pressing one must retune the armed rest instead of ending it.
+ *
+ * A Record and not `kind === 'rest'`, for the reason `MEASURE_RENDER_ROLE` is one: a tenth tool
+ * cannot be added without answering this, and the answer is not guessable from the outside. An
+ * earlier list of "the stamp kinds" encoded no real distinction and rotted; this one encodes a real
+ * property — does the tool have a length of its own to place?
+ */
+export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean> = {
+  rest: true,        // a rest is nothing without a length
+  clef: false,       // the four below place OBJECTS — a length means nothing to them
+  timeSignature: false,
+  dynamic: false,
+  tempo: false,
+  articulation: false, // the four stamps mark notes that ALREADY have their length
+  accidental: false,
+  tie: false,
+  dot: false,
+}
+
+/** Whether the armed tool (if any) uses the armed length — see {@link MARKING_TOOL_USES_ARMED_LENGTH}.
+ *  False with nothing armed: the keys are live then for the ordinary reason (note entry). */
+export function armedToolUsesLength(state: EditorState): boolean {
+  const tool = state.selectedMarkingTool
+  return tool ? MARKING_TOOL_USES_ARMED_LENGTH[tool.kind] : false
+}
 
 /**
  * The armed tool IF it is of `kind`, else null — the read half of {@link MarkingTool}, typed so the

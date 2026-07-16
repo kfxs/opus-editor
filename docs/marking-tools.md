@@ -2,7 +2,7 @@
 
 A **marking tool** is something armed for placement: arming one switches to entry mode, hides the
 keyboard cursor, previews itself as a ghost at the pointer, and makes the next canvas click *place or
-stamp* instead of entering a note. There are eight:
+stamp* instead of entering a note. There are nine:
 
 | | tool | arms | click does |
 |---|---|---|---|
@@ -14,8 +14,34 @@ stamp* instead of entering a note. There are eight:
 | | `accidental` | one sign (swaps) | re-spells the note clicked |
 | | `tie` | *nothing* | ties the note clicked to the next slot |
 | | `dot` | *nothing* | dots the note **or rest** clicked |
+| **place a length** | `rest` | *nothing — it reads the armed length* | **places** a rest at the beat clicked, replacing what it covers |
 
 They are **mutually exclusive**: exactly one is armed, or none.
+
+## The rest tool is the odd one out (and why it carries no value)
+
+Every other tool either places an object or *adds* a mark to something that already exists. A rest is
+neither: it is **a length**, and a length is the one thing the note-entry keys already hold. So:
+
+- It arms `{ kind: 'rest' }` — **valueless**. It does *not* carry a `duration`. Copying the length
+  into the tool would be a second source of truth to keep in step with `selectedDuration` /
+  `selectedDots`, which is the exact N² problem this union was built to delete.
+- It is the **only** tool the duration and dot keys stay live under. They light, and pressing one
+  **retunes the armed rest** rather than ending the tool. That is not an exception list: it is the
+  property `MARKING_TOOL_USES_ARMED_LENGTH` asks of every kind, and a tenth tool cannot be added
+  without answering it (the same trick as `MEASURE_RENDER_ROLE`).
+- Its click is **positional**, not a hit-test: it is note entry with `isRest`, so you click a place
+  in the bar and the rest lands there — you do not have to hit a glyph. It shares note entry's beat
+  resolution and snap (`addRestAtPosition`), minus everything about pitch. Built the other way first
+  (off `findClosestNoteOrRest`) it was nearly unusable: every click in open space reported "not on a
+  note or rest" and only a direct hit on the default rest did anything.
+- It **replaces** rather than adds, so it is not idempotent — clicking a note destroys it. A longer
+  armed rest overwrites what it covers, exactly as dropping a half note over two quarters does.
+- Its ghost is the only stamp ghost with a **value** to show (the armed length). It draws the
+  **attach line** for whole/half rests: they are the same rectangle, and *hangs from* vs *sits on* a
+  line is all that distinguishes them — invisible on a ghost floating free of the staff.
+- **Capped at the barline**, never split: a note that overflows splits and ties, which a rest cannot
+  do (`fitRestDuration`). The leftover closes up as rests via the meter-aware fill.
 
 ## Why one field
 
@@ -73,12 +99,15 @@ a `default`.
   the state, and the observable Proxy traps a SET on the field — a `tool.clef = 'bass'` would be
   invisible to it and the Keypad would go quietly stale. All seven write sites assign a whole value;
   `observableEditorState.spike.test.ts` (6) and (6b) pin it.
-- **Any armed tool darkens the note-entry keys.** All eight arm into entry mode but enter *no note*,
-  so duration / accidental / dot / articulation must go dark — only the armed gesture lights.
-  Otherwise the Keypad claims "a quarter note is coming" while a clef is armed. This once tested a
-  list of the four *stamp* kinds; the list encoded no real distinction and is deleted.
-- **The gate belongs in the rule.** `dotHighlight` is the single source for the dot key — the Vue
-  palette's computeds read it too — so its armed-tool gate lives inside it, not at the caller.
+- **Any armed tool darkens the note-entry keys — except one.** They arm into entry mode but enter
+  *no note*, so duration / accidental / dot / articulation go dark; otherwise the Keypad claims "a
+  quarter note is coming" while a clef is armed. This once tested a list of the four *stamp* kinds;
+  the list encoded no real distinction and is deleted. The `rest` tool is the sole exception, and a
+  principled one — it USES the armed length (see above), which `MARKING_TOOL_USES_ARMED_LENGTH`
+  states as a property of every kind rather than a list of names.
+- **The gate belongs in the rule.** `dotHighlight` and `durationHighlight` are the single source for
+  their keys — the Vue palette's computeds read them too — so the armed-tool gate lives inside them,
+  not at the caller.
 - **Framework-agnostic.** All of it lives in `interactions/`; no `vue` import (enforced by
   `lint:boundary`). `armMarkingTool` doesn't know whether a palette button, a Keypad key, a menu or a
   shortcut called it — which is what makes the Vue palettes deletable, and a right-click clef menu a
@@ -96,4 +125,6 @@ as named methods instead of implicit in eight copies:
   branch.
 - A duration press **promotes** the accidental and dot stamps into note entry (the "accidental +
   duration" / "dotted quarter" flows) but merely disarms the other six — the tie has no armed
-  entry-mode form, and the positional four place objects, not note properties.
+  entry-mode form, and the positional four place objects, not note properties. The `rest` tool is
+  reached by neither path: a duration press returns before `promoteStampToNoteEntry` (it retunes the
+  armed rest), and there is nothing to promote it *to*.

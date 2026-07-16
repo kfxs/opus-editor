@@ -5,6 +5,7 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { CoordinateMapper } from './rendering/CoordinateMapper'
 import { ElementRegistry } from './ElementRegistry'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
+import { durationToFraction } from '@/utils/durations'
 
 function makeCoordinator(scoreModel: ScoreModel) {
   const coordinateMapper = new CoordinateMapper({
@@ -358,5 +359,62 @@ describe('NoteEntryCoordinator — tuplet in a secondary voice', () => {
 
     // Only the original tuplet survives.
     expect(scoreModel.getMeasure(1)!.tuplets!.length).toBe(1)
+  })
+})
+
+/**
+ * The rest stamp's click. It is NOTE ENTRY with `isRest`, and the point of these tests is that it
+ * behaves like it: a click anywhere in the bar places a rest at that beat, replacing what it covers.
+ * The first build hit-tested the glyph instead (`findClosestNoteOrRest`), so every click in open
+ * space did nothing and you had to land on the default rest — the bug that produced this shape.
+ */
+describe('NoteEntryCoordinator.addRestAtPosition', () => {
+  let scoreModel: ScoreModel
+  let coordinator: NoteEntryCoordinator
+
+  beforeEach(() => {
+    scoreModel = new ScoreModel('Test')
+    coordinator = makeCoordinator(scoreModel)
+  })
+
+  // The harness's CoordinateMapper: measure 1 starts at x=20 with a 100px left margin, 240 wide.
+  // A click in the middle of the bar is open space — no glyph under it, which is the whole point.
+  const clickInBar1 = (x: number) => ({ x, y: 60 })
+
+  it('places a rest from a click in OPEN SPACE — no glyph needed', () => {
+    const rest = coordinator.addRestAtPosition(clickInBar1(200), 'q', 0)
+    expect(rest).not.toBeNull()
+    expect(rest!.isRest).toBe(true)
+    expect(rest!.duration).toBe('q')
+    expect(rest!.measure).toBe(1)
+  })
+
+  it('places the ARMED length, not the length of what it lands on', () => {
+    const rest = coordinator.addRestAtPosition(clickInBar1(140), 'h', 0)
+    expect(rest!.duration).toBe('h') // the empty bar held a WHOLE measure rest
+  })
+
+  it('carries the armed DOTS', () => {
+    const rest = coordinator.addRestAtPosition(clickInBar1(140), 'q', 1)
+    expect(rest!.duration).toBe('q')
+    expect(rest!.dots).toBe(1)
+  })
+
+  it('leaves the bar exactly full — the rest it lands on is replaced, not stacked on', () => {
+    coordinator.addRestAtPosition(clickInBar1(140), 'q', 0)
+    // The rest branch of addNote does not fill gaps (it is often the FILLER's own caller — see
+    // evictRestsOverlapping); the render's repair closes them, so do what the render does. The
+    // integrity check inside it THROWS under Vitest, so an overfull bar fails here regardless.
+    scoreModel.repairAllMeasureGaps()
+    const m1 = scoreModel.getMeasure(1)!
+    const total = m1.slots.reduce(
+      (acc, s) => acc + fracToNumber(s.actualDuration ?? durationToFraction(s.duration, s.dots ?? 0)), 0)
+    expect(total).toBe(4) // 4/4 — not 5, which is what stacking would give
+  })
+
+  it('replaces the NOTE it lands on', () => {
+    const note = coordinator.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    coordinator.addRestAtPosition(clickInBar1(125), 'q', 0)
+    expect(scoreModel.getNote(note.id)).toBeFalsy()
   })
 })
