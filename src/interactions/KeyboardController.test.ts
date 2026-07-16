@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { createEditorState, type EditorState } from './EditorState'
+import { fracToNumber } from '@/utils/fraction'
 import { KeyboardController } from './KeyboardController'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { fracCreate as frac, fracEq } from '@/utils/fraction'
@@ -20,6 +21,17 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
     initialize = vi.fn()
     renderScore = vi.fn()
     getElementRegistry = vi.fn(() => fakeRegistry)
+    // Enough of the renderer for engine.renderScore() to run: it is the only way to reach
+    // repairAllMeasureGaps, whose integrity check THROWS under Vitest — so a test that renders
+    // fails on a malformed bar instead of asserting the shape by hand.
+    setLayoutReusable = vi.fn()
+    setViewMode = vi.fn()
+    setLinearStaffSpacing = vi.fn()
+    setCullWindow = vi.fn()
+    viewStateKey = vi.fn(() => 'stub-view-state')
+    clearGhosts = vi.fn()
+    getAllMeasureBounds = vi.fn(() => new Map())
+    getSystemOpeningMeasureNumber = vi.fn(() => undefined)
   },
 }))
 vi.mock('../engine/audio/PlaybackEngine', () => ({
@@ -190,5 +202,41 @@ describe('KeyboardController', () => {
       expect(engine.getNote(rest.id)!.isRest).toBe(false) // became a note (no chord on a rest)
       expect(notesAtBeat(engine, 1)).toHaveLength(1)
     })
+  })
+})
+
+/**
+ * A note that overflows the bar is split into tied pieces. The caret must land after the LAST of
+ * them — you typed one note, so the next one comes after all of it.
+ */
+describe('KeyboardController — cursor after a tie-split entry', () => {
+  let engine: MusicEngine
+  let state: EditorState
+  let kb: KeyboardController
+
+  beforeEach(() => {
+    engine = makeEngine()
+    state = createEditorState()
+    kb = new KeyboardController(
+      () => engine, state, () => undefined, () => {},
+      (id) => { state.selectedNoteId = id }, () => 60,
+    )
+  })
+
+  it('lands on the LAST tied piece, not the head (reported)', () => {
+    // Reported: G4 quarter at beat 0, then a WHOLE from beat 1 of 4/4 → h@1 tied to q@3 tied to
+    // q@m2b0. The caret landed on the h at beat 1 — inside the note just typed — so the next entry
+    // would overwrite it.
+    const g = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    state.selectedTool = 'entry'
+    state.selectedNoteId = g.id
+    state.selectedDuration = 'w'
+
+    kb.enterNoteAtCursorPosition('A')
+
+    const landed = engine.getNote(state.selectedNoteId!)!
+    expect(landed.measure).toBe(2)              // the tail, in the NEXT bar
+    expect(fracToNumber(landed.beat)).toBe(0)
+    expect(landed.tiedTo).toBeUndefined()       // genuinely the end of the chain
   })
 })

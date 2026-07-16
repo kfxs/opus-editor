@@ -218,9 +218,17 @@ export class KeyboardController {
       return
     }
 
-    // Follow the tie chain to the last note so the cursor lands after all tied continuations
-    let lastNote = newNote
+    // Follow the tie chain to the last note so the cursor lands after all tied continuations.
+    //
+    // RE-READ the head first. `addNoteAtBeat` returns a flat PROJECTION built when the note was
+    // created, and a split attaches its ties afterwards (placeSpanningNote: addNote → updateNote
+    // tiedTo) — so the returned object's `tiedTo` is `undefined` no matter what the model says. The
+    // walk below seeded from it, found no tie, and left the cursor on the HEAD: type a whole note
+    // across a barline and the caret landed inside the note you had just typed, so the next one
+    // overwrote its own tail. The loop's later hops already read from the score; only the seed was
+    // stale, which is why this looked like it worked.
     const scoreAfter = engine.getScore()
+    let lastNote = engine.getNote(newNote.id) ?? newNote
     let safetyLimit = 16
     while (lastNote.tiedTo && safetyLimit-- > 0) {
       const tied = scoreAfter.measures.flatMap(m => getMeasureNotes(m)).find(n => n.id === lastNote.tiedTo)
