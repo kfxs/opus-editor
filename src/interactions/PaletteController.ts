@@ -2,7 +2,8 @@ import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSi
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorState'
-import { activeVoiceToModel, armedTool, armedToolUsesLength } from './EditorState'
+import { activeVoiceToModel, armedTool, armedToolUsesLength, DEFAULT_DURATION, DEFAULT_DOTS } from './EditorState'
+import { durationHighlight } from './keypadSync'
 import { fracToNumber } from '../utils/fraction'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
 import { sameTimeSignature } from '../utils/meter'
@@ -1059,9 +1060,9 @@ export class PaletteController {
 
   resetToDefaults(): void {
     this.state.activeVoice = 1
-    this.state.selectedDuration = 'q'
+    this.state.selectedDuration = DEFAULT_DURATION
     this.state.selectedAccidental = null
-    this.state.selectedDots = 0
+    this.state.selectedDots = DEFAULT_DOTS
     this.state.accent = false
     this.state.staccato = false
     this.state.tenuto = false
@@ -1259,11 +1260,34 @@ export class PaletteController {
     this.armRestTool()
   }
 
-  /** Arm the rest stamp. It carries no value: the armed LENGTH is `selectedDuration`/`selectedDots`,
-   *  which the duration and dot keys go on setting while it is live (see MARKING_TOOL_USES_ARMED_LENGTH). */
+  /**
+   * Arm the rest stamp. It carries no value: the armed LENGTH is `selectedDuration`/`selectedDots`,
+   * which the duration and dot keys go on setting while it is live (see MARKING_TOOL_USES_ARMED_LENGTH).
+   *
+   * A FRESH stamp starts from the DEFAULT length. Because the tool reads the armed length rather
+   * than carrying its own, it would otherwise inherit whatever happened to be left in those fields —
+   * disarm a half-rest stamp, press `0` again, and you are holding a half rest you never asked for,
+   * with nothing on screen having said so. The length has to come from somewhere; with nothing
+   * selected, the honest somewhere is the default.
+   *
+   * INHERITED only when the Keypad is actually SHOWING a length — press `5` then `0` and you get the
+   * half-rest stamp you just asked for. That is the whole rule, and `durationHighlight` already
+   * decides it: a lit duration key means a length is genuinely in play; a dark one means the value in
+   * the field is a leftover. Asking the RULE rather than re-deriving "is anything selected" is what
+   * keeps the two answers from drifting — the key you can see and the length you get are one fact.
+   *
+   * READ BEFORE ARMING, deliberately: `armMarkingTool` makes `armedToolUsesLength` true, at which
+   * point `durationHighlight` reports the field it is about to be asked to reset. The check would
+   * pass every time and the reset would never fire.
+   */
   private armRestTool(): void {
+    const shownLength = durationHighlight(this.state)
+    if (shownLength === null) {
+      this.state.selectedDuration = DEFAULT_DURATION
+      this.state.selectedDots = DEFAULT_DOTS
+    }
     this.armMarkingTool({ kind: 'rest' })
-    console.log(`[palette] rest stamp armed | ${this.state.selectedDuration}${'.'.repeat(this.state.selectedDots)}`)
+    console.log(`[palette] rest stamp armed | ${this.state.selectedDuration}${'.'.repeat(this.state.selectedDots)}${shownLength === null ? ' (default — nothing was selected)' : ' (kept the selected length)'}`)
   }
 
   /**

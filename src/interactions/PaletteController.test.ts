@@ -221,8 +221,13 @@ describe('PaletteController — only ONE marking tool can be armed', () => {
       // The REST tool is the one exception, and a principled one: a rest IS a length, so its keys
       // stay live and report the armed rest (see MARKING_TOOL_USES_ARMED_LENGTH). Every other tool
       // darkens them — with a clef armed, a lit duration key would be a lie.
+      //
+      // Note what the rest row proves about the stale values above: arming with nothing selected
+      // takes the DEFAULT length, so the stale dot is gone and the duration reads 'q' because it was
+      // reset — not because it was inherited. The two happen to agree here; `arms a FRESH stamp…`
+      // below tells them apart.
       const usesLength = name === 'rest'
-      expect(dotHighlight(state), `${name}: the dot key`).toBe(name === 'dot' || usesLength ? 'dot' : null)
+      expect(dotHighlight(state), `${name}: the dot key`).toBe(name === 'dot' ? 'dot' : null)
       expect(durationHighlight(state), `${name}: the duration key`).toBe(usesLength ? 'q' : null)
       expect(palette.noteHasAccent(), `${name}: the accent key`).toBe(name === 'articulation')
     }
@@ -588,6 +593,57 @@ describe('PaletteController — the rest stamp keeps the length keys live', () =
     palette.toggleTie()
     expect(durationHighlight(state)).toBeNull()
     expect(dotHighlight(state)).toBeNull()
+  })
+
+  it('a FRESH stamp starts from the default length, not the last one used', () => {
+    // The complaint: disarm a half-rest stamp, press 0 again, and you were still holding a half rest.
+    // The tool reads the armed length rather than carrying one, so it inherited a leftover.
+    state.selectedTool = 'selection'
+    palette.pressRest()
+    palette.setDuration('h')
+    palette.toggleDot()
+    expect(state.selectedDuration).toBe('h')
+    expect(state.selectedDots).toBe(1)
+
+    palette.pressRest() // disarm → selection mode, nothing selected
+    expect(state.selectedMarkingTool).toBeNull()
+
+    palette.pressRest() // arm again — nothing is selected, so: the default
+    expect(state.selectedDuration).toBe('q')
+    expect(state.selectedDots).toBe(0)
+  })
+
+  it('KEEPS a length the Keypad is showing — press a duration, then rest', () => {
+    // The exception: a lit duration key means a length is genuinely in play, so the stamp takes it.
+    state.selectedTool = 'selection'
+    palette.setDuration('h') // nothing selected → starts fresh note entry; the key now lights 'h'
+    expect(durationHighlight(state)).toBe('h')
+
+    palette.pressRest()
+    expect(state.selectedDuration).toBe('h') // not reset to the default
+    expect(armedTool(state, 'rest')).not.toBeNull()
+  })
+
+  it('keeps the dots of a length the Keypad is showing', () => {
+    state.selectedTool = 'selection'
+    palette.setDuration('h')
+    palette.toggleDot()
+    palette.pressRest()
+    expect(state.selectedDuration).toBe('h')
+    expect(state.selectedDots).toBe(1)
+  })
+
+  it('starts from the default when switching from a tool that shows no length', () => {
+    // Under the tie stamp the duration key is DARK, so the rest stamp arriving is fresh. The 'h' is
+    // set directly: pressing a duration key would flip to ENTRY mode, where toggleTie ties the
+    // cursor note instead of arming the stamp.
+    state.selectedTool = 'selection'
+    state.selectedDuration = 'h' // stale, from an earlier session
+    palette.toggleTie()
+    expect(armedTool(state, 'tie')).not.toBeNull()
+    expect(durationHighlight(state)).toBeNull() // dark under the tie stamp
+    palette.pressRest()                          // switch to the rest stamp
+    expect(state.selectedDuration).toBe('q')
   })
 
   it('lights the rest key while its own tool is armed', () => {

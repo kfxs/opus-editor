@@ -66,6 +66,15 @@ export type MarkingTool =
   | { kind: 'rest' }
 
 /**
+ * The length the editor starts from, and returns to. A quarter, undotted — the value
+ * `createEditorState` mints, `PaletteController.resetToDefaults` restores, and a fresh rest stamp
+ * arms with. It was written out at each of those sites; naming it is what makes "the default
+ * duration" a thing the code can say rather than three `'q'`s that happen to agree.
+ */
+export const DEFAULT_DURATION: NoteDuration = 'q'
+export const DEFAULT_DOTS = 0
+
+/**
  * Does the armed tool USE the note-entry armed length (`selectedDuration` + `selectedDots`)?
  *
  * This is the ONE question that decides whether the duration and dot keys stay live while a tool is
@@ -347,9 +356,9 @@ export function createEditorState(): EditorState {
     selectedSlurSegmentEndpoint: null,
     selectedSlurSegmentSpanCount: 0,
     slurEndpointCandidateNoteId: null,
-    selectedDuration: 'q',
+    selectedDuration: DEFAULT_DURATION,
     selectedAccidental: null,
-    selectedDots: 0,
+    selectedDots: DEFAULT_DOTS,
     accent: false,
     staccato: false,
     tenuto: false,
