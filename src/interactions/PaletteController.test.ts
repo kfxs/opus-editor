@@ -532,11 +532,15 @@ describe('PaletteController — rest key highlight', () => {
  */
 describe('PaletteController — the rest stamp keeps the length keys live', () => {
   let state: EditorState
+  let notes: Record<string, { id: string; isRest?: boolean }>
   let palette: PaletteController
 
   beforeEach(() => {
     state = createEditorState()
-    const fakeEngine = { getNote: () => null } as unknown as import('../engine/MusicEngine').MusicEngine
+    notes = {}
+    const fakeEngine = {
+      getNote: (id: string) => notes[id] ?? null,
+    } as unknown as import('../engine/MusicEngine').MusicEngine
     palette = new PaletteController(() => fakeEngine, state, vi.fn(), vi.fn(), () => null, vi.fn())
   })
 
@@ -646,10 +650,76 @@ describe('PaletteController — the rest stamp keeps the length keys live', () =
     expect(state.selectedDuration).toBe('q')
   })
 
+  it('KEEPS the keyboard caret when armed from entry mode — a caret is not a selection', () => {
+    // The caret is `selectedNoteId` in entry mode (HighlightController.applyKeyboardCursor draws iff
+    // entry + an anchor). Arming used to clear it unconditionally, so pressing 0 while typing
+    // dropped you out of keyboard entry.
+    state.selectedTool = 'entry'
+    state.selectedNoteId = 'cursor-note'
+    palette.pressRest()
+    expect(armedTool(state, 'rest')).not.toBeNull()
+    expect(state.selectedNoteId).toBe('cursor-note') // caret survived
+    expect(state.selectedTool).toBe('entry')
+  })
+
+  it('still clears the SELECTION when armed from selection mode', () => {
+    // The line the clear was aimed at: with a note selected, the ghost must not read as "this note".
+    state.selectedTool = 'selection'
+    state.selectedNoteId = 'selected-note'
+    state.selectedItems = new Map()
+    palette.pressRest()
+    expect(state.selectedNoteId).toBeNull()
+  })
+
+  it('clears the note-entry extras — a rest is a LENGTH and nothing else', () => {
+    // Armed accidental + articulations describe a NOTE. The Keypad darkens those keys under the rest
+    // tool, but darkening only HID them: they stayed in the state and came back on the next note.
+    state.selectedTool = 'selection'
+    state.selectedAccidental = '#'
+    state.accent = true
+    state.staccato = true
+    state.tenuto = true
+    state.selectedBeam = 'begin' // never shows on a key — a rest has no beam — but waits for the next NOTE
+
+    palette.pressRest()
+
+    expect(state.selectedAccidental).toBeNull()
+    expect(state.accent).toBe(false)
+    expect(state.staccato).toBe(false)
+    expect(state.tenuto).toBe(false)
+    expect(state.selectedBeam).toBe('auto')
+  })
+
+  it('keeps the LENGTH while clearing the extras — the duration is the one thing a rest has', () => {
+    state.selectedTool = 'selection'
+    palette.setDuration('h') // lights the key, so the length is inherited…
+    state.selectedAccidental = '#'
+    palette.pressRest()
+    expect(state.selectedDuration).toBe('h') // …kept
+    expect(state.selectedAccidental).toBeNull() // …while the sharp goes
+  })
+
   it('lights the rest key while its own tool is armed', () => {
     state.selectedTool = 'selection'
     palette.pressRest()
     expect(palette.selectionIsRest()).toBe(true)
+  })
+
+  it('re-pressing DISARMS and stays in keyboard entry, key dark, caret up', () => {
+    // Reported as "i cannot disarm it". It always disarmed — but it dropped to SELECTION mode, where
+    // a caret note that is a rest reads as "a rest is selected", so the key lit straight back up and
+    // the next press re-armed. Only PLACING should end keyboard entry.
+    state.selectedTool = 'entry'
+    state.selectedNoteId = 'rest1'
+    notes.rest1 = { id: 'rest1', isRest: true } // the caret sits on a rest, as it would after typing
+    palette.pressRest()
+    expect(armedTool(state, 'rest')).not.toBeNull()
+
+    palette.pressRest() // …and off again
+    expect(state.selectedMarkingTool).toBeNull()
+    expect(state.selectedTool).toBe('entry')     // still typing
+    expect(state.selectedNoteId).toBe('rest1')   // caret still up
+    expect(palette.selectionIsRest()).toBe(false) // and the key is DARK — the point of the report
   })
 
   it('re-pressing the rest key disarms, back to selection mode', () => {

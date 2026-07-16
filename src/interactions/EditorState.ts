@@ -73,6 +73,8 @@ export type MarkingTool =
  */
 export const DEFAULT_DURATION: NoteDuration = 'q'
 export const DEFAULT_DOTS = 0
+/** Beaming left to the engraver — the value `createEditorState` mints and `resetToDefaults` restores. */
+export const DEFAULT_BEAM: BeamMode = 'auto'
 
 /**
  * Does the armed tool USE the note-entry armed length (`selectedDuration` + `selectedDots`)?
@@ -364,7 +366,7 @@ export function createEditorState(): EditorState {
     tenuto: false,
     selectedMarkingTool: null,
     tupletMode: false,
-    selectedBeam: 'auto',
+    selectedBeam: DEFAULT_BEAM,
     selectedClefMeasure: null,
     selectedClefBeat: null,
     selectedClefStaff: 0,

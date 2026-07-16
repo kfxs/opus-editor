@@ -1,11 +1,12 @@
 import type { ArticulationType, Note, PitchStep, PitchAlter, Fraction, Score } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
-import { activeVoiceToModel } from './EditorState'
+import { activeVoiceToModel, armedTool } from './EditorState'
 import { navBeatMap, type FlatNote } from '../utils/beatMap'
-import { getMeasureNotes } from '../utils/musicUtils'
-import { fracToNumber, fracEq, fracFromInt } from '../utils/fraction'
+import { getMeasureNotes, measureCapacityFrac } from '../utils/musicUtils'
+import { fracToNumber, fracEq, fracFromInt, fracSub } from '../utils/fraction'
 import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
+import { fitRestDuration } from '../utils/durations'
 
 /** Natural (no-accidental) semitone offsets for each step letter */
 const STEP_SEMITONES: Record<PitchStep, number> = {
@@ -47,6 +48,7 @@ export class KeyboardController {
 
     const step = LETTER_TO_STEP[letter]
     if (!step) return
+    this.disarmRestOnNoteEntry()
 
     if (this.state.selectedTool === 'entry') {
       this.enterNoteAtCursorPosition(step)
@@ -121,6 +123,119 @@ export class KeyboardController {
       .sort((a, b) => a.number - b.number)[0]
     if (!nextMeasure) return null // genuine end of score
     return { targetMeasure: nextMeasure.number, targetBeat: fracFromInt(0) }
+  }
+
+  /**
+   * Typing a NOTE says what you are entering, and it is not rests — so the armed rest stamp goes,
+   * and the Keypad's `0` unlights with it. The lit key is a claim about what the next thing entered
+   * will be; a typed letter settles that, and leaving it armed would leave the panel saying "rests"
+   * while notes come out.
+   *
+   * Stays in ENTRY mode, unlike a re-press of the key (which disarms all the way back to selection):
+   * you are still typing, just typing notes. The armed LENGTH is untouched — the quarter you were
+   * resting is the quarter you are now noting.
+   *
+   * Only the rest tool. The other eight place things with the MOUSE, and a typed note says nothing
+   * about whether the next CLICK still puts a clef down; this one competes with typing itself.
+   */
+  private disarmRestOnNoteEntry(): void {
+    if (!armedTool(this.state, 'rest')) return
+    this.state.selectedMarkingTool = null // reassign, never mutate — the Proxy traps the SET
+    console.log('[Keyboard] a note was typed → the rest stamp disarms')
+  }
+
+  /**
+   * SPACE, with the rest stamp armed in keyboard entry: TYPE the armed rest at the cursor and move
+   * on — the typewriter's space bar. Returns whether it consumed the key, so SPACE keeps its other
+   * meaning (entering entry mode from a selection) untouched.
+   *
+   * The rest tool's KEYBOARD half. The stamp places with the mouse, at a beat you point to; this
+   * places at the caret, at the beat that comes next, and the two share the rule that matters —
+   * {@link fitRestDuration}, so what a barline does to a rest is one answer, not two.
+   *
+   * A rest is capped at the barline, never split: an overflowing NOTE splits and ties across it, and
+   * a tied rest is not a thing. So the armed length is trimmed to what the bar has left ("the
+   * longest value available, single dot included" — three beats is a dotted half). The caret then
+   * lands wherever the entry ended, which puts it at the next bar's downbeat exactly when the rest
+   * finished the bar — no rule of its own, just where the typewriter left the carriage.
+   *
+   * The armed length is NOT consumed: SPACE again types the same rest, which is what makes it a
+   * typewriter rather than a one-shot.
+   */
+  enterArmedRestAtCursor(): boolean {
+    const engine = this.getEngine()
+    if (this.state.selectedTool !== 'entry' || !armedTool(this.state, 'rest')) return false
+    if (!this.state.selectedNoteId || !engine) return false
+
+    // What YOU armed — held across the placement, because advancing the caret syncs the palette to
+    // whatever lands, and a barline-trimmed rest must not redefine the length (see the restore below).
+    const armedDuration = this.state.selectedDuration
+    const armedDots = this.state.selectedDots
+
+    const score = engine.getScore()
+    // Continue the cursor note's own voice/staff (see enterNoteAtCursorPosition).
+    const cursorNote = engine.getNote(this.state.selectedNoteId)
+    const cursorVoice = cursorNote ? (cursorNote.voice ?? 0) : activeVoiceToModel(this.state.activeVoice)
+    const cursorStaff = cursorNote ? (cursorNote.staff ?? 0) : this.state.activeStaff
+    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, cursorVoice, cursorStaff)
+
+    const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
+    if (!currentNote) return false
+    const currentKey = `${currentNote.measureNumber}:${currentNote.beat.num}/${currentNote.beat.den}`
+    const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat.num}/${n.beat.den}` === currentKey)
+    if (currentIndex === -1) return false
+
+    const next = this.nextEntryPosition(currentNote, beats, currentIndex, score)
+    if (!next) {
+      console.log('[Keyboard] rest: cursor is at the end of the score')
+      return true // consumed: the tool IS armed, there is simply nowhere to go
+    }
+    const { targetMeasure, targetBeat } = next
+
+    const measure = score.measures.find(m => m.number === targetMeasure)
+    if (!measure) return true
+    const available = fracSub(measureCapacityFrac(measure), targetBeat)
+    const fitted = fitRestDuration(armedDuration, armedDots, available)
+    if (!fitted) {
+      console.log(`[Keyboard] rest: no room at m${targetMeasure} b${fracToNumber(targetBeat).toFixed(3)}`)
+      return true
+    }
+    const capped = fitted.duration !== armedDuration || fitted.dots !== armedDots
+    if (capped) {
+      console.log(`[Keyboard] rest: ${armedDuration}${'.'.repeat(armedDots)} exceeds the ${fracToNumber(available).toFixed(3)} beat(s) left in m${targetMeasure} → ${fitted.duration}${'.'.repeat(fitted.dots)}`)
+    }
+
+    const newRest = engine.addNoteAtBeat({
+      duration: fitted.duration,
+      measure: targetMeasure,
+      beat: targetBeat,
+      isRest: true,
+      ...(fitted.dots && { dots: fitted.dots }),
+      ...(cursorVoice && { voice: cursorVoice }),
+      ...(cursorStaff && { staff: cursorStaff }),
+    })
+    if (!newRest) {
+      console.log('[Keyboard] rest: addNoteAtBeat returned null')
+      this.renderScore()
+      return true
+    }
+
+    console.log(`✓ KeyboardEntry | REST ${newRest.duration}${'.'.repeat(newRest.dots ?? 0)} measure:${newRest.measure} beat:${fracToNumber(newRest.beat).toFixed(3)}`)
+    // The caret follows what was just typed, so the next SPACE lands after it.
+    this.setSelectedNote(newRest.id)
+
+    // A CAP IS NOT A CHOICE. Moving the caret syncs the palette to the note it lands on
+    // (SelectionController.syncPaletteToNote), which is right for a selection — click a rest, see
+    // its length — and wrong here: what it lands on is what the BARLINE allowed, not what you asked
+    // for. Left alone, one trimmed entry silently becomes the armed length, so typing a whole rest
+    // across a barline gave a dotted half in the next bar and every bar after. You armed a whole;
+    // you still have a whole.
+    this.state.selectedDuration = armedDuration
+    this.state.selectedDots = armedDots
+
+    this.renderScore()
+    this.scrollSelectedNoteIntoView()
+    return true
   }
 
   enterNoteAtCursorPosition(step: PitchStep): void {
@@ -260,6 +375,7 @@ export class KeyboardController {
 
     const step = LETTER_TO_STEP[letter]
     if (!step) return
+    this.disarmRestOnNoteEntry() // Shift+letter is still typing a note — see enterNoteByLetter
 
     const note = engine.getNote(this.state.selectedNoteId)
     if (!note) return

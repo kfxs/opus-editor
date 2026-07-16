@@ -109,7 +109,11 @@ export function useShortcuts(
       const pos = getLastMousePosition()
       if (pos) renderer.renderPreview(pos)
     },
-    enterEntryFromSelection: () => {
+    pressSpace: () => {
+      // The typewriter: with the rest stamp armed in keyboard entry, SPACE types the rest and moves
+      // the caret on. It DECLINES (returns false) in every other case, so the key keeps its original
+      // job below untouched.
+      if (keyboard.enterArmedRestAtCursor()) return
       if (state.selectedTool !== 'selection' || !state.selectedNoteId) return
       state.selectedTool = 'entry'
       renderer.renderScore()

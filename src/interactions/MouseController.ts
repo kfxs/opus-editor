@@ -1646,6 +1646,11 @@ export class MouseController {
     )
     if (rest) {
       console.log(`✓ Rest stamped | ${rest.duration}${'.'.repeat(rest.dots ?? 0)} at m${rest.measure} b${fracToNumber(rest.beat).toFixed(3)}`)
+      // PLACING something is what ends keyboard entry — not arming the tool (see armMarkingTool).
+      // The caret is `selectedNoteId` in entry mode, so dropping it takes the caret down and leaves
+      // you stamping with the mouse, which is what you just did. The tool stays armed: a stamp is
+      // used in runs, and you have said nothing about being finished with it.
+      this.state.selectedNoteId = null
       this.render.renderScore()
     }
     return true

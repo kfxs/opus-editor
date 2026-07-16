@@ -2,7 +2,7 @@ import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSi
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorState'
-import { activeVoiceToModel, armedTool, armedToolUsesLength, DEFAULT_DURATION, DEFAULT_DOTS } from './EditorState'
+import { activeVoiceToModel, armedTool, armedToolUsesLength, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from './EditorState'
 import { durationHighlight } from './keypadSync'
 import { fracToNumber } from '../utils/fraction'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
@@ -81,13 +81,25 @@ export class PaletteController {
    * TWO tools (fixed in dac5f42) and what left `setClef` clearing only the three tools that existed
    * the day it was written.
    *
-   * Also drops the note selection and the on-score sub-selections, so the ghost reads unambiguously
+   * Also drops the note SELECTION and the on-score sub-selections, so the ghost reads unambiguously
    * as "the next click places/stamps this", switches to entry mode (the selection tool ignores
    * placement clicks), and previews the tool at once.
+   *
+   * …but only a selection. `selectedNoteId` is TWO things (see its own doc): the selection anchor in
+   * selection mode, and the KEYBOARD CARET in entry mode. Clearing it unconditionally cleared both,
+   * so arming a tool while typing took the caret down and dropped you out of keyboard entry —
+   * collateral damage from a line aimed at the selection. Arming FROM entry mode keeps it: a caret
+   * is not a selection, there is nothing ambiguous about it, and the ghost has nothing to do with
+   * where the next typed note lands. You leave keyboard entry by placing something, not by picking
+   * up a tool.
+   *
+   * In practice today this is the rest stamp: it is the only tool that arms from entry mode (the
+   * other Keypad keys mean their note-entry value there — an accidental arms for the NEXT note
+   * rather than stamping), plus the four positional tools when armed from a palette button mid-entry.
    */
   private armMarkingTool(tool: MarkingTool): void {
     this.state.selectedMarkingTool = tool
-    this.state.selectedNoteId = null
+    if (this.state.selectedTool !== 'entry') this.state.selectedNoteId = null
     this.state.selectedClefMeasure = null
     this.state.selectedClefBeat = null
     this.state.selectedTimeSignatureMeasure = null
@@ -1111,7 +1123,7 @@ export class PaletteController {
     this.state.accent = false
     this.state.staccato = false
     this.state.tenuto = false
-    this.state.selectedBeam = 'auto'
+    this.state.selectedBeam = DEFAULT_BEAM
     this.disarmPositionalTools()
     this.state.selectedTimeSignatureMeasure = null
     this.state.selectedDynamicId = null
@@ -1298,7 +1310,14 @@ export class PaletteController {
   pressRest(): void {
     // (1) / (2) — the armed-tool checks come first: they must not read the (cleared) selection.
     if (armedTool(this.state, 'rest')) {
-      this.disarmMarkingTool()
+      // Disarm back to where you came FROM. A caret still up means you were typing (arming kept it —
+      // see armMarkingTool), and dropping to selection mode there would end keyboard entry, which
+      // only PLACING should do. It also made the key look undisarmable: in selection mode a caret
+      // note that happens to be a rest — likely, you have been typing rests — reads as "a rest is
+      // selected", so `0` lit straight back up and the next press re-armed. It disarmed every time;
+      // you could just never see it.
+      if (this.state.selectedTool === 'entry' && this.state.selectedNoteId) this.disarmToEntry()
+      else this.disarmMarkingTool()
       return
     }
     if (this.state.selectedMarkingTool) {
@@ -1337,6 +1356,25 @@ export class PaletteController {
       this.state.selectedDuration = DEFAULT_DURATION
       this.state.selectedDots = DEFAULT_DOTS
     }
+
+    // A REST IS A LENGTH AND NOTHING ELSE. The note-entry extras — an armed accidental, an armed
+    // accent/staccato/tenuto — describe a note, and a rest has no pitch to alter and nothing to
+    // articulate. The Keypad already DARKENS those keys under this tool, but darkening them only
+    // hid the values: they sat in the state, and the moment the tool went (typing a note disarms
+    // it) the sharp and the accent came back and landed on a note you never armed them for. Clearing
+    // makes the dark keys TRUE instead of a mask — what the panel shows and what the state holds are
+    // the same thing.
+    //
+    // The tie needs no line here: it is a marking tool, so arming this one already replaced it.
+    this.state.selectedAccidental = null
+    this.state.accent = false
+    this.state.staccato = false
+    this.state.tenuto = false
+    // The beam is the quiet one: a rest is never beamed, and `auto` is its default, so a stale
+    // `flat`/`break` never showed on any key — it just waited for the next NOTE and joined it to a
+    // group you set up before the rests. Same leak, no symptom until it had one.
+    this.state.selectedBeam = DEFAULT_BEAM
+
     this.armMarkingTool({ kind: 'rest' })
     console.log(`[palette] rest stamp armed | ${this.state.selectedDuration}${'.'.repeat(this.state.selectedDots)}${shownLength === null ? ' (default — nothing was selected)' : ' (kept the selected length)'}`)
   }

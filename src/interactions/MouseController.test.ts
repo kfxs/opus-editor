@@ -178,6 +178,39 @@ describe('MouseController', () => {
     })
   })
 
+  /**
+   * The rest stamp's click. Arming it KEEPS the keyboard caret (a caret is not a selection — see
+   * PaletteController.armMarkingTool); PLACING is what ends keyboard entry, which is this half.
+   */
+  describe('rest stamp click', () => {
+    beforeEach(() => {
+      state.selectedTool = 'entry'
+      state.selectedMarkingTool = { kind: 'rest' }
+      state.selectedNoteId = 'cursor-note' // the keyboard caret, still up
+    })
+
+    it('takes the caret down once a rest is actually placed', () => {
+      ;(engine as unknown as { stampRestAtPosition: unknown }).stampRestAtPosition =
+        vi.fn(() => ({ id: 'r1', isRest: true, duration: 'q', measure: 3, beat: { num: 0, den: 1 } }))
+      mc.handleClick(ev({ clientX: 100, clientY: 100 }))
+      expect(state.selectedNoteId).toBeNull() // out of keyboard entry, as asked
+      expect(render.renderScore).toHaveBeenCalled()
+    })
+
+    it('leaves the caret alone when nothing was placed', () => {
+      ;(engine as unknown as { stampRestAtPosition: unknown }).stampRestAtPosition = vi.fn(() => null)
+      mc.handleClick(ev({ clientX: 100, clientY: 100 }))
+      expect(state.selectedNoteId).toBe('cursor-note') // a click that did nothing changes nothing
+    })
+
+    it('keeps the tool armed — a stamp is used in runs', () => {
+      ;(engine as unknown as { stampRestAtPosition: unknown }).stampRestAtPosition =
+        vi.fn(() => ({ id: 'r1', isRest: true, duration: 'q', measure: 3, beat: { num: 0, den: 1 } }))
+      mc.handleClick(ev({ clientX: 100, clientY: 100 }))
+      expect(state.selectedMarkingTool?.kind).toBe('rest')
+    })
+  })
+
   describe('handleMouseLeave', () => {
     it('re-renders and restores the cursor when idle', () => {
       mc.handleMouseLeave()

@@ -206,6 +206,155 @@ describe('KeyboardController', () => {
 })
 
 /**
+ * SPACE with the rest stamp armed: the typewriter. Types the armed rest at the caret and moves on.
+ * Shares fitRestDuration with the mouse stamp, so a barline means the same thing to both.
+ */
+describe('KeyboardController.enterArmedRestAtCursor (SPACE)', () => {
+  let engine: MusicEngine
+  let state: EditorState
+  let kb: KeyboardController
+
+  beforeEach(() => {
+    engine = makeEngine()
+    state = createEditorState()
+    kb = new KeyboardController(
+      () => engine, state, () => undefined, () => {},
+      // MUST mirror the real SelectionController.setSelectedNote, which syncs the palette TO the
+      // note (syncPaletteToNote: selectedDuration/selectedDots ← the note's own). A stub that only
+      // moved the caret made "the armed length is not consumed" untestable — it passed because
+      // nothing could consume it, while the app clobbered the armed length on every capped entry.
+      (id) => {
+        state.selectedNoteId = id
+        const n = id ? engine.getNote(id) : null
+        if (n) { state.selectedDuration = n.duration; state.selectedDots = n.dots ?? 0 }
+      },
+      () => 60,
+    )
+  })
+
+  /** Put the caret on a note at beat 0 of bar 1, in keyboard entry with the rest stamp armed. */
+  const armAtBeat0 = () => {
+    const n = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    state.selectedTool = 'entry'
+    state.selectedNoteId = n.id
+    state.selectedMarkingTool = { kind: 'rest' }
+    return n
+  }
+
+  const restAt = (measure: number, beat: number) =>
+    getMeasureNotes(engine.getScore().measures.find(m => m.number === measure)!)
+      .find(n => n.isRest && fracToNumber(n.beat) === beat)
+
+  it('declines unless the rest stamp is armed — SPACE keeps its other job', () => {
+    armAtBeat0()
+    state.selectedMarkingTool = null
+    expect(kb.enterArmedRestAtCursor()).toBe(false)
+  })
+
+  it('declines outside keyboard entry', () => {
+    armAtBeat0()
+    state.selectedTool = 'selection'
+    expect(kb.enterArmedRestAtCursor()).toBe(false)
+  })
+
+  it('types the armed rest at the caret and advances onto it', () => {
+    armAtBeat0()
+    state.selectedDuration = 'q'
+    expect(kb.enterArmedRestAtCursor()).toBe(true)
+    const rest = restAt(1, 1)!
+    expect(rest.duration).toBe('q')
+    expect(state.selectedNoteId).toBe(rest.id) // the caret followed what was typed
+  })
+
+  it('types the same rest again — the armed length is not consumed', () => {
+    armAtBeat0()
+    state.selectedDuration = 'q'
+    kb.enterArmedRestAtCursor()
+    kb.enterArmedRestAtCursor()
+    expect(restAt(1, 1)!.duration).toBe('q')
+    expect(restAt(1, 2)!.duration).toBe('q')
+  })
+
+  it('types a DOTTED rest when one is armed', () => {
+    armAtBeat0()
+    state.selectedDuration = 'q'
+    state.selectedDots = 1
+    kb.enterArmedRestAtCursor()
+    const rest = restAt(1, 1)!
+    expect(rest.duration).toBe('q')
+    expect(rest.dots).toBe(1)
+  })
+
+  it('caps at the barline to the longest value that fits — 3 beats is a DOTTED HALF', () => {
+    // Caret on the quarter at beat 0 of 4/4 → the rest lands at beat 1 with 3 beats left. A whole
+    // does not fit, and the answer is one dotted half, not a half + a quarter.
+    armAtBeat0()
+    state.selectedDuration = 'w'
+    kb.enterArmedRestAtCursor()
+    const rest = restAt(1, 1)!
+    expect(rest.duration).toBe('h')
+    expect(rest.dots).toBe(1)
+  })
+
+  it('never splits across the barline — the bar stays exactly full', () => {
+    armAtBeat0()
+    state.selectedDuration = 'w'
+    kb.enterArmedRestAtCursor()
+    engine.renderScore() // integrity check throws under Vitest if the bar is malformed
+    expect(getMeasureNotes(engine.getScore().measures[1]).every(n => n.isRest)).toBe(true) // bar 2 untouched
+  })
+
+  it('keeps the ARMED length when a cap trims one entry — a cap is not a choice', () => {
+    // Reported: arm a WHOLE, SPACE (capped to a dotted half at beat 1, filling bar 1), SPACE again —
+    // and bar 2 got a dotted half instead of the whole that fits there. The caret landing on the
+    // capped rest synced the palette TO it (SelectionController.syncPaletteToNote), so the cap
+    // silently became the armed length.
+    armAtBeat0()
+    state.selectedDuration = 'w'
+    kb.enterArmedRestAtCursor()
+    expect(restAt(1, 1)!.dots).toBe(1)          // trimmed to a dotted half, as it must be
+    expect(state.selectedDuration).toBe('w')    // …but the WHOLE is still what is armed
+    expect(state.selectedDots).toBe(0)
+
+    kb.enterArmedRestAtCursor()                 // bar 2 is empty: the whole fits
+    const rest = restAt(2, 0)!
+    expect(rest.duration).toBe('w')
+    expect(rest.dots ?? 0).toBe(0)
+  })
+
+  it('DISARMS when a note is typed — the panel must not say "rests" while notes come out', () => {
+    armAtBeat0()
+    kb.enterNoteByLetter('a')
+    expect(state.selectedMarkingTool).toBeNull()
+    expect(state.selectedTool).toBe('entry') // still typing, just notes now
+  })
+
+  it('disarms on a chord note too (Shift+letter is still typing a note)', () => {
+    armAtBeat0()
+    kb.addChordNoteByLetter('e')
+    expect(state.selectedMarkingTool).toBeNull()
+  })
+
+  it('leaves the armed LENGTH alone when it disarms', () => {
+    armAtBeat0()
+    state.selectedDuration = 'h'
+    kb.enterNoteByLetter('a')
+    expect(state.selectedDuration).toBe('h') // the quarter you were resting is the quarter you note
+  })
+
+  it('lands the caret in the NEXT measure once the rest finishes the bar', () => {
+    // The dotted half above fills beats 1–4, so the next SPACE must land at bar 2 beat 0.
+    armAtBeat0()
+    state.selectedDuration = 'w'
+    kb.enterArmedRestAtCursor()   // dotted half at beat 1 → bar 1 is full
+    state.selectedDuration = 'q'
+    kb.enterArmedRestAtCursor()   // → the carriage has moved on
+    expect(restAt(2, 0)).toBeTruthy()
+    expect(state.selectedNoteId).toBe(restAt(2, 0)!.id)
+  })
+})
+
+/**
  * A note that overflows the bar is split into tied pieces. The caret must land after the LAST of
  * them — you typed one note, so the next one comes after all of it.
  */
