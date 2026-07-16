@@ -488,6 +488,68 @@ describe('PaletteController — tie stamp tool', () => {
   })
 })
 
+/**
+ * Arming a tool from the keyboard must show its ghost AT ONCE — not on the next mouse move.
+ *
+ * A duration press always did (it previewed the ghost note straight away); the four marking stamps
+ * did not, because the only preview wired into this controller was `renderPreview`, which draws a
+ * ghost NOTE — the wrong preview for a stamp, so they drew nothing and the editor looked inert until
+ * you jogged the pointer. Both now go through RenderController.renderToolGhost, which dispatches on
+ * what is armed. Here that callback is a spy: what matters is that arming CALLS it, at the pointer.
+ */
+describe('PaletteController — arming a tool previews it immediately', () => {
+  let state: EditorState
+  let renderArmedGhost: ReturnType<typeof vi.fn>
+  let palette: PaletteController
+  const POINTER = { x: 120, y: 90 }
+
+  beforeEach(() => {
+    state = createEditorState()
+    renderArmedGhost = vi.fn()
+    const fakeEngine = {
+      getNote: () => null,
+      updateNote: vi.fn(),
+      runBatch: (_l: string, fn: () => void) => fn(),
+    } as unknown as import('../engine/MusicEngine').MusicEngine
+    palette = new PaletteController(
+      () => fakeEngine,
+      state,
+      vi.fn(),                 // renderScore
+      renderArmedGhost as unknown as (c: { x: number; y: number }) => void,
+      () => POINTER,           // the pointer is over the canvas
+      vi.fn(),                 // selectNote
+    )
+    state.selectedTool = 'selection'
+  })
+
+  const arm: Array<[string, () => void]> = [
+    ['duration', () => palette.setDuration('q')],
+    ['accidental stamp', () => palette.setAccidental('#')],
+    ['articulation stamp', () => palette.toggleAccent()],
+    ['tie stamp', () => palette.toggleTie()],
+    ['dot stamp', () => palette.toggleDot()],
+  ]
+
+  for (const [label, press] of arm) {
+    it(`${label}: the ghost is drawn on the keypress, at the pointer`, () => {
+      press()
+      expect(renderArmedGhost).toHaveBeenCalledWith(POINTER)
+    })
+  }
+
+  it('draws no ghost when the pointer has never been over the canvas', () => {
+    const p = new PaletteController(
+      () => null, state, vi.fn(),
+      renderArmedGhost as unknown as (c: { x: number; y: number }) => void,
+      () => null, // pointer unknown
+      vi.fn(),
+    )
+    p.setAccidental('#')
+    expect(state.selectedAccidentalTool).toBe('#') // still armed…
+    expect(renderArmedGhost).not.toHaveBeenCalled() // …but there is nowhere to draw it yet
+  })
+})
+
 describe('PaletteController — dot stamp tool', () => {
   let state: EditorState
   let updateNote: ReturnType<typeof vi.fn>

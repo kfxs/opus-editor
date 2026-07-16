@@ -12,7 +12,10 @@ export function usePalette(
   state: EditorState,
   engine: Ref<MusicEngine | null>,
   renderScore: () => void,
-  renderPreview: (coords: { x: number; y: number }) => void,
+  /** Draw the preview for whatever is armed — RenderController.renderToolGhost, the SAME function
+   *  the mouse calls on every move. Not `renderPreview`, which only ever draws a ghost NOTE and so
+   *  cannot preview a marking tool. */
+  renderArmedGhost: (coords: { x: number; y: number }) => void,
   getLastMousePosition: () => { x: number; y: number } | null,
   selection: SelectionController,
 ): PaletteController {
@@ -20,7 +23,7 @@ export function usePalette(
     () => engine.value,
     state,
     renderScore,
-    renderPreview,
+    renderArmedGhost,
     getLastMousePosition,
     (id) => selection.selectNote(id),
     () => selection.deselectAll(),

@@ -1757,7 +1757,7 @@ export class MouseController {
     // No throttle: since P4 the ghost is an overlay, so following the cursor costs one small
     // draw rather than a re-layout of the whole score. The old 50 ms gate existed only to
     // ration that cost, and capped the preview at 20 fps (docs/render-performance-plan.md §5b).
-    this.renderToolGhost(x, y)
+    this.render.renderToolGhost({ x, y })
   }
 
   /** Note pitch drag: the selected note follows the cursor's pitch (after a small time
@@ -1884,80 +1884,6 @@ export class MouseController {
       }
     }
     return true
-  }
-
-  /**
-   * Hover preview when an entry/marking tool is armed: a ghost clef/time-signature/
-   * dynamic following the cursor (hiding the keyboard cursor), else a ghost note.
-   */
-  private renderToolGhost(x: number, y: number): void {
-    // Clef tool armed: show a ghost clef at the hovered measure instead of a
-    // ghost note, and hide the keyboard cursor.
-    if (this.state.selectedClef) {
-      this.render.renderClefGhost({ x, y }, this.state.selectedClef)
-      this.state.showCursor = false
-      return
-    }
-
-    // Time-signature tool armed: show a ghost time signature following the cursor
-    // (mirrors the clef tool), and hide the keyboard cursor.
-    if (this.state.selectedTimeSignature) {
-      this.render.renderTimeSignatureGhost({ x, y }, this.state.selectedTimeSignature)
-      this.state.showCursor = false
-      return
-    }
-
-    // Dynamics tool armed: show a ghost dynamic (level glyph or custom-text
-    // placeholder) following the cursor, and hide the keyboard cursor.
-    if (this.state.selectedDynamic) {
-      this.render.renderDynamicGhost({ x, y }, this.state.selectedDynamic)
-      this.state.showCursor = false
-      return
-    }
-
-    // Tempo tool armed: preview the actual MARK ('Allegro (♩ = 120)') under the cursor —
-    // not a ghost note, which would say the next click enters a note.
-    if (this.state.selectedTempo) {
-      this.render.renderTempoGhost({ x, y }, this.state.selectedTempo)
-      this.state.showCursor = false
-      return
-    }
-
-    // Articulation stamp tool armed: preview the armed articulation glyph(s) following the cursor —
-    // not a ghost note. A click adds them to the hovered note (see stampArticulationAtClick).
-    if (this.state.selectedArticulationTools.length > 0) {
-      this.render.renderArticulationGhost({ x, y }, this.state.selectedArticulationTools)
-      this.state.showCursor = false
-      return
-    }
-
-    // Accidental stamp tool armed: preview the armed accidental glyph following the cursor — not a
-    // ghost note. A click sets it on the hovered note (see stampAccidentalAtClick).
-    if (this.state.selectedAccidentalTool !== null) {
-      this.render.renderAccidentalGhost({ x, y }, this.state.selectedAccidentalTool)
-      this.state.showCursor = false
-      return
-    }
-
-    // Tie stamp tool armed: show the ghost arc following the cursor — not a ghost note. It is the
-    // Keypad key's icon, saying "tie tool armed"; a click ties the hovered note to the next slot
-    // (see stampTieAtClick), which is where the target is resolved.
-    if (this.state.selectedTieTool) {
-      this.render.renderTieGhost({ x, y })
-      this.state.showCursor = false
-      return
-    }
-
-    // Dot stamp tool armed: preview the dot glyph following the cursor — not a ghost note. A click
-    // dots the hovered note or rest (see stampDotAtClick).
-    if (this.state.selectedDotTool) {
-      this.render.renderDotGhost({ x, y })
-      this.state.showCursor = false
-      return
-    }
-
-    const ghostNoteRendered = this.render.renderPreview({ x, y })
-    this.state.showCursor = !ghostNoteRendered
   }
 
   handleMouseLeave(): void {

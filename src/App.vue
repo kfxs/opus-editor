@@ -854,7 +854,7 @@ let mouse: ReturnType<typeof useMouseInteraction>
 const palette = usePalette(
   state, engine,
   () => renderer.renderScore(),
-  (c) => renderer.renderPreview(c),
+  (c) => renderer.renderToolGhost(c),
   () => mouse?.getLastMousePosition() ?? null,
   selection,
 )

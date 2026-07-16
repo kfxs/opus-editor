@@ -31,13 +31,42 @@ export class PaletteController {
     private getEngine: () => MusicEngine | null,
     private state: EditorState,
     private renderScore: () => void,
-    private renderPreview: (coords: { x: number; y: number }) => void,
+    /**
+     * Draw the preview for whatever is armed at `coords` — RenderController.renderToolGhost, the
+     * SAME function the mouse calls on every move. It dispatches: a marking tool previews its own
+     * mark, and with none armed it falls back to the ghost note. Arming a tool therefore shows its
+     * ghost AT ONCE, on the keypress, instead of waiting for the pointer to move — which is only
+     * true while arming and hovering share this one function. It used to be `renderPreview`, which
+     * draws a ghost NOTE and nothing else, so the arm paths could not call it at all.
+     */
+    private renderArmedGhost: (coords: { x: number; y: number }) => void,
     private getLastMousePosition: () => { x: number; y: number } | null,
     private selectNote: (id: string | null) => void,
     // Full deselect (the Esc / Select-arrow path). Optional so existing 6-arg constructions still
     // work, falling back to selectNote(null) which clears the note + scalar sub-selections.
     private deselectAll?: () => void,
   ) {}
+
+  /**
+   * Repaint, then show the armed tool's ghost at the last known pointer — what every `arm*Tool`
+   * ends with. The repaint drops the keyboard cursor and the old selection highlight; the ghost
+   * then goes on top as an overlay.
+   *
+   * The ghost has to be drawn HERE, on the keypress. These tools arm from the keyboard, and a ghost
+   * that only appears on the next `mousemove` leaves the editor looking like nothing happened —
+   * you have to jog the mouse to find out the tool is live. A duration press has always previewed
+   * immediately; the marking tools could not, because the only preview wired in was `renderPreview`,
+   * which draws a ghost NOTE — the wrong preview, so they drew nothing at all. Routing both through
+   * {@link RenderController.renderToolGhost} removes that asymmetry: it dispatches on what is armed.
+   *
+   * No-op on the ghost when the pointer has never been over the canvas (nothing to draw it at) —
+   * the next move picks it up.
+   */
+  private showArmedGhost(): void {
+    this.renderScore()
+    const pos = this.getLastMousePosition()
+    if (pos) this.renderArmedGhost(pos)
+  }
 
   /** Returns the articulations currently armed for the next note entry. */
   getPendingArticulations(): ArticulationType[] | undefined {
@@ -223,12 +252,12 @@ export class PaletteController {
       this.state.selectedAccidental = null
       this.state.selectedTool = 'entry'
       const pos = this.getLastMousePosition()
-      if (pos) this.renderPreview(pos)
+      if (pos) this.renderArmedGhost(pos)
     } else if (this.state.selectedTool === 'entry') {
       // Already in entry mode: refresh the ghost note so it shows the new
       // duration immediately, without waiting for the next mouse move.
       const pos = this.getLastMousePosition()
-      if (pos) this.renderPreview(pos)
+      if (pos) this.renderArmedGhost(pos)
     }
   }
 
@@ -290,7 +319,7 @@ export class PaletteController {
     // (3) Entry mode: arm/toggle the accidental for the NEXT note entered.
     this.state.selectedAccidental = this.state.selectedAccidental === accidental ? null : accidental
     const pos = this.getLastMousePosition()
-    if (pos) this.renderPreview(pos)
+    if (pos) this.renderArmedGhost(pos)
   }
 
   /**
@@ -389,7 +418,7 @@ export class PaletteController {
     this.state.selectedDynamicId = null
     this.state.selectedTempoId = null
     this.state.selectedTool = 'entry'
-    this.renderScore()
+    this.showArmedGhost()
   }
 
   /**
@@ -484,7 +513,7 @@ export class PaletteController {
     else if (type === 'staccato') this.state.staccato = !this.state.staccato
     else this.state.tenuto = !this.state.tenuto
     const pos = this.getLastMousePosition()
-    if (pos) this.renderPreview(pos)
+    if (pos) this.renderArmedGhost(pos)
     this.refreshArticulationSelection()
   }
 
@@ -511,10 +540,7 @@ export class PaletteController {
     this.state.selectedDynamicId = null
     this.state.selectedTempoId = null
     this.state.selectedTool = 'entry'
-    // Like setClef/setDynamic: just repaint (drops the keyboard cursor). The ghost articulation
-    // itself appears on the next mouse move via MouseController.renderToolGhost — renderPreview
-    // here would draw a ghost NOTE, which is the wrong preview.
-    this.renderScore()
+    this.showArmedGhost()
   }
 
   /**
@@ -720,7 +746,7 @@ export class PaletteController {
     this.state.selectedDynamicId = null
     this.state.selectedTempoId = null
     this.state.selectedTool = 'entry'
-    this.renderScore()
+    this.showArmedGhost()
     this.refreshTieSelection()
   }
 
@@ -810,7 +836,7 @@ export class PaletteController {
       // There is no "selection mode" arm left here — branch (3) above claims that case for the
       // stamp, which is what used to flip to entry mode and draw a ghost note.
       const pos = this.getLastMousePosition()
-      if (pos) this.renderPreview(pos)
+      if (pos) this.renderArmedGhost(pos)
     }
   }
 
@@ -836,7 +862,7 @@ export class PaletteController {
     this.state.selectedDynamicId = null
     this.state.selectedTempoId = null
     this.state.selectedTool = 'entry'
-    this.renderScore()
+    this.showArmedGhost()
   }
 
   toggleTuplet(): void {
@@ -1080,7 +1106,7 @@ export class PaletteController {
       this.state.selectedTool = 'entry'
     }
     const pos = this.getLastMousePosition()
-    if (pos) this.renderPreview(pos)
+    if (pos) this.renderArmedGhost(pos)
   }
 
   resetToDefaults(): void {
