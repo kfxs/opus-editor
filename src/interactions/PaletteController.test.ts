@@ -537,6 +537,33 @@ describe('PaletteController — arming a tool previews it immediately', () => {
     })
   }
 
+  it('swapping the armed accidental redraws the ghost with the NEW sign', () => {
+    palette.setAccidental('#') // arms the stamp
+    renderArmedGhost.mockClear()
+    palette.setAccidental('b') // ♯ → ♭ while armed: the ghost must change NOW, not on a mouse move
+    expect(state.selectedAccidentalTool).toBe('b')
+    expect(renderArmedGhost).toHaveBeenCalledWith(POINTER)
+  })
+
+  it('adding an articulation to the armed set redraws the stacked ghost', () => {
+    palette.toggleAccent()
+    renderArmedGhost.mockClear()
+    palette.toggleStaccato() // the set grows → the ghost restacks
+    expect(state.selectedArticulationTools).toEqual(['accent', 'staccato'])
+    expect(renderArmedGhost).toHaveBeenCalledWith(POINTER)
+  })
+
+  it('DISARMING draws no ghost — back in selection mode there is nothing to preview', () => {
+    // The same branch handles swap and disarm, so previewing unconditionally would draw a ghost
+    // NOTE over a selection-mode score (renderPreview does not check the mode itself).
+    palette.setAccidental('#')
+    renderArmedGhost.mockClear()
+    palette.setAccidental('#') // re-press disarms
+    expect(state.selectedAccidentalTool).toBeNull()
+    expect(state.selectedTool).toBe('selection')
+    expect(renderArmedGhost).not.toHaveBeenCalled()
+  })
+
   it('draws no ghost when the pointer has never been over the canvas', () => {
     const p = new PaletteController(
       () => null, state, vi.fn(),

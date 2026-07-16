@@ -3075,8 +3075,12 @@ export class VexFlowRenderer {
         if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
       })
 
-      // Centre the glyph on the cursor.
-      const dx = cursorX - (gbox.x + gbox.width / 2)
+      // Park it to the LEFT of the pointer rather than centred on it — an accidental is engraved to
+      // the left of its notehead, so this reads as where the sign will land (the mirror of the dot
+      // ghost, which sits right for the same reason), and the arrow stops covering the very glyph
+      // it is previewing. Covers all three signs: ♯ ♭ ♮ share this one draw.
+      const GAP_X = 10
+      const dx = cursorX - GAP_X - (gbox.x + gbox.width / 2)
       const dy = cursorY - (gbox.y + gbox.height / 2)
       group.setAttribute('transform', `translate(${dx}, ${dy})`)
       return true

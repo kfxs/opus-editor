@@ -64,6 +64,10 @@ export class PaletteController {
    */
   private showArmedGhost(): void {
     this.renderScore()
+    // Nothing is armed (the press DISARMED the tool and dropped us back to selection) → the repaint
+    // above is the whole job. Guarding here rather than at each call site is what lets the swap /
+    // toggle paths call this unconditionally: one branch arms, disarms and re-values.
+    if (this.state.selectedTool !== 'entry') return
     const pos = this.getLastMousePosition()
     if (pos) this.renderArmedGhost(pos)
   }
@@ -289,7 +293,10 @@ export class PaletteController {
       } else {
         this.state.selectedAccidentalTool = accidental
       }
-      this.renderScore() // ghost re-forms on the next mouse move (matches the articulation stamp)
+      // Show the NEW sign at once — swapping ♯→♭ must change the ghost on the keypress, not on the
+      // next mouse move, or the armed tool and what you see disagree. A disarm draws nothing
+      // (showArmedGhost checks the mode).
+      this.showArmedGhost()
       return
     }
 
@@ -475,7 +482,9 @@ export class PaletteController {
       } else {
         this.state.selectedArticulationTools = next
       }
-      this.renderScore() // ghost re-forms on the next mouse move (matches clef/dynamic)
+      // Show the new armed SET at once — adding/removing an articulation must restack the ghost on
+      // the keypress. A disarm (the set emptied) draws nothing (showArmedGhost checks the mode).
+      this.showArmedGhost()
       this.refreshArticulationSelection()
       return
     }
