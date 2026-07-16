@@ -425,7 +425,6 @@ export function useShortcuts(
     enterNoteE: () => keyboard.enterNoteByLetter('e'),
     enterNoteF: () => keyboard.enterNoteByLetter('f'),
     enterNoteG: () => keyboard.enterNoteByLetter('g'),
-    enterRest: () => keyboard.enterRestAtCursorPosition(),
     addChordA: () => keyboard.addChordNoteByLetter('a'),
     addChordB: () => keyboard.addChordNoteByLetter('b'),
     addChordC: () => keyboard.addChordNoteByLetter('c'),

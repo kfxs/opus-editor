@@ -285,8 +285,6 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   'x': { action: 'flipStemDirection', description: 'Flip: selected slur/tie/tuplet side, articulation side, else note stem direction' },
 
   // Rest entry in keyboard mode
-  'r': { action: 'enterRest', description: 'Enter rest at cursor position (keyboard mode)' },
-
   // Hide/show selected rest(s) — Sibelius-style. Single keys are lowercased by the manager,
   // so Ctrl+Shift+H arrives as 'Ctrl+Shift+h'.
   'Ctrl+Shift+h': { action: 'toggleRestHidden', description: 'Hide or show the selected rest(s)' },

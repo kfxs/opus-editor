@@ -1,9 +1,9 @@
-import type { ArticulationType, NoteDuration, Note, PitchStep, PitchAlter, Fraction, Score } from '../types/music'
+import type { ArticulationType, Note, PitchStep, PitchAlter, Fraction, Score } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
 import { navBeatMap, type FlatNote } from '../utils/beatMap'
-import { durationToBeats, getMeasureNotes, measureCapacityQuarters } from '../utils/musicUtils'
+import { getMeasureNotes } from '../utils/musicUtils'
 import { fracToNumber, fracEq, fracFromInt } from '../utils/fraction'
 import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
 
@@ -236,73 +236,6 @@ export class KeyboardController {
 
     console.log(`[Cursor] → cursor lands on: m${lastNote.measure} beat:${fracToNumber(lastNote.beat).toFixed(4)} (${lastNote.isRest ? 'rest' : `${lastNote.step}${lastNote.octave}`}${lastNote.tupletId ? ' tuplet' : ''})`)
     this.setSelectedNote(lastNote.id)
-    this.renderScore()
-    this.scrollSelectedNoteIntoView()
-  }
-
-  /**
-   * Enter a rest at the cursor position. Only active in keyboard entry mode.
-   * Rests don't tie across barlines — duration is capped to available measure space.
-   */
-  enterRestAtCursorPosition(): void {
-    const engine = this.getEngine()
-    if (this.state.selectedTool !== 'entry' || !this.state.selectedNoteId || !engine) return
-
-    const score = engine.getScore()
-    // Continue the cursor note's own voice (see enterNoteAtCursorPosition).
-    const cursorNote = engine.getNote(this.state.selectedNoteId)
-    const cursorVoice = cursorNote ? (cursorNote.voice ?? 0) : activeVoiceToModel(this.state.activeVoice)
-    const cursorStaff = cursorNote ? (cursorNote.staff ?? 0) : this.state.activeStaff
-    const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, cursorVoice, cursorStaff)
-
-    const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
-    if (!currentNote) return
-    const currentKey = `${currentNote.measureNumber}:${currentNote.beat.num}/${currentNote.beat.den}`
-    const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat.num}/${n.beat.den}` === currentKey)
-    if (currentIndex === -1) return
-
-    const next = this.nextEntryPosition(currentNote, beats, currentIndex, score)
-    if (!next) {
-      console.log('[Keyboard] enterRestAtCursorPosition: cursor is at end of score')
-      return
-    }
-    const { targetMeasure, targetBeat } = next
-    const newDurationBeats = durationToBeats(this.state.selectedDuration, this.state.selectedDots)
-
-    const measureData = score.measures.find(m => m.number === targetMeasure)
-    if (!measureData) return
-    const measureTotalBeats = measureCapacityQuarters(measureData)
-    const availableBeats = measureTotalBeats - fracToNumber(targetBeat)
-    const actualDurationBeats = Math.min(newDurationBeats, availableBeats)
-
-    const durations: Array<{ dur: NoteDuration; beats: number }> = [
-      { dur: 'w', beats: 4 }, { dur: 'h', beats: 2 }, { dur: 'q', beats: 1 },
-      { dur: '8', beats: 0.5 }, { dur: '16', beats: 0.25 }, { dur: '32', beats: 0.125 },
-    ]
-    const fittingDur = durations.find(d => d.beats <= actualDurationBeats + 0.001)
-      ?? { dur: this.state.selectedDuration, beats: newDurationBeats }
-
-    console.log(`[Keyboard] Entering rest: dur=${fittingDur.dur} (${fittingDur.beats} beats) at measure=${targetMeasure} beat=${fracToNumber(targetBeat).toFixed(3)}${fittingDur.dur !== this.state.selectedDuration ? ` (capped from ${this.state.selectedDuration})` : ''}`)
-
-    const restVoice = cursorVoice
-    const newRest = engine.addNoteAtBeat({
-      duration: fittingDur.dur,
-      measure: targetMeasure,
-      beat: targetBeat,
-      isRest: true,
-      ...(restVoice && { voice: restVoice }),
-      ...(cursorStaff && { staff: cursorStaff }),
-    })
-
-    if (!newRest) {
-      console.log('[Keyboard] addNoteAtBeat returned null for rest')
-      this.renderScore()
-      return
-    }
-
-    console.log(`[Keyboard] Rest placed: id=${newRest.id} dur=${newRest.duration} measure=${newRest.measure} beat=${fracToNumber(newRest.beat).toFixed(3)}`)
-    this.state.selectedAccidental = null
-    this.setSelectedNote(newRest.id)
     this.renderScore()
     this.scrollSelectedNoteIntoView()
   }

@@ -149,30 +149,6 @@ describe('KeyboardController', () => {
     })
   })
 
-  describe('enterRestAtCursorPosition (entry mode only)', () => {
-    it('places a rest at the next beat, overwriting the note there', () => {
-      const n0 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-      engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-      state.selectedTool = 'entry'
-      state.selectedNoteId = n0
-
-      kb.enterRestAtCursorPosition()
-
-      const restAt1 = getMeasureNotes(measure1(engine)).find(n => fracEq(n.beat, frac(1, 1)))!
-      expect(restAt1.isRest).toBe(true)
-      expect(state.selectedNoteId).toBe(restAt1.id) // cursor advanced onto the rest
-    })
-
-    it('is a no-op outside entry mode', () => {
-      const n0 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-      engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-      state.selectedTool = 'selection'
-      state.selectedNoteId = n0
-      kb.enterRestAtCursorPosition()
-      expect(notesAtBeat(engine, 1)).toHaveLength(1) // E note still there
-    })
-  })
-
   describe('addChordNoteByLetter (Shift + letter)', () => {
     it('adds a higher note to the chord at the selected note', () => {
       const id = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
