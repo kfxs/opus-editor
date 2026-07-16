@@ -4,18 +4,17 @@
       <div class="bg-gray-800 p-4 rounded-lg">
         <div class="mb-4 flex gap-2 flex-wrap">
           <button
-            @click="openTestWindow"
             class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded"
+            @click="openTestWindow"
           >
             Lorem Window
           </button>
-          <div class="border-l border-gray-600 mx-2"></div>
+          <div class="border-l border-gray-600 mx-2" />
 
           <!-- Tool Mode Selector -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Tool:</span>
             <button
-              @click="state.selectedTool = 'entry'; state.selectedNoteId = null"
               :class="[
                 'px-3 py-1 rounded text-sm',
                 state.selectedTool === 'entry'
@@ -23,11 +22,11 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Note Entry Tool"
+              @click="state.selectedTool = 'entry'; state.selectedNoteId = null"
             >
               Entry
             </button>
             <button
-              @click="palette.disarmPositionalTools(); state.selectedTool = 'selection'"
               :class="[
                 'px-3 py-1 rounded text-sm',
                 state.selectedTool === 'selection'
@@ -35,18 +34,18 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Selection Tool"
+              @click="palette.disarmPositionalTools(); state.selectedTool = 'selection'"
             >
               Select
             </button>
           </div>
 
-          <div class="border-l border-gray-600 mx-2"></div>
+          <div class="border-l border-gray-600 mx-2" />
 
           <!-- View mode: wrapped systems vs one endless system (docs/linear-view-plan.md) -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">View:</span>
             <button
-              @click="palette.setViewMode('wrapped')"
               :class="[
                 'px-3 py-1 rounded text-sm',
                 state.viewMode === 'wrapped'
@@ -54,11 +53,11 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Wrapped view — music broken into stacked systems (Ctrl+Shift+L toggles)"
+              @click="palette.setViewMode('wrapped')"
             >
               Wrapped
             </button>
             <button
-              @click="palette.setViewMode('linear')"
               :class="[
                 'px-3 py-1 rounded text-sm',
                 state.viewMode === 'linear'
@@ -66,18 +65,18 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Linear view — one endless system, scroll left to right (Ctrl+Shift+L toggles)"
+              @click="palette.setViewMode('linear')"
             >
               Linear
             </button>
           </div>
 
-          <div class="border-l border-gray-600 mx-2"></div>
+          <div class="border-l border-gray-600 mx-2" />
 
           <!-- Voice Selector (Sibelius-style: V1 blue, V2 green) -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Voice:</span>
             <button
-              @click="palette.setActiveVoice(1)"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
                 state.activeVoice === 1
@@ -85,11 +84,11 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Voice 1 (Alt+1) — primary stream"
+              @click="palette.setActiveVoice(1)"
             >
               1
             </button>
             <button
-              @click="palette.setActiveVoice(2)"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
                 state.activeVoice === 2
@@ -97,18 +96,18 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Voice 2 (Alt+2) — second stream"
+              @click="palette.setActiveVoice(2)"
             >
               2
             </button>
           </div>
 
-          <div class="border-l border-gray-600 mx-2"></div>
+          <div class="border-l border-gray-600 mx-2" />
 
           <!-- Note Duration Selector -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Duration:</span>
             <button
-              @click="palette.setDuration('w')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
                 highlightedDuration === 'w'
@@ -116,11 +115,11 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Whole note (Redonda) - 4 beats"
+              @click="palette.setDuration('w')"
             >
               𝅝
             </button>
             <button
-              @click="palette.setDuration('h')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
                 highlightedDuration === 'h'
@@ -128,11 +127,11 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Half note (Blanca) - 2 beats"
+              @click="palette.setDuration('h')"
             >
               𝅗𝅥
             </button>
             <button
-              @click="palette.setDuration('q')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
                 highlightedDuration === 'q'
@@ -140,11 +139,11 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Quarter note (Negra) - 1 beat"
+              @click="palette.setDuration('q')"
             >
               ♩
             </button>
             <button
-              @click="palette.setDuration('8')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
                 highlightedDuration === '8'
@@ -152,11 +151,11 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Eighth note (Corchea) - 0.5 beats"
+              @click="palette.setDuration('8')"
             >
               ♪
             </button>
             <button
-              @click="palette.setDuration('16')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
                 highlightedDuration === '16'
@@ -164,11 +163,11 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Sixteenth note (Semicorchea) - 0.25 beats"
+              @click="palette.setDuration('16')"
             >
               𝅘𝅥𝅯
             </button>
             <button
-              @click="palette.setDuration('32')"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
                 highlightedDuration === '32'
@@ -176,6 +175,7 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Thirty-second note (Fusa) - 0.125 beats"
+              @click="palette.setDuration('32')"
             >
               𝅘𝅥𝅰
             </button>
@@ -186,7 +186,6 @@
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Tuplet:</span>
             <button
-              @click="palette.toggleTuplet()"
               :class="[
                 'px-3 py-1 rounded text-sm font-bold',
                 state.tupletMode
@@ -194,6 +193,7 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Toggle triplet mode (T) - creates 3 notes in space of 2"
+              @click="palette.toggleTuplet()"
             >
               3
             </button>
@@ -205,7 +205,6 @@
             <button
               v-for="b in (['auto', 'single', 'begin', 'continue', 'end'] as const)"
               :key="b"
-              @click="palette.setBeam(b)"
               :class="[
                 'px-2 py-1 rounded text-xs',
                 state.selectedBeam === b
@@ -213,7 +212,10 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               :title="`Beam: ${b}`"
-            >{{ b }}</button>
+              @click="palette.setBeam(b)"
+            >
+              {{ b }}
+            </button>
           </div>
 
           <!-- Clef Tool -->
@@ -222,7 +224,6 @@
             <button
               v-for="c in (['treble', 'bass', 'alto'] as const)"
               :key="c"
-              @click="palette.setClef(c)"
               :class="[
                 'px-3 py-1 rounded text-lg font-bold leading-none',
                 state.selectedClef === c
@@ -230,7 +231,10 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               :title="`${c[0].toUpperCase()}${c.slice(1)} clef — click a measure to place it`"
-            >{{ c === 'treble' ? '𝄞' : c === 'bass' ? '𝄢' : '𝄡' }}</button>
+              @click="palette.setClef(c)"
+            >
+              {{ c === 'treble' ? '𝄞' : c === 'bass' ? '𝄢' : '𝄡' }}
+            </button>
           </div>
 
           <!-- Time Signature Tool -->
@@ -239,7 +243,6 @@
             <button
               v-for="ts in timeSignaturePresets"
               :key="`${ts.numerator}/${ts.denominator}`"
-              @click="palette.setTimeSignature({ numerator: ts.numerator, denominator: ts.denominator })"
               :class="[
                 'px-2 py-1 rounded text-sm font-bold leading-none tabular-nums',
                 isTimeSignatureArmed(ts)
@@ -247,9 +250,11 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               :title="`${ts.numerator}/${ts.denominator} — click a measure to set its time signature`"
-            >{{ ts.numerator }}/{{ ts.denominator }}</button>
+              @click="palette.setTimeSignature({ numerator: ts.numerator, denominator: ts.denominator })"
+            >
+              {{ ts.numerator }}/{{ ts.denominator }}
+            </button>
             <button
-              @click="openTimeSignatureDialog"
               :class="[
                 'px-2 py-1 rounded text-sm leading-none',
                 isCustomTimeSignatureArmed
@@ -257,12 +262,17 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Custom time signature (any dyadic meter + optional grouping)"
-            >Custom…</button>
+              @click="openTimeSignatureDialog"
+            >
+              Custom…
+            </button>
             <button
-              @click="openPickupDialog"
               class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500"
               title="Pickup / anacrusis bar (set a measure's actual length shorter than its time signature)"
-            >Pickup…</button>
+              @click="openPickupDialog"
+            >
+              Pickup…
+            </button>
           </div>
 
           <!-- Dynamics Tool -->
@@ -271,7 +281,6 @@
             <button
               v-for="d in dynamicLevels"
               :key="d"
-              @click="palette.setDynamic(d)"
               :class="[
                 'px-2 py-1 rounded text-sm italic font-bold leading-none',
                 state.selectedDynamic === d
@@ -279,9 +288,11 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               :title="`${d} — click a beat to place it (drives playback loudness)`"
-            >{{ d }}</button>
+              @click="palette.setDynamic(d)"
+            >
+              {{ d }}
+            </button>
             <button
-              @click="palette.setDynamic('text')"
               :class="[
                 'px-2 py-1 rounded text-sm leading-none',
                 state.selectedDynamic === 'text'
@@ -289,19 +300,24 @@
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Custom italic text dynamic (silent) — places editable “Text” placeholder"
-            >Text</button>
+              @click="palette.setDynamic('text')"
+            >
+              Text
+            </button>
           </div>
 
           <!-- Tempo Tool — a word, a metronome mark, or both. System-level: one mark
                governs the whole score, whichever staff you click. -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm" :class="state.selectedTempoId ? 'text-amber-400 font-semibold' : 'text-gray-300'">
+            <span
+              class="text-sm"
+              :class="state.selectedTempoId ? 'text-amber-400 font-semibold' : 'text-gray-300'"
+            >
               {{ state.selectedTempoId ? 'Tempo ✎:' : 'Tempo:' }}
             </span>
             <button
               v-for="w in tempoWords"
               :key="w.text"
-              @click="palette.setTempo({ text: w.text, bpm: w.bpm, unit: 'q', showMetronome: tempoShowMetronome })"
               :class="[
                 'px-2 py-1 rounded text-sm italic leading-none',
                 isTempoArmed({ text: w.text, bpm: w.bpm, unit: 'q', showMetronome: tempoShowMetronome })
@@ -311,9 +327,12 @@
               :title="state.selectedTempoId
                 ? `Change the selected mark to ${w.text} (♩ = ${w.bpm})`
                 : `${w.text} (♩ = ${w.bpm}) — click a beat to place it. The word sounds even when the number is hidden.`"
-            >{{ w.text }}</button>
+              @click="palette.setTempo({ text: w.text, bpm: w.bpm, unit: 'q', showMetronome: tempoShowMetronome })"
+            >
+              {{ w.text }}
+            </button>
 
-            <span class="w-px h-5 bg-gray-600"></span>
+            <span class="w-px h-5 bg-gray-600" />
 
             <!-- Metronome-only: unit + dots + bpm, no word. -->
             <select
@@ -321,16 +340,24 @@
               class="bg-gray-600 rounded text-sm px-1 py-1 leading-none"
               title="Metronome beat unit — ♩ = 60 and 𝅗𝅥 = 60 are different speeds"
             >
-              <option v-for="u in tempoUnits" :key="u.value" :value="u.value">{{ u.glyph }}</option>
+              <option
+                v-for="u in tempoUnits"
+                :key="u.value"
+                :value="u.value"
+              >
+                {{ u.glyph }}
+              </option>
             </select>
             <button
-              @click="tempoDots = tempoDots === 1 ? 0 : 1"
               :class="[
                 'px-2 py-1 rounded text-sm leading-none',
                 tempoDots === 1 ? 'bg-cyan-600 text-white' : 'bg-gray-600 hover:bg-gray-500'
               ]"
               title="Dotted beat unit (♩. = 60 is 90 quarter-notes per minute, not 60)"
-            >.</button>
+              @click="tempoDots = tempoDots === 1 ? 0 : 1"
+            >
+              .
+            </button>
             <input
               v-model.number="tempoBpm"
               type="number"
@@ -338,9 +365,8 @@
               max="300"
               class="w-16 bg-gray-600 rounded text-sm px-2 py-1 leading-none"
               title="Beats per minute — of the chosen unit, not of a quarter"
-            />
+            >
             <button
-              @click="palette.setTempo({ unit: tempoUnit, dots: tempoDots, bpm: tempoBpm, showMetronome: true })"
               :class="[
                 'px-2 py-1 rounded text-sm leading-none',
                 isTempoArmed({ unit: tempoUnit, dots: tempoDots, bpm: tempoBpm, showMetronome: true })
@@ -350,10 +376,19 @@
               :title="state.selectedTempoId
                 ? `Set the selected mark's metronome to ${metronomePreview} (its word is kept)`
                 : `Place ${metronomePreview} on its own (no word) — click a beat`"
-            >{{ metronomePreview }}</button>
+              @click="palette.setTempo({ unit: tempoUnit, dots: tempoDots, bpm: tempoBpm, showMetronome: true })"
+            >
+              {{ metronomePreview }}
+            </button>
 
-            <label class="flex items-center gap-1 text-xs text-gray-300" title="Print the ♩ = N next to the word? The word sounds either way.">
-              <input type="checkbox" v-model="tempoShowMetronome" />
+            <label
+              class="flex items-center gap-1 text-xs text-gray-300"
+              title="Print the ♩ = N next to the word? The word sounds either way."
+            >
+              <input
+                v-model="tempoShowMetronome"
+                type="checkbox"
+              >
               show ♩=
             </label>
           </div>
@@ -362,45 +397,53 @@
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Measure:</span>
             <button
-              @click="palette.addMeasureBefore()"
               :disabled="!hasMeasureContext"
               class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
               title="Insert an empty measure before the selected bar — Ctrl+Shift+click a measure to select it first"
-            >+ Before</button>
+              @click="palette.addMeasureBefore()"
+            >
+              + Before
+            </button>
             <button
-              @click="palette.addMeasureAfter()"
               :disabled="!hasMeasureContext"
               class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
               title="Insert an empty measure after the selected bar — Ctrl+Shift+click a measure to select it first"
-            >+ After</button>
+              @click="palette.addMeasureAfter()"
+            >
+              + After
+            </button>
           </div>
 
           <!-- Add Staff (relative to the plain-click-selected bar's staff; click empty space in a bar) -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Staff:</span>
             <button
-              @click="palette.addStaffAbove()"
               :disabled="!hasStaffContext"
               class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
               title="Add a staff above the selected bar's staff — click empty space in a measure to select it first"
-            >+ Above</button>
+              @click="palette.addStaffAbove()"
+            >
+              + Above
+            </button>
             <button
-              @click="palette.addStaffBelow()"
               :disabled="!hasStaffContext"
               class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
               title="Add a staff below the selected bar's staff — click empty space in a measure to select it first"
-            >+ Below</button>
+              @click="palette.addStaffBelow()"
+            >
+              + Below
+            </button>
           </div>
 
-          <div class="border-l border-gray-600 mx-2"></div>
+          <div class="border-l border-gray-600 mx-2" />
           <button
-            @click="togglePlayback"
             :class="[
               'px-4 py-2 rounded min-w-[80px]',
               state.playbackState === 'playing'
                 ? 'bg-orange-600 hover:bg-orange-700'
                 : 'bg-purple-600 hover:bg-purple-700',
             ]"
+            @click="togglePlayback"
           >
             {{ state.playbackState === 'playing' ? '⏹ Stop' : '▶ Play' }}
           </button>
@@ -419,10 +462,14 @@
             🔧 DEV sound:
             <select
               v-model.number="devSoundProgram"
-              @change="onDevSoundChange"
               class="bg-gray-700 rounded px-1 py-0.5 text-white text-xs"
+              @change="onDevSoundChange"
             >
-              <option v-for="s in DEV_SOUNDS" :key="s.program" :value="s.program">{{ s.label }}</option>
+              <option
+                v-for="s in DEV_SOUNDS"
+                :key="s.program"
+                :value="s.program"
+              >{{ s.label }}</option>
             </select>
           </label>
         </div>
@@ -439,40 +486,52 @@
              box (a child of it would scroll away with the music — the one thing it must not do).
              overflow-hidden clips it: the gutter tracks the score SVG's vertical bounds, so when
              the music is scrolled it hangs past the top/bottom of the window. -->
-        <div ref="scoreViewport" class="relative overflow-hidden rounded-lg">
         <div
-          ref="scoreCanvas"
-          class="score-container bg-slate-200 rounded-lg overflow-auto"
-          :class="state.isPanning ? 'cursor-none' : 'cursor-default'"
-          :style="{ height: viewportHeight }"
-          @click="(e) => mouse.handleClick(e)"
-          @mousedown="(e) => mouse.handleMouseDown(e)"
-          @mousemove="(e) => mouse.handleMouseMove(e)"
-          @mouseup="(e) => mouse.handleMouseUp(e)"
-          @mouseleave="mouse.handleMouseLeave()"
+          ref="scoreViewport"
+          class="relative overflow-hidden rounded-lg"
         >
-          <!--
+          <div
+            ref="scoreCanvas"
+            class="score-container bg-slate-200 rounded-lg overflow-auto"
+            :class="state.isPanning ? 'cursor-none' : 'cursor-default'"
+            :style="{ height: viewportHeight }"
+            @click="(e) => mouse.handleClick(e)"
+            @mousedown="(e) => mouse.handleMouseDown(e)"
+            @mousemove="(e) => mouse.handleMouseMove(e)"
+            @mouseup="(e) => mouse.handleMouseUp(e)"
+            @mouseleave="mouse.handleMouseLeave()"
+          >
+            <!--
             Zoom DOM (docs/zoom-plan.md §3): the `sizer` takes an explicit size = naturalSvgSize ×
             zoom so the scroll bars get their range; the `zoomLayer` carries transform: scale(zoom)
             so the visuals scale without a re-render. useViewport writes both from the same scalar.
           -->
-          <div ref="scoreSizer" class="score-sizer">
-            <div ref="scoreZoomLayer" class="score-zoom-layer">
-              <div ref="scoreContent" class="p-4"></div>
-              <!--
+            <div
+              ref="scoreSizer"
+              class="score-sizer"
+            >
+              <div
+                ref="scoreZoomLayer"
+                class="score-zoom-layer"
+              >
+                <div
+                  ref="scoreContent"
+                  class="p-4"
+                />
+                <!--
                 Playback cursor — a green vertical bar at the start of the playing measure.
                 Sibling of scoreContent INSIDE the zoomLayer (NOT a child of scoreContent, which
                 VexFlow wipes with innerHTML='' every render). Living in the scaled layer, it scales
                 and scrolls with the music for free, so its translate stays pure layout coords.
               -->
-              <div
-                v-show="playCursor.visible"
-                class="play-cursor"
-                :style="{ transform: `translate(${playCursor.x}px, ${playCursor.y}px)`, height: `${playCursor.height}px` }"
-              ></div>
+                <div
+                  v-show="playCursor.visible"
+                  class="play-cursor"
+                  :style="{ transform: `translate(${playCursor.x}px, ${playCursor.y}px)`, height: `${playCursor.height}px` }"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
           <!--
             The frozen left gutter (docs/linear-view-plan.md §P3) — the clef and meter in force at
@@ -485,14 +544,15 @@
             v-if="state.viewMode === 'linear'"
             ref="scoreGutter"
             class="score-gutter bg-slate-200"
-          ></div>
+          />
         </div>
-
       </div>
     </div>
 
     <div class="bg-gray-800 p-4 rounded-lg text-left">
-      <h3 class="text-xl mb-2">Score JSON:</h3>
+      <h3 class="text-xl mb-2">
+        Score JSON:
+      </h3>
       <pre class="bg-gray-900 p-4 rounded overflow-auto text-xs max-h-96">{{ scoreJSON }}</pre>
     </div>
 
@@ -502,45 +562,75 @@
       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       @click.self="showTimeSignatureDialog = false"
     >
-      <div class="bg-gray-800 rounded-lg p-6 w-80 text-left shadow-xl" @keydown.enter="applyCustomTimeSignature">
-        <h3 class="text-lg font-semibold mb-4">Custom Time Signature</h3>
+      <div
+        class="bg-gray-800 rounded-lg p-6 w-80 text-left shadow-xl"
+        @keydown.enter="applyCustomTimeSignature"
+      >
+        <h3 class="text-lg font-semibold mb-4">
+          Custom Time Signature
+        </h3>
 
         <div class="flex items-center gap-3 mb-3">
           <label class="text-sm text-gray-300 w-24">Numerator</label>
           <input
-            type="number" min="1" step="1" v-model.number="tsNumerator"
+            v-model.number="tsNumerator"
+            type="number"
+            min="1"
+            step="1"
             class="flex-1 bg-gray-700 rounded px-2 py-1 text-white"
-          />
+          >
         </div>
 
         <div class="flex items-center gap-3 mb-3">
           <label class="text-sm text-gray-300 w-24">Denominator</label>
-          <select v-model.number="tsDenominator" class="flex-1 bg-gray-700 rounded px-2 py-1 text-white">
-            <option v-for="d in tsDenominatorOptions" :key="d" :value="d">{{ d }}</option>
+          <select
+            v-model.number="tsDenominator"
+            class="flex-1 bg-gray-700 rounded px-2 py-1 text-white"
+          >
+            <option
+              v-for="d in tsDenominatorOptions"
+              :key="d"
+              :value="d"
+            >
+              {{ d }}
+            </option>
           </select>
         </div>
 
         <div class="flex items-center gap-3 mb-1">
           <label class="text-sm text-gray-300 w-24">Grouping</label>
           <input
-            type="text" v-model="tsGrouping" placeholder="optional, e.g. 2+2+3"
+            v-model="tsGrouping"
+            type="text"
+            placeholder="optional, e.g. 2+2+3"
             class="flex-1 bg-gray-700 rounded px-2 py-1 text-white"
-          />
+          >
         </div>
-        <p class="text-xs text-gray-400 mb-3 ml-[6.75rem]">In denominator units; must sum to the numerator.</p>
+        <p class="text-xs text-gray-400 mb-3 ml-[6.75rem]">
+          In denominator units; must sum to the numerator.
+        </p>
 
-        <p v-if="tsDialogError" class="text-sm text-red-400 mb-3">{{ tsDialogError }}</p>
+        <p
+          v-if="tsDialogError"
+          class="text-sm text-red-400 mb-3"
+        >
+          {{ tsDialogError }}
+        </p>
 
         <div class="flex justify-end gap-2 mt-2">
           <button
-            @click="showTimeSignatureDialog = false"
             class="px-3 py-1 rounded bg-gray-600 hover:bg-gray-500 text-sm"
-          >Cancel</button>
+            @click="showTimeSignatureDialog = false"
+          >
+            Cancel
+          </button>
           <button
-            @click="applyCustomTimeSignature"
             :disabled="!!tsDialogError"
             class="px-3 py-1 rounded text-sm bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed"
-          >Arm</button>
+            @click="applyCustomTimeSignature"
+          >
+            Arm
+          </button>
         </div>
       </div>
     </div>
@@ -551,47 +641,80 @@
       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       @click.self="showPickupDialog = false"
     >
-      <div class="bg-gray-800 rounded-lg p-6 w-80 text-left shadow-xl" @keydown.enter="applyPickup">
-        <h3 class="text-lg font-semibold mb-4">Pickup / Anacrusis Bar</h3>
+      <div
+        class="bg-gray-800 rounded-lg p-6 w-80 text-left shadow-xl"
+        @keydown.enter="applyPickup"
+      >
+        <h3 class="text-lg font-semibold mb-4">
+          Pickup / Anacrusis Bar
+        </h3>
 
         <div class="flex items-center gap-3 mb-3">
           <label class="text-sm text-gray-300 w-24">Measure</label>
           <input
-            type="number" min="1" step="1" v-model.number="pickupMeasure"
+            v-model.number="pickupMeasure"
+            type="number"
+            min="1"
+            step="1"
             class="flex-1 bg-gray-700 rounded px-2 py-1 text-white"
-          />
+          >
         </div>
 
         <div class="flex items-center gap-3 mb-1">
           <label class="text-sm text-gray-300 w-24">Pickup length</label>
           <input
-            type="number" min="1" step="1" v-model.number="pickupNumerator"
+            v-model.number="pickupNumerator"
+            type="number"
+            min="1"
+            step="1"
             class="w-16 bg-gray-700 rounded px-2 py-1 text-white"
-          />
+          >
           <span class="text-gray-400">/</span>
-          <select v-model.number="pickupDenominator" class="flex-1 bg-gray-700 rounded px-2 py-1 text-white">
-            <option v-for="d in tsDenominatorOptions" :key="d" :value="d">{{ d }}</option>
+          <select
+            v-model.number="pickupDenominator"
+            class="flex-1 bg-gray-700 rounded px-2 py-1 text-white"
+          >
+            <option
+              v-for="d in tsDenominatorOptions"
+              :key="d"
+              :value="d"
+            >
+              {{ d }}
+            </option>
           </select>
         </div>
-        <p class="text-xs text-gray-400 mb-3 ml-[6.75rem]">Actual bar length; must be shorter than the full bar (e.g. 1/4 = one beat).</p>
+        <p class="text-xs text-gray-400 mb-3 ml-[6.75rem]">
+          Actual bar length; must be shorter than the full bar (e.g. 1/4 = one beat).
+        </p>
 
-        <p v-if="pickupDialogError" class="text-sm text-red-400 mb-3">{{ pickupDialogError }}</p>
+        <p
+          v-if="pickupDialogError"
+          class="text-sm text-red-400 mb-3"
+        >
+          {{ pickupDialogError }}
+        </p>
 
         <div class="flex justify-end gap-2 mt-2">
           <button
-            @click="showPickupDialog = false"
             class="px-3 py-1 rounded bg-gray-600 hover:bg-gray-500 text-sm"
-          >Cancel</button>
+            @click="showPickupDialog = false"
+          >
+            Cancel
+          </button>
           <button
-            @click="clearPickup"
             class="px-3 py-1 rounded text-sm bg-gray-600 hover:bg-gray-500"
             title="Remove the pickup, restoring the full bar"
-          >Clear</button>
+            @click="clearPickup"
+          >
+            Clear
+          </button>
           <button
-            @click="applyPickup"
             :disabled="!!pickupDialogError"
             class="px-3 py-1 rounded text-sm bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed"
-          >Apply</button>
+            @click="applyPickup"
+          >
+            Apply
+          </button>
         </div>
       </div>
     </div>
