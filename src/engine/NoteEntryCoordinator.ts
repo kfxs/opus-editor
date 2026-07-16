@@ -8,7 +8,7 @@ import {
 } from '@/utils/musicUtils'
 import {
   fracToNumber, fracEq, fracAdd, fracSub, fracMul,
-  fracLt, fracGt, fracGte, fracFromInt, fracCreate,
+  fracLt, fracGt, fracGte, fracLte, fracFromInt, fracCreate,
 } from '@/utils/fraction'
 import { durationToFraction, tupletNoteDurationFraction, fitRestDuration } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
@@ -882,6 +882,14 @@ export class NoteEntryCoordinator {
     // Clamp to valid range (tuplet must fit in measure)
     beat = Math.max(0, Math.min(beat, barQuarters - tupletTotalBeats))
 
+    // The clamp slides it left to fit, but it cannot save a tuplet LONGER than the whole bar —
+    // `barQuarters - tupletTotalBeats` goes negative, Math.max pins it to 0, and it overflows from
+    // there. Same guard as the toggle path (see tupletFitsBar).
+    if (!this.tupletFitsBar(measureNumber, beatToFrac(beat), beatToFrac(tupletTotalBeats))) {
+      console.log(`✗ Tuplet refused: ${numNotes}-in-${notesOccupied} of ${duration} needs ${tupletTotalBeats} beat(s), more than m${measureNumber} holds`)
+      return null
+    }
+
     // Check if there's already a tuplet in this voice AND staff at this position
     const existingTuplet = this.getScoreModel().getTupletAtBeat(measureNumber, beatToFrac(beat), voice, entryStaff)
     if (existingTuplet) {
@@ -929,6 +937,23 @@ export class NoteEntryCoordinator {
    * Convert an existing selected note or rest into the first element of a tuplet.
    * Used when the user presses the tuplet button in selection mode with a note/rest selected.
    */
+  /**
+   * Does a tuplet of `span` actual beats starting at `beat` fit inside the bar?
+   *
+   * A tuplet CANNOT cross a barline — it is a local re-division of one bar's time — and nothing was
+   * checking it. The span is the trap: a triplet of HALVES is three notes in the time of TWO HALVES,
+   * i.e. four quarter-beats, so from beat 2 of 4/4 it runs to beat 6 and the bar quietly held six
+   * beats (reported). The written duration ('h') looks like it fits; the ACTUAL span is what counts.
+   *
+   * Refusing is the answer for now, over re-scaling the tuplet to something that does fit: a triplet
+   * that silently became a different triplet is a worse surprise than one that did not appear.
+   */
+  private tupletFitsBar(measureNumber: number, beat: Fraction, span: Fraction): boolean {
+    const measure = this.getScoreModel().getMeasure(measureNumber)
+    if (!measure) return false
+    return fracLte(fracAdd(beat, span), measureCapacityFrac(measure))
+  }
+
   applyTupletToNote(
     noteId: string,
     numNotes: number = 3,
@@ -944,6 +969,12 @@ export class NoteEntryCoordinator {
     const staff = note.staff ?? 0
     const applySpan = getTupletTotalBeatsFrac(note.duration, notesOccupied)
     if (this.getScoreModel().tupletSpanOverlaps(note.measure, note.beat, applySpan, voice, staff)) return null
+
+    // …and it has to FIT (see tupletFitsBar). Nothing checked this: the bar went overfull.
+    if (!this.tupletFitsBar(note.measure, note.beat, applySpan)) {
+      console.log(`✗ Tuplet refused: ${numNotes}-in-${notesOccupied} of ${note.duration} needs ${fracToNumber(applySpan).toFixed(3)} beat(s) from b${fracToNumber(note.beat).toFixed(3)}, past the end of m${note.measure}`)
+      return null
+    }
 
     // createTuplet removes overlapping slots (same voice + staff only); places no initial rests
     const tuplet = this.getScoreModel().createTuplet(note.measure, note.beat, note.duration, numNotes, notesOccupied, voice, staff)

@@ -418,3 +418,47 @@ describe('NoteEntryCoordinator.addRestAtPosition', () => {
     expect(scoreModel.getNote(note.id)).toBeFalsy()
   })
 })
+/**
+ * A tuplet cannot cross a barline. The trap is that the SPAN, not the written duration, is what must
+ * fit: a triplet of halves is three notes in the time of two halves = four quarter-beats.
+ */
+describe('NoteEntryCoordinator — a tuplet must fit the bar', () => {
+  let scoreModel: ScoreModel
+  let coordinator: NoteEntryCoordinator
+
+  beforeEach(() => {
+    scoreModel = new ScoreModel('Test')
+    coordinator = makeCoordinator(scoreModel)
+  })
+
+  const barBeats = (measure: number) =>
+    scoreModel.getMeasure(measure)!.slots.reduce(
+      (acc, sl) => acc + fracToNumber(sl.actualDuration ?? durationToFraction(sl.duration, sl.dots ?? 0)), 0)
+
+  it('REFUSES a triplet of halves at beat 2 of 4/4 — it needs 4 beats and 2 remain (reported)', () => {
+    // Reported bar: A3 q@0, rest q@1, then a triplet of halves toggled onto the rest at beat 2. Its
+    // span runs to beat 6 and the bar summed to SIX beats in 4/4.
+    const rest = scoreModel.addNote({ duration: 'h', measure: 1, beat: frac(2, 1), isRest: true })
+    expect(coordinator.applyTupletToNote(rest.id, 3, 2)).toBeNull()
+    expect(scoreModel.getMeasure(1)!.tuplets ?? []).toHaveLength(0)
+  })
+
+  it('leaves the bar exactly full when it refuses', () => {
+    const rest = scoreModel.addNote({ duration: 'h', measure: 1, beat: frac(2, 1), isRest: true })
+    coordinator.applyTupletToNote(rest.id, 3, 2)
+    scoreModel.repairAllMeasureGaps() // throws under Vitest if the bar is malformed
+    expect(barBeats(1)).toBe(4)
+  })
+
+  it('ALLOWS a triplet of quarters at beat 2 of 4/4 — 2 beats, and 2 remain', () => {
+    const rest = scoreModel.addNote({ duration: 'q', measure: 1, beat: frac(2, 1), isRest: true })
+    const result = coordinator.applyTupletToNote(rest.id, 3, 2)
+    expect(result).not.toBeNull()
+    expect(scoreModel.getMeasure(1)!.tuplets).toHaveLength(1)
+  })
+
+  it('ALLOWS a triplet of halves at beat 0 — the whole bar is exactly its span', () => {
+    const rest = scoreModel.addNote({ duration: 'h', measure: 1, beat: frac(0, 1), isRest: true })
+    expect(coordinator.applyTupletToNote(rest.id, 3, 2)).not.toBeNull()
+  })
+})
