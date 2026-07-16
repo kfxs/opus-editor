@@ -242,6 +242,10 @@ export class KeyboardController {
     const engine = this.getEngine()
     if (!this.state.selectedNoteId || !engine) return
 
+    // What YOU armed — held across the placement. See the restore at the end.
+    const armedDuration = this.state.selectedDuration
+    const armedDots = this.state.selectedDots
+
     const score = engine.getScore()
     // Keyboard entry CONTINUES the voice of the note the cursor sits on — you're
     // extending that voice's stream, so the new note (and the cursor's advance)
@@ -359,6 +363,19 @@ export class KeyboardController {
 
     console.log(`[Cursor] → cursor lands on: m${lastNote.measure} beat:${fracToNumber(lastNote.beat).toFixed(4)} (${lastNote.isRest ? 'rest' : `${lastNote.step}${lastNote.octave}`}${lastNote.tupletId ? ' tuplet' : ''})`)
     this.setSelectedNote(lastNote.id)
+
+    // A SPLIT IS NOT A CHOICE — the same rule the rest path states as "a cap is not a choice".
+    // Moving the caret syncs the palette to the note it lands on
+    // (SelectionController.syncPaletteToNote), which is right for a selection — click a note, see its
+    // length — and wrong for a piece the BARLINE chose. A whole entered on beat 2 of 4/4 becomes a
+    // dotted half tied to a quarter, and the caret lands on the QUARTER, so the Keypad quietly said
+    // "quarter" and the next note came out one. You armed a whole; you still have a whole.
+    //
+    // A no-op for a note that did not split — you typed what was armed, so the sync wrote the same
+    // value back. That is exactly why this hid until a split made it visible.
+    this.state.selectedDuration = armedDuration
+    this.state.selectedDots = armedDots
+
     this.renderScore()
     this.scrollSelectedNoteIntoView()
   }

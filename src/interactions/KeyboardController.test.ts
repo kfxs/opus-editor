@@ -368,8 +368,33 @@ describe('KeyboardController — cursor after a tie-split entry', () => {
     state = createEditorState()
     kb = new KeyboardController(
       () => engine, state, () => undefined, () => {},
-      (id) => { state.selectedNoteId = id }, () => 60,
+      // Mirrors the real SelectionController.setSelectedNote, which syncs the palette TO the note
+      // (syncPaletteToNote). A stub that only moved the caret could not express the reported bug.
+      (id) => {
+        state.selectedNoteId = id
+        const n = id ? engine.getNote(id) : null
+        if (n) { state.selectedDuration = n.duration; state.selectedDots = n.dots ?? 0 }
+      },
+      () => 60,
     )
+  })
+
+  it('KEEPS the armed length after a split — the Keypad must not show the tail (reported)', () => {
+    // Reported: arm a WHOLE, enter it on beat 1 of 4/4 → a dotted half tied to a quarter. The caret
+    // lands on the QUARTER (correctly — it is the end of the note), and the palette synced to it, so
+    // the Keypad said "negra" and the next note came out a quarter. The split is what the barline
+    // allowed; the armed length is what you asked for.
+    const g = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    state.selectedTool = 'entry'
+    state.selectedNoteId = g.id
+    state.selectedDuration = 'w'
+
+    kb.enterNoteAtCursorPosition('A')
+
+    expect(state.selectedDuration).toBe('w')  // still the whole you armed
+    expect(state.selectedDots).toBe(0)
+    // …and the caret really is on the quarter tail, so the sync had something to clobber with.
+    expect(engine.getNote(state.selectedNoteId!)!.duration).toBe('q')
   })
 
   it('lands on the LAST tied piece, not the head (reported)', () => {
