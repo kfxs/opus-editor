@@ -1466,6 +1466,45 @@ export class MusicEngine {
   }
 
   /**
+   * Set a note's accidental to `accidental` (sharp/flat/natural), changing its pitch. Shared by the
+   * palette's "apply to selected note" path and the accidental STAMP tool, so both re-spell a note
+   * identically. Mirrors the non-null branches of `PaletteController.setAccidental`:
+   *  - `n`: revert to natural (alter 0). A ♮ that cancels an earlier sharp/flat in the bar shows
+   *    automatically; a courtesy natural (nothing to cancel) must be FORCED to appear.
+   *  - `#`/`b`: alter ±1. If the note already sits at that alteration the sign would auto-hide, so
+   *    force it (re-showing a required accidental).
+   * Removal ("no accidental") is NOT handled here — that reverts to the prevailing alteration and
+   * lives in the palette's null branch / the Delete key. Returns the updated Note, or null on miss.
+   */
+  setNoteAccidental(noteId: string, accidental: Accidental): Note | null {
+    const note = this.scoreModel.getNote(noteId)
+    if (!note || note.isRest) return null
+    if (accidental === 'n') {
+      const wouldAutoShow = this.getPrevailingAlter(noteId) !== 0
+      return this.updateNote(noteId, { alter: 0, forceAccidental: wouldAutoShow ? undefined : true })
+    }
+    const newAlter: PitchAlter = accidental === '#' ? 1 : -1
+    const forceAccidental = note.alter === newAlter ? true : undefined
+    return this.updateNote(noteId, { alter: newAlter, forceAccidental })
+  }
+
+  /**
+   * Whether `note` already DISPLAYS `accidental` — used by the stamp tool for its idempotency check
+   * (clicking a note that already has that accidental does nothing). Sharp/flat is a pure alter
+   * match; a natural counts as "already there" only when its sign is actually visible (a required ♮
+   * cancelling an earlier accidental, or a forced courtesy ♮) — a plain natural note with no sign
+   * does NOT, so stamping ♮ on it still forces the courtesy sign to appear.
+   */
+  noteDisplaysAccidental(noteId: string, accidental: Accidental): boolean {
+    const note = this.scoreModel.getNote(noteId)
+    if (!note || note.isRest) return false
+    if (accidental === '#') return note.alter === 1
+    if (accidental === 'b') return note.alter === -1
+    // natural: only if a sign is currently drawn (prevailing cancels it, or it's forced)
+    return note.alter === 0 && (this.getPrevailingAlter(noteId) !== 0 || note.forceAccidental === true)
+  }
+
+  /**
    * Delete a note
    * If the note is part of a chord, just remove it from the chord.
    * If it's a single note, replace it with a rest of the same duration.
@@ -1944,6 +1983,8 @@ export class MusicEngine {
       rawY: coords.y,
       ...(dots && { dots }),
       ...(articulations?.length && { articulations }),
+      // An armed natural is alter 0 (no glyph of its own) — flag it so the ghost still shows the ♮.
+      ...(accidental === 'n' && { forceAccidental: true }),
       ...(ghostColor && { fillColor: ghostColor.fill, strokeColor: ghostColor.stroke }),
     }
 
@@ -1986,6 +2027,10 @@ export class MusicEngine {
 
   renderScoreWithArticulationGhost(coords: PixelCoordinates, types: ArticulationType[]): boolean {
     return this.renderer.renderScoreWithArticulationGhost(coords.x, coords.y, types)
+  }
+
+  renderScoreWithAccidentalGhost(coords: PixelCoordinates, accidental: Accidental): boolean {
+    return this.renderer.renderScoreWithAccidentalGhost(coords.x, coords.y, accidental)
   }
 
   /**

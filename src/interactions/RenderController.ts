@@ -1,6 +1,6 @@
 import { tempoFieldsFromTool } from '../utils/tempoText'
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { Clef, TimeSignature, Dynamic, TempoMark, ArticulationType } from '../types/music'
+import type { Clef, TimeSignature, Dynamic, TempoMark, ArticulationType, Accidental } from '../types/music'
 import type { DynamicTool, TempoTool, EditorState } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
 import type { HighlightController } from './HighlightController'
@@ -185,6 +185,16 @@ export class RenderController {
     renderCensus.setCause('ghost:articulation')
     this.ensureScoreDrawn(engine)
     engine.renderScoreWithArticulationGhost(coords, types)
+  }
+
+  /** Render the score with a translucent ghost accidental glyph following the cursor — the preview
+   *  for the armed accidental stamp tool. */
+  renderAccidentalGhost(coords: { x: number; y: number }, accidental: Accidental): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    renderCensus.setCause('ghost:accidental')
+    this.ensureScoreDrawn(engine)
+    engine.renderScoreWithAccidentalGhost(coords, accidental)
   }
 
   /** Render the score with a colored paste caret following the cursor (armed paste). */

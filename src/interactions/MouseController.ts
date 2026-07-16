@@ -1326,6 +1326,7 @@ export class MouseController {
     if (this.placeDynamicAtClick(engine, x, y, measureNum)) return
     if (this.placeTempoAtClick(engine, x, measureNum)) return
     if (this.stampArticulationAtClick(engine, registry, x, y)) return
+    if (this.stampAccidentalAtClick(engine, registry, x, y)) return
 
     // No marking tool armed → note/tuplet entry.
     this.placeNoteAtClick(engine, registry, x, y, measureNum)
@@ -1459,6 +1460,38 @@ export class MouseController {
       for (const t of missing) engine.toggleArticulation(noteId, t) // each adds (note lacks it)
     })
     console.log(`✓ Articulation stamped | ${missing.join('+')} on note ${noteId}`)
+    this.render.renderScore()
+    return true
+  }
+
+  /**
+   * Accidental stamp tool: a click SETS the armed accidental on the hovered note, changing its
+   * pitch (existing notes only). Mirrors {@link stampArticulationAtClick} — same note-body hit-test,
+   * one `runBatch` = one undo — but SINGLE-valued and IDEMPOTENT: clicking a note that already shows
+   * that accidental does nothing (removal is the Delete key, not a re-stamp). Consumes any click
+   * while the tool is armed (returns true) so a near-miss doesn't fall through to note entry.
+   */
+  private stampAccidentalAtClick(engine: MusicEngine, registry: ElementRegistry, x: number, y: number): boolean {
+    const accidental = this.state.selectedAccidentalTool
+    if (accidental === null) return false
+
+    const el = registry.findClosestNoteOrRest(x, y)
+    if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
+      console.log(`· Accidental stamp: click not on a note — no change`)
+      return true
+    }
+    const noteId = el.id
+    const note = engine.getNote(noteId)
+    if (!note || note.isRest) {
+      console.log(`· Accidental stamp: ${note?.isRest ? 'rest' : 'non-note'} — no change`)
+      return true
+    }
+    if (engine.noteDisplaysAccidental(noteId, accidental)) {
+      console.log(`· Accidental stamp: note ${noteId} already shows ${accidental} — no change`)
+      return true
+    }
+    engine.runBatch(`Set ${accidental}`, () => engine.setNoteAccidental(noteId, accidental))
+    console.log(`✓ Accidental stamped | ${accidental} on note ${noteId}`)
     this.render.renderScore()
     return true
   }
@@ -1769,6 +1802,14 @@ export class MouseController {
     // not a ghost note. A click adds them to the hovered note (see stampArticulationAtClick).
     if (this.state.selectedArticulationTools.length > 0) {
       this.render.renderArticulationGhost({ x, y }, this.state.selectedArticulationTools)
+      this.state.showCursor = false
+      return
+    }
+
+    // Accidental stamp tool armed: preview the armed accidental glyph following the cursor — not a
+    // ghost note. A click sets it on the hovered note (see stampAccidentalAtClick).
+    if (this.state.selectedAccidentalTool !== null) {
+      this.render.renderAccidentalGhost({ x, y }, this.state.selectedAccidentalTool)
       this.state.showCursor = false
       return
     }

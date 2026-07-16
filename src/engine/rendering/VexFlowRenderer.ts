@@ -3,7 +3,7 @@ import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
-import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration } from '@/types/music'
+import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, Accidental as ScoreAccidental } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { beatToFrac, measureCapacityFrac } from '@/utils/musicUtils'
@@ -282,7 +282,7 @@ export class VexFlowRenderer {
    * the leak.)
    */
   private static readonly GHOST_GROUP_SELECTOR =
-    '.ghost-note-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-tempo'
+    '.ghost-note-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tempo'
 
   /** Take down whatever ghost is showing. O(1) in the score's size — this is the whole point
    *  of P4: hovering an invalid element, or leaving the canvas, used to cost a FULL render
@@ -2160,6 +2160,9 @@ export class VexFlowRenderer {
       if (ghostNote.alter !== 0) {
         const sign = ghostNote.alter === 2 ? '##' : ghostNote.alter === 1 ? '#' : ghostNote.alter === -1 ? 'b' : 'bb'
         staveNote.addModifier(new Accidental(sign), 0)
+      } else if (ghostNote.forceAccidental) {
+        // Armed natural: alter 0 has no sign of its own, so draw the ♮ explicitly.
+        staveNote.addModifier(new Accidental('n'), 0)
       }
 
       if (ghostNote.articulations?.length) {
@@ -2955,6 +2958,68 @@ export class VexFlowRenderer {
       const CURSOR_GAP_PX = 8
       const dx = cursorX - (gbox.x + gbox.width / 2)
       const dy = cursorY - (gbox.y + gbox.height / 2) - CURSOR_GAP_PX
+      group.setAttribute('transform', `translate(${dx}, ${dy})`)
+      return true
+    } catch (_e) {
+      return false
+    }
+  }
+
+  /**
+   * Draw ONE translucent ghost accidental (♯/♭/♮) following the cursor — the preview for the armed
+   * accidental stamp tool. Same standalone-draw approach as {@link renderScoreWithArticulationGhost}:
+   * an `Accidental`'s `draw()` reads its note's stave-Y (`setStave`) and formatted tick-X
+   * (`Formatter.format`) but opens no group of its own, so we attach it to a throwaway note, format,
+   * then draw ONLY the accidental into OUR `vf-`-prefixed group (`.vf-ghost-accidental`, in
+   * {@link GHOST_GROUP_SELECTOR}) — the note itself is never drawn. Single-valued: a note has one
+   * accidental, so there is nothing to stack.
+   * @returns true if a ghost accidental was drawn
+   */
+  renderScoreWithAccidentalGhost(cursorX: number, cursorY: number, accidental: ScoreAccidental): boolean {
+    this.clearGhosts() // an overlay — take the old ghost down, leave the score alone
+
+    const svg = this.getSVGElement()
+    if (!svg || !this.context) return false
+
+    try {
+      const tempStave = new Stave(0, cursorY, 200)
+      tempStave.setBegBarType(Barline.type.NONE)
+      tempStave.setEndBarType(Barline.type.NONE)
+      tempStave.setContext(this.context)
+
+      const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
+      note.setStave(tempStave) // populates note.ys (what Accidental.draw reads for its Y)
+      const acc = new Accidental(accidental) // '#' | 'b' | 'n' are VexFlow accidental codes as-is
+      note.addModifier(acc, 0) // attaches the note to the modifier (checkAttachedNote)
+
+      const voice = new Voice({ numBeats: 1, beatValue: 4 })
+      voice.setStrict(false)
+      voice.addTickables([note])
+      new Formatter().joinVoices([voice]).format([voice], 150) // sets the note's tick X position
+      note.setStave(tempStave)
+
+      const group = this.context.openGroup('ghost-accidental') as SVGGElement
+      try {
+        acc.setContext(this.context).draw()
+      } finally {
+        this.context.closeGroup()
+      }
+
+      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
+      if (!gbox || gbox.width === 0) {
+        group.remove()
+        return false
+      }
+
+      // Paint it ghost blue at 0.7 opacity — a preview, not yet content (mirrors the other ghosts).
+      group.setAttribute('opacity', '0.7')
+      group.querySelectorAll('text, path').forEach(el => {
+        if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
+      })
+
+      // Centre the glyph on the cursor.
+      const dx = cursorX - (gbox.x + gbox.width / 2)
+      const dy = cursorY - (gbox.y + gbox.height / 2)
       group.setAttribute('transform', `translate(${dx}, ${dy})`)
       return true
     } catch (_e) {

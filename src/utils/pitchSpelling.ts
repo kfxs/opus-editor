@@ -115,6 +115,15 @@ export function accidentalToAlter(acc: Accidental | null | undefined): PitchAlte
   return 0
 }
 
+/**
+ * Map a rendered accidental glyph code (as stored on a registered `accidental` element: '#', 'b',
+ * 'n', '##', 'bb') to the keypad's single-accidental key, or null when there is no matching key —
+ * the double accidentals have no ♯♯/♭♭ key on the numpad palette.
+ */
+export function accidentalTypeToKey(type: string | null | undefined): Accidental | null {
+  return type === '#' || type === 'b' || type === 'n' ? type : null
+}
+
 // ---------------------------------------------------------------------------
 // Conversion: MIDI → PitchSpelling (migration helper)
 // ---------------------------------------------------------------------------

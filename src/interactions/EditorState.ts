@@ -123,6 +123,17 @@ export interface EditorState {
    * Mutually exclusive with the clef/TS/dynamic/tempo tools. Always REASSIGNED (never mutated in
    * place) so the observable state emits a change. */
   selectedArticulationTools: ArticulationType[]
+  /**
+   * An accidental armed as a STAMP tool (null = not active). Distinct from
+   * {@link selectedAccidental}, which arms an accidental for the NEXT note ENTERED. Like
+   * {@link selectedArticulationTools} but SINGLE-valued: a note has exactly one accidental state, so
+   * pressing a different accidental key SWAPS the armed one rather than stacking. Armed from
+   * selection mode with no note/group selected; switches to entry mode, shows a ghost accidental
+   * following the cursor, and a click SETS that accidental on the note clicked (existing notes only,
+   * changing its pitch — no note entry). Idempotent: clicking a note that already has that
+   * accidental does nothing. Pressing a duration while armed promotes it into note-entry (the
+   * "accidental + duration" workflow). Mutually exclusive with the other marking tools. */
+  selectedAccidentalTool: Accidental | null
   tupletMode: boolean
   selectedBeam: BeamMode
 
@@ -266,6 +277,7 @@ export function createEditorState(): EditorState {
     staccato: false,
     tenuto: false,
     selectedArticulationTools: [],
+    selectedAccidentalTool: null,
     tupletMode: false,
     selectedBeam: 'auto',
     selectedClef: null,

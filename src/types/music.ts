@@ -818,6 +818,9 @@ export interface GhostNote {
   rawY?: number
   dots?: number
   articulations?: ArticulationType[]
+  /** Show a natural (♮) even though `alter` is 0 — the preview for an armed natural accidental,
+   *  which otherwise has no glyph (alter 0 draws nothing). Sharp/flat carry their own sign via alter. */
+  forceAccidental?: boolean
   /** Ghost paint colour = the active voice's colour (V1 blue, V2 green). Defaults
    *  to the app's blue when omitted. See utils/voiceColors. */
   fillColor?: string

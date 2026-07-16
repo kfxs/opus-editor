@@ -222,3 +222,201 @@ describe('PaletteController — setActiveVoice (move selection vs arm entry)', (
     expect(state.activeVoice).toBe(2)
   })
 })
+
+describe('PaletteController — accidental stamp tool', () => {
+  let state: EditorState
+  let renderScore: ReturnType<typeof vi.fn>
+  let selectNote: ReturnType<typeof vi.fn>
+  let setNoteAccidental: ReturnType<typeof vi.fn>
+  let notes: Record<string, { id: string; isRest?: boolean; alter: number }>
+  let displays: Set<string> // ids that "already display" the queried accidental (stubbed)
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    renderScore = vi.fn()
+    selectNote = vi.fn()
+    setNoteAccidental = vi.fn()
+    notes = {}
+    displays = new Set()
+    const fakeEngine = {
+      getNote: (id: string) => notes[id] ?? null,
+      noteDisplaysAccidental: (id: string) => displays.has(id),
+      setNoteAccidental,
+      getPrevailingAlter: () => 0,
+      updateNote: vi.fn(),
+      updateUndoNoteId: vi.fn(),
+      runBatch: (_label: string, fn: () => void) => fn(),
+    } as unknown as import('../engine/MusicEngine').MusicEngine
+    palette = new PaletteController(
+      () => fakeEngine,
+      state,
+      renderScore as unknown as () => void,
+      vi.fn(),       // renderPreview
+      () => null,    // getLastMousePosition
+      selectNote as unknown as (id: string | null) => void,
+    )
+  })
+
+  it('arms the stamp (entry mode) when in selection mode with nothing selected', () => {
+    state.selectedTool = 'selection'
+    palette.setAccidental('#')
+    expect(state.selectedAccidentalTool).toBe('#')
+    expect(state.selectedTool).toBe('entry')
+    expect(setNoteAccidental).not.toHaveBeenCalled()
+  })
+
+  it('arms the stamp even when a lingering cursor note sits in selectedNoteId (empty selection set)', () => {
+    // After note entry + Esc, selectedNoteId holds the cursor note but selectedItems is empty —
+    // that reads as "nothing selected", so a press must arm the stamp, not apply to the cursor note.
+    state.selectedTool = 'selection'
+    state.selectedNoteId = 'cursor'
+    notes['cursor'] = { id: 'cursor', alter: 0 }
+    palette.setAccidental('#')
+    expect(state.selectedAccidentalTool).toBe('#')
+    expect(state.selectedTool).toBe('entry')
+    expect(setNoteAccidental).not.toHaveBeenCalled()
+  })
+
+  it('applies to a real selection instead of arming', () => {
+    state.selectedTool = 'selection'
+    state.selectedNoteId = 'n1'
+    state.selectedItems.set('note:n1', { kind: 'note', id: 'n1' })
+    notes['n1'] = { id: 'n1', alter: 0 }
+    palette.setAccidental('#')
+    expect(setNoteAccidental).toHaveBeenCalledWith('n1', '#')
+    expect(state.selectedAccidentalTool).toBeNull()
+    expect(state.selectedTool).toBe('selection')
+  })
+
+  it('re-pressing the armed accidental disarms back to selection', () => {
+    state.selectedTool = 'selection'
+    palette.setAccidental('b')
+    palette.setAccidental('b')
+    expect(state.selectedAccidentalTool).toBeNull()
+    expect(state.selectedTool).toBe('selection')
+  })
+
+  it('pressing a different accidental swaps the armed one (no stacking)', () => {
+    state.selectedTool = 'selection'
+    palette.setAccidental('#')
+    palette.setAccidental('n')
+    expect(state.selectedAccidentalTool).toBe('n')
+    expect(state.selectedTool).toBe('entry')
+  })
+
+  it('is mutually exclusive with the articulation stamp', () => {
+    state.selectedTool = 'selection'
+    palette.setAccidental('#')
+    expect(state.selectedAccidentalTool).toBe('#')
+    palette.toggleAccent() // arming an articulation stamp switches tools
+    expect(state.selectedAccidentalTool).toBeNull()
+    expect(state.selectedArticulationTools).toEqual(['accent'])
+
+    palette.setAccidental('b') // and back
+    expect(state.selectedArticulationTools).toEqual([])
+    expect(state.selectedAccidentalTool).toBe('b')
+  })
+
+  it('a duration press promotes the stamp into "accidental + duration" note entry', () => {
+    state.selectedTool = 'selection'
+    palette.setAccidental('#')
+    palette.setDuration('8')
+    expect(state.selectedAccidentalTool).toBeNull()
+    expect(state.selectedAccidental).toBe('#')
+    expect(state.selectedDuration).toBe('8')
+    expect(state.selectedTool).toBe('entry')
+  })
+
+  it('disarmPositionalTools clears the armed stamp', () => {
+    state.selectedTool = 'selection'
+    palette.setAccidental('#')
+    palette.disarmPositionalTools()
+    expect(state.selectedAccidentalTool).toBeNull()
+  })
+
+  it('a fresh duration press (nothing selected) drops a stale armed accidental', () => {
+    // Simulate: entered a sharp note, then Esc'd to nothing selected — selectedAccidental lingers.
+    state.selectedTool = 'selection'
+    state.selectedNoteId = null
+    state.selectedAccidental = '#'
+    palette.setDuration('q')
+    expect(state.selectedAccidental).toBeNull()
+    expect(state.selectedTool).toBe('entry')
+  })
+
+  it('still carries the accidental in the "sharp → duration" promote gesture', () => {
+    state.selectedTool = 'selection'
+    palette.setAccidental('#') // arms the stamp, switches to entry mode
+    palette.setDuration('q')   // promotes into note entry (lands in the entry branch, not fresh)
+    expect(state.selectedAccidental).toBe('#')
+    expect(state.selectedTool).toBe('entry')
+  })
+})
+
+describe('PaletteController — editing a selected accidental glyph', () => {
+  let state: EditorState
+  let renderScore: ReturnType<typeof vi.fn>
+  let selectNote: ReturnType<typeof vi.fn>
+  let setNoteAccidental: ReturnType<typeof vi.fn>
+  let updateNote: ReturnType<typeof vi.fn>
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    renderScore = vi.fn()
+    selectNote = vi.fn()
+    setNoteAccidental = vi.fn()
+    updateNote = vi.fn()
+    const fakeEngine = {
+      getNote: (id: string) => ({ id, alter: 1 }),
+      setNoteAccidental,
+      getPrevailingAlter: () => 0,
+      updateNote,
+      runBatch: (_label: string, fn: () => void) => fn(),
+    } as unknown as import('../engine/MusicEngine').MusicEngine
+    palette = new PaletteController(
+      () => fakeEngine,
+      state,
+      renderScore as unknown as () => void,
+      vi.fn(),
+      () => null,
+      selectNote as unknown as (id: string | null) => void,
+    )
+    // A standalone sharp glyph on note "n1" is selected in the score.
+    state.selectedTool = 'selection'
+    state.selectedAccidentalNoteId = 'n1'
+    state.selectedAccidentalType = '#'
+  })
+
+  it('pressing the SAME accidental removes it (reverts to prevailing) and clears the selection', () => {
+    palette.setAccidental('#')
+    expect(updateNote).toHaveBeenCalledWith('n1', { alter: 0, forceAccidental: undefined })
+    expect(state.selectedAccidentalNoteId).toBeNull()
+    expect(state.selectedAccidentalType).toBeNull()
+    // Switch-off leaves NOTHING selected (unlike the Del key, which keeps the note) — otherwise the
+    // keypad would show a stray duration for an invisible selection.
+    expect(selectNote).toHaveBeenCalledWith(null)
+    expect(setNoteAccidental).not.toHaveBeenCalled()
+  })
+
+  it('a null "remove" also deletes the selected accidental', () => {
+    palette.setAccidental(null)
+    expect(updateNote).toHaveBeenCalledWith('n1', { alter: 0, forceAccidental: undefined })
+    expect(state.selectedAccidentalNoteId).toBeNull()
+  })
+
+  it('pressing a DIFFERENT accidental changes it and keeps it selected', () => {
+    palette.setAccidental('b')
+    expect(setNoteAccidental).toHaveBeenCalledWith('n1', 'b')
+    expect(state.selectedAccidentalNoteId).toBe('n1') // still selected
+    expect(state.selectedAccidentalType).toBe('b')    // now the flat
+    expect(updateNote).not.toHaveBeenCalled()
+  })
+
+  it('does not arm the stamp while an accidental is selected', () => {
+    palette.setAccidental('b')
+    expect(state.selectedAccidentalTool).toBeNull()
+    expect(state.selectedTool).toBe('selection')
+  })
+})

@@ -1,9 +1,10 @@
-import type { ArticulationType, Accidental, NoteDuration, PitchAlter, BeamMode, Clef, TimeSignature } from '../types/music'
+import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
 import { fracToNumber } from '../utils/fraction'
+import { accidentalTypeToKey } from '../utils/pitchSpelling'
 import { sameTimeSignature } from '../utils/meter'
 import { tempoLabel } from '../utils/tempoMap'
 import { selectedNoteIds } from './selection'
@@ -182,6 +183,8 @@ export class PaletteController {
     // carrying these articulations" (ghost NOTE with the articulation, clicks place notes) — the
     // "articulation + duration" mode. Must run before the branch below reads selectedTool.
     this.promoteArticulationStampToNoteEntry()
+    // Same for an armed accidental stamp → "accidental + duration" note entry.
+    this.promoteAccidentalStampToNoteEntry()
     this.state.selectedDuration = duration
     this.state.selectedDots = 0
     this.state.tupletMode = false
@@ -199,6 +202,12 @@ export class PaletteController {
       }
       this.renderScore()
     } else if (this.state.selectedTool === 'selection') {
+      // Starting FRESH note entry from nothing-selected: a plain duration press must not carry a
+      // stale accidental left over from a previous note (the "duration + sharp remembered" bug). An
+      // intentionally-armed accidental — via the stamp or a duration+accidental gesture — arms the
+      // stamp first, which switches to entry mode, so it lands in the entry branch below, never here;
+      // so an accidental in THIS branch is always stale and safe to drop.
+      this.state.selectedAccidental = null
       this.state.selectedTool = 'entry'
       const pos = this.getLastMousePosition()
       if (pos) this.renderPreview(pos)
@@ -210,45 +219,172 @@ export class PaletteController {
     }
   }
 
+  /**
+   * One accidental-key press, routed like {@link pressArticulation} but SINGLE-valued (a note has
+   * one accidental state, so a stamp swap replaces rather than stacks):
+   *  0. The accidental STAMP tool is already armed → press the same key to disarm, a different one
+   *     to swap which accidental is armed.
+   *  1. Selection mode with a real selection → apply the accidental across it; pressing the sign
+   *     every selected note already shows removes it (reverts to the prevailing alteration).
+   *  2. Selection mode with NOTHING to apply to → arm the accidental STAMP tool (ghost accidental,
+   *     clicks set it on existing notes). This replaces the old "flip to entry mode arming
+   *     selectedAccidental" — that note-entry arming is now reached by pressing a duration after
+   *     (see {@link promoteAccidentalStampToNoteEntry}), preserving the "accidental + duration" flow.
+   *  3. Entry mode (note entry) → arm/toggle the accidental for the NEXT note entered.
+   *
+   * "Nothing to apply to" is decided by {@link applyAccidentalToSelection} returning false, NOT by
+   * `selectedNoteId`: after note entry, Select/Esc leaves the cursor note in `selectedNoteId` while
+   * the selection set is empty — that reads as "nothing selected", so a press there arms the stamp
+   * (same rule as the articulation stamp). A NULL accidental is the palette's "remove" and only ever
+   * meaningful on a real selection (1); with nothing selected it arms nothing (a no-op).
+   */
   setAccidental(accidental: Accidental | null): void {
-    const newValue = this.state.selectedAccidental === accidental ? null : accidental
-    this.state.selectedAccidental = newValue
-    const engine = this.getEngine()
-
-    if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
-      const note = engine.getNote(this.state.selectedNoteId)
-      // Rests have no accidental — keep palette value armed for next note entry.
-      if (note?.isRest) return
-      if (newValue === null) {
-        // Remove the accidental: revert to the measure's prevailing alteration so the
-        // sign disappears in every case (lone sharp → natural; required ♮ → its sharp).
-        engine.updateNote(this.state.selectedNoteId, {
-          alter: engine.getPrevailingAlter(this.state.selectedNoteId),
-          forceAccidental: undefined,
-        })
-      } else if (newValue === 'n') {
-        // A ♮ that cancels an earlier sharp/flat shows automatically; otherwise it's a
-        // courtesy natural that must be forced to appear.
-        const wouldAutoShow = engine.getPrevailingAlter(this.state.selectedNoteId) !== 0
-        engine.updateNote(this.state.selectedNoteId, {
-          alter: 0,
-          forceAccidental: wouldAutoShow ? undefined : true,
-        })
+    // (0) Stamp already live: swap the armed accidental, or disarm when the same one is pressed.
+    if (this.state.selectedAccidentalTool !== null) {
+      if (accidental === null || accidental === this.state.selectedAccidentalTool) {
+        this.state.selectedAccidentalTool = null
+        this.state.selectedTool = 'selection'
       } else {
-        const newAlter: PitchAlter = newValue === '#' ? 1 : -1
-        const forceAccidental = note?.alter === newAlter ? true : undefined
-        engine.updateNote(this.state.selectedNoteId, { alter: newAlter, forceAccidental })
+        this.state.selectedAccidentalTool = accidental
       }
-      this.renderScore()
-      this.selectNote(this.state.selectedNoteId)
-    } else if (this.state.selectedTool === 'selection') {
-      this.state.selectedTool = 'entry'
-      const pos = this.getLastMousePosition()
-      if (pos) this.renderPreview(pos)
-    } else if (this.state.selectedTool === 'entry') {
-      const pos = this.getLastMousePosition()
-      if (pos) this.renderPreview(pos)
+      this.renderScore() // ghost re-forms on the next mouse move (matches the articulation stamp)
+      return
     }
+
+    // A DIFFERENT marking tool (the articulation stamp) is armed → switch to this accidental stamp,
+    // so the marking tools stay mutually exclusive.
+    if (this.state.selectedArticulationTools.length > 0) {
+      this.armAccidentalTool(accidental)
+      return
+    }
+
+    // A standalone accidental glyph is selected in the score → the press EDITS it: the same
+    // accidental (or a null "remove") deletes it; a different one changes it.
+    if (this.state.selectedAccidentalNoteId) {
+      this.editSelectedAccidental(accidental)
+      return
+    }
+
+    // Selection mode: (1) apply across a real selection, or (2) arm the stamp when there is none.
+    if (this.state.selectedTool === 'selection') {
+      if (!this.applyAccidentalToSelection(accidental)) this.armAccidentalTool(accidental)
+      return
+    }
+
+    // (3) Entry mode: arm/toggle the accidental for the NEXT note entered.
+    this.state.selectedAccidental = this.state.selectedAccidental === accidental ? null : accidental
+    const pos = this.getLastMousePosition()
+    if (pos) this.renderPreview(pos)
+  }
+
+  /**
+   * Edit the standalone accidental glyph currently selected in the score (see
+   * {@link EditorState.selectedAccidentalNoteId}). Pressing the SAME accidental — or a null "remove"
+   * — deletes it (reverts the note to the measure's prevailing alteration, exactly like the Delete
+   * key); pressing a DIFFERENT accidental changes it. After a change the new accidental stays
+   * selected so it can be changed again or removed; after a delete NOTHING stays selected — the
+   * gesture is a Keypad switch-off, so (unlike the Delete key, which keeps the note selected to keep
+   * editing) we clear the selection outright, or the Keypad would light a stray duration for a note
+   * the user can't see selected.
+   */
+  private editSelectedAccidental(accidental: Accidental | null): void {
+    const engine = this.getEngine()
+    const noteId = this.state.selectedAccidentalNoteId
+    if (!engine || !noteId) return
+
+    const current = accidentalTypeToKey(this.state.selectedAccidentalType)
+    if (accidental === null || accidental === current) {
+      // Remove: revert to the prevailing alteration so the glyph disappears in every case.
+      engine.runBatch('Remove accidental', () =>
+        engine.updateNote(noteId, { alter: engine.getPrevailingAlter(noteId), forceAccidental: undefined }))
+      this.state.selectedAccidentalNoteId = null
+      this.state.selectedAccidentalType = null
+      this.selectNote(null) // switch-off leaves nothing selected (clears the note anchor too)
+      this.renderScore()
+    } else {
+      engine.runBatch(`Set ${accidental}`, () => engine.setNoteAccidental(noteId, accidental))
+      this.state.selectedAccidentalType = accidental // keep the (now changed) accidental selected
+      this.renderScore()
+    }
+  }
+
+  /**
+   * Apply an accidental across the whole selection as ONE undoable action. Returns false when there
+   * is nothing to apply to (not in selection tool, or no non-rest note in the selection SET — see
+   * the note-entry cursor caveat on {@link setAccidental}), so the caller arms the stamp instead.
+   *
+   * Mirrors {@link applyArticulationToSelection}'s group semantics: a null accidental (the palette
+   * "remove") reverts every selected note to its prevailing alteration; otherwise the toggle
+   * direction is decided for the selection as a whole — if EVERY selected note already shows the
+   * sign it's removed from all, else it's set on all (a chord sharps/flats together).
+   */
+  private applyAccidentalToSelection(accidental: Accidental | null): boolean {
+    const engine = this.getEngine()
+    if (this.state.selectedTool !== 'selection' || !this.state.selectedNoteId || !engine) return false
+
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+      .filter(id => {
+        const note = engine.getNote(id)
+        return note && !note.isRest
+      })
+    if (ids.length === 0) return false
+
+    const revert = (id: string) =>
+      engine.updateNote(id, { alter: engine.getPrevailingAlter(id), forceAccidental: undefined })
+
+    if (accidental === null) {
+      engine.runBatch('Remove accidental', () => { for (const id of ids) revert(id) })
+    } else {
+      const allHaveIt = ids.every(id => engine.noteDisplaysAccidental(id, accidental))
+      engine.runBatch(allHaveIt ? `Remove ${accidental}` : `Set ${accidental}`, () => {
+        for (const id of ids) {
+          if (allHaveIt) revert(id)
+          else engine.setNoteAccidental(id, accidental)
+        }
+      })
+    }
+    engine.updateUndoNoteId(this.state.selectedNoteId)
+    this.renderScore()
+    this.selectNote(this.state.selectedNoteId) // re-syncs the accidental highlight to the note
+    return true
+  }
+
+  /**
+   * Arm `accidental` as the accidental stamp tool and switch to entry mode. Mirrors
+   * {@link armArticulationTool}: mutually exclusive with the other marking tools, clears the note
+   * selection so the ghost reads as "the next click sets this accidental", and repaints. The ghost
+   * appears on the next mouse move (via MouseController.renderToolGhost). A null accidental (a
+   * "remove" with nothing selected) is a no-op — there is nothing to arm.
+   */
+  private armAccidentalTool(accidental: Accidental | null): void {
+    if (accidental === null) return
+    this.state.selectedAccidentalTool = accidental
+    this.state.selectedArticulationTools = []
+    this.state.selectedClef = null
+    this.state.selectedTimeSignature = null
+    this.state.selectedDynamic = null
+    this.state.selectedTempo = null
+    this.state.selectedNoteId = null
+    this.state.selectedClefMeasure = null
+    this.state.selectedClefBeat = null
+    this.state.selectedTimeSignatureMeasure = null
+    this.state.selectedDynamicId = null
+    this.state.selectedTempoId = null
+    this.state.selectedTool = 'entry'
+    this.renderScore()
+  }
+
+  /**
+   * Promote an armed accidental stamp into the note-entry armed accidental. Called when a duration
+   * press arrives while the stamp is armed: the armed accidental becomes `selectedAccidental` and the
+   * stamp is cleared — flipping "click existing notes to set this accidental" into "enter new notes
+   * carrying this accidental" (the "accidental + duration" mode). No-op when no stamp is armed.
+   */
+  private promoteAccidentalStampToNoteEntry(): void {
+    const armed = this.state.selectedAccidentalTool
+    if (armed === null) return
+    this.state.selectedAccidental = armed
+    this.state.selectedAccidentalTool = null
   }
 
   toggleAccent(): void {
@@ -295,6 +431,14 @@ export class PaletteController {
       return
     }
 
+    // A DIFFERENT marking tool (the accidental stamp) is armed → switch to this articulation stamp,
+    // so the marking tools stay mutually exclusive.
+    if (this.state.selectedAccidentalTool !== null) {
+      this.armArticulationTool([type])
+      this.refreshArticulationSelection()
+      return
+    }
+
     // Selection mode: (1) apply across a real selection, or (2b) arm the stamp when there is none.
     if (this.state.selectedTool === 'selection') {
       if (!this.applyArticulationToSelection(type)) this.armArticulationTool([type])
@@ -320,6 +464,7 @@ export class PaletteController {
    */
   private armArticulationTool(types: ArticulationType[]): void {
     this.state.selectedArticulationTools = types
+    this.state.selectedAccidentalTool = null
     this.state.selectedClef = null
     this.state.selectedTimeSignature = null
     this.state.selectedDynamic = null
@@ -721,6 +866,8 @@ export class PaletteController {
     // The articulation stamp tool is entry-only too (arming it switches to entry mode; a click
     // stamps the hovered note) — so leaving entry mode makes it inert and it disarms with the rest.
     this.state.selectedArticulationTools = []
+    // The accidental stamp tool is the same kind of entry-only marking tool → disarm it too.
+    this.state.selectedAccidentalTool = null
   }
 
   /**

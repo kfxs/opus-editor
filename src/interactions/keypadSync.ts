@@ -6,6 +6,7 @@ import { accidentalSelection } from './accidentalSelection'
 import { articulationSelection } from './articulationSelection'
 import { dotSelection } from './dotSelection'
 import { tieSelection } from './tieSelection'
+import { accidentalTypeToKey } from '../utils/pitchSpelling'
 
 /**
  * The highlight rule, in one place: a palette value is shown only when it means something —
@@ -56,9 +57,20 @@ export function wireKeypadSync(
     // note is being entered — so the note-entry keys (duration / accidental / dot) must NOT light;
     // only the armed articulation does (via refreshArticulationSelection below). Without this the
     // duration key would light the moment you arm the stamp, reading as "a note will be placed".
-    const stamping = state.selectedArticulationTools.length > 0
+    const artStamping = state.selectedArticulationTools.length > 0
+    const accStamping = state.selectedAccidentalTool !== null
+    const stamping = artStamping || accStamping
     durationSelection.setHighlight(stamping || noNoteInSelection(state) ? null : state.selectedDuration)
-    accidentalSelection.setHighlight(stamping || noNoteInSelection(state) ? null : state.selectedAccidental)
+    // While the accidental stamp is armed, light the ARMED accidental (it's the active gesture);
+    // when a standalone accidental glyph is selected in the score, light THAT accidental (so it can
+    // be changed/removed from the Keypad); otherwise fall back to the note-entry / selected-note
+    // accidental — but never during an articulation stamp (no accidental is in play then).
+    accidentalSelection.setHighlight(
+      accStamping ? state.selectedAccidentalTool
+      : state.selectedAccidentalNoteId ? accidentalTypeToKey(state.selectedAccidentalType)
+      : artStamping || noNoteInSelection(state) ? null
+      : state.selectedAccidental
+    )
     dotSelection.setHighlight(stamping ? null : dotHighlight(state))
     // Engine-derived highlights (articulations are a SET, tie reads tiedTo): read live, not from a
     // reactive field, so they can't be mirrored — recompute and push on any change.

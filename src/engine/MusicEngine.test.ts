@@ -61,6 +61,60 @@ function addNote(engine: MusicEngine, params: Parameters<MusicEngine['addNoteAtB
   return note
 }
 
+describe('MusicEngine.setNoteAccidental / noteDisplaysAccidental', () => {
+  let engine: MusicEngine
+
+  beforeEach(() => {
+    engine = makeEngine()
+  })
+
+  it('sets a sharp / flat (changes the pitch) and reports it displayed', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    expect(engine.noteDisplaysAccidental(note.id, '#')).toBe(false)
+
+    engine.setNoteAccidental(note.id, '#')
+    expect(engine.getNote(note.id)!.alter).toBe(1)
+    expect(engine.noteDisplaysAccidental(note.id, '#')).toBe(true)
+
+    engine.setNoteAccidental(note.id, 'b')
+    expect(engine.getNote(note.id)!.alter).toBe(-1)
+    expect(engine.noteDisplaysAccidental(note.id, 'b')).toBe(true)
+    expect(engine.noteDisplaysAccidental(note.id, '#')).toBe(false)
+  })
+
+  it('a courtesy natural (nothing to cancel) is forced, so its sign shows', () => {
+    const note = addNote(engine, { step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    // A plain natural note shows no sign — nothing to cancel and not forced.
+    expect(engine.noteDisplaysAccidental(note.id, 'n')).toBe(false)
+
+    engine.setNoteAccidental(note.id, 'n')
+    const updated = engine.getNote(note.id)!
+    expect(updated.alter).toBe(0)
+    expect(updated.forceAccidental).toBe(true)
+    expect(engine.noteDisplaysAccidental(note.id, 'n')).toBe(true)
+  })
+
+  it('a natural that cancels an earlier same-bar accidental shows without forcing', () => {
+    addNote(engine, { step: 'F', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const second = addNote(engine, { step: 'F', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    // Prevailing alter at the 2nd F is +1 (from the 1st), so its natural auto-shows — no force flag.
+    engine.setNoteAccidental(second.id, 'n')
+    const updated = engine.getNote(second.id)!
+    expect(updated.alter).toBe(0)
+    expect(updated.forceAccidental).toBeUndefined()
+    expect(engine.noteDisplaysAccidental(second.id, 'n')).toBe(true)
+  })
+
+  it('is a no-op on a rest', () => {
+    // Measure 2 is empty → auto-filled with a whole rest.
+    const m2 = engine.getScore().measures.find(m => m.number === 2)!
+    const restId = (m2.slots.find(s => s.type === 'rest') as { id: string }).id
+    expect(engine.getNote(restId)!.isRest).toBe(true)
+    expect(engine.setNoteAccidental(restId, '#')).toBeNull()
+    expect(engine.noteDisplaysAccidental(restId, '#')).toBe(false)
+  })
+})
+
 describe('MusicEngine.updateNote — overflow handling', () => {
   let engine: MusicEngine
 

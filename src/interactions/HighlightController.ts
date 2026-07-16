@@ -351,12 +351,50 @@ export class HighlightController {
       : group.querySelector('g.vf-notehead text, g.vf-notehead path')
     if (head) colorFill(head)
 
+    // Also light this note's accidental (♯/♭/♮), so a selected note reads as fully selected —
+    // head + stem + its accidental — not just the head.
+    this.highlightNoteAccidental(noteId, group, SELECTION_COLOR)
+
     // Multi-voice unison: the other voice draws a notehead at the SAME pixel spot in a
     // sibling `vf-stavenote` group. Whichever is later in the DOM paints on top, so the
     // recolored head can be hidden behind the other voice. Raise this note's group to
     // the front of its parent so its (now coloured) head is the one that shows;
     // clearHighlights restores the original sibling order.
     this.raiseToFront(group)
+  }
+
+  /**
+   * Colour the accidental(s) belonging to a selected note in the note's selection colour. The
+   * accidental glyph lives inside the note's own `vf-stavenote` group, so we scope the search there
+   * (cheaper than a full-SVG scan) and match it to the registered `accidental` element by bbox on
+   * BOTH axes — an X-only match would catch a chord neighbour's accidental or a notehead sharing the
+   * column (same reasoning as {@link applyAccidentalHighlight}). Uses the logged setAttr/addClass, so
+   * {@link clearHighlights} reverts it with the rest of the note highlight.
+   */
+  private highlightNoteAccidental(noteId: string, group: Element, color: string): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    const accElements = engine.getElementRegistry().getByType('accidental').filter(el => el.noteId === noteId)
+    if (!accElements.length) return
+
+    const textEls = group.querySelectorAll('text')
+    for (const accEl of accElements) {
+      const bbox = accEl.bbox
+      const centerX = bbox.x + bbox.width / 2
+      const centerY = bbox.y + bbox.height / 2
+      for (const svgEl of textEls) {
+        const elBBox = (svgEl as SVGGraphicsElement).getBBox?.()
+        if (!elBBox) continue
+        const elX = elBBox.x + elBBox.width / 2
+        const elY = elBBox.y + elBBox.height / 2
+        if (Math.abs(elX - centerX) < 1.0 && Math.abs(elY - centerY) < bbox.height / 2 + 1.0) {
+          const el = svgEl as SVGElement
+          this.setAttr(el, 'fill', color)
+          this.setStyleProp(el, 'fill', color)
+          this.addClass(el, 'selected-note')
+        }
+      }
+    }
   }
 
   applyArticulationHighlight(): void {
