@@ -688,6 +688,84 @@ describe('MusicEngine.moveSelectionToVoice — atomic multi-note move (Phase 3)'
   })
 })
 
+/**
+ * convertToRest is NOT delete-then-refill: the rest keeps the slot's OWN authored length. Delete
+ * leaves a gap and lets the meter-aware fill re-decide, which is right for a hole and wrong for a
+ * silence that has a length. These tests pin the cases where the two would disagree.
+ */
+describe('MusicEngine.convertToRest', () => {
+  let engine: MusicEngine
+
+  beforeEach(() => {
+    engine = makeEngine()
+  })
+
+  it('gives a rest of the note\'s own duration, at its beat', () => {
+    const n = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'h', measure: 1, beat: frac(2, 1) })
+    const rest = engine.convertToRest(n.id)!
+    expect(rest.isRest).toBe(true)
+    expect(rest.duration).toBe('h')
+    expect(fracToNumber(rest.beat)).toBe(2)
+    expect(engine.getNote(n.id)).toBeFalsy() // the head is gone; the rest has a new id
+  })
+
+  it('keeps the DOTS — the fill would never invent a dotted rest in 4/4', () => {
+    // A dotted quarter's silence is a dotted quarter rest. Deleting instead leaves [0,1.5) for
+    // restFill, which in 4/4 answers with a quarter + an eighth (see the dotted-rests note): two
+    // rests where the author wrote one length.
+    const n = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', dots: 1, measure: 1, beat: frac(0, 1) })
+    const rest = engine.convertToRest(n.id)!
+    expect(rest.duration).toBe('q')
+    expect(rest.dots).toBe(1)
+  })
+
+  it('turns a whole CHORD into ONE rest — a rest cannot hold pitches', () => {
+    const c = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const e = engine.addChordNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const rest = engine.convertToRest(c.id)!
+    expect(rest.isRest).toBe(true)
+    expect(rest.duration).toBe('q')
+    expect(engine.getNote(e.id)).toBeFalsy() // the sibling head went with the slot
+    const atBeat0 = engine.getScore().measures[0].slots.filter(s => fracToNumber(s.beat) === 0)
+    expect(atBeat0).toHaveLength(1)
+    expect(atBeat0[0].type).toBe('rest')
+  })
+
+  it('is a no-op on a rest — "un-rest this" would have to invent a pitch', () => {
+    const n = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const rest = engine.convertToRest(n.id)!
+    expect(engine.convertToRest(rest.id)).toBeNull()
+  })
+
+  it('keeps an ARRIVING tie, re-pointed at the rest (let-ring), and drops the LEAVING one', () => {
+    // a —tie→ b, and b —tie→ c. Silencing b: a's arc survives onto the rest (the note rings into the
+    // silence); b's own arc out to c dies, since a rest has nothing to carry.
+    const a = addNote(engine, { step: 'D', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'D', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const c = addNote(engine, { step: 'D', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(2, 1) })
+    engine.toggleTie(a.id)
+    engine.toggleTie(b.id)
+    expect(engine.getNote(a.id)!.tiedTo).toBe(b.id)
+
+    const rest = engine.convertToRest(b.id)!
+    expect(engine.getNote(a.id)!.tiedTo).toBe(rest.id) // survived, re-pointed
+    expect(engine.getNote(c.id)!.tiedFrom).toBeUndefined() // b's outgoing arc died with it
+  })
+
+  it('does not disturb the other staff\'s note at the same beat and voice', () => {
+    // getChordNotesAt matches on (measure, beat, voice) only — two staves with a note at the same
+    // beat in voice 0 is ordinary, and must not be mistaken for a chord.
+    engine.addStaffBelow(0)
+    const top = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })
+    const bottom = addNote(engine, { step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
+    const rest = engine.convertToRest(top.id)!
+    expect(rest.isRest).toBe(true)
+    expect(rest.duration).toBe('q')
+    expect(engine.getNote(bottom.id)).toBeTruthy() // untouched
+    expect(engine.getNote(bottom.id)!.isRest).toBeFalsy()
+  })
+})
+
 describe('MusicEngine.toggleTie — staff scoping (multi-staff)', () => {
   let engine: MusicEngine
 

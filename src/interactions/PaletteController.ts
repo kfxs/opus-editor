@@ -1196,4 +1196,45 @@ export class PaletteController {
   refreshRestSelection(): void {
     restSelection.setHighlight(this.selectionIsRest() ? 'rest' : null)
   }
+
+  /**
+   * The rest key's press (Keypad `0` / Numpad 0): silence the selection — every selected note
+   * becomes a rest of its own duration — and leave the resulting rest SELECTED, so the score keeps
+   * the place you were working in and the Keypad immediately lights `0` + that duration. That last
+   * part is what separates it from Delete, which leaves nothing selected.
+   *
+   * ONE undo step for the whole selection (`runBatch`), like every other multi-select action.
+   *
+   * Selection-mode only, and a no-op unless something non-rest is selected — pressing it with a rest
+   * already selected does nothing, deliberately: "un-rest this" would have to invent a pitch. So the
+   * key's light is not a toggle you can switch off, it is a statement about the selection.
+   */
+  convertSelectionToRest(): void {
+    const engine = this.getEngine()
+    if (!engine || this.state.selectedTool !== 'selection') return
+
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+      .filter(id => !engine.getNote(id)?.isRest)
+    if (!ids.length) return
+
+    // Converting a CHORD silences the whole slot, so its heads all resolve to the same slot: convert
+    // once, and skip any id whose slot a previous conversion already took. Without this, the second
+    // head of a selected chord would find a rest (not a note) and quietly no-op — right answer, but
+    // by luck; `converted` makes the intent explicit and keeps the count honest.
+    const converted: string[] = []
+    engine.runBatch(`Convert ${ids.length} note(s) to rest`, () => {
+      for (const id of ids) {
+        if (engine.getNote(id)?.isRest) continue // slot already silenced by a chord sibling
+        const rest = engine.convertToRest(id)
+        if (rest) converted.push(rest.id)
+      }
+    })
+    if (!converted.length) return
+
+    // The LAST rest becomes the selection, matching how the anchor is the last note of a set.
+    this.selectNote(converted[converted.length - 1])
+    console.log(`[palette] converted ${converted.length} slot(s) to rest — selected ${converted[converted.length - 1]}`)
+    this.refreshRestSelection()
+    this.renderScore()
+  }
 }

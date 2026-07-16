@@ -2938,6 +2938,86 @@ export class ScoreModel {
   }
 
   /**
+   * Turn the SLOT holding `noteId` into a rest of that slot's own duration, in place. Returns the
+   * new rest, or null if `noteId` names nothing or is already a rest.
+   *
+   * A slot-level swap, NOT a delete-then-refill, and that is the whole point: `Chord` and `Rest`
+   * already agree on every field that defines WHERE and HOW LONG a slot is (beat, duration, dots,
+   * tupletId, actualDuration, voice, staffId), so the conversion copies them across and drops only
+   * what is meaningless without pitches (the notes, stem, beam, articulations). A quarter note
+   * becomes a quarter rest because it is the SAME SLOT wearing a different type — nothing re-derives
+   * the duration, so nothing can round it to the meter's idea of a good rest. (Deleting instead
+   * leaves a gap for `repairAllMeasureGaps` to re-fill meter-aware, which is right for a HOLE and
+   * wrong here: the silence has an authored length.)
+   *
+   * Whole slot, every pitch, because a rest cannot hold pitches: "convert one head of a chord" has
+   * no representation, exactly as "dot one head of a chord" doesn't (see the `dots` note in
+   * EditorState). A chord of any size becomes ONE rest.
+   *
+   * Ties are handled per direction, mirroring `MusicEngine.deleteNote`'s let-ring rule:
+   * arcs LEAVING (`tiedTo`) die, since a rest has nothing to carry into the next note; arcs ARRIVING
+   * (`tiedFrom`) SURVIVE and re-point at the rest, so tying into a slot and silencing it lets the
+   * previous note ring rather than silently dropping its arc.
+   */
+  convertToRest(noteId: string): Rest | null {
+    const found = this.findSlot(noteId)
+    if (!found || found.type === 'rest') return null
+    const { chord } = found
+
+    // Every arc LEAVING this chord dies with its pitches — clear the far end's back-pointer so no
+    // note is left claiming a tie from a rest.
+    for (const pitch of chord.notes) {
+      if (pitch.tiedTo) {
+        const partner = this.findSlot(pitch.tiedTo)
+        if (partner?.type === 'chord') partner.pitch.tiedFrom = undefined
+        else if (partner?.type === 'rest') partner.rest.tiedFrom = undefined
+      }
+    }
+
+    // Arcs ARRIVING keep their shape and re-point onto the rest. Scan-based, not per-pitch
+    // `tiedFrom`, so a chord tied into this one keeps EVERY arc (the same reason deleteNote scans).
+    // The arcs are owned by the sources' `tiedTo`; the rest records one `tiedFrom` as bookkeeping.
+    const restId = uuidv4()
+    const tieSourceIds: string[] = []
+    for (const measure of this.score.measures) {
+      for (const slot of measure.slots) {
+        if (slot.type !== 'chord') continue
+        for (const p of slot.notes) {
+          if (p.tiedTo && chord.notes.some(n => n.id === p.tiedTo)) {
+            p.tiedTo = restId
+            tieSourceIds.push(p.id)
+          }
+        }
+      }
+    }
+
+    const rest: Rest = {
+      id: restId,
+      type: 'rest',
+      beat: chord.beat,
+      duration: chord.duration,
+      measure: chord.measure,
+      ...(chord.dots !== undefined && { dots: chord.dots }),
+      ...(chord.voice !== undefined && { voice: chord.voice }),
+      ...(chord.tupletId !== undefined && { tupletId: chord.tupletId }),
+      ...(chord.actualDuration !== undefined && { actualDuration: chord.actualDuration }),
+      ...(chord.staffId !== undefined && { staffId: chord.staffId }),
+      ...(tieSourceIds.length > 0 && { tiedFrom: tieSourceIds[0] }),
+    }
+
+    for (const measure of this.score.measures) {
+      const idx = measure.slots.findIndex(s => s.id === chord.id)
+      if (idx !== -1) {
+        console.log(`[Model.convertToRest] ${fmtSlot(chord)} → REST ${rest.duration}${rest.dots ? '.'.repeat(rest.dots) : ''} @b${fracToNumber(rest.beat).toFixed(3)}${tieSourceIds.length ? ` (${tieSourceIds.length} tie(s) re-pointed)` : ''}`)
+        // In place, at the same index — the slot keeps its seat in the bar's order.
+        measure.slots[idx] = rest
+        return rest
+      }
+    }
+    return null
+  }
+
+  /**
    * Delete a note
    */
   deleteNote(noteId: string): boolean {

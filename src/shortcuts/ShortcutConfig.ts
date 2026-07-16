@@ -100,6 +100,14 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Toggle tie to next note of same pitch',
   },
 
+  // Rest (numpad 0 - Sibelius style). The NUMPAD zero only: this is the Keypad's `0` key under
+  // another name, and the main-row 0 is not part of that instrument. Bound by `code`, which is what
+  // tells the two apart — both report `key: '0'`.
+  'Numpad0': {
+    action: 'convertToRest',
+    description: 'Convert the selected note(s) to a rest of the same duration',
+  },
+
   // Slur (phrasing) — Sibelius-style 's' over the selection. Create-only;
   // removal is select-the-arc + Delete (not a toggle).
   's': {

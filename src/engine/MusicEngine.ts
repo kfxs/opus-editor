@@ -1505,6 +1505,57 @@ export class MusicEngine {
   }
 
   /**
+   * Silence the slot holding `noteId`: it becomes a rest of its OWN duration, keeping its beat,
+   * dots, tuplet membership, voice and staff. Returns the new rest, or null if nothing changed.
+   *
+   * Not a delete. Delete says "this shouldn't be here" and leaves a gap for the meter-aware fill to
+   * re-decide; this says "this lasts exactly as long, but silent", so the length is preserved rather
+   * than re-derived (see {@link ScoreModel.convertToRest}). The two agree on a plain note in a plain
+   * bar, which is why they look alike — they part company on a dotted note, a tuplet member, or a
+   * chord, where the fill would answer a question it was never asked.
+   *
+   * The returned rest carries a NEW id (a rest is a different slot, not a re-typed one), so every
+   * anchor to the old head must move: slurs re-anchor here, ties inside the model. Callers wanting
+   * it selected use the returned id — the point of returning the rest rather than a boolean.
+   */
+  convertToRest(noteId: string): Note | null {
+    const note = this.scoreModel.getNote(noteId)
+    if (!note || note.isRest) return null
+
+    // BEFORE the swap: once the slot is a rest there are no heads left to find.
+    const pitchIds = this.slotPitchIdsFor(note, noteId)
+
+    const rest = this.scoreModel.convertToRest(noteId)
+    if (!rest) return null
+
+    // Slurs anchored to ANY head of the old slot follow it onto the rest — the slot is still there
+    // and still has a length, so the arc still has something to hang on.
+    for (const id of pitchIds) this.reanchorSlurs(id, rest.id)
+
+    // Silencing the last note of a secondary voice leaves it all rests → it collapses, exactly as
+    // after a delete (Sibelius-style).
+    this.scoreModel.collapseEmptyVoices(note.measure)
+
+    const label = !note.isRest && note.step
+      ? `Convert ${midiToNoteName(spellingToMidi(note.step, note.alter ?? 0, note.octave!))} to rest`
+      : 'Convert to rest'
+    this.commit(label)
+    return this.scoreModel.getNote(rest.id) ?? null
+  }
+
+  /** Every pitch id sharing `note`'s slot — its chord siblings and itself. Staff-scoped on top of
+   *  {@link getChordNotesAt}, which matches on (measure, beat, voice) only: two staves holding a note
+   *  at the same beat in voice 0 is ordinary, not a chord, and re-anchoring the OTHER staff's slurs
+   *  onto this rest would be a real bug. `noteId` is appended defensively so the note being converted
+   *  is always covered. */
+  private slotPitchIdsFor(note: Note, noteId: string): string[] {
+    const ids = this.getChordNotesAt(note.measure, note.beat, note.voice ?? 0)
+      .filter(n => (n.staff ?? 0) === (note.staff ?? 0))
+      .map(n => n.id)
+    return ids.includes(noteId) ? ids : [...ids, noteId]
+  }
+
+  /**
    * Delete a note
    * If the note is part of a chord, just remove it from the chord.
    * If it's a single note, replace it with a rest of the same duration.

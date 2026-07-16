@@ -293,6 +293,9 @@ export function useShortcuts(
     toggleStaccato: () => palette.toggleStaccato(),
     toggleTenuto: () => palette.toggleTenuto(),
     toggleTie: () => palette.toggleTie(),
+    // Numpad 0 — the Keypad's rest key by another name, so it routes to the same method the key
+    // presses. The panel doesn't have to be open: the numpad IS the Keypad.
+    convertToRest: () => palette.convertSelectionToRest(),
     createSlur: () => palette.createSlur(),
     // Ctrl+Shift+B: keyboard accelerator for the "Add Measure" button — inserts one bar
     // after the Ctrl+Shift-selected measure span (Sibelius's single-bar shortcut). No-op

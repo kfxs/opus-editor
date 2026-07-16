@@ -497,6 +497,110 @@ describe('PaletteController — rest key highlight', () => {
   })
 })
 
+/**
+ * The rest key's PRESS. The difference from Delete is the selection: the resulting rest stays
+ * selected, so the score keeps your place and the Keypad lights `0` + the duration.
+ */
+describe('PaletteController — convertSelectionToRest', () => {
+  let state: EditorState
+  let notes: Record<string, { id: string; isRest?: boolean }>
+  let convertToRest: ReturnType<typeof vi.fn>
+  let selectNote: ReturnType<typeof vi.fn>
+  let renderScore: ReturnType<typeof vi.fn>
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    notes = {
+      n1: { id: 'n1' },
+      n2: { id: 'n2' },
+      r1: { id: 'r1', isRest: true },
+    }
+    // Mirror the engine: converting mints a NEW rest id and the old head disappears.
+    convertToRest = vi.fn((id: string) => {
+      if (!notes[id] || notes[id].isRest) return null
+      delete notes[id]
+      const rest = { id: `rest-of-${id}`, isRest: true }
+      notes[rest.id] = rest
+      return rest
+    })
+    selectNote = vi.fn()
+    renderScore = vi.fn()
+    const fakeEngine = {
+      getNote: (id: string) => notes[id] ?? null,
+      convertToRest,
+      runBatch: (_label: string, fn: () => void) => fn(),
+    } as unknown as import('../engine/MusicEngine').MusicEngine
+    palette = new PaletteController(
+      () => fakeEngine, state, renderScore as unknown as () => void, vi.fn(), () => null,
+      selectNote as unknown as (id: string | null) => void,
+    )
+  })
+
+  const select = (...ids: string[]) => {
+    state.selectedItems = new Map(ids.map(id => [id, { kind: 'note', id } as never]))
+    state.selectedNoteId = ids[ids.length - 1] ?? null
+  }
+
+  it('converts the selected note and SELECTS the resulting rest', () => {
+    state.selectedTool = 'selection'
+    select('n1')
+    palette.convertSelectionToRest()
+    expect(convertToRest).toHaveBeenCalledWith('n1')
+    expect(selectNote).toHaveBeenCalledWith('rest-of-n1') // the point: not left with nothing selected
+    expect(renderScore).toHaveBeenCalled()
+  })
+
+  it('converts a multi-selection as ONE undo step, selecting the last rest', () => {
+    state.selectedTool = 'selection'
+    select('n1', 'n2')
+    palette.convertSelectionToRest()
+    expect(convertToRest).toHaveBeenCalledTimes(2)
+    expect(selectNote).toHaveBeenCalledWith('rest-of-n2')
+  })
+
+  it('is a no-op when a rest is already selected (nothing to silence)', () => {
+    state.selectedTool = 'selection'
+    select('r1')
+    palette.convertSelectionToRest()
+    expect(convertToRest).not.toHaveBeenCalled()
+    expect(selectNote).not.toHaveBeenCalled()
+  })
+
+  it('converts only the notes in a mixed note+rest selection', () => {
+    state.selectedTool = 'selection'
+    select('r1', 'n1')
+    palette.convertSelectionToRest()
+    expect(convertToRest).toHaveBeenCalledTimes(1)
+    expect(convertToRest).toHaveBeenCalledWith('n1')
+  })
+
+  it('is a no-op in entry mode — this edits a selection, it does not enter anything', () => {
+    state.selectedTool = 'entry'
+    select('n1')
+    palette.convertSelectionToRest()
+    expect(convertToRest).not.toHaveBeenCalled()
+  })
+
+  it('is a no-op with nothing selected', () => {
+    state.selectedTool = 'selection'
+    select()
+    palette.convertSelectionToRest()
+    expect(convertToRest).not.toHaveBeenCalled()
+    expect(renderScore).not.toHaveBeenCalled()
+  })
+
+  it('lights the rest key afterwards, because the new rest is what is selected', () => {
+    state.selectedTool = 'selection'
+    select('n1')
+    // selectNote is the real SelectionController's job; here it only records. Mirror what it would
+    // leave behind so the highlight rule reads the post-conversion truth.
+    selectNote.mockImplementation((id: string | null) => { state.selectedNoteId = id })
+    palette.convertSelectionToRest()
+    expect(palette.selectionIsRest()).toBe(true)
+  })
+})
+
 describe('PaletteController — tie stamp tool', () => {
   let state: EditorState
   let tieSelectionFn: ReturnType<typeof vi.fn>

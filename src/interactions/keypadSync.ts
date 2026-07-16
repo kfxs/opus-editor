@@ -6,6 +6,7 @@ import { accidentalSelection } from './accidentalSelection'
 import { articulationSelection } from './articulationSelection'
 import { dotSelection } from './dotSelection'
 import { tieSelection } from './tieSelection'
+import { restSelection } from './restSelection'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
 
 /**
@@ -108,6 +109,7 @@ export function wireKeypadSync(
       else palette.toggleTenuto()
     }),
     tieSelection.onPress(() => palette.toggleTie()),
+    restSelection.onPress(() => palette.convertSelectionToRest()),
   ]
   return () => stops.forEach((stop) => stop())
 }

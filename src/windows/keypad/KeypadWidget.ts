@@ -241,9 +241,10 @@ export class KeypadWidget implements Widget {
         tieSelection.press('tie')
         break
       case 'rest':
-        // Reports only — its light says the selected slot IS a rest, and there is no "make it one"
-        // to press (see restSelection). Pressing it is a no-op, exactly like clicking the arrow when
-        // the score is already in selection mode: the light is a fact, not this click's doing.
+        // Silences the selection (routes to palette.convertSelectionToRest via keypadSync). Its light
+        // still follows the SCORE, not this click — the click changes the score, and the score lights
+        // the key. Pressing it with a rest already selected is a no-op, so the light never toggles off.
+        restSelection.press('rest')
         break
       case 'momentary':
         break
