@@ -20,6 +20,8 @@ import { calculateMeasureWidths } from './MeasureLayout'
 import { laneFingerprint } from './MeasureWidthCache'
 import { measureShapeKey } from './MeasureRedrawKey'
 import { resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
+import { fracAdd } from '@/utils/fraction'
+import { durationToFraction } from '@/utils/durations'
 import type { Clef } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
 
@@ -68,9 +70,16 @@ function widthsUnder(clef: Clef): Map<number, number> {
 /** Width of one bar holding exactly these notes, under `clef`. The control's instrument. */
 function widthOf(notes: Array<{ step: 'C' | 'D' | 'E'; alter?: -1 | 1; octave: number; duration: 'q' | 'h' }>, clef: Clef): number {
   const model = new ScoreModel()
-  notes.forEach((n, i) =>
-    model.addNote({ step: n.step, alter: n.alter, octave: n.octave, duration: n.duration, measure: 1, beat: frac(i, 1) }),
-  )
+  // End-to-end by DURATION, not one per beat. `frac(i, 1)` put two HALF notes at beats 0 and 1 —
+  // overlapping — which left the bar malformed and manufactured a spurious rest, so the lane had 3
+  // slots for 2 notes. That mattered once rests started earning width (MeasureLayout: the per-event
+  // floor): the phantom rest pushed the floor over the formatter's answer and flattened the very
+  // difference these tests exist to see. A properly-formed bar has no rest fill and no phantom.
+  let beat = frac(0, 1)
+  notes.forEach((n) => {
+    model.addNote({ step: n.step, alter: n.alter, octave: n.octave, duration: n.duration, measure: 1, beat })
+    beat = fracAdd(beat, durationToFraction(n.duration))
+  })
   const score = model.getScore()
   const staffId = score.staves?.[0]?.id
   const resolved = resolveStaffClefs(score, staffId)
@@ -104,13 +113,24 @@ describe('control — the harness can actually see a width change', () => {
     expect(four).toBeGreaterThan(two)
   })
 
-  it('an ACCIDENTAL widens a bar — the glyph the clef question hinges on', () => {
+  it('an accidental does NOT widen a bar — the per-event floor already has room for it', () => {
+    // This asserted the OPPOSITE, and it was never true: it passed on an artifact. `widthOf` put two
+    // HALF notes at beats 0 AND 1 — overlapping — and VexFlow's tick maths inflated the formatter's
+    // answer for that malformed bar by ~1px when an accidental appeared. Give it a properly-formed
+    // bar and it fails on the ORIGINAL code too (131 vs 131) — measured, not reasoned.
+    //
+    // The truth it was standing in front of: a bar's width comes from MIN_NOTE_SPACING per EVENT, and
+    // VexFlow's own minimum (~9-15px an event) almost never beats it. So glyphs do not move the width
+    // — 4 quarters with 4 accidentals measure exactly the same as 4 plain ones, today and before.
+    // Whether that is GOOD is a live question (accidentals do want room), but it is the design as it
+    // stands and is not this change's to settle. The control above ("more notes ⇒ a wider bar") is
+    // what proves the harness can see a width change; this one only ever proved a rounding artifact.
     const plain = widthOf([{ step: 'C', octave: 4, duration: 'h' }, { step: 'D', octave: 4, duration: 'h' }], 'treble')
     const sharp = widthOf(
       [{ step: 'C', alter: 1, octave: 4, duration: 'h' }, { step: 'D', alter: -1, octave: 4, duration: 'h' }],
       'treble',
     )
-    expect(sharp).toBeGreaterThan(plain)
+    expect(sharp).toBe(plain)
   })
 })
 

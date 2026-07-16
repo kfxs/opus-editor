@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
 import { calculateMeasureWidths } from './MeasureLayout'
-import { MeasureWidthCache } from './MeasureWidthCache'
+import { MeasureWidthCache, laneFingerprint } from './MeasureWidthCache'
 import { getStaves } from '../models/staffContent'
 import { resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import type { Score } from '@/types/music'
@@ -73,16 +73,21 @@ describe('MeasureWidthCache', () => {
     expect(after[1]).toBe(before[1])            // the one we didn't
   })
 
-  it('a forced accidental widens the bar — the glyph set is part of the key, not just the pitches', () => {
+  it('a forced accidental mints a fresh KEY — the glyph set is part of it, not just the pitches', () => {
+    // Asserts the claim in its own name, on the key ITSELF. It used to prove it through the WIDTH
+    // (sharpened > plain), which stopped working when rests started earning their spacing: this bar
+    // is one quarter + two filler rests, so the per-event floor (3 x MIN_NOTE_SPACING) now exceeds
+    // what the formatter asks for the glyphs, and the accidental fits inside the space the bar
+    // already had. The width being equal is CORRECT — and it is also why the width can no longer
+    // observe the key. See MeasureLayout.noteSpaceForLane.
     const model = new ScoreModel()
-    const cache = new MeasureWidthCache()
     const note = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const plain = widths(model.getScore(), cache)[0]
+    const plain = laneFingerprint(model.getScore().measures[0])
 
     model.updateNote(note.id, { alter: 1, forceAccidental: true })
-    const sharpened = widths(model.getScore(), cache)[0]
+    const sharpened = laneFingerprint(model.getScore().measures[0])
 
-    expect(sharpened).toBeGreaterThan(plain)
+    expect(sharpened).not.toBe(plain)
   })
 
   it('a meter change re-widths the bar even though its notes are untouched', () => {

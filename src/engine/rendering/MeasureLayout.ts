@@ -27,7 +27,8 @@ import {
  * needs comes from {@link ./NoteBuilder}.
  */
 
-/** Width of an empty (or all-rest) staff lane's note area. */
+/** The note area a lane gets when it holds nothing at all, and the floor under a bar of pure
+ *  silence — an empty bar should not collapse to the width of its one rest glyph. */
 const EMPTY_LANE_NOTE_SPACE = 40
 
 /**
@@ -44,8 +45,13 @@ const EMPTY_LANE_NOTE_SPACE = 40
  * (clefs, meter, line position) deliberately stays outside the memo: see {@link MeasureWidthCache}.
  */
 function noteSpaceForLane(laneView: Measure, clef: Clef, cache?: MeasureWidthCache): number {
-  const chords = laneView.slots.filter(s => s.type === 'chord')
-  if (chords.length === 0) return EMPTY_LANE_NOTE_SPACE
+  // A lane is empty when it holds NO SLOTS. It used to ask "no chords?", which called a bar of
+  // rests empty: eight eighth-rests were measured as an empty bar and drew crammed on top of each
+  // other, narrower than a bar holding ONE whole rest (reported, with a screenshot). That was true
+  // while an all-rest bar could only ever be a single auto-filled measure rest; the rest tool made
+  // bars of authored rests and the assumption broke.
+  if (laneView.slots.length === 0) return EMPTY_LANE_NOTE_SPACE
+  const hasNotes = laneView.slots.some(s => s.type === 'chord')
 
   // TEMPORARY probes — the §9 question (see renderCensus.layoutSub). `recording` is false in every
   // ordinary session, so this is one boolean read, not a clock call.
@@ -83,9 +89,17 @@ function noteSpaceForLane(laneView: Measure, clef: Clef, cache?: MeasureWidthCac
     formatter.joinVoices(voices)
     const minNoteWidth = formatter.preCalculateMinTotalWidth(voices)
 
-    // Safety buffer (15%), floored at a minimum spacing per note.
-    const minSpacingWidth = chords.length * LAYOUT_CONFIG.MIN_NOTE_SPACING
-    const noteSpace = Math.max(minNoteWidth * 1.15, minSpacingWidth)
+    // Safety buffer (15%), floored at a minimum spacing per EVENT — and the floor is what actually
+    // spaces music: VexFlow's own minimum is ~9px an event, far too tight to read, so this is the
+    // number that decides how wide a bar is. It counted CHORDS, so rests earned no space at all and
+    // a bar of them collapsed. A rest occupies a beat exactly as a note does.
+    const minSpacingWidth = laneView.slots.length * LAYOUT_CONFIG.MIN_NOTE_SPACING
+    // …and a bar of pure SILENCE keeps its presence: one whole rest formats to less than this, and
+    // an empty bar should not collapse to the width of its one glyph. Only for lanes with no notes,
+    // though — as a floor on EVERY lane it clamps small bars and hides real differences (it swallowed
+    // the ~1px an accidental adds to a two-note bar, which the width control tests caught at once).
+    const silenceFloor = hasNotes ? 0 : EMPTY_LANE_NOTE_SPACE
+    const noteSpace = Math.max(minNoteWidth * 1.15, minSpacingWidth, silenceFloor)
     if (key !== undefined) cache!.set(key, noteSpace)
     if (probing) renderCensus.layoutSub('format', performance.now() - tFormat)
     return noteSpace
