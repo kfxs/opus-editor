@@ -769,6 +769,92 @@ describe('PaletteController — convertSelectionToRest', () => {
   })
 })
 
+/**
+ * THE STAMP RULE: a press stamps only when the selection is not a note, a rest, or a group of notes.
+ * A rest takes neither an accidental nor an articulation, and the apply-to-selection helpers return
+ * false for that just as they do for an empty selection — so both used to arm the stamp and throw the
+ * rest away. But a selected rest is usually a note in waiting: select it, press ♯, press a letter.
+ */
+describe('PaletteController — a selected REST arms for note entry, it does not stamp', () => {
+  let state: EditorState
+  let notes: Record<string, { id: string; isRest?: boolean; articulations?: string[] }>
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    notes = { rest1: { id: 'rest1', isRest: true }, note1: { id: 'note1' } }
+    const fakeEngine = {
+      getNote: (id: string) => notes[id] ?? null,
+      updateNote: vi.fn(),
+      setNoteAccidental: vi.fn(),
+      runBatch: (_l: string, fn: () => void) => fn(),
+    } as unknown as import('../engine/MusicEngine').MusicEngine
+    palette = new PaletteController(() => fakeEngine, state, vi.fn(), vi.fn(), () => null, vi.fn())
+  })
+
+  const select = (kind: 'note' | 'slur', ...ids: string[]) => {
+    state.selectedItems = new Map(ids.map(id => [id, { kind, id } as never]))
+    state.selectedNoteId = kind === 'note' ? ids[ids.length - 1] ?? null : null
+  }
+
+  it('does NOT arm the accidental stamp with a rest selected', () => {
+    state.selectedTool = 'selection'
+    select('note', 'rest1')
+    palette.setAccidental('#')
+    expect(armedTool(state, 'accidental')).toBeNull()
+    expect(state.selectedAccidental).toBe('#')   // armed for the note the rest is about to become
+    expect(state.selectedNoteId).toBe('rest1')   // …and the rest is still selected to become it
+  })
+
+  it('does NOT arm the articulation stamp with a rest selected', () => {
+    state.selectedTool = 'selection'
+    select('note', 'rest1')
+    palette.toggleAccent()
+    expect(armedTool(state, 'articulation')).toBeNull()
+    expect(state.accent).toBe(true)
+    expect(state.selectedNoteId).toBe('rest1')
+  })
+
+  it('LIGHTS the armed articulation with a rest selected — an arm you cannot see is not an arm', () => {
+    state.selectedTool = 'selection'
+    select('note', 'rest1')
+    palette.toggleAccent()
+    expect(palette.noteHasAccent()).toBe(true)
+  })
+
+  it('toggles the armed accidental off on a re-press, rest still selected', () => {
+    state.selectedTool = 'selection'
+    select('note', 'rest1')
+    palette.setAccidental('#')
+    palette.setAccidental('#')
+    expect(state.selectedAccidental).toBeNull()
+    expect(armedTool(state, 'accidental')).toBeNull() // never becomes a stamp
+  })
+
+  it('STILL arms the stamp when nothing is selected', () => {
+    state.selectedTool = 'selection'
+    select('note') // empty
+    palette.setAccidental('#')
+    expect(armedTool(state, 'accidental')?.sign).toBe('#')
+  })
+
+  it('STILL arms the stamp when a SLUR is selected — it is not a note or a rest', () => {
+    // The user's own example, and the general rule: any non-note selection stamps (a dynamic, a
+    // clef, a measure box — a slur is just the one he named).
+    state.selectedTool = 'selection'
+    select('slur', 'slur1')
+    palette.setAccidental('#')
+    expect(armedTool(state, 'accidental')?.sign).toBe('#')
+  })
+
+  it('STILL arms the articulation stamp with a slur selected', () => {
+    state.selectedTool = 'selection'
+    select('slur', 'slur1')
+    palette.toggleAccent()
+    expect(armedTool(state, 'articulation')?.types).toEqual(['accent'])
+  })
+})
+
 describe('PaletteController — tie stamp tool', () => {
   let state: EditorState
   let tieSelectionFn: ReturnType<typeof vi.fn>

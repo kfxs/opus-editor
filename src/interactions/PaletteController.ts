@@ -120,6 +120,27 @@ export class PaletteController {
     this.showArmedGhost()
   }
 
+  /**
+   * Does the selection hold any note or rest?
+   *
+   * THE STAMP RULE: a stamp arms only when it does NOT — "we go to stamp mode when the selection is
+   * not a note, a rest, or a group of notes". A stamp is for marking things you have not selected;
+   * the moment you HAVE selected something note-like, the press is about that, and turning it into a
+   * stamp throws your selection away to answer a question you did not ask.
+   *
+   * The subtle half is the REST. `applyAccidentalToSelection` / `applyArticulationToSelection`
+   * return false for TWO different situations — nothing selected, and a selection of rests, which
+   * take neither mark — and the callers used to read both as "arm the stamp". So selecting a rest
+   * and pressing ♯ armed the stamp and dropped the rest, when what you were almost certainly doing
+   * was building the note that rest is about to become (select a rest, press ♯, press a letter).
+   *
+   * Decided by the selection SET, not the `selectedNoteId` anchor: after note entry, Select/Esc
+   * leaves the cursor note in the anchor with an EMPTY set, which reads as "nothing selected".
+   */
+  private selectionHoldsNotes(): boolean {
+    return selectedNoteIds(this.state.selectedItems.values()).length > 0
+  }
+
   /** Returns the articulations currently armed for the next note entry. */
   getPendingArticulations(): ArticulationType[] | undefined {
     const arts: ArticulationType[] = []
@@ -358,14 +379,25 @@ export class PaletteController {
       return
     }
 
-    // Selection mode: (1) apply across a real selection, or (2) arm the stamp when there is none.
+    // Selection mode: (1) apply across a real selection…
     if (this.state.selectedTool === 'selection') {
-      if (!this.applyAccidentalToSelection(accidental)) this.armAccidentalTool(accidental)
-      return
+      if (this.applyAccidentalToSelection(accidental)) return
+      // (2) …or arm the stamp — but ONLY with nothing note-like selected (see selectionHoldsNotes).
+      if (!this.selectionHoldsNotes()) {
+        this.armAccidentalTool(accidental)
+        return
+      }
+      // (2b) A REST is selected: it takes no accidental, but it is about to become a note, so the
+      // press arms for THAT and the rest stays selected. Falls through to the entry-mode arm below —
+      // the same toggle, and the Keypad lights it either way (the accidental highlight reads
+      // `selectedAccidental` whenever a note or rest is selected).
     }
 
-    // (3) Entry mode: arm/toggle the accidental for the NEXT note entered.
+    // (3) Entry mode — or a selected rest: arm/toggle the accidental for the NEXT note entered.
     this.state.selectedAccidental = this.state.selectedAccidental === accidental ? null : accidental
+    // No ghost while a rest is selected: we are in SELECTION mode, and a ghost note at the pointer
+    // would claim the next click enters one. renderArmedGhost is the entry-mode preview.
+    if (this.state.selectedTool !== 'entry') return
     const pos = this.getLastMousePosition()
     if (pos) this.renderArmedGhost(pos)
   }
@@ -560,19 +592,32 @@ export class PaletteController {
       return
     }
 
-    // Selection mode: (1) apply across a real selection, or (2b) arm the stamp when there is none.
+    // Selection mode: (1) apply across a real selection…
     if (this.state.selectedTool === 'selection') {
-      if (!this.applyArticulationToSelection(type)) this.armArticulationTool([type])
-      this.refreshArticulationSelection()
-      return
+      if (this.applyArticulationToSelection(type)) {
+        this.refreshArticulationSelection()
+        return
+      }
+      // (2b) …or arm the stamp — but ONLY with nothing note-like selected (see selectionHoldsNotes).
+      if (!this.selectionHoldsNotes()) {
+        this.armArticulationTool([type])
+        this.refreshArticulationSelection()
+        return
+      }
+      // (2c) A REST is selected: it takes no articulation, but it is about to become a note, so the
+      // press arms for THAT and the rest stays selected. Falls through to the entry-mode arm below.
     }
 
-    // (3) Entry mode (note entry): arm/disarm for the next note entered.
+    // (3) Entry mode — or a selected rest: arm/disarm for the next note entered.
     if (type === 'accent') this.state.accent = !this.state.accent
     else if (type === 'staccato') this.state.staccato = !this.state.staccato
     else this.state.tenuto = !this.state.tenuto
-    const pos = this.getLastMousePosition()
-    if (pos) this.renderArmedGhost(pos)
+    // No ghost while a rest is selected: we are in SELECTION mode, and a ghost note at the pointer
+    // would claim the next click enters one. renderArmedGhost is the entry-mode preview.
+    if (this.state.selectedTool === 'entry') {
+      const pos = this.getLastMousePosition()
+      if (pos) this.renderArmedGhost(pos)
+    }
     this.refreshArticulationSelection()
   }
 
@@ -819,11 +864,11 @@ export class PaletteController {
       return
     }
 
-    // (3) Selection mode with nothing selected → arm the stamp instead of flipping to note entry.
-    // Decided by the selection SET, not the `selectedNoteId` anchor: after note entry, Select/Esc
-    // leaves the cursor note in the anchor with an empty set, which reads as "nothing selected".
-    if (this.state.selectedTool === 'selection'
-      && selectedNoteIds(this.state.selectedItems.values()).length === 0) {
+    // (3) Selection mode with nothing note-like selected → arm the stamp instead of flipping to
+    // note entry. This rule is {@link selectionHoldsNotes}, which was written out here first; the
+    // accidental and articulation keys now read it too, so there is one answer to "does a press
+    // stamp?". (The dot needs no rest branch of its own: a rest TAKES a dot, so it applies above.)
+    if (this.state.selectedTool === 'selection' && !this.selectionHoldsNotes()) {
       this.armDotTool()
       return
     }
@@ -1112,7 +1157,13 @@ export class PaletteController {
     if (this.state.selectedTool !== 'selection' || !engine) return false
     const noteId = this.state.selectedArticulationNoteId ?? this.state.selectedNoteId
     if (!noteId) return false
-    return engine.getNote(noteId)?.articulations?.includes(type) ?? false
+    // A selected REST reports the ARMED flag, not its own articulations — it has none and can have
+    // none. Pressing the key with a rest selected arms for the note it is about to become
+    // (pressArticulation 2c), and an arm you cannot see is not an arm: the key has to light or the
+    // gesture is invisible. Nothing is lost by not reading the rest's own — there is nothing there.
+    const note = engine.getNote(noteId)
+    if (note?.isRest) return this.state[type]
+    return note?.articulations?.includes(type) ?? false
   }
 
   /**
