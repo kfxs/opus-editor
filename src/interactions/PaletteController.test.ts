@@ -443,6 +443,60 @@ describe('PaletteController — accidental stamp tool', () => {
   })
 })
 
+/**
+ * The rest key REPORTS (see restSelection): its light is the half of the statement the duration keys
+ * can't make — a selected quarter rest lights the quarter key exactly as a quarter NOTE does, so
+ * without this the panel cannot tell you which one you have.
+ */
+describe('PaletteController — rest key highlight', () => {
+  let state: EditorState
+  let notes: Record<string, { id: string; isRest?: boolean }>
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    notes = { rest1: { id: 'rest1', isRest: true }, note1: { id: 'note1', isRest: false } }
+    const fakeEngine = {
+      getNote: (id: string) => notes[id] ?? null,
+    } as unknown as import('../engine/MusicEngine').MusicEngine
+    palette = new PaletteController(
+      () => fakeEngine, state, vi.fn(), vi.fn(), () => null, vi.fn(),
+    )
+  })
+
+  it('lights when the selected slot is a rest', () => {
+    state.selectedTool = 'selection'
+    state.selectedNoteId = 'rest1'
+    expect(palette.selectionIsRest()).toBe(true)
+  })
+
+  it('stays dark when the selected slot is a note', () => {
+    state.selectedTool = 'selection'
+    state.selectedNoteId = 'note1'
+    expect(palette.selectionIsRest()).toBe(false)
+  })
+
+  it('stays dark with nothing selected', () => {
+    state.selectedTool = 'selection'
+    state.selectedNoteId = null
+    expect(palette.selectionIsRest()).toBe(false)
+  })
+
+  it('stays dark in entry mode — there is no armed "enter rests now" state to report', () => {
+    // A stale selectedNoteId from the last click must not leak a light into note entry.
+    state.selectedTool = 'entry'
+    state.selectedNoteId = 'rest1'
+    expect(palette.selectionIsRest()).toBe(false)
+  })
+
+  it('stays dark while a marking tool is armed (the armed gesture is what the Keypad shows)', () => {
+    state.selectedTool = 'selection'
+    state.selectedNoteId = 'rest1'
+    state.selectedMarkingTool = { kind: 'clef', clef: 'bass' } as MarkingTool
+    expect(palette.selectionIsRest()).toBe(false)
+  })
+})
+
 describe('PaletteController — tie stamp tool', () => {
   let state: EditorState
   let tieSelectionFn: ReturnType<typeof vi.fn>

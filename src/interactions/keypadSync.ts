@@ -88,10 +88,11 @@ export function wireKeypadSync(
     )
     // No gate needed: dotHighlight owns the whole rule, armed tool included.
     dotSelection.setHighlight(dotHighlight(state))
-    // Engine-derived highlights (articulations are a SET, tie reads tiedTo): read live, not from a
-    // reactive field, so they can't be mirrored — recompute and push on any change.
+    // Engine-derived highlights (articulations are a SET, tie reads tiedTo, rest reads isRest): read
+    // live, not from a reactive field, so they can't be mirrored — recompute and push on any change.
     palette.refreshArticulationSelection()
     palette.refreshTieSelection()
+    palette.refreshRestSelection()
   }
   sync() // prime
 

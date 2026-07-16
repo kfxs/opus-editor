@@ -10,6 +10,7 @@ import { tempoLabel } from '../utils/tempoMap'
 import { selectedNoteIds, selectedArticulationNoteIds } from './selection'
 import { articulationSelection } from './articulationSelection'
 import { tieSelection } from './tieSelection'
+import { restSelection } from './restSelection'
 
 /** Two armed tempo presets are "the same button" when every field matches — so clicking the
  *  active preset a second time disarms it (the toggle behaviour of the other palette tools). */
@@ -1167,5 +1168,32 @@ export class PaletteController {
    */
   refreshTieSelection(): void {
     tieSelection.setHighlight(this.noteHasTie() ? 'tie' : null)
+  }
+
+  /**
+   * Is the selected slot a rest? The duration keys already say "quarter" for a selected quarter rest
+   * — this is the half that says WHICH quarter (see {@link restSelection}).
+   *
+   * Selection-mode only, and deliberately so. There is no armed "enter rests now" state to report in
+   * entry mode: a rest is entered with `r` at the cursor, a one-shot action, not a mode — so nothing
+   * about a rest is in play while a note is being armed. Same reason a marking tool darkens it: with
+   * a clef waiting to be placed, the selection it would report has already been cleared.
+   */
+  selectionIsRest(): boolean {
+    if (this.state.selectedMarkingTool) return false
+    const engine = this.getEngine()
+    if (this.state.selectedTool !== 'selection' || !this.state.selectedNoteId || !engine) return false
+    return !!engine.getNote(this.state.selectedNoteId)?.isRest
+  }
+
+  /**
+   * Push whether the rest key is lit into the {@link restSelection} store. The tie's twin: the RULE
+   * ({@link selectionIsRest}, reading the engine's `isRest`) lives HERE, framework-agnostic, because
+   * `isRest` is not a reactive field and no mirror can compute it. Driven by keypadSync's `sync()`,
+   * which runs on every state change — including every selection change, the only thing this reads.
+   * `setHighlight` short-circuits on no change.
+   */
+  refreshRestSelection(): void {
+    restSelection.setHighlight(this.selectionIsRest() ? 'rest' : null)
   }
 }

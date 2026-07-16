@@ -5,6 +5,7 @@ import { accidentalSelection } from '../../interactions/accidentalSelection'
 import { articulationSelection } from '../../interactions/articulationSelection'
 import { dotSelection } from '../../interactions/dotSelection'
 import { tieSelection } from '../../interactions/tieSelection'
+import { restSelection } from '../../interactions/restSelection'
 import { voiceFillColor } from '../../utils/voiceColors'
 import { CHROME } from '../../utils/chromeColors'
 import { KEYPAD_PAGES, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
@@ -68,10 +69,6 @@ const COLOR = {
 const MUSIC_FONT = "Bravura, Academico, 'Noto Music', serif"
 
 export class KeypadWidget implements Widget {
-  /** The purely-local `toggle` keys currently lit, by action (just rest — not yet wired to the score).
-   *  The duration, accidental, articulations, dot, tie and tool mode are NOT here — those live in their
-   *  own editor stores and light from them. */
-  private readonly lit = new Set<string>()
   private voice = 0
 
   private readonly keys: { cell: KeypadCell; button: HTMLButtonElement }[] = []
@@ -91,6 +88,7 @@ export class KeypadWidget implements Widget {
   private unsubscribeArticulation: (() => void) | null = null
   private unsubscribeDot: (() => void) | null = null
   private unsubscribeTie: (() => void) | null = null
+  private unsubscribeRest: (() => void) | null = null
 
   mount(host: HTMLElement): void {
     // A little more air under the title bar than around the rest: the bar is a solid band, and the
@@ -120,6 +118,7 @@ export class KeypadWidget implements Widget {
     this.unsubscribeArticulation = articulationSelection.onHighlight(() => this.paint())
     this.unsubscribeDot = dotSelection.onHighlight(() => this.paint())
     this.unsubscribeTie = tieSelection.onHighlight(() => this.paint())
+    this.unsubscribeRest = restSelection.onHighlight(() => this.paint())
 
     // The numpad `+` turns the page too — the panel IS the numpad, so the key its `+` cell mirrors
     // drives it. Global, so it works with the score focused, and only while the panel is open (removed
@@ -145,6 +144,8 @@ export class KeypadWidget implements Widget {
     this.unsubscribeDot = null
     this.unsubscribeTie?.()
     this.unsubscribeTie = null
+    this.unsubscribeRest?.()
+    this.unsubscribeRest = null
     document.removeEventListener('keydown', this.onKeyDown)
   }
 
@@ -239,9 +240,10 @@ export class KeypadWidget implements Widget {
         // note's tie AND re-pushes the highlight (tiedTo isn't reactive, so it can't be mirrored).
         tieSelection.press('tie')
         break
-      case 'toggle':
-        if (this.lit.has(cell.action)) this.lit.delete(cell.action)
-        else this.lit.add(cell.action)
+      case 'rest':
+        // Reports only — its light says the selected slot IS a rest, and there is no "make it one"
+        // to press (see restSelection). Pressing it is a no-op, exactly like clicking the arrow when
+        // the score is already in selection mode: the light is a fact, not this click's doing.
         break
       case 'momentary':
         break
@@ -265,8 +267,9 @@ export class KeypadWidget implements Widget {
 
   /**
    * Is this key lit? The one place the question is answered, for both {@link paint} and the press log.
-   * By kind: the tool mode (the arrow), the armed duration/accidental/dot, the tie, the active
-   * articulations (a set), and the panel's own lit set (the last not-yet-wired toggle: rest).
+   * By kind: the tool mode (the arrow), the armed duration/accidental/dot, the tie, the rest, and the
+   * active articulations (a set). EVERY light on the panel now comes from an editor store — the
+   * widget holds none of its own, so it cannot show you a state the score does not have.
    */
   private isLit(cell: KeypadCell): boolean {
     if (cell.select === 'mode') return modeSelection.get() === 'selection'
@@ -275,7 +278,7 @@ export class KeypadWidget implements Widget {
     if (cell.select === 'articulation') return !!cell.articulation && articulationSelection.isActive(cell.articulation)
     if (cell.select === 'dot') return dotSelection.get() === 'dot'
     if (cell.select === 'tie') return tieSelection.get() === 'tie'
-    return this.lit.has(cell.action)
+    return cell.select === 'rest' && restSelection.get() === 'rest'
   }
 
   /**
