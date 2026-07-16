@@ -351,10 +351,11 @@ export class HighlightController {
       : group.querySelector('g.vf-notehead text, g.vf-notehead path')
     if (head) colorFill(head)
 
-    // Also light this note's accidental (♯/♭/♮) and its articulations, so a selected note reads as
-    // fully selected — head + stem + accidental + articulations — not just the head.
+    // Also light this note's accidental (♯/♭/♮), its articulations and its tie, so a selected note
+    // reads as fully selected — head + stem + accidental + articulations + tie — not just the head.
     this.highlightNoteAccidental(noteId, group, SELECTION_COLOR)
     this.colorNoteArticulations(noteId, SELECTION_COLOR)
+    this.colorNoteTie(noteId, SELECTION_COLOR)
 
     // Multi-voice unison: the other voice draws a notehead at the SAME pixel spot in a
     // sibling `vf-stavenote` group. Whichever is later in the DOM paints on top, so the
@@ -516,40 +517,29 @@ export class HighlightController {
     const engine = this.getEngine()
     if (!engine || !this.state.selectedTieFromNoteId) return
 
-    const fromNoteId = this.state.selectedTieFromNoteId
-    const group = engine.getTieSVGGroup(fromNoteId)
-    if (!group) return
-
     // Paint the tie in ITS voice's colour (V1 blue, V2 green — Sibelius-style;
     // matches the notehead highlight) rather than a uniform orange.
+    const fromNoteId = this.state.selectedTieFromNoteId
     const voice = engine.getNote(fromNoteId)?.voice ?? 0
-    this.colorTieGroup(group, voiceFillColor(voice))
+    this.colorNoteTie(fromNoteId, voiceFillColor(voice))
   }
 
   /**
-   * Highlight the tie ARC for any selected tie chain. A range selection adds both
-   * tied notes to the set (their noteheads light up via applySelectionHighlight),
-   * but the connecting arc is a separate SVG path — colour it too when BOTH its
-   * endpoints are selected, so a held (tied) note reads as fully selected.
+   * Colour the tie `noteId` OWNS — its forward (`tiedTo`) arc. Shared by the selected-NOTE highlight
+   * ({@link highlightNote}, so a tied note reads as fully selected) and the selected-TIE highlight
+   * ({@link applyTieHighlight}), exactly as {@link colorNoteArticulations} is shared.
+   *
+   * The FORWARD tie only, which is precisely what the Keypad's Enter key lights and removes
+   * (`PaletteController.noteHasTie` reads `tiedTo`) — so score and Keypad always agree. Select the
+   * far end of a tie and neither lights: that note owns no tie, it is only tied INTO.
+   *
+   * No lookup of `tiedTo` is needed: `tieGroupMap` is keyed by the FROM note, so a note that ties to
+   * nothing simply has no group and this is a no-op.
    */
-  applySelectionTieHighlight(): void {
-    const engine = this.getEngine()
-    if (!engine || this.state.selectedItems.size < 2) return
-
-    const selected = new Set<string>()
-    for (const item of this.state.selectedItems.values()) {
-      if (item.kind === 'note') selected.add(item.id)
-    }
-
-    for (const tieEl of engine.getElementRegistry().getByType('tie')) {
-      if (tieEl.fromNoteId && tieEl.toNoteId
-        && selected.has(tieEl.fromNoteId) && selected.has(tieEl.toNoteId)) {
-        const group = engine.getTieSVGGroup(tieEl.fromNoteId)
-        if (!group) continue
-        const voice = engine.getNote(tieEl.fromNoteId)?.voice ?? 0
-        this.colorTieGroup(group, voiceFillColor(voice))
-      }
-    }
+  private colorNoteTie(noteId: string, color: string): void {
+    const group = this.getEngine()?.getTieSVGGroup(noteId)
+    if (!group) return
+    this.colorTieGroup(group, color)
   }
 
   /** Colour the tie inside its OWN `<g class="vf-tie">` group — never a document-wide

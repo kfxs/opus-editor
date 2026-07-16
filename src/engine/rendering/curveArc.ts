@@ -26,7 +26,7 @@ const CURVE_OUTLINE = 1
  * hit geometry matches the drawn path exactly.
  */
 export function drawCurveArc(
-  pass: RenderPass,
+  pass: Pick<RenderPass, 'context'>, // only the context is used — so a ghost can call this too
   p0: { x: number; y: number },
   p1: { x: number; y: number },
   cps: [{ x: number; y: number }, { x: number; y: number }],
@@ -45,11 +45,17 @@ export function drawCurveArc(
   // renderCurve strokes the body with the context's *current* line width — left thick by
   // the preceding beam/stem passes, which blunts the curve's tapered tips and over-weights
   // it. Pin a thin slur outline so the fill's natural taper (it pinches to a point at each
-  // endpoint) reads as a proper slur. save/restore so we don't leak the width to later draws.
-  pass.context.save?.()
-  pass.context.setLineWidth?.(CURVE_OUTLINE)
+  // endpoint) reads as a proper slur.
+  //
+  // Put the width back BY HAND. This used to say "save/restore so we don't leak the width to
+  // later draws" and wrap the call in them — but `VexFlowRenderer.initialize()` stubs save() and
+  // restore() to no-ops (structuredClone throws on Vue's reactive proxies), so that looked correct
+  // and did nothing: CURVE_OUTLINE leaked into every later draw. It matters now that the ghost tie
+  // calls this on every mouse move.
+  const prevWidth = pass.context.attributes['stroke-width']
+  pass.context.setLineWidth(CURVE_OUTLINE)
   curve.renderCurve({ firstX: p0.x, firstY: p0.y, lastX: p1.x, lastY: p1.y, direction })
-  pass.context.restore?.()
+  if (typeof prevWidth === 'number') pass.context.setLineWidth(prevWidth)
 
   // Mirror renderCurve's control-point math (xShift/yShift = 0 → endpoints are exact)
   // to reconstruct the cubic for hit-testing. controlPointSpacing = (lastX-firstX)/(n+2).

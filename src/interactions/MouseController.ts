@@ -1327,6 +1327,7 @@ export class MouseController {
     if (this.placeTempoAtClick(engine, x, measureNum)) return
     if (this.stampArticulationAtClick(engine, registry, x, y)) return
     if (this.stampAccidentalAtClick(engine, registry, x, y)) return
+    if (this.stampTieAtClick(engine, registry, x, y)) return
 
     // No marking tool armed → note/tuplet entry.
     this.placeNoteAtClick(engine, registry, x, y, measureNum)
@@ -1492,6 +1493,41 @@ export class MouseController {
     }
     engine.runBatch(`Set ${accidental}`, () => engine.setNoteAccidental(noteId, accidental))
     console.log(`✓ Accidental stamped | ${accidental} on note ${noteId}`)
+    this.render.renderScore()
+    return true
+  }
+
+  /**
+   * Tie stamp tool: a click TIES the note clicked to the next slot in its own voice and staff (the
+   * engine resolves the target — same pitch where there is one, else a let-ring tie into whatever
+   * is there). Mirrors {@link stampAccidentalAtClick} — same note-body hit-test, one `runBatch` =
+   * one undo, IDEMPOTENT: clicking an already-tied note does nothing, because a stamp only ever
+   * ADDS (removal is Delete, or the Keypad with the tie itself selected). A note with nothing after
+   * it is a no-op too — `toggleTie` finds no candidate and returns null. Consumes any click while
+   * the tool is armed (returns true) so a near-miss doesn't fall through to note entry.
+   */
+  private stampTieAtClick(engine: MusicEngine, registry: ElementRegistry, x: number, y: number): boolean {
+    if (!this.state.selectedTieTool) return false
+
+    const el = registry.findClosestNoteOrRest(x, y)
+    if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
+      console.log(`· Tie stamp: click not on a note — no change`)
+      return true
+    }
+    const noteId = el.id
+    const note = engine.getNote(noteId)
+    if (!note || note.isRest) {
+      console.log(`· Tie stamp: ${note?.isRest ? 'rest' : 'non-note'} — no change`)
+      return true
+    }
+    if (note.tiedTo) {
+      console.log(`· Tie stamp: note ${noteId} is already tied — no change`)
+      return true
+    }
+    // toggleTie commits its own undo entry; runBatch keeps the stamp's shape identical to its
+    // siblings (one click = one undo) and is what marks the model dirty for the repaint.
+    engine.runBatch('Add tie', () => engine.toggleTie(noteId))
+    console.log(`✓ Tie stamped | from note ${noteId}`)
     this.render.renderScore()
     return true
   }
@@ -1810,6 +1846,15 @@ export class MouseController {
     // ghost note. A click sets it on the hovered note (see stampAccidentalAtClick).
     if (this.state.selectedAccidentalTool !== null) {
       this.render.renderAccidentalGhost({ x, y }, this.state.selectedAccidentalTool)
+      this.state.showCursor = false
+      return
+    }
+
+    // Tie stamp tool armed: show the ghost arc following the cursor — not a ghost note. It is the
+    // Keypad key's icon, saying "tie tool armed"; a click ties the hovered note to the next slot
+    // (see stampTieAtClick), which is where the target is resolved.
+    if (this.state.selectedTieTool) {
+      this.render.renderTieGhost({ x, y })
       this.state.showCursor = false
       return
     }

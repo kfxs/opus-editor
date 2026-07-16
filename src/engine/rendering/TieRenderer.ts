@@ -20,9 +20,11 @@ import { drawCurveArc } from './curveArc'
 // (drawFlatTie: yShift 7, cp1 8, cp2 12) on the shared cubic path: a cubic's symmetric
 // peak is 0.75·H, so BOW 5.3 → ~4px apex (old 0.5·cp1) and THICKNESS 2.7 → ~2px belly
 // (old 0.5·(cp2−cp1)). Kept fuller than a slur — ties read heavier and hug the head.
-const TIE_LIFT = 7        // gap between the notehead and the flat tie endpoints
-const TIE_BOW = 5.3       // cubic control height → ~4px apex above the endpoint line
-const TIE_THICKNESS = 2.7 // belly swell → ~2px at center, pinching to the tips
+const TIE_LIFT = 7               // gap between the notehead and the flat tie endpoints
+// Exported so the ghost tie (VexFlowRenderer.renderScoreWithTieGhost) is engraved from the SAME
+// numbers as a real tie — arm the tool and the arc under the cursor IS the arc you get.
+export const TIE_BOW = 5.3       // cubic control height → ~4px apex above the endpoint line
+export const TIE_THICKNESS = 2.7 // belly swell → ~2px at center, pinching to the tips
 
 /**
  * Determine tie direction for a pitch within a chord.

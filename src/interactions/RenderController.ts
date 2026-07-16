@@ -29,7 +29,6 @@ export class RenderController {
     this.highlight.applyAccidentalHighlight()
     this.highlight.applyTupletSelectionHighlight()
     this.highlight.applyTieHighlight()
-    this.highlight.applySelectionTieHighlight()
     this.highlight.applyClefSelectionHighlight()
     this.highlight.applyTimeSignatureSelectionHighlight()
     this.highlight.applyDynamicSelectionHighlight()
@@ -195,6 +194,17 @@ export class RenderController {
     renderCensus.setCause('ghost:accidental')
     this.ensureScoreDrawn(engine)
     engine.renderScoreWithAccidentalGhost(coords, accidental)
+  }
+
+  /** Render the score with a translucent ghost tie following the cursor — the preview for the armed
+   *  tie stamp tool. Engraved as a REAL tie (same primitive and shape constants), but it previews
+   *  only the MARK, never which notes will be joined — the engine resolves that on click. */
+  renderTieGhost(coords: { x: number; y: number }): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    renderCensus.setCause('ghost:tie')
+    this.ensureScoreDrawn(engine)
+    engine.renderScoreWithTieGhost(coords)
   }
 
   /** Render the score with a colored paste caret following the cursor (armed paste). */

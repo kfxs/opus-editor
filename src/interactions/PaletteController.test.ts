@@ -354,6 +354,191 @@ describe('PaletteController — accidental stamp tool', () => {
   })
 })
 
+describe('PaletteController — tie stamp tool', () => {
+  let state: EditorState
+  let tieSelectionFn: ReturnType<typeof vi.fn>
+  let toggleTieFn: ReturnType<typeof vi.fn>
+  let selectNote: ReturnType<typeof vi.fn>
+  let notes: Record<string, { id: string; isRest?: boolean; tiedTo?: string }>
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    tieSelectionFn = vi.fn()
+    toggleTieFn = vi.fn()
+    selectNote = vi.fn()
+    notes = {}
+    const fakeEngine = {
+      getNote: (id: string) => notes[id] ?? null,
+      tieSelection: tieSelectionFn,
+      toggleTie: toggleTieFn,
+      runBatch: (_label: string, fn: () => void) => fn(),
+    } as unknown as import('../engine/MusicEngine').MusicEngine
+    palette = new PaletteController(
+      () => fakeEngine,
+      state,
+      vi.fn(),       // renderScore
+      vi.fn(),       // renderPreview
+      () => null,    // getLastMousePosition
+      selectNote as unknown as (id: string | null) => void,
+    )
+  })
+
+  it('arms the stamp (entry mode) when in selection mode with nothing selected', () => {
+    state.selectedTool = 'selection'
+    palette.toggleTie()
+    expect(state.selectedTieTool).toBe(true)
+    expect(state.selectedTool).toBe('entry')
+    expect(tieSelectionFn).not.toHaveBeenCalled()
+  })
+
+  it('arms the stamp even when a lingering cursor note sits in selectedNoteId (empty selection set)', () => {
+    // After note entry + Esc, selectedNoteId holds the cursor note but selectedItems is empty —
+    // that reads as "nothing selected", so a press must arm the stamp, not tie the cursor note.
+    state.selectedTool = 'selection'
+    state.selectedNoteId = 'cursor'
+    notes['cursor'] = { id: 'cursor' }
+    palette.toggleTie()
+    expect(state.selectedTieTool).toBe(true)
+    expect(state.selectedTool).toBe('entry')
+    expect(tieSelectionFn).not.toHaveBeenCalled()
+  })
+
+  it('ties a real selection instead of arming', () => {
+    state.selectedTool = 'selection'
+    state.selectedNoteId = 'n1'
+    state.selectedItems.set('note:n1', { kind: 'note', id: 'n1' })
+    notes['n1'] = { id: 'n1' }
+    palette.toggleTie()
+    expect(tieSelectionFn).toHaveBeenCalledWith(['n1'])
+    expect(state.selectedTieTool).toBe(false)
+    expect(state.selectedTool).toBe('selection')
+  })
+
+  it('re-pressing the tie key disarms back to selection', () => {
+    state.selectedTool = 'selection'
+    palette.toggleTie()
+    palette.toggleTie()
+    expect(state.selectedTieTool).toBe(false)
+    expect(state.selectedTool).toBe('selection')
+    expect(tieSelectionFn).not.toHaveBeenCalled()
+  })
+
+  it('is mutually exclusive with the accidental and articulation stamps', () => {
+    state.selectedTool = 'selection'
+    palette.toggleTie()
+    expect(state.selectedTieTool).toBe(true)
+
+    palette.setAccidental('#') // arming an accidental stamp switches tools
+    expect(state.selectedTieTool).toBe(false)
+    expect(state.selectedAccidentalTool).toBe('#')
+
+    palette.toggleTie() // and back
+    expect(state.selectedAccidentalTool).toBeNull()
+    expect(state.selectedTieTool).toBe(true)
+
+    palette.toggleAccent() // an articulation stamp takes over too
+    expect(state.selectedTieTool).toBe(false)
+    expect(state.selectedArticulationTools).toEqual(['accent'])
+
+    palette.toggleTie()
+    expect(state.selectedArticulationTools).toEqual([])
+    expect(state.selectedTieTool).toBe(true)
+  })
+
+  it('a duration press disarms the stamp — there is no entry-mode tie to promote into', () => {
+    state.selectedTool = 'selection'
+    palette.toggleTie()
+    palette.setDuration('8')
+    expect(state.selectedTieTool).toBe(false)
+    expect(state.selectedDuration).toBe('8')
+    expect(state.selectedTool).toBe('entry') // plain note entry
+  })
+
+  it('disarmPositionalTools clears the armed stamp', () => {
+    state.selectedTool = 'selection'
+    palette.toggleTie()
+    palette.disarmPositionalTools()
+    expect(state.selectedTieTool).toBe(false)
+  })
+
+  it('lights the Keypad tie key while armed', () => {
+    state.selectedTool = 'selection'
+    palette.toggleTie()
+    expect(palette.noteHasTie()).toBe(true)
+  })
+
+  it('lights no articulation key while armed (a stale arm-for-next-note flag must not leak)', () => {
+    // The stamp arms into ENTRY mode, where noteHas* falls through to the arm-for-next-note flags.
+    state.accent = true // left over from an earlier note-entry session
+    state.selectedTool = 'selection'
+    palette.toggleTie()
+    expect(palette.noteHasAccent()).toBe(false)
+  })
+
+  it('still ties the cursor note in entry mode (no stamp armed)', () => {
+    // Entry mode is untouched by the stamp: Enter straight after entering a note still ties it.
+    state.selectedTool = 'entry'
+    state.selectedNoteId = 'n1'
+    notes['n1'] = { id: 'n1' }
+    palette.toggleTie()
+    expect(tieSelectionFn).toHaveBeenCalledWith(['n1'])
+    expect(state.selectedTieTool).toBe(false)
+  })
+})
+
+describe('PaletteController — editing a selected tie', () => {
+  let state: EditorState
+  let toggleTieFn: ReturnType<typeof vi.fn>
+  let tieSelectionFn: ReturnType<typeof vi.fn>
+  let selectNote: ReturnType<typeof vi.fn>
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    toggleTieFn = vi.fn()
+    tieSelectionFn = vi.fn()
+    selectNote = vi.fn()
+    const fakeEngine = {
+      getNote: (id: string) => ({ id, tiedTo: 'n2' }),
+      toggleTie: toggleTieFn,
+      tieSelection: tieSelectionFn,
+      runBatch: (_label: string, fn: () => void) => fn(),
+    } as unknown as import('../engine/MusicEngine').MusicEngine
+    palette = new PaletteController(
+      () => fakeEngine,
+      state,
+      vi.fn(),
+      vi.fn(),
+      () => null,
+      selectNote as unknown as (id: string | null) => void,
+    )
+  })
+
+  it('removes the selected tie and does NOT arm the stamp', () => {
+    // Clicking a tie clears the note selection outright, so without its own branch the press would
+    // read as "nothing selected" and arm the stamp instead of editing the thing that IS selected.
+    state.selectedTool = 'selection'
+    state.selectedTieFromNoteId = 'n1'
+    palette.toggleTie()
+    expect(toggleTieFn).toHaveBeenCalledWith('n1')
+    expect(state.selectedTieTool).toBe(false)
+    expect(state.selectedTieFromNoteId).toBeNull()
+  })
+
+  it('leaves nothing selected after the removal (the Keypad switch-off rule)', () => {
+    state.selectedTool = 'selection'
+    state.selectedTieFromNoteId = 'n1'
+    palette.toggleTie()
+    expect(selectNote).toHaveBeenCalledWith(null)
+  })
+
+  it('lights the Keypad tie key while a tie is selected', () => {
+    state.selectedTieFromNoteId = 'n1'
+    expect(palette.noteHasTie()).toBe(true)
+  })
+})
+
 describe('PaletteController — editing a selected accidental glyph', () => {
   let state: EditorState
   let renderScore: ReturnType<typeof vi.fn>

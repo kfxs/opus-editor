@@ -188,6 +188,10 @@ export class PaletteController {
     this.promoteArticulationStampToNoteEntry()
     // Same for an armed accidental stamp → "accidental + duration" note entry.
     this.promoteAccidentalStampToNoteEntry()
+    // The TIE stamp has nothing to promote INTO — there is no armed entry-mode tie (see
+    // {@link tieSelection}) — so a duration press just disarms it and this becomes plain note entry.
+    // Must run before the branches below, or the tie ghost would fight the ghost note.
+    this.state.selectedTieTool = false
     this.state.selectedDuration = duration
     this.state.selectedDots = 0
     this.state.tupletMode = false
@@ -254,9 +258,11 @@ export class PaletteController {
       return
     }
 
-    // A DIFFERENT marking tool (the articulation stamp) is armed → switch to this accidental stamp,
-    // so the marking tools stay mutually exclusive.
-    if (this.state.selectedArticulationTools.length > 0) {
+    // A DIFFERENT marking tool (the articulation / tie stamp) is armed → switch to this accidental
+    // stamp, so the marking tools stay mutually exclusive. Must cover EVERY other stamp: they arm
+    // into entry mode, so anything missed here falls through to the entry-mode branch below and
+    // arms a note-entry accidental while leaving the other tool armed.
+    if (this.state.selectedArticulationTools.length > 0 || this.state.selectedTieTool) {
       this.armAccidentalTool(accidental)
       return
     }
@@ -363,6 +369,7 @@ export class PaletteController {
     if (accidental === null) return
     this.state.selectedAccidentalTool = accidental
     this.state.selectedArticulationTools = []
+    this.state.selectedTieTool = false
     this.state.selectedClef = null
     this.state.selectedTimeSignature = null
     this.state.selectedDynamic = null
@@ -436,9 +443,10 @@ export class PaletteController {
       return
     }
 
-    // A DIFFERENT marking tool (the accidental stamp) is armed → switch to this articulation stamp,
-    // so the marking tools stay mutually exclusive.
-    if (this.state.selectedAccidentalTool !== null) {
+    // A DIFFERENT marking tool (the accidental / tie stamp) is armed → switch to this articulation
+    // stamp, so the marking tools stay mutually exclusive. Must cover EVERY other stamp, for the
+    // same reason as in setAccidental: a miss falls through to the entry-mode arm below.
+    if (this.state.selectedAccidentalTool !== null || this.state.selectedTieTool) {
       this.armArticulationTool([type])
       this.refreshArticulationSelection()
       return
@@ -481,6 +489,7 @@ export class PaletteController {
   private armArticulationTool(types: ArticulationType[]): void {
     this.state.selectedArticulationTools = types
     this.state.selectedAccidentalTool = null
+    this.state.selectedTieTool = false
     this.state.selectedClef = null
     this.state.selectedTimeSignature = null
     this.state.selectedDynamic = null
@@ -584,20 +593,121 @@ export class PaletteController {
     this.renderScore()
   }
 
+  /**
+   * One tie-key press (the Keypad's Enter), routed by context — the same split as
+   * {@link setAccidental} / {@link pressArticulation}, minus their entry-mode arm: there is no
+   * armed entry-mode tie (see {@link tieSelection}), so entry mode keeps its old meaning.
+   *
+   *  0. The tie STAMP is already armed → disarm it (a re-press toggles the tool off, like a
+   *     re-pressed accidental).
+   *  1. A TIE is selected in the score → remove it ({@link editSelectedTie}). Routed AHEAD of the
+   *     branches below: clicking a tie clears the note selection outright (MouseController), so
+   *     they would see nothing selected and wrongly arm the stamp — the trap
+   *     {@link editSelectedAccidental} is ordered around too.
+   *  2. Selection mode with a real note selection → tie it (pre-existing behaviour).
+   *  3. Selection mode with NOTHING selected → arm the tie STAMP tool.
+   *  4. Entry mode → tie the cursor note (pre-existing: Enter straight after entering a note ties
+   *     it). Nothing competes for the key here, so it is left alone.
+   *
+   * (2) vs (3) is decided by the selection SET, never the `selectedNoteId` anchor — the stamps'
+   * shared rule: after note entry, Select/Esc leaves the cursor note in the anchor with an empty
+   * set, which reads as "nothing selected" to the user.
+   */
   toggleTie(): void {
     const engine = this.getEngine()
     if (!engine) return
 
-    // Read the multi-select set (so a whole chord / a run ties together); fall back
-    // to the scalar anchor. The engine ties each note to the same pitch in the next
-    // slot, so chords tie pitch-for-pitch.
+    // (0) The stamp is live → the key toggles it off, back to selection mode.
+    if (this.state.selectedTieTool) {
+      this.state.selectedTieTool = false
+      this.state.selectedTool = 'selection'
+      this.renderScore()
+      this.refreshTieSelection()
+      return
+    }
+
+    // A DIFFERENT marking tool (the articulation / accidental stamp) is armed → switch to the tie
+    // stamp, so the marking tools stay mutually exclusive.
+    if (this.state.selectedArticulationTools.length > 0 || this.state.selectedAccidentalTool !== null) {
+      this.armTieTool()
+      return
+    }
+
+    // (1) A tie is selected in the score → the press removes it.
+    if (this.state.selectedTieFromNoteId) {
+      this.editSelectedTie()
+      return
+    }
+
+    // (2) / (3) Selection mode: tie the selection, or arm the stamp when there is none.
+    if (this.state.selectedTool === 'selection') {
+      const ids = selectedNoteIds(this.state.selectedItems.values())
+      if (ids.length === 0) this.armTieTool()
+      else this.tieNotes(ids)
+      return
+    }
+
+    // (4) Entry mode: tie the multi-select set, falling back to the scalar cursor note. The engine
+    // ties each note to the same pitch in the next slot, so chords tie pitch-for-pitch.
     const ids = selectedNoteIds(this.state.selectedItems.values())
     const noteIds = ids.length ? ids : (this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
     if (noteIds.length === 0) return
+    this.tieNotes(noteIds)
+  }
 
+  /** Tie `noteIds` through the engine and resync — the shared body of every tie-key path. */
+  private tieNotes(noteIds: string[]): void {
+    const engine = this.getEngine()
+    if (!engine) return
     console.log(`[Tie] toggleTie on ${noteIds.length} note(s) (tool:${this.state.selectedTool})`)
     const result = engine.tieSelection(noteIds)
     console.log(`[Tie] result:${result === null ? 'no candidate found' : result ? 'tie(s) added' : 'tie(s) removed'}`)
+    this.renderScore()
+    this.refreshTieSelection()
+  }
+
+  /**
+   * Remove the tie currently selected in the score (see {@link EditorState.selectedTieFromNoteId}) —
+   * the tie's sibling of {@link editSelectedAccidental}. A tie is VALUELESS, so unlike an accidental
+   * there is no "press a different one to change it": the only edit the key can mean is remove,
+   * which is also what Delete does to a selected tie. Mirrors the accidental switch-off in leaving
+   * NOTHING selected (`selectNote(null)`), or the Keypad would light a stray duration for a note
+   * with no visible highlight.
+   */
+  private editSelectedTie(): void {
+    const engine = this.getEngine()
+    const fromNoteId = this.state.selectedTieFromNoteId
+    if (!engine || !fromNoteId) return
+
+    console.log(`[Tie] removing selected tie | fromNoteId:${fromNoteId}`)
+    engine.toggleTie(fromNoteId) // the tie exists, so this removes it
+    this.state.selectedTieFromNoteId = null
+    this.selectNote(null)
+    this.renderScore()
+    this.refreshTieSelection()
+  }
+
+  /**
+   * Arm the tie stamp tool and switch to entry mode. Mirrors {@link armAccidentalTool} /
+   * {@link armArticulationTool}: mutually exclusive with the other marking tools, clears the note
+   * selection so the ghost reads as "the next click ties the note clicked", and repaints. The ghost
+   * arc appears on the next mouse move (via MouseController.renderToolGhost).
+   */
+  private armTieTool(): void {
+    this.state.selectedTieTool = true
+    this.state.selectedArticulationTools = []
+    this.state.selectedAccidentalTool = null
+    this.state.selectedClef = null
+    this.state.selectedTimeSignature = null
+    this.state.selectedDynamic = null
+    this.state.selectedTempo = null
+    this.state.selectedNoteId = null
+    this.state.selectedClefMeasure = null
+    this.state.selectedClefBeat = null
+    this.state.selectedTimeSignatureMeasure = null
+    this.state.selectedDynamicId = null
+    this.state.selectedTempoId = null
+    this.state.selectedTool = 'entry'
     this.renderScore()
     this.refreshTieSelection()
   }
@@ -918,6 +1028,8 @@ export class PaletteController {
     this.state.selectedArticulationTools = []
     // The accidental stamp tool is the same kind of entry-only marking tool → disarm it too.
     this.state.selectedAccidentalTool = null
+    // ...and so is the tie stamp.
+    this.state.selectedTieTool = false
   }
 
   /**
@@ -950,22 +1062,37 @@ export class PaletteController {
     return engine.getNote(noteId)?.articulations?.includes(type) ?? false
   }
 
+  /**
+   * True while ANY marking stamp is armed (articulation / accidental / tie). All three arm into
+   * ENTRY mode but enter no note, so the `accent`/`staccato`/`tenuto` arm-for-next-note flags must
+   * not light while one is live — they can be stale from an earlier note-entry session, and the
+   * entry-mode fall-through in `noteHas*` would otherwise report them.
+   */
+  private markingStampArmed(): boolean {
+    return this.state.selectedArticulationTools.length > 0
+      || this.state.selectedAccidentalTool !== null
+      || this.state.selectedTieTool
+  }
+
   noteHasAccent(): boolean {
     // Stamp tool armed → ONLY the armed set lights; the leftover arm-for-next-note flags below must
     // not leak (they can be stale from an earlier note-entry session — hence the early return).
     if (this.state.selectedArticulationTools.length > 0) return this.state.selectedArticulationTools.includes('accent')
+    if (this.markingStampArmed()) return false // an accidental/tie stamp: no articulation is in play
     if (this.state.selectedTool === 'selection') return this.selectedNoteHasArticulation('accent')
     return this.state.accent
   }
 
   noteHasStaccato(): boolean {
     if (this.state.selectedArticulationTools.length > 0) return this.state.selectedArticulationTools.includes('staccato')
+    if (this.markingStampArmed()) return false
     if (this.state.selectedTool === 'selection') return this.selectedNoteHasArticulation('staccato')
     return this.state.staccato
   }
 
   noteHasTenuto(): boolean {
     if (this.state.selectedArticulationTools.length > 0) return this.state.selectedArticulationTools.includes('tenuto')
+    if (this.markingStampArmed()) return false
     if (this.state.selectedTool === 'selection') return this.selectedNoteHasArticulation('tenuto')
     return this.state.tenuto
   }
@@ -991,6 +1118,12 @@ export class PaletteController {
   }
 
   noteHasTie(): boolean {
+    // While the tie stamp is armed the key lights because the TOOL is armed — the armed gesture is
+    // what the Keypad shows, exactly as the armed articulation set lights during its stamp. Ahead
+    // of the reads below, which would report the (cleared) note selection instead.
+    if (this.state.selectedTieTool) return true
+    // A tie selected in the score lights the key too, so it reads as removable from the Keypad.
+    if (this.state.selectedTieFromNoteId) return true
     const engine = this.getEngine()
     if (!this.state.selectedNoteId || !engine) return false
     const note = engine.getNote(this.state.selectedNoteId)

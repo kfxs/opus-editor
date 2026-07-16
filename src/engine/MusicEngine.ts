@@ -2033,6 +2033,10 @@ export class MusicEngine {
     return this.renderer.renderScoreWithAccidentalGhost(coords.x, coords.y, accidental)
   }
 
+  renderScoreWithTieGhost(coords: PixelCoordinates): boolean {
+    return this.renderer.renderScoreWithTieGhost(coords.x, coords.y)
+  }
+
   /**
    * Clear the canvas
    */

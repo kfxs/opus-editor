@@ -15,7 +15,8 @@ import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSeg
 import { measureShapeKey } from './MeasureRedrawKey'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
 import type { RenderPass } from './RenderPass'
-import { renderTies, getTieDirection } from './TieRenderer'
+import { renderTies, getTieDirection, TIE_BOW, TIE_THICKNESS } from './TieRenderer'
+import { drawCurveArc } from './curveArc'
 import { renderSlurs } from './SlurRenderer'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, buildDynamicAnnotation, registerDynamics } from './DynamicsLayout'
 import { drawTempoMarks, drawTempoText } from './TempoLayout'
@@ -282,7 +283,7 @@ export class VexFlowRenderer {
    * the leak.)
    */
   private static readonly GHOST_GROUP_SELECTOR =
-    '.ghost-note-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tempo'
+    '.ghost-note-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-tempo'
 
   /** Take down whatever ghost is showing. O(1) in the score's size — this is the whole point
    *  of P4: hovering an invalid element, or leaving the canvas, used to cost a FULL render
@@ -422,7 +423,17 @@ export class VexFlowRenderer {
     this.renderer.resize(width, height)
     this.context = this.renderer.getContext() as SVGContext
 
-    // Disable save/restore to avoid structuredClone issues with Vue reactivity
+    // Disable save/restore to avoid structuredClone issues with Vue reactivity (SVGContext.save
+    // deep-clones its state, which throws on a reactive proxy).
+    //
+    // ⚠️ CONSEQUENCE, and it is a trap: `context.save()`/`restore()` are NO-OPS app-wide — in the
+    // browser, not just in tests. So EVERY context style change is PERMANENT: `setStrokeStyle` /
+    // `setFillStyle` / `setLineWidth` repaint the shared context for good, `openGroup` stamps the
+    // current attributes onto each new group, and children with no style of their own (staff lines
+    // carry no `stroke`) inherit whatever leaked. Wrapping a style change in save/restore looks
+    // correct and does NOTHING.
+    // → To colour something, set the attribute on its SVG element AFTER drawing (what every ghost
+    //   and the highlight controller do). Never through the context.
     const ctx = this.context as unknown as { save: () => void; restore: () => void }
     ctx.save = () => {}
     ctx.restore = () => {}
@@ -3021,6 +3032,81 @@ export class VexFlowRenderer {
       const dx = cursorX - (gbox.x + gbox.width / 2)
       const dy = cursorY - (gbox.y + gbox.height / 2)
       group.setAttribute('transform', `translate(${dx}, ${dy})`)
+      return true
+    } catch (_e) {
+      return false
+    }
+  }
+
+  /**
+   * Draw ONE translucent ghost tie following the cursor — the preview for the armed tie stamp tool.
+   * A tie is a RELATION between two notes, not a glyph, so there is no `draw()` to borrow the way
+   * the articulation/accidental ghosts borrow theirs. Instead it is engraved as a REAL tie: the same
+   * {@link drawCurveArc} primitive, with the same {@link TIE_BOW} / {@link TIE_THICKNESS} an
+   * engraved tie uses — a proper cubic that swells at the belly and pinches to a point at each tip.
+   * Change those constants and the ghost follows. It says "tie tool armed" and no more: WHICH note
+   * ties to WHICH is resolved at click time by {@link MusicEngine.toggleTie} (and logged there),
+   * never previewed.
+   *
+   * `Curve.renderCurve` reads only its params and `renderOptions` — `from`/`to` are used by `draw()`
+   * alone, which we never call — so one throwaway note satisfies the constructor without touching
+   * the arc. It bows DOWNWARD (direction +1), matching the Keypad's tie key, so the armed tool and
+   * the lit key read as one thing, and it STARTS at the cursor rather than straddling it: a tie
+   * begins at the note you click and reaches forward, so its head is the part that follows the mouse.
+   *
+   * STROKED, not filled — so it paints `stroke` where the other ghosts paint `fill`. But like them
+   * it paints through the **DOM, after the draw, never the context**: {@link initialize} NEUTERS
+   * `save()`/`restore()` to no-ops (structuredClone chokes on Vue reactive proxies), so a
+   * `setStrokeStyle` here is PERMANENT — it repaints the shared context, `openGroup` then stamps that
+   * colour onto every group opened afterwards, and the staff lines (which carry no stroke of their
+   * own) inherit it. That is exactly the bug this comment exists to prevent; don't "restore" it.
+   * Positioned by absolute path coordinates, so it needs no bbox measure or `translate` either.
+   * @returns true if a ghost tie was drawn
+   */
+  renderScoreWithTieGhost(cursorX: number, cursorY: number): boolean {
+    this.clearGhosts() // an overlay — take the old ghost down, leave the score alone
+
+    const svg = this.getSVGElement()
+    if (!svg || !this.context) return false
+
+    try {
+      // The arc BEGINS at the cursor and runs to the right, rather than being centred on it — a tie
+      // starts at the note you click and reaches forward to the next, so its head belongs where the
+      // click will land. Nudged clear of the pointer on both axes so the arrow doesn't cover it.
+      const WIDTH = 20      // a short tie — roughly the span between two adjacent noteheads
+      const START_GAP_PX = 4
+      const LIFT_PX = 4
+      const DIRECTION = 1   // +1 = below/sagging, like the Keypad's tie key
+      const x0 = cursorX + START_GAP_PX
+      const y = cursorY - LIFT_PX
+
+      // Throwaway anchor: renderCurve never reads it (see above), it only satisfies the ctor.
+      const anchor = new StaveNote({ keys: ['b/4'], duration: 'q' })
+      const cps: [{ x: number; y: number }, { x: number; y: number }] = [
+        { x: 0, y: TIE_BOW },
+        { x: 0, y: TIE_BOW },
+      ]
+
+      const group = this.context.openGroup('ghost-tie') as SVGGElement
+      try {
+        drawCurveArc(
+          { context: this.context },
+          { x: x0, y }, { x: x0 + WIDTH, y },
+          cps, DIRECTION, TIE_THICKNESS, anchor, anchor,
+        )
+      } finally {
+        this.context.closeGroup()
+      }
+
+      // Paint it ghost blue at 0.7 opacity through the DOM — a preview, not yet content (mirrors
+      // the other ghosts), and never through the context: see the note above. `renderCurve` strokes
+      // AND fills, so each emitted path carries both and both must be overridden, or the ghost shows
+      // a blue body with a black outline (the same rule as HighlightController.colorTieGroup).
+      group.setAttribute('opacity', '0.7')
+      group.querySelectorAll('path').forEach(p => {
+        p.setAttribute('fill', '#3B82F6')
+        p.setAttribute('stroke', '#3B82F6')
+      })
       return true
     } catch (_e) {
       return false

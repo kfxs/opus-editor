@@ -59,16 +59,17 @@ export function wireKeypadSync(
     // duration key would light the moment you arm the stamp, reading as "a note will be placed".
     const artStamping = state.selectedArticulationTools.length > 0
     const accStamping = state.selectedAccidentalTool !== null
-    const stamping = artStamping || accStamping
+    const tieStamping = state.selectedTieTool
+    const stamping = artStamping || accStamping || tieStamping
     durationSelection.setHighlight(stamping || noNoteInSelection(state) ? null : state.selectedDuration)
     // While the accidental stamp is armed, light the ARMED accidental (it's the active gesture);
     // when a standalone accidental glyph is selected in the score, light THAT accidental (so it can
     // be changed/removed from the Keypad); otherwise fall back to the note-entry / selected-note
-    // accidental — but never during an articulation stamp (no accidental is in play then).
+    // accidental — but never during an articulation or tie stamp (no accidental is in play then).
     accidentalSelection.setHighlight(
       accStamping ? state.selectedAccidentalTool
       : state.selectedAccidentalNoteId ? accidentalTypeToKey(state.selectedAccidentalType)
-      : artStamping || noNoteInSelection(state) ? null
+      : artStamping || tieStamping || noNoteInSelection(state) ? null
       : state.selectedAccidental
     )
     dotSelection.setHighlight(stamping ? null : dotHighlight(state))

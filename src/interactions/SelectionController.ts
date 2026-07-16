@@ -158,9 +158,9 @@ export class SelectionController {
    * REPLACE the selection with EVERYTHING inside one bar (the Sibelius-style plain-click
    * passage selection): the given notes/rests PLUS the dynamics sitting under them and any
    * slur fully covered by them — the same "what's enclosed" rule a Shift-click box uses.
-   * Ties need no explicit item: a tie's arc highlights once BOTH its notes are selected
-   * (see HighlightController.applySelectionTieHighlight), which holds for every tie whose
-   * two ends live in this bar. `noteIds` should already be scoped to one measure + staff.
+   * Ties need no explicit item: a tie's arc highlights with the note that OWNS it (see
+   * HighlightController.colorNoteTie), which holds for every tie starting in this bar.
+   * `noteIds` should already be scoped to one measure + staff.
    * The last note becomes the anchor / Shift pivot; the palette syncs to it.
    */
   selectMeasureContents(noteIds: string[]): void {

@@ -134,6 +134,18 @@ export interface EditorState {
    * accidental does nothing. Pressing a duration while armed promotes it into note-entry (the
    * "accidental + duration" workflow). Mutually exclusive with the other marking tools. */
   selectedAccidentalTool: Accidental | null
+  /**
+   * The tie armed as a STAMP tool (false = not active). The third of the marking stamps, and the
+   * only VALUELESS one: {@link selectedArticulationTools} is an additive set and
+   * {@link selectedAccidentalTool} a single value, but a tie has nothing to arm — a note is tied to
+   * the next slot or it is not — so the tool is a bare flag. Armed from selection mode with no note
+   * selected; switches to entry mode, shows a ghost arc following the cursor, and a click TIES the
+   * note clicked to the next slot in its own voice and staff (existing notes only — no note entry).
+   * Idempotent, like the accidental stamp: clicking an already-tied note does nothing (a stamp only
+   * ever ADDS — removal is Delete, or the Keypad with the tie itself selected). Nothing to promote
+   * into on a duration press: there is no armed entry-mode tie (see {@link tieSelection}), so a
+   * duration just disarms. Mutually exclusive with the other marking tools. */
+  selectedTieTool: boolean
   tupletMode: boolean
   selectedBeam: BeamMode
 
@@ -278,6 +290,7 @@ export function createEditorState(): EditorState {
     tenuto: false,
     selectedArticulationTools: [],
     selectedAccidentalTool: null,
+    selectedTieTool: false,
     tupletMode: false,
     selectedBeam: 'auto',
     selectedClef: null,

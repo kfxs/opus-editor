@@ -243,6 +243,7 @@ describe('clearHighlights — the inverse of a highlight pass', () => {
       getNote: () => ({ voice: 1 }),
       getElementById: () => ({ type: 'note' }),
       getStaveNoteSVGGroup: () => ({ group, noteIndex: 0, stem: null }),
+      getTieSVGGroup: () => undefined, // this note ties to nothing (see the tie tests below)
     } as unknown as MusicEngine
 
     const state = createEditorState()
@@ -298,6 +299,77 @@ describe('clearHighlights — the inverse of a highlight pass', () => {
     hc.clearHighlights()
     hc.clearHighlights()
     expect(glyph.getAttribute('fill')).toBe('#22C55E')
+  })
+
+  /**
+   * Selecting a tied note lights its ARC too, so the score agrees with the Keypad (whose Enter key
+   * lights for exactly this note's forward tie). The arc is a separate SVG group from the notehead,
+   * so it takes its own pass — and `clearHighlights` still has to be an exact inverse of it.
+   */
+  describe('a selected note lights the tie it owns', () => {
+    /** `<g class="vf-tie">` → the two paths renderCurve emits (it strokes AND fills). */
+    function tieGroup(svg: SVGSVGElement): SVGGElement {
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+      g.setAttribute('class', 'vf-tie')
+      for (const [attr, value] of [['fill', 'none'], ['stroke', 'none']] as const) {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+        path.setAttribute(attr, value)
+        g.appendChild(path)
+      }
+      svg.appendChild(g)
+      return g
+    }
+
+    /** As `harness`, plus a tie owned by the selected note (or by nobody, when `tied` is false). */
+    function tieHarness(tied: boolean) {
+      const canvas = document.createElement('div')
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      canvas.appendChild(svg)
+      const group = noteGroup(svg, '#000000')
+      const tie = tieGroup(svg)
+
+      const engine = {
+        getElementRegistry: () => new ElementRegistry(),
+        getViewMode: () => 'wrapped' as ViewMode,
+        getNote: () => ({ voice: 0 }),
+        getElementById: () => ({ type: 'note' }),
+        getStaveNoteSVGGroup: () => ({ group, noteIndex: 0, stem: null }),
+        // Keyed by the FROM note: a note that ties to nothing has no group.
+        getTieSVGGroup: (id: string) => (tied && id === 'N1' ? tie : undefined),
+      } as unknown as MusicEngine
+
+      const state = createEditorState()
+      state.selectedItems.set('N1', { kind: 'note', id: 'N1' })
+      return { hc: new HighlightController(() => engine, () => canvas, state), tie }
+    }
+
+    it('paints BOTH paths — renderCurve strokes and fills, so one alone leaves a black outline', () => {
+      const { hc, tie } = tieHarness(true)
+      hc.applySelectionHighlight()
+      for (const path of Array.from(tie.querySelectorAll('path'))) {
+        expect(path.getAttribute('fill')).toBe('#3B82F6')   // voice-0 blue, as the notehead
+        expect(path.getAttribute('stroke')).toBe('#3B82F6')
+      }
+    })
+
+    it('restores the arc exactly, including the none/none the two paths started with', () => {
+      const { hc, tie } = tieHarness(true)
+      hc.applySelectionHighlight()
+      hc.clearHighlights()
+      const paths = Array.from(tie.querySelectorAll('path'))
+      expect(paths[0].getAttribute('fill')).toBe('none')
+      expect(paths[1].getAttribute('stroke')).toBe('none')
+      expect(paths.some(p => p.classList.contains('selected-tie'))).toBe(false)
+    })
+
+    it('paints nothing when the selected note ties to nothing', () => {
+      const { hc, tie } = tieHarness(false)
+      hc.applySelectionHighlight()
+      for (const path of Array.from(tie.querySelectorAll('path'))) {
+        expect(path.getAttribute('fill')).not.toBe('#3B82F6')
+        expect(path.getAttribute('stroke')).not.toBe('#3B82F6')
+      }
+    })
   })
 
   it('drops the slur hit-boxes it registered, so a skipped render cannot accumulate them', () => {
