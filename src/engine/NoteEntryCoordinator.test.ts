@@ -64,9 +64,10 @@ describe('NoteEntryCoordinator.splitExistingNoteWithTie', () => {
     expect(m2Notes[0].tiedFrom).toBe(m1Notes[0].id)
   })
 
-  it('handles multi-duration split in the current measure (bug fix: 3 beats remaining)', () => {
-    // Note at beat 1 in 4/4 → 3 beats remain. Request whole (4 beats) → overflow = 1 beat
-    // currentMeasureDurations(3) = ['h', 'q'], nextMeasureDurations(1) = ['q']
+  it('spans 3 remaining beats with ONE dotted half, not a half tied to a quarter', () => {
+    // Note at beat 1 in 4/4 → 3 beats remain. Request whole (4 beats) → overflow = 1 beat.
+    // splitBeatsIntoLengths(3) = [h.], splitBeatsIntoLengths(1) = [q] — the FEWEST values that span
+    // it, dots included. It was ['h','q'], which cost an extra note and an extra tie for nothing.
     const note = scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
     coordinator.splitExistingNoteWithTie(note, 'w', 1) // overflow = 1 beat
@@ -74,20 +75,19 @@ describe('NoteEntryCoordinator.splitExistingNoteWithTie', () => {
     const m1Notes = scoreModel.getNotesInMeasure(1).filter(n => !n.isRest && n.step === 'G')
     const m2Notes = scoreModel.getNotesInMeasure(2).filter(n => !n.isRest && n.step === 'G')
 
-    // 3 beats in current measure: half (2b) + quarter (1b)
-    expect(m1Notes).toHaveLength(2)
+    // 3 beats in the current measure: ONE dotted half
+    expect(m1Notes).toHaveLength(1)
     expect(m1Notes[0].duration).toBe('h')
-    expect(m1Notes[1].duration).toBe('q')
+    expect(m1Notes[0].dots).toBe(1)
 
-    // 1 beat in next measure: quarter
+    // 1 beat in the next measure: a quarter
     expect(m2Notes).toHaveLength(1)
     expect(m2Notes[0].duration).toBe('q')
 
-    // Full tie chain: half → quarter (same measure) → quarter (next measure)
-    expect(m1Notes[0].tiedTo).toBe(m1Notes[1].id)
-    expect(m1Notes[1].tiedFrom).toBe(m1Notes[0].id)
-    expect(m1Notes[1].tiedTo).toBe(m2Notes[0].id)
-    expect(m2Notes[0].tiedFrom).toBe(m1Notes[1].id)
+    // ONE tie now, not two: dotted half → quarter
+    expect(m1Notes[0].tiedTo).toBe(m2Notes[0].id)
+    expect(m2Notes[0].tiedFrom).toBe(m1Notes[0].id)
+    expect(m2Notes[0].tiedTo).toBeUndefined()
   })
 
   it('creates the next measure automatically if it does not exist', () => {
@@ -163,23 +163,20 @@ describe('NoteEntryCoordinator — Sibelius-style erosion', () => {
     expect(m2NonRest.every(n => n.step !== 'G')).toBe(true)
   })
 
-  it('builds a tie chain when the trimmed remainder needs multiple durations', () => {
-    // G4 whole at beat 0 in M2, overflow = 1 beat → remainder = 3 beats → h + q tied
+  it('writes a trimmed 3-beat remainder as ONE dotted half', () => {
+    // G4 whole at beat 0 in M2, overflow = 1 beat → remainder = 3 beats. That is a dotted half at
+    // beat 1, not h + q tied (the old plain-only split — see splitBeatsIntoLengths).
     scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })
     const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
 
     coordinator.splitExistingNoteWithTie(note, 'h', 1) // 1b available, overflow = 1b
 
     const m2G = scoreModel.getNotesInMeasure(2).filter(n => !n.isRest && n.step === 'G')
-    // Remainder = 3 beats → h (2b) at beat 1 + q (1b) at beat 3
-    expect(m2G).toHaveLength(2)
+    expect(m2G).toHaveLength(1)
     expect(m2G[0].duration).toBe('h')
+    expect(m2G[0].dots).toBe(1)
     expect(fracToNumber(m2G[0].beat)).toBeCloseTo(1)
-    expect(m2G[1].duration).toBe('q')
-    expect(fracToNumber(m2G[1].beat)).toBeCloseTo(3)
-    // Tied together
-    expect(m2G[0].tiedTo).toBe(m2G[1].id)
-    expect(m2G[1].tiedFrom).toBe(m2G[0].id)
+    expect(m2G[0].tiedTo).toBeUndefined() // one value, so nothing to tie it to
   })
 
   it('breaks the upstream tiedFrom pointer when eroding a note that has tiedFrom', () => {
@@ -418,6 +415,7 @@ describe('NoteEntryCoordinator.addRestAtPosition', () => {
     expect(scoreModel.getNote(note.id)).toBeFalsy()
   })
 })
+
 /**
  * A tuplet cannot cross a barline. The trap is that the SPAN, not the written duration, is what must
  * fit: a triplet of halves is three notes in the time of two halves = four quarter-beats.

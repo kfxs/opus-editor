@@ -113,21 +113,44 @@ export function durationToFraction(duration: NoteDuration, dots = 0): Fraction {
   return fracMul(base, dotMul)
 }
 
+/** One writable length: a base duration plus its dots. What a single note or rest can BE. */
+export interface NoteLength { duration: NoteDuration; dots: number }
+
+/**
+ * Every writable length, LONGEST first — each duration dotted, then plain.
+ *
+ * Already descending, and not by luck: a dotted value is 1.5× its plain one, so `w. w h. h q. q …`
+ * runs 6, 4, 3, 2, 1.5, 1 … — each dotted value sits between its own plain value and the next one
+ * up. That is what lets a caller just take the first that fits.
+ *
+ * ONE dot, not two: a double-dotted value is real notation but a rare one, and this list is what a
+ * caller gets handed when it did NOT choose. Guessing `h..` for someone is a bigger claim than `h.`.
+ *
+ * The ONE list behind both questions a span can ask — "what single value fits here?"
+ * ({@link fitRestDuration}) and "what values span this?" ({@link splitBeatsIntoDurations}). They had
+ * separate answers, and the split's was plain-only: three beats came out `h + q` (two notes, an extra
+ * tie) where a dotted half covers it in one.
+ */
+const LENGTHS_DESC: NoteLength[] =
+  DURATIONS_DESC.flatMap(d => [{ duration: d, dots: 1 }, { duration: d, dots: 0 }])
+
 /**
  * The longest rest that FITS in `available` beats, given the one you asked for.
  *
  * Returns the armed length unchanged when it fits — dots and all, so a dotted quarter rest stays a
- * dotted quarter rest. Only when it does not fit does it fall back, to the longest PLAIN rest that
- * does: past the point where the bar can hold what you asked for, a dot is a second guess about a
- * length the caller no longer controls, and the leftover becomes rests anyway via the meter-aware
- * fill. Returns null when nothing fits (no space at all).
+ * dotted quarter rest. When it does not fit, falls back to the longest writable rest that does,
+ * **single dot included**: three beats left is a DOTTED HALF, not a half and a quarter. Returns null
+ * when nothing fits (no space at all).
+ *
+ * General over meter by construction — it knows nothing about time signatures, only lengths, so 7/8
+ * and 3/2 need no cases of their own. Whatever the longest value does not cover (5 beats → a whole,
+ * leaving 1) closes up as rests via the meter-aware fill, which is where the meter is known.
  *
  * Exact (`Fraction`), not float: this decides a model value — what gets written into the score —
  * and the Fraction/float invariant (docs/ARCHITECTURE.md) puts it on the exact side of the line.
  *
- * Pure, so the rule has ONE home. It is the "if the armed duration exceeds the space left in the
- * bar, just place the rest that fills it" rule, and it belongs to any caller placing a rest against
- * a barline — today the rest stamp.
+ * Pure, so the rule has ONE home: the mouse stamp and the SPACE key both place a rest against a
+ * barline, and must answer this identically.
  */
 export function fitRestDuration(
   duration: NoteDuration,
@@ -136,8 +159,8 @@ export function fitRestDuration(
 ): { duration: NoteDuration; dots: number } | null {
   if (fracLte(available, fracCreate(0, 1))) return null
   if (fracLte(durationToFraction(duration, dots), available)) return { duration, dots }
-  for (const d of DURATIONS_DESC) {
-    if (fracLte(durationToFraction(d, 0), available)) return { duration: d, dots: 0 }
+  for (const candidate of LENGTHS_DESC) {
+    if (fracLte(durationToFraction(candidate.duration, candidate.dots), available)) return candidate
   }
   return null
 }
@@ -186,8 +209,14 @@ export function beatsToDuration(beats: number): NoteDuration | null {
 }
 
 /**
- * Greedily split a beat span into base (undotted) note durations, largest
- * first. Used for splitting notes/rests across bar lines.
+ * Greedily split a beat span into base (UNDOTTED) durations, largest first.
+ *
+ * The crude float filler for RESTS — a gap of silence with no meter in hand (see
+ * `ScoreModel.fillGapWithRests`, which says to prefer the meter-correct `fillMeasureGaps`). Stays
+ * undotted on purpose: whether a rest may be dotted is the METER's business (4/4 never auto-makes a
+ * dotted rest; 6/8 is full of them), so a length-only rule must not invent one. Notes are the other
+ * case and have their own — {@link splitBeatsIntoLengths}.
+ *
  * @param totalBeats Total quarter-note beats to fill
  * @returns Array of NoteDuration values summing to (approximately) totalBeats
  */
@@ -211,6 +240,41 @@ export function splitBeatsIntoDurations(totalBeats: number): NoteDuration[] {
   }
 
   return durations
+}
+
+/**
+ * Greedily split a beat span into writable lengths, LONGEST first — the FEWEST values that span it,
+ * DOTS INCLUDED. For splitting a NOTE across a barline, each piece tied to the next.
+ *
+ * The note's counterpart to {@link splitBeatsIntoDurations}, and the difference is not a detail: a
+ * note running three beats into a bar used to come out `h + q` — two notes and an extra tie — where
+ * one dotted half says the same thing. Reported from a whole note entered on beat 2 of 4/4: expected
+ * a dotted half tied to a quarter, got a half tied to a quarter tied to a quarter.
+ *
+ * Why notes and rests part here. A tied note has ALREADY committed to its length — you asked for it,
+ * and the split only chooses how to write it, so the fewest values is simply the best writing of a
+ * decision you made. A rest fill is choosing the silence itself, and there the METER decides whether
+ * a dot is allowed at all (4/4 never auto-dots a rest; 6/8 is full of them). Same span, two
+ * questions.
+ *
+ * General over meter by construction: it knows only lengths, so no time signature needs a case.
+ *
+ * @param totalBeats Total quarter-note beats to fill
+ * @returns lengths summing to (approximately) totalBeats
+ */
+export function splitBeatsIntoLengths(totalBeats: number): NoteLength[] {
+  const lengths: NoteLength[] = []
+  let remaining = totalBeats
+  const epsilon = 0.001
+
+  while (remaining > epsilon) {
+    const fit = LENGTHS_DESC.find(l => remaining >= durationToBeats(l.duration, l.dots) - epsilon)
+    if (!fit) break // Prevent infinite loop for very small remainders
+    lengths.push(fit)
+    remaining -= durationToBeats(fit.duration, fit.dots)
+  }
+
+  return lengths
 }
 
 /** Quick consistency assertion available to tests: float beats == fraction. */

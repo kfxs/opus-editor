@@ -154,31 +154,30 @@ describe('MusicEngine.updateNote — overflow handling', () => {
     expect(m2Note.step).toBe('E')
   })
 
-  it('overflow: 3 beats remaining splits into two notes within current measure', () => {
-    // Quarter at beat 1 → 3 beats available. Whole (4b) → overflow 1b
-    // Current measure: h + q (3b). Next measure: q (1b)
+  it('overflow: 3 beats remaining is ONE dotted half, not a half tied to a quarter', () => {
+    // Quarter at beat 1 → 3 beats available. Whole (4b) → overflow 1b.
+    // Reported: this gave h + q (tied) in m1, then q in m2 — three pieces, two ties — where the
+    // three beats are one dotted half. splitBeatsIntoLengths includes dots; the split now says
+    // "the fewest values that span it".
     const note = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     engine.updateNote(note.id, { duration: 'w' })
 
-    // First note in m1: half
+    // m1: ONE dotted half filling beats 1–4
     const n1 = engine.getNote(note.id)!
     expect(n1.duration).toBe('h')
+    expect(n1.dots).toBe(1)
     expect(n1.measure).toBe(1)
     expect(n1.tiedTo).toBeTruthy()
 
-    // Second note in m1: quarter
+    // m2: the quarter that overflowed, tied from it — and the chain ENDS there
     const n2 = engine.getNote(n1.tiedTo!)!
     expect(n2.duration).toBe('q')
-    expect(n2.measure).toBe(1)
+    expect(n2.dots ?? 0).toBe(0)
+    expect(n2.measure).toBe(2)
     expect(n2.tiedFrom).toBe(note.id)
-    expect(n2.tiedTo).toBeTruthy()
+    expect(n2.tiedTo).toBeUndefined()
 
-    // Continuation in m2: quarter
-    const n3 = engine.getNote(n2.tiedTo!)!
-    expect(n3.duration).toBe('q')
-    expect(n3.measure).toBe(2)
-    expect(n3.tiedFrom).toBe(n2.id)
-    expect(n3.tiedTo).toBeUndefined()
+    engine.renderScore() // both bars must still be exactly full
   })
 
   it('overflow: dotted note that overflows is split correctly', () => {

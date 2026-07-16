@@ -10,6 +10,7 @@ import {
   splitBeatsIntoDurations,
   getDotMultiplier,
   fitRestDuration,
+  splitBeatsIntoLengths,
 } from './durations'
 import { getMeasureDurationFrac } from './musicUtils'
 import { fracCreate, fracAdd, fracEq, fracToNumber } from './fraction'
@@ -279,26 +280,91 @@ describe('fitRestDuration', () => {
     expect(fitRestDuration('q', 1, q(3, 2))).toEqual({ duration: 'q', dots: 1 })
   })
 
-  it('caps to the longest PLAIN rest that fits when the armed one does not', () => {
-    // A whole armed with one beat left → a quarter. (The leftover, if any, becomes rests via the
-    // meter-aware fill; this only answers "what single rest goes here".)
-    expect(fitRestDuration('w', 0, q(1))).toEqual({ duration: 'q', dots: 0 })
+  it('caps to the longest rest that fits — SINGLE DOT INCLUDED', () => {
+    // Three beats left is a DOTTED HALF, not a half + a quarter: the rule is "the longest value
+    // available, including one dot". (Whatever a single value cannot cover closes up via the
+    // meter-aware fill; this only answers "what one rest goes here".)
+    expect(fitRestDuration('w', 0, q(3))).toEqual({ duration: 'h', dots: 1 })
     expect(fitRestDuration('w', 0, q(2))).toEqual({ duration: 'h', dots: 0 })
-    expect(fitRestDuration('w', 0, q(3))).toEqual({ duration: 'h', dots: 0 })
+    expect(fitRestDuration('w', 0, q(1))).toEqual({ duration: 'q', dots: 0 })
+    expect(fitRestDuration('w', 0, q(3, 2))).toEqual({ duration: 'q', dots: 1 })
   })
 
-  it('drops the dot when capping — past the point it fits, the dot is a second guess', () => {
-    // A dotted half (3 beats) with 2 left: a half fits, so the dot goes rather than the length.
-    expect(fitRestDuration('h', 1, q(2))).toEqual({ duration: 'h', dots: 0 })
+  it('caps to a dotted value even when the armed one was dotted', () => {
+    // A dotted whole (6 beats) with 3 left → a dotted half. The dot is not "a second guess" to be
+    // dropped: it is part of the longest value that fits.
+    expect(fitRestDuration('w', 1, q(3))).toEqual({ duration: 'h', dots: 1 })
   })
 
   it('caps to a fraction of a beat', () => {
     expect(fitRestDuration('w', 0, q(1, 2))).toEqual({ duration: '8', dots: 0 })
     expect(fitRestDuration('w', 0, q(1, 4))).toEqual({ duration: '16', dots: 0 })
+    expect(fitRestDuration('w', 0, q(3, 4))).toEqual({ duration: '8', dots: 1 })
+  })
+
+  it('is general over meter — it knows only lengths, so odd bars need no cases', () => {
+    // 7/8 with 5 eighths left = 2.5 quarters → a half is the longest that fits (a dotted half is 3).
+    expect(fitRestDuration('w', 0, q(5, 2))).toEqual({ duration: 'h', dots: 0 })
+    // 3/2: six beats left → a dotted whole fits exactly.
+    expect(fitRestDuration('w', 1, q(6))).toEqual({ duration: 'w', dots: 1 })
   })
 
   it('returns null when nothing fits at all', () => {
     expect(fitRestDuration('q', 0, q(0))).toBeNull()
     expect(fitRestDuration('q', 0, q(1, 64))).toBeNull() // shorter than the shortest rest
+  })
+})
+
+/**
+ * The NOTE split: the fewest values that span it, dots included. Its sibling
+ * `splitBeatsIntoDurations` stays undotted — that one fills RESTS, where the meter decides whether a
+ * dot is allowed at all.
+ */
+describe('splitBeatsIntoLengths', () => {
+  const show = (beats: number) =>
+    splitBeatsIntoLengths(beats).map(l => `${l.duration}${'.'.repeat(l.dots)}`)
+
+  it('spans 3 beats with ONE dotted half (reported: it gave h + q)', () => {
+    expect(show(3)).toEqual(['h.'])
+  })
+
+  it('uses a single value wherever one exists', () => {
+    expect(show(4)).toEqual(['w'])
+    expect(show(2)).toEqual(['h'])
+    expect(show(1.5)).toEqual(['q.'])
+    expect(show(0.75)).toEqual(['8.'])
+    expect(show(6)).toEqual(['w.'])
+  })
+
+  it('falls to the next value down when no single one spans it', () => {
+    expect(show(5)).toEqual(['w', 'q'])       // 4 + 1
+    expect(show(7)).toEqual(['w.', 'q'])      // 6 + 1
+    expect(show(2.5)).toEqual(['h', '8'])     // 2 + 0.5
+  })
+
+  it('sums to the span it was given', () => {
+    for (const beats of [1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7]) {
+      const total = splitBeatsIntoLengths(beats)
+        .reduce((acc, l) => acc + durationToBeats(l.duration, l.dots), 0)
+      expect(total).toBeCloseTo(beats)
+    }
+  })
+
+  it('is general over meter — it knows only lengths', () => {
+    // 7/8 leftovers, 3/2 spans: no time signature needs a case of its own.
+    expect(show(3.5)).toEqual(['h.', '8'])
+    expect(show(0.25)).toEqual(['16'])
+  })
+})
+
+/** Its undotted sibling, which fills RESTS and must NOT invent a dot — the meter owns that. */
+describe('splitBeatsIntoDurations stays undotted (rests)', () => {
+  it('gives h + q for 3 beats, NOT a dotted half', () => {
+    // 4/4 never auto-makes a dotted rest, so a length-only rule must not produce one here.
+    expect(splitBeatsIntoDurations(3)).toEqual(['h', 'q'])
+  })
+
+  it('still sums to the span', () => {
+    expect(splitBeatsIntoDurations(3.5)).toEqual(['h', 'q', '8'])
   })
 })

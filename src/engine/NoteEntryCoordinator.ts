@@ -10,7 +10,7 @@ import {
   fracToNumber, fracEq, fracAdd, fracSub, fracMul,
   fracLt, fracGt, fracGte, fracLte, fracFromInt, fracCreate,
 } from '@/utils/fraction'
-import { durationToFraction, tupletNoteDurationFraction, fitRestDuration } from '@/utils/durations'
+import { durationToFraction, tupletNoteDurationFraction, fitRestDuration, splitBeatsIntoLengths } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
 import type { Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, Measure } from '@/types/music'
 import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
@@ -1237,8 +1237,8 @@ export class NoteEntryCoordinator {
     const beatsInCurrentMeasure = p.totalBeats - p.overflowAmount
     const beatsInNextMeasure = p.overflowAmount
 
-    const currentMeasureDurations = splitBeatsIntoDurations(beatsInCurrentMeasure)
-    const nextMeasureDurations = splitBeatsIntoDurations(beatsInNextMeasure)
+    const currentMeasureDurations = splitBeatsIntoLengths(beatsInCurrentMeasure)
+    const nextMeasureDurations = splitBeatsIntoLengths(beatsInNextMeasure)
 
     if (currentMeasureDurations.length === 0 || nextMeasureDurations.length === 0) {
       console.warn('Could not split spanning note into valid durations')
@@ -1265,35 +1265,36 @@ export class NoteEntryCoordinator {
 
     if (p.existingHeadId) {
       // Reuse the existing note as the head: retitle its duration to the first piece.
-      model.updateNote(p.existingHeadId, { duration: currentMeasureDurations[0], dots: 0 })
+      model.updateNote(p.existingHeadId, { duration: currentMeasureDurations[0].duration, dots: currentMeasureDurations[0].dots })
       firstNote = model.getNote(p.existingHeadId) ?? null
       previousNoteId = p.existingHeadId
-      currentBeat = fracAdd(currentBeat, durationToFraction(currentMeasureDurations[0]))
+      currentBeat = fracAdd(currentBeat, durationToFraction(currentMeasureDurations[0].duration, currentMeasureDurations[0].dots))
       startIndex = 1
     }
 
-    // Remaining current-measure pieces (when the split needs > 1, e.g. 3 beats → h + q)
+    // Remaining current-measure pieces (when the split needs > 1 — 3 beats is now ONE dotted half)
     for (let i = startIndex; i < currentMeasureDurations.length; i++) {
-      const note = model.addNote({ ...pitch, duration: currentMeasureDurations[i], measure: p.startMeasure, beat: currentBeat })
+      const { duration, dots } = currentMeasureDurations[i]
+      const note = model.addNote({ ...pitch, duration, dots, measure: p.startMeasure, beat: currentBeat })
       if (!firstNote) firstNote = note
       if (previousNoteId) {
         model.updateNote(previousNoteId, { tiedTo: note.id })
         model.updateNote(note.id, { tiedFrom: previousNoteId })
       }
       previousNoteId = note.id
-      currentBeat = fracAdd(currentBeat, durationToFraction(currentMeasureDurations[i]))
+      currentBeat = fracAdd(currentBeat, durationToFraction(duration, dots))
     }
 
     // Tied continuation pieces in the next measure
     let nextBeat = fracFromInt(0)
-    for (const duration of nextMeasureDurations) {
-      const note = model.addNote({ ...pitch, duration, measure: nextMeasureNumber, beat: nextBeat })
+    for (const { duration, dots } of nextMeasureDurations) {
+      const note = model.addNote({ ...pitch, duration, dots, measure: nextMeasureNumber, beat: nextBeat })
       if (previousNoteId) {
         model.updateNote(previousNoteId, { tiedTo: note.id })
         model.updateNote(note.id, { tiedFrom: previousNoteId })
       }
       previousNoteId = note.id
-      nextBeat = fracAdd(nextBeat, durationToFraction(duration))
+      nextBeat = fracAdd(nextBeat, durationToFraction(duration, dots))
     }
 
     console.log('Placed spanning note with tie:', {
@@ -1400,7 +1401,7 @@ export class NoteEntryCoordinator {
 
     // Trim: remainder starts at overflowBeats
     const remainderBeats = noteEnd - overflowBeats
-    const remainderDurations = splitBeatsIntoDurations(remainderBeats)
+    const remainderDurations = splitBeatsIntoLengths(remainderBeats)
     if (remainderDurations.length === 0) {
       this.getScoreModel().deleteNote(note.id)
       return
@@ -1411,25 +1412,26 @@ export class NoteEntryCoordinator {
       this.getScoreModel().updateNote(note.tiedFrom, { tiedTo: undefined })
     }
 
-    // Update the note: first remainder duration, moved to overflowBeats
+    // Update the note: first remainder length, moved to overflowBeats
     this.getScoreModel().updateNote(note.id, {
-      duration: remainderDurations[0],
-      dots: 0,
+      duration: remainderDurations[0].duration,
+      dots: remainderDurations[0].dots,
       beat: beatToFrac(overflowBeats),
       tiedFrom: undefined,
     })
 
-    // Build tie chain for any additional remainder durations
+    // Build tie chain for any additional remainder lengths
     if (remainderDurations.length > 1) {
       let prevId = note.id
-      let currentBeat = fracAdd(beatToFrac(overflowBeats), durationToFraction(remainderDurations[0]))
+      let currentBeat = fracAdd(beatToFrac(overflowBeats), durationToFraction(remainderDurations[0].duration, remainderDurations[0].dots))
       for (let i = 1; i < remainderDurations.length; i++) {
-        const dur = remainderDurations[i]
+        const { duration, dots } = remainderDurations[i]
         const tailNote = this.getScoreModel().addNote({
           step: note.step,
           alter: note.alter,
           octave: note.octave,
-          duration: dur,
+          duration,
+          dots,
           measure: note.measure,
           beat: currentBeat,
           ...(note.voice && { voice: note.voice }),
@@ -1438,7 +1440,7 @@ export class NoteEntryCoordinator {
         this.getScoreModel().updateNote(prevId, { tiedTo: tailNote.id })
         this.getScoreModel().updateNote(tailNote.id, { tiedFrom: prevId })
         prevId = tailNote.id
-        currentBeat = fracAdd(currentBeat, durationToFraction(dur))
+        currentBeat = fracAdd(currentBeat, durationToFraction(duration, dots))
       }
     }
   }
