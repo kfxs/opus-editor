@@ -23,6 +23,63 @@ export type ToolMode = 'entry' | 'selection'
 export type PlaybackState = 'stopped' | 'playing' | 'paused'
 
 /**
+ * The tool armed for placement — ONE of eight, or none. Arming one switches to entry mode, hides the
+ * keyboard cursor, previews itself as a ghost at the pointer, and makes the next canvas click place
+ * or stamp rather than enter a note.
+ *
+ * WHY ONE FIELD. These were eight independent fields (`selectedClef`, `selectedTieTool`, …). They are
+ * mutually exclusive, but nothing said so: the type could express "the tie and the dot are both
+ * armed" — a sentence with no meaning — and the only thing preventing it was eight arm-sites each
+ * remembering to clear the other seven, plus every press handler naming its siblings to switch. That
+ * is N² edits to keep in sync, and a missed one is SILENT. It bit us: `dac5f42` fixed a press that
+ * armed TWO tools, because the check had been written naming only the sibling that existed that day.
+ *
+ * Holding the armed tool in one value makes the illegal states unrepresentable rather than merely
+ * unreached: arming IS clearing, so there is nothing to keep in sync. Dispatch by `switch (t.kind)`
+ * with an exhaustiveness check ({@link assertNeverTool}) and a NINTH tool cannot be added without the
+ * compiler naming every site that must handle it.
+ *
+ * The two "stamp value" kinds carry what they arm; the two valueless stamps carry nothing, because
+ * there is nothing to carry (a note is tied, or it is not).
+ */
+export type MarkingTool =
+  | { kind: 'clef'; clef: Clef }
+  | { kind: 'timeSignature'; timeSignature: TimeSignature }
+  | { kind: 'dynamic'; dynamic: DynamicTool }
+  | { kind: 'tempo'; tempo: TempoTool }
+  /** ADDITIVE: pressing another articulation key grows the set; all get stamped together. Emptying
+   *  it disarms. Distinct from the `accent`/`staccato`/`tenuto` flags, which arm for the next note
+   *  ENTERED — this stamps notes that already exist. */
+  | { kind: 'articulation'; types: ArticulationType[] }
+  /** SINGLE-valued: a note has one accidental state, so a different key SWAPS rather than stacks.
+   *  Distinct from `selectedAccidental`, which arms for the next note ENTERED. */
+  | { kind: 'accidental'; sign: Accidental }
+  /** VALUELESS — a note ties to the next slot or it does not. */
+  | { kind: 'tie' }
+  /** VALUELESS — the UI's dot is on or off. The one stamp that also applies to RESTS. */
+  | { kind: 'dot' }
+
+/**
+ * The armed tool IF it is of `kind`, else null — the read half of {@link MarkingTool}, typed so the
+ * payload narrows: `armedTool(state, 'clef')?.clef` is a `Clef`. Prefer narrowing on `.kind`
+ * directly inside a dispatch; this is for the one-kind-or-nothing reads (a palette button asking
+ * "am I the armed one?").
+ */
+export function armedTool<K extends MarkingTool['kind']>(
+  state: EditorState,
+  kind: K,
+): Extract<MarkingTool, { kind: K }> | null {
+  const tool = state.selectedMarkingTool
+  return tool?.kind === kind ? (tool as Extract<MarkingTool, { kind: K }>) : null
+}
+
+/** Compile-time exhaustiveness: a `switch` over {@link MarkingTool} that forgets a kind fails to
+ *  build here, which is what makes adding a ninth tool safe instead of a memory test. */
+export function assertNeverTool(tool: never): never {
+  throw new Error(`Unhandled marking tool: ${JSON.stringify(tool)}`)
+}
+
+/**
  * All mutable UI state for the score editor.
  *
  * Framework-agnostic: no Vue, React, or Angular imports.
@@ -123,56 +180,17 @@ export interface EditorState {
   staccato: boolean
   tenuto: boolean
   /**
-   * Articulations armed as a STAMP tool (empty = not active). Distinct from the
-   * `accent`/`staccato`/`tenuto` flags above, which arm an articulation for the NEXT note
-   * ENTERED. This is a marking tool (like {@link selectedClef}): armed from selection mode with no
-   * note/group selected, it switches to entry mode, shows a ghost of the armed articulations
-   * following the cursor, and a click ADDS them to the note clicked (existing notes only — no note
-   * entry). ADDITIVE: pressing another articulation key adds it to the armed set (all get stamped
-   * together); pressing an armed one removes it; emptying the set disarms back to selection mode.
-   * Mutually exclusive with the clef/TS/dynamic/tempo tools. Always REASSIGNED (never mutated in
-   * place) so the observable state emits a change. */
-  selectedArticulationTools: ArticulationType[]
-  /**
-   * An accidental armed as a STAMP tool (null = not active). Distinct from
-   * {@link selectedAccidental}, which arms an accidental for the NEXT note ENTERED. Like
-   * {@link selectedArticulationTools} but SINGLE-valued: a note has exactly one accidental state, so
-   * pressing a different accidental key SWAPS the armed one rather than stacking. Armed from
-   * selection mode with no note/group selected; switches to entry mode, shows a ghost accidental
-   * following the cursor, and a click SETS that accidental on the note clicked (existing notes only,
-   * changing its pitch — no note entry). Idempotent: clicking a note that already has that
-   * accidental does nothing. Pressing a duration while armed promotes it into note-entry (the
-   * "accidental + duration" workflow). Mutually exclusive with the other marking tools. */
-  selectedAccidentalTool: Accidental | null
-  /**
-   * The tie armed as a STAMP tool (false = not active). The third of the marking stamps, and the
-   * only VALUELESS one: {@link selectedArticulationTools} is an additive set and
-   * {@link selectedAccidentalTool} a single value, but a tie has nothing to arm — a note is tied to
-   * the next slot or it is not — so the tool is a bare flag. Armed from selection mode with no note
-   * selected; switches to entry mode, shows a ghost arc following the cursor, and a click TIES the
-   * note clicked to the next slot in its own voice and staff (existing notes only — no note entry).
-   * Idempotent, like the accidental stamp: clicking an already-tied note does nothing (a stamp only
-   * ever ADDS — removal is Delete, or the Keypad with the tie itself selected). Nothing to promote
-   * into on a duration press: there is no armed entry-mode tie (see {@link tieSelection}), so a
-   * duration just disarms. Mutually exclusive with the other marking tools. */
-  selectedTieTool: boolean
-  /**
-   * The DOT armed as a stamp tool (false = not active). Valueless like {@link selectedTieTool} — the
-   * UI's dot is on or off (`toggleDot` is binary), so there is nothing to arm but the tool itself.
-   * Armed from selection mode with nothing selected; switches to entry mode, shows a ghost dot at
-   * the cursor, and a click dots the note clicked. Idempotent: clicking an already-dotted note does
-   * nothing. UNLIKE every other stamp it also applies to RESTS — a rest takes a dot exactly as a
-   * note does. A duration press promotes it into note entry (the "dotted quarter" flow), since
-   * unlike the tie there IS an armed entry-mode dot ({@link selectedDots}) to promote into.
-   * Mutually exclusive with the other marking tools. */
-  selectedDotTool: boolean
+   * The ONE marking tool armed for placement, or null. See {@link MarkingTool}: the eight tools are
+   * mutually exclusive, and holding them in ONE field is what makes "two armed at once" impossible
+   * to write, rather than something eight arm-sites have to remember to prevent.
+   *
+   * Always REASSIGNED (never mutated in place) so the observable state emits a change. Read it by
+   * narrowing on `.kind`, or with {@link armedTool} when you want one kind or nothing. */
+  selectedMarkingTool: MarkingTool | null
   tupletMode: boolean
   selectedBeam: BeamMode
 
   // --- Clef tool ---
-  /** Clef armed for placement (null = clef tool not active). When set, canvas
-   *  clicks set/change a measure's clef and the ghost note is suppressed. */
-  selectedClef: Clef | null
   /** Measure of the clef selected for removal (selection tool); null if none. */
   selectedClefMeasure: number | null
   /** Beat of the selected clef within its measure (0 = opening clef). */
@@ -181,13 +199,9 @@ export interface EditorState {
   selectedClefStaff: number
 
   // --- Time signature tool ---
-  /** Time signature armed for placement (null = TS tool not active). When set,
-   *  canvas clicks set/change a measure's time signature and the ghost note is
-   *  suppressed. */
-  selectedTimeSignature: TimeSignature | null
   /** Measure of the on-score time-signature glyph selected for removal (selection
-   *  tool); null if none. Distinct from `selectedTimeSignature` (the armed palette
-   *  meter for placement). */
+   *  tool); null if none. Distinct from the armed `{ kind: 'timeSignature' }` marking
+   *  tool (the meter waiting to be placed). */
   selectedTimeSignatureMeasure: number | null
 
   // --- Measure box selection ---
@@ -212,22 +226,13 @@ export interface EditorState {
   selectedMeasureBoxStyle: 'single' | 'double'
 
   // --- Dynamics tool ---
-  /** Dynamic armed for placement (null = dynamics tool not active). A level
-   *  (`p`/`mp`/`mf`/`f`) places that mark on click; `'text'` prompts for custom
-   *  italic text. When set, canvas clicks place a dynamic and the ghost note is
-   *  suppressed. */
-  selectedDynamic: DynamicTool | null
   /** Id of the on-score dynamic selected for removal/edit (selection tool); null
-   *  if none. Distinct from `selectedDynamic` (the armed palette tool). */
+   *  if none. Distinct from the armed `{ kind: 'dynamic' }` marking tool. */
   selectedDynamicId: string | null
 
   // --- Tempo tool ---
-  /** Tempo mark armed for placement (null = tempo tool not active). Placed on the next
-   *  canvas click, at the clicked bar's nearest slot beat. System-level: no staff, no
-   *  voice — clicking any staff places ONE mark governing the whole system. */
-  selectedTempo: TempoTool | null
   /** Id of the on-score tempo mark selected for removal/edit (selection tool); null if
-   *  none. Distinct from `selectedTempo` (the armed palette tool). */
+   *  none. Distinct from the armed `{ kind: 'tempo' }` marking tool. */
   selectedTempoId: string | null
 
   // --- In-canvas text editing ---
@@ -309,24 +314,17 @@ export function createEditorState(): EditorState {
     accent: false,
     staccato: false,
     tenuto: false,
-    selectedArticulationTools: [],
-    selectedAccidentalTool: null,
-    selectedTieTool: false,
-    selectedDotTool: false,
+    selectedMarkingTool: null,
     tupletMode: false,
     selectedBeam: 'auto',
-    selectedClef: null,
     selectedClefMeasure: null,
     selectedClefBeat: null,
     selectedClefStaff: 0,
-    selectedTimeSignature: null,
     selectedTimeSignatureMeasure: null,
     selectedMeasureRange: null,
     selectedMeasureStaff: 0,
     selectedMeasureBoxStyle: 'double',
-    selectedDynamic: null,
     selectedDynamicId: null,
-    selectedTempo: null,
     selectedTempoId: null,
     editingText: null,
     pastePlacementArmed: false,

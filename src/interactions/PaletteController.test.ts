@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { PaletteController } from './PaletteController'
-import { createEditorState, type EditorState } from './EditorState'
+import { createEditorState, armedTool, type EditorState, type MarkingTool } from './EditorState'
 import { dotHighlight } from './keypadSync'
 
 // PaletteController is framework-agnostic; stub its callbacks.
@@ -26,7 +26,7 @@ describe('PaletteController — time signature tool', () => {
 
   it('arms a time signature and switches to the entry tool', () => {
     palette.setTimeSignature({ numerator: 6, denominator: 8 })
-    expect(state.selectedTimeSignature).toEqual({ numerator: 6, denominator: 8 })
+    expect(armedTool(state, 'timeSignature')?.timeSignature).toEqual({ numerator: 6, denominator: 8 })
     expect(state.selectedTool).toBe('entry')
     expect(state.selectedNoteId).toBeNull()
   })
@@ -34,36 +34,36 @@ describe('PaletteController — time signature tool', () => {
   it('clicking the armed signature again disarms it', () => {
     palette.setTimeSignature({ numerator: 3, denominator: 4 })
     palette.setTimeSignature({ numerator: 3, denominator: 4 })
-    expect(state.selectedTimeSignature).toBeNull()
+    expect(armedTool(state, 'timeSignature')).toBeNull()
   })
 
   it('arming a different signature replaces the armed one', () => {
     palette.setTimeSignature({ numerator: 3, denominator: 4 })
     palette.setTimeSignature({ numerator: 7, denominator: 8 })
-    expect(state.selectedTimeSignature).toEqual({ numerator: 7, denominator: 8 })
+    expect(armedTool(state, 'timeSignature')?.timeSignature).toEqual({ numerator: 7, denominator: 8 })
   })
 
   it('is mutually exclusive with the clef tool', () => {
     palette.setClef('bass')
     palette.setTimeSignature({ numerator: 5, denominator: 8 })
-    expect(state.selectedClef).toBeNull()
-    expect(state.selectedTimeSignature).toEqual({ numerator: 5, denominator: 8 })
+    expect(armedTool(state, 'clef')).toBeNull()
+    expect(armedTool(state, 'timeSignature')?.timeSignature).toEqual({ numerator: 5, denominator: 8 })
 
     palette.setClef('treble')
-    expect(state.selectedTimeSignature).toBeNull()
-    expect(state.selectedClef).toBe('treble')
+    expect(armedTool(state, 'timeSignature')).toBeNull()
+    expect(armedTool(state, 'clef')?.clef).toBe('treble')
   })
 
   it('selecting a duration disarms the time-signature tool', () => {
     palette.setTimeSignature({ numerator: 6, denominator: 8 })
     palette.setDuration('8')
-    expect(state.selectedTimeSignature).toBeNull()
+    expect(armedTool(state, 'timeSignature')).toBeNull()
   })
 
   it('resetToDefaults clears the armed signature', () => {
     palette.setTimeSignature({ numerator: 6, denominator: 8 })
     palette.resetToDefaults()
-    expect(state.selectedTimeSignature).toBeNull()
+    expect(armedTool(state, 'timeSignature')).toBeNull()
   })
 })
 
@@ -78,56 +78,144 @@ describe('PaletteController — dynamics tool', () => {
 
   it('arms a level dynamic and switches to the entry tool', () => {
     palette.setDynamic('mf')
-    expect(state.selectedDynamic).toBe('mf')
+    expect(armedTool(state, 'dynamic')?.dynamic).toBe('mf')
     expect(state.selectedTool).toBe('entry')
     expect(state.selectedNoteId).toBeNull()
   })
 
   it('arms the custom-text tool', () => {
     palette.setDynamic('text')
-    expect(state.selectedDynamic).toBe('text')
+    expect(armedTool(state, 'dynamic')?.dynamic).toBe('text')
   })
 
   it('clicking the armed dynamic again disarms it', () => {
     palette.setDynamic('p')
     palette.setDynamic('p')
-    expect(state.selectedDynamic).toBeNull()
+    expect(armedTool(state, 'dynamic')).toBeNull()
   })
 
   it('arming a different dynamic replaces the armed one', () => {
     palette.setDynamic('p')
     palette.setDynamic('f')
-    expect(state.selectedDynamic).toBe('f')
+    expect(armedTool(state, 'dynamic')?.dynamic).toBe('f')
   })
 
   it('is mutually exclusive with the clef and time-signature tools', () => {
     palette.setClef('bass')
     palette.setDynamic('mf')
-    expect(state.selectedClef).toBeNull()
-    expect(state.selectedDynamic).toBe('mf')
+    expect(armedTool(state, 'clef')).toBeNull()
+    expect(armedTool(state, 'dynamic')?.dynamic).toBe('mf')
 
     palette.setTimeSignature({ numerator: 3, denominator: 4 })
-    expect(state.selectedDynamic).toBeNull()
-    expect(state.selectedTimeSignature).toEqual({ numerator: 3, denominator: 4 })
+    expect(armedTool(state, 'dynamic')).toBeNull()
+    expect(armedTool(state, 'timeSignature')?.timeSignature).toEqual({ numerator: 3, denominator: 4 })
 
     palette.setClef('treble')
-    expect(state.selectedTimeSignature).toBeNull()
+    expect(armedTool(state, 'timeSignature')).toBeNull()
 
     palette.setDynamic('p')
-    expect(state.selectedClef).toBeNull()
-    expect(state.selectedDynamic).toBe('p')
+    expect(armedTool(state, 'clef')).toBeNull()
+    expect(armedTool(state, 'dynamic')?.dynamic).toBe('p')
   })
 
   it('selecting a duration disarms the dynamics tool', () => {
     palette.setDynamic('mf')
     palette.setDuration('8')
-    expect(state.selectedDynamic).toBeNull()
+    expect(armedTool(state, 'dynamic')).toBeNull()
   })
 
   it('resetToDefaults clears the armed dynamic', () => {
     palette.setDynamic('f')
     palette.resetToDefaults()
-    expect(state.selectedDynamic).toBeNull()
+    expect(armedTool(state, 'dynamic')).toBeNull()
+  })
+})
+
+/**
+ * The eight marking tools are mutually exclusive, and `selectedMarkingTool` is what makes that TRUE
+ * rather than merely maintained: one field cannot hold two tools. These tests pin the property from
+ * the outside, because the old shape — eight independent fields, each arm-site clearing the other
+ * seven — could express "two armed at once" and did:
+ *
+ *  - `dac5f42`: a press armed TWO stamps, because the switch-tools check named only the sibling that
+ *    existed when it was written.
+ *  - `setClef` cleared time-signature/dynamic/tempo but NOT the four stamps (they came later), so
+ *    arming the tie stamp and then a clef left both live — and disarming the clef brought the tie
+ *    stamp silently back. That one shipped, unnoticed, until the union deleted it.
+ */
+describe('PaletteController — only ONE marking tool can be armed', () => {
+  let state: EditorState
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    // A real (if empty) engine: toggleTie returns early without one, which would make its rows in
+    // the matrix below pass for the wrong reason.
+    const fakeEngine = {
+      getNote: () => null,
+      updateNote: vi.fn(),
+      tieSelection: vi.fn(),
+      toggleTie: vi.fn(),
+      runBatch: (_l: string, fn: () => void) => fn(),
+    } as unknown as import('../engine/MusicEngine').MusicEngine
+    palette = new PaletteController(
+      () => fakeEngine, state, vi.fn(), vi.fn(), () => null, vi.fn(),
+    )
+  })
+
+  /** Every tool, as (name, arm it) — so the exclusion is checked over the whole matrix, not a pair. */
+  const TOOLS: Array<[string, () => void]> = [
+    ['clef', () => palette.setClef('bass')],
+    ['timeSignature', () => palette.setTimeSignature({ numerator: 3, denominator: 4 })],
+    ['dynamic', () => palette.setDynamic('mf')],
+    ['tempo', () => palette.setTempo({ text: 'Allegro' })],
+    ['articulation', () => palette.toggleAccent()],
+    ['accidental', () => palette.setAccidental('#')],
+    ['tie', () => palette.toggleTie()],
+    ['dot', () => palette.toggleDot()],
+  ]
+
+  for (const [firstName, armFirst] of TOOLS) {
+    for (const [secondName, armSecond] of TOOLS) {
+      if (firstName === secondName) continue
+      it(`arming ${secondName} disarms ${firstName}`, () => {
+        state.selectedTool = 'selection'
+        armFirst()
+        armSecond()
+        expect(state.selectedMarkingTool?.kind).toBe(secondName)
+      })
+    }
+  }
+
+  it('ANY armed tool darkens the note-entry keys — the Keypad must not claim a note is coming', () => {
+    // Every marking tool arms into ENTRY mode but enters no note, so duration / accidental / dot /
+    // articulation must all go dark. This used to hold only for the four STAMPS: with a clef armed
+    // the Keypad still lit the duration, saying "a quarter note is about to be entered" while what
+    // was really armed was a clef.
+    state.selectedDuration = 'q'
+    state.selectedAccidental = '#'
+    state.selectedDots = 1
+    state.accent = true // all stale from an earlier note-entry session
+
+    for (const [name, arm] of TOOLS) {
+      state.selectedMarkingTool = null
+      state.selectedTool = 'selection'
+      arm()
+      // Re-read through the declared type: TS narrows the field to `never` after the null above.
+      const armed = state.selectedMarkingTool as MarkingTool | null
+      expect(armed?.kind, `${name} should be armed`).toBe(name)
+      expect(dotHighlight(state), `${name}: the dot key`).toBe(name === 'dot' ? 'dot' : null)
+      expect(palette.noteHasAccent(), `${name}: the accent key`).toBe(name === 'articulation')
+    }
+  })
+
+  it('disarming a clef does not resurrect a stamp armed before it (the bug that shipped)', () => {
+    state.selectedTool = 'selection'
+    palette.toggleTie()
+    palette.setClef('bass')          // the clef takes over…
+    expect(armedTool(state, 'tie')).toBeNull() // …and the tie stamp is GONE, not merely hidden
+    palette.setClef('bass')          // re-press disarms the clef
+    expect(state.selectedMarkingTool).toBeNull() // nothing comes back
   })
 })
 
@@ -142,12 +230,12 @@ describe('PaletteController — disarmPositionalTools', () => {
 
   it('clears the armed clef / time signature / dynamic', () => {
     palette.setDynamic('f')
-    state.selectedClef = 'bass'
-    state.selectedTimeSignature = { numerator: 3, denominator: 4 }
+    state.selectedMarkingTool = { kind: 'clef', clef: 'bass' }
+    state.selectedMarkingTool = { kind: 'timeSignature', timeSignature: { numerator: 3, denominator: 4 } }
     palette.disarmPositionalTools()
-    expect(state.selectedClef).toBeNull()
-    expect(state.selectedTimeSignature).toBeNull()
-    expect(state.selectedDynamic).toBeNull()
+    expect(armedTool(state, 'clef')).toBeNull()
+    expect(armedTool(state, 'timeSignature')).toBeNull()
+    expect(armedTool(state, 'dynamic')).toBeNull()
   })
 
   it('leaves note-entry settings (duration, accidental) untouched', () => {
@@ -155,7 +243,7 @@ describe('PaletteController — disarmPositionalTools', () => {
     palette.setAccidental('#')
     palette.setClef('alto')
     palette.disarmPositionalTools()
-    expect(state.selectedClef).toBeNull()
+    expect(armedTool(state, 'clef')).toBeNull()
     expect(state.selectedDuration).toBe('8')
     expect(state.selectedAccidental).toBe('#')
   })
@@ -262,7 +350,7 @@ describe('PaletteController — accidental stamp tool', () => {
   it('arms the stamp (entry mode) when in selection mode with nothing selected', () => {
     state.selectedTool = 'selection'
     palette.setAccidental('#')
-    expect(state.selectedAccidentalTool).toBe('#')
+    expect(armedTool(state, 'accidental')?.sign).toBe('#')
     expect(state.selectedTool).toBe('entry')
     expect(setNoteAccidental).not.toHaveBeenCalled()
   })
@@ -274,7 +362,7 @@ describe('PaletteController — accidental stamp tool', () => {
     state.selectedNoteId = 'cursor'
     notes['cursor'] = { id: 'cursor', alter: 0 }
     palette.setAccidental('#')
-    expect(state.selectedAccidentalTool).toBe('#')
+    expect(armedTool(state, 'accidental')?.sign).toBe('#')
     expect(state.selectedTool).toBe('entry')
     expect(setNoteAccidental).not.toHaveBeenCalled()
   })
@@ -286,7 +374,7 @@ describe('PaletteController — accidental stamp tool', () => {
     notes['n1'] = { id: 'n1', alter: 0 }
     palette.setAccidental('#')
     expect(setNoteAccidental).toHaveBeenCalledWith('n1', '#')
-    expect(state.selectedAccidentalTool).toBeNull()
+    expect(armedTool(state, 'accidental')).toBeNull()
     expect(state.selectedTool).toBe('selection')
   })
 
@@ -294,7 +382,7 @@ describe('PaletteController — accidental stamp tool', () => {
     state.selectedTool = 'selection'
     palette.setAccidental('b')
     palette.setAccidental('b')
-    expect(state.selectedAccidentalTool).toBeNull()
+    expect(armedTool(state, 'accidental')).toBeNull()
     expect(state.selectedTool).toBe('selection')
   })
 
@@ -302,28 +390,28 @@ describe('PaletteController — accidental stamp tool', () => {
     state.selectedTool = 'selection'
     palette.setAccidental('#')
     palette.setAccidental('n')
-    expect(state.selectedAccidentalTool).toBe('n')
+    expect(armedTool(state, 'accidental')?.sign).toBe('n')
     expect(state.selectedTool).toBe('entry')
   })
 
   it('is mutually exclusive with the articulation stamp', () => {
     state.selectedTool = 'selection'
     palette.setAccidental('#')
-    expect(state.selectedAccidentalTool).toBe('#')
+    expect(armedTool(state, 'accidental')?.sign).toBe('#')
     palette.toggleAccent() // arming an articulation stamp switches tools
-    expect(state.selectedAccidentalTool).toBeNull()
-    expect(state.selectedArticulationTools).toEqual(['accent'])
+    expect(armedTool(state, 'accidental')).toBeNull()
+    expect(armedTool(state, 'articulation')?.types).toEqual(['accent'])
 
     palette.setAccidental('b') // and back
-    expect(state.selectedArticulationTools).toEqual([])
-    expect(state.selectedAccidentalTool).toBe('b')
+    expect(armedTool(state, 'articulation')).toBeNull()
+    expect(armedTool(state, 'accidental')?.sign).toBe('b')
   })
 
   it('a duration press promotes the stamp into "accidental + duration" note entry', () => {
     state.selectedTool = 'selection'
     palette.setAccidental('#')
     palette.setDuration('8')
-    expect(state.selectedAccidentalTool).toBeNull()
+    expect(armedTool(state, 'accidental')).toBeNull()
     expect(state.selectedAccidental).toBe('#')
     expect(state.selectedDuration).toBe('8')
     expect(state.selectedTool).toBe('entry')
@@ -333,7 +421,7 @@ describe('PaletteController — accidental stamp tool', () => {
     state.selectedTool = 'selection'
     palette.setAccidental('#')
     palette.disarmPositionalTools()
-    expect(state.selectedAccidentalTool).toBeNull()
+    expect(armedTool(state, 'accidental')).toBeNull()
   })
 
   it('a fresh duration press (nothing selected) drops a stale armed accidental', () => {
@@ -388,7 +476,7 @@ describe('PaletteController — tie stamp tool', () => {
   it('arms the stamp (entry mode) when in selection mode with nothing selected', () => {
     state.selectedTool = 'selection'
     palette.toggleTie()
-    expect(state.selectedTieTool).toBe(true)
+    expect(armedTool(state, 'tie')).not.toBeNull()
     expect(state.selectedTool).toBe('entry')
     expect(tieSelectionFn).not.toHaveBeenCalled()
   })
@@ -400,7 +488,7 @@ describe('PaletteController — tie stamp tool', () => {
     state.selectedNoteId = 'cursor'
     notes['cursor'] = { id: 'cursor' }
     palette.toggleTie()
-    expect(state.selectedTieTool).toBe(true)
+    expect(armedTool(state, 'tie')).not.toBeNull()
     expect(state.selectedTool).toBe('entry')
     expect(tieSelectionFn).not.toHaveBeenCalled()
   })
@@ -412,7 +500,7 @@ describe('PaletteController — tie stamp tool', () => {
     notes['n1'] = { id: 'n1' }
     palette.toggleTie()
     expect(tieSelectionFn).toHaveBeenCalledWith(['n1'])
-    expect(state.selectedTieTool).toBe(false)
+    expect(armedTool(state, 'tie')).toBeNull()
     expect(state.selectedTool).toBe('selection')
   })
 
@@ -420,7 +508,7 @@ describe('PaletteController — tie stamp tool', () => {
     state.selectedTool = 'selection'
     palette.toggleTie()
     palette.toggleTie()
-    expect(state.selectedTieTool).toBe(false)
+    expect(armedTool(state, 'tie')).toBeNull()
     expect(state.selectedTool).toBe('selection')
     expect(tieSelectionFn).not.toHaveBeenCalled()
   })
@@ -428,30 +516,30 @@ describe('PaletteController — tie stamp tool', () => {
   it('is mutually exclusive with the accidental and articulation stamps', () => {
     state.selectedTool = 'selection'
     palette.toggleTie()
-    expect(state.selectedTieTool).toBe(true)
+    expect(armedTool(state, 'tie')).not.toBeNull()
 
     palette.setAccidental('#') // arming an accidental stamp switches tools
-    expect(state.selectedTieTool).toBe(false)
-    expect(state.selectedAccidentalTool).toBe('#')
+    expect(armedTool(state, 'tie')).toBeNull()
+    expect(armedTool(state, 'accidental')?.sign).toBe('#')
 
     palette.toggleTie() // and back
-    expect(state.selectedAccidentalTool).toBeNull()
-    expect(state.selectedTieTool).toBe(true)
+    expect(armedTool(state, 'accidental')).toBeNull()
+    expect(armedTool(state, 'tie')).not.toBeNull()
 
     palette.toggleAccent() // an articulation stamp takes over too
-    expect(state.selectedTieTool).toBe(false)
-    expect(state.selectedArticulationTools).toEqual(['accent'])
+    expect(armedTool(state, 'tie')).toBeNull()
+    expect(armedTool(state, 'articulation')?.types).toEqual(['accent'])
 
     palette.toggleTie()
-    expect(state.selectedArticulationTools).toEqual([])
-    expect(state.selectedTieTool).toBe(true)
+    expect(armedTool(state, 'articulation')).toBeNull()
+    expect(armedTool(state, 'tie')).not.toBeNull()
   })
 
   it('a duration press disarms the stamp — there is no entry-mode tie to promote into', () => {
     state.selectedTool = 'selection'
     palette.toggleTie()
     palette.setDuration('8')
-    expect(state.selectedTieTool).toBe(false)
+    expect(armedTool(state, 'tie')).toBeNull()
     expect(state.selectedDuration).toBe('8')
     expect(state.selectedTool).toBe('entry') // plain note entry
   })
@@ -460,7 +548,7 @@ describe('PaletteController — tie stamp tool', () => {
     state.selectedTool = 'selection'
     palette.toggleTie()
     palette.disarmPositionalTools()
-    expect(state.selectedTieTool).toBe(false)
+    expect(armedTool(state, 'tie')).toBeNull()
   })
 
   it('lights the Keypad tie key while armed', () => {
@@ -484,7 +572,7 @@ describe('PaletteController — tie stamp tool', () => {
     notes['n1'] = { id: 'n1' }
     palette.toggleTie()
     expect(tieSelectionFn).toHaveBeenCalledWith(['n1'])
-    expect(state.selectedTieTool).toBe(false)
+    expect(armedTool(state, 'tie')).toBeNull()
   })
 })
 
@@ -541,7 +629,7 @@ describe('PaletteController — arming a tool previews it immediately', () => {
     palette.setAccidental('#') // arms the stamp
     renderArmedGhost.mockClear()
     palette.setAccidental('b') // ♯ → ♭ while armed: the ghost must change NOW, not on a mouse move
-    expect(state.selectedAccidentalTool).toBe('b')
+    expect(armedTool(state, 'accidental')?.sign).toBe('b')
     expect(renderArmedGhost).toHaveBeenCalledWith(POINTER)
   })
 
@@ -549,7 +637,7 @@ describe('PaletteController — arming a tool previews it immediately', () => {
     palette.toggleAccent()
     renderArmedGhost.mockClear()
     palette.toggleStaccato() // the set grows → the ghost restacks
-    expect(state.selectedArticulationTools).toEqual(['accent', 'staccato'])
+    expect(armedTool(state, 'articulation')?.types).toEqual(['accent', 'staccato'])
     expect(renderArmedGhost).toHaveBeenCalledWith(POINTER)
   })
 
@@ -559,7 +647,7 @@ describe('PaletteController — arming a tool previews it immediately', () => {
     palette.setAccidental('#')
     renderArmedGhost.mockClear()
     palette.setAccidental('#') // re-press disarms
-    expect(state.selectedAccidentalTool).toBeNull()
+    expect(armedTool(state, 'accidental')).toBeNull()
     expect(state.selectedTool).toBe('selection')
     expect(renderArmedGhost).not.toHaveBeenCalled()
   })
@@ -572,7 +660,7 @@ describe('PaletteController — arming a tool previews it immediately', () => {
       vi.fn(),
     )
     p.setAccidental('#')
-    expect(state.selectedAccidentalTool).toBe('#') // still armed…
+    expect(armedTool(state, 'accidental')?.sign).toBe('#') // still armed…
     expect(renderArmedGhost).not.toHaveBeenCalled() // …but there is nowhere to draw it yet
   })
 })
@@ -609,7 +697,7 @@ describe('PaletteController — dot stamp tool', () => {
     // articulation and accidental presses used to do before their stamps.
     state.selectedTool = 'selection'
     palette.toggleDot()
-    expect(state.selectedDotTool).toBe(true)
+    expect(armedTool(state, 'dot')).not.toBeNull()
     expect(state.selectedTool).toBe('entry')
     expect(updateNote).not.toHaveBeenCalled()
   })
@@ -619,7 +707,7 @@ describe('PaletteController — dot stamp tool', () => {
     state.selectedNoteId = 'cursor'
     notes['cursor'] = { id: 'cursor' }
     palette.toggleDot()
-    expect(state.selectedDotTool).toBe(true)
+    expect(armedTool(state, 'dot')).not.toBeNull()
     expect(updateNote).not.toHaveBeenCalled()
   })
 
@@ -630,44 +718,44 @@ describe('PaletteController — dot stamp tool', () => {
     notes['n1'] = { id: 'n1' }
     palette.toggleDot()
     expect(updateNote).toHaveBeenCalledWith('n1', { dots: 1 })
-    expect(state.selectedDotTool).toBe(false)
+    expect(armedTool(state, 'dot')).toBeNull()
   })
 
   it('re-pressing the dot key disarms back to selection', () => {
     state.selectedTool = 'selection'
     palette.toggleDot()
     palette.toggleDot()
-    expect(state.selectedDotTool).toBe(false)
+    expect(armedTool(state, 'dot')).toBeNull()
     expect(state.selectedTool).toBe('selection')
   })
 
   it('is mutually exclusive with the other three stamps', () => {
     state.selectedTool = 'selection'
     palette.toggleDot()
-    expect(state.selectedDotTool).toBe(true)
+    expect(armedTool(state, 'dot')).not.toBeNull()
 
     palette.setAccidental('#')
-    expect(state.selectedDotTool).toBe(false)
-    expect(state.selectedAccidentalTool).toBe('#')
+    expect(armedTool(state, 'dot')).toBeNull()
+    expect(armedTool(state, 'accidental')?.sign).toBe('#')
 
     palette.toggleDot()
-    expect(state.selectedAccidentalTool).toBeNull()
-    expect(state.selectedDotTool).toBe(true)
+    expect(armedTool(state, 'accidental')).toBeNull()
+    expect(armedTool(state, 'dot')).not.toBeNull()
 
     palette.toggleAccent()
-    expect(state.selectedDotTool).toBe(false)
+    expect(armedTool(state, 'dot')).toBeNull()
 
     palette.toggleDot()
-    expect(state.selectedArticulationTools).toEqual([])
-    expect(state.selectedDotTool).toBe(true)
+    expect(armedTool(state, 'articulation')).toBeNull()
+    expect(armedTool(state, 'dot')).not.toBeNull()
 
     palette.toggleTie()
-    expect(state.selectedDotTool).toBe(false)
-    expect(state.selectedTieTool).toBe(true)
+    expect(armedTool(state, 'dot')).toBeNull()
+    expect(armedTool(state, 'tie')).not.toBeNull()
 
     palette.toggleDot()
-    expect(state.selectedTieTool).toBe(false)
-    expect(state.selectedDotTool).toBe(true)
+    expect(armedTool(state, 'tie')).toBeNull()
+    expect(armedTool(state, 'dot')).not.toBeNull()
   })
 
   it('a duration press promotes the stamp into "dotted duration" note entry', () => {
@@ -676,7 +764,7 @@ describe('PaletteController — dot stamp tool', () => {
     state.selectedTool = 'selection'
     palette.toggleDot()
     palette.setDuration('q')
-    expect(state.selectedDotTool).toBe(false)
+    expect(armedTool(state, 'dot')).toBeNull()
     expect(state.selectedDots).toBe(1)
     expect(state.selectedDuration).toBe('q')
     expect(state.selectedTool).toBe('entry')
@@ -693,7 +781,7 @@ describe('PaletteController — dot stamp tool', () => {
     state.selectedTool = 'selection'
     palette.toggleDot()
     palette.disarmPositionalTools()
-    expect(state.selectedDotTool).toBe(false)
+    expect(armedTool(state, 'dot')).toBeNull()
   })
 
   it('lights the dot key, and no articulation key, while armed', () => {
@@ -734,7 +822,7 @@ describe('PaletteController — editing a selected dot', () => {
     state.selectedDotNoteId = 'n1'
     palette.toggleDot()
     expect(updateNote).toHaveBeenCalledWith('n1', { dots: 0 })
-    expect(state.selectedDotTool).toBe(false)
+    expect(armedTool(state, 'dot')).toBeNull()
     expect(state.selectedDotNoteId).toBeNull()
     expect(selectNote).toHaveBeenCalledWith(null) // switch-off leaves nothing selected
   })
@@ -780,7 +868,7 @@ describe('PaletteController — editing a selected tie', () => {
     state.selectedTieFromNoteId = 'n1'
     palette.toggleTie()
     expect(toggleTieFn).toHaveBeenCalledWith('n1')
-    expect(state.selectedTieTool).toBe(false)
+    expect(armedTool(state, 'tie')).toBeNull()
     expect(state.selectedTieFromNoteId).toBeNull()
   })
 
@@ -859,7 +947,7 @@ describe('PaletteController — editing a selected accidental glyph', () => {
 
   it('does not arm the stamp while an accidental is selected', () => {
     palette.setAccidental('b')
-    expect(state.selectedAccidentalTool).toBeNull()
+    expect(armedTool(state, 'accidental')).toBeNull()
     expect(state.selectedTool).toBe('selection')
   })
 })
@@ -903,7 +991,7 @@ describe('PaletteController — editing a selected articulation group', () => {
     palette.toggleStaccato()
     expect(arts['n1'].sort()).toEqual(['accent', 'staccato'])
     expect(state.selectedArticulationNoteId).toBe('n1') // still selected
-    expect(state.selectedArticulationTools).toEqual([]) // did NOT arm the stamp
+    expect(armedTool(state, 'articulation')).toBeNull() // did NOT arm the stamp
   })
 
   it('removes an articulation the group has; the group stays selected while others remain', () => {
@@ -922,7 +1010,7 @@ describe('PaletteController — editing a selected articulation group', () => {
 
   it('does not arm the stamp while an articulation group is selected', () => {
     palette.toggleTenuto()
-    expect(state.selectedArticulationTools).toEqual([])
+    expect(armedTool(state, 'articulation')).toBeNull()
     expect(state.selectedTool).toBe('selection')
   })
 })

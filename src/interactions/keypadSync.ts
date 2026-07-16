@@ -26,9 +26,15 @@ export function noNoteInSelection(state: EditorState): boolean {
  * exactly what removes them. Mirrors how a selected accidental lights its own key.
  */
 export function dotHighlight(state: EditorState): 'dot' | null {
-  // The armed STAMP is the active gesture — light the key for it, as the armed articulation set
-  // lights during its stamp. Ahead of the reads below, which see the (cleared) note selection.
-  if (state.selectedDotTool) return 'dot'
+  // A marking tool is armed → the ARMED GESTURE is the only thing the Keypad shows. The dot stamp
+  // lights its own key; every other tool darkens it, because no dot is in play while a clef is
+  // waiting to be placed. Ahead of the reads below, which would see the (cleared) note selection.
+  //
+  // This gate belongs HERE, not at the caller: `dotHighlight` is the RULE, and the Vue palette's own
+  // button computeds read it too — gating it in keypadSync.sync() alone would light the Vue dot
+  // button under an armed clef while the Keypad's stayed dark.
+  const armed = state.selectedMarkingTool
+  if (armed) return armed.kind === 'dot' ? 'dot' : null
   if (state.selectedDotNoteId) return 'dot'
   return noNoteInSelection(state) || state.selectedDots < 1 ? null : 'dot'
 }
@@ -62,29 +68,26 @@ export function wireKeypadSync(
     // The Select arrow lights whenever the editor is in selection mode — from ANY source (toolbar,
     // Esc, mouse, or the arrow), because this runs on the state's own change-notification.
     modeSelection.setHighlight(state.selectedTool === 'selection' ? 'selection' : null)
-    // The articulation stamp tool arms into entry mode, but it is a pure articulation gesture — no
-    // note is being entered — so the note-entry keys (duration / accidental / dot) must NOT light;
-    // only the armed articulation does (via refreshArticulationSelection below). Without this the
-    // duration key would light the moment you arm the stamp, reading as "a note will be placed".
-    const artStamping = state.selectedArticulationTools.length > 0
-    const accStamping = state.selectedAccidentalTool !== null
-    const tieStamping = state.selectedTieTool
-    const dotStamping = state.selectedDotTool
-    const stamping = artStamping || accStamping || tieStamping || dotStamping
-    durationSelection.setHighlight(stamping || noNoteInSelection(state) ? null : state.selectedDuration)
-    // While the accidental stamp is armed, light the ARMED accidental (it's the active gesture);
-    // when a standalone accidental glyph is selected in the score, light THAT accidental (so it can
-    // be changed/removed from the Keypad); otherwise fall back to the note-entry / selected-note
-    // accidental — but never during an articulation or tie stamp (no accidental is in play then).
+    // ANY marking tool arms into entry mode but enters NO NOTE, so the note-entry keys (duration /
+    // accidental / dot / articulation) must not light while one is live — only the armed gesture
+    // does. Otherwise the Keypad says "a quarter note is about to be entered" while what is really
+    // armed is a clef. This used to test a list of the four STAMP kinds, which let the clef / time
+    // signature / dynamic / tempo tools light the note-entry keys; the list encoded no real
+    // distinction — every marking tool has this property — so there is no list any more.
+    const armed = state.selectedMarkingTool
+    durationSelection.setHighlight(armed || noNoteInSelection(state) ? null : state.selectedDuration)
+    // While the accidental stamp is armed, light the ARMED sign (it's the active gesture); when a
+    // standalone accidental glyph is selected in the score, light THAT one (so it can be
+    // changed/removed from the Keypad); otherwise fall back to the note-entry / selected-note
+    // accidental — but never under another tool, where no accidental is in play.
     accidentalSelection.setHighlight(
-      accStamping ? state.selectedAccidentalTool
+      armed?.kind === 'accidental' ? armed.sign
       : state.selectedAccidentalNoteId ? accidentalTypeToKey(state.selectedAccidentalType)
-      : artStamping || tieStamping || dotStamping || noNoteInSelection(state) ? null
+      : armed || noNoteInSelection(state) ? null
       : state.selectedAccidental
     )
-    // NOT gated on `stamping`: the dot key is the one that lights during a DOT stamp (dotHighlight
-    // reads the tool). The other stamps still darken it.
-    dotSelection.setHighlight(artStamping || accStamping || tieStamping ? null : dotHighlight(state))
+    // No gate needed: dotHighlight owns the whole rule, armed tool included.
+    dotSelection.setHighlight(dotHighlight(state))
     // Engine-derived highlights (articulations are a SET, tie reads tiedTo): read live, not from a
     // reactive field, so they can't be mirrored — recompute and push on any change.
     palette.refreshArticulationSelection()

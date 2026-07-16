@@ -226,7 +226,7 @@
               :key="c"
               :class="[
                 'px-3 py-1 rounded text-lg font-bold leading-none',
-                state.selectedClef === c
+                armedTool(state, 'clef')?.clef === c
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -283,7 +283,7 @@
               :key="d"
               :class="[
                 'px-2 py-1 rounded text-sm italic font-bold leading-none',
-                state.selectedDynamic === d
+                armedTool(state, 'dynamic')?.dynamic === d
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -295,7 +295,7 @@
             <button
               :class="[
                 'px-2 py-1 rounded text-sm leading-none',
-                state.selectedDynamic === 'text'
+                armedTool(state, 'dynamic')?.dynamic === 'text'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
@@ -727,7 +727,7 @@ import { MusicEngine } from './engine/MusicEngine'
 // ⚠️ TEMPORARY dev-only sound picker — remove when a real instrument model lands.
 import { DEV_SOUNDS } from './engine/audio/WebAudioFontInstrument'
 import { VIEWPORT_HEIGHT } from './engine/rendering/VexFlowRenderer'
-import { createObservableEditorState } from './interactions/EditorState'
+import { createObservableEditorState, armedTool } from './interactions/EditorState'
 import type { TempoTool } from './interactions/EditorState'
 import type { NoteDuration } from './types/music'
 import { useHighlight } from './composables/useHighlight'
@@ -930,7 +930,7 @@ const timeSignaturePresets = [
 ] as const
 
 function isTimeSignatureArmed(ts: { numerator: number; denominator: number }): boolean {
-  const sel = state.selectedTimeSignature
+  const sel = armedTool(state, 'timeSignature')?.timeSignature
   return !!sel && sel.numerator === ts.numerator && sel.denominator === ts.denominator
 }
 
@@ -977,7 +977,7 @@ const metronomePreview = computed(() => {
 
 /** Is this exact preset the one currently armed? (Mirrors PaletteController.sameTempoTool.) */
 function isTempoArmed(tool: TempoTool): boolean {
-  const armed = state.selectedTempo
+  const armed = armedTool(state, 'tempo')?.tempo
   if (!armed) return false
   return armed.text === tool.text && armed.unit === tool.unit && armed.dots === tool.dots
     && armed.bpm === tool.bpm && armed.showMetronome === tool.showMetronome
@@ -1034,7 +1034,7 @@ function applyCustomTimeSignature(): void {
 
 /** True when a custom (non-preset) meter is currently armed. */
 const isCustomTimeSignatureArmed = computed(() => {
-  const sel = state.selectedTimeSignature
+  const sel = armedTool(state, 'timeSignature')?.timeSignature
   if (!sel) return false
   return !timeSignaturePresets.some(p => p.numerator === sel.numerator && p.denominator === sel.denominator && !sel.grouping)
 })

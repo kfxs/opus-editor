@@ -2,7 +2,7 @@ import type { ArticulationType, PitchSpelling, Fraction, SlurSegmentAddress } fr
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry, ElementType } from '../engine/ElementRegistry'
 import type { EditorState } from './EditorState'
-import { activeVoiceToModel } from './EditorState'
+import { activeVoiceToModel, armedTool } from './EditorState'
 import { tempoLabel } from '../utils/tempoMap'
 import { tempoFieldsFromTool } from '../utils/tempoText'
 import { TempoTextSource } from './TempoTextSource'
@@ -1392,8 +1392,8 @@ export class MouseController {
    * Propagation + rest reconcile are handled by the engine.
    */
   private placeTimeSignatureAtClick(engine: MusicEngine, measureNum: number): boolean {
-    if (!this.state.selectedTimeSignature) return false
-    const ts = this.state.selectedTimeSignature
+    const ts = armedTool(this.state, 'timeSignature')?.timeSignature
+    if (!ts) return false
     try {
       const changed = engine.setTimeSignature(measureNum, ts)
       console.log(changed
@@ -1412,13 +1412,14 @@ export class MouseController {
    * inline mid-measure clef before that slot).
    */
   private placeClefAtClick(engine: MusicEngine, x: number, y: number, measureNum: number): boolean {
-    if (!this.state.selectedClef) return false
+    const clef = armedTool(this.state, 'clef')?.clef
+    if (!clef) return false
     const beat = this.resolveSlotBeat(engine, x, measureNum)
     // Anchor the clef to the staff the click landed on (else it changes staff 0's clef).
     const staff = engine.getElementRegistry().staffIndexAtY(measureNum, y)
-    const changed = engine.setClefAt(measureNum, beat, this.state.selectedClef, staff)
+    const changed = engine.setClefAt(measureNum, beat, clef, staff)
     console.log(changed
-      ? `✓ Clef set | ${this.state.selectedClef} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`
+      ? `✓ Clef set | ${clef} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`
       : `Clef unchanged at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
     this.render.renderScore()
     return true
@@ -1437,8 +1438,8 @@ export class MouseController {
    * voice) instead of the literal 0; the timeline math needs no rework.
    */
   private placeDynamicAtClick(engine: MusicEngine, x: number, y: number, measureNum: number): boolean {
-    if (!this.state.selectedDynamic) return false
-    const tool = this.state.selectedDynamic
+    const tool = armedTool(this.state, 'dynamic')?.dynamic
+    if (!tool) return false
     const beat = this.resolveSlotBeat(engine, x, measureNum)
     // Anchor the mark to the STAFF the click landed on (else it renders on staff 0).
     const staff = engine.getElementRegistry().staffIndexAtY(measureNum, y)
@@ -1467,8 +1468,8 @@ export class MouseController {
    * The armed preset carries the word/unit/bpm; the click supplies only the beat.
    */
   private placeTempoAtClick(engine: MusicEngine, x: number, measureNum: number): boolean {
-    if (!this.state.selectedTempo) return false
-    const tool = this.state.selectedTempo
+    const tool = armedTool(this.state, 'tempo')?.tempo
+    if (!tool) return false
     const beat = this.resolveSlotBeat(engine, x, measureNum)
     // The TOOL is a form (word? metronome? bracketed?); the MARK is the text that form produces.
     // `tempoFieldsFromTool` is the one place the two meet — from then on the string is the truth,
@@ -1492,8 +1493,8 @@ export class MouseController {
    * (the click is ours either way).
    */
   private stampArticulationAtClick(engine: MusicEngine, registry: ElementRegistry, x: number, y: number): boolean {
-    const types = this.state.selectedArticulationTools
-    if (types.length === 0) return false
+    const types = armedTool(this.state, 'articulation')?.types
+    if (!types?.length) return false
 
     const el = registry.findClosestNoteOrRest(x, y)
     if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
@@ -1527,8 +1528,8 @@ export class MouseController {
    * while the tool is armed (returns true) so a near-miss doesn't fall through to note entry.
    */
   private stampAccidentalAtClick(engine: MusicEngine, registry: ElementRegistry, x: number, y: number): boolean {
-    const accidental = this.state.selectedAccidentalTool
-    if (accidental === null) return false
+    const accidental = armedTool(this.state, 'accidental')?.sign
+    if (!accidental) return false
 
     const el = registry.findClosestNoteOrRest(x, y)
     if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
@@ -1561,7 +1562,7 @@ export class MouseController {
    * the tool is armed (returns true) so a near-miss doesn't fall through to note entry.
    */
   private stampTieAtClick(engine: MusicEngine, registry: ElementRegistry, x: number, y: number): boolean {
-    if (!this.state.selectedTieTool) return false
+    if (!armedTool(this.state, 'tie')) return false
 
     const el = registry.findClosestNoteOrRest(x, y)
     if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
@@ -1597,7 +1598,7 @@ export class MouseController {
    * back to 0 rather than throwing, so report what actually happened instead of assuming.
    */
   private stampDotAtClick(engine: MusicEngine, registry: ElementRegistry, x: number, y: number): boolean {
-    if (!this.state.selectedDotTool) return false
+    if (!armedTool(this.state, 'dot')) return false
 
     const el = registry.findClosestNoteOrRest(x, y)
     if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {

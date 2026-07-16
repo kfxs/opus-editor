@@ -159,6 +159,41 @@ describe('reactive(proxy) composition — the gate', () => {
     expect(fn).toHaveBeenCalledWith('selectedNoteId')
   })
 
+  /**
+   * `selectedMarkingTool` is the first OBJECT-valued field on the state — the eight armed-tool flags
+   * collapsed into one union value. The emitting Proxy traps a SET on the field, so arming emits and
+   * the Keypad follows; but a mutation INSIDE the value (`tool.clef = 'bass'`) would be invisible to
+   * it, and the Keypad would silently go stale. Every write site reassigns the whole field, which is
+   * what these lock in.
+   */
+  it('(6) arming a tool fires BOTH the plain-TS subscriber and Vue — from one assignment', async () => {
+    const { state, subscribe } = wrap()
+    const emitted: (keyof EditorState)[] = []
+    subscribe((k) => emitted.push(k))
+    const seen: (string | undefined)[] = []
+    watch(() => state.selectedMarkingTool?.kind, (k) => seen.push(k))
+
+    state.selectedMarkingTool = { kind: 'clef', clef: 'bass' }
+    await nextTick()
+    state.selectedMarkingTool = { kind: 'tie' } // arming another REPLACES it — no clearing needed
+    await nextTick()
+    state.selectedMarkingTool = null
+    await nextTick()
+
+    expect(emitted).toEqual(['selectedMarkingTool', 'selectedMarkingTool', 'selectedMarkingTool'])
+    expect(seen).toEqual(['clef', 'tie', undefined])
+  })
+
+  it('(6b) the payload survives both proxies intact', () => {
+    const { state } = wrap()
+    state.selectedMarkingTool = { kind: 'articulation', types: ['accent', 'staccato'] }
+    const tool = state.selectedMarkingTool
+    expect(tool?.kind).toBe('articulation')
+    // Narrowing still works through the double proxy — the union is the point.
+    if (tool?.kind === 'articulation') expect(tool.types).toEqual(['accent', 'staccato'])
+    else throw new Error('expected the articulation tool to narrow')
+  })
+
   it('(5b) has / deleteProperty fall through untrapped without throwing', async () => {
     const { state } = wrap()
     expect('selectedNoteId' in state).toBe(true)

@@ -97,6 +97,7 @@ should only translate Vue reactivity/events to controller calls and back.
 | Letter-key note entry, chord/rest entry | `interactions/KeyboardController.ts` |
 | The selection set, multi-select, keyboard nav | `interactions/SelectionController.ts` |
 | Which tool/duration/accidental is armed | `interactions/PaletteController.ts` |
+| Adding a 9th marking tool (clef/dynamic/stamp/…) | `EditorState.MarkingTool` + build: the compiler names every site — see `docs/marking-tools.md` |
 | How notation is drawn to SVG | `engine/rendering/VexFlowRenderer.ts` |
 | Hit-testing / "what element is at (x,y)" | `engine/ElementRegistry.ts` |
 | Pixel ↔ beat/pitch conversion | `engine/rendering/CoordinateMapper.ts` (+ `ElementRegistry`) |
