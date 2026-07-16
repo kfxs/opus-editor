@@ -306,7 +306,7 @@ export function createTupletsForMeasure(
           notesOccupied: tupletData.notesOccupied,
         })
         vexTuplets.set(tupletId, vexTuplet)
-      } catch (e) {
+      } catch (_e) {
         // Ignore tuplet creation errors
       }
     }

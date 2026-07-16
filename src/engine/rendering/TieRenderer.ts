@@ -223,7 +223,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                     bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
                   })
                 }
-              } catch (e) {
+              } catch (_e) {
                 // getBoundingBox may fail
               }
 
@@ -253,7 +253,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                     bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
                   })
                 }
-              } catch (e) {
+              } catch (_e) {
                 // getBoundingBox may fail
               }
             }

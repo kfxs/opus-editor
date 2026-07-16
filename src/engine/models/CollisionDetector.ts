@@ -1,4 +1,4 @@
-import type { Note, NoteParams, Measure, TimeSignature } from '@/types/music'
+import type { Note, NoteParams, Measure, TimeSignature, NoteDuration } from '@/types/music'
 import { durationToBeats, getMeasureDuration, measureCapacityQuarters } from '@/utils/musicUtils'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import { fracAdd, fracCompare, fracEq, fracGt, fracGte, fracLt, fracToNumber, fracCreate } from '@/utils/fraction'
@@ -132,7 +132,7 @@ export class CollisionDetector {
     existingNotes: Note[],
     startFromBeat: number = 0,
   ): number | null {
-    const noteDuration = durationToBeats(duration as any)
+    const noteDuration = durationToBeats(duration as NoteDuration)
     const measureDuration = measureCapacityQuarters(measure)
 
     const sortedNotes = [...existingNotes].sort((a, b) => fracCompare(a.beat, b.beat))

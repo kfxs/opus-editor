@@ -218,7 +218,7 @@ export function drawTempoMarks(
     if (!mark.text) continue // nothing printed (a mark that only sounds)
 
     const y = stave.getYForTopText(1)
-    let x = anchorX(mark, slots, staveNotes, stave)
+    const x = anchorX(mark, slots, staveNotes, stave)
 
     // OUR group, carrying the mark's id → '#vf-<id>', which is what the registry bbox, the
     // selection highlight and the text-edit overlay all address it by.

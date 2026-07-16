@@ -196,6 +196,6 @@ export function registerDynamics(pass: RenderPass, measure: Measure): void {
           bbox: { x: box.x, y: box.y, width: box.width, height: box.height },
         })
       }
-    } catch (e) { /* getBBox may fail before layout in some envs */ }
+    } catch (_e) { /* getBBox may fail before layout in some envs */ }
   }
 }

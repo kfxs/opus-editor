@@ -1,5 +1,4 @@
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { TempoMark } from '../types/music'
 import type { EditableTextSource } from './TextEditController'
 import { parseTempoText } from '../utils/tempoText'
 import { MIN_BPM, MAX_BPM } from '../utils/tempoMap'

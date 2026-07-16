@@ -67,7 +67,7 @@ export class NoteEntryCoordinator {
     if (!targetMeasure) return null
 
     // Detect tuplet context: auto-assign tupletId and snap beat if this beat falls inside a tuplet
-    let finalBeatFrac = params.beat
+    const finalBeatFrac = params.beat
     let tupletId = params.tupletId
     const tupletAtBeat = tupletId
       ? (targetMeasure.tuplets || []).find(t => t.id === tupletId)

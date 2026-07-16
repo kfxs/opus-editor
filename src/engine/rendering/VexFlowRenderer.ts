@@ -1,8 +1,9 @@
 import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet } from 'vexflow'
+import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
-import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark } from '@/types/music'
+import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { beatToFrac, measureCapacityFrac } from '@/utils/musicUtils'
@@ -161,7 +162,7 @@ interface MeasureSnapshot {
 
 export class VexFlowRenderer {
   private renderer: Renderer | null = null
-  private context: any = null
+  private context: SVGContext | null = null
   private readonly svgContainer: HTMLElement
   /** Stored bounds for each rendered measure (keyed by measure number) */
   private measureBounds: Map<number, MeasureBounds> = new Map()
@@ -393,7 +394,7 @@ export class VexFlowRenderer {
   private createRenderPass(score: Score): RenderPass {
     return {
       score,
-      context: this.context,
+      context: this.context!,
       staveNoteMap: this.staveNoteMap,
       tupletObjectMap: this.tupletObjectMap,
       dynamicObjectMap: this.dynamicObjectMap,
@@ -419,11 +420,12 @@ export class VexFlowRenderer {
     // Create VexFlow SVG renderer
     this.renderer = new Renderer(this.svgContainer as HTMLDivElement, Renderer.Backends.SVG)
     this.renderer.resize(width, height)
-    this.context = this.renderer.getContext()
+    this.context = this.renderer.getContext() as SVGContext
 
     // Disable save/restore to avoid structuredClone issues with Vue reactivity
-    this.context.save = () => {}
-    this.context.restore = () => {}
+    const ctx = this.context as unknown as { save: () => void; restore: () => void }
+    ctx.save = () => {}
+    ctx.restore = () => {}
   }
 
   /**
@@ -485,7 +487,7 @@ export class VexFlowRenderer {
             bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
           })
         }
-      } catch (e) { /* getBoundingBox may fail */ }
+      } catch (_e) { /* getBoundingBox may fail */ }
     }
   }
 
@@ -582,7 +584,7 @@ export class VexFlowRenderer {
           // No stem (whole note or rest) - use default
           stemsDown++
         }
-      } catch (e) {
+      } catch (_e) {
         // getStem may fail for rests
         stemsDown++
       }
@@ -984,9 +986,9 @@ export class VexFlowRenderer {
         }
 
         for (const b of built) {
-          b.voice.draw(this.context, stave)
+          b.voice.draw(this.context!, stave)
           for (const beam of b.beams) {
-            beam.setContext(this.context).draw()
+            beam.setContext(this.context!).draw()
           }
         }
 
@@ -1019,7 +1021,7 @@ export class VexFlowRenderer {
           try {
             const box = clefNote.getBoundingBox()
             if (box) clefSegments.push({ fromX: box.x, clef: segClef })
-          } catch (e) { /* getBoundingBox may fail */ }
+          } catch (_e) { /* getBoundingBox may fail */ }
         }
         clefSegments.sort((a, b) => a.fromX - b.fromX)
       } catch (error) {
@@ -1292,8 +1294,12 @@ export class VexFlowRenderer {
         for (const [tupletId, { staveNotes: tStaveNotes, tuplet: tupletData, voice }] of tupletStaveNoteMap) {
           if (!tStaveNotes.includes(tupletNotes[0])) continue
 
-          const vt = vexTuplet as any
-          const notes = vt.notes as StaveNote[]
+          const vt = vexTuplet as unknown as {
+            notes: StaveNote[]
+            options: { location?: number; bracketed?: boolean; yOffset?: number; textYOffset?: number }
+            textElement?: { getHeight?: () => number }
+          }
+          const notes = vt.notes
           const firstNote = notes?.[0]
           const lastNote = notes?.[notes.length - 1]
           if (!firstNote || !lastNote) break
@@ -1366,7 +1372,7 @@ export class VexFlowRenderer {
           this.tupletObjectMap.set(tupletId, vexTuplet)
           break
         }
-      } catch (e) {
+      } catch (_e) {
         // Drawing or getBoundingBox may fail
       }
     }
@@ -1399,7 +1405,7 @@ export class VexFlowRenderer {
             // Add rest to staveNoteMap so ties pointing to this rest can be rendered
             this.staveNoteMap.set(slot.id, { staveNote, noteIndex: 0 })
           }
-        } catch (e) { /* getBoundingBox may fail */ }
+        } catch (_e) { /* getBoundingBox may fail */ }
       } else {
         try {
           const box = staveNote.getBoundingBox()
@@ -1415,7 +1421,7 @@ export class VexFlowRenderer {
             let headCenterX: number | undefined
             try {
               headCenterX = (staveNote.getNoteHeadBeginX() + staveNote.getNoteHeadEndX()) / 2
-            } catch (e) { /* not available before draw */ }
+            } catch (_e) { /* not available before draw */ }
 
             for (let keyIndex = 0; keyIndex < sortedPitches.length; keyIndex++) {
               const pitch = sortedPitches[keyIndex]
@@ -1465,7 +1471,7 @@ export class VexFlowRenderer {
                       articulationIndex++
                     }
                   }
-                } catch (e) { /* Articulation bounding box may not be available */ }
+                } catch (_e) { /* Articulation bounding box may not be available */ }
               }
 
               // Register whatever accidental VexFlow actually drew — including a
@@ -1478,8 +1484,9 @@ export class VexFlowRenderer {
                   for (const modifier of modifiers) {
                     if (modifier.getCategory() === 'Accidental') {
                       const accidental = modifier as Accidental
-                      if ((accidental as any).index === keyIndex ||
-                          (accidental as any).note_index === keyIndex ||
+                      const accInternal = accidental as unknown as { index?: number; note_index?: number }
+                      if (accInternal.index === keyIndex ||
+                          accInternal.note_index === keyIndex ||
                           modifiers.filter(m => m.getCategory() === 'Accidental').indexOf(modifier) === keyIndex) {
                         const accBox = accidental.getBoundingBox()
                         if (accBox) {
@@ -1500,11 +1507,11 @@ export class VexFlowRenderer {
                       }
                     }
                   }
-                } catch (e) { /* Accidental bounding box may not be available */ }
+                } catch (_e) { /* Accidental bounding box may not be available */ }
               }
             }
           }
-        } catch (e) { /* getBoundingBox may fail */ }
+        } catch (_e) { /* getBoundingBox may fail */ }
       }
     }
   }
@@ -1520,7 +1527,7 @@ export class VexFlowRenderer {
             bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
           })
         }
-      } catch (e) { /* getBoundingBox may fail */ }
+      } catch (_e) { /* getBoundingBox may fail */ }
     }
   }
 
@@ -1572,7 +1579,7 @@ export class VexFlowRenderer {
         noteEndX: stave.getNoteEndX(),
         clef,
       })
-    } catch (e) { /* getBoundingBox or getYForLine may fail */ }
+    } catch (_e) { /* getBoundingBox or getYForLine may fail */ }
 
     // Register the opening clef (beat 0) when a clef glyph is drawn at the
     // measure start: at line starts (full clef) or mid-line clef changes (smaller
@@ -2116,7 +2123,7 @@ export class VexFlowRenderer {
       tempStave.setContext(this.context!)
 
       const vexNote = spellingToVexflowKey(ghostNote.step, ghostNote.alter, ghostNote.octave)
-      const vexDuration = convertDuration(ghostNote.duration as any, ghostNote.dots || 0)
+      const vexDuration = convertDuration(ghostNote.duration as NoteDuration, ghostNote.dots || 0)
 
       // Stem direction — same diatonic approach as createStaveNotesFromSlots.
       // Include any existing notes at the same beat so the ghost matches the chord's stem.
@@ -2178,7 +2185,7 @@ export class VexFlowRenderer {
         return sn
       }
 
-      const tickables: any[] = []
+      const tickables: StaveNote[] = []
       for (const r of fillRests(fracCreate(0, 1), noteStart, meter)) tickables.push(makeRest(r))
       tickables.push(staveNote)
       for (const r of fillRests(noteEnd, measureCapacityFrac(measure), meter)) tickables.push(makeRest(r))
@@ -2208,7 +2215,7 @@ export class VexFlowRenderer {
         try {
           const noteX = staveNote.getAbsoluteX()
           targetShiftX = ghostNote.rawX - noteX
-        } catch (e) {
+        } catch (_e) {
           // getAbsoluteX might not be available before draw
         }
       }
@@ -2683,7 +2690,7 @@ export class VexFlowRenderer {
       }
 
       return true
-    } catch (e) {
+    } catch (_e) {
       return false
     }
   }
@@ -2730,7 +2737,7 @@ export class VexFlowRenderer {
       }
 
       return true
-    } catch (e) {
+    } catch (_e) {
       return false
     }
   }
@@ -2868,7 +2875,7 @@ export class VexFlowRenderer {
       }
 
       return true
-    } catch (e) {
+    } catch (_e) {
       return false
     }
   }
@@ -2950,7 +2957,7 @@ export class VexFlowRenderer {
       const dy = cursorY - (gbox.y + gbox.height / 2) - CURSOR_GAP_PX
       group.setAttribute('transform', `translate(${dx}, ${dy})`)
       return true
-    } catch (e) {
+    } catch (_e) {
       return false
     }
   }

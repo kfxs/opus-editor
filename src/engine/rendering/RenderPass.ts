@@ -1,4 +1,4 @@
-import type { StaveNote, Annotation, Tuplet as VexFlowTuplet } from 'vexflow'
+import type { StaveNote, Annotation, Tuplet as VexFlowTuplet, SVGContext } from 'vexflow'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { Score } from '@/types/music'
 import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
@@ -29,7 +29,7 @@ export interface RenderPass {
    *  vertical shifts; see docs/rest-shift-plan.md §6.8). */
   score: Score
   /** The VexFlow SVG rendering context for this pass (rebuilt by `initialize`). */
-  context: any
+  context: SVGContext
   /** Note/rest id → its rendered StaveNote (+ chord-head index), for ties & slurs. */
   staveNoteMap: Map<string, { staveNote: StaveNote; noteIndex: number }>
   /** Tuplet id → its rendered VexFlow Tuplet, for scoped highlight. */

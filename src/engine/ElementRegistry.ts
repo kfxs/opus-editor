@@ -309,7 +309,7 @@ export function offsetStaffGeometry(geometry: StaffGeometry, dx: number, dy: num
 }
 
 /** Diatonic step names in order C=0…B=6 */
-const DIATONIC_STEPS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const
+type DiatonicStep = 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B'
 
 /**
  * Registry that tracks all rendered elements
@@ -560,7 +560,7 @@ export class ElementRegistry {
     // since we only produce natural notes here, just compute step+octave from MIDI
     const pc = clampedMidi % 12
     const oct = Math.floor(clampedMidi / 12) - 1
-    const WHITE_KEY_PC_TO_STEP: Partial<Record<number, typeof DIATONIC_STEPS[number]>> = {
+    const WHITE_KEY_PC_TO_STEP: Partial<Record<number, DiatonicStep>> = {
       0: 'C', 2: 'D', 4: 'E', 5: 'F', 7: 'G', 9: 'A', 11: 'B',
     }
     const step = WHITE_KEY_PC_TO_STEP[pc]
