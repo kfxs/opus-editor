@@ -41,7 +41,37 @@ neither: it is **a length**, and a length is the one thing the note-entry keys a
   **attach line** for whole/half rests: they are the same rectangle, and *hangs from* vs *sits on* a
   line is all that distinguishes them — invisible on a ghost floating free of the staff.
 - **Capped at the barline**, never split: a note that overflows splits and ties, which a rest cannot
-  do (`fitRestDuration`). The leftover closes up as rests via the meter-aware fill.
+  do (`fitRestDuration`). The trim takes the **longest value that fits, single dot included** — three
+  beats left is a dotted half, not a half and a quarter — and knows nothing about meter, so no time
+  signature needs a case of its own.
+
+### It is the only tool with a KEYBOARD half — SPACE types rests
+
+Arm it in keyboard entry and **SPACE lays the armed rest at the caret and moves on**, like a
+typewriter's space bar (`KeyboardController.enterArmedRestAtCursor`). Hold it and rests type out; at a
+barline the rest trims to fit and the caret rolls into the next measure. The armed length is *not*
+consumed — SPACE again types the same rest.
+
+The mouse stamp and SPACE share `fitRestDuration`, so what a barline does to a rest is **one answer,
+not two**. Everything else about the tool follows from "a caret is not a selection":
+
+- **Arming keeps the caret.** `selectedNoteId` is the selection anchor in selection mode and the
+  CARET in entry mode; arming clears a *selection*, so from entry mode it leaves the caret alone. You
+  leave keyboard entry by **placing** something — the stamp click drops the caret, arming does not.
+- **Disarming returns you where you came from**: caret up ⇒ back to keyboard entry (not selection
+  mode, which lit `0` straight back up — a caret note that IS a rest reads as "a rest is selected", so
+  the tool looked undisarmable while it was disarming every time).
+- **Typing a note disarms it.** The lit key claims what the next thing entered will be; a letter
+  settles that. Keeps the armed length — the quarter you were resting is the quarter you now note.
+- **Arming clears the note-entry extras** (accidental, articulations, beam): a rest is a length and
+  nothing else. The Keypad already darkened those keys; clearing makes the dark keys TRUE rather than
+  a mask, since the values were sitting in the state waiting to land on the next note.
+
+⚠️ **A cap is not a choice.** Moving the caret syncs the palette to the note it lands on, which is
+right for a selection and wrong for a barline-trimmed one — the trim would silently become the armed
+length. Both entry paths hold the armed length across the placement. That is a patch in two places
+for one rule; see `docs/caret-is-not-a-selection-plan.md` for the general fix (and the live bug it
+also repairs).
 
 ## Why one field
 

@@ -150,6 +150,18 @@ thinks the bar changed, and it decides that from two cache keys. Answer three qu
 Yes → it belongs in the **width key** (`laneFingerprint`, in `MeasureWidthCache.ts`). An accidental
 does. A hairpin does not.
 
+> ⚠️ "Belongs in the width key" is not the same as "will widen the bar", and measuring the second will
+> mislead you about the first. **A bar's width is `events × MIN_NOTE_SPACING` (18px an event).** That
+> floor is the real spacing rule: VexFlow's `preCalculateMinTotalWidth` suggests ~9–15px an event, too
+> tight to read, so it practically never wins the `Math.max` in `MeasureLayout.noteSpaceForLane`. The
+> consequence is worth knowing before you go bug-hunting: **glyphs do not move the width** — four
+> quarters with four accidentals measure exactly the same as four plain ones (measured). Put it in the
+> key anyway. The key's job is "did this bar change?", and over-including is merely slow while a stale
+> picture is not recoverable.
+>
+> An **event** is any slot — a rest counts exactly as a note does. It did not until `87e321e`, and a
+> bar of eight rests drew crammed into the width of an empty one.
+
 **2. Does it change how the bar LOOKS?**
 Yes → it belongs in the **shape key** (`measureShapeKey`, in `MeasureRedrawKey.ts`). Everything drawn
 does, including the weightless things. The shape key *embeds* the width key, so anything with width
