@@ -208,6 +208,16 @@ export class RenderController {
     engine.renderScoreWithTieGhost(coords)
   }
 
+  /** Render the score with a translucent ghost dot following the cursor — the preview for the armed
+   *  dot stamp tool. Valueless: the dot is on or off, so there is nothing to preview but the mark. */
+  renderDotGhost(coords: { x: number; y: number }): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    renderCensus.setCause('ghost:dot')
+    this.ensureScoreDrawn(engine)
+    engine.renderScoreWithDotGhost(coords)
+  }
+
   /** Render the score with a colored paste caret following the cursor (armed paste). */
   renderPasteCaret(coords: { x: number; y: number }): void {
     this.renderScore() // census: attributed to its caller, like any plain renderScore

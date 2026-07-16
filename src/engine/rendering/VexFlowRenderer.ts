@@ -283,7 +283,7 @@ export class VexFlowRenderer {
    * the leak.)
    */
   private static readonly GHOST_GROUP_SELECTOR =
-    '.ghost-note-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-tempo'
+    '.ghost-note-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tempo'
 
   /** Take down whatever ghost is showing. O(1) in the score's size — this is the whole point
    *  of P4: hovering an invalid element, or leaving the canvas, used to cost a FULL render
@@ -3154,6 +3154,74 @@ export class VexFlowRenderer {
         p.setAttribute('fill', '#3B82F6')
         p.setAttribute('stroke', '#3B82F6')
       })
+      return true
+    } catch (_e) {
+      return false
+    }
+  }
+
+  /**
+   * Draw ONE translucent ghost augmentation dot at the cursor — the preview for the armed dot stamp
+   * tool. Same standalone-draw approach as {@link renderScoreWithAccidentalGhost}: a `Dot` is a
+   * Modifier whose `draw()` reads its note's stave-Y (`setStave`) and formatted tick-X
+   * (`Formatter.format`) but opens no group of its own, so we attach it to a throwaway note, format,
+   * then draw ONLY the dot into OUR `vf-`-prefixed group (`.vf-ghost-dot`, in
+   * {@link GHOST_GROUP_SELECTOR}) — the note itself is never drawn. Valueless: the dot is on or off,
+   * so there is nothing to stack or swap.
+   * @returns true if a ghost dot was drawn
+   */
+  renderScoreWithDotGhost(cursorX: number, cursorY: number): boolean {
+    this.clearGhosts() // an overlay — take the old ghost down, leave the score alone
+
+    const svg = this.getSVGElement()
+    if (!svg || !this.context) return false
+
+    try {
+      const tempStave = new Stave(0, cursorY, 200)
+      tempStave.setBegBarType(Barline.type.NONE)
+      tempStave.setEndBarType(Barline.type.NONE)
+      tempStave.setContext(this.context)
+
+      const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
+      note.setStave(tempStave) // populates note.ys (what Dot.draw reads for its Y)
+      Dot.buildAndAttach([note], { all: true })
+      const dot = note.getModifiers().find(m => m.getCategory() === 'Dot')
+      if (!dot) return false
+
+      const voice = new Voice({ numBeats: 1, beatValue: 4 })
+      voice.setStrict(false)
+      voice.addTickables([note])
+      new Formatter().joinVoices([voice]).format([voice], 150) // sets the note's tick X position
+      note.setStave(tempStave)
+
+      const group = this.context.openGroup('ghost-dot') as SVGGElement
+      try {
+        dot.setContext(this.context).draw()
+      } finally {
+        this.context.closeGroup()
+      }
+
+      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
+      if (!gbox || gbox.width === 0) {
+        group.remove()
+        return false
+      }
+
+      // Paint it ghost blue at 0.7 opacity — a preview, not yet content (mirrors the other ghosts).
+      group.setAttribute('opacity', '0.7')
+      group.querySelectorAll('text, path').forEach(el => {
+        if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
+      })
+
+      // Park it clear of the pointer, to the RIGHT and slightly up, rather than centred on it: a dot
+      // is ~3px, so the arrow would simply cover it (the arrow's body extends down-right from its
+      // tip). Same reason the articulation ghost lifts by CURSOR_GAP_PX and the tie starts right of
+      // the cursor. It also reads the way the stamp works — the dot lands to the right of the head.
+      const GAP_X = 10
+      const LIFT_Y = 4
+      const dx = cursorX + GAP_X - (gbox.x + gbox.width / 2)
+      const dy = cursorY - LIFT_Y - (gbox.y + gbox.height / 2)
+      group.setAttribute('transform', `translate(${dx}, ${dy})`)
       return true
     } catch (_e) {
       return false

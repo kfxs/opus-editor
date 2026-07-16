@@ -1381,6 +1381,7 @@ export class MouseController {
     if (this.stampArticulationAtClick(engine, registry, x, y)) return
     if (this.stampAccidentalAtClick(engine, registry, x, y)) return
     if (this.stampTieAtClick(engine, registry, x, y)) return
+    if (this.stampDotAtClick(engine, registry, x, y)) return
 
     // No marking tool armed → note/tuplet entry.
     this.placeNoteAtClick(engine, registry, x, y, measureNum)
@@ -1581,6 +1582,41 @@ export class MouseController {
     // siblings (one click = one undo) and is what marks the model dirty for the repaint.
     engine.runBatch('Add tie', () => engine.toggleTie(noteId))
     console.log(`✓ Tie stamped | from note ${noteId}`)
+    this.render.renderScore()
+    return true
+  }
+
+  /**
+   * Dot stamp tool: a click DOTS the note clicked. Mirrors its siblings — same note-body hit-test,
+   * one `runBatch` = one undo, IDEMPOTENT (an already-dotted note is a no-op, since a stamp only
+   * ever adds; removal is Delete or the Keypad with the dots selected).
+   *
+   * The one stamp that ALSO applies to RESTS: a rest takes a dot exactly as a note does, so there is
+   * no `isRest` guard here. Dotting can still be REFUSED when it does not fit (a dotted rest needs
+   * 3 beats where 2 remain, and the bar reflows around what does fit) — the model coerces `dots`
+   * back to 0 rather than throwing, so report what actually happened instead of assuming.
+   */
+  private stampDotAtClick(engine: MusicEngine, registry: ElementRegistry, x: number, y: number): boolean {
+    if (!this.state.selectedDotTool) return false
+
+    const el = registry.findClosestNoteOrRest(x, y)
+    if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
+      console.log(`· Dot stamp: click not on a note or rest — no change`)
+      return true
+    }
+    const noteId = el.id
+    const note = engine.getNote(noteId)
+    if (!note) {
+      console.log(`· Dot stamp: non-note — no change`)
+      return true
+    }
+    if (note.dots) {
+      console.log(`· Dot stamp: ${noteId} already has ${note.dots} dot(s) — no change`)
+      return true
+    }
+    engine.runBatch('Add dot', () => engine.updateNote(noteId, { dots: 1 }))
+    if (engine.getNote(noteId)?.dots) console.log(`✓ Dot stamped | on ${note.isRest ? 'rest' : 'note'} ${noteId}`)
+    else console.log(`· Dot stamp: no room to dot ${noteId} — the bar cannot hold the longer value`)
     this.render.renderScore()
     return true
   }
@@ -1908,6 +1944,14 @@ export class MouseController {
     // (see stampTieAtClick), which is where the target is resolved.
     if (this.state.selectedTieTool) {
       this.render.renderTieGhost({ x, y })
+      this.state.showCursor = false
+      return
+    }
+
+    // Dot stamp tool armed: preview the dot glyph following the cursor — not a ghost note. A click
+    // dots the hovered note or rest (see stampDotAtClick).
+    if (this.state.selectedDotTool) {
+      this.render.renderDotGhost({ x, y })
       this.state.showCursor = false
       return
     }

@@ -2037,6 +2037,10 @@ export class MusicEngine {
     return this.renderer.renderScoreWithTieGhost(coords.x, coords.y)
   }
 
+  renderScoreWithDotGhost(coords: PixelCoordinates): boolean {
+    return this.renderer.renderScoreWithDotGhost(coords.x, coords.y)
+  }
+
   /**
    * Clear the canvas
    */

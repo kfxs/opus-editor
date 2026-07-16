@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { PaletteController } from './PaletteController'
 import { createEditorState, type EditorState } from './EditorState'
+import { dotHighlight } from './keypadSync'
 
 // PaletteController is framework-agnostic; stub its callbacks.
 function makeController(state: EditorState): PaletteController {
@@ -484,6 +485,174 @@ describe('PaletteController — tie stamp tool', () => {
     palette.toggleTie()
     expect(tieSelectionFn).toHaveBeenCalledWith(['n1'])
     expect(state.selectedTieTool).toBe(false)
+  })
+})
+
+describe('PaletteController — dot stamp tool', () => {
+  let state: EditorState
+  let updateNote: ReturnType<typeof vi.fn>
+  let selectNote: ReturnType<typeof vi.fn>
+  let notes: Record<string, { id: string; isRest?: boolean; dots?: number }>
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    updateNote = vi.fn()
+    selectNote = vi.fn()
+    notes = {}
+    const fakeEngine = {
+      getNote: (id: string) => notes[id] ?? null,
+      updateNote,
+      runBatch: (_label: string, fn: () => void) => fn(),
+    } as unknown as import('../engine/MusicEngine').MusicEngine
+    palette = new PaletteController(
+      () => fakeEngine,
+      state,
+      vi.fn(),       // renderScore
+      vi.fn(),       // renderPreview
+      () => null,    // getLastMousePosition
+      selectNote as unknown as (id: string | null) => void,
+    )
+  })
+
+  it('arms the stamp (entry mode) when in selection mode with nothing selected', () => {
+    // This used to flip to entry mode with the dot armed, drawing a ghost NOTE — the same thing the
+    // articulation and accidental presses used to do before their stamps.
+    state.selectedTool = 'selection'
+    palette.toggleDot()
+    expect(state.selectedDotTool).toBe(true)
+    expect(state.selectedTool).toBe('entry')
+    expect(updateNote).not.toHaveBeenCalled()
+  })
+
+  it('arms the stamp even when a lingering cursor note sits in selectedNoteId (empty selection set)', () => {
+    state.selectedTool = 'selection'
+    state.selectedNoteId = 'cursor'
+    notes['cursor'] = { id: 'cursor' }
+    palette.toggleDot()
+    expect(state.selectedDotTool).toBe(true)
+    expect(updateNote).not.toHaveBeenCalled()
+  })
+
+  it('dots a real selection instead of arming', () => {
+    state.selectedTool = 'selection'
+    state.selectedNoteId = 'n1'
+    state.selectedItems.set('note:n1', { kind: 'note', id: 'n1' })
+    notes['n1'] = { id: 'n1' }
+    palette.toggleDot()
+    expect(updateNote).toHaveBeenCalledWith('n1', { dots: 1 })
+    expect(state.selectedDotTool).toBe(false)
+  })
+
+  it('re-pressing the dot key disarms back to selection', () => {
+    state.selectedTool = 'selection'
+    palette.toggleDot()
+    palette.toggleDot()
+    expect(state.selectedDotTool).toBe(false)
+    expect(state.selectedTool).toBe('selection')
+  })
+
+  it('is mutually exclusive with the other three stamps', () => {
+    state.selectedTool = 'selection'
+    palette.toggleDot()
+    expect(state.selectedDotTool).toBe(true)
+
+    palette.setAccidental('#')
+    expect(state.selectedDotTool).toBe(false)
+    expect(state.selectedAccidentalTool).toBe('#')
+
+    palette.toggleDot()
+    expect(state.selectedAccidentalTool).toBeNull()
+    expect(state.selectedDotTool).toBe(true)
+
+    palette.toggleAccent()
+    expect(state.selectedDotTool).toBe(false)
+
+    palette.toggleDot()
+    expect(state.selectedArticulationTools).toEqual([])
+    expect(state.selectedDotTool).toBe(true)
+
+    palette.toggleTie()
+    expect(state.selectedDotTool).toBe(false)
+    expect(state.selectedTieTool).toBe(true)
+
+    palette.toggleDot()
+    expect(state.selectedTieTool).toBe(false)
+    expect(state.selectedDotTool).toBe(true)
+  })
+
+  it('a duration press promotes the stamp into "dotted duration" note entry', () => {
+    // Unlike the tie, the dot HAS an entry-mode home (selectedDots) — so it promotes rather than
+    // just disarming, and must survive setDuration's own `selectedDots = 0` reset.
+    state.selectedTool = 'selection'
+    palette.toggleDot()
+    palette.setDuration('q')
+    expect(state.selectedDotTool).toBe(false)
+    expect(state.selectedDots).toBe(1)
+    expect(state.selectedDuration).toBe('q')
+    expect(state.selectedTool).toBe('entry')
+  })
+
+  it('a plain duration press (no stamp) still clears a stale dot', () => {
+    state.selectedTool = 'selection'
+    state.selectedDots = 1 // left over from an earlier entry session
+    palette.setDuration('8')
+    expect(state.selectedDots).toBe(0)
+  })
+
+  it('disarmPositionalTools clears the armed stamp', () => {
+    state.selectedTool = 'selection'
+    palette.toggleDot()
+    palette.disarmPositionalTools()
+    expect(state.selectedDotTool).toBe(false)
+  })
+
+  it('lights the dot key, and no articulation key, while armed', () => {
+    state.accent = true // stale from an earlier note-entry session
+    state.selectedTool = 'selection'
+    palette.toggleDot()
+    expect(dotHighlight(state)).toBe('dot')
+    expect(palette.noteHasAccent()).toBe(false)
+  })
+})
+
+describe('PaletteController — editing a selected dot', () => {
+  let state: EditorState
+  let updateNote: ReturnType<typeof vi.fn>
+  let selectNote: ReturnType<typeof vi.fn>
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    updateNote = vi.fn()
+    selectNote = vi.fn()
+    const fakeEngine = {
+      getNote: (id: string) => ({ id, dots: 1 }),
+      updateNote,
+      runBatch: (_label: string, fn: () => void) => fn(),
+    } as unknown as import('../engine/MusicEngine').MusicEngine
+    palette = new PaletteController(
+      () => fakeEngine, state, vi.fn(), vi.fn(), () => null,
+      selectNote as unknown as (id: string | null) => void,
+    )
+  })
+
+  it('removes the selected dots and does NOT arm the stamp', () => {
+    // Clicking a dot clears the note selection, so without its own branch — ordered ahead of the arm
+    // — the press would read as "nothing selected" and arm the stamp instead of editing what IS
+    // selected. Same trap as the tie's.
+    state.selectedTool = 'selection'
+    state.selectedDotNoteId = 'n1'
+    palette.toggleDot()
+    expect(updateNote).toHaveBeenCalledWith('n1', { dots: 0 })
+    expect(state.selectedDotTool).toBe(false)
+    expect(state.selectedDotNoteId).toBeNull()
+    expect(selectNote).toHaveBeenCalledWith(null) // switch-off leaves nothing selected
+  })
+
+  it('lights the dot key while the dots are selected', () => {
+    state.selectedDotNoteId = 'n1'
+    expect(dotHighlight(state)).toBe('dot')
   })
 })
 

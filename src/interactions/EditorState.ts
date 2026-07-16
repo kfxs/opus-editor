@@ -156,6 +156,16 @@ export interface EditorState {
    * into on a duration press: there is no armed entry-mode tie (see {@link tieSelection}), so a
    * duration just disarms. Mutually exclusive with the other marking tools. */
   selectedTieTool: boolean
+  /**
+   * The DOT armed as a stamp tool (false = not active). Valueless like {@link selectedTieTool} — the
+   * UI's dot is on or off (`toggleDot` is binary), so there is nothing to arm but the tool itself.
+   * Armed from selection mode with nothing selected; switches to entry mode, shows a ghost dot at
+   * the cursor, and a click dots the note clicked. Idempotent: clicking an already-dotted note does
+   * nothing. UNLIKE every other stamp it also applies to RESTS — a rest takes a dot exactly as a
+   * note does. A duration press promotes it into note entry (the "dotted quarter" flow), since
+   * unlike the tie there IS an armed entry-mode dot ({@link selectedDots}) to promote into.
+   * Mutually exclusive with the other marking tools. */
+  selectedDotTool: boolean
   tupletMode: boolean
   selectedBeam: BeamMode
 
@@ -302,6 +312,7 @@ export function createEditorState(): EditorState {
     selectedArticulationTools: [],
     selectedAccidentalTool: null,
     selectedTieTool: false,
+    selectedDotTool: false,
     tupletMode: false,
     selectedBeam: 'auto',
     selectedClef: null,

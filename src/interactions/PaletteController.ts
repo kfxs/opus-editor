@@ -192,8 +192,14 @@ export class PaletteController {
     // {@link tieSelection}) — so a duration press just disarms it and this becomes plain note entry.
     // Must run before the branches below, or the tie ghost would fight the ghost note.
     this.state.selectedTieTool = false
+    // The DOT stamp DOES have somewhere to go: `selectedDots` is the armed entry-mode dot. Promote
+    // it — "dot then quarter" becomes dotted-quarter entry — instead of letting the reset below eat
+    // it. A plain duration press still clears a stale dot, exactly as it clears a stale accidental:
+    // an intentionally armed dot arms the STAMP (→ entry mode), so it can only arrive via this flag.
+    const dotStampArmed = this.state.selectedDotTool
+    this.state.selectedDotTool = false
     this.state.selectedDuration = duration
-    this.state.selectedDots = 0
+    this.state.selectedDots = dotStampArmed ? 1 : 0
     this.state.tupletMode = false
     this.state.selectedClef = null
     this.state.selectedTimeSignature = null
@@ -262,7 +268,8 @@ export class PaletteController {
     // stamp, so the marking tools stay mutually exclusive. Must cover EVERY other stamp: they arm
     // into entry mode, so anything missed here falls through to the entry-mode branch below and
     // arms a note-entry accidental while leaving the other tool armed.
-    if (this.state.selectedArticulationTools.length > 0 || this.state.selectedTieTool) {
+    if (this.state.selectedArticulationTools.length > 0 || this.state.selectedTieTool
+      || this.state.selectedDotTool) {
       this.armAccidentalTool(accidental)
       return
     }
@@ -370,6 +377,7 @@ export class PaletteController {
     this.state.selectedAccidentalTool = accidental
     this.state.selectedArticulationTools = []
     this.state.selectedTieTool = false
+    this.state.selectedDotTool = false
     this.state.selectedClef = null
     this.state.selectedTimeSignature = null
     this.state.selectedDynamic = null
@@ -446,7 +454,8 @@ export class PaletteController {
     // A DIFFERENT marking tool (the accidental / tie stamp) is armed → switch to this articulation
     // stamp, so the marking tools stay mutually exclusive. Must cover EVERY other stamp, for the
     // same reason as in setAccidental: a miss falls through to the entry-mode arm below.
-    if (this.state.selectedAccidentalTool !== null || this.state.selectedTieTool) {
+    if (this.state.selectedAccidentalTool !== null || this.state.selectedTieTool
+      || this.state.selectedDotTool) {
       this.armArticulationTool([type])
       this.refreshArticulationSelection()
       return
@@ -490,6 +499,7 @@ export class PaletteController {
     this.state.selectedArticulationTools = types
     this.state.selectedAccidentalTool = null
     this.state.selectedTieTool = false
+    this.state.selectedDotTool = false
     this.state.selectedClef = null
     this.state.selectedTimeSignature = null
     this.state.selectedDynamic = null
@@ -628,7 +638,8 @@ export class PaletteController {
 
     // A DIFFERENT marking tool (the articulation / accidental stamp) is armed → switch to the tie
     // stamp, so the marking tools stay mutually exclusive.
-    if (this.state.selectedArticulationTools.length > 0 || this.state.selectedAccidentalTool !== null) {
+    if (this.state.selectedArticulationTools.length > 0 || this.state.selectedAccidentalTool !== null
+      || this.state.selectedDotTool) {
       this.armTieTool()
       return
     }
@@ -697,6 +708,7 @@ export class PaletteController {
     this.state.selectedTieTool = true
     this.state.selectedArticulationTools = []
     this.state.selectedAccidentalTool = null
+    this.state.selectedDotTool = false
     this.state.selectedClef = null
     this.state.selectedTimeSignature = null
     this.state.selectedDynamic = null
@@ -730,14 +742,37 @@ export class PaletteController {
   }
 
   /**
-   * One dot-key press. A slot's DOTS are selected in the score → the press REMOVES them (the only
-   * edit the key can mean: the dot is on or off, so there is no "change it to a different dot").
-   * Routed first, mirroring {@link editSelectedAccidental} — clicking a dot clears the note
-   * selection, so the branches below would see nothing selected and just flip to entry mode.
-   * Switch-off leaves NOTHING selected, like the accidental's.
+   * One dot-key press, routed by context — the same split as the other stamps:
+   *  0. The dot STAMP is already armed → disarm it (a re-press toggles the tool off).
+   *  1. A slot's DOTS are selected in the score → REMOVE them (the only edit the key can mean: the
+   *     dot is on or off, so there is no "change it to a different dot"). Routed ahead of the arm
+   *     branch — clicking a dot clears the note selection, so (3) would otherwise read as "nothing
+   *     selected" and arm the stamp. Switch-off leaves NOTHING selected, like the accidental's.
+   *  2. Selection mode with a note selected → dot it (pre-existing behaviour).
+   *  3. Selection mode with NOTHING selected → arm the dot STAMP. This replaces the old "flip to
+   *     entry mode with the dot armed", which drew a ghost NOTE and forced a duration choice; that
+   *     flow is now reached by pressing a duration after (see {@link promoteDotStampToNoteEntry}).
+   *  4. Entry mode → arm/disarm the dot for the NEXT note entered.
    */
   toggleDot(): void {
     const engine = this.getEngine()
+
+    // (0) The stamp is live → the key toggles it off, back to selection mode.
+    if (this.state.selectedDotTool) {
+      this.state.selectedDotTool = false
+      this.state.selectedTool = 'selection'
+      this.renderScore()
+      return
+    }
+
+    // A DIFFERENT marking tool is armed → switch to the dot stamp (they stay mutually exclusive).
+    if (this.state.selectedArticulationTools.length > 0 || this.state.selectedAccidentalTool !== null
+      || this.state.selectedTieTool) {
+      this.armDotTool()
+      return
+    }
+
+    // (1) The dots are selected in the score → the press removes them.
     if (this.state.selectedDotNoteId && engine) {
       const noteId = this.state.selectedDotNoteId
       console.log(`[Dot] removing selected dot(s) | noteId:${noteId}`)
@@ -746,6 +781,15 @@ export class PaletteController {
       this.state.selectedDots = 0
       this.selectNote(null)
       this.renderScore()
+      return
+    }
+
+    // (3) Selection mode with nothing selected → arm the stamp instead of flipping to note entry.
+    // Decided by the selection SET, not the `selectedNoteId` anchor: after note entry, Select/Esc
+    // leaves the cursor note in the anchor with an empty set, which reads as "nothing selected".
+    if (this.state.selectedTool === 'selection'
+      && selectedNoteIds(this.state.selectedItems.values()).length === 0) {
+      this.armDotTool()
       return
     }
 
@@ -761,14 +805,38 @@ export class PaletteController {
         console.log(`[Duration] ${pitch} | ${oldDur} → ${newDur}`)
       }
       this.renderScore()
-    } else if (this.state.selectedTool === 'selection') {
-      this.state.selectedTool = 'entry'
-      const pos = this.getLastMousePosition()
-      if (pos) this.renderPreview(pos)
     } else if (this.state.selectedTool === 'entry') {
+      // (4) Entry mode: the dot is armed for the next note; refresh the ghost note to show it.
+      // There is no "selection mode" arm left here — branch (3) above claims that case for the
+      // stamp, which is what used to flip to entry mode and draw a ghost note.
       const pos = this.getLastMousePosition()
       if (pos) this.renderPreview(pos)
     }
+  }
+
+  /**
+   * Arm the dot stamp tool and switch to entry mode. Mirrors {@link armTieTool} /
+   * {@link armAccidentalTool}: mutually exclusive with the other marking tools, clears the note
+   * selection so the ghost reads as "the next click dots the note clicked", and repaints. The ghost
+   * appears on the next mouse move (via MouseController.renderToolGhost).
+   */
+  private armDotTool(): void {
+    this.state.selectedDotTool = true
+    this.state.selectedArticulationTools = []
+    this.state.selectedAccidentalTool = null
+    this.state.selectedTieTool = false
+    this.state.selectedClef = null
+    this.state.selectedTimeSignature = null
+    this.state.selectedDynamic = null
+    this.state.selectedTempo = null
+    this.state.selectedNoteId = null
+    this.state.selectedClefMeasure = null
+    this.state.selectedClefBeat = null
+    this.state.selectedTimeSignatureMeasure = null
+    this.state.selectedDynamicId = null
+    this.state.selectedTempoId = null
+    this.state.selectedTool = 'entry'
+    this.renderScore()
   }
 
   toggleTuplet(): void {
@@ -1046,8 +1114,9 @@ export class PaletteController {
     this.state.selectedArticulationTools = []
     // The accidental stamp tool is the same kind of entry-only marking tool → disarm it too.
     this.state.selectedAccidentalTool = null
-    // ...and so is the tie stamp.
+    // ...and so are the tie and dot stamps.
     this.state.selectedTieTool = false
+    this.state.selectedDotTool = false
   }
 
   /**
@@ -1090,6 +1159,7 @@ export class PaletteController {
     return this.state.selectedArticulationTools.length > 0
       || this.state.selectedAccidentalTool !== null
       || this.state.selectedTieTool
+      || this.state.selectedDotTool
   }
 
   noteHasAccent(): boolean {

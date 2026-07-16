@@ -26,6 +26,9 @@ export function noNoteInSelection(state: EditorState): boolean {
  * exactly what removes them. Mirrors how a selected accidental lights its own key.
  */
 export function dotHighlight(state: EditorState): 'dot' | null {
+  // The armed STAMP is the active gesture — light the key for it, as the armed articulation set
+  // lights during its stamp. Ahead of the reads below, which see the (cleared) note selection.
+  if (state.selectedDotTool) return 'dot'
   if (state.selectedDotNoteId) return 'dot'
   return noNoteInSelection(state) || state.selectedDots < 1 ? null : 'dot'
 }
@@ -66,7 +69,8 @@ export function wireKeypadSync(
     const artStamping = state.selectedArticulationTools.length > 0
     const accStamping = state.selectedAccidentalTool !== null
     const tieStamping = state.selectedTieTool
-    const stamping = artStamping || accStamping || tieStamping
+    const dotStamping = state.selectedDotTool
+    const stamping = artStamping || accStamping || tieStamping || dotStamping
     durationSelection.setHighlight(stamping || noNoteInSelection(state) ? null : state.selectedDuration)
     // While the accidental stamp is armed, light the ARMED accidental (it's the active gesture);
     // when a standalone accidental glyph is selected in the score, light THAT accidental (so it can
@@ -75,10 +79,12 @@ export function wireKeypadSync(
     accidentalSelection.setHighlight(
       accStamping ? state.selectedAccidentalTool
       : state.selectedAccidentalNoteId ? accidentalTypeToKey(state.selectedAccidentalType)
-      : artStamping || tieStamping || noNoteInSelection(state) ? null
+      : artStamping || tieStamping || dotStamping || noNoteInSelection(state) ? null
       : state.selectedAccidental
     )
-    dotSelection.setHighlight(stamping ? null : dotHighlight(state))
+    // NOT gated on `stamping`: the dot key is the one that lights during a DOT stamp (dotHighlight
+    // reads the tool). The other stamps still darken it.
+    dotSelection.setHighlight(artStamping || accStamping || tieStamping ? null : dotHighlight(state))
     // Engine-derived highlights (articulations are a SET, tie reads tiedTo): read live, not from a
     // reactive field, so they can't be mirrored — recompute and push on any change.
     palette.refreshArticulationSelection()
