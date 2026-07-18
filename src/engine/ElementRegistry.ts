@@ -155,6 +155,13 @@ export interface ElementInfo {
    * instead. Falls back to bbox center when absent.
    */
   headX?: number
+  /**
+   * For a 'dynamic': the rhythmic ANCHOR point on the staff (the note/beat it attaches to),
+   * in pixels. Used only to draw the dashed attachment-line visualization when the dynamic is
+   * selected (Dorico/MuseScore style) — never for hit-testing or engraving. Like every other
+   * coordinate field it is shifted by {@link offsetElement} when a bar is translated (P5.4b).
+   */
+  anchor?: { x: number; y: number }
   // Tie-specific properties
   /** ID of the note this tie starts from (for ties) */
   fromNoteId?: string
@@ -268,6 +275,9 @@ export function offsetElement(element: ElementInfo, dx: number, dy: number): Ele
 
   // True notehead-centre X — the hit-box selection actually uses (not the bbox centre).
   if (element.headX !== undefined) moved.headX = element.headX + dx
+
+  // Dynamic attachment-line anchor (visualization only) — a coordinate, so it moves with the bar.
+  if (element.anchor) moved.anchor = { x: element.anchor.x + dx, y: element.anchor.y + dy }
 
   // Sampled arc points (slur proximity hit-testing).
   if (element.points) moved.points = element.points.map(p => ({ x: p.x + dx, y: p.y + dy }))

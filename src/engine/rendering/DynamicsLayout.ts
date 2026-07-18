@@ -16,7 +16,7 @@ import { Annotation, TextDynamics } from 'vexflow'
 import type { StaveNote, Stave } from 'vexflow'
 import type { ChordRest, Measure, Dynamic, DynamicLevel } from '@/types/music'
 import { fracEq, fracGte, fracToNumber } from '@/utils/fraction'
-import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT } from './dynamicStyle'
+import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT, DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
 import { dynamicOffsetOverrideOf } from '../models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
@@ -220,12 +220,40 @@ export function registerDynamics(pass: RenderPass, measure: Measure): void {
       const el = annotation.getSVGElement?.() as SVGGraphicsElement | undefined
       const box = el?.getBBox ? el.getBBox() : null
       if (box) {
+        // The anchor: the note this mark is attached to — its X and its LOWEST notehead Y (the
+        // one nearest a below-staff dynamic). Anchoring to the note itself (not a fixed staff
+        // line) makes the attachment line TRACK the note when its pitch moves — the bar redraws
+        // on a pitch change, so this recaptures at the new position. Drives the dashed
+        // attachment-line visualization when the dynamic is selected
+        // (HighlightController.applyDynamicAnchorLine) — never hit-testing. The annotation carries
+        // its anchor note (VexFlow Modifier.getNote); positions are final here (post-draw).
+        const note = annotation.getNote() as StaveNote | undefined
+        const ys = note?.getYs?.()
+        const anchorY = ys?.length ? Math.max(...ys) : note?.getStave?.()?.getYForLine(4)
+        const anchor = note && anchorY !== undefined ? { x: note.getAbsoluteX(), y: anchorY } : undefined
+
+        // Default: the group box (correct for TEXT marks — their pointer-rect is small). For a LEVEL
+        // glyph the group box unions VexFlow's tall transparent pointer-rect, ballooning it above and
+        // below the mark; rebuild it from the <text> glyph — horizontal from the glyph's own extent,
+        // vertical from its baseline + tight offsets (see dynamicStyle). Ignores the group height.
+        let bx = box.x, by = box.y, bw = box.width, bh = box.height
+        if (dyn.kind === 'level') {
+          const textEl = el?.querySelector('text') as SVGGraphicsElement | null
+          const textBox = textEl?.getBBox ? textEl.getBBox() : null
+          if (textBox) { bx = textBox.x; bw = textBox.width }
+          const baseline = parseFloat(textEl?.getAttribute('y') ?? '')
+          if (Number.isFinite(baseline)) {
+            by = baseline - DYNAMIC_GLYPH_INK_ABOVE
+            bh = DYNAMIC_GLYPH_INK_ABOVE + DYNAMIC_GLYPH_INK_BELOW
+          }
+        }
         pass.elementRegistry.add({
           type: 'dynamic',
           id: dyn.id,
           measure: measure.number,
           beat: fracToNumber(dyn.beat),
-          bbox: { x: box.x, y: box.y, width: box.width, height: box.height },
+          bbox: { x: bx, y: by, width: bw, height: bh },
+          ...(anchor ? { anchor } : {}),
         })
       }
     } catch (_e) { /* getBBox may fail before layout in some envs */ }

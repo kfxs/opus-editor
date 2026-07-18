@@ -781,6 +781,50 @@ export class HighlightController {
     }
   }
 
+  /**
+   * Draw the dashed ATTACHMENT LINE from a selected dynamic to the rhythmic anchor it hangs off
+   * (Dorico/MuseScore style — the mark to the note/beat it belongs to). It is a pure VISUALIZATION,
+   * never part of the score: not engraved, not hit-tested, not serialized — just a hint that reads
+   * "this dynamic is attached HERE", which matters once the mark has been nudged away from its note
+   * (docs/dynamic-offset-plan.md). The anchor point is captured at render (DynamicsLayout) and
+   * shifted with the bar (offsetElement), so the line tracks a translated measure. Cleared by the
+   * next render like every other decoration.
+   *
+   * Only the scalar single-click selection gets the line — a Shift-box that swept up several
+   * dynamics would otherwise draw a fan of lines. This is the first of what may become a family of
+   * toggleable "guide" overlays (rulers, markers…); keeping it its own method keeps that door open.
+   */
+  applyDynamicAnchorLine(): void {
+    const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
+    if (!engine || !scoreCanvas || !this.state.selectedDynamicId) return
+    const svg = scoreCanvas.querySelector('svg')
+    if (!svg) return
+
+    const entry = engine.getElementRegistry().getById(this.state.selectedDynamicId)
+    if (entry?.type !== 'dynamic' || !entry.anchor) return
+
+    // From the TOP-RIGHT corner of the dynamic's box up to its note anchor point.
+    const fromX = entry.bbox.x + entry.bbox.width
+    const fromY = entry.bbox.y
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+    line.setAttribute('x1', String(fromX))
+    line.setAttribute('y1', String(fromY))
+    line.setAttribute('x2', String(entry.anchor.x))
+    line.setAttribute('y2', String(entry.anchor.y))
+    line.setAttribute('stroke', '#2563EB')
+    line.setAttribute('stroke-width', '2')
+    // Dotted, not dashed: a near-zero dash with a ROUND linecap renders each segment as a round
+    // dot of diameter = stroke-width, spaced by the gap.
+    line.setAttribute('stroke-dasharray', '0.1 6')
+    line.setAttribute('stroke-linecap', 'round')
+    line.setAttribute('stroke-opacity', '0.75')
+    line.setAttribute('class', 'dynamic-anchor-line')
+    // A guide never eats a click meant for the music underneath it.
+    ;(line as SVGElement & { style: CSSStyleDeclaration }).style.pointerEvents = 'none'
+    this.addNode(svg, line)
+  }
+
   applySlurSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()

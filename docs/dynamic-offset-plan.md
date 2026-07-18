@@ -59,6 +59,30 @@ transform by prepending its own translate; both are pure translations, so they a
 commutatively and the co-location row layout is preserved. The registry bbox is shifted
 by the same delta so hit-testing follows the mark.
 
+## Attachment line (selection visualization)
+
+When a dynamic is **selected**, a thin dashed line is drawn from the mark to its rhythmic anchor
+(the note/beat it hangs off) — the Dorico/MuseScore "attachment line". It answers "what is this
+attached to?", which matters once the mark has been nudged away from its note.
+
+**It is NOT part of the score** — not engraved, not hit-tested, not serialized. It is a pure
+overlay in the same family as the slur handles / keyboard cursor / paste caret:
+
+- The anchor point `{x, y}` is the anchor **note itself** — its `getAbsoluteX()` and its lowest
+  notehead Y (`Math.max(getYs())`, nearest a below-staff mark) — captured at render in
+  `DynamicsLayout.registerDynamics` and stored on the dynamic's `ElementRegistry` entry
+  (`ElementInfo.anchor`). Anchoring to the note (not a fixed staff line) makes the line **track the
+  note when its pitch moves** — a pitch change redraws the bar, recapturing at the new Y. It also
+  rides the P5.4b translate (`offsetElement` shifts it with the bar), so the line tracks a measure
+  that only moved.
+- `HighlightController.applyDynamicAnchorLine()` draws the dashed `<line>` (pointer-events none,
+  cleared by the next render), wired into `RenderController` next to the dynamic highlight.
+- Only the **single-click** selection draws it (a Shift-box of many dynamics would fan out lines).
+
+Style is deliberately provisional (blue `#2563EB`, **dotted** — `stroke-dasharray 0.1 6` + round
+linecap so each segment is a round dot — width 2, 75% opacity) — to be tweaked. Kept as its own
+method so a future family of toggleable guides (rulers, markers…) has a place to grow.
+
 ## The redraw-key gotcha (found in hand-testing — the picture didn't move)
 
 `applyDynamicOffsets` only runs inside `renderMeasure`, so a nudge is visible **only if
