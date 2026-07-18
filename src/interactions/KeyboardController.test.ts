@@ -459,4 +459,19 @@ describe('KeyboardController — an armed accidental does not leak past its note
     expect(b.alter).toBe(0)                  // NATURAL — the sharp did not leak forward
     expect(state.selectedAccidental).toBeNull()
   })
+
+  it('chord entry (Shift+letter) clears the armed accidental too — same rule as plain entry', () => {
+    // A chord note is still keyboard entry, so the accidental must behave identically: apply to this
+    // note, then clear. Otherwise chord entry keeps the sharp while plain entry drops it — two rules.
+    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    state.selectedTool = 'entry'
+    state.selectedNoteId = c.id
+    state.selectedAccidental = '#'          // arm a sharp
+
+    kb.addChordNoteByLetter('e')            // stack E# onto the C
+
+    const e = getMeasureNotes(measure1(engine)).find(n => !n.isRest && n.step === 'E')!
+    expect(e.alter).toBe(1)                  // the sharp applied to the chord note it was armed for
+    expect(state.selectedAccidental).toBeNull() // …and cleared after, not left sticky
+  })
 })

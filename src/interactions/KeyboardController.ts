@@ -423,6 +423,10 @@ export class KeyboardController {
       voice: noteVoice,
       ...(noteStaff && { staff: noteStaff }),
     })
+    // Clear the armed accidental after the note, same as enterNoteAtCursorPosition — a chord note is
+    // still keyboard entry, so the accidental must behave identically (one note, not sticky). Without
+    // this, chord entry would keep the sharp while plain entry drops it: two rules, one confusing UX.
+    this.state.selectedAccidental = null
     this.setSelectedNote(newNote.id)
     this.renderScore()
     this.scrollSelectedNoteIntoView()

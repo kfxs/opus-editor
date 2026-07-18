@@ -1,14 +1,15 @@
 # A caret is not a selection — one rule instead of a patch per entry path
 
-Status: **IMPLEMENTED 2026-07-18 (uncommitted).** Diagnosed 2026-07-16 while shipping the rest tool;
-parked, then built as written below. `moveCaretTo` split out of the selection path; both hand-restores
-deleted; keyboard + mouse entry rewired to it; the §6 accidental leak pinned with a red→green test on
-the REAL SelectionController. 1443 unit tests green, typecheck + `lint:boundary` clean. ⚠️ STILL NEEDS a
-by-hand pass on MOUSE entry (§5 step 5 was a code-path argument, not a measurement) and on the chord
-accidental behaviour change (§5) before it's truly done — the user does the manual UI testing.
+Status: **SHIPPED — committed `b12a352` (2026-07-18).** Diagnosed 2026-07-16 while shipping the rest
+tool; parked, then built as written below. `moveCaretTo` split out of the selection path; both
+hand-restores deleted; keyboard + mouse entry rewired to it. 1443 unit tests green, typecheck +
+`lint:boundary` clean. ⚠️ STILL OWES a by-hand pass on MOUSE entry (§5 step 5 was a code-path argument,
+not a measurement) and on the chord accidental change (§5) — the user does the manual UI testing.
 
-⭐ **It is worth doing, and §6 is why**: the same root cause makes an armed sharp leak onto every note
-typed after it — measured, live, unreported. This is not only tidying.
+⚠️ **§6 WAS RE-READ AND ITS CONCLUSION REVERSED — see the §6 note.** The duration/dots half of this
+change (the armed length surviving a caret advance) is the real, undisputed win. The "sharp leak" §6
+sold as the headline bug turned out to be the user's OPEN UX call, not a bug; the accidental clear was
+kept as-is by his decision, and would be a one-line flip to reverse. Read §6 before acting on it.
 
 Goal: advancing the keyboard caret must stop re-arming the palette from whatever note it lands on.
 Selecting a note and moving a caret onto one are two different acts sharing one method, and every
@@ -88,20 +89,33 @@ through `selectNote`, every entry path through `setSelectedNote`. Nothing has to
 
 ## 5. What else it reaches — one truly free, one a deliberate swap
 
-- **`addChordNoteByLetter`** (KeyboardController ~line 438) — **genuinely free.** It uses the same
-  injected dep as the other keyboard sites, so step 3's single swap fixes it with no extra edit. A
-  third caret site with the same clobber, never patched, never reported; the patch approach would have
-  missed it again. ⚠️ One behaviour shift to note: unlike note entry, the chord path never sets
-  `selectedAccidental = null`. Today the sync overwrites the armed accidental with the chord note's
-  displayed one; after the fix the **armed accidental persists** across a chord-note add. That is the
-  intended "the palette is what you'll type next" rule — but it is a real change, so land it knowing it.
+- **`addChordNoteByLetter`** (KeyboardController) — **genuinely free.** It uses the same injected dep as
+  the other keyboard sites, so step 3's single swap fixes the duration/dots clobber with no extra edit.
+  A third caret site with the same clobber, never patched, never reported; the patch approach would have
+  missed it again. ✅ **RESOLVED (2026-07-18):** the chord path never set `selectedAccidental = null`, so
+  after the caret change the armed accidental PERSISTED across a chord-add while plain entry cleared it —
+  two rules, confusing. The user asked for consistency, so `addChordNoteByLetter` now clears the
+  accidental after the note too, exactly like `enterNoteAtCursorPosition`. Both keyboard entry paths
+  behave identically (apply the accidental to one note, then clear).
 - **`MouseController` ×3** (~1694, ~1721, ~1742) — **NOT free.** Click-entry calls
   `this.selection.setSelectedNote(…)` DIRECTLY, so it has the same clobber **today** but the keyboard
   injection swap does not touch it. Fixing it is §4 step 5's three explicit call-site edits. NOT
   reproduced — the code path is identical, but that is an argument, not a measurement. Probe it before
   claiming it.
 
-## 6. ⭐ It fixes a LIVE bug: the sharp leaks onto every note after it
+## 6. The accidental half — I called it a bug; the user called it his UX decision (he was right)
+
+> ⚠️ **RESOLUTION (2026-07-18).** This section originally argued the "sharp leaks onto every note" was a
+> LIVE bug and the fix's headline. On review the user flagged the opposite: **in entry mode an armed
+> accidental SHOULD persist until he changes it** — the same rule the armed duration/dots follow, which
+> is the whole point of the caret change. So the plan had it backwards: the odd-one-out was the
+> `selectedAccidental = null` clear, not the sync. Before the change that `= null` was dead code (the
+> sync put it back), so accidentals persisted in practice; `moveCaretTo` made the clear finally take
+> effect → they now CLEAR after each note. **He decided to KEEP the clear for now and revisit if it
+> annoys him.** Reversal is deleting ONE line — `KeyboardController.ts` `selectedAccidental = null` in
+> `enterNoteAtCursorPosition` — no investigation, since `moveCaretTo` no longer syncs it back. The
+> lesson for next time: a long-standing line is not proof of correct INTENT, and a UX rule is the
+> musician's call, not the plan's. The rest of this section is the ORIGINAL (now-superseded) argument.
 
 **MEASURED 2026-07-16, not argued.** This started as "a behaviour change to watch" and turned out to be
 the strongest reason to do the work at all.

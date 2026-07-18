@@ -47,10 +47,17 @@ neither: it is **a length**, and a length is the one thing the note-entry keys a
 
 ### It is the only tool with a KEYBOARD half — SPACE types rests
 
-Arm it in keyboard entry and **SPACE lays the armed rest at the caret and moves on**, like a
-typewriter's space bar (`KeyboardController.enterArmedRestAtCursor`). Hold it and rests type out; at a
-barline the rest trims to fit and the caret rolls into the next measure. The armed length is *not*
-consumed — SPACE again types the same rest.
+In keyboard entry, **SPACE lays a rest of the current duration at the caret and moves on**, like a
+typewriter's space bar (`KeyboardController.enterRestAtCursor`). It fires **armed OR not** (`b12a352`,
+2026-07-18): with the tool lit it is the tool's keyboard half; without it, it is the fast-entry
+shortcut — type letters for notes, tap SPACE for a rest of the same length, keep typing (MuseScore's
+"rest of the current duration"). Either way the length is the armed palette duration, so the tool need
+not be selected first. Hold it and rests type out; at a barline the rest trims to fit and the caret
+rolls into the next measure. The armed length is *not* consumed — SPACE again types the same rest.
+
+> Why it's safe to fire unarmed: in entry mode SPACE was a dead no-op when the tool wasn't armed
+> (selection-mode SPACE = "start entry" needs the opposite mode), so opening that slot collides with
+> nothing. Arming still governs the letter/duration keys; it just no longer gates SPACE.
 
 The mouse stamp and SPACE share `fitRestDuration`, so what a barline does to a rest is **one answer,
 not two**. Everything else about the tool follows from "a caret is not a selection":
