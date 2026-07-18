@@ -74,7 +74,36 @@ export class SelectionController {
     this.state.selectedMeasureRange = null
   }
 
-  /** Sync the palette (duration, accidental, dots) to a note's properties. No-op if not found. */
+  /**
+   * Sync ONLY the active lane (voice + staff) to a note. A caret advance needs this and nothing
+   * more: HighlightController.applyKeyboardCursor resolves its beat stream through
+   * activeVoice/activeStaff, so without it the cursor drifts into another voice's stream. The
+   * palette is deliberately left alone here — see moveCaretTo. No-op if not found.
+   */
+  private syncActiveLaneToNote(noteId: string): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    const score = engine.getScore()
+    for (const measure of score.measures) {
+      const note = getMeasureNotes(measure, score).find(n => n.id === noteId)
+      if (note) {
+        // Selecting/landing on a note makes its voice the active voice, so keyboard entry
+        // continues in that voice (and the cursor advances along its stream) rather than
+        // silently falling back to voice 1.
+        this.state.activeVoice = modelVoiceToActive(note.voice)
+        // Likewise its staff becomes active, so keyboard entry/nav stays on that staff.
+        this.state.activeStaff = note.staff ?? 0
+        break
+      }
+    }
+  }
+
+  /**
+   * Sync the palette (duration, accidental, dots) AND the active lane to a note's properties.
+   * This is the SELECTION half — "click a note, see its properties". A caret advance wants the
+   * lane only (moveCaretTo): the palette holds what you are about to TYPE, not what you landed on.
+   * No-op if not found.
+   */
   private syncPaletteToNote(noteId: string): void {
     const engine = this.getEngine()
     if (!engine) return
@@ -85,15 +114,10 @@ export class SelectionController {
         this.state.selectedDuration = note.duration
         this.state.selectedAccidental = this.computeDisplayedAccidental(note, measure)
         this.state.selectedDots = note.dots || 0
-        // Selecting a note makes its voice the active voice, so keyboard entry
-        // continues in that voice (and the cursor advances along its stream)
-        // rather than silently falling back to voice 1.
-        this.state.activeVoice = modelVoiceToActive(note.voice)
-        // Likewise its staff becomes active, so keyboard entry/nav stays on that staff.
-        this.state.activeStaff = note.staff ?? 0
         break
       }
     }
+    this.syncActiveLaneToNote(noteId)
   }
 
   /** Recompute the anchor (selectedNoteId) as the last note item in the set, or null. */
@@ -103,11 +127,13 @@ export class SelectionController {
   }
 
   /**
-   * REPLACE the selection with a single note by ID (or clear it with null), and
-   * sync the palette to that note. Also clears any scalar sub-selections.
-   * This is the plain-click / navigation / entry path.
+   * Shared body for selectNote / moveCaretTo — clears the selection down to this single note (or
+   * null), resets the Shift pivot/base, and clears the scalar sub-selections. The only difference
+   * between the two acts is the final sync: `syncPalette=true` is a SELECTION (show the note's
+   * duration/accidental/dots); `false` is a CARET ADVANCE that keeps the palette (it holds what
+   * you'll type next) and moves only the active lane so the cursor stream stays in this voice/staff.
    */
-  selectNote(noteId: string | null): void {
+  private selectNoteInternal(noteId: string | null, syncPalette: boolean): void {
     this.state.selectedItems.clear()
     if (noteId) {
       const item: SelectionItem = { kind: 'note', id: noteId }
@@ -118,7 +144,19 @@ export class SelectionController {
     this.state.selectionPivotId = noteId
     this.state.selectionBase = noteId ? [{ kind: 'note', id: noteId }] : []
     this.clearScalarSubSelections()
-    if (noteId) this.syncPaletteToNote(noteId)
+    if (noteId) {
+      if (syncPalette) this.syncPaletteToNote(noteId)
+      else this.syncActiveLaneToNote(noteId)
+    }
+  }
+
+  /**
+   * REPLACE the selection with a single note by ID (or clear it with null), and
+   * sync the palette to that note. Also clears any scalar sub-selections.
+   * This is the plain-click / navigation path.
+   */
+  selectNote(noteId: string | null): void {
+    this.selectNoteInternal(noteId, true)
   }
 
   /**
@@ -322,6 +360,24 @@ export class SelectionController {
    */
   setSelectedNote(id: string | null): void {
     this.selectNote(id)
+    const engine = this.getEngine()
+    if (engine) engine.updateUndoNoteId(id)
+  }
+
+  /**
+   * Advance the keyboard/mouse CARET onto a freshly entered (or just-typed) note, and notify the
+   * undo manager — exactly like setSelectedNote (same body, including updateUndoNoteId; entry is
+   * undoable) EXCEPT it does NOT re-arm the palette from the landed note.
+   *
+   * A caret advance is "I am here", not "show me this note". The palette holds what you are about
+   * to TYPE (the armed duration/accidental/dots); the note under the caret is what the BARLINE
+   * allowed — a whole capped to a dotted half, a note split into a tied tail, an A# whose sharp
+   * must not leak onto the next note. Syncing the palette to it silently redefines the armed value
+   * (and used to, until every entry path put it back by hand). The active lane (voice/staff) IS
+   * still synced, because the cursor's beat stream resolves through it.
+   */
+  moveCaretTo(id: string | null): void {
+    this.selectNoteInternal(id, false)
     const engine = this.getEngine()
     if (engine) engine.updateUndoNoteId(id)
   }

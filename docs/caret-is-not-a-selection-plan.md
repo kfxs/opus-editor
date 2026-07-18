@@ -1,8 +1,11 @@
 # A caret is not a selection — one rule instead of a patch per entry path
 
-Status: **PLANNED, not started.** Diagnosed 2026-07-16 while shipping the rest tool; the user chose to
-park it rather than widen that session's blast radius. Two patches for this rule are already in the
-tree (`e731678`, plus the note-entry one) and they WORK.
+Status: **IMPLEMENTED 2026-07-18 (uncommitted).** Diagnosed 2026-07-16 while shipping the rest tool;
+parked, then built as written below. `moveCaretTo` split out of the selection path; both hand-restores
+deleted; keyboard + mouse entry rewired to it; the §6 accidental leak pinned with a red→green test on
+the REAL SelectionController. 1443 unit tests green, typecheck + `lint:boundary` clean. ⚠️ STILL NEEDS a
+by-hand pass on MOUSE entry (§5 step 5 was a code-path argument, not a measurement) and on the chord
+accidental behaviour change (§5) before it's truly done — the user does the manual UI testing.
 
 ⭐ **It is worth doing, and §6 is why**: the same root cause makes an armed sharp leak onto every note
 typed after it — measured, live, unreported. This is not only tidying.
@@ -60,28 +63,43 @@ TYPE; the note under the caret is what you just typed, or what the barline allow
 its beat stream through `activeVoice`/`activeStaff`, so dropping it lets the caret drift into another
 voice's stream. "Just don't sync" is the wrong fix; splitting the two jobs is the right one.
 
-## 4. The change (measured, ~30 lines, 3 files)
+## 4. The change (measured, ~30 lines, 4 files)
 
 1. **`SelectionController.syncPaletteToNote` → split.** Extract `syncActiveLaneToNote(noteId)` (voice +
    staff); `syncPaletteToNote` calls it, then sets duration/accidental/dots. **Its six existing callers
    do not change** — they are all genuine selection paths.
-2. **Add `moveCaretTo(id)`** beside `setSelectedNote`. Same body; lane sync only. Share one private
+2. **Add `moveCaretTo(id)`** beside `setSelectedNote`. Same body — **including `updateUndoNoteId(id)`;
+   entry is undoable, and that line lives in `setSelectedNote`, not `selectNote`, so it is exactly the
+   one a "same body" refactor drops** — but lane sync only, not palette. Share one private
    (`selectNoteInternal(id, syncPalette)`) so the two PUBLIC names carry the meaning — the call sites
    read as two different acts, not one act with a flag.
-3. **`useKeyboardEntry.ts`** — inject `(id) => selection.moveCaretTo(id)`.
+3. **`useKeyboardEntry.ts`** — inject `(id) => selection.moveCaretTo(id)`. This one swap converts all
+   THREE keyboard entry sites at once: they are the only users of the injected dep, and all three are
+   caret advances (rest ~225, note ~365, chord ~438).
 4. **Delete both restores** in `KeyboardController` (and their "a cap/split is not a choice" comments —
    the rule moves to `moveCaretTo`'s doc, where it is stated once).
+5. **`MouseController` ×3** (~1694, ~1721, ~1742) — swap `this.selection.setSelectedNote(…)` →
+   `this.selection.moveCaretTo(…)` at the click-entry sites. **This is NOT automatic** (see §5): mouse
+   calls the controller directly, so the keyboard injection swap does not reach it. Do this only after
+   probing §5 — the split-across-barline bug there is argued, not measured.
 
 It is small because the two acts are **already separated by their callers**: every selection path goes
 through `selectNote`, every entry path through `setSelectedNote`. Nothing has to be untangled first.
 
-## 5. What it fixes for free
+## 5. What else it reaches — one truly free, one a deliberate swap
 
-- **`addChordNoteByLetter`** (KeyboardController ~line 438) — a third caret site with the same clobber,
-  never patched, never reported. The patch approach would have missed it again.
-- **`MouseController` ×3** (~1694, ~1721, ~1742) — click-entry also goes through `setSelectedNote`, so a
-  click-placed note that splits across a barline has the same bug **today**. NOT reproduced — the code
-  path is identical, but that is an argument, not a measurement. Probe it before claiming it.
+- **`addChordNoteByLetter`** (KeyboardController ~line 438) — **genuinely free.** It uses the same
+  injected dep as the other keyboard sites, so step 3's single swap fixes it with no extra edit. A
+  third caret site with the same clobber, never patched, never reported; the patch approach would have
+  missed it again. ⚠️ One behaviour shift to note: unlike note entry, the chord path never sets
+  `selectedAccidental = null`. Today the sync overwrites the armed accidental with the chord note's
+  displayed one; after the fix the **armed accidental persists** across a chord-note add. That is the
+  intended "the palette is what you'll type next" rule — but it is a real change, so land it knowing it.
+- **`MouseController` ×3** (~1694, ~1721, ~1742) — **NOT free.** Click-entry calls
+  `this.selection.setSelectedNote(…)` DIRECTLY, so it has the same clobber **today** but the keyboard
+  injection swap does not touch it. Fixing it is §4 step 5's three explicit call-site edits. NOT
+  reproduced — the code path is identical, but that is an argument, not a measurement. Probe it before
+  claiming it.
 
 ## 6. ⭐ It fixes a LIVE bug: the sharp leaks onto every note after it
 
@@ -128,8 +146,10 @@ why a stub cannot see this.
 - Pin the rule where it now lives: `moveCaretTo` leaves the palette alone, `selectNote` still syncs it,
   and BOTH keep the lane. The existing armed-length tests should pass **unchanged** — they are the
   regression net, so do not touch them while moving the fix.
-- Re-test by hand afterwards: keyboard entry AND mouse entry both change. This is the reason it was
-  parked, not the reason to skip it.
+- Re-test by hand afterwards: keyboard entry AND mouse entry both change — **but only because §4 step 5
+  swaps the mouse sites too.** If you ship the keyboard-only change (steps 1–4) and skip step 5, mouse
+  entry is UNCHANGED and still clobbers; do not test it expecting the fix. This hand re-test across both
+  input paths is the reason it was parked, not the reason to skip it.
 
 ## 8. Not in scope
 

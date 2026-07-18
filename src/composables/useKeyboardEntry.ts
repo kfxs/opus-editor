@@ -21,7 +21,7 @@ export function useKeyboardEntry(
     state,
     () => palette.getPendingArticulations(),
     renderScore,
-    (id) => selection.setSelectedNote(id),
+    (id) => selection.moveCaretTo(id),
     () => selection.getContextPitch(),
     () => selection.scrollSelectedNoteIntoView(),
   )

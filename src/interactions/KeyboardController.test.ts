@@ -3,6 +3,7 @@ import { MusicEngine } from '../engine/MusicEngine'
 import { createEditorState, type EditorState } from './EditorState'
 import { fracToNumber } from '@/utils/fraction'
 import { KeyboardController } from './KeyboardController'
+import { SelectionController } from './SelectionController'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { fracCreate as frac, fracEq } from '@/utils/fraction'
 
@@ -217,17 +218,15 @@ describe('KeyboardController.enterArmedRestAtCursor (SPACE)', () => {
   beforeEach(() => {
     engine = makeEngine()
     state = createEditorState()
+    // Drive the REAL SelectionController — the app wires keyboard entry to selection.moveCaretTo
+    // (useKeyboardEntry). A hand-mirrored stub was what made these tests lie: one that only moved
+    // the caret hid the clobber, and one patched to sync duration+dots would now (with the restore
+    // deleted) reintroduce it. The real moveCaretTo leaves the palette alone, so the armed length
+    // survives an advance the way the app does — and any regression that re-syncs it fails here.
+    const selection = new SelectionController(() => engine, state, () => {}, () => {})
     kb = new KeyboardController(
       () => engine, state, () => undefined, () => {},
-      // MUST mirror the real SelectionController.setSelectedNote, which syncs the palette TO the
-      // note (syncPaletteToNote: selectedDuration/selectedDots ← the note's own). A stub that only
-      // moved the caret made "the armed length is not consumed" untestable — it passed because
-      // nothing could consume it, while the app clobbered the armed length on every capped entry.
-      (id) => {
-        state.selectedNoteId = id
-        const n = id ? engine.getNote(id) : null
-        if (n) { state.selectedDuration = n.duration; state.selectedDots = n.dots ?? 0 }
-      },
+      (id) => selection.moveCaretTo(id),
       () => 60,
     )
   })
@@ -366,15 +365,13 @@ describe('KeyboardController — cursor after a tie-split entry', () => {
   beforeEach(() => {
     engine = makeEngine()
     state = createEditorState()
+    // Real SelectionController + moveCaretTo, mirroring the app (useKeyboardEntry). See the note on
+    // the SPACE suite above: the fix lives in moveCaretTo NOT re-arming the palette, so the armed
+    // length must be checked against the real controller, not a stub of the thing under test.
+    const selection = new SelectionController(() => engine, state, () => {}, () => {})
     kb = new KeyboardController(
       () => engine, state, () => undefined, () => {},
-      // Mirrors the real SelectionController.setSelectedNote, which syncs the palette TO the note
-      // (syncPaletteToNote). A stub that only moved the caret could not express the reported bug.
-      (id) => {
-        state.selectedNoteId = id
-        const n = id ? engine.getNote(id) : null
-        if (n) { state.selectedDuration = n.duration; state.selectedDots = n.dots ?? 0 }
-      },
+      (id) => selection.moveCaretTo(id),
       () => 60,
     )
   })
@@ -412,5 +409,49 @@ describe('KeyboardController — cursor after a tie-split entry', () => {
     expect(landed.measure).toBe(2)              // the tail, in the NEXT bar
     expect(fracToNumber(landed.beat)).toBe(0)
     expect(landed.tiedTo).toBeUndefined()       // genuinely the end of the chain
+  })
+})
+
+/**
+ * §6 of the caret-is-not-a-selection plan: an armed accidental must last exactly ONE note. It used
+ * to leak onto every note after it — enterNoteAtCursorPosition clears selectedAccidental to null,
+ * but the old setSelectedNote immediately synced it BACK from the A# the caret landed on, so a sharp
+ * armed for one note stuck forever. Only the REAL SelectionController shows this — a stub that syncs
+ * only duration/dots (the last bug's shape) reads "no leak" and lies. Drive the real thing.
+ */
+describe('KeyboardController — an armed accidental does not leak past its note (§6)', () => {
+  let engine: MusicEngine
+  let state: EditorState
+  let kb: KeyboardController
+
+  beforeEach(() => {
+    engine = makeEngine()
+    state = createEditorState()
+    const selection = new SelectionController(() => engine, state, () => {}, () => {})
+    kb = new KeyboardController(
+      () => engine, state, () => undefined, () => {},
+      (id) => selection.moveCaretTo(id),
+      () => 60,
+    )
+  })
+
+  it('arms #, types A (→ A#), then B comes out NATURAL and the sharp is disarmed', () => {
+    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    state.selectedTool = 'entry'
+    state.selectedNoteId = c.id
+    state.selectedDuration = 'q'
+    state.selectedAccidental = '#'          // arm a sharp
+
+    kb.enterNoteAtCursorPosition('A')        // → A# at beat 1
+
+    const a = getMeasureNotes(measure1(engine)).find(n => !n.isRest && n.step === 'A')!
+    expect(a.alter).toBe(1)                  // the sharp DID apply to the note it was armed for
+    expect(state.selectedAccidental).toBeNull() // …and cleared after entry — the null now STICKS
+
+    kb.enterNoteAtCursorPosition('B')        // → B at beat 2, nobody armed a sharp for it
+
+    const b = getMeasureNotes(measure1(engine)).find(n => !n.isRest && n.step === 'B')!
+    expect(b.alter).toBe(0)                  // NATURAL — the sharp did not leak forward
+    expect(state.selectedAccidental).toBeNull()
   })
 })

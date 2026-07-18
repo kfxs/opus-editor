@@ -1691,7 +1691,7 @@ export class MouseController {
           if (note) {
             const pitch = note.isRest ? 'rest' : `${note.step}${note.alter === 2 ? '##' : note.alter === 1 ? '#' : note.alter === -1 ? 'b' : note.alter === -2 ? 'bb' : ''}${note.octave}`
             console.log(`✓ Note added to tuplet | ${pitch} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}`)
-            this.selection.setSelectedNote(note.id)
+            this.selection.moveCaretTo(note.id)
             this.state.selectedTool = 'entry'
             this.render.renderScore()
           } else {
@@ -1718,7 +1718,7 @@ export class MouseController {
             const fn = result.firstNote
             const fnPitch = `${fn.step}${fn.alter === 2 ? '##' : fn.alter === 1 ? '#' : fn.alter === -1 ? 'b' : fn.alter === -2 ? 'bb' : ''}${fn.octave}`
             console.log(`✓ Tuplet created | tupletId:${result.tuplet.id} firstNote:${fnPitch} measure:${fn.measure} beat:${fracToNumber(fn.beat).toFixed(3)}`)
-            this.selection.setSelectedNote(result.firstNote.id)
+            this.selection.moveCaretTo(result.firstNote.id)
             this.state.selectedTool = 'entry'
             this.render.renderScore()
           } else {
@@ -1739,7 +1739,7 @@ export class MouseController {
         if (note) {
           const pitch = note.isRest ? 'rest' : `${note.step}${note.alter === 2 ? '##' : note.alter === 1 ? '#' : note.alter === -1 ? 'b' : note.alter === -2 ? 'bb' : ''}${note.octave}`
           console.log(`✓ Note added | ${pitch} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}`)
-          this.selection.setSelectedNote(note.id)
+          this.selection.moveCaretTo(note.id)
           this.state.selectedTool = 'entry'
           this.render.renderScore()
         } else {

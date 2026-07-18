@@ -167,8 +167,8 @@ export class KeyboardController {
     if (this.state.selectedTool !== 'entry' || !armedTool(this.state, 'rest')) return false
     if (!this.state.selectedNoteId || !engine) return false
 
-    // What YOU armed — held across the placement, because advancing the caret syncs the palette to
-    // whatever lands, and a barline-trimmed rest must not redefine the length (see the restore below).
+    // What YOU armed — fitted against the bar's remainder below. The caret no longer clobbers the
+    // palette (moveCaretTo keeps it), so nothing has to put this back afterwards.
     const armedDuration = this.state.selectedDuration
     const armedDots = this.state.selectedDots
 
@@ -221,17 +221,11 @@ export class KeyboardController {
     }
 
     console.log(`✓ KeyboardEntry | REST ${newRest.duration}${'.'.repeat(newRest.dots ?? 0)} measure:${newRest.measure} beat:${fracToNumber(newRest.beat).toFixed(3)}`)
-    // The caret follows what was just typed, so the next SPACE lands after it.
+    // The caret follows what was just typed, so the next SPACE lands after it. moveCaretTo (the
+    // injected caret setter) does NOT re-arm the palette from the rest it lands on — a cap is not a
+    // choice — so a barline-trimmed rest never redefines the armed length. See
+    // SelectionController.moveCaretTo.
     this.setSelectedNote(newRest.id)
-
-    // A CAP IS NOT A CHOICE. Moving the caret syncs the palette to the note it lands on
-    // (SelectionController.syncPaletteToNote), which is right for a selection — click a rest, see
-    // its length — and wrong here: what it lands on is what the BARLINE allowed, not what you asked
-    // for. Left alone, one trimmed entry silently becomes the armed length, so typing a whole rest
-    // across a barline gave a dotted half in the next bar and every bar after. You armed a whole;
-    // you still have a whole.
-    this.state.selectedDuration = armedDuration
-    this.state.selectedDots = armedDots
 
     this.renderScore()
     this.scrollSelectedNoteIntoView()
@@ -241,10 +235,6 @@ export class KeyboardController {
   enterNoteAtCursorPosition(step: PitchStep): void {
     const engine = this.getEngine()
     if (!this.state.selectedNoteId || !engine) return
-
-    // What YOU armed — held across the placement. See the restore at the end.
-    const armedDuration = this.state.selectedDuration
-    const armedDots = this.state.selectedDots
 
     const score = engine.getScore()
     // Keyboard entry CONTINUES the voice of the note the cursor sits on — you're
@@ -358,23 +348,17 @@ export class KeyboardController {
       console.log(`[Keyboard] Tie chain: cursor advanced to last tied note id=${lastNote.id} measure=${lastNote.measure} beat=${fracToNumber(lastNote.beat).toFixed(3)}`)
     }
 
-    // Clear accidental after keyboard entry
+    // Clear the armed accidental after each entered note (a sharp lasts one note, not forever).
+    // ⚠️ OPEN UX CALL, not a settled rule: this differs from duration/dots, which persist until the
+    // user changes them. Kept for now (user decision 2026-07-18); to make the accidental persist too,
+    // delete this one line — moveCaretTo no longer syncs it back, so it will simply stick.
     this.state.selectedAccidental = null
 
     console.log(`[Cursor] → cursor lands on: m${lastNote.measure} beat:${fracToNumber(lastNote.beat).toFixed(4)} (${lastNote.isRest ? 'rest' : `${lastNote.step}${lastNote.octave}`}${lastNote.tupletId ? ' tuplet' : ''})`)
+    // A SPLIT IS NOT A CHOICE — a whole entered on beat 2 of 4/4 becomes a dotted half tied to a
+    // quarter, and the caret lands on the QUARTER. moveCaretTo keeps the palette (you armed a whole;
+    // you still have a whole) rather than re-arming it to the tail. See SelectionController.moveCaretTo.
     this.setSelectedNote(lastNote.id)
-
-    // A SPLIT IS NOT A CHOICE — the same rule the rest path states as "a cap is not a choice".
-    // Moving the caret syncs the palette to the note it lands on
-    // (SelectionController.syncPaletteToNote), which is right for a selection — click a note, see its
-    // length — and wrong for a piece the BARLINE chose. A whole entered on beat 2 of 4/4 becomes a
-    // dotted half tied to a quarter, and the caret lands on the QUARTER, so the Keypad quietly said
-    // "quarter" and the next note came out one. You armed a whole; you still have a whole.
-    //
-    // A no-op for a note that did not split — you typed what was armed, so the sync wrote the same
-    // value back. That is exactly why this hid until a split made it visible.
-    this.state.selectedDuration = armedDuration
-    this.state.selectedDots = armedDots
 
     this.renderScore()
     this.scrollSelectedNoteIntoView()
