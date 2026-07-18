@@ -5,7 +5,7 @@ import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorS
 import { activeVoiceToModel, armedTool, armedToolUsesLength, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from './EditorState'
 import { durationHighlight } from './keypadSync'
 import { fracToNumber } from '../utils/fraction'
-import { accidentalTypeToKey } from '../utils/pitchSpelling'
+import { accidentalTypeToKey, formatPitch } from '../utils/pitchSpelling'
 import { sameTimeSignature } from '../utils/meter'
 import { tempoLabel } from '../utils/tempoMap'
 import { selectedNoteIds, selectedArticulationNoteIds } from './selection'
@@ -319,7 +319,7 @@ export class PaletteController {
       const before = engine.getNote(this.state.selectedNoteId)
       engine.updateNote(this.state.selectedNoteId, { duration, dots: 0 })
       if (before && !before.isRest) {
-        const pitch = `${before.step}${before.alter === 1 ? '#' : before.alter === -1 ? 'b' : before.alter === 2 ? '##' : before.alter === -2 ? 'bb' : ''}${before.octave}`
+        const pitch = formatPitch(before)
         const oldDur = `${before.duration}${'.'.repeat(before.dots ?? 0)}`
         console.log(`[Duration] ${pitch} | ${oldDur} → ${duration}`)
       }
@@ -891,7 +891,7 @@ export class PaletteController {
       const before = engine.getNote(this.state.selectedNoteId)
       engine.updateNote(this.state.selectedNoteId, { dots: newValue })
       if (before && !before.isRest) {
-        const pitch = `${before.step}${before.alter === 1 ? '#' : before.alter === -1 ? 'b' : before.alter === 2 ? '##' : before.alter === -2 ? 'bb' : ''}${before.octave}`
+        const pitch = formatPitch(before)
         const oldDur = `${before.duration}${'.'.repeat(before.dots ?? 0)}`
         const newDur = `${before.duration}${'.'.repeat(newValue)}`
         console.log(`[Duration] ${pitch} | ${oldDur} → ${newDur}`)

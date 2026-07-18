@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   spellingToMidi,
   spellingToVexflowKey,
+  alterToString,
+  formatPitch,
   spellingDiatonicPos,
   alterToAccidental,
   midiToSpelling,
@@ -97,6 +99,26 @@ describe('pitchSpelling', () => {
     it('uses lowercase step letter', () => {
       const result = spellingToVexflowKey('F', 1, 4)
       expect(result[0]).toBe('f')
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  describe('alterToString', () => {
+    it('maps ±1/±2 to sharps/flats and everything else to natural (empty)', () => {
+      expect(alterToString(2)).toBe('##')
+      expect(alterToString(1)).toBe('#')
+      expect(alterToString(0)).toBe('')
+      expect(alterToString(-1)).toBe('b')
+      expect(alterToString(-2)).toBe('bb')
+    })
+  })
+
+  describe('formatPitch', () => {
+    it('builds step + accidental + octave (an absent alter reads as natural)', () => {
+      expect(formatPitch({ step: 'C', alter: 1, octave: 4 })).toBe('C#4')
+      expect(formatPitch({ step: 'A', alter: -1, octave: 3 })).toBe('Ab3')
+      expect(formatPitch({ step: 'G', alter: 2, octave: 5 })).toBe('G##5')
+      expect(formatPitch({ step: 'E', octave: 4 })).toBe('E4')
     })
   })
 

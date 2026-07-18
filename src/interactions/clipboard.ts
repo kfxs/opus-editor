@@ -4,6 +4,7 @@ import { flattenRegion } from '../utils/rebar'
 import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracToNumber } from '../utils/fraction'
 import { measureCapacityFrac, getMeasureNotes } from '../utils/musicUtils'
 import { durationToFraction } from '../utils/durations'
+import { formatPitch } from '../utils/pitchSpelling'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey } from '../engine/models/engravingOverrides'
 import { staffMeasureView, staffIdAtIndex, staffIndexOfId } from '../engine/models/staffContent'
 
@@ -410,10 +411,7 @@ export function clipboardSummary(p: ClipboardPayload): string {
   const perLane = p.lanes.map((ln) => {
     const parts = ln.events.map((e) => {
       if (e.atomic) return '[tuplet]'
-      const pitches = (e.pitches ?? []).map((pt) => {
-        const acc = pt.alter === 2 ? '##' : pt.alter === 1 ? '#' : pt.alter === -1 ? 'b' : pt.alter === -2 ? 'bb' : ''
-        return `${pt.step}${acc}${pt.octave}`
-      }).join('+')
+      const pitches = (e.pitches ?? []).map((pt) => formatPitch(pt)).join('+')
       return `[${pitches || 'rest'} ${fracToNumber(e.duration)}b @${fracToNumber(e.offset)}]`
     })
     return `s${ln.staff}v${ln.voice + 1}: ${parts.join(' ') || '(empty)'}`

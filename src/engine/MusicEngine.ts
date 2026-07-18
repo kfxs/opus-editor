@@ -10,9 +10,10 @@ import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
 import { getStaves, staffIdAtIndex } from './models/staffContent'
 import { midiToNoteName, beatToFrac, measureCapacityQuarters, compareByPosition, getMeasureNotes } from '@/utils/musicUtils'
-import { fracToNumber, fracEq, fracLt, fracCompare } from '@/utils/fraction'
+import { fracToNumber, fracEq } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
-import { spellingToMidi, accidentalToAlter, spellingDiatonicPos } from '@/utils/pitchSpelling'
+import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } from '@/utils/pitchSpelling'
+import { prevailingAlterAt } from '@/utils/accidentalState'
 import { naturalStemDirection } from '@/utils/clefUtils'
 import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
@@ -816,7 +817,7 @@ export class MusicEngine {
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest) return null
 
-    const fmt = (n: typeof note) => n.isRest ? `rest` : `${n.step}${n.alter === 2 ? '##' : n.alter === 1 ? '#' : n.alter === -1 ? 'b' : n.alter === -2 ? 'bb' : ''}${n.octave} m${n.measure} beat:${fracToNumber(n.beat).toFixed(3)}`
+    const fmt = (n: typeof note) => n.isRest ? `rest` : `${formatPitch(n)} m${n.measure} beat:${fracToNumber(n.beat).toFixed(3)}`
     console.log(`[Tie] toggleTie | source: ${fmt(note)}`)
 
     if (note.tiedTo) {
@@ -1456,14 +1457,7 @@ export class MusicEngine {
     const measure = this.scoreModel.getScore().measures.find(m => m.number === note.measure)
     if (!measure) return 0
     const targetPos = spellingDiatonicPos(note.step, note.octave)
-    let active: PitchAlter = 0
-    const preceding = getMeasureNotes(measure)
-      .filter(n => !n.isRest && !n.tiedFrom && n.step !== undefined && fracLt(n.beat, note.beat))
-      .sort((a, b) => fracCompare(a.beat, b.beat))
-    for (const n of preceding) {
-      if (spellingDiatonicPos(n.step!, n.octave!) === targetPos) active = n.alter ?? 0
-    }
-    return active
+    return prevailingAlterAt(getMeasureNotes(measure), targetPos, note.beat)
   }
 
   /**

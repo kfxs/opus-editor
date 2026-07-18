@@ -4,7 +4,7 @@ import { fracCompare, fracLte } from '@/utils/fraction'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
 import { durationToVexflow } from '@/utils/durations'
 import { pickVoiceMode } from '@/utils/restFill'
-import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
+import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
 
 /**
  * Note/measure building helpers shared by the renderer and the measure-width math.
@@ -119,6 +119,13 @@ export function createStaveNotesFromSlots(
   // Track the currently active alteration per diatonic staff position within this measure.
   // Key = spellingDiatonicPos(step, octave). Value = active PitchAlter (0 = natural).
   // A position absent from the map has not yet appeared in this measure.
+  //
+  // This is the same running-accidental rule stated purely in utils/accidentalState
+  // (prevailingAlterations) — which MusicEngine.getPrevailingAlter and
+  // SelectionController.computeDisplayedAccidental share. It's kept as an incremental
+  // single-pass accumulator here on purpose: the render walk needs the state AS OF each
+  // slot (and updates it within a chord as signs are shown), which the strictly-before-beat
+  // resolver deliberately does not model. Keep the two in step if the rule ever changes.
   const activeMeasureAlterations = new Map<number, PitchAlter>()
 
   for (const slot of slots) {
@@ -165,7 +172,7 @@ export function createStaveNotesFromSlots(
         if (!p.forceAccidental && activeAlter === p.alter) {
           displayAccidentals.set(p.id, null)  // suppress: redundant
         } else {
-          const sign = p.alter === 2 ? '##' : p.alter === 1 ? '#' : p.alter === -1 ? 'b' : 'bb'
+          const sign = alterToString(p.alter)
           displayAccidentals.set(p.id, sign)
           activeMeasureAlterations.set(dPos, p.alter)
         }

@@ -64,12 +64,27 @@ export function spellingToMidi(step: PitchStep, alter: PitchAlter, octave: numbe
  * spellingToVexflowKey('E',  0, 4) // 'e/4'
  */
 export function spellingToVexflowKey(step: PitchStep, alter: PitchAlter, octave: number): string {
-  const acc =
-    alter === 2  ? '##' :
-    alter === 1  ? '#'  :
-    alter === -1 ? 'b'  :
-    alter === -2 ? 'bb' : ''
-  return `${step.toLowerCase()}${acc}/${octave}`
+  return `${step.toLowerCase()}${alterToString(alter)}/${octave}`
+}
+
+/**
+ * The accidental glyph string for an alter value: `''`, `'#'`, `'##'`, `'b'`, `'bb'`.
+ * The one spelling of `alter` used across the debug logs and simple pitch labels —
+ * a note has at most a double sharp/flat, so anything outside ±2 reads as natural.
+ */
+export function alterToString(alter: number): string {
+  return alter === 2 ? '##' : alter === 1 ? '#' : alter === -1 ? 'b' : alter === -2 ? 'bb' : ''
+}
+
+/**
+ * A compact pitch label like `C#4` / `Ab3` / `E4` — step + accidental + octave.
+ * The shared formatter behind the debug logs (an absent `alter` reads as natural).
+ * Rests carry no pitch (`step`/`octave` undefined), so guard those at the call site
+ * with a 'rest' label; the fields are typed optional only to accept `Note`/`NoteParams`
+ * directly, and an undefined step/octave stringifies exactly as the old inline logs did.
+ */
+export function formatPitch({ step, alter, octave }: { step?: PitchStep; alter?: number; octave?: number }): string {
+  return `${step}${alterToString(alter ?? 0)}${octave}`
 }
 
 /**

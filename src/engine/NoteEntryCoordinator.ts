@@ -13,7 +13,7 @@ import {
 import { durationToFraction, tupletNoteDurationFraction, fitRestDuration, splitBeatsIntoLengths } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
 import type { Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, Measure } from '@/types/music'
-import { spellingToMidi, accidentalToAlter } from '@/utils/pitchSpelling'
+import { spellingToMidi, accidentalToAlter, formatPitch } from '@/utils/pitchSpelling'
 import { ElementRegistry } from './ElementRegistry'
 import type { ElementInfo } from './ElementRegistry'
 
@@ -143,8 +143,7 @@ export class NoteEntryCoordinator {
     )
 
     if (overflow.willOverflow && overflow.overflowAmount) {
-      const alt = params.alter === 2 ? '##' : params.alter === 1 ? '#' : params.alter === -1 ? 'b' : params.alter === -2 ? 'bb' : ''
-      console.log(`[Entry] KeyboardEntry | v${entryVoice} ${params.step}${alt}${params.octave} dur:${params.duration} measure:${params.measure} beat:${finalBeat.toFixed(3)} → overflow ${overflow.overflowAmount.toFixed(3)}b — splitting with tie`)
+      console.log(`[Entry] KeyboardEntry | v${entryVoice} ${formatPitch(params)} dur:${params.duration} measure:${params.measure} beat:${finalBeat.toFixed(3)} → overflow ${overflow.overflowAmount.toFixed(3)}b — splitting with tie`)
       const splitNote = this.addSplitNoteWithTie(finalParams, overflow.overflowAmount)
       if (splitNote) {
         this.onCommit('Keyboard enter note')
@@ -153,8 +152,7 @@ export class NoteEntryCoordinator {
     }
 
     const note = this.getScoreModel().addNote(finalParams)
-    const noteAlt = note.alter === 2 ? '##' : note.alter === 1 ? '#' : note.alter === -1 ? 'b' : note.alter === -2 ? 'bb' : ''
-    console.log(`✓ [Entry] KeyboardEntry | v${note.voice ?? 0} ${note.step}${noteAlt}${note.octave} dur:${note.duration} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}${tupletAtBeat ? ` tuplet:${tupletAtBeat.id}` : ''}`)
+    console.log(`✓ [Entry] KeyboardEntry | v${note.voice ?? 0} ${formatPitch(note)} dur:${note.duration} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}${tupletAtBeat ? ` tuplet:${tupletAtBeat.id}` : ''}`)
 
     if (tupletAtBeat && tupletId) {
       this.getScoreModel().refillTupletRemainder(params.measure, tupletAtBeat, params.voice ?? 0)
@@ -506,8 +504,7 @@ export class NoteEntryCoordinator {
     const notesToOverwrite = this.findNotesToOverwrite(measureNumber, finalBeat, duration, pitchMidi, false, tupletAtBeat, voice, staff)
     if (notesToOverwrite.length > 0) {
       console.log('Overwriting notes:', notesToOverwrite.map(n => {
-        const a = n.alter === 2 ? '##' : n.alter === 1 ? '#' : n.alter === -1 ? 'b' : n.alter === -2 ? 'bb' : ''
-        return `${n.step}${a}${n.octave}@beat:${fracToNumber(n.beat).toFixed(3)}`
+        return `${formatPitch(n)}@beat:${fracToNumber(n.beat).toFixed(3)}`
       }).join(', '))
       for (const noteToDelete of notesToOverwrite) {
         this.getScoreModel().deleteNote(noteToDelete.id)

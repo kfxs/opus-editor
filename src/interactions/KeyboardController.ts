@@ -5,7 +5,7 @@ import { activeVoiceToModel, armedTool } from './EditorState'
 import { navBeatMap, type FlatNote } from '../utils/beatMap'
 import { getMeasureNotes, measureCapacityFrac } from '../utils/musicUtils'
 import { fracToNumber, fracEq, fracFromInt, fracSub } from '../utils/fraction'
-import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
+import { spellingToMidi, accidentalToAlter, formatPitch } from '../utils/pitchSpelling'
 import { fitRestDuration } from '../utils/durations'
 
 /** Natural (no-accidental) semitone offsets for each step letter */
@@ -82,8 +82,7 @@ export class KeyboardController {
       ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }),
     })
 
-    const altStr = alter === 2 ? '##' : alter === 1 ? '#' : alter === -1 ? 'b' : alter === -2 ? 'bb' : ''
-    console.log(`✓ KeyboardEntry (edit-in-place) | ${step}${altStr}${octave} dur:${updatedNote.duration} measure:${updatedNote.measure} beat:${fracToNumber(updatedNote.beat).toFixed(3)}`)
+    console.log(`✓ KeyboardEntry (edit-in-place) | ${formatPitch({ step, alter, octave })} dur:${updatedNote.duration} measure:${updatedNote.measure} beat:${fracToNumber(updatedNote.beat).toFixed(3)}`)
 
     this.state.selectedAccidental = null
     this.state.selectedTool = 'entry'

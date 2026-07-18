@@ -16,7 +16,7 @@ import { fracToNumber, fracEq } from '../utils/fraction'
 /** Default text for a newly placed custom-text dynamic; edit it via double-click. */
 const DEFAULT_DYNAMIC_TEXT = 'Text'
 import { getMeasureNotes, beatToFrac, measureCapacityQuarters } from '../utils/musicUtils'
-import { spellingToMidi, accidentalToAlter } from '../utils/pitchSpelling'
+import { spellingToMidi, accidentalToAlter, formatPitch } from '../utils/pitchSpelling'
 
 /** Registry element types that are staff background / structure rather than clickable
  *  notational objects. A Ctrl+Shift+click landing only on one of these is still "empty
@@ -1689,7 +1689,7 @@ export class MouseController {
           )
 
           if (note) {
-            const pitch = note.isRest ? 'rest' : `${note.step}${note.alter === 2 ? '##' : note.alter === 1 ? '#' : note.alter === -1 ? 'b' : note.alter === -2 ? 'bb' : ''}${note.octave}`
+            const pitch = note.isRest ? 'rest' : formatPitch(note)
             console.log(`✓ Note added to tuplet | ${pitch} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}`)
             this.selection.moveCaretTo(note.id)
             this.state.selectedTool = 'entry'
@@ -1716,7 +1716,7 @@ export class MouseController {
 
           if (result) {
             const fn = result.firstNote
-            const fnPitch = `${fn.step}${fn.alter === 2 ? '##' : fn.alter === 1 ? '#' : fn.alter === -1 ? 'b' : fn.alter === -2 ? 'bb' : ''}${fn.octave}`
+            const fnPitch = formatPitch(fn)
             console.log(`✓ Tuplet created | tupletId:${result.tuplet.id} firstNote:${fnPitch} measure:${fn.measure} beat:${fracToNumber(fn.beat).toFixed(3)}`)
             this.selection.moveCaretTo(result.firstNote.id)
             this.state.selectedTool = 'entry'
@@ -1737,7 +1737,7 @@ export class MouseController {
         )
 
         if (note) {
-          const pitch = note.isRest ? 'rest' : `${note.step}${note.alter === 2 ? '##' : note.alter === 1 ? '#' : note.alter === -1 ? 'b' : note.alter === -2 ? 'bb' : ''}${note.octave}`
+          const pitch = note.isRest ? 'rest' : formatPitch(note)
           console.log(`✓ Note added | ${pitch} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}`)
           this.selection.moveCaretTo(note.id)
           this.state.selectedTool = 'entry'

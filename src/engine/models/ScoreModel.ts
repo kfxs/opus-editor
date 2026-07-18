@@ -16,7 +16,7 @@ import {
   sameTimeSignature,
 } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
-import { spellingDiatonicPos } from '@/utils/pitchSpelling'
+import { spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
 import { flattenRegion, relayEvents, type RebarPiece, type RebarEvent, type BarPlan } from '@/utils/rebar'
 import {
   type Fraction,
@@ -108,12 +108,6 @@ type CapturedSlurEnd =
  */
 type CapturedSlur = { slur: Slur; start: CapturedSlurEnd; end: CapturedSlurEnd }
 
-/** Render a pitch alteration as accidental marks for debug logs (#, b, n). */
-function alterMarks(alter: number): string {
-  if (alter > 0) return '#'.repeat(alter)
-  if (alter < 0) return 'b'.repeat(-alter)
-  return ''
-}
 
 /**
  * Compact, voice-tagged one-line summary of a slot for debug logs, e.g.
@@ -129,7 +123,7 @@ function fmtSlot(slot: ChordRest): string {
     const mr = slot.isMeasureRest ? ' [measure-rest]' : ''
     return `v${v} REST ${slot.duration}${dots} m${slot.measure} b${b}${mr}${tup}`
   }
-  const pitches = slot.notes.map(n => `${n.step}${alterMarks(n.alter)}${n.octave}`).join('+')
+  const pitches = slot.notes.map(n => `${n.step}${alterToString(n.alter)}${n.octave}`).join('+')
   return `v${v} ${pitches} ${slot.duration}${dots} m${slot.measure} b${b}${tup}`
 }
 
@@ -1587,6 +1581,50 @@ export class ScoreModel {
   }
 
   /**
+   * Walk a run of measures accumulating each one's capacity, invoking `visit` with the
+   * absolute beat at which each STARTS (region beat 0 = the first measure's downbeat) and
+   * its capacity. The ONE capacity accumulation the rebar capture passes share — capture
+   * turns `start` into absolute offsets; {@link regionRanges} turns it into a lookup table.
+   */
+  private forEachRegionMeasure(
+    measures: Measure[],
+    visit: (measure: Measure, start: Fraction, cap: Fraction) => void,
+  ): void {
+    let base = fracCreate(0, 1)
+    for (const m of measures) {
+      const cap = measureCapacityFrac(m)
+      visit(m, base, cap)
+      base = fracAdd(base, cap)
+    }
+  }
+
+  /**
+   * The region's measures (resolved from their numbers), each tagged with its absolute start
+   * beat and capacity — the table {@link restoreBeatAnchors} / {@link restoreRestShifts} search
+   * to place a captured offset back into the rebar'd bars. Missing numbers are skipped.
+   */
+  private regionRanges(regionNumbers: number[]): Array<{ measure: Measure; start: Fraction; cap: Fraction }> {
+    const measures = regionNumbers
+      .map((n) => this.getMeasure(n))
+      .filter((m): m is Measure => m !== undefined)
+    const ranges: Array<{ measure: Measure; start: Fraction; cap: Fraction }> = []
+    this.forEachRegionMeasure(measures, (measure, start, cap) => ranges.push({ measure, start, cap }))
+    return ranges
+  }
+
+  /** Which range an absolute offset lands in (the bar whose [start, start+cap) contains it);
+   *  an offset past the region is clamped to the last bar. Assumes `ranges` is non-empty. */
+  private rangeForOffset(
+    ranges: Array<{ measure: Measure; start: Fraction; cap: Fraction }>,
+    absBeat: Fraction,
+  ): { measure: Measure; start: Fraction; cap: Fraction } {
+    for (const r of ranges) {
+      if (fracGte(absBeat, r.start) && fracLt(absBeat, fracAdd(r.start, r.cap))) return r
+    }
+    return ranges[ranges.length - 1]
+  }
+
+  /**
    * Capture each region clef change / dynamic / tempo mark by its ABSOLUTE beat offset from the
    * region start (cumulative measure capacities + the item's in-measure beat),
    * measured with the measures' CURRENT (pre-rebar) capacities. Mirrors how
@@ -1596,9 +1634,7 @@ export class ScoreModel {
    */
   private captureBeatAnchors(regionMeasures: Measure[]): CapturedAnchor[] {
     const out: CapturedAnchor[] = []
-    let base = fracCreate(0, 1)
-    for (const m of regionMeasures) {
-      const cap = measureCapacityFrac(m)
+    this.forEachRegionMeasure(regionMeasures, (m, base) => {
       for (const c of m.clefs ?? []) {
         out.push({ kind: 'clef', absBeat: fracAdd(base, c.beat), clef: c.clef, staffId: c.staffId })
       }
@@ -1611,8 +1647,7 @@ export class ScoreModel {
       for (const t of m.tempos ?? []) {
         out.push({ kind: 'tempo', absBeat: fracAdd(base, t.beat), mark: t })
       }
-      base = fracAdd(base, cap)
-    }
+    })
     return out
   }
 
@@ -1626,25 +1661,11 @@ export class ScoreModel {
   private restoreBeatAnchors(regionNumbers: number[], anchors: CapturedAnchor[]): void {
     if (anchors.length === 0) return
 
-    const ranges: Array<{ measure: Measure; start: Fraction; cap: Fraction }> = []
-    let base = fracCreate(0, 1)
-    for (const num of regionNumbers) {
-      const m = this.getMeasure(num)
-      if (!m) continue
-      const cap = measureCapacityFrac(m)
-      ranges.push({ measure: m, start: base, cap })
-      base = fracAdd(base, cap)
-    }
+    const ranges = this.regionRanges(regionNumbers)
     if (ranges.length === 0) return
 
     for (const a of anchors) {
-      let target = ranges[ranges.length - 1]
-      for (const r of ranges) {
-        if (fracGte(a.absBeat, r.start) && fracLt(a.absBeat, fracAdd(r.start, r.cap))) {
-          target = r
-          break
-        }
-      }
+      const target = this.rangeForOffset(ranges, a.absBeat)
       let beat = fracSub(a.absBeat, target.start)
       if (fracLt(beat, fracCreate(0, 1))) beat = fracCreate(0, 1)
       if (fracGte(beat, target.cap)) beat = target.cap // clamp into the bar (defensive)
@@ -1683,9 +1704,7 @@ export class ScoreModel {
    */
   private captureRestShifts(regionMeasures: Measure[]): CapturedRestShift[] {
     const out: CapturedRestShift[] = []
-    let base = fracCreate(0, 1)
-    for (const m of regionMeasures) {
-      const cap = measureCapacityFrac(m)
+    this.forEachRegionMeasure(regionMeasures, (m, base) => {
       for (const s of m.slots) {
         if (s.type !== 'rest') continue
         const voice = s.voice ?? 0
@@ -1699,8 +1718,7 @@ export class ScoreModel {
         if (steps !== 0) this.clearEngravingOverride(key, 'restShift')
         if (hidden) this.clearEngravingOverride(key, 'restHidden')
       }
-      base = fracAdd(base, cap)
-    }
+    })
     return out
   }
 
@@ -1719,26 +1737,12 @@ export class ScoreModel {
   private restoreRestShifts(regionNumbers: number[], captured: CapturedRestShift[]): void {
     if (captured.length === 0) return
 
-    const ranges: Array<{ measure: Measure; start: Fraction; cap: Fraction }> = []
-    let base = fracCreate(0, 1)
-    for (const num of regionNumbers) {
-      const m = this.getMeasure(num)
-      if (!m) continue
-      const cap = measureCapacityFrac(m)
-      ranges.push({ measure: m, start: base, cap })
-      base = fracAdd(base, cap)
-    }
+    const ranges = this.regionRanges(regionNumbers)
     if (ranges.length === 0) return
 
     for (const c of captured) {
       if (c.steps === 0 && !c.hidden) continue
-      let target = ranges[ranges.length - 1]
-      for (const r of ranges) {
-        if (fracGte(c.absBeat, r.start) && fracLt(c.absBeat, fracAdd(r.start, r.cap))) {
-          target = r
-          break
-        }
-      }
+      const target = this.rangeForOffset(ranges, c.absBeat)
       const beat = fracSub(c.absBeat, target.start)
       const m = target.measure
       // Stamp ONLY when a rest of this voice STARTS exactly here (plan §6.4). No accessor
@@ -2340,7 +2344,7 @@ export class ScoreModel {
       if (params.actualDuration !== undefined) {
         existingChord.actualDuration = params.actualDuration
       }
-      console.log(`[Model.addNote] add pitch ${params.step}${alterMarks(params.alter ?? 0)}${params.octave} → existing chord ${fmtSlot(existingChord)} (now ${existingChord.notes.length} note(s))`)
+      console.log(`[Model.addNote] add pitch ${params.step}${alterToString(params.alter ?? 0)}${params.octave} → existing chord ${fmtSlot(existingChord)} (now ${existingChord.notes.length} note(s))`)
       return this.toFlatNote(existingChord, notePitch)
     }
 
@@ -2399,18 +2403,28 @@ export class ScoreModel {
    * The tie target is the only thing that varies by kind: a chord's first pitch, or the rest itself
    * (both can be tied INTO — the let-ring rule; see MusicEngine.deleteNote).
    */
-  private evictRestsOverlapping(measure: Measure, incoming: ChordRest): string | undefined {
-    const incomingDurFrac = incoming.actualDuration ?? durationToFraction(incoming.duration, incoming.dots ?? 0)
-    const incomingVoice = incoming.voice ?? 0
-    const tieTarget: { id: string; tiedFrom?: string } | undefined =
-      incoming.type === 'chord' ? incoming.notes[0] : incoming
-
-    let inheritedTupletId: string | undefined = incoming.tupletId
+  /**
+   * The shared "which same-voice/staff rests does this span cover?" scan. Partitions the
+   * measure's slots into the rests to evict (a rest is the only thing another event can
+   * displace — chords and other-voice/staff rests are independent streams and always
+   * survive) and the slots that remain, order preserved. `keepId` is the incoming slot
+   * itself, which always overlaps its own span, so it is never evicted.
+   *
+   * What to DO with each evicted rest — migrate a tie, inherit a tupletId, re-fill the bar —
+   * stays at the two call sites, because who fills and who places differs between them.
+   */
+  private scanOverlappingRests(
+    measure: Measure,
+    beat: Fraction,
+    durFrac: Fraction,
+    voice: number,
+    staffId: string | undefined,
+    keepId: string,
+  ): { evicted: Rest[]; remaining: ChordRest[] } {
+    const evicted: Rest[] = []
     const remaining: ChordRest[] = []
-
     for (const existing of measure.slots) {
-      // `incoming` may already be in `slots`; its span always overlaps its own — never self-evict.
-      if (existing.id === incoming.id) {
+      if (existing.id === keepId) {
         remaining.push(existing)
         continue
       }
@@ -2418,23 +2432,40 @@ export class ScoreModel {
         const existingDurFrac =
           existing.actualDuration ?? durationToFraction(existing.duration, existing.dots ?? 0)
         const overlaps =
-          (existing.voice ?? 0) === incomingVoice &&
-          matchesStaff(existing.staffId, incoming.staffId, this.score) &&
-          noteSpansOverlapFrac(incoming.beat, incomingDurFrac, existing.beat, existingDurFrac)
+          (existing.voice ?? 0) === voice &&
+          matchesStaff(existing.staffId, staffId, this.score) &&
+          noteSpansOverlapFrac(beat, durFrac, existing.beat, existingDurFrac)
         if (overlaps) {
-          console.log(`[Model.replaceRests] remove overlapping ${fmtSlot(existing)} (same voice v${incomingVoice} as new ${incoming.type})`)
-          if (existing.tupletId && !incoming.tupletId) {
-            inheritedTupletId = existing.tupletId
-          }
-          // Migrate any tie pointing TO this rest onto whatever replaces it
-          if (tieTarget) {
-            if (existing.tiedFrom) tieTarget.tiedFrom = existing.tiedFrom
-            this.migrateRestTieTo(existing.id, tieTarget.id)
-          }
-          continue // remove
+          evicted.push(existing)
+          continue
         }
       }
       remaining.push(existing) // a chord, or a rest of another voice/staff — independent streams
+    }
+    return { evicted, remaining }
+  }
+
+  private evictRestsOverlapping(measure: Measure, incoming: ChordRest): string | undefined {
+    const incomingDurFrac = incoming.actualDuration ?? durationToFraction(incoming.duration, incoming.dots ?? 0)
+    const incomingVoice = incoming.voice ?? 0
+    const tieTarget: { id: string; tiedFrom?: string } | undefined =
+      incoming.type === 'chord' ? incoming.notes[0] : incoming
+
+    let inheritedTupletId: string | undefined = incoming.tupletId
+    const { evicted, remaining } = this.scanOverlappingRests(
+      measure, incoming.beat, incomingDurFrac, incomingVoice, incoming.staffId, incoming.id,
+    )
+
+    for (const existing of evicted) {
+      console.log(`[Model.replaceRests] remove overlapping ${fmtSlot(existing)} (same voice v${incomingVoice} as new ${incoming.type})`)
+      if (existing.tupletId && !incoming.tupletId) {
+        inheritedTupletId = existing.tupletId
+      }
+      // Migrate any tie pointing TO this rest onto whatever replaces it
+      if (tieTarget) {
+        if (existing.tiedFrom) tieTarget.tiedFrom = existing.tiedFrom
+        this.migrateRestTieTo(existing.id, tieTarget.id)
+      }
     }
 
     measure.slots = remaining
@@ -2478,27 +2509,16 @@ export class ScoreModel {
     const chordDurFrac = chord.actualDuration ?? durationToFraction(chord.duration, chord.dots ?? 0)
     const chordVoice = chord.voice ?? 0
 
-    let removedAny = false
-    const remaining: ChordRest[] = []
-    for (const existing of measure.slots) {
-      if (existing.type === 'rest' && existing.id !== chord.id) {
-        const existingDurFrac =
-          existing.actualDuration ?? durationToFraction(existing.duration, existing.dots ?? 0)
-        const overlaps =
-          (existing.voice ?? 0) === chordVoice &&
-          matchesStaff(existing.staffId, chord.staffId, this.score) &&
-          noteSpansOverlapFrac(chord.beat, chordDurFrac, existing.beat, existingDurFrac)
-        if (overlaps) {
-          console.log(`[Model.evictRests] remove overlapping ${fmtSlot(existing)} (chord grew, v${chordVoice})`)
-          if (chord.notes.length > 0) this.migrateRestTieTo(existing.id, chord.notes[0].id)
-          removedAny = true
-          continue
-        }
-      }
-      remaining.push(existing)
+    const { evicted, remaining } = this.scanOverlappingRests(
+      measure, chord.beat, chordDurFrac, chordVoice, chord.staffId, chord.id,
+    )
+    if (evicted.length === 0) return
+
+    for (const existing of evicted) {
+      console.log(`[Model.evictRests] remove overlapping ${fmtSlot(existing)} (chord grew, v${chordVoice})`)
+      if (chord.notes.length > 0) this.migrateRestTieTo(existing.id, chord.notes[0].id)
     }
 
-    if (!removedAny) return
     measure.slots = remaining
     this.fillGapsWithRests(measure)
     measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
@@ -3095,7 +3115,7 @@ export class ScoreModel {
           measure.slots.splice(idx, 1)
         } else {
           // Remove just this pitch from the chord
-          console.log(`[Model.deleteNote] delete pitch ${pitch.step}${alterMarks(pitch.alter)}${pitch.octave} from chord ${fmtSlot(chord)} (now ${chord.notes.length - 1} note(s))`)
+          console.log(`[Model.deleteNote] delete pitch ${pitch.step}${alterToString(pitch.alter)}${pitch.octave} from chord ${fmtSlot(chord)} (now ${chord.notes.length - 1} note(s))`)
           chord.notes = chord.notes.filter(n => n.id !== pitch.id)
         }
         return true
@@ -3157,7 +3177,7 @@ export class ScoreModel {
       return this.moveTupletNoteToVoice(measure, chord, pitch, targetVoice, movingIds)
     }
 
-    console.log(`[Model.moveNoteToVoice] ${pitch.step}${alterMarks(pitch.alter)}${pitch.octave} (id ${pitch.id.slice(0, 8)}) v${from}→v${targetVoice} @ m${chord.measure} b${fracToNumber(chord.beat).toFixed(3)}`)
+    console.log(`[Model.moveNoteToVoice] ${pitch.step}${alterToString(pitch.alter)}${pitch.octave} (id ${pitch.id.slice(0, 8)}) v${from}→v${targetVoice} @ m${chord.measure} b${fracToNumber(chord.beat).toFixed(3)}`)
 
     // Capture the pitch payload before mutating anything (reuse the SAME id).
     const payload = {
@@ -3265,7 +3285,7 @@ export class ScoreModel {
           this.fillGapsWithRests(measure) // reclaim the freed time as rests
         }
       }
-      console.log(`[Model.insertPitch] merge ${notePitch.step}${alterMarks(notePitch.alter)}${notePitch.octave} → chord ${fmtSlot(existingChord)} (now ${existingChord.notes.length} note(s), dur ${existingChord.duration})`)
+      console.log(`[Model.insertPitch] merge ${notePitch.step}${alterToString(notePitch.alter)}${notePitch.octave} → chord ${fmtSlot(existingChord)} (now ${existingChord.notes.length} note(s), dur ${existingChord.duration})`)
       return
     }
 
@@ -3367,7 +3387,7 @@ export class ScoreModel {
     const rawIdx = Math.round(fracToNumber(fracSub(chord.beat, startBeat)) / fracToNumber(slot))
     const idx = rawIdx >= 0 && rawIdx < numNotes ? rawIdx : 0
 
-    console.log(`[Model.moveTupletNoteToVoice] ${pitch.step}${alterMarks(pitch.alter)}${pitch.octave} slot ${idx}/${numNotes} v${from}→v${targetVoice} @ m${measure.number} tuplet b${fracToNumber(startBeat).toFixed(3)}`)
+    console.log(`[Model.moveTupletNoteToVoice] ${pitch.step}${alterToString(pitch.alter)}${pitch.octave} slot ${idx}/${numNotes} v${from}→v${targetVoice} @ m${measure.number} tuplet b${fracToNumber(startBeat).toFixed(3)}`)
 
     // The moved pitch, reusing its id (tie/slur/selection anchor).
     const movedPitch: NotePitch = {

@@ -13,7 +13,7 @@ import { fillRests, type RestSlot } from '@/utils/restFill'
 import { computeBeamGroups } from '@/utils/beaming'
 import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
 import { measureShapeKey } from './MeasureRedrawKey'
-import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
+import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
 import type { RenderPass } from './RenderPass'
 import { renderTies, getTieDirection, TIE_BOW, TIE_THICKNESS } from './TieRenderer'
 import { drawCurveArc } from './curveArc'
@@ -2216,7 +2216,7 @@ export class VexFlowRenderer {
       }
 
       if (ghostNote.alter !== 0) {
-        const sign = ghostNote.alter === 2 ? '##' : ghostNote.alter === 1 ? '#' : ghostNote.alter === -1 ? 'b' : 'bb'
+        const sign = alterToString(ghostNote.alter)
         staveNote.addModifier(new Accidental(sign), 0)
       } else if (ghostNote.forceAccidental) {
         // Armed natural: alter 0 has no sign of its own, so draw the ♮ explicitly.
@@ -2423,13 +2423,7 @@ export class VexFlowRenderer {
       }
     }
 
-    this.elementRegistry.clear()
-    this.staveNoteMap.clear()
-    this.tupletObjectMap.clear()
-    this.dynamicObjectMap.clear()
-    this.slurGroupMap.clear()
-    this.tieGroupMap.clear()
-    this.measureGroups.clear()
+    this.resetPerRenderState()
     // NOT measureLayoutInfo. It is ASSIGNED (`this.measureLayoutInfo = measureWidths`) earlier in
     // this same render, so clearing it here would empty the very layout we just computed — and the
     // ghost note, which is an overlay drawn against the last render's layout (P4), would find an
@@ -2439,6 +2433,22 @@ export class VexFlowRenderer {
     // of the renderer, because nothing ever removed them.
     this.measureBounds.clear()
     this.snapshots = new Map()
+  }
+
+  /**
+   * The per-render bookkeeping BOTH clear paths ({@link clear} and {@link clearForRender}) wipe:
+   * the element registry and every object map keyed by the SVG nodes being torn down. Extracted
+   * so adding a map means remembering ONE site, not two. Each caller then handles its own genuine
+   * differences — SVG teardown policy, `measureLayoutInfo`, `measureBounds`, `snapshots`.
+   */
+  private resetPerRenderState(): void {
+    this.elementRegistry.clear()
+    this.staveNoteMap.clear()
+    this.tupletObjectMap.clear()
+    this.dynamicObjectMap.clear()
+    this.slurGroupMap.clear()
+    this.tieGroupMap.clear()
+    this.measureGroups.clear()
   }
 
   /**
@@ -2589,21 +2599,10 @@ export class VexFlowRenderer {
         svg.removeChild(svg.firstChild)
       }
     }
-    // Clear the element registry for the new render
-    this.elementRegistry.clear()
-    // Clear the stave note map
-    this.staveNoteMap.clear()
-    // Clear the tuplet object map
-    this.tupletObjectMap.clear()
-    // Clear the dynamic object map
-    this.dynamicObjectMap.clear()
-    // Clear the slur group map
-    this.slurGroupMap.clear()
-    // Clear the tie group map
-    this.tieGroupMap.clear()
-    // The measure groups just went with the SVG above — drop the dangling references.
-    this.measureGroups.clear()
-    // Clear measure layout info
+    // The registry + object maps (the measure groups just went with the SVG above).
+    this.resetPerRenderState()
+    // Full teardown clears the layout too — unlike clearForRender, nothing has reassigned
+    // measureLayoutInfo mid-render here.
     this.measureLayoutInfo.clear()
   }
 

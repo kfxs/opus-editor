@@ -5,10 +5,11 @@ import type { Rect } from '../engine/ViewportModel'
 import type { EditorState } from './EditorState'
 import { modelVoiceToActive } from './EditorState'
 import { buildVoiceNavBeatMap, notesInBox, dynamicsInBox, slursInBox, expandTieChains } from '../utils/beatMap'
-import { fracLt, fracEq, fracCompare, fracToNumber } from '../utils/fraction'
+import { fracEq, fracCompare, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
 import { restShiftOverrideOf, restPositionKey } from '../engine/models/engravingOverrides'
+import { prevailingAlterations } from '../utils/accidentalState'
 import { itemKey, selectedNoteIds, selectedArticulationNoteIds, type SelectionItem } from './selection'
 
 /**
@@ -33,16 +34,7 @@ export class SelectionController {
     if (note.isRest || note.tiedFrom) return null
     if (note.forceAccidental && note.alter) return note.alter > 0 ? '#' : 'b'
 
-    const active = new Map<number, number>()
-    const preceding = getMeasureNotes(measure)
-      .filter(n => !n.isRest && !n.tiedFrom && fracLt(n.beat, note.beat))
-      .sort((a, b) => fracCompare(a.beat, b.beat))
-
-    for (const n of preceding) {
-      const dPos = spellingDiatonicPos(n.step!, n.octave!)
-      active.set(dPos, n.alter ?? 0)
-    }
-
+    const active = prevailingAlterations(getMeasureNotes(measure), note.beat)
     const dPos = spellingDiatonicPos(note.step!, note.octave!)
     const activeAlter = active.get(dPos)
     const noteAlter = note.alter ?? 0
