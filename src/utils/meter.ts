@@ -34,7 +34,6 @@ import {
   fracEq,
   fracLte,
   fracCompare,
-  fracToNumber,
 } from '@/utils/fraction'
 
 /** One internal metric boundary in the bar and its hierarchical strength. */
@@ -293,11 +292,6 @@ function subdivideTime(
   record(mid, strength)
   subdivideTime(start, half, strength - 1, record)
   subdivideTime(mid, half, strength - 1, record)
-}
-
-/** Convenience for tests/consumers: bar length as a float. */
-export function meterBarQuarters(ts: TimeSignature): number {
-  return fracToNumber(getMeterInfo(ts).barQuarters)
 }
 
 // ---------------------------------------------------------------------------

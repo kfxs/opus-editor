@@ -6,7 +6,7 @@
  * back to the score's opening clef, then 'treble'.
  */
 import type { Score, Clef, ClefChange, Fraction, PitchStep } from '@/types/music'
-import { fracCreate, fracEq, fracLte, fracLt, fracGt } from './fraction'
+import { fracCreate, fracLte, fracLt, fracGt } from './fraction'
 import { spellingDiatonicPos } from './pitchSpelling'
 
 const ZERO: Fraction = fracCreate(0, 1)
@@ -158,9 +158,4 @@ export function measureEndingClef(score: Score, measureNumber: number, staffId?:
   const changes = measureClefChanges(score, measureNumber, staffId)
   if (changes.length) return changes[changes.length - 1].clef
   return measureOpeningClef(score, measureNumber, staffId)
-}
-
-/** Mid-measure clef changes (beat > 0) of a measure, sorted by beat. */
-export function midMeasureClefChanges(score: Score, measureNumber: number, staffId?: string): ClefChange[] {
-  return measureClefChanges(score, measureNumber, staffId).filter(c => !fracEq(c.beat, ZERO))
 }

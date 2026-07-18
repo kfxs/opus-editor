@@ -93,7 +93,8 @@ export class Button implements Widget {
   }
 }
 
-/** A line of text. */
+/** A line of text. Reserved (with {@link TextInput}) for porting App.vue's custom-meter /
+ *  pickup dialogs to plain-TS windows; no caller yet, kept as the ready building block. */
 export class Label implements Widget {
   private el: HTMLElement | null = null
 

@@ -54,13 +54,6 @@ export function itemKey(item: SelectionItem): string {
   }
 }
 
-/** The distinct kinds present in a selection. */
-export function selectionKinds(items: Iterable<SelectionItem>): Set<SelectionKind> {
-  const kinds = new Set<SelectionKind>()
-  for (const item of items) kinds.add(item.kind)
-  return kinds
-}
-
 /** The ids of every `note` item in the selection, in insertion order. */
 export function selectedNoteIds(items: Iterable<SelectionItem>): string[] {
   const ids: string[] = []

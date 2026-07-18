@@ -792,16 +792,6 @@ export interface Score {
 }
 
 /**
- * Position in the score (for cursor, selection, etc.)
- */
-export interface Position {
-  /** Measure number (1-indexed) */
-  measure: number
-  /** Beat position (0-indexed, exact rational fraction) */
-  beat: Fraction
-}
-
-/**
  * Ghost note preview shown while hovering before note entry.
  * Pitch is stored as spelling (step/alter/octave) — same as NotePitch.
  */

@@ -315,7 +315,8 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
 }
 
 /**
- * Get all shortcuts as an array (useful for help display)
+ * All shortcuts as a flat array. Reserved for the keyboard-help window (a table over
+ * `SHORTCUTS`); no caller yet, kept because that window is the obvious next reader.
  */
 export function getShortcutList(): Array<{ key: string; action: string; description?: string }> {
   return Object.entries(SHORTCUTS).map(([key, def]) => ({

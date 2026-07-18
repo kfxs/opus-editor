@@ -1,7 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { CoordinateMapper } from './CoordinateMapper'
-import type { Note } from '@/types/music'
-import { fracCreate as frac } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import { getMeasureDuration } from '@/utils/musicUtils'
 
@@ -58,62 +56,6 @@ describe('CoordinateMapper', () => {
       const x = mapper.beatToPixelX(0.5, 1, 4)
       const expectedX = 110 + (380 / 4) * 0.5
       expect(x).toBeCloseTo(expectedX, 1)
-    })
-  })
-
-  describe('pitchToPixelY', () => {
-    it('should return correct Y for middle C (C4)', () => {
-      const y = mapper.pitchToPixelY('C', 0, 4, 1)
-      // C4: dPos=28, staffLine=(38-28)/2=5.0
-      // y = startY + (5.0 * 10) + (4 * 10) = 40 + 50 + 40 = 130
-      expect(y).toBe(130)
-    })
-
-    it('should return lower Y for higher pitch', () => {
-      const yC = mapper.pitchToPixelY('C', 0, 4, 1)
-      const yE = mapper.pitchToPixelY('E', 0, 4, 1)
-      expect(yE).toBeLessThan(yC) // Higher pitch = lower on screen
-    })
-
-    it('should return higher Y for lower pitch', () => {
-      const yC = mapper.pitchToPixelY('C', 0, 4, 1)
-      const yG = mapper.pitchToPixelY('G', 0, 3, 1)
-      expect(yG).toBeGreaterThan(yC) // Lower pitch = higher on screen
-    })
-  })
-
-  describe('noteToPixel', () => {
-    it('should convert note to pixel coordinates', () => {
-      const note: Note = {
-        id: '1',
-        step: 'C',
-        alter: 0,
-        octave: 4,
-        duration: 'q',
-        measure: 1,
-        beat: frac(0, 1),
-      }
-
-      const coords = mapper.noteToPixel(note, 4)
-      expect(coords.x).toBe(110) // startX + measureLeftMargin
-      expect(coords.y).toBe(130) // C4 at staff line 5.0
-    })
-
-    it('should handle notes in different measures', () => {
-      const note: Note = {
-        id: '1',
-        step: 'C',
-        alter: 0,
-        octave: 4,
-        duration: 'q',
-        measure: 2,
-        beat: frac(0, 1),
-      }
-
-      const coords = mapper.noteToPixel(note, 4)
-      // Measure 2 is not first in line, so leftMargin = 20
-      // x = startX + measureWidth + 20 = 10 + 500 + 20 = 530
-      expect(coords.x).toBe(530)
     })
   })
 

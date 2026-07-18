@@ -2,11 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   durationToBeats,
   getMeasureDuration,
-  noteCanFitInMeasure,
   midiToNoteName,
-  noteNameToMidi,
-  getNextAvailableBeat,
-  getStaffLinePosition,
   calculateTotalDuration,
   measureCapacityFrac,
   measureCapacityQuarters,
@@ -63,25 +59,6 @@ describe('musicUtils', () => {
     })
   })
 
-  describe('noteCanFitInMeasure', () => {
-    const ts44: TimeSignature = { numerator: 4, denominator: 4 }
-
-    it('should return true when note fits', () => {
-      expect(noteCanFitInMeasure(0, 'q', ts44)).toBe(true)
-      expect(noteCanFitInMeasure(3, 'q', ts44)).toBe(true)
-    })
-
-    it('should return false when note does not fit', () => {
-      expect(noteCanFitInMeasure(3.5, 'q', ts44)).toBe(false)
-      expect(noteCanFitInMeasure(3, 'h', ts44)).toBe(false)
-    })
-
-    it('should return true for exact fit', () => {
-      expect(noteCanFitInMeasure(0, 'w', ts44)).toBe(true)
-      expect(noteCanFitInMeasure(2, 'h', ts44)).toBe(true)
-    })
-  })
-
   describe('midiToNoteName', () => {
     it('should convert MIDI 60 to C4', () => {
       expect(midiToNoteName(60)).toBe('C4')
@@ -102,81 +79,6 @@ describe('musicUtils', () => {
     it('should handle sharps correctly', () => {
       expect(midiToNoteName(61)).toBe('C#4')
       expect(midiToNoteName(66)).toBe('F#4')
-    })
-  })
-
-  describe('noteNameToMidi', () => {
-    it('should convert C4 to MIDI 60', () => {
-      expect(noteNameToMidi('C4')).toBe(60)
-    })
-
-    it('should convert A4 to MIDI 69', () => {
-      expect(noteNameToMidi('A4')).toBe(69)
-    })
-
-    it('should handle sharps', () => {
-      expect(noteNameToMidi('C#4')).toBe(61)
-      expect(noteNameToMidi('F#4')).toBe(66)
-    })
-
-    it('should handle flats', () => {
-      expect(noteNameToMidi('Db4')).toBe(61)
-      expect(noteNameToMidi('Bb3')).toBe(58)
-    })
-
-    it('should handle negative octaves', () => {
-      expect(noteNameToMidi('C-1')).toBe(0)
-    })
-
-    it('should throw error for invalid note name', () => {
-      expect(() => noteNameToMidi('Invalid')).toThrow()
-      expect(() => noteNameToMidi('H4')).toThrow()
-    })
-  })
-
-  describe('getNextAvailableBeat', () => {
-    const ts44: TimeSignature = { numerator: 4, denominator: 4 }
-
-    it('should return 0 for empty measure', () => {
-      expect(getNextAvailableBeat([], 'q', ts44)).toBe(0)
-    })
-
-    it('should find space between notes', () => {
-      const occupied = [
-        { beat: 0, duration: 'q' as NoteDuration },
-        { beat: 2, duration: 'q' as NoteDuration },
-      ]
-      expect(getNextAvailableBeat(occupied, 'q', ts44)).toBe(1)
-    })
-
-    it('should find space at the end', () => {
-      const occupied = [
-        { beat: 0, duration: 'h' as NoteDuration },
-      ]
-      expect(getNextAvailableBeat(occupied, 'q', ts44)).toBe(2)
-    })
-
-    it('should return -1 when measure is full', () => {
-      const occupied = [
-        { beat: 0, duration: 'w' as NoteDuration },
-      ]
-      expect(getNextAvailableBeat(occupied, 'q', ts44)).toBe(-1)
-    })
-  })
-
-  describe('getStaffLinePosition', () => {
-    it('should return 0 for middle C (MIDI 60)', () => {
-      expect(getStaffLinePosition(60)).toBe(0)
-    })
-
-    it('should return positive for notes above middle C', () => {
-      expect(getStaffLinePosition(62)).toBe(1) // D4
-      expect(getStaffLinePosition(72)).toBe(6) // C5
-    })
-
-    it('should return negative for notes below middle C', () => {
-      expect(getStaffLinePosition(58)).toBe(-1) // Bb3
-      expect(getStaffLinePosition(48)).toBe(-6) // C3
     })
   })
 

@@ -501,7 +501,7 @@ export class NoteEntryCoordinator {
     voice: number = 0,
     staff: number = 0,
   ): void {
-    const notesToOverwrite = this.findNotesToOverwrite(measureNumber, finalBeat, duration, pitchMidi, false, tupletAtBeat, voice, staff)
+    const notesToOverwrite = this.findNotesToOverwrite(measureNumber, finalBeat, duration, pitchMidi, tupletAtBeat, voice, staff)
     if (notesToOverwrite.length > 0) {
       console.log('Overwriting notes:', notesToOverwrite.map(n => {
         return `${formatPitch(n)}@beat:${fracToNumber(n.beat).toFixed(3)}`
@@ -1447,15 +1447,12 @@ export class NoteEntryCoordinator {
    * Returns notes that fall within the new note's duration range.
    * Notes at the same beat with DIFFERENT pitch are kept (chords).
    * Notes at the same beat with SAME pitch are deleted (replacement).
-   *
-   * @param isTiedContinuation - If true, delete ALL notes at the same beat (tied notes eat existing notes)
    */
   private findNotesToOverwrite(
     measureNumber: number,
     beat: Fraction,
     duration: NoteParams['duration'],
     pitch: number,
-    isTiedContinuation: boolean = false,
     tupletInfo?: Tuplet,
     voice: number = 0,
     staff: number = 0,
@@ -1485,14 +1482,10 @@ export class NoteEntryCoordinator {
         return false  // Protect all other notes in the same tuplet
       }
 
-      // Notes at the same beat:
-      // - For tied continuations: delete ALL notes (tied notes "eat" existing notes)
-      // - For normal notes: only delete if same pitch (replacement), different pitch = chord
+      // Notes at the same beat: only delete if same pitch (replacement); a different pitch
+      // is a chord and is kept.
       if (fracEq(existing.beat, beat)) {
-        if (isTiedContinuation) {
-          return true  // Delete all notes at this beat for tied continuations
-        }
-        return !existing.isRest && spellingToMidi(existing.step!, existing.alter!, existing.octave!) === pitch  // Delete if same MIDI pitch (replacement)
+        return !existing.isRest && spellingToMidi(existing.step!, existing.alter!, existing.octave!) === pitch
       }
 
       // Check if this note starts within the new note's time range

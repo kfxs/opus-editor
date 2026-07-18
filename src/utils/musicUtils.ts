@@ -72,23 +72,6 @@ export function measureCapacityQuarters(measure: Measure): number {
 }
 
 /**
- * Check if a note duration fits within remaining space in a measure
- * @param currentBeat - Current beat position in measure
- * @param duration - Duration to add
- * @param timeSignature - Time signature of the measure
- * @returns True if the note fits, false otherwise
- */
-export function noteCanFitInMeasure(
-  currentBeat: number,
-  duration: NoteDuration,
-  timeSignature: TimeSignature
-): boolean {
-  const noteDuration = durationToBeats(duration)
-  const measureDuration = getMeasureDuration(timeSignature)
-  return currentBeat + noteDuration <= measureDuration
-}
-
-/**
  * Convert MIDI note number to note name with octave
  * @param midiNote - MIDI note number (0-127)
  * @returns Note name with octave (e.g., 'C4', 'A#3')
@@ -98,104 +81,6 @@ export function midiToNoteName(midiNote: number): string {
   const octave = Math.floor(midiNote / 12) - 1
   const noteName = noteNames[midiNote % 12]
   return `${noteName}${octave}`
-}
-
-/**
- * Convert note name with octave to MIDI number
- * @param noteName - Note name with octave (e.g., 'C4', 'A#3')
- * @returns MIDI note number (0-127)
- */
-export function noteNameToMidi(noteName: string): number {
-  const noteMap: Record<string, number> = {
-    C: 0,
-    'C#': 1,
-    Db: 1,
-    D: 2,
-    'D#': 3,
-    Eb: 3,
-    E: 4,
-    F: 5,
-    'F#': 6,
-    Gb: 6,
-    G: 7,
-    'G#': 8,
-    Ab: 8,
-    A: 9,
-    'A#': 10,
-    Bb: 10,
-    B: 11,
-  }
-
-  // Parse note name and octave
-  const match = noteName.match(/^([A-G][#b]?)(-?\d+)$/)
-  if (!match) {
-    throw new Error(`Invalid note name: ${noteName}`)
-  }
-
-  const [, note, octaveStr] = match
-  const octave = parseInt(octaveStr, 10)
-  const noteValue = noteMap[note]
-
-  if (noteValue === undefined) {
-    throw new Error(`Invalid note: ${note}`)
-  }
-
-  return (octave + 1) * 12 + noteValue
-}
-
-/**
- * Calculate the next available beat position in a measure
- * @param occupiedBeats - Array of beat positions already occupied
- * @param duration - Duration of the note to add
- * @param timeSignature - Time signature of the measure
- * @returns Next available beat position, or -1 if measure is full
- */
-export function getNextAvailableBeat(
-  occupiedBeats: Array<{ beat: number; duration: NoteDuration; dots?: number }>,
-  duration: NoteDuration,
-  timeSignature: TimeSignature,
-  dots: number = 0
-): number {
-  const measureDuration = getMeasureDuration(timeSignature)
-  const noteDuration = durationToBeats(duration, dots)
-
-  // Sort occupied beats
-  const sorted = [...occupiedBeats].sort((a, b) => a.beat - b.beat)
-
-  // Check from the start
-  let currentPosition = 0
-
-  for (const occupied of sorted) {
-    const occupiedDuration = durationToBeats(occupied.duration, occupied.dots || 0)
-
-    // Check if there's space before this note
-    if (currentPosition + noteDuration <= occupied.beat) {
-      return currentPosition
-    }
-
-    // Move past this occupied note
-    currentPosition = Math.max(currentPosition, occupied.beat + occupiedDuration)
-  }
-
-  // Check if there's space at the end
-  if (currentPosition + noteDuration <= measureDuration) {
-    return currentPosition
-  }
-
-  return -1 // Measure is full
-}
-
-/**
- * Get the staff line position for a MIDI note
- * Middle C (MIDI 60) is the baseline
- * @param midiNote - MIDI note number
- * @returns Staff line position (positive = above middle C, negative = below)
- */
-export function getStaffLinePosition(midiNote: number): number {
-  const middleC = 60
-  const halfSteps = midiNote - middleC
-  // Each staff line represents a whole step (2 semitones)
-  return Math.round(halfSteps / 2)
 }
 
 /**
@@ -214,39 +99,7 @@ export function calculateTotalDuration(
 
 // ==================== Tuplet Utilities ====================
 
-/**
- * Get the duration in beats of a single note within a tuplet
- * For a triplet of eighth notes (3:2), each eighth note = (0.5 * 2) / 3 = 0.333 beats
- * @param baseDuration - The base note duration (e.g., '8' for eighth note triplet)
- * @param numNotes - Number of notes in the tuplet (e.g., 3)
- * @param notesOccupied - Number of base notes the tuplet spans (e.g., 2)
- * @returns Duration in beats of one tuplet note
- */
-export function getTupletNoteDuration(
-  baseDuration: NoteDuration,
-  numNotes: number,
-  notesOccupied: number
-): number {
-  const baseBeats = durationToBeats(baseDuration)
-  return (baseBeats * notesOccupied) / numNotes
-}
-
-/**
- * Get the total duration in beats that a tuplet occupies
- * For a triplet of eighth notes (3:2), total = 0.5 * 2 = 1 beat
- * @param baseDuration - The base note duration
- * @param notesOccupied - Number of base notes the tuplet spans
- * @returns Total duration in beats
- */
-export function getTupletTotalBeats(
-  baseDuration: NoteDuration,
-  notesOccupied: number
-): number {
-  return durationToBeats(baseDuration) * notesOccupied
-}
-
 // ==================== Exact Fraction Tuplet Utilities ====================
-// The float variants above remain for VexFlow/pixel callers that need numbers.
 
 /**
  * Exact duration (in beats) of a single note within a tuplet.
@@ -280,14 +133,6 @@ export function getTupletTotalBeatsFrac(
 export function isBeatInTupletFrac(beat: Fraction, tuplet: Tuplet): boolean {
   const end = fracAdd(tuplet.startBeat, getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied))
   return fracGte(beat, tuplet.startBeat) && fracLt(beat, end)
-}
-
-/**
- * Sort an array of Fraction beat positions in ascending order (mutates in place).
- * Uses exact cross-multiplication comparison.
- */
-export function sortBeatsFrac(positions: Fraction[]): Fraction[] {
-  return positions.sort(fracCompare)
 }
 
 /**
@@ -336,6 +181,10 @@ export function noteSpansOverlapFrac(
 
 /**
  * Check if span [start, start+dur) is fully contained within [regionStart, regionEnd).
+ *
+ * Reserved for the nested-tuplets containment guard (docs: allow one tuplet fully inside
+ * another, reject a partial overlap). No caller yet — kept because that guard is the exact
+ * shape this computes; delete if nested tuplets are ruled out. See project_nested_tuplets_future.
  */
 export function spanContainedInFrac(
   start: Fraction,

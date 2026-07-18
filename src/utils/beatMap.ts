@@ -114,47 +114,6 @@ function posKey(n: FlatNote): string {
 }
 
 /**
- * Every note/rest id in the inclusive temporal range between two notes (by id),
- * in score order. WHOLE CHORDS are included (every note sharing a beat in the
- * range), and rests in between are included. Direction-agnostic: the two ids may
- * be given in either order. Used by Shift-click range selection.
- *
- * Multi-staff (Sibelius-style): the two endpoints define BOTH the beat span AND the staff
- * span. Shift-click on the SAME staff → a single-staff passage; Shift-click on a DIFFERENT
- * staff → the passage extends vertically to cover every staff between the two (a grand-staff
- * / system passage). The barline/beat spine is shared, so the beat range is taken from the
- * all-staff position map and then filtered to the staff band [anchorStaff … targetStaff].
- *
- * Falls back to just the target's id when the anchor can't be located.
- */
-export function notesInRange(score: Score, anchorId: string, targetId: string): string[] {
-  // Full (all-staff, all-voice) map: locates the endpoints, orders positions, and carries staff.
-  const { allFlat, beats } = buildBeatMap(score)
-  const anchorFull = allFlat.find(n => n.id === anchorId)
-  const targetFull = allFlat.find(n => n.id === targetId)
-  if (!targetFull) return []
-  if (!anchorFull) return [targetFull.id]
-
-  const aIdx = beats.findIndex(b => posKey(b) === posKey(anchorFull))
-  const tIdx = beats.findIndex(b => posKey(b) === posKey(targetFull))
-  if (aIdx === -1 || tIdx === -1) return [targetFull.id]
-
-  const lo = Math.min(aIdx, tIdx)
-  const hi = Math.max(aIdx, tIdx)
-  const rangeKeys = new Set(beats.slice(lo, hi + 1).map(posKey))
-
-  // Staff band spanned by the two endpoints (same staff → just that one staff).
-  const staffLo = Math.min(anchorFull.staff ?? 0, targetFull.staff ?? 0)
-  const staffHi = Math.max(anchorFull.staff ?? 0, targetFull.staff ?? 0)
-
-  // allFlat is already temporally sorted, so this yields the range in score order with every
-  // chord note at each in-range beat, across every staff in the band.
-  return allFlat
-    .filter(n => rangeKeys.has(posKey(n)) && (n.staff ?? 0) >= staffLo && (n.staff ?? 0) <= staffHi)
-    .map(n => n.id)
-}
-
-/**
  * Every note/rest id inside the RECTANGULAR bounding box that encloses a set of already-
  * selected ids PLUS a new target — the beat extent [min…max] × the staff extent [min…max]
  * of all those endpoints. Used by additive Shift-click: each click grows the box (it can

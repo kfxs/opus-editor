@@ -296,15 +296,14 @@ export class MusicEngine {
   }
 
   /**
-   * Get description of action that would be undone
+   * Description of the action that would be undone / redone (e.g. "Reshape slur").
+   * Reserved for the Edit menu's labelled Undo/Redo items; currently exercised only by
+   * tests. Keep — the undo stack already carries these labels, so the menu is a thin read.
    */
   getUndoDescription(): string | null {
     return this.undoRedoManager.getUndoDescription()
   }
 
-  /**
-   * Get description of action that would be redone
-   */
   getRedoDescription(): string | null {
     return this.undoRedoManager.getRedoDescription()
   }
@@ -753,11 +752,6 @@ export class MusicEngine {
     return this.noteEntryCoordinator.addNoteAtPosition(coords, duration, accidental, dots, articulations, beam, voice)
   }
 
-  addRest(duration: NoteParams['duration'], measure: number, beat: Fraction): Note {
-    const rest = this.scoreModel.addRest(duration, measure, beat)
-    this.commit('Add rest')
-    return rest
-  }
 
   // --- Mutation ---
 
@@ -2121,14 +2115,6 @@ export class MusicEngine {
     this.renderer.clear()
   }
 
-  /**
-   * Re-initialize renderer with new dimensions
-   */
-  resizeCanvas(width: number, height: number): void {
-    this.renderer.initialize(width, height)
-    this.renderScore()
-  }
-
   // ==================== Coordinate Mapping ====================
 
   /**
@@ -2193,57 +2179,6 @@ export class MusicEngine {
     return { measure: measureNumber, beat, spelling, staff }
   }
 
-  /**
-   * Convert note to pixel coordinates
-   */
-  noteToPixel(note: Note, barQuarters: number): PixelCoordinates {
-    return this.coordinateMapper.noteToPixel(note, barQuarters)
-  }
-
-  /**
-   * Update coordinate mapper configuration
-   */
-  updateCoordinateConfig(config: Partial<CoordinateMapperConfig>): void {
-    this.coordinateMapper.updateConfig(config)
-  }
-
-  // ==================== Collision Detection ====================
-
-  /**
-   * Check if a note would collide
-   */
-  checkCollision(noteParams: NoteParams) {
-    return this.collisionDetector.checkNoteCollision(noteParams, this.scoreModel.getAllNotes())
-  }
-
-  /**
-   * Check if adding a note would overflow the measure
-   */
-  checkOverflow(noteParams: NoteParams) {
-    const measure = this.scoreModel.getMeasure(noteParams.measure)
-    if (!measure) return null
-
-    return this.collisionDetector.checkMeasureOverflow(
-      noteParams,
-      measure,
-      this.scoreModel.getNotesInMeasure(noteParams.measure)
-    )
-  }
-
-  /**
-   * Find next available position for a note
-   */
-  findNextAvailablePosition(duration: string, measureNumber: number) {
-    const measure = this.scoreModel.getMeasure(measureNumber)
-    if (!measure) return null
-
-    return this.collisionDetector.findNextAvailablePosition(
-      duration,
-      measure,
-      this.scoreModel.getNotesInMeasure(measureNumber)
-    )
-  }
-
   // ==================== Playback Operations ====================
 
   /**
@@ -2268,7 +2203,8 @@ export class MusicEngine {
   }
 
   /**
-   * Seek to a specific measure
+   * Seek to a specific measure. Reserved for the transport bar's seek/scrub UI (no caller
+   * yet); the playback engine already supports it, so this stays as the ready seam.
    */
   seekToMeasure(measureNumber: number): void {
     this.playbackEngine.seekToMeasure(measureNumber)
@@ -2282,14 +2218,15 @@ export class MusicEngine {
   }
 
   /**
-   * Get playback position
+   * Current playback position. Reserved for the transport bar's playhead readout (no caller
+   * yet, apart from tests). Keep alongside {@link seekToMeasure} / {@link setVolume}.
    */
   getPlaybackPosition() {
     return this.playbackEngine.getPosition()
   }
 
   /**
-   * Set playback volume (0-1)
+   * Set playback volume (0-1). Reserved for the transport bar's volume control (no caller yet).
    */
   setVolume(volume: number): void {
     this.playbackEngine.setVolume(volume)

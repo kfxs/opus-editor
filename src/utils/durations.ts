@@ -24,7 +24,7 @@
  */
 
 import type { NoteDuration } from '@/types/music'
-import { type Fraction, fracCreate, fracLte, fracMul, fracToNumber } from '@/utils/fraction'
+import { type Fraction, fracCreate, fracLte, fracMul } from '@/utils/fraction'
 
 /** The three parallel facts about a single (undotted) note duration. */
 export interface DurationInfo {
@@ -275,9 +275,4 @@ export function splitBeatsIntoLengths(totalBeats: number): NoteLength[] {
   }
 
   return lengths
-}
-
-/** Quick consistency assertion available to tests: float beats == fraction. */
-export function durationInfoIsConsistent(duration: NoteDuration): boolean {
-  return fracToNumber(DURATION_INFO[duration].fraction) === DURATION_INFO[duration].beats
 }

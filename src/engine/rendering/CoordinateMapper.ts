@@ -1,7 +1,6 @@
-import type { PixelCoordinates, Note, PitchStep, PitchSpelling } from '@/types/music'
+import type { PixelCoordinates, PitchStep, PitchSpelling } from '@/types/music'
 import type { MeasureBounds } from './VexFlowRenderer'
-import { fracToNumber } from '@/utils/fraction'
-import { spellingDiatonicPos, spellingToMidi, midiToSpelling } from '@/utils/pitchSpelling'
+import { spellingToMidi, midiToSpelling } from '@/utils/pitchSpelling'
 
 /** Treble-clef reference: F5 sits on staff line 0 (top line). diatonicPos = 5*7+3 = 38 */
 const TREBLE_TOP_DIATONIC_POS = 38
@@ -144,39 +143,6 @@ export class CoordinateMapper {
     const beatWidth = usableWidth / barQuarters
 
     return measurePos.x + leftMargin + beat * beatWidth
-  }
-
-  /**
-   * Calculate pixel Y coordinate for a pitch spelling.
-   * Uses spellingDiatonicPos for correct staff line positioning — accidentals
-   * on the same diatonic step (e.g. C# and C♮) map to the same Y position.
-   * @param step - Diatonic step name
-   * @param _alter - Ignored for Y positioning (alter doesn't change staff line)
-   * @param octave - Scientific octave
-   * @param measureNumber - Measure number for Y offset calculation
-   */
-  pitchToPixelY(step: PitchStep, _alter: number, octave: number, measureNumber: number): number {
-    const measurePos = this.getMeasurePosition(measureNumber)
-    const SPACING = 10
-    const HEADROOM = 4 // lines above staff
-
-    // staff line 0 = F5 (top line); each half-line = one diatonic step down
-    const dPos = spellingDiatonicPos(step, octave)
-    const staffLine = (TREBLE_TOP_DIATONIC_POS - dPos) / 2
-
-    return measurePos.y + (staffLine * SPACING) + (HEADROOM * SPACING)
-  }
-
-  /**
-   * Convert a note to pixel coordinates
-   */
-  noteToPixel(note: Note, barQuarters: number): PixelCoordinates {
-    return {
-      x: this.beatToPixelX(fracToNumber(note.beat), note.measure, barQuarters),
-      y: note.step !== undefined
-        ? this.pitchToPixelY(note.step, note.alter ?? 0, note.octave!, note.measure)
-        : this.getMeasurePosition(note.measure).y + 40, // rests: center of staff
-    }
   }
 
   /**
