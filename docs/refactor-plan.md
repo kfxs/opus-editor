@@ -1,5 +1,12 @@
 # Refactor Plan — Code Quality Pass (2026-07-18)
 
+> ✅ **FULLY EXECUTED (2026-07-18).** All 5 phases shipped: Phase 1 bugs `b48e963`,
+> Phase 2 CLAUDE.md `7dd9a3e`, Phase 3 dedup `282b8ea`, Phase 4 dead-code delete `350eafe`,
+> Phase 5 rebarOps split `666f458`. Kept as the record of *what was done and why* (incl. the
+> keep-vs-delete verdicts and the reviewed-and-rejected dedups — don't re-propose those).
+> Phase 4's sweep also removed dead siblings the table missed (`CoordinateMapper.pitchToPixelY`,
+> `CollisionDetector.getAffectedNotes`/`getMeasureUsage`/`validateMeasure`/`quantizeNote`).
+
 Outcome of a full code review (all of `src/` read; every export mechanically checked for
 callers; baseline: type-check clean, 1444 unit tests green). The codebase is healthy — the
 layering holds, invariants are enforced by real mechanisms, comments explain *why*. This plan

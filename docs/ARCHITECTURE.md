@@ -40,6 +40,8 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 │                              talks to; coordinates everything  │   services)
 │      NoteEntryCoordinator .. placement / overflow / tie-split  │
 │      models/ScoreModel ..... THE data model (see glossary)     │
+│      models/{clef,tuplet,rebar}Ops . delegated mutation        │
+│                              sub-APIs (free funcs over `score`) │
 │      models/CollisionDetector                                  │
 │      rendering/VexFlowRenderer ... notation → SVG (VexFlow 5)  │
 │      rendering/CoordinateMapper .. pixel ↔ musical position    │
@@ -91,7 +93,9 @@ should only translate Vue reactivity/events to controller calls and back.
 
 | If you're changing… | Go to |
 |---|---|
-| The note/measure/score data, rebar, tie/slur preservation | `engine/models/ScoreModel.ts` |
+| The note/measure/score data, tie/slur preservation | `engine/models/ScoreModel.ts` |
+| Re-barring / paste — the region-rewrite pipeline (capture → relay → materialize → restore) | `engine/models/rebarOps.ts` (free funcs over `score` + a `RebarDeps` callback bundle; ScoreModel delegates) |
+| Clef / tuplet mutations (sibling delegated sub-APIs) | `engine/models/clefOps.ts` / `tupletOps.ts` |
 | Placing a note (grid snap, overflow, cross-barline split) | `engine/NoteEntryCoordinator.ts` |
 | What a click/drag/pan *does* | `interactions/MouseController.ts` |
 | Letter-key note entry, chord/rest entry | `interactions/KeyboardController.ts` |
@@ -207,7 +211,7 @@ Vocabulary that is otherwise tribal knowledge.
 | **flat `Note`** | The **public projection** of the internal model (`toFlatNote` / `restToFlatNote`). The UI and JSON see flat `Note`s (`{ id, step, alter, octave, duration, measure, beat, … }`), never the internal `Chord`/`NotePitch`. Deliberate two-model design — don't collapse it. |
 | **voice-ready** | The data model already supports multiple voices per measure; only the multi-voice *render loop* is deferred. This is why features land "voice-ready". |
 | **written vs. sounding** | Written pitch is what's notated; sounding pitch is what plays (they differ for transposing contexts). Kept distinct in pitch handling. |
-| **rebar** | Re-flowing notes across barlines when a measure's capacity changes (e.g. a time-signature edit). Bounded rebar **pushes the next TS change forward** rather than cramming overflow. See `utils/rebar.ts`. |
+| **rebar** | Re-flowing notes across barlines when a measure's capacity changes (e.g. a time-signature edit). Bounded rebar **pushes the next TS change forward** rather than cramming overflow. The pure relay algorithm is `utils/rebar.ts`; the region-rewrite *orchestration* (capture ties/slurs/anchors/rest-shifts → relay → materialize → restore) is `engine/models/rebarOps.ts`. |
 | **erosion** | Clearing (eroding) the space a spanning note will occupy in the *next* measure before placing the tied continuation — part of the cross-barline tie-split. |
 | **tie-split / spanning note** | A note longer than the remaining bar is split at the barline into a chain of tied notes (current measure remainder + next measure(s)). Today done by twin methods in `NoteEntryCoordinator`; consolidation into one `placeSpanningNote` primitive is the headline Tier 2 refactor. |
 | **pending-tie** | A tie armed from a note but not yet completed to a partner; re-anchored when its endpoint is deleted. The "first press always flips" / "read the side the renderer last drew" fallbacks support this — they look like hacks but are correct; leave them. |
