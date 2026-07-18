@@ -815,6 +815,69 @@ describe('MusicEngine.convertToRest', () => {
   })
 })
 
+describe('MusicEngine.renderScoreWithPreview — beat quantization uses the hovered measure (regression)', () => {
+  it('quantizes the ghost beat against bar 2 (3/4), not bar 1 (4/4)', () => {
+    // renderScoreWithPreview used to read bar 1's capacity for barQuarters no matter which
+    // measure was hovered. When the fallback beat-quantization runs (no nearby element), that
+    // clamps a quarter to bar-1's 4/4 max (beat 3) instead of bar-2's 3/4 max (beat 2).
+    const engine = makeEngine() // bars 1 and 2, both 4/4
+    engine.setTimeSignature(2, { numerator: 3, denominator: 4 })
+
+    // Inject drawn bounds so pixelToMeasure/pixelXToBeat resolve bar 2 and a far-right beat.
+    const bounds = new Map([
+      [1, { measureX: 0, measureY: 0, measureWidth: 400, noteStartX: 50, noteEndX: 400, systemHeight: 200 }],
+      [2, { measureX: 400, measureY: 0, measureWidth: 400, noteStartX: 450, noteEndX: 800, systemHeight: 200 }],
+    ])
+    ;(engine as unknown as { coordinateMapper: { setMeasureBounds: (b: typeof bounds) => void } })
+      .coordinateMapper.setMeasureBounds(bounds)
+
+    // Force the coordinate-calculation fallback: no invalid element, a real staff+pitch, and NO
+    // nearest note/rest so getPositionFromPixels drops to pixelXToBeat + quantizeBeat.
+    const registry = fakeRegistry as Record<string, unknown>
+    const added = ['getAt', 'staffIndexAtY', 'pixelYToPitch', 'findNearestNoteOrRest']
+    registry.getAt = vi.fn(() => null)
+    registry.staffIndexAtY = vi.fn(() => 0)
+    registry.pixelYToPitch = vi.fn(() => ({ step: 'C', alter: 0, octave: 4 }))
+    registry.findNearestNoteOrRest = vi.fn(() => null)
+
+    let captured: { measure: number; beat: number } | undefined
+    ;(engine as unknown as { renderer: { drawGhostNote: unknown } }).renderer.drawGhostNote =
+      vi.fn((_score: unknown, ghost: { measure: number; beat: number }) => { captured = ghost; return true })
+
+    try {
+      engine.renderScoreWithPreview({ x: 790, y: 50 }, 'q')
+    } finally {
+      for (const k of added) delete registry[k]
+    }
+
+    expect(captured!.measure).toBe(2)
+    expect(captured!.beat).toBe(2) // clamped to 3/4 (barQuarters − quarter = 2), not 4/4's 3
+  })
+})
+
+describe('MusicEngine.deleteNote — staff scoping (multi-staff)', () => {
+  it('deleting one staff\'s note replaces it with a rest and leaves the other staff untouched', () => {
+    // getChordNotesAt matches on (measure, beat, voice); without staff scoping the same-beat/
+    // same-voice note on the OTHER staff makes this read as a chord, so the note is removed
+    // without a replacement rest and the surviving-sibling slur re-anchor grabs the wrong staff.
+    const engine = makeEngine()
+    engine.addStaffBelow(0)
+    const top = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })
+    const bottom = addNote(engine, { step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
+
+    expect(engine.deleteNote(top.id)).toBe(true)
+    // A single note (not a chord) must be replaced by a rest of the same duration on its staff.
+    const staff1Id = engine.getScore().staves![1].id
+    const topSlotAtZero = engine.getScore().measures[0].slots
+      .find(s => s.staffId !== staff1Id && fracToNumber(s.beat) === 0)!
+    expect(topSlotAtZero.type).toBe('rest')
+    expect(topSlotAtZero.duration).toBe('q')
+    // The staff-1 note at the same beat is untouched.
+    expect(engine.getNote(bottom.id)).toBeTruthy()
+    expect(engine.getNote(bottom.id)!.isRest).toBeFalsy()
+  })
+})
+
 describe('MusicEngine.toggleTie — staff scoping (multi-staff)', () => {
   let engine: MusicEngine
 

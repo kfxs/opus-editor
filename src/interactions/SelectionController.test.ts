@@ -435,6 +435,30 @@ describe('SelectionController — navigateVoice (Alt+Shift+up/down voice hop)', 
     expect(state.selectedNoteId).toBe(v2Rest.id)
   })
 
+  it('a manually shifted rest hops by its DRAWN position, not its default lane', () => {
+    // Voice 1 note at C5 (above middle line); voice 2 has a rest at beat 0 (gap-filled). By
+    // default that rest sits in its below-middle lane, so from the C5 note "down" lands on it
+    // and "up" finds nothing. Shift the rest well ABOVE the C5 note (engraving client #5): now
+    // the hop must follow the drawn geometry — "up" from C5 lands on the rest.
+    const v1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+
+    const measure = engine.getScore().measures.find(m => m.number === 1)!
+    const v2Rest = getMeasureNotes(measure).find(n => n.isRest && (n.voice ?? 0) === 1 && fracEq(n.beat, frac(0, 1)))!
+
+    // Default lane is below the C5 note: up finds nothing, down lands on the rest.
+    selection.selectNote(v1)
+    selection.navigateVoice(1)
+    expect(state.selectedNoteId).toBe(v1) // nothing above
+
+    // Shift the rest far above the C5 note (+5 diatonic steps clears it).
+    expect(engine.nudgeRestShift(v2Rest.id, 5)).toBe(true)
+
+    selection.selectNote(v1)
+    selection.navigateVoice(1) // up — now the shifted rest sits above C5
+    expect(state.selectedNoteId).toBe(v2Rest.id)
+  })
+
   it('hops between voices at a UNISON (same pitch) — V1 is up, V2 is down', () => {
     const v1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
     const v2 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id

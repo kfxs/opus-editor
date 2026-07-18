@@ -760,10 +760,11 @@ export class MusicEngine {
 
   // --- Mutation ---
 
-  /** Returns all non-rest notes at the given beat in a measure (chord members). */
-  private getChordNotesAt(measureNumber: number, beat: Fraction, voice: number = 0): Note[] {
+  /** Returns all non-rest notes at the given beat AND voice AND staff in a measure (chord members).
+   *  Staff-scoped: two staves holding a note at the same beat/voice is ordinary, not a chord. */
+  private getChordNotesAt(measureNumber: number, beat: Fraction, voice: number = 0, staff: number = 0): Note[] {
     return this.scoreModel.getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && (n.voice ?? 0) === voice && fracEq(n.beat, beat))
+      .filter(n => !n.isRest && (n.voice ?? 0) === voice && (n.staff ?? 0) === staff && fracEq(n.beat, beat))
   }
 
   /**
@@ -1562,14 +1563,12 @@ export class MusicEngine {
     return this.scoreModel.getNote(rest.id) ?? null
   }
 
-  /** Every pitch id sharing `note`'s slot — its chord siblings and itself. Staff-scoped on top of
-   *  {@link getChordNotesAt}, which matches on (measure, beat, voice) only: two staves holding a note
-   *  at the same beat in voice 0 is ordinary, not a chord, and re-anchoring the OTHER staff's slurs
-   *  onto this rest would be a real bug. `noteId` is appended defensively so the note being converted
-   *  is always covered. */
+  /** Every pitch id sharing `note`'s slot — its chord siblings and itself. Scoped to the note's own
+   *  (voice, staff) via {@link getChordNotesAt}: two staves holding a note at the same beat in voice 0
+   *  is ordinary, not a chord, and re-anchoring the OTHER staff's slurs onto this rest would be a real
+   *  bug. `noteId` is appended defensively so the note being converted is always covered. */
   private slotPitchIdsFor(note: Note, noteId: string): string[] {
-    const ids = this.getChordNotesAt(note.measure, note.beat, note.voice ?? 0)
-      .filter(n => (n.staff ?? 0) === (note.staff ?? 0))
+    const ids = this.getChordNotesAt(note.measure, note.beat, note.voice ?? 0, note.staff ?? 0)
       .map(n => n.id)
     return ids.includes(noteId) ? ids : [...ids, noteId]
   }
@@ -1588,8 +1587,8 @@ export class MusicEngine {
       ? `Delete ${midiToNoteName(spellingToMidi(note.step, note.alter ?? 0, note.octave!))}`
       : 'Delete rest'
 
-    // Check if this note is part of a chord (multiple notes at same beat, same measure)
-    const notesAtSameBeat = this.getChordNotesAt(note.measure, note.beat, note.voice ?? 0)
+    // Check if this note is part of a chord (multiple notes at same beat, same voice, same staff)
+    const notesAtSameBeat = this.getChordNotesAt(note.measure, note.beat, note.voice ?? 0, note.staff ?? 0)
     const isPartOfChord = notesAtSameBeat.length > 1
 
     // Save EVERY tie that targets this note before deletion clears them. When a single
@@ -1999,7 +1998,11 @@ export class MusicEngine {
     articulations?: ArticulationType[],
     ghostColor?: { fill: string; stroke: string }
   ): boolean {
-    const measure = this.scoreModel.getMeasure(1)
+    // Resolve the HOVERED measure first (the same order addNoteAtPosition uses), so the
+    // beat-quantization fallback in getPositionFromPixels uses THAT measure's capacity — a
+    // 3/4 or pickup bar quantizes against its own length, not bar 1's.
+    const hoveredMeasureNumber = this.coordinateMapper.pixelToMeasure(coords)
+    const measure = this.scoreModel.getMeasure(hoveredMeasureNumber)
     if (!measure) {
       console.warn('No measure found for preview')
       return false

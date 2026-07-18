@@ -1,4 +1,4 @@
-import type { Accidental, Note, Measure, PitchStep, PitchAlter, Clef } from '../types/music'
+import type { Accidental, Note, Measure, PitchStep, PitchAlter, Clef, Score } from '../types/music'
 import { middleLineDiatonicPos } from '../utils/clefUtils'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Rect } from '../engine/ViewportModel'
@@ -8,6 +8,7 @@ import { buildVoiceNavBeatMap, notesInBox, dynamicsInBox, slursInBox, expandTieC
 import { fracLt, fracEq, fracCompare, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
+import { restShiftOverrideOf, restPositionKey } from '../engine/models/engravingOverrides'
 import { itemKey, selectedNoteIds, selectedArticulationNoteIds, type SelectionItem } from './selection'
 
 /**
@@ -475,24 +476,22 @@ export class SelectionController {
    * offset is < 1, so it only ever breaks ties — it never reorders genuinely different
    * pitches (which differ by whole diatonic steps).
    *
-   * ⚠️ FUTURE / REST POSITIONING: the rest branch ASSUMES a rest sits in its voice's
-   * default lane (derived purely from the voice index). That holds today because rest
-   * vertical offset is not user-editable. The moment we add manual rest positioning
-   * (a per-rest vertical offset / line override), this derivation goes stale and the
-   * voice hop will jump to the wrong place. When that lands, read the rest's ACTUAL
-   * vertical offset here (e.g. `n.restLine`/`restYOffset`) instead of the voice lane,
-   * mirroring however the renderer ends up drawing it — keep these two in lockstep.
+   * REST POSITIONING: a rest sits in its voice's default lane PLUS any manual vertical
+   * shift the user applied (Alt+Shift+↑/↓, engraving client #5). We add the shift's
+   * `steps` onto the lane exactly as the renderer's `restShiftFor` does, so the hop
+   * follows the DRAWN geometry rather than the un-shifted default — the two stay in
+   * lockstep by construction.
    */
-  private elementVerticalPos(n: Note, clef: Clef): number {
+  private elementVerticalPos(n: Note, clef: Clef, score: Score, measureId: string): number {
     const voice = n.voice ?? 0
     // Tiebreak only: lower voice index ranks higher. < 1 so it never crosses a real
     // pitch step. (Supports many voices before the cumulative offset approaches 1.)
     const voiceRank = -voice * 0.01
     if (n.isRest) {
-      // TODO(rest-positioning): replace this voice-lane default with the rest's real
-      // vertical offset once rests become vertically movable (see method doc above).
       const lane = voice === 0 ? 2 : -2
-      return middleLineDiatonicPos(clef) + lane + voiceRank
+      // Mirror VexFlowRenderer.restShiftFor: voice lane + the rest's own manual shift.
+      const shift = restShiftOverrideOf(score, restPositionKey(measureId, voice, n.beat))?.steps ?? 0
+      return middleLineDiatonicPos(clef) + lane + shift + voiceRank
     }
     return spellingDiatonicPos(n.step!, n.octave!) + voiceRank
   }
@@ -519,7 +518,7 @@ export class SelectionController {
     const currentVoice = current.voice ?? 0
     const currentStaff = current.staff ?? 0
     const clef = engine.getEffectiveClefAt(current.measure, current.beat, currentStaff)
-    const currentPos = this.elementVerticalPos(current, clef)
+    const currentPos = this.elementVerticalPos(current, clef, score, measure.id)
 
     // Candidate elements live in OTHER voices OF THE SAME STAFF (a voice hop never targets our
     // own chord, and never crosses into another staff — that's a different vertical axis).
@@ -538,7 +537,7 @@ export class SelectionController {
     // one (nearest notehead/rest above for up, below for down). No match → no jump
     // (e.g. pressing up from the top voice). Ties break toward the nearer beat.
     const dirElements = pool
-      .map(n => ({ n, pos: this.elementVerticalPos(n, clef) }))
+      .map(n => ({ n, pos: this.elementVerticalPos(n, clef, score, measure.id) }))
       .filter(({ pos }) => direction > 0 ? pos > currentPos : pos < currentPos)
     if (!dirElements.length) return
 
