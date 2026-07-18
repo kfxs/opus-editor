@@ -35,12 +35,13 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   },
   // The space bar has TWO meanings, decided by where you are — one key, because both are the same
   // gesture: get on with entering. In SELECTION mode it starts keyboard entry at the selected note.
-  // In keyboard entry with the REST stamp armed it TYPES the armed rest at the caret and moves on,
-  // like a typewriter's space bar (see KeyboardController.enterArmedRestAtCursor). The two can never
-  // both apply — they need opposite modes — so the handler tries the rest first and falls through.
+  // In keyboard entry it TYPES a rest of the current duration at the caret and moves on, like a
+  // typewriter's space bar — armed or not, so fast note+rest entry needs no tool switch (see
+  // KeyboardController.enterRestAtCursor). The two can never both apply — they need opposite modes —
+  // so the handler tries the rest first and falls through.
   ' ': {
     action: 'pressSpace',
-    description: 'Type the armed rest at the caret (keyboard entry), or start keyboard entry at the selection',
+    description: 'Type a rest of the current duration at the caret (keyboard entry), or start keyboard entry at the selection',
   },
 
   // Note durations (for future use)

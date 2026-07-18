@@ -145,26 +145,30 @@ export class KeyboardController {
   }
 
   /**
-   * SPACE, with the rest stamp armed in keyboard entry: TYPE the armed rest at the cursor and move
-   * on — the typewriter's space bar. Returns whether it consumed the key, so SPACE keeps its other
-   * meaning (entering entry mode from a selection) untouched.
+   * SPACE in keyboard entry: TYPE a rest of the current duration at the cursor and move on — the
+   * typewriter's space bar. Fires WHENEVER you are entering, armed or not: with the rest stamp lit
+   * it is the tool's keyboard half; without it, it is the fast-entry shortcut — type letters for
+   * notes, tap SPACE for a rest of the same length, keep typing (MuseScore's "rest of the current
+   * duration"). Either way the length is the armed palette duration — the length your next note
+   * would be — so the rest tool need not be selected first. Returns whether it consumed the key, so
+   * SPACE keeps its other meaning (entering entry mode from a selection) untouched.
    *
-   * The rest tool's KEYBOARD half. The stamp places with the mouse, at a beat you point to; this
-   * places at the caret, at the beat that comes next, and the two share the rule that matters —
-   * {@link fitRestDuration}, so what a barline does to a rest is one answer, not two.
+   * The stamp places with the mouse, at a beat you point to; this places at the caret, at the beat
+   * that comes next, and the two share the rule that matters — {@link fitRestDuration}, so what a
+   * barline does to a rest is one answer, not two.
    *
    * A rest is capped at the barline, never split: an overflowing NOTE splits and ties across it, and
-   * a tied rest is not a thing. So the armed length is trimmed to what the bar has left ("the
-   * longest value available, single dot included" — three beats is a dotted half). The caret then
-   * lands wherever the entry ended, which puts it at the next bar's downbeat exactly when the rest
-   * finished the bar — no rule of its own, just where the typewriter left the carriage.
+   * a tied rest is not a thing. So the length is trimmed to what the bar has left ("the longest
+   * value available, single dot included" — three beats is a dotted half). The caret then lands
+   * wherever the entry ended, which puts it at the next bar's downbeat exactly when the rest finished
+   * the bar — no rule of its own, just where the typewriter left the carriage.
    *
    * The armed length is NOT consumed: SPACE again types the same rest, which is what makes it a
    * typewriter rather than a one-shot.
    */
-  enterArmedRestAtCursor(): boolean {
+  enterRestAtCursor(): boolean {
     const engine = this.getEngine()
-    if (this.state.selectedTool !== 'entry' || !armedTool(this.state, 'rest')) return false
+    if (this.state.selectedTool !== 'entry') return false
     if (!this.state.selectedNoteId || !engine) return false
 
     // What YOU armed — fitted against the bar's remainder below. The caret no longer clobbers the

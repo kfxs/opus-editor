@@ -207,10 +207,11 @@ describe('KeyboardController', () => {
 })
 
 /**
- * SPACE with the rest stamp armed: the typewriter. Types the armed rest at the caret and moves on.
- * Shares fitRestDuration with the mouse stamp, so a barline means the same thing to both.
+ * SPACE in keyboard entry: the typewriter. Types a rest of the current duration at the caret and
+ * moves on — armed OR not, so fast note+rest entry needs no tool switch. Shares fitRestDuration with
+ * the mouse stamp, so a barline means the same thing to both.
  */
-describe('KeyboardController.enterArmedRestAtCursor (SPACE)', () => {
+describe('KeyboardController.enterRestAtCursor (SPACE)', () => {
   let engine: MusicEngine
   let state: EditorState
   let kb: KeyboardController
@@ -244,22 +245,26 @@ describe('KeyboardController.enterArmedRestAtCursor (SPACE)', () => {
     getMeasureNotes(engine.getScore().measures.find(m => m.number === measure)!)
       .find(n => n.isRest && fracToNumber(n.beat) === beat)
 
-  it('declines unless the rest stamp is armed — SPACE keeps its other job', () => {
+  it('types a rest even when the stamp is NOT armed — SPACE is the fast-entry shortcut', () => {
+    // The whole point: in entry mode you type letters for notes and tap SPACE for a rest of the same
+    // length, without first selecting the rest tool. It uses the armed palette duration.
     armAtBeat0()
-    state.selectedMarkingTool = null
-    expect(kb.enterArmedRestAtCursor()).toBe(false)
+    state.selectedMarkingTool = null   // no rest tool armed — pure note entry
+    state.selectedDuration = 'q'
+    expect(kb.enterRestAtCursor()).toBe(true)
+    expect(restAt(1, 1)!.duration).toBe('q')
   })
 
-  it('declines outside keyboard entry', () => {
+  it('declines outside keyboard entry — SPACE keeps its selection-mode job', () => {
     armAtBeat0()
     state.selectedTool = 'selection'
-    expect(kb.enterArmedRestAtCursor()).toBe(false)
+    expect(kb.enterRestAtCursor()).toBe(false)
   })
 
   it('types the armed rest at the caret and advances onto it', () => {
     armAtBeat0()
     state.selectedDuration = 'q'
-    expect(kb.enterArmedRestAtCursor()).toBe(true)
+    expect(kb.enterRestAtCursor()).toBe(true)
     const rest = restAt(1, 1)!
     expect(rest.duration).toBe('q')
     expect(state.selectedNoteId).toBe(rest.id) // the caret followed what was typed
@@ -268,8 +273,8 @@ describe('KeyboardController.enterArmedRestAtCursor (SPACE)', () => {
   it('types the same rest again — the armed length is not consumed', () => {
     armAtBeat0()
     state.selectedDuration = 'q'
-    kb.enterArmedRestAtCursor()
-    kb.enterArmedRestAtCursor()
+    kb.enterRestAtCursor()
+    kb.enterRestAtCursor()
     expect(restAt(1, 1)!.duration).toBe('q')
     expect(restAt(1, 2)!.duration).toBe('q')
   })
@@ -278,7 +283,7 @@ describe('KeyboardController.enterArmedRestAtCursor (SPACE)', () => {
     armAtBeat0()
     state.selectedDuration = 'q'
     state.selectedDots = 1
-    kb.enterArmedRestAtCursor()
+    kb.enterRestAtCursor()
     const rest = restAt(1, 1)!
     expect(rest.duration).toBe('q')
     expect(rest.dots).toBe(1)
@@ -289,7 +294,7 @@ describe('KeyboardController.enterArmedRestAtCursor (SPACE)', () => {
     // does not fit, and the answer is one dotted half, not a half + a quarter.
     armAtBeat0()
     state.selectedDuration = 'w'
-    kb.enterArmedRestAtCursor()
+    kb.enterRestAtCursor()
     const rest = restAt(1, 1)!
     expect(rest.duration).toBe('h')
     expect(rest.dots).toBe(1)
@@ -298,7 +303,7 @@ describe('KeyboardController.enterArmedRestAtCursor (SPACE)', () => {
   it('never splits across the barline — the bar stays exactly full', () => {
     armAtBeat0()
     state.selectedDuration = 'w'
-    kb.enterArmedRestAtCursor()
+    kb.enterRestAtCursor()
     engine.renderScore() // integrity check throws under Vitest if the bar is malformed
     expect(getMeasureNotes(engine.getScore().measures[1]).every(n => n.isRest)).toBe(true) // bar 2 untouched
   })
@@ -310,12 +315,12 @@ describe('KeyboardController.enterArmedRestAtCursor (SPACE)', () => {
     // silently became the armed length.
     armAtBeat0()
     state.selectedDuration = 'w'
-    kb.enterArmedRestAtCursor()
+    kb.enterRestAtCursor()
     expect(restAt(1, 1)!.dots).toBe(1)          // trimmed to a dotted half, as it must be
     expect(state.selectedDuration).toBe('w')    // …but the WHOLE is still what is armed
     expect(state.selectedDots).toBe(0)
 
-    kb.enterArmedRestAtCursor()                 // bar 2 is empty: the whole fits
+    kb.enterRestAtCursor()                 // bar 2 is empty: the whole fits
     const rest = restAt(2, 0)!
     expect(rest.duration).toBe('w')
     expect(rest.dots ?? 0).toBe(0)
@@ -345,9 +350,9 @@ describe('KeyboardController.enterArmedRestAtCursor (SPACE)', () => {
     // The dotted half above fills beats 1–4, so the next SPACE must land at bar 2 beat 0.
     armAtBeat0()
     state.selectedDuration = 'w'
-    kb.enterArmedRestAtCursor()   // dotted half at beat 1 → bar 1 is full
+    kb.enterRestAtCursor()   // dotted half at beat 1 → bar 1 is full
     state.selectedDuration = 'q'
-    kb.enterArmedRestAtCursor()   // → the carriage has moved on
+    kb.enterRestAtCursor()   // → the carriage has moved on
     expect(restAt(2, 0)).toBeTruthy()
     expect(state.selectedNoteId).toBe(restAt(2, 0)!.id)
   })

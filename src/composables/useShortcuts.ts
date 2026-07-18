@@ -110,10 +110,10 @@ export function useShortcuts(
       if (pos) renderer.renderPreview(pos)
     },
     pressSpace: () => {
-      // The typewriter: with the rest stamp armed in keyboard entry, SPACE types the rest and moves
-      // the caret on. It DECLINES (returns false) in every other case, so the key keeps its original
-      // job below untouched.
-      if (keyboard.enterArmedRestAtCursor()) return
+      // The typewriter: in keyboard entry, SPACE types a rest of the current duration and moves the
+      // caret on — armed or not (the rest tool need not be selected first). It DECLINES (returns
+      // false) in every other case, so the key keeps its original job below (start entry) untouched.
+      if (keyboard.enterRestAtCursor()) return
       if (state.selectedTool !== 'selection' || !state.selectedNoteId) return
       state.selectedTool = 'entry'
       renderer.renderScore()
