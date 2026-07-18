@@ -67,17 +67,26 @@ convention), **not** as a raw MIDI integer — use `spellingToMidi()` from
 `beat` is an exact `Fraction` (see the Fraction/float invariant in ARCHITECTURE.md).
 
 ```typescript
-// Public flat projection (this is what addNote/JSON use):
+// Public flat Note — what addNoteAtBeat / getNote / updateNote return:
 Note: { id, step?, alter?, octave?, duration, dots?, measure, beat (Fraction),
-        isRest?, stemDirection?, tiedTo?, tiedFrom?, ... }
-Measure: { id, number, notes[], timeSignature }
-Score: { id, title, composer?, measures[], tempo, keySignature,
-         defaultTimeSignature, clef?, slurs? }
+        isRest?, stemDirection?, tiedTo?, tiedFrom?, voice?, staff?, ... }
+// Container shapes — getScore() / exportJSON() serialize these directly:
+Measure: { id, number, slots: ChordRest[], timeSignature, clefs?, dynamics?,
+           tempos?, tuplets, ... }
+Score: { id, title, composer?, measures[], staves?, staffGroups?, slurs?,
+         engravingOverrides? }
 ```
 
-> Note: `ScoreModel` works internally on a richer `Chord / NotePitch / Rest /
-> ChordRest` model and projects the flat `Note` above for the public API and JSON
-> (this is the "voice-ready" data shape). See `src/types/music.ts` for the full,
+> Note: `Score` deliberately has **no** `tempo` / `keySignature` /
+> `defaultTimeSignature` / `clef` field — every one of those is resolved
+> **positionally** (tempo/meter from `Measure.tempos`/`timeSignatureChange`,
+> clef per-staff from `Measure.clefs`), never stored globally. `types/music.ts`
+> records why on each (a global would silently mean "the value at bar 1 beat 0" —
+> the conflation that made the old `score.clef` bleed across staves).
+>
+> `ScoreModel` works internally on a richer `Chord / NotePitch / Rest / ChordRest`
+> model (the "voice-ready" shape stored in `Measure.slots`) and projects the flat
+> `Note` above for the public note API. See `src/types/music.ts` for the full,
 > authoritative definitions.
 
 **Duration values**: `'w'` (whole), `'h'` (half), `'q'` (quarter), `'8'`, `'16'`, `'32'`
@@ -86,29 +95,37 @@ Score: { id, title, composer?, measures[], tempo, keySignature,
 
 ## MusicEngine API
 
-The `MusicEngine` class is the main interface between UI and engine:
+The `MusicEngine` class is the main interface between UI and engine. Curated
+summary — see the class for the full surface (clefs, meter, dynamics, tempo,
+slurs, tuplets, staff spacing, engraving overrides each have their own methods):
 
 ```typescript
-// Note operations
-addNote(params: NoteParams): Note
+// Note / rest entry — returns the flat Note; null when placement is rejected
+addNoteAtBeat(params: NoteParams): Note | null
+addNoteAtPosition(coords, duration, accidental?, dots?, ...): Note | null
+addChordNote(params: NoteParams): Note
 updateNote(noteId: string, updates: Partial<NoteParams>): Note
 deleteNote(noteId: string): boolean
+convertToRest(noteId: string): Note | null
+pasteEvents(...)                 // clipboard paste — reuses the rebar pipeline
+
+// Undo / batching — every mutator saves an undo entry; runBatch makes N edits atomic
+runBatch(description: string, fn: () => void): boolean
+undo(): boolean; redo(): boolean; canUndo()/canRedo(): boolean
 
 // Rendering
 renderScore(): void
+renderScoreWithPreview(coords, duration, ...): boolean   // + one ...Ghost() per tool
 clearCanvas(): void
-resizeCanvas(width: number, height: number): void
+getViewMode()/setViewMode(mode: ViewMode)                // paged vs linear view
 
 // Coordinate mapping
-pixelToPosition(coords: PixelCoordinates, beatsInMeasure: number): { measure, beat, pitch }
-noteToPixel(note: Note, beatsInMeasure: number): PixelCoordinates
+pixelToMeasure(coords: PixelCoordinates): number
+pixelToPosition(coords, barQuarters): { measure, beat, spelling, staff }
 
 // Playback
-play(): Promise<void>
-pause(): void
-stop(): void
-seekToMeasure(measureNumber: number): void
-setVolume(volume: number): void
+play(): Promise<void>; pause(): void; stop(): void
+seekToMeasure(measureNumber: number): void; setVolume(volume: number): void
 
 // Import/Export
 exportJSON(): string
@@ -121,6 +138,7 @@ loadJSON(json: string): void
 - **Coordinate mapping**: VexFlowRenderer stores measure bounds; CoordinateMapper converts between pixels and musical positions.
 - **Collision detection**: CollisionDetector checks for overlapping notes at same beat/pitch.
 - **Rest handling**: Empty beats are filled with rests automatically.
+- **Marking tools**: the armed stamp/entry tools (clef, time signature, dynamic, tempo, articulation, accidental, tie, dot, rest) are ONE `selectedMarkingTool` union on `EditorState` (`interactions/EditorState.ts`) — arming a tool clears the others, and every new tool MUST join the union. Always *reassign* the field, never mutate it in place: the observable Proxy only traps the SET.
 
 ## Testing
 
