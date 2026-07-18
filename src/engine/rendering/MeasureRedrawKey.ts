@@ -151,6 +151,13 @@ export function measureShapeKey(
 
     // ── drawn, but weightless: invisible to the width key, and that is exactly why they are here ──
     view.dynamics ?? null,
+    // ⚠️ A dynamic's hand-nudged OFFSET (client #8) is **id-keyed** (by the dynamic's uuid), so
+    // `overridesFor` below — which only matches the position-keyed `{measureId}:…` rest overrides —
+    // never sees it, and the dynamics array itself is unchanged by a nudge. Leave this out and a
+    // nudge changes nothing in the key: the bar never redraws, so `applyDynamicOffsets`' transform
+    // never re-runs and the mark sits still while the model moves. WIDTH≠PICTURE, silently. See
+    // docs/dynamic-offset-plan.md.
+    view.dynamics?.map(d => score.engravingOverrides?.[d.id] ?? null) ?? null,
     view.tempos ?? null,
     view.timeSignatureChange ?? false,
     view.timeSignatureHidden ?? false,

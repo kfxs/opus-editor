@@ -1,5 +1,5 @@
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride } from '@/types/music'
-import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf } from './engravingOverrides'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride } from '@/types/music'
+import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf } from './engravingOverrides'
 import {
   getTupletTotalBeatsFrac,
   getTupletNoteDurationFrac,
@@ -833,6 +833,32 @@ export class ScoreModel {
     } else {
       const next: RestShiftOverride = { kind: 'restShift', steps }
       this.setEngravingOverride(posKey, next)
+    }
+    return true
+  }
+
+  /**
+   * Nudge a dynamic's manual position offset by `(dx, dy)` staff-spaces, **accumulating** onto
+   * any existing offset (the ←→↑↓ / Ctrl+arrow keyboard fine-positioning — see
+   * docs/dynamic-offset-plan.md). Stored as a {@link DynamicOffsetOverride} in the
+   * engraving-overrides compartment, keyed by the dynamic's durable `id` (element-id-keyed,
+   * unlike the position-keyed rest clients). The offset is a delta on top of the mark's
+   * automatic placement; render adds it back in.
+   *
+   * Returning to a net (0,0) clears the entry (so "absent = default" holds and the JSON stays
+   * clean). No undo snapshot here — the facade (`MusicEngine.nudgeDynamicOffset`) owns the
+   * per-press `saveOnly`, mirroring {@link nudgeRestShift} / {@link nudgeSlurEndpoint}.
+   * @returns true (the override always exists/updates for a valid dynamic id).
+   */
+  nudgeDynamicOffset(dynamicId: string, dx: number, dy: number): boolean {
+    const prev = dynamicOffsetOverrideOf(this.score, dynamicId)
+    const x = (prev?.x ?? 0) + dx
+    const y = (prev?.y ?? 0) + dy
+    if (x === 0 && y === 0) {
+      this.clearEngravingOverride(dynamicId, 'dynamicOffset')
+    } else {
+      const next: DynamicOffsetOverride = { kind: 'dynamicOffset', x, y }
+      this.setEngravingOverride(dynamicId, next)
     }
     return true
   }

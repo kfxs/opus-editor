@@ -422,6 +422,26 @@ export interface StaffSpacingOverride extends EngravingOverride {
 }
 
 /**
+ * Client #8 of the engraving-overrides compartment: a free positional nudge of a dynamic
+ * off its note anchor (the ←→↑↓ / Ctrl+arrow keyboard fine-positioning — see
+ * docs/dynamic-offset-plan.md). Each component is in **staff-spaces**, anchor-relative —
+ * added to the dynamic's auto placement (below/above the staff, under its anchor note) at
+ * render. `x` is +right, `y` is +down (screen), matching {@link SlurEndpointOffsetOverride}.
+ *
+ * **Element-id-keyed** in the usual way — a dynamic has a durable id, so this reads straight
+ * through (no position-key or `spanCount` staleness, unlike the rest clients / segment
+ * offsets). Returning to (0,0) clears the entry so "absent = default" holds. Does not yet
+ * travel across paste (a pasted dynamic mints a fresh id); deferred, like slur `curveShape`.
+ */
+export interface DynamicOffsetOverride extends EngravingOverride {
+  kind: 'dynamicOffset'
+  /** Horizontal offset in staff-spaces, relative to the anchor. +right. */
+  x: number
+  /** Vertical offset in staff-spaces, relative to the anchor. +down (screen). */
+  y: number
+}
+
+/**
  * The engraving-overrides compartment: a keyed table of authored geometry held
  * as a sub-tree of {@link Score} (so it clones / serializes / undoes with the score
  * value — principle 1). Usually keyed by the *element id* an override hangs off (a note /

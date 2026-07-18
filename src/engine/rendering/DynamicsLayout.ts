@@ -13,10 +13,12 @@
  * so it is exported.
  */
 import { Annotation, TextDynamics } from 'vexflow'
-import type { StaveNote } from 'vexflow'
+import type { StaveNote, Stave } from 'vexflow'
 import type { ChordRest, Measure, Dynamic, DynamicLevel } from '@/types/music'
 import { fracEq, fracGte, fracToNumber } from '@/utils/fraction'
 import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT } from './dynamicStyle'
+import { dynamicOffsetOverrideOf } from '../models/engravingOverrides'
+import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
 
 /**
@@ -166,6 +168,36 @@ export function buildDynamicAnnotation(dyn: Dynamic): Annotation {
   // width is 0. Vertical placement and drawing are unaffected. See attachDynamicsToSlots.
   annotation.setWidth(0)
   return annotation
+}
+
+/**
+ * Apply each dynamic's hand-nudged position offset (client #8 — see docs/dynamic-offset-plan.md).
+ * The stored `{x,y}` is in staff-spaces, anchor-relative; convert to pixels against the measure's
+ * stave and translate the rendered SVG group, then shift its registry bbox so hit-testing follows.
+ *
+ * Uses the same SVG-transform technique as {@link layoutCoLocatedDynamics} (VexFlow's modifier
+ * shifts are awkward to control for annotations), and COMPOSES with it: a co-located mark already
+ * carries a `translate(...)`, so the offset is PREPENDED — both are pure translations, so they add
+ * commutatively and the co-location layout is preserved. Must run AFTER `registerDynamics` (needs
+ * the bbox) and `layoutCoLocatedDynamics` (to compose on top of its transform). Pure no-op in
+ * non-DOM tests (no SVG element) and when no offset is stored.
+ */
+export function applyDynamicOffsets(pass: RenderPass, measure: Measure, stave: Stave): void {
+  if (!measure.dynamics?.length) return
+  for (const dyn of measure.dynamics) {
+    const off = dynamicOffsetOverrideOf(pass.score, dyn.id)
+    if (!off || (off.x === 0 && off.y === 0)) continue
+    const el = pass.dynamicObjectMap.get(dyn.id)?.getSVGElement?.() as SVGGraphicsElement | undefined
+    if (!el) continue
+
+    const dx = staffSpacesToPixels(off.x, stave)
+    const dy = staffSpacesToPixels(off.y, stave)
+    const existing = el.getAttribute('transform')
+    el.setAttribute('transform', existing ? `translate(${dx}, ${dy}) ${existing}` : `translate(${dx}, ${dy})`)
+
+    const entry = pass.elementRegistry.getById(dyn.id)
+    if (entry) entry.bbox = { x: entry.bbox.x + dx, y: entry.bbox.y + dy, width: entry.bbox.width, height: entry.bbox.height }
+  }
 }
 
 /**

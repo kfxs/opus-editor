@@ -1,5 +1,5 @@
 import { ScoreModel, type ClipDynamicInput, type ClipSlurInput } from './models/ScoreModel'
-import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
+import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
 import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
@@ -1060,6 +1060,24 @@ export class MusicEngine {
       this.saveOnly('Nudge rest')
       const steps = restShiftOverrideOf(this.scoreModel.getScore(), key)?.steps ?? 0
       console.log(`[Rest] ${delta > 0 ? '↑' : '↓'} shift rest ${restId} (${key}) by ${delta} → total ${steps} step(s)`)
+    }
+    return ok
+  }
+
+  /**
+   * Nudge a selected dynamic's position offset by `(dx, dy)` staff-spaces and save ONE undo step
+   * (the ←→↑↓ / Ctrl+arrow keyboard fine-positioning — see docs/dynamic-offset-plan.md). The
+   * override is element-id-keyed (dynamics have durable ids), so this delegates straight to the
+   * model with the dynamic id. A no-op for a missing id.
+   * @returns true if the dynamic was nudged.
+   */
+  nudgeDynamicOffset(dynamicId: string, dx: number, dy: number): boolean {
+    if (!this.scoreModel.getDynamicById(dynamicId)) return false
+    const ok = this.scoreModel.nudgeDynamicOffset(dynamicId, dx, dy)
+    if (ok) {
+      this.saveOnly('Nudge dynamic')
+      const off = dynamicOffsetOverrideOf(this.scoreModel.getScore(), dynamicId)
+      console.log(`[Dynamic] nudge ${dynamicId} by (${dx}, ${dy}) → offset (${off?.x ?? 0}, ${off?.y ?? 0}) staff-space(s)`)
     }
     return ok
   }

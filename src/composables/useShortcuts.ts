@@ -87,6 +87,19 @@ export function useShortcuts(
     return true
   }
 
+  // ←→↑↓ (fine) / Ctrl+arrow (coarse) on a selected DYNAMIC = nudge its position offset by a
+  // staff-space delta (screen-down is +y, so "up arrow lifts the mark" passes a negative dy),
+  // instead of the pitch/nav edit (which no-ops on a dynamic anyway). Disjoint from the
+  // slur/rest/box selections, so it just adds another modal branch. One undo per press. Returns
+  // true when it consumed the key, false to DECLINE so it falls through. See docs/dynamic-offset-plan.md.
+  const nudgeSelectedDynamic = (dx: number, dy: number): boolean => {
+    const eng = engine.value
+    if (!eng || !state.selectedDynamicId) return false
+    if (!eng.nudgeDynamicOffset(state.selectedDynamicId, dx, dy)) return false
+    renderer.renderScore()
+    return true
+  }
+
   // Shift+↑/↓ (fine) / Alt+↑/↓ (coarse) on a plain-click SINGLE measure box = Sibelius
   // "space above staff": nudge the clicked staff's vertical spacing by `delta` staff-spaces
   // (+down). Gated to the single-box selection — disjoint from the chord-nav that Alt+↑/↓
@@ -322,8 +335,9 @@ export function useShortcuts(
       renderer.renderScore()
     },
     selectNextNote: () => {
-      // Armed slur point → fine nudge right instead of navigating.
+      // Armed slur point / selected dynamic → fine nudge right instead of navigating.
       if (nudgeArmedSlurPoint(NUDGE_FINE_SS, 0)) return
+      if (nudgeSelectedDynamic(NUDGE_FINE_SS, 0)) return
       if (state.selectedTool === 'entry') {
         console.log(`[Nav] ArrowRight in entry mode → switching to selection`)
         palette.disarmPositionalTools()
@@ -334,8 +348,9 @@ export function useShortcuts(
       }
     },
     selectPreviousNote: () => {
-      // Armed slur point → fine nudge left instead of navigating.
+      // Armed slur point / selected dynamic → fine nudge left instead of navigating.
       if (nudgeArmedSlurPoint(-NUDGE_FINE_SS, 0)) return
+      if (nudgeSelectedDynamic(-NUDGE_FINE_SS, 0)) return
       if (state.selectedTool === 'entry') {
         console.log(`[Nav] ArrowLeft in entry mode → switching to selection`)
         palette.disarmPositionalTools()
@@ -359,14 +374,14 @@ export function useShortcuts(
     // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.
     // (These keys are already bound, so they always consume — the nudge branch returns void
     // via the early return, so preventDefault still fires.)
-    pitchUp: () => { if (nudgeArmedSlurPoint(0, -NUDGE_FINE_SS) || nudgeSelectedRest(1)) return; selection.adjustPitch(1) },
-    pitchDown: () => { if (nudgeArmedSlurPoint(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1)) return; selection.adjustPitch(-1) },
-    octaveUp: () => { if (!nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS)) selection.adjustOctave(1) },
-    octaveDown: () => { if (!nudgeArmedSlurPoint(0, NUDGE_COARSE_SS)) selection.adjustOctave(-1) },
-    // Horizontal COARSE nudge (Ctrl+←/→) is unbound otherwise → DECLINE (return the false
-    // from nudgeArmedSlurPoint) when no slur point is armed, keeping the key free.
-    nudgeSlurEndpointCoarseLeft: () => nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0),
-    nudgeSlurEndpointCoarseRight: () => nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0),
+    pitchUp: () => { if (nudgeArmedSlurPoint(0, -NUDGE_FINE_SS) || nudgeSelectedRest(1) || nudgeSelectedDynamic(0, -NUDGE_FINE_SS)) return; selection.adjustPitch(1) },
+    pitchDown: () => { if (nudgeArmedSlurPoint(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1) || nudgeSelectedDynamic(0, NUDGE_FINE_SS)) return; selection.adjustPitch(-1) },
+    octaveUp: () => { if (!(nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, -NUDGE_COARSE_SS))) selection.adjustOctave(1) },
+    octaveDown: () => { if (!(nudgeArmedSlurPoint(0, NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, NUDGE_COARSE_SS))) selection.adjustOctave(-1) },
+    // Horizontal COARSE nudge (Ctrl+←/→) is unbound otherwise → DECLINE (return false) when no
+    // slur point is armed AND no dynamic is selected, keeping the key free until then.
+    nudgeSlurEndpointCoarseLeft: () => nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0),
+    nudgeSlurEndpointCoarseRight: () => nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0),
     undo: () => {
       const eng = engine.value
       if (eng?.undo()) {

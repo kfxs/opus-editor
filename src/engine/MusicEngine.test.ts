@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MusicEngine } from './MusicEngine'
-import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf } from './models/engravingOverrides'
+import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, dynamicOffsetOverrideOf } from './models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { buildBeatMap, navBeatMap } from '@/utils/beatMap'
 import { DEFAULT_TEMPO } from '@/utils/tempoMap'
@@ -538,6 +538,42 @@ describe('MusicEngine — dynamics', () => {
     engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })
     expect(engine.getActiveLevel(1, frac(2, 1))).toBe('p')
     expect(engine.getActiveLevel(2, frac(0, 1))).toBe('p') // inherited into measure 2
+  })
+})
+
+describe('MusicEngine.nudgeDynamicOffset — client #8 position nudge', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  const offsetOf = (id: string) => dynamicOffsetOverrideOf(engine.getScore(), id)
+
+  it('accumulates dx/dy onto any existing offset', () => {
+    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
+    expect(engine.nudgeDynamicOffset(d.id, 0, -0.25)).toBe(true)
+    expect(engine.nudgeDynamicOffset(d.id, 1, -0.25)).toBe(true)
+    expect(offsetOf(d.id)).toMatchObject({ kind: 'dynamicOffset', x: 1, y: -0.5 })
+  })
+
+  it('clears the override when the net offset returns to (0,0)', () => {
+    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f' })!
+    engine.nudgeDynamicOffset(d.id, 1, -1)
+    expect(offsetOf(d.id)).toBeDefined()
+    engine.nudgeDynamicOffset(d.id, -1, 1)
+    expect(offsetOf(d.id)).toBeUndefined() // absent = default, JSON stays clean
+  })
+
+  it('is a no-op for a missing dynamic id', () => {
+    expect(engine.nudgeDynamicOffset('no-such-id', 1, 1)).toBe(false)
+  })
+
+  it('undo restores the prior offset (one step per press)', () => {
+    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
+    engine.nudgeDynamicOffset(d.id, 0, -1)
+    engine.nudgeDynamicOffset(d.id, 0, -1)
+    expect(offsetOf(d.id)).toMatchObject({ y: -2 })
+
+    expect(engine.undo()).toBe(true)
+    expect(offsetOf(d.id)).toMatchObject({ y: -1 })
   })
 })
 

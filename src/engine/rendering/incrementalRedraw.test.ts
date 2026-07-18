@@ -131,6 +131,32 @@ describe('P5.4 — incremental redraw', () => {
     expect(redrawnMeasures(before, groupNodes(renderer, 12))).toContain(1)
   })
 
+  it('a DYNAMIC OFFSET nudge redraws its bar — the id-keyed override a rest-keyed key would miss', () => {
+    // The client-#8 twin of the dynamic-add case, and a second silent-rot trap. A dynamic's
+    // hand-nudged offset lives in `engravingOverrides[dynamicId]` — keyed by the dynamic's uuid,
+    // NOT by `{measureId}:…` like a rest shift. So the shape key's `overridesFor` (which only
+    // matches the measureId prefix) is blind to it, AND the dynamics array itself is unchanged by a
+    // nudge. If the offset weren't folded into the key some other way, the bar would read "clean",
+    // its group would be reused, and the mark would sit still while the model moved. Prove the key
+    // moves and the bar redraws. See docs/dynamic-offset-plan.md.
+    const model = buildScore()
+    const renderer = makeRenderer()
+    const dyn = model.addDynamic(1, { kind: 'level', level: 'f', beat: frac(0, 1), voice: 0 })!
+    renderer.renderScore(model.getScore())
+    const before = groupNodes(renderer, 12)
+
+    const laneBefore = model.getScore().measures[0]
+    const drawKeyBefore = measureShapeKey(model.getScore(), keyInputs(laneBefore), null, null)
+
+    model.nudgeDynamicOffset(dyn.id, 0, -2) // arrow-up nudge, staff-spaces
+
+    const laneAfter = model.getScore().measures[0]
+    expect(measureShapeKey(model.getScore(), keyInputs(laneAfter), null, null), 'the DRAW key must move on a nudge').not.toBe(drawKeyBefore)
+
+    renderer.renderScore(model.getScore())
+    expect(redrawnMeasures(before, groupNodes(renderer, 12))).toContain(1)
+  })
+
   it('a pitch change redraws ONLY that bar — its neighbours keep their DOM', () => {
     // Re-pitching a note changes the bar's content but not its width, so nothing re-justifies and
     // no neighbour moves. The blast radius should be exactly one bar.

@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, RestShiftOverride, StaffSpacingOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 
 /**
@@ -170,6 +170,16 @@ export function restHiddenOf(score: Score, posKey: string): boolean {
  */
 export function staffSpacingOverrideOf(score: Score, staffId: string): StaffSpacingOverride | undefined {
   return engravingOverrideOf(score, staffId, 'staffSpacing') as StaffSpacingOverride | undefined
+}
+
+/**
+ * The dynamic's hand-nudged position offset, if any (client #8 — see
+ * docs/dynamic-offset-plan.md). `{x,y}` is in **staff-spaces**, anchor-relative; the renderer
+ * converts to pixels and adds it to the mark's auto placement. Element-id-keyed (dynamics have
+ * durable ids), so it reads straight through — no reconcile rule. Absent = no offset.
+ */
+export function dynamicOffsetOverrideOf(score: Score, dynamicId: string): DynamicOffsetOverride | undefined {
+  return engravingOverrideOf(score, dynamicId, 'dynamicOffset') as DynamicOffsetOverride | undefined
 }
 
 /** Convenience read: the staff's GLOBAL extra space-above in staff-spaces, 0 when absent —

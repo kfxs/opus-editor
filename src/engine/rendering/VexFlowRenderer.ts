@@ -18,7 +18,7 @@ import type { RenderPass } from './RenderPass'
 import { renderTies, getTieDirection, TIE_BOW, TIE_THICKNESS } from './TieRenderer'
 import { drawCurveArc } from './curveArc'
 import { renderSlurs } from './SlurRenderer'
-import { attachDynamicsToSlots, layoutCoLocatedDynamics, buildDynamicAnnotation, registerDynamics } from './DynamicsLayout'
+import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, buildDynamicAnnotation, registerDynamics } from './DynamicsLayout'
 import { drawTempoMarks, drawTempoText } from './TempoLayout'
 import {
   convertDuration,
@@ -1051,6 +1051,9 @@ export class VexFlowRenderer {
         // Co-located dynamics: reposition onto one row (placement order, newest
         // right) AFTER registration so their bboxes are present to update.
         layoutCoLocatedDynamics(pass, dynamicGroups)
+        // Hand-nudged dynamic offsets (client #8) LAST, so they compose on top of the
+        // co-location row layout — see applyDynamicOffsets.
+        applyDynamicOffsets(pass, measure, stave)
         // Tempo marks: system-level, so drawn once above the scope's top staff (NOT per
         // staff). Must come after the voices are drawn — a mark anchors to a note's
         // absolute X, which does not exist before formatting.
