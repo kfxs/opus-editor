@@ -1,6 +1,6 @@
 import { windows } from '@/windows'
 import { MenuLayer } from './MenuLayer'
-import { installLoremContextMenu } from './demo/loremMenu'
+import { installInsertMenu } from './insertMenu'
 
 /**
  * The app's one menu layer — the same deal the window layer gets, and for the same reason: it lives
@@ -16,5 +16,5 @@ export const menus = new MenuLayer()
 
 windows.whenMounted((host) => {
   menus.mount(host)
-  installLoremContextMenu(host, menus)
+  installInsertMenu(host, menus)
 })

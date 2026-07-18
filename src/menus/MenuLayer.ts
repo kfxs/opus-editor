@@ -101,15 +101,20 @@ const CSS = `
   color: ${CHROME.inkMuted};
   font-size: 10px;
 }
-/* TWO sources of highlight, and a menu needs both.
+/* THREE sources of highlight, and a menu needs all three.
    :hover  — the row under the pointer. Reading a menu IS hovering it; a row you cannot see yourself
              on is a row you are not sure you are about to click.
    [data-active] — the row that OWNS the open flyout. Set by the layer, because that row must stay
-             lit once the pointer has left it FOR its flyout, where :hover no longer holds. */
+             lit once the pointer has left it FOR its flyout, where :hover no longer holds.
+   [data-highlight] — the row the ARROW KEYS are on. The pointer's :hover for the keyboard: this is
+             the row Enter would commit and Right would open, so it must look exactly like the one a
+             mouse is over. */
 .menu-row:hover,
-.menu-row[data-active="true"] { background: ${CHROME.accent}; }
+.menu-row[data-active="true"],
+.menu-row[data-highlight="true"] { background: ${CHROME.accent}; }
 .menu-row:hover .menu-row-arrow,
-.menu-row[data-active="true"] .menu-row-arrow { color: #dbeafe; }
+.menu-row[data-active="true"] .menu-row-arrow,
+.menu-row[data-highlight="true"] .menu-row-arrow { color: #dbeafe; }
 .menu-separator {
   height: 1px;
   margin: 4px 6px;
@@ -117,11 +122,26 @@ const CSS = `
 }
 `
 
+/** A leaf or a submenu — every menu item EXCEPT a separator, which is the one thing a row can be that
+ *  the keyboard can neither highlight, open nor commit. */
+type SelectableItem = Exclude<MenuItem, { separator: true }>
+
+/** A row the arrow keys can land on — its element, paired with the item it paints. Separators are
+ *  not in this list: you cannot highlight, open or commit a divider. */
+interface RowRef {
+  el: HTMLElement
+  item: SelectableItem
+}
+
 /** One open panel in the chain: root at depth 0, its flyout at 1, and so on. */
 interface Panel {
   el: HTMLElement
   /** The row that opened THIS panel, so it can be un-lit when the panel goes. Null for the root. */
   opener: HTMLElement | null
+  /** The selectable rows, top to bottom — what the arrow keys walk. Separators are excluded. */
+  rows: RowRef[]
+  /** Index into `rows` of the arrow-key highlight, or -1 when the keyboard has not landed here yet. */
+  highlight: number
 }
 
 export interface MenuOptions {
@@ -219,8 +239,11 @@ export class MenuLayer {
     el.style.maxHeight = `${this.bounds().height}px`
     const depth = this.chain.length
 
+    const rows: RowRef[] = []
     for (const item of items) {
-      el.appendChild(this.buildRow(item, depth))
+      const rowEl = this.buildRow(item, depth)
+      el.appendChild(rowEl)
+      if (!isSeparator(item)) rows.push({ el: rowEl, item })
     }
 
     // Off-screen for the measure, so a panel is never seen at 0,0 before it is placed.
@@ -232,7 +255,7 @@ export class MenuLayer {
     el.style.visibility = 'visible'
 
     if (opener) opener.dataset.active = 'true'
-    this.chain.push({ el, opener })
+    this.chain.push({ el, opener, rows, highlight: -1 })
   }
 
   private popPanel(): void {
@@ -271,6 +294,10 @@ export class MenuLayer {
 
     row.addEventListener('pointerenter', () => {
       this.clearHoverTimer()
+      // The pointer takes the highlight from the keyboard: two lit rows in one panel — one hovered,
+      // one arrowed-to — would each look like "the row Enter commits", and only one can be.
+      const panel = this.chain[depth]
+      if (panel) this.setHighlight(panel, -1)
       // Every row's claim is DELAYED, not just a submenu's: an immediate collapse on entering a plain
       // sibling row is what kills a flyout you were diagonally on your way to. Entering the flyout
       // (deeper rows) cancels this before it fires.
@@ -282,19 +309,27 @@ export class MenuLayer {
 
     // Clicking a submenu row opens it NOW — hover intent is for the pointer that is still travelling.
     row.addEventListener('click', () => {
-      this.clearHoverTimer()
-      if (isSubmenu(item)) {
-        this.collapseTo(depth)
-        if (!this.chain[depth + 1]) this.openFlyout(item.items, row, depth)
-        return
-      }
-      // A leaf commits: the menu is gone BEFORE the callback runs, so whatever it does — open a
-      // dialog, a window, another menu — is not fighting a menu that is still up.
-      this.close()
-      item.onSelect()
+      if (isSubmenu(item)) this.openSubmenu(item.items, row, depth)
+      else this.commitLeaf(item)
     })
 
     return row
+  }
+
+  /** Open (or re-open) the flyout a submenu row owns, collapsing anything already deeper first. */
+  private openSubmenu(items: MenuItem[], row: HTMLElement, depth: number): void {
+    this.clearHoverTimer()
+    this.collapseTo(depth)
+    if (!this.chain[depth + 1]) this.openFlyout(items, row, depth)
+  }
+
+  /**
+   * Commit a leaf. The menu is gone BEFORE the callback runs, so whatever it does — open a dialog, a
+   * window, another menu — is not fighting a menu that is still up.
+   */
+  private commitLeaf(item: { onSelect: () => void }): void {
+    this.close()
+    item.onSelect()
   }
 
   private openFlyout(items: MenuItem[], row: HTMLElement, depth: number): void {
@@ -317,12 +352,93 @@ export class MenuLayer {
     this.hoverTimer = null
   }
 
-  /** Escape closes ONE level — the flyout you are in, not the whole chain you were reading. */
+  /** The panel the keyboard acts on — always the deepest, the one whose rows are in front. */
+  private deepest(): Panel | undefined {
+    return this.chain[this.chain.length - 1]
+  }
+
+  /** Move a panel's arrow-key highlight to `index` (-1 clears it), repainting both rows it touches. */
+  private setHighlight(panel: Panel, index: number): void {
+    if (panel.highlight >= 0 && panel.rows[panel.highlight]) {
+      delete panel.rows[panel.highlight].el.dataset.highlight
+    }
+    panel.highlight = index
+    if (index >= 0) {
+      const el = panel.rows[index].el
+      el.dataset.highlight = 'true'
+      // Keep the highlighted row in view when the panel is taller than the world and scrolls.
+      el.scrollIntoView?.({ block: 'nearest' })
+    }
+  }
+
+  /** Walk the highlight down (+1) or up (-1) the deepest panel, wrapping and skipping nothing —
+   *  separators were never put in `rows`. From nowhere, down lands on the first row, up on the last. */
+  private moveHighlight(delta: number): void {
+    const panel = this.deepest()
+    if (!panel || panel.rows.length === 0) return
+    const n = panel.rows.length
+    const next = panel.highlight === -1 ? (delta > 0 ? 0 : n - 1) : (panel.highlight + delta + n) % n
+    this.setHighlight(panel, next)
+  }
+
+  /** Open the flyout of the highlighted row, if it is a submenu, and land on its first row. */
+  private openHighlightedSubmenu(): void {
+    const panel = this.deepest()
+    if (!panel || panel.highlight < 0) return
+    const { el, item } = panel.rows[panel.highlight]
+    if (!isSubmenu(item)) return
+    const depth = this.chain.length - 1
+    this.openSubmenu(item.items, el, depth)
+    const flyout = this.chain[depth + 1]
+    if (flyout) this.setHighlight(flyout, 0)
+  }
+
+  /** Enter: a submenu opens (same as Right), a leaf commits. Nothing highlighted → nothing happens. */
+  private commitHighlighted(): void {
+    const panel = this.deepest()
+    if (!panel || panel.highlight < 0) return
+    const { item } = panel.rows[panel.highlight]
+    if (isSubmenu(item)) this.openHighlightedSubmenu()
+    else this.commitLeaf(item)
+  }
+
+  /**
+   * The whole keyboard for an open menu. Every branch stops the event: an open menu OWNS the arrows
+   * and Enter, so they never also scroll the page or fall through to an editing shortcut.
+   *
+   *   ↓/↑     move the highlight within the front panel (wraps)
+   *   →/Enter open the highlighted submenu (Enter also commits a leaf)
+   *   ←       back out of a flyout to its parent (nothing to do on the root)
+   *   Escape  close ONE level — the flyout you are in, not the whole chain you were reading
+   */
   private onKeyDown = (e: KeyboardEvent): void => {
-    if (e.key !== 'Escape' || !this.isOpen) return
+    if (!this.isOpen) return
+
+    switch (e.key) {
+      case 'ArrowDown':
+        this.moveHighlight(1)
+        break
+      case 'ArrowUp':
+        this.moveHighlight(-1)
+        break
+      case 'ArrowRight':
+        this.openHighlightedSubmenu()
+        break
+      case 'ArrowLeft':
+        if (this.chain.length > 1) this.popPanel()
+        break
+      case 'Enter':
+        this.commitHighlighted()
+        break
+      case 'Escape':
+        if (this.chain.length > 1) this.popPanel()
+        else this.close()
+        break
+      default:
+        return
+    }
+
     e.preventDefault()
     e.stopPropagation()
-    if (this.chain.length > 1) this.popPanel()
-    else this.close()
   }
 }
