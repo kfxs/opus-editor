@@ -6,6 +6,7 @@ import { measureCapacityFrac, getMeasureNotes } from '../utils/musicUtils'
 import { durationToFraction } from '../utils/durations'
 import { formatPitch } from '../utils/pitchSpelling'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey } from '../engine/models/engravingOverrides'
+import { keyStaffId } from '../engine/models/staffContent'
 import { staffMeasureView, staffIdAtIndex, staffIndexOfId } from '../engine/models/staffContent'
 
 /**
@@ -152,6 +153,7 @@ function restShiftsInWindow(
   spanEnd: Fraction,
 ): Array<{ offset: Fraction; steps: number }> {
   const starts = measureStartOffsets(score)
+  const staffId = keyStaffId(score, staff) // this lane's staff → key segment (undefined for staff 0)
   const out: Array<{ offset: Fraction; steps: number }> = []
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
@@ -160,7 +162,7 @@ function restShiftsInWindow(
       if (!n.isRest || (n.voice ?? 0) !== voice || (n.staff ?? 0) !== staff) continue
       const abs = fracAdd(mStart, n.beat)
       if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
-      const ov = restShiftOverrideOf(score, restPositionKey(m.id, voice, n.beat))
+      const ov = restShiftOverrideOf(score, restPositionKey(m.id, voice, n.beat, staffId))
       if (!ov) continue
       out.push({ offset: fracSub(abs, spanStart), steps: ov.steps })
     }
@@ -181,6 +183,7 @@ function restHiddenInWindow(
   spanEnd: Fraction,
 ): Array<{ offset: Fraction }> {
   const starts = measureStartOffsets(score)
+  const staffId = keyStaffId(score, staff) // this lane's staff → key segment (undefined for staff 0)
   const out: Array<{ offset: Fraction }> = []
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
@@ -189,7 +192,7 @@ function restHiddenInWindow(
       if (!n.isRest || (n.voice ?? 0) !== voice || (n.staff ?? 0) !== staff) continue
       const abs = fracAdd(mStart, n.beat)
       if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
-      if (!restHiddenOf(score, restPositionKey(m.id, voice, n.beat))) continue
+      if (!restHiddenOf(score, restPositionKey(m.id, voice, n.beat, staffId))) continue
       out.push({ offset: fracSub(abs, spanStart) })
     }
   }

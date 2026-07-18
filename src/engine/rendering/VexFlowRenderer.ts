@@ -970,7 +970,7 @@ export class VexFlowRenderer {
         // notesOnly: one StaveNote per slot (used for beams, tuplets, registration). The
         // resolver adds each rest's manual vertical shift (if any) on top of the voice base.
         const restShiftFor = (slot: ChordRest): number =>
-          restShift + (restShiftOverrideOf(pass.score, restPositionKey(measure.id, slot.voice ?? 0, slot.beat))?.steps ?? 0)
+          restShift + (restShiftOverrideOf(pass.score, restPositionKey(measure.id, slot.voice ?? 0, slot.beat, slot.staffId))?.steps ?? 0)
         const staveNotes = createStaveNotesFromSlots(slots, clefForBeat, forcedStem, restShiftFor)
         return { voice: v, slots, staveNotes, forcedStem }
       })
@@ -1123,7 +1123,7 @@ export class VexFlowRenderer {
 
       // Keep the ledger in lockstep with a hidden rest: tint it the same gray. The save/restore
       // around the stroke keeps this style local — it does NOT leak into later drawing.
-      const hidden = restHiddenOf(score, restPositionKey(measure.id, slot.voice ?? 0, slot.beat))
+      const hidden = restHiddenOf(score, restPositionKey(measure.id, slot.voice ?? 0, slot.beat, slot.staffId))
       const ledgerStyle = hidden
         ? { ...stave.getDefaultLedgerLineStyle(), strokeStyle: HIDDEN_REST_COLOR }
         : stave.getDefaultLedgerLineStyle()
@@ -1150,7 +1150,7 @@ export class VexFlowRenderer {
   private recolorHiddenRests(slots: ChordRest[], measure: Measure, score: Score): void {
     for (const slot of slots) {
       if (slot.type !== 'rest') continue
-      if (!restHiddenOf(score, restPositionKey(measure.id, slot.voice ?? 0, slot.beat))) continue
+      if (!restHiddenOf(score, restPositionKey(measure.id, slot.voice ?? 0, slot.beat, slot.staffId))) continue
       const groupInfo = this.getStaveNoteSVGGroup(slot.id)
       if (!groupInfo) continue
       groupInfo.group.querySelectorAll('text, path').forEach((el) => {

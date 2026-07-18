@@ -9,6 +9,7 @@ import { fracEq, fracCompare, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
 import { restShiftOverrideOf, restPositionKey } from '../engine/models/engravingOverrides'
+import { keyStaffId } from '../engine/models/staffContent'
 import { prevailingAlterations } from '../utils/accidentalState'
 import { itemKey, selectedNoteIds, selectedArticulationNoteIds, type SelectionItem } from './selection'
 
@@ -482,7 +483,7 @@ export class SelectionController {
     if (n.isRest) {
       const lane = voice === 0 ? 2 : -2
       // Mirror VexFlowRenderer.restShiftFor: voice lane + the rest's own manual shift.
-      const shift = restShiftOverrideOf(score, restPositionKey(measureId, voice, n.beat))?.steps ?? 0
+      const shift = restShiftOverrideOf(score, restPositionKey(measureId, voice, n.beat, keyStaffId(score, n.staff)))?.steps ?? 0
       return middleLineDiatonicPos(clef) + lane + shift + voiceRank
     }
     return spellingDiatonicPos(n.step!, n.octave!) + voiceRank

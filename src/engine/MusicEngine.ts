@@ -1054,7 +1054,7 @@ export class MusicEngine {
     if (!note || !note.isRest) return false
     const measure = this.scoreModel.getMeasure(note.measure)
     if (!measure) return false
-    const key = restPositionKey(measure.id, note.voice ?? 0, note.beat)
+    const key = restPositionKey(measure.id, note.voice ?? 0, note.beat, this.staffIdForIndex(note.staff))
     const ok = this.scoreModel.nudgeRestShift(key, delta)
     if (ok) {
       this.saveOnly('Nudge rest')
@@ -1289,7 +1289,7 @@ export class MusicEngine {
     if (!note || !note.isRest) return false
     const measure = this.scoreModel.getMeasure(note.measure)
     if (!measure) return false
-    const key = restPositionKey(measure.id, note.voice ?? 0, note.beat)
+    const key = restPositionKey(measure.id, note.voice ?? 0, note.beat, this.staffIdForIndex(note.staff))
     const nowHidden = !restHiddenOf(this.scoreModel.getScore(), key)
     this.scoreModel.toggleRestHidden(key)
     this.saveUndoState(`${nowHidden ? 'Hide' : 'Show'} rest`)

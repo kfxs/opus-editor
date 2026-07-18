@@ -45,6 +45,17 @@ export function staffIdAtIndex(score: Score, index: number): string | undefined 
 }
 
 /**
+ * The staffId to KEY on for a 0-based staff index (or a flat {@link Note.staff}), matching the
+ * slot's own `staffId` convention: staff 0 → `undefined` (absent), any later staff → its real id.
+ * The ordinal-input twin of reading `slot.staffId` directly — use it wherever a position key
+ * ({@link restPositionKey}) is built from a flat note's ordinal rather than a slot. Distinct from
+ * {@link staffIdAtIndex}, which returns the first staff's REAL id for index 0. */
+export function keyStaffId(score: Score, index: number | undefined): string | undefined {
+  if (!index) return undefined // 0 or undefined → staff 0 → absent
+  return staffIdAtIndex(score, index)
+}
+
+/**
  * 0-based index of a staff id in {@link Score.staves}. An absent id resolves to the
  * first staff ({@link DEFAULT_STAFF_INDEX}); an unknown id also falls back to 0 defensively
  * (mirrors how an out-of-range voice degrades). This is the `staffId → index` half of the

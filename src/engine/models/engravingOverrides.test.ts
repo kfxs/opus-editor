@@ -442,6 +442,18 @@ describe('restPositionKey (pure key builder)', () => {
     expect(restPositionKey('mA', 0, frac(0, 1))).not.toBe(restPositionKey('mB', 0, frac(0, 1)))
     expect(restPositionKey('mA', 0, frac(0, 1))).not.toBe(restPositionKey('mA', 1, frac(0, 1)))
   })
+
+  it('separates staves — N staves share a measure, so the SAME bar/voice/beat is a DIFFERENT seat per staff', () => {
+    // The multi-staff bleed bug: without the staffId a shift on staff 2 landed on staff 1's rest
+    // at the same address. Staff-N carries a `:s…` segment; staff 0 (absent) does NOT, so its key
+    // stays byte-identical to the pre-multistaff format.
+    expect(restPositionKey('mA', 0, frac(0, 1), 'staff-2')).toBe('mA:sstaff-2:v0:b0/1')
+    expect(restPositionKey('mA', 0, frac(0, 1), undefined)).toBe('mA:v0:b0/1') // staff 0 unchanged
+    expect(restPositionKey('mA', 0, frac(0, 1), 'staff-2')).not.toBe(restPositionKey('mA', 0, frac(0, 1)))
+    expect(restPositionKey('mA', 0, frac(0, 1), 'staff-2')).not.toBe(restPositionKey('mA', 0, frac(0, 1), 'staff-3'))
+    // Still prefixed by `{measureId}:`, so MeasureRedrawKey.overridesFor keeps matching it.
+    expect(restPositionKey('mA', 0, frac(0, 1), 'staff-2').startsWith('mA:')).toBe(true)
+  })
 })
 
 describe('ScoreModel.nudgeRestShift (accumulate / clear, position-keyed)', () => {

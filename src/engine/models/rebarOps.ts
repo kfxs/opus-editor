@@ -22,7 +22,7 @@ import type { RestSlot } from '@/utils/restFill'
 import { flattenRegion, relayEvents, type RebarPiece, type RebarEvent, type BarPlan } from '@/utils/rebar'
 import { type Fraction, fracCreate, fracAdd, fracSub, fracCompare, fracLt, fracGte } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/musicUtils'
-import { staffIndexOfId, matchesStaff, staffIdAtIndex, staffMeasureView } from './staffContent'
+import { staffIndexOfId, matchesStaff, staffIdAtIndex, keyStaffId, staffMeasureView } from './staffContent'
 import { v4 as uuidv4 } from 'uuid'
 
 // ==================== Callback surface + captured-state types ====================
@@ -98,7 +98,7 @@ export type ClipSlurInput = {
  * beat offset from the region start (per voice) so it can travel into the new bar layout.
  * The position-keyed twin of {@link CapturedAnchor}. See {@link captureRestShifts}.
  */
-type CapturedRestShift = { voice: number; absBeat: Fraction; steps: number; hidden: boolean }
+type CapturedRestShift = { voice: number; staffId?: string; absBeat: Fraction; steps: number; hidden: boolean }
 
 /** The pitch identity of a slur anchor (a chord pitch), used to re-find it post-rebar. */
 type SlurPitch = { step: NotePitch['step']; alter: NotePitch['alter']; octave: number }
@@ -435,22 +435,26 @@ export function pasteEvents(
   // Apply the clip's rest shifts at the paste window: re-base each clip-relative offset by
   // the paste start, and re-voice a single-voice clip into the target voice (mirroring the
   // destVoices rule above). restoreRestShifts drops any whose rest the paste didn't produce.
-  // (Rest overrides are position-keyed by (measure, voice, beat) with no staff axis, so a
-  // multi-staff clip's shifts travel by voice+offset only — the same limitation as direct
-  // multi-staff editing.)
+  // Rest overrides are position-keyed by (measure, staffId, voice, beat). The clip lane's
+  // RELATIVE staff maps onto an absolute destination staff the same way clef/dynamic content
+  // does (`absStaff = targetStaff + lane.staff`), so a multi-staff clip's shifts land on the
+  // right staff rather than collapsing onto staff 0. `keyStaffId` gives the absent-for-staff-0
+  // id that matches the destination rest slot's own `staffId`.
   const clipCaptured: CapturedRestShift[] = []
-  for (const { voice, restShifts: shifts } of clipRestShifts) {
+  for (const { staff, voice, restShifts: shifts } of clipRestShifts) {
     const destVoice = singleVoice ? targetVoice : voice
+    const destStaffId = keyStaffId(score, targetStaff + staff)
     for (const rs of shifts) {
-      clipCaptured.push({ voice: destVoice, absBeat: fracAdd(pasteStart, rs.offset), steps: rs.steps, hidden: false })
+      clipCaptured.push({ voice: destVoice, staffId: destStaffId, absBeat: fracAdd(pasteStart, rs.offset), steps: rs.steps, hidden: false })
     }
   }
   // The clip's hidden rests travel the same way (client #6). A hidden rest may carry no
   // shift, so it arrives as its own captured entry (steps 0, hidden true).
-  for (const { voice, restHidden } of clipRestHidden) {
+  for (const { staff, voice, restHidden } of clipRestHidden) {
     const destVoice = singleVoice ? targetVoice : voice
+    const destStaffId = keyStaffId(score, targetStaff + staff)
     for (const rh of restHidden) {
-      clipCaptured.push({ voice: destVoice, absBeat: fracAdd(pasteStart, rh.offset), steps: 0, hidden: true })
+      clipCaptured.push({ voice: destVoice, staffId: destStaffId, absBeat: fracAdd(pasteStart, rh.offset), steps: 0, hidden: true })
     }
   }
   restoreRestShifts(score, deps, regionNumbers, clipCaptured)
@@ -613,13 +617,13 @@ function captureRestShifts(score: Score, deps: RebarDeps, regionMeasures: Measur
     for (const s of m.slots) {
       if (s.type !== 'rest') continue
       const voice = s.voice ?? 0
-      const key = restPositionKey(m.id, voice, s.beat)
+      const key = restPositionKey(m.id, voice, s.beat, s.staffId)
       // One pass captures BOTH rest engraving overrides (shift + hidden, client #5/#6) —
       // they share the position address, so they travel together. Capture when either is set.
       const steps = restShiftOverrideOf(score, key)?.steps ?? 0
       const hidden = restHiddenOf(score, key)
       if (steps === 0 && !hidden) continue
-      out.push({ voice, absBeat: fracAdd(base, s.beat), steps, hidden })
+      out.push({ voice, staffId: s.staffId, absBeat: fracAdd(base, s.beat), steps, hidden })
       if (steps !== 0) deps.clearEngravingOverride(key, 'restShift')
       if (hidden) deps.clearEngravingOverride(key, 'restHidden')
     }
@@ -653,10 +657,10 @@ function restoreRestShifts(score: Score, deps: RebarDeps, regionNumbers: number[
     // Stamp ONLY when a rest of this voice STARTS exactly here (plan §6.4). No accessor
     // exists post-materialise, so read the slots directly.
     const hasRest = m.slots.some(
-      (s) => s.type === 'rest' && (s.voice ?? 0) === c.voice && fracCompare(s.beat, beat) === 0,
+      (s) => s.type === 'rest' && (s.voice ?? 0) === c.voice && (s.staffId ?? undefined) === (c.staffId ?? undefined) && fracCompare(s.beat, beat) === 0,
     )
     if (!hasRest) continue
-    const key = restPositionKey(m.id, c.voice, beat)
+    const key = restPositionKey(m.id, c.voice, beat, c.staffId)
     // Re-stamp BOTH captured rest engraving overrides at the new position (client #5/#6).
     if (c.steps !== 0) {
       const next: RestShiftOverride = { kind: 'restShift', steps: c.steps }

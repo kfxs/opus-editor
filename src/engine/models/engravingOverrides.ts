@@ -133,14 +133,22 @@ export function reconcileSegmentEndpointOffset(
  * Canonical position address for a rest-shift override (client #5 — see
  * docs/rest-shift-plan.md). Rests are regenerated with fresh ids on every edit, so the
  * override cannot hang off a rest id; it hangs off the rest's **position**:
- * `{measureId}:v{voice}:b{num}/{den}`. The beat fraction is reduced (via {@link fracCreate})
- * so `2/4` and `1/2` collapse to one key. The `measureId` (not the measure *number*) keeps
- * the key stable across insert/remove-measure renumbering and across rebar. Pure & exported
- * for unit testing.
+ * `{measureId}[:s{staffId}]:v{voice}:b{num}/{den}`. The beat fraction is reduced (via
+ * {@link fracCreate}) so `2/4` and `1/2` collapse to one key. The `measureId` (not the measure
+ * *number*) keeps the key stable across insert/remove-measure renumbering and across rebar.
+ *
+ * The `staffId` is the rest slot's own `staffId` — a rest's vertical identity is the pair
+ * `(staffId, voice)` (see {@link Chord.staffId}), and N staves SHARE one measure, so a key
+ * without it would collapse the rest at bar/voice/beat on every staff onto one address — a shift
+ * on staff 2 would then bleed onto staff 1's rest at the same spot. Absent (staff 0, the
+ * single-staff case) appends NOTHING, so those keys stay byte-identical to the pre-multistaff
+ * format; only staff 1+ carries a `:s…` segment. The `:s` still sits after `{measureId}:`, so
+ * `MeasureRedrawKey.overridesFor`'s prefix match keeps catching it. Pure & exported for testing.
  */
-export function restPositionKey(measureId: string, voice: number, beat: Fraction): string {
+export function restPositionKey(measureId: string, voice: number, beat: Fraction, staffId?: string): string {
   const b = fracCreate(beat.num, beat.den) // reduce defensively
-  return `${measureId}:v${voice}:b${b.num}/${b.den}`
+  const staff = staffId ? `:s${staffId}` : '' // absent = staff 0 → no segment (back-compatible)
+  return `${measureId}${staff}:v${voice}:b${b.num}/${b.den}`
 }
 
 /**
