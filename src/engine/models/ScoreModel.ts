@@ -1,3 +1,4 @@
+import { dbg } from '@/utils/debug'
 import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf } from './engravingOverrides'
 import {
@@ -1372,7 +1373,7 @@ export class ScoreModel {
       // Through the SAME rule a new chord uses: a rest evicts the same-voice rests it overlaps.
       // This branch used to `push` and nothing else, which is how a bar reached six beats in 4/4
       // (see evictRestsOverlapping). No gap fill here: this is often the gap-filler's OWN addNote.
-      console.log(`[Model.addNote] add REST ${fmtSlot(rest)} → m${measure.number}, replacing same-voice rests`)
+      dbg(`[Model.addNote] add REST ${fmtSlot(rest)} → m${measure.number}, replacing same-voice rests`)
       this.evictRestsOverlapping(measure, rest)
       measure.slots.push(rest)
       measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
@@ -1413,7 +1414,7 @@ export class ScoreModel {
       if (params.actualDuration !== undefined) {
         existingChord.actualDuration = params.actualDuration
       }
-      console.log(`[Model.addNote] add pitch ${params.step}${alterToString(params.alter ?? 0)}${params.octave} → existing chord ${fmtSlot(existingChord)} (now ${existingChord.notes.length} note(s))`)
+      dbg(`[Model.addNote] add pitch ${params.step}${alterToString(params.alter ?? 0)}${params.octave} → existing chord ${fmtSlot(existingChord)} (now ${existingChord.notes.length} note(s))`)
       return this.toFlatNote(existingChord, notePitch)
     }
 
@@ -1446,7 +1447,7 @@ export class ScoreModel {
     if (targetStaffId !== undefined) chord.staffId = targetStaffId
     chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
 
-    console.log(`[Model.addNote] new chord ${fmtSlot(chord)} → replacing same-voice rests`)
+    dbg(`[Model.addNote] new chord ${fmtSlot(chord)} → replacing same-voice rests`)
     this.replaceRestsWithChord(measure, chord)
 
     return this.toFlatNote(chord, notePitch)
@@ -1526,7 +1527,7 @@ export class ScoreModel {
     )
 
     for (const existing of evicted) {
-      console.log(`[Model.replaceRests] remove overlapping ${fmtSlot(existing)} (same voice v${incomingVoice} as new ${incoming.type})`)
+      dbg(`[Model.replaceRests] remove overlapping ${fmtSlot(existing)} (same voice v${incomingVoice} as new ${incoming.type})`)
       if (existing.tupletId && !incoming.tupletId) {
         inheritedTupletId = existing.tupletId
       }
@@ -1584,7 +1585,7 @@ export class ScoreModel {
     if (evicted.length === 0) return
 
     for (const existing of evicted) {
-      console.log(`[Model.evictRests] remove overlapping ${fmtSlot(existing)} (chord grew, v${chordVoice})`)
+      dbg(`[Model.evictRests] remove overlapping ${fmtSlot(existing)} (chord grew, v${chordVoice})`)
       if (chord.notes.length > 0) this.migrateRestTieTo(existing.id, chord.notes[0].id)
     }
 
@@ -1629,7 +1630,7 @@ export class ScoreModel {
    * in float beats. For meter-correct regrouping prefer {@link fillMeasureGaps}.
    */
   fillGapWithRests(measureNumber: number, fromBeat: Fraction, beats: number, voice: number = 0, staff: number = 0): void {
-    console.log(`[Model.fillGapWithRests] m${measureNumber} v${voice} s${staff} from b${fracToNumber(fromBeat).toFixed(3)} for ${beats.toFixed(3)}b → [${splitBeatsIntoDurations(beats).join(', ')}]`)
+    dbg(`[Model.fillGapWithRests] m${measureNumber} v${voice} s${staff} from b${fracToNumber(fromBeat).toFixed(3)} for ${beats.toFixed(3)}b → [${splitBeatsIntoDurations(beats).join(', ')}]`)
     let currentBeat = fromBeat
     for (const restDuration of splitBeatsIntoDurations(beats)) {
       this.addRest(restDuration, measureNumber, currentBeat, voice, staff)
@@ -1668,7 +1669,7 @@ export class ScoreModel {
     const logHeaderOnce = () => {
       if (headerLogged) return
       headerLogged = true
-      console.log(`[Model.fillGaps] m${measure.number} barLen=${fracToNumber(barEnd).toFixed(3)} TS=${measure.timeSignature.numerator}/${measure.timeSignature.denominator} staves=${staffLanes.length}`)
+      dbg(`[Model.fillGaps] m${measure.number} barLen=${fracToNumber(barEnd).toFixed(3)} TS=${measure.timeSignature.numerator}/${measure.timeSignature.denominator} staves=${staffLanes.length}`)
     }
 
     for (let laneIndex = 0; laneIndex < staffLanes.length; laneIndex++) {
@@ -1725,7 +1726,7 @@ export class ScoreModel {
         if (filteredGaps.length) {
           logHeaderOnce()
           const gapStr = filteredGaps.map(g => `[${fracToNumber(g.start).toFixed(3)}→${fracToNumber(g.end).toFixed(3)}]`).join(' ')
-          console.log(`[Model.fillGaps]   staff${laneIndex} v${voice}: ${voiceSlots.length} existing slot(s), gaps=${gapStr}`)
+          dbg(`[Model.fillGaps]   staff${laneIndex} v${voice}: ${voiceSlots.length} existing slot(s), gaps=${gapStr}`)
         }
 
         for (const gap of filteredGaps) {
@@ -1741,7 +1742,7 @@ export class ScoreModel {
           for (const rest of fillRests(gap.start, adjustedEnd, meter)) {
             this.pushRestSlot(measure, rest, voice, lane.stamp)
             const dots = rest.dots ? '.'.repeat(rest.dots) : ''
-            console.log(`[Model.fillGaps]     fill staff${laneIndex} v${voice} REST ${rest.duration}${dots} @b${fracToNumber(rest.beat).toFixed(3)}${rest.isMeasureRest ? ' [measure-rest]' : ''}`)
+            dbg(`[Model.fillGaps]     fill staff${laneIndex} v${voice} REST ${rest.duration}${dots} @b${fracToNumber(rest.beat).toFixed(3)}${rest.isMeasureRest ? ' [measure-rest]' : ''}`)
           }
         }
       }
@@ -1908,7 +1909,7 @@ export class ScoreModel {
 
     const before = found.type === 'rest' ? found.rest : found.chord
     const changed = Object.keys(updates).filter(k => updates[k as keyof NoteParams] !== undefined || k in updates)
-    console.log(`[Model.updateNote] ${fmtSlot(before)} ← {${changed.join(', ')}}`, updates)
+    dbg(`[Model.updateNote] ${fmtSlot(before)} ← {${changed.join(', ')}}`, updates)
 
     if (found.type === 'rest') {
       const rest = found.rest
@@ -2127,7 +2128,7 @@ export class ScoreModel {
     for (const measure of this.score.measures) {
       const idx = measure.slots.findIndex(s => s.id === chord.id)
       if (idx !== -1) {
-        console.log(`[Model.convertToRest] ${fmtSlot(chord)} → REST ${rest.duration}${rest.dots ? '.'.repeat(rest.dots) : ''} @b${fracToNumber(rest.beat).toFixed(3)}${tieSourceIds.length ? ` (${tieSourceIds.length} tie(s) re-pointed)` : ''}`)
+        dbg(`[Model.convertToRest] ${fmtSlot(chord)} → REST ${rest.duration}${rest.dots ? '.'.repeat(rest.dots) : ''} @b${fracToNumber(rest.beat).toFixed(3)}${tieSourceIds.length ? ` (${tieSourceIds.length} tie(s) re-pointed)` : ''}`)
         // In place, at the same index — the slot keeps its seat in the bar's order.
         measure.slots[idx] = rest
         return rest
@@ -2153,7 +2154,7 @@ export class ScoreModel {
       for (const measure of this.score.measures) {
         const idx = measure.slots.findIndex(s => s.id === rest.id)
         if (idx !== -1) {
-          console.log(`[Model.deleteNote] delete ${fmtSlot(rest)} → m${measure.number} now ${measure.slots.length - 1} slot(s)`)
+          dbg(`[Model.deleteNote] delete ${fmtSlot(rest)} → m${measure.number} now ${measure.slots.length - 1} slot(s)`)
           measure.slots.splice(idx, 1)
           return true
         }
@@ -2180,11 +2181,11 @@ export class ScoreModel {
       if (idx !== -1) {
         if (chord.notes.length <= 1) {
           // Remove the whole chord slot
-          console.log(`[Model.deleteNote] delete whole chord ${fmtSlot(chord)} → m${measure.number} now ${measure.slots.length - 1} slot(s)`)
+          dbg(`[Model.deleteNote] delete whole chord ${fmtSlot(chord)} → m${measure.number} now ${measure.slots.length - 1} slot(s)`)
           measure.slots.splice(idx, 1)
         } else {
           // Remove just this pitch from the chord
-          console.log(`[Model.deleteNote] delete pitch ${pitch.step}${alterToString(pitch.alter)}${pitch.octave} from chord ${fmtSlot(chord)} (now ${chord.notes.length - 1} note(s))`)
+          dbg(`[Model.deleteNote] delete pitch ${pitch.step}${alterToString(pitch.alter)}${pitch.octave} from chord ${fmtSlot(chord)} (now ${chord.notes.length - 1} note(s))`)
           chord.notes = chord.notes.filter(n => n.id !== pitch.id)
         }
         return true
@@ -2246,7 +2247,7 @@ export class ScoreModel {
       return this.moveTupletNoteToVoice(measure, chord, pitch, targetVoice, movingIds)
     }
 
-    console.log(`[Model.moveNoteToVoice] ${pitch.step}${alterToString(pitch.alter)}${pitch.octave} (id ${pitch.id.slice(0, 8)}) v${from}→v${targetVoice} @ m${chord.measure} b${fracToNumber(chord.beat).toFixed(3)}`)
+    dbg(`[Model.moveNoteToVoice] ${pitch.step}${alterToString(pitch.alter)}${pitch.octave} (id ${pitch.id.slice(0, 8)}) v${from}→v${targetVoice} @ m${chord.measure} b${fracToNumber(chord.beat).toFixed(3)}`)
 
     // Capture the pitch payload before mutating anything (reuse the SAME id).
     const payload = {
@@ -2354,7 +2355,7 @@ export class ScoreModel {
           this.fillGapsWithRests(measure) // reclaim the freed time as rests
         }
       }
-      console.log(`[Model.insertPitch] merge ${notePitch.step}${alterToString(notePitch.alter)}${notePitch.octave} → chord ${fmtSlot(existingChord)} (now ${existingChord.notes.length} note(s), dur ${existingChord.duration})`)
+      dbg(`[Model.insertPitch] merge ${notePitch.step}${alterToString(notePitch.alter)}${notePitch.octave} → chord ${fmtSlot(existingChord)} (now ${existingChord.notes.length} note(s), dur ${existingChord.duration})`)
       return
     }
 
@@ -2370,7 +2371,7 @@ export class ScoreModel {
     }
     if (targetVoice) chord.voice = targetVoice as 0 | 1 | 2 | 3
     chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
-    console.log(`[Model.insertPitch] new chord ${fmtSlot(chord)} → replacing v${targetVoice} rests`)
+    dbg(`[Model.insertPitch] new chord ${fmtSlot(chord)} → replacing v${targetVoice} rests`)
     this.replaceRestsWithChord(measure, chord)
   }
 
@@ -2396,7 +2397,7 @@ export class ScoreModel {
         if (partner?.type === 'chord') partner.pitch.tiedFrom = undefined
         else if (partner?.type === 'rest') partner.rest.tiedFrom = undefined
         pitch.tiedTo = undefined
-        console.log(`[Model.dropCrossVoiceTies] dropped tiedTo (partner v${partnerVoice ?? '?'} ≠ v${voice})`)
+        dbg(`[Model.dropCrossVoiceTies] dropped tiedTo (partner v${partnerVoice ?? '?'} ≠ v${voice})`)
       }
     }
     if (pitch.tiedFrom) {
@@ -2406,7 +2407,7 @@ export class ScoreModel {
       if (partnerVoice !== voice && !movingIds?.has(pitch.tiedFrom)) {
         if (partner?.type === 'chord') partner.pitch.tiedTo = undefined
         pitch.tiedFrom = undefined
-        console.log(`[Model.dropCrossVoiceTies] dropped tiedFrom (partner v${partnerVoice ?? '?'} ≠ v${voice})`)
+        dbg(`[Model.dropCrossVoiceTies] dropped tiedFrom (partner v${partnerVoice ?? '?'} ≠ v${voice})`)
       }
     }
   }
@@ -2426,7 +2427,7 @@ export class ScoreModel {
       const sv = start?.type === 'chord' ? (start.chord.voice ?? 0) : undefined
       const ev = end?.type === 'chord' ? (end.chord.voice ?? 0) : undefined
       if (sv !== undefined && sv === ev && (slur.voice ?? 0) !== sv) {
-        console.log(`[Model.resyncSlurVoice] slur ${slur.id.slice(0, 8)} voice ${slur.voice ?? 0}→${sv}`)
+        dbg(`[Model.resyncSlurVoice] slur ${slur.id.slice(0, 8)} voice ${slur.voice ?? 0}→${sv}`)
         slur.voice = sv as 0 | 1 | 2 | 3
       }
     }
@@ -2456,7 +2457,7 @@ export class ScoreModel {
     const rawIdx = Math.round(fracToNumber(fracSub(chord.beat, startBeat)) / fracToNumber(slot))
     const idx = rawIdx >= 0 && rawIdx < numNotes ? rawIdx : 0
 
-    console.log(`[Model.moveTupletNoteToVoice] ${pitch.step}${alterToString(pitch.alter)}${pitch.octave} slot ${idx}/${numNotes} v${from}→v${targetVoice} @ m${measure.number} tuplet b${fracToNumber(startBeat).toFixed(3)}`)
+    dbg(`[Model.moveTupletNoteToVoice] ${pitch.step}${alterToString(pitch.alter)}${pitch.octave} slot ${idx}/${numNotes} v${from}→v${targetVoice} @ m${measure.number} tuplet b${fracToNumber(startBeat).toFixed(3)}`)
 
     // The moved pitch, reusing its id (tie/slur/selection anchor).
     const movedPitch: NotePitch = {

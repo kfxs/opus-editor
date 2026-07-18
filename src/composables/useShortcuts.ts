@@ -1,3 +1,4 @@
+import { dbg } from '@/utils/debug'
 import type { Ref } from 'vue'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from '../interactions/EditorState'
@@ -182,7 +183,7 @@ export function useShortcuts(
         // bar is reserved for this gesture; the plain-click box only clears content (below).
         const { anchor, focus } = state.selectedMeasureRange
         const removed = eng.removeMeasureRange(anchor, focus)
-        console.log(`✓ Removed ${removed} measure(s) in span ${Math.min(anchor, focus)}–${Math.max(anchor, focus)}`)
+        dbg(`✓ Removed ${removed} measure(s) in span ${Math.min(anchor, focus)}–${Math.max(anchor, focus)}`)
         state.selectedMeasureRange = null
         renderer.renderScore()
       } else if (state.selectedMeasureRange !== null && eng) {
@@ -200,7 +201,7 @@ export function useShortcuts(
           for (const id of dynIds) eng.removeDynamic(id)
           for (const id of slurIds) eng.removeSlur(id)
         })
-        console.log(`✓ Cleared measure ${measure} (staff ${staff}) to default rest`)
+        dbg(`✓ Cleared measure ${measure} (staff ${staff}) to default rest`)
         selection.deselectAll()
         renderer.renderScore()
       } else if (artNoteIds.length && eng) {
@@ -249,7 +250,7 @@ export function useShortcuts(
         const beat = beatToFrac(state.selectedClefBeat ?? 0)
         const removed = eng.removeClefAt(state.selectedClefMeasure, beat, state.selectedClefStaff)
         if (!removed) {
-          console.log(`Cannot remove clef at measure ${state.selectedClefMeasure} beat ${state.selectedClefBeat ?? 0} (measure 1 opening clef can only be changed)`)
+          dbg(`Cannot remove clef at measure ${state.selectedClefMeasure} beat ${state.selectedClefBeat ?? 0} (measure 1 opening clef can only be changed)`)
         }
         state.selectedClefMeasure = null
         state.selectedClefBeat = null
@@ -339,7 +340,7 @@ export function useShortcuts(
       if (nudgeArmedSlurPoint(NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedDynamic(NUDGE_FINE_SS, 0)) return
       if (state.selectedTool === 'entry') {
-        console.log(`[Nav] ArrowRight in entry mode → switching to selection`)
+        dbg(`[Nav] ArrowRight in entry mode → switching to selection`)
         palette.disarmPositionalTools()
         state.selectedTool = 'selection'
         selection.navigateSelection(1)
@@ -352,7 +353,7 @@ export function useShortcuts(
       if (nudgeArmedSlurPoint(-NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedDynamic(-NUDGE_FINE_SS, 0)) return
       if (state.selectedTool === 'entry') {
-        console.log(`[Nav] ArrowLeft in entry mode → switching to selection`)
+        dbg(`[Nav] ArrowLeft in entry mode → switching to selection`)
         palette.disarmPositionalTools()
         state.selectedTool = 'selection'
         renderer.renderScore()

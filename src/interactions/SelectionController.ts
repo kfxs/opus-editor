@@ -1,3 +1,4 @@
+import { dbg } from '@/utils/debug'
 import type { Accidental, Note, Measure, PitchStep, PitchAlter, Clef, Score } from '../types/music'
 import { middleLineDiatonicPos } from '../utils/clefUtils'
 import type { MusicEngine } from '../engine/MusicEngine'
@@ -414,7 +415,7 @@ export class SelectionController {
     const destDesc = destNote
       ? (destNote.isRest ? `rest m${dest.measureNumber} beat:${dest.beat.num / dest.beat.den}` : `${destNote.step}${destNote.alter !== 0 ? (destNote.alter! > 0 ? '#' : 'b') : ''}${destNote.octave} m${dest.measureNumber} beat:${dest.beat.num / dest.beat.den}`)
       : `id:${dest.id}`
-    console.log(`[Nav] ${direction > 0 ? '→' : '←'} → ${destDesc} (tool:${this.state.selectedTool})`)
+    dbg(`[Nav] ${direction > 0 ? '→' : '←'} → ${destDesc} (tool:${this.state.selectedTool})`)
     this.selectNote(dest.id)
     this.renderScore()
     this.scrollSelectedNoteIntoView()
@@ -565,7 +566,7 @@ export class SelectionController {
       }
     })
     if (!moved) return
-    console.log(`[Pitch] ${direction > 0 ? '↑' : '↓'} → ${ids.length} note(s) (tool:${this.state.selectedTool})`)
+    dbg(`[Pitch] ${direction > 0 ? '↑' : '↓'} → ${ids.length} note(s) (tool:${this.state.selectedTool})`)
     this.renderScore()
   }
 
@@ -585,7 +586,7 @@ export class SelectionController {
       }
     })
     if (!moved) return
-    console.log(`[Pitch] octave${direction > 0 ? '↑' : '↓'} → ${ids.length} note(s)`)
+    dbg(`[Pitch] octave${direction > 0 ? '↑' : '↓'} → ${ids.length} note(s)`)
     this.renderScore()
   }
 

@@ -722,6 +722,7 @@
 </template>
 
 <script setup lang="ts">
+import { dbg } from '@/utils/debug'
 import { ref, shallowRef, computed, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { MusicEngine } from './engine/MusicEngine'
 // ⚠️ TEMPORARY dev-only sound picker — remove when a real instrument model lands.
@@ -1190,10 +1191,10 @@ function installPerfInstruments() {
       selection.selectNote(null)
       engine.value.loadJSON(buildSyntheticScore(bars, staves))
       renderer.renderScore()
-      console.log(`[perf] loaded ${bars} bars × ${staves} staves`)
+      dbg(`[perf] loaded ${bars} bars × ${staves} staves`)
     },
   }
-  console.log('[perf] P0 instruments: __perf.load(200), __census.enable(), __census.dump()')
+  dbg('[perf] P0 instruments: __perf.load(200), __census.enable(), __census.dump()')
 }
 
 onUnmounted(() => {

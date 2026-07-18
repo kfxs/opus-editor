@@ -1,3 +1,4 @@
+import { dbg } from '@/utils/debug'
 import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
@@ -180,7 +181,7 @@ export class PaletteController {
     const engine = this.getEngine()
     const ctx = this.measureContext()
     if (!engine || !ctx) {
-      console.log('Add measure before: no measure selected (Ctrl+Shift+click a bar first)')
+      dbg('Add measure before: no measure selected (Ctrl+Shift+click a bar first)')
       return
     }
     engine.insertMeasureAfter(ctx.lo - 1) // 0 = insert at the very front
@@ -191,7 +192,7 @@ export class PaletteController {
         focus: this.state.selectedMeasureRange.focus + 1,
       }
     }
-    console.log(`✓ Added measure before ${ctx.lo}`)
+    dbg(`✓ Added measure before ${ctx.lo}`)
     this.renderScore()
   }
 
@@ -201,11 +202,11 @@ export class PaletteController {
     const engine = this.getEngine()
     const ctx = this.measureContext()
     if (!engine || !ctx) {
-      console.log('Add measure after: no measure selected (Ctrl+Shift+click a bar first)')
+      dbg('Add measure after: no measure selected (Ctrl+Shift+click a bar first)')
       return
     }
     engine.insertMeasureAfter(ctx.hi)
-    console.log(`✓ Added measure after ${ctx.hi}`)
+    dbg(`✓ Added measure after ${ctx.hi}`)
     this.renderScore()
   }
 
@@ -279,7 +280,7 @@ export class PaletteController {
     const engine = this.getEngine()
     const ref = this.staffContext()
     if (!engine || ref === null) {
-      console.log(`Add staff ${position}: no bar selected (click empty space in a bar first)`)
+      dbg(`Add staff ${position}: no bar selected (click empty space in a bar first)`)
       return
     }
     const selectedId = engine.getScore().staves?.[this.state.selectedMeasureStaff]?.id
@@ -290,7 +291,7 @@ export class PaletteController {
       const idx = engine.getScore().staves?.findIndex(s => s.id === selectedId) ?? -1
       if (idx >= 0) this.state.selectedMeasureStaff = idx
     }
-    console.log(`✓ Added staff ${position} staff ${ref}`)
+    dbg(`✓ Added staff ${position} staff ${ref}`)
     this.renderScore()
   }
 
@@ -321,7 +322,7 @@ export class PaletteController {
       if (before && !before.isRest) {
         const pitch = formatPitch(before)
         const oldDur = `${before.duration}${'.'.repeat(before.dots ?? 0)}`
-        console.log(`[Duration] ${pitch} | ${oldDur} → ${duration}`)
+        dbg(`[Duration] ${pitch} | ${oldDur} → ${duration}`)
       }
       this.renderScore()
     } else if (this.state.selectedTool === 'selection') {
@@ -773,9 +774,9 @@ export class PaletteController {
   private tieNotes(noteIds: string[]): void {
     const engine = this.getEngine()
     if (!engine) return
-    console.log(`[Tie] toggleTie on ${noteIds.length} note(s) (tool:${this.state.selectedTool})`)
+    dbg(`[Tie] toggleTie on ${noteIds.length} note(s) (tool:${this.state.selectedTool})`)
     const result = engine.tieSelection(noteIds)
-    console.log(`[Tie] result:${result === null ? 'no candidate found' : result ? 'tie(s) added' : 'tie(s) removed'}`)
+    dbg(`[Tie] result:${result === null ? 'no candidate found' : result ? 'tie(s) added' : 'tie(s) removed'}`)
     this.renderScore()
     this.refreshTieSelection()
   }
@@ -793,7 +794,7 @@ export class PaletteController {
     const fromNoteId = this.state.selectedTieFromNoteId
     if (!engine || !fromNoteId) return
 
-    console.log(`[Tie] removing selected tie | fromNoteId:${fromNoteId}`)
+    dbg(`[Tie] removing selected tie | fromNoteId:${fromNoteId}`)
     engine.toggleTie(fromNoteId) // the tie exists, so this removes it
     this.state.selectedTieFromNoteId = null
     this.selectNote(null)
@@ -820,7 +821,7 @@ export class PaletteController {
     const noteIds = ids.length ? ids : (this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
     if (noteIds.length === 0) return
     const slur = engine.createSlur(noteIds)
-    console.log(`[Slur] createSlur on ${noteIds.length} note(s) → ${slur ? `slur ${slur.id}` : 'no valid span'}`)
+    dbg(`[Slur] createSlur on ${noteIds.length} note(s) → ${slur ? `slur ${slur.id}` : 'no valid span'}`)
     this.renderScore()
   }
 
@@ -867,7 +868,7 @@ export class PaletteController {
     // (1) The dots are selected in the score → the press removes them.
     if (this.state.selectedDotNoteId && engine) {
       const noteId = this.state.selectedDotNoteId
-      console.log(`[Dot] removing selected dot(s) | noteId:${noteId}`)
+      dbg(`[Dot] removing selected dot(s) | noteId:${noteId}`)
       engine.runBatch('Remove dot', () => engine.updateNote(noteId, { dots: 0 }))
       this.state.selectedDotNoteId = null
       this.state.selectedDots = 0
@@ -894,7 +895,7 @@ export class PaletteController {
         const pitch = formatPitch(before)
         const oldDur = `${before.duration}${'.'.repeat(before.dots ?? 0)}`
         const newDur = `${before.duration}${'.'.repeat(newValue)}`
-        console.log(`[Duration] ${pitch} | ${oldDur} → ${newDur}`)
+        dbg(`[Duration] ${pitch} | ${oldDur} → ${newDur}`)
       }
       this.renderScore()
     } else if (this.state.selectedTool === 'entry') {
@@ -1016,7 +1017,7 @@ export class PaletteController {
     if (tool && this.state.selectedTempoId) {
       const engine = this.getEngine()
       const updated = engine?.updateTempoMark(this.state.selectedTempoId, tool)
-      if (updated) console.log(`✓ Tempo mark → ${tempoLabel(updated)}`)
+      if (updated) dbg(`✓ Tempo mark → ${tempoLabel(updated)}`)
       this.renderScore()
       return
     }
@@ -1045,7 +1046,7 @@ export class PaletteController {
     // No staffId, no voice — the mark governs the clock, not the staff it was placed from.
     const created = engine.addTempoMark(note.measure, { beat: note.beat, ...tool })
     if (created) {
-      console.log(`✓ Tempo ${tempoLabel(created)} at measure ${note.measure} beat ${fracToNumber(note.beat).toFixed(3)} (on selected note)`)
+      dbg(`✓ Tempo ${tempoLabel(created)} at measure ${note.measure} beat ${fracToNumber(note.beat).toFixed(3)} (on selected note)`)
     }
     this.renderScore()
   }
@@ -1068,10 +1069,10 @@ export class PaletteController {
     const staffParam = staffId ? { staffId } : {}
     if (tool === 'text') {
       engine.addDynamic(note.measure, { beat: note.beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below', ...staffParam })
-      console.log(`✓ Dynamic text at measure ${note.measure} beat ${beatStr} staff ${note.staff ?? 0} (on selected note ${this.state.selectedNoteId})`)
+      dbg(`✓ Dynamic text at measure ${note.measure} beat ${beatStr} staff ${note.staff ?? 0} (on selected note ${this.state.selectedNoteId})`)
     } else {
       engine.addDynamic(note.measure, { beat: note.beat, kind: 'level', level: tool, voice: 0, placement: 'below', ...staffParam })
-      console.log(`✓ Dynamic ${tool} at measure ${note.measure} beat ${beatStr} staff ${note.staff ?? 0} (on selected note ${this.state.selectedNoteId})`)
+      dbg(`✓ Dynamic ${tool} at measure ${note.measure} beat ${beatStr} staff ${note.staff ?? 0} (on selected note ${this.state.selectedNoteId})`)
     }
     this.renderScore()
   }
@@ -1087,7 +1088,7 @@ export class PaletteController {
    */
   setActiveVoice(voice: 1 | 2): void {
     this.state.activeVoice = voice
-    console.log(`[Voice] active voice → ${voice}`)
+    dbg(`[Voice] active voice → ${voice}`)
 
     // Selection-mode + a selection → reassign voice instead of arming entry.
     const engine = this.getEngine()
@@ -1376,7 +1377,7 @@ export class PaletteController {
     this.state.selectedBeam = DEFAULT_BEAM
 
     this.armMarkingTool({ kind: 'rest' })
-    console.log(`[palette] rest stamp armed | ${this.state.selectedDuration}${'.'.repeat(this.state.selectedDots)}${shownLength === null ? ' (default — nothing was selected)' : ' (kept the selected length)'}`)
+    dbg(`[palette] rest stamp armed | ${this.state.selectedDuration}${'.'.repeat(this.state.selectedDots)}${shownLength === null ? ' (default — nothing was selected)' : ' (kept the selected length)'}`)
   }
 
   /**
@@ -1415,7 +1416,7 @@ export class PaletteController {
 
     // The LAST rest becomes the selection, matching how the anchor is the last note of a set.
     this.selectNote(converted[converted.length - 1])
-    console.log(`[palette] converted ${converted.length} slot(s) to rest — selected ${converted[converted.length - 1]}`)
+    dbg(`[palette] converted ${converted.length} slot(s) to rest — selected ${converted[converted.length - 1]}`)
     this.refreshRestSelection()
     this.renderScore()
     return true

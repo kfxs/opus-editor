@@ -1,3 +1,4 @@
+import { dbg } from '@/utils/debug'
 import type { MenuLayer } from './MenuLayer'
 import type { MenuItem } from './MenuItem'
 
@@ -7,7 +8,7 @@ import type { MenuItem } from './MenuItem'
  * menu bar, an edit menu — reuses them without touching this file).
  *
  * The wiring below is final; the ITEMS are not. They are still the lorem placeholders the primitive
- * was proven with — selecting a row just `console.log`s and touches no score. We keep them only so
+ * was proven with — selecting a row just `dbg`s and touches no score. We keep them only so
  * the menu has something to show while its real commands (insert note, clef, time signature, …) are
  * added one at a time, each replacing a lorem row. Nothing here is a command yet, on purpose.
  */
@@ -17,7 +18,7 @@ import type { MenuItem } from './MenuItem'
  * real `{ label, onSelect }` as the command behind it lands; the helper goes when the last one does.
  */
 function say(label: string): MenuItem {
-  return { label, onSelect: () => console.log(`[menu] selected: ${label}`) }
+  return { label, onSelect: () => dbg(`[menu] selected: ${label}`) }
 }
 
 // TEMPORARY: lorem rows, to be replaced by real insert commands little by little.

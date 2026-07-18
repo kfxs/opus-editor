@@ -1,3 +1,4 @@
+import { dbg } from '@/utils/debug'
 import { ScoreModel, type ClipDynamicInput, type ClipSlurInput } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
@@ -373,7 +374,7 @@ export class MusicEngine {
    */
   removeMeasure(measureNumber: number): boolean {
     if (this.scoreModel.getScore().measures.length <= 1) {
-      console.log('Cannot remove the last remaining measure')
+      dbg('Cannot remove the last remaining measure')
       return false
     }
     const removed = this.scoreModel.removeMeasure(measureNumber)
@@ -812,11 +813,11 @@ export class MusicEngine {
     if (!note || note.isRest) return null
 
     const fmt = (n: typeof note) => n.isRest ? `rest` : `${formatPitch(n)} m${n.measure} beat:${fracToNumber(n.beat).toFixed(3)}`
-    console.log(`[Tie] toggleTie | source: ${fmt(note)}`)
+    dbg(`[Tie] toggleTie | source: ${fmt(note)}`)
 
     if (note.tiedTo) {
       const tiedToNote = this.scoreModel.getNote(note.tiedTo)
-      console.log(`[Tie] removing existing tie → was tied to: ${tiedToNote ? fmt(tiedToNote) : 'NOT FOUND'}`)
+      dbg(`[Tie] removing existing tie → was tied to: ${tiedToNote ? fmt(tiedToNote) : 'NOT FOUND'}`)
       const tiedToId = note.tiedTo
       // Drop any flip override so a future re-tie starts from auto placement again.
       this.scoreModel.clearTieDirection(noteId)
@@ -840,7 +841,7 @@ export class MusicEngine {
       const stream = allSlots.filter(n => (n.voice ?? 0) === (source.voice ?? 0) && (n.staff ?? 0) === (source.staff ?? 0))
       const nextStart = stream.find(n => compareByPosition(n, source) > 0)
       if (!nextStart) {
-        console.log(`[Tie] no next slot found — tie not created`)
+        dbg(`[Tie] no next slot found — tie not created`)
         return null
       }
       const samePitch = stream.find(n =>
@@ -852,7 +853,7 @@ export class MusicEngine {
       // each source's `tiedTo`, and deleting the target reassigns ALL of them onto the
       // replacement rest (see deleteNote), so nothing is left dangling.
       const nextNote = samePitch ?? nextStart
-      console.log(`[Tie] tying to next slot: ${fmt(nextNote)}`)
+      dbg(`[Tie] tying to next slot: ${fmt(nextNote)}`)
 
       this.scoreModel.updateNote(noteId, { tiedTo: nextNote.id })
       this.scoreModel.updateNote(nextNote.id, { tiedFrom: noteId })
@@ -1059,7 +1060,7 @@ export class MusicEngine {
     if (ok) {
       this.saveOnly('Nudge rest')
       const steps = restShiftOverrideOf(this.scoreModel.getScore(), key)?.steps ?? 0
-      console.log(`[Rest] ${delta > 0 ? '↑' : '↓'} shift rest ${restId} (${key}) by ${delta} → total ${steps} step(s)`)
+      dbg(`[Rest] ${delta > 0 ? '↑' : '↓'} shift rest ${restId} (${key}) by ${delta} → total ${steps} step(s)`)
     }
     return ok
   }
@@ -1077,7 +1078,7 @@ export class MusicEngine {
     if (ok) {
       this.saveOnly('Nudge dynamic')
       const off = dynamicOffsetOverrideOf(this.scoreModel.getScore(), dynamicId)
-      console.log(`[Dynamic] nudge ${dynamicId} by (${dx}, ${dy}) → offset (${off?.x ?? 0}, ${off?.y ?? 0}) staff-space(s)`)
+      dbg(`[Dynamic] nudge ${dynamicId} by (${dx}, ${dy}) → offset (${off?.x ?? 0}, ${off?.y ?? 0}) staff-space(s)`)
     }
     return ok
   }
@@ -1175,7 +1176,7 @@ export class MusicEngine {
       const above = this.clampSpacingAbove(this.getStaffSpacingAbove(staffIndex, measureNumber) + delta)
       this.linearStaffSpacing.set(staffId, above)
       this.syncLinearStaffSpacing()
-      console.log(`[Staff/linear] ${delta > 0 ? '↓' : '↑'} view spacing above staff ${staffIndex} by ${delta} → ${above} ss (view only, not saved)`)
+      dbg(`[Staff/linear] ${delta > 0 ? '↓' : '↑'} view spacing above staff ${staffIndex} by ${delta} → ${above} ss (view only, not saved)`)
       return true
     }
     const t = this.staffSpacingTarget(staffIndex, measureNumber)
@@ -1183,7 +1184,7 @@ export class MusicEngine {
     const above = this.clampSpacingAbove(resolveStaffSpacingAbove(this.scoreModel.getScore(), t.staffId, t.openingMeasureId) + delta)
     this.scoreModel.setStaffSpacing(t.key, above) // absolute; clears at 0
     this.saveOnly('Nudge staff spacing')
-    console.log(`[Staff] ${delta > 0 ? '↓' : '↑'} space above staff ${staffIndex} @sys(${t.openingMeasureId}) by ${delta} → ${above} ss`)
+    dbg(`[Staff] ${delta > 0 ? '↓' : '↑'} space above staff ${staffIndex} @sys(${t.openingMeasureId}) by ${delta} → ${above} ss`)
     return true
   }
 
@@ -1200,7 +1201,7 @@ export class MusicEngine {
       if (!staffId || !this.linearStaffSpacing.has(staffId)) return false
       this.linearStaffSpacing.delete(staffId)
       this.syncLinearStaffSpacing()
-      console.log(`[Staff/linear] reset view spacing above staff ${staffIndex}`)
+      dbg(`[Staff/linear] reset view spacing above staff ${staffIndex}`)
       return true
     }
     const t = this.staffSpacingTarget(staffIndex, measureNumber)
@@ -1208,7 +1209,7 @@ export class MusicEngine {
     const removed = this.scoreModel.resetStaffSpacing(t.key)
     if (removed) {
       this.saveOnly('Reset staff spacing')
-      console.log(`[Staff] reset space above staff ${staffIndex} @sys(${t.openingMeasureId})`)
+      dbg(`[Staff] reset space above staff ${staffIndex} @sys(${t.openingMeasureId})`)
     }
     return removed
   }
@@ -1293,7 +1294,7 @@ export class MusicEngine {
     const nowHidden = !restHiddenOf(this.scoreModel.getScore(), key)
     this.scoreModel.toggleRestHidden(key)
     this.saveUndoState(`${nowHidden ? 'Hide' : 'Show'} rest`)
-    console.log(`[Rest] ${nowHidden ? 'hide' : 'show'} rest ${restId} (${key})`)
+    dbg(`[Rest] ${nowHidden ? 'hide' : 'show'} rest ${restId} (${key})`)
     return true
   }
 

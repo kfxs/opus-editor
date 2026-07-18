@@ -1,3 +1,4 @@
+import { dbg } from '@/utils/debug'
 import type { Fraction } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
@@ -42,7 +43,7 @@ export class ClipboardController {
     if (!engine) return
     const ids = selectedNoteIds(this.state.selectedItems.values())
     if (ids.length === 0) {
-      console.log('[Clipboard] copy: nothing selected')
+      dbg('[Clipboard] copy: nothing selected')
       return
     }
     const payload = buildClipboardFromSelection(engine.getScore(), ids)
@@ -53,8 +54,8 @@ export class ClipboardController {
     this.payload = payload
     // Debug dump (requested): a readable summary + the full payload, to diff against
     // the data model / VexFlow output when a paste looks wrong.
-    console.log(`[Clipboard] copied — ${clipboardSummary(payload)}`)
-    console.log('[Clipboard] payload:', JSON.parse(JSON.stringify(payload)))
+    dbg(`[Clipboard] copied — ${clipboardSummary(payload)}`)
+    dbg('[Clipboard] payload:', JSON.parse(JSON.stringify(payload)))
   }
 
   /**
@@ -63,7 +64,7 @@ export class ClipboardController {
    */
   paste(): void {
     if (!this.payload) {
-      console.log('[Clipboard] paste: clipboard empty')
+      dbg('[Clipboard] paste: clipboard empty')
       return
     }
     const engine = this.getEngine()
@@ -73,7 +74,7 @@ export class ClipboardController {
     if (ids.length === 0) {
       this.state.pastePlacementArmed = true
       this.state.showCursor = false
-      console.log('[Clipboard] paste armed — click an insertion point (Esc to cancel)')
+      dbg('[Clipboard] paste armed — click an insertion point (Esc to cancel)')
       return
     }
     // Paste onto a selection → overwrite forward from the earliest selected note,
@@ -97,7 +98,7 @@ export class ClipboardController {
     this.state.pastePlacementArmed = false
     this.state.showCursor = true
     this.render.renderScore()
-    console.log('[Clipboard] paste cancelled')
+    dbg('[Clipboard] paste cancelled')
   }
 
   private placeAt(measure: number, beat: Fraction, targetVoice: number, targetStaff: number = 0): void {
@@ -113,7 +114,7 @@ export class ClipboardController {
       .filter((l) => l.restHidden?.length)
       .map((l) => ({ staff: l.staff, voice: l.voice, restHidden: l.restHidden! }))
     const pastedIds = engine.pasteEvents(measure, beat, this.payload.lanes, this.payload.spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, this.payload.dynamics, this.payload.slurs)
-    console.log(`[Clipboard] pasted ${pastedIds.length} note(s) at measure ${measure} beat ${fracToNumber(beat)}`)
+    dbg(`[Clipboard] pasted ${pastedIds.length} note(s) at measure ${measure} beat ${fracToNumber(beat)}`)
     this.selection.selectNotes(pastedIds)
     this.state.showCursor = true
     this.render.renderScore()

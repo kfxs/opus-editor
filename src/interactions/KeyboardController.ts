@@ -1,3 +1,4 @@
+import { dbg } from '@/utils/debug'
 import type { ArticulationType, Note, PitchStep, PitchAlter, Fraction, Score } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
@@ -82,7 +83,7 @@ export class KeyboardController {
       ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }),
     })
 
-    console.log(`✓ KeyboardEntry (edit-in-place) | ${formatPitch({ step, alter, octave })} dur:${updatedNote.duration} measure:${updatedNote.measure} beat:${fracToNumber(updatedNote.beat).toFixed(3)}`)
+    dbg(`✓ KeyboardEntry (edit-in-place) | ${formatPitch({ step, alter, octave })} dur:${updatedNote.duration} measure:${updatedNote.measure} beat:${fracToNumber(updatedNote.beat).toFixed(3)}`)
 
     this.state.selectedAccidental = null
     this.state.selectedTool = 'entry'
@@ -140,7 +141,7 @@ export class KeyboardController {
   private disarmRestOnNoteEntry(): void {
     if (!armedTool(this.state, 'rest')) return
     this.state.selectedMarkingTool = null // reassign, never mutate — the Proxy traps the SET
-    console.log('[Keyboard] a note was typed → the rest stamp disarms')
+    dbg('[Keyboard] a note was typed → the rest stamp disarms')
   }
 
   /**
@@ -190,7 +191,7 @@ export class KeyboardController {
 
     const next = this.nextEntryPosition(currentNote, beats, currentIndex, score)
     if (!next) {
-      console.log('[Keyboard] rest: cursor is at the end of the score')
+      dbg('[Keyboard] rest: cursor is at the end of the score')
       return true // consumed: the tool IS armed, there is simply nowhere to go
     }
     const { targetMeasure, targetBeat } = next
@@ -200,12 +201,12 @@ export class KeyboardController {
     const available = fracSub(measureCapacityFrac(measure), targetBeat)
     const fitted = fitRestDuration(armedDuration, armedDots, available)
     if (!fitted) {
-      console.log(`[Keyboard] rest: no room at m${targetMeasure} b${fracToNumber(targetBeat).toFixed(3)}`)
+      dbg(`[Keyboard] rest: no room at m${targetMeasure} b${fracToNumber(targetBeat).toFixed(3)}`)
       return true
     }
     const capped = fitted.duration !== armedDuration || fitted.dots !== armedDots
     if (capped) {
-      console.log(`[Keyboard] rest: ${armedDuration}${'.'.repeat(armedDots)} exceeds the ${fracToNumber(available).toFixed(3)} beat(s) left in m${targetMeasure} → ${fitted.duration}${'.'.repeat(fitted.dots)}`)
+      dbg(`[Keyboard] rest: ${armedDuration}${'.'.repeat(armedDots)} exceeds the ${fracToNumber(available).toFixed(3)} beat(s) left in m${targetMeasure} → ${fitted.duration}${'.'.repeat(fitted.dots)}`)
     }
 
     const newRest = engine.addNoteAtBeat({
@@ -218,12 +219,12 @@ export class KeyboardController {
       ...(cursorStaff && { staff: cursorStaff }),
     })
     if (!newRest) {
-      console.log('[Keyboard] rest: addNoteAtBeat returned null')
+      dbg('[Keyboard] rest: addNoteAtBeat returned null')
       this.renderScore()
       return true
     }
 
-    console.log(`✓ KeyboardEntry | REST ${newRest.duration}${'.'.repeat(newRest.dots ?? 0)} measure:${newRest.measure} beat:${fracToNumber(newRest.beat).toFixed(3)}`)
+    dbg(`✓ KeyboardEntry | REST ${newRest.duration}${'.'.repeat(newRest.dots ?? 0)} measure:${newRest.measure} beat:${fracToNumber(newRest.beat).toFixed(3)}`)
     // The caret follows what was just typed, so the next SPACE lands after it. moveCaretTo (the
     // injected caret setter) does NOT re-arm the palette from the rest it lands on — a cap is not a
     // choice — so a barline-trimmed rest never redefines the armed length. See
@@ -253,24 +254,24 @@ export class KeyboardController {
 
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
     if (!currentNote) {
-      console.log('[Cursor] enterNoteAtCursorPosition: currentNote not found for id', this.state.selectedNoteId)
+      dbg('[Cursor] enterNoteAtCursorPosition: currentNote not found for id', this.state.selectedNoteId)
       return
     }
     const currentKey = `${currentNote.measureNumber}:${currentNote.beat.num}/${currentNote.beat.den}`
     const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat.num}/${n.beat.den}` === currentKey)
     if (currentIndex === -1) {
-      console.log('[Cursor] enterNoteAtCursorPosition: beat not found in beatMap for key', currentKey)
+      dbg('[Cursor] enterNoteAtCursorPosition: beat not found in beatMap for key', currentKey)
       return
     }
 
     const next = this.nextEntryPosition(currentNote, beats, currentIndex, score)
     if (!next) {
-      console.log('[Cursor] enterNoteAtCursorPosition: cursor is at end of score, nowhere to place note')
+      dbg('[Cursor] enterNoteAtCursorPosition: cursor is at end of score, nowhere to place note')
       return
     }
     const { targetMeasure, targetBeat } = next
 
-    console.log(`[Cursor] position: m${currentNote.measureNumber} beat:${fracToNumber(currentNote.beat).toFixed(4)} (${currentNote.isRest ? 'rest' : `${currentNote.step ?? '?'}${currentNote.octave ?? ''}`}${currentNote.tupletId ? ' tuplet' : ''}) → targeting m${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(4)}`)
+    dbg(`[Cursor] position: m${currentNote.measureNumber} beat:${fracToNumber(currentNote.beat).toFixed(4)} (${currentNote.isRest ? 'rest' : `${currentNote.step ?? '?'}${currentNote.octave ?? ''}`}${currentNote.tupletId ? ' tuplet' : ''}) → targeting m${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(4)}`)
 
     const alter: PitchAlter = accidentalToAlter(this.state.selectedAccidental)
     const referenceMidi = (!currentNote.isRest && currentNote.step)
@@ -282,7 +283,7 @@ export class KeyboardController {
     const octave = Math.floor(targetMidi / 12) - 1
 
     const existingTuplet = engine.getTupletAtBeat(targetMeasure, targetBeat, cursorVoice, cursorStaff)
-    console.log(`KeyboardEntry RAW | ${step}${alter !== 0 ? (alter > 0 ? '#' : 'b') : ''} dur:${this.state.selectedDuration} measure:${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(3)} tupletMode:${this.state.tupletMode} existingTuplet:${existingTuplet ? existingTuplet.id : 'none'}`)
+    dbg(`KeyboardEntry RAW | ${step}${alter !== 0 ? (alter > 0 ? '#' : 'b') : ''} dur:${this.state.selectedDuration} measure:${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(3)} tupletMode:${this.state.tupletMode} existingTuplet:${existingTuplet ? existingTuplet.id : 'none'}`)
 
     const measure = score.measures.find(m => m.number === targetMeasure)
     if (!measure) return
@@ -325,7 +326,7 @@ export class KeyboardController {
     }
 
     if (!newNote) {
-      console.log('✗ KeyboardEntry | placement failed')
+      dbg('✗ KeyboardEntry | placement failed')
       this.renderScore()
       return
     }
@@ -348,7 +349,7 @@ export class KeyboardController {
       lastNote = tied
     }
     if (lastNote.id !== newNote.id) {
-      console.log(`[Keyboard] Tie chain: cursor advanced to last tied note id=${lastNote.id} measure=${lastNote.measure} beat=${fracToNumber(lastNote.beat).toFixed(3)}`)
+      dbg(`[Keyboard] Tie chain: cursor advanced to last tied note id=${lastNote.id} measure=${lastNote.measure} beat=${fracToNumber(lastNote.beat).toFixed(3)}`)
     }
 
     // Clear the armed accidental after each entered note (a sharp lasts one note, not forever).
@@ -357,7 +358,7 @@ export class KeyboardController {
     // delete this one line — moveCaretTo no longer syncs it back, so it will simply stick.
     this.state.selectedAccidental = null
 
-    console.log(`[Cursor] → cursor lands on: m${lastNote.measure} beat:${fracToNumber(lastNote.beat).toFixed(4)} (${lastNote.isRest ? 'rest' : `${lastNote.step}${lastNote.octave}`}${lastNote.tupletId ? ' tuplet' : ''})`)
+    dbg(`[Cursor] → cursor lands on: m${lastNote.measure} beat:${fracToNumber(lastNote.beat).toFixed(4)} (${lastNote.isRest ? 'rest' : `${lastNote.step}${lastNote.octave}`}${lastNote.tupletId ? ' tuplet' : ''})`)
     // A SPLIT IS NOT A CHOICE — a whole entered on beat 2 of 4/4 becomes a dotted half tied to a
     // quarter, and the caret lands on the QUARTER. moveCaretTo keeps the palette (you armed a whole;
     // you still have a whole) rather than re-arming it to the tail. See SelectionController.moveCaretTo.

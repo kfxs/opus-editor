@@ -1,3 +1,4 @@
+import { dbg } from '@/utils/debug'
 import type { ArticulationType, PitchSpelling, Fraction, SlurSegmentAddress } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry, ElementType } from '../engine/ElementRegistry'
@@ -192,7 +193,7 @@ export class MouseController {
       this.isPanning = true
       this.state.isPanning = true
       this.panLastClient = { x: cx, y: cy }
-      console.log('Pan started')
+      dbg('Pan started')
     }
     const dx = cx - this.panLastClient.x
     const dy = cy - this.panLastClient.y
@@ -215,7 +216,7 @@ export class MouseController {
       // Real pan: swallow the trailing click, restore the pointer, keep the selection.
       this.suppressNextClick = true
       this.state.isPanning = false
-      console.log('Pan ended')
+      dbg('Pan ended')
     } else if (clears) {
       // Tap on empty space in the selection tool (deferred from mousedown). Sibelius-style:
       // a tap INSIDE a bar selects that whole bar (single blue box + its contents); only a
@@ -224,7 +225,7 @@ export class MouseController {
       // leave the active voice stuck on a previously chosen voice).
       if (!tapCoords || !this.selectMeasureAt(tapCoords.x, tapCoords.y)) {
         this.selection.deselectAll()
-        console.log('Selection cleared (tap)')
+        dbg('Selection cleared (tap)')
       }
       this.render.renderScore()
     }
@@ -353,7 +354,7 @@ export class MouseController {
     const beat = this.resolveSlotBeat(engine, coords.x, measure)
     // Which stacked staff the click landed on is the paste destination staff (multi-staff).
     const staff = engine.getElementRegistry().staffIndexAtY(measure, coords.y)
-    console.log(`Paste placement click | measure:${measure} beat:${fracToNumber(beat)} staff:${staff}`)
+    dbg(`Paste placement click | measure:${measure} beat:${fracToNumber(beat)} staff:${staff}`)
     this.clipboard.pasteAt(measure, beat, staff)
   }
 
@@ -382,7 +383,7 @@ export class MouseController {
       ? registry.noteOrRestHitDistance(closestElement, x, y)
       : Infinity
     if (artDist <= noteDist) return articulationAt
-    console.log(`· Articulation skipped — note closer (artDist:${artDist.toFixed(1)} > noteDist:${noteDist.toFixed(1)})`)
+    dbg(`· Articulation skipped — note closer (artDist:${artDist.toFixed(1)} > noteDist:${noteDist.toFixed(1)})`)
     return null
   }
 
@@ -502,7 +503,7 @@ export class MouseController {
       // background/structure, not notational objects, so a click on them is still
       // "empty space" for the measure-box gesture. Only a real object blocks the box.
       const onObject = hitEl != null && !MEASURE_BOX_IGNORE_TYPES.has(hitEl.type)
-      console.log(
+      dbg(
         `⎇ Ctrl+Shift+click | pos:(${Math.round(x)},${Math.round(y)}) | ` +
         `element:${hitEl ? `${hitEl.type}#${hitEl.id ?? '?'}` : 'none'}` +
         `${hitEl && !onObject ? ' (background→empty)' : ''} | ` +
@@ -511,7 +512,7 @@ export class MouseController {
       if (!onObject && !hitTuplet) {
         if (this.selectMeasureBox(ctx, prevRange)) return true
       } else {
-        console.log('  ↳ landed on an object — falling through to note range/toggle (no box)')
+        dbg('  ↳ landed on an object — falling through to note range/toggle (no box)')
       }
     }
 
@@ -523,7 +524,7 @@ export class MouseController {
       const artHit = this.articulationHit(x, y, closestElement, registry)
       if (artHit?.noteId) {
         this.selection.toggleArticulation(artHit.noteId)
-        console.log(`✓ Articulation group toggled in selection | noteId:${artHit.noteId} | size:${this.state.selectedItems.size}`)
+        dbg(`✓ Articulation group toggled in selection | noteId:${artHit.noteId} | size:${this.state.selectedItems.size}`)
         this.render.renderScore()
         return true
       }
@@ -543,10 +544,10 @@ export class MouseController {
         const typeLabel = closestElement.type === 'rest' ? 'Rest' : 'Note'
         if (range) {
           this.selection.extendSelectionTo(closestElement.id)
-          console.log(`✓ Range extended to ${typeLabel} | id:${closestElement.id} | size:${this.state.selectedItems.size}`)
+          dbg(`✓ Range extended to ${typeLabel} | id:${closestElement.id} | size:${this.state.selectedItems.size}`)
         } else {
           this.selection.toggleNote(closestElement.id)
-          console.log(`✓ ${typeLabel} toggled in selection | id:${closestElement.id} | size:${this.state.selectedItems.size}`)
+          dbg(`✓ ${typeLabel} toggled in selection | id:${closestElement.id} | size:${this.state.selectedItems.size}`)
         }
         this.render.renderScore()
       }
@@ -565,12 +566,12 @@ export class MouseController {
     const measure = engine.pixelToMeasure({ x, y })
     const rect = engine.getMeasureRect(measure)
     if (!rect) {
-      console.log(`  ↳ no rect for measure ${measure} — box not drawn`)
+      dbg(`  ↳ no rect for measure ${measure} — box not drawn`)
       return false
     }
     const inside = x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height
     if (!inside) {
-      console.log(
+      dbg(
         `  ↳ click outside measure ${measure} rect ` +
         `(x:${Math.round(rect.x)}–${Math.round(rect.x + rect.width)}, ` +
         `y:${Math.round(rect.y)}–${Math.round(rect.y + rect.height)}) — box not drawn`,
@@ -592,7 +593,7 @@ export class MouseController {
     // Remember which stacked staff the click fell on — the reference staff the "Staff:"
     // add-above/below buttons insert relative to (multi-staff Phase 4). N=1 → always 0.
     this.state.selectedMeasureStaff = engine.getElementRegistry().staffIndexAtY(measure, y)
-    console.log(
+    dbg(
       lo === hi
         ? `✓ Measure box selected | measure:${measure}`
         : `✓ Measure span selected | measures:${lo}–${hi} (grew to include ${measure})`,
@@ -642,7 +643,7 @@ export class MouseController {
     this.state.selectedMeasureRange = { anchor: measure, focus: measure }
     this.state.selectedMeasureStaff = staff
     this.state.selectedMeasureBoxStyle = 'single'
-    console.log(`✓ Measure selected (plain click) | measure:${measure} staff:${staff} | items:${this.state.selectedItems.size}`)
+    dbg(`✓ Measure selected (plain click) | measure:${measure} staff:${staff} | items:${this.state.selectedItems.size}`)
     return true
   }
 
@@ -667,7 +668,7 @@ export class MouseController {
       if (minVerticalDistance > 12) {
         this.state.selectedTupletId = tupletAtClick.tupletId
         this.state.selectedNoteId = null
-        console.log(`✓ Tuplet selected on mousedown | id:${tupletAtClick.tupletId}`)
+        dbg(`✓ Tuplet selected on mousedown | id:${tupletAtClick.tupletId}`)
         this.render.renderScore()
         return true
       }
@@ -715,7 +716,7 @@ export class MouseController {
         this.state.selectedSlurSegmentEndpoint = null
         this.render.renderScore()
       }
-      console.log(`Slur handle drag ready | id:${handle.slurId} cp:${handle.cpIndex} seg:${handle.segmentRole ?? 'single'}${handle.segmentRole === 'middle' ? `#${handle.segmentOrdinal}` : ''}`)
+      dbg(`Slur handle drag ready | id:${handle.slurId} cp:${handle.cpIndex} seg:${handle.segmentRole ?? 'single'}${handle.segmentRole === 'middle' ? `#${handle.segmentOrdinal}` : ''}`)
       event.preventDefault()
       return true
     }
@@ -738,7 +739,7 @@ export class MouseController {
       this.state.selectedSlurEndpoint = endHandle.endpoint
       this.state.selectedSlurSegmentEndpoint = null // arming a blue square disarms an orange one
       this.render.renderScore()
-      console.log(`Slur endpoint armed | id:${endHandle.slurId} end:${endHandle.endpoint}`)
+      dbg(`Slur endpoint armed | id:${endHandle.slurId} end:${endHandle.endpoint}`)
       event.preventDefault()
       return true
     }
@@ -760,7 +761,7 @@ export class MouseController {
         : { role: 'end' }
       this.state.selectedSlurSegmentSpanCount = segEndHandle.slurSpanCount ?? 0
       this.render.renderScore()
-      console.log(`Slur segment endpoint armed | id:${segEndHandle.slurId} role:${role}${role === 'middle' ? `#${segEndHandle.segmentOrdinal} ${segEndHandle.segmentSide}` : ''}`)
+      dbg(`Slur segment endpoint armed | id:${segEndHandle.slurId} role:${role}${role === 'middle' ? `#${segEndHandle.segmentOrdinal} ${segEndHandle.segmentSide}` : ''}`)
       event.preventDefault()
       return true
     }
@@ -789,7 +790,7 @@ export class MouseController {
     if (y < geo.lineYPositions[0] - STAFF_BAND_PAD_PX || y > geo.lineYPositions[4] + STAFF_BAND_PAD_PX) return false
 
     if (!this.armStaffSpacingDrag(engine, measure, y)) return false
-    console.log(`Staff-spacing drag ready | measure:${measure} staff:${staff} baseline:${this.draggedSpacingBaseline} ss`)
+    dbg(`Staff-spacing drag ready | measure:${measure} staff:${staff} baseline:${this.draggedSpacingBaseline} ss`)
     event.preventDefault()
     return true
   }
@@ -831,7 +832,7 @@ export class MouseController {
     this.state.selectedClefBeat = clefAt.beat ?? 0
     this.state.selectedClefStaff = clefAt.staff ?? 0
     const isProtected = clefAt.measure === 1 && (clefAt.beat ?? 0) === 0
-    console.log(`✓ Clef selected | measure:${clefAt.measure} beat:${clefAt.beat ?? 0}${isProtected ? ' (measure 1 opening: change only, cannot remove)' : ''}`)
+    dbg(`✓ Clef selected | measure:${clefAt.measure} beat:${clefAt.beat ?? 0}${isProtected ? ' (measure 1 opening: change only, cannot remove)' : ''}`)
 
     // Arm horizontal dragging for movable clefs (every clef except the big
     // line-start one). Recover the exact Fraction beat from the model.
@@ -872,7 +873,7 @@ export class MouseController {
     this.selection.selectNote(null)
     this.state.selectedTimeSignatureMeasure = timeSigAt.measure
     const isDefault = timeSigAt.measure === 1
-    console.log(`✓ Time signature selected | measure:${timeSigAt.measure}${isDefault ? ' (measure 1 default: delete hides the glyph, meter kept)' : ' (delete reverts to prior meter + rebars)'}`)
+    dbg(`✓ Time signature selected | measure:${timeSigAt.measure}${isDefault ? ' (measure 1 default: delete hides the glyph, meter kept)' : ' (delete reverts to prior meter + rebars)'}`)
     this.render.renderScore()
     return true
   }
@@ -908,14 +909,14 @@ export class MouseController {
       // Stop the browser's default mousedown focus/selection — it would steal focus back
       // from the overlay right after we focus it, and typing would go nowhere.
       ctx.event.preventDefault()
-      console.log(`✓ Editing tempo mark | id:${tempoAt.id}`)
+      dbg(`✓ Editing tempo mark | id:${tempoAt.id}`)
       this.openTempoTextEditor(tempoAt.id, false)
       return true
     }
 
     this.selection.selectNote(null)
     this.state.selectedTempoId = tempoAt.id
-    console.log(`✓ Tempo mark selected | id:${tempoAt.id}`)
+    dbg(`✓ Tempo mark selected | id:${tempoAt.id}`)
     this.render.renderScore()
     return true
   }
@@ -972,7 +973,7 @@ export class MouseController {
         // steals focus back from the overlay right after we focus it, and typing
         // goes nowhere.
         event.preventDefault()
-        console.log(`✓ Editing dynamic text | id:${dynamicAt.id}`)
+        dbg(`✓ Editing dynamic text | id:${dynamicAt.id}`)
         this.openTextEditor(dynamicAt.id, false)
         return true
       }
@@ -980,7 +981,7 @@ export class MouseController {
 
     this.selection.selectNote(null)
     this.state.selectedDynamicId = dynamicAt.id
-    console.log(`✓ Dynamic selected | id:${dynamicAt.id}`)
+    dbg(`✓ Dynamic selected | id:${dynamicAt.id}`)
     this.render.renderScore()
     return true
   }
@@ -1000,7 +1001,7 @@ export class MouseController {
     // and any scalar sub-selections, so only the tie ends up selected.
     this.selection.selectNote(null)
     this.state.selectedTieFromNoteId = tieAt.fromNoteId
-    console.log(`✓ Tie selected | fromNoteId:${tieAt.fromNoteId} toNoteId:${tieAt.toNoteId} fromMeasure:${tieAt.fromMeasure} toMeasure:${tieAt.toMeasure}`)
+    dbg(`✓ Tie selected | fromNoteId:${tieAt.fromNoteId} toNoteId:${tieAt.toNoteId} fromMeasure:${tieAt.fromMeasure} toMeasure:${tieAt.toMeasure}`)
     this.render.renderScore()
     return true
   }
@@ -1033,7 +1034,7 @@ export class MouseController {
     // a blue (true end) or orange (open join) square is the only thing that re-arms one.
     this.state.selectedSlurEndpoint = null
     this.state.selectedSlurSegmentEndpoint = null
-    console.log(`✓ Slur selected | id:${slurAt.id}`)
+    dbg(`✓ Slur selected | id:${slurAt.id}`)
     this.render.renderScore()
     return true
   }
@@ -1082,7 +1083,7 @@ export class MouseController {
     // selectedNoteId) so only the dots show selected — mirrors the accidental.
     this.selection.selectNote(null)
     this.state.selectedDotNoteId = dotAt.noteId
-    console.log(`✓ Dot selected | noteId:${dotAt.noteId} dots:${this.getEngine()?.getNote(dotAt.noteId)?.dots ?? 0}`)
+    dbg(`✓ Dot selected | noteId:${dotAt.noteId} dots:${this.getEngine()?.getNote(dotAt.noteId)?.dots ?? 0}`)
     this.render.renderScore()
     return true
   }
@@ -1101,7 +1102,7 @@ export class MouseController {
     this.selection.selectNote(null)
     this.state.selectedAccidentalNoteId = accidentalAt.noteId
     this.state.selectedAccidentalType = accidentalAt.accidentalType || null
-    console.log(`✓ Accidental selected | noteId:${accidentalAt.noteId} type:${accidentalAt.accidentalType}`)
+    dbg(`✓ Accidental selected | noteId:${accidentalAt.noteId} type:${accidentalAt.accidentalType}`)
     this.render.renderScore()
     return true
   }
@@ -1115,7 +1116,7 @@ export class MouseController {
     // Sibelius-style: clicking any articulation selects the whole group on that
     // note (all its articulations), not just the clicked glyph.
     this.selection.selectArticulation(articulationAt.noteId)
-    console.log(`✓ Articulation group selected | noteId:${articulationAt.noteId} (clicked:${articulationAt.articulationType})`)
+    dbg(`✓ Articulation group selected | noteId:${articulationAt.noteId} (clicked:${articulationAt.articulationType})`)
     this.render.renderScore()
     return true
   }
@@ -1133,7 +1134,7 @@ export class MouseController {
       if (registry.hitsNoteOrRestBody(closestElement, x, y)) {
         this.selection.selectNote(closestElement.id)
         const typeLabel = closestElement.type === 'rest' ? 'Rest' : 'Note'
-        console.log(`✓ ${typeLabel} selected on mousedown | id:${closestElement.id}`)
+        dbg(`✓ ${typeLabel} selected on mousedown | id:${closestElement.id}`)
         this.render.renderScore()
 
         if (closestElement.type === 'note' && closestElement.pitch !== undefined) {
@@ -1143,7 +1144,7 @@ export class MouseController {
             ? { step: origNote.step, alter: origNote.alter!, octave: origNote.octave! }
             : null
           this.dragStartTime = Date.now()
-          console.log(`Drag ready | note:${closestElement.id} pitch:${closestElement.pitch}`)
+          dbg(`Drag ready | note:${closestElement.id} pitch:${closestElement.pitch}`)
           event.preventDefault()
         }
       } else {
@@ -1184,7 +1185,7 @@ export class MouseController {
     // Note: a hand/grab pan release is resolved by the document-level handleDocPanUp, not
     // here — so it fires even when the pointer is released outside the viewport.
     if (this.isDraggingNote) {
-      console.log(`Drag ended | note:${this.state.selectedNoteId}`)
+      dbg(`Drag ended | note:${this.state.selectedNoteId}`)
       this.isDraggingNote = false
       this.draggedNoteOriginalPitch = null
       this.dragStartTime = null
@@ -1211,7 +1212,7 @@ export class MouseController {
         || (this.draggedClefStartBeat !== null && !fracEq(this.draggedClefBeat, this.draggedClefStartBeat)))
     if (engine && moved && this.draggedClefMeasure !== null && this.draggedClefBeat !== null) {
       engine.commitClefMove(this.draggedClefMeasure, this.draggedClefBeat)
-      console.log(`Clef moved | measure:${this.draggedClefMeasure} beat:${fracToNumber(this.draggedClefBeat)}`)
+      dbg(`Clef moved | measure:${this.draggedClefMeasure} beat:${fracToNumber(this.draggedClefBeat)}`)
     }
     this.isDraggingClef = false
     this.draggedClefMeasure = null
@@ -1253,7 +1254,7 @@ export class MouseController {
     const engine = this.getEngine()
     if (engine && this.slurDragChanged) {
       engine.commitSlurShape()
-      console.log(`Slur reshaped | id:${this.draggedSlurId}`)
+      dbg(`Slur reshaped | id:${this.draggedSlurId}`)
     }
     this.isDraggingSlurHandle = false
     this.draggedSlurId = null
@@ -1292,7 +1293,7 @@ export class MouseController {
     const engine = this.getEngine()
     if (engine && this.staffSpacingDragChanged) {
       engine.commitStaffSpacing()
-      console.log(`Staff spacing set | staff:${this.draggedSpacingStaff} → ${engine.getStaffSpacingAbove(this.draggedSpacingStaff, this.draggedSpacingMeasure)} ss`)
+      dbg(`Staff spacing set | staff:${this.draggedSpacingStaff} → ${engine.getStaffSpacingAbove(this.draggedSpacingStaff, this.draggedSpacingMeasure)} ss`)
     }
     this.isDraggingStaffSpacing = false
     this.staffSpacingDragChanged = false
@@ -1325,7 +1326,7 @@ export class MouseController {
     const engine = this.getEngine()
     if (engine && this.slurEndpointDragChanged) {
       engine.commitSlurEndpoint()
-      console.log(`Slur re-anchored | id:${this.draggedEndpointSlurId} end:${this.draggedEndpoint}`)
+      dbg(`Slur re-anchored | id:${this.draggedEndpointSlurId} end:${this.draggedEndpoint}`)
     }
     this.isDraggingSlurEndpoint = false
     this.draggedEndpointSlurId = null
@@ -1345,12 +1346,12 @@ export class MouseController {
     if (this.state.pastePlacementArmed) { this.commitArmedPaste(event); return }
     if (this.state.selectedTool === 'selection') return
 
-    console.log(`Click RAW | client:(${event.clientX},${event.clientY})`)
+    dbg(`Click RAW | client:(${event.clientX},${event.clientY})`)
 
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
     if (!engine || !scoreCanvas) {
-      console.log('✗ Click ignored: engine or canvas not ready')
+      dbg('✗ Click ignored: engine or canvas not ready')
       return
     }
     // Scrollbar/gutter clicks target the scroll container element itself, not the SVG —
@@ -1359,13 +1360,13 @@ export class MouseController {
 
     const svg = scoreCanvas.querySelector('svg') as SVGSVGElement | null
     if (!svg) {
-      console.log('✗ Click ignored: SVG not found')
+      dbg('✗ Click ignored: SVG not found')
       return
     }
 
     const coords = this.clientToSvg(event, svg)
     if (!coords) {
-      console.log('✗ Click ignored: no CTM')
+      dbg('✗ Click ignored: no CTM')
       return
     }
     const { x, y } = coords
@@ -1397,7 +1398,7 @@ export class MouseController {
     if (!ts) return false
     try {
       const changed = engine.setTimeSignature(measureNum, ts)
-      console.log(changed
+      dbg(changed
         ? `✓ Time signature set | ${ts.numerator}/${ts.denominator} at measure ${measureNum}`
         : `Time signature unchanged at measure ${measureNum}`)
     } catch (e) {
@@ -1419,7 +1420,7 @@ export class MouseController {
     // Anchor the clef to the staff the click landed on (else it changes staff 0's clef).
     const staff = engine.getElementRegistry().staffIndexAtY(measureNum, y)
     const changed = engine.setClefAt(measureNum, beat, clef, staff)
-    console.log(changed
+    dbg(changed
       ? `✓ Clef set | ${clef} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`
       : `Clef unchanged at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
     this.render.renderScore()
@@ -1450,12 +1451,12 @@ export class MouseController {
       // Custom-text mark: drop the default text. Edit it later by double-clicking
       // the mark with the selection tool (→ MouseController.handleDoubleClick).
       engine.addDynamic(measureNum, { beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below', ...staffParam })
-      console.log(`✓ Dynamic text at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
+      dbg(`✓ Dynamic text at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
       this.render.renderScore()
       return true
     }
     engine.addDynamic(measureNum, { beat, kind: 'level', level: tool, voice: 0, placement: 'below', ...staffParam })
-    console.log(`✓ Dynamic ${tool} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
+    dbg(`✓ Dynamic ${tool} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
     this.render.renderScore()
     return true
   }
@@ -1478,7 +1479,7 @@ export class MouseController {
     // through it too, so what you see under the cursor is what gets engraved.
     const created = engine.addTempoMark(measureNum, { beat, ...tempoFieldsFromTool(tool) })
     if (created) {
-      console.log(`✓ Tempo ${tempoLabel(created)} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
+      dbg(`✓ Tempo ${tempoLabel(created)} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
     }
     this.render.renderScore()
     return true
@@ -1499,24 +1500,24 @@ export class MouseController {
 
     const el = registry.findClosestNoteOrRest(x, y)
     if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
-      console.log(`· Articulation stamp: click not on a note — no change`)
+      dbg(`· Articulation stamp: click not on a note — no change`)
       return true
     }
     const noteId = el.id
     const note = engine.getNote(noteId)
     if (!note || note.isRest) {
-      console.log(`· Articulation stamp: ${note?.isRest ? 'rest' : 'non-note'} — no change`)
+      dbg(`· Articulation stamp: ${note?.isRest ? 'rest' : 'non-note'} — no change`)
       return true
     }
     const missing = types.filter(t => !note.articulations?.includes(t))
     if (missing.length === 0) {
-      console.log(`· Articulation stamp: note ${noteId} already has ${types.join('+')} — no change`)
+      dbg(`· Articulation stamp: note ${noteId} already has ${types.join('+')} — no change`)
       return true
     }
     engine.runBatch(`Add ${missing.join('+')}`, () => {
       for (const t of missing) engine.toggleArticulation(noteId, t) // each adds (note lacks it)
     })
-    console.log(`✓ Articulation stamped | ${missing.join('+')} on note ${noteId}`)
+    dbg(`✓ Articulation stamped | ${missing.join('+')} on note ${noteId}`)
     this.render.renderScore()
     return true
   }
@@ -1534,21 +1535,21 @@ export class MouseController {
 
     const el = registry.findClosestNoteOrRest(x, y)
     if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
-      console.log(`· Accidental stamp: click not on a note — no change`)
+      dbg(`· Accidental stamp: click not on a note — no change`)
       return true
     }
     const noteId = el.id
     const note = engine.getNote(noteId)
     if (!note || note.isRest) {
-      console.log(`· Accidental stamp: ${note?.isRest ? 'rest' : 'non-note'} — no change`)
+      dbg(`· Accidental stamp: ${note?.isRest ? 'rest' : 'non-note'} — no change`)
       return true
     }
     if (engine.noteDisplaysAccidental(noteId, accidental)) {
-      console.log(`· Accidental stamp: note ${noteId} already shows ${accidental} — no change`)
+      dbg(`· Accidental stamp: note ${noteId} already shows ${accidental} — no change`)
       return true
     }
     engine.runBatch(`Set ${accidental}`, () => engine.setNoteAccidental(noteId, accidental))
-    console.log(`✓ Accidental stamped | ${accidental} on note ${noteId}`)
+    dbg(`✓ Accidental stamped | ${accidental} on note ${noteId}`)
     this.render.renderScore()
     return true
   }
@@ -1567,23 +1568,23 @@ export class MouseController {
 
     const el = registry.findClosestNoteOrRest(x, y)
     if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
-      console.log(`· Tie stamp: click not on a note — no change`)
+      dbg(`· Tie stamp: click not on a note — no change`)
       return true
     }
     const noteId = el.id
     const note = engine.getNote(noteId)
     if (!note || note.isRest) {
-      console.log(`· Tie stamp: ${note?.isRest ? 'rest' : 'non-note'} — no change`)
+      dbg(`· Tie stamp: ${note?.isRest ? 'rest' : 'non-note'} — no change`)
       return true
     }
     if (note.tiedTo) {
-      console.log(`· Tie stamp: note ${noteId} is already tied — no change`)
+      dbg(`· Tie stamp: note ${noteId} is already tied — no change`)
       return true
     }
     // toggleTie commits its own undo entry; runBatch keeps the stamp's shape identical to its
     // siblings (one click = one undo) and is what marks the model dirty for the repaint.
     engine.runBatch('Add tie', () => engine.toggleTie(noteId))
-    console.log(`✓ Tie stamped | from note ${noteId}`)
+    dbg(`✓ Tie stamped | from note ${noteId}`)
     this.render.renderScore()
     return true
   }
@@ -1603,22 +1604,22 @@ export class MouseController {
 
     const el = registry.findClosestNoteOrRest(x, y)
     if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
-      console.log(`· Dot stamp: click not on a note or rest — no change`)
+      dbg(`· Dot stamp: click not on a note or rest — no change`)
       return true
     }
     const noteId = el.id
     const note = engine.getNote(noteId)
     if (!note) {
-      console.log(`· Dot stamp: non-note — no change`)
+      dbg(`· Dot stamp: non-note — no change`)
       return true
     }
     if (note.dots) {
-      console.log(`· Dot stamp: ${noteId} already has ${note.dots} dot(s) — no change`)
+      dbg(`· Dot stamp: ${noteId} already has ${note.dots} dot(s) — no change`)
       return true
     }
     engine.runBatch('Add dot', () => engine.updateNote(noteId, { dots: 1 }))
-    if (engine.getNote(noteId)?.dots) console.log(`✓ Dot stamped | on ${note.isRest ? 'rest' : 'note'} ${noteId}`)
-    else console.log(`· Dot stamp: no room to dot ${noteId} — the bar cannot hold the longer value`)
+    if (engine.getNote(noteId)?.dots) dbg(`✓ Dot stamped | on ${note.isRest ? 'rest' : 'note'} ${noteId}`)
+    else dbg(`· Dot stamp: no room to dot ${noteId} — the bar cannot hold the longer value`)
     this.render.renderScore()
     return true
   }
@@ -1645,7 +1646,7 @@ export class MouseController {
       activeVoiceToModel(this.state.activeVoice),
     )
     if (rest) {
-      console.log(`✓ Rest stamped | ${rest.duration}${'.'.repeat(rest.dots ?? 0)} at m${rest.measure} b${fracToNumber(rest.beat).toFixed(3)}`)
+      dbg(`✓ Rest stamped | ${rest.duration}${'.'.repeat(rest.dots ?? 0)} at m${rest.measure} b${fracToNumber(rest.beat).toFixed(3)}`)
       // PLACING something is what ends keyboard entry — not arming the tool (see armMarkingTool).
       // The caret is `selectedNoteId` in entry mode, so dropping it takes the caret down and leaves
       // you stamping with the mouse, which is what you just did. The tool stays armed: a stamp is
@@ -1660,7 +1661,7 @@ export class MouseController {
   private placeNoteAtClick(engine: MusicEngine, registry: ElementRegistry, x: number, y: number, measureNum: number): void {
     const nearestElement = registry.findNearestNoteOrRest(x, measureNum)
     const elementAt = registry.getAt(x, y)
-    console.log(`Click | svg:(${x.toFixed(0)},${y.toFixed(0)}) measure:${measureNum} | nearestElement:`, nearestElement ? {
+    dbg(`Click | svg:(${x.toFixed(0)},${y.toFixed(0)}) measure:${measureNum} | nearestElement:`, nearestElement ? {
       type: nearestElement.type,
       beat: nearestElement.beat,
       bbox: `(${nearestElement.bbox.x.toFixed(0)},${nearestElement.bbox.y.toFixed(0)}) ${nearestElement.bbox.width.toFixed(0)}x${nearestElement.bbox.height.toFixed(0)}`,
@@ -1677,7 +1678,7 @@ export class MouseController {
         const existingTuplet = engine.getTupletAtBeat(measureNum, position.beat, activeVoiceToModel(this.state.activeVoice))
 
         if (existingTuplet) {
-          console.log(`Tuplet mode: clicking inside existing tuplet at beat ${fracToNumber(position.beat).toFixed(3)}, adding note instead`)
+          dbg(`Tuplet mode: clicking inside existing tuplet at beat ${fracToNumber(position.beat).toFixed(3)}, adding note instead`)
           const note = engine.addNoteAtPosition(
             { x, y },
             this.state.selectedDuration,
@@ -1690,12 +1691,12 @@ export class MouseController {
 
           if (note) {
             const pitch = note.isRest ? 'rest' : formatPitch(note)
-            console.log(`✓ Note added to tuplet | ${pitch} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}`)
+            dbg(`✓ Note added to tuplet | ${pitch} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}`)
             this.selection.moveCaretTo(note.id)
             this.state.selectedTool = 'entry'
             this.render.renderScore()
           } else {
-            console.log('✗ Note NOT added to tuplet (collision or invalid location)')
+            dbg('✗ Note NOT added to tuplet (collision or invalid location)')
           }
         } else {
           // Spell the first note against the CLICKED staff's clef (bass 2nd staff ≠ treble).
@@ -1717,12 +1718,12 @@ export class MouseController {
           if (result) {
             const fn = result.firstNote
             const fnPitch = formatPitch(fn)
-            console.log(`✓ Tuplet created | tupletId:${result.tuplet.id} firstNote:${fnPitch} measure:${fn.measure} beat:${fracToNumber(fn.beat).toFixed(3)}`)
+            dbg(`✓ Tuplet created | tupletId:${result.tuplet.id} firstNote:${fnPitch} measure:${fn.measure} beat:${fracToNumber(fn.beat).toFixed(3)}`)
             this.selection.moveCaretTo(result.firstNote.id)
             this.state.selectedTool = 'entry'
             this.render.renderScore()
           } else {
-            console.log('✗ Tuplet NOT created (collision or invalid location)')
+            dbg('✗ Tuplet NOT created (collision or invalid location)')
           }
         }
       } else {
@@ -1738,12 +1739,12 @@ export class MouseController {
 
         if (note) {
           const pitch = note.isRest ? 'rest' : formatPitch(note)
-          console.log(`✓ Note added | ${pitch} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}`)
+          dbg(`✓ Note added | ${pitch} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}`)
           this.selection.moveCaretTo(note.id)
           this.state.selectedTool = 'entry'
           this.render.renderScore()
         } else {
-          console.log('✗ Note NOT added (collision or invalid location)')
+          dbg('✗ Note NOT added (collision or invalid location)')
         }
       }
     } catch (error) {
@@ -1821,7 +1822,7 @@ export class MouseController {
         const noteMidi = spellingToMidi(selectedNote.step!, selectedNote.alter!, selectedNote.octave!)
 
         if (cursorMidi !== noteMidi) {
-          console.log(`Drag pitch change | midi:${noteMidi} -> ${cursorMidi}`)
+          dbg(`Drag pitch change | midi:${noteMidi} -> ${cursorMidi}`)
           engine.updateNote(this.state.selectedNoteId, { step: cursorSpelling.step, alter: cursorSpelling.alter, octave: cursorSpelling.octave })
           this.render.renderScore()
         }
@@ -1914,7 +1915,7 @@ export class MouseController {
         this.state.selectedClefMeasure = targetMeasure
         this.state.selectedClefBeat = fracToNumber(targetBeat)
         engine.setDraggingClef({ measure: targetMeasure, beat: targetBeat })
-        console.log(`Clef drag | measure:${targetMeasure} beat:${fracToNumber(targetBeat)}`)
+        dbg(`Clef drag | measure:${targetMeasure} beat:${fracToNumber(targetBeat)}`)
         this.render.renderScore()
       }
     }
@@ -1931,25 +1932,25 @@ export class MouseController {
     if (this.isPanArmed || this.isPanning) return
 
     if (this.isDraggingNote) {
-      console.log('Drag ended (mouse left canvas)')
+      dbg('Drag ended (mouse left canvas)')
       this.isDraggingNote = false
       this.draggedNoteOriginalPitch = null
       this.dragStartTime = null
     }
     if (this.isDraggingClef) {
-      console.log('Clef drag ended (mouse left canvas)')
+      dbg('Clef drag ended (mouse left canvas)')
       this.endClefDrag()
     }
     if (this.isDraggingSlurHandle) {
-      console.log('Slur handle drag ended (mouse left canvas)')
+      dbg('Slur handle drag ended (mouse left canvas)')
       this.endSlurHandleDrag()
     }
     if (this.isDraggingSlurEndpoint) {
-      console.log('Slur endpoint drag ended (mouse left canvas)')
+      dbg('Slur endpoint drag ended (mouse left canvas)')
       this.endSlurEndpointDrag()
     }
     if (this.isDraggingStaffSpacing) {
-      console.log('Staff-spacing drag ended (mouse left canvas)')
+      dbg('Staff-spacing drag ended (mouse left canvas)')
       this.endStaffSpacingDrag()
     }
 

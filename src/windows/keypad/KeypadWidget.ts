@@ -1,3 +1,4 @@
+import { dbg } from '@/utils/debug'
 import type { Widget } from '../content/Widget'
 import { modeSelection } from '../../interactions/modeSelection'
 import { durationSelection } from '../../interactions/durationSelection'
@@ -204,7 +205,7 @@ export class KeypadWidget implements Widget {
     this.gridEl?.replaceWith(grid)
     this.gridEl = grid
     this.paint()
-    console.log(`[keypad] page ${this.page + 1}`)
+    dbg(`[keypad] page ${this.page + 1}`)
   }
 
   /**
@@ -263,7 +264,7 @@ export class KeypadWidget implements Widget {
 
     this.paint()
     const state = cell.select === 'momentary' ? '' : this.isLit(cell) ? ' on' : ' off'
-    console.log(`[keypad] ${cell.action}${state} — key ${cell.key}, voice ${VOICES[this.voice]}`)
+    dbg(`[keypad] ${cell.action}${state} — key ${cell.key}, voice ${VOICES[this.voice]}`)
   }
 
   /**
@@ -305,7 +306,7 @@ export class KeypadWidget implements Widget {
       button.addEventListener('click', () => {
         this.voice = i
         this.paint()
-        console.log(`[keypad] voice ${name}`)
+        dbg(`[keypad] voice ${name}`)
       })
       row.appendChild(button)
       this.voiceButtons.push(button)

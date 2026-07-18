@@ -1,3 +1,4 @@
+import { dbg } from '@/utils/debug'
 import { ScoreModel } from './models/ScoreModel'
 import { CoordinateMapper } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
@@ -89,7 +90,7 @@ export class NoteEntryCoordinator {
         const maxWritten = fracToNumber(fracMul(remainingActual, fracCreate(tupletAtBeat.numNotes, tupletAtBeat.notesOccupied)))
         const fitting = splitBeatsIntoDurations(maxWritten)
         if (fitting.length === 0) return null
-        console.log(`[Tuplet] duration clamped: ${params.duration} → ${fitting[0]} (remaining actual: ${fracToNumber(remainingActual).toFixed(4)})`)
+        dbg(`[Tuplet] duration clamped: ${params.duration} → ${fitting[0]} (remaining actual: ${fracToNumber(remainingActual).toFixed(4)})`)
         params = { ...params, duration: fitting[0], dots: 0 }
       }
     }
@@ -130,7 +131,7 @@ export class NoteEntryCoordinator {
       return nBeat + epsilon < noteEnd && nEnd - epsilon > finalBeat
     })
     if (toDelete.length) {
-      console.log(`[Entry] v${entryVoice} overwrites ${toDelete.length} same-voice note(s): ${toDelete.map(n => `${n.step}${n.octave}@b${fracToNumber(n.beat).toFixed(3)}`).join(', ')}`)
+      dbg(`[Entry] v${entryVoice} overwrites ${toDelete.length} same-voice note(s): ${toDelete.map(n => `${n.step}${n.octave}@b${fracToNumber(n.beat).toFixed(3)}`).join(', ')}`)
     }
     for (const n of toDelete) {
       this.getScoreModel().deleteNote(n.id)
@@ -143,7 +144,7 @@ export class NoteEntryCoordinator {
     )
 
     if (overflow.willOverflow && overflow.overflowAmount) {
-      console.log(`[Entry] KeyboardEntry | v${entryVoice} ${formatPitch(params)} dur:${params.duration} measure:${params.measure} beat:${finalBeat.toFixed(3)} → overflow ${overflow.overflowAmount.toFixed(3)}b — splitting with tie`)
+      dbg(`[Entry] KeyboardEntry | v${entryVoice} ${formatPitch(params)} dur:${params.duration} measure:${params.measure} beat:${finalBeat.toFixed(3)} → overflow ${overflow.overflowAmount.toFixed(3)}b — splitting with tie`)
       const splitNote = this.addSplitNoteWithTie(finalParams, overflow.overflowAmount)
       if (splitNote) {
         this.onCommit('Keyboard enter note')
@@ -152,7 +153,7 @@ export class NoteEntryCoordinator {
     }
 
     const note = this.getScoreModel().addNote(finalParams)
-    console.log(`✓ [Entry] KeyboardEntry | v${note.voice ?? 0} ${formatPitch(note)} dur:${note.duration} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}${tupletAtBeat ? ` tuplet:${tupletAtBeat.id}` : ''}`)
+    dbg(`✓ [Entry] KeyboardEntry | v${note.voice ?? 0} ${formatPitch(note)} dur:${note.duration} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}${tupletAtBeat ? ` tuplet:${tupletAtBeat.id}` : ''}`)
 
     if (tupletAtBeat && tupletId) {
       this.getScoreModel().refillTupletRemainder(params.measure, tupletAtBeat, params.voice ?? 0)
@@ -200,7 +201,7 @@ export class NoteEntryCoordinator {
 
     const measure = this.getScoreModel().getMeasure(measureNumber)
     if (!measure) {
-      console.log('✗ Rest stamp: measure does not exist')
+      dbg('✗ Rest stamp: measure does not exist')
       return null
     }
     // The same gate note entry uses: a click on the clef / meter / past the barline places nothing.
@@ -226,13 +227,13 @@ export class NoteEntryCoordinator {
     const available = fracSub(measureCapacityFrac(measure), finalBeat)
     const fitted = fitRestDuration(duration, dots, available)
     if (!fitted) {
-      console.log(`✗ Rest stamp: no room at m${measureNumber} b${fracToNumber(finalBeat).toFixed(3)}`)
+      dbg(`✗ Rest stamp: no room at m${measureNumber} b${fracToNumber(finalBeat).toFixed(3)}`)
       return null
     }
     if (fitted.duration !== duration || fitted.dots !== dots) {
-      console.log(`[Rest stamp] ${duration}${'.'.repeat(dots)} exceeds the ${fracToNumber(available).toFixed(3)} beat(s) left in m${measureNumber} → ${fitted.duration}${'.'.repeat(fitted.dots)}`)
+      dbg(`[Rest stamp] ${duration}${'.'.repeat(dots)} exceeds the ${fracToNumber(available).toFixed(3)} beat(s) left in m${measureNumber} → ${fitted.duration}${'.'.repeat(fitted.dots)}`)
     }
-    console.log(`[Rest stamp] click → m${measureNumber} b${fracToNumber(finalBeat).toFixed(3)} staff${entryStaff} v${voice ?? 0} (${reason})`)
+    dbg(`[Rest stamp] click → m${measureNumber} b${fracToNumber(finalBeat).toFixed(3)} staff${entryStaff} v${voice ?? 0} (${reason})`)
 
     return this.addNoteAtBeat({
       duration: fitted.duration,
@@ -267,7 +268,7 @@ export class NoteEntryCoordinator {
     // Validate measure exists, then use ITS capacity (honours a pickup bar)
     const measure = this.getScoreModel().getMeasure(measureNumber)
     if (!measure) {
-      console.log('✗ Invalid: measure does not exist')
+      dbg('✗ Invalid: measure does not exist')
       return null
     }
     const barQuarters = measureCapacityQuarters(measure)
@@ -364,7 +365,7 @@ export class NoteEntryCoordinator {
         const remainingActual = fracSub(tupletEndBeat, fillPointer)
         const scaledNoteDurationFrac = tupletNoteDurationFraction(duration, dots ?? 0, tupletAtBeat.numNotes, tupletAtBeat.notesOccupied)
         if (fracGt(scaledNoteDurationFrac, remainingActual)) {
-          console.log(`Note rejected: scaled duration (${fracToNumber(scaledNoteDurationFrac).toFixed(3)}) exceeds remaining tuplet space (${fracToNumber(remainingActual).toFixed(3)})`)
+          dbg(`Note rejected: scaled duration (${fracToNumber(scaledNoteDurationFrac).toFixed(3)}) exceeds remaining tuplet space (${fracToNumber(remainingActual).toFixed(3)})`)
           return null
         }
         // Note fits — place at fill pointer
@@ -429,7 +430,7 @@ export class NoteEntryCoordinator {
 
     // Debug logging with full context
     if (note) {
-      console.log('[Entry] NoteEntry:', {
+      dbg('[Entry] NoteEntry:', {
         voice: entryVoice,
         pitch: `${note.step}${note.octave}`,
         duration: note.duration,
@@ -458,7 +459,7 @@ export class NoteEntryCoordinator {
     // Check if click is over an invalid element (clef, time signature, barline)
     const elementAtCursor = registry.getAt(coords.x, coords.y)
     if (elementAtCursor && INVALID_NOTE_ENTRY_TYPES.includes(elementAtCursor.type)) {
-      console.log(`✗ Invalid: clicked on ${elementAtCursor.type}`)
+      dbg(`✗ Invalid: clicked on ${elementAtCursor.type}`)
       return false
     }
 
@@ -466,7 +467,7 @@ export class NoteEntryCoordinator {
     const staffGeometry = registry.getStaffGeometry(measureNumber, staff)
     if (staffGeometry) {
       if (coords.x < staffGeometry.noteStartX || coords.x > staffGeometry.noteEndX) {
-        console.log('✗ Invalid: X outside note entry area')
+        dbg('✗ Invalid: X outside note entry area')
         return false
       }
 
@@ -478,7 +479,7 @@ export class NoteEntryCoordinator {
       const maxDistance = staffHeight * 2  // Allow 2x staff height above/below
 
       if (coords.y < topLineY - maxDistance || coords.y > bottomLineY + maxDistance) {
-        console.log(`✗ Invalid: Y outside valid range (y=${coords.y.toFixed(0)}, valid=${(topLineY - maxDistance).toFixed(0)}-${(bottomLineY + maxDistance).toFixed(0)})`)
+        dbg(`✗ Invalid: Y outside valid range (y=${coords.y.toFixed(0)}, valid=${(topLineY - maxDistance).toFixed(0)}-${(bottomLineY + maxDistance).toFixed(0)})`)
         return false
       }
     }
@@ -503,7 +504,7 @@ export class NoteEntryCoordinator {
   ): void {
     const notesToOverwrite = this.findNotesToOverwrite(measureNumber, finalBeat, duration, pitchMidi, tupletAtBeat, voice, staff)
     if (notesToOverwrite.length > 0) {
-      console.log('Overwriting notes:', notesToOverwrite.map(n => {
+      dbg('Overwriting notes:', notesToOverwrite.map(n => {
         return `${formatPitch(n)}@beat:${fracToNumber(n.beat).toFixed(3)}`
       }).join(', '))
       for (const noteToDelete of notesToOverwrite) {
@@ -595,7 +596,7 @@ export class NoteEntryCoordinator {
     const isChord = chordNotes.length > 1
 
     const target = existingNote.isRest ? 'REST' : `${existingNote.step}${existingNote.octave}`
-    console.log(`[Edit] v${editVoice} ${target} m${existingNote.measure} b${fracToNumber(existingNote.beat).toFixed(3)} | dur ${oldDuration}${oldDots ? '.'.repeat(oldDots) : ''}→${newDuration}${newDots ? '.'.repeat(newDots) : ''}${isChord ? ` (chord of ${chordNotes.length})` : ''} | scoped to ${measureNotes.length} same-voice slot(s)`, updates)
+    dbg(`[Edit] v${editVoice} ${target} m${existingNote.measure} b${fracToNumber(existingNote.beat).toFixed(3)} | dur ${oldDuration}${oldDots ? '.'.repeat(oldDots) : ''}→${newDuration}${newDots ? '.'.repeat(newDots) : ''}${isChord ? ` (chord of ${chordNotes.length})` : ''} | scoped to ${measureNotes.length} same-voice slot(s)`, updates)
 
     // Check for measure overflow (considering dots)
     const measure = this.getScoreModel().getMeasure(existingNote.measure)
@@ -750,13 +751,13 @@ export class NoteEntryCoordinator {
         }
       }
 
-      console.log(`[Edit] lengthen v${editVoice}: removing ${notesToRemove.length} overlapped same-voice slot(s), recovered ${beatsToRecover.toFixed(3)}b (need ${Math.abs(beatDifference).toFixed(3)}b)`)
+      dbg(`[Edit] lengthen v${editVoice}: removing ${notesToRemove.length} overlapped same-voice slot(s), recovered ${beatsToRecover.toFixed(3)}b (need ${Math.abs(beatDifference).toFixed(3)}b)`)
       for (const id of notesToRemove) this.getScoreModel().deleteNote(id)
 
       // If we removed more beats than needed, add rests to fill the excess
       const excessBeats = beatsToRecover - Math.abs(beatDifference)
       if (excessBeats > BEAT_EPSILON) {
-        console.log(`[Edit] lengthen v${editVoice}: ${excessBeats.toFixed(3)}b excess → fill with rests`)
+        dbg(`[Edit] lengthen v${editVoice}: ${excessBeats.toFixed(3)}b excess → fill with rests`)
         this.getScoreModel().fillGapWithRests(
           existingNote.measure,
           fracAdd(existingNote.beat, durationToFraction(newDuration, newDots)),
@@ -780,7 +781,7 @@ export class NoteEntryCoordinator {
 
     // If duration was shortened, fill the freed space with rests.
     if (beatDifference > BEAT_EPSILON) {
-      console.log(`[Edit] shorten v${editVoice}: freed ${beatDifference.toFixed(3)}b → fill with rests (${existingNote.isRest ? 'meter-aware whole-measure refill' : `from b${fracToNumber(fracAdd(note.beat, durationToFraction(newDuration, newDots))).toFixed(3)}`})`)
+      dbg(`[Edit] shorten v${editVoice}: freed ${beatDifference.toFixed(3)}b → fill with rests (${existingNote.isRest ? 'meter-aware whole-measure refill' : `from b${fracToNumber(fracAdd(note.beat, durationToFraction(newDuration, newDots))).toFixed(3)}`})`)
       if (existingNote.isRest) {
         // Meter-aware refill: the shortened rest's remainder is regrouped for the
         // bar's meter. This both fixes the bar length (a former measure rest's
@@ -804,7 +805,7 @@ export class NoteEntryCoordinator {
             const noteEnd = fracToNumber(note.beat) + durationToBeats(newDuration, newDots)
             const targetBeat = fracToNumber(tiedTarget.beat)
             if (Math.abs(noteEnd - targetBeat) > BEAT_EPSILON || note.measure !== tiedTarget.measure) {
-              console.log(`[Tie] broken — ${note.step}${note.octave} m${note.measure} no longer abuts tied target after duration change`)
+              dbg(`[Tie] broken — ${note.step}${note.octave} m${note.measure} no longer abuts tied target after duration change`)
               this.getScoreModel().updateNote(note.id, { tiedTo: undefined })
               this.getScoreModel().updateNote(tiedTarget.id, { tiedFrom: undefined })
             }
@@ -855,7 +856,7 @@ export class NoteEntryCoordinator {
     // Validate measure exists, then use ITS capacity (honours a pickup bar)
     const targetMeasure = this.getScoreModel().getMeasure(measureNumber)
     if (!targetMeasure) {
-      console.log('✗ Invalid: measure does not exist')
+      dbg('✗ Invalid: measure does not exist')
       return null
     }
     // Which staff the click lands on (like plain note entry — resolved from the click Y).
@@ -883,19 +884,19 @@ export class NoteEntryCoordinator {
     // `barQuarters - tupletTotalBeats` goes negative, Math.max pins it to 0, and it overflows from
     // there. Same guard as the toggle path (see tupletFitsBar).
     if (!this.tupletFitsBar(measureNumber, beatToFrac(beat), beatToFrac(tupletTotalBeats))) {
-      console.log(`✗ Tuplet refused: ${numNotes}-in-${notesOccupied} of ${duration} needs ${tupletTotalBeats} beat(s), more than m${measureNumber} holds`)
+      dbg(`✗ Tuplet refused: ${numNotes}-in-${notesOccupied} of ${duration} needs ${tupletTotalBeats} beat(s), more than m${measureNumber} holds`)
       return null
     }
 
     // Check if there's already a tuplet in this voice AND staff at this position
     const existingTuplet = this.getScoreModel().getTupletAtBeat(measureNumber, beatToFrac(beat), voice, entryStaff)
     if (existingTuplet) {
-      console.log('✗ Tuplet already exists at this beat')
+      dbg('✗ Tuplet already exists at this beat')
       return null
     }
 
     // Log tuplet entry decision
-    console.log('TupletEntry:', {
+    dbg('TupletEntry:', {
       decision: decisionReason,
       left: nearestLeft ? `${nearestLeft.type}@${nearestLeft.beat} (${leftDistance.toFixed(0)}px)` : null,
       right: nearestRight ? `${nearestRight.type}@${nearestRight.beat} (${rightDistance.toFixed(0)}px)` : null,
@@ -969,7 +970,7 @@ export class NoteEntryCoordinator {
 
     // …and it has to FIT (see tupletFitsBar). Nothing checked this: the bar went overfull.
     if (!this.tupletFitsBar(note.measure, note.beat, applySpan)) {
-      console.log(`✗ Tuplet refused: ${numNotes}-in-${notesOccupied} of ${note.duration} needs ${fracToNumber(applySpan).toFixed(3)} beat(s) from b${fracToNumber(note.beat).toFixed(3)}, past the end of m${note.measure}`)
+      dbg(`✗ Tuplet refused: ${numNotes}-in-${notesOccupied} of ${note.duration} needs ${fracToNumber(applySpan).toFixed(3)} beat(s) from b${fracToNumber(note.beat).toFixed(3)}, past the end of m${note.measure}`)
       return null
     }
 
@@ -1028,7 +1029,7 @@ export class NoteEntryCoordinator {
     const beatFracGuard = beatToFrac(beat)
     const newSpan = getTupletTotalBeatsFrac(duration, notesOccupied)
     if (this.getScoreModel().tupletSpanOverlaps(measureNumber, beatFracGuard, newSpan, voice, staff)) {
-      console.log(`✗ Tuplet not created: span overlaps an existing v${voice} s${staff} tuplet`)
+      dbg(`✗ Tuplet not created: span overlaps an existing v${voice} s${staff} tuplet`)
       return null
     }
 
@@ -1294,7 +1295,7 @@ export class NoteEntryCoordinator {
       nextBeat = fracAdd(nextBeat, durationToFraction(duration, dots))
     }
 
-    console.log('Placed spanning note with tie:', {
+    dbg('Placed spanning note with tie:', {
       head: p.existingHeadId ?? firstNote?.id, currentDurations: currentMeasureDurations,
       nextMeasure: nextMeasureNumber, nextDurations: nextMeasureDurations,
     })
