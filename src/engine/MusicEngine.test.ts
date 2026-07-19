@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { levelToGlyphString, dynamicLevelOf } from '@/utils/dynamics'
 import { MusicEngine } from './MusicEngine'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, dynamicOffsetOverrideOf } from './models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
@@ -485,7 +486,7 @@ describe('MusicEngine — dynamics', () => {
   const dynsOf = (m: number) => engine.getScore().measures.find(x => x.number === m)!.dynamics
 
   it('adds a dynamic and returns it with an id', () => {
-    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })
+    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })
     expect(d?.id).toBeTruthy()
     expect(engine.getDynamics(1)).toHaveLength(1)
   })
@@ -501,32 +502,32 @@ describe('MusicEngine — dynamics', () => {
   it('stamps the staffId on a dynamic placed on a later staff', () => {
     engine.addStaffBelow(0)
     const staff1Id = engine.getScore().staves![1].id
-    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f', staffId: staff1Id })
+    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), staffId: staff1Id })
     expect(d?.staffId).toBe(staff1Id)
   })
 
   it('undo/redo restores and re-applies an added dynamic', () => {
-    engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f' })
+    engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f') })
     expect(dynsOf(1)).toHaveLength(1)
 
     expect(engine.undo()).toBe(true)
     expect(dynsOf(1)).toBeUndefined()
 
     expect(engine.redo()).toBe(true)
-    expect(dynsOf(1)![0].level).toBe('f')
+    expect(dynamicLevelOf(dynsOf(1)![0])).toBe('f')
   })
 
   it('updates a dynamic and undo restores the prior value', () => {
-    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
-    engine.updateDynamic(d.id, { level: 'f' })
-    expect(engine.getDynamics(1)[0].level).toBe('f')
+    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })!
+    engine.updateDynamic(d.id, { text: levelToGlyphString('f') })
+    expect(dynamicLevelOf(engine.getDynamics(1)[0])).toBe('f')
 
     expect(engine.undo()).toBe(true)
-    expect(engine.getDynamics(1)[0].level).toBe('p')
+    expect(dynamicLevelOf(engine.getDynamics(1)[0])).toBe('p')
   })
 
   it('removes a dynamic and undo restores it', () => {
-    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
+    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })!
     expect(engine.removeDynamic(d.id)).toBe(true)
     expect(engine.getDynamics(1)).toEqual([])
 
@@ -535,7 +536,7 @@ describe('MusicEngine — dynamics', () => {
   })
 
   it('resolves the active level through the engine', () => {
-    engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })
+    engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })
     expect(engine.getActiveLevel(1, frac(2, 1))).toBe('p')
     expect(engine.getActiveLevel(2, frac(0, 1))).toBe('p') // inherited into measure 2
   })
@@ -548,14 +549,14 @@ describe('MusicEngine.nudgeDynamicOffset — client #8 position nudge', () => {
   const offsetOf = (id: string) => dynamicOffsetOverrideOf(engine.getScore(), id)
 
   it('accumulates dx/dy onto any existing offset', () => {
-    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
+    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })!
     expect(engine.nudgeDynamicOffset(d.id, 0, -0.25)).toBe(true)
     expect(engine.nudgeDynamicOffset(d.id, 1, -0.25)).toBe(true)
     expect(offsetOf(d.id)).toMatchObject({ kind: 'dynamicOffset', x: 1, y: -0.5 })
   })
 
   it('clears the override when the net offset returns to (0,0)', () => {
-    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f' })!
+    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f') })!
     engine.nudgeDynamicOffset(d.id, 1, -1)
     expect(offsetOf(d.id)).toBeDefined()
     engine.nudgeDynamicOffset(d.id, -1, 1)
@@ -567,7 +568,7 @@ describe('MusicEngine.nudgeDynamicOffset — client #8 position nudge', () => {
   })
 
   it('undo restores the prior offset (one step per press)', () => {
-    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
+    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })!
     engine.nudgeDynamicOffset(d.id, 0, -1)
     engine.nudgeDynamicOffset(d.id, 0, -1)
     expect(offsetOf(d.id)).toMatchObject({ y: -2 })

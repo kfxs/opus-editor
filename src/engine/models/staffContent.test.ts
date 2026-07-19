@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { levelToGlyphString, dynamicLevelOf } from '@/utils/dynamics'
 import { ScoreModel } from './ScoreModel'
 import {
   staffContent,
@@ -41,8 +42,8 @@ function twoStaffScore(): Score {
     { id: 'c1', beat: frac(0, 1), clef: 'bass', staffId: S1 },
   ]
   const dynamics: Dynamic[] = [
-    { id: 'd0', beat: frac(0, 1), kind: 'level', level: 'mf' }, // → staff 0
-    { id: 'd1', beat: frac(0, 1), kind: 'level', level: 'p', staffId: S1 },
+    { id: 'd0', beat: frac(0, 1), text: levelToGlyphString('mf') }, // → staff 0
+    { id: 'd1', beat: frac(0, 1), text: levelToGlyphString('p'), staffId: S1 },
   ]
   const tuplets: Tuplet[] = [
     { id: 't0', startBeat: frac(0, 1), baseDuration: 'q', numNotes: 3, notesOccupied: 2 }, // → staff 0
@@ -86,8 +87,8 @@ describe('staffContent primitive (N>1 partitioning)', () => {
     const bottom = staffContent(measure, S1, score)
     expect(top.clefs.map((c) => c.clef)).toEqual(['treble'])
     expect(bottom.clefs.map((c) => c.clef)).toEqual(['bass'])
-    expect(top.dynamics.map((d) => d.level)).toEqual(['mf'])
-    expect(bottom.dynamics.map((d) => d.level)).toEqual(['p'])
+    expect(top.dynamics.map((d) => dynamicLevelOf(d))).toEqual(['mf'])
+    expect(bottom.dynamics.map((d) => dynamicLevelOf(d))).toEqual(['p'])
     expect(top.tuplets.map((t) => t.id)).toEqual(['t0'])
     expect(bottom.tuplets.map((t) => t.id)).toEqual(['t1'])
   })
@@ -133,7 +134,7 @@ describe('staffMeasureView (per-staff Measure narrowing — the render seam)', (
     expect(bottom.slots.map((s) => s.id)).toEqual(['c', 'd'])
     expect((top.clefs ?? []).map((c) => c.clef)).toEqual(['treble'])
     expect((bottom.clefs ?? []).map((c) => c.clef)).toEqual(['bass'])
-    expect((bottom.dynamics ?? []).map((d) => d.level)).toEqual(['p'])
+    expect((bottom.dynamics ?? []).map((d) => dynamicLevelOf(d))).toEqual(['p'])
     expect(bottom.tuplets.map((t) => t.id)).toEqual(['t1'])
   })
 

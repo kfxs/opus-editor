@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { levelToGlyphString, dynamicLevelOf } from '@/utils/dynamics'
 import { MusicEngine } from '../engine/MusicEngine'
 import { buildClipboardFromSelection } from './clipboard'
 import { getMeasureNotes } from '../utils/musicUtils'
@@ -339,7 +340,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     const score = engine.getScore()
     return engine.getDynamics(m)
       .filter(d => (d.staffId ? score.staves!.findIndex(s => s.id === d.staffId) : 0) === staff)
-      .map(d => `${d.level ?? d.text}@${fracToNumber(d.beat)}`)
+      .map(d => `${dynamicLevelOf(d) ?? d.text}@${fracToNumber(d.beat)}`)
   }
 
   const clipDynsPass = (p: ClipboardPayload) => p.dynamics
@@ -349,11 +350,11 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
       engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id,
       engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id,
     ]
-    engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f', voice: 0 })
+    engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     expect(payload.dynamics).toHaveLength(1)
-    expect(payload.dynamics[0]).toMatchObject({ staff: 0, voice: 0, kind: 'level', level: 'f' })
+    expect(payload.dynamics[0]).toMatchObject({ staff: 0, voice: 0, text: levelToGlyphString('f') })
     expect(fracToNumber(payload.dynamics[0].offset)).toBe(0)
 
     engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, clipDynsPass(payload))
@@ -364,7 +365,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     // C@0, D@1, E@2, F@3 — copy the whole bar; dynamic on beat 2.
     const ids = [0, 1, 2, 3].map(b =>
       engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id)
-    engine.addDynamic(1, { beat: frac(2, 1), kind: 'level', level: 'p', voice: 0 })
+    engine.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('p'), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     expect(fracToNumber(payload.dynamics[0].offset)).toBe(2)
@@ -381,7 +382,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
       engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id,
     ]
     engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-    engine.addDynamic(1, { beat: frac(2, 1), kind: 'level', level: 'f', voice: 0 })
+    engine.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('f'), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     expect(payload.dynamics).toHaveLength(0)
@@ -389,9 +390,9 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
 
   it('overwrites a destination dynamic in the paste window (no stacking)', () => {
     const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f', voice: 0 })
+    engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })
     // Destination bar already has a 'p' at beat 0 that the paste should replace.
-    engine.addDynamic(2, { beat: frac(0, 1), kind: 'level', level: 'p', voice: 0 })
+    engine.addDynamic(2, { beat: frac(0, 1), text: levelToGlyphString('p'), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), [c])!
     engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, clipDynsPass(payload))
@@ -400,7 +401,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
 
   it('carries a hand-nudged offset (client #8) with the pasted dynamic', () => {
     const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f', voice: 0 })!
+    const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!
     engine.nudgeDynamicOffset(d.id, 2, -3) // hand-nudge the source mark
 
     const payload = buildClipboardFromSelection(engine.getScore(), [c])!
@@ -409,7 +410,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, clipDynsPass(payload))
 
     // The pasted dynamic got a fresh id, but the offset rode along, re-keyed to it.
-    const pasted = engine.getDynamics(2).find(x => x.level === 'f')!
+    const pasted = engine.getDynamics(2).find(x => dynamicLevelOf(x) === 'f')!
     expect(dynamicOffsetOverrideOf(engine.getScore(), pasted.id)).toEqual({ kind: 'dynamicOffset', x: 2, y: -3 })
   })
 
@@ -419,10 +420,10 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     engine.addStaffBelow(2) // staves 0..3
     const s0 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
     const s1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
-    engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'mf', voice: 0, staffId: engine.staffIdForIndex(1) })
+    engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('mf'), voice: 0, staffId: engine.staffIdForIndex(1) })
 
     const payload = buildClipboardFromSelection(engine.getScore(), [s0, s1])!
-    expect(payload.dynamics[0]).toMatchObject({ staff: 1, level: 'mf' }) // relative staff 1 (bottom copied)
+    expect(payload.dynamics[0]).toMatchObject({ staff: 1, text: levelToGlyphString('mf') }) // relative staff 1 (bottom copied)
 
     engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 2, clipDynsPass(payload))
     expect(dynsOf(2, 3)).toEqual(['mf@0']) // relStaff 1 → staff 3

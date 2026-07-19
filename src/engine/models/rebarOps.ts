@@ -13,7 +13,7 @@
  */
 import type {
   Score, Measure, Note, Chord, NotePitch, Rest, TimeSignature, Clef, Dynamic, TempoMark,
-  DynamicLevel, Slur, EngravingOverride, RestShiftOverride, RestHiddenOverride, DynamicOffsetOverride,
+  Slur, EngravingOverride, RestShiftOverride, RestHiddenOverride, DynamicOffsetOverride,
 } from '@/types/music'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf } from './engravingOverrides'
 import { durationToFraction } from '@/utils/durations'
@@ -72,9 +72,8 @@ export type ClipDynamicInput = {
   staff: number
   voice: number
   offset: Fraction
-  kind: 'level' | 'text'
-  level?: DynamicLevel
-  text?: string
+  /** The mark's whole text (SMuFL glyphs + words); the level travels inside it. See {@link Dynamic.text}. */
+  text: string
   placement?: 'above' | 'below'
   /** Hand-nudged engraving offset (client #8), captured at copy so it travels with the mark. */
   engravingOffset?: { x: number; y: number }
@@ -420,10 +419,8 @@ export function pasteEvents(
     const dyn: Dynamic = {
       id: uuidv4(),
       beat: fracCreate(0, 1), // restoreBeatAnchors overwrites this from absBeat
-      kind: cd.kind,
+      text: cd.text,
       voice: (singleVoice ? targetVoice : cd.voice) as 0 | 1 | 2 | 3,
-      ...(cd.level !== undefined ? { level: cd.level } : {}),
-      ...(cd.text !== undefined ? { text: cd.text } : {}),
       ...(cd.placement !== undefined ? { placement: cd.placement } : {}),
       ...(staffId !== undefined ? { staffId } : {}),
     }

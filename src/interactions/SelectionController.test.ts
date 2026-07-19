@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
+import { levelToGlyphString } from '@/utils/dynamics'
 import { MusicEngine } from '../engine/MusicEngine'
 import type { Rect } from '../engine/ViewportModel'
 import { createEditorState, type EditorState } from './EditorState'
@@ -205,8 +206,8 @@ describe('SelectionController — Shift range select', () => {
   it('pulls a dynamic inside the box into the selection (so it highlights)', () => {
     const dynKey = (id: string) => itemKey({ kind: 'dynamic', id })
     // A dynamic under beat 1 (inside the n0..n2 box) and one under beat 3 (outside it).
-    const dIn = engine.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'f', voice: 0 })!.id
-    const dOut = engine.addDynamic(1, { beat: frac(3, 1), kind: 'level', level: 'p', voice: 0 })!.id
+    const dIn = engine.addDynamic(1, { beat: frac(1, 1), text: levelToGlyphString('f'), voice: 0 })!.id
+    const dOut = engine.addDynamic(1, { beat: frac(3, 1), text: levelToGlyphString('p'), voice: 0 })!.id
 
     selection.selectNote(n0)
     selection.extendSelectionTo(n2)      // box = beats 0..2

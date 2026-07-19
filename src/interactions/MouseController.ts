@@ -13,9 +13,7 @@ import type { TextEditController } from './TextEditController'
 import type { ClipboardController } from './ClipboardController'
 import { DynamicTextSource } from './DynamicTextSource'
 import { fracToNumber, fracEq } from '../utils/fraction'
-
-/** Default text for a newly placed custom-text dynamic; edit it via double-click. */
-const DEFAULT_DYNAMIC_TEXT = 'Text'
+import { dynamicTextFromTool, DEFAULT_DYNAMIC_TEXT } from '../utils/dynamics'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
  *  edit box opens blank over it and an empty commit deletes it, so it is never actually seen. */
 const DEFAULT_TEMPO_TEXT = 'Tempo'
@@ -375,7 +373,7 @@ export class MouseController {
     const staffId = engine.staffIdForIndex(note.staff ?? 0)
     const staffParam = staffId ? { staffId } : {}
     const created = engine.addDynamic(note.measure, {
-      beat: note.beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below', ...staffParam,
+      beat: note.beat, text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below', ...staffParam,
     })
     if (!created) return
     // Render so registerDynamics stores the mark's bbox; openTextEditor's source snapshots
@@ -1059,13 +1057,15 @@ export class MouseController {
 
     if (isDoubleClick) {
       const dyn = engine.getDynamicById(dynamicAt.id)
-      if (dyn && dyn.kind === 'text') {
+      if (dyn) {
+        // Any dynamic is editable — a level ('p'/'f') seeds the editor with its
+        // letters, custom text with its text (expression == dynamic, Step 1).
         this.lastDynamicDownId = null // consume, so a 3rd click isn't a double
         // Stop the browser's default mousedown focus/selection — otherwise it
         // steals focus back from the overlay right after we focus it, and typing
         // goes nowhere.
         event.preventDefault()
-        dbg(`✓ Editing dynamic text | id:${dynamicAt.id}`)
+        dbg(`✓ Editing dynamic | id:${dynamicAt.id}`)
         this.openTextEditor(dynamicAt.id, false)
         return true
       }
@@ -1541,15 +1541,7 @@ export class MouseController {
     const staff = engine.getElementRegistry().staffIndexAtY(measureNum, y)
     const staffId = engine.staffIdForIndex(staff)
     const staffParam = staffId ? { staffId } : {}
-    if (tool === 'text') {
-      // Custom-text mark: drop the default text. Edit it later by double-clicking
-      // the mark with the selection tool (→ MouseController.handleDoubleClick).
-      engine.addDynamic(measureNum, { beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below', ...staffParam })
-      dbg(`✓ Dynamic text at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
-      this.render.renderScore()
-      return true
-    }
-    engine.addDynamic(measureNum, { beat, kind: 'level', level: tool, voice: 0, placement: 'below', ...staffParam })
+    engine.addDynamic(measureNum, { beat, text: dynamicTextFromTool(tool), voice: 0, placement: 'below', ...staffParam })
     dbg(`✓ Dynamic ${tool} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
     this.render.renderScore()
     return true
@@ -1569,7 +1561,7 @@ export class MouseController {
     const staff = engine.getElementRegistry().staffIndexAtY(measureNum, y)
     const staffId = engine.staffIdForIndex(staff)
     const staffParam = staffId ? { staffId } : {}
-    const created = engine.addDynamic(measureNum, { beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below', ...staffParam })
+    const created = engine.addDynamic(measureNum, { beat, text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below', ...staffParam })
     // Disarm to selection mode either way — the click is consumed. (Reassign, never mutate: the
     // observable Proxy only traps the SET.)
     this.state.selectedMarkingTool = null

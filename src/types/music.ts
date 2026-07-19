@@ -115,22 +115,22 @@ export type DynamicLevel = 'p' | 'mp' | 'mf' | 'f'
  * A dynamic marking positioned within a measure, mirroring {@link ClefChange}:
  * a beat-anchored, measure-owned, selectable/deletable marking.
  *
- * Three independent axes (see docs/dynamics-plan.md §5):
- *  - glyph    — `level` (a SMuFL dynamics glyph) or `text` (custom italic)
- *  - meaning  — interpreted level → velocity via DYNAMIC_VELOCITY; text is silent
- *  - scope    — `voice` it governs, until the next dynamic in that voice
+ * **The mark IS its `text`** (docs/dynamics-text-as-truth-plan.md). The text mixes SMuFL dynamics
+ * glyphs — the `f`/`p`/… drawn in the music font, which ARE the levels — with plain expression
+ * words (`dolce`), e.g. `f con brio` or `più f`. There is deliberately NO `kind`/`level` field:
+ *  - glyph vs word is decided per character by whether it's a dynamics glyph (the FONT, not the
+ *    spelling — a typed plain `p` is a letter, a glyph `𝆏` is piano); see `utils/dynamics`.
+ *  - meaning — the played level is DERIVED from the glyph runs (`dynamicLevelOf`), never stored.
+ *  - scope — `voice` it governs, until the next dynamic in that voice.
  */
 export interface Dynamic {
   /** Unique identifier */
   id: string
   /** Beat position within the measure (lands on a slot boundary, like clefs) */
   beat: Fraction
-  /** 'level' = interpreted (drives playback); 'text' = custom italic, silent */
-  kind: 'level' | 'text'
-  /** The dynamic level when kind === 'level' */
-  level?: DynamicLevel
-  /** User-editable italic text when kind === 'text' (never interpreted) */
-  text?: string
+  /** The whole printed string, verbatim: SMuFL dynamics glyphs for the levels + plain words for
+   *  expression text. The level and glyph/word split are both derived from this (utils/dynamics). */
+  text: string
   /** Governed voice/stream; default 0. See {@link Note.voice}. */
   voice?: 0 | 1 | 2 | 3
   /** Vertical placement relative to the staff; default 'below'. */

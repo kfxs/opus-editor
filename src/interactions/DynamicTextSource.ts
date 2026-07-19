@@ -1,10 +1,18 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditableTextSource } from './TextEditController'
-import { DYNAMIC_TEXT_FONT, DYNAMIC_TEXT_SIZE } from '../engine/rendering/dynamicStyle'
+import { DYNAMIC_TEXT_FONT, DYNAMIC_TEXT_SIZE, DYNAMIC_GLYPH_SIZE } from '../engine/rendering/dynamicStyle'
+import { dynamicLabel, splitDynamicRuns } from '../utils/dynamics'
+
+/** Escape the few characters that matter when a run is placed into innerHTML (see
+ *  {@link DynamicTextSource.getSeedHtml}). The SMuFL glyph codepoints are unaffected. */
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
 
 /**
- * {@link EditableTextSource} for a custom-text (`kind:'text'`) dynamic. Bridges the
- * generic text editor to the dynamics model + renderer: seeds from `Dynamic.text`,
+ * {@link EditableTextSource} for ANY dynamic — level ('p'/'f'…) or custom text.
+ * Bridges the generic text editor to the dynamics model + renderer: seeds from the
+ * mark as painted (a level's glyph or the text), reads its engraved font off the DOM,
  * writes back via `engine.updateDynamic`, positions over the registry bbox, and
  * hides/restores the engraved glyph during the edit.
  */
@@ -37,7 +45,44 @@ export class DynamicTextSource implements EditableTextSource {
 
   getText(): string {
     // `??` (not `||`) so an explicit '' override wins — a blank seed is intentional.
-    return this.seedText ?? this.engine.getDynamicById(this.targetId)?.text ?? ''
+    if (this.seedText !== undefined) return this.seedText
+    const d = this.engine.getDynamicById(this.targetId)
+    // The text already holds the SMuFL glyph characters for its dynamic runs, so it IS the
+    // seed — glyph chips + words verbatim. (`getSeedHtml` styles those runs; this plain string
+    // is the fallback / the `textContent` the box reads back on commit.)
+    return d ? dynamicLabel(d) : ''
+  }
+
+  /**
+   * Pre-styled seed HTML for the box: each glyph run (`mp`, `f`) becomes an ATOMIC CHIP — a
+   * `contenteditable="false"` span drawn at the big music size that reads as "this is a dynamic".
+   * The caret can't enter a chip, so whatever you type lands beside it as ordinary editable text
+   * at the box's base text size (see {@link getFontCSS}) — before, after, or between chips — with
+   * no huge-text bleed. That is the model the user asked for: the dynamic is a fixed flagged token,
+   * everything else is normal-size expression text.
+   *
+   * Returns null when there's no glyph run (pure text) or for the blank-seed override — the box
+   * then seeds as plain text. `textContent` of this HTML equals {@link getText} (a chip's text IS
+   * the SMuFL glyph), so commit reads the same string back verbatim.
+   */
+  getSeedHtml(): string | null {
+    if (this.seedText !== undefined) return null
+    const d = this.engine.getDynamicById(this.targetId)
+    if (!d) return null
+    const runs = splitDynamicRuns(dynamicLabel(d))
+    if (!runs.some(r => r.glyph && r.text.trim() !== '')) return null // no glyph run → plain text
+
+    return runs.map(r => {
+      if (r.glyph) {
+        const glyph = escapeHtml(r.text) // already the SMuFL glyph characters
+        // contenteditable=false → the chip is atomic; the caret sits beside it, never within,
+        // so text you type lands as ordinary base-size text before/after/between chips.
+        return `<span contenteditable="false" style="font-size:${DYNAMIC_GLYPH_SIZE}pt;font-style:normal">${glyph}</span>`
+      }
+      // Words inherit the box's italic serif at the text size; NBSP keeps run-edge spaces
+      // from collapsing in the contenteditable (commit normalizes NBSP back to a space).
+      return escapeHtml(r.text).replace(/ /g, ' ')
+    }).join('')
   }
 
   getScreenRect(): { x: number; y: number; width: number; height: number } {
@@ -70,13 +115,16 @@ export class DynamicTextSource implements EditableTextSource {
   }
 
   /**
-   * Match the engraving: same serif italic and size the renderer uses for custom
-   * text. VexFlow interprets a numeric annotation size as points, so we mirror that
-   * unit here (see VexFlowRenderer's ghost path).
+   * The box's BASE font: expression italic serif at the TEXT size, always — so anything you
+   * TYPE comes out expression-sized. Glyph runs are made big by the spans in {@link getSeedHtml},
+   * not by the box size, so a bare `f` and `f dolce` edit identically (the glyph big, words
+   * small) instead of a bare `f` opening the whole box at glyph size. Bravura is appended as the
+   * per-char fallback so glyph codepoints still draw (the serif face lacks them). VexFlow takes a
+   * numeric annotation size as points, so we mirror that unit.
    */
   getFontCSS(): { fontFamily: string; fontSize: string; fontStyle: string; color: string } {
     return {
-      fontFamily: DYNAMIC_TEXT_FONT,
+      fontFamily: `${DYNAMIC_TEXT_FONT}, Bravura`,
       fontSize: `${DYNAMIC_TEXT_SIZE * this.getZoom()}pt`,
       fontStyle: 'italic',
       color: '#000000',
@@ -84,17 +132,16 @@ export class DynamicTextSource implements EditableTextSource {
   }
 
   /**
-   * Empty-text rule: a blank mark is meaningless. A *newly placed* one is deleted;
-   * an *existing* one keeps its prior text (treated as cancel). Non-empty writes
-   * through and re-renders (the engine's updateDynamic does not redraw on its own).
+   * Persist the box: store its text VERBATIM — glyph chips (SMuFL characters) stay glyphs, typed
+   * text stays plain — so the played level (derived from the glyph runs on read) is preserved and
+   * a typed letter is never promoted to a dynamic. NBSP (used to keep run-edge spaces in the styled
+   * box) becomes a plain space. An empty box removes the mark. Re-renders (update/remove does not).
    */
   commit(text: string): void {
-    const trimmed = text.trim()
+    const trimmed = text.replace(/\u00A0/g, ' ').trim()
     if (trimmed === '') {
-      if (this.isNew) {
-        this.engine.removeDynamic(this.targetId)
-        this.render()
-      }
+      this.engine.removeDynamic(this.targetId)
+      this.render()
       return
     }
     this.engine.updateDynamic(this.targetId, { text: trimmed })

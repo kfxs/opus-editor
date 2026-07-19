@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
+import { levelToGlyphString, dynamicLevelOf } from '@/utils/dynamics'
 import { ScoreModel } from './ScoreModel'
 import { curveShapeOverrideOf, restPositionKey, restShiftOverrideOf, dynamicOffsetOverrideOf } from './engravingOverrides'
 import type { NoteParams, Slur, TempoMark, Fraction } from '@/types/music'
@@ -363,15 +364,15 @@ describe('ScoreModel', () => {
     })
 
     it('round-trips dynamics (level + custom text) through JSON', () => {
-      model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })
-      model.addDynamic(1, { beat: frac(2, 1), kind: 'text', text: 'dolce', voice: 0 })
+      model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })
+      model.addDynamic(1, { beat: frac(2, 1), text: 'dolce', voice: 0 })
 
       const loaded = ScoreModel.fromJSON(model.toJSON())
       const dyns = loaded.getDynamics(1)
       expect(dyns).toHaveLength(2)
-      expect(dyns[0]).toMatchObject({ kind: 'level', level: 'p' })
+      expect(dyns[0]).toMatchObject({ text: levelToGlyphString('p') })
       expect(dyns[0].beat).toEqual(frac(0, 1))
-      expect(dyns[1]).toMatchObject({ kind: 'text', text: 'dolce' })
+      expect(dyns[1]).toMatchObject({ text: 'dolce' })
       // resolution still works after a load
       expect(loaded.getActiveLevel(1, frac(1, 1))).toBe('p')
     })
@@ -875,68 +876,68 @@ describe('ScoreModel', () => {
     })
 
     it('adds a dynamic, generates an id, and stores it sorted by beat', () => {
-      model.addDynamic(1, { beat: frac(2, 1), kind: 'level', level: 'f' })
-      const first = model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })
+      model.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('f') })
+      const first = model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })
       expect(first?.id).toBeTruthy()
-      expect(model.getDynamics(1).map(d => [d.beat.num, d.level])).toEqual([
+      expect(model.getDynamics(1).map(d => [d.beat.num, dynamicLevelOf(d)])).toEqual([
         [0, 'p'],
         [2, 'f'],
       ])
     })
 
     it('returns null when the measure does not exist', () => {
-      expect(model.addDynamic(99, { beat: frac(0, 1), kind: 'level', level: 'p' })).toBeNull()
+      expect(model.addDynamic(99, { beat: frac(0, 1), text: levelToGlyphString('p') })).toBeNull()
     })
 
     it('stacks multiple dynamics at the same (beat, voice) without replacing', () => {
-      model.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'p', voice: 0 })
-      model.addDynamic(1, { beat: frac(1, 1), kind: 'text', text: 'dolce', voice: 0 })
-      model.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'f', voice: 0 })
+      model.addDynamic(1, { beat: frac(1, 1), text: levelToGlyphString('p'), voice: 0 })
+      model.addDynamic(1, { beat: frac(1, 1), text: 'dolce', voice: 0 })
+      model.addDynamic(1, { beat: frac(1, 1), text: levelToGlyphString('f'), voice: 0 })
       const dyns = model.getDynamics(1)
       expect(dyns).toHaveLength(3)
       // Placement order is preserved within a beat (stable sort).
-      expect(dyns.map(d => d.level ?? d.text)).toEqual(['p', 'dolce', 'f'])
+      expect(dyns.map(d => dynamicLevelOf(d) ?? d.text)).toEqual(['p', 'dolce', 'f'])
     })
 
     it('playback uses the last (rightmost) level when several are stacked at a beat', () => {
-      model.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'p' })
-      model.addDynamic(1, { beat: frac(1, 1), kind: 'text', text: 'dolce' })
-      model.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'f' })
+      model.addDynamic(1, { beat: frac(1, 1), text: levelToGlyphString('p') })
+      model.addDynamic(1, { beat: frac(1, 1), text: 'dolce' })
+      model.addDynamic(1, { beat: frac(1, 1), text: levelToGlyphString('f') })
       expect(model.getActiveLevel(1, frac(1, 1))).toBe('f')
     })
 
     it('keeps separate dynamics at the same beat in different voices', () => {
-      model.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'p', voice: 0 })
-      model.addDynamic(1, { beat: frac(1, 1), kind: 'level', level: 'f', voice: 1 })
+      model.addDynamic(1, { beat: frac(1, 1), text: levelToGlyphString('p'), voice: 0 })
+      model.addDynamic(1, { beat: frac(1, 1), text: levelToGlyphString('f'), voice: 1 })
       expect(model.getDynamics(1)).toHaveLength(2)
     })
 
     it('stores a custom text dynamic', () => {
-      const d = model.addDynamic(2, { beat: frac(0, 1), kind: 'text', text: 'dolce' })
-      expect(d?.kind).toBe('text')
+      const d = model.addDynamic(2, { beat: frac(0, 1), text: 'dolce' })
+      expect(d?.text).toBe('dolce')
       expect(model.getDynamics(2)[0].text).toBe('dolce')
     })
 
     it('updates a dynamic by id', () => {
-      const d = model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
-      const updated = model.updateDynamic(d.id, { level: 'f' })
-      expect(updated?.level).toBe('f')
-      expect(model.getDynamics(1)[0].level).toBe('f')
+      const d = model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })!
+      const updated = model.updateDynamic(d.id, { text: levelToGlyphString('f') })
+      expect(dynamicLevelOf(updated!)).toBe('f')
+      expect(dynamicLevelOf(model.getDynamics(1)[0])).toBe('f')
     })
 
     it('re-sorts when an update changes the beat', () => {
-      const a = model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
-      model.addDynamic(1, { beat: frac(2, 1), kind: 'level', level: 'f' })
+      const a = model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })!
+      model.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('f') })
       model.updateDynamic(a.id, { beat: frac(3, 1) })
-      expect(model.getDynamics(1).map(d => d.level)).toEqual(['f', 'p'])
+      expect(model.getDynamics(1).map(d => dynamicLevelOf(d))).toEqual(['f', 'p'])
     })
 
     it('returns null when updating a missing id', () => {
-      expect(model.updateDynamic('nope', { level: 'f' })).toBeNull()
+      expect(model.updateDynamic('nope', { text: levelToGlyphString('f') })).toBeNull()
     })
 
     it('removes a dynamic by id and drops the empty array', () => {
-      const d = model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
+      const d = model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })!
       expect(model.removeDynamic(d.id)).toBe(true)
       expect(model.getDynamics(1)).toEqual([])
       expect(model.getMeasure(1)!.dynamics).toBeUndefined()
@@ -947,7 +948,7 @@ describe('ScoreModel', () => {
     })
 
     it('clears a hand-nudged offset override so it does not orphan on delete', () => {
-      const d = model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
+      const d = model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })!
       model.nudgeDynamicOffset(d.id, 0, 3)
       expect(model.getEngravingOverride(d.id, 'dynamicOffset')).toBeDefined()
       expect(model.removeDynamic(d.id)).toBe(true)
@@ -955,26 +956,26 @@ describe('ScoreModel', () => {
     })
 
     it('resolves the active level via getActiveLevel', () => {
-      model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })
-      model.addDynamic(2, { beat: frac(0, 1), kind: 'level', level: 'f' })
+      model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })
+      model.addDynamic(2, { beat: frac(0, 1), text: levelToGlyphString('f') })
       expect(model.getActiveLevel(1, frac(1, 1))).toBe('p')
       expect(model.getActiveLevel(3, frac(0, 1))).toBe('f') // inherited from m2
     })
 
     it('re-anchors a measure\'s dynamics across a rebar (same absolute position)', () => {
-      model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })
+      model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })
       expect(model.getDynamics(1)).toHaveLength(1)
       // A meter change rebars the region; the dynamic at beat 0 stays at measure 1
       // beat 0 (absolute offset 0 maps to the start of the rebar'd region).
       model.setTimeSignature(1, { numerator: 3, denominator: 4 })
       const dyns = model.getDynamics(1)
       expect(dyns).toHaveLength(1)
-      expect(dyns[0].level).toBe('p')
+      expect(dynamicLevelOf(dyns[0])).toBe('p')
       expect(fracToNumber(dyns[0].beat)).toBe(0)
     })
 
     it('carries a hand-nudged offset (client #8) across a rebar and clears the old id', () => {
-      const d = model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
+      const d = model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p') })!
       model.nudgeDynamicOffset(d.id, 1, 4)
       expect(dynamicOffsetOverrideOf(model.getScore(), d.id)).toBeDefined()
 
@@ -999,22 +1000,22 @@ describe('rebar preserves beat-anchored annotations (clefs + dynamics)', () => {
 
   it('keeps a dynamic in place when its beat still fits the new bar', () => {
     // The reported scenario: f at measure 2 beat 2, then change measure 2 → 3/4.
-    model.addDynamic(2, { beat: frac(2, 1), kind: 'level', level: 'f' })
+    model.addDynamic(2, { beat: frac(2, 1), text: levelToGlyphString('f') })
     model.setTimeSignature(2, { numerator: 3, denominator: 4 })
     const dyns = model.getDynamics(2)
     expect(dyns).toHaveLength(1)
-    expect(dyns[0].level).toBe('f')
+    expect(dynamicLevelOf(dyns[0])).toBe('f')
     expect(fracToNumber(dyns[0].beat)).toBe(2) // 3/4 bar still holds beat 2
   })
 
   it('moves a dynamic to the next bar when its beat overflows the new bar', () => {
     // beat 3 of a 4/4 measure → absolute offset 3 → second 3/4 bar, beat 0.
-    model.addDynamic(1, { beat: frac(3, 1), kind: 'level', level: 'p' })
+    model.addDynamic(1, { beat: frac(3, 1), text: levelToGlyphString('p') })
     model.setTimeSignature(1, { numerator: 3, denominator: 4 })
     expect(model.getDynamics(1)).toHaveLength(0)
     const moved = model.getDynamics(2)
     expect(moved).toHaveLength(1)
-    expect(moved[0].level).toBe('p')
+    expect(dynamicLevelOf(moved[0])).toBe('p')
     expect(fracToNumber(moved[0].beat)).toBe(0)
   })
 
@@ -1127,7 +1128,7 @@ describe('rebar preserves beat-anchored annotations (tempo marks)', () => {
   // a dynamic in the paste window, which the clip overwrites.
   it('does NOT let a paste overwrite the destination’s tempo mark (system object)', () => {
     place(1, frac(0, 1), { text: 'Largo', bpm: 50 })
-    model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f' })
+    model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f') })
 
     model.pasteEvents(
       1, frac(0, 1),

@@ -1,4 +1,4 @@
-import type { Fraction, Score, DynamicLevel } from '../types/music'
+import type { Fraction, Score } from '../types/music'
 import type { RebarEvent } from '../utils/rebar'
 import { flattenRegion } from '../utils/rebar'
 import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracToNumber } from '../utils/fraction'
@@ -67,9 +67,8 @@ export interface ClipDynamic {
   voice: number
   /** Beat offset from the selection start (same basis as {@link ClipboardLane.events}). */
   offset: Fraction
-  kind: 'level' | 'text'
-  level?: DynamicLevel
-  text?: string
+  /** The mark's whole text (SMuFL glyphs + words) — the level travels inside it. See {@link Dynamic.text}. */
+  text: string
   placement?: 'above' | 'below'
   /** Hand-nudged engraving offset (client #8), captured at copy so it travels with the mark. */
   engravingOffset?: { x: number; y: number }
@@ -249,9 +248,7 @@ function dynamicsInWindow(
         staff: staffIdx - topStaff,
         voice: d.voice ?? 0,
         offset: fracSub(abs, spanStart),
-        kind: d.kind,
-        ...(d.level !== undefined ? { level: d.level } : {}),
-        ...(d.text !== undefined ? { text: d.text } : {}),
+        text: d.text,
         ...(d.placement !== undefined ? { placement: d.placement } : {}),
         ...(off ? { engravingOffset: { x: off.x, y: off.y } } : {}),
       })

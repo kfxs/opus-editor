@@ -9,6 +9,7 @@ import { fracToNumber } from '../utils/fraction'
 import { accidentalTypeToKey, formatPitch } from '../utils/pitchSpelling'
 import { sameTimeSignature } from '../utils/meter'
 import { tempoLabel } from '../utils/tempoMap'
+import { dynamicTextFromTool } from '../utils/dynamics'
 import { selectedNoteIds, selectedArticulationNoteIds } from './selection'
 import { articulationSelection } from './articulationSelection'
 import { tieSelection } from './tieSelection'
@@ -21,9 +22,6 @@ function sameTempoTool(a: TempoTool | null, b: TempoTool): boolean {
   return a.text === b.text && a.unit === b.unit && a.dots === b.dots
     && a.bpm === b.bpm && a.showMetronome === b.showMetronome
 }
-
-/** Placeholder for a freshly placed custom-text dynamic (mirrors MouseController). */
-const DEFAULT_DYNAMIC_TEXT = 'Text'
 
 /**
  * Handles palette actions: duration, accidental, articulations, tie, dot, tuplet.
@@ -1089,13 +1087,8 @@ export class PaletteController {
     // staffId = staff 0 keeps single-staff output byte-identical.
     const staffId = engine.staffIdForIndex(note.staff ?? 0)
     const staffParam = staffId ? { staffId } : {}
-    if (tool === 'text') {
-      engine.addDynamic(note.measure, { beat: note.beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below', ...staffParam })
-      dbg(`✓ Dynamic text at measure ${note.measure} beat ${beatStr} staff ${note.staff ?? 0} (on selected note ${this.state.selectedNoteId})`)
-    } else {
-      engine.addDynamic(note.measure, { beat: note.beat, kind: 'level', level: tool, voice: 0, placement: 'below', ...staffParam })
-      dbg(`✓ Dynamic ${tool} at measure ${note.measure} beat ${beatStr} staff ${note.staff ?? 0} (on selected note ${this.state.selectedNoteId})`)
-    }
+    engine.addDynamic(note.measure, { beat: note.beat, text: dynamicTextFromTool(tool), voice: 0, placement: 'below', ...staffParam })
+    dbg(`✓ Dynamic ${tool} at measure ${note.measure} beat ${beatStr} staff ${note.staff ?? 0} (on selected note ${this.state.selectedNoteId})`)
     this.renderScore()
   }
 

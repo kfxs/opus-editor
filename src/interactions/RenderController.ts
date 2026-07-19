@@ -1,4 +1,5 @@
 import { tempoFieldsFromTool } from '../utils/tempoText'
+import { dynamicTextFromTool } from '../utils/dynamics'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Clef, TimeSignature, Dynamic, TempoMark, ArticulationType, Accidental } from '../types/music'
 import type { DynamicTool, TempoTool, EditorState } from './EditorState'
@@ -171,9 +172,7 @@ export class RenderController {
     if (!engine) return
     renderCensus.setCause('ghost:dynamic')
     const beat = { num: 0, den: 1 }
-    const ghost: Dynamic = tool === 'text'
-      ? { id: 'ghost-dynamic', beat, kind: 'text', text: 'Text', placement: 'below' }
-      : { id: 'ghost-dynamic', beat, kind: 'level', level: tool, placement: 'below' }
+    const ghost: Dynamic = { id: 'ghost-dynamic', beat, text: dynamicTextFromTool(tool), placement: 'below' }
     this.ensureScoreDrawn(engine)
     engine.renderScoreWithDynamicGhost(coords, ghost)
   }

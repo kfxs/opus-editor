@@ -14,6 +14,14 @@ export interface EditableTextSource {
   readonly isNew: boolean
   /** Current text to seed the editor with. */
   getText(): string
+  /**
+   * Optional pre-styled seed for the box, as trusted HTML — lets a source paint different
+   * runs in different fonts/sizes (a dynamic's big glyph `mp` beside small italic words), which
+   * a single-font contenteditable can't. `null`/absent ⇒ the box is seeded from {@link getText}
+   * as plain text. The typed text is always read back via `textContent`, so the HTML is display
+   * only; a source that returns HTML must ensure its `textContent` is the string {@link commit}
+   * expects. MUST be built by the source (never user-supplied) — it is assigned as innerHTML. */
+  getSeedHtml?(): string | null
   /** Where to place the overlay, in viewport (client) pixels. */
   getScreenRect(): { x: number; y: number; width: number; height: number }
   /**
@@ -39,6 +47,9 @@ export interface EditableTextSource {
 /** Options handed to the DOM layer when the overlay is mounted. */
 export interface TextEditMountOptions {
   text: string
+  /** Trusted pre-styled seed HTML (see {@link EditableTextSource.getSeedHtml}). When present,
+   *  the box is seeded with this instead of plain `text`; `textContent` still yields `text`. */
+  html?: string | null
   rect: { x: number; y: number; width: number; height: number }
   /** Viewport-pixel baseline of the engraved text, when the source can measure it
    *  (see {@link EditableTextSource.getBaselineY}). Absent ⇒ align tops. */
@@ -93,6 +104,7 @@ export class TextEditController {
 
     this.dom.mount({
       text: source.getText(),
+      html: source.getSeedHtml?.(),
       rect: source.getScreenRect(),
       baselineY: source.getBaselineY?.(),
       font: source.getFontCSS(),

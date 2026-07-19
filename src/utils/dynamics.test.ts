@@ -3,7 +3,9 @@ import {
   DYNAMIC_VELOCITY,
   DEFAULT_DYNAMIC,
   isInterpreted,
+  dynamicLevelOf,
   dynamicLabel,
+  levelToGlyphString,
   measureDynamics,
   resolveActiveLevel,
   resolveChordLevels,
@@ -33,11 +35,11 @@ function scoreOf(...measureDyns: Dynamic[][]): Score {
 }
 
 function dyn(beatNum: number, level: DynamicLevel, voice: 0 | 1 | 2 | 3 = 0): Dynamic {
-  return { id: `d${beatNum}-${level}-${voice}`, beat: fracCreate(beatNum, 1), kind: 'level', level, voice }
+  return { id: `d${beatNum}-${level}-${voice}`, beat: fracCreate(beatNum, 1), text: levelToGlyphString(level), voice }
 }
 
 function dynText(beatNum: number, txt: string, voice: 0 | 1 | 2 | 3 = 0): Dynamic {
-  return { id: `t${beatNum}`, beat: fracCreate(beatNum, 1), kind: 'text', text: txt, voice }
+  return { id: `t${beatNum}`, beat: fracCreate(beatNum, 1), text: txt, voice }
 }
 
 /** A minimal one-pitch chord at a beat (id encodes measure+beat+voice for lookup). */
@@ -69,11 +71,11 @@ function scoreWithChords(...measures: { dynamics?: Dynamic[]; chords?: Chord[] }
 }
 
 function level(l: DynamicLevel, voice: 0 | 1 | 2 | 3 = 0): Dynamic {
-  return { id: `d-${l}`, beat: fracCreate(0, 1), kind: 'level', level: l, voice }
+  return { id: `d-${l}`, beat: fracCreate(0, 1), text: levelToGlyphString(l), voice }
 }
 
 function text(t: string): Dynamic {
-  return { id: 'd-text', beat: fracCreate(0, 1), kind: 'text', text: t }
+  return { id: 'd-text', beat: fracCreate(0, 1), text: t }
 }
 
 // ---------------------------------------------------------------------------
@@ -118,19 +120,18 @@ describe('isInterpreted', () => {
     expect(isInterpreted(text('dolce'))).toBe(false)
   })
 
-  it('is false for a level dynamic missing its level', () => {
-    const malformed: Dynamic = { id: 'x', beat: fracCreate(0, 1), kind: 'level' }
-    expect(isInterpreted(malformed)).toBe(false)
+  it('is false for a mark whose text names no level (empty / plain text)', () => {
+    expect(isInterpreted({ id: 'x', beat: fracCreate(0, 1), text: '' })).toBe(false)
+    // A plain-text letter that only LOOKS like a dynamic is NOT one — it must be the glyph.
+    expect(isInterpreted({ id: 'y', beat: fracCreate(0, 1), text: 'p' })).toBe(false)
   })
 
-  it('narrows the type so .level is defined', () => {
+  it('exposes the derived level for an interpreted mark', () => {
     const d: Dynamic = level('mp')
-    if (isInterpreted(d)) {
-      // type-level assertion: d.level is DynamicLevel here
-      expect(DYNAMIC_VELOCITY[d.level]).toBe(DYNAMIC_VELOCITY.mp)
-    } else {
-      throw new Error('expected interpreted')
-    }
+    expect(isInterpreted(d)).toBe(true)
+    const lvl = dynamicLevelOf(d)
+    expect(lvl).toBe('mp')
+    expect(DYNAMIC_VELOCITY[lvl!]).toBe(DYNAMIC_VELOCITY.mp)
   })
 })
 
@@ -139,16 +140,16 @@ describe('isInterpreted', () => {
 // ---------------------------------------------------------------------------
 
 describe('dynamicLabel', () => {
-  it('returns the level letters for interpreted marks', () => {
-    expect(dynamicLabel(level('mf'))).toBe('mf')
-    expect(dynamicLabel(level('p'))).toBe('p')
+  it('returns the text verbatim — the SMuFL glyphs for a level', () => {
+    expect(dynamicLabel(level('mf'))).toBe(levelToGlyphString('mf'))
+    expect(dynamicLabel(level('p'))).toBe(levelToGlyphString('p'))
   })
 
   it('returns the user text for custom marks', () => {
     expect(dynamicLabel(text('dolce'))).toBe('dolce')
   })
 
-  it('returns empty string for a text mark with no text', () => {
+  it('returns empty string for a mark with no text', () => {
     expect(dynamicLabel(text(''))).toBe('')
   })
 })

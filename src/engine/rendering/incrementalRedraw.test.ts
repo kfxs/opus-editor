@@ -13,6 +13,7 @@
  * renders, a redrawn one is a new node. So these tests assert on node identity.
  */
 import { describe, it, expect } from 'vitest'
+import { levelToGlyphString } from '@/utils/dynamics'
 import { ScoreModel } from '../models/ScoreModel'
 import { VexFlowRenderer } from './VexFlowRenderer'
 import { Renderer } from 'vexflow'
@@ -121,7 +122,7 @@ describe('P5.4 — incremental redraw', () => {
     const widthKeyBefore = laneFingerprint(laneBefore)
     const drawKeyBefore = measureShapeKey(model.getScore(), keyInputs(laneBefore), null, null)
 
-    model.addDynamic(1, { kind: 'level', level: 'mf', beat: frac(0, 1), voice: 0 })
+    model.addDynamic(1, { text: levelToGlyphString('mf'), beat: frac(0, 1), voice: 0 })
 
     const laneAfter = model.getScore().measures[0]
     expect(laneFingerprint(laneAfter), 'the WIDTH key must be blind to a dynamic').toBe(widthKeyBefore)
@@ -141,7 +142,7 @@ describe('P5.4 — incremental redraw', () => {
     // moves and the bar redraws. See docs/dynamic-offset-plan.md.
     const model = buildScore()
     const renderer = makeRenderer()
-    const dyn = model.addDynamic(1, { kind: 'level', level: 'f', beat: frac(0, 1), voice: 0 })!
+    const dyn = model.addDynamic(1, { text: levelToGlyphString('f'), beat: frac(0, 1), voice: 0 })!
     renderer.renderScore(model.getScore())
     const before = groupNodes(renderer, 12)
 
@@ -182,7 +183,7 @@ describe('P5.4 — incremental redraw', () => {
     const incremental = makeRenderer()
     incremental.renderScore(model.getScore()) // full first render
     model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 2, beat: frac(2, 1) })
-    model.addDynamic(4, { kind: 'level', level: 'p', beat: frac(0, 1), voice: 0 })
+    model.addDynamic(4, { text: levelToGlyphString('p'), beat: frac(0, 1), voice: 0 })
     incremental.renderScore(model.getScore()) // ...then an incremental one
 
     const fresh = makeRenderer()
@@ -318,7 +319,7 @@ describe('P5.4b — a bar that only moved is translated', () => {
     expect(renderer.getSVGElement()!.querySelector('.ghost-note-group')).not.toBeNull()
 
     // ...and it must still work on the render AFTER an incremental one.
-    model.addDynamic(1, { kind: 'level', level: 'f', beat: frac(0, 1), voice: 0 })
+    model.addDynamic(1, { text: levelToGlyphString('f'), beat: frac(0, 1), voice: 0 })
     renderer.renderScore(model.getScore())
     expect(renderer.drawGhostNote(model.getScore(), {
       step: 'D', alter: 0, octave: 5, duration: 'q', measure: 2, beat: 2,

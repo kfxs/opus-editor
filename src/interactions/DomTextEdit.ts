@@ -22,7 +22,11 @@ export class DomTextEdit implements TextEditDom {
     el.className = 'text-edit-overlay'
     el.setAttribute('contenteditable', 'true')
     el.setAttribute('spellcheck', 'false')
-    el.textContent = opts.text
+    // A source may supply pre-styled seed HTML (per-run fonts/sizes — a dynamic's big glyph
+    // beside small italic words). It is source-built and trusted; `getText()` still reads the
+    // plain text back off `textContent`. Otherwise seed as plain text.
+    if (opts.html != null) el.innerHTML = opts.html
+    else el.textContent = opts.text
 
     const { rect, font } = opts
     const s = el.style

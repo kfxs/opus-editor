@@ -18,7 +18,7 @@ import type { RenderPass } from './RenderPass'
 import { renderTies, getTieDirection, TIE_BOW, TIE_THICKNESS } from './TieRenderer'
 import { drawCurveArc } from './curveArc'
 import { renderSlurs } from './SlurRenderer'
-import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, buildDynamicAnnotation, registerDynamics } from './DynamicsLayout'
+import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, buildDynamicAnnotation, registerDynamics, applyMixedDynamicRuns, enlargeDynamicGlyphRuns } from './DynamicsLayout'
 import { drawTempoMarks, drawTempoText } from './TempoLayout'
 import {
   convertDuration,
@@ -1047,6 +1047,9 @@ export class VexFlowRenderer {
         // the established pattern (ghost notes, selection highlight). NOT VexFlow setStyle: that
         // leaks the stroke colour into the shared context and grays the rest of the score.
         this.recolorHiddenRests(sortedSlots, measure, pass.score)
+        // Mixed dynamics (glyph + words): re-lay as per-run <tspan>s so the glyph keeps the big
+        // music size and the words the text size. BEFORE registerDynamics so the bbox includes it.
+        applyMixedDynamicRuns(pass, measure)
         registerDynamics(pass, measure)
         // Co-located dynamics: reposition onto one row (placement order, newest
         // right) AFTER registration so their bboxes are present to update.
@@ -3031,6 +3034,10 @@ export class VexFlowRenderer {
       voice.draw(this.context!, tempStave)
 
       const annoEl = annotation.getSVGElement?.() as SVGGElement | undefined
+      // Enlarge the glyph run(s) just like the score pass does (the annotation is drawn at the
+      // small text size for a shared baseline), so the ghost matches what will be placed.
+      const annoText = annoEl?.querySelector?.('text') as SVGTextElement | null
+      if (annoText) enlargeDynamicGlyphRuns(annoText, dynamic)
 
       const newElements: Element[] = []
       for (let i = childrenBefore; i < svg.children.length; i++) {
