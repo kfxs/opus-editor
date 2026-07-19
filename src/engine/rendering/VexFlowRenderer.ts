@@ -898,7 +898,7 @@ export class VexFlowRenderer {
     // Per-measure geometry is keyed by (measure, staffIndex), so every stacked staff registers its
     // own — pitch↔y resolves against each staff's real clef + line Y positions, and a click is
     // attributed to a staff by its y-band (ElementRegistry.staffIndexAtY).
-    this.registerStaffAndGeometry(stave, p.view, p.x, p.y, p.width, p.isFirstInLine, p.clef, p.hasClefChange, p.staffIndex)
+    this.registerStaffAndGeometry(stave, p.view, p.x, p.width, p.isFirstInLine, p.clef, p.hasClefChange, p.staffIndex)
 
     // This measure's REAL system height, so pixelToMeasure's vertical band matches the drawn layout
     // — the uniform fallback under-covers once a staff is spaced far down
@@ -1635,7 +1635,6 @@ export class VexFlowRenderer {
     stave: Stave,
     measure: Measure,
     x: number,
-    y: number,
     width: number,
     isFirstInLine: boolean,
     clef: Clef,
@@ -1671,6 +1670,17 @@ export class VexFlowRenderer {
       })
     } catch (_e) { /* getBoundingBox or getYForLine may fail */ }
 
+    // Region hit-boxes (clef/TS/barline) span the staff's five lines, not the
+    // STAVE_HEIGHT layout stride — that constant is the per-line vertical
+    // allocation (staff + gap to the next system) and would leave the box hanging
+    // ~80px below the bottom line. Anchor to the actual line Y's instead. The clef
+    // gets a half-staff-space pad top and bottom so a treble clef's overhanging
+    // curl (below the bottom line) and top (above the top line) still register
+    // clicks; the TS and barline sit within the lines and hug them exactly.
+    const lineTop = stave.getYForLine(0)
+    const staffSpan = stave.getYForLine(4) - lineTop
+    const clefPad = (stave.getYForLine(1) - lineTop) / 2
+
     // Register the opening clef (beat 0) when a clef glyph is drawn at the
     // measure start: at line starts (full clef) or mid-line clef changes (smaller
     // clef). Mid-measure (inline) clefs are registered separately after drawing.
@@ -1683,7 +1693,7 @@ export class VexFlowRenderer {
         beat: 0,
         // The big line-start clef is anchored to the line and cannot be dragged.
         immovable: true,
-        bbox: { x, y, width: LAYOUT_CONFIG.CLEF_WIDTH, height: LAYOUT_CONFIG.STAVE_HEIGHT },
+        bbox: { x, y: lineTop - clefPad, width: LAYOUT_CONFIG.CLEF_WIDTH, height: staffSpan + 2 * clefPad },
       })
     } else if (hasClefChange) {
       this.elementRegistry.add({
@@ -1691,7 +1701,7 @@ export class VexFlowRenderer {
         measure: measure.number,
         staff: staffIndex,
         beat: 0,
-        bbox: { x, y, width: LAYOUT_CONFIG.CLEF_CHANGE_WIDTH, height: LAYOUT_CONFIG.STAVE_HEIGHT },
+        bbox: { x, y: lineTop - clefPad, width: LAYOUT_CONFIG.CLEF_CHANGE_WIDTH, height: staffSpan + 2 * clefPad },
       })
     }
 
@@ -1716,9 +1726,9 @@ export class VexFlowRenderer {
           staff: staffIndex,
           bbox: {
             x: tsX,
-            y,
+            y: lineTop,
             width: tsWidth,
-            height: LAYOUT_CONFIG.STAVE_HEIGHT,
+            height: staffSpan,
           },
         })
       }
@@ -1728,7 +1738,7 @@ export class VexFlowRenderer {
       type: 'barline',
       measure: measure.number,
       staff: staffIndex,
-      bbox: { x: x + width - 2, y, width: 4, height: LAYOUT_CONFIG.STAVE_HEIGHT },
+      bbox: { x: x + width - 2, y: lineTop, width: 4, height: staffSpan },
     })
   }
 
