@@ -5,7 +5,7 @@ import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracToNumbe
 import { measureCapacityFrac, getMeasureNotes } from '../utils/musicUtils'
 import { durationToFraction } from '../utils/durations'
 import { formatPitch } from '../utils/pitchSpelling'
-import { restShiftOverrideOf, restHiddenOf, restPositionKey } from '../engine/models/engravingOverrides'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { keyStaffId } from '../engine/models/staffContent'
 import { staffMeasureView, staffIdAtIndex, staffIndexOfId } from '../engine/models/staffContent'
 
@@ -71,6 +71,8 @@ export interface ClipDynamic {
   level?: DynamicLevel
   text?: string
   placement?: 'above' | 'below'
+  /** Hand-nudged engraving offset (client #8), captured at copy so it travels with the mark. */
+  engravingOffset?: { x: number; y: number }
 }
 
 /** A pitch identity used to re-find a slur endpoint on the pasted notes. */
@@ -242,6 +244,7 @@ function dynamicsInWindow(
       if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
       const staffIdx = staffIndexOfId(score, d.staffId)
       if (staffIdx < topStaff || staffIdx > maxStaff) continue
+      const off = dynamicOffsetOverrideOf(score, d.id)
       out.push({
         staff: staffIdx - topStaff,
         voice: d.voice ?? 0,
@@ -250,6 +253,7 @@ function dynamicsInWindow(
         ...(d.level !== undefined ? { level: d.level } : {}),
         ...(d.text !== undefined ? { text: d.text } : {}),
         ...(d.placement !== undefined ? { placement: d.placement } : {}),
+        ...(off ? { engravingOffset: { x: off.x, y: off.y } } : {}),
       })
     }
   }

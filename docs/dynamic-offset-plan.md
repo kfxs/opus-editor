@@ -32,9 +32,15 @@ Open items, roughly in priority order. Do #1 first.
    calls `this.clearEngravingOverride(id)`, covered by a test (delete a nudged dynamic →
    `engravingOverrides` is clean). Orphans already sitting in a live file still need a hand-delete or
    a one-time prune on load if it ever comes up.
-2. **[P1] Offset does not travel across paste.** A pasted dynamic gets a fresh id, so its id-keyed
-   override doesn't follow (see "Out of scope" above). Would need capture/restore in the paste path,
-   re-keyed to the destination dynamic's new id.
+2. **[P1] ✅ DONE — Offset now travels across paste (and survives any rebar).** A pasted dynamic gets
+   a fresh id, so its id-keyed override used not to follow. Fixed at the `captureBeatAnchors` /
+   `restoreBeatAnchors` seam in `rebarOps.ts` — the same place that already regenerates every
+   dynamic's id: capture reads `dynamicOffsetOverrideOf` and CLEARS the old key, restore re-stamps it
+   under the fresh id (mirroring the rest-shift capture/restore twin). The clip payload carries the
+   offset as `ClipDynamic.engravingOffset`, captured at copy in `dynamicsInWindow`. This closed a
+   second latent orphan for free: the destination's OWN nudged dynamics used to lose their offset on
+   any rebar (meter change), because rebar regenerated their ids too. Covered by two tests (paste
+   travel + rebar survival), both verified to fail without the fix.
 3. **[P2] Co-located level dynamics still measure inflated.** The `registerDynamics` bbox rebuild (see
    the pointer-rect note below) only covers the single-dynamic path; `layoutCoLocatedDynamics`
    re-measures stacked marks via `getBBox` on the group and re-inflates the box for co-located level

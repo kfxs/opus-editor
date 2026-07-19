@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { curveShapeOverrideOf, restPositionKey, restShiftOverrideOf } from './engravingOverrides'
+import { curveShapeOverrideOf, restPositionKey, restShiftOverrideOf, dynamicOffsetOverrideOf } from './engravingOverrides'
 import type { NoteParams, Slur, TempoMark, Fraction } from '@/types/music'
 import { fracCreate as frac, fracCompare, fracToNumber } from '@/utils/fraction'
 import { getTupletTotalBeatsFrac } from '@/utils/musicUtils'
@@ -971,6 +971,20 @@ describe('ScoreModel', () => {
       expect(dyns).toHaveLength(1)
       expect(dyns[0].level).toBe('p')
       expect(fracToNumber(dyns[0].beat)).toBe(0)
+    })
+
+    it('carries a hand-nudged offset (client #8) across a rebar and clears the old id', () => {
+      const d = model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
+      model.nudgeDynamicOffset(d.id, 1, 4)
+      expect(dynamicOffsetOverrideOf(model.getScore(), d.id)).toBeDefined()
+
+      model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+
+      // Rebar regenerates the dynamic's id; the offset must follow the new id, not orphan on the old.
+      const dyn = model.getDynamics(1)[0]
+      expect(dyn.id).not.toBe(d.id)
+      expect(dynamicOffsetOverrideOf(model.getScore(), dyn.id)).toEqual({ kind: 'dynamicOffset', x: 1, y: 4 })
+      expect(dynamicOffsetOverrideOf(model.getScore(), d.id)).toBeUndefined() // old id no longer present
     })
   })
 })

@@ -13,9 +13,9 @@
  */
 import type {
   Score, Measure, Note, Chord, NotePitch, Rest, TimeSignature, Clef, Dynamic, TempoMark,
-  DynamicLevel, Slur, EngravingOverride, RestShiftOverride, RestHiddenOverride,
+  DynamicLevel, Slur, EngravingOverride, RestShiftOverride, RestHiddenOverride, DynamicOffsetOverride,
 } from '@/types/music'
-import { restShiftOverrideOf, restHiddenOf, restPositionKey } from './engravingOverrides'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf } from './engravingOverrides'
 import { durationToFraction } from '@/utils/durations'
 import { getMeterInfo } from '@/utils/meter'
 import type { RestSlot } from '@/utils/restFill'
@@ -59,7 +59,7 @@ export interface RebarDeps {
  */
 type CapturedAnchor =
   | { kind: 'clef'; absBeat: Fraction; clef: Clef; staffId?: string }
-  | { kind: 'dynamic'; absBeat: Fraction; dyn: Dynamic }
+  | { kind: 'dynamic'; absBeat: Fraction; dyn: Dynamic; offset?: { x: number; y: number } }
   | { kind: 'tempo'; absBeat: Fraction; mark: TempoMark }
 
 /**
@@ -76,6 +76,8 @@ export type ClipDynamicInput = {
   level?: DynamicLevel
   text?: string
   placement?: 'above' | 'below'
+  /** Hand-nudged engraving offset (client #8), captured at copy so it travels with the mark. */
+  engravingOffset?: { x: number; y: number }
 }
 
 /** A pitch identity used to re-find a clip slur endpoint on the pasted notes. */
@@ -166,7 +168,7 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
   // Capture beat-anchored annotations (clef changes + dynamics) by their ABSOLUTE
   // offset from the region start, using the OLD capacities — before the meter is
   // overwritten below. They are re-anchored after rebar (see restoreBeatAnchors).
-  const anchors = captureBeatAnchors(regionMeasures)
+  const anchors = captureBeatAnchors(score, deps, regionMeasures)
 
   // Capture manual rest shifts the same way — by absolute region-relative offset, before
   // rest-fill regenerates every rest with a fresh id. Re-stamped after materialise.
@@ -245,7 +247,7 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
 
   // Re-anchor the captured clef changes / dynamics into the new bar layout,
   // mapping each absolute offset to the (measure, beat) it now lands on.
-  restoreBeatAnchors(score, regionNumbers, anchors)
+  restoreBeatAnchors(score, deps, regionNumbers, anchors)
 
   // Re-stamp the captured rest shifts onto whatever rest now starts at each offset
   // (dropped where the new tiling has no rest start — plan §4).
@@ -301,7 +303,7 @@ export function pasteEvents(
 
   const boundary = captureBoundaryTies(score, regionMeasures)
   const slurState = captureSlurs(score, regionMeasures)
-  const anchors = captureBeatAnchors(regionMeasures)
+  const anchors = captureBeatAnchors(score, deps, regionMeasures)
   // Preserve the destination's own rest shifts across the rebar (those outside the paste
   // window survive; ones whose rest the paste overwrites are dropped). The clip's shifts
   // are stamped ON TOP afterwards (last wins) — see §6.5 threading.
@@ -405,7 +407,7 @@ export function pasteEvents(
   // Re-anchor the clip's own slurs onto the freshly-pasted notes (Phase 3), mapping rel→abs
   // staff (drop overflow) + re-voicing single-voice clips — the slur analogue of clip dynamics.
   restoreClipSlurs(score, deps, regionNumbers, clipSlurs, targetStaff, targetVoice, singleVoice, pasteStart, staffCount)
-  restoreBeatAnchors(score, regionNumbers, survivingAnchors)
+  restoreBeatAnchors(score, deps, regionNumbers, survivingAnchors)
   // Re-anchor the clip's own dynamics on top (Phase 2): re-base each clip-relative offset by the
   // paste start, map the RELATIVE staff onto an absolute one (clamped — drop overflow lanes), and
   // re-voice a single-voice clip into the target voice (mirroring the destVoices rule). Routed
@@ -425,9 +427,9 @@ export function pasteEvents(
       ...(cd.placement !== undefined ? { placement: cd.placement } : {}),
       ...(staffId !== undefined ? { staffId } : {}),
     }
-    clipAnchors.push({ kind: 'dynamic', absBeat: fracAdd(pasteStart, cd.offset), dyn })
+    clipAnchors.push({ kind: 'dynamic', absBeat: fracAdd(pasteStart, cd.offset), dyn, ...(cd.engravingOffset ? { offset: cd.engravingOffset } : {}) })
   }
-  restoreBeatAnchors(score, regionNumbers, clipAnchors)
+  restoreBeatAnchors(score, deps, regionNumbers, clipAnchors)
   // Re-stamp the destination's own rest shifts; the clip's shifts are applied after this,
   // so they win on any position collision.
   restoreRestShifts(score, deps, regionNumbers, restShifts)
@@ -539,14 +541,20 @@ function rangeForOffset(
  * The originals are wiped by {@link clearMeasureForRebar}; {@link restoreBeatAnchors}
  * re-creates them (fresh ids) at the position each offset maps to afterwards.
  */
-function captureBeatAnchors(regionMeasures: Measure[]): CapturedAnchor[] {
+function captureBeatAnchors(score: Score, deps: RebarDeps, regionMeasures: Measure[]): CapturedAnchor[] {
   const out: CapturedAnchor[] = []
   forEachRegionMeasure(regionMeasures, (m, base) => {
     for (const c of m.clefs ?? []) {
       out.push({ kind: 'clef', absBeat: fracAdd(base, c.beat), clef: c.clef, staffId: c.staffId })
     }
     for (const d of m.dynamics ?? []) {
-      out.push({ kind: 'dynamic', absBeat: fracAdd(base, d.beat), dyn: d })
+      // A hand-nudged offset (client #8) is id-keyed, and rebar regenerates the dynamic's id,
+      // so capture it here and CLEAR the old key — restoreBeatAnchors re-stamps it under the
+      // fresh id. Mirrors captureRestShifts (position-keyed twin). Without this the override
+      // would orphan on any rebar of a nudged dynamic.
+      const off = dynamicOffsetOverrideOf(score, d.id)
+      if (off) deps.clearEngravingOverride(d.id, 'dynamicOffset')
+      out.push({ kind: 'dynamic', absBeat: fracAdd(base, d.beat), dyn: d, ...(off ? { offset: { x: off.x, y: off.y } } : {}) })
     }
     // Tempo marks are beat-anchored too, so a meter change would silently DELETE them
     // (clearMeasureForRebar drops the array) unless they ride this seam. They carry no
@@ -565,7 +573,7 @@ function captureBeatAnchors(regionMeasures: Measure[]): CapturedAnchor[] {
  * past the (defensively) rebuilt region is clamped to the last bar. A collision
  * at the same beat (+ voice, for dynamics) is overwritten — last wins.
  */
-function restoreBeatAnchors(score: Score, regionNumbers: number[], anchors: CapturedAnchor[]): void {
+function restoreBeatAnchors(score: Score, deps: RebarDeps, regionNumbers: number[], anchors: CapturedAnchor[]): void {
   if (anchors.length === 0) return
 
   const ranges = regionRanges(score, regionNumbers)
@@ -596,8 +604,15 @@ function restoreBeatAnchors(score: Score, regionNumbers: number[], anchors: Capt
     } else {
       // Dynamics may stack at one (beat, voice) — keep them all (no dedupe).
       if (!m.dynamics) m.dynamics = []
-      m.dynamics.push({ ...a.dyn, id: uuidv4(), beat })
+      const newId = uuidv4()
+      m.dynamics.push({ ...a.dyn, id: newId, beat })
       m.dynamics.sort((x, y) => fracCompare(x.beat, y.beat))
+      // Re-stamp the captured hand-nudged offset under the regenerated id (client #8) — this is
+      // how a nudged dynamic keeps its offset across a rebar AND how a pasted one carries it.
+      if (a.offset) {
+        const next: DynamicOffsetOverride = { kind: 'dynamicOffset', x: a.offset.x, y: a.offset.y }
+        deps.setEngravingOverride(newId, next)
+      }
     }
   }
 }

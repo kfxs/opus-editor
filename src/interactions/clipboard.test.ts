@@ -3,7 +3,7 @@ import { MusicEngine } from '../engine/MusicEngine'
 import { buildClipboardFromSelection } from './clipboard'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
-import { restPositionKey, restShiftOverrideOf, restHiddenOf } from '../engine/models/engravingOverrides'
+import { restPositionKey, restShiftOverrideOf, restHiddenOf, dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import type { ClipboardPayload } from './clipboard'
 
 const fakeRegistry = {
@@ -396,6 +396,21 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     const payload = buildClipboardFromSelection(engine.getScore(), [c])!
     engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, clipDynsPass(payload))
     expect(dynsOf(2, 0)).toEqual(['f@0']) // only the clip's, not ['p@0','f@0']
+  })
+
+  it('carries a hand-nudged offset (client #8) with the pasted dynamic', () => {
+    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const d = engine.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'f', voice: 0 })!
+    engine.nudgeDynamicOffset(d.id, 2, -3) // hand-nudge the source mark
+
+    const payload = buildClipboardFromSelection(engine.getScore(), [c])!
+    expect(payload.dynamics[0].engravingOffset).toEqual({ x: 2, y: -3 })
+
+    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, clipDynsPass(payload))
+
+    // The pasted dynamic got a fresh id, but the offset rode along, re-keyed to it.
+    const pasted = engine.getDynamics(2).find(x => x.level === 'f')!
+    expect(dynamicOffsetOverrideOf(engine.getScore(), pasted.id)).toEqual({ kind: 'dynamicOffset', x: 2, y: -3 })
   })
 
   it('carries a dynamic across staves (1+2 → 3+4)', () => {
