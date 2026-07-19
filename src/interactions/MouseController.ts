@@ -394,6 +394,19 @@ export class MouseController {
     else this.armDynamicEntry()
   }
 
+  /**
+   * Open the inline editor on the currently SELECTED dynamic — the keyboard twin of double-clicking
+   * it (bound to Enter). Returns whether it acted, so the Enter shortcut DECLINES (stays free) when
+   * no dynamic is selected. No-op mid text-edit or before the editor is wired.
+   */
+  editSelectedDynamic(): boolean {
+    if (this.state.editingText) return false
+    const id = this.state.selectedDynamicId
+    if (!id || !this.getEngine()?.getDynamicById(id)) return false
+    this.openTextEditor(id, false)
+    return true
+  }
+
   /** Resolve a paste-placement click to a (measure, slot beat) and commit the paste. */
   private commitArmedPaste(event: MouseEvent): void {
     const engine = this.getEngine()

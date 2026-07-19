@@ -28,6 +28,7 @@ export function useShortcuts(
   getLastMousePosition: () => { x: number; y: number } | null,
   insertExpression: () => void,
   insertTempo: () => void,
+  editSelectedDynamic: () => boolean,
 ): { enable: () => void; disable: () => void } {
   const shortcutManager = new ShortcutManager()
 
@@ -141,6 +142,9 @@ export function useShortcuts(
     // Ctrl+E — the same action as Insert ▸ Text ▸ Expression. The branch (attach-and-edit vs
     // arm the click-to-type tool) lives in MouseController.insertExpression, one source for both.
     editDynamicOnSelection: () => insertExpression(),
+    // Enter — edit the selected dynamic inline (twin of double-click). Returns false to DECLINE
+    // (keep Enter free) when no dynamic is selected. MouseController.editSelectedDynamic.
+    editSelectedDynamic: () => editSelectedDynamic(),
     // Ctrl+Alt+T — the tempo twin; branch lives in MouseController.insertTempo.
     insertTempoOnSelection: () => insertTempo(),
     zoomIn: () => viewport.zoomToStop(1, viewportCenter()),

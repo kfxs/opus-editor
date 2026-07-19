@@ -136,12 +136,18 @@ render callback. No logic.
 
 ## 5. Interaction flow
 
-### 5.1 Edit existing — double-click (selection tool)
-`@dblclick` on canvas → `MouseController.handleDoubleClick(e)` → `textDynamicIdAt(x,y)` (bbox hit-test +
-`kind:'text'` check). If a text mark is hit → build a `DynamicTextSource` (`isNew:false`) →
+### 5.1 Edit existing — double-click OR Enter (selection tool)
+`@dblclick` on canvas → `MouseController.handleDoubleClick(e)` → bbox hit-test for a dynamic. **Any**
+dynamic is editable now (no `kind` check — a `Dynamic` is only its `text`; see
+docs/dynamics-text-as-truth-plan.md), so a hit builds a `DynamicTextSource` (`isNew:false`) →
 `textEdit.open(source)`. A single click **always uses the active tool** (do NOT reserve text-mark clicks
 for editing — an earlier attempt at that was rejected: with a tool selected, clicking must use the
 tool). So double-click editing is cleanest in the **selection** tool, where single clicks just select.
+
+**Keyboard twin — Enter.** With a dynamic selected, `Enter` opens the same editor via
+`MouseController.editSelectedDynamic()` (the `'Enter'` shortcut → `editSelectedDynamic` action). It
+**returns `false` to DECLINE** when no dynamic is selected, so `Enter` stays a free key otherwise; while
+already editing, `ShortcutManager`'s `isInInput` guard skips it so the overlay's own Enter=commit wins.
 
 ### 5.2 Place new — drop default text, do NOT auto-open the editor
 In `MouseController.handleClick`, the `'text'` dynamics tool drops a `DEFAULT_DYNAMIC_TEXT` (`'Text'`)

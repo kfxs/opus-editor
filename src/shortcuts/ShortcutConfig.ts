@@ -242,6 +242,13 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Paste (overwrite-forward from the selection; or click to place when nothing is selected)',
   },
 
+  // Enter on a selected dynamic opens its inline editor — the keyboard twin of double-clicking it.
+  // Declines (stays a free key) when no dynamic is selected.
+  'Enter': {
+    action: 'editSelectedDynamic',
+    description: 'Edit the selected dynamic inline',
+  },
+
   // Expression: attach a custom-text dynamic to the selected note/rest and edit it inline.
   'Ctrl+e': {
     action: 'editDynamicOnSelection',

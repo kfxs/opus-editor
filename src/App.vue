@@ -885,6 +885,7 @@ const shortcuts = useShortcuts(
   () => mouse.getLastMousePosition(),
   () => mouse.insertExpression(),
   () => mouse.insertTempo(),
+  () => mouse.editSelectedDynamic(),
 )
 
 // While a hand/grab pan is active, hide the OS pointer everywhere — not just over the
