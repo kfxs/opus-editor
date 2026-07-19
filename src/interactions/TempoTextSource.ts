@@ -46,6 +46,11 @@ export class TempoTextSource implements EditableTextSource {
     private getCanvas: () => HTMLElement | null,
     private render: () => void,
     private getZoom: () => number = () => 1,
+    /** Optional override for the INITIAL editor text (mount seed only). The Ctrl+Alt+T "insert
+     *  tempo" flow passes `''` to open the box BLANK even though the freshly-placed mark carries a
+     *  placeholder in the model — the placeholder only exists so the mark renders a measurable box.
+     *  Undefined ⇒ seed from the model's own text (the double-click-an-existing-mark case). */
+    private seedText?: string,
   ) {
     // Measure the ENGRAVED mark itself rather than deriving anything: its <g> is in the DOM
     // (TempoLayout opens it with the mark's id), so the browser can tell us exactly where it is
@@ -149,9 +154,10 @@ export class TempoTextSource implements EditableTextSource {
     }
   }
 
-  /** The mark IS its text — no formatting step, nothing to drift. */
+  /** The mark IS its text — no formatting step, nothing to drift. `??` (not `||`) so an explicit
+   *  '' seed override wins: a blank box for the "type your own tempo" flow is intentional. */
   getText(): string {
-    return this.engine.getTempoMarkById(this.targetId)?.text ?? ''
+    return this.seedText ?? this.engine.getTempoMarkById(this.targetId)?.text ?? ''
   }
 
   getScreenRect(): { x: number; y: number; width: number; height: number } {

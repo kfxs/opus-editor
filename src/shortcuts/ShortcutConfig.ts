@@ -247,6 +247,13 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'editDynamicOnSelection',
     description: 'Insert a dynamic on the selected note/rest and type it inline',
   },
+  // Tempo: the twin of Ctrl+E — insert a tempo mark and type it inline. M for Metronome; Sibelius's
+  // own tempo shortcut (Ctrl+Alt+T) is grabbed by the Linux terminal, and Ctrl+T is left free for a
+  // future Technique text (Sibelius's Ctrl+T), keeping the Ctrl+E / Ctrl+T text-family intact.
+  'Ctrl+m': {
+    action: 'insertTempoOnSelection',
+    description: 'Insert a tempo mark on the selected note/rest (or click to place) and type it inline',
+  },
 
   // Zoom (Ctrl+=/Ctrl+- snap the ladder toward the viewport center; Ctrl+0 resets to 100%).
   // Routed through ShortcutManager so its preventDefault suppresses the browser's own page-zoom.

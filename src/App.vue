@@ -883,6 +883,7 @@ const shortcuts = useShortcuts(
   viewport,
   () => mouse.getLastMousePosition(),
   () => mouse.insertExpression(),
+  () => mouse.insertTempo(),
 )
 
 // While a hand/grab pan is active, hide the OS pointer everywhere — not just over the

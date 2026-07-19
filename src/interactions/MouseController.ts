@@ -16,6 +16,9 @@ import { fracToNumber, fracEq } from '../utils/fraction'
 
 /** Default text for a newly placed custom-text dynamic; edit it via double-click. */
 const DEFAULT_DYNAMIC_TEXT = 'Text'
+/** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
+ *  edit box opens blank over it and an empty commit deletes it, so it is never actually seen. */
+const DEFAULT_TEMPO_TEXT = 'Tempo'
 import { getMeasureNotes, beatToFrac, measureCapacityQuarters } from '../utils/musicUtils'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '../utils/pitchSpelling'
 
@@ -262,6 +265,9 @@ export class MouseController {
      *  than reached for so {@link insertExpression} — the Ctrl+E / Insert▸Text▸Expression action —
      *  can live here (with the attach-and-edit half) without MouseController depending on the palette. */
     private armDynamicEntry: () => void,
+    /** Arm the click-to-type tempo tool (PaletteController.armTempoEntry) — the tempo twin of
+     *  `armDynamicEntry`, used by {@link insertTempo} (Ctrl+Alt+T). */
+    private armTempoEntry: () => void,
     /** Scroll the viewport by a client-pixel delta (content follows the hand). */
     private panBy: (dx: number, dy: number) => void,
     /** Current view zoom — handed to the text editor so its (fixed-position) font scales (§5.4). */
@@ -971,8 +977,9 @@ export class MouseController {
   }
 
   /** Open the in-canvas text overlay over a tempo mark — the WHOLE mark, `Allegro (♩ = 144)`,
-   *  as one editable string (TempoTextSource parses the model back out of it). */
-  private openTempoTextEditor(tempoId: string, isNew: boolean): void {
+   *  as one editable string (TempoTextSource parses the model back out of it). `seedText` opens the
+   *  box with different initial text than the model holds — `''` for the blank Ctrl+Alt+T flow. */
+  private openTempoTextEditor(tempoId: string, isNew: boolean, seedText?: string): void {
     const engine = this.getEngine()
     const textEdit = this.getTextEdit()
     if (!engine || !textEdit) return
@@ -983,7 +990,43 @@ export class MouseController {
       () => this.getScoreCanvas(),
       () => this.render.renderScore(),
       this.getZoom,
+      seedText,
     ))
+  }
+
+  /**
+   * The "insert a tempo" action — the tempo twin of {@link insertExpression}, and the one thing
+   * Ctrl+Alt+T does. With a note/rest selected, place a tempo mark at its (measure, beat) and open
+   * the edit box blank to type the whole mark; with nothing selected, arm the click-to-type tempo
+   * tool (blue cursor) so the next canvas click places and edits one.
+   */
+  insertTempo(): void {
+    if (this.state.selectedNoteId) this.editTempoOnSelection()
+    else this.armTempoEntry()
+  }
+
+  /**
+   * Ctrl+Alt+T with a note/rest selected: place a tempo mark at that element's (measure, beat) and
+   * open the edit box blank. Tempo is system-level, so — unlike a dynamic — the mark carries NO
+   * staffId and NO voice (it governs the clock, not the staff it was placed from). The placeholder
+   * text only exists so the mark renders a measurable box; the box opens blank (seedText `''`) and,
+   * being `isNew`, deletes the mark on an empty commit.
+   */
+  private editTempoOnSelection(): void {
+    const engine = this.getEngine()
+    const textEdit = this.getTextEdit()
+    if (!engine || !textEdit || this.state.editingText) return
+    const noteId = this.state.selectedNoteId
+    if (!noteId) return
+    const note = engine.getNote(noteId)
+    if (!note) return
+    const created = engine.addTempoMark(note.measure, { beat: note.beat, text: DEFAULT_TEMPO_TEXT })
+    if (!created) return
+    // Render so the mark is in the DOM for TempoTextSource to measure; openTempoTextEditor then
+    // suppresses + re-renders it — both before paint, so the placeholder never flashes.
+    this.render.renderScore()
+    this.openTempoTextEditor(created.id, true, '')
+    dbg(`✓ Insert tempo on selection: measure ${note.measure} beat ${fracToNumber(note.beat).toFixed(3)} (note ${noteId})`)
   }
 
   /** Select a dynamic mark for removal, or open the text editor on a double-click. */
@@ -1429,6 +1472,7 @@ export class MouseController {
     if (this.placeDynamicAtClick(engine, x, y, measureNum)) return
     if (this.placeDynamicEntryAtClick(engine, x, y, measureNum)) return
     if (this.placeTempoAtClick(engine, x, measureNum)) return
+    if (this.placeTempoEntryAtClick(engine, x, measureNum)) return
     if (this.stampArticulationAtClick(engine, registry, x, y)) return
     if (this.stampAccidentalAtClick(engine, registry, x, y)) return
     if (this.stampTieAtClick(engine, registry, x, y)) return
@@ -1536,6 +1580,28 @@ export class MouseController {
     this.render.renderScore()
     this.openTextEditor(created.id, true, '')
     dbg(`✓ Expression entry: dynamic at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
+    return true
+  }
+
+  /**
+   * Ctrl+Alt+T tempo-entry tool (armed with nothing selected): the click places a tempo mark at the
+   * nearest slot of the clicked bar and opens the edit box BLANK to type it — the click-to-place twin
+   * of {@link editTempoOnSelection}. Single-shot: it disarms back to selection mode. NO staff (tempo
+   * is system-level); the placeholder text only exists so the mark renders a measurable box.
+   */
+  private placeTempoEntryAtClick(engine: MusicEngine, x: number, measureNum: number): boolean {
+    if (!armedTool(this.state, 'tempoEntry')) return false
+    const beat = this.resolveSlotBeat(engine, x, measureNum)
+    const created = engine.addTempoMark(measureNum, { beat, text: DEFAULT_TEMPO_TEXT })
+    // Disarm to selection mode either way — the click is consumed. (Reassign, never mutate.)
+    this.state.selectedMarkingTool = null
+    this.state.selectedTool = 'selection'
+    if (!created) { this.render.renderScore(); return true }
+    // Render so the mark is in the DOM for TempoTextSource to measure; openTempoTextEditor then
+    // suppresses + re-renders it — both before paint, so the placeholder never flashes.
+    this.render.renderScore()
+    this.openTempoTextEditor(created.id, true, '')
+    dbg(`✓ Tempo entry: mark at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)}`)
     return true
   }
 

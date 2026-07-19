@@ -74,6 +74,7 @@ describe('MouseController', () => {
       () => null,             // text edit
       clipboard as never,
       () => {},               // arm dynamic entry
+      () => {},               // arm tempo entry
       panBy,
       () => 1,
     )

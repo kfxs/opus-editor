@@ -260,9 +260,10 @@ export class RenderController {
       case 'clef': this.renderClefGhost(coords, tool.clef); return
       case 'timeSignature': this.renderTimeSignatureGhost(coords, tool.timeSignature); return
       case 'dynamic': this.renderDynamicGhost(coords, tool.dynamic); return
-      // Ctrl+E expression entry: NO ghost. A blue cursor (App.vue) signals "click to place & type",
-      // so there is nothing to preview at the pointer — skip the repaint the other tools do.
-      case 'dynamicEntry': return
+      // Click-to-type entry (expression Ctrl+E, tempo Ctrl+Alt+T): NO ghost. A blue cursor signals
+      // "click to place & type", so there is nothing to preview — skip the repaint the others do.
+      case 'dynamicEntry':
+      case 'tempoEntry': return
       // The actual MARK ('Allegro (♩ = 120)'), so what you see is what gets engraved.
       case 'tempo': this.renderTempoGhost(coords, tool.tempo); return
       // Stacked, so the ghost reads as everything the click will stamp.

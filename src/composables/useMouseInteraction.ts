@@ -35,6 +35,7 @@ export function useMouseInteraction(
     () => textEdit,
     clipboard,
     () => palette.armDynamicEntry(),
+    () => palette.armTempoEntry(),
     panBy,
     getZoom,
   )

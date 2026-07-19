@@ -71,6 +71,10 @@ export type MarkingTool =
    *  pointer. Always the custom-text/inline flavour, so it carries nothing. See
    *  MouseController.placeDynamicEntryAtClick. */
   | { kind: 'dynamicEntry' }
+  /** VALUELESS — Ctrl+Alt+T with nothing selected. The tempo twin of `dynamicEntry`: places a
+   *  placeholder tempo mark and opens the edit box BLANK to type the whole mark. Same NO-ghost +
+   *  blue-cursor treatment. See MouseController.placeTempoEntryAtClick. */
+  | { kind: 'tempoEntry' }
 
 /**
  * The length the editor starts from, and returns to. A quarter, undotted — the value
@@ -104,6 +108,7 @@ export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean
   dynamic: false,
   dynamicEntry: false, // places a text mark; a length means nothing to it (like `dynamic`)
   tempo: false,
+  tempoEntry: false, // places a tempo mark; a length means nothing to it (like `tempo`)
   articulation: false, // the four stamps mark notes that ALREADY have their length
   accidental: false,
   tie: false,
@@ -141,13 +146,15 @@ export function assertNeverTool(tool: never): never {
  * The score canvas's cursor, DERIVED from state — the one place the cursor decision lives, so the
  * view only binds the result. Framework-agnostic on purpose: the class names are the layer contract
  * (a future non-Vue host reuses this function and supplies its own equivalent styles), and the rule
- * — panning hides the pointer; the Ctrl+E expression-entry tool shows the blue "click to place & type"
- * pointer; otherwise the default arrow — is not something the template should reimplement inline.
- * Returns a class name, not a boolean, so a fourth cursor never means touching the view again.
+ * — panning hides the pointer; the click-to-type entry tools (expression Ctrl+E, tempo Ctrl+Alt+T)
+ * show the blue "click to place & type" pointer; otherwise the default arrow — is not something the
+ * template should reimplement inline. Returns a class name, not a boolean, so a fourth cursor never
+ * means touching the view again.
  */
-export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-dynamic-entry' | 'cursor-default' {
+export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-text-entry' | 'cursor-default' {
   if (state.isPanning) return 'cursor-none'
-  if (state.selectedMarkingTool?.kind === 'dynamicEntry') return 'cursor-dynamic-entry'
+  const kind = state.selectedMarkingTool?.kind
+  if (kind === 'dynamicEntry' || kind === 'tempoEntry') return 'cursor-text-entry'
   return 'cursor-default'
 }
 
