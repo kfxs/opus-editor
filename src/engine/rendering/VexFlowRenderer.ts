@@ -1426,6 +1426,31 @@ export class VexFlowRenderer {
     }
   }
 
+  /**
+   * Register a GLYPH element by its OWN VexFlow object's ink box (docs/tight-bbox-plan.md §6a).
+   *
+   * Pass the LEAF glyph — a `NoteHead`, `Accidental`, `Articulation`, `Dot`, `Clef` — never a
+   * `StaveNote` container: `StaveNote.getBoundingBox()` unions every attached modifier into its own
+   * box, and our dynamics are attached `Annotation`s, so a rest/note carrying a dynamic would
+   * register a box reaching all the way down to the dynamic's ink and steal its clicks. This is the
+   * one choke point that keeps that container-union box out of every glyph registration site.
+   *
+   * Carve-outs that legitimately do NOT go through here: notes/chords (hit-tested semantically off
+   * the notehead, §4a — they keep the union box + `headX`), the region types (line-start clef, time
+   * signature, stave, barline — hand-built rects they WANT), and dynamics/tempo (own ink rebuild).
+   *
+   * @returns whether an element was registered (false when the glyph has no box yet — pre-draw).
+   */
+  private addGlyphElement(
+    glyph: { getBoundingBox(): { x: number; y: number; w: number; h: number } | undefined },
+    info: Omit<ElementInfo, 'bbox'>,
+  ): boolean {
+    const b = glyph.getBoundingBox()
+    if (!b) return false
+    this.elementRegistry.add({ ...info, bbox: { x: b.x, y: b.y, width: b.w, height: b.h } })
+    return true
+  }
+
   private registerSlotElements(
     sortedSlots: ChordRest[],
     staveNotes: StaveNote[],
@@ -1438,18 +1463,22 @@ export class VexFlowRenderer {
 
       if (slot.type === 'rest') {
         try {
-          const box = staveNote.getBoundingBox()
-          if (box) {
-            this.elementRegistry.add({
-              type: 'rest',
-              id: slot.id,
-              measure: measure.number,
-              staff: staffIndex,
-              beat: fracToNumber(slot.beat),
-              duration: slot.duration,
-              tupletId: slot.tupletId,
-              bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
-            })
+          // Register the rest by its OWN glyph's ink box (its single notehead), NOT the StaveNote
+          // container box — the container unions attached modifiers, so a rest carrying a dynamic
+          // would register a box reaching down to the dynamic (docs/tight-bbox-plan.md §3, §6a).
+          // A rest StaveNote has exactly one notehead (the rest glyph); fall back to the StaveNote
+          // if it isn't available yet (pre-draw), which preserves the old behaviour.
+          const glyph = staveNote.noteHeads[0] ?? staveNote
+          const registered = this.addGlyphElement(glyph, {
+            type: 'rest',
+            id: slot.id,
+            measure: measure.number,
+            staff: staffIndex,
+            beat: fracToNumber(slot.beat),
+            duration: slot.duration,
+            tupletId: slot.tupletId,
+          })
+          if (registered) {
             // Add rest to staveNoteMap so ties pointing to this rest can be rendered
             this.staveNoteMap.set(slot.id, { staveNote, noteIndex: 0 })
             // A rest carries its dots on its own id — it IS the slot, so it is its own anchor.
