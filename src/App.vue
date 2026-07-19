@@ -1358,13 +1358,6 @@ function onDevSoundChange() {
   background-color: #ffffff;
 }
 
-/* Ctrl+E expression-entry cursor: a BLUE pointer (white-outlined for contrast on the slate score)
-   that signals "click here to place a dynamic and type it". A recolored arrow rather than a ghost —
-   see EditorState MarkingTool 'dynamicEntry'. Hotspot at the tip (4,2). */
-.cursor-dynamic-entry {
-  cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M4 2 L4 19 L8.5 14.8 L11.3 20.5 L14 19.2 L11.2 13.7 L17 13.7 Z' fill='%232563eb' stroke='%23ffffff' stroke-width='1.3' stroke-linejoin='round'/></svg>") 4 2, crosshair;
-}
-
 /* Playback cursor: thin green bar at the start of the playing measure. Positioned via
    transform (left/top stay 0); pointer-events:none so it never blocks score clicks. */
 .play-cursor {
