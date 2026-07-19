@@ -64,6 +64,13 @@ export type MarkingTool =
    *  copy to keep in step, which is the N² problem this union was built to delete. It is why this is
    *  the only tool the note-entry keys stay LIVE under — see {@link MARKING_TOOL_USES_ARMED_LENGTH}. */
   | { kind: 'rest' }
+  /** VALUELESS — Ctrl+E with nothing selected. The click-to-type expression tool: it places a
+   *  custom-text dynamic and opens the inline editor BLANK (no placeholder to clear), rather than
+   *  dropping a placeholder like `{ kind:'dynamic'; dynamic:'text' }`. It previews NO ghost — a blue
+   *  cursor signals placement instead — so it is the one marking tool with nothing to draw at the
+   *  pointer. Always the custom-text/inline flavour, so it carries nothing. See
+   *  MouseController.placeDynamicEntryAtClick. */
+  | { kind: 'dynamicEntry' }
 
 /**
  * The length the editor starts from, and returns to. A quarter, undotted — the value
@@ -95,6 +102,7 @@ export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean
   clef: false,       // the four below place OBJECTS — a length means nothing to them
   timeSignature: false,
   dynamic: false,
+  dynamicEntry: false, // places a text mark; a length means nothing to it (like `dynamic`)
   tempo: false,
   articulation: false, // the four stamps mark notes that ALREADY have their length
   accidental: false,
@@ -127,6 +135,20 @@ export function armedTool<K extends MarkingTool['kind']>(
  *  build here, which is what makes adding a ninth tool safe instead of a memory test. */
 export function assertNeverTool(tool: never): never {
   throw new Error(`Unhandled marking tool: ${JSON.stringify(tool)}`)
+}
+
+/**
+ * The score canvas's cursor, DERIVED from state — the one place the cursor decision lives, so the
+ * view only binds the result. Framework-agnostic on purpose: the class names are the layer contract
+ * (a future non-Vue host reuses this function and supplies its own equivalent styles), and the rule
+ * — panning hides the pointer; the Ctrl+E expression-entry tool shows the blue "click to place & type"
+ * pointer; otherwise the default arrow — is not something the template should reimplement inline.
+ * Returns a class name, not a boolean, so a fourth cursor never means touching the view again.
+ */
+export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-dynamic-entry' | 'cursor-default' {
+  if (state.isPanning) return 'cursor-none'
+  if (state.selectedMarkingTool?.kind === 'dynamicEntry') return 'cursor-dynamic-entry'
+  return 'cursor-default'
 }
 
 /**

@@ -134,6 +134,17 @@ export class PaletteController {
   }
 
   /**
+   * Ctrl+E with nothing selected: arm the click-to-type expression-entry tool. Routes through the
+   * one arm path like every other tool, so it clears the others by construction. Unlike the
+   * dynamics-palette custom-text button (`{ kind:'dynamic'; dynamic:'text' }`, which ghosts a
+   * placeholder and drops it on click), this previews NO ghost — a blue cursor signals placement —
+   * and the placing click opens the inline editor BLANK (MouseController.placeDynamicEntryAtClick).
+   */
+  armDynamicEntry(): void {
+    this.armMarkingTool({ kind: 'dynamicEntry' })
+  }
+
+  /**
    * Does the selection hold any note or rest?
    *
    * THE STAMP RULE: a stamp arms only when it does NOT — "we go to stamp mode when the selection is
@@ -529,6 +540,7 @@ export class PaletteController {
       case 'clef':         // the four below place OBJECTS, not note properties: nothing to carry
       case 'timeSignature':
       case 'dynamic':
+      case 'dynamicEntry': // places a text mark, not a note property — nothing to promote to
       case 'tempo':
       case undefined:      // nothing was armed: a plain duration press, which clears a stale dot
         // Dropping a stale accidental here is deliberate: an INTENTIONAL one arms the stamp (and so

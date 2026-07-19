@@ -493,7 +493,7 @@
           <div
             ref="scoreCanvas"
             class="score-container bg-slate-200 rounded-lg overflow-auto"
-            :class="state.isPanning ? 'cursor-none' : 'cursor-default'"
+            :class="scoreCursorClass(state)"
             :style="{ height: viewportHeight }"
             @click="(e) => mouse.handleClick(e)"
             @mousedown="(e) => mouse.handleMouseDown(e)"
@@ -728,7 +728,7 @@ import { MusicEngine } from './engine/MusicEngine'
 // ⚠️ TEMPORARY dev-only sound picker — remove when a real instrument model lands.
 import { DEV_SOUNDS } from './engine/audio/WebAudioFontInstrument'
 import { VIEWPORT_HEIGHT } from './engine/rendering/VexFlowRenderer'
-import { createObservableEditorState, armedTool } from './interactions/EditorState'
+import { createObservableEditorState, armedTool, scoreCursorClass } from './interactions/EditorState'
 import type { TempoTool } from './interactions/EditorState'
 import type { NoteDuration } from './types/music'
 import { useHighlight } from './composables/useHighlight'
@@ -1356,6 +1356,13 @@ function onDevSoundChange() {
 }
 .score-gutter svg {
   background-color: #ffffff;
+}
+
+/* Ctrl+E expression-entry cursor: a BLUE pointer (white-outlined for contrast on the slate score)
+   that signals "click here to place a dynamic and type it". A recolored arrow rather than a ghost —
+   see EditorState MarkingTool 'dynamicEntry'. Hotspot at the tip (4,2). */
+.cursor-dynamic-entry {
+  cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M4 2 L4 19 L8.5 14.8 L11.3 20.5 L14 19.2 L11.2 13.7 L17 13.7 Z' fill='%232563eb' stroke='%23ffffff' stroke-width='1.3' stroke-linejoin='round'/></svg>") 4 2, crosshair;
 }
 
 /* Playback cursor: thin green bar at the start of the playing measure. Positioned via

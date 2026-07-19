@@ -1412,6 +1412,7 @@ export class MouseController {
     if (this.placeTimeSignatureAtClick(engine, measureNum)) return
     if (this.placeClefAtClick(engine, x, y, measureNum)) return
     if (this.placeDynamicAtClick(engine, x, y, measureNum)) return
+    if (this.placeDynamicEntryAtClick(engine, x, y, measureNum)) return
     if (this.placeTempoAtClick(engine, x, measureNum)) return
     if (this.stampArticulationAtClick(engine, registry, x, y)) return
     if (this.stampAccidentalAtClick(engine, registry, x, y)) return
@@ -1492,6 +1493,34 @@ export class MouseController {
     engine.addDynamic(measureNum, { beat, kind: 'level', level: tool, voice: 0, placement: 'below', ...staffParam })
     dbg(`✓ Dynamic ${tool} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
     this.render.renderScore()
+    return true
+  }
+
+  /**
+   * Ctrl+E expression-entry tool (armed with nothing selected): the click places a custom-text
+   * dynamic on the nearest slot of the clicked bar/staff and opens the inline editor BLANK to type
+   * it — the click-to-place twin of {@link editDynamicOnSelection}. Single-shot: it disarms back to
+   * selection mode (this is expression entry, not a repeat stamp). The placeholder text only exists
+   * so the mark renders a real box for the overlay to position against; the editor opens blank
+   * (seedText `''`) and, being `isNew`, deletes the mark on an empty commit.
+   */
+  private placeDynamicEntryAtClick(engine: MusicEngine, x: number, y: number, measureNum: number): boolean {
+    if (!armedTool(this.state, 'dynamicEntry')) return false
+    const beat = this.resolveSlotBeat(engine, x, measureNum)
+    const staff = engine.getElementRegistry().staffIndexAtY(measureNum, y)
+    const staffId = engine.staffIdForIndex(staff)
+    const staffParam = staffId ? { staffId } : {}
+    const created = engine.addDynamic(measureNum, { beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below', ...staffParam })
+    // Disarm to selection mode either way — the click is consumed. (Reassign, never mutate: the
+    // observable Proxy only traps the SET.)
+    this.state.selectedMarkingTool = null
+    this.state.selectedTool = 'selection'
+    if (!created) { this.render.renderScore(); return true }
+    // Render so registerDynamics stores the mark's bbox; openTextEditor snapshots its position, then
+    // immediately suppresses + re-renders it — both before paint, so the placeholder never flashes.
+    this.render.renderScore()
+    this.openTextEditor(created.id, true, '')
+    dbg(`✓ Expression entry: dynamic at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
     return true
   }
 
