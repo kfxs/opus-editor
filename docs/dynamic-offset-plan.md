@@ -21,6 +21,28 @@ clear the `dynamicOffset` kind); making the offset **travel across paste** (a pa
 dynamic mints a fresh id, so the id-keyed override does not follow it yet — same
 deferred state as slur `curveShape` travel).
 
+## ⭐ TODO — NOT FINISHED (priority)
+
+Open items, roughly in priority order. Do #1 first.
+
+1. **[P0] ✅ DONE — Orphan `dynamicOffset` on delete.** `ScoreModel.removeDynamic` used to splice the
+   dynamic out of its measure but never clear `engravingOverrides[id]`, so a **nudged-then-deleted**
+   dynamic left its offset behind forever (harmless at render — unmatched keys are ignored — but it
+   accrued cruft in the JSON and every undo snapshot). Fixed: after the splice, `removeDynamic` now
+   calls `this.clearEngravingOverride(id)`, covered by a test (delete a nudged dynamic →
+   `engravingOverrides` is clean). Orphans already sitting in a live file still need a hand-delete or
+   a one-time prune on load if it ever comes up.
+2. **[P1] Offset does not travel across paste.** A pasted dynamic gets a fresh id, so its id-keyed
+   override doesn't follow (see "Out of scope" above). Would need capture/restore in the paste path,
+   re-keyed to the destination dynamic's new id.
+3. **[P2] Co-located level dynamics still measure inflated.** The `registerDynamics` bbox rebuild (see
+   the pointer-rect note below) only covers the single-dynamic path; `layoutCoLocatedDynamics`
+   re-measures stacked marks via `getBBox` on the group and re-inflates the box for co-located level
+   glyphs. Apply the same baseline rebuild there.
+4. **[P2] Attachment-line polish.** Tune `DYNAMIC_GLYPH_INK_ABOVE/BELOW` (`dynamicStyle`) once judged
+   live; revisit the chord anchor point (currently the lowest notehead). Longer term: the toggleable
+   "guide" overlay family (rulers, markers) the attachment line was built to seed.
+
 ## Settled decisions
 
 - **Client #8 of the engraving-overrides compartment**, `kind: 'dynamicOffset'`,

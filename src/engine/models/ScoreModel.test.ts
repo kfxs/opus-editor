@@ -946,6 +946,14 @@ describe('ScoreModel', () => {
       expect(model.removeDynamic('nope')).toBe(false)
     })
 
+    it('clears a hand-nudged offset override so it does not orphan on delete', () => {
+      const d = model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })!
+      model.nudgeDynamicOffset(d.id, 0, 3)
+      expect(model.getEngravingOverride(d.id, 'dynamicOffset')).toBeDefined()
+      expect(model.removeDynamic(d.id)).toBe(true)
+      expect(model.getEngravingOverride(d.id, 'dynamicOffset')).toBeUndefined()
+    })
+
     it('resolves the active level via getActiveLevel', () => {
       model.addDynamic(1, { beat: frac(0, 1), kind: 'level', level: 'p' })
       model.addDynamic(2, { beat: frac(0, 1), kind: 'level', level: 'f' })

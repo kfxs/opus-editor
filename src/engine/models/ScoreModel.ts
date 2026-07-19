@@ -498,6 +498,9 @@ export class ScoreModel {
       if (idx === -1) continue
       measure.dynamics.splice(idx, 1)
       if (measure.dynamics.length === 0) delete measure.dynamics
+      // An engraving override must not outlive its anchor: clear any hand-nudged
+      // offset keyed to this dynamic's id, else it orphans in the compartment.
+      this.clearEngravingOverride(id)
       return true
     }
     return false
