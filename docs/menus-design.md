@@ -1,7 +1,9 @@
 # Menus — the second primitive
 
-**Status: BUILT** (`src/menus/`) — P0–P2. Sibling to `Window` (docs/windows-design.md), not a kind of
-it. Right-click the score and a lorem menu opens; P3 (keyboard navigation) is not done.
+**Status: BUILT** (`src/menus/`) — P0–P2, and its first REAL commands have landed. Sibling to `Window`
+(docs/windows-design.md), not a kind of it. Right-click the score → the Insert menu: `Text ▸ Expression`
+(Ctrl+E) and `Text ▸ Tempo` (Ctrl+M) are wired; the remaining rows are still lorem placeholders,
+replaced one at a time. P3 (keyboard navigation) is not done.
 
 ## What this is
 
@@ -12,9 +14,10 @@ open a flyout to the side. That shape, and nothing else.
 menus.open({ x, y, items })   // viewport pixels; one root menu at a time
 ```
 
-**The first client is a demo.** Every row's label is lorem ipsum, some rows have a submenu and some
-don't, and selecting one does `console.log(label)`. No score command is wired to a row — this exists
-to prove the primitive, exactly as the Lorem window did before the Keypad.
+**The first client is the Insert menu.** It began as a demo — every row lorem ipsum, selecting one
+`console.log`s — to prove the primitive exactly as the Lorem window did before the Keypad. The real
+commands now replace those rows one at a time: `Text ▸ Expression` and `Text ▸ Tempo` are the first,
+each running the same action as its keyboard shortcut (see "How a command reaches a controller" below).
 
 ## A menu is NOT a Window
 
@@ -47,8 +50,12 @@ export type MenuItem =
 A **discriminated union**, not `{ label, onSelect?, items? }` with both optional. A row that has both
 is nonsense, and the union makes that nonsense *unspellable* rather than merely discouraged.
 
-**Not in the vocabulary yet, on purpose:** checkmarks, radio groups, shortcut hints, disabled rows,
-icons. Each goes in when a *third* menu wants it — the same guard the widget toolkit lives under.
+**The `shortcut` hint earned its place** (the leaf variant only — a submenu is not a keystroke): a
+pure display string echoing `ShortcutConfig`, rendered right-aligned and muted-italic, so `Expression`
+shows `Ctrl+E` and `Tempo` shows `Ctrl+M`. It is a display echo, not the binding — keep the two in step.
+
+**Still not in the vocabulary, on purpose:** checkmarks, radio groups, disabled rows, icons. Each goes
+in when a menu actually wants it — the same guard the widget toolkit lives under.
 
 **And it is emphatically not `new Column([new Button(...)])`.** Reusing the widget toolkit would make
 a menu "a chromeless window full of buttons", and then hover-to-open-flyout, the roving highlight and
@@ -101,8 +108,8 @@ so a `.vue` file never learns that menus exist. Same shape as `installKeypad`.
 | `src/menus/MenuItem.ts` | the union above. Data, no DOM. |
 | `src/menus/placement.ts` | pure: (anchor, size, host box) → position, flipped. Testable with no browser. |
 | `src/menus/MenuLayer.ts` | the DOM: the scrim, the root list, the flyouts, dismissal. No framework. |
-| `src/menus/index.ts` | the app's one layer instance, so any plain-TS module can open a menu. |
-| `src/menus/demo/loremMenu.ts` | the lorem item tree + the `contextmenu` listener on the viewport. |
+| `src/menus/index.ts` | the app's one layer instance + the `menuActions` command seam (below). |
+| `src/menus/insertMenu.ts` | the Insert item tree (real Text commands + remaining lorem) + the `contextmenu`/Menu-key listeners. |
 
 All of it under `npm run lint:boundary`.
 
@@ -143,17 +150,35 @@ know you were running.** The menu didn't create this; it revealed it.
   delayed, not just a submenu's, because an immediate collapse on entering a plain sibling row is
   exactly what kills the flyout you were diagonally travelling to. Clicking a `▸` row opens it now.
   Escape closes **one level**, not the whole chain.
-- ✅ **P2 — the demo.** `demo/loremMenu.ts`: right-click the viewport → lorem rows, two of them with
-  submenus (one nested two deep), select ⇒ `console.log`. Native context menu suppressed on the
-  viewport only.
+- ✅ **P2 — the Insert menu.** `insertMenu.ts`: right-click the viewport (or the Menu key) → the Insert
+  menu, with submenus (one nested two deep). Native context menu suppressed on the viewport only. It
+  began all-lorem; real commands now replace the rows one at a time (`Text ▸ Expression/Tempo` first).
 - **P3 — keyboard, not done.** ↑↓ to move, → to open a flyout, ← to leave it, Enter to select. Listed
   so the design isn't shaped *around* its absence; the roving highlight is already a data attribute
   the layer sets, not `:hover`, which is what P3 will need.
 
 ## What this is NOT
 
-- **Not a menu bar**, not a command registry, not a keyboard-shortcut-hint system. A menu is handed an
-  item tree by whoever opens it; it does not look anything up.
+- **Not a menu bar.** `open({x, y, items})` stays anchor-based, so a File/Edit bar is just another item
+  tree anchored at a button's corner when it comes — but it is not built.
 - **Not a right-click dispatcher.** Deciding *which* menu belongs to what was clicked (empty paper vs.
   a note vs. a slur) is the caller's job, and lives with the caller — `interactions/`, when there is
   ever a real menu. The menu system only takes `(x, y, items)`.
+
+## How a command reaches a controller
+
+A menu row that runs a real command needs a controller — but the controllers are created inside
+`App.vue`'s setup, and the menu is a framework-agnostic singleton that must not import them (and
+"add a menu ≠ edit App.vue"). The seam is a plain object, `menuActions`, in `src/menus/index.ts`:
+
+```ts
+export const menuActions: InsertMenuActions = {}          // filled by the app's glue
+// insertMenu leaf: onSelect: () => actions.insertExpression?.()   // read LATE, at click time
+// App.vue (one glue line each): menuActions.insertExpression = () => mouse.insertExpression()
+```
+
+The menu reads the callback at **click** time through the shared object, so the item tree can be
+built before the app has wired anything. The menu never learns about controllers; `App.vue` never
+learns the menu's shape — it only hands over the callback. This is the pattern the eventual menu bar
+should reuse. The command *behaviour* itself lives one place (e.g. `MouseController.insertExpression`),
+called by both the shortcut and the menu — never copied.
