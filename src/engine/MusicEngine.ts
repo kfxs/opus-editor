@@ -2410,6 +2410,15 @@ export class MusicEngine {
     return this.renderer.getDynamicSVGGroup(dynamicId)
   }
 
+  /** The `<g id="vf-mN-sX">` a measure-on-staff was drawn into. The clef and time
+   *  signature glyphs render inside it (VexFlow draws them as part of `stave.draw()` and
+   *  wraps no finer group), so the selection highlight scopes its glyph scan to this
+   *  group instead of the whole document — a neighbouring system's clef lives in a
+   *  different group and so can never be recolored. */
+  getMeasureSVGGroup(measureNumber: number, staffIndex: number): SVGGElement | null {
+    return this.renderer.getMeasureSVGGroup(measureNumber, staffIndex)
+  }
+
   /**
    * Get the rendered SVG group (`<g class="vf-slur">`) for a slur, to recolor
    * exactly one slur for the selection highlight (no document-wide bbox scan).

@@ -640,24 +640,31 @@ export class HighlightController {
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
 
+    // Scope the scan to the selected measure's own group so the recolor can't reach a
+    // neighbour's clef; fall back to the whole SVG only if the group can't be resolved.
+    const root = engine.getMeasureSVGGroup(clefEl.measure ?? 0, clefEl.staff ?? 0) ?? svg
     // The clef glyph is a filled path/text near the measure's left edge.
-    this.highlightGlyphsInBBox(svg, clefEl.bbox, 'selected-clef')
+    this.highlightGlyphsInBBox(root, clefEl.bbox, 'selected-clef')
   }
 
   /**
    * Recolor every glyph (`<path>`/`<text>`) whose center sits inside `bbox`, skipping
    * wide elements (the staff lines that also intersect the region). Shared by the clef
-   * and time-signature selection highlights, which scan the SVG for the narrow glyph
-   * column near a measure's left edge.
+   * and time-signature selection highlights, which scan for the narrow glyph column near
+   * a measure's left edge.
+   *
+   * `root` scopes the scan: the callers pass the selected measure's own `<g>` so the
+   * recolor cannot reach a neighbouring system's clef/TS (which lives in a different
+   * group), falling back to the whole SVG only if the group can't be resolved.
    */
   private highlightGlyphsInBBox(
-    svg: SVGSVGElement,
+    root: ParentNode,
     bbox: { x: number; y: number; width: number; height: number },
     className: string,
   ): void {
     const SELECTION_COLOR = '#F59E0B'
     const SELECTION_STROKE = '#D97706'
-    const elements = svg.querySelectorAll('path, text')
+    const elements = root.querySelectorAll('path, text')
     for (const el of elements) {
       const elBBox = (el as SVGGraphicsElement).getBBox?.()
       if (!elBBox) continue
@@ -690,8 +697,10 @@ export class HighlightController {
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
 
+    // Scope to the selected measure's own group (see applyClefSelectionHighlight).
+    const root = engine.getMeasureSVGGroup(tsEl.measure ?? 0, tsEl.staff ?? 0) ?? svg
     // The TS glyph is filled number paths/text in a narrow column after the clef.
-    this.highlightGlyphsInBBox(svg, tsEl.bbox, 'selected-timesig')
+    this.highlightGlyphsInBBox(root, tsEl.bbox, 'selected-timesig')
   }
 
   applyTupletSelectionHighlight(): void {

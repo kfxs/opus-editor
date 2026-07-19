@@ -221,7 +221,7 @@ describe('ElementRegistry §6a-ii glyph-height tripwire', () => {
     setDebugLogging(false)
   })
 
-  const fired = () => warn.mock.calls.some(args => String(args[0]).includes('[hit-box]'))
+  const fired = () => warn.mock.calls.some((args: unknown[]) => String(args[0]).includes('[hit-box]'))
 
   it('fires when a rest box is a container-union (spans down to a below-staff dynamic)', () => {
     registry.add({
