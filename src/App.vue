@@ -875,6 +875,7 @@ mouse = useMouseInteraction(state, engine, scoreCanvas, selection, renderer, pal
 // Hand the Insert menu its command callbacks. The menu itself lives in plain TS (src/menus); this is
 // the one glue line that lends it a controller — Insert ▸ Text ▸ Expression runs the same action as Ctrl+E.
 menuActions.insertExpression = () => mouse.insertExpression()
+menuActions.insertTempo = () => mouse.insertTempo()
 
 // ShortcutManager — wires keyboard shortcuts to controller actions
 const shortcuts = useShortcuts(

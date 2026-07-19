@@ -22,6 +22,8 @@ import type { MenuItem } from './MenuItem'
 export interface InsertMenuActions {
   /** Insert ▸ Text ▸ Expression — the same action as the Ctrl+E shortcut. */
   insertExpression?: () => void
+  /** Insert ▸ Text ▸ Tempo — the same action as the Ctrl+M shortcut. */
+  insertTempo?: () => void
 }
 
 /**
@@ -42,8 +44,9 @@ function buildInsertItems(actions: InsertMenuActions): MenuItem[] {
     {
       label: 'Text',
       items: [
-        // The shortcut is a display echo of ShortcutConfig's 'Ctrl+e'; the two must stay in step.
+        // The shortcuts are display echoes of ShortcutConfig ('Ctrl+e' / 'Ctrl+m'); keep them in step.
         { label: 'Expression', shortcut: 'Ctrl+E', onSelect: () => actions.insertExpression?.() },
+        { label: 'Tempo', shortcut: 'Ctrl+M', onSelect: () => actions.insertTempo?.() },
       ],
     },
     { separator: true },
