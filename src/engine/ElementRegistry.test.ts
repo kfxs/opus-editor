@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { ElementRegistry, type StaffGeometry } from './ElementRegistry'
+import { setDebugLogging } from '@/utils/debug'
 
 /**
  * Regression coverage for selection hit-detection: selecting a note/rest or a tuplet
@@ -179,5 +180,78 @@ describe('ElementRegistry multi-staff geometry', () => {
       bbox: { x: 90, y: 190, width: 20, height: 40 },
     })
     expect(registry.findClosestNoteOrRest(100, 200)?.id).toBe('bassF3')
+  })
+})
+
+/**
+ * The §6a-ii RESULT tripwire (docs/tight-bbox-plan.md): a glyph-type box that is
+ * implausibly tall for its staff means a caller registered a container-union box
+ * (a StaveNote that unioned an attached dynamic) instead of the leaf glyph — the
+ * flagship inflated-rest bug. It dev-warns so a future re-introduction is caught.
+ *
+ * jsdom has no canvas metrics, so a real render never trips this in unit tests; here
+ * we feed synthetic boxes + geometry so the guard's arithmetic is exercised directly.
+ */
+describe('ElementRegistry §6a-ii glyph-height tripwire', () => {
+  let registry: ElementRegistry
+  let warn: ReturnType<typeof vi.spyOn>
+
+  // lineSpacing 10 → the threshold (6 staff-spaces) is 60px.
+  const geometry: StaffGeometry = {
+    measure: 1,
+    staff: 0,
+    lineYPositions: [40, 50, 60, 70, 80],
+    lineSpacing: 10,
+    noteStartX: 50,
+    noteEndX: 450,
+    clef: 'treble',
+  }
+
+  beforeEach(() => {
+    // Spy BEFORE enabling: setDebugLogging binds console.log by value, so the spy must
+    // already be in place or dbg would hold the original (unspied) console.log.
+    warn = vi.spyOn(console, 'log').mockImplementation(() => {})
+    setDebugLogging(true) // dbg → console.log; the tripwire is silent otherwise
+    registry = new ElementRegistry()
+    registry.setStaffGeometry(geometry)
+  })
+
+  afterEach(() => {
+    warn.mockRestore()
+    setDebugLogging(false)
+  })
+
+  const fired = () => warn.mock.calls.some(args => String(args[0]).includes('[hit-box]'))
+
+  it('fires when a rest box is a container-union (spans down to a below-staff dynamic)', () => {
+    registry.add({
+      type: 'rest', id: 'inflated', measure: 1, staff: 0, beat: 0,
+      bbox: { x: 90, y: 79, width: 11, height: 77 }, // 7.7 staff-spaces → over 6
+    })
+    expect(fired()).toBe(true)
+  })
+
+  it('stays silent for a tight rest glyph', () => {
+    registry.add({
+      type: 'rest', id: 'tight', measure: 1, staff: 0, beat: 0,
+      bbox: { x: 90, y: 55, width: 11, height: 10 }, // ~1 staff-space
+    })
+    expect(fired()).toBe(false)
+  })
+
+  it('exempts region/semantic types (a note keeps a tall semantic head box)', () => {
+    registry.add({
+      type: 'note', id: 'note-with-dyn', measure: 1, staff: 0, beat: 0, pitch: 67,
+      bbox: { x: 90, y: 20, width: 20, height: 120 }, // 12 staff-spaces, but 'note' is exempt
+    })
+    expect(fired()).toBe(false)
+  })
+
+  it('stays silent when the element has no registered geometry (can not reason about scale)', () => {
+    registry.add({
+      type: 'rest', id: 'no-geom', measure: 99, staff: 0, beat: 0,
+      bbox: { x: 90, y: 0, width: 11, height: 500 },
+    })
+    expect(fired()).toBe(false)
   })
 })

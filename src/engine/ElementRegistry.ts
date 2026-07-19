@@ -10,6 +10,7 @@
  */
 
 import type { PitchSpelling } from '@/types/music'
+import { dbg } from '@/utils/debug'
 
 /**
  * Types of elements we track
@@ -33,6 +34,28 @@ export type ElementType =
   | 'articulation'
   | 'dynamic'
   | 'tempo'
+
+/**
+ * The small ink glyphs the §6a-ii tripwire polices: each must register its OWN glyph box,
+ * never a StaveNote container that unions attached modifiers. Deliberately excludes
+ * `note` (keeps a semantic head box that intentionally spans its stem/beam), the region
+ * click-targets (`clef`/`timeSignature`/`staff`/`barline`/`beam`), the span types
+ * (`tie`/`slur*`/`tuplet`), and `dynamic`/`tempo` (their own text boxes, large by design).
+ */
+const GLYPH_TYPES: ReadonlySet<ElementType> = new Set<ElementType>([
+  'rest',
+  'accidental',
+  'dot',
+  'articulation',
+])
+
+/**
+ * Tripwire threshold in staff-spaces. A legit single glyph is ≤ a few staff-spaces tall
+ * (bare rest ≈ 1, a tall mid-measure clef ≈ 4); a StaveNote unioned with a below-staff
+ * dynamic is ≈ 7-8. 6 clears every legitimate glyph with daylight (docs/tight-bbox-plan.md
+ * §6a-ii calibration note). Raise only if a real glyph ever trips it.
+ */
+const GLYPH_MAX_STAFF_SPACES = 6
 
 /**
  * Bounding box in pixel coordinates
@@ -427,7 +450,36 @@ export class ElementRegistry {
    * Add an element to the registry
    */
   add(element: ElementInfo): void {
+    this.checkGlyphHeight(element)
     this.elements.push(element)
+  }
+
+  /**
+   * The RESULT tripwire (docs/tight-bbox-plan.md §6a-ii) — the forever version of the
+   * Phase 0 audit. A single glyph is at most a few staff-spaces tall; a StaveNote box
+   * that has unioned an attached modifier (a rest carrying a below-staff dynamic, say) is
+   * ~7-8. So if a *glyph-type* box measures taller than {@link GLYPH_MAX_STAFF_SPACES}
+   * staff-spaces, some caller handed us a container-union box instead of the leaf glyph —
+   * exactly the bug {@link addGlyphElement} on the render side exists to prevent. This
+   * guard catches a *future* element that reintroduces it.
+   *
+   * Dev-only (jsdom has no canvas metrics, so this never fires under unit tests; `dbg` is
+   * a NOOP in prod). It reasons purely about numbers — no VexFlow coupling — using the
+   * `lineSpacing` the registry already holds. Region types (clef/timeSignature/staff/…)
+   * are large by design and exempt; only the small ink glyphs are checked.
+   */
+  private checkGlyphHeight(element: ElementInfo): void {
+    if (!GLYPH_TYPES.has(element.type) || element.measure === undefined) return
+    const spacing = this.getStaffGeometry(element.measure, element.staff ?? 0)?.lineSpacing
+    if (!spacing) return // no geometry yet → can't reason about scale; skip silently
+    const staffSpaces = element.bbox.height / spacing
+    if (staffSpaces > GLYPH_MAX_STAFF_SPACES) {
+      dbg(
+        `⚠️ [hit-box] ${element.type} ${element.id} is ${staffSpaces.toFixed(1)} staff-spaces tall ` +
+          `(> ${GLYPH_MAX_STAFF_SPACES}) — likely registered from a container-union box, not its own ` +
+          `glyph. Route it through VexFlowRenderer.addGlyphElement (docs/tight-bbox-plan.md §6a).`,
+      )
+    }
   }
 
   /**
