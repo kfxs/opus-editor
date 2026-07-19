@@ -34,6 +34,7 @@ export function useMouseInteraction(
     () => palette.getPendingArticulations(),
     () => textEdit,
     clipboard,
+    () => palette.armDynamicEntry(),
     panBy,
     getZoom,
   )

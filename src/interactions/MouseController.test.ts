@@ -73,6 +73,7 @@ describe('MouseController', () => {
       () => undefined,        // pending articulations
       () => null,             // text edit
       clipboard as never,
+      () => {},               // arm dynamic entry
       panBy,
       () => 1,
     )

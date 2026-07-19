@@ -258,6 +258,10 @@ export class MouseController {
     private getPendingArticulations: () => ArticulationType[] | undefined,
     private getTextEdit: () => TextEditController | null,
     private clipboard: ClipboardController,
+    /** Arm the click-to-type expression tool (PaletteController.armDynamicEntry). Injected rather
+     *  than reached for so {@link insertExpression} — the Ctrl+E / Insert▸Text▸Expression action —
+     *  can live here (with the attach-and-edit half) without MouseController depending on the palette. */
+    private armDynamicEntry: () => void,
     /** Scroll the viewport by a client-pixel delta (content follows the hand). */
     private panBy: (dx: number, dy: number) => void,
     /** Current view zoom — handed to the text editor so its (fixed-position) font scales (§5.4). */
@@ -373,6 +377,17 @@ export class MouseController {
     this.render.renderScore()
     this.openTextEditor(created.id, true, '')
     dbg(`✓ Insert dynamic on selection: measure ${note.measure} beat ${fracToNumber(note.beat).toFixed(3)} staff ${note.staff ?? 0} (note ${noteId})`)
+  }
+
+  /**
+   * The "insert an expression" action — the ONE thing Ctrl+E and Insert ▸ Text ▸ Expression both do,
+   * so the two entry points share it instead of each spelling the branch. With a note/rest selected,
+   * attach a dynamic to it and edit inline; with nothing selected, arm the click-to-type tool (blue
+   * cursor) so the next canvas click places and edits one.
+   */
+  insertExpression(): void {
+    if (this.state.selectedNoteId) this.editDynamicOnSelection()
+    else this.armDynamicEntry()
   }
 
   /** Resolve a paste-placement click to a (measure, slot beat) and commit the paste. */

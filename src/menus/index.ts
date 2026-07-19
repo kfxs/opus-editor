@@ -1,6 +1,6 @@
 import { windows } from '@/windows'
 import { MenuLayer } from './MenuLayer'
-import { installInsertMenu } from './insertMenu'
+import { installInsertMenu, type InsertMenuActions } from './insertMenu'
 
 /**
  * The app's one menu layer — the same deal the window layer gets, and for the same reason: it lives
@@ -14,7 +14,16 @@ import { installInsertMenu } from './insertMenu'
  */
 export const menus = new MenuLayer()
 
+/**
+ * The Insert menu's command callbacks. This plain object is the seam between the framework-agnostic
+ * menu and the app's editor controllers: the menu reads it at click time, and the app's glue fills it
+ * in once the controllers exist (`menuActions.insertExpression = () => mouse.insertExpression()`).
+ * Keeping it here — not in App.vue — is what keeps "add a menu" from meaning "edit App.vue"; the app
+ * only hands over the callback, it does not know the menu's shape.
+ */
+export const menuActions: InsertMenuActions = {}
+
 windows.whenMounted((host) => {
   menus.mount(host)
-  installInsertMenu(host, menus)
+  installInsertMenu(host, menus, menuActions)
 })

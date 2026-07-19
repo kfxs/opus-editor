@@ -26,7 +26,7 @@ export function useShortcuts(
   clipboard: ClipboardController,
   viewport: ViewportHost,
   getLastMousePosition: () => { x: number; y: number } | null,
-  attachDynamicToSelection: () => void,
+  insertExpression: () => void,
 ): { enable: () => void; disable: () => void } {
   const shortcutManager = new ShortcutManager()
 
@@ -137,12 +137,9 @@ export function useShortcuts(
     setActiveVoice2: () => palette.setActiveVoice(2),
     copySelection: () => clipboard.copy(),
     pasteClipboard: () => clipboard.paste(),
-    // Ctrl+E: with a note/rest selected, attach a dynamic and edit it inline; with nothing
-    // selected, arm the click-to-type expression-entry tool (blue cursor, no ghost).
-    editDynamicOnSelection: () => {
-      if (state.selectedNoteId) attachDynamicToSelection()
-      else palette.armDynamicEntry()
-    },
+    // Ctrl+E — the same action as Insert ▸ Text ▸ Expression. The branch (attach-and-edit vs
+    // arm the click-to-type tool) lives in MouseController.insertExpression, one source for both.
+    editDynamicOnSelection: () => insertExpression(),
     zoomIn: () => viewport.zoomToStop(1, viewportCenter()),
     zoomOut: () => viewport.zoomToStop(-1, viewportCenter()),
     zoomReset: () => {

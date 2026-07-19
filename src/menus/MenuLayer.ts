@@ -101,6 +101,12 @@ const CSS = `
   color: ${CHROME.inkMuted};
   font-size: 10px;
 }
+.menu-row-shortcut {
+  flex: none;
+  color: ${CHROME.inkMuted};
+  font-size: 12px;
+  font-style: italic;
+}
 /* THREE sources of highlight, and a menu needs all three.
    :hover  — the row under the pointer. Reading a menu IS hovering it; a row you cannot see yourself
              on is a row you are not sure you are about to click.
@@ -114,7 +120,10 @@ const CSS = `
 .menu-row[data-highlight="true"] { background: ${CHROME.accent}; }
 .menu-row:hover .menu-row-arrow,
 .menu-row[data-active="true"] .menu-row-arrow,
-.menu-row[data-highlight="true"] .menu-row-arrow { color: #dbeafe; }
+.menu-row[data-highlight="true"] .menu-row-arrow,
+.menu-row:hover .menu-row-shortcut,
+.menu-row[data-active="true"] .menu-row-shortcut,
+.menu-row[data-highlight="true"] .menu-row-shortcut { color: #dbeafe; }
 .menu-separator {
   height: 1px;
   margin: 4px 6px;
@@ -290,6 +299,14 @@ export class MenuLayer {
       arrow.className = 'menu-row-arrow'
       arrow.textContent = '▶'
       row.appendChild(arrow)
+    } else if (item.shortcut) {
+      // A leaf's accelerator, echoed muted at the right so the menu teaches the keystroke. Mutually
+      // exclusive with the arrow: a submenu is not a keystroke (guaranteed by the union — `shortcut`
+      // rides the leaf variant only).
+      const hint = document.createElement('div')
+      hint.className = 'menu-row-shortcut'
+      hint.textContent = item.shortcut
+      row.appendChild(hint)
     }
 
     row.addEventListener('pointerenter', () => {

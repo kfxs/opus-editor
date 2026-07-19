@@ -744,6 +744,7 @@ import { useShortcuts } from './composables/useShortcuts'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
 import { ClipboardController } from './interactions/ClipboardController'
 import { windows } from './windows'
+import { menuActions } from './menus'
 import { wireKeypadSync, noNoteInSelection } from './interactions/keypadSync'
 import { openLoremWindow } from './windows/demo/loremWindows'
 import { isValidTimeSignature } from './utils/meter'
@@ -871,13 +872,17 @@ const textEdit = useTextEditing(state)
 // onMounted/onUnmounted are called internally by the composable.
 mouse = useMouseInteraction(state, engine, scoreCanvas, selection, renderer, palette, textEdit, clipboard, (dx, dy) => viewport.scrollBy(dx, dy), () => viewport.model.getZoom())
 
+// Hand the Insert menu its command callbacks. The menu itself lives in plain TS (src/menus); this is
+// the one glue line that lends it a controller — Insert ▸ Text ▸ Expression runs the same action as Ctrl+E.
+menuActions.insertExpression = () => mouse.insertExpression()
+
 // ShortcutManager — wires keyboard shortcuts to controller actions
 const shortcuts = useShortcuts(
   state, engine,
   selection, palette, keyboard, renderer, clipboard,
   viewport,
   () => mouse.getLastMousePosition(),
-  () => mouse.editDynamicOnSelection(),
+  () => mouse.insertExpression(),
 )
 
 // While a hand/grab pan is active, hide the OS pointer everywhere — not just over the

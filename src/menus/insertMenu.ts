@@ -14,6 +14,17 @@ import type { MenuItem } from './MenuItem'
  */
 
 /**
+ * The commands the Insert menu can invoke, supplied by the app's glue (they close over the editor's
+ * controllers, which the framework-agnostic menu singleton cannot see). Read at CLICK time through a
+ * shared object (see `menuActions` in ./index), so the menu can be built before the app has filled
+ * them in — hence optional. Grows one field per real command as the lorem rows are replaced.
+ */
+export interface InsertMenuActions {
+  /** Insert ▸ Text ▸ Expression — the same action as the Ctrl+E shortcut. */
+  insertExpression?: () => void
+}
+
+/**
  * TEMPORARY placeholder leaf — says what was picked and nothing more. Replace each `say(...)` with a
  * real `{ label, onSelect }` as the command behind it lands; the helper goes when the last one does.
  */
@@ -21,32 +32,45 @@ function say(label: string): MenuItem {
   return { label, onSelect: () => dbg(`[menu] selected: ${label}`) }
 }
 
-// TEMPORARY: lorem rows, to be replaced by real insert commands little by little.
-const INSERT_ITEMS: MenuItem[] = [
-  say('Lorem ipsum dolor'),
-  say('Consectetur adipiscing'),
-  { separator: true },
-  {
-    label: 'Sed do eiusmod',
-    items: [
-      say('Tempor incididunt'),
-      say('Ut labore et dolore'),
-      { separator: true },
-      {
-        label: 'Magna aliqua',
-        // A second level, because a chain that only ever goes one deep proves nothing about the chain.
-        items: [say('Ut enim ad minim'), say('Quis nostrud'), say('Exercitation ullamco')],
-      },
-    ],
-  },
-  {
-    label: 'Duis aute irure',
-    items: [say('Reprehenderit in voluptate'), say('Velit esse cillum'), say('Fugiat nulla pariatur')],
-  },
-  { separator: true },
-  say('Excepteur sint occaecat'),
-  say('Sunt in culpa qui officia'),
-]
+/**
+ * The Insert menu's rows. The Text submenu is the first REAL command; the lorem rows below it are
+ * still placeholders, replaced one at a time. Leaf `onSelect`s read `actions` late (at click), so the
+ * app can wire the callbacks after the menu is built.
+ */
+function buildInsertItems(actions: InsertMenuActions): MenuItem[] {
+  return [
+    {
+      label: 'Text',
+      items: [
+        // The shortcut is a display echo of ShortcutConfig's 'Ctrl+e'; the two must stay in step.
+        { label: 'Expression', shortcut: 'Ctrl+E', onSelect: () => actions.insertExpression?.() },
+      ],
+    },
+    { separator: true },
+    // TEMPORARY: lorem rows, to be replaced by real insert commands little by little.
+    say('Consectetur adipiscing'),
+    {
+      label: 'Sed do eiusmod',
+      items: [
+        say('Tempor incididunt'),
+        say('Ut labore et dolore'),
+        { separator: true },
+        {
+          label: 'Magna aliqua',
+          // A second level, because a chain that only ever goes one deep proves nothing about the chain.
+          items: [say('Ut enim ad minim'), say('Quis nostrud'), say('Exercitation ullamco')],
+        },
+      ],
+    },
+    {
+      label: 'Duis aute irure',
+      items: [say('Reprehenderit in voluptate'), say('Velit esse cillum'), say('Fugiat nulla pariatur')],
+    },
+    { separator: true },
+    say('Excepteur sint occaecat'),
+    say('Sunt in culpa qui officia'),
+  ]
+}
 
 /**
  * Right-click anywhere in the score viewport opens it, at the pointer — and so does the Menu key
@@ -62,13 +86,14 @@ const INSERT_ITEMS: MenuItem[] = [
  * fills — the same arithmetic a window's geometry lives in, and the reason a menu neither scrolls
  * with the music nor scales with the zoom.
  */
-export function installInsertMenu(host: HTMLElement, menus: MenuLayer): void {
+export function installInsertMenu(host: HTMLElement, menus: MenuLayer, actions: InsertMenuActions): void {
+  const items = buildInsertItems(actions)
   // Host-relative coordinates the menu will open at. The mouse path overwrites this with the real
   // click; the key path has no pointer of its own, so it reuses wherever the cursor last was over
   // the score (host centre until the pointer has ever been there).
   const openAt = (x: number, y: number): void => {
     const box = host.getBoundingClientRect()
-    menus.open({ x: x - box.left, y: y - box.top, items: INSERT_ITEMS })
+    menus.open({ x: x - box.left, y: y - box.top, items })
   }
 
   let lastPointer: { x: number; y: number } | null = null
