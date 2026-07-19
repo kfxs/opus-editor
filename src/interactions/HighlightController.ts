@@ -677,7 +677,11 @@ export class HighlightController {
         const currentFill = svgEl.getAttribute('fill')
         if (currentFill && currentFill !== 'none') this.setAttr(svgEl, 'fill', SELECTION_COLOR)
         this.setStyleProp(svgEl, 'fill', SELECTION_COLOR)
-        this.setAttr(svgEl, 'stroke', SELECTION_STROKE)
+        // Only recolor the stroke if the glyph already had one. TS digits and clef
+        // glyphs are fill-only paths; adding a stroke draws a darker outline that
+        // makes them look bold/doubled (the fill and outline don't coincide).
+        const currentStroke = svgEl.getAttribute('stroke')
+        if (currentStroke && currentStroke !== 'none') this.setAttr(svgEl, 'stroke', SELECTION_STROKE)
         this.addClass(svgEl, className)
       }
     }
@@ -689,18 +693,23 @@ export class HighlightController {
     if (!engine || !scoreCanvas || this.state.selectedTimeSignatureMeasure === null) return
 
     const registry = engine.getElementRegistry()
-    const tsEl = registry.getByType('timeSignature').find(
+    // A time signature is system-wide: it applies to every staff and is drawn once
+    // per staff, so highlight the TS glyph in ALL staves of the measure, not just the
+    // one that was clicked. Each staff has its own timeSignature element at this measure.
+    const tsEls = registry.getByType('timeSignature').filter(
       el => el.measure === this.state.selectedTimeSignatureMeasure,
     )
-    if (!tsEl) return
+    if (tsEls.length === 0) return
 
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
 
-    // Scope to the selected measure's own group (see applyClefSelectionHighlight).
-    const root = engine.getMeasureSVGGroup(tsEl.measure ?? 0, tsEl.staff ?? 0) ?? svg
-    // The TS glyph is filled number paths/text in a narrow column after the clef.
-    this.highlightGlyphsInBBox(root, tsEl.bbox, 'selected-timesig')
+    for (const tsEl of tsEls) {
+      // Scope each staff's recolor to that staff's own group (see applyClefSelectionHighlight).
+      const root = engine.getMeasureSVGGroup(tsEl.measure ?? 0, tsEl.staff ?? 0) ?? svg
+      // The TS glyph is filled number paths/text in a narrow column after the clef.
+      this.highlightGlyphsInBBox(root, tsEl.bbox, 'selected-timesig')
+    }
   }
 
   applyTupletSelectionHighlight(): void {
