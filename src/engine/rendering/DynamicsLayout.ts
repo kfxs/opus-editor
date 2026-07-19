@@ -129,8 +129,13 @@ export function layoutCoLocatedDynamics(pass: RenderPass, groups: string[][]): v
       it.el.setAttribute('transform', `translate(${dx}, ${dy})`)
       cursor += it.box.width + GAP
 
+      // Shift the TIGHT bbox registerDynamics already stored (rebuilt from the <text> baseline for
+      // level glyphs) by this translate — do NOT write back `it.box`, which is the raw getBBox group
+      // box that re-unions VexFlow's inflated pointer-rect (the very thing registerDynamics stripped).
+      // Writing it.box back re-inflated co-located level marks, throwing off hit-testing and the
+      // attachment line's dynamic-side endpoint. Mirrors applyDynamicOffsets' shift-in-place.
       const entry = pass.elementRegistry.getById(it.id)
-      if (entry) entry.bbox = { x: it.box.x + dx, y: it.box.y + dy, width: it.box.width, height: it.box.height }
+      if (entry) entry.bbox = { x: entry.bbox.x + dx, y: entry.bbox.y + dy, width: entry.bbox.width, height: entry.bbox.height }
     }
   }
 }
