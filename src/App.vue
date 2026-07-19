@@ -1185,6 +1185,51 @@ function installPerfInstruments() {
   if (!(import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) return
   const w = window as unknown as Record<string, unknown>
   w.__census = renderCensus
+  // Hit-box VISUALIZER (dev tool). Draws every registered hit-box as a coloured SVG rectangle right
+  // on the score, so you can SEE which click-boxes are inflated or mis-placed — reads the registry,
+  // which always holds the CURRENT boxes (no re-render needed). Born from docs/tight-bbox-plan.md §7
+  // (it made the fat rest-carrying-a-dynamic box visible) and kept as a general debugging aid.
+  // __bbox.show() draws all (labelled `type W×H`); __bbox.show('rest') filters to one type; __bbox.hide() clears.
+  w.__bbox = {
+    show: (only?: string) => {
+      if (!engine.value) return
+      const svg = document.querySelector('.score-container svg') as SVGSVGElement | null
+      if (!svg) { console.warn('[bbox] no score <svg> found'); return }
+      const NS = 'http://www.w3.org/2000/svg'
+      svg.querySelector('#bbox-overlay')?.remove()
+      const overlay = document.createElementNS(NS, 'g')
+      overlay.setAttribute('id', 'bbox-overlay')
+      const color: Record<string, string> = {
+        rest: '#e11d48', note: '#2563eb', dynamic: '#16a34a', accidental: '#d97706',
+        articulation: '#9333ea', dot: '#0891b2', clef: '#7c3aed', timeSignature: '#be185d',
+      }
+      let n = 0
+      for (const el of engine.value.getElementRegistry().getAll()) {
+        if (only && el.type !== only) continue
+        const b = el.bbox
+        if (!b || b.width <= 0 || b.height <= 0) continue
+        const c = color[el.type] ?? '#64748b'
+        const rect = document.createElementNS(NS, 'rect')
+        rect.setAttribute('x', String(b.x)); rect.setAttribute('y', String(b.y))
+        rect.setAttribute('width', String(b.width)); rect.setAttribute('height', String(b.height))
+        rect.setAttribute('fill', c); rect.setAttribute('fill-opacity', '0.1')
+        rect.setAttribute('stroke', c); rect.setAttribute('stroke-width', el.type === 'rest' ? '1.5' : '0.75')
+        overlay.appendChild(rect)
+        const label = document.createElementNS(NS, 'text')
+        label.setAttribute('x', String(b.x)); label.setAttribute('y', String(b.y - 1))
+        label.setAttribute('fill', c); label.setAttribute('font-size', '6')
+        label.textContent = `${el.type} ${Math.round(b.width)}×${Math.round(b.height)}`
+        overlay.appendChild(label)
+        n++
+      }
+      svg.appendChild(overlay)
+      console.log(`[bbox] drew ${n} hit-box(es)${only ? ` type=${only}` : ''}. Rest boxes are red. __bbox.hide() to clear.`)
+    },
+    hide: () => {
+      document.querySelector('#bbox-overlay')?.remove()
+      console.log('[bbox] overlay cleared')
+    },
+  }
   w.__perf = {
     load: (bars: number, staves = 1) => {
       if (!engine.value) return
@@ -1195,6 +1240,7 @@ function installPerfInstruments() {
     },
   }
   dbg('[perf] P0 instruments: __perf.load(200), __census.enable(), __census.dump()')
+  dbg('[bbox] hit-box visualizer: __bbox.show() / __bbox.show(\'rest\') / __bbox.hide()')
 }
 
 onUnmounted(() => {
