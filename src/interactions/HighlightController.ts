@@ -319,8 +319,15 @@ export class HighlightController {
     }
 
     if (isRest) {
-      // A rest is a single glyph — color every glyph in its group.
-      group.querySelectorAll('text, path').forEach(colorFill)
+      // A rest is a single glyph — color every glyph in its group, EXCEPT a dynamic attached to
+      // this rest: an Annotation modifier renders its `<g class="vf-annotation">` glyph NESTED
+      // inside the rest's `vf-stavenote` group, so the broad `text, path` sweep would recolor the
+      // (unselected) dynamic too — the bleed the user saw when selecting a rest that carries a
+      // dynamic. The dynamic owns its own selection highlight (applyDynamicSelectionHighlight).
+      group.querySelectorAll('text, path').forEach(el => {
+        if (el.closest('.vf-annotation')) return
+        colorFill(el)
+      })
       // Two voices' rests can be vertically nudged to the same spot; whichever group
       // is later in the DOM paints on top, so the recolored rest can be hidden behind
       // the other voice. Raise this rest's group to the front (same reasoning as the
