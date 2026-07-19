@@ -21,9 +21,9 @@ clear the `dynamicOffset` kind); making the offset **travel across paste** (a pa
 dynamic mints a fresh id, so the id-keyed override does not follow it yet — same
 deferred state as slur `curveShape` travel).
 
-## ⭐ TODO — NOT FINISHED (priority)
+## ✅ TODO — ALL DONE (17th session, 2026-07-19)
 
-Open items, roughly in priority order. Do #1 first.
+All four items below are closed. Kept for the record.
 
 1. **[P0] ✅ DONE — Orphan `dynamicOffset` on delete.** `ScoreModel.removeDynamic` used to splice the
    dynamic out of its measure but never clear `engravingOverrides[id]`, so a **nudged-then-deleted**
@@ -41,13 +41,18 @@ Open items, roughly in priority order. Do #1 first.
    second latent orphan for free: the destination's OWN nudged dynamics used to lose their offset on
    any rebar (meter change), because rebar regenerated their ids too. Covered by two tests (paste
    travel + rebar survival), both verified to fail without the fix.
-3. **[P2] Co-located level dynamics still measure inflated.** The `registerDynamics` bbox rebuild (see
-   the pointer-rect note below) only covers the single-dynamic path; `layoutCoLocatedDynamics`
-   re-measures stacked marks via `getBBox` on the group and re-inflates the box for co-located level
-   glyphs. Apply the same baseline rebuild there.
-4. **[P2] Attachment-line polish.** Tune `DYNAMIC_GLYPH_INK_ABOVE/BELOW` (`dynamicStyle`) once judged
-   live; revisit the chord anchor point (currently the lowest notehead). Longer term: the toggleable
-   "guide" overlay family (rulers, markers) the attachment line was built to seed.
+3. **[P2] ✅ DONE — Co-located level dynamics measured inflated.** The `registerDynamics` bbox rebuild
+   (see the pointer-rect note below) covered only the single-dynamic path; `layoutCoLocatedDynamics`
+   then OVERWROTE the registry bbox with the raw `getBBox` group box, re-unioning the pointer-rect for
+   co-located level glyphs (two dynamics on one anchor → both attachment lines drew from the inflated
+   top; deleting one restored it). Fixed: shift the TIGHT registry bbox by the co-location translate
+   (mirroring `applyDynamicOffsets`' shift-in-place) instead of writing back the group box.
+4. **[P2] ✅ Attachment-line polish — verified live, no change needed (for now).** The eyeballed
+   `DYNAMIC_GLYPH_INK_ABOVE/BELOW` (`dynamicStyle`) and the chord anchor point (lowest notehead) were
+   judged correct on screen by the user, so the first-cut constants stand. A future *cosmetic* redesign
+   of the line's look is possible but not queued — only revisit `INK_ABOVE` if the dot ever sits off a
+   glyph's edge. Longer term, still open: the toggleable "guide" overlay family (rulers, markers) the
+   attachment line was built to seed.
 
 ## Settled decisions
 
