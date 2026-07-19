@@ -326,7 +326,7 @@ export class MouseController {
    * hide) and hands it to the shared {@link TextEditController}. No-op if the text
    * editor isn't wired (e.g. before mount).
    */
-  private openTextEditor(dynamicId: string, isNew: boolean): void {
+  private openTextEditor(dynamicId: string, isNew: boolean, seedText?: string): void {
     const engine = this.getEngine()
     const textEdit = this.getTextEdit()
     if (!engine || !textEdit) return
@@ -337,8 +337,42 @@ export class MouseController {
       () => this.getScoreCanvas(),
       () => this.render.renderScore(),
       this.getZoom,
+      seedText,
     )
     textEdit.open(source)
+  }
+
+  /**
+   * Ctrl+E: attach a custom-text dynamic to the currently selected note/rest and open
+   * the in-canvas editor to type it immediately — no armed tool, no placeholder to clear
+   * out first. The mark is placed carrying the default placeholder so it renders a real
+   * box for the overlay to position against, but the editor opens BLANK (seedText `''`)
+   * and, being `isNew`, deletes itself on an empty commit — so typing nothing leaves no
+   * trace. The place-render and the editor's suppress-render both run before the browser
+   * paints, so the placeholder never flashes on screen. No-op with nothing selected, mid
+   * text-edit, or before the editor is wired.
+   */
+  editDynamicOnSelection(): void {
+    const engine = this.getEngine()
+    const textEdit = this.getTextEdit()
+    if (!engine || !textEdit || this.state.editingText) return
+    const noteId = this.state.selectedNoteId
+    if (!noteId) return
+    const note = engine.getNote(noteId)
+    if (!note) return
+    // Anchor to the selected note's STAFF (else it renders on staff 0); absent staffId
+    // keeps single-staff output byte-identical. Voice 0 — see the VOICE SEAM note above.
+    const staffId = engine.staffIdForIndex(note.staff ?? 0)
+    const staffParam = staffId ? { staffId } : {}
+    const created = engine.addDynamic(note.measure, {
+      beat: note.beat, kind: 'text', text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below', ...staffParam,
+    })
+    if (!created) return
+    // Render so registerDynamics stores the mark's bbox; openTextEditor's source snapshots
+    // its position from the registry, then immediately suppresses + re-renders it.
+    this.render.renderScore()
+    this.openTextEditor(created.id, true, '')
+    dbg(`✓ Insert dynamic on selection: measure ${note.measure} beat ${fracToNumber(note.beat).toFixed(3)} staff ${note.staff ?? 0} (note ${noteId})`)
   }
 
   /** Resolve a paste-placement click to a (measure, slot beat) and commit the paste. */

@@ -877,6 +877,7 @@ const shortcuts = useShortcuts(
   selection, palette, keyboard, renderer, clipboard,
   viewport,
   () => mouse.getLastMousePosition(),
+  () => mouse.editDynamicOnSelection(),
 )
 
 // While a hand/grab pan is active, hide the OS pointer everywhere — not just over the

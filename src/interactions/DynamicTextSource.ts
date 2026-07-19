@@ -25,12 +25,19 @@ export class DynamicTextSource implements EditableTextSource {
     /** Current view zoom. The overlay is `position: fixed` (screen space), so unlike the box —
      *  which scales for free via `getScreenCTM` — its font must be scaled by hand (§5.4). */
     private getZoom: () => number = () => 1,
+    /** Optional override for the INITIAL editor text (the mount seed only). The Ctrl+E
+     *  "insert dynamic on selection" flow passes `''` to open the overlay BLANK even though
+     *  the freshly-placed mark carries a placeholder in the model — the placeholder only
+     *  exists so the mark renders a real box to position the overlay against. Undefined ⇒
+     *  seed from the model's own text (the double-click-an-existing-mark case). */
+    private seedText?: string,
   ) {
     this.screenRect = this.computeScreenRect()
   }
 
   getText(): string {
-    return this.engine.getDynamicById(this.targetId)?.text ?? ''
+    // `??` (not `||`) so an explicit '' override wins — a blank seed is intentional.
+    return this.seedText ?? this.engine.getDynamicById(this.targetId)?.text ?? ''
   }
 
   getScreenRect(): { x: number; y: number; width: number; height: number } {

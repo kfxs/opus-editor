@@ -26,6 +26,7 @@ export function useShortcuts(
   clipboard: ClipboardController,
   viewport: ViewportHost,
   getLastMousePosition: () => { x: number; y: number } | null,
+  editDynamicOnSelection: () => void,
 ): { enable: () => void; disable: () => void } {
   const shortcutManager = new ShortcutManager()
 
@@ -136,6 +137,7 @@ export function useShortcuts(
     setActiveVoice2: () => palette.setActiveVoice(2),
     copySelection: () => clipboard.copy(),
     pasteClipboard: () => clipboard.paste(),
+    editDynamicOnSelection: () => editDynamicOnSelection(),
     zoomIn: () => viewport.zoomToStop(1, viewportCenter()),
     zoomOut: () => viewport.zoomToStop(-1, viewportCenter()),
     zoomReset: () => {
