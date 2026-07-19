@@ -16,6 +16,15 @@
 
 ## 0. TL;DR
 
+**✅ PLAN COMPLETE (20th session, 2026-07-19).** Phases 0–4 all done. Phase 4 hand-test
+matrix (§7) passed in full in a real browser: tight rest box, flagship rest+dynamic
+disambiguation (below- and above-staff, multi-staff), all four glyph types (accidental /
+dot / articulation / mid-clef) click-on-selects / click-beside-doesn't, no clef/TS
+highlight bleed, text overlays + caret land correctly, and the box-select edge cases
+(Shift-box no over-grab, Ctrl+Shift measure box beside a rest). Only optional follow-up
+left: route accidental/artic/dot/mid-clef through `addGlyphElement` for SOURCE enforcement
+too (the §6a-ii tripwire already RESULT-polices them, so low priority).
+
 When the user clicks the score, the wrong element is sometimes selected, or a
 selection highlight bleeds onto a neighbour. Root cause: some registered clickable
 boxes are much larger than the visible ink of their glyph. The flagship case: a bar
