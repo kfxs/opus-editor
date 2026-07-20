@@ -13,6 +13,7 @@ import { beatToFrac } from '../utils/musicUtils'
 import { selectedArticulationNoteIds } from '../interactions/selection'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
+import { openTimeSignatureWindow } from '../windows/timeSignatureWindow'
 
 /**
  * Vue adapter that wires keyboard shortcuts to controller actions.
@@ -153,6 +154,10 @@ export function useShortcuts(
     // the opened Window is not an answer to that question.)
     openClefWindow: () => {
       openClefWindow(windows)
+    },
+    // T — the same action as Insert ▸ Time Signature; reaches the window layer directly, like Q.
+    openTimeSignatureWindow: () => {
+      openTimeSignatureWindow(windows)
     },
     // Ctrl+Alt+T — the tempo twin; branch lives in MouseController.insertTempo.
     insertTempoOnSelection: () => insertTempo(),

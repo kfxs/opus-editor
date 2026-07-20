@@ -1,6 +1,7 @@
 import { dbg } from '@/utils/debug'
 import { windows } from '@/windows'
 import { openClefWindow } from '@/windows/clefWindow'
+import { openTimeSignatureWindow } from '@/windows/timeSignatureWindow'
 import type { MenuLayer } from './MenuLayer'
 import type { MenuItem } from './MenuItem'
 
@@ -54,6 +55,7 @@ function buildInsertItems(actions: InsertMenuActions): MenuItem[] {
         { label: 'Tempo', shortcut: 'Alt+Shift+T', onSelect: () => actions.insertTempo?.() },
       ],
     },
+    { label: 'Time Signature', shortcut: 'T', onSelect: () => openTimeSignatureWindow(windows) },
     { separator: true },
     // TEMPORARY: lorem rows, to be replaced by real insert commands little by little.
     say('Consectetur adipiscing'),

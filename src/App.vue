@@ -192,7 +192,7 @@
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
-              title="Toggle triplet mode (T) - creates 3 notes in space of 2"
+              title="Toggle triplet mode (Ctrl+3) - creates 3 notes in space of 2"
               @click="palette.toggleTuplet()"
             >
               3

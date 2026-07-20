@@ -247,3 +247,211 @@ export class TextInput implements Widget {
     this.el?.select()
   }
 }
+
+/**
+ * The form controls below are native `<input>`s and a native `<select>`, tinted with
+ * `accent-color`, rather than divs drawn to look like them. A hand-drawn checkbox has to
+ * re-implement focus, keyboard toggling, the indeterminate state and the label-click target, and
+ * gets each of them slightly wrong; the browser's already work. Only the COLOUR is ours.
+ */
+
+/** One choice in a {@link RadioGroup}. `picture` is SVG markup when the option is drawn (a meter,
+ *  a clef) — `label` when it is a word. A row may mix the two. */
+export interface RadioOption {
+  value: string
+  label?: string
+  picture?: string
+  /** Extra widget shown after the label — the spinners beside Sibelius's "Other:". */
+  trailing?: Widget
+}
+
+/** Exactly one of N, laid out in a row. The horizontal sibling of {@link ChoiceList}: that one is a
+ *  scrolling box of pictures, this is a line of radios you take in at a glance. */
+export class RadioGroup implements Widget {
+  private selected: string
+  private readonly inputs: HTMLInputElement[] = []
+  /** Radios only group by shared `name`; two RadioGroups in one window must not fight. */
+  private static nextName = 1
+  private readonly name = `radio-group-${RadioGroup.nextName++}`
+
+  constructor(
+    private readonly options: RadioOption[],
+    private readonly opts: { selected?: string; gap?: number; onChange?: (value: string) => void } = {},
+  ) {
+    this.selected = opts.selected ?? options[0]?.value ?? ''
+  }
+
+  mount(host: HTMLElement): void {
+    const el = document.createElement('div')
+    el.style.display = 'flex'
+    el.style.flexWrap = 'wrap'
+    el.style.alignItems = 'center'
+    el.style.gap = `${this.opts.gap ?? 14}px`
+    el.style.flex = 'none'
+
+    for (const option of this.options) {
+      // A <label> wrapping the control makes the whole row a hit target, for free.
+      const row = document.createElement('label')
+      row.style.display = 'flex'
+      row.style.alignItems = 'center'
+      row.style.gap = '6px'
+      row.style.cursor = 'pointer'
+
+      const input = document.createElement('input')
+      input.type = 'radio'
+      input.name = this.name
+      input.checked = option.value === this.selected
+      input.style.accentColor = CHROME.accent
+      input.style.margin = '0'
+      input.addEventListener('change', () => {
+        this.selected = option.value
+        this.opts.onChange?.(option.value)
+      })
+      row.appendChild(input)
+      this.inputs.push(input)
+
+      if (option.picture) {
+        const picture = document.createElement('span')
+        picture.innerHTML = option.picture
+        picture.style.display = 'flex'
+        row.appendChild(picture)
+      }
+      if (option.label) {
+        const label = document.createElement('span')
+        label.textContent = option.label
+        row.appendChild(label)
+      }
+      el.appendChild(row)
+
+      // Mounted OUTSIDE the label: a spinner inside it would toggle the radio on every click.
+      if (option.trailing) {
+        const slot = document.createElement('div')
+        slot.style.display = 'flex'
+        option.trailing.mount(slot)
+        el.appendChild(slot)
+      }
+    }
+
+    host.appendChild(el)
+  }
+
+  get value(): string {
+    return this.selected
+  }
+
+  destroy(): void {
+    for (const option of this.options) option.trailing?.destroy?.()
+  }
+}
+
+/** A labelled checkbox. Reports on change; holds its own state and nothing else's. */
+export class Checkbox implements Widget {
+  private el: HTMLInputElement | null = null
+
+  constructor(
+    private readonly label: string,
+    private readonly opts: { checked?: boolean; onChange?: (checked: boolean) => void } = {},
+  ) {}
+
+  mount(host: HTMLElement): void {
+    const row = document.createElement('label')
+    row.style.display = 'flex'
+    row.style.alignItems = 'center'
+    row.style.gap = '7px'
+    row.style.cursor = 'pointer'
+    row.style.flex = 'none'
+
+    const input = document.createElement('input')
+    input.type = 'checkbox'
+    input.checked = this.opts.checked ?? false
+    input.style.accentColor = CHROME.accent
+    input.style.margin = '0'
+    input.addEventListener('change', () => this.opts.onChange?.(input.checked))
+
+    const label = document.createElement('span')
+    label.textContent = this.label
+
+    row.append(input, label)
+    host.appendChild(row)
+    this.el = input
+  }
+
+  get checked(): boolean {
+    return this.el?.checked ?? this.opts.checked ?? false
+  }
+}
+
+/** A drop-down. Options may carry `html` so a row can be a GLYPH (a note value) and not a word. */
+export class Select implements Widget {
+  private el: HTMLSelectElement | null = null
+
+  constructor(
+    private readonly options: { value: string; label: string }[],
+    private readonly opts: { selected?: string; width?: number; onChange?: (value: string) => void } = {},
+  ) {}
+
+  mount(host: HTMLElement): void {
+    const el = document.createElement('select')
+    for (const option of this.options) {
+      const node = document.createElement('option')
+      node.value = option.value
+      node.textContent = option.label
+      el.appendChild(node)
+    }
+    el.value = this.opts.selected ?? this.options[0]?.value ?? ''
+
+    const s = el.style
+    s.padding = '3px 6px'
+    s.borderRadius = '4px'
+    s.border = `1px solid ${CHROME.edge}`
+    s.background = CHROME.field
+    s.color = CHROME.ink
+    s.font = 'inherit'
+    s.flex = 'none'
+    if (this.opts.width) s.width = `${this.opts.width}px`
+
+    el.addEventListener('change', () => this.opts.onChange?.(el.value))
+    host.appendChild(el)
+    this.el = el
+  }
+
+  get value(): string {
+    return this.el?.value ?? this.opts.selected ?? ''
+  }
+}
+
+/** A small number field — the beats/unit spinners beside "Other:". */
+export class NumberInput implements Widget {
+  private el: HTMLInputElement | null = null
+
+  constructor(
+    private readonly opts: { value?: number; min?: number; max?: number; width?: number; onChange?: (value: number) => void } = {},
+  ) {}
+
+  mount(host: HTMLElement): void {
+    const el = document.createElement('input')
+    el.type = 'number'
+    el.value = String(this.opts.value ?? 4)
+    if (this.opts.min !== undefined) el.min = String(this.opts.min)
+    if (this.opts.max !== undefined) el.max = String(this.opts.max)
+
+    const s = el.style
+    s.width = `${this.opts.width ?? 56}px`
+    s.padding = '3px 6px'
+    s.borderRadius = '4px'
+    s.border = `1px solid ${CHROME.edge}`
+    s.background = CHROME.field
+    s.color = CHROME.ink
+    s.font = 'inherit'
+    s.accentColor = CHROME.accent
+    s.flex = 'none'
+
+    el.addEventListener('change', () => this.opts.onChange?.(Number(el.value)))
+    host.appendChild(el)
+    this.el = el
+  }
+
+  get value(): number {
+    return Number(this.el?.value ?? this.opts.value ?? 0)
+  }
+}

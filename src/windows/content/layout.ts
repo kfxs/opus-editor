@@ -119,3 +119,47 @@ function mountChildren(el: HTMLElement, children: Widget[], grow?: number): void
     el.appendChild(slot)
   })
 }
+
+/**
+ * A bordered frame with a caption — Sibelius's "Pickup (Upbeat)" box. It says "these controls are
+ * one idea", which a bare gap cannot: two checkboxes side by side read as two unrelated options
+ * until a frame puts one of them inside something.
+ *
+ * A container and not a leaf, so what goes in it is any widget tree.
+ */
+export class GroupBox extends Container {
+  constructor(
+    private readonly caption: string,
+    children: Widget[],
+    private readonly opts: StackOptions = {},
+  ) {
+    super(children)
+  }
+
+  mount(host: HTMLElement): void {
+    // A real <fieldset>/<legend>: the caption notch in the border is theirs, and drawing it by hand
+    // means faking the gap the legend punches through the top edge.
+    const el = document.createElement('fieldset')
+    el.style.border = `1px solid ${CHROME.edge}`
+    el.style.borderRadius = '6px'
+    el.style.margin = '0'
+    el.style.padding = '4px 12px 12px'
+    el.style.minWidth = '0' // a fieldset's default min-width is its content — it would refuse to shrink
+    el.style.flex = 'none'
+
+    const legend = document.createElement('legend')
+    legend.textContent = this.caption
+    legend.style.padding = '0 6px'
+    legend.style.color = CHROME.inkMuted
+    el.appendChild(legend)
+
+    const inner = document.createElement('div')
+    inner.style.display = 'flex'
+    inner.style.flexDirection = 'column'
+    inner.style.gap = `${this.opts.gap ?? 10}px`
+    mountChildren(inner, this.children, this.opts.grow)
+    el.appendChild(inner)
+
+    host.appendChild(el)
+  }
+}

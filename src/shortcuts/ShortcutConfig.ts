@@ -315,14 +315,21 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Toggle dotted note (numpad)',
   },
 
-  // Tuplet toggle
+  // Time signature: opens the Time Signature window — the same action as Insert ▸ Time Signature.
+  // Sibelius's own key for that dialog, and the sibling of Q for Clef.
+  //
+  // It USED to toggle triplet mode. That binding is not lost, it is narrowed to `Ctrl+3` below,
+  // which is what Sibelius binds a triplet to anyway — so both keys end up where a Sibelius user
+  // reaches for them, and neither action is left without one.
   't': {
-    action: 'toggleTuplet',
-    description: 'Toggle triplet mode',
+    action: 'openTimeSignatureWindow',
+    description: 'Open the time signature window',
   },
+
+  // Tuplet toggle
   'Ctrl+3': {
     action: 'toggleTuplet',
-    description: 'Toggle triplet mode (Ctrl+3)',
+    description: 'Toggle triplet mode',
   },
 
   // Stem direction
