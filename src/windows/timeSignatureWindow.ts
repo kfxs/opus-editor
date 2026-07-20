@@ -1,5 +1,6 @@
 import type { WindowLayer } from './WindowLayer'
 import type { Window } from './Window'
+import type { TimeSignature } from '../types/music'
 import { Column, GroupBox, Row } from './content/layout'
 import { Button, Checkbox, GlyphSelect, NumberInput, RadioGroup, Select } from './content/widgets'
 import { CHROME } from '../utils/chromeColors'
@@ -22,8 +23,7 @@ import { timeSignatureSelection } from '../interactions/timeSignatureSelection'
  *
  * Still unwired, and written up in docs/time-signature-window-plan.md: the pickup checkbox, and
  * "Beam and Rest Groups…" beyond the grouping field it already edits (rest grouping is not modelled
- * at all). `common`/`cut` arm as 4/4 and 2/2 — right meters, wrong glyph, because `TimeSignature`
- * cannot yet say "print this as C".
+ * at all).
  */
 
 /**
@@ -111,20 +111,19 @@ const PICKUP_LENGTHS = [
 ]
 
 /**
- * The meter a PRESET radio stands for. `common`/`cut` are 4/4 and 2/2 — which is what they MEAN, but
- * not how they are drawn, and `TimeSignature` has no way to say "print this as C" yet. Nothing here
- * commits, so the gap is harmless today; it is the first thing to fix when OK does something. See
- * docs/time-signature-window-plan.md.
+ * The meter a PRESET radio stands for — numbers AND how it is printed. `common` is 4/4 drawn as C,
+ * `cut` is 2/2 drawn as ¢: the same meters as their numbers, spelled the way the score spells them
+ * (`TimeSignature.symbol`).
  *
  * `other` is NOT here: it has no meter of its own — its meter is whatever the two spinners say, and
  * only the window holds those. Returning null rather than a fallback is the point: a fallback is
  * what made this silently answer 4/4 for a 5/4 the user had typed, and be believed.
  */
-function presetMeter(value: string): [number, number] | null {
-  if (value === 'common') return [4, 4]
-  if (value === 'cut') return [2, 2]
+function presetMeter(value: string): TimeSignature | null {
+  if (value === 'common') return { numerator: 4, denominator: 4, symbol: 'common' }
+  if (value === 'cut') return { numerator: 2, denominator: 2, symbol: 'cut' }
   const [numerator, denominator] = value.split('/').map(Number)
-  return Number.isFinite(numerator) && Number.isFinite(denominator) ? [numerator, denominator] : null
+  return Number.isFinite(numerator) && Number.isFinite(denominator) ? { numerator, denominator } : null
 }
 
 export function openTimeSignatureWindow(windows: WindowLayer): Window {
@@ -158,14 +157,16 @@ export function openTimeSignatureWindow(windows: WindowLayer): Window {
         trailing: new Column([otherBeats, otherUnit], { gap: 4 }),
       },
     ],
-    { selected: '4/4' },
+    // Double-clicking a meter commits it, the way double-clicking a clef does.
+    { selected: '4/4', onActivate: () => accept() },
   )
 
   const cautionary = new Checkbox('Allow cautionary', { checked: true })
 
   /** The meter the dialog is currently showing — a preset, or the spinners when Other is chosen.
    *  Read at CLICK time, never captured: the radios and the spinners both move under it. */
-  const currentMeter = (): [number, number] => presetMeter(meters.value) ?? [otherBeats.value, Number(otherUnit.value)]
+  const currentMeter = (): TimeSignature =>
+    presetMeter(meters.value) ?? { numerator: otherBeats.value, denominator: Number(otherUnit.value) }
 
   /**
    * OK: ARM the meter and get out of the way — the Clef window's bargain, and for the same reason.
@@ -177,10 +178,10 @@ export function openTimeSignatureWindow(windows: WindowLayer): Window {
    * is what gets armed, so a `7/8` grouped `3+2+2` arrives as one thing.
    */
   const accept = (): void => {
-    const [numerator, denominator] = currentMeter()
+    const meter = currentMeter()
     const grouped = parseGrouping(grouping)
     timeSignatureSelection.press({
-      timeSignature: grouped ? { numerator, denominator, grouping: grouped } : { numerator, denominator },
+      timeSignature: grouped ? { ...meter, grouping: grouped } : meter,
       cautionary: cautionary.checked,
     })
     win?.close()
@@ -196,8 +197,10 @@ export function openTimeSignatureWindow(windows: WindowLayer): Window {
     center: true,
     resizable: false,
     fitContent: true,
-    // Escape is Cancel — the same act, so the same call. Nothing is armed, nothing committed.
+    // Escape is Cancel and Enter is OK — the keys a dialog is expected to answer to, wired to the
+    // very functions its buttons call, so there is one path per act and no second implementation.
     onCancel: () => win?.close(),
+    onAccept: accept,
     content: new Column(
       [
         meters,
@@ -225,10 +228,10 @@ export function openTimeSignatureWindow(windows: WindowLayer): Window {
             // (Rest grouping and per-note-value grouping are still missing from the MODEL, not just
             // from that window — see docs/time-signature-window-plan.md §2.)
             new Button('Beam and Rest Groups…', () => {
-              const [numerator, denominator] = currentMeter()
+              const meter = currentMeter()
               openBeamGroupsWindow(windows, {
-                numerator,
-                denominator,
+                numerator: meter.numerator,
+                denominator: meter.denominator,
                 grouping,
                 onAccept: (value) => {
                   grouping = value

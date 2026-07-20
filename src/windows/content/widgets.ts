@@ -290,7 +290,14 @@ export class RadioGroup implements Widget {
 
   constructor(
     private readonly options: RadioOption[],
-    private readonly opts: { selected?: string; gap?: number; onChange?: (value: string) => void } = {},
+    private readonly opts: {
+      selected?: string
+      gap?: number
+      onChange?: (value: string) => void
+      /** Double-click a row: choose it AND commit — the shortcut past OK that a picker is expected
+       *  to have, the same gesture {@link ChoiceList} offers. */
+      onActivate?: (value: string) => void
+    } = {},
   ) {
     this.selected = opts.selected ?? options[0]?.value ?? ''
   }
@@ -321,6 +328,10 @@ export class RadioGroup implements Widget {
         this.selected = option.value
         this.opts.onChange?.(option.value)
       })
+      // Fires with the ROW's value, not the current selection: the first click of the pair has
+      // already moved the dot, but a fast double-click on a row that never got selected must still
+      // commit the row you actually hit.
+      row.addEventListener('dblclick', () => this.opts.onActivate?.(option.value))
       row.appendChild(input)
       this.inputs.push(input)
 
@@ -609,6 +620,10 @@ export class GlyphSelect implements Widget {
 
     document.body.appendChild(list)
     this.list = list
+    // While the list is up, Enter chooses a row and Escape shuts the list — neither is a verdict on
+    // the surrounding dialog. The window layer reads this attribute and stands down; it listens on
+    // `document` in the capture phase, so it runs before anything here could tell it otherwise.
+    button.dataset.ownsKeys = 'true'
 
     // Below the field, flipped above when there is no room — the same rule a menu follows, and the
     // reason it is measured only after mounting: until then the list has no height.
@@ -629,6 +644,7 @@ export class GlyphSelect implements Widget {
   }
 
   private close(): void {
+    if (this.button) delete this.button.dataset.ownsKeys
     document.removeEventListener('pointerdown', this.onOutsidePointerDown, true)
     document.removeEventListener('keydown', this.onListKeyDown, true)
     this.list?.remove()

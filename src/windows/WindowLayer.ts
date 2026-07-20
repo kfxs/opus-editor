@@ -241,12 +241,19 @@ export class WindowLayer {
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
-    if (e.key !== 'Escape') return
-    const win = this.manager.escapeTarget()
-    if (!win) return // no window wants it: the score's Escape is untouched
+    if (e.key !== 'Escape' && e.key !== 'Enter') return
+    // A control INSIDE a window can own these keys while it is up — an open dropdown's Enter
+    // chooses a row and its Escape shuts the list, and neither is a verdict on the dialog. It says
+    // so with `data-owns-keys`, because this listener is on `document` in the capture phase and
+    // therefore runs BEFORE any handler the control could register: it cannot wait to be told.
+    if ((e.target as Element | null)?.closest?.('[data-owns-keys]')) return
+
+    const win = e.key === 'Escape' ? this.manager.escapeTarget() : this.manager.acceptTarget()
+    if (!win) return // no window wants it: the score's own binding is untouched
     e.preventDefault()
     e.stopPropagation()
-    win.onCancel?.()
+    if (e.key === 'Escape') win.onCancel?.()
+    else win.onAccept?.()
   }
 
   destroy(): void {

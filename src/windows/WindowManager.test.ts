@@ -52,6 +52,17 @@ describe('WindowManager', () => {
       expect(m.escapeTarget()).toBe(first)
     })
 
+    it('answers Enter with the frontmost claimant, independently of Escape', () => {
+      const cancelOnly = m.open({ onCancel: () => {} })
+      const both = m.open({ onCancel: () => {}, onAccept: () => {} })
+      expect(m.acceptTarget()).toBe(both)
+      cancelOnly.raise()
+      // Escape follows the raise; Enter cannot — the raised window has no default button, and a
+      // window must not answer for a key it never claimed.
+      expect(m.escapeTarget()).toBe(cancelOnly)
+      expect(m.acceptTarget()).toBe(both)
+    })
+
     it('skips a panel raised above the dialog', () => {
       const dialog = m.open({ onCancel: () => {} })
       const panel = m.open() // no claim — a Keypad

@@ -37,8 +37,9 @@ export function openBeamGroupsWindow(windows: WindowLayer, opts: BeamGroupsOptio
   const field = new TextInput({
     value: opts.grouping,
     placeholder: 'optional, e.g. 2+2+3',
+    // No `onEnter` here: the WINDOW owns Enter (`onAccept` below), so a field-level handler would
+    // be a second implementation of the same act — and would fire twice the day they disagree.
     onInput: () => validate(),
-    onEnter: () => accept(),
   })
 
   let ok: Button | null = null
@@ -70,6 +71,7 @@ export function openBeamGroupsWindow(windows: WindowLayer, opts: BeamGroupsOptio
     resizable: false,
     fitContent: true,
     onCancel: () => win?.close(),
+    onAccept: accept,
     content: new Column(
       [
         new Row([new Label(`Grouping for ${opts.numerator}/${opts.denominator}`)], { gap: 8 }),

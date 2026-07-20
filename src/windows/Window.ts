@@ -73,6 +73,14 @@ export interface WindowOptions {
    * declare one, so Escape over the score still means deselect while they are up.
    */
   onCancel?: () => void
+  /**
+   * What Enter means for this window — the default button. Present ⇒ Enter (while this is the
+   * frontmost window that declares one) runs it; absent ⇒ Enter passes through.
+   *
+   * A callback for {@link onCancel}'s reason: OK, Save and Apply are different acts, and a
+   * `defaultButton: true` flag could only ever have named one of them.
+   */
+  onAccept?: () => void
 }
 
 /** Which sides a resize drag is pulling. A corner pulls two. */
@@ -125,6 +133,8 @@ export class Window {
   readonly content: Widget | null
   /** {@link WindowOptions.onCancel} — null when Escape has nothing to do here. */
   readonly onCancel: (() => void) | null
+  /** {@link WindowOptions.onAccept} — null when Enter has nothing to do here. */
+  readonly onAccept: (() => void) | null
 
   rect: Rect
   /** Stacking order. Higher is nearer the viewer; the manager re-stamps it on raise. */
@@ -146,6 +156,7 @@ export class Window {
     this.opacity = clamp01(opts.opacity ?? WINDOW_DEFAULTS.opacity)
     this.content = opts.content ?? null
     this.onCancel = opts.onCancel ?? null
+    this.onAccept = opts.onAccept ?? null
     this.rect = {
       x: opts.x ?? 0,
       y: opts.y ?? 0,

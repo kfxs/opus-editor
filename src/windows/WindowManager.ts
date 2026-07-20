@@ -77,10 +77,19 @@ export class WindowManager implements WindowHost {
    * no handler, so they are transparent to the key rather than in front of it.
    */
   escapeTarget(): Window | undefined {
-    // list() is bottom-to-top and readonly; Escape wants the top, so walk it backwards.
+    return this.frontmostWith((w) => w.onCancel !== null)
+  }
+
+  /** The window Enter belongs to — the same rule as {@link escapeTarget}, for the default button. */
+  acceptTarget(): Window | undefined {
+    return this.frontmostWith((w) => w.onAccept !== null)
+  }
+
+  private frontmostWith(claims: (win: Window) => boolean): Window | undefined {
+    // list() is bottom-to-top and readonly; a key wants the top, so walk it backwards.
     const stack = this.list()
     for (let i = stack.length - 1; i >= 0; i--) {
-      if (stack[i].onCancel) return stack[i]
+      if (claims(stack[i])) return stack[i]
     }
     return undefined
   }

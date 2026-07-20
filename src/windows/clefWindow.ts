@@ -121,8 +121,10 @@ export function openClefWindow(windows: WindowLayer): Window {
     // A dialog you summoned belongs where you are already looking, not on the cascade.
     center: true,
     resizable: false,
-    // Escape is Cancel — the same act, so the same call. Nothing is armed, nothing committed.
+    // Escape is Cancel and Enter is OK — the keys a dialog is expected to answer to, wired to the
+    // very functions its buttons call, so there is one path per act and no second implementation.
     onCancel: () => win?.close(),
+    onAccept: accept,
     content: new Column(
       [
         // No caption over the list: the window is titled Clef and the rows ARE clefs. Sibelius needs
