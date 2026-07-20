@@ -321,8 +321,14 @@ rect and let `DomTextEdit` do the ascent correction once, for dynamics and tempo
   playback needs one number → an extra field.
 - Metric modulation `♩ = ♪` — `StaveTempo`'s `duration2`/`dots2` render it free; it is a different
   *statement* (re-notating one clock) and deserves its own design pass.
-- "Interpret typed word → suggest a bpm" (Sibelius does this) — a *suggestion*, never the source
-  of truth (decision D2).
+- **Typed word → a played bpm.** `parseTempoText` today only reads a *metronomic* mark (`♩ = N`); a
+  bare word like `Allegro` states no number and inherits the prevailing tempo. A future step: give
+  the parser a **word → bpm dictionary** (`Adagio` ≈ 66, `Allegro` ≈ 132, …) so a word alone can
+  carry a playable tempo, the way Sibelius does. Constraints — it must stay a *default*, never the
+  source of truth (decision D2): an explicit `♩ = N` in the same string always wins, and the number
+  a word implies must be user-overridable, not silently authoritative. Not built now; recorded so it
+  stays reachable. (When it lands, the same list could seed a framework-agnostic tempo palette's
+  preset rows — see `PaletteController.setTempo`.)
 - Playback-rate slider (0.25×–4×) — engine-only, never content, never JSON.
 - **Polytempo** — the `scopeId` field + the `scope` parameter are the reserved seams. The rest is
   downstream of removing the shared-measure-spine assumption (`multi-staff-plan.md` §11), which is

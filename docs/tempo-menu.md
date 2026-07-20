@@ -77,9 +77,24 @@ Note chars (`♩` = U+2669) sit outside the PUA, so the paths don't collide. **C
 engraved SVG relies on the browser's default on the grouped `<text>`; if a beam gaps in the actual
 mark, add an explicit kerning rule for the score's tempo `<text>`.
 
+## Shortcuts, and how a tempo mark is entered now
+
+The menu's shortcuts are wired for real (they were labels only until then): `TempoTextSource.getInsertions()`
+binds the note ladder to the **numeric keypad** (`Ctrl+Num 1…6`, matched by `KeyboardEvent.code`
+because the top-row twins are the browser's tab-switch), the augmentation dot to `Ctrl+Num .`, and
+the arrows to `Ctrl+'` / `Ctrl+¡`. The keypad numbers come from the shared `NOTE_KEYPAD` (and `GLYPH`),
+exported from `tempoMenu.ts`, so the labels and the bindings can't drift. `TextEditInsertion` gained a
+`code` field for the keypad matching. The triplet's `Ctrl+3` is deliberately unbound (top-row, un-suppressable).
+
+The **Vue tempo palette was deleted** — the plain-TS editor is the only entry now: **Ctrl+Alt+T**
+places a mark (at a selected note, or arm click-to-type on an empty beat), then you type it with the
+word menu + these shortcuts; double-click edits an existing one. The palette's one-click *preset stamp*
+and bpm/unit/dots spinners are gone (no replacement); the arming seam survives as
+`PaletteController.setTempo`, kept for a future framework-agnostic tempo palette (see its doc comment).
+
 ## Still open
 
-- The menu **test** (`tempoMenu.test.ts`) still asserts the original two-column *word-menu* shape and
-  needs rewriting for the trimmed layout.
 - Metric modulation still doesn't **play** (the equation states no number → inherits the prevailing
   tempo). See `metric-modulation-plan.md`.
+- A future **word→bpm dictionary** would let a bare word (`Allegro`) carry a played tempo — recorded
+  in `tempo-marks-plan.md` §9, not built.

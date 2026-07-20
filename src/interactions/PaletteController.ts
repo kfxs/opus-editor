@@ -1079,6 +1079,20 @@ export class PaletteController {
    *
    * A tempo mark is SYSTEM-level, so — unlike a dynamic — it carries no staff and no
    * voice: whichever staff you click, one mark is placed governing the whole system.
+   *
+   * ⚠️ NO UI CALLS THIS RIGHT NOW — only the tests. The Vue tempo palette that drove it (a row of
+   * word chips + bpm/unit/dots spinners that composed a preset) was deleted; placement and editing
+   * now go through the plain-TS tempo editor — Ctrl+Alt+T to place a mark, then type it with the
+   * word menu + shortcuts (the text-as-truth model, where the mark IS its text). What is dropped is
+   * only the one-click *preset stamp* and the numeric spinners; nothing you can author is lost.
+   *
+   * KEEP IT (the same reason {@link setDynamic} / {@link setTimeSignature} are kept). This is the
+   * intact seam a future framework-agnostic tempo palette on the editor side would call — the tested
+   * half of the behaviour (arm, disarm-on-re-press, edit-selected-in-place, place-on-selection,
+   * mutual exclusion), none of it Vue-shaped. When that palette lands its preset rows could come
+   * from the word → bpm dictionary sketched in docs/tempo-marks-plan.md §9, rather than a hand list.
+   * {@link placeTempoAtSelectedNote} / `placeTempoAtClick` and the `'tempo'` marking-tool variant
+   * are the placement half of this same seam and are kept for the same reason.
    */
   setTempo(tool: TempoTool | null): void {
     // A tempo mark is SELECTED → the palette edits it in place instead of arming a new
