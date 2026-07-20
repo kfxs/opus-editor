@@ -34,6 +34,13 @@ const STYLE_ID = 'menu-layer-styles'
  */
 const HOVER_DELAY_MS = 140
 
+/** How far the pointer must actually travel to take control back from the keyboard. A few pixels of
+ *  slack absorbs the jitter and the synthetic events a stationary mouse still emits. */
+const POINTER_WAKE_PX = 4
+
+/** The keys that mean "the keyboard is driving now" — everything the menu itself acts on. */
+const KEYBOARD_DRIVING_KEYS = new Set(['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Enter'])
+
 const CSS = `
 .menu-layer {
   position: absolute;
@@ -136,6 +143,14 @@ const CSS = `
    [data-highlight] — the row the ARROW KEYS are on. The pointer's :hover for the keyboard: this is
              the row Enter would commit and Right would open, so it must look exactly like the one a
              mouse is over. */
+/* KEYBOARD MODE. Once the arrows are driving, the pointer stops voting: its :hover is suppressed and
+   the cursor is hidden outright, so wherever it happens to be resting cannot look like the row Enter
+   would commit. It comes straight back the moment the mouse actually MOVES — this is a mode the
+   keyboard enters, never one the user has to leave. */
+.menu-layer-keyboard { cursor: none; }
+.menu-layer-keyboard .menu-row:hover { background: transparent; }
+.menu-layer-keyboard .menu-row:hover .menu-row-arrow,
+.menu-layer-keyboard .menu-row:hover .menu-row-shortcut { color: ${CHROME.inkMuted}; }
 .menu-row:hover,
 .menu-row[data-active="true"],
 .menu-row[data-highlight="true"] { background: ${CHROME.accent}; }
@@ -191,6 +206,16 @@ export class MenuLayer {
   private scrim: HTMLElement | null = null
   private chain: Panel[] = []
   private hoverTimer: ReturnType<typeof setTimeout> | null = null
+  /**
+   * True once the arrows are driving. While set, the pointer neither highlights nor opens anything
+   * and the cursor is hidden — otherwise a mouse resting over row 7 lights up alongside the row the
+   * keyboard is on, and both look like the one Enter commits.
+   */
+  private keyboardMode = false
+  /** Latest real pointer position, and where it was when keyboard mode began. Movement AWAY from
+   *  that spot is what hands control back — see {@link onPointerMove}. */
+  private pointerAt: Point | null = null
+  private pointerArmedAt: Point | null = null
 
   /** @param host the score viewport — the same box the app already donated to the window layer. */
   mount(host: HTMLElement): void {
@@ -209,6 +234,9 @@ export class MenuLayer {
     this.layer = layer
 
     document.addEventListener('keydown', this.onKeyDown)
+    // Tracked always, so that when the keyboard takes over we already know where the pointer was —
+    // only movement AWAY from that spot may hand control back.
+    document.addEventListener('pointermove', this.onPointerMove, true)
     // Scrolling or resizing the world moves the paper out from under a menu that was opened ON it.
     // A menu that stayed put would then be pointing at nothing.
     window.addEventListener('resize', this.close)
@@ -218,6 +246,7 @@ export class MenuLayer {
   destroy(): void {
     this.close()
     document.removeEventListener('keydown', this.onKeyDown)
+    document.removeEventListener('pointermove', this.onPointerMove, true)
     window.removeEventListener('resize', this.close)
     this.layer?.remove()
     this.layer = null
@@ -259,6 +288,7 @@ export class MenuLayer {
 
   close = (): void => {
     this.clearHoverTimer()
+    this.setKeyboardMode(false)
     // Closed means the nodes are GONE — rule 4, inherited. Nothing is parked with display:none.
     while (this.chain.length) this.popPanel()
     this.scrim?.remove()
@@ -368,6 +398,10 @@ export class MenuLayer {
     }
 
     row.addEventListener('pointerenter', () => {
+      // A panel opening UNDER a stationary pointer fires this without the mouse having moved. While
+      // the keyboard is driving that must not steal the highlight, or arrowing into a submenu would
+      // hand control back to a mouse nobody touched.
+      if (this.keyboardMode) return
       this.clearHoverTimer()
       // The pointer takes the highlight from the keyboard: two lit rows in one panel — one hovered,
       // one arrowed-to — would each look like "the row Enter commits", and only one can be.
@@ -419,6 +453,34 @@ export class MenuLayer {
     // The flyout's top lines up with its own row, wherever that row sits inside a scrolled panel.
     const rowY = parentRect.y + row.offsetTop - parent.el.scrollTop
     this.pushPanel(items, row, (size) => placeFlyout(parentRect, rowY, size, this.bounds()))
+  }
+
+  /**
+   * Enter or leave keyboard mode. The class goes on the LAYER, not a panel, so it covers the scrim
+   * too — the cursor must stay hidden while the pointer is anywhere over the menu, not only when it
+   * is over a row.
+   */
+  private setKeyboardMode(on: boolean): void {
+    if (this.keyboardMode === on) return
+    this.keyboardMode = on
+    this.pointerArmedAt = on ? this.pointerAt : null
+    this.layer?.classList.toggle('menu-layer-keyboard', on)
+  }
+
+  /**
+   * Real mouse movement hands control back to the pointer. Gated on DISTANCE from where the pointer
+   * sat when the keyboard took over, because a stationary mouse still produces pointer events — a
+   * flyout opening underneath it is the common one — and treating those as intent would undo
+   * keyboard mode the instant a submenu appeared under the cursor.
+   */
+  private onPointerMove = (e: PointerEvent): void => {
+    this.pointerAt = { x: e.clientX, y: e.clientY }
+    if (!this.keyboardMode) return
+    const from = this.pointerArmedAt
+    if (!from) { this.setKeyboardMode(false); return }
+    if (Math.abs(e.clientX - from.x) + Math.abs(e.clientY - from.y) > POINTER_WAKE_PX) {
+      this.setKeyboardMode(false)
+    }
   }
 
   private clearHoverTimer(): void {
@@ -488,6 +550,11 @@ export class MenuLayer {
    */
   private onKeyDown = (e: KeyboardEvent): void => {
     if (!this.isOpen) return
+
+    // Any of these keys means the keyboard is driving now. Set BEFORE the move, so the highlight it
+    // is about to place is the only lit row — including when the flyout it opens lands under the
+    // pointer.
+    if (KEYBOARD_DRIVING_KEYS.has(e.key)) this.setKeyboardMode(true)
 
     switch (e.key) {
       case 'ArrowDown':
