@@ -5,23 +5,23 @@ import { UNIT_GLYPH } from '../utils/tempoText'
 /**
  * The tempo editor's WORD MENU — the sibling of {@link buildExpressionMenu}, right-click (or the
  * Menu key) while the tempo text cursor is blinking and pick a marking instead of hunting for a
- * character you cannot type. This is Sibelius's own tempo popup replicated whole, column for column
- * (five of them — {@link buildTempoMenu} lays them out):
+ * character you cannot type. It started as Sibelius's whole tempo popup and was trimmed hard to
+ * what a tempo mark is actually made of. Two columns ({@link buildTempoMenu} lays them out):
  *
- *   WORDS       — the Italian tempo vocabulary (column 1) and the jazz feels (column 2), both set
- *                 BOLD because the score engraves tempo text bold, so the row is a specimen. Inserted
- *                 as ordinary text: the mark IS its text; a word states no number and inherits the
- *                 prevailing tempo (see utils/tempoText).
- *   NAVIGATION  — the segno and coda glyphs, set in the notation font and inserted verbatim.
- *   NOTE VALUES — dropped as the Unicode note char that finishes a metronome (` = 120`); each shows
- *                 the picture's keypad shortcut (see NOTE_SHORTCUT — a label, wiring is a next step).
- *   MODULATION  — the metric-modulation cues `←`/`→`, the whole `← ♩ = ♪ →` equation, the
- *                 augmentation dot and the triplet number. The GLYPHS ship now; a modulation that
- *                 actually changes playback is future work (docs/metric-modulation-plan.md). Today
- *                 the equation draws correctly and inherits the prevailing tempo — a placeholder,
- *                 not a lie, because it makes no false numeric claim.
- *   CHARACTERS  — the accented letters, the eszett, the curly quotes and the em dash (columns 3–5),
- *                 each inserted verbatim, for tempo text in any language.
+ *   COLUMN 1 — the WORDS: the Italian tempo vocabulary, set BOLD because the score engraves tempo
+ *              text bold, so the row is a specimen. Inserted as ordinary text: the mark IS its text;
+ *              a word states no number and inherits the prevailing tempo (see utils/tempoText).
+ *   COLUMN 2 — everything a metronome/modulation is built from:
+ *     · NOTE VALUES — the ladder shortest → longest (32nd … whole, then the two double-whole
+ *                     variants), each with its numeric-keypad shortcut (see NOTE_SHORTCUT — a label
+ *                     for now, wiring is a next step);
+ *     · MODULATION  — the augmentation dot, the `←`/`→` cues, the whole `← ♩ = ♪ →` equation, the
+ *                     beamed note groups and the triplet-with-bracket and tie. The GLYPHS ship now;
+ *                     a modulation that changes playback is future work (docs/metric-modulation-plan.md).
+ *                     Today the equation draws and, carrying no number, inherits the prevailing
+ *                     tempo — a placeholder, not a lie, because it makes no false numeric claim;
+ *     · the German ESZETT (ß), the one accented character kept — the OS keyboard reaches the rest,
+ *       so the French/Italian accents, the jazz feels, segno/coda and curly quotes were all dropped.
  *
  * The one specimen split, same as the expression menu: a note-value LABEL is the SMuFL metronome
  * glyph the score engraves, while what it INSERTS is the Unicode note `parseTempoText` reads back
@@ -62,23 +62,14 @@ const WORDS: readonly string[] = [
 ]
 
 /**
- * Sibelius's SECOND column — the jazz-style feels, set BOLD like the Italian words because they are
- * the same kind of thing: a word the score engraves, stating no speed. `CODA` rides along here (the
- * picture lists it as a word, upright, not the round coda glyph — that is a separate row below).
- */
-const JAZZ_WORDS: readonly string[] = [
-  'Back-beat', 'Ballad', 'Bebop', 'Cool', 'Fusion', 'Hard Bop', 'Medium', 'Up', 'CODA',
-]
-
-/**
- * The note-value shortcuts, echoed from the picture's numeric keypad: half = Ctrl+1 down the note
- * ladder to the 32nd = Ctrl+5, with the whole note as Ctrl+6 (it sits at the top of the next column
- * in the picture, but keeps its number). Display only for now — wiring them needs numeric-keypad
- * detection (`event.code === 'Numpad1'`), because plain `Ctrl+1…6` is the browser's tab-switch and
- * cannot be suppressed, so they are labels here and not yet in the editor's key handling.
+ * The note-value shortcuts, echoed from the picture — on the NUMERIC KEYPAD (its "Ctrl+NUMERO"),
+ * not the top-row digits, so the label says `Ctrl+Num …`. The ladder reads shortest → longest:
+ * fusa (32nd) = Ctrl+Num 1 up to redonda (whole) = Ctrl+Num 6. Display only for now — wiring them
+ * needs numeric-keypad detection (`event.code === 'Numpad1'`), which is also WHY it must be the
+ * keypad: plain top-row `Ctrl+1…6` is the browser's tab-switch and cannot be suppressed.
  */
 const NOTE_SHORTCUT: Record<NoteDuration, string> = {
-  h: 'Ctrl+1', q: 'Ctrl+2', '8': 'Ctrl+3', '16': 'Ctrl+4', '32': 'Ctrl+5', w: 'Ctrl+6',
+  '32': 'Ctrl+Num 1', '16': 'Ctrl+Num 2', '8': 'Ctrl+Num 3', q: 'Ctrl+Num 4', h: 'Ctrl+Num 5', w: 'Ctrl+Num 6',
 }
 
 /**
@@ -86,12 +77,10 @@ const NOTE_SHORTCUT: Record<NoteDuration, string> = {
  * font (VexFlow's `Glyphs` table, node_modules/vexflow/build/esm/src/glyphs.js) rather than ASCII
  * look-alikes — so a row IS the mark the score engraves, not a picture of one. SMuFL's `text…` family
  * (U+E1F0–E203) is the set of note values, beams, ties and tuplet brackets meant to sit INLINE in
- * tempo / rehearsal text, which is this palette's whole job; the modulation arrows and the segno /
- * coda have their own dedicated glyphs.
+ * tempo / rehearsal text, which is this palette's whole job; the modulation arrows have their own
+ * dedicated glyphs.
  */
 const GLYPH = {
-  segno: '\uE047',
-  coda: '\uE048',
   arrowRight: '\uEC64',        // metricModulationArrowRight
   arrowLeft: '\uEC63',         // metricModulationArrowLeft
   dot: '\uECB7',               // metAugmentationDot — matches the dot TempoLayout engraves (ECB7)
@@ -99,7 +88,6 @@ const GLYPH = {
   tupletBracketStart: '\uE1FE', // textTupletBracketStartShortStem
   tuplet3: '\uE1FF',            // textTuplet3ShortStem
   tupletBracketEnd: '\uE200',   // textTupletBracketEndShortStem
-  longa: '\uE951',              // mensuralBlackLonga (Bravura has no text/metronome longa)
   double: '\uECA0',           // metNoteDoubleWhole (the round double whole)
   breve: '\uECA1',              // metNoteDoubleWholeSquare — the square "cuadrada"
   noteStem: '\uE1F0',           // textBlackNoteShortStem — a stemmed note (short stem)
@@ -126,42 +114,6 @@ const MODULATION_LABEL = `${GLYPH.arrowLeft}\u2002${NOTE_GLYPH['q']}\u2002=\u200
 const MODULATION_TEXT = `${GLYPH.arrowLeft} ${UNIT_GLYPH.q} = ${UNIT_GLYPH['8']} ${GLYPH.arrowRight}`
 
 /**
- * One accented / typographic character to drop into the mark's text — the picture's columns 3–5,
- * the foreign-language letters and the curly quotes you cannot always reach from the keyboard. Each
- * inserts its own `char` verbatim; the picture's shortcut, where it shows one, is echoed muted.
- */
-interface CharRow {
-  char: string
-  shortcut?: string
-}
-
-/** Column 3's tail — the a/e accents. Grave is `Ctrl+Shift+Alt+<vowel>`, acute is `Ctrl+Shift+<vowel>`,
- *  the pattern the picture spells out; the umlaut, circumflex and cedilla it lists without one. */
-const ACCENTS_A: ReadonlyArray<CharRow> = [
-  { char: 'à', shortcut: 'Ctrl+Shift+Alt+A' }, { char: 'á', shortcut: 'Ctrl+Shift+A' },
-  { char: 'ä' }, { char: 'â' }, { char: 'ç' },
-  { char: 'è', shortcut: 'Ctrl+Shift+Alt+E' }, { char: 'é', shortcut: 'Ctrl+Shift+E' },
-]
-
-/** Column 4 — the i/o/u accents, then the first bank of uppercase. */
-const ACCENTS_IOU: ReadonlyArray<CharRow> = [
-  { char: 'ë' }, { char: 'ê' },
-  { char: 'ì', shortcut: 'Ctrl+Shift+Alt+I' }, { char: 'í', shortcut: 'Ctrl+Shift+I' }, { char: 'î' },
-  { char: 'ò', shortcut: 'Ctrl+Shift+Alt+O' }, { char: 'ó', shortcut: 'Ctrl+Shift+O' }, { char: 'ö' }, { char: 'ô' },
-  { char: 'ù', shortcut: 'Ctrl+Shift+Alt+U' }, { char: 'ú', shortcut: 'Ctrl+Shift+U' }, { char: 'ü' }, { char: 'û' },
-  { char: 'À' }, { char: 'Á' }, { char: 'Ç' }, { char: 'È' }, { char: 'É' },
-]
-
-/** Column 5 — the rest of the uppercase, the eszett, the curly quotes and the em dash. */
-const ACCENTS_UPPER: ReadonlyArray<CharRow> = [
-  { char: 'Ì' }, { char: 'Í' }, { char: 'Ò' }, { char: 'Ó' }, { char: 'Ô' },
-  { char: 'Ù' }, { char: 'Ú' }, { char: 'Ü' }, { char: 'Û' }, { char: 'ß' },
-  { char: '‘', shortcut: 'Alt+ñ' }, { char: '’', shortcut: 'Shift+Alt+ñ' },
-  { char: '“', shortcut: 'Alt+2' }, { char: '”', shortcut: 'Shift+Alt+2' },
-  { char: '—' },
-]
-
-/**
  * How the menu puts something into the editor at the caret. One door: everything a tempo row places
  * is a character in the mark's own text (a note glyph, a word, an arrow) — unlike a dynamic, which
  * is an atomic glyph chip. The note-value → Unicode-char mapping is the menu's own job, below.
@@ -172,63 +124,44 @@ export interface TempoMenuInsert {
 }
 
 /**
- * Build the palette — Sibelius's tempo popup, column for column (menus/MenuLayer lays a `columnBreak`
- * out side by side). Five columns:
+ * Build the palette — two columns (menus/MenuLayer lays a `columnBreak` out side by side):
  *   1. the Italian tempo vocabulary;
- *   2. the jazz feels, the segno/coda navigation glyphs, and the short note values with the `=`;
- *   3. the whole note, the augmentation dot, the modulation arrows and equation, the triplet and
- *      fermata, then the first bank of accented letters;
- *   4. more accented vowels;
- *   5. the uppercase accents, the eszett, the curly quotes and the em dash.
+ *   2. the note-value ladder (shortest → longest, then the double-whole variants), a divider, then
+ *      the augmentation dot, the modulation arrows and equation, the beamed groups, the triplet and
+ *      tie, a divider, and the bold ß.
  *
  * Every row places a STRING at the caret, because the mark IS its text (a note glyph, a word, an
- * accent, an arrow are all just characters in it). The one split worth knowing: a note-value row
- * SHOWS the SMuFL metronome specimen ({@link NOTE_GLYPH}) but INSERTS the Unicode note char
- * ({@link UNIT_GLYPH}) `parseTempoText` reads back — the renderer maps one to the other at engrave
- * time. Everything else's label is what it places.
+ * arrow are all just characters in it). The one split worth knowing: a note-value row SHOWS the
+ * SMuFL metronome specimen ({@link NOTE_GLYPH}) but INSERTS the Unicode note char ({@link UNIT_GLYPH})
+ * `parseTempoText` reads back — the renderer maps one to the other at engrave time. Everything else's
+ * label is what it places.
  */
 export function buildTempoMenu(insert: TempoMenuInsert): MenuItem[] {
   // Upright bold serif, the way the score engraves tempo text — a specimen, not a description.
   const word = (label: string): MenuItem => ({ label, labelFont: 'bold', onSelect: () => insert.text(label) })
   // A metronome note value: the specimen on the label, the Unicode note char in the string.
   const note = (d: NoteDuration): MenuItem =>
-    ({ label: NOTE_GLYPH[d], labelFont: 'music', shortcut: NOTE_SHORTCUT[d], onSelect: () => insert.text(UNIT_GLYPH[d]) })
-  // A SMuFL glyph (segno, coda, fermata) set in the notation font and inserted verbatim.
+    ({ label: NOTE_GLYPH[d], labelFont: 'note', shortcut: NOTE_SHORTCUT[d], onSelect: () => insert.text(UNIT_GLYPH[d]) })
+  // A SMuFL glyph (a double-whole, a beamed group, the tie, an arrow…) in the notation font, verbatim.
   const music = (glyph: string, shortcut?: string): MenuItem =>
-    ({ label: glyph, labelFont: 'music', shortcut, onSelect: () => insert.text(glyph) })
-  // Plain text (arrows, the `=`, the equation, the triplet): what it shows is what it places.
-  const text = (label: string, shortcut?: string): MenuItem =>
-    ({ label, shortcut, onSelect: () => insert.text(label) })
-  const char = ({ char: c, shortcut }: CharRow): MenuItem =>
-    ({ label: c, shortcut, onSelect: () => insert.text(c) })
+    ({ label: glyph, labelFont: 'note', shortcut, onSelect: () => insert.text(glyph) })
 
   return [
     // Column 1 — the Italian tempo vocabulary.
     ...WORDS.map(word),
 
     { columnBreak: true },
-    // Column 2 — the jazz feels, the navigation glyphs, the short note values.
-    ...JAZZ_WORDS.map(word),
-    { separator: true },
-    music(GLYPH.segno, 'Ctrl+Shift+4'),
-    music(GLYPH.coda, 'Ctrl+0'),
-    { separator: true },
-    note('h'), note('q'), note('8'), note('16'), note('32'),
-    text('='),
-
-    { columnBreak: true },
-    // Column 3 — the long note values (longa, cuadrada, whole), the dot, the modulation and its
-    // beamed building blocks, the triplet and tie, then the a/e accents.
-    music(GLYPH.longa),  // longa
+    // Column 2 — the note values (shortest → longest), then the modulation building blocks and ß.
+    note('32'), note('16'), note('8'), note('q'), note('h'), note('w'),
     music(GLYPH.double), // double whole (round)
     music(GLYPH.breve),  // cuadrada (the square breve)
-    note('w'),           // redonda (whole), Ctrl+6
+    { separator: true },
     // The augmentation dot shows as a music glyph but drops a plain '.', which parseTempoText reads
     // as a dot after the preceding unit.
-    { label: GLYPH.dot, labelFont: 'music', shortcut: 'Ctrl+.', onSelect: () => insert.text('.') },
+    { label: GLYPH.dot, labelFont: 'note', shortcut: 'Ctrl+Num .', onSelect: () => insert.text('.') },
     ...ARROWS.map(({ arrow, shortcut }) => music(arrow, shortcut)),
     // The equation shows in Bravura but inserts the parseable notes between the Bravura arrows.
-    { label: MODULATION_LABEL, labelFont: 'music', onSelect: () => insert.text(MODULATION_TEXT) },
+    { label: MODULATION_LABEL, labelFont: 'note', onSelect: () => insert.text(MODULATION_TEXT) },
     // The beamed eighth PAIR — note, single beam, note — the label the picture shows next.
     music(`${GLYPH.noteStem}${GLYPH.beam8}${GLYPH.noteFrac8}`),
     // The modulation's building blocks: BEAMED note groups (SMuFL text-note family), not flagged singles.
@@ -239,14 +172,6 @@ export function buildTempoMenu(insert: TempoMenuInsert): MenuItem[] {
     music(`${GLYPH.tupletBracketStart}${GLYPH.tuplet3}${GLYPH.tupletBracketEnd}`, 'Ctrl+3'),
     music(GLYPH.tie),    // the low tie
     { separator: true },
-    ...ACCENTS_A.map(char),
-
-    { columnBreak: true },
-    // Column 4 — more accented vowels.
-    ...ACCENTS_IOU.map(char),
-
-    { columnBreak: true },
-    // Column 5 — uppercase accents, the eszett, curly quotes, em dash.
-    ...ACCENTS_UPPER.map(char),
+    word('ß'), // German eszett — bold, like the words
   ]
 }

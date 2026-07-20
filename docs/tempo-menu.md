@@ -1,69 +1,85 @@
-# Tempo word menu — full Sibelius replication (WIP)
+# Tempo word menu
 
-`src/menus/tempoMenu.ts` (`buildTempoMenu`) replicates Sibelius's tempo popup — the menu you get
-right-clicking (or the Menu key) while the tempo text cursor is blinking. It is the sibling of the
-expression word menu; the mechanism is identical (the DOM layer hands in the caret via
-`TempoMenuInsert`, the builder names the rows). Every row places a **string** at the caret, because
-the mark IS its text (a note glyph, a word, an accent, an arrow are all just characters in it).
+`src/menus/tempoMenu.ts` (`buildTempoMenu`) is the menu you get right-clicking (or pressing the Menu
+key) while the tempo text cursor is blinking — the sibling of the expression word menu. The DOM
+layer hands in the caret via `TempoMenuInsert`; the builder names the rows. **Every row places a
+string at the caret**, because the mark IS its text (a note glyph, a word, an arrow are all just
+characters in it).
 
-## The five columns
+It began as a full replication of Sibelius's tempo popup (five columns: Italian words, jazz feels,
+segno/coda, the note values, metric-modulation, and a big accented-character bank) and was then
+**trimmed hard** to what a tempo mark is actually made of.
+
+## The two columns
 
 1. **Italian tempo vocabulary** — `WORDS`, set bold (the score engraves tempo text bold).
-2. **Jazz feels** (`JAZZ_WORDS`, incl. `CODA` as a word) → segno / coda glyphs → the short note
-   values (half…32nd, Ctrl+1…5) → `=`.
-3. **Long note values** (longa, cuadrada, whole/Ctrl+6) → augmentation dot → the modulation arrows
-   and the `← ♩ = ♪ →` equation → its beamed building blocks → the triplet-with-bracket and the tie
-   → the a/e accents.
-4. **Accented vowels** (`ACCENTS_IOU`).
-5. **Uppercase accents, eszett, curly quotes, em dash** (`ACCENTS_UPPER`).
+2. **Everything a metronome / modulation is built from:**
+   - the **note-value ladder**, shortest → longest: 32nd … whole, then the two double-whole variants
+     (round `metNoteDoubleWhole` + square "cuadrada" `metNoteDoubleWholeSquare`). Each carries its
+     **numeric-keypad** shortcut label — `Ctrl+Num 1` (fusa) … `Ctrl+Num 6` (redonda). Display-only
+     for now; wiring needs `event.code === 'Numpad1'` detection (top-row `Ctrl+1…6` is the browser's
+     tab-switch and can't be suppressed);
+   - a divider, then the **augmentation dot** (`Ctrl+Num .`), the **← / →** arrows, the whole
+     **`← ♩ = ♪ →`** equation, the **beamed note groups**, the **triplet-with-bracket** and the **tie**;
+   - a divider, then the bold German **eszett `ß`** — the one accented character kept (the OS keyboard
+     reaches the rest).
 
 ## Glyphs are REAL Bravura SMuFL, not ASCII
 
-The palette places actual SMuFL codepoints from the notation font, so a row **is** the mark the
-score engraves. Codepoints are written out as `\uXXXX` literals in the `GLYPH` table (VexFlow's
-`Glyphs` enum is CJS-only → `undefined` in the browser, so it can't be imported — same convention
-`DURATIONS`/`TempoLayout` already keep). **The authoritative name→codepoint table lives in
-`node_modules/vexflow/build/esm/src/glyphs.js`** — grep it before inventing anything.
-
-Key finds (SMuFL's `text…` family, U+E1F0–E203, exists specifically for note values inside running
-tempo/rehearsal text):
+Every symbol is an actual SMuFL codepoint from the notation font, written out as a `\uXXXX` literal in
+the `GLYPH` table (VexFlow's `Glyphs` enum is CJS-only → `undefined` in the browser, so it can't be
+imported — same convention `DURATIONS`/`TempoLayout` keep). **The authoritative name→codepoint table
+is `node_modules/vexflow/build/esm/src/glyphs.js`** — grep it before inventing anything.
 
 | element | glyph | codepoint |
 |---|---|---|
 | modulation arrow ← / → | `metricModulationArrowLeft` / `Right` | `EC63` / `EC64` |
 | low tie | `textTie` | `E1FD` |
 | triplet bracket | `textTupletBracketStart` + `textTuplet3` + `textTupletBracketEnd` | `E1FE E1FF E200` |
-| augmentation dot | `textAugmentationDot` | `E1FC` |
+| augmentation dot | `metAugmentationDot` (matches what TempoLayout engraves) | `ECB7` |
 | stemmed note (no beam) | `textBlackNoteShortStem` / `LongStem` | `E1F0` / `E1F1` |
 | note WITH its own frac 8th beam | `textBlackNoteFrac8thShortStem` | `E1F2` |
 | continuation beam (beam only!) | `textCont8thBeam…` / `16th` / `32nd` | `E1F7` / `E1F9` / `E1FB` |
-| segno / coda | `segno` / `coda` | `E047` / `E048` |
 | double whole / square breve | `metNoteDoubleWhole` / `…Square` | `ECA0` / `ECA1` |
+| metronome note ♩ etc. | `metNoteWhole`…`metNote32ndUp` | `ECA2`–`ECAB` |
 
 ## Beamed note groups — the gotcha
 
 Two beamed eighths are **three** glyphs: `textBlackNoteShortStem` + `textCont8thBeamShortStem` +
 `textBlackNoteFrac8thShortStem` (note, **beam-only** connector, then a note carrying its **own**
-fractional beam). A plain note as the third glyph has no beam → visible gap. And the beams only
-overlap the stems when the font's **kerning pairs** are applied, so the menu's music label sets
-`font-kerning: normal` + `font-feature-settings: "kern" 1` (`MenuLayer.ts`). This is the SMuFL
+fractional beam — `E1F0 E1F7 E1F2`). A plain note as the third glyph has no beam → visible gap. And
+the beams only overlap the stems when the font's **kerning pairs** are applied, so the note label
+sets `font-kerning: normal` + `font-feature-settings: "kern" 1`. Per the SMuFL
 ["beamed groups of notes"](https://w3c-cg.github.io/smufl/latest/tables/beamed-groups-of-notes.html)
 spec, not a workaround.
 
+## Two label styles: `note` vs `music`
+
+Note-value glyphs (metNote/text-note family) are drawn to sit **inline in tempo text**, so they are
+smaller than a **dynamic** and carry all their ink above the baseline. Sizing them like a dynamic
+left the tall ones (the 32nd's three flags) towering above the row. So `MenuItem.LabelFont` has a
+distinct **`note`** value (`MenuLayer` `.menu-row-label-note`: ~1.35em, nudged down to seat the
+notehead on the row's centre, kerning on) separate from **`music`** (dynamics, 1.7em). The tempo
+menu uses `note` throughout; the expression menu keeps `music`.
+
 ## The equation label vs. insert
 
-The `← ♩ = ♪ →` row shows in Bravura (`MODULATION_LABEL`, metNote glyphs + en-spaces ` `,
-because Bravura's plain space is ~zero-width and would collapse) but **inserts** `MODULATION_TEXT`
-— which keeps ♩/♪ as `UNIT_GLYPH` so the notes still engrave and parse, with the Bravura arrows
-either side. Drawing those arrows in the engraved mark (and playing the modulation) is still future
-work — see `metric-modulation-plan.md`.
+The `← ♩ = ♪ →` row shows in Bravura (`MODULATION_LABEL`, metNote glyphs + en-spaces ` `, because
+Bravura's plain space is ~zero-width and collapses) but **inserts** `MODULATION_TEXT` — which keeps
+♩/♪ as `UNIT_GLYPH` so the notes still engrave and parse, with the Bravura arrows either side.
 
-## Still to fix (open)
+## These glyphs engrave IN the mark
 
-- **longa** — Bravura has no metronome/text longa; currently `mensuralBlackLonga` (`E951`) as a
-  stand-in, may look mensural/wrong.
-- The plain **note+beam** rows (beam8/16/32) may be redundant now that the beamed pair exists — the
-  user is still deciding the exact set/order after the equation.
-- The menu **test** (`tempoMenu.test.ts`) still asserts the old two-column shape.
-- Whether the beamed/tie/tuplet/arrow glyphs engrave correctly **in the mark** (TempoLayout only
-  maps `UNIT_GLYPH` note chars today; everything else is a text run) is unverified.
+`TempoLayout.splitRuns` treats any inserted SMuFL private-use char (`U+E000–F8FF`: beams, tie, tuplet
+brackets, modulation arrows, double-whole) as a **glyph run** — drawn in the music font at glyph
+size, not as small text — and groups consecutive ones into one run so kerning can join the beams.
+Note chars (`♩` = U+2669) sit outside the PUA, so the paths don't collide. **Caveat:** kerning in the
+engraved SVG relies on the browser's default on the grouped `<text>`; if a beam gaps in the actual
+mark, add an explicit kerning rule for the score's tempo `<text>`.
+
+## Still open
+
+- The menu **test** (`tempoMenu.test.ts`) still asserts the original two-column *word-menu* shape and
+  needs rewriting for the trimmed layout.
+- Metric modulation still doesn't **play** (the equation states no number → inherits the prevailing
+  tempo). See `metric-modulation-plan.md`.

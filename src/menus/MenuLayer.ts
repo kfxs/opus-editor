@@ -137,10 +137,19 @@ const CSS = `
      than left to the font's own generous metrics. */
   line-height: 0.85;
   overflow: visible;
-  /* SMuFL's text-note beams (note + continuation + fractional-beam note) only join up when the
-     font's KERNING PAIRS are applied — they are what makes the beams overlap the stems instead of
-     leaving a gap (per the SMuFL "beamed groups of notes" spec). Browsers may skip kerning on
-     short runs, so ask for it explicitly. */
+}
+/* A note-VALUE glyph (metNote / text-note family). Unlike a dynamic it is drawn to sit INLINE in
+   tempo text, so it is smaller — and it carries ALL its ink above the baseline (notehead on the
+   line, stem and flags up), which a row centred by its line box leaves riding high above the
+   Ctrl+Num text. Smaller size keeps the tall glyphs (the 32nd's three flags) from towering, and the
+   nudge drops the notehead onto the row's centre. Kerning lives here, not on the dynamics above:
+   the beamed groups (note + continuation + fractional-beam note) only join when it is applied. */
+.menu-row-label-note {
+  font-family: Bravura, system-ui, sans-serif;
+  font-size: 1.35em;
+  line-height: 0.9;
+  overflow: visible;
+  transform: translateY(0.16em);
   font-kerning: normal;
   font-feature-settings: "kern" 1;
 }
