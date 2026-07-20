@@ -8,7 +8,7 @@ import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fra
 import { measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { beatToFrac, measureCapacityFrac } from '@/utils/musicUtils'
 import { durationToVexflow, durationToFraction } from '@/utils/durations'
-import { getMeterInfo, type MeterInfo } from '@/utils/meter'
+import { getMeterInfo, timeSignatureVexKey, type MeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { computeBeamGroups } from '@/utils/beaming'
 import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
@@ -1196,7 +1196,7 @@ export class VexFlowRenderer {
       stave.addClef(clef, 'small')
     }
     if (drawsTimeSignature(measure)) {
-      stave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
+      stave.addTimeSignature(timeSignatureVexKey(measure.timeSignature))
     }
     if (cautionaryEndClef) {
       // Cautionary clef before a line break: warns of the next line's new clef.
@@ -1205,7 +1205,7 @@ export class VexFlowRenderer {
     if (cautionaryEndTimeSig) {
       // Cautionary time signature before a line break: warns of the next line's new
       // meter. Drawn full size (no 'small') and placed after the final barline.
-      stave.addEndTimeSignature(`${cautionaryEndTimeSig.numerator}/${cautionaryEndTimeSig.denominator}`)
+      stave.addEndTimeSignature(timeSignatureVexKey(cautionaryEndTimeSig))
     }
 
     return stave
@@ -2213,7 +2213,7 @@ export class VexFlowRenderer {
         tempStave.addClef(openingClef, 'small')
       }
       if (drawsTimeSignature(measure)) {
-        tempStave.addTimeSignature(`${measure.timeSignature.numerator}/${measure.timeSignature.denominator}`)
+        tempStave.addTimeSignature(timeSignatureVexKey(measure.timeSignature))
       }
       // Match the real stave's note area so the ghost note aligns with where the
       // committed note will land (a cautionary end clef narrows the note area).
@@ -2910,7 +2910,7 @@ export class VexFlowRenderer {
       const tempStave = new Stave(0, cursorY, 120, { numLines: 0 })
       tempStave.setBegBarType(Barline.type.NONE)
       tempStave.setEndBarType(Barline.type.NONE)
-      tempStave.addTimeSignature(`${ts.numerator}/${ts.denominator}`)
+      tempStave.addTimeSignature(timeSignatureVexKey(ts))
       tempStave.setContext(this.context!).draw()
 
       const newElements: Element[] = []

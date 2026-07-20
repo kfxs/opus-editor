@@ -107,6 +107,20 @@ export function isValidGrouping(grouping: number[] | undefined, numerator: numbe
  * True iff the whole time signature is representable: a dyadic meter whose
  * optional additive grouping (if any) is valid for the numerator.
  */
+/**
+ * The meter as VexFlow draws it: `C`, `C|`, or `n/d`.
+ *
+ * ONE function, because there are four call sites (a measure's meter, a mid-line change, a
+ * cautionary at a line end, the linear-view gutter) and a fifth will arrive. Each of them used to
+ * build `${numerator}/${denominator}` inline, which is exactly the shape where a new spelling
+ * reaches three places out of four and the fourth silently prints the numbers.
+ */
+export function timeSignatureVexKey(ts: TimeSignature): string {
+  if (ts.symbol === 'common') return 'C'
+  if (ts.symbol === 'cut') return 'C|'
+  return `${ts.numerator}/${ts.denominator}`
+}
+
 export function isValidTimeSignature(ts: TimeSignature): boolean {
   return isDyadicMeter(ts) && isValidGrouping(ts.grouping, ts.numerator)
 }
@@ -298,11 +312,17 @@ function subdivideTime(
 // Time-signature change markers (score-level)
 // ---------------------------------------------------------------------------
 
-/** True iff two time signatures are identical, including any additive grouping. */
+/**
+ * True iff two time signatures are identical, including any additive grouping AND how they are
+ * printed. A 4/4 and a common time are the same MEASURE and a different SIGNATURE: replacing one
+ * with the other is a real edit that has to redraw, and callers use this to decide "nothing
+ * changed" — so a symbol-blind comparison would swallow exactly that edit.
+ */
 export function sameTimeSignature(a: TimeSignature, b: TimeSignature): boolean {
   return (
     a.numerator === b.numerator &&
     a.denominator === b.denominator &&
+    a.symbol === b.symbol &&
     sameGrouping(a.grouping, b.grouping)
   )
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getMeterInfo, isDyadicMeter, isValidGrouping, isValidTimeSignature, sameTimeSignature, STRENGTH, type MeterInfo } from './meter'
+import { getMeterInfo, isDyadicMeter, isValidGrouping, isValidTimeSignature, sameTimeSignature, timeSignatureVexKey, STRENGTH, type MeterInfo } from './meter'
 import { fracToNumber, fracCreate, fracEq } from './fraction'
 import type { TimeSignature } from '@/types/music'
 
@@ -260,5 +260,40 @@ describe('meter — getMeterInfo', () => {
     it('getMeterInfo rejects a grouping that does not sum to the numerator', () => {
       expect(() => getMeterInfo({ numerator: 7, denominator: 8, grouping: [3, 3] })).toThrow()
     })
+  })
+})
+
+/**
+ * C and ¢ are 4/4 and 2/2 SPELLED differently — a display choice on the meter, not a different
+ * meter. The renderer asks one function what to draw, because four call sites building the string
+ * inline is how a new spelling reaches three of them.
+ */
+describe('timeSignatureVexKey', () => {
+  it('prints the numbers when the meter has no symbol', () => {
+    expect(timeSignatureVexKey({ numerator: 7, denominator: 8 })).toBe('7/8')
+  })
+
+  it('draws C for common time and C| for cut', () => {
+    expect(timeSignatureVexKey({ numerator: 4, denominator: 4, symbol: 'common' })).toBe('C')
+    expect(timeSignatureVexKey({ numerator: 2, denominator: 2, symbol: 'cut' })).toBe('C|')
+  })
+})
+
+describe('sameTimeSignature with a symbol', () => {
+  // The same measure, a different signature. Callers use this to decide "nothing changed", so a
+  // symbol-blind comparison would swallow the very edit that swaps 4/4 for C.
+  it('tells 4/4 apart from common time', () => {
+    expect(
+      sameTimeSignature({ numerator: 4, denominator: 4 }, { numerator: 4, denominator: 4, symbol: 'common' }),
+    ).toBe(false)
+  })
+
+  it('still matches two identical spellings', () => {
+    expect(
+      sameTimeSignature(
+        { numerator: 2, denominator: 2, symbol: 'cut' },
+        { numerator: 2, denominator: 2, symbol: 'cut' },
+      ),
+    ).toBe(true)
   })
 })

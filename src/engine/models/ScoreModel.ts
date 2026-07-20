@@ -2858,7 +2858,9 @@ export class ScoreModel {
 
 /** Deep-copy a time signature, including any additive grouping array. */
 function copyTimeSignature(ts: TimeSignature): TimeSignature {
-  return ts.grouping
-    ? { numerator: ts.numerator, denominator: ts.denominator, grouping: [...ts.grouping] }
-    : { numerator: ts.numerator, denominator: ts.denominator }
+  // SPREAD, then deep-copy the one field that is a reference. Listing the fields by hand is what
+  // silently dropped `symbol`: the meter reached the model as 4/4 with a C on it and was stored as
+  // a bare 4/4, so the ghost drew C and the score drew 4/4. Every field added to TimeSignature from
+  // here on survives this function without anyone remembering to come back to it.
+  return ts.grouping ? { ...ts, grouping: [...ts.grouping] } : { ...ts }
 }

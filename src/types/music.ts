@@ -587,6 +587,21 @@ export interface TimeSignature {
    * algorithmically (see utils/meter `getMeterInfo`).
    */
   grouping?: number[]
+  /**
+   * How the meter is PRINTED, when that is not its numbers: `common` draws **C**, `cut` draws
+   * **¢**. Display only — 4/4 and common time are the same meter, and `numerator`/`denominator`
+   * stay 4/4 and 2/2, so capacity, rest-fill, beaming and playback neither know nor care.
+   *
+   * On the meter and NOT in the engraving-overrides compartment, because it is not a tweak to how
+   * something is positioned: it is which of two accepted spellings of the same meter the score uses,
+   * the way a pitch carries its own enharmonic spelling. It also has to travel with the meter
+   * through a rebar, a paste and JSON, which being a field gives for free. MusicXML models it the
+   * same way (`<time symbol="common"|"cut">`).
+   *
+   * Absent = print the numbers. Only `common` on 4/4 and `cut` on 2/2 mean anything; the renderer
+   * honours what it is given, so whoever sets it owns that pairing.
+   */
+  symbol?: 'common' | 'cut'
 }
 
 /**
