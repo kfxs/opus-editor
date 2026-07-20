@@ -103,13 +103,18 @@ export interface ClefChange {
 }
 
 /**
- * Interpreted dynamic levels — the marks that drive playback loudness.
+ * Interpreted dynamic levels — the marks that drive playback loudness. Ordered quietest → loudest;
+ * DYNAMIC_VELOCITY (utils/dynamics.ts) must keep a row for every member, and the tests assert the
+ * ladder rises monotonically in THIS order. Nothing else hardcodes the list.
  *
- * EXTEND THIS UNION to add more standard dynamics (ppp…fff, sf, sfz, …). Every
- * member needs a matching row in DYNAMIC_VELOCITY (utils/dynamics.ts) and a
- * glyph in the render layer; nothing else hardcodes this list.
+ * ⚠️ A LEVEL IS A SUSTAINED STATE — it governs every note from its beat until the next one. That is
+ * why `sf` / `sfz` / `fp` / `rf` are deliberately NOT here: they are momentary instructions (an
+ * accent on one note; loud-then-immediately-soft), and modelling them as a level would mean
+ * "everything from here on is sfz-loud", which is wrong. They engrave fine and stay silent —
+ * `parseDynamicText` matches a run's WHOLE letters, so `sfz` names no level and carries the
+ * previous one forward. Accents need their own mechanism.
  */
-export type DynamicLevel = 'p' | 'mp' | 'mf' | 'f'
+export type DynamicLevel = 'ppp' | 'pp' | 'p' | 'mp' | 'mf' | 'f' | 'ff' | 'fff'
 
 /**
  * A dynamic marking positioned within a measure, mirroring {@link ClefChange}:

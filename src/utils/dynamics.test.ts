@@ -17,7 +17,8 @@ import {
 import { fracCreate } from './fraction'
 import type { Chord, Dynamic, DynamicLevel, Measure, Score, TimeSignature } from '@/types/music'
 
-const ALL_LEVELS: DynamicLevel[] = ['p', 'mp', 'mf', 'f']
+/** Quietest → loudest. Mirrors the DynamicLevel union's order; the ladder must rise along it. */
+const ALL_LEVELS: DynamicLevel[] = ['ppp', 'pp', 'p', 'mp', 'mf', 'f', 'ff', 'fff']
 
 const TS: TimeSignature = { numerator: 4, denominator: 4 }
 
@@ -100,10 +101,26 @@ describe('DYNAMIC_VELOCITY', () => {
     }
   })
 
-  it('increases monotonically from p to f', () => {
-    expect(DYNAMIC_VELOCITY.p).toBeLessThan(DYNAMIC_VELOCITY.mp)
-    expect(DYNAMIC_VELOCITY.mp).toBeLessThan(DYNAMIC_VELOCITY.mf)
-    expect(DYNAMIC_VELOCITY.mf).toBeLessThan(DYNAMIC_VELOCITY.f)
+  it('increases monotonically along the whole ladder', () => {
+    for (let i = 1; i < ALL_LEVELS.length; i++) {
+      const [prev, cur] = [ALL_LEVELS[i - 1], ALL_LEVELS[i]]
+      expect(DYNAMIC_VELOCITY[prev], `${prev} < ${cur}`).toBeLessThan(DYNAMIC_VELOCITY[cur])
+    }
+  })
+
+  it('leaves headroom above f so an articulation can still bite', () => {
+    // playbackSchedule does Math.min(1, velocity * velocityScale); accent is 1.3. With f at 1.0
+    // that clamped to 1.0 and an accented forte was inaudible — the bug this ladder fixes.
+    const ACCENT = 1.3
+    expect(DYNAMIC_VELOCITY.f * ACCENT).toBeGreaterThan(DYNAMIC_VELOCITY.f)
+    expect(DYNAMIC_VELOCITY.f * ACCENT).toBeLessThanOrEqual(1)
+    // Only the very top of the ladder is allowed to clamp.
+    expect(DYNAMIC_VELOCITY.fff).toBe(1.0)
+  })
+
+  it('is evenly spaced, so a crescendo through the marks sounds even', () => {
+    const steps = ALL_LEVELS.slice(1).map((l, i) => DYNAMIC_VELOCITY[l] - DYNAMIC_VELOCITY[ALL_LEVELS[i]])
+    for (const step of steps) expect(step).toBeCloseTo(steps[0], 1)
   })
 
   it('DEFAULT_DYNAMIC is a valid level', () => {
@@ -302,6 +319,31 @@ describe('resolveChordLevels', () => {
         const expected = resolveActiveLevel(score, measure.number, slot.beat, slot.voice ?? 0)
         expect(levels.get(slot.id)).toBe(expected)
       }
+    }
+  })
+})
+
+describe('the extended ladder, end to end from what the editor stores', () => {
+  // What Ctrl+F Ctrl+F actually puts in the model: two glyph chars, not the string 'ff'.
+  const typed = (letters: string) => levelToGlyphString(letters)
+
+  it.each(['ppp', 'pp', 'p', 'mp', 'mf', 'f', 'ff', 'fff'])('%s round-trips to an audible level', letters => {
+    const parsed = parseDynamicText(typed(letters))
+    expect(parsed.level).toBe(letters)
+    expect(isInterpreted({ id: 'd', beat: fracCreate(0, 1), text: typed(letters) })).toBe(true)
+  })
+
+  it('ff and fff are now LOUDER than f (they used to be silent)', () => {
+    expect(DYNAMIC_VELOCITY[parseDynamicText(typed('ff')).level!])
+      .toBeGreaterThan(DYNAMIC_VELOCITY[parseDynamicText(typed('f')).level!])
+    expect(DYNAMIC_VELOCITY[parseDynamicText(typed('fff')).level!])
+      .toBeGreaterThan(DYNAMIC_VELOCITY[parseDynamicText(typed('ff')).level!])
+  })
+
+  it('accents stay NOT levels — sfz/fp/sf/rf name none and carry the previous level', () => {
+    // A whole-run match, so adding 'ff' to the table must not make 'sffz' or 'fz' interpretable.
+    for (const accent of ['sf', 'sfz', 'sffz', 'fp', 'fz', 'rf', 'rfz']) {
+      expect(parseDynamicText(typed(accent)).level, accent).toBeUndefined()
     }
   })
 })

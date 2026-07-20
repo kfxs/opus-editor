@@ -16,17 +16,30 @@ import type { Dynamic, DynamicLevel, Score } from '@/types/music'
 import { fracCompare, fracLte, fracGt } from './fraction'
 
 /**
- * Interpreted level → Tone.js normalized velocity (0..1), used as the 4th arg of
+ * Interpreted level → normalized velocity (0..1), used as the 4th arg of
  * `triggerAttackRelease(name, dur, time, velocity)`. NOT decibels.
  *
- * Add a row here when extending the DynamicLevel union; playback and any
- * level-aware UI read from this table rather than a private list.
+ * The conventional MIDI dynamics ladder (ppp=16, pp=33, p=49, mp=64, mf=80, f=96, ff=112, fff=127)
+ * divided by 127 — the mapping Finale and Sibelius ship as their defaults, so it is convention
+ * rather than taste. Evenly spaced, which is what makes a crescendo through the marks sound even.
+ *
+ * ⚠️ `f` is 0.76, NOT 1.0. Only `fff` reaches the ceiling. That headroom is load-bearing:
+ * playbackSchedule scales this by the articulation factor and clamps — `Math.min(1, v * 1.3)` for
+ * an accent — so when `f` sat at 1.0 an accent on a forte note was arithmetically INAUDIBLE. Levels
+ * must leave room above them for articulations to bite.
+ *
+ * Add a row here when extending the DynamicLevel union; playback and any level-aware UI read from
+ * this table rather than a private list.
  */
 export const DYNAMIC_VELOCITY: Record<DynamicLevel, number> = {
-  p: 0.25,
-  mp: 0.45,
-  mf: 0.7,
-  f: 1.0,
+  ppp: 0.13,
+  pp: 0.26,
+  p: 0.39,
+  mp: 0.50,
+  mf: 0.63,
+  f: 0.76,
+  ff: 0.88,
+  fff: 1.0,
 }
 
 /** The level assumed before any interpreted dynamic appears. */
