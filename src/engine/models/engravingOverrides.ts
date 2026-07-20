@@ -171,6 +171,26 @@ export function restHiddenOf(score: Score, posKey: string): boolean {
 }
 
 /**
+ * The compartment key for a meter change's cautionary (client #8). Keyed by the id of the measure
+ * the change STARTS at — not the measure the courtesy glyph would be drawn on, which is whichever
+ * bar happens to end the previous system and moves every time the music reflows.
+ *
+ * Distinct prefix so it can never collide with a rest's position key or a bare element id.
+ */
+export function cautionaryKey(measureId: string): string {
+  return `caution:${measureId}`
+}
+
+/**
+ * Does the meter change at this measure allow a courtesy time signature? Payloadless, so presence
+ * alone is the answer — and it is only half the rule: the change must also open a system for one to
+ * be drawn at all (see MeasureLayout).
+ */
+export function cautionaryAllowedOf(score: Score, measureId: string): boolean {
+  return !!engravingOverrideOf(score, cautionaryKey(measureId), 'cautionary')
+}
+
+/**
  * The extra vertical space above this staff, if any (client #7 — see
  * docs/staff-spacing-plan.md). `above` is in **staff-spaces**, signed (+ pushes the staff
  * and everything below it in its system down). Keyed by the durable `staffId` (id-keyed,

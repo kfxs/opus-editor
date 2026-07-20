@@ -1327,6 +1327,23 @@ export class MusicEngine {
    *
    * @returns true if a rest was toggled.
    */
+  /**
+   * Say whether the meter change at `measureNumber` allows a courtesy time signature — Sibelius's
+   * *Allow cautionary*. Half the rule; the other half is whether that change opens a system, which
+   * only the layout knows (MeasureLayout).
+   *
+   * `saveOnly`: nothing audible changes — the meter, the bars and the playback are identical either
+   * way, and only the engraving differs.
+   * @returns true if the stored state changed.
+   */
+  setCautionaryAllowed(measureNumber: number, allowed: boolean): boolean {
+    const measure = this.scoreModel.getMeasure(measureNumber)
+    if (!measure) return false
+    const changed = this.scoreModel.setCautionaryAllowed(measure.id, allowed)
+    if (changed) this.saveOnly(allowed ? 'Allow cautionary time signature' : 'No cautionary time signature')
+    return changed
+  }
+
   toggleRestHidden(restId: string): boolean {
     const note = this.scoreModel.getNote(restId)
     if (!note || !note.isRest) return false

@@ -10,6 +10,7 @@ import { dotSelection } from './dotSelection'
 import { tieSelection } from './tieSelection'
 import { restSelection } from './restSelection'
 import { clefSelection } from './clefSelection'
+import { timeSignatureSelection } from './timeSignatureSelection'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
 
 /**
@@ -138,6 +139,7 @@ export function wireKeypadSync(
     restSelection.onPress(() => palette.pressRest()),
     // armClef, not setClef: the Clef window's OK confirms a choice, it does not toggle a button.
     clefSelection.onPress((c) => palette.armClef(c)),
+    timeSignatureSelection.onPress((a) => palette.armTimeSignature(a.timeSignature, a.cautionary)),
   ]
   return () => stops.forEach((stop) => stop())
 }

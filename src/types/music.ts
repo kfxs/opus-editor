@@ -410,6 +410,25 @@ export interface RestHiddenOverride extends EngravingOverride {
 }
 
 /**
+ * Client #8 of the engraving-overrides compartment: this meter change ALLOWS a courtesy
+ * (cautionary) time signature. Payloadless — presence alone means allowed. Keyed by the id of the
+ * measure the change starts at ({@link cautionaryKey}), because a meter change has no id of its own.
+ *
+ * A property of the CHANGE, and there is no score-wide default to reconcile it with: a cautionary
+ * can only ever exist where a meter changes, so every one of them has a change to belong to. The
+ * rule is one condition in two halves — this flag, and then whether the change happens to open a
+ * system (`MeasureLayout`). Nothing is ever drawn and then hidden; a courtesy that is not allowed is
+ * simply never produced.
+ *
+ * It lives in the compartment rather than beside `Measure.timeSignatureHidden` because it is an
+ * authored engraving decision about a position, not part of what the music says — the meter, the
+ * bars and the playback are identical either way (docs/time-signature-window-plan.md §1).
+ */
+export interface CautionaryOverride extends EngravingOverride {
+  kind: 'cautionary'
+}
+
+/**
  * Client #7 of the engraving-overrides compartment: extra vertical space ABOVE a staff
  * (Sibelius "space above staff" — see docs/staff-spacing-plan.md). Stored in STAFF-SPACES,
  * signed (+ = push the staff and everything below it in its system downward). Absent =

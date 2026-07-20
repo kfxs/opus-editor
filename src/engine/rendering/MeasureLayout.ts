@@ -4,6 +4,7 @@ import { fracCompare, fracIsZero } from '@/utils/fraction'
 import { type StaffClefs } from '@/utils/clefUtils'
 import { getStaves, firstStaffId, staffMeasureView } from '@/engine/models/staffContent'
 import { measureCapacityFrac } from '@/utils/musicUtils'
+import { cautionaryAllowedOf } from '../models/engravingOverrides'
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import { laneFingerprint, type MeasureWidthCache } from './MeasureWidthCache'
 import { renderCensus } from '@/dev/renderCensus' // TEMPORARY — the §9 layout-breakdown probes
@@ -293,6 +294,11 @@ function applyCautionaryTimeSignatures(
     // (same condition that draws the TS glyph at the new line's start).
     const nextMeasure = score.measures[i + 1]
     if (!nextMeasure.timeSignatureChange) continue
+    // …and only when the change ALLOWS one. The two halves of the rule meet here: the flag belongs
+    // to the change, this loop supplies the other half (does that change open a system). Keyed by
+    // the measure the change starts at, not by this one — which bar ends a system moves every time
+    // the music reflows, and the author's decision must not move with it.
+    if (!cautionaryAllowedOf(score, nextMeasure.id)) continue
 
     current.cautionaryEndTimeSig = nextMeasure.timeSignature
     current.minWidth += LAYOUT_CONFIG.TIME_SIG_WIDTH

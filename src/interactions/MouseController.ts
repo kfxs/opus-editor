@@ -1501,10 +1501,15 @@ export class MouseController {
    * Propagation + rest reconcile are handled by the engine.
    */
   private placeTimeSignatureAtClick(engine: MusicEngine, measureNum: number): boolean {
-    const ts = armedTool(this.state, 'timeSignature')?.timeSignature
+    const armed = armedTool(this.state, 'timeSignature')
+    const ts = armed?.timeSignature
     if (!ts) return false
     try {
       const changed = engine.setTimeSignature(measureNum, ts)
+      // The cautionary decision belongs to the change just made, so it is written at the same bar —
+      // and only when the arming path said something about it, so the older palette path (which
+      // carries no opinion) leaves the flag exactly as it found it.
+      if (armed.cautionary !== undefined) engine.setCautionaryAllowed(measureNum, armed.cautionary)
       dbg(changed
         ? `✓ Time signature set | ${ts.numerator}/${ts.denominator} at measure ${measureNum}`
         : `Time signature unchanged at measure ${measureNum}`)

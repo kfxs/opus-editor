@@ -1,18 +1,29 @@
 import type { WindowLayer } from './WindowLayer'
 import type { Window } from './Window'
 import { Column, GroupBox, Row } from './content/layout'
-import { Button, Checkbox, GlyphSelect, NumberInput, RadioGroup } from './content/widgets'
+import { Button, Checkbox, GlyphSelect, NumberInput, RadioGroup, Select } from './content/widgets'
 import { CHROME } from '../utils/chromeColors'
+import { openBeamGroupsWindow } from './beamGroupsWindow'
+import { DENOMINATORS, parseGrouping } from '../utils/groupingInput'
+import { timeSignatureSelection } from '../interactions/timeSignatureSelection'
 
 /**
  * The Time Signature window, opened from Insert ▸ Time Signature (or T) — modelled on Sibelius's
  * dialog: a row of meters to pick from, the rewrite/cautionary options, a pickup frame, and
  * Cancel / OK.
  *
- * LOOK ONLY. Nothing here reads or writes the score: the radios and checkboxes hold their own state,
- * OK closes like Cancel, and "Beam and Rest Groups…" does nothing. The point of building it this way
- * round is that the SHAPE of the dialog is itself a decision — which options exist, and which are
- * grouped — and it is cheaper to argue with a picture than with a wired feature.
+ * OK ARMS the meter — it does not place it. A meter change belongs to a BAR and the dialog does not
+ * know which one, so the next click on the score says where, through the placement path the palette
+ * has always used. The Clef window makes the same bargain. Cancel arms nothing.
+ *
+ * What travels with the meter: its GROUPING (a 7/8 grouped 3+2+2 arrives as one `TimeSignature`) and
+ * the CAUTIONARY decision, which is a property of the change about to be made and has nowhere else
+ * to wait until the target bar is known.
+ *
+ * Still unwired, and written up in docs/time-signature-window-plan.md: the pickup checkbox, and
+ * "Beam and Rest Groups…" beyond the grouping field it already edits (rest grouping is not modelled
+ * at all). `common`/`cut` arm as 4/4 and 2/2 — right meters, wrong glyph, because `TimeSignature`
+ * cannot yet say "print this as C".
  */
 
 /**
@@ -99,11 +110,43 @@ const PICKUP_LENGTHS = [
   { value: '16', glyph: '\uE1D9', label: 'Sixteenth' },
 ]
 
+/**
+ * The meter a PRESET radio stands for. `common`/`cut` are 4/4 and 2/2 — which is what they MEAN, but
+ * not how they are drawn, and `TimeSignature` has no way to say "print this as C" yet. Nothing here
+ * commits, so the gap is harmless today; it is the first thing to fix when OK does something. See
+ * docs/time-signature-window-plan.md.
+ *
+ * `other` is NOT here: it has no meter of its own — its meter is whatever the two spinners say, and
+ * only the window holds those. Returning null rather than a fallback is the point: a fallback is
+ * what made this silently answer 4/4 for a 5/4 the user had typed, and be believed.
+ */
+function presetMeter(value: string): [number, number] | null {
+  if (value === 'common') return [4, 4]
+  if (value === 'cut') return [2, 2]
+  const [numerator, denominator] = value.split('/').map(Number)
+  return Number.isFinite(numerator) && Number.isFinite(denominator) ? [numerator, denominator] : null
+}
+
 export function openTimeSignatureWindow(windows: WindowLayer): Window {
+  // The grouping the Beam and Rest Groups window edits. It lives HERE, not in that window: this is
+  // the dialog that will one day commit it, and the other is only an editor for the value.
+  let grouping = ''
+
   // The two spinners beside "Other:" — beats over unit, the custom meter. Mounted as the radio's
   // trailing widget so they sit with the option they belong to.
-  const otherBeats = new NumberInput({ value: 4, min: 1, max: 64, width: 54 })
-  const otherUnit = new NumberInput({ value: 4, min: 1, max: 64, width: 54 })
+  // Typing in either one CHOOSES Other — a value you are editing is the value you mean, and the dot
+  // sitting on 4/4 while you type a 5 says the dialog is not listening. `meters` is assigned below
+  // and only read when the callback fires, long after.
+  const chooseOther = (): void => meters.select('other')
+  const otherBeats = new NumberInput({ value: 4, min: 1, max: 64, width: 54, onInput: chooseOther })
+  // The denominator is a NOTE VALUE, not a count — 1, 2, 4, 8, 16, 32 and nothing between. A spinner
+  // that steps by one offers 5 and 6, which are not note values and cannot be engraved or played;
+  // the meter would then be caught by validation, having been offered by the dialog in the first
+  // place. A list of the legal values makes the illegal ones unreachable instead of rejected.
+  const otherUnit = new Select(
+    DENOMINATORS.map((d) => ({ value: String(d), label: String(d) })),
+    { selected: '4', width: 54, onChange: chooseOther },
+  )
 
   const meters = new RadioGroup(
     [
@@ -117,6 +160,31 @@ export function openTimeSignatureWindow(windows: WindowLayer): Window {
     ],
     { selected: '4/4' },
   )
+
+  const cautionary = new Checkbox('Allow cautionary', { checked: true })
+
+  /** The meter the dialog is currently showing — a preset, or the spinners when Other is chosen.
+   *  Read at CLICK time, never captured: the radios and the spinners both move under it. */
+  const currentMeter = (): [number, number] => presetMeter(meters.value) ?? [otherBeats.value, Number(otherUnit.value)]
+
+  /**
+   * OK: ARM the meter and get out of the way — the Clef window's bargain, and for the same reason.
+   * A meter change belongs to a BAR, and the dialog does not know which one; the next click on the
+   * score says where, through the placement path the palette has always used.
+   *
+   * The cautionary rides along, because it is a property of the change that is about to be made and
+   * has nowhere else to wait. The grouping does too — the whole `TimeSignature`, grouping included,
+   * is what gets armed, so a `7/8` grouped `3+2+2` arrives as one thing.
+   */
+  const accept = (): void => {
+    const [numerator, denominator] = currentMeter()
+    const grouped = parseGrouping(grouping)
+    timeSignatureSelection.press({
+      timeSignature: grouped ? { numerator, denominator, grouping: grouped } : { numerator, denominator },
+      cautionary: cautionary.checked,
+    })
+    win?.close()
+  }
 
   // Captured in a `let` because the buttons are built before `open()` returns but only run after.
   let win: Window | null = null
@@ -140,7 +208,7 @@ export function openTimeSignatureWindow(windows: WindowLayer): Window {
         // mapping. A checkbox with one reachable state teaches a choice that does not exist. It
         // returns the day bars are allowed not to add up, which is a model decision (and the same
         // one freely-notated music needs), not a checkbox.
-        new Row([new Checkbox('Allow cautionary', { checked: true })], { gap: 24 }),
+        new Row([cautionary], { gap: 24 }),
         new Row(
           [
             new GroupBox('Pickup (Upbeat)', [
@@ -152,13 +220,27 @@ export function openTimeSignatureWindow(windows: WindowLayer): Window {
                 { gap: 10 },
               ),
             ]),
-            new Button('Beam and Rest Groups…', () => {}),
+            // Opens the grouping editor, judged against the meter selected ABOVE — which is why it
+            // reads `meters.value` at click time rather than capturing a meter at build time.
+            // (Rest grouping and per-note-value grouping are still missing from the MODEL, not just
+            // from that window — see docs/time-signature-window-plan.md §2.)
+            new Button('Beam and Rest Groups…', () => {
+              const [numerator, denominator] = currentMeter()
+              openBeamGroupsWindow(windows, {
+                numerator,
+                denominator,
+                grouping,
+                onAccept: (value) => {
+                  grouping = value
+                },
+              })
+            }),
           ],
           // The FRAME takes the slack (child 0), which pushes the button to the far right — the
           // two are not a pair, they are the left thing and the right thing.
           { gap: 20, grow: 0 },
         ),
-        new Row([new Button('Cancel', () => win?.close()), new Button('OK', () => win?.close(), { variant: 'primary' })], {
+        new Row([new Button('Cancel', () => win?.close()), new Button('OK', accept, { variant: 'primary' })], {
           gap: 8,
           align: 'end',
         }),

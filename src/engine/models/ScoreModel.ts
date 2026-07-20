@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride } from '@/types/music'
-import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf } from './engravingOverrides'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, CautionaryOverride } from '@/types/music'
+import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf, cautionaryKey, cautionaryAllowedOf } from './engravingOverrides'
 import {
   getTupletTotalBeatsFrac,
   getTupletNoteDurationFrac,
@@ -876,6 +876,23 @@ export class ScoreModel {
    * its multi-rest batch owns the snapshot.
    * @returns true (the override always toggles for a valid position key).
    */
+  /**
+   * Allow (or stop allowing) a courtesy time signature for the meter change at `measureId`.
+   * Payloadless override, keyed by {@link cautionaryKey}: allowed = an entry exists.
+   * No undo snapshot here; the facade (`MusicEngine.setCautionaryAllowed`) owns it.
+   * @returns true when the stored state actually changed.
+   */
+  setCautionaryAllowed(measureId: string, allowed: boolean): boolean {
+    if (allowed === cautionaryAllowedOf(this.score, measureId)) return false
+    if (allowed) {
+      const next: CautionaryOverride = { kind: 'cautionary' }
+      this.setEngravingOverride(cautionaryKey(measureId), next)
+    } else {
+      this.clearEngravingOverride(cautionaryKey(measureId), 'cautionary')
+    }
+    return true
+  }
+
   toggleRestHidden(posKey: string): boolean {
     if (restHiddenOf(this.score, posKey)) {
       this.clearEngravingOverride(posKey, 'restHidden')

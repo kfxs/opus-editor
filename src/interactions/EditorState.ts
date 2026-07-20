@@ -44,7 +44,10 @@ export type PlaybackState = 'stopped' | 'playing' | 'paused'
  */
 export type MarkingTool =
   | { kind: 'clef'; clef: Clef }
-  | { kind: 'timeSignature'; timeSignature: TimeSignature }
+  /** `cautionary` rides along because the decision is made in the DIALOG and the target bar is not
+   *  known until the click — so it has nowhere else to wait. It is a property of the change that is
+   *  about to be made, which is exactly what an armed stamp is. */
+  | { kind: 'timeSignature'; timeSignature: TimeSignature; cautionary?: boolean }
   | { kind: 'dynamic'; dynamic: DynamicTool }
   | { kind: 'tempo'; tempo: TempoTool }
   /** ADDITIVE: pressing another articulation key grows the set; all get stamped together. Emptying

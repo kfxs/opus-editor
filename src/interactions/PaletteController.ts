@@ -1000,6 +1000,16 @@ export class PaletteController {
   }
 
   /**
+   * Arm a time signature outright — idempotent, and NOT a toggle. The twin of {@link armClef}, and
+   * for the same reason: the Time Signature window's OK answers a question, and answering "4/4"
+   * twice cannot mean "no meter". `cautionary` is the dialog's *Allow cautionary*, carried with the
+   * meter because the target bar is not known until the click.
+   */
+  armTimeSignature(ts: TimeSignature, cautionary: boolean): void {
+    this.armMarkingTool({ kind: 'timeSignature', timeSignature: ts, cautionary })
+  }
+
+  /**
    * Arm/disarm a time signature for placement. Clicking the active signature
    * again disarms it. While armed, canvas clicks set/change a measure's time
    * signature (see MouseController) and the ghost note is suppressed. Switches to
