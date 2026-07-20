@@ -1,4 +1,5 @@
 import type { MenuItem } from './MenuItem'
+import { composeDynamicGlyphs, levelToGlyphString } from '../utils/dynamics'
 
 /**
  * The expression editor's WORD MENU — Sibelius's expressions palette, right-click (or the Menu key)
@@ -87,13 +88,20 @@ export interface ExpressionMenuInsert {
 export function buildExpressionMenu(insert: ExpressionMenuInsert): MenuItem[] {
   return [
     ...DYNAMICS.map(({ letters, shortcut }): MenuItem => ({
-      label: letters,
+      // The row shows the glyph, PRECOMPOSED — the very character the score will engrave (see
+      // composeDynamicGlyphs). A palette that spelled `sfz` out of three separate letters while the
+      // score drew one would be advertising something it does not place.
+      label: composeDynamicGlyphs(levelToGlyphString(letters)),
+      labelFont: 'music',
       shortcut,
       onSelect: () => insert.dynamic(letters),
     })),
     { columnBreak: true },
     ...WORDS.map(({ word, shortcut }): MenuItem => ({
+      // Italic, because that is how the score engraves expression text — the row is a specimen of
+      // the mark, not a description of it. Same reasoning as the glyphs beside it.
       label: word,
+      labelFont: 'italic',
       shortcut,
       onSelect: () => insert.text(word),
     })),

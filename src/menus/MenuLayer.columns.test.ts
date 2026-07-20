@@ -107,3 +107,40 @@ describe('MenuLayer column navigation', () => {
     key('ArrowRight'); expect(lit()).toBe('two') // no column to step to
   })
 })
+
+describe('MenuLayer music labels', () => {
+  let host: HTMLElement
+  let menus: MenuLayer
+
+  beforeEach(() => {
+    host = document.createElement('div')
+    document.body.appendChild(host)
+    menus = new MenuLayer()
+    menus.mount(host)
+  })
+  afterEach(() => { menus.destroy(); host.remove() })
+
+  it('sets each label the way it will APPEAR — music, italic, or plain UI text', () => {
+    menus.open({ x: 0, y: 0, items: [
+      { label: '', labelFont: 'music', onSelect: vi.fn() }, // dynamicSforzato
+      { label: 'dolce', labelFont: 'italic', onSelect: vi.fn() },
+      { label: 'Plain', onSelect: vi.fn() },
+    ] })
+
+    const [glyph, word, plain] = [...host.querySelectorAll('.menu-row-label')] as HTMLElement[]
+    // Without the music class the glyph renders as tofu in system-ui, which has no PUA codepoints.
+    expect(glyph.classList.contains('menu-row-label-music')).toBe(true)
+    expect(glyph.textContent).toBe('')
+    // The score engraves expression text leaning, so the row that offers it leans too.
+    expect(word.classList.contains('menu-row-label-italic')).toBe(true)
+    expect(word.classList.contains('menu-row-label-music')).toBe(false)
+    // An ordinary command row stays ordinary UI text.
+    expect(plain.className).toBe('menu-row-label')
+  })
+
+  it('a submenu row is never music — a submenu is a word', () => {
+    menus.open({ x: 0, y: 0, items: [{ label: 'sub', items: [{ label: 'deep', onSelect: vi.fn() }] }] })
+    const label = host.querySelector('.menu-row-label') as HTMLElement
+    expect(label.classList.contains('menu-row-label-music')).toBe(false)
+  })
+})

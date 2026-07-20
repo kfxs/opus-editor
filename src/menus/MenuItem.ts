@@ -11,17 +11,33 @@
  * discouraged.
  *
  * ⚠️ Checkmarks, radio groups, disabled rows and icons are deliberately NOT here. Each earns its
- * place when a menu actually wants it — the same guard the widget toolkit lives under. The `shortcut`
- * hint is the first to earn it: Insert ▸ Text ▸ Expression shows its `Ctrl+E` accelerator so the
- * menu teaches the keystroke. It rides the LEAF variant only — a submenu opens a flyout, it is not a
- * keystroke — and is a pure display string (the binding itself lives in ShortcutConfig; this only
- * echoes it).
+ * place when a menu actually wants it — the same guard the widget toolkit lives under. Two have:
+ *
+ * `shortcut` — Insert ▸ Text ▸ Expression shows its `Ctrl+E` accelerator so the menu teaches the
+ * keystroke. A pure display string; the binding itself lives in ShortcutConfig and this only echoes it.
+ *
+ * `labelFont` — the label is not ordinary UI text, and must be set the way it will APPEAR. Not an
+ * icon flag, and not styling leaking into data: on a palette the label is a specimen of the thing
+ * you are about to place. A row reading `sfz` in the system font DESCRIBES a dynamic; one reading 𝆑
+ * IS the dynamic — the same distinction the score model itself turns on (utils/dynamics) — and a
+ * row reading `dolce` upright describes a word the score will engrave leaning.
+ *
+ * One field rather than a `music` and an `italic` flag, because a label set in BOTH is nonsense and
+ * this makes it unspellable — the same reason the union above exists at all. Rides the LEAF variant
+ * only: a submenu is a word.
  *
  * An item never learns where it is: not its x/y, not that it sits in a flyout. Placement is the menu
  * system's arithmetic (docs/windows-design.md rule 3, inherited whole).
  */
+/**
+ * How a label is SET, when plain UI text would misrepresent it.
+ *   `music`  — SMuFL glyphs, in the score's notation font (a dynamic, a notehead, an accidental).
+ *   `italic` — the serif italic the score engraves expression text in (`dolce`, `sempre`).
+ */
+export type LabelFont = 'music' | 'italic'
+
 export type MenuItem =
-  | { label: string; onSelect: () => void; shortcut?: string }
+  | { label: string; onSelect: () => void; shortcut?: string; labelFont?: LabelFont }
   | { label: string; items: MenuItem[] }
   | { separator: true }
   | { columnBreak: true }

@@ -124,6 +124,29 @@ const CSS = `
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* A label that IS music: set in the score's own font so the row shows the mark you will get, not a
+   description of it. Bravura leads here — unlike anywhere text is being SET, where a music font
+   first would lend its notation-sized spaces and line box to ordinary type (see utils/fontStack).
+   These labels are nothing but glyphs, so that trade does not arise; the sans stays behind it only
+   to catch a stray letter. Sized up because SMuFL glyphs are drawn against a staff, not a text line,
+   and at label size a dynamic is a smudge. */
+.menu-row-label-music {
+  font-family: Bravura, system-ui, sans-serif;
+  font-size: 1.7em;
+  /* The glyphs are tall and the rows must stay a tight palette, so the line box is pinned rather
+     than left to the font's own generous metrics. */
+  line-height: 0.85;
+  overflow: visible;
+}
+/* Expression words, set as the score sets them: the same serif italic the engraver uses, so the row
+   is a specimen of the mark rather than a description of it. The family is spelled here rather than
+   imported from the renderer's DYNAMIC_TEXT_FONT — a menu reaching into the engine for a font stack
+   would be a far worse coupling than one duplicated list of serif names. */
+.menu-row-label-italic {
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-style: italic;
+  font-size: 1.15em;
+}
 .menu-row-arrow {
   flex: none;
   color: ${CHROME.inkMuted};
@@ -400,7 +423,9 @@ export class MenuLayer {
     row.className = 'menu-row'
 
     const label = document.createElement('div')
-    label.className = 'menu-row-label'
+    // `labelFont` rides the leaf variant only — a submenu is a word.
+    const labelFont = 'labelFont' in item ? item.labelFont : undefined
+    label.className = labelFont ? `menu-row-label menu-row-label-${labelFont}` : 'menu-row-label'
     label.textContent = item.label
     row.appendChild(label)
 

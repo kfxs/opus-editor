@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { DynamicTextSource } from './DynamicTextSource'
-import { levelToGlyphString } from '../utils/dynamics'
+import { composeDynamicGlyphs, levelToGlyphString } from '../utils/dynamics'
 import { DYNAMIC_GLYPH_SIZE } from '../engine/rendering/dynamicStyle'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Dynamic } from '../types/music'
@@ -154,17 +154,23 @@ describe('DynamicTextSource', () => {
     const items = source.getContextMenu({ text, html })
 
     const labels = items.flatMap(i => ('label' in i ? [i.label] : []))
-    expect(labels).toContain('sfz')   // dynamics column
-    expect(labels).toContain('dolce') // words column
+    // The dynamics column is labelled with the GLYPH, precomposed — the row shows the mark you get,
+    // not the word for it. `sfz` as text would mean the palette advertised something else.
+    expect(labels).toContain(composeDynamicGlyphs(levelToGlyphString('sfz')))
+    expect(labels).not.toContain('sfz')
+    expect(labels).toContain('dolce') // words column stays prose
     expect(items.some(i => 'columnBreak' in i)).toBe(true)
 
     // A word goes in as prose…
-    const dolce = items.find(i => 'label' in i && i.label === 'dolce') as { onSelect: () => void }
+    const dolce = items.find(i => 'label' in i && i.label === 'dolce') as { onSelect: () => void; labelFont?: string }
+    expect(dolce.labelFont).toBe('italic') // engraved leaning, so offered leaning — never the music font
     dolce.onSelect()
     expect(text).toHaveBeenCalledWith('dolce')
 
     // …and a dynamic as exactly the chip its keyboard twin would produce.
-    const sfz = items.find(i => 'label' in i && i.label === 'sfz') as { onSelect: () => void }
+    const sfzLabel = composeDynamicGlyphs(levelToGlyphString('sfz'))
+    const sfz = items.find(i => 'label' in i && i.label === sfzLabel) as { onSelect: () => void; labelFont?: string }
+    expect(sfz.labelFont).toBe('music')
     sfz.onSelect()
     expect(html).toHaveBeenCalledWith(expect.stringContaining(levelToGlyphString('sfz')))
     expect(html.mock.calls[0][0]).toContain('contenteditable="false"')
