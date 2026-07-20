@@ -75,9 +75,22 @@ than no control.
 It returns only if bars are allowed not to add up — a MODEL decision, and the same one freely-notated
 music will need (`docs/DESIGN-PRINCIPLES.md`, "keep the measures spine removable"). Not a checkbox.
 
-## 4. OK — what commits
+## 4. OK — BUILT
 
-Not built. When it is: the meter through `setTimeSignature` (which rebars), the pickup through
-`actualDurationOverride`, the cautionary through §1. The window should ARM nothing — unlike the Clef
-window, a meter change has a target bar, so OK applies to the selection rather than waiting for a
-click. That asymmetry is worth stating out loud when it is built.
+OK **arms**; the next click on the score says which bar. (The earlier note here proposed applying to
+the selection instead — arming won because it reuses the placement path the palette already had, and
+because the Clef window makes the same bargain, so the two dialogs behave alike.)
+
+Three things travel with the armed meter, all of them properties of the change about to be made,
+none of which has anywhere else to wait until the target bar is known:
+
+| carried | applied as |
+|---|---|
+| the `TimeSignature` (grouping and `symbol` included) | `setTimeSignature` — which rebars |
+| *Allow cautionary* | the `cautionary` override on the same measure (§1) |
+| the pickup length | `setMeasureActualDuration` on the same measure |
+
+The pickup lands on the bar the meter opens, so there is no second target to choose — and unticking
+the box is an ANSWER (`null`, clear any pickup there), not a silence (`undefined`, the old palette
+path having no opinion). That distinction is what lets the older arming path leave these flags
+exactly as it found them.

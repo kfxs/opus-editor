@@ -1,6 +1,7 @@
 import type { WindowLayer } from './WindowLayer'
 import type { Window } from './Window'
-import type { TimeSignature } from '../types/music'
+import type { NoteDuration, TimeSignature } from '../types/music'
+import { durationToFraction } from '../utils/durations'
 import { Column, GroupBox, Row } from './content/layout'
 import { Button, Checkbox, GlyphSelect, NumberInput, RadioGroup, Select } from './content/widgets'
 import { CHROME } from '../utils/chromeColors'
@@ -21,9 +22,12 @@ import { timeSignatureSelection } from '../interactions/timeSignatureSelection'
  * the CAUTIONARY decision, which is a property of the change about to be made and has nowhere else
  * to wait until the target bar is known.
  *
- * Still unwired, and written up in docs/time-signature-window-plan.md: the pickup checkbox, and
- * "Beam and Rest Groups…" beyond the grouping field it already edits (rest grouping is not modelled
- * at all).
+ * The PICKUP lands on the same bar as the meter: "start with a bar of length X" is a statement
+ * about the bar this meter opens, so there is no second target to choose. Unticked is an ANSWER,
+ * not a silence — it clears a pickup already on that bar.
+ *
+ * Still unwired, and written up in docs/time-signature-window-plan.md: "Beam and Rest Groups…"
+ * beyond the grouping field it already edits (rest grouping is not modelled at all).
  */
 
 /**
@@ -162,6 +166,8 @@ export function openTimeSignatureWindow(windows: WindowLayer): Window {
   )
 
   const cautionary = new Checkbox('Allow cautionary', { checked: true })
+  const pickupEnabled = new Checkbox('Start with bar of length:')
+  const pickupLength = new GlyphSelect(PICKUP_LENGTHS, { selected: 'q', width: 76 })
 
   /** The meter the dialog is currently showing — a preset, or the spinners when Other is chosen.
    *  Read at CLICK time, never captured: the radios and the spinners both move under it. */
@@ -183,6 +189,9 @@ export function openTimeSignatureWindow(windows: WindowLayer): Window {
     timeSignatureSelection.press({
       timeSignature: grouped ? { ...meter, grouping: grouped } : meter,
       cautionary: cautionary.checked,
+      // `null` and not `undefined` when unticked: the box is an ANSWER either way, and "a full bar"
+      // has to clear a pickup already on the target measure rather than leave it standing.
+      pickup: pickupEnabled.checked ? durationToFraction(pickupLength.value as NoteDuration) : null,
     })
     win?.close()
   }
@@ -217,8 +226,8 @@ export function openTimeSignatureWindow(windows: WindowLayer): Window {
             new GroupBox('Pickup (Upbeat)', [
               new Row(
                 [
-                  new Checkbox('Start with bar of length:'),
-                  new GlyphSelect(PICKUP_LENGTHS, { selected: 'q', width: 76 }),
+                  pickupEnabled,
+                  pickupLength,
                 ],
                 { gap: 10 },
               ),

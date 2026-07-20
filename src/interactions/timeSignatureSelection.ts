@@ -1,4 +1,4 @@
-import type { TimeSignature } from '../types/music'
+import type { Fraction, TimeSignature } from '../types/music'
 
 /**
  * The armed time signature, published by the Time Signature window ({@link ../windows/timeSignatureWindow})
@@ -15,6 +15,13 @@ export interface ArmedTimeSignature {
   timeSignature: TimeSignature
   /** Sibelius's *Allow cautionary*, decided in the dialog and applied when the meter lands. */
   cautionary: boolean
+  /**
+   * The bar's actual length in quarter-note beats when it is a PICKUP (anacrusis), or null for a
+   * full bar. Rides along for the cautionary's reason — the dialog decides it, the target bar is
+   * not known until the click — and lands on the very measure the meter does: "start with a bar of
+   * length X" is a statement about the bar this meter opens.
+   */
+  pickup: Fraction | null
 }
 
 class TimeSignatureSelection {

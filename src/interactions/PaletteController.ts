@@ -1,5 +1,5 @@
 import { dbg } from '@/utils/debug'
-import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature } from '../types/music'
+import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature, Fraction } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorState'
@@ -1005,8 +1005,8 @@ export class PaletteController {
    * twice cannot mean "no meter". `cautionary` is the dialog's *Allow cautionary*, carried with the
    * meter because the target bar is not known until the click.
    */
-  armTimeSignature(ts: TimeSignature, cautionary: boolean): void {
-    this.armMarkingTool({ kind: 'timeSignature', timeSignature: ts, cautionary })
+  armTimeSignature(ts: TimeSignature, cautionary: boolean, pickup: Fraction | null = null): void {
+    this.armMarkingTool({ kind: 'timeSignature', timeSignature: ts, cautionary, pickup })
   }
 
   /**

@@ -1,4 +1,4 @@
-import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, DynamicLevel, ArticulationType } from '../types/music'
+import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, DynamicLevel, ArticulationType, Fraction } from '../types/music'
 import type { SelectionItem } from './selection'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 
@@ -49,7 +49,7 @@ export type MarkingTool =
   /** `cautionary` rides along because the decision is made in the DIALOG and the target bar is not
    *  known until the click — so it has nowhere else to wait. It is a property of the change that is
    *  about to be made, which is exactly what an armed stamp is. */
-  | { kind: 'timeSignature'; timeSignature: TimeSignature; cautionary?: boolean }
+  | { kind: 'timeSignature'; timeSignature: TimeSignature; cautionary?: boolean; pickup?: Fraction | null }
   | { kind: 'dynamic'; dynamic: DynamicTool }
   | { kind: 'tempo'; tempo: TempoTool }
   /** ADDITIVE: pressing another articulation key grows the set; all get stamped together. Emptying
