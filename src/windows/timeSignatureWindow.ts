@@ -1,7 +1,7 @@
 import type { WindowLayer } from './WindowLayer'
 import type { Window } from './Window'
 import { Column, GroupBox, Row } from './content/layout'
-import { Button, Checkbox, NumberInput, RadioGroup, Select } from './content/widgets'
+import { Button, Checkbox, GlyphSelect, NumberInput, RadioGroup } from './content/widgets'
 import { CHROME } from '../utils/chromeColors'
 
 /**
@@ -85,12 +85,18 @@ const METERS = [
   { value: 'cut', picture: symbolPicture(CUT_COMMON) },
 ]
 
-/** The pickup bar's length, as note values. Words, not glyphs, until the Select can hold markup. */
+/**
+ * The pickup bar's length, DRAWN. A note value is a glyph — "Quarter" describes a crotchet, ♩ is
+ * one — and this is the same list the Keypad's duration keys show, in the same font.
+ *
+ * `label` is not shown: it is the accessible name and the tooltip, so the control still says what
+ * it is to a screen reader (and to anyone who does not read the glyph at a glance).
+ */
 const PICKUP_LENGTHS = [
-  { value: 'q', label: 'Quarter' },
-  { value: 'h', label: 'Half' },
-  { value: '8', label: 'Eighth' },
-  { value: '16', label: 'Sixteenth' },
+  { value: 'h', glyph: '\uE1D3', label: 'Half' },
+  { value: 'q', glyph: '\uE1D5', label: 'Quarter' },
+  { value: '8', glyph: '\uE1D7', label: 'Eighth' },
+  { value: '16', glyph: '\uE1D9', label: 'Sixteenth' },
 ]
 
 export function openTimeSignatureWindow(windows: WindowLayer): Window {
@@ -127,17 +133,24 @@ export function openTimeSignatureWindow(windows: WindowLayer): Window {
     content: new Column(
       [
         meters,
-        new Row(
-          [
-            new Checkbox('Rewrite bars up to next time signature', { checked: true }),
-            new Checkbox('Allow cautionary', { checked: true }),
-          ],
-          { gap: 24 },
-        ),
+        // Sibelius's "Rewrite bars up to next time signature" is NOT here, and its absence is a
+        // decision rather than an omission. Unchecked, that box changes only the meter's LABEL and
+        // leaves the notes in their bars — so the bars stop adding up, which Sibelius permits and we
+        // do not: a bar's capacity is a fact here, relied on by rest-fill, playback and coordinate
+        // mapping. A checkbox with one reachable state teaches a choice that does not exist. It
+        // returns the day bars are allowed not to add up, which is a model decision (and the same
+        // one freely-notated music needs), not a checkbox.
+        new Row([new Checkbox('Allow cautionary', { checked: true })], { gap: 24 }),
         new Row(
           [
             new GroupBox('Pickup (Upbeat)', [
-              new Row([new Checkbox('Start with bar of length:'), new Select(PICKUP_LENGTHS, { width: 110 })], { gap: 10 }),
+              new Row(
+                [
+                  new Checkbox('Start with bar of length:'),
+                  new GlyphSelect(PICKUP_LENGTHS, { selected: 'q', width: 76 }),
+                ],
+                { gap: 10 },
+              ),
             ]),
             new Button('Beam and Rest Groups…', () => {}),
           ],

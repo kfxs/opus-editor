@@ -455,3 +455,251 @@ export class NumberInput implements Widget {
     return Number(this.el?.value ?? this.opts.value ?? 0)
   }
 }
+
+/** One row of a {@link GlyphSelect}: the value, the glyph that stands for it, and its name. */
+export interface GlyphChoice {
+  value: string
+  /** SMuFL glyph, in the score's notation font. */
+  glyph: string
+  /** Not shown — the tooltip and the accessible name, so the control is not mute. */
+  label: string
+}
+
+/**
+ * A drop-down whose rows are GLYPHS rather than words — the pickup-length picker, where the choice
+ * is a note value, and a note value is drawn: "Quarter" DESCRIBES a crotchet, ♩ IS one.
+ *
+ * ONE object, field and list together. This began as a button that opened the MENU layer, and that
+ * was the wrong primitive twice over. A menu is a list of COMMANDS; a dropdown is a picker with a
+ * CURRENT VALUE, which has to be visible the moment the list opens and has to move under the arrow
+ * keys — and `MenuItem` deliberately refuses checkmarks and radio groups, so the one thing this
+ * needs is the one thing that type is designed not to have. The menu's row metrics are tuned for
+ * the score's context menu too, so the list came out mis-sized inside a window.
+ *
+ * The list is appended to `document.body`, fixed-positioned against the button's client rect,
+ * because a window's content box scrolls and clips: a popup parented inside it would be cut off by
+ * the very frame it belongs to. It is torn down on close and on {@link destroy}, so nothing outlives
+ * the window.
+ */
+export class GlyphSelect implements Widget {
+  private selected: string
+  private button: HTMLButtonElement | null = null
+  private list: HTMLElement | null = null
+  /** Which row the keyboard is on while the list is open; -1 when closed. */
+  private active = -1
+
+  constructor(
+    private readonly choices: GlyphChoice[],
+    private readonly opts: { selected?: string; width?: number; onChange?: (value: string) => void } = {},
+  ) {
+    this.selected = opts.selected ?? choices[0]?.value ?? ''
+  }
+
+  mount(host: HTMLElement): void {
+    const el = document.createElement('button')
+    el.type = 'button'
+
+    const s = el.style
+    s.display = 'flex'
+    s.alignItems = 'center'
+    s.justifyContent = 'space-between'
+    s.gap = '8px'
+    s.width = `${this.opts.width ?? 90}px`
+    // A HEIGHT, not vertical padding: a note glyph is tall, and a button sized by its line box
+    // clips the stem — which is exactly how the first cut of this looked. The extra few pixels are
+    // padding UNDER the glyph: the ink is centred in its own box, so without them a notehead sits
+    // as close to the field's lower border as the stem does to its upper one, and a notehead is a
+    // solid blob where a stem is a hairline — it reads as touching long before the stem does.
+    s.height = `${ROW_HEIGHT + FIELD_PAD_BOTTOM}px`
+    s.padding = `0 8px ${FIELD_PAD_BOTTOM}px`
+    s.borderRadius = '4px'
+    s.border = `1px solid ${CHROME.edge}`
+    s.background = CHROME.field
+    s.color = CHROME.ink
+    s.font = 'inherit'
+    s.cursor = 'pointer'
+    s.flex = 'none'
+    s.overflow = 'visible' // a button clips its content by default; the glyph must not be cut
+
+    el.addEventListener('click', () => (this.list ? this.close() : this.open()))
+    el.addEventListener('keydown', this.onButtonKeyDown)
+
+    host.appendChild(el)
+    this.button = el
+    this.paint()
+  }
+
+  get value(): string {
+    return this.selected
+  }
+
+  destroy(): void {
+    this.close()
+  }
+
+  private open(): void {
+    const button = this.button
+    if (!button || this.list) return
+
+    const list = document.createElement('div')
+    const s = list.style
+    s.position = 'fixed'
+    s.zIndex = '2000' // above the window layer (1000): a dropdown belongs to the front, always
+    s.minWidth = `${button.offsetWidth}px`
+    s.padding = '4px'
+    s.borderRadius = '6px'
+    s.border = `1px solid ${CHROME.edge}`
+    s.background = CHROME.surface
+    s.boxShadow = CHROME.shadow
+
+    this.choices.forEach((choice, i) => {
+      const row = document.createElement('div')
+      row.style.display = 'flex'
+      row.style.alignItems = 'center'
+      row.style.height = `${ROW_HEIGHT}px`
+      row.style.padding = '0 10px'
+      row.style.borderRadius = '4px'
+      row.style.cursor = 'pointer'
+      row.title = choice.label
+      row.appendChild(glyphSvg(choice.glyph))
+      row.addEventListener('pointerenter', () => this.setActive(i))
+      row.addEventListener('click', () => this.choose(choice.value))
+      list.appendChild(row)
+    })
+
+    document.body.appendChild(list)
+    this.list = list
+
+    // Below the field, flipped above when there is no room — the same rule a menu follows, and the
+    // reason it is measured only after mounting: until then the list has no height.
+    const box = button.getBoundingClientRect()
+    const below = box.bottom + 2
+    const fits = below + list.offsetHeight <= window.innerHeight
+    s.left = `${box.left}px`
+    s.top = `${fits ? below : Math.max(0, box.top - 2 - list.offsetHeight)}px`
+
+    // The list opens ON the current value: a picker that opens with nothing marked makes you
+    // remember what you chose last time.
+    this.setActive(this.choices.findIndex((c) => c.value === this.selected))
+
+    // Capture, so a click on any window chrome closes this first. `pointerdown` rather than click:
+    // the list must be gone before whatever was clicked acts on it.
+    document.addEventListener('pointerdown', this.onOutsidePointerDown, true)
+    document.addEventListener('keydown', this.onListKeyDown, true)
+  }
+
+  private close(): void {
+    document.removeEventListener('pointerdown', this.onOutsidePointerDown, true)
+    document.removeEventListener('keydown', this.onListKeyDown, true)
+    this.list?.remove()
+    this.list = null
+    this.active = -1
+  }
+
+  private choose(value: string): void {
+    this.close()
+    this.button?.focus() // the field keeps the keyboard, or Tab restarts from the top of the window
+    if (value === this.selected) return
+    this.selected = value
+    this.paint()
+    this.opts.onChange?.(value)
+  }
+
+  private setActive(index: number): void {
+    if (!this.list || index < 0) return
+    this.active = index
+    Array.from(this.list.children).forEach((row, i) => {
+      ;(row as HTMLElement).style.background = i === index ? CHROME.accent : 'transparent'
+    })
+  }
+
+  private onOutsidePointerDown = (e: PointerEvent): void => {
+    const target = e.target as Node
+    if (this.list?.contains(target) || this.button?.contains(target)) return
+    this.close()
+  }
+
+  /** Open on ↓/Enter/Space, the way a native select does. */
+  private onButtonKeyDown = (e: KeyboardEvent): void => {
+    if (this.list || !['ArrowDown', 'Enter', ' '].includes(e.key)) return
+    e.preventDefault()
+    this.open()
+  }
+
+  private onListKeyDown = (e: KeyboardEvent): void => {
+    if (!this.list) return
+    // Escape closes the LIST and stops there — without this it would reach the window's own Escape
+    // and cancel the whole dialog, which is a much bigger act than the one the key was asked for.
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      this.close()
+      this.button?.focus()
+      return
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      e.stopPropagation()
+      this.choose(this.choices[this.active]?.value ?? this.selected)
+      return
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      e.stopPropagation()
+      const step = e.key === 'ArrowDown' ? 1 : -1
+      // No wrapping — the same rule the menus follow: the ends of a list are ends.
+      this.setActive(Math.max(0, Math.min(this.choices.length - 1, this.active + step)))
+    }
+  }
+
+  private paint(): void {
+    const el = this.button
+    if (!el) return
+    const choice = this.choices.find((c) => c.value === this.selected)
+    el.textContent = ''
+    el.title = choice?.label ?? ''
+    el.setAttribute('aria-label', choice?.label ?? '')
+
+    const caret = document.createElement('span')
+    caret.textContent = '▾'
+    caret.style.color = CHROME.inkMuted
+    caret.style.fontSize = '10px'
+
+    el.append(glyphSvg(choice?.glyph ?? ''), caret)
+  }
+}
+
+/** Tall enough for a stemmed note at {@link GLYPH_PX} — the field and its rows share it, so the
+ *  chosen glyph does not jump when the list opens. */
+const ROW_HEIGHT = 28
+const GLYPH_PX = 19
+/** Air under the glyph in the FIELD only — the list's rows have their neighbours for company. */
+const FIELD_PAD_BOTTOM = 3
+const GLYPH_BOX_WIDTH = 16
+
+/**
+ * A SMuFL glyph in an SVG box, POSITIONED — not an HTML span left to the font's line box.
+ *
+ * A span was tried first and clipped the stem, and the reason is worth keeping: a note glyph is
+ * drawn against a STAFF, not a text line. Its ink reaches some three and a half staff-spaces above
+ * the baseline (the stem) and half a space below (the notehead), while an HTML line box is sized
+ * from the font's text metrics — so the glyph overflows a box that was never measured for it, and
+ * whatever is clipping wins. Padding and `overflow: visible` only move that fight around.
+ *
+ * SVG ends it: the box is stated, and the baseline is placed so the INK is centred in it. SMuFL's
+ * em square is the staff height (4 spaces), so at `GLYPH_PX` one space is a quarter of it, and a
+ * stem-up note occupies 0.875em above the baseline and 0.125em below — which is the whole em, and
+ * why the arithmetic below is simply "centre one em and sit the baseline where its top ends".
+ */
+function glyphSvg(glyph: string): HTMLElement {
+  const inkAbove = GLYPH_PX * 0.875
+  const baseline = (ROW_HEIGHT - GLYPH_PX) / 2 + inkAbove
+  const el = document.createElement('span')
+  el.style.display = 'flex'
+  el.innerHTML = `<svg width="${GLYPH_BOX_WIDTH}" height="${ROW_HEIGHT}" viewBox="0 0 ${GLYPH_BOX_WIDTH} ${ROW_HEIGHT}">
+    <text x="${GLYPH_BOX_WIDTH / 2}" y="${baseline}" text-anchor="middle"
+          font-family="Bravura, Academico, 'Noto Music', serif" font-size="${GLYPH_PX}"
+          fill="${CHROME.ink}">${glyph}</text>
+  </svg>`
+  return el
+}
