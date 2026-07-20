@@ -1,8 +1,13 @@
-# Time Signature window — the unfinished business (PLANNED)
+# Time Signature window — what shipped, and what is left
 
-The window shipped LOOK-FIRST (`4c0d346`, `dd86c2c`): `src/windows/timeSignatureWindow.ts` draws
-Sibelius's dialog and touches no score. This records what each remaining control needs, so the
-wiring is a series of decisions already made rather than a series taken in a hurry.
+Built LOOK-FIRST (`4c0d346`, `dd86c2c`), then wired (`abacdac`, `4d3d6d3`, `8d25561`, `75b918c`).
+`src/windows/timeSignatureWindow.ts`. The Vue time palette it replaced is deleted (`e5af4b6`).
+
+**Working:** the meter (presets, `Other`, C and ¢), its grouping, *Allow cautionary*, the pickup —
+all armed by OK and applied to the bar you click next.
+
+**Left:** rest grouping is not modelled at all (§2), and Sibelius's real Beam and Rest Groups dialog
+has never been seen (§2).
 
 ## 0. Where the controls belong (the sorting that drove the design)
 
@@ -14,10 +19,30 @@ ends up as a score field:
 | the meter | score DATA | `Measure.timeSignature` + `timeSignatureChange` — exists |
 | Pickup (Upbeat) | score DATA | `Measure.actualDurationOverride` — exists |
 | Beam and Rest Groups… | score DATA | `TimeSignature.grouping` — exists but too shallow (§2) |
-| Allow cautionary | ENGRAVING decision | nowhere yet (§1) |
+| C / ¢ | score DATA (its SPELLING) | `TimeSignature.symbol` — the meter's own, like a pitch's enharmonic |
+| Allow cautionary | ENGRAVING decision | the overrides compartment, keyed to the CHANGE (§1) |
 | ~~Rewrite bars up to next TS~~ | parameter of the EDIT | **nowhere, ever** — removed (§3) |
 
-## 1. Allow cautionary — OPEN FORK, decide before building
+## 1. Allow cautionary — SHIPPED (`abacdac` meters, `1b4a656`+`69d2755` clefs)
+
+**The fork below was resolved by the user, and the resolution reframed it.** Storing a
+*suppression* was wrong, because it implies a score-wide default to suppress FROM. There is none: a
+courtesy can only exist where a meter (or clef) CHANGES, so it is a property of the change, and the
+rule is one condition in two halves — the flag, and whether that change opens a system. Nothing is
+drawn and then hidden; a courtesy that is not allowed is never produced.
+
+Shipped as a payloadless `cautionary` override, **presence = allowed**, keyed by the id of the
+measure the change STARTS at — not the bar the glyph lands on, which moves on every reflow. The clef
+twin is `cautionaryClef`, keyed per (measure, staff), and its courtesy is now computed PER STAFF
+(`cautionaryEndClefs`), so a change on the lower staff of a piano score warns there and nowhere else.
+
+⚠️ Consequence, and it is the model's rather than a preference: **a change with no flag draws no
+courtesy** — pasted and loaded changes included.
+
+⚠️ It shipped broken once: three sites built the compartment key three ways (the first staff is
+ABSENT from a key, never named). `keyStaffId` is now the one place that rule lives.
+
+### The original fork, kept for the reasoning
 
 Today a cautionary meter is drawn with no say in the matter: `MeasureLayout` (~line 290) sets
 `cautionaryEndTimeSig` on the last measure of a line whenever the next line opens a meter change.
@@ -34,13 +59,9 @@ change has no id.
 **(b) A sibling field to the existing `Measure.timeSignatureHidden`.** Keeps both "is a time
 signature's glyph drawn" questions in one place.
 
-**Recommendation: (a).** A cautionary exists only because of where the LINE BREAK falls — it is a
+**Chosen: (a).** A cautionary exists only because of where the LINE BREAK falls — it is a
 layout-time courtesy, not a property of the bar — and the compartment is where authored display
-decisions go. The counter-argument is real though: two neighbouring booleans about the same glyph
-living apart is its own kind of confusion. **Not decided; do not build until it is.**
-
-Note the polarity: Sibelius's checkbox is *Allow* cautionary, default ON. Whatever is stored should
-therefore be the SUPPRESSION (absent = drawn), so an untouched score carries no entries at all.
+decisions go.
 
 ## 2. Beam and Rest Groups… — PARTLY BUILT
 

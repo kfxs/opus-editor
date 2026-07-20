@@ -281,6 +281,29 @@ window silently came out 11px too wide and every one of those pixels landed on o
 which looks exactly like a padding bug and is not one. **A window narrower than the defaults must
 declare its own `minWidth`.** (The defaults are written for a dialog; a panel is not a dialog.)
 
+## The dialogs: Clef and Time Signature (`src/windows/clefWindow.ts`, `timeSignatureWindow.ts`)
+
+Both are Sibelius-shaped, and both were built LOOK-FIRST — drawn, argued over, and only then wired.
+The shape of a dialog is itself a decision (which options exist, and which are grouped), and it is
+cheaper to argue with a picture than with a wired feature.
+
+Three conventions they share, worth copying into the next one:
+
+- **`center: true`, not the cascade.** A dialog you summoned belongs where you are already looking.
+  The layer centres it AFTER `fitContent` has settled the height, then clears the flag — centring is
+  an OPENING act, never a standing rule that fights a drag.
+- **They ARM; they do not place.** OK arms the clef/meter and closes; the next click on the score
+  says WHERE, through the same placement path the palettes used. What travels with it are the
+  properties of the change about to be made (a meter's grouping and symbol, the courtesy decision,
+  the pickup) — none of which has anywhere else to wait until the target bar is known.
+- **The arming method is NOT the palette's toggle.** `armClef`/`armTimeSignature` are idempotent;
+  `setClef`/`setTimeSignature` toggle, because a palette button is its own indicator and re-pressing
+  the lit one means "off". Routing a dialog's OK through the toggle made confirming the
+  already-armed value silently disarm it.
+
+A window that opens another (Time Signature → Beam and Rest Groups) just calls the opener; the value
+being edited stays with the window that will COMMIT it, and the child is only an editor for it.
+
 ## What goes inside: widgets
 
 A window holds **one** child. To get a tree, that child is a **container** that holds more. Every
@@ -300,7 +323,14 @@ The vocabulary, and it is meant to stay this short:
 |---|---|
 | `Column`, `Row` | children stacked / laid out, with a `gap` and one optional `grow` child |
 | `Columns` | equal side-by-side cells, each independent — one can scroll while another doesn't |
+| `GroupBox` | a bordered frame with a caption — says "these controls are one idea", which a gap cannot |
 | `ScrollText`, `Label`, `Button`, `TextInput` | the leaves. `Button` takes an `onClick` callback and knows nothing about what it is for |
+| `Checkbox`, `RadioGroup`, `Select`, `NumberInput` | the form controls a dialog needs. **Native `<input>`s tinted with `accent-color`** — a hand-drawn checkbox re-implements focus, keyboard toggling and the label hit-target, and gets each slightly wrong. Only the colour is ours |
+| `ChoiceList`, `GlyphSelect` | pick ONE from drawn things: a scrolling box of pictures (clefs), and a dropdown whose rows are glyphs (note values) |
+
+Those last two arrived with the Clef and Time Signature dialogs and are the toolkit's answer to a
+recurring shape — "choose a notation" — which is why they know no music: the caller draws the rows
+and names their values.
 
 A Save window is then assembled, not written:
 
@@ -319,6 +349,34 @@ windows.open({
 
 Nothing in that tree measures itself or asks where it is — rule 3, doing real work rather than
 sitting there as a principle. Resize the window to its floor and every widget still behaves.
+
+### A dialog is not a menu, and a dropdown is not either
+
+`GlyphSelect` began as a button that opened the MENU layer, and that was wrong twice over. A menu is
+a list of COMMANDS; a dropdown is a picker with a CURRENT VALUE, which must be visible the moment
+the list opens and must move under the arrow keys — and `MenuItem` deliberately refuses checkmarks
+and radio groups, so the one thing a dropdown needs is the one thing that type is designed not to
+have. Its row metrics are tuned for the score's context menu too, so the list came out mis-sized
+inside a window. **One object owns its field and its list.**
+
+### Dialog keys: `onCancel` and `onAccept`
+
+Escape and Enter are window OPTIONS, not something each dialog wires by hand:
+
+```ts
+windows.open({ …, onCancel: () => win.close(), onAccept: accept })
+```
+
+Callbacks rather than an `escapable` / `defaultButton` flag, for the reason the whole file argues:
+Escape means "close" to a dialog, "step back" to a wizard, "revert" to an editor; a flag could only
+ever have named one of them. Each key goes to the **frontmost window that CLAIMS it** — the standing
+panels (Keypad, Properties) declare neither, so Escape over the score still means deselect while
+they are up, and raising a panel above a dialog does not steal the dialog's keys.
+
+⚠️ The layer listens on `document` in the CAPTURE phase, so the editor's own Escape cannot beat it —
+which also means it runs before any handler a control INSIDE a window could register. A control that
+owns the keyboard while it is open (a dropdown: Enter chooses a row, Escape shuts the list) marks
+itself `data-owns-keys` and the layer stands down. It cannot wait to be told; it has to ask.
 
 ### ⚠️ The toolkit STAYS TINY — this is the failure mode to fear
 
