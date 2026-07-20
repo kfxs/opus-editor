@@ -31,6 +31,61 @@ describe('DomTextEdit word menu', () => {
     document.querySelectorAll('.menu-layer').forEach(n => n.remove())
   })
 
+  // The native caret is suppressed in CSS (no property can slant one), so the drawn replacement is
+  // the ONLY caret there is — if it leaks or fails to appear, the editor has no cursor at all.
+  describe('the italic caret', () => {
+    const caret = () => document.querySelector('.text-edit-caret') as HTMLElement | null
+
+    it('exists while mounted and is GONE after unmount', () => {
+      dom.mount(mountOpts())
+      expect(caret()).not.toBeNull()
+      dom.unmount()
+      expect(caret()).toBeNull() // a leaked caret would blink over the score forever
+    })
+
+    // Regression: the slant was hardcoded, which slanted the TEMPO caret too — DomTextEdit is
+    // shared, and a tempo mark is upright bold while a dynamic is italic.
+    it('leans only as far as the box it serves', () => {
+      dom.mount(mountOpts({ font: { fontFamily: 'serif', fontSize: '14pt', fontStyle: 'italic', color: '#000' } }))
+      expect(caret()!.style.transform).toContain('skew')
+      dom.unmount()
+
+      dom.mount(mountOpts({ font: { fontFamily: 'serif', fontSize: '14pt', fontStyle: 'normal', color: '#000' } }))
+      expect(caret()!.style.transform).not.toContain('skew') // upright text, upright caret
+    })
+
+    it('hides when the caret is not in this box', () => {
+      dom.mount(mountOpts())
+      const outside = document.createElement('div')
+      outside.textContent = 'elsewhere'
+      document.body.appendChild(outside)
+
+      const r = document.createRange()
+      r.selectNodeContents(outside)
+      r.collapse(true)
+      const sel = window.getSelection()!
+      sel.removeAllRanges()
+      sel.addRange(r)
+      document.dispatchEvent(new Event('selectionchange'))
+
+      expect(caret()!.style.display).toBe('none')
+      outside.remove()
+    })
+
+    it('hides while text is SELECTED — a caret beside a highlight reads as a second one', () => {
+      dom.mount(mountOpts({ text: 'dolce' }))
+      const el = overlay()
+      const r = document.createRange()
+      r.selectNodeContents(el) // a RANGE, not a collapsed caret
+      const sel = window.getSelection()!
+      sel.removeAllRanges()
+      sel.addRange(r)
+      document.dispatchEvent(new Event('selectionchange'))
+
+      expect(caret()!.style.display).toBe('none')
+    })
+  })
+
   const overlay = () => document.querySelector('.text-edit-overlay') as HTMLElement
 
   it('right-click ANYWHERE opens the menu — the box is too small to have to hit', () => {

@@ -6,6 +6,26 @@ import { textFirstFamily } from '../utils/fontStack'
  *  this class keeps depending on nothing but the DOM. */
 export type MenuOpener = (x: number, y: number, items: MenuItem[]) => void
 
+/** Below this, a measured rect is treated as "no rect" rather than a real one. A collapsed range
+ *  frequently reports a zero-height box, and trusting it parks the caret at 0,0 in the corner of the
+ *  screen. The caret's SLANT lives in `.text-edit-caret` (notation.css) — CSS can skew, so it does. */
+const CARET_MIN_HEIGHT_PX = 4
+
+/** The slant of the serif italic the expression box is set in. Not derivable from a font at runtime,
+ *  so it is a constant — but it is applied only to boxes that ARE italic (see {@link caretSkew}). */
+const ITALIC_CARET_SKEW_DEG = 12
+
+/**
+ * How far the caret leans, from the font it will sit in. An upright caret in italic text reads as a
+ * rendering fault — and so does a slanted one in upright text, which is exactly what happened when
+ * this was hardcoded: `DomTextEdit` is shared, and a tempo mark is upright bold while a dynamic is
+ * italic. The caret follows the type; it does not assume it.
+ */
+function caretSkew(fontStyle: string): string {
+  const slanted = fontStyle === 'italic' || fontStyle.startsWith('oblique')
+  return slanted ? `skewX(-${ITALIC_CARET_SKEW_DEG}deg)` : 'none'
+}
+
 /**
  * Real-DOM implementation of {@link TextEditDom}: a transparent, font-matched
  * `contentEditable` overlay positioned over the engraved mark. The browser gives
@@ -25,6 +45,8 @@ export class DomTextEdit implements TextEditDom {
    * caret left to insert at — this is the one we put back. Null when no menu is pending.
    */
   private savedRange: Range | null = null
+  /** The drawn italic caret (the native one is suppressed in CSS). Null while unmounted. */
+  private caretEl: HTMLElement | null = null
 
   /**
    * @param openMenu opens the word menu; omit and the gesture stays the browser's.
@@ -73,6 +95,17 @@ export class DomTextEdit implements TextEditDom {
     document.body.appendChild(el)
     this.el = el
 
+    // Our own caret: no CSS can slant the native one, and expression text is italic. It leans only
+    // as far as THIS box's font does — upright for a tempo mark, slanted for a dynamic.
+    // `selectionchange` is the only event that fires for every way the caret can move — typing,
+    // arrows, clicking, our own menu insertions — so one listener covers them all.
+    const caret = document.createElement('div')
+    caret.className = 'text-edit-caret'
+    caret.style.transform = caretSkew(font.fontStyle)
+    document.body.appendChild(caret)
+    this.caretEl = caret
+    document.addEventListener('selectionchange', this.syncCaret)
+
     // Only now that it's laid out can we ask where its baseline landed, and slide the box
     // so that baseline sits exactly where the engraved one did.
     if (opts.baselineY !== undefined) this.alignBaseline(el, rect.y, opts.baselineY)
@@ -100,6 +133,9 @@ export class DomTextEdit implements TextEditDom {
     }
     document.removeEventListener('contextmenu', this.onContextMenu, true)
     document.removeEventListener('mousedown', this.onDocPointerDown, true)
+    document.removeEventListener('selectionchange', this.syncCaret)
+    this.caretEl?.remove()
+    this.caretEl = null
     this.el = null
     this.opts = null
     this.savedRange = null
@@ -146,6 +182,62 @@ export class DomTextEdit implements TextEditDom {
       text: (t) => this.insertAtSavedCaret(() => document.createTextNode(t)),
       html: (h) => this.insertAtSavedCaret(() => this.fragmentFromHtml(h)),
     }))
+  }
+
+  /**
+   * Move the drawn caret to wherever the real (invisible) one is. Bound to `selectionchange`, which
+   * covers every way it can move — typing, arrows, clicking, our own insertions — so nothing has to
+   * remember to call this.
+   *
+   * Hidden when the caret is not in this box, or when text is SELECTED: a caret drawn at the edge of
+   * a highlight looks like a second, stationary one, and the selection already shows where you are.
+   */
+  private syncCaret = (): void => {
+    const el = this.el
+    const caret = this.caretEl
+    if (!el || !caret) return
+
+    const sel = window.getSelection?.()
+    const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null
+    const live = !!range && range.collapsed && el.contains(range.commonAncestorContainer)
+    if (!live) {
+      caret.style.display = 'none'
+      return
+    }
+
+    const spot = this.caretRect(range, el)
+    if (!spot) {
+      caret.style.display = 'none'
+      return
+    }
+    caret.style.display = 'block'
+    caret.style.left = `${spot.left}px`
+    caret.style.top = `${spot.top}px`
+    caret.style.height = `${spot.height}px`
+    // Restart the blink so the caret is solid the instant it moves — a caret that happens to be
+    // mid-off-phase when you type reads as dropped input.
+    caret.style.animation = 'none'
+    void caret.offsetHeight
+    caret.style.animation = ''
+  }
+
+  /**
+   * Where to draw the caret, in viewport pixels. A COLLAPSED range often has no client rects at all
+   * (an empty box, or a position between nodes), which is why this falls back to the box itself
+   * rather than trusting a zeroed rect — a caret parked at 0,0 in the corner of the screen is the
+   * failure mode to avoid.
+   */
+  private caretRect(range: Range, el: HTMLElement): { left: number; top: number; height: number } | null {
+    if (typeof range.getBoundingClientRect !== 'function') return null // no layout (tests)
+    const r = range.getBoundingClientRect()
+    if (r.height > CARET_MIN_HEIGHT_PX) return { left: r.left, top: r.top, height: r.height }
+
+    const box = el.getBoundingClientRect()
+    if (box.height <= CARET_MIN_HEIGHT_PX) return null
+    // No rect of its own: sit at the box's start edge when it is empty, at its end otherwise — the
+    // two places a caret with nothing to measure against can legitimately be.
+    const atEnd = (el.textContent ?? '').length > 0
+    return { left: atEnd ? box.right : box.left, top: box.top, height: box.height }
   }
 
   /** The live caret, but only if it is actually inside this box — a range pointing anywhere else is
@@ -279,6 +371,9 @@ export class DomTextEdit implements TextEditDom {
       sel.removeAllRanges()
       sel.addRange(range)
     }
+    // `selectionchange` is not guaranteed to be synchronous, and the caret must not lag a frame
+    // behind the glyph it was just told to sit after.
+    this.syncCaret()
   }
 
   /**

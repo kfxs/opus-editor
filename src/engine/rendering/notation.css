@@ -106,7 +106,44 @@
   white-space: pre;
   min-width: 1px;
   z-index: 50;
-  caret-color: #2563EB;
+  /* The native caret is SUPPRESSED, not coloured — expression text is italic, and an upright bar
+     leaning against slanted letters reads as a rendering fault. No CSS can slant a caret
+     (`caret-color` is colour only; the draft `caret-shape` offers bar/block/underscore and no
+     angle), so DomTextEdit draws `.text-edit-caret` below and owns its position and blink. */
+  caret-color: transparent;
+}
+
+/*
+ * The drawn caret. A hairline rule that takes the slant of whatever type it sits in, so it reads as
+ * part of the text rather than across it — the courtesy a word processor pays italic. Positioned in
+ * VIEWPORT pixels by DomTextEdit (the overlay is `position: fixed`, so the two share a space).
+ *
+ * `will-change: opacity` keeps the blink off the main thread; without it a 1px element repainting
+ * twice a second over a blurred-glass menu is visible work.
+ */
+.text-edit-caret {
+  position: fixed;
+  /* 1px, like a native caret — and constant, also like a native caret: browsers do not scale caret
+     thickness with font-size, so neither do we. It matters more here than in an ordinary input,
+     because it sits among the thin strokes of a serif italic, where anything heavier stops reading
+     as a cursor and starts reading as a stem. */
+  width: 1px;
+  background: #2563EB;
+  /* NO slant here. The overlay serves more than one kind of text — a dynamic is italic, a tempo
+     mark is upright bold — so the caret must lean only when the type it sits in does. DomTextEdit
+     sets the transform inline from the source's own fontStyle. Bottom origin so a slanted caret
+     leans forward FROM the baseline, like the letters do. */
+  transform-origin: bottom;
+  pointer-events: none;
+  z-index: 51; /* just above the overlay it belongs to */
+  will-change: opacity;
+  animation: text-edit-caret-blink 1.06s steps(1) infinite;
+}
+
+/* Steps, not a fade: a hardware caret is on or off. A cross-fade reads as a glow. */
+@keyframes text-edit-caret-blink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
 }
 
 /* Selected note highlight */
