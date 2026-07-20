@@ -1,5 +1,7 @@
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { EditableTextSource } from './TextEditController'
+import type { EditableTextSource, TextEditInsert } from './TextEditController'
+import type { MenuItem } from '../menus/MenuItem'
+import { buildTempoMenu } from '../menus/tempoMenu'
 import { parseTempoText } from '../utils/tempoText'
 import { MIN_BPM, MAX_BPM } from '../utils/tempoMap'
 
@@ -162,6 +164,18 @@ export class TempoTextSource implements EditableTextSource {
 
   getScreenRect(): { x: number; y: number; width: number; height: number } {
     return this.screenRect
+  }
+
+  /**
+   * The tempo editor's word menu (menus/tempoMenu.ts): the note values you cannot type on a
+   * keyboard, each dropped as its Unicode note character at the caret so ` = 120` finishes a real
+   * metronome. Provisional content — words and a metronome builder come later — but the mechanism
+   * is the same one the dynamic editor uses: the DOM layer hands in the caret, the source names the
+   * rows. Inserted as ordinary text, because the mark IS its text (a glyph is just a character in
+   * the string, not an atomic chip the way a played dynamic is).
+   */
+  getContextMenu(insert: TextEditInsert): MenuItem[] {
+    return buildTempoMenu({ unit: char => insert.text(char) })
   }
 
   /** Fallback only: map the mark's SVG-space registry bbox into viewport pixels. */
