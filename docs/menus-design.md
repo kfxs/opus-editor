@@ -2,7 +2,7 @@
 
 **Status: BUILT** (`src/menus/`) — P0–P2, and its first REAL commands have landed. Sibling to `Window`
 (docs/windows-design.md), not a kind of it. Right-click the score → the Insert menu: `Text ▸ Expression`
-(Ctrl+E) and `Text ▸ Tempo` (Ctrl+M) are wired; the remaining rows are still lorem placeholders,
+(Ctrl+E) and `Text ▸ Tempo` (Alt+Shift+T) are wired; the remaining rows are still lorem placeholders,
 replaced one at a time. P3 (keyboard navigation) is not done.
 
 ## What this is
@@ -52,7 +52,7 @@ is nonsense, and the union makes that nonsense *unspellable* rather than merely 
 
 **The `shortcut` hint earned its place** (the leaf variant only — a submenu is not a keystroke): a
 pure display string echoing `ShortcutConfig`, rendered right-aligned and muted-italic, so `Expression`
-shows `Ctrl+E` and `Tempo` shows `Ctrl+M`. It is a display echo, not the binding — keep the two in step.
+shows `Ctrl+E` and `Tempo` shows `Alt+Shift+T`. It is a display echo, not the binding — keep the two in step.
 
 **Still not in the vocabulary, on purpose:** checkmarks, radio groups, disabled rows, icons. Each goes
 in when a menu actually wants it — the same guard the widget toolkit lives under.

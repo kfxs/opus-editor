@@ -22,6 +22,9 @@ export interface EditableTextSource {
    * only; a source that returns HTML must ensure its `textContent` is the string {@link commit}
    * expects. MUST be built by the source (never user-supplied) — it is assigned as innerHTML. */
   getSeedHtml?(): string | null
+  /** Keys this editor turns into caret insertions (see {@link TextEditInsertion}).
+   *  Absent ⇒ every key is ordinary typing. */
+  getInsertions?(): TextEditInsertion[]
   /** Where to place the overlay, in viewport (client) pixels. */
   getScreenRect(): { x: number; y: number; width: number; height: number }
   /**
@@ -44,6 +47,24 @@ export interface EditableTextSource {
   hideOriginal(hidden: boolean): void
 }
 
+/**
+ * A key that, while the overlay is focused, inserts a fixed fragment at the caret instead of
+ * typing a character. Sources declare their own — the DOM layer knows only "match key, insert
+ * html" — so a shortcut belongs to the editor that defines it (Ctrl+F ⇒ a forte chip in the
+ * dynamic editor) and is absent everywhere else.
+ */
+export interface TextEditInsertion {
+  /** `KeyboardEvent.key`, matched case-insensitively. */
+  key: string
+  /** Required modifier (Cmd on macOS is accepted for `ctrl`). */
+  ctrl?: boolean
+  shift?: boolean
+  alt?: boolean
+  /** Trusted HTML inserted at the caret. Same provenance rule as
+   *  {@link EditableTextSource.getSeedHtml}: source-built, never user-supplied. */
+  html: string
+}
+
 /** Options handed to the DOM layer when the overlay is mounted. */
 export interface TextEditMountOptions {
   text: string
@@ -54,6 +75,8 @@ export interface TextEditMountOptions {
   /** Viewport-pixel baseline of the engraved text, when the source can measure it
    *  (see {@link EditableTextSource.getBaselineY}). Absent ⇒ align tops. */
   baselineY?: number
+  /** Caret-insertion keys this editor accepts (see {@link EditableTextSource.getInsertions}). */
+  insertions?: TextEditInsertion[]
   font: { fontFamily: string; fontSize: string; fontStyle: string; color: string; fontWeight?: string }
   /** Called by the DOM layer on Enter / click-away. */
   onCommit: () => void
@@ -107,6 +130,7 @@ export class TextEditController {
       html: source.getSeedHtml?.(),
       rect: source.getScreenRect(),
       baselineY: source.getBaselineY?.(),
+      insertions: source.getInsertions?.(),
       font: source.getFontCSS(),
       onCommit: () => this.commit(),
       onCancel: () => this.cancel(),

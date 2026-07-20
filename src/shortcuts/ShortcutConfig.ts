@@ -254,10 +254,21 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'editDynamicOnSelection',
     description: 'Insert a dynamic on the selected note/rest and type it inline',
   },
-  // Tempo: the twin of Ctrl+E — insert a tempo mark and type it inline. M for Metronome; Sibelius's
-  // own tempo shortcut (Ctrl+Alt+T) is grabbed by the Linux terminal, and Ctrl+T is left free for a
-  // future Technique text (Sibelius's Ctrl+T), keeping the Ctrl+E / Ctrl+T text-family intact.
-  'Ctrl+m': {
+  // Tempo: the twin of Ctrl+E — insert a tempo mark and type it inline. Keeps the T of Sibelius's
+  // text-family (its own tempo shortcut, Ctrl+Alt+T, is grabbed by the Linux terminal) while
+  // leaving plain Ctrl+T free for a future Technique text (Sibelius's Ctrl+T).
+  //
+  // Two bindings this deliberately is NOT:
+  //   • Ctrl+M — inside a dynamic's inline editor Ctrl+M types the `m` of the dynamics font
+  //     (mp/mf), and a key must not mean two different things. Sibelius does overload it (its
+  //     expression-cursor Ctrl+letter shortcuts are modal); we keep bindings unambiguous instead.
+  //   • Ctrl+Shift+T — RESERVED by Chrome for "reopen closed tab". Reserved shortcuts are never
+  //     delivered to the page, so preventDefault cannot save us: the handler would simply never
+  //     run. Alt-based combos are not in that reserved set.
+  //
+  // Lookup key order is the manager's build order (Ctrl→Shift→Alt), hence 'Shift+Alt+', not
+  // 'Alt+Shift+' — same as the voice-navigation bindings above.
+  'Shift+Alt+t': {
     action: 'insertTempoOnSelection',
     description: 'Insert a tempo mark on the selected note/rest (or click to place) and type it inline',
   },

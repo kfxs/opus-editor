@@ -23,7 +23,9 @@ function textDynamic(text: string): Dynamic {
   return { id: 'd1', beat: { num: 1, den: 1 }, text, placement: 'below' }
 }
 
-function levelDynamic(level: 'p' | 'mp' | 'mf' | 'f'): Dynamic {
+/** `level` is any run of dynamics-font LETTERS — a full level ('mp') or a single glyph char
+ *  ('m', which only names a level once combined with a p/f). */
+function levelDynamic(level: string): Dynamic {
   // A level IS its SMuFL glyph (the dynamic font), not the ASCII letters.
   return { id: 'd1', beat: { num: 1, den: 1 }, text: levelToGlyphString(level), placement: 'below' }
 }
@@ -118,6 +120,22 @@ describe('DynamicTextSource', () => {
 
     // Pure text has no glyph run → seeded as plain text (no HTML).
     expect(new DynamicTextSource('d1', false, makeEngine(textDynamic('dolce')) as unknown as MusicEngine, () => null, render).getSeedHtml()).toBeNull()
+  })
+
+  // The six letters VexFlow's TextDynamics.GLYPHS defines. `z` carries Shift (Ctrl+Z is Undo
+  // while typing — Sibelius dodges it the same way).
+  it.each(['f', 'p', 'm', 'r', 's', 'z'])('Ctrl+%s inserts that GLYPH chip — the dynamic font, not the ASCII letter', letter => {
+    const source = new DynamicTextSource('d1', false, makeEngine(textDynamic('dolce')) as unknown as MusicEngine, () => null, render)
+    const insertion = source.getInsertions().find(i => i.key === letter)!
+
+    expect(insertion.ctrl).toBe(true)
+    expect(insertion.shift ?? false).toBe(letter === 'z')
+    expect(insertion.html).toContain(levelToGlyphString(letter))        // the SMuFL glyph…
+    expect(insertion.html).not.toMatch(new RegExp(`>${letter}<`))       // …never the ASCII letter (that would be silent)
+    // Identical markup to a seeded chip, so an inserted glyph is atomic and reads back the same.
+    expect(insertion.html).toBe(
+      new DynamicTextSource('d1', false, makeEngine(levelDynamic(letter)) as unknown as MusicEngine, () => null, render).getSeedHtml(),
+    )
   })
 
   it('getFontCSS matches the engraving (italic, point size)', () => {

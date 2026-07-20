@@ -1,4 +1,4 @@
-import type { TextEditDom, TextEditMountOptions } from './TextEditController'
+import type { TextEditDom, TextEditInsertion, TextEditMountOptions } from './TextEditController'
 import { textFirstFamily } from '../utils/fontStack'
 
 /**
@@ -84,9 +84,62 @@ export class DomTextEdit implements TextEditDom {
       e.preventDefault()
       e.stopPropagation()
       this.opts?.onCancel()
+      return
+    }
+
+    const insertion = this.matchInsertion(e)
+    if (insertion) {
+      // preventDefault BEFORE inserting: these are live browser shortcuts (Ctrl+F is Find),
+      // and while the overlay is focused the editor's meaning must win.
+      e.preventDefault()
+      e.stopPropagation()
+      this.insertHtmlAtCaret(insertion.html)
     }
     // Other keys flow into the contentEditable as normal typing; ShortcutManager's
     // isInInput guard keeps them away from note entry.
+  }
+
+  private matchInsertion(e: KeyboardEvent): TextEditInsertion | undefined {
+    return this.opts?.insertions?.find(
+      i =>
+        i.key.toLowerCase() === e.key.toLowerCase() &&
+        // metaKey so the same binding reads as Cmd+F on macOS.
+        !!i.ctrl === (e.ctrlKey || e.metaKey) &&
+        !!i.shift === e.shiftKey &&
+        !!i.alt === e.altKey,
+    )
+  }
+
+  /**
+   * Drop a fixed fragment in at the caret, replacing any selection, and leave the caret
+   * AFTER it so typing continues beside the inserted chip. Range surgery rather than
+   * `execCommand('insertHTML')`: that one is deprecated and free to reshape the markup it
+   * is handed, and a dynamics chip must survive verbatim — its `contenteditable=false`
+   * span is what makes it atomic.
+   */
+  private insertHtmlAtCaret(html: string): void {
+    const el = this.el
+    const sel = window.getSelection?.()
+    if (!el || !sel || sel.rangeCount === 0) return
+
+    const range = sel.getRangeAt(0)
+    if (!el.contains(range.commonAncestorContainer)) return // caret escaped the overlay
+
+    const template = document.createElement('span')
+    template.innerHTML = html
+    const fragment = document.createDocumentFragment()
+    fragment.append(...template.childNodes)
+    const last = fragment.lastChild
+
+    range.deleteContents()
+    range.insertNode(fragment)
+
+    if (last) {
+      range.setStartAfter(last)
+      range.collapse(true)
+      sel.removeAllRanges()
+      sel.addRange(range)
+    }
   }
 
   /**

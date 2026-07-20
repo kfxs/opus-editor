@@ -1,13 +1,49 @@
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { EditableTextSource } from './TextEditController'
+import type { EditableTextSource, TextEditInsertion } from './TextEditController'
 import { DYNAMIC_TEXT_FONT, DYNAMIC_TEXT_SIZE, DYNAMIC_GLYPH_SIZE } from '../engine/rendering/dynamicStyle'
-import { dynamicLabel, splitDynamicRuns } from '../utils/dynamics'
+import { dynamicLabel, levelToGlyphString, splitDynamicRuns } from '../utils/dynamics'
 
 /** Escape the few characters that matter when a run is placed into innerHTML (see
  *  {@link DynamicTextSource.getSeedHtml}). The SMuFL glyph codepoints are unaffected. */
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
+
+/**
+ * One glyph run as an ATOMIC CHIP: a `contenteditable="false"` span at the big music size.
+ * The caret can't enter it, so it behaves as a single flagged token — the same markup whether
+ * it arrives by seeding an existing mark or by a Ctrl-key insertion, which is what lets a chip
+ * typed in the editor read back identically to one loaded from the model.
+ */
+function glyphChipHtml(glyph: string): string {
+  return `<span contenteditable="false" style="font-size:${DYNAMIC_GLYPH_SIZE}pt;font-style:normal">${escapeHtml(glyph)}</span>`
+}
+
+/**
+ * Keys that stamp a dynamics glyph into the editor at the caret: Ctrl+<letter> ⇒ that letter in
+ * the *dynamic font* (Ctrl+F ⇒ 𝆑), never the ASCII one — a typed ASCII `f` is silent by design
+ * (see utils/dynamics). These are the six letters VexFlow's `TextDynamics.GLYPHS` actually
+ * defines (U+E520–E525); combine them to spell `pp`, `sfz`, `rf`, … Note VexFlow has no niente
+ * (`n`, U+E526), so unlike Sibelius we can't offer it without extending the glyph table ourselves.
+ *
+ * `z` is the odd one out, and Sibelius hit the same wall: plain Ctrl+Z is Undo while typing, so
+ * Sibelius binds the z glyph to Ctrl+Shift+Z — which is what we use too, matching it exactly.
+ * The cost is the contenteditable's native text-REDO inside an open dynamic editor; the score's
+ * own Ctrl+Shift+Z redo is untouched, since these keys are read only by {@link DomTextEdit} while
+ * the overlay holds focus and ShortcutManager's isInInput guard already stands down there.
+ * (rpmseattle.com/of_note "Enter and Edit Dynamics as Music text characters".)
+ *
+ * One row per glyph — extend here, not at the call site.
+ */
+const DYNAMIC_INSERT_KEYS: ReadonlyArray<{ key: string; shift?: boolean; alt?: boolean }> = [
+  { key: 'f' },
+  { key: 'p' },
+  { key: 'm' },
+  { key: 'r' },
+  { key: 's' },
+  // Ctrl+Shift+Z — see the note above on why this one isn't a bare Ctrl+Z.
+  { key: 'z', shift: true },
+]
 
 /**
  * {@link EditableTextSource} for ANY dynamic — level ('p'/'f'…) or custom text.
@@ -73,16 +109,25 @@ export class DynamicTextSource implements EditableTextSource {
     if (!runs.some(r => r.glyph && r.text.trim() !== '')) return null // no glyph run → plain text
 
     return runs.map(r => {
-      if (r.glyph) {
-        const glyph = escapeHtml(r.text) // already the SMuFL glyph characters
-        // contenteditable=false → the chip is atomic; the caret sits beside it, never within,
-        // so text you type lands as ordinary base-size text before/after/between chips.
-        return `<span contenteditable="false" style="font-size:${DYNAMIC_GLYPH_SIZE}pt;font-style:normal">${glyph}</span>`
-      }
+      // r.text is already the SMuFL glyph characters. contenteditable=false → the chip is
+      // atomic; the caret sits beside it, never within, so text you type lands as ordinary
+      // base-size text before/after/between chips.
+      if (r.glyph) return glyphChipHtml(r.text)
       // Words inherit the box's italic serif at the text size; NBSP keeps run-edge spaces
       // from collapsing in the contenteditable (commit normalizes NBSP back to a space).
       return escapeHtml(r.text).replace(/ /g, ' ')
     }).join('')
+  }
+
+  /** Ctrl+<letter> ⇒ insert that letter's glyph chip at the caret (see {@link DYNAMIC_INSERT_KEYS}). */
+  getInsertions(): TextEditInsertion[] {
+    return DYNAMIC_INSERT_KEYS.map(({ key, shift, alt }) => ({
+      key,
+      ctrl: true,
+      shift,
+      alt,
+      html: glyphChipHtml(levelToGlyphString(key)),
+    }))
   }
 
   getScreenRect(): { x: number; y: number; width: number; height: number } {
