@@ -1,4 +1,6 @@
 import { dbg } from '@/utils/debug'
+import { windows } from '@/windows'
+import { openClefWindow } from '@/windows/clefWindow'
 import type { MenuLayer } from './MenuLayer'
 import type { MenuItem } from './MenuItem'
 
@@ -41,6 +43,9 @@ function say(label: string): MenuItem {
  */
 function buildInsertItems(actions: InsertMenuActions): MenuItem[] {
   return [
+    // Opens the Clef window directly: a window is opened by importing the layer, not by asking the
+    // app for a callback, so a command that only puts a window up needs no `actions` field at all.
+    { label: 'Clef', shortcut: 'Q', onSelect: () => openClefWindow(windows) },
     {
       label: 'Text',
       items: [

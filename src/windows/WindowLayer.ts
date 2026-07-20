@@ -289,6 +289,12 @@ export class WindowLayer {
           win.content.mount(frame.querySelector('.window-content') as HTMLElement)
         }
         if (win.fitContent) this.fitToContent(win, frame)
+        // AFTER the fit: only now is the height the one the window will actually have.
+        if (win.centerOnOpen) {
+          const box = this.manager.bounds()
+          win.moveTo((box.width - win.rect.width) / 2, (box.height - win.rect.height) / 2)
+          win.centerOnOpen = false
+        }
       }
       const label = frame.querySelector('.window-title') as HTMLElement
       if (label.textContent !== win.title) label.textContent = win.title

@@ -11,6 +11,8 @@ import type { ViewportHost } from './useViewport'
 import { ShortcutManager } from '../shortcuts'
 import { beatToFrac } from '../utils/musicUtils'
 import { selectedArticulationNoteIds } from '../interactions/selection'
+import { windows } from '../windows'
+import { openClefWindow } from '../windows/clefWindow'
 
 /**
  * Vue adapter that wires keyboard shortcuts to controller actions.
@@ -145,6 +147,13 @@ export function useShortcuts(
     // Enter — edit the selected dynamic inline (twin of double-click). Returns false to DECLINE
     // (keep Enter free) when no dynamic is selected. MouseController.editSelectedDynamic.
     editSelectedDynamic: () => editSelectedDynamic(),
+    // Q — the same action as Insert ▸ Clef. Opening a window needs no controller, so this reaches
+    // the window layer directly rather than taking a callback through App.vue.
+    // (Braces, not a concise body: the handler's return value is the manager's DECLINE signal, and
+    // the opened Window is not an answer to that question.)
+    openClefWindow: () => {
+      openClefWindow(windows)
+    },
     // Ctrl+Alt+T — the tempo twin; branch lives in MouseController.insertTempo.
     insertTempoOnSelection: () => insertTempo(),
     zoomIn: () => viewport.zoomToStop(1, viewportCenter()),

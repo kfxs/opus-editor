@@ -99,6 +99,9 @@ export class WindowManager implements WindowHost {
   /** Give a window that did not ask for a position one that does not sit exactly on the last one. */
   private cascade(opts: WindowOptions): WindowOptions {
     if (opts.x !== undefined && opts.y !== undefined) return opts
+    // A centred window asks for a position of its own; stamping the cascade on it here would read as
+    // an explicit x/y and cancel the centring before the layer ever sees it.
+    if (opts.center) return opts
     const step = this.opened % CASCADE_WRAP
     this.opened++
     return {

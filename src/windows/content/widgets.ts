@@ -45,6 +45,77 @@ export class ScrollText implements Widget {
   }
 }
 
+/** One row of a {@link ChoiceList}: what it IS, and the picture that stands for it. */
+export interface Choice {
+  value: string
+  /** SVG markup — the row is a PICTURE, not a caption (a clef is drawn, never spelled). */
+  picture: string
+}
+
+/**
+ * A sunken, scrolling box of pictures, exactly one of them chosen — the shape every "pick a
+ * notation" dialog has (clef, key signature, time signature, instrument): a list you scroll, a row
+ * you click, one selection at a time.
+ *
+ * It knows nothing about music. The caller draws the rows and names their values; this widget owns
+ * the box, the scrolling, and which row is lit.
+ */
+export class ChoiceList implements Widget {
+  private selected: string
+  private readonly rows = new Map<string, HTMLElement>()
+
+  constructor(
+    private readonly choices: Choice[],
+    private readonly opts: { selected?: string; onChange?: (value: string) => void } = {},
+  ) {
+    this.selected = opts.selected ?? choices[0]?.value ?? ''
+  }
+
+  mount(host: HTMLElement): void {
+    const el = document.createElement('div')
+    const s = el.style
+    s.flex = '1'
+    s.minHeight = '0'
+    s.overflowY = 'auto'
+    s.border = `1px solid ${CHROME.edge}`
+    s.borderRadius = '6px'
+    s.background = CHROME.field
+
+    for (const choice of this.choices) {
+      const row = document.createElement('div')
+      row.innerHTML = choice.picture
+      row.style.cursor = 'pointer'
+      row.style.display = 'flex'
+      row.style.justifyContent = 'center'
+      row.addEventListener('click', () => this.select(choice.value))
+      el.appendChild(row)
+      this.rows.set(choice.value, row)
+    }
+
+    host.appendChild(el)
+    this.paint()
+  }
+
+  get value(): string {
+    return this.selected
+  }
+
+  private select(value: string): void {
+    if (value === this.selected) return
+    this.selected = value
+    this.paint()
+    this.opts.onChange?.(value)
+  }
+
+  private paint(): void {
+    for (const [value, row] of this.rows) {
+      // The lit row is a TINT, not the solid accent: the picture on it is the point, and a solid
+      // blue behind a thin-stroked staff swallows it.
+      row.style.background = value === this.selected ? 'rgba(37, 99, 235, 0.35)' : 'transparent'
+    }
+  }
+}
+
 export interface ButtonOptions {
   /** 'primary' is the one that commits — the Save in a Save window. */
   variant?: 'primary' | 'default'

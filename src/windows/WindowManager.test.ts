@@ -18,6 +18,22 @@ describe('WindowManager', () => {
     expect(b.rect.y).toBeGreaterThan(a.rect.y)
   })
 
+  // `center` is finished by the DOM layer (only it knows the fitted height); the manager's job is to
+  // keep out of the way — the cascade must not stamp a position that would read as an explicit x/y.
+  it('leaves a centred window unpositioned, and marks it for the layer to centre', () => {
+    m.open() // one cascade step already spent, so the origin is not the answer by accident
+    const win = m.open({ center: true, width: 200, height: 100 })
+    expect(win.centerOnOpen).toBe(true)
+    expect(win.rect.x).toBe(0)
+    expect(win.rect.y).toBe(0)
+  })
+
+  it('lets an explicit position beat center, the same way it beats the cascade', () => {
+    const win = m.open({ center: true, x: 40, y: 60 })
+    expect(win.centerOnOpen).toBe(false)
+    expect(win.rect).toMatchObject({ x: 40, y: 60 })
+  })
+
   it('stacks each new window above the last', () => {
     const a = m.open()
     const b = m.open()

@@ -41,6 +41,16 @@ export interface WindowOptions {
    */
   fitContent?: boolean
   /**
+   * Open in the MIDDLE of the box instead of on the cascade. Applied once, on open, and only after
+   * `fitContent` has settled the height — centring against the requested height would leave a
+   * fit-to-content window visibly off-centre. Afterwards the window is an ordinary one: dragging it
+   * is not fought, and a later resize does not re-centre it.
+   *
+   * A dialog the user just summoned belongs where they are already looking; the cascade is for
+   * windows that accumulate. Explicit `x`/`y` still win.
+   */
+  center?: boolean
+  /**
    * How solid the window's BACKGROUND is, 0–1 — the title bar and the content stay as they are.
    * Below 1 the score shows through, so a panel that lives ON TOP of the music — a Keypad, a mixer —
    * does not take the music away while it is up. A window that must be READ stays at 1.
@@ -95,6 +105,8 @@ export class Window {
   readonly minWidth: number
   readonly minHeight: number
   readonly fitContent: boolean
+  /** Cleared the moment the layer has centred it — centring is an OPENING act, not a standing rule. */
+  centerOnOpen: boolean
   /** 0–1. See {@link WindowOptions.opacity}. */
   readonly opacity: number
   readonly content: Widget | null
@@ -114,6 +126,8 @@ export class Window {
     this.minWidth = opts.minWidth ?? WINDOW_DEFAULTS.minWidth
     this.minHeight = opts.minHeight ?? WINDOW_DEFAULTS.minHeight
     this.fitContent = opts.fitContent ?? false
+    // Explicit coordinates beat centring, the same way they beat the cascade.
+    this.centerOnOpen = (opts.center ?? false) && opts.x === undefined && opts.y === undefined
     this.opacity = clamp01(opts.opacity ?? WINDOW_DEFAULTS.opacity)
     this.content = opts.content ?? null
     this.rect = {

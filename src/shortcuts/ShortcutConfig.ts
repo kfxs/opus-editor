@@ -249,6 +249,12 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Edit the selected dynamic inline',
   },
 
+  // Clef: opens the clef entry window — the same action as Insert ▸ Clef.
+  'q': {
+    action: 'openClefWindow',
+    description: 'Open the clef entry window',
+  },
+
   // Expression: attach a custom-text dynamic to the selected note/rest and edit it inline.
   'Ctrl+e': {
     action: 'editDynamicOnSelection',
