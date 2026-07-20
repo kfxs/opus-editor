@@ -102,8 +102,10 @@ const GLYPH = {
   longa: '\uE951',              // mensuralBlackLonga (Bravura has no text/metronome longa)
   double: '\uECA0',           // metNoteDoubleWhole (the round double whole)
   breve: '\uECA1',              // metNoteDoubleWholeSquare — the square "cuadrada"
-  noteQuarter: '\uE1F0',        // textBlackNoteShortStem
-  beam8: '\uE1F7',              // textCont8thBeamShortStem — two eighths sharing a beam
+  noteStem: '\uE1F0',           // textBlackNoteShortStem — a stemmed note (short stem)
+  noteStemLong: '\uE1F1',       // textBlackNoteLongStem — a stemmed note (long stem)
+  noteFrac8: '\uE1F2',          // textBlackNoteFrac8thShortStem — a note WITH its own 8th (fractional) beam
+  beam8: '\uE1F7',              // textCont8thBeamShortStem — the 8th continuation beam
   beam16: '\uE1F9',             // textCont16thBeamShortStem
   beam32: '\uE1FB',             // textCont32ndBeamLongStem
 } as const
@@ -120,8 +122,8 @@ const ARROWS: ReadonlyArray<{ arrow: string; shortcut: string }> = [
  * still engrave and parse, with the Bravura arrows either side. Playing the modulation — and drawing
  * those arrows in the engraved mark — is future work (docs/metric-modulation-plan.md).
  */
-const MODULATION_LABEL = `${GLYPH.arrowLeft}${GLYPH.noteQuarter} = ${GLYPH.beam8}${GLYPH.arrowRight}`
-const MODULATION_TEXT = `${GLYPH.arrowLeft}${UNIT_GLYPH.q} = ${UNIT_GLYPH['8']}${GLYPH.arrowRight}`
+const MODULATION_LABEL = `${GLYPH.arrowLeft}\u2002${NOTE_GLYPH['q']}\u2002=\u2002${NOTE_GLYPH['8']}\u2002${GLYPH.arrowRight}`
+const MODULATION_TEXT = `${GLYPH.arrowLeft} ${UNIT_GLYPH.q} = ${UNIT_GLYPH['8']} ${GLYPH.arrowRight}`
 
 /**
  * One accented / typographic character to drop into the mark's text — the picture's columns 3–5,
@@ -227,10 +229,12 @@ export function buildTempoMenu(insert: TempoMenuInsert): MenuItem[] {
     ...ARROWS.map(({ arrow, shortcut }) => music(arrow, shortcut)),
     // The equation shows in Bravura but inserts the parseable notes between the Bravura arrows.
     { label: MODULATION_LABEL, labelFont: 'music', onSelect: () => insert.text(MODULATION_TEXT) },
+    // The beamed eighth PAIR — note, single beam, note — the label the picture shows next.
+    music(`${GLYPH.noteStem}${GLYPH.beam8}${GLYPH.noteFrac8}`),
     // The modulation's building blocks: BEAMED note groups (SMuFL text-note family), not flagged singles.
-    music(GLYPH.beam8),  // beamed eighths
-    music(GLYPH.beam16), // beamed sixteenths
-    music(GLYPH.beam32), // beamed thirty-seconds
+    music(`${GLYPH.noteStem}${GLYPH.beam8}`),      // beamed eighths
+    music(`${GLYPH.noteStem}${GLYPH.beam16}`),     // beamed sixteenths
+    music(`${GLYPH.noteStemLong}${GLYPH.beam32}`), // beamed thirty-seconds
     // The triplet WITH its bracket — start-bracket, the 3, end-bracket composed.
     music(`${GLYPH.tupletBracketStart}${GLYPH.tuplet3}${GLYPH.tupletBracketEnd}`, 'Ctrl+3'),
     music(GLYPH.tie),    // the low tie

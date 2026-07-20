@@ -137,6 +137,12 @@ const CSS = `
      than left to the font's own generous metrics. */
   line-height: 0.85;
   overflow: visible;
+  /* SMuFL's text-note beams (note + continuation + fractional-beam note) only join up when the
+     font's KERNING PAIRS are applied — they are what makes the beams overlap the stems instead of
+     leaving a gap (per the SMuFL "beamed groups of notes" spec). Browsers may skip kerning on
+     short runs, so ask for it explicitly. */
+  font-kerning: normal;
+  font-feature-settings: "kern" 1;
 }
 /* Expression words, set as the score sets them: the same serif italic the engraver uses, so the row
    is a specimen of the mark rather than a description of it. The family is spelled here rather than
