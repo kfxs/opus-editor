@@ -95,6 +95,23 @@ export class PropertiesWidget implements Widget {
       const dump = document.createElement('div')
       dump.textContent = stringify(element.data)
       body.appendChild(dump)
+
+      // Its own section, under its own label, because the overrides are their own COMPARTMENT — the
+      // authored geometry the model deliberately keeps out of the content (staff-spaces, never
+      // pixels). Printing them inside the element's object would show a shape the score does not
+      // have. Nothing is drawn when the element has none, which is most of the time.
+      if (element.overrides) {
+        const label = document.createElement('div')
+        label.textContent = 'engraving overrides'
+        label.style.color = AMBER
+        label.style.margin = '6px 0 2px'
+        label.style.letterSpacing = '0.06em'
+        body.appendChild(label)
+
+        const overrides = document.createElement('div')
+        overrides.textContent = stringify(element.overrides)
+        body.appendChild(overrides)
+      }
     }
     ;(body.firstElementChild as HTMLElement).style.marginTop = '0'
   }

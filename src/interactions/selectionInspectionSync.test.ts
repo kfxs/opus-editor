@@ -67,6 +67,55 @@ describe('wireSelectionInspection', () => {
     stop()
   })
 
+  // Nudging an override is the sharpest case: it changes NEITHER the selection NOR the element —
+  // only the engraving-overrides compartment hanging off it. If the panel is to give live feedback
+  // while an arrow key walks a dynamic around, this is the path that has to reach it.
+  it('refreshes when an ENGRAVING OVERRIDE on the selected element is nudged', async () => {
+    const engine = makeEngine()
+    const dynamic = engine.addDynamic(1, { text: 'p', beat: frac(0, 1) })!
+
+    const state = createEditorState()
+    state.selectedDynamicId = dynamic.id
+    const stop = wireSelectionInspection(state, () => engine, () => () => {})
+
+    expect(selectionInspection.get()[0].overrides).toBeUndefined()
+
+    engine.nudgeDynamicOffset(dynamic.id, 0, -1)
+    await Promise.resolve()
+
+    expect(selectionInspection.get()[0].overrides).toEqual([
+      expect.objectContaining({ kind: 'dynamicOffset', y: -1 }),
+    ])
+    stop()
+  })
+
+  // ⚠️ The REPEAT nudge, which is where this first broke in the app. The first one changes
+  // `overrides` from absent to present, so even a broken de-dup notices it; the second only changes
+  // a NUMBER INSIDE an object the snapshot shares with the model — and comparing the live object
+  // against itself says "no change". Anything holding the model's own objects has this hazard.
+  it('refreshes on every nudge, not just the first', async () => {
+    const engine = makeEngine()
+    const dynamic = engine.addDynamic(1, { text: 'p', beat: frac(0, 1) })!
+    const state = createEditorState()
+    state.selectedDynamicId = dynamic.id
+    const stop = wireSelectionInspection(state, () => engine, () => () => {})
+
+    engine.nudgeDynamicOffset(dynamic.id, 0, -1)
+    await Promise.resolve()
+
+    const seen = vi.fn()
+    const unsubscribe = selectionInspection.onChange(seen)
+    engine.nudgeDynamicOffset(dynamic.id, 0, -1)
+    await Promise.resolve()
+
+    expect(seen).toHaveBeenCalled()
+    expect(selectionInspection.get()[0].overrides).toEqual([
+      expect.objectContaining({ kind: 'dynamicOffset', y: -2 }),
+    ])
+    unsubscribe()
+    stop()
+  })
+
   it('stops listening to the model when disposed', async () => {
     const engine = makeEngine()
     const note = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!

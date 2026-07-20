@@ -1,5 +1,7 @@
 import type { EditorState } from './EditorState'
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { EngravingOverride, Note, Score } from '../types/music'
+import { restPositionKey } from '../engine/models/engravingOverrides'
 import { selectedNoteIds } from './selection'
 
 /**
@@ -29,11 +31,45 @@ export interface SelectedElement {
   kind: string
   /** The element's own data, as the model holds it, or the locator when there is no object to fetch. */
   data: unknown
+  /**
+   * The authored geometry hanging off this element — its entries in the engraving-overrides
+   * compartment (`score.engravingOverrides`), if any.
+   *
+   * A SEPARATE field and deliberately not folded into `data`, because that is exactly what the
+   * compartment is: geometry kept OUT of the content model so transposition, playback and
+   * re-barring never trip over pixels (docs/engraving-overrides-plan.md). A dump that merged the
+   * two would show a shape the model does not have. Absent when the element has none.
+   */
+  overrides?: EngravingOverride[]
+}
+
+/** The compartment's entries under one key, or undefined when there are none (never an empty list —
+ *  the panel shows the section only when there is something in it). */
+function overridesAt(score: Score, key: string | undefined): EngravingOverride[] | undefined {
+  if (!key) return undefined
+  const entries = score.engravingOverrides?.[key]
+  return entries?.length ? entries : undefined
+}
+
+/**
+ * The compartment key for a note or rest.
+ *
+ * ⚠️ Rests are POSITION-keyed and notes are id-keyed — the one asymmetry in the compartment, and it
+ * is not an accident: a rest has no durable id (re-barring makes and unmakes rests freely), so its
+ * overrides are addressed by where it sits. Reading only ids would silently show no overrides on
+ * exactly the elements that most often have one, since the rest shift and rest hide both live here.
+ */
+function noteOverrideKey(score: Score, note: Note): string | undefined {
+  if (!note.isRest) return note.id
+  const measure = score.measures.find((m) => m.number === note.measure)
+  if (!measure) return undefined
+  return restPositionKey(measure.id, note.voice ?? 0, note.beat, score.staves?.[note.staff ?? 0]?.id)
 }
 
 export function selectedElements(state: EditorState, engine: MusicEngine | null): SelectedElement[] {
   const out: SelectedElement[] = []
   if (!engine) return out
+  const score = engine.getScore()
 
   // Notes and rests. The multi-select set is authoritative; `selectedNoteId` is its mirror for the
   // single case, so reading the set alone covers both and cannot report the same note twice.
@@ -43,17 +79,33 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
     const note = engine.getNote(id)
     // A note whose id no longer resolves is worth SHOWING, not hiding: a stale selection is exactly
     // the kind of thing this window exists to make visible.
-    out.push({ kind: note?.isRest ? 'rest' : 'note', data: note ?? { id, missing: true } })
+    out.push({
+      kind: note?.isRest ? 'rest' : 'note',
+      data: note ?? { id, missing: true },
+      overrides: note ? overridesAt(score, noteOverrideKey(score, note)) : undefined,
+    })
   }
 
   if (state.selectedDynamicId) {
-    out.push({ kind: 'dynamic', data: engine.getDynamicById(state.selectedDynamicId) ?? { id: state.selectedDynamicId, missing: true } })
+    out.push({
+      kind: 'dynamic',
+      data: engine.getDynamicById(state.selectedDynamicId) ?? { id: state.selectedDynamicId, missing: true },
+      overrides: overridesAt(score, state.selectedDynamicId),
+    })
   }
   if (state.selectedTempoId) {
-    out.push({ kind: 'tempo', data: engine.getTempoMarkById(state.selectedTempoId) ?? { id: state.selectedTempoId, missing: true } })
+    out.push({
+      kind: 'tempo',
+      data: engine.getTempoMarkById(state.selectedTempoId) ?? { id: state.selectedTempoId, missing: true },
+      overrides: overridesAt(score, state.selectedTempoId),
+    })
   }
   if (state.selectedSlurId) {
-    out.push({ kind: 'slur', data: engine.getSlurById(state.selectedSlurId) ?? { id: state.selectedSlurId, missing: true } })
+    out.push({
+      kind: 'slur',
+      data: engine.getSlurById(state.selectedSlurId) ?? { id: state.selectedSlurId, missing: true },
+      overrides: overridesAt(score, state.selectedSlurId),
+    })
   }
 
   // The kinds below have no object of their own in the model — an articulation, an accidental, a
@@ -79,7 +131,7 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
   }
 
   if (state.selectedTupletId) {
-    out.push({ kind: 'tuplet', data: { id: state.selectedTupletId } })
+    out.push({ kind: 'tuplet', data: { id: state.selectedTupletId }, overrides: overridesAt(score, state.selectedTupletId) })
   }
 
   // Clef and time signature are positional: they belong to a measure (and, for a clef, a staff and
@@ -92,12 +144,12 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
         measure: state.selectedClefMeasure,
         beat: state.selectedClefBeat,
         staff: state.selectedClefStaff,
-        clefs: engine.getScore().measures.find((m) => m.number === state.selectedClefMeasure)?.clefs,
+        clefs: score.measures.find((m) => m.number === state.selectedClefMeasure)?.clefs,
       },
     })
   }
   if (state.selectedTimeSignatureMeasure !== null) {
-    const measure = engine.getScore().measures.find((m) => m.number === state.selectedTimeSignatureMeasure)
+    const measure = score.measures.find((m) => m.number === state.selectedTimeSignatureMeasure)
     out.push({
       kind: 'timeSignature',
       data: { measure: state.selectedTimeSignatureMeasure, timeSignature: measure?.timeSignature },

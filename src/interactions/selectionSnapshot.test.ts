@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createEditorState } from './EditorState'
 import { selectedElements } from './selectionSnapshot'
 import type { MusicEngine } from '../engine/MusicEngine'
+import { fracCreate as frac } from '../utils/fraction'
 
 /**
  * The snapshot turns EditorState's dozen `selected*` locators into the objects behind them — the
@@ -62,5 +63,50 @@ describe('selectedElements', () => {
     state.selectedTimeSignatureMeasure = 3
     const kinds = selectedElements(state, engineStub({ n1: { id: 'n1' } })).map((e) => e.kind)
     expect(kinds).toEqual(['note', 'timeSignature'])
+  })
+})
+
+/**
+ * The overrides compartment is keyed by element id — EXCEPT for rests, which are position-keyed
+ * because they have no durable id. Reading ids alone would show no overrides on exactly the
+ * elements that most often carry one (rest shift, rest hide both live there), and it would fail
+ * SILENTLY: an empty section looks identical to "this element has none".
+ */
+describe('selectedElements — engraving overrides', () => {
+  const scoreWith = (overrides: Record<string, { kind: string }[]>) => ({
+    measures: [{ number: 1, id: 'm1' }],
+    staves: undefined,
+    engravingOverrides: overrides,
+  })
+
+  const engineWith = (note: Record<string, unknown>, overrides: Record<string, { kind: string }[]>) =>
+    ({
+      getNote: () => note,
+      getDynamicById: () => null,
+      getTempoMarkById: () => null,
+      getSlurById: () => null,
+      getScore: () => scoreWith(overrides),
+    }) as unknown as MusicEngine
+
+  it('finds a note override by id', () => {
+    const state = createEditorState()
+    state.selectedNoteId = 'n1'
+    const engine = engineWith({ id: 'n1', measure: 1 }, { n1: [{ kind: 'noteOffset' }] })
+    expect(selectedElements(state, engine)[0].overrides).toEqual([{ kind: 'noteOffset' }])
+  })
+
+  it('finds a REST override by its position key, not its id', () => {
+    const state = createEditorState()
+    state.selectedNoteId = 'r1'
+    const rest = { id: 'r1', isRest: true, measure: 1, beat: frac(1, 2), voice: 0 }
+    // Keyed by where the rest SITS. Under an id-only lookup this comes back undefined.
+    const engine = engineWith(rest, { 'm1:v0:b1/2': [{ kind: 'restShift' }] })
+    expect(selectedElements(state, engine)[0].overrides).toEqual([{ kind: 'restShift' }])
+  })
+
+  it('omits the field entirely when the element has none', () => {
+    const state = createEditorState()
+    state.selectedNoteId = 'n1'
+    expect(selectedElements(state, engineWith({ id: 'n1', measure: 1 }, {}))[0].overrides).toBeUndefined()
   })
 })

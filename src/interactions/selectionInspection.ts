@@ -14,6 +14,19 @@ import type { SelectedElement } from './selectionSnapshot'
  */
 class SelectionInspection {
   private elements: SelectedElement[] = []
+  /**
+   * The last published snapshot, SERIALIZED at the moment it was published — not re-derived from
+   * {@link elements} when the next one arrives.
+   *
+   * That distinction is the whole correctness of the de-dup. Some of what the snapshot carries is
+   * the model's LIVE objects (`getDynamicById` returns the stored `Dynamic` itself; `getNote`
+   * happens to return a fresh copy), so `elements` shares identity with the score. Re-stringifying
+   * it at comparison time therefore reads the CURRENT state on both sides of the `===`, and any
+   * edit made in place — nudging a dynamic's offset, the exact case this window is for — compares
+   * equal to itself and is never published. Keeping the string freezes the old state, which is the
+   * only thing there is to compare against.
+   */
+  private lastJson = ''
   private listeners = new Set<(elements: SelectedElement[]) => void>()
 
   get(): SelectedElement[] {
@@ -29,7 +42,9 @@ class SelectionInspection {
    * with identical contents is not a change to anyone looking at it.
    */
   set(elements: SelectedElement[]): void {
-    if (JSON.stringify(elements) === JSON.stringify(this.elements)) return
+    const json = JSON.stringify(elements)
+    if (json === this.lastJson) return
+    this.lastJson = json
     this.elements = elements
     for (const fn of this.listeners) fn(elements)
   }
