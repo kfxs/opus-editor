@@ -194,12 +194,19 @@ export function cautionaryAllowedOf(score: Score, measureId: string): boolean {
  * The compartment key for a clef change's cautionary (client #9). Per STAFF as well as per measure,
  * because a clef belongs to one staff — unlike a meter, which is score-wide.
  *
+ * Resolve a staff INDEX to what the key should carry with {@link keyStaffId} — it is the one place
+ * this rule is written, after three hand-rolled copies of it disagreed.
+ *
  * ⚠️ **Absent `staffId` IS the first staff** — the convention `restPositionKey` uses and that
  * `MusicEngine.staffIdForIndex` enforces (index 0 returns undefined). Passing the first staff's real
  * id instead produces a DIFFERENT key for the same staff, and the two sides then never meet: the
  * write lands under `cautionClef:m3` and the read asks for `cautionClef:m3:sstaff-1`, silently.
  * Every caller must resolve its staff through `staffIdForIndex`, or reproduce that rule exactly.
  */
+export function keyStaffId(index: number, staffId: string | undefined): string | undefined {
+  return index === 0 ? undefined : staffId
+}
+
 export function cautionaryClefKey(measureId: string, staffId?: string): string {
   return `cautionClef:${measureId}${staffId ? `:s${staffId}` : ''}`
 }

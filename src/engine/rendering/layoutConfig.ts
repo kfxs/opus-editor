@@ -95,9 +95,17 @@ export interface MeasureWidthInfo {
   minWidth: number
   finalWidth: number
   lineNumber: number
-  /** Cautionary clef drawn at this measure's end when the next line opens with a
-   *  different clef (last measure of a line only). */
-  cautionaryEndClef?: Clef
+  /**
+   * Cautionary clef drawn at this measure's end when the next line opens with a different clef
+   * (last measure of a line only) — **per staff**, indexed by staff index.
+   *
+   * Per staff because a clef IS per staff: a piano score whose left hand changes to treble across a
+   * break must warn on the lower staff and say nothing on the upper. This used to be one clef for
+   * the whole measure, drawn only on staff 0, which is why a change on any other staff warned
+   * nowhere. The WIDTH it reserves is still charged once — the courtesies sit at the same x on
+   * different staves, so one clef's width covers all of them.
+   */
+  cautionaryEndClefs?: (Clef | undefined)[]
   /** Cautionary (courtesy) time signature drawn at this measure's end when the next
    *  line opens with a meter change (last measure of a line only). Drawn FULL size
    *  (unlike the cautionary clef), per standard engraving — it sits after the final

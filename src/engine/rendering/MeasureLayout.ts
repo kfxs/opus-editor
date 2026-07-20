@@ -2,9 +2,9 @@ import { Voice, Formatter } from 'vexflow'
 import type { Score, Measure, Clef } from '@/types/music'
 import { fracCompare, fracIsZero } from '@/utils/fraction'
 import { type StaffClefs } from '@/utils/clefUtils'
-import { getStaves, firstStaffId, staffMeasureView } from '@/engine/models/staffContent'
+import { getStaves, staffMeasureView } from '@/engine/models/staffContent'
 import { measureCapacityFrac } from '@/utils/musicUtils'
-import { cautionaryAllowedOf, cautionaryClefAllowedOf } from '../models/engravingOverrides'
+import { cautionaryAllowedOf, cautionaryClefAllowedOf, keyStaffId } from '../models/engravingOverrides'
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import { laneFingerprint, type MeasureWidthCache } from './MeasureWidthCache'
 import { renderCensus } from '@/dev/renderCensus' // TEMPORARY — the §9 layout-breakdown probes
@@ -190,16 +190,6 @@ function staffIdsOf(
   return clefsByStaff.size > 0 ? [...clefsByStaff.keys()] : [undefined]
 }
 
-/** The clef map of the staff that owns the shared, not-per-staff decisions (the cautionary end
- *  clef at a line break — see {@link applyCautionaryClefs}). */
-function primaryClefs(
-  score: Score,
-  clefsByStaff: Map<string | undefined, StaffClefs>,
-): StaffClefs {
-  return clefsByStaff.get(firstStaffId(score))
-    ?? clefsByStaff.values().next().value
-    ?? { opening: new Map<number, Clef>(), ending: new Map<number, Clef>() }
-}
 
 /**
  * Distribute available width proportionally among measures on a line
@@ -240,8 +230,8 @@ function distributeLineWidths(
  */
 function applyCautionaryClefs(
   score: Score,
-  clefs: StaffClefs,
-  staffId: string | undefined,
+  clefsByStaff: Map<string | undefined, StaffClefs>,
+  staffIds: (string | undefined)[],
   results: Map<number, MeasureWidthInfo>,
   availableWidth: number
 ): void {
@@ -252,15 +242,30 @@ function applyCautionaryClefs(
     const next = results.get(score.measures[i + 1].number)
     if (!current || !next || next.lineNumber <= current.lineNumber) continue
 
-    // The next line opens here; warn only if the clef actually changes across
-    // the break (its opening clef differs from this measure's ending clef).
-    const nextOpeningClef = clefs.opening.get(next.measureNumber) || 'treble'
-    if (nextOpeningClef === clefs.ending.get(current.measureNumber)) continue
-    // …and only when the change ALLOWS one. Keyed by the measure the change starts at, like the
-    // meter's: which bar ends a system moves on every reflow, and the author's decision must not.
-    if (!cautionaryClefAllowedOf(score, score.measures[i + 1].id, staffId)) continue
+    // EVERY staff is asked, because a clef is per staff: a piano score whose left hand changes to
+    // treble across a break must warn on the lower staff and stay silent on the upper. The width,
+    // though, is charged ONCE — the courtesies sit at the same x on different staves, so one
+    // clef's width covers however many of them there are.
+    let anyOnThisMeasure = false
 
-    current.cautionaryEndClef = nextOpeningClef
+    staffIds.forEach((staffId, staffIndex) => {
+      const clefs = clefsByStaff.get(staffId)
+      if (!clefs) return
+
+      // The next line opens here; warn only if the clef actually changes across
+      // the break (its opening clef differs from this measure's ending clef).
+      const nextOpeningClef = clefs.opening.get(next.measureNumber) || 'treble'
+      if (nextOpeningClef === clefs.ending.get(current.measureNumber)) return
+      // …and only when the change ALLOWS one. Keyed by the measure the change starts at, like the
+      // meter's: which bar ends a system moves on every reflow, and the author's decision must not.
+      if (!cautionaryClefAllowedOf(score, score.measures[i + 1].id, keyStaffId(staffIndex, staffId))) return
+
+      current.cautionaryEndClefs ??= []
+      current.cautionaryEndClefs[staffIndex] = nextOpeningClef
+      anyOnThisMeasure = true
+    })
+
+    if (!anyOnThisMeasure) continue
     current.minWidth += LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
     linesToRedistribute.add(current.lineNumber)
   }
@@ -418,11 +423,7 @@ export function calculateMeasureWidths(
     }
   }
 
-  // Staff 0's clefs decide the courtesy for the whole system — a pre-existing simplification (see
-  // primaryClefs), so the flag is read against that same staff. `undefined`, NOT firstStaffId():
-  // the compartment's key treats the first staff as absent, and passing its real id builds a key
-  // nobody writes (see cautionaryClefKey).
-  applyCautionaryClefs(score, primaryClefs(score, clefsByStaff), undefined, results, availableWidth)
+  applyCautionaryClefs(score, clefsByStaff, staffIdsOf(score, clefsByStaff), results, availableWidth)
   applyCautionaryTimeSignatures(score, results, availableWidth)
 
   return results

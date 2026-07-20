@@ -743,11 +743,12 @@ export class VexFlowRenderer {
         const clef = (staffClefs?.opening.get(measure.number) || 'treble') as Clef
         const prevEndClef = measure.number > 1 ? staffClefs?.ending.get(measure.number - 1) : undefined
         const hasClefChange = prevEndClef !== undefined && clef !== prevEndClef
-        // Clef-drag ghost and the cautionary end-clef are the primary staff's concern for now
-        // (drag has no staff axis yet; cautionary clef width isn't per-staff). The cautionary end
-        // time-sig is shared meter, so it applies to every staff.
+        // The clef-drag ghost is still the primary staff's concern (drag has no staff axis yet).
+        // The cautionary end-clef is NOT: a clef is per staff, so each staff reads its own — a
+        // change on staff 2 warns on staff 2 and nowhere else. The cautionary end time-sig stays
+        // shared, because a meter is.
         const ghostClefBeat = staffIndex === 0 ? this.ghostClefBeatFor(score, measure.number) : undefined
-        const cautionaryEndClef = staffIndex === 0 ? widthInfo.cautionaryEndClef : undefined
+        const cautionaryEndClef = widthInfo.cautionaryEndClefs?.[staffIndex]
         const view = staffMeasureView(measure, staff.id, score)
 
         placements.push({
@@ -2215,13 +2216,15 @@ export class VexFlowRenderer {
       if (drawsTimeSignature(measure)) {
         tempStave.addTimeSignature(timeSignatureVexKey(measure.timeSignature))
       }
-      // Match the real stave's note area so the ghost note aligns with where the
-      // committed note will land (a cautionary end clef narrows the note area).
-      if (widthInfo.cautionaryEndClef) {
-        tempStave.addEndClef(widthInfo.cautionaryEndClef, 'small')
+      // Match the real stave's note area so the ghost note aligns with where the committed note
+      // will land (a cautionary end clef narrows the note area) — and match it on THIS staff, since
+      // the courtesy is per staff now and only some staves may carry one.
+      const ghostCautionaryClef = widthInfo.cautionaryEndClefs?.[staffIndex]
+      if (ghostCautionaryClef) {
+        tempStave.addEndClef(ghostCautionaryClef, 'small')
       }
       if (widthInfo.cautionaryEndTimeSig) {
-        tempStave.addEndTimeSignature(`${widthInfo.cautionaryEndTimeSig.numerator}/${widthInfo.cautionaryEndTimeSig.denominator}`)
+        tempStave.addEndTimeSignature(timeSignatureVexKey(widthInfo.cautionaryEndTimeSig))
       }
       tempStave.setContext(this.context!)
 
