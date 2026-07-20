@@ -1,36 +1,101 @@
 import type { MenuItem } from './MenuItem'
 
 /**
- * The expression editor's WORD MENU — right-click while the text cursor is blinking and pick a
- * standard marking instead of typing it.
+ * The expression editor's WORD MENU — Sibelius's expressions palette, right-click (or the Menu key)
+ * while the text cursor is blinking and pick a marking instead of typing it.
  *
- * Sibelius's own feature, and worth copying for the same reason it exists there: the common
- * expressions are a small, fixed, spelling-sensitive vocabulary (`dolce`, `cantabile`, `sempre`),
- * and picking one from a list is faster and safer than typing it — no misspelling, no wondering
- * whether it is italic. Its shortcuts sibling is `DYNAMIC_INSERT_KEYS`: Ctrl+letter covers the
- * glyphs you reach for constantly, the word menu covers the words you do not.
+ * Two columns, side by side, mirroring the first two of Sibelius's own palette:
  *
- * ⚠️ These are WORDS, not dynamics — they insert as ordinary editable text in the box's italic
- * serif, never as a glyph chip. That is the whole point of the distinction the model rests on: a
- * typed `p` is a letter, only the SMuFL glyph is piano (see utils/dynamics). So nothing in here may
- * ever be a level name — a `dolce` never changes how loud playback is.
+ *   DYNAMICS — inserted as the SMuFL glyph, so they are real dynamics and play.
+ *   WORDS    — inserted as ordinary italic text, so they never touch playback.
  *
- * Currently one entry, deliberately. The vocabulary is worth growing from real use rather than
- * dumping a dictionary in; adding one is a row, and separators/submenus are already available if it
- * grows enough to want categories.
+ * That split is the model's central distinction made visible (see utils/dynamics): the FONT decides
+ * what a character means, not its spelling. `niente` appears in both columns and means two different
+ * things — the glyph `n` in the left, the word `niente` in the right — which is exactly right and
+ * must not be collapsed into one row.
+ *
+ * Columns rather than one long list because stacked these run past the bottom of the viewport;
+ * side by side they fit on screen at once.
  */
-export const EXPRESSION_WORDS: readonly string[] = [
-  'dolce',
+
+/** Left column. Composites first (what you actually place), then the single letters — those are
+ *  already Ctrl+<letter> shortcuts, so their rows exist mostly to TEACH the keystroke. Shortcut
+ *  strings are display echoes of DYNAMIC_INSERT_KEYS; keep the two in step. */
+const DYNAMICS: ReadonlyArray<{ letters: string; shortcut?: string }> = [
+  { letters: 'ppp' },
+  { letters: 'pp' },
+  { letters: 'p', shortcut: 'Ctrl+P' },
+  { letters: 'mp' },
+  { letters: 'mf' },
+  { letters: 'f', shortcut: 'Ctrl+F' },
+  { letters: 'ff' },
+  { letters: 'fff' },
+  { letters: 'fp' },
+  { letters: 'sf' },
+  { letters: 'sfz' },
+  { letters: 'rfz' },
+  { letters: 'm', shortcut: 'Ctrl+M' },
+  { letters: 'n', shortcut: 'Ctrl+N' },
+  { letters: 'r', shortcut: 'Ctrl+R' },
+  { letters: 's', shortcut: 'Ctrl+S' },
+  { letters: 'z', shortcut: 'Ctrl+Shift+Z' },
 ]
 
 /**
- * Build the word menu's items. `insertText` is supplied by whoever owns the caret — the menu itself
- * has no idea where the text is going, which is what lets the same list serve any text editor that
- * grows one later.
+ * Right column: the standard Italian expression vocabulary, Sibelius's list verbatim. A small,
+ * fixed, spelling-sensitive set — picking beats typing, with no misspelling and no doubt about
+ * whether it came out italic.
+ *
+ * ⚠️ Nothing here may ever be a level name. These are WORDS: a `dolce` is prose, and a mark that
+ * reads `p` as plain text is silent by design. Growing the list is one row.
  */
-export function buildExpressionMenu(insertText: (text: string) => void): MenuItem[] {
-  return EXPRESSION_WORDS.map(word => ({
-    label: word,
-    onSelect: () => insertText(word),
-  }))
+const WORDS: ReadonlyArray<{ word: string; shortcut?: string }> = [
+  { word: 'cresc.', shortcut: 'Ctrl+Shift+C' },
+  { word: 'dim.', shortcut: 'Ctrl+Shift+D' },
+  { word: 'dolce' },
+  { word: 'espress.' },
+  { word: 'legato' },
+  { word: 'leggiero' },
+  { word: 'marcato' },
+  { word: 'meno' },
+  { word: 'molto' },
+  { word: 'niente' },
+  { word: 'più' },
+  { word: 'poco' },
+  { word: 'sempre' },
+  { word: 'staccato' },
+  { word: 'subito' },
+  { word: 'con' },
+  { word: 'senza' },
+]
+
+/** Just the words, for anything that wants the vocabulary without the menu shape. */
+export const EXPRESSION_WORDS: readonly string[] = WORDS.map(w => w.word)
+
+/**
+ * How the menu puts something into the editor. Supplied by whoever owns the caret — the menu has no
+ * idea where the text is going, which is what lets the same list serve any editor that grows one.
+ */
+export interface ExpressionMenuInsert {
+  /** A word, as ordinary editable prose. */
+  text(word: string): void
+  /** A dynamic, as its glyph — the caller decides how one is drawn. */
+  dynamic(letters: string): void
+}
+
+/** Build the palette: dynamics column, break, words column. */
+export function buildExpressionMenu(insert: ExpressionMenuInsert): MenuItem[] {
+  return [
+    ...DYNAMICS.map(({ letters, shortcut }): MenuItem => ({
+      label: letters,
+      shortcut,
+      onSelect: () => insert.dynamic(letters),
+    })),
+    { columnBreak: true },
+    ...WORDS.map(({ word, shortcut }): MenuItem => ({
+      label: word,
+      shortcut,
+      onSelect: () => insert.text(word),
+    })),
+  ]
 }

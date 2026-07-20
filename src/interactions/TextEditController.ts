@@ -27,12 +27,12 @@ export interface EditableTextSource {
    *  Absent ⇒ every key is ordinary typing. */
   getInsertions?(): TextEditInsertion[]
   /**
-   * Items for the editor's right-click WORD MENU (Sibelius's term). Absent ⇒ right-click is left to
-   * the browser. `insertText` is handed in by the DOM layer, which owns the caret: the source says
-   * WHAT the rows are, the overlay knows HOW to put text where the cursor is — the same split as
+   * Items for the editor's WORD MENU (Sibelius's term). Absent ⇒ the gesture is left to the browser.
+   * The insert API is handed in by the DOM layer, which owns the caret: the source says WHAT the
+   * rows are, the overlay knows HOW to put something where the cursor is — the same split as
    * {@link getInsertions}, so a menu belongs to the editor that declares it and to no other.
    */
-  getContextMenu?(insertText: (text: string) => void): MenuItem[]
+  getContextMenu?(insert: TextEditInsert): MenuItem[]
   /** Where to place the overlay, in viewport (client) pixels. */
   getScreenRect(): { x: number; y: number; width: number; height: number }
   /**
@@ -73,6 +73,20 @@ export interface TextEditInsertion {
   html: string
 }
 
+/**
+ * What a menu row can put into the editor at the caret. Two doors, because the editor holds two
+ * kinds of thing: prose you can backspace through a character at a time, and an atomic glyph chip.
+ * A source picks per row — which is how one palette offers `dolce` and `sfz` side by side without
+ * either becoming the other.
+ */
+export interface TextEditInsert {
+  /** Plain words, in the box's own font. Escaped by the DOM layer; safe for any string. */
+  text(text: string): void
+  /** Trusted, SOURCE-BUILT markup (a glyph chip). Same provenance rule as
+   *  {@link EditableTextSource.getSeedHtml} — never user-supplied, it is assigned as innerHTML. */
+  html(html: string): void
+}
+
 /** Options handed to the DOM layer when the overlay is mounted. */
 export interface TextEditMountOptions {
   text: string
@@ -88,7 +102,7 @@ export interface TextEditMountOptions {
   /** Right-click word-menu builder (see {@link EditableTextSource.getContextMenu}). The DOM layer
    *  calls this with its own caret-insert function when the menu is actually opened, so the rows
    *  are built fresh against a live caret rather than captured at mount. */
-  buildContextMenu?: (insertText: (text: string) => void) => MenuItem[]
+  buildContextMenu?: (insert: TextEditInsert) => MenuItem[]
   font: { fontFamily: string; fontSize: string; fontStyle: string; color: string; fontWeight?: string }
   /** Called by the DOM layer on Enter / click-away. */
   onCommit: () => void

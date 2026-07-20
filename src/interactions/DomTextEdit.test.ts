@@ -175,7 +175,7 @@ describe('DomTextEdit word menu', () => {
   it('choosing a row inserts that word as PLAIN text — never a glyph chip', () => {
     dom.mount(mountOpts({
       text: '',
-      buildContextMenu: (insertText) => [{ label: 'dolce', onSelect: () => insertText('dolce') }],
+      buildContextMenu: (insert) => [{ label: 'dolce', onSelect: () => insert.text('dolce') }],
     }))
     document.body.dispatchEvent(new MouseEvent('contextmenu', { clientX: 5, clientY: 5, bubbles: true, cancelable: true }))
 

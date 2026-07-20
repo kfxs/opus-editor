@@ -1,5 +1,5 @@
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { EditableTextSource, TextEditInsertion } from './TextEditController'
+import type { EditableTextSource, TextEditInsert, TextEditInsertion } from './TextEditController'
 import type { MenuItem } from '../menus/MenuItem'
 import { buildExpressionMenu } from '../menus/expressionMenu'
 import { DYNAMIC_TEXT_FONT, DYNAMIC_TEXT_SIZE, DYNAMIC_GLYPH_SIZE } from '../engine/rendering/dynamicStyle'
@@ -24,9 +24,10 @@ function glyphChipHtml(glyph: string): string {
 /**
  * Keys that stamp a dynamics glyph into the editor at the caret: Ctrl+<letter> ⇒ that letter in
  * the *dynamic font* (Ctrl+F ⇒ 𝆑), never the ASCII one — a typed ASCII `f` is silent by design
- * (see utils/dynamics). These are the six letters VexFlow's `TextDynamics.GLYPHS` actually
- * defines (U+E520–E525); combine them to spell `pp`, `sfz`, `rf`, … Note VexFlow has no niente
- * (`n`, U+E526), so unlike Sibelius we can't offer it without extending the glyph table ourselves.
+ * (see utils/dynamics). Six come from VexFlow's `TextDynamics.GLYPHS` (U+E520–E525) and `n`
+ * (niente) is the one we add ourselves, since VexFlow's table omits it but Bravura has the glyph.
+ * Combine them to spell `pp`, `sfz`, `rf`, … The palette in menus/expressionMenu.ts offers the same
+ * set by name, and its rows echo these bindings — keep the two in step.
  *
  * `z` is the odd one out, and Sibelius hit the same wall: plain Ctrl+Z is Undo while typing, so
  * Sibelius binds the z glyph to Ctrl+Shift+Z — which is what we use too, matching it exactly.
@@ -37,14 +38,21 @@ function glyphChipHtml(glyph: string): string {
  *
  * One row per glyph — extend here, not at the call site.
  */
-const DYNAMIC_INSERT_KEYS: ReadonlyArray<{ key: string; shift?: boolean; alt?: boolean }> = [
-  { key: 'f' },
-  { key: 'p' },
-  { key: 'm' },
-  { key: 'r' },
-  { key: 's' },
+const DYNAMIC_INSERT_KEYS: ReadonlyArray<{ key: string; shift?: boolean; alt?: boolean; glyph?: string; word?: string }> = [
+  { key: 'f', glyph: 'f' },
+  { key: 'p', glyph: 'p' },
+  { key: 'm', glyph: 'm' },
+  { key: 'n', glyph: 'n' }, // niente — the letter we add ourselves (see utils/dynamics)
+  { key: 'r', glyph: 'r' },
+  { key: 's', glyph: 's' },
   // Ctrl+Shift+Z — see the note above on why this one isn't a bare Ctrl+Z.
-  { key: 'z', shift: true },
+  { key: 'z', shift: true, glyph: 'z' },
+  // The two WORDS Sibelius gives keys of their own, on its bindings. Not glyphs: they insert as
+  // ordinary prose, so they never change the played level. Both are live Chrome shortcuts
+  // (Ctrl+Shift+C is the DevTools inspector, Ctrl+Shift+D bookmarks all tabs) — but neither is in
+  // Chrome's RESERVED set, so preventDefault genuinely suppresses them, unlike Ctrl+Shift+T.
+  { key: 'c', shift: true, word: 'cresc.' },
+  { key: 'd', shift: true, word: 'dim.' },
 ]
 
 /**
@@ -121,20 +129,27 @@ export class DynamicTextSource implements EditableTextSource {
     }).join('')
   }
 
-  /** Right-click ⇒ the expression WORD menu (`dolce`, …). Words, never glyphs: they insert as
-   *  ordinary italic text and never change the played level. See menus/expressionMenu.ts. */
-  getContextMenu(insertText: (text: string) => void): MenuItem[] {
-    return buildExpressionMenu(insertText)
+  /**
+   * The expression palette (menus/expressionMenu.ts): a dynamics column and a words column.
+   * Words go in as ordinary italic prose and never touch playback; dynamics go in as the same
+   * atomic glyph chip a Ctrl+<letter> makes, so a mark placed from the menu is indistinguishable
+   * from one typed — same markup, same read-back, same played level.
+   */
+  getContextMenu(insert: TextEditInsert): MenuItem[] {
+    return buildExpressionMenu({
+      text: word => insert.text(word),
+      dynamic: letters => insert.html(glyphChipHtml(levelToGlyphString(letters))),
+    })
   }
 
-  /** Ctrl+<letter> ⇒ insert that letter's glyph chip at the caret (see {@link DYNAMIC_INSERT_KEYS}). */
+  /** Ctrl+<key> ⇒ insert a glyph chip, or a word, at the caret (see {@link DYNAMIC_INSERT_KEYS}). */
   getInsertions(): TextEditInsertion[] {
-    return DYNAMIC_INSERT_KEYS.map(({ key, shift, alt }) => ({
+    return DYNAMIC_INSERT_KEYS.map(({ key, shift, alt, glyph, word }) => ({
       key,
       ctrl: true,
       shift,
       alt,
-      html: glyphChipHtml(levelToGlyphString(key)),
+      html: glyph ? glyphChipHtml(levelToGlyphString(glyph)) : escapeHtml(word ?? ''),
     }))
   }
 

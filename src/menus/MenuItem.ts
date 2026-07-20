@@ -24,9 +24,24 @@ export type MenuItem =
   | { label: string; onSelect: () => void; shortcut?: string }
   | { label: string; items: MenuItem[] }
   | { separator: true }
+  | { columnBreak: true }
 
 export function isSeparator(item: MenuItem): item is { separator: true } {
   return 'separator' in item
+}
+
+/**
+ * Start a new COLUMN. A palette menu — Sibelius's expressions window is the model — is a wide grid
+ * of related markings, not a list you scroll: stacked, its two groups run past the bottom of the
+ * viewport, side by side they fit on screen at once.
+ *
+ * A marker item rather than `MenuOptions.columns: MenuItem[][]`, for the same reason `separator` is
+ * one: items stay a single flat list, so building, measuring, hovering and the keyboard's row order
+ * all keep working untouched — a column break is a rendering instruction sitting in the data, and
+ * nothing downstream has to learn a second shape.
+ */
+export function isColumnBreak(item: MenuItem): item is { columnBreak: true } {
+  return 'columnBreak' in item
 }
 
 export function isSubmenu(item: MenuItem): item is { label: string; items: MenuItem[] } {

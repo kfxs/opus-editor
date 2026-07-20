@@ -1,4 +1,4 @@
-import { isSeparator, isSubmenu, type MenuItem } from './MenuItem'
+import { isColumnBreak, isSeparator, isSubmenu, type MenuItem } from './MenuItem'
 import { placeFlyout, placeRoot, type Point, type Rect } from './placement'
 import { CHROME } from '../utils/chromeColors'
 
@@ -82,6 +82,27 @@ const CSS = `
   /* Taller than the world only if the world is tiny — then it scrolls rather than hanging off it. */
   overflow-y: auto;
 }
+.menu-panel-columns {
+  /* A palette lays its groups out SIDE BY SIDE. Stacked, the expression menu's two groups run off
+     the bottom of the viewport; in columns the same rows fit on screen at once — which is the whole
+     reason for the wide shape, not fidelity to Sibelius for its own sake. */
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  /* The single-column cap is what keeps an ordinary menu from growing into a banner. A palette is
+     deliberately wide, so it opts out — placement is pure and size-driven, so a wider panel still
+     flips and clamps correctly with no arithmetic of its own. */
+  max-width: none;
+}
+.menu-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+}
+.menu-column + .menu-column {
+  border-left: 1px solid ${CHROME.edge};
+  padding-left: 4px;
+}
 .menu-row {
   display: flex;
   align-items: center;
@@ -131,9 +152,14 @@ const CSS = `
 }
 `
 
-/** A leaf or a submenu — every menu item EXCEPT a separator, which is the one thing a row can be that
- *  the keyboard can neither highlight, open nor commit. */
-type SelectableItem = Exclude<MenuItem, { separator: true }>
+/** A leaf or a submenu — every menu item except the two that are pure LAYOUT (a separator, a column
+ *  break). Those are the things a row can be that the keyboard can neither highlight, open nor
+ *  commit, so keeping them out of this type is what makes `rows` safe to walk. */
+type SelectableItem = Exclude<MenuItem, { separator: true } | { columnBreak: true }>
+
+/** Anything that paints an actual row. A column break never gets here — it is consumed while the
+ *  panel is being laid out, and the type says so. */
+type RowItem = Exclude<MenuItem, { columnBreak: true }>
 
 /** A row the arrow keys can land on — its element, paired with the item it paints. Separators are
  *  not in this list: you cannot highlight, open or commit a divider. */
@@ -259,9 +285,23 @@ export class MenuLayer {
     const depth = this.chain.length
 
     const rows: RowRef[] = []
+    // Columns are opt-in: without a break the panel is exactly the single stack it always was, so an
+    // ordinary menu pays nothing for the palette's existence. `rows` stays FLAT and in reading order
+    // either way — the keyboard walks it top-to-bottom, then on into the next column.
+    const columns = items.some(isColumnBreak)
+    let sink: HTMLElement = el
+    if (columns) {
+      el.classList.add('menu-panel-columns')
+      sink = this.startColumn(el)
+    }
+
     for (const item of items) {
+      if (isColumnBreak(item)) {
+        sink = this.startColumn(el)
+        continue
+      }
       const rowEl = this.buildRow(item, depth)
-      el.appendChild(rowEl)
+      sink.appendChild(rowEl)
       if (!isSeparator(item)) rows.push({ el: rowEl, item })
     }
 
@@ -289,7 +329,15 @@ export class MenuLayer {
     while (this.chain.length > depth + 1) this.popPanel()
   }
 
-  private buildRow(item: MenuItem, depth: number): HTMLElement {
+  /** Append a fresh column to a palette panel and return it as the new row sink. */
+  private startColumn(panel: HTMLElement): HTMLElement {
+    const col = document.createElement('div')
+    col.className = 'menu-column'
+    panel.appendChild(col)
+    return col
+  }
+
+  private buildRow(item: RowItem, depth: number): HTMLElement {
     if (isSeparator(item)) {
       const sep = document.createElement('div')
       sep.className = 'menu-separator'

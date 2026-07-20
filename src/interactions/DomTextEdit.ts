@@ -142,7 +142,10 @@ export class DomTextEdit implements TextEditDom {
 
     // The overlay is position:fixed, so its client rect IS viewport pixels — what the opener wants.
     const box = el.getBoundingClientRect?.()
-    this.openMenu(box?.left ?? 0, box?.bottom ?? 0, build(text => this.insertTextAtSavedCaret(text)))
+    this.openMenu(box?.left ?? 0, box?.bottom ?? 0, build({
+      text: (t) => this.insertAtSavedCaret(() => document.createTextNode(t)),
+      html: (h) => this.insertAtSavedCaret(() => this.fragmentFromHtml(h)),
+    }))
   }
 
   /** The live caret, but only if it is actually inside this box — a range pointing anywhere else is
@@ -156,12 +159,12 @@ export class DomTextEdit implements TextEditDom {
   }
 
   /**
-   * Put a word in where the caret WAS when the menu opened. Restores the saved range first, because
-   * the click that chose the row has since blurred the box. Plain text, not HTML: a word is ordinary
-   * editable prose in the box's own font — never a glyph chip — so it can be typed over and
-   * backspaced through one character at a time, and it can never be mistaken for a dynamic.
+   * Put a menu row's contribution in where the caret WAS when the menu opened. Restores the saved
+   * range first, because the click that chose the row has since blurred the box. The node is built
+   * LAZILY, after the caret is back — a word becomes a text node (ordinary prose you can backspace
+   * through), a dynamic becomes its atomic chip, and the caller decides which.
    */
-  private insertTextAtSavedCaret(text: string): void {
+  private insertAtSavedCaret(makeNode: () => Node): void {
     const el = this.el
     if (!el) return
     el.focus()
@@ -178,7 +181,7 @@ export class DomTextEdit implements TextEditDom {
     // a menu row must always produce the word somewhere; silently doing nothing is the one outcome
     // that reads as broken.
     if (!this.currentRangeInBox()) this.caretToEnd(el)
-    this.insertNodeAtCaret(document.createTextNode(text))
+    this.insertNodeAtCaret(makeNode())
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
@@ -240,11 +243,16 @@ export class DomTextEdit implements TextEditDom {
    * span is what makes it atomic.
    */
   private insertHtmlAtCaret(html: string): void {
+    this.insertNodeAtCaret(this.fragmentFromHtml(html))
+  }
+
+  /** Parse trusted, source-built markup into nodes ready to drop at the caret. */
+  private fragmentFromHtml(html: string): DocumentFragment {
     const template = document.createElement('span')
     template.innerHTML = html
     const fragment = document.createDocumentFragment()
     fragment.append(...template.childNodes)
-    this.insertNodeAtCaret(fragment)
+    return fragment
   }
 
   /**

@@ -43,7 +43,7 @@ describe('DomTextEdit + a real MenuLayer', () => {
 
     const dom = new DomTextEdit(openAt)
     dom.mount(mountOpts({
-      buildContextMenu: (insertText) => [{ label: 'dolce', onSelect: () => insertText('dolce') }],
+      buildContextMenu: (insert) => [{ label: 'dolce', onSelect: () => insert.text('dolce') }],
     }))
 
     document.body.dispatchEvent(new MouseEvent('contextmenu', { clientX: 300, clientY: 300, bubbles: true, cancelable: true }))

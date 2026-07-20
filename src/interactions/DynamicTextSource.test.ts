@@ -122,9 +122,9 @@ describe('DynamicTextSource', () => {
     expect(new DynamicTextSource('d1', false, makeEngine(textDynamic('dolce')) as unknown as MusicEngine, () => null, render).getSeedHtml()).toBeNull()
   })
 
-  // The six letters VexFlow's TextDynamics.GLYPHS defines. `z` carries Shift (Ctrl+Z is Undo
-  // while typing — Sibelius dodges it the same way).
-  it.each(['f', 'p', 'm', 'r', 's', 'z'])('Ctrl+%s inserts that GLYPH chip — the dynamic font, not the ASCII letter', letter => {
+  // The seven dynamics letters: six from VexFlow's TextDynamics.GLYPHS plus `n` (niente), which we
+  // add ourselves. `z` carries Shift (Ctrl+Z is Undo while typing — Sibelius dodges it the same way).
+  it.each(['f', 'p', 'm', 'n', 'r', 's', 'z'])('Ctrl+%s inserts that GLYPH chip — the dynamic font, not the ASCII letter', letter => {
     const source = new DynamicTextSource('d1', false, makeEngine(textDynamic('dolce')) as unknown as MusicEngine, () => null, render)
     const insertion = source.getInsertions().find(i => i.key === letter)!
 
@@ -136,6 +136,38 @@ describe('DynamicTextSource', () => {
     expect(insertion.html).toBe(
       new DynamicTextSource('d1', false, makeEngine(levelDynamic(letter)) as unknown as MusicEngine, () => null, render).getSeedHtml(),
     )
+  })
+
+  it('the word shortcuts insert PROSE, not a glyph — cresc. must never become a level', () => {
+    const source = new DynamicTextSource('d1', false, makeEngine(textDynamic('x')) as unknown as MusicEngine, () => null, render)
+    const cresc = source.getInsertions().find(i => i.key === 'c')!
+    expect(cresc.ctrl).toBe(true)
+    expect(cresc.shift).toBe(true)
+    expect(cresc.html).toBe('cresc.')
+    expect(cresc.html).not.toContain('contenteditable') // no chip: it is a word
+  })
+
+  it('the palette offers both columns, and a dynamic row inserts the same chip a key would', () => {
+    const source = new DynamicTextSource('d1', false, makeEngine(textDynamic('x')) as unknown as MusicEngine, () => null, render)
+    const text = vi.fn()
+    const html = vi.fn()
+    const items = source.getContextMenu({ text, html })
+
+    const labels = items.flatMap(i => ('label' in i ? [i.label] : []))
+    expect(labels).toContain('sfz')   // dynamics column
+    expect(labels).toContain('dolce') // words column
+    expect(items.some(i => 'columnBreak' in i)).toBe(true)
+
+    // A word goes in as prose…
+    const dolce = items.find(i => 'label' in i && i.label === 'dolce') as { onSelect: () => void }
+    dolce.onSelect()
+    expect(text).toHaveBeenCalledWith('dolce')
+
+    // …and a dynamic as exactly the chip its keyboard twin would produce.
+    const sfz = items.find(i => 'label' in i && i.label === 'sfz') as { onSelect: () => void }
+    sfz.onSelect()
+    expect(html).toHaveBeenCalledWith(expect.stringContaining(levelToGlyphString('sfz')))
+    expect(html.mock.calls[0][0]).toContain('contenteditable="false"')
   })
 
   it('getFontCSS matches the engraving (italic, point size)', () => {

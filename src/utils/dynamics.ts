@@ -65,7 +65,14 @@ export const DEFAULT_DYNAMIC_TEXT = 'Text'
  * plain ASCII letters. A multi-letter level like `mp` is stored as the two letters' glyphs
  * concatenated; {@link composeDynamicGlyphs} swaps that for a single precomposed glyph at DRAW time.
  */
-const LETTER_TO_GLYPH = TextDynamics.GLYPHS as Record<string, string | undefined>
+const LETTER_TO_GLYPH: Record<string, string | undefined> = {
+  ...(TextDynamics.GLYPHS as Record<string, string | undefined>),
+  // NIENTE, the one letter VexFlow's table omits (it stops at f p m s z r). Bravura has the glyph —
+  // `dynamicNiente`, verified present in the bundled font — and Sibelius offers it alongside the
+  // rest, so leaving it out would be a hole in the alphabet rather than a decision. Owning one
+  // entry is cheaper than owning the whole table.
+  n: '\uE526', // dynamicNiente
+}
 
 /** SMuFL glyph char → its ASCII letter (the inverse of {@link LETTER_TO_GLYPH}). */
 const GLYPH_TO_LETTER: Record<string, string> = Object.fromEntries(
