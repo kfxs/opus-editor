@@ -218,44 +218,6 @@
             </button>
           </div>
 
-          <!-- Time Signature Tool -->
-          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">Time:</span>
-            <button
-              v-for="ts in timeSignaturePresets"
-              :key="`${ts.numerator}/${ts.denominator}`"
-              :class="[
-                'px-2 py-1 rounded text-sm font-bold leading-none tabular-nums',
-                isTimeSignatureArmed(ts)
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              :title="`${ts.numerator}/${ts.denominator} — click a measure to set its time signature`"
-              @click="palette.setTimeSignature({ numerator: ts.numerator, denominator: ts.denominator })"
-            >
-              {{ ts.numerator }}/{{ ts.denominator }}
-            </button>
-            <button
-              :class="[
-                'px-2 py-1 rounded text-sm leading-none',
-                isCustomTimeSignatureArmed
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Custom time signature (any dyadic meter + optional grouping)"
-              @click="openTimeSignatureDialog"
-            >
-              Custom…
-            </button>
-            <button
-              class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500"
-              title="Pickup / anacrusis bar (set a measure's actual length shorter than its time signature)"
-              @click="openPickupDialog"
-            >
-              Pickup…
-            </button>
-          </div>
-
           <!-- Tempo Tool — a word, a metronome mark, or both. System-level: one mark
                governs the whole score, whichever staff you click. -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
@@ -506,168 +468,6 @@
       <pre class="bg-gray-900 p-4 rounded overflow-auto text-xs max-h-96">{{ scoreJSON }}</pre>
     </div>
 
-    <!-- Custom time-signature dialog -->
-    <div
-      v-if="showTimeSignatureDialog"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-      @click.self="showTimeSignatureDialog = false"
-    >
-      <div
-        class="bg-gray-800 rounded-lg p-6 w-80 text-left shadow-xl"
-        @keydown.enter="applyCustomTimeSignature"
-      >
-        <h3 class="text-lg font-semibold mb-4">
-          Custom Time Signature
-        </h3>
-
-        <div class="flex items-center gap-3 mb-3">
-          <label class="text-sm text-gray-300 w-24">Numerator</label>
-          <input
-            v-model.number="tsNumerator"
-            type="number"
-            min="1"
-            step="1"
-            class="flex-1 bg-gray-700 rounded px-2 py-1 text-white"
-          >
-        </div>
-
-        <div class="flex items-center gap-3 mb-3">
-          <label class="text-sm text-gray-300 w-24">Denominator</label>
-          <select
-            v-model.number="tsDenominator"
-            class="flex-1 bg-gray-700 rounded px-2 py-1 text-white"
-          >
-            <option
-              v-for="d in tsDenominatorOptions"
-              :key="d"
-              :value="d"
-            >
-              {{ d }}
-            </option>
-          </select>
-        </div>
-
-        <div class="flex items-center gap-3 mb-1">
-          <label class="text-sm text-gray-300 w-24">Grouping</label>
-          <input
-            v-model="tsGrouping"
-            type="text"
-            placeholder="optional, e.g. 2+2+3"
-            class="flex-1 bg-gray-700 rounded px-2 py-1 text-white"
-          >
-        </div>
-        <p class="text-xs text-gray-400 mb-3 ml-[6.75rem]">
-          In denominator units; must sum to the numerator.
-        </p>
-
-        <p
-          v-if="tsDialogError"
-          class="text-sm text-red-400 mb-3"
-        >
-          {{ tsDialogError }}
-        </p>
-
-        <div class="flex justify-end gap-2 mt-2">
-          <button
-            class="px-3 py-1 rounded bg-gray-600 hover:bg-gray-500 text-sm"
-            @click="showTimeSignatureDialog = false"
-          >
-            Cancel
-          </button>
-          <button
-            :disabled="!!tsDialogError"
-            class="px-3 py-1 rounded text-sm bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed"
-            @click="applyCustomTimeSignature"
-          >
-            Arm
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Pickup / anacrusis dialog -->
-    <div
-      v-if="showPickupDialog"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-      @click.self="showPickupDialog = false"
-    >
-      <div
-        class="bg-gray-800 rounded-lg p-6 w-80 text-left shadow-xl"
-        @keydown.enter="applyPickup"
-      >
-        <h3 class="text-lg font-semibold mb-4">
-          Pickup / Anacrusis Bar
-        </h3>
-
-        <div class="flex items-center gap-3 mb-3">
-          <label class="text-sm text-gray-300 w-24">Measure</label>
-          <input
-            v-model.number="pickupMeasure"
-            type="number"
-            min="1"
-            step="1"
-            class="flex-1 bg-gray-700 rounded px-2 py-1 text-white"
-          >
-        </div>
-
-        <div class="flex items-center gap-3 mb-1">
-          <label class="text-sm text-gray-300 w-24">Pickup length</label>
-          <input
-            v-model.number="pickupNumerator"
-            type="number"
-            min="1"
-            step="1"
-            class="w-16 bg-gray-700 rounded px-2 py-1 text-white"
-          >
-          <span class="text-gray-400">/</span>
-          <select
-            v-model.number="pickupDenominator"
-            class="flex-1 bg-gray-700 rounded px-2 py-1 text-white"
-          >
-            <option
-              v-for="d in tsDenominatorOptions"
-              :key="d"
-              :value="d"
-            >
-              {{ d }}
-            </option>
-          </select>
-        </div>
-        <p class="text-xs text-gray-400 mb-3 ml-[6.75rem]">
-          Actual bar length; must be shorter than the full bar (e.g. 1/4 = one beat).
-        </p>
-
-        <p
-          v-if="pickupDialogError"
-          class="text-sm text-red-400 mb-3"
-        >
-          {{ pickupDialogError }}
-        </p>
-
-        <div class="flex justify-end gap-2 mt-2">
-          <button
-            class="px-3 py-1 rounded bg-gray-600 hover:bg-gray-500 text-sm"
-            @click="showPickupDialog = false"
-          >
-            Cancel
-          </button>
-          <button
-            class="px-3 py-1 rounded text-sm bg-gray-600 hover:bg-gray-500"
-            title="Remove the pickup, restoring the full bar"
-            @click="clearPickup"
-          >
-            Clear
-          </button>
-          <button
-            :disabled="!!pickupDialogError"
-            class="px-3 py-1 rounded text-sm bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed"
-            @click="applyPickup"
-          >
-            Apply
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -698,10 +498,6 @@ import { menuActions } from './menus'
 import { wireKeypadSync, noNoteInSelection } from './interactions/keypadSync'
 import { wireSelectionInspection } from './interactions/selectionInspectionSync'
 import { openLoremWindow } from './windows/demo/loremWindows'
-import { isValidTimeSignature } from './utils/meter'
-import { getMeasureDurationFrac } from './utils/musicUtils'
-import { fracCreate, fracGte, type Fraction } from './utils/fraction'
-import type { TimeSignature } from './types/music'
 
 // --- Engine and canvas ---
 const engine = shallowRef<MusicEngine | null>(null)
@@ -881,24 +677,6 @@ onUnmounted(() => {
   if (scoreJSONTimer) clearInterval(scoreJSONTimer)
 })
 
-// --- Time signature palette ---
-// Presets are shortcuts only; the engine supports any dyadic meter. Covers
-// simple (4/4 3/4 2/4), compound (6/8 9/8), and irregular (5/8 7/8) for testing.
-const timeSignaturePresets = [
-  { numerator: 4, denominator: 4 },
-  { numerator: 3, denominator: 4 },
-  { numerator: 2, denominator: 4 },
-  { numerator: 6, denominator: 8 },
-  { numerator: 9, denominator: 8 },
-  { numerator: 5, denominator: 8 },
-  { numerator: 7, denominator: 8 },
-] as const
-
-function isTimeSignatureArmed(ts: { numerator: number; denominator: number }): boolean {
-  const sel = armedTool(state, 'timeSignature')?.timeSignature
-  return !!sel && sel.numerator === ts.numerator && sel.denominator === ts.denominator
-}
-
 // --- Dynamics tool ---
 // Interpreted levels drive playback loudness; the custom mark is silent italic text.
 // The custom mark drops a "Text" placeholder; editing it in place is a later feature.
@@ -946,62 +724,6 @@ function isTempoArmed(tool: TempoTool): boolean {
     && armed.bpm === tool.bpm && armed.showMetronome === tool.showMetronome
 }
 
-// --- Custom time-signature dialog ---
-// Exposes the engine's full generality: any dyadic meter + optional additive
-// grouping (e.g. 2+2+3). Presets are just shortcuts onto the same setter.
-const showTimeSignatureDialog = ref(false)
-const tsNumerator = ref(7)
-const tsDenominator = ref(8)
-const tsGrouping = ref('') // e.g. "2+2+3"; empty = algorithmic default
-const tsDenominatorOptions = [1, 2, 4, 8, 16, 32]
-
-/** Parse the grouping field ("2+2+3", "2,2,3", "2 2 3") into a number[]. */
-function parseGrouping(input: string): number[] | undefined {
-  const parts = input.split(/[+,\s]+/).map(s => s.trim()).filter(Boolean)
-  if (parts.length === 0) return undefined
-  return parts.map(Number)
-}
-
-/** The candidate time signature from the dialog fields, or null if unparseable. */
-const tsCandidate = computed<TimeSignature | null>(() => {
-  const numerator = Math.floor(Number(tsNumerator.value))
-  const denominator = Number(tsDenominator.value)
-  if (!Number.isFinite(numerator) || !Number.isFinite(denominator)) return null
-  const grouping = parseGrouping(tsGrouping.value)
-  if (grouping && grouping.some(g => !Number.isFinite(g))) return null
-  return grouping ? { numerator, denominator, grouping } : { numerator, denominator }
-})
-
-const tsDialogError = computed<string | null>(() => {
-  const ts = tsCandidate.value
-  if (!ts) return 'Enter whole numbers.'
-  if (!Number.isInteger(ts.numerator) || ts.numerator < 1) return 'Numerator must be a positive whole number.'
-  if (!tsDenominatorOptions.includes(ts.denominator)) return 'Denominator must be a power of two (1–32).'
-  if (ts.grouping && ts.grouping.reduce((a, b) => a + b, 0) !== ts.numerator) {
-    return `Grouping must sum to ${ts.numerator} (got ${ts.grouping.reduce((a, b) => a + b, 0)}).`
-  }
-  return isValidTimeSignature(ts) ? null : 'Not a representable time signature.'
-})
-
-function openTimeSignatureDialog(): void {
-  showTimeSignatureDialog.value = true
-}
-
-/** Arm the custom time signature (then the user clicks a measure to apply it). */
-function applyCustomTimeSignature(): void {
-  const ts = tsCandidate.value
-  if (!ts || tsDialogError.value) return
-  palette.setTimeSignature(ts)
-  showTimeSignatureDialog.value = false
-}
-
-/** True when a custom (non-preset) meter is currently armed. */
-const isCustomTimeSignatureArmed = computed(() => {
-  const sel = armedTool(state, 'timeSignature')?.timeSignature
-  if (!sel) return false
-  return !timeSignaturePresets.some(p => p.numerator === sel.numerator && p.denominator === sel.denominator && !sel.grouping)
-})
-
 // The two toolbar groups are driven by DIFFERENT measure-selection gestures (they're
 // different concerns): the "Add Measure" buttons work on a Ctrl+Shift+click span (the DOUBLE
 // box) — a measure-structure edit — while the "Staff:" add-above/below buttons work on a
@@ -1010,55 +732,6 @@ const hasMeasureContext = computed(() =>
   state.selectedMeasureRange !== null && state.selectedMeasureBoxStyle === 'double')
 const hasStaffContext = computed(() =>
   state.selectedMeasureRange !== null && state.selectedMeasureBoxStyle === 'single')
-
-// --- Pickup / anacrusis dialog ---
-// Sets a measure's actual playable length shorter than its time signature. The
-// length is entered as numerator/denominator (1/4 = one quarter beat); applied
-// directly to the chosen measure (not an arm/click tool).
-const showPickupDialog = ref(false)
-const pickupMeasure = ref(1)
-const pickupNumerator = ref(1)
-const pickupDenominator = ref(4)
-
-/** Pickup length in quarter beats (numerator × 4/denominator), or null if invalid. */
-const pickupActual = computed<Fraction | null>(() => {
-  const num = Math.floor(Number(pickupNumerator.value))
-  const den = Number(pickupDenominator.value)
-  if (!Number.isInteger(num) || num < 1 || !tsDenominatorOptions.includes(den)) return null
-  return fracCreate(num * 4, den)
-})
-
-/** Nominal length of the target measure, or null if it doesn't exist. */
-const pickupNominal = computed<Fraction | null>(() => {
-  const m = engine.value?.getScore().measures.find(mm => mm.number === Math.floor(Number(pickupMeasure.value)))
-  return m ? getMeasureDurationFrac(m.timeSignature) : null
-})
-
-const pickupDialogError = computed<string | null>(() => {
-  if (!pickupNominal.value) return 'No such measure.'
-  const actual = pickupActual.value
-  if (!actual) return 'Enter a valid pickup length.'
-  if (fracGte(actual, pickupNominal.value)) return 'Pickup must be shorter than the full bar.'
-  return null
-})
-
-function openPickupDialog(): void {
-  showPickupDialog.value = true
-}
-
-function applyPickup(): void {
-  if (pickupDialogError.value || !engine.value || !pickupActual.value) return
-  engine.value.setMeasureActualDuration(Math.floor(Number(pickupMeasure.value)), pickupActual.value)
-  renderer.renderScore()
-  showPickupDialog.value = false
-}
-
-function clearPickup(): void {
-  if (!engine.value) return
-  engine.value.setMeasureActualDuration(Math.floor(Number(pickupMeasure.value)), null)
-  renderer.renderScore()
-  showPickupDialog.value = false
-}
 
 // --- Lifecycle ---
 // Ctrl+wheel zoom toward the cursor. A window-level listener registered { passive: false } so

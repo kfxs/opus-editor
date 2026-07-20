@@ -1014,6 +1014,18 @@ export class PaletteController {
    * again disarms it. While armed, canvas clicks set/change a measure's time
    * signature (see MouseController) and the ghost note is suppressed. Switches to
    * the entry tool so canvas clicks are handled for placement.
+   *
+   * ⚠️ NO PRODUCTION CALLER once the Vue time palette goes — its preset buttons and its
+   * custom-meter dialog were the only two, and the Time Signature window that replaced them uses
+   * {@link armTimeSignature} instead (an OK confirms; it does not toggle). Kept, not deleted, for
+   * the reason {@link setClef} is: this is the BUTTON gesture, and the button is coming back on the
+   * editor side. A plain-TS meter palette would light its keys from `armedTool` — the state this
+   * already drives — and re-pressing the lit one has to mean "off", which is this method and
+   * nothing else in the class. Rediscovering that costs more than keeping eighteen lines.
+   *
+   * ⛔ It also carries NO cautionary and NO pickup, on purpose: a palette key is one value, and
+   * those two are answers a DIALOG asks for. A future palette that wants them wants
+   * {@link armTimeSignature}, not a wider version of this.
    */
   setTimeSignature(ts: TimeSignature): void {
     const armed = armedTool(this.state, 'timeSignature')
