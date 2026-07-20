@@ -459,6 +459,19 @@ export class Select implements Widget {
   get value(): string {
     return this.el?.value ?? this.opts.selected ?? ''
   }
+
+  /**
+   * Write the value from OUTSIDE. Like {@link RadioGroup.select}, deliberately silent: the caller is
+   * already handling the interaction that caused the write, and telling it back would be an echo.
+   *
+   * A value not in the list is IGNORED rather than assigned — a `<select>` handed an unknown value
+   * goes blank, which reads as "no answer" for a control that always has one.
+   */
+  setValue(value: string): void {
+    if (!this.options.some((o) => o.value === value)) return
+    if (this.el) this.el.value = value
+    else this.opts.selected = value
+  }
 }
 
 /** A small number field — the beats/unit spinners beside "Other:". */
@@ -504,6 +517,12 @@ export class NumberInput implements Widget {
 
   get value(): number {
     return Number(this.el?.value ?? this.opts.value ?? 0)
+  }
+
+  /** Write the value from OUTSIDE — silent, for the same reason {@link Select.setValue} is. */
+  setValue(value: number): void {
+    if (this.el) this.el.value = String(value)
+    else this.opts.value = value
   }
 }
 

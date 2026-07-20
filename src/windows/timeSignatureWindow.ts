@@ -161,8 +161,22 @@ export function openTimeSignatureWindow(windows: WindowLayer): Window {
         trailing: new Column([otherBeats, otherUnit], { gap: 4 }),
       },
     ],
-    // Double-clicking a meter commits it, the way double-clicking a clef does.
-    { selected: '4/4', onActivate: () => accept() },
+    {
+      selected: '4/4',
+      // Double-clicking a meter commits it, the way double-clicking a clef does.
+      onActivate: () => accept(),
+      // Every preset you pick is COPIED into the Other spinners. 7/8 is not on the row of presets and
+      // never will be — but 6/8 is, and reaching 7/8 by clicking 6/8 and adding one is the whole
+      // path. Other stops being an empty form you fill from nothing and becomes "the meter I am
+      // looking at, now editable". Silent by design: `setValue` does not call back, so writing the
+      // spinners here cannot re-enter `chooseOther` and drag the dot off the preset just clicked.
+      onChange: (value) => {
+        const meter = presetMeter(value)
+        if (!meter) return
+        otherBeats.setValue(meter.numerator)
+        otherUnit.setValue(String(meter.denominator))
+      },
+    },
   )
 
   const cautionary = new Checkbox('Allow cautionary', { checked: true })
