@@ -1,5 +1,7 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditableTextSource, TextEditInsertion } from './TextEditController'
+import type { MenuItem } from '../menus/MenuItem'
+import { buildExpressionMenu } from '../menus/expressionMenu'
 import { DYNAMIC_TEXT_FONT, DYNAMIC_TEXT_SIZE, DYNAMIC_GLYPH_SIZE } from '../engine/rendering/dynamicStyle'
 import { dynamicLabel, levelToGlyphString, splitDynamicRuns } from '../utils/dynamics'
 
@@ -117,6 +119,12 @@ export class DynamicTextSource implements EditableTextSource {
       // from collapsing in the contenteditable (commit normalizes NBSP back to a space).
       return escapeHtml(r.text).replace(/ /g, ' ')
     }).join('')
+  }
+
+  /** Right-click ⇒ the expression WORD menu (`dolce`, …). Words, never glyphs: they insert as
+   *  ordinary italic text and never change the played level. See menus/expressionMenu.ts. */
+  getContextMenu(insertText: (text: string) => void): MenuItem[] {
+    return buildExpressionMenu(insertText)
   }
 
   /** Ctrl+<letter> ⇒ insert that letter's glyph chip at the caret (see {@link DYNAMIC_INSERT_KEYS}). */

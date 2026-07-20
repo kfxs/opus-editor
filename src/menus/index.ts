@@ -1,6 +1,7 @@
 import { windows } from '@/windows'
 import { MenuLayer } from './MenuLayer'
 import { installInsertMenu, type InsertMenuActions } from './insertMenu'
+import type { MenuItem } from './MenuItem'
 
 /**
  * The app's one menu layer — the same deal the window layer gets, and for the same reason: it lives
@@ -27,3 +28,15 @@ windows.whenMounted((host) => {
   menus.mount(host)
   installInsertMenu(host, menus, menuActions)
 })
+
+/**
+ * Open a menu at VIEWPORT coordinates. The layer's own arithmetic is host-relative (it fills the box
+ * the window layer donated), so anything working in client pixels — a `position: fixed` overlay, a
+ * raw MouseEvent — converts here rather than each caller rediscovering the offset.
+ */
+export function openMenuAtViewport(x: number, y: number, items: MenuItem[]): void {
+  const host = menus.host
+  if (!host) return
+  const box = host.getBoundingClientRect()
+  menus.open({ x: x - box.left, y: y - box.top, items })
+}

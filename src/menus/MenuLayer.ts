@@ -201,6 +201,16 @@ export class MenuLayer {
     return this.chain.length > 0
   }
 
+  /**
+   * The box the layer fills, or null before mount. Exposed so a caller working in VIEWPORT pixels
+   * can convert into the host-relative coordinates `open` expects — the layer's own arithmetic is
+   * host-relative, which is what keeps a menu from scrolling with the music or scaling with the
+   * zoom. Read-only on purpose: the host is donated once, at mount.
+   */
+  get host(): HTMLElement | null {
+    return this.layer?.parentElement ?? null
+  }
+
   /** Open a menu at a point. Any menu already open is closed first — there is one chain, or none. */
   open(opts: MenuOptions): void {
     if (!this.layer) throw new Error('MenuLayer.open: the layer is not mounted')

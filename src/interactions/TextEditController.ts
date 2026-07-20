@@ -1,4 +1,5 @@
 import type { EditorState } from './EditorState'
+import type { MenuItem } from '../menus/MenuItem'
 
 /**
  * A source decouples the editor from *what* is being edited. The
@@ -25,6 +26,13 @@ export interface EditableTextSource {
   /** Keys this editor turns into caret insertions (see {@link TextEditInsertion}).
    *  Absent ⇒ every key is ordinary typing. */
   getInsertions?(): TextEditInsertion[]
+  /**
+   * Items for the editor's right-click WORD MENU (Sibelius's term). Absent ⇒ right-click is left to
+   * the browser. `insertText` is handed in by the DOM layer, which owns the caret: the source says
+   * WHAT the rows are, the overlay knows HOW to put text where the cursor is — the same split as
+   * {@link getInsertions}, so a menu belongs to the editor that declares it and to no other.
+   */
+  getContextMenu?(insertText: (text: string) => void): MenuItem[]
   /** Where to place the overlay, in viewport (client) pixels. */
   getScreenRect(): { x: number; y: number; width: number; height: number }
   /**
@@ -77,6 +85,10 @@ export interface TextEditMountOptions {
   baselineY?: number
   /** Caret-insertion keys this editor accepts (see {@link EditableTextSource.getInsertions}). */
   insertions?: TextEditInsertion[]
+  /** Right-click word-menu builder (see {@link EditableTextSource.getContextMenu}). The DOM layer
+   *  calls this with its own caret-insert function when the menu is actually opened, so the rows
+   *  are built fresh against a live caret rather than captured at mount. */
+  buildContextMenu?: (insertText: (text: string) => void) => MenuItem[]
   font: { fontFamily: string; fontSize: string; fontStyle: string; color: string; fontWeight?: string }
   /** Called by the DOM layer on Enter / click-away. */
   onCommit: () => void
@@ -131,6 +143,7 @@ export class TextEditController {
       rect: source.getScreenRect(),
       baselineY: source.getBaselineY?.(),
       insertions: source.getInsertions?.(),
+      buildContextMenu: source.getContextMenu ? (insert) => source.getContextMenu!(insert) : undefined,
       font: source.getFontCSS(),
       onCommit: () => this.commit(),
       onCancel: () => this.cancel(),
