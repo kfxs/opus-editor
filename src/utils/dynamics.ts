@@ -19,11 +19,16 @@ import { fracCompare, fracLte, fracGt } from './fraction'
  * Interpreted level → normalized velocity (0..1), used as the 4th arg of
  * `triggerAttackRelease(name, dur, time, velocity)`. NOT decibels.
  *
- * The conventional MIDI dynamics ladder (ppp=16, pp=33, p=49, mp=64, mf=80, f=96, ff=112, fff=127)
- * divided by 127 — the mapping Finale and Sibelius ship as their defaults, so it is convention
- * rather than taste. Evenly spaced, which is what makes a crescendo through the marks sound even.
+ * Starting point was the conventional MIDI ladder (16/33/49/64/80/96/112/127 over 127 — the
+ * Finale/Sibelius default), which is EVENLY spaced. We deliberately do not use it flat.
  *
- * ⚠️ `f` is 0.76, NOT 1.0. Only `fff` reaches the ceiling. That headroom is load-bearing:
+ * ⭐ THE GAPS WIDEN TOWARD THE EXTREMES. `pp`→`p` is a bigger jump than `p`→`mp`, and `f`→`ff`
+ * bigger than `mf`→`f`. Even velocity steps do not produce even *perceived* steps, and musically
+ * the outer marks should read as events while `p`…`f` is the ordinary working range where
+ * neighbours sit close. Flat spacing made `pp` and `ppp` hard to tell apart from `p`.
+ *
+ * ⚠️ `f` is 0.71, NOT 1.0, and must stay ≤ 0.77. Only `fff` reaches the ceiling. That headroom is
+ * load-bearing:
  * playbackSchedule scales this by the articulation factor and clamps — `Math.min(1, v * 1.3)` for
  * an accent — so when `f` sat at 1.0 an accent on a forte note was arithmetically INAUDIBLE. Levels
  * must leave room above them for articulations to bite.
@@ -32,13 +37,14 @@ import { fracCompare, fracLte, fracGt } from './fraction'
  * this table rather than a private list.
  */
 export const DYNAMIC_VELOCITY: Record<DynamicLevel, number> = {
-  ppp: 0.13,
-  pp: 0.26,
-  p: 0.39,
-  mp: 0.50,
-  mf: 0.63,
-  f: 0.76,
-  ff: 0.88,
+  //                    gap to the next mark
+  ppp: 0.05, //  ↑ 0.15  extremes stand apart
+  pp: 0.20, //   ↑ 0.15
+  p: 0.35, //    ↑ 0.12  ┐
+  mp: 0.47, //   ↑ 0.12  ├ the ordinary working range sits closer
+  mf: 0.59, //   ↑ 0.12  ┘
+  f: 0.71, //    ↑ 0.14
+  ff: 0.85, //   ↑ 0.15  extremes stand apart
   fff: 1.0,
 }
 

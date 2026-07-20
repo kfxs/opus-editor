@@ -118,9 +118,18 @@ describe('DYNAMIC_VELOCITY', () => {
     expect(DYNAMIC_VELOCITY.fff).toBe(1.0)
   })
 
-  it('is evenly spaced, so a crescendo through the marks sounds even', () => {
-    const steps = ALL_LEVELS.slice(1).map((l, i) => DYNAMIC_VELOCITY[l] - DYNAMIC_VELOCITY[ALL_LEVELS[i]])
-    for (const step of steps) expect(step).toBeCloseTo(steps[0], 1)
+  // Deliberately NOT evenly spaced: even velocity steps do not read as even loudness steps, and
+  // the outer marks should land as events while p..f is the ordinary working range.
+  it('widens the gaps toward the extremes', () => {
+    const gap = (lo: DynamicLevel, hi: DynamicLevel) => DYNAMIC_VELOCITY[hi] - DYNAMIC_VELOCITY[lo]
+    // The two the user called out by ear.
+    expect(gap('pp', 'p')).toBeGreaterThan(gap('p', 'mp'))
+    expect(gap('f', 'ff')).toBeGreaterThan(gap('mf', 'f'))
+    // …and the same shape at the far ends.
+    expect(gap('ppp', 'pp')).toBeGreaterThan(gap('mp', 'mf'))
+    expect(gap('ff', 'fff')).toBeGreaterThan(gap('mf', 'f'))
+    // The middle stays the tight, even part of the ladder.
+    expect(gap('p', 'mp')).toBeCloseTo(gap('mp', 'mf'), 2)
   })
 
   it('DEFAULT_DYNAMIC is a valid level', () => {
