@@ -94,7 +94,7 @@ const GLYPH = {
   coda: '\uE048',
   arrowRight: '\uEC64',        // metricModulationArrowRight
   arrowLeft: '\uEC63',         // metricModulationArrowLeft
-  dot: '\uE1FC',               // textAugmentationDot
+  dot: '\uECB7',               // metAugmentationDot — matches the dot TempoLayout engraves (ECB7)
   tie: '\uE1FD',               // textTie — the low (below-the-notes) tie
   tupletBracketStart: '\uE1FE', // textTupletBracketStartShortStem
   tuplet3: '\uE1FF',            // textTuplet3ShortStem

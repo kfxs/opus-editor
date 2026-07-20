@@ -68,14 +68,26 @@ type Run = { glyph: string; text?: undefined } | { text: string; glyph?: undefin
 /**
  * Split the mark's text into what must be drawn from the MUSIC font and what must not.
  *
- * The note characters (and the dots that follow one — `♩.` is a dotted quarter, not a full stop)
- * are engraved as SMuFL glyphs; everything else is text. Note that a '.' is only a dot if it
- * follows a note: 'a tempo. Allegro' keeps its full stop.
+ * Three kinds of run come out:
+ *  - a **note character** (`♩`) — and the dots that follow one (`♩.` is a dotted quarter, not a
+ *    full stop) — engraved as its metNote SMuFL glyph. A '.' is only a dot if it follows a note:
+ *    'a tempo. Allegro' keeps its full stop.
+ *  - an **already-SMuFL glyph** — a private-use character the tempo menu dropped in directly (a
+ *    beamed group, a tie, a tuplet bracket, a modulation arrow, a longa/breve). These are drawn in
+ *    the music font at glyph size, exactly like the notes; consecutive ones are kept in ONE run so
+ *    the font's kerning joins the beams (a beamed pair is `textBlackNote` + `textCont…Beam` +
+ *    `textBlackNoteFrac…`, and only the kern pairs make the beam overlap the stems). Note chars are
+ *    NOT in this range (`♩` is U+2669, the metronome/text glyphs live in the Private Use Area), so
+ *    the two never collide.
+ *  - everything else is **text**.
  */
 export function splitRuns(text: string): Run[] {
   const runs: Run[] = []
-  let pending = ''
-  const flush = () => { if (pending) { runs.push({ text: pending }); pending = '' } }
+  let pendingText = ''
+  let pendingGlyph = ''
+  const flushText = () => { if (pendingText) { runs.push({ text: pendingText }); pendingText = '' } }
+  const flushGlyph = () => { if (pendingGlyph) { runs.push({ glyph: pendingGlyph }); pendingGlyph = '' } }
+  const flush = () => { flushText(); flushGlyph() }
 
   // Matched by SEQUENCE, not by character: the note symbols are not all one code point. `♩` is
   // (U+2669), but `𝅗𝅥` is a notehead plus a combining stem, and `𝅘𝅥𝅯` adds a combining flag on top —
@@ -86,15 +98,30 @@ export function splitRuns(text: string): Run[] {
 
   for (let i = 0; i < text.length;) {
     const note = notes.find(([symbol]) => text.startsWith(symbol, i))
-    if (!note) { pending += text[i]; i++; continue }
-
-    flush()
-    runs.push({ glyph: note[1] })
-    i += note[0].length
-    while (text[i] === '.') { // the note's augmentation dots ride with it
-      runs.push({ glyph: METRONOME_DOT })
-      i++
+    if (note) {
+      flush()
+      runs.push({ glyph: note[1] })
+      i += note[0].length
+      while (text[i] === '.') { // the note's augmentation dots ride with it
+        runs.push({ glyph: METRONOME_DOT })
+        i++
+      }
+      continue
     }
+
+    // A private-use character is a SMuFL glyph the menu inserted (beam, tie, tuplet, arrow, longa).
+    // The whole PUA (U+E000–U+F8FF) is music: nothing else has any business there in tempo text.
+    const code = text.charCodeAt(i)
+    if (code >= 0xE000 && code <= 0xF8FF) {
+      flushText()
+      pendingGlyph += text[i]
+      i++
+      continue
+    }
+
+    flushGlyph()
+    pendingText += text[i]
+    i++
   }
   flush()
   return runs
