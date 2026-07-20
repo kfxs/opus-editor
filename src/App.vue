@@ -218,25 +218,6 @@
             </button>
           </div>
 
-          <!-- Clef Tool -->
-          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">Clef:</span>
-            <button
-              v-for="c in (['treble', 'bass', 'alto'] as const)"
-              :key="c"
-              :class="[
-                'px-3 py-1 rounded text-lg font-bold leading-none',
-                armedTool(state, 'clef')?.clef === c
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              :title="`${c[0].toUpperCase()}${c.slice(1)} clef — click a measure to place it`"
-              @click="palette.setClef(c)"
-            >
-              {{ c === 'treble' ? '𝄞' : c === 'bass' ? '𝄢' : '𝄡' }}
-            </button>
-          </div>
-
           <!-- Time Signature Tool -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Time:</span>

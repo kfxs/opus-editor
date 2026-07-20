@@ -969,12 +969,33 @@ export class PaletteController {
    * While armed, canvas clicks set/change a measure's clef (see MouseController)
    * and the ghost note is suppressed. Switches to the entry tool so canvas clicks
    * are handled (the selection tool ignores clicks for placement).
+   *
+   * ⚠️ NO PRODUCTION CALLER as of the Vue clef palette's deletion — the toolbar buttons that toggled
+   * a clef were its only one, and the Clef window that replaced them uses {@link armClef} instead
+   * (an OK confirms; it does not toggle). Kept, not deleted, because this is the BUTTON gesture and
+   * the button is coming back on the editor side: a plain-TS clef palette lights its key from
+   * `clefSelection`'s highlight channel — already pushed by keypadSync — and re-pressing the lit key
+   * has to mean "off", which is exactly this method and nothing else in the class. Deleting it would
+   * cost more to rediscover than it costs to keep. Covered by PaletteController.test.ts.
    */
   setClef(clef: Clef): void {
     if (armedTool(this.state, 'clef')?.clef === clef) {
       this.disarmToEntry() // re-press disarms
       return
     }
+    this.armMarkingTool({ kind: 'clef', clef })
+  }
+
+  /**
+   * Arm a clef outright — idempotent, and NOT a toggle.
+   *
+   * The difference from {@link setClef} is the gesture, not the clef. A palette BUTTON toggles:
+   * pressing the lit one again means "off", because the button is also the indicator. An OK button
+   * is not that — it answers a question the window asked, and answering "treble" twice cannot mean
+   * "no clef". Routing the Clef window through `setClef` made confirming the already-armed clef
+   * silently disarm it.
+   */
+  armClef(clef: Clef): void {
     this.armMarkingTool({ kind: 'clef', clef })
   }
 

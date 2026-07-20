@@ -136,7 +136,8 @@ export function wireKeypadSync(
     }),
     tieSelection.onPress(() => palette.toggleTie()),
     restSelection.onPress(() => palette.pressRest()),
-    clefSelection.onPress((c) => palette.setClef(c)),
+    // armClef, not setClef: the Clef window's OK confirms a choice, it does not toggle a button.
+    clefSelection.onPress((c) => palette.armClef(c)),
   ]
   return () => stops.forEach((stop) => stop())
 }

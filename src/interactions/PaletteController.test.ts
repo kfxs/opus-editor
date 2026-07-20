@@ -43,6 +43,21 @@ describe('PaletteController — time signature tool', () => {
     expect(armedTool(state, 'timeSignature')?.timeSignature).toEqual({ numerator: 7, denominator: 8 })
   })
 
+  // The Clef window's OK routes here, not through setClef: confirming the clef that is already
+  // armed must leave it armed. Through setClef the re-press read as "off" and the window closed
+  // having disarmed the very clef the user just confirmed.
+  it('armClef arms the same clef twice without toggling it off', () => {
+    palette.armClef('bass')
+    palette.armClef('bass')
+    expect(armedTool(state, 'clef')?.clef).toBe('bass')
+  })
+
+  it('setClef still toggles — a palette button is its own indicator', () => {
+    palette.setClef('bass')
+    palette.setClef('bass')
+    expect(armedTool(state, 'clef')).toBeNull()
+  })
+
   it('is mutually exclusive with the clef tool', () => {
     palette.setClef('bass')
     palette.setTimeSignature({ numerator: 5, denominator: 8 })
