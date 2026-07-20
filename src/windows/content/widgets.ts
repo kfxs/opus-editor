@@ -66,7 +66,12 @@ export class ChoiceList implements Widget {
 
   constructor(
     private readonly choices: Choice[],
-    private readonly opts: { selected?: string; onChange?: (value: string) => void } = {},
+    private readonly opts: {
+      selected?: string
+      onChange?: (value: string) => void
+      /** Double-click: choose it AND commit, the shortcut past the OK button every list dialog has. */
+      onActivate?: (value: string) => void
+    } = {},
   ) {
     this.selected = opts.selected ?? choices[0]?.value ?? ''
   }
@@ -80,6 +85,13 @@ export class ChoiceList implements Widget {
     s.border = `1px solid ${CHROME.edge}`
     s.borderRadius = '6px'
     s.background = CHROME.field
+    // Air BETWEEN the rows, not inside them: the gap separates the lit bands, so which row is chosen
+    // stays legible when two pictures sit close together. The padding keeps the first and last row
+    // off the box's own border.
+    s.display = 'flex'
+    s.flexDirection = 'column'
+    s.gap = '6px'
+    s.padding = '6px 0'
 
     for (const choice of this.choices) {
       const row = document.createElement('div')
@@ -88,6 +100,10 @@ export class ChoiceList implements Widget {
       row.style.display = 'flex'
       row.style.justifyContent = 'center'
       row.addEventListener('click', () => this.select(choice.value))
+      // The first click of the pair has already selected it, so activate can just fire — and it
+      // fires with the ROW's value, not the current selection, so a fast double-click on a row that
+      // was never selected still commits the row you actually hit.
+      row.addEventListener('dblclick', () => this.opts.onActivate?.(choice.value))
       el.appendChild(row)
       this.rows.set(choice.value, row)
     }

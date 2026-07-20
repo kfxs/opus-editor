@@ -1,17 +1,23 @@
 import type { WindowLayer } from './WindowLayer'
 import type { Window } from './Window'
 import { Column, Row } from './content/layout'
-import { Button, ChoiceList, Label } from './content/widgets'
+import { Button, ChoiceList } from './content/widgets'
 import { CHROME } from '../utils/chromeColors'
+import { clefSelection } from '../interactions/clefSelection'
+import type { Clef } from '../types/music'
 
 /**
- * The Clef window, opened from Insert ▸ Clef (or Q) — modelled on Sibelius's Clef dialog: a labelled
- * box of staves you scroll, one of them lit, and Cancel / OK underneath.
+ * The Clef window, opened from Insert ▸ Clef (or Q) — modelled on Sibelius's Clef dialog: a box of
+ * staves you scroll, one of them lit, and Cancel / OK underneath.
  *
- * Still a LOOK and nothing more: picking a clef selects a row and does not touch the score, and OK
- * closes like Cancel. The second column of Sibelius's dialog (transposed clef, "draw on subsequent
- * staves") is deliberately absent — it is a decision about the transposing-instrument model, not
- * about this window.
+ * Committing (OK, or double-clicking a row) ARMS the clef and closes — it does not place anything.
+ * That is what choosing a clef means here: the next click on the score says WHERE, which is the same
+ * gesture the palette has always armed. Cancel arms nothing.
+ *
+ * The second column of Sibelius's dialog (transposed clef, "draw on subsequent staves") is
+ * deliberately absent — it is a decision about the transposing-instrument model, not about this
+ * window. Percussion is absent for a harder reason: it is not a fifth clef but a staff whose lines
+ * are not pitches, and `Clef` has four values because of it — see docs/unpitched-staves-plan.md.
  */
 
 /**
@@ -22,7 +28,6 @@ const CLEF_GLYPH = {
   g: '\uE050', // gClef
   f: '\uE062', // fClef
   c: '\uE05C', // cClef
-  percussion: '\uE069', // unpitchedPercussionClef1
 }
 
 /** Bravura first: these are glyphs, not text, so the music font MUST lead the stack. */
@@ -52,7 +57,7 @@ const ROW_WIDTH = 236
 const ROW_HEIGHT = SPACE * 4 + PAD_Y * 2
 
 /**
- * A clef's picture: five staff lines with the glyph on the line it names.
+ * A clef's picture: a five-line staff with the glyph on the line it names.
  *
  * `line` is the staff line the glyph's BASELINE sits on, counted 1 = top … 5 = bottom. That is the
  * whole of clef positioning — a G clef curls around the G line (4th from the top), an F clef's dots
@@ -79,43 +84,58 @@ function staffPicture(glyph: string, line: number): string {
   </svg>`
 }
 
-/** The rows, in Sibelius's order. `value` is the clef's name, ready for the day OK does something. */
+/** The rows, in Sibelius's order. `value` IS the `Clef` — no mapping table between picture and model. */
 const CLEF_CHOICES = [
   { value: 'treble', picture: staffPicture(CLEF_GLYPH.g, 4) },
   { value: 'bass', picture: staffPicture(CLEF_GLYPH.f, 2) },
   { value: 'alto', picture: staffPicture(CLEF_GLYPH.c, 3) },
   { value: 'tenor', picture: staffPicture(CLEF_GLYPH.c, 2) },
-  { value: 'percussion', picture: staffPicture(CLEF_GLYPH.percussion, 3) },
 ]
 
 export function openClefWindow(windows: WindowLayer): Window {
-  const list = new ChoiceList(CLEF_CHOICES, { selected: 'treble' })
-
   // Captured in a `let` because the buttons are built before `open()` returns but only run after.
   let win: Window | null = null
+
+  /**
+   * Commit: ARM the clef and get out of the way. The window does not place anything — arming is what
+   * a clef choice means, and the next click on the score is what says WHERE (MouseController already
+   * owns that, and has since the Vue palette armed clefs the same way). Closing on commit is the
+   * point: the score is where the rest of the gesture happens.
+   */
+  const accept = (): void => {
+    clefSelection.press(list.value as Clef)
+    win?.close()
+  }
+
+  // Opens on whatever is already armed, so re-opening it reflects the editor rather than resetting to
+  // the top row. Nothing armed → treble, the one every score starts on.
+  const list = new ChoiceList(CLEF_CHOICES, {
+    selected: clefSelection.get() ?? 'treble',
+    onActivate: accept,
+  })
   win = windows.open({
     title: 'Clef',
     width: 300,
-    // Taller than the list needs, on purpose: the box SCROLLS, and a picker that shows every row at
-    // once teaches nothing about that. Sibelius's shows about four staves of the five.
-    height: 400,
+    // Four clefs fit; the box keeps its scroll for the day there are more.
+    fitContent: true,
     // A dialog you summoned belongs where you are already looking, not on the cascade.
     center: true,
     resizable: false,
     content: new Column(
       [
-        new Label('Sounding pitch clef:'),
+        // No caption over the list: the window is titled Clef and the rows ARE clefs. Sibelius needs
+        // "Sounding pitch clef:" only because it has a second, transposed column to tell it apart from.
         list,
         // Cancel then OK, left to right, with OK the primary — the platform order, and the one the
         // Sibelius dialog uses.
-        new Row([new Button('Cancel', () => win?.close()), new Button('OK', () => win?.close(), { variant: 'primary' })], {
+        new Row([new Button('Cancel', () => win?.close()), new Button('OK', accept, { variant: 'primary' })], {
           gap: 8,
           align: 'end',
         }),
       ],
-      // The LIST takes the slack: the label and the button row are as tall as they are, and every
-      // extra pixel of window height is another staff you can see.
-      { gap: 10, grow: 1 },
+      // The LIST (child 0) takes the slack: the button row is as tall as it is, and every extra pixel
+      // of window height is another staff you can see.
+      { gap: 10, grow: 0 },
     ),
   })
   return win

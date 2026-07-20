@@ -9,6 +9,7 @@ import { articulationSelection } from './articulationSelection'
 import { dotSelection } from './dotSelection'
 import { tieSelection } from './tieSelection'
 import { restSelection } from './restSelection'
+import { clefSelection } from './clefSelection'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
 
 /**
@@ -109,6 +110,9 @@ export function wireKeypadSync(
       : armed || noNoteInSelection(state) ? null
       : state.selectedAccidental
     )
+    // The Clef window lights the clef that is ARMED, and nothing otherwise: unlike a duration,
+    // a clef is never "the selected note's" — it belongs to a measure, not a note.
+    clefSelection.setHighlight(armed?.kind === 'clef' ? armed.clef : null)
     // No gate needed: dotHighlight owns the whole rule, armed tool included.
     dotSelection.setHighlight(dotHighlight(state))
     // Engine-derived highlights (articulations are a SET, tie reads tiedTo, rest reads isRest): read
@@ -132,6 +136,7 @@ export function wireKeypadSync(
     }),
     tieSelection.onPress(() => palette.toggleTie()),
     restSelection.onPress(() => palette.pressRest()),
+    clefSelection.onPress((c) => palette.setClef(c)),
   ]
   return () => stops.forEach((stop) => stop())
 }
