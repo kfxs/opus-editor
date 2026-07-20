@@ -132,6 +132,10 @@ export class ChoiceList implements Widget {
   }
 }
 
+/** The one red in the toolkit: something you typed is wrong. Local, not a CHROME token — the chrome
+ *  palette is neutrals plus the accent, and a colour that MEANS something stays out of it. */
+const ERROR_INK = '#f87171'
+
 export interface ButtonOptions {
   /** 'primary' is the one that commits — the Save in a Save window. */
   variant?: 'primary' | 'default'
@@ -187,7 +191,9 @@ export class Label implements Widget {
 
   constructor(
     private text: string,
-    private readonly opts: { muted?: boolean } = {},
+    /** `muted` is a hint under a field; `error` is what is WRONG with what you typed. Two tones and
+     *  not a free colour: a widget that takes any colour becomes the place colours are decided. */
+    private readonly opts: { muted?: boolean; tone?: 'error' } = {},
   ) {}
 
   mount(host: HTMLElement): void {
@@ -195,6 +201,7 @@ export class Label implements Widget {
     el.textContent = this.text
     el.style.flex = 'none'
     if (this.opts.muted) el.style.color = CHROME.inkMuted
+    if (this.opts.tone === 'error') el.style.color = ERROR_INK
     host.appendChild(el)
     this.el = el
   }
@@ -210,7 +217,13 @@ export class TextInput implements Widget {
   private el: HTMLInputElement | null = null
 
   constructor(
-    private readonly opts: { value?: string; placeholder?: string; onEnter?: () => void } = {},
+    private readonly opts: {
+      value?: string
+      placeholder?: string
+      onEnter?: () => void
+      /** Every keystroke — for a field that is JUDGED as you type (a grouping that must sum). */
+      onInput?: (value: string) => void
+    } = {},
   ) {}
 
   mount(host: HTMLElement): void {
@@ -234,6 +247,7 @@ export class TextInput implements Widget {
         if (e.key === 'Enter') this.opts.onEnter?.()
       })
     }
+    if (this.opts.onInput) el.addEventListener('input', () => this.opts.onInput?.(el.value))
     host.appendChild(el)
     this.el = el
   }
@@ -339,6 +353,22 @@ export class RadioGroup implements Widget {
     return this.selected
   }
 
+  /**
+   * Choose an option from OUTSIDE — typing in the field that belongs to one, most of all: editing
+   * the spinners beside "Other:" is choosing Other, and leaving the dot on 4/4 while the user types
+   * a 5 into another row's field says the dialog is not listening.
+   *
+   * Deliberately does NOT fire `onChange`: the caller is already handling the interaction that
+   * caused it, and notifying it back would be an echo — the shape that turns into a loop the first
+   * time a listener writes anything.
+   */
+  select(value: string): void {
+    if (value === this.selected) return
+    this.selected = value
+    const index = this.options.findIndex((o) => o.value === value)
+    if (index >= 0 && this.inputs[index]) this.inputs[index].checked = true
+  }
+
   destroy(): void {
     for (const option of this.options) option.trailing?.destroy?.()
   }
@@ -425,7 +455,16 @@ export class NumberInput implements Widget {
   private el: HTMLInputElement | null = null
 
   constructor(
-    private readonly opts: { value?: number; min?: number; max?: number; width?: number; onChange?: (value: number) => void } = {},
+    private readonly opts: {
+      value?: number
+      min?: number
+      max?: number
+      width?: number
+      /** Committed — blur, Enter, or a stepper click. */
+      onChange?: (value: number) => void
+      /** Every keystroke and stepper press. What "the user is editing this field" looks like. */
+      onInput?: (value: number) => void
+    } = {},
   ) {}
 
   mount(host: HTMLElement): void {
@@ -447,6 +486,7 @@ export class NumberInput implements Widget {
     s.flex = 'none'
 
     el.addEventListener('change', () => this.opts.onChange?.(Number(el.value)))
+    el.addEventListener('input', () => this.opts.onInput?.(Number(el.value)))
     host.appendChild(el)
     this.el = el
   }
