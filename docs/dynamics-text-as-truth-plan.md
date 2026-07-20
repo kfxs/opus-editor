@@ -220,3 +220,84 @@ Decision point gates the Phase 3 estimate.
 - All real risk is Phase 0/3 (the mixed-font mark). If the font-stack trick renders, this
   is a small feature; if not, Phase 3 grows a custom inline layout. Hence Phase 0 is a
   spike with a decision point, not an assumption.
+
+---
+
+# What landed after this plan (2026-07-20)
+
+The model above is unchanged — one char per letter, the FONT decides meaning, the level is always
+derived. Three things were built around it.
+
+## Entering dynamics: Ctrl+<letter>, the way Sibelius does
+
+Inside the inline editor, `Ctrl+<letter>` types a letter in the DYNAMICS FONT rather than as text:
+`f p m n r s` plus `z` on Ctrl+Shift+Z. Six come from VexFlow's `TextDynamics.GLYPHS`; `n` (niente,
+U+E526) is the one entry we own, because VexFlow's table omits it and Bravura has the glyph.
+`Ctrl+Shift+C`/`Ctrl+Shift+D` insert the WORDS `cresc.`/`dim.` — prose, never a level.
+
+The binding is declared by the SOURCE (`EditableTextSource.getInsertions`), not the overlay, so it
+belongs to the editor that defines it and exists nowhere else. An inserted glyph reuses the same chip
+markup a seeded one gets, so a typed dynamic reads back identically to a loaded one.
+
+⚠️ Two collisions, both resolved on the rule that **a shortcut must never mean two things**:
+tempo moved Ctrl+M → **Alt+Shift+T** (lookup key `'Shift+Alt+t'` — `ShortcutManager` builds
+Ctrl→Shift→Alt), and NOT to Ctrl+Shift+T, which Chrome RESERVES for "reopen closed tab" — reserved
+shortcuts never reach the page, so `preventDefault` cannot help. `z` takes Ctrl+Shift+Z, matching
+Sibelius, which dodges bare Ctrl+Z for the same reason we would (it is Undo while typing).
+
+## Drawing them: precomposed glyphs (a draw-time ligature)
+
+Bravura spaces each dynamics letter to stand ALONE and ships separate precomposed glyphs for the
+combinations. For `p` the two agree (~347 combined vs 365 solo); for `f` they do not — precomposed
+adds ~240 per extra `f` where concatenation adds 364, so a hand-built `fff` is 1092 units against the
+real glyph's 831. That is a ~5px gap after every `f` at engraving size, which is exactly what showed
+up in `sfz` and `fff` and never in `pp`.
+
+This is an `fi` ligature, and the font would normally apply it — but the Bravura VexFlow bundles has
+NO GSUB table (Bravura *Text* is the one with ligature features). So `composeDynamicGlyphs()`
+substitutes by hand, greedy longest-match, at ONE call site in `enlargeDynamicGlyphRuns`.
+
+**DRAW-TIME ONLY.** The model still stores one char per letter, so `parseDynamicText` is untouched
+and the editor still backspaces a letter at a time. Storing precomposed would make one character mean
+`"fff"` and break the glyph⇄letter axis outright.
+
+⚠️ The codepoints are written out rather than read from VexFlow's `Glyphs` map: `Glyphs` is exported
+by VexFlow's CJS build but NOT its ESM one, and the exports map sends bundlers to ESM — so a lookup
+was populated under Vitest and EMPTY in the browser. The first cut shipped drawing loose glyphs with
+a green test.
+
+## Hearing them: the eight-level ladder
+
+`DynamicLevel` is now `ppp pp p mp mf f ff fff`, with velocities
+
+    ppp .05   pp .20   p .35   mp .47   mf .59   f .71   ff .85   fff 1.0
+
+Started from the conventional MIDI ladder (Finale/Sibelius defaults) but is deliberately NOT it: the
+gaps WIDEN toward the extremes (`pp`→`p` is .15 against `p`→`mp` at .12). Even velocity steps do not
+read as even loudness steps, and the outer marks should land as events while `p`..`f` is the ordinary
+working range. Flat spacing made `pp`/`ppp` hard to tell from `p`.
+
+⚠️ **`f` is 0.71 and must stay ≤ 0.77.** `playbackSchedule` does `Math.min(1, velocity * articulation)`
+and accent is ×1.3 — while `f` sat at 1.0, an accent on a forte note was arithmetically INAUDIBLE.
+Only `fff` may reach the ceiling. Known and accepted: accents clamp at `ff`/`fff`, which is
+unavoidable geometry (`fff` cannot both be full volume and leave room above it).
+
+⛔ **`sf` / `sfz` / `fp` / `rf` are NOT levels and must never get a velocity row.** A level is a
+SUSTAINED state governing every note until the next mark; those are momentary — an accent on one
+note, or loud-then-immediately-soft. A row would mean "everything from here on is sfz-loud". They
+engrave correctly and stay silent, carrying the previous level forward, which is the right fallback
+until accents get their own mechanism. **That is the next piece of work.**
+
+⚠️ `parseDynamicText` matches a run's WHOLE letters, so adding `ff` must not make `sffz`/`fz`
+interpretable — re-check that on every table change; a test guards it.
+
+## The Vue dynamics palette is gone
+
+Deleted (33 lines from `App.vue`). It hardcoded four of the eight levels, so it could not reach
+`pp`/`ppp`/`ff`/`fff` and presented `f` as the top of the range — a UI that misrepresents the model,
+which is worse than no UI. Its `Text` button was Ctrl+E exactly.
+
+`PaletteController.setDynamic` is KEPT with no caller but its tests: it is the tested half
+(arming, disarm-on-re-press, replacement, mutual exclusion, place-on-selection), it is not
+Vue-shaped, and it is the seam a Keypad dynamics page will call. A future palette must derive its
+rows from `DYNAMIC_VELOCITY` — the hardcoded list is exactly what made the old one wrong.

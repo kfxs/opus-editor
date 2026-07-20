@@ -1000,6 +1000,18 @@ export class PaletteController {
    * text). Mutually exclusive with the clef/time-signature tools, and switches to
    * the entry tool so canvas clicks are handled for placement.
    */
+  /**
+   * ⚠️ NO UI CALLS THIS RIGHT NOW — only the tests. That is deliberate, not rot: the Vue dynamics
+   * palette was deleted (it hardcoded four of the eight levels, so it could not reach pp/ppp/ff/fff
+   * and presented `f` as the top of the range), and its successor — a dynamics page on the
+   * framework-agnostic Keypad — is not built yet. Ctrl+E plus the Ctrl+<letter> glyph keys and the
+   * expressions palette cover placement meanwhile.
+   *
+   * KEEP IT. This is the seam that palette will call, it is the tested half of the behaviour
+   * (arming, disarm-on-re-press, replacement, mutual exclusion, place-on-selection), and none of it
+   * is Vue-shaped. A future palette should derive its rows from DYNAMIC_VELOCITY rather than listing
+   * levels by hand — the hardcoded list is exactly what made the old one wrong.
+   */
   setDynamic(value: DynamicTool): void {
     // Selection mode with a note/rest selected → place the dynamic directly at that
     // element's slot (no arm-and-click), the same way articulations/accidentals apply

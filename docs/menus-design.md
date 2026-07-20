@@ -182,3 +182,58 @@ built before the app has wired anything. The menu never learns about controllers
 learns the menu's shape — it only hands over the callback. This is the pattern the eventual menu bar
 should reuse. The command *behaviour* itself lives one place (e.g. `MouseController.insertExpression`),
 called by both the shortcut and the menu — never copied.
+
+## Palettes: columns, keyboard grid, and specimen labels
+
+The expression editor's word menu (Sibelius's term) made the primitive grow three things. All are
+opt-in — an ordinary single-column command menu is byte-for-byte the menu described above.
+
+**Columns.** A `{ columnBreak: true }` item, mirroring `separator`. Items stay ONE FLAT LIST, so
+building, measuring, hover intent and the keyboard's row order all keep working; a panel switches to
+flex columns only when a break is present. Placement needed no change at all — it is pure and
+size-driven, so a much wider panel already flips and clamps correctly.
+
+Columns are not decoration. Stacked, the expressions palette is ~29 rows and runs off the bottom of
+the viewport; side by side it is ~17 and fits. That is the whole argument.
+
+**The keyboard is a grid.** `↑/↓` walk a COLUMN, `←/→` cross columns. `RowRef` carries
+`{ column, row }` for this; for a single-stack menu every row is column 0, so it is unchanged.
+
+- The existing meanings WIN where a key had one. A row showing `▶` promised `→` opens it, so
+  `openHighlightedSubmenu()` reports whether it did and `→` only steps a column when it did not.
+  `←` still backs out of a flyout, and steps a column only on a root panel — where it did nothing
+  before. Both additions fill genuinely dead keys.
+- **Nothing wraps, in either axis.** Running off the bottom back to the top moves the highlight the
+  whole height of the panel opposite to the key: you lose your place, and at the foot of a long list
+  you cannot tell whether Down did nothing or did everything. Sideways is the same argument — the
+  columns are genuinely side by side. Ends clamp; a sideways step keeps its vertical position,
+  settling on the last row of a shorter column rather than landing on nothing.
+
+**The keyboard can own a menu.** Three highlight sources exist (`:hover`, the flyout owner, the
+arrow row) and only ONE may ever look like "the row Enter commits".
+
+- Arrow keys claim the menu: the layer takes `menu-layer-keyboard`, which hides the cursor and mutes
+  `:hover`. Control returns on real pointer movement, gated on DISTANCE from where the pointer sat —
+  a stationary mouse still emits events, and treating those as intent would undo the mode the moment
+  a flyout appeared under the cursor.
+- `pointerenter` fires when a panel opens UNDER a stationary pointer, so hover must **stand down
+  entirely** while the keyboard drives, not merely be restyled.
+- `MenuOptions.viaKeyboard` — a menu summoned by a KEYSTROKE starts in keyboard mode. Only the caller
+  knows which input asked; the layer cannot tell. Wire it at every keyboard entry point:
+  `installInsertMenu`'s Menu-key path is the worst offender, because it opens AT the last pointer
+  position, so the row under the pointer was guaranteed to light up as a selection the keyboard did
+  not own — leaving `→` doing nothing and `↓` starting from the top.
+- An arrow pressed at a freshly-opened menu must always DO something; from nowhere it lands on the
+  first row rather than being swallowed.
+
+**Specimen labels.** `labelFont?: 'music' | 'italic'` sets a label the way the score will engrave it
+— dynamics in Bravura (showing the PRECOMPOSED glyph, the exact character the engraver draws),
+expression words in the score's serif italic. On a palette the label is not decoration, it is the
+mark: a row reading `sfz` in the system font describes a dynamic, one reading the glyph is one. ONE
+field rather than a `music` and an `italic` flag, because a label set in both is nonsense and this
+makes it unspellable — the same reason `MenuItem` is a discriminated union at all. Leaf-only: a
+submenu is a word.
+
+⚠️ The italic stack is spelled in `MenuLayer`'s CSS rather than imported from the renderer's
+`DYNAMIC_TEXT_FONT`. A second place to edit if the score's expression face changes — accepted
+because `menus/` reaching into `engine/` would be a far worse coupling.

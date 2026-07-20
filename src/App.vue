@@ -275,37 +275,6 @@
             </button>
           </div>
 
-          <!-- Dynamics Tool -->
-          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">Dyn:</span>
-            <button
-              v-for="d in dynamicLevels"
-              :key="d"
-              :class="[
-                'px-2 py-1 rounded text-sm italic font-bold leading-none',
-                armedTool(state, 'dynamic')?.dynamic === d
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              :title="`${d} — click a beat to place it (drives playback loudness)`"
-              @click="palette.setDynamic(d)"
-            >
-              {{ d }}
-            </button>
-            <button
-              :class="[
-                'px-2 py-1 rounded text-sm leading-none',
-                armedTool(state, 'dynamic')?.dynamic === 'text'
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Custom italic text dynamic (silent) — places editable “Text” placeholder"
-              @click="palette.setDynamic('text')"
-            >
-              Text
-            </button>
-          </div>
-
           <!-- Tempo Tool — a word, a metronome mark, or both. System-level: one mark
                governs the whole score, whichever staff you click. -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
@@ -947,8 +916,6 @@ function isTimeSignatureArmed(ts: { numerator: number; denominator: number }): b
 // --- Dynamics tool ---
 // Interpreted levels drive playback loudness; the custom mark is silent italic text.
 // The custom mark drops a "Text" placeholder; editing it in place is a later feature.
-const dynamicLevels = ['p', 'mp', 'mf', 'f'] as const
-
 // --- Tempo tool ---
 // A tempo mark is ONE object with three display settings: a word, a metronome mark, or
 // both ("Allegro (♩ = 120)"). The word ALWAYS sounds — `showMetronome` decides only
