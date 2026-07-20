@@ -232,12 +232,50 @@ export class DomTextEdit implements TextEditDom {
     const r = range.getBoundingClientRect()
     if (r.height > CARET_MIN_HEIGHT_PX) return { left: r.left, top: r.top, height: r.height }
 
+    // A collapsed range at a node BOUNDARY — just after an inserted note glyph or a dynamics chip —
+    // often reports an empty rect. Recover the caret from the edge of a neighbouring character
+    // rather than falling through to the box edge below, which flings the caret to the END of what
+    // was actually a mid-string insert. (This is why a shortcut inserted mid-string looked like it
+    // jumped to the end — in BOTH the tempo and the expression editor.)
+    const boundary = this.boundaryCaretRect(range)
+    if (boundary) return boundary
+
     const box = el.getBoundingClientRect()
     if (box.height <= CARET_MIN_HEIGHT_PX) return null
-    // No rect of its own: sit at the box's start edge when it is empty, at its end otherwise — the
-    // two places a caret with nothing to measure against can legitimately be.
+    // Nothing to measure at all (an empty box): the start edge when empty, the end otherwise.
     const atEnd = (el.textContent ?? '').length > 0
     return { left: atEnd ? box.right : box.left, top: box.top, height: box.height }
+  }
+
+  /**
+   * The x/height of a collapsed range that has no rect of its own, taken from the character on one
+   * side of it: the RIGHT edge of the text just before the caret, else the LEFT edge of the text
+   * just after. Covers a caret inside a text node AND one at an element boundary (between child
+   * nodes — where `insertNodeAtCaret`'s `setStartAfter` leaves it). Null when neither side is text
+   * (an empty box, or a caret wedged between two non-text nodes) — the box fallback takes over.
+   */
+  private boundaryCaretRect(range: Range): { left: number; top: number; height: number } | null {
+    if (typeof document.createRange !== 'function') return null
+    const edge = (node: Node, from: number, to: number, side: 'left' | 'right') => {
+      const probe = document.createRange()
+      try { probe.setStart(node, from); probe.setEnd(node, to) } catch { return null }
+      const r = probe.getBoundingClientRect()
+      if (r.height <= CARET_MIN_HEIGHT_PX) return null
+      return { left: side === 'right' ? r.right : r.left, top: r.top, height: r.height }
+    }
+    const len = (n: Node) => n.textContent?.length ?? 0
+    const c = range.startContainer
+    const o = range.startOffset
+
+    if (c.nodeType === Node.TEXT_NODE) {
+      const before = o > 0 ? edge(c, 0, o, 'right') : null
+      return before ?? (o < len(c) ? edge(c, o, len(c), 'left') : null)
+    }
+    // Element container: the caret sits between children o-1 and o.
+    const prev = c.childNodes[o - 1]
+    const next = c.childNodes[o]
+    const fromPrev = prev?.nodeType === Node.TEXT_NODE ? edge(prev, 0, len(prev), 'right') : null
+    return fromPrev ?? (next?.nodeType === Node.TEXT_NODE ? edge(next, 0, len(next), 'left') : null)
   }
 
   /** The live caret, but only if it is actually inside this box — a range pointing anywhere else is
@@ -319,7 +357,9 @@ export class DomTextEdit implements TextEditDom {
   private matchInsertion(e: KeyboardEvent): TextEditInsertion | undefined {
     return this.opts?.insertions?.find(
       i =>
-        i.key.toLowerCase() === e.key.toLowerCase() &&
+        // `code` (the physical key) wins when set — the keypad, which `key` cannot distinguish from
+        // the top row; otherwise match the logical `key`, case-insensitively.
+        (i.code ? i.code === e.code : (i.key ?? '').toLowerCase() === e.key.toLowerCase()) &&
         // metaKey so the same binding reads as Cmd+F on macOS.
         !!i.ctrl === (e.ctrlKey || e.metaKey) &&
         !!i.shift === e.shiftKey &&

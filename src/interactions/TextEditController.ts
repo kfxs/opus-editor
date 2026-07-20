@@ -62,8 +62,16 @@ export interface EditableTextSource {
  * dynamic editor) and is absent everywhere else.
  */
 export interface TextEditInsertion {
-  /** `KeyboardEvent.key`, matched case-insensitively. */
-  key: string
+  /** `KeyboardEvent.key`, matched case-insensitively. Ignored when {@link code} is set. */
+  key?: string
+  /**
+   * `KeyboardEvent.code` — the PHYSICAL key, matched exactly. Use this for keys `key` cannot tell
+   * apart: the numeric KEYPAD (`Numpad1`…`Numpad9`, `NumpadDecimal`), whose digits share a `key`
+   * with the top row. That distinction matters here — the top-row `Ctrl+1…9` is the browser's own
+   * tab-switch, which a page cannot preventDefault, so a keypad shortcut is the only one that can
+   * actually fire. Independent of NumLock (the `code` is `Numpad1` either way).
+   */
+  code?: string
   /** Required modifier (Cmd on macOS is accepted for `ctrl`). */
   ctrl?: boolean
   shift?: boolean

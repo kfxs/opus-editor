@@ -62,15 +62,17 @@ const WORDS: readonly string[] = [
 ]
 
 /**
- * The note-value shortcuts, echoed from the picture — on the NUMERIC KEYPAD (its "Ctrl+NUMERO"),
- * not the top-row digits, so the label says `Ctrl+Num …`. The ladder reads shortest → longest:
- * fusa (32nd) = Ctrl+Num 1 up to redonda (whole) = Ctrl+Num 6. Display only for now — wiring them
- * needs numeric-keypad detection (`event.code === 'Numpad1'`), which is also WHY it must be the
- * keypad: plain top-row `Ctrl+1…6` is the browser's tab-switch and cannot be suppressed.
+ * The keypad NUMBER each note value binds to — the single source of truth for both the menu's
+ * shortcut LABEL (`Ctrl+Num N`) and the editor's actual key wiring
+ * ({@link TempoTextSource.getInsertions}, matching `Numpad N`), so the two can never drift. It must
+ * be the NUMERIC KEYPAD, not the top row: plain `Ctrl+1…6` is the browser's own tab-switch, which a
+ * page cannot suppress. Shortest → longest: fusa (32nd) on 1 up to redonda (whole) on 6.
  */
-const NOTE_SHORTCUT: Record<NoteDuration, string> = {
-  '32': 'Ctrl+Num 1', '16': 'Ctrl+Num 2', '8': 'Ctrl+Num 3', q: 'Ctrl+Num 4', h: 'Ctrl+Num 5', w: 'Ctrl+Num 6',
+export const NOTE_KEYPAD: Record<NoteDuration, number> = {
+  '32': 1, '16': 2, '8': 3, q: 4, h: 5, w: 6,
 }
+const NOTE_SHORTCUT: Record<NoteDuration, string> =
+  Object.fromEntries(Object.entries(NOTE_KEYPAD).map(([d, n]) => [d, `Ctrl+Num ${n}`])) as Record<NoteDuration, string>
 
 /**
  * The Bravura SMuFL glyphs the palette places, by name → codepoint, taken straight from the notation
@@ -80,7 +82,7 @@ const NOTE_SHORTCUT: Record<NoteDuration, string> = {
  * tempo / rehearsal text, which is this palette's whole job; the modulation arrows have their own
  * dedicated glyphs.
  */
-const GLYPH = {
+export const GLYPH = {
   arrowRight: '\uEC64',        // metricModulationArrowRight
   arrowLeft: '\uEC63',         // metricModulationArrowLeft
   dot: '\uECB7',               // metAugmentationDot — matches the dot TempoLayout engraves (ECB7)

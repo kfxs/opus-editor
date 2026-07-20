@@ -7,61 +7,84 @@ type Leaf = Extract<MenuItem, { onSelect: () => void }>
 const isLeaf = (i: MenuItem): i is Leaf => 'onSelect' in i
 
 /**
- * The tempo word menu carries three kinds of row, and the one subtlety worth pinning is the
- * note-value split: the row you SEE is the SMuFL metronome specimen, but what it INSERTS is the
- * Unicode note `parseTempoText` reads back. Confuse the two and the menu would drop a private-use
- * codepoint into the string that the parser can't see as a unit. Words and arrows are inserted
- * verbatim, so their label is what they place.
+ * The trimmed tempo menu: two columns — the Italian words, then the note-value ladder plus the
+ * modulation building blocks and the eszett. The subtlety worth pinning is the note-value split:
+ * a note row SHOWS its SMuFL metronome specimen but INSERTS the Unicode note char parseTempoText
+ * reads back — confuse them and the parser gets a private-use codepoint it can't see as a unit.
  */
 describe('buildTempoMenu', () => {
+  // Build once with a spy; a row's insertion is read by selecting it.
+  const build = () => {
+    const text = vi.fn()
+    return { menu: buildTempoMenu({ text }), text }
+  }
   const leaves = (menu: MenuItem[]) => menu.filter(isLeaf)
+  const insertOf = (text: ReturnType<typeof vi.fn>, row: Leaf): string | undefined => {
+    text.mockClear()
+    row.onSelect()
+    const calls = text.mock.calls
+    return calls.length ? calls[calls.length - 1][0] : undefined
+  }
+  const noteChars = new Set(Object.values(UNIT_GLYPH))
 
-  it('lays out two columns: words, then note values and arrows', () => {
-    const menu = buildTempoMenu({ text: vi.fn() })
+  it('lays the palette out in TWO columns with two dividers', () => {
+    const { menu } = build()
     expect(menu.filter(isColumnBreak)).toHaveLength(1)
-    expect(menu.filter(isSeparator)).toHaveLength(1) // between the note values and the arrows
+    expect(menu.filter(isSeparator)).toHaveLength(2)
   })
 
   it('offers the Italian tempo words BOLD and inserts them verbatim', () => {
-    const text = vi.fn()
-    const words = leaves(buildTempoMenu({ text })).filter(i => i.labelFont === 'bold')
-    expect(words).toHaveLength(19)
-    // A representative sample must be present, each inserting exactly its own label.
+    const { menu, text } = build()
+    const words = leaves(menu).filter(i => i.labelFont === 'bold')
     for (const w of ['Allegro', 'Moderato', 'A tempo', 'Meno mosso', 'Tempo primo']) {
       const row = words.find(i => i.label === w)
-      expect(row, `"${w}" row`).toBeDefined()
-      row!.onSelect()
-      expect(text).toHaveBeenLastCalledWith(w)
+      expect(row, `"${w}"`).toBeDefined()
+      expect(insertOf(text, row!)).toBe(w)
     }
   })
 
-  it('inserts the Unicode note character, not the specimen glyph on the label', () => {
-    const text = vi.fn()
-    const menu = leaves(buildTempoMenu({ text }))
-    const notes = menu.filter(i => i.labelFont === 'music')
-    expect(notes).toHaveLength(6)
-    // The label is the SMuFL metronome glyph, never the Unicode ♩ — so this is a real distinction.
-    expect(notes.some(i => i.label === UNIT_GLYPH.q)).toBe(false)
+  it('keeps only the German eszett from the accent bank, and sets it bold', () => {
+    const { menu, text } = build()
+    const row = leaves(menu).find(i => i.label === 'ß')
+    expect(row).toBeDefined()
+    expect(row!.labelFont).toBe('bold')
+    expect(insertOf(text, row!)).toBe('ß')
+    // The French/Italian accents and the curly quotes/em dash were dropped.
+    for (const ch of ['à', 'é', 'ü', '‘', '—']) {
+      expect(leaves(menu).some(i => i.label === ch), ch).toBe(false)
+    }
+  })
 
-    notes.forEach(i => i.onSelect())
-    expect(text.mock.calls.map(c => c[0])).toEqual([
-      UNIT_GLYPH.w, UNIT_GLYPH.h, UNIT_GLYPH.q, UNIT_GLYPH['8'], UNIT_GLYPH['16'], UNIT_GLYPH['32'],
+  it('drops every metronome note value as its Unicode note char, not the specimen glyph', () => {
+    const { menu, text } = build()
+    // The note-value LABEL is the SMuFL specimen, never the Unicode ♩ — so this is a real split.
+    const noteStyle = leaves(menu).filter(i => i.labelFont === 'note')
+    expect(noteStyle.some(i => i.label === UNIT_GLYPH.q)).toBe(false)
+    const dropped = new Set(leaves(menu).map(i => insertOf(text, i)))
+    for (const g of noteChars) expect(dropped.has(g), g).toBe(true)
+  })
+
+  it('orders the note ladder shortest → longest (fusa … redonda)', () => {
+    const { menu, text } = build()
+    const ladder = leaves(menu).map(i => insertOf(text, i)).filter((s): s is string => noteChars.has(s!))
+    expect(ladder).toEqual([
+      UNIT_GLYPH['32'], UNIT_GLYPH['16'], UNIT_GLYPH['8'], UNIT_GLYPH.q, UNIT_GLYPH.h, UNIT_GLYPH.w,
     ])
   })
 
-  it('labels the note values with the picture’s keypad shortcuts, whole = Ctrl+6', () => {
-    const notes = leaves(buildTempoMenu({ text: vi.fn() })).filter(i => i.labelFont === 'music')
-    // Whole is the longest note and the highest number; the 32nd is Ctrl+1.
-    expect(notes[0].shortcut).toBe('Ctrl+6') // whole (first row)
-    expect(notes[notes.length - 1].shortcut).toBe('Ctrl+1') // 32nd (last row)
+  it('labels the ladder with NUMERIC-KEYPAD shortcuts: fusa = Ctrl+Num 1, redonda = Ctrl+Num 6', () => {
+    const { menu, text } = build()
+    const byInsert = (glyph: string) => leaves(menu).find(i => insertOf(text, i) === glyph)
+    expect(byInsert(UNIT_GLYPH['32'])?.shortcut).toBe('Ctrl+Num 1') // fusa (32nd), top of the ladder
+    expect(byInsert(UNIT_GLYPH.w)?.shortcut).toBe('Ctrl+Num 6')     // redonda (whole), bottom
   })
 
-  it('offers the two metric-modulation arrows, with shortcuts, inserted verbatim', () => {
-    const text = vi.fn()
-    const arrows = leaves(buildTempoMenu({ text })).filter(i => i.label === '←' || i.label === '→')
-    expect(arrows).toHaveLength(2)
-    expect(arrows.map(i => i.shortcut)).toEqual(['Ctrl+¡', "Ctrl+'"])
-    arrows.forEach(i => i.onSelect())
-    expect(text.mock.calls.map(c => c[0])).toEqual(['←', '→'])
+  it('inserts the metric-modulation equation with its ♩/♪ notes intact', () => {
+    const { menu, text } = build()
+    // The equation's label shows Bravura; what it DROPS keeps the parseable ♩ = ♪ so the mark engraves.
+    const eq = leaves(menu).map(i => insertOf(text, i)).find(s => s?.includes(' = ') && s.includes(UNIT_GLYPH.q))
+    expect(eq, 'equation row').toBeDefined()
+    expect(eq).toContain(UNIT_GLYPH.q)
+    expect(eq).toContain(UNIT_GLYPH['8'])
   })
 })

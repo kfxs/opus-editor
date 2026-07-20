@@ -1,9 +1,16 @@
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { EditableTextSource, TextEditInsert } from './TextEditController'
+import type { NoteDuration } from '../types/music'
+import type { EditableTextSource, TextEditInsert, TextEditInsertion } from './TextEditController'
 import type { MenuItem } from '../menus/MenuItem'
-import { buildTempoMenu } from '../menus/tempoMenu'
-import { parseTempoText } from '../utils/tempoText'
+import { buildTempoMenu, GLYPH, NOTE_KEYPAD } from '../menus/tempoMenu'
+import { parseTempoText, UNIT_GLYPH } from '../utils/tempoText'
 import { MIN_BPM, MAX_BPM } from '../utils/tempoMap'
+
+/** Minimal escape for the fixed characters the shortcuts insert (a note glyph, '.', an arrow). None
+ *  contain markup, but the value is assigned as innerHTML, so treat it as untrusted-shaped anyway. */
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
 
 /**
  * Fallback font, used only if the engraved mark can't be measured (it always can in a real
@@ -175,6 +182,30 @@ export class TempoTextSource implements EditableTextSource {
    */
   getContextMenu(insert: TextEditInsert): MenuItem[] {
     return buildTempoMenu({ text: s => insert.text(s) })
+  }
+
+  /**
+   * The tempo menu's keyboard shortcuts, wired for real — the twin of {@link DynamicTextSource}'s
+   * `getInsertions`, which is why Ctrl+P works in the dynamics editor and (until now) nothing worked
+   * here: the labels were shown but never bound.
+   *
+   * Each drops the SAME character the matching menu row does — a note glyph, the augmentation dot,
+   * a modulation arrow — as ordinary text (the mark IS its text). The note ladder and the dot are on
+   * the NUMERIC KEYPAD, matched by `event.code` ({@link NOTE_KEYPAD} is the shared source of the
+   * numbers), because their top-row twins are the browser's tab-switch. The arrows are ordinary
+   * `Ctrl+` keys. The triplet's `Ctrl+3` is deliberately NOT here: top-row Ctrl+3 is the browser's
+   * and cannot be taken, so it stays a menu label only.
+   */
+  getInsertions(): TextEditInsertion[] {
+    const notes = (Object.entries(NOTE_KEYPAD) as [NoteDuration, number][]).map(
+      ([d, n]): TextEditInsertion => ({ code: `Numpad${n}`, ctrl: true, html: escapeHtml(UNIT_GLYPH[d]) }),
+    )
+    return [
+      ...notes,
+      { code: 'NumpadDecimal', ctrl: true, html: '.' },          // Ctrl+Num . — augmentation dot
+      { key: "'", ctrl: true, html: escapeHtml(GLYPH.arrowRight) }, // → (metric-modulation arrow)
+      { key: '¡', ctrl: true, html: escapeHtml(GLYPH.arrowLeft) },  // ←
+    ]
   }
 
   /** Fallback only: map the mark's SVG-space registry bbox into viewport pixels. */
