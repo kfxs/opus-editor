@@ -1,7 +1,7 @@
 import type { EditorState } from './EditorState'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EngravingOverride, Note, Score } from '../types/music'
-import { restPositionKey } from '../engine/models/engravingOverrides'
+import { cautionaryKey, restPositionKey } from '../engine/models/engravingOverrides'
 import { selectedNoteIds } from './selection'
 
 /**
@@ -153,6 +153,10 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
     out.push({
       kind: 'timeSignature',
       data: { measure: state.selectedTimeSignatureMeasure, timeSignature: measure?.timeSignature },
+      // Its overrides answer to a key of their OWN (`caution:<measureId>`), not to the measure id
+      // and not to a position key — so a kind that looks up nothing shows nothing, which is exactly
+      // what this did until a selected meter turned out to have a cautionary flag worth seeing.
+      overrides: overridesAt(score, measure ? cautionaryKey(measure.id) : undefined),
     })
   }
 

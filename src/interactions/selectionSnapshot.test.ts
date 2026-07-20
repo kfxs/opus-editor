@@ -104,6 +104,15 @@ describe('selectedElements — engraving overrides', () => {
     expect(selectedElements(state, engine)[0].overrides).toEqual([{ kind: 'restShift' }])
   })
 
+  // Each KIND has to be wired to its own key: the positional ones (clef, time signature) answer to
+  // neither an element id nor a rest position key, so they silently reported nothing until asked.
+  it('finds a time signature override under the cautionary key', () => {
+    const state = createEditorState()
+    state.selectedTimeSignatureMeasure = 1
+    const engine = engineWith({}, { 'caution:m1': [{ kind: 'cautionary' }] })
+    expect(selectedElements(state, engine)[0].overrides).toEqual([{ kind: 'cautionary' }])
+  })
+
   it('omits the field entirely when the element has none', () => {
     const state = createEditorState()
     state.selectedNoteId = 'n1'
