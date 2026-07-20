@@ -181,6 +181,11 @@ type RowItem = Exclude<MenuItem, { columnBreak: true }>
 interface RowRef {
   el: HTMLElement
   item: SelectableItem
+  /** Which column it sits in (0 for an ordinary single-stack menu) and how far down that column.
+   *  Together these make `rows` a GRID the arrows can walk, while it stays a flat list in reading
+   *  order for everything else — building, hovering, committing. */
+  column: number
+  row: number
 }
 
 /** One open panel in the chain: root at depth 0, its flyout at 1, and so on. */
@@ -199,6 +204,16 @@ export interface MenuOptions {
   x: number
   y: number
   items: MenuItem[]
+  /**
+   * Opened by a KEYSTROKE rather than a click. The menu then starts in keyboard mode: cursor hidden,
+   * hover muted, from the moment it appears.
+   *
+   * Without this, a menu summoned by a key lands under wherever the mouse happened to be resting and
+   * that row lights up — a selection the keyboard does not own and cannot act on, so the first arrow
+   * press appears to jump somewhere else entirely. Whoever opens the menu knows which input asked
+   * for it; the layer cannot tell.
+   */
+  viaKeyboard?: boolean
 }
 
 export class MenuLayer {
@@ -284,6 +299,9 @@ export class MenuLayer {
     this.scrim = scrim
 
     this.pushPanel(opts.items, null, (size) => placeRoot({ x: opts.x, y: opts.y }, size, this.bounds()))
+    // After pushPanel, so the class lands on a layer that already holds the panel — and after the
+    // close() above, which clears the mode from any previous menu.
+    if (opts.viaKeyboard) this.setKeyboardMode(true)
   }
 
   close = (): void => {
@@ -325,14 +343,18 @@ export class MenuLayer {
       sink = this.startColumn(el)
     }
 
+    let column = 0
+    let rowInColumn = 0
     for (const item of items) {
       if (isColumnBreak(item)) {
         sink = this.startColumn(el)
+        column++
+        rowInColumn = 0
         continue
       }
       const rowEl = this.buildRow(item, depth)
       sink.appendChild(rowEl)
-      if (!isSeparator(item)) rows.push({ el: rowEl, item })
+      if (!isSeparator(item)) rows.push({ el: rowEl, item, column, row: rowInColumn++ })
     }
 
     // Off-screen for the measure, so a panel is never seen at 0,0 before it is placed.
@@ -477,7 +499,10 @@ export class MenuLayer {
     this.pointerAt = { x: e.clientX, y: e.clientY }
     if (!this.keyboardMode) return
     const from = this.pointerArmedAt
-    if (!from) { this.setKeyboardMode(false); return }
+    // No baseline yet — the menu was opened from the keyboard before the pointer had ever reported
+    // in. Adopt this position as the baseline instead of treating it as movement, or the first
+    // stray event would hand control to a mouse that has not been touched.
+    if (!from) { this.pointerArmedAt = this.pointerAt; return }
     if (Math.abs(e.clientX - from.x) + Math.abs(e.clientY - from.y) > POINTER_WAKE_PX) {
       this.setKeyboardMode(false)
     }
@@ -508,26 +533,80 @@ export class MenuLayer {
     }
   }
 
-  /** Walk the highlight down (+1) or up (-1) the deepest panel, wrapping and skipping nothing —
-   *  separators were never put in `rows`. From nowhere, down lands on the first row, up on the last. */
+  /** Indices into `panel.rows` of one column, top to bottom. */
+  private columnIndices(panel: Panel, column: number): number[] {
+    const out: number[] = []
+    panel.rows.forEach((r, i) => { if (r.column === column) out.push(i) })
+    return out
+  }
+
+  /**
+   * Walk the highlight down (+1) or up (-1), WITHIN THE CURRENT COLUMN, skipping nothing —
+   * separators were never put in `rows`. From nowhere, down lands on the first row, up on the last.
+   *
+   * STOPS at the ends; it does not wrap. A menu is a list you read down, and running off the bottom
+   * back to the top moves the highlight the entire height of the panel in the direction opposite to
+   * the key — you lose your place, and at the foot of a long list you cannot tell whether Down did
+   * nothing or did everything. The same reasoning already governs ←/→ across columns: nothing in
+   * this grid wraps, in either axis.
+   *
+   * Column-scoped rather than walking the flat list, because ←/→ are what cross columns: if Down
+   * ALSO fell into the next column, two different keys would do the same thing and the panel would
+   * stop reading as a grid. For an ordinary single-stack menu every row is in column 0, so this is
+   * simply "the list".
+   */
   private moveHighlight(delta: number): void {
     const panel = this.deepest()
     if (!panel || panel.rows.length === 0) return
-    const n = panel.rows.length
-    const next = panel.highlight === -1 ? (delta > 0 ? 0 : n - 1) : (panel.highlight + delta + n) % n
-    this.setHighlight(panel, next)
+    if (panel.highlight === -1) {
+      this.setHighlight(panel, delta > 0 ? 0 : panel.rows.length - 1)
+      return
+    }
+    const indices = this.columnIndices(panel, panel.rows[panel.highlight].column)
+    const at = indices.indexOf(panel.highlight)
+    const next = Math.max(0, Math.min(indices.length - 1, at + delta))
+    this.setHighlight(panel, indices[next])
   }
 
-  /** Open the flyout of the highlighted row, if it is a submenu, and land on its first row. */
-  private openHighlightedSubmenu(): void {
+  /**
+   * Move one column left (-1) or right (+1), keeping the vertical position — clamped to the end of a
+   * shorter column, so a sideways step never lands on nothing. Returns false when there is no such
+   * column, which is what lets ←/→ fall back to their submenu meanings.
+   *
+   * Like Up/Down, this STOPS rather than wrapping — the rows are genuinely side by side on screen,
+   * and jumping from the last column back to the first would fling the highlight the full width of
+   * the panel in the direction opposite to the key.
+   */
+  private moveColumn(delta: number): boolean {
     const panel = this.deepest()
-    if (!panel || panel.highlight < 0) return
+    if (!panel || panel.rows.length === 0) return false
+    // From nowhere, a sideways key lands on the first row rather than being swallowed. Pressing an
+    // arrow at a menu that has just opened must always DO something — the alternative is a key that
+    // silently no-ops while a hovered row sits there looking selected.
+    if (panel.highlight < 0) {
+      this.setHighlight(panel, 0)
+      return true
+    }
+    const current = panel.rows[panel.highlight]
+    const indices = this.columnIndices(panel, current.column + delta)
+    if (indices.length === 0) return false
+    this.setHighlight(panel, indices[Math.min(current.row, indices.length - 1)])
+    return true
+  }
+
+  /** Open the flyout of the highlighted row, if it is a submenu, and land on its first row.
+   *  Returns whether it actually opened one — Right uses that to decide if it should instead move a
+   *  column, so a submenu row keeps its arrow's promise and every other row gets the grid. */
+  private openHighlightedSubmenu(): boolean {
+    const panel = this.deepest()
+    if (!panel || panel.highlight < 0) return false
     const { el, item } = panel.rows[panel.highlight]
-    if (!isSubmenu(item)) return
+    if (!isSubmenu(item)) return false
     const depth = this.chain.length - 1
     this.openSubmenu(item.items, el, depth)
     const flyout = this.chain[depth + 1]
     if (flyout) this.setHighlight(flyout, 0)
+    return true
   }
 
   /** Enter: a submenu opens (same as Right), a leaf commits. Nothing highlighted → nothing happens. */
@@ -543,9 +622,10 @@ export class MenuLayer {
    * The whole keyboard for an open menu. Every branch stops the event: an open menu OWNS the arrows
    * and Enter, so they never also scroll the page or fall through to an editing shortcut.
    *
-   *   ↓/↑     move the highlight within the front panel (wraps)
-   *   →/Enter open the highlighted submenu (Enter also commits a leaf)
-   *   ←       back out of a flyout to its parent (nothing to do on the root)
+   *   ↓/↑     move the highlight within the current COLUMN of the front panel (stops at the ends)
+   *   →       open the highlighted submenu; failing that, step to the next column (clamped)
+   *   ←       back out of a flyout to its parent; on a root panel, step to the previous column
+   *   Enter   open the highlighted submenu, or commit a leaf
    *   Escape  close ONE level — the flyout you are in, not the whole chain you were reading
    */
   private onKeyDown = (e: KeyboardEvent): void => {
@@ -564,10 +644,15 @@ export class MenuLayer {
         this.moveHighlight(-1)
         break
       case 'ArrowRight':
-        this.openHighlightedSubmenu()
+        // The submenu meaning WINS. A row showing ▶ has promised Right opens it, and that promise
+        // outranks the grid; every other row has nothing to open, so Right is free to move a column.
+        if (!this.openHighlightedSubmenu()) this.moveColumn(1)
         break
       case 'ArrowLeft':
+        // Likewise: inside a flyout, Left means "back out" — that is the way you came in. Only on a
+        // root panel, where Left previously did nothing at all, does it step a column.
         if (this.chain.length > 1) this.popPanel()
+        else this.moveColumn(-1)
         break
       case 'Enter':
         this.commitHighlighted()

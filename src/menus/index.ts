@@ -34,9 +34,14 @@ windows.whenMounted((host) => {
  * the window layer donated), so anything working in client pixels — a `position: fixed` overlay, a
  * raw MouseEvent — converts here rather than each caller rediscovering the offset.
  */
-export function openMenuAtViewport(x: number, y: number, items: MenuItem[]): void {
+export function openMenuAtViewport(
+  x: number,
+  y: number,
+  items: MenuItem[],
+  opts: { viaKeyboard?: boolean } = {},
+): void {
   const host = menus.host
   if (!host) return
   const box = host.getBoundingClientRect()
-  menus.open({ x: x - box.left, y: y - box.top, items })
+  menus.open({ x: x - box.left, y: y - box.top, items, viaKeyboard: opts.viaKeyboard })
 }

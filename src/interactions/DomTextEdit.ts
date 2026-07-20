@@ -4,7 +4,7 @@ import { textFirstFamily } from '../utils/fontStack'
 
 /** Opens a menu at VIEWPORT coordinates. Injected (see the constructor) rather than imported, so
  *  this class keeps depending on nothing but the DOM. */
-export type MenuOpener = (x: number, y: number, items: MenuItem[]) => void
+export type MenuOpener = (x: number, y: number, items: MenuItem[], opts?: { viaKeyboard?: boolean }) => void
 
 /** Below this, a measured rect is treated as "no rect" rather than a real one. A collapsed range
  *  frequently reports a zero-height box, and trusting it parks the caret at 0,0 in the corner of the
@@ -169,7 +169,7 @@ export class DomTextEdit implements TextEditDom {
    * ask for it — right-click and the Menu key — so they can never drift apart, and so the menu lands
    * in the same place whichever one you used.
    */
-  private openWordMenu(): void {
+  private openWordMenu(viaKeyboard = false): void {
     const build = this.opts?.buildContextMenu
     const el = this.el
     if (!build || !this.openMenu || !el) return
@@ -181,7 +181,7 @@ export class DomTextEdit implements TextEditDom {
     this.openMenu(box?.left ?? 0, box?.bottom ?? 0, build({
       text: (t) => this.insertAtSavedCaret(() => document.createTextNode(t)),
       html: (h) => this.insertAtSavedCaret(() => this.fragmentFromHtml(h)),
-    }))
+    }), { viaKeyboard })
   }
 
   /**
@@ -300,7 +300,7 @@ export class DomTextEdit implements TextEditDom {
       // handler is on the overlay, so stopping propagation is enough to keep the Insert menu away.)
       e.preventDefault()
       e.stopPropagation()
-      this.openWordMenu()
+      this.openWordMenu(true) // summoned by the Menu key: the mouse must not pre-select anything
       return
     }
 

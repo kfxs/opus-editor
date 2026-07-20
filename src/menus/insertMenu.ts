@@ -94,9 +94,9 @@ export function installInsertMenu(host: HTMLElement, menus: MenuLayer, actions: 
   // Host-relative coordinates the menu will open at. The mouse path overwrites this with the real
   // click; the key path has no pointer of its own, so it reuses wherever the cursor last was over
   // the score (host centre until the pointer has ever been there).
-  const openAt = (x: number, y: number): void => {
+  const openAt = (x: number, y: number, viaKeyboard = false): void => {
     const box = host.getBoundingClientRect()
-    menus.open({ x: x - box.left, y: y - box.top, items })
+    menus.open({ x: x - box.left, y: y - box.top, items, viaKeyboard })
   }
 
   let lastPointer: { x: number; y: number } | null = null
@@ -114,11 +114,13 @@ export function installInsertMenu(host: HTMLElement, menus: MenuLayer, actions: 
   document.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key !== 'ContextMenu') return
     e.preventDefault()
+    // viaKeyboard: the menu opens AT the last pointer position, so without it the row under that
+    // very pointer would light up as a selection the keyboard does not own.
     if (lastPointer) {
-      openAt(lastPointer.x, lastPointer.y)
+      openAt(lastPointer.x, lastPointer.y, true)
     } else {
       const box = host.getBoundingClientRect()
-      openAt(box.left + box.width / 2, box.top + box.height / 2)
+      openAt(box.left + box.width / 2, box.top + box.height / 2, true)
     }
   })
 }
