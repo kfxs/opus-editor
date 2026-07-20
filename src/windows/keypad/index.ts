@@ -29,7 +29,10 @@ export function openKeypadWindow(windows: WindowLayer): Window {
   keypad = windows.open({
     title: 'Keypad',
     x,
-    y: 150,
+    // Low in the box, not level with the first system: the top of the viewport is where the music
+    // being edited usually is, and a panel that opens over it hides the very thing you are typing
+    // into. Clamped by the layer if the viewport is ever shorter than this.
+    y: 260,
     width: KEYPAD_WIDTH,
     // Its own floor, or the DEFAULT floor (160) silently widens it: `fitContent` resizes through
     // `setSize`, which clamps to minWidth, and the extra pixels all land on the right — the panel

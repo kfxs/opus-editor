@@ -1,5 +1,6 @@
 import { WindowLayer } from './WindowLayer'
 import { installKeypad } from './keypad'
+import { installProperties } from './properties'
 
 /**
  * The app's one window layer.
@@ -21,3 +22,6 @@ export const windows = new WindowLayer()
 
 /** The Keypad: up on startup, toggled by Ctrl+Alt+K. Wired here, not in App.vue — see above. */
 installKeypad(windows)
+
+/** Properties: NOT up on startup (it is still empty), toggled by Ctrl+Alt+P. Same deal. */
+installProperties(windows)

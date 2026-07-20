@@ -108,9 +108,51 @@ export class MusicEngine {
    *  after a real change, not on every paint. Starts true so the first render repairs. */
   private modelDirty = true
 
+  /** Anything that must be told the SCORE changed — as opposed to the editor's selection, which
+   *  `EditorState.subscribe` already publishes. See {@link onModelChange}. */
+  private modelListeners = new Set<() => void>()
+  /** One notification per turn, however many mutations it took. See {@link onModelChange}. */
+  private modelNotifyScheduled = false
+
   /** Mark the data model as changed so the next render repairs measure gaps. */
   private markModelDirty(): void {
     this.modelDirty = true
+    this.scheduleModelNotify()
+  }
+
+  /**
+   * Tell me when the SCORE changed.
+   *
+   * The editor already publishes when the *selection* changes (`EditorState.subscribe`), and for a
+   * long time that was enough, because everything watching was watching the selection. It is not
+   * enough for anything that displays the selected element's CONTENTS: retuning a selected rest
+   * changes the model and not the selection, so a selection-only subscriber never hears about the
+   * edit — and worse, the one state change it does hear (`selectedDuration`) fires BEFORE the
+   * mutation, so it reads the note in its old state and then goes quiet. That is the Properties
+   * window's stale-dump bug, and it belongs here rather than in a workaround at the panel.
+   *
+   * Delivery is deferred to a microtask, deliberately, and that is what makes it safe to use:
+   *
+   * - **Ordering.** Mutators mark dirty through `saveUndoState`, which some call before the write
+   *     and some after. A synchronous notification would therefore sometimes fire mid-edit, and
+   *     every listener would need to know which. Deferred, the model is always settled.
+   * - **Coalescing.** A `runBatch` of forty edits marks dirty forty times and notifies once.
+   *
+   * Listeners must READ ONLY. Mutating the score from one re-enters this in a way nothing here
+   * defends against; if a listener needs to edit, it wants a command, not a notification.
+   */
+  onModelChange(fn: () => void): () => void {
+    this.modelListeners.add(fn)
+    return () => this.modelListeners.delete(fn)
+  }
+
+  private scheduleModelNotify(): void {
+    if (this.modelNotifyScheduled || this.modelListeners.size === 0) return
+    this.modelNotifyScheduled = true
+    queueMicrotask(() => {
+      this.modelNotifyScheduled = false
+      for (const fn of this.modelListeners) fn()
+    })
   }
 
   /** The view state as of the last full render — half of {@link isRenderStale}'s key. */

@@ -696,6 +696,7 @@ import { ClipboardController } from './interactions/ClipboardController'
 import { windows } from './windows'
 import { menuActions } from './menus'
 import { wireKeypadSync, noNoteInSelection } from './interactions/keypadSync'
+import { wireSelectionInspection } from './interactions/selectionInspectionSync'
 import { openLoremWindow } from './windows/demo/loremWindows'
 import { isValidTimeSignature } from './utils/meter'
 import { getMeasureDurationFrac } from './utils/musicUtils'
@@ -861,6 +862,10 @@ const highlightedDuration = computed<NoteDuration | null>(() =>
 // highlight rules and press routes moved into interactions/keypadSync — no Vue in the Keypad's loop.
 // When the Vue palette goes, this one call stays; only its `subscribe` argument loses the Vue wrapper.
 const stopKeypadSync = wireKeypadSync(state, palette, onStateChange)
+
+// The Properties window's feed: the selection, resolved to the objects behind it. Same shape as the
+// line above — a plain-TS wire over the state's own change-notification, no Vue in its loop.
+const stopSelectionInspection = wireSelectionInspection(state, () => engine.value, onStateChange)
 
 // --- Computed ---
 // Dev-only Score JSON viewer. The engine's ScoreModel isn't a Vue reactive object, so a
@@ -1204,6 +1209,7 @@ onUnmounted(() => {
   window.removeEventListener('wheel', handleZoomWheel)
   shortcuts.disable()
   stopKeypadSync()
+  stopSelectionInspection()
   windows.destroy()
   if (engine.value) {
     engine.value.dispose()
