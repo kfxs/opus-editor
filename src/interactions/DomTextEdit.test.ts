@@ -10,7 +10,7 @@ function mountOpts(over: Partial<Parameters<DomTextEdit['mount']>[0]> = {}) {
     rect: { x: 10, y: 10, width: 40, height: 20 },
     font: { fontFamily: 'serif', fontSize: '14pt', fontStyle: 'italic', color: '#000' },
     onCommit: vi.fn(),
-    onCancel: vi.fn(),
+    onEscape: vi.fn(),
     ...over,
   }
 }
@@ -215,7 +215,7 @@ describe('DomTextEdit word menu', () => {
 
     const esc = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
     overlay().dispatchEvent(esc)
-    expect(opts.onCancel).not.toHaveBeenCalled() // Escape closes the MENU, not the edit
+    expect(opts.onEscape).not.toHaveBeenCalled() // Escape closes the MENU, not the edit
   })
 
   it('takes the keyboard back once the menu is gone', () => {

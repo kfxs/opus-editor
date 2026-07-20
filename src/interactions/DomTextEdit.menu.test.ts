@@ -19,7 +19,7 @@ function mountOpts(over: Partial<Parameters<DomTextEdit['mount']>[0]> = {}) {
     rect: { x: 10, y: 10, width: 40, height: 20 },
     font: { fontFamily: 'serif', fontSize: '14pt', fontStyle: 'italic', color: '#000' },
     onCommit: vi.fn(),
-    onCancel: vi.fn(),
+    onEscape: vi.fn(),
     ...over,
   }
 }

@@ -106,8 +106,9 @@ export interface TextEditMountOptions {
   font: { fontFamily: string; fontSize: string; fontStyle: string; color: string; fontWeight?: string }
   /** Called by the DOM layer on Enter / click-away. */
   onCommit: () => void
-  /** Called by the DOM layer on Escape. */
-  onCancel: () => void
+  /** Called by the DOM layer on Escape. Escape FINISHES the edit — see
+   *  {@link TextEditController.escape} for what that means and why it is not a cancel. */
+  onEscape: () => void
 }
 
 /**
@@ -123,9 +124,20 @@ export interface TextEditDom {
 }
 
 /**
+ * Compare two texts the way the SOURCES will read them, so "did this change?" agrees with what a
+ * commit would actually write: the box hands back non-breaking spaces where the user typed plain
+ * ones, and every source trims. Without this, opening a mark and touching nothing could still count
+ * as an edit.
+ */
+function normalizeText(text: string): string {
+  return text.replace(/\u00A0/g, ' ').trim()
+}
+
+/**
  * Framework-agnostic in-canvas text editor. Drives a seamless DOM overlay over an
  * engraved mark: open seeds + shows the overlay and hides the original; Enter /
- * click-away commits; Escape cancels; close restores and clears state.
+ * click-away commits; Escape FINISHES (commits a changed text, cancels an untouched one — see
+ * {@link escape}); close restores and clears state.
  *
  * It owns *no* knowledge of the score model — that lives in the {@link EditableTextSource}.
  * The overlay's DOM lives in {@link TextEditDom} (injected) so this class stays pure.
@@ -160,7 +172,7 @@ export class TextEditController {
       buildContextMenu: source.getContextMenu ? (insert) => source.getContextMenu!(insert) : undefined,
       font: source.getFontCSS(),
       onCommit: () => this.commit(),
-      onCancel: () => this.cancel(),
+      onEscape: () => this.escape(),
     })
   }
 
@@ -174,10 +186,33 @@ export class TextEditController {
     source.commit(text)
   }
 
-  /** Abandon the edit (Escape). Closes, then lets the source restore itself. */
-  cancel(): void {
+  /**
+   * Escape — FINISH the edit, which is not the same as abandoning it.
+   *
+   * Escape used to throw the typing away, and losing a phrase you had just typed because you
+   * reached for the key that means "I'm done" is not a trade anyone would take. Sibelius ends text
+   * entry on Escape and keeps the text; so do we.
+   *
+   * Whether there was "an edit" is answered by the TEXT — what is in the box versus what seeded it
+   * — and never by tracking keystrokes: a dirty flag is state that can drift, and this cannot.
+   *
+   *   - **Changed** → commit it, exactly as Enter would. Clearing the text and pressing Escape
+   *     therefore deletes the mark, because {@link commit} already reads empty as "remove" — the
+   *     same meaning it has on Enter, so the two keys never disagree.
+   *   - **Untouched** → cancel, and the source restores itself. This is what makes a freshly placed
+   *     blank mark vanish when you change your mind, and it is why an untouched existing mark
+   *     writes NOTHING: committing identical text would push an undo entry for a no-op.
+   *
+   * The cost, stated plainly: there is no longer a gesture that DISCARDS a change. Ctrl+Z is the
+   * way back from a typo. That is the deal Sibelius makes too.
+   */
+  escape(): void {
     const source = this.source
     if (!source) return
+    if (normalizeText(this.dom.getText()) !== normalizeText(source.getText())) {
+      this.commit()
+      return
+    }
     this.close()
     source.cancel()
   }

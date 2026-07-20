@@ -33,7 +33,7 @@ function caretSkew(fontStyle: string): string {
  * a focusable editable node it trips `ShortcutManager`'s `isInInput` guard — so
  * note-entry keys (a–g, r, …) are suppressed while editing with no extra code.
  *
- * Commit/cancel are surfaced as callbacks (Enter / Escape / click-away) so the
+ * Commit/escape are surfaced as callbacks (Enter / Escape / click-away) so the
  * framework-agnostic {@link TextEditController} owns the state machine.
  */
 export class DomTextEdit implements TextEditDom {
@@ -291,7 +291,7 @@ export class DomTextEdit implements TextEditDom {
     } else if (e.key === 'Escape') {
       e.preventDefault()
       e.stopPropagation()
-      this.opts?.onCancel()
+      this.opts?.onEscape()
       return
     } else if (e.key === 'ContextMenu' && this.canOpenWordMenu()) {
       // The Menu key opens the word menu without leaving the keyboard — the same key the score uses

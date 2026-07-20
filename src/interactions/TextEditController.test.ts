@@ -17,7 +17,7 @@ class FakeDom implements TextEditDom {
   // test helpers
   type(t: string): void { this.text = t }
   fireCommit(): void { this.opts?.onCommit() }
-  fireCancel(): void { this.opts?.onCancel() }
+  fireEscape(): void { this.opts?.onEscape() }
 }
 
 interface Calls { commit: string[]; cancel: number; hide: boolean[] }
@@ -75,17 +75,56 @@ describe('TextEditController', () => {
     expect(dom.mounted).toBe(false)
   })
 
-  it('cancel restores the original and clears state without committing', () => {
+  // Escape FINISHES an edit; it does not throw it away. Reaching for the key that means "I'm done"
+  // used to lose the phrase you had just typed.
+  it('escape COMMITS text that was changed', () => {
     const source = makeSource()
     ctrl.open(source)
-    dom.type('changed but abandoned')
-    dom.fireCancel()
+    dom.type('dolce')
+    dom.fireEscape()
 
-    expect(source.calls.commit).toEqual([])
-    expect(source.calls.cancel).toBe(1)
+    expect(source.calls.commit).toEqual(['dolce'])
+    expect(source.calls.cancel).toBe(0)
     expect(source.calls.hide).toEqual([true, false])
     expect(ctrl.isEditing()).toBe(false)
     expect(state.editingText).toBeNull()
+  })
+
+  // …and an untouched mark writes NOTHING. Committing identical text would push an undo entry for
+  // a no-op, and it is this path that makes a freshly placed blank mark vanish (the source's own
+  // cancel removes a new target).
+  it('escape CANCELS when the text was never touched', () => {
+    const source = makeSource()
+    ctrl.open(source)
+    dom.fireEscape()
+
+    expect(source.calls.commit).toEqual([])
+    expect(source.calls.cancel).toBe(1)
+    expect(ctrl.isEditing()).toBe(false)
+  })
+
+  // Whitespace-only differences are not edits: the box hands back non-breaking spaces where plain
+  // ones were typed, and every source trims before writing.
+  it('escape treats a whitespace-only difference as untouched', () => {
+    const source = makeSource({ getText: () => 'f' })
+    ctrl.open(source)
+    dom.type('\u00A0f ')
+    dom.fireEscape()
+
+    expect(source.calls.commit).toEqual([])
+    expect(source.calls.cancel).toBe(1)
+  })
+
+  // Clearing the text and pressing Escape means DELETE, because commit already reads empty that
+  // way — the two keys must not disagree about what an empty box means.
+  it('escape commits an emptied text, so clearing then escaping removes the mark', () => {
+    const source = makeSource({ getText: () => 'f' })
+    ctrl.open(source)
+    dom.type('')
+    dom.fireEscape()
+
+    expect(source.calls.commit).toEqual([''])
+    expect(source.calls.cancel).toBe(0)
   })
 
   it('commits an empty string through to the source (empty-text rule lives in the source)', () => {
@@ -111,7 +150,7 @@ describe('TextEditController', () => {
 
   it('commit / cancel are no-ops when not editing', () => {
     expect(() => ctrl.commit()).not.toThrow()
-    expect(() => ctrl.cancel()).not.toThrow()
+    expect(() => ctrl.escape()).not.toThrow()
     expect(state.editingText).toBeNull()
   })
 })
