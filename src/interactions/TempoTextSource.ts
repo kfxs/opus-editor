@@ -167,15 +167,14 @@ export class TempoTextSource implements EditableTextSource {
   }
 
   /**
-   * The tempo editor's word menu (menus/tempoMenu.ts): the note values you cannot type on a
-   * keyboard, each dropped as its Unicode note character at the caret so ` = 120` finishes a real
-   * metronome. Provisional content — words and a metronome builder come later — but the mechanism
-   * is the same one the dynamic editor uses: the DOM layer hands in the caret, the source names the
-   * rows. Inserted as ordinary text, because the mark IS its text (a glyph is just a character in
-   * the string, not an atomic chip the way a played dynamic is).
+   * The tempo editor's word menu (menus/tempoMenu.ts): the Italian tempo vocabulary, the note
+   * values you cannot type on a keyboard, and the metric-modulation arrows. The mechanism is the
+   * one the dynamic editor uses — the DOM layer hands in the caret, the source names the rows.
+   * Everything goes in as ordinary text, because the mark IS its text (even a note glyph is just a
+   * character in the string, not an atomic chip the way a played dynamic is).
    */
   getContextMenu(insert: TextEditInsert): MenuItem[] {
-    return buildTempoMenu({ unit: char => insert.text(char) })
+    return buildTempoMenu({ text: s => insert.text(s) })
   }
 
   /** Fallback only: map the mark's SVG-space registry bbox into viewport pixels. */

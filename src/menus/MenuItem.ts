@@ -33,8 +33,9 @@
  * How a label is SET, when plain UI text would misrepresent it.
  *   `music`  — SMuFL glyphs, in the score's notation font (a dynamic, a notehead, an accidental).
  *   `italic` — the serif italic the score engraves expression text in (`dolce`, `sempre`).
+ *   `bold`   — the upright bold serif the score engraves tempo text in (`Allegro`, `Moderato`).
  */
-export type LabelFont = 'music' | 'italic'
+export type LabelFont = 'music' | 'italic' | 'bold'
 
 export type MenuItem =
   | { label: string; onSelect: () => void; shortcut?: string; labelFont?: LabelFont }

@@ -1,44 +1,67 @@
 import { describe, it, expect, vi } from 'vitest'
 import { buildTempoMenu } from './tempoMenu'
 import { UNIT_GLYPH } from '../utils/tempoText'
+import { isColumnBreak, isSeparator, type MenuItem } from './MenuItem'
+
+type Leaf = Extract<MenuItem, { onSelect: () => void }>
+const isLeaf = (i: MenuItem): i is Leaf => 'onSelect' in i
 
 /**
- * The tempo word menu's one job for now: turn a note-value row into the character the tempo STRING
- * stores. The subtlety worth pinning is the two-glyph split — the row you SEE is the SMuFL
- * metronome specimen, but what it INSERTS is the Unicode note `parseTempoText` reads back. Confuse
- * the two and the menu would drop a private-use codepoint into the string that the parser can't
- * see as a unit.
+ * The tempo word menu carries three kinds of row, and the one subtlety worth pinning is the
+ * note-value split: the row you SEE is the SMuFL metronome specimen, but what it INSERTS is the
+ * Unicode note `parseTempoText` reads back. Confuse the two and the menu would drop a private-use
+ * codepoint into the string that the parser can't see as a unit. Words and arrows are inserted
+ * verbatim, so their label is what they place.
  */
 describe('buildTempoMenu', () => {
-  const leaves = (menu: ReturnType<typeof buildTempoMenu>) =>
-    menu.filter((i): i is { label: string; onSelect: () => void; labelFont?: string } => 'onSelect' in i)
+  const leaves = (menu: MenuItem[]) => menu.filter(isLeaf)
 
-  it('offers the six note values, longest first', () => {
-    const menu = leaves(buildTempoMenu({ unit: vi.fn() }))
-    expect(menu).toHaveLength(6)
-    // Each label is drawn in the notation font — a specimen, not a description.
-    expect(menu.every(i => i.labelFont === 'music')).toBe(true)
+  it('lays out two columns: words, then note values and arrows', () => {
+    const menu = buildTempoMenu({ text: vi.fn() })
+    expect(menu.filter(isColumnBreak)).toHaveLength(1)
+    expect(menu.filter(isSeparator)).toHaveLength(1) // between the note values and the arrows
+  })
+
+  it('offers the Italian tempo words BOLD and inserts them verbatim', () => {
+    const text = vi.fn()
+    const words = leaves(buildTempoMenu({ text })).filter(i => i.labelFont === 'bold')
+    expect(words).toHaveLength(19)
+    // A representative sample must be present, each inserting exactly its own label.
+    for (const w of ['Allegro', 'Moderato', 'A tempo', 'Meno mosso', 'Tempo primo']) {
+      const row = words.find(i => i.label === w)
+      expect(row, `"${w}" row`).toBeDefined()
+      row!.onSelect()
+      expect(text).toHaveBeenLastCalledWith(w)
+    }
   })
 
   it('inserts the Unicode note character, not the specimen glyph on the label', () => {
-    const unit = vi.fn()
-    const menu = leaves(buildTempoMenu({ unit }))
+    const text = vi.fn()
+    const menu = leaves(buildTempoMenu({ text }))
+    const notes = menu.filter(i => i.labelFont === 'music')
+    expect(notes).toHaveLength(6)
+    // The label is the SMuFL metronome glyph, never the Unicode ♩ — so this is a real distinction.
+    expect(notes.some(i => i.label === UNIT_GLYPH.q)).toBe(false)
 
-    // The quarter row: pick it and the caret should get ♩ (UNIT_GLYPH.q), the char the string keeps.
-    const quarter = menu.find(i => i.label !== UNIT_GLYPH.q) // label is the SMuFL glyph, NOT ♩
-    expect(quarter).toBeDefined()
-
-    // Selecting every row inserts exactly the UNIT_GLYPH set, and nothing else.
-    menu.forEach(i => i.onSelect())
-    expect(unit.mock.calls.map(c => c[0])).toEqual([
+    notes.forEach(i => i.onSelect())
+    expect(text.mock.calls.map(c => c[0])).toEqual([
       UNIT_GLYPH.w, UNIT_GLYPH.h, UNIT_GLYPH.q, UNIT_GLYPH['8'], UNIT_GLYPH['16'], UNIT_GLYPH['32'],
     ])
   })
 
-  it('labels with the metronome glyph, which is distinct from the inserted char', () => {
-    // The specimen (metNoteQuarterUp, PUA) and the model char (♩) must not be the same string, or
-    // the "insert what the parser reads" contract would be trivially true by accident.
-    const menu = leaves(buildTempoMenu({ unit: vi.fn() }))
-    expect(menu.some(i => i.label === UNIT_GLYPH.q)).toBe(false)
+  it('labels the note values with the picture’s keypad shortcuts, whole = Ctrl+6', () => {
+    const notes = leaves(buildTempoMenu({ text: vi.fn() })).filter(i => i.labelFont === 'music')
+    // Whole is the longest note and the highest number; the 32nd is Ctrl+1.
+    expect(notes[0].shortcut).toBe('Ctrl+6') // whole (first row)
+    expect(notes[notes.length - 1].shortcut).toBe('Ctrl+1') // 32nd (last row)
+  })
+
+  it('offers the two metric-modulation arrows, with shortcuts, inserted verbatim', () => {
+    const text = vi.fn()
+    const arrows = leaves(buildTempoMenu({ text })).filter(i => i.label === '←' || i.label === '→')
+    expect(arrows).toHaveLength(2)
+    expect(arrows.map(i => i.shortcut)).toEqual(['Ctrl+¡', "Ctrl+'"])
+    arrows.forEach(i => i.onSelect())
+    expect(text.mock.calls.map(c => c[0])).toEqual(['←', '→'])
   })
 })

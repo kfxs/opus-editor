@@ -147,6 +147,14 @@ const CSS = `
   font-style: italic;
   font-size: 1.15em;
 }
+/* Tempo words, set as the score sets them: upright bold serif, the same specimen-not-description
+   reasoning as the italic above. The engraver draws tempo text bold (VexFlow's StaveTempo), and a
+   row reading a word like Allegro in the thin UI sans would describe the mark rather than BE it. */
+.menu-row-label-bold {
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-weight: 700;
+  font-size: 1.15em;
+}
 .menu-row-arrow {
   flex: none;
   color: ${CHROME.inkMuted};
