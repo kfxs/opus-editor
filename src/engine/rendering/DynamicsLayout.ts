@@ -16,7 +16,7 @@ import { Annotation } from 'vexflow'
 import type { StaveNote, Stave } from 'vexflow'
 import type { ChordRest, Measure, Dynamic } from '@/types/music'
 import { fracEq, fracGte, fracToNumber } from '@/utils/fraction'
-import { splitDynamicRuns, dynamicLabel } from '@/utils/dynamics'
+import { splitDynamicRuns, dynamicLabel, composeDynamicGlyphs } from '@/utils/dynamics'
 import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT, DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
 import { dynamicOffsetOverrideOf } from '../models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
@@ -208,7 +208,11 @@ export function enlargeDynamicGlyphRuns(text: SVGTextElement, dyn: Dynamic): voi
       tspan.setAttribute('font-family', 'Bravura')
       tspan.setAttribute('font-size', `${glyphPx}px`)
       tspan.setAttribute('font-style', 'normal')
-      tspan.textContent = run.text // already the SMuFL glyph characters
+      // Ligature step: the model stores one char per letter, but Bravura's per-letter advances only
+      // suit a letter standing alone (a hand-built `fff` is ~24% too wide). Swap in the precomposed
+      // glyph for DRAWING only — this runs before registerDynamics, so the hit-box follows the
+      // tighter shape for free. See composeDynamicGlyphs.
+      tspan.textContent = composeDynamicGlyphs(run.text)
     } else {
       tspan.setAttribute('font-family', DYNAMIC_TEXT_FONT)
       tspan.setAttribute('font-style', 'italic')

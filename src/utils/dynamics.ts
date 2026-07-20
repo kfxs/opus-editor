@@ -43,8 +43,8 @@ export const DEFAULT_DYNAMIC_TEXT = 'Text'
 /**
  * Per-letter SMuFL codepoints for dynamics (`p`/`m`/`f`/`s`/`z`/`r`), from VexFlow's TextDynamics.
  * These are the characters that ARE the dynamic font — a level is spelled with them, never with the
- * plain ASCII letters. `Glyphs.*` isn't exported by the package, so a level like `mp` is the two
- * letters' glyphs concatenated.
+ * plain ASCII letters. A multi-letter level like `mp` is stored as the two letters' glyphs
+ * concatenated; {@link composeDynamicGlyphs} swaps that for a single precomposed glyph at DRAW time.
  */
 const LETTER_TO_GLYPH = TextDynamics.GLYPHS as Record<string, string | undefined>
 
@@ -78,6 +78,88 @@ function isDynamicGlyphChar(ch: string): boolean {
  *  the dynamic font), or the placeholder for the free-text `text` tool. */
 export function dynamicTextFromTool(tool: DynamicLevel | 'text'): string {
   return tool === 'text' ? DEFAULT_DYNAMIC_TEXT : levelToGlyphString(tool)
+}
+
+// ---------------------------------------------------------------------------
+// Precomposed glyphs (a ligature — DRAW-time only, never stored)
+// ---------------------------------------------------------------------------
+
+/**
+ * Bravura draws each dynamics letter at the advance that suits it STANDING ALONE, and provides
+ * separate precomposed glyphs for the combinations. For `p` the two agree (~347 combined vs 365
+ * solo — 18 units apart, invisible), but for `f` they do not: precomposed adds ~240 per extra `f`
+ * where concatenation adds 364, so a hand-assembled `fff` is 1092 units against the real glyph's
+ * 831 — a ~5px gap after every `f` at engraving size. Hence this table.
+ *
+ * This is exactly an `fi` ligature, and the font would normally apply it for us — but the Bravura
+ * VexFlow bundles has NO GSUB table at all (Bravura *Text* is the one with the ligature features),
+ * so we substitute by hand.
+ *
+ * Codepoints are written out rather than read from VexFlow's `Glyphs` map ON PURPOSE. `Glyphs` is
+ * exported by VexFlow's CJS build but NOT its ESM one (`src/index.js` never re-exports
+ * `glyphs.js`), and the package's exports map sends bundlers to ESM — so a `Glyphs` lookup is
+ * populated under Node/Vitest and EMPTY in the browser. That divergence is invisible to a unit
+ * test: it passes while the app silently falls back to loose concatenation. Codepoints are
+ * SMuFL-standard and stable, so owning them here removes the split entirely.
+ *
+ * Verified present in the Bravura that VexFlow bundles by reading the font's cmap directly.
+ */
+const PRECOMPOSED_MAP: Record<string, string> = {
+  pp:     '\uE52B', // dynamicPP
+  ppp:    '\uE52A', // dynamicPPP
+  pppp:   '\uE529', // dynamicPPPP
+  ppppp:  '\uE528', // dynamicPPPPP
+  pppppp: '\uE527', // dynamicPPPPPP
+  ff:     '\uE52F', // dynamicFF
+  fff:    '\uE530', // dynamicFFF
+  ffff:   '\uE531', // dynamicFFFF
+  fffff:  '\uE532', // dynamicFFFFF
+  ffffff: '\uE533', // dynamicFFFFFF
+  mp:     '\uE52C', // dynamicMP
+  mf:     '\uE52D', // dynamicMF
+  pf:     '\uE52E', // dynamicPF
+  fp:     '\uE534', // dynamicFortePiano
+  fz:     '\uE535', // dynamicForzando
+  sf:     '\uE536', // dynamicSforzando1
+  sfp:    '\uE537', // dynamicSforzandoPiano
+  sfpp:   '\uE538', // dynamicSforzandoPianissimo
+  sfz:    '\uE539', // dynamicSforzato
+  sfzp:   '\uE53A', // dynamicSforzatoPiano
+  sffz:   '\uE53B', // dynamicSforzatoFF
+  rf:     '\uE53C', // dynamicRinforzando1
+  rfz:    '\uE53D', // dynamicRinforzando2
+}
+
+/** The table, longest key first so a greedy scan prefers `sfz` over `sf` + `z`. */
+export const PRECOMPOSED: ReadonlyArray<[letters: string, glyph: string]> =
+  Object.entries(PRECOMPOSED_MAP).sort((a, b) => b[0].length - a[0].length)
+
+/**
+ * Swap a run of dynamics glyphs for Bravura's precomposed equivalents — `𝆑𝆑𝆑` (three chars) becomes
+ * the single `dynamicFFF`. Greedy longest-match, so `sfz` draws as one `dynamicSforzato` rather
+ * than `sf` + `z`; anything with no precomposed glyph falls through as its own letter glyph, which
+ * is exactly today's behaviour.
+ *
+ * PURELY PRESENTATIONAL — call it when writing glyphs into the DOM, never before storing. The model
+ * keeps one char per letter so {@link parseDynamicText} can still read a level off the run and the
+ * text editor can still add and backspace one letter at a time.
+ */
+export function composeDynamicGlyphs(glyphRun: string): string {
+  const letters = glyphsToLetters(glyphRun)
+  let out = ''
+  let i = 0
+  while (i < letters.length) {
+    const hit = PRECOMPOSED.find(([combo]) => letters.startsWith(combo, i))
+    if (hit) {
+      out += hit[1]
+      i += hit[0].length
+    } else {
+      // Not part of any combination (a lone letter, or a char that was never a glyph) — as-is.
+      out += levelToGlyphString(letters[i])
+      i++
+    }
+  }
+  return out
 }
 
 // ---------------------------------------------------------------------------

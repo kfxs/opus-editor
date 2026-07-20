@@ -6,6 +6,10 @@ import {
   dynamicLevelOf,
   dynamicLabel,
   levelToGlyphString,
+  glyphsToLetters,
+  parseDynamicText,
+  composeDynamicGlyphs,
+  PRECOMPOSED,
   measureDynamics,
   resolveActiveLevel,
   resolveChordLevels,
@@ -299,5 +303,71 @@ describe('resolveChordLevels', () => {
         expect(levels.get(slot.id)).toBe(expected)
       }
     }
+  })
+})
+
+describe('composeDynamicGlyphs (the draw-time ligature)', () => {
+  const G = (name: string) => levelToGlyphString(name) // per-letter, the STORED form
+
+  it('collapses a multi-letter run to ONE character', () => {
+    // The whole point: three stored chars draw as a single precomposed glyph, because Bravura's
+    // per-letter advances only suit a letter standing alone.
+    expect(G('fff')).toHaveLength(3)
+    expect(composeDynamicGlyphs(G('fff'))).toHaveLength(1)
+    expect(composeDynamicGlyphs(G('ff'))).toHaveLength(1)
+    expect(composeDynamicGlyphs(G('mp'))).toHaveLength(1)
+    expect(composeDynamicGlyphs(G('fp'))).toHaveLength(1)
+  })
+
+  it('prefers the LONGEST match — sfz is one glyph, not sf + z', () => {
+    expect(composeDynamicGlyphs(G('sfz'))).toHaveLength(1)
+    expect(composeDynamicGlyphs(G('sfz'))).not.toBe(composeDynamicGlyphs(G('sf')) + G('z'))
+    // …and each length is its own glyph, so sf and sfz never collide.
+    expect(composeDynamicGlyphs(G('sf'))).not.toBe(composeDynamicGlyphs(G('sfz')))
+  })
+
+  it('leaves a lone letter and any unknown combination alone', () => {
+    expect(composeDynamicGlyphs(G('f'))).toBe(G('f'))
+    expect(composeDynamicGlyphs(G('p'))).toBe(G('p'))
+    // No precomposed glyph for 'zz' → falls back to concatenation (today's behaviour), never tofu.
+    expect(composeDynamicGlyphs(G('zz'))).toBe(G('zz'))
+    expect(composeDynamicGlyphs('')).toBe('')
+  })
+
+  // Was previously looked up from VexFlow's `Glyphs`, which is exported by its CJS build but NOT
+  // its ESM one — so the table filled up under Vitest and was EMPTY in the browser, and this test
+  // passed while the app silently drew loose glyphs. The codepoints are now ours; this pins them.
+  it('covers every combination, each a single char in the SMuFL dynamics block', () => {
+    const EXPECTED = [
+      'pp', 'ppp', 'pppp', 'ppppp', 'pppppp',
+      'ff', 'fff', 'ffff', 'fffff', 'ffffff',
+      'mp', 'mf', 'pf', 'fp', 'fz',
+      'sf', 'sfp', 'sfpp', 'sfz', 'sfzp', 'sffz', 'rf', 'rfz',
+    ]
+    const resolved = new Set(PRECOMPOSED.map(([letters]) => letters))
+    expect([...EXPECTED].filter(l => !resolved.has(l))).toEqual([])
+    for (const [letters, glyph] of PRECOMPOSED) {
+      expect(glyph, letters).toHaveLength(1)
+      const cp = glyph.codePointAt(0)!
+      expect(cp, letters).toBeGreaterThanOrEqual(0xe520) // SMuFL dynamics block
+      expect(cp, letters).toBeLessThanOrEqual(0xe53d)
+    }
+    // Distinct glyphs — a copy-paste slip would otherwise draw the wrong dynamic silently.
+    expect(new Set(PRECOMPOSED.map(([, g]) => g)).size).toBe(PRECOMPOSED.length)
+  })
+
+  // Guards the real-world regression: sfz must not come out as the sf glyph followed by a bare z.
+  it('draws sfz as ONE glyph — the bug that shipped loose', () => {
+    expect(composeDynamicGlyphs(G('sfz'))).toBe('\uE539')
+    expect(composeDynamicGlyphs(G('fff'))).toBe('\uE530')
+    expect(composeDynamicGlyphs(G('fp'))).toBe('\uE534')
+  })
+
+  it('is DRAW-only: it never changes what a stored run means', () => {
+    // The stored form still decomposes to its letters, so playback interpretation is untouched.
+    expect(glyphsToLetters(G('mf'))).toBe('mf')
+    expect(parseDynamicText(G('mf')).level).toBe('mf')
+    // Composing is not applied to storage — the composed char is NOT what parseDynamicText reads.
+    expect(composeDynamicGlyphs(G('mf'))).not.toBe(G('mf'))
   })
 })
