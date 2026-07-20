@@ -1344,6 +1344,23 @@ export class MusicEngine {
     return changed
   }
 
+  /**
+   * Say whether the clef change at `measureNumber` on `staff` allows a courtesy clef at the end of
+   * the previous system — the clef twin of {@link setCautionaryAllowed}, and half the rule: the
+   * other half is whether that change opens a system, which only the layout knows.
+   *
+   * `saveOnly`: the clef, the pitches and the playback are identical either way; only the engraving
+   * differs.
+   * @returns true if the stored state changed.
+   */
+  setCautionaryClefAllowed(measureNumber: number, staff: number, allowed: boolean): boolean {
+    const measure = this.scoreModel.getMeasure(measureNumber)
+    if (!measure) return false
+    const changed = this.scoreModel.setCautionaryClefAllowed(measure.id, this.staffIdForIndex(staff), allowed)
+    if (changed) this.saveOnly(allowed ? 'Allow cautionary clef' : 'No cautionary clef')
+    return changed
+  }
+
   toggleRestHidden(restId: string): boolean {
     const note = this.scoreModel.getNote(restId)
     if (!note || !note.isRest) return false

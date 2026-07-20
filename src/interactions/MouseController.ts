@@ -1526,12 +1526,16 @@ export class MouseController {
    * inline mid-measure clef before that slot).
    */
   private placeClefAtClick(engine: MusicEngine, x: number, y: number, measureNum: number): boolean {
-    const clef = armedTool(this.state, 'clef')?.clef
+    const armed = armedTool(this.state, 'clef')
+    const clef = armed?.clef
     if (!clef) return false
     const beat = this.resolveSlotBeat(engine, x, measureNum)
     // Anchor the clef to the staff the click landed on (else it changes staff 0's clef).
     const staff = engine.getElementRegistry().staffIndexAtY(measureNum, y)
     const changed = engine.setClefAt(measureNum, beat, clef, staff)
+    // The courtesy decision belongs to the change just made. Only written when the arming path
+    // carried an opinion, so the older palette path leaves the flag as it found it.
+    if (armed.cautionary !== undefined) engine.setCautionaryClefAllowed(measureNum, staff, armed.cautionary)
     dbg(changed
       ? `✓ Clef set | ${clef} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`
       : `Clef unchanged at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)

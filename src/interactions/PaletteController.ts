@@ -995,8 +995,8 @@ export class PaletteController {
    * "no clef". Routing the Clef window through `setClef` made confirming the already-armed clef
    * silently disarm it.
    */
-  armClef(clef: Clef): void {
-    this.armMarkingTool({ kind: 'clef', clef })
+  armClef(clef: Clef, cautionary?: boolean): void {
+    this.armMarkingTool({ kind: 'clef', clef, cautionary })
   }
 
   /**

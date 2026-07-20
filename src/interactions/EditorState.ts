@@ -43,7 +43,9 @@ export type PlaybackState = 'stopped' | 'playing' | 'paused'
  * there is nothing to carry (a note is tied, or it is not).
  */
 export type MarkingTool =
-  | { kind: 'clef'; clef: Clef }
+  /** `cautionary` rides along for the same reason the time signature's does: the dialog decides it
+   *  and the target bar is not known until the click. */
+  | { kind: 'clef'; clef: Clef; cautionary?: boolean }
   /** `cautionary` rides along because the decision is made in the DIALOG and the target bar is not
    *  known until the click — so it has nowhere else to wait. It is a property of the change that is
    *  about to be made, which is exactly what an armed stamp is. */

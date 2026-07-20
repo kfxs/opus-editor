@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, CautionaryOverride } from '@/types/music'
-import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf, cautionaryKey, cautionaryAllowedOf } from './engravingOverrides'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, CautionaryOverride, CautionaryClefOverride } from '@/types/music'
+import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
 import {
   getTupletTotalBeatsFrac,
   getTupletNoteDurationFrac,
@@ -889,6 +889,23 @@ export class ScoreModel {
       this.setEngravingOverride(cautionaryKey(measureId), next)
     } else {
       this.clearEngravingOverride(cautionaryKey(measureId), 'cautionary')
+    }
+    return true
+  }
+
+  /**
+   * Allow (or stop allowing) a courtesy clef for the clef change at `measureId` on `staffId`.
+   * Payloadless override keyed by {@link cautionaryClefKey}: allowed = an entry exists.
+   * No undo snapshot here; the facade (`MusicEngine.setCautionaryClefAllowed`) owns it.
+   * @returns true when the stored state actually changed.
+   */
+  setCautionaryClefAllowed(measureId: string, staffId: string | undefined, allowed: boolean): boolean {
+    if (allowed === cautionaryClefAllowedOf(this.score, measureId, staffId)) return false
+    if (allowed) {
+      const next: CautionaryClefOverride = { kind: 'cautionaryClef' }
+      this.setEngravingOverride(cautionaryClefKey(measureId, staffId), next)
+    } else {
+      this.clearEngravingOverride(cautionaryClefKey(measureId, staffId), 'cautionaryClef')
     }
     return true
   }

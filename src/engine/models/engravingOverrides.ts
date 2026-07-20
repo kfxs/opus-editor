@@ -191,6 +191,28 @@ export function cautionaryAllowedOf(score: Score, measureId: string): boolean {
 }
 
 /**
+ * The compartment key for a clef change's cautionary (client #9). Per STAFF as well as per measure,
+ * because a clef belongs to one staff — unlike a meter, which is score-wide.
+ *
+ * ⚠️ **Absent `staffId` IS the first staff** — the convention `restPositionKey` uses and that
+ * `MusicEngine.staffIdForIndex` enforces (index 0 returns undefined). Passing the first staff's real
+ * id instead produces a DIFFERENT key for the same staff, and the two sides then never meet: the
+ * write lands under `cautionClef:m3` and the read asks for `cautionClef:m3:sstaff-1`, silently.
+ * Every caller must resolve its staff through `staffIdForIndex`, or reproduce that rule exactly.
+ */
+export function cautionaryClefKey(measureId: string, staffId?: string): string {
+  return `cautionClef:${measureId}${staffId ? `:s${staffId}` : ''}`
+}
+
+/**
+ * Does the clef change at this measure/staff allow a courtesy clef? Payloadless, so presence alone
+ * is the answer — and half the rule, as with the meter's: the change must also open a system.
+ */
+export function cautionaryClefAllowedOf(score: Score, measureId: string, staffId?: string): boolean {
+  return !!engravingOverrideOf(score, cautionaryClefKey(measureId, staffId), 'cautionaryClef')
+}
+
+/**
  * The extra vertical space above this staff, if any (client #7 — see
  * docs/staff-spacing-plan.md). `above` is in **staff-spaces**, signed (+ pushes the staff
  * and everything below it in its system down). Keyed by the durable `staffId` (id-keyed,

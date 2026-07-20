@@ -4,7 +4,7 @@ import { fracCompare, fracIsZero } from '@/utils/fraction'
 import { type StaffClefs } from '@/utils/clefUtils'
 import { getStaves, firstStaffId, staffMeasureView } from '@/engine/models/staffContent'
 import { measureCapacityFrac } from '@/utils/musicUtils'
-import { cautionaryAllowedOf } from '../models/engravingOverrides'
+import { cautionaryAllowedOf, cautionaryClefAllowedOf } from '../models/engravingOverrides'
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import { laneFingerprint, type MeasureWidthCache } from './MeasureWidthCache'
 import { renderCensus } from '@/dev/renderCensus' // TEMPORARY — the §9 layout-breakdown probes
@@ -241,6 +241,7 @@ function distributeLineWidths(
 function applyCautionaryClefs(
   score: Score,
   clefs: StaffClefs,
+  staffId: string | undefined,
   results: Map<number, MeasureWidthInfo>,
   availableWidth: number
 ): void {
@@ -255,6 +256,9 @@ function applyCautionaryClefs(
     // the break (its opening clef differs from this measure's ending clef).
     const nextOpeningClef = clefs.opening.get(next.measureNumber) || 'treble'
     if (nextOpeningClef === clefs.ending.get(current.measureNumber)) continue
+    // …and only when the change ALLOWS one. Keyed by the measure the change starts at, like the
+    // meter's: which bar ends a system moves on every reflow, and the author's decision must not.
+    if (!cautionaryClefAllowedOf(score, score.measures[i + 1].id, staffId)) continue
 
     current.cautionaryEndClef = nextOpeningClef
     current.minWidth += LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
@@ -414,7 +418,11 @@ export function calculateMeasureWidths(
     }
   }
 
-  applyCautionaryClefs(score, primaryClefs(score, clefsByStaff), results, availableWidth)
+  // Staff 0's clefs decide the courtesy for the whole system — a pre-existing simplification (see
+  // primaryClefs), so the flag is read against that same staff. `undefined`, NOT firstStaffId():
+  // the compartment's key treats the first staff as absent, and passing its real id builds a key
+  // nobody writes (see cautionaryClefKey).
+  applyCautionaryClefs(score, primaryClefs(score, clefsByStaff), undefined, results, availableWidth)
   applyCautionaryTimeSignatures(score, results, availableWidth)
 
   return results

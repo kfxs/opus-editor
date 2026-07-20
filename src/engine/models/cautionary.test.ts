@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { cautionaryAllowedOf, cautionaryKey } from './engravingOverrides'
+import { cautionaryAllowedOf, cautionaryClefAllowedOf, cautionaryKey } from './engravingOverrides'
 
 /**
  * A courtesy time signature is a property of the CHANGE, in two halves: this flag, and whether that
@@ -39,6 +39,50 @@ describe('cautionary time signature', () => {
     m.setCautionaryAllowed(measure.id, true)
     m.setCautionaryAllowed(measure.id, false)
     expect(m.getScore().engravingOverrides?.[cautionaryKey(measure.id)] ?? []).toEqual([])
+  })
+})
+
+/**
+ * The clef twin, keyed per STAFF as well as per measure — a clef belongs to one staff, unlike a
+ * meter, which is score-wide.
+ */
+describe('cautionary clef', () => {
+  it('allows none by default', () => {
+    const m = new ScoreModel()
+    expect(cautionaryClefAllowedOf(m.getScore(), m.getScore().measures[0].id, undefined)).toBe(false)
+  })
+
+  it('keys the allowance to a staff, so one staff does not answer for another', () => {
+    const m = new ScoreModel()
+    const measure = m.getScore().measures[0]
+    m.setCautionaryClefAllowed(measure.id, 'staff-2', true)
+    expect(cautionaryClefAllowedOf(m.getScore(), measure.id, 'staff-2')).toBe(true)
+    expect(cautionaryClefAllowedOf(m.getScore(), measure.id, 'staff-1')).toBe(false)
+    expect(cautionaryClefAllowedOf(m.getScore(), measure.id, undefined)).toBe(false)
+  })
+
+  // ⚠️ The bug this feature shipped with: the writer resolved staff 0 through `staffIdForIndex`,
+  // which returns UNDEFINED for it, while the reader passed the first staff's real id — two keys
+  // for one staff, and the flag was written where nobody looked. Absent IS the first staff.
+  it('writes staff 0 under the ABSENT-staff key, which is where the layout looks', () => {
+    const m = new ScoreModel()
+    const measure = m.getScore().measures[0]
+    m.setCautionaryClefAllowed(measure.id, undefined, true)
+    const firstStaffRealId = m.getScore().staves?.[0]?.id
+    expect(cautionaryClefAllowedOf(m.getScore(), measure.id, undefined)).toBe(true)
+    // Named explicitly, the same staff answers NO — which is exactly how it failed on screen.
+    if (firstStaffRealId) {
+      expect(cautionaryClefAllowedOf(m.getScore(), measure.id, firstStaffRealId)).toBe(false)
+    }
+  })
+
+  // Its own KIND, so a clef's courtesy and a meter's cannot be read for one another even though
+  // both hang off the same measure.
+  it('does not answer for the meter\'s courtesy at the same measure', () => {
+    const m = new ScoreModel()
+    const measure = m.getScore().measures[0]
+    m.setCautionaryClefAllowed(measure.id, undefined, true)
+    expect(cautionaryAllowedOf(m.getScore(), measure.id)).toBe(false)
   })
 })
 

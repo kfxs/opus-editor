@@ -1,7 +1,7 @@
 import type { EditorState } from './EditorState'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EngravingOverride, Note, Score } from '../types/music'
-import { cautionaryKey, restPositionKey } from '../engine/models/engravingOverrides'
+import { cautionaryClefKey, cautionaryKey, restPositionKey } from '../engine/models/engravingOverrides'
 import { selectedNoteIds } from './selection'
 
 /**
@@ -146,6 +146,19 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
         staff: state.selectedClefStaff,
         clefs: score.measures.find((m) => m.number === state.selectedClefMeasure)?.clefs,
       },
+      // Now that clefs HAVE an override kind, this branch has a key to ask for — per staff, like
+      // the flag itself.
+      overrides: overridesAt(
+        score,
+        (() => {
+          const measure = score.measures.find((m) => m.number === state.selectedClefMeasure)
+          if (!measure) return undefined
+          // The first staff is ABSENT in the key, not named — `staffIdForIndex`'s rule, and the
+          // reason this branch showed nothing at first: it asked under a key nobody writes.
+          const staff = state.selectedClefStaff ?? 0
+          return cautionaryClefKey(measure.id, staff ? score.staves?.[staff]?.id : undefined)
+        })(),
+      ),
     })
   }
   if (state.selectedTimeSignatureMeasure !== null) {

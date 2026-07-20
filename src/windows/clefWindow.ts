@@ -1,7 +1,7 @@
 import type { WindowLayer } from './WindowLayer'
 import type { Window } from './Window'
 import { Column, Row } from './content/layout'
-import { Button, ChoiceList } from './content/widgets'
+import { Button, Checkbox, ChoiceList } from './content/widgets'
 import { CHROME } from '../utils/chromeColors'
 import { clefSelection } from '../interactions/clefSelection'
 import type { Clef } from '../types/music'
@@ -10,7 +10,8 @@ import type { Clef } from '../types/music'
  * The Clef window, opened from Insert ▸ Clef (or Q) — modelled on Sibelius's Clef dialog: a box of
  * staves you scroll, one of them lit, and Cancel / OK underneath.
  *
- * Committing (OK, or double-clicking a row) ARMS the clef and closes — it does not place anything.
+ * Committing (OK, Enter, or double-clicking a row) ARMS the clef and closes — it does not place
+ * anything. *Allow cautionary* travels with it, the way the Time Signature window's does.
  * That is what choosing a clef means here: the next click on the score says WHERE, which is the same
  * gesture the palette has always armed. Cancel arms nothing.
  *
@@ -103,9 +104,14 @@ export function openClefWindow(windows: WindowLayer): Window {
    * point: the score is where the rest of the gesture happens.
    */
   const accept = (): void => {
-    clefSelection.press(list.value as Clef)
+    clefSelection.press({ clef: list.value as Clef, cautionary: cautionary.checked })
     win?.close()
   }
+
+  // Ours, not Sibelius's — its clef dialog offers transposed-clef and draw-on-subsequent-staves
+  // instead. The same model as the meter's courtesy: a property of the CHANGE, half a rule, the
+  // other half being whether that change opens a system.
+  const cautionary = new Checkbox('Allow cautionary', { checked: true })
 
   // Opens on whatever is already armed, so re-opening it reflects the editor rather than resetting to
   // the top row. Nothing armed → treble, the one every score starts on.
@@ -130,6 +136,7 @@ export function openClefWindow(windows: WindowLayer): Window {
         // No caption over the list: the window is titled Clef and the rows ARE clefs. Sibelius needs
         // "Sounding pitch clef:" only because it has a second, transposed column to tell it apart from.
         list,
+        cautionary,
         // Cancel then OK, left to right, with OK the primary — the platform order, and the one the
         // Sibelius dialog uses.
         new Row([new Button('Cancel', () => win?.close()), new Button('OK', accept, { variant: 'primary' })], {

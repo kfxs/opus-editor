@@ -429,6 +429,19 @@ export interface CautionaryOverride extends EngravingOverride {
 }
 
 /**
+ * Client #9: the same decision for a CLEF change — this change allows a courtesy clef at the end of
+ * the previous system. Payloadless; presence = allowed. Keyed by {@link cautionaryClefKey}, which is
+ * (measure, staff) and NOT a beat: a courtesy only ever warns about the clef that OPENS the next
+ * system, so a mid-measure change has nothing to warn about.
+ *
+ * Its own kind rather than sharing the meter's, so the two can never be read for one another and a
+ * Properties dump names which is which.
+ */
+export interface CautionaryClefOverride extends EngravingOverride {
+  kind: 'cautionaryClef'
+}
+
+/**
  * Client #7 of the engraving-overrides compartment: extra vertical space ABOVE a staff
  * (Sibelius "space above staff" — see docs/staff-spacing-plan.md). Stored in STAFF-SPACES,
  * signed (+ = push the staff and everything below it in its system downward). Absent =

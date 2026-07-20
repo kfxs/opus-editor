@@ -105,6 +105,13 @@ No migration needed (no persisted clips) — bump `version`, keep round-trip.
       (deferred — pasted slurs get the auto arch). Tests: capture+re-anchor, offset re-base,
       fully-enclosed-only, cross-staff 1+2→3+4.
 - [ ] **Phase 4 (optional) — clef changes travel; OS-clipboard JSON.**
+      ⚠️ When they do, a clef's **cautionary flag must travel with it** — the `cautionaryClef`
+      override (client #9, keyed `(measureId, staffId)` with the first staff ABSENT from the key).
+      A clef that arrives without it silently loses its courtesy at a line break, which is the kind
+      of loss nobody notices until a part is printed. Note the key is POSITION-based, so it cannot
+      be copied verbatim: it is re-keyed to the pasted measure, the way `rebarOps` already re-keys
+      the rest overrides. The same applies to a meter's `cautionary` override if time signatures
+      ever travel.
 
 ## Reuse notes
 
