@@ -223,6 +223,16 @@ export class WindowLayer {
     layer.addEventListener('pointerup', this.onPointerUp)
     layer.addEventListener('pointercancel', this.onPointerUp)
 
+    // Escape belongs to the frontmost window that claims it (see WindowManager.escapeTarget).
+    //
+    // On `document`, because a window frame is not focused — you can have a dialog up with the score
+    // still holding focus, and the key must still reach it. In the CAPTURE phase, because the
+    // editor's own Escape (deselect / leave entry mode) is a document listener too: capture runs
+    // before every bubble listener regardless of who registered first, so this can claim the key
+    // rather than race for it. `stopPropagation` is the claim — DECLINING to act is not enough to
+    // stop an event, and without it Escape would cancel the dialog AND clear the score's selection.
+    document.addEventListener('keydown', this.onKeyDown, true)
+
     this.unsubscribe = this.manager.subscribe(() => this.sync())
 
     const pending = this.pending
@@ -230,7 +240,17 @@ export class WindowLayer {
     for (const fn of pending) fn(host)
   }
 
+  private onKeyDown = (e: KeyboardEvent): void => {
+    if (e.key !== 'Escape') return
+    const win = this.manager.escapeTarget()
+    if (!win) return // no window wants it: the score's Escape is untouched
+    e.preventDefault()
+    e.stopPropagation()
+    win.onCancel?.()
+  }
+
   destroy(): void {
+    document.removeEventListener('keydown', this.onKeyDown, true)
     this.resizeObserver?.disconnect()
     this.resizeObserver = null
     this.unsubscribe?.()

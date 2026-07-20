@@ -60,6 +60,19 @@ export interface WindowOptions {
    */
   opacity?: number
   content?: Widget
+  /**
+   * What Escape means for this window. Present ⇒ Escape (while this is the frontmost window that
+   * declares one) runs it; absent ⇒ Escape passes straight through to the score.
+   *
+   * A CALLBACK and not an `escapable: true` flag, for the reason at the top of this file: a dialog
+   * wants "close, changing nothing", but a wizard would want "step back" and an editor "revert" —
+   * all Escape, none of them the same act. The flag would only ever have meant `close()`, and the
+   * next window that wanted something else would have had to bypass it.
+   *
+   * It is also what keeps Escape off the standing panels: the Keypad and Properties simply do not
+   * declare one, so Escape over the score still means deselect while they are up.
+   */
+  onCancel?: () => void
 }
 
 /** Which sides a resize drag is pulling. A corner pulls two. */
@@ -110,6 +123,8 @@ export class Window {
   /** 0–1. See {@link WindowOptions.opacity}. */
   readonly opacity: number
   readonly content: Widget | null
+  /** {@link WindowOptions.onCancel} — null when Escape has nothing to do here. */
+  readonly onCancel: (() => void) | null
 
   rect: Rect
   /** Stacking order. Higher is nearer the viewer; the manager re-stamps it on raise. */
@@ -130,6 +145,7 @@ export class Window {
     this.centerOnOpen = (opts.center ?? false) && opts.x === undefined && opts.y === undefined
     this.opacity = clamp01(opts.opacity ?? WINDOW_DEFAULTS.opacity)
     this.content = opts.content ?? null
+    this.onCancel = opts.onCancel ?? null
     this.rect = {
       x: opts.x ?? 0,
       y: opts.y ?? 0,

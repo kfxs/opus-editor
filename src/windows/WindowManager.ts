@@ -67,6 +67,24 @@ export class WindowManager implements WindowHost {
     return win
   }
 
+  /**
+   * The window Escape belongs to: the FRONTMOST one that declares an {@link WindowOptions.onCancel},
+   * or none.
+   *
+   * Frontmost-that-declares, rather than simply the frontmost window, because the standing panels
+   * are always on the glass too — clicking the Keypad raises it above an open dialog, and Escape
+   * must not stop cancelling that dialog just because you touched a panel on the way. Panels declare
+   * no handler, so they are transparent to the key rather than in front of it.
+   */
+  escapeTarget(): Window | undefined {
+    // list() is bottom-to-top and readonly; Escape wants the top, so walk it backwards.
+    const stack = this.list()
+    for (let i = stack.length - 1; i >= 0; i--) {
+      if (stack[i].onCancel) return stack[i]
+    }
+    return undefined
+  }
+
   close(win: Window | string): boolean {
     const id = typeof win === 'string' ? win : win.id
     const i = this.windows.findIndex((w) => w.id === id)

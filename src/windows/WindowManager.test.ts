@@ -34,6 +34,32 @@ describe('WindowManager', () => {
     expect(win.rect).toMatchObject({ x: 40, y: 60 })
   })
 
+  // Escape goes to the frontmost window that CLAIMS it. Not simply the frontmost window: the
+  // standing panels (Keypad, Properties) are on the glass too, and clicking one raises it above an
+  // open dialog — Escape must not stop cancelling that dialog because you touched a panel.
+  describe('escapeTarget', () => {
+    it('is nobody when no window claims Escape', () => {
+      m.open()
+      m.open()
+      expect(m.escapeTarget()).toBeUndefined()
+    })
+
+    it('is the frontmost claimant', () => {
+      const first = m.open({ onCancel: () => {} })
+      const second = m.open({ onCancel: () => {} })
+      expect(m.escapeTarget()).toBe(second)
+      first.raise()
+      expect(m.escapeTarget()).toBe(first)
+    })
+
+    it('skips a panel raised above the dialog', () => {
+      const dialog = m.open({ onCancel: () => {} })
+      const panel = m.open() // no claim — a Keypad
+      panel.raise()
+      expect(m.escapeTarget()).toBe(dialog)
+    })
+  })
+
   it('stacks each new window above the last', () => {
     const a = m.open()
     const b = m.open()
