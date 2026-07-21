@@ -190,25 +190,10 @@
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Tuplet:</span>
 
-            <!--
-              Presets, in order of N. Each states its own M: M is not a function of N (a quintuplet
-              is 5:4 in simple meter and 5:3 in 6/8), so nothing here derives one.
-
-              2:3, 4:3 and 8:6 are the COMPOUND-meter family — duplet, quadruplet and octuplet, which
-              are to 6/8 what the triplet is to 4/4. 8 does NOT follow the rule below and cannot: it is
-              already a power of two, so in simple meter there is nothing for it to borrow from
-              ("8 in the time of 4" is just notes of half the value). It needs a ternary span, which is
-              why its M is 6.
-
-              The rest are the simple-meter ones, where M is the largest power of two below N (3:2,
-              5:4, 6:4, 7:4, 9:8) — the tuplet borrows from the ordinary binary subdivision, and 8 is
-              the nearest one under 9.
-
-              The row is therefore a list of the ordinary tuplets of BOTH worlds, and you pick the one
-              that fits the meter you are in; the day M is derived from the meter, half of these merge.
-            -->
+            <!-- The presets and their M's live in utils/tupletPresets — the SAME table `Ctrl+`N is
+                 built from, so a button and its key can never arm different tuplets. -->
             <button
-              v-for="preset in [{ n: 2, m: 3 }, { n: 3, m: 2 }, { n: 4, m: 3 }, { n: 5, m: 4 }, { n: 6, m: 4 }, { n: 7, m: 4 }, { n: 8, m: 6 }, { n: 9, m: 8 }]"
+              v-for="preset in TUPLET_PRESETS"
               :key="preset.n"
               :class="[
                 'px-2 py-1 rounded text-sm font-bold',
@@ -216,7 +201,7 @@
                   ? 'bg-cyan-600 text-white'
                   : 'bg-gray-600 hover:bg-gray-500'
               ]"
-              :title="`${preset.n} in the time of ${preset.m} — click again to disarm`"
+              :title="`${preset.n} in the time of ${preset.m}  (Ctrl+${preset.n}) — click again to disarm`"
               @click="palette.armTuplet(preset.n, preset.m)"
             >
               {{ preset.n }}
@@ -417,6 +402,7 @@ import { MusicEngine } from './engine/MusicEngine'
 import { DEV_SOUNDS } from './engine/audio/WebAudioFontInstrument'
 import { VIEWPORT_HEIGHT } from './engine/rendering/VexFlowRenderer'
 import { createObservableEditorState, scoreCursorClass } from './interactions/EditorState'
+import { TUPLET_PRESETS } from './utils/tupletPresets'
 import type { NoteDuration } from './types/music'
 import { useHighlight } from './composables/useHighlight'
 import { useRenderer } from './composables/useRenderer'

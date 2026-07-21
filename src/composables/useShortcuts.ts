@@ -1,4 +1,5 @@
 import { dbg } from '@/utils/debug'
+import { TUPLET_PRESETS, tupletPresetAction } from '@/utils/tupletPresets'
 import type { Ref } from 'vue'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from '../interactions/EditorState'
@@ -462,7 +463,14 @@ export function useShortcuts(
       renderer.renderScore()
     },
     toggleDot: () => palette.toggleDot(),
-    toggleTuplet: () => palette.toggleTuplet(),
+    // One handler per preset, generated from the SAME table the keys are — see tupletPresets. Each
+    // arms its own M; pressing the armed one again disarms it, as the palette buttons do.
+    ...Object.fromEntries(
+      TUPLET_PRESETS.map(preset => [
+        tupletPresetAction(preset),
+        () => palette.armTuplet(preset.n, preset.m),
+      ]),
+    ),
     enterNoteA: () => keyboard.enterNoteByLetter('a'),
     enterNoteB: () => keyboard.enterNoteByLetter('b'),
     enterNoteC: () => keyboard.enterNoteByLetter('c'),

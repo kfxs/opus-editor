@@ -1,8 +1,8 @@
 # Tuplets beyond the triplet — the DATA plan
 
-Status: **in progress.** Arbitrary `N:M` arming and a dotted unit are SHIPPED and enterable; the
-Tuplet window is a look-only shell; the format options are not modelled. §6 (remembering the typed
-entry) is SHIPPED.
+Status: **shipped**, less the open items in §7. Arbitrary `N:M` arming, a dotted unit, the remembered
+entry (§6), the Tuplet window that asks the whole sentence, the FORMAT on the model and engraved
+(§9), and `Ctrl+2`…`Ctrl+9` (§10).
 
 Sibling to `docs/tuplet-control-plan.md`, which is about the bracket's *position and look*. Three
 things get called "the tuplet" and only the first is this document's subject:
@@ -10,8 +10,8 @@ things get called "the tuplet" and only the first is this document's subject:
 | | what it is | where |
 |---|---|---|
 | **data** | what the tuplet IS — how many notes, in the time of how many, of what value | **here** |
-| look | bracket side/visibility, what the number says, "full duration" | tuplet-control-plan.md |
-| shortcut | `Ctrl+3` today; `Ctrl+`N tomorrow | §6 below |
+| look | bracket side/visibility, what the number says, "full duration" | §9 + tuplet-control-plan.md |
+| shortcut | `Ctrl+2`…`Ctrl+9`, one per preset | §10 |
 
 ---
 
@@ -102,10 +102,13 @@ marking-tool ghost, because what the click enters *is* a note and the tuplet is 
 starts. `GhostNote.tupletLabel` carries it.
 
 It is drawn the way VexFlow draws a real one: `new Element('Tuplet')` + `renderText()`, so the font
-comes from VexFlow's `Metrics` (Bravura at the Tuplet category's own size) and cannot go stale; the
-text is SMuFL tuplet digits (`tuplet0`…`tuplet9` = U+E880 + d, `tupletColon` = U+E88A) via
-`tupletMarkText()`, a port of VexFlow's private `Tuplet.resolveGlyphs()`. Codepoints are written as
-escapes — `Glyphs` is CJS-only and `undefined` in the browser build.
+comes from VexFlow's `Metrics` (Bravura at the Tuplet category's size, which §9 sets) and cannot go
+stale; the text is SMuFL tuplet digits (`tuplet0`…`tuplet9` = U+E880 + d, `tupletColon` = U+E88A) —
+a port of VexFlow's private `Tuplet.resolveGlyphs()`. Codepoints are written as escapes: `Glyphs` is
+CJS-only and `undefined` in the browser build.
+
+Since §9 it draws the SAME runs, through the same `layoutTupletMark`, and asks for the armed
+`numberStyle` — so what the preview says is what the page will print, at the sizes the page uses.
 
 It rides the NOTE, not the staff: a fixed gap (`GHOST_TUPLET_NUMBER_GAP`, 1.5 staff SPACES so it
 holds at any staff size) above the stem TIP when the stem is up, above the NOTEHEAD when it hangs
@@ -177,8 +180,8 @@ wrong number on the page; a test sets it to 99 and the mark still reads 5:4.
 
 ⛔ **The printed string is not stored.** Tempo marks and dynamics are text-as-truth; a tuplet is the
 opposite — the numbers ARE the rhythm, so a saved `"5:4"` would go on saying 5:4 after the tuplet
-changed. `numberStyle` stores the CHOICE (number / ratio / ratio+note / none, absent = auto) and
-`tupletMarkText` derives the string. Nothing sets `numberStyle` yet — the window is unwired.
+changed. `numberStyle` stores the CHOICE (absent = auto) and the string is derived — see §9, where
+the window sets it and the renderer draws it.
 
 ### The design we did NOT take, and the honest score
 
@@ -207,14 +210,15 @@ tuplets that carry no entry — and those could record one on the way in.
 
 - **The default M.** Not a function of N: 5:4 in simple meter, 5:3 in 6/8, because the normal side
   comes from what is being divided. Must be derived from the meter + the span, in ONE place. Today
-  every caller states its own M (the palette presets each carry theirs) and there is deliberately no
-  `defaultNotesOccupied(n)` table.
-- **`Ctrl+`N shortcuts.** `Ctrl+3` is `armTuplet(3, 2)`; `Ctrl+2`…`Ctrl+9` fall out once the default
-  M above exists. The Tuplet window's own hint promises them.
-- **The Tuplet window** (`src/windows/tupletWindow.ts`) is a LOOK-ONLY shell — Finale/Sibelius's
-  Format box laid out, wired to nothing. Its four format options need fields on `Tuplet` (each
-  `undefined` = auto, like `placement`), and they are NOT `engravingOverrides`: that compartment is
-  for anchor-keyed geometry deltas, and "which symbol is drawn" is neither.
+  every caller states its own M (`utils/tupletPresets.ts` carries one per preset) and there is
+  deliberately no `defaultNotesOccupied(n)` table. When it lands, half of that table merges.
+- **The bracket's third end position.** `TupletBracketEnd` has Dorico's three; the window's *Full
+  duration* checkbox is a binary over it and can reach only `lastNote` / `division`. `beforeNext` is
+  modelled, resolved and drawn, but has no control.
+- **Editing a tuplet that already exists.** The window ARMS; it cannot restyle the tuplet under the
+  selection, so a format decision is made before the notes are written and never again. Sibelius's
+  dialog edits the selection; the Time Signature window's "apply to the boxed bar, else arm" is the
+  shape to copy.
 - **The float ratio sites.** `NoteEntryCoordinator.ts:101`, `:127`, `:675` compute
   `notesOccupied / numNotes` as a JS float for epsilon-guarded overlap comparisons. The stored
   `actualDuration` stays an exact `Fraction`, but 4/5 and 8/11 are not binary-exact and those
@@ -222,20 +226,91 @@ tuplets that carry no entry — and those could record one on the way in.
 - **One field too many** — `notesOccupied` is derivable from the entry. §6's last part says why it
   stays and what removing it would take.
 - **Nesting** — one `tupletId` per slot cannot express it; VexFlow already has `NESTING_OFFSET`.
-- **The Vue palette sketch** (`App.vue`, Finale-shaped: `N ♪ in the time of M ♪` + live readout) is
-  a THINKING TOOL, not the shipping UI — the Vue palettes are being deleted. It holds only the four
-  typed values; the arithmetic is `PaletteController.resolveTupletInTimeOf`, which returns the
-  ratio or the REASON it describes no storable tuplet.
+
+---
+
+## 9. The FORMAT — what the mark says and what the bracket does (SHIPPED)
+
+The window's *Format* box is stored on the tuplet as `TupletFormat` (`types/music.ts`), which
+`Tuplet` extends — so the fields stay flat and no existing score changes a byte:
+
+| field | values | absent means |
+|---|---|---|
+| `numberStyle` | `number` · `ratio` · `ratioNote` · `entryRatio` · `none` | the rule in `autoNumberStyle` |
+| `bracket` | `auto` · `always` · `never` | the rule in `tupletBracketed` |
+| `bracketEnd` | `lastNote` · `division` · `beforeNext` | `DEFAULT_TUPLET_BRACKET_END` (`lastNote`) |
+
+**Absent means the RULE, not a gap.** That is what makes `Ctrl+3` a complete answer rather than a
+tuplet missing its settings: a format is a DEVIATION, the renderer asks a resolver and never the
+field, and each rule is written once. A tuplet nobody argued with stores nothing.
+
+The three rules, and why:
+
+- **Mark** — the ratio when N is a power of two above 2, the bare number otherwise. A binary N cannot
+  be a tuplet against a binary M, so a bracket reading `4` or `8` must be borrowing from a ternary
+  span, and the reader cannot tell which (`4` is 4:3 over one compound beat, or 4:6 over two). Every
+  other N names its tuplet by convention. ⛔ Replaces VexFlow's `|N − M| > 1`, which spelled out 6:4
+  and 7:4 and left the quadruplet bare — that measures the distance between two numbers, which is
+  not a fact about music.
+- **Bracket** — none when a beam already shows the group. The beam and the bracket say the same
+  thing. Asked at DRAW time, because `hasBeam()` only answers once the Beams exist.
+- **Bracket end** — `lastNote`. Dorico defaults to the full duration and the argument is real (a
+  bracket that stops at the notehead ends slightly before the group does), but the longer bracket
+  reaches toward whatever follows and the ordinary beamed group never needed it. So it is opt-in.
+
+`entryRatio` is ours and has no Sibelius equivalent: `5𝅘𝅥𝅯:1♩`, the sentence as typed, each side with
+its own value — where `ratio` converts the second figure into the tuplet's written unit and prints
+`5:4`. Printable only because §6 keeps the entry.
+
+**Drawing.** `ScoreTuplet` (`engine/rendering/`) is VexFlow's `Tuplet` with `draw()` overridden, for
+the two things no option reaches: where the bracket ends (handed in as an X, since only the renderer
+knows where the next note was formatted), and a bracket with no number — VexFlow splits the line to
+make room for text that isn't there, leaving a notch cut for nothing. `getYPosition()` stays
+VexFlow's; everything hard about a mark's height is in it.
+
+A mark is a list of RUNS (`tupletMarkRuns` → `TupletMarkRun[]`), not a string: the figures are cut
+small inside their em and a `metNote…` fills its own, so they cannot share a font size — the glyphs
+draw at `NOTE_GLYPH_SCALE` of the figures. Note values use SMuFL's **metronome** family (the
+text-inline cut), never the staff's `noteQuarterUp`, which towers over the digits. Spacing between
+runs is a measured GAP (`MARK_SPACE_EM`), never a space character — a music font's space is next to
+nothing wide. `TUPLET_FONT_SIZE` (24) is the one knob for how big the whole mark is: VexFlow gives
+the Tuplet category no size and it fell through to the toolkit's 30.
+
+The GHOST draws the same runs through the same layout function and asks for the armed style, so a
+preview cannot promise a mark the page will not print.
+
+---
+
+## 10. The presets and their keys (SHIPPED)
+
+`utils/tupletPresets.ts` holds the eight `{n, m}` pairs, and three places read it: the palette's
+button row, the `Ctrl+`N keymap (generated), and the handler table (generated, action name spelled
+by `tupletPresetAction`). One table, so a button and its key cannot arm different tuplets.
+
+`2:3 · 3:2 · 4:3 · 5:4 · 6:4 · 7:4 · 8:6 · 9:8`
+
+Two families. **2, 4, 8** are the compound-meter tuplets — duplet, quadruplet, octuplet, an even
+number borrowed from a beat that divides in three. **3, 5, 6, 7, 9** take the largest power of two
+below N. 8 cannot follow that rule: it is already binary, so in simple meter it has nothing to borrow
+from ("8 in the time of 4" is notes of half the value) and it needs a ternary span to be a tuplet at
+all. 1 is absent and could not work — one note in the time of two IS a note of double the value.
+
+⚠️ Chrome uses `Ctrl+1`…`Ctrl+9` for tab switching. Pages can intercept them (the manager
+`preventDefault`s any matched key), but that is the first thing to suspect if a key does nothing.
 
 ---
 
 ## 8. Code references
 
-- `src/types/music.ts` — `TupletShape` / `Tuplet` (`baseDots`, `normalCount`/`normalDuration`/`normalDots`, `numberStyle`), `GhostNote.tupletLabel`
-- `src/utils/musicUtils.ts` — `tupletSpan`, `tupletScale`, `tupletSlotDuration`, `tupletWrittenDuration`, `tupletPrintedCounts`, `tupletMarkText`
-- `src/engine/models/tupletOps.ts` — `createTuplet`, `refillTupletRemainder`
+- `src/types/music.ts` — `TupletShape` / `Tuplet` / `TupletFormat` (`baseDots`, `normalCount`/`normalDuration`/`normalDots`, `numberStyle`, `bracket`, `bracketEnd`), `TupletMarkRun`, `GhostNote.tupletLabel`
+- `src/utils/musicUtils.ts` — `tupletSpan`, `tupletScale`, `tupletSlotDuration`, `tupletWrittenDuration`, `tupletPrintedCounts`, `tupletMarkRuns`/`tupletMarkText`, `resolveTupletInTimeOf`, and the rules: `autoNumberStyle`, `tupletBracketed`, `tupletBracketEnd`
+- `src/utils/tupletPresets.ts` — the eight presets + `tupletPresetAction`
+- `src/engine/models/tupletOps.ts` — `createTuplet` (writes the format), `refillTupletRemainder`
 - `src/engine/NoteEntryCoordinator.ts` — `buildTupletWithFirstNote`, `applyTupletToNote`, `tupletFitsBar`
-- `src/interactions/EditorState.ts` — `armedTuplet`
-- `src/interactions/PaletteController.ts` — `armTuplet`, `resolveTupletInTimeOf`, `armTupletInTimeOf`
-- `src/windows/tupletWindow.ts` — the window shell
+- `src/engine/rendering/ScoreTuplet.ts` — the drawn mark and bracket: `TUPLET_FONT_SIZE`, `NOTE_GLYPH_SCALE`, `layoutTupletMark`
+- `src/interactions/EditorState.ts` — `armedTuplet` (+ its `format`), `spendArmedTuplet`
+- `src/interactions/PaletteController.ts` — `armTuplet`, `armTupletInTimeOf`
+- `src/interactions/tupletSelection.ts` — the window → `keypadSync` → controller seam
+- `src/windows/tupletWindow.ts` — the window: the sentence, the Format box, OK arms
 - `src/engine/NoteEntryCoordinator.test.ts` — "dotted tuplet unit"
+- `src/utils/musicUtils.test.ts` — the mark rules and the entry ratio; `ScoreModel.test.ts` — the format is stored

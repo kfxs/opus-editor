@@ -1001,11 +1001,6 @@ export class PaletteController {
     this.showArmedGhost()
   }
 
-  /** Ctrl+3 and the palette's 3 button: the triplet, which is the one every score has. */
-  toggleTuplet(): void {
-    this.armTuplet(3, 2)
-  }
-
   /**
    * "N ♪ in the time of M ♪" → the shape, or the reason it is none. The RULE lives in
    * {@link resolveTupletInTimeOf} (utils/musicUtils) — the Tuplet window asks the same question

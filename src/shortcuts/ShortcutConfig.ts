@@ -7,6 +7,8 @@
  * @see https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key/Key_Values
  */
 
+import { TUPLET_PRESETS, tupletPresetAction } from '../utils/tupletPresets'
+
 export interface ShortcutDefinition {
   /** The action to execute */
   action: string
@@ -326,11 +328,20 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Open the time signature window',
   },
 
-  // Tuplet toggle
-  'Ctrl+3': {
-    action: 'toggleTuplet',
-    description: 'Toggle triplet mode',
-  },
+  // Tuplets: `Ctrl+`N arms the preset whose N that is — Sibelius's own keys, and the reason the
+  // triplet lives on Ctrl+3 rather than on plain T (see the note above).
+  //
+  // GENERATED from the preset table, not typed out: the row of palette buttons and this keymap are
+  // the same eight facts, and two hand-written copies disagree the first time one is edited.
+  ...Object.fromEntries(
+    TUPLET_PRESETS.map(preset => [
+      `Ctrl+${preset.n}`,
+      {
+        action: tupletPresetAction(preset),
+        description: `Tuplet: ${preset.n} in the time of ${preset.m}`,
+      },
+    ]),
+  ),
 
   // Stem direction
   'x': { action: 'flipStemDirection', description: 'Flip: selected slur/tie/tuplet side, articulation side, else note stem direction' },
