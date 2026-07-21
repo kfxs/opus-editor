@@ -212,9 +212,9 @@ tuplets that carry no entry — and those could record one on the way in.
   comes from what is being divided. Must be derived from the meter + the span, in ONE place. Today
   every caller states its own M (`utils/tupletPresets.ts` carries one per preset) and there is
   deliberately no `defaultNotesOccupied(n)` table. When it lands, half of that table merges.
-- **The bracket's third end position.** `TupletBracketEnd` has Dorico's three; the window's *Full
-  duration* checkbox is a binary over it and can reach only `lastNote` / `division`. `beforeNext` is
-  modelled, resolved and drawn, but has no control.
+- **`beforeNext` has no control.** Modelled, resolved and drawn, but the window's tickbox reaches
+  only `lastNote` / `division` (see §9 — deliberately). It wants a properties panel or an engraving
+  option, not a third radio in the entry dialog.
 - **Editing a tuplet that already exists.** The window ARMS; it cannot restyle the tuplet under the
   selection, so a format decision is made before the notes are written and never again. Sibelius's
   dialog edits the selection; the Time Signature window's "apply to the boxed bar, else arm" is the
@@ -262,6 +262,13 @@ The three rules, and why:
 its own value — where `ratio` converts the second figure into the tuplet's written unit and prints
 `5:4`. Printable only because §6 keeps the entry.
 
+**The window asks `bracketEnd` as ONE tickbox** — *Full duration*, ticked = `division`, unticked =
+the default — and that is lossy on purpose. Three radios were built and rejected on sight: this is a
+dialog you open to type a ratio, and a three-way fine distinction there reads as a form to fill in.
+The MODEL keeps all three regardless, because the enum is not the dialog's: the renderer resolves and
+draws each, and `beforeNext` waits for the control that suits it (a properties panel for a tuplet
+already engraved, or a document-wide engraving option — where Dorico asks it).
+
 **Drawing.** `ScoreTuplet` (`engine/rendering/`) is VexFlow's `Tuplet` with `draw()` overridden, for
 the two things no option reaches: where the bracket ends (handed in as an X, since only the renderer
 knows where the next note was formatted), and a bracket with no number — VexFlow splits the line to
@@ -273,7 +280,8 @@ small inside their em and a `metNote…` fills its own, so they cannot share a f
 draw at `NOTE_GLYPH_SCALE` of the figures. Note values use SMuFL's **metronome** family (the
 text-inline cut), never the staff's `noteQuarterUp`, which towers over the digits. Spacing between
 runs is a measured GAP (`MARK_SPACE_EM`), never a space character — a music font's space is next to
-nothing wide. `TUPLET_FONT_SIZE` (24) is the one knob for how big the whole mark is: VexFlow gives
+nothing wide. `TUPLET_FONT_SIZE` (26) is the one knob for how big the whole mark is — the glyph scale
+and the gaps are fractions of it, so it moves the whole mark together. VexFlow gives
 the Tuplet category no size and it fell through to the toolkit's 30.
 
 The GHOST draws the same runs through the same layout function and asks for the armed style, so a
@@ -283,9 +291,14 @@ preview cannot promise a mark the page will not print.
 
 ## 10. The presets and their keys (SHIPPED)
 
-`utils/tupletPresets.ts` holds the eight `{n, m}` pairs, and three places read it: the palette's
-button row, the `Ctrl+`N keymap (generated), and the handler table (generated, action name spelled
-by `tupletPresetAction`). One table, so a button and its key cannot arm different tuplets.
+`utils/tupletPresets.ts` holds the eight `{n, m}` pairs, and the `Ctrl+`N keymap and its handler
+table are both GENERATED from it (the action name spelled by `tupletPresetAction`, so a key and its
+handler cannot drift by a character).
+
+**The Vue palette's tuplet row is DELETED** — presets and the Finale-shaped sketch both. Two ways in
+survive it and neither is Vue: `Ctrl+`2…9, and Insert ▸ Tuplet, which arms any ratio and its format.
+⏭️ What went with the row is the armed-STATE light: nothing now says "5:4 is armed" except the ghost
+under the cursor. That belongs on the Keypad, which mirrors editor state already.
 
 `2:3 · 3:2 · 4:3 · 5:4 · 6:4 · 7:4 · 8:6 · 9:8`
 

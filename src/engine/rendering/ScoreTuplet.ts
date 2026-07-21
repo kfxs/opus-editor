@@ -14,7 +14,7 @@ import type { TupletMarkRun } from '@/types/music'
  * ⚠️ `Metrics.clear` is required — the resolved font is CACHED per category, so a value written
  * after something has already drawn would be ignored. Same dance TempoLayout does for its glyph.
  */
-export const TUPLET_FONT_SIZE = 24
+export const TUPLET_FONT_SIZE = 26
 MetricsDefaults.Tuplet = { ...MetricsDefaults.Tuplet, fontSize: TUPLET_FONT_SIZE }
 Metrics.clear('Tuplet')
 

@@ -1,7 +1,7 @@
 import type { WindowLayer } from './WindowLayer'
 import type { Window } from './Window'
-import type { NoteDuration, TupletBracket, TupletFormat, TupletNumberStyle } from '../types/music'
-import { resolveTupletInTimeOf, tupletPrintedCounts, type TupletResolution } from '../utils/musicUtils'
+import type { NoteDuration, TupletBracket, TupletBracketEnd, TupletFormat, TupletNumberStyle } from '../types/music'
+import { DEFAULT_TUPLET_BRACKET_END, resolveTupletInTimeOf, tupletPrintedCounts, type TupletResolution } from '../utils/musicUtils'
 import { tupletSelection, type ArmedTuplet } from '../interactions/tupletSelection'
 import { Column, Columns, GroupBox, Row } from './content/layout'
 import { Button, Checkbox, GlyphSelect, Label, NumberInput, RadioGroup } from './content/widgets'
@@ -22,14 +22,13 @@ import { Button, Checkbox, GlyphSelect, Label, NumberInput, RadioGroup } from '.
  * palette's presets, same route: {@link ../interactions/tupletSelection} → `keypadSync` →
  * `PaletteController.armTupletInTimeOf`.
  *
- * The *Format* box travels too, and is STORED: all three choices land on the tuplet as
- * {@link TupletFormat} when the group is created. ⚠️ Nothing RENDERS them yet — VexFlow still draws
- * its own number and a bracket that is always on, stopping at the last notehead — so choosing *None*
- * changes the score's data and not (yet) its picture. Stored first on purpose: the choice has to
- * survive the entry it was made during, and the renderer can then read a value that is already there.
+ * The *Format* box travels too: all three choices land on the tuplet as {@link TupletFormat} when the
+ * group is created, and the renderer engraves them (`ScoreTuplet`). Every radio opens on the rule it
+ * would have followed anyway, so a dialog you left alone engraves what a `Ctrl+`N tuplet engraves.
  *
- * *Full duration* is a two-valued control over a three-valued field, and knowingly so: it is
- * `division` or `lastNote`, and `beforeNext` — Dorico's third — has no control here yet.
+ * ⚠️ It can only DRESS A TUPLET IT IS CREATING. There is no way to restyle one already in the score:
+ * the window arms, and a tuplet under the selection is not offered. That is the open item — the shape
+ * to copy is the Time Signature window's, which applies to a boxed bar and otherwise arms.
  *
  * Two departures from the screenshot, both on purpose:
  *   • The advisory line is muted grey, not Sibelius's blue: that blue on our dark glass is a contrast
@@ -206,15 +205,20 @@ export function openTupletWindow(windows: WindowLayer): Window {
    * format at all — is what the shortcuts arm; it is not something this window produces.
    *
    * `fullDuration` is a BINARY over a three-valued field ({@link TupletBracketEnd}): ticked is
-   * `division` — the bracket runs to the end of the group's time — and unticked is `lastNote`, where
-   * it stops at the final notehead. Sibelius's checkbox is that same lossy pair, and it covers the
-   * two answers anyone asks for; the third (`beforeNext`) has no control yet and is reachable only
-   * by editing the tuplet. When it gets one, this becomes three radios and this line goes away.
+   * `division` — the bracket runs to the end of the group's time — and unticked is
+   * `DEFAULT_TUPLET_BRACKET_END`, which stops at the final notehead.
+   *
+   * Lossy ON PURPOSE. Three radios were tried here and read as a form to fill in: this is a dialog
+   * you open to type a ratio, and the third value (end just short of what follows) is a fine
+   * distinction almost nobody is choosing at that moment. The MODEL keeps all three — the renderer
+   * resolves and draws each — so `beforeNext` waits for the control that suits it: a properties
+   * panel for a tuplet already engraved, or a document-wide engraving option, which is where Dorico
+   * asks it.
    */
   const format = (): TupletFormat => ({
     numberStyle: numberStyle.value as TupletNumberStyle,
     bracket: bracket.value as TupletBracket,
-    bracketEnd: fullDuration.checked ? 'division' : 'lastNote',
+    bracketEnd: fullDuration.checked ? 'division' : DEFAULT_TUPLET_BRACKET_END,
   })
 
   win = windows.open({
@@ -245,8 +249,8 @@ export function openTupletWindow(windows: WindowLayer): Window {
         readout,
         new GroupBox('Format', [
           // TWO groups, not one two-column group: the mark and the bracket are independent choices
-          // (a triplet can read "3" with no bracket, or nothing with one), and one RadioGroup of seven
-          // options would let picking a bracket clear the number.
+          // (a triplet can read "3" with no bracket, or nothing with one), and one RadioGroup of all
+          // of them would let picking a bracket clear the number.
           new Columns([numberStyle, new Column([bracket, fullDuration], { gap: 8 })], {
             gap: 20,
             // A divider would say these are separate PANES; they are two halves of one Format box.

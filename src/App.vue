@@ -183,31 +183,14 @@
 
 
           <!--
-            Tuplet presets. The custom "N ♪ in the time of M ♪" sketch that used to live here is GONE:
-            it was a thinking tool, and the thing it was thinking about now exists for real in the
-            Tuplet window (Insert ▸ Tuplet), which is plain TS and survives this palette's deletion.
+            The tuplet row is GONE — presets and the Finale-shaped sketch both. Three paths armed a
+            tuplet and two of them survive this file: `Ctrl+`2…9, one per preset (generated from
+            utils/tupletPresets, the very table these buttons read), and Insert ▸ Tuplet, which can
+            arm any ratio at all and set how it is engraved.
+
+            ⏭️ What went with them is the armed-STATE light: nothing now says "5:4 is armed" except the
+            ghost under the cursor. That belongs on the Keypad, which mirrors editor state already.
           -->
-          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">Tuplet:</span>
-
-            <!-- The presets and their M's live in utils/tupletPresets — the SAME table `Ctrl+`N is
-                 built from, so a button and its key can never arm different tuplets. -->
-            <button
-              v-for="preset in TUPLET_PRESETS"
-              :key="preset.n"
-              :class="[
-                'px-2 py-1 rounded text-sm font-bold',
-                state.armedTuplet?.numNotes === preset.n && state.armedTuplet?.notesOccupied === preset.m
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              :title="`${preset.n} in the time of ${preset.m}  (Ctrl+${preset.n}) — click again to disarm`"
-              @click="palette.armTuplet(preset.n, preset.m)"
-            >
-              {{ preset.n }}
-            </button>
-
-          </div>
 
           <!-- Beam -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
@@ -402,7 +385,6 @@ import { MusicEngine } from './engine/MusicEngine'
 import { DEV_SOUNDS } from './engine/audio/WebAudioFontInstrument'
 import { VIEWPORT_HEIGHT } from './engine/rendering/VexFlowRenderer'
 import { createObservableEditorState, scoreCursorClass } from './interactions/EditorState'
-import { TUPLET_PRESETS } from './utils/tupletPresets'
 import type { NoteDuration } from './types/music'
 import { useHighlight } from './composables/useHighlight'
 import { useRenderer } from './composables/useRenderer'
@@ -812,11 +794,8 @@ function onDevSoundChange() {
   engine.value?.setInstrumentProgram(devSoundProgram.value)
 }
 
-// The Finale-shaped tuplet sketch that stood here — four boxes, two dot toggles and a live ratio —
-// is DELETED. It was a thinking tool for a question that now has a real answer in `windows/
-// tupletWindow.ts`, which asks the same sentence in plain TS and can also say how the group is
-// engraved. Nothing was lost with it: the arithmetic never lived here (it is
-// `resolveTupletInTimeOf`, in utils), which is exactly why the sketch could be thrown away.
+// Nothing tuplet-shaped is left in this file. The sketch and the presets are both gone — see the
+// note where the row used to be, in the template.
 </script>
 
 <style>
