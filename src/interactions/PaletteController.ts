@@ -17,7 +17,7 @@ import { tieSelection } from './tieSelection'
 import { restSelection } from './restSelection'
 
 /**
- * What "N ♪ in the space of M ♪" came to — the ratio, or WHY those boxes describe no tuplet we can
+ * What "N ♪ in the time of M ♪" came to — the ratio, or WHY those boxes describe no tuplet we can
  * store. The reason is a string and not a boolean because the two refusals are different facts (a
  * dotted unit vs a fractional space), and a UI that can only say "no" teaches nothing.
  */
@@ -994,9 +994,12 @@ export class PaletteController {
   }
 
   /**
-   * Finale's way of asking: "**N** [note value] in the space of **M** [note value]" — four values,
+   * Finale's way of asking: "**N** [note value] in the time of **M** [note value]" — four values,
    * one per box, and no ratio to work out in your head. It is how a player says it out loud ("five
-   * sixteenths in the space of a quarter"), which is why it beats `5:4` at the point of entry.
+   * sixteenths in the time of a quarter"), which is why it beats `5:4` at the point of entry.
+   *
+   * The WORDS are not Finale's: its dialog says "in the space of", which is a typesetter's idiom for
+   * what a tuplet does to TIME. Sibelius and Dorico both say "in the time of", and so do we.
    *
    * BOTH note values may be DOTTED, as Finale's two dropdowns are ("Half(s) • Dotted Quarter(s) •
    * Quarter(s)…") and as MusicXML's `<normal-dot>` / `<tuplet-dot>` are. A dot is not decoration
@@ -1012,12 +1015,12 @@ export class PaletteController {
    * entry: it cannot be re-spelled away (N counts NOTES, so writing the same music in undotted units
    * would change N), so the model has to hold it.
    *
-   * The other refusal is the fractional one: "2 quarters in the space of 3 eighths" is a span of one
+   * The other refusal is the fractional one: "2 quarters in the time of 3 eighths" is a span of one
    * and a half quarters, and a single undotted unit cannot say "one and a half". That music is
    * writable — it is the compound-time duplet, spelled 2:3 in EIGHTHS — so the honest answer is to
    * say so, not to round it into a different tuplet.
    */
-  resolveTupletInSpaceOf(
+  resolveTupletInTimeOf(
     numNotes: number,
     unit: NoteDuration,
     normalCount: number,
@@ -1034,8 +1037,8 @@ export class PaletteController {
     return { ok: true, numNotes, notesOccupied: occupied.num }
   }
 
-  /** Arm what {@link resolveTupletInSpaceOf} works out; false when the boxes do not resolve. */
-  armTupletInSpaceOf(
+  /** Arm what {@link resolveTupletInTimeOf} works out; false when the boxes do not resolve. */
+  armTupletInTimeOf(
     numNotes: number,
     unit: NoteDuration,
     normalCount: number,
@@ -1043,7 +1046,7 @@ export class PaletteController {
     unitDots = 0,
     normalDots = 0,
   ): boolean {
-    const ratio = this.resolveTupletInSpaceOf(numNotes, unit, normalCount, normalUnit, unitDots, normalDots)
+    const ratio = this.resolveTupletInTimeOf(numNotes, unit, normalCount, normalUnit, unitDots, normalDots)
     if (!ratio.ok) return false
     // The tuplet is written in `unit`, so arming it arms that duration too — the two must agree, and
     // the note value is the one thing the ratio alone does not carry. Assigned rather than routed

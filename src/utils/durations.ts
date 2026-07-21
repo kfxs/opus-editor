@@ -183,7 +183,7 @@ export function durationToVexflow(duration: NoteDuration, dots: number = 0): str
  *
  * @param duration      Written note duration
  * @param dots          Number of dots on the note
- * @param numNotes      N in "N notes in the space of M" (e.g. 3 for a triplet)
+ * @param numNotes      N in "N notes in the time of M" (e.g. 3 for a triplet)
  * @param notesOccupied M in the ratio (e.g. 2 for a triplet)
  */
 export function tupletNoteDurationFraction(

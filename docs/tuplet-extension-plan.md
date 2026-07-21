@@ -62,7 +62,7 @@ would change N into a different tuplet. So the model holds it.
 
 The two sides are NOT symmetric, which is the useful thing to know:
 
-- a dot on the **normal** side ("in the space of a dotted quarter") is **free** — it only changes
+- a dot on the **normal** side ("in the time of a dotted quarter") is **free** — it only changes
   the span, and the span is divided out into `M`;
 - a dot on the **actual** side is what needs storing, and is what `baseDots` is.
 
@@ -73,7 +73,7 @@ span a third short and the failure surfaces as a rebar or overflow bug three lay
 byte-identically.
 
 **What is still NOT expressible:** a normal side with its own note value — MusicXML's
-`<normal-type>` + `<normal-dot>`, Finale's second dropdown. "2 quarters in the space of 1 dotted
+`<normal-type>` + `<normal-dot>`, Finale's second dropdown. "2 quarters in the time of 1 dotted
 quarter" is a span of one and a half quarters, and `notesOccupied` is an integer count of the
 SHARED unit. Adding a dot does not fix it; only an independent normal side would, and that is the
 step from a 3-value model to a 4-value one. The same music is writable as `2:3` in eighths, so
@@ -106,6 +106,16 @@ text is SMuFL tuplet digits (`tuplet0`…`tuplet9` = U+E880 + d, `tupletColon` =
 `tupletMarkText()`, a port of VexFlow's private `Tuplet.resolveGlyphs()`. Codepoints are written as
 escapes — `Glyphs` is CJS-only and `undefined` in the browser build.
 
+It rides the NOTE, not the staff: a fixed gap (`GHOST_TUPLET_NUMBER_GAP`, 1.5 staff SPACES so it
+holds at any staff size) above the stem TIP when the stem is up, above the NOTEHEAD when it hangs
+down, and above the head itself for a stemless whole note. Centred on the notehead's own two edges,
+not on `getAbsoluteX()` — that is where the note *attaches*, and an accidental or a dot shifts it.
+
+VexFlow's own rule is deliberately NOT copied: it clamps the number to at least 1.5 lines above the
+top staff line, which is right for a real tuplet (one bracket over several notes needs a single
+height) and wrong for a ghost, which is ONE note chasing the cursor — clamped, the number stops
+tracking and drifts off the notehead as you move down the staff.
+
 No bracket in the preview: a tuplet's bracket spans notes that do not exist until the click.
 
 ---
@@ -130,7 +140,7 @@ No bracket in the preview: a tuplet's bracket spans notes that do not exist unti
 |---|---|---|
 | **MusicXML** | `<time-modification>` = actual/normal (+`normal-type`/`normal-dot`); `<tuplet>` = the look | draws the same data/look line we do. `show-number` (actual\|both\|none), `bracket`, `line-shape`, `placement`, `number` for nesting |
 | **Dorico** | ratio + unit — `5:4e`, `3:2q`; omit the unit and it uses the selected duration | our exact triple. 5.1.70 fixed misreading a triplet whose notes are 16ths but whose unit is the eighth as a *nested* tuplet |
-| **Finale** | `__ [value] in the space of __ [value]` — both sides, dots included | the 4-value model. Number: `Nothing • Number • X:Y • X:Yq • Xq:Yq` |
+| **Finale** | `__ [value] in the space of __ [value]` — both sides, dots included. ⚠️ that phrase is Finale's; WE say *in the time of*, with Sibelius and Dorico — a tuplet divides time, and "space" is the typesetter's idiom | the 4-value model. Number: `Nothing • Number • X:Y • X:Yq • Xq:Yq` |
 | **Sibelius** | a ratio typed as text in one box (`12:8`) | Format: Number / Ratio / Ratio+note / None; Auto-bracket (drops the bracket when a beam already joins exactly those notes) / Bracket / No bracket; Full duration |
 | **MuseScore** | select a span, then an arbitrary "relation" (`13/4`) | nesting supported, "outside in" |
 | **VexFlow** (ours) | `numNotes`, `notesOccupied`, `bracketed`, `ratioed`, `location`, `yOffset` | `bracketed` defaults true *unless beamed* (= auto-bracket); `ratioed` defaults true when the counts differ by more than 1 — **both "auto" rows are already the renderer's behaviour** |
@@ -155,9 +165,9 @@ No bracket in the preview: a tuplet's bracket spans notes that do not exist unti
   margins were sized against 2/3.
 - **`normal-type` / `normal-dot`** — §2.
 - **Nesting** — one `tupletId` per slot cannot express it; VexFlow already has `NESTING_OFFSET`.
-- **The Vue palette sketch** (`App.vue`, Finale-shaped: `N ♪ in the space of M ♪` + live readout) is
+- **The Vue palette sketch** (`App.vue`, Finale-shaped: `N ♪ in the time of M ♪` + live readout) is
   a THINKING TOOL, not the shipping UI — the Vue palettes are being deleted. It holds only the four
-  typed values; the arithmetic is `PaletteController.resolveTupletInSpaceOf`, which returns the
+  typed values; the arithmetic is `PaletteController.resolveTupletInTimeOf`, which returns the
   ratio or the REASON it describes no storable tuplet.
 
 ---

@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet, Element as VexFlowElement, Metrics as VexFlowMetrics } from 'vexflow'
+import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet, Element as VexFlowElement } from 'vexflow'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
@@ -46,6 +46,16 @@ export { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo }
 
 /** Gray a hidden rest renders in (Tailwind gray-400 family) — see docs/rest-hide-plan.md. */
 const HIDDEN_REST_COLOR = '#9CA3AF'
+
+/**
+ * How far the ghost's tuplet number floats above the note, in STAFF SPACES — measured from the stem
+ * tip (stem up) or the notehead (stem down) to the number's baseline.
+ *
+ * In spaces and not pixels so it holds at any staff size, and ONE knob because both stem directions
+ * take the same gap: it is the same "clear of the note" distance, and the anchor is what differs.
+ * Tune here.
+ */
+const GHOST_TUPLET_NUMBER_GAP = 1.5
 
 /**
  * Bounds information for a rendered measure
@@ -2346,12 +2356,29 @@ export class VexFlowRenderer {
         const label = new VexFlowElement('Tuplet')
         label.setText(ghostNote.tupletLabel)
         label.setContext(this.context!)
-        const labelY =
-          tempStave.getYForLine(0)
-          - 1.5 * tempStave.getSpacingBetweenLines() // VexFlow's own offset for a number above
-          + label.getHeight() / 2
-          - VexFlowMetrics.get('Tuplet.textYOffset')
-        label.renderText(this.context!, staveNote.getAbsoluteX() - label.getWidth() / 2, labelY)
+        // The number rides the NOTE, not the staff: it floats a fixed gap above whatever the note's
+        // highest point is — the stem TIP when the stem is up, the NOTEHEAD when it hangs down.
+        //
+        // Deliberately NOT VexFlow's own rule, which then clamps the result to at least 1.5 lines
+        // above the top staff line: that clamp is right for a real tuplet (a bracket spanning several
+        // notes needs one height for all of them) and wrong for a ghost, which is ONE note following
+        // the cursor — clamped, the number stops tracking and drifts away from the notehead as you
+        // move down the staff.
+        const stem = staveNote.getStemExtents()
+        const anchorY = !staveNote.hasStem()
+          ? Math.min(...staveNote.getYs()) // a whole note: the notehead is the whole of it
+          : stemDirection === 1
+            ? stem.topY // stem up — the tip is the highest point
+            : stem.baseY // stem down — the stem hangs below, so the notehead is
+        // Centred on the NOTEHEAD, not on the note's origin: `getAbsoluteX()` is where the note
+        // attaches (accidentals and dots push it around), so a number centred there sits off to one
+        // side of the head it belongs to. The head's own two edges say where it actually is.
+        const headCenterX = (staveNote.getNoteHeadBeginX() + staveNote.getNoteHeadEndX()) / 2
+        label.renderText(
+          this.context!,
+          headCenterX - label.getWidth() / 2,
+          anchorY - GHOST_TUPLET_NUMBER_GAP * tempStave.getSpacingBetweenLines(),
+        )
       }
 
       const newElements: Element[] = []

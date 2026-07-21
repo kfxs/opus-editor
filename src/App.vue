@@ -183,9 +183,9 @@
 
 
           <!--
-            Tuplet — SKETCH, in Finale's shape: "N [note] in the space of M [note]", the way a player
+            Tuplet — SKETCH, in Finale's shape: "N [note] in the time of M [note]", the way a player
             says it out loud. Four boxes; the model stores three (N, M, unit), and the fourth is
-            folded in by PaletteController.resolveTupletInSpaceOf — which also decides when the four
+            folded in by PaletteController.resolveTupletInTimeOf — which also decides when the four
             do not resolve. NO rule lives here: every button is a call.
           -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
@@ -231,7 +231,7 @@
             >
               .
             </button>
-            <span class="text-sm text-gray-400">in the space of</span>
+            <span class="text-sm text-gray-400">in the time of</span>
             <input
               v-model.number="tupletM"
               type="number"
@@ -263,7 +263,7 @@
             <button
               class="px-2 py-1 rounded text-sm bg-gray-600 hover:bg-gray-500 disabled:opacity-40"
               :disabled="!customTuplet.ok"
-              @click="palette.armTupletInSpaceOf(tupletN, tupletUnit, tupletM, tupletNormalUnit, tupletUnitDots, tupletNormalDots)"
+              @click="palette.armTupletInTimeOf(tupletN, tupletUnit, tupletM, tupletNormalUnit, tupletUnitDots, tupletNormalDots)"
             >
               Arm
             </button>
@@ -871,10 +871,10 @@ function onDevSoundChange() {
   engine.value?.setInstrumentProgram(devSoundProgram.value)
 }
 
-// --- Tuplet sketch (Finale-shaped: "N ♪ in the space of M ♪") ---
+// --- Tuplet sketch (Finale-shaped: "N ♪ in the time of M ♪") ---
 // ⚠️ SKETCH, and Vue-side on purpose: four boxes to think with, not the final UI. It survives the
 // palette's deletion by holding NOTHING but the four typed values — the arithmetic that turns them
-// into the model's (N, M, unit) is `palette.resolveTupletInSpaceOf`, in the controller.
+// into the model's (N, M, unit) is `palette.resolveTupletInTimeOf`, in the controller.
 const TUPLET_UNITS: { value: NoteDuration; glyph: string }[] = [
   { value: 'w', glyph: '𝅝' },
   { value: 'h', glyph: '𝅗𝅥' },
@@ -891,7 +891,7 @@ const tupletNormalUnit = ref<NoteDuration>('q')
 const tupletNormalDots = ref(0)
 // A `computed` that only ASKS the controller — the rule stays there, this vanishes with the palette.
 const customTuplet = computed(() =>
-  palette.resolveTupletInSpaceOf(
+  palette.resolveTupletInTimeOf(
     tupletN.value, tupletUnit.value, tupletM.value, tupletNormalUnit.value,
     tupletUnitDots.value, tupletNormalDots.value,
   ),
