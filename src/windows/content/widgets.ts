@@ -135,6 +135,8 @@ export class ChoiceList implements Widget {
 /** The one red in the toolkit: something you typed is wrong. Local, not a CHROME token — the chrome
  *  palette is neutrals plus the accent, and a colour that MEANS something stays out of it. */
 const ERROR_INK = '#f87171'
+/** Amber — the REASON beside an error verdict (Tailwind amber-400). */
+const WARN_INK = '#fbbf24'
 
 export interface ButtonOptions {
   /** 'primary' is the one that commits — the Save in a Save window. */
@@ -184,24 +186,47 @@ export class Button implements Widget {
   }
 }
 
-/** A line of text. Reserved (with {@link TextInput}) for porting App.vue's custom-meter /
- *  pickup dialogs to plain-TS windows; no caller yet, kept as the ready building block. */
+/**
+ * What a run of label text MEANS — never a free colour: a widget that takes any colour becomes the
+ * place colours get decided, and they are decided here.
+ *
+ * `muted` is a hint under a field. `error` is the VERDICT on what you typed ("can't build this"), and
+ * `warn` is the REASON attached to it — a second tone because they are two different statements: the
+ * verdict is what you read at a glance, the reason is what you read once you have stopped. In one
+ * red the reason reads as more shouting; in the muted grey it reads as a footnote nobody needs.
+ */
+export type LabelTone = 'normal' | 'muted' | 'error' | 'warn'
+
+function toneInk(tone: LabelTone | undefined): string {
+  if (tone === 'error') return ERROR_INK
+  if (tone === 'warn') return WARN_INK
+  if (tone === 'muted') return CHROME.inkMuted
+  return CHROME.ink
+}
+
+/** A line of text, in one tone or several — see {@link Label.setParts}. */
 export class Label implements Widget {
   private el: HTMLElement | null = null
 
   constructor(
     private text: string,
-    /** `muted` is a hint under a field; `error` is what is WRONG with what you typed. Two tones and
-     *  not a free colour: a widget that takes any colour becomes the place colours are decided. */
-    private readonly opts: { muted?: boolean; tone?: 'error' } = {},
+    /** `width` fixes the label's column, in px — what makes a phrase in one row line up with the
+     *  blank space held for it in another ("in the time of" beside the row above it). Without it a
+     *  label is as wide as its words, and two rows that share a caption column cannot align. */
+    private readonly opts: { muted?: boolean; tone?: LabelTone; width?: number } = {},
   ) {}
 
   mount(host: HTMLElement): void {
     const el = document.createElement('div')
     el.textContent = this.text
     el.style.flex = 'none'
-    if (this.opts.muted) el.style.color = CHROME.inkMuted
-    if (this.opts.tone === 'error') el.style.color = ERROR_INK
+    el.style.color = toneInk(this.opts.muted ? 'muted' : this.opts.tone)
+    if (this.opts.width !== undefined) {
+      el.style.width = `${this.opts.width}px`
+      // The column is a stated width, so the phrase in it must not wrap into two lines and push the
+      // row it captions taller than its twin.
+      el.style.whiteSpace = 'nowrap'
+    }
     host.appendChild(el)
     this.el = el
   }
@@ -209,6 +234,33 @@ export class Label implements Widget {
   setText(text: string): void {
     this.text = text
     if (this.el) this.el.textContent = text
+  }
+
+  /** Re-tone after mount. A label that states a VERDICT ("3:2" / "can't build this") changes which
+   *  of the two it is saying as you type, and a refusal in the same grey as a hint is a refusal
+   *  nobody reads. */
+  setTone(tone: LabelTone): void {
+    if (this.el) this.el.style.color = toneInk(tone)
+  }
+
+  /**
+   * Re-text in SEVERAL tones — one line that is a verdict and its reason ("Can't build this tuplet"
+   * in red, "the notes would keep their own value" in amber), which one Label can say and two
+   * stacked Labels cannot: two Labels are two lines, and the reason would stop being a clause of
+   * the sentence above it. The runs wrap as ONE paragraph, so a long reason still flows.
+   */
+  setParts(parts: { text: string; tone?: LabelTone }[]): void {
+    const el = this.el
+    if (!el) return
+    this.text = parts.map((p) => p.text).join('')
+    el.textContent = ''
+    el.style.color = CHROME.ink // each run states its own; this is only the fallback
+    for (const part of parts) {
+      const span = document.createElement('span')
+      span.textContent = part.text
+      span.style.color = toneInk(part.tone)
+      el.appendChild(span)
+    }
   }
 }
 

@@ -887,8 +887,8 @@ const TUPLET_UNITS: { value: NoteDuration; glyph: string }[] = [
   { value: '16', glyph: '𝅘𝅥𝅯' },
   { value: '32', glyph: '𝅘𝅥𝅰' },
 ]
-const tupletN = ref(5)
-const tupletUnit = ref<NoteDuration>('16')
+const tupletN = ref(3)
+const tupletUnit = ref<NoteDuration>('8')
 const tupletUnitDots = ref(0)
 const tupletM = ref(1)
 const tupletNormalUnit = ref<NoteDuration>('q')

@@ -1,13 +1,12 @@
 import { dbg } from '@/utils/debug'
-import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature, Fraction, TupletShape } from '../types/music'
+import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature, Fraction } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorState'
 import { activeVoiceToModel, armedTool, armedToolUsesLength, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from './EditorState'
 import { durationHighlight } from './keypadSync'
-import { fracToNumber, fracMul, fracDiv, fracCreate } from '../utils/fraction'
-import { durationToFraction } from '../utils/durations'
-import { tupletScale } from '../utils/musicUtils'
+import { fracToNumber } from '../utils/fraction'
+import { resolveTupletInTimeOf, type TupletResolution } from '../utils/musicUtils'
 import { accidentalTypeToKey, formatPitch } from '../utils/pitchSpelling'
 import { sameTimeSignature } from '../utils/meter'
 import { tempoLabel } from '../utils/tempoMap'
@@ -17,14 +16,8 @@ import { articulationSelection } from './articulationSelection'
 import { tieSelection } from './tieSelection'
 import { restSelection } from './restSelection'
 
-/**
- * What "N ♪ in the time of M ♪" came to — the ratio, or WHY those boxes describe no tuplet we can
- * store. The reason is a string and not a boolean because the two refusals are different facts (a
- * dotted unit vs a fractional space), and a UI that can only say "no" teaches nothing.
- */
-export type TupletResolution =
-  | { ok: true; shape: TupletShape }
-  | { ok: false; reason: string }
+/** Re-exported so the palette's callers keep one import — the type belongs with the rule. */
+export type { TupletResolution }
 
 /** Two armed tempo presets are "the same button" when every field matches — so clicking the
  *  active preset a second time disarms it (the toggle behaviour of the other palette tools). */
@@ -1010,24 +1003,10 @@ export class PaletteController {
   }
 
   /**
-   * Finale's way of asking: "**N** [note value] in the time of **M** [note value]" — four values,
-   * one per box, and no ratio to work out in your head. It is how a player says it out loud ("five
-   * sixteenths in the time of a quarter"), which is why it beats `5:4` at the point of entry.
-   *
-   * The WORDS are not Finale's: its dialog says "in the space of", which is a typesetter's idiom for
-   * what a tuplet does to TIME. Sibelius and Dorico both say "in the time of", and so do we.
-   *
-   * BOTH note values may be DOTTED, as Finale's two dropdowns are ("Half(s) • Dotted Quarter(s) •
-   * Quarter(s)…") and as MusicXML's `<normal-dot>` / `<tuplet-dot>` are.
-   *
-   * All four values are now KEPT — `TupletShape` has a side for each — where this used to fold the
-   * normal side into `M × unit` and throw the note value away. Folding is what made `5:4` unable to
-   * answer "in the time of *what*", and what made a span that is not a whole number of units (2
-   * quarters in the time of 3 eighths) refuse outright. Both are gone with it.
-   *
-   * The one thing still refused is a shape that is not a tuplet at all: when the N written notes
-   * exactly fill the span, nothing is being squeezed and the notes keep their own value. That is
-   * scale = 1, and it catches "3 ♪ in the time of 3 ♪" as well as its disguises.
+   * "N ♪ in the time of M ♪" → the shape, or the reason it is none. The RULE lives in
+   * {@link resolveTupletInTimeOf} (utils/musicUtils) — the Tuplet window asks the same question
+   * without a controller in reach, and one rule cannot have two implementations. This stays as the
+   * palette's way in.
    */
   resolveTupletInTimeOf(
     numNotes: number,
@@ -1037,40 +1016,7 @@ export class PaletteController {
     unitDots = 0,
     normalDots = 0,
   ): TupletResolution {
-    if (!Number.isInteger(numNotes) || numNotes < 2) return { ok: false, reason: 'you need at least 2 notes in the group' }
-    if (!Number.isInteger(normalCount) || normalCount < 1) return { ok: false, reason: 'the time it replaces must be at least one note' }
-
-    // The RATIO is worked out exactly as it always was: both counts count the ACTUAL value, so
-    // "5 sixteenths in the time of 1 quarter" is 5:4 — four sixteenths — and never 5:1.
-    const span = fracMul(durationToFraction(normalUnit, normalDots), fracCreate(normalCount, 1))
-    const occupied = fracDiv(span, durationToFraction(unit, unitDots))
-
-    // …but the ratio cannot always carry it: "2 quarters in the time of 3 eighths" is one and a HALF
-    // quarters, and a printed count is a whole number. That used to be refused. It is not any more —
-    // the ENTRY is stored and the timing reads it (see tupletSpan), so the only thing left to decide
-    // is what the LABEL says, and there the answer is the ratio in the value the user named: 2:3,
-    // which is why a mark in this case has to show the note value beside it to be unambiguous.
-    const label = occupied.den === 1 ? occupied.num : normalCount
-
-    const shape: TupletShape = {
-      numNotes,
-      notesOccupied: label,
-      baseDuration: unit,
-      ...(unitDots && { baseDots: unitDots }),
-      // WHAT THE USER TYPED, kept beside the ratio and used by nothing that counts: the ratio above
-      // cannot say "in the time of a QUARTER", and a mark that prints the value needs to know. Stored
-      // only when it differs from the unit, so an ordinary triplet is written as it always was.
-      ...(unit !== normalUnit || unitDots !== normalDots
-        ? { normalDuration: normalUnit, normalCount, ...(normalDots && { normalDots }) }
-        : {}),
-    }
-    // The one thing still refused: N notes that exactly fill the span are not squeezed at all, so
-    // they keep their own value and there is no tuplet to make.
-    const scale = tupletScale(shape)
-    if (scale.num === scale.den) {
-      return { ok: false, reason: 'the notes would keep their own value — nothing is being squeezed' }
-    }
-    return { ok: true, shape }
+    return resolveTupletInTimeOf(numNotes, unit, normalCount, normalUnit, unitDots, normalDots)
   }
 
   /** Arm what {@link resolveTupletInTimeOf} works out; false when the boxes do not resolve. */

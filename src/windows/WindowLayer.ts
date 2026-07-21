@@ -292,6 +292,27 @@ export class WindowLayer {
     return this.frames.get(win.id)?.querySelector('.window-content') ?? null
   }
 
+  /**
+   * Fit a `fitContent` window to its content AGAIN, after the content changed height — a validation
+   * line that grew from one wrapped line to two, a section that appeared.
+   *
+   * Needed because the open-time fit is a MEASUREMENT, not a standing rule: the height it produced is
+   * then the window's fixed height, and content that grows past it is simply CLIPPED — which is how
+   * a dialog ends up with its OK button below the bottom edge. Called by the window that changed its
+   * own content, since only it knows that it did.
+   *
+   * A no-op on a window that does not fit its content: there the height is the caller's, not ours.
+   */
+  refit(win: Window): void {
+    const frame = this.frames.get(win.id)
+    if (!frame || !win.fitContent) return
+    this.fitToContent(win, frame)
+    // A window that grew near the bottom of the world would otherwise grow straight off it, taking
+    // the buttons with it — the very thing the refit is here to prevent.
+    win.reclamp()
+    this.applyGeometry(win)
+  }
+
   /** Reconcile the DOM with the manager's state: add what's new, remove what's gone, restack. */
   private sync(): void {
     if (!this.layer) return
