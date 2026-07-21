@@ -24,13 +24,26 @@ import { parse, type Font } from 'opentype.js'
  * the PDF and are drawn with one of the standard PDF faces. Only the music travels as outlines.
  */
 
-/** CSS family name → the file under `public/fonts/`. Matched case-insensitively. */
-const FONT_FILES: Record<string, string> = {
-  bravura: 'Bravura.otf',
-  academico: 'Academico.otf',
+/**
+ * CSS family name → the files under `public/fonts/`, per weight. Matched case-insensitively.
+ *
+ * Weight is a **separate file**, not a synthesised effect: VexFlow registers Academico's bold as a
+ * real face (`Font.load('Academico', AcademicoBold, {weight: 'bold'})`) and a tempo mark is set in
+ * it — so outlining a bold word from the regular face silently un-bolds it, which is exactly what
+ * the first cut did. Bravura has one weight and needs no more; music glyphs are never bold.
+ */
+const FONT_FILES: Record<string, { regular: string; bold?: string }> = {
+  bravura: { regular: 'Bravura.otf' },
+  academico: { regular: 'Academico.otf', bold: 'AcademicoBold.otf' },
 }
 
-/** Parsed fonts, keyed by lowercased family. One fetch+parse per family per page load. */
+/** `family` or `family|bold` — how a weighted face is named in the loaded map. */
+export function fontKey(family: string, bold: boolean): string {
+  const name = family.trim().replace(/^['"]|['"]$/g, '').toLowerCase()
+  return bold ? `${name}|bold` : name
+}
+
+/** Parsed fonts, keyed by {@link fontKey}. One fetch+parse per face per page load. */
 const cache = new Map<string, Promise<Font>>()
 
 /** Vite's base path, so the fetch is right under a non-root deployment too. */
@@ -39,12 +52,14 @@ function baseUrl(): string {
   return env?.BASE_URL ?? '/'
 }
 
-/** Load one of {@link FONT_FILES}, or null if the family is not one we ship. */
-export function loadExportFont(family: string): Promise<Font> | null {
-  const key = family.trim().replace(/^['"]|['"]$/g, '').toLowerCase()
-  const file = FONT_FILES[key]
+/** Load one face of one of {@link FONT_FILES}, or null if we ship no such face. */
+export function loadExportFont(family: string, bold = false): Promise<Font> | null {
+  const name = fontKey(family, false)
+  const files = FONT_FILES[name]
+  const file = bold ? files?.bold : files?.regular
   if (!file) return null
 
+  const key = fontKey(family, bold)
   let pending = cache.get(key)
   if (!pending) {
     pending = fetch(`${baseUrl()}fonts/${file}`)
@@ -57,10 +72,17 @@ export function loadExportFont(family: string): Promise<Font> | null {
   return pending
 }
 
-/** Every font we ship, parsed — resolved once so the outliner can work synchronously. */
+/** Every face we ship, parsed and keyed by {@link fontKey} — resolved once so the outliner can
+ *  work synchronously. */
 export async function loadAllExportFonts(): Promise<Map<string, Font>> {
+  const wanted: Array<[string, boolean]> = []
+  for (const [family, files] of Object.entries(FONT_FILES)) {
+    wanted.push([family, false])
+    if (files.bold) wanted.push([family, true])
+  }
   const entries = await Promise.all(
-    Object.keys(FONT_FILES).map(async key => [key, await loadExportFont(key)!] as const),
+    wanted.map(async ([family, bold]) =>
+      [fontKey(family, bold), await loadExportFont(family, bold)!] as const),
   )
   return new Map(entries)
 }

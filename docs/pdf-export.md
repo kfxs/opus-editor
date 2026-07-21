@@ -50,7 +50,7 @@ shape that was on screen, not a lookalike.
 character's baseline point — after text-anchor, tspan flow and kerning — and the outline is placed
 exactly there. This is why the SVG must still be attached and laid out when the outliner runs.
 
-Two rules earn their keep:
+Three rules earn their keep:
 
 - **SMuFL beats the stack.** Dynamics are set in `Georgia, "Times New Roman", Times, serif, Bravura`
   (`dynamicStyle.ts`). No text face carries U+E000–U+F8FF, so for a private-use character the walk
@@ -59,10 +59,18 @@ Two rules earn their keep:
 - **Whitespace inherits the run.** A lone non-breaking space (the engraving is full of them — a
   tempo mark's word/glyph joins are made of them) is dropped rather than becoming a `<text>` node
   containing one invisible space; a space *inside* a kept run stays, or `p sub.` becomes `psub.`.
+- **Weight is a face, not an effect.** VexFlow registers Academico's bold as a real face and tempo
+  marks are set in it, so `public/fonts/AcademicoBold.otf` is shipped too and the outliner picks by
+  the run's weight. Outlining a bold word from the regular file silently un-bolds it.
 
 What stays real text: runs set in a stack we have no file for — the dynamics' and tempo marks'
 words — re-anchored to their measured position and drawn with a standard PDF face (Times for a
 serif stack). They are selectable in the PDF. Only the music travels as outlines.
+
+⚠️ Such a replacement `<text>` states **every** inherited property — weight, style, and above all
+`stroke="none"`. `openGroup` stamps the context's current attributes onto the `<g>` it opens, so an
+annotation's group carries a black 1px stroke that the original `<text>` cancelled and a silent
+replacement would inherit. Stroked text is text drawn twice: the expression words came out bold.
 
 ### 3. One page, on purpose
 

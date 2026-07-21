@@ -1,5 +1,5 @@
 import type { Font } from 'opentype.js'
-import { loadAllExportFonts } from './exportFonts'
+import { loadAllExportFonts, fontKey } from './exportFonts'
 import { dbg } from '@/utils/debug'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
@@ -88,7 +88,7 @@ function outlineOneText(text: SVGTextElement, fonts: Map<string, Font>): void {
       continue
     }
 
-    const font = pickFont(placement.style.families, placement.char, fonts)
+    const font = pickFont(placement.style, placement.char, fonts)
     if (!font) {
       pendingText.push(placement)
       continue
@@ -174,10 +174,12 @@ function readStyle(element: Element): RunStyle {
 
 /**
  * The font that actually drew this character — resolved the way the browser resolves it: walk the
- * CSS stack in order and take the first family that HAS the character. A stack of
- * `Bravura, Academico` therefore outlines a notehead from Bravura and a word from Academico,
- * exactly as rendered. A family we have no file for normally stops the walk (→ null, "keep it as
- * text"), because from there on the browser's choice is not ours to reproduce.
+ * CSS stack in order and take the first family that HAS the character, **at the run's weight**. A
+ * stack of `Bravura, Academico` therefore outlines a notehead from Bravura and a word from
+ * Academico, exactly as rendered; a bold tempo word comes from Academico's real bold face, because
+ * that is the face the browser used (VexFlow registers it as one). A family we have no file for
+ * normally stops the walk (→ null, "keep it as text"), because from there on the browser's choice
+ * is not ours to reproduce.
  *
  * ⭐ With ONE exception, and it is the one that matters: a **SMuFL codepoint**. Dynamics are set in
  * a stack that leads with words (`Georgia, "Times New Roman", Times, serif, Bravura` —
@@ -185,10 +187,12 @@ function readStyle(element: Element): RunStyle {
  * browser is certainly falling through to the music font at the end. Stopping at Georgia would
  * hand a music glyph to a text face and print rubbish.
  */
-function pickFont(families: string[], char: string, fonts: Map<string, Font>): Font | null {
+function pickFont(style: RunStyle, char: string, fonts: Map<string, Font>): Font | null {
   const musical = isPrivateUse(char)
-  for (const family of families) {
-    const font = fonts.get(family.toLowerCase())
+  for (const family of style.families) {
+    // A family with no bold file of its own falls back to its regular face — the same one the
+    // browser would synthesise from, and closer than dropping the whole run to a text face.
+    const font = fonts.get(fontKey(family, style.bold)) ?? fonts.get(fontKey(family, false))
     if (!font) {
       if (musical) continue // a text face cannot be drawing this — keep looking for the music font
       return null
@@ -230,9 +234,15 @@ function buildTextNode(placements: CharPlacement[]): SVGTextElement {
   node.setAttribute('text-anchor', 'start')
   node.setAttribute('font-family', pdfBaseFont(first.style.families))
   node.setAttribute('font-size', `${first.style.sizePx}px`)
-  if (first.style.italic) node.setAttribute('font-style', 'italic')
-  if (first.style.bold) node.setAttribute('font-weight', 'bold')
+  node.setAttribute('font-style', first.style.italic ? 'italic' : 'normal')
+  node.setAttribute('font-weight', first.style.bold ? 'bold' : 'normal')
   node.setAttribute('fill', first.style.fill)
+  // ⚠️ Every one of these is stated, never left to inherit. VexFlow's `openGroup` stamps the
+  // context's current attributes onto the `<g>` it opens, so an annotation's group carries a black
+  // 1px STROKE — which the original `<text>` cancelled with its own `stroke="none"` and this
+  // replacement, if it says nothing, inherits. Stroked text is text drawn twice: the expression
+  // words came out of the PDF looking bold. Same reasoning for weight and style: state them.
+  node.setAttribute('stroke', 'none')
   node.setAttribute('xml:space', 'preserve')
   node.textContent = placements.map(p => p.char).join('')
   return node
