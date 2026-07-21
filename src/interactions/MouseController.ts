@@ -1,5 +1,5 @@
 import { dbg } from '@/utils/debug'
-import type { ArticulationType, PitchSpelling, Fraction, SlurSegmentAddress } from '../types/music'
+import type { ArticulationType, PitchSpelling, Fraction, Note, SlurSegmentAddress } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry, ElementType } from '../engine/ElementRegistry'
 import type { EditorState } from './EditorState'
@@ -70,7 +70,35 @@ export class MouseController {
   private isMouseButtonDown = false
   private isDraggingNote = false
   private draggedNoteOriginalPitch: PitchSpelling | null = null
-  private dragStartTime: number | null = null
+  /**
+   * Which gesture a note/rest drag turned out to be — **decided on the evidence, not on the
+   * press** (the hand/pan plan's shape). `undecided` until the cursor has travelled far enough to
+   * mean something, then the dominant axis picks: vertical → re-pitch, horizontal → note spacing.
+   *
+   * This is why the gate below is a DISTANCE and not the old elapsed-time one. A time gate can only
+   * answer "has the user committed to dragging"; it cannot say to what. Under it, a horizontal drag
+   * that wandered one staff step re-pitched the note before any axis could be read — the pitch edit
+   * fired on the first frame past 150 ms in whichever direction the cursor happened to be.
+   */
+  private noteDragAxis: 'undecided' | 'pitch' | 'spacing' = 'undecided'
+  /** Press point in svg coords — the origin both the axis decision and the spacing delta measure
+   *  from. Null when no note/rest drag is armed. */
+  private noteDragStart: { x: number; y: number } | null = null
+
+  // --- Note-spacing drag (the horizontal branch of the note drag; docs/note-spacing-plan.md §5) ---
+  /** The column being spaced: a space belongs to a (measure, beat), never to the grabbed note. */
+  private spacingDragColumn: { measure: number; beat: Fraction } | null = null
+  /** The space already authored there when the drag began — the delta rides on top of it. */
+  private spacingDragBaseline = 0
+  /** The leftward floor, measured ONCE off the picture the user grabbed. Re-measuring per frame
+   *  would judge the gesture against a score that is moving because of the gesture. */
+  private spacingDragMinSpace = 0
+  /** Staff-line spacing (px) on the grabbed note's own staff — the divisor that turns the cursor's
+   *  pixel delta into staff-spaces. Its OWN field, not the slur drag's `draggedStaffSpacePx`:
+   *  that one is written only when a slur handle is grabbed, so borrowing it would silently scale
+   *  this gesture by whatever slur was dragged last. */
+  private spacingDragStaffSpacePx = 10
+  private spacingDragChanged = false
 
   // --- Clef drag state (selection-tool drag, across slots and measures) ---
   private isDraggingClef = false
@@ -120,6 +148,11 @@ export class MouseController {
   private readonly SLUR_ENDPOINT_SNAP_PX = 60
 
   private readonly DRAG_TIME_THRESHOLD_MS = 150
+
+  /** Min cursor travel (px) before a note/rest press becomes a drag AND picks its axis. The same
+   *  dead-zone idea as {@link PAN_THRESHOLD_PX}, a little wider: this one also has to tell two
+   *  gestures apart, and 4px of jitter is a coin toss between them. */
+  private readonly NOTE_DRAG_THRESHOLD_PX = 6
 
   // --- Hand / grab-to-pan gesture (tool-agnostic navigation) ---
   // A press on empty space ARMS a possible pan but changes nothing yet; we decide
@@ -1242,14 +1275,20 @@ export class MouseController {
         dbg(`✓ ${typeLabel} selected on mousedown | id:${closestElement.id}`)
         this.render.renderScore()
 
-        if (closestElement.type === 'note' && closestElement.pitch !== undefined) {
-          this.isDraggingNote = true
+        // Arm the drag on a note OR a rest. A rest used to arm nothing at all, because the only
+        // gesture here was re-pitch and a rest has no pitch to drag; note spacing gave the
+        // horizontal axis a meaning that applies to both — a rest occupies a column exactly as a
+        // note does. Which axis this press turns out to be is decided later, from the movement.
+        if (closestElement.type === 'note' || closestElement.type === 'rest') {
           const origNote = engine.getNote(closestElement.id)
+          this.isDraggingNote = true
+          this.noteDragAxis = 'undecided'
+          this.noteDragStart = { x, y }
           this.draggedNoteOriginalPitch = origNote && origNote.step
             ? { step: origNote.step, alter: origNote.alter!, octave: origNote.octave! }
             : null
-          this.dragStartTime = Date.now()
-          dbg(`Drag ready | note:${closestElement.id} pitch:${closestElement.pitch}`)
+          this.armSpacingDrag(engine, origNote)
+          dbg(`Drag ready | ${closestElement.type}:${closestElement.id}`)
           event.preventDefault()
         }
       } else {
@@ -1291,9 +1330,7 @@ export class MouseController {
     // here — so it fires even when the pointer is released outside the viewport.
     if (this.isDraggingNote) {
       dbg(`Drag ended | note:${this.state.selectedNoteId}`)
-      this.isDraggingNote = false
-      this.draggedNoteOriginalPitch = null
-      this.dragStartTime = null
+      this.endNoteDrag()
     }
     if (this.isDraggingClef) {
       this.endClefDrag()
@@ -1969,14 +2006,34 @@ export class MouseController {
     this.render.renderToolGhost({ x, y })
   }
 
-  /** Note pitch drag: the selected note follows the cursor's pitch (after a small time
-   *  threshold so a click doesn't nudge it). Returns true while a note drag is active. */
+  /**
+   * The note/rest drag — **one press, two gestures, decided from the movement.**
+   *
+   * Vertical wins → re-pitch (what this always did). Horizontal wins → note spacing, the axis
+   * that used to carry no meaning at all. Nothing happens until the cursor leaves a small dead
+   * zone, so a click still cannot nudge anything; and because the decision reads the *shape* of
+   * the movement rather than its age, a horizontal drag can wander a staff step without silently
+   * committing a pitch change on the way past.
+   *
+   * Once decided, the axis is FIXED for the rest of the press. Re-deciding per frame would let a
+   * curved drag re-pitch a note it had already started spacing — and both edits are real writes to
+   * the score, not previews you can take back by moving the mouse elsewhere.
+   *
+   * Returns true while a note/rest drag is active (the move belongs to this gesture).
+   */
   private handleNoteDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.isDraggingNote && this.state.selectedNoteId && this.draggedNoteOriginalPitch !== null)) return false
-    if (this.dragStartTime !== null) {
-      const elapsed = Date.now() - this.dragStartTime
-      if (elapsed < this.DRAG_TIME_THRESHOLD_MS) return true
+    if (!this.isDraggingNote || !this.state.selectedNoteId || !this.noteDragStart) return false
+
+    if (this.noteDragAxis === 'undecided') {
+      const dx = x - this.noteDragStart.x
+      const dy = y - this.noteDragStart.y
+      if (Math.hypot(dx, dy) < this.NOTE_DRAG_THRESHOLD_PX) return true // dead zone: still a click
+      this.noteDragAxis = Math.abs(dx) > Math.abs(dy) ? 'spacing' : 'pitch'
+      dbg(`Note drag axis | ${this.noteDragAxis} (dx:${dx.toFixed(1)} dy:${dy.toFixed(1)})`)
     }
+
+    if (this.noteDragAxis === 'spacing') return this.dragNoteSpacing(engine, x)
+    if (this.draggedNoteOriginalPitch === null) return true // a rest: nothing to re-pitch
 
     const score = engine.getScore()
     let selectedNote = null
@@ -2002,6 +2059,67 @@ export class MouseController {
       }
     }
     return true
+  }
+
+  /**
+   * Arm the horizontal half of a note/rest drag: remember which COLUMN was grabbed, the space
+   * already authored there, and how far left it may go.
+   *
+   * The floor is measured now, once, against the picture the user grabbed — see
+   * `MusicEngine.noteSpacingRoom`. `null` means the last render cannot answer, and then the
+   * spacing branch simply never arms: the press stays a pitch drag rather than moving a column by
+   * a made-up amount.
+   */
+  private armSpacingDrag(engine: MusicEngine, note: Note | undefined): void {
+    this.spacingDragColumn = null
+    this.spacingDragChanged = false
+    if (!note) return
+    const room = engine.noteSpacingRoom(note.measure, note.beat)
+    if (room === null) return
+    this.spacingDragColumn = { measure: note.measure, beat: note.beat }
+    this.spacingDragBaseline = engine.getNoteSpacing(note.measure, note.beat)
+    this.spacingDragMinSpace = this.spacingDragBaseline - room
+    this.spacingDragStaffSpacePx =
+      engine.getElementRegistry().getStaffGeometry(note.measure, note.staff ?? 0)?.lineSpacing ?? 10
+  }
+
+  /**
+   * Note-spacing drag: the grabbed column follows the cursor horizontally, and everything right of
+   * it slides with it. Live-updates without undo; the drop records one entry (`commitNoteSpacing`).
+   *
+   * The pixel delta is divided by the staff space to become staff-spaces, because the model holds
+   * no pixels. No zoom division: `clientToSvg` goes through `getScreenCTM().inverse()`, so these
+   * coords are already layout px with the zoom transform undone.
+   * Returns true: while the axis is `spacing`, the move is ours.
+   */
+  private dragNoteSpacing(engine: MusicEngine, x: number): boolean {
+    if (!this.spacingDragColumn || !this.noteDragStart) return true
+    const dx = (x - this.noteDragStart.x) / this.spacingDragStaffSpacePx
+    const { measure, beat } = this.spacingDragColumn
+    if (engine.previewNoteSpacing(measure, beat, this.spacingDragBaseline + dx, this.spacingDragMinSpace)) {
+      this.spacingDragChanged = true
+      this.render.renderScore()
+    }
+    return true
+  }
+
+  /** Finish a note/rest drag. A spacing drag that actually moved the column records its one undo
+   *  entry here; a pitch drag already committed each change as it went. */
+  private endNoteDrag(): void {
+    if (this.noteDragAxis === 'spacing' && this.spacingDragChanged) {
+      const engine = this.getEngine()
+      if (engine && this.spacingDragColumn) {
+        engine.commitNoteSpacing()
+        const { measure, beat } = this.spacingDragColumn
+        dbg(`Note spacing set | bar ${measure} beat ${beat.num}/${beat.den} → ${engine.getNoteSpacing(measure, beat)} ss`)
+      }
+    }
+    this.isDraggingNote = false
+    this.noteDragAxis = 'undecided'
+    this.noteDragStart = null
+    this.draggedNoteOriginalPitch = null
+    this.spacingDragColumn = null
+    this.spacingDragChanged = false
   }
 
   /**
@@ -2106,9 +2224,9 @@ export class MouseController {
 
     if (this.isDraggingNote) {
       dbg('Drag ended (mouse left canvas)')
-      this.isDraggingNote = false
-      this.draggedNoteOriginalPitch = null
-      this.dragStartTime = null
+      // Through endNoteDrag, so a spacing drag interrupted by leaving the viewport still records
+      // the undo entry for the space it already moved — the score has changed either way.
+      this.endNoteDrag()
     }
     if (this.isDraggingClef) {
       dbg('Clef drag ended (mouse left canvas)')

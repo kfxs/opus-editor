@@ -1258,6 +1258,50 @@ export class MusicEngine {
     return stored
   }
 
+  /**
+   * How far the column at (measure, beat) may still be pulled left, in staff-spaces — the public
+   * face of {@link measuredShrinkRoom}, for a drag that wants the floor ONCE at grab time rather
+   * than re-measuring every frame.
+   *
+   * Capturing it at the grab is the right shape for a drag and not merely the cheap one: the whole
+   * gesture is then judged against the picture the user actually grabbed, so the floor cannot creep
+   * as the drag redraws underneath it.
+   *
+   * @returns null when the last render cannot answer — the caller must not drag rather than invent
+   * a floor.
+   */
+  noteSpacingRoom(measureNumber: number, beat: Fraction): number | null {
+    return this.measuredShrinkRoom(measureNumber, beat)
+  }
+
+  /**
+   * Live-set the leading space at a column during a drag: takes effect on screen, records **no**
+   * undo. Call {@link commitNoteSpacing} on drop for the single undo entry — the same
+   * preview/commit pair as `previewStaffSpacing` / `previewSlurShape`.
+   *
+   * `minSpace` is the floor captured at grab time (see {@link noteSpacingRoom}); this applies it
+   * verbatim rather than re-measuring, because the picture is moving under the gesture.
+   *
+   * @returns true if the stored space changed — the caller's "did this drag do anything" flag.
+   */
+  previewNoteSpacing(measureNumber: number, beat: Fraction, space: number, minSpace: number): boolean {
+    const measure = this.scoreModel.getMeasure(measureNumber)
+    if (!measure) return false
+    const key = spacingPositionKey(measure.id, beat)
+    const before = leadingSpaceOverrideOf(this.scoreModel.getScore(), key)?.space ?? 0
+    const after = this.scoreModel.setNoteSpacing(key, space, minSpace)
+    // A spacing change re-runs the casting-off, unlike the weightless previews — so the dirty flag
+    // is what makes the bar re-measure at all, not just repaint. See docs/note-spacing-plan.md §2.
+    this.markModelDirty()
+    return after !== before
+  }
+
+  /** Record one undo entry after a note-spacing drag settles (the drop of a live drag whose every
+   *  frame went through {@link previewNoteSpacing}). */
+  commitNoteSpacing(): void {
+    this.commitPreviewed('Note spacing')
+  }
+
   /** Drop the authored space before this column, back to the engraver's own spacing. One undo step.
    *  @returns true if anything was there to reset. */
   resetNoteSpacing(measureNumber: number, beat: Fraction): boolean {

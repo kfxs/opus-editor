@@ -219,19 +219,29 @@ The press is therefore *nudge then repaint*, and the repaint is part of the gest
 currently unused**. Resolve by dominant axis past a threshold: vertical wins → re-pitch, horizontal
 wins → spacing. Same "decide on the evidence, not on the press" shape as the hand/pan plan.
 
-Two pieces of groundwork that are *not* free, and P2 must do first:
+Two pieces of groundwork that were *not* free, and P2 did first:
 
-- **Re-pitch is gated on TIME, not distance.** `handleNoteDrag` waits `DRAG_TIME_THRESHOLD_MS` and
-  then re-pitches the moment the cursor's pitch differs — so a horizontal drag that wanders one
-  staff step commits a pitch change before any axis decision happens. The gate has to become a
-  **distance** gate before an axis can be read off it. Until then this is not the hand/pan shape,
-  it only looks like it.
-- **A rest arms no drag at all.** The drag is armed only for `closestElement.type === 'note'`
-  (`MouseController.ts:1245`), so "notehead/rest" is new arming, not a reuse of the existing one.
+- **Re-pitch was gated on TIME, not distance.** `handleNoteDrag` waited `DRAG_TIME_THRESHOLD_MS`
+  and then re-pitched the moment the cursor's pitch differed, so a horizontal drag that wandered one
+  staff step changed the pitch on the way past. A time gate can only answer *has the user committed
+  to dragging*; it cannot say **to what**. Now: a 6px dead zone, then the dominant axis decides.
+- **A rest armed no drag at all** — the arming tested `closestElement.type === 'note'`, because the
+  only gesture here was re-pitch and a rest has no pitch. Spacing gives the horizontal axis a
+  meaning that applies to both, so the arming now takes either.
 
-Past that it *is* the fifth instance of the shared skeleton: baseline captured at start, a `changed`
-flag, one undo entry on release (`commitPreviewed` — §1's clamp already ran on every frame), zoom
-divided out of the pixel delta before it becomes staff-spaces.
+**The axis is fixed for the rest of the press.** Re-deciding per frame would let a curved drag
+re-pitch a note it had already started spacing, and both are real writes to the score — not
+previews you take back by moving the mouse somewhere else.
+
+Past that it *is* the fifth instance of the shared skeleton: baseline captured at start (the column,
+the space already there, and the floor — measured ONCE against the picture the user grabbed, so it
+cannot creep as the drag redraws underneath it), a `changed` flag, `previewNoteSpacing` per frame
+and one `commitNoteSpacing` on release. Two departures from the other four worth knowing:
+
+- **No zoom division.** `clientToSvg` goes through `getScreenCTM().inverse()`, so the coords are
+  already layout px with the zoom undone. Only the staff space divides.
+- **Its own `staffSpacePx`.** `draggedStaffSpacePx` is written only when a slur handle is grabbed;
+  borrowing it would silently scale this gesture by whatever slur was dragged last.
 
 ---
 
@@ -284,8 +294,11 @@ error rather than introducing it. Degrades, does not break.
   `shortcutWiring`. Plus §6 in full: `captureLeadingSpaces`/`restoreLeadingSpaces` in `rebarOps`
   (so a space survives a meter change and dies with its column), `ClipboardPayload.spaces`, and the
   paste threading. 21 tests in `noteSpacingNudge.test.ts` + `noteSpacingTravel.test.ts`.
-- **P2 — drag.** Convert re-pitch to a distance gate and arm the drag on rests (§5) *first*; then
-  the axis-dominant gesture. Teach the preview ghost the shift (§4).
+- **P2 — drag. ✅ BUILT.** Distance gate + dominant-axis decision in `handleNoteDrag`, arming on
+  rests too, `armSpacingDrag`/`dragNoteSpacing`/`endNoteDrag` in `MouseController`, and
+  `noteSpacingRoom`/`previewNoteSpacing`/`commitNoteSpacing` on the engine. 16 tests in
+  `noteSpacingDrag.test.ts`. ⏭️ The preview ghost still ignores the shift (§4) — cosmetic, and only
+  visible while placing a note in an already-spaced bar.
 - **P3 — optional.** Multi-select nudge; a numeric field in the Properties window.
 
 ## Out of scope
