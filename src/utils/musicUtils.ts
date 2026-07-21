@@ -166,23 +166,36 @@ export function tupletWrittenDuration(t: TupletShape, duration: NoteDuration, do
 }
 
 /**
- * Where a tuplet bracket stops when the tuplet does not say — `division`, the end of the group's own
- * TIME, rather than the right edge of its last notehead.
+ * Where a tuplet bracket stops when the tuplet does not say — the right edge of its last notehead.
  *
- * Dorico's default; Sibelius and Finale both stop at the notehead unless you ask ("Full duration",
- * "Extend Bracket"). We follow Dorico because the two failure modes are not equal. Stopping at the
- * notehead always leaves the group's LAST duration outside the bracket, so the bracket ends before
- * the group does — visible whenever that last value is long, and worst when what follows starts
- * immediately: the eye reads the bracket's end as where the tuplet ends, and it is not. The other way
- * round the bracket is merely longer than it needed to be: more ink, nothing misread. A default
- * belongs on the side whose failure is cosmetic.
+ * Sibelius's and Finale's behaviour, where running the bracket over the group's full TIME is a box
+ * you tick ("Full duration", "Extend Bracket"). Dorico defaults the other way, and the argument for
+ * copying it is real — a bracket that stops at the notehead ends slightly before the group does. But
+ * the longer bracket is the more intrusive mark, it reaches toward whatever follows, and most tuplets
+ * never need it: the ordinary beamed group is unambiguous either way. So it is OPT-IN, on the
+ * tuplets where the span genuinely needs showing, rather than something every triplet gets.
  */
-export const DEFAULT_TUPLET_BRACKET_END: TupletBracketEnd = 'division'
+export const DEFAULT_TUPLET_BRACKET_END: TupletBracketEnd = 'lastNote'
 
 /** Where THIS tuplet's bracket stops — its own choice, or the default above. The renderer asks here
  *  rather than reading the field, so "absent means division" is stated once. */
 export function tupletBracketEnd(t: TupletFormat): TupletBracketEnd {
   return t.bracketEnd ?? DEFAULT_TUPLET_BRACKET_END
+}
+
+/**
+ * Does this group get a bracket? Its own choice, or — for `auto` and for absent — the rule: **no
+ * bracket when a beam already shows the group**, one when it does not.
+ *
+ * The beam and the bracket say the same thing (these notes are one group), so drawing both is saying
+ * it twice; the bracket exists for the groups a beam cannot cover — quarters and longer, or a group
+ * broken across beams. Which is why `beamed` is asked for rather than derived here: only the renderer
+ * knows whether the beam actually happened, and it knows it AFTER the beams are built.
+ */
+export function tupletBracketed(t: TupletFormat, beamed: boolean): boolean {
+  if (t.bracket === 'always') return true
+  if (t.bracket === 'never') return false
+  return !beamed
 }
 
 /**

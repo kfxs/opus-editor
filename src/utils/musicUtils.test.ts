@@ -7,6 +7,7 @@ import {
   measureCapacityFrac,
   measureCapacityQuarters,
   tupletMarkText,
+  tupletBracketed,
 } from './musicUtils'
 import { fracCreate } from './fraction'
 import type { TimeSignature, NoteDuration, Measure, TupletShape } from '@/types/music'
@@ -100,6 +101,21 @@ describe('musicUtils', () => {
       const half = shape(2, 3, { baseDuration: 'q', normalDuration: '8', normalCount: 3 })
       expect(tupletMarkText(half, 'ratio')).toBe('\uE882\uE88A\uE883')
       expect(tupletMarkText(half, 'ratioNote')).toBe('\uE882\uE88A\uE883♪')
+    })
+  })
+
+  describe('tupletBracketed', () => {
+    // The rule for `auto` (and for a tuplet that stores nothing): the beam already says "one group",
+    // so a bracket on top of it says it twice.
+    it('brackets an unbeamed group and leaves a beamed one alone', () => {
+      expect(tupletBracketed({}, false)).toBe(true)
+      expect(tupletBracketed({}, true)).toBe(false)
+      expect(tupletBracketed({ bracket: 'auto' }, true)).toBe(false)
+    })
+
+    it('obeys an explicit choice whatever the beam does', () => {
+      expect(tupletBracketed({ bracket: 'always' }, true)).toBe(true)
+      expect(tupletBracketed({ bracket: 'never' }, false)).toBe(false)
     })
   })
 

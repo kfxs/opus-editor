@@ -1,4 +1,5 @@
-import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet, Element as VexFlowElement } from 'vexflow'
+import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Element as VexFlowElement } from 'vexflow'
+import { ScoreTuplet } from './ScoreTuplet'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
@@ -6,7 +7,7 @@ import './notation.css'
 import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, Accidental as ScoreAccidental } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
-import { beatToFrac, measureCapacityFrac } from '@/utils/musicUtils'
+import { beatToFrac, measureCapacityFrac, tupletBracketed, tupletBracketEnd, tupletMarkText } from '@/utils/musicUtils'
 import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, timeSignatureVexKey, type MeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
@@ -167,7 +168,7 @@ interface MeasureSnapshot {
   staffGeometry?: StaffGeometry
   bounds?: MeasureBounds
   staveNotes: [string, { staveNote: StaveNote; noteIndex: number }][]
-  tuplets: [string, VexFlowTuplet][]
+  tuplets: [string, ScoreTuplet][]
   dynamics: [string, Annotation][]
 }
 
@@ -247,7 +248,7 @@ export class VexFlowRenderer {
   /** Map of note IDs to their rendered StaveNotes (for tie rendering) */
   private staveNoteMap: Map<string, { staveNote: StaveNote; noteIndex: number }> = new Map()
   /** Map of tuplet IDs to their rendered VexFlow Tuplet objects (for scoped highlight) */
-  private tupletObjectMap: Map<string, VexFlowTuplet> = new Map()
+  private tupletObjectMap: Map<string, ScoreTuplet> = new Map()
   /** Map of dynamic IDs to their rendered VexFlow Annotation objects (for scoped highlight) */
   private dynamicObjectMap: Map<string, Annotation> = new Map()
   /** Map of slur IDs to their rendered SVG group (`<g class="vf-slur">`) for scoped highlight */
@@ -1052,7 +1053,13 @@ export class VexFlowRenderer {
         // (VexFlow skips ledgers for rests — see drawRestLedgerLines).
         this.drawRestLedgerLines(sortedSlots, staveNotes, stave, measure, pass.score)
 
-        this.drawAndRegisterTuplets(vexTuplets, tupletStaveNoteMap, measure, multiVoice)
+        // The voices' notes and the stave travel with it because the bracket's END is a fact about
+        // what comes AFTER the group: where the next note in the same voice was formatted, or the end
+        // of the bar when nothing follows. A tuplet cannot see either.
+        this.drawAndRegisterTuplets(
+          vexTuplets, tupletStaveNoteMap, measure, multiVoice,
+          new Map(groups.map(g => [g.voice, g.staveNotes])), stave,
+        )
         this.registerSlotElements(sortedSlots, staveNotes, measure, staffIndex)
         // Hidden rests (client #6) render gray. Recolor them via the DOM AFTER draw/register —
         // the established pattern (ghost notes, selection highlight). NOT VexFlow setStyle: that
@@ -1266,7 +1273,7 @@ export class VexFlowRenderer {
     measure: Measure,
     clef: Clef,
     multiVoice: boolean,
-  ): { vexTuplets: VexFlowTuplet[]; tupletStaveNoteMap: Map<string, { staveNotes: StaveNote[]; tuplet: Tuplet; voice: number }> } {
+  ): { vexTuplets: ScoreTuplet[]; tupletStaveNoteMap: Map<string, { staveNotes: StaveNote[]; tuplet: Tuplet; voice: number }> } {
     const tupletStaveNoteMap = new Map<string, { staveNotes: StaveNote[]; tuplet: Tuplet; voice: number }>()
 
     for (let idx = 0; idx < sortedSlots.length && idx < staveNotes.length; idx++) {
@@ -1284,7 +1291,7 @@ export class VexFlowRenderer {
       }
     }
 
-    const vexTuplets: VexFlowTuplet[] = []
+    const vexTuplets: ScoreTuplet[] = []
     for (const [_tupletId, { staveNotes: tupletStaveNotes, tuplet: tupletData, voice }] of tupletStaveNoteMap) {
       if (tupletStaveNotes.length >= 2) {
         try {
@@ -1299,11 +1306,15 @@ export class VexFlowRenderer {
             voice,
             this.calculateTupletLocation(tupletStaveNotes, clef)
           )
-          const vexTuplet = new VexFlowTuplet(tupletStaveNotes, {
+          // `bracketed` is NOT decided here: the rule asks whether the group is beamed, and the beams
+          // do not exist yet at construction time (a note's `hasBeam()` is false until its Beam is
+          // built). It is set in the pre-draw pass below, which runs after they are — and VexFlow
+          // reads the option at draw time, so setting it late is not a workaround, it is when the
+          // answer becomes knowable. Same for the mark's text.
+          const vexTuplet = new ScoreTuplet(tupletStaveNotes, {
             numNotes: tupletData.numNotes,
             notesOccupied: tupletData.notesOccupied,
             location,
-            bracketed: true,
           })
           vexTuplets.push(vexTuplet)
         } catch (tupletError) {
@@ -1343,11 +1354,34 @@ export class VexFlowRenderer {
   }
 
   private drawAndRegisterTuplets(
-    vexTuplets: VexFlowTuplet[],
+    vexTuplets: ScoreTuplet[],
     tupletStaveNoteMap: Map<string, { staveNotes: StaveNote[]; tuplet: Tuplet; voice: number }>,
     measure: Measure,
     multiVoice: boolean,
+    /** Every voice's notes, in engraved order — for finding what follows a tuplet. */
+    voiceNotes: Map<number, StaveNote[]>,
+    stave: Stave,
   ): void {
+    /**
+     * Where the bracket's right end goes, or undefined to leave it at the last notehead.
+     *
+     * `division` — the default — ends the bracket where the group's TIME ends, which on a formatted
+     * stave is where the next note was placed: the formatter has already turned "the end of this
+     * duration" into an x, and reading it back is more honest than re-deriving it from beats. Nothing
+     * following in this voice means the group runs to the end of the bar, so the bracket does too.
+     *
+     * `beforeNext` stops a little short of that note, which is the same line with a gap in it.
+     */
+    const BRACKET_END_GAP = 6
+    const bracketEndX = (tupletData: Tuplet, voice: number, lastNote: StaveNote): number | undefined => {
+      const mode = tupletBracketEnd(tupletData)
+      if (mode === 'lastNote') return undefined
+      const lane = voiceNotes.get(voice) ?? []
+      const next = lane[lane.indexOf(lastNote) + 1]
+      if (!next) return stave.getNoteEndX() - BRACKET_END_GAP
+      return mode === 'division' ? next.getAbsoluteX() : next.getAbsoluteX() - BRACKET_END_GAP
+    }
+
     for (const vexTuplet of vexTuplets) {
       try {
         const tupletNotes = vexTuplet.getNotes() as StaveNote[]
@@ -1359,7 +1393,7 @@ export class VexFlowRenderer {
           const vt = vexTuplet as unknown as {
             notes: StaveNote[]
             options: { location?: number; bracketed?: boolean; yOffset?: number; textYOffset?: number }
-            textElement?: { getHeight?: () => number }
+            textElement?: { getHeight?: () => number; setText?: (text: string) => void }
           }
           const notes = vt.notes
           const firstNote = notes?.[0]
@@ -1367,7 +1401,31 @@ export class VexFlowRenderer {
           if (!firstNote || !lastNote) break
 
           const location = (vt.options?.location ?? 1) as 1 | -1
-          const bracketed = vt.options?.bracketed ?? true
+
+          // THE FORMAT, applied — the first two of its three fields (bracketEnd still to come).
+          //
+          // Both answers come from the model via a resolver, never from the field: a tuplet that
+          // stores no format is the ordinary case, and "absent" is an instruction (engrave by the
+          // rules), not a gap. `Ctrl+3` and the dialog therefore arrive at the same code.
+          //
+          // The bracket's rule needs the beams, which is why this is here and not at construction:
+          // `hasBeam()` only answers once the Beam objects exist. VexFlow's own default happens to be
+          // the same rule; we state it ourselves so the model's `always`/`never` can override it and
+          // so the rule lives in one place we own.
+          const beamed = notes.every(n => n.hasBeam?.() ?? false)
+          const bracketed = tupletBracketed(tupletData, beamed)
+          vt.options.bracketed = bracketed
+
+          // The MARK is ours, not VexFlow's: it can print a bare number or a ratio, but not "ratio +
+          // note" and not nothing at all, and its automatic choice is a heuristic we replaced
+          // (autoNumberStyle). Same string the GHOST draws — one function, so a preview cannot
+          // promise a mark the page will not print.
+          vt.textElement?.setText?.(tupletMarkText(tupletData, tupletData.numberStyle))
+
+          // …and where the bracket stops. Only meaningful with a bracket, but set either way: an
+          // unbracketed tuplet's width still centres the number, and a number that drifted when the
+          // bracket was switched off would be a second rule nobody asked for.
+          vexTuplet.bracketEndX = bracketed ? bracketEndX(tupletData, voice, lastNote) : undefined
 
           // A bracket flipped to the INNER side (toward the other voice) would be shoved
           // to the far edge of the system by VexFlow's staff-edge clamp; nudge it back
@@ -1391,7 +1449,10 @@ export class VexFlowRenderer {
           // tuplets, where VexFlow anchors a top bracket above the whole system.
           const bracketPadding = 5
           const xStart = bracketed ? firstNote.getTieLeftX() - bracketPadding : firstNote.getStemX()
-          const xEnd = bracketed ? lastNote.getTieRightX() + bracketPadding : lastNote.getStemX()
+          // The END is read back off the tuplet, not recomputed from the last note: with a
+          // `division` or `beforeNext` bracket the line runs PAST that note, and a hit-box measured
+          // from the notehead would stop where the ink does not. `width` is what draw() just used.
+          const xEnd = xStart + vexTuplet.width
           const tupletWidth = xEnd - xStart
 
           const bracketLineY = vexTuplet.getYPosition() // the horizontal bracket line

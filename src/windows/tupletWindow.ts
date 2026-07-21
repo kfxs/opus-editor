@@ -188,10 +188,9 @@ export function openTupletWindow(windows: WindowLayer): Window {
 
   const numberStyle = new RadioGroup(NUMBER_STYLES, { selected: 'number', direction: 'column' })
   const bracket = new RadioGroup(BRACKETS, { selected: 'auto', direction: 'column' })
-  // TICKED to start, because that is what will be drawn: the default bracket end is `division`
-  // (DEFAULT_TUPLET_BRACKET_END). A box that opens unticked over a score that engraves the full
-  // duration anyway is a box that lies about the thing it controls.
-  const fullDuration = new Checkbox('Full duration', { checked: true })
+  // UNTICKED, matching DEFAULT_TUPLET_BRACKET_END: the long bracket is something you ask for on the
+  // tuplet that needs it, not something every triplet is given.
+  const fullDuration = new Checkbox('Full duration')
 
   /**
    * The *Format* box as the model stores it.

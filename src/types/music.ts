@@ -117,9 +117,8 @@ export type TupletBracket = 'auto' | 'always' | 'never'
  * behaviour. `division` ends where the group's TIME ends, so the bracket covers a final rest or the
  * full length of a final long note. `beforeNext` ends just short of whatever follows.
  *
- * Absent = the renderer's rule, which is `division` — see
- * {@link ../utils/musicUtils.DEFAULT_TUPLET_BRACKET_END} for why that one is the default and not the
- * shorter, more familiar one.
+ * Absent = the renderer's rule, which is `lastNote` — the long bracket is opt-in, per
+ * {@link ../utils/musicUtils.DEFAULT_TUPLET_BRACKET_END}.
  */
 export type TupletBracketEnd = 'lastNote' | 'division' | 'beforeNext'
 
