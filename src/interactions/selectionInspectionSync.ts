@@ -33,7 +33,7 @@ export function wireSelectionInspection(
   // and the one state change it does emit (`selectedDuration`) fires before the mutation, so a
   // state-only subscriber reads the old note and then hears nothing more.
   //
-  // The engine may not exist yet when this is wired (App.vue creates it on mount), so the model
+  // The engine may not exist yet when this is wired (App.ts creates it on mount), so the model
   // subscription is taken lazily, on the first sync that finds one.
   let stopModel: (() => void) | null = null
   const attachModel = () => {

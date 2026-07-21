@@ -3,7 +3,7 @@
  *
  * Provides a centralized way to manage keyboard shortcuts.
  *
- * Usage in a Vue component:
+ * Usage from the app:
  *
  * import { ShortcutManager } from '@/shortcuts'
  *

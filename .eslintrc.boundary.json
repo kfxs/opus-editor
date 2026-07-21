@@ -22,7 +22,7 @@
               "@/App.vue",
               "**/App.vue"
             ],
-            "message": "Framework-agnostic boundary: files in src/engine, src/interactions, src/windows, src/menus and src/dev must not import Vue, Pinia, composables, or App.vue. Keep framework glue in src/composables/ and App.vue — and note Vue is on its way out entirely (docs/remove-vue-plan.md), so new UI belongs in plain TS. See docs/ARCHITECTURE.md."
+            "message": "Framework-agnostic boundary: src/engine, src/interactions, src/windows, src/menus and src/dev must not import a UI framework. Vue was REMOVED from this project (docs/remove-vue-plan.md) — these patterns stay as a ratchet so it cannot creep back. All UI here is plain TS + DOM; see docs/ARCHITECTURE.md."
           }
         ]
       }

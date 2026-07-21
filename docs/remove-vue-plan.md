@@ -1,8 +1,13 @@
-# Removing Vue
+# Removing Vue — DONE
 
-Branch: `remove-vue`. The editor core has been framework-agnostic for months
-(`lint:boundary` enforces it); this finishes the job by replacing the last
-framework-dependent layer — the app shell — with plain TypeScript.
+Branch: `remove-vue`. The editor core had been framework-agnostic for months
+(`lint:boundary` enforced it); this finished the job by replacing the last
+framework-dependent layer — the app shell — with plain TypeScript. All four steps
+below are complete: there is no Vue in the project.
+
+Kept as the record of *why* the shape is what it is, and of the traps found on the
+way. The one thing to carry forward: **new UI is a module that builds its own
+elements and subscribes to `EditorState`** — see `windows/`, `menus/`, `dev/`.
 
 **Vite stays.** Vite is not Vue: with no `@vitejs/plugin-vue`, `vite build` is
 just a TypeScript bundler. "A standalone app on Vite" is what already exists,
@@ -12,12 +17,12 @@ minus one plugin.
 
 What is inside the **viewport** is the application. Everything around it — the
 toolbar and the Score-JSON panel — is **development scaffolding**, and it is
-*kept*, because it is useful while building. Vue is currently playing the role of
-that shell; our own thin wrapper takes the role over.
+*kept*, because it is useful while building. Vue was playing the role of that
+shell; `App.ts` plus `src/dev/` took the role over.
 
-This is the decision that unblocked the port: the toolbar does **not** need to be
-redesigned, rehomed onto the Keypad, or rebuilt on the widget framework. It stays
-exactly as it is, transcribed into plain DOM. Its Tailwind class strings copy
+This is the decision that unblocked the port: the toolbar did **not** need to be
+redesigned, rehomed onto the Keypad, or rebuilt on the widget framework. It stayed
+exactly as it was, transcribed into plain DOM. Its Tailwind class strings copied
 across verbatim (Tailwind's content glob already covers `.ts`).
 
 > ⚠️ Keep each class string a whole literal. Tailwind scans for literal text, so a
@@ -62,20 +67,31 @@ reactive. It becomes `el.textContent = …` on the same timer.
    (`mouse.setup/teardown`, the gutter's `watch` + `detach`) moved to `App.vue`
    **at the same positions**, so hook registration order — and therefore run
    order — is unchanged.
-3. **App.vue → App.ts.** The script (~426 lines) ports almost mechanically:
-   `ref`/`shallowRef` → plain `let`, `onMounted`/`onUnmounted` → `init()`/
-   `dispose()`, the single `watch` (`state.isPanning`) → `onStateChange`. The
-   template (~378 lines) splits into the score scaffold (~70 lines of nested divs,
-   `v-show` → `style.display`, `v-if` → create/remove) and the dev shell above.
-   The three `computed`s only fed the toolbar; `durationHighlight`/`dotHighlight`
-   in `keypadSync.ts` are already the shared rule.
-4. **Drop the plugin and the deps.** `vue`, `@vitejs/plugin-vue`, `vue-tsc`,
-   `eslint-plugin-vue`; `build:check` swaps `vue-tsc` → `tsc --noEmit`. Only safe
-   after step 3 — it breaks `.vue` parsing instantly.
+3. **✅ App.vue → App.ts**, in two commits so there was a testable point in the
+   middle. First the dev shell moved out to `src/dev/` while Vue still hosted it
+   (donating two empty divs); then the remainder became `App.ts`, which builds the
+   score DOM itself. `ref` → plain `let`, `onMounted`/`onUnmounted` → straight-line
+   code plus `destroy()`, `v-show` → `style.display`, `v-if` → a hidden element
+   whose getter reports null. The last two composables moved inward rather than
+   being ported — neither was really about Vue: `useShortcuts` →
+   `interactions/shortcutWiring.ts` (it imported Vue for a single `type Ref`), and
+   `useViewport` → `interactions/ViewportHost.ts` (elements as getters, lifecycle
+   as explicit `attach`/`detach`). `src/composables/` is gone.
+4. **✅ Dropped the plugin and the deps.** `vue`, `@vitejs/plugin-vue`, `vue-tsc`,
+   `eslint-plugin-vue`; `build:check` runs `tsc --noEmit`, and `.eslintrc.json` no
+   longer loads the Vue parser. Bundle: 1,724 kB → 1,665 kB.
 
-`useShortcuts` and `useViewport` are the last two composables. `useShortcuts`
-imports Vue for a single `type Ref`; `useViewport` holds ~15 lines of real
-lifecycle and already exposes `attach`/`detach`. Both fold into step 3.
+## What replaced each Vue feature
+
+| Vue | Now |
+|---|---|
+| `reactive(state)` + template bindings | `EditorState`'s emitting Proxy; one `onStateChange` subscriber per concern |
+| `computed` for button highlights | the shared rules in `keypadSync.ts`, re-asked on each state change |
+| `v-if` (gutter) | the element always exists, hidden; `getElement()` returns null when hidden, so the controller sees what `v-if` gave it — and its DOM position never changes |
+| `v-show` (play cursor) | `style.display` |
+| `onMounted` / `onUnmounted` | straight-line construction + `destroy()` |
+| `ref` on an element | the element itself — `App.ts` built it |
+| SFC `<style>` | `src/app.css` |
 
 ## What made this cheap
 

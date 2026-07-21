@@ -4,7 +4,7 @@ import { isValidTimeSignature } from './meter'
 /**
  * Reading a beat grouping the user TYPED, and saying what is wrong with it.
  *
- * Pure, and deliberately not in a component: this rule was a pair of Vue computeds inside App.vue,
+ * Pure, and deliberately not in a component: this rule was a pair of Vue computeds inside App.ts,
  * which meant the only UI that could validate a meter was the Vue one — and the plain-TS windows
  * that are replacing it would each have had to re-derive "must sum to the numerator" and get it
  * subtly differently. The rule is the model's, not a component's (lint:boundary enforces the

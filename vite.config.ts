@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 
+// No framework plugin: the editor is plain TypeScript, and Vite is here purely as a bundler and dev
+// server. See docs/remove-vue-plan.md — "Vite is not Vue".
 export default defineConfig({
-  plugins: [vue()],
   resolve: {
     alias: {
       '@': resolve(__dirname, './src')

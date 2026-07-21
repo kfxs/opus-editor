@@ -7,7 +7,7 @@ import { PaletteSelection } from './paletteSelection'
  * key toggles OFF on a re-press, the way `toggleTie` removes an existing tie.
  *
  * It is the DOT's shape but the ARTICULATION's sync: `note.tiedTo` is read live from the engine, not a
- * reactive `state.*` field, so the highlight cannot be mirrored by an App.vue computed. Instead
+ * reactive `state.*` field, so the highlight cannot be mirrored by an App.ts computed. Instead
  * `PaletteController.refreshTieSelection` pushes it — after every `toggleTie` (all sources funnel
  * there) and on the selection-change poke — exactly like {@link articulationSelection}. Tie is a
  * selection-mode action only: there is no armed "entry-mode tie".

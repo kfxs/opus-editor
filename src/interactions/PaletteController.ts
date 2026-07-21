@@ -1487,7 +1487,7 @@ export class PaletteController {
    * Push whether the tie is lit into the {@link tieSelection} store, so the Keypad's Enter key reflects
    * the selected note. Like {@link refreshArticulationSelection}, the RULE ({@link noteHasTie}, reading
    * the engine's `tiedTo`) lives HERE, framework-agnostic — a note's tie is not a reactive field, so no
-   * App.vue computed can mirror it. Called after every `toggleTie` (all sources funnel through it) and
+   * App.ts computed can mirror it. Called after every `toggleTie` (all sources funnel through it) and
    * on the Vue selection-change poke. `setHighlight` short-circuits on no change.
    */
   refreshTieSelection(): void {

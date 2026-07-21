@@ -18,8 +18,8 @@ import { accidentalTypeToKey } from '../utils/pitchSpelling'
  * The highlight rule, in one place: a palette value is shown only when it means something —
  * in entry mode (the armed value), or in selection mode with a note selected (the note's,
  * kept in sync by SelectionController). Select a non-note or clear the canvas and there is no
- * note to reflect, so nothing lights up — in the Vue palette AND the Keypad. The Vue palette's
- * own button computeds call this too, so the rule is single-sourced.
+ * note to reflect, so nothing lights up — on the dev toolbar AND the Keypad. The toolbar's own
+ * button syncers call this too, so the rule is single-sourced.
  */
 export function noNoteInSelection(state: EditorState): boolean {
   return state.selectedTool === 'selection' && !state.selectedNoteId
@@ -39,7 +39,7 @@ export function noNoteInSelection(state: EditorState): boolean {
  * is a property asked of every kind by `MARKING_TOOL_USES_ARMED_LENGTH`, not an exception list.
  *
  * A function, not an inline expression in {@link wireKeypadSync}, for {@link dotHighlight}'s reason:
- * it is the RULE, and the Vue palette's surviving duration computed reads it too.
+ * it is the RULE, and the dev toolbar's duration buttons read it too.
  */
 export function durationHighlight(state: EditorState): NoteDuration | null {
   if (state.selectedMarkingTool) return armedToolUsesLength(state) ? state.selectedDuration : null
@@ -57,9 +57,9 @@ export function dotHighlight(state: EditorState): 'dot' | null {
   // lights its own key; every other tool darkens it, because no dot is in play while a clef is
   // waiting to be placed. Ahead of the reads below, which would see the (cleared) note selection.
   //
-  // This gate belongs HERE, not at the caller: `dotHighlight` is the RULE, and the Vue palette's own
-  // button computeds read it too — gating it in keypadSync.sync() alone would light the Vue dot
-  // button under an armed clef while the Keypad's stayed dark.
+  // This gate belongs HERE, not at the caller: `dotHighlight` is the RULE, and the dev toolbar reads
+  // it too — gating it in keypadSync.sync() alone would light the toolbar's dot button under an
+  // armed clef while the Keypad's stayed dark.
   //
   // EXCEPT under a tool that uses the armed length: the armed REST is dotted or it is not, and the
   // key is what says which — so it reports `selectedDots`, exactly as in note entry.
@@ -84,7 +84,7 @@ export function dotHighlight(state: EditorState): 'dot' | null {
  * idempotent, torn-state tolerant (a pure read), and never writes state.
  *
  * PRESS (out): a Keypad key routes through the palette's own setX/toggleX — the SAME method the
- * Vue button calls — so a retuned note / armed ghost / a toggle-off all happen identically. The
+ * toolbar button calls — so a retuned note / armed ghost / a toggle-off all happen identically. The
  * press channel fires only on a real Keypad press (never from the highlight mirror), so the
  * action never double-applies.
  *

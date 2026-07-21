@@ -9,7 +9,7 @@ import { PaletteSelection } from './paletteSelection'
  *
  * `EditorState.selectedDots` stays the armed count (0/1) the score reads and `PaletteController.toggleDot`
  * owns the work. Unlike the articulations, `selectedDots` IS a reactive field kept in sync in both
- * modes, so App.vue mirrors dots→highlight in with a plain computed and routes a Keypad press out
+ * modes, so App.ts mirrors dots→highlight in with a plain computed and routes a Keypad press out
  * through toggleDot — no controller-side push needed.
  */
 export const dotSelection = new PaletteSelection<'dot'>()

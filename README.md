@@ -17,7 +17,7 @@ Work in progress — this is an experiment under development.
 
 ## Tech Stack
 
-- Vue 3 (Composition API) — being removed; the editor core is framework-agnostic TypeScript
+- No UI framework — plain TypeScript and the DOM (Vue was removed; see docs/remove-vue-plan.md)
 - VexFlow 5 — notation rendering
 - WebAudioFont — sampled General-MIDI audio playback (samples fetched from CDN at play time)
 - Tailwind CSS — styling

@@ -5,7 +5,7 @@ import { KeypadWidget, KEYPAD_WIDTH } from './KeypadWidget'
 /**
  * The Keypad's life: open on startup, toggled by Ctrl+Alt+K, closed by its ✕.
  *
- * Plain TS, like everything about a window — the panel is composed and opened here, and App.vue is
+ * Plain TS, like everything about a window — the panel is composed and opened here, and App.ts is
  * not consulted. The single `keypad` handle is what keeps the panel a THING rather than a stack of
  * copies: there is one, or there is none. It is always checked against the manager before use,
  * because the ✕ closes the window behind our back and a stale handle would then toggle nothing.

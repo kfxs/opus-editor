@@ -6,7 +6,7 @@ import { loremParagraphs } from '../content/lorem'
 
 /**
  * The test rig behind the palette's *Lorem Window* button. Plain TS: defining a window is composing
- * widgets, and that has nothing to do with Vue — App.vue only calls this.
+ * widgets, and that has nothing to do with Vue — App.ts only calls this.
  *
  * Alternates on each call:
  *   - odd: two columns, each scrolling independently.

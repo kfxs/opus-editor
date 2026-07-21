@@ -12,16 +12,19 @@ A music score editor built with Vue 3, VexFlow, and WebAudioFont. Users can add/
 
 ## Tech Stack
 
-- **Framework**: Vue 3 with Composition API — **being removed** (branch `remove-vue`); it is
-  down to `App.vue` + `main.ts` + the `composables/` glue, and everything else is already
-  framework-agnostic. Do not add Vue anywhere new.
+- **Framework**: **none.** Vue was removed (docs/remove-vue-plan.md) — the editor is plain
+  TypeScript and the DOM. ⚠️ Do not add a UI framework, and do not write UI as if one were
+  coming; `lint:boundary` refuses framework imports. New UI follows `windows/` and `menus/`:
+  a module that builds its own elements and subscribes to state.
 - **Notation Rendering**: VexFlow 5
 - **Audio Playback**: WebAudioFont (sampled General MIDI; samples fetched from CDN at play time)
 - **State Management**: `EditorState` — one plain object behind an emitting Proxy
-  (`interactions/EditorState.ts`), which carries its own change-notification and owes nothing to a
-  framework. (Pinia was a dependency that no store ever used; it is gone.)
+  (`interactions/EditorState.ts`). `subscribe(fn)` fires once per top-level write, and that IS the
+  app's reactivity: the toolbar, Keypad, Properties window, score cursor and gutter are all just
+  subscribers. ⚠️ Only TOP-LEVEL writes emit — mutating a nested value (`state.selectedItems.set(…)`,
+  or a field of the armed tool) is invisible, so always REASSIGN the field.
 - **Styling**: Tailwind CSS
-- **Build Tool**: Vite
+- **Build Tool**: Vite (as a bundler/dev server — no framework plugin)
 - **Testing**: Vitest (unit) + Playwright (E2E)
 
 ## Commands
@@ -38,16 +41,18 @@ npm run test:e2e   # Run E2E tests (playwright)
 
 See `docs/ARCHITECTURE.md` for the full layer map, the framework-agnostic
 boundary, the "where does X live?" table, and the domain glossary. The
-dependency direction is `App.vue → composables → interactions → engine`.
+dependency direction is `App.ts → interactions → engine`.
 
 ```
 src/
-  App.vue           # Main Vue component (UI shell + palette)
-  composables/      # What's LEFT of the Vue glue: useViewport + useShortcuts.
-                    #   The 8 `useX` shims are deleted — App.vue constructs the
-                    #   controllers directly. See docs/remove-vue-plan.md
+  App.ts            # The app: builds the score DOM, constructs the controllers,
+                    #   owns the lifecycle. No framework.
+  dev/              # SCAFFOLDING, deliberately kept: devToolbar + scoreJsonPanel
+                    #   (the strip around the viewport) + renderCensus. Reads state,
+                    #   calls the palette; the viewport never knows it exists.
   interactions/     # Framework-agnostic controllers (Mouse/Keyboard/Selection/
-                    #   Highlight/Palette/Clipboard…) + EditorState. NO Vue imports.
+                    #   Highlight/Palette/Clipboard…) + EditorState + ViewportHost
+                    #   (DOM⇄viewport) + shortcutWiring.
   shortcuts/        # Keyboard shortcut definitions
   engine/           # Framework-agnostic music engine
     MusicEngine.ts        # Facade — coordinates the components below
@@ -62,8 +67,9 @@ src/
                     #   beaming, clefUtils, pitchSpelling, dynamics, durations
 ```
 
-**The `interactions/` + `engine/` framework-agnostic boundary is enforced by
-`npm run lint:boundary`** (no `vue`/composable imports may leak inward).
+**The framework-agnostic boundary is enforced by `npm run lint:boundary`** across
+`engine/`, `interactions/`, `windows/`, `menus/` and `dev/` — it is a ratchet kept
+in place after Vue's removal so a framework cannot creep back in.
 
 ## Core Types (src/types/music.ts)
 

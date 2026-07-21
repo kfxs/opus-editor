@@ -210,7 +210,7 @@ export function assertNeverTool(tool: never): never {
 /**
  * The score canvas's cursor, DERIVED from state — the one place the cursor decision lives, so the
  * view only binds the result. Framework-agnostic on purpose: the class names are the layer contract
- * (a future non-Vue host reuses this function and supplies its own equivalent styles), and the rule
+ * (the app applies them to the score box and supplies the matching styles), and the rule
  * — panning hides the pointer; the click-to-type entry tools (expression Ctrl+E, tempo Ctrl+Alt+T)
  * show the blue "click to place & type" pointer; otherwise the default arrow — is not something the
  * template should reimplement inline. Returns a class name, not a boolean, so a fourth cursor never
@@ -226,10 +226,10 @@ export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-te
 /**
  * All mutable UI state for the score editor.
  *
- * Framework-agnostic: no Vue, React, or Angular imports.
- * In Vue:   wrap with reactive(createEditorState())
- * In React: use useReducer / useState / MobX observable
- * In Angular: use as a plain service property
+ * Framework-agnostic: no framework imports, and none needed — the editor's reactivity is this
+ * object's own emitting Proxy (see {@link createObservableEditorState} below), which every
+ * subscriber in the app reads through. A host framework, if one is ever wanted again, wraps it:
+ * `reactive(state)` in Vue, `useSyncExternalStore(subscribe, …)` in React.
  */
 export interface EditorState {
   // --- Tool ---
@@ -436,9 +436,9 @@ export interface EditorState {
    *  in-score keyboard caret, not the OS pointer. */
   isPanning: boolean
   playbackState: PlaybackState
-  /** MIRROR of the engine's view mode (wrapped ↔ linear), for the palette button's lit state —
-   *  the engine OWNS it (docs/linear-view-plan.md §5), and a MusicEngine is not a reactive
-   *  object, so a Vue template cannot track `engine.getViewMode()` directly. Written only by
+  /** MIRROR of the engine's view mode (wrapped ↔ linear), for the toolbar button's lit state and
+   *  the gutter's presence — the engine OWNS it (docs/linear-view-plan.md §5), and a MusicEngine
+   *  emits nothing, so no subscriber can follow `engine.getViewMode()` directly. Written only by
    *  `PaletteController.setViewMode`, alongside the engine itself, so the two cannot diverge:
    *  never assign this field from anywhere else, and never read it to DECIDE anything — the
    *  gestures and the renderer ask the engine (the owner). */
@@ -520,12 +520,12 @@ export type StateListener = (key: keyof EditorState) => void
  * framework. Read and write `state` exactly as a plain object; `subscribe(fn)` registers a
  * listener called with the key on every top-level write.
  *
- * The whole mechanism is a Proxy `set` trap (see docs/observable-editorstate-plan.md). It
- * composes with Vue: `reactive(observable.state)` wraps the emitting Proxy, so a single
- * assignment fires BOTH Vue's dependents and these listeners. When Vue eventually leaves,
- * this `subscribe` is the end-state reactivity — nothing here is scaffolding.
+ * The whole mechanism is a Proxy `set` trap (see docs/observable-editorstate-plan.md). This
+ * `subscribe` IS the editor's reactivity now — the plan called it the end state while Vue was still
+ * wrapping it, and since Vue left there is nothing else. Everything that follows state follows it:
+ * the Keypad, the Properties window, the dev toolbar, the score cursor, the linear-view gutter.
  *
- * Contract for subscribers (emits are synchronous, one per write — NOT batched like Vue):
+ * Contract for subscribers (emits are synchronous, one per write — never batched):
  *   1. Idempotent — called several times per gesture; the last call settles it.
  *   2. Torn-state tolerant — early emits run against mid-transition state.
  *   3. Never a state writer — a write from inside a callback is a re-entrant emit.

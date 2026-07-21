@@ -6,12 +6,12 @@
  * An articulation is different in kind: accent, staccato and tenuto are each their OWN light, and a
  * note can wear all three at once. So the HIGHLIGHT here is a whole SET, not one value.
  *
- * - HIGHLIGHT: which values are lit — a set. A pure mirror of editor state: App.vue (or the palette)
+ * - HIGHLIGHT: which values are lit — a set. A pure mirror of editor state: App.ts (or the palette)
  *   computes which articulations the selection carries and pushes the result in with {@link setActive}.
  *   Both UIs read {@link isActive} and repaint on {@link onHighlight}. `setActive` SHORT-CIRCUITS when
  *   the set is unchanged, so mirroring cannot loop.
  * - PRESS: the user hit this key. A command, and it ALWAYS fires ({@link press}) — a press TOGGLES the
- *   value, so it must never be swallowed as "no change". App.vue handles it by running the palette's
+ *   value, so it must never be swallowed as "no change". App.ts handles it by running the palette's
  *   own toggleX, the SAME method the Vue button calls.
  *
  * Keeping the two apart is what lets a state mirror and a Keypad press stay distinct: the mirror only

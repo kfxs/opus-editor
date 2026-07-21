@@ -1,7 +1,7 @@
 /**
  * ViewportModel — the framework-agnostic state of the score *viewport*: the fixed-size window
  * you look through, the full content surface behind it, and the current scroll offset between
- * them. Pure data + math, zero DOM, zero Vue — a host adapter (the Vue `useViewport` composable)
+ * them. Pure data + math, zero DOM, zero framework — a host adapter (`interactions/ViewportHost`)
  * is the only piece that touches a real scroll element. Survives a framework port verbatim and is
  * unit-testable with no DOM.
  *

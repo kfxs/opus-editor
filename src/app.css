@@ -1,0 +1,95 @@
+/*
+ * Notation rendering styles (cursor ghosts, selection highlight) now live with
+ * the engine in src/engine/rendering/notation.css, imported by VexFlowRenderer.
+ * Keep only app-layout styles here.
+ */
+
+/* Score container with rounded corners that work with scrollbars */
+.score-container {
+  /* position: relative makes this the containing block for the playback cursor, so the
+     cursor's content-space coords resolve here and it scrolls together with the music. */
+  position: relative;
+  scrollbar-gutter: stable;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Zoom DOM (docs/zoom-plan.md §3). The sizer's explicit width/height (set by useViewport =
+   naturalSvgSize × zoom) is what the scroll box measures for its scroll range. The zoomLayer
+   sits at the sizer's top-left and carries transform: scale(zoom) (origin 0 0, set in JS); it is
+   also the containing block for the play-cursor, which therefore stays in pure layout coords. */
+.score-sizer {
+  position: relative;
+}
+.score-zoom-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* The score "paper": the SVG is transparent by default, so the gray container would show
+   through it. Paint it white here (a stylesheet rule, since VexFlow rebuilds the SVG via
+   innerHTML on every render and would drop an inline style). The SVG bounds match the sizer
+   exactly (= natural SVG size × zoom), so white = the page and the surrounding gray = empty
+   space — giving a visible boundary between the score and the viewport. */
+.score-zoom-layer svg {
+  background-color: #ffffff;
+}
+
+/* Linear view's frozen gutter (docs/linear-view-plan.md §P3): the clef in force at the current
+   scroll-x, pinned to the left edge so it stays readable at bar 400. Absolutely positioned OVER
+   the scroll box (a child of it would scroll away with the music) and outside the zoom layer — so
+   GutterController applies the zoom scalar itself, and writes `top`/`height` to track the score
+   SVG's own vertical bounds (the two whites must read as one sheet of paper).
+
+   The divider is WHITE, not a rule: a dark line would read as a barline — an engraved mark in
+   music that has none there. It exists only to stop the music's noteheads touching the frozen
+   clef, so it should separate without drawing the eye. pointer-events:none keeps the music
+   underneath clickable. */
+.score-gutter {
+  position: absolute;
+  left: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-right: 2px solid #ffffff;
+}
+.score-gutter svg {
+  background-color: #ffffff;
+}
+
+/* Playback cursor: thin green bar at the start of the playing measure. Positioned via
+   transform (left/top stay 0); pointer-events:none so it never blocks score clicks. */
+.play-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  background-color: #22c55e; /* green-500 */
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Custom scrollbar styling to respect rounded corners */
+.score-container::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.score-container::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 0 8px 8px 0;
+}
+
+.score-container::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 6px;
+}
+
+.score-container::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+.score-container::-webkit-scrollbar-corner {
+  background: #e2e8f0;
+  border-radius: 0 0 8px 0;
+}

@@ -1,8 +1,10 @@
-import { onMounted, onUnmounted, watch, type Ref } from 'vue'
 import { ViewportModel, type Point, type Rect } from '../engine/ViewportModel'
 
+/** An element this host reads at call time. The app owns the DOM; the host only observes it. */
+type ElementSource = () => HTMLElement | null
+
 /**
- * Vue host adapter for {@link ViewportModel} — the *only* DOM-aware piece of the viewport stack.
+ * DOM host for {@link ViewportModel} — the *only* DOM-aware piece of the viewport stack.
  * It keeps the pure model and the real scroll element in sync in both directions, and owns the
  * zoom DOM (the `sizer` + `zoomLayer` pair, see docs/zoom-plan.md §3):
  *
@@ -19,10 +21,16 @@ import { ViewportModel, type Point, type Rect } from '../engine/ViewportModel'
  * their range) and the `zoomLayer` carries the matching `transform: scale(zoom)` (so the visuals
  * scale without a re-render). Both derive from the same `naturalSize × zoom`, so they never disagree.
  *
- * A React/Svelte port reimplements only this file; the model and its tests travel unchanged.
+ * Nothing here is framework-specific: the elements arrive as getters and the lifecycle is two
+ * explicit calls, {@link ViewportHost.attach} and {@link ViewportHost.detach}. The app calls them
+ * once its DOM exists.
  */
 export interface ViewportHost {
   model: ViewportModel
+  /** Start observing the DOM (scroll listener + the three observers). The elements must exist. */
+  attach(): void
+  /** Stop observing and drop every listener/observer. Safe to call twice. */
+  detach(): void
   /** Set scroll (screen coords), clamp via the model, and apply to the element. */
   scrollTo(x: number, y: number): void
   /** Scroll by a delta (screen coords), clamp via the model, and apply to the element. */
@@ -37,15 +45,15 @@ export interface ViewportHost {
   zoomToStop(dir: 1 | -1, focal: Point): void
 }
 
-export function useViewport(
-  /** Outer scroll box — the fixed-height viewport (the `scoreCanvas` ref). */
-  viewportEl: Ref<HTMLElement | null>,
-  /** Inner content surface that hosts the SVG (the `scoreContent` ref). */
-  contentEl: Ref<HTMLElement | null>,
+export function createViewportHost(
+  /** Outer scroll box — the fixed-height viewport (`scoreCanvas`). */
+  viewportEl: ElementSource,
+  /** Inner content surface that hosts the SVG (`scoreContent`). */
+  contentEl: ElementSource,
   /** The `sizer` — explicit size = naturalSvgSize × zoom; gives the scroll bars their range. */
-  sizerEl: Ref<HTMLElement | null>,
+  sizerEl: ElementSource,
   /** The `zoomLayer` — carries `transform: scale(zoom)` above the content surface. */
-  zoomLayerEl: Ref<HTMLElement | null>,
+  zoomLayerEl: ElementSource,
   /**
    * Called after any scroll / zoom / viewport-resize settles. The linear-view gutter listens
    * here: it must repaint when the window onto the music moves, and it is the one thing on
@@ -69,7 +77,7 @@ export function useViewport(
   // --- Viewport (outer box) size → model ---
 
   function syncViewportSize(): void {
-    const el = viewportEl.value
+    const el = viewportEl()
     if (!el) return
     model.setViewportSize(el.clientWidth, el.clientHeight)
     syncScrollFromElement()
@@ -87,7 +95,7 @@ export function useViewport(
     // scroll range must include it on all four sides, or the right/bottom padding overflows past the
     // sizer and gets clipped — leaving a visible margin on the left/top only. The padding lives in
     // the (unscaled) zoom layer, so it belongs in the natural size; applyZoom multiplies by zoom.
-    const content = contentEl.value
+    const content = contentEl()
     if (content) {
       const cs = getComputedStyle(content)
       w += parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)
@@ -109,12 +117,12 @@ export function useViewport(
     const z = model.getZoom()
     const w = naturalSize.w * z
     const h = naturalSize.h * z
-    const sizer = sizerEl.value
+    const sizer = sizerEl()
     if (sizer) {
       sizer.style.width = `${w}px`
       sizer.style.height = `${h}px`
     }
-    const layer = zoomLayerEl.value
+    const layer = zoomLayerEl()
     if (layer) {
       layer.style.transformOrigin = '0 0'
       layer.style.transform = `scale(${z})`
@@ -127,14 +135,14 @@ export function useViewport(
   // --- Scroll sync ---
 
   function syncScrollFromElement(): void {
-    const el = viewportEl.value
+    const el = viewportEl()
     if (!el || applying) return
     model.scrollTo(el.scrollLeft, el.scrollTop)
     notify()
   }
 
   function applyScrollToElement(): void {
-    const el = viewportEl.value
+    const el = viewportEl()
     if (!el) return
     const { x, y } = model.getScroll()
     if (el.scrollLeft === x && el.scrollTop === y) return
@@ -153,7 +161,7 @@ export function useViewport(
   // --- SVG observer binding (the svg node is recreated on renderer re-init) ---
 
   function bindSvg(): void {
-    const svg = contentEl.value?.querySelector('svg') ?? null
+    const svg = contentEl()?.querySelector('svg') ?? null
     if (svg === observedSvg) return
     if (observedSvg) svgRO?.unobserve(observedSvg)
     observedSvg = svg
@@ -164,7 +172,7 @@ export function useViewport(
   }
 
   function attach(): void {
-    const vp = viewportEl.value
+    const vp = viewportEl()
     if (!vp) return
     vp.addEventListener('scroll', onScroll, { passive: true })
     viewportRO = new ResizeObserver(syncViewportSize)
@@ -172,7 +180,7 @@ export function useViewport(
     // Natural size: observe the rendered svg's (untransformed) border box; RO ignores ancestor
     // transforms, so this stays in layout space at any zoom.
     svgRO = new ResizeObserver(readNaturalSize)
-    const content = contentEl.value
+    const content = contentEl()
     if (content) {
       // The svg node is replaced on renderer re-init; re-bind the size observer when it changes.
       contentMO = new MutationObserver(bindSvg)
@@ -183,7 +191,7 @@ export function useViewport(
   }
 
   function detach(): void {
-    viewportEl.value?.removeEventListener('scroll', onScroll)
+    viewportEl()?.removeEventListener('scroll', onScroll)
     viewportRO?.disconnect()
     viewportRO = null
     svgRO?.disconnect()
@@ -193,24 +201,12 @@ export function useViewport(
     observedSvg = null
   }
 
-  onMounted(() => {
-    if (viewportEl.value) {
-      attach()
-      return
-    }
-    // Ref not populated yet — attach once it is, then stop watching.
-    const stop = watch(viewportEl, (el) => {
-      if (el) {
-        attach()
-        stop()
-      }
-    })
-  })
-
-  onUnmounted(detach)
-
+  // No "wait for the element to appear" dance: the app builds its DOM before it calls attach(),
+  // where a Vue component had to survive a render pass in which the refs were still null.
   return {
     model,
+    attach,
+    detach,
     scrollTo(x, y) {
       model.scrollTo(x, y)
       applyScrollToElement()

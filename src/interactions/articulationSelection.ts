@@ -10,7 +10,7 @@ import { PaletteToggleSet } from './paletteToggleSet'
  * `PaletteController.toggleAccent/Staccato/Tenuto` still own what pressing one DOES — including the
  * toggle across a selection, and the arm-for-next-note fallback. Because that "active" state is read
  * live from the engine (not a reactive field), PaletteController pushes the highlight itself after a
- * toggle, and App.vue mirrors it on selection/entry changes; a Keypad press routes OUT through the
+ * toggle, and App.ts mirrors it on selection/entry changes; a Keypad press routes OUT through the
  * same toggleX.
  */
 export const articulationSelection = new PaletteToggleSet<ArticulationType>()

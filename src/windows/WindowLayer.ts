@@ -7,17 +7,17 @@ import { CHROME } from '../utils/chromeColors'
  * The window primitive — vanilla DOM, ZERO framework.
  *
  * ┌──────────────────────────────────────────────────────────────────────────────────────────────┐
- * │  🚨 NOTHING ABOUT A WINDOW IS EVER WRITTEN IN App.vue.                                        │
+ * │  🚨 NOTHING ABOUT A WINDOW IS EVER WRITTEN IN App.ts.                                        │
  * │                                                                                              │
- * │  Defining a window is COMPOSING WIDGETS — plain TS, nothing to do with Vue. Every window      │
- * │  lives in its own .ts module (see demo/loremWindows.ts) and a .vue file may only CALL it.     │
+ * │  Defining a window is COMPOSING WIDGETS — plain TS. Every window lives in its own .ts        │
+ * │  module (see demo/loremWindows.ts), and the app may only CALL it.                             │
  * │                                                                                              │
- * │  App.vue's entire share is TWO lines, forever — mount() and destroy() — and only because Vue  │
- * │  owns the DOM node and the lifecycle hooks. The LAYER ITSELF lives in windows/index.ts, so    │
- * │  any plain-TS module can import it and open a window without the component's help.            │
+ * │  App.ts's entire share is TWO lines, forever — mount() and destroy() — and only because the   │
+ * │  app owns the DOM node and decides the lifetime. The LAYER ITSELF lives in windows/index.ts,  │
+ * │  so any module can import it and open a window without the app's help.                        │
  * │                                                                                              │
  * │  WHY: this system imports no framework, so it ports for free. The moment a window's           │
- * │  DEFINITION sits in App.vue, THAT WINDOW DOES NOT PORT — you keep the engine and throw away   │
+ * │  DEFINITION sits in App.ts, THAT WINDOW DOES NOT PORT — you keep the engine and throw away   │
  * │  every actual window. The value of framework-agnostic is not in WindowLayer; it is in the     │
  * │  WINDOWS.  (docs/windows-design.md)                                                           │
  * └──────────────────────────────────────────────────────────────────────────────────────────────┘
@@ -26,8 +26,8 @@ import { CHROME } from '../utils/chromeColors'
  * gone, not hidden — docs/windows-design.md rule 4), and writes styles straight onto the element
  * while dragging, which never touches a reactive system.
  *
- * It imports no framework, so there is nothing to port: this file runs unchanged in a Vue, React or
- * hand-rolled app. The only thing the app supplies is a DOM node to mount into, and the only thing
+ * It imports no framework, so there is nothing to port: this file ran unchanged through Vue's
+ * removal, which is the claim being tested. The only thing the app supplies is a DOM node, and the
  * it gets back from `open()` is a DOM node to fill. What goes in that box is not this file's
  * business.
  *
@@ -183,7 +183,7 @@ export class WindowLayer {
    *
    * The HOST is handed through because the app donates exactly ONE box and other overlays want it
    * too — the menu layer mounts into the same element (docs/menus-design.md). Whoever needs the box
-   * asks the layer that already has it, so `App.vue` never grows a third line.
+   * asks the layer that already has it, so `App.ts` never grows a third line.
    */
   whenMounted(fn: (host: HTMLElement) => void): void {
     if (this.host) fn(this.host)

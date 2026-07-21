@@ -216,7 +216,7 @@ export class KeypadWidget implements Widget {
     switch (cell.select) {
       case 'duration':
         // The armed duration lives in the editor's store, not the panel's lit set — PRESS the value
-        // and the store lights it back (App.vue runs the full setDuration path). The store decides the
+        // and the store lights it back (App.ts runs the full setDuration path). The store decides the
         // radio; the panel maps nothing. `duration` is always present on a duration cell (keypadLayouts).
         if (cell.duration) durationSelection.press(cell.duration)
         break
@@ -226,13 +226,13 @@ export class KeypadWidget implements Widget {
         if (cell.accidental) accidentalSelection.press(cell.accidental)
         break
       case 'articulation':
-        // Independent toggles on a set-valued store. PRESS the value; App.vue routes it to the
+        // Independent toggles on a set-valued store. PRESS the value; App.ts routes it to the
         // palette's toggleX, which flips the score AND re-pushes the lit set — the store lights it
         // back, so the panel maps nothing. `articulation` is always present here (keypadLayouts).
         if (cell.articulation) articulationSelection.press(cell.articulation)
         break
       case 'dot':
-        // On/off, like the accidental: PRESS always fires so re-pressing toggles the dot OFF. App.vue
+        // On/off, like the accidental: PRESS always fires so re-pressing toggles the dot OFF. App.ts
         // routes it through palette.toggleDot and mirrors selectedDots back in as the highlight.
         dotSelection.press('dot')
         break

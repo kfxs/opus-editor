@@ -23,7 +23,7 @@ export interface ShortcutDefinition {
  *
  * To add a new shortcut:
  * 1. Add the key and action here
- * 2. Register the action handler in App.vue (or wherever shortcuts are used)
+ * 2. Register the action handler in App.ts (or wherever shortcuts are used)
  */
 export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // Tool modes

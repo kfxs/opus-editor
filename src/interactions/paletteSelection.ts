@@ -2,13 +2,13 @@
  * One palette value — a duration, an accidental — shared between the editor and a plain-TS panel (the
  * Keypad), over TWO channels, because a palette key is two things at once:
  *
- * - HIGHLIGHT: which value to LIGHT, or `null` for none. A pure mirror of editor state — App.vue
+ * - HIGHLIGHT: which value to LIGHT, or `null` for none. A pure mirror of editor state — App.ts
  *   computes the rule (a value is shown only when it means something) and pushes the result in with
  *   {@link setHighlight}. Both UIs read {@link get} and repaint on {@link onHighlight}. `setHighlight`
  *   SHORT-CIRCUITS on no change, so mirroring cannot loop.
  * - PRESS: the user hit this key. A command, and it ALWAYS fires ({@link press}) — re-pressing the
  *   armed value is a real event (an accidental toggles OFF), so it must not be swallowed as "no
- *   change". App.vue handles it ({@link onPress}) by running the palette's own setX, the SAME method
+ *   change". App.ts handles it ({@link onPress}) by running the palette's own setX, the SAME method
  *   the Vue button calls.
  *
  * Keeping the two apart is what lets a Vue-origin change and a Keypad press stay distinct: the mirror

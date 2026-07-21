@@ -1,28 +1,28 @@
 import { dbg } from '@/utils/debug'
 import { TUPLET_PRESETS, tupletPresetAction } from '@/utils/tupletPresets'
-import type { Ref } from 'vue'
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { EditorState } from '../interactions/EditorState'
-import type { SelectionController } from '../interactions/SelectionController'
-import type { PaletteController } from '../interactions/PaletteController'
-import type { KeyboardController } from '../interactions/KeyboardController'
-import type { RenderController } from '../interactions/RenderController'
-import type { ClipboardController } from '../interactions/ClipboardController'
-import type { ViewportHost } from './useViewport'
+import type { EditorState } from './EditorState'
+import type { SelectionController } from './SelectionController'
+import type { PaletteController } from './PaletteController'
+import type { KeyboardController } from './KeyboardController'
+import type { RenderController } from './RenderController'
+import type { ClipboardController } from './ClipboardController'
+import type { ViewportHost } from './ViewportHost'
 import { ShortcutManager } from '../shortcuts'
 import { beatToFrac } from '../utils/musicUtils'
-import { selectedArticulationNoteIds } from '../interactions/selection'
+import { selectedArticulationNoteIds } from './selection'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
 import { openTimeSignatureWindow } from '../windows/timeSignatureWindow'
 
 /**
- * Vue adapter that wires keyboard shortcuts to controller actions.
- * Reads/writes EditorState directly (no Vue ref wrappers needed).
+ * Wires keyboard shortcuts to controller actions. Framework-agnostic: it reads and writes
+ * {@link EditorState} directly and takes the engine as a getter, which is all it ever needed —
+ * living in `composables/` was an accident of history (it imported Vue for a single `type Ref`).
  */
-export function useShortcuts(
+export function wireShortcuts(
   state: EditorState,
-  engine: Ref<MusicEngine | null>,
+  getEngine: () => MusicEngine | null,
   selection: SelectionController,
   palette: PaletteController,
   keyboard: KeyboardController,
@@ -57,7 +57,7 @@ export function useShortcuts(
   // lifts the point" passes a negative dy). Returns true when it consumed the key (an
   // endpoint was armed), false to DECLINE so the key falls through to its normal action.
   const nudgeArmedEndpoint = (dx: number, dy: number): boolean => {
-    const eng = engine.value
+    const eng = getEngine()
     if (!eng || !state.selectedSlurId || !state.selectedSlurEndpoint) return false
     eng.nudgeSlurEndpoint(state.selectedSlurId, state.selectedSlurEndpoint, dx, dy)
     renderer.renderScore()
@@ -68,7 +68,7 @@ export function useShortcuts(
   // captured spanCount as the override's reset signature. See
   // docs/multisystem-slur-segment-endpoint-offset-plan.md.
   const nudgeArmedSegmentEndpoint = (dx: number, dy: number): boolean => {
-    const eng = engine.value
+    const eng = getEngine()
     if (!eng || !state.selectedSlurId || !state.selectedSlurSegmentEndpoint) return false
     eng.nudgeSlurSegmentEndpoint(state.selectedSlurId, state.selectedSlurSegmentEndpoint, dx, dy, state.selectedSlurSegmentSpanCount)
     renderer.renderScore()
@@ -84,7 +84,7 @@ export function useShortcuts(
   // ↑/↓ on a SINGLE selected rest = nudge its vertical shift by one staff-step (+up), instead
   // of the pitch edit (which skips rests anyway). One undo per press. See docs/rest-shift-plan.md.
   const nudgeSelectedRest = (delta: number): boolean => {
-    const eng = engine.value
+    const eng = getEngine()
     if (!eng || state.selectedItems.size !== 1) return false
     const item = [...state.selectedItems.values()][0]
     if (item.kind !== 'note') return false
@@ -101,7 +101,7 @@ export function useShortcuts(
   // slur/rest/box selections, so it just adds another modal branch. One undo per press. Returns
   // true when it consumed the key, false to DECLINE so it falls through. See docs/dynamic-offset-plan.md.
   const nudgeSelectedDynamic = (dx: number, dy: number): boolean => {
-    const eng = engine.value
+    const eng = getEngine()
     if (!eng || !state.selectedDynamicId) return false
     if (!eng.nudgeDynamicOffset(state.selectedDynamicId, dx, dy)) return false
     renderer.renderScore()
@@ -114,7 +114,7 @@ export function useShortcuts(
   // otherwise drives (see docs/staff-spacing-plan.md §6). One undo per press. Returns true
   // when it consumed the key, false to DECLINE so it falls through to its normal action.
   const nudgeStaffSpacingIfBoxSelected = (delta: number): boolean => {
-    const eng = engine.value
+    const eng = getEngine()
     if (!eng || state.selectedMeasureRange === null || state.selectedMeasureBoxStyle !== 'single') return false
     // Per-system (plan option C): the tweak targets the system the selected bar sits on.
     if (!eng.nudgeStaffSpacing(state.selectedMeasureStaff, state.selectedMeasureRange.anchor, delta)) return false
@@ -150,7 +150,7 @@ export function useShortcuts(
     // (keep Enter free) when no dynamic is selected. MouseController.editSelectedDynamic.
     editSelectedDynamic: () => editSelectedDynamic(),
     // Q — the same action as Insert ▸ Clef. Opening a window needs no controller, so this reaches
-    // the window layer directly rather than taking a callback through App.vue.
+    // the window layer directly rather than taking a callback through App.ts.
     // (Braces, not a concise body: the handler's return value is the manager's DECLINE signal, and
     // the opened Window is not an answer to that question.)
     openClefWindow: () => {
@@ -200,7 +200,7 @@ export function useShortcuts(
       renderer.renderScore()
     },
     deleteSelected: () => {
-      const eng = engine.value
+      const eng = getEngine()
       const artNoteIds = selectedArticulationNoteIds(state.selectedItems.values())
       if (state.selectedMeasureRange !== null && state.selectedMeasureBoxStyle === 'double' && eng) {
         // A measure span is box-selected via Ctrl+Shift+click (the DOUBLE box, extendable) —
@@ -349,7 +349,7 @@ export function useShortcuts(
       // Sibelius-style hide/show: toggle every selected REST's own hidden state, all in one
       // undo step (mirrors how deleteSelected batches articulations). Non-rest selections are
       // ignored (notes/text not supported yet). See docs/rest-hide-plan.md.
-      const eng = engine.value
+      const eng = getEngine()
       if (!eng) return
       const restIds = [...state.selectedItems.values()]
         .filter((i) => i.kind === 'note')
@@ -410,7 +410,7 @@ export function useShortcuts(
     nudgeSlurEndpointCoarseLeft: () => nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0),
     nudgeSlurEndpointCoarseRight: () => nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0),
     undo: () => {
-      const eng = engine.value
+      const eng = getEngine()
       if (eng?.undo()) {
         const restoredId = eng.getLastRestoredNoteId()
         const validId = restoredId && eng.getNote(restoredId) ? restoredId : null
@@ -419,7 +419,7 @@ export function useShortcuts(
       }
     },
     redo: () => {
-      const eng = engine.value
+      const eng = getEngine()
       if (eng?.redo()) {
         const restoredId = eng.getLastRestoredNoteId()
         const validId = restoredId && eng.getNote(restoredId) ? restoredId : null
@@ -428,7 +428,7 @@ export function useShortcuts(
       }
     },
     flipStemDirection: () => {
-      const eng = engine.value
+      const eng = getEngine()
       if (!eng) return
       // A selected slur flips side (above ↔ below); a selected articulation flips its
       // side; otherwise x flips a note's stem.

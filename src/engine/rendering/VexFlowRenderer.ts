@@ -41,7 +41,7 @@ import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex, staffIndexOf
 import { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import type { Rect } from '@/engine/ViewportModel'
 
-// Re-exported for existing importers (MusicEngine, App.vue, RenderPass) that referenced
+// Re-exported for existing importers (MusicEngine, App.ts, RenderPass) that referenced
 // these from the renderer before they moved to ./layoutConfig.
 export { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo }
 

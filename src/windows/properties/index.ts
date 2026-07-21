@@ -59,7 +59,7 @@ export function togglePropertiesWindow(windows: WindowLayer): void {
 /**
  * Ctrl+Alt+P, the neighbour of the Keypad's Ctrl+Alt+K. Bound on `document` here rather than in the
  * app's ShortcutManager for the Keypad's reason: this is the WINDOW's own behaviour and its
- * lifecycle is the window layer's, not the editor's — so "add a panel" never means "edit App.vue".
+ * lifecycle is the window layer's, not the editor's — so "add a panel" never means "edit App.ts".
  */
 export function installProperties(windows: WindowLayer): void {
   if (typeof document === 'undefined') return

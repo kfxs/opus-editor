@@ -3,10 +3,16 @@
 A map of the codebase for humans. For *what to build next*, see the `docs/*-plan.md`
 files (historical/working plans). For *how the pieces fit together*, read this.
 
-> **The one rule:** dependencies point **inward and downward**. The framework
-> (Vue) lives at the very top; the music engine at the bottom never knows the
-> framework exists. This is enforced mechanically — see [The framework-agnostic
+> **The one rule:** dependencies point **inward and downward**. The app shell
+> lives at the very top; the music engine at the bottom never knows it exists.
+> This is enforced mechanically — see [The framework-agnostic
 > boundary](#the-framework-agnostic-boundary).
+>
+> **There is no UI framework.** Vue was removed (docs/remove-vue-plan.md); the
+> whole editor is TypeScript and the DOM. Reactivity is `EditorState`'s own
+> emitting Proxy — `subscribe(fn)`, one call per top-level write — and nothing
+> else. Do not reintroduce a framework without a deliberate decision; the lint
+> ratchet below will refuse it.
 
 ---
 
@@ -14,18 +20,20 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  App.vue                      UI: template (palette, canvas), │  Vue
-│                               wires composables together      │  (framework)
+│  App.ts        builds the score DOM, constructs the           │  App shell
+│                controllers, owns the lifecycle                 │  (plain TS)
 ├─────────────────────────────────────────────────────────────┤
-│  composables/  useViewport (Vue lifecycle), useShortcuts       │  Vue glue
-│                (shortcut wiring)                               │  (thin)
-│      ↓ what is LEFT of this layer. The eight other `useX`     │
-│        shims were deleted: they only turned a `Ref` into a     │
-│        `() => ref.value` getter, and the controllers below     │
-│        already take getters — App.vue constructs them itself.  │
+│  dev/  devToolbar, scoreJsonPanel   ← SCAFFOLDING, kept       │  Dev shell
+│      ↓ the strip around the viewport. Reads EditorState and    │
+│        calls the palette; nothing inside the viewport knows    │
+│        it exists, so it deletes cleanly when it has served     │
+│        its purpose. (renderCensus lives here too.)             │
 ├═════════════════════════════════════════════════════════════┤  ← BOUNDARY
 │  interactions/  (framework-agnostic)                          │  Controllers
-│      EditorState ............ all editor UI state (plain obj)  │
+│      EditorState ............ all editor UI state + THE       │
+│                               reactivity (emitting Proxy)      │
+│      ViewportHost ........... DOM ⇄ ViewportModel scroll/zoom  │
+│      shortcutWiring ......... keybindings → controller actions │
 │      MouseController ........ pointer gestures, ghost preview  │
 │      KeyboardController ..... letter/rest/chord note entry     │
 │      SelectionController .... the selection set + nav          │
@@ -61,37 +69,37 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 
 **Dependency direction:** each layer may import from the layers below it, never
 above. `utils/` import nothing but `types/` and each other. `engine/` and
-`interactions/` may use `utils/`. `composables/` wrap `interactions/` + `engine/`.
-`App.vue` wires `composables/` — and, since the shim layer was deleted, constructs
-most controllers directly.
-
-> **⚠️ Vue is being removed** (branch `remove-vue`). It is down to `App.vue`,
-> `main.ts`, and the two composables above; Pinia is gone (no store ever used it).
-> The plan and its ordering live in `docs/remove-vue-plan.md`. Do not add Vue
-> anywhere new — new UI goes in plain TS, the way `windows/` and `menus/` already do.
+`interactions/` may use `utils/`. `dev/` reads state and calls controllers.
+`App.ts` builds the DOM and wires everything together.
 
 ---
 
 ## The framework-agnostic boundary
 
-`src/engine/**` and `src/interactions/**` contain **zero** Vue (or Pinia, or
-composable, or `App.vue`) imports. A port to React/Angular/Svelte would rewrite
-only `composables/` + `App.vue`; everything below the boundary moves unchanged.
-`EditorState` is a plain object precisely so any reactivity system can wrap it
-(`reactive()` in Vue, `useReducer`/MobX in React, a service in Angular).
+`src/engine/**`, `src/interactions/**`, `src/windows/**`, `src/menus/**` and
+`src/dev/**` import **no UI framework**. Neither does `App.ts` — Vue was removed
+(docs/remove-vue-plan.md), so the boundary now separates *the app shell* from
+*everything it wires*, rather than a framework from the rest.
+
+`EditorState` remains a plain object carrying its own emitting Proxy, which is
+what made losing the framework a non-event: the Keypad, the Properties window
+and the dev toolbar all subscribed to *it*, not to Vue, so none of them changed.
+If a framework is ever wanted, it wraps the same object (`reactive(state)` in
+Vue, `useSyncExternalStore` in React).
 
 This is **enforced by lint**, not discipline:
 
 ```bash
-npm run lint:boundary   # fails the build if engine/ or interactions/ import Vue/Pinia/composables/App.vue
+npm run lint:boundary   # fails the build if any of those dirs import a UI framework
 ```
 
 It is wired into `build:check`. (The full `npm run lint` exists for information
 but is **not** a build gate yet — there is a pre-existing backlog of unrelated
 lint findings; cleaning those is a separate, optional task.)
 
-**Rule of thumb:** new *logic* goes in `interactions/` or `engine/`. A composable
-should only translate Vue reactivity/events to controller calls and back.
+**Rule of thumb:** new *logic* goes in `interactions/` or `engine/`. `App.ts`
+should only build DOM, construct controllers, and connect them — if a line in it
+holds a *rule*, it is in the wrong file.
 
 ---
 
@@ -111,7 +119,7 @@ should only translate Vue reactivity/events to controller calls and back.
 | How notation is drawn to SVG | `engine/rendering/VexFlowRenderer.ts` |
 | Hit-testing / "what element is at (x,y)" | `engine/ElementRegistry.ts` |
 | Pixel ↔ beat/pitch conversion | `engine/rendering/CoordinateMapper.ts` (+ `ElementRegistry`) |
-| Scroll / zoom / viewport | `engine/ViewportModel.ts`, `composables/useViewport.ts` |
+| Scroll / zoom / viewport | `engine/ViewportModel.ts` (pure), `interactions/ViewportHost.ts` (DOM) |
 | Playback / audio | `engine/audio/PlaybackEngine.ts` (clock + scheduling) |
 | The sound source (swappable) | `engine/audio/InstrumentPlayer.ts` seam → `WebAudioFontInstrument.ts` |
 | The public API the UI calls | `engine/MusicEngine.ts` (facade) |
