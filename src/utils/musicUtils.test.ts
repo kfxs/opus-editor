@@ -49,12 +49,24 @@ describe('musicUtils', () => {
       expect(tupletMarkText(shape(3, 2))).toBe('\uE883')
     })
 
-    it('writes the ratio when the counts differ by more than one', () => {
-      expect(tupletMarkText(shape(7, 4))).toBe('\uE887\uE88A\uE884')
+    // The AUTO rule: a bare number, except when N is a power of two above 2. `4` and `8` can only be
+    // borrowing from a ternary span and the reader cannot tell which (4:3 or 4:6), so those print in
+    // full - while 6:4 and 7:4 do not, since 6 and 7 name their tuplet by convention.
+    it('writes a bare number for every N that names its own tuplet', () => {
+      expect(tupletMarkText(shape(5, 4))).toBe('\uE885')
+      expect(tupletMarkText(shape(6, 4))).toBe('\uE886')
+      expect(tupletMarkText(shape(7, 4))).toBe('\uE887')
+      expect(tupletMarkText(shape(2, 3))).toBe('\uE882')
+    })
+
+    it('writes the ratio when N is a power of two above 2', () => {
+      expect(tupletMarkText(shape(4, 3))).toBe('\uE884\uE88A\uE883')
+      expect(tupletMarkText(shape(8, 6))).toBe('\uE888\uE88A\uE886')
     })
 
     it('carries digits past nine', () => {
-      expect(tupletMarkText(shape(13, 8))).toBe('\uE881\uE883\uE88A\uE888')
+      expect(tupletMarkText(shape(13, 8), 'ratio')).toBe('\uE881\uE883\uE88A\uE888')
+      expect(tupletMarkText(shape(16, 12))).toBe('\uE881\uE886\uE88A\uE881\uE882')
     })
 
     // The style is the user's choice; absent is AUTO (the two cases above).

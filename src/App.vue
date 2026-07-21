@@ -183,17 +183,32 @@
 
 
           <!--
-            Tuplet — SKETCH, in Finale's shape: "N [note] in the time of M [note]", the way a player
-            says it out loud. Four boxes; the model stores three (N, M, unit), and the fourth is
-            folded in by PaletteController.resolveTupletInTimeOf — which also decides when the four
-            do not resolve. NO rule lives here: every button is a call.
+            Tuplet presets. The custom "N ♪ in the time of M ♪" sketch that used to live here is GONE:
+            it was a thinking tool, and the thing it was thinking about now exists for real in the
+            Tuplet window (Insert ▸ Tuplet), which is plain TS and survives this palette's deletion.
           -->
           <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
             <span class="text-sm text-gray-300">Tuplet:</span>
 
-            <!-- Presets. Each states its own M: it is not a function of N (5:4 simple, 5:3 in 6/8). -->
+            <!--
+              Presets, in order of N. Each states its own M: M is not a function of N (a quintuplet
+              is 5:4 in simple meter and 5:3 in 6/8), so nothing here derives one.
+
+              2:3, 4:3 and 8:6 are the COMPOUND-meter family — duplet, quadruplet and octuplet, which
+              are to 6/8 what the triplet is to 4/4. 8 does NOT follow the rule below and cannot: it is
+              already a power of two, so in simple meter there is nothing for it to borrow from
+              ("8 in the time of 4" is just notes of half the value). It needs a ternary span, which is
+              why its M is 6.
+
+              The rest are the simple-meter ones, where M is the largest power of two below N (3:2,
+              5:4, 6:4, 7:4, 9:8) — the tuplet borrows from the ordinary binary subdivision, and 8 is
+              the nearest one under 9.
+
+              The row is therefore a list of the ordinary tuplets of BOTH worlds, and you pick the one
+              that fits the meter you are in; the day M is derived from the meter, half of these merge.
+            -->
             <button
-              v-for="preset in [{ n: 3, m: 2 }, { n: 5, m: 4 }, { n: 6, m: 4 }, { n: 7, m: 4 }]"
+              v-for="preset in [{ n: 2, m: 3 }, { n: 3, m: 2 }, { n: 4, m: 3 }, { n: 5, m: 4 }, { n: 6, m: 4 }, { n: 7, m: 4 }, { n: 8, m: 6 }, { n: 9, m: 8 }]"
               :key="preset.n"
               :class="[
                 'px-2 py-1 rounded text-sm font-bold',
@@ -207,69 +222,6 @@
               {{ preset.n }}
             </button>
 
-            <span class="text-gray-500">|</span>
-
-            <!-- Custom, Finale-style. The unit selects are note GLYPHS, not the words. -->
-            <input
-              v-model.number="tupletN"
-              type="number"
-              min="2"
-              class="w-12 px-1 py-0.5 rounded bg-gray-900 text-gray-100 text-sm text-center"
-            />
-            <select v-model="tupletUnit" class="px-1 py-0.5 rounded bg-gray-900 text-gray-100 text-sm">
-              <option v-for="d in TUPLET_UNITS" :key="d.value" :value="d.value">{{ d.glyph }}</option>
-            </select>
-            <!-- The dot, as Finale's dropdown carries it ("Dotted Quarter(s)") and MusicXML's
-                 <tuplet-dot> does. On THIS side the model has nowhere to put it — the readout says so. -->
-            <button
-              :class="[
-                'w-6 py-0.5 rounded text-base leading-none font-bold',
-                tupletUnitDots ? 'bg-cyan-600 text-white' : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Dotted unit"
-              @click="tupletUnitDots = tupletUnitDots ? 0 : 1"
-            >
-              .
-            </button>
-            <span class="text-sm text-gray-400">in the time of</span>
-            <input
-              v-model.number="tupletM"
-              type="number"
-              min="1"
-              class="w-12 px-1 py-0.5 rounded bg-gray-900 text-gray-100 text-sm text-center"
-            />
-            <select v-model="tupletNormalUnit" class="px-1 py-0.5 rounded bg-gray-900 text-gray-100 text-sm">
-              <option v-for="d in TUPLET_UNITS" :key="d.value" :value="d.value">{{ d.glyph }}</option>
-            </select>
-            <!-- On THIS side the dot is free: it only changes the span, which gets divided out. -->
-            <button
-              :class="[
-                'w-6 py-0.5 rounded text-base leading-none font-bold',
-                tupletNormalDots ? 'bg-cyan-600 text-white' : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Dotted value"
-              @click="tupletNormalDots = tupletNormalDots ? 0 : 1"
-            >
-              .
-            </button>
-
-            <!-- What those boxes come to in the model — or WHY they come to nothing. A refusal says
-                 the VERDICT first and the reason second: the verdict is what you need at a glance,
-                 and the reason is what you need once you have stopped to read. -->
-            <span v-if="customTuplet.ok" class="text-sm font-mono text-cyan-400">
-              {{ printedTupletRatio }}
-            </span>
-            <span v-else class="text-sm text-amber-400">
-              <span class="font-bold">Can't build this tuplet:</span>
-              <span class="text-amber-300/80"> {{ customTuplet.reason }}</span>
-            </span>
-            <button
-              class="px-2 py-1 rounded text-sm bg-gray-600 hover:bg-gray-500 disabled:opacity-40"
-              :disabled="!customTuplet.ok"
-              @click="palette.armTupletInTimeOf(tupletN, tupletUnit, tupletM, tupletNormalUnit, tupletUnitDots, tupletNormalDots)"
-            >
-              Arm
-            </button>
           </div>
 
           <!-- Beam -->
@@ -464,7 +416,6 @@ import { MusicEngine } from './engine/MusicEngine'
 // ⚠️ TEMPORARY dev-only sound picker — remove when a real instrument model lands.
 import { DEV_SOUNDS } from './engine/audio/WebAudioFontInstrument'
 import { VIEWPORT_HEIGHT } from './engine/rendering/VexFlowRenderer'
-import { tupletPrintedCounts } from './utils/musicUtils'
 import { createObservableEditorState, scoreCursorClass } from './interactions/EditorState'
 import type { NoteDuration } from './types/music'
 import { useHighlight } from './composables/useHighlight'
@@ -875,38 +826,11 @@ function onDevSoundChange() {
   engine.value?.setInstrumentProgram(devSoundProgram.value)
 }
 
-// --- Tuplet sketch (Finale-shaped: "N ♪ in the time of M ♪") ---
-// ⚠️ SKETCH, and Vue-side on purpose: four boxes to think with, not the final UI. It survives the
-// palette's deletion by holding NOTHING but the four typed values — the arithmetic that turns them
-// into the model's (N, M, unit) is `palette.resolveTupletInTimeOf`, in the controller.
-const TUPLET_UNITS: { value: NoteDuration; glyph: string }[] = [
-  { value: 'w', glyph: '𝅝' },
-  { value: 'h', glyph: '𝅗𝅥' },
-  { value: 'q', glyph: '𝅘𝅥' },
-  { value: '8', glyph: '𝅘𝅥𝅮' },
-  { value: '16', glyph: '𝅘𝅥𝅯' },
-  { value: '32', glyph: '𝅘𝅥𝅰' },
-]
-const tupletN = ref(3)
-const tupletUnit = ref<NoteDuration>('8')
-const tupletUnitDots = ref(0)
-const tupletM = ref(1)
-const tupletNormalUnit = ref<NoteDuration>('q')
-const tupletNormalDots = ref(0)
-// The ratio as the MARK will print it — derived from the shape, never read off it, so the readout
-// and the engraved number cannot disagree.
-const printedTupletRatio = computed(() => {
-  if (!customTuplet.value.ok) return ''
-  const printed = tupletPrintedCounts(customTuplet.value.shape)
-  return `${printed.numNotes}:${printed.notesOccupied}`
-})
-// A `computed` that only ASKS the controller — the rule stays there, this vanishes with the palette.
-const customTuplet = computed(() =>
-  palette.resolveTupletInTimeOf(
-    tupletN.value, tupletUnit.value, tupletM.value, tupletNormalUnit.value,
-    tupletUnitDots.value, tupletNormalDots.value,
-  ),
-)
+// The Finale-shaped tuplet sketch that stood here — four boxes, two dot toggles and a live ratio —
+// is DELETED. It was a thinking tool for a question that now has a real answer in `windows/
+// tupletWindow.ts`, which asks the same sentence in plain TS and can also say how the group is
+// engraved. Nothing was lost with it: the arithmetic never lived here (it is
+// `resolveTupletInTimeOf`, in utils), which is exactly why the sketch could be thrown away.
 </script>
 
 <style>

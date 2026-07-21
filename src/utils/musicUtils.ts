@@ -267,10 +267,9 @@ export function resolveTupletInTimeOf(
  * rather than called because `resolveGlyphs` needs a VexFlow `Tuplet`, which needs real notes.
  * ⚠️ Codepoints are written out: VexFlow's `Glyphs` table is CJS-only and `undefined` in the browser.
  *
- * `style` is {@link Tuplet.numberStyle} — what the user chose. Absent = AUTO, which is VexFlow's own
- * default (a bare number when the counts are close, the ratio when they are not), stated here so a
- * GHOST and the engraved mark cannot drift: a preview reading `5` for something that will engrave as
- * `5:3` is a preview of a different tuplet.
+ * `style` is {@link Tuplet.numberStyle} — what the user chose. Absent = AUTO, and the rule is
+ * {@link autoNumberStyle}, stated once here so a GHOST and the engraved mark cannot drift: a preview
+ * reading `4` for something that will engrave as `4:3` is a preview of a different tuplet.
  *
  * Derived every time, never stored — the numbers ARE the rhythm, so a saved string would go on
  * saying `5:4` after the tuplet changed (docs/tuplet-extension-plan.md §6).
@@ -302,6 +301,27 @@ export function tupletPrintedCounts(
   }
 }
 
+/**
+ * The RULE behind an absent {@link Tuplet.numberStyle}: the ratio when N is a power of two greater
+ * than 2, the bare number otherwise.
+ *
+ * Not arbitrary, and not VexFlow's. A binary N cannot be a tuplet against a binary M — "4 in the time
+ * of 4" is nothing — so a bracket reading `4` or `8` must be borrowing from a TERNARY span, and which
+ * one is not guessable: `4` is 4:3 over one compound beat or 4:6 over two. Those are the numbers a
+ * reader cannot complete, so they are the ones printed in full.
+ *
+ * Every other N names its tuplet by convention — 3 is 3:2, 5 is 5:4, 6 is 6:4, 7 is 7:4, 9 is 9:8,
+ * and 2 is the duplet — and a ratio there is spelling out what the reader already knew.
+ *
+ * ⛔ Replaced VexFlow's own default, `|N − M| > 1`, which printed `6:4` and `7:4` in full but left the
+ * quadruplet as a bare `4`. That test measures the distance between two numbers, which is not a fact
+ * about music: nothing makes 7:4 harder to read than 5:4.
+ */
+function autoNumberStyle(numNotes: number): TupletNumberStyle {
+  const binary = numNotes > 2 && (numNotes & (numNotes - 1)) === 0
+  return binary ? 'ratio' : 'number'
+}
+
 export function tupletMarkText(t: TupletShape, style?: TupletNumberStyle): string {
   const digits = (n: number): string => {
     let out = ''
@@ -311,7 +331,7 @@ export function tupletMarkText(t: TupletShape, style?: TupletNumberStyle): strin
     return out
   }
   const printed = tupletPrintedCounts(t)
-  const resolved = style ?? (Math.abs(printed.numNotes - printed.notesOccupied) > 1 ? 'ratio' : 'number')
+  const resolved = style ?? autoNumberStyle(printed.numNotes)
   if (resolved === 'none') return ''
   if (resolved === 'number') return digits(printed.numNotes)
   const ratio = `${digits(printed.numNotes)}\uE88A${digits(printed.notesOccupied)}` // U+E88A tupletColon

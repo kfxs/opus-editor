@@ -138,8 +138,9 @@ export type TupletBracketEnd = 'lastNote' | 'division' | 'beforeNext'
 export interface TupletFormat {
   /**
    * What the mark PRINTS: the number alone (`3`), the ratio (`3:2`), the ratio with the note value
-   * beside it (`3:2♪`), or nothing. Absent = auto — the renderer's own rule, which shows a bare
-   * number when the counts are close and a ratio when they are not (VexFlow's `ratioed` default).
+   * beside it (`3:2♪`), or nothing. Absent = auto — the rule in
+   * {@link ../utils/musicUtils.autoNumberStyle}: the ratio when N is a power of two greater than 2
+   * (`4`, `8` — the numbers a reader cannot complete), the bare number otherwise.
    *
    * ⛔ The printed STRING is deliberately not stored. Tempo marks and dynamics are text-as-truth
    * because their text carries meaning nothing else holds; a tuplet is the opposite — the numbers
