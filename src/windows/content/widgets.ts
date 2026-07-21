@@ -279,8 +279,9 @@ export interface RadioOption {
   trailing?: Widget
 }
 
-/** Exactly one of N, laid out in a row. The horizontal sibling of {@link ChoiceList}: that one is a
- *  scrolling box of pictures, this is a line of radios you take in at a glance. */
+/** Exactly one of N, laid out in a row — or stacked, with `direction: 'column'`. The horizontal
+ *  sibling of {@link ChoiceList}: that one is a scrolling box of pictures, this is a set of radios you
+ *  take in at a glance. */
 export class RadioGroup implements Widget {
   private selected: string
   private readonly inputs: HTMLInputElement[] = []
@@ -293,6 +294,15 @@ export class RadioGroup implements Widget {
     private readonly opts: {
       selected?: string
       gap?: number
+      /**
+       * `row` (default) reads as one line of alternatives; `column` stacks them, which is what a
+       * FORM of several groups wants — Sibelius's Tuplet dialog is two stacked groups side by side,
+       * and side-by-side stacks are only legible if each stack is vertical.
+       *
+       * ⚠️ `trailing` is mounted as the row's SIBLING (see below), so in a column it lands UNDER its
+       * option rather than beside it. Only the row form has needed one so far.
+       */
+      direction?: 'row' | 'column'
       onChange?: (value: string) => void
       /** Double-click a row: choose it AND commit — the shortcut past OK that a picker is expected
        *  to have, the same gesture {@link ChoiceList} offers. */
@@ -303,11 +313,15 @@ export class RadioGroup implements Widget {
   }
 
   mount(host: HTMLElement): void {
+    const column = this.opts.direction === 'column'
     const el = document.createElement('div')
     el.style.display = 'flex'
+    el.style.flexDirection = column ? 'column' : 'row'
     el.style.flexWrap = 'wrap'
-    el.style.alignItems = 'center'
-    el.style.gap = `${this.opts.gap ?? 14}px`
+    // Stacked: the rows line up on their left edge (a ragged column of radios is unreadable).
+    el.style.alignItems = column ? 'flex-start' : 'center'
+    // A stack is tighter than a line by default — vertical air separates the GROUPS, not the options.
+    el.style.gap = `${this.opts.gap ?? (column ? 8 : 14)}px`
     el.style.flex = 'none'
 
     for (const option of this.options) {
@@ -517,6 +531,13 @@ export class NumberInput implements Widget {
 
   get value(): number {
     return Number(this.el?.value ?? this.opts.value ?? 0)
+  }
+
+  /** Take the keyboard, with the value SELECTED — a field a dialog opens on is a field you retype,
+   *  not one you edit. Same as {@link TextInput.focus}. */
+  focus(): void {
+    this.el?.focus()
+    this.el?.select()
   }
 
   /** Write the value from OUTSIDE — silent, for the same reason {@link Select.setValue} is. */

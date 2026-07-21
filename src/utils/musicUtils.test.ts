@@ -6,6 +6,7 @@ import {
   calculateTotalDuration,
   measureCapacityFrac,
   measureCapacityQuarters,
+  tupletMarkText,
 } from './musicUtils'
 import { fracCreate } from './fraction'
 import type { TimeSignature, NoteDuration, Measure } from '@/types/music'
@@ -34,6 +35,23 @@ describe('musicUtils', () => {
 
     it('should convert thirty-second note to 0.125 beats', () => {
       expect(durationToBeats('32')).toBe(0.125)
+    })
+  })
+
+  describe('tupletMarkText', () => {
+    // SMuFL tuplet digits, NOT ASCII: tuplet0..9 = U+E880 + d, tupletColon = U+E88A. Asserted by
+    // codepoint because the characters are invisible in an editor — a stray ASCII '3' would look
+    // identical here and render in the wrong face.
+    it('writes a triplet as one SMuFL digit', () => {
+      expect(tupletMarkText(3, 2)).toBe('\uE883')
+    })
+
+    it('writes the ratio when the counts differ by more than one', () => {
+      expect(tupletMarkText(7, 4)).toBe('\uE887\uE88A\uE884')
+    })
+
+    it('carries digits past nine', () => {
+      expect(tupletMarkText(13, 8)).toBe('\uE881\uE883\uE88A\uE888')
     })
   })
 

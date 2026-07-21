@@ -1,7 +1,7 @@
-import { dbg } from '@/utils/debug'
 import { windows } from '@/windows'
 import { openClefWindow } from '@/windows/clefWindow'
 import { openTimeSignatureWindow } from '@/windows/timeSignatureWindow'
+import { openTupletWindow } from '@/windows/tupletWindow'
 import type { MenuLayer } from './MenuLayer'
 import type { MenuItem } from './MenuItem'
 
@@ -10,17 +10,19 @@ import type { MenuItem } from './MenuItem'
  * the primitive (`MenuLayer` + `MenuItem` + `placement`, which stay generic so the next menu — a
  * menu bar, an edit menu — reuses them without touching this file).
  *
- * The wiring below is final; the ITEMS are not. They are still the lorem placeholders the primitive
- * was proven with — selecting a row just `dbg`s and touches no score. We keep them only so
- * the menu has something to show while its real commands (insert note, clef, time signature, …) are
- * added one at a time, each replacing a lorem row. Nothing here is a command yet, on purpose.
+ * Every row is now a real command. It began as lorem ipsum — the primitive proven with rows that only
+ * logged, the way the Lorem window proved the window layer — and the placeholders went as the commands
+ * replaced them, one at a time. Nothing was kept just to keep it: the deep chains and separators they
+ * exercised are the PRIMITIVE's to prove, and MenuLayer's own tests do that (MenuLayer.keyboard /
+ * .columns), not a menu the user opens.
  */
 
 /**
  * The commands the Insert menu can invoke, supplied by the app's glue (they close over the editor's
  * controllers, which the framework-agnostic menu singleton cannot see). Read at CLICK time through a
  * shared object (see `menuActions` in ./index), so the menu can be built before the app has filled
- * them in — hence optional. Grows one field per real command as the lorem rows are replaced.
+ * them in — hence optional. Grows one field per command that needs the app; a command that only opens
+ * a window needs no field here at all (see Clef below).
  */
 export interface InsertMenuActions {
   /** Insert ▸ Text ▸ Expression — the same action as the Ctrl+E shortcut. */
@@ -30,17 +32,8 @@ export interface InsertMenuActions {
 }
 
 /**
- * TEMPORARY placeholder leaf — says what was picked and nothing more. Replace each `say(...)` with a
- * real `{ label, onSelect }` as the command behind it lands; the helper goes when the last one does.
- */
-function say(label: string): MenuItem {
-  return { label, onSelect: () => dbg(`[menu] selected: ${label}`) }
-}
-
-/**
- * The Insert menu's rows. The Text submenu is the first REAL command; the lorem rows below it are
- * still placeholders, replaced one at a time. Leaf `onSelect`s read `actions` late (at click), so the
- * app can wire the callbacks after the menu is built.
+ * The Insert menu's rows. Leaf `onSelect`s read `actions` late (at click), so the app can wire the
+ * callbacks after the menu is built.
  */
 function buildInsertItems(actions: InsertMenuActions): MenuItem[] {
   return [
@@ -56,29 +49,8 @@ function buildInsertItems(actions: InsertMenuActions): MenuItem[] {
       ],
     },
     { label: 'Time Signature', shortcut: 'T', onSelect: () => openTimeSignatureWindow(windows) },
-    { separator: true },
-    // TEMPORARY: lorem rows, to be replaced by real insert commands little by little.
-    say('Consectetur adipiscing'),
-    {
-      label: 'Sed do eiusmod',
-      items: [
-        say('Tempor incididunt'),
-        say('Ut labore et dolore'),
-        { separator: true },
-        {
-          label: 'Magna aliqua',
-          // A second level, because a chain that only ever goes one deep proves nothing about the chain.
-          items: [say('Ut enim ad minim'), say('Quis nostrud'), say('Exercitation ullamco')],
-        },
-      ],
-    },
-    {
-      label: 'Duis aute irure',
-      items: [say('Reprehenderit in voluptate'), say('Velit esse cillum'), say('Fugiat nulla pariatur')],
-    },
-    { separator: true },
-    say('Excepteur sint occaecat'),
-    say('Sunt in culpa qui officia'),
+    // No accelerator: the window is still an empty shell, so there is nothing yet worth a key.
+    { label: 'Tuplet', onSelect: () => openTupletWindow(windows) },
   ]
 }
 

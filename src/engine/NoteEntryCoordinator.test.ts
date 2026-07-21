@@ -6,6 +6,7 @@ import { CoordinateMapper } from './rendering/CoordinateMapper'
 import { ElementRegistry } from './ElementRegistry'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { durationToFraction } from '@/utils/durations'
+import { getTupletTotalBeatsFrac } from '@/utils/musicUtils'
 
 function makeCoordinator(scoreModel: ScoreModel) {
   const coordinateMapper = new CoordinateMapper({
@@ -356,6 +357,60 @@ describe('NoteEntryCoordinator — tuplet in a secondary voice', () => {
 
     // Only the original tuplet survives.
     expect(scoreModel.getMeasure(1)!.tuplets!.length).toBe(1)
+  })
+})
+
+/**
+ * A tuplet whose UNIT is dotted — three DOTTED quarters in the time of two of them.
+ *
+ * The dot has to reach the span, and the span is what every other decision is made against: the
+ * bar-fit check, the overlap check, the rebar event, the filler rests. Drop it at one site and the
+ * group is computed a third short, which surfaces as a rebar or overflow bug three layers away and
+ * never as "the dot went missing".
+ */
+describe('NoteEntryCoordinator — dotted tuplet unit', () => {
+  let scoreModel: ScoreModel
+  let coordinator: NoteEntryCoordinator
+
+  beforeEach(() => {
+    scoreModel = new ScoreModel('Test')
+    coordinator = makeCoordinator(scoreModel)
+  })
+
+  it('spans two DOTTED quarters (= 3 beats), not two plain ones', () => {
+    const result = coordinator.createTupletAtBeat(1, 0, 'q', { step: 'C', alter: 0, octave: 5 }, 3, 2, 0, 0, 1)
+    expect(result).not.toBeNull()
+    expect(result!.tuplet.baseDots).toBe(1)
+
+    // 2 × dotted quarter = 3 quarter-beats. Undotted, this would have been 2 — the silent failure.
+    const span = getTupletTotalBeatsFrac(result!.tuplet.baseDuration, result!.tuplet.notesOccupied, result!.tuplet.baseDots)
+    expect(fracToNumber(span)).toBe(3)
+
+    // Each written note is a DOTTED quarter sounding × 2/3 — one plain quarter.
+    const notes = scoreModel.getNotesInTuplet(result!.tuplet.id)
+    expect(notes.length).toBe(3)
+    expect(notes.every(n => n.duration === 'q' && n.dots === 1)).toBe(true)
+    expect(notes.map(n => fracToNumber(n.beat))).toEqual([0, 1, 2])
+  })
+
+  it('refuses one that no longer fits the bar once the dot is counted', () => {
+    // 3 dotted HALVES in the time of 2 = 6 quarter-beats, past the end of a 4/4 bar. Without the dot
+    // the span reads as 4 and it would have been accepted, overfilling the measure.
+    const tooBig = coordinator.createTupletAtBeat(1, 0, 'h', { step: 'C', alter: 0, octave: 5 }, 3, 2, 0, 0, 1)
+    expect(tooBig).toBeNull()
+    expect(scoreModel.getMeasure(1)!.tuplets ?? []).toHaveLength(0)
+  })
+
+  it('takes the dots off the NOTE when a dotted note is turned into a tuplet', () => {
+    const dotted = coordinator.addNoteAtBeat({ step: 'B', alter: 0, octave: 4, duration: 'q', dots: 1, measure: 1, beat: frac(0, 1) })!
+    const result = coordinator.applyTupletToNote(dotted.id)
+    expect(result).not.toBeNull()
+    expect(result!.tuplet.baseDots).toBe(1)
+  })
+
+  it('leaves baseDots absent when there is no dot, so old scores serialize unchanged', () => {
+    const plain = coordinator.createTupletAtBeat(1, 0, '8', { step: 'C', alter: 0, octave: 5 })
+    expect('baseDots' in plain!.tuplet).toBe(false)
   })
 })
 

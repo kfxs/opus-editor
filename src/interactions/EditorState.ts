@@ -271,7 +271,18 @@ export interface EditorState {
    * Always REASSIGNED (never mutated in place) so the observable state emits a change. Read it by
    * narrowing on `.kind`, or with {@link armedTool} when you want one kind or nothing. */
   selectedMarkingTool: MarkingTool | null
-  tupletMode: boolean
+  /**
+   * The tuplet ARMED for the next note, or null. Two counts and nothing else: N notes in the time of
+   * M — "3 in the time of 2". It replaced a `tupletMode: boolean`, which could only ever have meant
+   * a triplet; the engine below has always taken any N:M.
+   *
+   * The third thing a tuplet needs — the note VALUE those counts count — is deliberately NOT here:
+   * it is `selectedDuration`, already armed, and duplicating it would let the two disagree.
+   *
+   * ⚠️ REASSIGN, never mutate a field of it: the observable Proxy traps the SET on `armedTuplet`,
+   * so `state.armedTuplet.numNotes = 5` changes the value and tells nobody.
+   */
+  armedTuplet: { numNotes: number; notesOccupied: number } | null
   selectedBeam: BeamMode
 
   // --- Clef tool ---
@@ -399,7 +410,7 @@ export function createEditorState(): EditorState {
     staccato: false,
     tenuto: false,
     selectedMarkingTool: null,
-    tupletMode: false,
+    armedTuplet: null,
     selectedBeam: DEFAULT_BEAM,
     selectedClefMeasure: null,
     selectedClefBeat: null,

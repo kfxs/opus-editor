@@ -1795,9 +1795,11 @@ export class MusicEngine {
     spelling: PitchSpelling,
     numNotes: number = 3,
     notesOccupied: number = 2,
-    voice: number = 0
+    voice: number = 0,
+    /** Dots on the tuplet's UNIT — a triplet of DOTTED quarters. */
+    dots: number = 0,
   ): { tuplet: Tuplet; firstNote: Note } | null {
-    return this.noteEntryCoordinator.createTupletAtPosition(coords, duration, spelling, numNotes, notesOccupied, voice)
+    return this.noteEntryCoordinator.createTupletAtPosition(coords, duration, spelling, numNotes, notesOccupied, voice, dots)
   }
 
   /**
@@ -1812,9 +1814,11 @@ export class MusicEngine {
     numNotes: number = 3,
     notesOccupied: number = 2,
     voice: number = 0,
-    staff: number = 0
+    staff: number = 0,
+    /** Dots on the tuplet's UNIT — see {@link createTupletAtPosition}. */
+    dots: number = 0,
   ): { tuplet: Tuplet; firstNote: Note } | null {
-    return this.noteEntryCoordinator.createTupletAtBeat(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice, staff)
+    return this.noteEntryCoordinator.createTupletAtBeat(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice, staff, dots)
   }
 
   /**
@@ -2079,7 +2083,9 @@ export class MusicEngine {
     accidental?: Accidental,
     dots?: number,
     articulations?: ArticulationType[],
-    ghostColor?: { fill: string; stroke: string }
+    ghostColor?: { fill: string; stroke: string },
+    /** The armed tuplet's number, drawn over the ghost. See {@link GhostNote.tupletLabel}. */
+    tupletLabel?: string,
   ): boolean {
     // Resolve the HOVERED measure first (the same order addNoteAtPosition uses), so the
     // beat-quantization fallback in getPositionFromPixels uses THAT measure's capacity — a
@@ -2141,6 +2147,7 @@ export class MusicEngine {
       ...(articulations?.length && { articulations }),
       // An armed natural is alter 0 (no glyph of its own) — flag it so the ghost still shows the ♮.
       ...(accidental === 'n' && { forceAccidental: true }),
+      ...(tupletLabel && { tupletLabel }),
       ...(ghostColor && { fillColor: ghostColor.fill, strokeColor: ghostColor.stroke }),
     }
 

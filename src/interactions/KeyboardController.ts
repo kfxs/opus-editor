@@ -283,23 +283,25 @@ export class KeyboardController {
     const octave = Math.floor(targetMidi / 12) - 1
 
     const existingTuplet = engine.getTupletAtBeat(targetMeasure, targetBeat, cursorVoice, cursorStaff)
-    dbg(`KeyboardEntry RAW | ${step}${alter !== 0 ? (alter > 0 ? '#' : 'b') : ''} dur:${this.state.selectedDuration} measure:${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(3)} tupletMode:${this.state.tupletMode} existingTuplet:${existingTuplet ? existingTuplet.id : 'none'}`)
+    dbg(`KeyboardEntry RAW | ${step}${alter !== 0 ? (alter > 0 ? '#' : 'b') : ''} dur:${this.state.selectedDuration} measure:${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(3)} tuplet:${this.state.armedTuplet ? `${this.state.armedTuplet.numNotes}:${this.state.armedTuplet.notesOccupied}` : 'off'} existingTuplet:${existingTuplet ? existingTuplet.id : 'none'}`)
 
     const measure = score.measures.find(m => m.number === targetMeasure)
     if (!measure) return
 
     let newNote: Note | null
 
-    if (this.state.tupletMode && !existingTuplet) {
+    if (this.state.armedTuplet && !existingTuplet) {
       const result = engine.createTupletAtBeat(
         targetMeasure,
         fracToNumber(targetBeat),
         this.state.selectedDuration,
         { step, alter, octave },
-        3,
-        2,
+        this.state.armedTuplet.numNotes,
+        this.state.armedTuplet.notesOccupied,
         cursorVoice,
         cursorStaff,
+        // The armed dot IS the tuplet's unit dot — 'a dotted quarter' is one armed value, not two.
+        this.state.selectedDots,
       )
       newNote = result ? result.firstNote : null
     } else {

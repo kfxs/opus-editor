@@ -20,6 +20,19 @@ export interface Tuplet {
   startBeat: Fraction
   /** Base note duration for the tuplet (e.g., 'q' for quarter note triplet) */
   baseDuration: NoteDuration
+  /**
+   * Dots on that base duration — a triplet of DOTTED quarters. Absent = 0, which keeps every
+   * existing score byte-identical.
+   *
+   * The unit is a note VALUE, and a note value can be dotted; Finale's two dropdowns list "Dotted
+   * Quarter(s)" beside "Quarter(s)", and MusicXML carries `<tuplet-dot>` for the same reason. Without
+   * it the dot has nowhere to go and cannot be worked around — `numNotes` counts NOTES, so respelling
+   * the group in undotted units would change the ratio into a different tuplet.
+   *
+   * ⚠️ It must reach every span calculation: `getTupletTotalBeatsFrac` and `getTupletNoteDurationFrac`
+   * both take it, and a site that forgets it computes a span a third short, silently.
+   */
+  baseDots?: number
   /** Number of notes in the tuplet (e.g., 3 for triplet) */
   numNotes: number
   /** Number of base notes the tuplet occupies (e.g., 2 for triplet) */
@@ -883,6 +896,9 @@ export interface GhostNote {
   /** Show a natural (♮) even though `alter` is 0 — the preview for an armed natural accidental,
    *  which otherwise has no glyph (alter 0 draws nothing). Sharp/flat carry their own sign via alter. */
   forceAccidental?: boolean
+  /** The armed tuplet's number ('3', '5:4'), drawn above the ghost — the preview for "this click
+   *  starts a tuplet". Absent = no tuplet armed, and the ghost is an ordinary note. */
+  tupletLabel?: string
   /** Ghost paint colour = the active voice's colour (V1 blue, V2 green). Defaults
    *  to the app's blue when omitted. See utils/voiceColors. */
   fillColor?: string

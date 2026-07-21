@@ -170,7 +170,7 @@ export function flattenRegion(measures: Measure[], voice: 0 | 1 | 2 | 3 = 0): Re
       // with a phantom atomic, and vice versa.
       const owner = m.slots.find((s) => s.tupletId === def.id)
       if ((owner?.voice ?? 0) !== voice) continue
-      const tupletDur = getTupletTotalBeatsFrac(def.baseDuration, def.notesOccupied)
+      const tupletDur = getTupletTotalBeatsFrac(def.baseDuration, def.notesOccupied, def.baseDots)
       events.push({
         offset: fracAdd(runningOffset, def.startBeat),
         duration: tupletDur,

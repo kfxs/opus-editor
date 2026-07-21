@@ -3,6 +3,7 @@ import { dynamicTextFromTool } from '../utils/dynamics'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Clef, TimeSignature, Dynamic, TempoMark, ArticulationType, Accidental } from '../types/music'
 import type { DynamicTool, TempoTool, EditorState } from './EditorState'
+import { tupletMarkText } from '../utils/musicUtils'
 import { activeVoiceToModel, assertNeverTool } from './EditorState'
 import type { HighlightController } from './HighlightController'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
@@ -113,6 +114,12 @@ export class RenderController {
           ] as import('../types/music').ArticulationType[])
         : undefined,
       { fill: voiceFillColor(v), stroke: voiceStrokeColor(v) },
+      // An armed tuplet rides ON the ghost note rather than replacing it: what the click enters IS a
+      // note, and the tuplet is what that note starts. So this is a label on the note, not a
+      // ninth marking-tool ghost.
+      this.state.armedTuplet
+        ? tupletMarkText(this.state.armedTuplet.numNotes, this.state.armedTuplet.notesOccupied)
+        : undefined,
     )
     return ghostRendered
   }

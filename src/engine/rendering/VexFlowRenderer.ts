@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet } from 'vexflow'
+import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Tuplet as VexFlowTuplet, Element as VexFlowElement, Metrics as VexFlowMetrics } from 'vexflow'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
@@ -2331,6 +2331,28 @@ export class VexFlowRenderer {
 
       const childrenBefore = svg.children.length
       staveNote.setContext(this.context!).draw()
+
+      // The armed tuplet's number, over the ghost — "this click STARTS a 5:4", which a notehead
+      // alone cannot say. Drawn the way VexFlow draws a real one: a `new Element('Tuplet')`, so the
+      // font is whatever `Metrics` says the Tuplet category is (Bravura at its own size) rather
+      // than a hardcoded stack that goes stale the day VexFlow retunes, and the text is SMuFL
+      // tuplet digits (see tupletMarkText). Same geometry too — VexFlow puts the number a line and
+      // a half above the top staff line, less its own textYOffset.
+      //
+      // Drawn INSIDE the childrenBefore window on purpose: it is then swept into `.ghost-note-group`
+      // and tinted with the rest of the ghost by the code below, instead of needing its own
+      // teardown. NO bracket: a tuplet's bracket spans notes that do not exist until the click.
+      if (ghostNote.tupletLabel) {
+        const label = new VexFlowElement('Tuplet')
+        label.setText(ghostNote.tupletLabel)
+        label.setContext(this.context!)
+        const labelY =
+          tempStave.getYForLine(0)
+          - 1.5 * tempStave.getSpacingBetweenLines() // VexFlow's own offset for a number above
+          + label.getHeight() / 2
+          - VexFlowMetrics.get('Tuplet.textYOffset')
+        label.renderText(this.context!, staveNote.getAbsoluteX() - label.getWidth() / 2, labelY)
+      }
 
       const newElements: Element[] = []
       for (let i = childrenBefore; i < svg.children.length; i++) {

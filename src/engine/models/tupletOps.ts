@@ -24,6 +24,7 @@ import {
   fracMul,
   fracCompare,
   fracLt,
+  fracDiv,
   fracToNumber,
 } from '@/utils/fraction'
 import { toFlatNote, restToFlatNote } from './noteProjection'
@@ -54,6 +55,8 @@ export function createTuplet(
   notesOccupied: number = 2,
   voice: number = 0,
   staff: number = 0,
+  /** Dots on the unit — a triplet OF DOTTED QUARTERS. Trailing, so every existing caller is a 0. */
+  baseDots: number = 0,
 ): Tuplet {
   const measure = getMeasure(score, measureNumber)
   if (!measure) {
@@ -67,6 +70,8 @@ export function createTuplet(
     numNotes,
     notesOccupied,
   }
+  // Written only when there is one, so an undotted tuplet serializes exactly as it always did.
+  if (baseDots) tuplet.baseDots = baseDots
   const staffId = staff ? staffIdAtIndex(score, staff) : undefined
   if (staffId !== undefined) tuplet.staffId = staffId
 
@@ -76,7 +81,7 @@ export function createTuplet(
   measure.tuplets.push(tuplet)
 
   // Remove existing slots in THIS voice AND staff that overlap the tuplet's time span.
-  const tupletDurFrac = getTupletTotalBeatsFrac(baseDuration, notesOccupied)
+  const tupletDurFrac = getTupletTotalBeatsFrac(baseDuration, notesOccupied, baseDots)
   measure.slots = measure.slots.filter(slot => {
     if ((slot.voice ?? 0) !== voice) return true // other voices are untouched
     if (staffIndexOfId(score, slot.staffId) !== staff) return true // other staves untouched
@@ -162,7 +167,7 @@ export function tupletSpanOverlaps(
     if (staff !== undefined && staffIndexOfId(score, t.staffId) !== staff) return false
     const slot = measure.slots.find(s => s.tupletId === t.id)
     if ((slot?.voice ?? 0) !== voice) return false
-    const existingSpan = getTupletTotalBeatsFrac(t.baseDuration, t.notesOccupied)
+    const existingSpan = getTupletTotalBeatsFrac(t.baseDuration, t.notesOccupied, t.baseDots)
     return noteSpansOverlapFrac(t.startBeat, existingSpan, startBeat, totalBeats)
   })
 }
@@ -213,7 +218,7 @@ export function refillTupletRemainder(
 ): void {
   const ratio = fracCreate(tuplet.notesOccupied, tuplet.numNotes)
   const inverseRatio = fracCreate(tuplet.numNotes, tuplet.notesOccupied)
-  const tupletEnd = fracAdd(tuplet.startBeat, getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied))
+  const tupletEnd = fracAdd(tuplet.startBeat, getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied, tuplet.baseDots))
   // Filler rests inherit the tuplet's own staff (derived from its stamped staffId), so
   // gaps in a staff-1 triplet fill on staff 1 — not on staff 0. Absent staffId → index 0.
   const staff = staffIndexOfId(score, tuplet.staffId)
@@ -227,6 +232,36 @@ export function refillTupletRemainder(
     if (!fracLt(from, to)) return
     const actualGap = fracSub(to, from)
     const writtenGap = fracMul(actualGap, inverseRatio)
+
+    // A DOTTED-unit tuplet fills in its own unit, one rest per empty slot. The generic splitter below
+    // knows only undotted values, so three written beats of a dotted-quarter triplet came back as
+    // 'h' + 'q' — the right amount of time, spelled as one and a third slots plus two thirds, which
+    // is unreadable inside a bracket. Undotted tuplets keep the splitter: there, merging two empty
+    // eighth slots into one quarter rest is what a copyist does anyway.
+    if (tuplet.baseDots) {
+      const unit = durationToFraction(tuplet.baseDuration, tuplet.baseDots)
+      const slots = fracDiv(writtenGap, unit)
+      if (slots.den === 1) {
+        const actualUnit = fracMul(unit, ratio)
+        let beat = from
+        for (let i = 0; i < slots.num; i++) {
+          addNote({
+            duration: tuplet.baseDuration,
+            dots: tuplet.baseDots,
+            measure: measureNumber,
+            beat,
+            isRest: true,
+            tupletId: tuplet.id,
+            actualDuration: actualUnit,
+            ...(voice ? { voice: voice as 0 | 1 | 2 | 3 } : {}),
+            ...(staff ? { staff } : {}),
+          })
+          beat = fracAdd(beat, actualUnit)
+        }
+        return
+      }
+    }
+
     const durations = splitBeatsIntoDurations(fracToNumber(writtenGap))
     let beat = from
     for (const dur of durations) {

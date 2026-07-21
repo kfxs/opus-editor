@@ -1830,7 +1830,7 @@ export class MouseController {
     } : null, '| elementAt:', elementAt?.type || null)
 
     try {
-      if (this.state.tupletMode) {
+      if (this.state.armedTuplet) {
         const score = engine.getScore()
         const measure = score.measures.find(m => m.number === measureNum)
         const barQuarters = measure
@@ -1872,9 +1872,10 @@ export class MouseController {
             { x, y },
             this.state.selectedDuration,
             spelling,
-            3,
-            2,
+            this.state.armedTuplet.numNotes,
+            this.state.armedTuplet.notesOccupied,
             activeVoiceToModel(this.state.activeVoice),
+            this.state.selectedDots,
           )
 
           if (result) {

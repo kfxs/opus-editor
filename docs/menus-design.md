@@ -1,9 +1,9 @@
 # Menus — the second primitive
 
 **Status: BUILT** (`src/menus/`) — P0–P2, and its first REAL commands have landed. Sibling to `Window`
-(docs/windows-design.md), not a kind of it. Right-click the score → the Insert menu: `Text ▸ Expression`
-(Ctrl+E) and `Text ▸ Tempo` (Alt+Shift+T) are wired; the remaining rows are still lorem placeholders,
-replaced one at a time. P3 (keyboard navigation) is not done.
+(docs/windows-design.md), not a kind of it. Right-click the score → the Insert menu: Clef, `Text ▸
+Expression` (Ctrl+E), `Text ▸ Tempo` (Alt+Shift+T), Time Signature and Tuplet. The lorem placeholders
+are GONE — every row is now a real command. P3 (keyboard navigation) is not done.
 
 ## What this is
 
@@ -16,8 +16,10 @@ menus.open({ x, y, items })   // viewport pixels; one root menu at a time
 
 **The first client is the Insert menu.** It began as a demo — every row lorem ipsum, selecting one
 `console.log`s — to prove the primitive exactly as the Lorem window did before the Keypad. The real
-commands now replace those rows one at a time: `Text ▸ Expression` and `Text ▸ Tempo` are the first,
-each running the same action as its keyboard shortcut (see "How a command reaches a controller" below).
+commands then replaced those rows one at a time (`Text ▸ Expression` and `Text ▸ Tempo` first, each
+running the same action as its keyboard shortcut — see "How a command reaches a controller" below),
+and when the last command landed the leftover lorem went with it. Deep chains and separators are the
+PRIMITIVE's to prove, and `MenuLayer`'s own tests prove them; a menu the user opens is not the place.
 
 ## A menu is NOT a Window
 
@@ -109,7 +111,7 @@ so a `.vue` file never learns that menus exist. Same shape as `installKeypad`.
 | `src/menus/placement.ts` | pure: (anchor, size, host box) → position, flipped. Testable with no browser. |
 | `src/menus/MenuLayer.ts` | the DOM: the scrim, the root list, the flyouts, dismissal. No framework. |
 | `src/menus/index.ts` | the app's one layer instance + the `menuActions` command seam (below). |
-| `src/menus/insertMenu.ts` | the Insert item tree (real Text commands + remaining lorem) + the `contextmenu`/Menu-key listeners. |
+| `src/menus/insertMenu.ts` | the Insert item tree (all real commands) + the `contextmenu`/Menu-key listeners. |
 
 All of it under `npm run lint:boundary`.
 
@@ -151,8 +153,8 @@ know you were running.** The menu didn't create this; it revealed it.
   exactly what kills the flyout you were diagonally travelling to. Clicking a `▸` row opens it now.
   Escape closes **one level**, not the whole chain.
 - ✅ **P2 — the Insert menu.** `insertMenu.ts`: right-click the viewport (or the Menu key) → the Insert
-  menu, with submenus (one nested two deep). Native context menu suppressed on the viewport only. It
-  began all-lorem; real commands now replace the rows one at a time (`Text ▸ Expression/Tempo` first).
+  menu, with submenus. Native context menu suppressed on the viewport only. It began all-lorem; real
+  commands replaced the rows one at a time (`Text ▸ Expression/Tempo` first) until none were left.
 - **P3 — keyboard, not done.** ↑↓ to move, → to open a flyout, ← to leave it, Enter to select. Listed
   so the design isn't shaped *around* its absence; the roving highlight is already a data attribute
   the layer sets, not `:hover`, which is what P3 will need.

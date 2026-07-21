@@ -1750,7 +1750,7 @@ export class ScoreModel {
           for (const tuplet of voiceTuplets) {
             const tupletEndFrac = fracAdd(
               tuplet.startBeat,
-              getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied),
+              getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied, tuplet.baseDots),
             )
             if (fracGte(gap.start, tuplet.startBeat) && fracLt(gap.start, tupletEndFrac)) {
               return false
@@ -2484,10 +2484,10 @@ export class ScoreModel {
     if (!sourceTuplet) return false // defensive: tupletId with no tuplet record
 
     const from = chord.voice ?? 0
-    const { startBeat, baseDuration, numNotes, notesOccupied } = sourceTuplet
+    const { startBeat, baseDuration, baseDots, numNotes, notesOccupied } = sourceTuplet
     // Slot spacing is the ACTUAL (scaled) duration, not the written baseDuration.
-    const slot = getTupletNoteDurationFrac(baseDuration, numNotes, notesOccupied)
-    const span = getTupletTotalBeatsFrac(baseDuration, notesOccupied)
+    const slot = getTupletNoteDurationFrac(baseDuration, numNotes, notesOccupied, baseDots)
+    const span = getTupletTotalBeatsFrac(baseDuration, notesOccupied, baseDots)
     const spanEnd = fracAdd(startBeat, span)
 
     // Relative slot index of the moved note within the tuplet grid.
@@ -2532,7 +2532,7 @@ export class ScoreModel {
     // voice-move stays on the same staff), so a staff-1 note doesn't drop to staff 0.
     const targetStaffId = chord.staffId
     const targetStaff = staffIndexOfId(this.score, targetStaffId)
-    const targetTuplet = this.createTuplet(measure.number, startBeat, baseDuration, numNotes, notesOccupied, targetVoice, targetStaff)
+    const targetTuplet = this.createTuplet(measure.number, startBeat, baseDuration, numNotes, notesOccupied, targetVoice, targetStaff, baseDots)
 
     // Which grid slot a beat lands on exactly (−1 if it's between slots).
     const gridIndexOf = (beat: Fraction): number => {
@@ -2670,8 +2670,9 @@ export class ScoreModel {
     notesOccupied: number = 2,
     voice: number = 0,
     staff: number = 0,
+    baseDots: number = 0,
   ): Tuplet {
-    return tupletOps.createTuplet(this.score, measureNumber, startBeat, baseDuration, numNotes, notesOccupied, voice, staff)
+    return tupletOps.createTuplet(this.score, measureNumber, startBeat, baseDuration, numNotes, notesOccupied, voice, staff, baseDots)
   }
 
   /**
