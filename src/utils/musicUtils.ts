@@ -1,4 +1,4 @@
-import type { NoteDuration, TimeSignature, Tuplet, TupletShape, TupletNumberStyle, TupletFormat, TupletBracketEnd, Measure, Note, Score } from '@/types/music'
+import type { NoteDuration, TimeSignature, Tuplet, TupletShape, TupletNumberStyle, TupletMarkRun, TupletFormat, TupletBracketEnd, Measure, Note, Score } from '@/types/music'
 import {
   type Fraction,
   fracCreate,
@@ -335,19 +335,32 @@ function autoNumberStyle(numNotes: number): TupletNumberStyle {
   return binary ? 'ratio' : 'number'
 }
 
+/** SMuFL `tupletColon` — the separator between a mark's two figures, in the music font's own cut. */
+const TUPLET_COLON = '\uE88A'
+
+/** A note VALUE beside a figure, in the metronome cut with its augmentation dots. */
+function markNoteGlyph(duration: NoteDuration, dots = 0): string {
+  return MET_NOTE_GLYPH[duration] + MET_AUGMENTATION_DOT.repeat(dots)
+}
+
 /**
- * The mark in TWO runs: the figures, and the note glyph that may follow them.
+ * The mark as a list of RUNS — see {@link TupletMarkRun} for why it cannot be one string.
  *
- * Split because they cannot be drawn at one size. The tuplet digits (U+E88x) are cut small inside
- * their em — VexFlow gives the whole element no font size at all, so they render at the global 30px
- * and still look like small figures — while `metNote…` fills its em the way a text glyph does. One
- * string at one size puts a note twice the height of the numbers next to it. The renderer draws the
- * glyph run smaller; this is what tells it which part that is.
+ * The styles, and what each is FOR:
+ *
+ *   `number`     `3`       — N alone; the reader completes it from convention.
+ *   `ratio`      `3:2`     — both figures in the tuplet's OWN written unit, which is what a bare
+ *                            ratio means: three eighths in the time of two eighths.
+ *   `ratioNote`  `3:2♪`    — that ratio, naming the unit it counts (Sibelius's *Ratio + note*).
+ *   `entryRatio` `5x:1q`   — the sentence the user TYPED, each side with its own note value. It
+ *                            differs from `ratio` exactly when the sentence used two different
+ *                            values, which is when a converted second figure is hardest to read back.
+ *
+ * `entryRatio` is printable only because the entry is KEPT rather than folded into the ratio
+ * ({@link TupletShape.normalCount} and friends). With no entry recorded both sides are the same
+ * value, and it prints what `ratioNote` would.
  */
-export function tupletMarkParts(
-  t: TupletShape,
-  style?: TupletNumberStyle,
-): { digits: string; noteGlyph: string } {
+export function tupletMarkRuns(t: TupletShape, style?: TupletNumberStyle): TupletMarkRun[] {
   const digits = (n: number): string => {
     let out = ''
     for (let rest = n; rest >= 1; rest = Math.floor(rest / 10)) {
@@ -357,9 +370,29 @@ export function tupletMarkParts(
   }
   const printed = tupletPrintedCounts(t)
   const resolved = style ?? autoNumberStyle(printed.numNotes)
-  if (resolved === 'none') return { digits: '', noteGlyph: '' }
-  if (resolved === 'number') return { digits: digits(printed.numNotes), noteGlyph: '' }
-  const ratio = `${digits(printed.numNotes)}\uE88A${digits(printed.notesOccupied)}` // U+E88A tupletColon
+  if (resolved === 'none') return []
+  if (resolved === 'number') return [{ text: digits(printed.numNotes) }]
+
+  if (resolved === 'entryRatio') {
+    // Straight off the TYPED sentence: the actual side as written, the normal side as named. NOT
+    // `tupletPrintedCounts`, which is the converted reading — the very thing this style exists to
+    // avoid. The fallbacks are the model's own rule, that an absent normal side means "the same
+    // value as the actual side".
+    const normalCount = t.normalCount ?? t.notesOccupied
+    const normalDuration = t.normalDuration ?? t.baseDuration
+    const normalDots = (t.normalDuration ? t.normalDots : t.baseDots) ?? 0
+    // `5 ♬ : 1 ♩` — air between a figure and its note value, and around the colon, which here has a
+    // GLYPH on its left rather than a digit. A colon set tight against a notehead reads as part of
+    // the glyph; between two bare figures (`5:4`) it does not, and gets none.
+    return [
+      { text: digits(t.numNotes) },
+      { text: markNoteGlyph(t.baseDuration, t.baseDots ?? 0), glyph: true, space: true },
+      { text: TUPLET_COLON, space: true },
+      { text: digits(normalCount), space: true },
+      { text: markNoteGlyph(normalDuration, normalDots), glyph: true, space: true },
+    ]
+  }
+  const ratio = `${digits(printed.numNotes)}${TUPLET_COLON}${digits(printed.notesOccupied)}`
   // "Ratio + note" names the value the two figures are counting (Sibelius writes `5:3x`, the x being
   // the tuplet's own sixteenth).
   //
@@ -368,19 +401,20 @@ export function tupletMarkParts(
   // cut for running text, which is exactly what this string is — and the dot goes with it, since an
   // ASCII full stop next to a music glyph is a full stop, not an augmentation dot.
   if (resolved === 'ratioNote') {
-    return {
-      digits: ratio,
-      noteGlyph: MET_NOTE_GLYPH[printed.value] + MET_AUGMENTATION_DOT.repeat(printed.dots),
-    }
+    // `3:2 ♪` — the same rule: a figure and the note value it counts are two things, so they get air
+    // between them. The colon sits between two figures here and stays tight.
+    return [
+      { text: ratio },
+      { text: markNoteGlyph(printed.value, printed.dots), glyph: true, space: true },
+    ]
   }
-  return { digits: ratio, noteGlyph: '' }
+  return [{ text: ratio }]
 }
 
 /** The whole mark as ONE string — for callers that draw it in a single run and can live with the
- *  note glyph at the figures' size. See {@link tupletMarkParts} for why that is a compromise. */
+ *  note glyphs at the figures' size. See {@link tupletMarkRuns} for why that is a compromise. */
 export function tupletMarkText(t: TupletShape, style?: TupletNumberStyle): string {
-  const { digits, noteGlyph } = tupletMarkParts(t, style)
-  return digits + noteGlyph
+  return tupletMarkRuns(t, style).map(r => r.text).join('')
 }
 
 /**

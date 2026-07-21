@@ -1,4 +1,22 @@
-import { Element, Tuplet } from 'vexflow'
+import { Element, Metrics, MetricsDefaults, Tuplet } from 'vexflow'
+import type { RenderContext } from 'vexflow'
+import type { TupletMarkRun } from '@/types/music'
+
+/**
+ * The tuplet mark's font size, in px — THE knob for how big the numbers are.
+ *
+ * VexFlow gives the `Tuplet` category no size of its own, so it fell through to the toolkit default
+ * (30) — the same size a whole staff's worth of glyphs is drawn at, and too loud for a figure that
+ * sits above the notes and is read at a glance. Set here rather than passed around because every
+ * drawing of a mark builds an `Element('Tuplet')` and asks Metrics: the engraved one, the ghost's,
+ * and each run inside them. One number, one place.
+ *
+ * ⚠️ `Metrics.clear` is required — the resolved font is CACHED per category, so a value written
+ * after something has already drawn would be ignored. Same dance TempoLayout does for its glyph.
+ */
+export const TUPLET_FONT_SIZE = 24
+MetricsDefaults.Tuplet = { ...MetricsDefaults.Tuplet, fontSize: TUPLET_FONT_SIZE }
+Metrics.clear('Tuplet')
 
 /**
  * How big the mark's note glyph is, as a fraction of the figures' font size.
@@ -8,7 +26,59 @@ import { Element, Tuplet } from 'vexflow'
  * height of the numbers it belongs to. 0.55 lands it a little taller than the figures — which is
  * what a note beside a ratio should be, since its stem has to go somewhere.
  */
-const NOTE_GLYPH_SCALE = 0.55
+export const NOTE_GLYPH_SCALE = 0.55
+
+/**
+ * The air a `space` run asks for, as a fraction of the figures' size — so it stays proportional when
+ * {@link TUPLET_FONT_SIZE} moves. About a thin space at 24px.
+ */
+const MARK_SPACE_EM = 0.15
+
+/** A mark's runs turned into drawable elements, with the width they come to together. */
+export interface LaidOutMark {
+  /** Each run's element and the gap that precedes it, in px. */
+  pieces: { el: Element; gapBefore: number }[]
+  width: number
+}
+
+/**
+ * Lay a mark's runs out end to end — each in the `Tuplet` category's font, the note glyphs at
+ * {@link NOTE_GLYPH_SCALE} of it.
+ *
+ * Shared by the engraved mark and the GHOST's, so a preview cannot be drawn at sizes the page will
+ * not use. Empty runs are dropped rather than measured: an element with no text still has a font and
+ * would contribute a stray zero-width box to the width sum.
+ */
+export function layoutTupletMark(runs: TupletMarkRun[]): LaidOutMark {
+  const pieces: { el: Element; gapBefore: number }[] = []
+  for (const run of runs) {
+    if (!run.text) continue
+    const el = new Element('Tuplet')
+    // The figures' size, read off an element of the same category, so every gap and scale below
+    // stays relative to whatever Metrics says a tuplet is — a retune moves the whole mark together.
+    const { family, size, weight, style } = el.fontInfo
+    const figureSize = typeof size === 'number' ? size : undefined
+    if (run.glyph && figureSize !== undefined) {
+      el.setFont(family, figureSize * NOTE_GLYPH_SCALE, weight, style)
+    }
+    el.setText(run.text)
+    // No gap before the FIRST run whatever it asks for: that would be air outside the mark, which
+    // shifts it off centre rather than separating anything.
+    const gapBefore = run.space && pieces.length > 0 ? (figureSize ?? 0) * MARK_SPACE_EM : 0
+    pieces.push({ el, gapBefore })
+  }
+  return { pieces, width: pieces.reduce((w, p) => w + p.gapBefore + p.el.getWidth(), 0) }
+}
+
+/** Draw a laid-out mark from `x`, on one baseline — the runs are one line of text, not a stack. */
+export function drawTupletMark(ctx: RenderContext, mark: LaidOutMark, x: number, baseline: number): void {
+  let cursor = x
+  for (const { el, gapBefore } of mark.pieces) {
+    cursor += gapBefore
+    el.renderText(ctx, cursor, baseline)
+    cursor += el.getWidth()
+  }
+}
 
 /**
  * VexFlow's `Tuplet` with OUR bracket: it decides where the bracket ends, and it does not cut a hole
@@ -39,30 +109,17 @@ export class ScoreTuplet extends Tuplet {
   bracketEndX?: number
 
   /**
-   * The note glyph that follows the figures in *Ratio + note* (`3:2♪`), or empty.
+   * The mark's runs — figures and note glyphs, drawn at different sizes (`tupletMarkRuns`).
    *
-   * A run of its own, not part of `textElement`'s string, because it is drawn at
-   * {@link NOTE_GLYPH_SCALE} of the figures' size — see there. Set by the renderer from
-   * `tupletMarkParts`, whose other half is the text.
+   * Set through {@link setMarkRuns}, which also puts the joined string into VexFlow's own
+   * `textElement`: nothing renders that element any more, but its height still sets the baseline and
+   * its box is what the pointer rect is built from.
    */
-  noteGlyph = ''
+  private markRuns: TupletMarkRun[] = []
 
-  /** The glyph run's own element: it carries the smaller font and measures itself, which is how the
-   *  mark's total width — and so the bracket's gap and the centring — stays right. */
-  private readonly glyphElement = new Element()
-
-  /** The mark's two runs, laid end to end: total width, and the glyph element ready to draw. */
-  private markWidth(): number {
-    const textWidth = this.textElement.getWidth()
-    if (!this.noteGlyph) return textWidth
-    // `size` is typed as string | number (VexFlow accepts '30pt' as well as 30); the figures' font
-    // comes from Metrics as a number, and anything else is left at the toolkit default rather than
-    // parsed — a size we cannot read is not a size to do arithmetic on.
-    const { family, size, weight, style } = this.textElement.fontInfo
-    const scaled = typeof size === 'number' ? size * NOTE_GLYPH_SCALE : undefined
-    this.glyphElement.setFont(family, scaled, weight, style)
-    this.glyphElement.setText(this.noteGlyph)
-    return textWidth + this.glyphElement.getWidth()
+  setMarkRuns(runs: TupletMarkRun[]): void {
+    this.markRuns = runs
+    this.textElement.setText(runs.map(r => r.text).join(''))
   }
 
   draw(): void {
@@ -93,9 +150,13 @@ export class ScoreTuplet extends Tuplet {
     this.width = endX - xPos
 
     const yPos = this.getYPosition()
-    // The MARK's width, figures plus glyph — what the bracket makes room for and what the centring
-    // is measured from. VexFlow uses the text element's width alone, which is only the first run.
-    const textWidth = this.markWidth()
+    // The MARK, laid out: its width is what the bracket makes room for and what the centring is
+    // measured from — all the runs, not just the figures. With no runs set (nothing but VexFlow's
+    // own construction has happened) its text is drawn as one, which is VexFlow's own behaviour.
+    const mark = layoutTupletMark(
+      this.markRuns.length ? this.markRuns : [{ text: this.textElement.getText() }],
+    )
+    const textWidth = mark.width
     const notationStartX = xPos + this.width / 2 - textWidth / 2
 
     ctx.openGroup('tuplet', this.getAttribute('id'))
@@ -117,14 +178,11 @@ export class ScoreTuplet extends Tuplet {
       ctx.fillRect(xPos + this.width, legY, 1, location * 10)
     }
 
+    // One baseline for every run — the mark is a line of text, not a stack. The height is still the
+    // figures' (`textElement`), so a note glyph beside them cannot shift the whole mark.
     const baseline =
       yPos + this.textElement.getHeight() / 2 + (location === Tuplet.LOCATION_TOP ? -1 : 1) * textYOffset
-    this.textElement.renderText(ctx, notationStartX, baseline)
-    // The glyph follows the figures on the SAME baseline — both runs are text, and a note that sat
-    // on its own line would read as a different mark rather than part of this one.
-    if (this.noteGlyph) {
-      this.glyphElement.renderText(ctx, notationStartX + this.textElement.getWidth(), baseline)
-    }
+    drawTupletMark(ctx, mark, notationStartX, baseline)
 
     const bb = this.getBoundingBox()
     ctx.pointerRect(bb.getX(), bb.getY(), bb.getW(), bb.getH())

@@ -7,6 +7,7 @@ import {
   measureCapacityFrac,
   measureCapacityQuarters,
   tupletMarkText,
+  tupletMarkRuns,
   tupletBracketed,
 } from './musicUtils'
 import { fracCreate } from './fraction'
@@ -101,6 +102,35 @@ describe('musicUtils', () => {
       const half = shape(2, 3, { baseDuration: 'q', normalDuration: '8', normalCount: 3 })
       expect(tupletMarkText(half, 'ratio')).toBe('\uE882\uE88A\uE883')
       expect(tupletMarkText(half, 'ratioNote')).toBe('\uE882\uE88A\uE883\uECA7')
+    })
+  })
+
+  // "Entry ratio" prints the SENTENCE: each side's count with its own note value, where `ratio`
+  // converts the second figure into the tuplet's written unit.
+  describe('tupletMarkRuns — entry ratio', () => {
+    it('quotes both sides in the values that were typed', () => {
+      // "5 sixteenths in the time of 1 quarter": ratio says 5:4 (four sixteenths), entry says 5x:1q.
+      const entered: TupletShape = {
+        numNotes: 5, notesOccupied: 4, baseDuration: '16',
+        normalDuration: 'q', normalCount: 1,
+      }
+      expect(tupletMarkText(entered, 'ratio')).toBe('\uE885\uE88A\uE884')
+      // `space` is air the RENDERER measures \u2014 a music font's space character is next to nothing
+      // wide. Everything after the first figure gets it: a value beside its count, and a colon that
+      // has a glyph on its left rather than a digit.
+      expect(tupletMarkRuns(entered, 'entryRatio')).toEqual([
+        { text: '\uE885' },                               // 5
+        { text: '\uECA9', glyph: true, space: true },     // metNote16thUp
+        { text: '\uE88A', space: true },                  // tupletColon
+        { text: '\uE881', space: true },                  // 1
+        { text: '\uECA5', glyph: true, space: true },     // metNoteQuarterUp
+      ])
+    })
+
+    it('falls back to the actual side when no entry was recorded', () => {
+      // Both sides the same value — the sentence was "3 eighths in the time of 2 eighths".
+      expect(tupletMarkText({ numNotes: 3, notesOccupied: 2, baseDuration: '8' }, 'entryRatio'))
+        .toBe('\uE883\uECA7\uE88A\uE882\uECA7')
     })
   })
 

@@ -16,7 +16,7 @@ import { quantizeBeat } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } from '@/utils/pitchSpelling'
 import { prevailingAlterAt } from '@/utils/accidentalState'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
@@ -2125,8 +2125,8 @@ export class MusicEngine {
     dots?: number,
     articulations?: ArticulationType[],
     ghostColor?: { fill: string; stroke: string },
-    /** The armed tuplet's number, drawn over the ghost. See {@link GhostNote.tupletLabel}. */
-    tupletLabel?: string,
+    /** The armed tuplet's mark, drawn over the ghost. See {@link GhostNote.tupletLabel}. */
+    tupletLabel?: TupletMarkRun[],
   ): boolean {
     // Resolve the HOVERED measure first (the same order addNoteAtPosition uses), so the
     // beat-quantization fallback in getPositionFromPixels uses THAT measure's capacity — a

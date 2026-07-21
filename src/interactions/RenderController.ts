@@ -3,7 +3,7 @@ import { dynamicTextFromTool } from '../utils/dynamics'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Clef, TimeSignature, Dynamic, TempoMark, ArticulationType, Accidental } from '../types/music'
 import type { DynamicTool, TempoTool, EditorState } from './EditorState'
-import { tupletMarkText } from '../utils/musicUtils'
+import { tupletMarkRuns } from '../utils/musicUtils'
 import { activeVoiceToModel, assertNeverTool } from './EditorState'
 import type { HighlightController } from './HighlightController'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
@@ -119,12 +119,19 @@ export class RenderController {
       // ninth marking-tool ghost.
       // The armed tuplet is a TupletShape minus its actual note value, and the value is the armed
       // duration — put back together here, because the mark's text can depend on either side.
+      //
+      // Its armed FORMAT decides the mark too. Without the style the preview showed the automatic
+      // mark whatever the dialog had said, so choosing *Ratio + note* previewed a bare number and
+      // *None* previewed a number that would not be there: a preview of a different tuplet.
       this.state.armedTuplet
-        ? tupletMarkText({
-            ...this.state.armedTuplet,
-            baseDuration: this.state.selectedDuration,
-            baseDots: this.state.selectedDots,
-          })
+        ? tupletMarkRuns(
+            {
+              ...this.state.armedTuplet,
+              baseDuration: this.state.selectedDuration,
+              baseDots: this.state.selectedDots,
+            },
+            this.state.armedTuplet.format?.numberStyle,
+          )
         : undefined,
     )
     return ghostRendered

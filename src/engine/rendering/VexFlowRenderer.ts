@@ -1,5 +1,5 @@
-import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote, Element as VexFlowElement } from 'vexflow'
-import { ScoreTuplet } from './ScoreTuplet'
+import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote } from 'vexflow'
+import { ScoreTuplet, layoutTupletMark, drawTupletMark } from './ScoreTuplet'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
@@ -7,7 +7,7 @@ import './notation.css'
 import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, Accidental as ScoreAccidental } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
-import { beatToFrac, measureCapacityFrac, tupletBracketed, tupletBracketEnd, tupletMarkParts } from '@/utils/musicUtils'
+import { beatToFrac, measureCapacityFrac, tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
 import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, timeSignatureVexKey, type MeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
@@ -1420,10 +1420,7 @@ export class VexFlowRenderer {
           // note" and not nothing at all, and its automatic choice is a heuristic we replaced
           // (autoNumberStyle). Same string the GHOST draws — one function, so a preview cannot
           // promise a mark the page will not print.
-          // TWO runs: the figures at VexFlow's size, the note glyph smaller (see tupletMarkParts).
-          const mark = tupletMarkParts(tupletData, tupletData.numberStyle)
-          vt.textElement?.setText?.(mark.digits)
-          vexTuplet.noteGlyph = mark.noteGlyph
+          vexTuplet.setMarkRuns(tupletMarkRuns(tupletData, tupletData.numberStyle))
 
           // …and where the bracket stops. Only meaningful with a bracket, but set either way: an
           // unbracketed tuplet's width still centres the number, and a number that drifted when the
@@ -2416,10 +2413,11 @@ export class VexFlowRenderer {
       // Drawn INSIDE the childrenBefore window on purpose: it is then swept into `.ghost-note-group`
       // and tinted with the rest of the ghost by the code below, instead of needing its own
       // teardown. NO bracket: a tuplet's bracket spans notes that do not exist until the click.
-      if (ghostNote.tupletLabel) {
-        const label = new VexFlowElement('Tuplet')
-        label.setText(ghostNote.tupletLabel)
-        label.setContext(this.context!)
+      if (ghostNote.tupletLabel?.length) {
+        // Laid out by the SAME function the engraved mark uses, so the preview's runs are the page's
+        // runs at the page's sizes — a ghost drawn any other way previews a different mark.
+        const mark = layoutTupletMark(ghostNote.tupletLabel)
+        for (const { el } of mark.pieces) el.setContext(this.context!)
         // The number rides the NOTE, not the staff: it floats a fixed gap above whatever the note's
         // highest point is — the stem TIP when the stem is up, the NOTEHEAD when it hangs down.
         //
@@ -2438,9 +2436,11 @@ export class VexFlowRenderer {
         // attaches (accidentals and dots push it around), so a number centred there sits off to one
         // side of the head it belongs to. The head's own two edges say where it actually is.
         const headCenterX = (staveNote.getNoteHeadBeginX() + staveNote.getNoteHeadEndX()) / 2
-        label.renderText(
+        // Every run centred as ONE mark, on one baseline — see ScoreTuplet.draw.
+        drawTupletMark(
           this.context!,
-          headCenterX - label.getWidth() / 2,
+          mark,
+          headCenterX - mark.width / 2,
           anchorY - GHOST_TUPLET_NUMBER_GAP * tempStave.getSpacingBetweenLines(),
         )
       }

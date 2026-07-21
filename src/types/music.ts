@@ -102,8 +102,36 @@ export interface Tuplet extends TupletShape, TupletFormat {
   staffId?: string
 }
 
-/** The Tuplet window's left column — what the mark says. `undefined` on a {@link Tuplet} = auto. */
-export type TupletNumberStyle = 'number' | 'ratio' | 'ratioNote' | 'none'
+/**
+ * The Tuplet window's left column — what the mark says. `undefined` on a {@link Tuplet} = auto.
+ *
+ * `ratio` quotes both figures in the tuplet's OWN written unit, which is what a bare `5:4` means.
+ * `entryRatio` quotes them as the user TYPED them, with each side's note value beside it —
+ * `5𝅘𝅥𝅯:1♩` for "five sixteenths in the time of one quarter". The two differ exactly when the sentence
+ * used two note values, and that is the case where a bare ratio makes the reader reconstruct the
+ * second side. It is printable only because the entry is kept ({@link TupletShape.normalCount} and
+ * friends) instead of being folded into the ratio.
+ */
+export type TupletNumberStyle = 'number' | 'ratio' | 'ratioNote' | 'entryRatio' | 'none'
+
+/**
+ * One piece of a printed tuplet mark: a run of text, and whether it is a note GLYPH.
+ *
+ * A mark is a list of runs rather than a string because its parts are drawn at different sizes — the
+ * tuplet figures are cut small inside their em, a `metNote…` fills its own, and one font size for
+ * both puts a note twice the height of the numbers. With two note values interleaved
+ * (`5𝅘𝅥𝅯:1♩`) the sizes alternate, so a "text plus a trailing glyph" pair cannot describe it.
+ */
+export interface TupletMarkRun {
+  text: string
+  /** Drawn in the music font at the smaller note-glyph size. Absent = the figures' size. */
+  glyph?: boolean
+  /**
+   * Leave air BEFORE this run. A gap the renderer measures, not a space character: a music font's
+   * space is next to nothing wide, so spelling it would put the runs back to back.
+   */
+  space?: boolean
+}
 
 /** Whether the group gets a bracket. `auto` (and absent) = the renderer's rule — no bracket when a
  *  beam already shows the grouping, one when it does not. */
@@ -1002,9 +1030,14 @@ export interface GhostNote {
   /** Show a natural (♮) even though `alter` is 0 — the preview for an armed natural accidental,
    *  which otherwise has no glyph (alter 0 draws nothing). Sharp/flat carry their own sign via alter. */
   forceAccidental?: boolean
-  /** The armed tuplet's number ('3', '5:4'), drawn above the ghost — the preview for "this click
-   *  starts a tuplet". Absent = no tuplet armed, and the ghost is an ordinary note. */
-  tupletLabel?: string
+  /**
+   * The armed tuplet's mark, drawn above the ghost — the preview for "this click starts a tuplet".
+   * Absent = no tuplet armed, and the ghost is an ordinary note.
+   *
+   * The same RUNS the engraved mark is drawn from (`tupletMarkRuns`), because they are drawn at
+   * different sizes — a preview carrying one joined string could not look like the thing it previews.
+   */
+  tupletLabel?: TupletMarkRun[]
   /** Ghost paint colour = the active voice's colour (V1 blue, V2 green). Defaults
    *  to the app's blue when omitted. See utils/voiceColors. */
   fillColor?: string

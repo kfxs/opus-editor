@@ -75,6 +75,12 @@ const RATIO_SIZE = 20
 const NUMBER_STYLES: { value: TupletNumberStyle; label: string }[] = [
   { value: 'number', label: 'Number' },
   { value: 'ratio', label: 'Ratio' },
+  // OURS, and the only one Sibelius has no equivalent for: the ratio as the SENTENCE ABOVE was
+  // typed, each side with its own note value. `Ratio` converts the second figure into the tuplet's
+  // written unit — "5 sixteenths in the time of 1 quarter" prints 5:4 — and this is the style that
+  // says 5𝅘𝅥𝅯:1♩ instead. Only different when the two sides used two values, which is exactly when the
+  // converted figure is the one the reader has to work backwards from.
+  { value: 'entryRatio', label: 'Entry ratio' },
   { value: 'ratioNote', label: 'Ratio + note' },
   { value: 'none', label: 'None' },
 ]
