@@ -8,8 +8,8 @@ import {
   measureCapacityQuarters, measureCapacityFrac,
 } from '@/utils/musicUtils'
 import {
-  fracToNumber, fracEq, fracAdd, fracSub, fracMul,
-  fracLt, fracGt, fracGte, fracLte, fracFromInt, fracCreate,
+  fracToNumber, fracEq, fracAdd, fracSub, fracMul, fracDiv,
+  fracLt, fracGt, fracGte, fracLte, fracFromInt,
 } from '@/utils/fraction'
 import { durationToFraction, fitRestDuration, splitBeatsIntoLengths } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
@@ -87,7 +87,12 @@ export class NoteEntryCoordinator {
       const remainingActual = fracSub(tupletEnd, finalBeatFrac)
       const noteActual = fracMul(durationToFraction(params.duration, params.dots || 0), ratio)
       if (fracGt(noteActual, remainingActual)) {
-        const maxWritten = fracToNumber(fracMul(remainingActual, fracCreate(tupletAtBeat.numNotes, tupletAtBeat.notesOccupied)))
+        // ÷ the tuplet's own ratio, NOT × N/M. They agree for an ordinary tuplet and part company
+        // the moment the two sides carry different note values: "2 quarters in the time of 3
+        // eighths" has N/M = 1 while its real scale is 3/4, and clamping by the wrong one computes a
+        // written duration a quarter too short. `tupletScale` is the ratio; nothing else is.
+        // Float only at the very end, because `splitBeatsIntoDurations` takes a number.
+        const maxWritten = fracToNumber(fracDiv(remainingActual, ratio))
         const fitting = splitBeatsIntoDurations(maxWritten)
         if (fitting.length === 0) return null
         dbg(`[Tuplet] duration clamped: ${params.duration} → ${fitting[0]} (remaining actual: ${fracToNumber(remainingActual).toFixed(4)})`)
@@ -95,27 +100,23 @@ export class NoteEntryCoordinator {
       }
     }
 
-    // Calculate effective note duration (scaled by tuplet ratio when inside a tuplet)
-    const finalBeat = fracToNumber(finalBeatFrac)
-    const nominalDuration = durationToBeats(params.duration, params.dots || 0)
-    // Exact first, float second: the epsilon comparisons below are float, but the RATIO must come
-    // from the tuplet (it is not M/N once the two sides carry different note values).
-    const tupletRatio = tupletAtBeat ? fracToNumber(tupletScale(tupletAtBeat)) : 1
-    const effectiveDuration = nominalDuration * tupletRatio
-    // Set actualDuration so checkMeasureOverflow uses the scaled duration, not the written one
-    const actualDuration = tupletAtBeat
+    // How long the incoming note actually SOUNDS — scaled by the tuplet when it is going into one.
+    // Exact, and exact all the way through the overlap test below: this is a beat, and a beat is a
+    // Fraction (see the invariant in ARCHITECTURE.md).
+    const soundingDuration = tupletAtBeat
       ? tupletWrittenDuration(tupletAtBeat, params.duration, params.dots || 0)
-      : undefined
+      : durationToFraction(params.duration, params.dots || 0)
+    // Set actualDuration so checkMeasureOverflow uses the scaled duration, not the written one
+    const actualDuration = tupletAtBeat ? soundingDuration : undefined
 
     const finalParams: NoteParams = { ...params, beat: finalBeatFrac, ...(tupletId ? { tupletId } : {}), ...(actualDuration ? { actualDuration } : {}) }
-    const noteEnd = finalBeat + effectiveDuration
+    const noteEnd = fracAdd(finalBeatFrac, soundingDuration)
 
     // Remove overlapping CHORD notes atomically, using scaled durations for tuplet notes.
     // Rests are intentionally skipped here — replaceRestsWith (inside addNote) handles
     // rest removal with proper tie migration, so deleting rests here would break that.
     // NOTE this runs for an incoming REST too, which is what lets a stamped rest overwrite the
     // notes it covers; the rests it covers are evicted by addNote, one layer down.
-    const epsilon = 0.001
     const entryVoice = params.voice ?? 0
     const entryStaff = params.staff ?? 0
     const toDelete = this.getScoreModel().getNotesInMeasure(params.measure).filter(n => {
@@ -123,14 +124,16 @@ export class NoteEntryCoordinator {
       // Other voices/staves are independent streams — never clobber them.
       if ((n.voice ?? 0) !== entryVoice) return false
       if ((n.staff ?? 0) !== entryStaff) return false
-      let nDuration = durationToBeats(n.duration, n.dots || 0)
-      if (n.tupletId) {
-        const nTuplet = (targetMeasure.tuplets || []).find(t => t.id === n.tupletId)
-        if (nTuplet) nDuration *= fracToNumber(tupletScale(nTuplet))
-      }
-      const nBeat = fracToNumber(n.beat)
-      const nEnd = nBeat + nDuration
-      return nBeat + epsilon < noteEnd && nEnd - epsilon > finalBeat
+      const nTuplet = n.tupletId ? (targetMeasure.tuplets || []).find(t => t.id === n.tupletId) : undefined
+      const nDuration = nTuplet
+        ? tupletWrittenDuration(nTuplet, n.duration, n.dots || 0)
+        : durationToFraction(n.duration, n.dots || 0)
+      const nEnd = fracAdd(n.beat, nDuration)
+      // Two half-open intervals overlap when each starts before the other ends. STRICT comparisons,
+      // and no epsilon: notes that merely TOUCH (one ends where the next begins) do not overlap, and
+      // exact arithmetic says so without a tolerance. The epsilon this replaces was a float guard
+      // sized when every tuplet was 3:2 — a margin in a model whose beats are Fractions.
+      return fracLt(n.beat, noteEnd) && fracGt(nEnd, finalBeatFrac)
     })
     if (toDelete.length) {
       dbg(`[Entry] v${entryVoice} overwrites ${toDelete.length} same-voice note(s): ${toDelete.map(n => `${n.step}${n.octave}@b${fracToNumber(n.beat).toFixed(3)}`).join(', ')}`)
@@ -146,7 +149,7 @@ export class NoteEntryCoordinator {
     )
 
     if (overflow.willOverflow && overflow.overflowAmount) {
-      dbg(`[Entry] KeyboardEntry | v${entryVoice} ${formatPitch(params)} dur:${params.duration} measure:${params.measure} beat:${finalBeat.toFixed(3)} → overflow ${overflow.overflowAmount.toFixed(3)}b — splitting with tie`)
+      dbg(`[Entry] KeyboardEntry | v${entryVoice} ${formatPitch(params)} dur:${params.duration} measure:${params.measure} beat:${fracToNumber(finalBeatFrac).toFixed(3)} → overflow ${overflow.overflowAmount.toFixed(3)}b — splitting with tie`)
       const splitNote = this.addSplitNoteWithTie(finalParams, overflow.overflowAmount)
       if (splitNote) {
         this.onCommit('Keyboard enter note')
@@ -671,38 +674,42 @@ export class NoteEntryCoordinator {
 
   /** Handles duration updates for notes inside a tuplet. */
   private updateTupletNote(ctx: NoteUpdateCtx, _measure: Measure, tuplet: Tuplet): Note {
-    let { updates, newBeats, newDuration } = ctx
-    const { noteId, existingNote, measureNotes, chordNotes, isChord, newDots } = ctx
+    let { updates, newDuration } = ctx
+    const { noteId, existingNote, measureNotes, chordNotes, isChord } = ctx
+    // The dots that will actually be WRITTEN. The clamp below drops them, and everything after it —
+    // the span this note covers, and the chord members kept in step — has to use what was written
+    // rather than what was asked for. (The chord sync used to read the asked-for dots, so a clamped
+    // chord ended up with its members dotted and its top note not.)
+    let newDots = ctx.newDots
 
-    const tupletRatio = fracToNumber(tupletScale(tuplet))
-    const tupletTotalBeats = fracToNumber(tupletSpan(tuplet))
-    const tupletEndBeat = fracToNumber(tuplet.startBeat) + tupletTotalBeats
+    // All exact. Every quantity here is a beat or a factor between beats, and the model keeps those
+    // as Fractions; the floats these replace were an epsilon comparison sized when every tuplet was
+    // 3:2, in the one file where 4:5 and 8:11 now turn up.
+    const ratio = tupletScale(tuplet)
+    const tupletEnd = fracAdd(tuplet.startBeat, tupletSpan(tuplet))
     // Remaining space runs from this note's start to the tuplet end
-    const remainingTupletBeats = tupletEndBeat - fracToNumber(existingNote.beat)
+    const remaining = fracSub(tupletEnd, existingNote.beat)
 
     // Clamp new duration if it exceeds remaining tuplet space
-    const scaledNewDuration = newBeats * tupletRatio
-    if (scaledNewDuration > remainingTupletBeats + BEAT_EPSILON) {
-      const maxNormalBeats = remainingTupletBeats / tupletRatio
-      const fittingDuration = this.findLargestFittingDuration(maxNormalBeats)
+    if (fracGt(fracMul(durationToFraction(newDuration, newDots), ratio), remaining)) {
+      const fittingDuration = this.findLargestFittingDuration(fracToNumber(fracDiv(remaining, ratio)))
       if (fittingDuration) {
         newDuration = fittingDuration
+        newDots = 0
         updates = { ...updates, duration: fittingDuration, dots: 0 }
-        newBeats = durationToBeats(fittingDuration)
       } else {
         return existingNote
       }
     }
 
-    // Delete any tuplet items that fall inside the new note's actual time span
-    const actualNewDuration = newBeats * tupletRatio
-    const noteEndBeat = fracToNumber(existingNote.beat) + actualNewDuration
-    const existingBeatNum = fracToNumber(existingNote.beat)
+    // Delete any tuplet items that fall inside the new note's actual time span. STRICTLY inside:
+    // an item starting exactly where this note ends is the next slot, not something it covers.
+    const noteEnd = fracAdd(existingNote.beat, fracMul(durationToFraction(newDuration, newDots), ratio))
     const itemsToDelete = measureNotes.filter(n =>
       n.tupletId === existingNote.tupletId &&
       n.id !== noteId &&
-      fracToNumber(n.beat) > existingBeatNum + BEAT_EPSILON &&
-      fracToNumber(n.beat) < noteEndBeat - BEAT_EPSILON
+      fracGt(n.beat, existingNote.beat) &&
+      fracLt(n.beat, noteEnd)
     )
     for (const item of itemsToDelete) this.getScoreModel().deleteNote(item.id)
 

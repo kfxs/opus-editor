@@ -2,7 +2,8 @@
 
 Status: **shipped**, less the open items in §7. Arbitrary `N:M` arming, a dotted unit, the remembered
 entry (§6), the Tuplet window that asks the whole sentence, the FORMAT on the model and engraved
-(§9), and `Ctrl+2`…`Ctrl+9` (§10).
+(§9), `Ctrl+2`…`Ctrl+9` (§10) with M derived from the meter (§11), and the entry paths made exact
+(§12).
 
 Sibling to `docs/tuplet-control-plan.md`, which is about the bracket's *position and look*. Three
 things get called "the tuplet" and only the first is this document's subject:
@@ -215,10 +216,6 @@ tuplets that carry no entry — and those could record one on the way in.
   selection, so a format decision is made before the notes are written and never again. Sibelius's
   dialog edits the selection; the Time Signature window's "apply to the boxed bar, else arm" is the
   shape to copy.
-- **The float ratio sites.** `NoteEntryCoordinator.ts:101`, `:127`, `:675` compute
-  `notesOccupied / numNotes` as a JS float for epsilon-guarded overlap comparisons. The stored
-  `actualDuration` stays an exact `Fraction`, but 4/5 and 8/11 are not binary-exact and those
-  margins were sized against 2/3.
 - **One field too many** — `notesOccupied` is derivable from the entry. §6's last part says why it
   stays and what removing it would take.
 - **Nesting** — one `tupletId` per slot cannot express it; VexFlow already has `NESTING_OFFSET`.
@@ -339,13 +336,33 @@ position is known.
 
 ---
 
+## 12. The tuplet paths are exact (SHIPPED)
+
+`NoteEntryCoordinator`'s tuplet arithmetic ran on floats with a `0.001` epsilon — a margin chosen
+when every tuplet was 3:2, in the one file where 4:5 and 8:11 now turn up. Three sites are Fractions
+now: the entry OVERLAP filter, and in `updateTupletNote` the ratio, the remaining room and the
+covered-items test. The epsilon is not replaced by a smaller one, it is GONE: it existed so notes
+that merely touch would not count as overlapping, and strict comparison on exact values says that by
+itself. Float survives at one call, `findLargestFittingDuration`, which takes a number.
+
+⚠️ **One of the three was a real bug, not a style.** The clamp asked "how much can still be written
+here" as `remaining × N/M`. That is the inverse ratio only while both sides share a note value: for
+"2 quarters in the time of 3 eighths" N/M is 1 and the real scale is 3/4, so the clamp allowed a
+quarter LESS than the group had room for. It divides by `tupletScale` now — the ratio, and nothing
+else is. Pinned by a test.
+
+An adjacent one went with it: when that clamp dropped the dots, the chord-member sync still wrote the
+*asked-for* dots, so a clamped chord ended with its members dotted and its top note not.
+
+---
+
 ## 8. Code references
 
 - `src/types/music.ts` — `TupletShape` / `Tuplet` / `TupletFormat` (`baseDots`, `normalCount`/`normalDuration`/`normalDots`, `numberStyle`, `bracket`, `bracketEnd`), `TupletMarkRun`, `GhostNote.tupletLabel`
 - `src/utils/musicUtils.ts` — `tupletSpan`, `tupletScale`, `tupletSlotDuration`, `tupletWrittenDuration`, `tupletPrintedCounts`, `tupletMarkRuns`/`tupletMarkText`, `resolveTupletInTimeOf`, and the rules: `deriveTupletM`, `autoNumberStyle`, `tupletBracketed`, `tupletBracketEnd`
 - `src/utils/tupletPresets.ts` — the eight presets + `tupletPresetAction`
 - `src/engine/models/tupletOps.ts` — `createTuplet` (writes the format), `refillTupletRemainder`
-- `src/engine/NoteEntryCoordinator.ts` — `buildTupletWithFirstNote`, `applyTupletToNote`, `tupletFitsBar`
+- `src/engine/NoteEntryCoordinator.ts` — `buildTupletWithFirstNote`, `applyTupletToNote`, `tupletFitsBar`, `updateTupletNote` (all exact — §12)
 - `src/engine/rendering/ScoreTuplet.ts` — the drawn mark and bracket: `TUPLET_FONT_SIZE`, `NOTE_GLYPH_SCALE`, `layoutTupletMark`
 - `src/interactions/EditorState.ts` — `armedTuplet` (+ its `format` and `deriveM`), `armedTupletM`, `spendArmedTuplet`
 - `src/interactions/PaletteController.ts` — `armTuplet`, `armTupletPreset` (the deriving one), `armTupletInTimeOf`

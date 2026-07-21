@@ -471,6 +471,23 @@ describe('NoteEntryCoordinator — the typed normal side is remembered', () => {
     expect(tupletSlotDuration(withRecord)).toEqual(tupletSlotDuration(bare))
   })
 
+  // The clamp asks "how much can still be WRITTEN in here", which is the remaining span ÷ the
+  // tuplet's ratio. N/M is the same number only while both sides share a note value: here the
+  // sentence is "2 quarters in the time of 3 eighths", N/M = 1 and the real scale is 3/4, so a clamp
+  // by N/M would allow a quarter less than the group actually has room for.
+  it('clamps by the tuplet RATIO, not by N/M, when the two sides differ', () => {
+    const t = coordinator.createTupletAtBeat(
+      1, 0, 'q', { step: 'C', alter: 0, octave: 5 }, 2, 2, 0, 0, 0, { duration: '8', count: 3 },
+    )!.tuplet
+    // One and a half quarters of span, one quarter written and sounding 3/4 — so 3/4 of a quarter of
+    // span is left, and what still FITS written is a quarter (3/4 ÷ 3/4). A half would not.
+    const second = coordinator.addNoteAtBeat({
+      step: 'D', alter: 0, octave: 5, duration: 'h', measure: 1, beat: frac(3, 4), tupletId: t.id,
+    })
+    expect(second).not.toBeNull()
+    expect(second!.duration).toBe('q')
+  })
+
   it('leaves normalDuration absent when both sides agree, so old tuplets are unchanged', () => {
     const plain = coordinator.createTupletAtBeat(1, 0, '8', { step: 'C', alter: 0, octave: 5 })
     expect('normalDuration' in plain!.tuplet).toBe(false)
