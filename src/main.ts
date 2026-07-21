@@ -1,5 +1,4 @@
 import { createApp } from 'vue'
-import { createPinia } from 'pinia'
 import { setDebugLogging } from '@/utils/debug'
 import './style.css'
 import App from './App.vue'
@@ -15,8 +14,4 @@ setDebugLogging(isDev)
 // is make sure the module is loaded — the alternative would be App.vue knowing that menus exist.
 import '@/menus'
 
-const app = createApp(App)
-const pinia = createPinia()
-
-app.use(pinia)
-app.mount('#app')
+createApp(App).mount('#app')

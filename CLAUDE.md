@@ -12,10 +12,14 @@ A music score editor built with Vue 3, VexFlow, and WebAudioFont. Users can add/
 
 ## Tech Stack
 
-- **Framework**: Vue 3 with Composition API
+- **Framework**: Vue 3 with Composition API — **being removed** (branch `remove-vue`); it is
+  down to `App.vue` + `main.ts` + the `composables/` glue, and everything else is already
+  framework-agnostic. Do not add Vue anywhere new.
 - **Notation Rendering**: VexFlow 5
 - **Audio Playback**: WebAudioFont (sampled General MIDI; samples fetched from CDN at play time)
-- **State Management**: Pinia
+- **State Management**: `EditorState` — one plain object behind an emitting Proxy
+  (`interactions/EditorState.ts`), which carries its own change-notification and owes nothing to a
+  framework. (Pinia was a dependency that no store ever used; it is gone.)
 - **Styling**: Tailwind CSS
 - **Build Tool**: Vite
 - **Testing**: Vitest (unit) + Playwright (E2E)
@@ -39,7 +43,9 @@ dependency direction is `App.vue → composables → interactions → engine`.
 ```
 src/
   App.vue           # Main Vue component (UI shell + palette)
-  composables/      # Thin Vue glue — bind reactivity, wrap the controllers
+  composables/      # What's LEFT of the Vue glue: useViewport + useShortcuts.
+                    #   The 8 `useX` shims are deleted — App.vue constructs the
+                    #   controllers directly. See docs/remove-vue-plan.md
   interactions/     # Framework-agnostic controllers (Mouse/Keyboard/Selection/
                     #   Highlight/Palette/Clipboard…) + EditorState. NO Vue imports.
   shortcuts/        # Keyboard shortcut definitions

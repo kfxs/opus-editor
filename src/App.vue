@@ -388,20 +388,22 @@ import { VIEWPORT_HEIGHT } from './engine/rendering/VexFlowRenderer'
 import { DEFAULT_ZOOM } from './engine/ViewportModel'
 import { createObservableEditorState, scoreCursorClass } from './interactions/EditorState'
 import type { NoteDuration } from './types/music'
-import { useHighlight } from './composables/useHighlight'
-import { useRenderer } from './composables/useRenderer'
-import { useSelection } from './composables/useSelection'
-import { usePalette } from './composables/usePalette'
-import { useKeyboardEntry } from './composables/useKeyboardEntry'
-import { useMouseInteraction } from './composables/useMouseInteraction'
-import { useTextEditing } from './composables/useTextEditing'
+import { HighlightController } from './interactions/HighlightController'
+import { RenderController } from './interactions/RenderController'
+import { SelectionController } from './interactions/SelectionController'
+import { PaletteController } from './interactions/PaletteController'
+import { KeyboardController } from './interactions/KeyboardController'
+import { MouseController } from './interactions/MouseController'
+import { TextEditController } from './interactions/TextEditController'
+import { DomTextEdit } from './interactions/DomTextEdit'
+import { GutterController } from './interactions/GutterController'
+// The two survivors of composables/: one holds real Vue lifecycle, the other real wiring.
 import { useViewport } from './composables/useViewport'
-import { useGutter } from './composables/useGutter'
 import { useShortcuts } from './composables/useShortcuts'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
 import { ClipboardController } from './interactions/ClipboardController'
 import { windows } from './windows'
-import { menuActions } from './menus'
+import { menus, menuActions, openMenuAtViewport } from './menus'
 import { wireKeypadSync, noNoteInSelection } from './interactions/keypadSync'
 import { wireSelectionInspection } from './interactions/selectionInspectionSync'
 import { openLoremWindow } from './windows/demo/loremWindows'
@@ -447,12 +449,18 @@ const CONTENT_PADDING = 16
 const ZOOM_WHEEL_K = 0.0015
 
 // --- Wire up controllers in dependency order ---
+// Every controller below is plain TS that takes GETTERS, never a Vue ref — which is why they can be
+// constructed here directly. The `useX` shims this replaced did nothing but turn a ref into
+// `() => ref.value`, so deleting them removed a layer without moving a line of logic. What is left
+// in composables/ is the two that hold something real: useViewport (Vue lifecycle) and useShortcuts
+// (the shortcut wiring itself). See docs/ARCHITECTURE.md.
+//
 // HighlightController has no deps on other controllers
-const highlight = useHighlight(state, engine, scoreCanvas)
+const highlight = new HighlightController(() => engine.value, () => scoreCanvas.value, state)
 
 // RenderController depends on HighlightController
 // A render can move the music under a fixed scroll-x, so the gutter refreshes after each one.
-const renderer = useRenderer(state, engine, highlight, () => gutter.refresh())
+const renderer = new RenderController(() => engine.value, state, highlight, () => gutter.refresh())
 
 // ViewportModel ⇄ DOM scroll wiring (the only DOM-aware viewport piece). Keeps a pure
 // ViewportModel in sync with the outer scroll box and inner content surface, and exposes
@@ -490,13 +498,25 @@ function onViewChange(): void {
 }
 
 // Linear view's frozen left gutter (clef + meter in force at the current scroll-x).
-const gutter = useGutter(engine, scoreGutter, scoreContent, viewport)
+const gutter = new GutterController(
+  () => engine.value,
+  () => scoreGutter.value,
+  () => scoreContent.value,
+  viewport.model,
+)
+// The element only exists in linear view (v-if), so paint it when it appears and drop the
+// renderer when it goes — a kept renderer would hold a detached node.
+watch(scoreGutter, (el) => {
+  if (el) gutter.refresh()
+  else gutter.detach()
+})
+onUnmounted(() => gutter.detach())
 
 // SelectionController depends on renderer (for renderScore callback) and the viewport
 // (scroll-into-view of the selected note now runs through ViewportModel.ensureVisible).
-const selection = useSelection(
+const selection = new SelectionController(
+  () => engine.value,
   state,
-  engine,
   rect => viewport.ensureVisible(rect),
   () => renderer.renderScore(),
 )
@@ -506,25 +526,56 @@ const clipboard = new ClipboardController(() => engine.value, state, selection, 
 
 // PaletteController needs selection.selectNote and mouse.getLastMousePosition.
 // Mouse is created below — the closure resolves lazily at call time.
-let mouse: ReturnType<typeof useMouseInteraction>
-const palette = usePalette(
-  state, engine,
+let mouse: MouseController
+const palette = new PaletteController(
+  () => engine.value,
+  state,
   () => renderer.renderScore(),
+  // Draw the preview for whatever is armed — renderToolGhost, the SAME function the mouse calls on
+  // every move. Not `renderPreview`, which only ever draws a ghost NOTE and so cannot preview a
+  // marking tool.
   (c) => renderer.renderToolGhost(c),
   () => mouse?.getLastMousePosition() ?? null,
-  selection,
+  (id) => selection.selectNote(id),
+  () => selection.deselectAll(),
 )
 
 // KeyboardController depends on selection and palette
-const keyboard = useKeyboardEntry(state, engine, palette, () => renderer.renderScore(), selection)
+const keyboard = new KeyboardController(
+  () => engine.value,
+  state,
+  () => palette.getPendingArticulations(),
+  () => renderer.renderScore(),
+  (id) => selection.moveCaretTo(id),
+  () => selection.getContextPitch(),
+  () => selection.scrollSelectedNoteIntoView(),
+)
 
-// TextEditController — the in-canvas text editor (seamless DOM overlay). Created
-// before mouse so MouseController can open it on double-click / new placement.
-const textEdit = useTextEditing(state)
+// TextEditController — the in-canvas text editor: the framework-agnostic controller paired with the
+// real-DOM overlay. Created before mouse so MouseController can open it on double-click / new
+// placement. The menu opener is INJECTED rather than imported by the overlay itself, so DomTextEdit
+// depends on nothing but the DOM (and interactions/ -> menus/ never becomes a cycle). `isOpen` rides
+// along because the overlay must stand down from Enter/Escape/arrows while a menu is up — its
+// keydown listener runs before the menu's, so it would otherwise eat them.
+const textEdit = new TextEditController(state, new DomTextEdit(openMenuAtViewport, () => menus.isOpen))
 
 // MouseController depends on selection, renderer, highlight, palette, textEdit.
-// onMounted/onUnmounted are called internally by the composable.
-mouse = useMouseInteraction(state, engine, scoreCanvas, selection, renderer, palette, textEdit, clipboard, (dx, dy) => viewport.scrollBy(dx, dy), () => viewport.model.getZoom())
+mouse = new MouseController(
+  () => engine.value,
+  () => scoreCanvas.value,
+  state,
+  selection,
+  renderer,
+  () => palette.getPendingArticulations(),
+  () => textEdit,
+  clipboard,
+  () => palette.armDynamicEntry(),
+  () => palette.armTempoEntry(),
+  (dx, dy) => viewport.scrollBy(dx, dy),
+  () => viewport.model.getZoom(),
+)
+onMounted(() => mouse.setup())
+onUnmounted(() => mouse.teardown())
 
 // Hand the Insert menu its command callbacks. The menu itself lives in plain TS (src/menus); this is
 // the one glue line that lends it a controller — Insert ▸ Text ▸ Expression runs the same action as Ctrl+E.

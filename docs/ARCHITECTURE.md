@@ -17,12 +17,12 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 │  App.vue                      UI: template (palette, canvas), │  Vue
 │                               wires composables together      │  (framework)
 ├─────────────────────────────────────────────────────────────┤
-│  composables/  useMouseInteraction, useKeyboardEntry,         │  Vue glue
-│                useSelection, useRenderer, usePalette,         │  (thin)
-│                useViewport, useHighlight, useTextEditing,      │
-│                useShortcuts                                    │
-│      ↓ thin reactive wrappers — they OWN no logic, they bind  │
-│        Vue reactivity to the controllers below                │
+│  composables/  useViewport (Vue lifecycle), useShortcuts       │  Vue glue
+│                (shortcut wiring)                               │  (thin)
+│      ↓ what is LEFT of this layer. The eight other `useX`     │
+│        shims were deleted: they only turned a `Ref` into a     │
+│        `() => ref.value` getter, and the controllers below     │
+│        already take getters — App.vue constructs them itself.  │
 ├═════════════════════════════════════════════════════════════┤  ← BOUNDARY
 │  interactions/  (framework-agnostic)                          │  Controllers
 │      EditorState ............ all editor UI state (plain obj)  │
@@ -62,7 +62,13 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 **Dependency direction:** each layer may import from the layers below it, never
 above. `utils/` import nothing but `types/` and each other. `engine/` and
 `interactions/` may use `utils/`. `composables/` wrap `interactions/` + `engine/`.
-`App.vue` wires `composables/`.
+`App.vue` wires `composables/` — and, since the shim layer was deleted, constructs
+most controllers directly.
+
+> **⚠️ Vue is being removed** (branch `remove-vue`). It is down to `App.vue`,
+> `main.ts`, and the two composables above; Pinia is gone (no store ever used it).
+> The plan and its ordering live in `docs/remove-vue-plan.md`. Do not add Vue
+> anywhere new — new UI goes in plain TS, the way `windows/` and `menus/` already do.
 
 ---
 
