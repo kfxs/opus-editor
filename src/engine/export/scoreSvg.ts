@@ -41,7 +41,8 @@ export async function renderScoreSvg(score: Score): Promise<ScoreSvgRender> {
   host.style.cssText =
     `position:absolute; left:-10000px; top:0; width:${LAYOUT_CONFIG.CONTAINER_WIDTH}px;` +
     ' pointer-events:none; background:#ffffff;'
-  document.body.appendChild(host)
+  // 🚨 FIRST in the document, and only while the render runs — see the note below the function.
+  document.body.insertBefore(host, document.body.firstChild)
   const dispose = () => host.remove()
 
   try {
@@ -50,6 +51,8 @@ export async function renderScoreSvg(score: Score): Promise<ScoreSvgRender> {
     // Any size will do — `renderScore` resizes the surface to the music it just cast off.
     renderer.initialize(LAYOUT_CONFIG.CONTAINER_WIDTH, LAYOUT_CONFIG.STAVE_HEIGHT)
     renderer.renderScore(score)
+    // The render is over; stand out of the live score's light again.
+    document.body.appendChild(host)
 
     const svg = host.querySelector('svg')
     if (!svg) throw new Error('Export render produced no SVG')
@@ -59,6 +62,31 @@ export async function renderScoreSvg(score: Score): Promise<ScoreSvgRender> {
     throw error
   }
 }
+
+/**
+ * ## Why the export host is inserted FIRST, then moved to the end
+ *
+ * Some engraving happens *after* VexFlow has drawn, by reaching back for the element it drew —
+ * `applyMixedDynamicRuns` re-lays a dynamic's glyph run at music size that way, and the co-location
+ * row, the hand-nudged offsets and the registered hit-boxes all follow the same path. VexFlow finds
+ * that element with **`document.getElementById`** (`Element.getSVGElement`), and the id it looks up
+ * is `vf-` + the element's id — which for a dynamic IS THE MODEL'S OWN ID (`DynamicsLayout` calls
+ * `annotation.setAttribute('id', dyn.id)`).
+ *
+ * So while an export render is on the page there are two elements with that id: the editor's and
+ * ours. `getElementById` returns the first in **tree order**, so an export host appended to the end
+ * of `<body>` loses every one of those lookups to the live score — and the export silently keeps
+ * the un-enlarged glyph. That was the bug: an `f` two-and-a-bit times too small in the PDF, with
+ * the editor showing it correctly the whole time. (The dynamic's own offset and co-location layout
+ * went the same way, less visibly.)
+ *
+ * Being first in tree order wins those lookups back. It is safe because `renderScore` is
+ * **synchronous**: nothing else can render while we hold that position, and we give it up the
+ * moment the call returns — so a live render that lands during the export's async tail (fonts,
+ * outlining, PDF writing) finds the editor's own elements first, as it must.
+ *
+ * ⛔ Do not "simplify" this to a plain `appendChild`.
+ */
 
 /** The rendered surface's size in CSS pixels, read off the SVG the renderer just sized. */
 export function svgPixelSize(svg: SVGSVGElement): { width: number; height: number } {

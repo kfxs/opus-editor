@@ -24,6 +24,17 @@ no undoing — it is a CSS transform on the app's layer, so the SVG is always at
 stacking (`DynamicsLayout`) and tempo-mark placement (`TempoLayout`) ask the DOM for `getBBox()`
 and place marks by the answer; in a `display: none` subtree every box reads 0×0.
 
+🚨 And the host is inserted **first in the document** for the duration of the render, then moved to
+the end. Some engraving reaches back for the element VexFlow just drew — `applyMixedDynamicRuns`
+re-lays a dynamic's glyph run at music size that way, and the co-location row, the hand-nudged
+offsets and the hit-boxes follow the same path. VexFlow finds it with `document.getElementById`,
+and a dynamic's element id **is the model's id**, so while an export render is on the page two
+elements answer to it. `getElementById` returns the first in tree order: a host appended at the end
+loses every one of those lookups to the live score, and the export keeps the un-enlarged glyph — an
+`f` two-and-a-bit times too small, with the editor showing it correctly the whole time. Holding
+first place is safe because `renderScore` is synchronous; the position is given back the moment it
+returns, so a live render during the export's async tail still finds the editor's own elements.
+
 ### 2. Why outline instead of embedding the font
 
 Every glyph VexFlow draws is a `<text>` in Bravura, and VexFlow ships Bravura/Academico as base64
