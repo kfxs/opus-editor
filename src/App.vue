@@ -260,8 +260,8 @@
               {{ printedTupletRatio }}
             </span>
             <span v-else class="text-sm text-amber-400">
-              <span class="font-bold">Can't build this tuplet</span>
-              <span class="text-amber-300/80"> — {{ customTuplet.reason }}</span>
+              <span class="font-bold">Can't build this tuplet:</span>
+              <span class="text-amber-300/80"> {{ customTuplet.reason }}</span>
             </span>
             <button
               class="px-2 py-1 rounded text-sm bg-gray-600 hover:bg-gray-500 disabled:opacity-40"

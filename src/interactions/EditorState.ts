@@ -135,6 +135,27 @@ export function armedNormalSide(
   return { duration: armed.normalDuration, dots: armed.normalDots, count: armed.normalCount }
 }
 
+/**
+ * SPEND the armed tuplet: a tuplet that has just been created is no longer waiting to be created.
+ *
+ * A tuplet arms like a stamp but is not used like one. A stamp stays armed because you place several
+ * — five staccatos, three clefs — and each press is a whole act. A tuplet's press builds a GROUP, and
+ * what you do next is fill it: the notes after the first belong INSIDE the group you just made, and
+ * they get there through the ordinary entry path (which joins the tuplet at that beat). Left armed,
+ * the next click outside the group silently starts a SECOND tuplet — a ratio you set once and got
+ * twice.
+ *
+ * Only on success. A refused placement has spent nothing, and disarming there would make a
+ * mis-aimed click cost you the setting.
+ *
+ * Reassigned, never mutated — the observable Proxy traps the SET (see the note at the top of this
+ * file). A free function for the same reason {@link armedNormalSide} is one: two entry sites, one
+ * rule, spelled once.
+ */
+export function spendArmedTuplet(state: EditorState): void {
+  state.armedTuplet = null
+}
+
 /** Whether the armed tool (if any) uses the armed length — see {@link MARKING_TOOL_USES_ARMED_LENGTH}.
  *  False with nothing armed: the keys are live then for the ordinary reason (note entry). */
 export function armedToolUsesLength(state: EditorState): boolean {

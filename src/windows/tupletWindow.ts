@@ -1,7 +1,8 @@
 import type { WindowLayer } from './WindowLayer'
 import type { Window } from './Window'
 import type { NoteDuration } from '../types/music'
-import { resolveTupletInTimeOf, tupletPrintedCounts } from '../utils/musicUtils'
+import { resolveTupletInTimeOf, tupletPrintedCounts, type TupletResolution } from '../utils/musicUtils'
+import { tupletSelection, type ArmedTuplet } from '../interactions/tupletSelection'
 import { Column, Columns, GroupBox, Row } from './content/layout'
 import { Button, Checkbox, GlyphSelect, Label, NumberInput, RadioGroup } from './content/widgets'
 
@@ -16,9 +17,13 @@ import { Button, Checkbox, GlyphSelect, Label, NumberInput, RadioGroup } from '.
  * asks only for the NUMBER because it infers the rest from what you selected; we ask the whole
  * sentence, because a dialog you opened from a menu may have nothing selected to infer from.
  *
- * ⚠️ LOOK-ONLY, still — the same stage the Clef window opened at. Everything below is laid out and
- * nothing is wired: OK closes and writes no score (the readout is live, but it only READS). That is
- * deliberate and not an oversight, because of what the format options would have to be written INTO:
+ * OK ARMS the tuplet for the next note — it does not apply one, because a tuplet is a group of notes
+ * you are about to write and there is nothing to convert until they exist. Same contract as the
+ * palette's presets, same route: {@link ../interactions/tupletSelection} → `keypadSync` →
+ * `PaletteController.armTupletInTimeOf`.
+ *
+ * ⚠️ The *Format* box is still LOOK-ONLY, and OK deliberately drops it, because of what those
+ * choices would have to be written INTO:
  *
  *   `Tuplet` (types/music.ts) carries `numNotes`, `notesOccupied` and `placement` — the ratio and the
  *   side. It has NO field for what the mark shows (number / ratio / ratio + note / nothing), none for
@@ -26,7 +31,7 @@ import { Button, Checkbox, GlyphSelect, Label, NumberInput, RadioGroup } from '.
  *   the model plus four decisions in the renderer, and inventing them from a screenshot is exactly the
  *   move that lands a field nobody wanted. The picture comes first; the model follows it, once.
  *
- * So the controls below are the QUESTION — is this the dialog? — and not yet the answer.
+ * So that half of the dialog is still the QUESTION — is this the dialog? — and not yet the answer.
  *
  * Two departures from the screenshot, both on purpose:
  *   • The advisory line is muted grey, not Sibelius's blue: that blue on our dark glass is a contrast
@@ -55,6 +60,10 @@ const TUPLET_UNITS = [
  *  window's 14px face, with air after it. Stated once because BOTH rows must use the same number:
  *  that equality is the alignment. */
 const PHRASE_WIDTH = 96
+
+/** The ratio's font size, in px — the dialog's answer, read at a glance from across the desk. Fits
+ *  the two lines held for the readout, so it does not change the window's height. */
+const RATIO_SIZE = 20
 
 /** What the tuplet's mark SAYS. Sibelius's left column, in its order. */
 const NUMBER_STYLES = [
@@ -88,6 +97,23 @@ export function openTupletWindow(windows: WindowLayer): Window {
   const normalUnit = new GlyphSelect(TUPLET_UNITS, { selected: 'q', width: 62, onChange: () => refresh() })
   const normalDotted = new Checkbox('dotted', { onChange: () => refresh() })
 
+  /** What the six controls currently say, as the entry the palette's own boxes would send. Read at
+   *  CLICK time, never captured: every control moves under it. */
+  const entry = (): ArmedTuplet => ({
+    numNotes: count.value,
+    unit: unit.value as NoteDuration,
+    unitDots: unitDotted.checked ? 1 : 0,
+    normalCount: normalCount.value,
+    normalUnit: normalUnit.value as NoteDuration,
+    normalDots: normalDotted.checked ? 1 : 0,
+  })
+
+  /** Whether that entry is a tuplet at all — asked of the same rule the palette asks. */
+  const resolve = (): TupletResolution => {
+    const e = entry()
+    return resolveTupletInTimeOf(e.numNotes, e.unit, e.normalCount, e.normalUnit, e.unitDots, e.normalDots)
+  }
+
   /**
    * What those six controls come to — or WHY they come to nothing. A refusal states the VERDICT
    * first and the reason second, in two tones: the verdict is what you need at a glance, the reason
@@ -96,51 +122,68 @@ export function openTupletWindow(windows: WindowLayer): Window {
    * The ratio is the one the MARK will print (`tupletPrintedCounts`), derived from the shape rather
    * than read off it, so the readout and the engraved number cannot disagree.
    */
-  const verdict = (): { text: string; tone: 'normal' | 'error' | 'warn' }[] => {
-    const resolved = resolveTupletInTimeOf(
-      count.value,
-      unit.value as NoteDuration,
-      normalCount.value,
-      normalUnit.value as NoteDuration,
-      unitDotted.checked ? 1 : 0,
-      normalDotted.checked ? 1 : 0,
-    )
+  const verdict = (): { text: string; tone: 'value' | 'error' | 'warn'; newLine?: boolean; size?: number }[] => {
+    const resolved = resolve()
     if (resolved.ok) {
       const printed = tupletPrintedCounts(resolved.shape)
-      return [{ text: `${printed.numNotes}:${printed.notesOccupied}`, tone: 'normal' }]
+      // The ANSWER, and printed like one: bigger than the prose around it and in the value blue,
+      // because it is the one thing in this dialog you are here to read.
+      return [{ text: `${printed.numNotes}:${printed.notesOccupied}`, tone: 'value', size: RATIO_SIZE }]
     }
+    // The verdict on its own line, the reason under it: two statements, read in that order, and the
+    // reason is then free to be as long as it needs without pushing the verdict out of the way. The
+    // colon is what carries the first line into the second — a dash would read as a clause of a
+    // sentence that has already ended.
     return [
-      { text: "Can't build this tuplet", tone: 'error' },
-      { text: ` — ${resolved.reason}`, tone: 'warn' },
+      { text: "Can't build this tuplet:", tone: 'error' },
+      { text: resolved.reason, tone: 'warn', newLine: true },
     ]
   }
 
-  // Built with the CURRENT verdict, not empty: the window measures itself once as it opens, and a
-  // readout that fills in afterwards would be measured as a blank line — which is exactly how the OK
-  // button ended up below the window's bottom edge.
-  const readout = new Label(verdict().map((p) => p.text).join(''))
+  // TWO lines are held for the verdict from the start, whatever it currently says: a ratio is one
+  // line and a refusal is two, and without the reservation the whole dialog would change size under
+  // your hands as you type. Built with the CURRENT verdict rather than empty for the same reason —
+  // the window measures itself as it opens, and a readout that fills in afterwards is measured blank.
+  const readout = new Label(verdict().map((p) => p.text).join(''), { lines: 2 })
 
   /**
-   * Repaint the verdict and RE-FIT the window to it. The refit is not optional: `fitContent` measures
-   * at open and the height it finds is then fixed, so a two-line refusal where a one-line ratio used
-   * to be is simply clipped — and what gets clipped is the row of buttons at the bottom.
+   * Commit: ARM the tuplet for the next note, and get out of the way.
+   *
+   * Arming and not applying, because a tuplet is a group of notes you are about to WRITE — there is
+   * nothing to convert until they exist. That is the same contract the palette's presets have had all
+   * along, and the routing is the palette's own `armTupletInTimeOf`, reached through
+   * {@link tupletSelection}: the window publishes the sentence, `keypadSync` hands it to the
+   * controller. The Format choices do NOT travel — the model has nowhere to put them yet (see above),
+   * and a dialog that silently drops half of what you set would be worse than one that cannot set it.
+   *
+   * A refusal is refused HERE too, not only greyed on the button: Enter reaches this function without
+   * touching the button at all.
+   */
+  const accept = (): void => {
+    if (!resolve().ok) return
+    tupletSelection.press(entry())
+    win?.close()
+  }
+
+  // Held so the verdict can grey it: an OK that cannot work must not look like it can.
+  const okButton = new Button('OK', accept, { variant: 'primary' })
+
+  /**
+   * Repaint the verdict, grey OK when there is nothing to arm, and re-fit the window in case it no
+   * longer fits. With two lines reserved the refit is normally a no-op — it is the backstop for a
+   * message longer than the reservation, since `fitContent` measures once at open and anything past
+   * that height is CLIPPED, buttons first.
    */
   const refresh = (): void => {
+    const resolved = resolve()
     readout.setParts(verdict())
+    okButton.setDisabled(!resolved.ok)
     if (win) windows.refit(win)
   }
 
   const numberStyle = new RadioGroup(NUMBER_STYLES, { selected: 'number', direction: 'column' })
   const bracket = new RadioGroup(BRACKETS, { selected: 'auto', direction: 'column' })
   const fullDuration = new Checkbox('Full duration')
-
-  /**
-   * Commit: closes, and nothing more — see the LOOK-ONLY note above. It is a named function and the
-   * target of both OK and Enter so that the day it creates a tuplet, one function changes.
-   */
-  const accept = (): void => {
-    win?.close()
-  }
 
   win = windows.open({
     title: 'Tuplet',
@@ -184,7 +227,7 @@ export function openTupletWindow(windows: WindowLayer): Window {
           muted: true,
         }),
         // Cancel then OK, left to right, OK primary — the platform order, and the screenshot's.
-        new Row([new Button('Cancel', () => win?.close()), new Button('OK', accept, { variant: 'primary' })], {
+        new Row([new Button('Cancel', () => win?.close()), okButton], {
           gap: 8,
           align: 'end',
         }),

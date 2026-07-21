@@ -202,8 +202,8 @@ export function resolveTupletInTimeOf(
   unitDots = 0,
   normalDots = 0,
 ): TupletResolution {
-  if (!Number.isInteger(numNotes) || numNotes < 2) return { ok: false, reason: 'you need at least 2 notes in the group' }
-  if (!Number.isInteger(normalCount) || normalCount < 1) return { ok: false, reason: 'the time it replaces must be at least one note' }
+  if (!Number.isInteger(numNotes) || numNotes < 2) return { ok: false, reason: 'You need at least 2 notes in the group' }
+  if (!Number.isInteger(normalCount) || normalCount < 1) return { ok: false, reason: 'The time it replaces must be at least one note' }
 
   // The RATIO is worked out exactly as it always was: both counts count the ACTUAL value, so
   // "5 sixteenths in the time of 1 quarter" is 5:4 — four sixteenths — and never 5:1.
@@ -233,7 +233,7 @@ export function resolveTupletInTimeOf(
   // they keep their own value and there is no tuplet to make.
   const scale = tupletScale(shape)
   if (scale.num === scale.den) {
-    return { ok: false, reason: 'the notes would keep their own value' }
+    return { ok: false, reason: 'The notes would keep their own value' }
   }
   return { ok: true, shape }
 }

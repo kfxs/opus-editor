@@ -2,7 +2,7 @@ import { dbg } from '@/utils/debug'
 import type { ArticulationType, Note, PitchStep, PitchAlter, Fraction, Score } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
-import { activeVoiceToModel, armedTool, armedNormalSide } from './EditorState'
+import { activeVoiceToModel, armedTool, armedNormalSide, spendArmedTuplet } from './EditorState'
 import { navBeatMap, type FlatNote } from '../utils/beatMap'
 import { getMeasureNotes, measureCapacityFrac } from '../utils/musicUtils'
 import { fracToNumber, fracEq, fracFromInt, fracSub } from '../utils/fraction'
@@ -305,6 +305,9 @@ export class KeyboardController {
         armedNormalSide(this.state.armedTuplet),
       )
       newNote = result ? result.firstNote : null
+      // The group exists now, so the ratio has been spent — the notes that follow fill it through
+      // the ordinary path below, which joins the tuplet at that beat. Only on success.
+      if (newNote) spendArmedTuplet(this.state)
     } else {
       // The note continues the cursor note's voice. An existing tuplet found here
       // is already in that voice (getTupletAtBeat is voice-scoped), so joining it

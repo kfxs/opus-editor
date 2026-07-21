@@ -138,6 +138,14 @@ const ERROR_INK = '#f87171'
 /** Amber — the REASON beside an error verdict (Tailwind amber-400). */
 const WARN_INK = '#fbbf24'
 
+/** A computed VALUE a dialog is showing back to you — the primary button's blue family, two steps
+ *  brighter (blue-400). The button's own blue-600 is a FILL, and as ink on the dark glass it reads
+ *  as disabled rather than as the answer. */
+const VALUE_INK = '#60a5fa'
+
+/** One line of label text, in px — see {@link Label} `lines`. Comfortable for the 14px content face. */
+const LINE_HEIGHT = 19
+
 export interface ButtonOptions {
   /** 'primary' is the one that commits — the Save in a Save window. */
   variant?: 'primary' | 'default'
@@ -194,13 +202,17 @@ export class Button implements Widget {
  * `warn` is the REASON attached to it — a second tone because they are two different statements: the
  * verdict is what you read at a glance, the reason is what you read once you have stopped. In one
  * red the reason reads as more shouting; in the muted grey it reads as a footnote nobody needs.
+ *
+ * `value` is the ANSWER — what the fields above came to. It is a different KIND of text from the
+ * prose around it, so it is a different colour, and the tone says which kind rather than which hue.
  */
-export type LabelTone = 'normal' | 'muted' | 'error' | 'warn'
+export type LabelTone = 'normal' | 'muted' | 'error' | 'warn' | 'value'
 
 function toneInk(tone: LabelTone | undefined): string {
   if (tone === 'error') return ERROR_INK
   if (tone === 'warn') return WARN_INK
   if (tone === 'muted') return CHROME.inkMuted
+  if (tone === 'value') return VALUE_INK
   return CHROME.ink
 }
 
@@ -210,10 +222,18 @@ export class Label implements Widget {
 
   constructor(
     private text: string,
-    /** `width` fixes the label's column, in px — what makes a phrase in one row line up with the
-     *  blank space held for it in another ("in the time of" beside the row above it). Without it a
-     *  label is as wide as its words, and two rows that share a caption column cannot align. */
-    private readonly opts: { muted?: boolean; tone?: LabelTone; width?: number } = {},
+    /**
+     * `width` fixes the label's column, in px — what makes a phrase in one row line up with the
+     * blank space held for it in another ("in the time of" beside the row above it). Without it a
+     * label is as wide as its words, and two rows that share a caption column cannot align.
+     *
+     * `lines` RESERVES that many lines of height whatever the text currently is — for a label whose
+     * text changes as you type (a verdict on a field). Without it the label is one line when things
+     * are fine and two when they are not, and everything below it MOVES: in a fit-to-content window
+     * that means the dialog itself changing size while you use it. A floor and not a fixed height,
+     * so an unexpectedly long message still grows rather than being silently cut.
+     */
+    private readonly opts: { muted?: boolean; tone?: LabelTone; width?: number; lines?: number } = {},
   ) {}
 
   mount(host: HTMLElement): void {
@@ -226,6 +246,12 @@ export class Label implements Widget {
       // The column is a stated width, so the phrase in it must not wrap into two lines and push the
       // row it captions taller than its twin.
       el.style.whiteSpace = 'nowrap'
+    }
+    if (this.opts.lines !== undefined) {
+      // The line height is STATED, not inherited: the reserved height is `lines × line`, and that
+      // arithmetic has to hold against a line box the caller cannot see.
+      el.style.lineHeight = `${LINE_HEIGHT}px`
+      el.style.minHeight = `${this.opts.lines * LINE_HEIGHT}px`
     }
     host.appendChild(el)
     this.el = el
@@ -244,23 +270,35 @@ export class Label implements Widget {
   }
 
   /**
-   * Re-text in SEVERAL tones — one line that is a verdict and its reason ("Can't build this tuplet"
-   * in red, "the notes would keep their own value" in amber), which one Label can say and two
-   * stacked Labels cannot: two Labels are two lines, and the reason would stop being a clause of
-   * the sentence above it. The runs wrap as ONE paragraph, so a long reason still flows.
+   * Re-text in SEVERAL tones — a verdict and its reason ("Can't build this tuplet" in red, "the
+   * notes would keep their own value" in amber). ONE Label and not two stacked ones, even when the
+   * runs are on separate lines: they are one statement that must move, wrap and empty together, and
+   * two Labels would leave a stacking gap behind when the reason goes away.
+   *
+   * `newLine` breaks before a run. A run that continues the line still wraps with the one before it,
+   * so a long reason flows as a paragraph either way. `size` sets a run's font size in px — a result
+   * is READ, and the number it states can be worth more than the prose around it.
    */
-  setParts(parts: { text: string; tone?: LabelTone }[]): void {
+  setParts(parts: { text: string; tone?: LabelTone; newLine?: boolean; size?: number }[]): void {
     const el = this.el
     if (!el) return
     this.text = parts.map((p) => p.text).join('')
     el.textContent = ''
     el.style.color = CHROME.ink // each run states its own; this is only the fallback
-    for (const part of parts) {
+    parts.forEach((part, i) => {
+      if (part.newLine && i > 0) el.appendChild(document.createElement('br'))
       const span = document.createElement('span')
       span.textContent = part.text
       span.style.color = toneInk(part.tone)
+      if (part.size !== undefined) {
+        span.style.fontSize = `${part.size}px`
+        // Its OWN line box, or the run sits on the container's 19px line and a 20px number is
+        // crammed against whatever is above it. Set here rather than left to the browser so the run
+        // has air proportional to its size.
+        span.style.lineHeight = `${Math.round(part.size * 1.8)}px`
+      }
       el.appendChild(span)
-    }
+    })
   }
 }
 

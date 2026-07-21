@@ -3,7 +3,7 @@ import type { ArticulationType, PitchSpelling, Fraction, SlurSegmentAddress } fr
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry, ElementType } from '../engine/ElementRegistry'
 import type { EditorState } from './EditorState'
-import { activeVoiceToModel, armedTool, armedNormalSide } from './EditorState'
+import { activeVoiceToModel, armedTool, armedNormalSide, spendArmedTuplet } from './EditorState'
 import { tempoLabel } from '../utils/tempoMap'
 import { tempoFieldsFromTool } from '../utils/tempoText'
 import { TempoTextSource } from './TempoTextSource'
@@ -1878,6 +1878,9 @@ export class MouseController {
             const fn = result.firstNote
             const fnPitch = formatPitch(fn)
             dbg(`✓ Tuplet created | tupletId:${result.tuplet.id} firstNote:${fnPitch} measure:${fn.measure} beat:${fracToNumber(fn.beat).toFixed(3)}`)
+            // The group exists now, so the ratio has been spent: the clicks that follow fill it as
+            // ordinary notes (see spendArmedTuplet). Entry mode STAYS — you are still writing.
+            spendArmedTuplet(this.state)
             this.selection.moveCaretTo(result.firstNote.id)
             this.state.selectedTool = 'entry'
             this.render.renderScore()

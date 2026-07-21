@@ -11,6 +11,7 @@ import { tieSelection } from './tieSelection'
 import { restSelection } from './restSelection'
 import { clefSelection } from './clefSelection'
 import { timeSignatureSelection } from './timeSignatureSelection'
+import { tupletSelection } from './tupletSelection'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
 
 /**
@@ -140,6 +141,12 @@ export function wireKeypadSync(
     // armClef, not setClef: the Clef window's OK confirms a choice, it does not toggle a button.
     clefSelection.onPress((a) => palette.armClef(a.clef, a.cautionary)),
     timeSignatureSelection.onPress((a) => palette.armTimeSignature(a.timeSignature, a.cautionary, a.pickup)),
+    // The window sends the SENTENCE ("3 ♪ in the time of 1 ♩"); the controller turns it into a shape,
+    // exactly as the palette's own boxes do. It can still refuse — the window has already checked,
+    // but the check is the controller's, not a promise the caller gets to make.
+    tupletSelection.onPress((a) =>
+      palette.armTupletInTimeOf(a.numNotes, a.unit, a.normalCount, a.normalUnit, a.unitDots, a.normalDots),
+    ),
   ]
   return () => stops.forEach((stop) => stop())
 }
