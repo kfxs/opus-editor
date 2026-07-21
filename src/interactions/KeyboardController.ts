@@ -303,6 +303,7 @@ export class KeyboardController {
         // The armed dot IS the tuplet's unit dot — 'a dotted quarter' is one armed value, not two.
         this.state.selectedDots,
         armedNormalSide(this.state.armedTuplet),
+        this.state.armedTuplet.format,
       )
       newNote = result ? result.firstNote : null
       // The group exists now, so the ratio has been spent — the notes that follow fill it through

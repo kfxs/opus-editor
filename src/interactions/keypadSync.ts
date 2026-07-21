@@ -145,7 +145,7 @@ export function wireKeypadSync(
     // exactly as the palette's own boxes do. It can still refuse — the window has already checked,
     // but the check is the controller's, not a promise the caller gets to make.
     tupletSelection.onPress((a) =>
-      palette.armTupletInTimeOf(a.numNotes, a.unit, a.normalCount, a.normalUnit, a.unitDots, a.normalDots),
+      palette.armTupletInTimeOf(a.numNotes, a.unit, a.normalCount, a.normalUnit, a.unitDots, a.normalDots, a.format),
     ),
   ]
   return () => stops.forEach((stop) => stop())

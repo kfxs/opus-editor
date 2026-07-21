@@ -1,5 +1,5 @@
 import { dbg } from '@/utils/debug'
-import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature, Fraction } from '../types/music'
+import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature, Fraction, TupletFormat } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorState'
@@ -956,6 +956,9 @@ export class PaletteController {
     normalDuration?: NoteDuration,
     normalDots?: number,
     normalCount?: number,
+    /** How the group will be DRAWN — the Tuplet window's Format box. Omitted by every preset and
+     *  every `Ctrl+`N, which is what "engrave it by the rules" looks like. */
+    format?: TupletFormat,
   ): void {
     const engine = this.getEngine()
     if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
@@ -982,6 +985,7 @@ export class PaletteController {
           numNotes,
           notesOccupied,
           ...(normalDuration && { normalDuration, normalCount, ...(normalDots && { normalDots }) }),
+          ...(format && { format }),
         }
     if (this.state.armedTuplet) {
       this.state.selectedDots = 0
@@ -1027,6 +1031,8 @@ export class PaletteController {
     normalUnit: NoteDuration,
     unitDots = 0,
     normalDots = 0,
+    /** How the group will be DRAWN — see {@link armTuplet}. */
+    format?: TupletFormat,
   ): boolean {
     const resolved = this.resolveTupletInTimeOf(numNotes, unit, normalCount, normalUnit, unitDots, normalDots)
     if (!resolved.ok) return false
@@ -1036,7 +1042,7 @@ export class PaletteController {
     // Assigned rather than routed through `setDuration`, which disarms the tuplet and would retype a
     // selected NOTE on the way.
     this.state.selectedDuration = shape.baseDuration
-    this.armTuplet(shape.numNotes, shape.notesOccupied, shape.normalDuration, shape.normalDots, shape.normalCount)
+    this.armTuplet(shape.numNotes, shape.notesOccupied, shape.normalDuration, shape.normalDots, shape.normalCount, format)
     // AFTER armTuplet, which zeroes the dots for the plain presets. The unit's dot is part of the
     // note value being armed, so here it must survive.
     this.state.selectedDots = shape.baseDots ?? 0

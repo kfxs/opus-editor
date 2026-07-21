@@ -1,4 +1,4 @@
-import type { NoteDuration } from '../types/music'
+import type { NoteDuration, TupletFormat } from '../types/music'
 
 /**
  * The tuplet the Tuplet window ({@link ../windows/tupletWindow}) asked for, published for
@@ -22,6 +22,9 @@ export interface ArmedTuplet {
   normalCount: number
   normalUnit: NoteDuration
   normalDots: number
+  /** The dialog's *Format* box — how the group will be DRAWN. It travels with the entry because it
+   *  is decided in the same breath, before the notes it describes exist. */
+  format?: TupletFormat
 }
 
 class TupletSelection {

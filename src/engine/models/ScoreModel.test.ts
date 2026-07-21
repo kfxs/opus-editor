@@ -469,6 +469,24 @@ describe('ScoreModel', () => {
       expect(tupletNotes).toHaveLength(0)
     })
 
+    it('stores the format it was given, and stores nothing when given none', () => {
+      model.addMeasure()
+      const plain = model.createTuplet(1, frac(0, 1), '8', 3, 2)
+      // Absent MEANS "engrave by the rules", so a tuplet nobody argued with carries no look at all.
+      expect(plain.numberStyle).toBeUndefined()
+      expect(plain.bracket).toBeUndefined()
+      expect(plain.bracketEnd).toBeUndefined()
+
+      const formatted = model.createTuplet(2, frac(0, 1), '8', 3, 2, 0, 0, 0, undefined, {
+        numberStyle: 'ratioNote',
+        bracket: 'never',
+        bracketEnd: 'division',
+      })
+      expect(formatted.numberStyle).toBe('ratioNote')
+      expect(formatted.bracket).toBe('never')
+      expect(formatted.bracketEnd).toBe('division')
+    })
+
     it('removes overlapping slots when creating a tuplet', () => {
       // There should be a whole rest covering the measure before creating the tuplet
       const before = model.getNotesInMeasure(1)

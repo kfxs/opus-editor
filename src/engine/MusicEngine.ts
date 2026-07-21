@@ -16,7 +16,7 @@ import { quantizeBeat } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } from '@/utils/pitchSpelling'
 import { prevailingAlterAt } from '@/utils/accidentalState'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
@@ -1831,8 +1831,11 @@ export class MusicEngine {
     dots: number = 0,
     /** The NORMAL side's own note value, when the user named one ("in the time of a QUARTER"). */
     normal?: { duration: NoteDuration; dots?: number; count?: number },
+    /** How the group is DRAWN — mark style, bracket, bracket end. Absent = the renderer's rules.
+     *  See {@link TupletFormat}. */
+    format?: TupletFormat,
   ): { tuplet: Tuplet; firstNote: Note } | null {
-    return this.noteEntryCoordinator.createTupletAtPosition(coords, duration, spelling, numNotes, notesOccupied, voice, dots, normal)
+    return this.noteEntryCoordinator.createTupletAtPosition(coords, duration, spelling, numNotes, notesOccupied, voice, dots, normal, format)
   }
 
   /**
@@ -1852,8 +1855,11 @@ export class MusicEngine {
     dots: number = 0,
     /** The NORMAL side's own note value — see {@link createTupletAtPosition}. */
     normal?: { duration: NoteDuration; dots?: number; count?: number },
+    /** How the group is DRAWN — mark style, bracket, bracket end. Absent = the renderer's rules.
+     *  See {@link TupletFormat}. */
+    format?: TupletFormat,
   ): { tuplet: Tuplet; firstNote: Note } | null {
-    return this.noteEntryCoordinator.createTupletAtBeat(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice, staff, dots, normal)
+    return this.noteEntryCoordinator.createTupletAtBeat(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice, staff, dots, normal, format)
   }
 
   /**

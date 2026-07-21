@@ -13,7 +13,7 @@ import {
 } from '@/utils/fraction'
 import { durationToFraction, fitRestDuration, splitBeatsIntoLengths } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
-import type { Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, Measure } from '@/types/music'
+import type { Note, NoteParams, PixelCoordinates, Tuplet, TupletFormat, NoteDuration, ArticulationType, Accidental, PitchSpelling, Measure } from '@/types/music'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '@/utils/pitchSpelling'
 import { ElementRegistry } from './ElementRegistry'
 import type { ElementInfo } from './ElementRegistry'
@@ -856,6 +856,9 @@ export class NoteEntryCoordinator {
     dots: number = 0,
     /** The NORMAL side's own note value, when the user named one ("in the time of a QUARTER"). */
     normal?: { duration: NoteDuration; dots?: number; count?: number },
+  /** How the group is DRAWN — mark style, bracket, bracket end. Absent, and every field inside it
+   *  absent, means "the renderer's own rules". See {@link TupletFormat}. */
+  format?: TupletFormat,
   ): { tuplet: Tuplet; firstNote: Note } | null {
     const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
 
@@ -910,7 +913,7 @@ export class NoteEntryCoordinator {
       config: `${numNotes}:${notesOccupied} ${duration}${'.'.repeat(dots)}`,
     })
 
-    return this.buildTupletWithFirstNote(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice, entryStaff, dots, normal)
+    return this.buildTupletWithFirstNote(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice, entryStaff, dots, normal, format)
   }
 
   /**
@@ -930,6 +933,9 @@ export class NoteEntryCoordinator {
     dots: number = 0,
     /** The NORMAL side's own note value — see {@link createTupletAtPosition}. */
     normal?: { duration: NoteDuration; dots?: number; count?: number },
+  /** How the group is DRAWN — mark style, bracket, bracket end. Absent, and every field inside it
+   *  absent, means "the renderer's own rules". See {@link TupletFormat}. */
+  format?: TupletFormat,
   ): { tuplet: Tuplet; firstNote: Note } | null {
     const targetMeasure = this.getScoreModel().getMeasure(measureNumber)
     if (!targetMeasure) return null
@@ -937,7 +943,7 @@ export class NoteEntryCoordinator {
     const existingTuplet = this.getScoreModel().getTupletAtBeat(measureNumber, beatToFrac(beat), voice, staff)
     if (existingTuplet) return null
 
-    return this.buildTupletWithFirstNote(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice, staff, dots, normal)
+    return this.buildTupletWithFirstNote(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice, staff, dots, normal, format)
   }
 
   /**
@@ -1039,6 +1045,9 @@ export class NoteEntryCoordinator {
     staff: number = 0,
     dots: number = 0,
     normal?: { duration: NoteDuration; dots?: number; count?: number },
+  /** How the group is DRAWN — mark style, bracket, bracket end. Absent, and every field inside it
+   *  absent, means "the renderer's own rules". See {@link TupletFormat}. */
+  format?: TupletFormat,
   ): { tuplet: Tuplet; firstNote: Note } | null {
     // Refuse to create a tuplet whose span would overlap an existing same-voice,
     // same-staff tuplet. Two overlapping tuplets in one voice corrupt entry: a beat
@@ -1073,7 +1082,7 @@ export class NoteEntryCoordinator {
 
     // Create the tuplet (removes overlapping same-voice + same-staff slots, places no initial rests)
     const beatFrac = beatToFrac(beat)
-    const tuplet = this.getScoreModel().createTuplet(measureNumber, beatFrac, duration, numNotes, notesOccupied, voice, staff, dots, normal)
+    const tuplet = this.getScoreModel().createTuplet(measureNumber, beatFrac, duration, numNotes, notesOccupied, voice, staff, dots, normal, format)
     const actualDuration = tupletWrittenDuration(shape, duration, dots)
 
     let firstNote: Note

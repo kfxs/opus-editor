@@ -1,4 +1,4 @@
-import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, DynamicLevel, ArticulationType, Fraction } from '../types/music'
+import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, DynamicLevel, ArticulationType, Fraction, TupletFormat } from '../types/music'
 import type { SelectionItem } from './selection'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 
@@ -325,6 +325,9 @@ export interface EditorState {
     normalDuration?: NoteDuration
     normalDots?: number
     normalCount?: number
+    /** How the group will be DRAWN when it lands — the Tuplet window's *Format* box, riding along
+     *  because it is decided before the notes exist. Absent = engrave by the renderer's rules. */
+    format?: TupletFormat
   } | null
   selectedBeam: BeamMode
 

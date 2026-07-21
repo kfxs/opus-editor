@@ -1872,6 +1872,7 @@ export class MouseController {
             activeVoiceToModel(this.state.activeVoice),
             this.state.selectedDots,
             armedNormalSide(this.state.armedTuplet),
+            this.state.armedTuplet.format,
           )
 
           if (result) {

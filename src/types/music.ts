@@ -86,7 +86,7 @@ export interface TupletShape {
  * Tuplet definition (e.g., triplet = 3 notes in the time of 2) — a {@link TupletShape} placed in a
  * bar, with an identity and the engraving overrides that ride on it.
  */
-export interface Tuplet extends TupletShape {
+export interface Tuplet extends TupletShape, TupletFormat {
   /** Unique identifier for the tuplet */
   id: string
   /** Beat position where the tuplet starts (exact rational) */
@@ -97,6 +97,45 @@ export interface Tuplet extends TupletShape {
    * forces the side, e.g. via the `x` flip. 'above' = LOCATION_TOP, 'below' = LOCATION_BOTTOM.
    */
   placement?: 'above' | 'below'
+  /** Staff this tuplet belongs to (a {@link StaffInfo} id); absent = staff 0. See
+   *  docs/multi-staff-plan.md §4. Orthogonal to voice (the owning slots carry it). */
+  staffId?: string
+}
+
+/** The Tuplet window's left column — what the mark says. `undefined` on a {@link Tuplet} = auto. */
+export type TupletNumberStyle = 'number' | 'ratio' | 'ratioNote' | 'none'
+
+/** Whether the group gets a bracket. `auto` (and absent) = the renderer's rule — no bracket when a
+ *  beam already shows the grouping, one when it does not. */
+export type TupletBracket = 'auto' | 'always' | 'never'
+
+/**
+ * Where the bracket STOPS — Dorico's three, in its Engraving Options ▸ Tuplets ▸ Horizontal Position,
+ * because the real question is three-way and not the tickbox Sibelius offers ("full duration").
+ *
+ * `lastNote` ends at the right-hand edge of the final notehead — Sibelius's and Finale's untouched
+ * behaviour. `division` ends where the group's TIME ends, so the bracket covers a final rest or the
+ * full length of a final long note. `beforeNext` ends just short of whatever follows.
+ *
+ * Absent = the renderer's rule, which is `division` — see
+ * {@link ../utils/musicUtils.DEFAULT_TUPLET_BRACKET_END} for why that one is the default and not the
+ * shorter, more familiar one.
+ */
+export type TupletBracketEnd = 'lastNote' | 'division' | 'beforeNext'
+
+/**
+ * The Tuplet dialog's *Format* box: everything about how the group is DRAWN, and nothing about what
+ * it plays. A tuplet with no format at all engraves by the renderer's own rules — every field is
+ * absent-means-auto, so an ordinary triplet stores nothing and serializes exactly as it always did.
+ *
+ * One named group, rather than three loose fields, because these travel TOGETHER: the window sets
+ * them before the notes exist, they ride on the armed tuplet, and they are written when the group is
+ * created. A trio of positional arguments through five call layers is how one of them goes missing.
+ *
+ * ⚠️ They are HOW IT LOOKS. Nothing here may ever be read by `tupletSpan`, `tupletScale` or anything
+ * that computes time — a format that changed the rhythm would be a format that is not a format.
+ */
+export interface TupletFormat {
   /**
    * What the mark PRINTS: the number alone (`3`), the ratio (`3:2`), the ratio with the note value
    * beside it (`3:2♪`), or nothing. Absent = auto — the renderer's own rule, which shows a bare
@@ -108,13 +147,12 @@ export interface Tuplet extends TupletShape {
    * would be lying about the notes under it. Style in, string derived.
    */
   numberStyle?: TupletNumberStyle
-  /** Staff this tuplet belongs to (a {@link StaffInfo} id); absent = staff 0. See
-   *  docs/multi-staff-plan.md §4. Orthogonal to voice (the owning slots carry it). */
-  staffId?: string
+  /** Whether the group is bracketed. See {@link TupletBracket}. */
+  bracket?: TupletBracket
+  /** Where that bracket stops. See {@link TupletBracketEnd}. Meaningless without a bracket, and the
+   *  dialog greys it out then — but it is kept, so turning the bracket back on restores the choice. */
+  bracketEnd?: TupletBracketEnd
 }
-
-/** The Tuplet window's left column — what the mark says. `undefined` on a {@link Tuplet} = auto. */
-export type TupletNumberStyle = 'number' | 'ratio' | 'ratioNote' | 'none'
 
 /**
  * Accidental types

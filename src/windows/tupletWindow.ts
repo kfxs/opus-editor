@@ -1,6 +1,6 @@
 import type { WindowLayer } from './WindowLayer'
 import type { Window } from './Window'
-import type { NoteDuration } from '../types/music'
+import type { NoteDuration, TupletBracket, TupletFormat, TupletNumberStyle } from '../types/music'
 import { resolveTupletInTimeOf, tupletPrintedCounts, type TupletResolution } from '../utils/musicUtils'
 import { tupletSelection, type ArmedTuplet } from '../interactions/tupletSelection'
 import { Column, Columns, GroupBox, Row } from './content/layout'
@@ -22,16 +22,14 @@ import { Button, Checkbox, GlyphSelect, Label, NumberInput, RadioGroup } from '.
  * palette's presets, same route: {@link ../interactions/tupletSelection} → `keypadSync` →
  * `PaletteController.armTupletInTimeOf`.
  *
- * ⚠️ The *Format* box is still LOOK-ONLY, and OK deliberately drops it, because of what those
- * choices would have to be written INTO:
+ * The *Format* box travels too, and is STORED: all three choices land on the tuplet as
+ * {@link TupletFormat} when the group is created. ⚠️ Nothing RENDERS them yet — VexFlow still draws
+ * its own number and a bracket that is always on, stopping at the last notehead — so choosing *None*
+ * changes the score's data and not (yet) its picture. Stored first on purpose: the choice has to
+ * survive the entry it was made during, and the renderer can then read a value that is already there.
  *
- *   `Tuplet` (types/music.ts) carries `numNotes`, `notesOccupied` and `placement` — the ratio and the
- *   side. It has NO field for what the mark shows (number / ratio / ratio + note / nothing), none for
- *   the bracket (auto / always / never), and none for "full duration". Those are four new fields on
- *   the model plus four decisions in the renderer, and inventing them from a screenshot is exactly the
- *   move that lands a field nobody wanted. The picture comes first; the model follows it, once.
- *
- * So that half of the dialog is still the QUESTION — is this the dialog? — and not yet the answer.
+ * *Full duration* is a two-valued control over a three-valued field, and knowingly so: it is
+ * `division` or `lastNote`, and `beforeNext` — Dorico's third — has no control here yet.
  *
  * Two departures from the screenshot, both on purpose:
  *   • The advisory line is muted grey, not Sibelius's blue: that blue on our dark glass is a contrast
@@ -65,19 +63,27 @@ const PHRASE_WIDTH = 96
  *  the two lines held for the readout, so it does not change the window's height. */
 const RATIO_SIZE = 20
 
-/** What the tuplet's mark SAYS. Sibelius's left column, in its order. */
-const NUMBER_STYLES = [
+/**
+ * What the tuplet's mark SAYS. Sibelius's left column, in its order — and the `value`s ARE
+ * {@link TupletNumberStyle}, so what the radio holds is what the model stores. A separate label→field
+ * mapping is a table that can be got wrong; there isn't one.
+ *
+ * Four, as Sibelius has them, and no *Auto*: what the dialog shows is what the tuplet gets. The
+ * model's auto (no style stored at all) is what the SHORTCUTS arm — `Ctrl+3` and the palette presets
+ * never open this window, so the rule still has a way in.
+ */
+const NUMBER_STYLES: { value: TupletNumberStyle; label: string }[] = [
   { value: 'number', label: 'Number' },
   { value: 'ratio', label: 'Ratio' },
-  { value: 'ratio-note', label: 'Ratio + note' },
+  { value: 'ratioNote', label: 'Ratio + note' },
   { value: 'none', label: 'None' },
 ]
 
 /** What the tuplet's BRACKET does. Sibelius's right column — auto = drawn only when unbeamed. */
-const BRACKETS = [
+const BRACKETS: { value: TupletBracket; label: string }[] = [
   { value: 'auto', label: 'Auto-bracket' },
-  { value: 'bracket', label: 'Bracket' },
-  { value: 'none', label: 'No bracket' },
+  { value: 'always', label: 'Bracket' },
+  { value: 'never', label: 'No bracket' },
 ]
 
 export function openTupletWindow(windows: WindowLayer): Window {
@@ -152,16 +158,15 @@ export function openTupletWindow(windows: WindowLayer): Window {
    * Arming and not applying, because a tuplet is a group of notes you are about to WRITE — there is
    * nothing to convert until they exist. That is the same contract the palette's presets have had all
    * along, and the routing is the palette's own `armTupletInTimeOf`, reached through
-   * {@link tupletSelection}: the window publishes the sentence, `keypadSync` hands it to the
-   * controller. The Format choices do NOT travel — the model has nowhere to put them yet (see above),
-   * and a dialog that silently drops half of what you set would be worse than one that cannot set it.
+   * {@link tupletSelection}: the window publishes the sentence AND its format, `keypadSync` hands
+   * them to the controller, and they are written onto the tuplet the next click creates.
    *
    * A refusal is refused HERE too, not only greyed on the button: Enter reaches this function without
    * touching the button at all.
    */
   const accept = (): void => {
     if (!resolve().ok) return
-    tupletSelection.press(entry())
+    tupletSelection.press({ ...entry(), format: format() })
     win?.close()
   }
 
@@ -183,7 +188,29 @@ export function openTupletWindow(windows: WindowLayer): Window {
 
   const numberStyle = new RadioGroup(NUMBER_STYLES, { selected: 'number', direction: 'column' })
   const bracket = new RadioGroup(BRACKETS, { selected: 'auto', direction: 'column' })
-  const fullDuration = new Checkbox('Full duration')
+  // TICKED to start, because that is what will be drawn: the default bracket end is `division`
+  // (DEFAULT_TUPLET_BRACKET_END). A box that opens unticked over a score that engraves the full
+  // duration anyway is a box that lies about the thing it controls.
+  const fullDuration = new Checkbox('Full duration', { checked: true })
+
+  /**
+   * The *Format* box as the model stores it.
+   *
+   * Every radio is SENT, including the ones sitting on their opening value: the dialog is an explicit
+   * statement about this tuplet, and what it shows is what gets stored. The rule-driven tuplet — no
+   * format at all — is what the shortcuts arm; it is not something this window produces.
+   *
+   * `fullDuration` is a BINARY over a three-valued field ({@link TupletBracketEnd}): ticked is
+   * `division` — the bracket runs to the end of the group's time — and unticked is `lastNote`, where
+   * it stops at the final notehead. Sibelius's checkbox is that same lossy pair, and it covers the
+   * two answers anyone asks for; the third (`beforeNext`) has no control yet and is reachable only
+   * by editing the tuplet. When it gets one, this becomes three radios and this line goes away.
+   */
+  const format = (): TupletFormat => ({
+    numberStyle: numberStyle.value as TupletNumberStyle,
+    bracket: bracket.value as TupletBracket,
+    bracketEnd: fullDuration.checked ? 'division' : 'lastNote',
+  })
 
   win = windows.open({
     title: 'Tuplet',

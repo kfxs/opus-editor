@@ -9,7 +9,7 @@
  * `deleteTuplet` needs `fillGapsWithRests` — so those are passed in as callbacks
  * rather than duplicated here.
  */
-import type { Score, Measure, Note, NoteParams, Tuplet, NoteDuration, Fraction } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, Tuplet, TupletFormat, NoteDuration, Fraction } from '@/types/music'
 import {
   tupletSpan,
   tupletScale,
@@ -62,6 +62,9 @@ export function createTuplet(
    *  its dots and its count. A RECORD of the entry, not arithmetic (see `Tuplet.normalCount`). Omit
    *  for the usual case, where both sides are the same value. */
   normal?: { duration: NoteDuration; dots?: number; count?: number },
+  /** How the group is DRAWN — mark style, bracket, bracket end. Absent, and every field inside it
+   *  absent, means "the renderer's own rules". See {@link TupletFormat}. */
+  format?: TupletFormat,
 ): Tuplet {
   const measure = getMeasure(score, measureNumber)
   if (!measure) {
@@ -84,6 +87,11 @@ export function createTuplet(
     if (normal.dots) tuplet.normalDots = normal.dots
     if (normal.count !== undefined) tuplet.normalCount = normal.count
   }
+  // Same rule again: only the fields the user actually chose are written, so a tuplet nobody argued
+  // with about its look carries no look at all and engraves by rule.
+  if (format?.numberStyle) tuplet.numberStyle = format.numberStyle
+  if (format?.bracket) tuplet.bracket = format.bracket
+  if (format?.bracketEnd) tuplet.bracketEnd = format.bracketEnd
   const staffId = staff ? staffIdAtIndex(score, staff) : undefined
   if (staffId !== undefined) tuplet.staffId = staffId
 

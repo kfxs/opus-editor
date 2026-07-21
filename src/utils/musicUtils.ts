@@ -1,4 +1,4 @@
-import type { NoteDuration, TimeSignature, Tuplet, TupletShape, TupletNumberStyle, Measure, Note, Score } from '@/types/music'
+import type { NoteDuration, TimeSignature, Tuplet, TupletShape, TupletNumberStyle, TupletFormat, TupletBracketEnd, Measure, Note, Score } from '@/types/music'
 import {
   type Fraction,
   fracCreate,
@@ -163,6 +163,26 @@ export function tupletSlotDuration(t: TupletShape): Fraction {
  *  need not all be the unit (a 3:2 eighth triplet may hold a quarter and an eighth). */
 export function tupletWrittenDuration(t: TupletShape, duration: NoteDuration, dots = 0): Fraction {
   return fracMul(durationToFraction(duration, dots), tupletScale(t))
+}
+
+/**
+ * Where a tuplet bracket stops when the tuplet does not say — `division`, the end of the group's own
+ * TIME, rather than the right edge of its last notehead.
+ *
+ * Dorico's default; Sibelius and Finale both stop at the notehead unless you ask ("Full duration",
+ * "Extend Bracket"). We follow Dorico because the two failure modes are not equal. Stopping at the
+ * notehead always leaves the group's LAST duration outside the bracket, so the bracket ends before
+ * the group does — visible whenever that last value is long, and worst when what follows starts
+ * immediately: the eye reads the bracket's end as where the tuplet ends, and it is not. The other way
+ * round the bracket is merely longer than it needed to be: more ink, nothing misread. A default
+ * belongs on the side whose failure is cosmetic.
+ */
+export const DEFAULT_TUPLET_BRACKET_END: TupletBracketEnd = 'division'
+
+/** Where THIS tuplet's bracket stops — its own choice, or the default above. The renderer asks here
+ *  rather than reading the field, so "absent means division" is stated once. */
+export function tupletBracketEnd(t: TupletFormat): TupletBracketEnd {
+  return t.bracketEnd ?? DEFAULT_TUPLET_BRACKET_END
 }
 
 /**
