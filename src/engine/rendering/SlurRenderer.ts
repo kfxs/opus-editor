@@ -13,7 +13,7 @@ import type { Score, CurveControlPointDeltas, SlurEndpointOffsetOverride } from 
 import { slurNestDepths } from '@/utils/slurs'
 import type { ElementInfo } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
-import { drawCurveArc } from './curveArc'
+import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 
@@ -27,7 +27,9 @@ const SLUR_BOW = 9.3        // base arch height (short slurs ≈ old look)
 const SLUR_BOW_PER_PX = 0.06 // arch height grows with horizontal span…
 const SLUR_BOW_MAX = 22      // …up to this ceiling (Gould: longer → taller, capped)
 const SLUR_NEST_GAP = 10     // extra bow height per nesting level (concentric slurs)
-const SLUR_THICKNESS = 1.5   // Curve.renderCurve return-pass offset (mid swell)
+// The slur's WEIGHT is not here: it is {@link CURVE_THICKNESS}, shared with ties, because the two
+// are one weight and only the arch differs. This file used to set `SLUR_THICKNESS = 1.5` against
+// the tie's 2.7, which drew visibly undernourished slurs beside well-fed ties.
 
 /** Measure number containing the chord-head / rest id, or undefined if absent. */
 function measureOfNoteId(score: Score, noteId: string): number | undefined {
@@ -385,7 +387,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         // deltas to pixels against the live stave (resolution-independent storage).
         const stave = fromNote.getStave()
         const cps = resolveCps(curveShapeOverrideOf(score, slur.id)?.cps, stave, p0, p1, direction, nestLift)
-        const arc = drawCurveArc(pass, p0, p1, cps, direction, SLUR_THICKNESS, fromNote, toNote)
+        const arc = drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote)
         // Store the on-screen control points + endpoint geometry so a selected slur can
         // show draggable handles (Phase 7), plus the stave's staff-space size so a handle
         // drag can convert the new pixel shape back to staff-spaces for storage. Same-line
@@ -455,7 +457,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             p1.x += o.x; p1.y += o.y
             const cps = resolveCps(segShape.begin, stave, p0, p1, direction, nestLift)
             registerSeg(
-              drawCurveArc(pass, p0, p1, cps, direction, SLUR_THICKNESS, fromNote, toNote),
+              drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote),
               'end', { p0, p1, direction }, stave, 'begin',
             )
           } else if (seg.type === 'end') {
@@ -470,7 +472,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             p0.x += o.x; p0.y += o.y
             const cps = resolveCps(segShape.end, stave, p0, p1, direction, nestLift)
             registerSeg(
-              drawCurveArc(pass, p0, p1, cps, direction, SLUR_THICKNESS, fromNote, toNote),
+              drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote),
               'start', { p0, p1, direction }, stave, 'end',
             )
           } else if (seg.type === 'middle') {
@@ -494,7 +496,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             p1.x += or.x; p1.y += or.y
             const cps = resolveCps(segShape.middles[ordinal], stave, p0, p1, direction, nestLift)
             registerSeg(
-              drawCurveArc(pass, p0, p1, cps, direction, SLUR_THICKNESS, fromNote, toNote),
+              drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote),
               'middle', { p0, p1, direction }, stave, 'middle', ordinal,
             )
           }

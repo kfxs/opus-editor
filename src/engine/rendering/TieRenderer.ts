@@ -13,18 +13,20 @@ import { fracEq } from '@/utils/fraction'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
 import type { RenderPass } from './RenderPass'
-import { drawCurveArc } from './curveArc'
+import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
 
 // Tie geometry (same-line, flat). A tie joins one pitch, so both endpoints share a Y
 // and the apex sits at the X midpoint. These reproduce the old hand-drawn quadratic
 // (drawFlatTie: yShift 7, cp1 8, cp2 12) on the shared cubic path: a cubic's symmetric
-// peak is 0.75·H, so BOW 5.3 → ~4px apex (old 0.5·cp1) and THICKNESS 2.7 → ~2px belly
-// (old 0.5·(cp2−cp1)). Kept fuller than a slur — ties read heavier and hug the head.
+// peak is 0.75·H, so BOW 5.3 → ~4px apex (old 0.5·cp1).
+//
+// The BOW is the tie's own — flat, hugging the noteheads, where a slur arches. The WEIGHT is not:
+// it moved to {@link CURVE_THICKNESS}, shared with slurs, when the two were reconciled (this file
+// used to carry `TIE_THICKNESS = 2.7` and claim ties should read heavier; they should not).
 const TIE_LIFT = 7               // gap between the notehead and the flat tie endpoints
 // Exported so the ghost tie (VexFlowRenderer.renderScoreWithTieGhost) is engraved from the SAME
 // numbers as a real tie — arm the tool and the arc under the cursor IS the arc you get.
 export const TIE_BOW = 5.3       // cubic control height → ~4px apex above the endpoint line
-export const TIE_THICKNESS = 2.7 // belly swell → ~2px at center, pinching to the tips
 
 /**
  * Determine tie direction for a pitch within a chord.
@@ -114,7 +116,7 @@ function drawFlatTie(
       { x: 0, y: bow },
     ]
     const arc = drawCurveArc(
-      pass, p0, p1, cps, direction, TIE_THICKNESS,
+      pass, p0, p1, cps, direction, CURVE_THICKNESS,
       fromInfo.staveNote, toInfo.staveNote,
     )
     return arc.bbox

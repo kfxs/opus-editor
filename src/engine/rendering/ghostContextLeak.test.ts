@@ -2,19 +2,18 @@
 /**
  * A ghost must not leak its colour into the **shared draw context**.
  *
- * {@link VexFlowRenderer.initialize} replaces `context.save()`/`restore()` with no-ops
- * (structuredClone throws on Vue's reactive proxies). So every context style change is PERMANENT,
- * app-wide: `setStrokeStyle` repaints the shared context, `openGroup` stamps the current attributes
- * onto each new group, and children with no style of their own inherit it — staff lines carry no
- * `stroke`, so they turn whatever colour leaked. Wrapping the change in save/restore looks correct
- * and does nothing at all.
+ * `openGroup` stamps the context's CURRENT attributes onto each new `<g>`, and children with no
+ * style of their own inherit them — staff lines carry no `stroke`, so they turn whatever colour was
+ * sitting on the context. That is not hypothetical: the tie ghost shipped with exactly that bug and
+ * turned the staff lines blue from the second mouse move onward. It is invisible on the FIRST draw
+ * (the context is still clean when the group opens), which is why these tests draw repeatedly.
  *
- * That is not hypothetical: the tie ghost shipped with exactly that bug and turned the staff lines
- * blue from the second mouse move onward. It is invisible on the FIRST draw (the context is still
- * clean when the group opens), which is why these tests draw the ghost repeatedly.
- *
- * These MUST go through `MusicEngine` — a raw `new Renderer()` has WORKING save/restore, so probing
- * one would pass while the app leaks. The context under test has to be the neutered one.
+ * The rule these pin — colour an element by setting the attribute on its SVG node AFTER drawing,
+ * never by painting the shared context — survived the return of `save()`/`restore()` and is not
+ * really about them. `initialize()` used to stub both to no-ops, which made EVERY style change
+ * permanent and made a save/restore pair look correct while doing nothing; the stubs are gone (see
+ * the history there) and the paint is properly scoped again. But post-draw DOM styling is still the
+ * right answer for a ghost or a highlight, because it recolours without re-engraving.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MusicEngine } from '../MusicEngine'
@@ -52,11 +51,47 @@ describe('ghost renders must not leak paint into the shared context', () => {
     engine.renderScore()
   })
 
-  it('save/restore really are no-ops — the premise these tests rest on', () => {
-    // If this ever fails, initialize() stopped neutering the context and the rule below relaxes.
-    const ctx = (engine as unknown as { renderer: { context: Record<string, unknown> } }).renderer.context
-    expect(String(ctx.save)).toBe('() => {}')
-    expect(String(ctx.restore)).toBe('() => {}')
+  it('save/restore round-trip the context paint — they are real, not stubs', () => {
+    const ctx = (engine as unknown as {
+      renderer: { context: { save(): void; restore(): void; setStrokeStyle(s: string): void } }
+    }).renderer.context
+    const before = contextPaint(engine)
+
+    ctx.save()
+    ctx.setStrokeStyle('#ff0000')
+    expect(contextPaint(engine).stroke).toBe('#ff0000') // the change lands…
+    ctx.restore()
+
+    expect(contextPaint(engine)).toEqual(before) // …and unwinds
+  })
+
+  /**
+   * The reason re-enabling them mattered. VexFlow scopes its own styles with
+   * `save() → applyStyle() → draw() → restore()`, so while restore was a stub every style it set
+   * was permanent: a stem left `stroke-width: 1.5` on the shared context and a ledger line left `2`
+   * (`defaultLedgerLineStyle`), for the rest of that render and every render after it. A whole note
+   * below the staff is the clean probe — it has ledger lines and no stem, so nothing overwrites the
+   * ledger's width on the way out.
+   */
+  it('drawing stems and ledger lines leaves the shared paint where it found it', () => {
+    const fresh = new MusicEngine({ container, width: 800, height: 400 })
+    fresh.renderScore()
+    const clean = contextPaint(fresh)
+    expect(clean['stroke-width']).toBe(1) // guard: the baseline is the untouched default
+
+    // A3 whole note in treble: ledger lines, no stem.
+    fresh.addNoteAtBeat({
+      step: 'A', octave: 3, duration: 'w', measure: 1, beat: { num: 0, den: 1 },
+    } as unknown as Parameters<MusicEngine['addNoteAtBeat']>[0])
+    fresh.renderScore()
+    expect(contextPaint(fresh), 'ledger lines leaked their width').toEqual(clean)
+
+    // C5 quarter: a stem, no ledger lines.
+    fresh.addNoteAtBeat({
+      step: 'C', octave: 5, duration: 'q', measure: 2, beat: { num: 0, den: 1 },
+    } as unknown as Parameters<MusicEngine['addNoteAtBeat']>[0])
+    fresh.renderScore()
+    expect(contextPaint(fresh), 'the stem leaked its width').toEqual(clean)
   })
 
   it('the tie ghost leaves the context paint untouched, however many times it draws', () => {

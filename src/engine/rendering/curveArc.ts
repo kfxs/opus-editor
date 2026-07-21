@@ -5,6 +5,23 @@ import type { RenderPass } from './RenderPass'
 const CURVE_OUTLINE = 1
 
 /**
+ * The belly swell shared by slurs AND ties — ONE number, because they are one weight.
+ *
+ * These used to be tuned apart: `SLUR_THICKNESS = 1.5` against `TIE_THICKNESS = 2.7`, the tie 1.8×
+ * fatter, on the reasoning that "ties read heavier and hug the head". Engraving does not draw that
+ * distinction — in Bravura's SMuFL `engravingDefaults`, `slurMidpointThickness` and
+ * `tieMidpointThickness` are the same value, as are the two endpoint thicknesses. On screen the
+ * mismatch showed as thin, undernourished slurs next to well-fed ties.
+ *
+ * What legitimately differs between them is the ARCH, not the weight: a tie is flat and hugs the
+ * noteheads (`TIE_BOW`), a slur bows and grows taller with its span (`SLUR_BOW`…`SLUR_BOW_MAX`).
+ * Those stay separate. This does not.
+ *
+ * The value is the tie's old one, which was the one that looked right.
+ */
+export const CURVE_THICKNESS = 2.7
+
+/**
  * Draw a curved arc (slur **or** tie) as a cubic Bézier via VexFlow's
  * `Curve.renderCurve`, driven by **our own** endpoint geometry (we never call
  * `Curve.draw()`, which would re-derive endpoints from stems and discard our
@@ -16,7 +33,7 @@ const CURVE_OUTLINE = 1
  * is -1 (above) / +1 (below). `thickness` is the belly swell — `renderCurve`
  * strokes a forward pass at `cp.y` and a return pass at `cp.y + thickness`, so the
  * fill bows out by `thickness` at center and pinches to a point at each endpoint
- * (slurs pass a thin SLUR_THICKNESS, ties a fuller TIE_THICKNESS). We pass
+ * (both slurs and ties pass {@link CURVE_THICKNESS} — one weight). We pass
  * `xShift:0`/`yShift:0` so `p0`/`p1` (which already fold in the LIFT) are exact.
  * `renderCurve` strokes **and** fills, so each emitted `<path>` carries both — the
  * selection highlight must override both (see HighlightController).
@@ -42,20 +59,19 @@ export function drawCurveArc(
     yShift: 0,
   })
   curve.setContext(pass.context)
-  // renderCurve strokes the body with the context's *current* line width — left thick by
-  // the preceding beam/stem passes, which blunts the curve's tapered tips and over-weights
-  // it. Pin a thin slur outline so the fill's natural taper (it pinches to a point at each
-  // endpoint) reads as a proper slur.
+  // renderCurve strokes the body with the context's *current* line width, so pin a thin slur
+  // outline: the fill tapers on its own (it pinches to a point at each endpoint), and a thick
+  // stroke blunts those tips and over-weights the whole curve.
   //
-  // Put the width back BY HAND. This used to say "save/restore so we don't leak the width to
-  // later draws" and wrap the call in them — but `VexFlowRenderer.initialize()` stubs save() and
-  // restore() to no-ops (structuredClone throws on Vue's reactive proxies), so that looked correct
-  // and did nothing: CURVE_OUTLINE leaked into every later draw. It matters now that the ghost tie
-  // calls this on every mouse move.
-  const prevWidth = pass.context.attributes['stroke-width']
+  // save/restore scopes it. That is worth a note, because for a long time it did NOT:
+  // `VexFlowRenderer.initialize()` stubbed both to no-ops, so this had to capture and re-set
+  // `stroke-width` by hand, and any code that "restored" a style was quietly doing nothing. The
+  // stubs are gone — see the history in `initialize()` — so the idiom means what it says again.
+  // It matters here because the ghost tie draws through this on every mouse move.
+  pass.context.save()
   pass.context.setLineWidth(CURVE_OUTLINE)
   curve.renderCurve({ firstX: p0.x, firstY: p0.y, lastX: p1.x, lastY: p1.y, direction })
-  if (typeof prevWidth === 'number') pass.context.setLineWidth(prevWidth)
+  pass.context.restore()
 
   // Mirror renderCurve's control-point math (xShift/yShift = 0 → endpoints are exact)
   // to reconstruct the cubic for hit-testing. controlPointSpacing = (lastX-firstX)/(n+2).

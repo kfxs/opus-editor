@@ -16,8 +16,8 @@ import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSeg
 import { measureShapeKey } from './MeasureRedrawKey'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
 import type { RenderPass } from './RenderPass'
-import { renderTies, getTieDirection, TIE_BOW, TIE_THICKNESS } from './TieRenderer'
-import { drawCurveArc } from './curveArc'
+import { renderTies, getTieDirection, TIE_BOW } from './TieRenderer'
+import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
 import { renderSlurs } from './SlurRenderer'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, buildDynamicAnnotation, registerDynamics, applyMixedDynamicRuns, enlargeDynamicGlyphRuns } from './DynamicsLayout'
 import { drawTempoMarks, drawTempoText } from './TempoLayout'
@@ -47,6 +47,22 @@ export { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo }
 
 /** Gray a hidden rest renders in (Tailwind gray-400 family) — see docs/rest-hide-plan.md. */
 const HIDDEN_REST_COLOR = '#9CA3AF'
+
+/**
+ * How a ledger line is inked. VexFlow's own default is `{ strokeStyle: '#444', lineWidth: 2 }` —
+ * grey, and twice the weight of a staff line (which inherits the context's `stroke-width: 1`).
+ * Neither matches engraving practice, and at high zoom both are plainly visible.
+ *
+ * A ledger line is part of the staff: same ink as everything else on the page, so **black**. It IS
+ * drawn slightly heavier than a staff line, deliberately — Bravura's SMuFL `engravingDefaults` put
+ * `staffLineThickness` at 0.13 staff spaces and `legerLineThickness` at 0.16, a ratio of ~1.23, and
+ * Gould (*Behind Bars*) says the same in words. So 1.25 against the staff's 1, not 2.
+ *
+ * Applied per Stave, since that is the only seam VexFlow offers
+ * ({@link Stave.setDefaultLedgerLineStyle}) — every stave that can carry a note off the staff needs
+ * it, including the ghost's.
+ */
+const LEDGER_LINE_STYLE = { strokeStyle: '#000000', lineWidth: 1.25 }
 
 /**
  * How far the ghost's tuplet number floats above the note, in STAFF SPACES — measured from the stem
@@ -434,20 +450,27 @@ export class VexFlowRenderer {
     this.renderer.resize(width, height)
     this.context = this.renderer.getContext() as SVGContext
 
-    // Disable save/restore to avoid structuredClone issues with Vue reactivity (SVGContext.save
-    // deep-clones its state, which throws on a reactive proxy).
+    // `save()`/`restore()` are LEFT ALONE — they work, and the context depends on them.
     //
-    // ⚠️ CONSEQUENCE, and it is a trap: `context.save()`/`restore()` are NO-OPS app-wide — in the
-    // browser, not just in tests. So EVERY context style change is PERMANENT: `setStrokeStyle` /
-    // `setFillStyle` / `setLineWidth` repaint the shared context for good, `openGroup` stamps the
-    // current attributes onto each new group, and children with no style of their own (staff lines
-    // carry no `stroke`) inherit whatever leaked. Wrapping a style change in save/restore looks
-    // correct and does NOTHING.
-    // → To colour something, set the attribute on its SVG element AFTER drawing (what every ghost
-    //   and the highlight controller do). Never through the context.
-    const ctx = this.context as unknown as { save: () => void; restore: () => void }
-    ctx.save = () => {}
-    ctx.restore = () => {}
+    // History, because the old shape survived long after its reason did: this used to stub both to
+    // no-ops, because `SVGContext.save()` deep-clones its state with `structuredClone`, which throws
+    // on a Vue reactive proxy. That could only bite if the engine were held in a deep `ref()`;
+    // `App.vue` used `shallowRef`, so the hazard was already gone before Vue was, and Vue itself is
+    // gone now (docs/remove-vue-plan.md). Measured after re-enabling: save → setStrokeStyle →
+    // restore round-trips correctly, and `state`/`attributes` hold nothing but strings and numbers.
+    //
+    // What the stubs COST while they were there: VexFlow scopes a style with
+    // `save() → applyStyle() → draw() → restore()`, so with restore dead every style it set was
+    // permanent and global. A stem left `stroke-width: 1.5` on the shared context and a ledger line
+    // left `2` (`defaultLedgerLineStyle = { strokeStyle: '#444', lineWidth: 2 }`) — for the rest of
+    // that render AND every later one. `drawCurveArc` used to pin the width back by hand to survive
+    // it; that workaround is gone with this.
+    //
+    // ⚠️ STILL TRUE, and independent of save/restore: `openGroup` stamps the context's CURRENT
+    // attributes onto each new `<g>`, and children with no style of their own (staff lines carry no
+    // `stroke`) inherit them. So a style set OUTSIDE a save/restore pair still leaks into later
+    // groups. To colour one element, set the attribute on its SVG node AFTER drawing — what every
+    // ghost and the highlight controller do, and what lets them recolour without re-engraving.
   }
 
   /**
@@ -1205,6 +1228,7 @@ export class VexFlowRenderer {
     cautionaryEndTimeSig?: TimeSignature,
   ): Stave {
     const stave = new Stave(x, y, width)
+    stave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
 
     if (measure.number === 1 || isFirstInLine) {
       // Line start: full-size clef showing the effective clef for this measure
@@ -2286,7 +2310,9 @@ export class VexFlowRenderer {
       // (mid-measure changes), not just the measure's opening clef.
       const clef: Clef = effectiveClefAt(score, ghostNote.measure, beatToFrac(ghostNote.beat), staffId)
 
+      // The ghost sits at a real pitch, so it gets real ledger lines — same ink as the engraved ones.
       const tempStave = new Stave(measureX, measureY, staveWidth)
+      tempStave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
       const isFirstInLine = measureX === margin
       if (ghostNote.measure === 1 || isFirstInLine) {
         tempStave.addClef(openingClef)
@@ -3357,7 +3383,7 @@ export class VexFlowRenderer {
    * Draw ONE translucent ghost tie following the cursor — the preview for the armed tie stamp tool.
    * A tie is a RELATION between two notes, not a glyph, so there is no `draw()` to borrow the way
    * the articulation/accidental ghosts borrow theirs. Instead it is engraved as a REAL tie: the same
-   * {@link drawCurveArc} primitive, with the same {@link TIE_BOW} / {@link TIE_THICKNESS} an
+   * {@link drawCurveArc} primitive, with the same {@link TIE_BOW} / {@link CURVE_THICKNESS} an
    * engraved tie uses — a proper cubic that swells at the belly and pinches to a point at each tip.
    * Change those constants and the ghost follows. It says "tie tool armed" and no more: WHICH note
    * ties to WHICH is resolved at click time by {@link MusicEngine.toggleTie} (and logged there),
@@ -3370,11 +3396,11 @@ export class VexFlowRenderer {
    * begins at the note you click and reaches forward, so its head is the part that follows the mouse.
    *
    * STROKED, not filled — so it paints `stroke` where the other ghosts paint `fill`. But like them
-   * it paints through the **DOM, after the draw, never the context**: {@link initialize} NEUTERS
-   * `save()`/`restore()` to no-ops (structuredClone chokes on Vue reactive proxies), so a
-   * `setStrokeStyle` here is PERMANENT — it repaints the shared context, `openGroup` then stamps that
-   * colour onto every group opened afterwards, and the staff lines (which carry no stroke of their
-   * own) inherit it. That is exactly the bug this comment exists to prevent; don't "restore" it.
+   * it paints through the **DOM, after the draw, never the context**. `save()`/`restore()` do work
+   * now (they were stubbed for years — see {@link initialize}), so a scoped `setStrokeStyle` would
+   * no longer leak; the DOM is still the right answer here, because `openGroup` stamps the context's
+   * attributes onto the `<g>` at the moment it opens, and because painting the node afterwards is
+   * what lets a ghost recolour without re-engraving.
    * Positioned by absolute path coordinates, so it needs no bbox measure or `translate` either.
    * @returns true if a ghost tie was drawn
    */
@@ -3407,7 +3433,7 @@ export class VexFlowRenderer {
         drawCurveArc(
           { context: this.context },
           { x: x0, y }, { x: x0 + WIDTH, y },
-          cps, DIRECTION, TIE_THICKNESS, anchor, anchor,
+          cps, DIRECTION, CURVE_THICKNESS, anchor, anchor,
         )
       } finally {
         this.context.closeGroup()

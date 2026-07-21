@@ -70,7 +70,15 @@ export class GutterRenderer {
     this.renderer.resize(GUTTER_WIDTH * zoom, heightLayout * zoom)
 
     const ctx = this.renderer.getContext()
-    // Same neutering as VexFlowRenderer: save/restore choke on Vue's reactive proxies.
+    // Neutered save/restore — DELIBERATE here, and for a different reason than the one this used to
+    // give ("they choke on Vue's reactive proxies", which was never the real constraint and is now
+    // moot; the score's context has working save/restore again — see VexFlowRenderer.initialize).
+    //
+    // The gutter tints its whole context ONCE, below, instead of styling each glyph: this SVG is
+    // ours alone and holds nothing else, so there is nothing to bleed onto. But VexFlow scopes its
+    // own styles with save/restore, and a working `restore()` inside a glyph draw would put the
+    // default black back and undo the tint mid-render. Keeping them inert is what makes "set it
+    // once" hold. If this ever needs per-element styling, drop the stubs and tint per element.
     ctx.save = () => ctx
     ctx.restore = () => ctx
     // One scalar for everything below, so the gutter's glyphs match the score's at any zoom.
