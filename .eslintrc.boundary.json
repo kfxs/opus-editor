@@ -27,5 +27,33 @@
         ]
       }
     ]
-  }
+  },
+  "overrides": [
+    {
+      "files": ["src/utils/**/*.ts", "src/types/**/*.ts", "src/engine/models/**/*.ts"],
+      "excludedFiles": ["**/*.test.ts"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          { "name": "document", "message": "Score layer: no DOM. A score must be operable with no editor and no browser — docs/DESIGN-PRINCIPLES.md §5." },
+          { "name": "window", "message": "Score layer: no DOM. A score must be operable with no editor and no browser — docs/DESIGN-PRINCIPLES.md §5." },
+          { "name": "navigator", "message": "Score layer: no browser APIs — docs/DESIGN-PRINCIPLES.md §5." },
+          { "name": "localStorage", "message": "Score layer: no browser APIs. Persistence is the caller's job; the score offers toJSON — docs/DESIGN-PRINCIPLES.md §5." },
+          { "name": "getComputedStyle", "message": "Score layer: no DOM — docs/DESIGN-PRINCIPLES.md §5." },
+          { "name": "ResizeObserver", "message": "Score layer: no DOM — docs/DESIGN-PRINCIPLES.md §5." }
+        ],
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["vexflow", "**/rendering/*", "@/engine/rendering/*", "**/audio/*", "@/engine/audio/*", "**/MusicEngine", "@/engine/MusicEngine"],
+                "message": "Score layer must not import a renderer, audio, or the editor's facade. The arrow points editor -> score, never score -> editor — docs/DESIGN-PRINCIPLES.md §5."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

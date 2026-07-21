@@ -9,6 +9,13 @@ states what must stay **true** so future directions stay open. Treat these like
 They are deliberately phrased as *what not to assume*. Each is cheap to honor
 while the code is small and expensive to retrofit once features depend on it.
 
+> **Not in this file: framework-agnosticism.** That was never a principle here — it
+> was a *mechanism*, `npm run lint:boundary`, and it has been discharged: Vue was
+> removed (`docs/remove-vue-plan.md`) and the project has no UI framework. The lint
+> ratchet stays so one cannot creep back, but it is a build check, not a design
+> constraint. Everything below is about the **model's** assumptions, which is why
+> none of it needed revising when the framework went.
+
 ---
 
 ## 1. A score is a value, not a singleton
@@ -78,6 +85,43 @@ many staves they hold and how much music is in them.
 **Forbidden:** a hardcoded/global instrument list; rendering or playback that
 assumes a fixed number of staves; entry paths that only work for the "main" staff.
 
+## 5. The score is independent of the editor; the editor is one tool that operates on it
+
+The editor is not the score's container. A score is a thing in its own right, and
+**everything you can do to musical material must be doable with no editor, no
+renderer, and no DOM** — the editor is handed a score, it does not own the only one.
+
+**The test to apply is a question, not a product:** *could something that is not
+this editor do this?* Plenty of such things are imaginable — a batch transformer, a
+fragment library, an importer, a diff between two versions, a board where scores are
+merged and varied and editors opened onto them — and **none of them is a plan**. The
+principle does not rest on which, if any, gets built; it says the score layer must
+not presume. Several editors may be open on different scores at once, or none at all.
+
+- The score layer (`engine/models/**`, `utils/**`, `types/**`) is complete and
+  self-sufficient: `ScoreModel` holds the full mutation and query API and
+  `toJSON`/`fromJSON`, and imports no renderer, viewport, audio or DOM. **Hold that
+  line** — it is what makes a score usable outside this application at all.
+- Operations on *musical material* — merge, variation, transposition, augmentation,
+  fragment extraction — belong to the score layer, expressed over the
+  position-independent stream of principle 2. They must never be reachable only
+  through the editor's facade.
+- `MusicEngine` is the **editor's** facade, not the score's: it is where the
+  renderer, viewport, coordinate mapping, playback, undo and note-entry
+  coordination live. That is the right home for them — they are editing
+  affordances, not properties of the music.
+- The dependency arrow points one way: **editor → score, never score → editor.**
+
+**Forbidden:** implementing a score operation on `MusicEngine` (or any editor
+controller) because that is where the UI calls it from; score-layer code importing
+a renderer, viewport, audio or DOM API; an editor that can only exist if it created
+the score itself.
+
+**The failure mode to watch for** is mundane, which is why it needs writing down:
+someone adds "merge two passages" to `MusicEngine` because that is where the menu
+action lands. It works, ships, and is invisible — until something that is not the
+editor needs it, and the operation is welded to a renderer.
+
 ---
 
 ## Known boundary cases
@@ -122,6 +166,44 @@ be made *consciously* before more code piles onto it.
        (per-`StaffContent` meter/barlines; the outer `Measure` as a re-sync unit) is the
        documented path to different measure counts per staff. See docs/multi-staff-plan.md
        §11. The addressing seam is one helper, `engine/models/staffContent.ts`.
+
+- **`createEditorApp` creates its own score rather than being handed one (re: principle 5).**
+  `src/App.ts` constructs its `MusicEngine` and calls `initializeEmptyScore()`, so today an editor
+  *owns* the only score it will ever show. Everything underneath already supports better —
+  `ScoreModel` is instantiable and `MusicEngine` wraps one — so the gap is the entry point's
+  signature, not the architecture: `createEditorApp(host, { score })`, with "no score given" meaning
+  "make an empty one". Small now; it grows every time something else assumes the editor's score is
+  the score. **Decide when a second thing holds a score** — a test harness loading fixtures, a second
+  editor, whatever it turns out to be — not before; but do not add code that deepens the assumption
+  meanwhile.
+
+- **Thirteen module-level singletons make "exactly one editor" an assumption (re: principles 1 and 5).**
+  Not score state — palette and chrome state — so they slip past principle 1's letter while making
+  the *editor* singular in the way principle 1 forbids for the *score*:
+
+  ```
+  interactions/  durationSelection, accidentalSelection, articulationSelection, dotSelection,
+                 tieSelection, restSelection, modeSelection, tupletSelection, clefSelection,
+                 timeSignatureSelection, selectionInspection      ← the Keypad seams
+  windows/       windows            menus/  menus, menuActions
+  ```
+
+  They are deliberate: the Keypad talks to the editor through them without either side knowing the
+  other, and `windows`/`menus` exist so "add a window" never means "edit `App.ts`". For one editor
+  per page they are correct. For two on a page, both share one duration store and one Keypad.
+
+  Two honest resolutions, and the choice is open: name them a **conscious exception** the way
+  principle 1 does for audio (*"data may be plural; sound output is one"* — e.g. *"the score is
+  plural; the editing session is one"*), **or** make them instance-scoped, created inside
+  `createEditorApp` and threaded down. The second is a contained sweep *because the list is known and
+  short*, and because `windows`/`menus` have only four direct importers — window and menu definitions
+  already take the layer as a **parameter** (`openClefWindow(windows)`). **Keeping that convention is
+  what keeps the cost flat**: a definition module that imports the singleton instead of receiving it
+  turns a sweep into archaeology.
+
+  ⚠️ Related, smaller: `engine/models/ScoreModel.ts` reads `import.meta.env` to detect Vitest
+  (`STRICT_INVARIANTS`). It is guarded and degrades to `false`, but it is a bundler assumption inside
+  the score layer, and would be baked or absent if that layer were ever published on its own.
 
 ## How to use this
 

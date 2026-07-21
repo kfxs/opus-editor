@@ -11,7 +11,6 @@
  * No consumer should hardcode the set of dynamics — derive it from DYNAMIC_VELOCITY (and the
  * DynamicLevel union) so adding a level is one row.
  */
-import { TextDynamics } from 'vexflow'
 import type { Dynamic, DynamicLevel, Score } from '@/types/music'
 import { fracCompare, fracLte, fracGt } from './fraction'
 
@@ -60,17 +59,34 @@ export const DEFAULT_DYNAMIC_TEXT = 'Text'
 // ---------------------------------------------------------------------------
 
 /**
- * Per-letter SMuFL codepoints for dynamics (`p`/`m`/`f`/`s`/`z`/`r`), from VexFlow's TextDynamics.
- * These are the characters that ARE the dynamic font — a level is spelled with them, never with the
- * plain ASCII letters. A multi-letter level like `mp` is stored as the two letters' glyphs
- * concatenated; {@link composeDynamicGlyphs} swaps that for a single precomposed glyph at DRAW time.
+ * Per-letter SMuFL codepoints for dynamics. These are the characters that ARE the dynamic font — a
+ * level is spelled with them, never with the plain ASCII letters. A multi-letter level like `mp` is
+ * stored as the two letters' glyphs concatenated; {@link composeDynamicGlyphs} swaps that for a
+ * single precomposed glyph at DRAW time.
+ *
+ * WRITTEN OUT, not spread from VexFlow's `TextDynamics.GLYPHS`. Two reasons, and the first is the
+ * one that matters:
+ *
+ *  1. This is the SCORE layer (docs/DESIGN-PRINCIPLES.md §5) — a score must be operable with no
+ *     editor and no renderer. Importing VexFlow here dragged the whole notation library in so that
+ *     six characters could be known; `lint:boundary` now refuses it.
+ *  2. It follows the standing SMuFL rule in this codebase: write the codepoints out. VexFlow's
+ *     `Glyphs` export — which is what `TextDynamics.GLYPHS` is built from — is CJS-only and comes
+ *     back `undefined` in the browser.
+ *
+ * Verified against `TextDynamics.GLYPHS` at the time of inlining. They are SMuFL codepoints, fixed
+ * by the standard rather than by VexFlow, so this table cannot drift out from under us.
  */
 const LETTER_TO_GLYPH: Record<string, string | undefined> = {
-  ...(TextDynamics.GLYPHS as Record<string, string | undefined>),
+  p: '\uE520', // dynamicPiano
+  m: '\uE521', // dynamicMezzo
+  f: '\uE522', // dynamicForte
+  r: '\uE523', // dynamicRinforzando
+  s: '\uE524', // dynamicSforzando
+  z: '\uE525', // dynamicZ
   // NIENTE, the one letter VexFlow's table omits (it stops at f p m s z r). Bravura has the glyph —
   // `dynamicNiente`, verified present in the bundled font — and Sibelius offers it alongside the
-  // rest, so leaving it out would be a hole in the alphabet rather than a decision. Owning one
-  // entry is cheaper than owning the whole table.
+  // rest, so leaving it out would be a hole in the alphabet rather than a decision.
   n: '\uE526', // dynamicNiente
 }
 
