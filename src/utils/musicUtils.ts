@@ -182,6 +182,33 @@ export function tupletWrittenDuration(t: TupletShape, duration: NoteDuration, do
  * Derived every time, never stored — the numbers ARE the rhythm, so a saved string would go on
  * saying `5:4` after the tuplet changed (docs/tuplet-extension-plan.md §6).
  */
+/**
+ * The two numbers the mark PRINTS, and the note value they COUNT — all three DERIVED, never read off
+ * the model.
+ *
+ * `span ÷ unit` gives the second figure: both then count the written note, which is what a tuplet's
+ * ratio means. When that does not come out whole (a group lasting one and a half quarters) the ratio
+ * is quoted in the value the user named instead — 2:3 EIGHTHS — and `value` says so, which is the
+ * case where the note beside the ratio stops being decoration.
+ *
+ * Derived because `notesOccupied` is otherwise stored AND computable, and anything both can drift:
+ * one write that forgets the entry and the tuplet says two different things with nothing to catch
+ * it. For a tuplet with no recorded entry the span IS `notesOccupied × unit`, so this returns exactly
+ * the stored number — same answer, one source.
+ */
+export function tupletPrintedCounts(
+  t: TupletShape,
+): { numNotes: number; notesOccupied: number; value: NoteDuration; dots: number } {
+  const inUnits = fracDiv(tupletSpan(t), tupletBaseUnit(t))
+  const whole = inUnits.den === 1
+  return {
+    numNotes: t.numNotes,
+    notesOccupied: whole ? inUnits.num : (t.normalCount ?? t.notesOccupied),
+    value: whole || !t.normalDuration ? t.baseDuration : t.normalDuration,
+    dots: (whole || !t.normalDuration ? t.baseDots : t.normalDots) ?? 0,
+  }
+}
+
 export function tupletMarkText(t: TupletShape, style?: TupletNumberStyle): string {
   const digits = (n: number): string => {
     let out = ''
@@ -190,15 +217,14 @@ export function tupletMarkText(t: TupletShape, style?: TupletNumberStyle): strin
     }
     return out
   }
-  const resolved = style ?? (Math.abs(t.numNotes - t.notesOccupied) > 1 ? 'ratio' : 'number')
+  const printed = tupletPrintedCounts(t)
+  const resolved = style ?? (Math.abs(printed.numNotes - printed.notesOccupied) > 1 ? 'ratio' : 'number')
   if (resolved === 'none') return ''
-  if (resolved === 'number') return digits(t.numNotes)
-  const ratio = `${digits(t.numNotes)}\uE88A${digits(t.notesOccupied)}` // U+E88A tupletColon
-  // "Ratio + note" names the value the counts are COUNTING — the actual side's, since both numbers
-  // count it (Sibelius writes `5:3x`, the x being the tuplet's own sixteenth).
-  if (resolved === 'ratioNote') {
-    return ratio + UNIT_GLYPH[t.baseDuration] + '.'.repeat(t.baseDots ?? 0)
-  }
+  if (resolved === 'number') return digits(printed.numNotes)
+  const ratio = `${digits(printed.numNotes)}\uE88A${digits(printed.notesOccupied)}` // U+E88A tupletColon
+  // "Ratio + note" names the value the two figures are counting (Sibelius writes `5:3x`, the x being
+  // the tuplet's own sixteenth).
+  if (resolved === 'ratioNote') return ratio + UNIT_GLYPH[printed.value] + '.'.repeat(printed.dots)
   return ratio
 }
 

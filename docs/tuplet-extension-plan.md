@@ -150,31 +150,56 @@ No bracket in the preview: a tuplet's bracket spans notes that do not exist unti
 
 ## 6. Remembering what the user typed — SHIPPED
 
-You type *"5 quarters in the time of 8 eighths"*. Eight eighths is four quarters, so the ratio is
+You type *"5 quarters in the time of 8 eighths"*. Eight eighths is four quarters, so the mark reads
 **5:4** — and 5:4 cannot tell you afterwards whether you said "4 quarters" or "8 eighths". The tuplet
-now keeps both: the ratio it always had, and the sentence beside it.
+keeps the sentence:
 
 ```ts
-numNotes: 5,  baseDuration: 'q',  baseDots: 0     // N, its value, its dots
-notesOccupied: 4,                                 // the RATIO — unchanged, counts baseDuration
-normalCount: 8, normalDuration: '8', normalDots: 0 // M, its value, its dots — AS TYPED
+numNotes: 5,   baseDuration: 'q',   baseDots: 0     // N, its value, its dots  ┐ the 6 typed
+normalCount: 8, normalDuration: '8', normalDots: 0  // M, its value, its dots  ┘
+notesOccupied: 4                                    // a count of the WRITTEN note
 ```
-
-Six values, so the entry can be rebuilt and a mark can draw whatever it calls for (the note beside
-the ratio, a dotted note, whatever comes next).
-
-⛔ **The record is not arithmetic.** `tupletSpan` / `tupletScale` / `tupletSlotDuration` read the
-ACTUAL side only, exactly as before — `span = M × unit`, `scale = M/N`. Folding `normalCount` into
-the maths was tried and reverted: it silently turned `notesOccupied` from "4 quarters" into "1
-quarter" and made the mark print 5:1.
 
 Written only when the two sides differ. When they agree, `notesOccupied` already IS the typed count
 and `baseDuration` the typed value, so an ordinary triplet stores exactly as it always did.
 
-⛔ **The printed string is not stored either.** Tempo marks and dynamics are text-as-truth; a tuplet
-is the opposite — the numbers ARE the rhythm, so a saved `"5:4"` would go on saying 5:4 after the
-tuplet changed. `numberStyle` stores the CHOICE (number / ratio / ratio+note / none, absent = auto)
-and `tupletMarkText` derives the string. Nothing sets `numberStyle` yet — the window is unwired.
+**The entry is the truth; the ratio is the label.** `tupletSpan` reads `normalCount × normalDuration`
+when an entry was recorded, and falls back to `notesOccupied × unit` otherwise — the same number for
+every tuplet that predates the field. `tupletScale` follows from the span. This is what lets a group
+last one and a HALF written notes ("2 quarters in the time of 3 eighths"), which the validator used
+to refuse because the timing came from the ratio and a printed count is a whole number.
+
+**The label is DERIVED, never read off the model** — `tupletPrintedCounts` = `span ÷ unit`, so both
+figures count the written note. Where that is not whole, the ratio is quoted in the value the user
+named (2:3 eighths) and *Ratio + note* prints THAT value, which is the case where the note beside the
+ratio stops being decoration. A stored `notesOccupied` that disagreed with the entry cannot put a
+wrong number on the page; a test sets it to 99 and the mark still reads 5:4.
+
+⛔ **The printed string is not stored.** Tempo marks and dynamics are text-as-truth; a tuplet is the
+opposite — the numbers ARE the rhythm, so a saved `"5:4"` would go on saying 5:4 after the tuplet
+changed. `numberStyle` stores the CHOICE (number / ratio / ratio+note / none, absent = auto) and
+`tupletMarkText` derives the string. Nothing sets `numberStyle` yet — the window is unwired.
+
+### The design we did NOT take, and the honest score
+
+The rejected version made `notesOccupied` itself the typed count (six fields, no `normalCount`) and
+took the span from it. It was written up here as the plan and then abandoned when it made the mark
+print **5:1**.
+
+That verdict was wrong, and the record should say so: 5:1 happened because the label was being READ
+off `notesOccupied`. Once the label is derived — which it now is — that design prints 5:4 too. It is
+the same design as this one with **one fewer field** and no derivable value stored at all.
+
+What kept us here is not elegance, it is blast radius. `notesOccupied` has meant "a count of the
+written note" everywhere since the beginning — rebar, playback, VexFlow, saved scores, a lot of
+tests. The rejected design redefines that one field to count a DIFFERENT note. Every reader still
+compiles and still runs; some of them quietly read a number that now means something else, in
+exactly the cases where the two notes differ. Nothing throws — you find out from a bar that plays
+wrong.
+
+⏭️ If the extra field is ever worth removing, the safe way in is to DELETE `notesOccupied` rather
+than redefine it: the span comes from the entry and the label is derived, so nothing needs it except
+tuplets that carry no entry — and those could record one on the way in.
 
 ---
 
@@ -194,8 +219,8 @@ and `tupletMarkText` derives the string. Nothing sets `numberStyle` yet — the 
   `notesOccupied / numNotes` as a JS float for epsilon-guarded overlap comparisons. The stored
   `actualDuration` stays an exact `Fraction`, but 4/5 and 8/11 are not binary-exact and those
   margins were sized against 2/3.
-- **`normal-type` / `normal-dot`** as ARITHMETIC — §2. The values are recorded (§6); making the
-  span read them is a different, unasked-for change that was tried and reverted.
+- **One field too many** — `notesOccupied` is derivable from the entry. §6's last part says why it
+  stays and what removing it would take.
 - **Nesting** — one `tupletId` per slot cannot express it; VexFlow already has `NESTING_OFFSET`.
 - **The Vue palette sketch** (`App.vue`, Finale-shaped: `N ♪ in the time of M ♪` + live readout) is
   a THINKING TOOL, not the shipping UI — the Vue palettes are being deleted. It holds only the four
@@ -207,7 +232,7 @@ and `tupletMarkText` derives the string. Nothing sets `numberStyle` yet — the 
 ## 8. Code references
 
 - `src/types/music.ts` — `TupletShape` / `Tuplet` (`baseDots`, `normalCount`/`normalDuration`/`normalDots`, `numberStyle`), `GhostNote.tupletLabel`
-- `src/utils/musicUtils.ts` — `tupletSpan`, `tupletScale`, `tupletSlotDuration`, `tupletWrittenDuration`, `tupletMarkText`
+- `src/utils/musicUtils.ts` — `tupletSpan`, `tupletScale`, `tupletSlotDuration`, `tupletWrittenDuration`, `tupletPrintedCounts`, `tupletMarkText`
 - `src/engine/models/tupletOps.ts` — `createTuplet`, `refillTupletRemainder`
 - `src/engine/NoteEntryCoordinator.ts` — `buildTupletWithFirstNote`, `applyTupletToNote`, `tupletFitsBar`
 - `src/interactions/EditorState.ts` — `armedTuplet`

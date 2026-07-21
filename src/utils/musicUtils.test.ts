@@ -64,11 +64,30 @@ describe('musicUtils', () => {
       expect(tupletMarkText(shape(3, 2), 'none')).toBe('')
     })
 
-    // "Ratio + note" names the value BOTH counts are counting — the actual side's.
+    // "Ratio + note" names the value the two printed figures are counting.
     it("adds the tuplet's own note value, dots included", () => {
       expect(tupletMarkText(shape(3, 2), 'ratioNote')).toBe('\uE883\uE88A\uE882♪')
       expect(tupletMarkText(shape(3, 2, { baseDuration: 'q', baseDots: 1 }), 'ratioNote'))
         .toBe('\uE883\uE88A\uE882♩.')
+    })
+
+    // DERIVED, not read off the model: the label is `span ÷ unit`, so a stored `notesOccupied` that
+    // disagreed with the entry could not put a wrong number on the page.
+    it('counts the WRITTEN note even when the stored number does not', () => {
+      // "5 quarters in the time of 8 eighths" — eight eighths is four quarters, so the mark reads 5:4.
+      const entered = shape(5, 4, { baseDuration: 'q', normalDuration: '8', normalCount: 8 })
+      expect(tupletMarkText(entered, 'ratio')).toBe('\uE885\uE88A\uE884')
+      // …and it stays 5:4 even if the stored figure is wrong, because nothing reads it.
+      expect(tupletMarkText({ ...entered, notesOccupied: 99 }, 'ratio')).toBe('\uE885\uE88A\uE884')
+    })
+
+    // When the span is not a whole number of the written note, the ratio is quoted in the value the
+    // user named — and "ratio + note" then prints THAT value, which is what makes it unambiguous.
+    it('falls back to the entry\'s own value when the span is not whole units', () => {
+      // "2 quarters in the time of 3 eighths" — one and a half quarters.
+      const half = shape(2, 3, { baseDuration: 'q', normalDuration: '8', normalCount: 3 })
+      expect(tupletMarkText(half, 'ratio')).toBe('\uE882\uE88A\uE883')
+      expect(tupletMarkText(half, 'ratioNote')).toBe('\uE882\uE88A\uE883♪')
     })
   })
 

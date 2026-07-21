@@ -257,7 +257,7 @@
                  the VERDICT first and the reason second: the verdict is what you need at a glance,
                  and the reason is what you need once you have stopped to read. -->
             <span v-if="customTuplet.ok" class="text-sm font-mono text-cyan-400">
-              {{ `${customTuplet.shape.numNotes}:${customTuplet.shape.notesOccupied}` }}
+              {{ printedTupletRatio }}
             </span>
             <span v-else class="text-sm text-amber-400">
               <span class="font-bold">Can't build this tuplet</span>
@@ -464,6 +464,7 @@ import { MusicEngine } from './engine/MusicEngine'
 // ⚠️ TEMPORARY dev-only sound picker — remove when a real instrument model lands.
 import { DEV_SOUNDS } from './engine/audio/WebAudioFontInstrument'
 import { VIEWPORT_HEIGHT } from './engine/rendering/VexFlowRenderer'
+import { tupletPrintedCounts } from './utils/musicUtils'
 import { createObservableEditorState, scoreCursorClass } from './interactions/EditorState'
 import type { NoteDuration } from './types/music'
 import { useHighlight } from './composables/useHighlight'
@@ -892,6 +893,13 @@ const tupletUnitDots = ref(0)
 const tupletM = ref(1)
 const tupletNormalUnit = ref<NoteDuration>('q')
 const tupletNormalDots = ref(0)
+// The ratio as the MARK will print it — derived from the shape, never read off it, so the readout
+// and the engraved number cannot disagree.
+const printedTupletRatio = computed(() => {
+  if (!customTuplet.value.ok) return ''
+  const printed = tupletPrintedCounts(customTuplet.value.shape)
+  return `${printed.numNotes}:${printed.notesOccupied}`
+})
 // A `computed` that only ASKS the controller — the rule stays there, this vanishes with the palette.
 const customTuplet = computed(() =>
   palette.resolveTupletInTimeOf(
