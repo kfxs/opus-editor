@@ -12,6 +12,7 @@ import {
   fracToNumber,
 } from '@/utils/fraction'
 import { MET_NOTE_GLYPH, MET_AUGMENTATION_DOT } from '@/utils/tempoText'
+import { getMeterInfo } from '@/utils/meter'
 import {
   durationToFraction,
   durationToBeats,
@@ -199,6 +200,91 @@ export function tupletBracketed(t: TupletFormat, beamed: boolean): boolean {
 }
 
 /**
+ * **M, worked out from the METER** — how many of the armed note value the group replaces, given
+ * where in the bar it starts. Null when this meter has no tuplet of N to offer.
+ *
+ * M is not a function of N, which is why nothing looks it up in a table: a quintuplet is 5:4 in
+ * simple meter and 5:3 in 6/8, because the normal side comes from what is being DIVIDED. Written as
+ * one rule, taking the three things that decide it — the meter, the position, and the unit — so that
+ * `5` can mean the right thing everywhere instead of meaning 5:4 and being wrong half the time.
+ *
+ * The rule, in one line: **M is the nearest natural grouping of the unit that makes a real tuplet.**
+ *
+ *   1. The span being divided is the metrical GROUP the position falls in — the beat, and in 7/8 the
+ *      beat you are actually on, since its groups differ (3+2+2).
+ *   2. The natural groupings of the unit are that span and its halvings and doublings: 4/4 counted in
+ *      eighths gives 1, 2, 4, 8; 6/8 in eighths gives 3, 6, 12 — never 2 or 4, which is exactly why
+ *      the answer differs by meter.
+ *   3. Prefer to SQUEEZE: the largest grouping below N. Failing that, STRETCH to the smallest one
+ *      above — which is how the duplet arrives at 2:3, the one case where M exceeds N.
+ *   4. Skip any candidate where N:M reduces to a power of two (2:1, 4:2, 8:4, 1:2). Those are not
+ *      tuplets at all, only the same notes written at another value — and refusing them is what makes
+ *      the answer NULL for a duplet in 4/4 or a triplet of eighths in 6/8, where no tuplet exists.
+ *
+ * ⛔ It is deliberately NOT `defaultNotesOccupied(n)`. A table keyed on N alone cannot know the meter,
+ * and the whole point is that it must.
+ */
+export function deriveTupletM(
+  numNotes: number,
+  unit: NoteDuration,
+  unitDots: number,
+  meter: TimeSignature,
+  /** Where the group starts, in quarter-note beats from the bar's start. */
+  beat: Fraction,
+): number | null {
+  if (!Number.isInteger(numNotes) || numNotes < 2) return null
+
+  const info = getMeterInfo(meter)
+  const span = metricalGroupAt(info, beat)
+  const unitSpan = durationToFraction(unit, unitDots)
+  const perGroup = fracDiv(span, unitSpan)
+  // The unit has to COUNT in this span: a dotted quarter does not fit a whole number of times into a
+  // 4/4 beat, and a rule that rounded there would answer confidently and wrongly.
+  if (perGroup.den !== 1) return null
+
+  // The span, its halvings (while they stay whole) and its doublings. Bounded because a tuplet
+  // borrowing from sixteen beats is not a tuplet anyone is entering by pressing a number.
+  const candidates: number[] = []
+  for (let n = perGroup.num; n >= 1 && Number.isInteger(n); n /= 2) {
+    candidates.unshift(n)
+    if (n % 2 !== 0) break
+  }
+  for (let n = perGroup.num * 2; n <= perGroup.num * 8; n *= 2) candidates.push(n)
+
+  const real = (m: number): boolean => !isPowerOfTwoRatio(numNotes, m)
+  const below = candidates.filter(m => m < numNotes && real(m))
+  if (below.length) return below[below.length - 1]
+  const above = candidates.filter(m => m > numNotes && real(m))
+  return above.length ? above[0] : null
+}
+
+/** The metrical group `beat` falls inside, in quarters — the beat you are ON, which in 7/8 (3+2+2)
+ *  is not the same length everywhere in the bar. */
+function metricalGroupAt(info: ReturnType<typeof getMeterInfo>, beat: Fraction): Fraction {
+  let start = fracCreate(0, 1)
+  for (const group of info.groups) {
+    const end = fracAdd(start, group)
+    if (fracLt(beat, end)) return group
+    start = end
+  }
+  // Past the bar's end (an overfull bar, or a position being previewed): the felt beat is the best
+  // answer available, and it is the one every uniform meter would have given anyway.
+  return info.beatUnit
+}
+
+/** Does N:M reduce to a power of two — 2:1, 4:2, 1:2, or 1:1? Then it is not a tuplet: the same
+ *  notes are written at another value, with no borrowing at all. */
+function isPowerOfTwoRatio(numNotes: number, m: number): boolean {
+  const g = gcd(numNotes, m)
+  const isPow2 = (x: number): boolean => x >= 1 && (x & (x - 1)) === 0
+  return isPow2(numNotes / g) && isPow2(m / g)
+}
+
+function gcd(a: number, b: number): number {
+  return b === 0 ? a : gcd(b, a % b)
+}
+
+/**
  * What "N ♪ in the time of M ♪" came to — the shape, or WHY those boxes describe no tuplet we can
  * store. The reason is a string and not a boolean because the refusals are different facts, and a UI
  * that can only say "no" teaches nothing.
@@ -314,24 +400,42 @@ export function tupletPrintedCounts(
   }
 }
 
+/** Where a mark is being printed — the meter of its bar and where in that bar it starts. What the
+ *  auto rule needs to know whether a bare number is readable. */
+export interface TupletMarkContext {
+  meter: TimeSignature
+  /** The tuplet's start, in quarter-note beats from the bar's start. */
+  beat: Fraction
+}
+
 /**
- * The RULE behind an absent {@link Tuplet.numberStyle}: the ratio when N is a power of two greater
- * than 2, the bare number otherwise.
+ * The RULE behind an absent {@link Tuplet.numberStyle}: **a bare number when the meter already says
+ * what it is in the time of, the ratio when it does not.**
  *
- * Not arbitrary, and not VexFlow's. A binary N cannot be a tuplet against a binary M — "4 in the time
- * of 4" is nothing — so a bracket reading `4` or `8` must be borrowing from a TERNARY span, and which
- * one is not guessable: `4` is 4:3 over one compound beat or 4:6 over two. Those are the numbers a
- * reader cannot complete, so they are the ones printed in full.
+ * A number alone is an instruction the reader completes from the meter — `5` in 4/4 is five in the
+ * time of four, and in 6/8 five in the time of three, because that is what the beat divides into
+ * ({@link deriveTupletM}). So when a tuplet's M is the one its meter would have given, the figure is
+ * enough. When it is not — a duplet in 4/4, a quadruplet in simple meter, any borrowed span the
+ * reader has no way to infer — the ratio has to be printed or the notation is a guess.
  *
- * Every other N names its tuplet by convention — 3 is 3:2, 5 is 5:4, 6 is 6:4, 7 is 7:4, 9 is 9:8,
- * and 2 is the duplet — and a ratio there is spelling out what the reader already knew.
+ * The consequence is that the SAME tuplet prints differently in different bars, and it should: `2`
+ * over a 6/8 bar is the duplet everyone knows, while the same 2:3 in 4/4 is a thing you have to be
+ * told.
  *
  * ⛔ Replaced VexFlow's own default, `|N − M| > 1`, which printed `6:4` and `7:4` in full but left the
  * quadruplet as a bare `4`. That test measures the distance between two numbers, which is not a fact
  * about music: nothing makes 7:4 harder to read than 5:4.
+ *
+ * Without a context (a caller that has no bar to point at) it falls back to the meter-free
+ * approximation of the same idea: N a power of two above 2 is unguessable in simple meter, since it
+ * can only be borrowing from a ternary span, and everything else names its tuplet by convention.
  */
-function autoNumberStyle(numNotes: number): TupletNumberStyle {
-  const binary = numNotes > 2 && (numNotes & (numNotes - 1)) === 0
+function autoNumberStyle(t: TupletShape, printedM: number, ctx?: TupletMarkContext): TupletNumberStyle {
+  if (ctx) {
+    const expected = deriveTupletM(t.numNotes, t.baseDuration, t.baseDots ?? 0, ctx.meter, ctx.beat)
+    return expected === printedM ? 'number' : 'ratio'
+  }
+  const binary = t.numNotes > 2 && (t.numNotes & (t.numNotes - 1)) === 0
   return binary ? 'ratio' : 'number'
 }
 
@@ -360,7 +464,13 @@ function markNoteGlyph(duration: NoteDuration, dots = 0): string {
  * ({@link TupletShape.normalCount} and friends). With no entry recorded both sides are the same
  * value, and it prints what `ratioNote` would.
  */
-export function tupletMarkRuns(t: TupletShape, style?: TupletNumberStyle): TupletMarkRun[] {
+export function tupletMarkRuns(
+  t: TupletShape,
+  style?: TupletNumberStyle,
+  /** The bar this mark sits in — what makes the automatic choice meter-aware. See
+   *  {@link autoNumberStyle}; absent falls back to the meter-free approximation. */
+  ctx?: TupletMarkContext,
+): TupletMarkRun[] {
   const digits = (n: number): string => {
     let out = ''
     for (let rest = n; rest >= 1; rest = Math.floor(rest / 10)) {
@@ -369,7 +479,7 @@ export function tupletMarkRuns(t: TupletShape, style?: TupletNumberStyle): Tuple
     return out
   }
   const printed = tupletPrintedCounts(t)
-  const resolved = style ?? autoNumberStyle(printed.numNotes)
+  const resolved = style ?? autoNumberStyle(t, printed.notesOccupied, ctx)
   if (resolved === 'none') return []
   if (resolved === 'number') return [{ text: digits(printed.numNotes) }]
 
@@ -413,8 +523,8 @@ export function tupletMarkRuns(t: TupletShape, style?: TupletNumberStyle): Tuple
 
 /** The whole mark as ONE string — for callers that draw it in a single run and can live with the
  *  note glyphs at the figures' size. See {@link tupletMarkRuns} for why that is a compromise. */
-export function tupletMarkText(t: TupletShape, style?: TupletNumberStyle): string {
-  return tupletMarkRuns(t, style).map(r => r.text).join('')
+export function tupletMarkText(t: TupletShape, style?: TupletNumberStyle, ctx?: TupletMarkContext): string {
+  return tupletMarkRuns(t, style, ctx).map(r => r.text).join('')
 }
 
 /**

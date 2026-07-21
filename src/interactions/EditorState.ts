@@ -1,4 +1,5 @@
 import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, DynamicLevel, ArticulationType, Fraction, TupletFormat } from '../types/music'
+import { deriveTupletM } from '../utils/musicUtils'
 import type { SelectionItem } from './selection'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 
@@ -154,6 +155,29 @@ export function armedNormalSide(
  */
 export function spendArmedTuplet(state: EditorState): void {
   state.armedTuplet = null
+}
+
+/**
+ * The armed tuplet's M **for the bar it is about to land in** — derived from the meter when the
+ * arming asked for that, and otherwise exactly what was armed.
+ *
+ * A free function for the same reason {@link armedNormalSide} is one: the mouse, the keyboard and the
+ * ghost all have to answer it identically, and the ghost showing `5:4` over a bar that will get 5:3
+ * is a preview of a different tuplet.
+ *
+ * The fallback is the point of `Ctrl+2` in 4/4: the meter has no duplet, so the rule declines, and
+ * the preset's own 2:3 is armed instead — an unusual tuplet, deliberately chosen, and the mark says
+ * so by printing the ratio (see `autoNumberStyle`).
+ */
+export function armedTupletM(
+  armed: NonNullable<EditorState['armedTuplet']>,
+  unit: NoteDuration,
+  unitDots: number,
+  meter: TimeSignature,
+  beat: Fraction,
+): number {
+  if (!armed.deriveM) return armed.notesOccupied
+  return deriveTupletM(armed.numNotes, unit, unitDots, meter, beat) ?? armed.notesOccupied
 }
 
 /** Whether the armed tool (if any) uses the armed length — see {@link MARKING_TOOL_USES_ARMED_LENGTH}.
@@ -321,7 +345,19 @@ export interface EditorState {
    */
   armedTuplet: {
     numNotes: number
+    /**
+     * M — with {@link deriveM} set, only the FALLBACK: a preset key says "a 5", and what a 5 is in
+     * the time of depends on the bar it lands in, which nobody knows when the key is pressed.
+     */
     notesOccupied: number
+    /**
+     * Work M out from the METER where the group lands, and use `notesOccupied` only if that meter
+     * has no tuplet of N (`Ctrl+2` in 4/4 — there is no duplet in simple meter).
+     *
+     * Set by the preset keys, never by the window: "5" is a request the position answers, while
+     * "5 sixteenths in the time of 1 quarter" has already answered it.
+     */
+    deriveM?: boolean
     normalDuration?: NoteDuration
     normalDots?: number
     normalCount?: number

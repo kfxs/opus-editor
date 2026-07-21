@@ -3,7 +3,6 @@ import { dynamicTextFromTool } from '../utils/dynamics'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Clef, TimeSignature, Dynamic, TempoMark, ArticulationType, Accidental } from '../types/music'
 import type { DynamicTool, TempoTool, EditorState } from './EditorState'
-import { tupletMarkRuns } from '../utils/musicUtils'
 import { activeVoiceToModel, assertNeverTool } from './EditorState'
 import type { HighlightController } from './HighlightController'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
@@ -117,21 +116,22 @@ export class RenderController {
       // An armed tuplet rides ON the ghost note rather than replacing it: what the click enters IS a
       // note, and the tuplet is what that note starts. So this is a label on the note, not a
       // ninth marking-tool ghost.
-      // The armed tuplet is a TupletShape minus its actual note value, and the value is the armed
-      // duration — put back together here, because the mark's text can depend on either side.
       //
-      // Its armed FORMAT decides the mark too. Without the style the preview showed the automatic
-      // mark whatever the dialog had said, so choosing *Ratio + note* previewed a bare number and
-      // *None* previewed a number that would not be there: a preview of a different tuplet.
+      // The SHAPE goes down, not a finished mark: the armed tuplet is a TupletShape minus its actual
+      // note value (the value is the armed duration, put back together here), and everything else
+      // about the mark depends on the bar under the cursor — which this side cannot see. `deriveM`
+      // travels so the engine knows whether M is a request or an answer, and the armed style so the
+      // preview obeys the dialog rather than the automatic rule.
       this.state.armedTuplet
-        ? tupletMarkRuns(
-            {
+        ? {
+            shape: {
               ...this.state.armedTuplet,
               baseDuration: this.state.selectedDuration,
               baseDots: this.state.selectedDots,
             },
-            this.state.armedTuplet.format?.numberStyle,
-          )
+            deriveM: this.state.armedTuplet.deriveM,
+            style: this.state.armedTuplet.format?.numberStyle,
+          }
         : undefined,
     )
     return ghostRendered

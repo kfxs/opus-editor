@@ -8,6 +8,7 @@ import {
   measureCapacityQuarters,
   tupletMarkText,
   tupletMarkRuns,
+  deriveTupletM,
   tupletBracketed,
 } from './musicUtils'
 import { fracCreate } from './fraction'
@@ -131,6 +132,80 @@ describe('musicUtils', () => {
       // Both sides the same value — the sentence was "3 eighths in the time of 2 eighths".
       expect(tupletMarkText({ numNotes: 3, notesOccupied: 2, baseDuration: '8' }, 'entryRatio'))
         .toBe('\uE883\uECA7\uE88A\uE882\uECA7')
+    })
+  })
+
+  // M comes from the METER, not from N: the same key means a different tuplet in a different bar.
+  describe('deriveTupletM', () => {
+    const simple: TimeSignature = { numerator: 4, denominator: 4 }
+    const compound: TimeSignature = { numerator: 6, denominator: 8 }
+    const bar0 = fracCreate(0, 1)
+    const m = (n: number, meter: TimeSignature, unit: NoteDuration = '8') =>
+      deriveTupletM(n, unit, 0, meter, bar0)
+
+    it('borrows from the binary beat in simple meter', () => {
+      expect(m(3, simple)).toBe(2)
+      expect(m(5, simple)).toBe(4)
+      expect(m(6, simple)).toBe(4)
+      expect(m(7, simple)).toBe(4)
+      expect(m(9, simple)).toBe(8)
+    })
+
+    it('borrows from the ternary beat in compound meter', () => {
+      expect(m(4, compound)).toBe(3)
+      expect(m(5, compound)).toBe(3)
+      expect(m(7, compound)).toBe(6)
+      expect(m(8, compound)).toBe(6)
+    })
+
+    it('STRETCHES for the duplet, the one case where M exceeds N', () => {
+      expect(m(2, compound)).toBe(3)
+    })
+
+    it('declines when the meter has no tuplet of that N', () => {
+      // 2:1 and 4:2 are not tuplets — the same notes at another value. And in 6/8 the eighths ARE
+      // the triplet division, so a "3" of them is just three eighths.
+      expect(m(2, simple)).toBeNull()
+      expect(m(4, simple)).toBeNull()
+      expect(m(8, simple)).toBeNull()
+      expect(m(3, compound)).toBeNull()
+      expect(m(6, compound)).toBeNull()
+    })
+
+    it('answers the same whatever the written value — the SPAN moves, not the ratio', () => {
+      expect(m(5, simple, '16')).toBe(4)
+      expect(m(5, simple, 'q')).toBe(4)
+      expect(m(5, compound, '16')).toBe(3)
+    })
+
+    it('follows the GROUP inside an additive bar', () => {
+      const sevenEight: TimeSignature = { numerator: 7, denominator: 8, grouping: [3, 2, 2] }
+      // On the 3-group the beat is ternary; after it, binary — in the same bar.
+      expect(deriveTupletM(2, '8', 0, sevenEight, fracCreate(0, 1))).toBe(3)
+      expect(deriveTupletM(2, '8', 0, sevenEight, fracCreate(3, 2))).toBeNull()
+      expect(deriveTupletM(3, '8', 0, sevenEight, fracCreate(3, 2))).toBe(2)
+    })
+  })
+
+  // The AUTO mark: a bare number when the meter already says what it is in the time of.
+  describe('tupletMarkText — the meter-aware auto style', () => {
+    const at = (meter: TimeSignature) => ({ meter, beat: fracCreate(0, 1) })
+    const duplet: TupletShape = { numNotes: 2, notesOccupied: 3, baseDuration: '8' }
+
+    it('prints a bare number where the meter explains it', () => {
+      // 6/8 knows what a "2" is: the duplet.
+      expect(tupletMarkText(duplet, undefined, at({ numerator: 6, denominator: 8 }))).toBe('\uE882')
+    })
+
+    it('prints the ratio where it does not', () => {
+      // The same tuplet in 4/4 is a borrowed span nobody can infer — so it is spelled out.
+      expect(tupletMarkText(duplet, undefined, at({ numerator: 4, denominator: 4 }))).toBe('\uE882\uE88A\uE883')
+    })
+
+    it('leaves the triplet bare in simple meter and spells the quadruplet', () => {
+      const c = at({ numerator: 4, denominator: 4 })
+      expect(tupletMarkText({ numNotes: 3, notesOccupied: 2, baseDuration: '8' }, undefined, c)).toBe('\uE883')
+      expect(tupletMarkText({ numNotes: 4, notesOccupied: 3, baseDuration: '8' }, undefined, c)).toBe('\uE884\uE88A\uE883')
     })
   })
 

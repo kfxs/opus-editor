@@ -11,7 +11,7 @@ things get called "the tuplet" and only the first is this document's subject:
 |---|---|---|
 | **data** | what the tuplet IS — how many notes, in the time of how many, of what value | **here** |
 | look | bracket side/visibility, what the number says, "full duration" | §9 + tuplet-control-plan.md |
-| shortcut | `Ctrl+2`…`Ctrl+9`, one per preset | §10 |
+| shortcut | `Ctrl+2`…`Ctrl+9`, one per preset; M from the meter | §10 + §11 |
 
 ---
 
@@ -208,10 +208,6 @@ tuplets that carry no entry — and those could record one on the way in.
 
 ## 7. Open
 
-- **The default M.** Not a function of N: 5:4 in simple meter, 5:3 in 6/8, because the normal side
-  comes from what is being divided. Must be derived from the meter + the span, in ONE place. Today
-  every caller states its own M (`utils/tupletPresets.ts` carries one per preset) and there is
-  deliberately no `defaultNotesOccupied(n)` table. When it lands, half of that table merges.
 - **`beforeNext` has no control.** Modelled, resolved and drawn, but the window's tickbox reaches
   only `lastNote` / `division` (see §9 — deliberately). It wants a properties panel or an engraving
   option, not a third radio in the entry dialog.
@@ -246,12 +242,14 @@ field, and each rule is written once. A tuplet nobody argued with stores nothing
 
 The three rules, and why:
 
-- **Mark** — the ratio when N is a power of two above 2, the bare number otherwise. A binary N cannot
-  be a tuplet against a binary M, so a bracket reading `4` or `8` must be borrowing from a ternary
-  span, and the reader cannot tell which (`4` is 4:3 over one compound beat, or 4:6 over two). Every
-  other N names its tuplet by convention. ⛔ Replaces VexFlow's `|N − M| > 1`, which spelled out 6:4
-  and 7:4 and left the quadruplet bare — that measures the distance between two numbers, which is
-  not a fact about music.
+- **Mark** — a bare number when the METER already says what it is in the time of, the ratio when it
+  does not. A figure alone is an instruction the reader completes from the meter (`5` is five in the
+  time of four in 4/4, and of three in 6/8), so when M is the one §11 would have derived, the number
+  is enough; when it is not — a duplet in 4/4, any borrowed span — the ratio has to be printed or the
+  notation is a guess. The same tuplet therefore prints `2` in 6/8 and `2:3` in 4/4, which is the
+  point. ⛔ Replaces VexFlow's `|N − M| > 1`, which spelled out 6:4 and 7:4 and left the quadruplet
+  bare — that measures the distance between two numbers, which is not a fact about music. Without a
+  bar to point at it falls back to the meter-free approximation (N a power of two above 2 ⇒ ratio).
 - **Bracket** — none when a beam already shows the group. The beam and the bracket say the same
   thing. Asked at DRAW time, because `hasBeam()` only answers once the Beams exist.
 - **Bracket end** — `lastNote`. Dorico defaults to the full duration and the argument is real (a
@@ -300,29 +298,57 @@ survive it and neither is Vue: `Ctrl+`2…9, and Insert ▸ Tuplet, which arms a
 ⏭️ What went with the row is the armed-STATE light: nothing now says "5:4 is armed" except the ghost
 under the cursor. That belongs on the Keypad, which mirrors editor state already.
 
-`2:3 · 3:2 · 4:3 · 5:4 · 6:4 · 7:4 · 8:6 · 9:8`
-
-Two families. **2, 4, 8** are the compound-meter tuplets — duplet, quadruplet, octuplet, an even
-number borrowed from a beat that divides in three. **3, 5, 6, 7, 9** take the largest power of two
-below N. 8 cannot follow that rule: it is already binary, so in simple meter it has nothing to borrow
-from ("8 in the time of 4" is notes of half the value) and it needs a ternary span to be a tuplet at
-all. 1 is absent and could not work — one note in the time of two IS a note of double the value.
+The table's M is now only a FALLBACK — §11 derives the real one — and its two families are what the
+fallback covers: **2, 4, 8** the compound tuplets (duplet, quadruplet, octuplet: an even number
+borrowed from a beat that divides in three), **3, 5, 6, 7, 9** the simple ones (the largest power of
+two below N). 1 is absent and could not work — one note in the time of two IS a note of double value.
 
 ⚠️ Chrome uses `Ctrl+1`…`Ctrl+9` for tab switching. Pages can intercept them (the manager
 `preventDefault`s any matched key), but that is the first thing to suspect if a key does nothing.
 
 ---
 
+## 11. M comes from the METER (SHIPPED)
+
+`Ctrl+5` means **"a 5"**, not "5:4". What a 5 replaces depends on what the beat divides into, so the
+answer belongs to the bar it lands in — `deriveTupletM(N, unit, dots, meter, beat)`:
+
+| | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|
+| 4/4 · 2/4 · 5/8 · 5/4 · 6/4 · 3/2 | — | 3:2 | — | 5:4 | 6:4 | 7:4 | — | 9:8 |
+| 6/8 · 9/8 · 12/8 · 9/16 · 3/8 | 2:3 | — | 4:3 | 5:3 | — | 7:6 | 8:6 | 9:6 |
+
+The rule: **the nearest natural grouping of the unit that makes a real tuplet.** The span being
+divided is the metrical GROUP the position falls in (7/8 as 3+2+2 answers differently along one bar);
+its natural groupings are that span halved and doubled (4/4 in eighths gives 1, 2, 4, 8 — 6/8 gives
+3, 6, 12, never 2 or 4, which is the whole difference); prefer the largest below N, else stretch to
+the smallest above (how the duplet reaches 2:3); and skip any candidate where N:M reduces to a power
+of two, since 2:1 and 4:2 are not tuplets but the same notes at another value.
+
+A dash is an ANSWER: 4/4 has no duplet and no quadruplet, and in 6/8 the eighths already ARE the
+triplet division. When the rule declines, the preset's own M is armed anyway (a deliberate 2:3 in
+4/4) — and the mark then prints the ratio, because §9's rule sees an M the meter cannot explain.
+
+**Nothing is decided at arm time**, because nothing is known then: `armedTuplet.deriveM` says "M is a
+request", `notesOccupied` carries the fallback, and the answer is worked out at the three moments
+that know a position — the click, the caret, and the GHOST. The ghost matters most: it resolves
+against the hovered bar, so moving the cursor from 4/4 to 6/8 with `2` armed changes the preview from
+`2:3` to `2` before you commit to anything. That is also why the mark is no longer built in
+`RenderController`: the shape goes down and `MusicEngine.renderScoreWithPreview` builds it where the
+position is known.
+
+---
+
 ## 8. Code references
 
 - `src/types/music.ts` — `TupletShape` / `Tuplet` / `TupletFormat` (`baseDots`, `normalCount`/`normalDuration`/`normalDots`, `numberStyle`, `bracket`, `bracketEnd`), `TupletMarkRun`, `GhostNote.tupletLabel`
-- `src/utils/musicUtils.ts` — `tupletSpan`, `tupletScale`, `tupletSlotDuration`, `tupletWrittenDuration`, `tupletPrintedCounts`, `tupletMarkRuns`/`tupletMarkText`, `resolveTupletInTimeOf`, and the rules: `autoNumberStyle`, `tupletBracketed`, `tupletBracketEnd`
+- `src/utils/musicUtils.ts` — `tupletSpan`, `tupletScale`, `tupletSlotDuration`, `tupletWrittenDuration`, `tupletPrintedCounts`, `tupletMarkRuns`/`tupletMarkText`, `resolveTupletInTimeOf`, and the rules: `deriveTupletM`, `autoNumberStyle`, `tupletBracketed`, `tupletBracketEnd`
 - `src/utils/tupletPresets.ts` — the eight presets + `tupletPresetAction`
 - `src/engine/models/tupletOps.ts` — `createTuplet` (writes the format), `refillTupletRemainder`
 - `src/engine/NoteEntryCoordinator.ts` — `buildTupletWithFirstNote`, `applyTupletToNote`, `tupletFitsBar`
 - `src/engine/rendering/ScoreTuplet.ts` — the drawn mark and bracket: `TUPLET_FONT_SIZE`, `NOTE_GLYPH_SCALE`, `layoutTupletMark`
-- `src/interactions/EditorState.ts` — `armedTuplet` (+ its `format`), `spendArmedTuplet`
-- `src/interactions/PaletteController.ts` — `armTuplet`, `armTupletInTimeOf`
+- `src/interactions/EditorState.ts` — `armedTuplet` (+ its `format` and `deriveM`), `armedTupletM`, `spendArmedTuplet`
+- `src/interactions/PaletteController.ts` — `armTuplet`, `armTupletPreset` (the deriving one), `armTupletInTimeOf`
 - `src/interactions/tupletSelection.ts` — the window → `keypadSync` → controller seam
 - `src/windows/tupletWindow.ts` — the window: the sentence, the Format box, OK arms
 - `src/engine/NoteEntryCoordinator.test.ts` — "dotted tuplet unit"

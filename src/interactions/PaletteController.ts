@@ -959,6 +959,9 @@ export class PaletteController {
     /** How the group will be DRAWN — the Tuplet window's Format box. Omitted by every preset and
      *  every `Ctrl+`N, which is what "engrave it by the rules" looks like. */
     format?: TupletFormat,
+    /** Work M out from the meter where the group LANDS, with `notesOccupied` as the fallback — see
+     *  {@link armTupletPreset}, the only caller that sets it. */
+    deriveM?: boolean,
   ): void {
     const engine = this.getEngine()
     if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
@@ -986,6 +989,7 @@ export class PaletteController {
           notesOccupied,
           ...(normalDuration && { normalDuration, normalCount, ...(normalDots && { normalDots }) }),
           ...(format && { format }),
+          ...(deriveM && { deriveM }),
         }
     if (this.state.armedTuplet) {
       this.state.selectedDots = 0
@@ -999,6 +1003,21 @@ export class PaletteController {
       this.state.selectedTool = 'selection'
     }
     this.showArmedGhost()
+  }
+
+  /**
+   * A PRESET key — `Ctrl+5`: "a 5, whatever a 5 is here."
+   *
+   * M is not decided now, because now is the wrong time: the key is pressed with no idea where the
+   * click will land, and what a 5 replaces depends on the meter of the bar it lands in (5:4 in
+   * simple, 5:3 in compound). So the ratio is armed as "derive me", and the fallback rides along for
+   * the meters that have no tuplet of this N at all.
+   *
+   * The window does NOT come through here: "5 sixteenths in the time of 1 quarter" has already
+   * answered the question this defers.
+   */
+  armTupletPreset(numNotes: number, fallbackM: number): void {
+    this.armTuplet(numNotes, fallbackM, undefined, undefined, undefined, undefined, true)
   }
 
   /**

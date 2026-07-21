@@ -3,7 +3,7 @@ import type { ArticulationType, PitchSpelling, Fraction, SlurSegmentAddress } fr
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry, ElementType } from '../engine/ElementRegistry'
 import type { EditorState } from './EditorState'
-import { activeVoiceToModel, armedTool, armedNormalSide, spendArmedTuplet } from './EditorState'
+import { activeVoiceToModel, armedTool, armedNormalSide, armedTupletM, spendArmedTuplet } from './EditorState'
 import { tempoLabel } from '../utils/tempoMap'
 import { tempoFieldsFromTool } from '../utils/tempoText'
 import { TempoTextSource } from './TempoTextSource'
@@ -1863,12 +1863,22 @@ export class MouseController {
             ? { ...naturalSpelling, alter: accidentalToAlter(this.state.selectedAccidental) }
             : { step: 'B', alter: 0, octave: 4 }
 
+          // M is decided HERE, not when the key was pressed: `Ctrl+5` says "a 5", and what a 5 is in
+          // the time of comes from the meter of the bar being clicked (see armedTupletM).
+          const notesOccupied = armedTupletM(
+            this.state.armedTuplet,
+            this.state.selectedDuration,
+            this.state.selectedDots,
+            (measure ?? score.measures[0]).timeSignature,
+            position.beat,
+          )
+
           const result = engine.createTupletAtPosition(
             { x, y },
             this.state.selectedDuration,
             spelling,
             this.state.armedTuplet.numNotes,
-            this.state.armedTuplet.notesOccupied,
+            notesOccupied,
             activeVoiceToModel(this.state.activeVoice),
             this.state.selectedDots,
             armedNormalSide(this.state.armedTuplet),

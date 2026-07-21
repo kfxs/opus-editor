@@ -1420,7 +1420,16 @@ export class VexFlowRenderer {
           // note" and not nothing at all, and its automatic choice is a heuristic we replaced
           // (autoNumberStyle). Same string the GHOST draws — one function, so a preview cannot
           // promise a mark the page will not print.
-          vexTuplet.setMarkRuns(tupletMarkRuns(tupletData, tupletData.numberStyle))
+          // The bar's meter and the group's start go WITH the mark: with no stored style the rule is
+          // "a bare number when the meter already says what it is in the time of", so the same
+          // tuplet prints `2` in 6/8 and `2:3` in 4/4 — and the ghost, asking the same function with
+          // the hovered bar, showed exactly that before the click.
+          vexTuplet.setMarkRuns(
+            tupletMarkRuns(tupletData, tupletData.numberStyle, {
+              meter: measure.timeSignature,
+              beat: tupletData.startBeat,
+            }),
+          )
 
           // …and where the bracket stops. Only meaningful with a bracket, but set either way: an
           // unbracketed tuplet's width still centres the number, and a number that drifted when the

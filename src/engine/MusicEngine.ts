@@ -10,13 +10,13 @@ import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
 import { getStaves, staffIdAtIndex } from './models/staffContent'
-import { midiToNoteName, beatToFrac, measureCapacityQuarters, compareByPosition, getMeasureNotes } from '@/utils/musicUtils'
+import { midiToNoteName, beatToFrac, measureCapacityQuarters, compareByPosition, getMeasureNotes, deriveTupletM, tupletMarkRuns } from '@/utils/musicUtils'
 import { fracToNumber, fracEq } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } from '@/utils/pitchSpelling'
 import { prevailingAlterAt } from '@/utils/accidentalState'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
@@ -2125,8 +2125,19 @@ export class MusicEngine {
     dots?: number,
     articulations?: ArticulationType[],
     ghostColor?: { fill: string; stroke: string },
-    /** The armed tuplet's mark, drawn over the ghost. See {@link GhostNote.tupletLabel}. */
-    tupletLabel?: TupletMarkRun[],
+    /**
+     * The armed tuplet, if any — as a SHAPE plus how it was armed, not as a finished mark.
+     *
+     * The mark is built here rather than handed in because it depends on WHERE the cursor is: M can
+     * come from the meter of the hovered bar, and whether a bare number is readable depends on that
+     * same meter. The caller does not know the hovered position; this method resolves it anyway.
+     */
+    armedTuplet?: {
+      shape: TupletShape
+      /** Derive M from the hovered bar's meter, using `shape.notesOccupied` as the fallback. */
+      deriveM?: boolean
+      style?: TupletNumberStyle
+    },
   ): boolean {
     // Resolve the HOVERED measure first (the same order addNoteAtPosition uses), so the
     // beat-quantization fallback in getPositionFromPixels uses THAT measure's capacity — a
@@ -2175,6 +2186,32 @@ export class MusicEngine {
     // Apply accidental from palette to the resolved spelling
     const alter = accidentalToAlter(accidental)
     const ghostSpelling = { ...position.spelling, alter }
+
+    // The armed tuplet's mark, resolved AT THE HOVERED POSITION — both halves of it. M may come from
+    // this bar's meter (`Ctrl+5` is 5:4 here and 5:3 over a 6/8 bar), and the automatic mark style
+    // asks the same meter whether a bare number is enough. Move the cursor into another meter and the
+    // preview changes, which is the point: what it shows is what that click would write.
+    const previewMeasure = this.scoreModel.getMeasure(position.measure)
+    let tupletLabel: TupletMarkRun[] | undefined
+    if (armedTuplet && previewMeasure) {
+      const meter = previewMeasure.timeSignature
+      // `getPositionFromPixels` answers in float beats; every rule below is exact.
+      const beatFrac = beatToFrac(position.beat)
+      const shape: TupletShape = armedTuplet.deriveM
+        ? {
+            ...armedTuplet.shape,
+            notesOccupied:
+              deriveTupletM(
+                armedTuplet.shape.numNotes,
+                armedTuplet.shape.baseDuration,
+                armedTuplet.shape.baseDots ?? 0,
+                meter,
+                beatFrac,
+              ) ?? armedTuplet.shape.notesOccupied,
+          }
+        : armedTuplet.shape
+      tupletLabel = tupletMarkRuns(shape, armedTuplet.style, { meter, beat: beatFrac })
+    }
 
     const ghostNote: GhostNote = {
       ...ghostSpelling,

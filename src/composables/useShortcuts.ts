@@ -463,12 +463,13 @@ export function useShortcuts(
       renderer.renderScore()
     },
     toggleDot: () => palette.toggleDot(),
-    // One handler per preset, generated from the SAME table the keys are — see tupletPresets. Each
-    // arms its own M; pressing the armed one again disarms it, as the palette buttons do.
+    // One handler per preset, generated from the SAME table the keys are — see tupletPresets. The M
+    // is worked out from the METER where the click lands (armTupletPreset), with the table's own M
+    // as the fallback for a meter that has no tuplet of that N. Pressing the armed one disarms it.
     ...Object.fromEntries(
       TUPLET_PRESETS.map(preset => [
         tupletPresetAction(preset),
-        () => palette.armTuplet(preset.n, preset.m),
+        () => palette.armTupletPreset(preset.n, preset.m),
       ]),
     ),
     enterNoteA: () => keyboard.enterNoteByLetter('a'),
