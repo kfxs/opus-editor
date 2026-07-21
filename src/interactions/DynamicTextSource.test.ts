@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { DynamicTextSource } from './DynamicTextSource'
 import { composeDynamicGlyphs, levelToGlyphString } from '../utils/dynamics'
-import { DYNAMIC_GLYPH_SIZE } from '../engine/rendering/dynamicStyle'
+import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE } from '../engine/rendering/dynamicStyle'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Dynamic } from '../types/music'
 
@@ -107,7 +107,12 @@ describe('DynamicTextSource', () => {
     // A real mixed mark: the `mp` is the SMuFL glyph (the dynamic font), then the word ` dolce`.
     const mixed = new DynamicTextSource('d1', false, makeEngine(textDynamic(`${levelToGlyphString('mp')} dolce`)) as unknown as MusicEngine, () => null, render)
     const html = mixed.getSeedHtml()!
-    expect(html).toContain(`font-size:${DYNAMIC_GLYPH_SIZE}pt`) // glyph run drawn big
+    // Drawn big — but RELATIVE to the box, never an absolute size. The box's own font is the one
+    // thing that knows about zoom (getFontCSS), so an absolute chip drifts against it: it shipped as
+    // `30pt` flat and at the default 0.7 zoom came out 3:1 against 9.8pt text instead of 2.1:1 — a
+    // huge `f` — inverting past zoom 1.0. Asserting the UNIT is the point of this line.
+    expect(html).toContain(`font-size:${DYNAMIC_GLYPH_SIZE / DYNAMIC_TEXT_SIZE}em`)
+    expect(html).not.toContain('pt')                           // …no absolute size anywhere
     expect(html).toContain('contenteditable="false"')          // …as an ATOMIC chip
     expect(html).toContain(levelToGlyphString('mp'))            // the mp glyph
     expect(html).toContain('dolce')                            // the word, unstyled (text size)
@@ -115,15 +120,15 @@ describe('DynamicTextSource', () => {
     // A BARE level is styled too — its glyph is a big span, so anything typed around it
     // (the box base is the small text size) comes out expression-sized right away.
     const bare = new DynamicTextSource('d1', false, makeEngine(levelDynamic('f')) as unknown as MusicEngine, () => null, render).getSeedHtml()!
-    expect(bare).toContain(`font-size:${DYNAMIC_GLYPH_SIZE}pt`)
+    expect(bare).toContain(`font-size:${DYNAMIC_GLYPH_SIZE / DYNAMIC_TEXT_SIZE}em`)
     expect(bare).toContain(levelToGlyphString('f'))
 
     // Pure text has no glyph run → seeded as plain text (no HTML).
     expect(new DynamicTextSource('d1', false, makeEngine(textDynamic('dolce')) as unknown as MusicEngine, () => null, render).getSeedHtml()).toBeNull()
   })
 
-  // The seven dynamics letters: six from VexFlow's TextDynamics.GLYPHS plus `n` (niente), which we
-  // add ourselves. `z` carries Shift (Ctrl+Z is Undo while typing — Sibelius dodges it the same way).
+  // The seven dynamics letters (utils/dynamics owns the letter->codepoint table: U+E520-E525 plus
+  // `n` for niente, which VexFlow's own table omits). `z` carries Shift (Ctrl+Z is Undo while typing — Sibelius dodges it the same way).
   it.each(['f', 'p', 'm', 'n', 'r', 's', 'z'])('Ctrl+%s inserts that GLYPH chip — the dynamic font, not the ASCII letter', letter => {
     const source = new DynamicTextSource('d1', false, makeEngine(textDynamic('dolce')) as unknown as MusicEngine, () => null, render)
     const insertion = source.getInsertions().find(i => i.key === letter)!

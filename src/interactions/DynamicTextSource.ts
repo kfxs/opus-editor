@@ -12,20 +12,41 @@ function escapeHtml(s: string): string {
 }
 
 /**
+ * How much bigger the music glyph is than the words beside it. **A RATIO, not a size** — and that
+ * is the point: the chip is the only thing in the box with a font of its own, so if it carried an
+ * absolute size it would need to know about zoom as well, and the two would drift.
+ *
+ * They did. The chip was `${DYNAMIC_GLYPH_SIZE}pt` flat while {@link DynamicTextSource.getFontCSS}
+ * scaled the box by zoom, so at the editor's default 0.7 the glyph came up at 30pt against 9.8pt
+ * text — a 3:1 ratio where the engraving uses 2.1:1, i.e. a huge `f`. Past zoom 1.0 it inverted and
+ * the glyph came up too small.
+ *
+ * In `em` the chip is *relative to whatever the box is set to*, so zoom is decided in exactly one
+ * place ({@link DynamicTextSource.getFontCSS}) and this expresses the engraving relationship
+ * instead of a second absolute number to keep in step. Derived from the two constants rather than
+ * written as 2.14, so changing either still yields the right proportion.
+ *
+ * (`TempoTextSource` never hit this: a tempo mark's note glyph is the SAME size as its digits, so
+ * it inserts as ordinary text and inherits the box's font. Nothing sized on its own, nothing to
+ * drift. The chip exists here only because a dynamic mixes two sizes in one box.)
+ */
+const GLYPH_EM = DYNAMIC_GLYPH_SIZE / DYNAMIC_TEXT_SIZE
+
+/**
  * One glyph run as an ATOMIC CHIP: a `contenteditable="false"` span at the big music size.
  * The caret can't enter it, so it behaves as a single flagged token — the same markup whether
  * it arrives by seeding an existing mark or by a Ctrl-key insertion, which is what lets a chip
  * typed in the editor read back identically to one loaded from the model.
  */
 function glyphChipHtml(glyph: string): string {
-  return `<span contenteditable="false" style="font-size:${DYNAMIC_GLYPH_SIZE}pt;font-style:normal">${escapeHtml(glyph)}</span>`
+  return `<span contenteditable="false" style="font-size:${GLYPH_EM}em;font-style:normal">${escapeHtml(glyph)}</span>`
 }
 
 /**
  * Keys that stamp a dynamics glyph into the editor at the caret: Ctrl+<letter> ⇒ that letter in
  * the *dynamic font* (Ctrl+F ⇒ 𝆑), never the ASCII one — a typed ASCII `f` is silent by design
- * (see utils/dynamics). Six come from VexFlow's `TextDynamics.GLYPHS` (U+E520–E525) and `n`
- * (niente) is the one we add ourselves, since VexFlow's table omits it but Bravura has the glyph.
+ * (see utils/dynamics, which owns the letter⇄codepoint table: U+E520–E525 for `p m f r s z`, plus
+ * `n` for niente, which VexFlow's own table omits though Bravura has the glyph).
  * Combine them to spell `pp`, `sfz`, `rf`, … The palette in menus/expressionMenu.ts offers the same
  * set by name, and its rows echo these bindings — keep the two in step.
  *
