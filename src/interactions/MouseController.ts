@@ -1505,15 +1505,10 @@ export class MouseController {
     const ts = armed?.timeSignature
     if (!ts) return false
     try {
-      const changed = engine.setTimeSignature(measureNum, ts)
-      // The cautionary decision belongs to the change just made, so it is written at the same bar —
-      // and only when the arming path said something about it, so the older palette path (which
-      // carries no opinion) leaves the flag exactly as it found it.
-      if (armed.cautionary !== undefined) engine.setCautionaryAllowed(measureNum, armed.cautionary)
-      // A pickup is a statement about the bar this meter OPENS, so it lands on the same measure.
-      // `undefined` means the arming path had no opinion (the old palette); `null` means it did and
-      // the answer was "a full bar", which must CLEAR any pickup already there.
-      if (armed.pickup !== undefined) engine.setMeasureActualDuration(measureNum, armed.pickup)
+      // The meter, its cautionary and its pickup are ONE act, and the engine owns the sequence —
+      // shared with the apply-to-selected-bar path (PaletteController.armTimeSignature), so a click
+      // and an OK on a chosen bar cannot drift apart.
+      const changed = engine.applyTimeSignatureChange(measureNum, armed)
       dbg(changed
         ? `✓ Time signature set | ${ts.numerator}/${ts.denominator} at measure ${measureNum}`
         : `Time signature unchanged at measure ${measureNum}`)

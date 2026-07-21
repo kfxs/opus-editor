@@ -1110,7 +1110,42 @@ export class PaletteController {
    * meter because the target bar is not known until the click.
    */
   armTimeSignature(ts: TimeSignature, cautionary: boolean, pickup: Fraction | null = null): void {
+    // A bar already chosen answers the question arming exists to ask. Arming means "I know WHAT, not
+    // WHERE — the next click will say"; with a bar boxed, where is already said, and making the user
+    // click it a second time is the dialog ignoring what it was given. Same bargain the dynamics and
+    // articulation tools strike with a selected note.
+    const target = this.selectedMeasureTarget()
+    if (target !== null) {
+      const engine = this.getEngine()
+      if (!engine) return
+      const changed = engine.applyTimeSignatureChange(target, { timeSignature: ts, cautionary, pickup })
+      dbg(changed
+        ? `✓ Time signature set on the selected bar | ${ts.numerator}/${ts.denominator} at measure ${target}`
+        : `Time signature unchanged at the selected measure ${target}`)
+      // The box STAYS: you are looking at the bar you just changed, and clearing it would make the
+      // change hard to see and a second dialog need a second selection.
+      this.renderScore()
+      return
+    }
     this.armMarkingTool({ kind: 'timeSignature', timeSignature: ts, cautionary, pickup })
+  }
+
+  /**
+   * The bar a meter/clef-shaped choice should land on when one is already selected, or null to fall
+   * back to arming.
+   *
+   * EITHER box counts, unlike {@link measureContext}: the double box (Ctrl+Shift+click) and the
+   * single one (a plain click in an empty bar) differ in what they select *inside* the bars, and a
+   * meter change does not care — both name a bar out loud.
+   *
+   * The LOWEST bar of a span, because a meter change is a point event: it takes effect there and
+   * runs to the next change, so "apply 3/4 to bars 5-8" is 3/4 at bar 5. Applying it to each bar in
+   * turn would write three redundant changes that say the same thing.
+   */
+  private selectedMeasureTarget(): number | null {
+    const range = this.state.selectedMeasureRange
+    if (!range || this.state.selectedTool !== 'selection') return null
+    return Math.min(range.anchor, range.focus)
   }
 
   /**

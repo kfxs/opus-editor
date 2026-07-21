@@ -529,6 +529,37 @@ export class MusicEngine {
   }
 
   /**
+   * The WHOLE meter change the Time Signature window describes, applied to one bar: the meter, the
+   * cautionary decision, and the pickup — which are three mutators and ONE act.
+   *
+   * It exists because there are now two ways to say where: clicking a bar with the meter armed, and
+   * choosing a bar first and letting OK apply it. Both mean the same thing, so both call this rather
+   * than each assembling the sequence — the shape where one path grows a step the other forgets.
+   *
+   * `runBatch` makes it a single undo. Three separate mutators meant three presses of Ctrl+Z to get
+   * back from one dialog, with the bar in a half-changed state in between.
+   *
+   * `cautionary`/`pickup` are OPTIONAL and absent means "no opinion" — the older palette arming path
+   * says nothing about either, and must leave what it finds alone. For `pickup`, `null` is an
+   * opinion ("a full bar") that CLEARS any pickup already on the bar; only `undefined` is silence.
+   *
+   * @returns whether the METER changed (a re-applied 4/4 is a no-op worth reporting as such).
+   */
+  applyTimeSignatureChange(
+    measureNumber: number,
+    change: { timeSignature: TimeSignature; cautionary?: boolean; pickup?: Fraction | null },
+  ): boolean {
+    const { timeSignature: ts, cautionary, pickup } = change
+    let meterChanged = false
+    this.runBatch(`Set time signature ${ts.numerator}/${ts.denominator} at measure ${measureNumber}`, () => {
+      meterChanged = this.setTimeSignature(measureNumber, ts)
+      if (cautionary !== undefined) this.setCautionaryAllowed(measureNumber, cautionary)
+      if (pickup !== undefined) this.setMeasureActualDuration(measureNumber, pickup)
+    })
+    return meterChanged
+  }
+
+  /**
    * Remove the explicit time-signature change at a measure, reverting it (and
    * the measures after it, until the next change) to the inherited signature.
    * Re-bars the region by default (the meter changes); pass `rewrite: 'none'` to

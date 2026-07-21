@@ -82,6 +82,77 @@ describe('PaletteController — time signature tool', () => {
   })
 })
 
+/**
+ * A bar already boxed answers the question arming exists to ask. The window's OK routes through
+ * `armTimeSignature`, so with a measure selected it must APPLY rather than ask for a second click.
+ */
+describe('PaletteController — the Time Signature window applies to a SELECTED bar', () => {
+  let state: EditorState
+  let applied: { measure: number; change: unknown }[]
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    applied = []
+    const engine = {
+      applyTimeSignatureChange: (measure: number, change: unknown) => {
+        applied.push({ measure, change })
+        return true
+      },
+    }
+    palette = new PaletteController(
+      () => engine as never,
+      state,
+      vi.fn(),
+      vi.fn(),
+      () => null,
+      vi.fn(),
+    )
+  })
+
+  const boxBars = (anchor: number, focus: number, style: 'single' | 'double' = 'single'): void => {
+    state.selectedTool = 'selection'
+    state.selectedMeasureRange = { anchor, focus }
+    state.selectedMeasureBoxStyle = style
+  }
+
+  it('applies to the boxed bar instead of arming', () => {
+    boxBars(3, 3)
+    palette.armTimeSignature({ numerator: 3, denominator: 4 }, true, null)
+
+    expect(applied).toEqual([
+      { measure: 3, change: { timeSignature: { numerator: 3, denominator: 4 }, cautionary: true, pickup: null } },
+    ])
+    expect(armedTool(state, 'timeSignature')).toBeNull() // nothing left waiting for a click
+    expect(state.selectedTool).toBe('selection') // and we did not jump into entry mode
+  })
+
+  it('lands on the LOWEST bar of a span — a meter change is a point event, not a fill', () => {
+    boxBars(8, 5)
+    palette.armTimeSignature({ numerator: 5, denominator: 8 }, false, null)
+    expect(applied.map(a => a.measure)).toEqual([5])
+  })
+
+  it('takes the DOUBLE box too — both gestures name a bar out loud', () => {
+    boxBars(2, 2, 'double')
+    palette.armTimeSignature({ numerator: 6, denominator: 8 }, true, null)
+    expect(applied.map(a => a.measure)).toEqual([2])
+  })
+
+  it('keeps the box up, so you can see the bar you just changed', () => {
+    boxBars(4, 4)
+    palette.armTimeSignature({ numerator: 2, denominator: 4 }, true, null)
+    expect(state.selectedMeasureRange).toEqual({ anchor: 4, focus: 4 })
+  })
+
+  it('arms as before when NO bar is selected', () => {
+    palette.armTimeSignature({ numerator: 7, denominator: 8 }, true, null)
+    expect(applied).toEqual([])
+    expect(armedTool(state, 'timeSignature')?.timeSignature).toEqual({ numerator: 7, denominator: 8 })
+    expect(state.selectedTool).toBe('entry')
+  })
+})
+
 describe('PaletteController — dynamics tool', () => {
   let state: EditorState
   let palette: PaletteController

@@ -14,9 +14,11 @@ import { timeSignatureSelection } from '../interactions/timeSignatureSelection'
  * dialog: a row of meters to pick from, the rewrite/cautionary options, a pickup frame, and
  * Cancel / OK.
  *
- * OK ARMS the meter — it does not place it. A meter change belongs to a BAR and the dialog does not
- * know which one, so the next click on the score says where, through the placement path the palette
- * has always used. The Clef window makes the same bargain. Cancel arms nothing.
+ * OK APPLIES the meter to the selected bar when one is boxed, and otherwise ARMS it — a meter change
+ * belongs to a BAR, and when the dialog has not been told which, the next click on the score says
+ * where (the placement path the palette has always used). Arming is how the window asks "where?", so
+ * a bar already chosen has answered it. The rule itself lives in `PaletteController.armTimeSignature`
+ * — the window only presses. Cancel does neither.
  *
  * What travels with the meter: its GROUPING (a 7/8 grouped 3+2+2 arrives as one `TimeSignature`) and
  * the CAUTIONARY decision, which is a property of the change about to be made and has nowhere else
@@ -189,9 +191,9 @@ export function openTimeSignatureWindow(windows: WindowLayer): Window {
     presetMeter(meters.value) ?? { numerator: otherBeats.value, denominator: Number(otherUnit.value) }
 
   /**
-   * OK: ARM the meter and get out of the way — the Clef window's bargain, and for the same reason.
-   * A meter change belongs to a BAR, and the dialog does not know which one; the next click on the
-   * score says where, through the placement path the palette has always used.
+   * OK: press the meter and get out of the way. Whether that APPLIES it (a bar is boxed) or ARMS it
+   * for the next click is not this window's call — it depends on the score's selection, which the
+   * window cannot see and should not learn to. One press, decided downstream.
    *
    * The cautionary rides along, because it is a property of the change that is about to be made and
    * has nowhere else to wait. The grouping does too — the whole `TimeSignature`, grouping included,

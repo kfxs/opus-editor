@@ -18,6 +18,14 @@ stamp* instead of entering a note. There are nine:
 
 They are **mutually exclusive**: exactly one is armed, or none.
 
+**Arming asks "where?" — so a target already chosen skips it.** `timeSignature` is the first tool
+to act on that: with a bar boxed, the Time Signature window's OK APPLIES the meter to that bar
+instead of arming (`PaletteController.armTimeSignature` → `MusicEngine.applyTimeSignatureChange`,
+the same call the click path makes). The dynamics and articulation tools have always done the
+equivalent with a selected note. The rule belongs to the ARMING method, never to the window or
+palette that presses it: what a press means depends on the score's selection, which a window cannot
+see. See docs/time-signature-window-plan.md §4.
+
 ## The rest tool is the odd one out (and why it carries no value)
 
 Every other tool either places an object or *adds* a mark to something that already exists. A rest is

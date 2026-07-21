@@ -98,9 +98,26 @@ music will need (`docs/DESIGN-PRINCIPLES.md`, "keep the measures spine removable
 
 ## 4. OK — BUILT
 
-OK **arms**; the next click on the score says which bar. (The earlier note here proposed applying to
-the selection instead — arming won because it reuses the placement path the palette already had, and
-because the Clef window makes the same bargain, so the two dialogs behave alike.)
+OK **applies to the selected bar when there is one, and otherwise arms** — the next click on the
+score then says which bar.
+
+Arming answers "WHERE?", so a bar that is already boxed has answered it: making the user click that
+same bar a second time is the dialog ignoring what it was handed. Either box counts — the
+Ctrl+Shift+click double box and the plain-click single one differ in what they select *inside* the
+bars, and a meter change does not care. A SPAN applies at its lowest bar, because a meter change is
+a point event that runs to the next change; writing it into every bar of the span would be three
+changes saying the same thing.
+
+The box stays up afterwards: you are looking at the bar you just changed.
+
+Both paths go through **`MusicEngine.applyTimeSignatureChange`** — the meter, its cautionary and its
+pickup are three mutators and ONE act, wrapped in a `runBatch` so a dialog costs one Ctrl+Z rather
+than three. Sharing it is the point: the click path and the selection path cannot drift, and neither
+can grow a step the other forgets.
+
+(⏭️ The **Clef** window still always arms. It should learn the same rule — the argument is identical
+— but a clef is anchored to a beat and a staff, not just a bar, so "the selected bar" is not the
+whole of its answer.)
 
 Three things travel with the armed meter, all of them properties of the change about to be made,
 none of which has anywhere else to wait until the target bar is known:
