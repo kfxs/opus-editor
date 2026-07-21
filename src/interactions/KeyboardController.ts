@@ -2,7 +2,7 @@ import { dbg } from '@/utils/debug'
 import type { ArticulationType, Note, PitchStep, PitchAlter, Fraction, Score } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
-import { activeVoiceToModel, armedTool } from './EditorState'
+import { activeVoiceToModel, armedTool, armedNormalSide } from './EditorState'
 import { navBeatMap, type FlatNote } from '../utils/beatMap'
 import { getMeasureNotes, measureCapacityFrac } from '../utils/musicUtils'
 import { fracToNumber, fracEq, fracFromInt, fracSub } from '../utils/fraction'
@@ -302,6 +302,7 @@ export class KeyboardController {
         cursorStaff,
         // The armed dot IS the tuplet's unit dot — 'a dotted quarter' is one armed value, not two.
         this.state.selectedDots,
+        armedNormalSide(this.state.armedTuplet),
       )
       newNote = result ? result.firstNote : null
     } else {

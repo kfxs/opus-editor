@@ -4,7 +4,7 @@ import { ScoreModel } from './ScoreModel'
 import { curveShapeOverrideOf, restPositionKey, restShiftOverrideOf, dynamicOffsetOverrideOf } from './engravingOverrides'
 import type { NoteParams, Slur, TempoMark, Fraction } from '@/types/music'
 import { fracCreate as frac, fracCompare, fracToNumber } from '@/utils/fraction'
-import { getTupletTotalBeatsFrac } from '@/utils/musicUtils'
+import { tupletSpan } from '@/utils/musicUtils'
 import { measureOpeningClef } from '@/utils/clefUtils'
 import { buildTempoMap } from '@/utils/tempoMap'
 import type { ChordRest } from '@/types/music'
@@ -2312,7 +2312,7 @@ describe('rest-shift travel (option 3)', () => {
     it('leaves a staff-0 tuplet free to coexist with a staff-1 tuplet at the same beat', () => {
       model.createTuplet(1, frac(0, 1), '8', 3, 2, 0, 0)
       // A staff-1 tuplet at the same beat is NOT blocked by the staff-0 one.
-      const overlaps = model.tupletSpanOverlaps(1, frac(0, 1), getTupletTotalBeatsFrac('8', 2), 0, 1)
+      const overlaps = model.tupletSpanOverlaps(1, frac(0, 1), tupletSpan({ numNotes: 3, notesOccupied: 2, baseDuration: '8' }), 0, 1)
       expect(overlaps).toBe(false)
     })
   })

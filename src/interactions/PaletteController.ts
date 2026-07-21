@@ -1,5 +1,5 @@
 import { dbg } from '@/utils/debug'
-import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature, Fraction } from '../types/music'
+import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature, Fraction, TupletShape } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorState'
@@ -22,7 +22,7 @@ import { restSelection } from './restSelection'
  * dotted unit vs a fractional space), and a UI that can only say "no" teaches nothing.
  */
 export type TupletResolution =
-  | { ok: true; numNotes: number; notesOccupied: number }
+  | { ok: true; shape: TupletShape }
   | { ok: false; reason: string }
 
 /** Two armed tempo presets are "the same button" when every field matches — so clicking the
@@ -954,7 +954,15 @@ export class PaletteController {
    * Pressing the ratio that is already armed disarms it — a palette button that cannot be turned off
    * is a mode you are stuck in.
    */
-  armTuplet(numNotes: number, notesOccupied: number): void {
+  armTuplet(
+    numNotes: number,
+    notesOccupied: number,
+    /** What the user typed on the NORMAL side, when it was not simply the same note value. Omitted =
+     *  both sides agree, which is every preset and every `Ctrl+`N. */
+    normalDuration?: NoteDuration,
+    normalDots?: number,
+    normalCount?: number,
+  ): void {
     const engine = this.getEngine()
     if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
       const note = engine.getNote(this.state.selectedNoteId)
@@ -969,11 +977,18 @@ export class PaletteController {
       return
     }
     const armed = this.state.armedTuplet
-    // Reassigned, never mutated — the observable Proxy only traps the SET (see EditorState).
-    this.state.armedTuplet =
+    const same =
       armed && armed.numNotes === numNotes && armed.notesOccupied === notesOccupied
-        ? null
-        : { numNotes, notesOccupied }
+      && armed.normalDuration === normalDuration && (armed.normalDots ?? 0) === (normalDots ?? 0)
+      && armed.normalCount === normalCount
+    // Reassigned, never mutated — the observable Proxy only traps the SET (see EditorState).
+    this.state.armedTuplet = same
+      ? null
+      : {
+          numNotes,
+          notesOccupied,
+          ...(normalDuration && { normalDuration, normalCount, ...(normalDots && { normalDots }) }),
+        }
     if (this.state.armedTuplet) {
       this.state.selectedDots = 0
       // A tuplet is armed to be PLACED, so it goes to entry mode and puts its ghost up — the same
@@ -1002,23 +1017,16 @@ export class PaletteController {
    * what a tuplet does to TIME. Sibelius and Dorico both say "in the time of", and so do we.
    *
    * BOTH note values may be DOTTED, as Finale's two dropdowns are ("Half(s) • Dotted Quarter(s) •
-   * Quarter(s)…") and as MusicXML's `<normal-dot>` / `<tuplet-dot>` are. A dot is not decoration
-   * here: it is half the value again, and it lands on the two sides very differently — see below.
+   * Quarter(s)…") and as MusicXML's `<normal-dot>` / `<tuplet-dot>` are.
    *
-   * Our model stores THREE things (N, M, unit), so the fourth is folded in here rather than stored:
+   * All four values are now KEPT — `TupletShape` has a side for each — where this used to fold the
+   * normal side into `M × unit` and throw the note value away. Folding is what made `5:4` unable to
+   * answer "in the time of *what*", and what made a span that is not a whole number of units (2
+   * quarters in the time of 3 eighths) refuse outright. Both are gone with it.
    *
-   *     span = normalCount × normalUnit(+dots)   (exact, in Fractions)
-   *     notesOccupied = span ÷ unit(+dots)       ← must come out a whole number
-   *
-   * A dot on the NORMAL side is free — it only changes the span, and the span is divided out. A dot
-   * on the ACTUAL side is STORED, in `Tuplet.baseDots`, and rides the armed `selectedDots` into
-   * entry: it cannot be re-spelled away (N counts NOTES, so writing the same music in undotted units
-   * would change N), so the model has to hold it.
-   *
-   * The other refusal is the fractional one: "2 quarters in the time of 3 eighths" is a span of one
-   * and a half quarters, and a single undotted unit cannot say "one and a half". That music is
-   * writable — it is the compound-time duplet, spelled 2:3 in EIGHTHS — so the honest answer is to
-   * say so, not to round it into a different tuplet.
+   * The one thing still refused is a shape that is not a tuplet at all: when the N written notes
+   * exactly fill the span, nothing is being squeezed and the notes keep their own value. That is
+   * scale = 1, and it catches "3 ♪ in the time of 3 ♪" as well as its disguises.
    */
   resolveTupletInTimeOf(
     numNotes: number,
@@ -1028,13 +1036,29 @@ export class PaletteController {
     unitDots = 0,
     normalDots = 0,
   ): TupletResolution {
-    if (!Number.isInteger(numNotes) || numNotes < 2) return { ok: false, reason: 'N must be 2 or more' }
-    if (!Number.isInteger(normalCount) || normalCount < 1) return { ok: false, reason: 'M must be 1 or more' }
+    if (!Number.isInteger(numNotes) || numNotes < 2) return { ok: false, reason: 'you need at least 2 notes in the group' }
+    if (!Number.isInteger(normalCount) || normalCount < 1) return { ok: false, reason: 'the time it replaces must be at least one note' }
+
+    // The RATIO is worked out exactly as it always was: both counts count the ACTUAL value, so
+    // "5 sixteenths in the time of 1 quarter" is 5:4 — four sixteenths — and never 5:1.
     const span = fracMul(durationToFraction(normalUnit, normalDots), fracCreate(normalCount, 1))
     const occupied = fracDiv(span, durationToFraction(unit, unitDots))
-    if (occupied.den !== 1) return { ok: false, reason: `the space is ${occupied.num}/${occupied.den} of that note` }
-    if (occupied.num === numNotes) return { ok: false, reason: 'N in the time of N is not a tuplet' }
-    return { ok: true, numNotes, notesOccupied: occupied.num }
+    if (occupied.den !== 1) return { ok: false, reason: `that time is ${occupied.num}/${occupied.den} of the note you chose, and the ratio counts whole ones` }
+    if (occupied.num === numNotes) return { ok: false, reason: 'the notes would keep their own value — nothing is being squeezed' }
+
+    const shape: TupletShape = {
+      numNotes,
+      notesOccupied: occupied.num,
+      baseDuration: unit,
+      ...(unitDots && { baseDots: unitDots }),
+      // WHAT THE USER TYPED, kept beside the ratio and used by nothing that counts: the ratio above
+      // cannot say "in the time of a QUARTER", and a mark that prints the value needs to know. Stored
+      // only when it differs from the unit, so an ordinary triplet is written as it always was.
+      ...(unit !== normalUnit || unitDots !== normalDots
+        ? { normalDuration: normalUnit, normalCount, ...(normalDots && { normalDots }) }
+        : {}),
+    }
+    return { ok: true, shape }
   }
 
   /** Arm what {@link resolveTupletInTimeOf} works out; false when the boxes do not resolve. */
@@ -1046,16 +1070,18 @@ export class PaletteController {
     unitDots = 0,
     normalDots = 0,
   ): boolean {
-    const ratio = this.resolveTupletInTimeOf(numNotes, unit, normalCount, normalUnit, unitDots, normalDots)
-    if (!ratio.ok) return false
-    // The tuplet is written in `unit`, so arming it arms that duration too — the two must agree, and
-    // the note value is the one thing the ratio alone does not carry. Assigned rather than routed
-    // through `setDuration`, which disarms the tuplet and would retype a selected NOTE on the way.
-    this.state.selectedDuration = unit
-    this.armTuplet(ratio.numNotes, ratio.notesOccupied)
+    const resolved = this.resolveTupletInTimeOf(numNotes, unit, normalCount, normalUnit, unitDots, normalDots)
+    if (!resolved.ok) return false
+    const { shape } = resolved
+    // The tuplet is written in `unit`, so arming it arms that duration too — the ACTUAL side lives in
+    // `selectedDuration`/`selectedDots` and nowhere else, so this is the write that carries it.
+    // Assigned rather than routed through `setDuration`, which disarms the tuplet and would retype a
+    // selected NOTE on the way.
+    this.state.selectedDuration = shape.baseDuration
+    this.armTuplet(shape.numNotes, shape.notesOccupied, shape.normalDuration, shape.normalDots, shape.normalCount)
     // AFTER armTuplet, which zeroes the dots for the plain presets. The unit's dot is part of the
     // note value being armed, so here it must survive.
-    this.state.selectedDots = unitDots
+    this.state.selectedDots = shape.baseDots ?? 0
     return true
   }
 

@@ -6,7 +6,8 @@ import { CoordinateMapper } from './rendering/CoordinateMapper'
 import { ElementRegistry } from './ElementRegistry'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { durationToFraction } from '@/utils/durations'
-import { getTupletTotalBeatsFrac } from '@/utils/musicUtils'
+import type { NoteDuration } from '@/types/music'
+import { tupletSpan, tupletSlotDuration } from '@/utils/musicUtils'
 
 function makeCoordinator(scoreModel: ScoreModel) {
   const coordinateMapper = new CoordinateMapper({
@@ -383,7 +384,7 @@ describe('NoteEntryCoordinator — dotted tuplet unit', () => {
     expect(result!.tuplet.baseDots).toBe(1)
 
     // 2 × dotted quarter = 3 quarter-beats. Undotted, this would have been 2 — the silent failure.
-    const span = getTupletTotalBeatsFrac(result!.tuplet.baseDuration, result!.tuplet.notesOccupied, result!.tuplet.baseDots)
+    const span = tupletSpan(result!.tuplet)
     expect(fracToNumber(span)).toBe(3)
 
     // Each written note is a DOTTED quarter sounding × 2/3 — one plain quarter.
@@ -411,6 +412,70 @@ describe('NoteEntryCoordinator — dotted tuplet unit', () => {
   it('leaves baseDots absent when there is no dot, so old scores serialize unchanged', () => {
     const plain = coordinator.createTupletAtBeat(1, 0, '8', { step: 'C', alter: 0, octave: 5 })
     expect('baseDots' in plain!.tuplet).toBe(false)
+  })
+})
+
+/**
+ * REMEMBERING what the user typed — "5 sixteenths in the time of ONE QUARTER".
+ *
+ * The ratio is unchanged and stays in the ACTUAL value (5:4 — four sixteenths). `normalDuration` is
+ * a record of the other half of the sentence, which the ratio cannot say and a mark that prints the
+ * note value needs. It is NOT arithmetic.
+ */
+describe('NoteEntryCoordinator — the typed normal side is remembered', () => {
+  let scoreModel: ScoreModel
+  let coordinator: NoteEntryCoordinator
+
+  beforeEach(() => {
+    scoreModel = new ScoreModel('Test')
+    coordinator = makeCoordinator(scoreModel)
+  })
+
+  const normalOf = (duration: NoteDuration, dots?: number) => ({ duration, dots })
+
+  it('keeps the quarter the user named, without touching the ratio', () => {
+    // 5 sixteenths in the time of one quarter — which IS 5:4, and must stay 5:4.
+    const result = coordinator.createTupletAtBeat(
+      1, 0, '16', { step: 'C', alter: 0, octave: 5 }, 5, 4, 0, 0, 0, normalOf('q'),
+    )
+    expect(result).not.toBeNull()
+    const t = result!.tuplet
+    expect(t.numNotes).toBe(5)
+    expect(t.notesOccupied).toBe(4)      // ← unchanged: four SIXTEENTHS
+    expect(t.normalDuration).toBe('q')   // ← the sentence the user typed
+    expect(fracToNumber(tupletSpan(t))).toBe(1)
+    expect(fracToNumber(tupletSlotDuration(t))).toBeCloseTo(0.2)
+  })
+
+  it('keeps ALL SIX typed values beside the ratio, so the sentence can be rebuilt', () => {
+    // Typed: "5 quarters in the time of 8 eighths". Eight eighths is four quarters, so the RATIO is
+    // 5:4 — and 5:4 cannot say whether the user said "4 quarters" or "8 eighths".
+    const result = coordinator.createTupletAtBeat(
+      1, 0, 'q', { step: 'C', alter: 0, octave: 5 }, 5, 4, 0, 0, 0, { duration: '8', count: 8 },
+    )
+    const t = result!.tuplet
+
+    // The ratio: unchanged, in the tuplet's own value.
+    expect([t.numNotes, t.notesOccupied]).toEqual([5, 4])
+    // The entry: N, its value, its dots | M, its value, its dots — all six readable back.
+    expect([t.numNotes, t.baseDuration, t.baseDots]).toEqual([5, 'q', undefined])
+    expect([t.normalCount, t.normalDuration, t.normalDots]).toEqual([8, '8', undefined])
+  })
+
+  it('changes no arithmetic — the same tuplet with and without the record spans the same', () => {
+    const withRecord = coordinator.createTupletAtBeat(
+      1, 0, '16', { step: 'C', alter: 0, octave: 5 }, 5, 4, 0, 0, 0, normalOf('q'),
+    )!.tuplet
+    const bare = { numNotes: 5, notesOccupied: 4, baseDuration: '16' as NoteDuration }
+    expect(tupletSpan(withRecord)).toEqual(tupletSpan(bare))
+    expect(tupletSlotDuration(withRecord)).toEqual(tupletSlotDuration(bare))
+  })
+
+  it('leaves normalDuration absent when both sides agree, so old tuplets are unchanged', () => {
+    const plain = coordinator.createTupletAtBeat(1, 0, '8', { step: 'C', alter: 0, octave: 5 })
+    expect('normalDuration' in plain!.tuplet).toBe(false)
+    // …and absent still MEANS "the same value": a plain triplet of eighths spans two eighths.
+    expect(fracToNumber(tupletSpan(plain!.tuplet))).toBe(1)
   })
 })
 

@@ -1829,8 +1829,10 @@ export class MusicEngine {
     voice: number = 0,
     /** Dots on the tuplet's UNIT — a triplet of DOTTED quarters. */
     dots: number = 0,
+    /** The NORMAL side's own note value, when the user named one ("in the time of a QUARTER"). */
+    normal?: { duration: NoteDuration; dots?: number; count?: number },
   ): { tuplet: Tuplet; firstNote: Note } | null {
-    return this.noteEntryCoordinator.createTupletAtPosition(coords, duration, spelling, numNotes, notesOccupied, voice, dots)
+    return this.noteEntryCoordinator.createTupletAtPosition(coords, duration, spelling, numNotes, notesOccupied, voice, dots, normal)
   }
 
   /**
@@ -1848,8 +1850,10 @@ export class MusicEngine {
     staff: number = 0,
     /** Dots on the tuplet's UNIT — see {@link createTupletAtPosition}. */
     dots: number = 0,
+    /** The NORMAL side's own note value — see {@link createTupletAtPosition}. */
+    normal?: { duration: NoteDuration; dots?: number; count?: number },
   ): { tuplet: Tuplet; firstNote: Note } | null {
-    return this.noteEntryCoordinator.createTupletAtBeat(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice, staff, dots)
+    return this.noteEntryCoordinator.createTupletAtBeat(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice, staff, dots, normal)
   }
 
   /**

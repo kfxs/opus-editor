@@ -1,7 +1,8 @@
 # Tuplets beyond the triplet — the DATA plan
 
 Status: **in progress.** Arbitrary `N:M` arming and a dotted unit are SHIPPED and enterable; the
-Tuplet window is a look-only shell; the format options are not modelled.
+Tuplet window is a look-only shell; the format options are not modelled. §6 (remembering the typed
+entry) is SHIPPED.
 
 Sibling to `docs/tuplet-control-plan.md`, which is about the bracket's *position and look*. Three
 things get called "the tuplet" and only the first is this document's subject:
@@ -77,7 +78,7 @@ byte-identically.
 quarter" is a span of one and a half quarters, and `notesOccupied` is an integer count of the
 SHARED unit. Adding a dot does not fix it; only an independent normal side would, and that is the
 step from a 3-value model to a 4-value one. The same music is writable as `2:3` in eighths, so
-nothing is unwritable — only unlabellable. Deferred, deliberately.
+nothing is unwritable — only unlabellable. What the user typed IS kept, though — §6.
 
 ---
 
@@ -147,7 +148,37 @@ No bracket in the preview: a tuplet's bracket spans notes that do not exist unti
 
 ---
 
-## 6. Open
+## 6. Remembering what the user typed — SHIPPED
+
+You type *"5 quarters in the time of 8 eighths"*. Eight eighths is four quarters, so the ratio is
+**5:4** — and 5:4 cannot tell you afterwards whether you said "4 quarters" or "8 eighths". The tuplet
+now keeps both: the ratio it always had, and the sentence beside it.
+
+```ts
+numNotes: 5,  baseDuration: 'q',  baseDots: 0     // N, its value, its dots
+notesOccupied: 4,                                 // the RATIO — unchanged, counts baseDuration
+normalCount: 8, normalDuration: '8', normalDots: 0 // M, its value, its dots — AS TYPED
+```
+
+Six values, so the entry can be rebuilt and a mark can draw whatever it calls for (the note beside
+the ratio, a dotted note, whatever comes next).
+
+⛔ **The record is not arithmetic.** `tupletSpan` / `tupletScale` / `tupletSlotDuration` read the
+ACTUAL side only, exactly as before — `span = M × unit`, `scale = M/N`. Folding `normalCount` into
+the maths was tried and reverted: it silently turned `notesOccupied` from "4 quarters" into "1
+quarter" and made the mark print 5:1.
+
+Written only when the two sides differ. When they agree, `notesOccupied` already IS the typed count
+and `baseDuration` the typed value, so an ordinary triplet stores exactly as it always did.
+
+⛔ **The printed string is not stored either.** Tempo marks and dynamics are text-as-truth; a tuplet
+is the opposite — the numbers ARE the rhythm, so a saved `"5:4"` would go on saying 5:4 after the
+tuplet changed. `numberStyle` stores the CHOICE (number / ratio / ratio+note / none, absent = auto)
+and `tupletMarkText` derives the string. Nothing sets `numberStyle` yet — the window is unwired.
+
+---
+
+## 7. Open
 
 - **The default M.** Not a function of N: 5:4 in simple meter, 5:3 in 6/8, because the normal side
   comes from what is being divided. Must be derived from the meter + the span, in ONE place. Today
@@ -163,7 +194,8 @@ No bracket in the preview: a tuplet's bracket spans notes that do not exist unti
   `notesOccupied / numNotes` as a JS float for epsilon-guarded overlap comparisons. The stored
   `actualDuration` stays an exact `Fraction`, but 4/5 and 8/11 are not binary-exact and those
   margins were sized against 2/3.
-- **`normal-type` / `normal-dot`** — §2.
+- **`normal-type` / `normal-dot`** as ARITHMETIC — §2. The values are recorded (§6); making the
+  span read them is a different, unasked-for change that was tried and reverted.
 - **Nesting** — one `tupletId` per slot cannot express it; VexFlow already has `NESTING_OFFSET`.
 - **The Vue palette sketch** (`App.vue`, Finale-shaped: `N ♪ in the time of M ♪` + live readout) is
   a THINKING TOOL, not the shipping UI — the Vue palettes are being deleted. It holds only the four
@@ -172,13 +204,13 @@ No bracket in the preview: a tuplet's bracket spans notes that do not exist unti
 
 ---
 
-## 7. Code references
+## 8. Code references
 
-- `src/types/music.ts` — `Tuplet` (`baseDots`), `GhostNote.tupletLabel`
-- `src/utils/musicUtils.ts` — `getTupletTotalBeatsFrac`, `getTupletNoteDurationFrac`, `tupletMarkText`
+- `src/types/music.ts` — `TupletShape` / `Tuplet` (`baseDots`, `normalCount`/`normalDuration`/`normalDots`, `numberStyle`), `GhostNote.tupletLabel`
+- `src/utils/musicUtils.ts` — `tupletSpan`, `tupletScale`, `tupletSlotDuration`, `tupletWrittenDuration`, `tupletMarkText`
 - `src/engine/models/tupletOps.ts` — `createTuplet`, `refillTupletRemainder`
 - `src/engine/NoteEntryCoordinator.ts` — `buildTupletWithFirstNote`, `applyTupletToNote`, `tupletFitsBar`
 - `src/interactions/EditorState.ts` — `armedTuplet`
-- `src/interactions/PaletteController.ts` — `armTuplet`, `resolveTupletInSpaceOf`, `armTupletInSpaceOf`
+- `src/interactions/PaletteController.ts` — `armTuplet`, `resolveTupletInTimeOf`, `armTupletInTimeOf`
 - `src/windows/tupletWindow.ts` — the window shell
 - `src/engine/NoteEntryCoordinator.test.ts` — "dotted tuplet unit"

@@ -120,6 +120,21 @@ export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean
   dot: false,
 }
 
+/**
+ * The armed tuplet's NORMAL side, in the shape the creation calls take — or `undefined`, which is
+ * both "nothing armed" and "both sides are the same note value" (they are the same instruction to
+ * `createTuplet`, which is why one helper covers both).
+ *
+ * A free function so the two entry sites — mouse and keyboard — cannot spell the unwrapping
+ * differently, which is how one of them ends up quietly dropping the field.
+ */
+export function armedNormalSide(
+  armed: EditorState['armedTuplet'],
+): { duration: NoteDuration; dots?: number; count?: number } | undefined {
+  if (!armed?.normalDuration) return undefined
+  return { duration: armed.normalDuration, dots: armed.normalDots, count: armed.normalCount }
+}
+
 /** Whether the armed tool (if any) uses the armed length — see {@link MARKING_TOOL_USES_ARMED_LENGTH}.
  *  False with nothing armed: the keys are live then for the ordinary reason (note entry). */
 export function armedToolUsesLength(state: EditorState): boolean {
@@ -272,17 +287,24 @@ export interface EditorState {
    * narrowing on `.kind`, or with {@link armedTool} when you want one kind or nothing. */
   selectedMarkingTool: MarkingTool | null
   /**
-   * The tuplet ARMED for the next note, or null. Two counts and nothing else: N notes in the time of
-   * M — "3 in the time of 2". It replaced a `tupletMode: boolean`, which could only ever have meant
-   * a triplet; the engine below has always taken any N:M.
+   * The tuplet ARMED for the next note, or null — a {@link TupletShape} minus its ACTUAL note value,
+   * because that value is `selectedDuration` + `selectedDots`, already armed, and a second copy
+   * could disagree with the first. It replaced a `tupletMode: boolean`, which could only ever have
+   * meant a triplet; the engine below has always taken any N:M.
    *
-   * The third thing a tuplet needs — the note VALUE those counts count — is deliberately NOT here:
-   * it is `selectedDuration`, already armed, and duplicating it would let the two disagree.
+   * The NORMAL side's value is here, because nothing else holds it: "5 sixteenths in the time of one
+   * QUARTER" is armable, and absent still means "the same value as the actual side".
    *
    * ⚠️ REASSIGN, never mutate a field of it: the observable Proxy traps the SET on `armedTuplet`,
    * so `state.armedTuplet.numNotes = 5` changes the value and tells nobody.
    */
-  armedTuplet: { numNotes: number; notesOccupied: number } | null
+  armedTuplet: {
+    numNotes: number
+    notesOccupied: number
+    normalDuration?: NoteDuration
+    normalDots?: number
+    normalCount?: number
+  } | null
   selectedBeam: BeamMode
 
   // --- Clef tool ---

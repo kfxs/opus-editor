@@ -1,4 +1,4 @@
-import type { NoteDuration, TimeSignature, Tuplet, Measure, Note, Score } from '@/types/music'
+import type { NoteDuration, TimeSignature, Tuplet, TupletShape, TupletNumberStyle, Measure, Note, Score } from '@/types/music'
 import {
   type Fraction,
   fracCreate,
@@ -10,6 +10,7 @@ import {
   fracCompare,
   fracToNumber,
 } from '@/utils/fraction'
+import { UNIT_GLYPH } from '@/utils/tempoText'
 import {
   durationToFraction,
   durationToBeats,
@@ -102,51 +103,69 @@ export function calculateTotalDuration(
 // ==================== Exact Fraction Tuplet Utilities ====================
 
 /**
- * Exact duration (in beats) of a single note within a tuplet.
- * Result is fully reduced: triplet eighth → Fraction(1, 3).
+ * The exact tuplet quantities, ALL taking the whole {@link TupletShape}.
+ *
+ * ⚠️ They read the ACTUAL side only — `numNotes`, `baseDuration` + `baseDots`, `notesOccupied` —
+ * because that is what the ratio has always meant: **both counts count the actual value**. A triplet
+ * of eighths is 3:2 EIGHTHS. {@link TupletShape.normalDuration} is a record of what the user typed
+ * and is deliberately NOT arithmetic: folding it in would silently change `notesOccupied` from "2
+ * eighths" to "1 quarter" and make the mark print 5:1 where it must print 5:4.
+ *
+ * They take the object and not loose arguments because every one of them is wrong-but-plausible if
+ * handed half a tuplet — a missing `baseDots` shortens the span by a third, and that surfaces as a
+ * rebar bug layers away, never as "a field went missing".
  */
-export function getTupletNoteDurationFrac(
-  baseDuration: NoteDuration,
-  numNotes: number,
-  notesOccupied: number,
-  /** Dots on the UNIT (`Tuplet.baseDots`) — a triplet of dotted quarters. Trailing and defaulted
-   *  because every caller that has no tuplet in hand has no dots either. */
-  baseDots = 0,
-): Fraction {
-  return fracMul(durationToFraction(baseDuration, baseDots), fracCreate(notesOccupied, numNotes))
+
+/** The ACTUAL side's note value — what the tuplet's notes are written as, and what both counts count. */
+function tupletBaseUnit(t: TupletShape): Fraction {
+  return durationToFraction(t.baseDuration, t.baseDots ?? 0)
 }
 
 /**
- * Exact total duration (in beats) the entire tuplet group occupies.
- * e.g. triplet of eighths → 2 eighths → Fraction(1, 1).
+ * Exact total duration (in beats) the whole group occupies: **M × the unit**.
+ * A triplet of eighths → 2 eighths → 1/1.
  */
-export function getTupletTotalBeatsFrac(
-  baseDuration: NoteDuration,
-  notesOccupied: number,
-  /** Dots on the UNIT — see {@link getTupletNoteDurationFrac}. Dropping it here silently SHORTENS
-   *  the span by a third, which reads as a rebar bug three layers away. */
-  baseDots = 0,
-): Fraction {
-  return fracMul(durationToFraction(baseDuration, baseDots), fracCreate(notesOccupied, 1))
+export function tupletSpan(t: TupletShape): Fraction {
+  return fracMul(tupletBaseUnit(t), fracCreate(t.notesOccupied, 1))
+}
+
+/** The written→sounding factor: `M/N`, what one written note inside the tuplet is multiplied by. */
+export function tupletScale(t: TupletShape): Fraction {
+  return fracCreate(t.notesOccupied, t.numNotes)
 }
 
 /**
- * The tuplet's number as VexFlow will engrave it: `3` for a triplet, `7:4` for a septuplet — in
- * SMuFL TUPLET DIGITS, not ASCII.
- *
- * A line-for-line port of `Tuplet.resolveGlyphs()`: digits are `tuplet0`…`tuplet9` (U+E880 + d) and
- * the separator is `tupletColon` (U+E88A), so the string is drawn from the music font's own
- * numerals — the small, wide-spaced figures a tuplet uses — and NOT the text face's. Ported rather
- * than called because `resolveGlyphs` is private to a VexFlow `Tuplet`, which needs real notes.
- *
- * ⚠️ Codepoints written out: VexFlow's `Glyphs` table is CJS-only and is `undefined` in the browser
- * build (see docs — it has bitten us three times).
- *
- * The ratio rule is VexFlow's own default (`ratioed` when the counts differ by more than one),
- * stated here so a GHOST and the engraved mark cannot drift: a preview reading `5` for something
- * that will engrave as `5:3` is a preview of a different tuplet.
+ * Exact sounding duration of ONE slot — a note written as the tuplet's own unit.
+ * Fully reduced: a triplet eighth → 1/3.
  */
-export function tupletMarkText(numNotes: number, notesOccupied: number): string {
+export function tupletSlotDuration(t: TupletShape): Fraction {
+  return fracMul(tupletBaseUnit(t), tupletScale(t))
+}
+
+/** Exact sounding duration of a note written as `duration`+`dots` INSIDE this tuplet — the members
+ *  need not all be the unit (a 3:2 eighth triplet may hold a quarter and an eighth). */
+export function tupletWrittenDuration(t: TupletShape, duration: NoteDuration, dots = 0): Fraction {
+  return fracMul(durationToFraction(duration, dots), tupletScale(t))
+}
+
+/**
+ * What the tuplet's mark PRINTS — in SMuFL TUPLET DIGITS, not ASCII.
+ *
+ * The digits are a line-for-line port of VexFlow's private `Tuplet.resolveGlyphs()`: `tuplet0`…
+ * `tuplet9` (U+E880 + d) and `tupletColon` (U+E88A), so the string is drawn from the music font's
+ * own numerals — the small, wide-spaced figures a tuplet uses — and NOT the text face's. Ported
+ * rather than called because `resolveGlyphs` needs a VexFlow `Tuplet`, which needs real notes.
+ * ⚠️ Codepoints are written out: VexFlow's `Glyphs` table is CJS-only and `undefined` in the browser.
+ *
+ * `style` is {@link Tuplet.numberStyle} — what the user chose. Absent = AUTO, which is VexFlow's own
+ * default (a bare number when the counts are close, the ratio when they are not), stated here so a
+ * GHOST and the engraved mark cannot drift: a preview reading `5` for something that will engrave as
+ * `5:3` is a preview of a different tuplet.
+ *
+ * Derived every time, never stored — the numbers ARE the rhythm, so a saved string would go on
+ * saying `5:4` after the tuplet changed (docs/tuplet-extension-plan.md §6).
+ */
+export function tupletMarkText(t: TupletShape, style?: TupletNumberStyle): string {
   const digits = (n: number): string => {
     let out = ''
     for (let rest = n; rest >= 1; rest = Math.floor(rest / 10)) {
@@ -154,8 +173,16 @@ export function tupletMarkText(numNotes: number, notesOccupied: number): string 
     }
     return out
   }
-  const ratioed = Math.abs(numNotes - notesOccupied) > 1
-  return digits(numNotes) + (ratioed ? '\uE88A' + digits(notesOccupied) : '') // tupletColon
+  const resolved = style ?? (Math.abs(t.numNotes - t.notesOccupied) > 1 ? 'ratio' : 'number')
+  if (resolved === 'none') return ''
+  if (resolved === 'number') return digits(t.numNotes)
+  const ratio = `${digits(t.numNotes)}\uE88A${digits(t.notesOccupied)}` // U+E88A tupletColon
+  // "Ratio + note" names the value the counts are COUNTING — the actual side's, since both numbers
+  // count it (Sibelius writes `5:3x`, the x being the tuplet's own sixteenth).
+  if (resolved === 'ratioNote') {
+    return ratio + UNIT_GLYPH[t.baseDuration] + '.'.repeat(t.baseDots ?? 0)
+  }
+  return ratio
 }
 
 /**
@@ -165,7 +192,7 @@ export function tupletMarkText(numNotes: number, notesOccupied: number): string 
  * Inclusive of startBeat, exclusive of end.
  */
 export function isBeatInTupletFrac(beat: Fraction, tuplet: Tuplet): boolean {
-  const end = fracAdd(tuplet.startBeat, getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied, tuplet.baseDots))
+  const end = fracAdd(tuplet.startBeat, tupletSpan(tuplet))
   return fracGte(beat, tuplet.startBeat) && fracLt(beat, end)
 }
 

@@ -253,12 +253,15 @@
               .
             </button>
 
-            <!-- What those boxes come to in the model — or WHY they come to nothing. -->
-            <span
-              class="text-sm font-mono"
-              :class="customTuplet.ok ? 'text-cyan-400' : 'text-amber-400'"
-            >
-              {{ customTuplet.ok ? `${customTuplet.numNotes}:${customTuplet.notesOccupied}` : customTuplet.reason }}
+            <!-- What those boxes come to in the model — or WHY they come to nothing. A refusal says
+                 the VERDICT first and the reason second: the verdict is what you need at a glance,
+                 and the reason is what you need once you have stopped to read. -->
+            <span v-if="customTuplet.ok" class="text-sm font-mono text-cyan-400">
+              {{ `${customTuplet.shape.numNotes}:${customTuplet.shape.notesOccupied}` }}
+            </span>
+            <span v-else class="text-sm text-amber-400">
+              <span class="font-bold">Can't build this tuplet</span>
+              <span class="text-amber-300/80"> — {{ customTuplet.reason }}</span>
             </span>
             <button
               class="px-2 py-1 rounded text-sm bg-gray-600 hover:bg-gray-500 disabled:opacity-40"

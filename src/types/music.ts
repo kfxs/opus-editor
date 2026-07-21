@@ -11,42 +11,110 @@ export type { Fraction }
 export type NoteDuration = 'w' | 'h' | 'q' | '8' | '16' | '32'
 
 /**
- * Tuplet definition (e.g., triplet = 3 notes in space of 2)
+ * What a tuplet IS, with no `id` and no position: **N notes of one value in the time of M notes of
+ * another**. Two sides, each a count and a note value — MusicXML's `<tuplet-actual>` /
+ * `<tuplet-normal>`, and Finale's two dropdowns.
+ *
+ * It is split out from {@link Tuplet} because this — and NOT the id or the beat — is what gets ARMED
+ * (`EditorState.armedTuplet`), what a creation call needs, and what every span calculation reads.
+ * See docs/tuplet-extension-plan.md.
+ *
+ * ⚠️ N:M is TWO INTEGERS, never a `Fraction`: `fracCreate` reduces by gcd, and 6:4 → 3:2 turns a
+ * sextuplet into a triplet. The scaling factor `span ÷ (N × unit)` is a Fraction; the identity is not.
  */
-export interface Tuplet {
-  /** Unique identifier for the tuplet */
-  id: string
-  /** Beat position where the tuplet starts (exact rational) */
-  startBeat: Fraction
-  /** Base note duration for the tuplet (e.g., 'q' for quarter note triplet) */
+export interface TupletShape {
+  /** N — how many notes are squeezed in (3 for a triplet). */
+  numNotes: number
+  /** M — how many they replace (2 for a triplet). ALWAYS a count of {@link baseDuration}, because
+   *  that is what the ratio means: both numbers count the same note. What the user typed on the
+   *  other side is remembered separately, in {@link normalCount}. */
+  notesOccupied: number
+  /** The ACTUAL side's note value: what the tuplet's notes are WRITTEN as ('q' for a triplet of
+   *  quarters). Also the yardstick the mark's ratio is quoted in. */
   baseDuration: NoteDuration
   /**
-   * Dots on that base duration — a triplet of DOTTED quarters. Absent = 0, which keeps every
-   * existing score byte-identical.
+   * Dots on that value — a triplet of DOTTED quarters. Absent = 0, which keeps every existing score
+   * byte-identical.
    *
    * The unit is a note VALUE, and a note value can be dotted; Finale's two dropdowns list "Dotted
    * Quarter(s)" beside "Quarter(s)", and MusicXML carries `<tuplet-dot>` for the same reason. Without
    * it the dot has nowhere to go and cannot be worked around — `numNotes` counts NOTES, so respelling
    * the group in undotted units would change the ratio into a different tuplet.
    *
-   * ⚠️ It must reach every span calculation: `getTupletTotalBeatsFrac` and `getTupletNoteDurationFrac`
-   * both take it, and a site that forgets it computes a span a third short, silently.
+   * ⚠️ It must reach every span calculation. That is why they take this whole object
+   * ({@link ../utils/musicUtils.tupletSpan}) rather than loose arguments: a function handed the
+   * tuplet cannot be handed half of it, and a dropped dot computes a span a third short, silently.
    */
   baseDots?: number
-  /** Number of notes in the tuplet (e.g., 3 for triplet) */
-  numNotes: number
-  /** Number of base notes the tuplet occupies (e.g., 2 for triplet) */
-  notesOccupied: number
+  /**
+   * The NORMAL side's own note value — "5 sixteenths in the time of 1 QUARTER".
+   *
+   * **Absent = the same value as the actual side**, which is what the model meant before this field
+   * existed, so every older tuplet reads back identically and nothing migrates. Written only when
+   * the user actually said something different.
+   *
+   * It exists because the ratio alone throws away the question and keeps only the answer: a stored
+   * `5:4` cannot say "in the time of *what*", and a mark that prints a note value beside its ratio
+   * (Sibelius's *Ratio + note*, Finale's `Xq:Yq`) needs it.
+   *
+   * ⛔ Not arithmetic — see {@link normalCount}.
+   */
+  normalDuration?: NoteDuration
+  /** Dots on the normal side's value ("in the time of one DOTTED quarter"). Meaningless without
+   *  {@link normalDuration}, and ignored when it is absent — the actual side's dots apply then. */
+  normalDots?: number
+  /**
+   * The COUNT the user typed on the normal side — the "4" in "3 dotted quarters in the time of 4
+   * eighths".
+   *
+   * `notesOccupied` is that count CONVERTED into the actual side's value, because that is what the
+   * ratio means (both numbers count the same note). The conversion is not reversible: 4 eighths and
+   * 2 quarters land on the same `notesOccupied`, and a mark that wants to say which one the user
+   * meant has no way to ask.
+   *
+   * So this is the last of the six values that make up the typed sentence — N, its value, its dots,
+   * M, its value, its dots — and with it the entry can be reconstructed exactly. Absent = both sides
+   * are the same note value, where `notesOccupied` already IS the typed count.
+   *
+   * ⛔ Not arithmetic. Nothing computes from it; {@link ../utils/musicUtils.tupletSpan} and friends
+   * read the actual side only.
+   */
+  normalCount?: number
+}
+
+/**
+ * Tuplet definition (e.g., triplet = 3 notes in the time of 2) — a {@link TupletShape} placed in a
+ * bar, with an identity and the engraving overrides that ride on it.
+ */
+export interface Tuplet extends TupletShape {
+  /** Unique identifier for the tuplet */
+  id: string
+  /** Beat position where the tuplet starts (exact rational) */
+  startBeat: Fraction
   /**
    * Explicit bracket/number placement override. When undefined the side is
    * auto-derived from stem direction (bracket opposite the stems); setting this
    * forces the side, e.g. via the `x` flip. 'above' = LOCATION_TOP, 'below' = LOCATION_BOTTOM.
    */
   placement?: 'above' | 'below'
+  /**
+   * What the mark PRINTS: the number alone (`3`), the ratio (`3:2`), the ratio with the note value
+   * beside it (`3:2♪`), or nothing. Absent = auto — the renderer's own rule, which shows a bare
+   * number when the counts are close and a ratio when they are not (VexFlow's `ratioed` default).
+   *
+   * ⛔ The printed STRING is deliberately not stored. Tempo marks and dynamics are text-as-truth
+   * because their text carries meaning nothing else holds; a tuplet is the opposite — the numbers
+   * ARE the rhythm, so a stored `"5:4"` would go on saying 5:4 after the tuplet changed and the mark
+   * would be lying about the notes under it. Style in, string derived.
+   */
+  numberStyle?: TupletNumberStyle
   /** Staff this tuplet belongs to (a {@link StaffInfo} id); absent = staff 0. See
    *  docs/multi-staff-plan.md §4. Orthogonal to voice (the owning slots carry it). */
   staffId?: string
 }
+
+/** The Tuplet window's left column — what the mark says. `undefined` on a {@link Tuplet} = auto. */
+export type TupletNumberStyle = 'number' | 'ratio' | 'ratioNote' | 'none'
 
 /**
  * Accidental types

@@ -2,8 +2,9 @@ import { dbg } from '@/utils/debug'
 import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, CautionaryOverride, CautionaryClefOverride } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
 import {
-  getTupletTotalBeatsFrac,
-  getTupletNoteDurationFrac,
+  tupletSpan,
+  tupletSlotDuration,
+  tupletScale,
   noteSpansOverlapFrac,
   splitBeatsIntoDurations,
   measureCapacityFrac,
@@ -1750,7 +1751,7 @@ export class ScoreModel {
           for (const tuplet of voiceTuplets) {
             const tupletEndFrac = fracAdd(
               tuplet.startBeat,
-              getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied, tuplet.baseDots),
+              tupletSpan(tuplet),
             )
             if (fracGte(gap.start, tuplet.startBeat) && fracLt(gap.start, tupletEndFrac)) {
               return false
@@ -1801,7 +1802,8 @@ export class ScoreModel {
     if (slot.tupletId && measure.tuplets) {
       const tuplet = measure.tuplets.find(t => t.id === slot.tupletId)
       if (tuplet) {
-        return fracMul(base, fracCreate(tuplet.notesOccupied, tuplet.numNotes))
+        // The written→sounding factor, which is only `M/N` when both sides share a note value.
+        return fracMul(base, tupletScale(tuplet))
       }
     }
     return base
@@ -2486,8 +2488,8 @@ export class ScoreModel {
     const from = chord.voice ?? 0
     const { startBeat, baseDuration, baseDots, numNotes, notesOccupied } = sourceTuplet
     // Slot spacing is the ACTUAL (scaled) duration, not the written baseDuration.
-    const slot = getTupletNoteDurationFrac(baseDuration, numNotes, notesOccupied, baseDots)
-    const span = getTupletTotalBeatsFrac(baseDuration, notesOccupied, baseDots)
+    const slot = tupletSlotDuration(sourceTuplet)
+    const span = tupletSpan(sourceTuplet)
     const spanEnd = fracAdd(startBeat, span)
 
     // Relative slot index of the moved note within the tuplet grid.
@@ -2671,8 +2673,9 @@ export class ScoreModel {
     voice: number = 0,
     staff: number = 0,
     baseDots: number = 0,
+    normal?: { duration: NoteDuration; dots?: number; count?: number },
   ): Tuplet {
-    return tupletOps.createTuplet(this.score, measureNumber, startBeat, baseDuration, numNotes, notesOccupied, voice, staff, baseDots)
+    return tupletOps.createTuplet(this.score, measureNumber, startBeat, baseDuration, numNotes, notesOccupied, voice, staff, baseDots, normal)
   }
 
   /**

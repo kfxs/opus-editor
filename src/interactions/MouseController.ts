@@ -3,7 +3,7 @@ import type { ArticulationType, PitchSpelling, Fraction, SlurSegmentAddress } fr
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry, ElementType } from '../engine/ElementRegistry'
 import type { EditorState } from './EditorState'
-import { activeVoiceToModel, armedTool } from './EditorState'
+import { activeVoiceToModel, armedTool, armedNormalSide } from './EditorState'
 import { tempoLabel } from '../utils/tempoMap'
 import { tempoFieldsFromTool } from '../utils/tempoText'
 import { TempoTextSource } from './TempoTextSource'
@@ -1871,6 +1871,7 @@ export class MouseController {
             this.state.armedTuplet.notesOccupied,
             activeVoiceToModel(this.state.activeVoice),
             this.state.selectedDots,
+            armedNormalSide(this.state.armedTuplet),
           )
 
           if (result) {

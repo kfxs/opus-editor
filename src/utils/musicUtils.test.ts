@@ -9,7 +9,7 @@ import {
   tupletMarkText,
 } from './musicUtils'
 import { fracCreate } from './fraction'
-import type { TimeSignature, NoteDuration, Measure } from '@/types/music'
+import type { TimeSignature, NoteDuration, Measure, TupletShape } from '@/types/music'
 
 describe('musicUtils', () => {
   describe('durationToBeats', () => {
@@ -39,19 +39,36 @@ describe('musicUtils', () => {
   })
 
   describe('tupletMarkText', () => {
+    const shape = (numNotes: number, notesOccupied: number, rest: Partial<TupletShape> = {}): TupletShape =>
+      ({ numNotes, notesOccupied, baseDuration: '8', ...rest })
+
     // SMuFL tuplet digits, NOT ASCII: tuplet0..9 = U+E880 + d, tupletColon = U+E88A. Asserted by
     // codepoint because the characters are invisible in an editor — a stray ASCII '3' would look
     // identical here and render in the wrong face.
     it('writes a triplet as one SMuFL digit', () => {
-      expect(tupletMarkText(3, 2)).toBe('\uE883')
+      expect(tupletMarkText(shape(3, 2))).toBe('\uE883')
     })
 
     it('writes the ratio when the counts differ by more than one', () => {
-      expect(tupletMarkText(7, 4)).toBe('\uE887\uE88A\uE884')
+      expect(tupletMarkText(shape(7, 4))).toBe('\uE887\uE88A\uE884')
     })
 
     it('carries digits past nine', () => {
-      expect(tupletMarkText(13, 8)).toBe('\uE881\uE883\uE88A\uE888')
+      expect(tupletMarkText(shape(13, 8))).toBe('\uE881\uE883\uE88A\uE888')
+    })
+
+    // The style is the user's choice; absent is AUTO (the two cases above).
+    it('obeys an explicit style over the automatic rule', () => {
+      expect(tupletMarkText(shape(7, 4), 'number')).toBe('\uE887')
+      expect(tupletMarkText(shape(3, 2), 'ratio')).toBe('\uE883\uE88A\uE882')
+      expect(tupletMarkText(shape(3, 2), 'none')).toBe('')
+    })
+
+    // "Ratio + note" names the value BOTH counts are counting — the actual side's.
+    it("adds the tuplet's own note value, dots included", () => {
+      expect(tupletMarkText(shape(3, 2), 'ratioNote')).toBe('\uE883\uE88A\uE882♪')
+      expect(tupletMarkText(shape(3, 2, { baseDuration: 'q', baseDots: 1 }), 'ratioNote'))
+        .toBe('\uE883\uE88A\uE882♩.')
     })
   })
 

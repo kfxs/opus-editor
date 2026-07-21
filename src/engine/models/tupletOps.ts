@@ -11,7 +11,8 @@
  */
 import type { Score, Measure, Note, NoteParams, Tuplet, NoteDuration, Fraction } from '@/types/music'
 import {
-  getTupletTotalBeatsFrac,
+  tupletSpan,
+  tupletScale,
   isBeatInTupletFrac,
   noteSpansOverlapFrac,
   splitBeatsIntoDurations,
@@ -57,6 +58,10 @@ export function createTuplet(
   staff: number = 0,
   /** Dots on the unit — a triplet OF DOTTED QUARTERS. Trailing, so every existing caller is a 0. */
   baseDots: number = 0,
+  /** What the user typed on the NORMAL side — "in the time of 4 DOTTED QUARTERS": its note value,
+   *  its dots and its count. A RECORD of the entry, not arithmetic (see `Tuplet.normalCount`). Omit
+   *  for the usual case, where both sides are the same value. */
+  normal?: { duration: NoteDuration; dots?: number; count?: number },
 ): Tuplet {
   const measure = getMeasure(score, measureNumber)
   if (!measure) {
@@ -72,6 +77,13 @@ export function createTuplet(
   }
   // Written only when there is one, so an undotted tuplet serializes exactly as it always did.
   if (baseDots) tuplet.baseDots = baseDots
+  // Same rule: absent MEANS "the same value as the actual side", so a tuplet whose sides agree is
+  // stored exactly as it was before the field existed.
+  if (normal) {
+    tuplet.normalDuration = normal.duration
+    if (normal.dots) tuplet.normalDots = normal.dots
+    if (normal.count !== undefined) tuplet.normalCount = normal.count
+  }
   const staffId = staff ? staffIdAtIndex(score, staff) : undefined
   if (staffId !== undefined) tuplet.staffId = staffId
 
@@ -81,7 +93,7 @@ export function createTuplet(
   measure.tuplets.push(tuplet)
 
   // Remove existing slots in THIS voice AND staff that overlap the tuplet's time span.
-  const tupletDurFrac = getTupletTotalBeatsFrac(baseDuration, notesOccupied, baseDots)
+  const tupletDurFrac = tupletSpan(tuplet)
   measure.slots = measure.slots.filter(slot => {
     if ((slot.voice ?? 0) !== voice) return true // other voices are untouched
     if (staffIndexOfId(score, slot.staffId) !== staff) return true // other staves untouched
@@ -167,7 +179,7 @@ export function tupletSpanOverlaps(
     if (staff !== undefined && staffIndexOfId(score, t.staffId) !== staff) return false
     const slot = measure.slots.find(s => s.tupletId === t.id)
     if ((slot?.voice ?? 0) !== voice) return false
-    const existingSpan = getTupletTotalBeatsFrac(t.baseDuration, t.notesOccupied, t.baseDots)
+    const existingSpan = tupletSpan(t)
     return noteSpansOverlapFrac(t.startBeat, existingSpan, startBeat, totalBeats)
   })
 }
@@ -216,9 +228,11 @@ export function refillTupletRemainder(
   addNote: (params: NoteParams) => Note,
   voice: number = 0,
 ): void {
-  const ratio = fracCreate(tuplet.notesOccupied, tuplet.numNotes)
-  const inverseRatio = fracCreate(tuplet.numNotes, tuplet.notesOccupied)
-  const tupletEnd = fracAdd(tuplet.startBeat, getTupletTotalBeatsFrac(tuplet.baseDuration, tuplet.notesOccupied, tuplet.baseDots))
+  // The written→sounding factor and its inverse. NOT `M/N`: that is only the same thing when the
+  // two sides share a note value (see tupletScale).
+  const ratio = tupletScale(tuplet)
+  const inverseRatio = fracDiv(fracCreate(1, 1), ratio)
+  const tupletEnd = fracAdd(tuplet.startBeat, tupletSpan(tuplet))
   // Filler rests inherit the tuplet's own staff (derived from its stamped staffId), so
   // gaps in a staff-1 triplet fill on staff 1 — not on staff 0. Absent staffId → index 0.
   const staff = staffIndexOfId(score, tuplet.staffId)

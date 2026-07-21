@@ -4,14 +4,14 @@ import { CoordinateMapper } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
 import {
   durationToBeats, splitBeatsIntoDurations, midiToNoteName,
-  getTupletNoteDurationFrac, getTupletTotalBeatsFrac, beatToFrac,
+  tupletSlotDuration, tupletSpan, tupletScale, tupletWrittenDuration, beatToFrac,
   measureCapacityQuarters, measureCapacityFrac,
 } from '@/utils/musicUtils'
 import {
   fracToNumber, fracEq, fracAdd, fracSub, fracMul,
   fracLt, fracGt, fracGte, fracLte, fracFromInt, fracCreate,
 } from '@/utils/fraction'
-import { durationToFraction, tupletNoteDurationFraction, fitRestDuration, splitBeatsIntoLengths } from '@/utils/durations'
+import { durationToFraction, fitRestDuration, splitBeatsIntoLengths } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
 import type { Note, NoteParams, PixelCoordinates, Tuplet, NoteDuration, ArticulationType, Accidental, PitchSpelling, Measure } from '@/types/music'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '@/utils/pitchSpelling'
@@ -82,8 +82,8 @@ export class NoteEntryCoordinator {
     // If the selected written duration would overflow the tuplet, silently use the
     // largest standard duration that fits instead — same behaviour as Sibelius.
     if (tupletAtBeat) {
-      const ratio = fracCreate(tupletAtBeat.notesOccupied, tupletAtBeat.numNotes)
-      const tupletEnd = fracAdd(tupletAtBeat.startBeat, getTupletTotalBeatsFrac(tupletAtBeat.baseDuration, tupletAtBeat.notesOccupied, tupletAtBeat.baseDots))
+      const ratio = tupletScale(tupletAtBeat)
+      const tupletEnd = fracAdd(tupletAtBeat.startBeat, tupletSpan(tupletAtBeat))
       const remainingActual = fracSub(tupletEnd, finalBeatFrac)
       const noteActual = fracMul(durationToFraction(params.duration, params.dots || 0), ratio)
       if (fracGt(noteActual, remainingActual)) {
@@ -98,11 +98,13 @@ export class NoteEntryCoordinator {
     // Calculate effective note duration (scaled by tuplet ratio when inside a tuplet)
     const finalBeat = fracToNumber(finalBeatFrac)
     const nominalDuration = durationToBeats(params.duration, params.dots || 0)
-    const tupletRatio = tupletAtBeat ? tupletAtBeat.notesOccupied / tupletAtBeat.numNotes : 1
+    // Exact first, float second: the epsilon comparisons below are float, but the RATIO must come
+    // from the tuplet (it is not M/N once the two sides carry different note values).
+    const tupletRatio = tupletAtBeat ? fracToNumber(tupletScale(tupletAtBeat)) : 1
     const effectiveDuration = nominalDuration * tupletRatio
     // Set actualDuration so checkMeasureOverflow uses the scaled duration, not the written one
     const actualDuration = tupletAtBeat
-      ? fracMul(durationToFraction(params.duration, params.dots || 0), fracCreate(tupletAtBeat.notesOccupied, tupletAtBeat.numNotes))
+      ? tupletWrittenDuration(tupletAtBeat, params.duration, params.dots || 0)
       : undefined
 
     const finalParams: NoteParams = { ...params, beat: finalBeatFrac, ...(tupletId ? { tupletId } : {}), ...(actualDuration ? { actualDuration } : {}) }
@@ -124,7 +126,7 @@ export class NoteEntryCoordinator {
       let nDuration = durationToBeats(n.duration, n.dots || 0)
       if (n.tupletId) {
         const nTuplet = (targetMeasure.tuplets || []).find(t => t.id === n.tupletId)
-        if (nTuplet) nDuration *= nTuplet.notesOccupied / nTuplet.numNotes
+        if (nTuplet) nDuration *= fracToNumber(tupletScale(nTuplet))
       }
       const nBeat = fracToNumber(n.beat)
       const nEnd = nBeat + nDuration
@@ -337,11 +339,11 @@ export class NoteEntryCoordinator {
 
     if (tupletAtBeat) {
       const selectedDurationFrac = durationToFraction(duration, dots)
-      const tupletTotalBeatsFrac = getTupletTotalBeatsFrac(tupletAtBeat.baseDuration, tupletAtBeat.notesOccupied, tupletAtBeat.baseDots)
+      const tupletTotalBeatsFrac = tupletSpan(tupletAtBeat)
       const tupletEndBeat = fracAdd(tupletAtBeat.startBeat, tupletTotalBeatsFrac)
 
       // Compute fill pointer: end of last real note in the tuplet
-      const ratio = fracCreate(tupletAtBeat.notesOccupied, tupletAtBeat.numNotes)
+      const ratio = tupletScale(tupletAtBeat)
       const realNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
         .filter(n => n.tupletId === tupletAtBeat.id && !n.isRest)
         .sort((a, b) => fracToNumber(a.beat) - fracToNumber(b.beat))
@@ -363,7 +365,7 @@ export class NoteEntryCoordinator {
       } else {
         // Case 2: Check if note fits in remaining space (from fill pointer to tuplet end)
         const remainingActual = fracSub(tupletEndBeat, fillPointer)
-        const scaledNoteDurationFrac = tupletNoteDurationFraction(duration, dots ?? 0, tupletAtBeat.numNotes, tupletAtBeat.notesOccupied)
+        const scaledNoteDurationFrac = tupletWrittenDuration(tupletAtBeat, duration, dots ?? 0)
         if (fracGt(scaledNoteDurationFrac, remainingActual)) {
           dbg(`Note rejected: scaled duration (${fracToNumber(scaledNoteDurationFrac).toFixed(3)}) exceeds remaining tuplet space (${fracToNumber(remainingActual).toFixed(3)})`)
           return null
@@ -515,7 +517,7 @@ export class NoteEntryCoordinator {
     // For tuplet notes that span multiple slots (e.g., quarter note in eighth triplet),
     // delete any existing tuplet notes/rests that fall within the note's actual time range
     if (tupletId && tupletAtBeat) {
-      const actualNoteDurationFrac = tupletNoteDurationFraction(duration, dots ?? 0, tupletAtBeat.numNotes, tupletAtBeat.notesOccupied)
+      const actualNoteDurationFrac = tupletWrittenDuration(tupletAtBeat, duration, dots ?? 0)
       const noteEndBeat = fracAdd(finalBeat, actualNoteDurationFrac)
 
       const tupletItemsToDelete = this.getScoreModel().getNotesInMeasure(measureNumber)
@@ -672,8 +674,8 @@ export class NoteEntryCoordinator {
     let { updates, newBeats, newDuration } = ctx
     const { noteId, existingNote, measureNotes, chordNotes, isChord, newDots } = ctx
 
-    const tupletRatio = tuplet.notesOccupied / tuplet.numNotes
-    const tupletTotalBeats = durationToBeats(tuplet.baseDuration) * tuplet.notesOccupied
+    const tupletRatio = fracToNumber(tupletScale(tuplet))
+    const tupletTotalBeats = fracToNumber(tupletSpan(tuplet))
     const tupletEndBeat = fracToNumber(tuplet.startBeat) + tupletTotalBeats
     // Remaining space runs from this note's start to the tuplet end
     const remainingTupletBeats = tupletEndBeat - fracToNumber(existingNote.beat)
@@ -852,6 +854,8 @@ export class NoteEntryCoordinator {
     voice: number = 0,
     /** Dots on the tuplet's UNIT — the armed dot, so a triplet OF DOTTED quarters is enterable. */
     dots: number = 0,
+    /** The NORMAL side's own note value, when the user named one ("in the time of a QUARTER"). */
+    normal?: { duration: NoteDuration; dots?: number; count?: number },
   ): { tuplet: Tuplet; firstNote: Note } | null {
     const measureNumber = this.coordinateMapper.pixelToMeasure(coords)
 
@@ -865,8 +869,7 @@ export class NoteEntryCoordinator {
     const entryStaff = this.elementRegistry.staffIndexAtY(measureNumber, coords.y)
     const barQuarters = measureCapacityQuarters(targetMeasure)
 
-    const noteDurationInBeats = durationToBeats(duration, dots)
-    const tupletTotalBeats = noteDurationInBeats * notesOccupied
+    const tupletTotalBeats = fracToNumber(tupletSpan({ numNotes, notesOccupied, baseDuration: duration, baseDots: dots }))
 
     // Resolve beat using directional element logic. Quantize the tuplet START to
     // the tuplet's OWN SPAN (e.g. a whole beat for an 8th-triplet), not the inner
@@ -907,7 +910,7 @@ export class NoteEntryCoordinator {
       config: `${numNotes}:${notesOccupied} ${duration}${'.'.repeat(dots)}`,
     })
 
-    return this.buildTupletWithFirstNote(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice, entryStaff, dots)
+    return this.buildTupletWithFirstNote(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice, entryStaff, dots, normal)
   }
 
   /**
@@ -925,6 +928,8 @@ export class NoteEntryCoordinator {
     staff: number = 0,
     /** Dots on the unit — see {@link createTupletAtPosition}. */
     dots: number = 0,
+    /** The NORMAL side's own note value — see {@link createTupletAtPosition}. */
+    normal?: { duration: NoteDuration; dots?: number; count?: number },
   ): { tuplet: Tuplet; firstNote: Note } | null {
     const targetMeasure = this.getScoreModel().getMeasure(measureNumber)
     if (!targetMeasure) return null
@@ -932,7 +937,7 @@ export class NoteEntryCoordinator {
     const existingTuplet = this.getScoreModel().getTupletAtBeat(measureNumber, beatToFrac(beat), voice, staff)
     if (existingTuplet) return null
 
-    return this.buildTupletWithFirstNote(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice, staff, dots)
+    return this.buildTupletWithFirstNote(measureNumber, beat, duration, spelling, numNotes, notesOccupied, voice, staff, dots, normal)
   }
 
   /**
@@ -971,7 +976,11 @@ export class NoteEntryCoordinator {
     // already overlaps the span the new tuplet would occupy (not just the exact start beat).
     const voice = note.voice ?? 0
     const staff = note.staff ?? 0
-    const applySpan = getTupletTotalBeatsFrac(note.duration, notesOccupied, note.dots)
+    // The shape the tuplet WILL have, built before it exists so the span is computed by the same
+    // rule the stored tuplet will use. Both sides are the note's own value here — turning a note
+    // into a tuplet cannot say "in the time of" something else.
+    const shape = { numNotes, notesOccupied, baseDuration: note.duration, baseDots: note.dots }
+    const applySpan = tupletSpan(shape)
     if (this.getScoreModel().tupletSpanOverlaps(note.measure, note.beat, applySpan, voice, staff)) return null
 
     // …and it has to FIT (see tupletFitsBar). Nothing checked this: the bar went overfull.
@@ -982,7 +991,7 @@ export class NoteEntryCoordinator {
 
     // createTuplet removes overlapping slots (same voice + staff only); places no initial rests
     const tuplet = this.getScoreModel().createTuplet(note.measure, note.beat, note.duration, numNotes, notesOccupied, voice, staff, note.dots ?? 0)
-    const actualDuration = fracMul(durationToFraction(note.duration, note.dots), fracCreate(notesOccupied, numNotes))
+    const actualDuration = tupletWrittenDuration(shape, note.duration, note.dots ?? 0)
 
     let resultNote: Note
     if (note.isRest) {
@@ -1029,12 +1038,18 @@ export class NoteEntryCoordinator {
     voice: number = 0,
     staff: number = 0,
     dots: number = 0,
+    normal?: { duration: NoteDuration; dots?: number; count?: number },
   ): { tuplet: Tuplet; firstNote: Note } | null {
     // Refuse to create a tuplet whose span would overlap an existing same-voice,
     // same-staff tuplet. Two overlapping tuplets in one voice corrupt entry: a beat
     // inside both resolves ambiguously and notes/rests get pulled into the wrong one.
     const beatFracGuard = beatToFrac(beat)
-    const newSpan = getTupletTotalBeatsFrac(duration, notesOccupied, dots)
+    // Built before the tuplet exists, so the guards below measure exactly what will be stored.
+    const shape = {
+      numNotes, notesOccupied, baseDuration: duration, baseDots: dots,
+      ...(normal && { normalDuration: normal.duration, normalDots: normal.dots, normalCount: normal.count }),
+    }
+    const newSpan = tupletSpan(shape)
     if (this.getScoreModel().tupletSpanOverlaps(measureNumber, beatFracGuard, newSpan, voice, staff)) {
       dbg(`✗ Tuplet not created: span overlaps an existing v${voice} s${staff} tuplet`)
       return null
@@ -1058,8 +1073,8 @@ export class NoteEntryCoordinator {
 
     // Create the tuplet (removes overlapping same-voice + same-staff slots, places no initial rests)
     const beatFrac = beatToFrac(beat)
-    const tuplet = this.getScoreModel().createTuplet(measureNumber, beatFrac, duration, numNotes, notesOccupied, voice, staff, dots)
-    const actualDuration = fracMul(durationToFraction(duration, dots), fracCreate(notesOccupied, numNotes))
+    const tuplet = this.getScoreModel().createTuplet(measureNumber, beatFrac, duration, numNotes, notesOccupied, voice, staff, dots, normal)
+    const actualDuration = tupletWrittenDuration(shape, duration, dots)
 
     let firstNote: Note
 
@@ -1486,7 +1501,7 @@ export class NoteEntryCoordinator {
   ): Note[] {
     // For tuplet notes, use the actual tuplet note duration, not the base duration
     const noteDurationFrac = tupletInfo
-      ? getTupletNoteDurationFrac(tupletInfo.baseDuration, tupletInfo.numNotes, tupletInfo.notesOccupied, tupletInfo.baseDots)
+      ? tupletSlotDuration(tupletInfo)
       : durationToFraction(duration)
     const noteEnd = fracAdd(beat, noteDurationFrac)
     const notesInMeasure = this.getScoreModel().getNotesInMeasure(measureNumber)

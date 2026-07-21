@@ -117,8 +117,14 @@ export class RenderController {
       // An armed tuplet rides ON the ghost note rather than replacing it: what the click enters IS a
       // note, and the tuplet is what that note starts. So this is a label on the note, not a
       // ninth marking-tool ghost.
+      // The armed tuplet is a TupletShape minus its actual note value, and the value is the armed
+      // duration — put back together here, because the mark's text can depend on either side.
       this.state.armedTuplet
-        ? tupletMarkText(this.state.armedTuplet.numNotes, this.state.armedTuplet.notesOccupied)
+        ? tupletMarkText({
+            ...this.state.armedTuplet,
+            baseDuration: this.state.selectedDuration,
+            baseDots: this.state.selectedDots,
+          })
         : undefined,
     )
     return ghostRendered

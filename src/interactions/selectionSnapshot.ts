@@ -131,7 +131,14 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
   }
 
   if (state.selectedTupletId) {
-    out.push({ kind: 'tuplet', data: { id: state.selectedTupletId }, overrides: overridesAt(score, state.selectedTupletId) })
+    // The OBJECT, like every other kind above — this used to report `{ id }` alone, so the one
+    // element whose fields you most want to read (the ratio, the unit, what was typed) showed
+    // nothing but a uuid.
+    out.push({
+      kind: 'tuplet',
+      data: engine.getTuplet(state.selectedTupletId) ?? { id: state.selectedTupletId, missing: true },
+      overrides: overridesAt(score, state.selectedTupletId),
+    })
   }
 
   // Clef and time signature are positional: they belong to a measure (and, for a clef, a staff and

@@ -52,7 +52,7 @@ import {
   fracToNumber,
 } from '@/utils/fraction'
 import { durationToFraction } from '@/utils/durations'
-import { getTupletTotalBeatsFrac } from '@/utils/musicUtils'
+import { tupletSpan } from '@/utils/musicUtils'
 import { getMeterInfo, type MeterInfo } from '@/utils/meter'
 import { fillRests, decomposeSpan } from '@/utils/restFill'
 
@@ -170,7 +170,7 @@ export function flattenRegion(measures: Measure[], voice: 0 | 1 | 2 | 3 = 0): Re
       // with a phantom atomic, and vice versa.
       const owner = m.slots.find((s) => s.tupletId === def.id)
       if ((owner?.voice ?? 0) !== voice) continue
-      const tupletDur = getTupletTotalBeatsFrac(def.baseDuration, def.notesOccupied, def.baseDots)
+      const tupletDur = tupletSpan(def)
       events.push({
         offset: fracAdd(runningOffset, def.startBeat),
         duration: tupletDur,
