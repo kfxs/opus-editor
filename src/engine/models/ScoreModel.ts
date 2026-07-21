@@ -122,6 +122,16 @@ export class ScoreModel {
   }
 
   /**
+   * How long a NEW score is, in bars — what the app tops an empty score up to.
+   *
+   * A page of empty staves rather than a stub: bars are free (an empty one is a rest and a barline),
+   * the viewport culls what is off screen, and having to add measures before you can write is a
+   * question the program should not be asking. It lives here, beside the model that mints them,
+   * because the number is about the SCORE and not about whoever calls `addMeasure`.
+   */
+  static readonly DEFAULT_SCORE_MEASURES = 64
+
+  /**
    * Get the complete score
    */
   getScore(): Score {

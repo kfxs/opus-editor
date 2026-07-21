@@ -86,6 +86,19 @@ export const ZOOM_MAX = 4
 export const ZOOM_LADDER = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4] as const
 
 /**
+ * What the editor OPENS at — further out than actual size, so the first thing you see is a page of
+ * music rather than three bars of it. Two wheel notches out from 100%
+ * (`exp(-100 × ZOOM_WHEEL_K)² ≈ 0.74`): far enough to see the shape of a phrase, close enough that
+ * the noteheads are still notes.
+ *
+ * The MODEL still starts at 1, and deliberately: its identity transform has to be the identity, or
+ * every calculation and every test begins scaled. Where the EDITOR opens is a decision about the
+ * editor, so the app applies this once at start-up. `Ctrl+0` still goes to 100% — actual size is a fact about the
+ * page, while this is only where the view begins.
+ */
+export const DEFAULT_ZOOM = 0.7
+
+/**
  * Next round-number zoom stop above (`dir > 0`) or below (`dir < 0`) the current zoom, clamped to
  * the ladder ends. Pure helper for the Ctrl+=/Ctrl+- snap behaviour; the epsilon makes a zoom that
  * sits exactly on a stop step to the *neighbouring* stop rather than to itself.

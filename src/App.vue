@@ -381,9 +381,11 @@
 import { dbg } from '@/utils/debug'
 import { ref, shallowRef, computed, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { MusicEngine } from './engine/MusicEngine'
+import { ScoreModel } from './engine/models/ScoreModel'
 // ⚠️ TEMPORARY dev-only sound picker — remove when a real instrument model lands.
 import { DEV_SOUNDS } from './engine/audio/WebAudioFontInstrument'
 import { VIEWPORT_HEIGHT } from './engine/rendering/VexFlowRenderer'
+import { DEFAULT_ZOOM } from './engine/ViewportModel'
 import { createObservableEditorState, scoreCursorClass } from './interactions/EditorState'
 import type { NoteDuration } from './types/music'
 import { useHighlight } from './composables/useHighlight'
@@ -658,6 +660,9 @@ onMounted(() => {
 
     shortcuts.enable()
     initializeEmptyScore()
+    // Open zoomed OUT (DEFAULT_ZOOM), before the first render rather than after: the model's own
+    // identity is 100%, and where the EDITOR opens is this file's call, not the model's.
+    viewport.model.setZoom(DEFAULT_ZOOM)
     renderer.renderScore()
     // Now that the engine exists, hand it the window (P6). The first render above drew the whole
     // score, because until this moment nothing had told the engine where the viewport is. Doing it
@@ -756,7 +761,9 @@ onUnmounted(() => {
 function initializeEmptyScore() {
   if (!engine.value) return
   engine.value.clearAllNotes()
-  for (let i = 0; i < 7; i++) {
+  // TOP UP to the default length rather than adding a fixed number — the model mints a measure of
+  // its own, and "add 63" would quietly mean something else the day that changes.
+  while (engine.value.getScore().measures.length < ScoreModel.DEFAULT_SCORE_MEASURES) {
     engine.value.addMeasure()
   }
 }
