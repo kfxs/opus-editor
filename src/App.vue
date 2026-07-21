@@ -2,295 +2,12 @@
   <div class="min-h-screen bg-gray-900 text-white p-8">
     <div class="mb-8">
       <div class="bg-gray-800 p-4 rounded-lg">
-        <div class="mb-4 flex gap-2 flex-wrap">
-          <button
-            class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded"
-            @click="openTestWindow"
-          >
-            Lorem Window
-          </button>
-          <div class="border-l border-gray-600 mx-2" />
-
-          <!-- Tool Mode Selector -->
-          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">Tool:</span>
-            <button
-              :class="[
-                'px-3 py-1 rounded text-sm',
-                state.selectedTool === 'entry'
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Note Entry Tool"
-              @click="state.selectedTool = 'entry'; state.selectedNoteId = null"
-            >
-              Entry
-            </button>
-            <button
-              :class="[
-                'px-3 py-1 rounded text-sm',
-                state.selectedTool === 'selection'
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Selection Tool"
-              @click="palette.disarmPositionalTools(); state.selectedTool = 'selection'"
-            >
-              Select
-            </button>
-          </div>
-
-          <div class="border-l border-gray-600 mx-2" />
-
-          <!-- View mode: wrapped systems vs one endless system (docs/linear-view-plan.md) -->
-          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">View:</span>
-            <button
-              :class="[
-                'px-3 py-1 rounded text-sm',
-                state.viewMode === 'wrapped'
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Wrapped view — music broken into stacked systems (Ctrl+Shift+L toggles)"
-              @click="palette.setViewMode('wrapped')"
-            >
-              Wrapped
-            </button>
-            <button
-              :class="[
-                'px-3 py-1 rounded text-sm',
-                state.viewMode === 'linear'
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Linear view — one endless system, scroll left to right (Ctrl+Shift+L toggles)"
-              @click="palette.setViewMode('linear')"
-            >
-              Linear
-            </button>
-          </div>
-
-          <div class="border-l border-gray-600 mx-2" />
-
-          <!-- Voice Selector (Sibelius-style: V1 blue, V2 green) -->
-          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">Voice:</span>
-            <button
-              :class="[
-                'px-3 py-1 rounded text-sm font-bold',
-                state.activeVoice === 1
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Voice 1 (Alt+1) — primary stream"
-              @click="palette.setActiveVoice(1)"
-            >
-              1
-            </button>
-            <button
-              :class="[
-                'px-3 py-1 rounded text-sm font-bold',
-                state.activeVoice === 2
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Voice 2 (Alt+2) — second stream"
-              @click="palette.setActiveVoice(2)"
-            >
-              2
-            </button>
-          </div>
-
-          <div class="border-l border-gray-600 mx-2" />
-
-          <!-- Note Duration Selector -->
-          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">Duration:</span>
-            <button
-              :class="[
-                'px-3 py-1 rounded text-sm font-bold',
-                highlightedDuration === 'w'
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Whole note (Redonda) - 4 beats"
-              @click="palette.setDuration('w')"
-            >
-              𝅝
-            </button>
-            <button
-              :class="[
-                'px-3 py-1 rounded text-sm font-bold',
-                highlightedDuration === 'h'
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Half note (Blanca) - 2 beats"
-              @click="palette.setDuration('h')"
-            >
-              𝅗𝅥
-            </button>
-            <button
-              :class="[
-                'px-3 py-1 rounded text-sm font-bold',
-                highlightedDuration === 'q'
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Quarter note (Negra) - 1 beat"
-              @click="palette.setDuration('q')"
-            >
-              ♩
-            </button>
-            <button
-              :class="[
-                'px-3 py-1 rounded text-sm font-bold',
-                highlightedDuration === '8'
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Eighth note (Corchea) - 0.5 beats"
-              @click="palette.setDuration('8')"
-            >
-              ♪
-            </button>
-            <button
-              :class="[
-                'px-3 py-1 rounded text-sm font-bold',
-                highlightedDuration === '16'
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Sixteenth note (Semicorchea) - 0.25 beats"
-              @click="palette.setDuration('16')"
-            >
-              𝅘𝅥𝅯
-            </button>
-            <button
-              :class="[
-                'px-3 py-1 rounded text-sm font-bold',
-                highlightedDuration === '32'
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              title="Thirty-second note (Fusa) - 0.125 beats"
-              @click="palette.setDuration('32')"
-            >
-              𝅘𝅥𝅰
-            </button>
-          </div>
-
-
-          <!--
-            The tuplet row is GONE — presets and the Finale-shaped sketch both. Three paths armed a
-            tuplet and two of them survive this file: `Ctrl+`2…9, one per preset (generated from
-            utils/tupletPresets, the very table these buttons read), and Insert ▸ Tuplet, which can
-            arm any ratio at all and set how it is engraved.
-
-            ⏭️ What went with them is the armed-STATE light: nothing now says "5:4 is armed" except the
-            ghost under the cursor. That belongs on the Keypad, which mirrors editor state already.
-          -->
-
-          <!-- Beam -->
-          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">Beam:</span>
-            <button
-              v-for="b in (['auto', 'single', 'begin', 'continue', 'end'] as const)"
-              :key="b"
-              :class="[
-                'px-2 py-1 rounded text-xs',
-                state.selectedBeam === b
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-600 hover:bg-gray-500'
-              ]"
-              :title="`Beam: ${b}`"
-              @click="palette.setBeam(b)"
-            >
-              {{ b }}
-            </button>
-          </div>
-
-          <!-- Add Measure (relative to the box-selected measure span; Ctrl+Shift+click a bar) -->
-          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">Measure:</span>
-            <button
-              :disabled="!hasMeasureContext"
-              class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Insert an empty measure before the selected bar — Ctrl+Shift+click a measure to select it first"
-              @click="palette.addMeasureBefore()"
-            >
-              + Before
-            </button>
-            <button
-              :disabled="!hasMeasureContext"
-              class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Insert an empty measure after the selected bar — Ctrl+Shift+click a measure to select it first"
-              @click="palette.addMeasureAfter()"
-            >
-              + After
-            </button>
-          </div>
-
-          <!-- Add Staff (relative to the plain-click-selected bar's staff; click empty space in a bar) -->
-          <div class="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded">
-            <span class="text-sm text-gray-300">Staff:</span>
-            <button
-              :disabled="!hasStaffContext"
-              class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Add a staff above the selected bar's staff — click empty space in a measure to select it first"
-              @click="palette.addStaffAbove()"
-            >
-              + Above
-            </button>
-            <button
-              :disabled="!hasStaffContext"
-              class="px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Add a staff below the selected bar's staff — click empty space in a measure to select it first"
-              @click="palette.addStaffBelow()"
-            >
-              + Below
-            </button>
-          </div>
-
-          <div class="border-l border-gray-600 mx-2" />
-          <button
-            :class="[
-              'px-4 py-2 rounded min-w-[80px]',
-              state.playbackState === 'playing'
-                ? 'bg-orange-600 hover:bg-orange-700'
-                : 'bg-purple-600 hover:bg-purple-700',
-            ]"
-            @click="togglePlayback"
-          >
-            {{ state.playbackState === 'playing' ? '⏹ Stop' : '▶ Play' }}
-          </button>
-
-          <!--
-            ⚠️ TEMPORARY dev-only sound picker — NOT a final editor feature. Lets us audition
-            GM timbres during development; the choice is not persisted (not in score/JSON) and
-            takes effect on the next Play. Deliberately styled as scaffolding (dashed amber,
-            🔧 DEV). Remove this block + onDevSoundChange + DEV_SOUNDS when a real per-staff
-            instrument model is designed.
-          -->
-          <label
-            class="flex items-center gap-1 ml-2 px-2 py-1 rounded border border-dashed border-amber-500/70 text-amber-300 text-xs"
-            title="Temporary dev-only sound picker — not a final editor feature. Applies on next Play."
-          >
-            🔧 DEV sound:
-            <select
-              v-model.number="devSoundProgram"
-              class="bg-gray-700 rounded px-1 py-0.5 text-white text-xs"
-              @change="onDevSoundChange"
-            >
-              <option
-                v-for="s in DEV_SOUNDS"
-                :key="s.program"
-                :value="s.program"
-              >{{ s.label }}</option>
-            </select>
-          </label>
-        </div>
+        <!--
+          The development toolbar builds itself, in plain TS (src/dev/devToolbar.ts). Vue's whole
+          share of it is this empty box: the shell is scaffolding around the viewport, and the
+          viewport is the application. See docs/remove-vue-plan.md.
+        -->
+        <div ref="toolbarHost" />
 
         <!--
           Score area = fixed-size viewport (owns scroll) + inner content surface (holds the SVG).
@@ -367,27 +84,23 @@
       </div>
     </div>
 
-    <div class="bg-gray-800 p-4 rounded-lg text-left">
-      <h3 class="text-xl mb-2">
-        Score JSON:
-      </h3>
-      <pre class="bg-gray-900 p-4 rounded overflow-auto text-xs max-h-96">{{ scoreJSON }}</pre>
-    </div>
+    <!-- Live Score-JSON dump — the other half of the dev shell (src/dev/scoreJsonPanel.ts). -->
+    <div
+      ref="jsonHost"
+      class="bg-gray-800 p-4 rounded-lg text-left"
+    />
 
   </div>
 </template>
 
 <script setup lang="ts">
 import { dbg } from '@/utils/debug'
-import { ref, shallowRef, computed, reactive, watch, onMounted, onUnmounted } from 'vue'
+import { ref, shallowRef, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { MusicEngine } from './engine/MusicEngine'
 import { ScoreModel } from './engine/models/ScoreModel'
-// ⚠️ TEMPORARY dev-only sound picker — remove when a real instrument model lands.
-import { DEV_SOUNDS } from './engine/audio/WebAudioFontInstrument'
 import { VIEWPORT_HEIGHT } from './engine/rendering/VexFlowRenderer'
 import { DEFAULT_ZOOM } from './engine/ViewportModel'
 import { createObservableEditorState, scoreCursorClass } from './interactions/EditorState'
-import type { NoteDuration } from './types/music'
 import { HighlightController } from './interactions/HighlightController'
 import { RenderController } from './interactions/RenderController'
 import { SelectionController } from './interactions/SelectionController'
@@ -401,12 +114,14 @@ import { GutterController } from './interactions/GutterController'
 import { useViewport } from './composables/useViewport'
 import { useShortcuts } from './composables/useShortcuts'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
+// The dev shell — toolbar + Score-JSON dump. Plain TS; Vue only donates the two boxes they fill.
+import { mountDevToolbar } from './dev/devToolbar'
+import { mountScoreJsonPanel } from './dev/scoreJsonPanel'
 import { ClipboardController } from './interactions/ClipboardController'
 import { windows } from './windows'
 import { menus, menuActions, openMenuAtViewport } from './menus'
-import { wireKeypadSync, noNoteInSelection } from './interactions/keypadSync'
+import { wireKeypadSync } from './interactions/keypadSync'
 import { wireSelectionInspection } from './interactions/selectionInspectionSync'
-import { openLoremWindow } from './windows/demo/loremWindows'
 
 // --- Engine and canvas ---
 const engine = shallowRef<MusicEngine | null>(null)
@@ -422,6 +137,9 @@ const scoreZoomLayer = ref<HTMLElement | null>(null)
 const scoreGutter = ref<HTMLElement | null>(null)
 // The viewport wrapper: the score's positioning context, and the world the windows live in.
 const scoreViewport = ref<HTMLElement | null>(null)
+// The two boxes the dev shell fills (src/dev/) — Vue's entire share of the scaffolding.
+const toolbarHost = ref<HTMLElement | null>(null)
+const jsonHost = ref<HTMLElement | null>(null)
 // Fixed viewport height (≈ two staff lines) so the JSON panel below stays visible.
 const viewportHeight = `${VIEWPORT_HEIGHT}px`
 
@@ -600,17 +318,6 @@ watch(() => state.isPanning, (panning) => {
   document.body.style.cursor = panning ? 'none' : ''
 })
 
-// The duration/accidental to HIGHLIGHT — the rule, in one place. A value is shown only when it means
-// something: in entry mode (the armed value), or in selection mode with a note selected (the note's,
-// kept in sync by SelectionController). Select a non-note or clear the canvas and there is no note to
-// reflect, so nothing is highlighted — in the Vue palette AND the Keypad.
-// These two computeds highlight the VUE palette's own buttons (the template binds them). The
-// shared `noNoteInSelection` rule and the Keypad's read-sync now live in interactions/keypadSync;
-// these are just Vue rendering itself — one subscriber among many.
-const highlightedDuration = computed<NoteDuration | null>(() =>
-  noNoteInSelection(state) ? null : state.selectedDuration,
-)
-
 // The cord-cut: the Keypad's five wired controls (duration, accidental, articulation, dot, tie) sync
 // through the state's OWN change-notification (`onStateChange`), NOT through Vue watches. All the
 // highlight rules and press routes moved into interactions/keypadSync — no Vue in the Keypad's loop.
@@ -621,32 +328,11 @@ const stopKeypadSync = wireKeypadSync(state, palette, onStateChange)
 // line above — a plain-TS wire over the state's own change-notification, no Vue in its loop.
 const stopSelectionInspection = wireSelectionInspection(state, () => engine.value, onStateChange)
 
-// --- Computed ---
-// Dev-only Score JSON viewer. The engine's ScoreModel isn't a Vue reactive object, so a
-// `computed` never sees edits — just poll it into a ref. Cheap and easy to rip out later.
-const scoreJSON = ref('{}')
-let scoreJSONTimer: ReturnType<typeof setInterval> | undefined
-onMounted(() => {
-  scoreJSONTimer = setInterval(() => {
-    scoreJSON.value = engine.value?.exportJSON() || '{}'
-  }, 400)
-})
-onUnmounted(() => {
-  if (scoreJSONTimer) clearInterval(scoreJSONTimer)
-})
-
-// --- Dynamics tool ---
-// Interpreted levels drive playback loudness; the custom mark is silent italic text.
-// The custom mark drops a "Text" placeholder; editing it in place is a later feature.
-
-// The two toolbar groups are driven by DIFFERENT measure-selection gestures (they're
-// different concerns): the "Add Measure" buttons work on a Ctrl+Shift+click span (the DOUBLE
-// box) — a measure-structure edit — while the "Staff:" add-above/below buttons work on a
-// plain-click bar (the SINGLE box) — a staff-structure edit relative to the clicked staff.
-const hasMeasureContext = computed(() =>
-  state.selectedMeasureRange !== null && state.selectedMeasureBoxStyle === 'double')
-const hasStaffContext = computed(() =>
-  state.selectedMeasureRange !== null && state.selectedMeasureBoxStyle === 'single')
+// --- The dev shell ---
+// Toolbar and Score-JSON dump, both plain TS in src/dev/. They subscribe to the state's own
+// change-notification exactly as the Keypad does, so nothing about them needs a framework; Vue's
+// share is the two host divs and these two calls. Mounted in onMounted (below) once the refs exist.
+let devShell: Array<{ destroy(): void }> = []
 
 // --- Lifecycle ---
 // Ctrl+wheel zoom toward the cursor. A window-level listener registered { passive: false } so
@@ -669,6 +355,18 @@ function handleZoomWheel(e: WheelEvent) {
 
 onMounted(() => {
   window.addEventListener('wheel', handleZoomWheel, { passive: false })
+  // The dev shell goes up FIRST, before the engine exists: both halves read through getters
+  // (`getEngine`), so an empty score is simply what they show for the moment it takes.
+  if (toolbarHost.value) {
+    devShell.push(mountDevToolbar(toolbarHost.value, {
+      state,
+      palette,
+      getEngine: () => engine.value,
+      onStateChange,
+      togglePlayback,
+    }))
+  }
+  if (jsonHost.value) devShell.push(mountScoreJsonPanel(jsonHost.value, () => engine.value))
   // Mounted INSIDE the viewport wrapper but OUTSIDE the scroll box (a sibling of it), so a window
   // lives in the score area — clipped to it, and clamped to it when dragged — while sitting outside
   // the transform: scale(zoom) layer: it neither scrolls away with the music nor zooms with it.
@@ -801,6 +499,8 @@ onUnmounted(() => {
   shortcuts.disable()
   stopKeypadSync()
   stopSelectionInspection()
+  for (const part of devShell) part.destroy()
+  devShell = []
   windows.destroy()
   if (engine.value) {
     engine.value.dispose()
@@ -819,17 +519,6 @@ function initializeEmptyScore() {
   }
 }
 
-/**
- * What a window CONTAINS is plain TS (src/windows/demo/loremWindows.ts) — composing widgets has
- * nothing to do with Vue. App.vue's entire share of the window system is two lines — mount the layer
- * and destroy it — because Vue owns the DOM node and the lifecycle, and nothing more. The layer
- * itself lives in src/windows/index.ts, so a window can be opened from anywhere without touching
- * this file at all. See docs/windows-design.md.
- */
-function openTestWindow(): void {
-  openLoremWindow(windows)
-}
-
 async function togglePlayback() {
   if (!engine.value) return
   if (state.playbackState === 'playing') {
@@ -843,17 +532,10 @@ async function togglePlayback() {
   }
 }
 
-// ⚠️ TEMPORARY dev-only sound picker. Which GM program the whole score plays as, for
-// auditioning timbres during development. NOT persisted (not in score/JSON/undo) and NOT a
-// final editor feature — delete this + the markup + DEV_SOUNDS when the real instrument
-// model is designed. Change takes effect on the next Play (current playback keeps running).
-const devSoundProgram = ref(DEV_SOUNDS[0].program)
-function onDevSoundChange() {
-  engine.value?.setInstrumentProgram(devSoundProgram.value)
-}
-
-// Nothing tuplet-shaped is left in this file. The sketch and the presets are both gone — see the
-// note where the row used to be, in the template.
+// Nothing palette-shaped is left in this file. The toolbar and the Score-JSON dump are the dev
+// shell now (src/dev/), and they build their own DOM — so what remains here is the score viewport,
+// the controller wiring, and the lifecycle. That is the whole of step 3's remainder: this file
+// becomes App.ts and Vue goes. See docs/remove-vue-plan.md.
 </script>
 
 <style>
