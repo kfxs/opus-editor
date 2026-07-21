@@ -22,9 +22,9 @@
  */
 import { Element, Metrics, MetricsDefaults, StaveModifierPosition, TimeSignature } from 'vexflow'
 import type { RenderContext, Stave, StaveNote } from 'vexflow'
-import type { ChordRest, Measure, TempoMark } from '@/types/music'
+import type { ChordRest, Measure, NoteDuration, TempoMark } from '@/types/music'
 import { fracCompare, fracToNumber } from '@/utils/fraction'
-import { UNIT_GLYPH } from '@/utils/tempoText'
+import { UNIT_GLYPH, MET_NOTE_GLYPH, MET_AUGMENTATION_DOT } from '@/utils/tempoText'
 import { textFirstFamily } from '@/utils/fontStack'
 import type { RenderPass } from './RenderPass'
 
@@ -52,15 +52,13 @@ Metrics.clear('StaveTempo.glyph')
  * against the CJS shape and then resolves to `undefined` in the browser. These are SMuFL's
  * standardized codepoints; they do not move.
  */
-const METRONOME_DOT = '\uECB7' // metAugmentationDot
-const NOTE_GLYPH: Record<string, string> = {
-  [UNIT_GLYPH.w]: '\uECA2',    // metNoteWhole
-  [UNIT_GLYPH.h]: '\uECA3',    // metNoteHalfUp
-  [UNIT_GLYPH.q]: '\uECA5',    // metNoteQuarterUp
-  [UNIT_GLYPH['8']]: '\uECA7',  // metNote8thUp
-  [UNIT_GLYPH['16']]: '\uECA9', // metNote16thUp
-  [UNIT_GLYPH['32']]: '\uECAB', // metNote32ndUp
-}
+const METRONOME_DOT = MET_AUGMENTATION_DOT
+/** The printed character (`\u2669`) \u2192 its metronome glyph, re-keyed from {@link MET_NOTE_GLYPH}. The six
+ *  codepoints were written out twice, here and there; a mark and a tuplet that name the same note
+ *  value must name it with the same glyph, so there is one table and this is a view of it. */
+const NOTE_GLYPH: Record<string, string> = Object.fromEntries(
+  (Object.keys(MET_NOTE_GLYPH) as NoteDuration[]).map(d => [UNIT_GLYPH[d], MET_NOTE_GLYPH[d]]),
+)
 
 /** A piece of the mark's string: a stretch of words, or one music glyph. */
 type Run = { glyph: string; text?: undefined } | { text: string; glyph?: undefined }

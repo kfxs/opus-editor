@@ -31,6 +31,29 @@ export const UNIT_GLYPH: Record<NoteDuration, string> = {
 }
 
 /**
+ * The same note values as SMuFL's **metronome-mark** glyphs — the ones cut to sit INLINE with text.
+ *
+ * Not the same thing as the noteheads the staff is engraved from (`noteQuarterUp`, U+E1D5): those are
+ * drawn against a staff and are sized for one, so dropped into a line of text they tower over it. The
+ * `metNote…` family (U+ECA0–ECB7) is the text-sized cut, and it is what every mark that says a note
+ * value in RUNNING TEXT uses — a metronome mark, and a tuplet's "ratio + note".
+ *
+ * ⚠️ Codepoints written out: VexFlow's `Glyphs` table is CJS-only and `undefined` in the browser.
+ * These are SMuFL standard and do not move.
+ */
+export const MET_NOTE_GLYPH: Record<NoteDuration, string> = {
+  w: '\uECA2',   // metNoteWhole
+  h: '\uECA3',   // metNoteHalfUp
+  q: '\uECA5',   // metNoteQuarterUp
+  '8': '\uECA7',  // metNote8thUp
+  '16': '\uECA9', // metNote16thUp
+  '32': '\uECAB', // metNote32ndUp
+}
+
+/** The dot that goes with them — metAugmentationDot, not an ASCII full stop. */
+export const MET_AUGMENTATION_DOT = '\uECB7'
+
+/**
  * Everything accepted AS a unit — printed glyph or typed shorthand. Longest-first matters for the
  * alternation: '16' must be tried before '1', and the multi-code-unit glyphs (𝅗𝅥 is a surrogate
  * pair) before the single ones.

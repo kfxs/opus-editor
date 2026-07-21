@@ -79,9 +79,9 @@ describe('musicUtils', () => {
 
     // "Ratio + note" names the value the two printed figures are counting.
     it("adds the tuplet's own note value, dots included", () => {
-      expect(tupletMarkText(shape(3, 2), 'ratioNote')).toBe('\uE883\uE88A\uE882♪')
+      expect(tupletMarkText(shape(3, 2), 'ratioNote')).toBe('\uE883\uE88A\uE882\uECA7')
       expect(tupletMarkText(shape(3, 2, { baseDuration: 'q', baseDots: 1 }), 'ratioNote'))
-        .toBe('\uE883\uE88A\uE882♩.')
+        .toBe('\uE883\uE88A\uE882\uECA5\uECB7')
     })
 
     // DERIVED, not read off the model: the label is `span ÷ unit`, so a stored `notesOccupied` that
@@ -100,7 +100,7 @@ describe('musicUtils', () => {
       // "2 quarters in the time of 3 eighths" — one and a half quarters.
       const half = shape(2, 3, { baseDuration: 'q', normalDuration: '8', normalCount: 3 })
       expect(tupletMarkText(half, 'ratio')).toBe('\uE882\uE88A\uE883')
-      expect(tupletMarkText(half, 'ratioNote')).toBe('\uE882\uE88A\uE883♪')
+      expect(tupletMarkText(half, 'ratioNote')).toBe('\uE882\uE88A\uE883\uECA7')
     })
   })
 

@@ -7,7 +7,7 @@ import './notation.css'
 import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, Accidental as ScoreAccidental } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
-import { beatToFrac, measureCapacityFrac, tupletBracketed, tupletBracketEnd, tupletMarkText } from '@/utils/musicUtils'
+import { beatToFrac, measureCapacityFrac, tupletBracketed, tupletBracketEnd, tupletMarkParts } from '@/utils/musicUtils'
 import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, timeSignatureVexKey, type MeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
@@ -1420,7 +1420,10 @@ export class VexFlowRenderer {
           // note" and not nothing at all, and its automatic choice is a heuristic we replaced
           // (autoNumberStyle). Same string the GHOST draws — one function, so a preview cannot
           // promise a mark the page will not print.
-          vt.textElement?.setText?.(tupletMarkText(tupletData, tupletData.numberStyle))
+          // TWO runs: the figures at VexFlow's size, the note glyph smaller (see tupletMarkParts).
+          const mark = tupletMarkParts(tupletData, tupletData.numberStyle)
+          vt.textElement?.setText?.(mark.digits)
+          vexTuplet.noteGlyph = mark.noteGlyph
 
           // …and where the bracket stops. Only meaningful with a bracket, but set either way: an
           // unbracketed tuplet's width still centres the number, and a number that drifted when the

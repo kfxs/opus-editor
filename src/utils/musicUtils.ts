@@ -11,7 +11,7 @@ import {
   fracDiv,
   fracToNumber,
 } from '@/utils/fraction'
-import { UNIT_GLYPH } from '@/utils/tempoText'
+import { MET_NOTE_GLYPH, MET_AUGMENTATION_DOT } from '@/utils/tempoText'
 import {
   durationToFraction,
   durationToBeats,
@@ -335,7 +335,19 @@ function autoNumberStyle(numNotes: number): TupletNumberStyle {
   return binary ? 'ratio' : 'number'
 }
 
-export function tupletMarkText(t: TupletShape, style?: TupletNumberStyle): string {
+/**
+ * The mark in TWO runs: the figures, and the note glyph that may follow them.
+ *
+ * Split because they cannot be drawn at one size. The tuplet digits (U+E88x) are cut small inside
+ * their em — VexFlow gives the whole element no font size at all, so they render at the global 30px
+ * and still look like small figures — while `metNote…` fills its em the way a text glyph does. One
+ * string at one size puts a note twice the height of the numbers next to it. The renderer draws the
+ * glyph run smaller; this is what tells it which part that is.
+ */
+export function tupletMarkParts(
+  t: TupletShape,
+  style?: TupletNumberStyle,
+): { digits: string; noteGlyph: string } {
   const digits = (n: number): string => {
     let out = ''
     for (let rest = n; rest >= 1; rest = Math.floor(rest / 10)) {
@@ -345,13 +357,30 @@ export function tupletMarkText(t: TupletShape, style?: TupletNumberStyle): strin
   }
   const printed = tupletPrintedCounts(t)
   const resolved = style ?? autoNumberStyle(printed.numNotes)
-  if (resolved === 'none') return ''
-  if (resolved === 'number') return digits(printed.numNotes)
+  if (resolved === 'none') return { digits: '', noteGlyph: '' }
+  if (resolved === 'number') return { digits: digits(printed.numNotes), noteGlyph: '' }
   const ratio = `${digits(printed.numNotes)}\uE88A${digits(printed.notesOccupied)}` // U+E88A tupletColon
   // "Ratio + note" names the value the two figures are counting (Sibelius writes `5:3x`, the x being
   // the tuplet's own sixteenth).
-  if (resolved === 'ratioNote') return ratio + UNIT_GLYPH[printed.value] + '.'.repeat(printed.dots)
-  return ratio
+  //
+  // In the METRONOME cut of the note, not the staff's own: a `noteQuarterUp` is drawn against a
+  // five-line staff and towers over the small tuplet digits beside it. `metNote…` is the same value
+  // cut for running text, which is exactly what this string is — and the dot goes with it, since an
+  // ASCII full stop next to a music glyph is a full stop, not an augmentation dot.
+  if (resolved === 'ratioNote') {
+    return {
+      digits: ratio,
+      noteGlyph: MET_NOTE_GLYPH[printed.value] + MET_AUGMENTATION_DOT.repeat(printed.dots),
+    }
+  }
+  return { digits: ratio, noteGlyph: '' }
+}
+
+/** The whole mark as ONE string — for callers that draw it in a single run and can live with the
+ *  note glyph at the figures' size. See {@link tupletMarkParts} for why that is a compromise. */
+export function tupletMarkText(t: TupletShape, style?: TupletNumberStyle): string {
+  const { digits, noteGlyph } = tupletMarkParts(t, style)
+  return digits + noteGlyph
 }
 
 /**
