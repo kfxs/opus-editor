@@ -788,6 +788,69 @@ export class ElementRegistry {
   }
 
   /**
+   * Convert a pixel X to a beat within a measure, by **interpolating between the columns actually
+   * drawn** rather than dividing the bar evenly.
+   *
+   * `CoordinateMapper.pixelXToBeat` answers the same question with one straight line across the
+   * note area — `(relativeX / usableWidth) * barQuarters`. That is only right when time and space
+   * are proportional in the bar, and they essentially never are: VexFlow gives a quarter note more
+   * room than an eighth, so in `♩ ♪ ♪ ♪` the halfway pixel is nowhere near halfway through the
+   * bar. User-authored spacing (client #10) widens the same error deliberately — a column can be
+   * anywhere its author put it. Under the straight line, pointing at a note could resolve to a
+   * beat that belongs to its neighbour.
+   *
+   * So the drawn notes and rests ARE the mapping: each is an (x, beat) anchor, and a pixel between
+   * two of them is interpolated in the time between their beats. Pointing at a column returns that
+   * column's beat exactly; pointing between two returns something honestly in between; past the
+   * last one the barline (`noteEndX` ↔ `barQuarters`) closes the run. Interpolation and not
+   * snapping, because entry has to be able to name a beat that holds no note yet — an empty bar
+   * carries a single whole rest, and you must still be able to aim at its beat 3.
+   *
+   * Scoped to one staff, because the anchors are: staves share a barline, not a rhythm.
+   *
+   * Rounded to the quarter beat, as the mapper's version is — this is the last word for the
+   * public `pixelToPosition`, which applies no duration quantization of its own.
+   *
+   * @returns null when this measure has nothing drawn on that staff (culled, or not yet rendered),
+   * so the caller can fall back rather than be handed a made-up beat.
+   */
+  pixelXToBeat(x: number, measure: number, barQuarters: number, staff: number = 0): number | null {
+    const anchors: { x: number; beat: number }[] = []
+    for (const el of this.elements) {
+      if (el.measure !== measure || (el.staff ?? 0) !== staff) continue
+      if ((el.type !== 'note' && el.type !== 'rest') || el.beat === undefined) continue
+      // The notehead's own centre — `headX` where we have it, since the full bbox is widened by
+      // accidentals and dots that hang to the left of the column the beat actually sits at.
+      const cx = el.headX ?? el.bbox.x + el.bbox.width / 2
+      const seen = anchors.find(a => a.beat === el.beat)
+      if (seen) seen.x = Math.min(seen.x, cx) // chord tones / voices share one column
+      else anchors.push({ x: cx, beat: el.beat })
+    }
+    if (anchors.length === 0) return null
+
+    anchors.sort((a, b) => a.x - b.x)
+    // Close the run at the barline so the space after the last note maps to the rest of the bar
+    // instead of collapsing onto that note's beat.
+    const endX = this.getStaffGeometry(measure, staff)?.noteEndX
+    if (endX !== undefined && endX > anchors[anchors.length - 1].x) anchors.push({ x: endX, beat: barQuarters })
+
+    const quarter = (beat: number) => Math.round(beat * 4) / 4
+    if (x <= anchors[0].x) return quarter(anchors[0].beat)
+    const last = anchors[anchors.length - 1]
+    if (x >= last.x) return quarter(last.beat)
+
+    for (let i = 1; i < anchors.length; i++) {
+      const a = anchors[i - 1]
+      const b = anchors[i]
+      if (x > b.x) continue
+      const span = b.x - a.x
+      if (span <= 0) return quarter(a.beat)
+      return quarter(a.beat + ((x - a.x) / span) * (b.beat - a.beat))
+    }
+    return quarter(last.beat)
+  }
+
+  /**
    * Find the closest note to a given X,Y position
    * Used for selecting specific notes in chords
    * @param x - Pixel X coordinate

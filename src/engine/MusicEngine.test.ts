@@ -871,11 +871,14 @@ describe('MusicEngine.renderScoreWithPreview — beat quantization uses the hove
     // Force the coordinate-calculation fallback: no invalid element, a real staff+pitch, and NO
     // nearest note/rest so getPositionFromPixels drops to pixelXToBeat + quantizeBeat.
     const registry = fakeRegistry as Record<string, unknown>
-    const added = ['getAt', 'staffIndexAtY', 'pixelYToPitch', 'findNearestNoteOrRest']
+    const added = ['getAt', 'staffIndexAtY', 'pixelYToPitch', 'findNearestNoteOrRest', 'pixelXToBeat']
     registry.getAt = vi.fn(() => null)
     registry.staffIndexAtY = vi.fn(() => 0)
     registry.pixelYToPitch = vi.fn(() => ({ step: 'C', alter: 0, octave: 4 }))
     registry.findNearestNoteOrRest = vi.fn(() => null)
+    // Nothing DRAWN in that bar — the registry declines and the even-division mapper answers,
+    // which is the path whose barQuarters this test is about.
+    registry.pixelXToBeat = vi.fn(() => null)
 
     let captured: { measure: number; beat: number } | undefined
     ;(engine as unknown as { renderer: { drawGhostNote: unknown } }).renderer.drawGhostNote =

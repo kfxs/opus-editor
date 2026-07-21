@@ -2519,17 +2519,19 @@ export class MusicEngine {
     // Get beat from ElementRegistry or coordinateMapper
     let beat: number
     const nearestElement = registry.findNearestNoteOrRest(coords.x, measureNumber, staff)
-    if (nearestElement && nearestElement.beat !== undefined) {
-      const elementCenterX = nearestElement.bbox.x + nearestElement.bbox.width / 2
-      const distance = Math.abs(coords.x - elementCenterX)
-      if (distance < nearestElement.bbox.width * 1.5) {
-        beat = nearestElement.beat
-      } else {
-        beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, barQuarters)
-        if (duration) beat = quantizeBeat(beat, duration, barQuarters)
-      }
+    if (nearestElement && nearestElement.beat !== undefined
+      && Math.abs(coords.x - (nearestElement.bbox.x + nearestElement.bbox.width / 2)) < nearestElement.bbox.width * 1.5) {
+      // Right on top of a note: take its beat verbatim, unrounded — this is the one path that can
+      // return an exact triplet beat.
+      beat = nearestElement.beat
     } else {
-      beat = this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, barQuarters)
+      // Between columns. Ask the DRAWN columns where this pixel falls (piecewise through the real
+      // note positions); only when nothing is drawn there does the even-division mapper answer.
+      // That fallback is a genuine last resort, not a preference: it divides the bar as if time and
+      // space were proportional, which they are not in any bar with mixed durations — still less in
+      // one the user has spaced by hand.
+      const fromColumns = registry.pixelXToBeat(coords.x, measureNumber, barQuarters, staff)
+      beat = fromColumns ?? this.coordinateMapper.pixelXToBeat(coords.x, measureNumber, barQuarters)
       if (duration) beat = quantizeBeat(beat, duration, barQuarters)
     }
 

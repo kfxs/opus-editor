@@ -271,10 +271,21 @@ and omitted when empty, so an older clip pastes byte-for-byte as before.
 
 `selectionSnapshot.ts:66` wants it too, for P3's Properties field.
 
-**One approximation to accept, not fix.** `pixelXToBeat` interpolates linearly across the bar
-(`CoordinateMapper.ts:204-233`), so click-to-enter in a spaced bar drifts off the beat it points at.
-It is already approximate today (VexFlow spacing is not linear either); authored space widens the
-error rather than introducing it. Degrades, does not break.
+**The click→beat mapping was fixed, not accepted.** It was logged here as an approximation to live
+with: `CoordinateMapper.pixelXToBeat` divides the note area evenly
+(`(relativeX / usableWidth) * barQuarters`), so a spaced bar resolves the cursor to the wrong beat.
+Looking again, that is wrong *already*, without any spacing — VexFlow gives a quarter note more room
+than an eighth, so in `♩ ♪ ♪ ♪` the halfway pixel is nowhere near halfway through the bar. Authored
+space widens an existing error rather than introducing one, which makes it worth fixing rather than
+documenting.
+
+`ElementRegistry.pixelXToBeat` now answers instead: the drawn notes and rests ARE the mapping, each
+an `(x, beat)` anchor, and a pixel between two of them is interpolated in the **time** between their
+beats, with the barline (`noteEndX` ↔ `barQuarters`) closing the run. Interpolation and not
+snapping, because entry must be able to name a beat that holds no note yet — an empty bar carries
+one whole rest and you still have to be able to aim at its beat 3. Staff-scoped, because the anchors
+are: staves share a barline, not a rhythm. It returns **null** when nothing is drawn there, and only
+then does the even-division mapper answer.
 
 ---
 
@@ -297,8 +308,9 @@ error rather than introducing it. Degrades, does not break.
 - **P2 — drag. ✅ BUILT.** Distance gate + dominant-axis decision in `handleNoteDrag`, arming on
   rests too, `armSpacingDrag`/`dragNoteSpacing`/`endNoteDrag` in `MouseController`, and
   `noteSpacingRoom`/`previewNoteSpacing`/`commitNoteSpacing` on the engine. 16 tests in
-  `noteSpacingDrag.test.ts`. ⏭️ The preview ghost still ignores the shift (§4) — cosmetic, and only
-  visible while placing a note in an already-spaced bar.
+  `noteSpacingDrag.test.ts`. Plus `ElementRegistry.pixelXToBeat` (§6): click→beat now interpolates
+  through the drawn columns instead of dividing the bar evenly — 11 tests in
+  `pixelXToBeatColumns.test.ts`.
 - **P3 — optional.** Multi-select nudge; a numeric field in the Properties window.
 
 ## Out of scope
