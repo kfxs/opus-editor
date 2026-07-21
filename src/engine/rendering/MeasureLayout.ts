@@ -4,7 +4,7 @@ import { fracCompare, fracIsZero } from '@/utils/fraction'
 import { type StaffClefs } from '@/utils/clefUtils'
 import { getStaves, staffMeasureView } from '@/engine/models/staffContent'
 import { measureCapacityFrac } from '@/utils/musicUtils'
-import { cautionaryAllowedOf, cautionaryClefAllowedOf, keyStaffId } from '../models/engravingOverrides'
+import { cautionaryAllowedOf, cautionaryClefAllowedOf, keyStaffId, measureUserSpacePx } from '../models/engravingOverrides'
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import { laneFingerprint, type MeasureWidthCache } from './MeasureWidthCache'
 import { renderCensus } from '@/dev/renderCensus' // TEMPORARY — the §9 layout-breakdown probes
@@ -179,6 +179,36 @@ function calculateMinimumMeasureWidth(
   )
 }
 
+/**
+ * The measure's **intrinsic** width plus whatever horizontal space the user authored into it
+ * (client #10 — docs/note-spacing-plan.md §2). One `minWidth`, split so §3 can tell the halves
+ * apart: the intrinsic half is the engraver's and may be squeezed, the authored half is the
+ * user's and is handed back.
+ *
+ * Two ordering facts, both load-bearing:
+ *
+ * - **The user space is added AFTER the clamps**, not before. `MIN_MEASURE_WIDTH`/
+ *   `MAX_MEASURE_WIDTH` are caps on what the *music* needs; leave the authored space inside them
+ *   and a drag dies silently at 400px with no feedback.
+ * - **It is added OUTSIDE `noteSpaceForLane`'s memo**, where `clefOverhead` already sits. The
+ *   overrides live on `score`, not on `Measure`, so `laneFingerprint` cannot see them — and must
+ *   not. Fold them in and every drag frame re-runs the VexFlow formatter on the bar, which is the
+ *   one thing that makes this drag unaffordable: unlike the other four, a spacing change always
+ *   re-runs the casting-off (it sets `modelDirty`, so `layoutCache` is bypassed), so the width
+ *   pass runs on every frame and only the memo keeps it cheap.
+ */
+function measureWidthParts(
+  score: Score,
+  measure: Measure,
+  isFirstInLine: boolean,
+  clefsByStaff: Map<string | undefined, StaffClefs>,
+  cache?: MeasureWidthCache,
+): { minWidth: number; userSpace: number } {
+  const intrinsic = calculateMinimumMeasureWidth(score, measure, isFirstInLine, clefsByStaff, cache)
+  const userSpace = measureUserSpacePx(score, measure.id)
+  return { minWidth: intrinsic + userSpace, userSpace }
+}
+
 /** The staves to lay out. A hand-built staveless score still has one (undefined) lane, which is
  *  how `staffMeasureView` addresses "all the content that carries no staffId". */
 function staffIdsOf(
@@ -192,7 +222,32 @@ function staffIdsOf(
 
 
 /**
- * Distribute available width proportionally among measures on a line
+ * How much of a line the user may claim with authored space. The rest is the music's, and it is
+ * why the cap exists at all: `available` is finite, and nothing in `distributeLineWidths` stops
+ * `Σ userSpace` reaching it. At or past `available` the justify target goes to zero or negative
+ * and every bar on the line comes out with a negative width; and since pass 1 puts an oversized
+ * bar alone on its own line, one bar carrying 900px of space would squeeze its music to nothing
+ * and *still* hand the 900px back whole — straight through the right margin.
+ *
+ * So the authored space is scaled down proportionally once the line's total passes this. "The gap
+ * you drag is the gap you get" holds up to the cap, and degrades smoothly past it.
+ */
+const USER_SPACE_LINE_FRACTION = 0.6
+
+/**
+ * Distribute available width proportionally among measures on a line — justifying the
+ * **intrinsic** widths only, and handing the user's authored space back on top
+ * (docs/note-spacing-plan.md §3, "the gap you drag is the gap you get").
+ *
+ * Feeding the authored space through the stretcher instead would be wrong twice over: it would
+ * dilute a 20px drag to ~13px, *and* shuffle every other bar on the line to pay for a change the
+ * user made in one of them. So the space is reserved off the top, the engraver's widths share what
+ * is left, and the reserved amount is added back to the bar that authored it. The total still
+ * lands exactly on `availableWidth`.
+ *
+ * Compression takes the same shape: squeeze the intrinsic part, hand the authored part back. The
+ * intrinsic part keeps `MIN_MEASURE_WIDTH` inside it (it was clamped upstream), so a bar can never
+ * be driven to nothing and leave only its authored space standing.
  */
 function distributeLineWidths(
   measureInfos: MeasureWidthInfo[],
@@ -200,23 +255,34 @@ function distributeLineWidths(
 ): void {
   if (measureInfos.length === 0) return
 
-  const totalMinWidth = measureInfos.reduce((sum, m) => sum + m.minWidth, 0)
+  // Reserve the authored space off the top — capped, and scaled proportionally when the cap bites
+  // so no single bar's drag is singled out. A NEGATIVE total is not capped: it hands width back to
+  // the music rather than taking it, which is always affordable.
+  const rawUserSpace = measureInfos.reduce((sum, m) => sum + (m.userSpace ?? 0), 0)
+  const cap = availableWidth * USER_SPACE_LINE_FRACTION
+  const userScale = rawUserSpace > cap ? cap / rawUserSpace : 1
+  const reserved = rawUserSpace * userScale
+  const justifyTarget = availableWidth - reserved
 
-  if (totalMinWidth >= availableWidth) {
-    // Need to compress - distribute proportionally to minimum widths
-    const compressionRatio = availableWidth / totalMinWidth
+  const intrinsicOf = (m: MeasureWidthInfo) => m.minWidth - (m.userSpace ?? 0)
+  const totalIntrinsic = measureInfos.reduce((sum, m) => sum + intrinsicOf(m), 0)
+  if (totalIntrinsic <= 0) return
+
+  if (totalIntrinsic >= justifyTarget) {
+    // Need to compress - distribute proportionally to intrinsic widths
+    const compressionRatio = justifyTarget / totalIntrinsic
     if (compressionRatio < 0.7) {
       console.warn(`Severe measure compression (${(compressionRatio * 100).toFixed(0)}%) on line - measures may be crowded`)
     }
     for (const info of measureInfos) {
-      info.finalWidth = info.minWidth * compressionRatio
+      info.finalWidth = intrinsicOf(info) * compressionRatio + (info.userSpace ?? 0) * userScale
     }
   } else {
     // Have extra space - distribute proportionally
-    const extraSpace = availableWidth - totalMinWidth
+    const extraSpace = justifyTarget - totalIntrinsic
     for (const info of measureInfos) {
-      const proportion = info.minWidth / totalMinWidth
-      info.finalWidth = info.minWidth + (extraSpace * proportion)
+      const proportion = intrinsicOf(info) / totalIntrinsic
+      info.finalWidth = intrinsicOf(info) + (extraSpace * proportion) + (info.userSpace ?? 0) * userScale
     }
   }
 }
@@ -337,12 +403,13 @@ function calculateLinearMeasureWidths(
   const results = new Map<number, MeasureWidthInfo>()
 
   score.measures.forEach((measure, index) => {
-    const minWidth = calculateMinimumMeasureWidth(score, measure, index === 0, clefsByStaff, cache)
+    const { minWidth, userSpace } = measureWidthParts(score, measure, index === 0, clefsByStaff, cache)
 
     results.set(measure.number, {
       measureNumber: measure.number,
       minWidth,
-      finalWidth: minWidth, // intrinsic width — nothing to justify to
+      userSpace,
+      finalWidth: minWidth, // intrinsic width + authored space — nothing to justify to
       lineNumber: 0,
     })
   })
@@ -376,7 +443,7 @@ export function calculateMeasureWidths(
 
   for (const measure of score.measures) {
     const isFirstInLine = currentLineMeasures.length === 0
-    const minWidth = calculateMinimumMeasureWidth(score, measure, isFirstInLine, clefsByStaff, cache)
+    const { minWidth, userSpace } = measureWidthParts(score, measure, isFirstInLine, clefsByStaff, cache)
 
     // Check if measure fits on current line
     if (currentLineWidth + minWidth > availableWidth && currentLineMeasures.length > 0) {
@@ -393,20 +460,22 @@ export function calculateMeasureWidths(
 
       // Recalculate width for new line (first-in-line gets a full clef, so a
       // clef change is absorbed into the line-start clef — no extra width)
-      const newMinWidth = calculateMinimumMeasureWidth(score, measure, true, clefsByStaff, cache)
+      const newParts = measureWidthParts(score, measure, true, clefsByStaff, cache)
 
       const info: MeasureWidthInfo = {
         measureNumber: measure.number,
-        minWidth: newMinWidth,
-        finalWidth: newMinWidth,
+        minWidth: newParts.minWidth,
+        userSpace: newParts.userSpace,
+        finalWidth: newParts.minWidth,
         lineNumber: currentLine,
       }
       currentLineMeasures.push(info)
-      currentLineWidth = newMinWidth
+      currentLineWidth = newParts.minWidth
     } else {
       const info: MeasureWidthInfo = {
         measureNumber: measure.number,
         minWidth,
+        userSpace,
         finalWidth: minWidth,
         lineNumber: currentLine,
       }

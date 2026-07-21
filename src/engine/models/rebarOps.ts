@@ -14,8 +14,9 @@
 import type {
   Score, Measure, Note, Chord, NotePitch, Rest, TimeSignature, Clef, Dynamic, TempoMark,
   Slur, EngravingOverride, RestShiftOverride, RestHiddenOverride, DynamicOffsetOverride,
+  LeadingSpaceOverride,
 } from '@/types/music'
-import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf } from './engravingOverrides'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf, spacingPositionKey, measureLeadingSpaces } from './engravingOverrides'
 import { durationToFraction } from '@/utils/durations'
 import { getMeterInfo } from '@/utils/meter'
 import type { RestSlot } from '@/utils/restFill'
@@ -101,6 +102,10 @@ export type ClipSlurInput = {
  */
 type CapturedRestShift = { voice: number; staffId?: string; absBeat: Fraction; steps: number; hidden: boolean }
 
+/** A user-authored leading space snapshotted before a rebar (client #10). No voice and no staff:
+ *  the space belongs to the COLUMN, so its whole address is the absolute offset. */
+type CapturedLeadingSpace = { absBeat: Fraction; space: number }
+
 /** The pitch identity of a slur anchor (a chord pitch), used to re-find it post-rebar. */
 type SlurPitch = { step: NotePitch['step']; alter: NotePitch['alter']; octave: number }
 
@@ -174,6 +179,10 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
   // Capture manual rest shifts the same way — by absolute region-relative offset, before
   // rest-fill regenerates every rest with a fresh id. Re-stamped after materialise.
   const restShifts = captureRestShifts(score, deps, regionMeasures)
+
+  // …and the authored leading spaces (client #10), keyed by offset alone — a space belongs to
+  // the column, so it has neither a voice nor a staff to capture.
+  const leadingSpaces = captureLeadingSpaces(score, deps, regionMeasures)
 
   // Rebar runs one lane per (STAFF, voice): each staff is an independent stream on the
   // shared bar spine, exactly like each voice. Flattening the whole measure per-voice
@@ -253,6 +262,10 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
   // Re-stamp the captured rest shifts onto whatever rest now starts at each offset
   // (dropped where the new tiling has no rest start — plan §4).
   restoreRestShifts(score, deps, regionNumbers, restShifts)
+
+  // …and the authored leading spaces onto whatever column now starts at each offset. Dropped
+  // where the new meter has no column there at all — see restoreLeadingSpaces.
+  restoreLeadingSpaces(score, deps, regionNumbers, leadingSpaces)
 }
 
 /**
@@ -283,6 +296,7 @@ export function pasteEvents(
   targetStaff: number = 0,
   clipDynamics: ClipDynamicInput[] = [],
   clipSlurs: ClipSlurInput[] = [],
+  clipSpaces: Array<{ offset: Fraction; space: number }> = [],
 ): string[] {
   const ordered = [...score.measures].sort((a, b) => a.number - b.number)
   const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
@@ -309,6 +323,8 @@ export function pasteEvents(
   // window survive; ones whose rest the paste overwrites are dropped). The clip's shifts
   // are stamped ON TOP afterwards (last wins) — see §6.5 threading.
   const restShifts = captureRestShifts(score, deps, regionMeasures)
+  // Same for the destination's authored leading spaces; the clip's are stamped on top below.
+  const leadingSpaces = captureLeadingSpaces(score, deps, regionMeasures)
 
   const staffIndices = (score.staves ?? []).length > 0
     ? (score.staves ?? []).map((_, i) => i)
@@ -432,6 +448,8 @@ export function pasteEvents(
   // Re-stamp the destination's own rest shifts; the clip's shifts are applied after this,
   // so they win on any position collision.
   restoreRestShifts(score, deps, regionNumbers, restShifts)
+  // The destination's own leading spaces, likewise — the clip's land on top further down.
+  restoreLeadingSpaces(score, deps, regionNumbers, leadingSpaces)
 
   // Apply the clip's rest shifts at the paste window: re-base each clip-relative offset by
   // the paste start, and re-voice a single-voice clip into the target voice (mirroring the
@@ -459,6 +477,15 @@ export function pasteEvents(
     }
   }
   restoreRestShifts(score, deps, regionNumbers, clipCaptured)
+
+  // The clip's authored spaces (client #10) travel the same way, and are the simplest of the lot:
+  // a space carries no voice and no staff, so re-basing its offset by the paste start is the whole
+  // of the mapping — there is nothing to re-voice and nothing to re-staff. Stamped after the
+  // destination's, so the clip wins where both spaced the same column.
+  restoreLeadingSpaces(
+    score, deps, regionNumbers,
+    clipSpaces.map((cs) => ({ absBeat: fracAdd(pasteStart, cs.offset), space: cs.space })),
+  )
 
   // Collect the ids of notes whose absolute offset falls inside the paste window.
   const startOfMeasure = new Map<number, Fraction>()
@@ -684,6 +711,60 @@ function restoreRestShifts(score: Score, deps: RebarDeps, regionNumbers: number[
       const next: RestHiddenOverride = { kind: 'restHidden' }
       deps.setEngravingOverride(key, next)
     }
+  }
+}
+
+// ==================== Capture / restore: leading spaces ====================
+
+/**
+ * Capture and clear every user-authored leading space in the region (client #10 — see
+ * docs/note-spacing-plan.md §6), keyed by its **absolute** offset from the region start so it can
+ * be re-found after the bars are re-tiled.
+ *
+ * The twin of {@link captureRestShifts}, and position-keyed for the same reason — but with neither
+ * a voice nor a staff, because a space belongs to the *column*, not to a note in it. One space per
+ * rhythmic position, however many voices and staves happen to sound there.
+ */
+function captureLeadingSpaces(score: Score, deps: RebarDeps, regionMeasures: Measure[]): CapturedLeadingSpace[] {
+  const out: CapturedLeadingSpace[] = []
+  forEachRegionMeasure(regionMeasures, (m, base) => {
+    for (const { beat, space } of measureLeadingSpaces(score, m.id)) {
+      out.push({ absBeat: fracAdd(base, beat), space })
+      deps.clearEngravingOverride(spacingPositionKey(m.id, beat), 'leadingSpace')
+    }
+  })
+  return out
+}
+
+/**
+ * Re-stamp captured leading spaces into the re-barred/pasted region: map each absolute offset to
+ * the (measure, beat) it now lands on, and write the override there — **but only if some event
+ * still starts at that beat.**
+ *
+ * That condition IS §6's auto-reset, stated positively. A space without a column is not a small
+ * error, it is a meaningless one: the width math would still widen the bar and the render would
+ * find nothing to shift, leaving a hole nobody asked for. So a meter change or a paste that
+ * dissolves the column drops its space with it — explicitly, here at the write site, never as a
+ * later sweep over "what looks orphaned".
+ *
+ * Any voice and any staff satisfies the test, mirroring the key: the column exists if *anything*
+ * starts there. Overwrites on collision (last wins), so paste can stamp the clip's spaces on top
+ * of the destination's by calling this twice.
+ */
+function restoreLeadingSpaces(score: Score, deps: RebarDeps, regionNumbers: number[], captured: CapturedLeadingSpace[]): void {
+  if (captured.length === 0) return
+
+  const ranges = regionRanges(score, regionNumbers)
+  if (ranges.length === 0) return
+
+  for (const c of captured) {
+    if (c.space === 0) continue
+    const target = rangeForOffset(ranges, c.absBeat)
+    const beat = fracSub(c.absBeat, target.start)
+    const m = target.measure
+    if (!m.slots.some((s) => fracCompare(s.beat, beat) === 0)) continue // no column → no space
+    const next: LeadingSpaceOverride = { kind: 'leadingSpace', space: c.space }
+    deps.setEngravingOverride(spacingPositionKey(m.id, beat), next)
   }
 }
 

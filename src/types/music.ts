@@ -626,6 +626,31 @@ export interface DynamicOffsetOverride extends EngravingOverride {
 }
 
 /**
+ * Client #10 of the engraving-overrides compartment: user-authored horizontal space before a
+ * rhythmic column (Sibelius's *note spacing* — see docs/note-spacing-plan.md).
+ *
+ * ⚠️ **The first override in this compartment that HAS WIDTH.** Every other client is an
+ * *offset*: it moves a glyph and nothing else in the score notices — weightless, invisible to
+ * the width key, present only in the shape key. This one makes the bar grow, can re-wrap the
+ * system, and moves every later column with it. That difference decides everything below.
+ *
+ * **It is not a property of the note; it is a property of the COLUMN the note sits in.** Hence
+ * the key ({@link spacingPositionKey}) carries neither a `voice` nor a `staffId`, unlike
+ * {@link RestShiftOverride}'s. Dropping `voice` is what makes one space shared by every voice at
+ * that beat instead of two that can disagree; dropping `staffId` makes it a property of the
+ * system-wide column, so a grand staff cannot drift apart. Both syncs are consequences of the
+ * key, not features implemented on top of it.
+ *
+ * `space` is in **staff-spaces**, signed (+ = more room before this column), never pixels
+ * (principle 3). Zero clears the entry, so "absent = the engraver's own spacing" holds.
+ */
+export interface LeadingSpaceOverride extends EngravingOverride {
+  kind: 'leadingSpace'
+  /** Staff-spaces of extra room before this column, signed. + = more room, − = tighter. */
+  space: number
+}
+
+/**
  * The engraving-overrides compartment: a keyed table of authored geometry held
  * as a sub-tree of {@link Score} (so it clones / serializes / undoes with the score
  * value — principle 1). Usually keyed by the *element id* an override hangs off (a note /

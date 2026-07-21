@@ -92,7 +92,20 @@ export interface GutterState {
  */
 export interface MeasureWidthInfo {
   measureNumber: number
+  /** Everything the bar needs: the engraver's intrinsic width **plus** `userSpace`. This is what
+   *  the break pass casts off on — a bar with 40px of authored space genuinely needs the room and
+   *  may legitimately push the line to re-wrap. */
   minWidth: number
+  /**
+   * The slice of `minWidth` the USER authored (client #10 — docs/note-spacing-plan.md), in px.
+   *
+   * Split out because justification treats the two halves differently: the intrinsic half
+   * (`minWidth − userSpace`) is the engraver's and gets stretched or squeezed to fill the line,
+   * the authored half is reserved off the top and handed back whole. Feed it through the stretcher
+   * instead and a 20px drag arrives as ~13px, with every other bar on the line shuffled to pay for
+   * it. Absent/0 on every bar the user never touched.
+   */
+  userSpace?: number
   finalWidth: number
   lineNumber: number
   /**

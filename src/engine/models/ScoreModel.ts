@@ -1,5 +1,5 @@
 import { dbg } from '@/utils/debug'
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, CautionaryOverride, CautionaryClefOverride } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, LeadingSpaceOverride, CautionaryOverride, CautionaryClefOverride } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
 import {
   tupletSpan,
@@ -853,6 +853,37 @@ export class ScoreModel {
   }
 
   /**
+   * Set the user-authored **leading space** before one rhythmic column (client #10 — see
+   * docs/note-spacing-plan.md), in staff-spaces, signed. Stored as a {@link LeadingSpaceOverride}
+   * keyed by the column's position address (`posKey`, built by `spacingPositionKey`) — a column
+   * has no id of its own, and deliberately no voice/staff either: the key IS the voice and staff
+   * sync.
+   *
+   * ⚠️ **`minSpace` is the caller's, and it is not optional.** A negative space must not pull a
+   * column left through its left neighbour's glyph, and that floor cannot be applied at render:
+   * the formatted gap depends on the justified width, which depends on the very number being
+   * clamped. Clamping only at draw would leave the *width* computed from the unclamped value, so
+   * the bar would move further than its columns do and a hole would open at the barline. So the
+   * clamp lands here, on the way in, measured by whoever has the last render in hand — and every
+   * reader downstream applies the stored number verbatim.
+   *
+   * Zero clears the entry (so "absent = default" holds and the JSON stays clean). No undo snapshot
+   * here — the facade (`MusicEngine.setNoteSpacing`) owns it, mirroring {@link nudgeRestShift} /
+   * {@link nudgeDynamicOffset}. A model-level snapshot would push one undo entry per drag frame.
+   * @returns the space actually stored, after the clamp.
+   */
+  setNoteSpacing(posKey: string, space: number, minSpace: number): number {
+    const clamped = Math.max(space, minSpace)
+    if (clamped === 0) {
+      this.clearEngravingOverride(posKey, 'leadingSpace')
+    } else {
+      const next: LeadingSpaceOverride = { kind: 'leadingSpace', space: clamped }
+      this.setEngravingOverride(posKey, next)
+    }
+    return clamped
+  }
+
+  /**
    * Nudge a dynamic's manual position offset by `(dx, dy)` staff-spaces, **accumulating** onto
    * any existing offset (the ←→↑↓ / Ctrl+arrow keyboard fine-positioning — see
    * docs/dynamic-offset-plan.md). Stored as a {@link DynamicOffsetOverride} in the
@@ -1255,10 +1286,11 @@ export class ScoreModel {
     targetStaff: number = 0,
     clipDynamics: rebarOps.ClipDynamicInput[] = [],
     clipSlurs: rebarOps.ClipSlurInput[] = [],
+    clipSpaces: Array<{ offset: Fraction; space: number }> = [],
   ): string[] {
     return rebarOps.pasteEvents(
       this.score, this.rebarDeps, targetMeasure, targetBeat, clipLanes, spanBeats, targetVoice,
-      clipRestShifts, clipRestHidden, targetStaff, clipDynamics, clipSlurs,
+      clipRestShifts, clipRestHidden, targetStaff, clipDynamics, clipSlurs, clipSpaces,
     )
   }
 

@@ -5,7 +5,7 @@ import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracToNumbe
 import { measureCapacityFrac, getMeasureNotes } from '../utils/musicUtils'
 import { durationToFraction } from '../utils/durations'
 import { formatPitch } from '../utils/pitchSpelling'
-import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf, measureLeadingSpaces } from '../engine/models/engravingOverrides'
 import { keyStaffId } from '../engine/models/staffContent'
 import { staffMeasureView, staffIdAtIndex, staffIndexOfId } from '../engine/models/staffContent'
 
@@ -109,6 +109,19 @@ export interface ClipboardPayload {
   dynamics: ClipDynamic[]
   /** Slurs fully inside the copy window, re-anchored on paste (Phase 3). Absent/empty = none. */
   slurs: ClipSlur[]
+  /**
+   * User-authored horizontal spaces (client #10) whose column falls inside the copy window,
+   * offsets relative to the selection start (same basis as {@link ClipboardLane.events}).
+   *
+   * **Top-level, not per lane** — the one piece of this payload that is neither, and deliberately:
+   * a space belongs to the COLUMN, not to a note in it, so it has no voice and no staff to carry.
+   * That makes it the simplest thing here to re-base and the only one paste maps by offset alone.
+   *
+   * Carried at all for the same reason `restShifts` is: the override is position-keyed, so nothing
+   * in `events` can drag it along, and a copied passage would silently arrive unspaced.
+   * Absent/empty = none. See docs/note-spacing-plan.md §6.
+   */
+  spaces?: Array<{ offset: Fraction; space: number }>
   // future: clefs?: ClipboardClef[]; ...
 }
 
@@ -195,6 +208,34 @@ function restHiddenInWindow(
       if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
       if (!restHiddenOf(score, restPositionKey(m.id, voice, n.beat, staffId))) continue
       out.push({ offset: fracSub(abs, spanStart) })
+    }
+  }
+  return out
+}
+
+/**
+ * User-authored leading spaces (client #10) whose column falls inside the copy window
+ * `[spanStart, spanEnd)`, re-based to the window start. The system-wide sibling of
+ * {@link restShiftsInWindow}: no staff and no voice, because a space addresses the column.
+ *
+ * Read straight off the `Score` value via `measureLeadingSpaces`, so it sees every space in the
+ * window whether or not the note under it happened to be selected — the selection defines a
+ * musical WINDOW here, not a set of elements.
+ */
+function leadingSpacesInWindow(
+  score: Score,
+  spanStart: Fraction,
+  spanEnd: Fraction,
+): Array<{ offset: Fraction; space: number }> {
+  const starts = measureStartOffsets(score)
+  const out: Array<{ offset: Fraction; space: number }> = []
+  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
+    const mStart = starts.get(m.number)
+    if (!mStart) continue
+    for (const { beat, space } of measureLeadingSpaces(score, m.id)) {
+      const abs = fracAdd(mStart, beat)
+      if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
+      out.push({ offset: fracSub(abs, spanStart), space })
     }
   }
   return out
@@ -366,6 +407,9 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
   // to the topmost copied staff.
   const dynamics = dynamicsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
   const slurs = slursInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
+  // Authored spaces in the window travel too (client #10) — no staff re-basing, since a space
+  // has no staff.
+  const spaces = leadingSpacesInWindow(score, spanStart, spanEnd)
 
   // Origin = the (measure, beat) of the earliest selected note, for reference.
   const starts = measureStartOffsets(score)
@@ -381,7 +425,11 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
     }
   }
 
-  return { format: 'opus-editor/clipboard', version: 3, origin, spanBeats, spanStaves, lanes, dynamics, slurs }
+  return {
+    format: 'opus-editor/clipboard', version: 3, origin, spanBeats, spanStaves, lanes, dynamics, slurs,
+    // Omitted entirely when empty, matching `restShifts` (clean payload / old-clip parity).
+    ...(spaces.length ? { spaces } : {}),
+  }
 }
 
 /** The (measure, beat, voice, staff) of the earliest note in a selection — the paste target

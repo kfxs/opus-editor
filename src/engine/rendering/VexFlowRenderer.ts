@@ -36,7 +36,7 @@ import {
 import { calculateMeasureWidths } from './MeasureLayout'
 import { MeasureWidthCache } from './MeasureWidthCache'
 import { renderCensus } from '@/dev/renderCensus' // P0 instrument — temporary, see §8
-import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
 import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex, staffIndexOfId } from '@/engine/models/staffContent'
 import { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import type { Rect } from '@/engine/ViewportModel'
@@ -73,6 +73,76 @@ const LEDGER_LINE_STYLE = { strokeStyle: '#000000', lineWidth: 1.25 }
  * Tune here.
  */
 const GHOST_TUPLET_NUMBER_GAP = 1.5
+
+/**
+ * Apply the bar's user-authored horizontal space (client #10 — docs/note-spacing-plan.md §4) by
+ * **moving the columns, never the glyphs**.
+ *
+ * `note.getAbsoluteX()` is `tickContext.getX() + stave.getNoteStartX()`, read lazily at draw time,
+ * and `Formatter.postFormat()` runs *inside* `format()` — so shifting a TickContext after `format()`
+ * returns is the last word on where everything in that column lands. Which is the whole trick:
+ *
+ * - every voice at that tick moves with it, because `joinVoices` gives them ONE shared TickContext;
+ * - beams, tuplets and ties read note x at draw time, so they follow;
+ * - `ElementRegistry` registers post-draw, so hit-testing is correct with nothing extra.
+ *
+ * ⛔ `note.setXShift()` is the wrong tool and must not appear in this feature: it moves the glyph
+ * and leaves the column where it was — that is an *offset*, which is precisely what a space is not.
+ *
+ * ## The anchor is a TICK, not a slot
+ *
+ * The tempting version — find the `StaveNote` at that beat and take its tick context — is wrong,
+ * and wrong in the way that breaks the promise the key makes. Each staff formats in its **own**
+ * `Formatter`, so on a staff with no slot *starting* at the anchor beat there is no anchor
+ * `StaveNote` at all and nothing would shift — while the bar was widened for every staff. Staff 1
+ * `q q q q`, staff 2 `h h`, a space before beat 1: staff 2 never moves, and from beat 1 on the
+ * grand staff drifts apart. Dropping `staffId` from the key exists to prevent exactly that.
+ *
+ * So: convert the beat to VexFlow ticks and shift the first context at or after it, plus every
+ * later one. Ticks-per-quarter is *derived* from the voice (`getTotalTicks()` over the meter's
+ * quarters) rather than hard-coded, because `Tables.RESOLUTION` is not on the package's public
+ * entry — cf. `Glyphs`, which is CJS-only and undefined in the browser.
+ */
+function applyLeadingSpaces(formatter: Formatter, voices: Voice[], score: Score, measure: Measure): void {
+  const spaces = measureLeadingSpaces(score, measure.id)
+  if (spaces.length === 0 || voices.length === 0) return
+
+  const contexts = formatter.getTickContexts()
+  if (!contexts) return
+  const { list, map, resolutionMultiplier } = contexts
+
+  // Ticks per quarter note, asked of VexFlow rather than assumed. A Voice's total ticks is
+  // numBeats/beatValue expressed in VexFlow's own resolution, so dividing by the same meter in
+  // quarters cancels the resolution out — exact in 4/4, 6/8, 7/16 alike.
+  const meterQuarters = (measure.timeSignature.numerator * 4) / measure.timeSignature.denominator
+  if (!(meterQuarters > 0)) return
+  const ticksPerQuarter = (voices[0].getTotalTicks().value() / meterQuarters) * resolutionMultiplier
+  if (!(ticksPerQuarter > 0)) return
+
+  // Half a tick: context ticks are integers, so this absorbs the float division above without ever
+  // reaching a neighbouring column.
+  const EPSILON = 0.5
+
+  // `spaces` is in beat order and `list` in tick order, so one pass over the columns carries a
+  // running delta: everything right of an anchor moves by the same amount, and a second anchor
+  // later in the bar adds to it. An anchor past the last column contributes nothing to the shift —
+  // its width still went into the bar, which is right: the column exists on some OTHER staff, and
+  // this one keeps the room as a gap before the barline.
+  let delta = 0
+  let next = 0
+  for (const tick of list) {
+    while (next < spaces.length) {
+      const beat = spaces[next].beat
+      const anchorTick = (beat.num / beat.den) * ticksPerQuarter
+      if (tick + EPSILON < anchorTick) break
+      delta += spaces[next].space * VEXFLOW_DEFAULT_STAFF_SPACE_PX
+      next++
+    }
+    if (delta === 0) continue
+    const context = map[tick]
+    if (context) context.setX(context.getX() + delta)
+  }
+}
 
 /**
  * Bounds information for a rendered measure
@@ -1052,8 +1122,16 @@ export class VexFlowRenderer {
       try {
         const vexVoices = built.map(b => b.voice)
         const noteAreaWidth = stave.getNoteEndX() - stave.getNoteStartX()
-        const formatWidth = Math.max(noteAreaWidth - 15, 50)
-        new Formatter().joinVoices(vexVoices).format(vexVoices, formatWidth)
+        // Format into the note area MINUS whatever space the user authored into this bar — the
+        // stave was already widened by it (MeasureLayout). Without the subtraction the notes
+        // spread across the widened bar and the shift below pushes the last one through the
+        // barline. Subtract BEFORE the 50px floor, or a large space clamps the music into the
+        // left edge and then shifts it.
+        const userSpacePx = measureUserSpacePx(pass.score, measure.id)
+        const formatWidth = Math.max(noteAreaWidth - 15 - userSpacePx, 50)
+        const formatter = new Formatter().joinVoices(vexVoices)
+        formatter.format(vexVoices, formatWidth)
+        applyLeadingSpaces(formatter, vexVoices, pass.score, measure)
 
         // VexFlow's StaveNote.format() merges two voices' same-duration rests at
         // the same beat into one by setting the lower rest's renderOptions.draw =

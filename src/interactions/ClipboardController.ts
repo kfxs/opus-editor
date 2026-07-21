@@ -113,7 +113,9 @@ export class ClipboardController {
     const clipRestHidden = this.payload.lanes
       .filter((l) => l.restHidden?.length)
       .map((l) => ({ staff: l.staff, voice: l.voice, restHidden: l.restHidden! }))
-    const pastedIds = engine.pasteEvents(measure, beat, this.payload.lanes, this.payload.spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, this.payload.dynamics, this.payload.slurs)
+    // Authored leading spaces (client #10) need no lane mapping at all: a space belongs to the
+    // column, so its clip-relative offset is its whole address.
+    const pastedIds = engine.pasteEvents(measure, beat, this.payload.lanes, this.payload.spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, this.payload.dynamics, this.payload.slurs, this.payload.spaces ?? [])
     dbg(`[Clipboard] pasted ${pastedIds.length} note(s) at measure ${measure} beat ${fracToNumber(beat)}`)
     this.selection.selectNotes(pastedIds)
     this.state.showCursor = true

@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import { ScoreModel, type ClipDynamicInput, type ClipSlurInput } from './models/ScoreModel'
-import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
+import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
 import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
@@ -808,8 +808,9 @@ export class MusicEngine {
     targetStaff: number = 0,
     clipDynamics: ClipDynamicInput[] = [],
     clipSlurs: ClipSlurInput[] = [],
+    clipSpaces: Array<{ offset: Fraction; space: number }> = [],
   ): string[] {
-    const ids = this.scoreModel.pasteEvents(measure, beat, lanes, spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, clipDynamics, clipSlurs)
+    const ids = this.scoreModel.pasteEvents(measure, beat, lanes, spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, clipDynamics, clipSlurs, clipSpaces)
     this.commit('Paste')
     return ids
   }
@@ -1136,6 +1137,138 @@ export class MusicEngine {
       dbg(`[Rest] ${delta > 0 ? '↑' : '↓'} shift rest ${restId} (${key}) by ${delta} → total ${steps} step(s)`)
     }
     return ok
+  }
+
+  /**
+   * Set the user-authored leading space before one rhythmic column and save ONE undo step
+   * (client #10 — docs/note-spacing-plan.md). `space` is in staff-spaces, signed; `0` clears.
+   *
+   * Keyed by measure **id** and beat, with no voice and no staff: a space belongs to the column,
+   * so every voice and every staff at that beat moves together by construction. The caller supplies
+   * `minSpace` — the floor a negative space may not pass — because only whoever has the last render
+   * in hand can measure the gap it would close; see `ScoreModel.setNoteSpacing` for why that clamp
+   * cannot live at draw time.
+   *
+   * @returns the space actually stored (after the clamp), or null for an unknown measure.
+   */
+  setNoteSpacing(measureNumber: number, beat: Fraction, space: number, minSpace: number): number | null {
+    const measure = this.scoreModel.getMeasure(measureNumber)
+    if (!measure) return null
+    const key = spacingPositionKey(measure.id, beat)
+    const stored = this.scoreModel.setNoteSpacing(key, space, minSpace)
+    this.saveOnly('Note spacing')
+    dbg(`[Spacing] bar ${measureNumber} beat ${beat.num}/${beat.den} (${key}) → ${stored} staff-space(s)`)
+    return stored
+  }
+
+  /** The authored leading space at this column, in staff-spaces. 0 = none (the engraver's own). */
+  getNoteSpacing(measureNumber: number, beat: Fraction): number {
+    const measure = this.scoreModel.getMeasure(measureNumber)
+    if (!measure) return 0
+    return leadingSpaceOverrideOf(this.scoreModel.getScore(), spacingPositionKey(measure.id, beat))?.space ?? 0
+  }
+
+  /**
+   * How much further LEFT this column may still be pulled before it closes on its left neighbour,
+   * in staff-spaces (≥ 0) — the floor `setNoteSpacing` clamps against, and the reason that clamp
+   * lives at the write site rather than at draw time.
+   *
+   * **Measured off the last render, not predicted.** The gap between two columns is the formatter's
+   * answer, not arithmetic we can redo: it depends on glyph widths, accidentals, the line's stretch
+   * and the space already authored here. So this reads the drawn positions back out of the
+   * `ElementRegistry` — which registers post-draw — and asks what is actually there.
+   *
+   * The gap is the **minimum across staves**, because the column is system-wide: pulling it left
+   * far enough to collide on any one staff is too far for all of them. Each staff is asked for its
+   * own first column at or after the anchor beat — the same "tick, not slot" rule the renderer
+   * uses, so a staff whose rhythm has no event exactly there still gets a vote.
+   *
+   * ⚠️ **A STALE render cannot answer either, and that is not a technicality.** The gap on screen
+   * already includes whatever space is stored here, so the room and the stored value have to come
+   * from the same moment. Measure a fresh value against an old picture and the floor slides down by
+   * one step per press — the clamp then never bites and the column walks straight through its
+   * neighbour, which is exactly what it exists to prevent. So: model dirty ⇒ we don't know.
+   * (Model-dirty only, deliberately — `isRenderStale` also trips on scroll and zoom, and neither
+   * moves a note relative to its neighbour.)
+   *
+   * @returns null when the last render cannot answer (nothing drawn in that bar yet, no column at
+   * or after the beat on any staff, or an edit not yet drawn). Null is "I don't know", and the
+   * caller must decline rather than substitute a guess — a made-up floor silently becomes the rule.
+   */
+  private measuredShrinkRoom(measureNumber: number, beat: Fraction): number | null {
+    if (this.modelDirty) return null
+    const registry = this.renderer.getElementRegistry()
+    const target = fracToNumber(beat)
+    const EPSILON = 1e-9
+
+    const byStaff = new Map<number, { beat: number; x: number }[]>()
+    for (const el of registry.getByMeasure(measureNumber)) {
+      if ((el.type !== 'note' && el.type !== 'rest') || el.beat === undefined) continue
+      const staff = el.staff ?? 0
+      const list = byStaff.get(staff) ?? []
+      const x = el.headX ?? el.bbox.x
+      // Voices and chord tones share a column: keep its LEFTMOST ink, which is the column's edge.
+      const seen = list.find(c => Math.abs(c.beat - el.beat!) < EPSILON)
+      if (seen) seen.x = Math.min(seen.x, x)
+      else list.push({ beat: el.beat, x })
+      byStaff.set(staff, list)
+    }
+
+    let room: number | null = null
+    for (const [staff, columns] of byStaff) {
+      columns.sort((a, b) => a.beat - b.beat)
+      const at = columns.findIndex(c => c.beat >= target - EPSILON)
+      if (at < 0) continue // nothing at or after the anchor on this staff — it has no say
+      const geometry = registry.getStaffGeometry(measureNumber, staff)
+      // The left neighbour, or — for the bar's first column — where notes may start at all.
+      const leftX = at > 0 ? columns[at - 1].x : geometry?.noteStartX
+      if (leftX === undefined) continue
+      const staffSpacePx = geometry?.lineSpacing ?? VEXFLOW_DEFAULT_STAFF_SPACE_PX
+      const slack = (columns[at].x - leftX - LAYOUT_CONFIG.MIN_NOTE_SPACING) / staffSpacePx
+      room = room === null ? Math.max(0, slack) : Math.min(room, Math.max(0, slack))
+    }
+    return room
+  }
+
+  /**
+   * Nudge the leading space before one column by `delta` staff-spaces and save ONE undo step —
+   * the keyboard fine-positioning (Shift+Alt+←/→). Accumulates onto whatever is already there;
+   * returning to zero clears the entry.
+   *
+   * The floor comes from {@link measuredShrinkRoom}, so a leftward nudge stops when the column
+   * reaches its neighbour instead of walking through it. **Declines when the room cannot be
+   * measured** — an unrendered bar has no gaps to read, and inventing one would engrave a rule
+   * nobody chose.
+   *
+   * @returns the space now stored, or null if the nudge was declined.
+   */
+  nudgeNoteSpacing(measureNumber: number, beat: Fraction, delta: number): number | null {
+    const measure = this.scoreModel.getMeasure(measureNumber)
+    if (!measure) return null
+    const room = this.measuredShrinkRoom(measureNumber, beat)
+    if (room === null) {
+      dbg(`[Spacing] declined bar ${measureNumber} beat ${beat.num}/${beat.den} — no drawn gap to measure the floor against`)
+      return null
+    }
+    const key = spacingPositionKey(measure.id, beat)
+    const current = leadingSpaceOverrideOf(this.scoreModel.getScore(), key)?.space ?? 0
+    const stored = this.scoreModel.setNoteSpacing(key, current + delta, current - room)
+    this.saveOnly('Note spacing')
+    dbg(`[Spacing] bar ${measureNumber} beat ${beat.num}/${beat.den} ${delta > 0 ? '→' : '←'} ${stored} staff-space(s) (room ${room.toFixed(2)})`)
+    return stored
+  }
+
+  /** Drop the authored space before this column, back to the engraver's own spacing. One undo step.
+   *  @returns true if anything was there to reset. */
+  resetNoteSpacing(measureNumber: number, beat: Fraction): boolean {
+    const measure = this.scoreModel.getMeasure(measureNumber)
+    if (!measure) return false
+    const key = spacingPositionKey(measure.id, beat)
+    if (!leadingSpaceOverrideOf(this.scoreModel.getScore(), key)) return false
+    this.scoreModel.setNoteSpacing(key, 0, 0)
+    this.saveOnly('Reset note spacing')
+    dbg(`[Spacing] reset bar ${measureNumber} beat ${beat.num}/${beat.den}`)
+    return true
   }
 
   /**

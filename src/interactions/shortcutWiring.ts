@@ -1,6 +1,7 @@
 import { dbg } from '@/utils/debug'
 import { TUPLET_PRESETS, tupletPresetAction } from '@/utils/tupletPresets'
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { Fraction } from '@/types/music'
 import type { EditorState } from './EditorState'
 import type { SelectionController } from './SelectionController'
 import type { PaletteController } from './PaletteController'
@@ -52,6 +53,11 @@ export function wireShortcuts(
   // one, Alt+↑/↓ by four — starting conservative (rest-shift shipped too large), tune live.
   const STAFF_SPACING_FINE_SS = 1
   const STAFF_SPACING_COARSE_SS = 4
+
+  // Note-spacing nudge step (staff-spaces; docs/note-spacing-plan.md §5). A quarter of a space per
+  // press — small enough that Shift+Alt+→ reads as fine positioning rather than a jump, and it is
+  // the same step the slur endpoints already use.
+  const NOTE_SPACING_STEP_SS = 0.25
 
   // Nudge the armed slur endpoint by a staff-space delta (screen-down is +y, so "up arrow
   // lifts the point" passes a negative dy). Returns true when it consumed the key (an
@@ -118,6 +124,39 @@ export function wireShortcuts(
     if (!eng || state.selectedMeasureRange === null || state.selectedMeasureBoxStyle !== 'single') return false
     // Per-system (plan option C): the tweak targets the system the selected bar sits on.
     if (!eng.nudgeStaffSpacing(state.selectedMeasureStaff, state.selectedMeasureRange.anchor, delta)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  // Shift+Alt+←/→ on a SINGLE selected note or rest = change the space allocated BEFORE its column
+  // (Sibelius note spacing). Unlike every other nudge wired here this one has WIDTH: the bar grows
+  // or shrinks and everything right of the column slides, so it re-runs the casting-off rather than
+  // just repainting. The engine DECLINES (null) when it cannot measure how far left the column may
+  // go — an unrendered bar has no gaps to read — and we decline with it rather than guessing.
+  // One undo per press. See docs/note-spacing-plan.md §5.
+  const selectedColumn = (): { measure: number; beat: Fraction } | null => {
+    const eng = getEngine()
+    if (!eng || state.selectedItems.size !== 1) return null
+    const item = [...state.selectedItems.values()][0]
+    if (item.kind !== 'note') return null
+    const note = eng.getNote(item.id)
+    return note ? { measure: note.measure, beat: note.beat } : null
+  }
+
+  const nudgeSelectedNoteSpacing = (delta: number): boolean => {
+    const eng = getEngine()
+    const column = selectedColumn()
+    if (!eng || !column) return false
+    if (eng.nudgeNoteSpacing(column.measure, column.beat, delta) === null) return false
+    renderer.renderScore()
+    return true
+  }
+
+  const resetSelectedNoteSpacing = (): boolean => {
+    const eng = getEngine()
+    const column = selectedColumn()
+    if (!eng || !column) return false
+    if (!eng.resetNoteSpacing(column.measure, column.beat)) return false
     renderer.renderScore()
     return true
   }
@@ -398,6 +437,11 @@ export function wireShortcuts(
     staffSpacingFineDown: () => { nudgeStaffSpacingIfBoxSelected(STAFF_SPACING_FINE_SS) },
     voiceNavUp: () => selection.navigateVoice(1),
     voiceNavDown: () => selection.navigateVoice(-1),
+    // Otherwise unbound, so these DECLINE (return false) when nothing single is selected — the key
+    // falls through instead of being swallowed by a no-op.
+    noteSpacingTighten: () => nudgeSelectedNoteSpacing(-NOTE_SPACING_STEP_SS),
+    noteSpacingWiden: () => nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS),
+    noteSpacingReset: () => resetSelectedNoteSpacing(),
     // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.
     // (These keys are already bound, so they always consume — the nudge branch returns void
     // via the early return, so preventDefault still fires.)

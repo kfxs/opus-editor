@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, LeadingSpaceOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 
 /**
@@ -168,6 +168,88 @@ export function restShiftOverrideOf(score: Score, posKey: string): RestShiftOver
  */
 export function restHiddenOf(score: Score, posKey: string): boolean {
   return !!engravingOverrideOf(score, posKey, 'restHidden')
+}
+
+/**
+ * Canonical position address for a user-authored **leading space** (client #10 — see
+ * docs/note-spacing-plan.md): `{measureId}:space:b{num}/{den}`. Like {@link restPositionKey} the
+ * beat fraction is reduced, so `2/4` and `1/2` collapse to one key, and the `measureId` (not the
+ * *number*) keeps it stable across renumbering and rebar.
+ *
+ * ⚠️ **No `voice` and no `staffId` segment, deliberately** — the one structural difference from
+ * `restPositionKey`, and the whole design rests on it. A leading space belongs to the *column*, not
+ * to a note in it: without a voice segment, one space is shared by every voice at that beat instead
+ * of two that can disagree; without a staff segment, it is the system-wide column, so a grand staff
+ * cannot drift apart. Both syncs fall out of the key.
+ *
+ * The `{measureId}:` prefix is load-bearing in the other direction too: `MeasureRedrawKey`'s
+ * `overridesFor` sweeps every key carrying a measure's id into that measure's shape key, so the
+ * bar redraws when the space changes with nothing extra to remember. That is exactly the trap the
+ * (id-keyed) dynamic offset fell into.
+ *
+ * `:space:` cannot collide with `restPositionKey`'s `:s{staffId}:`/`:v{n}:` segments (a staffId is
+ * a uuid, and the voice segment is `v` + digits), nor with a bare element id (which holds no `:`).
+ */
+export function spacingPositionKey(measureId: string, beat: Fraction): string {
+  const b = fracCreate(beat.num, beat.den) // reduce defensively — 2/4 and 1/2 are one column
+  return `${measureId}:space:b${b.num}/${b.den}`
+}
+
+/** The beat a {@link spacingPositionKey} addresses, or undefined if this isn't one. The inverse
+ *  is written here, beside the builder, so the two can never drift — the width math and the render
+ *  walk both have to enumerate a measure's spaces, and neither may re-derive the format. */
+export function parseSpacingPositionKey(key: string): { measureId: string; beat: Fraction } | undefined {
+  const at = key.lastIndexOf(':space:b')
+  if (at < 0) return undefined
+  const [num, den] = key.slice(at + ':space:b'.length).split('/')
+  const n = Number(num), d = Number(den)
+  if (!Number.isFinite(n) || !Number.isFinite(d) || d === 0) return undefined
+  return { measureId: key.slice(0, at), beat: fracCreate(n, d) }
+}
+
+/**
+ * The authored leading space at this column address, if any (client #10). `space` is in
+ * staff-spaces, signed. Key it with {@link spacingPositionKey}; absent = the engraver's spacing.
+ */
+export function leadingSpaceOverrideOf(score: Score, posKey: string): LeadingSpaceOverride | undefined {
+  return engravingOverrideOf(score, posKey, 'leadingSpace') as LeadingSpaceOverride | undefined
+}
+
+/**
+ * Every authored leading space inside one measure, in beat order — what the width math sums and
+ * what the render walk shifts on. Enumerating the compartment is the price of a position key that
+ * has width: unlike a rest shift, nobody can ask for these one element at a time, because a bar
+ * has to know its total before it knows how wide it is.
+ *
+ * Sorted by beat so a caller can accumulate a running delta across columns in one pass.
+ */
+export function measureLeadingSpaces(score: Score, measureId: string): { beat: Fraction; space: number }[] {
+  const all = score.engravingOverrides
+  if (!all) return []
+  const prefix = `${measureId}:space:b`
+  const out: { beat: Fraction; space: number }[] = []
+  for (const key of Object.keys(all)) {
+    if (!key.startsWith(prefix)) continue
+    const parsed = parseSpacingPositionKey(key)
+    if (!parsed || parsed.measureId !== measureId) continue
+    const space = leadingSpaceOverrideOf(score, key)?.space
+    if (space === undefined || space === 0) continue
+    out.push({ beat: parsed.beat, space })
+  }
+  return out.sort((a, b) => a.beat.num * b.beat.den - b.beat.num * a.beat.den)
+}
+
+/**
+ * A measure's total authored space in **pixels** — the number the width math adds to the bar and
+ * the render subtracts from the format width, so both sides are derived here and cannot disagree.
+ *
+ * Converted at the layout's own default staff-space, not against a live stave: this is asked
+ * during casting-off, before any stave exists. Same convention as the slur migration below.
+ */
+export function measureUserSpacePx(score: Score, measureId: string): number {
+  let total = 0
+  for (const { space } of measureLeadingSpaces(score, measureId)) total += space
+  return total * VEXFLOW_DEFAULT_STAFF_SPACE_PX
 }
 
 /**

@@ -224,6 +224,27 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Select nearest note in the voice below',
   },
 
+  // Note spacing (Sibelius's own Shift+Alt+←/→): change the space allocated BEFORE the selected
+  // note's column, in ¼ staff-space steps. Everything to its right slides by the same amount and
+  // the bar grows or shrinks — a space has width, unlike every other engraving nudge in this file.
+  // Sits under the same modifiers as the voice nav above, on the axis the nav leaves free.
+  // See docs/note-spacing-plan.md §5.
+  'Shift+Alt+ArrowLeft': {
+    action: 'noteSpacingTighten',
+    description: 'Tighten the space before the selected note',
+  },
+  'Shift+Alt+ArrowRight': {
+    action: 'noteSpacingWiden',
+    description: 'Widen the space before the selected note',
+  },
+  // …and put it back. Sibelius spells this Ctrl+Shift+N, which Chrome keeps for itself (new
+  // incognito window), so it moves to the nudge's own modifiers. NOT a digit: this manager matches
+  // on `event.key`, and Shift+Alt+0 arrives as ')' on a US layout and something else elsewhere.
+  'Shift+Alt+Backspace': {
+    action: 'noteSpacingReset',
+    description: 'Reset the space before the selected note',
+  },
+
   // Voice selection (Sibelius-style Alt+number). Notes are entered into the active voice.
   'Alt+1': {
     action: 'setActiveVoice1',
