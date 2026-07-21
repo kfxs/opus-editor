@@ -4,8 +4,6 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { BeamMode, NoteDuration } from '../types/music'
 import { durationHighlight } from '../interactions/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
-import { windows } from '../windows'
-import { openLoremWindow } from '../windows/demo/loremWindows'
 
 /**
  * The development toolbar — **scaffolding, deliberately kept**.
@@ -88,10 +86,30 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     return b
   }
 
-  // --- Lorem window (the window-system demo) ---
-  const lorem = el('button', 'bg-red-600 hover:bg-red-700 px-4 py-2 rounded', 'Lorem Window')
-  lorem.addEventListener('click', () => openLoremWindow(windows))
-  row.appendChild(lorem)
+  // --- Export PDF (took the seat of the Lorem window, the window-system demo the real windows
+  //     have long since replaced). Async and slow-ish — a whole second engraving of the score —
+  //     so the button says so and refuses to start twice. ---
+  const exportPdf = el('button', 'bg-red-600 hover:bg-red-700 px-4 py-2 rounded', 'Export PDF')
+  exportPdf.title = 'Export the whole score as a vector PDF'
+  exportPdf.addEventListener('click', async () => {
+    const engine = getEngine()
+    if (!engine || exportPdf.disabled) return
+    exportPdf.disabled = true
+    exportPdf.textContent = 'Exporting…'
+    try {
+      // Imported on demand: the PDF writer and the outliner are ~600kB of machinery nobody who
+      // never exports should download. The button is the only door to them.
+      const { exportScorePdf } = await import('../engine/export/pdfExport')
+      await exportScorePdf(engine.getScore())
+    } catch (error) {
+      console.error('PDF export failed:', error)
+      window.alert(`PDF export failed: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      exportPdf.disabled = false
+      exportPdf.textContent = 'Export PDF'
+    }
+  })
+  row.appendChild(exportPdf)
   row.appendChild(divider())
 
   // --- Tool mode ---

@@ -10,7 +10,7 @@ import { CHROME } from '../utils/chromeColors'
  * │  🚨 NOTHING ABOUT A WINDOW IS EVER WRITTEN IN App.ts.                                        │
  * │                                                                                              │
  * │  Defining a window is COMPOSING WIDGETS — plain TS. Every window lives in its own .ts        │
- * │  module (see demo/loremWindows.ts), and the app may only CALL it.                             │
+ * │  module (see clefWindow.ts), and the app may only CALL it.                                    │
  * │                                                                                              │
  * │  App.ts's entire share is TWO lines, forever — mount() and destroy() — and only because the   │
  * │  app owns the DOM node and decides the lifetime. The LAYER ITSELF lives in windows/index.ts,  │

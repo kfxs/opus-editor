@@ -68,7 +68,7 @@ describe('the app boots', () => {
     expect(host.querySelector('.play-cursor')).not.toBeNull()
     expect(host.querySelector('.score-gutter')).not.toBeNull()
     // The dev toolbar built itself into the box the app donated.
-    expect(host.textContent).toContain('Lorem Window')
+    expect(host.textContent).toContain('Export PDF')
     expect(host.textContent).toContain('Score JSON:')
   })
 
