@@ -7,6 +7,7 @@ import { activeVoiceToModel, armedTool, armedToolUsesLength, DEFAULT_DURATION, D
 import { durationHighlight } from './keypadSync'
 import { fracToNumber, fracMul, fracDiv, fracCreate } from '../utils/fraction'
 import { durationToFraction } from '../utils/durations'
+import { tupletScale } from '../utils/musicUtils'
 import { accidentalTypeToKey, formatPitch } from '../utils/pitchSpelling'
 import { sameTimeSignature } from '../utils/meter'
 import { tempoLabel } from '../utils/tempoMap'
@@ -1043,12 +1044,17 @@ export class PaletteController {
     // "5 sixteenths in the time of 1 quarter" is 5:4 — four sixteenths — and never 5:1.
     const span = fracMul(durationToFraction(normalUnit, normalDots), fracCreate(normalCount, 1))
     const occupied = fracDiv(span, durationToFraction(unit, unitDots))
-    if (occupied.den !== 1) return { ok: false, reason: `that time is ${occupied.num}/${occupied.den} of the note you chose, and the ratio counts whole ones` }
-    if (occupied.num === numNotes) return { ok: false, reason: 'the notes would keep their own value — nothing is being squeezed' }
+
+    // …but the ratio cannot always carry it: "2 quarters in the time of 3 eighths" is one and a HALF
+    // quarters, and a printed count is a whole number. That used to be refused. It is not any more —
+    // the ENTRY is stored and the timing reads it (see tupletSpan), so the only thing left to decide
+    // is what the LABEL says, and there the answer is the ratio in the value the user named: 2:3,
+    // which is why a mark in this case has to show the note value beside it to be unambiguous.
+    const label = occupied.den === 1 ? occupied.num : normalCount
 
     const shape: TupletShape = {
       numNotes,
-      notesOccupied: occupied.num,
+      notesOccupied: label,
       baseDuration: unit,
       ...(unitDots && { baseDots: unitDots }),
       // WHAT THE USER TYPED, kept beside the ratio and used by nothing that counts: the ratio above
@@ -1057,6 +1063,12 @@ export class PaletteController {
       ...(unit !== normalUnit || unitDots !== normalDots
         ? { normalDuration: normalUnit, normalCount, ...(normalDots && { normalDots }) }
         : {}),
+    }
+    // The one thing still refused: N notes that exactly fill the span are not squeezed at all, so
+    // they keep their own value and there is no tuplet to make.
+    const scale = tupletScale(shape)
+    if (scale.num === scale.den) {
+      return { ok: false, reason: 'the notes would keep their own value — nothing is being squeezed' }
     }
     return { ok: true, shape }
   }

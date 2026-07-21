@@ -8,6 +8,7 @@ import {
   fracLt,
   fracGte,
   fracCompare,
+  fracDiv,
   fracToNumber,
 } from '@/utils/fraction'
 import { UNIT_GLYPH } from '@/utils/tempoText'
@@ -116,22 +117,38 @@ export function calculateTotalDuration(
  * rebar bug layers away, never as "a field went missing".
  */
 
-/** The ACTUAL side's note value — what the tuplet's notes are written as, and what both counts count. */
+/** The ACTUAL side's note value — what the tuplet's notes are written as. */
 function tupletBaseUnit(t: TupletShape): Fraction {
   return durationToFraction(t.baseDuration, t.baseDots ?? 0)
 }
 
 /**
- * Exact total duration (in beats) the whole group occupies: **M × the unit**.
- * A triplet of eighths → 2 eighths → 1/1.
+ * Exact total duration (in beats) the whole group occupies.
+ *
+ * **The ENTRY is the truth when it was recorded** — `normalCount × normalDuration`, "3 eighths" —
+ * because that is what the user said the group lasts. The ratio is the LABEL, and a label cannot
+ * always carry it: three eighths is one and a HALF quarters, and `notesOccupied` is a whole number
+ * of quarters or nothing.
+ *
+ * Without a recorded entry (every tuplet before that field, and every one whose two sides agree) it
+ * falls back to `M × the unit` — the same value, since that is what the entry would have said.
  */
 export function tupletSpan(t: TupletShape): Fraction {
+  if (t.normalDuration && t.normalCount !== undefined) {
+    return fracMul(durationToFraction(t.normalDuration, t.normalDots ?? 0), fracCreate(t.normalCount, 1))
+  }
   return fracMul(tupletBaseUnit(t), fracCreate(t.notesOccupied, 1))
 }
 
-/** The written→sounding factor: `M/N`, what one written note inside the tuplet is multiplied by. */
+/**
+ * The written→sounding factor: what one written note inside the tuplet is multiplied by.
+ *
+ * `span ÷ (N × unit)` — the N written notes have to fit the span. It is exactly `M/N` whenever the
+ * span is `M × unit`, which is every tuplet without a recorded entry, so nothing that existed before
+ * changes value.
+ */
 export function tupletScale(t: TupletShape): Fraction {
-  return fracCreate(t.notesOccupied, t.numNotes)
+  return fracDiv(tupletSpan(t), fracMul(tupletBaseUnit(t), fracCreate(t.numNotes, 1)))
 }
 
 /**
