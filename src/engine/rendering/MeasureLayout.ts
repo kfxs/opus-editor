@@ -648,7 +648,7 @@ function applyCautionaryTimeSignatures(
 
 /** The width fields pass 1 reasons about — so the bar it is *considering* can be asked the same
  *  questions as the bars already on the line, before it is an info with a line number. */
-type SqueezableWidth = Pick<MeasureWidthInfo, 'minWidth' | 'naturalWidth' | 'floorWidth' | 'userSpace' | 'stretchSpace'>
+export type SqueezableWidth = Pick<MeasureWidthInfo, 'minWidth' | 'naturalWidth' | 'floorWidth' | 'userSpace' | 'stretchSpace'>
 
 /** Has the user asked this bar to be wider than it naturally is? Then it is claiming room from the
  *  rest of its line — and is itself exempt from paying for anyone else's claim. */
@@ -665,7 +665,7 @@ function claimsRoom(info: SqueezableWidth): boolean {
  * it, so it counts for its full `minWidth`. Without that a grown bar would be measured at its own
  * floor and the line would happily accept many more bars beside it.
  */
-function squeezedWidth(info: SqueezableWidth): number {
+export function squeezedWidth(info: SqueezableWidth): number {
   if (claimsRoom(info)) return info.minWidth
   return (info.floorWidth ?? info.minWidth) + Math.max(0, info.stretchSpace ?? 0) + (info.userSpace ?? 0)
 }

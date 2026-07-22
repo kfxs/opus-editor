@@ -339,6 +339,51 @@ describe('shrinking an EMPTY bar', () => {
     expect(offset(3)).toBeCloseTo(0, 6)
   })
 
+  it('⭐ keeps shrinking when the neighbours are already at their floors', () => {
+    // Reported from use, off the console log: after growing a bar hard and shrinking it back, the
+    // stretch froze — every press stored the value it already had, and the log claimed the bar was
+    // "alone on its system" while sitting next to seven others. Cause: the threshold-jump branch
+    // was gated on `widthSlope === 0`, which under the transfer model also means "the neighbours
+    // have nothing left to give" — and its shrink target is a fixed point there.
+    //
+    // Handing room BACK needs no payer, so a shrink must always move.
+    for (let i = 0; i < 60; i++) { engine.nudgeBarWidth(3, 10); engine.renderScore() } // spend the line
+    const seen: number[] = []
+    for (let i = 0; i < 8; i++) {
+      const stored = engine.nudgeBarWidth(3, -10)
+      engine.renderScore()
+      expect(stored).not.toBeNull()
+      seen.push(stored!)
+    }
+    // Strictly decreasing until the floor — never the same number twice running.
+    const stuck = seen.findIndex((v, i) => i > 0 && Math.abs(v - seen[i - 1]) < 1e-9)
+    expect({ stuck, seen: seen.map(v => +v.toFixed(3)) }).toEqual({ stuck: -1, seen: seen.map(v => +v.toFixed(3)) })
+    expect(seen[seen.length - 1]).toBeLessThan(seen[0])
+  })
+
+  it('⭐ keeps shrinking when the bar BELOW is stretched too — the threshold jump is a fixed point there', () => {
+    // Reported from use, reproduced from his score: bar 1 sat alone on system 1 at ×15.738 and every
+    // ← press re-stored ×15.738. The threshold aims just past the first bar of the next system —
+    // but that bar was ITSELF stretched (×4.625), so after the jump it still did not fit, bar 1 was
+    // still alone, and the next press computed the identical target. A dead gesture that logs a jump.
+    //
+    // The fix is not a cleverer threshold (it would have to be right about every reason a bar might
+    // not fit) — it is that a press which changes nothing falls back to a continuous step.
+    engine.setBarWidth(1, 15.7375)
+    engine.setBarWidth(2, 4.625)
+    engine.renderScore()
+    const seen: number[] = []
+    for (let i = 0; i < 6; i++) {
+      const stored = engine.nudgeBarWidth(1, -10)
+      engine.renderScore()
+      expect(stored).not.toBeNull()
+      seen.push(stored!)
+    }
+    const stuck = seen.findIndex((v, i) => i > 0 && Math.abs(v - seen[i - 1]) < 1e-9)
+    expect({ stuck, seen: seen.map(v => +v.toFixed(3)) }).toEqual({ stuck: -1, seen: seen.map(v => +v.toFixed(3)) })
+    expect(seen[seen.length - 1]).toBeLessThan(15.7375)
+  })
+
   it('stops where one column of music would: it never collapses past the rest', () => {
     let last = 1
     for (let i = 0; i < 40; i++) { last = engine.nudgeBarWidth(3, -10)!; engine.renderScore() }
@@ -400,5 +445,50 @@ describe('MusicEngine.resetBarWidth', () => {
 
   it('says false when there was nothing to reset, so the key can fall through', () => {
     expect(engine.resetBarWidth(1)).toBe(false)
+  })
+})
+
+/**
+ * The growth threshold when the line is SPENT — every neighbour already at its floor, but the bar
+ * still has company. Its own describe because the state needs building: jsdom measures glyphs as
+ * zero wide, so an ordinary score's line never runs out of slack and the bug cannot occur in it.
+ * The neighbours are shrunk to `BAR_STRETCH_MIN` to put the line where his score was.
+ */
+describe('bar width — growing into a spent line', () => {
+  let engine: MusicEngine
+
+  beforeEach(() => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    engine = new MusicEngine({ container, width: 900, height: 500 })
+    while (engine.getScore().measures.length < 24) engine.addMeasure()
+    for (const eighth of [0, 1, 2, 3, 4, 5, 6, 7]) {
+      engine.addNoteAtBeat({
+        step: 'G', octave: 4, duration: '8', measure: 3, beat: fracCreate(eighth, 2),
+      } as NoteParams)
+    }
+    for (let m = 2; m <= 12; m++) engine.setBarWidth(m, 0.25) // spend the line
+    engine.renderScore()
+  })
+
+  it('⭐ never leaps to the ceiling while the bar still has company', () => {
+    // Reported off the log: ×4.750 → ×21.625 on ONE press. The growth threshold aims at "worth more
+    // than the whole line" — right for a bar that is ALONE, badly wrong for one that merely has
+    // neighbours with nothing left to give. Same mistake as the shrink direction had: a rule written
+    // for a lone bar applied to a spent one. With company the threshold is where the LAST bar on the
+    // line gets pushed off. Measured here: ×7.75 → ×21.63 before, ×7.75 → ×8.04 after.
+    let previous = engine.getBarWidth(1)
+    let sawCompany = false
+    for (let i = 0; i < 30; i++) {
+      const alone = engine.barWidthRoom(1)?.alone ?? false
+      const stored = engine.nudgeBarWidth(1, STEP_PX)!
+      engine.renderScore()
+      if (!alone) {
+        sawCompany = true
+        expect(stored).toBeLessThan(previous * 2)
+      }
+      previous = stored
+    }
+    expect(sawCompany).toBe(true) // …or the loop above asserted nothing
   })
 })

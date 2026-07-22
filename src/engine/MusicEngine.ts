@@ -3,7 +3,7 @@ import { ScoreModel, type ClipDynamicInput, type ClipSlurInput } from './models/
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barWidthKey, measureStretch, BAR_STRETCH_MIN, BAR_STRETCH_MAX, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
-import { authoredScales, growthPayerShares } from './rendering/MeasureLayout'
+import { authoredScales, growthPayerShares, squeezedWidth } from './rendering/MeasureLayout'
 import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
@@ -51,10 +51,21 @@ export interface BarWidthRoom {
    *  pinned** — the bar ends its system, so justification holds its barline at the right margin.
    *  Not a refusal: the bar can still be resized, and doing so re-wraps (see `nudgeBarWidth`). */
   barlineSlope: number
-  /** Px the bar's own WIDTH changes per px added to its stretch space: `1 − I(m)/T`. At least as
-   *  large as {@link barlineSlope}, and the one the measured shrink floor converts through. 0 when
-   *  the bar is alone on its line (it already fills the line, so no stretch changes its width). */
+  /** Px the bar's own WIDTH changes per px added to its stretch space. 1 while the line still has
+   *  somebody who can pay for the growth (a transfer arrives whole), 0 once nobody has slack left.
+   *  The one the measured shrink floor converts through. */
   widthSlope: number
+  /**
+   * The bar is the ONLY one on its system — so nothing about it can move (justification hands it
+   * the whole line whatever its stretch) and a key press steps to the next casting-off threshold
+   * instead of spending itself on an identical picture.
+   *
+   * ⚠️ Stated, not inferred. It used to be read off `widthSlope === 0`, which stopped being the
+   * same question: a bar whose neighbours are all at their floors also has `widthSlope` 0, and
+   * treating THAT as alone made the shrink step a fixed point — it stored the stretch it already
+   * had, every press, and the bar stopped shrinking with the log claiming it was alone.
+   */
+  alone: boolean
   /** The tightest stretch this bar may take: the drawn music's own floor (`MIN_NOTE_SPACING` per
    *  column, measured) or the absolute `BAR_STRETCH_MIN`, whichever binds. */
   minStretch: number
@@ -1466,6 +1477,7 @@ export class MusicEngine {
     // The DISCRETE twin, for a key press. Identical to the above except where the picture cannot
     // respond continuously — see the alone-on-its-system block. Never call it from a drag.
     let stepFor: ((d: number) => number) | null = null
+    let alone = false
     // The ceiling, DERIVED rather than picked: the stretch at which this bar's width reaches the
     // whole line. That is the largest one anybody can see — pass 1 puts an oversized bar alone on
     // its own line and justification then hands it exactly `availableWidth`, so every stretch past
@@ -1518,9 +1530,19 @@ export class MusicEngine {
       // membership changes, so a press goes straight to the one it is heading for. Crossing out and
       // back is then one press each way.
       //
-      // Only when ALONE (`widthSlope` 0). A last-of-line bar that still has neighbours is pinned at
-      // the barline but its own width very much moves — the neighbours take what it gives up — so
-      // its intermediate values are real and it keeps stepping by pixels.
+      // ⚠️ **Only when the bar is GENUINELY ALONE — asked of the line, not inferred from a slope.**
+      // This used to read `widthSlope <= 1e-6`, which was a fair proxy while justification handed a
+      // lone bar the whole line and nothing else could pin it. Under the transfer model it is not:
+      // `widthSlope` is also 0 when the bar has neighbours who are simply all at their floors, and a
+      // bar with company then took this branch and asked it to pull a bar up from the next system.
+      // The target it computes is a FIXED POINT there — the press stores the stretch it already had,
+      // every time, so shrinking stopped dead with the log cheerfully reporting "alone on its
+      // system" about a bar sitting next to seven others. Reported from use.
+      //
+      // A last-of-line bar that still has neighbours is pinned at the barline but its own width very
+      // much moves — the neighbours take what it gives up — so its intermediate values are real and
+      // it keeps stepping by pixels. Same for a bar whose neighbours are spent: it can still hand
+      // room BACK to them, which needs no payer at all.
       //
       // 🖱️ **And only for the KEYBOARD.** A jump is exactly what a drag must not do: the pointer is
       // holding a barline, and teleporting the layout out from under it is the one failure the whole
@@ -1528,7 +1550,19 @@ export class MusicEngine {
       // state it fires in is one where a drag cannot track anyway — the barline is pinned, so it
       // cannot follow the pointer by any amount. `stretchForBarlineDelta` stays continuous and
       // answers "nothing moves"; P2 should read `barlineSlope === 0` and decline the grab outright.
-      if (widthSlope <= 1e-6) {
+      alone = line.length === 1
+      // ⚠️ **The two directions do not fire on the same condition, and that is the whole fix.**
+      // GROWING is dead whenever nobody on the line can absorb another pixel (`!canPay`): every
+      // intermediate stretch draws the identical picture, so the press should go straight to the
+      // casting-off threshold it is heading for — that is the reported 1-press-out/10-presses-back
+      // asymmetry. SHRINKING is never dead that way: handing room back needs no payer, so it moves
+      // the picture immediately. It stops only when the bar is the ONLY one on its system, where
+      // the sole thing a shrink can change is pulling a bar up from below.
+      //
+      // Collapsing the two (both gated on `widthSlope === 0`) is what froze the shrink: a bar with
+      // seven neighbours at their floors took the alone-branch, whose shrink target is a fixed
+      // point, and every press re-stored the stretch it already had.
+      if (alone || !canPay) {
         const available = LAYOUT_CONFIG.CONTAINER_WIDTH - LAYOUT_CONFIG.MARGIN * 2
         const nextLineFirst = [...layout.values()]
           .filter(i => i.lineNumber === info.lineNumber + 1)
@@ -1542,21 +1576,33 @@ export class MusicEngine {
         // the jump always clears: the cost is that pushing the bar back down can take a second press.
         const clefPremium = LAYOUT_CONFIG.CLEF_WIDTH - LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
         const stretchForWidth = (target: number) => stretch + (target - info.minWidth) / info.noteSpace!
+        // Smooth, and by the bar's own music rather than by its (immovable) barline.
+        const continuous = (d: number) => stretch + d / info.noteSpace!
         stepFor = (d: number) => {
           if (d < 0) {
-            // Shrink until the next system's first bar fits back up here.
+            // Handing room back always moves the picture, so a shrink steps by pixels like any
+            // other — unless the bar is alone, where the only thing that can change is whether a
+            // bar comes up from below.
+            if (!alone) return continuous(d)
             if (!nextLineFirst) return stretch // nothing below to pull up
             return Math.min(stretch, stretchForWidth(available - (nextLineFirst.minWidth - clefPremium) - HAIR))
           }
-          // Widen until this bar no longer fits its line — it is already the whole line, so the
-          // threshold is just past it. Never backwards.
-          return Math.max(stretch, stretchForWidth(available + HAIR))
+          // Widen to the next casting-off threshold — **which is not the same target when the bar
+          // has company.** Alone, the threshold is "worth more than the whole line". With
+          // neighbours it is "worth more than the line minus what they can be squeezed to", which
+          // is where the LAST bar on the line gets pushed off. Aiming at the whole line there sent
+          // one press from ×4.75 straight to ×21.6 — reported from the log, and it is the same
+          // mistake as the shrink direction: a rule written for a lone bar applied to one that
+          // merely has nothing left to take from.
+          const others = line
+            .filter(m => m.measureNumber !== measureNumber)
+            .reduce((sum, m) => sum + squeezedWidth(m), 0)
+          return Math.max(stretch, stretchForWidth(available - others + HAIR))
         }
-        // The continuous answer keeps moving — smoothly, and by the bar's own music rather than by
-        // its (immovable) barline. It must not freeze: a drag that reaches this state mid-gesture
-        // would otherwise be dead in the hand, with no way to pull the bar back down except letting
-        // go. It must not jump either; that is the keyboard's licence, not the mouse's.
-        solveForBarlineDelta = (d: number) => stretch + d / info.noteSpace!
+        // The MOUSE never jumps: teleporting the layout out from under a pointer is the one failure
+        // the whole §4 inversion exists to prevent. It must not freeze either — a drag that reaches
+        // this state mid-gesture would otherwise be dead in the hand.
+        solveForBarlineDelta = continuous
       }
 
       const available = LAYOUT_CONFIG.CONTAINER_WIDTH - LAYOUT_CONFIG.MARGIN * 2
@@ -1592,6 +1638,7 @@ export class MusicEngine {
       barlineSlope,
       widthSlope,
       capped,
+      alone,
       stretchForBarlineDelta: solveForBarlineDelta,
       stretchForStep: stepFor ?? solveForBarlineDelta,
       minStretch: Math.max(BAR_STRETCH_MIN, layoutFloor, stretch - shrinkRoom / info.noteSpace),
@@ -1694,14 +1741,29 @@ export class MusicEngine {
       return null
     }
     const pinned = room.barlineSlope <= 1e-6
+    const clamp = (v: number) => Math.min(room.maxStretch, Math.max(room.minStretch, v))
     // The KEY-PRESS answer (`stretchForStep`), not the continuous one — this is the keyboard.
-    const bounded = Math.min(room.maxStretch, Math.max(room.minStretch, room.stretchForStep(barlineDeltaPx)))
+    let bounded = clamp(room.stretchForStep(barlineDeltaPx))
+    // ⚠️ **A PRESS MUST MOVE, OR THE LIMIT MUST BE REAL.** The threshold jump aims at the stretch
+    // where the casting-off changes, and it can be a FIXED POINT: aim past the bar below, apply it,
+    // and if that bar is itself stretched it still does not fit — the bar is still alone, the next
+    // press computes the identical target, and the gesture is dead with the log happily reporting a
+    // jump. Reported from use twice, from a score where bar 1 sat at ×15.738 and would not shrink.
+    //
+    // Guessing a better threshold is the wrong fix (it has to be right about every reason a bar
+    // might not fit). Falling back is: if the jump changes nothing, spend the press continuously
+    // instead. A press then either moves the bar or is genuinely against `minStretch`/`maxStretch`,
+    // which is a limit the user can see.
+    if (Math.abs(bounded - room.stretch) < 1e-9) {
+      const continuous = clamp(room.stretchForBarlineDelta(barlineDeltaPx))
+      if (Math.abs(continuous - room.stretch) > 1e-9) bounded = continuous
+    }
     const stored = this.scoreModel.setBarWidth(barWidthKey(measure.id), bounded, BAR_STRETCH_MIN)
     this.saveOnly('Bar width')
     dbg(
       `[BarWidth] bar ${measureNumber} ${barlineDeltaPx > 0 ? '→' : '←'} ×${stored.toFixed(3)} ` +
         `[${this.renderer.getMeasureLayoutInfo().get(measureNumber)?.stretchScalesShare ? 'empty bar: scales its share' : 'has music: reserved space'}] ` +
-        `(${room.widthSlope <= 1e-6 ? 'alone on its system — stepping to the next casting-off threshold'
+        `(${room.alone ? 'alone on its system — stepping to the next casting-off threshold'
             : pinned ? 'barline pinned — stepping the bar’s own music' : `slope ${room.barlineSlope.toFixed(3)}`}` +
         `, range ×${room.minStretch.toFixed(2)}…×${room.maxStretch.toFixed(2)}` +
         `${room.capped ? ', line past the authored-space cap' : ''})`,
