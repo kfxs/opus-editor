@@ -492,3 +492,49 @@ describe('bar width — growing into a spent line', () => {
     expect(sawCompany).toBe(true) // …or the loop above asserted nothing
   })
 })
+
+/**
+ * The ceiling. Its own fixture because the bug needs a bar that becomes the whole system **while
+ * still narrower than the line** — which only happens when a NEIGHBOUR is stretched too, so it is
+ * pushed off early rather than by this bar filling the line. Taken from the reported score:
+ * bar 2 at ×2.
+ */
+describe('bar width — the ceiling is where the bar becomes the system', () => {
+  let engine: MusicEngine
+
+  beforeEach(() => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    engine = new MusicEngine({ container, width: 900, height: 500 })
+    while (engine.getScore().measures.length < 64) engine.addMeasure()
+    for (const eighth of [0, 1, 2, 3, 4]) {
+      engine.addNoteAtBeat({
+        step: 'F', octave: 4, duration: '8', measure: 3, beat: fracCreate(eighth, 2),
+      } as NoteParams)
+    }
+    engine.setBarWidth(2, 2)
+    engine.renderScore()
+  })
+
+  it('⭐ no press buys anything once the bar IS the system', () => {
+    // Asked, from the log: "a measure has a max width, the width of the line, so after that we
+    // should not add more". There WAS a ceiling — the stretch at which the bar's width reaches the
+    // full line — but it is blind to the bar having already become the whole system by pushing its
+    // neighbours off. Measured, as reported: alone at ×17.1, ceiling still ×21.6, so one press
+    // bought +4.5 that drew the identical picture, seven more did nothing, and every unit had to be
+    // walked back before anything moved. Reproduced here at ×17.14 against ×21.63.
+    //
+    // Dead range is worse than a wall: a wall you can see.
+    let firstAlone: number | null = null
+    for (let i = 0; i < 90; i++) {
+      const room = engine.barWidthRoom(1)
+      if (room?.alone && firstAlone === null) firstAlone = room.stretch
+      engine.nudgeBarWidth(1, STEP_PX)
+      engine.renderScore()
+    }
+    expect(firstAlone).not.toBeNull()
+    // Not one pixel of stretch past the moment it became the system.
+    expect(engine.getBarWidth(1)).toBeCloseTo(firstAlone!, 6)
+    expect(engine.barWidthRoom(1)!.maxStretch).toBeCloseTo(firstAlone!, 6)
+  })
+})

@@ -80,6 +80,14 @@ report-never-repair.
 > exactly the line width, so every larger stretch draws the same thing), and it is the one number a
 > fixed multiplier could never express — the same 8× is a third of a line for a sparse bar and more
 > than a line for a dense one. `BAR_STRETCH_MAX` moves up out of the way (100).
+>
+> ⚠️ **CORRECTED AGAIN at P1.5 — that derived ceiling is still not the real one.** "The stretch at
+> which the bar's width reaches the full line" is blind to the bar having become the whole system
+> **earlier**, by pushing its neighbours off. Reported: *"a measure has a max width, the width of the
+> line, so after that we should not add more."* Measured — bar 1 went alone at ×17.1 while the
+> ceiling said ×21.6, so one press bought +4.5 that drew the identical picture, seven more did
+> nothing, and every unit had to be walked back before anything moved again. **A bar alone on its
+> system IS the line; that is its maximum, whatever it is.** See §1.5.
 
 No new `Measure` field ⇒ `measureRenderRoles.ts` is untouched.
 
@@ -146,6 +154,30 @@ shrinking says "I need less of the system" — which is not a demand on anyone, 
 `naturalWidth` falls with it and the whole line re-shares. Making both directions transfers was
 tried and is wrong: a bar handing back its 56px of note space still drew 230px, because its *claim*
 had not moved. That is the original empty-bar complaint, and this asymmetry is where it is answered.
+
+### The limits, and the step
+
+**The ceiling is where the bar becomes the system**, not where its width would reach the line — the
+two differ whenever a neighbour is stretched too, because then it is pushed off early. Dead range is
+worse than a wall: a wall you can see, and nothing has to be walked back across it.
+
+Three ways a keyboard press went dead or wild, all one root — **rules written for a bar ALONE were
+being applied to a bar whose neighbours were merely SPENT.** Under the transfer model those stopped
+being the same state and nothing said so:
+
+- `alone` was read off `widthSlope === 0`, which now *also* means "the line is spent". A bar with
+  seven neighbours took the lone-bar branch, whose shrink target is a **fixed point** — shrinking
+  froze while the log cheerfully reported it was alone. Ask the LINE. And the directions need
+  different conditions: **growing** is dead when nobody can absorb it; **shrinking never is**,
+  because handing room back needs no payer.
+- The threshold jump can be a fixed point anyway — aim past the bar below, and if THAT bar is
+  stretched it still does not fit. ⭐ **A press that changes nothing falls back to a continuous
+  step.** A press either moves the bar or is against a limit that shows. Do not chase a cleverer
+  threshold: it would have to be right about every reason a bar might not fit. (It also makes
+  *accurate* aiming safe, which is why the shrink threshold can now use `squeezedWidth` — what the
+  bar below can be squeezed to — instead of undershooting at its full `minWidth`.)
+- The growth threshold leapt ×4.75 → ×21.63 in one press. "Worth more than the whole line" is right
+  for a lone bar and wrong for a spent one; with company it is where the LAST bar gets pushed off.
 
 ### What this deletes
 
@@ -460,10 +492,15 @@ Written down at the end of P1 rather than fixed, by decision. Nothing below is a
    multiplier was left alone because guessing it is worse than asking.
 4. **Pushing a bar back DOWN a system can cost a second press.** Still true at P1.5, with a second
    cause on top of the one below: a line now squeezes before it wraps, so there is more to push
-   through on the way out. Measured at exactly 2 presses. The alone-on-its-system threshold
-   (§5) aims conservatively, because the bar below is measured as a line-opener and carries a full
-   clef it stops paying once it moves up; the jump assumes the worst case so it always clears. Out
-   and back is 1:1, out-again is sometimes 2.
+   through on the way out. Measured at exactly 2 presses. The alone-on-its-system threshold aims
+   conservatively, because the bar below is measured as a line-opener and carries a full clef it
+   stops paying once it moves up; the jump assumes the worst case so it always clears. Out and back
+   is 1:1, out-again is sometimes 2.
+
+   ✅ The **worst half of this is closed**: the walk back across dead range *above* the real ceiling,
+   reported as "I have to go back as many steps as I went ahead". See §1.5 — a bar alone on its
+   system is at its maximum. The threshold also aims accurately now rather than conservatively,
+   which the fixed-point fallback made safe.
 
 ## Open, deliberately — decided by feel
 

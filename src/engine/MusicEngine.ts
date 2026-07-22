@@ -1585,7 +1585,12 @@ export class MusicEngine {
             // bar comes up from below.
             if (!alone) return continuous(d)
             if (!nextLineFirst) return stretch // nothing below to pull up
-            return Math.min(stretch, stretchForWidth(available - (nextLineFirst.minWidth - clefPremium) - HAIR))
+            // ⚠️ Its SQUEEZED width, not its `minWidth`. The bar below comes up if the line can be
+            // made to hold it, and pass 1 asks that of `squeezedWidth` — so aiming at its full asked
+            // width undershoots badly and the way back costs ~10 presses where the way out cost one.
+            // Aiming accurately used to be unsafe (miss, and a threshold press that changes nothing
+            // repeats forever); it is safe now that such a press falls back to a continuous step.
+            return Math.min(stretch, stretchForWidth(available - (squeezedWidth(nextLineFirst) - clefPremium) - HAIR))
           }
           // Widen to the next casting-off threshold — **which is not the same target when the bar
           // has company.** Alone, the threshold is "worth more than the whole line". With
@@ -1610,13 +1615,23 @@ export class MusicEngine {
       // gesture inverts a formula the picture is no longer following.
       const scales = authoredScales(line, available)
       capped = scales.userScale < 1 || scales.stretchScale < 1
-      // `available − minWidth` is what this bar still has to gain to BE the line; over its own note
-      // space, that is the stretch. Never below where the bar already is — a bar past the line
-      // (there is nothing to push off any more) must not be dragged backwards by its own ceiling.
-      maxStretch = Math.min(
-        BAR_STRETCH_MAX,
-        Math.max(stretch, stretch + (available - info.minWidth) / info.noteSpace),
-      )
+      // ⭐ **A bar ALONE on its system IS the line — that is its maximum, whatever it is.** Asked,
+      // reported: "a measure has a max width, the width of the line, so after that we should not add
+      // more". There was a ceiling already — `available − minWidth` over the note space, the stretch
+      // at which the bar's width reaches the full line — but it is blind to the bar having become
+      // the whole system EARLIER, by pushing its neighbours off. Measured on his score: bar 1 went
+      // alone at ×17.1 and the ceiling still said ×21.6, so a press bought +4.5 that drew the
+      // IDENTICAL picture, then seven more did nothing, and every one of those units had to be
+      // walked back before anything moved. Dead range is worse than a wall: a wall you can see.
+      //
+      // So once alone, the bar is already as wide as anything can make it and the ceiling is where
+      // it stands. Growth is refused — against a limit the picture explains.
+      maxStretch = alone
+        ? stretch
+        : Math.min(
+            BAR_STRETCH_MAX,
+            Math.max(stretch, stretch + (available - info.minWidth) / info.noteSpace),
+          )
     }
 
     // The one limit that is real in BOTH directions: the bar keeps the room its music is actually
