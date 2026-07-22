@@ -504,17 +504,27 @@ Written down at the end of P1 rather than fixed, by decision. Nothing below is a
 
 ## Open, deliberately — decided by feel
 
-1. **Where the space comes from — and this one is decided at P2, not after it.** Whole line (what
-   `distributeLineWidths` already does — free, and it degrades gracefully when a neighbour hits its
-   own floor) vs Finale's *next bar only* (the slope in §4 becomes 1 and the whole inversion
-   disappears). Starting whole-line, and nothing in §1 or §2 depends on the answer — but §4 does
-   **entirely**, so it is a P2 question rather than a P3 one.
+1. ✅ **DECIDED at P2 — the room comes from the WHOLE LINE, and it stays that way.** Judged on
+   screen, as this entry asked: *"expanding, it is not bad what we have today."* So every barline to
+   the left of the one you drag keeps sliding left — the system re-spaces under the cursor, the
+   Sibelius feel — rather than Finale's next-bar-only.
 
-   What to judge it on, once P2 is on screen: whole-line means every barline to the **left** of the
-   one you are holding slides left as you drag right (§4). The system re-spaces under the cursor.
-   That may read as "the music breathing", which is the Sibelius feel, or as "the page sliding",
-   which is not. Finale's model keeps everything left of the grab still. Neither can move a
-   system-ending barline.
+   **Deliberately revisitable, and cheaper to revisit than this entry assumed.** Three reasons,
+   worth stating so nobody treats it as load-bearing:
+   - **Nothing about who pays is STORED.** The override is `{kind: 'barWidth', stretch}` — a
+     multiplier. Switching models re-renders existing scores differently and migrates nothing.
+   - **The payer set lives in one file.** `distributeLineWidths`' tiers and `growthPayerShares`
+     (which mirrors them marginally), both in `MeasureLayout.ts`. Finale's model is "the payer set is
+     the next bar only".
+   - **§4 does NOT have to be rewritten** — the fear that made this a P2-or-never decision. Under
+     Finale's model no payer sits left of the grabbed bar, so `barlineSlope` comes out 1 and the
+     inversion collapses on its own. That is the existing formula giving the right answer, not a
+     special case. The transfer model (§1.5) is what made this true; before it, "who pays" was
+     smeared across the justifier's proportional maths and could not be moved.
+
+   The one cost of a later switch: scores already stretched would re-flow. Not a migration — work
+   already eyeballed, looking different.
+
 2. **An authored `leadingSpace` inside a stretched bar** — does the gap scale with the bar or stay
    the fixed distance it is? Staying fixed, following Finale/Dorico, and it falls out of §2 with no
    extra code (the gap is subtracted before formatting either way).
