@@ -651,6 +651,32 @@ export interface LeadingSpaceOverride extends EngravingOverride {
 }
 
 /**
+ * Client #11 of the engraving-overrides compartment: user-authored **bar stretch** — the bar's
+ * music gets `stretch ×` the room the engraver gave it, re-spaced proportionally (see
+ * docs/bar-width-plan.md).
+ *
+ * **The second override that has width**, and the opposite gesture to {@link LeadingSpaceOverride}:
+ * a leading space opens a *dead gap* before one column and is subtracted before formatting, so it
+ * fights the formatter on purpose. A stretch just hands the formatter a bigger box — VexFlow
+ * redistributes the columns by duration on its own, which IS the proportional recalculation.
+ *
+ * ⚠️ **A multiplier, not a distance, and on the NOTE SPACE only** (not on the bar's clef/meter
+ * overhead, which is reflow-dependent — a bar pays for a full clef only while it opens a line, so
+ * folding the overhead in would make the same stored `stretch` buy a different number of pixels
+ * after a re-wrap). A stored distance would rot: widen a 4-note bar by 120px, add four more notes,
+ * and the bar is no longer as roomy as it was left. A multiplier keeps the *intent* through edits.
+ *
+ * Keyed by {@link barWidthKey} (`{measureId}:barwidth`) — the bar, not a column, and by **id** so a
+ * rebar (which keeps measure ids) carries the stretch with no capture/restore at all. `1` clears the
+ * entry, so "absent = the engraver's own width" holds. Clamped on the way in, at the write site.
+ */
+export interface BarWidthOverride extends EngravingOverride {
+  kind: 'barWidth'
+  /** Multiplier on the bar's own note space. 1 = the engraver's own width. */
+  stretch: number
+}
+
+/**
  * The engraving-overrides compartment: a keyed table of authored geometry held
  * as a sub-tree of {@link Score} (so it clones / serializes / undoes with the score
  * value — principle 1). Usually keyed by the *element id* an override hangs off (a note /

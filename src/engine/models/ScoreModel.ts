@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, LeadingSpaceOverride, CautionaryOverride, CautionaryClefOverride } from '@/types/music'
-import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CautionaryOverride, CautionaryClefOverride } from '@/types/music'
+import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX } from './engravingOverrides'
 import {
   tupletSpan,
   tupletSlotDuration,
@@ -879,6 +879,36 @@ export class ScoreModel {
     } else {
       const next: LeadingSpaceOverride = { kind: 'leadingSpace', space: clamped }
       this.setEngravingOverride(posKey, next)
+    }
+    return clamped
+  }
+
+  /**
+   * Set a bar's authored **stretch** — the multiplier on its own note space (client #11 — see
+   * docs/bar-width-plan.md). Stored as a {@link BarWidthOverride} keyed by {@link barWidthKey}.
+   *
+   * **Two clamps, and the second is not optional.** `minStretch` is the caller's — the *measured*
+   * floor from the last render, the same contract as {@link setNoteSpacing}'s `minSpace`: only
+   * whoever has the drawn bar in hand knows how much room its music is actually using. On top of
+   * that sits an absolute `[BAR_STRETCH_MIN, BAR_STRETCH_MAX]`, because this override is also
+   * hand-editable in the Score JSON panel and `distributeLineWidths` leaves negative totals
+   * uncapped by design — so a typed `0` would otherwise produce a negative-width bar.
+   *
+   * `1` clears the entry (so "absent = the engraver's own width" holds and the JSON stays clean).
+   * No undo snapshot here — the facade (`MusicEngine.setBarWidth`) owns it, mirroring
+   * {@link setNoteSpacing}; a model-level snapshot would push one undo entry per drag frame.
+   * @returns the stretch actually stored, after both clamps.
+   */
+  setBarWidth(key: string, stretch: number, minStretch: number): number {
+    const clamped = Math.min(
+      BAR_STRETCH_MAX,
+      Math.max(BAR_STRETCH_MIN, Math.max(stretch, minStretch)),
+    )
+    if (clamped === 1) {
+      this.clearEngravingOverride(key, 'barWidth')
+    } else {
+      const next: BarWidthOverride = { kind: 'barWidth', stretch: clamped }
+      this.setEngravingOverride(key, next)
     }
     return clamped
   }

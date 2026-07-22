@@ -4,7 +4,7 @@ import { fracCompare, fracIsZero } from '@/utils/fraction'
 import { type StaffClefs } from '@/utils/clefUtils'
 import { getStaves, staffMeasureView } from '@/engine/models/staffContent'
 import { measureCapacityFrac } from '@/utils/musicUtils'
-import { cautionaryAllowedOf, cautionaryClefAllowedOf, keyStaffId, measureUserSpacePx } from '../models/engravingOverrides'
+import { cautionaryAllowedOf, cautionaryClefAllowedOf, keyStaffId, measureUserSpacePx, measureStretch } from '../models/engravingOverrides'
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import { laneFingerprint, type MeasureWidthCache } from './MeasureWidthCache'
 import { renderCensus } from '@/dev/renderCensus' // TEMPORARY — the §9 layout-breakdown probes
@@ -122,6 +122,14 @@ function noteSpaceForLane(laneView: Measure, clef: Clef, cache?: MeasureWidthCac
  * The clef terms live *inside* the max because a clef is per-staff (staff 1 may change clef where
  * staff 2 does not). The time-signature and barline padding are shared by every staff, so they sit
  * outside it.
+ *
+ * Returns **two** numbers, not one: the clamped total the layout casts off on, and — beside it —
+ * the widest lane's *note space alone*, which is what a bar stretch multiplies (client #11,
+ * docs/bar-width-plan.md §2). The extra max costs nothing (same loop), and the two maxima may
+ * legitimately land on different staves: `noteSpace` is "the most room any lane's music needs",
+ * which is exactly what a stretch stretches. The overhead is deliberately NOT in it — a bar pays a
+ * full clef only while it opens a line, so a stretch over the overhead would buy a different number
+ * of pixels after every re-wrap.
  */
 function calculateMinimumMeasureWidth(
   score: Score,
@@ -129,7 +137,7 @@ function calculateMinimumMeasureWidth(
   isFirstInLine: boolean,
   clefsByStaff: Map<string | undefined, StaffClefs>,
   cache?: MeasureWidthCache,
-): number {
+): { total: number; noteSpace: number; overhead: number } {
   // Shared by every staff: the barline padding, and the meter glyph where one is drawn
   // (measure 1 + changes).
   let sharedOverhead = LAYOUT_CONFIG.BARLINE_PADDING * 2
@@ -142,6 +150,8 @@ function calculateMinimumMeasureWidth(
   const single = staffIds.length === 1
 
   let widest = 0
+  let widestNoteSpace = 0
+  let widestOverhead = 0
   for (const staffId of staffIds) {
     // TEMPORARY probe — see renderCensus.layoutSub.
     const tView = renderCensus.recording ? performance.now() : 0
@@ -169,23 +179,68 @@ function calculateMinimumMeasureWidth(
     const midClefs = (lane.clefs ?? []).filter(c => !fracIsZero(c.beat)).length
     clefOverhead += midClefs * LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
 
-    widest = Math.max(widest, noteSpaceForLane(lane, clef, cache) + clefOverhead)
+    const noteSpace = noteSpaceForLane(lane, clef, cache)
+    widest = Math.max(widest, noteSpace + clefOverhead)
+    widestNoteSpace = Math.max(widestNoteSpace, noteSpace)
+    widestOverhead = Math.max(widestOverhead, clefOverhead)
   }
 
   const totalWidth = widest + sharedOverhead
-  return Math.min(
-    Math.max(totalWidth, LAYOUT_CONFIG.MIN_MEASURE_WIDTH),
-    LAYOUT_CONFIG.MAX_MEASURE_WIDTH,
-  )
+  return {
+    total: Math.min(
+      Math.max(totalWidth, LAYOUT_CONFIG.MIN_MEASURE_WIDTH),
+      LAYOUT_CONFIG.MAX_MEASURE_WIDTH,
+    ),
+    noteSpace: widestNoteSpace,
+    overhead: widestOverhead + sharedOverhead,
+  }
 }
 
 /**
- * The measure's **intrinsic** width plus whatever horizontal space the user authored into it
- * (client #10 — docs/note-spacing-plan.md §2). One `minWidth`, split so §3 can tell the halves
- * apart: the intrinsic half is the engraver's and may be squeezed, the authored half is the
- * user's and is handed back.
+ * Is this a bar nobody has written into — one rest per staff sitting in the middle, and nothing
+ * else? It decides which way a stretch acts on the bar (see {@link measureWidthParts}).
  *
- * Two ordering facts, both load-bearing:
+ * ⚠️ **Asked of the CONTENT, never of a measured width.** The first version asked whether the bar's
+ * note space had come out at the {@link EMPTY_LANE_NOTE_SPACE} floor — which compares a number the
+ * *formatter* produced. Under jsdom the text metrics are stubbed to zero, so every empty bar
+ * measured 40 and the tests were green; in a real browser a whole rest measures wider than that, the
+ * bar was classified as having music, and the feature silently did nothing. A structural question
+ * has the same answer in both places.
+ *
+ * Not "has no notes": a bar of eight authored eighth-rests has eight columns and is governed by them
+ * like any other music. And a bar carrying a dynamic, a tempo or an inline clef is not empty either
+ * — there is something in it that needs room, whatever the rhythm says.
+ */
+function isEmptyBar(measure: Measure): boolean {
+  if (measure.dynamics?.length) return false
+  if (measure.tempos?.length) return false
+  if ((measure.clefs ?? []).some(c => !fracIsZero(c.beat))) return false
+  const perLane = new Map<string | undefined, number>()
+  for (const slot of measure.slots) {
+    if (slot.type === 'chord') return false
+    const seen = (perLane.get(slot.staffId) ?? 0) + 1
+    if (seen > 1) return false // more than the one auto-filled rest: authored rhythm
+    perLane.set(slot.staffId, seen)
+  }
+  return true
+}
+
+/**
+ * The measure's **intrinsic** width plus whatever horizontal space the user authored into it —
+ * a leading space per column (client #10 — docs/note-spacing-plan.md §2) and/or a stretch on the
+ * whole bar (client #11 — docs/bar-width-plan.md §2). One `minWidth`, split three ways so §3 can
+ * tell them apart: the intrinsic part is the engraver's and may be squeezed, the authored parts are
+ * the user's and are handed back.
+ *
+ * ⚠️ **The stretch multiplies the NOTE SPACE, not the intrinsic width.** The bar's overhead (clef,
+ * meter, barline padding) is reflow-dependent — 45px while the bar opens a line, 30 for a mid-line
+ * clef change, 0 otherwise — so folding it in would make the *same stored stretch* buy a different
+ * number of pixels the moment a re-wrap makes the bar line-opening, destroying the one thing the
+ * multiplier was chosen for (it keeps the intent through edits). `stretch × noteSpace` also means
+ * what the gesture says: this bar's *music* gets 1.5× the room, with the clef costing what a clef
+ * costs.
+ *
+ * Two ordering facts, both load-bearing (and both apply to the stretch for the same reasons):
  *
  * - **The user space is added AFTER the clamps**, not before. `MIN_MEASURE_WIDTH`/
  *   `MAX_MEASURE_WIDTH` are caps on what the *music* needs; leave the authored space inside them
@@ -203,10 +258,56 @@ function measureWidthParts(
   isFirstInLine: boolean,
   clefsByStaff: Map<string | undefined, StaffClefs>,
   cache?: MeasureWidthCache,
-): { minWidth: number; userSpace: number } {
-  const intrinsic = calculateMinimumMeasureWidth(score, measure, isFirstInLine, clefsByStaff, cache)
+): { minWidth: number; userSpace: number; stretchSpace: number; noteSpace: number; stretchScalesShare: boolean } {
+  const parts = calculateMinimumMeasureWidth(score, measure, isFirstInLine, clefsByStaff, cache)
+  const { total: intrinsic, noteSpace, overhead } = parts
   const userSpace = measureUserSpacePx(score, measure.id)
-  return { minWidth: intrinsic + userSpace, userSpace }
+  const stretch = measureStretch(score, measure.id)
+
+  // ⚠️ **An EMPTY bar's stretch scales its SHARE of the line; every other bar's is added on top.**
+  // Reported from use, and the reason is structural rather than a constant being wrong. A bar's
+  // drawn width is mostly its justified share, which `distributeLineWidths` hands out in proportion
+  // to `intrinsic` — and `intrinsic` is what the reserved-space model never touches. So a bar could
+  // give back its note space (40px, all an empty bar has) and still sit there 165px wide, unable to
+  // get out of the way of a long neighbour. It never looked organic because nothing about the bar's
+  // *claim on the line* had changed.
+  //
+  // For a bar with music that model is right: its music sets its claim, and shrinking stops at the
+  // engraver's own floor of `MIN_NOTE_SPACING` per column. **An empty bar has no music to set one.**
+  // Its width comes from `MIN_MEASURE_WIDTH` and the `EMPTY_LANE_NOTE_SPACE` floor — defaults, not
+  // content — so the user asking for it to be narrow is asking to overrule a default, and it should
+  // give way completely. Hence: fold the stretch INTO the intrinsic (so the share moves with it) and
+  // reserve nothing.
+  //
+  // The overhead is kept out of the scaling for the reason §2 gives — a line-opening empty bar must
+  // keep room for its clef and meter whatever its stretch — and the scalable part stops at one
+  // column's `MIN_NOTE_SPACING`, which is the same floor a bar with music gets, per column.
+  //
+  // A bar that later gains a note changes model, so its stored number starts meaning the other
+  // thing. That is deliberate: it also stops being a bar whose width was a default.
+  // 🔴 KNOWN-INCOMPLETE: this branch is better than the reserved model here and still does not
+  // shrink an empty bar as far as it should — reported three times, postponed rather than solved.
+  // See docs/bar-width-plan.md "Known issues" #1 before assuming the behaviour below is correct.
+  if (isEmptyBar(measure)) {
+    const scalable = Math.max(0, intrinsic - overhead)
+    const scaled = Math.max(LAYOUT_CONFIG.MIN_NOTE_SPACING, scalable * stretch)
+    return {
+      minWidth: overhead + scaled + userSpace,
+      userSpace,
+      stretchSpace: 0, // nothing reserved — the stretch IS the share
+      noteSpace: scalable, // what the multiplier multiplies, so px↔ratio still converts
+      stretchScalesShare: true,
+    }
+  }
+
+  const stretchSpace = noteSpace * (stretch - 1)
+  return {
+    minWidth: intrinsic + userSpace + stretchSpace,
+    userSpace,
+    stretchSpace,
+    noteSpace,
+    stretchScalesShare: false,
+  }
 }
 
 /** The staves to lay out. A hand-built staveless score still has one (undefined) lane, which is
@@ -232,7 +333,48 @@ function staffIdsOf(
  * So the authored space is scaled down proportionally once the line's total passes this. "The gap
  * you drag is the gap you get" holds up to the cap, and degrades smoothly past it.
  */
-const USER_SPACE_LINE_FRACTION = 0.6
+export const USER_SPACE_LINE_FRACTION = 0.6
+
+/**
+ * How much of each authored pool a line actually hands back — 1 when nothing binds.
+ *
+ * Two pools, and keeping them apart is the whole difference between the two clients that have
+ * width:
+ *
+ * - **`userSpace` (leading spaces, client #10) is capped** at {@link USER_SPACE_LINE_FRACTION}.
+ *   It is a *dead gap*, and a line whose gaps claim all of it has no music left.
+ * - **`stretchSpace` (bar width, client #11) is NOT.** It is live music room, so "this bar takes
+ *   most of the line" is the legitimate case rather than the pathological one — an empty bar is a
+ *   rest with white space either side of it, and there is a line's worth of room to give it.
+ *   Capping it made the gesture visibly slow to a crawl and then jump, reported from use
+ *   (docs/bar-width-plan.md §3).
+ *
+ * Uncapping the stretch is safe because pass 1 already bounds it: a bar joins a line only while the
+ * line's Σ `minWidth` still fits, and authored ≤ `minWidth`, so Σ `stretchSpace` ≤ `availableWidth`
+ * on any line holding two or more bars. The exception is the bar pass 1 puts **alone** on its line,
+ * which may be worth more than the line — that is all `stretchScale` is for, and it hands such a
+ * bar exactly the line, never a pixel through the right margin.
+ *
+ * Exported because `MusicEngine.barWidthRoom` has to know when a scale is biting: past it the
+ * closed form it inverts no longer describes the picture. One definition, two readers — the
+ * alternative was the gesture and the layout disagreeing about the same line.
+ */
+export function authoredScales(
+  measureInfos: MeasureWidthInfo[],
+  availableWidth: number,
+): { userScale: number; stretchScale: number } {
+  // A NEGATIVE total is never scaled: it hands width back to the music rather than taking it,
+  // which is always affordable.
+  const userTotal = measureInfos.reduce((sum, m) => sum + (m.userSpace ?? 0), 0)
+  const cap = availableWidth * USER_SPACE_LINE_FRACTION
+  const userScale = userTotal > cap ? cap / userTotal : 1
+
+  const stretchTotal = measureInfos.reduce((sum, m) => sum + (m.stretchSpace ?? 0), 0)
+  const stretchRoom = availableWidth - userTotal * userScale
+  const stretchScale = stretchTotal > stretchRoom ? Math.max(0, stretchRoom / stretchTotal) : 1
+
+  return { userScale, stretchScale }
+}
 
 /**
  * Distribute available width proportionally among measures on a line — justifying the
@@ -255,16 +397,15 @@ function distributeLineWidths(
 ): void {
   if (measureInfos.length === 0) return
 
-  // Reserve the authored space off the top — capped, and scaled proportionally when the cap bites
-  // so no single bar's drag is singled out. A NEGATIVE total is not capped: it hands width back to
-  // the music rather than taking it, which is always affordable.
-  const rawUserSpace = measureInfos.reduce((sum, m) => sum + (m.userSpace ?? 0), 0)
-  const cap = availableWidth * USER_SPACE_LINE_FRACTION
-  const userScale = rawUserSpace > cap ? cap / rawUserSpace : 1
-  const reserved = rawUserSpace * userScale
+  const { userScale, stretchScale } = authoredScales(measureInfos, availableWidth)
+  const reserved = measureInfos.reduce(
+    (sum, m) => sum + (m.userSpace ?? 0) * userScale + (m.stretchSpace ?? 0) * stretchScale,
+    0,
+  )
   const justifyTarget = availableWidth - reserved
 
-  const intrinsicOf = (m: MeasureWidthInfo) => m.minWidth - (m.userSpace ?? 0)
+  const authoredOf = (m: MeasureWidthInfo) => (m.userSpace ?? 0) * userScale + (m.stretchSpace ?? 0) * stretchScale
+  const intrinsicOf = (m: MeasureWidthInfo) => m.minWidth - (m.userSpace ?? 0) - (m.stretchSpace ?? 0)
   const totalIntrinsic = measureInfos.reduce((sum, m) => sum + intrinsicOf(m), 0)
   if (totalIntrinsic <= 0) return
 
@@ -275,14 +416,14 @@ function distributeLineWidths(
       console.warn(`Severe measure compression (${(compressionRatio * 100).toFixed(0)}%) on line - measures may be crowded`)
     }
     for (const info of measureInfos) {
-      info.finalWidth = intrinsicOf(info) * compressionRatio + (info.userSpace ?? 0) * userScale
+      info.finalWidth = intrinsicOf(info) * compressionRatio + authoredOf(info)
     }
   } else {
     // Have extra space - distribute proportionally
     const extraSpace = justifyTarget - totalIntrinsic
     for (const info of measureInfos) {
       const proportion = intrinsicOf(info) / totalIntrinsic
-      info.finalWidth = intrinsicOf(info) + (extraSpace * proportion) + (info.userSpace ?? 0) * userScale
+      info.finalWidth = intrinsicOf(info) + (extraSpace * proportion) + authoredOf(info)
     }
   }
 }
@@ -403,13 +544,16 @@ function calculateLinearMeasureWidths(
   const results = new Map<number, MeasureWidthInfo>()
 
   score.measures.forEach((measure, index) => {
-    const { minWidth, userSpace } = measureWidthParts(score, measure, index === 0, clefsByStaff, cache)
+    const { minWidth, userSpace, stretchSpace, noteSpace, stretchScalesShare } = measureWidthParts(score, measure, index === 0, clefsByStaff, cache)
 
     results.set(measure.number, {
       measureNumber: measure.number,
       minWidth,
       userSpace,
-      finalWidth: minWidth, // intrinsic width + authored space — nothing to justify to
+      stretchSpace,
+      noteSpace,
+      stretchScalesShare,
+      finalWidth: minWidth, // intrinsic width + authored space/stretch — nothing to justify to
       lineNumber: 0,
     })
   })
@@ -443,7 +587,7 @@ export function calculateMeasureWidths(
 
   for (const measure of score.measures) {
     const isFirstInLine = currentLineMeasures.length === 0
-    const { minWidth, userSpace } = measureWidthParts(score, measure, isFirstInLine, clefsByStaff, cache)
+    const { minWidth, userSpace, stretchSpace, noteSpace, stretchScalesShare } = measureWidthParts(score, measure, isFirstInLine, clefsByStaff, cache)
 
     // Check if measure fits on current line
     if (currentLineWidth + minWidth > availableWidth && currentLineMeasures.length > 0) {
@@ -466,6 +610,9 @@ export function calculateMeasureWidths(
         measureNumber: measure.number,
         minWidth: newParts.minWidth,
         userSpace: newParts.userSpace,
+        stretchSpace: newParts.stretchSpace,
+        noteSpace: newParts.noteSpace,
+        stretchScalesShare: newParts.stretchScalesShare,
         finalWidth: newParts.minWidth,
         lineNumber: currentLine,
       }
@@ -476,6 +623,9 @@ export function calculateMeasureWidths(
         measureNumber: measure.number,
         minWidth,
         userSpace,
+        stretchSpace,
+        noteSpace,
+        stretchScalesShare,
         finalWidth: minWidth,
         lineNumber: currentLine,
       }

@@ -1,8 +1,9 @@
 import { dbg } from '@/utils/debug'
 import { ScoreModel, type ClipDynamicInput, type ClipSlurInput } from './models/ScoreModel'
-import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
+import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barWidthKey, measureStretch, BAR_STRETCH_MIN, BAR_STRETCH_MAX, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
-import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
+import type { ViewMode, GutterState, GutterStaffState, MeasureWidthInfo } from './rendering/layoutConfig'
+import { authoredScales } from './rendering/MeasureLayout'
 import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
@@ -34,6 +35,65 @@ export interface MusicEngineConfig {
   height?: number
   /** Coordinate mapper configuration */
   coordinateConfig?: Partial<CoordinateMapperConfig>
+}
+
+/**
+ * What a bar-width gesture may do to one bar, all read off the last render — the answer
+ * {@link MusicEngine.barWidthRoom} gives, and what a drag captures ONCE at the grab
+ * (docs/bar-width-plan.md §4–§5).
+ */
+export interface BarWidthRoom {
+  /** The bar's stretch as stored right now. */
+  stretch: number
+  /** The bar's note space in px — the unit a stretch multiplies, and the px→ratio divisor. */
+  noteSpace: number
+  /** Px the bar's ENDING BARLINE moves per px added to its stretch space: `1 − P(m)/T`. **0 means
+   *  pinned** — the bar ends its system, so justification holds its barline at the right margin.
+   *  Not a refusal: the bar can still be resized, and doing so re-wraps (see `nudgeBarWidth`). */
+  barlineSlope: number
+  /** Px the bar's own WIDTH changes per px added to its stretch space: `1 − I(m)/T`. At least as
+   *  large as {@link barlineSlope}, and the one the measured shrink floor converts through. 0 when
+   *  the bar is alone on its line (it already fills the line, so no stretch changes its width). */
+  widthSlope: number
+  /** The tightest stretch this bar may take: the drawn music's own floor (`MIN_NOTE_SPACING` per
+   *  column, measured) or the absolute `BAR_STRETCH_MIN`, whichever binds. */
+  minStretch: number
+  /** The roomiest: the stretch at which this bar's width becomes the WHOLE LINE — derived per bar,
+   *  because that is the widest picture there is (past it the bar is alone on its system and
+   *  justified back to exactly the line width, so nothing changes). Deliberately NOT a reflow
+   *  limit: running out of line is what makes a bar move to the next system, not a wall. Linear
+   *  view has no line to fill, so there it is the absolute `BAR_STRETCH_MAX`. */
+  maxStretch: number
+  /** The line's authored total has passed `USER_SPACE_LINE_FRACTION`, past which the authored space
+   *  is scaled down and the closed form above stops describing the picture exactly. Reported rather
+   *  than refused; a live drag (P2) may want to decline on it, a key press does not care. */
+  capped: boolean
+  /**
+   * The stretch that moves this bar's ending barline by `deltaPx` — **before** clamping to
+   * [{@link minStretch}, {@link maxStretch}]. Ask this rather than multiplying by a slope: for a
+   * bar with music the two agree exactly (the model is linear in the authored term), but for a
+   * share-scaling empty bar the mapping is a hyperbola, and stepping along its tangent is not
+   * reversible — ←← then →→ would leave the bar narrower than it started.
+   *
+   * Captured with the rest of the room at grab time, so a drag can call it per frame. **Continuous
+   * by contract** — it never jumps the layout, and where the barline cannot move it answers "no
+   * change" rather than doing something else that can be seen. A key press wants
+   * {@link stretchForStep} instead.
+   */
+  stretchForBarlineDelta(deltaPx: number): number
+  /**
+   * The same question asked by a KEY PRESS — discrete, and free to jump.
+   *
+   * Identical to {@link stretchForBarlineDelta} everywhere the picture responds continuously. It
+   * differs only for a bar ALONE on its system, where no stretch moves anything until the line's
+   * membership changes: there a press goes straight to that threshold, so crossing a bar onto the
+   * next system and bringing it back costs one press each way instead of one out and ten back.
+   *
+   * ⚠️ **A drag must not call this.** Jumping the casting-off while the pointer holds a barline is
+   * precisely the desync §4 exists to prevent. The two only diverge in a state where a drag cannot
+   * track regardless (`barlineSlope === 0`), which is where P2 should decline the grab.
+   */
+  stretchForStep(deltaPx: number): number
 }
 
 /**
@@ -1312,6 +1372,349 @@ export class MusicEngine {
     this.scoreModel.setNoteSpacing(key, 0, 0)
     this.saveOnly('Reset note spacing')
     dbg(`[Spacing] reset bar ${measureNumber} beat ${beat.num}/${beat.den}`)
+    return true
+  }
+
+  /**
+   * Set a bar's authored **stretch** and save ONE undo step (client #11 —
+   * docs/bar-width-plan.md). `stretch` multiplies the bar's own note space; `1` clears.
+   *
+   * Keyed by the measure **id**, so the stretch rides through a rebar untouched (a rebar keeps
+   * ids) — no capture/restore, unlike the column-keyed leading spaces. `minStretch` is the floor
+   * measured off the last render by whoever has it in hand (P1); pass `BAR_STRETCH_MIN` when there
+   * is nothing to measure against — `ScoreModel.setBarWidth` applies the absolute clamp regardless.
+   *
+   * A stretch changes what the bar is worth, so the casting-off must re-run — `saveOnly` flags the
+   * model dirty for us, exactly as on a leading space. (A live drag will need the preview/commit
+   * pair instead; that is P2's, not this.)
+   *
+   * @returns the stretch actually stored (after the clamps), or null for an unknown measure.
+   */
+  setBarWidth(measureNumber: number, stretch: number, minStretch: number = BAR_STRETCH_MIN): number | null {
+    const measure = this.scoreModel.getMeasure(measureNumber)
+    if (!measure) return null
+    const stored = this.scoreModel.setBarWidth(barWidthKey(measure.id), stretch, minStretch)
+    this.saveOnly('Bar width')
+    dbg(`[BarWidth] bar ${measureNumber} (${measure.id}) → ×${stored}`)
+    return stored
+  }
+
+  /** The bar's authored stretch multiplier. 1 = none (the engraver's own width). */
+  getBarWidth(measureNumber: number): number {
+    const measure = this.scoreModel.getMeasure(measureNumber)
+    if (!measure) return 1
+    return measureStretch(this.scoreModel.getScore(), measure.id)
+  }
+
+  /**
+   * How much room a bar-width gesture has on this bar, and what a pixel is worth in it — everything
+   * needed to move a barline, measured off the **last render** (docs/bar-width-plan.md §4–§5).
+   *
+   * The trap it exists to solve: widening bar *m* also shrinks bar *m*'s own justified share, and
+   * shrinks every bar *before* it on the line, so the barline you are holding does **not** move by
+   * what you added. From `distributeLineWidths`, with `A` the available width, `I(k)` each bar's
+   * intrinsic width and `T = Σ I` on the line, `finalWidth(m) = I(m)·(A − U)/T + u(m)` — linear in
+   * the authored term, which is what makes the whole thing invertible in closed form:
+   *
+   *   d(bar m's width)   = e · (1 − I(m)/T)          ← {@link BarWidthRoom.widthSlope}
+   *   d(barline after m) = e · (1 − P(m)/T)          ← {@link BarWidthRoom.barlineSlope}
+   *
+   * where `P(m) = Σ_{k≤m} I(k)`, the line's intrinsic up to **and including** the grabbed bar (the
+   * barlines to its left slide left while you drag right, and carry the grabbed one back with them).
+   *
+   * Read once, legitimately rather than merely cheaply: none of these terms move during a gesture,
+   * because a stretch changes no bar's *intrinsic* width.
+   *
+   * ⚠️ **A re-wrap is NOT a limit, and neither is a pinned barline.** The plan's §5 stopped the
+   * gesture where the line would stop holding the same bars, to keep a dragged barline under the
+   * cursor. Reported from use: it reads as the bar getting stuck for no visible reason, and it is
+   * not what the field does — Sibelius, Finale and MuseScore all let the music re-wrap as you
+   * spread it, which is the whole point of spreading it. So both reflow clamps are gone: stretching
+   * far enough pushes a bar onto the next system, shrinking far enough pulls one up. The cursor
+   * argument was only ever about a live drag (P2's problem, and it can re-add a guard for itself);
+   * a key press has no cursor to lose.
+   *
+   * Same for the **last bar of a line**, where `P(m) = T` and `barlineSlope` is 0: its barline is
+   * the right margin and genuinely cannot move — but the BAR can still be made wider or narrower,
+   * and doing so is how music moves between systems. So a zero slope is reported, not declined, and
+   * the caller steps in the bar's own note space instead (see {@link nudgeBarWidth}). Declining
+   * there would also have been a trap once re-wrapping is allowed: stretch a bar until it is alone
+   * on its system and there would be no key left that could bring it back.
+   *
+   * @returns null — "I don't know", decline rather than guess — only when the last render cannot
+   * answer at all: the model is dirty (the picture and the numbers would come from different
+   * moments), nothing is drawn for the bar yet, or it has no note space to multiply.
+   */
+  barWidthRoom(measureNumber: number): BarWidthRoom | null {
+    if (this.modelDirty) return null
+    const info = this.renderer.getMeasureLayoutInfo().get(measureNumber)
+    if (!info?.noteSpace) return null
+    const stretch = this.getBarWidth(measureNumber)
+
+    // Linear view justifies nothing, so finalWidth IS minWidth and both slopes are exactly 1. It
+    // must take this branch rather than the formula below: every bar there carries lineNumber 0, so
+    // `T` would become the whole score and the slope would come out wrong by a little in a long
+    // score and badly wrong in a short one.
+    let barlineSlope = 1
+    let widthSlope = 1
+    let capped = false
+    // How far the stretch must travel to move the barline by `d` px. Linear models answer with the
+    // slope; the share model has to SOLVE, because its mapping is a hyperbola and a derivative does
+    // not come back to where it started (press ←← then →→ and the bar ends up narrower than it
+    // began). Assigned by whichever branch below applies.
+    let solveForBarlineDelta = (d: number) => stretch + d / info.noteSpace!
+    // The DISCRETE twin, for a key press. Identical to the above except where the picture cannot
+    // respond continuously — see the alone-on-its-system block. Never call it from a drag.
+    let stepFor: ((d: number) => number) | null = null
+    // The ceiling, DERIVED rather than picked: the stretch at which this bar's width reaches the
+    // whole line. That is the largest one anybody can see — pass 1 puts an oversized bar alone on
+    // its own line and justification then hands it exactly `availableWidth`, so every stretch past
+    // this draws the identical picture. It is also, in one number, "make this bar the whole system",
+    // which a fixed multiplier could never express: the same 8× is a third of a line for a sparse
+    // bar and more than a line for a dense one.
+    let maxStretch = BAR_STRETCH_MAX
+
+    if (this.getViewMode() === 'linear') {
+      // Nothing is justified: the bar's width IS its minWidth, so a px of stretch space is a px of
+      // barline movement, whichever model the bar uses.
+      solveForBarlineDelta = (d: number) => stretch + d / info.noteSpace!
+    } else {
+      const layout = this.renderer.getMeasureLayoutInfo()
+      const line = [...layout.values()].filter(i => i.lineNumber === info.lineNumber)
+      const intrinsicOf = (m: MeasureWidthInfo) => m.minWidth - (m.userSpace ?? 0) - (m.stretchSpace ?? 0)
+      const total = line.reduce((s, m) => s + intrinsicOf(m), 0)
+      if (total <= 0) return null
+      const upTo = line
+        .filter(m => m.measureNumber <= measureNumber)
+        .reduce((s, m) => s + intrinsicOf(m), 0)
+
+      if (info.stretchScalesShare) {
+        // An EMPTY bar's stretch moves its own INTRINSIC (its claim on the line), so `T` is a
+        // function of the thing being solved for and the additive slopes above do not apply.
+        // With `x = I(m)`, `T = T_others + x` and `U` the line's reserved space:
+        //   finalWidth(k) = I(k)·(A − U)/T + u(k)
+        //   barline after m = margin + (A − U)·P(x)/T + Σ_{k≤m} u(k),  P(x) = P_others + x
+        // Differentiating in x — both quotients, same denominator — gives a closed form again:
+        //   d(barline)/dx = (A − U)·(T − P)/T²
+        //   d(width  )/dx = (A − U)·(T − I(m))/T²
+        // which collapses to the additive `1 − P/T` when the line is exactly justified
+        // (`A − U = T`), as it must: the two models describe the same picture at rest.
+        const available = LAYOUT_CONFIG.CONTAINER_WIDTH - LAYOUT_CONFIG.MARGIN * 2
+        const reserved = line.reduce((s, m) => s + (m.userSpace ?? 0) + (m.stretchSpace ?? 0), 0)
+        const room = available - reserved
+        const own = intrinsicOf(info)
+        barlineSlope = Math.max(0, room * (total - upTo) / (total * total))
+        widthSlope = Math.max(0, room * (total - own) / (total * total))
+
+        // The exact inverse, not the slope. With `x` this bar's own intrinsic, the barline sits at
+        // `room · (Pₒ + x)/(Tₒ + x)` — a hyperbola — so moving it by `d` means solving
+        // `f(x₁) = f(x₀) + d/room` for x₁ rather than stepping along the tangent. Both are the same
+        // to first order; only this one is REVERSIBLE, and a nudge you cannot undo with the opposite
+        // key is worse than one that moves a little too far.
+        const restT = total - own       // Tₒ — the line without this bar
+        const restP = upTo - own        // Pₒ — the line up to it, without it
+        solveForBarlineDelta = (d: number) => {
+          if (barlineSlope <= 1e-6 || room <= 0) return stretch + d / info.noteSpace!
+          const g = (restP + own) / (restT + own) + d / room
+          if (g >= 1 - 1e-9) return BAR_STRETCH_MAX // asks for more line than there is; clamped later
+          const solved = (g * restT - restP) / (1 - g)
+          return stretch + (solved - own) / info.noteSpace!
+        }
+      } else {
+        barlineSlope = Math.max(0, 1 - upTo / total)
+        widthSlope = Math.max(0, 1 - intrinsicOf(info) / total)
+        // Linear in the authored term (that is §4's whole point), so the slope IS the exact inverse.
+        if (barlineSlope > 1e-6) {
+          solveForBarlineDelta = (d: number) => stretch + d / barlineSlope / info.noteSpace!
+        }
+      }
+
+      // ⚠️ **A bar ALONE on its system: a KEY PRESS steps to the next casting-off threshold.**
+      // Nothing about such a bar can move — justification hands it the whole line whatever its
+      // stretch — so every intermediate value draws the identical picture and a per-pixel step is
+      // spent on nothing. That is not merely wasteful, it is asymmetric: reported from use, one
+      // press pushed a bar down onto the next system and **ten** were needed to bring it back,
+      // because the press that crossed the boundary was scaled by the slope and the presses coming
+      // back were not. The only stretches that change anything here are the two where the line's
+      // membership changes, so a press goes straight to the one it is heading for. Crossing out and
+      // back is then one press each way.
+      //
+      // Only when ALONE (`widthSlope` 0). A last-of-line bar that still has neighbours is pinned at
+      // the barline but its own width very much moves — the neighbours take what it gives up — so
+      // its intermediate values are real and it keeps stepping by pixels.
+      //
+      // 🖱️ **And only for the KEYBOARD.** A jump is exactly what a drag must not do: the pointer is
+      // holding a barline, and teleporting the layout out from under it is the one failure the whole
+      // §4 inversion exists to prevent. This is safe to separate rather than reconcile, because the
+      // state it fires in is one where a drag cannot track anyway — the barline is pinned, so it
+      // cannot follow the pointer by any amount. `stretchForBarlineDelta` stays continuous and
+      // answers "nothing moves"; P2 should read `barlineSlope === 0` and decline the grab outright.
+      if (widthSlope <= 1e-6) {
+        const available = LAYOUT_CONFIG.CONTAINER_WIDTH - LAYOUT_CONFIG.MARGIN * 2
+        const nextLineFirst = [...layout.values()]
+          .filter(i => i.lineNumber === info.lineNumber + 1)
+          .sort((a, b) => a.measureNumber - b.measureNumber)[0]
+        const HAIR = 0.5 // px past the threshold, so the comparison lands the intended side
+        // ⚠️ The bar below is measured AS A LINE-OPENER, so its `minWidth` carries a full clef it
+        // will stop paying the moment it moves up here (mid-line it pays nothing, or the smaller
+        // change width). Aim at its width WITHOUT that premium or the jump lands short and the bar
+        // never comes up — and a threshold press that changes nothing repeats forever, since it
+        // returns the same target every time. Assume the worst case (it pays the change width), so
+        // the jump always clears: the cost is that pushing the bar back down can take a second press.
+        const clefPremium = LAYOUT_CONFIG.CLEF_WIDTH - LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
+        const stretchForWidth = (target: number) => stretch + (target - info.minWidth) / info.noteSpace!
+        stepFor = (d: number) => {
+          if (d < 0) {
+            // Shrink until the next system's first bar fits back up here.
+            if (!nextLineFirst) return stretch // nothing below to pull up
+            return Math.min(stretch, stretchForWidth(available - (nextLineFirst.minWidth - clefPremium) - HAIR))
+          }
+          // Widen until this bar no longer fits its line — it is already the whole line, so the
+          // threshold is just past it. Never backwards.
+          return Math.max(stretch, stretchForWidth(available + HAIR))
+        }
+        // The continuous answer for the same state is the honest one: no stretch moves this barline.
+        solveForBarlineDelta = () => stretch
+      }
+
+      const available = LAYOUT_CONFIG.CONTAINER_WIDTH - LAYOUT_CONFIG.MARGIN * 2
+      // Asked of the layout, not re-derived here: the two must agree about the same line, or the
+      // gesture inverts a formula the picture is no longer following.
+      const scales = authoredScales(line, available)
+      capped = scales.userScale < 1 || scales.stretchScale < 1
+      // `available − minWidth` is what this bar still has to gain to BE the line; over its own note
+      // space, that is the stretch. Never below where the bar already is — a bar past the line
+      // (there is nothing to push off any more) must not be dragged backwards by its own ceiling.
+      maxStretch = Math.min(
+        BAR_STRETCH_MAX,
+        Math.max(stretch, stretch + (available - info.minWidth) / info.noteSpace),
+      )
+    }
+
+    // The one limit that is real in BOTH directions: the bar keeps the room its music is actually
+    // using, measured off the drawn picture. A bar alone on its line (widthSlope 0) is already
+    // exactly as wide as the line, so no stretch changes its drawn width and the floor cannot bind.
+    const slackPx = this.measuredBarShrinkPx(measureNumber)
+    if (slackPx === null) return null
+    const shrinkRoom = widthSlope > 1e-6 ? slackPx / widthSlope : Infinity
+
+    // A share-scaling (empty) bar has a second floor, and it is the layout's own: `measureWidthParts`
+    // clamps its scalable area at one column's `MIN_NOTE_SPACING`. Below that the stored number keeps
+    // falling while the picture stands still — a dead press, which is the thing every one of these
+    // limits exists to avoid.
+    const layoutFloor = info.stretchScalesShare ? LAYOUT_CONFIG.MIN_NOTE_SPACING / info.noteSpace : 0
+
+    return {
+      stretch,
+      noteSpace: info.noteSpace,
+      barlineSlope,
+      widthSlope,
+      capped,
+      stretchForBarlineDelta: solveForBarlineDelta,
+      stretchForStep: stepFor ?? solveForBarlineDelta,
+      minStretch: Math.max(BAR_STRETCH_MIN, layoutFloor, stretch - shrinkRoom / info.noteSpace),
+      maxStretch,
+    }
+  }
+
+  /**
+   * How many pixels of width the **drawn** bar can give back before its music is tighter than the
+   * engraver's own floor — `MIN_NOTE_SPACING` (18px) per column, the same rule
+   * `noteSpaceForLane` applies when it decides how wide a bar needs to be, but measured on the
+   * picture instead of predicted.
+   *
+   * Measured, and not stated as "never below its own intrinsic width", because that absolute is
+   * wrong and measurably so: on a compressed line every bar is *already* under its intrinsic width
+   * (a `compressionRatio` below 1 is ordinary), so an absolute floor would refuse every shrink on
+   * exactly the crowded lines where a shrink is most wanted.
+   *
+   * The **minimum across staves** — the bar is system-wide, so the tightest staff decides for all
+   * of them. Columns, not slots: two voices sounding at one beat share a column.
+   *
+   * @returns null when the last render cannot answer (nothing drawn in that bar, or no geometry).
+   */
+  private measuredBarShrinkPx(measureNumber: number): number | null {
+    const registry = this.renderer.getElementRegistry()
+    const columnsByStaff = new Map<number, Set<number>>()
+    for (const el of registry.getByMeasure(measureNumber)) {
+      if ((el.type !== 'note' && el.type !== 'rest') || el.beat === undefined) continue
+      const staff = el.staff ?? 0
+      const columns = columnsByStaff.get(staff) ?? new Set<number>()
+      columns.add(Math.round(el.beat * 1e6))
+      columnsByStaff.set(staff, columns)
+    }
+    if (columnsByStaff.size === 0) return null
+
+    let slack: number | null = null
+    for (const [staff, columns] of columnsByStaff) {
+      const geometry = registry.getStaffGeometry(measureNumber, staff)
+      if (!geometry) return null
+      const drawn = geometry.noteEndX - geometry.noteStartX
+      const floor = columns.size * LAYOUT_CONFIG.MIN_NOTE_SPACING
+      const mine = Math.max(0, drawn - floor)
+      slack = slack === null ? mine : Math.min(slack, mine)
+    }
+    return slack
+  }
+
+  /**
+   * Move the barline that ends this bar by `barlineDeltaPx` and save ONE undo step — the keyboard
+   * gesture (Shift+Alt+←/→ on a selected barline). The bar to the LEFT gets roomier or tighter,
+   * with its music re-spaced proportionally; the room comes from its neighbours on the line.
+   *
+   * The argument is in **pixels of barline movement**, not in stretch, so a step means the same
+   * distance whether it arrives from the keyboard or (P2) from the mouse — the px→ratio conversion
+   * happens here, through {@link barWidthRoom}'s slope.
+   *
+   * ⚠️ **When the barline cannot move, the step falls back to the bar's own music.** The barline
+   * that ends a system is pinned to the right margin by justification (slope 0), and so is the one
+   * after a bar that sits alone on its line — but "this barline can't move" must not mean "this bar
+   * can't be resized", or the last bar of every system would be untouchable and a bar stretched
+   * until it is alone on its system could never be brought back. So the step is spent on the bar's
+   * note space instead: the same pixels, measured on the music rather than on the barline. What
+   * they buy is a re-wrap — which is what a pinned barline was always going to mean.
+   *
+   * A press may therefore change which bars sit on which system. That is deliberate (see
+   * {@link barWidthRoom}) and matches Sibelius / Finale / MuseScore.
+   *
+   * **Declines** (null) only when the room cannot be measured at all. A declined nudge stores
+   * nothing.
+   *
+   * @returns the stretch now stored, or null if the nudge was declined.
+   */
+  nudgeBarWidth(measureNumber: number, barlineDeltaPx: number): number | null {
+    const measure = this.scoreModel.getMeasure(measureNumber)
+    if (!measure) return null
+    const room = this.barWidthRoom(measureNumber)
+    if (room === null) {
+      dbg(`[BarWidth] declined bar ${measureNumber} — nothing drawn to measure the step against`)
+      return null
+    }
+    const pinned = room.barlineSlope <= 1e-6
+    // The KEY-PRESS answer (`stretchForStep`), not the continuous one — this is the keyboard.
+    const bounded = Math.min(room.maxStretch, Math.max(room.minStretch, room.stretchForStep(barlineDeltaPx)))
+    const stored = this.scoreModel.setBarWidth(barWidthKey(measure.id), bounded, BAR_STRETCH_MIN)
+    this.saveOnly('Bar width')
+    dbg(
+      `[BarWidth] bar ${measureNumber} ${barlineDeltaPx > 0 ? '→' : '←'} ×${stored.toFixed(3)} ` +
+        `[${this.renderer.getMeasureLayoutInfo().get(measureNumber)?.stretchScalesShare ? 'empty bar: scales its share' : 'has music: reserved space'}] ` +
+        `(${room.widthSlope <= 1e-6 ? 'alone on its system — stepping to the next casting-off threshold'
+            : pinned ? 'barline pinned — stepping the bar’s own music' : `slope ${room.barlineSlope.toFixed(3)}`}` +
+        `, range ×${room.minStretch.toFixed(2)}…×${room.maxStretch.toFixed(2)}` +
+        `${room.capped ? ', line past the authored-space cap' : ''})`,
+    )
+    return stored
+  }
+
+  /** Drop the bar's authored stretch, back to the engraver's own width. One undo step.
+   *  @returns true if anything was there to reset. */
+  resetBarWidth(measureNumber: number): boolean {
+    const measure = this.scoreModel.getMeasure(measureNumber)
+    if (!measure) return false
+    if (measureStretch(this.scoreModel.getScore(), measure.id) === 1) return false
+    this.scoreModel.setBarWidth(barWidthKey(measure.id), 1, BAR_STRETCH_MIN)
+    this.saveOnly('Reset bar width')
+    dbg(`[BarWidth] reset bar ${measureNumber}`)
     return true
   }
 

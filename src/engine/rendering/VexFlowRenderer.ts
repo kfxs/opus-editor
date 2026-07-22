@@ -40,6 +40,7 @@ import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacing
 import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex, staffIndexOfId } from '@/engine/models/staffContent'
 import { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import type { Rect } from '@/engine/ViewportModel'
+import { dbg } from '@/utils/debug'
 
 // Re-exported for existing importers (MusicEngine, App.ts, RenderPass) that referenced
 // these from the renderer before they moved to ./layoutConfig.
@@ -258,6 +259,28 @@ interface MeasureSnapshot {
   dynamics: [string, Annotation][]
 }
 
+/**
+ * Say which bars changed SYSTEM since the last render — the one layout event that leaves no trace.
+ * You see the new arrangement, never the move, and "did that bar just fall to the next system?" is
+ * the question behind most width work: a bar-width nudge, a meter change, one wider accidental.
+ *
+ * Silent on the first render (nothing to compare against) and after a full teardown, which clears
+ * the map — a bar arriving out of nowhere has not *moved*, and reporting it as such would cry wolf
+ * on every reload. Only real moves are logged, one line each.
+ */
+function logSystemChanges(
+  before: ReadonlyMap<number, MeasureWidthInfo>,
+  after: ReadonlyMap<number, MeasureWidthInfo>,
+): void {
+  if (before.size === 0) return
+  for (const [num, next] of after) {
+    const prev = before.get(num)
+    if (prev === undefined || prev.lineNumber === next.lineNumber) continue
+    const dir = next.lineNumber > prev.lineNumber ? '↓ down to' : '↑ up to'
+    dbg(`[Layout] bar ${num} jumped ${dir} system ${next.lineNumber + 1} (was ${prev.lineNumber + 1})`)
+  }
+}
+
 export class VexFlowRenderer {
   private renderer: Renderer | null = null
   private context: SVGContext | null = null
@@ -450,6 +473,22 @@ export class VexFlowRenderer {
    */
   getElementRegistry(): ElementRegistry {
     return this.elementRegistry
+  }
+
+  /**
+   * The width/line assignment of the **last** render, read-only — every bar's `minWidth`,
+   * `finalWidth`, authored slices and `lineNumber`.
+   *
+   * Exposed for the bar-width gesture (docs/bar-width-plan.md §4): moving a barline means solving
+   * for a stretch against the line the bar is actually on, and the terms of that solution — the
+   * line's membership and each bar's intrinsic width — are exactly what this map holds. Read once
+   * at the grab, never recomputed mid-gesture: a stretch changes no bar's *intrinsic* width, which
+   * is what makes one capture legitimate rather than merely cheap.
+   *
+   * Empty until the first render — the caller must treat that as "I don't know" and decline.
+   */
+  getMeasureLayoutInfo(): ReadonlyMap<number, MeasureWidthInfo> {
+    return this.measureLayoutInfo
   }
 
   /**
@@ -2095,6 +2134,11 @@ export class VexFlowRenderer {
       : cachedLayout ?? calculateMeasureWidths(score, clefsByStaff, this.viewMode, this.widthCache)
     if (!this.frozenLayout) this.layoutCache = { key: layoutKey, widths: measureWidths }
     renderCensus.endLayout()
+    // A bar changing SYSTEM is the one layout event with no trace in the score and none in the
+    // picture either (you see the new arrangement, never the move). It is also what half the
+    // width work is trying to cause or avoid — a bar width nudge, a meter change, a wider
+    // accidental — so say it out loud, once per bar that actually moved.
+    logSystemChanges(this.measureLayoutInfo, measureWidths)
     // Store for use in tie rendering (to determine which line each measure is on)
     this.measureLayoutInfo = measureWidths
 

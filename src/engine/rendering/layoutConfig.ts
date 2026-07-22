@@ -106,6 +106,39 @@ export interface MeasureWidthInfo {
    * it. Absent/0 on every bar the user never touched.
    */
   userSpace?: number
+  /**
+   * The slice of `minWidth` the user's **bar stretch** bought (client #11 —
+   * docs/bar-width-plan.md), in px: `noteSpace × (stretch − 1)`. Signed — a stretch below 1 makes
+   * it negative.
+   *
+   * Reserved off the top exactly as `userSpace` is, and for the same reason (a stretch must not be
+   * diluted by the stretcher). The one place the two differ is in the renderer: `userSpace` is a
+   * dead gap and is subtracted before formatting, this is live and is NOT — that omission is the
+   * whole feature ("hand the formatter a bigger box and stop"). Carried on the info because the
+   * drag math needs `intrinsic = minWidth − userSpace − stretchSpace`. Absent/0 on every bar the
+   * user never stretched.
+   */
+  stretchSpace?: number
+  /**
+   * The widest lane's **note space** in px, before any stretch — the unit `stretchSpace` is
+   * measured in (`stretchSpace = noteSpace × (stretch − 1)`).
+   *
+   * Carried because the gesture works in pixels and the model stores a ratio: converting "move this
+   * barline 10px" into a stretch needs the divisor, and re-deriving it would mean running the width
+   * pass again. Excludes the bar's clef/meter overhead, deliberately — see `measureWidthParts`.
+   */
+  noteSpace?: number
+  /**
+   * True when this bar's stretch scales its **share of the line** instead of adding a reserved
+   * amount on top — the EMPTY-bar case (docs/bar-width-plan.md §2, corrected at P1).
+   *
+   * The difference is visible in `distributeLineWidths`: a share-scaling bar carries
+   * `stretchSpace: 0` and folds its stretch into `minWidth`, so `intrinsicOf` — and therefore the
+   * bar's whole claim on the line — moves with it. A bar with music does the opposite, because its
+   * music is what sets its claim. Carried here because the gesture has to invert the right one of
+   * the two.
+   */
+  stretchScalesShare?: boolean
   finalWidth: number
   lineNumber: number
   /**

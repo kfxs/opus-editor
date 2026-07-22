@@ -229,20 +229,23 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // the bar grows or shrinks — a space has width, unlike every other engraving nudge in this file.
   // Sits under the same modifiers as the voice nav above, on the axis the nav leaves free.
   // See docs/note-spacing-plan.md §5.
+  // …and on a selected BARLINE the same keys move that barline instead — the bar it ends grows or
+  // shrinks with its music re-spaced proportionally (docs/bar-width-plan.md §6). Same keys, same
+  // axis, different noun: dispatched on what is selected, which is Sibelius's own behaviour.
   'Shift+Alt+ArrowLeft': {
     action: 'noteSpacingTighten',
-    description: 'Tighten the space before the selected note',
+    description: 'Tighten the space before the selected note / narrow the selected barline’s bar',
   },
   'Shift+Alt+ArrowRight': {
     action: 'noteSpacingWiden',
-    description: 'Widen the space before the selected note',
+    description: 'Widen the space before the selected note / widen the selected barline’s bar',
   },
   // …and put it back. Sibelius spells this Ctrl+Shift+N, which Chrome keeps for itself (new
   // incognito window), so it moves to the nudge's own modifiers. NOT a digit: this manager matches
   // on `event.key`, and Shift+Alt+0 arrives as ')' on a US layout and something else elsewhere.
   'Shift+Alt+Backspace': {
     action: 'noteSpacingReset',
-    description: 'Reset the space before the selected note',
+    description: 'Reset the space before the selected note / the selected bar’s width',
   },
 
   // Voice selection (Sibelius-style Alt+number). Notes are entered into the active voice.

@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, LeadingSpaceOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 
 /**
@@ -250,6 +250,69 @@ export function measureUserSpacePx(score: Score, measureId: string): number {
   let total = 0
   for (const { space } of measureLeadingSpaces(score, measureId)) total += space
   return total * VEXFLOW_DEFAULT_STAFF_SPACE_PX
+}
+
+/**
+ * The compartment key for a bar's authored **stretch** (client #11 — see docs/bar-width-plan.md):
+ * `{measureId}:barwidth`. Id-keyed, not position-keyed: a bar width names the bar itself, so a
+ * rebar (which keeps measure ids) carries it forward with no capture/restore — unlike
+ * {@link spacingPositionKey}, whose key names *columns* that a meter change moves.
+ *
+ * The `{measureId}:` prefix is load-bearing for the same reason as the spacing key's:
+ * `MeasureRedrawKey.overridesFor` sweeps every key carrying a measure's id into that measure's
+ * shape key, so the bar redraws when its stretch changes with nothing extra to remember. (The bar
+ * would redraw anyway — its width is in the key — but its *neighbours* change width too, and the
+ * same term covers them.)
+ *
+ * `:barwidth` cannot collide with `spacingPositionKey`'s `:space:` or `restPositionKey`'s
+ * `:s{uuid}:` / `:v{n}:` segments.
+ */
+export function barWidthKey(measureId: string): string {
+  return `${measureId}:barwidth`
+}
+
+/**
+ * The absolute bounds a stored stretch is clamped to at the write site. The *measured* floor a
+ * drag supplies (how much room the bar's music is actually using) is the limit that matters in the
+ * gesture — but P0 is exercised by hand-editing the override into the Score JSON panel, and
+ * `distributeLineWidths` deliberately leaves negative totals uncapped ("handing width back to the
+ * music is always affordable"), so a hand-authored `0` or `-1` would walk straight into a
+ * negative-width bar. A write-site clamp, not a repair pass (report-never-repair).
+ *
+ * ⚠️ **The MAX is a sanity backstop against absurd JSON, NOT the gesture's ceiling.** It started at
+ * 8, chosen for symmetry with the floor and derived from nothing — and 8× the note space is not a
+ * line: a sparse bar (a whole note, ~40px of note space) topped out around a third of the way
+ * across, so "make this bar fill the whole system" was unreachable. Reported from use. The ceiling
+ * a gesture actually stops at is derived per bar instead — the stretch at which the bar's width
+ * reaches the full line, past which there is nothing left to see (a bar wider than a line is put
+ * alone on one and justified back to exactly the line width). See `MusicEngine.barWidthRoom`.
+ */
+export const BAR_STRETCH_MIN = 0.25
+export const BAR_STRETCH_MAX = 100
+
+/** The bar's authored stretch override, if any (client #11). Absent = the engraver's own width. */
+export function barWidthOverrideOf(score: Score, measureId: string): BarWidthOverride | undefined {
+  return engravingOverrideOf(score, barWidthKey(measureId), 'barWidth') as BarWidthOverride | undefined
+}
+
+/**
+ * The bar's stretch multiplier as the width math will honour it: **1** when nobody has touched
+ * it, and bounded by `[BAR_STRETCH_MIN, BAR_STRETCH_MAX]`.
+ *
+ * ⚠️ **The bounds are applied here as well as at the write site, and the second copy is not
+ * belt-and-braces.** `ScoreModel.setBarWidth` guards the API, but a score arriving through
+ * `loadJSON` (Import, or the P0 hand-edit) never passes through it — a typed `"stretch": 0` would
+ * otherwise reach `noteSpace × (stretch − 1)` intact and drive the bar's justified width negative,
+ * because `distributeLineWidths` deliberately leaves negative authored totals uncapped.
+ *
+ * This bounds what the layout *honours*; it does not rewrite the score (`barWidthOverrideOf` still
+ * reports the stored value verbatim). Resolve-at-read, like {@link resolveStaffSpacingAbove} —
+ * not a repair pass.
+ */
+export function measureStretch(score: Score, measureId: string): number {
+  const stored = barWidthOverrideOf(score, measureId)?.stretch
+  if (stored === undefined || !Number.isFinite(stored)) return 1
+  return Math.min(BAR_STRETCH_MAX, Math.max(BAR_STRETCH_MIN, stored))
 }
 
 /**

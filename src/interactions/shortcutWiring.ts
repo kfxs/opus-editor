@@ -60,6 +60,12 @@ export function wireShortcuts(
   // the same step the slur endpoints already use.
   const NOTE_SPACING_STEP_SS = 0.25
 
+  // Bar-width nudge step (PIXELS of barline movement; docs/bar-width-plan.md §6). One staff-space,
+  // so a step means the same distance whether it arrives from the keyboard or (P2) from the mouse —
+  // rather than the keyboard nudging an abstract ratio, which would move a dense bar and a sparse
+  // one by different amounts under the same key.
+  const BAR_WIDTH_STEP_PX = 10
+
   // Nudge the armed slur endpoint by a staff-space delta (screen-down is +y, so "up arrow
   // lifts the point" passes a negative dy). Returns true when it consumed the key (an
   // endpoint was armed), false to DECLINE so the key falls through to its normal action.
@@ -149,6 +155,31 @@ export function wireShortcuts(
     const column = selectedColumn()
     if (!eng || !column) return false
     if (eng.nudgeNoteSpacing(column.measure, column.beat, delta) === null) return false
+    renderer.renderScore()
+    return true
+  }
+
+  // Shift+Alt+←/→ on a selected BARLINE = move that barline: the bar it ends gets roomier or
+  // tighter, its music re-spaced proportionally, and the room comes from its neighbours on the line.
+  // Same keys and same axis as the note-spacing nudge above, dispatched on WHAT IS SELECTED — a
+  // note is note spacing, a barline is bar width. That is Sibelius's own behaviour, not a collision
+  // being papered over, and it costs nothing: the note-spacing branch already declines when no
+  // single note is selected, so this is a `||` onto it. The engine DECLINES (null) when the last
+  // render cannot say how far the barline may go — including the barline that ENDS a system, which
+  // justification pins to the right margin and no stretch can move. One undo per press.
+  // See docs/bar-width-plan.md §4–§6.
+  const nudgeSelectedBarWidth = (deltaPx: number): boolean => {
+    const eng = getEngine()
+    if (!eng || state.selectedBarlineMeasure === null) return false
+    if (eng.nudgeBarWidth(state.selectedBarlineMeasure, deltaPx) === null) return false
+    renderer.renderScore()
+    return true
+  }
+
+  const resetSelectedBarWidth = (): boolean => {
+    const eng = getEngine()
+    if (!eng || state.selectedBarlineMeasure === null) return false
+    if (!eng.resetBarWidth(state.selectedBarlineMeasure)) return false
     renderer.renderScore()
     return true
   }
@@ -445,9 +476,11 @@ export function wireShortcuts(
     voiceNavDown: () => selection.navigateVoice(-1),
     // Otherwise unbound, so these DECLINE (return false) when nothing single is selected — the key
     // falls through instead of being swallowed by a no-op.
-    noteSpacingTighten: () => nudgeSelectedNoteSpacing(-NOTE_SPACING_STEP_SS),
-    noteSpacingWiden: () => nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS),
-    noteSpacingReset: () => resetSelectedNoteSpacing(),
+    noteSpacingTighten: () =>
+      nudgeSelectedNoteSpacing(-NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(-BAR_WIDTH_STEP_PX),
+    noteSpacingWiden: () =>
+      nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(BAR_WIDTH_STEP_PX),
+    noteSpacingReset: () => resetSelectedNoteSpacing() || resetSelectedBarWidth(),
     // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.
     // (These keys are already bound, so they always consume — the nudge branch returns void
     // via the early return, so preventDefault still fires.)
