@@ -1171,6 +1171,7 @@ export class VexFlowRenderer {
         const formatter = new Formatter().joinVoices(vexVoices)
         formatter.format(vexVoices, formatWidth)
         applyLeadingSpaces(formatter, vexVoices, pass.score, measure)
+        this.centerMeasureRests(vexVoices, stave)
 
         // VexFlow's StaveNote.format() merges two voices' same-duration rests at
         // the same beat into one by setting the lower rest's renderOptions.draw =
@@ -1397,6 +1398,46 @@ export class VexFlowRenderer {
       noteStartX: stave.getNoteStartX(),
       noteEndX: stave.getNoteEndX(),
     })
+  }
+
+  /**
+   * Re-centre a whole-bar rest on the bar's **note area** — VexFlow centres it on the box the
+   * formatter was handed, and that box is not the bar.
+   *
+   * `alignCenter` (NoteBuilder) makes VexFlow put the rest at `noteStartX + Stave.padding +
+   * formatWidth/2`. The bar's real centre is `noteStartX + noteAreaWidth/2`, and `formatWidth` is
+   * deliberately NOT the note area — it is `noteAreaWidth − 15 − userSpace`, floored at 50, so the
+   * music has room to breathe inside the barlines. The two centres therefore differ by
+   * `Stave.padding + (formatWidth − noteAreaWidth)/2` ≈ **4px to the right**, at every bar width.
+   *
+   * That was always there and never showed: 4px in a 300px bar is nothing. It became visible the
+   * moment empty bars got narrow enough to shrink out of a neighbour's way (~87px and below), where
+   * the same 4px reads as "the bar shrank from the right". Below a 65px note area the `Math.max(…,
+   * 50)` floor takes over and the error grows without limit.
+   *
+   * Corrected against the note's OWN reported position rather than by subtracting the constants
+   * back out — self-checking, and it stays right if the format box or the padding metric ever
+   * changes. `getAbsoluteX()` excludes `xShift`, so an authored leading space still pushes the rest
+   * along on top of the centring instead of being cancelled by it.
+   *
+   * Centred on the note area, i.e. AFTER any clef/meter — a line-opening empty bar centres its rest
+   * in the space left over, not between the barlines. That is what VexFlow was already aiming at
+   * and what Gould describes; the alternative (centre between the barlines) would push the rest
+   * left, under the clef, on every system-opening bar.
+   */
+  private centerMeasureRests(voices: Voice[], stave: Stave): void {
+    const areaCenter = (stave.getNoteStartX() + stave.getNoteEndX()) / 2
+    for (const voice of voices) {
+      for (const tickable of voice.getTickables()) {
+        if (!tickable.isCenterAligned()) continue
+        const note = tickable as StaveNote
+        // `getAbsoluteX()` reads the stave, and the voice does not set it on its tickables until
+        // draw time. Setting it here is what draw would do a moment later, verbatim.
+        note.setStave(stave)
+        const center = note.getAbsoluteX() + note.getGlyphWidth() / 2
+        note.setCenterXShift(note.getCenterXShift() + (areaCenter - center))
+      }
+    }
   }
 
   /** **Tier 2** — paint the staff lines. The only part of a stave that a culled measure skips. */

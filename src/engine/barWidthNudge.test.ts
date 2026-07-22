@@ -288,9 +288,35 @@ describe('shrinking an EMPTY bar', () => {
     const emptyBefore = width(3)
     const busyBefore = width(1)
     for (let i = 0; i < 12; i++) { engine.nudgeBarWidth(3, -10); engine.renderScore() }
-    // Better than halved, not the ~6% the reserved-space model could manage.
-    expect(width(3)).toBeLessThan(emptyBefore * 0.5)
+    // 0.7, and the bar lands on the SAME pixels it did at 0.5 — ~87px either way, its floor. What
+    // changed is the number it is a fraction OF: an unstretched empty bar is no longer inflated to
+    // `MIN_MEASURE_WIDTH`, so it starts nearer where it ends. Still nothing like the ~6% the
+    // reserved-space model could manage.
+    expect(width(3)).toBeLessThan(emptyBefore * 0.7)
     expect(width(1)).toBeGreaterThan(busyBefore)
+  })
+
+  it('⭐ the rest stays CENTRED however narrow the bar gets', () => {
+    // Reported by eye: a shrunk empty bar looked like it had lost its room from the right, because
+    // VexFlow centres the measure rest on the box the formatter was handed (`formatWidth`) rather
+    // than on the bar's note area. The two differ by a constant ~4px — nothing in a wide bar, plainly
+    // off-centre in an 87px one. See VexFlowRenderer.centerMeasureRests.
+    //
+    // ⚠️ Under jsdom a glyph measures 0 wide, so `bbox.width` is 0 and this compares the rest's
+    // ANCHOR against the area centre. That is still exactly what the fix moves, and the offset it
+    // corrects has no glyph-width term in it — but it does mean a browser is what proves the glyph
+    // itself looks centred.
+    const offset = (m: number): number => {
+      const g = engine.getElementRegistry().getStaffGeometry(m, 0)!
+      const rest = engine.getElementRegistry().getByMeasure(m).find(e => e.type === 'rest')!
+      return (rest.bbox.x + rest.bbox.width / 2) - (g.noteStartX + g.noteEndX) / 2
+    }
+    const wide = width(3)
+    expect(offset(3)).toBeCloseTo(0, 6)
+    for (let i = 0; i < 6; i++) { engine.nudgeBarWidth(3, -10); engine.renderScore() }
+    // Genuinely narrower — otherwise the assertion below proves nothing.
+    expect(width(3)).toBeLessThan(wide * 0.8)
+    expect(offset(3)).toBeCloseTo(0, 6)
   })
 
   it('stops where one column of music would: it never collapses past the rest', () => {
@@ -309,13 +335,16 @@ describe('shrinking an EMPTY bar', () => {
   })
 
   it('is reversible — widening puts it back', () => {
-    // Two presses, deliberately: an empty bar's whole shrink range is only a few of them (the
-    // multiplier has far less room below 1 than above it), and pressing INTO the floor and back
-    // out again overshoots — the dead presses have nothing to undo. Worth knowing.
+    // A 3px press, not the 10px two of them used to be. Pressing INTO the floor and back out again
+    // overshoots — the dead presses have nothing to undo — and an empty bar's whole shrink range is
+    // now ONE ordinary press wide: its note space is its honest 40px rather than an inflated 80, so
+    // every press is worth twice the multiplier it used to be. Coarse in the other direction from
+    // the reported "36 presses to walk a bar across a system", and the same cause: the multiplier
+    // is the wrong parameter for the step. docs/bar-width-plan.md "Known issues" #3.
     const before = width(3)
-    for (let i = 0; i < 2; i++) { engine.nudgeBarWidth(3, -10); engine.renderScore() }
+    engine.nudgeBarWidth(3, -3); engine.renderScore()
     expect(width(3)).toBeLessThan(before)
-    for (let i = 0; i < 2; i++) { engine.nudgeBarWidth(3, 10); engine.renderScore() }
+    engine.nudgeBarWidth(3, 3); engine.renderScore()
     expect(width(3)).toBeCloseTo(before, 0)
   })
 })

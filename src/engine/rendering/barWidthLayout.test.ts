@@ -233,7 +233,11 @@ describe('bar width — an empty bar scales its SHARE (§2)', () => {
     const before = calculateMeasureWidths(model.getScore(), clefs(model.getScore()))
     stretch(model, 2, 0.3)
     const after = calculateMeasureWidths(model.getScore(), clefs(model.getScore()))
-    expect(after.get(2)!.finalWidth).toBeLessThan(before.get(2)!.finalWidth * 0.6)
+    // 0.75, not the old 0.6 — and NOT because the bar shrinks less. It lands on the same pixels it
+    // always did; what moved is the BASELINE it is a fraction of. An unstretched empty bar used to
+    // be inflated to `MIN_MEASURE_WIDTH`, so the old ratio was measured against fat that no longer
+    // exists (see `calculateMinimumMeasureWidth`).
+    expect(after.get(2)!.finalWidth).toBeLessThan(before.get(2)!.finalWidth * 0.75)
     for (const n of [1, 3]) {
       if (after.get(n)!.lineNumber !== after.get(2)!.lineNumber) continue
       expect(after.get(n)!.finalWidth).toBeGreaterThan(before.get(n)!.finalWidth)

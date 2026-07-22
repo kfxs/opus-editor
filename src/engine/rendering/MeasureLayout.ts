@@ -30,7 +30,7 @@ import {
 
 /** The note area a lane gets when it holds nothing at all, and the floor under a bar of pure
  *  silence — an empty bar should not collapse to the width of its one rest glyph. */
-const EMPTY_LANE_NOTE_SPACE = 40
+export const EMPTY_LANE_NOTE_SPACE = 40
 
 /**
  * The horizontal space **one staff's lane** needs for its notes — the expensive half of the
@@ -136,6 +136,7 @@ function calculateMinimumMeasureWidth(
   measure: Measure,
   isFirstInLine: boolean,
   clefsByStaff: Map<string | undefined, StaffClefs>,
+  isEmpty: boolean,
   cache?: MeasureWidthCache,
 ): { total: number; noteSpace: number; overhead: number } {
   // Shared by every staff: the barline padding, and the meter glyph where one is drawn
@@ -186,9 +187,21 @@ function calculateMinimumMeasureWidth(
   }
 
   const totalWidth = widest + sharedOverhead
+  // ⚠️ **`MIN_MEASURE_WIDTH` is a floor for a bar with MUSIC, and an empty bar must not be held to
+  // it.** The two floors say different things and only one of them belongs here. A bar of music can
+  // measure narrow (one whole note is a single 18px column) and still need room to read, so 100px is
+  // its guard. An empty bar's presence is already paid for, by `EMPTY_LANE_NOTE_SPACE` — and 100
+  // over the top of that inflates a DEFAULT into a CLAIM: measured, an empty bar came out at 100
+  // against a four-quarter bar's 100, so justification handed them the same width and shrank them by
+  // the same pixels forever. Widening a neighbour then squeezed the music exactly as hard as the
+  // silence, which is the reported bug — the empty bars would not get out of the way.
+  //
+  // Engraving agrees: a bar's claim on a system is its note values (Gould; Sibelius/Dorico both
+  // space by duration), so a bar holding one whole rest asks for about one note's room, not four.
+  const floor = isEmpty ? 0 : LAYOUT_CONFIG.MIN_MEASURE_WIDTH
   return {
     total: Math.min(
-      Math.max(totalWidth, LAYOUT_CONFIG.MIN_MEASURE_WIDTH),
+      Math.max(totalWidth, floor),
       LAYOUT_CONFIG.MAX_MEASURE_WIDTH,
     ),
     noteSpace: widestNoteSpace,
@@ -259,7 +272,8 @@ function measureWidthParts(
   clefsByStaff: Map<string | undefined, StaffClefs>,
   cache?: MeasureWidthCache,
 ): { minWidth: number; userSpace: number; stretchSpace: number; noteSpace: number; stretchScalesShare: boolean } {
-  const parts = calculateMinimumMeasureWidth(score, measure, isFirstInLine, clefsByStaff, cache)
+  const empty = isEmptyBar(measure)
+  const parts = calculateMinimumMeasureWidth(score, measure, isFirstInLine, clefsByStaff, empty, cache)
   const { total: intrinsic, noteSpace, overhead } = parts
   const userSpace = measureUserSpacePx(score, measure.id)
   const stretch = measureStretch(score, measure.id)
@@ -288,7 +302,7 @@ function measureWidthParts(
   // 🔴 KNOWN-INCOMPLETE: this branch is better than the reserved model here and still does not
   // shrink an empty bar as far as it should — reported three times, postponed rather than solved.
   // See docs/bar-width-plan.md "Known issues" #1 before assuming the behaviour below is correct.
-  if (isEmptyBar(measure)) {
+  if (empty) {
     const scalable = Math.max(0, intrinsic - overhead)
     const scaled = Math.max(LAYOUT_CONFIG.MIN_NOTE_SPACING, scalable * stretch)
     return {
@@ -387,9 +401,17 @@ export function authoredScales(
  * is left, and the reserved amount is added back to the bar that authored it. The total still
  * lands exactly on `availableWidth`.
  *
- * Compression takes the same shape: squeeze the intrinsic part, hand the authored part back. The
- * intrinsic part keeps `MIN_MEASURE_WIDTH` inside it (it was clamped upstream), so a bar can never
- * be driven to nothing and leave only its authored space standing.
+ * Compression takes the same shape: squeeze the intrinsic part, hand the authored part back.
+ *
+ * ⚠️ **It hardly ever runs**, and that is worth knowing before building any rule on it: pass 1
+ * admits a bar to a line only while `Σ minWidth ≤ available`, and `minWidth` already carries the
+ * authored space — so `Σ intrinsic ≤ available − Σ authored`, which IS the slack condition below.
+ * Measured across the whole suite it did not fire once. Only a lone oversized bar (where there is
+ * nothing to distribute among anyway) and the post-hoc cautionary bumps can reach it.
+ *
+ * So a rule about *which* bars should give way first does NOT belong here — a tiered version of
+ * this branch was written, measured to be dead, and removed. It belongs in the widths themselves,
+ * which is where the empty-bar clamp in {@link calculateMinimumMeasureWidth} puts it.
  */
 function distributeLineWidths(
   measureInfos: MeasureWidthInfo[],
