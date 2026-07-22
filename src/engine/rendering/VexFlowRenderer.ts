@@ -319,6 +319,11 @@ export class VexFlowRenderer {
    * off-screen — see §8's "geometry consumers that read the renderer".
    */
   private cullWindow: Rect | null = null
+
+  /** Whether the LAST system is stretched to the page width. True is Finale/Sibelius (and what
+   *  this always did); false is LilyPond's `ragged-last`. View state, not a score field — see
+   *  {@link layoutStateKey}. */
+  private justifyLastLine = false
   /**
    * **The casting-off of the last render, kept so a scroll doesn't recompute it.**
    *
@@ -455,6 +460,7 @@ export class VexFlowRenderer {
   private layoutStateKey(): string {
     return JSON.stringify([
       this.viewMode,
+      this.justifyLastLine,
       [...this.linearStaffSpacing.entries()].sort((a, b) => a[0].localeCompare(b[0])),
       this.suppressedDynamicId,
       this.suppressedTempoId,
@@ -2172,7 +2178,7 @@ export class VexFlowRenderer {
       this.layoutReusable && this.layoutCache?.key === layoutKey ? this.layoutCache.widths : null
     const measureWidths = this.frozenLayout
       ? new Map(this.frozenLayout)
-      : cachedLayout ?? calculateMeasureWidths(score, clefsByStaff, this.viewMode, this.widthCache)
+      : cachedLayout ?? calculateMeasureWidths(score, clefsByStaff, this.viewMode, this.widthCache, this.justifyLastLine)
     if (!this.frozenLayout) this.layoutCache = { key: layoutKey, widths: measureWidths }
     renderCensus.endLayout()
     // A bar changing SYSTEM is the one layout event with no trace in the score and none in the
@@ -2720,6 +2726,16 @@ export class VexFlowRenderer {
    *  whole score. See {@link cullWindow}. */
   setCullWindow(window: Rect | null): void {
     this.cullWindow = window
+  }
+
+  /** Stretch the last system to the page width (Finale/Sibelius) or leave it ragged (LilyPond).
+   *  In {@link layoutStateKey}, so flipping it invalidates the cached casting-off. */
+  setJustifyLastLine(justify: boolean): void {
+    this.justifyLastLine = justify
+  }
+
+  getJustifyLastLine(): boolean {
+    return this.justifyLastLine
   }
 
   /** Tell the renderer whether this render may reuse the last one's casting-off. Only `MusicEngine`

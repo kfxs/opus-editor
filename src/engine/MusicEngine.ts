@@ -1504,6 +1504,19 @@ export class MusicEngine {
       // reserved one — so ONE formula covers them where there used to be a branch. And it is
       // LINEAR, so the slope is the exact inverse: the hyperbola the share model needed (and the
       // "press ←← then →→ and the bar ends up narrower" problem it existed to solve) is gone.
+      // ⚠️ **Is this line actually FULL?** Everything below about limits assumes a justified line —
+      // a fixed page total, so what one bar gains another pays. The LAST system is ragged by
+      // default (LilyPond's `ragged-last`), and a ragged line has no fixed total: a grown bar just
+      // makes it longer and nobody pays. Reported — with the last system ragged, a bar alone on it
+      // could not be widened at all, because the ceiling below read "alone ⇒ it already IS the
+      // line" and refused every press. That reasoning is sound only when the line fills the page.
+      //
+      // Measured off the drawn picture rather than asked of the flag: the layout justifies a ragged
+      // last line anyway when it over-asks (see `calculateMeasureWidths`), so the flag alone would
+      // not tell the truth about THIS line. What is on screen does.
+      const lineWidth = line.reduce((sum, m) => sum + m.finalWidth, 0)
+      const lineFills = lineWidth >= LAYOUT_CONFIG.CONTAINER_WIDTH - LAYOUT_CONFIG.MARGIN * 2 - 0.5
+
       const shares = growthPayerShares(line, measureNumber)
       // Nobody left with anything to give: the line cannot absorb another pixel, so no stretch
       // changes the picture — the same state a bar alone on its system is in, and handled below.
@@ -1562,7 +1575,7 @@ export class MusicEngine {
       // Collapsing the two (both gated on `widthSlope === 0`) is what froze the shrink: a bar with
       // seven neighbours at their floors took the alone-branch, whose shrink target is a fixed
       // point, and every press re-stored the stretch it already had.
-      if (alone || !canPay) {
+      if (lineFills && (alone || !canPay)) {
         const available = LAYOUT_CONFIG.CONTAINER_WIDTH - LAYOUT_CONFIG.MARGIN * 2
         const nextLineFirst = [...layout.values()]
           .filter(i => i.lineNumber === info.lineNumber + 1)
@@ -1626,7 +1639,7 @@ export class MusicEngine {
       //
       // So once alone, the bar is already as wide as anything can make it and the ceiling is where
       // it stands. Growth is refused — against a limit the picture explains.
-      maxStretch = alone
+      maxStretch = alone && lineFills
         ? stretch
         : Math.min(
             BAR_STRETCH_MAX,
@@ -2667,6 +2680,17 @@ export class MusicEngine {
   setViewMode(mode: ViewMode): void {
     this.viewMode = mode
     this.renderer.setViewMode(mode)
+  }
+
+  /** Is the LAST system stretched to the page width? True = Finale/Sibelius (the default here);
+   *  false = LilyPond's `ragged-last`, where a short final system keeps its natural width. */
+  getJustifyLastLine(): boolean {
+    return this.renderer.getJustifyLastLine()
+  }
+
+  /** Sets state only — the caller repaints through RenderController, like {@link setViewMode}. */
+  setJustifyLastLine(justify: boolean): void {
+    this.renderer.setJustifyLastLine(justify)
   }
 
   /**

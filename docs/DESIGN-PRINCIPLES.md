@@ -129,6 +129,39 @@ editor needs it, and the operation is welded to a renderer.
 Places where today's code touches one of these principles and the decision should
 be made *consciously* before more code piles onto it.
 
+- **Where do document-wide ENGRAVING settings live? (re: principle 3) — OPEN, and deliberately
+  parked.** Raised when "justify the last system" (LilyPond's `ragged-last`) was built. It is
+  session-only view state today: renderer-owned, mirrored on `EditorState` for the toolbar, in
+  `layoutStateKey` so flipping it re-casts the score — the same path `viewMode` takes.
+
+  Two homes were ruled out, and why matters more than the ruling:
+  - **Not `engravingOverrides`.** That compartment is **id-keyed — element id → adjustment** — and
+    every client is an authored tweak *anchored to a musical element*, anchor-relative and in
+    staff-spaces. "The last system" has no anchor, and *which* bars are on it is itself a layout
+    result that changes on every edit and resize: exactly the dependency the compartment exists to
+    avoid.
+  - **Not the `Score`/JSON.** Principle 3 forbids page-layout state in the data model outright.
+
+  ⚠️ **The tension is real, and this entry exists to hold it open.** LilyPond and MuseScore both
+  *save* ragged-last with the document, and an author would reasonably expect their choice to
+  persist. Session-only is a stopgap, not an answer. The likely resolution is a document-level
+  **engraving object** — "what the score should LOOK like" — held beside the content rather than
+  inside it, so principle 3 keeps its meaning (the *content* model stays free of layout) without
+  pretending presentation is unauthorable.
+
+  ⭐ **The discriminator to sort it by, when it is built, is one the project already uses:
+  positional or not.** `score_globals` established that *a notational statement which can change
+  mid-score is never a `Score` field* — tempo, meter and clef are resolved positionally instead. The
+  same test sorts engraving:
+  - **Can it vary at a point in the score?** Then it is positional and belongs to the thing it
+    varies at — a **line break** is a property of the measure it happens before, exactly as a clef
+    change is.
+  - **Is it true of the whole document?** Then it is engraving-object state — **page size**,
+    margins, staff size, ragged-last.
+
+  Do not add a second document-wide look setting without settling this; two of them arriving by
+  different routes is how the compartment stops meaning anything.
+
 - **~~`Slur.cps` stores geometry in the model (re: principle 3).~~ RESOLVED (Phase 1,
   engraving-overrides plan).** The hand-edited slur shape no longer lives on `Slur`.
   Authored geometry now goes in a dedicated **engraving-overrides compartment**

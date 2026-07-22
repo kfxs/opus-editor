@@ -132,6 +132,10 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   toggle(viewBox, TOOL_BTN, 'Linear',
     'Linear view — one endless system, scroll left to right (Ctrl+Shift+L toggles)',
     () => state.viewMode === 'linear', () => palette.setViewMode('linear'))
+  toggle(viewBox, TOOL_BTN, 'Justify last',
+    'Stretch the LAST system to the page width (Finale/Sibelius). Off = ragged, the final system '
+      + "keeps its natural width — LilyPond's ragged-last.",
+    () => state.justifyLastLine, () => palette.setJustifyLastLine(!state.justifyLastLine))
   row.appendChild(viewBox)
   row.appendChild(divider())
 

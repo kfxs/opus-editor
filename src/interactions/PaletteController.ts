@@ -274,6 +274,19 @@ export class PaletteController {
     this.renderScore()
   }
 
+  /**
+   * Stretch the last system to the page width, or leave it ragged (LilyPond's `ragged-last`).
+   * A layout knob, so it goes through the same path as the view mode: engine first, state second,
+   * one render — which is also the highlight pass.
+   */
+  setJustifyLastLine(justify: boolean): void {
+    const engine = this.getEngine()
+    if (!engine || engine.getJustifyLastLine() === justify) return
+    engine.setJustifyLastLine(justify)
+    this.state.justifyLastLine = justify
+    this.renderScore()
+  }
+
   /** Flip to the other mode (the keyboard shortcut / the palette button both toggle). */
   toggleViewMode(): void {
     this.setViewMode(this.getViewMode() === 'linear' ? 'wrapped' : 'linear')

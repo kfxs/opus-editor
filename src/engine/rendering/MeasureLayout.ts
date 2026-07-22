@@ -739,6 +739,7 @@ export function calculateMeasureWidths(
   clefsByStaff: Map<string | undefined, StaffClefs>,
   mode: ViewMode = 'wrapped',
   cache?: MeasureWidthCache,
+  justifyLastLine = false,
 ): Map<number, MeasureWidthInfo> {
   if (mode === 'linear') return calculateLinearMeasureWidths(score, clefsByStaff, cache)
 
@@ -819,9 +820,25 @@ export function calculateMeasureWidths(
     }
   }
 
-  // Finalize last line
+  // Finalize last line — the one line that may be left RAGGED.
+  //
+  // Justifying it stretches a half-empty final system across the page, which is what Finale and
+  // Sibelius do and what this always did. LilyPond's `ragged-last` is true by default and MuseScore
+  // makes it a setting, because a last system of one bar spread over the whole width reads as a
+  // mistake rather than as music. Both are legitimate; which one you want is a matter of taste, so
+  // it is a knob (view state — see `VexFlowRenderer.layoutStateKey`).
+  //
+  // ⚠️ Ragged means ragged-RIGHT, never ragged past the margin. A last line whose bars already ask
+  // for more than the page has (a stretched bar, an authored space) is still distributed — the
+  // squeeze is what keeps it inside the page, and skipping it would push music through the right
+  // edge. So the knob only ever declines to ADD space.
   if (currentLineMeasures.length > 0) {
-    distributeLineWidths(currentLineMeasures, availableWidth)
+    const asked = currentLineMeasures.reduce((sum, m) => sum + m.minWidth, 0)
+    if (justifyLastLine || asked > availableWidth) {
+      distributeLineWidths(currentLineMeasures, availableWidth)
+    }
+    // Left ragged, each bar keeps the `finalWidth: minWidth` it was built with — the width it asks
+    // for, which is exactly what linear view draws.
     for (const info of currentLineMeasures) {
       results.set(info.measureNumber, info)
     }

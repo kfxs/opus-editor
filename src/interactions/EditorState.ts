@@ -392,6 +392,15 @@ export interface EditorState {
    * a clef, which each staff states for itself.
    */
   selectedBarlineMeasure: number | null
+  /**
+   * Is the LAST system stretched to the page width? True (the default) is Finale/Sibelius; false is
+   * LilyPond's `ragged-last`, where a short final system keeps its natural width.
+   *
+   * ⚠️ **View state, mirrored here for the toolbar — NOT a `Score` field.** How the page is cast off
+   * is not part of the music, the same reason `viewMode` is not (docs/linear-view-plan.md §5). The
+   * renderer owns the truth; this is what the UI reads, exactly as `viewMode` does.
+   */
+  justifyLastLine: boolean
 
   // --- Measure box selection ---
   /** The contiguous run of measures outlined by the Sibelius-style blue double box
@@ -511,6 +520,7 @@ export function createEditorState(): EditorState {
     selectedClefStaff: 0,
     selectedTimeSignatureMeasure: null,
     selectedBarlineMeasure: null,
+    justifyLastLine: false,
     selectedMeasureRange: null,
     selectedMeasureStaff: 0,
     selectedMeasureBoxStyle: 'double',

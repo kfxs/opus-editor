@@ -30,7 +30,12 @@ describe('MusicEngine.barWidthRoom', () => {
     engine = new MusicEngine({ container, width: 900, height: 500 })
   })
 
-  /** `count` bars of four quarter notes, drawn. */
+  /** `count` bars of four quarter notes, drawn.
+   *
+   * ⚠️ Callers asking about JUSTIFICATION must pass enough bars to fill more than one system. The
+   * last system is ragged by default now (LilyPond's `ragged-last`), and on a ragged line there is
+   * no transfer to invert: the bar grows, nothing pays, and the slope is 1. Correct — but it is not
+   * what a test about the §4 inversion means to measure. */
   const bars = (count: number) => {
     while (engine.getScore().measures.length < count) engine.addMeasure()
     for (let m = 1; m <= count; m++) {
@@ -68,7 +73,7 @@ describe('MusicEngine.barWidthRoom', () => {
   })
 
   it('answers on a bar mid-line, with a slope strictly between 0 and 1', () => {
-    bars(8)
+    bars(24) // more than one system, so the tested line is justified rather than the ragged last
     const line = lineOfBarOne()
     expect(line.length).toBeGreaterThan(2) // a middle bar must exist for this to assert anything
     const room = engine.barWidthRoom(line[1])!
@@ -96,7 +101,7 @@ describe('MusicEngine.barWidthRoom', () => {
   })
 
   it('…and further along the line the barline moves LESS than the bar grows', () => {
-    bars(8)
+    bars(24)
     const line = lineOfBarOne()
     expect(line.length).toBeGreaterThan(2) // a middle bar has to exist for this to assert anything
     const room = engine.barWidthRoom(line[1])!
@@ -288,7 +293,11 @@ describe('shrinking an EMPTY bar', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     engine = new MusicEngine({ container, width: 900, height: 500 })
-    while (engine.getScore().measures.length < 4) engine.addMeasure()
+    // ⚠️ Enough bars to fill more than one system. Four fit on one, and one line is the LAST line,
+    // which is ragged by default — nothing is justified there, so nothing is transferred and no
+    // neighbour takes up what an empty bar gives back. That is correct, and it is not what this
+    // block is about.
+    while (engine.getScore().measures.length < 24) engine.addMeasure()
     // One busy bar, the rest untouched — the reported case: "one really long and one normal, and
     // there is still space to shrink on it".
     for (const eighth of [0, 1, 2, 3, 4, 5, 6, 7]) {
@@ -536,5 +545,54 @@ describe('bar width — the ceiling is where the bar becomes the system', () => 
     // Not one pixel of stretch past the moment it became the system.
     expect(engine.getBarWidth(1)).toBeCloseTo(firstAlone!, 6)
     expect(engine.barWidthRoom(1)!.maxStretch).toBeCloseTo(firstAlone!, 6)
+  })
+})
+
+/**
+ * The gesture's LIMITS assume a justified line — a fixed page total, so what one bar gains another
+ * pays. The last system is ragged by default (LilyPond's `ragged-last`) and has no fixed total, so
+ * those limits do not apply to it.
+ */
+describe('bar width on a RAGGED last line', () => {
+  let engine: MusicEngine
+
+  beforeEach(() => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    engine = new MusicEngine({ container, width: 900, height: 500 })
+    // Ten empty bars: nine fill the first system, so the last system holds exactly ONE — the state
+    // that was reported as unexpandable.
+    while (engine.getScore().measures.length < 10) engine.addMeasure()
+    engine.renderScore()
+  })
+
+  const widthOf = (measure: number): number => {
+    const g = engine.getElementRegistry().getStaffGeometry(measure, 0)!
+    return g.noteEndX - g.noteStartX
+  }
+
+  it('⭐ a bar ALONE on it can still be widened — it is not the whole system', () => {
+    // Reported: with the last system ragged, the last measure could not be expanded at all. The
+    // ceiling read "a bar alone on its system IS the line, so that is its maximum" — true while the
+    // line is justified, false the moment it is not. A lone bar on a ragged line is a SHORT line,
+    // with the rest of the page to grow into.
+    const room = engine.barWidthRoom(10)!
+    expect(room.alone).toBe(true)          // …the state the old ceiling capped
+    expect(room.maxStretch).toBeGreaterThan(room.stretch + 1) // …and no longer does
+
+    const before = widthOf(10)
+    for (let i = 0; i < 4; i++) { engine.nudgeBarWidth(10, STEP_PX); engine.renderScore() }
+    expect(widthOf(10)).toBeGreaterThan(before)
+  })
+
+  it('…and it keeps growing press after press, rather than freezing after one', () => {
+    const seen: number[] = []
+    for (let i = 0; i < 5; i++) {
+      engine.nudgeBarWidth(10, STEP_PX)
+      engine.renderScore()
+      seen.push(widthOf(10))
+    }
+    const stuck = seen.findIndex((v, i) => i > 0 && Math.abs(v - seen[i - 1]) < 1e-9)
+    expect({ stuck, seen: seen.map(v => Math.round(v)) }).toEqual({ stuck: -1, seen: seen.map(v => Math.round(v)) })
   })
 })
