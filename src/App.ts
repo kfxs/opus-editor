@@ -348,7 +348,11 @@ export function createEditorApp(host: HTMLElement): EditorApp {
 
   const devShell = [
     mountDevToolbar(toolbarHost, { state, palette, getEngine, onStateChange, togglePlayback }),
-    mountScoreJsonPanel(jsonHost, getEngine),
+    mountScoreJsonPanel(jsonHost, {
+      getEngine,
+      onBeforeLoad: () => selection.deselectAll(),
+      onAfterLoad: () => renderer.renderScore(),
+    }),
   ]
 
   // Mounted INSIDE the viewport wrapper but OUTSIDE the scroll box (a sibling of it), so a window
