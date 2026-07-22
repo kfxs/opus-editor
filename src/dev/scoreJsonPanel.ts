@@ -44,6 +44,7 @@ export function mountScoreJsonPanel(
   heading.className = 'text-xl'
   heading.textContent = 'Score JSON:'
 
+  const copyBtn = button('Copy', 'Copy the score model as JSON to the clipboard')
   const exportBtn = button('Export', 'Download the score model as JSON')
   const importBtn = button('Import', 'Load a score from a JSON file (replaces the open score)')
 
@@ -56,7 +57,7 @@ export function mountScoreJsonPanel(
   picker.accept = 'application/json,.json'
   picker.className = 'hidden'
 
-  header.append(heading, exportBtn, importBtn, status, picker)
+  header.append(heading, copyBtn, exportBtn, importBtn, status, picker)
 
   const pre = document.createElement('pre')
   pre.className = 'bg-gray-900 p-4 rounded overflow-auto text-xs max-h-96'
@@ -81,6 +82,38 @@ export function mountScoreJsonPanel(
     link.click()
     URL.revokeObjectURL(url)
     setStatus(`exported ${link.download}`)
+  }
+
+  /**
+   * Copy the score JSON to the clipboard. Exists because the `<pre>` below is unselectable in
+   * practice: it is re-rendered every 400ms, so a drag-select is wiped before it can be copied.
+   *
+   * ⚠️ The MODEL, via `exportJSON()` — never `pre.textContent`, for the same reason the export
+   * takes that route: the dump is a stale *view* of the string, and being right there is exactly
+   * what makes reaching for it tempting and wrong.
+   *
+   * No envelope. `onExport` wraps the score for a file that has to say what it is and when it was
+   * made; this is for pasting into a message, where the envelope is noise and the timestamp would
+   * make two otherwise-identical copies differ.
+   */
+  async function onCopy(): Promise<void> {
+    const engine = getEngine()
+    if (!engine) return
+    const text = engine.exportJSON()
+    try {
+      await navigator.clipboard.writeText(text)
+      setStatus(`copied ${text.length.toLocaleString()} chars`)
+    } catch (err) {
+      // Clipboard writes need a secure context and can be refused outright. Say so rather than
+      // reporting a copy that did not happen — and select the dump so there is still a way out.
+      console.error('[score-file] the clipboard refused the write.', err)
+      setStatus('refused: clipboard blocked (dump selected — press Ctrl+C)')
+      const range = document.createRange()
+      range.selectNodeContents(pre)
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+    }
   }
 
   async function onPicked(): Promise<void> {
@@ -123,6 +156,7 @@ export function mountScoreJsonPanel(
   }
 
   const onImportClick = () => picker.click()
+  copyBtn.addEventListener('click', onCopy)
   exportBtn.addEventListener('click', onExport)
   importBtn.addEventListener('click', onImportClick)
   picker.addEventListener('change', onPicked)
@@ -135,6 +169,7 @@ export function mountScoreJsonPanel(
     destroy(): void {
       clearInterval(timer)
       clearTimeout(statusTimer)
+      copyBtn.removeEventListener('click', onCopy)
       exportBtn.removeEventListener('click', onExport)
       importBtn.removeEventListener('click', onImportClick)
       picker.removeEventListener('change', onPicked)
