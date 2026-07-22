@@ -139,6 +139,36 @@ export interface MeasureWidthInfo {
    * the two.
    */
   stretchScalesShare?: boolean
+  /**
+   * The narrowest this bar's **intrinsic** part may be pushed when something else on the line needs
+   * the room: its overhead (clef, meter, barline padding — none of it compressible) plus
+   * `MIN_NOTE_SPACING` per column. Excludes `userSpace`/`stretchSpace`, which are reserved off the
+   * top and never squeezed.
+   *
+   * The second half of a **two-number** width. `minWidth` is what the bar ASKS FOR when nothing
+   * competes — it drives the casting-off and therefore the default look of the page. This is how
+   * far it can be FORCED, and it applies only when a bar on the line is actually claiming room.
+   * Collapsing the two (an empty bar was briefly given its floor as its intrinsic) makes every bar
+   * permanently narrow and packs the systems: 14 empty bars to a line at 63px instead of 9 at 103.
+   */
+  floorWidth?: number
+  /**
+   * What this bar would ask for at stretch 1 — `minWidth` with the user's growth taken back out.
+   * **This, not `minWidth`, is what decides how many bars fit on a system.**
+   *
+   * The third number, and the one that keeps growth from rewriting the page: casting off on
+   * `minWidth` means a grown bar pushes a neighbour onto the next system before anything squeezes,
+   * and casting off on `floorWidth` means a grown bar *recruits* bars onto its line (measured: 23
+   * empty bars where 9 belong). Neither is what growing a bar means. Capacity is growth-blind; the
+   * growth is then absorbed by compression, and only overflows the system when even the floors will
+   * not hold it.
+   *
+   * ⚠️ Also how "is this bar being grown?" is asked — `minWidth > naturalWidth`. NOT derivable from
+   * `stretchSpace`: an EMPTY bar's growth folds into `minWidth` instead (`stretchScalesShare`), so
+   * it carries `stretchSpace: 0` however hard it was stretched, and reading the reserved pool alone
+   * would silently exempt exactly the bars this is mostly used on.
+   */
+  naturalWidth?: number
   finalWidth: number
   lineNumber: number
   /**

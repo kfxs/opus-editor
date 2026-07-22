@@ -72,11 +72,7 @@ describe('note spacing — width (§2)', () => {
     const linesBefore = new Set(
       [...calculateMeasureWidths(model.getScore(), clefs(model.getScore())).values()].map(i => i.lineNumber),
     ).size
-    // 20 staff-spaces, not 8. Six EMPTY bars are the fixture, and an empty bar's intrinsic dropped
-    // from `MIN_MEASURE_WIDTH` to its honest note space + padding — so the line now holds far more
-    // of them and 8 spaces each no longer overflows it. The claim under test is unchanged (authored
-    // space reaches the break pass); only the fixture had to get big enough to still make it.
-    for (let n = 1; n <= 6; n++) space(model, n, 20)
+    for (let n = 1; n <= 6; n++) space(model, n, 8)
     const linesAfter = new Set(
       [...calculateMeasureWidths(model.getScore(), clefs(model.getScore())).values()].map(i => i.lineNumber),
     ).size

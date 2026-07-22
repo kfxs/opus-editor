@@ -136,9 +136,8 @@ function calculateMinimumMeasureWidth(
   measure: Measure,
   isFirstInLine: boolean,
   clefsByStaff: Map<string | undefined, StaffClefs>,
-  isEmpty: boolean,
   cache?: MeasureWidthCache,
-): { total: number; noteSpace: number; overhead: number } {
+): { total: number; noteSpace: number; overhead: number; spacingFloor: number } {
   // Shared by every staff: the barline padding, and the meter glyph where one is drawn
   // (measure 1 + changes).
   let sharedOverhead = LAYOUT_CONFIG.BARLINE_PADDING * 2
@@ -153,6 +152,12 @@ function calculateMinimumMeasureWidth(
   let widest = 0
   let widestNoteSpace = 0
   let widestOverhead = 0
+  // The incompressible part of the note area: `MIN_NOTE_SPACING` per column, the same rule
+  // `noteSpaceForLane` floors its answer with — counted the same way (per SLOT, so two voices at one
+  // beat count twice) precisely BECAUSE that is how the width was built. Count columns properly here
+  // and the floor could exceed the width it is a floor on, making a two-voice bar incompressible. A
+  // lane with no slots still gets one column: something is drawn there.
+  let widestSpacingFloor = 0
   for (const staffId of staffIds) {
     // TEMPORARY probe — see renderCensus.layoutSub.
     const tView = renderCensus.recording ? performance.now() : 0
@@ -184,28 +189,18 @@ function calculateMinimumMeasureWidth(
     widest = Math.max(widest, noteSpace + clefOverhead)
     widestNoteSpace = Math.max(widestNoteSpace, noteSpace)
     widestOverhead = Math.max(widestOverhead, clefOverhead)
+    widestSpacingFloor = Math.max(widestSpacingFloor, Math.max(1, lane.slots.length) * LAYOUT_CONFIG.MIN_NOTE_SPACING)
   }
 
   const totalWidth = widest + sharedOverhead
-  // ⚠️ **`MIN_MEASURE_WIDTH` is a floor for a bar with MUSIC, and an empty bar must not be held to
-  // it.** The two floors say different things and only one of them belongs here. A bar of music can
-  // measure narrow (one whole note is a single 18px column) and still need room to read, so 100px is
-  // its guard. An empty bar's presence is already paid for, by `EMPTY_LANE_NOTE_SPACE` — and 100
-  // over the top of that inflates a DEFAULT into a CLAIM: measured, an empty bar came out at 100
-  // against a four-quarter bar's 100, so justification handed them the same width and shrank them by
-  // the same pixels forever. Widening a neighbour then squeezed the music exactly as hard as the
-  // silence, which is the reported bug — the empty bars would not get out of the way.
-  //
-  // Engraving agrees: a bar's claim on a system is its note values (Gould; Sibelius/Dorico both
-  // space by duration), so a bar holding one whole rest asks for about one note's room, not four.
-  const floor = isEmpty ? 0 : LAYOUT_CONFIG.MIN_MEASURE_WIDTH
   return {
     total: Math.min(
-      Math.max(totalWidth, floor),
+      Math.max(totalWidth, LAYOUT_CONFIG.MIN_MEASURE_WIDTH),
       LAYOUT_CONFIG.MAX_MEASURE_WIDTH,
     ),
     noteSpace: widestNoteSpace,
     overhead: widestOverhead + sharedOverhead,
+    spacingFloor: widestSpacingFloor,
   }
 }
 
@@ -271,10 +266,10 @@ function measureWidthParts(
   isFirstInLine: boolean,
   clefsByStaff: Map<string | undefined, StaffClefs>,
   cache?: MeasureWidthCache,
-): { minWidth: number; userSpace: number; stretchSpace: number; noteSpace: number; stretchScalesShare: boolean } {
+): { minWidth: number; userSpace: number; stretchSpace: number; noteSpace: number; stretchScalesShare: boolean; floorWidth: number; naturalWidth: number } {
   const empty = isEmptyBar(measure)
-  const parts = calculateMinimumMeasureWidth(score, measure, isFirstInLine, clefsByStaff, empty, cache)
-  const { total: intrinsic, noteSpace, overhead } = parts
+  const parts = calculateMinimumMeasureWidth(score, measure, isFirstInLine, clefsByStaff, cache)
+  const { total: intrinsic, noteSpace, overhead, spacingFloor } = parts
   const userSpace = measureUserSpacePx(score, measure.id)
   const stretch = measureStretch(score, measure.id)
 
@@ -302,6 +297,14 @@ function measureWidthParts(
   // 🔴 KNOWN-INCOMPLETE: this branch is better than the reserved model here and still does not
   // shrink an empty bar as far as it should — reported three times, postponed rather than solved.
   // See docs/bar-width-plan.md "Known issues" #1 before assuming the behaviour below is correct.
+  // How far the bar may be FORCED, as against the `intrinsic` it asks for. One formula covers both
+  // models: nothing below the overhead plus `MIN_NOTE_SPACING` per column is compressible. An empty
+  // bar has one column, so it floors at `overhead + 18` — everything between that and its
+  // `MIN_MEASURE_WIDTH` intrinsic is room it merely HAS rather than room it uses, which is exactly
+  // the room a growing neighbour should be able to take. Never above the intrinsic it floors (a bar
+  // clamped by `MAX_MEASURE_WIDTH` would otherwise be incompressible).
+  const floorOf = (intrinsicPart: number) => Math.min(intrinsicPart, overhead + spacingFloor)
+
   if (empty) {
     const scalable = Math.max(0, intrinsic - overhead)
     const scaled = Math.max(LAYOUT_CONFIG.MIN_NOTE_SPACING, scalable * stretch)
@@ -311,6 +314,8 @@ function measureWidthParts(
       stretchSpace: 0, // nothing reserved — the stretch IS the share
       noteSpace: scalable, // what the multiplier multiplies, so px↔ratio still converts
       stretchScalesShare: true,
+      floorWidth: floorOf(overhead + scaled),
+      naturalWidth: overhead + scalable + userSpace, // the same bar at stretch 1
     }
   }
 
@@ -321,6 +326,8 @@ function measureWidthParts(
     stretchSpace,
     noteSpace,
     stretchScalesShare: false,
+    floorWidth: floorOf(intrinsic),
+    naturalWidth: intrinsic + userSpace, // the stretch is the reserved part; drop it
   }
 }
 
@@ -401,17 +408,22 @@ export function authoredScales(
  * is left, and the reserved amount is added back to the bar that authored it. The total still
  * lands exactly on `availableWidth`.
  *
- * Compression takes the same shape: squeeze the intrinsic part, hand the authored part back.
+ * Compression takes the same shape — but **not by one shared percentage, and not from every bar
+ * equally.** The room comes out in tiers:
  *
- * ⚠️ **It hardly ever runs**, and that is worth knowing before building any rule on it: pass 1
- * admits a bar to a line only while `Σ minWidth ≤ available`, and `minWidth` already carries the
- * authored space — so `Σ intrinsic ≤ available − Σ authored`, which IS the slack condition below.
- * Measured across the whole suite it did not fire once. Only a lone oversized bar (where there is
- * nothing to distribute among anyway) and the post-hoc cautionary bumps can reach it.
+ * 1. **Empty bars first**, down to `floorWidth`. An empty bar's width is a default
+ *    (`MIN_MEASURE_WIDTH`) rather than something its content asked for, so it is the room the line
+ *    can spare at no cost to any music. Space is taken from silence before it is taken from notes.
+ * 2. **Then bars with music**, in proportion to the slack each still has above its own floor — a bar
+ *    already at `MIN_NOTE_SPACING` per column contributes nothing while a roomy one pays.
+ * 3. **Only then everyone, by ratio**, which is where the crowding warning belongs (it used to fire
+ *    on any 30% squeeze, including ones paid for entirely out of empty bars).
  *
- * So a rule about *which* bars should give way first does NOT belong here — a tiered version of
- * this branch was written, measured to be dead, and removed. It belongs in the widths themselves,
- * which is where the empty-bar clamp in {@link calculateMinimumMeasureWidth} puts it.
+ * ⚠️ This branch is reachable ONLY because pass 1 lets a line that is claiming room over-commit
+ * (see {@link calculateMeasureWidths}). Without that it is dead code — `Σ minWidth ≤ available` is
+ * algebraically the slack condition, and a first attempt at these tiers was measured to fire zero
+ * times across the whole suite before pass 1 was taught to over-commit. If that admission rule ever
+ * goes back to being unconditional, this goes dead again.
  */
 function distributeLineWidths(
   measureInfos: MeasureWidthInfo[],
@@ -432,13 +444,43 @@ function distributeLineWidths(
   if (totalIntrinsic <= 0) return
 
   if (totalIntrinsic >= justifyTarget) {
-    // Need to compress - distribute proportionally to intrinsic widths
-    const compressionRatio = justifyTarget / totalIntrinsic
-    if (compressionRatio < 0.7) {
-      console.warn(`Severe measure compression (${(compressionRatio * 100).toFixed(0)}%) on line - measures may be crowded`)
+    const widths = new Map(measureInfos.map(m => [m, intrinsicOf(m)]))
+    const floorOf = (m: MeasureWidthInfo) => Math.min(widths.get(m)!, m.floorWidth ?? 0)
+
+    // Take `want` px from one group, in proportion to each bar's slack above its own floor. Because
+    // the shares are slack-proportional no bar is ever driven below its floor here — it stops
+    // exactly there. Returns what could NOT be taken, for the next tier down.
+    const takeFrom = (group: MeasureWidthInfo[], want: number): number => {
+      if (want <= 0) return 0
+      const slack = group.map(m => Math.max(0, widths.get(m)! - floorOf(m)))
+      const available = slack.reduce((s, v) => s + v, 0)
+      if (available <= 0) return want
+      const taken = Math.min(want, available)
+      group.forEach((m, i) => widths.set(m, widths.get(m)! - taken * (slack[i] / available)))
+      return want - taken
     }
+
+    // The classifier is the layout's own: `stretchScalesShare` is set from `isEmptyBar`, a
+    // STRUCTURAL question about the bar's content — never a measured width (see its doc for why
+    // that distinction has already bitten once).
+    // ⚠️ Tier 1 is empty bars the user has NOT grown. A grown bar is never tier-1 fodder however
+    // empty it is — being wide is the thing that was asked for, and an empty bar's growth lives in
+    // its intrinsic (`stretchScalesShare`), so it would otherwise be the FIRST thing squeezed away.
+    const spare = measureInfos.filter(m => m.stretchScalesShare && !claimsRoom(m))
+    let want = takeFrom(spare, totalIntrinsic - justifyTarget)
+    want = takeFrom(measureInfos.filter(m => !spare.includes(m)), want)
+
+    if (want > 1e-6) {
+      const remaining = measureInfos.reduce((s, m) => s + widths.get(m)!, 0)
+      const ratio = remaining > 0 ? Math.max(0, (remaining - want) / remaining) : 0
+      if (ratio < 0.7) {
+        console.warn(`Severe measure compression (${(ratio * 100).toFixed(0)}%) on line - measures may be crowded`)
+      }
+      for (const info of measureInfos) widths.set(info, widths.get(info)! * ratio)
+    }
+
     for (const info of measureInfos) {
-      info.finalWidth = intrinsicOf(info) * compressionRatio + authoredOf(info)
+      info.finalWidth = widths.get(info)! + authoredOf(info)
     }
   } else {
     // Have extra space - distribute proportionally
@@ -496,6 +538,9 @@ function applyCautionaryClefs(
 
     if (!anyOnThisMeasure) continue
     current.minWidth += LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
+    // …and the FLOOR with it: a courtesy clef is overhead, not note space, so it is not room the
+    // justifier may take back.
+    if (current.floorWidth !== undefined) current.floorWidth += LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
     linesToRedistribute.add(current.lineNumber)
   }
 
@@ -540,6 +585,8 @@ function applyCautionaryTimeSignatures(
 
     current.cautionaryEndTimeSig = nextMeasure.timeSignature
     current.minWidth += LAYOUT_CONFIG.TIME_SIG_WIDTH
+    // Overhead, like the cautionary clef above — the floor rises with it.
+    if (current.floorWidth !== undefined) current.floorWidth += LAYOUT_CONFIG.TIME_SIG_WIDTH
     linesToRedistribute.add(current.lineNumber)
   }
 
@@ -547,6 +594,51 @@ function applyCautionaryTimeSignatures(
     const lineMeasures = [...results.values()].filter(m => m.lineNumber === lineNumber)
     distributeLineWidths(lineMeasures, availableWidth)
   }
+}
+
+/** The width fields pass 1 reasons about — so the bar it is *considering* can be asked the same
+ *  questions as the bars already on the line, before it is an info with a line number. */
+type SqueezableWidth = Pick<MeasureWidthInfo, 'minWidth' | 'naturalWidth' | 'floorWidth' | 'userSpace' | 'stretchSpace'>
+
+/** Has the user asked this bar to be wider than it naturally is? Then it is claiming room from the
+ *  rest of its line — and is itself exempt from paying for anyone else's claim. */
+function claimsRoom(info: SqueezableWidth): boolean {
+  return info.naturalWidth !== undefined && info.minWidth > info.naturalWidth + 1e-9
+}
+
+/**
+ * The narrowest a bar can be made while it still holds its music: its floor, plus the authored
+ * space that is reserved off the top and never squeezed. What pass 1 asks to decide whether a
+ * line can absorb a growing bar or has to break.
+ *
+ * **A bar that is itself being grown is not squeezable at all** — being wide is the whole point of
+ * it, so it counts for its full `minWidth`. Without that a grown bar would be measured at its own
+ * floor and the line would happily accept many more bars beside it.
+ */
+function squeezedWidth(info: SqueezableWidth): number {
+  if (claimsRoom(info)) return info.minWidth
+  return (info.floorWidth ?? info.minWidth) + Math.max(0, info.stretchSpace ?? 0) + (info.userSpace ?? 0)
+}
+
+/**
+ * Is a bar on this line being GROWN? Only then may its neighbours be pushed below the width they
+ * ask for — the rule as he put it, and the difference between "the empty bars get out of the way"
+ * and "every bar on the page is permanently narrow".
+ *
+ * ⚠️ **A bar stretch counts; an authored leading space does NOT** — the same split the two pools
+ * make everywhere else in this file. A stretch is *live music room*: "give this bar more of the
+ * line", which is exactly a claim on the neighbours. A leading space is a *dead gap* that genuinely
+ * needs the room it asks for, and note spacing states as a design property that it reaches the
+ * break pass (docs/note-spacing-plan.md §2 — "a space is not an offset, it has width"). Letting it
+ * squeeze instead of wrap silently repealed that.
+ *
+ * A *shrink* does not count either: it hands room back rather than taking it, and a line of
+ * deliberately narrowed bars should re-wrap to hold more, not squeeze the rest. That is why this
+ * reads `claimsRoom` (`stretch > 1`) and not the reserved pool — an EMPTY bar's growth never
+ * reaches `stretchSpace` at all.
+ */
+function lineIsClaimingRoom(line: MeasureWidthInfo[], incoming: SqueezableWidth): boolean {
+  return claimsRoom(incoming) || line.some(claimsRoom)
 }
 
 /**
@@ -566,7 +658,7 @@ function calculateLinearMeasureWidths(
   const results = new Map<number, MeasureWidthInfo>()
 
   score.measures.forEach((measure, index) => {
-    const { minWidth, userSpace, stretchSpace, noteSpace, stretchScalesShare } = measureWidthParts(score, measure, index === 0, clefsByStaff, cache)
+    const { minWidth, userSpace, stretchSpace, noteSpace, stretchScalesShare, floorWidth, naturalWidth } = measureWidthParts(score, measure, index === 0, clefsByStaff, cache)
 
     results.set(measure.number, {
       measureNumber: measure.number,
@@ -575,6 +667,8 @@ function calculateLinearMeasureWidths(
       stretchSpace,
       noteSpace,
       stretchScalesShare,
+      floorWidth,
+      naturalWidth,
       finalWidth: minWidth, // intrinsic width + authored space/stretch — nothing to justify to
       lineNumber: 0,
     })
@@ -604,15 +698,30 @@ export function calculateMeasureWidths(
 
   // Pass 1: Calculate minimum widths and assign to lines
   let currentLine = 0
-  let currentLineWidth = 0
+  /** The line's capacity so far, in ASKED-FOR-UNGROWN width — see the `fits` test below. */
+  let currentLineNatural = 0
   let currentLineMeasures: MeasureWidthInfo[] = []
 
   for (const measure of score.measures) {
     const isFirstInLine = currentLineMeasures.length === 0
-    const { minWidth, userSpace, stretchSpace, noteSpace, stretchScalesShare } = measureWidthParts(score, measure, isFirstInLine, clefsByStaff, cache)
+    const { minWidth, userSpace, stretchSpace, noteSpace, stretchScalesShare, floorWidth, naturalWidth } = measureWidthParts(score, measure, isFirstInLine, clefsByStaff, cache)
 
-    // Check if measure fits on current line
-    if (currentLineWidth + minWidth > availableWidth && currentLineMeasures.length > 0) {
+    const incoming = { minWidth, naturalWidth, floorWidth, userSpace, stretchSpace }
+    // **How many bars fit is decided GROWTH-BLIND** — on `naturalWidth`, what each bar would ask
+    // for at stretch 1. With nothing grown that is `minWidth` and this is the rule it has always
+    // been (same bars per system, same default page). With something grown it is what stops the
+    // growth from rewriting the casting-off: measure on `minWidth` and a grown bar pushes a
+    // neighbour to the next system before anything gives way; measure on `floorWidth` and a grown
+    // bar *recruits* bars onto its line, 23 empty ones where 9 belong. Growing a bar means neither.
+    let fits = currentLineNatural + naturalWidth <= availableWidth
+    // …but the line still has to be ABLE to hold it once everything gives what it can. This is what
+    // re-wraps a system under a big stretch, and the order matters: the neighbours are squeezed
+    // first, and the line breaks only when even their floors will not fit.
+    if (fits && lineIsClaimingRoom(currentLineMeasures, incoming)) {
+      const squeezedTotal = currentLineMeasures.reduce((sum, m) => sum + squeezedWidth(m), 0)
+      fits = squeezedTotal + squeezedWidth(incoming) <= availableWidth
+    }
+    if (!fits && currentLineMeasures.length > 0) {
       // Finalize current line
       distributeLineWidths(currentLineMeasures, availableWidth)
       for (const info of currentLineMeasures) {
@@ -621,7 +730,7 @@ export function calculateMeasureWidths(
 
       // Start new line
       currentLine++
-      currentLineWidth = 0
+      currentLineNatural = 0
       currentLineMeasures = []
 
       // Recalculate width for new line (first-in-line gets a full clef, so a
@@ -635,11 +744,13 @@ export function calculateMeasureWidths(
         stretchSpace: newParts.stretchSpace,
         noteSpace: newParts.noteSpace,
         stretchScalesShare: newParts.stretchScalesShare,
+        floorWidth: newParts.floorWidth,
+        naturalWidth: newParts.naturalWidth,
         finalWidth: newParts.minWidth,
         lineNumber: currentLine,
       }
       currentLineMeasures.push(info)
-      currentLineWidth = newParts.minWidth
+      currentLineNatural = newParts.naturalWidth
     } else {
       const info: MeasureWidthInfo = {
         measureNumber: measure.number,
@@ -648,11 +759,13 @@ export function calculateMeasureWidths(
         stretchSpace,
         noteSpace,
         stretchScalesShare,
+        floorWidth,
+        naturalWidth,
         finalWidth: minWidth,
         lineNumber: currentLine,
       }
       currentLineMeasures.push(info)
-      currentLineWidth += minWidth
+      currentLineNatural += naturalWidth
     }
   }
 

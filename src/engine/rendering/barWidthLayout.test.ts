@@ -275,3 +275,72 @@ describe('bar width — an empty bar scales its SHARE (§2)', () => {
     }
   })
 })
+
+/**
+ * The **two-number** width: what a bar asks for (`minWidth`, which drives the casting-off and so the
+ * default look of the page) against how far it can be FORCED (`floorWidth`) when a bar on its line
+ * is growing. Collapsing the two made every empty bar permanently narrow and packed the systems —
+ * 14 bars to a line at 63px instead of 9 at 103 — which is what "the default width is like
+ * maximum-shrinking" meant when it was reported.
+ */
+describe('bar width — asked-for vs forced (§3)', () => {
+  const barsOnLine0 = (model: ScoreModel) =>
+    [...calculateMeasureWidths(model.getScore(), clefs(model.getScore())).values()]
+      .filter(i => i.lineNumber === 0)
+
+  it('⭐ with nothing growing, the casting-off is untouched — no bar goes below what it asks for', () => {
+    const line = barsOnLine0(emptyScore(24))
+    expect(line.length).toBeGreaterThan(5) // a full line, or this asserts nothing
+    for (const info of line) {
+      expect(info.finalWidth).toBeGreaterThanOrEqual(LAYOUT_CONFIG.MIN_MEASURE_WIDTH)
+    }
+  })
+
+  it('⭐ …and a growing bar squeezes them below it, rather than re-wrapping first', () => {
+    const model = emptyScore(24)
+    const before = barsOnLine0(model)
+    stretch(model, 1, 3)
+    const after = barsOnLine0(model)
+    // The line KEEPS its bars — the room comes out of them before the system re-casts.
+    expect(after.length).toBe(before.length)
+    const squeezed = after.filter(i => i.measureNumber > 1)
+    expect(squeezed.every(i => i.finalWidth < LAYOUT_CONFIG.MIN_MEASURE_WIDTH)).toBe(true)
+    // …but never past the floor, which is what stops it collapsing to nothing.
+    expect(squeezed.every(i => i.finalWidth >= i.floorWidth!)).toBe(true)
+  })
+
+  it('⭐ the squeeze lands on the SILENCE first — an empty bar pays more than a bar of music', () => {
+    // ⚠️ A FULL line — eight bars, not four. With a short line there is surplus to hand round and
+    // every bar sits above its natural width, so nothing is being taken from anyone and the tiers
+    // never engage (measured: at four bars all three lose exactly the same 47px, which is correct
+    // justification, not the bug). The ordering only exists once the line is genuinely short.
+    const model = new ScoreModel()
+    while (model.getScore().measures.length < 8) model.addMeasure()
+    for (const m of [1, 4]) {
+      for (const beat of [0, 1, 2, 3]) {
+        model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: fracCreate(beat, 1) } as NoteParams)
+      }
+    }
+    const widthsOf = () => calculateMeasureWidths(model.getScore(), clefs(model.getScore()))
+    const before = widthsOf()
+    stretch(model, 1, 4)
+    const after = widthsOf()
+    const lost = (n: number) => before.get(n)!.finalWidth - after.get(n)!.finalWidth
+    expect(lost(2)).toBeGreaterThan(0)
+    expect(lost(4)).toBeGreaterThan(0)
+    expect(lost(2)).toBeGreaterThan(lost(4) * 2) // silence pays first, and pays much more
+  })
+
+  it('an authored leading space is NOT a claim: it still re-wraps instead of squeezing', () => {
+    // The other pool. A space is a dead gap that genuinely needs its room, and note spacing states
+    // as a design property that it reaches the break pass — letting it squeeze would repeal that
+    // silently. Guarded here because both features share this admission rule.
+    const model = emptyScore(6)
+    const linesBefore = new Set([...calculateMeasureWidths(model.getScore(), clefs(model.getScore())).values()].map(i => i.lineNumber)).size
+    for (let n = 1; n <= 6; n++) {
+      model.setNoteSpacing(spacingPositionKey(model.getScore().measures[n - 1].id, fracCreate(1, 1)), 8, -100)
+    }
+    const linesAfter = new Set([...calculateMeasureWidths(model.getScore(), clefs(model.getScore())).values()].map(i => i.lineNumber)).size
+    expect(linesAfter).toBeGreaterThan(linesBefore)
+  })
+})

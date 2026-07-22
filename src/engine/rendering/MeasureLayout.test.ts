@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { calculateMeasureWidths, EMPTY_LANE_NOTE_SPACE } from './MeasureLayout'
+import { calculateMeasureWidths } from './MeasureLayout'
 import { LAYOUT_CONFIG } from './layoutConfig'
 import { resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import type { Score } from '@/types/music'
@@ -43,14 +43,13 @@ describe('calculateMeasureWidths — linear mode', () => {
     const first = widths.get(1)!
     const second = widths.get(2)!
     // Same content (both empty), so the difference is exactly the clef + the meter glyph that
-    // measure 1 alone draws. Bar 2 is a bare empty bar at the floor width — and an EMPTY bar's
-    // floor is its note space plus its barline padding, NOT `MIN_MEASURE_WIDTH`. That clamp is for
-    // a bar with music; holding an empty bar to it inflated a default into a claim on the line, so
-    // an empty bar and a four-quarter bar both measured 100 and justification could never tell
-    // them apart (see `calculateMinimumMeasureWidth`).
+    // measure 1 alone draws. Bar 2 is a bare empty bar at the width it ASKS FOR — `MIN_MEASURE_WIDTH`.
+    // ⚠️ That is `minWidth`, deliberately not `floorWidth`: how far the bar could be FORCED if a
+    // neighbour were growing is a different number (~38 here) and belongs to a different question.
+    // Briefly the two were collapsed into one, and every empty bar on every page went permanently
+    // narrow — 14 bars to a system instead of 9. See `calculateMinimumMeasureWidth`.
     expect(first.minWidth).toBeGreaterThan(second.minWidth)
-    expect(second.minWidth).toBe(EMPTY_LANE_NOTE_SPACE + LAYOUT_CONFIG.BARLINE_PADDING * 2)
-    expect(second.minWidth).toBeLessThan(LAYOUT_CONFIG.MIN_MEASURE_WIDTH)
+    expect(second.minWidth).toBe(LAYOUT_CONFIG.MIN_MEASURE_WIDTH)
   })
 
   it('wrapped mode still breaks the same score into several lines', () => {
