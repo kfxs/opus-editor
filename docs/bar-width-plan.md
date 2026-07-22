@@ -301,7 +301,9 @@ One step = **one staff-space of barline movement** (10px), converted through §4
 the same distance whether it arrives from the keyboard or the mouse, instead of the keyboard nudging
 an abstract ratio.
 
-**P2 — drag.** Grab the barline; `col-resize` on hover. The bar affected is the one to its **left**
+**P2 — drag.** Grab the barline. ⛔ **No hover cursor** — a `col-resize` affordance was built and
+removed on sight: the pointer changing shape as it crosses every barline is noise on a page made of
+barlines. The barline highlight already says it is a thing you can grab. The bar affected is the one to its **left**
 (what "the barline that ends measure N" already means, and Finale's model). Reuses the padded hit
 box of `handleBarlineMouseDown` (`MouseController.ts:996`) and the shared drag skeleton — baselines
 at grab, a `changed` flag, `previewBarWidth` per frame, one `commitBarWidth` on release. Simpler
@@ -339,7 +341,26 @@ which on the whole-line model is the system. That is inherent to the feature, no
 - **P1 — keyboard.** A renderer accessor for `measureLayoutInfo` (private today),
   `MusicEngine.barWidthRoom` (§4 inversion incl. the linear branch + §5 limits, all measured off the
   last render), the selection-dispatched `Shift+Alt+←/→`, reset.
-- **P2 — drag.** Barline grab, cursor affordance, preview/commit.
+- **P2 — drag.** ✅ BUILT (whole-line). Barline grab, `previewBarWidth` per frame, one
+  `commitBarWidth` on release; `stretchForBarlineDelta` (continuous) and never `stretchForStep`.
+  Three corrections came straight out of using it:
+  - **The room is captured once per CASTING-OFF, not once per drag.** Its `T`/`P`/slope are sums
+    over the bars sharing the line, so they expire when a stretch pushes one onto the next system.
+    Measured: exact tracking, then 21px of error at the re-wrap, kept for the rest of the drag and
+    compounding at every further one. `reanchorIfRewrapped` re-takes the room and re-anchors to the
+    pointer — one honest jump at the boundary (the layout really did move discontinuously), exact
+    tracking either side.
+  - **The pointer is HIDDEN for the gesture** (his idea). No arithmetic keeps the barline under a
+    cursor that is still visible beside it across that discontinuity; with the pointer gone, the
+    barline *is* the cursor and the jump reads as the music re-flowing.
+  - **A release OUTSIDE the viewport settles the drag**, via the document-level mouseup that was
+    already there for the pan. The element's own handler never fires there, and this gesture holds
+    an uncommitted preview *and* a hidden pointer — so being left armed is not a harmless leak: the
+    score keeps resizing under a mouse with no button held.
+  - **A pinned barline still drags.** Refusing it (a drag that can't track shouldn't start) meant a
+    bar stretched to fill its system could never be shrunk again — reported immediately. It arms,
+    answers by the bar's own music, and picks tracking back up the moment the shrink re-wraps.
+  ⏭️ **The § Open 1 question is now judgeable on screen** — see below.
 - **P3 — optional.** Multi-bar passage spread; a numeric field in the Properties window;
   Finale-style local compensation (§ open).
 

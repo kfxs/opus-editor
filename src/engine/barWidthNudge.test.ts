@@ -208,14 +208,19 @@ describe('MusicEngine.nudgeBarWidth', () => {
     expect(onLineOne()).toBe(1) // …and one press puts it back down
   })
 
-  it('the MOUSE answer stays continuous in that same state — it never jumps the casting-off', () => {
-    // The two solvers diverge only here, and the drag must take the other branch: teleporting the
-    // layout while a pointer holds the barline is the desync §4 exists to prevent.
+  it('the MOUSE answer stays continuous in that same state — it moves, but never jumps', () => {
+    // The two solvers diverge only here. The drag must not jump (teleporting the layout under a
+    // pointer is the desync §4 exists to prevent) and must not freeze either — a drag that reaches
+    // this state mid-gesture would be dead in the hand, and a bar stretched to fill its system
+    // could never be dragged back. So: a small continuous step for the mouse, a threshold jump for
+    // the key.
     for (let i = 0; i < 200; i++) press(1, STEP_PX)
     const room = engine.barWidthRoom(1)!
-    expect(room.barlineSlope).toBe(0)               // pinned: P2 should decline the grab here
-    expect(room.stretchForBarlineDelta(-STEP_PX)).toBe(room.stretch) // …and nothing moves meanwhile
-    expect(room.stretchForStep(-STEP_PX)).toBeLessThan(room.stretch) // while a key press jumps
+    expect(room.barlineSlope).toBe(0) // pinned — no stretch moves this barline
+    const mouse = room.stretchForBarlineDelta(-STEP_PX)
+    const key = room.stretchForStep(-STEP_PX)
+    expect(mouse).toBeLessThan(room.stretch)              // it does move…
+    expect(mouse).toBeGreaterThan(key)                    // …by far less than the key's jump
   })
 
   it('the system-ending bar RESIZES even though its barline cannot move', () => {

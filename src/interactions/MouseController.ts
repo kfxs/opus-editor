@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import type { ArticulationType, PitchSpelling, Fraction, Note, SlurSegmentAddress } from '../types/music'
-import type { MusicEngine } from '../engine/MusicEngine'
+import type { MusicEngine, BarWidthRoom } from '../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry, ElementType } from '../engine/ElementRegistry'
 import type { EditorState } from './EditorState'
 import { activeVoiceToModel, armedTool, armedNormalSide, armedTupletM, spendArmedTuplet } from './EditorState'
@@ -99,6 +99,21 @@ export class MouseController {
    *  this gesture by whatever slur was dragged last. */
   private spacingDragStaffSpacePx = 10
   private spacingDragChanged = false
+
+  // --- Bar-width drag (docs/bar-width-plan.md P2) ---
+  /** The bar whose ENDING barline is being dragged, with everything the gesture needs — captured
+   *  ONCE at the grab, off the picture the user actually grabbed. Null when no drag is live: the
+   *  press stays a plain barline selection. */
+  private barWidthDrag: { measure: number; room: BarWidthRoom } | null = null
+  /** SVG x at the grab. The gesture is horizontal only — the target is a barline, so unlike the
+   *  note drag there is no axis contest and no dominant-axis rule to run. */
+  private barWidthDragStartX = 0
+  private barWidthDragChanged = false
+  /** The casting-off the captured room describes (`MusicEngine.barWidthLineKey`). When the drag
+   *  re-wraps the system this changes, and the room has to be re-taken — see the drag handler. */
+  private barWidthDragLineKey: string | null = null
+  /** True once the press has left the dead zone; until then it is still just a click. */
+  private isDraggingBarWidth = false
 
   // --- Clef drag state (selection-tool drag, across slots and measures) ---
   private isDraggingClef = false
@@ -274,7 +289,16 @@ export class MouseController {
   private readonly DOUBLE_CLICK_MS = 400
 
   private readonly onDocMouseDown = () => { this.isMouseButtonDown = true }
-  private readonly onDocMouseUp = () => { this.isMouseButtonDown = false }
+  private readonly onDocMouseUp = () => {
+    this.isMouseButtonDown = false
+    // A bar-width drag is settled HERE as well as in the element's own handler, because a release
+    // outside the viewport never reaches that one — and this drag hides the pointer and holds an
+    // uncommitted preview, so being left armed is not a harmless leak: the score keeps re-sizing
+    // under the next mouse move with no button held, and the cursor stays invisible. Capture-phase,
+    // so it lands before `handleMouseUp`; whichever runs first clears the state and the other
+    // no-ops.
+    if (this.barWidthDrag) this.endBarWidthDrag()
+  }
 
   // Document-level pan drivers: attached for the duration of an armed pan so the gesture
   // keeps tracking movement and release even when the pointer leaves the viewport (the
@@ -1007,9 +1031,123 @@ export class MouseController {
 
     this.selection.selectNote(null)
     this.state.selectedBarlineMeasure = barlineAt.measure
+    this.armBarWidthDrag(ctx.engine, barlineAt.measure, x)
     dbg(`✓ Barline selected | ends measure:${barlineAt.measure}`)
     this.render.renderScore()
     return true
+  }
+
+  /**
+   * Arm a bar-width drag on the grabbed barline: capture the room ONCE, off the last render
+   * (docs/bar-width-plan.md §4–§6). Everything the gesture needs is fixed at this moment — the
+   * slope, the measured floor, the ceiling — because a stretch changes no bar's *intrinsic* width,
+   * so none of those terms move while the drag runs. That is what makes one capture correct rather
+   * than merely cheap.
+   *
+   * **Declines silently** (leaving a plain selection) only when the room cannot be measured at all.
+   *
+   * ⚠️ It used to decline on a PINNED barline too — the one ending a system, held at the right
+   * margin by justification, which cannot follow the pointer by any amount — on the reasoning that
+   * a drag unable to track its own cursor should not start. Reported from use: stretch a bar until
+   * it fills its system and it becomes **unshrinkable**, because from then on its barline is pinned
+   * and no drag would arm. A gesture you can get into and not out of is worse than one that lags.
+   * So it arms anyway and the room answers continuously (by the bar's own music rather than by its
+   * immovable barline); the moment that shrink re-wraps the system, `reanchorIfRewrapped` picks the
+   * tracking back up. Hiding the pointer for the gesture is what makes the untracked stretch
+   * unnoticeable rather than wrong-feeling.
+   */
+  private armBarWidthDrag(engine: MusicEngine, measure: number, x: number): void {
+    this.barWidthDrag = null
+    this.barWidthDragChanged = false
+    this.isDraggingBarWidth = false
+    const room = engine.barWidthRoom(measure)
+    if (!room) return
+    if (room.barlineSlope <= 0) {
+      dbg(`Bar width | bar ${measure} ends its system — its barline is pinned, so the drag moves the bar's own music`)
+    }
+    this.barWidthDrag = { measure, room }
+    this.barWidthDragStartX = x
+    this.barWidthDragLineKey = engine.barWidthLineKey(measure)
+  }
+
+  /**
+   * Bar-width drag: the grabbed barline follows the cursor, and the bar to its LEFT takes or gives
+   * up the room — with its music re-spaced proportionally, not pushed to one end.
+   *
+   * The px→stretch conversion is the room's own (`stretchForBarlineDelta`), which is why the
+   * barline lands under the pointer instead of somewhere short of it: widening a bar also shrinks
+   * its own justified share AND every bar's before it on the line. Continuous by contract — never
+   * the keyboard's `stretchForStep`, which is allowed to jump the casting-off.
+   *
+   * Returns true while the drag owns the move.
+   */
+  private handleBarWidthDrag(engine: MusicEngine, x: number): boolean {
+    // Armed-ness IS the guard: `barWidthDrag` is non-null only between the barline press and its
+    // release, exactly like the other gestures' own flags.
+    if (!this.barWidthDrag) return false
+    const dx = x - this.barWidthDragStartX
+    if (!this.isDraggingBarWidth) {
+      if (Math.abs(dx) < this.NOTE_DRAG_THRESHOLD_PX) return false // still a click
+      this.isDraggingBarWidth = true
+      // Hide the pointer for the gesture. The barline follows it exactly until the system
+      // re-wraps, and at that boundary the layout genuinely moves discontinuously — no arithmetic
+      // can keep the line under a cursor that is still visible beside it. With the pointer gone the
+      // barline IS the cursor, and the jump reads as the music re-flowing rather than as a slip.
+      const canvas = this.getScoreCanvas()
+      if (canvas) canvas.style.cursor = 'none'
+    }
+    const { measure, room } = this.barWidthDrag
+    const target = room.stretchForBarlineDelta(dx)
+    if (engine.previewBarWidth(measure, target, room.minStretch, room.maxStretch)) {
+      this.barWidthDragChanged = true
+      this.render.renderScore()
+      this.reanchorIfRewrapped(engine, measure, x)
+    }
+    return true
+  }
+
+  /**
+   * Re-take the room when the drag has RE-WRAPPED the system, and re-anchor to the pointer's
+   * current x.
+   *
+   * The captured room describes one casting-off: `T`, `P` and the slope are sums over the bars
+   * sharing the grabbed bar's line, and they hold only while that line holds the same bars. Push
+   * one onto the next system and the formula stops describing the picture — measured, the barline
+   * tracked the cursor to the pixel and then ran 21px ahead of it and stayed there, gaining more on
+   * every further re-wrap.
+   *
+   * The plan (§5) avoided this by refusing to re-wrap at all. A key press showed that to be the
+   * wrong trade — a gesture that seizes up at a boundary reads as broken — so the drag re-anchors
+   * instead: one jump at the boundary, which is honest (the layout really did change
+   * discontinuously, and every editor does it), then exact tracking again from wherever the barline
+   * landed. Cheap, too: this only re-reads on the frames where the system actually re-wrapped.
+   */
+  private reanchorIfRewrapped(engine: MusicEngine, measure: number, x: number): void {
+    const key = engine.barWidthLineKey(measure)
+    if (key === null || key === this.barWidthDragLineKey) return
+    const fresh = engine.barWidthRoom(measure)
+    if (!fresh) return
+    this.barWidthDrag = { measure, room: fresh }
+    this.barWidthDragStartX = x
+    this.barWidthDragLineKey = key
+    dbg(`Bar width | system re-wrapped mid-drag — re-anchored on bar ${measure} (slope ${fresh.barlineSlope.toFixed(3)})`)
+  }
+
+  /** Finish a bar-width drag: one undo entry if the barline actually moved, then reset. */
+  private endBarWidthDrag(): void {
+    if (this.barWidthDragChanged) {
+      const engine = this.getEngine()
+      if (engine && this.barWidthDrag) {
+        engine.commitBarWidth()
+        dbg(`Bar width set | bar ${this.barWidthDrag.measure} → ×${engine.getBarWidth(this.barWidthDrag.measure).toFixed(3)}`)
+      }
+    }
+    const canvas = this.getScoreCanvas()
+    if (canvas) canvas.style.cursor = ''
+    this.barWidthDrag = null
+    this.barWidthDragChanged = false
+    this.isDraggingBarWidth = false
+    this.barWidthDragLineKey = null
   }
 
   /**
@@ -1378,6 +1516,10 @@ export class MouseController {
     }
     if (this.isDraggingStaffSpacing) {
       this.endStaffSpacingDrag()
+    }
+    // Unconditional: an armed-but-never-moved press has state to clear too.
+    if (this.barWidthDrag) {
+      this.endBarWidthDrag()
     }
   }
 
@@ -2020,6 +2162,7 @@ export class MouseController {
     }
 
     // Live drag gestures — each returns true if it owns the move.
+    if (this.handleBarWidthDrag(engine, x)) return
     if (this.handleNoteDrag(engine, x, y)) return
     if (this.handleSlurHandleDrag(engine, x, y)) return
     if (this.handleSlurEndpointDrag(engine, x, y)) return

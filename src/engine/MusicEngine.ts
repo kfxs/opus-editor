@@ -1573,8 +1573,11 @@ export class MusicEngine {
           // threshold is just past it. Never backwards.
           return Math.max(stretch, stretchForWidth(available + HAIR))
         }
-        // The continuous answer for the same state is the honest one: no stretch moves this barline.
-        solveForBarlineDelta = () => stretch
+        // The continuous answer keeps moving — smoothly, and by the bar's own music rather than by
+        // its (immovable) barline. It must not freeze: a drag that reaches this state mid-gesture
+        // would otherwise be dead in the hand, with no way to pull the bar back down except letting
+        // go. It must not jump either; that is the keyboard's licence, not the mouse's.
+        solveForBarlineDelta = (d: number) => stretch + d / info.noteSpace!
       }
 
       const available = LAYOUT_CONFIG.CONTAINER_WIDTH - LAYOUT_CONFIG.MARGIN * 2
@@ -1615,6 +1618,27 @@ export class MusicEngine {
       minStretch: Math.max(BAR_STRETCH_MIN, layoutFloor, stretch - shrinkRoom / info.noteSpace),
       maxStretch,
     }
+  }
+
+  /**
+   * A cheap signature of the casting-off around this bar: which system it is on, and which bars
+   * share it. Two renders with the same key laid the same bars on the same line.
+   *
+   * The one thing a live bar-width drag must watch. Its captured room (`T`, `P`, the slope) is only
+   * valid while the line holds the same bars — so when a stretch pushes one onto the next system,
+   * the formula stops describing the picture and the barline slides out from under the pointer.
+   * §5 of the plan avoided this by refusing to re-wrap at all, which a key press showed to be the
+   * wrong trade; the drag re-anchors instead. Null when the last render cannot say.
+   */
+  barWidthLineKey(measureNumber: number): string | null {
+    const layout = this.renderer.getMeasureLayoutInfo()
+    const info = layout.get(measureNumber)
+    if (!info) return null
+    const line = [...layout.values()]
+      .filter(i => i.lineNumber === info.lineNumber)
+      .map(i => i.measureNumber)
+      .sort((a, b) => a - b)
+    return `${info.lineNumber}:${line[0]}-${line[line.length - 1]}`
   }
 
   /**
@@ -1704,6 +1728,35 @@ export class MusicEngine {
         `${room.capped ? ', line past the authored-space cap' : ''})`,
     )
     return stored
+  }
+
+  /**
+   * Live-set a bar's stretch during a drag: takes effect on screen, records **no** undo. Call
+   * {@link commitBarWidth} on drop for the single entry — the same preview/commit pair as
+   * `previewNoteSpacing` / `previewStaffSpacing`.
+   *
+   * The bounds are the caller's, captured once at grab ({@link barWidthRoom}) and applied verbatim
+   * rather than re-measured: the picture is moving under the gesture, and a floor that re-measures
+   * every frame creeps along with it.
+   *
+   * @returns true if the stored stretch changed — the caller's "did this drag do anything" flag.
+   */
+  previewBarWidth(measureNumber: number, stretch: number, minStretch: number, maxStretch: number): boolean {
+    const measure = this.scoreModel.getMeasure(measureNumber)
+    if (!measure) return false
+    const key = barWidthKey(measure.id)
+    const before = measureStretch(this.scoreModel.getScore(), measure.id)
+    const after = this.scoreModel.setBarWidth(key, Math.min(maxStretch, stretch), minStretch)
+    // A stretch re-runs the casting-off, unlike the weightless previews — the dirty flag is what
+    // makes the bar re-measure at all rather than just repaint.
+    this.markModelDirty()
+    return after !== before
+  }
+
+  /** Record one undo entry after a bar-width drag settles (a drag whose every frame went through
+   *  {@link previewBarWidth}). */
+  commitBarWidth(): void {
+    this.commitPreviewed('Bar width')
   }
 
   /** Drop the bar's authored stretch, back to the engraver's own width. One undo step.
