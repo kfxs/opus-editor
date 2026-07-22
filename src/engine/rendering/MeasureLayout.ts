@@ -297,6 +297,15 @@ function measureWidthParts(
   // 🔴 KNOWN-INCOMPLETE: this branch is better than the reserved model here and still does not
   // shrink an empty bar as far as it should — reported three times, postponed rather than solved.
   // See docs/bar-width-plan.md "Known issues" #1 before assuming the behaviour below is correct.
+  // ⭐ **A SHRINK lowers the bar's claim on the line; a GROWTH takes room from its neighbours.**
+  // Asymmetric on purpose, because the two gestures mean different things. "Make this bar wider" is
+  // a demand on the neighbours, so it is handed over as a transfer and they pay for it. "I need less
+  // of the system" is not a demand on anyone — it is the bar standing down, so its `naturalWidth`
+  // falls with it and the whole line re-shares. Treat a shrink as a transfer too and it arrives
+  // uselessly small: a bar handing back its 56px of note space still drew 230px, because its CLAIM
+  // had not moved. That was the original complaint about empty bars, and this is where it is
+  // answered — `naturalWidth` carries the shrink and does not carry the growth.
+  //
   // How far the bar may be FORCED, as against the `intrinsic` it asks for. One formula covers both
   // models: nothing below the overhead plus `MIN_NOTE_SPACING` per column is compressible. An empty
   // bar has one column, so it floors at `overhead + 18` — everything between that and its
@@ -315,7 +324,7 @@ function measureWidthParts(
       noteSpace: scalable, // what the multiplier multiplies, so px↔ratio still converts
       stretchScalesShare: true,
       floorWidth: floorOf(overhead + scaled),
-      naturalWidth: overhead + scalable + userSpace, // the same bar at stretch 1
+      naturalWidth: stretch >= 1 ? overhead + scalable + userSpace : overhead + scaled + userSpace,
     }
   }
 
@@ -327,7 +336,7 @@ function measureWidthParts(
     noteSpace,
     stretchScalesShare: false,
     floorWidth: floorOf(intrinsic),
-    naturalWidth: intrinsic + userSpace, // the stretch is the reserved part; drop it
+    naturalWidth: stretch >= 1 ? intrinsic + userSpace : intrinsic + userSpace + stretchSpace,
   }
 }
 
@@ -408,22 +417,22 @@ export function authoredScales(
  * is left, and the reserved amount is added back to the bar that authored it. The total still
  * lands exactly on `availableWidth`.
  *
- * Compression takes the same shape — but **not by one shared percentage, and not from every bar
- * equally.** The room comes out in tiers:
+ * ⭐ **Growth is a TRANSFER, not a smaller pot.** Reported, and the distinction is the whole
+ * feature: "we don't want to auto-shrink bars that have music because of another bar's width
+ * action unless it is really necessary". Shrinking the pot everyone shares makes every bar on the
+ * line lose in lockstep — measured, a bar of music gave up 9px while the empty bars beside it still
+ * had 64px of give each. So the line is computed TWICE:
  *
- * 1. **Empty bars first**, down to `floorWidth`. An empty bar's width is a default
- *    (`MIN_MEASURE_WIDTH`) rather than something its content asked for, so it is the room the line
- *    can spare at no cost to any music. Space is taken from silence before it is taken from notes.
- * 2. **Then bars with music**, in proportion to the slack each still has above its own floor — a bar
- *    already at `MIN_NOTE_SPACING` per column contributes nothing while a roomy one pays.
- * 3. **Only then everyone, by ratio**, which is where the crowding warning belongs (it used to fire
- *    on any 30% squeeze, including ones paid for entirely out of empty bars).
+ * 1. **The baseline** — where every bar would sit if nobody had touched a width (`naturalWidth`).
+ *    Proportional, exactly as it always was, so a page with no gesture on it is unchanged.
+ * 2. **The transfer** — each grown bar is handed its growth, and that many pixels are taken back
+ *    from the others in priority order: **spare empty bars first**, down to `floorWidth`; bars with
+ *    music only once the silence is exhausted; a uniform squeeze only if even that is not enough.
  *
- * ⚠️ This branch is reachable ONLY because pass 1 lets a line that is claiming room over-commit
- * (see {@link calculateMeasureWidths}). Without that it is dead code — `Σ minWidth ≤ available` is
- * algebraically the slack condition, and a first attempt at these tiers was measured to fire zero
- * times across the whole suite before pass 1 was taught to over-commit. If that admission rule ever
- * goes back to being unconditional, this goes dead again.
+ * So a bar of music does not move at all while any empty bar on its line still has room to give.
+ * A *shrink* runs the same machinery backwards — and arrives undiluted, which the old proportional
+ * model could not do (an empty bar pushed to its floor still drew ~87px because justification handed
+ * a share of the surplus straight back).
  */
 function distributeLineWidths(
   measureInfos: MeasureWidthInfo[],
@@ -431,65 +440,106 @@ function distributeLineWidths(
 ): void {
   if (measureInfos.length === 0) return
 
-  const { userScale, stretchScale } = authoredScales(measureInfos, availableWidth)
-  const reserved = measureInfos.reduce(
-    (sum, m) => sum + (m.userSpace ?? 0) * userScale + (m.stretchSpace ?? 0) * stretchScale,
-    0,
-  )
-  const justifyTarget = availableWidth - reserved
+  // Dead gaps (leading spaces) are still reserved off the top and handed back whole — they are not
+  // part of the transfer, because a space is room the bar genuinely needs rather than room it has
+  // claimed from anyone.
+  const { userScale } = authoredScales(measureInfos, availableWidth)
+  const userOf = (m: MeasureWidthInfo) => (m.userSpace ?? 0) * userScale
+  const room = availableWidth - measureInfos.reduce((sum, m) => sum + userOf(m), 0)
 
-  const authoredOf = (m: MeasureWidthInfo) => (m.userSpace ?? 0) * userScale + (m.stretchSpace ?? 0) * stretchScale
-  const intrinsicOf = (m: MeasureWidthInfo) => m.minWidth - (m.userSpace ?? 0) - (m.stretchSpace ?? 0)
-  const totalIntrinsic = measureInfos.reduce((sum, m) => sum + intrinsicOf(m), 0)
-  if (totalIntrinsic <= 0) return
+  // ── 1. The baseline: the line with every gesture taken back out ────────────────────────────────
+  const naturalOf = (m: MeasureWidthInfo) => (m.naturalWidth ?? m.minWidth) - (m.userSpace ?? 0)
+  const totalNatural = measureInfos.reduce((sum, m) => sum + naturalOf(m), 0)
+  if (totalNatural <= 0) return
+  // `natural × room / total` IS the old formula written shorter: `n + (room − T)·n/T` collapses to
+  // it. So an untouched line comes out pixel-identical to what it always did, in both directions
+  // (this one expression replaces the old squeeze/stretch branch pair).
+  const widths = new Map(measureInfos.map(m => [m, naturalOf(m) * room / totalNatural]))
 
-  if (totalIntrinsic >= justifyTarget) {
-    const widths = new Map(measureInfos.map(m => [m, intrinsicOf(m)]))
+  // ── 2. The transfer: hand out the growth, then take it back from the others ───────────────────
+  const growthOf = (m: MeasureWidthInfo) => (m.minWidth - (m.userSpace ?? 0)) - naturalOf(m)
+  let debt = 0
+  for (const info of measureInfos) {
+    const growth = growthOf(info)
+    if (growth === 0) continue
+    widths.set(info, widths.get(info)! + growth)
+    debt += growth
+  }
+
+  // `growthOf` is never negative — a shrink rides `naturalWidth` and is already in the baseline —
+  // so there is only ever a debt to collect, never a surplus to hand back.
+  if (debt > 1e-9) {
     const floorOf = (m: MeasureWidthInfo) => Math.min(widths.get(m)!, m.floorWidth ?? 0)
+    /** A grown bar never pays: being wide is the thing that was asked for. */
+    const untouched = measureInfos.filter(m => growthOf(m) <= 1e-9)
 
     // Take `want` px from one group, in proportion to each bar's slack above its own floor. Because
-    // the shares are slack-proportional no bar is ever driven below its floor here — it stops
-    // exactly there. Returns what could NOT be taken, for the next tier down.
+    // the shares are slack-proportional, no bar is driven below its floor here — it stops exactly
+    // there. Returns what could NOT be taken, for the next tier down.
     const takeFrom = (group: MeasureWidthInfo[], want: number): number => {
-      if (want <= 0) return 0
+      if (want <= 1e-9) return 0
       const slack = group.map(m => Math.max(0, widths.get(m)! - floorOf(m)))
-      const available = slack.reduce((s, v) => s + v, 0)
-      if (available <= 0) return want
-      const taken = Math.min(want, available)
-      group.forEach((m, i) => widths.set(m, widths.get(m)! - taken * (slack[i] / available)))
+      const total = slack.reduce((sum, v) => sum + v, 0)
+      if (total <= 0) return want
+      const taken = Math.min(want, total)
+      group.forEach((m, i) => widths.set(m, widths.get(m)! - taken * (slack[i] / total)))
       return want - taken
     }
 
-    // The classifier is the layout's own: `stretchScalesShare` is set from `isEmptyBar`, a
-    // STRUCTURAL question about the bar's content — never a measured width (see its doc for why
-    // that distinction has already bitten once).
-    // ⚠️ Tier 1 is empty bars the user has NOT grown. A grown bar is never tier-1 fodder however
-    // empty it is — being wide is the thing that was asked for, and an empty bar's growth lives in
-    // its intrinsic (`stretchScalesShare`), so it would otherwise be the FIRST thing squeezed away.
-    const spare = measureInfos.filter(m => m.stretchScalesShare && !claimsRoom(m))
-    let want = takeFrom(spare, totalIntrinsic - justifyTarget)
-    want = takeFrom(measureInfos.filter(m => !spare.includes(m)), want)
-
+    // ⚠️ Tier 1 is empty bars NOBODY GREW. The classifier is the layout's own —
+      // `stretchScalesShare` comes from `isEmptyBar`, a STRUCTURAL question about content, never a
+      // measured width (see its doc for why that has already bitten once). A grown bar is excluded
+      // however empty it is: its growth lives in its own intrinsic, so it would otherwise be the
+      // first thing squeezed away and would undo itself.
+    const silence = untouched.filter(m => m.stretchScalesShare)
+    let want = takeFrom(silence, debt)
+    want = takeFrom(untouched.filter(m => !m.stretchScalesShare), want)
+    // Nothing on the line has anything left to give and it still does not fit. NOW the line is
+    // genuinely crowded, which is what makes this warning mean something — it used to fire on any
+    // 30% squeeze, including ones paid for entirely out of empty bars.
     if (want > 1e-6) {
-      const remaining = measureInfos.reduce((s, m) => s + widths.get(m)!, 0)
+      const remaining = measureInfos.reduce((sum, m) => sum + widths.get(m)!, 0)
       const ratio = remaining > 0 ? Math.max(0, (remaining - want) / remaining) : 0
       if (ratio < 0.7) {
         console.warn(`Severe measure compression (${(ratio * 100).toFixed(0)}%) on line - measures may be crowded`)
       }
       for (const info of measureInfos) widths.set(info, widths.get(info)! * ratio)
     }
-
-    for (const info of measureInfos) {
-      info.finalWidth = widths.get(info)! + authoredOf(info)
-    }
-  } else {
-    // Have extra space - distribute proportionally
-    const extraSpace = justifyTarget - totalIntrinsic
-    for (const info of measureInfos) {
-      const proportion = intrinsicOf(info) / totalIntrinsic
-      info.finalWidth = intrinsicOf(info) + (extraSpace * proportion) + authoredOf(info)
-    }
   }
+
+  for (const info of measureInfos) {
+    info.finalWidth = widths.get(info)! + userOf(info)
+  }
+}
+
+/**
+ * Who pays for the NEXT pixel that `growingMeasure` grows by, and what fraction of it each pays.
+ * Keyed by measure number; the shares sum to 1 (or the map is empty when the line has nothing left
+ * to give).
+ *
+ * Exported because `MusicEngine.barWidthRoom` has to inverse this to answer "how far must the
+ * stretch travel to move the barline by `d` px". ONE definition, two readers — the alternative is
+ * the gesture and the layout disagreeing about the same line, which is exactly what a barline
+ * sliding out from under the pointer looks like. It mirrors the tiers in {@link
+ * distributeLineWidths} marginally: whichever tier still has slack is the one paying right now.
+ */
+export function growthPayerShares(
+  line: MeasureWidthInfo[],
+  growingMeasure: number,
+): Map<number, number> {
+  const slackOf = (m: MeasureWidthInfo) =>
+    Math.max(0, m.finalWidth - (m.userSpace ?? 0) - (m.floorWidth ?? 0))
+  // A bar the user has already grown never pays, and neither does the bar being grown right now.
+  const untouched = line.filter(m => m.measureNumber !== growingMeasure && !claimsRoom(m))
+  const silence = untouched.filter(m => m.stretchScalesShare)
+  const tier = silence.reduce((sum, m) => sum + slackOf(m), 0) > 1e-9
+    ? silence
+    : untouched.filter(m => !m.stretchScalesShare)
+  const total = tier.reduce((sum, m) => sum + slackOf(m), 0)
+  const shares = new Map<number, number>()
+  if (total <= 1e-9) return shares
+  for (const m of tier) shares.set(m.measureNumber, slackOf(m) / total)
+  return shares
 }
 
 /**

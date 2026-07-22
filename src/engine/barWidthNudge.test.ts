@@ -67,14 +67,26 @@ describe('MusicEngine.barWidthRoom', () => {
     expect(room.barlineSlope).toBe(0)
   })
 
-  it('answers on a bar that is not last on its line, with a slope strictly between 0 and 1', () => {
+  it('answers on a bar mid-line, with a slope strictly between 0 and 1', () => {
     bars(8)
-    const room = engine.barWidthRoom(lineOfBarOne()[0])!
+    const line = lineOfBarOne()
+    expect(line.length).toBeGreaterThan(2) // a middle bar must exist for this to assert anything
+    const room = engine.barWidthRoom(line[1])!
     expect(room).not.toBeNull()
     expect(room.barlineSlope).toBeGreaterThan(0)
     expect(room.barlineSlope).toBeLessThan(1)
     expect(room.noteSpace).toBeGreaterThan(0)
     expect(room.stretch).toBe(1)
+  })
+
+  it('…and on the FIRST bar of a line the slope is exactly 1 — everything that pays sits right of it', () => {
+    // Growth is a transfer now: the bars that give the room up are chosen by content, not by
+    // position, and for the opening bar every one of them is to its right. So nothing slides its
+    // barline back and it moves by precisely what was asked. Under the old proportional model the
+    // bar shrank its own justified share too, so it always moved less — the promise §4 exists to
+    // make was the one thing it could not quite keep.
+    bars(8)
+    expect(engine.barWidthRoom(lineOfBarOne()[0])!.barlineSlope).toBe(1)
   })
 
   it('on the FIRST bar of a line the two slopes coincide — nothing sits left of it to slide', () => {

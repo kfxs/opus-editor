@@ -92,6 +92,78 @@ position-keyed client already has and not this feature's to fix.
 
 ---
 
+## 1.5 ⭐ SUPERSEDED at P1.5 — a bar has THREE widths, and growth is a TRANSFER
+
+Everything below this point describes the model as planned. Three rounds of use replaced its
+centre, so read §2–§5 through this section. Written after the fact, from what was measured rather
+than from what was expected.
+
+### A bar has three widths, and collapsing any two of them breaks the page
+
+| | what it is | what it decides |
+|---|---|---|
+| `naturalWidth` | what the bar asks for **ungrown** | **how many bars fit a system** |
+| `minWidth` | what it asks for now | its share of the line |
+| `floorWidth` | overhead + `MIN_NOTE_SPACING` per column | how far it can be **forced** |
+
+Each wrong collapse was shipped and reported back, so each is worth stating as a trap:
+
+- Cast off on `minWidth` ⇒ a grown bar shoves a neighbour onto the next system *before* anything
+  gives way.
+- Cast off on `floorWidth` ⇒ a grown bar **recruits** bars onto its line. Measured: 23 empty bars
+  where 9 belong.
+- Lower the *asked-for* width to make bars give way ⇒ **the whole page goes permanently narrow**.
+  Measured: 14 empty bars to a system at 63px, against 9 at 103px. Reported as *"the default width is
+  like maximum-shrinking… that should apply only if the bars are FORCED to it because another is
+  growing."*
+
+Capacity is therefore measured **growth-blind**, and pass 1 lets a line holding a growing bar
+over-commit: the neighbours are squeezed first, and the system re-wraps only when even their floors
+will not hold it.
+
+### Growth is a transfer; a shrink is not
+
+`distributeLineWidths` computes the line **twice**. First a baseline — where every bar would sit if
+nobody had touched a width (`naturalWidth`, proportional, exactly as before, so an untouched page is
+pixel-identical). Then the transfer: each grown bar is handed its growth, and that many pixels are
+taken back in priority order — **spare empty bars first**, down to `floorWidth`; bars with music only
+once the silence is spent; a uniform squeeze only if even that is not enough.
+
+This is what §3's "shrink the pot everyone shares" could not do. Under it every bar on the line lost
+in lockstep: measured, a bar of music gave up 9px while the empty bars beside it still had 64px of
+give each. Reported as *"we don't want to auto-shrink bars that have music because of another bar's
+width action unless it is really necessary."* Now it does not move at all until they are at their
+floor:
+
+```
+x1:  1m=185  2e=111 3e=111  4m=111  5e=111 …
+x4:  1m=401  2e=75  3e=75   4m=111  5e=75  …     ← the music bar has not moved
+x8:  1m=688  2e=37  3e=37   4m=89   5e=37  …     ← empties at floor, now it pays
+```
+
+⚠️ **A SHRINK is deliberately NOT a transfer.** Growing says "give me room from my neighbours";
+shrinking says "I need less of the system" — which is not a demand on anyone, so the bar's
+`naturalWidth` falls with it and the whole line re-shares. Making both directions transfers was
+tried and is wrong: a bar handing back its 56px of note space still drew 230px, because its *claim*
+had not moved. That is the original empty-bar complaint, and this asymmetry is where it is answered.
+
+### What this deletes
+
+- **§2's empty-bar `stretchScalesShare` split** survives only as the *classifier* (which bars are
+  spare, and which model reports `noteSpace`). The two branches no longer behave differently under
+  justification — growth is `noteSpace × (stretch − 1)` in **both**.
+- **§4's hyperbola is gone.** Because growth is one linear term in both models, the slope IS the
+  exact inverse; there is nothing to solve, and the "←← then →→ leaves the bar 9px narrower"
+  irreversibility it existed to fix cannot arise. `barWidthRoom` and the justifier share one
+  exported definition of who pays (`growthPayerShares`), so they cannot drift.
+- **§4's inversion is now exact on the first bar of a line** — slope 1, because every bar that pays
+  sits to its right. Under the proportional model the bar shrank its own share too, so it always
+  moved slightly less than asked: the one promise §4 could not quite keep.
+- **§3's `stretchSpace` pool** no longer drives justification (`userSpace` still does — a dead gap
+  is reserved off the top and is not part of any transfer).
+
+---
+
 ## 2. Width — one more term, and one line of difference
 
 `measureWidthParts` (`MeasureLayout.ts:200`) returns `{ minWidth, userSpace }` today. It gains a
@@ -369,23 +441,26 @@ which on the whole-line model is the system. That is inherent to the feature, no
 Written down at the end of P1 rather than fixed, by decision. Nothing below is a mystery about what
 *should* happen; they are open about how.
 
-1. **An empty bar still does not shrink enough — the real one, and it is NOT solved.** Reported
-   three times, and the last fix (the share model, §2) is visibly better in a test and still not
-   enough in the app. So there is something wrong in the logic that the measurements above did not
-   catch. ⚠️ Do not re-read §2 as a description of working behaviour. Where to start: reproduce in
-   the **browser**, not jsdom — the last bug here was a classifier that consulted a formatter-
-   measured width, which is stubbed to zero under test (green suite, dead feature). The console
-   names the branch on every press (`[empty bar: scales its share]` / `[has music: reserved
-   space]`); confirm that first, then whether `finalWidth` actually falls.
-2. **A shrink should take it out of the EMPTY bars first.** On a line mixing empty and music-bearing
-   bars, the room should come from the empty ones before anything squeezes real music — an
-   engraving preference, not just an interaction one. Today the justifier squeezes every bar in
-   proportion to its intrinsic width and does not know the difference. Enhancement, deferred.
+1. ✅ **CLOSED at P1.5 — "an empty bar does not shrink enough".** Reported three times, and the
+   cause was never in the shrink logic: `MIN_MEASURE_WIDTH` clamped *every* bar, so a bar holding
+   one whole rest claimed as much of the line as a bar of four quarters and justification could not
+   tell them apart. A default was reading as a claim. See §1.5 — and note that the first two fixes
+   for this were both wrong in instructive ways.
+2. ✅ **CLOSED at P1.5 — "a shrink should take it out of the EMPTY bars first".** Now the rule, via
+   the transfer in §1.5. ⚠️ It does NOT live where this issue assumed. A tiered version of
+   `distributeLineWidths`' compression branch was built first and measured to fire **zero times**
+   across the whole suite: pass 1 admits a bar only while `Σ minWidth ≤ available`, which is
+   algebraically the slack condition, so that branch was unreachable. It became live only once pass
+   1 was taught to over-commit a line that holds a growing bar. If that admission rule is ever made
+   unconditional again, the tiers go dead again with no test failing.
 3. **The keyboard step is fine-grained to a fault.** ~36 presses to walk a bar across a system, and
    an empty bar's whole shrink range is ~3 (the multiplier has far less room below 1 than above it).
+   Still open at P1.5.
    A coarse modifier — or a step proportional to the bar's own range — is the obvious answer; the
    multiplier was left alone because guessing it is worse than asking.
-4. **Pushing a bar back DOWN a system can cost a second press.** The alone-on-its-system threshold
+4. **Pushing a bar back DOWN a system can cost a second press.** Still true at P1.5, with a second
+   cause on top of the one below: a line now squeezes before it wraps, so there is more to push
+   through on the way out. Measured at exactly 2 presses. The alone-on-its-system threshold
    (§5) aims conservatively, because the bar below is measured as a line-opener and carries a full
    clef it stops paying once it moves up; the jump assumes the worst case so it always clears. Out
    and back is 1:1, out-again is sometimes 2.

@@ -326,9 +326,30 @@ describe('bar width — asked-for vs forced (§3)', () => {
     stretch(model, 1, 4)
     const after = widthsOf()
     const lost = (n: number) => before.get(n)!.finalWidth - after.get(n)!.finalWidth
+    // The empty bars pay the WHOLE bill and the bar of music does not move at all. Not "pays less" —
+    // pays nothing, which is the point: "we don't want to auto-shrink bars that have music because
+    // of another bar's width action unless it is really necessary". It only starts paying once
+    // every empty bar on the line is at its floor (the test below).
     expect(lost(2)).toBeGreaterThan(0)
-    expect(lost(4)).toBeGreaterThan(0)
-    expect(lost(2)).toBeGreaterThan(lost(4) * 2) // silence pays first, and pays much more
+    expect(lost(4)).toBeCloseTo(0, 6)
+  })
+
+  it('⭐ …and a bar of music DOES pay once the silence is spent', () => {
+    const model = new ScoreModel()
+    while (model.getScore().measures.length < 8) model.addMeasure()
+    for (const m of [1, 4]) {
+      for (const beat of [0, 1, 2, 3]) {
+        model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: fracCreate(beat, 1) } as NoteParams)
+      }
+    }
+    const widthsOf = () => calculateMeasureWidths(model.getScore(), clefs(model.getScore()))
+    const before = widthsOf()
+    stretch(model, 1, 8) // hard enough to drive every empty bar on the line to its floor
+    const after = widthsOf()
+    if (after.get(4)!.lineNumber !== after.get(1)!.lineNumber) return // re-wrapped; nothing to assert
+    const empties = [2, 3, 5, 6, 7].map(n => after.get(n)!).filter(i => i.lineNumber === after.get(1)!.lineNumber)
+    expect(empties.every(i => i.finalWidth <= i.floorWidth! + 1)).toBe(true)
+    expect(after.get(4)!.finalWidth).toBeLessThan(before.get(4)!.finalWidth)
   })
 
   it('an authored leading space is NOT a claim: it still re-wraps instead of squeezing', () => {

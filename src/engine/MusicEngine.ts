@@ -2,8 +2,8 @@ import { dbg } from '@/utils/debug'
 import { ScoreModel, type ClipDynamicInput, type ClipSlurInput } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barWidthKey, measureStretch, BAR_STRETCH_MIN, BAR_STRETCH_MAX, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
-import type { ViewMode, GutterState, GutterStaffState, MeasureWidthInfo } from './rendering/layoutConfig'
-import { authoredScales } from './rendering/MeasureLayout'
+import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
+import { authoredScales, growthPayerShares } from './rendering/MeasureLayout'
 import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
@@ -1481,52 +1481,31 @@ export class MusicEngine {
     } else {
       const layout = this.renderer.getMeasureLayoutInfo()
       const line = [...layout.values()].filter(i => i.lineNumber === info.lineNumber)
-      const intrinsicOf = (m: MeasureWidthInfo) => m.minWidth - (m.userSpace ?? 0) - (m.stretchSpace ?? 0)
-      const total = line.reduce((s, m) => s + intrinsicOf(m), 0)
-      if (total <= 0) return null
-      const upTo = line
+
+      // ⭐ Growth is a **TRANSFER** (MeasureLayout.distributeLineWidths): the bar is handed its
+      // growth whole, and the same number of pixels is taken back from the others in tier order —
+      // spare empty bars first, music only once the silence is spent. So the bar's own width tracks
+      // the gesture 1:1, and the barline moves by whatever the payers SITTING BEFORE IT give up.
+      //
+      // Two things fall out, and both are simplifications of what stood here. Growth is
+      // `noteSpace × (stretch − 1)` in BOTH width models — the empty bar's share model and the
+      // reserved one — so ONE formula covers them where there used to be a branch. And it is
+      // LINEAR, so the slope is the exact inverse: the hyperbola the share model needed (and the
+      // "press ←← then →→ and the bar ends up narrower" problem it existed to solve) is gone.
+      const shares = growthPayerShares(line, measureNumber)
+      // Nobody left with anything to give: the line cannot absorb another pixel, so no stretch
+      // changes the picture — the same state a bar alone on its system is in, and handled below.
+      const canPay = shares.size > 0
+      const upToShare = line
         .filter(m => m.measureNumber <= measureNumber)
-        .reduce((s, m) => s + intrinsicOf(m), 0)
-
-      if (info.stretchScalesShare) {
-        // An EMPTY bar's stretch moves its own INTRINSIC (its claim on the line), so `T` is a
-        // function of the thing being solved for and the additive slopes above do not apply.
-        // With `x = I(m)`, `T = T_others + x` and `U` the line's reserved space:
-        //   finalWidth(k) = I(k)·(A − U)/T + u(k)
-        //   barline after m = margin + (A − U)·P(x)/T + Σ_{k≤m} u(k),  P(x) = P_others + x
-        // Differentiating in x — both quotients, same denominator — gives a closed form again:
-        //   d(barline)/dx = (A − U)·(T − P)/T²
-        //   d(width  )/dx = (A − U)·(T − I(m))/T²
-        // which collapses to the additive `1 − P/T` when the line is exactly justified
-        // (`A − U = T`), as it must: the two models describe the same picture at rest.
-        const available = LAYOUT_CONFIG.CONTAINER_WIDTH - LAYOUT_CONFIG.MARGIN * 2
-        const reserved = line.reduce((s, m) => s + (m.userSpace ?? 0) + (m.stretchSpace ?? 0), 0)
-        const room = available - reserved
-        const own = intrinsicOf(info)
-        barlineSlope = Math.max(0, room * (total - upTo) / (total * total))
-        widthSlope = Math.max(0, room * (total - own) / (total * total))
-
-        // The exact inverse, not the slope. With `x` this bar's own intrinsic, the barline sits at
-        // `room · (Pₒ + x)/(Tₒ + x)` — a hyperbola — so moving it by `d` means solving
-        // `f(x₁) = f(x₀) + d/room` for x₁ rather than stepping along the tangent. Both are the same
-        // to first order; only this one is REVERSIBLE, and a nudge you cannot undo with the opposite
-        // key is worse than one that moves a little too far.
-        const restT = total - own       // Tₒ — the line without this bar
-        const restP = upTo - own        // Pₒ — the line up to it, without it
-        solveForBarlineDelta = (d: number) => {
-          if (barlineSlope <= 1e-6 || room <= 0) return stretch + d / info.noteSpace!
-          const g = (restP + own) / (restT + own) + d / room
-          if (g >= 1 - 1e-9) return BAR_STRETCH_MAX // asks for more line than there is; clamped later
-          const solved = (g * restT - restP) / (1 - g)
-          return stretch + (solved - own) / info.noteSpace!
-        }
-      } else {
-        barlineSlope = Math.max(0, 1 - upTo / total)
-        widthSlope = Math.max(0, 1 - intrinsicOf(info) / total)
-        // Linear in the authored term (that is §4's whole point), so the slope IS the exact inverse.
-        if (barlineSlope > 1e-6) {
-          solveForBarlineDelta = (d: number) => stretch + d / barlineSlope / info.noteSpace!
-        }
+        .reduce((sum, m) => sum + (shares.get(m.measureNumber) ?? 0), 0)
+      // Snapped, not just clamped: `1 − Σshares` lands on 1.1e-16 rather than 0 for a bar whose
+      // payers all sit before it (the system-ending barline), and "pinned" has to read as pinned.
+      const slope = canPay ? 1 - upToShare : 0
+      barlineSlope = Math.abs(slope) < 1e-9 ? 0 : Math.max(0, slope)
+      widthSlope = canPay ? 1 : 0
+      if (barlineSlope > 1e-6) {
+        solveForBarlineDelta = (d: number) => stretch + d / barlineSlope / info.noteSpace!
       }
 
       // ⚠️ **A bar ALONE on its system: a KEY PRESS steps to the next casting-off threshold.**
