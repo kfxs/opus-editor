@@ -712,6 +712,69 @@ export class HighlightController {
     }
   }
 
+  /**
+   * Highlight the selected barline — the line that ends `state.selectedBarlineMeasure`.
+   *
+   * Painted on EVERY staff of that measure, like the time signature's highlight and for the same
+   * reason: one barline, stated once for the system, drawn once per staff. (The staves are joined
+   * only at the left edge of a system — `StaveConnector('singleLeft')` — so these per-staff
+   * segments are all the ink there is.)
+   *
+   * Recoloured inside each measure's own `<g>`, never by a document-wide bbox scan: VexFlow opens
+   * a group per barline (`openGroup('stavebarline')` — ⚠️ it PREFIXES, so the class is
+   * `vf-stavebarline`), and the ink inside is 1px `<rect>`s laid down with `fillRect`.
+   *
+   * ⚠️ **One barline on screen is TWO drawn rects.** Every measure draws a barline at BOTH ends, so
+   * the line between bars N and N+1 is bar N's *end* barline and bar N+1's *begin* barline at the
+   * identical x. Colouring only the first is invisible: the later measure's group is appended after,
+   * so its black rect paints straight over the orange one and all that survives is a faint shadow.
+   * Both halves are the same barline, so both get recoloured — and the next measure's half only
+   * when it really is coincident (at a line break the next bar's begin barline is the opening of
+   * the NEXT system, a different line entirely).
+   */
+  applyBarlineSelectionHighlight(): void {
+    const engine = this.getEngine()
+    const measure = this.state.selectedBarlineMeasure
+    if (!engine || measure === null) return
+
+    const staffCount = engine.getScore().staves?.length ?? 1
+    for (let staff = 0; staff < staffCount; staff++) {
+      // Culled / never-drawn measures have no group — nothing on screen to recolour.
+      const inMeasure = this.barlineGroups(engine.getMeasureSVGGroup(measure, staff))
+      const ending = inMeasure[inMeasure.length - 1]
+      if (!ending) continue
+      this.recolorBarline(ending.group)
+
+      // The next bar's opening half of the SAME line — coincident to the pixel, or it is a
+      // different barline (line break) and must be left alone.
+      const opening = this.barlineGroups(engine.getMeasureSVGGroup(measure + 1, staff))[0]
+      if (opening && Math.abs(opening.x - ending.x) <= 1) this.recolorBarline(opening.group)
+    }
+  }
+
+  /** A measure group's barline groups with their drawn x, left to right (empty for a null group). */
+  private barlineGroups(group: SVGGElement | null): { group: Element; x: number }[] {
+    if (!group) return []
+    const found: { group: Element; x: number }[] = []
+    for (const barline of group.querySelectorAll('g.vf-stavebarline')) {
+      // The leftmost rect is the line itself; a thick end bar adds a second one beside it.
+      const xs = [...barline.querySelectorAll('rect')]
+        .map(r => Number(r.getAttribute('x')))
+        .filter(Number.isFinite)
+      if (xs.length) found.push({ group: barline, x: Math.min(...xs) })
+    }
+    return found.sort((a, b) => a.x - b.x)
+  }
+
+  private recolorBarline(group: Element): void {
+    const SELECTION_COLOR = '#F59E0B'
+    group.querySelectorAll('rect').forEach(rect => {
+      this.setAttr(rect, 'fill', SELECTION_COLOR)
+      this.setStyleProp(rect, 'fill', SELECTION_COLOR)
+    })
+    this.addClass(group, 'selected-barline')
+  }
+
   applyTupletSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()

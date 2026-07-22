@@ -106,6 +106,7 @@ export class PaletteController {
     this.state.selectedClefMeasure = null
     this.state.selectedClefBeat = null
     this.state.selectedTimeSignatureMeasure = null
+    this.state.selectedBarlineMeasure = null
     this.state.selectedDynamicId = null
     this.state.selectedTempoId = null
     this.state.selectedTool = 'entry'
@@ -1357,6 +1358,7 @@ export class PaletteController {
     this.state.selectedBeam = DEFAULT_BEAM
     this.disarmPositionalTools()
     this.state.selectedTimeSignatureMeasure = null
+    this.state.selectedBarlineMeasure = null
     this.state.selectedDynamicId = null
   }
 

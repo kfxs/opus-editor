@@ -180,6 +180,13 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
     })
   }
 
+  // A barline is the one selectable thing with NO object behind it at all: the measures are the
+  // barline spine, so the selection is a boundary. Reported as the measure it closes, which is the
+  // whole of its identity (and the address a barline TYPE would eventually be stored at).
+  if (state.selectedBarlineMeasure !== null) {
+    out.push({ kind: 'barline', data: { endsMeasure: state.selectedBarlineMeasure } })
+  }
+
   // A measure range is a selection of MEASURES, not of anything inside them — the box the user drew.
   if (state.selectedMeasureRange) {
     out.push({

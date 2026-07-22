@@ -24,6 +24,8 @@ export type SelectionItem =
   | { kind: 'accidental'; noteId: string; type: string }
   | { kind: 'clef'; measure: number; beat: number }
   | { kind: 'timeSignature'; measure: number }
+  /** The line that ENDS this measure — a boundary, not an object (see EditorState.selectedBarlineMeasure). */
+  | { kind: 'barline'; measure: number }
 
 export type SelectionKind = SelectionItem['kind']
 
@@ -51,6 +53,8 @@ export function itemKey(item: SelectionItem): string {
       return `clef:${item.measure}:${item.beat}`
     case 'timeSignature':
       return `timeSignature:${item.measure}`
+    case 'barline':
+      return `barline:${item.measure}`
   }
 }
 

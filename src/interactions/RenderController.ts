@@ -33,6 +33,7 @@ export class RenderController {
     this.highlight.applyTieHighlight()
     this.highlight.applyClefSelectionHighlight()
     this.highlight.applyTimeSignatureSelectionHighlight()
+    this.highlight.applyBarlineSelectionHighlight()
     this.highlight.applyDynamicSelectionHighlight()
     this.highlight.applyDynamicAnchorLine()
     this.highlight.applyTempoSelectionHighlight()

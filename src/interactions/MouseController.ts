@@ -548,6 +548,7 @@ export class MouseController {
     this.state.selectedClefMeasure = null
     this.state.selectedClefBeat = null
     this.state.selectedTimeSignatureMeasure = null
+    this.state.selectedBarlineMeasure = null
     this.state.selectedDynamicId = null
     this.state.selectedTempoId = null
     this.state.selectedMeasureRange = null
@@ -566,6 +567,10 @@ export class MouseController {
     // press that a neighbouring glyph could claim. It still precedes the note itself — a dot's box
     // is outside the head, so it can only take clicks that would otherwise select the note.
     if (this.handleDotMouseDown(ctx)) return
+    // The barline last of all: its box has to be padded to be clickable at 4px, and that pad
+    // reaches into the last column of the bar — so every glyph that could own the click gets
+    // asked first, and the note itself is guarded for inside the handler.
+    if (this.handleBarlineMouseDown(ctx)) return
     this.handleNoteOrEmptyMouseDown(ctx)
   }
 
@@ -973,6 +978,36 @@ export class MouseController {
     this.state.selectedTimeSignatureMeasure = timeSigAt.measure
     const isDefault = timeSigAt.measure === 1
     dbg(`✓ Time signature selected | measure:${timeSigAt.measure}${isDefault ? ' (measure 1 default: delete hides the glyph, meter kept)' : ' (delete reverts to prior meter + rebars)'}`)
+    this.render.renderScore()
+    return true
+  }
+
+  /**
+   * Select the barline that ENDS a measure.
+   *
+   * Registered per (measure, staff) — the ink is drawn once per staff — but selected as ONE
+   * system-wide thing (`selectedBarlineMeasure`), so whichever staff the click lands on, the whole
+   * line is what gets picked. See EditorState.selectedBarlineMeasure for why that is the identity.
+   */
+  private handleBarlineMouseDown(ctx: MouseDownCtx): boolean {
+    const { registry, x, y, closestElement } = ctx
+    // The registered box is 4px wide (it straddles the drawn line) — not a clickable target on its
+    // own, so widen it horizontally. NOT vertically: the box is exactly the five staff lines, and a
+    // click in the gap between two staves is on no barline at all.
+    const pad = 4
+    const barlineAt = registry.getByType('barline').find(el => {
+      const b = el.bbox
+      return x >= b.x - pad && x <= b.x + b.width + pad && y >= b.y && y <= b.y + b.height
+    }) ?? null
+    if (barlineAt?.measure === undefined) return false
+
+    // Never steal a click that lands on a note/rest body — the bar's last column sits close to the
+    // barline, and the pad above reaches into it.
+    if (closestElement && registry.hitsNoteOrRestBody(closestElement, x, y)) return false
+
+    this.selection.selectNote(null)
+    this.state.selectedBarlineMeasure = barlineAt.measure
+    dbg(`✓ Barline selected | ends measure:${barlineAt.measure}`)
     this.render.renderScore()
     return true
   }

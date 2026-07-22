@@ -66,6 +66,7 @@ export class SelectionController {
     this.state.selectedClefMeasure = null
     this.state.selectedClefBeat = null
     this.state.selectedTimeSignatureMeasure = null
+    this.state.selectedBarlineMeasure = null
     this.state.selectedMeasureRange = null
   }
 

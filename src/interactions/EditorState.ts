@@ -381,6 +381,18 @@ export interface EditorState {
    *  tool (the meter waiting to be placed). */
   selectedTimeSignatureMeasure: number | null
 
+  // --- Barline ---
+  /**
+   * The measure whose ENDING barline is selected (selection tool); null if none.
+   *
+   * Positional, and with no staff, because a barline has no object in the model at all: the
+   * `measures` array IS the barline spine, so what is selected is a BOUNDARY — "the line that ends
+   * measure N". And it is one line per system, not per staff: a barline is a system-wide statement
+   * like the time signature (which is why the highlight paints every staff of the measure), unlike
+   * a clef, which each staff states for itself.
+   */
+  selectedBarlineMeasure: number | null
+
   // --- Measure box selection ---
   /** The contiguous run of measures outlined by the Sibelius-style blue double box
    *  (Ctrl+Shift+click on empty space inside a bar); null if none. `anchor`/`focus` hold
@@ -498,6 +510,7 @@ export function createEditorState(): EditorState {
     selectedClefBeat: null,
     selectedClefStaff: 0,
     selectedTimeSignatureMeasure: null,
+    selectedBarlineMeasure: null,
     selectedMeasureRange: null,
     selectedMeasureStaff: 0,
     selectedMeasureBoxStyle: 'double',
