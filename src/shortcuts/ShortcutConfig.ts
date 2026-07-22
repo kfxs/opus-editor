@@ -364,6 +364,13 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     ]),
   ),
 
+  // Symbols: the SMuFL chart. Sibelius's own key for it, and a REFERENCE window — unlike Q and T
+  // above, opening it arms nothing and changes nothing on the score (docs/symbols-window-plan.md).
+  'z': {
+    action: 'openSymbolsWindow',
+    description: 'Open the Symbols window — the SMuFL glyph chart',
+  },
+
   // Stem direction
   'x': { action: 'flipStemDirection', description: 'Flip: selected slur/tie/tuplet side, articulation side, else note stem direction' },
 

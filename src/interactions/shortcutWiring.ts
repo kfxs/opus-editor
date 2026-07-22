@@ -14,6 +14,7 @@ import { beatToFrac } from '../utils/musicUtils'
 import { selectedArticulationNoteIds } from './selection'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
+import { toggleSymbolsWindow } from '../windows/symbols'
 import { openTimeSignatureWindow } from '../windows/timeSignatureWindow'
 
 /**
@@ -198,6 +199,11 @@ export function wireShortcuts(
     // T — the same action as Insert ▸ Time Signature; reaches the window layer directly, like Q.
     openTimeSignatureWindow: () => {
       openTimeSignatureWindow(windows)
+    },
+    // Z — the Symbols chart. A TOGGLE, not an open: it is a panel you consult and dismiss with the
+    // same key, and it has nothing to commit, so there is no dialog verdict to make Escape mean.
+    openSymbolsWindow: () => {
+      toggleSymbolsWindow(windows)
     },
     // Ctrl+Alt+T — the tempo twin; branch lives in MouseController.insertTempo.
     insertTempoOnSelection: () => insertTempo(),

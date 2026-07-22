@@ -1,6 +1,6 @@
 # Opus Score Editor
 
-A music score editor built with Vue, VexFlow, and WebAudioFont.
+A music score editor built with VexFlow and WebAudioFont.
 
 Work in progress — this is an experiment under development.
 
