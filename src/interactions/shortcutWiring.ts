@@ -441,6 +441,8 @@ export function wireShortcuts(
       // Armed slur point / selected dynamic → fine nudge right instead of navigating.
       if (nudgeArmedSlurPoint(NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedDynamic(NUDGE_FINE_SS, 0)) return
+      // A selected BARLINE walks to the next one — same dispatch-on-selection as Shift+Alt+←/→.
+      if (selection.navigateBarline(1)) return
       if (state.selectedTool === 'entry') {
         dbg(`[Nav] ArrowRight in entry mode → switching to selection`)
         palette.disarmPositionalTools()
@@ -454,6 +456,7 @@ export function wireShortcuts(
       // Armed slur point / selected dynamic → fine nudge left instead of navigating.
       if (nudgeArmedSlurPoint(-NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedDynamic(-NUDGE_FINE_SS, 0)) return
+      if (selection.navigateBarline(-1)) return
       if (state.selectedTool === 'entry') {
         dbg(`[Nav] ArrowLeft in entry mode → switching to selection`)
         palette.disarmPositionalTools()

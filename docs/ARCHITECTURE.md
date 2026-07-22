@@ -117,6 +117,7 @@ holds a *rule*, it is in the wrong file.
 | Which tool/duration/accidental is armed | `interactions/PaletteController.ts` |
 | Adding a 9th marking tool (clef/dynamic/stamp/…) | `EditorState.MarkingTool` + build: the compiler names every site — see `docs/marking-tools.md` |
 | How notation is drawn to SVG | `engine/rendering/VexFlowRenderer.ts` |
+| Marking something as selected on screen | `interactions/HighlightController.ts` — ⭐ **PAINT a mark (`addNode`), don't recolour engraved ink.** A recolour inherits every renderer detail: how many elements a mark is made of, which group owns them, and whether their coordinates are still true (a REUSED measure carries a `translate`, so its rects' own x is stale). See `docs/barline-selection.md` §3 for the four bugs that came of it |
 | Hit-testing / "what element is at (x,y)" | `engine/ElementRegistry.ts` |
 | Pixel ↔ beat/pitch conversion | `engine/rendering/CoordinateMapper.ts` (+ `ElementRegistry`) |
 | Scroll / zoom / viewport | `engine/ViewportModel.ts` (pure), `interactions/ViewportHost.ts` (DOM) |

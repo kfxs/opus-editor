@@ -423,6 +423,52 @@ export class SelectionController {
   }
 
   /**
+   * ←/→ on a selected BARLINE walks to the previous/next one.
+   *
+   * Dispatched on WHAT IS SELECTED, the same way `Shift+Alt+←/→` is note spacing on a note and bar
+   * width on a barline (docs/bar-width-plan.md §6). A barline selection and a note selection are
+   * disjoint — picking a barline clears the note first — so this is a guard on the arrow handlers,
+   * not a mode.
+   *
+   * **A barline is named by the measure it ENDS**, so walking them is walking measure numbers: the
+   * one after bar `n` is the one ending bar `n + 1`. That is the whole navigation, and it is why
+   * this needs no geometry — the identity is positional (`EditorState.selectedBarlineMeasure`).
+   *
+   * ⚠️ **Clamps at both ends rather than deselecting.** Note navigation drops the selection when it
+   * runs off the end, which suits it: a note is one of thousands and losing it costs a click. There
+   * are far fewer barlines and you are usually holding one *because you are working on it* — width,
+   * mostly, where each press is one of many. Silently letting go at the edge would throw that away
+   * for a keystroke that meant "no further".
+   *
+   * Re-renders rather than repainting: the barline highlight is applied in RenderController's
+   * post-render pass, which is also what clears the previous one — same path a click takes.
+   *
+   * @returns true when a barline was selected and the key belongs to this gesture (including at the
+   * ends, where it is consumed and nothing moves).
+   */
+  navigateBarline(direction: number): boolean {
+    const engine = this.getEngine()
+    const current = this.state.selectedBarlineMeasure
+    if (!engine || current === null) return false
+
+    const last = engine.getScore().measures.length
+    const target = Math.min(last, Math.max(1, current + direction))
+    if (target === current) {
+      dbg(`[Nav] barline ${direction > 0 ? '→' : '←'} — already at the ${direction > 0 ? 'last' : 'first'} barline`)
+      return true
+    }
+
+    this.state.selectedBarlineMeasure = target
+    dbg(`[Nav] barline ${direction > 0 ? '→' : '←'} → ends measure:${target}`)
+    this.renderScore()
+    // Tier-1 geometry, so it answers for bars that virtualization has never drawn — which is
+    // exactly when scrolling matters. See getScrollRectForNote's note on the same fallback.
+    const rect = engine.getMeasureRect(target)
+    if (rect) this.ensureVisible(rect)
+    return true
+  }
+
+  /**
    * Navigate within a chord by pitch (up/down). Clamped at top/bottom note.
    * Scoped to the selected note's OWN voice — in a multi-voice bar this must not walk
    * into the other voice's noteheads at the same beat (that's navigateVoice's job).

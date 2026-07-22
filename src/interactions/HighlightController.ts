@@ -715,65 +715,72 @@ export class HighlightController {
   /**
    * Highlight the selected barline — the line that ends `state.selectedBarlineMeasure`.
    *
-   * Painted on EVERY staff of that measure, like the time signature's highlight and for the same
+   * ⭐ **PAINTED, not recoloured** — and that distinction is the whole history of this method.
+   * Recolouring means drawing the score black, then hunting down VexFlow's own `<rect>`s and
+   * changing their `fill`. Every failure it had was a *finding* failure, never a painting one:
+   *
+   *  - One barline on screen is TWO drawn rects (bar N's end and bar N+1's begin at the same x),
+   *    so colouring one left the other black, painting over the orange.
+   *  - Reaching into bar N+1's group for the second half does not always find it there.
+   *  - ⚠️ And the coordinates lie. A render that REUSES a measure it did not redraw moves it with
+   *    a `translate` on the group (`VexFlowRenderer.replaySnapshot`); the rects keep the numbers
+   *    they were drawn with. So the two halves of one barline could compare hundreds of pixels
+   *    apart — which is why this only misbehaved on bars whose width had been changed (exactly when
+   *    neighbours move without being redrawn), and why an export/import round-trip "fixed" it: a
+   *    fresh score redraws everything, so nothing carries a transform.
+   *
+   * Painting sidesteps all of it. The registry knows where the barline is — `noteEndX`, offset-
+   * corrected when a measure was moved (`addAll(elements, dx, dy)`), which is precisely the number
+   * the DOM attributes get wrong — so we draw our own mark there and never touch VexFlow's nodes.
+   * Removal is deleting a node (`addNode` logs it), not replaying a colour.
+   *
+   * Drawn on EVERY staff of that measure, like the time signature's highlight and for the same
    * reason: one barline, stated once for the system, drawn once per staff. (The staves are joined
-   * only at the left edge of a system — `StaveConnector('singleLeft')` — so these per-staff
-   * segments are all the ink there is.)
-   *
-   * Recoloured inside each measure's own `<g>`, never by a document-wide bbox scan: VexFlow opens
-   * a group per barline (`openGroup('stavebarline')` — ⚠️ it PREFIXES, so the class is
-   * `vf-stavebarline`), and the ink inside is 1px `<rect>`s laid down with `fillRect`.
-   *
-   * ⚠️ **One barline on screen is TWO drawn rects.** Every measure draws a barline at BOTH ends, so
-   * the line between bars N and N+1 is bar N's *end* barline and bar N+1's *begin* barline at the
-   * identical x. Colouring only the first is invisible: the later measure's group is appended after,
-   * so its black rect paints straight over the orange one and all that survives is a faint shadow.
-   * Both halves are the same barline, so both get recoloured — and the next measure's half only
-   * when it really is coincident (at a line break the next bar's begin barline is the opening of
-   * the NEXT system, a different line entirely).
+   * only at the left edge of a system, so these per-staff segments are all the ink there is.)
    */
   applyBarlineSelectionHighlight(): void {
     const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
     const measure = this.state.selectedBarlineMeasure
-    if (!engine || measure === null) return
+    if (!engine || !scoreCanvas || measure === null) return
 
+    const svg = scoreCanvas.querySelector('svg')
+    if (!svg) return
+
+    const registry = engine.getElementRegistry()
     const staffCount = engine.getScore().staves?.length ?? 1
-    for (let staff = 0; staff < staffCount; staff++) {
-      // Culled / never-drawn measures have no group — nothing on screen to recolour.
-      const inMeasure = this.barlineGroups(engine.getMeasureSVGGroup(measure, staff))
-      const ending = inMeasure[inMeasure.length - 1]
-      if (!ending) continue
-      this.recolorBarline(ending.group)
-
-      // The next bar's opening half of the SAME line — coincident to the pixel, or it is a
-      // different barline (line break) and must be left alone.
-      const opening = this.barlineGroups(engine.getMeasureSVGGroup(measure + 1, staff))[0]
-      if (opening && Math.abs(opening.x - ending.x) <= 1) this.recolorBarline(opening.group)
-    }
-  }
-
-  /** A measure group's barline groups with their drawn x, left to right (empty for a null group). */
-  private barlineGroups(group: SVGGElement | null): { group: Element; x: number }[] {
-    if (!group) return []
-    const found: { group: Element; x: number }[] = []
-    for (const barline of group.querySelectorAll('g.vf-stavebarline')) {
-      // The leftmost rect is the line itself; a thick end bar adds a second one beside it.
-      const xs = [...barline.querySelectorAll('rect')]
-        .map(r => Number(r.getAttribute('x')))
-        .filter(Number.isFinite)
-      if (xs.length) found.push({ group: barline, x: Math.min(...xs) })
-    }
-    return found.sort((a, b) => a.x - b.x)
-  }
-
-  private recolorBarline(group: Element): void {
+    // Just wide enough to cover the engraved line under it (1px, 2 for a thick end bar), so the
+    // result reads as an orange barline rather than an orange fringe around a black one. Any wider
+    // and the selected barline looks heavier than every other line on the page, which reads as the
+    // music changing rather than as a selection.
+    const WIDTH = 2
     const SELECTION_COLOR = '#F59E0B'
-    group.querySelectorAll('rect').forEach(rect => {
-      this.setAttr(rect, 'fill', SELECTION_COLOR)
-      this.setStyleProp(rect, 'fill', SELECTION_COLOR)
-    })
-    this.addClass(group, 'selected-barline')
+
+    for (let staff = 0; staff < staffCount; staff++) {
+      // Culled / never-drawn measures have no geometry — nothing on screen to mark.
+      const geometry = registry.getStaffGeometry(measure, staff)
+      if (!geometry) continue
+
+      const top = geometry.lineYPositions[0]
+      const bottom = geometry.lineYPositions[4]
+      const mark = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+      mark.setAttribute('x', String(geometry.noteEndX - (WIDTH - 1) / 2))
+      mark.setAttribute('y', String(top))
+      mark.setAttribute('width', String(WIDTH))
+      mark.setAttribute('height', String(Math.max(0, bottom - top)))
+      mark.setAttribute('fill', SELECTION_COLOR)
+      // ⚠️ **`stroke: none`, stated — not left unsaid.** An SVG element INHERITS `stroke`, and the
+      // score's root carries a black one, so a rect that declares only its fill comes out orange
+      // inside a black outline. Painting the stroke orange instead fixes the colour but not the
+      // weight: a stroke straddles the edge, adding half its width to each side, which made the
+      // selected barline visibly fatter than every other line on the page. The mark's width is the
+      // whole of its geometry this way, and `WIDTH` means what it says.
+      mark.setAttribute('stroke', 'none')
+      mark.setAttribute('class', 'selected-barline')
+      this.addNode(svg, mark)
+    }
   }
+
 
   applyTupletSelectionHighlight(): void {
     const engine = this.getEngine()
