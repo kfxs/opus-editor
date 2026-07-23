@@ -1108,15 +1108,19 @@ export class VexFlowRenderer {
       const sortedAll = [...measure.slots].sort((a, b) => fracCompare(a.beat, b.beat))
 
       // Group slots by model voice (0 = primary). With more than one voice, engrave
-      // them as independent streams (Sibelius-style): V1 (voice 0) stems up, V2
-      // (voice 1) stems down, and rests are pushed apart so they don't collide.
+      // them as independent streams (Sibelius-style) by voice PARITY: odd voices
+      // (V1/V3, model 0/2) stems up, even voices (V2/V4, model 1/3) stems down, and
+      // the two lanes' rests are pushed apart so they don't collide. (Distinct
+      // per-voice rest lanes for 3+ voices are a follow-up — for now V3 shares V1's
+      // up-lane and V4 shares V2's down-lane.)
       const REST_LINE_SHIFT = 2
       const voiceIds = [...new Set(sortedAll.map(s => s.voice ?? 0))].sort((a, b) => a - b)
       const multiVoice = voiceIds.length > 1
       const groups = voiceIds.map(v => {
         const slots = sortedAll.filter(s => (s.voice ?? 0) === v)
-        const forcedStem = multiVoice ? (v === 0 ? 1 : -1) : undefined
-        const restShift = multiVoice ? (v === 0 ? REST_LINE_SHIFT : -REST_LINE_SHIFT) : 0
+        const stemUp = v % 2 === 0
+        const forcedStem = multiVoice ? (stemUp ? 1 : -1) : undefined
+        const restShift = multiVoice ? (stemUp ? REST_LINE_SHIFT : -REST_LINE_SHIFT) : 0
         // notesOnly: one StaveNote per slot (used for beams, tuplets, registration). The
         // resolver adds each rest's manual vertical shift (if any) on top of the voice base.
         const restShiftFor = (slot: ChordRest): number =>

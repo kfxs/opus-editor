@@ -334,8 +334,8 @@ export const TUPLET_LOCATION_BELOW = -1
  *   1. An explicit `placement` override (e.g. set by the `x` flip) always wins.
  *   2. With multiple voices, the bracket follows the voice's stem side so the
  *      voices' brackets spread to the outer edges instead of colliding in the
- *      middle: voice 0 (primary, stems up) → above, lower voices (stems down)
- *      → below.
+ *      middle: stems-up voices (V1/V3, model 0/2) → above, stems-down voices
+ *      (V2/V4, model 1/3) → below.
  *   3. With a single voice, fall back to the stem-derived default.
  *
  * @param placement - Explicit override, or undefined for auto
@@ -352,16 +352,17 @@ export function resolveTupletLocation(
 ): number {
   if (placement === 'above') return TUPLET_LOCATION_ABOVE
   if (placement === 'below') return TUPLET_LOCATION_BELOW
-  if (multiVoice) return voice === 0 ? TUPLET_LOCATION_ABOVE : TUPLET_LOCATION_BELOW
+  if (multiVoice) return voice % 2 === 0 ? TUPLET_LOCATION_ABOVE : TUPLET_LOCATION_BELOW
   return singleVoiceFallback
 }
 
 /**
- * The "outer" bracket side for a voice in a multi-voice measure: voice 0 brackets
- * outward above, lower voices outward below (mirrors the forced stem directions).
+ * The "outer" bracket side for a voice in a multi-voice measure: stems-up voices
+ * (V1/V3, model 0/2) bracket outward above, stems-down voices (V2/V4, model 1/3)
+ * outward below (mirrors the forced stem directions).
  */
 export function outerTupletLocation(voice: number): number {
-  return voice === 0 ? TUPLET_LOCATION_ABOVE : TUPLET_LOCATION_BELOW
+  return voice % 2 === 0 ? TUPLET_LOCATION_ABOVE : TUPLET_LOCATION_BELOW
 }
 
 /** Per-note stem geometry needed to place a tuplet bracket next to its own notes. */

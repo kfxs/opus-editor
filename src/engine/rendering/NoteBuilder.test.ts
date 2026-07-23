@@ -26,13 +26,14 @@ describe('resolveTupletLocation', () => {
     expect(resolveTupletLocation('below', true, 0, TUPLET_LOCATION_ABOVE)).toBe(TUPLET_LOCATION_BELOW)
   })
 
-  it('multi-voice: primary voice (0) bracket goes above', () => {
+  it('multi-voice: stems-up voices (V1/V3, model 0/2) bracket above', () => {
     expect(resolveTupletLocation(undefined, true, 0, FALLBACK)).toBe(TUPLET_LOCATION_ABOVE)
+    expect(resolveTupletLocation(undefined, true, 2, FALLBACK)).toBe(TUPLET_LOCATION_ABOVE)
   })
 
-  it('multi-voice: lower voices bracket goes below', () => {
+  it('multi-voice: stems-down voices (V2/V4, model 1/3) bracket below', () => {
     expect(resolveTupletLocation(undefined, true, 1, TUPLET_LOCATION_ABOVE)).toBe(TUPLET_LOCATION_BELOW)
-    expect(resolveTupletLocation(undefined, true, 2, TUPLET_LOCATION_ABOVE)).toBe(TUPLET_LOCATION_BELOW)
+    expect(resolveTupletLocation(undefined, true, 3, TUPLET_LOCATION_ABOVE)).toBe(TUPLET_LOCATION_BELOW)
   })
 
   it('single voice: uses the stem-derived fallback', () => {

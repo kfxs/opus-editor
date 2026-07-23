@@ -257,6 +257,14 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'setActiveVoice2',
     description: 'Enter notes into voice 2',
   },
+  'Alt+3': {
+    action: 'setActiveVoice3',
+    description: 'Enter notes into voice 3',
+  },
+  'Alt+4': {
+    action: 'setActiveVoice4',
+    description: 'Enter notes into voice 4',
+  },
 
   // Clipboard
   'Ctrl+c': {

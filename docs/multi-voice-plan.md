@@ -2,6 +2,12 @@
 
 Status: **PLANNED (not started). Settled 2026-06-22.**
 
+> **Update 2026-07-23 — voices 3 & 4 shipped.** The 2-voice work below shipped, and voices 3 & 4
+> were then enabled on top of it. See **§13 Voices 3 & 4** at the end for exactly what changed and
+> what's still deferred (per-voice rest lanes). The rest of this document describes the original
+> 2-voice pass and stays accurate — the 3–4 extension only generalised the "voice 0 vs the rest"
+> branches to **voice parity**.
+
 Add a **second voice** to the editor: independent rhythmic streams within a bar, Sibelius-style.
 Scope this first pass to **2 voices** (the data model already supports 4 — see below — but UI, colors,
 stem-defaults and the renderer caveat all favour proving it with two first; 3–4 is a later extension).
@@ -234,5 +240,46 @@ Span elements (ties, slurs) brought up to the same multi-voice standard the note
   [grand-staff voices #332](https://github.com/0xfe/vexflow/issues/332).
 - Sibelius / MuseScore voice conventions: V1 blue / V2 green, V1&3 up / V2&4 down, per-voice rests only
   with multiple voices, Alt+number / Ctrl+Alt+number to assign.
+
+---
+
+## 13. Voices 3 & 4 (shipped 2026-07-23)
+
+Enabled the model's remaining two voices on top of the 2-voice pass. **No model changes** — every
+mutator, rebar, collision, dynamics and playback path already keyed on `voice ?? 0`, and the render
+loop already iterated the *actual* set of voice ids. The only thing that assumed "exactly two" was a
+handful of **`voice === 0 ? … : …`** direction branches and two `1|2` type spots. All generalised to
+**voice parity** (`voice % 2 === 0`), which is the cross-program rule:
+
+| Voice | Model index | Colour | Stem |
+|---|---|---|---|
+| V1 | 0 | blue `#3B82F6` | up |
+| V2 | 1 | green `#10B981` | down |
+| V3 | 2 | orange `#F97316` | up |
+| V4 | 3 | purple `#8B5CF6` | down |
+
+Sibelius, MuseScore and Dorico all use this identical colour mapping and the odd-up / even-down stem
+rule.
+
+**Touch points (all one-liners):**
+- `utils/voiceColors.ts` — added orange (V3) and purple (V4) fill/stroke.
+- `interactions/EditorState.ts` — `activeVoice: 1|2|3|4`; `activeVoiceToModel`/`modelVoiceToActive`
+  generalised (± 1, clamped 0–3) instead of the 2-way branch.
+- `shortcuts/ShortcutConfig.ts` + `interactions/shortcutWiring.ts` — `Alt+3`/`Alt+4` →
+  `palette.setActiveVoice(3|4)` (same enter-into / move-selection-to-voice path as Alt+1/2).
+- `interactions/PaletteController.ts` — `setActiveVoice(voice: 1|2|3|4)`.
+- `engine/rendering/VexFlowRenderer.ts` — `forcedStem`/`restShift` key on `v % 2` (stems-up = even
+  model index).
+- `engine/rendering/NoteBuilder.ts` (tuplet bracket side), `TieRenderer.ts`, `SlurRenderer.ts` —
+  direction defaults flipped from `voice === 0` to `voice % 2 === 0`.
+- Keypad already rendered V1–V4 + All buttons (`keypadLayouts.ts VOICES`); V3/V4 now show their real
+  colours via `voiceFillColor(i)`. (The keypad's own `this.voice` is still **not** wired to editor
+  entry — pre-existing open item; use Alt+1..4 to pick the entry voice.)
+
+**Deferred — per-voice rest lanes (Phase 2).** Rest separation is still the binary up/down split from
+the 2-voice pass, applied by parity: V3 shares V1's up-lane, V4 shares V2's down-lane. So a bar with
+rests in *both* V1 and V3 (or V2 and V4) overlaps them. Four genuinely distinct rest lanes is a layout
+design decision (even Sibelius uses fixed offsets, not true collision avoidance) — do it as its own
+pass once 3–4 voices are seen on screen. The knob is `REST_LINE_SHIFT` in `VexFlowRenderer.renderMeasure`.
 </content>
 </invoke>

@@ -1322,7 +1322,7 @@ export class PaletteController {
   }
 
   /**
-   * Choose the active voice (Sibelius-style; palette buttons + Alt+1/Alt+2).
+   * Choose the active voice (Sibelius-style; palette buttons + Alt+1..Alt+4).
    *
    * In selection mode with a selection, a voice press MOVES the selected note(s)
    * into that voice (Sibelius Alt+1/2-on-selection) — preserving their ids so
@@ -1330,7 +1330,7 @@ export class PaletteController {
    * for note entry: with nothing selected, flip to entry mode (mirrors the
    * duration/accidental tools).
    */
-  setActiveVoice(voice: 1 | 2): void {
+  setActiveVoice(voice: 1 | 2 | 3 | 4): void {
     this.state.activeVoice = voice
     dbg(`[Voice] active voice → ${voice}`)
 

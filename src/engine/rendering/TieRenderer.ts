@@ -48,15 +48,16 @@ export function getTieDirection(notePitch: NotePitch, beat: Fraction, measure: M
     ) ?? measure.slots.find(s => s.type === 'chord' && fracEq(s.beat, beat))
   ) as Chord | undefined
 
-  // Multi-voice default: a tie follows its VOICE's outer side so the two voices'
-  // ties never collide in the middle — upper voice (V1) curves UP, lower voices
-  // (V2) curve DOWN — regardless of the pitch's staff position. Mirrors the forced
-  // stem / articulation side / tuplet-bracket rule (Gould). The pitch-based rule
-  // below only applies when the bar has a single voice. (`x` override handled above.)
+  // Multi-voice default: a tie follows its VOICE's outer side so the voices'
+  // ties never collide in the middle — stems-up voices (V1/V3, model 0/2) curve
+  // one way, stems-down voices (V2/V4, model 1/3) the other — regardless of the
+  // pitch's staff position. Mirrors the forced stem / articulation side /
+  // tuplet-bracket rule (Gould). The pitch-based rule below only applies when the
+  // bar has a single voice. (`x` override handled above.)
   const voiceCount = new Set(measure.slots.map(s => s.voice ?? 0)).size
   if (voiceCount > 1) {
     const voice = chordAtBeat?.voice ?? 0
-    return voice === 0 ? -1 : 1
+    return voice % 2 === 0 ? -1 : 1
   }
 
   const thisDiatonic = spellingDiatonicPos(notePitch.step, notePitch.octave)

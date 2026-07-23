@@ -212,6 +212,8 @@ export function wireShortcuts(
     },
     setActiveVoice1: () => palette.setActiveVoice(1),
     setActiveVoice2: () => palette.setActiveVoice(2),
+    setActiveVoice3: () => palette.setActiveVoice(3),
+    setActiveVoice4: () => palette.setActiveVoice(4),
     copySelection: () => clipboard.copy(),
     pasteClipboard: () => clipboard.paste(),
     // Ctrl+E — the same action as Insert ▸ Text ▸ Expression. The branch (attach-and-edit vs

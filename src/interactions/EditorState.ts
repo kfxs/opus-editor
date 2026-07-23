@@ -305,11 +305,12 @@ export interface EditorState {
   // --- Palette ---
   /**
    * The voice notes are entered into (Sibelius-style). Voice 1 is the default and
-   * always present in every bar; voice 2 is the optional second stream. Resets to
-   * `1` on selection-clear / fresh entry. (The model supports 1–4 voices; the UI
-   * exposes 2 for now.)
+   * always present in every bar; voices 2–4 are the optional extra streams. Resets
+   * to `1` on selection-clear / fresh entry. Voices follow the cross-program
+   * convention: 1 blue / 2 green / 3 orange / 4 purple, odd voices stems-up and
+   * even voices stems-down.
    */
-  activeVoice: 1 | 2
+  activeVoice: 1 | 2 | 3 | 4
   /**
    * The staff (0-based index into `Score.staves`) that entry/nav target — the multi-staff
    * analogue of {@link activeVoice}, but a raw model index (staff 0 is the default, always
@@ -467,22 +468,23 @@ export interface EditorState {
 }
 
 /**
- * Map the 1-based UI active voice (`1`|`2`, Sibelius display convention) to the
- * 0-based model voice (`0`|`1`). The model's primary/default stream is voice 0 —
- * every existing note is voice 0 — so UI "Voice 1" is model voice 0 and UI
- * "Voice 2" is model voice 1.
+ * Map the 1-based UI active voice (`1`–`4`, Sibelius display convention) to the
+ * 0-based model voice (`0`–`3`). The model's primary/default stream is voice 0 —
+ * every existing note is voice 0 — so UI "Voice 1" is model voice 0, "Voice 2" is
+ * model voice 1, and so on.
  */
-export function activeVoiceToModel(activeVoice: 1 | 2): 0 | 1 {
-  return (activeVoice - 1) as 0 | 1
+export function activeVoiceToModel(activeVoice: 1 | 2 | 3 | 4): 0 | 1 | 2 | 3 {
+  return (activeVoice - 1) as 0 | 1 | 2 | 3
 }
 
 /**
  * Inverse of {@link activeVoiceToModel}: map a 0-based model voice back to the
- * 1-based UI active voice. Only voices 0/1 are editable today, so anything else
- * clamps into that range (voice 0 → UI "Voice 1").
+ * 1-based UI active voice. Voices 0–3 are editable; anything outside clamps into
+ * that range (voice 0 → UI "Voice 1", voice ≥3 → UI "Voice 4").
  */
-export function modelVoiceToActive(voice: number | undefined): 1 | 2 {
-  return (voice ?? 0) >= 1 ? 2 : 1
+export function modelVoiceToActive(voice: number | undefined): 1 | 2 | 3 | 4 {
+  const clamped = Math.min(Math.max(voice ?? 0, 0), 3)
+  return (clamped + 1) as 1 | 2 | 3 | 4
 }
 
 export function createEditorState(): EditorState {

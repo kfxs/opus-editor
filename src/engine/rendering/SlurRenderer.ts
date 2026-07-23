@@ -325,7 +325,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
       ? new Set(fromMeasureData.slots.map(s => s.voice ?? 0)).size > 1
       : false
     const autoDir = multiVoice
-      ? (slurVoice === 0 ? -1 : 1)
+      ? (slurVoice % 2 === 0 ? -1 : 1)
       : ((fromInfo.staveNote.getStemDirection?.() ?? -1) === 1 ? 1 : -1)
     const direction = slur.placement === 'below' ? 1
       : slur.placement === 'above' ? -1
