@@ -2,6 +2,8 @@ import type { Widget } from '../content/Widget'
 import { selectionInspection } from '../../interactions/selectionInspection'
 import type { SelectedElement } from '../../interactions/selectionSnapshot'
 import { noteOffsetSelection } from '../../interactions/noteOffsetSelection'
+import { articulationStemAlignSelection } from '../../interactions/articulationStemAlignSelection'
+import type { ArticulationType } from '../../types/music'
 
 /**
  * What is selected, as the model holds it.
@@ -107,6 +109,11 @@ export class PropertiesWidget implements Widget {
         const id = (element.data as { id?: string; missing?: boolean }).id
         if (id && !(element.data as { missing?: boolean }).missing) {
           body.appendChild(this.buildOffsetInput(id, currentNoteOffset(element)))
+          // Only meaningful when the note carries an articulation (the flag moves stem-side marks).
+          const artics = (element.data as { articulations?: ArticulationType[] }).articulations
+          if (element.kind === 'note' && artics?.length) {
+            body.appendChild(this.buildStemAlignCheckbox(id, currentStemAlign(element)))
+          }
         }
       }
 
@@ -177,6 +184,54 @@ export class PropertiesWidget implements Widget {
     })
     input.addEventListener('change', commit)
     row.appendChild(input)
+
+    // A little reset: publish offset 0 through the same seam (the controller turns it into the nudge
+    // back to centre). Kept next to the input so "put this note back" is one click, not a retype.
+    const reset = document.createElement('button')
+    reset.type = 'button'
+    reset.textContent = 'reset'
+    reset.title = 'Reset offset to 0'
+    const bs = reset.style
+    bs.font = 'inherit'
+    bs.color = BISHOP
+    bs.background = 'transparent'
+    bs.border = `1px solid ${BISHOP}`
+    bs.borderRadius = '2px'
+    bs.padding = '1px 6px'
+    bs.cursor = 'pointer'
+    reset.addEventListener('click', () => {
+      input.value = '0'
+      noteOffsetSelection.set(noteId, 0)
+    })
+    row.appendChild(reset)
+    return row
+  }
+
+  /**
+   * The "align to stem" toggle for a note's articulations. A checkbox: checked = stem-side marks
+   * align to the stem (modern), unchecked = notehead (traditional default). Publishes `{id, align}`
+   * to {@link articulationStemAlignSelection}; the controller holds the engine, the window does not.
+   */
+  private buildStemAlignCheckbox(noteId: string, current: boolean): HTMLElement {
+    const row = document.createElement('label')
+    const rs = row.style
+    rs.display = 'flex'
+    rs.alignItems = 'center'
+    rs.gap = '6px'
+    rs.color = BISHOP
+    rs.margin = '0 0 4px'
+    rs.cursor = 'pointer'
+
+    const input = document.createElement('input')
+    input.type = 'checkbox'
+    input.checked = current
+    input.style.accentColor = BISHOP
+    input.addEventListener('change', () => articulationStemAlignSelection.set(noteId, input.checked))
+    row.appendChild(input)
+
+    const label = document.createElement('span')
+    label.textContent = 'align to stem'
+    row.appendChild(label)
     return row
   }
 }
@@ -186,6 +241,11 @@ export class PropertiesWidget implements Widget {
 function currentNoteOffset(element: SelectedElement): number {
   const entry = element.overrides?.find((o) => o.kind === 'noteOffset') as { x?: number } | undefined
   return entry?.x ?? 0
+}
+
+/** The note's current articulation stem-align state (false when unset), read from its own object. */
+function currentStemAlign(element: SelectedElement): boolean {
+  return (element.data as { articulationStemAlign?: boolean }).articulationStemAlign === true
 }
 
 /**

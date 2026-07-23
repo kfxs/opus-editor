@@ -1384,18 +1384,24 @@ export class VexFlowRenderer {
    * `getModifierStartXY` base x. See docs/note-offset-plan.md.
    */
   private applyNoteOffsets(slots: ChordRest[], staveNotes: StaveNote[], score: Score, stave: Stave): void {
+    const { ABOVE, BELOW } = Modifier.Position
     for (let i = 0; i < slots.length; i++) {
-      const off = noteOffsetOverrideOf(score, slots[i].id)
-      if (!off || off.x === 0) continue
-      const px = staffSpacesToPixels(off.x, stave)
+      const slot = slots[i]
+      const off = noteOffsetOverrideOf(score, slot.id)
+      const px = off && off.x !== 0 ? staffSpacesToPixels(off.x, stave) : 0
+      // Stem-side articulations align to the stem (modern) rather than the notehead (default).
+      const stemAlign = slot.type === 'chord' && slot.articulationStemAlign === true && !!slot.articulations?.length
+      if (px === 0 && !stemAlign) continue
       const sn = staveNotes[i]
-      sn.setXShift(sn.getXShift() + px) // StaveNote: Element.setXShift is a plain additive setter
-      // Accidentals sit LEFT; VexFlow's getModifierStartXY does not fold xShift into the LEFT
-      // branch, so shift the accidental glyph directly (this path works — the glyph has no
-      // draw-time re-centering to fight).
-      for (const mod of sn.getModifiers()) {
-        if (mod instanceof Accidental) {
-          ;(mod as unknown as { xShift: number }).xShift += px
+      if (px !== 0) {
+        sn.setXShift(sn.getXShift() + px) // StaveNote: Element.setXShift is a plain additive setter
+        // Accidentals sit LEFT; VexFlow's getModifierStartXY does not fold xShift into the LEFT
+        // branch, so shift the accidental glyph directly (this path works — the glyph has no
+        // draw-time re-centering to fight).
+        for (const mod of sn.getModifiers()) {
+          if (mod instanceof Accidental) {
+            ;(mod as unknown as { xShift: number }).xShift += px
+          }
         }
       }
       // Articulations sit ABOVE/BELOW. Two VexFlow facts make shifting THEIR xShift useless:
@@ -1405,18 +1411,26 @@ export class VexFlowRenderer {
       //   2. Articulation.draw() re-centers any within-staff mark with `setOrigin(0.5, 0.5)`, and
       //      Element.setOriginX OVERWRITES xShift (recomputed from this.x) — discarding a manual
       //      shift (repro: an ABOVE accent never followed; a BELOW one did — docs/note-offset-plan.md).
-      // Fix at the source both read: fold the offset into THIS note's ABOVE/BELOW modifier base x,
-      // matching the px the notehead already moved by. Then the initial placement AND setOrigin's
-      // re-centering both land on the shifted note. Fresh StaveNote per render ⇒ no accumulation.
-      if (sn.getModifiers().some(m => m instanceof Articulation)) {
+      // So we drive both effects through the value both reads — this note's ABOVE/BELOW base x:
+      //   • note offset  → add `px` (match the px the notehead moved by), for BOTH sides.
+      //   • stem-align   → for the STEM side only, snap to `getStemX()` (the stem centerline, which
+      //                    already includes xShift, so the offset is folded in there too).
+      // Fresh StaveNote per render ⇒ no accumulation.
+      if ((px !== 0 || stemAlign) && sn.getModifiers().some(m => m instanceof Articulation)) {
         const origStartXY = sn.getModifierStartXY.bind(sn)
         ;(sn as unknown as { getModifierStartXY: typeof origStartXY }).getModifierStartXY = (position, index, options) => {
           const r = origStartXY(position, index, options)
-          if (position === Modifier.Position.ABOVE || position === Modifier.Position.BELOW) r.x += px
+          if (position === ABOVE || position === BELOW) {
+            const stemDir = sn.getStemDirection()
+            const isStemSide = (position === ABOVE && stemDir === 1) || (position === BELOW && stemDir === -1)
+            // A stemless note (whole note) has no stem to align to — keep notehead alignment there.
+            if (stemAlign && isStemSide && sn.hasStem()) r.x = sn.getStemX()
+            else r.x += px
+          }
           return r
         }
       }
-      dbg(`[NoteOffset] slot ${slots[i].id} px=${px.toFixed(1)}`)
+      if (px !== 0 || stemAlign) dbg(`[NoteOffset] slot ${slot.id} px=${px.toFixed(1)} stemAlign=${stemAlign}`)
     }
   }
 

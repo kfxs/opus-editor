@@ -316,6 +316,37 @@ describe('MusicEngine.flipArticulation — articulation side override', () => {
   })
 })
 
+describe('MusicEngine.setArticulationStemAlign — stem-side alignment', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  it('defaults off; set stores true, clearing serializes clean (flag deleted)', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    engine.toggleArticulation(note.id, 'accent')
+    expect(engine.getNote(note.id)!.articulationStemAlign).toBeUndefined()
+
+    engine.setArticulationStemAlign(note.id, true)
+    expect(engine.getNote(note.id)!.articulationStemAlign).toBe(true)
+
+    engine.setArticulationStemAlign(note.id, false)
+    expect(engine.getNote(note.id)!.articulationStemAlign).toBeUndefined()
+  })
+
+  it('is a no-op (returns null) for a note with no articulations', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    expect(engine.setArticulationStemAlign(note.id, true)).toBeNull()
+    expect(engine.getNote(note.id)!.articulationStemAlign).toBeUndefined()
+  })
+
+  it('is undoable', () => {
+    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    engine.toggleArticulation(note.id, 'accent')
+    engine.setArticulationStemAlign(note.id, true)
+    engine.undo()
+    expect(engine.getNote(note.id)!.articulationStemAlign).toBeUndefined()
+  })
+})
+
 describe('MusicEngine.setTimeSignature', () => {
   let engine: MusicEngine
   beforeEach(() => { engine = makeEngine() })

@@ -36,6 +36,7 @@ export function toFlatNote(chord: Chord, pitch: NotePitch, staffIndex = 0): Note
     actualDuration: chord.actualDuration,
     articulations: chord.articulations,
     articulationPlacement: chord.articulationPlacement,
+    articulationStemAlign: chord.articulationStemAlign,
     voice: chord.voice,
     // Mirror voice: the default (0) staff is left absent, so N=1 Notes are unchanged.
     staff: staffIndex === 0 ? undefined : staffIndex,

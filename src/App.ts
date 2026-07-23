@@ -16,6 +16,7 @@ import { DomTextEdit } from './interactions/DomTextEdit'
 import { GutterController } from './interactions/GutterController'
 import { ClipboardController } from './interactions/ClipboardController'
 import { NoteOffsetController } from './interactions/NoteOffsetController'
+import { ArticulationStemAlignController } from './interactions/ArticulationStemAlignController'
 import { createViewportHost } from './interactions/ViewportHost'
 import { wireShortcuts } from './interactions/shortcutWiring'
 import { wireKeypadSync } from './interactions/keypadSync'
@@ -310,6 +311,9 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // The Properties note-offset input publishes to `noteOffsetSelection`; this controller owns the
   // engine apply (client #12, docs/note-offset-plan.md §B) so the window stays a dumb publisher.
   const noteOffset = new NoteOffsetController(getEngine, () => renderer.renderScore())
+  // The Properties "align to stem" checkbox publishes to `articulationStemAlignSelection`; this
+  // controller owns the engine apply, same boundary as the note-offset input above.
+  const articulationStemAlign = new ArticulationStemAlignController(getEngine, () => renderer.renderScore())
 
   // ---------------------------------------------------------------------------------------------
   // Start
@@ -523,6 +527,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       stopKeypadSync()
       stopSelectionInspection()
       noteOffset.destroy()
+      articulationStemAlign.destroy()
       for (const part of devShell) part.destroy()
       viewport.detach()
       gutter.detach()

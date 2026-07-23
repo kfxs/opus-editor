@@ -2716,6 +2716,18 @@ export class MusicEngine {
     return result
   }
 
+  /**
+   * Toggle whether a note's stem-side articulations align to the stem (modern)
+   * or the notehead (traditional default). Per-note; only affects marks that land
+   * on the stem side. No-op for rests / notes without an articulation.
+   */
+  setArticulationStemAlign(noteId: string, align: boolean): Note | null {
+    const result = this.scoreModel.setArticulationStemAlign(noteId, align)
+    if (!result) return null
+    this.saveOnly('Align articulation to stem')
+    return result
+  }
+
   // ==================== Rendering Operations ====================
 
   /**

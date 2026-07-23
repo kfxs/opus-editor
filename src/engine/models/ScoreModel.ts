@@ -1598,6 +1598,7 @@ export class ScoreModel {
       actualDuration: params.actualDuration,
       articulations: params.articulations,
       articulationPlacement: params.articulationPlacement,
+      articulationStemAlign: params.articulationStemAlign,
       beam: params.beam === 'auto' ? undefined : params.beam,
       notes: [notePitch],
     }
@@ -1978,6 +1979,22 @@ export class ScoreModel {
     return this.toFlatNote(chord, pitch)
   }
 
+  /**
+   * Set whether the slot's stem-side articulations align to the stem (modern)
+   * rather than the notehead (traditional default). No-op for rests or slots
+   * without articulations. Stores the flag only when true; clears it when false
+   * so the default state serializes clean. Returns the flat note, or null.
+   */
+  setArticulationStemAlign(noteId: string, align: boolean): Note | null {
+    const found = this.findSlot(noteId)
+    if (!found || found.type === 'rest') return null
+    const { chord, pitch } = found
+    if (!chord.articulations?.length) return null
+    if (align) chord.articulationStemAlign = true
+    else delete chord.articulationStemAlign
+    return this.toFlatNote(chord, pitch)
+  }
+
   /** The raw NotePitch behind a note id (chord head only; rests have no pitch). */
   getNotePitch(noteId: string): NotePitch | null {
     const found = this.findSlot(noteId)
@@ -2099,6 +2116,7 @@ export class ScoreModel {
           actualDuration: rest.actualDuration,
           articulations: updates.articulations,
           articulationPlacement: updates.articulationPlacement,
+          articulationStemAlign: updates.articulationStemAlign,
           notes: [notePitch],
         }
         chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
@@ -2168,6 +2186,7 @@ export class ScoreModel {
     if (updates.tiedFrom !== undefined) pitch.tiedFrom = updates.tiedFrom
     if (updates.articulations !== undefined) chord.articulations = updates.articulations
     if ('articulationPlacement' in updates) chord.articulationPlacement = updates.articulationPlacement
+    if ('articulationStemAlign' in updates) chord.articulationStemAlign = updates.articulationStemAlign
 
     // Handle explicit undefined for tie fields
     if ('tiedTo' in updates && updates.tiedTo === undefined) pitch.tiedTo = undefined
@@ -2426,6 +2445,7 @@ export class ScoreModel {
       // keeps its accent across the voice move. Placement (the explicit `x` flip) is NOT
       // carried: it is voice-aware, so the new voice re-derives the correct auto side.
       articulations: chord.articulations,
+      articulationStemAlign: chord.articulationStemAlign,
     }
 
     // Remove the pitch from the source slot.
@@ -2485,6 +2505,7 @@ export class ScoreModel {
       beat: Fraction
       voice: number
       articulations?: Chord['articulations']
+      articulationStemAlign?: boolean
     },
   ): void {
     const notePitch: NotePitch = {
@@ -2539,6 +2560,7 @@ export class ScoreModel {
       notes: [notePitch],
     }
     if (payload.articulations?.length) chord.articulations = [...payload.articulations]
+    if (payload.articulationStemAlign) chord.articulationStemAlign = true
     if (targetVoice) chord.voice = targetVoice as 0 | 1 | 2 | 3
     chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
     dbg(`[Model.insertPitch] new chord ${fmtSlot(chord)} → replacing v${targetVoice} rests`)

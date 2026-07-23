@@ -790,6 +790,13 @@ export interface Note {
    * Set only when the user flips the side (the `x` shortcut).
    */
   articulationPlacement?: 'above' | 'below'
+  /**
+   * When true, articulations that land on the STEM side align to the stem
+   * (modern convention) instead of the notehead (traditional default). No
+   * effect on notehead-side marks, which are notehead-centered either way.
+   * Omitted/false = the traditional notehead alignment. Per-note (Properties).
+   */
+  articulationStemAlign?: boolean
   /** Explicit beaming override */
   beam?: BeamMode
   /**
@@ -886,6 +893,8 @@ export interface Chord {
   articulations?: ArticulationType[]
   /** Explicit side for articulations (above/below); omitted = auto (stem-derived). */
   articulationPlacement?: 'above' | 'below'
+  /** Stem-side articulations align to the stem (modern) not the notehead (default). */
+  articulationStemAlign?: boolean
   /**
    * Staff this chord belongs to (a {@link StaffInfo} id). Absent = staff 0 (the first
    * staff), mirroring absent {@link Note.voice} = voice 0. Orthogonal to voice: a slot's
@@ -1152,6 +1161,8 @@ export interface NoteParams {
   articulations?: ArticulationType[]
   /** Explicit side for articulations (above/below); omitted = auto (stem-derived). */
   articulationPlacement?: 'above' | 'below'
+  /** Stem-side articulations align to the stem (modern) not the notehead (default). */
+  articulationStemAlign?: boolean
   tiedTo?: string
   tiedFrom?: string
   stemDirection?: StemDirection
