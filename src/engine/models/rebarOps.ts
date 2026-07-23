@@ -14,9 +14,9 @@
 import type {
   Score, Measure, Note, Chord, NotePitch, Rest, TimeSignature, Clef, Dynamic, TempoMark,
   Slur, EngravingOverride, RestShiftOverride, RestHiddenOverride, DynamicOffsetOverride,
-  LeadingSpaceOverride,
+  LeadingSpaceOverride, NoteOffsetOverride,
 } from '@/types/music'
-import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf, spacingPositionKey, measureLeadingSpaces } from './engravingOverrides'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, measureLeadingSpaces } from './engravingOverrides'
 import { durationToFraction } from '@/utils/durations'
 import { getMeterInfo } from '@/utils/meter'
 import type { RestSlot } from '@/utils/restFill'
@@ -102,6 +102,14 @@ export type ClipSlurInput = {
  */
 type CapturedRestShift = { voice: number; staffId?: string; absBeat: Fraction; steps: number; hidden: boolean }
 
+/**
+ * A note's horizontal offset (client #12) snapshotted before a rebar/paste, keyed by its absolute
+ * beat offset from the region start plus (voice, staffId) — the address of the SLOT it hangs off,
+ * since a rebar re-mints slot ids. The chord/rest twin of {@link CapturedRestShift} (a note offset
+ * is slot-keyed, so it covers chords AND rests, unlike the rest-only shift). See {@link captureNoteOffsets}.
+ */
+type CapturedNoteOffset = { voice: number; staffId?: string; absBeat: Fraction; x: number }
+
 /** A user-authored leading space snapshotted before a rebar (client #10). No voice and no staff:
  *  the space belongs to the COLUMN, so its whole address is the absolute offset. */
 type CapturedLeadingSpace = { absBeat: Fraction; space: number }
@@ -183,6 +191,10 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
   // …and the authored leading spaces (client #10), keyed by offset alone — a space belongs to
   // the column, so it has neither a voice nor a staff to capture.
   const leadingSpaces = captureLeadingSpaces(score, deps, regionMeasures)
+
+  // …and the note horizontal offsets (client #12), slot-keyed and so re-minted by the rebar —
+  // captured by (voice, staff, offset), re-stamped onto the slot that starts there afterwards.
+  const noteOffsets = captureNoteOffsets(score, deps, regionMeasures)
 
   // Rebar runs one lane per (STAFF, voice): each staff is an independent stream on the
   // shared bar spine, exactly like each voice. Flattening the whole measure per-voice
@@ -266,6 +278,10 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
   // …and the authored leading spaces onto whatever column now starts at each offset. Dropped
   // where the new meter has no column there at all — see restoreLeadingSpaces.
   restoreLeadingSpaces(score, deps, regionNumbers, leadingSpaces)
+
+  // …and the note offsets onto whatever slot now starts at each offset (dropped where the new
+  // tiling has none — see restoreNoteOffsets).
+  restoreNoteOffsets(score, deps, regionNumbers, noteOffsets)
 }
 
 /**
@@ -297,6 +313,7 @@ export function pasteEvents(
   clipDynamics: ClipDynamicInput[] = [],
   clipSlurs: ClipSlurInput[] = [],
   clipSpaces: Array<{ offset: Fraction; space: number }> = [],
+  clipNoteOffsets: { staff: number; voice: number; noteOffsets: Array<{ offset: Fraction; x: number }> }[] = [],
 ): string[] {
   const ordered = [...score.measures].sort((a, b) => a.number - b.number)
   const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
@@ -325,6 +342,8 @@ export function pasteEvents(
   const restShifts = captureRestShifts(score, deps, regionMeasures)
   // Same for the destination's authored leading spaces; the clip's are stamped on top below.
   const leadingSpaces = captureLeadingSpaces(score, deps, regionMeasures)
+  // And the destination's own note offsets (client #12); the clip's land on top afterwards.
+  const noteOffsets = captureNoteOffsets(score, deps, regionMeasures)
 
   const staffIndices = (score.staves ?? []).length > 0
     ? (score.staves ?? []).map((_, i) => i)
@@ -450,6 +469,8 @@ export function pasteEvents(
   restoreRestShifts(score, deps, regionNumbers, restShifts)
   // The destination's own leading spaces, likewise — the clip's land on top further down.
   restoreLeadingSpaces(score, deps, regionNumbers, leadingSpaces)
+  // The destination's own note offsets, likewise — the clip's are stamped on top further down.
+  restoreNoteOffsets(score, deps, regionNumbers, noteOffsets)
 
   // Apply the clip's rest shifts at the paste window: re-base each clip-relative offset by
   // the paste start, and re-voice a single-voice clip into the target voice (mirroring the
@@ -486,6 +507,20 @@ export function pasteEvents(
     score, deps, regionNumbers,
     clipSpaces.map((cs) => ({ absBeat: fracAdd(pasteStart, cs.offset), space: cs.space })),
   )
+
+  // The clip's note offsets (client #12) travel like its rest shifts: re-base each clip-relative
+  // offset by the paste start, map the RELATIVE staff onto an absolute one (`keyStaffId` for the
+  // absent-for-staff-0 id), and re-voice a single-voice clip into the target voice. restoreNoteOffsets
+  // drops any whose slot the paste didn't produce, and stamps on top of the destination's (last wins).
+  const clipCapturedOffsets: CapturedNoteOffset[] = []
+  for (const { staff, voice, noteOffsets: offsets } of clipNoteOffsets) {
+    const destVoice = singleVoice ? targetVoice : voice
+    const destStaffId = keyStaffId(score, targetStaff + staff)
+    for (const no of offsets) {
+      clipCapturedOffsets.push({ voice: destVoice, staffId: destStaffId, absBeat: fracAdd(pasteStart, no.offset), x: no.x })
+    }
+  }
+  restoreNoteOffsets(score, deps, regionNumbers, clipCapturedOffsets)
 
   // Collect the ids of notes whose absolute offset falls inside the paste window.
   const startOfMeasure = new Map<number, Fraction>()
@@ -711,6 +746,57 @@ function restoreRestShifts(score: Score, deps: RebarDeps, regionNumbers: number[
       const next: RestHiddenOverride = { kind: 'restHidden' }
       deps.setEngravingOverride(key, next)
     }
+  }
+}
+
+// ==================== Capture / restore: note offsets ====================
+
+/**
+ * Capture each region note-offset override (client #12) by its ABSOLUTE beat offset from the region
+ * start plus (voice, staffId), measured with the CURRENT (pre-rebar) capacities, then CLEAR the
+ * stored override — {@link restoreNoteOffsets} re-stamps it under the fresh slot id afterwards, or
+ * drops it if the new tiling has no slot starting there. The slot-keyed twin of
+ * {@link captureRestShifts}; it covers BOTH chords and rests, because a note offset hangs off the
+ * whole slot (a chord moves as a unit). See docs/note-offset-plan.md.
+ */
+function captureNoteOffsets(score: Score, deps: RebarDeps, regionMeasures: Measure[]): CapturedNoteOffset[] {
+  const out: CapturedNoteOffset[] = []
+  forEachRegionMeasure(regionMeasures, (m, base) => {
+    for (const s of m.slots) {
+      const ov = noteOffsetOverrideOf(score, s.id)
+      if (!ov || ov.x === 0) continue
+      out.push({ voice: s.voice ?? 0, staffId: s.staffId, absBeat: fracAdd(base, s.beat), x: ov.x })
+      deps.clearEngravingOverride(s.id, 'noteOffset')
+    }
+  })
+  return out
+}
+
+/**
+ * Re-stamp captured note offsets into the rebar'd/pasted region: map each absolute offset to the
+ * (measure, beat) it now lands on, and write the override onto whatever slot of that (voice, staff)
+ * now STARTS exactly there. Unlike a rest shift this is not rest-only — a chord slot or a rest slot
+ * satisfies it — but the same "no slot start → silently DROP" rule applies (a note the new tiling
+ * moved/merged away loses its offset, benign; docs/note-offset-plan.md deferred-travel note). Keyed
+ * by the fresh slot id, so it survives the id re-mint. Overwrites on a collision (last wins), so
+ * paste stamps the clip's offsets on top of the destination's by calling this again.
+ */
+function restoreNoteOffsets(score: Score, deps: RebarDeps, regionNumbers: number[], captured: CapturedNoteOffset[]): void {
+  if (captured.length === 0) return
+
+  const ranges = regionRanges(score, regionNumbers)
+  if (ranges.length === 0) return
+
+  for (const c of captured) {
+    if (c.x === 0) continue
+    const target = rangeForOffset(ranges, c.absBeat)
+    const beat = fracSub(c.absBeat, target.start)
+    const slot = target.measure.slots.find(
+      (s) => (s.voice ?? 0) === c.voice && (s.staffId ?? undefined) === (c.staffId ?? undefined) && fracCompare(s.beat, beat) === 0,
+    )
+    if (!slot) continue // the new tiling has no slot starting here → drop (benign)
+    const next: NoteOffsetOverride = { kind: 'noteOffset', x: c.x }
+    deps.setEngravingOverride(slot.id, next)
   }
 }
 

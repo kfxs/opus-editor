@@ -158,12 +158,45 @@ Both call the same `MusicEngine.nudgeNoteOffset(slotId, dx)`.
    move correctly before spending anything on the window.
 3. **B** — `noteOffsetSelection` channel + controller + the absolute-value Properties input.
 
+## Known issue — articulations do not follow the offset reliably (🐞 OPEN)
+
+Reported from use (2026-07-23). **The accidental case is FIXED**; the articulation case is not.
+
+- **Symptom.** Offset a note that carries an articulation (accent/staccato/tenuto) and the notehead,
+  stem, beam, ties, dots and accidental all move — but the articulation glyph often stays put.
+- **The tell (the user's diagnosis, and it is the whole clue):** it follows **iff the note has a
+  stem that VexFlow reassigned** — a stemmed note works, a voice-0 whole note does not, a voice-2
+  whole note does, and **flipping the stem of a stuck note makes it move**.
+- **Mechanism (confirmed against VexFlow 5 source).** The shift itself is applied correctly — the raw
+  `xShift += px` in `applyNoteOffsets` lands on the articulation (verified via trace), and
+  `Element.renderText` draws every modifier at `x + xShift`. The articulation only *renders* the new
+  `xShift` when the note has been `reset()` + `preFormat()`'d after the initial format. In the
+  multi-voice pass we `setStemDirection()` (→ `reset()`) **only for notes whose stem VexFlow flipped**
+  (`VexFlowRenderer.ts` re-assert loop). A note with a stable stem — voice 0's especially — never
+  takes that path, so its articulation draws from a stale render position and ignores the shift.
+- **Why NOT the accidental.** The accidental bug was a *sign/reset* error in `Modifier.setXShift`
+  (resets to 0, negates LEFT); switching to a raw `xShift +=` fixed it. The articulation is a
+  *different* fault — the shift is right, the render is stale.
+- **Fix directions to try next (do NOT just poke `xShift` again):**
+  1. Give the offset note the same `reset()`/`preFormat()` refresh the flipped-stem notes get — but
+     *after* setting the modifier shift, and without wiping `beam` (`setStemDirection` clears it) or
+     the note's own `xShift`. Likely a narrower call than `setStemDirection`.
+  2. Or translate the articulation's rendered SVG post-draw (the dynamic-offset technique) — needs an
+     identifiable element; articulations don't currently open their own group.
+  3. Or re-run just the modifier context's format for the offset note before draw.
+- **Status:** deferred by request to finish the plan (copy/paste travel) first; **next-session
+  priority.** A `dbg('[NoteOffset] …')` trace is left in `applyNoteOffsets` to help.
+
 ## Explicitly deferred (not first steps)
 
-- **Travel across copy/paste/rebar.** Slot ids are re-minted by the `RebarEvent` stream, so an
-  id-keyed offset does not follow a paste yet — identical deferred state to the dynamic offset
-  at ship. Solved later by a capture/restore pair in `rebarOps.ts` (the rest-shift model), if
-  wanted.
+- **Travel across copy/paste/rebar. ✅ DONE.** Slot ids are re-minted by the `RebarEvent` stream, so
+  the offset is captured by POSITION and re-stamped — the rest-shift model exactly. `captureNoteOffsets`
+  / `restoreNoteOffsets` in `rebarOps.ts` (keyed by `(voice, staffId, absBeat)`, covering chords AND
+  rests since a note offset is slot-keyed), wired into both `rebarRegion` (meter change) and
+  `pasteEvents` (destination's own offsets restored, then the clip's stamped on top — last wins). The
+  clip carries them per lane: `ClipboardLane.noteOffsets` (`noteOffsetsInWindow`), threaded through
+  `pasteEvents`' `clipNoteOffsets` param and `ClipboardController`. A slot the new tiling dissolves
+  drops its offset (benign). Guarded by `noteOffsetTravel.test.ts`.
 - **Auto-reset beyond delete.** Clear the override when the note is deleted; do not wire the
   fuller anchor-broken machinery yet.
 - **Vertical (`y`) offset.** One field away, but out of scope until asked.

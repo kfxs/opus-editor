@@ -880,8 +880,9 @@ export class MusicEngine {
     clipDynamics: ClipDynamicInput[] = [],
     clipSlurs: ClipSlurInput[] = [],
     clipSpaces: Array<{ offset: Fraction; space: number }> = [],
+    clipNoteOffsets: { staff: number; voice: number; noteOffsets: Array<{ offset: Fraction; x: number }> }[] = [],
   ): string[] {
-    const ids = this.scoreModel.pasteEvents(measure, beat, lanes, spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, clipDynamics, clipSlurs, clipSpaces)
+    const ids = this.scoreModel.pasteEvents(measure, beat, lanes, spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, clipDynamics, clipSlurs, clipSpaces, clipNoteOffsets)
     this.commit('Paste')
     return ids
   }

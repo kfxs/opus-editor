@@ -1364,10 +1364,11 @@ export class ScoreModel {
     clipDynamics: rebarOps.ClipDynamicInput[] = [],
     clipSlurs: rebarOps.ClipSlurInput[] = [],
     clipSpaces: Array<{ offset: Fraction; space: number }> = [],
+    clipNoteOffsets: { staff: number; voice: number; noteOffsets: Array<{ offset: Fraction; x: number }> }[] = [],
   ): string[] {
     return rebarOps.pasteEvents(
       this.score, this.rebarDeps, targetMeasure, targetBeat, clipLanes, spanBeats, targetVoice,
-      clipRestShifts, clipRestHidden, targetStaff, clipDynamics, clipSlurs, clipSpaces,
+      clipRestShifts, clipRestHidden, targetStaff, clipDynamics, clipSlurs, clipSpaces, clipNoteOffsets,
     )
   }
 

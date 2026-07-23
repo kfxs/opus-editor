@@ -5,7 +5,7 @@ import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracToNumbe
 import { measureCapacityFrac, getMeasureNotes } from '../utils/musicUtils'
 import { durationToFraction } from '../utils/durations'
 import { formatPitch } from '../utils/pitchSpelling'
-import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf, measureLeadingSpaces } from '../engine/models/engravingOverrides'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, measureLeadingSpaces } from '../engine/models/engravingOverrides'
 import { keyStaffId } from '../engine/models/staffContent'
 import { staffMeasureView, staffIdAtIndex, staffIndexOfId } from '../engine/models/staffContent'
 
@@ -52,6 +52,14 @@ export interface ClipboardLane {
    * none hidden. See docs/rest-hide-plan.md.
    */
   restHidden?: Array<{ offset: Fraction }>
+  /**
+   * Note horizontal offsets (client #12) inside the selection window, offsets relative to the
+   * selection start (same basis as {@link events}). Carried separately because the override is
+   * SLOT-keyed and nothing in `events` (which holds no ids) can drag it along — a copied passage
+   * would otherwise arrive un-offset. Covers chords AND rests (a note offset hangs off the slot).
+   * Absent/empty = none. See docs/note-offset-plan.md.
+   */
+  noteOffsets?: Array<{ offset: Fraction; x: number }>
 }
 
 /**
@@ -208,6 +216,36 @@ function restHiddenInWindow(
       if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
       if (!restHiddenOf(score, restPositionKey(m.id, voice, n.beat, staffId))) continue
       out.push({ offset: fracSub(abs, spanStart) })
+    }
+  }
+  return out
+}
+
+/**
+ * Note horizontal offsets (client #12) of one `(staff, voice)` lane whose slot onset falls inside
+ * the copy window `[spanStart, spanEnd)`, as `{ offset, x }` re-based to the window start (same basis
+ * as the lane's events). The chord/rest twin of {@link restShiftsInWindow} — it walks SLOTS (a note
+ * offset hangs off the whole slot, chord or rest), matching the slot's own `staffId`/`voice`.
+ */
+function noteOffsetsInWindow(
+  score: Score,
+  staff: number,
+  voice: number,
+  spanStart: Fraction,
+  spanEnd: Fraction,
+): Array<{ offset: Fraction; x: number }> {
+  const starts = measureStartOffsets(score)
+  const out: Array<{ offset: Fraction; x: number }> = []
+  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
+    const mStart = starts.get(m.number)
+    if (!mStart) continue
+    for (const s of m.slots) {
+      if ((s.voice ?? 0) !== voice || staffIndexOfId(score, s.staffId) !== staff) continue
+      const abs = fracAdd(mStart, s.beat)
+      if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
+      const ov = noteOffsetOverrideOf(score, s.id)
+      if (!ov || ov.x === 0) continue
+      out.push({ offset: fracSub(abs, spanStart), x: ov.x })
     }
   }
   return out
@@ -388,6 +426,7 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
     for (const v of staffVoices.get(staff)!) {
       const restShifts = restShiftsInWindow(score, staff, v, spanStart, spanEnd)
       const restHidden = restHiddenInWindow(score, staff, v, spanStart, spanEnd)
+      const noteOffsets = noteOffsetsInWindow(score, staff, v, spanStart, spanEnd)
       lanes.push({
         staff: staff - topStaff,
         voice: v,
@@ -397,11 +436,12 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
         // Omit each key entirely when empty (clean payload / old-clip parity).
         ...(restShifts.length ? { restShifts } : {}),
         ...(restHidden.length ? { restHidden } : {}),
+        ...(noteOffsets.length ? { noteOffsets } : {}),
       })
     }
   }
-  // Usable if any lane carries note events OR a shifted/hidden rest (a lone one still copies).
-  if (lanes.every((l) => l.events.length === 0 && !l.restShifts?.length && !l.restHidden?.length)) return null
+  // Usable if any lane carries note events OR a shifted/hidden rest OR an offset (a lone one still copies).
+  if (lanes.every((l) => l.events.length === 0 && !l.restShifts?.length && !l.restHidden?.length && !l.noteOffsets?.length)) return null
 
   // Dynamics (Phase 2) and slurs (Phase 3) fully inside the window travel too, staff re-based
   // to the topmost copied staff.
