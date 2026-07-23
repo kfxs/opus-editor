@@ -366,5 +366,3 @@ No teardown of earlier work at any step; adding element K never touches element 
   vs entries-in-the-payload — decided by the **first in-stream client**, scoped to it; determines whether
   that element's overrides survive paste/rebar/transpose/assemble. Slur never hits it, so it is **not**
   on the near-term (Phase 0–2) path.
-</content>
-</invoke>

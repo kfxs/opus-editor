@@ -332,5 +332,19 @@ their armed-tool checks. The **voice** key follows the same gate — `setHighlig
 null : activeVoice)` — so the row is dark when nothing / multiple notes are selected, and the Keypad's
 lit-voice index is nullable to render "no voice lit". This also darkens the dev toolbar, which shares
 the rule. Guarded by `keypadHighlightRule.test.ts`.
-</content>
-</invoke>
+
+**Stem flip made voice-aware — DONE 2026-07-23.** `MusicEngine.flipStemDirection` computed the flip
+against `naturalStemDirection` (pitch vs the middle line) alone, so in a multi-voice bar — where the
+drawn stem is **forced by voice parity** (V1/V3 up, V2/V4 down), not by pitch — pressing `x` on a note
+whose forced side already matched the pitch-natural side pinned the side it was *already* on: a dead
+no-op. The classic repro was "V2/V4's `x` does nothing." Fixed to resolve the **displayed** direction
+voice-aware (per-staff multiVoice via `staffSlots` → parity, else pitch) and pin the opposite. Same
+`voice % 2 === 0` parity the renderer uses; mirrors the pattern in `autoArticulationPlacement`.
+
+**Dev-toolbar voice palette retired — DONE 2026-07-23.** The old `Voice:` buttons in `src/dev/devToolbar.ts`
+only ever covered V1/V2 and went dark on V3/V4 — stale and misleading in a 4-voice world. Voice
+selection has fully graduated to the **Keypad's voice row** (V1–4 + All) on the shared `voiceSelection`
+seam, so the toolbar buttons were removed (Alt+1..4 and the Keypad are the surfaces now;
+`PaletteController.setActiveVoice` stays — the seam and shortcuts use it). Principle: the dev shell is a
+workbench for the *engine*; a control graduates out once a product surface (Keypad, and a future
+in-viewport palette — another view over the same seam) absorbs it.

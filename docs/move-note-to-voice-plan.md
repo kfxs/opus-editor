@@ -8,10 +8,10 @@ closes the gap with rests; the target voice opens up to receive the note
 
 This is Sibelius behaviour ("swap voice" / `Alt+1/2` on a selection).
 
-> Status: **PLAN ONLY — nothing built yet.** Behaviour below is fully agreed
-> with the user. Build in the phase order given; verify each phase before the
-> next. Do **not** start coding the tuplet phases until the plain-note phases are
-> solid.
+> Status: **BUILT** (plain-note phases 1–3; Alt+1/2). Behaviour below was fully
+> agreed with the user and implemented in the phase order given. A later fix
+> (2026-07-23) made a note's **articulations travel** with the move — see §5,
+> "Articulations are the exception."
 
 ---
 
@@ -341,7 +341,14 @@ two free slots fill, the rest are dropped, no crash, bar still sums correctly.
 
 - **Id preservation is the spine.** Moved note keeps its `pitch.id`; ties
   (`tiedTo`/`tiedFrom`), slurs (`Score.slurs[].voice` + anchor ids),
-  articulations, and the selection Map all key off it. Never re-mint on a move.
+  and the selection Map all key off it. Never re-mint on a move.
+  - **⚠️ Articulations are the exception — they live on the SLOT, not the pitch,**
+    so keeping the `pitch.id` does *not* carry them. The original move dropped a
+    note's accent/staccato/tenuto (fixed 2026-07-23): the `moveNoteToVoice` payload
+    now copies `chord.articulations` (and `articulationStemAlign`) into the
+    `insertPitch` call — set on the new chord, or adopted into a merged chord only
+    when it has none of its own. The `articulationPlacement` flip is deliberately
+    *not* carried (voice-aware; the new voice re-derives the auto side).
   - **Cross-voice ties are dropped at move time (Phase 1, step 7), NOT deferred.**
     Because the move re-applies the captured `tiedTo`/`tiedFrom`, a tie whose
     partner stays behind would span two voices immediately — silent corruption.

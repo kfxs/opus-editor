@@ -33,6 +33,15 @@ methods; nothing inside the viewport may know the shell exists. Hold that line a
 deleting the scaffolding is one file, not an excavation — the same discipline
 `lint:boundary` already enforces inward.
 
+> **Graduation, not wholesale rehoming (2026-07-23).** The shell staying whole
+> does not freeze every widget in it. As a *product* surface absorbs a control, that
+> control can leave the workbench individually. First to go: the `Voice:` buttons —
+> the Keypad's voice row (V1–4 + All, on the `voiceSelection` seam) now owns voice
+> selection, so the toolbar's stale V1/V2 pair was deleted. The rule of thumb: the
+> dev shell exercises the *engine*; the Keypad (and a future in-viewport palette,
+> another view over the same seams) is the *product* surface. A control graduates
+> when it crosses that line. See `docs/multi-voice-plan.md` §13.
+
 ## Reactivity without a framework
 
 Everything the toolbar highlights is an `EditorState` field — `selectedTool`,

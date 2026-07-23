@@ -181,6 +181,10 @@ we don't re-derive it.
   amount the notehead moved). Then both the initial placement and `setOrigin`'s re-centering resolve
   to the shifted note. Accidentals keep the raw-`xShift` path (LEFT, no re-centering to fight); dots
   follow via the note's own `xShift`. See `applyNoteOffsets` in `VexFlowRenderer.ts`.
+- **Reused since.** That `getModifierStartXY` override is now the shared lever for articulation X
+  placement: the **articulation stem-align** feature (`docs/articulation-stem-align.md`) rides the
+  same hook to snap a stem-side mark onto `getStemX()`. The Properties offset input also grew a
+  small **reset** button (publishes offset `0` through `noteOffsetSelection`).
 
 ## Explicitly deferred (not first steps)
 

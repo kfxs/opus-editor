@@ -354,5 +354,3 @@ worse.
 - `ShortcutManager.ts:90-93` (Ctrl-combo matching) + `:123` (`preventDefault` before dispatch) —
   Ctrl+=/-/0 can be plain `SHORTCUTS` entries handled fully inside `ShortcutManager`; only the wheel
   needs a bespoke `window` `{ passive: false }` listener.
-</content>
-</invoke>

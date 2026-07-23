@@ -139,24 +139,10 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   row.appendChild(viewBox)
   row.appendChild(divider())
 
-  // --- Voice (Sibelius-style: V1 blue, V2 green) ---
-  const voiceBox = group('Voice:')
-  const VOICE_BTN = 'px-3 py-1 rounded text-sm font-bold'
-  const v1 = el('button', `${VOICE_BTN} ${OFF}`, '1')
-  v1.title = 'Voice 1 (Alt+1) — primary stream'
-  v1.addEventListener('click', () => palette.setActiveVoice(1))
-  const v2 = el('button', `${VOICE_BTN} ${OFF}`, '2')
-  v2.title = 'Voice 2 (Alt+2) — second stream'
-  v2.addEventListener('click', () => palette.setActiveVoice(2))
-  // The voice buttons light in their OWN colour, not the shared cyan — the blue/green pair is the
-  // same code the noteheads carry, so the toolbar and the music agree at a glance.
-  syncers.push(() => {
-    v1.className = `${VOICE_BTN} ${state.activeVoice === 1 ? 'bg-blue-500 text-white' : OFF}`
-    v2.className = `${VOICE_BTN} ${state.activeVoice === 2 ? 'bg-emerald-500 text-white' : OFF}`
-  })
-  voiceBox.append(v1, v2)
-  row.appendChild(voiceBox)
-  row.appendChild(divider())
+  // Voice selection graduated out of the dev shell to the Keypad's voice row (V1–4 + All), which
+  // drives the same `voiceSelection` seam. The old toolbar buttons only covered V1/V2 and went dark
+  // on V3/V4, so they were removed — Alt+1..4 and the Keypad are the surfaces now. `setActiveVoice`
+  // stays on the palette (the seam + shortcuts use it).
 
   // --- Duration ---
   const DURATIONS: ReadonlyArray<{ d: NoteDuration; glyph: string; title: string }> = [
@@ -168,11 +154,12 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     { d: '32', glyph: '𝅘𝅥𝅰', title: 'Thirty-second note (Fusa) - 0.125 beats' },
   ]
   const durBox = group('Duration:')
+  const BTN_BOLD = 'px-3 py-1 rounded text-sm font-bold'
   for (const { d, glyph, title } of DURATIONS) {
     // `durationHighlight` is THE rule (interactions/keypadSync), shared with the Keypad: a marking
     // tool arms into entry mode but enters no note, so the duration must go dark under an armed
     // clef — and stay lit under the armed REST, whose length these keys are.
-    toggle(durBox, VOICE_BTN, glyph, title,
+    toggle(durBox, BTN_BOLD, glyph, title,
       () => durationHighlight(state) === d, () => palette.setDuration(d))
   }
   row.appendChild(durBox)
