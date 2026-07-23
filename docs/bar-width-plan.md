@@ -393,13 +393,18 @@ fourth.
 ## 6. Interaction
 
 **P1 — keyboard.** With a barline selected (`selectedBarlineMeasure`, `3d88dbb`),
-`Shift+Alt+←/→` stretches/shrinks the bar it ends, and `Shift+Alt+Backspace` resets it. Those are
-the note-spacing keys, dispatched on **what is selected** — a note → note spacing (existing), a
-barline → bar width. Same keys, same axis, different noun, which is Sibelius's own behaviour rather
-than a collision we are papering over. Cheap, too: `nudgeSelectedNoteSpacing` /
-`resetSelectedNoteSpacing` (`shortcutWiring.ts:147`) already **decline** (return false) when no
-column is selected, so the dispatch is a `||` onto the existing actions and the note-spacing branch
-is not touched.
+`Ctrl+←/→` stretches/shrinks the bar it ends, and `Ctrl+Backspace` resets it. Those are the
+note-spacing keys, dispatched on **what is selected** — a note → note spacing, a barline → bar
+width. Same keys, same axis, different noun, which is Sibelius's own behaviour rather than a
+collision we are papering over. Cheap, too: `nudgeSelectedNoteSpacing` / `resetSelectedNoteSpacing`
+already **decline** (return false) when no column is selected, so the dispatch is a `||` onto the
+existing move actions and the note-spacing branch is not touched.
+
+> ⚠️ **Rebound from `Shift+Alt+…` by the note-offset "move vs offset" swap** (`docs/note-offset-plan.md`
+> §C): the *move* (this bar width + note spacing) took the easy `Ctrl+←/→` — joining the
+> `ctrlArrowLeft/Right` chain that already carries the slur-endpoint / dynamic coarse nudge — and the
+> note offset took the vacated deliberate chords. The dispatch-on-selection design is unchanged; only
+> the key moved.
 
 One step = **one staff-space of barline movement** (10px), converted through §4 — so "a step" means
 the same distance whether it arrives from the keyboard or the mouse, instead of the keyboard nudging
@@ -444,7 +449,8 @@ which on the whole-line model is the system. That is inherent to the feature, no
   **with a stretch present, a line's Σ `finalWidth` still lands exactly on `availableWidth`.**
 - **P1 — keyboard.** A renderer accessor for `measureLayoutInfo` (private today),
   `MusicEngine.barWidthRoom` (§4 inversion incl. the linear branch + §5 limits, all measured off the
-  last render), the selection-dispatched `Shift+Alt+←/→`, reset.
+  last render), the selection-dispatched `Ctrl+←/→` (rebound from `Shift+Alt+…` by the note-offset
+  swap, §6), reset.
 - **P2 — drag.** ✅ BUILT (whole-line). Barline grab, `previewBarWidth` per frame, one
   `commitBarWidth` on release; `stretchForBarlineDelta` (continuous) and never `stretchForStep`.
   Three corrections came straight out of using it:

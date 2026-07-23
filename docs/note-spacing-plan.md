@@ -193,11 +193,16 @@ a bug in the model.
 ## 5. Interaction
 
 **Keyboard first** (P1) — unambiguous, and it makes the model testable by hand before any gesture
-work: `Shift+Alt+←/→` nudges the selected note/rest's leading space by ¼ staff-space
-(Sibelius's own keys, on the axis its voice-nav twin `Shift+Alt+↑/↓` leaves free);
-`Shift+Alt+Backspace` resets it. Sibelius spells the reset `Ctrl+Shift+N`, which Chrome keeps for
-itself; and it must not be a digit, because `ShortcutManager` matches on `event.key` and
-`Shift+Alt+0` arrives as `)` on a US layout.
+work: nudge the selected note/rest's leading space by ¼ staff-space, and a reset key.
+
+> ⚠️ **Rebound after the note-offset feature shipped (`docs/note-offset-plan.md` §C, the "move vs
+> offset" swap).** This nudge originally sat on `Shift+Alt+←/→` (`Shift+Alt+Backspace` reset). When
+> the note offset arrived it wanted a chord too, and the *move* (this spacing, plus bar width) is
+> the thing reached for most — so **the move took the easy key**: it now rides `Ctrl+←/→` (reset
+> `Ctrl+Backspace`), joining the `ctrlArrowLeft/Right` decline-chain that already carries the
+> slur-endpoint / dynamic coarse nudge. The offset took the vacated deliberate chords
+> (`Ctrl+Shift+←/→` wide, `Shift+Alt+←/→` fine). All selections are disjoint, so `Ctrl+←/→` stays a
+> pure modal chain. The floor / rebar / decline logic below is unchanged — only the key moved.
 
 **Where the floor comes from.** §1 says the clamp lands at the write site and the caller supplies
 it; P1 is the first caller, and `MusicEngine.measuredShrinkRoom` is the answer. It reads the drawn
@@ -300,8 +305,9 @@ then does the even-division mapper answer.
   including the two-staff bar whose staves have *different* rhythms at the anchor beat, which is the
   case §4 exists for. ⏭️ **Not yet hand-tested in the app** — no UI reaches it, so it is exercised
   by editing the override into the Score JSON panel.
-- **P1 — keyboard. ✅ BUILT.** `Shift+Alt+←/→` / `Shift+Alt+Backspace` on a single selected note
-  or rest, `MusicEngine.nudgeNoteSpacing` / `resetNoteSpacing` / `measuredShrinkRoom`, wired in
+- **P1 — keyboard. ✅ BUILT.** `Ctrl+←/→` / `Ctrl+Backspace` on a single selected note or rest
+  (was `Shift+Alt+…` — rebound by the note-offset "move vs offset" swap, §5 above),
+  `MusicEngine.nudgeNoteSpacing` / `resetNoteSpacing` / `measuredShrinkRoom`, wired in
   `shortcutWiring`. Plus §6 in full: `captureLeadingSpaces`/`restoreLeadingSpaces` in `rebarOps`
   (so a space survives a meter change and dies with its column), `ClipboardPayload.spaces`, and the
   paste threading. 21 tests in `noteSpacingNudge.test.ts` + `noteSpacingTravel.test.ts`.
@@ -333,8 +339,8 @@ only, so the overrides genuinely cannot be seen from inside the memo (`MeasureWi
 `TickContext.setX`, `postFormat()` running *inside* `format()` (`formatter.js:598`) so a
 post-format shift is the last word, and `getAbsoluteX()` reading the tick context lazily at draw
 (`note.js:339`); one shared TickContext per tick from `joinVoices` (`VexFlowRenderer.ts:1054`);
-`Shift+Alt+←/→` unbound, only ↑/↓ taken by voice nav (`ShortcutConfig.ts:218-224`); linear view
-justifying nothing (`MeasureLayout.ts:332`).
+`Shift+Alt+←/→` was unbound (only ↑/↓ taken by voice nav) when this shipped — since rebound to the
+note offset's fine step by the §5 swap; linear view justifying nothing (`MeasureLayout.ts:332`).
 
 **Corrected, and where the fix now lives:**
 
