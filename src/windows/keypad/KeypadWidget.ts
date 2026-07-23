@@ -340,11 +340,15 @@ export class KeypadWidget implements Widget {
   private paint(): void {
     // Every lit key wears the ACTIVE voice's colour, so the whole panel says which voice you are
     // writing into (utils/voiceColors — the same map the score paints selection with: V1 blue, V2
-    // green). The lone exception is the select arrow: it is a MODE indicator, not a voice-coloured
-    // mark, so it keeps the panel's own blue.
+    // green, V3 orange, V4 purple).
     const voiceColor = this.activeVoiceColor()
+    // The select arrow is a MODE indicator, so by default it keeps the panel's own gutter blue. But a
+    // blue arrow beside an orange/green/purple lit panel is a jarring clash — so when a voice IS
+    // highlighted it borrows that voice's colour and reads as one panel; with no voice lit (nothing /
+    // multiple notes selected) it falls back to its own blue.
+    const arrowColor = this.voice != null ? voiceColor : COLOR.mode
     for (const { cell, button } of this.keys) {
-      light(button, this.isLit(cell), cell.select === 'mode' ? COLOR.mode : voiceColor)
+      light(button, this.isLit(cell), cell.select === 'mode' ? arrowColor : voiceColor)
     }
     // Only the active voice's own button is lit, so it too shows the active voice's colour.
     this.voiceButtons.forEach((button, i) =>
