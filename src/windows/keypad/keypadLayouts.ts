@@ -232,18 +232,26 @@ const tremStruck = (stroke: string, sy = 4, size?: number, sx = -2): CellSpec =>
 ]
 /** Two notes side by side — the start of a two-note (fingered) tremolo. A fresh copy each call, so
  *  the cells that use it can each be tuned on their own. */
-const tremPair = (dxL = -6, dxR = 6, dy = 9): CellSpec => [
+const tremPair = (dxL = -6, dxR = 6, dy = 9, size = 22): CellSpec => [
   'tremolo',
-  { layers: [g(NOTE.quarter, undefined, dy, dxL), g(NOTE.quarter, undefined, dy, dxR)] },
+  { layers: [g(NOTE.quarter, size, dy, dxL), g(NOTE.quarter, size, dy, dxR)] },
+  'momentary',
+]
+/** Three notes in a row — the same idea, one more note. A fresh copy each call. */
+const tremTriple = (dx0 = -13, gap = 12, dy = 9, size = 22): CellSpec => [
+  'tremolo',
+  { layers: [g(NOTE.quarter, size, dy, dx0), g(NOTE.quarter, size, dy, dx0 + gap), g(NOTE.quarter, size, dy, dx0 + 2 * gap)] },
   'momentary',
 ]
 const page2: CellSpec[] = [
-  trem(), trem(NOTE_DOWN.sixteenth), tremPair(),
+  trem(), trem(NOTE_DOWN.sixteenth),
+  ['tremolo', { layers: [g(NOTE.quarter, 22, 12, -12), g(NOTE.quarter, 22, 12, 10), g('\uE4E7', 22, 6, 1), g('\uE1FA', 30, 13, -4), g('\uE1FA', 30, 13, 2), g('\uE1FA', 30, 13, 8), g('\uE204', 22, 5, -1), g('\uE204', 22, 5, 10), g('\uE204', 22, 5, -12)] }, 'momentary'],
   trem(), trem(), trem(),
   tremStruck(TREM.four, 4, 22), tremStruck(TREM.five, 4.5, 21), tremStruck(TREM.penderecki, 4.5, 30, -1),
   tremStruck(TREM.one), tremStruck(TREM.two, 3), tremStruck(TREM.three, 3),
   ['tremolo', { layers: [g(NOTE_DOWN.half, undefined, -7, -8), g(NOTE_DOWN.half, undefined, -13, 12), g('\uE007', 12, 15, -2)] }, 'momentary'],
-  tremPair(), tremPair(),
+  tremTriple(-8),
+  tremTriple(),
 ]
 
 const toCells = (page: CellSpec[]): KeypadCell[] =>
