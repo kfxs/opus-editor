@@ -10,7 +10,7 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
-import { getStaves, staffIdAtIndex } from './models/staffContent'
+import { getStaves, staffIdAtIndex, staffSlots } from './models/staffContent'
 import { midiToNoteName, beatToFrac, measureCapacityQuarters, compareByPosition, getMeasureNotes, deriveTupletM, tupletMarkRuns } from '@/utils/musicUtils'
 import { fracToNumber, fracEq } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
@@ -2679,10 +2679,20 @@ export class MusicEngine {
       // Already forced — toggle back to auto
       newDirection = 'auto'
     } else {
-      // Auto state — compute natural direction and force the opposite
-      const clef = this.scoreModel.getEffectiveClefAt(note.measure, note.beat, this.staffIdForIndex(note.staff))
-      const natural = naturalStemDirection(note.step!, note.octave!, clef)
-      newDirection = natural === 'down' ? 'up' : 'down'
+      // Auto state — force the opposite of the direction actually DISPLAYED. In a
+      // multi-voice bar the shown stem is forced by voice PARITY (V1/V3 up, V2/V4 down),
+      // NOT the pitch-natural one — so flipping against pitch would target the side the
+      // note is already on and do nothing (repro: a low V2/V4 note never flipped). Mirror
+      // the renderer's per-staff multiVoice + forcedStem (VexFlowRenderer: stemUp = voice % 2 === 0).
+      const staffId = this.staffIdForIndex(note.staff)
+      const measure = this.scoreModel.getMeasure(note.measure)
+      const multiVoice = measure
+        ? new Set(staffSlots(measure, staffId, this.scoreModel.getScore()).map(s => s.voice ?? 0)).size > 1
+        : false
+      const displayed: 'up' | 'down' = multiVoice
+        ? ((note.voice ?? 0) % 2 === 0 ? 'up' : 'down')
+        : naturalStemDirection(note.step!, note.octave!, this.scoreModel.getEffectiveClefAt(note.measure, note.beat, staffId))
+      newDirection = displayed === 'down' ? 'up' : 'down'
     }
 
     const updated = this.scoreModel.updateNote(noteId, { stemDirection: newDirection })
