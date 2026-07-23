@@ -2422,6 +2422,10 @@ export class ScoreModel {
       dots: chord.dots,
       beat: chord.beat,
       voice: targetVoice,
+      // Articulations live on the SLOT, not the pitch — carry them so an accented note
+      // keeps its accent across the voice move. Placement (the explicit `x` flip) is NOT
+      // carried: it is voice-aware, so the new voice re-derives the correct auto side.
+      articulations: chord.articulations,
     }
 
     // Remove the pitch from the source slot.
@@ -2480,6 +2484,7 @@ export class ScoreModel {
       dots?: number
       beat: Fraction
       voice: number
+      articulations?: Chord['articulations']
     },
   ): void {
     const notePitch: NotePitch = {
@@ -2504,6 +2509,11 @@ export class ScoreModel {
       // merged chord takes the smaller duration and fillGapsWithRests reclaims the
       // freed time in this voice. A longer incoming note is simply cramped in.
       existingChord.notes.push(notePitch)
+      // Bring the moved note's articulations along only if the target chord has none of
+      // its own (don't clobber marks the destination chord already carries).
+      if (payload.articulations?.length && !existingChord.articulations?.length) {
+        existingChord.articulations = [...payload.articulations]
+      }
       if (!existingChord.tupletId) {
         const incomingFrac = durationToFraction(payload.duration, payload.dots ?? 0)
         const existingFrac = durationToFraction(existingChord.duration, existingChord.dots ?? 0)
@@ -2528,6 +2538,7 @@ export class ScoreModel {
       measure: measure.number,
       notes: [notePitch],
     }
+    if (payload.articulations?.length) chord.articulations = [...payload.articulations]
     if (targetVoice) chord.voice = targetVoice as 0 | 1 | 2 | 3
     chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
     dbg(`[Model.insertPitch] new chord ${fmtSlot(chord)} → replacing v${targetVoice} rests`)
