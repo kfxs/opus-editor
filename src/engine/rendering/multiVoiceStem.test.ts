@@ -60,4 +60,35 @@ describe('multi-voice stem direction', () => {
     }
     expect(v2[0].getStemDirection()).toBe(1)
   })
+
+  // Four voices at one tick (A4/V1, E4/V2, E5/V3, A3/V4): VexFlow X-shifts a colliding
+  // notehead sideways. We keep the voices stacked at the shared X.
+  function buildFourVoices() {
+    return [
+      createStaveNotesFromSlots([chord('a4', 'A', 4, 0)], 'treble', 1),
+      createStaveNotesFromSlots([chord('e4', 'E', 4, 1)], 'treble', -1),
+      createStaveNotesFromSlots([chord('e5', 'E', 5, 2)], 'treble', 1),
+      createStaveNotesFromSlots([chord('a3', 'A', 3, 3)], 'treble', -1),
+    ]
+  }
+
+  it('VexFlow.format X-shifts a colliding voice (the offset we undo)', () => {
+    const g = buildFourVoices()
+    format(g)
+    // At least one voice picked up a non-zero horizontal shift from VexFlow.
+    expect(g.some(sn => sn[0].getXShift() !== 0)).toBe(true)
+  })
+
+  it('re-asserting the captured X-shift keeps every voice at the shared X', () => {
+    const g = buildFourVoices()
+    const intended = new Map<StaveNote, number>()
+    for (const sn of g) intended.set(sn[0], sn[0].getXShift())
+
+    format(g)
+    for (const sn of g) {
+      const xs = intended.get(sn[0])!
+      if (sn[0].getXShift() !== xs) sn[0].setXShift(xs)
+    }
+    expect(g.every(sn => sn[0].getXShift() === 0)).toBe(true)
+  })
 })

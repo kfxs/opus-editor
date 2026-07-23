@@ -1119,13 +1119,16 @@ export class VexFlowRenderer {
       const REST_LANE = [0, -1, 1, -2] // × REST_LINE_STEP, indexed by 0-based model voice
       const voiceIds = [...new Set(sortedAll.map(s => s.voice ?? 0))].sort((a, b) => a - b)
       const multiVoice = voiceIds.length > 1
-      // Our intended rest line / stem direction per StaveNote, captured BEFORE formatting.
-      // VexFlow's StaveNote.format rewrites both for same-tick multi-voice collisions — it
-      // nudges rests apart (can lift V1's centred rest off the middle line) and REASSIGNS
-      // stem directions (a 3rd voice forced up gets flipped down, and the user's `x` override
-      // with it). Neither is right for our voice model, so we re-assert both after format.
+      // Our intended rest line / stem direction / horizontal shift per StaveNote, captured
+      // BEFORE formatting. VexFlow's StaveNote.format rewrites all three for same-tick
+      // multi-voice collisions — it nudges rests apart (can lift V1's centred rest off the
+      // middle line), REASSIGNS stem directions (a 3rd voice forced up gets flipped down, and
+      // the user's `x` override with it), and X-SHIFTS a colliding notehead sideways (a voice
+      // pushed right of the others). None is right for our voice model — we want the voices
+      // stacked and under our control — so we re-assert all three after format.
       const intendedRestLine = new Map<StaveNote, number>()
       const intendedStemDir = new Map<StaveNote, number>()
+      const intendedXShift = new Map<StaveNote, number>()
       const groups = voiceIds.map(v => {
         const slots = sortedAll.filter(s => (s.voice ?? 0) === v)
         const stemUp = v % 2 === 0
@@ -1145,6 +1148,9 @@ export class VexFlowRenderer {
             // The stem we set from voice parity or the `x` override — VexFlow must not flip it.
             intendedStemDir.set(sn, sn.getStemDirection())
           }
+          // Keep every voice at the shared X (no auto sideways offset). Measure rests carry
+          // their centring in a separate centerXShift, so restoring xShift here is harmless.
+          if (multiVoice) intendedXShift.set(sn, sn.getXShift())
         }
         return { voice: v, slots, staveNotes, forcedStem }
       })
@@ -1205,10 +1211,11 @@ export class VexFlowRenderer {
 
         // VexFlow's StaveNote.format() rewrites same-tick multi-voice notes: it hides one
         // of two same-duration rests (renderOptions.draw = false), vertically nudges rests
-        // that collide, and REASSIGNS stem directions. All three fight our voice model, so
-        // undo them — re-enable every rest, restore each rest to its captured lane line, and
-        // restore each note's captured stem. setKeyLine/setStemDirection both refresh the
-        // note (reset() rebuilds the notehead), so the corrections land at draw time.
+        // that collide, REASSIGNS stem directions, and X-shifts a colliding notehead. All
+        // fight our voice model, so undo them — re-enable every rest, restore each rest to its
+        // captured lane line, restore each note's captured stem, and clear the auto X-shift.
+        // setKeyLine/setStemDirection refresh the note (reset() rebuilds the notehead); the
+        // corrections all land at draw time.
         if (multiVoice) {
           for (const sn of staveNotes) {
             if (sn.isRest()) {
@@ -1219,6 +1226,8 @@ export class VexFlowRenderer {
               const dir = intendedStemDir.get(sn)
               if (dir !== undefined && sn.getStemDirection() !== dir) sn.setStemDirection(dir)
             }
+            const xShift = intendedXShift.get(sn)
+            if (xShift !== undefined && sn.getXShift() !== xShift) sn.setXShift(xShift)
           }
         }
 

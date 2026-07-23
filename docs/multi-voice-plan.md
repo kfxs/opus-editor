@@ -294,18 +294,25 @@ retune-by-eye knobs. This is a deliberately simple deterministic scheme — 3–
 engraving standard (even Sibelius uses fixed offsets, not true collision avoidance), so revisit by taste.
 
 ⚠️ **VexFlow rewrites same-tick multi-voice notes, and we undo it.** `StaveNote.format` (runs inside
-`Formatter.format`) does three things to colliding voices that fight our voice model:
+`Formatter.format`) does four things to colliding voices that fight our voice model:
 1. **Vertically nudges rests** to dodge collisions (can lift V1's centred rest off the middle line).
 2. **Hides one of two same-duration rests** (`renderOptions.draw = false`).
 3. **Reassigns stem directions** — a 3rd voice forced up (parity) gets flipped **down**, and the user's
    `x` stem override goes with it. (Its override branches guard on `hasBeam() === false`, so beamed
    notes are safe.) This was the "V3 stem down, `x` won't flip" bug.
+4. **Horizontally X-shifts a colliding notehead** (`setXShift(voiceXShift + 2)`) — a voice gets pushed
+   right of the others instead of stacking under them. This was the "voice 2 offset to the right" bug.
 
-Fix (both in the post-format `if (multiVoice)` loop of `renderMeasure`): capture each rest's intended
-lane line and each note's intended stem **before** format, then re-assert them after — restore rest
-lines via `setKeyLine`, re-enable `draw`, restore stems via `setStemDirection`. Both `setKeyLine` and
-`setStemDirection` refresh the note (`reset()` rebuilds the notehead), so the corrections land at draw
-time. Measure (whole-bar) rests are excluded (X-centred separately). Guarded by
-`multiVoiceStem.test.ts`.
+Fix (all in the post-format `if (multiVoice)` loop of `renderMeasure`): capture each rest's intended
+lane line, each note's intended stem, and each note's intended X-shift **before** format, then re-assert
+them after — restore rest lines via `setKeyLine`, re-enable `draw`, restore stems via `setStemDirection`,
+clear the auto shift via `setXShift`. `setKeyLine`/`setStemDirection` refresh the note (`reset()` rebuilds
+the notehead), so the corrections land at draw time. Measure (whole-bar) rests are excluded from the line
+re-assert (X-centred separately via `centerXShift`). Guarded by `multiVoiceStem.test.ts`.
+
+> Trade-off of undoing the X-shift: voices now stack at the shared X even when two noteheads are a
+> *second* apart (they'd normally offset to avoid touching). That's the deliberate "we control placement"
+> choice; if a genuine second-interval collision reads badly, handle it explicitly rather than handing
+> control back to VexFlow.
 </content>
 </invoke>
