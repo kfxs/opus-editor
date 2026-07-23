@@ -224,6 +224,12 @@ const page1: CellSpec[] = [
  * rest of the layout come next. Its OWN keys only — the arrow and `+` come from {@link withControls}.
  */
 const trem = (glyph: string = NOTE_DOWN.quarter, dy = -10, dx = 0): CellSpec => ['tremolo', g(glyph, undefined, dy, dx), 'momentary']
+/** A note with a tremolo bar hung below it. A fresh copy each call. */
+const tremBar = (dx = 0, ndx = 0): CellSpec => [
+  'tremolo',
+  { layers: [g(NOTE_DOWN.quarter, undefined, -10, dx + ndx), g('\uE1FA', 30, 31, 1 + dx)] },
+  'momentary',
+]
 /** A tremolo note wearing its strokes: the note glyph with a tremolo glyph laid onto the stem. */
 const tremStruck = (stroke: string, sy = 4, size?: number, sx = -2): CellSpec => [
   'tremolo',
@@ -244,9 +250,11 @@ const tremTriple = (dx0 = -13, gap = 12, dy = 9, size = 22): CellSpec => [
   'momentary',
 ]
 const page2: CellSpec[] = [
-  trem(), trem(NOTE_DOWN.sixteenth),
+  tremBar(), trem(NOTE_DOWN.sixteenth),
   ['tremolo', { layers: [g(NOTE.quarter, 22, 12, -12), g(NOTE.quarter, 22, 12, 10), g('\uE4E7', 22, 6, 1), g('\uE1FA', 30, 13, -4), g('\uE1FA', 30, 13, 2), g('\uE1FA', 30, 13, 8), g('\uE204', 22, 5, -1), g('\uE204', 22, 5, 10), g('\uE204', 22, 5, -12)] }, 'momentary'],
-  trem(), trem(), trem(),
+  tremBar(-2),
+  ['tremolo', { layers: [g(NOTE_DOWN.quarter, undefined, -10, 5), g('\uE1FA', 30, 31, -5), g('\uE1FA', 30, 31, 4), g('\uE1FA', 30, 31, 7)] }, 'momentary'],
+  tremBar(-2, 10),
   tremStruck(TREM.four, 4, 22), tremStruck(TREM.five, 4.5, 21), tremStruck(TREM.penderecki, 4.5, 30, -1),
   tremStruck(TREM.one), tremStruck(TREM.two, 3), tremStruck(TREM.three, 3),
   ['tremolo', { layers: [g(NOTE_DOWN.half, undefined, -7, -8), g(NOTE_DOWN.half, undefined, -13, 12), g('\uE007', 12, 15, -2)] }, 'momentary'],
