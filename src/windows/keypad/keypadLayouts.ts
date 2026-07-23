@@ -258,7 +258,7 @@ const page2: CellSpec[] = [
   tremStruck(TREM.four, 4, 22), tremStruck(TREM.five, 4.5, 21), tremStruck(TREM.penderecki, 4.5, 30, -1),
   tremStruck(TREM.one), tremStruck(TREM.two, 3), tremStruck(TREM.three, 3),
   ['tremolo', { layers: [g(NOTE_DOWN.half, undefined, -7, -8), g(NOTE_DOWN.half, undefined, -13, 12), g('\uE007', 12, 15, -2)] }, 'momentary'],
-  tremTriple(-8),
+  ['tremolo', { layers: [g(NOTE.quarter, 22, 9, -8), g(NOTE.quarter, 22, 9, 4), g(NOTE.quarter, 22, 9, 16), g('\uE1F8', 30, 13, 0), g('\uE1F8', 30, 13, 8), g('\uE1F8', 30, 13, 14)] }, 'momentary'],
   ['tremolo', { layers: [g(NOTE.quarter, 22, 9, -13), g(NOTE.quarter, 22, 9, -1), g(NOTE.quarter, 22, 9, 11), g('\uE1F8', 30, 13, -5), g('\uE1F8', 30, 13, 3), g('\uE1F8', 30, 13, 9)] }, 'momentary'],
 ]
 
