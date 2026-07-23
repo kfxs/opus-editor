@@ -65,6 +65,18 @@ export function selectedNoteIds(items: Iterable<SelectionItem>): string[] {
   return ids
 }
 
+/**
+ * True when more than one NOTE is selected. The Keypad reflects a SINGLE selected note (its duration,
+ * accidental, dot, articulations, tie, rest) — a multi-note selection can't stand for any one note's
+ * value, so those keys light nothing rather than showing the anchor note's and misleading. Counts
+ * notes, not items: a note plus a non-note (e.g. a dynamic) still reflects that one note.
+ */
+export function multipleNotesSelected(items: Iterable<SelectionItem>): boolean {
+  let count = 0
+  for (const item of items) if (item.kind === 'note' && ++count > 1) return true
+  return false
+}
+
 /** The note ids of every selected articulation GROUP, in insertion order. */
 export function selectedArticulationNoteIds(items: Iterable<SelectionItem>): string[] {
   const ids: string[] = []

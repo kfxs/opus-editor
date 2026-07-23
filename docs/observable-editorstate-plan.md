@@ -268,9 +268,9 @@ generalises is deleted outright, not just generalised.
   accidental, articulation, dot, tie). That is the real cord-cut demo, and proves the seam before
   porting the remaining controls (clef / time signature / dynamics / tempo / tuplet / beam / rest)
   onto the Keypad's later pages.
-- Then decide ordering against the remaining Keypad feature work (rest key, `this.voice` →
-  `activeVoice`, page 2): the two-channel stores already work, so features don't *need* the proxy
-  first. What is **not** fine is wiring many more controls through the App.vue-watch pattern in
+- Then decide ordering against the remaining Keypad feature work (rest key, ~~`this.voice` →
+  `activeVoice`~~ DONE 2026-07-23 via a `voiceSelection` seam — see multi-voice-plan.md §13, page 2):
+  the two-channel stores already work, so features don't *need* the proxy first. What is **not** fine is wiring many more controls through the App.vue-watch pattern in
   the meantime — each one added now is one more to migrate later, and avoiding exactly that
   accumulation is the strongest practical argument for doing the proxy sooner rather than later.
 - **Fallback if the spike fails** (not expected): `@vue/reactivity` standalone as the agnostic

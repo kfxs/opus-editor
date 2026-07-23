@@ -9,20 +9,24 @@ import { articulationSelection } from './articulationSelection'
 import { dotSelection } from './dotSelection'
 import { tieSelection } from './tieSelection'
 import { restSelection } from './restSelection'
+import { voiceSelection } from './voiceSelection'
 import { clefSelection } from './clefSelection'
 import { timeSignatureSelection } from './timeSignatureSelection'
 import { tupletSelection } from './tupletSelection'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
+import { multipleNotesSelected } from './selection'
 
 /**
  * The highlight rule, in one place: a palette value is shown only when it means something —
- * in entry mode (the armed value), or in selection mode with a note selected (the note's,
+ * in entry mode (the armed value), or in selection mode with a SINGLE note selected (the note's,
  * kept in sync by SelectionController). Select a non-note or clear the canvas and there is no
- * note to reflect, so nothing lights up — on the dev toolbar AND the Keypad. The toolbar's own
- * button syncers call this too, so the rule is single-sourced.
+ * note to reflect; select MORE THAN ONE note and no single value can stand for the set — so nothing
+ * lights up in either case, on the dev toolbar AND the Keypad (the toolbar's own button syncers call
+ * this too, so the rule is single-sourced).
  */
 export function noNoteInSelection(state: EditorState): boolean {
-  return state.selectedTool === 'selection' && !state.selectedNoteId
+  if (state.selectedTool !== 'selection') return false
+  return !state.selectedNoteId || multipleNotesSelected(state.selectedItems.values())
 }
 
 /**
@@ -117,6 +121,10 @@ export function wireKeypadSync(
     clefSelection.setHighlight(armed?.kind === 'clef' ? armed.clef : null)
     // No gate needed: dotHighlight owns the whole rule, armed tool included.
     dotSelection.setHighlight(dotHighlight(state))
+    // The voice key follows the SAME single-selection rule as the others: light the active voice when
+    // it means something — entry mode (the voice you're writing into) or a single selected note (its
+    // voice) — and NOTHING when nothing, or more than one note, is selected (no single voice to show).
+    voiceSelection.setHighlight(noNoteInSelection(state) ? null : state.activeVoice)
     // Engine-derived highlights (articulations are a SET, tie reads tiedTo, rest reads isRest): read
     // live, not from a reactive field, so they can't be mirrored — recompute and push on any change.
     palette.refreshArticulationSelection()
@@ -138,6 +146,8 @@ export function wireKeypadSync(
     }),
     tieSelection.onPress(() => palette.toggleTie()),
     restSelection.onPress(() => palette.pressRest()),
+    // Same path as Alt+1..4 / the toolbar: arm the voice for entry, or move the selection into it.
+    voiceSelection.onPress((v) => palette.setActiveVoice(v)),
     // armClef, not setClef: the Clef window's OK confirms a choice, it does not toggle a button.
     clefSelection.onPress((a) => palette.armClef(a.clef, a.cautionary)),
     timeSignatureSelection.onPress((a) => palette.armTimeSignature(a.timeSignature, a.cautionary, a.pickup)),

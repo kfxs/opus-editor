@@ -7,6 +7,7 @@ import { articulationSelection } from '../../interactions/articulationSelection'
 import { dotSelection } from '../../interactions/dotSelection'
 import { tieSelection } from '../../interactions/tieSelection'
 import { restSelection } from '../../interactions/restSelection'
+import { voiceSelection } from '../../interactions/voiceSelection'
 import { voiceFillColor } from '../../utils/voiceColors'
 import { CHROME } from '../../utils/chromeColors'
 import { KEYPAD_PAGES, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
@@ -70,7 +71,10 @@ const COLOR = {
 const MUSIC_FONT = "Bravura, Academico, 'Noto Music', serif"
 
 export class KeypadWidget implements Widget {
-  private voice = 0
+  // Which voice button is lit (0-based; 4 = the local "All"), or null for NONE — the voice row can be
+  // dark, exactly like the other keys, when nothing / more than one note is selected. Seeded from and
+  // kept in step with the editor's active voice via {@link syncVoiceFromSeam}.
+  private voice: number | null = null
 
   private readonly keys: { cell: KeypadCell; button: HTMLButtonElement }[] = []
   private readonly voiceButtons: HTMLButtonElement[] = []
@@ -90,6 +94,7 @@ export class KeypadWidget implements Widget {
   private unsubscribeDot: (() => void) | null = null
   private unsubscribeTie: (() => void) | null = null
   private unsubscribeRest: (() => void) | null = null
+  private unsubscribeVoice: (() => void) | null = null
 
   mount(host: HTMLElement): void {
     // A little more air under the title bar than around the rest: the bar is a solid band, and the
@@ -120,6 +125,14 @@ export class KeypadWidget implements Widget {
     this.unsubscribeDot = dotSelection.onHighlight(() => this.paint())
     this.unsubscribeTie = tieSelection.onHighlight(() => this.paint())
     this.unsubscribeRest = restSelection.onHighlight(() => this.paint())
+    // The voice row lights the EDITOR's active voice, changed from anywhere (Alt+1..4, the toolbar,
+    // selecting a note in another voice). Seed it from the seam's current value — keypadSync primes
+    // the highlight before this window opens, so onHighlight alone would miss the initial state.
+    this.syncVoiceFromSeam()
+    this.unsubscribeVoice = voiceSelection.onHighlight(() => {
+      this.syncVoiceFromSeam()
+      this.paint()
+    })
 
     // The numpad `+` turns the page too — the panel IS the numpad, so the key its `+` cell mirrors
     // drives it. Global, so it works with the score focused, and only while the panel is open (removed
@@ -147,6 +160,8 @@ export class KeypadWidget implements Widget {
     this.unsubscribeTie = null
     this.unsubscribeRest?.()
     this.unsubscribeRest = null
+    this.unsubscribeVoice?.()
+    this.unsubscribeVoice = null
     document.removeEventListener('keydown', this.onKeyDown)
   }
 
@@ -264,7 +279,7 @@ export class KeypadWidget implements Widget {
 
     this.paint()
     const state = cell.select === 'momentary' ? '' : this.isLit(cell) ? ' on' : ' off'
-    dbg(`[keypad] ${cell.action}${state} — key ${cell.key}, voice ${VOICES[this.voice]}`)
+    dbg(`[keypad] ${cell.action}${state} — key ${cell.key}, voice ${this.voice != null ? VOICES[this.voice] : 'none'}`)
   }
 
   /**
@@ -304,8 +319,15 @@ export class KeypadWidget implements Widget {
       button.textContent = name
       button.title = `voice ${name}`
       button.addEventListener('click', () => {
-        this.voice = i
-        this.paint()
+        if (name === 'All') {
+          // "All" is not an editor entry voice — keep it a local highlight for now (unwired).
+          this.voice = i
+          this.paint()
+        } else {
+          // 1–4: drive the editor's active voice through the seam (same as Alt+1..4 / the toolbar);
+          // the highlight mirror lights the button back, so we don't set `this.voice` here.
+          voiceSelection.press((i + 1) as 1 | 2 | 3 | 4)
+        }
         dbg(`[keypad] voice ${name}`)
       })
       row.appendChild(button)
@@ -330,10 +352,19 @@ export class KeypadWidget implements Widget {
     )
   }
 
-  /** The colour every lit key wears: the active voice's (V1 blue, V2 green). 'All' is not a single
-   *  voice, so it falls back to the panel's default blue. */
+  /** The colour every lit key wears: the active voice's (V1 blue, V2 green, V3 orange, V4 purple).
+   *  'All' is not a single voice, so it falls back to the panel's default blue. */
   private activeVoiceColor(): string {
+    if (this.voice == null) return COLOR.lit
     return VOICES[this.voice] === 'All' ? COLOR.lit : voiceFillColor(this.voice)
+  }
+
+  /** Point `this.voice` (the lit index) at the editor's active voice, or null when the seam is dark
+   *  (nothing / multiple notes selected). The seam holds it 1-based (UI convention); the row is
+   *  0-based, and only voices 1–4 map — "All" is never the active voice. */
+  private syncVoiceFromSeam(): void {
+    const active = voiceSelection.get()
+    this.voice = active != null ? active - 1 : null
   }
 
   /**

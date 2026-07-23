@@ -314,5 +314,23 @@ re-assert (X-centred separately via `centerXShift`). Guarded by `multiVoiceStem.
 > *second* apart (they'd normally offset to avoid touching). That's the deliberate "we control placement"
 > choice; if a genuine second-interval collision reads badly, handle it explicitly rather than handing
 > control back to VexFlow.
+
+**Keypad voice row wired — DONE 2026-07-23.** The Keypad's voice buttons 1–4 now drive the editor
+through a new `voiceSelection` seam (`interactions/voiceSelection.ts`, a `PaletteSelection<1|2|3|4>`),
+exactly like the duration/accidental keys: `keypadSync` mirrors `state.activeVoice` in as the highlight
+and routes a press out through `PaletteController.setActiveVoice` — the SAME path as Alt+1..4 / the
+toolbar (arm the voice for entry, or move the selection into it). The fifth "All" button stays a local,
+unwired highlight (no editor "all voices" concept yet).
+
+**Keypad reflects a SINGLE selection only — DONE 2026-07-23.** A multi-note selection has no one
+duration/accidental/dot/articulation/tie/rest/voice to stand for, so lighting the anchor note's was
+misleading. New `selection.multipleNotesSelected(items)` (counts notes, not items — a note + a dynamic
+is still "single"); `keypadSync.noNoteInSelection` now also true when >1 note is selected (covers
+duration/dot/accidental via the existing funnel), and `PaletteController`'s engine-read predicates
+(`selectedNoteHasArticulation`, `noteHasTie`, `selectionIsRest`) bail to dark on multi-select after
+their armed-tool checks. The **voice** key follows the same gate — `setHighlight(noNoteInSelection ?
+null : activeVoice)` — so the row is dark when nothing / multiple notes are selected, and the Keypad's
+lit-voice index is nullable to render "no voice lit". This also darkens the dev toolbar, which shares
+the rule. Guarded by `keypadHighlightRule.test.ts`.
 </content>
 </invoke>

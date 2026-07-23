@@ -11,7 +11,7 @@ import { accidentalTypeToKey, formatPitch } from '../utils/pitchSpelling'
 import { sameTimeSignature } from '../utils/meter'
 import { tempoLabel } from '../utils/tempoMap'
 import { dynamicTextFromTool } from '../utils/dynamics'
-import { selectedNoteIds, selectedArticulationNoteIds } from './selection'
+import { selectedNoteIds, selectedArticulationNoteIds, multipleNotesSelected } from './selection'
 import { articulationSelection } from './articulationSelection'
 import { tieSelection } from './tieSelection'
 import { restSelection } from './restSelection'
@@ -1413,6 +1413,9 @@ export class PaletteController {
   private selectedNoteHasArticulation(type: ArticulationType): boolean {
     const engine = this.getEngine()
     if (this.state.selectedTool !== 'selection' || !engine) return false
+    // More than one note selected → no single note to reflect, so the key stays dark (see the Keypad
+    // single-selection rule in keypadSync / selection.multipleNotesSelected).
+    if (multipleNotesSelected(this.state.selectedItems.values())) return false
     const noteId = this.state.selectedArticulationNoteId ?? this.state.selectedNoteId
     if (!noteId) return false
     // A selected REST reports the ARMED flag, not its own articulations — it has none and can have
@@ -1492,6 +1495,8 @@ export class PaletteController {
     if (armedTool(this.state, 'tie')) return true
     // A tie selected in the score lights the key too, so it reads as removable from the Keypad.
     if (this.state.selectedTieFromNoteId) return true
+    // More than one note selected → nothing single to reflect (Keypad single-selection rule).
+    if (multipleNotesSelected(this.state.selectedItems.values())) return false
     const engine = this.getEngine()
     if (!this.state.selectedNoteId || !engine) return false
     const note = engine.getNote(this.state.selectedNoteId)
@@ -1523,6 +1528,8 @@ export class PaletteController {
     // lights its own key. Ahead of the reads below, which would see the (cleared) note selection.
     if (armedTool(this.state, 'rest')) return true
     if (this.state.selectedMarkingTool) return false
+    // More than one note selected → nothing single to reflect (Keypad single-selection rule).
+    if (multipleNotesSelected(this.state.selectedItems.values())) return false
     const engine = this.getEngine()
     if (this.state.selectedTool !== 'selection' || !this.state.selectedNoteId || !engine) return false
     return !!engine.getNote(this.state.selectedNoteId)?.isRest
