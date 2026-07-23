@@ -250,7 +250,7 @@ const tremTriple = (dx0 = -13, gap = 12, dy = 9, size = 22): CellSpec => [
   'momentary',
 ]
 const page2: CellSpec[] = [
-  tremBar(), trem(NOTE_DOWN.sixteenth),
+  ['tremolo', { layers: [g(NOTE_DOWN.quarter, undefined, -10, 6), g('\uE1FA', 30, 31, 7), g('\uE1F8', 30, 37, -2)] }, 'momentary'], trem(NOTE_DOWN.sixteenth),
   ['tremolo', { layers: [g(NOTE.quarter, 22, 12, -12), g(NOTE.quarter, 22, 12, 10), g('\uE4E7', 22, 6, 1), g('\uE1FA', 30, 13, -4), g('\uE1FA', 30, 13, 2), g('\uE1FA', 30, 13, 8), g('\uE204', 22, 5, -1), g('\uE204', 22, 5, 10), g('\uE204', 22, 5, -12)] }, 'momentary'],
   tremBar(-2),
   ['tremolo', { layers: [g(NOTE_DOWN.quarter, undefined, -10, 5), g('\uE1FA', 30, 31, -5), g('\uE1FA', 30, 31, 4), g('\uE1FA', 30, 31, 7)] }, 'momentary'],
@@ -259,7 +259,7 @@ const page2: CellSpec[] = [
   tremStruck(TREM.one), tremStruck(TREM.two, 3), tremStruck(TREM.three, 3),
   ['tremolo', { layers: [g(NOTE_DOWN.half, undefined, -7, -8), g(NOTE_DOWN.half, undefined, -13, 12), g('\uE007', 12, 15, -2)] }, 'momentary'],
   tremTriple(-8),
-  tremTriple(),
+  ['tremolo', { layers: [g(NOTE.quarter, 22, 9, -13), g(NOTE.quarter, 22, 9, -1), g(NOTE.quarter, 22, 9, 11), g('\uE1F8', 30, 13, -5), g('\uE1F8', 30, 13, 3), g('\uE1F8', 30, 13, 9)] }, 'momentary'],
 ]
 
 const toCells = (page: CellSpec[]): KeypadCell[] =>
