@@ -1368,22 +1368,20 @@ export class VexFlowRenderer {
    * so this runs after `format()` has already reserved the column at the un-shifted position.
    *
    * VexFlow's `getModifierStartXY` folds `xShift` into the note's dots (RIGHT branch) but NOT its
-   * accidental (LEFT) or articulations (ABOVE/BELOW), so those two need an explicit shift.
+   * accidental (LEFT) or articulations (ABOVE/BELOW), so those two are handled explicitly below.
    *
    * ⚠️ **NOT via `Modifier.setXShift`** — it is not the plain setter `StaveNote` inherits from
    * `Element`; it **resets `xShift` to 0 and NEGATES it for a LEFT modifier** (a semantic "shift away
    * from the note" helper). Feeding it an accidental sent the glyph the OPPOSITE way and wiped its
-   * formatted left-stacking. `Element.renderText` draws every modifier at `x + xShift` uniformly (no
-   * per-position sign), so adding `px` to the raw field is the correct screen-space nudge: same
-   * direction as the note, sign-consistent for LEFT and ABOVE/BELOW alike, and non-destructive of the
-   * formatter's own shift.
+   * formatted left-stacking. For the accidental we set the raw `xShift` field, which `Element.renderText`
+   * draws at `x + xShift`.
    *
-   * 🐞 **KNOWN BUG (docs/note-offset-plan.md "Known issue"): articulations do not follow reliably.**
-   * The raw `xShift += px` below IS applied to the articulation, but the glyph only visibly moves when
-   * the note was `reset()`+`preFormat()`'d after the initial format — which VexFlow's multi-voice pass
-   * only does for notes whose stem it reassigns. A voice-0 note with a stable stem never hits that
-   * path, so its articulation draws from a stale position (repro: flip its stem and it moves). Root
-   * cause not yet fixed — deferred to a follow-up; the accidental case above IS fixed.
+   * Articulations, however, cannot be moved via `xShift` at all: `Articulation.draw()` re-centers any
+   * within-staff mark with `setOrigin(0.5, 0.5)`, and `Element.setOriginX` OVERWRITES `xShift`
+   * (recomputed from `this.x`) — so a manual shift is silently discarded (the old bug: an ABOVE accent,
+   * which snaps inside the staff, never followed; a BELOW one, outside, did). We instead fold the
+   * offset into the value both the placement and the re-centering read: this note's ABOVE/BELOW
+   * `getModifierStartXY` base x. See docs/note-offset-plan.md.
    */
   private applyNoteOffsets(slots: ChordRest[], staveNotes: StaveNote[], score: Score, stave: Stave): void {
     for (let i = 0; i < slots.length; i++) {
@@ -1392,9 +1390,30 @@ export class VexFlowRenderer {
       const px = staffSpacesToPixels(off.x, stave)
       const sn = staveNotes[i]
       sn.setXShift(sn.getXShift() + px) // StaveNote: Element.setXShift is a plain additive setter
+      // Accidentals sit LEFT; VexFlow's getModifierStartXY does not fold xShift into the LEFT
+      // branch, so shift the accidental glyph directly (this path works — the glyph has no
+      // draw-time re-centering to fight).
       for (const mod of sn.getModifiers()) {
-        if (mod instanceof Accidental || mod instanceof Articulation) {
+        if (mod instanceof Accidental) {
           ;(mod as unknown as { xShift: number }).xShift += px
+        }
+      }
+      // Articulations sit ABOVE/BELOW. Two VexFlow facts make shifting THEIR xShift useless:
+      //   1. getModifierStartXY's ABOVE/BELOW branch returns `getAbsoluteX() + glyphWidth/2` and
+      //      does NOT add the note's xShift (unlike the dots' RIGHT branch), so the base is the
+      //      UNshifted note center.
+      //   2. Articulation.draw() re-centers any within-staff mark with `setOrigin(0.5, 0.5)`, and
+      //      Element.setOriginX OVERWRITES xShift (recomputed from this.x) — discarding a manual
+      //      shift (repro: an ABOVE accent never followed; a BELOW one did — docs/note-offset-plan.md).
+      // Fix at the source both read: fold the offset into THIS note's ABOVE/BELOW modifier base x,
+      // matching the px the notehead already moved by. Then the initial placement AND setOrigin's
+      // re-centering both land on the shifted note. Fresh StaveNote per render ⇒ no accumulation.
+      if (sn.getModifiers().some(m => m instanceof Articulation)) {
+        const origStartXY = sn.getModifierStartXY.bind(sn)
+        ;(sn as unknown as { getModifierStartXY: typeof origStartXY }).getModifierStartXY = (position, index, options) => {
+          const r = origStartXY(position, index, options)
+          if (position === Modifier.Position.ABOVE || position === Modifier.Position.BELOW) r.x += px
+          return r
         }
       }
       dbg(`[NoteOffset] slot ${slots[i].id} px=${px.toFixed(1)}`)

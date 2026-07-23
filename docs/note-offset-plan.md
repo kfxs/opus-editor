@@ -158,34 +158,29 @@ Both call the same `MusicEngine.nudgeNoteOffset(slotId, dx)`.
    move correctly before spending anything on the window.
 3. **B** — `noteOffsetSelection` channel + controller + the absolute-value Properties input.
 
-## Known issue — articulations do not follow the offset reliably (🐞 OPEN)
+## Known issue — articulations do not follow the offset reliably (✅ FIXED 2026-07-23)
 
-Reported from use (2026-07-23). **The accidental case is FIXED**; the articulation case is not.
+Reported from use, then fixed the same day. **The first diagnosis below was WRONG** — recorded so
+we don't re-derive it.
 
 - **Symptom.** Offset a note that carries an articulation (accent/staccato/tenuto) and the notehead,
   stem, beam, ties, dots and accidental all move — but the articulation glyph often stays put.
-- **The tell (the user's diagnosis, and it is the whole clue):** it follows **iff the note has a
-  stem that VexFlow reassigned** — a stemmed note works, a voice-0 whole note does not, a voice-2
-  whole note does, and **flipping the stem of a stuck note makes it move**.
-- **Mechanism (confirmed against VexFlow 5 source).** The shift itself is applied correctly — the raw
-  `xShift += px` in `applyNoteOffsets` lands on the articulation (verified via trace), and
-  `Element.renderText` draws every modifier at `x + xShift`. The articulation only *renders* the new
-  `xShift` when the note has been `reset()` + `preFormat()`'d after the initial format. In the
-  multi-voice pass we `setStemDirection()` (→ `reset()`) **only for notes whose stem VexFlow flipped**
-  (`VexFlowRenderer.ts` re-assert loop). A note with a stable stem — voice 0's especially — never
-  takes that path, so its articulation draws from a stale render position and ignores the shift.
-- **Why NOT the accidental.** The accidental bug was a *sign/reset* error in `Modifier.setXShift`
-  (resets to 0, negates LEFT); switching to a raw `xShift +=` fixed it. The articulation is a
-  *different* fault — the shift is right, the render is stale.
-- **Fix directions to try next (do NOT just poke `xShift` again):**
-  1. Give the offset note the same `reset()`/`preFormat()` refresh the flipped-stem notes get — but
-     *after* setting the modifier shift, and without wiping `beam` (`setStemDirection` clears it) or
-     the note's own `xShift`. Likely a narrower call than `setStemDirection`.
-  2. Or translate the articulation's rendered SVG post-draw (the dynamic-offset technique) — needs an
-     identifiable element; articulations don't currently open their own group.
-  3. Or re-run just the modifier context's format for the offset note before draw.
-- **Status:** deferred by request to finish the plan (copy/paste travel) first; **next-session
-  priority.** A `dbg('[NoteOffset] …')` trace is left in `applyNoteOffsets` to help.
+- **The real tell (from a per-render trace).** It follows **iff the mark sits on the BELOW side**;
+  an ABOVE mark never followed. It is `pos`-driven, NOT stem-driven — the earlier "follows iff the
+  stem was reassigned / flip it and it moves" reading was an artifact of which pitches happened to
+  put the mark inside vs outside the staff.
+- **Root cause (confirmed against VexFlow 5 source, measured).** The raw `xShift += px` DID land on
+  the articulation (`xShift AFTER +=` trace showed it), but `Articulation.draw()` calls
+  `setOrigin(0.5, 0.5)` for any mark that snaps **within the staff lines**, and `Element.setOriginX`
+  **overwrites** `xShift` — recomputing it from `this.x`, which comes from `getModifierStartXY`'s
+  ABOVE/BELOW branch (`getAbsoluteX() + glyphWidth/2`, the *unshifted* note center — VexFlow folds
+  `xShift` into dots on the RIGHT but not into ABOVE/BELOW). ABOVE marks land inside the staff →
+  clobbered back to centre; BELOW marks sit outside → survive. Nothing to do with `reset()`/stems.
+- **The fix.** Move what draw *reads* instead of poking `xShift`: for a note carrying an articulation,
+  override that note's `getModifierStartXY` so the ABOVE/BELOW base x includes the offset px (the same
+  amount the notehead moved). Then both the initial placement and `setOrigin`'s re-centering resolve
+  to the shifted note. Accidentals keep the raw-`xShift` path (LEFT, no re-centering to fight); dots
+  follow via the note's own `xShift`. See `applyNoteOffsets` in `VexFlowRenderer.ts`.
 
 ## Explicitly deferred (not first steps)
 
