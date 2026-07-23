@@ -31,6 +31,16 @@
  * Glyphs are SMuFL codepoints in Bravura — the same font the score is engraved in, so a quarter
  * note on this panel is the quarter note that lands on the staff. The few marks SMuFL has no glyph
  * for (the tie, the drag hints) are hand-drawn SVG.
+ *
+ * Some pictures are MORE than one glyph — a tremolo is a note wearing its strokes; a two-note tremolo
+ * is two notes with beams between. SMuFL has no single glyph for these, so page 2 HAND-DRAWS them as a
+ * STACK of glyphs, each slid into place by `dx`/`dy` (against 26). Every such drawing is NAMED (page 1's
+ * {@link ICON} map is the model — see the `TREMOLO` map) and referenced from the layout by name, so a
+ * page-2 line reads as clean as page 1's `['tie', ICON.tie, 'tie']`. The named recipe is BAKED to one
+ * svg at draw time ({@link tremolo} → an `Icon.bake` → `KeypadWidget.bakeGlyphStack`) — this is the
+ * SHIPPING path; a VexFlow re-engraving was tried and rejected (it changed the look and fought the font
+ * metrics). To REWORK a drawing, swap its `tremolo(` for {@link rework}, which renders the SAME stack
+ * LIVE as spans so `dx`/`dy` can be tuned by eye, then swap back to re-bake.
  */
 import type { Accidental, ArticulationType, NoteDuration } from '../../types/music'
 
@@ -38,13 +48,15 @@ import type { Accidental, ArticulationType, NoteDuration } from '../../types/mus
 export type GlyphSpec = { glyph: string; size?: number; dx?: number; dy?: number }
 
 /**
- * A cell's picture: a single glyph, a ROW of glyphs each sized on its own, a STACK of glyphs drawn
- * on top of each other (a note wearing its tremolo strokes — each layer slid into place by `dx`/`dy`),
- * or a hand-drawn icon. Nothing else — a Keypad cell is never text.
+ * A cell's picture: a single glyph, a ROW of glyphs each sized on its own, a `bake` (a STACK of glyphs
+ * — a note wearing its tremolo strokes, each slid into place by `dx`/`dy` — rendered to ONE svg at draw
+ * time, see {@link tremolo}), the same stack as LIVE `layers` (the raw hand-drawing, the rework path —
+ * see {@link rework}), or a hand-drawn icon. Nothing else — a Keypad cell is never text.
  */
 export type Icon =
   | GlyphSpec
   | { glyphs: GlyphSpec[] }
+  | { bake: GlyphSpec[] }
   | { layers: GlyphSpec[] }
   | { svg: string; dy?: number }
 
@@ -219,47 +231,75 @@ const page1: CellSpec[] = [
 ]
 
 /**
- * Page 2 — Sibelius's tremolo page, being built one cell at a time. For now every key is the same
- * `momentary` tremolo note (a down-stem quarter, drawn like page 1's notes); the strokes and the
- * rest of the layout come next. Its OWN keys only — the arrow and `+` come from {@link withControls}.
+ * Bake a hand-drawing into ONE svg icon. The argument is the SAME `layers` recipe — a stack of
+ * music-font glyphs, each offset by `dx`/`dy` against 26 — that page 2 has always used; `tremolo()`
+ * marks it for the widget to render to one svg at draw time (renderIcon bakes it — it needs the DOM).
+ * The page-1 shape: an icon via a helper, exactly like `ICON.tie = draw('<path .../>')`. The
+ * hand-drawing is KEPT as the argument — the source, reproducible.
  */
-const trem = (glyph: string = NOTE_DOWN.quarter, dy = -10, dx = 0): CellSpec => ['tremolo', g(glyph, undefined, dy, dx), 'momentary']
-/** A note with a tremolo bar hung below it. A fresh copy each call. */
-const tremBar = (dx = 0, ndx = 0): CellSpec => [
-  'tremolo',
-  { layers: [g(NOTE_DOWN.quarter, undefined, -10, dx + ndx), g('\uE1FA', 30, 31, 1 + dx)] },
-  'momentary',
-]
-/** A tremolo note wearing its strokes: the note glyph with a tremolo glyph laid onto the stem. */
-const tremStruck = (stroke: string, sy = 4, size?: number, sx = -2): CellSpec => [
-  'tremolo',
-  { layers: [g(NOTE_DOWN.quarter, undefined, -10), g(stroke, size, sy, sx)] },
-  'momentary',
-]
-/** Two notes side by side — the start of a two-note (fingered) tremolo. A fresh copy each call, so
- *  the cells that use it can each be tuned on their own. */
-const tremPair = (dxL = -6, dxR = 6, dy = 9, size = 22): CellSpec => [
-  'tremolo',
-  { layers: [g(NOTE.quarter, size, dy, dxL), g(NOTE.quarter, size, dy, dxR)] },
-  'momentary',
-]
-/** Three notes in a row — the same idea, one more note. A fresh copy each call. */
-const tremTriple = (dx0 = -13, gap = 12, dy = 9, size = 22): CellSpec => [
-  'tremolo',
-  { layers: [g(NOTE.quarter, size, dy, dx0), g(NOTE.quarter, size, dy, dx0 + gap), g(NOTE.quarter, size, dy, dx0 + 2 * gap)] },
-  'momentary',
-]
+const tremolo = (layers: GlyphSpec[]): Icon => ({ bake: layers })
+
+/**
+ * REWORK a drawing live. Takes the SAME recipe as {@link tremolo}, but renders it as the raw stacked
+ * glyphs (HTML spans, in {@link KeypadWidget}) instead of baking it to svg — so tuning a `dx`/`dy` and
+ * reloading shows the change at once, in the plain hand-drawing form. To rework a cell, swap its
+ * `tremolo(` to `rework(`, adjust the offsets, then swap it back to re-bake. This is the ONLY reason
+ * the span renderer in the widget still exists — it is the rework path, not dead code, so keep it.
+ */
+const rework = (layers: GlyphSpec[]): Icon => ({ layers })
+
+/** A single-note tremolo: a down-stem quarter wearing N stem strokes. Sibelius: "1 tremolo" … "5
+ *  tremolos" (keys 1–5); the buzz roll (key 6) is drawn here with the Penderecki mark. */
+const struck = (stroke: string, sy = 4, size?: number, sx = -2): Icon =>
+  tremolo([g(NOTE_DOWN.quarter, undefined, -10), g(stroke, size, sy, sx)])
+
+/** A single note wearing a detached beam-bar below the stem (a beam glyph, not stem strokes). */
+const barred = (dx = 0, ndx = 0): Icon =>
+  tremolo([g(NOTE_DOWN.quarter, undefined, -10, dx + ndx), g('\uE1FA', 30, 31, 1 + dx)])
+
+/**
+ * Page 2 — Sibelius 6's Beams/Tremolos keypad, as a picture. Every drawing is NAMED here (page 1's
+ * {@link ICON} map, for tremolos) and baked to one svg; the layout table references the name, so a
+ * page-2 line reads as clean as page 1's `['tie', ICON.tie, 'tie']`. The recipe (the hand-drawing) is
+ * kept as each entry's argument — the source, reproducible. Names are Sibelius 6's own, by numpad
+ * position; the `⚠️` ones are best guesses from the drawing (confirm against Sibelius and rename).
+ * OWN keys only — the arrow and `+` come from {@link withControls}.
+ */
+const TREMOLO = {
+  // Single-note tremolos — Sibelius "1 tremolo" … "5 tremolos" (keys 1–5) + buzz roll (key 6).
+  oneTremolo: struck(TREM.one),
+  twoTremolos: struck(TREM.two, 3),
+  threeTremolos: struck(TREM.three, 3),
+  fourTremolos: struck(TREM.four, 4, 22),
+  fiveTremolos: struck(TREM.five, 4.5, 21),
+  buzzRoll: struck(TREM.penderecki, 4.5, 30, -1),
+
+  // Tremolo with next note — Sibelius Enter (drawn with two half notes).
+  tremoloWithNext: tremolo([g(NOTE_DOWN.half, undefined, -7, -8), g(NOTE_DOWN.half, undefined, -13, 12), g('\uE007', 12, 15, -2)]),
+
+  // Feathered beams — Sibelius keys 0 (accelerando) and . (rallentando).
+  featheredAccel: tremolo([g(NOTE.quarter, 22, 9, -8), g(NOTE.quarter, 22, 9, 3), g(NOTE.quarter, 22, 9, 16), g('\uE1F8', 30, 13, 0), g('\uE1F8', 30, 13, 8), g('\uE1F8', 30, 13, 15), g('\uE988', 14, -6, 1)]),
+  featheredRit: tremolo([g(NOTE.quarter, 22, 9, -13), g(NOTE.quarter, 22, 9, -1), g(NOTE.quarter, 22, 9, 10), g('\uE1F8', 30, 13, -5), g('\uE1F8', 30, 13, 3), g('\uE1F8', 30, 13, 8), g('\uE978', 14, -3, -3)]),
+
+  // ⚠️ Beam buttons (numpad / - 7 8 9) — named by the drawing; confirm Sibelius 6's own names.
+  stemBeams: tremolo([g(NOTE_DOWN.quarter, undefined, -10, 6), g('\uE1FA', 30, 31, 7), g('\uE1F8', 30, 37, -2)]),
+  twoNoteQuarters: tremolo([g(NOTE.quarter, 22, 12, -12), g(NOTE.quarter, 22, 12, 10), g('\uE4E7', 22, 6, 1), g('\uE1FA', 30, 13, -4), g('\uE1FA', 30, 13, 2), g('\uE1FA', 30, 13, 8), g('\uE204', 22, 5, -1), g('\uE204', 22, 5, 10), g('\uE204', 22, 5, -12)]),
+  oneBeam: barred(-2),
+  threeBeams: tremolo([g(NOTE_DOWN.quarter, undefined, -10, 5), g('\uE1FA', 30, 31, -5), g('\uE1FA', 30, 31, 4), g('\uE1FA', 30, 31, 7)]),
+  oneBeamOffset: barred(-2, 10),
+}
+
 const page2: CellSpec[] = [
-  ['tremolo', { layers: [g(NOTE_DOWN.quarter, undefined, -10, 6), g('\uE1FA', 30, 31, 7), g('\uE1F8', 30, 37, -2)] }, 'momentary'], trem(NOTE_DOWN.sixteenth),
-  ['tremolo', { layers: [g(NOTE.quarter, 22, 12, -12), g(NOTE.quarter, 22, 12, 10), g('\uE4E7', 22, 6, 1), g('\uE1FA', 30, 13, -4), g('\uE1FA', 30, 13, 2), g('\uE1FA', 30, 13, 8), g('\uE204', 22, 5, -1), g('\uE204', 22, 5, 10), g('\uE204', 22, 5, -12)] }, 'momentary'],
-  tremBar(-2),
-  ['tremolo', { layers: [g(NOTE_DOWN.quarter, undefined, -10, 5), g('\uE1FA', 30, 31, -5), g('\uE1FA', 30, 31, 4), g('\uE1FA', 30, 31, 7)] }, 'momentary'],
-  tremBar(-2, 10),
-  tremStruck(TREM.four, 4, 22), tremStruck(TREM.five, 4.5, 21), tremStruck(TREM.penderecki, 4.5, 30, -1),
-  tremStruck(TREM.one), tremStruck(TREM.two, 3), tremStruck(TREM.three, 3),
-  ['tremolo', { layers: [g(NOTE_DOWN.half, undefined, -7, -8), g(NOTE_DOWN.half, undefined, -13, 12), g('\uE007', 12, 15, -2)] }, 'momentary'],
-  ['tremolo', { layers: [g(NOTE.quarter, 22, 9, -8), g(NOTE.quarter, 22, 9, 3), g(NOTE.quarter, 22, 9, 16), g('\uE1F8', 30, 13, 0), g('\uE1F8', 30, 13, 8), g('\uE1F8', 30, 13, 15), g('\uE988', 14, -6, 1)] }, 'momentary'],
-  ['tremolo', { layers: [g(NOTE.quarter, 22, 9, -13), g(NOTE.quarter, 22, 9, -1), g(NOTE.quarter, 22, 9, 10), g('\uE1F8', 30, 13, -5), g('\uE1F8', 30, 13, 3), g('\uE1F8', 30, 13, 8), g('\uE978', 14, -3, -3)] }, 'momentary'],
+  ['tremolo', TREMOLO.stemBeams, 'momentary'], ['tremolo', g(NOTE_DOWN.sixteenth, undefined, -10), 'momentary'],
+  ['tremolo', TREMOLO.twoNoteQuarters, 'momentary'],
+  ['tremolo', TREMOLO.oneBeam, 'momentary'],
+  ['tremolo', TREMOLO.threeBeams, 'momentary'],
+  ['tremolo', TREMOLO.oneBeamOffset, 'momentary'],
+  ['tremolo', TREMOLO.fourTremolos, 'momentary'], ['tremolo', TREMOLO.fiveTremolos, 'momentary'], ['tremolo', TREMOLO.buzzRoll, 'momentary'],
+  ['tremolo', TREMOLO.oneTremolo, 'momentary'], ['tremolo', TREMOLO.twoTremolos, 'momentary'], ['tremolo', TREMOLO.threeTremolos, 'momentary'],
+  ['tremolo', TREMOLO.tremoloWithNext, 'momentary'],
+  ['tremolo', TREMOLO.featheredAccel, 'momentary'],
+  ['tremolo', TREMOLO.featheredRit, 'momentary'],
 ]
 
 const toCells = (page: CellSpec[]): KeypadCell[] =>

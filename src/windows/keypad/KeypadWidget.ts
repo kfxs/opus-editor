@@ -12,6 +12,7 @@ import { voiceFillColor } from '../../utils/voiceColors'
 import { INDICATOR_INK } from '../../utils/selectionColors'
 import { CHROME } from '../../utils/chromeColors'
 import { KEYPAD_PAGES, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
+import { bakeGlyphStack } from './tremoloBake'
 
 /**
  * The Keypad, as a window's content.
@@ -440,8 +441,22 @@ function renderIcon(icon: Icon): HTMLElement {
     return el
   }
 
-  // A STACK of glyphs on one key (a note wearing its tremolo strokes): each layer fills the icon box
-  // and centres its own glyph, then slides by its dx/dy — so they overlap on a shared centre.
+  // A BAKED drawing: the same layers recipe, rendered to one svg (tremoloBake) instead of a live
+  // span-stack. Sized to the SAME GLYPH×GLYPH box the spans use, so its 26-unit viewBox scales to
+  // GLYPH/26 px per unit — the spans' exact arithmetic. Overflow shows (the note's stem runs past the
+  // little box) and the button clips it, just as with the spans.
+  if ('bake' in icon) {
+    const svg = bakeGlyphStack(icon.bake, MUSIC_FONT)
+    svg.style.width = `${GLYPH}px`
+    svg.style.height = `${GLYPH}px`
+    svg.style.overflow = 'visible'
+    el.appendChild(svg)
+    return el
+  }
+
+  // The REWORK path (keypadLayouts' rework()): the SAME recipe as a baked cell, but drawn as the raw
+  // stacked glyphs — each span fills the GLYPH box, centres its glyph, then slides by dx/dy. Kept so a
+  // drawing can be tuned live before it is baked; production cells go through `bake` above, not here.
   if ('layers' in icon) {
     el.style.position = 'relative'
     el.style.width = `${GLYPH}px`
