@@ -91,19 +91,31 @@ Clone the dynamic-offset shape:
 Both call the same `MusicEngine.nudgeNoteOffset(slotId, dx)`.
 
 - **C — keyboard (cheapest, built first to prove the mechanism live).**
-  - ⚠️ **Only `Ctrl+←/→` is free for a note.** Unlike slur/dynamic — which get fine on plain
-    `←/→` and coarse on `Ctrl` — a note's plain `←/→` is navigation (`selectPreviousNote` /
-    `selectNextNote`), so both fine and coarse cannot share one chord. **Decision:** `Ctrl+←/→`
-    = coarse (matches the existing slur/dynamic convention), `Ctrl+Shift+←/→` = fine, both
-    reusing `NUDGE_COARSE_SS = 1.0` / `NUDGE_FINE_SS = 0.25`. (The absolute Properties input B
-    is the precise surface; the keyboard is for quick coarse/fine bumps.)
-  - The wiring **joins the existing modal chain** — the `nudgeSlurEndpointCoarseLeft/Right`
-    handlers that already own `Ctrl+←/→` and *decline* (return false) when nothing is armed. Add
-    a note branch to that chain; do **not** add a fresh `Ctrl+←/→` binding (it's taken).
-  - `Ctrl+Backspace` (verified free) **resets the selected note to its natural position**
-    (clears the `noteOffset` entry outright — not a walk back to 0), the first-class reset every
-    override client gets. Wired in `shortcutWiring.ts` exactly like the rest-shift / dynamic /
-    slur-endpoint nudges (`getEngine()` → guard on selection → facade → `renderer.renderScore()`).
+  - ⚠️ **A note's plain `←/→` is navigation** (`selectPreviousNote` / `selectNextNote`), so — unlike
+    slur/dynamic, which get fine on plain `←/→` and coarse on `Ctrl` — the offset cannot use the
+    plain arrows at all; every step rides a modifier chord.
+  - **The chord layout (revised after live use — the "move vs offset" swap).** The first cut put the
+    offset on `Ctrl+←/→` (coarse) + `Ctrl+Shift+←/→` (fine). In practice the *easy* key should carry
+    what you reach for most and move a lot — the **note spacing / bar width** "move" — while the
+    offset is a small, deliberate nudge you should *not* reach for as often. So they were swapped:
+    - `Ctrl+←/→` = **move** (note spacing on a note, bar width on a barline), reset `Ctrl+Backspace`.
+      This is the branch that **joins the existing modal chain** — the `Ctrl+←/→` handlers
+      (`ctrlArrowLeft/Right`) that already carry the slur-endpoint / dynamic coarse nudge and
+      *decline* (return false) when nothing applicable is selected. Move is a `||` onto that chain;
+      no fresh `Ctrl+←/→` binding (it's taken, and all these selections are disjoint).
+    - `Ctrl+Shift+←/→` = offset **wide** (`NUDGE_COARSE_SS = 1.0`).
+    - `Shift+Alt+←/→` = offset **fine** (`NUDGE_FINE_SS = 0.25`) — the horizontal twin of the voice
+      nav that owns `Shift+Alt+↑/↓`, on the axis the nav leaves free.
+    - ⚠️ The offset's two speeds sit on **two different bases** (`Ctrl+Shift`, `Shift+Alt`), not one
+      base + Shift — the price of keeping *move* on the plain `Ctrl` base (a coarse/fine PAIR only
+      nests cleanly on `Ctrl`, and move claimed it). The matching-backspace-per-chord rule below is
+      what ties them together.
+  - **Reset (the first-class reset every override client gets** — clears the `noteOffset` entry
+    outright, not a walk back to 0). **Both** `Ctrl+Shift+Backspace` **and** `Shift+Alt+Backspace`
+    reset the offset: it is one value, and each of its two arrow-chords gets a matching backspace.
+    (`Ctrl+Backspace` resets the *move*, matching `Ctrl+←/→`.) All wired in `shortcutWiring.ts` like
+    the rest-shift / dynamic / slur-endpoint nudges (`getEngine()` → guard on a single note/rest
+    selection → facade → `renderer.renderScore()`).
 - **B — Properties input (the durable UI).** The window stays a **dumb publisher**: the input
   writes to a new `noteOffsetSelection` channel (a `PaletteSelection`-style singleton), and a
   small controller in `interactions/` — which owns `getEngine` — applies it. This keeps the

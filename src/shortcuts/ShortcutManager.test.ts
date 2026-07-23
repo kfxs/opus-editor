@@ -32,14 +32,14 @@ describe('ShortcutManager decline mechanism', () => {
 
   it('a handler returning false → does NOT preventDefault (declines, key falls through)', () => {
     let ran = false
-    manager.registerAction('nudgeSlurEndpointCoarseLeft', () => { ran = true; return false })
+    manager.registerAction('ctrlArrowLeft', () => { ran = true; return false })
     const e = press('ArrowLeft', { ctrl: true }) // SHORTCUTS['Ctrl+ArrowLeft']
     expect(ran).toBe(true)                 // the handler still ran
     expect(e.defaultPrevented).toBe(false) // but the key was left free
   })
 
   it('a handler returning true → still preventDefault (only an explicit false declines)', () => {
-    manager.registerAction('nudgeSlurEndpointCoarseRight', () => true)
+    manager.registerAction('ctrlArrowRight', () => true)
     const e = press('ArrowRight', { ctrl: true })
     expect(e.defaultPrevented).toBe(true)
   })

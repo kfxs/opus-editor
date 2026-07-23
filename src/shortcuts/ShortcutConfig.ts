@@ -172,29 +172,36 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // horizontal-coarse pair is otherwise unbound. Its handlers DECLINE (return false) when no slur
   // endpoint is armed AND no dynamic is selected, so Ctrl+←/→ stay free for the rest of the app
   // until then. (A selected dynamic also nudges on the plain arrows — see nudgeSelectedDynamic.)
+  // Ctrl+←/→ = MOVE (docs/note-offset-plan.md §C): the space before a selected note's column, or a
+  // selected barline's bar width — "move a lot" on the easy key. Joins the slur-endpoint / dynamic
+  // coarse chain that already owned Ctrl+←/→ (all selections disjoint, so it just adds branches).
   'Ctrl+ArrowLeft': {
-    action: 'nudgeSlurEndpointCoarseLeft',
-    description: 'Nudge the selected slur endpoint / dynamic / note left (coarse)',
+    action: 'ctrlArrowLeft',
+    description: 'Nudge the selected slur endpoint / dynamic left, or tighten the note-spacing / barline',
   },
   'Ctrl+ArrowRight': {
-    action: 'nudgeSlurEndpointCoarseRight',
-    description: 'Nudge the selected slur endpoint / dynamic / note right (coarse)',
+    action: 'ctrlArrowRight',
+    description: 'Nudge the selected slur endpoint / dynamic right, or widen the note-spacing / barline',
+  },
+  'Ctrl+Backspace': {
+    action: 'resetMove',
+    description: 'Reset the space before the selected note / the selected bar’s width',
   },
 
   // Note horizontal offset (client #12 — docs/note-offset-plan.md). A free nudge of a single
-  // selected note off its natural column, on top of automatic spacing. COARSE rides Ctrl+←/→ (the
-  // slur/dynamic chain above, which declines for a plain note); FINE is here on Ctrl+Shift+←/→,
-  // because a note's plain ←/→ is navigation and cannot double as the fine step the slur/dynamic get.
-  // Ctrl+Backspace resets it to the natural column (the first-class reset every override gets).
+  // selected note/rest off its natural column, on top of automatic spacing. It rides the deliberate
+  // chords, NOT the easy key ("should not offset that much"): WIDE (1 space) on Ctrl+Shift+←/→, FINE
+  // (¼ space) on Shift+Alt+←/→. Both Ctrl+Shift+Backspace and Shift+Alt+Backspace reset it to the
+  // natural column (one value, a matching backspace per arrow-chord).
   'Ctrl+Shift+ArrowLeft': {
-    action: 'nudgeNoteOffsetFineLeft',
-    description: 'Nudge the selected note left (fine)',
+    action: 'nudgeNoteOffsetCoarseLeft',
+    description: 'Nudge the selected note left (offset, wide)',
   },
   'Ctrl+Shift+ArrowRight': {
-    action: 'nudgeNoteOffsetFineRight',
-    description: 'Nudge the selected note right (fine)',
+    action: 'nudgeNoteOffsetCoarseRight',
+    description: 'Nudge the selected note right (offset, wide)',
   },
-  'Ctrl+Backspace': {
+  'Ctrl+Shift+Backspace': {
     action: 'resetNoteOffset',
     description: 'Reset the selected note to its natural horizontal position',
   },
@@ -242,28 +249,25 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Select nearest note in the voice below',
   },
 
-  // Note spacing (Sibelius's own Shift+Alt+←/→): change the space allocated BEFORE the selected
-  // note's column, in ¼ staff-space steps. Everything to its right slides by the same amount and
-  // the bar grows or shrinks — a space has width, unlike every other engraving nudge in this file.
-  // Sits under the same modifiers as the voice nav above, on the axis the nav leaves free.
-  // See docs/note-spacing-plan.md §5.
-  // …and on a selected BARLINE the same keys move that barline instead — the bar it ends grows or
-  // shrinks with its music re-spaced proportionally (docs/bar-width-plan.md §6). Same keys, same
-  // axis, different noun: dispatched on what is selected, which is Sibelius's own behaviour.
+  // Note OFFSET, FINE step (¼ space) — Shift+Alt+←/→ (docs/note-offset-plan.md §C). The horizontal
+  // twin of the voice nav above (which owns Shift+Alt+↑/↓), on the axis the nav leaves free. The
+  // note MOVE (spacing / bar width) used to live here; the §C swap sent it to the easy Ctrl+←/→ and
+  // gave these deliberate chords to the offset instead ("should not offset that much"). The WIDE
+  // step is Ctrl+Shift+←/→ above.
   'Shift+Alt+ArrowLeft': {
-    action: 'noteSpacingTighten',
-    description: 'Tighten the space before the selected note / narrow the selected barline’s bar',
+    action: 'nudgeNoteOffsetFineLeft',
+    description: 'Nudge the selected note left (offset, fine)',
   },
   'Shift+Alt+ArrowRight': {
-    action: 'noteSpacingWiden',
-    description: 'Widen the space before the selected note / widen the selected barline’s bar',
+    action: 'nudgeNoteOffsetFineRight',
+    description: 'Nudge the selected note right (offset, fine)',
   },
-  // …and put it back. Sibelius spells this Ctrl+Shift+N, which Chrome keeps for itself (new
-  // incognito window), so it moves to the nudge's own modifiers. NOT a digit: this manager matches
-  // on `event.key`, and Shift+Alt+0 arrives as ')' on a US layout and something else elsewhere.
+  // Reset the offset. Both this and Ctrl+Shift+Backspace clear it (one value, a matching backspace
+  // per arrow-chord). NOT a digit: this manager matches on `event.key`, and Shift+Alt+0 arrives as
+  // ')' on a US layout and something else elsewhere.
   'Shift+Alt+Backspace': {
-    action: 'noteSpacingReset',
-    description: 'Reset the space before the selected note / the selected bar’s width',
+    action: 'resetNoteOffset',
+    description: 'Reset the selected note to its natural horizontal position',
   },
 
   // Voice selection (Sibelius-style Alt+number). Notes are entered into the active voice.

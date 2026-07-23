@@ -121,12 +121,12 @@ export function wireShortcuts(
     return true
   }
 
-  // Ctrl+←/→ (coarse) / Ctrl+Shift+←/→ (fine) on a SINGLE selected note or rest = nudge its
+  // Ctrl+Shift+←/→ (wide) / Shift+Alt+←/→ (fine) on a SINGLE selected note or rest = nudge its
   // horizontal offset by a staff-space delta (+right), an OFFSET off its natural column (NOT
-  // spacing — the bar keeps its width). Unlike the slur/dynamic — which get fine on the PLAIN
-  // arrows — a note's plain ←/→ is navigation, so BOTH steps ride Ctrl. Returns true when it
-  // consumed the key, false to DECLINE so it falls through. One undo per press. The engine keys
-  // the override by SLOT, so a chord (and a rest) moves as a unit. See docs/note-offset-plan.md §C.
+  // spacing — the bar keeps its width). Rides the deliberate chords, not the easy key: a note's
+  // plain ←/→ is navigation and the easy Ctrl+←/→ is the MOVE (spacing/bar width). Returns true
+  // when it consumed the key, false to DECLINE so it falls through. One undo per press. The engine
+  // keys the override by SLOT, so a chord (and a rest) moves as a unit. See docs/note-offset-plan.md §C.
   const nudgeSelectedNoteOffset = (dx: number): boolean => {
     const eng = getEngine()
     if (!eng || state.selectedItems.size !== 1) return false
@@ -137,9 +137,9 @@ export function wireShortcuts(
     return true
   }
 
-  // Ctrl+Backspace on a SINGLE selected note/rest = reset it to its natural column outright (drop
-  // the offset entry, the first-class reset every override client gets — not a walk back to 0).
-  // DECLINEs (false) when there is nothing to reset, keeping the key free.
+  // Ctrl+Shift+Backspace / Shift+Alt+Backspace on a SINGLE selected note/rest = reset it to its
+  // natural column outright (drop the offset entry, the first-class reset every override client gets
+  // — not a walk back to 0). DECLINEs (false) when there is nothing to reset, keeping the key free.
   const resetSelectedNoteOffset = (): boolean => {
     const eng = getEngine()
     if (!eng || state.selectedItems.size !== 1) return false
@@ -508,13 +508,6 @@ export function wireShortcuts(
     staffSpacingFineDown: () => { nudgeStaffSpacingIfBoxSelected(STAFF_SPACING_FINE_SS) },
     voiceNavUp: () => selection.navigateVoice(1),
     voiceNavDown: () => selection.navigateVoice(-1),
-    // Otherwise unbound, so these DECLINE (return false) when nothing single is selected — the key
-    // falls through instead of being swallowed by a no-op.
-    noteSpacingTighten: () =>
-      nudgeSelectedNoteSpacing(-NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(-BAR_WIDTH_STEP_PX),
-    noteSpacingWiden: () =>
-      nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(BAR_WIDTH_STEP_PX),
-    noteSpacingReset: () => resetSelectedNoteSpacing() || resetSelectedBarWidth(),
     // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.
     // (These keys are already bound, so they always consume — the nudge branch returns void
     // via the early return, so preventDefault still fires.)
@@ -522,17 +515,30 @@ export function wireShortcuts(
     pitchDown: () => { if (nudgeArmedSlurPoint(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1) || nudgeSelectedDynamic(0, NUDGE_FINE_SS)) return; selection.adjustPitch(-1) },
     octaveUp: () => { if (!(nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, -NUDGE_COARSE_SS))) selection.adjustOctave(1) },
     octaveDown: () => { if (!(nudgeArmedSlurPoint(0, NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, NUDGE_COARSE_SS))) selection.adjustOctave(-1) },
-    // Horizontal COARSE nudge (Ctrl+←/→) is unbound otherwise → DECLINE (return false) when no
-    // slur point is armed AND no dynamic is selected AND no single note is selected, keeping the
-    // key free until then. A selected note joins this same chain (its plain ←/→ is navigation, so
-    // it cannot share the slur/dynamic convention of fine-on-plain — see docs/note-offset-plan.md §C).
-    nudgeSlurEndpointCoarseLeft: () => nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0) || nudgeSelectedNoteOffset(-NUDGE_COARSE_SS),
-    nudgeSlurEndpointCoarseRight: () => nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0) || nudgeSelectedNoteOffset(NUDGE_COARSE_SS),
-    // Ctrl+Shift+←/→ = the note offset's FINE step (otherwise unbound → DECLINE when no single
-    // note is selected). The note's own surface: the slur/dynamic get fine on the plain arrows.
+    // ── Ctrl+←/→ = MOVE: change the space before a selected note's column, or a selected barline's
+    //    bar width — "move a lot" gets the easy key (docs/note-offset-plan.md §C swap). Joins the
+    //    slur-endpoint / dynamic COARSE nudge that already owned Ctrl+←/→ (all selections disjoint).
+    //    Left = tighten/narrow, right = widen. DECLINEs (false) when nothing applicable is selected,
+    //    keeping the key free. One undo per press.
+    ctrlArrowLeft: () =>
+      nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0)
+      || nudgeSelectedNoteSpacing(-NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(-BAR_WIDTH_STEP_PX),
+    ctrlArrowRight: () =>
+      nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0)
+      || nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(BAR_WIDTH_STEP_PX),
+    // Ctrl+Backspace = reset the MOVE (the space before the note / the bar's width).
+    resetMove: () => resetSelectedNoteSpacing() || resetSelectedBarWidth(),
+
+    // ── Note OFFSET (the small, deliberate nudge off the natural column) rides the harder chords:
+    //    Ctrl+Shift+←/→ = WIDE (1 space), Shift+Alt+←/→ = FINE (¼ space). "Should not offset that
+    //    much" → the deliberate chords, not the easy key. Each DECLINEs when no single note/rest is
+    //    selected. See docs/note-offset-plan.md §C.
+    nudgeNoteOffsetCoarseLeft: () => nudgeSelectedNoteOffset(-NUDGE_COARSE_SS),
+    nudgeNoteOffsetCoarseRight: () => nudgeSelectedNoteOffset(NUDGE_COARSE_SS),
     nudgeNoteOffsetFineLeft: () => nudgeSelectedNoteOffset(-NUDGE_FINE_SS),
     nudgeNoteOffsetFineRight: () => nudgeSelectedNoteOffset(NUDGE_FINE_SS),
-    // Ctrl+Backspace = reset the selected note to its natural column (DECLINEs when nothing to reset).
+    // Ctrl+Shift+Backspace AND Shift+Alt+Backspace both reset the offset — it is one value, and each
+    // of its two arrow-chords gets a matching backspace. DECLINEs when nothing to reset.
     resetNoteOffset: () => resetSelectedNoteOffset(),
     undo: () => {
       const eng = getEngine()
