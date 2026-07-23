@@ -1109,23 +1109,43 @@ export class VexFlowRenderer {
 
       // Group slots by model voice (0 = primary). With more than one voice, engrave
       // them as independent streams (Sibelius-style) by voice PARITY: odd voices
-      // (V1/V3, model 0/2) stems up, even voices (V2/V4, model 1/3) stems down, and
-      // the two lanes' rests are pushed apart so they don't collide. (Distinct
-      // per-voice rest lanes for 3+ voices are a follow-up — for now V3 shares V1's
-      // up-lane and V4 shares V2's down-lane.)
-      const REST_LINE_SHIFT = 2
+      // (V1/V3, model 0/2) stems up, even voices (V2/V4, model 1/3) stems down.
+      //
+      // Rests get their OWN vertical lane per voice so same-parity voices never overlap
+      // (each entry × REST_LINE_STEP lines, + = up): a top-to-bottom ladder V3 / V1 / V2 / V4
+      // — V1 centred like a single voice, V3 above it, V2 below it, V4 below V2. REST_LINE_STEP
+      // is the one knob to retune the spread by eye. (docs/multi-voice-plan.md §13.)
+      const REST_LINE_STEP = 3
+      const REST_LANE = [0, -1, 1, -2] // × REST_LINE_STEP, indexed by 0-based model voice
       const voiceIds = [...new Set(sortedAll.map(s => s.voice ?? 0))].sort((a, b) => a - b)
       const multiVoice = voiceIds.length > 1
+      // Our intended rest line / stem direction per StaveNote, captured BEFORE formatting.
+      // VexFlow's StaveNote.format rewrites both for same-tick multi-voice collisions — it
+      // nudges rests apart (can lift V1's centred rest off the middle line) and REASSIGNS
+      // stem directions (a 3rd voice forced up gets flipped down, and the user's `x` override
+      // with it). Neither is right for our voice model, so we re-assert both after format.
+      const intendedRestLine = new Map<StaveNote, number>()
+      const intendedStemDir = new Map<StaveNote, number>()
       const groups = voiceIds.map(v => {
         const slots = sortedAll.filter(s => (s.voice ?? 0) === v)
         const stemUp = v % 2 === 0
         const forcedStem = multiVoice ? (stemUp ? 1 : -1) : undefined
-        const restShift = multiVoice ? (stemUp ? REST_LINE_SHIFT : -REST_LINE_SHIFT) : 0
+        const restShift = multiVoice ? (REST_LANE[v] ?? 0) * REST_LINE_STEP : 0
         // notesOnly: one StaveNote per slot (used for beams, tuplets, registration). The
         // resolver adds each rest's manual vertical shift (if any) on top of the voice base.
         const restShiftFor = (slot: ChordRest): number =>
           restShift + (restShiftOverrideOf(pass.score, restPositionKey(measure.id, slot.voice ?? 0, slot.beat, slot.staffId))?.steps ?? 0)
         const staveNotes = createStaveNotesFromSlots(slots, clefForBeat, forcedStem, restShiftFor)
+        for (const sn of staveNotes) {
+          // Non-measure rests only: measure (whole-bar) rests are centred separately and
+          // reset() would disturb that. Their lane line is what draw must honour.
+          if (sn.isRest()) {
+            if (!sn.isCenterAligned()) intendedRestLine.set(sn, sn.getKeyLine(0))
+          } else if (multiVoice) {
+            // The stem we set from voice parity or the `x` override — VexFlow must not flip it.
+            intendedStemDir.set(sn, sn.getStemDirection())
+          }
+        }
         return { voice: v, slots, staveNotes, forcedStem }
       })
 
@@ -1183,13 +1203,22 @@ export class VexFlowRenderer {
         applyLeadingSpaces(formatter, vexVoices, pass.score, measure)
         this.centerMeasureRests(vexVoices, stave)
 
-        // VexFlow's StaveNote.format() merges two voices' same-duration rests at
-        // the same beat into one by setting the lower rest's renderOptions.draw =
-        // false. We always want every voice's rest visible (they're already pushed
-        // apart by restShift), so re-enable drawing on all rests after formatting.
+        // VexFlow's StaveNote.format() rewrites same-tick multi-voice notes: it hides one
+        // of two same-duration rests (renderOptions.draw = false), vertically nudges rests
+        // that collide, and REASSIGNS stem directions. All three fight our voice model, so
+        // undo them — re-enable every rest, restore each rest to its captured lane line, and
+        // restore each note's captured stem. setKeyLine/setStemDirection both refresh the
+        // note (reset() rebuilds the notehead), so the corrections land at draw time.
         if (multiVoice) {
           for (const sn of staveNotes) {
-            if (sn.isRest()) (sn.renderOptions as { draw?: boolean }).draw = true
+            if (sn.isRest()) {
+              ;(sn.renderOptions as { draw?: boolean }).draw = true
+              const line = intendedRestLine.get(sn)
+              if (line !== undefined && sn.getKeyLine(0) !== line) sn.setKeyLine(0, line)
+            } else {
+              const dir = intendedStemDir.get(sn)
+              if (dir !== undefined && sn.getStemDirection() !== dir) sn.setStemDirection(dir)
+            }
           }
         }
 

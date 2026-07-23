@@ -276,10 +276,36 @@ rule.
   colours via `voiceFillColor(i)`. (The keypad's own `this.voice` is still **not** wired to editor
   entry — pre-existing open item; use Alt+1..4 to pick the entry voice.)
 
-**Deferred — per-voice rest lanes (Phase 2).** Rest separation is still the binary up/down split from
-the 2-voice pass, applied by parity: V3 shares V1's up-lane, V4 shares V2's down-lane. So a bar with
-rests in *both* V1 and V3 (or V2 and V4) overlaps them. Four genuinely distinct rest lanes is a layout
-design decision (even Sibelius uses fixed offsets, not true collision avoidance) — do it as its own
-pass once 3–4 voices are seen on screen. The knob is `REST_LINE_SHIFT` in `VexFlowRenderer.renderMeasure`.
+**Per-voice rest lanes — DONE 2026-07-23.** Each voice gets its own vertical rest lane, so same-parity
+voices no longer overlap. V1 is centred (like a single voice); the others are offset off it. Implemented
+as a table in `VexFlowRenderer.renderMeasure`:
+
+```js
+const REST_LINE_STEP = 3                     // the one knob — lines between adjacent lanes
+const REST_LANE = [0, -1, 1, -2]            // × REST_LINE_STEP, by 0-based model voice; + = up
+restShift = multiVoice ? (REST_LANE[v] ?? 0) * REST_LINE_STEP : 0
+```
+
+With `STEP = 3` the lanes are **V3 +3 / V1 0 / V2 −3 / V4 −6** top-to-bottom (the values the user
+picked). It **anchors on V1 (centred)** rather than the old symmetric ±2 split — the 2-voice look
+changed on purpose (V1 centre / V2 below instead of V1 raised / V2 lowered). The per-rest manual
+override and hide/show still ride on top of this base. Both `REST_LANE` and `REST_LINE_STEP` are pure
+retune-by-eye knobs. This is a deliberately simple deterministic scheme — 3–4 simultaneous voices have no clean
+engraving standard (even Sibelius uses fixed offsets, not true collision avoidance), so revisit by taste.
+
+⚠️ **VexFlow rewrites same-tick multi-voice notes, and we undo it.** `StaveNote.format` (runs inside
+`Formatter.format`) does three things to colliding voices that fight our voice model:
+1. **Vertically nudges rests** to dodge collisions (can lift V1's centred rest off the middle line).
+2. **Hides one of two same-duration rests** (`renderOptions.draw = false`).
+3. **Reassigns stem directions** — a 3rd voice forced up (parity) gets flipped **down**, and the user's
+   `x` stem override goes with it. (Its override branches guard on `hasBeam() === false`, so beamed
+   notes are safe.) This was the "V3 stem down, `x` won't flip" bug.
+
+Fix (both in the post-format `if (multiVoice)` loop of `renderMeasure`): capture each rest's intended
+lane line and each note's intended stem **before** format, then re-assert them after — restore rest
+lines via `setKeyLine`, re-enable `draw`, restore stems via `setStemDirection`. Both `setKeyLine` and
+`setStemDirection` refresh the note (`reset()` rebuilds the notehead), so the corrections land at draw
+time. Measure (whole-bar) rests are excluded (X-centred separately). Guarded by
+`multiVoiceStem.test.ts`.
 </content>
 </invoke>
