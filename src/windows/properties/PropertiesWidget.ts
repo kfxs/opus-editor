@@ -1,6 +1,7 @@
 import type { Widget } from '../content/Widget'
 import { selectionInspection } from '../../interactions/selectionInspection'
 import type { SelectedElement } from '../../interactions/selectionSnapshot'
+import { noteOffsetSelection } from '../../interactions/noteOffsetSelection'
 
 /**
  * What is selected, as the model holds it.
@@ -32,6 +33,12 @@ import type { SelectedElement } from '../../interactions/selectionSnapshot'
  */
 const PHOSPHOR = '#22ff88'
 const AMBER = '#ffc93c'
+// Bishop purple — the note-offset control's own colour, so the one thing on the panel you can EDIT
+// reads as distinct from the green readout and the amber section labels. A third local literal (not
+// a chrome token, like the two above) for the same reason: it MEANS "this is a live control", which
+// a shared neutral would quietly flatten. A deep, saturated obispo violet (a lighter tint washed out
+// on the glass) — full-strength so it still carries against the dark panel.
+const BISHOP = '#7c3aed'
 
 export class PropertiesWidget implements Widget {
   private body: HTMLElement | null = null
@@ -92,6 +99,17 @@ export class PropertiesWidget implements Widget {
       heading.style.letterSpacing = '0.06em'
       body.appendChild(heading)
 
+      // The panel's FIRST real control (client #12 — docs/note-offset-plan.md §B): a note/rest's
+      // horizontal offset, an absolute value in staff-spaces. Publishes to `noteOffsetSelection`; the
+      // widget never touches the engine (that is NoteOffsetController's job) — it stays a dumb
+      // publisher, and the second editable property will cost almost nothing.
+      if ((element.kind === 'note' || element.kind === 'rest')) {
+        const id = (element.data as { id?: string; missing?: boolean }).id
+        if (id && !(element.data as { missing?: boolean }).missing) {
+          body.appendChild(this.buildOffsetInput(id, currentNoteOffset(element)))
+        }
+      }
+
       const dump = document.createElement('div')
       dump.textContent = stringify(element.data)
       body.appendChild(dump)
@@ -115,6 +133,59 @@ export class PropertiesWidget implements Widget {
     }
     ;(body.firstElementChild as HTMLElement).style.marginTop = '0'
   }
+
+  /**
+   * The absolute horizontal-offset control for one note/rest. A labelled number input in
+   * staff-spaces; committing (Enter or blur) publishes `{id, x}` to {@link noteOffsetSelection}.
+   * The window holds no engine — the controller reads the current value and applies the delta — so
+   * this only reports the desired absolute, and the panel repaints from `onModelChange` afterward.
+   */
+  private buildOffsetInput(noteId: string, current: number): HTMLElement {
+    const row = document.createElement('label')
+    const rs = row.style
+    rs.display = 'flex'
+    rs.alignItems = 'center'
+    rs.gap = '6px'
+    rs.color = BISHOP
+    rs.margin = '2px 0 4px'
+
+    const label = document.createElement('span')
+    label.textContent = 'offset (sp)'
+    row.appendChild(label)
+
+    const input = document.createElement('input')
+    input.type = 'number'
+    input.step = '0.25'
+    input.value = String(current)
+    const is = input.style
+    is.width = '5em'
+    is.font = 'inherit'
+    is.color = BISHOP
+    is.background = 'transparent'
+    is.border = `1px solid ${BISHOP}`
+    is.borderRadius = '2px'
+    is.padding = '1px 4px'
+
+    const commit = () => {
+      const x = parseFloat(input.value)
+      if (!Number.isFinite(x)) { input.value = String(current); return }
+      noteOffsetSelection.set(noteId, x)
+    }
+    // Enter commits (and blurs, which would otherwise commit a second time — so guard on the blur).
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur() }
+    })
+    input.addEventListener('change', commit)
+    row.appendChild(input)
+    return row
+  }
+}
+
+/** The note/rest's current horizontal offset in staff-spaces (0 when none), read from the element's
+ *  own overrides — the same slot-keyed entry the engine writes. */
+function currentNoteOffset(element: SelectedElement): number {
+  const entry = element.overrides?.find((o) => o.kind === 'noteOffset') as { x?: number } | undefined
+  return entry?.x ?? 0
 }
 
 /**

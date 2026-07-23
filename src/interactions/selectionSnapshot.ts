@@ -54,13 +54,18 @@ function overridesAt(score: Score, key: string | undefined): EngravingOverride[]
 /**
  * The compartment key for a note or rest.
  *
- * ⚠️ Rests are POSITION-keyed and notes are id-keyed — the one asymmetry in the compartment, and it
- * is not an accident: a rest has no durable id (re-barring makes and unmakes rests freely), so its
- * overrides are addressed by where it sits. Reading only ids would silently show no overrides on
- * exactly the elements that most often have one, since the rest shift and rest hide both live here.
+ * ⚠️ Rests are POSITION-keyed and notes are SLOT-keyed — the one asymmetry in the compartment, and
+ * it is not an accident: a rest has no durable id (re-barring makes and unmakes rests freely), so
+ * its overrides are addressed by where it sits. Reading the wrong key would silently show no
+ * overrides on exactly the elements that most often have one — the rest shift and rest hide both
+ * live at the position key; a note's horizontal offset (client #12) lives at its SLOT id.
+ *
+ * NOT the pitch id: no compartment client keys off a note's pitch id, and the note offset a chord
+ * carries is a property of the whole slot (a chord moves as a unit). So a selected pitch resolves to
+ * the slot it sits in — otherwise the panel would look up an always-empty key and never show the offset.
  */
-function noteOverrideKey(score: Score, note: Note): string | undefined {
-  if (!note.isRest) return note.id
+function noteOverrideKey(score: Score, engine: MusicEngine, note: Note): string | undefined {
+  if (!note.isRest) return engine.slotIdForNote(note.id)
   const measure = score.measures.find((m) => m.number === note.measure)
   if (!measure) return undefined
   return restPositionKey(measure.id, note.voice ?? 0, note.beat, score.staves?.[note.staff ?? 0]?.id)
@@ -82,7 +87,7 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
     out.push({
       kind: note?.isRest ? 'rest' : 'note',
       data: note ?? { id, missing: true },
-      overrides: note ? overridesAt(score, noteOverrideKey(score, note)) : undefined,
+      overrides: note ? overridesAt(score, noteOverrideKey(score, engine, note)) : undefined,
     })
   }
 

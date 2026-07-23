@@ -13,6 +13,7 @@ import { fracCreate as frac } from '../utils/fraction'
 const engineStub = (notes: Record<string, unknown> = {}): MusicEngine =>
   ({
     getNote: (id: string) => notes[id],
+    slotIdForNote: (id: string) => id,
     getDynamicById: () => null,
     getTempoMarkById: () => null,
     getSlurById: () => null,
@@ -79,19 +80,26 @@ describe('selectedElements — engraving overrides', () => {
     engravingOverrides: overrides,
   })
 
-  const engineWith = (note: Record<string, unknown>, overrides: Record<string, { kind: string }[]>) =>
+  const engineWith = (
+    note: Record<string, unknown>,
+    overrides: Record<string, { kind: string }[]>,
+    slotOf: (id: string) => string | undefined = (id) => id,
+  ) =>
     ({
       getNote: () => note,
+      slotIdForNote: slotOf,
       getDynamicById: () => null,
       getTempoMarkById: () => null,
       getSlurById: () => null,
       getScore: () => scoreWith(overrides),
     }) as unknown as MusicEngine
 
-  it('finds a note override by id', () => {
+  // A note's offset (client #12) is keyed by its SLOT, not its pitch id — a chord moves as a unit —
+  // so the snapshot resolves the selected pitch to its slot before looking up the compartment.
+  it('finds a note override by its slot key, not its pitch id', () => {
     const state = createEditorState()
     state.selectedNoteId = 'n1'
-    const engine = engineWith({ id: 'n1', measure: 1 }, { n1: [{ kind: 'noteOffset' }] })
+    const engine = engineWith({ id: 'n1', measure: 1 }, { s1: [{ kind: 'noteOffset' }] }, () => 's1')
     expect(selectedElements(state, engine)[0].overrides).toEqual([{ kind: 'noteOffset' }])
   })
 

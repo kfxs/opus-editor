@@ -15,6 +15,7 @@ import { TextEditController } from './interactions/TextEditController'
 import { DomTextEdit } from './interactions/DomTextEdit'
 import { GutterController } from './interactions/GutterController'
 import { ClipboardController } from './interactions/ClipboardController'
+import { NoteOffsetController } from './interactions/NoteOffsetController'
 import { createViewportHost } from './interactions/ViewportHost'
 import { wireShortcuts } from './interactions/shortcutWiring'
 import { wireKeypadSync } from './interactions/keypadSync'
@@ -306,6 +307,10 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   const stopKeypadSync = wireKeypadSync(state, palette, onStateChange)
   const stopSelectionInspection = wireSelectionInspection(state, getEngine, onStateChange)
 
+  // The Properties note-offset input publishes to `noteOffsetSelection`; this controller owns the
+  // engine apply (client #12, docs/note-offset-plan.md §B) so the window stays a dumb publisher.
+  const noteOffset = new NoteOffsetController(getEngine, () => renderer.renderScore())
+
   // ---------------------------------------------------------------------------------------------
   // Start
   // ---------------------------------------------------------------------------------------------
@@ -517,6 +522,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       stopStateSync()
       stopKeypadSync()
       stopSelectionInspection()
+      noteOffset.destroy()
       for (const part of devShell) part.destroy()
       viewport.detach()
       gutter.detach()
