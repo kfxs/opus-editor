@@ -34,16 +34,19 @@
  */
 import type { Accidental, ArticulationType, NoteDuration } from '../../types/music'
 
-/** One music-font glyph, its `size` and `dy` both quoted against a 26px reference (see {@link g}). */
-export type GlyphSpec = { glyph: string; size?: number; dy?: number }
+/** One music-font glyph, its `size`, `dx` and `dy` all quoted against a 26px reference (see {@link g}). */
+export type GlyphSpec = { glyph: string; size?: number; dx?: number; dy?: number }
 
 /**
- * A cell's picture: a single glyph, a ROW of glyphs each sized on its own, or a hand-drawn icon.
- * Nothing else — a Keypad cell is never text. The row exists because two marks on one key (the
- * quarter + eighth rest) are drawn at DIFFERENT ems in the font, so they need independent sizes to
- * look balanced; one string in one span cannot.
+ * A cell's picture: a single glyph, a ROW of glyphs each sized on its own, a STACK of glyphs drawn
+ * on top of each other (a note wearing its tremolo strokes — each layer slid into place by `dx`/`dy`),
+ * or a hand-drawn icon. Nothing else — a Keypad cell is never text.
  */
-export type Icon = GlyphSpec | { glyphs: GlyphSpec[] } | { svg: string; dy?: number }
+export type Icon =
+  | GlyphSpec
+  | { glyphs: GlyphSpec[] }
+  | { layers: GlyphSpec[] }
+  | { svg: string; dy?: number }
 
 /**
  * How a key LIGHTS — which is to say, what kind of statement it makes. Three kinds, and the panel
@@ -138,7 +141,7 @@ const ICON = {
  * where the eye expects it. Both `size` and `dy` are quoted against a 26px glyph and scale with
  * the key.
  */
-const g = (glyph: string, size?: number, dy?: number): GlyphSpec => ({ glyph, size, dy })
+const g = (glyph: string, size?: number, dy?: number, dx?: number): GlyphSpec => ({ glyph, size, dy, dx })
 
 /** How far a stemmed note drops, so its NOTEHEAD sits centred rather than its bounding box. */
 const STEM_DROP = 6
@@ -150,6 +153,10 @@ const ARTIC_SIZE = 34
 /** The accidentals (natural, sharp, flat) — already tall, so a gentler bump than the articulations. */
 const ACC_SIZE = 32
 
+/** Stem-DOWN note glyphs — page 1's own notes are stem-up; page 2 starts from the down-stem note. */
+const NOTE_DOWN = { half: '\uE1D4', quarter: '\uE1D6', sixteenth: '\uE1DA' }
+/** Tremolo strokes — combining marks that ride a note's stem. */
+const TREM = { one: '\uE220', two: '\uE221', three: '\uE222', four: '\uE223', five: '\uE224', penderecki: '\uE22B' }
 /** The numpad keys, in the reading order the cells must follow. Three of them are merged keys. */
 export const KEYS = [
   'NumLock', '/', '*', '-',
@@ -211,15 +218,26 @@ const page1: CellSpec[] = [
   ['rest', { glyphs: [g(REST_QUARTER), g(REST_EIGHTH, 34)] }, 'rest'], ['dot', g(NOTE.dot, 34), 'dot'],
 ]
 
-/** An empty, unassigned slot — no glyph, no light. It just logs on click (see {@link KeypadWidget}). */
-const BLANK: CellSpec = ['unassigned', { glyph: '' }, 'momentary']
-
 /**
- * Page 2 — infrastructure only, for now: every own key is a {@link BLANK} that shows nothing and only
- * logs its key on click. Glyphs and actions come later; the point today is that the page EXISTS and
- * the `+` turns to it. (The arrow and `+` are injected, so even a blank page can always turn back.)
+ * Page 2 — Sibelius's tremolo page, being built one cell at a time. For now every key is the same
+ * `momentary` tremolo note (a down-stem quarter, drawn like page 1's notes); the strokes and the
+ * rest of the layout come next. Its OWN keys only — the arrow and `+` come from {@link withControls}.
  */
-const page2: CellSpec[] = Array.from({ length: PAGE_OWN_KEYS }, () => BLANK)
+const trem = (glyph: string = NOTE_DOWN.quarter, dy = -10): CellSpec => ['tremolo', g(glyph, undefined, dy), 'momentary']
+/** A tremolo note wearing its strokes: the note glyph with a tremolo glyph laid onto the stem. */
+const tremStruck = (stroke: string, sy = 4, size?: number, sx = -2): CellSpec => [
+  'tremolo',
+  { layers: [g(NOTE_DOWN.quarter, undefined, -10), g(stroke, size, sy, sx)] },
+  'momentary',
+]
+const page2: CellSpec[] = [
+  trem(), trem(NOTE_DOWN.sixteenth), trem(NOTE.quarter, 9),
+  trem(), trem(), trem(),
+  tremStruck(TREM.four, 4, 22), tremStruck(TREM.five, 4.5, 21), tremStruck(TREM.penderecki, 4.5, 30, -1),
+  tremStruck(TREM.one), tremStruck(TREM.two, 3), tremStruck(TREM.three, 3),
+  trem(),
+  trem(NOTE.quarter, 9), trem(NOTE.quarter, 9),
+]
 
 const toCells = (page: CellSpec[]): KeypadCell[] =>
   page.map(([action, icon, select, value], i) => ({

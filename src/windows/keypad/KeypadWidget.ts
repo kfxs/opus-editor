@@ -440,6 +440,24 @@ function renderIcon(icon: Icon): HTMLElement {
     return el
   }
 
+  // A STACK of glyphs on one key (a note wearing its tremolo strokes): each layer fills the icon box
+  // and centres its own glyph, then slides by its dx/dy — so they overlap on a shared centre.
+  if ('layers' in icon) {
+    el.style.position = 'relative'
+    el.style.width = `${GLYPH}px`
+    el.style.height = `${GLYPH}px`
+    for (const layer of icon.layers) {
+      const span = glyphSpan(layer)
+      span.style.position = 'absolute'
+      span.style.inset = '0'
+      span.style.display = 'flex'
+      span.style.alignItems = 'center'
+      span.style.justifyContent = 'center'
+      el.appendChild(span)
+    }
+    return el
+  }
+
   // A row of glyphs (the quarter + eighth rest on one key) or a single glyph — one builder either way.
   const parts = 'glyphs' in icon ? icon.glyphs : [icon]
   if (parts.length > 1) el.style.gap = `${Math.round(GLYPH * 0.24)}px`
@@ -455,6 +473,8 @@ function glyphSpan(spec: GlyphSpec): HTMLElement {
   el.style.fontFamily = MUSIC_FONT
   el.style.lineHeight = '1'
   el.style.fontSize = `${Math.round(GLYPH * (spec.size ?? 26) / 26)}px`
-  if (spec.dy) el.style.transform = `translateY(${(GLYPH * spec.dy) / 26}px)`
+  const tx = spec.dx ? (GLYPH * spec.dx) / 26 : 0
+  const ty = spec.dy ? (GLYPH * spec.dy) / 26 : 0
+  if (tx || ty) el.style.transform = `translate(${tx}px, ${ty}px)`
   return el
 }
