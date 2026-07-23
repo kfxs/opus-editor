@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import { ScoreModel, type ClipDynamicInput, type ClipSlurInput } from './models/ScoreModel'
-import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barWidthKey, measureStretch, BAR_STRETCH_MIN, BAR_STRETCH_MAX, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
+import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barWidthKey, measureStretch, BAR_STRETCH_MIN, BAR_STRETCH_MAX, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
 import { authoredScales, growthPayerShares, squeezedWidth } from './rendering/MeasureLayout'
@@ -1856,6 +1856,41 @@ export class MusicEngine {
       dbg(`[Dynamic] nudge ${dynamicId} by (${dx}, ${dy}) → offset (${off?.x ?? 0}, ${off?.y ?? 0}) staff-space(s)`)
     }
     return ok
+  }
+
+  /**
+   * Nudge a selected note's horizontal offset by `dx` staff-spaces and save ONE undo step (the
+   * Ctrl+arrow keyboard fine-positioning — see docs/note-offset-plan.md). Selection gives a *pitch*
+   * id; the override is **slot-keyed** (a chord moves as a unit, and a rest is a slot too), so this
+   * resolves the pitch id to its slot first and delegates the accumulate/clear to the model. A no-op
+   * for an id no longer in the score.
+   * @returns true if the note was nudged.
+   */
+  nudgeNoteOffset(noteId: string, dx: number): boolean {
+    const slotId = this.scoreModel.slotIdForNote(noteId)
+    if (!slotId) return false
+    const ok = this.scoreModel.nudgeNoteOffset(slotId, dx)
+    if (ok) {
+      this.saveOnly('Nudge note')
+      const off = noteOffsetOverrideOf(this.scoreModel.getScore(), slotId)
+      dbg(`[Note] nudge ${noteId} (slot ${slotId}) by ${dx} → offset ${off?.x ?? 0} staff-space(s)`)
+    }
+    return ok
+  }
+
+  /**
+   * Reset a selected note to its natural column, dropping its horizontal offset outright (the
+   * Ctrl+Backspace first-class reset — see docs/note-offset-plan.md). Slot-keyed, resolved from the
+   * pitch id like {@link nudgeNoteOffset}. One undo step.
+   * @returns true if an offset was there to reset.
+   */
+  resetNoteOffset(noteId: string): boolean {
+    const slotId = this.scoreModel.slotIdForNote(noteId)
+    if (!slotId) return false
+    if (!this.scoreModel.clearNoteOffset(slotId)) return false
+    this.saveOnly('Reset note offset')
+    dbg(`[Note] reset offset ${noteId} (slot ${slotId})`)
+    return true
   }
 
   /**

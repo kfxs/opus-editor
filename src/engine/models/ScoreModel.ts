@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CautionaryOverride, CautionaryClefOverride } from '@/types/music'
-import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX } from './engravingOverrides'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CautionaryOverride, CautionaryClefOverride } from '@/types/music'
+import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf, noteOffsetOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX } from './engravingOverrides'
 import {
   tupletSpan,
   tupletSlotDuration,
@@ -936,6 +936,53 @@ export class ScoreModel {
       const next: DynamicOffsetOverride = { kind: 'dynamicOffset', x, y }
       this.setEngravingOverride(dynamicId, next)
     }
+    return true
+  }
+
+  /**
+   * The **slot** id containing a note/rest id — the address a {@link NoteOffsetOverride} is keyed
+   * by (client #12 — see docs/note-offset-plan.md). Selection hands us a *pitch* id, but VexFlow
+   * cannot x-shift a single notehead of a chord independently, so the offset hangs off the whole
+   * slot: a chord moves as a unit, and a rest (itself a slot) resolves to its own id. Returns
+   * undefined for an id no longer in the score.
+   */
+  slotIdForNote(noteId: string): string | undefined {
+    const found = this.findSlot(noteId)
+    if (!found) return undefined
+    return found.type === 'rest' ? found.rest.id : found.chord.id
+  }
+
+  /**
+   * Nudge a note's manual horizontal offset by `dx` staff-spaces, **accumulating** onto any existing
+   * offset (the Ctrl+arrow keyboard fine-positioning — see docs/note-offset-plan.md). Stored as a
+   * {@link NoteOffsetOverride} in the engraving-overrides compartment, keyed by the **slot** id
+   * (`slotId` from {@link slotIdForNote}) — one StaveNote is one slot, so a chord moves as a unit.
+   * The offset is a delta on top of the note's natural column; render folds it back in via
+   * `StaveNote.setXShift`.
+   *
+   * Returning to a net `x` of 0 clears the entry (so "absent = default" holds and the JSON stays
+   * clean). No undo snapshot here — the facade (`MusicEngine.nudgeNoteOffset`) owns the per-press
+   * `saveOnly`, mirroring {@link nudgeDynamicOffset}.
+   * @returns true (the override always exists/updates for a valid slot id).
+   */
+  nudgeNoteOffset(slotId: string, dx: number): boolean {
+    const prev = noteOffsetOverrideOf(this.score, slotId)
+    const x = (prev?.x ?? 0) + dx
+    if (x === 0) {
+      this.clearEngravingOverride(slotId, 'noteOffset')
+    } else {
+      const next: NoteOffsetOverride = { kind: 'noteOffset', x }
+      this.setEngravingOverride(slotId, next)
+    }
+    return true
+  }
+
+  /** Drop a note's horizontal offset outright, back to its natural column (the Ctrl+Backspace
+   *  first-class reset — see docs/note-offset-plan.md). Keyed by slot id. No undo snapshot here;
+   *  the facade owns it. @returns true if an offset was there to clear. */
+  clearNoteOffset(slotId: string): boolean {
+    if (!noteOffsetOverrideOf(this.score, slotId)) return false
+    this.clearEngravingOverride(slotId, 'noteOffset')
     return true
   }
 

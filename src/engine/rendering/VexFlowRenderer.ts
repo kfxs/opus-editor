@@ -36,7 +36,8 @@ import {
 import { calculateMeasureWidths } from './MeasureLayout'
 import { MeasureWidthCache } from './MeasureWidthCache'
 import { renderCensus } from '@/dev/renderCensus' // P0 instrument — temporary, see §8
-import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
+import { staffSpacesToPixels } from './staffSpace'
 import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex, staffIndexOfId } from '@/engine/models/staffContent'
 import { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import type { Rect } from '@/engine/ViewportModel'
@@ -1231,6 +1232,12 @@ export class VexFlowRenderer {
           }
         }
 
+        // Hand-nudged note offsets (client #12 — docs/note-offset-plan.md), AFTER the multi-voice
+        // re-assert above: that loop restores each note's xShift to its captured pre-format value,
+        // so an offset applied before it is wiped (gotcha 2). Here — post-re-assert, pre-draw — is
+        // the one window that survives, and it covers BOTH the multi-voice and single-voice paths.
+        this.applyNoteOffsets(sortedSlots, staveNotes, pass.score, stave)
+
         for (const b of built) {
           b.voice.draw(this.context!, stave)
           for (const beam of b.beams) {
@@ -1345,6 +1352,35 @@ export class VexFlowRenderer {
       ctx.lineTo(cx + halfW, y)
       ctx.stroke()
       ctx.restore()
+    }
+  }
+
+  /**
+   * Apply each note's hand-nudged horizontal offset (client #12 — docs/note-offset-plan.md) as a
+   * post-format / pre-draw `StaveNote.setXShift`, which moves the note's *reported geometry* so its
+   * beam, stem, ties, slurs, dots and hit-testing (`headX`) all recompute around the new position —
+   * the reason we shift the note and not the SVG group (a translate would leave the beam and tie
+   * anchors behind). `slots` and `staveNotes` are parallel (same order).
+   *
+   * The offset is **added** to the note's current xShift, not set absolutely: the multi-voice
+   * re-assert has already restored it to the captured value (0 for a normal note), and a measure
+   * rest carries its centring here too — adding preserves both. An OFFSET must not change spacing,
+   * so this runs after `format()` has already reserved the column at the un-shifted position.
+   *
+   * VexFlow's `getModifierStartXY` folds `xShift` into the note's dots (RIGHT branch) but NOT its
+   * accidental (LEFT) or articulations (ABOVE/BELOW), so those two get an explicit modifier shift —
+   * added to their own formatted xShift so their left-stacking survives.
+   */
+  private applyNoteOffsets(slots: ChordRest[], staveNotes: StaveNote[], score: Score, stave: Stave): void {
+    for (let i = 0; i < slots.length; i++) {
+      const off = noteOffsetOverrideOf(score, slots[i].id)
+      if (!off || off.x === 0) continue
+      const px = staffSpacesToPixels(off.x, stave)
+      const sn = staveNotes[i]
+      sn.setXShift(sn.getXShift() + px)
+      for (const mod of sn.getModifiers()) {
+        if (mod instanceof Accidental || mod instanceof Articulation) mod.setXShift(mod.getXShift() + px)
+      }
     }
   }
 

@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 
 /**
@@ -382,6 +382,17 @@ export function staffSpacingOverrideOf(score: Score, staffId: string): StaffSpac
  */
 export function dynamicOffsetOverrideOf(score: Score, dynamicId: string): DynamicOffsetOverride | undefined {
   return engravingOverrideOf(score, dynamicId, 'dynamicOffset') as DynamicOffsetOverride | undefined
+}
+
+/**
+ * The note's hand-nudged horizontal offset, if any (client #12 — see docs/note-offset-plan.md).
+ * `x` is in **staff-spaces**, +right; the renderer converts to pixels and folds it into the note's
+ * `StaveNote.setXShift` at draw time (so beam/stem/tie/slur/dots/hit-testing all follow). Keyed by
+ * the **slot** id (one StaveNote = one slot; a chord moves as a unit), so it reads straight through —
+ * no reconcile rule. Absent = no offset (the note sits in its natural column).
+ */
+export function noteOffsetOverrideOf(score: Score, slotId: string): NoteOffsetOverride | undefined {
+  return engravingOverrideOf(score, slotId, 'noteOffset') as NoteOffsetOverride | undefined
 }
 
 /** Convenience read: the staff's GLOBAL extra space-above in staff-spaces, 0 when absent —

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { levelToGlyphString, dynamicLevelOf } from '@/utils/dynamics'
 import { MusicEngine } from './MusicEngine'
-import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, dynamicOffsetOverrideOf } from './models/engravingOverrides'
+import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, dynamicOffsetOverrideOf, noteOffsetOverrideOf } from './models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { buildBeatMap, navBeatMap } from '@/utils/beatMap'
 import { DEFAULT_TEMPO } from '@/utils/tempoMap'
@@ -575,6 +575,73 @@ describe('MusicEngine.nudgeDynamicOffset — client #8 position nudge', () => {
 
     expect(engine.undo()).toBe(true)
     expect(offsetOf(d.id)).toMatchObject({ y: -1 })
+  })
+})
+
+describe('MusicEngine.nudgeNoteOffset / resetNoteOffset — client #12 horizontal offset', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  // The override is keyed by the SLOT the note lives in, so resolve pitch id → slot id the same
+  // way the facade does, then read the compartment at that key.
+  const offsetOfNote = (noteId: string) => {
+    const slotId = engine['scoreModel'].slotIdForNote(noteId)
+    return slotId ? noteOffsetOverrideOf(engine.getScore(), slotId) : undefined
+  }
+
+  it('accumulates dx onto any existing offset (staff-spaces, +right)', () => {
+    const n = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    expect(engine.nudgeNoteOffset(n.id, 1)).toBe(true)
+    expect(engine.nudgeNoteOffset(n.id, 0.25)).toBe(true)
+    expect(offsetOfNote(n.id)).toMatchObject({ kind: 'noteOffset', x: 1.25 })
+  })
+
+  it('clears the override when the net offset returns to 0 (JSON stays clean)', () => {
+    const n = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    engine.nudgeNoteOffset(n.id, 1)
+    expect(offsetOfNote(n.id)).toBeDefined()
+    engine.nudgeNoteOffset(n.id, -1)
+    expect(offsetOfNote(n.id)).toBeUndefined()
+  })
+
+  it('keys by slot, so every pitch of a chord shares one offset (a chord moves as a unit)', () => {
+    const c = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const e = engine.addChordNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    expect(engine['scoreModel'].slotIdForNote(c.id)).toBe(engine['scoreModel'].slotIdForNote(e.id))
+    engine.nudgeNoteOffset(c.id, 1)
+    // Nudging via the other pitch id lands on the same entry and accumulates.
+    engine.nudgeNoteOffset(e.id, 1)
+    expect(offsetOfNote(c.id)).toMatchObject({ x: 2 })
+    expect(offsetOfNote(e.id)).toMatchObject({ x: 2 })
+  })
+
+  it('offsets a rest too (a rest is a slot)', () => {
+    // Measure 2 is untouched, so beat 0 holds a whole-measure rest.
+    const rest = engine['scoreModel'].getNotesInMeasure(2).find(nte => nte.isRest)!
+    expect(engine.nudgeNoteOffset(rest.id, 1)).toBe(true)
+    expect(offsetOfNote(rest.id)).toMatchObject({ kind: 'noteOffset', x: 1 })
+  })
+
+  it('is a no-op for an id no longer in the score', () => {
+    expect(engine.nudgeNoteOffset('no-such-id', 1)).toBe(false)
+    expect(engine.resetNoteOffset('no-such-id')).toBe(false)
+  })
+
+  it('resetNoteOffset drops the offset outright; no-op when there is none', () => {
+    const n = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    expect(engine.resetNoteOffset(n.id)).toBe(false) // nothing to reset yet
+    engine.nudgeNoteOffset(n.id, 2)
+    expect(engine.resetNoteOffset(n.id)).toBe(true)
+    expect(offsetOfNote(n.id)).toBeUndefined()
+  })
+
+  it('undo restores the prior offset (one step per press)', () => {
+    const n = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    engine.nudgeNoteOffset(n.id, 1)
+    engine.nudgeNoteOffset(n.id, 1)
+    expect(offsetOfNote(n.id)).toMatchObject({ x: 2 })
+    expect(engine.undo()).toBe(true)
+    expect(offsetOfNote(n.id)).toMatchObject({ x: 1 })
   })
 })
 

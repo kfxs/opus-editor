@@ -121,6 +121,35 @@ export function wireShortcuts(
     return true
   }
 
+  // Ctrl+←/→ (coarse) / Ctrl+Shift+←/→ (fine) on a SINGLE selected note or rest = nudge its
+  // horizontal offset by a staff-space delta (+right), an OFFSET off its natural column (NOT
+  // spacing — the bar keeps its width). Unlike the slur/dynamic — which get fine on the PLAIN
+  // arrows — a note's plain ←/→ is navigation, so BOTH steps ride Ctrl. Returns true when it
+  // consumed the key, false to DECLINE so it falls through. One undo per press. The engine keys
+  // the override by SLOT, so a chord (and a rest) moves as a unit. See docs/note-offset-plan.md §C.
+  const nudgeSelectedNoteOffset = (dx: number): boolean => {
+    const eng = getEngine()
+    if (!eng || state.selectedItems.size !== 1) return false
+    const item = [...state.selectedItems.values()][0]
+    if (item.kind !== 'note') return false
+    if (!eng.nudgeNoteOffset(item.id, dx)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  // Ctrl+Backspace on a SINGLE selected note/rest = reset it to its natural column outright (drop
+  // the offset entry, the first-class reset every override client gets — not a walk back to 0).
+  // DECLINEs (false) when there is nothing to reset, keeping the key free.
+  const resetSelectedNoteOffset = (): boolean => {
+    const eng = getEngine()
+    if (!eng || state.selectedItems.size !== 1) return false
+    const item = [...state.selectedItems.values()][0]
+    if (item.kind !== 'note') return false
+    if (!eng.resetNoteOffset(item.id)) return false
+    renderer.renderScore()
+    return true
+  }
+
   // Shift+↑/↓ (fine) / Alt+↑/↓ (coarse) on a plain-click SINGLE measure box = Sibelius
   // "space above staff": nudge the clicked staff's vertical spacing by `delta` staff-spaces
   // (+down). Gated to the single-box selection — disjoint from the chord-nav that Alt+↑/↓
@@ -494,9 +523,17 @@ export function wireShortcuts(
     octaveUp: () => { if (!(nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, -NUDGE_COARSE_SS))) selection.adjustOctave(1) },
     octaveDown: () => { if (!(nudgeArmedSlurPoint(0, NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, NUDGE_COARSE_SS))) selection.adjustOctave(-1) },
     // Horizontal COARSE nudge (Ctrl+←/→) is unbound otherwise → DECLINE (return false) when no
-    // slur point is armed AND no dynamic is selected, keeping the key free until then.
-    nudgeSlurEndpointCoarseLeft: () => nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0),
-    nudgeSlurEndpointCoarseRight: () => nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0),
+    // slur point is armed AND no dynamic is selected AND no single note is selected, keeping the
+    // key free until then. A selected note joins this same chain (its plain ←/→ is navigation, so
+    // it cannot share the slur/dynamic convention of fine-on-plain — see docs/note-offset-plan.md §C).
+    nudgeSlurEndpointCoarseLeft: () => nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0) || nudgeSelectedNoteOffset(-NUDGE_COARSE_SS),
+    nudgeSlurEndpointCoarseRight: () => nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0) || nudgeSelectedNoteOffset(NUDGE_COARSE_SS),
+    // Ctrl+Shift+←/→ = the note offset's FINE step (otherwise unbound → DECLINE when no single
+    // note is selected). The note's own surface: the slur/dynamic get fine on the plain arrows.
+    nudgeNoteOffsetFineLeft: () => nudgeSelectedNoteOffset(-NUDGE_FINE_SS),
+    nudgeNoteOffsetFineRight: () => nudgeSelectedNoteOffset(NUDGE_FINE_SS),
+    // Ctrl+Backspace = reset the selected note to its natural column (DECLINEs when nothing to reset).
+    resetNoteOffset: () => resetSelectedNoteOffset(),
     undo: () => {
       const eng = getEngine()
       if (eng?.undo()) {

@@ -174,11 +174,29 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // until then. (A selected dynamic also nudges on the plain arrows — see nudgeSelectedDynamic.)
   'Ctrl+ArrowLeft': {
     action: 'nudgeSlurEndpointCoarseLeft',
-    description: 'Nudge the selected slur endpoint / dynamic left (coarse)',
+    description: 'Nudge the selected slur endpoint / dynamic / note left (coarse)',
   },
   'Ctrl+ArrowRight': {
     action: 'nudgeSlurEndpointCoarseRight',
-    description: 'Nudge the selected slur endpoint / dynamic right (coarse)',
+    description: 'Nudge the selected slur endpoint / dynamic / note right (coarse)',
+  },
+
+  // Note horizontal offset (client #12 — docs/note-offset-plan.md). A free nudge of a single
+  // selected note off its natural column, on top of automatic spacing. COARSE rides Ctrl+←/→ (the
+  // slur/dynamic chain above, which declines for a plain note); FINE is here on Ctrl+Shift+←/→,
+  // because a note's plain ←/→ is navigation and cannot double as the fine step the slur/dynamic get.
+  // Ctrl+Backspace resets it to the natural column (the first-class reset every override gets).
+  'Ctrl+Shift+ArrowLeft': {
+    action: 'nudgeNoteOffsetFineLeft',
+    description: 'Nudge the selected note left (fine)',
+  },
+  'Ctrl+Shift+ArrowRight': {
+    action: 'nudgeNoteOffsetFineRight',
+    description: 'Nudge the selected note right (fine)',
+  },
+  'Ctrl+Backspace': {
+    action: 'resetNoteOffset',
+    description: 'Reset the selected note to its natural horizontal position',
   },
 
   // Chord navigation (Alt + arrow keys)

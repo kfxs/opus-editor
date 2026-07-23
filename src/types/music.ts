@@ -677,6 +677,30 @@ export interface BarWidthOverride extends EngravingOverride {
 }
 
 /**
+ * Client #12 of the engraving-overrides compartment: a free horizontal nudge of a single note off
+ * its natural (formatted) column, on top of the automatic spacing (see docs/note-offset-plan.md).
+ * `x` is in **staff-spaces**, +right — added to the note's own X at render via
+ * `StaveNote.setXShift`, so the note's beam, stem, ties, slurs, dots and hit-testing all recompute
+ * around the moved position (an SVG translate would leave the beam and tie anchors behind).
+ *
+ * ⚠️ **An OFFSET, not a space** — it must NOT change the bar's width. Applied post-format /
+ * pre-draw, after the column's width is already reserved at the un-shifted position (unlike
+ * {@link LeadingSpaceOverride}, which fights the formatter to open a real gap).
+ *
+ * **Keyed by SLOT id**, not pitch id. One `StaveNote` is one slot; VexFlow cannot x-shift a single
+ * notehead of a chord independently, so a chord (and a rest, which is a slot too) moves as a unit.
+ * Element-id-keyed like {@link DynamicOffsetOverride}, but with **weaker durability**: a slot id is
+ * re-minted by rebar/paste, so this orphans more readily than a dynamic offset (whose id is durable).
+ * Returning to `x = 0` clears the entry, so "absent = default" holds. Horizontal only for now — `y`
+ * is a trivial later addition, deferred to keep scope honest.
+ */
+export interface NoteOffsetOverride extends EngravingOverride {
+  kind: 'noteOffset'
+  /** Horizontal offset in staff-spaces, relative to the note's natural column. +right. */
+  x: number
+}
+
+/**
  * The engraving-overrides compartment: a keyed table of authored geometry held
  * as a sub-tree of {@link Score} (so it clones / serializes / undoes with the score
  * value — principle 1). Usually keyed by the *element id* an override hangs off (a note /
