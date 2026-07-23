@@ -223,20 +223,27 @@ const page1: CellSpec[] = [
  * `momentary` tremolo note (a down-stem quarter, drawn like page 1's notes); the strokes and the
  * rest of the layout come next. Its OWN keys only — the arrow and `+` come from {@link withControls}.
  */
-const trem = (glyph: string = NOTE_DOWN.quarter, dy = -10): CellSpec => ['tremolo', g(glyph, undefined, dy), 'momentary']
+const trem = (glyph: string = NOTE_DOWN.quarter, dy = -10, dx = 0): CellSpec => ['tremolo', g(glyph, undefined, dy, dx), 'momentary']
 /** A tremolo note wearing its strokes: the note glyph with a tremolo glyph laid onto the stem. */
 const tremStruck = (stroke: string, sy = 4, size?: number, sx = -2): CellSpec => [
   'tremolo',
   { layers: [g(NOTE_DOWN.quarter, undefined, -10), g(stroke, size, sy, sx)] },
   'momentary',
 ]
+/** Two notes side by side — the start of a two-note (fingered) tremolo. A fresh copy each call, so
+ *  the cells that use it can each be tuned on their own. */
+const tremPair = (dxL = -6, dxR = 6, dy = 9): CellSpec => [
+  'tremolo',
+  { layers: [g(NOTE.quarter, undefined, dy, dxL), g(NOTE.quarter, undefined, dy, dxR)] },
+  'momentary',
+]
 const page2: CellSpec[] = [
-  trem(), trem(NOTE_DOWN.sixteenth), trem(NOTE.quarter, 9),
+  trem(), trem(NOTE_DOWN.sixteenth), tremPair(),
   trem(), trem(), trem(),
   tremStruck(TREM.four, 4, 22), tremStruck(TREM.five, 4.5, 21), tremStruck(TREM.penderecki, 4.5, 30, -1),
   tremStruck(TREM.one), tremStruck(TREM.two, 3), tremStruck(TREM.three, 3),
-  trem(),
-  trem(NOTE.quarter, 9), trem(NOTE.quarter, 9),
+  ['tremolo', { layers: [g(NOTE_DOWN.half, undefined, -7, -8), g(NOTE_DOWN.half, undefined, -13, 12), g('\uE007', 12, 15, -2)] }, 'momentary'],
+  tremPair(), tremPair(),
 ]
 
 const toCells = (page: CellSpec[]): KeypadCell[] =>
