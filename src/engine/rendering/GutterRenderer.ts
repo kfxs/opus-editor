@@ -1,13 +1,14 @@
 import { Renderer, Stave, StaveConnector, Barline } from 'vexflow'
 import { GUTTER_WIDTH, type GutterState } from './layoutConfig'
+import { INDICATOR_INK } from '../../utils/selectionColors'
 
 /**
  * The gutter's ink. Sibelius tints its Panorama gutter blue, and the tint is doing real work: it
- * says *this clef is not engraved here, it is a reminder of what is in force*. Deliberately a
- * DARKER blue than voice 1's (#3B82F6) so a gutter clef can never be misread as voice-coloured
- * notation.
+ * says *this clef is not engraved here, it is a reminder of what is in force*. The shared non-voice
+ * INDICATOR_INK (selectionColors) — deliberately a DARKER blue than voice 1's (#3B82F6) so a gutter
+ * clef can never be misread as voice-coloured notation.
  */
-const GUTTER_INK = '#1D4ED8'
+const GUTTER_INK = INDICATOR_INK
 
 /** Left inset of the gutter's staves (layout px) — see the StaveConnector note in `render`. */
 const GUTTER_INSET = 10

@@ -9,6 +9,7 @@ import { tieSelection } from '../../interactions/tieSelection'
 import { restSelection } from '../../interactions/restSelection'
 import { voiceSelection } from '../../interactions/voiceSelection'
 import { voiceFillColor } from '../../utils/voiceColors'
+import { INDICATOR_INK } from '../../utils/selectionColors'
 import { CHROME } from '../../utils/chromeColors'
 import { KEYPAD_PAGES, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
 
@@ -59,11 +60,10 @@ const COLOR = {
   edge: CHROME.edge,
   hover: CHROME.edge, // a hover brightens face one step up the gray scale — which is the edge grey
   lit: CHROME.accent,
-  // The select arrow's lit blue. It is NOT the chrome accent: it matches the linear-view gutter ink
-  // (GutterRenderer's GUTTER_INK, #1D4ED8 / blue-700) on purpose — both are a NON-voice indicator,
-  // and that blue is deliberately darker than voice-1's (#3B82F6) so it can never be misread as
-  // voice-coloured. So it stays a local literal, free of the chrome token.
-  mode: '#1D4ED8',
+  // The select arrow's lit blue. It is NOT the chrome accent: it is the shared non-voice INDICATOR_INK
+  // (selectionColors) — the same blue the gutter and every non-note element selection wear — deliberately
+  // darker than voice-1's (#3B82F6) so it can never be misread as voice-coloured.
+  mode: INDICATOR_INK,
   glyph: CHROME.ink,
 }
 

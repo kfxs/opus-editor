@@ -3,6 +3,7 @@ import type { EditorState } from './EditorState'
 import { activeVoiceToModel } from './EditorState'
 import { navBeatMap } from '../utils/beatMap'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
+import { ELEMENT_SELECTION_FILL, ELEMENT_SELECTION_STROKE } from '../utils/selectionColors'
 
 /**
  * Applies SVG highlight classes/colors after each render.
@@ -281,12 +282,12 @@ export class HighlightController {
   }
 
   /** Recolor one note's notehead + stem (or a rest's glyph) inside its own SVG group.
-   *  Colors default to the selection orange; callers (e.g. a slur-endpoint snap target)
-   *  may pass distinct fill/stroke to mark a different intent. */
+   *  Every real caller passes the note's VOICE colour (voiceColors); the default here is only a
+   *  fallback and uses the generic element-selection colour, never the voice-3 orange. */
   private highlightNote(
     noteId: string,
-    fillColor = '#F59E0B',
-    strokeColor = '#D97706',
+    fillColor = ELEMENT_SELECTION_FILL,
+    strokeColor = ELEMENT_SELECTION_STROKE,
   ): void {
     const engine = this.getEngine()
     if (!engine) return
@@ -662,8 +663,8 @@ export class HighlightController {
     bbox: { x: number; y: number; width: number; height: number },
     className: string,
   ): void {
-    const SELECTION_COLOR = '#F59E0B'
-    const SELECTION_STROKE = '#D97706'
+    const SELECTION_COLOR = ELEMENT_SELECTION_FILL
+    const SELECTION_STROKE = ELEMENT_SELECTION_STROKE
     const elements = root.querySelectorAll('path, text')
     for (const el of elements) {
       const elBBox = (el as SVGGraphicsElement).getBBox?.()
@@ -754,7 +755,7 @@ export class HighlightController {
     // and the selected barline looks heavier than every other line on the page, which reads as the
     // music changing rather than as a selection.
     const WIDTH = 2
-    const SELECTION_COLOR = '#F59E0B'
+    const SELECTION_COLOR = ELEMENT_SELECTION_FILL
 
     for (let staff = 0; staff < staffCount; staff++) {
       // Culled / never-drawn measures have no geometry — nothing on screen to mark.
@@ -834,7 +835,7 @@ export class HighlightController {
     const engine = this.getEngine()
     if (!engine || !this.state.selectedTempoId) return
 
-    const SELECTION_COLOR = '#F59E0B'
+    const SELECTION_COLOR = ELEMENT_SELECTION_FILL
     const group = engine.getTempoSVGGroup(this.state.selectedTempoId)
     if (!group) return
     group.querySelectorAll('text, path').forEach(el => {
@@ -859,7 +860,7 @@ export class HighlightController {
     }
     if (ids.size === 0) return
 
-    const SELECTION_COLOR = '#F59E0B'
+    const SELECTION_COLOR = ELEMENT_SELECTION_FILL
     for (const id of ids) {
       // Recolor inside the dynamic's OWN <g class="vf-annotation"> group only, so it
       // can't bleed onto neighbouring marks. The group holds the glyph/text as <text>
