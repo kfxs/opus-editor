@@ -1368,8 +1368,22 @@ export class VexFlowRenderer {
    * so this runs after `format()` has already reserved the column at the un-shifted position.
    *
    * VexFlow's `getModifierStartXY` folds `xShift` into the note's dots (RIGHT branch) but NOT its
-   * accidental (LEFT) or articulations (ABOVE/BELOW), so those two get an explicit modifier shift —
-   * added to their own formatted xShift so their left-stacking survives.
+   * accidental (LEFT) or articulations (ABOVE/BELOW), so those two need an explicit shift.
+   *
+   * ⚠️ **NOT via `Modifier.setXShift`** — it is not the plain setter `StaveNote` inherits from
+   * `Element`; it **resets `xShift` to 0 and NEGATES it for a LEFT modifier** (a semantic "shift away
+   * from the note" helper). Feeding it an accidental sent the glyph the OPPOSITE way and wiped its
+   * formatted left-stacking. `Element.renderText` draws every modifier at `x + xShift` uniformly (no
+   * per-position sign), so adding `px` to the raw field is the correct screen-space nudge: same
+   * direction as the note, sign-consistent for LEFT and ABOVE/BELOW alike, and non-destructive of the
+   * formatter's own shift.
+   *
+   * 🐞 **KNOWN BUG (docs/note-offset-plan.md "Known issue"): articulations do not follow reliably.**
+   * The raw `xShift += px` below IS applied to the articulation, but the glyph only visibly moves when
+   * the note was `reset()`+`preFormat()`'d after the initial format — which VexFlow's multi-voice pass
+   * only does for notes whose stem it reassigns. A voice-0 note with a stable stem never hits that
+   * path, so its articulation draws from a stale position (repro: flip its stem and it moves). Root
+   * cause not yet fixed — deferred to a follow-up; the accidental case above IS fixed.
    */
   private applyNoteOffsets(slots: ChordRest[], staveNotes: StaveNote[], score: Score, stave: Stave): void {
     for (let i = 0; i < slots.length; i++) {
@@ -1377,10 +1391,13 @@ export class VexFlowRenderer {
       if (!off || off.x === 0) continue
       const px = staffSpacesToPixels(off.x, stave)
       const sn = staveNotes[i]
-      sn.setXShift(sn.getXShift() + px)
+      sn.setXShift(sn.getXShift() + px) // StaveNote: Element.setXShift is a plain additive setter
       for (const mod of sn.getModifiers()) {
-        if (mod instanceof Accidental || mod instanceof Articulation) mod.setXShift(mod.getXShift() + px)
+        if (mod instanceof Accidental || mod instanceof Articulation) {
+          ;(mod as unknown as { xShift: number }).xShift += px
+        }
       }
+      dbg(`[NoteOffset] slot ${slots[i].id} px=${px.toFixed(1)}`)
     }
   }
 
