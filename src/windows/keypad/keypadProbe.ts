@@ -33,6 +33,17 @@ export const keypadProbe = {
     pressedKey = pressedKey === key ? null : key
     notify()
   },
+  /**
+   * Put it out. Every light on this panel is a statement about NOW — the armed duration, the selected
+   * note's articulations — so a probe light that outlives the moment it was lit is the odd one out:
+   * it would sit there remembering the last key you happened to press, through an Esc, a click on
+   * nothing, an arrow-key move, on a page you are only looking at.
+   */
+  clear(): void {
+    if (pressedKey === null) return
+    pressedKey = null
+    notify()
+  },
   subscribe(fn: () => void): () => void {
     listeners.add(fn)
     return () => listeners.delete(fn)
@@ -40,9 +51,6 @@ export const keypadProbe = {
 }
 
 // A page turn puts the probe out: the key it named belongs to the page we just left, and the same key
-// on the next page is a different cell entirely.
-keypadPageSelection.subscribe(() => {
-  if (pressedKey === null) return
-  pressedKey = null
-  notify()
-})
+// on the next page is a different cell entirely. (The other extinguisher is any editor state change —
+// wired in keypadSync, where the state's subscription already lives.)
+keypadPageSelection.subscribe(() => keypadProbe.clear())
