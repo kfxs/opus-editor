@@ -18,6 +18,7 @@ import {
   sameTimeSignature,
 } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
+import { beamRoleAt, type BeamRole } from '@/utils/beaming'
 import { spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
 import { type RebarEvent } from '@/utils/rebar'
 import {
@@ -1952,6 +1953,28 @@ export class ScoreModel {
     if (!found) return undefined
     if (found.type === 'rest') return this.restToFlatNote(found.rest)
     return this.toFlatNote(found.chord, found.pitch)
+  }
+
+  /**
+   * What the note's beam ACTUALLY is — begin / continue / end / single — as opposed to what was
+   * authored on it (`getNote().beam`, absent when nobody decided). See {@link beamRoleAt}.
+   *
+   * The slice matters: beams are built per VOICE of one STAFF, sorted by beat (VexFlowRenderer's
+   * `groups`), so the role is computed against that same run. Read it against the whole measure and
+   * a voice-2 note is scored against voice 1's grouping — an answer about a beam that was never
+   * engraved. Returns null for an unknown id.
+   */
+  getBeamRole(noteId: string): BeamRole | null {
+    for (const measure of this.score.measures) {
+      const slot = measure.slots.find(s =>
+        s.type === 'rest' ? s.id === noteId : s.notes.some(n => n.id === noteId))
+      if (!slot) continue
+      const run = measure.slots
+        .filter(s => matchesStaff(s.staffId, slot.staffId, this.score) && (s.voice ?? 0) === (slot.voice ?? 0))
+        .sort((a, b) => fracCompare(a.beat, b.beat))
+      return beamRoleAt(run, getMeterInfo(measure.timeSignature), run.indexOf(slot))
+    }
+    return null
   }
 
   /**

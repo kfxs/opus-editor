@@ -15,7 +15,7 @@
  * Pure: depends only on `fraction.ts`, the metric structure, and the types.
  */
 
-import type { ChordRest, NoteDuration } from '@/types/music'
+import type { BeamMode, ChordRest, NoteDuration } from '@/types/music'
 import { type Fraction, fracCreate, fracAdd, fracLt, fracSub, fracToNumber } from '@/utils/fraction'
 import type { MeterInfo } from '@/utils/meter'
 
@@ -157,4 +157,36 @@ export function computeBeamGroups(slots: ChordRest[], meter: MeterInfo): number[
 
   flush()
   return groups
+}
+
+/**
+ * Where a note ACTUALLY sits in its beam, once {@link computeBeamGroups} has run.
+ *
+ * The four values are `BeamMode` minus `'auto'` — deliberately. `auto` is not a role a note can be
+ * in; it is the absence of an authored choice, and every note, authored or not, ends up in exactly
+ * one of these four.
+ */
+export type BeamRole = Exclude<BeamMode, 'auto'>
+
+/**
+ * The beam role of slot `index` — first of its group → `'begin'`, last → `'end'`, anywhere between
+ * → `'continue'`, in no group at all → `'single'`.
+ *
+ * This is the OTHER half of what a beam palette has to say. The stored `beam` answers "did anyone
+ * author this?" (`auto` = nobody did), which on four auto eighths beamed 2+2 tells you nothing about
+ * the engraving — both notes report `auto` while one begins a beam and the other ends it. This
+ * answers "what is it?", and the two can disagree: an orphaned `end` with nothing behind it is
+ * authored `end` and engraved `single`, which is how you find out a mark did nothing.
+ *
+ * `slots` must be the run the renderer beams — ONE voice of ONE staff, sorted by beat — or the
+ * indices refer to a grouping that was never engraved.
+ */
+export function beamRoleAt(slots: ChordRest[], meter: MeterInfo, index: number): BeamRole {
+  for (const group of computeBeamGroups(slots, meter)) {
+    const at = group.indexOf(index)
+    if (at === -1) continue
+    if (at === 0) return 'begin'
+    return at === group.length - 1 ? 'end' : 'continue'
+  }
+  return 'single'
 }

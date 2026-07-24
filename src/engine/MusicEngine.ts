@@ -16,6 +16,7 @@ import { fracToNumber, fracEq } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } from '@/utils/pitchSpelling'
 import { prevailingAlterAt } from '@/utils/accidentalState'
+import type { BeamRole } from '@/utils/beaming'
 import { naturalStemDirection } from '@/utils/clefUtils'
 import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
@@ -2313,6 +2314,15 @@ export class MusicEngine {
    */
   getNote(noteId: string): Note | undefined {
     return this.scoreModel.getNote(noteId)
+  }
+
+  /**
+   * The note's ACTUAL beam role (begin/continue/end/single), computed from the engraved grouping —
+   * the fact `getNote().beam` cannot give you, since that reports only what was authored and is
+   * absent (`auto`) on every note nobody has touched.
+   */
+  getBeamRole(noteId: string): BeamRole | null {
+    return this.scoreModel.getBeamRole(noteId)
   }
 
   /**

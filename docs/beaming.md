@@ -70,3 +70,33 @@ beside `durationHighlight`), which follows the shared single-selection rule:
 
 `auto` lights in slate rather than the cyan of the explicit modes: it is the value a note has when
 it has *no* beam of its own, and it must not read as an authored choice.
+
+### Two facts, two lit buttons (2026-07-24)
+
+The row above answers one question — *did anyone author a beam here?* — and on its own that is not
+quality information. Eight auto eighths in 4/4 are beamed 2+2+2+2; every one of them reports `auto`,
+so the row says nothing about the four beams you can see on the staff, and nothing about the fact
+that the first of each pair *begins* a beam and the second *ends* it.
+
+So the row answers a second, independent question at the same time: *what is this note's beam?* —
+`beamRoleAt` in `utils/beaming.ts` (pure), reached through `ScoreModel.getBeamRole(noteId)` and the
+`beamRoleHighlight` rule beside `beamHighlight`. First index of its group → `begin`, last → `end`,
+between → `continue`, in no group → `single`. There is no `auto` role: `auto` is the absence of a
+choice, not a thing a note can be.
+
+The colour carries which fact lit the button:
+
+- **cyan** — you authored this;
+- **slate** — this is the case and nobody chose it: `auto`, and the role.
+
+`auto` + slate `begin` reads as one sentence. And the two can **disagree** — an orphaned `end` with
+nothing behind it is authored `end` (cyan) and engraved `single` (slate), which is how a mark that
+did nothing announces itself.
+
+Two things the role must get right. It is read **live** from the engine on every sync, never mirrored
+into `EditorState`: it is a property of the score, and editing the *neighbour* changes it. And it is
+computed over the run the renderer actually beams — **one voice of one staff, sorted by beat** — or
+a voice-2 note gets scored against voice 1's grouping, an answer about a beam nobody engraved.
+
+Selection mode with a single note only. In entry mode `beamHighlight` shows the *armed* beam — the
+beam of a note that does not exist yet — and there is no role to pair it with.

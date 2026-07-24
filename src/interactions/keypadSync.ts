@@ -1,6 +1,8 @@
 import type { EditorState, StateListener } from './EditorState'
 import type { BeamMode, NoteDuration } from '../types/music'
 import { armedToolUsesLength } from './EditorState'
+import type { BeamRole } from '../utils/beaming'
+import type { MusicEngine } from '../engine/MusicEngine'
 import type { PaletteController } from './PaletteController'
 import { modeSelection } from './modeSelection'
 import { durationSelection } from './durationSelection'
@@ -62,6 +64,27 @@ export function durationHighlight(state: EditorState): NoteDuration | null {
 export function beamHighlight(state: EditorState): BeamMode | null {
   if (state.selectedMarkingTool) return null
   return noNoteInSelection(state) ? null : state.selectedBeam
+}
+
+/**
+ * The OTHER beam fact: the role the selected note actually ends up in — begin / continue / end /
+ * single — read live from the engine's grouping.
+ *
+ * {@link beamHighlight} alone is not quality information. Eight auto eighths beamed 2+2+2+2 report
+ * `auto` on every one of them, so the row says "nobody authored this" and stays silent about the
+ * engraving — while the first note of each pair begins a beam and the second ends it. Both facts
+ * are shown at once because they are independent, and where they disagree (an orphaned `end` that
+ * engraves as `single`) the disagreement is the point.
+ *
+ * Selection mode with one note only: in entry mode `beamHighlight` reports the ARMED beam, the beam
+ * of a note that does not exist yet, and there is no role to pair it with. Live-read rather than
+ * mirrored into state, like the articulation / tie / rest highlights: it is a property of the score,
+ * and every neighbouring edit can change it.
+ */
+export function beamRoleHighlight(state: EditorState, engine: MusicEngine | null): BeamRole | null {
+  if (!engine || state.selectedTool !== 'selection') return null
+  if (state.selectedMarkingTool || noNoteInSelection(state) || !state.selectedNoteId) return null
+  return engine.getBeamRole(state.selectedNoteId)
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeBeamGroups, getBeatGroup, isBeamableDuration } from './beaming'
+import { beamRoleAt, computeBeamGroups, getBeatGroup, isBeamableDuration } from './beaming'
 import { getMeterInfo } from './meter'
 import { fracCreate } from './fraction'
 import type { TimeSignature, ChordRest, NoteDuration, BeamMode } from '@/types/music'
@@ -219,5 +219,52 @@ describe('beaming — clef-change regression', () => {
     expect(computeBeamGroups(run(6, '8', 2), meter(6, 8))).toEqual([
       [0, 1, 2], [3, 4, 5],
     ])
+  })
+})
+
+describe('beaming — beamRoleAt (what the note ACTUALLY is)', () => {
+  it('4/4 eighths beamed 2+2+2+2: each pair reads begin then end, all of them auto', () => {
+    // The case the palette was silent about: eight notes, not one of them authored, four beams.
+    const slots = run(8, '8', 2)
+    const m = meter(4, 4)
+    expect(slots.every(s => s.type === 'chord' && s.beam === undefined)).toBe(true)
+    expect([0, 1, 2, 3, 4, 5, 6, 7].map(i => beamRoleAt(slots, m, i))).toEqual(
+      ['begin', 'end', 'begin', 'end', 'begin', 'end', 'begin', 'end'],
+    )
+  })
+
+  it('a group of three: begin, continue, end', () => {
+    const slots = run(6, '8', 2) // 6/8 → 3+3
+    const m = meter(6, 8)
+    expect([0, 1, 2].map(i => beamRoleAt(slots, m, i))).toEqual(['begin', 'continue', 'end'])
+  })
+
+  it('an unbeamed note is single — a lone eighth, a quarter, a rest', () => {
+    const m = meter(4, 4)
+    const slots = [chord(0, 1, '8'), chord(1, 1, 'q'), rest(2, 1), chord(3, 1, '8')]
+    expect([0, 1, 2, 3].map(i => beamRoleAt(slots, m, i))).toEqual(
+      ['single', 'single', 'single', 'single'],
+    )
+  })
+
+  it('authored and actual can DISAGREE: an orphaned end engraves as single', () => {
+    // Nothing behind it to close, so flush drops the one-note group. The palette showing both facts
+    // is how you find out the mark did nothing.
+    const slots = [chord(0, 1, 'q'), chord(1, 1, '8', 'end'), chord(3, 2, '8')]
+    expect(slots[1].type === 'chord' && slots[1].beam).toBe('end')
+    expect(beamRoleAt(slots, meter(4, 4), 1)).toBe('single')
+  })
+
+  it("a 'continue' that bridges a boundary reads continue, and the bridged note reads end", () => {
+    // [0,1,2,3] [4,5] [6,7] — the bridge case from the block above.
+    const slots = run(8, '8', 2).map((s, i) => (i === 1 ? { ...s, beam: 'continue' as const } : s))
+    const m = meter(4, 4)
+    expect([0, 1, 2, 3, 4].map(i => beamRoleAt(slots, m, i))).toEqual(
+      ['begin', 'continue', 'continue', 'end', 'begin'],
+    )
+  })
+
+  it('an index outside the run is single, not a crash', () => {
+    expect(beamRoleAt(run(4, '8', 2), meter(4, 4), 99)).toBe('single')
   })
 })

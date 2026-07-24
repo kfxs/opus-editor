@@ -2,7 +2,7 @@ import type { EditorState } from '../interactions/EditorState'
 import type { PaletteController } from '../interactions/PaletteController'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { BeamMode, NoteDuration } from '../types/music'
-import { beamHighlight, durationHighlight } from '../interactions/keypadSync'
+import { beamHighlight, beamRoleHighlight, durationHighlight } from '../interactions/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 
 /**
@@ -28,11 +28,11 @@ import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 const ON = 'bg-cyan-600 text-white'
 const OFF = 'bg-gray-600 hover:bg-gray-500'
 /**
- * A third state: lit, but lit on the DEFAULT. Beam `auto` is the only button here that means "nobody
- * decided this" — it is what a note has when it has no beam of its own, so lighting it in the same
- * cyan as `begin`/`end` would report an authored choice where there is none. Slate says *this is the
- * value, and it is the absence of a value* — the same distinction the model makes by storing `auto`
- * as no field at all.
+ * A third state: lit, but lit on the DEFAULT. Used by the Beam row, the one place here that lights a
+ * value nobody chose — `auto` (what a note has when it has no beam of its own) and the note's actual
+ * beam role (what the grouping made of it). Lighting either in the same cyan as an authored
+ * `begin`/`end` would report a decision where there is none. Slate says *this is the case, and it is
+ * the absence of a choice* — the same distinction the model makes by storing `auto` as no field.
  */
 const ON_DEFAULT = 'bg-slate-400 text-slate-900'
 
@@ -100,12 +100,16 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
    */
   function toggle(
     parent: HTMLElement, base: string, label: string, title: string,
-    isOn: () => boolean, onClick: () => void, on: string = ON,
+    isOn: () => boolean, onClick: () => void, on: string | (() => string) = ON,
   ): HTMLButtonElement {
     const b = el('button', `${base} ${OFF}`, label)
     b.title = title
     b.addEventListener('click', onClick)
-    syncers.push(() => { b.className = `${base} ${isOn() ? on : OFF}` })
+    // `on` may be a thunk: the Beam row's lit colour depends on WHICH of the two beam facts put the
+    // button on (authored → cyan, the note's actual role → slate), which is only knowable per sync.
+    syncers.push(() => {
+      b.className = `${base} ${isOn() ? (typeof on === 'function' ? on() : on) : OFF}`
+    })
     parent.appendChild(b)
     return b
   }
@@ -192,14 +196,26 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   const BEAMS: readonly BeamMode[] = ['auto', 'single', 'begin', 'continue', 'end']
   const beamBox = group('Beam:')
   for (const b of BEAMS) {
-    // `beamHighlight` is the rule, beside durationHighlight: in selection mode it now reports the
-    // SELECTED NOTE's beam (SelectionController syncs it), and nothing at all when there is no single
-    // note to report on — 'auto' is a real BeamMode, so an ungated row would claim a selection that
-    // isn't there is auto-beamed.
-    // …and `auto` lights in the DEFAULT colour (see ON_DEFAULT): it is the value a note has when it
-    // has none, so it must not read as an authored beam the way begin/continue/end/single do.
+    // TWO facts, two lit buttons — they are independent and the row is worthless with only the first:
+    //
+    //  • `beamHighlight` — what was AUTHORED. In selection mode the selected note's own beam
+    //    (SelectionController syncs it), nothing at all when there is no single note to report on
+    //    ('auto' is a real BeamMode, so an ungated row would claim a selection that isn't there is
+    //    auto-beamed). Lit in cyan, except `auto` (see ON_DEFAULT), which is the value a note has
+    //    when it has none and must not read as an authored beam.
+    //  • `beamRoleHighlight` — what the note ACTUALLY is, from the engraved grouping. Four auto
+    //    eighths beamed 2+2 all answer `auto` to the first question while one begins a beam and the
+    //    next ends it; without this the row is silent about the thing you can see on the staff.
+    //
+    // The role lights in the DEFAULT colour too, and that is the whole visual grammar: slate is
+    // "this is the case, nobody chose it", cyan is "you chose this". `auto` + slate `begin` reads as
+    // one sentence — nobody decided, and it begins a beam. When the two disagree (an orphaned `end`
+    // engraves as `single`) you get a cyan and a slate button, which is how a mark that did nothing
+    // announces itself.
     toggle(beamBox, 'px-2 py-1 rounded text-xs', b, `Beam: ${b}`,
-      () => beamHighlight(state) === b, () => palette.setBeam(b), b === 'auto' ? ON_DEFAULT : ON)
+      () => beamHighlight(state) === b || beamRoleHighlight(state, getEngine()) === b,
+      () => palette.setBeam(b),
+      () => (beamHighlight(state) === b && b !== 'auto' ? ON : ON_DEFAULT))
   }
   row.appendChild(beamBox)
 
