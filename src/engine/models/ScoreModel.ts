@@ -1962,13 +1962,15 @@ export class ScoreModel {
    * The slice matters: beams are built per VOICE of one STAFF, sorted by beat (VexFlowRenderer's
    * `groups`), so the role is computed against that same run. Read it against the whole measure and
    * a voice-2 note is scored against voice 1's grouping — an answer about a beam that was never
-   * engraved. Returns null for an unknown id.
+   * engraved. Returns null for an unknown id, and for a REST — you cannot beam silence, so a rest
+   * has no role at all; `'single'` would be a claim about a beamable note that stayed alone.
    */
   getBeamRole(noteId: string): BeamRole | null {
     for (const measure of this.score.measures) {
       const slot = measure.slots.find(s =>
         s.type === 'rest' ? s.id === noteId : s.notes.some(n => n.id === noteId))
       if (!slot) continue
+      if (slot.type === 'rest') return null
       const run = measure.slots
         .filter(s => matchesStaff(s.staffId, slot.staffId, this.score) && (s.voice ?? 0) === (slot.voice ?? 0))
         .sort((a, b) => fracCompare(a.beat, b.beat))

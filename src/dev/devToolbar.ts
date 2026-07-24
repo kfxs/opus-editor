@@ -212,10 +212,13 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     // one sentence — nobody decided, and it begins a beam. When the two disagree (an orphaned `end`
     // engraves as `single`) you get a cyan and a slate button, which is how a mark that did nothing
     // announces itself.
+    //
+    // A selected REST darkens the WHOLE row, both facts: you cannot beam silence, so a rest has no
+    // beam to author (setBeam refuses it) and no role to be in.
     toggle(beamBox, 'px-2 py-1 rounded text-xs', b, `Beam: ${b}`,
-      () => beamHighlight(state) === b || beamRoleHighlight(state, getEngine()) === b,
+      () => beamHighlight(state, getEngine()) === b || beamRoleHighlight(state, getEngine()) === b,
       () => palette.setBeam(b),
-      () => (beamHighlight(state) === b && b !== 'auto' ? ON : ON_DEFAULT))
+      () => (beamHighlight(state, getEngine()) === b && b !== 'auto' ? ON : ON_DEFAULT))
   }
   row.appendChild(beamBox)
 

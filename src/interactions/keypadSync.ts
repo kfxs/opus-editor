@@ -2,7 +2,6 @@ import type { EditorState, StateListener } from './EditorState'
 import type { BeamMode, NoteDuration } from '../types/music'
 import { armedToolUsesLength } from './EditorState'
 import type { BeamRole } from '../utils/beaming'
-import type { MusicEngine } from '../engine/MusicEngine'
 import type { PaletteController } from './PaletteController'
 import { modeSelection } from './modeSelection'
 import { durationSelection } from './durationSelection'
@@ -61,9 +60,32 @@ export function durationHighlight(state: EditorState): NoteDuration | null {
  * lit. (Also null under any marking tool — one arms into entry mode but enters no note, so there is
  * nothing about to be beamed.)
  */
-export function beamHighlight(state: EditorState): BeamMode | null {
+export function beamHighlight(state: EditorState, engine: BeamSource | null): BeamMode | null {
   if (state.selectedMarkingTool) return null
-  return noNoteInSelection(state) ? null : state.selectedBeam
+  if (noNoteInSelection(state)) return null
+  // …and nothing for a REST. A rest is not beamed — you cannot beam silence — so it has no beam to
+  // author and `setBeam` already refuses it. `auto` lit over a selected rest would be the row
+  // answering a question the note never asked, and offering a control that does nothing.
+  return selectionIsRest(state, engine) ? null : state.selectedBeam
+}
+
+/**
+ * The slice of the engine the two beam rules read. Structural on purpose: a test can stand one up in
+ * a line, and the rule stays a pure function of (state, score-facts) rather than of a whole engine.
+ */
+export interface BeamSource {
+  getNote(noteId: string): { isRest?: boolean } | undefined
+  getBeamRole(noteId: string): BeamRole | null
+}
+
+/**
+ * Is the single selected thing a rest? Narrower than `PaletteController.selectionIsRest`, which also
+ * answers true for the armed rest STAMP — a tool, not a selection. Every caller here has already
+ * returned null under a marking tool, so this asks only about the score.
+ */
+function selectionIsRest(state: EditorState, engine: BeamSource | null): boolean {
+  if (!engine || state.selectedTool !== 'selection' || !state.selectedNoteId) return false
+  return !!engine.getNote(state.selectedNoteId)?.isRest
 }
 
 /**
@@ -81,9 +103,10 @@ export function beamHighlight(state: EditorState): BeamMode | null {
  * mirrored into state, like the articulation / tie / rest highlights: it is a property of the score,
  * and every neighbouring edit can change it.
  */
-export function beamRoleHighlight(state: EditorState, engine: MusicEngine | null): BeamRole | null {
+export function beamRoleHighlight(state: EditorState, engine: BeamSource | null): BeamRole | null {
   if (!engine || state.selectedTool !== 'selection') return null
   if (state.selectedMarkingTool || noNoteInSelection(state) || !state.selectedNoteId) return null
+  // No rest check needed here: the model answers null for a rest, because a rest HAS no role.
   return engine.getBeamRole(state.selectedNoteId)
 }
 

@@ -925,6 +925,65 @@ describe('PaletteController — convertSelectionToRest', () => {
   })
 })
 
+describe('PaletteController — setBeam applies to the WHOLE selection', () => {
+  let state: EditorState
+  let notes: Record<string, { id: string; isRest?: boolean }>
+  let updateNote: ReturnType<typeof vi.fn>
+  let batches: string[]
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    notes = { n1: { id: 'n1' }, n2: { id: 'n2' }, n3: { id: 'n3' }, r1: { id: 'r1', isRest: true } }
+    updateNote = vi.fn()
+    batches = []
+    const fakeEngine = {
+      getNote: (id: string) => notes[id] ?? null,
+      updateNote,
+      runBatch: (label: string, fn: () => void) => { batches.push(label); fn() },
+    } as unknown as import('../engine/MusicEngine').MusicEngine
+    palette = new PaletteController(
+      () => fakeEngine, state, vi.fn() as unknown as () => void, vi.fn(), () => null, vi.fn(),
+    )
+  })
+
+  const select = (...ids: string[]) => {
+    state.selectedItems = new Map(ids.map(id => [id, { kind: 'note', id } as never]))
+    state.selectedNoteId = ids[ids.length - 1] ?? null
+  }
+
+  it('beams every selected note, not just the anchor — in ONE undo step', () => {
+    // The bug: beaming is a statement about a RUN, and applying it to `selectedNoteId` alone left
+    // the rest of a selected group untouched.
+    state.selectedTool = 'selection'
+    select('n1', 'n2', 'n3')
+    palette.setBeam('begin')
+    expect(updateNote.mock.calls.map(c => c[0])).toEqual(['n1', 'n2', 'n3'])
+    expect(updateNote.mock.calls.every(c => c[1].beam === 'begin')).toBe(true)
+    expect(batches).toEqual(['Beam: begin'])
+  })
+
+  it('skips the rests in a mixed selection — you cannot beam silence', () => {
+    state.selectedTool = 'selection'
+    select('r1', 'n1')
+    palette.setBeam('end')
+    expect(updateNote.mock.calls.map(c => c[0])).toEqual(['n1'])
+  })
+
+  it('arms the value but touches no note in entry mode, or with only rests selected', () => {
+    state.selectedTool = 'entry'
+    select('n1')
+    palette.setBeam('single')
+    expect(state.selectedBeam).toBe('single')
+
+    state.selectedTool = 'selection'
+    select('r1')
+    palette.setBeam('continue')
+    expect(state.selectedBeam).toBe('continue')
+    expect(updateNote).not.toHaveBeenCalled()
+  })
+})
+
 /**
  * THE STAMP RULE: a press stamps only when the selection is not a note, a rest, or a group of notes.
  * A rest takes neither an accidental nor an articulation, and the apply-to-selection helpers return

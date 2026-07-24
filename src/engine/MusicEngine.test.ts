@@ -250,6 +250,32 @@ describe('BeamMode — storage and retrieval', () => {
   })
 })
 
+describe('MusicEngine.getBeamRole — what the beam ACTUALLY is', () => {
+  let engine: MusicEngine
+
+  beforeEach(() => {
+    engine = makeEngine()
+  })
+
+  it('4/4 eighths beamed 2+2 report begin/end while all of them are auto', () => {
+    // The fact `getNote().beam` cannot give you: four untouched notes, two beams.
+    const ids = [0, 1, 2, 3].map(i =>
+      addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(i, 2) }).id)
+    expect(ids.map(id => engine.getNote(id)?.beam)).toEqual([undefined, undefined, undefined, undefined])
+    expect(ids.map(id => engine.getBeamRole(id))).toEqual(['begin', 'end', 'begin', 'end'])
+  })
+
+  it('a REST has no role — you cannot beam silence, so the palette has nothing to show', () => {
+    const rest = engine.addNoteAtBeat({ duration: '8', measure: 1, beat: frac(0, 1), isRest: true })
+    expect(rest).not.toBeNull()
+    expect(engine.getBeamRole(rest!.id)).toBeNull()
+  })
+
+  it('an unknown id is null', () => {
+    expect(engine.getBeamRole('nope')).toBeNull()
+  })
+})
+
 describe('MusicEngine.flipArticulation — articulation side override', () => {
   let engine: MusicEngine
 

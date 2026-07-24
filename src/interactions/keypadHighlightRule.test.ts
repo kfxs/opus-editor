@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { multipleNotesSelected, type SelectionItem } from './selection'
-import { beamHighlight, noNoteInSelection } from './keypadSync'
+import { beamHighlight, beamRoleHighlight, noNoteInSelection, type BeamSource } from './keypadSync'
 import { createEditorState } from './EditorState'
 import { itemKey } from './selection'
 
@@ -54,31 +54,47 @@ describe('beamHighlight (the dev shell\'s Beam row)', () => {
   it('reports the selected note\'s beam when exactly one note is selected', () => {
     const state = stateWith([note('a')])
     state.selectedBeam = 'begin'   // SelectionController syncs this from the note
-    expect(beamHighlight(state)).toBe('begin')
+    expect(beamHighlight(state, null)).toBe('begin')
   })
 
   it('reports nothing with no selection — "auto" is a real BeamMode, so an ungated row would claim one', () => {
     const state = stateWith([])
     state.selectedBeam = 'auto'
-    expect(beamHighlight(state)).toBeNull()
+    expect(beamHighlight(state, null)).toBeNull()
   })
 
   it('reports nothing when more than one note is selected', () => {
     const state = stateWith([note('a'), note('b')])
     state.selectedBeam = 'begin'
-    expect(beamHighlight(state)).toBeNull()
+    expect(beamHighlight(state, null)).toBeNull()
   })
 
   it('reports the ARMED beam in entry mode', () => {
     const state = stateWith([], 'entry')
     state.selectedBeam = 'single'
-    expect(beamHighlight(state)).toBe('single')
+    expect(beamHighlight(state, null)).toBe('single')
   })
 
   it('reports nothing under a marking tool — it enters no note to beam', () => {
     const state = stateWith([], 'entry')
     state.selectedBeam = 'single'
     state.selectedMarkingTool = { kind: 'tie' }
-    expect(beamHighlight(state)).toBeNull()
+    expect(beamHighlight(state, null)).toBeNull()
+  })
+
+  it('reports nothing for a selected REST — you cannot beam silence', () => {
+    const state = stateWith([note('r')])
+    state.selectedBeam = 'auto'
+    const rests: BeamSource = { getNote: () => ({ isRest: true }), getBeamRole: () => null }
+    expect(beamHighlight(state, rests)).toBeNull()
+    expect(beamRoleHighlight(state, rests)).toBeNull()
+  })
+
+  it('a selected NOTE still reports both facts', () => {
+    const state = stateWith([note('a')])
+    state.selectedBeam = 'auto'
+    const notes: BeamSource = { getNote: () => ({}), getBeamRole: () => 'begin' }
+    expect(beamHighlight(state, notes)).toBe('auto')
+    expect(beamRoleHighlight(state, notes)).toBe('begin')
   })
 })

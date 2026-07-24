@@ -100,3 +100,18 @@ a voice-2 note gets scored against voice 1's grouping, an answer about a beam no
 
 Selection mode with a single note only. In entry mode `beamHighlight` shows the *armed* beam — the
 beam of a note that does not exist yet — and there is no role to pair it with.
+
+### A rest darkens the whole row
+
+You cannot beam silence, so a selected rest has no beam to author and no role to be in: **both** facts
+go null (`getBeamRole` returns null for a rest slot; `beamHighlight` takes a `BeamSource` so it can
+ask). `auto` lit over a rest would be the row answering a question the note never asked, and offering
+a control that does nothing — `setBeam` has always skipped rests.
+
+### A press applies to the whole selection
+
+The row is dark for a multi-selection — no single value stands for a set — but a **press** is not a
+reading. `setBeam` applies to every selected note in one `runBatch`, like every other multi-select
+action, because beaming is a statement about a *run* of notes: "select the group, press begin" is the
+gesture. It used to write only `selectedNoteId`, leaving the other five notes of a selected six
+untouched. Rests in the selection are filtered out rather than refusing the whole press.

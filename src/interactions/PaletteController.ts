@@ -1085,16 +1085,32 @@ export class PaletteController {
     return true
   }
 
+  /**
+   * Set the beam mode: armed for the next note, and applied to EVERY selected note in one undo step.
+   *
+   * The whole selection, not just the anchor — beaming is a statement about a RUN of notes, so
+   * "select the group, press begin" is the gesture, and applying it to `selectedNoteId` alone left
+   * the other five notes of a selected six untouched. Same shape as every other multi-select action
+   * here (`toggleArticulation`, `convertSelectionToRest`): `runBatch`, so one Ctrl+Z takes it back.
+   *
+   * Rests are filtered out rather than refused: you cannot beam silence, and a selection that sweeps
+   * up a rest along with its neighbours should still beam the notes. Only if there is nothing but
+   * rests does nothing happen. (The palette row is dark for a multi-selection — no single value can
+   * stand for a set — but a PRESS is not a reading, and it still means "make them all this".)
+   */
   setBeam(beam: BeamMode): void {
     this.state.selectedBeam = beam
     const engine = this.getEngine()
-    if (this.state.selectedNoteId && engine && this.state.selectedTool === 'selection') {
-      const note = engine.getNote(this.state.selectedNoteId)
-      if (note && !note.isRest) {
-        engine.updateNote(this.state.selectedNoteId, { beam })
-        this.renderScore()
-      }
-    }
+    if (!engine || this.state.selectedTool !== 'selection') return
+
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+      .filter(id => !engine.getNote(id)?.isRest)
+    if (!ids.length) return
+
+    engine.runBatch(`Beam: ${beam}`, () => {
+      for (const id of ids) engine.updateNote(id, { beam })
+    })
+    this.renderScore()
   }
 
   /**
