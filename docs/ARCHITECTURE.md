@@ -162,6 +162,41 @@ Every mutation in `MusicEngine` must push the new score into `PlaybackEngine`
 *and* snapshot for undo. Forgetting the resync silently desyncs audio from the
 score — this is exactly the class of bug the `commit()` helper exists to prevent.
 
+### ⚠️ A unit test cannot measure a glyph
+
+jsdom implements the DOM tree, not layout or rendering: `HTMLCanvasElement.getContext()` is absent
+(hence the `Not implemented:` lines scrolling past every render test) and SVG has no `getBBox()`. So
+under Vitest, **everything horizontal or glyph-shaped is fiction and everything from stave arithmetic
+is real**:
+
+```
+getGlyphWidth()                        0     (every note, every duration)
+getNoteHeadBounds()                    yTop === yBottom
+preCalculateMinTotalWidth(two 8ths)    8px   (far larger in a browser)
+stem extents, stave line Y             REAL — arithmetic, no text involved
+```
+
+Two consequences, and the first is the dangerous one:
+
+- **An assertion about glyph geometry passes vacuously** — it measures zeros and agrees with itself.
+  This is why the render tests assert **node identity and counts** (`getMeasureSVGGroup`, counting
+  `g.vf-beam`) and stave-derived numbers, never a drawn position. That convention is load-bearing.
+- **Bar-width tests only exercise one branch.** `noteSpace = max(minNoteWidth × 1.15, slots ×
+  MIN_NOTE_SPACING, …)` — with `minNoteWidth ≈ 0` the events-times-spacing floor always wins, so the
+  case where glyphs genuinely need more room than the floor is covered only by Playwright and by eye.
+
+⛔ **Do not "fix" this by stubbing `getContext`.** Fake metrics turn every geometry assertion green on
+fiction; a loud "I can't do this" beats a quiet invented number. Installing the `canvas` package alone
+has the same effect for a subtler reason: jsdom auto-detects it, so the message disappears and the
+numbers become non-zero — measured with whatever fallback face Cairo picks, because Bravura is not a
+system font.
+
+If we ever do want real metrics in unit tests, it is feasible and the font registration is
+**mandatory**, not optional: the fonts here are `.otf` (`public/fonts/Bravura.otf`), which node-canvas
+can `registerFont`, and VexFlow exposes `Element.setTextMeasurementCanvas(canvas)` as the injection
+point. Even then Cairo/FreeType's `actualBoundingBoxAscent/Descent` will not match Skia exactly, so
+assertions need tolerances and Playwright (`npm run test:e2e`) stays the source of truth.
+
 ---
 
 ## Adding a new engraved element

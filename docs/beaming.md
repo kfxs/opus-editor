@@ -127,6 +127,22 @@ with engraving is the row working (see below), not a bug.
 How it is drawn — the placeholder beam, the post-measure pass, and what the join costs the shape key
 — is in `docs/cross-barline-beaming-plan.md`.
 
+## A beam group has ONE stem direction
+
+A beam cannot attach to stems pointing opposite ways, so the group's direction is a property of the
+*group*: `calculateBeamGroupStemDirection` resolves it once — an explicit `stemDirection` on any
+member wins, then the multi-voice lane's forced side, then the pitch furthest from the middle line —
+and every note in the group is set to it. **An `x` flip on any member therefore flips the whole
+beam**, which is the only thing it can mean.
+
+⚠️ In a multi-voice bar that collides with the re-assert. `VexFlowRenderer` captures each note's
+intended stem *before* the beams exist (to undo VexFlow's same-tick reshuffling after `format`), so
+the flipped note's partners were still marked with the voice's own side — and
+`StemmableNote.setStemDirection` **clears `note.beam`**. The partner then drew its own stem *and* a
+flag while the beam went on drawing a stem for it: doubled stems, from one `x` press. Once a note is
+beamed, its intended direction **is** the beam's, and the capture is refreshed to say so
+(`multiVoiceStem.test.ts` pins both halves).
+
 ## Secondary beam breaks (subdivision)
 
 Six sixteenths beamed as one group, subdivided 3+3: **one** primary beam over all six, the 16th-level

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Voice, Formatter, StaveNote } from 'vexflow'
+import { Voice, Formatter, StaveNote, Beam } from 'vexflow'
 import { createStaveNotesFromSlots } from './NoteBuilder'
 import type { ChordRest } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
@@ -90,5 +90,53 @@ describe('multi-voice stem direction', () => {
       if (sn[0].getXShift() !== xs) sn[0].setXShift(xs)
     }
     expect(g.every(sn => sn[0].getXShift() === 0)).toBe(true)
+  })
+})
+
+/**
+ * The re-assert's OTHER edge: it must not fight a beam.
+ *
+ * A beam group has exactly ONE stem direction — an `x` flip on any member flips the beam, because a
+ * beam cannot attach to stems pointing opposite ways. But `intendedStemDir` is captured BEFORE the
+ * beams are built, from each note's own override or the voice's forced side, so in a multi-voice bar
+ * the flipped note's PARTNERS were still marked with the voice's side. The re-assert then dragged
+ * them back, and `StemmableNote.setStemDirection` CLEARS `note.beam` on the way: the partner drew its
+ * own stem and a flag while the beam went on drawing a stem for it.
+ *
+ * These pin the VexFlow behaviour that makes it dangerous, and the rule that defuses it: once a note
+ * is beamed, its intended direction IS the beam's.
+ */
+describe('multi-voice stem direction — a beam owns its group', () => {
+  it('setStemDirection clears the note beam (why a stale re-assert is destructive)', () => {
+    const notes = createStaveNotesFromSlots(
+      [chord('a', 'C', 5, 0), chord('b', 'D', 5, 0)], 'treble', 1)
+    new Beam(notes)
+    expect(notes[0].hasBeam()).toBe(true)
+
+    notes[0].setStemDirection(-1)
+    expect(notes[0].hasBeam(), 'the beam is gone — the note will draw its own stem AND a flag')
+      .toBe(false)
+  })
+
+  it('a beamed note re-asserts the BEAM direction, not the one it was built with', () => {
+    // V1 forced up; the second note carries an `x` flip, so the group's direction is DOWN.
+    const notes = createStaveNotesFromSlots(
+      [chord('a', 'C', 5, 0), chord('b', 'D', 5, 0)], 'treble', 1)
+    const intended = new Map<StaveNote, number>()
+    for (const sn of notes) intended.set(sn, sn.getStemDirection()) // captured BEFORE the beam
+
+    for (const sn of notes) sn.setStemDirection(-1) // what buildBeams does to the whole group
+    new Beam(notes)
+    // The refresh under test: a beamed note's intention is whatever the beam decided.
+    for (const sn of notes) if (intended.has(sn) && sn.hasBeam()) intended.set(sn, sn.getStemDirection())
+
+    format([notes])
+    for (const sn of notes) {
+      const dir = intended.get(sn)!
+      if (sn.getStemDirection() !== dir) sn.setStemDirection(dir)
+    }
+
+    expect(notes.every(sn => sn.getStemDirection() === -1), 'one group, one direction').toBe(true)
+    expect(notes.every(sn => sn.hasBeam()), 'and nothing lost its beam').toBe(true)
   })
 })

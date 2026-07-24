@@ -1264,6 +1264,21 @@ export class VexFlowRenderer {
         const lane = beamPlan?.lanes.get(laneKey(measure.number, staffIndex, g.voice))
         const beams = this.buildBeams(g.staveNotes, g.slots, meter, clefForBeat, g.forcedStem, lane?.inBar)
         if (lane?.crossing.length) this.applyCrossBarPlaceholders(g.staveNotes, lane.crossing)
+
+        // ⚠️ A BEAM GROUP HAS ONE STEM DIRECTION — so the multi-voice re-assert below must be told
+        // what the beam decided, not what the note was built with.
+        //
+        // `intendedStemDir` was captured before the beams existed, from each note's own override or
+        // the voice's forced side. A beam then gives its whole group ONE direction (an `x` flip on
+        // any member flips the beam, which is the only thing a beam can mean). Leave the map stale
+        // and the re-assert drags the other members back — and `setStemDirection` CLEARS `note.beam`
+        // on the way, so they draw their own stem AND a flag while the beam keeps drawing a stem for
+        // them. Doubled stems on a beamed group, from one `x` press.
+        for (const staveNote of g.staveNotes) {
+          if (intendedStemDir.has(staveNote) && staveNote.hasBeam()) {
+            intendedStemDir.set(staveNote, staveNote.getStemDirection())
+          }
+        }
         return { voice, beams, clefNoteByBeat }
       })
 

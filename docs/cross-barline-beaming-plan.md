@@ -85,14 +85,28 @@ the events × `MIN_NOTE_SPACING` floor swamp a flag's width regardless. `Measure
 measure's width cannot depend on a neighbour" invariant survives this feature intact — which is
 exactly the claim to re-read if a bar ever changes width when its neighbour is edited.
 
-## Known, and pre-existing
+## Known: a joined note draws its modifiers against a stem the beam has not stretched yet
 
-An explicit stem override (the `x` flip) on a note inside a beamed group in a **multi-voice** bar is
-restored by the post-format multi-voice re-assert, and `setStemDirection` wipes the note's beam: the
-flag comes back and the beam still draws its own stem. This is not new — ordinary in-bar beams have
-always done it — and the join resolves its direction with the same precedence, so the common case is
-a no-op. Fixing it means deciding whether the group's direction or the note's flip wins.
+Anything positioned from a note's **stem extents at draw time** — a stem-side articulation, a tuplet
+bracket — is placed before the joined `Beam` runs `postFormat`, because that beam is built after both
+bars are painted. An in-bar beam has no such gap: it exists during formatting, so `postFormat` has
+already run when its notes draw.
 
-Articulations and tuplet brackets on a joined note are laid out before the joined beam applies its
-stem extension, so they can sit a fraction off. In-bar beams have no such gap: their `Beam` exists
-during formatting.
+Measured (staff space = 10px), as how far `postFormat` moves a stem tip:
+
+| beam group | shift |
+|---|---|
+| flat, or stepwise | 0–2 px |
+| zigzag with a 6th | 25 px |
+| zigzag with an octave | 30 px |
+| two-octave leap | 31 px |
+
+So it is invisible for ordinary stepwise writing and ~3 staff spaces for a joined group containing a
+leap. It needs all three: the group crosses a barline, it leaps, and one of its notes carries a
+stem-side mark.
+
+Two ways out if it ever bites. Cheap: capture each member's extents in `drawCrossBarBeams` before
+`postFormat` and translate the affected marks by the delta afterwards — geometry of ours, which this
+feature has otherwise avoided. Structural: split `drawMeasureContent` into build/format and paint, so
+a joined pair can be formatted, beamed and `postFormat`ted before either bar draws. The second is the
+real answer and a real refactor.
