@@ -1601,6 +1601,7 @@ export class ScoreModel {
       articulationPlacement: params.articulationPlacement,
       articulationStemAlign: params.articulationStemAlign,
       beam: params.beam === 'auto' ? undefined : params.beam,
+      secondaryBreak: params.secondaryBreak || undefined,
       notes: [notePitch],
     }
     if (params.voice) chord.voice = params.voice
@@ -2226,6 +2227,8 @@ export class ScoreModel {
     if (updates.actualDuration !== undefined) chord.actualDuration = updates.actualDuration
     if (updates.stemDirection !== undefined) chord.stemDirection = updates.stemDirection === 'auto' ? undefined : updates.stemDirection
     if (updates.beam !== undefined) chord.beam = updates.beam === 'auto' ? undefined : updates.beam
+    // Stored as ABSENT when off, like `beam: 'auto'` — the default costs nothing in JSON.
+    if (updates.secondaryBreak !== undefined) chord.secondaryBreak = updates.secondaryBreak || undefined
 
     // If measure is being changed, move the whole chord
     if (updates.measure !== undefined && updates.measure !== oldMeasure) {

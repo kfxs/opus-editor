@@ -2,7 +2,7 @@ import type { EditorState } from '../interactions/EditorState'
 import type { PaletteController } from '../interactions/PaletteController'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { BeamMode, NoteDuration } from '../types/music'
-import { beamHighlight, beamRoleHighlight, durationHighlight } from '../interactions/keypadSync'
+import { beamHighlight, beamRoleHighlight, durationHighlight, secondaryBreakHighlight } from '../interactions/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 
 /**
@@ -220,6 +220,14 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
       () => palette.setBeam(b),
       () => (beamHighlight(state, getEngine()) === b && b !== 'auto' ? ON : ON_DEFAULT))
   }
+  // The OTHER beam axis, so it sits in the same box but apart from the five modes: the mode says
+  // WHICH notes are beamed together, this says HOW MANY LINES join them — six sixteenths under one
+  // primary beam, the secondary broken 3+3. Plain cyan, no default colour: there is no `auto` here,
+  // the flag is on the note or it is not. Selection-only, hence no lit state in entry mode.
+  beamBox.appendChild(el('div', 'border-l border-gray-600 self-stretch'))
+  toggle(beamBox, 'px-2 py-1 rounded text-xs', 'subdivide',
+    'Break secondary beams in front of this note (the primary beam runs through) — 6 sixteenths as 3+3',
+    () => secondaryBreakHighlight(state, getEngine()), () => palette.toggleSecondaryBreak())
   row.appendChild(beamBox)
 
   /**

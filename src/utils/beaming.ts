@@ -160,6 +160,25 @@ export function computeBeamGroups(slots: ChordRest[], meter: MeterInfo): number[
 }
 
 /**
+ * Translate the slots of ONE beam group into the indices VexFlow's `Beam.breakSecondaryAt` wants.
+ *
+ * Two conventions meet here, which is the whole reason this is a named function and not an inline
+ * `.map`. Ours: the `secondaryBreak` flag sits on the note that STARTS the new group — the break is
+ * in front of it, the reading `begin` already has. VexFlow's: the index it is given is the note the
+ * secondary beam ENDS AFTER. So a break in front of `i` is a break at `i - 1`.
+ *
+ * A flag on the group's first note has nothing in front of it to break, and is dropped.
+ */
+export function secondaryBreakIndices(groupSlots: ChordRest[]): number[] {
+  const indices: number[] = []
+  for (let i = 1; i < groupSlots.length; i++) {
+    const slot = groupSlots[i]
+    if (slot.type === 'chord' && slot.secondaryBreak) indices.push(i - 1)
+  }
+  return indices
+}
+
+/**
  * Where a note ACTUALLY sits in its beam, once {@link computeBeamGroups} has run.
  *
  * The four values are `BeamMode` minus `'auto'` — deliberately. `auto` is not a role a note can be

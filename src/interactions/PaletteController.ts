@@ -1114,6 +1114,37 @@ export class PaletteController {
   }
 
   /**
+   * Toggle the SECONDARY BEAM BREAK on every selected note: the notes keep their primary beam and
+   * start a new group at the 16th level and below. Six sixteenths beamed as one group, subdivided
+   * 3+3, is the standard case — one beam over all six, the second beam broken in the middle.
+   *
+   * A different axis from {@link setBeam}, not a sixth mode: the mode says which notes are beamed
+   * together, this says how many lines join them, and they are set independently.
+   *
+   * SELECTION ONLY — no armed entry-mode value, unlike the beam mode. A subdivision is a statement
+   * about a group that already exists (where does the second beam break *within* these six), which
+   * is nothing a note you have not written yet can carry. Sibelius's own break-secondary is a
+   * selection edit for the same reason.
+   *
+   * Toggles as a set, like the articulations: all of them have it → remove, otherwise add.
+   */
+  toggleSecondaryBreak(): boolean {
+    const engine = this.getEngine()
+    if (!engine || this.state.selectedTool !== 'selection') return false
+
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+      .filter(id => !engine.getNote(id)?.isRest)
+    if (!ids.length) return false
+
+    const allHaveIt = ids.every(id => engine.getNote(id)?.secondaryBreak)
+    engine.runBatch(allHaveIt ? 'Join secondary beams' : 'Break secondary beams', () => {
+      for (const id of ids) engine.updateNote(id, { secondaryBreak: !allHaveIt })
+    })
+    this.renderScore()
+    return true
+  }
+
+  /**
    * Arm/disarm a clef for placement. Clicking the active clef again disarms it.
    * While armed, canvas clicks set/change a measure's clef (see MouseController)
    * and the ghost note is suppressed. Switches to the entry tool so canvas clicks

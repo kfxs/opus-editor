@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { multipleNotesSelected, type SelectionItem } from './selection'
-import { beamHighlight, beamRoleHighlight, noNoteInSelection, type BeamSource } from './keypadSync'
+import { beamHighlight, beamRoleHighlight, noNoteInSelection, secondaryBreakHighlight, type BeamSource } from './keypadSync'
 import { createEditorState } from './EditorState'
 import { itemKey } from './selection'
 
@@ -88,6 +88,18 @@ describe('beamHighlight (the dev shell\'s Beam row)', () => {
     const rests: BeamSource = { getNote: () => ({ isRest: true }), getBeamRole: () => null }
     expect(beamHighlight(state, rests)).toBeNull()
     expect(beamRoleHighlight(state, rests)).toBeNull()
+  })
+
+  it('secondaryBreakHighlight lights only for a single selected note carrying the flag', () => {
+    const broken: BeamSource = { getNote: () => ({ secondaryBreak: true }), getBeamRole: () => 'begin' }
+    expect(secondaryBreakHighlight(stateWith([note('a')]), broken)).toBe(true)
+    // No flag, a rest, more than one note, entry mode (there is no armed value) — all dark.
+    expect(secondaryBreakHighlight(stateWith([note('a')]), { getNote: () => ({}), getBeamRole: () => null })).toBe(false)
+    expect(secondaryBreakHighlight(stateWith([note('r')]), {
+      getNote: () => ({ isRest: true, secondaryBreak: true }), getBeamRole: () => null,
+    })).toBe(false)
+    expect(secondaryBreakHighlight(stateWith([note('a'), note('b')]), broken)).toBe(false)
+    expect(secondaryBreakHighlight(stateWith([note('a')], 'entry'), broken)).toBe(false)
   })
 
   it('a selected NOTE still reports both facts', () => {

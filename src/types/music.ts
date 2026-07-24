@@ -737,6 +737,25 @@ export type StemDirection = 'auto' | 'up' | 'down'
 export type BeamMode = 'auto' | 'single' | 'begin' | 'continue' | 'end'
 
 /**
+ * A SECONDARY BEAM BREAK on a note: the note starts a new group at the 16th level and below,
+ * while the primary (8th) beam runs straight through it.
+ *
+ * Six sixteenths beamed as one group, subdivided 3+3:
+ * ```
+ *   ┌─────────────────┐        one primary beam over all six
+ *   ├─────┐   ┌───────┤        the secondary breaks in the middle
+ * ```
+ * A separate field from {@link BeamMode}, not a sixth member of it, because it is a separate
+ * statement: it says nothing about WHICH notes are beamed (that is the mode's job, and the note
+ * above is `auto`) — only about how many beam LINES join them. The two are set independently, and
+ * MusicXML keeps them apart the same way: `<beam number="1">` carries the mode, `<beam number="2">`
+ * the subdivision.
+ *
+ * It sits on the note that STARTS the new group (the break is in front of it), which is the reading
+ * `begin` already has, and the note MusicXML puts its `<beam number="2">begin</beam>` on.
+ */
+
+/**
  * Represents a single musical note (or rest).
  *
  * Pitch is stored as step + alter + octave (PitchSpelling), NOT as a raw MIDI integer.
@@ -799,6 +818,8 @@ export interface Note {
   articulationStemAlign?: boolean
   /** Explicit beaming override */
   beam?: BeamMode
+  /** Secondary beams break in front of this note; the primary beam runs through. */
+  secondaryBreak?: boolean
   /**
    * Voice index (0–3) this note belongs to. Voices are independent rhythmic
    * streams within a bar. Only voice 0 is populated today (no multi-voice
@@ -888,6 +909,8 @@ export interface Chord {
   voice?: 0 | 1 | 2 | 3
   stemDirection?: StemDirection
   beam?: BeamMode
+  /** Secondary beams break in front of this slot — see the type note on {@link BeamMode}. */
+  secondaryBreak?: boolean
   tupletId?: string
   actualDuration?: Fraction
   articulations?: ArticulationType[]
@@ -1167,6 +1190,8 @@ export interface NoteParams {
   tiedFrom?: string
   stemDirection?: StemDirection
   beam?: BeamMode
+  /** Secondary beams break in front of this note. See the type note on {@link BeamMode}. */
+  secondaryBreak?: boolean
   /** Voice index (0–3). Defaults to 0. See {@link Note.voice}. */
   voice?: 0 | 1 | 2 | 3
   /** 0-based staff index in {@link Score.staves}. Defaults to 0. See {@link Note.staff}. */

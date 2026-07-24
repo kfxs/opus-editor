@@ -29,6 +29,7 @@ export function toFlatNote(chord: Chord, pitch: NotePitch, staffIndex = 0): Note
     forceAccidental: pitch.forceAccidental,
     stemDirection: chord.stemDirection,
     beam: chord.beam,
+    secondaryBreak: chord.secondaryBreak,
     tiedTo: pitch.tiedTo,
     tiedFrom: pitch.tiedFrom,
     dots: chord.dots,

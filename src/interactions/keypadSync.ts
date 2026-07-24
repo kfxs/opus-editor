@@ -74,8 +74,23 @@ export function beamHighlight(state: EditorState, engine: BeamSource | null): Be
  * a line, and the rule stays a pure function of (state, score-facts) rather than of a whole engine.
  */
 export interface BeamSource {
-  getNote(noteId: string): { isRest?: boolean } | undefined
+  getNote(noteId: string): { isRest?: boolean; secondaryBreak?: boolean } | undefined
   getBeamRole(noteId: string): BeamRole | null
+}
+
+/**
+ * Does the selected note carry a SECONDARY BEAM BREAK — the beam subdivided in front of it?
+ *
+ * Authored or not, with no default to report: unlike the beam mode there is no `auto` here, the flag
+ * is either on the note or it is not, so the button is simply lit or dark. Selection mode only, and
+ * never on a rest: the toggle is a selection edit with no armed entry-mode value (see
+ * `PaletteController.toggleSecondaryBreak`), so in entry mode there is nothing it could be about.
+ */
+export function secondaryBreakHighlight(state: EditorState, engine: BeamSource | null): boolean {
+  if (!engine || state.selectedTool !== 'selection') return false
+  if (state.selectedMarkingTool || noNoteInSelection(state) || !state.selectedNoteId) return false
+  const note = engine.getNote(state.selectedNoteId)
+  return !!note && !note.isRest && !!note.secondaryBreak
 }
 
 /**

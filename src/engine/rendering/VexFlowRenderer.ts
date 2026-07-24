@@ -11,7 +11,7 @@ import { beatToFrac, measureCapacityFrac, tupletBracketed, tupletBracketEnd, tup
 import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, timeSignatureVexKey, type MeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
-import { computeBeamGroups } from '@/utils/beaming'
+import { computeBeamGroups, secondaryBreakIndices } from '@/utils/beaming'
 import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
 import { measureShapeKey } from './MeasureRedrawKey'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
@@ -1660,7 +1660,13 @@ export class VexFlowRenderer {
         for (const staveNote of beamGroup.staveNotes) {
           staveNote.setStemDirection(beamStemDirection)
         }
-        beams.push(new Beam(beamGroup.staveNotes))
+        const beam = new Beam(beamGroup.staveNotes)
+        // Secondary beam breaks — VexFlow's own primitive, no geometry of ours. The index translation
+        // (our flag is on the note the break is IN FRONT OF; VexFlow wants the note the beam ends
+        // AFTER) lives in the pure module beside the grouping.
+        const breaks = secondaryBreakIndices(beamGroup.slots)
+        if (breaks.length) beam.breakSecondaryAt(breaks)
+        beams.push(beam)
       } catch (beamError) {
         console.warn(`Could not create beam: ${beamError}`)
       }

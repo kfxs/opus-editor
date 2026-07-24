@@ -250,6 +250,39 @@ describe('BeamMode — storage and retrieval', () => {
   })
 })
 
+describe('secondaryBreak — subdividing a beam (6 sixteenths as 3+3)', () => {
+  let engine: MusicEngine
+
+  beforeEach(() => {
+    engine = makeEngine()
+  })
+
+  const sixteenth = (i: number, extra: Record<string, unknown> = {}) =>
+    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '16', measure: 1, beat: frac(i, 4), ...extra })
+
+  it('stores the flag, projects it on the flat note, and clears it back to absent', () => {
+    const note = sixteenth(0, { secondaryBreak: true })
+    expect(note.secondaryBreak).toBe(true)
+    expect(engine.getNote(note.id)?.secondaryBreak).toBe(true)
+    expect(engine.updateNote(note.id, { secondaryBreak: false }).secondaryBreak).toBeUndefined()
+  })
+
+  it('a note created without it has no flag — the default costs nothing', () => {
+    expect(sixteenth(0).secondaryBreak).toBeUndefined()
+  })
+
+  it('is INDEPENDENT of the beam mode — a subdivided note is still auto-beamed', () => {
+    // The point of a separate field: the mode says which notes are beamed, this says how many lines
+    // join them. Setting one must not touch the other.
+    const note = sixteenth(0)
+    engine.updateNote(note.id, { secondaryBreak: true })
+    expect(engine.getNote(note.id)?.beam).toBeUndefined()
+    expect(engine.getBeamRole(note.id)).toBe('single') // alone so far — grouping is untouched
+    engine.updateNote(note.id, { beam: 'begin' })
+    expect(engine.getNote(note.id)?.secondaryBreak).toBe(true)
+  })
+})
+
 describe('MusicEngine.getBeamRole — what the beam ACTUALLY is', () => {
   let engine: MusicEngine
 

@@ -55,6 +55,39 @@ dissolving every boundary left in the bar: both cases above give `[0,1,2,3] [4,5
 
 `begin`…`continue`…`end` is unaffected — `end` closes the group explicitly.
 
+## Secondary beam breaks (subdivision)
+
+Six sixteenths beamed as one group, subdivided 3+3: **one** primary beam over all six, the 16th-level
+beam broken in the middle. Standard notation — the primary beam shows the group, the secondary shows
+how it is felt inside.
+
+```
+  ┌─────────────────┐
+  ├─────┐   ┌───────┤
+  │  │  │   │  │  │
+```
+
+`secondaryBreak?: boolean` on the slot, projected onto the flat `Note` and settable through
+`NoteParams`, absent when off. It sits on the note that **starts** the new group — the break is in
+front of it, the reading `begin` already has, and the note MusicXML puts `<beam number="2">begin` on.
+
+It is **not** a sixth `BeamMode`, because it is a different statement. The mode says *which notes are
+beamed together*; this says *how many lines join them*. The six notes above are `auto` — nobody
+authored their grouping, the meter did — and they are still subdivided. The two are set
+independently, exactly as MusicXML keeps `<beam number="1">` and `<beam number="2">` apart.
+
+Drawing it is VexFlow's own `Beam.breakSecondaryAt`, no geometry of ours. The one wrinkle is an index
+translation, and it lives in `secondaryBreakIndices` (pure, tested) rather than inline in the
+renderer: our flag marks the note the break is **in front of**, VexFlow wants the note the beam
+**ends after** — so a break in front of `i` is `breakSecondaryAt([i - 1])`. A flag on the group's
+first note has nothing in front of it and is dropped.
+
+The `subdivide` button is **selection-only** — no armed entry-mode value, unlike the beam mode. A
+subdivision is a statement about a group that already exists ("where does the second beam break
+*within* these six"), which is not something a note you have not written yet can carry. Sibelius's
+break-secondary is a selection edit for the same reason. It toggles across the whole selection as a
+set, like the articulations: all of them have it → remove, otherwise add.
+
 ## The palette (dev shell)
 
 The `Beam:` row in `dev/devToolbar.ts` reads `beamHighlight(state)` (in `interactions/keypadSync`,

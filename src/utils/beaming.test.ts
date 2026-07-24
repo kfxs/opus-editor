@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { beamRoleAt, computeBeamGroups, getBeatGroup, isBeamableDuration } from './beaming'
+import { beamRoleAt, computeBeamGroups, getBeatGroup, isBeamableDuration, secondaryBreakIndices } from './beaming'
 import { getMeterInfo } from './meter'
 import { fracCreate } from './fraction'
 import type { TimeSignature, ChordRest, NoteDuration, BeamMode } from '@/types/music'
@@ -266,5 +266,43 @@ describe('beaming — beamRoleAt (what the note ACTUALLY is)', () => {
 
   it('an index outside the run is single, not a crash', () => {
     expect(beamRoleAt(run(4, '8', 2), meter(4, 4), 99)).toBe('single')
+  })
+})
+
+describe('beaming — secondaryBreakIndices (subdividing a beam)', () => {
+  /** Six sixteenths beamed as ONE group, with a secondary break in front of slot `at`. */
+  const sixteenths = (at?: number) =>
+    Array.from({ length: 6 }, (_, i) => {
+      const slot = chord(i, 4, '16')
+      return i === at && slot.type === 'chord' ? { ...slot, secondaryBreak: true } : slot
+    })
+
+  it('6 sixteenths subdivided 3+3: the flag on note 4 breaks the beam after note 3', () => {
+    // Ours says "break IN FRONT of index 3"; VexFlow wants "the beam ends AFTER index 2".
+    expect(secondaryBreakIndices(sixteenths(3))).toEqual([2])
+  })
+
+  it('no flags, no breaks — the group draws as one', () => {
+    expect(secondaryBreakIndices(sixteenths())).toEqual([])
+  })
+
+  it('a flag on the FIRST note is dropped — nothing in front of it to break', () => {
+    expect(secondaryBreakIndices(sixteenths(0))).toEqual([])
+  })
+
+  it('several breaks subdivide 2+2+2', () => {
+    const slots = sixteenths().map((s, i) =>
+      (i === 2 || i === 4) && s.type === 'chord' ? { ...s, secondaryBreak: true } : s)
+    expect(secondaryBreakIndices(slots)).toEqual([1, 3])
+  })
+
+  it('is independent of the beam MODE — the group is auto and still subdivided', () => {
+    // 6/8: a dotted-quarter beat group holds all six sixteenths, so the meter alone beams them as
+    // one. Not one of them is authored, and the second beam still breaks 3+3 — the two axes are set
+    // separately, which is why `secondaryBreak` is not a sixth BeamMode.
+    const slots = sixteenths(3)
+    expect(slots.every(s => s.type === 'chord' && s.beam === undefined)).toBe(true)
+    expect(computeBeamGroups(slots, meter(6, 8))).toEqual([[0, 1, 2, 3, 4, 5]]) // ONE group of six
+    expect(secondaryBreakIndices(slots)).toEqual([2])                           // …broken 3+3
   })
 })

@@ -927,7 +927,7 @@ describe('PaletteController — convertSelectionToRest', () => {
 
 describe('PaletteController — setBeam applies to the WHOLE selection', () => {
   let state: EditorState
-  let notes: Record<string, { id: string; isRest?: boolean }>
+  let notes: Record<string, { id: string; isRest?: boolean; secondaryBreak?: boolean }>
   let updateNote: ReturnType<typeof vi.fn>
   let batches: string[]
   let palette: PaletteController
@@ -968,6 +968,33 @@ describe('PaletteController — setBeam applies to the WHOLE selection', () => {
     select('r1', 'n1')
     palette.setBeam('end')
     expect(updateNote.mock.calls.map(c => c[0])).toEqual(['n1'])
+  })
+
+  it('toggleSecondaryBreak subdivides every selected note, and toggles them back off as a set', () => {
+    state.selectedTool = 'selection'
+    select('n1', 'n2')
+    palette.toggleSecondaryBreak()
+    expect(updateNote.mock.calls.map(c => [c[0], c[1].secondaryBreak]))
+      .toEqual([['n1', true], ['n2', true]])
+    expect(batches).toEqual(['Break secondary beams'])
+
+    // All of them now have it → the same press removes it (the articulation rule).
+    notes.n1 = { id: 'n1', secondaryBreak: true } as never
+    notes.n2 = { id: 'n2', secondaryBreak: true } as never
+    updateNote.mockClear()
+    palette.toggleSecondaryBreak()
+    expect(updateNote.mock.calls.every(c => c[1].secondaryBreak === false)).toBe(true)
+    expect(batches[1]).toBe('Join secondary beams')
+  })
+
+  it('toggleSecondaryBreak skips rests and does nothing in entry mode', () => {
+    state.selectedTool = 'selection'
+    select('r1')
+    expect(palette.toggleSecondaryBreak()).toBe(false)
+    state.selectedTool = 'entry'
+    select('n1')
+    expect(palette.toggleSecondaryBreak()).toBe(false)
+    expect(updateNote).not.toHaveBeenCalled()
   })
 
   it('arms the value but touches no note in entry mode, or with only rests selected', () => {
