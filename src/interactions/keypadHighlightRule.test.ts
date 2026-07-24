@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { multipleNotesSelected, type SelectionItem } from './selection'
-import { noNoteInSelection } from './keypadSync'
+import { beamHighlight, noNoteInSelection } from './keypadSync'
 import { createEditorState } from './EditorState'
 import { itemKey } from './selection'
 
@@ -47,5 +47,38 @@ describe('noNoteInSelection (Keypad single-selection gate)', () => {
 
   it('false outside selection mode (entry mode reflects the armed value)', () => {
     expect(noNoteInSelection(stateWith([note('a'), note('b')], 'entry'))).toBe(false)
+  })
+})
+
+describe('beamHighlight (the dev shell\'s Beam row)', () => {
+  it('reports the selected note\'s beam when exactly one note is selected', () => {
+    const state = stateWith([note('a')])
+    state.selectedBeam = 'begin'   // SelectionController syncs this from the note
+    expect(beamHighlight(state)).toBe('begin')
+  })
+
+  it('reports nothing with no selection — "auto" is a real BeamMode, so an ungated row would claim one', () => {
+    const state = stateWith([])
+    state.selectedBeam = 'auto'
+    expect(beamHighlight(state)).toBeNull()
+  })
+
+  it('reports nothing when more than one note is selected', () => {
+    const state = stateWith([note('a'), note('b')])
+    state.selectedBeam = 'begin'
+    expect(beamHighlight(state)).toBeNull()
+  })
+
+  it('reports the ARMED beam in entry mode', () => {
+    const state = stateWith([], 'entry')
+    state.selectedBeam = 'single'
+    expect(beamHighlight(state)).toBe('single')
+  })
+
+  it('reports nothing under a marking tool — it enters no note to beam', () => {
+    const state = stateWith([], 'entry')
+    state.selectedBeam = 'single'
+    state.selectedMarkingTool = { kind: 'tie' }
+    expect(beamHighlight(state)).toBeNull()
   })
 })

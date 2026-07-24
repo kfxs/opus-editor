@@ -542,3 +542,42 @@ describe('SelectionController — setSelectedNote keeps the highlight set in syn
     expect(state.selectedNoteId).toBe(hi)
   })
 })
+
+describe('SelectionController — the palette reflects the selected note', () => {
+  let engine: MusicEngine
+  let state: EditorState
+  let selection: SelectionController
+  let plain: string
+  let beamed: string
+
+  beforeEach(() => {
+    engine = makeEngine()
+    state = createEditorState()
+    state.selectedTool = 'selection'
+    selection = new SelectionController(() => engine, state, () => {}, () => {})
+
+    plain = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })!.id
+    beamed = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 2) })!.id
+    engine.updateNote(beamed, { beam: 'begin' })
+  })
+
+  it('shows the selected note\'s beam, not a stale auto', () => {
+    // The bug: selecting a note reset selectedBeam to 'auto' (clearScalarSubSelections) and nothing
+    // put the note's own value back, so the Beam row said "auto" about a note you had beamed.
+    selection.selectNote(beamed)
+    expect(state.selectedBeam).toBe('begin')
+  })
+
+  it('reads auto back for a note with no explicit beam', () => {
+    // 'auto' is stored as ABSENT, so this is the `?? 'auto'` half of the read.
+    selection.selectNote(beamed)
+    selection.selectNote(plain)
+    expect(state.selectedBeam).toBe('auto')
+  })
+
+  it('still syncs the duration and dots beside it', () => {
+    selection.selectNote(plain)
+    expect(state.selectedDuration).toBe('8')
+    expect(state.selectedDots).toBe(0)
+  })
+})

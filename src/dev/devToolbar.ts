@@ -2,7 +2,7 @@ import type { EditorState } from '../interactions/EditorState'
 import type { PaletteController } from '../interactions/PaletteController'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { BeamMode, NoteDuration } from '../types/music'
-import { durationHighlight } from '../interactions/keypadSync'
+import { beamHighlight, durationHighlight } from '../interactions/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 
 /**
@@ -27,6 +27,14 @@ import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 /** The lit / unlit halves of a toggle button, kept whole for Tailwind's scanner. */
 const ON = 'bg-cyan-600 text-white'
 const OFF = 'bg-gray-600 hover:bg-gray-500'
+/**
+ * A third state: lit, but lit on the DEFAULT. Beam `auto` is the only button here that means "nobody
+ * decided this" — it is what a note has when it has no beam of its own, so lighting it in the same
+ * cyan as `begin`/`end` would report an authored choice where there is none. Slate says *this is the
+ * value, and it is the absence of a value* — the same distinction the model makes by storing `auto`
+ * as no field at all.
+ */
+const ON_DEFAULT = 'bg-slate-400 text-slate-900'
 
 export interface DevToolbarDeps {
   state: EditorState
@@ -76,12 +84,12 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
    */
   function toggle(
     parent: HTMLElement, base: string, label: string, title: string,
-    isOn: () => boolean, onClick: () => void,
+    isOn: () => boolean, onClick: () => void, on: string = ON,
   ): HTMLButtonElement {
     const b = el('button', `${base} ${OFF}`, label)
     b.title = title
     b.addEventListener('click', onClick)
-    syncers.push(() => { b.className = `${base} ${isOn() ? ON : OFF}` })
+    syncers.push(() => { b.className = `${base} ${isOn() ? on : OFF}` })
     parent.appendChild(b)
     return b
   }
@@ -168,8 +176,14 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   const BEAMS: readonly BeamMode[] = ['auto', 'single', 'begin', 'continue', 'end']
   const beamBox = group('Beam:')
   for (const b of BEAMS) {
+    // `beamHighlight` is the rule, beside durationHighlight: in selection mode it now reports the
+    // SELECTED NOTE's beam (SelectionController syncs it), and nothing at all when there is no single
+    // note to report on — 'auto' is a real BeamMode, so an ungated row would claim a selection that
+    // isn't there is auto-beamed.
+    // …and `auto` lights in the DEFAULT colour (see ON_DEFAULT): it is the value a note has when it
+    // has none, so it must not read as an authored beam the way begin/continue/end/single do.
     toggle(beamBox, 'px-2 py-1 rounded text-xs', b, `Beam: ${b}`,
-      () => state.selectedBeam === b, () => palette.setBeam(b))
+      () => beamHighlight(state) === b, () => palette.setBeam(b), b === 'auto' ? ON_DEFAULT : ON)
   }
   row.appendChild(beamBox)
 

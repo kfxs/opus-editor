@@ -95,7 +95,7 @@ export class SelectionController {
   }
 
   /**
-   * Sync the palette (duration, accidental, dots) AND the active lane to a note's properties.
+   * Sync the palette (duration, accidental, dots, beam) AND the active lane to a note's properties.
    * This is the SELECTION half — "click a note, see its properties". A caret advance wants the
    * lane only (moveCaretTo): the palette holds what you are about to TYPE, not what you landed on.
    * No-op if not found.
@@ -113,6 +113,13 @@ export class SelectionController {
         break
       }
     }
+    // The beam, from the ENGINE's projection and not the loop above: `getMeasureNotes` doesn't carry
+    // `beam` (it projects the slot's dots, stem and articulations, but not this one), so reading it
+    // there would quietly hand back undefined for every note. `clearScalarSubSelections` has already
+    // reset it to 'auto', which is the whole bug this line fixes — the palette said 'auto' about
+    // every note you clicked, including one you had explicitly beamed.
+    // Stored as absent when it IS auto (ScoreModel drops 'auto'), so `?? 'auto'` reads it back.
+    this.state.selectedBeam = engine.getNote(noteId)?.beam ?? 'auto'
     this.syncActiveLaneToNote(noteId)
   }
 

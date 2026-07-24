@@ -1,5 +1,5 @@
 import type { EditorState, StateListener } from './EditorState'
-import type { NoteDuration } from '../types/music'
+import type { BeamMode, NoteDuration } from '../types/music'
 import { armedToolUsesLength } from './EditorState'
 import type { PaletteController } from './PaletteController'
 import { modeSelection } from './modeSelection'
@@ -49,6 +49,19 @@ export function noNoteInSelection(state: EditorState): boolean {
 export function durationHighlight(state: EditorState): NoteDuration | null {
   if (state.selectedMarkingTool) return armedToolUsesLength(state) ? state.selectedDuration : null
   return noNoteInSelection(state) ? null : state.selectedDuration
+}
+
+/**
+ * The beam follows the duration's rule, and for the duration's reason — with one difference worth
+ * naming: `BeamMode` has no "none". Every note is beamed somehow, so `'auto'` is a real answer and
+ * one of the five buttons is always lit… which means that with NOTHING selected the row would sit
+ * there claiming the non-existent selection is auto-beamed. Hence the null: nothing to say, nothing
+ * lit. (Also null under any marking tool — one arms into entry mode but enters no note, so there is
+ * nothing about to be beamed.)
+ */
+export function beamHighlight(state: EditorState): BeamMode | null {
+  if (state.selectedMarkingTool) return null
+  return noNoteInSelection(state) ? null : state.selectedBeam
 }
 
 /**
