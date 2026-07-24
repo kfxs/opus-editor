@@ -126,6 +126,7 @@ holds a *rule*, it is in the wrong file.
 | The public API the UI calls | `engine/MusicEngine.ts` (facade) |
 | All editor UI state | `interactions/EditorState.ts` |
 | A keybinding | `shortcuts/ShortcutConfig.ts` |
+| What a NUMPAD key does | `windows/keypad/keypadLayouts.ts` — **not** ShortcutConfig, which binds all 16 pad keys to one `keypadKey` action. The pad is the Keypad panel: a key presses the cell under it *on the page that is showing*. See `docs/keypad.md` |
 | A pure music calculation (durations, meter, fractions) | `utils/` |
 | **Choosing a colour** | Three semantic modules in `utils/`, never a stray hex: **`voiceColors.ts`** = per-voice note/rest/tuplet selection (V1 blue / V2 green / V3 orange / V4 purple); **`selectionColors.ts`** = the non-voice `INDICATOR_INK` blue, shared by the gutter, the Keypad mode arrow, and every NON-note element selection (clef/time-sig/barline/dynamic/tempo text) — orange is reserved for voice 3, so elements must **not** select in orange; **`chromeColors.ts`** = window/menu/keypad neutrals. Slur-edit handles keep their own orange(open-join)/blue(true-end) language on purpose. |
 

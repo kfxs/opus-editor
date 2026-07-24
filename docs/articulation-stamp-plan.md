@@ -61,3 +61,21 @@ Tenuto}` → `pressArticulation`) routes to one of three behaviours by context:
 The whole feature lives in `interactions/` + `engine/` (framework-agnostic); the Keypad drives
 it through the existing `articulationSelection` press/highlight channels, so no Vue-side code
 was needed.
+
+## Esc clears the articulations armed for the next note
+
+`PaletteController.clearArmedArticulations()` drops `accent`/`staccato`/`tenuto`, and is called
+from both paths that mean *stop what you were doing*: Esc (`shortcutWiring.setSelectionMode`) and
+`enterSelectionMode()` — the Keypad's Select arrow **is** the Esc path, so the two must not
+disagree about what it means.
+
+They used to survive Esc, alongside the duration and the accidental ("note-entry settings carry
+over between modes"), which meant arming an accent, pressing Esc, and later pressing a duration
+gave the next note a mark you asked for in a session you abandoned.
+
+The **duration still carries over**, on purpose: a note always has some length, so the armed
+duration is only ever *which*, never *whether* — an articulation is a decision about the next
+note. The **accidental** needed no change here; a plain duration press already drops a stale one
+(`PaletteController` fresh-entry + promote branches), on the reasoning that an intentional
+accidental arms the stamp and lands elsewhere. Different route, same end: both are clear before
+the next note is entered.
