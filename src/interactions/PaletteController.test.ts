@@ -1061,6 +1061,26 @@ describe('PaletteController — tie stamp tool', () => {
     expect(tieSelectionFn).not.toHaveBeenCalled()
   })
 
+  it('arms the stamp in ENTRY mode with a duration armed and no note entered yet', () => {
+    // Press a duration, then change your mind and press tie without ever clicking the score: entry
+    // mode, no cursor note, nothing to tie. That used to do nothing at all — a dead key on a tool the
+    // panel was showing you — and you had to press Esc first to reach it.
+    state.selectedTool = 'entry'
+    state.selectedDuration = 'q'
+    palette.toggleTie()
+    expect(armedTool(state, 'tie')).not.toBeNull()
+    expect(tieSelectionFn).not.toHaveBeenCalled()
+  })
+
+  it('still ties the cursor note in entry mode when there IS one', () => {
+    state.selectedTool = 'entry'
+    state.selectedNoteId = 'n1'
+    notes['n1'] = { id: 'n1' }
+    palette.toggleTie()
+    expect(tieSelectionFn).toHaveBeenCalledWith(['n1'])
+    expect(armedTool(state, 'tie')).toBeNull()
+  })
+
   it('ties a real selection instead of arming', () => {
     state.selectedTool = 'selection'
     state.selectedNoteId = 'n1'

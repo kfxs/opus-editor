@@ -7,7 +7,8 @@ editing of the selected element** (§2).
 
 ## 1. Tie stamp tool
 
-Trigger: **selection mode, with no note selected**, press Enter (the tie key) on the Keypad.
+Trigger: **nothing to tie**, press Enter (the tie key) on the Keypad — in selection mode with no
+note selected, or (since 2026-07-24) in entry mode with a duration armed and no note entered yet.
 
 - Arms the tool and switches to entry mode. A **ghost arc** follows the cursor.
 - Click a note → **ties** it to the next slot in its own voice and staff. A rest / empty space /
@@ -24,9 +25,17 @@ Trigger: **selection mode, with no note selected**, press Enter (the tie key) on
    states the rule: *tie is a selection-mode action only* — so a duration press just **disarms** the
    tool and starts plain note entry. No `promoteTieStampToNoteEntry` exists.
 3. **Entry mode keeps its old meaning.** The other two route their key three ways (apply / arm /
-   arm-for-next-note); tie routes four, and the last is unchanged: in entry mode, Enter still ties
-   the cursor note (Enter straight after entering a note ties it). Nothing competes for the key
-   there, so the stamp branch is gated on `selectedTool === 'selection'`.
+   arm-for-next-note); tie routes four, and the last is unchanged where it means anything: in entry
+   mode, Enter still ties the cursor note (Enter straight after entering a note ties it).
+
+   ⚠️ **Amended 2026-07-24 — entry mode with NO cursor note now arms the stamp too.** In entry mode
+   `selectedNoteId` *is* the cursor, so an empty set there means a duration was armed and no note
+   entered: arm a duration, change your mind, press tie, and the key did **nothing at all** — a dead
+   key on a tool the Keypad was showing you, reachable only by pressing Esc first. The press cannot
+   be "tie this" (there is no this), so the only thing it can sensibly be is "I meant the tie tool",
+   which is the answer selection mode already gave. This is also what `pressRest` has always done —
+   it falls through to arming "in either mode"; the tie was the outlier. Tying a real cursor note or
+   a multi-selection is untouched.
 
 **Idempotent**, like the accidental: clicking an already-tied note does nothing. This makes one law
 true of all three stamps — *a stamp only ever ADDS; removal is Delete or the selected-element edit*

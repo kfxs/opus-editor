@@ -804,7 +804,15 @@ export class PaletteController {
     // ties each note to the same pitch in the next slot, so chords tie pitch-for-pitch.
     const ids = selectedNoteIds(this.state.selectedItems.values())
     const noteIds = ids.length ? ids : (this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
-    if (noteIds.length === 0) return
+    // …and with nothing to tie, ARM THE STAMP — the same answer selection mode gives at (2)/(3).
+    // In entry mode `selectedNoteId` IS the cursor, so an empty set here means a duration was armed
+    // and no note entered yet: the press cannot be "tie this", and the only thing it can sensibly be
+    // is "I meant the tie tool". It used to be nothing at all, which read as a dead key — you had to
+    // press Esc first to get at a tool the panel was showing you.
+    if (noteIds.length === 0) {
+      this.armTieTool()
+      return
+    }
     this.tieNotes(noteIds)
   }
 
