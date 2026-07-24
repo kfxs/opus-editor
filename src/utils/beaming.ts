@@ -61,12 +61,23 @@ export function computeBeamGroups(slots: ChordRest[], meter: MeterInfo): number[
   let current: number[] = []
   let currentBeatGroup: number | null = null
   let isForced = false // true when group was started by an explicit 'begin'/'continue'
+  /**
+   * Set by `'continue'`: the NEXT note joins this group whatever beat it falls in.
+   *
+   * A note marked `continue` has a beam coming in and a beam going out — that is what the word
+   * means, and what MusicXML means by it. Without this flag `continue` only removed the break
+   * BEHIND the note, so it appeared to work on the first note of a group (whose boundary is behind
+   * it) and did nothing at all on the last note of a group (whose boundary is in front). Same mark,
+   * same bar, two different outcomes decided by where the note happened to sit.
+   */
+  let bridgeNext = false
 
   const flush = () => {
     if (current.length >= 2) groups.push(current)
     current = []
     currentBeatGroup = null
     isForced = false
+    bridgeNext = false
   }
 
   for (let i = 0; i < slots.length; i++) {
@@ -96,7 +107,8 @@ export function computeBeamGroups(slots: ChordRest[], meter: MeterInfo): number[
     }
 
     if (beam === 'continue') {
-      // Bridge across a beat boundary — override normal grouping rules.
+      // Bridge across a beat boundary — override normal grouping rules. BOTH sides: joining the run
+      // behind is the `current.push` below, and the break in front is removed by `bridgeNext`.
       if (current.length > 0) {
         current.push(i)
       } else {
@@ -105,6 +117,7 @@ export function computeBeamGroups(slots: ChordRest[], meter: MeterInfo): number[
         isForced = true
       }
       currentBeatGroup = getBeatGroup(slot.beat, meter)
+      bridgeNext = true
       continue
     }
 
@@ -127,7 +140,10 @@ export function computeBeamGroups(slots: ChordRest[], meter: MeterInfo): number[
       currentBeatGroup = getBeatGroup(slot.beat, meter)
     } else {
       const beatGroup = getBeatGroup(slot.beat, meter)
-      if (currentBeatGroup === null || beatGroup === currentBeatGroup) {
+      // `bridgeNext` spends itself here: the note right after a `continue` joins across the boundary,
+      // and then normal grouping resumes from ITS beat group — so marking one note continue bridges
+      // exactly one boundary, not every boundary to the end of the bar.
+      if (currentBeatGroup === null || beatGroup === currentBeatGroup || bridgeNext) {
         current.push(i)
         currentBeatGroup = beatGroup
       } else {
@@ -135,6 +151,7 @@ export function computeBeamGroups(slots: ChordRest[], meter: MeterInfo): number[
         current = [i]
         currentBeatGroup = beatGroup
       }
+      bridgeNext = false
     }
   }
 

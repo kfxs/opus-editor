@@ -175,6 +175,29 @@ describe('beaming — explicit BeamMode overrides', () => {
     expect(computeBeamGroups(slots, meter(4, 4))).toEqual([[0, 1]])
   })
 
+  // Eight eighths in 4/4 beam 2+2+2+2. A single `continue` bridges ONE boundary — the one it
+  // straddles — and the answer must not depend on which side of that boundary the marked note sits.
+  // It used to: `continue` removed only the break BEHIND the note, so it worked on the first note of
+  // a group and did nothing at all on the last.
+  const eightEighths = (at: number, beam: BeamMode) =>
+    run(8, '8', 2).map((slot, i) => (i === at ? { ...slot, beam } : slot))
+
+  it("'continue' on the FIRST note of a group joins it to the group behind", () => {
+    expect(computeBeamGroups(eightEighths(2, 'continue'), meter(4, 4)))
+      .toEqual([[0, 1, 2, 3], [4, 5], [6, 7]])
+  })
+
+  it("'continue' on the LAST note of a group joins it to the group ahead", () => {
+    expect(computeBeamGroups(eightEighths(1, 'continue'), meter(4, 4)))
+      .toEqual([[0, 1, 2, 3], [4, 5], [6, 7]])
+  })
+
+  it("'continue' bridges ONE boundary, not every boundary after it", () => {
+    // Groups 2 and 3 are untouched above — this states it as the point, not a side effect.
+    const groups = computeBeamGroups(eightEighths(1, 'continue'), meter(4, 4))
+    expect(groups).toHaveLength(3)
+  })
+
   it("'begin'…'continue'…'end' bridges three notes across boundaries", () => {
     const slots = [
       chord(0, 1, '8', 'begin'),    // 0.0
