@@ -34,9 +34,9 @@ Beaming does **not** depend on clef — a beam group may span a mid-measure clef
 |---|---|
 | `auto` | no override — the metric grouping above (stored as no field at all) |
 | `single` | force this note out of any beam |
-| `begin` | start a manual group here, ignoring beat boundaries |
+| `begin` | a beam **starts** here — the note before is cut loose, and the meter closes the group |
 | `continue` | this note is in the middle of a beam — **beamed on both sides** |
-| `end` | close the manual group after this note |
+| `end` | close the group after this note |
 
 ### `continue` is symmetric (fixed 2026-07-24)
 
@@ -54,6 +54,78 @@ itself on that one note, so a single `continue` bridges **exactly one boundary**
 dissolving every boundary left in the bar: both cases above give `[0,1,2,3] [4,5] [6,7]`.
 
 `begin`…`continue`…`end` is unaffected — `end` closes the group explicitly.
+
+### `begin` starts a beam the METER ends (fixed 2026-07-24)
+
+`begin` used to open a **forced group that ignored every beat boundary** until an `end`, a rest, or the
+end of the bar. The group never terminated: eight eighths beamed `2+2+2+2` with `begin` on the second
+engraved **one seven-note beam** with the first note flagged, every note after the mark reading
+`continue`.
+
+The missing thing was the **end**, not the taking of the next note. `begin` still takes it — a beam of
+one note is not a beam, and MusicXML says the same by construction: a `begin` is followed by
+`continue`s and an `end`, never by nothing. So the mark bridges **exactly one boundary**, like
+`continue`, and then the meter closes the group:
+
+```
+auto              (1 2) (3 4) (5 6) (7 8)
+`begin` on 2      (1)  (2 3 4)  (5 6) (7 8)     roles: single begin continue end …
+```
+
+Two consequences worth knowing:
+
+- **`begin` … `end` alone no longer spans several beats.** One mark bridges one boundary, so a beam
+  over six eighths wants `continue` on the notes between — which is what MusicXML writes too. A press
+  applies to the whole selection, so "select the run, press `continue`" does it in one action.
+- **On the last beamable note of a bar `begin` engraves nothing**, because only `continue` opens a
+  barline (below). The mark is kept; there is simply nothing on this side of the barline to start a
+  beam with.
+
+## Through the barline
+
+```
+ bar 1                    | bar 2
+   ♪  ♪  ♪  ♪ ═════════════════ ♪  ♪
+```
+
+A barline is the strongest boundary in the bar, and it is still a boundary: mark the note on either
+side of it `continue` and the beam carries through. **No new field and no new button** — a second
+one ("beam across barline") would be the same statement written twice, and the two could then
+disagree. `docs/DESIGN-PRINCIPLES.md` also keeps the measures spine removable, and a feature that
+needs a special field for *the boundary that happens to be a barline* has baked bars in.
+
+Either side, because `continue` means the same thing wherever it sits (above). The last note of bar N
+has a beam going out; the first note of bar N+1 has one coming in, and across a barline there is
+nowhere else it could come from.
+
+Three things follow from the mark being the only thing that opens a barline:
+
+- **The default never joins.** The bar boundary is an unconditional break, and it has to be stated as
+  one — `beat` is bar-relative, so beat 0 of bar N+1 falls in the same beat group as beat 0 of bar N
+  and the metric rule alone would silently join every bar to the next.
+- **Only `continue` opens it.** `begin` bridges one boundary too (above), but not this one: a beam
+  through a barline is a deliberate, unusual notation, and it should take the mark that says *this
+  note is beamed on both sides* rather than fall out of a mark about starting a group. `begin` …
+  `continue` at the barline … `end` is how a manual group spans two bars.
+- **Chaining falls out.** A mark at two successive barlines runs the beam through both.
+
+The grouping is `computeCrossBarBeamGroups(bars)` in `utils/beaming.ts`, taking a run of bars — each
+with **its own meter**, since a run may contain a time-signature change — and returning `(bar, slot)`
+refs. `computeBeamGroups` is now a run of one, so there is one algorithm for both.
+
+### Where it stops
+
+A join needs both notes on the **same system**: one VexFlow `Beam` cannot span two lines, so a pair
+straddling a break falls back to two ordinary groups with their flags intact. The mark is kept; it
+simply has nothing to join on that page. Real engraving hangs a half-beam over the barline at the end
+of the line, which needs partial beams drawn by hand and is not built.
+
+The palette still reads `continue` there. The role is a fact about the **score** and the break is a
+fact about the **layout** — `ScoreModel` does not know where the lines fall, and intent disagreeing
+with engraving is the row working (see below), not a bug.
+
+How it is drawn — the placeholder beam, the post-measure pass, and what the join costs the shape key
+— is in `docs/cross-barline-beaming-plan.md`.
 
 ## Secondary beam breaks (subdivision)
 
@@ -128,8 +200,10 @@ did nothing announces itself.
 
 Two things the role must get right. It is read **live** from the engine on every sync, never mirrored
 into `EditorState`: it is a property of the score, and editing the *neighbour* changes it. And it is
-computed over the run the renderer actually beams — **one voice of one staff, sorted by beat** — or
-a voice-2 note gets scored against voice 1's grouping, an answer about a beam nobody engraved.
+computed over the run the renderer actually beams — **one voice of one staff, sorted by beat, across
+the whole lane** (`beamRoleAtRef`) — or a voice-2 note gets scored against voice 1's grouping, and a
+note beamed through a barline reports the `end` its own bar would call it while the staff shows
+`continue`.
 
 Selection mode with a single note only. In entry mode `beamHighlight` shows the *armed* beam — the
 beam of a note that does not exist yet — and there is no role to pair it with.

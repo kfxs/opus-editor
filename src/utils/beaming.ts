@@ -101,33 +101,35 @@ export function computeBeamGroups(slots: ChordRest[], meter: MeterInfo): number[
  * is the mark that crosses.
  *
  * Both cases fall out of the in-bar rules once the boundary stops flushing: a trailing `continue`
- * has already armed `bridgeNext`, and a leading `continue` joins the run behind it. An unclosed
- * `begin` does NOT cross — its group is flushed by the boundary like any other. A forced group that
- * DID cross keeps its forcing (so `begin` … `continue` … `end` spans two bars), and is bounded by
- * the next barline, which breaks unless it too is marked.
+ * has already armed `bridgeNext`, and a leading `continue` joins the run behind it. A `begin` does
+ * NOT cross — it is a break, and the boundary flushes its group like any other.
  */
 export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
   const groups: BeamSlotRef[][] = []
   let current: BeamSlotRef[] = []
   let currentBeatGroup: number | null = null
-  let isForced = false // true when group was started by an explicit 'begin'/'continue'
   /**
-   * Set by `'continue'`: the NEXT note joins this group whatever beat it falls in.
+   * The NEXT note joins this group whatever beat it falls in — armed by `'continue'` and by
+   * `'begin'`, and it remembers WHICH, because only one of them may open a barline.
    *
-   * A note marked `continue` has a beam coming in and a beam going out — that is what the word
-   * means, and what MusicXML means by it. Without this flag `continue` only removed the break
-   * BEHIND the note, so it appeared to work on the first note of a group (whose boundary is behind
-   * it) and did nothing at all on the last note of a group (whose boundary is in front). Same mark,
-   * same bar, two different outcomes decided by where the note happened to sit.
+   * `continue`: a note marked so has a beam coming in and a beam going out — that is what the word
+   * means, and what MusicXML means by it. Without this flag `continue` only removed the break BEHIND
+   * the note, so it appeared to work on the first note of a group (whose boundary is behind it) and
+   * did nothing at all on the last note of a group (whose boundary is in front). Same mark, same
+   * bar, two different outcomes decided by where the note happened to sit.
+   *
+   * `begin`: a beam of one note is not a beam. `begin` … has to be followed by a `continue` or an
+   * `end` — MusicXML's own grammar — so the mark takes the next beamable note with it, and the
+   * meter closes the group after that. Without it, `begin` on an off-beat eighth would start a
+   * group that its own beat immediately ends, and the mark would engrave nothing at all.
    */
-  let bridgeNext = false
+  let bridgeNext: 'begin' | 'continue' | null = null
 
   const flush = () => {
     if (current.length >= 2) groups.push(current)
     current = []
     currentBeatGroup = null
-    isForced = false
-    bridgeNext = false
+    bridgeNext = null
   }
 
   for (let b = 0; b < bars.length; b++) {
@@ -141,7 +143,7 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
       // group ends here rather than reaching over the bar to the one after it.
       const first = slots[0]
       const opened = first !== undefined
-        && (bridgeNext || (first.type === 'chord' && first.beam === 'continue'))
+        && (bridgeNext === 'continue' || (first.type === 'chord' && first.beam === 'continue'))
       if (!opened) flush()
     }
 
@@ -164,11 +166,19 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
       }
 
       if (beam === 'begin') {
-        // Start a new explicit group (flush any current one first).
+        // A break in front, and the next beamable note comes with it — then the meter closes the
+        // group. `begin` is a statement about where a beam STARTS, so it must engrave a beam: a
+        // group of one is not one, and MusicXML's grammar says the same (a `begin` is followed by
+        // `continue`s and an `end`).
+        //
+        // It used to open a FORCED group that ignored every beat boundary until an `end`, a rest or
+        // the end of the bar — the group never terminated. Eight eighths in 4/4 with `begin` on the
+        // second engraved ONE seven-note beam and left the first note with a flag (user-reported,
+        // with a screenshot). The bug was the missing end, not the taking of the next note.
         flush()
         current = [ref]
         currentBeatGroup = getBeatGroup(slot.beat, meter)
-        isForced = true
+        bridgeNext = 'begin'
         continue
       }
 
@@ -180,10 +190,9 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
         } else {
           // Orphaned continue (no preceding group) — start one.
           current = [ref]
-          isForced = true
         }
         currentBeatGroup = getBeatGroup(slot.beat, meter)
-        bridgeNext = true
+        bridgeNext = 'continue'
         continue
       }
 
@@ -205,27 +214,21 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
       // branch takes it — a barline stands between the two often enough that leaving it armed in the
       // forced branch would arm the NEXT barline as well, and a `begin`…`continue` would run to the
       // end of the run instead of to the end of the bar it crossed into.
-      const bridged = bridgeNext
-      bridgeNext = false
+      const bridged = bridgeNext !== null
+      bridgeNext = null
 
-      if (isForced) {
-        // Inside a forced group (between begin and a future end) — add without boundary check.
+      const beatGroup = getBeatGroup(slot.beat, meter)
+      // The note right after a `continue` joins across the boundary, and then normal grouping
+      // resumes from ITS beat group — so marking one note continue bridges exactly one boundary,
+      // not every boundary to the end of the bar. A barline is one of those boundaries: the first
+      // note of the next bar spends the bridge exactly as the next note in the bar would.
+      if (currentBeatGroup === null || beatGroup === currentBeatGroup || bridged) {
         current.push(ref)
-        currentBeatGroup = getBeatGroup(slot.beat, meter)
+        currentBeatGroup = beatGroup
       } else {
-        const beatGroup = getBeatGroup(slot.beat, meter)
-        // The note right after a `continue` joins across the boundary, and then normal grouping
-        // resumes from ITS beat group — so marking one note continue bridges exactly one boundary,
-        // not every boundary to the end of the bar. A barline is one of those boundaries: the first
-        // note of the next bar spends the bridge exactly as the next note in the bar would.
-        if (currentBeatGroup === null || beatGroup === currentBeatGroup || bridged) {
-          current.push(ref)
-          currentBeatGroup = beatGroup
-        } else {
-          flush()
-          current = [ref]
-          currentBeatGroup = beatGroup
-        }
+        flush()
+        current = [ref]
+        currentBeatGroup = beatGroup
       }
     }
   }

@@ -198,6 +198,27 @@ describe('beaming — explicit BeamMode overrides', () => {
     expect(groups).toHaveLength(3)
   })
 
+  it("'begin' starts a beam that the METER ends — it does not run to the end of the bar", () => {
+    // Reported 2026-07-24 with a screenshot. Eight eighths beamed 2+2+2+2, `begin` on the second:
+    // expected (1) (2 3 4) (5 6) (7 8) — the note before is cut loose, the marked note starts a beam,
+    // and the group closes where the meter says. What it engraved was ONE seven-note beam with the
+    // first note flagged: the group never terminated, every note after the mark reading `continue`.
+    //
+    // The bug was the missing END, not the taking of the next note. `begin` still takes it — a beam
+    // of one note is not a beam, and MusicXML's grammar says the same (a `begin` is followed by
+    // `continue`s and an `end`) — but only ONE boundary is bridged, so the meter closes the group
+    // right after.
+    expect(computeBeamGroups(eightEighths(1, 'begin'), meter(4, 4)))
+      .toEqual([[1, 2, 3], [4, 5], [6, 7]])
+    expect([0, 1, 2, 3].map(i => beamRoleAt(eightEighths(1, 'begin'), meter(4, 4), i)))
+      .toEqual(['single', 'begin', 'continue', 'end'])
+  })
+
+  it("'begin' on a note that already starts a group changes nothing", () => {
+    expect(computeBeamGroups(eightEighths(2, 'begin'), meter(4, 4)))
+      .toEqual([[0, 1], [2, 3], [4, 5], [6, 7]])
+  })
+
   it("'begin'…'continue'…'end' bridges three notes across boundaries", () => {
     const slots = [
       chord(0, 1, '8', 'begin'),    // 0.0
@@ -278,14 +299,16 @@ describe('beaming — computeCrossBarBeamGroups (a beam through the barline)', (
     ])
   })
 
-  it('an unclosed `begin` does NOT cross — it is a statement about its own bar', () => {
-    // Otherwise a `begin` nobody closed would run to the end of the score.
+  it('`begin` does NOT cross — it is a break, and a break cannot reach over a barline', () => {
     const groups = computeCrossBarBeamGroups([
-      bar(eighths(4, 'begin'), meter(4, 4)),
+      bar(eighths(7, 'begin'), meter(4, 4)), // on the very note that would carry a join
       bar(eighths(), meter(4, 4)),
     ])
     expect(groups.every(g => g.every(r => r.bar === g[0].bar))).toBe(true)
-    expect(groups[2]).toEqual([at(0, 4), at(0, 5), at(0, 6), at(0, 7)]) // forced to the barline
+    // …and inside bar 1 it did what it says: the pair on beat 4 is broken, both halves left alone.
+    expect(groups.filter(g => g[0].bar === 0)).toEqual([
+      [at(0, 0), at(0, 1)], [at(0, 2), at(0, 3)], [at(0, 4), at(0, 5)],
+    ])
   })
 
   it("`begin` … `continue` at the barline … `end` spans two bars and stops at the `end`", () => {
@@ -299,9 +322,9 @@ describe('beaming — computeCrossBarBeamGroups (a beam through the barline)', (
     expect(groups[4]).toEqual([at(1, 4), at(1, 5)])
   })
 
-  it('a forced group that crossed is bounded by the NEXT barline', () => {
-    // It carries its forcing into bar 2 (that is what makes begin…end work), but the next boundary
-    // is unmarked, so it breaks there like any other.
+  it('a group that crossed ends where the METER says, in the bar it crossed into', () => {
+    // One `continue` opens one barline and buys nothing else: the beam runs into bar 2's first beat
+    // and stops there, and bar 3 is untouched.
     const first = run(8, '8', 2).map((slot, i) =>
       i === 6 ? { ...slot, beam: 'begin' as BeamMode } : i === 7 ? { ...slot, beam: 'continue' as BeamMode } : slot)
     const groups = computeCrossBarBeamGroups([
@@ -310,9 +333,9 @@ describe('beaming — computeCrossBarBeamGroups (a beam through the barline)', (
       bar(eighths(), meter(4, 4)),
     ])
     const crossing = groups.filter(g => g.some(r => r.bar !== g[0].bar))
-    expect(crossing).toHaveLength(1)
-    expect(crossing[0][crossing[0].length - 1]).toEqual(at(1, 7)) // runs to the end of bar 2, no further
-    expect(groups.filter(g => g[0].bar === 2)).toHaveLength(4)    // bar 3 groups normally
+    expect(crossing).toEqual([[at(0, 6), at(0, 7), at(1, 0), at(1, 1)]])
+    expect(groups.filter(g => g[0].bar === 1)).toHaveLength(3) // bar 2 keeps its other three beams
+    expect(groups.filter(g => g[0].bar === 2)).toHaveLength(4) // bar 3 groups normally
   })
 
   it('each bar keeps its OWN meter — a run may contain a time-signature change', () => {
