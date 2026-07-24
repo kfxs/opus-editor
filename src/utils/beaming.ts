@@ -7,6 +7,9 @@
  * onto its VexFlow `StaveNote`s; nothing here depends on VexFlow or the DOM, so
  * the grouping is unit-testable in isolation.
  *
+ * A beam may also cross a barline ({@link computeCrossBarBeamGroups}), so the grouping is really
+ * over a RUN of bars; one bar is a run of one, and that is how the per-bar entry point is defined.
+ *
  * Default grouping follows the meter's primary beat groups ("show each beat"):
  * 4/4 beams per quarter, 6/8 → 3+3 eighths, 9/8 → 3+3+3, 7/8 → 2+2+3, etc.
  * Beaming never depends on clef — a beam group may span a mid-measure clef
@@ -45,6 +48,23 @@ export function getBeatGroup(beat: Fraction, meter: MeterInfo): number {
 }
 
 /**
+ * One bar's lane in a beaming run: its slots (sorted by beat) and its own meter.
+ *
+ * The meter is PER BAR, not per run — a run may contain a time-signature change, and each bar's
+ * beat groups are its own.
+ */
+export interface BeamBar {
+  slots: ChordRest[]
+  meter: MeterInfo
+}
+
+/** A slot inside a run of bars: which bar of the run, which slot of that bar. */
+export interface BeamSlotRef {
+  bar: number
+  slot: number
+}
+
+/**
  * Partition `slots` (sorted by beat) into beam groups, returning the slot
  * indices in each group. Only groups of ≥ 2 beamable notes are returned;
  * everything else (rests, quarters-and-longer, lone eighths) is left unbeamed.
@@ -55,10 +75,40 @@ export function getBeatGroup(beat: Fraction, meter: MeterInfo): number {
  *     `'single'` forces no beam; `'begin'`/`'continue'`/`'end'` build a manual
  *     group that ignores beat boundaries (lets a beam bridge across them).
  *   - Otherwise notes beam together while they share a {@link getBeatGroup}.
+ *
+ * One bar is a run of one — see {@link computeCrossBarBeamGroups}, which this delegates to.
  */
 export function computeBeamGroups(slots: ChordRest[], meter: MeterInfo): number[][] {
-  const groups: number[][] = []
-  let current: number[] = []
+  return computeCrossBarBeamGroups([{ slots, meter }]).map(group => group.map(ref => ref.slot))
+}
+
+/**
+ * The same grouping over a RUN of bars, so a beam can cross a barline
+ * (docs/cross-barline-beaming-plan.md).
+ *
+ * `bars` must be one LANE — one voice of one staff, each bar's slots sorted by beat — the same
+ * slice {@link beamRoleAt} insists on, or a voice-2 note is scored against voice 1's grouping.
+ *
+ * ## The barline
+ *
+ * A bar boundary is an **unconditional break**, and it has to be stated as one: `slot.beat` is
+ * bar-relative, so beat 0 of bar N+1 has the same beat-group index as beat 0 of bar N and the
+ * metric rule alone would silently join every bar to the next.
+ *
+ * It opens only when a `continue` sits at it — on the **last** slot of bar N (a beam going out) or
+ * on the **first** slot of bar N+1 (a beam coming in; across a barline there is nowhere else it
+ * could come from). `continue` means the same thing wherever it sits, which is the whole reason it
+ * is the mark that crosses.
+ *
+ * Both cases fall out of the in-bar rules once the boundary stops flushing: a trailing `continue`
+ * has already armed `bridgeNext`, and a leading `continue` joins the run behind it. An unclosed
+ * `begin` does NOT cross — its group is flushed by the boundary like any other. A forced group that
+ * DID cross keeps its forcing (so `begin` … `continue` … `end` spans two bars), and is bounded by
+ * the next barline, which breaks unless it too is marked.
+ */
+export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
+  const groups: BeamSlotRef[][] = []
+  let current: BeamSlotRef[] = []
   let currentBeatGroup: number | null = null
   let isForced = false // true when group was started by an explicit 'begin'/'continue'
   /**
@@ -80,78 +130,103 @@ export function computeBeamGroups(slots: ChordRest[], meter: MeterInfo): number[
     bridgeNext = false
   }
 
-  for (let i = 0; i < slots.length; i++) {
-    const slot = slots[i]
+  for (let b = 0; b < bars.length; b++) {
+    const { slots, meter } = bars[b]
 
-    // Rests always break beams (can't beam silence).
-    if (slot.type === 'rest') { flush(); continue }
-
-    // Non-beamable durations (quarter and above) always break beams.
-    if (!isBeamableDuration(slot.duration)) { flush(); continue }
-
-    const beam = slot.beam // BeamMode | undefined
-
-    if (beam === 'single') {
-      // Force no beam — flush current group, skip this note.
-      flush()
-      continue
+    if (b > 0) {
+      // THE BARLINE. `bridgeNext` still standing means the previous bar's LAST slot was a
+      // `continue`; a leading `continue` speaks for the boundary from the other side. Anything else
+      // — including a `begin` nobody closed — is flushed here.
+      // An empty bar opens nothing: there is no note at the boundary to carry the beam, so the
+      // group ends here rather than reaching over the bar to the one after it.
+      const first = slots[0]
+      const opened = first !== undefined
+        && (bridgeNext || (first.type === 'chord' && first.beam === 'continue'))
+      if (!opened) flush()
     }
 
-    if (beam === 'begin') {
-      // Start a new explicit group (flush any current one first).
-      flush()
-      current = [i]
-      currentBeatGroup = getBeatGroup(slot.beat, meter)
-      isForced = true
-      continue
-    }
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i]
+      const ref: BeamSlotRef = { bar: b, slot: i }
 
-    if (beam === 'continue') {
-      // Bridge across a beat boundary — override normal grouping rules. BOTH sides: joining the run
-      // behind is the `current.push` below, and the break in front is removed by `bridgeNext`.
-      if (current.length > 0) {
-        current.push(i)
-      } else {
-        // Orphaned continue (no preceding group) — start one.
-        current = [i]
-        isForced = true
-      }
-      currentBeatGroup = getBeatGroup(slot.beat, meter)
-      bridgeNext = true
-      continue
-    }
+      // Rests always break beams (can't beam silence).
+      if (slot.type === 'rest') { flush(); continue }
 
-    if (beam === 'end') {
-      // Close the current group after adding this note.
-      if (current.length > 0) {
-        current.push(i)
-      } else {
-        // Orphaned end — emit a single-note group (dropped by flush's min-2 check).
-        current = [i]
-      }
-      flush()
-      continue
-    }
+      // Non-beamable durations (quarter and above) always break beams.
+      if (!isBeamableDuration(slot.duration)) { flush(); continue }
 
-    // beam === undefined/'auto' — use standard beat-boundary logic.
-    if (isForced) {
-      // Inside a forced group (between begin and a future end) — add without boundary check.
-      current.push(i)
-      currentBeatGroup = getBeatGroup(slot.beat, meter)
-    } else {
-      const beatGroup = getBeatGroup(slot.beat, meter)
-      // `bridgeNext` spends itself here: the note right after a `continue` joins across the boundary,
-      // and then normal grouping resumes from ITS beat group — so marking one note continue bridges
-      // exactly one boundary, not every boundary to the end of the bar.
-      if (currentBeatGroup === null || beatGroup === currentBeatGroup || bridgeNext) {
-        current.push(i)
-        currentBeatGroup = beatGroup
-      } else {
+      const beam = slot.beam // BeamMode | undefined
+
+      if (beam === 'single') {
+        // Force no beam — flush current group, skip this note.
         flush()
-        current = [i]
-        currentBeatGroup = beatGroup
+        continue
       }
+
+      if (beam === 'begin') {
+        // Start a new explicit group (flush any current one first).
+        flush()
+        current = [ref]
+        currentBeatGroup = getBeatGroup(slot.beat, meter)
+        isForced = true
+        continue
+      }
+
+      if (beam === 'continue') {
+        // Bridge across a beat boundary — override normal grouping rules. BOTH sides: joining the run
+        // behind is the `current.push` below, and the break in front is removed by `bridgeNext`.
+        if (current.length > 0) {
+          current.push(ref)
+        } else {
+          // Orphaned continue (no preceding group) — start one.
+          current = [ref]
+          isForced = true
+        }
+        currentBeatGroup = getBeatGroup(slot.beat, meter)
+        bridgeNext = true
+        continue
+      }
+
+      if (beam === 'end') {
+        // Close the current group after adding this note.
+        if (current.length > 0) {
+          current.push(ref)
+        } else {
+          // Orphaned end — emit a single-note group (dropped by flush's min-2 check).
+          current = [ref]
+        }
+        flush()
+        continue
+      }
+
+      // beam === undefined/'auto' — use standard beat-boundary logic.
+      //
+      // `bridgeNext` spends itself HERE, on the first note that follows the `continue`, whichever
+      // branch takes it — a barline stands between the two often enough that leaving it armed in the
+      // forced branch would arm the NEXT barline as well, and a `begin`…`continue` would run to the
+      // end of the run instead of to the end of the bar it crossed into.
+      const bridged = bridgeNext
       bridgeNext = false
+
+      if (isForced) {
+        // Inside a forced group (between begin and a future end) — add without boundary check.
+        current.push(ref)
+        currentBeatGroup = getBeatGroup(slot.beat, meter)
+      } else {
+        const beatGroup = getBeatGroup(slot.beat, meter)
+        // The note right after a `continue` joins across the boundary, and then normal grouping
+        // resumes from ITS beat group — so marking one note continue bridges exactly one boundary,
+        // not every boundary to the end of the bar. A barline is one of those boundaries: the first
+        // note of the next bar spends the bridge exactly as the next note in the bar would.
+        if (currentBeatGroup === null || beatGroup === currentBeatGroup || bridged) {
+          current.push(ref)
+          currentBeatGroup = beatGroup
+        } else {
+          flush()
+          current = [ref]
+          currentBeatGroup = beatGroup
+        }
+      }
     }
   }
 
@@ -201,8 +276,20 @@ export type BeamRole = Exclude<BeamMode, 'auto'>
  * indices refer to a grouping that was never engraved.
  */
 export function beamRoleAt(slots: ChordRest[], meter: MeterInfo, index: number): BeamRole {
-  for (const group of computeBeamGroups(slots, meter)) {
-    const at = group.indexOf(index)
+  return beamRoleAtRef([{ slots, meter }], { bar: 0, slot: index })
+}
+
+/**
+ * {@link beamRoleAt} over a RUN of bars, so a note beamed through a barline reads `continue` rather
+ * than the `end` its own bar would call it (docs/cross-barline-beaming-plan.md).
+ *
+ * The run is a fact about the SCORE, not about the page: nothing here knows where the systems break,
+ * so a join the layout could not engrave still reads as one. That is the palette working — the mark
+ * is what was authored, and the break is what the page did with it.
+ */
+export function beamRoleAtRef(bars: BeamBar[], ref: BeamSlotRef): BeamRole {
+  for (const group of computeCrossBarBeamGroups(bars)) {
+    const at = group.findIndex(member => member.bar === ref.bar && member.slot === ref.slot)
     if (at === -1) continue
     if (at === 0) return 'begin'
     return at === group.length - 1 ? 'end' : 'continue'
