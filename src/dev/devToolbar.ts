@@ -74,6 +74,22 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   const { state, palette, getEngine, onStateChange, togglePlayback } = deps
 
   const row = el('div', 'mb-4 flex gap-2 flex-wrap')
+  /**
+   * No button here ever takes focus — the score's keyboard must survive a click on the toolbar, the
+   * same rule the Keypad's keys follow (`KeypadWidget.baseButton`). One delegated listener rather
+   * than a line per button, so a control added later cannot forget it. Inputs and selects are
+   * untouched: they are things you type into, and they are not buttons.
+   *
+   * A focused button is not a cosmetic problem. style.css already hides the ring for a plain mouse
+   * click (`:focus:not(:focus-visible)`), but the browser re-qualifies the focused element as
+   * KEYBOARD-focused the moment you press a key — so clicking `continue`, then arrowing to another
+   * note, drew a ring around a button that no longer says anything about the selected note. (It is
+   * also why Esc blurs by hand in shortcutWiring.) And a focused button answers Enter, which is not
+   * a thing a score editor should let a stray keypress do.
+   */
+  row.addEventListener('mousedown', (e) => {
+    if ((e.target as Element | null)?.closest?.('button')) e.preventDefault()
+  })
   /** Re-applied on every state change; each entry owns one button's appearance. */
   const syncers: Array<() => void> = []
 
