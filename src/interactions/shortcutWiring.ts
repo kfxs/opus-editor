@@ -294,6 +294,10 @@ export function wireShortcuts(
       // Leaving entry mode disarms the entry-only positional tools (clef / time
       // signature / dynamic) so the palette stops showing them as selected.
       palette.disarmPositionalTools()
+      // …and drops the accent/staccato/tenuto armed for the next note: that note is not coming, and
+      // an articulation left armed would ride the next note entered in some later session. The
+      // duration and accidental DO carry over — see clearArmedArticulations for why they differ.
+      palette.clearArmedArticulations()
       // Esc returns entry to the default voice 1 / staff 0 (Sibelius-style); the
       // selection-mode branch resets them via deselectAll() below, entry needs it explicitly.
       state.activeVoice = 1

@@ -1378,14 +1378,35 @@ export class PaletteController {
   /**
    * Disarm the marking tool — all eight are entry-mode-only (arming one switches to entry mode and
    * a canvas click places/stamps it), so leaving entry mode makes any of them inert and the palette
-   * should stop showing it as selected. Does NOT touch note-entry settings (duration, accidental,
-   * and the accent/staccato/tenuto arm-for-next-note flags), which carry over between modes.
+   * should stop showing it as selected. Does NOT touch note-entry settings (duration, accidental) —
+   * those carry over between modes. The articulations are the exception and Esc clears them: see
+   * {@link clearArmedArticulations}.
    *
    * One line, and it cannot fall behind: it used to name all eight, and a ninth tool would have had
    * to remember to add itself here.
    */
   disarmPositionalTools(): void {
     this.state.selectedMarkingTool = null
+  }
+
+  /**
+   * Drop the arm-for-next-note articulations. Esc's job, and the Select arrow's.
+   *
+   * They used to survive it, alongside the duration and the accidental — but they are not the same
+   * kind of setting. A duration is a STANDING choice: a note has some length, always, so the armed
+   * one is only ever "which", never "whether", and carrying it out of entry mode and back loses
+   * nothing. An articulation is a decision about the NEXT NOTE — you arm an accent because the note
+   * you are about to type wants one. Escape says you are not typing that note any more, so keeping
+   * the accent armed means the next note you enter, whenever that is, silently gets a mark you asked
+   * for in a session you abandoned.
+   *
+   * Reassigned one by one because the observable Proxy only traps top-level SETs (see EditorState) —
+   * that is also what repaints the Keypad and the toolbar, through keypadSync's subscription.
+   */
+  clearArmedArticulations(): void {
+    this.state.accent = false
+    this.state.staccato = false
+    this.state.tenuto = false
   }
 
   /**
@@ -1399,6 +1420,9 @@ export class PaletteController {
     if (this.deselectAll) this.deselectAll()
     else this.selectNote(null)
     this.disarmPositionalTools()
+    // The arrow IS the Esc path, so it drops the armed articulations too — the two must not disagree
+    // about what "stop what you were doing" means.
+    this.clearArmedArticulations()
     this.state.selectedTool = 'selection'
     this.renderScore()
   }

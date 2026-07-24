@@ -1619,6 +1619,26 @@ describe('PaletteController — enterSelectionMode (Keypad Select arrow)', () =>
     expect(state.selectedTool).toBe('selection')
   })
 
+  it('drops the articulations armed for the next note', () => {
+    // Arm a duration and two articulations, the way note entry does, then stop: the note they were
+    // armed FOR is not coming. Leaving them set made the next note entered — a duration press later,
+    // in another session entirely — silently wear an accent nobody asked for then.
+    state.selectedTool = 'entry'
+    state.accent = true
+    state.tenuto = true
+    palette.enterSelectionMode()
+    expect(state.accent).toBe(false)
+    expect(state.tenuto).toBe(false)
+    expect(state.staccato).toBe(false)
+  })
+
+  it('keeps the duration armed — it is a standing choice, not a decision about one note', () => {
+    state.selectedTool = 'entry'
+    state.selectedDuration = 'h'
+    palette.enterSelectionMode()
+    expect(state.selectedDuration).toBe('h')
+  })
+
   it('falls back to selectNote(null) when no deselectAll callback is provided', () => {
     const p = new PaletteController(
       () => null, state, vi.fn(), vi.fn(), () => null,
