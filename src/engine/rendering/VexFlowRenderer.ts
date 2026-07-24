@@ -12,6 +12,7 @@ import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, timeSignatureVexKey, type MeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { computeBeamGroups, secondaryBreakIndices } from '@/utils/beaming'
+import { planCrossBarBeams, laneKey, type CrossBarBeamPlan, type CrossBarJoin, type LaneBeamPlan } from './CrossBarBeams'
 import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
 import { measureShapeKey } from './MeasureRedrawKey'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
@@ -179,6 +180,19 @@ export interface MeasureBounds {
 export function measureGroupKey(measureNumber: number, staffIndex: number): string {
   return `m${measureNumber}-s${staffIndex}`
 }
+
+/**
+ * The stand-in a note wears while its real beam does not exist yet — a note beamed across a barline,
+ * between its own bar's draw and the post-measure pass that builds the joined `Beam`
+ * (docs/cross-barline-beaming-plan.md).
+ *
+ * It is never drawn and never asked anything: VexFlow only tests `note.beam` for *existence* when
+ * deciding to draw a flag (`shouldDrawFlag`) or a stem (`draw`), and the one method it does call on
+ * it — `postFormat`, forwarded by `StemmableNote.postFormat` during formatting — is the no-op below.
+ * A real `Beam` cannot serve: its constructor throws on fewer than two notes, and `♪ | ♪` (one note
+ * each side of the barline) is the canonical case this feature exists for.
+ */
+const PLACEHOLDER_BEAM = { postFormat: () => {} } as unknown as Beam
 
 /**
  * **Tier 1** — where one (measure, staff) sits, and the `Stave` that knows its geometry
@@ -942,8 +956,13 @@ export class VexFlowRenderer {
    *
    * The cost is small and bounded: only the two *endpoint* bars of a span, never the bars it merely
    * crosses. A slur over bars 4–15 redraws 4 and 15; 5–14 still just translate.
+   *
+   * A **cross-barline beam** is a span in exactly this sense and joins the same list: it is drawn
+   * outside both measure groups, from its notes' drawn coordinates, so neither of its bars may be
+   * translated — and when the join crosses the window, both bars must be painted or half the group
+   * has no `StaveNote` at all.
    */
-  private spanAnchors(score: Score): SpanAnchors {
+  private spanAnchors(score: Score, joins: CrossBarJoin[]): SpanAnchors {
     const measures = new Set<number>()
     const list: SpanAnchors['list'] = []
 
@@ -999,6 +1018,24 @@ export class VexFlowRenderer {
     // Slurs name their endpoints by note id.
     for (const slur of score.slurs ?? []) {
       add(homeOfPitch.get(slur.startNoteId), homeOfPitch.get(slur.endNoteId))
+    }
+
+    // Cross-barline beams. Their bars are known directly (the plan resolved them against this
+    // render's own layout), so they are added by number rather than looked up by note id.
+    // One entry per BARLINE it opens, not one per join: a group that crosses two barlines has a
+    // middle bar, and it has to be dragged in by either neighbour being on screen.
+    for (const join of joins) {
+      for (let i = 0; i < join.measures.length; i++) {
+        measures.add(join.measures[i])
+        if (i === 0) continue
+        const before = join.measures[i - 1]
+        const after = join.measures[i]
+        list.push({
+          lo: before,
+          hi: after,
+          groups: [measureGroupKey(before, join.staffIndex), measureGroupKey(after, join.staffIndex)],
+        })
+      }
     }
 
     return { measures, list }
@@ -1060,7 +1097,37 @@ export class VexFlowRenderer {
     return stave
   }
 
-  renderMeasure(pass: RenderPass, placement: MeasurePlacement): Stave {
+  /**
+   * Plan this render's cross-barline beams (docs/cross-barline-beaming-plan.md). `isDrawn` says
+   * whether tier 2 is painting the plan at that index — an unpainted bar closes its barline.
+   *
+   * The stem direction is resolved HERE, over the whole group, because the rule needs the clef at
+   * the group's first note and clefs are the renderer's business. Same precedence as an ordinary
+   * beam group's: an explicit override on any note, then the multi-voice lane, then the pitch
+   * furthest from the middle line — so in a two-voice bar the answer equals the direction the note
+   * was already built with, and the post-format multi-voice re-assert stays a no-op.
+   */
+  private planCrossBarBeams(
+    plans: Omit<MeasurePlacement, 'stave'>[],
+    isDrawn: (index: number) => boolean,
+  ): CrossBarBeamPlan {
+    return planCrossBarBeams(
+      plans.map((p, i) => ({
+        measureNumber: p.measureNumber,
+        staffIndex: p.staffIndex,
+        line: p.line,
+        drawn: isDrawn(i),
+        view: p.view,
+        clef: p.clef,
+      })),
+      (unionSlots, first, forced) => {
+        const clef = makeClefResolver(first.bar.view, first.bar.clef)(first.slot.beat)
+        return this.calculateBeamGroupStemDirection(unionSlots, clef, forced)
+      },
+    )
+  }
+
+  renderMeasure(pass: RenderPass, placement: MeasurePlacement, beamPlan?: CrossBarBeamPlan): Stave {
     if (!this.context) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
@@ -1069,7 +1136,7 @@ export class VexFlowRenderer {
     const group = this.context.openGroup('measure', key) as SVGGElement
     this.measureGroups.set(key, group)
     try {
-      return this.drawMeasureContent(pass, placement)
+      return this.drawMeasureContent(pass, placement, beamPlan)
     } finally {
       // ALWAYS close, even if the draw threw. VexFlow's openGroup pushes the context's append
       // target; leaving it open would nest the entire rest of the score — every later measure, the
@@ -1078,7 +1145,7 @@ export class VexFlowRenderer {
     }
   }
 
-  private drawMeasureContent(pass: RenderPass, placement: MeasurePlacement): Stave {
+  private drawMeasureContent(pass: RenderPass, placement: MeasurePlacement, beamPlan?: CrossBarBeamPlan): Stave {
     const { view: measure, x, clef, ghostClefBeat, staffIndex, stave } = placement
 
     // The stave was BUILT by tier 1 (`layoutTier1`); tier 2 only paints it.
@@ -1191,7 +1258,12 @@ export class VexFlowRenderer {
           beatValue: measure.timeSignature.denominator,
         }).setMode(chooseVoiceMode(g.slots, capacity))
         voice.addTickables(tickables)
-        const beams = this.buildBeams(g.staveNotes, g.slots, meter, clefForBeat, g.forcedStem)
+        // This lane's beams. When a cross-barline plan owns the lane it decides BOTH halves: which
+        // groups this bar builds itself, and which of its notes are waiting for a beam that spans
+        // the barline (docs/cross-barline-beaming-plan.md).
+        const lane = beamPlan?.lanes.get(laneKey(measure.number, staffIndex, g.voice))
+        const beams = this.buildBeams(g.staveNotes, g.slots, meter, clefForBeat, g.forcedStem, lane?.inBar)
+        if (lane?.crossing.length) this.applyCrossBarPlaceholders(g.staveNotes, lane.crossing)
         return { voice, beams, clefNoteByBeat }
       })
 
@@ -1648,8 +1720,17 @@ export class VexFlowRenderer {
     meter: MeterInfo,
     clefForBeat: (beat: Fraction) => Clef,
     forcedStemDirection?: number,
+    /** This lane's groups, when a cross-barline plan owns them (docs/cross-barline-beaming-plan.md).
+     *  A lane whose barline is open cannot be grouped from its own slots alone — a leading
+     *  `continue` reads as an orphan — so the plan's answer replaces the per-bar one. */
+    inBarGroups?: number[][],
   ): Beam[] {
-    const beamGroups = this.createBeamGroups(staveNotes, sortedSlots, meter)
+    const beamGroups = inBarGroups
+      ? inBarGroups.map(indices => ({
+          staveNotes: indices.map(i => staveNotes[i]),
+          slots: indices.map(i => sortedSlots[i]),
+        }))
+      : this.createBeamGroups(staveNotes, sortedSlots, meter)
     const beams: Beam[] = []
 
     for (const beamGroup of beamGroups) {
@@ -1673,6 +1754,75 @@ export class VexFlowRenderer {
     }
 
     return beams
+  }
+
+  /**
+   * The notes of this bar that are beamed **across a barline**: give them the group's shared stem
+   * direction and a placeholder beam, so they format and draw with no flag and no stem. The real
+   * `Beam` is built over both bars in {@link drawCrossBarBeams}, once every bar has been drawn.
+   *
+   * Order matters twice, and both are silent if got wrong:
+   *  - `setStemDirection` **clears** `note.beam` (VexFlow's `StemmableNote`), so the direction goes
+   *    on first and the placeholder second;
+   *  - this runs BEFORE `formatter.format`, because `preFormat` reserves a glyph-width for a flagged
+   *    stem-up note, and a beamed note must not pay for a flag it will not draw.
+   */
+  private applyCrossBarPlaceholders(staveNotes: StaveNote[], crossing: LaneBeamPlan['crossing']): void {
+    for (const group of crossing) {
+      for (const i of group.slots) {
+        const staveNote = staveNotes[i]
+        if (!staveNote) continue
+        staveNote.setStemDirection(group.stemDirection)
+        staveNote.setBeam(PLACEHOLDER_BEAM)
+      }
+    }
+  }
+
+  /**
+   * **The post-measure pass** — one real `Beam` per join, over both bars' `StaveNote`s, drawn
+   * outside either measure group. It belongs to neither, exactly as a tie or a slur does.
+   *
+   * Here and not in the second bar's own render, because top-level content is torn down every render
+   * (`clearForRender`) while measure groups are **reused**: a beam rebuilt only when its bars are
+   * re-engraved would vanish on any pass that reuses them — an edit ten bars away, a scroll, a
+   * staff-spacing drag — leaving both bars' notes standing flagless *and* stemless. `staveNoteMap` is
+   * replayed for a reused measure, so this pass can rebuild a beam over bars nobody redrew.
+   */
+  private drawCrossBarBeams(pass: RenderPass, joins: CrossBarJoin[]): void {
+    for (const join of joins) {
+      const staveNotes = join.members
+        .map(member => pass.staveNoteMap.get(member.lookupId)?.staveNote)
+        .filter((staveNote): staveNote is StaveNote => staveNote !== undefined)
+      // A bar that was not painted contributes no StaveNote. The plan already closes the barline in
+      // that case; this is the belt to its braces, and skipping is the only safe answer — a Beam
+      // over half a group would draw stems in mid-air.
+      if (staveNotes.length !== join.members.length) continue
+
+      try {
+        const beam = new Beam(staveNotes)
+        if (join.secondaryBreaks.length) beam.breakSecondaryAt(join.secondaryBreaks)
+        beam.setContext(pass.context).draw()
+        this.registerCrossBarBeam(beam, join)
+      } catch (beamError) {
+        console.warn(`Could not create cross-barline beam: ${beamError}`)
+      }
+    }
+  }
+
+  /** Hit-testing entry for a joined beam, filed under the bar it starts in. Added after every
+   *  measure's registry slice was captured, so it is re-added fresh each render and never lands in
+   *  a snapshot that could replay it twice. */
+  private registerCrossBarBeam(beam: Beam, join: CrossBarJoin): void {
+    try {
+      const box = beam.getBoundingBox()
+      if (box) {
+        this.elementRegistry.add({
+          type: 'beam',
+          measure: join.measures[0],
+          bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
+        })
+      }
+    } catch (_e) { /* getBoundingBox may fail */ }
   }
 
   private drawAndRegisterTuplets(
@@ -2378,9 +2528,16 @@ export class VexFlowRenderer {
     // treated as a bar that had *changed*: dragging a staff down re-engraved 66% of the score on
     // every mouse-move frame, and that single gesture was 53% of all render time. Nothing about
     // those bars was different — they had moved.
-    const keys = plans.map(p => measureShapeKey(score, p, this.suppressedDynamicId, this.suppressedTempoId))
+    // ---- Cross-barline beams (docs/cross-barline-beaming-plan.md), planned in two passes ----
+    //
+    // The first pass decides which barlines are open, so the spans machinery can pin both bars of
+    // each join and force them to be drawn together. The second re-plans against the draw decision
+    // that came out of it: a bar tier 2 is not painting closes its barline, because a placeholder
+    // beam whose partner has no StaveNotes would leave a note with no flag AND no stem. Under
+    // culling the two passes agree by construction — the forcing is what makes them.
+    const provisionalBeams = this.planCrossBarBeams(plans, () => true)
 
-    const spans = this.spanAnchors(score)
+    const spans = this.spanAnchors(score, provisionalBeams.joins)
     // A span's endpoint bar must be REDRAWN when it moves, never translated — see spanAnchors.
     const anchors = spans.measures
     // A system connector is drawn from the Stave of the line's first measure, and a translated
@@ -2402,6 +2559,18 @@ export class VexFlowRenderer {
       (windowed[i] || (forced?.has(groupKeys[i]) ?? false)) &&
       (!this.drawFilter || this.drawFilter(plan)),
     )
+
+    // The beams as they will actually be engraved, and with them each bar's share of the answer:
+    // which of its slots draw flagless, at which stem direction. That is a difference in the
+    // PICTURE, so it goes in the shape key — leave it out and a bar keeps its old flags forever the
+    // first time its neighbour's mark changes.
+    const beamPlan = this.planCrossBarBeams(plans, i => draws[i])
+    const keys = plans.map(p => measureShapeKey(
+      score,
+      { ...p, crossBarBeams: beamPlan.descriptorFor(p.measureNumber, p.staffIndex) },
+      this.suppressedDynamicId,
+      this.suppressedTempoId,
+    ))
 
     type Reuse = { snapshot: MeasureSnapshot; dx: number; dy: number }
     const reuse = new Map<string, Reuse>()
@@ -2476,7 +2645,7 @@ export class VexFlowRenderer {
       // Which measures get painted is a *choice*, not an assumption — §7's `draw(measures, surface)`.
       const draw = draws[i]
       if (draw) {
-        this.renderMeasure(pass, placement)
+        this.renderMeasure(pass, placement, beamPlan)
         redrawn++
       }
 
@@ -2523,6 +2692,10 @@ export class VexFlowRenderer {
           .draw()
       }
     }
+
+    // Beams that run through a barline: one `Beam` over both bars, drawn outside either measure
+    // group now that every bar has been painted. Before the ties, as a bar's own beams are.
+    this.drawCrossBarBeams(pass, beamPlan.joins)
 
     // Render ties between measures after all measures are drawn
     renderTies(pass, score)

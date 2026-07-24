@@ -62,6 +62,20 @@ export interface ShapeKeyInputs {
   cautionaryEndClef?: Clef
   cautionaryEndTimeSig?: TimeSignature
   ghostClefBeat?: Fraction
+  /**
+   * ⚠️ What a **cross-barline beam** does to this bar's picture: which of its slots draw with no
+   * flag and no stem, and at which stem direction (`CrossBarBeams.descriptorFor`).
+   *
+   * The one place a bar's shape is decided by its NEIGHBOUR's content, and it has to be stated —
+   * `laneFingerprint` below hashes this bar's own slots and nothing else, so a `continue` typed at
+   * the barline next door, or a pitch change that flips the joined group's stem, would leave this
+   * key untouched: P5 reuses the drawn group and the flags rot in place.
+   *
+   * The descriptor, not the neighbour's fingerprint. The beam itself is drawn outside every measure
+   * group and rebuilt from scratch each render, so its geometry never needs to be in a key; only
+   * what it leaves *inside* this bar's `<g>` does.
+   */
+  crossBarBeams?: string
 }
 
 /**
@@ -178,6 +192,9 @@ export function measureShapeKey(
     input.cautionaryEndTimeSig ?? null,
     input.ghostClefBeat ?? null,
     input.staffIndex,
+
+    // ── what a beam through the barline leaves inside this bar ──
+    input.crossBarBeams ?? '',
 
     // ── authored engraving adjustments anchored in this bar ──
     overridesFor(score, view.id),

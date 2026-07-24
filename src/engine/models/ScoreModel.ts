@@ -18,7 +18,7 @@ import {
   sameTimeSignature,
 } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
-import { beamRoleAt, type BeamRole } from '@/utils/beaming'
+import { beamRoleAtRef, type BeamRole } from '@/utils/beaming'
 import { spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
 import { type RebarEvent } from '@/utils/rebar'
 import {
@@ -1965,19 +1965,27 @@ export class ScoreModel {
    * a voice-2 note is scored against voice 1's grouping — an answer about a beam that was never
    * engraved. Returns null for an unknown id, and for a REST — you cannot beam silence, so a rest
    * has no role at all; `'single'` would be a claim about a beamable note that stayed alone.
+   *
+   * The run is the whole lane, not the bar: a beam may cross a barline
+   * (docs/cross-barline-beaming-plan.md), and the last note of bar N joined forward is a `continue`,
+   * not the `end` its own bar would call it.
    */
   getBeamRole(noteId: string): BeamRole | null {
-    for (const measure of this.score.measures) {
-      const slot = measure.slots.find(s =>
-        s.type === 'rest' ? s.id === noteId : s.notes.some(n => n.id === noteId))
-      if (!slot) continue
-      if (slot.type === 'rest') return null
-      const run = measure.slots
+    const measureIndex = this.score.measures.findIndex(m => m.slots.some(s =>
+      s.type === 'rest' ? s.id === noteId : s.notes.some(n => n.id === noteId)))
+    if (measureIndex === -1) return null
+
+    const slot = this.score.measures[measureIndex].slots.find(s =>
+      s.type === 'rest' ? s.id === noteId : s.notes.some(n => n.id === noteId))!
+    if (slot.type === 'rest') return null
+
+    const bars = this.score.measures.map(measure => ({
+      slots: measure.slots
         .filter(s => matchesStaff(s.staffId, slot.staffId, this.score) && (s.voice ?? 0) === (slot.voice ?? 0))
-        .sort((a, b) => fracCompare(a.beat, b.beat))
-      return beamRoleAt(run, getMeterInfo(measure.timeSignature), run.indexOf(slot))
-    }
-    return null
+        .sort((a, b) => fracCompare(a.beat, b.beat)),
+      meter: getMeterInfo(measure.timeSignature),
+    }))
+    return beamRoleAtRef(bars, { bar: measureIndex, slot: bars[measureIndex].slots.indexOf(slot) })
   }
 
   /**
