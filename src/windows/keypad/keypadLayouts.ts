@@ -26,7 +26,8 @@
  *
  * The Keypad is MULTI-PAGE (Sibelius has several numpad layouts): the `+` key turns the page, and
  * every page shares the same geometry and the same two controls in fixed spots — the select arrow
- * (top-left) and the page-turn `+`. Only the other keys change from page to page.
+ * (top-left) and the page-turn `+`. Only the other keys change from page to page. Each page is named
+ * — see {@link KEYPAD_PAGES} for why a page is never referred to by its position.
  *
  * Glyphs are SMuFL codepoints in Bravura — the same font the score is engraved in, so a quarter
  * note on this panel is the quarter note that lands on the staff. The few marks SMuFL has no glyph
@@ -218,7 +219,8 @@ const withControls = (own: CellSpec[]): CellSpec[] => {
   return cells
 }
 
-/** Page 1 — note entry: articulations, accidentals, durations, tie, rest, dot. The duration,
+/** `noteEntry` — the normal note-and-duration page: articulations, accidentals, durations, tie, rest,
+ *  dot. Not one of Sibelius's layouts by name (it puts all three kinds on one pad). The duration,
  *  accidental and articulation keys carry their model value (`'q'`, `'#'`, `'accent'`, …); the tie,
  *  rest and dot keys are their own value, so they carry none. Its OWN keys only — the arrow and `+`
  *  come from {@link withControls}. */
@@ -258,7 +260,8 @@ const barred = (dx = 0, ndx = 0): Icon =>
   tremolo([g(NOTE_DOWN.quarter, undefined, -10, dx + ndx), g('\uE1FA', 30, 31, 1 + dx)])
 
 /**
- * Page 2 — Sibelius 6's Beams/Tremolos keypad, as a picture. Every drawing is NAMED here (page 1's
+ * `beamsTremolos` — Sibelius 6's Beams/Tremolos keypad, as a picture. Every drawing is NAMED here (the
+ * note-entry page's
  * {@link ICON} map, for tremolos) and baked to one svg; the layout table references the name, so a
  * page-2 line reads as clean as page 1's `['tie', ICON.tie, 'tie']`. The recipe (the hand-drawing) is
  * kept as each entry's argument — the source, reproducible. Names are Sibelius 6's own, by numpad
@@ -314,6 +317,84 @@ const toCells = (page: CellSpec[]): KeypadCell[] =>
     articulation: select === 'articulation' ? (value as ArticulationType) : undefined,
   }))
 
-/** Every page of the Keypad, in order — each page's own keys with the two shared controls injected.
- *  The `+` key steps through them; index 0 is the opening page. */
-export const KEYPAD_PAGES: KeypadCell[][] = [page1, page2].map(page => toCells(withControls(page)))
+/**
+ * Every page of the Keypad. A page is identified by its `id` — a NAME, never its position: insert a
+ * page between two others and an index would silently re-point everything that held one (and the old
+ * number would still be a perfectly valid page, just the wrong one), where a name either resolves or
+ * throws. Order is kept because ORDER is a real property of the pad — the `+` key steps through the
+ * list, and that is the only thing entitled to care about sequence. Anything else (which page is
+ * showing, a future F7-style jump straight to a layout) goes by id.
+ *
+ * `name` is what a human is shown; Sibelius 6's own layout names are used wherever ours matches one.
+ */
+const PAGES = [
+  { id: 'noteEntry', name: 'Note entry', own: page1 },
+  { id: 'beamsTremolos', name: 'Beams/Tremolos', own: page2 },
+] as const
+
+/** The id union, DERIVED from the list above — so adding a page widens it for free, and no caller can
+ *  name a page that does not exist. */
+export type KeypadPageId = (typeof PAGES)[number]['id']
+
+export interface KeypadPage {
+  id: KeypadPageId
+  name: string
+  /** The page's keys with the two shared controls injected, in numpad reading order. */
+  cells: KeypadCell[]
+}
+
+export const KEYPAD_PAGES: KeypadPage[] = PAGES.map(({ id, name, own }) => ({
+  id,
+  name,
+  cells: toCells(withControls(own)),
+}))
+
+/** The page an id names. Throws rather than falling back to page 1: a page that has been renamed away
+ *  should fail LOUD, not quietly show the wrong layout. */
+export function keypadPage(id: KeypadPageId): KeypadPage {
+  const page = KEYPAD_PAGES.find(p => p.id === id)
+  if (!page) throw new Error(`Unknown Keypad page: ${id}`)
+  return page
+}
+
+/** The page the `+` key turns to — the next in list order, wrapping. The ONE place ordering is used. */
+export function nextKeypadPageId(id: KeypadPageId): KeypadPageId {
+  const i = KEYPAD_PAGES.findIndex(p => p.id === id)
+  if (i < 0) throw new Error(`Unknown Keypad page: ${id}`)
+  return KEYPAD_PAGES[(i + 1) % KEYPAD_PAGES.length].id
+}
+
+/** The page the Keypad opens on. Named, so "the first page" is a DECISION here and not a `0` at every
+ *  call site — reordering the list does not silently change which page you get. */
+export const DEFAULT_KEYPAD_PAGE: KeypadPageId = 'noteEntry'
+
+/**
+ * Which cell a NUMPAD KEY presses — by `KeyboardEvent.code`, so it is the physical numeric keypad and
+ * never the main row (both report `key: '4'`; only the code tells them apart).
+ *
+ * This table lives HERE, with the drawing of the pad, because it is the same statement the drawing
+ * makes: the panel IS the numpad. The keyboard used to say it a second time, in ShortcutConfig — one
+ * fixed `Numpad4 → quarter note` binding that knew nothing of pages, so the key and the cell it
+ * mirrors drifted apart the moment the page turned. Now there is one table and the key looks the cell
+ * up on whatever page is showing.
+ *
+ * `NumLock` is absent on purpose: it is the OS's key (it toggles the pad itself), so the select arrow
+ * it sits under stays mouse-only.
+ */
+export const NUMPAD_CODE_TO_KEY: Record<string, string> = {
+  Numpad0: '0', Numpad1: '1', Numpad2: '2', Numpad3: '3', Numpad4: '4',
+  Numpad5: '5', Numpad6: '6', Numpad7: '7', Numpad8: '8', Numpad9: '9',
+  NumpadDivide: '/', NumpadMultiply: '*', NumpadSubtract: '-', NumpadAdd: '+',
+  NumpadEnter: 'Enter', NumpadDecimal: '.',
+}
+
+/**
+ * The cell a numpad `code` presses on the given page, or `null` when the code is not one of the pad's
+ * keys (so the caller can leave the key alone). The page is named, never an index — see
+ * {@link KEYPAD_PAGES}.
+ */
+export function keypadCellForCode(pageId: KeypadPageId, code: string): KeypadCell | null {
+  const key = NUMPAD_CODE_TO_KEY[code]
+  if (!key) return null
+  return keypadPage(pageId).cells.find(cell => cell.key === key) ?? null
+}

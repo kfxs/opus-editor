@@ -16,6 +16,9 @@ import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
 import { toggleSymbolsWindow } from '../windows/symbols'
 import { openTimeSignatureWindow } from '../windows/timeSignatureWindow'
+import { keypadCellForCode } from '../windows/keypad/keypadLayouts'
+import { pressKeypadCell } from '../windows/keypad/keypadPress'
+import { keypadPageSelection } from './keypadPageSelection'
 
 /**
  * Wires keyboard shortcuts to controller actions. Framework-agnostic: it reads and writes
@@ -431,22 +434,19 @@ export function wireShortcuts(
         renderer.renderScore()
       }
     },
-    setDurationThirtySecond: () => palette.setDuration('32'),
-    setDurationSixteenth: () => palette.setDuration('16'),
-    setDurationEighth: () => palette.setDuration('8'),
-    setDurationQuarter: () => palette.setDuration('q'),
-    setDurationHalf: () => palette.setDuration('h'),
-    setDurationWhole: () => palette.setDuration('w'),
-    setAccidentalNatural: () => palette.setAccidental('n'),
-    setAccidentalSharp: () => palette.setAccidental('#'),
-    setAccidentalFlat: () => palette.setAccidental('b'),
-    toggleAccent: () => palette.toggleAccent(),
-    toggleStaccato: () => palette.toggleStaccato(),
-    toggleTenuto: () => palette.toggleTenuto(),
-    toggleTie: () => palette.toggleTie(),
-    // Numpad 0 — the Keypad's rest key by another name, so it routes to the same method the key
-    // presses. The panel doesn't have to be open: the numpad IS the Keypad.
-    convertToRest: () => palette.pressRest(),
+    // EVERY numpad key, through one handler — the pad IS the Keypad panel, so a key press is the
+    // press of the cell it sits under ON THE PAGE THAT IS SHOWING, and it runs the same
+    // `pressKeypadCell` a click on that cell runs. The panel does not have to be open: the page lives
+    // on its own seam, and the presses go out through the palette stores either way.
+    //
+    // The `code` is the only thing the handler needs, which is why this action serves 16 keys: the
+    // meaning is the LAYOUT's to know, never this table's. A code the pad doesn't define declines
+    // (`false`), leaving the key to the browser.
+    keypadKey: (event) => {
+      const cell = keypadCellForCode(keypadPageSelection.get(), event.code)
+      if (!cell) return false
+      pressKeypadCell(cell)
+    },
     createSlur: () => palette.createSlur(),
     // Ctrl+Shift+B: keyboard accelerator for the "Add Measure" button — inserts one bar
     // after the Ctrl+Shift-selected measure span (Sibelius's single-bar shortcut). No-op

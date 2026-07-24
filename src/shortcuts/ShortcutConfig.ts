@@ -8,6 +8,7 @@
  */
 
 import { TUPLET_PRESETS, tupletPresetAction } from '../utils/tupletPresets'
+import { NUMPAD_CODE_TO_KEY } from '../windows/keypad/keypadLayouts'
 
 export interface ShortcutDefinition {
   /** The action to execute */
@@ -62,79 +63,36 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Delete selected note or articulation',
   },
 
-  // Durations (numpad keys - Sibelius style)
-  'Numpad1': {
-    action: 'setDurationThirtySecond',
-    description: 'Thirty-second note (fusa)',
-  },
-  'Numpad2': {
-    action: 'setDurationSixteenth',
-    description: 'Sixteenth note (semicorchea)',
-  },
-  'Numpad3': {
-    action: 'setDurationEighth',
-    description: 'Eighth note (corchea)',
-  },
-  'Numpad4': {
-    action: 'setDurationQuarter',
-    description: 'Quarter note (negra)',
-  },
-  'Numpad5': {
-    action: 'setDurationHalf',
-    description: 'Half note (blanca)',
-  },
-  'Numpad6': {
-    action: 'setDurationWhole',
-    description: 'Whole note (redonda)',
-  },
-
-  // Accidentals (numpad keys)
-  'Numpad7': {
-    action: 'setAccidentalNatural',
-    description: 'Natural accidental',
-  },
-  'Numpad8': {
-    action: 'setAccidentalSharp',
-    description: 'Sharp accidental',
-  },
-  'Numpad9': {
-    action: 'setAccidentalFlat',
-    description: 'Flat accidental',
-  },
-
-  // Tie (numpad Enter - Sibelius style)
-  'NumpadEnter': {
-    action: 'toggleTie',
-    description: 'Toggle tie to next note of same pitch',
-  },
-
-  // Rest (numpad 0 - Sibelius style). The NUMPAD zero only: this is the Keypad's `0` key under
-  // another name, and the main-row 0 is not part of that instrument. Bound by `code`, which is what
-  // tells the two apart — both report `key: '0'`.
-  'Numpad0': {
-    action: 'convertToRest',
-    description: 'Convert the selected note(s) to a rest of the same duration',
-  },
+  // ── The numeric keypad — Sibelius style ─────────────────────────────────────────────────────────
+  //
+  // Every one of these keys runs the SAME action, and it is deliberately the only thing this table
+  // says about them: which cell a numpad key presses is a question about the KEYPAD PANEL, whose
+  // layout changes with the page it is showing, so it is answered there (keypadLayouts'
+  // `keypadCellForCode`) and not here.
+  //
+  // They used to be spelled out one by one — `Numpad4 → setDurationQuarter` — which was a second copy
+  // of the note-entry page's layout, pinned to that page forever. Press `4` on the Beams/Tremolos page
+  // and the key still set a quarter note while the cell under it showed a tremolo: the panel and the
+  // pad had drifted apart, and a third page would have drifted further.
+  //
+  // Bound by `code`, which is what tells the pad from the main row — both report `key: '4'`. And
+  // GENERATED from the pad's own key table rather than typed out: a hand-written list is a list you
+  // can leave a key off (`.` was, first time round — 16 keys in the pad, 15 bound, and the dot key
+  // simply stopped working on every page). `+` is in there too, as the page turn: it is a Keypad key
+  // like the rest, and it used to be the panel's own document listener — which meant the pad could
+  // only turn the page while the panel was open, though its other keys worked either way.
+  ...Object.fromEntries(
+    Object.entries(NUMPAD_CODE_TO_KEY).map(([code, key]) => [
+      code,
+      { action: 'keypadKey', description: `Keypad key ${key} — its meaning is the Keypad page's` },
+    ]),
+  ),
 
   // Slur (phrasing) — Sibelius-style 's' over the selection. Create-only;
   // removal is select-the-arc + Delete (not a toggle).
   's': {
     action: 'createSlur',
     description: 'Add a phrasing slur over the selection',
-  },
-
-  // Articulations (numpad - Sibelius style)
-  'NumpadDivide': {
-    action: 'toggleAccent',
-    description: 'Toggle accent articulation',
-  },
-  'NumpadMultiply': {
-    action: 'toggleStaccato',
-    description: 'Toggle staccato articulation',
-  },
-  'NumpadSubtract': {
-    action: 'toggleTenuto',
-    description: 'Toggle tenuto articulation',
   },
 
   // Selection navigation
@@ -361,14 +319,11 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Redo last undone action',
   },
 
-  // Dot toggle
+  // Dot toggle. The MAIN-ROW `.` only — the numpad's `.` is a Keypad key and goes through
+  // `keypadKey` above, which lands on the dot cell while the note-entry page is showing.
   Period: {
     action: 'toggleDot',
     description: 'Toggle dotted note',
-  },
-  NumpadDecimal: {
-    action: 'toggleDot',
-    description: 'Toggle dotted note (numpad)',
   },
 
   // Time signature: opens the Time Signature window — the same action as Insert ▸ Time Signature.

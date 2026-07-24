@@ -11,7 +11,10 @@ import { voiceSelection } from '../../interactions/voiceSelection'
 import { voiceFillColor } from '../../utils/voiceColors'
 import { INDICATOR_INK } from '../../utils/selectionColors'
 import { CHROME } from '../../utils/chromeColors'
-import { KEYPAD_PAGES, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
+import { keypadPageSelection } from '../../interactions/keypadPageSelection'
+import { keypadPage, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
+import { pressKeypadCell } from './keypadPress'
+import { keypadProbe } from './keypadProbe'
 import { bakeGlyphStack } from './tremoloBake'
 
 /**
@@ -80,8 +83,6 @@ export class KeypadWidget implements Widget {
   private readonly keys: { cell: KeypadCell; button: HTMLButtonElement }[] = []
   private readonly voiceButtons: HTMLButtonElement[] = []
 
-  /** Which page is showing. The `+` key steps it; the voice row and window are unaffected. */
-  private page = 0
   /** The grid element, held so a page turn can swap it out without touching the voice row. */
   private gridEl: HTMLElement | null = null
 
@@ -96,6 +97,12 @@ export class KeypadWidget implements Widget {
   private unsubscribeTie: (() => void) | null = null
   private unsubscribeRest: (() => void) | null = null
   private unsubscribeVoice: (() => void) | null = null
+  /** The page seam. The panel does not OWN which page is showing — it subscribes, exactly as it does
+   *  for the duration or the voice, so a page turned from the numpad (with the panel open) re-lays
+   *  this grid without the key press ever addressing the widget. */
+  private unsubscribePage: (() => void) | null = null
+  /** 🚧 TEMPORARY, with {@link keypadProbe}: the unwired-key light. */
+  private unsubscribeProbe: (() => void) | null = null
 
   mount(host: HTMLElement): void {
     // A little more air under the title bar than around the rest: the bar is a solid band, and the
@@ -135,17 +142,18 @@ export class KeypadWidget implements Widget {
       this.paint()
     })
 
-    // The numpad `+` turns the page too — the panel IS the numpad, so the key its `+` cell mirrors
-    // drives it. Global, so it works with the score focused, and only while the panel is open (removed
-    // in destroy). Bound here rather than in the app's ShortcutManager because it is the WIDGET's
-    // behaviour and its lifecycle is the window's, not the editor's.
-    document.addEventListener('keydown', this.onKeyDown)
+    // Re-lay the grid whenever the page changes — from this panel's own `+` cell or from the numpad's
+    // `+`, which the app's shortcut wiring owns now (it must work with the panel shut, so it cannot
+    // live here). Either way the seam changes and the panel follows.
+    this.unsubscribePage = keypadPageSelection.subscribe(() => this.showPage())
+    // 🚧 The unwired-key light (keypadProbe) — a press from the numpad never touches this widget, so
+    // it too arrives as a subscription. Temporary, goes when page 2 is wired.
+    this.unsubscribeProbe = keypadProbe.subscribe(() => this.paint())
 
     this.paint()
   }
 
-  /** Document-wide handles (the tool-mode subscription, the numpad key) outlive this widget's DOM, so
-   *  they must be released when it closes. */
+  /** The seam subscriptions outlive this widget's DOM, so they must be released when it closes. */
   destroy(): void {
     this.unsubscribeMode?.()
     this.unsubscribeMode = null
@@ -163,20 +171,10 @@ export class KeypadWidget implements Widget {
     this.unsubscribeRest = null
     this.unsubscribeVoice?.()
     this.unsubscribeVoice = null
-    document.removeEventListener('keydown', this.onKeyDown)
-  }
-
-  /**
-   * The numpad `+` (and only the numpad `+` — `code`, not `key`, so the main-row `+` is untouched)
-   * turns the page. Skipped while typing in a field, or with a modifier held — Ctrl+`+` is the
-   * browser's own zoom, and hijacking it would be a surprise.
-   */
-  private onKeyDown = (e: KeyboardEvent): void => {
-    if (e.code !== 'NumpadAdd' || e.ctrlKey || e.metaKey || e.altKey) return
-    const el = document.activeElement
-    if (el instanceof HTMLElement && (el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return
-    e.preventDefault()
-    this.turnPage()
+    this.unsubscribePage?.()
+    this.unsubscribePage = null
+    this.unsubscribeProbe?.()
+    this.unsubscribeProbe = null
   }
 
   /**
@@ -193,7 +191,7 @@ export class KeypadWidget implements Widget {
 
     // A page turn rebuilds the grid, so the key list is rebuilt with it — clear last page's buttons.
     this.keys.length = 0
-    for (const cell of KEYPAD_PAGES[this.page]) {
+    for (const cell of keypadPage(keypadPageSelection.get()).cells) {
       const button = this.baseButton()
       // Just the name — the numpad key it mirrors is not (yet) a wired shortcut, so quoting it in the
       // tooltip only promised a keystroke that does nothing.
@@ -211,75 +209,33 @@ export class KeypadWidget implements Widget {
   }
 
   /**
-   * Turn to the next page (the `+` key). Rebuilds ONLY the grid — the voice row and the window are
-   * untouched — then repaints so the new page's lights are right. The lit set is shared across pages,
-   * so a duration chosen on page 1 is still chosen when you come back to it.
+   * Show the page the seam is on. Rebuilds ONLY the grid — the voice row and the window are untouched
+   * — then repaints so the new page's lights are right. The lit set is shared across pages, so a
+   * duration chosen on the note-entry page is still chosen when you come back to it.
    */
-  private turnPage(): void {
-    this.page = (this.page + 1) % KEYPAD_PAGES.length
+  private showPage(): void {
     const grid = this.buildGrid()
     this.gridEl?.replaceWith(grid)
     this.gridEl = grid
     this.paint()
-    dbg(`[keypad] page ${this.page + 1}`)
+    dbg(`[keypad] page ${keypadPage(keypadPageSelection.get()).name}`)
   }
 
   /**
-   * A press. What it means to the lights depends only on the cell's `select` — see the doc on
-   * {@link Select}. Nothing else in the panel needs to know that ♯ and ♭ are related.
+   * A press. WHAT it does is {@link pressKeypadCell}'s answer, shared with the numpad key this cell
+   * mirrors — the panel only lights and logs the result.
    */
   private press(cell: KeypadCell): void {
-    switch (cell.select) {
-      case 'duration':
-        // The armed duration lives in the editor's store, not the panel's lit set — PRESS the value
-        // and the store lights it back (App.ts runs the full setDuration path). The store decides the
-        // radio; the panel maps nothing. `duration` is always present on a duration cell (keypadLayouts).
-        if (cell.duration) durationSelection.press(cell.duration)
-        break
-      case 'accidental':
-        // Same, and the press channel is what lets ♯-then-♯ toggle OFF: setAccidental sees the armed
-        // value pressed again and clears it. A state-mirror would swallow the repeat as "no change".
-        if (cell.accidental) accidentalSelection.press(cell.accidental)
-        break
-      case 'articulation':
-        // Independent toggles on a set-valued store. PRESS the value; App.ts routes it to the
-        // palette's toggleX, which flips the score AND re-pushes the lit set — the store lights it
-        // back, so the panel maps nothing. `articulation` is always present here (keypadLayouts).
-        if (cell.articulation) articulationSelection.press(cell.articulation)
-        break
-      case 'dot':
-        // On/off, like the accidental: PRESS always fires so re-pressing toggles the dot OFF. App.ts
-        // routes it through palette.toggleDot and mirrors selectedDots back in as the highlight.
-        dotSelection.press('dot')
-        break
-      case 'tie':
-        // On/off like the dot, but engine-backed: PRESS routes to palette.toggleTie, which flips the
-        // note's tie AND re-pushes the highlight (tiedTo isn't reactive, so it can't be mirrored).
-        tieSelection.press('tie')
-        break
-      case 'rest':
-        // Silences the selection (routes to palette.convertSelectionToRest via keypadSync). Its light
-        // still follows the SCORE, not this click — the click changes the score, and the score lights
-        // the key. Pressing it with a rest already selected is a no-op, so the light never toggles off.
-        restSelection.press('rest')
-        break
-      case 'momentary':
-        break
-      case 'mode':
-        // The arrow ACTIVATES selection mode. Its light follows the editor, not this click, so there
-        // is no local state to flip — the press routes to enterSelectionMode (via keypadSync), the
-        // editor's mode changes, and keypadSync's sync() repaints us. (No-op if already there.)
-        modeSelection.press('selection')
-        break
-      case 'page':
-        // Turns the page and re-lays the grid. It has its own paint + log, and the cell we were
-        // handed belongs to the page we are leaving — so return before the generic tail below.
-        this.turnPage()
-        return
-    }
+    pressKeypadCell(cell)
+
+    // The page key has already re-laid the grid through the seam (with its own paint and log), and the
+    // cell we were handed belongs to the page we just left — so nothing below applies to it.
+    if (cell.select === 'page') return
 
     this.paint()
-    const state = cell.select === 'momentary' ? '' : this.isLit(cell) ? ' on' : ' off'
+    // Every kind has a light now — the unwired ones carry the temporary probe light (keypadProbe), so
+    // there is no longer a `momentary` case with nothing to report.
+    const state = this.isLit(cell) ? ' on' : ' off'
     dbg(`[keypad] ${cell.action}${state} — key ${cell.key}, voice ${this.voice != null ? VOICES[this.voice] : 'none'}`)
   }
 
@@ -296,6 +252,9 @@ export class KeypadWidget implements Widget {
     if (cell.select === 'articulation') return !!cell.articulation && articulationSelection.isActive(cell.articulation)
     if (cell.select === 'dot') return dotSelection.get() === 'dot'
     if (cell.select === 'tie') return tieSelection.get() === 'tie'
+    // 🚧 The one light that is NOT an editor state: an unwired key showing that it was pressed. It is
+    // scaffolding for testing the page-aware numpad and goes when page 2 is wired ({@link keypadProbe}).
+    if (cell.select === 'momentary') return keypadProbe.get() === cell.key
     return cell.select === 'rest' && restSelection.get() === 'rest'
   }
 

@@ -16,8 +16,12 @@ import { SHORTCUTS, type ShortcutDefinition } from './ShortcutConfig'
  * as if no handler had run. Returning `void`/`undefined` (every existing handler) = handled
  * → `preventDefault`. This lets a binding claim a key only conditionally (e.g. the slur
  * endpoint nudge owns `Ctrl+←/→` ONLY while an endpoint is armed) without globally stealing it.
+ *
+ * The event is passed for the handler that serves MORE THAN ONE key — the Keypad's, where every numpad
+ * code runs the same action and the `code` is what says which cell was pressed. Handlers that own a
+ * single key ignore it, as they always have.
  */
-export type ActionHandler = () => boolean | void
+export type ActionHandler = (event: KeyboardEvent) => boolean | void
 
 export class ShortcutManager {
   private handlers: Map<string, ActionHandler> = new Map()
@@ -130,7 +134,7 @@ export class ShortcutManager {
     // declining handler keeps the key free (browser default / future binding) — used so a
     // conditional binding only claims its key when it actually acts. void/undefined =
     // handled → preventDefault (backward-compatible: every legacy handler returns void).
-    const declined = handler() === false
+    const declined = handler(event) === false
     if (!declined) event.preventDefault()
   }
 
