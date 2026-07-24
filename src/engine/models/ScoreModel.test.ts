@@ -1802,6 +1802,24 @@ describe('ScoreModel.moveNoteToVoice — Phase 1 (plain notes)', () => {
     expect(v(moved)).toBe(0)
   })
 
+  it('carries the beam statement across the voice move', () => {
+    const ids = [0, 1, 2, 3].map(i => model.addNote({
+      step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(i, 2),
+    }).id)
+    // Beam all four as one explicit group, with a secondary break in front of the third.
+    model.updateNote(ids[0], { beam: 'begin' })
+    model.updateNote(ids[1], { beam: 'continue' })
+    model.updateNote(ids[2], { beam: 'continue', secondaryBreak: true })
+    model.updateNote(ids[3], { beam: 'end' })
+
+    for (const id of ids) expect(model.moveNoteToVoice(id, 1)).toBe(true)
+
+    const moved = ids.map(id => model.getNote(id)!)
+    expect(moved.map(n => n.voice ?? 0)).toEqual([1, 1, 1, 1])
+    expect(moved.map(n => n.beam)).toEqual(['begin', 'continue', 'continue', 'end'])
+    expect(moved.map(n => !!n.secondaryBreak)).toEqual([false, false, true, false])
+  })
+
   it('is a no-op (returns false) when the note is already in the target voice', () => {
     const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     expect(model.moveNoteToVoice(note.id, 0)).toBe(false)

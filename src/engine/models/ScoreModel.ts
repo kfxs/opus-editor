@@ -1,5 +1,5 @@
 import { dbg } from '@/utils/debug'
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CautionaryOverride, CautionaryClefOverride } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, BeamMode, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CautionaryOverride, CautionaryClefOverride } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf, noteOffsetOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX } from './engravingOverrides'
 import {
   tupletSpan,
@@ -2482,6 +2482,12 @@ export class ScoreModel {
       // carried: it is voice-aware, so the new voice re-derives the correct auto side.
       articulations: chord.articulations,
       articulationStemAlign: chord.articulationStemAlign,
+      // Beaming is a SLOT statement too, and unlike articulation placement it is not
+      // voice-derived: `begin`/`continue`/`end`/`single` say how this note groups with its
+      // neighbours, and moving the whole group to another voice keeps that grouping. Left
+      // behind, an explicitly beamed run would silently fall back to auto beat groups.
+      beam: chord.beam,
+      secondaryBreak: chord.secondaryBreak,
     }
 
     // Remove the pitch from the source slot.
@@ -2542,6 +2548,8 @@ export class ScoreModel {
       voice: number
       articulations?: Chord['articulations']
       articulationStemAlign?: boolean
+      beam?: BeamMode
+      secondaryBreak?: boolean
     },
   ): void {
     const notePitch: NotePitch = {
@@ -2571,6 +2579,11 @@ export class ScoreModel {
       if (payload.articulations?.length && !existingChord.articulations?.length) {
         existingChord.articulations = [...payload.articulations]
       }
+      // Same rule for the beam statement: the destination chord's own beaming wins.
+      if (payload.beam && !existingChord.beam) existingChord.beam = payload.beam
+      if (payload.secondaryBreak && existingChord.secondaryBreak === undefined) {
+        existingChord.secondaryBreak = true
+      }
       if (!existingChord.tupletId) {
         const incomingFrac = durationToFraction(payload.duration, payload.dots ?? 0)
         const existingFrac = durationToFraction(existingChord.duration, existingChord.dots ?? 0)
@@ -2597,6 +2610,8 @@ export class ScoreModel {
     }
     if (payload.articulations?.length) chord.articulations = [...payload.articulations]
     if (payload.articulationStemAlign) chord.articulationStemAlign = true
+    if (payload.beam) chord.beam = payload.beam
+    if (payload.secondaryBreak) chord.secondaryBreak = true
     if (targetVoice) chord.voice = targetVoice as 0 | 1 | 2 | 3
     chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
     dbg(`[Model.insertPitch] new chord ${fmtSlot(chord)} → replacing v${targetVoice} rests`)
@@ -2772,6 +2787,12 @@ export class ScoreModel {
       }
       if (targetVoice) newChord.voice = targetVoice as 0 | 1 | 2 | 3
       if (targetStaffId !== undefined) newChord.staffId = targetStaffId
+      // The moved note's own beam statement rides along (same reason as the plain path);
+      // the target voice's pre-existing notes are re-poured, so theirs is not carried.
+      if (g === idx) {
+        if (chord.beam) newChord.beam = chord.beam
+        if (chord.secondaryBreak) newChord.secondaryBreak = true
+      }
       measure.slots.push(newChord)
     }
 
