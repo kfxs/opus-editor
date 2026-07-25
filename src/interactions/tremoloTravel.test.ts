@@ -155,3 +155,58 @@ describe('tremolo — the tie-split across a barline', () => {
     expect(tremoloAt(engine, 2, 0)).toBe(2) // the continuation, carried explicitly
   })
 })
+
+/**
+ * Entering a note WITH a mark (docs/tremolo-plan.md §10) — the engine half of the note-entry flow.
+ *
+ * A `tremolo` in `NoteParams` rather than a `setTremolo` after the fact, so the note is BORN with it:
+ * one undo entry, and the cross-barline split carries it to every piece the way the stamp's does.
+ * (The palette side — which press means "enter with" vs "stamp onto" — is `tremoloEntry.test.ts`.)
+ */
+describe('tremolo — entered with the note', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  it('lands on the slot the note creates', () => {
+    engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), tremolo: 3 })
+    expect(tremoloAt(engine, 1, 0)).toBe(3)
+  })
+
+  it('marks the CHORD when the note joins an existing one — the mark is a slot property', () => {
+    engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), tremolo: 2 })
+    expect(tremoloAt(engine, 1, 0)).toBe(2)
+  })
+
+  it('⭐ reaches EVERY piece when the entered note overflows the bar', () => {
+    // A half note entered on beat 3 of 4/4 splits into a quarter + a tied quarter in bar 2. A mark
+    // interrupted at a barline is still being played across it, so both halves wear it.
+    engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(3, 1), tremolo: 4 })
+    expect(tremoloAt(engine, 1, 3)).toBe(4)
+    expect(tremoloAt(engine, 2, 0)).toBe(4)
+  })
+
+  it('is ONE undo entry — the mark is part of the entry, not a second edit', () => {
+    engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), tremolo: 5 })
+    engine.undo()
+    expect(engine.getScore().measures[0].slots.some(s => s.type === 'chord')).toBe(false)
+  })
+
+  it('⭐ combines with the other armed entry values — it is ONE MORE state of the entry note', () => {
+    // Accidental + dots + articulation + tremolo, all armed at once and all landing on the one note.
+    // The whole point of making it a NoteParams field rather than a mode of its own: it composes.
+    const note = engine.addNoteAtBeat({
+      step: 'C', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1),
+      dots: 1, articulations: ['accent'], tremolo: 3,
+    })!
+    expect(note.alter).toBe(1)
+    expect(note.dots).toBe(1)
+    expect(note.articulations).toEqual(['accent'])
+    expect(tremoloAt(engine, 1, 0)).toBe(3)
+  })
+
+  it('a REST ignores it — you cannot tremolo silence', () => {
+    engine.addNoteAtBeat({ duration: 'q', measure: 1, beat: frac(0, 1), isRest: true, tremolo: 3 })
+    expect(tremoloAt(engine, 1, 0)).toBeUndefined()
+  })
+})

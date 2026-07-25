@@ -61,9 +61,9 @@ export type MarkingTool =
    *  Distinct from `selectedAccidental`, which arms for the next note ENTERED. */
   | { kind: 'accidental'; sign: Accidental }
   /** SINGLE-valued for the accidental's reason: a note carries ONE tremolo, so pressing another
-   *  mark swaps it. Marks notes that already have their length, like the accidental stamp — there
-   *  is no "enter a note with a tremolo" flow, because the mark says how to repeat a note that
-   *  exists. See docs/tremolo-plan.md §2. */
+   *  mark swaps it. Marks notes that already have their length, like the accidental stamp.
+   *  Distinct from {@link EditorState.selectedTremolo}, which arms the mark for the next note
+   *  ENTERED — the same split the accidental has. See docs/tremolo-plan.md §2 and §10. */
   | { kind: 'tremolo'; tremolo: TremoloMark }
   /** VALUELESS — a note ties to the next slot or it does not. */
   | { kind: 'tie' }
@@ -304,6 +304,21 @@ export interface EditorState {
    * click resolves which one you meant, so the selection must not claim both.
    */
   selectedTremoloNoteId: string | null
+  /**
+   * The tremolo NOTE ENTRY is armed with (null = none) — the mark every note entered from here on
+   * is born wearing, and what the ghost note shows.
+   *
+   * A note-entry value like {@link selectedAccidental} and {@link selectedDots}, NOT a marking tool:
+   * the stamp (`selectedMarkingTool.kind === 'tremolo'`) puts a mark on a note that already exists,
+   * while this one enters notes that have one. Which of the two a palette press means is decided by
+   * the MODE — entry mode arms this, selection mode arms the stamp (PaletteController.armTremolo).
+   *
+   * ⚠️ It PERSISTS: entering a note does not clear it, and neither does a duration press (which
+   * clears the accidental and the dots). Writing five tremolo notes should be five clicks, not five
+   * clicks and five re-arms. Esc / leaving entry mode is the deliberate way out, like the armed
+   * articulations it sits beside.
+   */
+  selectedTremolo: TremoloMark | null
   selectedTupletId: string | null
   selectedTieFromNoteId: string | null
   /** Id of the on-score slur selected for removal (selection tool); null if none. */
@@ -531,6 +546,7 @@ export function createEditorState(): EditorState {
     selectedDotNoteId: null,
     selectedStemNoteId: null,
     selectedTremoloNoteId: null,
+    selectedTremolo: null,
     selectedTupletId: null,
     selectedTieFromNoteId: null,
     selectedSlurId: null,

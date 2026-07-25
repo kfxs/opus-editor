@@ -331,6 +331,9 @@ export class KeyboardController {
         dots: this.state.selectedDots || undefined,
         isRest: false,
         articulations: this.getPendingArticulations(),
+        // The armed entry tremolo (docs/tremolo-plan.md §10) — the typed note is born wearing it,
+        // exactly as the clicked one is.
+        ...(this.state.selectedTremolo !== null && { tremolo: this.state.selectedTremolo }),
         ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }),
         ...(existingTuplet && { tupletId: existingTuplet.id }),
         ...(this.state.selectedBeam !== 'auto' && { beam: this.state.selectedBeam }),

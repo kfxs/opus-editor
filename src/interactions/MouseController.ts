@@ -2179,6 +2179,7 @@ export class MouseController {
             this.getPendingArticulations(),
             this.state.selectedBeam !== 'auto' ? this.state.selectedBeam : undefined,
             activeVoiceToModel(this.state.activeVoice),
+            this.state.selectedTremolo ?? undefined,
           )
 
           if (note) {
@@ -2243,6 +2244,10 @@ export class MouseController {
           this.getPendingArticulations(),
           this.state.selectedBeam !== 'auto' ? this.state.selectedBeam : undefined,
           activeVoiceToModel(this.state.activeVoice),
+          // The armed entry tremolo — read straight off state like the duration/accidental/dots
+          // beside it, so the entered note is BORN with the mark (one undo entry, and the
+          // cross-barline split carries it to every piece).
+          this.state.selectedTremolo ?? undefined,
         )
 
         if (note) {

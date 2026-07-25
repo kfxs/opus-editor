@@ -1559,6 +1559,9 @@ export class ScoreModel {
         tiedFrom: params.tiedFrom,
       }
       if (params.articulations !== undefined) existingChord.articulations = params.articulations
+      // Same rule as the articulations above, and for the same reason: both are properties of the
+      // SLOT, so a pitch entered into an existing chord with a mark armed marks that chord.
+      if (params.tremolo !== undefined) existingChord.tremolo = params.tremolo
       existingChord.notes.push(notePitch)
       // Sync duration/dots if new note differs (and neither is a tuplet note)
       if (!existingChord.tupletId && !params.tupletId) {
@@ -1598,6 +1601,7 @@ export class ScoreModel {
       tupletId: params.tupletId,
       actualDuration: params.actualDuration,
       articulations: params.articulations,
+      tremolo: params.tremolo,
       articulationPlacement: params.articulationPlacement,
       articulationStemAlign: params.articulationStemAlign,
       beam: params.beam === 'auto' ? undefined : params.beam,

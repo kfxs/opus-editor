@@ -150,6 +150,18 @@ describe('tremoloHighlight (the dev shell\'s Tremolo row)', () => {
     expect(tremoloHighlight(state, carrying(4))).toBe(4)
   })
 
+  it('⭐ NOTE ENTRY armed with a mark lights it — what the next click will WRITE', () => {
+    const state = stateWith([note('a')], 'entry')
+    state.selectedTremolo = 2
+    expect(tremoloHighlight(state, carrying(5))).toBe(2)
+  })
+
+  it('…but only in entry mode: the armed mark persists into selection mode, where the SCORE answers', () => {
+    const state = stateWith([note('a')])   // selection mode, one note selected
+    state.selectedTremolo = 2              // still armed from the last writing session
+    expect(tremoloHighlight(state, carrying(5))).toBe(5)
+  })
+
   it('the ARMED mark wins over everything — that is the active gesture', () => {
     const state = stateWith([note('a')])
     state.selectedMarkingTool = { kind: 'tremolo', tremolo: 5 }

@@ -536,17 +536,27 @@ export class PaletteController {
   }
 
   /**
-   * Arm `tremolo` as the tremolo stamp tool — one to five strokes, or the Penderecki sign. The
-   * dev palette's only wiring, and the same method the Keypad's page-2 tremolo keys will call.
+   * One tremolo-palette press — one to five strokes, or the Penderecki sign — routed by MODE.
    *
-   * SINGLE-VALUED like the accidental stamp: a re-press of the armed mark DISARMS, a different
-   * mark SWAPS (redrawing the ghost on the keypress, not on the next mouse move, or the armed tool
-   * and what you see disagree). Any other marking tool being armed is handled by construction —
-   * `armMarkingTool` reassigns the one union field, so arming IS clearing.
+   * ⭐ THE MARK IS TWO THINGS, and which one a press means is decided by what you are doing:
+   *  - **Note entry** (a duration is armed, you are writing notes) → the press arms the mark for the
+   *    notes you are about to enter: the ghost wears it, and every click writes a note carrying it
+   *    (docs/tremolo-plan.md §10). It is `selectedTremolo`, a note-entry value beside the accidental
+   *    and the dots — NOT a marking tool, because a tool would replace note entry with stamping.
+   *  - **Selection mode** (nothing is being written) → the press arms the STAMP, whose next click
+   *    marks a note that already exists. The original behaviour, unchanged.
    *
-   * It does NOT apply to a selection the way {@link setAccidental} does. A stamp-only tool for now,
-   * because the mark's removal story is still open (docs/tremolo-plan.md §2): Ctrl+Z takes a stamp
-   * off, and a selection-apply path needs the toggle-off half to be worth having.
+   * SINGLE-VALUED on both sides, like the accidental: a re-press of the live mark clears it, a
+   * different mark swaps it. The ghost is redrawn on the KEYPRESS, not on the next mouse move, or
+   * what is armed and what you see disagree.
+   *
+   * ⚠️ The entry mark PERSISTS — entering a note does not clear it, and neither does a duration
+   * press (see `promoteStampToNoteEntry`, which also carries an armed STAMP over when you pick a
+   * duration: "mark, then length" and "length, then mark" arrive at the same place). Esc clears it
+   * with the rest of the armed entry values.
+   *
+   * Neither side applies to a SELECTION the way {@link setAccidental} does — that is still open
+   * (docs/tremolo-plan.md §2).
    */
   armTremolo(tremolo: TremoloMark): void {
     const armed = this.state.selectedMarkingTool
@@ -558,6 +568,17 @@ export class PaletteController {
       }
       return
     }
+
+    // Note entry: arm the mark for what is COMING, not for what is there. Only with no other tool
+    // armed — a live clef/dynamic/rest tool means the next click is not entering a note at all, so
+    // the press switches to the tremolo stamp below, exactly as the articulation keys do.
+    if (!armed && this.state.selectedTool === 'entry') {
+      this.state.selectedTremolo = this.state.selectedTremolo === tremolo ? null : tremolo
+      const pos = this.getLastMousePosition()
+      if (pos) this.renderArmedGhost(pos)
+      return
+    }
+
     this.armMarkingTool({ kind: 'tremolo', tremolo })
   }
 
@@ -590,8 +611,13 @@ export class PaletteController {
         // is exhaustive, and answering "no entry-mode home" is also the truth: the rest tool has
         // nowhere to be promoted TO. Placing rests with the mouse is not a property of a note.
         return this.state.selectedDots
+      case 'tremolo':
+        // The mark HAS an entry-mode home now (§10): pick a duration with a tremolo stamp armed and
+        // you get note entry wearing that mark — "mark, then length" reaching the same place as
+        // "length, then mark". Its own field, not `selectedDots`, so it returns 0 like the rest.
+        this.state.selectedTremolo = armed.tremolo
+        return 0
       case 'tie':          // valueless — there is no armed entry-mode tie to become
-      case 'tremolo':      // no entry-mode home: you do not enter a note WITH a tremolo, you mark one
       case 'clef':         // the four below place OBJECTS, not note properties: nothing to carry
       case 'timeSignature':
       case 'dynamic':
@@ -1515,7 +1541,8 @@ export class PaletteController {
   }
 
   /**
-   * Drop the arm-for-next-note articulations. Esc's job, and the Select arrow's.
+   * Drop the arm-for-next-note articulations AND the armed entry tremolo. Esc's job, and the Select
+   * arrow's.
    *
    * They used to survive it, alongside the duration and the accidental — but they are not the same
    * kind of setting. A duration is a STANDING choice: a note has some length, always, so the armed
@@ -1532,6 +1559,10 @@ export class PaletteController {
     this.state.accent = false
     this.state.staccato = false
     this.state.tenuto = false
+    // The tremolo is the same kind of setting, by the same argument: it is a decision about the
+    // NEXT NOTE, not a standing choice like the duration. It persists across every note you enter —
+    // Escape is the deliberate way out (docs/tremolo-plan.md §10).
+    this.state.selectedTremolo = null
   }
 
   /**

@@ -8,10 +8,10 @@ this doc records only where a tremolo differs. It differs a lot in two places: V
 Penderecki sign and places its strokes wrong for us, and nothing in the playback schedule can express
 a speed that is *physical* rather than metrical — see §4 and §5.
 
-**Status: ALL EIGHT PHASES ARE SHIPPED** (§7) — the six marks exist, engrave, arm from the palette,
+**Status: ALL NINE PHASES ARE SHIPPED** (§7) — the six marks exist, engrave, arm from the palette,
 survive a meter change / paste / voice move / tie-split, play all three readings (measured as a real
 subdivision, unmeasured at a physical rate that ignores the tempo, Penderecki irregular on top of
-that), and **can be clicked, selected, deleted, and read back off a selected note** (§9). Three things
+that), **can be clicked, selected, deleted, and read back off a selected note** (§9), and can be armed for NOTE ENTRY so the notes you write are born wearing one (§10). Three things
 this plan did not foresee, each recorded where it belongs: the stem became a registered element (§2, the stamp accepts a click on it — and P5
 made it selectable in its own right), VexFlow's stroke placement had to be replaced rather than
 configured (§4), and the Penderecki sign turned out to be the same modifier with a different glyph
@@ -567,6 +567,10 @@ meaningless empty baseline.
 - **P7 — reporting the mark. ✅ DONE.** §9. A selected note lights its tremolo (the shared
   `colorNoteTremolo` pass), and the palette row reports the mark that is THERE rather than only the
   one that is armed (`tremoloHighlight`, three sources in a fixed order).
+- **P8 — note entry armed with a tremolo. ✅ DONE.** §10. The mark's second gesture: the same palette
+  buttons arm for ENTRY in entry mode and for STAMPING in selection mode, and the armed mark persists
+  until deliberately changed. The engine half is one `NoteParams` field, so the note is born with the
+  mark instead of being stamped a moment later — one undo entry, and the barline split carries it.
 
 ## 8. Deferred, deliberately
 
@@ -709,6 +713,52 @@ are about to stamp:
 - **Anything on a selected STEM.** Delete does nothing to one — there is no such edit — and a
   stem-length drag is the gesture that rect was really registered for.
 - **The flag.** Still reserved as its own future element (`highlightNote` says so out loud).
+
+## 10. Note entry armed with a tremolo — ✅ DONE (P8)
+
+**The mark is two gestures, not one.** Until now a tremolo could only be STAMPED: the tool marks a
+note that already exists. The other half is writing notes that already have one — pick a duration,
+pick a mark, and every note you enter is born wearing it, ghost included.
+
+Both live on the same palette buttons, and **the MODE decides which one a press means**:
+
+| you are… | a tremolo press… | what the next click does |
+|---|---|---|
+| in **note entry** (a duration is armed) | arms `EditorState.selectedTremolo` | enters a note WEARING the mark |
+| in **selection mode** | arms `selectedMarkingTool = { kind: 'tremolo' }` | stamps the mark onto the note clicked |
+
+That is the accidental's split exactly (`selectedAccidental` vs the accidental stamp), and it is why
+the entry value is NOT a marking tool: a tool arms into entry mode and enters *no note*, which is the
+opposite of what this does.
+
+### ⚠️ It persists
+
+Entering a note does not clear it. Neither does a **duration press** — which does clear the accidental
+and the dots, because those are decisions about one note, while "everything I write from here is
+tremolo" is a mode you are in. Writing five tremolo notes is five clicks, not five clicks and five
+re-arms. **Esc** (and the Select arrow) drops it, with the armed articulations it sits beside —
+`clearArmedArticulations` owns that, and the argument in its doc comment applies unchanged.
+
+The two orders arrive at the same place:
+
+- *length, then mark* — pick a duration, press a tremolo → armed for entry (the table above);
+- *mark, then length* — press a tremolo in selection mode (stamp armed), then pick a duration →
+  `promoteStampToNoteEntry` carries the mark over, exactly as it already did for the accidental and
+  the dot. The tremolo case there used to read "no entry-mode home"; it has one now.
+
+### The seams
+
+| seam | note |
+|---|---|
+| `EditorState.selectedTremolo` | the armed mark; null = none. A note-entry value, beside `selectedAccidental`/`selectedDots` |
+| `PaletteController.armTremolo` | the routing above — single-valued on both sides (re-press clears, a different mark swaps) |
+| `NoteParams.tremolo` → `ScoreModel.addNote` | the note is BORN with the mark: ONE undo entry, not entry-then-stamp. A pitch joining an existing chord marks that chord (the mark is a slot property, like the articulations beside it) |
+| `placeSpanningNote` | an entered mark reaches EVERY piece of a cross-barline split, the same rule the head's mark already followed. Its "only the duration-change caller can have one" note is now false and says so |
+| `GhostNote.tremolo` → the ghost draw | through the SAME `CenteredTremolo` the engraved mark uses, so the preview cannot disagree with what lands |
+| `tremoloHighlight` | gained the armed entry mark as source 2 of 4 — gated on entry mode, since the mark outlives a trip into selection, where the row should answer about the SCORE |
+
+⚠️ **A rest ignores it.** You cannot tremolo silence — the rest branch of `addNote` never reads the
+field, and `Rest` has nowhere to put one.
 
 ## Sources
 

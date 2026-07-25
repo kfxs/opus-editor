@@ -115,6 +115,10 @@ export class RenderController {
             ...(this.state.tenuto ? ['tenuto'] : []),
           ] as import('../types/music').ArticulationType[])
         : undefined,
+      // The armed entry tremolo rides ON the ghost note, for the armed tuplet's reason below: what
+      // the click enters IS a note, and the mark is something that note wears. (The tremolo STAMP is
+      // the other thing entirely — a marking tool, whose ghost is the mark with no note under it.)
+      this.state.selectedTremolo ?? undefined,
       { fill: voiceFillColor(v), stroke: voiceStrokeColor(v) },
       // An armed tuplet rides ON the ghost note rather than replacing it: what the click enters IS a
       // note, and the tuplet is what that note starts. So this is a label on the note, not a

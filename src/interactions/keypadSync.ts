@@ -145,22 +145,28 @@ export function beamRoleHighlight(state: EditorState, engine: BeamSource | null)
  * Which tremolo mark the palette lights, or null for none — the ARMED one, the SELECTED one, or the
  * one on the selected note.
  *
- * The three sources in that order, and the order is the rule (the accidental's, which is the closest
- * sibling — it is the other single-valued mark you can both arm and select):
+ * The four sources in that order, and the order is the rule (the accidental's, which is the closest
+ * sibling — it is the other single-valued mark you can arm for entry, arm as a stamp, and select):
  *   1. a marking tool is armed → the armed tremolo if it IS the tremolo stamp, else null. Under a
  *      clef tool no tremolo is in play, and the row must not claim one is.
- *   2. the MARK itself is selected on the score → that note's mark. Clicking the strokes clears the
+ *   2. NOTE ENTRY is armed with a mark, AND we are in entry mode → that one. What the next click
+ *      will WRITE outranks what the selection happens to hold, exactly as the armed stamp does
+ *      (§10). The mode gate matters because the armed mark PERSISTS across a trip into selection
+ *      mode: while you are selecting, the row should answer about the score, not about the writing
+ *      session you will come back to.
+ *   3. the MARK itself is selected on the score → that note's mark. Clicking the strokes clears the
  *      note selection, so without this the row would go dark on exactly the click that selected it.
- *   3. otherwise the single selected note's own mark — "what does this note have on it", which is
+ *   4. otherwise the single selected note's own mark — "what does this note have on it", which is
  *      what makes the row an answer and not just an arming state.
  *
- * Live-read from the engine rather than mirrored into state, like the articulation / tie / beam-role
- * highlights: the mark is a fact about the score, and a stamp, a Delete or an undo all change it
- * without going near the palette.
+ * The score-derived halves are live-read from the engine rather than mirrored into state, like the
+ * articulation / tie / beam-role highlights: the mark is a fact about the score, and a stamp, a
+ * Delete or an undo all change it without going near the palette.
  */
 export function tremoloHighlight(state: EditorState, engine: TremoloSource | null): TremoloMark | null {
   const armed = state.selectedMarkingTool
   if (armed) return armed.kind === 'tremolo' ? armed.tremolo : null
+  if (state.selectedTremolo !== null && state.selectedTool === 'entry') return state.selectedTremolo
   if (!engine) return null
   if (state.selectedTremoloNoteId) return engine.getNote(state.selectedTremoloNoteId)?.tremolo ?? null
   if (noNoteInSelection(state) || !state.selectedNoteId) return null

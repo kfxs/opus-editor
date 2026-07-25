@@ -258,7 +258,9 @@ export class NoteEntryCoordinator {
     dots?: number,
     articulations?: ArticulationType[],
     beam?: NoteParams['beam'],
-    voice: NoteParams['voice'] = 0
+    voice: NoteParams['voice'] = 0,
+    /** The armed entry tremolo, if any — a note property like the accidental and the dots. */
+    tremolo?: NoteParams['tremolo'],
   ): Note | null {
     const registry = this.elementRegistry
     const entryVoice = voice ?? 0
@@ -392,6 +394,7 @@ export class NoteEntryCoordinator {
       ...(dots && { dots }),
       ...(tupletId && { tupletId }),
       ...(articulations?.length && { articulations }),
+      ...(tremolo !== undefined && { tremolo }),
       ...(beam && beam !== 'auto' && { beam }),
       ...(entryVoice && { voice: entryVoice }),
       ...(entryStaff && { staff: entryStaff }),
@@ -1288,6 +1291,8 @@ export class NoteEntryCoordinator {
     voice?: NoteParams['voice']
     staff?: NoteParams['staff']
     existingHeadId?: string
+    /** The mark the note is being ENTERED with, when there is no existing head to read one off. */
+    tremolo?: NoteParams['tremolo']
   }): Note | null {
     const beatsInCurrentMeasure = p.totalBeats - p.overflowAmount
     const beatsInNextMeasure = p.overflowAmount
@@ -1315,10 +1320,12 @@ export class NoteEntryCoordinator {
     // A tremolo on the head must reach EVERY piece of the chain: a tremolo interrupted at a barline
     // is still being played across it (docs/tremolo-plan.md §6). Read before the head is retitled,
     // and applied explicitly per piece — the continuations are built from `{step, alter, octave,
-    // voice, staff}` alone, so anything not named here is dropped in silence. Only the duration-change
-    // caller can have one: you cannot ENTER a note with a tremolo, so a fresh head has nothing to
-    // carry.
-    const tremolo = p.existingHeadId ? model.getNote(p.existingHeadId)?.tremolo : undefined
+    // voice, staff}` alone, so anything not named here is dropped in silence.
+    //
+    // TWO sources now, one per caller: the duration-change caller reads the mark off the head it is
+    // reusing, and the ENTRY caller carries the armed one (§10) — you CAN enter a note with a
+    // tremolo since note-entry mode learned to arm one, so a fresh head is no longer always bare.
+    const tremolo = p.tremolo ?? (p.existingHeadId ? model.getNote(p.existingHeadId)?.tremolo : undefined)
 
     // Build the tied chain. Split durations are always plain (dots cleared).
     let firstNote: Note | null = null
@@ -1413,6 +1420,8 @@ export class NoteEntryCoordinator {
       overflowAmount,
       voice: noteParams.voice,
       staff: noteParams.staff,
+      // An ENTERED mark reaches every piece too — the same rule the existing head's mark follows.
+      tremolo: noteParams.tremolo,
     })
   }
 

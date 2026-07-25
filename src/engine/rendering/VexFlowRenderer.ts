@@ -3164,6 +3164,14 @@ export class VexFlowRenderer {
         staveNote.addModifier(new Accidental('n'), 0)
       }
 
+      // The armed entry tremolo, through the SAME modifier the engraved mark uses — so the ghost
+      // wears its strokes exactly where the committed note will, stem stretches and all. Added
+      // before the articulations for no reason but reading order; a tremolo is one modifier and
+      // stacks with nothing.
+      if (ghostNote.tremolo !== undefined) {
+        staveNote.addModifier(new CenteredTremolo(ghostNote.tremolo), 0)
+      }
+
       if (ghostNote.articulations?.length) {
         const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
         const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE

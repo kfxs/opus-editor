@@ -895,9 +895,11 @@ export class MusicEngine {
     dots?: number,
     articulations?: ArticulationType[],
     beam?: NoteParams['beam'],
-    voice: NoteParams['voice'] = 0
+    voice: NoteParams['voice'] = 0,
+    /** The armed entry tremolo, if any — the mark the entered note is born with (§10). */
+    tremolo?: NoteParams['tremolo'],
   ): Note | null {
-    return this.noteEntryCoordinator.addNoteAtPosition(coords, duration, accidental, dots, articulations, beam, voice)
+    return this.noteEntryCoordinator.addNoteAtPosition(coords, duration, accidental, dots, articulations, beam, voice, tremolo)
   }
 
 
@@ -2946,6 +2948,10 @@ export class MusicEngine {
     accidental?: Accidental,
     dots?: number,
     articulations?: ArticulationType[],
+    /** The armed entry tremolo, drawn ON the ghost note — the preview for "this click enters a
+     *  note wearing this mark". Not to be confused with the tremolo STAMP's ghost, which is the
+     *  mark alone (renderScoreWithTremoloGhost): here the note is what is coming. */
+    tremolo?: NoteParams['tremolo'],
     ghostColor?: { fill: string; stroke: string },
     /**
      * The armed tuplet, if any — as a SHAPE plus how it was armed, not as a finished mark.
@@ -3045,6 +3051,7 @@ export class MusicEngine {
       rawY: coords.y,
       ...(dots && { dots }),
       ...(articulations?.length && { articulations }),
+      ...(tremolo !== undefined && { tremolo }),
       // An armed natural is alter 0 (no glyph of its own) — flag it so the ghost still shows the ♮.
       ...(accidental === 'n' && { forceAccidental: true }),
       ...(tupletLabel && { tupletLabel }),

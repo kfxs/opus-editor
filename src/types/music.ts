@@ -1181,6 +1181,10 @@ export interface GhostNote {
   rawY?: number
   dots?: number
   articulations?: ArticulationType[]
+  /** The armed entry tremolo, drawn on the ghost — "this click enters a note wearing this mark".
+   *  Absent = no tremolo armed. Same modifier the engraved mark uses, so the preview cannot
+   *  disagree with what lands. */
+  tremolo?: TremoloMark
   /** Show a natural (♮) even though `alter` is 0 — the preview for an armed natural accidental,
    *  which otherwise has no glyph (alter 0 draws nothing). Sharp/flat carry their own sign via alter. */
   forceAccidental?: boolean
@@ -1229,6 +1233,14 @@ export interface NoteParams {
   tupletId?: string
   actualDuration?: Fraction
   articulations?: ArticulationType[]
+  /**
+   * The tremolo the new note is entered WITH — note entry armed with a mark, the way it is armed
+   * with an accidental or a dot (docs/tremolo-plan.md §10). A property of the SLOT, so entering a
+   * pitch into an existing chord marks the whole chord.
+   *
+   * Rests ignore it: you cannot tremolo silence.
+   */
+  tremolo?: TremoloMark
   /** Explicit side for articulations (above/below); omitted = auto (stem-derived). */
   articulationPlacement?: 'above' | 'below'
   /** Stem-side articulations align to the stem (modern) not the notehead (default). */
