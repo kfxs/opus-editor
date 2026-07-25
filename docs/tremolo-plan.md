@@ -733,7 +733,15 @@ are about to stamp:
   Live-read from the engine like the articulation / tie / beam-role highlights: a stamp, a Delete or
   an undo all change the mark without going near the palette.
 
-🚨 **AND LIVE-READING IS ONLY HALF OF IT — THE ROW NEEDS TWO SUBSCRIPTIONS.** Reading the engine is
+⏭️ **THE ROW ITSELF IS GONE** — the whole tremolo palette left the dev shell once the Keypad's
+page-2 keys were wired, the way the Beam row left before it: same `PaletteController` methods behind
+both, and two controls for one action from two different places is confusion, not convenience. ⭐
+Unlike the beam removal this one left NOTHING homeless — every mark has a key (`1`–`5`, `6` for the
+Penderecki sign, `Enter` for the pair, and the pair's style on the beam keys) — where the beam row
+took `setBeam('auto')` with it and that is still a TODO. `tremoloHighlight` did not go with it: it is
+the RULE, and the Keypad reads it now.
+
+🚨 **AND LIVE-READING IS ONLY HALF OF IT — A ROW NEEDS TWO SUBSCRIPTIONS.** Reading the engine is
 useless if nothing tells you to read it again. The dev shell subscribed to `onStateChange` alone, and
 changing a selected note's tremolo writes the SCORE and no top-level EditorState field — so the
 observable Proxy never emits, the row never re-syncs, and it keeps lighting the OLD mark. (Reported by
@@ -743,10 +751,12 @@ write `selectedTremoloNoteId = null`.)
 A control that shows what the selected note CARRIES can go stale in two ways, and they are different
 signals: the selection moves to another note (**state**), or the same note is edited under it
 (**model**). `MusicEngine.onModelChange` is the second, and its own doc calls out exactly this trap.
-So the toolbar takes both — the shape `wireSelectionInspection` already uses for the Properties
-window, borrowed rather than invented, with the model subscription taken LAZILY because the engine
-does not exist at mount. ⚠️ Every engine-reading control in that row was equally blind, not just the
-tremolo: the two-note pair button and the Measure/Staff enable states too.
+So it takes both — the shape `wireSelectionInspection` already uses for the Properties window,
+borrowed rather than invented, with the model subscription taken LAZILY because the engine does not
+exist at mount. ⚠️ This was found on the dev toolbar and fixed there first; `wireKeypadSync` had the
+identical gap, and every engine-read light on the pad was blind to a model-only edit — the
+articulations, the tie, the rest and the whole beam cluster, not just the tremolos. The toolbar's own
+copy went when the row did: with the tremolo buttons gone, every syncer left in it reads `state`.
 
 ### ⏭️ What P5/P6/P7 deliberately did not do
 

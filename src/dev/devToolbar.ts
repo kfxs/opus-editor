@@ -1,9 +1,8 @@
 import type { EditorState } from '../interactions/EditorState'
 import type { PaletteController } from '../interactions/PaletteController'
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { NoteDuration, TremoloMark } from '../types/music'
-import { durationHighlight, tremoloHighlight, tremoloPairHighlight } from '../interactions/keypadSync'
-import { bakeGlyphStack } from '../windows/keypad/tremoloBake'
+import type { NoteDuration } from '../types/music'
+import { durationHighlight } from '../interactions/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 
 /**
@@ -31,72 +30,15 @@ const OFF = 'bg-gray-600 hover:bg-gray-500'
 // (The `ON_DEFAULT` slate state — lit on a value nobody chose — went with the Beam row it served; the
 // Keypad lights the beam cluster in one colour. Restore it here if another row ever needs the third state.)
 
-/**
- * The tremolo palette's pictures. Glyphs are Bravura first — these are notation, not text, so the
- * music font MUST lead the stack (utils/fontStack says why the reverse is the rule for words).
- */
-const TREM_FONT = "Bravura, Academico, 'Noto Music', serif"
-/** The svg's own box, and the button around it. ~1.6× is the Keypad's CELL:GLYPH ratio — the note's
- *  stem runs past the 26-unit drawing box, and that slack is where it goes. */
-const TREM_GLYPH = 22
-const TREM_BTN = 'w-9 h-9 flex items-center justify-center rounded overflow-hidden'
-
-/** One glyph in a drawing — the shape {@link bakeGlyphStack} takes. */
-type TremLayer = { glyph: string; size?: number; dx?: number; dy?: number }
-
-/**
- * A down-stem quarter wearing a stroke mark, each layer offset against a 26-unit box (`dy` down,
- * `dx` right) — the SAME drawing, with the same tuned offsets, that the Keypad's page-2 tremolo keys
- * use (`struck` in windows/keypad/keypadLayouts). Repeated here rather than imported on purpose:
- * `dev/` is scaffolding that must stay deletable in one `rm`, so it borrows the drawing but not a
- * dependency. The codepoints are written out because VexFlow's `Glyphs` map is CJS-only — it is
- * undefined in the browser.
- */
-const struck = (stroke: string, dy = 4, size?: number, dx = -2): TremLayer[] =>
-  [{ glyph: '\uE1D6', dy: -10 }, { glyph: stroke, size, dy, dx }]   // E1D6 noteQuarterDown
-
-/**
- * The six marks, the same population the Keypad's page-2 tremolo keys cover. `id` names the drawing
- * (the Keypad borrows the same names); `mark` is the {@link TremoloMark} the button ARMS — the
- * mapping is deliberate rather than a rename, so neither file has to change spelling to agree.
- *
- * SMuFL `tremolo1`…`tremolo5` are the strokes — the stroke count says which division of the written
- * note you repeat. `pendereckiTremolo` (E22B) is the UNMEASURED one: as fast as possible, no relation to the
- * written duration, which is why it is a mark of its own here and not "six strokes", and why it sits
- * last rather than after the third stroke.
- *
- * The four- and five-stroke marks are drawn SMALLER (size 22 / 21 against the 26 box) — they are
- * taller glyphs, so at full size they outgrow the note they ride. Those numbers are the Keypad's,
- * like the rest of the offsets.
- */
-const TREMOLOS: ReadonlyArray<{ id: string; mark: TremoloMark; title: string; layers: TremLayer[] }> = [
-  { id: 'one', mark: 1, title: 'Single tremolo — one stroke', layers: struck('\uE220') },
-  { id: 'two', mark: 2, title: 'Second-order tremolo — two strokes', layers: struck('\uE221', 3) },
-  { id: 'three', mark: 3, title: 'Third-order tremolo — three strokes', layers: struck('\uE222', 3) },
-  { id: 'four', mark: 4, title: 'Fourth-order tremolo — four strokes', layers: struck('\uE223', 4, 22) },
-  { id: 'five', mark: 5, title: 'Fifth-order tremolo — five strokes', layers: struck('\uE224', 4.5, 21) },
-  { id: 'penderecki', mark: 'penderecki', title: 'Penderecki tremolo — unmeasured, as fast as possible',
-    layers: struck('\uE22B', 4.5, 30, -1) },
-]
-
-/**
- * The SEVENTH button: the two-note tremolo — Sibelius's Enter key on the Beams/Tremolos keypad,
- * whose picture is already drawn there (`TREMOLO.tremoloWithNext`) and deliberately still
- * `momentary`. Borrowed the same way `struck` is: the drawing, not a dependency, so `dev/` stays
- * deletable in one `rm`. Two down-stem half notes with a bar between them.
- *
- * ⚠️ It carries NO stroke count of its own. The 1–5 buttons say how many strokes, here as everywhere;
- * this one only says the strokes go BETWEEN two notes. On a note with no mark yet the press sets
- * three — the ordinary two-note tremolo (docs/two-note-tremolo-plan.md §0).
- */
-const TREMOLO_PAIR: { title: string; layers: TremLayer[] } = {
-  title: 'Two-note tremolo — alternate with the next note (three strokes if the note has none)',
-  layers: [
-    { glyph: '\uE1D4', dy: -7, dx: -8 },   // noteHalfDown
-    { glyph: '\uE1D4', dy: -13, dx: 12 },
-    { glyph: '\uE007', size: 12, dy: 15, dx: -2 },
-  ],
-}
+// REMOVED: the tremolo palette (the six marks + the two-note pair). It went the way the Beam row
+// went before it — every one of its actions now lives on the Keypad's Beams/Tremolos page, calling
+// the SAME `PaletteController` methods (`pressTremolo`, `pressTremoloPair`), so nothing behind it
+// changed. Two controls for one action from two different places is confusion, not convenience.
+//
+// ⭐ Unlike the beam removal, this one leaves NOTHING homeless: the beam row took `setBeam('auto')`
+// with it (still a TODO for a Properties "reset beaming"), while every tremolo action has a key —
+// `1`–`5` the stroke counts, `6` the Penderecki sign, `Enter` the two-note mark, and the pair's
+// joined/open style on the beam keys.
 
 export interface DevToolbarDeps {
   state: EditorState
@@ -261,70 +203,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   // is `setBeam('auto')` — reset a note's authored beam back to the meter's default — which is kept as
   // a method for a future Properties "reset beaming" control (see `PaletteController.setBeam`).
 
-  // --- Tremolo ---
-  /**
-   * WIRED, and the press is FOUR gestures on one button — `PaletteController.pressTremolo` owns the
-   * routing (docs/tremolo-plan.md §10/§11): edit the selected MARK, apply across a note SELECTION
-   * (add / change / remove), arm the mark for NOTE ENTRY, or arm the STAMP when there is nothing to
-   * apply to. The button is the same either way; what you are doing decides what it does.
-   *
-   * The lit state is not a local `let`: `tremoloHighlight` is THE rule (interactions/keypadSync),
-   * kept beside the duration's for the day the Keypad's page-2 keys read it too. It reads the armed
-   * tool, the armed entry mark, the selected mark and the selected note's mark, in that order — so
-   * the row answers "what does this note have on it" and not only "what am I about to stamp", and
-   * Esc / a duration press / arming another tool switch it off for free.
-   *
-   * All six arm now: the Penderecki sign draws as of P2 (`CenteredTremolo` sets E22B as the glyph and
-   * places it exactly as it places the strokes), so the button that was disabled for having nothing
-   * behind it no longer is.
-   */
-  const tremBox = group('Tremolo:')
-  for (const t of TREMOLOS) {
-    const b = el('button', TREM_BTN)
-    b.title = t.title
-    // The picture is baked the same way the Keypad bakes its own: one svg in a 26-unit box, the
-    // button sized ~1.6× it so the stem overflowing that box has somewhere to go (KeypadWidget's
-    // CELL:GLYPH ratio), with the button clipping whatever still runs past.
-    const svg = bakeGlyphStack(t.layers, TREM_FONT)
-    svg.style.width = `${TREM_GLYPH}px`
-    svg.style.height = `${TREM_GLYPH}px`
-    b.appendChild(svg)
-    // A re-press of the lit one is a toggle-OFF in every context (disarm, un-mark the selection,
-    // remove the selected mark) and a different button swaps it — the same shape the accidental's
-    // keys have, because a note carries one tremolo exactly as it carries one accidental.
-    b.addEventListener('click', () => palette.pressTremolo(t.mark))
-    syncers.push(() => {
-      const lit = tremoloHighlight(state, getEngine()) === t.mark
-      b.className = `${TREM_BTN} ${lit ? ON : OFF}`
-    })
-    tremBox.appendChild(b)
-  }
-
-  /**
-   * The two-note tremolo, beside the six single-note marks — and it lights on its OWN axis.
-   * `tremoloHighlight` answers with a `TremoloMark`, which the pair is not: the count says how fast,
-   * the pair says the strokes go between two notes, and both are true at once. So the count keeps
-   * lighting its own button and this one lights beside it (docs/two-note-tremolo-plan.md §4).
-   */
-  const pairBtn = el('button', `${TREM_BTN} ${OFF}`)
-  pairBtn.title = TREMOLO_PAIR.title
-  const pairSvg = bakeGlyphStack(TREMOLO_PAIR.layers, TREM_FONT)
-  pairSvg.style.width = `${TREM_GLYPH}px`
-  pairSvg.style.height = `${TREM_GLYPH}px`
-  pairBtn.appendChild(pairSvg)
-  pairBtn.addEventListener('click', () => palette.pressTremoloPair())
-  syncers.push(() => {
-    const lit = tremoloPairHighlight(state, getEngine())
-    pairBtn.className = `${TREM_BTN} ${lit ? ON : OFF}`
-  })
-  tremBox.appendChild(pairBtn)
-
-  // (No stroke-STYLE control here. Joined-vs-open lives on the Keypad's beam keys — `begin` joins the
-  // strokes to both stem tips, `single` floats them — because on a pair those keys already choose how
-  // its lines are drawn. A second control saying the same thing from a different place is confusion,
-  // not convenience.)
-
-  row.appendChild(tremBox)
+  // --- Tremolo: REMOVED, see the note at the top of this file (it lives on the Keypad now). ---
 
   /**
    * The two structure groups below are driven by DIFFERENT measure-selection gestures, because they
@@ -408,35 +287,13 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   sync()
   const unsubscribe = onStateChange(sync)
 
-  /**
-   * ⚠️ TWO SOURCES, and the toolbar had only one. A button that shows what the SELECTED NOTE carries
-   * can go stale in two ways: the selection moves to a different note (state), or the SAME note is
-   * edited under it (model). The second never reaches an EditorState subscriber — changing a selected
-   * note's tremolo writes the SCORE and no top-level state field, so the Proxy never emits and the
-   * row kept lighting the old mark (reported by eye).
-   *
-   * That is what `MusicEngine.onModelChange` exists for, and what `wireSelectionInspection` already
-   * does for the Properties window; this is the same two-source shape, borrowed rather than invented.
-   * Every engine-reading syncer benefits — the tremolo row, the pair button, and the Measure/Staff
-   * enable states.
-   *
-   * The engine may not exist yet at mount (App.ts creates it later), so the subscription is taken
-   * LAZILY, on the first state change that finds one.
-   */
-  let stopModel: (() => void) | null = null
-  const attachModel = () => {
-    if (stopModel) return
-    const engine = getEngine()
-    if (engine) stopModel = engine.onModelChange(sync)
-  }
-  attachModel()
-  const unsubscribeAttach = onStateChange(attachModel)
+  // (No model subscription. The toolbar's syncers all read `state` now — the only two that read the
+  // ENGINE were the tremolo row's, and they went to the Keypad with it. `wireKeypadSync` carries that
+  // two-source wiring instead, which is where the engine-read lights now live.)
 
   return {
     destroy(): void {
       unsubscribe()
-      unsubscribeAttach()
-      stopModel?.()
       row.remove()
     },
   }
