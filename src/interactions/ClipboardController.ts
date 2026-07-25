@@ -118,9 +118,15 @@ export class ClipboardController {
     const clipNoteOffsets = this.payload.lanes
       .filter((l) => l.noteOffsets?.length)
       .map((l) => ({ staff: l.staff, voice: l.voice, noteOffsets: l.noteOffsets! }))
+    // Two-note tremolos travel the same way, and for a sharper reason: the event stream deliberately
+    // cannot hold the relation at all (see `ClipboardLane.tremoloPairs`), so this channel IS how a
+    // copied pair comes back. Re-validated against the tiling it lands in.
+    const clipTremoloPairs = this.payload.lanes
+      .filter((l) => l.tremoloPairs?.length)
+      .map((l) => ({ staff: l.staff, voice: l.voice, tremoloPairs: l.tremoloPairs! }))
     // Authored leading spaces (client #10) need no lane mapping at all: a space belongs to the
     // column, so its clip-relative offset is its whole address.
-    const pastedIds = engine.pasteEvents(measure, beat, this.payload.lanes, this.payload.spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, this.payload.dynamics, this.payload.slurs, this.payload.spaces ?? [], clipNoteOffsets)
+    const pastedIds = engine.pasteEvents(measure, beat, this.payload.lanes, this.payload.spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, this.payload.dynamics, this.payload.slurs, this.payload.spaces ?? [], clipNoteOffsets, clipTremoloPairs)
     dbg(`[Clipboard] pasted ${pastedIds.length} note(s) at measure ${measure} beat ${fracToNumber(beat)}`)
     this.selection.selectNotes(pastedIds)
     this.state.showCursor = true

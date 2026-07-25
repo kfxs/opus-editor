@@ -882,8 +882,10 @@ export class MusicEngine {
     clipSlurs: ClipSlurInput[] = [],
     clipSpaces: Array<{ offset: Fraction; space: number }> = [],
     clipNoteOffsets: { staff: number; voice: number; noteOffsets: Array<{ offset: Fraction; x: number }> }[] = [],
+  /** Two-note tremolos the clip carries, per lane — see `ClipboardLane.tremoloPairs`. */
+  clipTremoloPairs: { staff: number; voice: number; tremoloPairs: Array<{ offset: Fraction; style?: 'joined' | 'open' }> }[] = [],
   ): string[] {
-    const ids = this.scoreModel.pasteEvents(measure, beat, lanes, spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, clipDynamics, clipSlurs, clipSpaces, clipNoteOffsets)
+    const ids = this.scoreModel.pasteEvents(measure, beat, lanes, spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, clipDynamics, clipSlurs, clipSpaces, clipNoteOffsets, clipTremoloPairs)
     this.commit('Paste')
     return ids
   }
@@ -2578,9 +2580,17 @@ export class MusicEngine {
       .filter(o => o.note.isRest && o.note.beamOver)
       .map(o => ({ measure: o.note.measure, beat: o.note.beat, staff: o.note.staff ?? 0 }))
 
+    // Bars a two-note tremolo could have been torn across — collected BEFORE the move, since a note
+    // that leaves takes its bar number with it.
+    const touchedMeasures = new Set(ordered.map(o => o.note.measure))
+
     return this.runBatch(`Move ${ordered.length} note(s) to voice ${targetVoice + 1}`, () => {
       for (const { id } of ordered) this.moveNoteToVoice(id, targetVoice, movingIds)
       for (const r of beamOverRests) this.scoreModel.setRestBeamOver(r.measure, r.beat, targetVoice, r.staff, true)
+      // AFTER the loop, never inside it: moving both notes of a pair moves them one at a time, and
+      // between the two the pair is invalid. Pruning per note would kill a mark that is about to be
+      // whole again in the new voice — which is the whole point of moving both.
+      for (const m of touchedMeasures) this.scoreModel.dropStaleTremoloPairs(m)
     })
   }
 

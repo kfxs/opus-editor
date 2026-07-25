@@ -1367,10 +1367,12 @@ export class ScoreModel {
     clipSlurs: rebarOps.ClipSlurInput[] = [],
     clipSpaces: Array<{ offset: Fraction; space: number }> = [],
     clipNoteOffsets: { staff: number; voice: number; noteOffsets: Array<{ offset: Fraction; x: number }> }[] = [],
+  /** Two-note tremolos the clip carries, per lane — see `ClipboardLane.tremoloPairs`. */
+  clipTremoloPairs: { staff: number; voice: number; tremoloPairs: Array<{ offset: Fraction; style?: 'joined' | 'open' }> }[] = [],
   ): string[] {
     return rebarOps.pasteEvents(
       this.score, this.rebarDeps, targetMeasure, targetBeat, clipLanes, spanBeats, targetVoice,
-      clipRestShifts, clipRestHidden, targetStaff, clipDynamics, clipSlurs, clipSpaces, clipNoteOffsets,
+      clipRestShifts, clipRestHidden, targetStaff, clipDynamics, clipSlurs, clipSpaces, clipNoteOffsets, clipTremoloPairs,
     )
   }
 
@@ -2622,6 +2624,13 @@ export class ScoreModel {
       // Also a SLOT statement, and not voice-derived: which note you repeat and how finely says
       // nothing about which voice it is in, so the mark travels with the note.
       tremolo: chord.tremolo,
+      // ⭐ The TWO-NOTE pair travels too — "I should be able to move what I marked". It is a
+      // RELATION, so unlike the others it can arrive broken: moving one note of a pair and not the
+      // other leaves nothing to alternate with. {@link dropStaleTremoloPairs}, run once the move (or
+      // the whole batch) has settled, is what severs those — the same shape `dropCrossVoiceTies`
+      // has for the other relation that cannot span voices.
+      tremoloPair: chord.tremoloPair,
+      tremoloPairStyle: chord.tremoloPairStyle,
     }
 
     // Remove the pitch from the source slot.
@@ -2655,6 +2664,10 @@ export class ScoreModel {
     this.resyncSlurVoiceForPitch(pitch.id)
 
     measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+
+    // A two-note tremolo the move tore in half. ONLY for a lone move: inside a batch the pair is
+    // invalid between the two notes' moves, and `moveSelectionToVoice` prunes once the loop is done.
+    if (!movingIds) this.dropStaleTremoloPairs(measure.number)
     return true
   }
 
@@ -2708,6 +2721,8 @@ export class ScoreModel {
       beam?: BeamMode
       secondaryBreak?: boolean
       tremolo?: TremoloMark
+      tremoloPair?: true
+      tremoloPairStyle?: 'joined' | 'open'
     },
   ): void {
     const notePitch: NotePitch = {
@@ -2741,6 +2756,10 @@ export class ScoreModel {
       if (payload.beam && !existingChord.beam) existingChord.beam = payload.beam
       // And for the tremolo, for the same reason: a note has ONE, so the destination keeps its own.
       if (payload.tremolo && !existingChord.tremolo) existingChord.tremolo = payload.tremolo
+      if (payload.tremoloPair && !existingChord.tremoloPair) {
+        existingChord.tremoloPair = true
+        if (payload.tremoloPairStyle) existingChord.tremoloPairStyle = payload.tremoloPairStyle
+      }
       if (payload.secondaryBreak && existingChord.secondaryBreak === undefined) {
         existingChord.secondaryBreak = true
       }
@@ -2773,10 +2792,41 @@ export class ScoreModel {
     if (payload.beam) chord.beam = payload.beam
     if (payload.secondaryBreak) chord.secondaryBreak = true
     if (payload.tremolo) chord.tremolo = payload.tremolo
+    if (payload.tremoloPair) chord.tremoloPair = true
+    if (payload.tremoloPairStyle) chord.tremoloPairStyle = payload.tremoloPairStyle
     if (targetVoice) chord.voice = targetVoice as 0 | 1 | 2 | 3
     chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
     dbg(`[Model.insertPitch] new chord ${fmtSlot(chord)} → replacing v${targetVoice} rests`)
     this.replaceRestsWithChord(measure, chord)
+  }
+
+  /**
+   * Sever every two-note tremolo in `measureNumber` that is no longer one — the model half of
+   * docs/two-note-tremolo-plan.md §1's *"a broken pair is DROPPED, not carried"*.
+   *
+   * Draw-time validation already keeps a stale flag from being DRAWN, and the plan is explicit that
+   * this is not enough on its own: the dead flag sits in the JSON and silently comes back to life the
+   * day a note of the right length lands next to it again. The relay gets the drop for free (a
+   * `RebarEvent` has no such field); every other structural edit needs this.
+   *
+   * ⚠️ CALL IT ONCE THE EDIT HAS SETTLED, never mid-batch. Moving both notes of a pair moves them one
+   * at a time, so between the two the pair is genuinely invalid — pruning there would kill a mark
+   * that is about to be whole again. Hence the callers: a single move prunes at its end, and
+   * `moveSelectionToVoice` prunes after its loop.
+   *
+   * Takes the STYLE with the flag, for the same reason removing the mark does: a style with no pair
+   * is a setting for a mark that is not there.
+   */
+  dropStaleTremoloPairs(measureNumber: number): void {
+    const measure = this.getMeasure(measureNumber)
+    if (!measure) return
+    for (const slot of measure.slots) {
+      if (slot.type !== 'chord' || !slot.tremoloPair) continue
+      const lane = laneOfSlot(measure.slots, slot)
+      if (pairIsValid(lane, lane.indexOf(slot))) continue
+      delete slot.tremoloPair
+      delete slot.tremoloPairStyle
+    }
   }
 
   /**
@@ -2986,6 +3036,10 @@ export class ScoreModel {
     this.resyncSlurVoiceForPitch(pitch.id)
 
     measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+
+    // A two-note tremolo the move tore in half. ONLY for a lone move: inside a batch the pair is
+    // invalid between the two notes' moves, and `moveSelectionToVoice` prunes once the loop is done.
+    if (!movingIds) this.dropStaleTremoloPairs(measure.number)
     return true
   }
 

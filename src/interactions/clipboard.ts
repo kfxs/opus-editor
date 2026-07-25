@@ -8,6 +8,7 @@ import { formatPitch } from '../utils/pitchSpelling'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, measureLeadingSpaces } from '../engine/models/engravingOverrides'
 import { keyStaffId } from '../engine/models/staffContent'
 import { staffMeasureView, staffIdAtIndex, staffIndexOfId } from '../engine/models/staffContent'
+import { laneOfSlot, pairIsValid } from '../utils/tremoloPair'
 
 /**
  * A position-independent snapshot of copied musical material.
@@ -60,6 +61,22 @@ export interface ClipboardLane {
    * Absent/empty = none. See docs/note-offset-plan.md.
    */
   noteOffsets?: Array<{ offset: Fraction; x: number }>
+  /**
+   * Two-note tremolos whose BOTH notes are inside the selection window, at the FIRST note's offset
+   * relative to the selection start (same basis as {@link events}).
+   *
+   * ⭐ Carried separately for the reason {@link restShifts} and {@link noteOffsets} are, and it is the
+   * sharpest case of it: `RebarEvent` deliberately has NO `tremoloPair` field, because the relay
+   * copies a split event's marks to every piece and a pair minted on each half of a tie-split would
+   * be a bogus mark between two halves of one note (docs/two-note-tremolo-plan.md §1). That drop is
+   * right for a RE-BAR, where adjacency genuinely may not survive — and wrong for a COPY, which
+   * carries both notes and can simply reproduce the mark. So the relay stays clean and the clip
+   * carries the relation itself.
+   *
+   * ⚠️ Only pairs whose PARTNER is also in the window travel: half a mark is not a mark. Re-validated
+   * on paste against the tiling that actually arrives.
+   */
+  tremoloPairs?: Array<{ offset: Fraction; style?: 'joined' | 'open' }>
 }
 
 /**
@@ -252,6 +269,44 @@ function noteOffsetsInWindow(
 }
 
 /**
+ * Two-note tremolos fully inside the copy window — the FIRST note's offset, plus its stroke style.
+ *
+ * "Fully" is the whole rule: a pair is a RELATION between two slots, so it travels only when BOTH
+ * are in the selection. Copying just the first note copies a note, not half a mark — which is the
+ * plan's own wording for what must NOT travel.
+ *
+ * Validated here as well as on paste, so a stale flag in the source (one that draw-time validation is
+ * already refusing to draw) is never what gets copied.
+ */
+function tremoloPairsInWindow(
+  score: Score,
+  staff: number,
+  voice: number,
+  spanStart: Fraction,
+  spanEnd: Fraction,
+): Array<{ offset: Fraction; style?: 'joined' | 'open' }> {
+  const starts = measureStartOffsets(score)
+  const out: Array<{ offset: Fraction; style?: 'joined' | 'open' }> = []
+  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
+    const mStart = starts.get(m.number)
+    if (!mStart) continue
+    for (const slot of m.slots) {
+      if (slot.type !== 'chord' || !slot.tremoloPair) continue
+      if ((slot.voice ?? 0) !== voice || staffIndexOfId(score, slot.staffId) !== staff) continue
+      const lane = laneOfSlot(m.slots, slot)
+      const index = lane.indexOf(slot)
+      if (!pairIsValid(lane, index)) continue
+      const abs = fracAdd(mStart, slot.beat)
+      const partnerAbs = fracAdd(mStart, lane[index + 1].beat)
+      // BOTH ends inside, or it is not a pair to copy.
+      if (!(fracGte(abs, spanStart) && fracLt(partnerAbs, spanEnd))) continue
+      out.push({ offset: fracSub(abs, spanStart), ...(slot.tremoloPairStyle ? { style: slot.tremoloPairStyle } : {}) })
+    }
+  }
+  return out
+}
+
+/**
  * User-authored leading spaces (client #10) whose column falls inside the copy window
  * `[spanStart, spanEnd)`, re-based to the window start. The system-wide sibling of
  * {@link restShiftsInWindow}: no staff and no voice, because a space addresses the column.
@@ -427,6 +482,7 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
       const restShifts = restShiftsInWindow(score, staff, v, spanStart, spanEnd)
       const restHidden = restHiddenInWindow(score, staff, v, spanStart, spanEnd)
       const noteOffsets = noteOffsetsInWindow(score, staff, v, spanStart, spanEnd)
+      const tremoloPairs = tremoloPairsInWindow(score, staff, v, spanStart, spanEnd)
       lanes.push({
         staff: staff - topStaff,
         voice: v,
@@ -437,6 +493,7 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
         ...(restShifts.length ? { restShifts } : {}),
         ...(restHidden.length ? { restHidden } : {}),
         ...(noteOffsets.length ? { noteOffsets } : {}),
+        ...(tremoloPairs.length ? { tremoloPairs } : {}),
       })
     }
   }

@@ -93,10 +93,41 @@ So the flag alone is not the notation. Two rules, and they are P1 work, not late
    what playback asks before alternating, and what the reporting in §4 asks. Two copies of this rule
    would drift, and the drift is silent: a bar that draws a pair and plays two separate notes.
 2. **A broken pair is DROPPED, not carried.** The relay hands `tremolo` to every piece of a split
-   and must hand `tremoloPair` to none of them: adjacency is not a property of the event. Same for
-   the clipboard — copying the first note of a pair copies a note, not half a mark. Otherwise a dead
-   flag sits in the JSON and silently comes back to life the day a note of the right length lands
-   next to it.
+   and must hand `tremoloPair` to none of them: adjacency is not a property of the event. Otherwise a
+   dead flag sits in the JSON and silently comes back to life the day a note of the right length
+   lands next to it.
+
+   ⭐ **BUT "dropped" is about what BREAKS, not about what MOVES INTACT** (his call, 2026-07-25: *"I
+   should be able to paste what I copied… same for voices"*). A re-bar may genuinely tear a pair
+   apart, so the relay must stay clean — but a COPY that carries both notes, or a voice move that
+   takes both, can simply reproduce the mark, and refusing to would be losing the user's notation
+   rather than protecting it. So:
+   - **The relation travels by POSITION, never on the event** — captured before a re-tile, re-found
+     after it, re-applied only where `pairIsValid` still holds. That is what makes it safe where a
+     field on `RebarEvent` would not be: the relay hands a split event's marks to *every* piece, so a
+     `tremoloPair` riding the event would mint a bogus pair between two halves of one tie-split note.
+     A position key cannot do that, because it re-asks the question at the destination.
+   - **Copy/paste** carries the pair in a lane channel of its own, `ClipboardLane.tremoloPairs`,
+     exactly as `restShifts` / `restHidden` / `noteOffsets` are carried — *because nothing in
+     `events` can drag it along*. Only pairs whose **partner is also in the window** travel (copying
+     the first note alone still copies a note, not half a mark).
+   - 🚨 **AND THE DESTINATION'S OWN PAIRS MUST BE CAPTURED TOO** — `captureTremoloPairs` /
+     `restoreTremoloPairs` in `rebarOps`, on BOTH the rebar and the paste paths, the clip's stamped
+     after so it wins a collision. Missing this was a real bug, reported: *"last paste broke the
+     already correct things."* Every slot in the rebuilt region goes through the relay, so a paste
+     into bar 4 quietly un-paired a mark at bar 4 beat 0 **and** one in bar 5 — neither of them
+     touched by the paste. Carrying only the CLIP's pairs fixes what you pasted and breaks what was
+     already there.
+   - The same capture is why a **meter change now KEEPS** a pair whose two notes stay adjacent, and
+     drops one it tears apart. Both fall out of re-validating on landing; neither is a special case.
+   - **Move to voice** carries `tremoloPair`/`tremoloPairStyle` in the move payload, so a pair whose
+     two notes both move lands whole. What the move genuinely tore is severed by
+     `ScoreModel.dropStaleTremoloPairs` — ⚠️ run once the move (or the whole BATCH) has settled,
+     never per note: the notes move one at a time, so between the two the pair is legitimately
+     invalid, and pruning there would kill a mark about to be whole again.
+
+   That pruner is also the general answer to rule 2 outside the relay: draw-time validation alone
+   keeps a stale flag from being drawn, and this is what keeps it from sitting in the JSON.
 
 Draw-time validation alone would leave that resurrection; dropping alone would leave the window
 between the edit and the next render. Both.

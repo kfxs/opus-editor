@@ -24,6 +24,7 @@ import { flattenRegion, relayEvents, type RebarPiece, type RebarEvent, type BarP
 import { type Fraction, fracCreate, fracAdd, fracSub, fracCompare, fracLt, fracGte } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/musicUtils'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, keyStaffId, staffMeasureView } from './staffContent'
+import { laneOfSlot, pairIsValid } from '@/utils/tremoloPair'
 import { v4 as uuidv4 } from 'uuid'
 
 // ==================== Callback surface + captured-state types ====================
@@ -110,6 +111,10 @@ type CapturedRestShift = { voice: number; staffId?: string; absBeat: Fraction; s
  */
 type CapturedNoteOffset = { voice: number; staffId?: string; absBeat: Fraction; x: number }
 
+/** A two-note tremolo snapshotted before a rebar/paste, keyed by the FIRST note's absolute offset so
+ *  it can be re-found — and re-validated — once the bars are re-tiled. See {@link captureTremoloPairs}. */
+type CapturedTremoloPair = { voice: number; staffId?: string; absBeat: Fraction; style?: 'joined' | 'open' }
+
 /** A user-authored leading space snapshotted before a rebar (client #10). No voice and no staff:
  *  the space belongs to the COLUMN, so its whole address is the absolute offset. */
 type CapturedLeadingSpace = { absBeat: Fraction; space: number }
@@ -195,6 +200,10 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
   // …and the note horizontal offsets (client #12), slot-keyed and so re-minted by the rebar —
   // captured by (voice, staff, offset), re-stamped onto the slot that starts there afterwards.
   const noteOffsets = captureNoteOffsets(score, deps, regionMeasures)
+  // Two-note tremolos travel by POSITION across the re-tile, and must be captured for the same
+  // reason as the offsets above: the relay cannot carry the relation, so anything not snapshotted
+  // here is silently un-paired by the rebuild.
+  const tremoloPairs = captureTremoloPairs(regionMeasures)
 
   // Rebar runs one lane per (STAFF, voice): each staff is an independent stream on the
   // shared bar spine, exactly like each voice. Flattening the whole measure per-voice
@@ -282,6 +291,7 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
   // …and the note offsets onto whatever slot now starts at each offset (dropped where the new
   // tiling has none — see restoreNoteOffsets).
   restoreNoteOffsets(score, deps, regionNumbers, noteOffsets)
+  restoreTremoloPairs(score, regionNumbers, tremoloPairs)
 }
 
 /**
@@ -314,6 +324,8 @@ export function pasteEvents(
   clipSlurs: ClipSlurInput[] = [],
   clipSpaces: Array<{ offset: Fraction; space: number }> = [],
   clipNoteOffsets: { staff: number; voice: number; noteOffsets: Array<{ offset: Fraction; x: number }> }[] = [],
+  /** Two-note tremolos the clip carries, per lane — see `ClipboardLane.tremoloPairs`. */
+  clipTremoloPairs: { staff: number; voice: number; tremoloPairs: Array<{ offset: Fraction; style?: 'joined' | 'open' }> }[] = [],
 ): string[] {
   const ordered = [...score.measures].sort((a, b) => a.number - b.number)
   const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
@@ -344,6 +356,10 @@ export function pasteEvents(
   const leadingSpaces = captureLeadingSpaces(score, deps, regionMeasures)
   // And the destination's own note offsets (client #12); the clip's land on top afterwards.
   const noteOffsets = captureNoteOffsets(score, deps, regionMeasures)
+  // Two-note tremolos travel by POSITION across the re-tile, and must be captured for the same
+  // reason as the offsets above: the relay cannot carry the relation, so anything not snapshotted
+  // here is silently un-paired by the rebuild.
+  const tremoloPairs = captureTremoloPairs(regionMeasures)
 
   const staffIndices = (score.staves ?? []).length > 0
     ? (score.staves ?? []).map((_, i) => i)
@@ -471,6 +487,7 @@ export function pasteEvents(
   restoreLeadingSpaces(score, deps, regionNumbers, leadingSpaces)
   // The destination's own note offsets, likewise — the clip's are stamped on top further down.
   restoreNoteOffsets(score, deps, regionNumbers, noteOffsets)
+  restoreTremoloPairs(score, regionNumbers, tremoloPairs)
 
   // Apply the clip's rest shifts at the paste window: re-base each clip-relative offset by
   // the paste start, and re-voice a single-voice clip into the target voice (mirroring the
@@ -521,6 +538,25 @@ export function pasteEvents(
     }
   }
   restoreNoteOffsets(score, deps, regionNumbers, clipCapturedOffsets)
+
+  // ⭐ The clip's TWO-NOTE TREMOLOS, re-based and re-voiced exactly like its note offsets — "I should
+  // be able to paste what I copied". They travel outside `events` on purpose (see
+  // `ClipboardLane.tremoloPairs`): the relay must keep dropping the relation, because a split event
+  // hands its marks to every piece, while a copy that carries BOTH notes can simply reproduce it.
+  //
+  // ⚠️ RE-VALIDATED against the tiling that actually arrived, never trusted. The paste may land the
+  // pair against a different meter, split it across a barline, or drop the partner off the end of the
+  // region — all of which make it no longer a pair, and `pairIsValid` is the one predicate that says
+  // so. A mark that does not survive the landing is simply not applied.
+  const clipPairs: CapturedTremoloPair[] = []
+  for (const { staff, voice, tremoloPairs } of clipTremoloPairs) {
+    const destVoice = singleVoice ? targetVoice : voice
+    const destStaffId = keyStaffId(score, targetStaff + staff)
+    for (const tp of tremoloPairs) {
+      clipPairs.push({ voice: destVoice, staffId: destStaffId, absBeat: fracAdd(pasteStart, tp.offset), style: tp.style })
+    }
+  }
+  restoreTremoloPairs(score, regionNumbers, clipPairs)
 
   // Collect the ids of notes whose absolute offset falls inside the paste window.
   const startOfMeasure = new Map<number, Fraction>()
@@ -797,6 +833,65 @@ function restoreNoteOffsets(score: Score, deps: RebarDeps, regionNumbers: number
     if (!slot) continue // the new tiling has no slot starting here → drop (benign)
     const next: NoteOffsetOverride = { kind: 'noteOffset', x: c.x }
     deps.setEngravingOverride(slot.id, next)
+  }
+}
+
+/**
+ * Snapshot every two-note tremolo in the region by ABSOLUTE offset, so it can be re-found after the
+ * bars are re-tiled — the twin of {@link captureNoteOffsets}, and the missing half of the pair's
+ * travel story.
+ *
+ * ⚠️ WITHOUT THIS A PASTE DESTROYS THE PAIRS IT LANDS NEAR, not just the ones it overwrites. Every
+ * slot in the rebuilt region goes through the relay, and `RebarEvent` deliberately has no
+ * `tremoloPair` field — so a paste into bar 4 quietly un-paired a mark at bar 4 beat 0 *and* one in
+ * bar 5, neither of which the paste touched. Reported: *"last paste broke the already correct
+ * things."*
+ *
+ * ⚠️ POSITION-KEYED, WHICH IS WHY IT IS SAFE where carrying the flag on the event would not be. The
+ * relay hands a split event's marks to EVERY piece, so a `tremoloPair` riding `RebarEvent` would
+ * mint a bogus pair between two halves of one tie-split note (docs/two-note-tremolo-plan.md §1).
+ * This re-finds the slot that now STARTS at the same absolute offset and re-applies only where
+ * `pairIsValid` still holds — so a pair the new tiling tore apart is simply not written back, which
+ * is the drop, done cleanly.
+ */
+function captureTremoloPairs(regionMeasures: Measure[]): CapturedTremoloPair[] {
+  const out: CapturedTremoloPair[] = []
+  forEachRegionMeasure(regionMeasures, (m, base) => {
+    for (const s of m.slots) {
+      if (s.type !== 'chord' || !s.tremoloPair) continue
+      out.push({ voice: s.voice ?? 0, staffId: s.staffId, absBeat: fracAdd(base, s.beat), style: s.tremoloPairStyle })
+    }
+  })
+  return out
+}
+
+/**
+ * Re-apply two-note tremolos onto the slots a rebar or paste produced, keyed by absolute offset
+ * within the region (the same address {@link restoreNoteOffsets} uses).
+ *
+ * ⚠️ The mark is only written where it is still a NOTATION. The clip says "these two alternated";
+ * whether they still can is a question about the bars they landed in, and only `pairIsValid` — read
+ * off the destination's own lane — can answer it. A partner that arrived a different length, a
+ * barline that came between them, a region that ended first: all of them mean no pair, and none of
+ * them is an error. The flag is simply not written, which is what keeps a paste from minting the
+ * dead flags §1 spends its length warning about.
+ */
+function restoreTremoloPairs(score: Score, regionNumbers: number[], captured: CapturedTremoloPair[]): void {
+  if (captured.length === 0) return
+  const ranges = regionRanges(score, regionNumbers)
+  if (ranges.length === 0) return
+
+  for (const c of captured) {
+    const target = rangeForOffset(ranges, c.absBeat)
+    const beat = fracSub(c.absBeat, target.start)
+    const slot = target.measure.slots.find(
+      (s) => (s.voice ?? 0) === c.voice && (s.staffId ?? undefined) === (c.staffId ?? undefined) && fracCompare(s.beat, beat) === 0,
+    )
+    if (!slot || slot.type !== 'chord') continue
+    const lane = laneOfSlot(target.measure.slots, slot)
+    if (!pairIsValid(lane, lane.indexOf(slot))) continue
+    slot.tremoloPair = true
+    if (c.style) slot.tremoloPairStyle = c.style
   }
 }
 
