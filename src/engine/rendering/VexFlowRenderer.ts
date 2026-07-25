@@ -200,14 +200,18 @@ const PLACEHOLDER_BEAM = { postFormat: () => {} } as unknown as Beam
  * system reads as a long empty beam, not one going somewhere. VexFlow's own `partialBeamLength` (10px)
  * is the honest floor; these are tuned by eye.
  *
- * The two ends are NOT the same length. A fragment at the **end of a line** (open on its right) has to
- * cross the closing barline into the empty margin to read as "continued on the next system", so it
- * runs longer. A fragment at the **start of the next line** (open on its left) only projects a little
- * left of its first note. `CROSS_SYSTEM_BEAM_WIDTH` mirrors VexFlow's default `beamWidth` for the
- * lone-note fragment, which has no real `Beam` to read it from.
+ * The two ends are NOT the same. A fragment at the **end of a line** (open on its right) has to cross
+ * the closing barline into the empty margin to read as "continued on the next system" — and how far
+ * that is depends on where the last note sits, which justification moves bar to bar. So the line-end
+ * end is **computed to the barline** (`measureX + measureWidth`) plus {@link CROSS_SYSTEM_BEAM_MARGIN}
+ * into the margin, not a fixed length; the fixed `…LINE_END` is only a fallback when the measure's
+ * bounds are unknown. A fragment at the **start of the next line** (open on its left) only projects a
+ * little left of its first note, so that one stays the fixed `…LINE_START`. `CROSS_SYSTEM_BEAM_WIDTH`
+ * mirrors VexFlow's default `beamWidth` for the lone-note fragment, which has no real `Beam` to read.
  */
 const CROSS_SYSTEM_BEAM_STUB_LINE_END = 22
 const CROSS_SYSTEM_BEAM_STUB_LINE_START = 12
+const CROSS_SYSTEM_BEAM_MARGIN = 10
 const CROSS_SYSTEM_BEAM_WIDTH = 5
 
 /** The stub length for an open end, by the direction it points: right (+1) runs off the line end. */
@@ -1869,7 +1873,7 @@ export class VexFlowRenderer {
     const beamY0 = beam.getBeamYToDraw()
     const overhang = (edge: StaveNote, direction: number, levels: number) => {
       const startX = edge.getStemX() - Stem.WIDTH / 2
-      const endX = startX + direction * crossSystemStub(direction)
+      const endX = this.crossSystemOverhangEndX(side, startX, direction)
       for (let k = 0; k < levels; k++) {
         const beamY = beamY0 + k * beamThickness * 1.5
         const startY = beam.getSlopeY(startX, firstStemX, beamY, beam.slope)
@@ -1881,6 +1885,22 @@ export class VexFlowRenderer {
     if (side.openRight) overhang(staveNotes[staveNotes.length - 1], 1, side.crossingRight ?? 0)
 
     this.registerCrossBarBeam(beam, side.measures[0])
+  }
+
+  /**
+   * Where a cross-system overhang ends, in x. Left (line start, `direction < 0`) is a short fixed stub
+   * projecting from the first note. Right (line end, `direction > 0`) must **cross the closing barline
+   * into the margin**, and how far that is varies with justification — so it is computed to the side's
+   * last measure's barline (`measureX + measureWidth`) plus a margin overshoot, not a fixed length; a
+   * fixed stub is the fallback only when that measure's bounds are unavailable.
+   */
+  private crossSystemOverhangEndX(side: CrossBarSide, startX: number, direction: number): number {
+    if (direction < 0) return startX - crossSystemStub(-1)
+    const lastMeasure = side.measures[side.measures.length - 1]
+    const bounds = this.measureBounds.get(lastMeasure)
+    if (!bounds) return startX + crossSystemStub(1)
+    const barlineX = bounds.measureX + bounds.measureWidth
+    return Math.max(barlineX, startX) + CROSS_SYSTEM_BEAM_MARGIN
   }
 
   /**
@@ -1899,9 +1919,11 @@ export class VexFlowRenderer {
     const beamThickness = CROSS_SYSTEM_BEAM_WIDTH * note.getStemDirection()
     const beamY0 = stem.getExtents().topY // the stem tip, flat — a lone note has no slope to continue.
     const startX = note.getStemX() - Stem.WIDTH / 2
+    // Left is the short fixed stub; right runs to the barline (see crossSystemOverhangEndX).
+    const leftEndX = this.crossSystemOverhangEndX(side, startX, -1)
+    const rightEndX = this.crossSystemOverhangEndX(side, startX, 1)
     let minY = Infinity, maxY = -Infinity
-    const stub = (direction: number) => {
-      const endX = startX + direction * crossSystemStub(direction)
+    const stub = (endX: number) => {
       for (let k = 0; k < levels; k++) {
         const beamY = beamY0 + k * beamThickness * 1.5
         this.fillBeamQuad(pass.context, startX, beamY, endX, beamY, beamThickness)
@@ -1909,13 +1931,13 @@ export class VexFlowRenderer {
         maxY = Math.max(maxY, beamY, beamY + beamThickness)
       }
     }
-    if (side.openLeft) stub(-1)
-    if (side.openRight) stub(1)
+    if (side.openLeft) stub(leftEndX)
+    if (side.openRight) stub(rightEndX)
 
-    // A lone side has no `Beam` to ask for a bbox — build it from the stub. (x spans both directions
-    // if the note is open on both, which only a middle-of-three-systems lone note is.)
-    const left = startX - (side.openLeft ? crossSystemStub(-1) : 0)
-    const right = startX + (side.openRight ? crossSystemStub(1) : 0)
+    // A lone side has no `Beam` to ask for a bbox — build it from the stub ends. (x spans both
+    // directions if the note is open on both, which only a middle-of-three-systems lone note is.)
+    const left = side.openLeft ? leftEndX : startX
+    const right = side.openRight ? rightEndX : startX
     if (minY <= maxY) {
       this.elementRegistry.add({
         type: 'beam',

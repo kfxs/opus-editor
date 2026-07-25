@@ -70,15 +70,18 @@ beamed note's stem *by identity* through the `Stem` object's SVG group (a beamed
 the beam's group, not the note's), so a hand-drawn stem would leave the note highlighting with a hole in
 it.
 
-### What stays whole-group, and the two stub lengths
+### What stays whole-group, and the two stub ends
 
 Two facts a side alone cannot know are settled once for the group and handed to every side: its **one
 stem direction**, and the **crossing beam count** at each split point (the lines common to both sides —
 `min` of the two boundary notes' counts, or 1 if a secondary break cuts it). `secondaryBreaks` are
-group-local and re-based per side. The stub itself is **not** a run to the system edge (that reads as a
-long empty beam) but a short fixed length past the edge note's stem, tuned by eye from VexFlow's own
-`partialBeamLength` (10px). The **end-of-line** stub runs longer than the **start-of-line** one, so it
-crosses the closing barline into the empty margin and reads as "continued on the next system".
+group-local and re-based per side. The stub is **not** a run to the system edge (that reads as a long
+empty beam), but the two ends differ. The **start-of-line** end is a short fixed length past the first
+note's stem (`…LINE_START`). The **end-of-line** end has to **cross the closing barline into the
+margin**, and how far that is depends on where justification puts the last note — so it is **computed to
+the barline** (`measureBounds` → `measureX + measureWidth`) plus a margin overshoot, not a fixed length;
+a fixed stub is only the fallback when that measure's bounds are unknown. A fixed end-length was the
+first cut and stopped short of a justified barline (reported, screenshot).
 
 Two known limitations, shipped as such. A **lone side draws its own note's beam count**, all pointing at
 the break (its higher beams have nowhere on their own side to go) — an engraving call worth confirming,
