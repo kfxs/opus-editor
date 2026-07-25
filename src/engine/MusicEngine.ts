@@ -3104,9 +3104,9 @@ export class MusicEngine {
     return this.renderer.renderScoreWithDotGhost(coords.x, coords.y)
   }
 
-  /** Ghost tremolo STROKES at the cursor — see {@link VexFlowRenderer.renderScoreWithTremoloGhost}. */
-  renderScoreWithTremoloGhost(coords: PixelCoordinates, strokes: number): boolean {
-    return this.renderer.renderScoreWithTremoloGhost(coords.x, coords.y, strokes)
+  /** Ghost tremolo MARK at the cursor — see {@link VexFlowRenderer.renderScoreWithTremoloGhost}. */
+  renderScoreWithTremoloGhost(coords: PixelCoordinates, mark: TremoloMark): boolean {
+    return this.renderer.renderScoreWithTremoloGhost(coords.x, coords.y, mark)
   }
 
   /** Ghost REST at the cursor, showing the armed length (duration + dots) — see

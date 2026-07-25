@@ -1,5 +1,6 @@
 import { Tremolo, Metrics, Stem } from 'vexflow'
 import type { Note } from 'vexflow'
+import type { TremoloMark } from '@/types/music'
 
 /**
  * A single-note tremolo whose strokes sit in the MIDDLE of the stem.
@@ -63,6 +64,18 @@ export const TREMOLO_FLAG_STEM_STRETCH = 0.25
 export const TREMOLO_STROKE_CLEARANCE = 0.25
 
 /**
+ * SMuFL `pendereckiTremolo` (E22B) — the sign for a tremolo that is as fast as possible AND irregular.
+ * VexFlow draws no such thing, so we set it as the modifier's glyph and let the rest of this class
+ * place it exactly as it places the strokes.
+ *
+ * ⚠️ Written out, not read from VexFlow's `Glyphs` map: that map is not re-exported from the package,
+ * so a lookup resolves under Vitest and is `undefined` in the browser — silently
+ * (`reference_vexflow_glyphs_esm_vs_cjs`). E22A is the actual buzz roll and E22C the dedicated
+ * unmeasured sign; neither is this one. See docs/tremolo-plan.md §0.
+ */
+export const PENDERECKI_TREMOLO = '\uE22B'
+
+/**
  * The span the strokes have to live in: the stem from the notehead's EDGE to its tip.
  *
  * ⚠️ `getStemExtents().baseY` is the notehead's CENTRE, not its edge — it comes from the note's key
@@ -83,6 +96,27 @@ export function usableStemSpan(note: Note): { tip: number; noteheadEdge: number;
 export class CenteredTremolo extends Tremolo {
   /** Pixels of stem added for {@link TREMOLO_FLAG_STEM_STRETCH}, which the strokes must NOT follow. */
   private stemStretch = 0
+
+  /**
+   * Takes the {@link TremoloMark} itself, not a stroke count — so the Penderecki sign rides the same
+   * placement, the same stem stretches, the same ghost and the same bounding-box fix as the strokes,
+   * instead of being a second drawing path that has to remember all four.
+   *
+   * It is **one glyph in a stack of one**: `num = 1` with the text swapped for E22B. Everything below
+   * then reads "the stack" and gets the right answer without a special case — including
+   * `strokeStackHeight`, which measures whatever glyph is set, so the taller sign asks for its own
+   * stem room automatically.
+   *
+   * ⚠️ The codepoint is written out. VexFlow's own `Tremolo` constructor reaches into its `Glyphs` map
+   * for E220, which works *inside* the library's ESM build but is `undefined` when we import it —
+   * `Glyphs` is not re-exported, and the failure is silent
+   * (`reference_vexflow_glyphs_esm_vs_cjs`). SMuFL codepoints are spec-stable, so owning it removes
+   * the question.
+   */
+  constructor(mark: TremoloMark) {
+    super(typeof mark === 'number' ? mark : 1)
+    if (mark === 'penderecki') this.text = PENDERECKI_TREMOLO
+  }
 
   /**
    * Tell the strokes how much stem was added *under* them to get a FLAG out of the way, so they can

@@ -4,17 +4,19 @@ A single-note tremolo — the strokes that ride a note's stem and say "repeat th
 finely". Six marks in the palette: one to five strokes, and the **Penderecki** sign.
 
 It is the sibling of the accidental stamp (`docs/accidental-stamp-plan.md`) — read that first;
-this doc records only where a tremolo differs. It differs a lot in two places: nothing in
-VexFlow draws the Penderecki sign, and nothing in the playback schedule can express a speed that
-is *physical* rather than metrical — see §4 and §5.
+this doc records only where a tremolo differs. It differs a lot in two places: VexFlow draws no
+Penderecki sign and places its strokes wrong for us, and nothing in the playback schedule can express
+a speed that is *physical* rather than metrical — see §4 and §5.
 
-**Status: P0 and P1 are shipped** (§7) — the mark exists, the palette arms it, the strokes engrave,
-and it survives a meter change, a paste, a voice move and a tie-split. P0 grew two things §2 and §4
-record and this plan did not foresee: the stem became a registered element (the stamp accepts a click
-on it), and VexFlow's stroke placement had to be replaced rather than configured.
+**Status: P0, P1 and P2 are shipped** (§7) — all six marks exist, engrave and arm from the palette,
+and they survive a meter change, a paste, a voice move and a tie-split. Three things this plan did not
+foresee, each recorded where it belongs: the stem became a registered element (§2, the stamp accepts a
+click on it), VexFlow's stroke placement had to be replaced rather than configured (§4), and the
+Penderecki sign turned out to be the same modifier with a different glyph rather than a draw of our
+own (§4).
 
-**Next is P2 (the Penderecki draw) or P3 (playback)** — nothing structural is left in the way of
-either, and a tremolo is silent today.
+**Next is P3 — playback. A tremolo is silent today**, which is now the only thing about it that is
+plainly unfinished.
 
 ## 0. Three performances, not two
 
@@ -32,7 +34,7 @@ to be *derived* (§5). Second, **Penderecki is not just "unmeasured with a speci
 spacing is what an unmeasured tremolo has and a Penderecki one does not, which is why they need
 separate playback rules and only one of them needs a random number generator.
 
-### The SMuFL inventory, and our three names for one glyph
+### The SMuFL inventory, and our three names for one glyph — ✅ FIXED (P2)
 
 ```
 E220–E224  tremolo1…tremolo5          combining strokes
@@ -41,11 +43,15 @@ E22B       pendereckiTremolo          "Penderecki unmeasured tremolo"
 E22C/E22D  unmeasuredTremolo          "Wieniawski unmeasured tremolo" (+ a simpler form)
 ```
 
-⚠️ We draw E22B in two places and call it three things: the dev palette titles it "Penderecki
-tremolo — unmeasured, as fast as possible" (`devToolbar.ts`), and the Keypad names the same glyph
-`buzzRoll` (`windows/keypad/keypadLayouts.ts:287`) — while E22A, the actual buzz roll, and E22C,
-the actual dedicated unmeasured sign, are unused. Whatever the sixth button turns out to be, the
-two files must agree on which glyph it draws and what it is called.
+We used to draw E22B in two places and call it three things: the dev palette titled it "Penderecki
+tremolo", while the Keypad named the same glyph `buzzRoll` — with E22A, the actual buzz roll, and
+E22C, the actual dedicated unmeasured sign, both unused.
+
+Now all three agree on **`penderecki`**: the `TremoloMark` value, the dev palette's id, and the
+Keypad's key-6 name. Each is named for what it DRAWS.
+
+⚠️ Sibelius calls its own key 6 a buzz roll. If that is the key we want, **the glyph changes (E22A),
+not the name** — which is decision 3 below, still open. E22A and E22C remain unused.
 
 ## The decisions still open
 
@@ -57,8 +63,9 @@ two files must agree on which glyph it draws and what it is called.
 2. **The unmeasured rate.** A physical speed needs a number. Dorico expresses it as a fraction of a
    quarter at 120 qpm — default **1/5** (0.1 s, ~10 attacks/sec); NotePerformer suggests 1/8
    (~16/sec). Nothing before P3 depends on it.
-3. **The sixth button's glyph** (§0) — E22B as now, or a plain unmeasured sign with Penderecki as a
-   seventh.
+3. **The sixth button's glyph** (§0) — E22B as now, or a plain unmeasured sign (E22C) with Penderecki
+   as a seventh, or Sibelius's buzz roll (E22A). P2 made all three names agree on E22B; changing the
+   answer is now a one-glyph edit in three places, not a rename.
 4. **Removal** — see §2. P0 shipped able to stamp a mark it cannot take off: Ctrl+Z only.
 5. **Stroke placement, small tweaks.** §4's corrections got it to "much better". What is still
    unimplemented there is Gould's rule 3 (strokes stay within the stave). The two chosen proportions
@@ -314,9 +321,32 @@ identical. `CenteredTremolo.test.ts` pins it, and those tests were checked by re
 ⚠️ **This is a live trap for P2.** Whatever draws E22B, if it is a `Modifier` rendering at explicit
 coordinates, it inherits the same bug. Set `x`/`y`.
 
-**Penderecki** — VexFlow has nothing. E22B is drawn by us at the stem, the way we already draw ties
-and slurs with our own coordinates (`reference_vexflow_lowlevel_render_methods`). Write the
-codepoint out: VexFlow's `Glyphs` map is CJS-only and is `undefined` in the browser, silently.
+**Penderecki** — ✅ DONE (P2), and *not* the way this plan expected. It guessed we would draw E22B
+ourselves at coordinates we computed, the way ties and slurs are drawn
+(`reference_vexflow_lowlevel_render_methods`). By the time P2 arrived, `CenteredTremolo` had already
+earned four placement corrections, two stem-stretch rules, a ghost and a bounding-box fix — so a
+second drawing path would have had to remember all of them.
+
+Instead it is **one glyph in a stack of one**: the same modifier, constructed from the
+{@link TremoloMark} itself, with `num = 1` and the text swapped for E22B:
+
+```ts
+constructor(mark: TremoloMark) {
+  super(typeof mark === 'number' ? mark : 1)
+  if (mark === 'penderecki') this.text = PENDERECKI_TREMOLO
+}
+```
+
+Everything downstream reads "the stack" and gets the right answer with no special case — including
+`strokeStackHeight`, which measures whatever glyph is set, so the taller sign asks for its own stem
+room by itself. The `typeof === 'number'` guards in `NoteBuilder`, `applyTremoloStemStretch` and
+`RenderController` existed only to keep an undrawable mark off the screen, and are gone.
+
+⚠️ The codepoint is written out and pinned by a test. VexFlow's `Glyphs` map is not re-exported, so a
+lookup resolves under Vitest and is `undefined` in the browser — silently.
+
+⏭️ Worth an eye: E22B renders at the same `Tremolo.fontSize` as a stroke, and it is an intrinsically
+taller sign, so it may want its own scale.
 
 No new `ElementType` in P0 unless §2's removal decision says otherwise.
 
@@ -471,8 +501,8 @@ meaningless empty baseline.
 - **P1 — travel. ✅ DONE.** The five rebar links, the voice move, the tie-split (§6). Early, and on
   purpose: before P0's marks started silently disappearing on a meter change. 29 lines of code and 8
   tests, every link proved load-bearing by removing it.
-- **P2 — Penderecki render.** Our own E22B draw at the stem, and §0's naming fix. ⚠️ If it is a
-  `Modifier`, set its `x`/`y` — see the bounding-box trap in §4.
+- **P2 — Penderecki render. ✅ DONE.** E22B through the SAME modifier as the strokes (§4) rather than
+  a second draw of our own, plus §0's naming fix. The dev palette's sixth button arms again.
 - **P3 — measured + unmeasured playback.** The `totalBeams` helper, the threshold constant, rule 1's
   period arithmetic, rule 2's physical rate and the tempo-map conversion. Both rules, together —
   they share the fill and differ only in where the period comes from.
@@ -490,7 +520,8 @@ meaningless empty baseline.
   and that is what §2's removal decision would buy.
 - **The threshold as a preference.** Dorico exposes it; ours is a constant until someone asks.
 - **Keypad wiring.** The page-2 tremolo keys are still `momentary` (`docs/keypad.md`). They arm
-  the same `PaletteController` method when they are wired — nothing here blocks it.
+  the same `PaletteController.armTremolo` when they are wired — nothing here blocks it, and since P2
+  their names match the marks they draw, so the wiring is a lookup rather than a translation.
 - **Properties.** Same shape as the beaming reset gap: worth a home, not worth one now.
 - **Naming.** The palette says "second/third order"; this doc counts strokes, which is
   unambiguous. If the labels should read "two-stroke / three-stroke" instead, that is a one-line

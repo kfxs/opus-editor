@@ -56,10 +56,17 @@ describe('CenteredTremolo bounding box', () => {
     expect(Math.abs(withMark.box.getX() - bare.box.getX())).toBeLessThan(2)
   })
 
-  it('holds at every stroke count', () => {
-    for (const num of [1, 2, 3, 4, 5]) {
-      const { box } = drawNoteWithModifier(new CenteredTremolo(num))
-      expect(box.getX(), `${num} strokes`).toBeGreaterThan(0)
+  it('holds for every mark — the five stroke counts AND the Penderecki sign', () => {
+    for (const mark of [1, 2, 3, 4, 5, 'penderecki'] as const) {
+      const { box } = drawNoteWithModifier(new CenteredTremolo(mark))
+      expect(box.getX(), `mark ${mark}`).toBeGreaterThan(0)
     }
+  })
+
+  it('draws E22B for the Penderecki mark, and E220 for a stroke count', () => {
+    // Written-out codepoints, because VexFlow's `Glyphs` map is not re-exported and resolves to
+    // `undefined` in the browser — silently. Pinning them here is what makes owning them safe.
+    expect(new CenteredTremolo('penderecki').text).toBe('\uE22B')
+    expect(new CenteredTremolo(3).text).toBe('\uE220')
   })
 })

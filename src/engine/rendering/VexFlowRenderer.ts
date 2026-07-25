@@ -5,7 +5,7 @@ import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
-import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, Accidental as ScoreAccidental } from '@/types/music'
+import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, TremoloMark, Accidental as ScoreAccidental } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { beatToFrac, measureCapacityFrac, tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
@@ -700,7 +700,7 @@ export class VexFlowRenderer {
   private applyTremoloStemStretch(sortedSlots: ChordRest[], staveNotes: StaveNote[]): void {
     for (let i = 0; i < sortedSlots.length && i < staveNotes.length; i++) {
       const slot = sortedSlots[i]
-      if (slot.type !== 'chord' || typeof slot.tremolo !== 'number') continue
+      if (slot.type !== 'chord' || !slot.tremolo) continue
       const staveNote = staveNotes[i]
       if (!staveNote.hasStem()) continue
 
@@ -4146,19 +4146,17 @@ export class VexFlowRenderer {
    *
    * The ghost is the **real mark**, not the palette's picture: the dev palette draws a note wearing
    * its strokes because a button has to be recognisable, while this draws exactly what the click
-   * adds — N copies of `tremolo1`, which is all VexFlow's `Tremolo` ever draws.
+   * adds — N copies of `tremolo1`, or the single Penderecki sign. It takes the {@link TremoloMark}
+   * rather than a count precisely so those two cannot diverge: one modifier, one placement.
    *
    * ⚠️ Where this differs from every sibling ghost: an `Articulation` positions itself off the
    * NOTEHEAD, but `Tremolo` positions itself off `note.getStemExtents().topY` — so the strokes land
    * far above the throwaway note's origin. The bbox-centring below absorbs that on purpose: it
    * measures where the glyphs ACTUALLY landed and moves the whole group from there, so the offset
    * never has to be known.
-   *
-   * Penderecki is not drawable here — VexFlow has no glyph for it and ours is P2 — so the palette
-   * does not arm it and `mark` is a stroke count.
    * @returns true if a ghost tremolo was drawn
    */
-  renderScoreWithTremoloGhost(cursorX: number, cursorY: number, strokes: number): boolean {
+  renderScoreWithTremoloGhost(cursorX: number, cursorY: number, mark: TremoloMark): boolean {
     this.clearGhosts() // an overlay — take the old ghost down, leave the score alone
 
     const svg = this.getSVGElement()
@@ -4172,7 +4170,7 @@ export class VexFlowRenderer {
 
       const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
       note.setStave(tempStave) // populates the note's Y values (Tremolo.draw reads its stem extents)
-      const tremolo = new CenteredTremolo(strokes)
+      const tremolo = new CenteredTremolo(mark)
       note.addModifier(tremolo, 0) // attaches the note to the modifier (checkAttachedNote)
 
       const voice = new Voice({ numBeats: 1, beatValue: 4 })

@@ -279,10 +279,10 @@ export function createStaveNotesFromSlots(
     // Neither lengthens the stem, so four and five strokes on a short stem crowd the notehead —
     // VexFlow has no opinion there and neither do we yet.
     //
-    // The Penderecki sign is deliberately NOT drawn here: VexFlow has no glyph for it, so it is our
-    // own draw at the stem (docs/tremolo-plan.md §4, P2). Until then the mark stores and does not
-    // engrave, which is why the palette does not arm it.
-    if (typeof slot.tremolo === 'number') {
+    // The Penderecki sign goes through the SAME modifier: it is one glyph (E22B, which VexFlow does
+    // not draw) in a stack of one, so it inherits the centring, both stem stretches, the ghost and
+    // the bounding-box fix rather than being a second drawing path that must remember all four.
+    if (slot.tremolo) {
       staveNote.addModifier(new CenteredTremolo(slot.tremolo), 0)
     }
 

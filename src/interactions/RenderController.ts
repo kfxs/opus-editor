@@ -1,7 +1,7 @@
 import { tempoFieldsFromTool } from '../utils/tempoText'
 import { dynamicTextFromTool } from '../utils/dynamics'
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { Clef, TimeSignature, Dynamic, TempoMark, ArticulationType, Accidental } from '../types/music'
+import type { Clef, TimeSignature, Dynamic, TempoMark, ArticulationType, Accidental, TremoloMark } from '../types/music'
 import type { DynamicTool, TempoTool, EditorState } from './EditorState'
 import { activeVoiceToModel, assertNeverTool } from './EditorState'
 import type { HighlightController } from './HighlightController'
@@ -218,16 +218,16 @@ export class RenderController {
     engine.renderScoreWithAccidentalGhost(coords, accidental)
   }
 
-  /** Render the score with translucent ghost tremolo strokes following the cursor — the preview for
+  /** Render the score with the translucent ghost tremolo mark following the cursor — the preview for
    *  the armed tremolo stamp. The mark itself, not the palette's note-wearing-strokes picture; the
-   *  note it lands on is resolved at click time. Penderecki has no draw yet (docs/tremolo-plan.md
-   *  §4/P2), so only a stroke count reaches here. */
-  renderTremoloGhost(coords: { x: number; y: number }, strokes: number): void {
+   *  note it lands on is resolved at click time. Strokes or the Penderecki sign — one modifier draws
+   *  both, so the preview cannot disagree with what gets engraved. */
+  renderTremoloGhost(coords: { x: number; y: number }, mark: TremoloMark): void {
     const engine = this.getEngine()
     if (!engine) return
     renderCensus.setCause('ghost:tremolo')
     this.ensureScoreDrawn(engine)
-    engine.renderScoreWithTremoloGhost(coords, strokes)
+    engine.renderScoreWithTremoloGhost(coords, mark)
   }
 
   /** Render the score with a translucent ghost tie following the cursor — the preview for the armed
@@ -301,12 +301,9 @@ export class RenderController {
       // Stacked, so the ghost reads as everything the click will stamp.
       case 'articulation': this.renderArticulationGhost(coords, tool.types); return
       case 'accidental': this.renderAccidentalGhost(coords, tool.sign); return
-      // Single-valued, and the STROKES rather than the palette's picture. A Penderecki mark draws
-      // nothing until §4/P2 gives it our own glyph — the palette does not arm it, so this is a
-      // stroke count in practice; the guard is what makes that true rather than assumed.
-      case 'tremolo':
-        if (typeof tool.tremolo === 'number') this.renderTremoloGhost(coords, tool.tremolo)
-        return
+      // Single-valued, and the MARK rather than the palette's picture — strokes or the Penderecki
+      // sign, both through the one modifier that engraves them.
+      case 'tremolo': this.renderTremoloGhost(coords, tool.tremolo); return
       // The two valueless stamps carry nothing to preview: their ghost is the mark itself, and
       // WHICH note it lands on is resolved at click time.
       case 'tie': this.renderTieGhost(coords); return

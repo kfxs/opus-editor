@@ -40,8 +40,7 @@ const TREM_FONT = "Bravura, Academico, 'Noto Music', serif"
 /** The svg's own box, and the button around it. ~1.6× is the Keypad's CELL:GLYPH ratio — the note's
  *  stem runs past the 26-unit drawing box, and that slack is where it goes. */
 const TREM_GLYPH = 22
-const TREM_BTN = 'w-9 h-9 flex items-center justify-center rounded overflow-hidden '
-  + 'disabled:opacity-40 disabled:cursor-not-allowed'
+const TREM_BTN = 'w-9 h-9 flex items-center justify-center rounded overflow-hidden'
 
 /** One glyph in a drawing — the shape {@link bakeGlyphStack} takes. */
 type TremLayer = { glyph: string; size?: number; dx?: number; dy?: number }
@@ -251,17 +250,14 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
    * `selectedMarkingTool` union like every other armed tool, which is what makes Esc, a duration
    * press, or arming any other tool switch this row off for free.
    *
-   * ⚠️ The Penderecki button is DISABLED, not merely inert: VexFlow has no E22B, so the mark has no
-   * draw until we make our own (docs/tremolo-plan.md §4, P2). Arming it would let you stamp a mark
-   * that stores and never appears — an invisible edit, which is worse than a button that says "not
-   * yet". The model already accepts the value; only the drawing is missing.
+   * All six arm now: the Penderecki sign draws as of P2 (`CenteredTremolo` sets E22B as the glyph and
+   * places it exactly as it places the strokes), so the button that was disabled for having nothing
+   * behind it no longer is.
    */
   const tremBox = group('Tremolo:')
   for (const t of TREMOLOS) {
     const b = el('button', TREM_BTN)
-    const drawable = t.mark !== 'penderecki'
-    b.title = drawable ? t.title : `${t.title} — not engraved yet (needs its own E22B draw)`
-    b.disabled = !drawable
+    b.title = t.title
     // The picture is baked the same way the Keypad bakes its own: one svg in a 26-unit box, the
     // button sized ~1.6× it so the stem overflowing that box has somewhere to go (KeypadWidget's
     // CELL:GLYPH ratio), with the button clipping whatever still runs past.

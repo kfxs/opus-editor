@@ -260,7 +260,13 @@ const tremolo = (layers: GlyphSpec[]): Icon => ({ bake: layers })
 const rework = (layers: GlyphSpec[]): Icon => ({ layers })
 
 /** A single-note tremolo: a down-stem quarter wearing N stem strokes. Sibelius: "1 tremolo" … "5
- *  tremolos" (keys 1–5); the buzz roll (key 6) is drawn here with the Penderecki mark. */
+ *  tremolos" (keys 1–5); key 6 is the PENDERECKI mark (E22B).
+ *
+ *  ⚠️ Key 6 used to be called `buzzRoll` here while drawing E22B — three names for one glyph across
+ *  two files (docs/tremolo-plan.md §0). It is named for what it DRAWS now, and it matches the
+ *  `TremoloMark` value (`'penderecki'`) and the dev palette's id. E22A is the actual buzz roll and
+ *  E22C the dedicated unmeasured sign; both are still unused. Sibelius calls its own key 6 a buzz
+ *  roll — if that is the key we want, the GLYPH changes, not just the name. */
 const struck = (stroke: string, sy = 4, size?: number, sx = -2): Icon =>
   tremolo([g(NOTE_DOWN.quarter, undefined, -10), g(stroke, size, sy, sx)])
 
@@ -278,13 +284,13 @@ const barred = (dx = 0, ndx = 0): Icon =>
  * OWN keys only — the arrow and `+` come from {@link withControls}.
  */
 const TREMOLO = {
-  // Single-note tremolos — Sibelius "1 tremolo" … "5 tremolos" (keys 1–5) + buzz roll (key 6).
+  // Single-note tremolos — Sibelius "1 tremolo" … "5 tremolos" (keys 1–5) + the Penderecki mark (6).
   oneTremolo: struck(TREM.one),
   twoTremolos: struck(TREM.two, 3),
   threeTremolos: struck(TREM.three, 3),
   fourTremolos: struck(TREM.four, 4, 22),
   fiveTremolos: struck(TREM.five, 4.5, 21),
-  buzzRoll: struck(TREM.penderecki, 4.5, 30, -1),
+  penderecki: struck(TREM.penderecki, 4.5, 30, -1),
 
   // Tremolo with next note — Sibelius Enter (drawn with two half notes).
   tremoloWithNext: tremolo([g(NOTE_DOWN.half, undefined, -7, -8), g(NOTE_DOWN.half, undefined, -13, 12), g('\uE007', 12, 15, -2)]),
@@ -312,7 +318,7 @@ const page2: CellSpec[] = [
   ['beam begin', TREMOLO.oneBeam, 'beam', 'begin'],
   ['beam continue', TREMOLO.threeBeams, 'beam', 'continue'],
   ['beam end', TREMOLO.oneBeamOffset, 'beam', 'end'],
-  ['tremolo', TREMOLO.fourTremolos, 'momentary'], ['tremolo', TREMOLO.fiveTremolos, 'momentary'], ['tremolo', TREMOLO.buzzRoll, 'momentary'],
+  ['tremolo', TREMOLO.fourTremolos, 'momentary'], ['tremolo', TREMOLO.fiveTremolos, 'momentary'], ['tremolo', TREMOLO.penderecki, 'momentary'],
   ['tremolo', TREMOLO.oneTremolo, 'momentary'], ['tremolo', TREMOLO.twoTremolos, 'momentary'], ['tremolo', TREMOLO.threeTremolos, 'momentary'],
   ['tremolo', TREMOLO.tremoloWithNext, 'momentary'],
   ['tremolo', TREMOLO.featheredAccel, 'momentary'],
