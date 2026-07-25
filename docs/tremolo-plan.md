@@ -8,10 +8,10 @@ this doc records only where a tremolo differs. It differs a lot in two places: V
 Penderecki sign and places its strokes wrong for us, and nothing in the playback schedule can express
 a speed that is *physical* rather than metrical — see §4 and §5.
 
-**Status: ALL NINE PHASES ARE SHIPPED** (§7) — the six marks exist, engrave, arm from the palette,
+**Status: ALL TEN PHASES ARE SHIPPED** (§7) — the six marks exist, engrave, arm from the palette,
 survive a meter change / paste / voice move / tie-split, play all three readings (measured as a real
 subdivision, unmeasured at a physical rate that ignores the tempo, Penderecki irregular on top of
-that), **can be clicked, selected, deleted, and read back off a selected note** (§9), and can be armed for NOTE ENTRY so the notes you write are born wearing one (§10). Three things
+that), **can be clicked, selected, deleted, and read back off a selected note** (§9), can be armed for NOTE ENTRY so the notes you write are born wearing one, and can be added / changed / removed across a SELECTION from the palette (§10). Three things
 this plan did not foresee, each recorded where it belongs: the stem became a registered element (§2, the stamp accepts a click on it — and P5
 made it selectable in its own right), VexFlow's stroke placement had to be replaced rather than
 configured (§4), and the Penderecki sign turned out to be the same modifier with a different glyph
@@ -66,9 +66,10 @@ not the name** — which is decision 3 below, still open. E22A and E22C remain u
 3. **The sixth button's glyph** (§0) — E22B as now, or a plain unmeasured sign (E22C) with Penderecki
    as a seventh, or Sibelius's buzz roll (E22A). P2 made all three names agree on E22B; changing the
    answer is now a one-glyph edit in three places, not a rename.
-4. ~~**Removal**~~ **ANSWERED (P6): select the mark and press Delete** — the first of §2's three
-   options, in two steps. P5 made the mark a registered `ElementType` a click selects; P6 wired
-   Delete to `setTremolo(id, null)`. See §9.
+4. ~~**Removal**~~ **ANSWERED (P6 + P9): Delete, or a re-press of the mark on the palette** — the
+   first of §2's three options, arrived at in steps. P5 made the mark a registered `ElementType` a
+   click selects; P6 wired Delete to `setTremolo(id, null)`; P9 made a palette re-press the toggle-off
+   over a selection, which is the accidental's habit. See §9 and §10.
 5. **Stroke placement, small tweaks.** §4's corrections got it to "much better". What is still
    unimplemented there is Gould's rule 3 (strokes stay within the stave). The two chosen proportions
    (¼ of the stem for a flag, ¼ space of clearance for the fit) are the tuning knobs. None of this is
@@ -131,7 +132,7 @@ get forgotten:
 | 1 | `MarkingTool` + `MARKING_TOOL_USES_ARMED_LENGTH.tremolo = false` — `EditorState.ts:46,110` | ✅ the Record is exhaustive over kinds |
 | 2 | `RenderController.renderToolGhost()` — one `case` — `RenderController.ts:265` | ✅ `assertNeverTool` (`:298`) — the ONLY site it guards |
 | 3 | `ScoreModel.setTremolo` + the `MusicEngine` facade method | ❌ |
-| 4 | `PaletteController.armTremolo()` — **reassign** the field, never mutate (the Proxy traps the SET) | ❌ |
+| 4 | `PaletteController.pressTremolo()` (was `armTremolo`, until it stopped only arming — §10) — **reassign** the field, never mutate (the Proxy traps the SET) | ❌ |
 | 5 | `MouseController.stampTremoloAtClick()` — a near-copy of `stampAccidentalAtClick` (`:1903`): same note-body test, one `runBatch` = one undo entry. **Plus the stem** — see below | ❌ |
 | 6 | `GHOST_GROUP_SELECTOR` (`VexFlowRenderer.ts:449`) — see §3 | ❌ |
 
@@ -571,6 +572,10 @@ meaningless empty baseline.
   buttons arm for ENTRY in entry mode and for STAMPING in selection mode, and the armed mark persists
   until deliberately changed. The engine half is one `NoteParams` field, so the note is born with the
   mark instead of being stamped a moment later — one undo entry, and the barline split carries it.
+- **P9 — editing a selection. ✅ DONE.** §10. The last gap: a press over selected notes marks,
+  changes or clears them (and over a selected MARK, changes or removes it) instead of arming a stamp
+  for a note that is already right there. `armTremolo` became `pressTremolo` when it stopped only
+  arming — five branches, the accidental's router.
 
 ## 8. Deferred, deliberately
 
@@ -592,7 +597,7 @@ meaningless empty baseline.
       reading (a 32nd, at the current threshold) creates a score where ADDING a stroke slows the note
       down. Validate the pair, or derive the rate from the threshold — do not expose two free numbers.
 - **Keypad wiring.** The page-2 tremolo keys are still `momentary` (`docs/keypad.md`). They arm
-  the same `PaletteController.armTremolo` when they are wired — nothing here blocks it, and since P2
+  the same `PaletteController.pressTremolo` when they are wired — nothing here blocks it, and since P2
   their names match the marks they draw, so the wiring is a lookup rather than a translation.
 - **Properties.** Same shape as the beaming reset gap: worth a home, not worth one now.
 - **Naming.** The palette says "second/third order"; this doc counts strokes, which is
@@ -714,22 +719,32 @@ are about to stamp:
   stem-length drag is the gesture that rect was really registered for.
 - **The flag.** Still reserved as its own future element (`highlightNote` says so out loud).
 
-## 10. Note entry armed with a tremolo — ✅ DONE (P8)
+## 10. What a tremolo-palette press does — ✅ DONE (P8, P9)
 
-**The mark is two gestures, not one.** Until now a tremolo could only be STAMPED: the tool marks a
-note that already exists. The other half is writing notes that already have one — pick a duration,
-pick a mark, and every note you enter is born wearing it, ghost included.
+**The mark is FOUR gestures on one button.** It shipped as one — the stamp, which marks a note that
+already exists — and the other three arrived as the flows that were missing: writing notes that
+already have one, editing a selection, and editing the selected mark. `PaletteController.pressTremolo`
+routes them, in this order:
 
-Both live on the same palette buttons, and **the MODE decides which one a press means**:
-
-| you are… | a tremolo press… | what the next click does |
+| # | when | the press… |
 |---|---|---|
-| in **note entry** (a duration is armed) | arms `EditorState.selectedTremolo` | enters a note WEARING the mark |
-| in **selection mode** | arms `selectedMarkingTool = { kind: 'tremolo' }` | stamps the mark onto the note clicked |
+| 0 | a marking tool is armed | swaps the armed mark / disarms on a re-press (a different tool → switch to the tremolo stamp) |
+| 1 | a MARK is selected in the score | changes it — or removes it, on a press of the mark it already is |
+| 2 | selection mode, notes selected | **adds / changes / removes** across the whole selection, one undo entry |
+| 3 | selection mode, nothing to apply to | arms the STAMP, whose next click marks the note clicked |
+| 4 | note entry | arms `EditorState.selectedTremolo` — every note you write is born wearing the mark, ghost included |
 
-That is the accidental's split exactly (`selectedAccidental` vs the accidental stamp), and it is why
-the entry value is NOT a marking tool: a tool arms into entry mode and enters *no note*, which is the
-opposite of what this does.
+That is `setAccidental`'s router, branch for branch, and deliberately so: a note carries one tremolo
+exactly as it carries one accidental, so the two should not need different habits. It is also why the
+entry value is NOT a marking tool — a tool arms into entry mode and enters *no note*, the opposite of
+what this does.
+
+**One key adds, changes and removes.** Over plain notes, press 3 to mark them; press 5 to change
+them; press 5 again to clear them. The toggle direction is decided for the selection AS A WHOLE (if
+every selected note already carries this exact mark it is removed from all, else it is set on all), so
+a MIXED selection levels up rather than half-clearing — `applyArticulationToSelection`'s rule, and the
+same reasoning. Rests in the passage are skipped rather than refusing it: a passage is a mixture, and
+you meant the notes in it.
 
 ### ⚠️ It persists
 
@@ -750,8 +765,9 @@ The two orders arrive at the same place:
 
 | seam | note |
 |---|---|
-| `EditorState.selectedTremolo` | the armed mark; null = none. A note-entry value, beside `selectedAccidental`/`selectedDots` |
-| `PaletteController.armTremolo` | the routing above — single-valued on both sides (re-press clears, a different mark swaps) |
+| `EditorState.selectedTremolo` | the armed ENTRY mark; null = none. A note-entry value, beside `selectedAccidental`/`selectedDots` |
+| `PaletteController.pressTremolo` | the router above. Single-valued in every branch: a re-press is always the toggle-OFF, a different mark always swaps |
+| `PaletteController.applyTremoloToSelection` / `editSelectedTremolo` | the two selection-editing branches — twins of the accidental's, including what stays selected afterwards (a change keeps the mark selected, a removal leaves nothing) |
 | `NoteParams.tremolo` → `ScoreModel.addNote` | the note is BORN with the mark: ONE undo entry, not entry-then-stamp. A pitch joining an existing chord marks that chord (the mark is a slot property, like the articulations beside it) |
 | `placeSpanningNote` | an entered mark reaches EVERY piece of a cross-barline split, the same rule the head's mark already followed. Its "only the duration-change caller can have one" note is now false and says so |
 | `GhostNote.tremolo` → the ghost draw | through the SAME `CenteredTremolo` the engraved mark uses, so the preview cannot disagree with what lands |

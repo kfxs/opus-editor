@@ -536,30 +536,34 @@ export class PaletteController {
   }
 
   /**
-   * One tremolo-palette press — one to five strokes, or the Penderecki sign — routed by MODE.
+   * One tremolo-palette press — one to five strokes, or the Penderecki sign — routed by context,
+   * exactly as {@link setAccidental} and {@link pressArticulation} are. ⭐ THE MARK IS FOUR
+   * GESTURES on one button, and which one you get is decided by what you are doing:
    *
-   * ⭐ THE MARK IS TWO THINGS, and which one a press means is decided by what you are doing:
-   *  - **Note entry** (a duration is armed, you are writing notes) → the press arms the mark for the
-   *    notes you are about to enter: the ghost wears it, and every click writes a note carrying it
-   *    (docs/tremolo-plan.md §10). It is `selectedTremolo`, a note-entry value beside the accidental
-   *    and the dots — NOT a marking tool, because a tool would replace note entry with stamping.
-   *  - **Selection mode** (nothing is being written) → the press arms the STAMP, whose next click
-   *    marks a note that already exists. The original behaviour, unchanged.
+   *  0. THIS stamp is already armed → a re-press DISARMS, a different mark SWAPS it (single-valued:
+   *     a note carries one tremolo). A DIFFERENT tool armed → switch to the tremolo stamp.
+   *  1. A standalone MARK is selected in the score → the press EDITS it: a different mark changes
+   *     it, the same mark removes it ({@link editSelectedTremolo}).
+   *  2. Selection mode with notes selected → apply across the selection, add / change / remove, as
+   *     ONE undoable action ({@link applyTremoloToSelection}).
+   *  3. Selection mode with NOTHING to apply to → arm the STAMP, whose next click marks a note.
+   *  4. Note entry → arm the mark for the notes you are about to WRITE: the ghost wears it and every
+   *     click enters a note carrying it (docs/tremolo-plan.md §10). `selectedTremolo` is a note-entry
+   *     value beside the accidental and the dots — NOT a marking tool, because a tool would replace
+   *     note entry with stamping.
    *
-   * SINGLE-VALUED on both sides, like the accidental: a re-press of the live mark clears it, a
-   * different mark swaps it. The ghost is redrawn on the KEYPRESS, not on the next mouse move, or
-   * what is armed and what you see disagree.
+   * The ghost is redrawn on the KEYPRESS, not on the next mouse move, or what is armed and what you
+   * see disagree.
    *
    * ⚠️ The entry mark PERSISTS — entering a note does not clear it, and neither does a duration
    * press (see `promoteStampToNoteEntry`, which also carries an armed STAMP over when you pick a
    * duration: "mark, then length" and "length, then mark" arrive at the same place). Esc clears it
    * with the rest of the armed entry values.
-   *
-   * Neither side applies to a SELECTION the way {@link setAccidental} does — that is still open
-   * (docs/tremolo-plan.md §2).
    */
-  armTremolo(tremolo: TremoloMark): void {
+  pressTremolo(tremolo: TremoloMark): void {
     const armed = this.state.selectedMarkingTool
+
+    // (0) THIS stamp is live: swap the armed mark, or disarm on a re-press.
     if (armed?.kind === 'tremolo') {
       if (armed.tremolo === tremolo) this.disarmMarkingTool()
       else {
@@ -568,18 +572,94 @@ export class PaletteController {
       }
       return
     }
-
-    // Note entry: arm the mark for what is COMING, not for what is there. Only with no other tool
-    // armed — a live clef/dynamic/rest tool means the next click is not entering a note at all, so
-    // the press switches to the tremolo stamp below, exactly as the articulation keys do.
-    if (!armed && this.state.selectedTool === 'entry') {
-      this.state.selectedTremolo = this.state.selectedTremolo === tremolo ? null : tremolo
-      const pos = this.getLastMousePosition()
-      if (pos) this.renderArmedGhost(pos)
+    // A DIFFERENT marking tool is armed → switch to this one. ONE check (see setAccidental).
+    if (armed) {
+      this.armMarkingTool({ kind: 'tremolo', tremolo })
       return
     }
 
-    this.armMarkingTool({ kind: 'tremolo', tremolo })
+    // (1) The MARK itself is selected on the score → change or remove it. Ahead of (2), whose
+    // applyTremoloToSelection would return false (clicking the strokes clears the note selection)
+    // and wrongly arm the stamp.
+    if (this.state.selectedTremoloNoteId) {
+      this.editSelectedTremolo(tremolo)
+      return
+    }
+
+    if (this.state.selectedTool === 'selection') {
+      // (2) …apply across a real selection…
+      if (this.applyTremoloToSelection(tremolo)) return
+      // (3) …or arm the stamp, but ONLY with nothing note-like selected (see selectionHoldsNotes).
+      if (!this.selectionHoldsNotes()) {
+        this.armMarkingTool({ kind: 'tremolo', tremolo })
+        return
+      }
+      // A REST is selected: it takes no tremolo, but it is about to become a note, so the press arms
+      // for THAT and the rest stays selected. Falls through to the entry-mode arm below — the same
+      // reasoning the accidental's (2b) and the articulation's (2c) branches use.
+    }
+
+    // (4) Entry mode — or a selected rest: arm/toggle the mark for the next note entered.
+    this.state.selectedTremolo = this.state.selectedTremolo === tremolo ? null : tremolo
+    // No ghost while a rest is selected: we are in SELECTION mode, and a ghost note at the pointer
+    // would claim the next click enters one. renderArmedGhost is the entry-mode preview.
+    if (this.state.selectedTool !== 'entry') return
+    const pos = this.getLastMousePosition()
+    if (pos) this.renderArmedGhost(pos)
+  }
+
+  /**
+   * Edit the tremolo currently selected in the score (see {@link EditorState.selectedTremoloNoteId}):
+   * a DIFFERENT mark changes it, the SAME mark removes it. The twin of
+   * {@link editSelectedAccidental}, including what is left selected afterwards — a change keeps the
+   * (now different) mark selected so it can be changed again or removed, while a removal leaves
+   * nothing selected, because there is no longer a mark to select.
+   */
+  private editSelectedTremolo(tremolo: TremoloMark): void {
+    const engine = this.getEngine()
+    const noteId = this.state.selectedTremoloNoteId
+    if (!engine || !noteId) return
+
+    if (engine.getNote(noteId)?.tremolo === tremolo) {
+      engine.runBatch('Remove tremolo', () => engine.setTremolo(noteId, null))
+      this.state.selectedTremoloNoteId = null
+      this.selectNote(null)
+    } else {
+      engine.runBatch(`Set tremolo ${tremolo}`, () => engine.setTremolo(noteId, tremolo))
+    }
+    this.renderScore()
+  }
+
+  /**
+   * Apply a tremolo across the whole selection as ONE undoable action — add, change, or remove.
+   * Returns false when there is nothing to apply to (not in selection mode, or no non-rest note in
+   * the selection SET — see the note-entry cursor caveat on {@link setAccidental}), so the caller
+   * arms the stamp instead.
+   *
+   * Group semantics are {@link applyArticulationToSelection}'s, and the direction is decided for the
+   * selection AS A WHOLE: if every selected note already carries this exact mark it is removed from
+   * all of them, otherwise it is set on all of them. So one key adds, changes and removes — press 3
+   * over plain notes to mark them, press 5 to change them, press 5 again to clear them. Rests are
+   * skipped rather than refused: a passage is a mixture, and you meant the notes in it.
+   */
+  private applyTremoloToSelection(tremolo: TremoloMark): boolean {
+    const engine = this.getEngine()
+    if (this.state.selectedTool !== 'selection' || !this.state.selectedNoteId || !engine) return false
+
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+      .filter(id => {
+        const note = engine.getNote(id)
+        return note && !note.isRest
+      })
+    if (ids.length === 0) return false
+
+    const allHaveIt = ids.every(id => engine.getNote(id)?.tremolo === tremolo)
+    engine.runBatch(allHaveIt ? 'Remove tremolo' : `Set tremolo ${tremolo}`, () => {
+      for (const id of ids) engine.setTremolo(id, allHaveIt ? null : tremolo)
+    })
+    engine.updateUndoNoteId(this.state.selectedNoteId)
+    this.renderScore()
+    return true
   }
 
   /**

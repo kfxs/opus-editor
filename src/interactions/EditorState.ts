@@ -311,7 +311,8 @@ export interface EditorState {
    * A note-entry value like {@link selectedAccidental} and {@link selectedDots}, NOT a marking tool:
    * the stamp (`selectedMarkingTool.kind === 'tremolo'`) puts a mark on a note that already exists,
    * while this one enters notes that have one. Which of the two a palette press means is decided by
-   * the MODE — entry mode arms this, selection mode arms the stamp (PaletteController.armTremolo).
+   * the CONTEXT — entry mode arms this, a selection is edited in place, and only with nothing to
+   * apply to does the press arm the stamp (PaletteController.pressTremolo).
    *
    * ⚠️ It PERSISTS: entering a note does not clear it, and neither does a duration press (which
    * clears the accidental and the dots). Writing five tremolo notes should be five clicks, not five

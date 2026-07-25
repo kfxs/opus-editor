@@ -244,15 +244,16 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
 
   // --- Tremolo ---
   /**
-   * WIRED: each button ARMS the tremolo stamp tool (`PaletteController.armTremolo`), and the next
-   * click on a note stamps the mark. The lit state is no longer a local `let` — it reads the
-   * `selectedMarkingTool` union like every other armed tool, which is what makes Esc, a duration
-   * press, or arming any other tool switch this row off for free.
+   * WIRED, and the press is FOUR gestures on one button — `PaletteController.pressTremolo` owns the
+   * routing (docs/tremolo-plan.md §10/§11): edit the selected MARK, apply across a note SELECTION
+   * (add / change / remove), arm the mark for NOTE ENTRY, or arm the STAMP when there is nothing to
+   * apply to. The button is the same either way; what you are doing decides what it does.
    *
-   * …and, since the mark became selectable, the row also REPORTS: select a note carrying a tremolo
-   * (or the mark itself) and its button lights, so the row answers "what does this note have on it"
-   * and not only "what am I about to stamp". `tremoloHighlight` is THE rule (interactions/keypadSync),
-   * kept beside the duration's for the day the Keypad's page-2 keys read it too.
+   * The lit state is not a local `let`: `tremoloHighlight` is THE rule (interactions/keypadSync),
+   * kept beside the duration's for the day the Keypad's page-2 keys read it too. It reads the armed
+   * tool, the armed entry mark, the selected mark and the selected note's mark, in that order — so
+   * the row answers "what does this note have on it" and not only "what am I about to stamp", and
+   * Esc / a duration press / arming another tool switch it off for free.
    *
    * All six arm now: the Penderecki sign draws as of P2 (`CenteredTremolo` sets E22B as the glyph and
    * places it exactly as it places the strokes), so the button that was disabled for having nothing
@@ -269,9 +270,10 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     svg.style.width = `${TREM_GLYPH}px`
     svg.style.height = `${TREM_GLYPH}px`
     b.appendChild(svg)
-    // A re-press of the lit one DISARMS (armTremolo owns that toggle, and a different button swaps
-    // the armed mark) — the same shape the accidental stamp's keys have.
-    b.addEventListener('click', () => palette.armTremolo(t.mark))
+    // A re-press of the lit one is a toggle-OFF in every context (disarm, un-mark the selection,
+    // remove the selected mark) and a different button swaps it — the same shape the accidental's
+    // keys have, because a note carries one tremolo exactly as it carries one accidental.
+    b.addEventListener('click', () => palette.pressTremolo(t.mark))
     syncers.push(() => {
       const lit = tremoloHighlight(state, getEngine()) === t.mark
       b.className = `${TREM_BTN} ${lit ? ON : OFF}`
