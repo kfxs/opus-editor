@@ -847,6 +847,8 @@ export interface Note {
    * toggle the mark off; not enough to decide it is drawn.
    */
   tremoloPair?: true
+  /** How a two-note tremolo's strokes meet the stems. See {@link Chord.tremoloPairStyle}. */
+  tremoloPairStyle?: 'joined' | 'open'
   /**
    * Voice index (0–3) this note belongs to. Voices are independent rhythmic
    * streams within a bar. Only voice 0 is populated today (no multi-voice
@@ -981,6 +983,29 @@ export interface Chord {
    * JSON, collision and undo never see a note claiming a length it does not have.
    */
   tremoloPair?: true
+  /**
+   * How a two-note tremolo's strokes MEET the stems — only read when {@link tremoloPair} is set.
+   * `'open'` (the default, and what absent means) floats them clear of both stems; `'joined'` runs
+   * them stem tip to stem tip, like a beam.
+   *
+   * ⭐ A SETTING, not a house rule we pick. Both readings are in use — the engraved half-note example
+   * and LilyPond join them, plenty of editions float them — so Dorico ships exactly this choice
+   * (Engrave ▸ Engraving Options ▸ Tremolos, "multi-note half note tremolos") and MuseScore the same
+   * styles in Properties.
+   *
+   * ⚠️ **Offered on the drawn BLANCA and nowhere else** — the same restriction MuseScore states, and
+   * the restriction is the point rather than an omission. On a drawn NEGRA, strokes touching two
+   * FILLED stems read as two beamed corcheas — a different rhythm. On a corchea or shorter the
+   * joining line is a real beam and not ours to style. A redonda has no stems to join. So the field
+   * is read in one case and ignored in the rest (`pairAcceptsJoined`).
+   *
+   * ⏭️ Per mark now, project-wide later: the field rides the slot, so the toggle acts on the selected
+   * tremolo. A global default has no home yet and inventing one would collide with the positional
+   * rule (docs/DESIGN-PRINCIPLES) unless it lands in a real engraving-options compartment beside
+   * {@link Score.engravingOverrides}. When that exists, this becomes the per-mark override — which is
+   * Dorico's shape too. See docs/two-note-tremolo-plan.md §2.
+   */
+  tremoloPairStyle?: 'joined' | 'open'
   /**
    * Staff this chord belongs to (a {@link StaffInfo} id). Absent = staff 0 (the first
    * staff), mirroring absent {@link Note.voice} = voice 0. Orthogonal to voice: a slot's

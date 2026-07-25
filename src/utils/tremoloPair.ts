@@ -118,6 +118,32 @@ export function pairDrawing(slots: ChordRest[], index: number): PairDrawing {
 }
 
 /**
+ * Is the JOINED style even OFFERED on this pair? Only when the drawn value is a **blanca** — a pair
+ * of quarters, dotted or not.
+ *
+ * ⚠️ The restriction IS the feature, not a gap in it (the one MuseScore states). Joining is legal on
+ * an open notehead with a stem and on nothing else: on a drawn NEGRA, strokes touching two FILLED
+ * stems read as two beamed corcheas, which is a different rhythm; on a corchea or shorter the joining
+ * line is a real beam and not ours to style; a redonda has no stems to join. So the choice is refused
+ * where it would change the reading rather than quietly ignored.
+ *
+ * Dots do not enter into it — `doubleDuration` is about the base value, and a dotted blanca is still
+ * a blanca.
+ */
+export function pairAcceptsJoined(slots: ChordRest[], index: number): boolean {
+  const first = slots[index]
+  if (first?.type !== 'chord') return false
+  return doubleDuration(first.duration) === 'h'
+}
+
+/** Are this pair's strokes drawn JOINED to both stem tips? Absent style = `'open'`, the default. */
+export function pairIsJoined(slots: ChordRest[], index: number): boolean {
+  const first = slots[index]
+  if (first?.type !== 'chord') return false
+  return first.tremoloPairStyle === 'joined' && pairAcceptsJoined(slots, index)
+}
+
+/**
  * ⭐ How many STROKES are actually drawn for a mark of `strokes`, once the pair's own beam is
  * accounted for — **the beam COUNTS**.
  *

@@ -121,3 +121,56 @@ describe('tremoloPair (model)', () => {
     expect(slots.some(s => s.type === 'chord' && s.tremolo === 3)).toBe(true)
   })
 })
+
+/**
+ * The stroke STYLE — joined to both stem tips, or floating clear of them (P6). Offered on the drawn
+ * BLANCA and nowhere else, and REFUSED elsewhere rather than written-and-ignored.
+ */
+describe('tremoloPairStyle (model)', () => {
+  let model: ScoreModel
+  beforeEach(() => { model = new ScoreModel('Style') })
+
+  const paired = (duration: 'h' | 'q' | '8') => {
+    const step = { h: 2, q: 1, '8': 0.5 }[duration]
+    const a = model.addNote({ step: 'C', octave: 4, duration, measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration, measure: 1, beat: frac(step * 2, 2) })
+    model.setTremoloPair(a.id, true)
+    return a
+  }
+  const styleAt = (measure: number, beat: number) => {
+    const slot = model.getMeasure(measure)!.slots.find(s => fracToNumber(s.beat) === beat)
+    return slot?.type === 'chord' ? slot.tremoloPairStyle : undefined
+  }
+
+  it('sets the style on a pair of QUARTERS — the drawn blanca', () => {
+    const a = paired('q')
+    expect(model.setTremoloPairStyle(a.id, 'joined')).not.toBeNull()
+    expect(styleAt(1, 0)).toBe('joined')
+    expect(model.tremoloPairAcceptsJoined(a.id)).toBe(true)
+  })
+
+  it('⚠️ REFUSES it on any other drawn value — the restriction is the point', () => {
+    for (const duration of ['h', '8'] as const) {
+      const fresh = new ScoreModel('Style')
+      model = fresh
+      const a = paired(duration)
+      expect(model.setTremoloPairStyle(a.id, 'joined')).toBeNull()
+      expect(styleAt(1, 0)).toBeUndefined()
+      expect(model.tremoloPairAcceptsJoined(a.id)).toBe(false)
+    }
+  })
+
+  it('refuses a note with no pair at all', () => {
+    const a = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    expect(model.setTremoloPairStyle(a.id, 'joined')).toBeNull()
+    expect(model.tremoloPairAcceptsJoined(a.id)).toBe(false)
+  })
+
+  it("stores 'open' rather than deleting — it is a chosen override, not an absence", () => {
+    const a = paired('q')
+    model.setTremoloPairStyle(a.id, 'joined')
+    model.setTremoloPairStyle(a.id, 'open')
+    expect(styleAt(1, 0)).toBe('open')
+  })
+})

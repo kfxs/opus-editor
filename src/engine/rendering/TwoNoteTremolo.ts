@@ -107,17 +107,26 @@ export function twoNoteTremoloStrokes(opts: {
    * with the staff; {@link PAIR_STROKE_MAX_CLEARANCE_RATIO} keeps it from eating the whole stroke.
    */
   minClearance?: number
+  /**
+   * The JOINED style: run the strokes stem tip to stem tip with NO clearance, like a beam. Offered
+   * only on a drawn blanca (`pairAcceptsJoined`) — see `Chord.tremoloPairStyle`.
+   */
+  joined?: boolean
   staffSpace: number
   beamWidth: number
 }): TremoloStrokeQuad[] {
   const {
     strokes, leftX, leftAnchorY, rightX, rightAnchorY,
-    stemDirection, tipOffset = 0, minClearance = 0, staffSpace, beamWidth,
+    stemDirection, tipOffset = 0, minClearance = 0, joined = false, staffSpace, beamWidth,
   } = opts
   const gap = rightX - leftX
   if (strokes <= 0 || gap <= 0) return []
 
-  const wanted = Math.max(
+  // JOINED is simply "no clearance": the strokes reach both stems and touch them, which is what makes
+  // them read as a beam rather than as marks floating in the gap. Everything else about the stack —
+  // the anchor, the slope, the step — is unchanged, which is why the style is one boolean and not a
+  // second drawing path.
+  const wanted = joined ? 0 : Math.max(
     Math.min(staffSpace * PAIR_STROKE_CLEARANCE_SPACES, gap * PAIR_STROKE_CLEARANCE_RATIO),
     minClearance,
   )

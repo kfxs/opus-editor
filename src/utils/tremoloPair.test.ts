@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pairIsValid, pairRoleAt, laneOfSlot, pairDrawing, pairStrokesDrawn } from './tremoloPair'
+import { pairIsValid, pairRoleAt, laneOfSlot, pairDrawing, pairStrokesDrawn, pairAcceptsJoined, pairIsJoined } from './tremoloPair'
 import { fracCreate as frac } from './fraction'
 import type { Chord, ChordRest, NoteDuration, Rest, BeamMode } from '@/types/music'
 
@@ -184,5 +184,35 @@ describe('pairDrawing / pairStrokesDrawn — beamed, or apart with flags', () =>
   it('floors at zero — a count spent entirely on the beam is the all-beams spelling', () => {
     expect(pairStrokesDrawn(1, { flags: 1, beamed: true })).toBe(0)
     expect(pairStrokesDrawn(1, { flags: 2, beamed: true })).toBe(0)
+  })
+})
+
+describe('pairAcceptsJoined / pairIsJoined — the style, offered on the blanca only', () => {
+  it('offers the choice on a pair of QUARTERS (drawn as halves), dotted or not', () => {
+    expect(pairAcceptsJoined([chord(0, 'q'), chord(1, 'q')], 0)).toBe(true)
+    expect(pairAcceptsJoined([chord(0, 'q', { dots: 1 }), chord(1.5, 'q', { dots: 1 })], 0)).toBe(true)
+  })
+
+  it('⚠️ refuses it everywhere else — that restriction IS the feature', () => {
+    // A drawn NEGRA: joined strokes on two FILLED stems read as two beamed corcheas.
+    expect(pairAcceptsJoined([chord(0, '8'), chord(0.5, '8')], 0)).toBe(false)
+    // A drawn CORCHEA or shorter: the joining line is a real beam, not ours to style.
+    expect(pairAcceptsJoined([chord(0, '16'), chord(0.25, '16')], 0)).toBe(false)
+    // A drawn REDONDA: no stems to join.
+    expect(pairAcceptsJoined([chord(0, 'h'), chord(2, 'h')], 0)).toBe(false)
+  })
+
+  it('is JOINED only when both the style says so and the pair accepts it', () => {
+    const joined: ChordRest[] = [chord(0, 'q', { tremoloPair: true, tremoloPairStyle: 'joined' }), chord(1, 'q')]
+    expect(pairIsJoined(joined, 0)).toBe(true)
+
+    const open: ChordRest[] = [chord(0, 'q', { tremoloPair: true, tremoloPairStyle: 'open' }), chord(1, 'q')]
+    expect(pairIsJoined(open, 0)).toBe(false)
+    // Absent = open, the default.
+    expect(pairIsJoined([chord(0, 'q', { tremoloPair: true }), chord(1, 'q')], 0)).toBe(false)
+
+    // The style set on a pair that cannot take it is INERT, never drawn.
+    const inert: ChordRest[] = [chord(0, '8', { tremoloPair: true, tremoloPairStyle: 'joined' }), chord(0.5, '8')]
+    expect(pairIsJoined(inert, 0)).toBe(false)
   })
 })

@@ -649,6 +649,47 @@ export class PaletteController {
     this.renderScore()
   }
 
+  /**
+   * Toggle a two-note tremolo's stroke style — `'joined'` (stem tip to stem tip, like a beam) vs
+   * `'open'` (floating clear of both). Acts on the selected MARK, or on the one selected note.
+   *
+   * ⚠️ Refused — nothing happens, no undo entry — unless the pair's drawn value is a BLANCA. The
+   * choice is only legal there (`pairAcceptsJoined`), and refusing where it would change the reading
+   * is the point of the restriction, not an omission. {@link tremoloPairStyleTarget} is what the
+   * palette asks to know whether the control is even live.
+   */
+  pressTremoloPairStyle(): void {
+    const engine = this.getEngine()
+    const noteId = this.tremoloPairStyleTarget()
+    if (!engine || !noteId) return
+
+    const next = engine.getNote(noteId)?.tremoloPairStyle === 'joined' ? 'open' : 'joined'
+    const applied = engine.runBatch(`Tremolo strokes ${next}`, () => {
+      engine.setTremoloPairStyle(noteId, next)
+    })
+    if (!applied) return
+    this.renderScore()
+  }
+
+  /**
+   * The note whose two-note tremolo the style toggle would act on, or null when there is none —
+   * the palette's "is this control live" question, single-sourced with the press above.
+   *
+   * Only answers for a pair that ACCEPTS the choice, so the toggle is dark on a pair of eighths or
+   * halves rather than lit-and-inert.
+   */
+  tremoloPairStyleTarget(): string | null {
+    const engine = this.getEngine()
+    if (!engine) return null
+    const noteId = this.state.selectedTremoloNoteId ?? this.singleSelectedNoteId()
+    if (!noteId) return null
+    const note = engine.getNote(noteId)
+    if (!note?.tremoloPair) return null
+    // The model owns the eligibility rule; asking it with a no-op write would be an edit, so ask
+    // through the same predicate it uses.
+    return engine.tremoloPairAcceptsJoined(noteId) ? noteId : null
+  }
+
   /** The one selected note, or null when nothing / a rest / more than one is selected. */
   private singleSelectedNoteId(): string | null {
     const engine = this.getEngine()

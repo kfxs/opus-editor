@@ -170,6 +170,12 @@ note tremolos"), and MuseScore offers the same styles in Properties.
 tremoloPairStyle?: 'joined' | 'open'   // absent = the default
 ```
 
+✅ **BUILT.** `joined` is simply "no end clearance" — the strokes reach both stems and touch them,
+which is what makes them read as a beam. Everything else about the stack (anchor, slope, step) is the
+open style's, which is why it is ONE boolean and not a second drawing path. The press is **refused**
+where the style is not on offer (`pairAcceptsJoined`), and the dev shell's toggle greys out there:
+"not available" rather than "off", because a joined drawn NEGRA would say a different rhythm.
+
 ⚠️ **It is offered on the drawn BLANCA and nowhere else** — the same restriction MuseScore states.
 On a drawn negra, strokes touching two filled stems read as two beamed corcheas; on corchea and
 shorter the joining line is a **real beam** and not ours to style; a redonda has no stems to join.
@@ -315,7 +321,7 @@ Each is hand-testable on its own.
 | **P3** ✅ `9bb3ce3` | redonda — ⚠️ NOT between the noteheads: a stemless note still has stem EXTENTS, so the strokes hang from its IMAGINARY stem. Only the horizontal SPAN is notehead-to-notehead (§2) |
 | **P4** ✅ | playback (alternating attacks) |
 | **P5** ✅ | selection / Delete / reporting |
-| **P6** | the `'joined'` blanca style + the toggle on the selected mark (needs P5's selection) |
+| **P6** ✅ | the `'joined'` blanca style + the toggle on the selected mark (needs P5's selection). REFUSED off the blanca rather than written-and-ignored — `pairAcceptsJoined` |
 
 Deferred on purpose: note entry armed with a pair (the mark applies to notes that already exist),
 cross-barline pairs, tremolo between two **chords** of different sizes, ties into or out of a pair

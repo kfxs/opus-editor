@@ -2,7 +2,7 @@ import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidenta
 import { ScoreTuplet, layoutTupletMark, drawTupletMark } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
-import { TREMOLO_PAIR_GROUP, pairDrawing, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
+import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
@@ -809,7 +809,7 @@ export class VexFlowRenderer {
     staffIndex: number,
   ): void {
     for (const pair of this.twoNoteTremoloPairs(slots, staveNotes)) {
-      const { first, second, strokes, anchorId, slot } = pair
+      const { first, second, strokes, anchorId, slot, joined } = pair
       const staffSpace = first.getStave()?.getSpacingBetweenLines() ?? 10
       const stemmed = first.hasStem() && second.hasStem()
       const quads = twoNoteTremoloStrokes({
@@ -826,6 +826,7 @@ export class VexFlowRenderer {
         // flag is about that), so it follows the staff size instead of pinning a pixel count that
         // would be wrong the day the scale changes.
         minClearance: !pair.beamed && pair.flags > 0 ? first.getGlyphWidth() : 0,
+        joined,
         staffSpace,
         beamWidth: CROSS_SYSTEM_BEAM_WIDTH,
       })
@@ -900,11 +901,11 @@ export class VexFlowRenderer {
    */
   private twoNoteTremoloPairs(slots: ChordRest[], staveNotes: StaveNote[]): Array<{
     first: StaveNote; second: StaveNote; strokes: number; anchorId: string; slot: ChordRest
-    flags: number; beamed: boolean
+    flags: number; beamed: boolean; joined: boolean
   }> {
     const pairs: Array<{
       first: StaveNote; second: StaveNote; strokes: number; anchorId: string; slot: ChordRest
-      flags: number; beamed: boolean
+      flags: number; beamed: boolean; joined: boolean
     }> = []
     for (let i = 0; i + 1 < slots.length && i + 1 < staveNotes.length; i++) {
       const slot = slots[i]
@@ -920,6 +921,7 @@ export class VexFlowRenderer {
         strokes: pairStrokesDrawn(mark, drawing),
         anchorId: slot.notes[0]?.id ?? slot.id,
         slot,
+        joined: pairIsJoined(slots, i),
         ...drawing,
       })
     }

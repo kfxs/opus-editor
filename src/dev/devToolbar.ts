@@ -40,6 +40,9 @@ const TREM_FONT = "Bravura, Academico, 'Noto Music', serif"
  *  stem runs past the 26-unit drawing box, and that slack is where it goes. */
 const TREM_GLYPH = 22
 const TREM_BTN = 'w-9 h-9 flex items-center justify-center rounded overflow-hidden'
+/** The pair's stroke-STYLE toggle — a word, not a glyph, so it is sized like the action buttons and
+ *  greys out when the choice is not on offer (a pair that is not a drawn blanca). */
+const STYLE_BTN = 'px-2 h-9 rounded text-sm leading-none disabled:opacity-40 disabled:cursor-not-allowed'
 
 /** One glyph in a drawing — the shape {@link bakeGlyphStack} takes. */
 type TremLayer = { glyph: string; size?: number; dx?: number; dy?: number }
@@ -318,6 +321,27 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     pairBtn.className = `${TREM_BTN} ${lit ? ON : OFF}`
   })
   tremBox.appendChild(pairBtn)
+
+  /**
+   * The pair's stroke STYLE — joined to both stem tips, or floating clear of them. A word rather than
+   * a picture: the two drawings differ by a few pixels of stroke length, which is not a difference a
+   * 22px icon can carry.
+   *
+   * DISABLED unless the selected pair accepts the choice, which is only on a drawn BLANCA
+   * (docs/two-note-tremolo-plan.md §2). Dark-and-inert would be the wrong shape here — the point of
+   * the restriction is that joining a drawn negra says a different rhythm, so the control has to say
+   * "not available" rather than "off".
+   */
+  const styleBtn = el('button', '', 'Joined')
+  styleBtn.title = 'Two-note tremolo: join the strokes to both stem tips (half notes only)'
+  styleBtn.addEventListener('click', () => palette.pressTremoloPairStyle())
+  syncers.push(() => {
+    const noteId = palette.tremoloPairStyleTarget()
+    styleBtn.disabled = noteId === null
+    const joined = noteId !== null && getEngine()?.getNote(noteId)?.tremoloPairStyle === 'joined'
+    styleBtn.className = `${STYLE_BTN} ${joined ? ON : OFF}`
+  })
+  tremBox.appendChild(styleBtn)
 
   row.appendChild(tremBox)
 

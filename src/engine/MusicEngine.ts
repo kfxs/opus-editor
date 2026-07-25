@@ -2780,6 +2780,24 @@ export class MusicEngine {
     return result
   }
 
+  /**
+   * How a two-note tremolo's strokes meet the stems — `'joined'` or `'open'`. Returns null when the
+   * pair does not accept the choice (see `ScoreModel.setTremoloPairStyle`), so the press does nothing.
+   *
+   * `saveOnly`, not `commit`: this is how the mark is DRAWN, and nothing about it changes a note.
+   */
+  setTremoloPairStyle(noteId: string, style: 'joined' | 'open'): Note | null {
+    const result = this.scoreModel.setTremoloPairStyle(noteId, style)
+    if (!result) return null
+    this.saveOnly(`Tremolo strokes ${style}`)
+    return result
+  }
+
+  /** Read-only: does this note's two-note tremolo accept the `'joined'` style (a drawn blanca)? */
+  tremoloPairAcceptsJoined(noteId: string): boolean {
+    return this.scoreModel.tremoloPairAcceptsJoined(noteId)
+  }
+
   // ==================== Rendering Operations ====================
 
   /**

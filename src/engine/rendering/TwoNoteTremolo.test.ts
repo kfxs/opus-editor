@@ -101,3 +101,26 @@ describe('twoNoteTremoloStrokes — minClearance (a flag standing in the gap)', 
     expect(quads[0].endX).toBeGreaterThan(quads[0].startX)
   })
 })
+
+describe('twoNoteTremoloStrokes — the JOINED style', () => {
+  it('runs the strokes stem to stem, touching both', () => {
+    const quads = twoNoteTremoloStrokes({ ...base, joined: true })
+    expect(quads[0].startX).toBeCloseTo(100)
+    expect(quads[0].endX).toBeCloseTo(200)
+  })
+
+  it('changes only the LENGTH — the anchor, slope and step are the open style\'s', () => {
+    const open = twoNoteTremoloStrokes(base)
+    const joined = twoNoteTremoloStrokes({ ...base, joined: true })
+    expect(joined).toHaveLength(open.length)
+    joined.forEach((q, i) => {
+      expect(q.startY).toBeCloseTo(open[i].startY)
+      expect(q.thickness).toBeCloseTo(open[i].thickness)
+    })
+  })
+
+  it('overrides the flag clearance too — joined means joined', () => {
+    const quads = twoNoteTremoloStrokes({ ...base, joined: true, minClearance: 30 })
+    expect(quads[0].startX).toBeCloseTo(100)
+  })
+})

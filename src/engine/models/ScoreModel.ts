@@ -19,7 +19,7 @@ import {
 } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { beamRoleAtRef, type BeamRole } from '@/utils/beaming'
-import { laneOfSlot, pairIsValid } from '@/utils/tremoloPair'
+import { laneOfSlot, pairAcceptsJoined, pairIsValid } from '@/utils/tremoloPair'
 import { spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
 import { type RebarEvent } from '@/utils/rebar'
 import {
@@ -2105,6 +2105,51 @@ export class ScoreModel {
     chord.tremoloPair = true
     if (!chord.tremolo) chord.tremolo = 3
     return this.toFlatNote(chord, pitch)
+  }
+
+  /**
+   * Set how a two-note tremolo's strokes MEET the stems — `'joined'` (stem tip to stem tip, like a
+   * beam) or `'open'` (floating clear of both, the default).
+   *
+   * Refuses (returns null) unless the slot actually carries a pair AND that pair's drawn value is a
+   * BLANCA — {@link pairAcceptsJoined}, the restriction MuseScore states. Refusing is the point: on a
+   * drawn negra the joined strokes would read as two beamed corcheas, a different rhythm; on a
+   * corchea or shorter the joining line is a real beam; a redonda has no stems to join. Writing the
+   * field there and quietly ignoring it would leave a setting that does nothing and looks broken.
+   *
+   * `'open'` is stored rather than deleted when chosen explicitly — absent and `'open'` draw the same
+   * today, but the field is the per-mark OVERRIDE of a project-wide default that does not exist yet
+   * (§2), and "I chose open" will have to outrank that default when it does.
+   */
+  setTremoloPairStyle(noteId: string, style: 'joined' | 'open'): Note | null {
+    const found = this.findSlot(noteId)
+    if (!found || found.type === 'rest') return null
+    const { chord, pitch } = found
+    if (!chord.tremoloPair) return null
+
+    const measure = this.score.measures.find(m => m.number === chord.measure)
+    if (!measure) return null
+    const lane = laneOfSlot(measure.slots, chord)
+    const index = lane.indexOf(chord)
+    if (!pairIsValid(lane, index) || !pairAcceptsJoined(lane, index)) return null
+
+    chord.tremoloPairStyle = style
+    return this.toFlatNote(chord, pitch)
+  }
+
+  /**
+   * Does the two-note tremolo on `noteId` accept the `'joined'` stroke style? The read-only twin of
+   * {@link setTremoloPairStyle}'s own gate, so the palette can dark its control without attempting an
+   * edit to find out.
+   */
+  tremoloPairAcceptsJoined(noteId: string): boolean {
+    const found = this.findSlot(noteId)
+    if (!found || found.type === 'rest' || !found.chord.tremoloPair) return false
+    const measure = this.score.measures.find(m => m.number === found.chord.measure)
+    if (!measure) return false
+    const lane = laneOfSlot(measure.slots, found.chord)
+    const index = lane.indexOf(found.chord)
+    return pairIsValid(lane, index) && pairAcceptsJoined(lane, index)
   }
 
   /** The raw NotePitch behind a note id (chord head only; rests have no pitch). */
