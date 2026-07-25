@@ -1,4 +1,5 @@
 import { StaveNote, Voice, Accidental, Articulation, Modifier, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
+import { CenteredTremolo } from './CenteredTremolo'
 import type { Measure, NoteDuration, Clef, ArticulationType, ChordRest, Fraction, PitchAlter } from '@/types/music'
 import { fracCompare, fracLte } from '@/utils/fraction'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
@@ -263,6 +264,26 @@ export function createStaveNotesFromSlots(
     )
     for (const art of sortedArticulations) {
       staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
+    }
+
+    // Single-note tremolo — per-chord like the articulations, and for the same reason (the mark
+    // belongs to the event, not to a notehead).
+    //
+    // ⚠️ N copies of `tremolo1` (E220), never E221–E224: `CenteredTremolo(2)` IS the two-stroke
+    // mark. The multi-stroke SMuFL glyphs exist for the palette's pictures only.
+    //
+    // {@link CenteredTremolo}, not VexFlow's `Tremolo`: that one anchors the stack to the stem TIP,
+    // which leaves one or two strokes clinging to the top of the stem instead of riding its middle.
+    // Ours centres them; everything else about the mark is still the library's.
+    //
+    // Neither lengthens the stem, so four and five strokes on a short stem crowd the notehead —
+    // VexFlow has no opinion there and neither do we yet.
+    //
+    // The Penderecki sign is deliberately NOT drawn here: VexFlow has no glyph for it, so it is our
+    // own draw at the stem (docs/tremolo-plan.md §4, P2). Until then the mark stores and does not
+    // engrave, which is why the palette does not arm it.
+    if (typeof slot.tremolo === 'number') {
+      staveNote.addModifier(new CenteredTremolo(slot.tremolo), 0)
     }
 
     staveNotes.push(staveNote)

@@ -17,6 +17,19 @@ import { dbg } from '@/utils/debug'
  */
 export type ElementType =
   | 'note'
+  /**
+   * A note's STEM, as its own ink rect — registered per stemmed slot (a chord has one stem, and
+   * one stem element). Its own type rather than something inferred from the note's box, because
+   * the note's box deliberately spans head + stem + beam: from outside, "where is the stem" is
+   * not answerable from it, only guessable (which side, how far). VexFlow knows exactly, so we
+   * write it down at render time.
+   *
+   * The first caller is the tremolo stamp — the strokes ride the stem, so the stem is where the
+   * pointer goes. Stem length drag and a stem-side selection want the same rect.
+   *
+   * ⚠️ It carries {@link ElementInfo.noteId}, NOT `id`. See that field for why.
+   */
+  | 'stem'
   | 'rest'
   | 'clef'
   | 'timeSignature'
@@ -56,6 +69,13 @@ const GLYPH_TYPES: ReadonlySet<ElementType> = new Set<ElementType>([
  * §6a-ii calibration note). Raise only if a real glyph ever trips it.
  */
 const GLYPH_MAX_STAFF_SPACES = 6
+
+/**
+ * How far either side of a stem's own ink a click still counts (px). A stem is `Stem.WIDTH` — about
+ * a pixel and a half — so its true rect is not a target anyone can hit; every hit-test here pads.
+ * Kept well under half a notehead so the pad cannot reach across to a neighbouring stem.
+ */
+const STEM_CLICK_PAD = 5
 
 /**
  * Bounding box in pixel coordinates
@@ -254,7 +274,13 @@ export interface ElementInfo {
   accidentalType?: string
   /** ID of the note this accidental belongs to (for accidentals) — and, for a 'dot', the ANCHOR the
    *  slot's dots hang off (see VexFlowRenderer.registerDots): EVERY dot glyph of one chord/rest
-   *  shares it, because `dots` is one value on the slot. */
+   *  shares it, because `dots` is one value on the slot.
+   *
+   *  Also carried by a **'stem'**, for the same "one per slot" reason: a chord has one stem, anchored
+   *  on the LOWEST pitch exactly as its articulations and dots are. ⚠️ A stem deliberately does NOT
+   *  fill `id` — {@link getById} returns the FIRST element carrying an id, so a stem sharing its
+   *  notehead's id would let a lookup for the NOTE find the stem's tall rect instead: silently, and
+   *  only sometimes, depending on registration order. */
   noteId?: string
   // Articulation-specific properties
   /** Articulation type (for articulations) */
@@ -1005,6 +1031,41 @@ export class ElementRegistry {
     const pad = 4
     const b = el.bbox
     return x >= b.x - pad && x <= b.x + b.width + pad && y >= b.y - pad && y <= b.y + b.height + pad
+  }
+
+  /**
+   * The STEM under (x, y), or null — the registered `'stem'` rect, widened by {@link STEM_CLICK_PAD}
+   * so a 1.5px line is actually clickable.
+   *
+   * The deliberate complement to {@link hitsNoteOrRestBody}, which ignores the stem on purpose: the
+   * stem's tall box is what made selection feel over-eager, and that judgement stands for
+   * *selection*. It does not stand for a mark that lives ON the stem — a tremolo's strokes ride it,
+   * so aiming at the notehead would mean clicking where the mark will not appear.
+   *
+   * Containment, not nearest — and that is the point of registering the stem rather than inferring
+   * it. {@link findClosestNoteOrRest} measures from the NOTEHEAD, and a click at the top of a stem
+   * is a whole stem-length from its own head, so a denser neighbour's head wins and the mark lands
+   * on the wrong note. Being ON a rect cannot be fooled that way.
+   *
+   * Nearest-stem breaks a tie when two padded rects overlap (adjacent notes in a tight beamed
+   * group): horizontal distance is the whole ambiguity, since the rects are narrow.
+   */
+  findStemAt(x: number, y: number): ElementInfo | null {
+    let best: ElementInfo | null = null
+    let bestDx = Infinity
+    for (const el of this.elements) {
+      if (el.type !== 'stem') continue
+      const b = el.bbox
+      const centerX = b.x + b.width / 2
+      if (x < b.x - STEM_CLICK_PAD || x > b.x + b.width + STEM_CLICK_PAD) continue
+      if (y < b.y - STEM_CLICK_PAD || y > b.y + b.height + STEM_CLICK_PAD) continue
+      const dx = Math.abs(x - centerX)
+      if (dx < bestDx) {
+        bestDx = dx
+        best = el
+      }
+    }
+    return best
   }
 
   /**

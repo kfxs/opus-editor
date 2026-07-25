@@ -1,5 +1,5 @@
 import { dbg } from '@/utils/debug'
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, BeamMode, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CautionaryOverride, CautionaryClefOverride } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, BeamMode, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CautionaryOverride, CautionaryClefOverride, TremoloMark } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf, noteOffsetOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX } from './engravingOverrides'
 import {
   tupletSpan,
@@ -2026,6 +2026,26 @@ export class ScoreModel {
     if (!chord.articulations?.length) return null
     if (align) chord.articulationStemAlign = true
     else delete chord.articulationStemAlign
+    return this.toFlatNote(chord, pitch)
+  }
+
+  /**
+   * Set — or with `null`, remove — the single-note tremolo on the slot containing `noteId`.
+   *
+   * SINGLE-VALUED: a note carries one tremolo, so a different mark REPLACES the one there rather
+   * than stacking (articulations are the additive kind). Refuses a REST outright — you cannot
+   * tremolo silence — which is why {@link Rest} has no such field to write. Returns the flat note,
+   * or null when the id is not a chord pitch.
+   *
+   * The mark lives on the slot, so a chord takes it as a chord — passing any pitch id in the chord
+   * marks the whole event, which is the same call {@link setArticulationStemAlign} makes.
+   */
+  setTremolo(noteId: string, tremolo: TremoloMark | null): Note | null {
+    const found = this.findSlot(noteId)
+    if (!found || found.type === 'rest') return null
+    const { chord, pitch } = found
+    if (tremolo === null) delete chord.tremolo
+    else chord.tremolo = tremolo
     return this.toFlatNote(chord, pitch)
   }
 

@@ -222,6 +222,21 @@ export interface PitchSpelling {
 export type ArticulationType = 'accent' | 'staccato' | 'tenuto'
 
 /**
+ * A single-note tremolo — the strokes that ride a note's stem and say "repeat this note, this
+ * finely". One to five strokes, or the Penderecki sign (SMuFL `pendereckiTremolo`, E22B).
+ *
+ * ⚠️ The number is **how the mark is written, not how it is performed**. The measured /
+ * unmeasured split is NOT `typeof === 'number'`: four and five strokes are numbers and are
+ * never measured, and even three usually is not. The reading is *derived* from the stroke count
+ * plus the note's own flags at playback time (docs/tremolo-plan.md §5) — nothing is stored for
+ * it, because nothing about the notation says it.
+ *
+ * The Penderecki sign is a member of the same field rather than a flag beside it because a note
+ * carries ONE tremolo: "three strokes AND unmeasured" has no meaning to write down.
+ */
+export type TremoloMark = 1 | 2 | 3 | 4 | 5 | 'penderecki'
+
+/**
  * Clef types
  */
 export type Clef = 'treble' | 'bass' | 'alto' | 'tenor'
@@ -822,6 +837,8 @@ export interface Note {
   secondaryBreak?: boolean
   /** REST only: beam over this rest instead of breaking at it. See {@link Rest.beamOver}. */
   beamOver?: boolean
+  /** Single-note tremolo on this note's slot. See {@link Chord.tremolo}. */
+  tremolo?: TremoloMark
   /**
    * Voice index (0–3) this note belongs to. Voices are independent rhythmic
    * streams within a bar. Only voice 0 is populated today (no multi-voice
@@ -920,6 +937,21 @@ export interface Chord {
   articulationPlacement?: 'above' | 'below'
   /** Stem-side articulations align to the stem (modern) not the notehead (default). */
   articulationStemAlign?: boolean
+  /**
+   * Single-note tremolo: one to five stem strokes, or the Penderecki sign. See
+   * {@link TremoloMark} for why the number is notation and not a performance instruction.
+   *
+   * On the SLOT, not the pitch, for the reason {@link articulations} is: a tremolo is a property
+   * of the *event*. A chord tremolos as a chord — "tremolo one notehead of a chord" has no
+   * representation. Rests refuse it outright (you cannot tremolo silence), the same way
+   * {@link Chord.beam} has no counterpart on {@link Rest}.
+   *
+   * Inside a slot, so it needs no `MEASURE_RENDER_ROLE` entry: `laneFingerprint` stringifies
+   * `lane.slots` whole and `measureShapeKey` reuses that string, so redraw is correct for free.
+   * That is *conservative* rather than exact — the mark costs no horizontal space, yet riding in
+   * `slots` puts it in the WIDTH key too — which is the safe direction. See docs/tremolo-plan.md §1.
+   */
+  tremolo?: TremoloMark
   /**
    * Staff this chord belongs to (a {@link StaffInfo} id). Absent = staff 0 (the first
    * staff), mirroring absent {@link Note.voice} = voice 0. Orthogonal to voice: a slot's

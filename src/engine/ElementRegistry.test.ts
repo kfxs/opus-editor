@@ -255,3 +255,76 @@ describe('ElementRegistry §6a-ii glyph-height tripwire', () => {
     expect(fired()).toBe(false)
   })
 })
+
+/**
+ * The STEM as its own registered element (docs/tremolo-plan.md §2). A tremolo's strokes ride the
+ * stem, so the stem is where the pointer goes — and the note's own box cannot answer "where is the
+ * stem", since it spans head + stem + beam by design. These pin the finder, not the geometry: what
+ * the renderer writes into the rect comes from VexFlow (`getStemX` / `getStemExtents`).
+ */
+describe('ElementRegistry stem hit-detection', () => {
+  let registry: ElementRegistry
+
+  const geometry: StaffGeometry = {
+    measure: 1, staff: 0,
+    lineYPositions: [40, 50, 60, 70, 80], lineSpacing: 10,
+    noteStartX: 50, noteEndX: 450, clef: 'treble',
+  }
+
+  beforeEach(() => {
+    registry = new ElementRegistry()
+    registry.setStaffGeometry(geometry)
+  })
+
+  /** A stem-up G4 at x=106: head on the line at y=70, tip at y=35. */
+  const addStemUpNote = (id: string, headX: number) => {
+    registry.add({
+      type: 'note', id, measure: 1, staff: 0, beat: 0, pitch: 67,
+      bbox: { x: headX - 10, y: 35, width: 20, height: 40 }, headX,
+    })
+    registry.add({
+      type: 'stem', noteId: id, measure: 1, staff: 0, beat: 0,
+      bbox: { x: headX + 6, y: 35, width: 1.5, height: 35 },
+    })
+  }
+
+  it('resolves a click on the stem to the note the stem belongs to', () => {
+    addStemUpNote('n1', 100)
+    expect(registry.findStemAt(107, 45)?.noteId).toBe('n1')
+  })
+
+  it('is what makes the click work: the notehead test refuses the same point', () => {
+    addStemUpNote('n1', 100)
+    const note = registry.getById('n1')!
+    expect(registry.hitsNoteOrRestBody(note, 107, 45)).toBe(false)
+  })
+
+  it('pads the 1.5px line so it is actually clickable, but not by half a notehead', () => {
+    addStemUpNote('n1', 100)
+    expect(registry.findStemAt(103, 45)?.noteId).toBe('n1')  // 3px left of the ink
+    expect(registry.findStemAt(94, 45)).toBeNull()            // 12px away → the head's territory
+  })
+
+  it('does not reach past the stem tip or below the notehead', () => {
+    addStemUpNote('n1', 100)
+    expect(registry.findStemAt(107, 20)).toBeNull()  // above the tip
+    expect(registry.findStemAt(107, 90)).toBeNull()  // below the head
+  })
+
+  it('beats nearest-note: a click high on a stem stays on ITS note, not a closer neighbour head', () => {
+    addStemUpNote('n1', 100)
+    // A high neighbour whose HEAD (y=20) is nearer to (107,40) than n1's head (y=70) is.
+    registry.add({
+      type: 'note', id: 'high', measure: 1, staff: 0, beat: 1, pitch: 84,
+      bbox: { x: 110, y: 20, width: 20, height: 45 }, headX: 120,
+    })
+    expect(registry.findClosestNoteOrRest(107, 40)?.id).toBe('high') // nearest is the WRONG answer…
+    expect(registry.findStemAt(107, 40)?.noteId).toBe('n1')          // …containment is the right one
+  })
+
+  it('a stem never answers a lookup for its note (it carries noteId, not id)', () => {
+    addStemUpNote('n1', 100)
+    expect(registry.getById('n1')?.type).toBe('note')
+    expect(registry.getByType('stem')[0].id).toBeUndefined()
+  })
+})

@@ -1,5 +1,5 @@
 import { dbg } from '@/utils/debug'
-import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature, Fraction, TupletFormat } from '../types/music'
+import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature, Fraction, TupletFormat, TremoloMark } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorState'
@@ -536,6 +536,32 @@ export class PaletteController {
   }
 
   /**
+   * Arm `tremolo` as the tremolo stamp tool — one to five strokes, or the Penderecki sign. The
+   * dev palette's only wiring, and the same method the Keypad's page-2 tremolo keys will call.
+   *
+   * SINGLE-VALUED like the accidental stamp: a re-press of the armed mark DISARMS, a different
+   * mark SWAPS (redrawing the ghost on the keypress, not on the next mouse move, or the armed tool
+   * and what you see disagree). Any other marking tool being armed is handled by construction —
+   * `armMarkingTool` reassigns the one union field, so arming IS clearing.
+   *
+   * It does NOT apply to a selection the way {@link setAccidental} does. A stamp-only tool for now,
+   * because the mark's removal story is still open (docs/tremolo-plan.md §2): Ctrl+Z takes a stamp
+   * off, and a selection-apply path needs the toggle-off half to be worth having.
+   */
+  armTremolo(tremolo: TremoloMark): void {
+    const armed = this.state.selectedMarkingTool
+    if (armed?.kind === 'tremolo') {
+      if (armed.tremolo === tremolo) this.disarmMarkingTool()
+      else {
+        this.state.selectedMarkingTool = { kind: 'tremolo', tremolo }
+        this.showArmedGhost()
+      }
+      return
+    }
+    this.armMarkingTool({ kind: 'tremolo', tremolo })
+  }
+
+  /**
    * A duration press ends the armed marking tool — but two of the four stamps have somewhere to GO
    * first: their armed value becomes the NOTE-ENTRY armed value, which is the "accidental +
    * duration" and "dot + duration" (dotted quarter) flows. Returns the dots to arm, because
@@ -565,6 +591,7 @@ export class PaletteController {
         // nowhere to be promoted TO. Placing rests with the mouse is not a property of a note.
         return this.state.selectedDots
       case 'tie':          // valueless — there is no armed entry-mode tie to become
+      case 'tremolo':      // no entry-mode home: you do not enter a note WITH a tremolo, you mark one
       case 'clef':         // the four below place OBJECTS, not note properties: nothing to carry
       case 'timeSignature':
       case 'dynamic':

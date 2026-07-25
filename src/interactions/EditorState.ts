@@ -1,4 +1,4 @@
-import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, DynamicLevel, ArticulationType, Fraction, TupletFormat } from '../types/music'
+import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, DynamicLevel, ArticulationType, Fraction, TupletFormat, TremoloMark } from '../types/music'
 import { deriveTupletM } from '../utils/musicUtils'
 import type { SelectionItem } from './selection'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
@@ -60,6 +60,11 @@ export type MarkingTool =
   /** SINGLE-valued: a note has one accidental state, so a different key SWAPS rather than stacks.
    *  Distinct from `selectedAccidental`, which arms for the next note ENTERED. */
   | { kind: 'accidental'; sign: Accidental }
+  /** SINGLE-valued for the accidental's reason: a note carries ONE tremolo, so pressing another
+   *  mark swaps it. Marks notes that already have their length, like the accidental stamp — there
+   *  is no "enter a note with a tremolo" flow, because the mark says how to repeat a note that
+   *  exists. See docs/tremolo-plan.md §2. */
+  | { kind: 'tremolo'; tremolo: TremoloMark }
   /** VALUELESS — a note ties to the next slot or it does not. */
   | { kind: 'tie' }
   /** VALUELESS — the UI's dot is on or off. The one stamp that also applies to RESTS. */
@@ -119,6 +124,7 @@ export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean
   accidental: false,
   tie: false,
   dot: false,
+  tremolo: false,     // marks a note that already has its length, like the accidental stamp
 }
 
 /**

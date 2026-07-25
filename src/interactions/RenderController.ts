@@ -218,6 +218,18 @@ export class RenderController {
     engine.renderScoreWithAccidentalGhost(coords, accidental)
   }
 
+  /** Render the score with translucent ghost tremolo strokes following the cursor — the preview for
+   *  the armed tremolo stamp. The mark itself, not the palette's note-wearing-strokes picture; the
+   *  note it lands on is resolved at click time. Penderecki has no draw yet (docs/tremolo-plan.md
+   *  §4/P2), so only a stroke count reaches here. */
+  renderTremoloGhost(coords: { x: number; y: number }, strokes: number): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    renderCensus.setCause('ghost:tremolo')
+    this.ensureScoreDrawn(engine)
+    engine.renderScoreWithTremoloGhost(coords, strokes)
+  }
+
   /** Render the score with a translucent ghost tie following the cursor — the preview for the armed
    *  tie stamp tool. Engraved as a REAL tie (same primitive and shape constants), but it previews
    *  only the MARK, never which notes will be joined — the engine resolves that on click. */
@@ -289,6 +301,12 @@ export class RenderController {
       // Stacked, so the ghost reads as everything the click will stamp.
       case 'articulation': this.renderArticulationGhost(coords, tool.types); return
       case 'accidental': this.renderAccidentalGhost(coords, tool.sign); return
+      // Single-valued, and the STROKES rather than the palette's picture. A Penderecki mark draws
+      // nothing until §4/P2 gives it our own glyph — the palette does not arm it, so this is a
+      // stroke count in practice; the guard is what makes that true rather than assumed.
+      case 'tremolo':
+        if (typeof tool.tremolo === 'number') this.renderTremoloGhost(coords, tool.tremolo)
+        return
       // The two valueless stamps carry nothing to preview: their ghost is the mark itself, and
       // WHICH note it lands on is resolved at click time.
       case 'tie': this.renderTieGhost(coords); return

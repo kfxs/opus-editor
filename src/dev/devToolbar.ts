@@ -1,7 +1,8 @@
 import type { EditorState } from '../interactions/EditorState'
+import { armedTool } from '../interactions/EditorState'
 import type { PaletteController } from '../interactions/PaletteController'
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { NoteDuration } from '../types/music'
+import type { NoteDuration, TremoloMark } from '../types/music'
 import { durationHighlight } from '../interactions/keypadSync'
 import { bakeGlyphStack } from '../windows/keypad/tremoloBake'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
@@ -39,7 +40,8 @@ const TREM_FONT = "Bravura, Academico, 'Noto Music', serif"
 /** The svg's own box, and the button around it. ~1.6× is the Keypad's CELL:GLYPH ratio — the note's
  *  stem runs past the 26-unit drawing box, and that slack is where it goes. */
 const TREM_GLYPH = 22
-const TREM_BTN = 'w-9 h-9 flex items-center justify-center rounded overflow-hidden'
+const TREM_BTN = 'w-9 h-9 flex items-center justify-center rounded overflow-hidden '
+  + 'disabled:opacity-40 disabled:cursor-not-allowed'
 
 /** One glyph in a drawing — the shape {@link bakeGlyphStack} takes. */
 type TremLayer = { glyph: string; size?: number; dx?: number; dy?: number }
@@ -56,16 +58,26 @@ const struck = (stroke: string, dy = 4, size?: number, dx = -2): TremLayer[] =>
   [{ glyph: '\uE1D6', dy: -10 }, { glyph: stroke, size, dy, dx }]   // E1D6 noteQuarterDown
 
 /**
- * The four marks. SMuFL `tremolo1`…`tremolo3` are the MEASURED strokes — the stroke count says which
- * division of the written note you repeat. `pendereckiTremolo` (E22B) is the UNMEASURED one: as fast
- * as possible, no relation to the written duration, which is why it is a mark of its own here and
- * not "four strokes".
+ * The six marks, the same population the Keypad's page-2 tremolo keys cover. `id` names the drawing
+ * (the Keypad borrows the same names); `mark` is the {@link TremoloMark} the button ARMS — the
+ * mapping is deliberate rather than a rename, so neither file has to change spelling to agree.
+ *
+ * SMuFL `tremolo1`…`tremolo5` are the strokes — the stroke count says which division of the written
+ * note you repeat. `pendereckiTremolo` (E22B) is the UNMEASURED one: as fast as possible, no relation to the
+ * written duration, which is why it is a mark of its own here and not "six strokes", and why it sits
+ * last rather than after the third stroke.
+ *
+ * The four- and five-stroke marks are drawn SMALLER (size 22 / 21 against the 26 box) — they are
+ * taller glyphs, so at full size they outgrow the note they ride. Those numbers are the Keypad's,
+ * like the rest of the offsets.
  */
-const TREMOLOS: ReadonlyArray<{ id: string; title: string; layers: TremLayer[] }> = [
-  { id: 'one', title: 'Single tremolo — one stroke', layers: struck('\uE220') },
-  { id: 'two', title: 'Second-order tremolo — two strokes', layers: struck('\uE221', 3) },
-  { id: 'three', title: 'Third-order tremolo — three strokes', layers: struck('\uE222', 3) },
-  { id: 'penderecki', title: 'Penderecki tremolo — unmeasured, as fast as possible',
+const TREMOLOS: ReadonlyArray<{ id: string; mark: TremoloMark; title: string; layers: TremLayer[] }> = [
+  { id: 'one', mark: 1, title: 'Single tremolo — one stroke', layers: struck('\uE220') },
+  { id: 'two', mark: 2, title: 'Second-order tremolo — two strokes', layers: struck('\uE221', 3) },
+  { id: 'three', mark: 3, title: 'Third-order tremolo — three strokes', layers: struck('\uE222', 3) },
+  { id: 'four', mark: 4, title: 'Fourth-order tremolo — four strokes', layers: struck('\uE223', 4, 22) },
+  { id: 'five', mark: 5, title: 'Fifth-order tremolo — five strokes', layers: struck('\uE224', 4.5, 21) },
+  { id: 'penderecki', mark: 'penderecki', title: 'Penderecki tremolo — unmeasured, as fast as possible',
     layers: struck('\uE22B', 4.5, 30, -1) },
 ]
 
@@ -234,21 +246,22 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
 
   // --- Tremolo ---
   /**
-   * ⚠️ UI ONLY — this palette is WIRED TO NOTHING. There is no tremolo in the model, in the renderer or
-   * in playback yet; these four buttons pick one and light it, and that is the whole behaviour. It is
-   * here first so the vocabulary can be looked at and argued with before anything is built behind it,
-   * which is how the beam palette started too.
+   * WIRED: each button ARMS the tremolo stamp tool (`PaletteController.armTremolo`), and the next
+   * click on a note stamps the mark. The lit state is no longer a local `let` — it reads the
+   * `selectedMarkingTool` union like every other armed tool, which is what makes Esc, a duration
+   * press, or arming any other tool switch this row off for free.
    *
-   * The armed pick is a LOCAL let, deliberately NOT an EditorState field: a marking tool belongs in the
-   * `selectedMarkingTool` union (interactions/EditorState), and adding it there is the first real wiring
-   * step, not a scaffolding one. Nothing outside this closure can see it, so nothing can quietly start
-   * depending on it.
+   * ⚠️ The Penderecki button is DISABLED, not merely inert: VexFlow has no E22B, so the mark has no
+   * draw until we make our own (docs/tremolo-plan.md §4, P2). Arming it would let you stamp a mark
+   * that stores and never appears — an invisible edit, which is worse than a button that says "not
+   * yet". The model already accepts the value; only the drawing is missing.
    */
-  let armedTremolo: string | null = null
   const tremBox = group('Tremolo:')
   for (const t of TREMOLOS) {
     const b = el('button', TREM_BTN)
-    b.title = t.title
+    const drawable = t.mark !== 'penderecki'
+    b.title = drawable ? t.title : `${t.title} — not engraved yet (needs its own E22B draw)`
+    b.disabled = !drawable
     // The picture is baked the same way the Keypad bakes its own: one svg in a 26-unit box, the
     // button sized ~1.6× it so the stem overflowing that box has somewhere to go (KeypadWidget's
     // CELL:GLYPH ratio), with the button clipping whatever still runs past.
@@ -256,13 +269,13 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     svg.style.width = `${TREM_GLYPH}px`
     svg.style.height = `${TREM_GLYPH}px`
     b.appendChild(svg)
-    // Pressing the lit one turns it OFF — with nothing behind the palette an armed pick you cannot
-    // clear is just a stuck button.
-    b.addEventListener('click', () => {
-      armedTremolo = armedTremolo === t.id ? null : t.id
-      sync()
+    // A re-press of the lit one DISARMS (armTremolo owns that toggle, and a different button swaps
+    // the armed mark) — the same shape the accidental stamp's keys have.
+    b.addEventListener('click', () => palette.armTremolo(t.mark))
+    syncers.push(() => {
+      const lit = armedTool(state, 'tremolo')?.tremolo === t.mark
+      b.className = `${TREM_BTN} ${lit ? ON : OFF}`
     })
-    syncers.push(() => { b.className = `${TREM_BTN} ${armedTremolo === t.id ? ON : OFF}` })
     tremBox.appendChild(b)
   }
   row.appendChild(tremBox)

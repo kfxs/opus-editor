@@ -1,5 +1,6 @@
 import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, Stem, StaveTie, Dot, Barline, ClefNote } from 'vexflow'
 import { ScoreTuplet, layoutTupletMark, drawTupletMark } from './ScoreTuplet'
+import { CenteredTremolo } from './CenteredTremolo'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
@@ -447,7 +448,7 @@ export class VexFlowRenderer {
    * the leak.)
    */
   private static readonly GHOST_GROUP_SELECTOR =
-    '.ghost-note-group, .ghost-rest-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tempo'
+    '.ghost-note-group, .ghost-rest-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo'
 
   /** Take down whatever ghost is showing. O(1) in the score's size — this is the whole point
    *  of P4: hovering an invalid element, or leaving the canvas, used to cost a FULL render
@@ -659,6 +660,55 @@ export class VexFlowRenderer {
         })
       }
     } catch (_e) { /* Dot bounding box may not be available */ }
+  }
+
+  /**
+   * Register the STEM of `staveNote` as its own ink rect, anchored on `anchorNoteId`.
+   *
+   * WHY IT IS ITS OWN ELEMENT. The note registers a box that spans head + stem + beam on purpose
+   * (docs/tight-bbox-plan.md §4a keeps that "semantic" box), which means the stem's own geometry —
+   * which side of the head it is on, how far it reaches — is not readable from outside: only
+   * guessable. VexFlow knows it exactly, so the answer is written down here rather than inferred at
+   * hit-test time. First caller is the tremolo stamp (the strokes ride the stem, so that is where
+   * the pointer goes — {@link ElementRegistry.findStemAt}); stem-length drag and stem selection
+   * want the same rect.
+   *
+   * ONE per slot, on the chord's lowest pitch — a chord has one stem, exactly as it has one set of
+   * dots and one set of articulations.
+   *
+   * `getStemX()` is the x the stem is DRAWN at (head's right edge for stem-up, left for stem-down,
+   * and it already includes the note-offset `xShift`), and `getStemExtents()` gives tip → notehead
+   * end. Called after the beams are drawn (see the draw order in `drawMeasureContent`), so a beamed
+   * stem's extension is already applied and the rect is the real length, not the default one.
+   *
+   * A stemless note registers nothing: `hasStem()` is false for a whole note, and a stem you cannot
+   * see is not a thing to click.
+   */
+  private registerStem(
+    staveNote: StaveNote,
+    anchorNoteId: string,
+    measureNumber: number,
+    staffIndex: number,
+    beat: number,
+  ): void {
+    try {
+      if (!staveNote.hasStem()) return
+      const x = staveNote.getStemX()
+      const { topY, baseY } = staveNote.getStemExtents()
+      const y = Math.min(topY, baseY)
+      const height = Math.abs(baseY - topY)
+      if (!Number.isFinite(x) || !Number.isFinite(y) || height <= 0) return
+      this.elementRegistry.add({
+        type: 'stem',
+        noteId: anchorNoteId,
+        measure: measureNumber,
+        staff: staffIndex,
+        beat,
+        // The drawn line is Stem.WIDTH wide, centred on x. Clicking it is padded by the registry
+        // (STEM_CLICK_PAD) rather than here, so what is stored stays the ink and not a target.
+        bbox: { x: x - Stem.WIDTH / 2, y, width: Stem.WIDTH, height },
+      })
+    } catch (_e) { /* stem geometry may not be available pre-draw */ }
   }
 
   /**
@@ -2267,6 +2317,12 @@ export class VexFlowRenderer {
               // Dots: chord-level data like articulations, so anchor them on the lowest pitch too.
               if (keyIndex === 0 && slot.dots) {
                 this.registerDots(staveNote, pitch.id, measure.number, staffIndex, fracToNumber(slot.beat))
+              }
+
+              // The STEM as its own ink rect — chord-level, so anchored on the lowest pitch like the
+              // articulations and dots above.
+              if (keyIndex === 0) {
+                this.registerStem(staveNote, pitch.id, measure.number, staffIndex, fracToNumber(slot.beat))
               }
 
               // Register whatever accidental VexFlow actually drew — including a
@@ -4008,6 +4064,82 @@ export class VexFlowRenderer {
       // it is previewing. Covers all three signs: ♯ ♭ ♮ share this one draw.
       const GAP_X = 10
       const dx = cursorX - GAP_X - (gbox.x + gbox.width / 2)
+      const dy = cursorY - (gbox.y + gbox.height / 2)
+      group.setAttribute('transform', `translate(${dx}, ${dy})`)
+      return true
+    } catch (_e) {
+      return false
+    }
+  }
+
+  /**
+   * Draw the translucent ghost tremolo STROKES following the cursor — the preview for the armed
+   * tremolo stamp. Same standalone-draw recipe as {@link renderScoreWithArticulationGhost}: a
+   * throwaway note + stave, `setStave` then `Formatter.format` (between them they populate
+   * everything the modifier's `draw()` reads), then draw ONLY the modifier into OUR `vf-`-prefixed
+   * group (`.vf-ghost-tremolo`, registered in {@link GHOST_GROUP_SELECTOR} — a group missing from
+   * that list is never taken down, and the ghost smears a trail across the score).
+   *
+   * The ghost is the **real mark**, not the palette's picture: the dev palette draws a note wearing
+   * its strokes because a button has to be recognisable, while this draws exactly what the click
+   * adds — N copies of `tremolo1`, which is all VexFlow's `Tremolo` ever draws.
+   *
+   * ⚠️ Where this differs from every sibling ghost: an `Articulation` positions itself off the
+   * NOTEHEAD, but `Tremolo` positions itself off `note.getStemExtents().topY` — so the strokes land
+   * far above the throwaway note's origin. The bbox-centring below absorbs that on purpose: it
+   * measures where the glyphs ACTUALLY landed and moves the whole group from there, so the offset
+   * never has to be known.
+   *
+   * Penderecki is not drawable here — VexFlow has no glyph for it and ours is P2 — so the palette
+   * does not arm it and `mark` is a stroke count.
+   * @returns true if a ghost tremolo was drawn
+   */
+  renderScoreWithTremoloGhost(cursorX: number, cursorY: number, strokes: number): boolean {
+    this.clearGhosts() // an overlay — take the old ghost down, leave the score alone
+
+    const svg = this.getSVGElement()
+    if (!svg || !this.context) return false
+
+    try {
+      const tempStave = new Stave(0, cursorY, 200)
+      tempStave.setBegBarType(Barline.type.NONE)
+      tempStave.setEndBarType(Barline.type.NONE)
+      tempStave.setContext(this.context)
+
+      const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
+      note.setStave(tempStave) // populates the note's Y values (Tremolo.draw reads its stem extents)
+      const tremolo = new CenteredTremolo(strokes)
+      note.addModifier(tremolo, 0) // attaches the note to the modifier (checkAttachedNote)
+
+      const voice = new Voice({ numBeats: 1, beatValue: 4 })
+      voice.setStrict(false)
+      voice.addTickables([note])
+      new Formatter().joinVoices([voice]).format([voice], 150) // sets the note's tick X position
+      note.setStave(tempStave)
+
+      const group = this.context.openGroup('ghost-tremolo') as SVGGElement
+      try {
+        tremolo.setContext(this.context).draw()
+      } finally {
+        this.context.closeGroup()
+      }
+
+      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
+      if (!gbox || gbox.width === 0) {
+        group.remove()
+        return false
+      }
+
+      // Paint it ghost blue at 0.7 opacity — a preview, not yet content (mirrors the other ghosts).
+      group.setAttribute('opacity', '0.7')
+      group.querySelectorAll('text, path').forEach(el => {
+        if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
+      })
+
+      // Centred on the pointer: the strokes ride the STEM, so there is no notehead side for them to
+      // sit off — unlike the accidental (left) and dot (right) ghosts, which preview a horizontal
+      // relationship to the note they will join.
+      const dx = cursorX - (gbox.x + gbox.width / 2)
       const dy = cursorY - (gbox.y + gbox.height / 2)
       group.setAttribute('transform', `translate(${dx}, ${dy})`)
       return true

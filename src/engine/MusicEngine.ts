@@ -18,7 +18,7 @@ import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } f
 import { prevailingAlterAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
@@ -2747,6 +2747,22 @@ export class MusicEngine {
     return result
   }
 
+  /**
+   * Set — or with `null`, remove — the single-note tremolo on the slot containing `noteId`.
+   * Single-valued: a different mark replaces the one there. No-op (null) for a rest.
+   *
+   * `commit`, not `saveOnly`: a tremolo is an instruction to the PLAYER, so it belongs with the
+   * changes that resync playback — even though nothing is scheduled for it until
+   * docs/tremolo-plan.md §5 lands. Calling it a display-only flag today would be a thing to
+   * remember to change later, and this is the seam that would be silently wrong.
+   */
+  setTremolo(noteId: string, tremolo: TremoloMark | null): Note | null {
+    const result = this.scoreModel.setTremolo(noteId, tremolo)
+    if (!result) return null
+    this.commit(tremolo === null ? 'Remove tremolo' : `Set tremolo ${tremolo}`)
+    return result
+  }
+
   // ==================== Rendering Operations ====================
 
   /**
@@ -3086,6 +3102,11 @@ export class MusicEngine {
 
   renderScoreWithDotGhost(coords: PixelCoordinates): boolean {
     return this.renderer.renderScoreWithDotGhost(coords.x, coords.y)
+  }
+
+  /** Ghost tremolo STROKES at the cursor — see {@link VexFlowRenderer.renderScoreWithTremoloGhost}. */
+  renderScoreWithTremoloGhost(coords: PixelCoordinates, strokes: number): boolean {
+    return this.renderer.renderScoreWithTremoloGhost(coords.x, coords.y, strokes)
   }
 
   /** Ghost REST at the cursor, showing the armed length (duration + dots) — see
