@@ -21,7 +21,7 @@
 import type { BeamMode, ChordRest, NoteDuration } from '@/types/music'
 import { type Fraction, fracCreate, fracAdd, fracLt, fracSub, fracToNumber } from '@/utils/fraction'
 import type { MeterInfo } from '@/utils/meter'
-import { pairRoleAt } from '@/utils/tremoloPair'
+import { pairDrawing, pairRoleAt } from '@/utils/tremoloPair'
 
 /** A duration is beamable iff it is an eighth note or shorter. */
 export function isBeamableDuration(duration: NoteDuration): boolean {
@@ -324,6 +324,20 @@ export function beamRoleAt(slots: ChordRest[], meter: MeterInfo, index: number):
  * is what was authored, and the break is what the page did with it.
  */
 export function beamRoleAtRef(bars: BeamBar[], ref: BeamSlotRef): BeamRole {
+  // ⭐ A TWO-NOTE TREMOLO PAIR answers for ITSELF. The grouper above cannot see the pair's beam —
+  // the pair is excluded there on purpose, and the `Beam` is built by the renderer — so asking it
+  // would report `single` for a note the reader can plainly see beamed, which is what the Keypad's
+  // beam keys were showing. The role is the pair's own drawing: beamed → the first note BEGINS it
+  // and the second ENDS it; drawn apart (authored `single`, or a drawn value with no beam lines at
+  // all) → `single`, which is the truth and also the key you press to get back.
+  const slots = bars[ref.bar]?.slots ?? []
+  const pairRole = pairRoleAt(slots, ref.slot)
+  if (pairRole !== null) {
+    const firstIndex = pairRole === 'first' ? ref.slot : ref.slot - 1
+    if (!pairDrawing(slots, firstIndex).beamed) return 'single'
+    return pairRole === 'first' ? 'begin' : 'end'
+  }
+
   for (const group of computeCrossBarBeamGroups(bars)) {
     const at = group.findIndex(member => member.bar === ref.bar && member.slot === ref.slot)
     if (at === -1) continue

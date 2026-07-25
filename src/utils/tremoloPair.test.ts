@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pairIsValid, pairRoleAt, laneOfSlot } from './tremoloPair'
+import { pairIsValid, pairRoleAt, laneOfSlot, pairDrawing, pairStrokesDrawn } from './tremoloPair'
 import { fracCreate as frac } from './fraction'
 import type { Chord, ChordRest, NoteDuration, Rest, BeamMode } from '@/types/music'
 
@@ -69,13 +69,14 @@ describe('pairIsValid — a pair is two notes of the same value, side by side', 
     expect(pairIsValid([chord(0, 'q', { tremolo: 3 }), chord(1)], 0)).toBe(true)
   })
 
-  it('refuses an AUTHORED beam role on either slot — two answers to the same question', () => {
-    for (const beam of ['single', 'begin', 'continue', 'end'] as BeamMode[]) {
-      expect(pairIsValid([chord(0, '8', { beam }), chord(0.5, '8')], 0)).toBe(false)
-      expect(pairIsValid([chord(0, '8'), chord(0.5, '8', { beam })], 0)).toBe(false)
+  it('does NOT refuse an authored beam role — that role is the ANSWER, not a rival', () => {
+    // The plan's §0 originally listed this as a refusal. It is not: a pair of sixteenths can be
+    // drawn beamed or apart with flags, and `single` is what chooses (see pairDrawing below).
+    // Refusing instead un-drew the mark on a keypress and left a dead flag in the data.
+    for (const beam of ['single', 'begin', 'continue', 'end', 'auto'] as BeamMode[]) {
+      expect(pairIsValid([chord(0, '8', { beam }), chord(0.5, '8')], 0)).toBe(true)
+      expect(pairIsValid([chord(0, '8'), chord(0.5, '8', { beam })], 0)).toBe(true)
     }
-    // 'auto' is nobody's answer, so it does not conflict.
-    expect(pairIsValid([chord(0, '8', { beam: 'auto' }), chord(0.5, '8')], 0)).toBe(true)
   })
 
   it('refuses a CHAIN from both ends — B cannot belong to two marks at once', () => {
@@ -135,5 +136,53 @@ describe('laneOfSlot', () => {
     const lane = laneOfSlot(measureSlots, target)
     expect(lane.map(s => s.beat.num)).toEqual([0, 1, 2])
     expect(lane.indexOf(target)).toBe(2)
+  })
+})
+
+describe('pairDrawing / pairStrokesDrawn — beamed, or apart with flags', () => {
+  it('a pair whose drawn value is beamable beams ITSELF', () => {
+    const slots: ChordRest[] = [chord(0, '16', { tremoloPair: true }), chord(0.25, '16')]
+    // Two sixteenths draw as two eighths: one beam line, drawn as a beam.
+    expect(pairDrawing(slots, 0)).toEqual({ flags: 1, beamed: true })
+  })
+
+  it("the note's own `single` draws them APART, flags and all", () => {
+    const first: ChordRest[] = [chord(0, '16', { tremoloPair: true, beam: 'single' }), chord(0.25, '16')]
+    const second: ChordRest[] = [chord(0, '16', { tremoloPair: true }), chord(0.25, '16', { beam: 'single' })]
+    expect(pairDrawing(first, 0)).toEqual({ flags: 1, beamed: false })
+    expect(pairDrawing(second, 0)).toEqual({ flags: 1, beamed: false })
+    // …and it does NOT invalidate the pair. The authored role is the answer, not a rival to it.
+    expect(pairIsValid(first, 0)).toBe(true)
+    expect(pairIsValid(second, 0)).toBe(true)
+  })
+
+  it('begin/continue/end leave the pair to beam itself — they have nothing to join', () => {
+    for (const beam of ['begin', 'continue', 'end', 'auto'] as BeamMode[]) {
+      const slots: ChordRest[] = [chord(0, '16', { tremoloPair: true, beam }), chord(0.25, '16')]
+      expect(pairDrawing(slots, 0).beamed).toBe(true)
+    }
+  })
+
+  it('a drawn whole/half/quarter has no beam lines either way', () => {
+    for (const d of ['h', 'q', '8'] as NoteDuration[]) {
+      const slots: ChordRest[] = [chord(0, d, { tremoloPair: true, beam: 'single' }), chord(1, d)]
+      expect(pairDrawing(slots, 0)).toEqual({ flags: 0, beamed: false })
+    }
+  })
+
+  it('⭐ the BEAM COUNTS: a beamed pair draws N − beamLines strokes', () => {
+    // Three lines between the notes = 32nds. Beamed sixteenths spend one on the beam.
+    expect(pairStrokesDrawn(3, { flags: 1, beamed: true })).toBe(2)
+    // Drawn apart, the flags are not lines BETWEEN the notes, so all three are strokes.
+    expect(pairStrokesDrawn(3, { flags: 1, beamed: false })).toBe(3)
+    // No beam at all (drawn half/quarter/whole): all of them.
+    expect(pairStrokesDrawn(3, { flags: 0, beamed: false })).toBe(3)
+    // Two beam lines (a pair of 32nds, drawn as sixteenths) spend two.
+    expect(pairStrokesDrawn(4, { flags: 2, beamed: true })).toBe(2)
+  })
+
+  it('floors at zero — a count spent entirely on the beam is the all-beams spelling', () => {
+    expect(pairStrokesDrawn(1, { flags: 1, beamed: true })).toBe(0)
+    expect(pairStrokesDrawn(1, { flags: 2, beamed: true })).toBe(0)
   })
 })

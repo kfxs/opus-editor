@@ -35,6 +35,14 @@ export const PAIR_STROKE_CLEARANCE_SPACES = 1
 export const PAIR_STROKE_CLEARANCE_RATIO = 0.25
 
 /**
+ * The hard ceiling on that clearance, as a fraction of the gap — however much room the ends ask for
+ * (see `minClearance`), at least this much of the gap stays stroke. A mark that shortened itself to
+ * nothing to keep clear of something would be a mark you cannot read.
+ */
+export const PAIR_STROKE_MAX_CLEARANCE_RATIO = 0.35
+
+
+/**
  * The stack's own height: `n` strokes of `beamWidth`, stepped ×1.5 apart — VexFlow's beam levels.
  *
  * Read by the renderer's stretch pass to ask whether the stems are long enough, and by
@@ -47,15 +55,16 @@ export function twoNoteTremoloStackHeight(strokes: number, beamWidth: number): n
 /**
  * The quads for one pair's strokes — all three drawn cases, from ONE anchor line.
  *
- * ⭐ THE ANCHOR LINE IS THE TWO STEM TIPS, in all three drawn cases. It carries both the height and
- * the SLOPE ("determined by the height of the stems", Dorico), so nothing here needs a second
- * geometry input, and only `beamLevels` tells the cases apart:
+ * ⭐ THE ANCHOR LINE IS THE TWO STEM TIPS, in every drawn case. It carries both the height and the
+ * SLOPE ("determined by the height of the stems", Dorico), so nothing here needs a second geometry
+ * input, and only `tipOffset` — how much of the stem's top end is already occupied — tells the cases
+ * apart:
  *
- * | drawn value | `beamLevels` | where the stack sits |
+ * | drawn value | `tipOffset` | where the stack sits |
  * |---|---|---|
  * | half / quarter | 0 | flush from the stem tips |
- * | eighth or shorter | 1+ | past the pair's own real beam, which occupies the tip |
  * | whole | 0 | flush from the tips of the IMAGINARY stems — see below |
+ * | eighth or shorter | the drawn value's beam lines | just past them — whether they are drawn as a beam over the pair or as a flag on each note |
  *
  * ⚠️ A WHOLE NOTE STILL HAS STEM EXTENTS. `hasStem()` is false, but VexFlow builds the `Stem` object
  * regardless, so `getStemExtents()` reports exactly where a stem *would* run — and that is where the
@@ -65,8 +74,9 @@ export function twoNoteTremoloStackHeight(strokes: number, beamWidth: number): n
  *
  * Anchoring on the tips rather than centring in the stems is what makes the mark read as "these two
  * alternate": the strokes sit where a beam over the pair would, which for a beamed pair is literally
- * true — `beamLevels` steps the stack past the beam's own lines so the two never overlap, and the
- * eye adds them (1 beam + 2 strokes = 32nds), which is the same arithmetic playback uses.
+ * true — `tipOffset` steps the stack past the beam's own lines so the two never overlap, and the eye
+ * reads all of them together (see `pairStrokesDrawn`: the beam is one of the lines, so it SPENDS one
+ * of the count rather than adding to it).
  *
  * `stemDirection` says which way "toward the notehead" is: +1 = stems up, so the stack marches DOWN
  * from the tip; −1 = stems down, marching up. It is the ONE direction case, and it is the same one
@@ -89,19 +99,29 @@ export function twoNoteTremoloStrokes(opts: {
   rightAnchorY: number
   /** +1 stems up, −1 stems down — which way the stack marches from the tip. */
   stemDirection: number
-  /** Beam lines the pair's own beam already drew from the tip; the stack starts past them. */
-  beamLevels?: number
+  /** Pixels of the stem's top end already taken (a beam's lines, or a flag's reach). */
+  tipOffset?: number
+  /**
+   * A floor on the end clearance, in pixels — for ink standing in the gap that the plain rule knows
+   * nothing about. The caller passes a MEASURED width (a flag's), never a chosen one, so it scales
+   * with the staff; {@link PAIR_STROKE_MAX_CLEARANCE_RATIO} keeps it from eating the whole stroke.
+   */
+  minClearance?: number
   staffSpace: number
   beamWidth: number
 }): TremoloStrokeQuad[] {
   const {
     strokes, leftX, leftAnchorY, rightX, rightAnchorY,
-    stemDirection, beamLevels = 0, staffSpace, beamWidth,
+    stemDirection, tipOffset = 0, minClearance = 0, staffSpace, beamWidth,
   } = opts
   const gap = rightX - leftX
   if (strokes <= 0 || gap <= 0) return []
 
-  const clearance = Math.min(staffSpace * PAIR_STROKE_CLEARANCE_SPACES, gap * PAIR_STROKE_CLEARANCE_RATIO)
+  const wanted = Math.max(
+    Math.min(staffSpace * PAIR_STROKE_CLEARANCE_SPACES, gap * PAIR_STROKE_CLEARANCE_RATIO),
+    minClearance,
+  )
+  const clearance = Math.min(wanted, gap * PAIR_STROKE_MAX_CLEARANCE_RATIO)
   const startX = leftX + clearance
   const endX = rightX - clearance
   if (endX <= startX) return []
@@ -111,11 +131,11 @@ export function twoNoteTremoloStrokes(opts: {
   const anchorAt = (x: number): number => leftAnchorY + (x - leftX) * slope
 
   const step = beamWidth * 1.5
-  // Where the first stroke's TOP edge sits, relative to the anchor line: on it, one beam-step per
-  // level the pair's own beam already used. A quad is drawn from its top edge DOWNWARD, so a stack
-  // marching UP (stems down) has to start a full thickness above the line for its first stroke to
-  // sit ON it rather than below it.
-  const start = stemDirection * beamLevels * step + (stemDirection < 0 ? -beamWidth : 0)
+  // Where the first stroke's TOP edge sits, relative to the anchor line: on it, pushed toward the
+  // notehead by whatever already occupies the tip. A quad is drawn from its top edge DOWNWARD, so a
+  // stack marching UP (stems down) has to start a full thickness above the line for its first stroke
+  // to sit ON it rather than below it.
+  const start = stemDirection * tipOffset + (stemDirection < 0 ? -beamWidth : 0)
   const march = stemDirection * step
 
   const quads: TremoloStrokeQuad[] = []

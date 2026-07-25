@@ -1,8 +1,8 @@
 import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, Stem, StaveTie, Dot, Barline, ClefNote } from 'vexflow'
 import { ScoreTuplet, layoutTupletMark, drawTupletMark } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
-import { twoNoteTremoloStackHeight, twoNoteTremoloStrokes } from './TwoNoteTremolo'
-import { pairRoleAt } from '@/utils/tremoloPair'
+import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
+import { pairDrawing, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
@@ -11,7 +11,7 @@ import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fractio
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { beatToFrac, measureCapacityFrac, tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
-import { durationToVexflow, durationToFraction, doubleDuration, durationFlags } from '@/utils/durations'
+import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, timeSignatureVexKey, type MeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { computeBeamGroups, secondaryBreakIndices } from '@/utils/beaming'
@@ -722,65 +722,44 @@ export class VexFlowRenderer {
   }
 
   /**
-   * The TWO-NOTE tremolo's stem stretch — a SIBLING of {@link applyTremoloStemStretch}, not a case
-   * inside it.
+   * ⛔ **A TWO-NOTE TREMOLO DOES NOT STRETCH ITS STEMS.** There was a pass here — Gould's rule 2,
+   * built as a sibling of {@link applyTremoloStemStretch} — and it is deliberately gone (his call, by
+   * eye, 2026-07-25): *"this is not a tremolo on stem but in between the notes, so we should skip the
+   * rule here."*
    *
-   * That one keys off the note's `CenteredTremolo` modifier and measures *its* stack; a pair has no
-   * modifier at all (§2: the strokes moved off the stem). Only {@link usableStemSpan} is genuinely
-   * shared. And unlike a beamed group there is no `Beam` to carry one note's extension to the other,
-   * so this stretches **both** stems by the same amount — the strokes span the two, and a stack that
-   * only fits one of them fits neither.
+   * The rule it copied is about a mark that RIDES a stem: the strokes are on the stem, so the stem
+   * has to be long enough to hold them clear of the flag and the notehead. A pair's strokes are not
+   * on either stem — they are in the gap between the two notes, and lengthening the stems buys them
+   * nothing while visibly retuning notes the reader did not ask to be retuned. What keeps the stack
+   * off the noteheads here is {@link twoNoteTremoloTipOffset} being small, not the stem being long.
    *
-   * Gould's rule 2, measured the same way the single-note mark measures it. The clearance is asked
-   * for at ONE end, not two: the stack hangs FLUSH from the tip (that is the anchor), so the only
-   * gap to keep is the one between its last stroke and the notehead. There is no FLAG half here —
-   * a pair is never flagged (a drawn eighth or shorter takes a real beam, P2) and never beamed by
-   * the meter (`pairRoleAt` breaks the group in the pure grouper).
-   *
-   * Same window as its sibling: post-format, post-stem-re-assert, pre-draw.
+   * If a five-stroke pair ever overruns its stems, the answer is the stroke count or the step
+   * between them — NOT a stem nobody asked to grow.
    */
-  private applyTwoNoteTremoloStretch(slots: ChordRest[], staveNotes: StaveNote[]): void {
-    for (const pair of this.twoNoteTremoloPairs(slots, staveNotes)) {
-      const { first, second, strokes, beamLevels } = pair
-      const staffSpace = first.getStave()?.getSpacingBetweenLines() ?? 10
-      // The pair's own beam eats the top of the stem before the strokes even start, so its levels
-      // are part of what has to fit.
-      const needed = twoNoteTremoloStackHeight(strokes, CROSS_SYSTEM_BEAM_WIDTH)
-        + beamLevels * CROSS_SYSTEM_BEAM_WIDTH * 1.5
-        + TREMOLO_STROKE_CLEARANCE * staffSpace
-      const shortfall = Math.max(
-        needed - usableStemSpan(first).length,
-        needed - usableStemSpan(second).length,
-      )
-      if (shortfall <= 0) continue
-      // Bump the Stem's own extension rather than `setStemLength` — see applyTremoloStemStretch for
-      // why that one double-counts a note's octave-distance term.
-      for (const note of [first, second]) {
-        const stem = note.getStem()
-        if (stem) stem.setExtension(stem.getExtension() + shortfall)
-      }
-    }
-  }
 
   /**
    * The pair's OWN beam — one `Beam` over the two notes when the DRAWN value is beamable (an eighth
    * or shorter, i.e. a pair of sixteenths or finer). P2 of docs/two-note-tremolo-plan.md §2.
    *
-   * A pair is never in an automatic group (`pairRoleAt` breaks it in the pure grouper), so without
-   * this the two would draw with FLAGS — which is both wrong notation and no place to hang strokes.
-   * The beam is built here, beside `buildBeams` and BEFORE `formatter.format`, for the reason the
-   * cross-barline placeholders are: `preFormat` reserves glyph width for a flagged stem-up note, and
-   * a beamed note must not pay for a flag it will not draw.
+   * A pair is never in an automatic group (`pairRoleAt` breaks it in the pure grouper), so the meter
+   * never gives it one and this is the only place it can come from. Built here, beside `buildBeams`
+   * and BEFORE `formatter.format`, for the reason the cross-barline placeholders are: `preFormat`
+   * reserves glyph width for a flagged stem-up note, and a beamed note must not pay for a flag it
+   * will not draw.
    *
-   * ⚠️ The beam does NOT eat into the stroke count. N strokes means N strokes drawn whatever the
-   * drawn value's own beams are, and the eye adds them: a pair of sixteenths with 2 strokes draws
-   * one beam plus two strokes, and 1 + 2 = 32nds. The strokes step past the beam's lines rather than
-   * replacing them (see `beamLevels` in {@link twoNoteTremoloStrokes}).
+   * ⭐ Not every pair gets one. `single` authored on either note means "drawn apart" — the two keep
+   * their flags and only the strokes join them, which is a legal drawing of the same mark and the
+   * one the notes were already wearing if you beamed them apart first. {@link pairDrawing} owns that
+   * decision; this only obeys it.
+   *
+   * ⚠️ The beam DOES eat into the stroke count — see {@link pairStrokesDrawn}. It is one of the
+   * lines between the two notes, and it is their total that says the speed, so a three-stroke mark
+   * on a beamed pair draws the beam plus two strokes.
    */
   private buildTwoNoteTremoloBeams(slots: ChordRest[], staveNotes: StaveNote[]): Beam[] {
     const beams: Beam[] = []
-    for (const { first, second, beamLevels } of this.twoNoteTremoloPairs(slots, staveNotes)) {
-      if (beamLevels === 0) continue
+    for (const { first, second, beamed } of this.twoNoteTremoloPairs(slots, staveNotes)) {
+      if (!beamed) continue
       try {
         beams.push(new Beam([first, second]))
       } catch (beamError) {
@@ -822,7 +801,8 @@ export class VexFlowRenderer {
    * first, the left edge of the second (reported by eye).
    */
   private drawTwoNoteTremolos(pass: RenderPass, slots: ChordRest[], staveNotes: StaveNote[]): void {
-    for (const { first, second, strokes, anchorId, beamLevels } of this.twoNoteTremoloPairs(slots, staveNotes)) {
+    for (const pair of this.twoNoteTremoloPairs(slots, staveNotes)) {
+      const { first, second, strokes, anchorId } = pair
       const staffSpace = first.getStave()?.getSpacingBetweenLines() ?? 10
       const stemmed = first.hasStem() && second.hasStem()
       const quads = twoNoteTremoloStrokes({
@@ -832,7 +812,13 @@ export class VexFlowRenderer {
         rightX: stemmed ? second.getStemX() : second.getAbsoluteX(),
         rightAnchorY: usableStemSpan(second).tip,
         stemDirection: first.getStemDirection(),
-        beamLevels,
+        tipOffset: this.twoNoteTremoloTipOffset(pair),
+        // A pair drawn APART hangs a FLAG off a stem tip, standing in the gap right where the
+        // strokes end — the plain clearance rule knows nothing about it, so the flag's own width
+        // becomes the floor. MEASURED, not chosen: `getGlyphWidth()` is the notehead's width (a
+        // flag is about that), so it follows the staff size instead of pinning a pixel count that
+        // would be wrong the day the scale changes.
+        minClearance: !pair.beamed && pair.flags > 0 ? first.getGlyphWidth() : 0,
         staffSpace,
         beamWidth: CROSS_SYSTEM_BEAM_WIDTH,
       })
@@ -850,6 +836,24 @@ export class VexFlowRenderer {
   }
 
   /**
+   * How much of the stem's TOP END is already spoken for, in pixels — what the strokes must start
+   * below.
+   *
+   * ONE answer for both spellings, and that is the point: the drawn value's beam LINES occupy the
+   * tip whether they are drawn as a beam over the pair or as a flag on each note. So the strokes
+   * land in the same place either way, and pressing `single` moves the flags in and the beam out
+   * without the strokes shifting under your eye.
+   *
+   * ⚠️ It does NOT fully clear a flag, which hangs further down the stem than one beam line does —
+   * and cannot, now that a pair no longer stretches its stems (see above): a natural stem has room
+   * for the stack or for a flag's worth of gap, not both. Nothing here is a chosen number, so if the
+   * top stroke reads too close to the first note's flag, THIS is the one line to turn.
+   */
+  private twoNoteTremoloTipOffset(pair: { flags: number }): number {
+    return pair.flags * CROSS_SYSTEM_BEAM_WIDTH * 1.5
+  }
+
+  /**
    * The valid pairs of ONE LANE, with both StaveNotes and the stroke count — the shared read the two
    * passes above make, so "which slots are a pair" is answered once.
    *
@@ -857,32 +861,37 @@ export class VexFlowRenderer {
    * `pairRoleAt` looks at the NEXT slot, and across a group boundary that is another voice's first
    * note. (This is why both callers loop `groups` rather than the combined arrays.)
    *
-   * `beamLevels` is how many beam lines the DRAWN value carries — 0 for a drawn whole/half/quarter,
-   * 1 for a drawn eighth, and so on. It is what decides whether the pair needs a `Beam` of its own
-   * and how far past it the strokes start, so it is read once, here, off the doubled duration.
+   * `flags` is how many beam lines the DRAWN value carries (0 for a drawn whole/half/quarter, 1 for
+   * a drawn eighth, …) and `beamed` says whether they are drawn as ONE BEAM over the pair or as each
+   * note's own flag — the note's authored `single` chooses (see {@link pairDrawing}). Together they
+   * decide whether the pair builds a `Beam`, how far past it the strokes start, and whether the
+   * stems need the flag out of the way.
    *
    * The stroke count comes from the FIRST slot's `tremolo`; `pairIsValid` has already refused the
    * Penderecki sign, so it is a number here.
    */
   private twoNoteTremoloPairs(slots: ChordRest[], staveNotes: StaveNote[]): Array<{
-    first: StaveNote; second: StaveNote; strokes: number; anchorId: string; beamLevels: number
+    first: StaveNote; second: StaveNote; strokes: number; anchorId: string
+    flags: number; beamed: boolean
   }> {
     const pairs: Array<{
-      first: StaveNote; second: StaveNote; strokes: number; anchorId: string; beamLevels: number
+      first: StaveNote; second: StaveNote; strokes: number; anchorId: string
+      flags: number; beamed: boolean
     }> = []
     for (let i = 0; i + 1 < slots.length && i + 1 < staveNotes.length; i++) {
       const slot = slots[i]
       if (slot.type !== 'chord' || pairRoleAt(slots, i) !== 'first') continue
-      const strokes = slot.tremolo
-      if (typeof strokes !== 'number') continue
-      const drawn = doubleDuration(slot.duration)
-      if (drawn === null) continue // `pairIsValid` already refused it; belt and braces.
+      const mark = slot.tremolo
+      if (typeof mark !== 'number') continue
+      const drawing = pairDrawing(slots, i)
       pairs.push({
         first: staveNotes[i],
         second: staveNotes[i + 1],
-        strokes,
+        // What is DRAWN, not what was marked: the pair's own beam is one of the lines and spends
+        // one of the count (pairStrokesDrawn).
+        strokes: pairStrokesDrawn(mark, drawing),
         anchorId: slot.notes[0]?.id ?? slot.id,
-        beamLevels: durationFlags(drawn),
+        ...drawing,
       })
     }
     return pairs
@@ -1678,9 +1687,8 @@ export class VexFlowRenderer {
         // build time — `hasFlag()` reads `!this.beam`, and the Beam objects do not exist yet when
         // NoteBuilder attaches the modifier, so every note about to be beamed still claims a flag.
         this.applyTremoloStemStretch(sortedSlots, staveNotes)
-        // The pair's own stretch — a SIBLING pass, and PER LANE: `pairRoleAt` reads the next slot,
-        // which across a group boundary belongs to another voice.
-        for (const g of groups) this.applyTwoNoteTremoloStretch(g.slots, g.staveNotes)
+        // (No stem stretch for a TWO-NOTE tremolo — its strokes are not on a stem. See the note
+        // where that pass used to be, above `buildTwoNoteTremoloBeams`.)
 
         for (const b of built) {
           b.voice.draw(this.context!, stave)

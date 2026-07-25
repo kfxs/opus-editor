@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { twoNoteTremoloStrokes, twoNoteTremoloStackHeight, PAIR_STROKE_CLEARANCE_SPACES } from './TwoNoteTremolo'
+import { twoNoteTremoloStrokes, twoNoteTremoloStackHeight, PAIR_STROKE_CLEARANCE_SPACES, PAIR_STROKE_MAX_CLEARANCE_RATIO } from './TwoNoteTremolo'
 
 /**
  * The stroke geometry — pure arithmetic, so it IS testable here (unlike the glyph-measuring the
@@ -63,19 +63,41 @@ describe('twoNoteTremoloStrokes', () => {
     expect(slopes[0]).toBeCloseTo((30 - 50) / 100)
   })
 
-  it('P2 — starts PAST the pair\'s own beam, and the beam does not eat the count', () => {
+  it('starts PAST whatever already occupies the tip (a beam, or a flag)', () => {
     const bare = twoNoteTremoloStrokes({ ...base, strokes: 2 })
-    const beamed = twoNoteTremoloStrokes({ ...base, strokes: 2, beamLevels: 1 })
-    // Still two strokes: beams and strokes ADD (1 + 2 = 32nds), they do not replace each other.
-    expect(beamed).toHaveLength(2)
-    // …and the whole stack has moved one beam step toward the notehead, clear of the beam line.
-    expect(beamed[0].startY - bare[0].startY).toBeCloseTo(7.5)
-    expect(beamed[1].startY - bare[1].startY).toBeCloseTo(7.5)
+    const offset = twoNoteTremoloStrokes({ ...base, strokes: 2, tipOffset: 7.5 })
+    // The whole stack moves toward the notehead by the offset; the count is untouched here — how
+    // many strokes a beamed pair draws is `pairStrokesDrawn`'s answer, not this function's.
+    expect(offset).toHaveLength(2)
+    expect(offset[0].startY - bare[0].startY).toBeCloseTo(7.5)
+    expect(offset[1].startY - bare[1].startY).toBeCloseTo(7.5)
   })
 
   it('draws nothing when there is nothing to draw', () => {
     expect(twoNoteTremoloStrokes({ ...base, strokes: 0 })).toEqual([])
     expect(twoNoteTremoloStrokes({ ...base, rightX: 100 })).toEqual([])
     expect(twoNoteTremoloStrokes({ ...base, rightX: 90 })).toEqual([])
+  })
+})
+
+describe('twoNoteTremoloStrokes — minClearance (a flag standing in the gap)', () => {
+  it('raises the end clearance to the floor it is given', () => {
+    const quads = twoNoteTremoloStrokes({ ...base, minClearance: 18 })
+    expect(quads[0].startX).toBeCloseTo(118)
+    expect(quads[0].endX).toBeCloseTo(182)
+  })
+
+  it('never lowers it — the plain rule still wins when it asks for more', () => {
+    const quads = twoNoteTremoloStrokes({ ...base, minClearance: 2 })
+    expect(quads[0].startX).toBeCloseTo(110)  // one staff space, as without it
+  })
+
+  it('is capped so a stroke always survives, however much room is asked for', () => {
+    const quads = twoNoteTremoloStrokes({ ...base, minClearance: 999 })
+    expect(quads).toHaveLength(3)
+    const cap = 100 * PAIR_STROKE_MAX_CLEARANCE_RATIO
+    expect(quads[0].startX).toBeCloseTo(100 + cap)
+    expect(quads[0].endX).toBeCloseTo(200 - cap)
+    expect(quads[0].endX).toBeGreaterThan(quads[0].startX)
   })
 })

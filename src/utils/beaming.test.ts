@@ -575,3 +575,42 @@ describe('a two-note tremolo pair is never in an automatic group', () => {
     expect(computeCrossBarBeamGroups(bars)).toEqual([[{ bar: 1, slot: 0 }, { bar: 1, slot: 1 }]])
   })
 })
+
+describe('beamRoleAt on a two-note tremolo pair — the pair answers for itself', () => {
+  /**
+   * The grouper cannot see the pair's beam: the pair is excluded there on purpose and the `Beam` is
+   * built by the renderer. So without this the Keypad's beam keys light `single` on a note the
+   * reader can plainly see beamed.
+   */
+  const pairOf = (duration: NoteDuration, beam?: BeamMode): ChordRest[] => {
+    const a = chord(0, 2, duration, beam)
+    const b = chord(1, 2, duration)
+    return [a.type === 'chord' ? { ...a, tremoloPair: true as const } : a, b]
+  }
+
+  it('BEAMED: the first note begins the beam, the second ends it', () => {
+    const slots = pairOf('16')
+    expect(beamRoleAt(slots, meter(4, 4), 0)).toBe('begin')
+    expect(beamRoleAt(slots, meter(4, 4), 1)).toBe('end')
+  })
+
+  it('authored `single`: drawn apart, and the pad says so', () => {
+    const slots = pairOf('16', 'single')
+    expect(beamRoleAt(slots, meter(4, 4), 0)).toBe('single')
+    expect(beamRoleAt(slots, meter(4, 4), 1)).toBe('single')
+  })
+
+  it('a drawn half or quarter has no beam to report', () => {
+    for (const d of ['q', '8'] as NoteDuration[]) {
+      expect(beamRoleAt(pairOf(d), meter(4, 4), 0)).toBe('single')
+    }
+  })
+
+  it('a STALE flag falls back to the meter, like any other note', () => {
+    const a = chord(0, 2, '8')
+    const stale: ChordRest[] = [{ ...(a as never as { type: 'chord' }), tremoloPair: true } as ChordRest, chord(1, 2, '16')]
+    // Not a pair (different values), so these two are just notes — and the meter beams them.
+    expect(beamRoleAt(stale, meter(4, 4), 0)).toBe('begin')
+    expect(beamRoleAt(stale, meter(4, 4), 1)).toBe('end')
+  })
+})

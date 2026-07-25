@@ -43,9 +43,11 @@ full value of the whole tremolo**, so the written pair reads twice as long as it
 - either slot is **already in a pair** — this one as a second note, or the next one as a first. A
   pair is two notes and they alternate; a chain of them (A–B, B–C) is not a longer tremolo, it is B
   belonging to two marks at once, which has no reading and no drawing;
-- either slot carries an **authored beam role** (`single`/`begin`/`continue`/`end`) — the pair owns
-  its own beam or none (§2), so the two are competing answers to the same question. Take the mark
-  off, or take the pair elsewhere.
+~~- either slot carries an **authored beam role**~~ — **struck out (2026-07-25, by eye).** It is not
+a competing answer to the same question, it is **the answer**: a pair whose drawn value is beamable
+can be written beamed *or* apart with flags, both are the mark, and the note's own `single` is what
+chooses between them (§2). Refusing instead un-drew the mark on a keypress and left a dead flag in
+the data.
 
 The single-note mark and the pair are **mutually exclusive on a slot**: pressing the pair on a note
 wearing stem strokes keeps the count and moves the strokes between the stems (that is the same mark
@@ -110,16 +112,45 @@ glyphs"* — so `tremoloFingered1–5` (E225–E229) are never used here.
 
 | drawn value | real beam | the strokes |
 |---|---|---|
-| redonda (from blancas) | — | horizontal, floating **between the two noteheads** (no stems exist) |
-| blanca (from negras) | — | floating between the two stems |
-| negra (from corcheas) | — | floating between the two stems |
-| corchea or shorter | **yes**, a real `Beam` over the pair | **all N**, floating under the beam |
+| redonda (from blancas) | — | **all N**, hanging from the two IMAGINARY stems — see the correction below |
+| blanca (from negras) | — | **all N**, hanging from the two stem tips |
+| negra (from corcheas) | — | **all N**, hanging from the two stem tips |
+| corchea or shorter | **yes** by default, a real `Beam` over the pair | **N − beam lines**, just past the beam |
+| corchea or shorter, authored `single` | no — each note keeps its FLAG | **all N**, started at the same height the beam would have put them |
 
-⚠️ **The beam does not eat into the count — beams and strokes ADD.** N strokes means N strokes drawn,
-whatever the drawn value's own beams are, and the total is what says how fine the repetition is: a
-pair of semicorcheas with 2 strokes draws one beam plus two strokes, and 1 + 2 = 32nds. That is the
-same `totalBeams` arithmetic §3 plays back, and the same reading the single-note mark already uses
-(`flags + strokes`), so the button's number means one thing in all three places.
+⚠️ **"Floating between the two stems" was wrong about the HEIGHT, twice over** (both reported by eye,
+2026-07-25): the stack does not float in the middle of the stems, it hangs **flush from the two stem
+TIPS** and marches toward the noteheads — where a beam over the pair would sit, which for a beamed
+pair it literally is. And a redonda is **not** a separate case: `hasStem()` is false but VexFlow
+still built the `Stem`, so `getStemExtents()` gives the imaginary stem to hang from. Only its
+horizontal **span** parts company — with no stem ink at the stem's x, `getStemX()` puts both ends on
+the right edge of each notehead and the bar reads shoved right, so a stemless pair runs notehead to
+notehead (first's right edge → second's left edge).
+
+⚠️ **THE BEAM COUNTS — it SPENDS one of the strokes, it does not add to them.** *(Corrected
+2026-07-25; this section previously said the opposite.)* For a two-note tremolo the beam and the
+strokes are the same kind of line, and what says the speed is the **total number of lines between the
+two notes** — Wikipedia states them as alternatives of one notation: *"either connecting them with
+beams, or else interpolating strokes, with the number of beams **or** strokes corresponding to the
+speed of the tremolo — a tremolo in thirty-second notes lasting a half-note would be written either
+as two open noteheads connected by three beams, or as two half-notes with three strokes
+interpolated."* So a 3-mark on a pair of semicorcheas draws **one beam plus two strokes** = 3 lines =
+32nds; on a pair of negras, drawn as blancas with no beam, it draws all three.
+
+⚠️ **This is NOT the single-note rule, and the difference is geometric.** There (docs/tremolo-plan.md
+§5) `totalBeams = flags + strokes`: a flag hangs off the **outside** of the stem, so it is not a line
+*between* anything and cannot stand in for a stroke. Same reason the flags of a pair drawn APART do
+not count either — only a beam does. `pairStrokesDrawn` (utils/tremoloPair) owns the arithmetic.
+
+### Beamed, or apart with flags — the note's own `single` chooses
+
+A pair is never in an automatic group, so the meter has no opinion here and the only thing that can
+speak is what was authored on the two notes. `single` on either — "do not beam me" — draws them
+apart, flags and all, with the strokes still between the stems; anything else (`auto`, absent, or a
+`begin`/`continue`/`end` with nothing to join) leaves the pair to beam itself. `pairDrawing` owns it,
+and `beamRoleAtRef` reports it, so the Keypad's beam keys tell the truth about a pair and pressing
+`single` is how you switch. ⚠️ `beam: 'auto'` still has **no key** on the Keypad (a standing TODO —
+`PaletteController.setBeam`), so switching *back* to beamed has no home yet.
 
 **Floating means detached at both ends** — short, centred in the gap, a clear gap to each stem. That
 is what the quarter-note picture shows, and it is not decoration: a stroke touching two *filled*
@@ -158,10 +189,28 @@ the default and the slot field stays as the per-mark override — which is Doric
 - slope = the line between the two stem ends (Dorico: "determined by the height of the stems");
 - thickness and the ×1.5 step between strokes = VexFlow's `beamWidth`, via
   `VexFlowRenderer.fillBeamQuad()` — written for the cross-system half-beams, one quad per stroke;
-- stems **stretch when the strokes do not fit**, Gould's rule 2 — the same rule the single-note mark
-  follows, in a **sibling pass**, not the same one (see the traps);
-- both stems point the **same direction**;
+- ⛔ **stems do NOT stretch.** Gould's rule 2 was built here as a sibling pass and then REMOVED
+  (2026-07-25, by eye): *"this is not a tremolo on stem but in between the notes, so we should skip
+  the rule here."* That rule is about a mark riding a stem; a pair's strokes ride the gap, so a
+  longer stem buys them nothing and visibly retunes notes nobody asked to retune;
+- both stems point the **same direction**, decided ONCE over both slots' pitches (the rule a beam
+  group follows) rather than per note;
 - Gould's clearance still applies: ≥1 staff space clear of the noteheads, strokes inside the staff.
+
+**The end clearance — everything RELATIVE, nothing in pixels.** "Floating" means detached at both
+ends, and how far is three rules stacked, none of them a pixel count (his constraint: *"it should be
+a relation, not a fixed pixel, because if we change scale in the future the pixel fails"*):
+
+1. a **staff space** at each end (`PAIR_STROKE_CLEARANCE_SPACES`), capped at a **quarter of the gap**
+   (`PAIR_STROKE_CLEARANCE_RATIO`) so a narrow pair keeps a real stroke;
+2. a **floor** when the pair is drawn APART: a flag hangs off a stem tip straight into the gap where
+   the strokes end, and rule 1 knows nothing about it. The floor is the note's own
+   `getGlyphWidth()` — MEASURED from VexFlow's glyph metrics, so it follows the staff size. Applied
+   at **both** ends, because which end a flag intrudes on flips with the stem direction (stem-up puts
+   the first note's flag inside the span, stem-down puts the second's at the far end), and symmetric
+   also keeps the strokes centred;
+3. a **ceiling** of `PAIR_STROKE_MAX_CLEARANCE_RATIO` of the gap, so a mark can never shorten itself
+   to nothing keeping clear of something.
 
 **Where the drawing runs.** In the bar's own render, after the voices and their beams are drawn and
 before `registerSlotElements` (`VexFlowRenderer.drawMeasureContent`) — the strokes read stem geometry
@@ -190,23 +239,26 @@ cross-barline planner feeds the renderer its own `inBarGroups` — so a pair exc
 break belongs beside the rest/`beamOver` rules in `computeCrossBarBeamGroups`: a paired slot and its
 partner are never members of an automatic group. The pair owns its own `Beam` (P2) or none.
 
-An **authored** beam role (`single`/`begin`/`continue`/`end`) on either slot is a second answer to
-the same question, so the pair refuses it — it joins the §0 list rather than silently winning.
+An **authored** `single` on either slot is not refused — it is what says the pair is drawn apart, with
+each note keeping its flag (see above). The break in the grouper stands either way: what `single`
+chooses is whether the pair builds its **own** `Beam`, never whether the meter may sweep it into one.
 
-⚠️ **The stem stretch is a SIBLING pass.** `applyTremoloStemStretch` keys off the note's
-`CenteredTremolo` modifier and measures *its* stack — and a pair has no modifier, by the rule below.
-Only `usableStemSpan` is genuinely shared. The pair's pass runs in the same window (post-format,
-post-stem-re-assert, pre-draw, next to the existing call) and stretches **both** stems by the same
-amount: unlike a beamed group there is no `Beam` to carry one note's extension to the other.
+⛔ ~~**The stem stretch is a SIBLING pass.**~~ **There is no pair stem stretch** — see the geometry
+list above. `applyTremoloStemStretch` stays exactly as it was, for the single-note mark only: it keys
+off the note's `CenteredTremolo` modifier, and a pair has no modifier by the rule below, so it never
+sees one. The pair simply does not stretch anything.
 
 ⚠️ **No `CenteredTremolo`.** The first note's stem strokes are **not** added when `tremoloPair` is
 set: the strokes moved off the stem, and drawing both would say two different things.
 
 ## 3. Playback
 
-`totalBeams = flags(the DRAWN note) + strokes` — §5's rule, unchanged, read off the doubled value.
-It lands right at every case: two blancas + 3 strokes → drawn as redondas, 0 + 3 = 32nds over a
-whole-note span; two semicorcheas + 2 strokes → drawn as corcheas, 1 + 2 = 32nds over an eighth.
+⚠️ **`totalBeams` IS THE MARK'S OWN NUMBER** — *not* `flags + strokes`. *(Corrected 2026-07-25 with
+§2.)* The count on the button is already the total number of lines between the two notes, however
+they are spelled: a 3-mark is 32nds whether it draws as three floating strokes (a pair of blancas,
+drawn as redondas) or as one beam plus two strokes (a pair of semicorcheas, drawn as corcheas). So
+playback reads the stored `tremolo` and stops — it must NOT add the drawn value's flags, or the same
+mark would sound at two speeds depending on how it was written.
 
 `collectScheduledNotes` already turns one `ScheduledNote` into N, but **not where the pair needs
 it**. Today the expansion sits *inside the per-pitch loop*, beside the tie-chase and the legato
@@ -252,9 +304,9 @@ Each is hand-testable on its own.
 
 | | |
 |---|---|
-| **P1** | `tremoloPair` + `pairIsValid` (§1, the ONE predicate) + the **dev-shell palette** button (one undo batch) + the relay/clipboard DROP + drawing for the **stemmed, unbeamed** cases: blanca and negra, floating strokes, doubled noteheads |
-| **P2** | corchea and shorter — real `Beam` over the pair + the remaining strokes |
-| **P3** | redonda — no stems, horizontal strokes between the noteheads |
+| **P1** ✅ `9bb3ce3` | `tremoloPair` + `pairIsValid` (§1, the ONE predicate) + the **dev-shell palette** button (one undo batch) + the relay/clipboard DROP + drawing for the **stemmed, unbeamed** cases: blanca and negra, floating strokes, doubled noteheads |
+| **P2** ✅ `9bb3ce3` | corchea and shorter — real `Beam` over the pair + the remaining strokes. ⚠️ The pair's beam is authorable: `single` draws them APART with flags instead (§2) |
+| **P3** ✅ `9bb3ce3` | redonda — ⚠️ NOT between the noteheads: a stemless note still has stem EXTENTS, so the strokes hang from its IMAGINARY stem. Only the horizontal SPAN is notehead-to-notehead (§2) |
 | **P4** | playback (alternating attacks) |
 | **P5** | selection / Delete / reporting |
 | **P6** | the `'joined'` blanca style + the toggle on the selected mark (needs P5's selection) |
