@@ -2,7 +2,7 @@ import type { EditorState } from '../interactions/EditorState'
 import type { PaletteController } from '../interactions/PaletteController'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { NoteDuration, TremoloMark } from '../types/music'
-import { durationHighlight, tremoloHighlight } from '../interactions/keypadSync'
+import { durationHighlight, tremoloHighlight, tremoloPairHighlight } from '../interactions/keypadSync'
 import { bakeGlyphStack } from '../windows/keypad/tremoloBake'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 
@@ -301,10 +301,10 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   }
 
   /**
-   * The two-note tremolo, beside the six single-note marks. NOT a toggle button in the lit/unlit
-   * sense yet: `tremoloHighlight` answers with a `TremoloMark`, and the pair is a SECOND AXIS — the
-   * count lights as it always did, and the pair lights beside it. That reporting is P5, with the
-   * selection it needs (docs/two-note-tremolo-plan.md §4), so this stays a plain action for now.
+   * The two-note tremolo, beside the six single-note marks — and it lights on its OWN axis.
+   * `tremoloHighlight` answers with a `TremoloMark`, which the pair is not: the count says how fast,
+   * the pair says the strokes go between two notes, and both are true at once. So the count keeps
+   * lighting its own button and this one lights beside it (docs/two-note-tremolo-plan.md §4).
    */
   const pairBtn = el('button', `${TREM_BTN} ${OFF}`)
   pairBtn.title = TREMOLO_PAIR.title
@@ -313,6 +313,10 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   pairSvg.style.height = `${TREM_GLYPH}px`
   pairBtn.appendChild(pairSvg)
   pairBtn.addEventListener('click', () => palette.pressTremoloPair())
+  syncers.push(() => {
+    const lit = tremoloPairHighlight(state, getEngine())
+    pairBtn.className = `${TREM_BTN} ${lit ? ON : OFF}`
+  })
   tremBox.appendChild(pairBtn)
 
   row.appendChild(tremBox)

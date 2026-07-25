@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { multipleNotesSelected, type SelectionItem } from './selection'
-import { beamHighlight, beamRoleHighlight, beamOverHighlight, noNoteInSelection, secondaryBreakHighlight, tremoloHighlight, type BeamSource, type TremoloSource } from './keypadSync'
+import { beamHighlight, beamRoleHighlight, beamOverHighlight, noNoteInSelection, secondaryBreakHighlight, tremoloHighlight, tremoloPairHighlight, type BeamSource, type TremoloSource } from './keypadSync'
 import type { TremoloMark } from '../types/music'
 import { createEditorState } from './EditorState'
 import { itemKey } from './selection'
@@ -176,5 +176,42 @@ describe('tremoloHighlight (the dev shell\'s Tremolo row)', () => {
 
   it('no engine, no answer (the mark is a fact about the score, read live)', () => {
     expect(tremoloHighlight(stateWith([note('a')]), null)).toBeNull()
+  })
+})
+
+/**
+ * The two-note tremolo is a SECOND AXIS beside the count, so it reports separately: the count says
+ * how fast, the pair says the strokes go between two notes, and both are true at once.
+ */
+describe('tremoloPairHighlight (the pair button, beside the count)', () => {
+  const paired = (on: boolean): TremoloSource => ({ getNote: () => ({ tremolo: 3, tremoloPair: on ? true : undefined }) })
+
+  it('lights for a single selected note carrying a pair, and not for one without', () => {
+    expect(tremoloPairHighlight(stateWith([note('a')]), paired(true))).toBe(true)
+    expect(tremoloPairHighlight(stateWith([note('a')]), paired(false))).toBe(false)
+  })
+
+  it('⭐ lights BESIDE the count — both axes answer at once', () => {
+    const state = stateWith([note('a')])
+    expect(tremoloHighlight(state, paired(true))).toBe(3)
+    expect(tremoloPairHighlight(state, paired(true))).toBe(true)
+  })
+
+  it('⭐ the MARK selected on the score lights it, like the count', () => {
+    const state = stateWith([])
+    state.selectedTremoloNoteId = 'a'
+    expect(tremoloPairHighlight(state, paired(true))).toBe(true)
+  })
+
+  it('nothing with no selection, several notes, or no engine', () => {
+    expect(tremoloPairHighlight(stateWith([]), paired(true))).toBe(false)
+    expect(tremoloPairHighlight(stateWith([note('a'), note('b')]), paired(true))).toBe(false)
+    expect(tremoloPairHighlight(stateWith([note('a')]), null)).toBe(false)
+  })
+
+  it('⚠️ an armed TOOL darkens it — and the pair has no armed form of its own to report', () => {
+    const state = stateWith([note('a')])
+    state.selectedMarkingTool = { kind: 'tremolo', tremolo: 5 }
+    expect(tremoloPairHighlight(state, paired(true))).toBe(false)
   })
 })

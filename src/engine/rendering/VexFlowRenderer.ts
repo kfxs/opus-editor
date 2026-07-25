@@ -2,7 +2,7 @@ import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidenta
 import { ScoreTuplet, layoutTupletMark, drawTupletMark } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
-import { pairDrawing, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
+import { TREMOLO_PAIR_GROUP, pairDrawing, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
@@ -216,6 +216,7 @@ const CROSS_SYSTEM_BEAM_STUB_LINE_END = 22
 const CROSS_SYSTEM_BEAM_STUB_LINE_START = 12
 const CROSS_SYSTEM_BEAM_MARGIN = 10
 const CROSS_SYSTEM_BEAM_WIDTH = 5
+
 
 /** The stub length for an open end, by the direction it points: right (+1) runs off the line end. */
 const crossSystemStub = (direction: number): number =>
@@ -800,9 +801,15 @@ export class VexFlowRenderer {
    * shoved right of the pair. So a stemless pair spans notehead to notehead: the right edge of the
    * first, the left edge of the second (reported by eye).
    */
-  private drawTwoNoteTremolos(pass: RenderPass, slots: ChordRest[], staveNotes: StaveNote[]): void {
+  private drawTwoNoteTremolos(
+    pass: RenderPass,
+    slots: ChordRest[],
+    staveNotes: StaveNote[],
+    measureNumber: number,
+    staffIndex: number,
+  ): void {
     for (const pair of this.twoNoteTremoloPairs(slots, staveNotes)) {
-      const { first, second, strokes, anchorId } = pair
+      const { first, second, strokes, anchorId, slot } = pair
       const staffSpace = first.getStave()?.getSpacingBetweenLines() ?? 10
       const stemmed = first.hasStem() && second.hasStem()
       const quads = twoNoteTremoloStrokes({
@@ -824,7 +831,11 @@ export class VexFlowRenderer {
       })
       if (quads.length === 0) continue
 
-      pass.context.openGroup('tremolo-pair', anchorId)
+      // ⚠️ `openGroup` PREFIXES both, so this lands as class `vf-tremolo-pair`, id
+      // `vf-tremolo-pair-<noteId>`. The id carries the name as well as the note, because
+      // `getElementById` is document-wide (reference_vexflow_getsvgelement_is_document_wide) and a
+      // bare note id would collide with whatever else keys off the same note.
+      pass.context.openGroup('tremolo-pair', `${TREMOLO_PAIR_GROUP}-${anchorId}`)
       try {
         for (const q of quads) {
           this.fillBeamQuad(pass.context, q.startX, q.startY, q.endX, q.endY, q.thickness)
@@ -832,6 +843,23 @@ export class VexFlowRenderer {
       } finally {
         pass.context.closeGroup()
       }
+
+      // The mark's own click target, MEASURED from the quads that were just drawn — the same reason
+      // `CenteredTremolo.inkRect` is measured rather than taken from `getBoundingBox()`: the code
+      // that placed the ink is the only honest source for where it is.
+      const left = Math.min(...quads.map(q => q.startX))
+      const right = Math.max(...quads.map(q => q.endX))
+      const top = Math.min(...quads.map(q => Math.min(q.startY, q.endY)))
+      const bottom = Math.max(...quads.map(q => Math.max(q.startY, q.endY) + q.thickness))
+      if (!Number.isFinite(left) || !Number.isFinite(top) || bottom <= top) continue
+      this.elementRegistry.add({
+        type: 'tremolo',
+        noteId: anchorId,
+        measure: measureNumber,
+        staff: staffIndex,
+        beat: fracToNumber(slot.beat),
+        bbox: { x: left, y: top, width: right - left, height: bottom - top },
+      })
     }
   }
 
@@ -871,11 +899,11 @@ export class VexFlowRenderer {
    * Penderecki sign, so it is a number here.
    */
   private twoNoteTremoloPairs(slots: ChordRest[], staveNotes: StaveNote[]): Array<{
-    first: StaveNote; second: StaveNote; strokes: number; anchorId: string
+    first: StaveNote; second: StaveNote; strokes: number; anchorId: string; slot: ChordRest
     flags: number; beamed: boolean
   }> {
     const pairs: Array<{
-      first: StaveNote; second: StaveNote; strokes: number; anchorId: string
+      first: StaveNote; second: StaveNote; strokes: number; anchorId: string; slot: ChordRest
       flags: number; beamed: boolean
     }> = []
     for (let i = 0; i + 1 < slots.length && i + 1 < staveNotes.length; i++) {
@@ -891,6 +919,7 @@ export class VexFlowRenderer {
         // one of the count (pairStrokesDrawn).
         strokes: pairStrokesDrawn(mark, drawing),
         anchorId: slot.notes[0]?.id ?? slot.id,
+        slot,
         ...drawing,
       })
     }
@@ -1699,7 +1728,7 @@ export class VexFlowRenderer {
 
         // Two-note tremolo strokes: after the stems and beams are drawn (the geometry they read is
         // only settled then), before registerSlotElements.
-        for (const g of groups) this.drawTwoNoteTremolos(pass, g.slots, g.staveNotes)
+        for (const g of groups) this.drawTwoNoteTremolos(pass, g.slots, g.staveNotes, measure.number, staffIndex)
 
         // Supporting ledger line for any whole/half rest a shift pushed off the staff
         // (VexFlow skips ledgers for rests — see drawRestLedgerLines).

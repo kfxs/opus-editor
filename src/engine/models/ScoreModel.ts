@@ -2044,13 +2044,23 @@ export class ScoreModel {
    *
    * The mark lives on the slot, so a chord takes it as a chord — passing any pitch id in the chord
    * marks the whole event, which is the same call {@link setArticulationStemAlign} makes.
+   *
+   * ⭐ REMOVING THE COUNT REMOVES A TWO-NOTE PAIR WITH IT, and that is the model rather than a
+   * courtesy: a pair needs a stroke COUNT (docs/two-note-tremolo-plan.md §0), so `tremoloPair` with
+   * no `tremolo` is a mark with nothing to draw. Putting it here rather than in each caller is what
+   * makes Delete, the palette's re-press and anything added later agree for free. CHANGING the count
+   * leaves the pair alone — that is the same mark re-read, not a different one.
    */
   setTremolo(noteId: string, tremolo: TremoloMark | null): Note | null {
     const found = this.findSlot(noteId)
     if (!found || found.type === 'rest') return null
     const { chord, pitch } = found
-    if (tremolo === null) delete chord.tremolo
-    else chord.tremolo = tremolo
+    if (tremolo === null) {
+      delete chord.tremolo
+      delete chord.tremoloPair
+    } else {
+      chord.tremolo = tremolo
+    }
     return this.toFlatNote(chord, pitch)
   }
 

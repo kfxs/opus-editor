@@ -279,12 +279,18 @@ deferred with the rest of §5's list: the tie-chase is per pitch and the pair is
 
 ## 4. Selection, Delete, reporting
 
-Reuses the seams P5–P7 built for the single-note mark: the stroke stack registers as
-`ElementRegistry` type `'tremolo'` with its **measured** ink rect (never `getBoundingBox()` — §9),
-Delete removes the mark, and a selected note lights it and the palette says which it is. Deleting
-clears **both** `tremoloPair` and `tremolo`: the pair is one mark, and half of it is not a notation.
-The rect is the quads' own extent, measured as they are drawn, for the same reason
-`CenteredTremolo.inkRect` is — the code that placed them is the only honest source.
+✅ **BUILT.** Reuses the seams P5–P7 built for the single-note mark: the stroke stack registers as
+`ElementRegistry` type `'tremolo'` with its **measured** ink rect (never `getBoundingBox()` — §9), so
+the existing `findTremoloAt` hit-test selects it with no new code; Delete removes the mark, and a
+selected note lights it and the palette says which it is. The rect is the quads' own extent, measured
+as they are drawn, for the same reason `CenteredTremolo.inkRect` is — the code that placed them is the
+only honest source.
+
+⭐ **Deleting clears BOTH fields, and the rule lives in `ScoreModel.setTremolo`** rather than in
+Delete: **removing the COUNT removes the pair**, because a pair needs one (§0), so `tremoloPair` with
+no `tremolo` would be a mark with nothing to draw. One place, so Delete, the palette's re-press and
+anything added later agree for free. *Changing* the count leaves the pair alone — that is the same
+mark re-read.
 
 ⚠️ **The HIGHLIGHT does not come free — it is the one seam that does not transfer.**
 `HighlightController.colorNoteTremolo` finds `<text>` nodes *inside the note's `vf-stavenote` group*
@@ -308,7 +314,7 @@ Each is hand-testable on its own.
 | **P2** ✅ `9bb3ce3` | corchea and shorter — real `Beam` over the pair + the remaining strokes. ⚠️ The pair's beam is authorable: `single` draws them APART with flags instead (§2) |
 | **P3** ✅ `9bb3ce3` | redonda — ⚠️ NOT between the noteheads: a stemless note still has stem EXTENTS, so the strokes hang from its IMAGINARY stem. Only the horizontal SPAN is notehead-to-notehead (§2) |
 | **P4** ✅ | playback (alternating attacks) |
-| **P5** | selection / Delete / reporting |
+| **P5** ✅ | selection / Delete / reporting |
 | **P6** | the `'joined'` blanca style + the toggle on the selected mark (needs P5's selection) |
 
 Deferred on purpose: note entry armed with a pair (the mark applies to notes that already exist),

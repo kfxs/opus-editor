@@ -5,6 +5,7 @@ import { navBeatMap } from '../utils/beatMap'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 import { ELEMENT_SELECTION_FILL, ELEMENT_SELECTION_STROKE } from '../utils/selectionColors'
 import { tremoloGlyph } from '../utils/tremoloGlyphs'
+import { TREMOLO_PAIR_GROUP } from '../utils/tremoloPair'
 
 /**
  * Applies SVG highlight classes/colors after each render.
@@ -573,12 +574,20 @@ export class HighlightController {
    * N of them and nothing else. The nearest-glyph matching the accidental and the articulations use
    * would be wrong here — the stack sits along the stem, where a chord's upper noteheads are, and it
    * is one registered rect covering N glyphs rather than one box per glyph.
+   *
+   * ⚠️ A TWO-NOTE PAIR takes the other branch entirely — see {@link colorTremoloPairGroup}. Its
+   * strokes are not glyphs and not inside any note group, so the search above finds nothing.
    */
   private colorNoteTremolo(noteId: string, color: string): void {
     const engine = this.getEngine()
     if (!engine) return
-    const mark = engine.getNote(noteId)?.tremolo
+    const note = engine.getNote(noteId)
+    const mark = note?.tremolo
     if (mark === undefined) return
+    if (note?.tremoloPair) {
+      this.colorTremoloPairGroup(noteId, color)
+      return
+    }
     const group = engine.getStaveNoteSVGGroup(noteId)?.group
     if (!group) return
 
@@ -590,6 +599,38 @@ export class HighlightController {
       this.setStyleProp(svgEl, 'fill', color)
       this.addClass(svgEl, 'selected-tremolo')
     })
+  }
+
+  /**
+   * Colour a TWO-NOTE tremolo's strokes — the one selection seam the pair could not inherit.
+   *
+   * Its strokes are our own beam quads (`<path>`s), drawn outside every note group, so
+   * {@link colorNoteTremolo}'s glyph search has nothing to match: no `<text>`, no codepoint, and not
+   * in the note's `vf-stavenote` group to begin with. So the renderer PAINTS them into a named group
+   * (`TREMOLO_PAIR_GROUP`) and this colours that group whole — the barline lesson again: paint a
+   * highlight, do not go hunting for glyphs to recolour.
+   *
+   * ⚠️ Matched on the id ATTRIBUTE, not `getElementById` and not a `#id` selector: the id is
+   * document-wide (reference_vexflow_getsvgelement_is_document_wide) and a note id is a uuid that may
+   * start with a digit, which is not a legal CSS id selector. Scoped to the score canvas and read off
+   * the class, so both problems go away.
+   *
+   * Fills AND strokes, because `fillBeamQuad` fills a path — a stroke-only recolour would leave the
+   * strokes black.
+   */
+  private colorTremoloPairGroup(noteId: string, color: string): void {
+    const scoreCanvas = this.getScoreCanvas()
+    if (!scoreCanvas) return
+    const wanted = `vf-${TREMOLO_PAIR_GROUP}-${noteId}`
+    for (const group of scoreCanvas.querySelectorAll(`.vf-${TREMOLO_PAIR_GROUP}`)) {
+      if (group.getAttribute('id') !== wanted) continue
+      group.querySelectorAll('path').forEach(el => {
+        const svgEl = el as SVGElement
+        this.setAttr(svgEl, 'fill', color)
+        this.setStyleProp(svgEl, 'fill', color)
+        this.addClass(svgEl, 'selected-tremolo')
+      })
+    }
   }
 
   /** Highlight the tremolo selected on the score (a click on its strokes). Paints in the slot's

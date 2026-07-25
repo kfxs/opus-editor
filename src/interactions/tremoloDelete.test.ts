@@ -112,6 +112,28 @@ describe('Delete removes a selected tremolo', () => {
     expect(tremoloAt(engine)).toBeUndefined()
   })
 
+
+  it('⭐ a TWO-NOTE pair goes whole — half a mark is not a notation', () => {
+    // A partner to pair with, then the pair itself.
+    engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    engine.setTremoloPair(noteId, true)
+    const slotAt = (beat: number) => {
+      const slot = engine.getScore().measures[0].slots.find(s => s.beat.num === beat && s.beat.den === 1)
+      return slot?.type === 'chord' ? slot : undefined
+    }
+    expect(slotAt(0)?.tremoloPair).toBe(true)
+
+    state.selectedTremoloNoteId = noteId
+    pressDelete()
+
+    // BOTH fields, and only on the first slot — the second never carried anything.
+    expect(slotAt(0)?.tremoloPair).toBeUndefined()
+    expect(slotAt(0)?.tremolo).toBeUndefined()
+    // …and the two notes are still there. Deleting the mark is not deleting the music.
+    expect(engine.getNote(noteId)).toBeTruthy()
+    expect(slotAt(1)).toBeTruthy()
+  })
+
   it('with nothing selected the press changes nothing', () => {
     pressDelete()
     expect(tremoloAt(engine)).toBe(3)

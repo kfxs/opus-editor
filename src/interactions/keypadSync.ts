@@ -175,7 +175,29 @@ export function tremoloHighlight(state: EditorState, engine: TremoloSource | nul
 
 /** The slice of the engine {@link tremoloHighlight} reads — structural, like {@link BeamSource}. */
 export interface TremoloSource {
-  getNote(noteId: string): { tremolo?: TremoloMark } | undefined
+  getNote(noteId: string): { tremolo?: TremoloMark; tremoloPair?: true } | undefined
+}
+
+/**
+ * Whether the TWO-NOTE tremolo button is lit — a SECOND AXIS, reported separately.
+ *
+ * {@link tremoloHighlight} answers with a `TremoloMark`, and the pair is not one of those: the count
+ * says how fast, the pair says the strokes go between two notes. Both are true at once, so the count
+ * lights as it always did and this lights beside it (docs/two-note-tremolo-plan.md §4).
+ *
+ * Only the two SCORE-derived sources of the four above, and deliberately: the pair has no armed
+ * stamp and no note-entry form — the mark applies to notes that already exist, which is the standing
+ * deferral. So there is nothing to report from an arming state, and it never lights for one.
+ *
+ * ⚠️ The raw flag, not `pairIsValid`. This says "the mark you would take off is a pair", which is
+ * exactly what a stale flag still is to the button — pressing it clears the flag. What is DRAWN is
+ * the renderer's question and it asks the predicate.
+ */
+export function tremoloPairHighlight(state: EditorState, engine: TremoloSource | null): boolean {
+  if (state.selectedMarkingTool || !engine) return false
+  if (state.selectedTremoloNoteId) return engine.getNote(state.selectedTremoloNoteId)?.tremoloPair === true
+  if (noNoteInSelection(state) || !state.selectedNoteId) return false
+  return engine.getNote(state.selectedNoteId)?.tremoloPair === true
 }
 
 /**
