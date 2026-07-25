@@ -22,8 +22,9 @@ With no override, notes beam together while they share a `getBeatGroup(beat, met
 partitioned by the meter's own group lengths. 4/4 beams per quarter, 6/8 → 3+3, 9/8 → 3+3+3,
 7/8 → 2+2+3, and a stored additive grouping (8/8 as 3+3+2) is honoured as written.
 
-Three things always break a group, whatever the meter: a rest (you cannot beam silence), a
-non-beamable duration (quarter and longer), and a group that ends up with fewer than two notes.
+Three things break a group, whatever the meter: a rest (you cannot beam silence — but see
+"Beaming over a rest" for the opt-in exception), a non-beamable duration (quarter and longer), and a
+group that ends up with fewer than two notes.
 
 Beaming does **not** depend on clef — a beam group may span a mid-measure clef change. See
 `docs/note-selection-hit-detection.md` for that companion decision.
@@ -179,6 +180,38 @@ subdivision is a statement about a group that already exists ("where does the se
 break-secondary is a selection edit for the same reason. It toggles across the whole selection as a
 set, like the articulations: all of them have it → remove, otherwise add.
 
+## Beaming over a rest (the "beamed rest")
+
+The default is that a rest breaks a beam — you cannot beam silence. But common practice keeps the beam
+running *over* a rest that sits **inside** a group: `𝅘𝅥𝅮 𝄾 𝅘𝅥𝅮 𝅘𝅥𝅮` in one beat is one beam, the rest floating
+under it. That is an opt-in, per rest.
+
+`beamOver?: boolean` on the **Rest** slot (`types/music.ts`), off by default, absent in JSON when off.
+It is a structural beaming statement, so it lives on the slot beside `beam` / `secondaryBreak`, not in
+the visual-override compartment that rest hide/shift use — with the one consequence that it is tied to
+that rest object, so a structural edit that regenerates the rest (rebar, paste) drops it, which is also
+when the beaming it described has changed.
+
+Two rules make it well-defined (`computeCrossBarBeamGroups`, tested):
+
+- **Interior only.** A `beamOver` rest is swept into a group only when a beamable note precedes it and
+  one follows; it never *starts* a group (a leading rest is nothing to beam) and it is **trimmed** if it
+  ends up trailing (a beam never hangs off a rest). So a surviving group still starts and ends on a note.
+- **It is a silent `continue`.** The mark does the bridging itself: the rest joins the group before it
+  *and* pulls the note after it across whatever boundary sits between — a beat boundary included — so the
+  neighbours need no mark of their own. That is the whole point of one click: `♪ ♪ 𝄾 ♪` with the rest on
+  the beat boundary beams as one run, where without the flag it would be `(♪ ♪)(♪)`. Like `continue` the
+  bridge spends itself on the next note, so one rest bridges exactly its own position, and a manual
+  `begin…end` group encloses an interior `beamOver` rest the same way.
+
+**The drawing is VexFlow's, for free.** The rest already has its own `StaveNote` in the parallel array;
+once its slot index is in the group, `new Beam([...])` sweeps it in and floats the beam over it (a rest
+has no stem, so nothing connects down to it — the beam simply passes above). No geometry of ours.
+
+The `beam rest` button is **selection-only** and the exact **inverse population** of `subdivide`: it
+filters to keep rests and drops notes, because a rest is the only thing it applies to. It reports the
+authored flag; whether a beam actually runs over the rest depends on its neighbours (see the two rules).
+
 ## The palette (dev shell)
 
 The `Beam:` row in `dev/devToolbar.ts` reads `beamHighlight(state)` (in `interactions/keypadSync`,
@@ -233,6 +266,10 @@ You cannot beam silence, so a selected rest has no beam to author and no role to
 go null (`getBeamRole` returns null for a rest slot; `beamHighlight` takes a `BeamSource` so it can
 ask). `auto` lit over a rest would be the row answering a question the note never asked, and offering
 a control that does nothing — `setBeam` has always skipped rests.
+
+The **one** control that lights for a rest and darkens for a note is `beam rest` (`beamOverHighlight`),
+the mirror image — see "Beaming over a rest". Everything else in the row is about a note; that one is
+about a rest.
 
 ### A press applies to the whole selection
 

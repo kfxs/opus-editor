@@ -820,6 +820,8 @@ export interface Note {
   beam?: BeamMode
   /** Secondary beams break in front of this note; the primary beam runs through. */
   secondaryBreak?: boolean
+  /** REST only: beam over this rest instead of breaking at it. See {@link Rest.beamOver}. */
+  beamOver?: boolean
   /**
    * Voice index (0–3) this note belongs to. Voices are independent rhythmic
    * streams within a bar. Only voice 0 is populated today (no multi-voice
@@ -950,6 +952,19 @@ export interface Rest {
    * stored `duration` is `'w'` and `actualDuration` carries the true bar length.
    */
   isMeasureRest?: boolean
+  /**
+   * Beam OVER this rest instead of breaking the beam at it — the "beamed rest" convention:
+   * `𝅘𝅥𝅮 𝄾 𝅘𝅥𝅮 𝅘𝅥𝅮` in one beat gets a single beam with the rest floating under it. Absent = the default,
+   * a rest breaks the beam. It only shows when the rest is INTERIOR to a group its neighbours form;
+   * a leading or trailing beamed rest is trimmed, because a beam never hangs off a rest. See
+   * docs/beaming.md.
+   *
+   * A structural beaming statement, so it lives on the slot beside {@link Chord.beam} /
+   * `secondaryBreak`, not in the visual-override compartment rest hide/shift use. ⚠️ It is therefore
+   * tied to this rest object: a structural edit that regenerates the rest (rebar, paste) drops it —
+   * which is also when the beaming context it describes has changed.
+   */
+  beamOver?: boolean
 }
 
 export type ChordRest = Chord | Rest
@@ -1192,6 +1207,8 @@ export interface NoteParams {
   beam?: BeamMode
   /** Secondary beams break in front of this note. See the type note on {@link BeamMode}. */
   secondaryBreak?: boolean
+  /** REST only: beam over this rest instead of breaking at it. See {@link Rest.beamOver}. */
+  beamOver?: boolean
   /** Voice index (0–3). Defaults to 0. See {@link Note.voice}. */
   voice?: 0 | 1 | 2 | 3
   /** 0-based staff index in {@link Score.staves}. Defaults to 0. See {@link Note.staff}. */

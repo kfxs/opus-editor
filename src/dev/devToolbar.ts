@@ -2,7 +2,7 @@ import type { EditorState } from '../interactions/EditorState'
 import type { PaletteController } from '../interactions/PaletteController'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { BeamMode, NoteDuration } from '../types/music'
-import { beamHighlight, beamRoleHighlight, durationHighlight, secondaryBreakHighlight } from '../interactions/keypadSync'
+import { beamHighlight, beamRoleHighlight, beamOverHighlight, durationHighlight, secondaryBreakHighlight } from '../interactions/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 
 /**
@@ -228,6 +228,11 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   toggle(beamBox, 'px-2 py-1 rounded text-xs', 'subdivide',
     'Break secondary beams in front of this note (the primary beam runs through) — 6 sixteenths as 3+3',
     () => secondaryBreakHighlight(state, getEngine()), () => palette.toggleSecondaryBreak())
+  // REST-only, the inverse population of the whole row above (which darkens for a rest): beam over
+  // the selected rest instead of breaking at it. Only shows when the rest is interior to a group.
+  toggle(beamBox, 'px-2 py-1 rounded text-xs', 'beam rest',
+    'Beam OVER this rest instead of breaking the beam at it (the "beamed rest") — ♪ 𝄾 ♪ ♪ as one beam',
+    () => beamOverHighlight(state, getEngine()), () => palette.toggleBeamOver())
   row.appendChild(beamBox)
 
   /**

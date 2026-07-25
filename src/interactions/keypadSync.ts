@@ -74,7 +74,7 @@ export function beamHighlight(state: EditorState, engine: BeamSource | null): Be
  * a line, and the rule stays a pure function of (state, score-facts) rather than of a whole engine.
  */
 export interface BeamSource {
-  getNote(noteId: string): { isRest?: boolean; secondaryBreak?: boolean } | undefined
+  getNote(noteId: string): { isRest?: boolean; secondaryBreak?: boolean; beamOver?: boolean } | undefined
   getBeamRole(noteId: string): BeamRole | null
 }
 
@@ -91,6 +91,20 @@ export function secondaryBreakHighlight(state: EditorState, engine: BeamSource |
   if (state.selectedMarkingTool || noNoteInSelection(state) || !state.selectedNoteId) return false
   const note = engine.getNote(state.selectedNoteId)
   return !!note && !note.isRest && !!note.secondaryBreak
+}
+
+/**
+ * Does the selected REST carry `beamOver` — beam over it instead of breaking? The mirror of
+ * {@link secondaryBreakHighlight}: lit or dark, no `auto` to report, single selection only, and the
+ * inverse population — it lights only for a rest (the toggle applies to nothing else). Whether a beam
+ * actually runs over it depends on its neighbours; the button reports the authored flag, like the
+ * beam row's own "did anyone author this?" half.
+ */
+export function beamOverHighlight(state: EditorState, engine: BeamSource | null): boolean {
+  if (!engine || state.selectedTool !== 'selection') return false
+  if (state.selectedMarkingTool || noNoteInSelection(state) || !state.selectedNoteId) return false
+  const note = engine.getNote(state.selectedNoteId)
+  return !!note && !!note.isRest && !!note.beamOver
 }
 
 /**

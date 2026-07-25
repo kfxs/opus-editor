@@ -2194,6 +2194,8 @@ export class ScoreModel {
         if (updates.tupletId !== undefined) rest.tupletId = updates.tupletId
         if (updates.tiedFrom !== undefined) rest.tiedFrom = updates.tiedFrom
         if ('tiedFrom' in updates && updates.tiedFrom === undefined) rest.tiedFrom = undefined
+        // Stored ABSENT when off, like `beam: 'auto'` — the default costs nothing in JSON.
+        if (updates.beamOver !== undefined) rest.beamOver = updates.beamOver || undefined
         if (updates.beat !== undefined) {
           rest.beat = updates.beat
           const m = this.getMeasure(rest.measure)

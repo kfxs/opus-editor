@@ -57,6 +57,7 @@ export function restToFlatNote(rest: Rest, staffIndex = 0): Note {
     tupletId: rest.tupletId,
     actualDuration: rest.actualDuration,
     tiedFrom: rest.tiedFrom,
+    beamOver: rest.beamOver,
     voice: rest.voice,
     staff: staffIndex === 0 ? undefined : staffIndex,
   }

@@ -70,7 +70,8 @@ export interface BeamSlotRef {
  * everything else (rests, quarters-and-longer, lone eighths) is left unbeamed.
  *
  * Rules:
- *   - Rests and non-beamable durations break the current group.
+ *   - A non-beamable duration breaks the current group. A rest breaks it too — unless it is marked
+ *     `beamOver` and sits interior to a group, when the beam runs over it (the "beamed rest").
  *   - Explicit {@link BeamMode} on a slot overrides the default grouping:
  *     `'single'` forces no beam; `'begin'`/`'continue'`/`'end'` build a manual
  *     group that ignores beat boundaries (lets a beam bridge across them).
@@ -125,7 +126,13 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
    */
   let bridgeNext: 'begin' | 'continue' | null = null
 
+  const isRestRef = (ref: BeamSlotRef): boolean => bars[ref.bar].slots[ref.slot].type === 'rest'
+
   const flush = () => {
+    // A beam ends on a note, never a rest — drop any `beamOver` rests left trailing (a leading one
+    // was never added). What survives therefore starts and ends on a note, so the `>= 2` check still
+    // means "at least two notes". No effect unless a rest was swept in: an ordinary rest flushes.
+    while (current.length && isRestRef(current[current.length - 1])) current.pop()
     if (current.length >= 2) groups.push(current)
     current = []
     currentBeatGroup = null
@@ -151,8 +158,22 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
       const slot = slots[i]
       const ref: BeamSlotRef = { bar: b, slot: i }
 
-      // Rests always break beams (can't beam silence).
-      if (slot.type === 'rest') { flush(); continue }
+      // A rest breaks the beam — UNLESS it is marked `beamOver`, when it becomes a SILENT `continue`:
+      // swept into the group before it AND bridging the boundary at it, so the note after joins across
+      // with no mark on the neighbours. That is what "beam over this rest" means, and it is why the one
+      // click does the whole job (`♪ 𝄾 ♪ ♪` → one beam, even when the rest sits on a beat boundary). Like
+      // `continue` it cannot START a group — a leading rest is nothing to beam — and, being silent, it is
+      // trimmed if nothing follows it (trailing, see `flush`).
+      if (slot.type === 'rest') {
+        if (slot.beamOver && current.length > 0) {
+          current.push(ref)
+          currentBeatGroup = getBeatGroup(slot.beat, meter)
+          bridgeNext = 'continue'
+        } else {
+          flush()
+        }
+        continue
+      }
 
       // Non-beamable durations (quarter and above) always break beams.
       if (!isBeamableDuration(slot.duration)) { flush(); continue }

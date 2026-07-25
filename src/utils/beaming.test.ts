@@ -157,6 +157,52 @@ describe('beaming — breaks', () => {
   })
 })
 
+describe('beaming — beam over a rest (the "beamed rest")', () => {
+  /** A rest carrying `beamOver`. */
+  const restOver = (beat: number, beatDen: number, duration: NoteDuration = '8'): ChordRest =>
+    ({ id: `r${idSeq++}`, type: 'rest', beat: fracCreate(beat, beatDen), duration, measure: 1, beamOver: true })
+
+  it('an INTERIOR beamOver rest is swept into the group — the beam runs over it', () => {
+    // Four sixteenths in ONE beat, the 2nd a beamOver rest: C 𝄾 E F → one beam over all four.
+    const slots = [chord(0, 4, '16'), restOver(1, 4, '16'), chord(2, 4, '16'), chord(3, 4, '16')]
+    expect(computeBeamGroups(slots, meter(4, 4))).toEqual([[0, 1, 2, 3]])
+  })
+
+  it('without the flag the same rest still breaks the beam (default unchanged)', () => {
+    const slots = [chord(0, 4, '16'), rest(1, 4, '16'), chord(2, 4, '16'), chord(3, 4, '16')]
+    expect(computeBeamGroups(slots, meter(4, 4))).toEqual([[2, 3]])
+  })
+
+  it('a LEADING beamOver rest never starts a group', () => {
+    const slots = [restOver(0, 4, '16'), chord(1, 4, '16'), chord(2, 4, '16')]
+    expect(computeBeamGroups(slots, meter(4, 4))).toEqual([[1, 2]])
+  })
+
+  it('a TRAILING beamOver rest is trimmed — a beam never hangs off a rest', () => {
+    const slots = [chord(0, 4, '16'), chord(1, 4, '16'), restOver(2, 4, '16')]
+    expect(computeBeamGroups(slots, meter(4, 4))).toEqual([[0, 1]])
+  })
+
+  it('two adjacent interior beamOver rests are both enclosed', () => {
+    const slots = [chord(0, 4, '16'), restOver(1, 4, '16'), restOver(2, 4, '16'), chord(3, 4, '16')]
+    expect(computeBeamGroups(slots, meter(4, 4))).toEqual([[0, 1, 2, 3]])
+  })
+
+  it('a beamOver rest ON A BEAT BOUNDARY bridges it — one click, no `continue` on the neighbour', () => {
+    // The reported UX case: C C 𝄾 C as EIGHTHS, the rest at beat 1.0 (the 0|1 beat boundary). Marking
+    // the rest beamOver is a silent `continue`, so the whole run beams as one — the neighbour needs no
+    // mark. Without the flag this would be (C C)(C) two beats; beamOver makes the rest do the bridging.
+    const slots = [chord(0, 2), chord(1, 2), restOver(1, 1), chord(3, 2)]
+    expect(computeBeamGroups(slots, meter(4, 4))).toEqual([[0, 1, 2, 3]])
+  })
+
+  it('a beamOver rest inside a manual begin…end group is enclosed too', () => {
+    // begin on C, end on F, a beamOver rest between: one manual beam over the rest across the beat.
+    const slots = [chord(0, 2, '8', 'begin'), restOver(1, 2), chord(1, 1, '8', 'continue'), chord(3, 2, '8', 'end')]
+    expect(computeBeamGroups(slots, meter(4, 4))).toEqual([[0, 1, 2, 3]])
+  })
+})
+
 describe('beaming — explicit BeamMode overrides', () => {
   it("'single' forces a note out of any beam", () => {
     // Two eighths in beat 0 would beam [0,1]; 'single' on the second breaks it.

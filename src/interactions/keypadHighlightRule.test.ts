@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { multipleNotesSelected, type SelectionItem } from './selection'
-import { beamHighlight, beamRoleHighlight, noNoteInSelection, secondaryBreakHighlight, type BeamSource } from './keypadSync'
+import { beamHighlight, beamRoleHighlight, beamOverHighlight, noNoteInSelection, secondaryBreakHighlight, type BeamSource } from './keypadSync'
 import { createEditorState } from './EditorState'
 import { itemKey } from './selection'
 
@@ -100,6 +100,17 @@ describe('beamHighlight (the dev shell\'s Beam row)', () => {
     })).toBe(false)
     expect(secondaryBreakHighlight(stateWith([note('a'), note('b')]), broken)).toBe(false)
     expect(secondaryBreakHighlight(stateWith([note('a')], 'entry'), broken)).toBe(false)
+  })
+
+  it('beamOverHighlight lights only for a single selected REST carrying the flag (inverse of subdivide)', () => {
+    const over: BeamSource = { getNote: () => ({ isRest: true, beamOver: true }), getBeamRole: () => null }
+    expect(beamOverHighlight(stateWith([note('r')]), over)).toBe(true)
+    // A NOTE (not a rest) never lights it, even with the flag somehow set; nor does a flagless rest,
+    // a multi-selection, or entry mode.
+    expect(beamOverHighlight(stateWith([note('a')]), { getNote: () => ({ beamOver: true }), getBeamRole: () => null })).toBe(false)
+    expect(beamOverHighlight(stateWith([note('r')]), { getNote: () => ({ isRest: true }), getBeamRole: () => null })).toBe(false)
+    expect(beamOverHighlight(stateWith([note('r'), note('s')]), over)).toBe(false)
+    expect(beamOverHighlight(stateWith([note('r')], 'entry'), over)).toBe(false)
   })
 
   it('a selected NOTE still reports both facts', () => {

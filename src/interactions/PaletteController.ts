@@ -1145,6 +1145,32 @@ export class PaletteController {
   }
 
   /**
+   * Toggle BEAM-OVER on every selected REST: beam over it instead of breaking the beam at it (the
+   * "beamed rest", `♪ 𝄾 ♪ ♪` → one beam). The exact inverse population of {@link toggleSecondaryBreak}
+   * — it filters to KEEP rests and drops notes, because a rest is the only thing this applies to.
+   * Whether a beam then runs over the rest depends on its neighbours (it must be interior to a group);
+   * the flag is the authored intent either way.
+   *
+   * SELECTION ONLY, no armed entry-mode value — a statement about a rest that already exists, exactly
+   * like the subdivide toggle. Toggles as a set: all of them have it → remove, otherwise add.
+   */
+  toggleBeamOver(): boolean {
+    const engine = this.getEngine()
+    if (!engine || this.state.selectedTool !== 'selection') return false
+
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+      .filter(id => engine.getNote(id)?.isRest)
+    if (!ids.length) return false
+
+    const allHaveIt = ids.every(id => engine.getNote(id)?.beamOver)
+    engine.runBatch(allHaveIt ? 'Beam over rest: off' : 'Beam over rest: on', () => {
+      for (const id of ids) engine.updateNote(id, { beamOver: !allHaveIt })
+    })
+    this.renderScore()
+    return true
+  }
+
+  /**
    * Arm/disarm a clef for placement. Clicking the active clef again disarms it.
    * While armed, canvas clicks set/change a measure's clef (see MouseController)
    * and the ghost note is suppressed. Switches to the entry tool so canvas clicks
