@@ -195,7 +195,7 @@ export function measureGroupKey(measureNumber: number, staffIndex: number): stri
 const PLACEHOLDER_BEAM = { postFormat: () => {} } as unknown as Beam
 
 /**
- * The half-beam a cross-*system* fragment hangs over its open end (docs/cross-system-beam-fragments-plan.md):
+ * The half-beam a cross-*system* fragment hangs over its open end (docs/cross-barline-beaming-plan.md):
  * a short fixed stub past the edge note's stem, NOT a run to the system edge — a beam the width of a
  * system reads as a long empty beam, not one going somewhere. VexFlow's own `partialBeamLength` (10px)
  * is the honest floor; these are tuned by eye.
@@ -978,9 +978,12 @@ export class VexFlowRenderer {
    * crosses. A slur over bars 4–15 redraws 4 and 15; 5–14 still just translate.
    *
    * A **cross-barline beam** is a span in exactly this sense and joins the same list: it is drawn
-   * outside both measure groups, from its notes' drawn coordinates, so neither of its bars may be
-   * translated — and when the join crosses the window, both bars must be painted or half the group
-   * has no `StaveNote` at all.
+   * outside every measure group, from its notes' drawn coordinates, so none of its bars may be
+   * translated. But the forcing is **per SIDE**, not per join (docs/cross-barline-beaming-plan.md
+   * P4): a same-line side pins its bars together — when it crosses the window both must be painted, or
+   * half the fragment has no `StaveNote` — while the two sides of a group split across a system break
+   * are independent, so seeing one system never forces the other's bar to be painted for nothing. A
+   * one-bar side pins nothing (no pair) but still keeps its own bar from being translated.
    */
   private spanAnchors(score: Score, joins: CrossBarJoin[]): SpanAnchors {
     const measures = new Set<number>()
@@ -1828,7 +1831,7 @@ export class VexFlowRenderer {
    *
    * A same-line side is one whole `Beam`, as before. A side open at a system break also hangs a
    * half-beam stub over its open end; a side of a single note has no `Beam` at all (the constructor
-   * throws on one note) and draws the note's own stem plus the stub (docs/cross-system-beam-fragments-plan.md).
+   * throws on one note) and draws the note's own stem plus the stub (docs/cross-barline-beaming-plan.md).
    */
   private drawCrossBarBeams(pass: RenderPass, joins: CrossBarJoin[]): void {
     for (const join of joins) {
@@ -2654,11 +2657,13 @@ export class VexFlowRenderer {
     // those bars was different — they had moved.
     // ---- Cross-barline beams (docs/cross-barline-beaming-plan.md), planned in two passes ----
     //
-    // The first pass decides which barlines are open, so the spans machinery can pin both bars of
-    // each join and force them to be drawn together. The second re-plans against the draw decision
-    // that came out of it: a bar tier 2 is not painting closes its barline, because a placeholder
-    // beam whose partner has no StaveNotes would leave a note with no flag AND no stem. Under
-    // culling the two passes agree by construction — the forcing is what makes them.
+    // The first pass is drawn-blind (`() => true`), so it sees every join and every SIDE regardless of
+    // culling — the spans machinery then pins each side's bars together and forces them drawn as a set.
+    // Across a system break the two sides are independent and NOT cross-pinned (cross-system-beam-
+    // fragments-plan P4). The second pass re-plans against the actual draw decision: within a line a bar
+    // tier 2 is not painting closes its barline, because a placeholder beam whose partner has no
+    // StaveNotes would leave a note with no flag AND no stem; across a break an undrawn side just skips
+    // itself. Within a line the two passes agree by construction — the forcing is what makes them.
     const provisionalBeams = this.planCrossBarBeams(plans, () => true)
 
     const spans = this.spanAnchors(score, provisionalBeams.joins)

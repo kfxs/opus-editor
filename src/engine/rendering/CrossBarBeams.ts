@@ -59,7 +59,7 @@ export interface CrossBarJoinMember {
 /**
  * One system's worth of a join — the members that landed on a single line, drawn as an independent
  * half-group with an open end where the beam runs off toward the break
- * (docs/cross-system-beam-fragments-plan.md).
+ * (docs/cross-barline-beaming-plan.md).
  *
  * A join wholly on one line has exactly one side, open at neither end — which is every join *today*,
  * because `splitIntoRuns` still walls the run at a system break. The machinery is built ahead of that
@@ -153,7 +153,7 @@ function beamCountOf(slot: ChordRest): number {
 
 /**
  * Partition a join's members into per-system SIDES — split at every index where the line changes
- * (docs/cross-system-beam-fragments-plan.md). Members on one line become one side; a break between
+ * (docs/cross-barline-beaming-plan.md). Members on one line become one side; a break between
  * two lines opens the side before it on its right and the side after it on its left.
  *
  * `secondaryBreaks` (group-local indices) stay whole-group and are handed in rather than recomputed
@@ -302,7 +302,7 @@ export function planCrossBarBeams(
  * A `Beam` cannot span two lines, but the *plan* must: the stem direction and the crossing count are
  * whole-group facts, and side A needs them whether or not side B is on screen. So the run stays open
  * across a line break, and `computeSides` partitions the group into one fragment per line
- * (docs/cross-system-beam-fragments-plan.md). Keeping it open costs nothing — nothing is drawn from
+ * (docs/cross-barline-beaming-plan.md). Keeping it open costs nothing — nothing is drawn from
  * the run directly; a side's own `drawable` decides that, and the join it forms is therefore the same
  * whether or not the next system is culled, which is what keeps the shape-key descriptor scroll-stable.
  *

@@ -324,7 +324,7 @@ describe('cross-barline beams — the planner', () => {
   })
 })
 
-// --- unit: sides, the per-system split (docs/cross-system-beam-fragments-plan.md) ---
+// --- unit: sides, the per-system split (docs/cross-barline-beaming-plan.md) ---
 
 describe('cross-system beam fragments — computeSides', () => {
   // Synthetic members: the wall still keeps real joins single-line, so the split is exercised here,

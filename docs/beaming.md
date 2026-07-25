@@ -113,19 +113,22 @@ The grouping is `computeCrossBarBeamGroups(bars)` in `utils/beaming.ts`, taking 
 with **its own meter**, since a run may contain a time-signature change — and returning `(bar, slot)`
 refs. `computeBeamGroups` is now a run of one, so there is one algorithm for both.
 
-### Where it stops
+### Through a system break too — the half-beam
 
-A join needs both notes on the **same system**: one VexFlow `Beam` cannot span two lines, so a pair
-straddling a break falls back to two ordinary groups with their flags intact. The mark is kept; it
-simply has nothing to join on that page. Real engraving hangs a half-beam over the barline at the end
-of the line, which needs partial beams drawn by hand and is not built.
+One VexFlow `Beam` cannot span two lines, so a group straddling a break is not one beam: it is
+**planned whole and drawn as one fragment per system**. Each fragment hangs a short **half-beam** over
+its open end — the end-of-line fragment carries it through the closing barline into the margin, and the
+next line's fragment projects a shorter stub left of its first note. The two read as one beam
+continued across the page, which is what real engraving does; before, the pair fell back to two ordinary
+flagged groups, and the mark simply had nothing to join on that page.
 
-The palette still reads `continue` there. The role is a fact about the **score** and the break is a
-fact about the **layout** — `ScoreModel` does not know where the lines fall, and intent disagreeing
-with engraving is the row working (see below), not a bug.
+The mark does not change and nothing is added — `continue` at a barline still means *beamed on both
+sides*, and this section is the whole statement. The palette still reads `continue` at the break: the
+role is a fact about the **score** and the break a fact about the **layout** — `ScoreModel` does not
+know where the lines fall, and now intent and engraving agree rather than merely not being a bug.
 
-How it is drawn — the placeholder beam, the post-measure pass, and what the join costs the shape key
-— is in `docs/cross-barline-beaming-plan.md`.
+How it is drawn — the per-side split, the half-beam stub, the lone-note case, and what stays a
+whole-group fact (stem direction, the crossing beam count) — is in `docs/cross-barline-beaming-plan.md`.
 
 ## A beam group has ONE stem direction
 

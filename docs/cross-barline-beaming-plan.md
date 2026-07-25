@@ -1,10 +1,12 @@
 # Cross-barline beaming — how it is built
 
-Shipped: `f420d70` (the grouping) and `79f622b` (the joined beam).
+Shipped: `f420d70` (the grouping), `79f622b` (the joined beam), and `d4a13bd` (the cross-*system*
+half-beam — a join straddling a system break, drawn as one fragment per line).
 
-**The rule — what the mark does and where it stops — is in `docs/beaming.md`, "Through the barline".**
-This file is the rendering: what a join costs the bars it crosses, and the four things that fail
-silently if it is done any other way.
+**The rule — what the mark does — is in `docs/beaming.md`, "Through the barline" and "Through a system
+break too".** This file is the rendering: what a join costs the bars it crosses, how a group that
+straddles a system break is drawn in independent per-line fragments, and the things that fail silently
+if it is done any other way.
 
 ## The obstacle
 
@@ -37,31 +39,81 @@ existence is all VexFlow tests, and `postFormat` is the one method ever called o
 
 ## After every measure, beside `renderTies`
 
-`drawCrossBarBeams` builds the one real `Beam` over both bars' `StaveNote`s, resolved from
-`staveNoteMap`, and draws it **outside either measure group**. It belongs to neither, exactly as a tie
-does.
+`drawCrossBarBeams` draws each join **outside every measure group** — it belongs to no bar, exactly as
+a tie does — iterating not the join but its **sides** (see the split, below). A same-line join is one
+side; a join across a break is two or three.
 
-**Here, and not in the second bar's own render.** `clearForRender` tears down every top-level SVG
-child each render while measure groups are **reused**, so a beam rebuilt only when its bars are
-re-engraved would vanish on any pass that reuses them — an edit ten bars away, a scroll, a
-staff-spacing drag — leaving both bars' notes standing flagless *and* stemless. `replaySnapshot`
-repopulates `staveNoteMap` for a reused measure, so this pass can rebuild a beam over bars nobody
-redrew.
+**Here, and not in a bar's own render.** `clearForRender` tears down every top-level SVG child each
+render while measure groups are **reused**, so a beam rebuilt only when its bars are re-engraved would
+vanish on any pass that reuses them — an edit ten bars away, a scroll, a staff-spacing drag — leaving
+both bars' notes standing flagless *and* stemless. `replaySnapshot` repopulates `staveNoteMap` for a
+reused measure, so this pass can rebuild a beam over bars nobody redrew.
 
-Slope, stem extension, stem drawing and secondary breaks all stay VexFlow's. We contribute the
-grouping and the draw order, no geometry.
+### Two drawing cases per side
 
-## The planning runs twice (`CrossBarBeams.ts`)
+A side draws iff **all of its own bars are painted** (`side.drawable`, proven at draw time by every
+member resolving to a `StaveNote`); an undrawn side simply skips itself.
 
-A run of bars is bounded by anything a beam cannot cross: the **system break** (one `Beam` cannot span
-two lines) and any bar **tier 2 is not painting** (no `StaveNote`s to beam to, and a placeholder that
-never gets its beam is the flagless-stemless note again).
+- **Two or more notes** — the ordinary case. Build the real `Beam` over the side's `StaveNote`s and
+  draw it: slope, stem extension, stem drawing and secondary breaks all stay VexFlow's. If the side is
+  **open at a system break**, add one half-beam *overhang* quad per crossing beam level at the open
+  end — replaying `drawBeamLines`' own public arithmetic (`getBeamYToDraw`, step `beamWidth ×
+  stemDirection × 1.5`, `getSlopeY` for the slope) with the line's `end` a fixed stub instead of the
+  next notehead, starting at `getStemX() − Stem.WIDTH / 2` (the x VexFlow itself ends a line at).
+- **Exactly one note** — `♪ | ♪`, which `new Beam()` throws on (fewer than two notes). The placeholder
+  already suppressed the flag and the stem, so this side draws the note's **own** `Stem`
+  (`adjustHeightForBeam` + `drawWithStyle`), flat at its natural tip, plus a flat stub of the note's
+  own beam count pointing at the break.
 
-That second wall is why there are two passes. The first decides which barlines are open, so
-`spanAnchors` can pin both bars of each join — against translation, *and* to force both to be drawn
-when the join crosses the window. The second re-plans against the resulting draw decision. Under
-culling the two agree by construction; the forcing is what makes that a fact rather than an
-assumption, and the split is what keeps it safe when it isn't (the `drawFilter` test seam).
+⚠️ **The stem is always VexFlow's `Stem`, never a hand-drawn line.** The selection highlight resolves a
+beamed note's stem *by identity* through the `Stem` object's SVG group (a beamed stem is drawn inside
+the beam's group, not the note's), so a hand-drawn stem would leave the note highlighting with a hole in
+it.
+
+### What stays whole-group, and the two stub lengths
+
+Two facts a side alone cannot know are settled once for the group and handed to every side: its **one
+stem direction**, and the **crossing beam count** at each split point (the lines common to both sides —
+`min` of the two boundary notes' counts, or 1 if a secondary break cuts it). `secondaryBreaks` are
+group-local and re-based per side. The stub itself is **not** a run to the system edge (that reads as a
+long empty beam) but a short fixed length past the edge note's stem, tuned by eye from VexFlow's own
+`partialBeamLength` (10px). The **end-of-line** stub runs longer than the **start-of-line** one, so it
+crosses the closing barline into the empty margin and reads as "continued on the next system".
+
+Two known limitations, shipped as such. A **lone side draws its own note's beam count**, all pointing at
+the break (its higher beams have nowhere on their own side to go) — an engraving call worth confirming,
+since Gould points a fractional beam back at the notes it belongs with. And a **multi-note side can wear
+a wrong-way partial stub** VexFlow draws for its edge note, which `setPartialBeamSideAt` cannot suppress
+for an edge note; the escape (drawing the open level ourselves and killing VexFlow's partial pass) costs
+the primary beam its geometry and is not worth it.
+
+## The split, and the planning runs twice (`CrossBarBeams.ts`)
+
+A run of bars used to be walled at the **system break**; it is not any more. A group *can* cross a
+break — that is the half-beam — so the run walk **stays open across it and the planner is drawn-blind
+there**: the stem direction and crossing count are whole-group facts side A needs whether or not the
+next system is on screen. `computeSides` then partitions each crossing group into one side per line.
+What *is* still a wall is a bar **tier 2 is not painting** — but only **within a line**, because a real
+`Beam` needs both bars' `StaveNote`s and a placeholder that never gets its beam is the flagless-stemless
+note again. Across a break the same undrawn bar is harmless: it is just an undrawn side that skips
+itself.
+
+That within-line wall is why there are two passes. The first is **drawn-blind** (`() => true`), so it
+sees every join and every side regardless of culling; `spanAnchors` then pins each side's bars — against
+translation, *and*, **per side**, to force a side's bars drawn together when it crosses the window. The
+two sides of a split are **independent and not cross-pinned**, so seeing one system never forces the
+other's bar to be painted for nothing (docs `cross-system-beam-fragments` P4). The second pass re-plans
+against the resulting draw decision. Within a line the two passes agree by construction; the forcing is
+what makes that a fact, and the split keeps it safe when it isn't (the `drawFilter` test seam).
+
+Because the join a drawn-blind planner produces does not depend on the cull window, a joined bar's
+**shape-key descriptor is scroll-stable** — the property the two-pass plan below rests on.
+
+⚠️ One cost to keep an eye on: a run is no longer line-bounded, so on a fully-drawn score it is the
+whole staff, and `planCrossBarBeams` takes `voices` as the union over the entire staff and sorts each
+bar's lane once per voice in it. Likely noise, but it is a per-render function in a codebase that counts
+renders — measure with `renderCensus` if it shows, and the fix is a cheap pre-pass that cuts the run at
+any barline no group could cross (neither edge slot marked `continue`).
 
 The in-bar groups come from the **same run walk**, not from a per-bar call: a `continue` on the first
 note of bar N+1 is an *orphan* when that bar is read alone — it starts a forced group that runs to the
