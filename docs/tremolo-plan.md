@@ -8,17 +8,19 @@ this doc records only where a tremolo differs. It differs a lot in two places: V
 Penderecki sign and places its strokes wrong for us, and nothing in the playback schedule can express
 a speed that is *physical* rather than metrical — see §4 and §5.
 
-**Status: ALL FIVE PHASES ARE SHIPPED** (§7) — the six marks exist, engrave, arm from the palette,
-survive a meter change / paste / voice move / tie-split, and play all three readings: measured as a
-real subdivision, unmeasured at a physical rate that ignores the tempo, Penderecki irregular on top of
-that. Three things this plan did not foresee, each recorded where it belongs: the stem became a
-registered element (§2, the stamp accepts a click on it), VexFlow's stroke placement had to be
-replaced rather than configured (§4), and the Penderecki sign turned out to be the same modifier with
-a different glyph rather than a draw of our own (§4).
+**Status: ALL SIX PHASES ARE SHIPPED** (§7) — the six marks exist, engrave, arm from the palette,
+survive a meter change / paste / voice move / tie-split, play all three readings (measured as a real
+subdivision, unmeasured at a physical rate that ignores the tempo, Penderecki irregular on top of
+that), and **can be clicked and selected** (§9). Three things this plan did not foresee, each recorded
+where it belongs: the stem became a registered element (§2, the stamp accepts a click on it — and P5
+made it selectable in its own right), VexFlow's stroke placement had to be replaced rather than
+configured (§4), and the Penderecki sign turned out to be the same modifier with a different glyph
+rather than a draw of our own (§4).
 
-**What is left is what §8 defers plus the open decisions** — removal is still Ctrl+Z only (decision 4),
-the two playback numbers are still constants rather than options, and Gould's "strokes stay within the
-stave" is unimplemented. None of it is structural.
+**What is left is what §8 defers plus the open decisions** — Delete still does not remove a mark, so
+removal is Ctrl+Z only (decision 4, now half-answered: the mark is selectable, nothing acts on the
+selection yet), the two playback numbers are still constants rather than options, and Gould's "strokes
+stay within the stave" is unimplemented. None of it is structural.
 
 ## 0. Three performances, not two
 
@@ -65,7 +67,10 @@ not the name** — which is decision 3 below, still open. E22A and E22C remain u
 3. **The sixth button's glyph** (§0) — E22B as now, or a plain unmeasured sign (E22C) with Penderecki
    as a seventh, or Sibelius's buzz roll (E22A). P2 made all three names agree on E22B; changing the
    answer is now a one-glyph edit in three places, not a rename.
-4. **Removal** — see §2. P0 shipped able to stamp a mark it cannot take off: Ctrl+Z only.
+4. **Removal** — see §2, and §9 for what P5 changed. The mark is now a registered `ElementType` and
+   a click selects it, which is the half the recommendation was really about; what is still missing
+   is the *action* on that selection. Delete does nothing to a selected tremolo, so removal is still
+   Ctrl+Z only.
 5. **Stroke placement, small tweaks.** §4's corrections got it to "much better". What is still
    unimplemented there is Gould's rule 3 (strokes stay within the stave). The two chosen proportions
    (¼ of the stem for a flag, ¼ space of clearance for the fit) are the tuning knobs. None of this is
@@ -179,6 +184,10 @@ only way to undo a stamp. The three options were:
 **P0 shipped on the third**, deliberately and not by omission: Ctrl+Z removes a stamp and nothing
 else does. `ScoreModel.setTremolo(id, null)` already exists and is unused, so whichever of the first
 two lands has its model half waiting for it.
+
+⏭️ **P5 took the first option, minus the Delete** (§9): `'tremolo'` is an `ElementType`, the mark is
+clickable and selectable. `setTremolo(id, null)` is still unused — wiring Delete to it is now a
+keybinding on a selection that exists, not a hit-test problem.
 
 ## 3. The ghost
 
@@ -350,7 +359,7 @@ lookup resolves under Vitest and is `undefined` in the browser — silently.
 ⏭️ Worth an eye: E22B renders at the same `Tremolo.fontSize` as a stroke, and it is an intrinsically
 taller sign, so it may want its own scale.
 
-No new `ElementType` in P0 unless §2's removal decision says otherwise.
+No new `ElementType` in P0 unless §2's removal decision says otherwise. (P5 added one — §9.)
 
 ## 5. Playback — ✅ DONE (P3), except rule 3's jitter
 
@@ -549,16 +558,18 @@ meaningless empty baseline.
 - **P4 — Penderecki playback. ✅ DONE.** The injected RNG and the jitter on onset *and* velocity.
   Nothing structural was left by then, as predicted: two constants, a variable step in the fill loop,
   and one extra optional argument.
+- **P5 — selecting the mark (and the stem). ✅ DONE.** §9. Two `ElementType`s, two mouse handlers
+  and two highlights; no model change at all, because selection is not a fact about the score. Went
+  in stem-first on purpose: the stem is the surface the tremolo sits on, so getting *it* selectable
+  is what makes the overlap rule between the two expressible.
 
 ## 8. Deferred, deliberately
 
 - **Two-note (between-notes) tremolo.** A different notation with a different model — it belongs
   to a *pair* of slots, not one. VexFlow does not draw it either. (SMuFL's `tremoloFingered1–5`,
   E225–E229, are for that reading.)
-- **Selecting the mark.** Still deferred after P0 — `ElementType` has no `'tremolo'` (it does now
-  have `'stem'`, which is a different thing: the stem is a click TARGET for the stamp, not the mark).
-  Clicking a stroke to select or delete it needs registry entries the way articulations have them,
-  and that is what §2's removal decision would buy.
+- ~~**Selecting the mark.**~~ **✅ DONE (P5) — see §9.** `'tremolo'` is an `ElementType`, and so is
+  the stem it rides. What is still deferred is *acting* on the selection (Delete, a Properties edit).
 - **Both playback numbers as user options** (⏭️ wanted, not built). The threshold and the unmeasured
   rate should both become settable. Nothing blocks it: they are two named exports read in ONE place
   (`tremoloPeriodBeats`), and `collectScheduledNotes` already takes an optional second argument, so
@@ -578,6 +589,82 @@ meaningless empty baseline.
 - **Naming.** The palette says "second/third order"; this doc counts strokes, which is
   unambiguous. If the labels should read "two-stroke / three-stroke" instead, that is a one-line
   change in `devToolbar.ts`.
+
+## 9. Selection — ✅ DONE (P5)
+
+Clicking a tremolo selects it. Clicking the stem it rides selects the **stem**. Nothing acts on
+either selection yet, and that is the whole scope: the mark became a thing the pointer can name,
+which is what a Delete, a stroke-count edit or a stem-length drag each need first.
+
+### Stem first, on purpose
+
+The tremolo is drawn ON the stem — the two overlap by construction, so "what did I just click" is the
+only interesting question here, and it cannot even be *asked* until the stem is selectable. Hence the
+order: stem (P5a), then mark (P5b).
+
+The stem was already a registered `ElementType` (§2 — the stamp needed somewhere to aim), but pressing
+it selected nothing: `hitsNoteOrRestBody` ignores the stem deliberately (its tall box is what made
+selection feel over-eager), so the press fell through to empty-space handling and armed a
+box-select/pan. P5 is the pointer half of a registration that already existed.
+
+⚠️ **A press that used to pan from a stem now selects.** The only behaviour this took away.
+
+### The rule: BOTH are ink, and the mark wins only inside its own boundaries
+
+```
+handleTremoloMouseDown  →  handleStemMouseDown  →  handleBarlineMouseDown  →  note / empty space
+```
+
+- Each handler stands down for a press the **notehead** owns (`hitsNoteOrRestBody` first), so neither
+  can steal a click on the note. The head and the stem's lower end genuinely overlap; the head keeps
+  that ground.
+- The tremolo is asked **first**, and its hit-test is bare containment with **no click pad**
+  (`findTremoloAt`). That is the rule, not an oversight: a pad would push the border out past the
+  visible ink, so a click on bare stem *beside* the strokes would select the mark. Unlike a 1.5px
+  stem, a stroke stack is already a target — a notehead wide, several staff-spaces tall.
+- So the border between the two IS the edge of the strokes. On a two-stroke tremolo, which covers a
+  fraction of the stem, everything above and below the strokes still selects the stem.
+- The stem keeps its `STEM_CLICK_PAD` everywhere the mark is not, and stays **containment, not
+  nearest** (§2): a click at a stem's tip is a stem-length from its own notehead.
+
+Both are registered as **ink** rather than as targets, which is what makes the above expressible at
+all — a stored click-target could not tell the two apart.
+
+### ⚠️ The tremolo's rect is MEASURED, not `getBoundingBox()`
+
+Every other modifier registers through `Element.getBoundingBox()`. For a tremolo that box is wrong
+twice over: it describes **one glyph** (not the stack), anchored at `this.x` and extending one
+**advance width** to its right — while a stroke's ink *straddles* the stem it is centred on. The box
+would sit half a stroke to the right of what you see, and a click on the left half of the strokes
+would fall through to the stem.
+
+So `CenteredTremolo` records its own rect during `draw()` (`inkRect()`), from the ink extents either
+side of the anchor (`actualBoundingBoxLeft/Right`) stretched over the `num − 1` steps the stack
+marches through. During the draw because that is the one moment every input — stem extents, the flag
+stretch it must not follow, the font scale — is settled; the same reason the placement arithmetic
+lives there (§4).
+
+⚠️ jsdom measures no text, so the rect is degenerate under test
+(`reference_jsdom_cannot_measure_glyphs`). What the tests pin is the arithmetic that survives that:
+it is null until drawn, it is centred on the stem, and it grows with the stroke count.
+
+### The rest of the seams
+
+| seam | note |
+|---|---|
+| `ElementType` `'tremolo'` + `registerTremolo` | one per slot, anchored on the chord's lowest pitch — like the stem, the dots and the articulations. ⚠️ carries `noteId`, never `id` (§2's reason) |
+| `EditorState.selectedStemNoteId` / `selectedTremoloNoteId` | scalars beside the accidental/dot ones, cleared by `clearScalarSubSelections`, so every selection stays mutually exclusive |
+| `HighlightController.applyStemHighlight` / `applyTremoloHighlight` | voice colour, like every other sub-element highlight |
+| `utils/tremoloGlyphs.ts` | E220/E22B moved out of `CenteredTremolo`: the highlight finds the strokes **by glyph character** inside the note's group, and that side of the app has no VexFlow. Nearest-glyph matching would be wrong — the stack sits where a chord's upper noteheads are, and it is one rect over N glyphs |
+| `selectionSnapshot` | `kind: 'stem'` / `'tremolo'`, locator + note, like the dot |
+
+### ⏭️ What P5 deliberately did not do
+
+- **Delete** on either selection (decision 4). `setTremolo(id, null)` is still waiting.
+- **Lighting a note's tremolo when the NOTE is selected.** `highlightNote` lights head + stem +
+  accidental + articulations + dots + tie; the tremolo is not in that list. Consistent to add, but it
+  changes existing behaviour and nobody asked.
+- **The flag.** Still reserved as its own future element (`highlightNote` says so out loud).
 
 ## Sources
 

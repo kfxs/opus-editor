@@ -63,6 +63,57 @@ describe('CenteredTremolo bounding box', () => {
     }
   })
 
+  /**
+   * The ink rect the SELECTION hit-test is built on (`ElementRegistry` type `'tremolo'`, registered
+   * by `VexFlowRenderer.registerTremolo`).
+   *
+   * What can honestly be pinned here is the part that is arithmetic rather than glyph measurement:
+   * it only exists once the mark has drawn, it is anchored ON the stem, and it grows with the stack.
+   * The glyph's own ink either side of the anchor is zero under jsdom, so the WIDTH is vacuous here
+   * — the reason the horizontal rule (measured extents, not the advance width) is written down in
+   * `inkRect` rather than asserted.
+   */
+  describe('ink rect', () => {
+    /** Draw a note carrying `mark` and hand back the mark's rect plus the note's stem geometry. */
+    const drawMark = (mark: 1 | 2 | 3 | 4 | 5 | 'penderecki') => {
+      const modifier = new CenteredTremolo(mark)
+      const div = document.createElement('div')
+      const ctx = new Renderer(div, Renderer.Backends.SVG).getContext()
+      const stave = new Stave(10, 40, 400).setContext(ctx)
+      const note = new StaveNote({ keys: ['c/5'], duration: 'q' })
+      note.addModifier(modifier, 0)
+      note.setStave(stave)
+      const voice = new Voice({ numBeats: 1, beatValue: 4 })
+      voice.setStrict(false)
+      voice.addTickables([note])
+      new Formatter().joinVoices([voice]).format([voice], 300)
+      note.setStave(stave)
+      voice.draw(ctx, stave)
+      return { rect: modifier.inkRect(), stem: note.getStemExtents(), stemX: note.getStemX() }
+    }
+
+    it('is null until it has drawn — every input is settled at draw time, not before', () => {
+      expect(new CenteredTremolo(3).inkRect()).toBeNull()
+    })
+
+    it('sits ON the stem and inside it, lengthwise', () => {
+      const { rect, stem, stemX } = drawMark(3)
+      expect(rect).not.toBeNull()
+      expect(Math.abs(rect!.x - stemX)).toBeLessThan(20) // straddling the stem, not a system away
+      const top = Math.min(stem.topY, stem.baseY)
+      const bottom = Math.max(stem.topY, stem.baseY)
+      const centre = rect!.y + rect!.height / 2
+      expect(centre).toBeGreaterThan(top)
+      expect(centre).toBeLessThan(bottom)
+    })
+
+    it('covers the whole STACK, so more strokes claim more stem', () => {
+      const two = drawMark(2)!.rect!.height
+      const five = drawMark(5)!.rect!.height
+      expect(five).toBeGreaterThan(two)
+    })
+  })
+
   it('draws E22B for the Penderecki mark, and E220 for a stroke count', () => {
     // Written-out codepoints, because VexFlow's `Glyphs` map is not re-exported and resolves to
     // `undefined` in the browser — silently. Pinning them here is what makes owning them safe.

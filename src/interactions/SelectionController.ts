@@ -59,6 +59,8 @@ export class SelectionController {
     this.state.selectedAccidentalNoteId = null
     this.state.selectedAccidentalType = null
     this.state.selectedDotNoteId = null
+    this.state.selectedStemNoteId = null
+    this.state.selectedTremoloNoteId = null
     this.state.selectedTieFromNoteId = null
     this.state.selectedSlurId = null
     this.state.selectedSlurEndpoint = null

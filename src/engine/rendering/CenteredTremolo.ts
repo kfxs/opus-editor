@@ -1,6 +1,7 @@
 import { Tremolo, Metrics, Stem } from 'vexflow'
 import type { Note } from 'vexflow'
 import type { TremoloMark } from '@/types/music'
+import { PENDERECKI_TREMOLO } from '@/utils/tremoloGlyphs'
 
 /**
  * A single-note tremolo whose strokes sit in the MIDDLE of the stem.
@@ -64,16 +65,14 @@ export const TREMOLO_FLAG_STEM_STRETCH = 0.25
 export const TREMOLO_STROKE_CLEARANCE = 0.25
 
 /**
- * SMuFL `pendereckiTremolo` (E22B) — the sign for a tremolo that is as fast as possible AND irregular.
- * VexFlow draws no such thing, so we set it as the modifier's glyph and let the rest of this class
- * place it exactly as it places the strokes.
- *
- * ⚠️ Written out, not read from VexFlow's `Glyphs` map: that map is not re-exported from the package,
- * so a lookup resolves under Vitest and is `undefined` in the browser — silently
- * (`reference_vexflow_glyphs_esm_vs_cjs`). E22A is the actual buzz roll and E22C the dedicated
- * unmeasured sign; neither is this one. See docs/tremolo-plan.md §0.
+ * The Penderecki sign is one VexFlow has no glyph for, so this class sets it as the modifier's text
+ * and then places it exactly as it places the strokes. Both codepoints live in
+ * `utils/tremoloGlyphs`: the selection highlight recognises a drawn stroke by the same character,
+ * and that side of the app has no VexFlow. See docs/tremolo-plan.md §0.
  */
-export const PENDERECKI_TREMOLO = '\uE22B'
+
+/** A rectangle in the same pixel space the ElementRegistry stores. */
+export interface TremoloInkRect { x: number; y: number; width: number; height: number }
 
 /**
  * The span the strokes have to live in: the stem from the notehead's EDGE to its tip.
@@ -96,6 +95,9 @@ export function usableStemSpan(note: Note): { tip: number; noteheadEdge: number;
 export class CenteredTremolo extends Tremolo {
   /** Pixels of stem added for {@link TREMOLO_FLAG_STEM_STRETCH}, which the strokes must NOT follow. */
   private stemStretch = 0
+
+  /** The stack's ink box as of the last {@link draw} — see {@link inkRect}. */
+  private lastInkRect: TremoloInkRect | null = null
 
   /**
    * Takes the {@link TremoloMark} itself, not a stroke count — so the Penderecki sign rides the same
@@ -161,6 +163,29 @@ export class CenteredTremolo extends Tremolo {
     return { ascent, descent, ink: ascent + descent }
   }
 
+  /**
+   * The ink the WHOLE stack covers, from the last {@link draw} — the mark's own click target, and
+   * the box the registry stores (`ElementRegistry` type `'tremolo'`). Null before it has drawn.
+   *
+   * ⚠️ NOT `Element.getBoundingBox()`, which every other modifier registers through. That box is one
+   * glyph anchored at `this.x`, `this.width` wide — and `width` is the ADVANCE width, measured from
+   * the anchor rightward, while a tremolo stroke's ink straddles the stem it is centred on. So it
+   * would sit half a stroke to the right of what you see, and a click on the left half of the
+   * strokes would fall through to the stem underneath. It also describes the first stroke alone,
+   * not the stack.
+   *
+   * So the box is built from the ink extents (`actualBoundingBox*`, measured either side of the
+   * anchor) and stretched over the `num − 1` steps the stack marches through. Recorded during the
+   * draw rather than recomputed on demand, because every input — the stem extents, the stretch, the
+   * font scale — is only settled at that moment.
+   *
+   * ⚠️ jsdom measures no text, so every extent comes back 0 and this is a degenerate rect there
+   * (`reference_jsdom_cannot_measure_glyphs`) — the one environment where nothing is clicked.
+   */
+  inkRect(): TremoloInkRect | null {
+    return this.lastInkRect
+  }
+
   draw(): void {
     const ctx = this.checkContext()
     const note = this.checkAttachedNote()
@@ -212,6 +237,29 @@ export class CenteredTremolo extends Tremolo {
     this.y = firstStrokeY
     for (let i = 0; i < this.num; ++i) {
       this.renderText(ctx, 0, i * ySpacing)
+    }
+
+    this.recordInkRect(firstStrokeY, ySpacing, ascent, descent)
+  }
+
+  /**
+   * Store what the draw above just covered, as ink — see {@link inkRect} for why this is measured
+   * rather than taken from `getBoundingBox()`.
+   *
+   * `ySpacing` is signed (tip → notehead), so the last stroke can be either side of the first;
+   * min/max rather than a direction case. Horizontally the extents are read either side of the
+   * anchor, which is what puts the box ON the stem instead of beside it.
+   */
+  private recordInkRect(firstStrokeY: number, ySpacing: number, ascent: number, descent: number): void {
+    const { actualBoundingBoxLeft: left, actualBoundingBoxRight: right } = this.textMetrics
+    const lastStrokeY = firstStrokeY + (this.num - 1) * ySpacing
+    const top = Math.min(firstStrokeY, lastStrokeY) - ascent
+    const bottom = Math.max(firstStrokeY, lastStrokeY) + descent
+    this.lastInkRect = {
+      x: this.x - left,
+      y: top,
+      width: left + right,
+      height: bottom - top,
     }
   }
 }

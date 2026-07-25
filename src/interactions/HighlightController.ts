@@ -4,6 +4,7 @@ import { activeVoiceToModel } from './EditorState'
 import { navBeatMap } from '../utils/beatMap'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 import { ELEMENT_SELECTION_FILL, ELEMENT_SELECTION_STROKE } from '../utils/selectionColors'
+import { tremoloGlyph } from '../utils/tremoloGlyphs'
 
 /**
  * Applies SVG highlight classes/colors after each render.
@@ -531,6 +532,61 @@ export class HighlightController {
     const noteId = this.state.selectedDotNoteId
     const voice = engine.getNote(noteId)?.voice ?? 0
     this.colorNoteDots(noteId, voiceFillColor(voice))
+  }
+
+  /**
+   * Highlight the selected STEM — its own paths inside the note's `vf-stavenote` group, in the
+   * slot's voice colour like every other sub-element highlight.
+   *
+   * Resolved by IDENTITY (`getStaveNoteSVGGroup` hands back the stem element), so it works whether
+   * the note drew its own stem or the beam drew it — the same lookup {@link highlightNote} uses for
+   * the head+stem case. Nothing else in the group is touched: the point of selecting a stem is that
+   * it is not the note.
+   */
+  applyStemHighlight(): void {
+    const engine = this.getEngine()
+    if (!engine || !this.state.selectedStemNoteId) return
+    const noteId = this.state.selectedStemNoteId
+    const stem = engine.getStaveNoteSVGGroup(noteId)?.stem
+    if (!stem) return
+
+    const color = voiceStrokeColor(engine.getNote(noteId)?.voice ?? 0)
+    stem.querySelectorAll('path, line').forEach(el => {
+      const svgEl = el as SVGElement
+      this.setAttr(svgEl, 'stroke', color)
+      this.setStyleProp(svgEl, 'stroke', color)
+      this.addClass(svgEl, 'selected-stem')
+    })
+  }
+
+  /**
+   * Highlight the selected TREMOLO — every stroke of the stack (or the Penderecki sign), in the
+   * slot's voice colour like the other sub-element highlights.
+   *
+   * Found by GLYPH, not by geometry: the strokes are `<text>` elements inside the note's own
+   * `vf-stavenote` group whose content is the tremolo codepoint, so matching the character picks all
+   * N of them and nothing else. The nearest-glyph matching the accidental and the articulations use
+   * would be wrong here — the stack sits along the stem, where a chord's upper noteheads are, and it
+   * is one registered rect covering N glyphs rather than one box per glyph.
+   */
+  applyTremoloHighlight(): void {
+    const engine = this.getEngine()
+    if (!engine || !this.state.selectedTremoloNoteId) return
+    const noteId = this.state.selectedTremoloNoteId
+    const note = engine.getNote(noteId)
+    if (note?.tremolo === undefined) return
+    const group = engine.getStaveNoteSVGGroup(noteId)?.group
+    if (!group) return
+
+    const glyph = tremoloGlyph(note.tremolo)
+    const color = voiceFillColor(note.voice ?? 0)
+    group.querySelectorAll('text').forEach(el => {
+      if (el.textContent !== glyph) return
+      const svgEl = el as SVGElement
+      this.setAttr(svgEl, 'fill', color)
+      this.setStyleProp(svgEl, 'fill', color)
+      this.addClass(svgEl, 'selected-tremolo')
+    })
   }
 
   applyAccidentalHighlight(): void {

@@ -69,6 +69,8 @@ describe('bar-width drag', () => {
       findClosestNoteOrRest: () => null,
       getTupletAt: () => null,
       hitsNoteOrRestBody: () => false,
+      findStemAt: () => null,
+      findTremoloAt: () => null,
       getByType: (t: string) => (t === 'barline' ? [BARLINE_EL] : []),
       getByMeasure: () => [],
       getTupletById: () => null,

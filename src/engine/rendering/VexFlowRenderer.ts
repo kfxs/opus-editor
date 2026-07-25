@@ -769,6 +769,43 @@ export class VexFlowRenderer {
   }
 
   /**
+   * Register the TREMOLO mark of `staveNote` as its own ink rect, anchored on `anchorNoteId` — the
+   * companion to {@link registerStem}, and one per slot for the same reason (a slot carries one
+   * tremolo, as it carries one stem).
+   *
+   * The rect comes from the modifier's own {@link CenteredTremolo.inkRect}, recorded while it drew:
+   * this is the one mark whose placement is ours rather than VexFlow's (centred on the stem, minus
+   * whatever stem stretch it must not follow), so the only honest source for "where are the strokes"
+   * is the code that put them there. `getBoundingBox()` — what the articulations register through —
+   * describes one glyph anchored on the stem and extending a full advance-width to its right, which
+   * is neither the stack nor where the ink is.
+   *
+   * Nothing is registered before the mark has drawn, which is the same reason this runs in the
+   * post-draw registration pass rather than at build time.
+   */
+  private registerTremolo(
+    staveNote: StaveNote,
+    anchorNoteId: string,
+    measureNumber: number,
+    staffIndex: number,
+    beat: number,
+  ): void {
+    try {
+      const mark = staveNote.getModifiers().find(m => m instanceof CenteredTremolo)
+      const rect = mark?.inkRect()
+      if (!rect || !Number.isFinite(rect.x) || !Number.isFinite(rect.y) || rect.height <= 0) return
+      this.elementRegistry.add({
+        type: 'tremolo',
+        noteId: anchorNoteId,
+        measure: measureNumber,
+        staff: staffIndex,
+        beat,
+        bbox: rect,
+      })
+    } catch (_e) { /* tremolo geometry may not be available pre-draw */ }
+  }
+
+  /**
    * Interleave inline ClefNotes (for mid-measure clef changes) among the slot
    * StaveNotes. Each change is inserted before the first slot at/after its beat.
    * ClefNotes ignore ticks, so the voice's tick total is unaffected.
@@ -2384,9 +2421,12 @@ export class VexFlowRenderer {
               }
 
               // The STEM as its own ink rect — chord-level, so anchored on the lowest pitch like the
-              // articulations and dots above.
+              // articulations and dots above. The TREMOLO rides that stem and is anchored the same.
               if (keyIndex === 0) {
                 this.registerStem(staveNote, pitch.id, measure.number, staffIndex, fracToNumber(slot.beat))
+                if (slot.tremolo) {
+                  this.registerTremolo(staveNote, pitch.id, measure.number, staffIndex, fracToNumber(slot.beat))
+                }
               }
 
               // Register whatever accidental VexFlow actually drew — including a

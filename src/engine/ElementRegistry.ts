@@ -30,6 +30,18 @@ export type ElementType =
    * ⚠️ It carries {@link ElementInfo.noteId}, NOT `id`. See that field for why.
    */
   | 'stem'
+  /**
+   * A note's TREMOLO mark — the stroke stack (or the Penderecki sign) as its own ink rect, one per
+   * slot, anchored like the stem it rides.
+   *
+   * It sits ON the stem, so the two rects overlap wherever the strokes are: the mark wins inside its
+   * own boundaries and the stem stays clickable everywhere else along its length — which is why both
+   * are registered as ink, not as targets. The rect is the strokes' MEASURED ink, not a modifier
+   * bounding box (see {@link CenteredTremolo.inkRect}).
+   *
+   * ⚠️ Carries {@link ElementInfo.noteId}, NOT `id` — same reason as `'stem'`.
+   */
+  | 'tremolo'
   | 'rest'
   | 'clef'
   | 'timeSignature'
@@ -280,7 +292,10 @@ export interface ElementInfo {
    *  on the LOWEST pitch exactly as its articulations and dots are. ⚠️ A stem deliberately does NOT
    *  fill `id` — {@link getById} returns the FIRST element carrying an id, so a stem sharing its
    *  notehead's id would let a lookup for the NOTE find the stem's tall rect instead: silently, and
-   *  only sometimes, depending on registration order. */
+   *  only sometimes, depending on registration order.
+   *
+   *  And by a **'tremolo'**, which is one mark on the slot and rides that same stem — `id` stays
+   *  empty for the same reason. */
   noteId?: string
   // Articulation-specific properties
   /** Articulation type (for articulations) */
@@ -1060,6 +1075,37 @@ export class ElementRegistry {
       if (x < b.x - STEM_CLICK_PAD || x > b.x + b.width + STEM_CLICK_PAD) continue
       if (y < b.y - STEM_CLICK_PAD || y > b.y + b.height + STEM_CLICK_PAD) continue
       const dx = Math.abs(x - centerX)
+      if (dx < bestDx) {
+        bestDx = dx
+        best = el
+      }
+    }
+    return best
+  }
+
+  /**
+   * The TREMOLO mark under (x, y), or null — containment on the strokes' own ink rect, with no pad
+   * at all.
+   *
+   * ⚠️ THE MISSING PAD IS THE RULE, not an oversight. A tremolo is drawn ON the stem, so its rect
+   * always overlaps the stem's padded one; asked first, it takes every press inside its boundaries
+   * and the stem keeps the whole rest of its length. A pad here would push that border out past the
+   * ink, so a click on bare stem *beside* the strokes would select the mark — which is exactly the
+   * thing being avoided. The strokes are a notehead wide and several staff-spaces tall between them:
+   * unlike a 1.5px stem, this is already a target.
+   *
+   * Nearest-centre breaks a tie if two rects ever contain the same point (they cannot today — one
+   * mark per slot, and slots do not overlap horizontally), for the same reason {@link findStemAt}
+   * does it.
+   */
+  findTremoloAt(x: number, y: number): ElementInfo | null {
+    let best: ElementInfo | null = null
+    let bestDx = Infinity
+    for (const el of this.elements) {
+      if (el.type !== 'tremolo') continue
+      const b = el.bbox
+      if (x < b.x || x > b.x + b.width || y < b.y || y > b.y + b.height) continue
+      const dx = Math.abs(x - (b.x + b.width / 2))
       if (dx < bestDx) {
         bestDx = dx
         best = el

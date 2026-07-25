@@ -282,6 +282,28 @@ export interface EditorState {
    * them). No companion `selectedDotCount` — the count is read live off the note, exactly as the tie
    * is read off `tiedTo`. */
   selectedDotNoteId: string | null
+  /**
+   * The slot whose STEM is selected (null = none). Holds the anchor note id the stem registers
+   * against — a chord has ONE stem, anchored on its lowest pitch, exactly as its dots and
+   * articulations are, so "the stem of one head of a chord" has no representation.
+   *
+   * Selection ONLY, for now: nothing acts on a selected stem (no delete, no flip — `x` still flips
+   * from the note). It is the pointer half of what already exists on the render side, where the stem
+   * is a registered element with its own ink rect (ElementRegistry `'stem'`); a stem-length drag is
+   * the obvious next thing to hang off it.
+   */
+  selectedStemNoteId: string | null
+  /**
+   * The slot whose TREMOLO mark is selected (null = none) — the anchor note id, like the stem it
+   * rides. A slot carries ONE tremolo (`setTremolo` replaces, never stacks), so there is one mark to
+   * select however many strokes it draws.
+   *
+   * Selection only, for now — nothing acts on it yet, and removal is still Ctrl+Z. Its point is that
+   * the mark is now a thing the pointer can name, which is what a Delete or a properties edit will
+   * need. Mutually exclusive with {@link selectedStemNoteId}: the marks overlap on screen and the
+   * click resolves which one you meant, so the selection must not claim both.
+   */
+  selectedTremoloNoteId: string | null
   selectedTupletId: string | null
   selectedTieFromNoteId: string | null
   /** Id of the on-score slur selected for removal (selection tool); null if none. */
@@ -507,6 +529,8 @@ export function createEditorState(): EditorState {
     selectedAccidentalNoteId: null,
     selectedAccidentalType: null,
     selectedDotNoteId: null,
+    selectedStemNoteId: null,
+    selectedTremoloNoteId: null,
     selectedTupletId: null,
     selectedTieFromNoteId: null,
     selectedSlurId: null,

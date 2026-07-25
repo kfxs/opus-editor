@@ -591,6 +591,14 @@ export class MouseController {
     // press that a neighbouring glyph could claim. It still precedes the note itself — a dot's box
     // is outside the head, so it can only take clicks that would otherwise select the note.
     if (this.handleDotMouseDown(ctx)) return
+    // The stem after every glyph that can sit ON it (articulations and dots at the tip, an arc
+    // crossing it) and before the barline, whose pad reaches into the bar's last column. Its own
+    // handler stands down for a press the notehead owns.
+    //
+    // The tremolo goes immediately before it: the mark is drawn on the stem, so it wins inside its
+    // own ink and the stem keeps the rest of its length.
+    if (this.handleTremoloMouseDown(ctx)) return
+    if (this.handleStemMouseDown(ctx)) return
     // The barline last of all: its box has to be padded to be clickable at 4px, and that pad
     // reaches into the last column of the bar — so every glyph that could own the click gets
     // asked first, and the note itself is guarded for inside the handler.
@@ -1414,6 +1422,68 @@ export class MouseController {
     this.state.selectedAccidentalNoteId = accidentalAt.noteId
     this.state.selectedAccidentalType = accidentalAt.accidentalType || null
     dbg(`✓ Accidental selected | noteId:${accidentalAt.noteId} type:${accidentalAt.accidentalType}`)
+    this.render.renderScore()
+    return true
+  }
+
+  /**
+   * Select a slot's TREMOLO mark — asked immediately before the stem, because it is drawn ON the
+   * stem and the two rects overlap wherever the strokes are.
+   *
+   * THE MARK WINS ONLY INSIDE ITS OWN BOUNDARIES. Both are registered as INK, and this test is bare
+   * containment (no pad, see {@link ElementRegistry.findTremoloAt}), so the border between the two
+   * is the edge of the strokes themselves: press on the strokes and you get the mark; press on the
+   * stem above or below them — which on a two-stroke tremolo is most of its length — and the stem is
+   * still perfectly selectable.
+   *
+   * The notehead keeps its ground first, exactly as it does against the stem: a tremolo's stack is
+   * centred on the stem and cannot reach the head, so this only ever declines a press the head
+   * already owns.
+   */
+  private handleTremoloMouseDown(ctx: MouseDownCtx): boolean {
+    const { registry, x, y, closestElement } = ctx
+    if (closestElement && registry.hitsNoteOrRestBody(closestElement, x, y)) return false
+
+    // A tremolo carries `noteId`, never `id` — like the stem it rides.
+    const noteId = registry.findTremoloAt(x, y)?.noteId
+    if (!noteId) return false
+
+    this.selection.selectNote(null)
+    this.state.selectedTremoloNoteId = noteId
+    dbg(`✓ Tremolo selected | noteId:${noteId} mark:${this.getEngine()?.getNote(noteId)?.tremolo}`)
+    this.render.renderScore()
+    return true
+  }
+
+  /**
+   * Select a slot's STEM — the twin of the dot/accidental handlers, and the pointer half of the
+   * `'stem'` element the renderer already registers.
+   *
+   * THE NOTE COMES FIRST. `hitsNoteOrRestBody` deliberately ignores the stem (its tall box is what
+   * made selection feel over-eager), so a stem click can only ever be one the note itself declined
+   * — but the two rects DO overlap where the stem meets the head, so the note is asked first and
+   * keeps that ground. What is left is the stem's free length, which is exactly what "click the
+   * stem" means.
+   *
+   * Containment on the stem's own ink (padded), never nearest-note: a click at the TIP of a stem is
+   * a whole stem-length from its own notehead, so proximity would hand it to a denser neighbour —
+   * the same reason the tremolo stamp resolves through {@link ElementRegistry.findStemAt}.
+   *
+   * Selection only: nothing acts on the selected stem yet (see EditorState.selectedStemNoteId).
+   */
+  private handleStemMouseDown(ctx: MouseDownCtx): boolean {
+    const { registry, x, y, closestElement } = ctx
+    if (closestElement && registry.hitsNoteOrRestBody(closestElement, x, y)) return false
+
+    // A stem carries `noteId`, never `id` (a stem must never answer a lookup for its note).
+    const noteId = registry.findStemAt(x, y)?.noteId
+    if (!noteId) return false
+
+    // Clear the whole note selection (the multi-select Map drives the note highlight, not just
+    // selectedNoteId) so only the stem shows selected — mirrors the accidental and the dots.
+    this.selection.selectNote(null)
+    this.state.selectedStemNoteId = noteId
+    dbg(`✓ Stem selected | noteId:${noteId}`)
     this.render.renderScore()
     return true
   }

@@ -131,6 +131,16 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
   if (state.selectedDotNoteId) {
     out.push({ kind: 'dot', data: { noteId: state.selectedDotNoteId, note: engine.getNote(state.selectedDotNoteId) } })
   }
+  if (state.selectedStemNoteId) {
+    // Same shape as the dot: a stem is a PROPERTY of the slot (its direction lives on the note),
+    // not an object in the model — the locator plus the note it belongs to is the whole truth.
+    out.push({ kind: 'stem', data: { noteId: state.selectedStemNoteId, note: engine.getNote(state.selectedStemNoteId) } })
+  }
+  if (state.selectedTremoloNoteId) {
+    // The MARK is a field on the slot (`tremolo`), so the note carries the whole truth — reported
+    // like the dot above, locator plus note.
+    out.push({ kind: 'tremolo', data: { noteId: state.selectedTremoloNoteId, note: engine.getNote(state.selectedTremoloNoteId) } })
+  }
   if (state.selectedTieFromNoteId) {
     out.push({ kind: 'tie', data: { fromNoteId: state.selectedTieFromNoteId, from: engine.getNote(state.selectedTieFromNoteId) } })
   }
