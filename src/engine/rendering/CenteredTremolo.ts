@@ -38,7 +38,35 @@ import { Tremolo, Metrics, Stem } from 'vexflow'
  * from stems that are not final yet. Overriding `draw()` puts the arithmetic at the one moment
  * everything it reads is settled, which is also what makes a beamed note correct for free.
  */
+/**
+ * How much longer a FLAGGED note's stem gets so its flag clears the strokes, as a fraction of the
+ * stem's own length. A flag hangs DOWN from the stem tip (`drawFlag` reads `stem.getHeight()`), so on
+ * a lone eighth it reaches straight into the middle of the stem where the strokes now sit — while a
+ * beam, which sits ON the tip, never does. Hence the stretch is for flags only.
+ *
+ * This is Gould's second rule ("extend a stem if necessary so that the tremolo strokes are clear of
+ * tails and beams") with a number attached, since she gives none: a quarter of the stem.
+ *
+ * ⚠️ The strokes do NOT follow the stretch — that is the whole point. They stay where the unstretched
+ * stem put them and the flag moves away from them, so the full stretch becomes clearance. Centring
+ * them in the longer stem instead would move them up half as far as the flag and gain only half.
+ */
+export const TREMOLO_FLAG_STEM_STRETCH = 0.25
+
 export class CenteredTremolo extends Tremolo {
+  /** Pixels of stem added for {@link TREMOLO_FLAG_STEM_STRETCH}, which the strokes must NOT follow. */
+  private stemStretch = 0
+
+  /**
+   * Tell the strokes how much stem was added under them, so they can stay at the position the
+   * UNSTRETCHED stem gave them. Set by the renderer (`applyTremoloStemStretch`) — the one moment
+   * when the Beam objects exist, so `hasFlag()` is finally trustworthy — never at build time.
+   */
+  setStemStretch(px: number): this {
+    this.stemStretch = px
+    return this
+  }
+
   draw(): void {
     const ctx = this.checkContext()
     const note = this.checkAttachedNote()
@@ -66,10 +94,16 @@ export class CenteredTremolo extends Tremolo {
     // note, bottom for stem-down), which is half a notehead from the centre — and a notehead is one
     // staff space tall, so the stave's own line spacing IS that measurement. Taking it from the
     // stave rather than from a constant is what makes this hold at any staff size.
+    // `stemStretch` is undone here, not ignored: the stem was lengthened to get its FLAG out of the
+    // way (see {@link TREMOLO_FLAG_STEM_STRETCH}), and the strokes are supposed to stay where the
+    // unstretched stem put them. Adding `stemDirection * stretch` walks the tip back toward the
+    // notehead by that much, in whichever direction the stem points. Zero for a beamed or stemless
+    // note, so those centre on exactly what VexFlow reports.
     const { topY, baseY } = note.getStemExtents()
+    const tipBeforeStretch = topY + stemDirection * this.stemStretch
     const staffSpace = note.getStave()?.getSpacingBetweenLines() ?? 10
     const noteheadEdge = baseY - stemDirection * (staffSpace / 2)
-    const middleOfStem = (topY + noteheadEdge) / 2
+    const middleOfStem = (tipBeforeStretch + noteheadEdge) / 2
 
     // ⚠️ `renderText` places the glyph's BASELINE at the y it is given — the glyph is NOT centred on
     // that point. So centring the baselines is not centring the ink: whatever E220's baseline→ink

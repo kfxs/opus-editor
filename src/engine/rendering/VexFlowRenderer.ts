@@ -1,6 +1,6 @@
 import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, Stem, StaveTie, Dot, Barline, ClefNote } from 'vexflow'
 import { ScoreTuplet, layoutTupletMark, drawTupletMark } from './ScoreTuplet'
-import { CenteredTremolo } from './CenteredTremolo'
+import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH } from './CenteredTremolo'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
@@ -660,6 +660,42 @@ export class VexFlowRenderer {
         })
       }
     } catch (_e) { /* Dot bounding box may not be available */ }
+  }
+
+  /**
+   * Give every FLAGGED tremolo note a longer stem, so its flag stops reaching into the strokes.
+   *
+   * The rule, in order: place the strokes normally, extend the stem by
+   * {@link TREMOLO_FLAG_STEM_STRETCH} of its length, and let the flag follow the new tip — Gould's
+   * "extend a stem if necessary so that the tremolo strokes are clear of tails and beams" with a
+   * number chosen for it. `drawFlag` reads `stem.getHeight()`, so the flag moves for free; the
+   * strokes are told to STAY, which is what turns the whole stretch into clearance
+   * ({@link CenteredTremolo.setStemStretch}).
+   *
+   * Only flags. A beam sits ON the tip and never crosses the middle of the stem, which is why a
+   * beamed tremolo already looked right and must not be touched.
+   *
+   * ⚠️ Bumping the Stem's own extension rather than `setStemLength`: that one writes
+   * `stemExtensionOverride`, which `StaveNote.getStemExtension()` then re-reads and ADDS its
+   * octave-distance term to — so the note's own extension would be counted twice for a note far
+   * from the middle line. Adding to what the Stem already resolved composes with every VexFlow rule
+   * (flag height, beam, octave) instead of replacing them.
+   */
+  private applyTremoloStemStretch(sortedSlots: ChordRest[], staveNotes: StaveNote[]): void {
+    for (let i = 0; i < sortedSlots.length && i < staveNotes.length; i++) {
+      const slot = sortedSlots[i]
+      if (slot.type !== 'chord' || typeof slot.tremolo !== 'number') continue
+      const staveNote = staveNotes[i]
+      if (!staveNote.hasStem() || !staveNote.hasFlag()) continue
+
+      const mark = staveNote.getModifiers().find(m => m instanceof CenteredTremolo)
+      const stem = staveNote.getStem()
+      if (!mark || !stem) continue
+
+      const stretch = staveNote.getStemLength() * TREMOLO_FLAG_STEM_STRETCH
+      stem.setExtension(stem.getExtension() + stretch)
+      mark.setStemStretch(stretch)
+    }
   }
 
   /**
@@ -1404,6 +1440,13 @@ export class VexFlowRenderer {
         // so an offset applied before it is wiped (gotcha 2). Here — post-re-assert, pre-draw — is
         // the one window that survives, and it covers BOTH the multi-voice and single-voice paths.
         this.applyNoteOffsets(sortedSlots, staveNotes, pass.score, stave)
+
+        // Lengthen the stem of a FLAGGED tremolo note so its flag clears the strokes. Here for the
+        // same reason the note offsets are: post-format and post-stem-re-assert (which re-runs
+        // `setStemDirection` and would reset the extension), pre-draw. And it CANNOT be done at
+        // build time — `hasFlag()` reads `!this.beam`, and the Beam objects do not exist yet when
+        // NoteBuilder attaches the modifier, so every note about to be beamed still claims a flag.
+        this.applyTremoloStemStretch(sortedSlots, staveNotes)
 
         for (const b of built) {
           b.voice.draw(this.context!, stave)

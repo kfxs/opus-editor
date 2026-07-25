@@ -8,7 +8,11 @@ this doc records only where a tremolo differs. It differs a lot in two places: n
 VexFlow draws the Penderecki sign, and nothing in the playback schedule can express a speed that
 is *physical* rather than metrical — see §4 and §5.
 
-The dev-shell palette (`src/dev/devToolbar.ts`) already exists and arms nothing. Wiring it is P0.
+**Status: P0 is shipped** (§7) — the mark exists, the palette arms it, the strokes engrave. It also
+grew two things §2 and §4 record and this plan did not foresee: the stem became a registered element
+(the stamp accepts a click on it), and VexFlow's stroke placement had to be replaced rather than
+configured. Everything from P1 on is unbuilt: **a tremolo still vanishes silently on a meter change
+or a paste**, which is why travel is next and not playback.
 
 ## 0. Three performances, not two
 
@@ -53,7 +57,10 @@ two files must agree on which glyph it draws and what it is called.
    (~16/sec). Nothing before P3 depends on it.
 3. **The sixth button's glyph** (§0) — E22B as now, or a plain unmeasured sign with Penderecki as a
    seventh.
-4. **Removal** — see §2. P0 as written can stamp a mark it cannot take off.
+4. **Removal** — see §2. P0 shipped able to stamp a mark it cannot take off: Ctrl+Z only.
+5. **Stroke placement, small tweaks.** §4's four corrections got it to "much better"; the two rules
+   still unimplemented there (strokes within the stave, a stem stretch for four or five strokes) are
+   the known next candidates, and none of them is testable — this is an eye-only surface.
 
 ## 1. The model
 
@@ -113,25 +120,56 @@ get forgotten:
 | 2 | `RenderController.renderToolGhost()` — one `case` — `RenderController.ts:265` | ✅ `assertNeverTool` (`:298`) — the ONLY site it guards |
 | 3 | `ScoreModel.setTremolo` + the `MusicEngine` facade method | ❌ |
 | 4 | `PaletteController.armTremolo()` — **reassign** the field, never mutate (the Proxy traps the SET) | ❌ |
-| 5 | `MouseController.stampTremoloAtClick()` — a near-copy of `stampAccidentalAtClick` (`:1903`): same `hitsNoteOrRestBody` test, one `runBatch` = one undo entry | ❌ |
+| 5 | `MouseController.stampTremoloAtClick()` — a near-copy of `stampAccidentalAtClick` (`:1903`): same note-body test, one `runBatch` = one undo entry. **Plus the stem** — see below | ❌ |
 | 6 | `GHOST_GROUP_SELECTOR` (`VexFlowRenderer.ts:449`) — see §3 | ❌ |
+
+### ⭐ The one stamp with TWO targets — and the `'stem'` element it needed
+
+Every other stamp accepts the notehead alone, because that is where its mark lands. A tremolo's
+strokes ride the **stem**, so that is where the pointer goes; insisting on the head would mean aiming
+at one place to put ink in another. The head test runs first and unchanged; the stem is the second
+chance.
+
+That required the stem to become a **fact** rather than a guess. A note registers a box that spans
+head + stem + beam on purpose (`tight-bbox-plan.md` §4a), so from outside "which side is the stem on,
+how far does it reach" is only *inferable* — and inference gets the beamed and multi-voice cases
+wrong. VexFlow knows exactly, so it is now written down: `'stem'` is an `ElementType`, registered by
+`VexFlowRenderer.registerStem` from `getStemX()` + `getStemExtents()`.
+
+- **One per slot**, anchored on the chord's lowest pitch — the convention its articulations and dots
+  already use. A chord has one stem.
+- ⚠️ **It carries `noteId`, never `id`.** `getById` returns the FIRST element with a given id, so a
+  stem sharing its notehead's id would answer a lookup for the NOTE with a tall rect — silently, and
+  only sometimes, depending on registration order.
+- The rect stores the **ink** (`Stem.WIDTH`, ~1.5px); the click pad lives in the hit-test
+  (`STEM_CLICK_PAD`). A stemless note registers nothing.
+- ⚠️ `findStemAt` is **containment, not nearest** — which is the whole reason to register it. A click
+  at the top of a stem is a stem-length from its own notehead, so `findClosestNoteOrRest` hands back
+  a denser neighbour. Pinned by a test that asserts exactly that disagreement.
+- Registered AFTER the beams are drawn, so a beamed stem's extension is in the rect.
+- Free bonus: the stem's click target grows with the flag stretch of §4, because both read
+  `getStemExtents()`.
 
 `MARKING_TOOL_USES_ARMED_LENGTH.tremolo = false`: it marks notes that already have their length.
 
 The dev palette's ids are `'one'…'five' | 'penderecki'` (`devToolbar.ts`); wiring **maps** them to
 `1…5`, it does not rename them — the Keypad borrows the same drawings by those names.
 
-### ⚠️ P0 can stamp a mark it cannot remove
+### ⚠️ P0 can stamp a mark it cannot remove — SHIPPED THAT WAY, still open
 
 "Removal is the Delete key" is the accidental stamp's rule and it works there because `'accidental'`
 is an `ElementType` (`ElementRegistry.ts:18`) — the glyph is selectable, so Delete has something to
 delete. §8 defers `'tremolo'` from `ElementType` *and* defers the Keypad, which leaves Ctrl+Z as the
-only way to undo a stamp. Pick one before P0 ships:
+only way to undo a stamp. The three options were:
 
-- **register the `ElementType` in P0** (the mark becomes clickable, Delete works, consistent with
-  every other stamp) — recommended;
+- **register the `ElementType`** (the mark becomes clickable, Delete works, consistent with every
+  other stamp) — still the recommendation;
 - or **wire the Keypad key first** and let it toggle off a selected note's mark;
 - or **accept it** and say so here, out loud.
+
+**P0 shipped on the third**, deliberately and not by omission: Ctrl+Z removes a stamp and nothing
+else does. `ScoreModel.setTremolo(id, null)` already exists and is unused, so whichever of the first
+two lands has its model half waiting for it.
 
 ## 3. The ghost
 
@@ -159,15 +197,15 @@ first.
 
 ## 4. Render
 
-**The strokes** — VexFlow's `Tremolo` modifier, attached in `NoteBuilder` beside the articulations
-(`NoteBuilder.ts:265`). Read `node_modules/vexflow/build/esm/src/tremolo.js` before touching this;
-it is fifteen lines and three of them matter:
+**The strokes** — `CenteredTremolo`, our subclass of VexFlow's `Tremolo`, attached in `NoteBuilder`
+beside the articulations (`NoteBuilder.ts:269`). Read
+`node_modules/vexflow/build/esm/src/tremolo.js` before touching this; it is fifteen lines and three
+of them matter:
 
-- It draws **N copies of `tremolo1` (E220)**. It never uses E221–E224. `new Tremolo(2)` *is* the
+- It draws **N copies of `tremolo1` (E220)**. It never uses E221–E224. `CenteredTremolo(2)` *is* the
   two-stroke mark — the multi-stroke SMuFL glyphs are for the palette only.
-- It reads `getStemExtents().topY` and **does not lengthen the stem**. Four and five strokes on a
-  short stem will run into the notehead or past the beam. VexFlow has no opinion; if we want one,
-  it is ours to add.
+- It anchors the stack to `getStemExtents().topY` — the stem **TIP** — and steps toward the notehead
+  at a fixed 7px. There is no centring in it, and it **does not lengthen the stem**.
 - ⚠️ **Whole and half notes.** A `StaveNote` always carries a `stem` object even when `hasStem()`
   is false, so a whole note will not throw — the strokes simply draw where an invisible stem would
   be. That is roughly the convention, and it is the first thing that will look wrong: check it by
@@ -175,6 +213,59 @@ it is fifteen lines and three of them matter:
 
 Nothing here depends on the measured/unmeasured reading — the strokes are the strokes. That split
 exists only in playback.
+
+### ⚠️ Where the strokes actually go — four corrections, every one found by eye
+
+The tip anchor leaves one or two strokes clinging to the top of the stem, which is what the subclass
+exists to fix. Each step below was a separate wrong-looking render, in this order — worth recording
+because none of them is visible in a test (jsdom cannot measure glyphs, so nothing here is pinned):
+
+1. **Centre on the stem, not the tip.** Lay the stack symmetrically about the stem's middle. Only the
+   vertical anchor is ours; the step between strokes, the x, the font size and the glyph stay
+   VexFlow's.
+2. **`renderText` positions the BASELINE, not the glyph.** So centring the baselines is not centring
+   the ink — E220's baseline→ink offset shifts the whole stack down. Measured from `textMetrics`
+   (`setFontSize` FIRST: it is what invalidates the cached metrics, where VexFlow's own
+   `this.fontInfo.size = …` mutates the object behind the getter and does not). When the text canvas
+   is unavailable the metrics come back zeroed and the correction is 0 — i.e. the failure mode is
+   exactly what a hardcoded 0 would have done, which is why measuring beats a tuned constant.
+3. **`getStemExtents().baseY` is the notehead's CENTRE, not its edge** — it comes from the note's key
+   lines, and a key line runs through the middle of a head. Centring on it counts the head's top half
+   as if it were stem and sits half-a-half-notehead low. The free stem starts at
+   `baseY − stemDirection · staffSpace/2`, and the stave's own `getSpacingBetweenLines()` IS that
+   measurement (a notehead is one staff space tall), so it holds at any staff size.
+4. **A FLAG reaches into the strokes; a beam does not.** `drawFlag` hangs the flag DOWN from the tip
+   (`stem.getHeight()`), so on a lone eighth it lands in the middle of the stem where the strokes now
+   are — while a beam sits ON the tip and never crosses them, which is why a beamed pair looked right
+   from the start. The rule: **place the strokes normally, extend the stem by
+   `TREMOLO_FLAG_STEM_STRETCH` (¼) of its length, then let the flag follow the new tip.** The strokes
+   deliberately do NOT follow the stretch (`setStemStretch` walks the tip back for them) — that is
+   what turns the full ¼ into clearance, where centring them in the longer stem would move them up
+   half as far as the flag and gain only half.
+
+⚠️ **The stretch cannot be applied at build time.** `hasFlag()` reads `!this.beam`, and the Beam
+objects do not exist when `NoteBuilder` attaches the modifier — so every note *about to be beamed*
+still claims a flag there. It runs in the post-format/pre-draw window beside `applyNoteOffsets`, which
+is also after the multi-voice stem re-assert (that calls `setStemDirection`, which resets the
+extension). And it bumps the **Stem's own extension**, not `setStemLength`: that one writes
+`stemExtensionOverride`, which `StaveNote.getStemExtension()` re-reads and then adds its
+octave-distance term to — double-counting for a note far from the middle line. Adding to what the
+Stem already resolved composes with VexFlow's flag-height, beam and octave rules instead of replacing
+them, so a 32nd gets ¼ on top of the longer stem VexFlow already gave its taller flag.
+
+### The conventions, and which of them we follow
+
+⚠️ **Centring is OUR rule, not Gould's** — do not let it read as convention. *Behind Bars* (the
+tremolo section, ~p.224–226) says three things about placement:
+
+| | Gould | us |
+|---|---|---|
+| 1 | with **one or two strokes** it is clearest if they **centre on stave lines** | approximated — centring lands near a line without snapping to one. Note she singles out exactly the counts the tip anchor got worst |
+| 2 | **extend the stem** so the strokes are clear of tails and beams | done for FLAGS (¼, above). She gives no number |
+| 3 | the strokes stay **within the stave** | ⛔ not implemented — a high stem-up note can put them outside |
+
+Also unimplemented: nothing lengthens a stem for **four or five strokes**, which on a short stem still
+crowd the notehead.
 
 **Penderecki** — VexFlow has nothing. E22B is drawn by us at the stem, the way we already draw ties
 and slurs with our own coordinates (`reference_vexflow_lowlevel_render_methods`). Write the
@@ -300,9 +391,13 @@ mark carried explicitly.
 
 ## 7. Phases
 
-- **P0 — model + stamp + stroke render.** `Chord.tremolo`, the `MarkingTool` kind, the six seams,
-  the ghost, `Tremolo` in `NoteBuilder`, and the dev palette wired to arm. Plus §2's removal
-  decision. End state: you can put one to five strokes on a note and see them.
+- **P0 — model + stamp + stroke render. ✅ DONE.** `Chord.tremolo`, the `MarkingTool` kind, the six
+  seams, the ghost, `CenteredTremolo` in `NoteBuilder`, and the dev palette wired to arm. End state
+  reached: you can put one to five strokes on a note and see them. Two things it grew on the way that
+  were not planned — the `'stem'` element the stamp's second target needed (§2), and the four
+  placement corrections (§4). Two things it did NOT do: §2's removal decision (accepted as
+  undo-only) and the Penderecki button, which is DISABLED because arming it would stamp a mark that
+  stores and never appears until P2.
 - **P1 — travel.** The five rebar links, the voice move, the tie-split (§6). Early, and on purpose:
   before P0's marks start silently disappearing on a meter change.
 - **P2 — Penderecki render.** Our own E22B draw at the stem, and §0's naming fix.
@@ -317,9 +412,10 @@ mark carried explicitly.
 - **Two-note (between-notes) tremolo.** A different notation with a different model — it belongs
   to a *pair* of slots, not one. VexFlow does not draw it either. (SMuFL's `tremoloFingered1–5`,
   E225–E229, are for that reading.)
-- **Selecting the mark** — unless §2's removal decision pulls it into P0. `ElementType` has no
-  `'tremolo'`; clicking one to select or delete it needs registry entries the way articulations
-  have them.
+- **Selecting the mark.** Still deferred after P0 — `ElementType` has no `'tremolo'` (it does now
+  have `'stem'`, which is a different thing: the stem is a click TARGET for the stamp, not the mark).
+  Clicking a stroke to select or delete it needs registry entries the way articulations have them,
+  and that is what §2's removal decision would buy.
 - **The threshold as a preference.** Dorico exposes it; ours is a constant until someone asks.
 - **Keypad wiring.** The page-2 tremolo keys are still `momentary` (`docs/keypad.md`). They arm
   the same `PaletteController` method when they are wired — nothing here blocks it.
