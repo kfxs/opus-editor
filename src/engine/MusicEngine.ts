@@ -2568,8 +2568,17 @@ export class MusicEngine {
     // selection survives the move (its partner is moving to the same voice too).
     const movingIds = new Set(ordered.map(o => o.id))
 
+    // A beamed-over rest cannot MOVE (rests are per-voice, each voice fills its own), but the flag is
+    // the user's intent and must reappear on the target voice's rest at the same beat — else the beam
+    // group arrives in the new voice with its interior rest un-beamed. Capture where before the move
+    // refills both voices, re-apply after (ScoreModel.setRestBeamOver).
+    const beamOverRests = ordered
+      .filter(o => o.note.isRest && o.note.beamOver)
+      .map(o => ({ measure: o.note.measure, beat: o.note.beat, staff: o.note.staff ?? 0 }))
+
     return this.runBatch(`Move ${ordered.length} note(s) to voice ${targetVoice + 1}`, () => {
       for (const { id } of ordered) this.moveNoteToVoice(id, targetVoice, movingIds)
+      for (const r of beamOverRests) this.scoreModel.setRestBeamOver(r.measure, r.beat, targetVoice, r.staff, true)
     })
   }
 

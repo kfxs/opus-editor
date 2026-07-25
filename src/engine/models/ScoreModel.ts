@@ -2527,6 +2527,29 @@ export class ScoreModel {
   }
 
   /**
+   * Set (or clear) `beamOver` on the rest at a given beat/voice/staff.
+   *
+   * A rest does not itself move between voices — each voice fills its own — so when a beam group that
+   * beams over an interior rest changes voice, the flag cannot ride the rest. The move carries it: it
+   * captures where a beamed-over rest sat, and after the target voice has been refilled, re-applies the
+   * flag to the fresh rest there ({@link MusicEngine.moveSelectionToVoice}). A no-op when no such rest
+   * exists — a moved group may decompose its gap into different rests, and a missing target is not an
+   * error. Called inside the move's `runBatch`, so no separate undo entry.
+   */
+  setRestBeamOver(measureNumber: number, beat: Fraction, voice: number, staff: number, value: boolean): void {
+    const measure = this.getMeasure(measureNumber)
+    if (!measure) return
+    const rest = measure.slots.find(s =>
+      s.type === 'rest'
+      && (s.voice ?? 0) === voice
+      && staffIndexOfId(this.score, s.staffId) === staff
+      && fracEq(s.beat, beat))
+    if (rest?.type !== 'rest') return
+    if (value) rest.beamOver = true
+    else delete rest.beamOver
+  }
+
+  /**
    * Insert a pitch into a measure at a given beat/voice, **reusing the supplied
    * `pitch.id`** (unlike {@link addNote}, which always mints a fresh uuid). Mirrors
    * addNote's two branches: merge into a same-beat/same-voice chord, or build a

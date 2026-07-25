@@ -856,6 +856,27 @@ describe('MusicEngine.moveSelectionToVoice — atomic multi-note move (Phase 3)'
     expect(voiceOf(1, a.id)).toBe(1) // the note moved; the rest id was harmlessly skipped
   })
 
+  it('carries a beamed-over rest to the target voice (the flag survives the move)', () => {
+    // Voice 0: C C 𝄾 C as eighths, the rest at beat 1.0 interior to the group and marked beamOver.
+    // A rest does not itself move (each voice fills its own), so the flag must be re-applied to voice
+    // 1's fresh rest — else the group lands in voice 2 with its interior rest un-beamed (the bug).
+    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 2) })
+    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 2) })
+    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(3, 2) })
+    const restAt1 = engine.getScore().measures[0].slots.find(s => s.type === 'rest' && fracToNumber(s.beat) === 1)!
+    engine.updateNote(restAt1.id, { beamOver: true })
+
+    // Select ALL of voice 0 (notes and rests) and move to voice 1, as select-all + Alt+2 does.
+    const ids = engine.getScore().measures[0].slots
+      .filter(s => (s.voice ?? 0) === 0)
+      .map(s => (s.type === 'chord' ? s.notes[0].id : s.id))
+    expect(engine.moveSelectionToVoice(ids, 1)).toBe(true)
+
+    const v1RestAt1 = engine.getScore().measures[0].slots.find(
+      s => s.type === 'rest' && (s.voice ?? 0) === 1 && fracToNumber(s.beat) === 1)
+    expect((v1RestAt1 as { beamOver?: boolean } | undefined)?.beamOver).toBe(true)
+  })
+
   it('keeps a tie when BOTH tied notes move together (surviving span)', () => {
     const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const b = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
