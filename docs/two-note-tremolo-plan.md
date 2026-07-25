@@ -172,9 +172,29 @@ tremoloPairStyle?: 'joined' | 'open'   // absent = the default
 
 ✅ **BUILT.** `joined` is simply "no end clearance" — the strokes reach both stems and touch them,
 which is what makes them read as a beam. Everything else about the stack (anchor, slope, step) is the
-open style's, which is why it is ONE boolean and not a second drawing path. The press is **refused**
-where the style is not on offer (`pairAcceptsJoined`), and the dev shell's toggle greys out there:
-"not available" rather than "off", because a joined drawn NEGRA would say a different rhythm.
+open style's, which is why it is ONE boolean and not a second drawing path. The write is **refused**
+where the style is not on offer (`pairAcceptsJoined`), because a joined drawn NEGRA would say a
+different rhythm.
+
+⭐ **THE KEYPAD'S BEAM KEYS SET IT — there is no control of its own** (his call, so two controls
+cannot disagree; the dev shell's `Joined` button was built and then removed). On a pair those keys
+have never been about *which notes beam together* — a pair is never in an automatic group — so they
+say how the pair's own lines are DRAWN, and this is the other end of a question `single` already
+answered:
+
+| drawn value | `single` | `begin` |
+|---|---|---|
+| blanca (from quarters) | strokes **open**, floating clear | strokes **joined** to both stem tips |
+| corchea or shorter | drawn **apart**, each note keeping its flag | (nothing — it beams itself) |
+
+`beamRoleAtRef` reports `begin`/`end` for a joined pair exactly as it does for a beamed one — one
+line joining two notes either way — so the pad reads back what its keys write.
+
+⚠️ The router writes `tremoloPairStyle`, **never `beam`**: an authored beam role is inert on a paired
+slot but would come alive the moment the mark came off, leaving a note silently carrying `begin` from
+a tremolo it no longer has. And `tremoloPairStyle` **is cleared with the mark** (`setTremolo(null)`
+and `setTremoloPair(false)`, both in `ScoreModel` — his catch): a style left on a plain note is the
+same resurrection trap the flag itself is, re-joining the strokes the day that note is paired again.
 
 ⚠️ **It is offered on the drawn BLANCA and nowhere else** — the same restriction MuseScore states.
 On a drawn negra, strokes touching two filled stems read as two beamed corcheas; on corchea and

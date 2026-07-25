@@ -174,3 +174,50 @@ describe('tremoloPairStyle (model)', () => {
     expect(styleAt(1, 0)).toBe('open')
   })
 })
+
+/**
+ * ⚠️ THE STYLE IS CLEARED WITH THE MARK. `tremoloPairStyle` left on a plain note is the same
+ * resurrection trap the flag itself is: silently re-joining the strokes the day that note is paired
+ * again, from a choice nobody remembers making.
+ */
+describe('tremoloPairStyle is cleared with the mark', () => {
+  let model: ScoreModel
+  let a: { id: string }
+
+  beforeEach(() => {
+    model = new ScoreModel('Clear')
+    a = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    model.setTremoloPair(a.id, true)
+    model.setTremoloPairStyle(a.id, 'joined')
+  })
+
+  const first = () => {
+    const slot = model.getMeasure(1)!.slots.find(s => fracToNumber(s.beat) === 0)
+    return slot?.type === 'chord' ? slot : undefined
+  }
+
+  it('goes when the PAIR is removed', () => {
+    expect(first()?.tremoloPairStyle).toBe('joined')
+    model.setTremoloPair(a.id, false)
+    expect(first()?.tremoloPairStyle).toBeUndefined()
+  })
+
+  it('goes when the COUNT is removed (Delete)', () => {
+    model.setTremolo(a.id, null)
+    expect(first()?.tremoloPairStyle).toBeUndefined()
+    expect(first()?.tremoloPair).toBeUndefined()
+  })
+
+  it('⭐ so re-pairing the same note starts OPEN, not silently joined', () => {
+    model.setTremoloPair(a.id, false)
+    model.setTremoloPair(a.id, true)
+    expect(first()?.tremoloPairStyle).toBeUndefined()
+  })
+
+  it('but CHANGING the count leaves it — that is the same mark re-read', () => {
+    model.setTremolo(a.id, 5)
+    expect(first()?.tremoloPairStyle).toBe('joined')
+    expect(first()?.tremoloPair).toBe(true)
+  })
+})

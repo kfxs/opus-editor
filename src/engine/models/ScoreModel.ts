@@ -2045,11 +2045,12 @@ export class ScoreModel {
    * The mark lives on the slot, so a chord takes it as a chord — passing any pitch id in the chord
    * marks the whole event, which is the same call {@link setArticulationStemAlign} makes.
    *
-   * ⭐ REMOVING THE COUNT REMOVES A TWO-NOTE PAIR WITH IT, and that is the model rather than a
-   * courtesy: a pair needs a stroke COUNT (docs/two-note-tremolo-plan.md §0), so `tremoloPair` with
-   * no `tremolo` is a mark with nothing to draw. Putting it here rather than in each caller is what
-   * makes Delete, the palette's re-press and anything added later agree for free. CHANGING the count
-   * leaves the pair alone — that is the same mark re-read, not a different one.
+   * ⭐ REMOVING THE COUNT REMOVES A TWO-NOTE PAIR WITH IT — and the pair's stroke STYLE too — and
+   * that is the model rather than a courtesy: a pair needs a stroke COUNT
+   * (docs/two-note-tremolo-plan.md §0), so `tremoloPair` with no `tremolo` is a mark with nothing to
+   * draw, and `tremoloPairStyle` with no pair is a setting for a mark that is not there. Putting it
+   * here rather than in each caller is what makes Delete, the palette's re-press and anything added
+   * later agree for free. CHANGING the count leaves both alone — that is the same mark re-read.
    */
   setTremolo(noteId: string, tremolo: TremoloMark | null): Note | null {
     const found = this.findSlot(noteId)
@@ -2058,6 +2059,7 @@ export class ScoreModel {
     if (tremolo === null) {
       delete chord.tremolo
       delete chord.tremoloPair
+      delete chord.tremoloPairStyle
     } else {
       chord.tremolo = tremolo
     }
@@ -2079,7 +2081,10 @@ export class ScoreModel {
    * would make the button dead on exactly the note you pressed it on — the trap the tie stamp
    * already had and fixed (docs/tie-stamp-plan.md §1.3).
    *
-   * Removing takes BOTH fields off: the pair is ONE mark, and half of it is not a notation.
+   * Removing takes ALL of it off — the count, the pair and the STROKE STYLE. The pair is ONE mark,
+   * and half of it is not a notation; and a style left behind on a plain note is the same
+   * resurrection trap the flag itself is, silently re-joining the strokes the day the note is paired
+   * again (his catch).
    *
    * Nothing is written to the SECOND slot, in either direction. That is the model (§1) — "mark just
    * the first note" is true in the data too, and it is why deleting the partner cannot leave a
@@ -2094,6 +2099,7 @@ export class ScoreModel {
       if (!chord.tremoloPair) return null
       delete chord.tremoloPair
       delete chord.tremolo
+      delete chord.tremoloPairStyle
       return this.toFlatNote(chord, pitch)
     }
 

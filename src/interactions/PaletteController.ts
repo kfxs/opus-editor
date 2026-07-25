@@ -650,35 +650,50 @@ export class PaletteController {
   }
 
   /**
-   * Toggle a two-note tremolo's stroke style — `'joined'` (stem tip to stem tip, like a beam) vs
-   * `'open'` (floating clear of both). Acts on the selected MARK, or on the one selected note.
+   * ⭐ THE KEYPAD'S BEAM KEYS RESTYLE A TWO-NOTE TREMOLO, and this is the router. Returns true when
+   * the press was spent that way, so {@link setBeam} does nothing else with it.
    *
-   * ⚠️ Refused — nothing happens, no undo entry — unless the pair's drawn value is a BLANCA. The
-   * choice is only legal there (`pairAcceptsJoined`), and refusing where it would change the reading
-   * is the point of the restriction, not an omission. {@link tremoloPairStyleTarget} is what the
-   * palette asks to know whether the control is even live.
+   * It is the same axis those keys already control, not a second meaning bolted on: a pair is never
+   * in an automatic group, so on a pair the beam keys have never been about *which notes beam
+   * together* — they say how the pair's own lines are DRAWN. `single` already meant "draw them apart,
+   * flags and all" on a pair of sixteenths (§2). This adds the other end of the same question, on the
+   * one value where it is open:
+   *
+   * | drawn value | `single` | `begin` |
+   * |---|---|---|
+   * | blanca (from quarters) | strokes OPEN, floating clear of the stems | strokes JOINED to both stem tips |
+   * | corchea or shorter | drawn APART, each note keeping its flag | (nothing — it beams itself) |
+   *
+   * ⚠️ It writes `tremoloPairStyle`, NEVER `beam`. An authored beam role is inert on a paired slot
+   * (the grouper breaks there) but would come alive the moment the mark came off — a note left
+   * silently carrying `begin` from a tremolo it no longer has. Storing the choice where it belongs
+   * means there is nothing to clean up on that side, and the one thing that DOES need clearing —
+   * `tremoloPairStyle` itself — is cleared with the mark in `ScoreModel` (his catch).
    */
-  pressTremoloPairStyle(): void {
+  private routeBeamToTremoloPairStyle(beam: BeamMode): boolean {
+    if (beam !== 'begin' && beam !== 'single') return false
     const engine = this.getEngine()
     const noteId = this.tremoloPairStyleTarget()
-    if (!engine || !noteId) return
+    if (!engine || !noteId) return false
 
-    const next = engine.getNote(noteId)?.tremoloPairStyle === 'joined' ? 'open' : 'joined'
-    const applied = engine.runBatch(`Tremolo strokes ${next}`, () => {
-      engine.setTremoloPairStyle(noteId, next)
-    })
-    if (!applied) return
-    this.renderScore()
+    const style = beam === 'begin' ? 'joined' : 'open'
+    if (engine.runBatch(`Tremolo strokes ${style}`, () => { engine.setTremoloPairStyle(noteId, style) })) {
+      this.renderScore()
+    }
+    this.refreshBeamSelection()
+    return true
   }
 
   /**
-   * The note whose two-note tremolo the style toggle would act on, or null when there is none —
-   * the palette's "is this control live" question, single-sourced with the press above.
+   * The note whose two-note tremolo a style press would act on, or null when there is none — the
+   * selected MARK, or the one selected note.
    *
-   * Only answers for a pair that ACCEPTS the choice, so the toggle is dark on a pair of eighths or
-   * halves rather than lit-and-inert.
+   * Only answers for a pair that ACCEPTS the choice (a drawn BLANCA), so `begin`/`single` fall
+   * through to ordinary beaming everywhere else rather than silently writing a setting that is not
+   * read. Refusing where the choice would change the reading is the point of the restriction, not an
+   * omission.
    */
-  tremoloPairStyleTarget(): string | null {
+  private tremoloPairStyleTarget(): string | null {
     const engine = this.getEngine()
     if (!engine) return null
     const noteId = this.state.selectedTremoloNoteId ?? this.singleSelectedNoteId()
@@ -1336,6 +1351,11 @@ export class PaletteController {
    * that lands; until then a note's authored begin/continue/end/single cannot be cleared from any UI.
    */
   setBeam(beam: BeamMode): void {
+    // ⭐ ON A TWO-NOTE TREMOLO, THE BEAM KEYS CHOOSE THE PAIR'S SPELLING — see
+    // {@link routeBeamToTremoloPairStyle}. Ahead of everything below, including the armed
+    // `selectedBeam`: this press is not arming a beam mode for the next note, it is restyling a mark.
+    if (this.routeBeamToTremoloPairStyle(beam)) return
+
     this.state.selectedBeam = beam
     const engine = this.getEngine()
     if (!engine || this.state.selectedTool !== 'selection') return

@@ -614,3 +614,25 @@ describe('beamRoleAt on a two-note tremolo pair — the pair answers for itself'
     expect(beamRoleAt(stale, meter(4, 4), 1)).toBe('end')
   })
 })
+
+describe('beamRoleAt on a JOINED pair — the pad reads back what its keys write', () => {
+  const quarters = (style?: 'joined' | 'open'): ChordRest[] => {
+    const a = chord(0, 1, 'q')
+    const b = chord(1, 1, 'q')
+    return [
+      a.type === 'chord' ? { ...a, tremoloPair: true as const, tremoloPairStyle: style } : a,
+      b,
+    ]
+  }
+
+  it("JOINED reports begin/end — one line joining two notes, whether it is a beam or strokes", () => {
+    const slots = quarters('joined')
+    expect(beamRoleAt(slots, meter(4, 4), 0)).toBe('begin')
+    expect(beamRoleAt(slots, meter(4, 4), 1)).toBe('end')
+  })
+
+  it('OPEN reports single — the key you press to get back', () => {
+    expect(beamRoleAt(quarters('open'), meter(4, 4), 0)).toBe('single')
+    expect(beamRoleAt(quarters(), meter(4, 4), 0)).toBe('single')
+  })
+})
