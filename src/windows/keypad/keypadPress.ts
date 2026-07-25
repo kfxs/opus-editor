@@ -5,8 +5,10 @@ import { articulationSelection } from '../../interactions/articulationSelection'
 import { dotSelection } from '../../interactions/dotSelection'
 import { tieSelection } from '../../interactions/tieSelection'
 import { restSelection } from '../../interactions/restSelection'
+import { beamSelection } from '../../interactions/beamSelection'
+import { subdivideSelection } from '../../interactions/subdivideSelection'
+import { beamOverSelection } from '../../interactions/beamOverSelection'
 import { keypadPageSelection } from '../../interactions/keypadPageSelection'
-import { keypadProbe } from './keypadProbe'
 import type { KeypadCell } from './keypadLayouts'
 
 /**
@@ -56,12 +58,26 @@ export function pressKeypadCell(cell: KeypadCell): void {
       // the key. Pressing it with a rest already selected is a no-op, so the light never toggles off.
       restSelection.press('rest')
       break
+    case 'beam':
+      // One of the four beam MODES (single/begin/continue/end). PRESS the value; App.ts routes it to
+      // palette.setBeam — the same method the toolbar's Beam row calls — which arms it and applies it
+      // across the selection, then re-pushes the lit set. `beam` is always present on a beam cell.
+      if (cell.beam) beamSelection.press(cell.beam)
+      break
+    case 'subdivide':
+      // The secondary beam break, on/off: PRESS always fires so re-pressing toggles it off. Routes to
+      // palette.toggleSecondaryBreak, which flips the score AND re-pushes the highlight (secondaryBreak
+      // isn't reactive, so it can't be mirrored).
+      subdivideSelection.press('subdivide')
+      break
+    case 'beamOver':
+      // Beam over the selected rest, on/off like the subdivide: PRESS routes to palette.toggleBeamOver.
+      beamOverSelection.press('beamOver')
+      break
     case 'momentary':
-      // A blank, unassigned key — the whole of page 2 is still this. It does nothing to the score,
-      // which is the RIGHT nothing: the numpad key over an unwired cell must not fall through to some
-      // other page's meaning. 🚧 It does light up though, so you can SEE the key land on the page that
-      // is showing — temporary, goes when page 2 is wired ({@link keypadProbe}).
-      keypadProbe.press(cell.key)
+      // A blank, unassigned key — the tremolos and feathered beams on page 2 are still this. It does
+      // NOTHING, which is the right nothing: a numpad key over an unwired cell must not fall through to
+      // some other page's meaning, and an unwired key shows no light (the beam cluster above is wired).
       break
     case 'mode':
       // The arrow ACTIVATES selection mode. Its light follows the editor, not this click, so there

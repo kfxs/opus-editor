@@ -4,7 +4,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorState'
 import { activeVoiceToModel, armedTool, armedToolUsesLength, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from './EditorState'
-import { durationHighlight } from './keypadSync'
+import { durationHighlight, beamHighlight, beamRoleHighlight, secondaryBreakHighlight, beamOverHighlight } from './keypadSync'
 import { fracToNumber } from '../utils/fraction'
 import { resolveTupletInTimeOf, type TupletResolution } from '../utils/musicUtils'
 import { accidentalTypeToKey, formatPitch } from '../utils/pitchSpelling'
@@ -15,6 +15,9 @@ import { selectedNoteIds, selectedArticulationNoteIds, multipleNotesSelected } f
 import { articulationSelection } from './articulationSelection'
 import { tieSelection } from './tieSelection'
 import { restSelection } from './restSelection'
+import { beamSelection } from './beamSelection'
+import { subdivideSelection } from './subdivideSelection'
+import { beamOverSelection } from './beamOverSelection'
 
 /** Re-exported so the palette's callers keep one import — the type belongs with the rule. */
 export type { TupletResolution }
@@ -1111,6 +1114,9 @@ export class PaletteController {
       for (const id of ids) engine.updateNote(id, { beam })
     })
     this.renderScore()
+    // The note's authored beam and its role changed but `selectedBeam` may not have (pressing the mode
+    // it already carries), so `sync()` might not fire — push the beam lights ourselves, like the toggles.
+    this.refreshBeamSelection()
   }
 
   /**
@@ -1141,6 +1147,8 @@ export class PaletteController {
       for (const id of ids) engine.updateNote(id, { secondaryBreak: !allHaveIt })
     })
     this.renderScore()
+    // secondaryBreak isn't a reactive field, so `sync()` won't fire — push the highlight ourselves.
+    this.refreshSubdivideSelection()
     return true
   }
 
@@ -1167,6 +1175,8 @@ export class PaletteController {
       for (const id of ids) engine.updateNote(id, { beamOver: !allHaveIt })
     })
     this.renderScore()
+    // beamOver isn't a reactive field, so `sync()` won't fire — push the highlight ourselves.
+    this.refreshBeamOverSelection()
     return true
   }
 
@@ -1649,6 +1659,42 @@ export class PaletteController {
    */
   refreshRestSelection(): void {
     restSelection.setHighlight(this.selectionIsRest() ? 'rest' : null)
+  }
+
+  /**
+   * Push which beam MODE keys are lit into {@link beamSelection}, so the Keypad's `single`/`begin`/
+   * `continue`/`end` keys reflect the selected note. A SET, like the articulations and for the same
+   * reason the dev toolbar's Beam row lights two buttons: the authored beam ({@link beamHighlight}) and
+   * the role it engraves ({@link beamRoleHighlight}) are independent and can disagree. `'auto'` is no key
+   * on the pad, so it lights nothing. Same single-sourced rules the toolbar reads — the engine is the
+   * {@link BeamSource} both take. Called on every state change and after {@link setBeam}.
+   */
+  refreshBeamSelection(): void {
+    const engine = this.getEngine()
+    const lit = new Set<BeamMode>()
+    const armed = beamHighlight(this.state, engine)
+    if (armed && armed !== 'auto') lit.add(armed)
+    const role = beamRoleHighlight(this.state, engine)
+    if (role) lit.add(role)
+    beamSelection.setActive(lit)
+  }
+
+  /**
+   * Push whether the SUBDIVIDE key is lit into {@link subdivideSelection}. The tie's twin: the rule
+   * ({@link secondaryBreakHighlight}, engine-read) is single-sourced with the dev toolbar's `subdivide`
+   * button. Called on every state change and after {@link toggleSecondaryBreak}.
+   */
+  refreshSubdivideSelection(): void {
+    subdivideSelection.setHighlight(secondaryBreakHighlight(this.state, this.getEngine()) ? 'subdivide' : null)
+  }
+
+  /**
+   * Push whether the BEAM-REST key is lit into {@link beamOverSelection} — the inverse of subdivide, it
+   * lights for a rest carrying `beamOver` ({@link beamOverHighlight}). Called on every state change and
+   * after {@link toggleBeamOver}.
+   */
+  refreshBeamOverSelection(): void {
+    beamOverSelection.setHighlight(beamOverHighlight(this.state, this.getEngine()) ? 'beamOver' : null)
   }
 
   /**

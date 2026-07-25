@@ -43,7 +43,7 @@
  * metrics). To REWORK a drawing, swap its `tremolo(` for {@link rework}, which renders the SAME stack
  * LIVE as spans so `dx`/`dy` can be tuned by eye, then swap back to re-bake.
  */
-import type { Accidental, ArticulationType, NoteDuration } from '../../types/music'
+import type { Accidental, ArticulationType, BeamMode, NoteDuration } from '../../types/music'
 
 /** One music-font glyph, its `size`, `dx` and `dy` all quoted against a 26px reference (see {@link g}). */
 export type GlyphSpec = { glyph: string; size?: number; dx?: number; dy?: number }
@@ -80,6 +80,14 @@ export type Icon =
  *   also press ON. It exists because the duration keys tell only half the story: a selected quarter
  *   rest lights the quarter key exactly as a quarter NOTE does, and this is what tells them apart.
  *   Backed by {@link restSelection}, engine-read (`isRest`) like the tie.
+ * - `beam` — one of the four beam MODES (single / begin / continue / end), carried in {@link KeypadCell.beam}.
+ *   Backed by {@link beamSelection}, a SET like the articulations — two keys can light at once, because
+ *   a note's authored beam and the role it actually engraves are independent (an authored `end` can
+ *   engrave `single`). `'auto'` is no key here, so it lights nothing.
+ * - `subdivide` — the secondary beam break, on or off like the tie. Backed by {@link subdivideSelection},
+ *   engine-read (`secondaryBreak`).
+ * - `beamOver` — beam over the selected REST, on or off. Backed by {@link beamOverSelection}, engine-read
+ *   (`beamOver`); lights for a rest only, the inverse of every other beam key.
  * - `momentary` — no light at all. A blank, unassigned slot that just logs; it is not a state.
  * - `mode` — the odd one out: its light is not the panel's own, it is the EDITOR's tool mode. The
  *   arrow lights exactly when the score is in selection mode, and clicking it puts the score there.
@@ -89,7 +97,7 @@ export type Icon =
  *   like `momentary`, but it re-lays the grid rather than acting on a note. On every page, so you
  *   can always turn back.
  */
-export type Select = 'duration' | 'accidental' | 'articulation' | 'dot' | 'tie' | 'rest' | 'momentary' | 'mode' | 'page'
+export type Select = 'duration' | 'accidental' | 'articulation' | 'dot' | 'tie' | 'rest' | 'beam' | 'subdivide' | 'beamOver' | 'momentary' | 'mode' | 'page'
 
 export interface KeypadCell {
   /** The numpad key this cell mirrors. It is the cell's identity, and its tooltip. */
@@ -105,6 +113,7 @@ export interface KeypadCell {
   duration?: NoteDuration
   accidental?: Accidental
   articulation?: ArticulationType
+  beam?: BeamMode
 }
 
 /**
@@ -186,7 +195,7 @@ export const VOICES = ['1', '2', '3', '4', 'All']
  *  model value it carries (the 4th slot: a NoteDuration on a duration key, an Accidental on an
  *  accidental key, an ArticulationType on an articulation key; absent otherwise). `toCells` files it
  *  under the field `select` calls for. */
-type CellSpec = [string, Icon, Select, (NoteDuration | Accidental | ArticulationType)?]
+type CellSpec = [string, Icon, Select, (NoteDuration | Accidental | ArticulationType | BeamMode)?]
 
 /** The two controls every page carries, in their fixed spots — the select arrow (top-left) and the
  *  page-turn `+`. A page never lists these itself; {@link withControls} injects them, so a new page
@@ -292,12 +301,17 @@ const TREMOLO = {
   oneBeamOffset: barred(-2, 10),
 }
 
+// The beam-control cluster (numpad / * - 7 8 9) is WIRED to the beam palette — the same actions the
+// dev toolbar's Beam row calls, so the panel and the numpad drive them together. Their pictures are
+// Sibelius 6's own beam-keypad drawings and are kept; only their `select` (and the value it carries)
+// changes them from `momentary` to live keys. The tremolos and feathered beams below stay `momentary`
+// until they are wired.
 const page2: CellSpec[] = [
-  ['tremolo', TREMOLO.stemBeams, 'momentary'], ['tremolo', g(NOTE_DOWN.sixteenth, undefined, -10), 'momentary'],
-  ['tremolo', TREMOLO.twoNoteQuarters, 'momentary'],
-  ['tremolo', TREMOLO.oneBeam, 'momentary'],
-  ['tremolo', TREMOLO.threeBeams, 'momentary'],
-  ['tremolo', TREMOLO.oneBeamOffset, 'momentary'],
+  ['subdivide', TREMOLO.stemBeams, 'subdivide'], ['beam single', g(NOTE_DOWN.sixteenth, undefined, -10), 'beam', 'single'],
+  ['beam rest', TREMOLO.twoNoteQuarters, 'beamOver'],
+  ['beam begin', TREMOLO.oneBeam, 'beam', 'begin'],
+  ['beam continue', TREMOLO.threeBeams, 'beam', 'continue'],
+  ['beam end', TREMOLO.oneBeamOffset, 'beam', 'end'],
   ['tremolo', TREMOLO.fourTremolos, 'momentary'], ['tremolo', TREMOLO.fiveTremolos, 'momentary'], ['tremolo', TREMOLO.buzzRoll, 'momentary'],
   ['tremolo', TREMOLO.oneTremolo, 'momentary'], ['tremolo', TREMOLO.twoTremolos, 'momentary'], ['tremolo', TREMOLO.threeTremolos, 'momentary'],
   ['tremolo', TREMOLO.tremoloWithNext, 'momentary'],
@@ -315,6 +329,7 @@ const toCells = (page: CellSpec[]): KeypadCell[] =>
     duration: select === 'duration' ? (value as NoteDuration) : undefined,
     accidental: select === 'accidental' ? (value as Accidental) : undefined,
     articulation: select === 'articulation' ? (value as ArticulationType) : undefined,
+    beam: select === 'beam' ? (value as BeamMode) : undefined,
   }))
 
 /**

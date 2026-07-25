@@ -30,4 +30,16 @@ describe('numpad ⇄ Keypad', () => {
       }
     }
   })
+
+  it('the Beams/Tremolos beam cluster is on its keys, by function', () => {
+    // The mapping the beam palette lands on (Sibelius 6's own): * single, 7 begin, 8 continue,
+    // 9 end, / subdivide, - beam-rest. Guards the exact key→function pairing, not just that a cell exists.
+    const at = (code: string) => keypadCellForCode('beamsTremolos', code)
+    expect(at('NumpadMultiply')).toMatchObject({ select: 'beam', beam: 'single' })
+    expect(at('Numpad7')).toMatchObject({ select: 'beam', beam: 'begin' })
+    expect(at('Numpad8')).toMatchObject({ select: 'beam', beam: 'continue' })
+    expect(at('Numpad9')).toMatchObject({ select: 'beam', beam: 'end' })
+    expect(at('NumpadDivide')).toMatchObject({ select: 'subdivide' })
+    expect(at('NumpadSubtract')).toMatchObject({ select: 'beamOver' })
+  })
 })

@@ -13,7 +13,7 @@ The pad is multi-page (Sibelius has several layouts). Today there are two:
 | id | name | what's on it |
 |---|---|---|
 | `noteEntry` | Note entry | durations, accidentals, articulations, tie, rest, dot |
-| `beamsTremolos` | Beams/Tremolos | tremolo and feathered-beam pictures — **unwired**, see below |
+| `beamsTremolos` | Beams/Tremolos | the beam cluster (`/ * - 7 8 9`) is **wired**; the tremolos and feathered beams are pictures, still unwired |
 
 `+` turns the page, from the panel or the pad. Every page carries the same two controls in fixed
 spots — the select arrow (top-left) and the page-turn `+` — injected by `withControls`, so a new
@@ -40,9 +40,9 @@ a state the score doesn't have:
 | armed duration / accidental | `durationSelection` / `accidentalSelection` |
 | articulations (a set) | `articulationSelection` |
 | dot / tie / rest | `dotSelection` / `tieSelection` / `restSelection` |
+| beam mode / subdivide / beam-rest | `beamSelection` (a set) / `subdivideSelection` / `beamOverSelection` |
 | active voice | `voiceSelection` |
 | **which page is showing** | `interactions/keypadPageSelection` |
-| 🚧 an unwired key that was pressed | `windows/keypad/keypadProbe` (temporary) |
 
 The lights flow IN through `interactions/keypadSync.ts`, which recomputes them on every state change
 and pushes them to the seams. Presses flow OUT through the same seams to `PaletteController` — the
@@ -84,15 +84,25 @@ Details worth knowing:
 - A code the pad doesn't define returns `false`, which *declines* the key rather than swallowing it.
 - `NumLock` is deliberately unbound — it's the OS's key — so the select arrow stays mouse-only.
 
-## Page 2 is unwired
+## Page 2: the beam cluster is wired, the tremolos are not
 
-Every Beams/Tremolos cell is `select: 'momentary'`: it does nothing to the score. That is the right
-nothing — a numpad key over an unwired cell must not fall through to some other page's meaning.
+The top-left cluster (`/ * - 7 8 9`) drives the beam palette — the SAME `PaletteController` methods the
+dev toolbar's Beam row calls, which is the point: the beam palette is going away, and the keypad is
+where it lands. The mapping (Sibelius 6's own): `*` single, `7` begin, `8` continue, `9` end, `/`
+subdivide, `-` beam-rest. Their pictures are kept; only the `select` changed. Three seams back them,
+each by how its state is known — `beamSelection` is a **set** (`PaletteToggleSet`), because a note's
+authored beam and the role it engraves are independent and light up to two keys at once, exactly as the
+toolbar row does; `subdivideSelection` and `beamOverSelection` are on/off singles. All three are
+engine-read, so `PaletteController.refresh*` pushes them (on every state change *and* after each toggle,
+since none is a reactive field).
 
-🚧 `keypadProbe` lights the pressed key so you can *see* the key land on the page that's showing.
-It is scaffolding for testing the page-aware routing, it is the one light on the panel that isn't an
-editor state, and it goes when page 2 is wired. Its drawings are documented in `keypadLayouts.ts`
-(named recipes in the `TREMOLO` map, baked to one SVG by `tremoloBake.ts`).
+The tremolos and feathered beams (`1`–`6`, `Enter`, `0`, `.`) are still `select: 'momentary'`: they do
+nothing and show no light. That is the right nothing — a numpad key over an unwired cell must not fall
+through to some other page's meaning. Their drawings are documented in `keypadLayouts.ts` (named recipes
+in the `TREMOLO` map, baked to one SVG by `tremoloBake.ts`).
+
+(The old `keypadProbe` — a temporary light that lit any pressed `momentary` cell so you could see the
+page-aware routing work — is gone now that the cluster lights from real editor state.)
 
 ## Adding to the pad
 

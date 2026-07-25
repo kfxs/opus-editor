@@ -7,6 +7,9 @@ import { articulationSelection } from '../../interactions/articulationSelection'
 import { dotSelection } from '../../interactions/dotSelection'
 import { tieSelection } from '../../interactions/tieSelection'
 import { restSelection } from '../../interactions/restSelection'
+import { beamSelection } from '../../interactions/beamSelection'
+import { subdivideSelection } from '../../interactions/subdivideSelection'
+import { beamOverSelection } from '../../interactions/beamOverSelection'
 import { voiceSelection } from '../../interactions/voiceSelection'
 import { voiceFillColor } from '../../utils/voiceColors'
 import { INDICATOR_INK } from '../../utils/selectionColors'
@@ -14,7 +17,6 @@ import { CHROME } from '../../utils/chromeColors'
 import { keypadPageSelection } from '../../interactions/keypadPageSelection'
 import { keypadPage, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
 import { pressKeypadCell } from './keypadPress'
-import { keypadProbe } from './keypadProbe'
 import { bakeGlyphStack } from './tremoloBake'
 
 /**
@@ -101,8 +103,10 @@ export class KeypadWidget implements Widget {
    *  for the duration or the voice, so a page turned from the numpad (with the panel open) re-lays
    *  this grid without the key press ever addressing the widget. */
   private unsubscribePage: (() => void) | null = null
-  /** 🚧 TEMPORARY, with {@link keypadProbe}: the unwired-key light. */
-  private unsubscribeProbe: (() => void) | null = null
+  /** The page-2 beam cluster: mode set, subdivide, beam-rest. */
+  private unsubscribeBeam: (() => void) | null = null
+  private unsubscribeSubdivide: (() => void) | null = null
+  private unsubscribeBeamOver: (() => void) | null = null
 
   mount(host: HTMLElement): void {
     // A little more air under the title bar than around the rest: the bar is a solid band, and the
@@ -146,9 +150,11 @@ export class KeypadWidget implements Widget {
     // `+`, which the app's shortcut wiring owns now (it must work with the panel shut, so it cannot
     // live here). Either way the seam changes and the panel follows.
     this.unsubscribePage = keypadPageSelection.subscribe(() => this.showPage())
-    // 🚧 The unwired-key light (keypadProbe) — a press from the numpad never touches this widget, so
-    // it too arrives as a subscription. Temporary, goes when page 2 is wired.
-    this.unsubscribeProbe = keypadProbe.subscribe(() => this.paint())
+    // Page 2's beam cluster tracks the editor like every other key — lit from the note under the
+    // cursor / the armed mode, changed from anywhere (this pad, the numpad, the dev toolbar's Beam row).
+    this.unsubscribeBeam = beamSelection.onHighlight(() => this.paint())
+    this.unsubscribeSubdivide = subdivideSelection.onHighlight(() => this.paint())
+    this.unsubscribeBeamOver = beamOverSelection.onHighlight(() => this.paint())
 
     this.paint()
   }
@@ -173,8 +179,12 @@ export class KeypadWidget implements Widget {
     this.unsubscribeVoice = null
     this.unsubscribePage?.()
     this.unsubscribePage = null
-    this.unsubscribeProbe?.()
-    this.unsubscribeProbe = null
+    this.unsubscribeBeam?.()
+    this.unsubscribeBeam = null
+    this.unsubscribeSubdivide?.()
+    this.unsubscribeSubdivide = null
+    this.unsubscribeBeamOver?.()
+    this.unsubscribeBeamOver = null
   }
 
   /**
@@ -233,17 +243,17 @@ export class KeypadWidget implements Widget {
     if (cell.select === 'page') return
 
     this.paint()
-    // Every kind has a light now — the unwired ones carry the temporary probe light (keypadProbe), so
-    // there is no longer a `momentary` case with nothing to report.
+    // Wired keys report their light; an unwired `momentary` cell (a page-2 tremolo) always reads ` off`.
     const state = this.isLit(cell) ? ' on' : ' off'
     dbg(`[keypad] ${cell.action}${state} — key ${cell.key}, voice ${this.voice != null ? VOICES[this.voice] : 'none'}`)
   }
 
   /**
    * Is this key lit? The one place the question is answered, for both {@link paint} and the press log.
-   * By kind: the tool mode (the arrow), the armed duration/accidental/dot, the tie, the rest, and the
-   * active articulations (a set). EVERY light on the panel now comes from an editor store — the
-   * widget holds none of its own, so it cannot show you a state the score does not have.
+   * By kind: the tool mode (the arrow), the armed duration/accidental/dot, the tie, the rest, the active
+   * articulations (a set), and page 2's beam cluster (the beam MODE set, the subdivide, the beam-rest).
+   * EVERY light on the panel comes from an editor store — the widget holds none of its own, so it cannot
+   * show you a state the score does not have. An unwired `momentary` cell (a tremolo) simply stays dark.
    */
   private isLit(cell: KeypadCell): boolean {
     if (cell.select === 'mode') return modeSelection.get() === 'selection'
@@ -252,9 +262,11 @@ export class KeypadWidget implements Widget {
     if (cell.select === 'articulation') return !!cell.articulation && articulationSelection.isActive(cell.articulation)
     if (cell.select === 'dot') return dotSelection.get() === 'dot'
     if (cell.select === 'tie') return tieSelection.get() === 'tie'
-    // 🚧 The one light that is NOT an editor state: an unwired key showing that it was pressed. It is
-    // scaffolding for testing the page-aware numpad and goes when page 2 is wired ({@link keypadProbe}).
-    if (cell.select === 'momentary') return keypadProbe.get() === cell.key
+    if (cell.select === 'beam') return !!cell.beam && beamSelection.isActive(cell.beam)
+    if (cell.select === 'subdivide') return subdivideSelection.get() === 'subdivide'
+    if (cell.select === 'beamOver') return beamOverSelection.get() === 'beamOver'
+    // An unwired key (the tremolos on page 2) shows no light.
+    if (cell.select === 'momentary') return false
     return cell.select === 'rest' && restSelection.get() === 'rest'
   }
 

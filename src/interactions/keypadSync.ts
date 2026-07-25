@@ -14,9 +14,11 @@ import { voiceSelection } from './voiceSelection'
 import { clefSelection } from './clefSelection'
 import { timeSignatureSelection } from './timeSignatureSelection'
 import { tupletSelection } from './tupletSelection'
+import { beamSelection } from './beamSelection'
+import { subdivideSelection } from './subdivideSelection'
+import { beamOverSelection } from './beamOverSelection'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
 import { multipleNotesSelected } from './selection'
-import { keypadProbe } from '../windows/keypad/keypadProbe'
 
 /**
  * The highlight rule, in one place: a palette value is shown only when it means something —
@@ -219,17 +221,16 @@ export function wireKeypadSync(
     palette.refreshArticulationSelection()
     palette.refreshTieSelection()
     palette.refreshRestSelection()
+    // The beam cluster on page 2, all engine-read too: the beam MODE lights the authored beam and the
+    // role it engraves (a set), the subdivide reads `secondaryBreak`, the beam-rest reads `beamOver`.
+    palette.refreshBeamSelection()
+    palette.refreshSubdivideSelection()
+    palette.refreshBeamOverSelection()
   }
   sync() // prime
 
   const stops = [
     subscribe(sync),
-    // 🚧 TEMPORARY, with the unwired-key probe light (windows/keypad/keypadProbe): ANY editor state
-    // change puts it out — Esc, a click on nothing, an arrow-key move, entering a note. A press of an
-    // unwired key writes no state at all, which is exactly what makes this the right signal: the light
-    // survives until something actually happens, and then it stops claiming to be current. Goes when
-    // page 2 is wired and its keys light from the editor like every other key.
-    subscribe(() => keypadProbe.clear()),
     modeSelection.onPress(() => palette.enterSelectionMode()),
     durationSelection.onPress((d) => palette.setDuration(d)),
     accidentalSelection.onPress((a) => palette.setAccidental(a)),
@@ -241,6 +242,11 @@ export function wireKeypadSync(
     }),
     tieSelection.onPress(() => palette.toggleTie()),
     restSelection.onPress(() => palette.pressRest()),
+    // The beam cluster — the SAME palette methods the dev toolbar's Beam row calls, so a press from the
+    // pad, the numpad, or the toolbar all arm/toggle identically.
+    beamSelection.onPress((mode) => palette.setBeam(mode)),
+    subdivideSelection.onPress(() => palette.toggleSecondaryBreak()),
+    beamOverSelection.onPress(() => palette.toggleBeamOver()),
     // Same path as Alt+1..4 / the toolbar: arm the voice for entry, or move the selection into it.
     voiceSelection.onPress((v) => palette.setActiveVoice(v)),
     // armClef, not setClef: the Clef window's OK confirms a choice, it does not toggle a button.
