@@ -207,7 +207,9 @@ export class PlaybackEngine {
     // Flatten the score into sounding notes (shared per-measure clock across ALL staves —
     // see collectScheduledNotes). This pure pass carries ties/legato/dynamics/articulation;
     // here we only convert beats→seconds and hand each note (MIDI straight in) to the player.
-    for (const ev of collectScheduledNotes(this.score)) {
+    // The map goes IN: an unmeasured tremolo's period is physical (seconds), so the collector needs
+    // the same clock this loop converts with — see UNMEASURED_PERIOD_SECONDS.
+    for (const ev of collectScheduledNotes(this.score, this.tempoMap)) {
       const startSeconds = beatsToSeconds(this.tempoMap, ev.startBeats)
       // A note may STRADDLE a tempo change, so its sounding length is the DIFFERENCE of two
       // map lookups — not its beat-length times one rate (that would use the tempo at the

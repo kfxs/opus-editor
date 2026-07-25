@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { collectScheduledNotes, scoreTotalBeats } from './playbackSchedule'
+import { collectScheduledNotes, scoreTotalBeats, UNMEASURED_THRESHOLD } from './playbackSchedule'
+import { durationFlags } from '@/utils/durations'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { Score, TempoMark } from '@/types/music'
 import { buildTempoMap, beatsToSeconds, totalSeconds } from '@/utils/tempoMap'
@@ -156,5 +157,164 @@ describe('scheduling through the tempo map', () => {
     const beats = scoreTotalBeats(fast)
     expect(totalSeconds(buildTempoMap(fast), beats)).toBe(2) // 4 beats @ 120 qpm
     expect(totalSeconds(buildTempoMap(slow), beats)).toBe(4) // 4 beats @ 60 qpm
+  })
+})
+
+/**
+ * TREMOLO PLAYBACK (docs/tremolo-plan.md §5, P3) — one `ScheduledNote` becomes N.
+ *
+ * The whole of §5's reasoning is checkable here, because this collector is pure: no AudioContext, no
+ * Tone, and the tempo map it needs is pure too. What the tests are really pinning is that the period
+ * comes from the note as WRITTEN while the fill covers what SOUNDS — the single decision that makes
+ * tuplets, dots and ties come out exact instead of needing an invented rounding rule.
+ */
+describe('collectScheduledNotes — tremolo', () => {
+  /** Attacks of `midi`, in onset order. */
+  const attacks = (score: Score, midi = C4) =>
+    collectScheduledNotes(score).filter(e => e.midi === midi).sort((a, b) => a.startBeats - b.startBeats)
+
+  /** One note of `duration` at bar 1 beat 0 carrying `strokes`, in an `over/4` bar. */
+  function oneTremoloNote(duration: 'w' | 'h' | 'q' | '8' | '16', strokes: 1 | 2 | 3 | 4 | 5, dots = 0) {
+    const model = new ScoreModel('P')
+    if (duration === 'w') model.setTimeSignature(1, { numerator: 4, denominator: 4 })
+    const note = model.addNote({ step: 'C', octave: 4, duration, dots, measure: 1, beat: frac(0, 1) })
+    model.setTremolo(note.id, strokes)
+    return model.getScore()
+  }
+
+  describe('rule 1 — measured: beams of the repeat = the written flags + the strokes', () => {
+    // §5's table, verbatim. A quarter and an eighth with one stroke BOTH give two attacks — but the
+    // eighth's are twice as fast, because the same two attacks fill half the time.
+    it.each([
+      ['w' as const, 1 as const, 8, 0.5],
+      ['h' as const, 1 as const, 4, 0.5],
+      ['q' as const, 1 as const, 2, 0.5],
+      ['8' as const, 1 as const, 2, 0.25],
+      ['16' as const, 1 as const, 2, 0.125],
+      ['q' as const, 2 as const, 4, 0.25],
+      ['h' as const, 2 as const, 8, 0.25],
+      ['q' as const, 3 as const, 8, 0.125],
+    ])('%s + %i stroke(s) → %i attacks every %f beats', (duration, strokes, count, period) => {
+      const got = attacks(oneTremoloNote(duration, strokes))
+      expect(got).toHaveLength(count)
+      got.forEach((e, i) => expect(e.startBeats).toBeCloseTo(i * period))
+    })
+
+    it('a dotted quarter with one stroke is exactly 3 eighths — no rounding rule needed', () => {
+      const got = attacks(oneTremoloNote('q', 1, 1))
+      expect(got).toHaveLength(3)
+      expect(got.map(e => e.startBeats)).toEqual([0, 0.5, 1])
+    })
+
+    it('fills the note and no more — the last attack stops at the note end', () => {
+      const got = attacks(oneTremoloNote('q', 1))
+      const end = got[got.length - 1].startBeats + got[got.length - 1].durationBeats
+      expect(end).toBeCloseTo(1) // a quarter, not 1.5
+    })
+
+    it('a TUPLET reads the sounding length: a triplet eighth + 1 stroke is 2 attacks in 1/3 beat', () => {
+      const model = new ScoreModel('P')
+      const note = model.addNote({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
+      // Sounding 1/3 of a beat while WRITTEN as an eighth (1/2) — the tuplet ratio.
+      const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
+      slot.actualDuration = frac(1, 3)
+      model.setTremolo(note.id, 1)
+      const got = attacks(model.getScore())
+      expect(got).toHaveLength(2) // NOT 4/3 of an attack
+      expect(got[1].startBeats).toBeCloseTo(1 / 6)
+    })
+
+    it('a TIED note keeps repeating across the tie at its own period', () => {
+      const model = new ScoreModel('P')
+      model.addMeasure()
+      const a = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
+      const b = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+      model.setTremolo(a.id, 1)
+      model.setTremolo(b.id, 1) // both halves carry it (§6) — the continuation must not re-attack twice
+      tie(model.getScore(), a.id, b.id)
+      const got = attacks(model.getScore())
+      // Two beats of eighths, filled from the head: 3, 3.5, 4, 4.5 — and nothing extra from the tail.
+      expect(got.map(e => e.startBeats)).toEqual([3, 3.5, 4, 4.5])
+    })
+
+    it('keeps the CLASSIC readings literal — 32nds, in tempo — which is why the threshold is 4', () => {
+      // Three strokes on a quarter, two on an eighth, one on a sixteenth: the standard rule of thumb
+      // says all three are 32nds, and at a threshold of 4 all three are still MEASURED, so they are
+      // played as real 32nds rather than handed to the physical rate. At 3 they would not be.
+      for (const [duration, strokes] of [['q', 3], ['8', 2], ['16', 1]] as const) {
+        expect(durationFlags(duration) + strokes).toBe(3)
+        expect(durationFlags(duration) + strokes).toBeLessThan(UNMEASURED_THRESHOLD)
+      }
+      // A 32nd is 0.125 beats, whatever note value it was written as.
+      expect(attacks(oneTremoloNote('q', 3))[1].startBeats).toBeCloseTo(0.125)
+      expect(attacks(oneTremoloNote('8', 2))[1].startBeats).toBeCloseTo(0.125)
+      expect(attacks(oneTremoloNote('16', 1))[1].startBeats).toBeCloseTo(0.125)
+    })
+
+    it('leaves a note with no tremolo as exactly one attack', () => {
+      const model = new ScoreModel('P')
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      expect(attacks(model.getScore())).toHaveLength(1)
+    })
+
+    it('repeats every pitch of a CHORD together — the mark is on the event', () => {
+      const model = new ScoreModel('P')
+      const c = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      model.setTremolo(c.id, 1)
+      expect(attacks(model.getScore(), C4).map(e => e.startBeats)).toEqual([0, 0.5])
+      expect(attacks(model.getScore(), E4).map(e => e.startBeats)).toEqual([0, 0.5])
+    })
+  })
+
+  describe('rule 2 — unmeasured: a PHYSICAL period that ignores the tempo', () => {
+    /** A half note carrying `strokes`, at `qpm`. */
+    function atTempo(strokes: 1 | 2 | 3 | 4 | 5 | 'penderecki', qpm: number): Score {
+      const model = new ScoreModel('P')
+      const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+      model.setTremolo(note.id, strokes)
+      const mark: TempoMark = { id: 't', beat: frac(0, 1), text: `${qpm}`, unit: 'q', bpm: qpm }
+      model.getMeasure(1)!.tempos = [mark]
+      return model.getScore()
+    }
+
+    it('crosses the threshold at TOTAL BEAMS, so the same stroke count differs by note value', () => {
+      // A half note carries 0 flags, so its stroke count IS its total beams: 3 stays measured, 4 does
+      // not. An eighth carries 1, so THREE strokes already reach 4 — same mark, different reading.
+      expect(durationFlags('h') + 3).toBeLessThan(UNMEASURED_THRESHOLD)
+      expect(durationFlags('h') + 4).toBeGreaterThanOrEqual(UNMEASURED_THRESHOLD)
+      expect(durationFlags('8') + 3).toBeGreaterThanOrEqual(UNMEASURED_THRESHOLD)
+
+      expect(attacks(oneTremoloNote('h', 3))).toHaveLength(16) // measured: 32nds across 2 beats
+      // Measured 64ths would be 32 attacks; the physical 0.05s rate over 1s gives 20.
+      expect(attacks(oneTremoloNote('h', 4))).toHaveLength(20)
+    })
+
+    it('is FASTER than the fastest measured reading — an extra stroke must never slow the note down', () => {
+      // The constraint that ties the two constants together: at 120 qpm a measured 32nd (3 beams) is
+      // 16 attacks/sec, so the physical rate has to beat that, or 3 strokes → 4 would decelerate.
+      const measured = attacks(oneTremoloNote('h', 3)).length   // 3 beams, in tempo
+      const unmeasured = attacks(oneTremoloNote('h', 4)).length  // 4 beams, physical
+      expect(unmeasured).toBeGreaterThan(measured)
+    })
+
+    it('keeps the REAL-WORLD rate when the tempo halves — the count doubles', () => {
+      const fast = attacks(atTempo(4, 120))
+      const slow = attacks(atTempo(4, 60))
+      // A half note is 1s at 120qpm and 2s at 60qpm; at a fixed 0.05s period that is 20 then 40.
+      expect(fast).toHaveLength(20)
+      expect(slow).toHaveLength(40)
+    })
+
+    it('a MEASURED tremolo does the opposite — same count at any tempo, because it is in beats', () => {
+      expect(attacks(atTempo(1, 120))).toHaveLength(4)
+      expect(attacks(atTempo(1, 60))).toHaveLength(4)
+    })
+
+    it('plays the Penderecki mark at the unmeasured rate rather than silently', () => {
+      // P4 adds the jitter that makes it irregular; until then it is even — right speed, wrong
+      // character — and deliberately not silent.
+      expect(attacks(atTempo('penderecki', 120))).toHaveLength(20)
+    })
   })
 })

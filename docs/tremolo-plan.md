@@ -8,15 +8,15 @@ this doc records only where a tremolo differs. It differs a lot in two places: V
 Penderecki sign and places its strokes wrong for us, and nothing in the playback schedule can express
 a speed that is *physical* rather than metrical — see §4 and §5.
 
-**Status: P0, P1 and P2 are shipped** (§7) — all six marks exist, engrave and arm from the palette,
-and they survive a meter change, a paste, a voice move and a tie-split. Three things this plan did not
-foresee, each recorded where it belongs: the stem became a registered element (§2, the stamp accepts a
-click on it), VexFlow's stroke placement had to be replaced rather than configured (§4), and the
-Penderecki sign turned out to be the same modifier with a different glyph rather than a draw of our
-own (§4).
+**Status: P0–P3 are shipped** (§7) — all six marks exist, engrave, arm from the palette, survive a
+meter change / paste / voice move / tie-split, and **play**: measured as a real subdivision, unmeasured
+at a physical rate that ignores the tempo. Three things this plan did not foresee, each recorded where
+it belongs: the stem became a registered element (§2, the stamp accepts a click on it), VexFlow's
+stroke placement had to be replaced rather than configured (§4), and the Penderecki sign turned out to
+be the same modifier with a different glyph rather than a draw of our own (§4).
 
-**Next is P3 — playback. A tremolo is silent today**, which is now the only thing about it that is
-plainly unfinished.
+**Next is P4** — the Penderecki jitter. Today that mark plays at the unmeasured rate: the right speed
+and the wrong character, deliberately, so it is not silent.
 
 ## 0. Three performances, not two
 
@@ -55,14 +55,11 @@ not the name** — which is decision 3 below, still open. E22A and E22C remain u
 
 ## The decisions still open
 
-1. **The unmeasured threshold.** How many total beams (strokes + the note's own flags) stop being
-   a subdivision and start being "as fast as possible"? Gould reports players assume unmeasured at
-   **three**; Dorico's default minimum is **3** and it is a user preference. Ours starts as one
-   named constant. Set it to 4 instead and three strokes stay measured — that is the whole of the
-   old "three strokes on a half note" question, now a number rather than a special case.
-2. **The unmeasured rate.** A physical speed needs a number. Dorico expresses it as a fraction of a
-   quarter at 120 qpm — default **1/5** (0.1 s, ~10 attacks/sec); NotePerformer suggests 1/8
-   (~16/sec). Nothing before P3 depends on it.
+1. ~~**The unmeasured threshold.**~~ **ANSWERED: 4** — one higher than Gould's and Dorico's 3, so
+   three total beams stays measured. See §5.
+2. ~~**The unmeasured rate.**~~ **ANSWERED: 0.05 s (~20/sec)** — faster than Dorico's 0.1 and
+   NotePerformer's 1/8, *because* the threshold is 4. See §5: the two are one decision.
+   ⏭️ Both are wanted as **user options** eventually — §8.
 3. **The sixth button's glyph** (§0) — E22B as now, or a plain unmeasured sign (E22C) with Penderecki
    as a seventh, or Sibelius's buzz roll (E22A). P2 made all three names agree on E22B; changing the
    answer is now a one-glyph edit in three places, not a rename.
@@ -350,10 +347,27 @@ taller sign, so it may want its own scale.
 
 No new `ElementType` in P0 unless §2's removal decision says otherwise.
 
-## 5. Playback
+## 5. Playback — ✅ DONE (P3), except rule 3's jitter
 
 `collectScheduledNotes` (`src/engine/audio/playbackSchedule.ts`) is pure, Tone-free and
 unit-tested. It is the right seam: one `ScheduledNote` becomes N.
+
+**The two numbers, as chosen.** Both were open decisions, and the second is not independent of the
+first:
+
+| | value | why |
+|---|---|---|
+| `UNMEASURED_THRESHOLD` | **4** | one higher than Gould's and Dorico's 3, so THREE total beams stays measured and the classic readings are played literally — three strokes on a quarter, two on an eighth, one on a sixteenth are all real 32nds, in tempo |
+| `UNMEASURED_PERIOD_SECONDS` | **0.05** (~20/sec) | faster than Dorico's 0.1 and NotePerformer's 1/8, because it MUST beat the fastest measured reading |
+
+⚠️ **They are ONE decision.** With the threshold at 4 the fastest measured reading is a 32nd — 16
+attacks/sec at 120 qpm — so a physical rate at or below that would mean **adding a stroke makes the
+note repeat more slowly**. A test asserts the relation, not just the numbers. Move the threshold down
+to 3 and the constraint loosens; move it up and it tightens.
+
+⚠️ Above roughly 150 qpm a written 32nd is itself faster than 0.05 s, so a measured tremolo out-runs
+an unmeasured one there. That is a statement about the music, not a bug: taking a `min` with the
+measured rate would put the tempo back into rule 2 and undo the whole point of it.
 
 **One number decides which of the three rules applies:**
 
@@ -361,9 +375,11 @@ unit-tested. It is the right seam: one `ScheduledNote` becomes N.
 totalBeams = flags(duration) + strokes        // Penderecki has no strokes; it is always rule 3
 ```
 
-`flags` = 0 for `w`/`h`/`q`, 1 for `'8'`, 2 for `'16'`, 3 for `'32'` — a small helper next to
-`DURATION_INFO` (`utils/durations.ts:50`). `CrossBarBeams.beamCountOf` (`:149`) computes the same
-idea but is private, hardcodes a default of 1 and only handles chords, so it is not reusable as-is.
+`flags` = 0 for `w`/`h`/`q`, 1 for `'8'`, 2 for `'16'`, 3 for `'32'` — `durationFlags` in
+`utils/durations.ts`, DERIVED from `DURATION_INFO` rather than tabulated (a flag is exactly "how many
+halvings below a quarter"), so a `'64'` added to the table gets its 4 for free. Not
+`CrossBarBeams.beamCountOf`, which computes a similar-looking thing but is private, answers 1 (not 0)
+for a quarter because a beam group cannot have zero levels, and takes a slot rather than a duration.
 
 This is the standard reading, not an invention: one total beam = eighths, two = 16ths, three =
 32nds — which is why the Sibelius rule of thumb says *three* strokes on a quarter, *two* on an
@@ -503,9 +519,10 @@ meaningless empty baseline.
   tests, every link proved load-bearing by removing it.
 - **P2 — Penderecki render. ✅ DONE.** E22B through the SAME modifier as the strokes (§4) rather than
   a second draw of our own, plus §0's naming fix. The dev palette's sixth button arms again.
-- **P3 — measured + unmeasured playback.** The `totalBeams` helper, the threshold constant, rule 1's
-  period arithmetic, rule 2's physical rate and the tempo-map conversion. Both rules, together —
-  they share the fill and differ only in where the period comes from.
+- **P3 — measured + unmeasured playback. ✅ DONE.** `durationFlags`, the threshold, rule 1's period
+  arithmetic, rule 2's physical rate and the tempo-map conversion. Both rules together, as planned:
+  they share the fill and differ only in where the period comes from. 31 tests in
+  `playbackSchedule.test.ts` — the whole of §5 is checkable because the collector is pure.
 - **P4 — Penderecki playback.** The injected RNG and the jitter on onset *and* velocity. Nothing
   structural left by then.
 
@@ -518,7 +535,18 @@ meaningless empty baseline.
   have `'stem'`, which is a different thing: the stem is a click TARGET for the stamp, not the mark).
   Clicking a stroke to select or delete it needs registry entries the way articulations have them,
   and that is what §2's removal decision would buy.
-- **The threshold as a preference.** Dorico exposes it; ours is a constant until someone asks.
+- **Both playback numbers as user options** (⏭️ wanted, not built). The threshold and the unmeasured
+  rate should both become settable. Nothing blocks it: they are two named exports read in ONE place
+  (`tremoloPeriodBeats`), and `collectScheduledNotes` already takes an optional second argument, so
+  threading an options object through is a local change plus one call site in `PlaybackEngine`. Two
+  things to decide when it happens, neither urgent:
+    - **Where it lives.** Playback *interpretation*, not notation — so not a `Score` field by the
+      positional rule (`project_score_globals_should_be_positional`) unless it is genuinely meant to
+      travel with the file. Dorico keeps its equivalent in per-project Playback Options; our nearest
+      precedent is `viewMode`, which the engine owns and never persists.
+    - ⚠️ **They must stay COUPLED.** A UI that lets the rate be set at or below the fastest measured
+      reading (a 32nd, at the current threshold) creates a score where ADDING a stroke slows the note
+      down. Validate the pair, or derive the rate from the threshold — do not expose two free numbers.
 - **Keypad wiring.** The page-2 tremolo keys are still `momentary` (`docs/keypad.md`). They arm
   the same `PaletteController.armTremolo` when they are wired — nothing here blocks it, and since P2
   their names match the marks they draw, so the wiring is a lookup rather than a translation.

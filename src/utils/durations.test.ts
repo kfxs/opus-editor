@@ -11,6 +11,7 @@ import {
   getDotMultiplier,
   fitRestDuration,
   splitBeatsIntoLengths,
+  durationFlags,
 } from './durations'
 import { getMeasureDurationFrac } from './musicUtils'
 import { fracCreate, fracAdd, fracEq, fracToNumber } from './fraction'
@@ -49,6 +50,28 @@ describe('DURATION_INFO table', () => {
 describe('DURATIONS_DESC', () => {
   it('is ordered largest → smallest', () => {
     expect(DURATIONS_DESC).toEqual(['w', 'h', 'q', '8', '16', '32'])
+  })
+})
+
+describe('durationFlags', () => {
+  it('counts flags/beams: nothing at a quarter or longer, then one per halving', () => {
+    expect(DURATIONS_DESC.map(durationFlags)).toEqual([0, 0, 0, 1, 2, 3])
+  })
+
+  it('is exact — derived from the table, so no rounding to guard', () => {
+    for (const d of DURATIONS_DESC) expect(Number.isInteger(durationFlags(d))).toBe(true)
+  })
+
+  it('ignores dots by construction: it takes a duration, not a slot', () => {
+    // A dotted eighth is still ONE flag. There is no dots parameter to get wrong.
+    expect(durationFlags('8')).toBe(1)
+  })
+
+  it('is the sum a tremolo adds to: 3 strokes on a quarter = 2 on an eighth = 1 on a 16th', () => {
+    // The standard reading — all three are 32nds (docs/tremolo-plan.md §5).
+    expect(durationFlags('q') + 3).toBe(3)
+    expect(durationFlags('8') + 2).toBe(3)
+    expect(durationFlags('16') + 1).toBe(3)
   })
 })
 

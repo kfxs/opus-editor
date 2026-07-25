@@ -65,6 +65,27 @@ export const DURATIONS_DESC: NoteDuration[] = (Object.keys(DURATION_INFO) as Not
 )
 
 /**
+ * How many **flags/beams** a note of this duration carries: `w`/`h`/`q` → 0, `'8'` → 1,
+ * `'16'` → 2, `'32'` → 3. Dots never change it (a dotted eighth is still one flag).
+ *
+ * The count is what a tremolo's stroke count adds to, to say how finely the note is repeated
+ * (docs/tremolo-plan.md §5): one total beam = eighths, two = 16ths, three = 32nds. It is why the
+ * rule of thumb "three strokes on a quarter, two on an eighth, one on a sixteenth" all mean 32nds.
+ *
+ * DERIVED from {@link DURATION_INFO} rather than tabulated, the same reason {@link DURATIONS_DESC}
+ * is: a flag is exactly "how many halvings below a quarter", so a `'64'` added to the table gets its
+ * 4 for free instead of needing a second list kept in step. Every value is an exact power of two, so
+ * the `log2` is exact — no rounding to guard.
+ *
+ * ⚠️ NOT `CrossBarBeams.beamCountOf`, which looks similar and is not the same question: that one is
+ * private, answers 1 (not 0) for a quarter because a beam group cannot have zero levels, and takes a
+ * slot rather than a duration.
+ */
+export function durationFlags(duration: NoteDuration): number {
+  return Math.max(0, -Math.log2(DURATION_INFO[duration].beats))
+}
+
+/**
  * Exact dot multipliers (× original duration):
  *   0 dots → 1, 1 dot → 3/2, 2 dots → 7/4.
  */
