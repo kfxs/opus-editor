@@ -12,15 +12,13 @@
  *  - {@link CrossBarJoin}, one per crossing group: everything the post-measure pass needs to build
  *    the one real `Beam` over both bars' `StaveNote`s.
  *
- * ## A run is bounded by the system break — and by anything unpainted
+ * ## A run crosses the system break; a `CrossBarJoin` splits at it
  *
- * One `Beam` cannot span two lines, so a bar that opens a system starts a new run: the boundary
- * before it is never even considered, and the notes each side fall back to their ordinary in-bar
- * groups with their flags intact. Same for a bar tier 2 is not painting — an undrawn bar has no
- * `StaveNote`s to beam to, and a placeholder that never gets its beam draws a note with no flag
- * *and no stem*. (Under culling this second case does not arise: a join pins both its bars as span
- * anchors, and a span crossing the window forces its anchors to be drawn. The split is what makes
- * that a fact rather than an assumption.)
+ * One `Beam` cannot span two lines, but a beam *group* can — real engraving hangs a half-beam over
+ * the barline at the end of a line and resumes it on the next. So the run walk stays open across a
+ * system break (the planner is drawn-blind there), and {@link computeSides} partitions each crossing
+ * group into one drawable fragment per line. See {@link splitIntoRuns} for why the break is not a
+ * wall but an unpainted bar still is — within a line.
  *
  * ## Why the whole lane, and not just the pair
  *
@@ -54,20 +52,59 @@ export interface CrossBarJoinMember {
   measureNumber: number
   slotId: string
   lookupId: string
+  /** How many beam lines this note carries (𝅘𝅥𝅮=1, 𝅘𝅥𝅯=2, 𝅘𝅥𝅰=3) — a lone side draws its own count. */
+  beamCount: number
 }
 
-/** One beam group that leaves its bar. */
+/**
+ * One system's worth of a join — the members that landed on a single line, drawn as an independent
+ * half-group with an open end where the beam runs off toward the break
+ * (docs/cross-system-beam-fragments-plan.md).
+ *
+ * A join wholly on one line has exactly one side, open at neither end — which is every join *today*,
+ * because `splitIntoRuns` still walls the run at a system break. The machinery is built ahead of that
+ * wall coming down so the drawer can already speak in sides.
+ */
+export interface CrossBarSide {
+  /** This side's members, in engraved order — a contiguous slice of the join's `members`. */
+  members: CrossBarJoinMember[]
+  /** The measure numbers this side touches, ascending. */
+  measures: number[]
+  /** This side continues to a previous side across a system break (a fragment opens on its left). */
+  openLeft: boolean
+  /** This side continues to a next side across a system break (a fragment opens on its right). */
+  openRight: boolean
+  /** Side-local indices for `Beam.breakSecondaryAt`, re-based from the whole-group indices. */
+  secondaryBreaks: number[]
+  /**
+   * How many beam lines run THROUGH the open end — the count common to both sides at that split
+   * point, so neither side alone decides it. `null` when the end is not open.
+   */
+  crossingLeft: number | null
+  crossingRight: number | null
+  /** Every one of this side's own bars is painted this pass — a side draws iff this holds (P3). */
+  drawable: boolean
+}
+
+/**
+ * One beam group that leaves its bar.
+ *
+ * The group's members, the bars it touches and its secondary breaks are **not** here — they live on
+ * {@link CrossBarSide}, one side per system line, so nothing keeps two descriptions of one group. A
+ * same-line join (every join today) is just a join with a single side. Only `stemDirection` stays a
+ * whole-group fact, because a beam group genuinely has one direction.
+ */
 export interface CrossBarJoin {
   staffIndex: number
   voice: number
-  /** The measure numbers it touches, ascending — the bars it pins as span anchors. */
-  measures: number[]
-  /** Every member, in engraved order. */
-  members: CrossBarJoinMember[]
   /** ONE direction for the whole group, resolved across all its bars. */
   stemDirection: number
-  /** Group-local indices for `Beam.breakSecondaryAt`. */
-  secondaryBreaks: number[]
+  /**
+   * The group partitioned per system line. Exactly one side until the wall comes down (P3); the
+   * planner is drawn-blind across a line break, so a side's own `drawable` — not the run — decides
+   * whether it renders.
+   */
+  sides: CrossBarSide[]
 }
 
 /** What one (measure, staff, voice) lane does about beams. Indices are into {@link laneSlots}. */
@@ -106,6 +143,57 @@ export function laneKey(measureNumber: number, staffIndex: number, voice: number
 /** The `staveNoteMap` key for a slot: a chord is keyed by its pitches, a rest by its own id. */
 function lookupIdOf(slot: ChordRest): string {
   return slot.type === 'chord' ? slot.notes[0]?.id ?? slot.id : slot.id
+}
+
+/** How many beam lines a note carries: 𝅘𝅥𝅮=1, 𝅘𝅥𝅯=2, 𝅘𝅥𝅰=3. Dots do not change it, rests never reach here. */
+function beamCountOf(slot: ChordRest): number {
+  if (slot.type !== 'chord') return 1
+  return slot.duration === '32' ? 3 : slot.duration === '16' ? 2 : 1
+}
+
+/**
+ * Partition a join's members into per-system SIDES — split at every index where the line changes
+ * (docs/cross-system-beam-fragments-plan.md). Members on one line become one side; a break between
+ * two lines opens the side before it on its right and the side after it on its left.
+ *
+ * `secondaryBreaks` (group-local indices) stay whole-group and are handed in rather than recomputed
+ * per side, because a side alone cannot know them — they are re-based here to each side's own start.
+ * The crossing count at a split (the lines common to both sides) is read off each member's own
+ * `beamCount`: a secondary break at the split leaves only the primary crossing; otherwise every level
+ * the two notes either side of it share crosses.
+ */
+export function computeSides(
+  members: CrossBarJoinMember[],
+  lines: number[],
+  drawn: boolean[],
+  secondaryBreaks: number[],
+): CrossBarSide[] {
+  const broken = new Set(secondaryBreaks)
+  // Lines running through the boundary AFTER member g (between g and g+1).
+  const crossingAfter = (g: number): number =>
+    broken.has(g) ? 1 : Math.min(members[g].beamCount, members[g + 1].beamCount)
+
+  const sides: CrossBarSide[] = []
+  let start = 0
+  for (let i = 1; i <= members.length; i++) {
+    if (i < members.length && lines[i] === lines[i - 1]) continue
+    const end = i // this side spans members [start, end)
+    const openLeft = start > 0
+    const openRight = end < members.length
+    sides.push({
+      members: members.slice(start, end),
+      measures: [...new Set(members.slice(start, end).map(m => m.measureNumber))].sort((a, b) => a - b),
+      openLeft,
+      openRight,
+      // A break at `end - 1` straddles the split (it IS the crossing), so it stops at `end - 2`.
+      secondaryBreaks: secondaryBreaks.filter(g => g >= start && g <= end - 2).map(g => g - start),
+      crossingLeft: openLeft ? crossingAfter(start - 1) : null,
+      crossingRight: openRight ? crossingAfter(end - 1) : null,
+      drawable: drawn.slice(start, end).every(Boolean),
+    })
+    start = end
+  }
+  return sides
 }
 
 /**
@@ -163,17 +251,24 @@ export function planCrossBarBeams(
         const forced = forcedPerBar.find((f, i) => f !== undefined && barsTouched.includes(i))
         const stemDirection = stemDirectionFor(unionSlots, first, forced)
 
+        const members: CrossBarJoinMember[] = group.map((ref, i) => ({
+          measureNumber: run[ref.bar].measureNumber,
+          slotId: unionSlots[i].id,
+          lookupId: lookupIdOf(unionSlots[i]),
+          beamCount: beamCountOf(unionSlots[i]),
+        }))
+        const secondaryBreaks = secondaryBreakIndices(unionSlots)
+
         const join: CrossBarJoin = {
           staffIndex: run[0].staffIndex,
           voice,
-          measures: barsTouched.map(i => run[i].measureNumber),
-          members: group.map((ref, i) => ({
-            measureNumber: run[ref.bar].measureNumber,
-            slotId: unionSlots[i].id,
-            lookupId: lookupIdOf(unionSlots[i]),
-          })),
           stemDirection,
-          secondaryBreaks: secondaryBreakIndices(unionSlots),
+          sides: computeSides(
+            members,
+            group.map(ref => run[ref.bar].line),
+            group.map(ref => run[ref.bar].drawn),
+            secondaryBreaks,
+          ),
         }
         joins.push(join)
 
@@ -184,7 +279,7 @@ export function planCrossBarBeams(
           })
           const key = `${run[barIndex].measureNumber}:${run[barIndex].staffIndex}`
           const list = descriptors.get(key) ?? []
-          list.push(`v${voice}/${stemDirection}/${join.members.map(m => m.slotId).join(',')}`)
+          list.push(`v${voice}/${stemDirection}/${members.map(m => m.slotId).join(',')}`)
           descriptors.set(key, list)
         }
       }
@@ -200,9 +295,22 @@ export function planCrossBarBeams(
 }
 
 /**
- * One staff's bars, cut into the stretches a beam may cross: same staff, same system line, all
- * painted. Everything else is a wall, and a bar behind a wall is a run of its own — it still needs
- * its in-bar groups computed.
+ * One staff's bars, cut into the stretches a beam group may run over.
+ *
+ * ## The system break is NOT a wall — the planner is drawn-blind across it
+ *
+ * A `Beam` cannot span two lines, but the *plan* must: the stem direction and the crossing count are
+ * whole-group facts, and side A needs them whether or not side B is on screen. So the run stays open
+ * across a line break, and `computeSides` partitions the group into one fragment per line
+ * (docs/cross-system-beam-fragments-plan.md). Keeping it open costs nothing — nothing is drawn from
+ * the run directly; a side's own `drawable` decides that, and the join it forms is therefore the same
+ * whether or not the next system is culled, which is what keeps the shape-key descriptor scroll-stable.
+ *
+ * ## An unpainted bar IS a wall — but only WITHIN a line
+ *
+ * A real `Beam` needs both bars' `StaveNote`s, so inside a side an undrawn bar still walls the run: a
+ * placeholder whose beam never arrives would draw a note with no flag *and* no stem. Across a line
+ * break the same undrawn bar is harmless — it just becomes an undrawn side that skips itself.
  */
 function splitIntoRuns(bars: CrossBarBar[]): CrossBarBar[][] {
   const runs: CrossBarBar[][] = []
@@ -225,7 +333,9 @@ function splitIntoRuns(bars: CrossBarBar[]): CrossBarBar[][] {
   for (const staffBars of byStaff.values()) {
     for (const bar of staffBars) {
       const previous = current[current.length - 1]
-      if (previous && (previous.line !== bar.line || !previous.drawn || !bar.drawn)) flush()
+      // The `!drawn` wall fires only on a same-line boundary; a line break never flushes.
+      const sameLine = previous && previous.line === bar.line
+      if (sameLine && (!previous.drawn || !bar.drawn)) flush()
       current.push(bar)
     }
     flush()

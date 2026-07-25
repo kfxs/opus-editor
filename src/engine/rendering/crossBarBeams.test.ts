@@ -14,7 +14,7 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
 import { VexFlowRenderer } from './VexFlowRenderer'
-import { planCrossBarBeams, type CrossBarBar } from './CrossBarBeams'
+import { planCrossBarBeams, computeSides, type CrossBarBar, type CrossBarJoinMember } from './CrossBarBeams'
 import { measureShapeKey } from './MeasureRedrawKey'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { Measure } from '@/types/music'
@@ -204,8 +204,10 @@ describe('cross-barline beams — the planner', () => {
 
     const { joins } = joined(model)
     expect(joins).toHaveLength(1)
-    expect(joins[0].measures).toEqual([1, 2])
-    expect(joins[0].members.map(m => m.measureNumber)).toEqual([1, 1, 2, 2])
+    // A same-line join is one whole side; the group's measures and members live there now.
+    expect(joins[0].sides).toHaveLength(1)
+    expect(joins[0].sides[0].measures).toEqual([1, 2])
+    expect(joins[0].sides[0].members.map(m => m.measureNumber)).toEqual([1, 1, 2, 2])
     expect(joins[0].stemDirection).toBe(STEM_UP)
   })
 
@@ -220,21 +222,38 @@ describe('cross-barline beams — the planner', () => {
     expect(lanes.get('2:0:v0')!.crossing).toEqual([{ slots: [0, 1], stemDirection: STEM_UP }])
   })
 
-  it('a SYSTEM BREAK is a wall — the two bars fall back to their own groups, flags intact', () => {
+  it('a SYSTEM BREAK now SPLITS the join into two sides — the half-beam, not a wall (P3)', () => {
     const model = twoBarsOfEighths()
     model.updateNote(noteIdAt(model, 1, 7), { beam: 'continue' })
 
     const { joins, lanes } = joined(model, i => ({ line: i })) // bar 2 opens a new system
-    expect(joins).toHaveLength(0)
-    expect(lanes.get('1:0:v0')!.crossing).toEqual([])
-    expect(lanes.get('1:0:v0')!.inBar, 'and bar 1 beams 2+2+2+2 as it always did')
-      .toEqual([[0, 1], [2, 3], [4, 5], [6, 7]])
+    expect(joins).toHaveLength(1)
+    const [sideA, sideB] = joins[0].sides
+    expect([sideA.measures, sideB.measures], 'one fragment per line').toEqual([[1], [2]])
+    expect([sideA.openRight, sideB.openLeft], 'each opens toward the break').toEqual([true, true])
+    // and the crossing slots are still taken out of bar 1's own in-bar groups.
+    expect(lanes.get('1:0:v0')!.crossing).toEqual([{ slots: [6, 7], stemDirection: STEM_UP }])
+    expect(lanes.get('1:0:v0')!.inBar).toEqual([[0, 1], [2, 3], [4, 5]])
   })
 
-  it('an UNPAINTED bar is a wall too — a placeholder must never outlive the pass', () => {
+  it('a side whose own bar is undrawn does not draw, while its partner side still does (P3)', () => {
+    // The regression bar: side A (line 0, painted) must form and draw its fragment whether or not
+    // the next system is culled — the join is the same, so the shape-key descriptor stays stable.
     const model = twoBarsOfEighths()
     model.updateNote(noteIdAt(model, 1, 7), { beam: 'continue' })
 
+    const { joins } = joined(model, i => ({ line: i, drawn: i === 0 }))
+    expect(joins, 'the join still forms — the planner is drawn-blind across the break').toHaveLength(1)
+    const [sideA, sideB] = joins[0].sides
+    expect(sideA.drawable, 'the painted side draws').toBe(true)
+    expect(sideB.drawable, 'the culled side does not').toBe(false)
+  })
+
+  it('an UNPAINTED bar is a wall too — but only WITHIN a line (P3)', () => {
+    const model = twoBarsOfEighths()
+    model.updateNote(noteIdAt(model, 1, 7), { beam: 'continue' })
+
+    // Same line, bar 2 unpainted: a real Beam needs both bars' notes, so the run still walls here.
     const { joins, lanes } = joined(model, i => ({ drawn: i === 0 }))
     expect(joins).toHaveLength(0)
     expect(lanes.get('1:0:v0')!.crossing).toEqual([])
@@ -287,5 +306,93 @@ describe('cross-barline beams — the planner', () => {
 
   it('an untouched score plans no joins at all', () => {
     expect(joined(twoBarsOfEighths()).joins).toEqual([])
+  })
+
+  it("today's join is whole — one side, open at neither end, drawable", () => {
+    const model = twoBarsOfEighths()
+    model.updateNote(noteIdAt(model, 1, 7), { beam: 'continue' })
+
+    const { joins } = joined(model)
+    expect(joins[0].sides).toHaveLength(1)
+    const [side] = joins[0].sides
+    expect(side.openLeft).toBe(false)
+    expect(side.openRight).toBe(false)
+    expect(side.crossingLeft).toBeNull()
+    expect(side.crossingRight).toBeNull()
+    expect(side.drawable).toBe(true)
+    expect(side.members.map(m => m.measureNumber)).toEqual([1, 1, 2, 2])
+  })
+})
+
+// --- unit: sides, the per-system split (docs/cross-system-beam-fragments-plan.md) ---
+
+describe('cross-system beam fragments — computeSides', () => {
+  // Synthetic members: the wall still keeps real joins single-line, so the split is exercised here,
+  // where lines can be handed in freely. `m` is the measure the member sits in; `beamCount` its levels.
+  const member = (m: number, i: number, beamCount = 1): CrossBarJoinMember =>
+    ({ measureNumber: m, slotId: `s${m}.${i}`, lookupId: `s${m}.${i}`, beamCount })
+
+  it('a split lands exactly where the line changes', () => {
+    const members = [member(1, 0), member(1, 1), member(2, 0), member(2, 1)]
+    const sides = computeSides(members, [0, 0, 1, 1], [true, true, true, true], [])
+
+    expect(sides).toHaveLength(2)
+    expect(sides[0].members.map(m => m.slotId)).toEqual(['s1.0', 's1.1'])
+    expect(sides[1].members.map(m => m.slotId)).toEqual(['s2.0', 's2.1'])
+    expect(sides[0]).toMatchObject({ openLeft: false, openRight: true, measures: [1] })
+    expect(sides[1]).toMatchObject({ openLeft: true, openRight: false, measures: [2] })
+  })
+
+  it('a three-system group yields three sides, the middle one open at BOTH ends', () => {
+    const members = [member(1, 0), member(1, 1), member(2, 0), member(2, 1), member(3, 0), member(3, 1)]
+    const sides = computeSides(members, [0, 0, 1, 1, 2, 2], Array(6).fill(true), [])
+
+    expect(sides).toHaveLength(3)
+    expect(sides.map(s => [s.openLeft, s.openRight])).toEqual([
+      [false, true], [true, true], [true, false],
+    ])
+    expect(sides.map(s => s.measures)).toEqual([[1], [2], [3]])
+  })
+
+  it('one note per side — `♪ | ♪` across the break', () => {
+    const members = [member(1, 0), member(2, 0)]
+    const sides = computeSides(members, [0, 1], [true, true], [])
+
+    expect(sides).toHaveLength(2)
+    expect(sides[0].members).toHaveLength(1)
+    expect(sides[1].members).toHaveLength(1)
+  })
+
+  it('sides re-base their secondary breaks, and a break AT the split is dropped', () => {
+    // Group-local breaks [0, 2, 3] over lines [0,0,0,1,1]: break 0 sits inside side A; break 2
+    // straddles the split (it IS the crossing) and drops; break 3 sits inside side B, re-based to 0.
+    const members = [member(1, 0, 2), member(1, 1, 2), member(1, 2, 2), member(2, 0, 2), member(2, 1, 2)]
+    const sides = computeSides(members, [0, 0, 0, 1, 1], Array(5).fill(true), [0, 2, 3])
+
+    expect(sides[0].secondaryBreaks).toEqual([0])
+    expect(sides[1].secondaryBreaks).toEqual([0])
+  })
+
+  it('the crossing count is the lines common to both sides — min, or 1 when the split is broken', () => {
+    // 𝅘𝅥𝅯 (2) | ♪ (1): only the primary crosses, so the count is 1.
+    const share = computeSides([member(1, 0, 2), member(2, 0, 1)], [0, 1], [true, true], [])
+    expect(share[0].crossingRight).toBe(1)
+    expect(share[1].crossingLeft).toBe(1)
+
+    // 𝅘𝅥𝅯 (2) | 𝅘𝅥𝅯 (2), unbroken: both lines cross.
+    const both = computeSides([member(1, 0, 2), member(2, 0, 2)], [0, 1], [true, true], [])
+    expect(both[0].crossingRight).toBe(2)
+
+    // 𝅘𝅥𝅯 (2) | 𝅘𝅥𝅯 (2), but a secondary break sits AT the split: only the primary crosses.
+    const cut = computeSides([member(1, 0, 2), member(2, 0, 2)], [0, 1], [true, true], [0])
+    expect(cut[0].crossingRight).toBe(1)
+  })
+
+  it('a side is drawable only when every one of its own bars is painted', () => {
+    const members = [member(1, 0), member(1, 1), member(2, 0), member(2, 1)]
+    const sides = computeSides(members, [0, 0, 1, 1], [true, true, false, false], [])
+
+    expect(sides[0].drawable, 'side A is fully painted').toBe(true)
+    expect(sides[1].drawable, 'side B has an unpainted bar').toBe(false)
   })
 })

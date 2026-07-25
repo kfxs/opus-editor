@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, StaveTie, Dot, Barline, ClefNote } from 'vexflow'
+import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, Stem, StaveTie, Dot, Barline, ClefNote } from 'vexflow'
 import { ScoreTuplet, layoutTupletMark, drawTupletMark } from './ScoreTuplet'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
@@ -12,7 +12,7 @@ import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, timeSignatureVexKey, type MeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { computeBeamGroups, secondaryBreakIndices } from '@/utils/beaming'
-import { planCrossBarBeams, laneKey, type CrossBarBeamPlan, type CrossBarJoin, type LaneBeamPlan } from './CrossBarBeams'
+import { planCrossBarBeams, laneKey, type CrossBarBeamPlan, type CrossBarJoin, type CrossBarSide, type LaneBeamPlan } from './CrossBarBeams'
 import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
 import { measureShapeKey } from './MeasureRedrawKey'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
@@ -193,6 +193,26 @@ export function measureGroupKey(measureNumber: number, staffIndex: number): stri
  * each side of the barline) is the canonical case this feature exists for.
  */
 const PLACEHOLDER_BEAM = { postFormat: () => {} } as unknown as Beam
+
+/**
+ * The half-beam a cross-*system* fragment hangs over its open end (docs/cross-system-beam-fragments-plan.md):
+ * a short fixed stub past the edge note's stem, NOT a run to the system edge — a beam the width of a
+ * system reads as a long empty beam, not one going somewhere. VexFlow's own `partialBeamLength` (10px)
+ * is the honest floor; these are tuned by eye.
+ *
+ * The two ends are NOT the same length. A fragment at the **end of a line** (open on its right) has to
+ * cross the closing barline into the empty margin to read as "continued on the next system", so it
+ * runs longer. A fragment at the **start of the next line** (open on its left) only projects a little
+ * left of its first note. `CROSS_SYSTEM_BEAM_WIDTH` mirrors VexFlow's default `beamWidth` for the
+ * lone-note fragment, which has no real `Beam` to read it from.
+ */
+const CROSS_SYSTEM_BEAM_STUB_LINE_END = 22
+const CROSS_SYSTEM_BEAM_STUB_LINE_START = 12
+const CROSS_SYSTEM_BEAM_WIDTH = 5
+
+/** The stub length for an open end, by the direction it points: right (+1) runs off the line end. */
+const crossSystemStub = (direction: number): number =>
+  direction > 0 ? CROSS_SYSTEM_BEAM_STUB_LINE_END : CROSS_SYSTEM_BEAM_STUB_LINE_START
 
 /**
  * **Tier 1** — where one (measure, staff) sits, and the `Stave` that knows its geometry
@@ -1022,19 +1042,22 @@ export class VexFlowRenderer {
 
     // Cross-barline beams. Their bars are known directly (the plan resolved them against this
     // render's own layout), so they are added by number rather than looked up by note id.
-    // One entry per BARLINE it opens, not one per join: a group that crosses two barlines has a
-    // middle bar, and it has to be dragged in by either neighbour being on screen.
+    // One anchor group per SIDE — a split join pins each system's fragment independently — and one
+    // list entry per BARLINE a side opens: a side spanning two barlines has a middle bar, dragged in
+    // by either neighbour being on screen. A one-bar side adds its measure but forces no pair.
     for (const join of joins) {
-      for (let i = 0; i < join.measures.length; i++) {
-        measures.add(join.measures[i])
-        if (i === 0) continue
-        const before = join.measures[i - 1]
-        const after = join.measures[i]
-        list.push({
-          lo: before,
-          hi: after,
-          groups: [measureGroupKey(before, join.staffIndex), measureGroupKey(after, join.staffIndex)],
-        })
+      for (const side of join.sides) {
+        for (let i = 0; i < side.measures.length; i++) {
+          measures.add(side.measures[i])
+          if (i === 0) continue
+          const before = side.measures[i - 1]
+          const after = side.measures[i]
+          list.push({
+            lo: before,
+            hi: after,
+            groups: [measureGroupKey(before, join.staffIndex), measureGroupKey(after, join.staffIndex)],
+          })
+        }
       }
     }
 
@@ -1794,46 +1817,132 @@ export class VexFlowRenderer {
   }
 
   /**
-   * **The post-measure pass** — one real `Beam` per join, over both bars' `StaveNote`s, drawn
-   * outside either measure group. It belongs to neither, exactly as a tie or a slur does.
+   * **The post-measure pass** — one fragment per {@link CrossBarSide}, drawn outside every measure
+   * group. It belongs to no bar, exactly as a tie or a slur does.
    *
-   * Here and not in the second bar's own render, because top-level content is torn down every render
+   * Here and not in a bar's own render, because top-level content is torn down every render
    * (`clearForRender`) while measure groups are **reused**: a beam rebuilt only when its bars are
    * re-engraved would vanish on any pass that reuses them — an edit ten bars away, a scroll, a
    * staff-spacing drag — leaving both bars' notes standing flagless *and* stemless. `staveNoteMap` is
    * replayed for a reused measure, so this pass can rebuild a beam over bars nobody redrew.
+   *
+   * A same-line side is one whole `Beam`, as before. A side open at a system break also hangs a
+   * half-beam stub over its open end; a side of a single note has no `Beam` at all (the constructor
+   * throws on one note) and draws the note's own stem plus the stub (docs/cross-system-beam-fragments-plan.md).
    */
   private drawCrossBarBeams(pass: RenderPass, joins: CrossBarJoin[]): void {
     for (const join of joins) {
-      const staveNotes = join.members
-        .map(member => pass.staveNoteMap.get(member.lookupId)?.staveNote)
-        .filter((staveNote): staveNote is StaveNote => staveNote !== undefined)
-      // A bar that was not painted contributes no StaveNote. The plan already closes the barline in
-      // that case; this is the belt to its braces, and skipping is the only safe answer — a Beam
-      // over half a group would draw stems in mid-air.
-      if (staveNotes.length !== join.members.length) continue
+      for (const side of join.sides) {
+        const staveNotes = side.members
+          .map(member => pass.staveNoteMap.get(member.lookupId)?.staveNote)
+          .filter((staveNote): staveNote is StaveNote => staveNote !== undefined)
+        // A bar that was not painted contributes no StaveNote. A side draws iff all its own bars are
+        // drawn (`side.drawable`), and this is the runtime proof of it — a fragment over half a side
+        // would draw stems in mid-air.
+        if (staveNotes.length !== side.members.length) continue
 
-      try {
-        const beam = new Beam(staveNotes)
-        if (join.secondaryBreaks.length) beam.breakSecondaryAt(join.secondaryBreaks)
-        beam.setContext(pass.context).draw()
-        this.registerCrossBarBeam(beam, join)
-      } catch (beamError) {
-        console.warn(`Could not create cross-barline beam: ${beamError}`)
+        try {
+          if (staveNotes.length >= 2) this.drawCrossBarSideBeam(pass, side, staveNotes)
+          else this.drawCrossBarLoneFragment(pass, side, staveNotes[0])
+        } catch (beamError) {
+          console.warn(`Could not draw cross-barline beam: ${beamError}`)
+        }
       }
     }
   }
 
-  /** Hit-testing entry for a joined beam, filed under the bar it starts in. Added after every
+  /** A side of two or more notes: the real `Beam` (VexFlow draws stems, slope and beam), plus a
+   *  half-beam stub past the edge note's stem at each open end. */
+  private drawCrossBarSideBeam(pass: RenderPass, side: CrossBarSide, staveNotes: StaveNote[]): void {
+    const beam = new Beam(staveNotes)
+    if (side.secondaryBreaks.length) beam.breakSecondaryAt(side.secondaryBreaks)
+    beam.setContext(pass.context).draw()
+
+    // The overhang continues the group's own slope and levels — `drawBeamLines`' arithmetic, with the
+    // line's `end` a fixed stub instead of the next notehead (beam.js:583-612). Every method it reads
+    // is public. `getStemX() - Stem.WIDTH / 2` is the x VexFlow itself ends a beam line at (beam.js:515).
+    const firstStemX = staveNotes[0].getStemX()
+    const beamThickness = beam.renderOptions.beamWidth * beam.getStemDirection()
+    const beamY0 = beam.getBeamYToDraw()
+    const overhang = (edge: StaveNote, direction: number, levels: number) => {
+      const startX = edge.getStemX() - Stem.WIDTH / 2
+      const endX = startX + direction * crossSystemStub(direction)
+      for (let k = 0; k < levels; k++) {
+        const beamY = beamY0 + k * beamThickness * 1.5
+        const startY = beam.getSlopeY(startX, firstStemX, beamY, beam.slope)
+        const endY = beam.getSlopeY(endX, firstStemX, beamY, beam.slope)
+        this.fillBeamQuad(pass.context, startX, startY, endX, endY, beamThickness)
+      }
+    }
+    if (side.openLeft) overhang(staveNotes[0], -1, side.crossingLeft ?? 0)
+    if (side.openRight) overhang(staveNotes[staveNotes.length - 1], 1, side.crossingRight ?? 0)
+
+    this.registerCrossBarBeam(beam, side.measures[0])
+  }
+
+  /**
+   * A side of exactly one note — `♪ | ♪`, the case `new Beam()` throws on. Its placeholder already
+   * suppressed the flag and the stem, so we draw the note's OWN `Stem` (never a hand-drawn line: the
+   * selection highlight resolves a beamed stem by the `Stem` object's SVG group, `getStaveNoteSVGGroup`),
+   * flat at its natural tip, plus a flat stub of the note's own beam count pointing at the break.
+   */
+  private drawCrossBarLoneFragment(pass: RenderPass, side: CrossBarSide, note: StaveNote): void {
+    const stem = note.getStem()
+    if (!stem) return
+    stem.adjustHeightForBeam() // swap the flag's height fudge for the beam's; the tip does not move.
+    stem.setContext(pass.context).drawWithStyle()
+
+    const levels = side.members[0].beamCount
+    const beamThickness = CROSS_SYSTEM_BEAM_WIDTH * note.getStemDirection()
+    const beamY0 = stem.getExtents().topY // the stem tip, flat — a lone note has no slope to continue.
+    const startX = note.getStemX() - Stem.WIDTH / 2
+    let minY = Infinity, maxY = -Infinity
+    const stub = (direction: number) => {
+      const endX = startX + direction * crossSystemStub(direction)
+      for (let k = 0; k < levels; k++) {
+        const beamY = beamY0 + k * beamThickness * 1.5
+        this.fillBeamQuad(pass.context, startX, beamY, endX, beamY, beamThickness)
+        minY = Math.min(minY, beamY, beamY + beamThickness)
+        maxY = Math.max(maxY, beamY, beamY + beamThickness)
+      }
+    }
+    if (side.openLeft) stub(-1)
+    if (side.openRight) stub(1)
+
+    // A lone side has no `Beam` to ask for a bbox — build it from the stub. (x spans both directions
+    // if the note is open on both, which only a middle-of-three-systems lone note is.)
+    const left = startX - (side.openLeft ? crossSystemStub(-1) : 0)
+    const right = startX + (side.openRight ? crossSystemStub(1) : 0)
+    if (minY <= maxY) {
+      this.elementRegistry.add({
+        type: 'beam',
+        measure: side.measures[0],
+        bbox: { x: left, y: minY, width: right - left, height: maxY - minY },
+      })
+    }
+  }
+
+  /** One beam quad, from `drawBeamLines`' vertices (beam.js:596-604): top edge start→end, thickness down. */
+  private fillBeamQuad(ctx: SVGContext, startX: number, startY: number, endX: number, endY: number, thickness: number): void {
+    ctx.beginPath()
+    ctx.moveTo(startX, startY)
+    ctx.lineTo(startX, startY + thickness)
+    ctx.lineTo(endX, endY + thickness)
+    ctx.lineTo(endX, endY)
+    ctx.closePath()
+    ctx.fill()
+  }
+
+  /** Hit-testing entry for a joined beam, filed under the bar its side starts in. Added after every
    *  measure's registry slice was captured, so it is re-added fresh each render and never lands in
    *  a snapshot that could replay it twice. */
-  private registerCrossBarBeam(beam: Beam, join: CrossBarJoin): void {
+  private registerCrossBarBeam(beam: Beam, measure: number): void {
     try {
       const box = beam.getBoundingBox()
       if (box) {
         this.elementRegistry.add({
           type: 'beam',
-          measure: join.measures[0],
+          measure,
           bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
         })
       }
