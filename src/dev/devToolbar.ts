@@ -3,6 +3,7 @@ import type { PaletteController } from '../interactions/PaletteController'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { NoteDuration } from '../types/music'
 import { durationHighlight } from '../interactions/keypadSync'
+import { bakeGlyphStack } from '../windows/keypad/tremoloBake'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 
 /**
@@ -29,6 +30,44 @@ const ON = 'bg-cyan-600 text-white'
 const OFF = 'bg-gray-600 hover:bg-gray-500'
 // (The `ON_DEFAULT` slate state — lit on a value nobody chose — went with the Beam row it served; the
 // Keypad lights the beam cluster in one colour. Restore it here if another row ever needs the third state.)
+
+/**
+ * The tremolo palette's pictures. Glyphs are Bravura first — these are notation, not text, so the
+ * music font MUST lead the stack (utils/fontStack says why the reverse is the rule for words).
+ */
+const TREM_FONT = "Bravura, Academico, 'Noto Music', serif"
+/** The svg's own box, and the button around it. ~1.6× is the Keypad's CELL:GLYPH ratio — the note's
+ *  stem runs past the 26-unit drawing box, and that slack is where it goes. */
+const TREM_GLYPH = 22
+const TREM_BTN = 'w-9 h-9 flex items-center justify-center rounded overflow-hidden'
+
+/** One glyph in a drawing — the shape {@link bakeGlyphStack} takes. */
+type TremLayer = { glyph: string; size?: number; dx?: number; dy?: number }
+
+/**
+ * A down-stem quarter wearing a stroke mark, each layer offset against a 26-unit box (`dy` down,
+ * `dx` right) — the SAME drawing, with the same tuned offsets, that the Keypad's page-2 tremolo keys
+ * use (`struck` in windows/keypad/keypadLayouts). Repeated here rather than imported on purpose:
+ * `dev/` is scaffolding that must stay deletable in one `rm`, so it borrows the drawing but not a
+ * dependency. The codepoints are written out because VexFlow's `Glyphs` map is CJS-only — it is
+ * undefined in the browser.
+ */
+const struck = (stroke: string, dy = 4, size?: number, dx = -2): TremLayer[] =>
+  [{ glyph: '\uE1D6', dy: -10 }, { glyph: stroke, size, dy, dx }]   // E1D6 noteQuarterDown
+
+/**
+ * The four marks. SMuFL `tremolo1`…`tremolo3` are the MEASURED strokes — the stroke count says which
+ * division of the written note you repeat. `pendereckiTremolo` (E22B) is the UNMEASURED one: as fast
+ * as possible, no relation to the written duration, which is why it is a mark of its own here and
+ * not "four strokes".
+ */
+const TREMOLOS: ReadonlyArray<{ id: string; title: string; layers: TremLayer[] }> = [
+  { id: 'one', title: 'Single tremolo — one stroke', layers: struck('\uE220') },
+  { id: 'two', title: 'Second-order tremolo — two strokes', layers: struck('\uE221', 3) },
+  { id: 'three', title: 'Third-order tremolo — three strokes', layers: struck('\uE222', 3) },
+  { id: 'penderecki', title: 'Penderecki tremolo — unmeasured, as fast as possible',
+    layers: struck('\uE22B', 4.5, 30, -1) },
+]
 
 export interface DevToolbarDeps {
   state: EditorState
@@ -192,6 +231,41 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   // same `PaletteController` methods, so nothing behind it changed. The one action with no Keypad key
   // is `setBeam('auto')` — reset a note's authored beam back to the meter's default — which is kept as
   // a method for a future Properties "reset beaming" control (see `PaletteController.setBeam`).
+
+  // --- Tremolo ---
+  /**
+   * ⚠️ UI ONLY — this palette is WIRED TO NOTHING. There is no tremolo in the model, in the renderer or
+   * in playback yet; these four buttons pick one and light it, and that is the whole behaviour. It is
+   * here first so the vocabulary can be looked at and argued with before anything is built behind it,
+   * which is how the beam palette started too.
+   *
+   * The armed pick is a LOCAL let, deliberately NOT an EditorState field: a marking tool belongs in the
+   * `selectedMarkingTool` union (interactions/EditorState), and adding it there is the first real wiring
+   * step, not a scaffolding one. Nothing outside this closure can see it, so nothing can quietly start
+   * depending on it.
+   */
+  let armedTremolo: string | null = null
+  const tremBox = group('Tremolo:')
+  for (const t of TREMOLOS) {
+    const b = el('button', TREM_BTN)
+    b.title = t.title
+    // The picture is baked the same way the Keypad bakes its own: one svg in a 26-unit box, the
+    // button sized ~1.6× it so the stem overflowing that box has somewhere to go (KeypadWidget's
+    // CELL:GLYPH ratio), with the button clipping whatever still runs past.
+    const svg = bakeGlyphStack(t.layers, TREM_FONT)
+    svg.style.width = `${TREM_GLYPH}px`
+    svg.style.height = `${TREM_GLYPH}px`
+    b.appendChild(svg)
+    // Pressing the lit one turns it OFF — with nothing behind the palette an armed pick you cannot
+    // clear is just a stuck button.
+    b.addEventListener('click', () => {
+      armedTremolo = armedTremolo === t.id ? null : t.id
+      sync()
+    })
+    syncers.push(() => { b.className = `${TREM_BTN} ${armedTremolo === t.id ? ON : OFF}` })
+    tremBox.appendChild(b)
+  }
+  row.appendChild(tremBox)
 
   /**
    * The two structure groups below are driven by DIFFERENT measure-selection gestures, because they
