@@ -212,69 +212,68 @@ The `beam rest` button is **selection-only** and the exact **inverse population*
 filters to keep rests and drops notes, because a rest is the only thing it applies to. It reports the
 authored flag; whether a beam actually runs over the rest depends on its neighbours (see the two rules).
 
-## The palette (dev shell)
+## The controls: the Keypad (the dev palette is gone)
 
-The `Beam:` row in `dev/devToolbar.ts` reads `beamHighlight(state)` (in `interactions/keypadSync`,
-beside `durationHighlight`), which follows the shared single-selection rule:
+The beam controls live on the **Keypad's Beams/Tremolos page** — `single`/`begin`/`continue`/`end` on
+`* 7 8 9`, `subdivide` on `/`, `beam rest` on `-` (docs/keypad.md). The `Beam:` row in
+`dev/devToolbar.ts` that first exposed them was a dev tool and was **removed** once the Keypad took the
+cluster over; the rules below are the same, they just light Keypad keys now instead of toolbar buttons.
+
+⚠️ **`auto` has no key.** The reset — clear a note's authored beam back to the meter's default —
+`setBeam('auto')` is still a live method, but neither the Keypad nor anything else surfaces it now that
+the dev row is gone. It is a `TODO` on `PaletteController.setBeam` to add a "reset beaming" control to
+the Properties window; until then an authored `begin`/`continue`/`end`/`single` cannot be cleared.
+
+The lit rule is the shared single-selection one (`beamHighlight` in `interactions/keypadSync`):
 
 - **entry mode** — the armed value, what the next note will carry;
-- **selection mode, one note** — that note's own beam, synced by
-  `SelectionController.syncPaletteToNote`. ⚠️ it reads the engine's projection, because
-  `getMeasureNotes` does *not* carry `beam` — reading it there hands back `undefined` for every
-  note and looks fixed while doing nothing;
-- **nothing, or several notes selected** — nothing lit. `BeamMode` has no "none", so an ungated row
-  would always have a button lit, claiming a selection that isn't there is auto-beamed.
+- **selection mode, one note** — that note's own beam, synced by `SelectionController.syncPaletteToNote`.
+  ⚠️ it reads the engine's projection, because `getMeasureNotes` does *not* carry `beam` — reading it
+  there hands back `undefined` for every note and looks fixed while doing nothing;
+- **nothing, or several notes selected** — nothing lit. `BeamMode` has no "none", so an ungated control
+  would always have a key lit, claiming a selection that isn't there is auto-beamed.
 
-`auto` lights in slate rather than the cyan of the explicit modes: it is the value a note has when
-it has *no* beam of its own, and it must not read as an authored choice.
+### Two facts (2026-07-24)
 
-### Two facts, two lit buttons (2026-07-24)
+The rule above answers one question — *did anyone author a beam here?* — and on its own that is not
+quality information. Eight auto eighths in 4/4 are beamed 2+2+2+2; every one of them reports `auto`, so
+it says nothing about the four beams you can see on the staff, nor that the first of each pair *begins*
+a beam and the second *ends* it.
 
-The row above answers one question — *did anyone author a beam here?* — and on its own that is not
-quality information. Eight auto eighths in 4/4 are beamed 2+2+2+2; every one of them reports `auto`,
-so the row says nothing about the four beams you can see on the staff, and nothing about the fact
-that the first of each pair *begins* a beam and the second *ends* it.
-
-So the row answers a second, independent question at the same time: *what is this note's beam?* —
+So a second, independent question is answered at the same time: *what is this note's beam?* —
 `beamRoleAt` in `utils/beaming.ts` (pure), reached through `ScoreModel.getBeamRole(noteId)` and the
 `beamRoleHighlight` rule beside `beamHighlight`. First index of its group → `begin`, last → `end`,
 between → `continue`, in no group → `single`. There is no `auto` role: `auto` is the absence of a
 choice, not a thing a note can be.
 
-The colour carries which fact lit the button:
-
-- **cyan** — you authored this;
-- **slate** — this is the case and nobody chose it: `auto`, and the role.
-
-`auto` + slate `begin` reads as one sentence. And the two can **disagree** — an orphaned `end` with
-nothing behind it is authored `end` (cyan) and engraved `single` (slate), which is how a mark that
-did nothing announces itself.
+Both facts light at once — the Keypad's `beamSelection` is a **set** (`PaletteController.refreshBeamSelection`
+unions `beamHighlight` and `beamRoleHighlight`), so up to two keys light, exactly as the removed toolbar
+row did. The old row also *coloured* the difference (cyan = authored, slate = the case nobody chose);
+the Keypad lights in one colour, so that nuance is dropped — the two-fact model is intact, only its
+display simplified. And the two can still **disagree** — an orphaned `end` with nothing behind it is
+authored `end` and engraved `single`, which is how a mark that did nothing announces itself.
 
 Two things the role must get right. It is read **live** from the engine on every sync, never mirrored
 into `EditorState`: it is a property of the score, and editing the *neighbour* changes it. And it is
-computed over the run the renderer actually beams — **one voice of one staff, sorted by beat, across
-the whole lane** (`beamRoleAtRef`) — or a voice-2 note gets scored against voice 1's grouping, and a
-note beamed through a barline reports the `end` its own bar would call it while the staff shows
-`continue`.
+computed over the run the renderer actually beams — **one voice of one staff, sorted by beat, across the
+whole lane** (`beamRoleAtRef`) — or a voice-2 note gets scored against voice 1's grouping, and a note
+beamed through a barline reports the `end` its own bar would call it while the staff shows `continue`.
 
-Selection mode with a single note only. In entry mode `beamHighlight` shows the *armed* beam — the
-beam of a note that does not exist yet — and there is no role to pair it with.
+Selection mode with a single note only. In entry mode `beamHighlight` shows the *armed* beam — the beam
+of a note that does not exist yet — and there is no role to pair it with.
 
-### A rest darkens the whole row
+### A rest darkens the beam keys
 
 You cannot beam silence, so a selected rest has no beam to author and no role to be in: **both** facts
 go null (`getBeamRole` returns null for a rest slot; `beamHighlight` takes a `BeamSource` so it can
-ask). `auto` lit over a rest would be the row answering a question the note never asked, and offering
-a control that does nothing — `setBeam` has always skipped rests.
-
-The **one** control that lights for a rest and darkens for a note is `beam rest` (`beamOverHighlight`),
-the mirror image — see "Beaming over a rest". Everything else in the row is about a note; that one is
-about a rest.
+ask). Lighting a beam-mode key over a rest would answer a question the note never asked — `setBeam` has
+always skipped rests. The **one** key that lights for a rest and darkens for a note is `beam rest`
+(`beamOverHighlight`), the mirror image — see "Beaming over a rest".
 
 ### A press applies to the whole selection
 
-The row is dark for a multi-selection — no single value stands for a set — but a **press** is not a
-reading. `setBeam` applies to every selected note in one `runBatch`, like every other multi-select
+The controls are dark for a multi-selection — no single value stands for a set — but a **press** is not
+a reading. `setBeam` applies to every selected note in one `runBatch`, like every other multi-select
 action, because beaming is a statement about a *run* of notes: "select the group, press begin" is the
 gesture. It used to write only `selectedNoteId`, leaving the other five notes of a selected six
 untouched. Rests in the selection are filtered out rather than refusing the whole press.

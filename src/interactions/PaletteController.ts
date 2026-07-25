@@ -1100,6 +1100,13 @@ export class PaletteController {
    * up a rest along with its neighbours should still beam the notes. Only if there is nothing but
    * rests does nothing happen. (The palette row is dark for a multi-selection — no single value can
    * stand for a set — but a PRESS is not a reading, and it still means "make them all this".)
+   *
+   * ⚠️ TODO — `beam: 'auto'` (reset a note's authored beam back to the meter's default) has NO UI.
+   * The Keypad's Beams/Tremolos page wires `single`/`begin`/`continue`/`end` but has no `auto` key,
+   * and the dev-toolbar beam row that used to expose it was removed when the Keypad took over the
+   * cluster. The method still handles `'auto'` (updateNote clears the field), so the reset is one call
+   * away — it just needs a home. Surface it as a "reset beaming" control in the Properties window when
+   * that lands; until then a note's authored begin/continue/end/single cannot be cleared from any UI.
    */
   setBeam(beam: BeamMode): void {
     this.state.selectedBeam = beam

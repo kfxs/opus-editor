@@ -1,8 +1,8 @@
 import type { EditorState } from '../interactions/EditorState'
 import type { PaletteController } from '../interactions/PaletteController'
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { BeamMode, NoteDuration } from '../types/music'
-import { beamHighlight, beamRoleHighlight, beamOverHighlight, durationHighlight, secondaryBreakHighlight } from '../interactions/keypadSync'
+import type { NoteDuration } from '../types/music'
+import { durationHighlight } from '../interactions/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 
 /**
@@ -27,14 +27,8 @@ import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 /** The lit / unlit halves of a toggle button, kept whole for Tailwind's scanner. */
 const ON = 'bg-cyan-600 text-white'
 const OFF = 'bg-gray-600 hover:bg-gray-500'
-/**
- * A third state: lit, but lit on the DEFAULT. Used by the Beam row, the one place here that lights a
- * value nobody chose — `auto` (what a note has when it has no beam of its own) and the note's actual
- * beam role (what the grouping made of it). Lighting either in the same cyan as an authored
- * `begin`/`end` would report a decision where there is none. Slate says *this is the case, and it is
- * the absence of a choice* — the same distinction the model makes by storing `auto` as no field.
- */
-const ON_DEFAULT = 'bg-slate-400 text-slate-900'
+// (The `ON_DEFAULT` slate state — lit on a value nobody chose — went with the Beam row it served; the
+// Keypad lights the beam cluster in one colour. Restore it here if another row ever needs the third state.)
 
 export interface DevToolbarDeps {
   state: EditorState
@@ -193,47 +187,11 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   row.appendChild(durBox)
 
   // --- Beam ---
-  const BEAMS: readonly BeamMode[] = ['auto', 'single', 'begin', 'continue', 'end']
-  const beamBox = group('Beam:')
-  for (const b of BEAMS) {
-    // TWO facts, two lit buttons — they are independent and the row is worthless with only the first:
-    //
-    //  • `beamHighlight` — what was AUTHORED. In selection mode the selected note's own beam
-    //    (SelectionController syncs it), nothing at all when there is no single note to report on
-    //    ('auto' is a real BeamMode, so an ungated row would claim a selection that isn't there is
-    //    auto-beamed). Lit in cyan, except `auto` (see ON_DEFAULT), which is the value a note has
-    //    when it has none and must not read as an authored beam.
-    //  • `beamRoleHighlight` — what the note ACTUALLY is, from the engraved grouping. Four auto
-    //    eighths beamed 2+2 all answer `auto` to the first question while one begins a beam and the
-    //    next ends it; without this the row is silent about the thing you can see on the staff.
-    //
-    // The role lights in the DEFAULT colour too, and that is the whole visual grammar: slate is
-    // "this is the case, nobody chose it", cyan is "you chose this". `auto` + slate `begin` reads as
-    // one sentence — nobody decided, and it begins a beam. When the two disagree (an orphaned `end`
-    // engraves as `single`) you get a cyan and a slate button, which is how a mark that did nothing
-    // announces itself.
-    //
-    // A selected REST darkens the WHOLE row, both facts: you cannot beam silence, so a rest has no
-    // beam to author (setBeam refuses it) and no role to be in.
-    toggle(beamBox, 'px-2 py-1 rounded text-xs', b, `Beam: ${b}`,
-      () => beamHighlight(state, getEngine()) === b || beamRoleHighlight(state, getEngine()) === b,
-      () => palette.setBeam(b),
-      () => (beamHighlight(state, getEngine()) === b && b !== 'auto' ? ON : ON_DEFAULT))
-  }
-  // The OTHER beam axis, so it sits in the same box but apart from the five modes: the mode says
-  // WHICH notes are beamed together, this says HOW MANY LINES join them — six sixteenths under one
-  // primary beam, the secondary broken 3+3. Plain cyan, no default colour: there is no `auto` here,
-  // the flag is on the note or it is not. Selection-only, hence no lit state in entry mode.
-  beamBox.appendChild(el('div', 'border-l border-gray-600 self-stretch'))
-  toggle(beamBox, 'px-2 py-1 rounded text-xs', 'subdivide',
-    'Break secondary beams in front of this note (the primary beam runs through) — 6 sixteenths as 3+3',
-    () => secondaryBreakHighlight(state, getEngine()), () => palette.toggleSecondaryBreak())
-  // REST-only, the inverse population of the whole row above (which darkens for a rest): beam over
-  // the selected rest instead of breaking at it. Only shows when the rest is interior to a group.
-  toggle(beamBox, 'px-2 py-1 rounded text-xs', 'beam rest',
-    'Beam OVER this rest instead of breaking the beam at it (the "beamed rest") — ♪ 𝄾 ♪ ♪ as one beam',
-    () => beamOverHighlight(state, getEngine()), () => palette.toggleBeamOver())
-  row.appendChild(beamBox)
+  // REMOVED: the beam palette (auto/single/begin/continue/end + subdivide + beam-rest) was a DEV tool,
+  // and every one of its actions now lives on the Keypad's Beams/Tremolos page (docs/keypad.md) — the
+  // same `PaletteController` methods, so nothing behind it changed. The one action with no Keypad key
+  // is `setBeam('auto')` — reset a note's authored beam back to the meter's default — which is kept as
+  // a method for a future Properties "reset beaming" control (see `PaletteController.setBeam`).
 
   /**
    * The two structure groups below are driven by DIFFERENT measure-selection gestures, because they
