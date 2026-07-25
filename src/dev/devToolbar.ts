@@ -408,9 +408,35 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   sync()
   const unsubscribe = onStateChange(sync)
 
+  /**
+   * ⚠️ TWO SOURCES, and the toolbar had only one. A button that shows what the SELECTED NOTE carries
+   * can go stale in two ways: the selection moves to a different note (state), or the SAME note is
+   * edited under it (model). The second never reaches an EditorState subscriber — changing a selected
+   * note's tremolo writes the SCORE and no top-level state field, so the Proxy never emits and the
+   * row kept lighting the old mark (reported by eye).
+   *
+   * That is what `MusicEngine.onModelChange` exists for, and what `wireSelectionInspection` already
+   * does for the Properties window; this is the same two-source shape, borrowed rather than invented.
+   * Every engine-reading syncer benefits — the tremolo row, the pair button, and the Measure/Staff
+   * enable states.
+   *
+   * The engine may not exist yet at mount (App.ts creates it later), so the subscription is taken
+   * LAZILY, on the first state change that finds one.
+   */
+  let stopModel: (() => void) | null = null
+  const attachModel = () => {
+    if (stopModel) return
+    const engine = getEngine()
+    if (engine) stopModel = engine.onModelChange(sync)
+  }
+  attachModel()
+  const unsubscribeAttach = onStateChange(attachModel)
+
   return {
     destroy(): void {
       unsubscribe()
+      unsubscribeAttach()
+      stopModel?.()
       row.remove()
     },
   }

@@ -233,7 +233,7 @@ of them matter:
 Nothing here depends on the measured/unmeasured reading — the strokes are the strokes. That split
 exists only in playback.
 
-### ⚠️ Where the strokes actually go — four corrections, every one found by eye
+### ⚠️ Where the strokes actually go — six corrections, every one found by eye
 
 None of these is visible in a test: jsdom cannot measure glyphs, so a placement assertion passes
 vacuously. (The one thing here that *is* testable is the bounding box — see the trap below.)
@@ -258,6 +258,26 @@ exists to fix. Each step below was a separate wrong-looking render, in this orde
 4. **The stem is sometimes too short for the strokes at all** — and it takes two different stretches
    to fix, one for a flag in the way and one for a stack that simply does not fit. Both are Gould's
    rule 2; see the table below, which is where the numbers live.
+5. **A STEMLESS note has no stem to sit on — centre the strokes on the NOTEHEAD.** The x above is the
+   stem's: the notehead's right edge for stem-up, its left for stem-down. That is exactly where a
+   stem is drawn, and *beside the head* where there is none, so a whole note wore its strokes hanging
+   off the side. `hasStem()` picks between them.
+6. **…and it still gets the FIT stretch.** `applyTremoloStemStretch` opened with
+   `if (!staveNote.hasStem()) continue`, so a whole note was skipped entirely and five strokes ran
+   into its notehead — while the same five on a quarter were fine, because only the quarter was being
+   extended.
+
+⭐ **5 and 6 are ONE fact with two halves, and it is the same one the two-note pair had to learn:** a
+stemless note has stem **extents** but no stem **ink**. VexFlow builds the `Stem` object for a whole
+note regardless, so `getStemExtents()` reports exactly where a stem *would* run — which is a real
+vertical span the strokes hang off and can overflow, and which `setExtension` moves while drawing
+nothing. What does not exist is anything at the stem's **x**. So: height from the imaginary stem,
+x from the notehead. (docs/two-note-tremolo-plan.md §2 reached the same split from the other side.)
+
+⚠️ **NOTHING MOVES UNLESS IT HAS TO.** Both stretches are shortfalls — `max(0, needed − usable)` — so
+a mark that already fits its stem is left exactly where it was. Only the case that would collide is
+adjusted, which is the rule: *"don't move for all… just in the case the tremolo collides with the
+note."*
 
 ⚠️ **Neither stretch can be applied at build time.** `hasFlag()` reads `!this.beam`, and the Beam
 objects do not exist when `NoteBuilder` attaches the modifier — so every note *about to be beamed*
@@ -293,7 +313,9 @@ Separate rules with **opposite** treatments of the strokes, which is why they ar
 FIT is where the numbers come from measurement and only the clearance is chosen: `strokeStackHeight`
 measures the glyph, `usableStemSpan` the stem. It fires on notes with **no flag and no beam** — a
 plain quarter offers ~30px from notehead edge to tip and four or five strokes need ~33, so the
-overflow is not a flag problem at all. FLAG fires on a lone eighth/16th/32nd. A flagged note that
+overflow is not a flag problem at all. ⚠️ And on **stemless** notes, which have the same ~30px of
+imaginary stem and the same overflow; excluding them was a bug. FLAG fires on a lone eighth/16th/32nd
+and cannot fire on a stemless note, which has no flag either — so that half needs no case. A flagged note that
 also overflows gets both, and the strokes compensate for only the flag half.
 
 ⚠️ A BEAMED note is included and **the beam follows**: `Beam.postFormat` has not run at that point
@@ -710,6 +732,21 @@ are about to stamp:
     3. otherwise the single selected note's own mark.
   Live-read from the engine like the articulation / tie / beam-role highlights: a stamp, a Delete or
   an undo all change the mark without going near the palette.
+
+🚨 **AND LIVE-READING IS ONLY HALF OF IT — THE ROW NEEDS TWO SUBSCRIPTIONS.** Reading the engine is
+useless if nothing tells you to read it again. The dev shell subscribed to `onStateChange` alone, and
+changing a selected note's tremolo writes the SCORE and no top-level EditorState field — so the
+observable Proxy never emits, the row never re-syncs, and it keeps lighting the OLD mark. (Reported by
+eye. Removing the mark *did* update, which is what made it look inconsistent: that branch happens to
+write `selectedTremoloNoteId = null`.)
+
+A control that shows what the selected note CARRIES can go stale in two ways, and they are different
+signals: the selection moves to another note (**state**), or the same note is edited under it
+(**model**). `MusicEngine.onModelChange` is the second, and its own doc calls out exactly this trap.
+So the toolbar takes both — the shape `wireSelectionInspection` already uses for the Properties
+window, borrowed rather than invented, with the model subscription taken LAZILY because the engine
+does not exist at mount. ⚠️ Every engine-reading control in that row was equally blind, not just the
+tremolo: the two-note pair button and the Measure/Staff enable states too.
 
 ### ⏭️ What P5/P6/P7 deliberately did not do
 

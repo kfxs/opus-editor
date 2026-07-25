@@ -196,8 +196,17 @@ export class CenteredTremolo extends Tremolo {
     // Signed: positive steps DOWN for a stem-up note, up for stem-down — i.e. always tip → notehead,
     // exactly as VexFlow's loop walks. So the centring below needs no per-direction case.
     const ySpacing = Metrics.get('Tremolo.spacing') * stemDirection * scale
-    const x = note.getAbsoluteX()
-      + (stemDirection === Stem.UP ? note.getGlyphWidth() - Stem.WIDTH / 2 : Stem.WIDTH / 2)
+    // ⚠️ A STEMLESS NOTE HAS NO STEM TO SIT ON. The stem x is the notehead's right EDGE (stem-up) or
+    // its left (stem-down) — right where the stem is drawn, and beside the head where it is not. On a
+    // whole note that leaves the strokes hanging off the side of the notehead instead of over it
+    // (reported by eye). So a note with no stem centres them on the head.
+    //
+    // The same distinction the two-note pair had to make: a stemless note has stem EXTENTS to borrow
+    // a height from — VexFlow builds the `Stem` object regardless — but no stem INK to line up with.
+    // Height from the imaginary stem, x from the notehead.
+    const x = note.hasStem()
+      ? note.getAbsoluteX() + (stemDirection === Stem.UP ? note.getGlyphWidth() - Stem.WIDTH / 2 : Stem.WIDTH / 2)
+      : note.getAbsoluteX() + note.getGlyphWidth() / 2
 
     const { ascent, descent } = this.measureStroke(scale)
 

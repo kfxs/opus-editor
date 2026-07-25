@@ -705,8 +705,12 @@ export class VexFlowRenderer {
       const slot = sortedSlots[i]
       if (slot.type !== 'chord' || !slot.tremolo) continue
       const staveNote = staveNotes[i]
-      if (!staveNote.hasStem()) continue
-
+      // ⚠️ NO `hasStem()` GUARD. A whole note has no stem to SEE, but the strokes are still placed by
+      // `usableStemSpan` — off the imaginary stem VexFlow builds anyway — so it still has a span they
+      // can overflow. Skipping it here is why five strokes on a whole note ran into the notehead
+      // (reported by eye) while the same five on a quarter were fine: only the quarter got the fit
+      // stretch. Extending an invisible stem draws nothing and moves the imaginary tip, which is
+      // exactly the room the stack needs.
       const mark = staveNote.getModifiers().find(m => m instanceof CenteredTremolo)
       const stem = staveNote.getStem()
       if (!mark || !stem) continue
@@ -714,7 +718,11 @@ export class VexFlowRenderer {
       const staffSpace = staveNote.getStave()?.getSpacingBetweenLines() ?? 10
       const needed = mark.strokeStackHeight() + 2 * TREMOLO_STROKE_CLEARANCE * staffSpace
       const fitStretch = Math.max(0, needed - usableStemSpan(staveNote).length)
+      // A stemless note has no flag either, so this half is naturally 0 there — no case needed.
       const flagStretch = staveNote.hasFlag() ? staveNote.getStemLength() * TREMOLO_FLAG_STEM_STRETCH : 0
+      // ⭐ NOTHING MOVES UNLESS IT HAS TO. Both halves are shortfalls, so a mark that already fits its
+      // stem is left exactly where it was — the vertical placement everywhere else is right, and only
+      // the case that would collide is adjusted (his rule).
       if (fitStretch === 0 && flagStretch === 0) continue
 
       stem.setExtension(stem.getExtension() + fitStretch + flagStretch)
