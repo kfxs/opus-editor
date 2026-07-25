@@ -372,6 +372,19 @@ export function wireShortcuts(
         state.selectedDotNoteId = null
         selection.selectNote(noteId)
         renderer.renderScore()
+      } else if (state.selectedTremoloNoteId && eng) {
+        // The whole mark goes, whatever it was: a tremolo is ONE value on the slot, so there is no
+        // "remove a stroke" here — that is a different edit (change the mark), and it belongs to the
+        // palette/Keypad rather than to Delete. Keeps the note selected afterwards, like the
+        // accidental and the dot above, so the obvious next thing (stamp a different mark) is one
+        // press away. Until this landed, a stamped tremolo could only be taken off with Ctrl+Z
+        // (docs/tremolo-plan.md §2).
+        const noteId = state.selectedTremoloNoteId
+        eng.setTremolo(noteId, null)
+        state.selectedTremoloNoteId = null
+        selection.selectNote(noteId)
+        dbg(`✓ Tremolo removed | noteId:${noteId}`)
+        renderer.renderScore()
       } else if (state.selectedTieFromNoteId && eng) {
         eng.toggleTie(state.selectedTieFromNoteId)
         state.selectedTieFromNoteId = null
