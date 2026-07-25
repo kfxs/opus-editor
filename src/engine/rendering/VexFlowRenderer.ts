@@ -1,6 +1,6 @@
 import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, Stem, StaveTie, Dot, Barline, ClefNote } from 'vexflow'
 import { ScoreTuplet, layoutTupletMark, drawTupletMark } from './ScoreTuplet'
-import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH } from './CenteredTremolo'
+import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
@@ -663,17 +663,33 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Give every FLAGGED tremolo note a longer stem, so its flag stops reaching into the strokes.
+   * Lengthen a tremolo note's stem — Gould's "extend a stem if necessary so that the tremolo strokes
+   * are clear of tails and beams", in the TWO shapes that turn out to need it. They are separate
+   * rules with opposite treatments, and conflating them is how one of them stops working:
    *
-   * The rule, in order: place the strokes normally, extend the stem by
-   * {@link TREMOLO_FLAG_STEM_STRETCH} of its length, and let the flag follow the new tip — Gould's
-   * "extend a stem if necessary so that the tremolo strokes are clear of tails and beams" with a
-   * number chosen for it. `drawFlag` reads `stem.getHeight()`, so the flag moves for free; the
-   * strokes are told to STAY, which is what turns the whole stretch into clearance
-   * ({@link CenteredTremolo.setStemStretch}).
+   * **FIT** — the stack is taller than the usable stem. Four or five strokes need ~33px and a plain
+   * quarter's stem offers ~30 from the notehead's edge to the tip, so the strokes overflow with no
+   * flag and no beam anywhere in sight. Extend by exactly the shortfall plus
+   * {@link TREMOLO_STROKE_CLEARANCE} at each end, and let the strokes SPREAD into the new room: the
+   * stem grew *because they did not fit*, so re-centring in the longer stem is the point. Everything
+   * here is measured (`strokeStackHeight` measures the glyph, `usableStemSpan` the stem) — the only
+   * chosen number is the clearance.
    *
-   * Only flags. A beam sits ON the tip and never crosses the middle of the stem, which is why a
-   * beamed tremolo already looked right and must not be touched.
+   * **FLAG** — the stack fits, but the flag hangs into it. `drawFlag` hangs the flag DOWN from the
+   * tip (`stem.getHeight()`), so on a lone eighth it lands mid-stem where the strokes now sit, while
+   * a beam sits ON the tip and never crosses them. Extend by
+   * {@link TREMOLO_FLAG_STEM_STRETCH} and tell the strokes to STAY
+   * ({@link CenteredTremolo.setStemStretch}) — that is what turns the whole stretch into clearance,
+   * where letting them re-centre would move them up half as far as the flag and gain only half.
+   *
+   * Both are measured against the ORIGINAL stem and added together, so a flagged note that also
+   * overflows gets both, and the strokes compensate for only the flag half.
+   *
+   * A BEAMED note is included, and the beam follows: `Beam.postFormat` has not run yet at this point
+   * (`Formatter.postFormat` is skipped — we format without a `stave` option, and beams post-format
+   * inside `Beam.draw`), so `calculateSlope` reads the lengthened tip and shifts the whole beam out,
+   * then `applyStemExtensions` lands every stem in the group on the new line. Moving the beam for the
+   * whole group is correct: a beam is one line.
    *
    * ⚠️ Bumping the Stem's own extension rather than `setStemLength`: that one writes
    * `stemExtensionOverride`, which `StaveNote.getStemExtension()` then re-reads and ADDS its
@@ -686,15 +702,20 @@ export class VexFlowRenderer {
       const slot = sortedSlots[i]
       if (slot.type !== 'chord' || typeof slot.tremolo !== 'number') continue
       const staveNote = staveNotes[i]
-      if (!staveNote.hasStem() || !staveNote.hasFlag()) continue
+      if (!staveNote.hasStem()) continue
 
       const mark = staveNote.getModifiers().find(m => m instanceof CenteredTremolo)
       const stem = staveNote.getStem()
       if (!mark || !stem) continue
 
-      const stretch = staveNote.getStemLength() * TREMOLO_FLAG_STEM_STRETCH
-      stem.setExtension(stem.getExtension() + stretch)
-      mark.setStemStretch(stretch)
+      const staffSpace = staveNote.getStave()?.getSpacingBetweenLines() ?? 10
+      const needed = mark.strokeStackHeight() + 2 * TREMOLO_STROKE_CLEARANCE * staffSpace
+      const fitStretch = Math.max(0, needed - usableStemSpan(staveNote).length)
+      const flagStretch = staveNote.hasFlag() ? staveNote.getStemLength() * TREMOLO_FLAG_STEM_STRETCH : 0
+      if (fitStretch === 0 && flagStretch === 0) continue
+
+      stem.setExtension(stem.getExtension() + fitStretch + flagStretch)
+      mark.setStemStretch(flagStretch) // the FIT half is deliberately not reported — see above
     }
   }
 

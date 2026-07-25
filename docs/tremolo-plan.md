@@ -58,9 +58,10 @@ two files must agree on which glyph it draws and what it is called.
 3. **The sixth button's glyph** (§0) — E22B as now, or a plain unmeasured sign with Penderecki as a
    seventh.
 4. **Removal** — see §2. P0 shipped able to stamp a mark it cannot take off: Ctrl+Z only.
-5. **Stroke placement, small tweaks.** §4's four corrections got it to "much better"; the two rules
-   still unimplemented there (strokes within the stave, a stem stretch for four or five strokes) are
-   the known next candidates, and none of them is testable — this is an eye-only surface.
+5. **Stroke placement, small tweaks.** §4's corrections got it to "much better". What is still
+   unimplemented there is Gould's rule 3 (strokes stay within the stave). The two chosen proportions
+   (¼ of the stem for a flag, ¼ space of clearance for the fit) are the tuning knobs. None of this is
+   testable — it is an eye-only surface.
 
 ## 1. The model
 
@@ -216,9 +217,11 @@ exists only in playback.
 
 ### ⚠️ Where the strokes actually go — four corrections, every one found by eye
 
+None of these is visible in a test: jsdom cannot measure glyphs, so a placement assertion passes
+vacuously. (The one thing here that *is* testable is the bounding box — see the trap below.)
+
 The tip anchor leaves one or two strokes clinging to the top of the stem, which is what the subclass
-exists to fix. Each step below was a separate wrong-looking render, in this order — worth recording
-because none of them is visible in a test (jsdom cannot measure glyphs, so nothing here is pinned):
+exists to fix. Each step below was a separate wrong-looking render, in this order:
 
 1. **Centre on the stem, not the tip.** Lay the stack symmetrically about the stem's middle. Only the
    vertical anchor is ours; the step between strokes, the x, the font size and the glyph stay
@@ -234,18 +237,14 @@ because none of them is visible in a test (jsdom cannot measure glyphs, so nothi
    as if it were stem and sits half-a-half-notehead low. The free stem starts at
    `baseY − stemDirection · staffSpace/2`, and the stave's own `getSpacingBetweenLines()` IS that
    measurement (a notehead is one staff space tall), so it holds at any staff size.
-4. **A FLAG reaches into the strokes; a beam does not.** `drawFlag` hangs the flag DOWN from the tip
-   (`stem.getHeight()`), so on a lone eighth it lands in the middle of the stem where the strokes now
-   are — while a beam sits ON the tip and never crosses them, which is why a beamed pair looked right
-   from the start. The rule: **place the strokes normally, extend the stem by
-   `TREMOLO_FLAG_STEM_STRETCH` (¼) of its length, then let the flag follow the new tip.** The strokes
-   deliberately do NOT follow the stretch (`setStemStretch` walks the tip back for them) — that is
-   what turns the full ¼ into clearance, where centring them in the longer stem would move them up
-   half as far as the flag and gain only half.
+4. **The stem is sometimes too short for the strokes at all** — and it takes two different stretches
+   to fix, one for a flag in the way and one for a stack that simply does not fit. Both are Gould's
+   rule 2; see the table below, which is where the numbers live.
 
-⚠️ **The stretch cannot be applied at build time.** `hasFlag()` reads `!this.beam`, and the Beam
+⚠️ **Neither stretch can be applied at build time.** `hasFlag()` reads `!this.beam`, and the Beam
 objects do not exist when `NoteBuilder` attaches the modifier — so every note *about to be beamed*
-still claims a flag there. It runs in the post-format/pre-draw window beside `applyNoteOffsets`, which
+still claims a flag there; the fit check needs formatted stem extents for the same reason. Both run in
+the post-format/pre-draw window beside `applyNoteOffsets`, which
 is also after the multi-voice stem re-assert (that calls `setStemDirection`, which resets the
 extension). And it bumps the **Stem's own extension**, not `setStemLength`: that one writes
 `stemExtensionOverride`, which `StaveNote.getStemExtension()` re-reads and then adds its
@@ -261,11 +260,57 @@ tremolo section, ~p.224–226) says three things about placement:
 | | Gould | us |
 |---|---|---|
 | 1 | with **one or two strokes** it is clearest if they **centre on stave lines** | approximated — centring lands near a line without snapping to one. Note she singles out exactly the counts the tip anchor got worst |
-| 2 | **extend the stem** so the strokes are clear of tails and beams | done for FLAGS (¼, above). She gives no number |
+| 2 | **extend the stem** so the strokes are clear of tails and beams | done, in the TWO shapes below. She gives no number for either |
 | 3 | the strokes stay **within the stave** | ⛔ not implemented — a high stem-up note can put them outside |
 
-Also unimplemented: nothing lengthens a stem for **four or five strokes**, which on a short stem still
-crowd the notehead.
+### The two stem stretches (Gould's rule 2)
+
+Separate rules with **opposite** treatments of the strokes, which is why they are separate numbers:
+
+| | when | how much | do the strokes follow? |
+|---|---|---|---|
+| **FIT** | the stack is taller than the usable stem | exactly the shortfall, plus `TREMOLO_STROKE_CLEARANCE` (¼ space) at each end | **yes** — the stem grew *because they did not fit*, so they spread into the new room |
+| **FLAG** | a flag hangs into the stack | `TREMOLO_FLAG_STEM_STRETCH` (¼ of the stem) | **no** — they stay, which is what turns the whole stretch into clearance |
+
+FIT is where the numbers come from measurement and only the clearance is chosen: `strokeStackHeight`
+measures the glyph, `usableStemSpan` the stem. It fires on notes with **no flag and no beam** — a
+plain quarter offers ~30px from notehead edge to tip and four or five strokes need ~33, so the
+overflow is not a flag problem at all. FLAG fires on a lone eighth/16th/32nd. A flagged note that
+also overflows gets both, and the strokes compensate for only the flag half.
+
+⚠️ A BEAMED note is included and **the beam follows**: `Beam.postFormat` has not run at that point
+(`Formatter.postFormat` is skipped — we format without a `stave` option, so beams post-format inside
+`Beam.draw`), so `calculateSlope` reads the lengthened tip, shifts the whole beam out, and
+`applyStemExtensions` lands every stem in the group on the new line. Moving the beam for the whole
+group is correct: a beam is one line.
+
+### 🚨 A modifier that draws at explicit coordinates corrupts its NOTE's bounding box
+
+The one bug in P0 that reached the user, and the only part of this render that a test can hold.
+
+`StaveNote.getBoundingBox()` **merges every modifier's box**, and `Element.getBoundingBox()` is built
+from `this.x`/`this.y`. `Articulation`, `Accidental` and `Dot` all do:
+
+```js
+this.x = x; this.y = y; this.renderText(ctx, 0, 0)
+```
+
+VexFlow's `Tremolo` is the one that does **not** — it calls `renderText(ctx, x, y)` and leaves `x`/`y`
+at zero. So a tremolo note's box got dragged back to **x = 0**, and that is the box
+`registerSlotElements` stored for the note.
+
+⚠️ **What it broke, and why it was invisible.** Nearly every hit-test uses `headX`, which stayed
+correct — plain selection, `findClosestNoteOrRest`, `hitsNoteOrRestBody`. But
+`handleModifierMouseDown` measures from `bbox.x + bbox.width / 2` (`MouseController.ts:662`), so
+**Ctrl/Shift-click on a tremolo note** measured to a point halfway across the system, failed its
+`distance < 30` check, and returned `true` — consuming the click and doing nothing. Multi-select
+simply stopped working on tremolo notes, silently, with no console trace.
+
+The fix is to follow the house pattern; `renderText` adds `x`/`y` back, so the drawn pixels are
+identical. `CenteredTremolo.test.ts` pins it, and those tests were checked by reverting the fix.
+
+⚠️ **This is a live trap for P2.** Whatever draws E22B, if it is a `Modifier` rendering at explicit
+coordinates, it inherits the same bug. Set `x`/`y`.
 
 **Penderecki** — VexFlow has nothing. E22B is drawn by us at the stem, the way we already draw ties
 and slurs with our own coordinates (`reference_vexflow_lowlevel_render_methods`). Write the
@@ -400,7 +445,8 @@ mark carried explicitly.
   stores and never appears until P2.
 - **P1 — travel.** The five rebar links, the voice move, the tie-split (§6). Early, and on purpose:
   before P0's marks start silently disappearing on a meter change.
-- **P2 — Penderecki render.** Our own E22B draw at the stem, and §0's naming fix.
+- **P2 — Penderecki render.** Our own E22B draw at the stem, and §0's naming fix. ⚠️ If it is a
+  `Modifier`, set its `x`/`y` — see the bounding-box trap in §4.
 - **P3 — measured + unmeasured playback.** The `totalBeams` helper, the threshold constant, rule 1's
   period arithmetic, rule 2's physical rate and the tempo-map conversion. Both rules, together —
   they share the fill and differ only in where the period comes from.

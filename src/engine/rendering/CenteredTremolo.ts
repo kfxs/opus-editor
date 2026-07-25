@@ -1,4 +1,5 @@
 import { Tremolo, Metrics, Stem } from 'vexflow'
+import type { Note } from 'vexflow'
 
 /**
  * A single-note tremolo whose strokes sit in the MIDDLE of the stem.
@@ -28,43 +29,102 @@ import { Tremolo, Metrics, Stem } from 'vexflow'
  *   2. **extend the stem if necessary** so the strokes are clear of tails and beams;
  *   3. the strokes stay **within the stave**.
  * Her (1) singles out exactly the counts that looked wrong under VexFlow's tip anchor, so centring
- * fixes the same complaint by a different means — it lands near a line without snapping to one.
- * Neither (2) nor (3) is implemented: nothing here lengthens a stem, and nothing stops a stroke
+ * fixes the same complaint by a different means — it lands near a line without snapping to one. (2)
+ * is implemented, in the renderer, in the two shapes named below. (3) is NOT: nothing stops a stroke
  * from sitting outside the staff on a note whose stem points away from it.
  *
  * WHY A SUBCLASS AND NOT A `setYShift`. `renderText` does add `yShift`, so a shift would work — but
  * the amount depends on `getStemExtents()`, which does not exist until the notes are formatted and
  * the beams have applied their stem extensions. Computing it at build time would be computing it
  * from stems that are not final yet. Overriding `draw()` puts the arithmetic at the one moment
- * everything it reads is settled, which is also what makes a beamed note correct for free.
+ * everything it reads is settled.
  */
+
 /**
  * How much longer a FLAGGED note's stem gets so its flag clears the strokes, as a fraction of the
  * stem's own length. A flag hangs DOWN from the stem tip (`drawFlag` reads `stem.getHeight()`), so on
  * a lone eighth it reaches straight into the middle of the stem where the strokes now sit — while a
- * beam, which sits ON the tip, never does. Hence the stretch is for flags only.
+ * beam, which sits ON the tip, never does. Hence this one is for flags only.
  *
- * This is Gould's second rule ("extend a stem if necessary so that the tremolo strokes are clear of
- * tails and beams") with a number attached, since she gives none: a quarter of the stem.
- *
- * ⚠️ The strokes do NOT follow the stretch — that is the whole point. They stay where the unstretched
+ * ⚠️ The strokes do NOT follow this stretch — that is the whole point. They stay where the unstretched
  * stem put them and the flag moves away from them, so the full stretch becomes clearance. Centring
  * them in the longer stem instead would move them up half as far as the flag and gain only half.
  */
 export const TREMOLO_FLAG_STEM_STRETCH = 0.25
+
+/**
+ * The air left between the stroke stack and each end of the usable stem, in staff spaces — the
+ * *chosen* number in the fit rule below, where everything else is measured.
+ *
+ * A quarter of a space at each end (half a space in total): enough that the outer strokes are not
+ * touching the notehead or the beam, small enough that a stem is only lengthened when it genuinely
+ * has to be. Staff spaces, not pixels, so it holds at any staff size.
+ */
+export const TREMOLO_STROKE_CLEARANCE = 0.25
+
+/**
+ * The span the strokes have to live in: the stem from the notehead's EDGE to its tip.
+ *
+ * ⚠️ `getStemExtents().baseY` is the notehead's CENTRE, not its edge — it comes from the note's key
+ * lines, and a key line runs through the middle of a head. Using it directly counts the head's top
+ * half as if it were stem. The head is one staff space tall, so the stave's own line spacing IS the
+ * correction, which is what makes this hold at any staff size.
+ *
+ * Shared by the draw (which centres in this span) and by the renderer's stretch pass (which asks
+ * whether the stack fits in it), so the two cannot drift apart.
+ */
+export function usableStemSpan(note: Note): { tip: number; noteheadEdge: number; length: number } {
+  const { topY, baseY } = note.getStemExtents()
+  const staffSpace = note.getStave()?.getSpacingBetweenLines() ?? 10
+  const noteheadEdge = baseY - note.getStemDirection() * (staffSpace / 2)
+  return { tip: topY, noteheadEdge, length: Math.abs(topY - noteheadEdge) }
+}
 
 export class CenteredTremolo extends Tremolo {
   /** Pixels of stem added for {@link TREMOLO_FLAG_STEM_STRETCH}, which the strokes must NOT follow. */
   private stemStretch = 0
 
   /**
-   * Tell the strokes how much stem was added under them, so they can stay at the position the
-   * UNSTRETCHED stem gave them. Set by the renderer (`applyTremoloStemStretch`) — the one moment
-   * when the Beam objects exist, so `hasFlag()` is finally trustworthy — never at build time.
+   * Tell the strokes how much stem was added *under* them to get a FLAG out of the way, so they can
+   * stay at the position the unstretched stem gave them. Set by the renderer
+   * (`applyTremoloStemStretch`) — the one moment when the Beam objects exist, so `hasFlag()` is
+   * finally trustworthy — never at build time.
+   *
+   * ⚠️ The other stretch (the fit one, {@link TREMOLO_STROKE_CLEARANCE}) is deliberately NOT reported
+   * here: that stem grew *because the strokes did not fit*, so they must spread into the new room
+   * rather than stay put. Two stretches, opposite treatments — the reason they are separate numbers.
    */
   setStemStretch(px: number): this {
     this.stemStretch = px
     return this
+  }
+
+  /**
+   * The stack's own ink height: the steps between strokes plus one stroke's ink.
+   *
+   * Read by the renderer to decide whether the stem is long enough. Measures the glyph rather than
+   * assuming a height, so it stays true at any font scale — and returns just the steps when the text
+   * canvas is unavailable (jsdom), which under-reports by one stroke in the one environment where
+   * nothing is drawn.
+   */
+  strokeStackHeight(): number {
+    const scale = this.checkAttachedNote().getFontScale()
+    const { ink } = this.measureStroke(scale)
+    return Math.abs(Metrics.get('Tremolo.spacing') * scale) * (this.num - 1) + ink
+  }
+
+  /**
+   * One stroke's ink box, at the size it will be drawn.
+   *
+   * ⚠️ Size FIRST, and via `setFontSize`: that is what invalidates the cached metrics, where
+   * VexFlow's own `this.fontInfo.size = …` mutates the object behind the getter and leaves them
+   * stale. Ascent is measured UP from the baseline and descent DOWN, so the ink runs
+   * `[y − ascent, y + descent]`.
+   */
+  private measureStroke(scale: number): { ascent: number; descent: number; ink: number } {
+    this.setFontSize(Metrics.get('Tremolo.fontSize') * scale)
+    const { actualBoundingBoxAscent: ascent, actualBoundingBoxDescent: descent } = this.textMetrics
+    return { ascent, descent, ink: ascent + descent }
   }
 
   draw(): void {
@@ -80,48 +140,44 @@ export class CenteredTremolo extends Tremolo {
     const x = note.getAbsoluteX()
       + (stemDirection === Stem.UP ? note.getGlyphWidth() - Stem.WIDTH / 2 : Stem.WIDTH / 2)
 
-    // Size FIRST: the ink measurement below depends on it, and `setFontSize` is what invalidates the
-    // cached metrics (VexFlow's own `this.fontInfo.size = …` mutates the object behind the getter and
-    // leaves `metricsValid` alone — fine for drawing, wrong for measuring).
-    this.setFontSize(Metrics.get('Tremolo.fontSize') * scale)
+    const { ascent, descent } = this.measureStroke(scale)
 
-    // The span to centre on is the FREE stem: from where the notehead stops to the stem's tip.
-    //
-    // ⚠️ `baseY` is the notehead's CENTRE, not its edge — `getStemExtents` reads the note's key
-    // lines, and a key line runs through the middle of its head. Centring on `(topY + baseY) / 2`
-    // therefore sits half-a-half-notehead too low: it counts the top half of the head as if it were
-    // stem. The visible stem starts at the head's edge on the stem's side (top edge for a stem-up
-    // note, bottom for stem-down), which is half a notehead from the centre — and a notehead is one
-    // staff space tall, so the stave's own line spacing IS that measurement. Taking it from the
-    // stave rather than from a constant is what makes this hold at any staff size.
     // `stemStretch` is undone here, not ignored: the stem was lengthened to get its FLAG out of the
-    // way (see {@link TREMOLO_FLAG_STEM_STRETCH}), and the strokes are supposed to stay where the
-    // unstretched stem put them. Adding `stemDirection * stretch` walks the tip back toward the
-    // notehead by that much, in whichever direction the stem points. Zero for a beamed or stemless
-    // note, so those centre on exactly what VexFlow reports.
-    const { topY, baseY } = note.getStemExtents()
-    const tipBeforeStretch = topY + stemDirection * this.stemStretch
-    const staffSpace = note.getStave()?.getSpacingBetweenLines() ?? 10
-    const noteheadEdge = baseY - stemDirection * (staffSpace / 2)
-    const middleOfStem = (tipBeforeStretch + noteheadEdge) / 2
+    // way, and the strokes are supposed to stay where the unstretched stem put them. Adding
+    // `stemDirection * stretch` walks the tip back toward the notehead by that much, in whichever
+    // direction the stem points. Zero for a beamed or stemless note, and zero for the FIT stretch,
+    // which the strokes are meant to spread into.
+    const { tip, noteheadEdge } = usableStemSpan(note)
+    const middleOfStem = (tip + stemDirection * this.stemStretch + noteheadEdge) / 2
 
     // ⚠️ `renderText` places the glyph's BASELINE at the y it is given — the glyph is NOT centred on
     // that point. So centring the baselines is not centring the ink: whatever E220's baseline→ink
-    // offset is, the whole stack inherits it (which is why the first version drew low). Measure it
-    // rather than carry a magic number: ink runs from `y − ascent` to `y + descent`, so its centre
-    // sits `(descent − ascent) / 2` BELOW the baseline, and the baseline has to rise by that much.
+    // offset is, the whole stack inherits it (which is why the first version drew low). The ink
+    // centre sits `(descent − ascent) / 2` BELOW the baseline, so the baseline has to rise by that
+    // much.
     //
     // Degrades to no correction when the text canvas is unavailable (jsdom — the metrics come back
     // zeroed), which is exactly the environment where nothing is looked at anyway. That degradation
     // is also the reason measuring beats a tuned constant here: the worst it can do is what NOT
     // measuring would have done, and when it works it is exact at any font size.
-    const { actualBoundingBoxAscent: ascent, actualBoundingBoxDescent: descent } = this.textMetrics
     const inkCentreBelowBaseline = (descent - ascent) / 2
 
-    let y = middleOfStem - inkCentreBelowBaseline - ((this.num - 1) * ySpacing) / 2
+    const firstStrokeY = middleOfStem - inkCentreBelowBaseline - ((this.num - 1) * ySpacing) / 2
+
+    // ⚠️ SET `x`/`y`, THEN RENDER AT THE ORIGIN — the pattern `Articulation`, `Accidental` and `Dot`
+    // all follow (`this.x = x; this.y = y; this.renderText(ctx, 0, 0)`), and the one thing VexFlow's
+    // own `Tremolo` does NOT: it calls `renderText(ctx, x, y)` and leaves `x`/`y` at zero.
+    //
+    // That is not cosmetic. `StaveNote.getBoundingBox()` merges EVERY modifier's box, and
+    // `Element.getBoundingBox()` is built from `this.x`/`this.y` — so a tremolo left at the origin
+    // drags its note's box out to x = 0, which is then what the registry stores for the note. Any
+    // hit-test reading `bbox.x + bbox.width / 2` (Ctrl/Shift-click's distance check, for one) then
+    // measures to a point halfway across the system and silently does nothing. `renderText` adds
+    // `this.x`/`this.y` to what it is passed, so the pixels below are identical either way.
+    this.x = x
+    this.y = firstStrokeY
     for (let i = 0; i < this.num; ++i) {
-      this.renderText(ctx, x, y)
-      y += ySpacing
+      this.renderText(ctx, 0, i * ySpacing)
     }
   }
 }
