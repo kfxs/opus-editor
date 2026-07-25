@@ -37,6 +37,7 @@ import type {
   PitchAlter,
   StemDirection,
   ArticulationType,
+  TremoloMark,
   Tuplet,
 } from '@/types/music'
 import {
@@ -85,6 +86,10 @@ export interface RebarEvent {
   stemDirection?: StemDirection
   articulations?: ArticulationType[]
   articulationPlacement?: 'above' | 'below'
+  /** Single-note tremolo on the event. Carried through the relay so a meter change or a paste does
+   *  not silently drop it — and carried onto EVERY piece a tie-split makes of this event, because a
+   *  tremolo interrupted at a barline is still being played across it. */
+  tremolo?: TremoloMark
   /** True for an indivisible tuplet event (never tie-split). */
   atomic?: boolean
   /** Verbatim tuplet payload when `atomic`. */
@@ -107,6 +112,8 @@ export interface RebarPiece {
   stemDirection?: StemDirection
   articulations?: ArticulationType[]
   articulationPlacement?: 'above' | 'below'
+  /** Single-note tremolo. See {@link RebarEvent.tremolo} — every piece of a split event keeps it. */
+  tremolo?: TremoloMark
   /** True for an atomic tuplet passthrough piece (materialise from `payload`). */
   atomic?: boolean
   payload?: RebarTupletPayload
@@ -198,6 +205,7 @@ export function flattenRegion(measures: Measure[], voice: 0 | 1 | 2 | 3 = 0): Re
         stemDirection: slot.stemDirection,
         articulations: slot.articulations,
         articulationPlacement: slot.articulationPlacement,
+        tremolo: slot.tremolo,
         // Collapse marker: the whole chord is tied forward into the next slot.
         tiedForward: slot.notes.length > 0 && slot.notes.every((p) => !!p.tiedTo),
       })
@@ -330,6 +338,9 @@ export function relayEvents(events: RebarEvent[], meter: MeterInfo, opts: RelayO
           stemDirection: ev.stemDirection,
           articulations: ev.articulations,
           articulationPlacement: ev.articulationPlacement,
+          // EVERY piece, not just the head: a tremolo interrupted at a barline is still being
+          // played across it, so both halves of a tie-split carry the mark.
+          tremolo: ev.tremolo,
         }
         bars[i].push(piece)
         pieces.push(piece)

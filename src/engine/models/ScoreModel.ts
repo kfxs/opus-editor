@@ -2510,6 +2510,9 @@ export class ScoreModel {
       // behind, an explicitly beamed run would silently fall back to auto beat groups.
       beam: chord.beam,
       secondaryBreak: chord.secondaryBreak,
+      // Also a SLOT statement, and not voice-derived: which note you repeat and how finely says
+      // nothing about which voice it is in, so the mark travels with the note.
+      tremolo: chord.tremolo,
     }
 
     // Remove the pitch from the source slot.
@@ -2595,6 +2598,7 @@ export class ScoreModel {
       articulationStemAlign?: boolean
       beam?: BeamMode
       secondaryBreak?: boolean
+      tremolo?: TremoloMark
     },
   ): void {
     const notePitch: NotePitch = {
@@ -2626,6 +2630,8 @@ export class ScoreModel {
       }
       // Same rule for the beam statement: the destination chord's own beaming wins.
       if (payload.beam && !existingChord.beam) existingChord.beam = payload.beam
+      // And for the tremolo, for the same reason: a note has ONE, so the destination keeps its own.
+      if (payload.tremolo && !existingChord.tremolo) existingChord.tremolo = payload.tremolo
       if (payload.secondaryBreak && existingChord.secondaryBreak === undefined) {
         existingChord.secondaryBreak = true
       }
@@ -2657,6 +2663,7 @@ export class ScoreModel {
     if (payload.articulationStemAlign) chord.articulationStemAlign = true
     if (payload.beam) chord.beam = payload.beam
     if (payload.secondaryBreak) chord.secondaryBreak = true
+    if (payload.tremolo) chord.tremolo = payload.tremolo
     if (targetVoice) chord.voice = targetVoice as 0 | 1 | 2 | 3
     chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
     dbg(`[Model.insertPitch] new chord ${fmtSlot(chord)} → replacing v${targetVoice} rests`)

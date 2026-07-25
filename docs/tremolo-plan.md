@@ -8,11 +8,13 @@ this doc records only where a tremolo differs. It differs a lot in two places: n
 VexFlow draws the Penderecki sign, and nothing in the playback schedule can express a speed that
 is *physical* rather than metrical — see §4 and §5.
 
-**Status: P0 is shipped** (§7) — the mark exists, the palette arms it, the strokes engrave. It also
-grew two things §2 and §4 record and this plan did not foresee: the stem became a registered element
-(the stamp accepts a click on it), and VexFlow's stroke placement had to be replaced rather than
-configured. Everything from P1 on is unbuilt: **a tremolo still vanishes silently on a meter change
-or a paste**, which is why travel is next and not playback.
+**Status: P0 and P1 are shipped** (§7) — the mark exists, the palette arms it, the strokes engrave,
+and it survives a meter change, a paste, a voice move and a tie-split. P0 grew two things §2 and §4
+record and this plan did not foresee: the stem became a registered element (the stamp accepts a click
+on it), and VexFlow's stroke placement had to be replaced rather than configured.
+
+**Next is P2 (the Penderecki draw) or P3 (playback)** — nothing structural is left in the way of
+either, and a tremolo is silent today.
 
 ## 0. Three performances, not two
 
@@ -403,7 +405,7 @@ inside it gives a green suite that proves nothing about what you hear. It takes 
 `rng: () => number` defaulting to `Math.random`; tests pass a seeded stub. Re-rolled per playback
 (two performances of a Penderecki tremolo are not identical) — deliberate, not incidental.
 
-## 6. What travels — and what silently does not
+## 6. What travels — and what silently does not — ✅ DONE (P1)
 
 **JSON is free.** A slot field is serialized directly by `getScore()` / `exportJSON`. No
 migration, ever.
@@ -417,22 +419,45 @@ same relay. Miss any one link and the mark vanishes:
 
 | | |
 |---|---|
-| `rebar.ts:86` | `RebarEvent.tremolo` field |
-| `rebar.ts:199` | slot → event |
-| `rebar.ts:108` | `RebarPiece.tremolo` field |
-| `rebar.ts:331` | event → piece |
-| `rebarOps.ts:1177` | piece → `Chord` |
+| `rebar.ts:92` | `RebarEvent.tremolo` field |
+| `rebar.ts:208` | slot → event |
+| `rebar.ts:116` | `RebarPiece.tremolo` field |
+| `rebar.ts:343` | event → piece |
+| `rebarOps.ts:1179` | piece → `Chord` |
+
+Confirmed rather than assumed: `clipboard.ts:433` and `rebarOps.ts:218` both go through the same
+`flattenRegion`, so copy/paste really does ride the slot→event link with no separate edit.
 
 **The voice move** (Alt+1/2). `ScoreModel.moveNoteToVoice` builds its own payload naming
-`articulations`, `articulationStemAlign`, `beam`, `secondaryBreak` (`ScoreModel.ts:2469`), and
-`insertPitch` re-applies each one by hand at both the merge and the new-chord branch (`:2604`,
-`:2636`). Same hole, different file.
+`articulations`, `articulationStemAlign`, `beam`, `secondaryBreak`, and `insertPitch` re-applies each
+one by hand at both the merge and the new-chord branch. Same hole, different file. ⚠️ At the MERGE
+branch the destination chord keeps its **own** mark — a note has one tremolo, exactly the rule the
+beam statement follows there.
 
 **Tie-split across a barline**: both halves keep the mark — a tremolo interrupted at the barline is
 still being played across it. ⚠️ **Not free.** `placeSpanningNote` builds every continuation from
-`{step, alter, octave, voice, staff}` only (`NoteEntryCoordinator.ts:1313`); articulations are
-dropped there today. The head survives because it is reused via `updateNote`; the tail needs the
-mark carried explicitly.
+`{step, alter, octave, voice, staff}` only; articulations are dropped there today. The head survives
+because it is reused via `updateNote` (checked: it mutates the slot in place), and the tail is stamped
+explicitly per piece. Only the duration-change caller can have a mark to carry — you cannot *enter* a
+note with a tremolo, so a fresh head has nothing.
+
+### ⭐ Every link is pinned, and each was proved load-bearing
+
+`src/interactions/tremoloTravel.test.ts` — 8 tests. Unlike §4, this whole surface is testable, and it
+is the one that fails **silently**: nothing throws, nothing logs, the mark is simply gone the next
+time the bar is re-tiled. So each link was verified by removing it and watching the suite go red:
+
+| link removed | tests failing |
+|---|---|
+| slot → event | 5 of 8 |
+| event → piece | 5 of 8 |
+| piece → `Chord` | 5 of 8 |
+| voice-move new-chord branch | 1 of 8 |
+| tie-split continuation | 1 of 8 |
+
+⚠️ Do that check with an **inverse edit**, never `git checkout` — the edits under test are uncommitted,
+and a checkout silently reverts all of them, which makes every later measurement in the run a
+meaningless empty baseline.
 
 ## 7. Phases
 
@@ -443,8 +468,9 @@ mark carried explicitly.
   placement corrections (§4). Two things it did NOT do: §2's removal decision (accepted as
   undo-only) and the Penderecki button, which is DISABLED because arming it would stamp a mark that
   stores and never appears until P2.
-- **P1 — travel.** The five rebar links, the voice move, the tie-split (§6). Early, and on purpose:
-  before P0's marks start silently disappearing on a meter change.
+- **P1 — travel. ✅ DONE.** The five rebar links, the voice move, the tie-split (§6). Early, and on
+  purpose: before P0's marks started silently disappearing on a meter change. 29 lines of code and 8
+  tests, every link proved load-bearing by removing it.
 - **P2 — Penderecki render.** Our own E22B draw at the stem, and §0's naming fix. ⚠️ If it is a
   `Modifier`, set its `x`/`y` — see the bounding-box trap in §4.
 - **P3 — measured + unmeasured playback.** The `totalBeams` helper, the threshold constant, rule 1's

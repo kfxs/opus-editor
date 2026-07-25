@@ -1312,6 +1312,14 @@ export class NoteEntryCoordinator {
     const model = this.getScoreModel()
     const pitch = { step: p.step, alter: p.alter, octave: p.octave, ...(p.voice && { voice: p.voice }), ...(p.staff && { staff: p.staff }) }
 
+    // A tremolo on the head must reach EVERY piece of the chain: a tremolo interrupted at a barline
+    // is still being played across it (docs/tremolo-plan.md §6). Read before the head is retitled,
+    // and applied explicitly per piece — the continuations are built from `{step, alter, octave,
+    // voice, staff}` alone, so anything not named here is dropped in silence. Only the duration-change
+    // caller can have one: you cannot ENTER a note with a tremolo, so a fresh head has nothing to
+    // carry.
+    const tremolo = p.existingHeadId ? model.getNote(p.existingHeadId)?.tremolo : undefined
+
     // Build the tied chain. Split durations are always plain (dots cleared).
     let firstNote: Note | null = null
     let previousNoteId: string | null = null
@@ -1331,6 +1339,7 @@ export class NoteEntryCoordinator {
     for (let i = startIndex; i < currentMeasureDurations.length; i++) {
       const { duration, dots } = currentMeasureDurations[i]
       const note = model.addNote({ ...pitch, duration, dots, measure: p.startMeasure, beat: currentBeat })
+      if (tremolo) model.setTremolo(note.id, tremolo)
       if (!firstNote) firstNote = note
       if (previousNoteId) {
         model.updateNote(previousNoteId, { tiedTo: note.id })
@@ -1344,6 +1353,7 @@ export class NoteEntryCoordinator {
     let nextBeat = fracFromInt(0)
     for (const { duration, dots } of nextMeasureDurations) {
       const note = model.addNote({ ...pitch, duration, dots, measure: nextMeasureNumber, beat: nextBeat })
+      if (tremolo) model.setTremolo(note.id, tremolo)
       if (previousNoteId) {
         model.updateNote(previousNoteId, { tiedTo: note.id })
         model.updateNote(note.id, { tiedFrom: previousNoteId })
