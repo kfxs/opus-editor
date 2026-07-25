@@ -260,8 +260,8 @@ drawn as redondas) or as one beam plus two strokes (a pair of semicorcheas, draw
 playback reads the stored `tremolo` and stops — it must NOT add the drawn value's flags, or the same
 mark would sound at two speeds depending on how it was written.
 
-`collectScheduledNotes` already turns one `ScheduledNote` into N, but **not where the pair needs
-it**. Today the expansion sits *inside the per-pitch loop*, beside the tie-chase and the legato
+✅ **BUILT.** `collectScheduledNotes` already turns one `ScheduledNote` into N, but **not where the
+pair needs it**. Today the expansion sits *inside the per-pitch loop*, beside the tie-chase and the legato
 overlap: one pitch at a time, each filling its own length. A pair alternates whole **pitch sets**, so
 it is a branch on the SLOT, before that loop:
 
@@ -307,7 +307,7 @@ Each is hand-testable on its own.
 | **P1** ✅ `9bb3ce3` | `tremoloPair` + `pairIsValid` (§1, the ONE predicate) + the **dev-shell palette** button (one undo batch) + the relay/clipboard DROP + drawing for the **stemmed, unbeamed** cases: blanca and negra, floating strokes, doubled noteheads |
 | **P2** ✅ `9bb3ce3` | corchea and shorter — real `Beam` over the pair + the remaining strokes. ⚠️ The pair's beam is authorable: `single` draws them APART with flags instead (§2) |
 | **P3** ✅ `9bb3ce3` | redonda — ⚠️ NOT between the noteheads: a stemless note still has stem EXTENTS, so the strokes hang from its IMAGINARY stem. Only the horizontal SPAN is notehead-to-notehead (§2) |
-| **P4** | playback (alternating attacks) |
+| **P4** ✅ | playback (alternating attacks) |
 | **P5** | selection / Delete / reporting |
 | **P6** | the `'joined'` blanca style + the toggle on the selected mark (needs P5's selection) |
 

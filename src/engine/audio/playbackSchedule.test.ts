@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { durationToBeats } from '@/utils/musicUtils'
 import { ScoreModel } from '../models/ScoreModel'
 import {
   collectScheduledNotes,
@@ -435,5 +436,84 @@ describe('collectScheduledNotes — tremolo', () => {
       // ~20 continuous draws — two runs matching exactly is not a thing that happens.
       expect(onsets()).not.toEqual(onsets())
     })
+  })
+})
+
+describe('collectScheduledNotes — TWO-NOTE tremolo (the pair alternates)', () => {
+  /** Two notes of `duration` at the start of bar 1, paired, with `mark` lines between them. */
+  function pair(duration: 'h' | 'q' | '8' | '16', mark: 1 | 2 | 3 | 4 | 5, beamApart = false) {
+    const model = new ScoreModel('P')
+    const step = durationToBeats(duration, 0)
+    const a = model.addNote({ step: 'C', octave: 4, duration, measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration, measure: 1, beat: frac(step * 4, 4) })
+    if (beamApart) model.updateNote(a.id, { beam: 'single' })
+    model.setTremolo(a.id, mark)
+    model.setTremoloPair(a.id, true)
+    return model.getScore()
+  }
+
+  const onsets = (score: Score) =>
+    collectScheduledNotes(score).sort((a, b) => a.startBeats - b.startBeats)
+
+  it('alternates the two pitches, first note first', () => {
+    // Two quarters marked 3 → drawn as halves, 3 lines = 32nds over 2 beats = 16 attacks.
+    const got = onsets(pair('q', 3))
+    expect(got).toHaveLength(16)
+    expect(got.map(e => e.midi)).toEqual([
+      C4, E4, C4, E4, C4, E4, C4, E4, C4, E4, C4, E4, C4, E4, C4, E4,
+    ])
+    got.forEach((e, i) => expect(e.startBeats).toBeCloseTo(i * 0.125))
+  })
+
+  it('the second slot does NOT play again underneath the pair', () => {
+    // 16 alternating attacks and nothing else — no leftover plain E4 at beat 1.
+    const got = onsets(pair('q', 3))
+    expect(got.filter(e => e.durationBeats > 0.5)).toHaveLength(0)
+  })
+
+  it('⭐ the same mark sounds the same speed however it is SPELLED', () => {
+    // Two quarters, drawn as halves with three floating strokes: 3 lines = 32nds.
+    const asStrokes = onsets(pair('q', 3))
+    // Two sixteenths, drawn as beamed eighths: one beam + two strokes = 3 lines = 32nds too.
+    const asBeamPlusStrokes = onsets(pair('16', 3))
+    const periodOf = (got: typeof asStrokes) => got[1].startBeats - got[0].startBeats
+    expect(periodOf(asStrokes)).toBeCloseTo(0.125)
+    expect(periodOf(asBeamPlusStrokes)).toBeCloseTo(0.125)
+    // …and drawing the pair APART (flags, no beam) changes nothing about the sound.
+    expect(periodOf(onsets(pair('16', 3, true)))).toBeCloseTo(0.125)
+  })
+
+  it('does NOT add the drawn value\'s flags — that is the single-note rule', () => {
+    // Two eighths marked 1 → drawn as quarters, ONE line = eighths, over 1 beat = 2 attacks.
+    // The old `flags + strokes` reading would have made it 4.
+    const got = onsets(pair('8', 1))
+    expect(got).toHaveLength(2)
+    expect(got.map(e => e.midi)).toEqual([C4, E4])
+  })
+
+  it('fills the pair and no more — the last attack ends at the second note\'s end', () => {
+    const got = onsets(pair('q', 3))
+    const last = got[got.length - 1]
+    expect(last.startBeats + last.durationBeats).toBeCloseTo(2)
+  })
+
+  it('a mark of 4 or more is UNMEASURED — the same physical rate as a single note\'s', () => {
+    const got = onsets(pair('q', 4))
+    // 0.05 s at 120 qpm = 0.1 beats, filling the pair's 2 beats.
+    expect(got[1].startBeats - got[0].startBeats).toBeCloseTo(0.1)
+    expect(got.map(e => e.midi).slice(0, 4)).toEqual([C4, E4, C4, E4])
+  })
+
+  it('a STALE pair plays as two ordinary notes', () => {
+    const model = new ScoreModel('P')
+    const a = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    model.setTremolo(a.id, 3)
+    model.setTremoloPair(a.id, true)
+    // Retune the partner: no longer the same value, so no longer a pair.
+    model.updateNote(b.id, { duration: '8' })
+    const got = onsets(model.getScore())
+    // The first note falls back to its own SINGLE-note tremolo (flags + strokes), the second plays once.
+    expect(got.filter(e => e.midi === E4)).toHaveLength(1)
   })
 })

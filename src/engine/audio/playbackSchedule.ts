@@ -12,12 +12,13 @@
  * loudness stays a deferred refinement — {@link resolveChordLevels} is voice-scoped, not
  * staff-scoped, so a staff-2 chord currently inherits its voice's dynamic (never silence).
  */
-import type { Score, Chord, NotePitch } from '@/types/music'
+import type { Score, Chord, ChordRest, DynamicLevel, Measure, NotePitch } from '@/types/music'
 import { durationToBeats, measureCapacityQuarters } from '@/utils/musicUtils'
-import { durationFlags } from '@/utils/durations'
+import { doubleDuration, durationFlags } from '@/utils/durations'
 import { fracToNumber } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import { DYNAMIC_VELOCITY, DEFAULT_DYNAMIC, resolveChordLevels } from '@/utils/dynamics'
+import { laneOfSlot, pairRoleAt } from '@/utils/tremoloPair'
 import { legatoChordIds } from '@/utils/slurs'
 import { articulationEffect } from '@/utils/articulations'
 import { buildTempoMap, beatsToSeconds, secondsToBeats, type TempoSegment } from '@/utils/tempoMap'
@@ -153,6 +154,10 @@ export function collectScheduledNotes(
   for (const measure of score.measures) {
     const measureStartBeats = currentTimeInBeats
 
+    // Where each slot sits in its own LANE (one voice of one staff, in beat order) — the only view
+    // in which "the next note" means anything, and what the two-note tremolo is defined over.
+    const lanes = laneIndexOfMeasure(measure)
+
     for (const slot of measure.slots) {
       if (slot.type === 'rest') continue
       const chord = slot
@@ -165,6 +170,29 @@ export function collectScheduledNotes(
       const baseDurationBeats = chord.actualDuration
         ? fracToNumber(chord.actualDuration)
         : durationToBeats(chord.duration, chord.dots || 0)
+
+      // ⭐ A TWO-NOTE TREMOLO alternates whole PITCH SETS, so it branches on the SLOT — here, before
+      // the per-pitch loop, and not beside the single-note expansion inside it. That one runs one
+      // pitch at a time, each filling its own length; this one fills the two slots' COMBINED length
+      // and hands each attack to a different chord.
+      const at = lanes.get(chord.id)
+      const pairRole = at ? pairRoleAt(at.lane, at.index) : null
+      if (pairRole === 'second') {
+        // ⚠️ The ONE place in this collector where a slot's work is consumed by another. Without it
+        // the pair plays AND the second note plays again underneath it.
+        continue
+      }
+      if (pairRole === 'first' && at) {
+        collectPairAttacks(events, {
+          first: chord,
+          second: at.lane[at.index + 1] as Chord,
+          startBeats,
+          firstSoundingBeats: baseDurationBeats,
+          chordLevels,
+          tempoMap,
+        })
+        continue
+      }
 
       for (const np of chord.notes) {
         // Skip a true (same-pitch) tied continuation — its head already carries the length.
@@ -238,6 +266,118 @@ export function collectScheduledNotes(
   return events
 }
 
+/**
+ * Every slot of `measure` keyed by id, with the LANE it belongs to and its place in it — one voice
+ * of one staff, sorted by beat.
+ *
+ * Built once per bar because `measure.slots` is the flat, voice-interleaved, insertion-ordered array,
+ * and `pairRoleAt` asks "what is the NEXT slot" — a question that is only meaningful inside a lane.
+ * Asked of the flat array it would pair a voice-1 note with whichever voice-2 note happened to be
+ * stored after it.
+ */
+function laneIndexOfMeasure(measure: Measure): Map<string, { lane: ChordRest[]; index: number }> {
+  const index = new Map<string, { lane: ChordRest[]; index: number }>()
+  const seen = new Set<string>()
+  for (const slot of measure.slots) {
+    const key = `${slot.voice ?? 0}:${slot.staffId ?? ''}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    const lane = laneOfSlot(measure.slots, slot)
+    lane.forEach((s, i) => index.set(s.id, { lane, index: i }))
+  }
+  return index
+}
+
+/**
+ * The alternating attacks of ONE two-note tremolo, appended to `events`.
+ *
+ * Fills the two slots' **combined** length and hands attack *i* to the first chord's pitches when *i*
+ * is even, the second's when odd — a whole pitch set at a time, so a pair of chords alternates as
+ * chords. Each attack carries its OWN chord's dynamic and articulation, because the two notes are
+ * two notes; only the rhythm is shared.
+ *
+ * ⭐ The period comes from the mark's own number as the TOTAL, over the DRAWN (doubled) value across
+ * the combined span — not `flags + strokes` (docs/two-note-tremolo-plan.md §3). Two quarters marked
+ * 3 draw as halves and sound as 32nds; two sixteenths marked 3 draw as beamed eighths (one beam, two
+ * strokes) and sound as 32nds too. Same mark, same speed, however it is spelled — which is the whole
+ * point of the beam counting.
+ *
+ * ⏭️ TIES into or out of a pair are deferred with the rest of the tremolo plan's list: the tie-chase
+ * is per pitch and a pair is not. LEGATO likewise — a slur over a pair is not modelled.
+ */
+function collectPairAttacks(
+  events: ScheduledNote[],
+  opts: {
+    first: Chord
+    second: Chord
+    startBeats: number
+    /** The FIRST slot's own sounding length; the second's is read here (they are the same value). */
+    firstSoundingBeats: number
+    chordLevels: Map<string, DynamicLevel>
+    tempoMap: TempoSegment[]
+  },
+): void {
+  const { first, second, startBeats, firstSoundingBeats, chordLevels, tempoMap } = opts
+
+  const secondSounding = second.actualDuration
+    ? fracToNumber(second.actualDuration)
+    : durationToBeats(second.duration, second.dots || 0)
+  const combined = firstSoundingBeats + secondSounding
+
+  const sides = [first, second].map(chord => {
+    const artic = articulationEffect(chord.articulations)
+    return {
+      artic,
+      velocity: Math.min(
+        1,
+        DYNAMIC_VELOCITY[chordLevels.get(chord.id) ?? DEFAULT_DYNAMIC] * artic.velocityScale,
+      ),
+      midis: chord.notes.map(np => spellingToMidi(np.step, np.alter, np.octave)),
+    }
+  })
+
+  // `pairIsValid` refused the Penderecki sign, so the mark is a number and IS the total.
+  const mark = typeof first.tremolo === 'number' ? first.tremolo : 0
+  const drawn = doubleDuration(first.duration)
+  const period = drawn === null || mark === 0
+    ? null
+    : tremoloPeriodFrom(
+        mark,
+        combined,
+        durationToBeats(drawn, first.dots || 0),
+        startBeats,
+        tempoMap,
+      )
+
+  if (period === null) {
+    // Nothing to subdivide by — sound the two notes plainly rather than fall silent. Unreachable for
+    // a mark the palette can write; here so a malformed one is audible instead of missing.
+    let t = startBeats
+    for (const [i, side] of sides.entries()) {
+      const length = i === 0 ? firstSoundingBeats : secondSounding
+      for (const midi of side.midis) {
+        events.push({ midi, startBeats: t, durationBeats: length * side.artic.durationFactor, velocity: side.velocity })
+      }
+      t += length
+    }
+    return
+  }
+
+  let t = 0
+  let turn = 0
+  while (t < combined - PERIOD_EPSILON) {
+    const side = sides[turn % 2]
+    // Each attack lasts one step — they are repeated notes, back to back — clamped so the last one
+    // ends exactly at the pair's end, and still scaled by its own chord's articulation.
+    const length = Math.min(period, combined - t) * side.artic.durationFactor
+    for (const midi of side.midis) {
+      events.push({ midi, startBeats: startBeats + t, durationBeats: length, velocity: side.velocity })
+    }
+    t += period
+    turn++
+  }
+}
+
 /** One roll as a signed spread in −1…+1, so a jitter constant reads as "± that fraction". */
 function spread(rng: () => number): number {
   return rng() * 2 - 1
@@ -301,6 +441,33 @@ function tremoloPeriodBeats(
     ? UNMEASURED_THRESHOLD
     : durationFlags(chord.duration) + mark
 
+  return tremoloPeriodFrom(
+    totalBeams,
+    slotSoundingBeats,
+    durationToBeats(chord.duration, chord.dots || 0),
+    startBeats,
+    tempoMap,
+  )
+}
+
+/**
+ * Rules 1–3 themselves, over plain numbers — shared by the single-note mark above and the TWO-NOTE
+ * pair below, which disagree about how `totalBeams` and the written value are ARRIVED AT but not
+ * about what to do with them.
+ *
+ * Where they disagree (docs/two-note-tremolo-plan.md §2/§3): a single note adds its own flags to the
+ * stroke count, because a flag sits on the outside of the stem and is not one of the lines that say
+ * the speed. A pair's count IS the total — its beam is one of the lines between the two notes and
+ * spends one of them — and its written value is the DRAWN (doubled) one over the pair's COMBINED
+ * span. Both then land here.
+ */
+function tremoloPeriodFrom(
+  totalBeams: number,
+  soundingBeats: number,
+  writtenBeats: number,
+  startBeats: number,
+  tempoMap: TempoSegment[],
+): number | null {
   if (totalBeams >= UNMEASURED_THRESHOLD) {
     // Rule 2: a physical period. Convert seconds → beats AT THIS ONSET (the tempo there is what a
     // second is worth), by asking the map where one period later lands.
@@ -311,9 +478,8 @@ function tremoloPeriodBeats(
   }
 
   // Rule 1: subdivide the WRITTEN note, then scale into what actually sounds (the tuplet ratio).
-  const written = durationToBeats(chord.duration, chord.dots || 0)
-  if (written <= 0) return null
-  return slotSoundingBeats / (written * 2 ** totalBeams)
+  if (writtenBeats <= 0) return null
+  return soundingBeats / (writtenBeats * 2 ** totalBeams)
 }
 
 /** Do two note-pitches sound the same MIDI? (The tie-chase only follows true same-pitch ties.) */
