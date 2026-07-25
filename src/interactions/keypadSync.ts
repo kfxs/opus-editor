@@ -1,5 +1,5 @@
 import type { EditorState, StateListener } from './EditorState'
-import type { BeamMode, NoteDuration } from '../types/music'
+import type { BeamMode, NoteDuration, TremoloMark } from '../types/music'
 import { armedToolUsesLength } from './EditorState'
 import type { BeamRole } from '../utils/beaming'
 import type { PaletteController } from './PaletteController'
@@ -139,6 +139,37 @@ export function beamRoleHighlight(state: EditorState, engine: BeamSource | null)
   if (state.selectedMarkingTool || noNoteInSelection(state) || !state.selectedNoteId) return null
   // No rest check needed here: the model answers null for a rest, because a rest HAS no role.
   return engine.getBeamRole(state.selectedNoteId)
+}
+
+/**
+ * Which tremolo mark the palette lights, or null for none — the ARMED one, the SELECTED one, or the
+ * one on the selected note.
+ *
+ * The three sources in that order, and the order is the rule (the accidental's, which is the closest
+ * sibling — it is the other single-valued mark you can both arm and select):
+ *   1. a marking tool is armed → the armed tremolo if it IS the tremolo stamp, else null. Under a
+ *      clef tool no tremolo is in play, and the row must not claim one is.
+ *   2. the MARK itself is selected on the score → that note's mark. Clicking the strokes clears the
+ *      note selection, so without this the row would go dark on exactly the click that selected it.
+ *   3. otherwise the single selected note's own mark — "what does this note have on it", which is
+ *      what makes the row an answer and not just an arming state.
+ *
+ * Live-read from the engine rather than mirrored into state, like the articulation / tie / beam-role
+ * highlights: the mark is a fact about the score, and a stamp, a Delete or an undo all change it
+ * without going near the palette.
+ */
+export function tremoloHighlight(state: EditorState, engine: TremoloSource | null): TremoloMark | null {
+  const armed = state.selectedMarkingTool
+  if (armed) return armed.kind === 'tremolo' ? armed.tremolo : null
+  if (!engine) return null
+  if (state.selectedTremoloNoteId) return engine.getNote(state.selectedTremoloNoteId)?.tremolo ?? null
+  if (noNoteInSelection(state) || !state.selectedNoteId) return null
+  return engine.getNote(state.selectedNoteId)?.tremolo ?? null
+}
+
+/** The slice of the engine {@link tremoloHighlight} reads — structural, like {@link BeamSource}. */
+export interface TremoloSource {
+  getNote(noteId: string): { tremolo?: TremoloMark } | undefined
 }
 
 /**

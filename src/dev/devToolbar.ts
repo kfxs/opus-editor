@@ -1,9 +1,8 @@
 import type { EditorState } from '../interactions/EditorState'
-import { armedTool } from '../interactions/EditorState'
 import type { PaletteController } from '../interactions/PaletteController'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { NoteDuration, TremoloMark } from '../types/music'
-import { durationHighlight } from '../interactions/keypadSync'
+import { durationHighlight, tremoloHighlight } from '../interactions/keypadSync'
 import { bakeGlyphStack } from '../windows/keypad/tremoloBake'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 
@@ -250,6 +249,11 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
    * `selectedMarkingTool` union like every other armed tool, which is what makes Esc, a duration
    * press, or arming any other tool switch this row off for free.
    *
+   * …and, since the mark became selectable, the row also REPORTS: select a note carrying a tremolo
+   * (or the mark itself) and its button lights, so the row answers "what does this note have on it"
+   * and not only "what am I about to stamp". `tremoloHighlight` is THE rule (interactions/keypadSync),
+   * kept beside the duration's for the day the Keypad's page-2 keys read it too.
+   *
    * All six arm now: the Penderecki sign draws as of P2 (`CenteredTremolo` sets E22B as the glyph and
    * places it exactly as it places the strokes), so the button that was disabled for having nothing
    * behind it no longer is.
@@ -269,7 +273,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     // the armed mark) — the same shape the accidental stamp's keys have.
     b.addEventListener('click', () => palette.armTremolo(t.mark))
     syncers.push(() => {
-      const lit = armedTool(state, 'tremolo')?.tremolo === t.mark
+      const lit = tremoloHighlight(state, getEngine()) === t.mark
       b.className = `${TREM_BTN} ${lit ? ON : OFF}`
     })
     tremBox.appendChild(b)

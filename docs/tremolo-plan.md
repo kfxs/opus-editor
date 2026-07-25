@@ -8,19 +8,18 @@ this doc records only where a tremolo differs. It differs a lot in two places: V
 Penderecki sign and places its strokes wrong for us, and nothing in the playback schedule can express
 a speed that is *physical* rather than metrical — see §4 and §5.
 
-**Status: ALL SIX PHASES ARE SHIPPED** (§7) — the six marks exist, engrave, arm from the palette,
+**Status: ALL EIGHT PHASES ARE SHIPPED** (§7) — the six marks exist, engrave, arm from the palette,
 survive a meter change / paste / voice move / tie-split, play all three readings (measured as a real
 subdivision, unmeasured at a physical rate that ignores the tempo, Penderecki irregular on top of
-that), and **can be clicked and selected** (§9). Three things this plan did not foresee, each recorded
-where it belongs: the stem became a registered element (§2, the stamp accepts a click on it — and P5
+that), and **can be clicked, selected, deleted, and read back off a selected note** (§9). Three things
+this plan did not foresee, each recorded where it belongs: the stem became a registered element (§2, the stamp accepts a click on it — and P5
 made it selectable in its own right), VexFlow's stroke placement had to be replaced rather than
 configured (§4), and the Penderecki sign turned out to be the same modifier with a different glyph
 rather than a draw of our own (§4).
 
-**What is left is what §8 defers plus the open decisions** — Delete still does not remove a mark, so
-removal is Ctrl+Z only (decision 4, now half-answered: the mark is selectable, nothing acts on the
-selection yet), the two playback numbers are still constants rather than options, and Gould's "strokes
-stay within the stave" is unimplemented. None of it is structural.
+**What is left is what §8 defers plus two open decisions** — the two playback numbers are still
+constants rather than options, and Gould's "strokes stay within the stave" is unimplemented. Neither
+is structural. (Decision 4, removal, is closed: §9.)
 
 ## 0. Three performances, not two
 
@@ -67,10 +66,9 @@ not the name** — which is decision 3 below, still open. E22A and E22C remain u
 3. **The sixth button's glyph** (§0) — E22B as now, or a plain unmeasured sign (E22C) with Penderecki
    as a seventh, or Sibelius's buzz roll (E22A). P2 made all three names agree on E22B; changing the
    answer is now a one-glyph edit in three places, not a rename.
-4. **Removal** — see §2, and §9 for what P5 changed. The mark is now a registered `ElementType` and
-   a click selects it, which is the half the recommendation was really about; what is still missing
-   is the *action* on that selection. Delete does nothing to a selected tremolo, so removal is still
-   Ctrl+Z only.
+4. ~~**Removal**~~ **ANSWERED (P6): select the mark and press Delete** — the first of §2's three
+   options, in two steps. P5 made the mark a registered `ElementType` a click selects; P6 wired
+   Delete to `setTremolo(id, null)`. See §9.
 5. **Stroke placement, small tweaks.** §4's corrections got it to "much better". What is still
    unimplemented there is Gould's rule 3 (strokes stay within the stave). The two chosen proportions
    (¼ of the stem for a flag, ¼ space of clearance for the fit) are the tuning knobs. None of this is
@@ -169,7 +167,7 @@ wrong. VexFlow knows exactly, so it is now written down: `'stem'` is an `Element
 The dev palette's ids are `'one'…'five' | 'penderecki'` (`devToolbar.ts`); wiring **maps** them to
 `1…5`, it does not rename them — the Keypad borrows the same drawings by those names.
 
-### ⚠️ P0 can stamp a mark it cannot remove — SHIPPED THAT WAY, still open
+### ⚠️ P0 can stamp a mark it cannot remove — SHIPPED THAT WAY, ✅ CLOSED BY P5+P6
 
 "Removal is the Delete key" is the accidental stamp's rule and it works there because `'accidental'`
 is an `ElementType` (`ElementRegistry.ts:18`) — the glyph is selectable, so Delete has something to
@@ -185,9 +183,10 @@ only way to undo a stamp. The three options were:
 else does. `ScoreModel.setTremolo(id, null)` already exists and is unused, so whichever of the first
 two lands has its model half waiting for it.
 
-⏭️ **P5 took the first option, minus the Delete** (§9): `'tremolo'` is an `ElementType`, the mark is
-clickable and selectable. `setTremolo(id, null)` is still unused — wiring Delete to it is now a
-keybinding on a selection that exists, not a hit-test problem.
+✅ **P5 + P6 took the first option, whole** (§9): `'tremolo'` is an `ElementType`, a click selects the
+mark, and Delete removes it through `setTremolo(id, null)` — the call that sat written and unused
+since P0. In two steps because they are two different problems: P5 was a hit-test (what did I click,
+given the mark sits on the stem), P6 a keybinding on a selection that by then existed.
 
 ## 3. The ghost
 
@@ -544,7 +543,7 @@ meaningless empty baseline.
   reached: you can put one to five strokes on a note and see them. Two things it grew on the way that
   were not planned — the `'stem'` element the stamp's second target needed (§2), and the four
   placement corrections (§4). Two things it did NOT do: §2's removal decision (accepted as
-  undo-only, and still open) and the Penderecki button, which shipped DISABLED because arming it
+  undo-only; P5+P6 closed it) and the Penderecki button, which shipped DISABLED because arming it
   would have stamped a mark that stores and never appears — P2 drew the sign and enabled it.
 - **P1 — travel. ✅ DONE.** The five rebar links, the voice move, the tie-split (§6). Early, and on
   purpose: before P0's marks started silently disappearing on a meter change. 29 lines of code and 8
@@ -562,6 +561,12 @@ meaningless empty baseline.
   and two highlights; no model change at all, because selection is not a fact about the score. Went
   in stem-first on purpose: the stem is the surface the tremolo sits on, so getting *it* selectable
   is what makes the overlap rule between the two expressible.
+- **P6 — Delete. ✅ DONE.** §9. One branch in `deleteSelected` calling the `setTremolo(id, null)` that
+  had been sitting unused since P0 — decision 4, closed. Seven tests, driven through the real key
+  wiring rather than the handler, because the risk was the branch ORDER and not the removal.
+- **P7 — reporting the mark. ✅ DONE.** §9. A selected note lights its tremolo (the shared
+  `colorNoteTremolo` pass), and the palette row reports the mark that is THERE rather than only the
+  one that is armed (`tremoloHighlight`, three sources in a fixed order).
 
 ## 8. Deferred, deliberately
 
@@ -590,11 +595,12 @@ meaningless empty baseline.
   unambiguous. If the labels should read "two-stroke / three-stroke" instead, that is a one-line
   change in `devToolbar.ts`.
 
-## 9. Selection — ✅ DONE (P5)
+## 9. Selection — ✅ DONE (P5) — Delete — ✅ DONE (P6) — reporting the mark — ✅ DONE (P7)
 
-Clicking a tremolo selects it. Clicking the stem it rides selects the **stem**. Nothing acts on
-either selection yet, and that is the whole scope: the mark became a thing the pointer can name,
-which is what a Delete, a stroke-count edit or a stem-length drag each need first.
+Clicking a tremolo selects it; **Delete then removes it**; a selected note **lights** its mark and the
+palette **says which one it is**. Clicking the stem it rides selects the **stem**, and nothing acts on
+that yet. The mark became a thing the pointer can name, which is what
+Delete, a stroke-count edit and a stem-length drag each need first.
 
 ### Stem first, on purpose
 
@@ -658,12 +664,50 @@ it is null until drawn, it is centred on the stem, and it grows with the stroke 
 | `utils/tremoloGlyphs.ts` | E220/E22B moved out of `CenteredTremolo`: the highlight finds the strokes **by glyph character** inside the note's group, and that side of the app has no VexFlow. Nearest-glyph matching would be wrong — the stack sits where a chord's upper noteheads are, and it is one rect over N glyphs |
 | `selectionSnapshot` | `kind: 'stem'` / `'tremolo'`, locator + note, like the dot |
 
-### ⏭️ What P5 deliberately did not do
+### Delete (P6)
 
-- **Delete** on either selection (decision 4). `setTremolo(id, null)` is still waiting.
-- **Lighting a note's tremolo when the NOTE is selected.** `highlightNote` lights head + stem +
-  accidental + articulations + dots + tie; the tremolo is not in that list. Consistent to add, but it
-  changes existing behaviour and nobody asked.
+One branch in `shortcutWiring.deleteSelected`, in the run of note sub-elements (accidental → dot →
+**tremolo** → tie), calling `MusicEngine.setTremolo(id, null)` — written at P0 and unused until now.
+
+- **The whole mark goes, whatever it was.** A tremolo is ONE value on the slot, so there is no
+  "remove a stroke": changing 5 strokes to 4 is a different edit (stamp a different mark) and belongs
+  to the palette, not to Delete. The Penderecki sign takes the same path, with no per-mark branch.
+- **The note survives, and stays selected** — like the accidental and the dot above it, so stamping a
+  different mark is one press away.
+- **One undo entry.** `setTremolo` already committed (`'Remove tremolo'`); nothing new was needed.
+- ⚠️ Tested through the REAL key wiring (`tremoloDelete.test.ts` dispatches a `keydown`), not by
+  calling the handler: the removal is one engine call and cannot really break, while the branch ORDER
+  can — a new arm of that chain is only reached if nothing above it claims the press. One test asserts
+  the reverse direction too (a selected NOTE still deletes the note).
+
+### Reporting the mark (P7)
+
+Two halves of one idea — *the editor should show you the tremolo that is there*, not only the one you
+are about to stamp:
+
+- **A selected NOTE lights its tremolo.** `highlightNote` already lit head + stem + accidental +
+  articulations + dots + tie; the mark joins that list, through the same `colorNoteTremolo` pass the
+  selected-MARK highlight uses. One pass, two callers — the shape `colorNoteDots` and
+  `colorNoteArticulations` already have.
+- **The Tremolo palette reports it.** The row used to light only the ARMED mark, so it answered
+  "what will the next click stamp?" and nothing else. `tremoloHighlight(state, engine)` in
+  `interactions/keypadSync` — beside `durationHighlight`, single-sourced for whoever reads it next —
+  answers from three sources in this order:
+    1. a marking tool is armed → the armed tremolo if it IS the tremolo stamp, else null (under a
+       clef tool no tremolo is in play);
+    2. the MARK is selected on the score → that note's mark. Clicking the strokes clears the note
+       selection, so without this the row would go dark on exactly the click that selected it;
+    3. otherwise the single selected note's own mark.
+  Live-read from the engine like the articulation / tie / beam-role highlights: a stamp, a Delete or
+  an undo all change the mark without going near the palette.
+
+### ⏭️ What P5/P6/P7 deliberately did not do
+
+- **The Keypad's page-2 tremolo keys.** Still `momentary` (§8) — they neither arm, report, nor
+  remove. Reporting is `tremoloHighlight` behind a `PaletteSelection`, and removing is the same
+  `setTremolo(id, null)` from a different seam; both are wiring, not design.
+- **Anything on a selected STEM.** Delete does nothing to one — there is no such edit — and a
+  stem-length drag is the gesture that rect was really registered for.
 - **The flag.** Still reserved as its own future element (`highlightNote` says so out loud).
 
 ## Sources

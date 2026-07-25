@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { multipleNotesSelected, type SelectionItem } from './selection'
-import { beamHighlight, beamRoleHighlight, beamOverHighlight, noNoteInSelection, secondaryBreakHighlight, type BeamSource } from './keypadSync'
+import { beamHighlight, beamRoleHighlight, beamOverHighlight, noNoteInSelection, secondaryBreakHighlight, tremoloHighlight, type BeamSource, type TremoloSource } from './keypadSync'
+import type { TremoloMark } from '../types/music'
 import { createEditorState } from './EditorState'
 import { itemKey } from './selection'
 
@@ -119,5 +120,49 @@ describe('beamHighlight (the dev shell\'s Beam row)', () => {
     const notes: BeamSource = { getNote: () => ({}), getBeamRole: () => 'begin' }
     expect(beamHighlight(state, notes)).toBe('auto')
     expect(beamRoleHighlight(state, notes)).toBe('begin')
+  })
+})
+
+/**
+ * The tremolo row is the one palette rule with THREE sources, because a tremolo is the only mark you
+ * can arm, select on the score, AND read off a selected note. The order between them is the rule.
+ */
+describe('tremoloHighlight (the dev shell\'s Tremolo row)', () => {
+  const carrying = (mark: TremoloMark | undefined): TremoloSource => ({ getNote: () => ({ tremolo: mark }) })
+
+  it('reports the mark on the single selected note — "what does this note have on it"', () => {
+    expect(tremoloHighlight(stateWith([note('a')]), carrying(3))).toBe(3)
+    expect(tremoloHighlight(stateWith([note('a')]), carrying('penderecki'))).toBe('penderecki')
+  })
+
+  it('nothing for a selected note without one, and nothing with no selection', () => {
+    expect(tremoloHighlight(stateWith([note('a')]), carrying(undefined))).toBeNull()
+    expect(tremoloHighlight(stateWith([]), carrying(3))).toBeNull()
+  })
+
+  it('nothing when several notes are selected — no single mark can stand for the set', () => {
+    expect(tremoloHighlight(stateWith([note('a'), note('b')]), carrying(3))).toBeNull()
+  })
+
+  it('⭐ the MARK selected on the score lights, even though clicking it cleared the note selection', () => {
+    const state = stateWith([])
+    state.selectedTremoloNoteId = 'a'
+    expect(tremoloHighlight(state, carrying(4))).toBe(4)
+  })
+
+  it('the ARMED mark wins over everything — that is the active gesture', () => {
+    const state = stateWith([note('a')])
+    state.selectedMarkingTool = { kind: 'tremolo', tremolo: 5 }
+    expect(tremoloHighlight(state, carrying(2))).toBe(5)
+  })
+
+  it('⚠️ and ANOTHER tool darkens the row — no tremolo is in play while a clef waits to be placed', () => {
+    const state = stateWith([note('a')])
+    state.selectedMarkingTool = { kind: 'clef', clef: 'bass' }
+    expect(tremoloHighlight(state, carrying(2))).toBeNull()
+  })
+
+  it('no engine, no answer (the mark is a fact about the score, read live)', () => {
+    expect(tremoloHighlight(stateWith([note('a')]), null)).toBeNull()
   })
 })

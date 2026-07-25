@@ -360,12 +360,13 @@ export class HighlightController {
       : group.querySelector('g.vf-notehead text, g.vf-notehead path')
     if (head) colorFill(head)
 
-    // Also light this note's accidental (♯/♭/♮), articulations, dots and tie, so a selected note
-    // reads as fully selected — head + stem + accidental + articulations + dots + tie.
+    // Also light this note's accidental (♯/♭/♮), articulations, dots, tie and tremolo, so a selected
+    // note reads as fully selected — head + stem + accidental + articulations + dots + tie + mark.
     this.highlightNoteAccidental(noteId, group, SELECTION_COLOR)
     this.colorNoteArticulations(noteId, SELECTION_COLOR)
     this.colorNoteDots(noteId, SELECTION_COLOR)
     this.colorNoteTie(noteId, SELECTION_COLOR)
+    this.colorNoteTremolo(noteId, SELECTION_COLOR)
 
     // Multi-voice unison: the other voice draws a notehead at the SAME pixel spot in a
     // sibling `vf-stavenote` group. Whichever is later in the DOM paints on top, so the
@@ -560,8 +561,12 @@ export class HighlightController {
   }
 
   /**
-   * Highlight the selected TREMOLO — every stroke of the stack (or the Penderecki sign), in the
-   * slot's voice colour like the other sub-element highlights.
+   * Colour the tremolo mark on `noteId` — every stroke of the stack, or the Penderecki sign.
+   *
+   * Shared by the selected-TREMOLO highlight ({@link applyTremoloHighlight}) and the selected-NOTE
+   * highlight ({@link highlightNote}), exactly as {@link colorNoteDots} and
+   * {@link colorNoteArticulations} are shared: selecting the note lights everything that belongs to
+   * it, and selecting the mark lights just the mark. No-op on a note without one.
    *
    * Found by GLYPH, not by geometry: the strokes are `<text>` elements inside the note's own
    * `vf-stavenote` group whose content is the tremolo codepoint, so matching the character picks all
@@ -569,17 +574,15 @@ export class HighlightController {
    * would be wrong here — the stack sits along the stem, where a chord's upper noteheads are, and it
    * is one registered rect covering N glyphs rather than one box per glyph.
    */
-  applyTremoloHighlight(): void {
+  private colorNoteTremolo(noteId: string, color: string): void {
     const engine = this.getEngine()
-    if (!engine || !this.state.selectedTremoloNoteId) return
-    const noteId = this.state.selectedTremoloNoteId
-    const note = engine.getNote(noteId)
-    if (note?.tremolo === undefined) return
+    if (!engine) return
+    const mark = engine.getNote(noteId)?.tremolo
+    if (mark === undefined) return
     const group = engine.getStaveNoteSVGGroup(noteId)?.group
     if (!group) return
 
-    const glyph = tremoloGlyph(note.tremolo)
-    const color = voiceFillColor(note.voice ?? 0)
+    const glyph = tremoloGlyph(mark)
     group.querySelectorAll('text').forEach(el => {
       if (el.textContent !== glyph) return
       const svgEl = el as SVGElement
@@ -587,6 +590,15 @@ export class HighlightController {
       this.setStyleProp(svgEl, 'fill', color)
       this.addClass(svgEl, 'selected-tremolo')
     })
+  }
+
+  /** Highlight the tremolo selected on the score (a click on its strokes). Paints in the slot's
+   *  voice colour, like every other sub-element highlight. */
+  applyTremoloHighlight(): void {
+    const engine = this.getEngine()
+    if (!engine || !this.state.selectedTremoloNoteId) return
+    const noteId = this.state.selectedTremoloNoteId
+    this.colorNoteTremolo(noteId, voiceFillColor(engine.getNote(noteId)?.voice ?? 0))
   }
 
   applyAccidentalHighlight(): void {
