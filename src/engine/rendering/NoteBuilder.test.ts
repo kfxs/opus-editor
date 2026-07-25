@@ -136,3 +136,64 @@ describe('restSupportingLedgerLine (off-staff whole/half rest support, docs/rest
     expect(restSupportingLedgerLine('q', true, 3)).toBeNull() // measure rest inside staff
   })
 })
+
+describe('createStaveNotesFromSlots — a two-note tremolo pair', () => {
+  /**
+   * The pair is WRITTEN at double its value and PLAYS at its own: the StaveNote carries the doubled
+   * duration, and `applyTickMultiplier(1, 2)` halves the ticks back so the formatter spaces it over
+   * its real length and a FULL-mode voice is not handed twice the bar (docs/two-note-tremolo-plan.md
+   * §2, "the four traps").
+   */
+  let seq = 0
+  const chord = (beat: number, duration: 'h' | 'q' | '8', extra: object = {}): ChordRest => ({
+    id: `c${seq++}`, type: 'chord', beat: frac(beat, 2), duration, measure: 1,
+    notes: [{ id: `p${seq++}`, step: 'C', alter: 0, octave: 4 }],
+    ...extra,
+  })
+
+  it('draws two quarters as two HALVES, at the ticks of quarters', () => {
+    const plain = createStaveNotesFromSlots([chord(0, 'q'), chord(2, 'q')])
+    const paired = createStaveNotesFromSlots([chord(0, 'q', { tremoloPair: true }), chord(2, 'q')])
+
+    expect(paired.map(n => n.getDuration())).toEqual(['h', 'h'])
+    expect(paired[0].getTicks().value()).toBe(plain[0].getTicks().value())
+    expect(paired[1].getTicks().value()).toBe(plain[1].getTicks().value())
+  })
+
+  it('doubles eighths to quarters — which is what takes their flags away', () => {
+    const paired = createStaveNotesFromSlots([chord(0, '8', { tremoloPair: true }), chord(1, '8')])
+    expect(paired.map(n => n.getDuration())).toEqual(['q', 'q'])
+  })
+
+  it('leaves a STALE flag alone — the partner is no longer pairable', () => {
+    const stale = createStaveNotesFromSlots([chord(0, 'q', { tremoloPair: true }), chord(2, 'h')])
+    expect(stale.map(n => n.getDuration())).toEqual(['q', 'h'])
+  })
+
+  it('gives BOTH stems one direction, decided over both notes', () => {
+    // A high C6 and a low C3: apart, each would stem the other way.
+    const high: ChordRest = {
+      id: 'hi', type: 'chord', beat: frac(0, 1), duration: 'q', measure: 1,
+      notes: [{ id: 'hp', step: 'C', alter: 0, octave: 6 }], tremoloPair: true,
+    }
+    const low: ChordRest = {
+      id: 'lo', type: 'chord', beat: frac(1, 1), duration: 'q', measure: 1,
+      notes: [{ id: 'lp', step: 'C', alter: 0, octave: 3 }],
+    }
+    const [a, b] = createStaveNotesFromSlots([high, low])
+    expect(a.getStemDirection()).toBe(b.getStemDirection())
+    // Unpaired, the same two notes disagree — which is what makes the check mean something.
+    const [x, y] = createStaveNotesFromSlots([{ ...high, tremoloPair: undefined }, low])
+    expect(x.getStemDirection()).not.toBe(y.getStemDirection())
+  })
+
+  it('wears NO stem strokes — the mark moved into the gap', () => {
+    const paired = createStaveNotesFromSlots([
+      chord(0, 'q', { tremoloPair: true, tremolo: 3 }), chord(2, 'q'),
+    ])
+    expect(paired[0].getModifiers()).toHaveLength(0)
+    // Un-paired, the same slot wears them.
+    const single = createStaveNotesFromSlots([chord(0, 'q', { tremolo: 3 }), chord(2, 'q')])
+    expect(single[0].getModifiers()).toHaveLength(1)
+  })
+})

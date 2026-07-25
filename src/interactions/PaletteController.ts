@@ -609,6 +609,59 @@ export class PaletteController {
   }
 
   /**
+   * ⭐ The TWO-NOTE tremolo — one button, pressed on the FIRST note of the pair
+   * (docs/two-note-tremolo-plan.md §0). The note and the one after it alternate, and both are drawn
+   * at DOUBLE their written value.
+   *
+   * ONE note, not a selection: the mark is a RELATION between this note and its neighbour, so
+   * "apply it across five notes" has no reading — which of them are pairs? The press acts on the
+   * selected tremolo MARK if one is selected (pressing the pair on a note wearing stem strokes keeps
+   * the count and moves the strokes between the stems — the same mark re-read), otherwise on the one
+   * selected note. Anything else — nothing selected, several notes, a rest — is a no-op.
+   *
+   * A re-press REMOVES it, the toggle every other palette button has. Removal takes the stroke count
+   * with it: the pair is ONE mark, and half of it is not a notation (§4).
+   *
+   * The press is REFUSED — nothing happens, and no undo entry is made — whenever the pair is not a
+   * pair: no next note, a rest, a different value, a different tuplet/voice/staff/bar, two whole
+   * notes, an authored beam on either, or either slot already in a pair. That list lives once, in
+   * `pairIsValid`; this only reports what the model answered.
+   */
+  pressTremoloPair(): void {
+    const engine = this.getEngine()
+    if (!engine) return
+
+    const noteId = this.state.selectedTremoloNoteId ?? this.singleSelectedNoteId()
+    if (!noteId) return
+    const note = engine.getNote(noteId)
+    if (!note || note.isRest) return
+
+    const on = !note.tremoloPair
+    const applied = engine.runBatch(on ? 'Two-note tremolo' : 'Remove two-note tremolo', () => {
+      engine.setTremoloPair(noteId, on)
+    })
+    if (!applied) return
+    // Taking the mark off leaves nothing to keep selected — the same shape editSelectedTremolo has.
+    if (!on && this.state.selectedTremoloNoteId) {
+      this.state.selectedTremoloNoteId = null
+      this.selectNote(null)
+    }
+    this.renderScore()
+  }
+
+  /** The one selected note, or null when nothing / a rest / more than one is selected. */
+  private singleSelectedNoteId(): string | null {
+    const engine = this.getEngine()
+    if (!engine || !this.state.selectedNoteId) return null
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+      .filter(id => {
+        const note = engine.getNote(id)
+        return note && !note.isRest
+      })
+    return ids.length === 1 ? ids[0] : null
+  }
+
+  /**
    * Edit the tremolo currently selected in the score (see {@link EditorState.selectedTremoloNoteId}):
    * a DIFFERENT mark changes it, the SAME mark removes it. The twin of
    * {@link editSelectedAccidental}, including what is left selected afterwards — a change keeps the

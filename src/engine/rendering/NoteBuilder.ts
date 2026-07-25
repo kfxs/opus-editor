@@ -1,9 +1,10 @@
 import { StaveNote, Voice, Accidental, Articulation, Modifier, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
 import { CenteredTremolo } from './CenteredTremolo'
-import type { Measure, NoteDuration, Clef, ArticulationType, ChordRest, Fraction, PitchAlter } from '@/types/music'
+import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction, PitchAlter } from '@/types/music'
 import { fracCompare, fracLte } from '@/utils/fraction'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
-import { durationToVexflow } from '@/utils/durations'
+import { doubleDuration, durationToVexflow } from '@/utils/durations'
+import { pairRoleAt } from '@/utils/tremoloPair'
 import { pickVoiceMode } from '@/utils/restFill'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
 
@@ -129,7 +130,8 @@ export function createStaveNotesFromSlots(
   // resolver deliberately does not model. Keep the two in step if the rule ever changes.
   const activeMeasureAlterations = new Map<number, PitchAlter>()
 
-  for (const slot of slots) {
+  for (let slotIndex = 0; slotIndex < slots.length; slotIndex++) {
+    const slot = slots[slotIndex]
     if (slot.type === 'rest') {
       // Voice base (multi-voice separation) + any per-rest manual shift, resolved per slot.
       const shift = resolveRestShift(slot)
@@ -203,11 +205,28 @@ export function createStaveNotesFromSlots(
     // Clef in effect at this slot's beat (mid-measure changes move notes).
     const slotClef = resolveClef(slot.beat)
 
-    // Stem direction — compare diatonic staff position against clef's middle line
+    /**
+     * ⭐ TWO-NOTE TREMOLO — is this slot in a pair, and if so which end?
+     *
+     * `slots` is ONE LANE here (both callers filter by voice before calling), which is exactly what
+     * {@link pairRoleAt} needs. Two things follow from a non-null role, and BOTH belong in this
+     * function rather than at the draw site: the width path builds its notes through here too
+     * (`MeasureLayout.noteSpaceForLane`), so doubling on the draw side alone would leave the two
+     * disagreeing about what is in the bar.
+     */
+    const pairRole = pairRoleAt(slots, slotIndex)
+    const pairSlots: Chord[] = pairRole === 'first'
+      ? [slot, slots[slotIndex + 1] as Chord]
+      : pairRole === 'second' ? [slots[slotIndex - 1] as Chord, slot] : [slot]
+
+    // Stem direction — compare diatonic staff position against clef's middle line.
+    // BOTH stems of a pair point the same way, so the pair decides ONCE, over both slots' pitches
+    // and honouring an explicit override on either end — the rule a beam group already follows.
+    const explicitStem = pairSlots.find(s => s.stemDirection)?.stemDirection
     let stemDirection: number
-    if (slot.stemDirection === 'up') {
+    if (explicitStem === 'up') {
       stemDirection = 1
-    } else if (slot.stemDirection === 'down') {
+    } else if (explicitStem === 'down') {
       stemDirection = -1
     } else if (forcedStemDirection !== undefined) {
       // Multi-voice default (V1 up / V2 down); an explicit override above still wins.
@@ -216,7 +235,7 @@ export function createStaveNotesFromSlots(
       const middleDiatonic = middleLineDiatonicPos(slotClef)
       let maxDist = 0
       stemDirection = -1  // default down; middle-line notes follow this convention
-      for (const p of slot.notes) {
+      for (const p of pairSlots.flatMap(s => s.notes)) {
         const dPos = spellingDiatonicPos(p.step, p.octave)
         const dist = Math.abs(dPos - middleDiatonic)
         if (dist > maxDist) {
@@ -226,8 +245,18 @@ export function createStaveNotesFromSlots(
       }
     }
 
-    const vexDuration = convertDuration(slot.duration, slot.dots || 0)
+    // A pair is WRITTEN at double its value — two quarters draw as two halves — because each note
+    // carries the full value of the whole tremolo (docs/two-note-tremolo-plan.md §0). `pairIsValid`
+    // has already refused the one duration with no double, so the `?? slot.duration` is only the
+    // no-pair case.
+    const drawnDuration = pairRole ? (doubleDuration(slot.duration) ?? slot.duration) : slot.duration
+    const vexDuration = convertDuration(drawnDuration, slot.dots || 0)
     const staveNote = new StaveNote({ keys, duration: vexDuration, clef: slotClef, autoStem: false })
+    // ⚠️ TICKS. The StaveNote now carries TWICE the ticks its slot has, and a FULL-mode voice handed
+    // twice the bar's ticks throws. `applyTickMultiplier(1, 2)` halves them back — the same call
+    // VexFlow's own `Tuplet` makes (`setTuplet` → `applyTickMultiplier(notesOccupied, noteCount)`) —
+    // so the formatter spaces the pair over its REAL length and `pickVoiceMode` still answers FULL.
+    if (pairRole) staveNote.applyTickMultiplier(1, 2)
     staveNote.setStemDirection(stemDirection)
 
     // Add accidental modifiers — VexFlow accepts '#', 'b', 'n', '##', 'bb'
@@ -282,7 +311,12 @@ export function createStaveNotesFromSlots(
     // The Penderecki sign goes through the SAME modifier: it is one glyph (E22B, which VexFlow does
     // not draw) in a stack of one, so it inherits the centring, both stem stretches, the ghost and
     // the bounding-box fix rather than being a second drawing path that must remember all four.
-    if (slot.tremolo) {
+    //
+    // ⚠️ NOT in a PAIR. A two-note tremolo's strokes moved off the stem and into the gap between the
+    // two (docs/two-note-tremolo-plan.md §2) — drawing both would say two different things. That
+    // covers the second slot too: it carries no `tremoloPair`, but a single-note mark left on it
+    // from before is part of the same pair now and is not drawn twice.
+    if (slot.tremolo && !pairRole) {
       staveNote.addModifier(new CenteredTremolo(slot.tremolo), 0)
     }
 

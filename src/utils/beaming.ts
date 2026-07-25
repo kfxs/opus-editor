@@ -21,6 +21,7 @@
 import type { BeamMode, ChordRest, NoteDuration } from '@/types/music'
 import { type Fraction, fracCreate, fracAdd, fracLt, fracSub, fracToNumber } from '@/utils/fraction'
 import type { MeterInfo } from '@/utils/meter'
+import { pairRoleAt } from '@/utils/tremoloPair'
 
 /** A duration is beamable iff it is an eighth note or shorter. */
 export function isBeamableDuration(duration: NoteDuration): boolean {
@@ -157,6 +158,17 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
     for (let i = 0; i < slots.length; i++) {
       const slot = slots[i]
       const ref: BeamSlotRef = { bar: b, slot: i }
+
+      // ⚠️ A TWO-NOTE TREMOLO PAIR is never a member of an automatic group — it owns its own beam or
+      // none (docs/two-note-tremolo-plan.md §2). The exclusion belongs HERE, in the pure grouper, and
+      // not in `VexFlowRenderer.buildBeams`: the cross-barline planner feeds the renderer its own
+      // `inBarGroups`, so a pair excluded only at the renderer would still be dragged into a group
+      // ACROSS A BARLINE by the plan. Both members break, exactly as a plain rest does.
+      //
+      // An AUTHORED beam role on either slot is a second answer to the same question, so the pair
+      // refuses it rather than silently winning (`pairIsValid`) — which is also what keeps this from
+      // being circular: the predicate reads the stored `beam` field, never a computed role.
+      if (pairRoleAt(slots, i) !== null) { flush(); continue }
 
       // A rest breaks the beam — UNLESS it is marked `beamOver`, when it becomes a SILENT `continue`:
       // swept into the group before it AND bridging the boundary at it, so the note after joins across

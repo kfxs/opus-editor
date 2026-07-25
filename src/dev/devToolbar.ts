@@ -79,6 +79,25 @@ const TREMOLOS: ReadonlyArray<{ id: string; mark: TremoloMark; title: string; la
     layers: struck('\uE22B', 4.5, 30, -1) },
 ]
 
+/**
+ * The SEVENTH button: the two-note tremolo — Sibelius's Enter key on the Beams/Tremolos keypad,
+ * whose picture is already drawn there (`TREMOLO.tremoloWithNext`) and deliberately still
+ * `momentary`. Borrowed the same way `struck` is: the drawing, not a dependency, so `dev/` stays
+ * deletable in one `rm`. Two down-stem half notes with a bar between them.
+ *
+ * ⚠️ It carries NO stroke count of its own. The 1–5 buttons say how many strokes, here as everywhere;
+ * this one only says the strokes go BETWEEN two notes. On a note with no mark yet the press sets
+ * three — the ordinary two-note tremolo (docs/two-note-tremolo-plan.md §0).
+ */
+const TREMOLO_PAIR: { title: string; layers: TremLayer[] } = {
+  title: 'Two-note tremolo — alternate with the next note (three strokes if the note has none)',
+  layers: [
+    { glyph: '\uE1D4', dy: -7, dx: -8 },   // noteHalfDown
+    { glyph: '\uE1D4', dy: -13, dx: 12 },
+    { glyph: '\uE007', size: 12, dy: 15, dx: -2 },
+  ],
+}
+
 export interface DevToolbarDeps {
   state: EditorState
   palette: PaletteController
@@ -280,6 +299,22 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     })
     tremBox.appendChild(b)
   }
+
+  /**
+   * The two-note tremolo, beside the six single-note marks. NOT a toggle button in the lit/unlit
+   * sense yet: `tremoloHighlight` answers with a `TremoloMark`, and the pair is a SECOND AXIS — the
+   * count lights as it always did, and the pair lights beside it. That reporting is P5, with the
+   * selection it needs (docs/two-note-tremolo-plan.md §4), so this stays a plain action for now.
+   */
+  const pairBtn = el('button', `${TREM_BTN} ${OFF}`)
+  pairBtn.title = TREMOLO_PAIR.title
+  const pairSvg = bakeGlyphStack(TREMOLO_PAIR.layers, TREM_FONT)
+  pairSvg.style.width = `${TREM_GLYPH}px`
+  pairSvg.style.height = `${TREM_GLYPH}px`
+  pairBtn.appendChild(pairSvg)
+  pairBtn.addEventListener('click', () => palette.pressTremoloPair())
+  tremBox.appendChild(pairBtn)
+
   row.appendChild(tremBox)
 
   /**

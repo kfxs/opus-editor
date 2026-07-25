@@ -840,6 +840,14 @@ export interface Note {
   /** Single-note tremolo on this note's slot. See {@link Chord.tremolo}. */
   tremolo?: TremoloMark
   /**
+   * Two-note tremolo on this note's slot. See {@link Chord.tremoloPair}.
+   *
+   * ⚠️ The raw FLAG, not the validated relation — a pair can go stale, and only `pairIsValid`
+   * (utils/tremoloPair) reading the whole lane can say whether it is still a notation. Enough to
+   * toggle the mark off; not enough to decide it is drawn.
+   */
+  tremoloPair?: true
+  /**
    * Voice index (0–3) this note belongs to. Voices are independent rhythmic
    * streams within a bar. Only voice 0 is populated today (no multi-voice
    * editing yet); the field exists so collision/fill/read paths are voice-ready.
@@ -952,6 +960,27 @@ export interface Chord {
    * `slots` puts it in the WIDTH key too — which is the safe direction. See docs/tremolo-plan.md §1.
    */
   tremolo?: TremoloMark
+  /**
+   * TWO-NOTE tremolo: this slot's tremolo alternates with the **NEXT** slot in its lane, and both
+   * noteheads are drawn at DOUBLE their written value. The stroke count stays in {@link tremolo};
+   * this field only says "the strokes go between two notes instead of on one stem".
+   *
+   * ⚠️ ONE field, on the FIRST slot — the second carries nothing. "Mark just the first note" is
+   * true in the data too, and the renderer looks ahead: one less thing to keep in step, and
+   * deleting the second note cannot leave a dangling half-mark (the pair simply stops being one).
+   *
+   * ⚠️ It is a **RELATION**, not a property, which is what makes it different from every other slot
+   * field: every pipeline that reorders slots can break it after the fact (delete the partner,
+   * insert between, change a duration, a meter change, a paste that re-bars them apart). So the flag
+   * alone is NOT the notation — {@link pairIsValid} (utils/tremoloPair) is asked by the button, the
+   * renderer, the beam grouper and playback alike, and a broken pair is DROPPED by the relay rather
+   * than carried. See docs/two-note-tremolo-plan.md §1.
+   *
+   * ⚠️ Durations are NOT rewritten: the model keeps two half notes, only the *drawing* doubles them.
+   * That is the whole reason the feature is cheap — rebar, rest-fill, meter changes, clipboard,
+   * JSON, collision and undo never see a note claiming a length it does not have.
+   */
+  tremoloPair?: true
   /**
    * Staff this chord belongs to (a {@link StaffInfo} id). Absent = staff 0 (the first
    * staff), mirroring absent {@link Note.voice} = voice 0. Orthogonal to voice: a slot's

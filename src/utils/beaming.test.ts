@@ -536,3 +536,42 @@ describe('beaming — secondaryBreakIndices (subdividing a beam)', () => {
     expect(secondaryBreakIndices(slots)).toEqual([2])                           // …broken 3+3
   })
 })
+
+describe('a two-note tremolo pair is never in an automatic group', () => {
+  /**
+   * The pair owns its own beam or none (docs/two-note-tremolo-plan.md §2), and the exclusion belongs
+   * HERE, in the pure grouper — the cross-barline planner feeds the renderer its own `inBarGroups`,
+   * so a pair excluded only at the renderer would still be dragged across a barline by the plan.
+   */
+  const paired = (slots: ChordRest[], i: number): ChordRest[] =>
+    slots.map((s, k) => (k === i && s.type === 'chord' ? { ...s, tremoloPair: true as const } : s))
+
+  it('breaks the group at BOTH of its notes', () => {
+    // Four eighths in 4/4 beam 2+2 by the meter.
+    expect(computeBeamGroups(run(4, '8', 2), meter(4, 4))).toEqual([[0, 1], [2, 3]])
+    // Pair the second and third: neither joins a group, and the outer two are left alone.
+    expect(computeBeamGroups(paired(run(4, '8', 2), 1), meter(4, 4))).toEqual([])
+  })
+
+  it('leaves the notes around it beaming normally', () => {
+    // Six eighths in 6/8 beam 3+3; pair the last two of the FIRST group.
+    const slots = paired(run(6, '8', 2), 1)
+    expect(computeBeamGroups(slots, meter(6, 8))).toEqual([[3, 4, 5]])
+  })
+
+  it('does not break on a STALE flag — a pair whose partner is no longer pairable', () => {
+    // The partner is a sixteenth now: not a pair, so the meter beams all four as it always did.
+    const slots = paired(run(4, '8', 2), 0)
+    const broken = slots.map((s, k) => (k === 1 && s.type === 'chord' ? { ...s, duration: '16' as const } : s))
+    expect(computeBeamGroups(broken, meter(4, 4))).toEqual([[0, 1], [2, 3]])
+  })
+
+  it('does not cross a BARLINE either — the plan cannot re-join what the grouper split', () => {
+    const bars: BeamBar[] = [
+      { slots: paired(run(2, '8', 2), 0), meter: meter(1, 4) },
+      { slots: run(2, '8', 2), meter: meter(1, 4) },
+    ]
+    // Only the second bar's own pair-free notes beam.
+    expect(computeCrossBarBeamGroups(bars)).toEqual([[{ bar: 1, slot: 0 }, { bar: 1, slot: 1 }]])
+  })
+})

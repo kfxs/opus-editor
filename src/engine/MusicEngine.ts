@@ -2765,6 +2765,21 @@ export class MusicEngine {
     return result
   }
 
+  /**
+   * Set — or with `false`, remove — the TWO-NOTE tremolo on the slot containing `noteId`: this note
+   * and the one after it alternate, and both are drawn at double their written value.
+   *
+   * Returns null when the pair is refused (`ScoreModel.setTremoloPair` — the §0 list) so the press
+   * does nothing, and `commit` for the same reason {@link setTremolo} does: it is an instruction to
+   * the player, so it belongs with the changes that resync playback.
+   */
+  setTremoloPair(noteId: string, on: boolean): Note | null {
+    const result = this.scoreModel.setTremoloPair(noteId, on)
+    if (!result) return null
+    this.commit(on ? 'Two-note tremolo' : 'Remove two-note tremolo')
+    return result
+  }
+
   // ==================== Rendering Operations ====================
 
   /**

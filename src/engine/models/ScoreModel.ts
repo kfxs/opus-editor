@@ -19,6 +19,7 @@ import {
 } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { beamRoleAtRef, type BeamRole } from '@/utils/beaming'
+import { laneOfSlot, pairIsValid } from '@/utils/tremoloPair'
 import { spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
 import { type RebarEvent } from '@/utils/rebar'
 import {
@@ -2050,6 +2051,49 @@ export class ScoreModel {
     const { chord, pitch } = found
     if (tremolo === null) delete chord.tremolo
     else chord.tremolo = tremolo
+    return this.toFlatNote(chord, pitch)
+  }
+
+  /**
+   * Set — or with `false`, remove — the TWO-NOTE tremolo on the slot containing `noteId`.
+   *
+   * Refuses (returns null) whenever {@link pairIsValid} says this slot cannot be the first note of a
+   * pair — the §0 list, read off the slot's own lane. The ONE predicate: the button asks it here,
+   * the renderer asks it before drawing, the beam grouper before excluding. It is checked at APPLY
+   * time and again at DRAW time on purpose; neither alone is enough (docs/two-note-tremolo-plan.md
+   * §1).
+   *
+   * ⭐ THE COUNT COMES FROM THE NOTE, and with none there the press sets THREE. The pair is a
+   * separate field from the stroke count, so a press on a note carrying no `tremolo` would otherwise
+   * be a mark with nothing to draw. Three strokes is the ordinary two-note tremolo. Refusing instead
+   * would make the button dead on exactly the note you pressed it on — the trap the tie stamp
+   * already had and fixed (docs/tie-stamp-plan.md §1.3).
+   *
+   * Removing takes BOTH fields off: the pair is ONE mark, and half of it is not a notation.
+   *
+   * Nothing is written to the SECOND slot, in either direction. That is the model (§1) — "mark just
+   * the first note" is true in the data too, and it is why deleting the partner cannot leave a
+   * dangling half-mark.
+   */
+  setTremoloPair(noteId: string, on: boolean): Note | null {
+    const found = this.findSlot(noteId)
+    if (!found || found.type === 'rest') return null
+    const { chord, pitch } = found
+
+    if (!on) {
+      if (!chord.tremoloPair) return null
+      delete chord.tremoloPair
+      delete chord.tremolo
+      return this.toFlatNote(chord, pitch)
+    }
+
+    const measure = this.score.measures.find(m => m.number === chord.measure)
+    if (!measure) return null
+    const lane = laneOfSlot(measure.slots, chord)
+    if (!pairIsValid(lane, lane.indexOf(chord))) return null
+
+    chord.tremoloPair = true
+    if (!chord.tremolo) chord.tremolo = 3
     return this.toFlatNote(chord, pitch)
   }
 

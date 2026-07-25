@@ -86,6 +86,24 @@ export function durationFlags(duration: NoteDuration): number {
 }
 
 /**
+ * The duration that lasts TWICE as long — `'h'` → `'w'`, `'q'` → `'h'`, `'8'` → `'q'` — or `null`
+ * when there is none.
+ *
+ * The two-note tremolo's drawing rule: both noteheads of a pair are written at the full value of the
+ * whole tremolo, so the written pair reads twice as long as it sounds (docs/two-note-tremolo-plan.md
+ * §0). A `'w'` has no double, which is exactly why a pair of whole notes is refused — the null is the
+ * refusal, not an error.
+ *
+ * DERIVED from {@link DURATION_INFO} rather than tabulated, like {@link DURATIONS_DESC}: adding a
+ * `'64'` to the union gives `'64' → '32'` for free. Every value is an exact power of two, so `===`
+ * on the doubled beats is exact — no epsilon to tune.
+ */
+export function doubleDuration(duration: NoteDuration): NoteDuration | null {
+  const target = DURATION_INFO[duration].beats * 2
+  return DURATIONS_DESC.find(d => DURATION_INFO[d].beats === target) ?? null
+}
+
+/**
  * Exact dot multipliers (× original duration):
  *   0 dots → 1, 1 dot → 3/2, 2 dots → 7/4.
  */

@@ -581,7 +581,8 @@ meaningless empty baseline.
 
 - **Two-note (between-notes) tremolo.** A different notation with a different model — it belongs
   to a *pair* of slots, not one. VexFlow does not draw it either. (SMuFL's `tremoloFingered1–5`,
-  E225–E229, are for that reading.)
+  E225–E229, are for that reading — and are NOT what it is drawn with; see the plan.)
+  → **Planned: `docs/two-note-tremolo-plan.md`.**
 - ~~**Selecting the mark.**~~ **✅ DONE (P5) — see §9.** `'tremolo'` is an `ElementType`, and so is
   the stem it rides. What is still deferred is *acting* on the selection (Delete, a Properties edit).
 - **Both playback numbers as user options** (⏭️ wanted, not built). The threshold and the unmeasured
