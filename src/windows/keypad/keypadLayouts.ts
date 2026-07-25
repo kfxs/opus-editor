@@ -43,7 +43,7 @@
  * metrics). To REWORK a drawing, swap its `tremolo(` for {@link rework}, which renders the SAME stack
  * LIVE as spans so `dx`/`dy` can be tuned by eye, then swap back to re-bake.
  */
-import type { Accidental, ArticulationType, BeamMode, NoteDuration } from '../../types/music'
+import type { Accidental, ArticulationType, BeamMode, NoteDuration, TremoloMark } from '../../types/music'
 
 /** One music-font glyph, its `size`, `dx` and `dy` all quoted against a 26px reference (see {@link g}). */
 export type GlyphSpec = { glyph: string; size?: number; dx?: number; dy?: number }
@@ -97,7 +97,7 @@ export type Icon =
  *   like `momentary`, but it re-lays the grid rather than acting on a note. On every page, so you
  *   can always turn back.
  */
-export type Select = 'duration' | 'accidental' | 'articulation' | 'dot' | 'tie' | 'rest' | 'beam' | 'subdivide' | 'beamOver' | 'momentary' | 'mode' | 'page'
+export type Select = 'duration' | 'accidental' | 'articulation' | 'dot' | 'tie' | 'rest' | 'beam' | 'subdivide' | 'beamOver' | 'tremolo' | 'tremoloPair' | 'momentary' | 'mode' | 'page'
 
 export interface KeypadCell {
   /** The numpad key this cell mirrors. It is the cell's identity, and its tooltip. */
@@ -114,6 +114,8 @@ export interface KeypadCell {
   accidental?: Accidental
   articulation?: ArticulationType
   beam?: BeamMode
+  /** The tremolo mark a `tremolo` cell presses — 1–5 strokes or the Penderecki sign. */
+  tremolo?: TremoloMark
 }
 
 /**
@@ -195,7 +197,7 @@ export const VOICES = ['1', '2', '3', '4', 'All']
  *  model value it carries (the 4th slot: a NoteDuration on a duration key, an Accidental on an
  *  accidental key, an ArticulationType on an articulation key; absent otherwise). `toCells` files it
  *  under the field `select` calls for. */
-type CellSpec = [string, Icon, Select, (NoteDuration | Accidental | ArticulationType | BeamMode)?]
+type CellSpec = [string, Icon, Select, (NoteDuration | Accidental | ArticulationType | BeamMode | TremoloMark)?]
 
 /** The two controls every page carries, in their fixed spots — the select arrow (top-left) and the
  *  page-turn `+`. A page never lists these itself; {@link withControls} injects them, so a new page
@@ -307,22 +309,31 @@ const TREMOLO = {
   oneBeamOffset: barred(-2, 10),
 }
 
-// The beam-control cluster (numpad / * - 7 8 9) is WIRED to the beam palette — the same actions the
-// dev toolbar's Beam row calls, so the panel and the numpad drive them together. Their pictures are
-// Sibelius 6's own beam-keypad drawings and are kept; only their `select` (and the value it carries)
-// changes them from `momentary` to live keys. The tremolos and feathered beams below stay `momentary`
-// until they are wired.
+// ⭐ THE WHOLE PAGE IS WIRED but the two feathered beams. The beam cluster (numpad `/ * - 7 8 9`) and
+// the TREMOLOS (`1 2 3 4 5 6` and `Enter`) both call the SAME palette methods the dev toolbar's rows
+// call, so the panel, the numpad and the toolbar drive one action apiece. Every picture is Sibelius
+// 6's own keypad drawing and is unchanged; only the `select` (and the value it carries) turned each
+// from a `momentary` picture into a live key — which is why the tremolos needed no relayout: they
+// were already in Sibelius's places (1–5 strokes, 6 the Penderecki sign, Enter the two-note mark).
+//
+// ⚠️ `Enter` is a SECOND AXIS, not a seventh mark: a two-note tremolo has a count AND a pair, so it
+// lights beside `1`–`6` rather than instead of one (docs/two-note-tremolo-plan.md §4). And the pair's
+// stroke STYLE is on the beam keys above — `begin` joins them, `single` floats them — because on a
+// pair those keys choose how its lines are drawn (§2).
 const page2: CellSpec[] = [
   ['subdivide', TREMOLO.stemBeams, 'subdivide'], ['beam single', g(NOTE_DOWN.sixteenth, undefined, -10), 'beam', 'single'],
   ['beam rest', TREMOLO.twoNoteQuarters, 'beamOver'],
   ['beam begin', TREMOLO.oneBeam, 'beam', 'begin'],
   ['beam continue', TREMOLO.threeBeams, 'beam', 'continue'],
   ['beam end', TREMOLO.oneBeamOffset, 'beam', 'end'],
-  ['tremolo', TREMOLO.fourTremolos, 'momentary'], ['tremolo', TREMOLO.fiveTremolos, 'momentary'], ['tremolo', TREMOLO.penderecki, 'momentary'],
-  ['tremolo', TREMOLO.oneTremolo, 'momentary'], ['tremolo', TREMOLO.twoTremolos, 'momentary'], ['tremolo', TREMOLO.threeTremolos, 'momentary'],
-  ['tremolo', TREMOLO.tremoloWithNext, 'momentary'],
-  ['tremolo', TREMOLO.featheredAccel, 'momentary'],
-  ['tremolo', TREMOLO.featheredRit, 'momentary'],
+  ['tremolo 4', TREMOLO.fourTremolos, 'tremolo', 4], ['tremolo 5', TREMOLO.fiveTremolos, 'tremolo', 5],
+  ['tremolo penderecki', TREMOLO.penderecki, 'tremolo', 'penderecki'],
+  ['tremolo 1', TREMOLO.oneTremolo, 'tremolo', 1], ['tremolo 2', TREMOLO.twoTremolos, 'tremolo', 2],
+  ['tremolo 3', TREMOLO.threeTremolos, 'tremolo', 3],
+  ['tremolo with next', TREMOLO.tremoloWithNext, 'tremoloPair'],
+  // ⏭️ The only keys on this page still unwired — feathered beams are not modelled at all.
+  ['feathered accel', TREMOLO.featheredAccel, 'momentary'],
+  ['feathered rit', TREMOLO.featheredRit, 'momentary'],
 ]
 
 const toCells = (page: CellSpec[]): KeypadCell[] =>
@@ -336,6 +347,7 @@ const toCells = (page: CellSpec[]): KeypadCell[] =>
     accidental: select === 'accidental' ? (value as Accidental) : undefined,
     articulation: select === 'articulation' ? (value as ArticulationType) : undefined,
     beam: select === 'beam' ? (value as BeamMode) : undefined,
+    tremolo: select === 'tremolo' ? (value as TremoloMark) : undefined,
   }))
 
 /**

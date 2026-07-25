@@ -17,6 +17,8 @@ import { tupletSelection } from './tupletSelection'
 import { beamSelection } from './beamSelection'
 import { subdivideSelection } from './subdivideSelection'
 import { beamOverSelection } from './beamOverSelection'
+import { tremoloSelection } from './tremoloSelection'
+import { tremoloPairSelection } from './tremoloPairSelection'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
 import { multipleNotesSelected } from './selection'
 
@@ -248,6 +250,8 @@ export function wireKeypadSync(
   state: EditorState,
   palette: PaletteController,
   subscribe: (fn: StateListener) => () => void,
+  /** The engine, for the MODEL half of the sync — see the two-source note on the return below. */
+  getEngine: () => { onModelChange(fn: () => void): () => void } | null = () => null,
 ): () => void {
   const sync = () => {
     // The Select arrow lights whenever the editor is in selection mode — from ANY source (toolbar,
@@ -285,6 +289,10 @@ export function wireKeypadSync(
     palette.refreshBeamSelection()
     palette.refreshSubdivideSelection()
     palette.refreshBeamOverSelection()
+    // The tremolo cluster on page 2, engine-read like the rest: the six marks are a radio (a note
+    // carries one), the pair is a SECOND AXIS that lights beside the count.
+    palette.refreshTremoloSelection()
+    palette.refreshTremoloPairSelection()
   }
   sync() // prime
 
@@ -306,6 +314,11 @@ export function wireKeypadSync(
     beamSelection.onPress((mode) => palette.setBeam(mode)),
     subdivideSelection.onPress(() => palette.toggleSecondaryBreak()),
     beamOverSelection.onPress(() => palette.toggleBeamOver()),
+    // The tremolo cluster — `pressTremolo` is the SAME four-way router the dev toolbar's row calls
+    // (edit the selected mark / apply across a selection / arm for entry / arm the stamp), and
+    // `pressTremoloPair` the same button the toolbar's seventh key is.
+    tremoloSelection.onPress((mark) => palette.pressTremolo(mark)),
+    tremoloPairSelection.onPress(() => palette.pressTremoloPair()),
     // Same path as Alt+1..4 / the toolbar: arm the voice for entry, or move the selection into it.
     voiceSelection.onPress((v) => palette.setActiveVoice(v)),
     // armClef, not setClef: the Clef window's OK confirms a choice, it does not toggle a button.
@@ -318,5 +331,28 @@ export function wireKeypadSync(
       palette.armTupletInTimeOf(a.numNotes, a.unit, a.normalCount, a.normalUnit, a.unitDots, a.normalDots, a.format),
     ),
   ]
-  return () => stops.forEach((stop) => stop())
+
+  /**
+   * ⚠️ TWO SOURCES. Almost every light on this pad is ENGINE-READ — the articulations, the tie, the
+   * rest, the whole beam cluster, and now the tremolos — and reading the engine is useless if nothing
+   * says READ AGAIN. A key that shows what the selected note CARRIES goes stale two ways: the
+   * selection moves to another note (**state**, the subscribe above), or the SAME note is edited
+   * under it (**model**). The second writes the score and no top-level state field, so the observable
+   * Proxy never emits: change a selected note's tremolo and the pad kept lighting the old mark.
+   *
+   * `MusicEngine.onModelChange` is that second signal — the shape `wireSelectionInspection` and the
+   * dev toolbar already use. LAZILY attached, because App.ts creates the engine after this is wired.
+   */
+  let stopModel: (() => void) | null = null
+  const attachModel = () => {
+    if (stopModel) return
+    stopModel = getEngine()?.onModelChange(sync) ?? null
+  }
+  attachModel()
+  stops.push(subscribe(attachModel))
+
+  return () => {
+    stops.forEach((stop) => stop())
+    stopModel?.()
+  }
 }

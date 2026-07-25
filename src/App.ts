@@ -305,7 +305,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // The Keypad's wired controls (duration, accidental, articulation, dot, tie) and the Properties
   // window's selection feed. Both were cut over to the state's own change-notification while Vue was
   // still here, which is why neither needed touching to lose it.
-  const stopKeypadSync = wireKeypadSync(state, palette, onStateChange)
+  const stopKeypadSync = wireKeypadSync(state, palette, onStateChange, getEngine)
   const stopSelectionInspection = wireSelectionInspection(state, getEngine, onStateChange)
 
   // The Properties note-offset input publishes to `noteOffsetSelection`; this controller owns the

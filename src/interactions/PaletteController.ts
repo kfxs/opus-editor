@@ -4,7 +4,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorState'
 import { activeVoiceToModel, armedTool, armedToolUsesLength, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from './EditorState'
-import { durationHighlight, beamHighlight, beamRoleHighlight, secondaryBreakHighlight, beamOverHighlight } from './keypadSync'
+import { durationHighlight, beamHighlight, beamRoleHighlight, secondaryBreakHighlight, beamOverHighlight, tremoloHighlight, tremoloPairHighlight } from './keypadSync'
 import { fracToNumber } from '../utils/fraction'
 import { resolveTupletInTimeOf, type TupletResolution } from '../utils/musicUtils'
 import { accidentalTypeToKey, formatPitch } from '../utils/pitchSpelling'
@@ -18,6 +18,8 @@ import { restSelection } from './restSelection'
 import { beamSelection } from './beamSelection'
 import { subdivideSelection } from './subdivideSelection'
 import { beamOverSelection } from './beamOverSelection'
+import { tremoloSelection } from './tremoloSelection'
+import { tremoloPairSelection } from './tremoloPairSelection'
 
 /** Re-exported so the palette's callers keep one import — the type belongs with the rule. */
 export type { TupletResolution }
@@ -561,6 +563,18 @@ export class PaletteController {
    * with the rest of the armed entry values.
    */
   pressTremolo(tremolo: TremoloMark): void {
+    // The score-editing branches below change the MARK without changing the selection, so the
+    // observable Proxy may never emit and `sync()` may never run — push the lights ourselves, the
+    // way `setBeam` does. Cheap and idempotent, so it is done once here for every branch.
+    try {
+      this.pressTremoloRouted(tremolo)
+    } finally {
+      this.refreshTremoloSelection()
+      this.refreshTremoloPairSelection()
+    }
+  }
+
+  private pressTremoloRouted(tremolo: TremoloMark): void {
     const armed = this.state.selectedMarkingTool
 
     // (0) THIS stamp is live: swap the armed mark, or disarm on a re-press.
@@ -640,6 +654,9 @@ export class PaletteController {
     const applied = engine.runBatch(on ? 'Two-note tremolo' : 'Remove two-note tremolo', () => {
       engine.setTremoloPair(noteId, on)
     })
+    // Same reason as `pressTremolo`: the score changed, the selection did not.
+    this.refreshTremoloSelection()
+    this.refreshTremoloPairSelection()
     if (!applied) return
     // Taking the mark off leaves nothing to keep selected — the same shape editSelectedTremolo has.
     if (!on && this.state.selectedTremoloNoteId) {
@@ -1936,6 +1953,28 @@ export class PaletteController {
     const role = beamRoleHighlight(this.state, engine)
     if (role) lit.add(role)
     beamSelection.setActive(lit)
+  }
+
+  /**
+   * Push the lit TREMOLO mark into {@link tremoloSelection} — the Keypad's `1`–`6`, and the same
+   * `tremoloHighlight` rule the dev toolbar's row reads, so a press from either lights both.
+   *
+   * Engine-read, so it cannot be mirrored from a reactive field: pushed on every state change AND
+   * after {@link pressTremolo}, because changing a selected note's mark writes the SCORE and no
+   * top-level state field — the Proxy would never emit and the key would keep lighting the old mark.
+   */
+  refreshTremoloSelection(): void {
+    tremoloSelection.setHighlight(tremoloHighlight(this.state, this.getEngine()))
+  }
+
+  /**
+   * The same for the TWO-NOTE pair key (`Enter`). A SECOND AXIS, so it is its own store and its own
+   * push: the count key stays lit beside it.
+   */
+  refreshTremoloPairSelection(): void {
+    tremoloPairSelection.setHighlight(
+      tremoloPairHighlight(this.state, this.getEngine()) ? 'tremoloPair' : null,
+    )
   }
 
   /**

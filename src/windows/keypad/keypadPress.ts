@@ -8,6 +8,8 @@ import { restSelection } from '../../interactions/restSelection'
 import { beamSelection } from '../../interactions/beamSelection'
 import { subdivideSelection } from '../../interactions/subdivideSelection'
 import { beamOverSelection } from '../../interactions/beamOverSelection'
+import { tremoloSelection } from '../../interactions/tremoloSelection'
+import { tremoloPairSelection } from '../../interactions/tremoloPairSelection'
 import { keypadPageSelection } from '../../interactions/keypadPageSelection'
 import type { KeypadCell } from './keypadLayouts'
 
@@ -63,6 +65,19 @@ export function pressKeypadCell(cell: KeypadCell): void {
       // palette.setBeam — the same method the toolbar's Beam row calls — which arms it and applies it
       // across the selection, then re-pushes the lit set. `beam` is always present on a beam cell.
       if (cell.beam) beamSelection.press(cell.beam)
+      break
+    case 'tremolo':
+      // One of the six single-note marks (1–5 strokes, or the Penderecki sign). PRESS the value; it
+      // routes to palette.pressTremolo — the SAME four-way router the dev toolbar's row calls, so a
+      // press from the pad, the numpad or the toolbar all do the same thing (edit the selected mark,
+      // apply across a selection, arm for note entry, or arm the stamp). The press channel is what
+      // lets a re-press REMOVE the mark: a state mirror would swallow it as "no change".
+      if (cell.tremolo) tremoloSelection.press(cell.tremolo)
+      break
+    case 'tremoloPair':
+      // The two-note tremolo (Sibelius's Enter). A SECOND AXIS beside the count, so it presses its own
+      // store and lights beside the lit count key rather than replacing it.
+      tremoloPairSelection.press('tremoloPair')
       break
     case 'subdivide':
       // The secondary beam break, on/off: PRESS always fires so re-pressing toggles it off. Routes to

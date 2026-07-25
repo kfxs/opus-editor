@@ -10,6 +10,8 @@ import { restSelection } from '../../interactions/restSelection'
 import { beamSelection } from '../../interactions/beamSelection'
 import { subdivideSelection } from '../../interactions/subdivideSelection'
 import { beamOverSelection } from '../../interactions/beamOverSelection'
+import { tremoloSelection } from '../../interactions/tremoloSelection'
+import { tremoloPairSelection } from '../../interactions/tremoloPairSelection'
 import { voiceSelection } from '../../interactions/voiceSelection'
 import { voiceFillColor } from '../../utils/voiceColors'
 import { INDICATOR_INK } from '../../utils/selectionColors'
@@ -243,7 +245,7 @@ export class KeypadWidget implements Widget {
     if (cell.select === 'page') return
 
     this.paint()
-    // Wired keys report their light; an unwired `momentary` cell (a page-2 tremolo) always reads ` off`.
+    // Wired keys report their light; an unwired `momentary` cell (a feathered beam) always reads ` off`.
     const state = this.isLit(cell) ? ' on' : ' off'
     dbg(`[keypad] ${cell.action}${state} — key ${cell.key}, voice ${this.voice != null ? VOICES[this.voice] : 'none'}`)
   }
@@ -253,7 +255,7 @@ export class KeypadWidget implements Widget {
    * By kind: the tool mode (the arrow), the armed duration/accidental/dot, the tie, the rest, the active
    * articulations (a set), and page 2's beam cluster (the beam MODE set, the subdivide, the beam-rest).
    * EVERY light on the panel comes from an editor store — the widget holds none of its own, so it cannot
-   * show you a state the score does not have. An unwired `momentary` cell (a tremolo) simply stays dark.
+   * show you a state the score does not have. An unwired `momentary` cell (a feathered beam) stays dark.
    */
   private isLit(cell: KeypadCell): boolean {
     if (cell.select === 'mode') return modeSelection.get() === 'selection'
@@ -265,7 +267,12 @@ export class KeypadWidget implements Widget {
     if (cell.select === 'beam') return !!cell.beam && beamSelection.isActive(cell.beam)
     if (cell.select === 'subdivide') return subdivideSelection.get() === 'subdivide'
     if (cell.select === 'beamOver') return beamOverSelection.get() === 'beamOver'
-    // An unwired key (the tremolos on page 2) shows no light.
+    // ⚠️ TWO AXES, lit independently: the count key says how fast, the pair key says the strokes go
+    // between two notes, and a two-note tremolo is BOTH — so `Enter` lights beside `3`, not instead
+    // of it (docs/two-note-tremolo-plan.md §4).
+    if (cell.select === 'tremolo') return !!cell.tremolo && cell.tremolo === tremoloSelection.get()
+    if (cell.select === 'tremoloPair') return tremoloPairSelection.get() === 'tremoloPair'
+    // An unwired key (the feathered beams on page 2) shows no light.
     if (cell.select === 'momentary') return false
     return cell.select === 'rest' && restSelection.get() === 'rest'
   }

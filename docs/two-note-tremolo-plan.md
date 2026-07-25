@@ -38,7 +38,7 @@ full value of the whole tremolo**, so the written pair reads twice as long as it
 - the next slot's duration (incl. dots) is **not the same** — and "the same" includes **tuplet
   membership**: a triplet eighth and a plain eighth are not the same value, and one note in a tuplet
   with its partner outside it is not a pair;
-- the two are in **different measures** (P1 scope), voices or staves;
+- the two are in **different measures** — ⏭️ **the one deferral worth building, see §6** — or in different voices or staves;
 - the value **cannot double**: `'w'` is the top of `NoteDuration`, so two redondas have no notation;
 - either slot is **already in a pair** — this one as a second note, or the next one as a first. A
   pair is two notes and they alternate; a chain of them (A–B, B–C) is not a longer tremolo, it is B
@@ -75,7 +75,7 @@ Inside `slots`, so it needs no `MEASURE_RENDER_ROLE` entry, for the reason §1 o
 gives (`laneFingerprint` stringifies the lane whole — `rendering/MeasureWidthCache.ts`). A pair
 lives inside ONE bar (§0), so the partner slot is inside the same fingerprint and the same redraw
 key; a cross-barline pair would need what the cross-barline beams needed, and that is the reason it
-is out of scope rather than a size judgement.
+is out of scope rather than a size judgement — **§6 says what that would take.**
 
 ### ⚠️ A pair can go STALE — the one thing the single-note mark could not do
 
@@ -375,9 +375,58 @@ Each is hand-testable on its own.
 | **P6** ✅ | the `'joined'` blanca style + the toggle on the selected mark (needs P5's selection). REFUSED off the blanca rather than written-and-ignored — `pairAcceptsJoined` |
 
 Deferred on purpose: note entry armed with a pair (the mark applies to notes that already exist),
-cross-barline pairs, tremolo between two **chords** of different sizes, ties into or out of a pair
-(§3), a project-wide default for the style, and **the Keypad key** — the picture is drawn and stays
-`momentary`; every phase above is driven from the dev shell's tremolo palette and nothing else.
+**cross-barline pairs (§6 — the one that matters)**, tremolo between two **chords** of different
+sizes, ties into or out of a pair (§3), and a project-wide default for the style.
+
+~~and the Keypad key~~ — **DONE.** The whole Beams/Tremolos page is wired: `1`–`5` the stroke counts,
+`6` the Penderecki sign, `Enter` the two-note mark, all through the same `pressTremolo` /
+`pressTremoloPair` the dev shell calls. The keys were already in Sibelius's places, so nothing moved
+— only `select`, from a `momentary` picture to a live key. (⚠️ §0's "the palette is the dev shell's,
+in every phase" is therefore now historical: it was true of the phases, and is not true of the
+feature.) Only the two feathered beams are still unwired, and those are not modelled at all.
+
+## 6. ⏭️ NOT BUILT: the cross-barline pair — and why it is worth having
+
+**Two notes either side of a barline cannot be a tremolo today.** `pairIsValid` refuses a partner in
+another measure, and that refusal is one line — but relaxing it alone would be wrong, and the reasons
+are worth writing down before they are rediscovered.
+
+**It is a real notation, not an edge case.** A tremolo across a barline is ordinary in orchestral
+writing (a measured roll held over the bar), and the pair is exactly the mark for it. Refusing it
+means the notation is simply unavailable, and the workaround — two separate single-note tremolos —
+says something different.
+
+**What actually blocks it**, and none of it is about the predicate:
+
+1. **The redraw key.** A pair rides ONE measure's `laneFingerprint` (§1), which is what makes the
+   mark correct for free: change either note and the bar's cache misses. With the partner in the next
+   bar, editing it would leave THIS bar's cached width and shape untouched — the mark would go stale
+   silently. Cross-barline beams solved this with a `descriptorFor(measure, staff)` contribution to
+   the shape key; a pair needs its own.
+2. **Where it draws.** The strokes are drawn inside the measure group (`drawMeasureContent`), and
+   measure groups are REUSED across renders — an edit ten bars away, a scroll, a staff-spacing drag.
+   A mark spanning two bars drawn inside one of them vanishes the moment that bar is reused. It has
+   to move to a post-measure pass outside every group, exactly where `drawCrossBarBeams` already
+   lives, and be rebuilt from `staveNoteMap` every render.
+3. **The system break.** Two notes on different lines is the harder half, and it is the same problem
+   the cross-SYSTEM half-beam solved: plan the whole, draw the sides, and reach the barline rather
+   than a fixed stub. Expect that to be its own phase.
+
+**What would NOT need redoing**, which is most of the feature:
+
+- `pairIsValid` stays the ONE predicate — it gains a lane that spans a run of bars, the way
+  `computeCrossBarBeamGroups` takes `BeamBar[]` rather than one bar's slots.
+- **Travel is already position-keyed** and already crosses bars: `captureTremoloPairs` /
+  `restoreTremoloPairs` address a pair by its absolute offset in the region, so a re-bar or a paste
+  that moves it between bars re-finds it with no change.
+- The doubling, the tick multiplier, the beam exclusion, the stroke geometry, the drawing rules and
+  the style are all per-pair and bar-agnostic.
+- Playback fills the two slots' COMBINED span (§3), which is already a sum rather than a bar-relative
+  beat — it needs the partner's onset from the shared clock, not a different arithmetic.
+
+⚠️ **Do not relax the `first.measure !== second.measure` check until 1 and 2 are done.** The mark
+would look right on the render that made it and wrong on the next one, which is the worst kind of
+wrong: nothing to see until something unrelated moves.
 
 ## Sources
 
