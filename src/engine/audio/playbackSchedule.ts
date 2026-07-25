@@ -79,6 +79,27 @@ export const UNMEASURED_THRESHOLD = 4
  */
 export const UNMEASURED_PERIOD_SECONDS = 0.05
 
+/**
+ * How far a PENDERECKI attack's spacing wanders, as a fraction of the period — ±30%, so each gap is
+ * somewhere in 0.7…1.3 of {@link UNMEASURED_PERIOD_SECONDS}.
+ *
+ * This is the whole difference between rule 2 and rule 3. Both are "as fast as possible"; only the
+ * Penderecki sign also says the speed itself VARIES, so rule 2 must stay strictly even and this is
+ * what separates them. ±30% is audibly uneven without reading as a different rhythm — small enough
+ * that nobody hears a subdivision, large enough that nobody hears a machine.
+ */
+export const PENDERECKI_ONSET_JITTER = 0.3
+
+/**
+ * How far a Penderecki attack's velocity wanders, as a fraction of the note's dynamic — ±15%.
+ *
+ * The onset jitter alone is not enough: an EVEN attack at a wobbling rate still reads as a machine
+ * with a broken clock. A player whose speed varies is also not striking identically each time, so the
+ * loudness has to move with the timing. Smaller than the onset jitter on purpose — this is meant to
+ * be felt rather than heard as an accent pattern.
+ */
+export const PENDERECKI_VELOCITY_JITTER = 0.15
+
 /** Total sounding length of the score in beats (shared spine — sum of per-measure capacity). */
 export function scoreTotalBeats(score: Score): number {
   let total = 0
@@ -100,6 +121,17 @@ export function collectScheduledNotes(
    *  callable from a test with nothing but a score; `PlaybackEngine` passes the map it already has so
    *  both sides read the same clock. */
   tempoMap: TempoSegment[] = buildTempoMap(score),
+  /**
+   * Randomness source for the ONE thing here that is deliberately not deterministic: a Penderecki
+   * tremolo's jitter (see {@link PENDERECKI_ONSET_JITTER}). Injected rather than calling
+   * `Math.random` inline, because this collector is pure and its tests depend on that — a bare
+   * `Math.random()` in here would give a green suite that proves nothing about what you hear. Tests
+   * pass a seeded stub.
+   *
+   * Re-rolled per playback, which falls out of `PlaybackEngine.play` calling this afresh: two
+   * performances of a Penderecki tremolo are not identical. That is deliberate, not incidental.
+   */
+  rng: () => number = Math.random,
 ): ScheduledNote[] {
   // Pass 1: id → owning chord, so a tiedTo/tiedFrom chain can look up its neighbour's pitch.
   // (Global note ids, so this is naturally staff-safe; the chase is also pitch-guarded below.)
@@ -167,15 +199,26 @@ export function collectScheduledNotes(
         // the tie instead of stopping at the barline.
         const period = tremoloPeriodBeats(chord, baseDurationBeats, startBeats, tempoMap)
         if (period !== null) {
-          for (let t = 0; t < durationBeats - PERIOD_EPSILON; t += period) {
+          // Rule 3: the Penderecki sign is the only mark whose speed VARIES, so its gaps and its
+          // attacks wander. Every other tremolo — measured or unmeasured — stays strictly even.
+          const irregular = chord.tremolo === 'penderecki'
+          let t = 0
+          while (t < durationBeats - PERIOD_EPSILON) {
+            // A jittered STEP, so the wobble is in the spacing rather than nudging fixed onsets: the
+            // gaps are what a listener hears as irregular, and stepping by them cannot drift out of
+            // the note (the clamp below ends the fill exactly at its end).
+            const step = irregular ? period * (1 + spread(rng) * PENDERECKI_ONSET_JITTER) : period
             events.push({
               midi,
               startBeats: startBeats + t,
-              // Each attack lasts one period — they are repeated notes, back to back — and still
-              // takes the articulation's length factor, so a staccato tremolo is a staccato tremolo.
-              durationBeats: Math.min(period, durationBeats - t) * artic.durationFactor,
-              velocity,
+              // Each attack lasts one step — they are repeated notes, back to back — and still takes
+              // the articulation's length factor, so a staccato tremolo is a staccato tremolo.
+              durationBeats: Math.min(step, durationBeats - t) * artic.durationFactor,
+              velocity: irregular
+                ? clamp01(velocity * (1 + spread(rng) * PENDERECKI_VELOCITY_JITTER))
+                : velocity,
             })
+            t += step
           }
           continue
         }
@@ -193,6 +236,16 @@ export function collectScheduledNotes(
   }
 
   return events
+}
+
+/** One roll as a signed spread in −1…+1, so a jitter constant reads as "± that fraction". */
+function spread(rng: () => number): number {
+  return rng() * 2 - 1
+}
+
+/** Velocity stays a normalized 0–1; jitter must not push a loud tremolo past full scale. */
+function clamp01(v: number): number {
+  return Math.min(1, Math.max(0, v))
 }
 
 /**
@@ -226,9 +279,10 @@ const PERIOD_EPSILON = 1e-9
  *    fixed PHYSICAL period, converted here from seconds into beats through the tempo map so the
  *    struct keeps one time base. Converted at the note's own onset, so a tremolo late in a piece that
  *    has slowed down still repeats at the same real-world speed.
- *  - **Rule 3, Penderecki** — irregular by definition, so it needs jittered onsets and an injected
- *    RNG (P4). Until then it is played as rule 2: even and fast, which is the right *speed* and the
- *    wrong *character*. It is deliberately not silent.
+ *  - **Rule 3, Penderecki** — rule 2's period, and then the caller jitters both the spacing and the
+ *    velocity around it ({@link PENDERECKI_ONSET_JITTER}). This function returns the same number for
+ *    both, because the two rules differ in EVENNESS, not in speed: that is why rule 2 has to stay
+ *    strictly even, and why only one of them needs a random number generator.
  */
 function tremoloPeriodBeats(
   chord: Chord,
@@ -242,7 +296,7 @@ function tremoloPeriodBeats(
   if (!mark) return null
 
   // Penderecki has no stroke count, so it can never be measured — it IS the "as fast as possible"
-  // reading, and takes rule 2's physical period (P4 adds the jitter that separates them).
+  // reading, and takes rule 2's physical period. The jitter that separates them is the caller's.
   const totalBeams = mark === 'penderecki'
     ? UNMEASURED_THRESHOLD
     : durationFlags(chord.duration) + mark

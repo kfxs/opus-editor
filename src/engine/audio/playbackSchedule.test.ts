@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { collectScheduledNotes, scoreTotalBeats, UNMEASURED_THRESHOLD } from './playbackSchedule'
+import {
+  collectScheduledNotes,
+  scoreTotalBeats,
+  UNMEASURED_THRESHOLD,
+  PENDERECKI_ONSET_JITTER,
+} from './playbackSchedule'
 import { durationFlags } from '@/utils/durations'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { Score, TempoMark } from '@/types/music'
@@ -173,6 +178,11 @@ describe('collectScheduledNotes — tremolo', () => {
   const attacks = (score: Score, midi = C4) =>
     collectScheduledNotes(score).filter(e => e.midi === midi).sort((a, b) => a.startBeats - b.startBeats)
 
+  /** The same, with an injected rng — for the one mark whose schedule is deliberately random. */
+  const pendereckiAttacks = (score: Score, rng: () => number, midi = C4) =>
+    collectScheduledNotes(score, buildTempoMap(score), rng)
+      .filter(e => e.midi === midi).sort((a, b) => a.startBeats - b.startBeats)
+
   /** One note of `duration` at bar 1 beat 0 carrying `strokes`, in an `over/4` bar. */
   function oneTremoloNote(duration: 'w' | 'h' | 'q' | '8' | '16', strokes: 1 | 2 | 3 | 4 | 5, dots = 0) {
     const model = new ScoreModel('P')
@@ -311,10 +321,119 @@ describe('collectScheduledNotes — tremolo', () => {
       expect(attacks(atTempo(1, 60))).toHaveLength(4)
     })
 
-    it('plays the Penderecki mark at the unmeasured rate rather than silently', () => {
-      // P4 adds the jitter that makes it irregular; until then it is even — right speed, wrong
-      // character — and deliberately not silent.
-      expect(attacks(atTempo('penderecki', 120))).toHaveLength(20)
+    it('plays the Penderecki mark at the unmeasured rate', () => {
+      // A neutral roll (0.5 → zero spread) is the unjittered baseline: the same 20 as 4 strokes.
+      expect(pendereckiAttacks(atTempo('penderecki', 120), () => 0.5)).toHaveLength(20)
+    })
+  })
+
+  /**
+   * RULE 3 — Penderecki: rule 2's speed, plus the thing that makes it Penderecki. Both readings are
+   * "as fast as possible"; only this one says the speed itself VARIES, so rule 2 must stay strictly
+   * even and the jitter is what separates them.
+   *
+   * The randomness is INJECTED, which is the only reason any of this is testable: a bare
+   * `Math.random()` inside a pure collector would give a green suite that proves nothing about what
+   * you hear.
+   */
+  describe('rule 3 — Penderecki: irregular, and deterministic under a seeded rng', () => {
+    /**
+     * A deterministic stand-in for `Math.random`, cycling a fixed sequence — for pinning the
+     * EXTREMES (all 0 = every gap as short as allowed, all 1 = as long).
+     *
+     * ⚠️ Not for "is it uneven?": each attack draws TWICE (spacing, then velocity), so a cycle of
+     * even length hands every *step* the same value and the schedule comes out perfectly regular —
+     * which looked like the jitter being broken when it was the stub aliasing against the draw order.
+     */
+    const seeded = (...values: number[]) => {
+      let i = 0
+      return () => values[i++ % values.length]
+    }
+
+    /** A tiny LCG: varied values, no aliasing, and identical for identical seeds. */
+    const lcg = (seed = 1) => () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648
+      return seed / 2147483648
+    }
+
+    /** Four strokes on the same note — unmeasured, but NOT Penderecki. */
+    const fourStrokeScore = (qpm = 120): Score => {
+      const model = new ScoreModel('P')
+      const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+      model.setTremolo(note.id, 4)
+      model.getMeasure(1)!.tempos = [{ id: 't', beat: frac(0, 1), text: `${qpm}`, unit: 'q', bpm: qpm }]
+      return model.getScore()
+    }
+
+    const pendereckiScore = (qpm = 120): Score => {
+      const model = new ScoreModel('P')
+      const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+      model.setTremolo(note.id, 'penderecki')
+      model.getMeasure(1)!.tempos = [{ id: 't', beat: frac(0, 1), text: `${qpm}`, unit: 'q', bpm: qpm }]
+      return model.getScore()
+    }
+
+    it('spaces the attacks UNEVENLY — the gaps differ, which rule 2 never does', () => {
+      // Alternating extremes: every other gap is short, then long.
+      const got = pendereckiAttacks(pendereckiScore(), lcg(7))
+      const gaps = got.slice(1).map((e, i) => e.startBeats - got[i].startBeats)
+      const unique = new Set(gaps.map(g => g.toFixed(6)))
+      expect(unique.size).toBeGreaterThan(1)
+    })
+
+    it('keeps every gap within ±PENDERECKI_ONSET_JITTER of the period', () => {
+      const got = pendereckiAttacks(pendereckiScore(), lcg(3))
+      const gaps = got.slice(1, -1).map((e, i) => e.startBeats - got[i].startBeats)
+      // At 120 qpm the physical period is 0.05 s = 0.1 beats.
+      const period = 0.1
+      for (const gap of gaps) {
+        expect(gap).toBeGreaterThanOrEqual(period * (1 - PENDERECKI_ONSET_JITTER) - 1e-9)
+        expect(gap).toBeLessThanOrEqual(period * (1 + PENDERECKI_ONSET_JITTER) + 1e-9)
+      }
+    })
+
+    it('never runs past the end of the note, however the jitter falls', () => {
+      for (const rng of [seeded(0), seeded(1), seeded(0.5), lcg(1), lcg(99)]) {
+        const got = pendereckiAttacks(pendereckiScore(), rng)
+        const last = got[got.length - 1]
+        expect(last.startBeats + last.durationBeats).toBeLessThanOrEqual(2 + 1e-9) // a half note
+      }
+    })
+
+    it('varies the VELOCITY too — an even attack at a wobbling rate still reads as a machine', () => {
+      const got = pendereckiAttacks(pendereckiScore(), lcg(11))
+      expect(new Set(got.map(e => e.velocity.toFixed(6))).size).toBeGreaterThan(1)
+    })
+
+    it('keeps velocity a normalized 0–1 even at the loudest roll', () => {
+      const got = pendereckiAttacks(pendereckiScore(), seeded(1))
+      for (const e of got) {
+        expect(e.velocity).toBeLessThanOrEqual(1)
+        expect(e.velocity).toBeGreaterThan(0)
+      }
+    })
+
+    it('is REPRODUCIBLE under the same seed — the purity the tests depend on', () => {
+      const a = pendereckiAttacks(pendereckiScore(), lcg(42))
+      const b = pendereckiAttacks(pendereckiScore(), lcg(42))
+      expect(a.map(e => e.startBeats)).toEqual(b.map(e => e.startBeats))
+    })
+
+    it('⚠️ leaves rule 2 STRICTLY EVEN — the jitter belongs to this mark alone', () => {
+      // The same wild rng, on 4 strokes (unmeasured, not Penderecki): identical gaps throughout.
+      const score = fourStrokeScore()
+      const got = collectScheduledNotes(score, buildTempoMap(score), lcg(5))
+        .filter(e => e.midi === C4).sort((a, b) => a.startBeats - b.startBeats)
+      const gaps = got.slice(1).map((e, i) => e.startBeats - got[i].startBeats)
+      expect(new Set(gaps.map(g => g.toFixed(6))).size).toBe(1)
+      expect(new Set(got.map(e => e.velocity.toFixed(6))).size).toBe(1)
+    })
+
+    it('re-rolls per playback: two passes with the real rng are not identical', () => {
+      const score = pendereckiScore()
+      const onsets = () => collectScheduledNotes(score).filter(e => e.midi === C4).map(e => e.startBeats)
+      // ~20 continuous draws — two runs matching exactly is not a thing that happens.
+      expect(onsets()).not.toEqual(onsets())
     })
   })
 })

@@ -8,15 +8,17 @@ this doc records only where a tremolo differs. It differs a lot in two places: V
 Penderecki sign and places its strokes wrong for us, and nothing in the playback schedule can express
 a speed that is *physical* rather than metrical — see §4 and §5.
 
-**Status: P0–P3 are shipped** (§7) — all six marks exist, engrave, arm from the palette, survive a
-meter change / paste / voice move / tie-split, and **play**: measured as a real subdivision, unmeasured
-at a physical rate that ignores the tempo. Three things this plan did not foresee, each recorded where
-it belongs: the stem became a registered element (§2, the stamp accepts a click on it), VexFlow's
-stroke placement had to be replaced rather than configured (§4), and the Penderecki sign turned out to
-be the same modifier with a different glyph rather than a draw of our own (§4).
+**Status: ALL FIVE PHASES ARE SHIPPED** (§7) — the six marks exist, engrave, arm from the palette,
+survive a meter change / paste / voice move / tie-split, and play all three readings: measured as a
+real subdivision, unmeasured at a physical rate that ignores the tempo, Penderecki irregular on top of
+that. Three things this plan did not foresee, each recorded where it belongs: the stem became a
+registered element (§2, the stamp accepts a click on it), VexFlow's stroke placement had to be
+replaced rather than configured (§4), and the Penderecki sign turned out to be the same modifier with
+a different glyph rather than a draw of our own (§4).
 
-**Next is P4** — the Penderecki jitter. Today that mark plays at the unmeasured rate: the right speed
-and the wrong character, deliberately, so it is not silent.
+**What is left is what §8 defers plus the open decisions** — removal is still Ctrl+Z only (decision 4),
+the two playback numbers are still constants rather than options, and Gould's "strokes stay within the
+stave" is unimplemented. None of it is structural.
 
 ## 0. Three performances, not two
 
@@ -440,16 +442,34 @@ It does **not** need a seconds-based escape hatch on `ScheduledNote`. `utils/tem
 build it) and convert a physical rate into beat onsets locally, staying Tone-free and testable —
 one time base in the struct, as now.
 
-### Rule 3 — Penderecki
+### Rule 3 — Penderecki — ✅ DONE (P4)
 
 Rule 2, plus the thing that makes it Penderecki: **the speed varies**. Irregular by definition, so
 the onset spacing is jittered — and the velocity with it, since an even attack at a wobbling tempo
 still reads as a machine. Rule 2 must stay strictly even; the jitter is what separates them.
 
+The two rules therefore differ in **evenness, not speed**: `tremoloPeriodBeats` returns the same
+number for both, and the caller jitters around it.
+
+| | value | why |
+|---|---|---|
+| `PENDERECKI_ONSET_JITTER` | **±30%** of the period | audibly uneven without reading as a different rhythm — small enough that nobody hears a subdivision, large enough that nobody hears a machine |
+| `PENDERECKI_VELOCITY_JITTER` | **±15%** of the dynamic | smaller on purpose: felt, not heard as an accent pattern |
+
+The wobble is applied to the **step**, not as a nudge on fixed onsets — the gaps are what a listener
+hears as irregular, and stepping by them cannot drift out of the note.
+
 **Determinism.** `playbackSchedule.ts` is pure and its tests depend on that. A bare `Math.random()`
 inside it gives a green suite that proves nothing about what you hear. It takes an injected
 `rng: () => number` defaulting to `Math.random`; tests pass a seeded stub. Re-rolled per playback
-(two performances of a Penderecki tremolo are not identical) — deliberate, not incidental.
+(two performances of a Penderecki tremolo are not identical) — deliberate, not incidental, and it
+falls out of `PlaybackEngine.play` calling the collector afresh.
+
+⚠️ **A cycling seeded stub can alias against the draw order.** Each attack draws TWICE (spacing, then
+velocity), so a stub cycling an even number of values hands every *step* the same draw and the
+schedule comes out perfectly regular — which looks exactly like the jitter being broken. Use a small
+LCG for "is it uneven?" and keep fixed cycles for pinning the extremes. The tests say so where it
+matters.
 
 ## 6. What travels — and what silently does not — ✅ DONE (P1)
 
@@ -523,8 +543,9 @@ meaningless empty baseline.
   arithmetic, rule 2's physical rate and the tempo-map conversion. Both rules together, as planned:
   they share the fill and differ only in where the period comes from. 31 tests in
   `playbackSchedule.test.ts` — the whole of §5 is checkable because the collector is pure.
-- **P4 — Penderecki playback.** The injected RNG and the jitter on onset *and* velocity. Nothing
-  structural left by then.
+- **P4 — Penderecki playback. ✅ DONE.** The injected RNG and the jitter on onset *and* velocity.
+  Nothing structural was left by then, as predicted: two constants, a variable step in the fill loop,
+  and one extra optional argument.
 
 ## 8. Deferred, deliberately
 
