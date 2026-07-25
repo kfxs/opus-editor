@@ -189,17 +189,18 @@ paint it ghost blue at 0.7.
 
 The ghost is the **real mark**, not the palette's picture — the palette draws a note wearing its
 strokes because a button needs to be recognisable; the ghost draws what the click will actually
-add.
+add. Since P2 it takes the {@link TremoloMark} rather than a stroke count, so strokes and the
+Penderecki sign go through one modifier and the preview cannot disagree with what gets engraved.
 
 ⚠️ **Add the group to `GHOST_GROUP_SELECTOR`** (`VexFlowRenderer.ts:449`). `clearGhosts()` removes
 only what is listed there; a group that is missing is never taken down, and the ghost smears a
 trail of strokes across the score as the pointer moves.
 
 ⚠️ **Where it differs from every other stamp ghost:** `Articulation` positions itself off the
-notehead, `Tremolo` positions itself off `note.getStemExtents().topY`. The strokes therefore land
-where the throwaway note's *stem top* is — far from the group origin the other ghosts assume. The
-bbox-translate step has to absorb that offset, and it is the thing most likely to look wrong
-first.
+notehead, a tremolo off the stem. The mark therefore lands far from the group origin the other ghosts
+assume — and further still now that the placement is ours (§4) rather than VexFlow's tip anchor. The
+bbox-translate step absorbs that on purpose: it measures where the glyphs ACTUALLY landed and moves
+the whole group from there, so the offset never has to be known.
 
 ⚠️ `openGroup` silently prefixes `vf-` (pass the bare name), and `closeGroup()` goes in a
 `finally`.
@@ -317,8 +318,10 @@ simply stopped working on tremolo notes, silently, with no console trace.
 The fix is to follow the house pattern; `renderText` adds `x`/`y` back, so the drawn pixels are
 identical. `CenteredTremolo.test.ts` pins it, and those tests were checked by reverting the fix.
 
-⚠️ **This is a live trap for P2.** Whatever draws E22B, if it is a `Modifier` rendering at explicit
-coordinates, it inherits the same bug. Set `x`/`y`.
+⚠️ **Still a live trap for whatever comes next.** P2 dodged it by accident rather than by care: the
+Penderecki sign went through this same class, which by then already set `x`/`y`. Any NEW modifier that
+draws itself at explicit coordinates inherits the bug — set `x`/`y` and render at the origin, and
+check the note's registered bbox rather than just the pixels.
 
 **Penderecki** — ✅ DONE (P2), and *not* the way this plan expected. It guessed we would draw E22B
 ourselves at coordinates we computed, the way ties and slurs are drawn
@@ -532,8 +535,8 @@ meaningless empty baseline.
   reached: you can put one to five strokes on a note and see them. Two things it grew on the way that
   were not planned — the `'stem'` element the stamp's second target needed (§2), and the four
   placement corrections (§4). Two things it did NOT do: §2's removal decision (accepted as
-  undo-only) and the Penderecki button, which is DISABLED because arming it would stamp a mark that
-  stores and never appears until P2.
+  undo-only, and still open) and the Penderecki button, which shipped DISABLED because arming it
+  would have stamped a mark that stores and never appears — P2 drew the sign and enabled it.
 - **P1 — travel. ✅ DONE.** The five rebar links, the voice move, the tie-split (§6). Early, and on
   purpose: before P0's marks started silently disappearing on a meter change. 29 lines of code and 8
   tests, every link proved load-bearing by removing it.
