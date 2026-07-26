@@ -120,6 +120,69 @@ describe('FanEditController', () => {
     expect(fanOf(id)?.beams).toBe(MAX_FAN_BEAMS)
   })
 
+  /**
+   * ⭐ THE RAMP RANGE (docs/fan-ramp-range-plan.md P2). The window publishes 0-based indices — it
+   * does the 1-based conversion itself — so these tests drive the seam exactly as it arrives.
+   */
+  describe('the ramp range', () => {
+    it('sets where the wedge starts and ends, one end at a time', () => {
+      const id = fanned()
+      fanEditSelection.set({ noteId: id, rampTo: 3 })
+      expect(fanOf(id)).toMatchObject({ count: 6, beams: 3, rampFrom: 0, rampTo: 3 })
+      fanEditSelection.set({ noteId: id, rampFrom: 1 })
+      expect(fanOf(id)).toMatchObject({ rampFrom: 1, rampTo: 3 }) // the other end held
+    })
+
+    it('🚨 a range-only edit is a REAL edit — it repaints and it undoes', () => {
+      // The guard used to ask only about `count` and `beams`, so this returned before `setFan` and
+      // the whole control did nothing.
+      const id = fanned()
+      fanEditSelection.set({ noteId: id, rampTo: 3 })
+      expect(renders).toBe(1)
+      expect(engine.undo()).toBe(true)
+      expect(fanOf(id)?.rampTo).toBeUndefined()
+    })
+
+    it('⭐ typing the ends it already has is not an edit — absence and "the whole group" are one', () => {
+      // The window always publishes a number, so a fan with no range publishes 0 and count-1. Those
+      // say exactly what absence says; minting an undo entry for them would leave nothing on the
+      // page to undo.
+      const id = fanned()
+      const before = engine.exportJSON()
+      fanEditSelection.set({ noteId: id, rampFrom: 0 })
+      fanEditSelection.set({ noteId: id, rampTo: 5 })
+      expect(renders).toBe(0)
+      expect(engine.exportJSON()).toBe(before)
+    })
+
+    it('a range that spans the whole group again comes back out ABSENT', () => {
+      const id = fanned()
+      fanEditSelection.set({ noteId: id, rampFrom: 2 })
+      expect(fanOf(id)?.rampFrom).toBe(2)
+      fanEditSelection.set({ noteId: id, rampFrom: 0 })
+      expect(fanOf(id)?.rampFrom).toBeUndefined()
+      expect(fanOf(id)?.rampTo).toBeUndefined()
+    })
+
+    it('⭐ clamped by `normalizeFan`, not here — the count is what holds it', () => {
+      const id = fanned()
+      fanEditSelection.set({ noteId: id, rampTo: 99 })
+      expect(fanOf(id)?.rampTo).toBeUndefined() // 99 → 5 → the whole group → dropped
+      fanEditSelection.set({ noteId: id, rampFrom: 1, rampTo: 4 })
+      fanEditSelection.set({ noteId: id, count: 3 })
+      expect(fanOf(id)).toMatchObject({ count: 3, rampFrom: 1, rampTo: 2 }) // pulled back in
+    })
+
+    it('a count edit that strands the range keeps its members in step too', () => {
+      const id = fanned()
+      fanEditSelection.set({ noteId: id, rampFrom: 3, rampTo: 5 })
+      fanEditSelection.set({ noteId: id, count: 2 })
+      const fan = fanOf(id)!
+      expect(fan.members).toHaveLength(1)
+      expect([fan.rampFrom, fan.rampTo]).toEqual([undefined, undefined]) // 0…1 IS the whole group
+    })
+  })
+
   it('a missing note is a no-op, not a throw', () => {
     expect(() => fanEditSelection.set({ noteId: 'no-such-id', count: 4 })).not.toThrow()
   })

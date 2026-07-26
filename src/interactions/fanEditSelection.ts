@@ -21,6 +21,17 @@ export interface FanEditRequest {
   count?: number
   /** Beam lines at the wide end. Absent = leave it alone. */
   beams?: number
+  /**
+   * Which member the feathering starts on and which it ends on — **0-based, like the model**
+   * (docs/fan-ramp-range-plan.md P2). Absent = leave it alone, the same as every field here.
+   *
+   * ⚠️ The window shows these **1-based** — "note 1" is the note he typed — and converts at the
+   * widget. The conversion belongs there and nowhere else: the moment a seam carries a 1-based
+   * index, every reader downstream has to remember which convention it is holding, and the one that
+   * forgets is silent.
+   */
+  rampFrom?: number
+  rampTo?: number
 }
 
 export class FanEditSelection {

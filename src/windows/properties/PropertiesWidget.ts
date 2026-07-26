@@ -4,7 +4,7 @@ import type { SelectedElement } from '../../interactions/selectionSnapshot'
 import { noteOffsetSelection } from '../../interactions/noteOffsetSelection'
 import { articulationStemAlignSelection } from '../../interactions/articulationStemAlignSelection'
 import { fanEditSelection } from '../../interactions/fanEditSelection'
-import { MAX_FAN_BEAMS, MAX_FAN_COUNT } from '../../utils/fannedBeam'
+import { MAX_FAN_BEAMS, MAX_FAN_COUNT, fanRampRange } from '../../utils/fannedBeam'
 import type { ArticulationType, FanMark } from '../../types/music'
 
 /**
@@ -116,7 +116,7 @@ export class PropertiesWidget implements Widget {
           if (element.kind === 'note' && artics?.length) {
             body.appendChild(this.buildStemAlignCheckbox(id, currentStemAlign(element)))
           }
-          // The fanned group's two numbers, shown only on a note that HAS one: this row changes the
+          // The fanned group's numbers, shown only on a note that HAS one: this row changes the
           // shape of a fan, it never makes one (docs/fanned-beams-plan.md §3, P4). Creating and
           // removing them is the accel./rit. press, which is also where the direction lives.
           const fan = (element.data as { fan?: FanMark }).fan
@@ -217,12 +217,18 @@ export class PropertiesWidget implements Widget {
   }
 
   /**
-   * The fanned group's shape — how many notes it is played and drawn as, and how many beam lines it
-   * feathers out to. One row, two number inputs, publishing to {@link fanEditSelection}.
+   * The fanned group's shape — how many notes it is played and drawn as, how many beam lines it
+   * feathers out to, and which of its notes the feathering covers. One row, four number inputs,
+   * publishing to {@link fanEditSelection}.
    *
    * ⭐ **The numbers ARE the model** (`FanMark`), which is what makes this UI only: nothing here
    * computes a consequence, it just says what the assertion is. The direction is not offered — that
    * is the accel./rit. press, and showing it twice would give one fact two owners.
+   *
+   * ⭐ **`from`/`to` are shown 1-BASED and converted right here** (docs/fan-ramp-range-plan.md P2).
+   * "Note 1" is the note he typed, which is how a musician counts a group; the model, the seam and
+   * every reader past this line stay 0-based like the rest of the editor. The conversion belongs at
+   * the one place a human reads the number, and nowhere deeper.
    *
    * Committing (Enter or blur) re-draws and re-plays at once, because both read the same field.
    */
@@ -232,6 +238,8 @@ export class PropertiesWidget implements Widget {
     rs.display = 'flex'
     rs.alignItems = 'center'
     rs.gap = '6px'
+    // Four numbers and a label do not fit one line in a narrow window; they wrap rather than clip.
+    rs.flexWrap = 'wrap'
     rs.color = BISHOP
     rs.margin = '2px 0 4px'
 
@@ -240,13 +248,13 @@ export class PropertiesWidget implements Widget {
     row.appendChild(label)
 
     const field = (
-      title: string, value: number, max: number, publish: (n: number) => void,
+      title: string, value: number, max: number, publish: (n: number) => void, hint = title,
     ): HTMLElement => {
       const wrap = document.createElement('label')
       wrap.style.display = 'flex'
       wrap.style.alignItems = 'center'
       wrap.style.gap = '3px'
-      wrap.title = title
+      wrap.title = hint
 
       const caption = document.createElement('span')
       caption.textContent = title
@@ -283,6 +291,22 @@ export class PropertiesWidget implements Widget {
 
     row.appendChild(field('notes', fan.count, MAX_FAN_COUNT, (count) => fanEditSelection.set({ noteId, count })))
     row.appendChild(field('beams', fan.beams, MAX_FAN_BEAMS, (beams) => fanEditSelection.set({ noteId, beams })))
+
+    // ⭐ WHERE THE WEDGE STARTS AND ENDS. Read through `fanRampRange`, so a fan that has never been
+    // given one shows the whole group — the same answer the drawing and the playback are already
+    // using, rather than a second reading of an absent field.
+    const ramp = fanRampRange(fan)
+    const last = Math.max(1, Math.round(fan.count))
+    row.appendChild(field(
+      'from', ramp.from + 1, last,
+      (n) => fanEditSelection.set({ noteId, rampFrom: n - 1 }),
+      'the note the feathering starts on',
+    ))
+    row.appendChild(field(
+      'to', ramp.to + 1, last,
+      (n) => fanEditSelection.set({ noteId, rampTo: n - 1 }),
+      'the note it ends on — outside the mark the notes are even, on one beam',
+    ))
     return row
   }
 

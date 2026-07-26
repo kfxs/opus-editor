@@ -1,7 +1,8 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import { fanEditSelection, type FanEditRequest } from './fanEditSelection'
-import { clampFanBeams, clampFanCount } from '../utils/fannedBeam'
+import { clampFanBeams, clampFanCount, fanRampRange } from '../utils/fannedBeam'
 import { dbg } from '../utils/debug'
+import type { FanMark } from '../types/music'
 
 /**
  * Applies a Properties-panel fan edit to the engine (docs/fanned-beams-plan.md §3, P4). The window is
@@ -27,7 +28,7 @@ export class FanEditController {
     this.unsubscribe = fanEditSelection.onSet((req) => this.apply(req))
   }
 
-  private apply({ noteId, count, beams }: FanEditRequest): void {
+  private apply({ noteId, count, beams, rampFrom, rampTo }: FanEditRequest): void {
     const engine = this.getEngine()
     if (!engine) return
     const current = engine.getNote(noteId)?.fan
@@ -39,19 +40,38 @@ export class FanEditController {
     // would silently re-materialise every member from the typed note (plan §1).
     // `current` is the LIVE `chord.fan` (`toFlatNote` hands out the reference), so nothing below may
     // mutate it — and `normalizeFan` is pure for exactly that reason.
-    const next = {
+    const next: FanMark = {
       ...current,
       count: clampFanCount(count ?? current.count),
       beams: clampFanBeams(beams ?? current.beams),
     }
+    // ⚠️ The ramp range is NOT clamped here, and that is deliberate: holding it inside the count
+    // needs the count, and `setFan` → `normalizeFan` is the one place that has it *and* is allowed
+    // to write it (docs/fan-ramp-range-plan.md §1). This merges; it does not decide.
+    if (rampFrom !== undefined) next.rampFrom = rampFrom
+    if (rampTo !== undefined) next.rampTo = rampTo
+
     // No change → no edit, and no empty undo entry (the rule `NoteOffsetController` follows).
-    if (next.count === current.count && next.beams === current.beams) return
+    //
+    // 🚨 **The range is compared RESOLVED, not field-for-field.** Absence and "the whole group" are
+    // the same assertion spelled two ways, and the window always publishes a number — so typing the
+    // ends it already has would otherwise look like a change here, mint an undo entry, and be
+    // dropped again by `normalizeFan` with nothing on the page to show for it.
+    const before = fanRampRange(current)
+    const after = fanRampRange(next)
+    if (
+      next.count === current.count && next.beams === current.beams
+      && after.from === before.from && after.to === before.to
+    ) return
 
     // `runBatch` for the undo entry, `setFan` for the write — the same pair `pressFan` uses, so a
-    // typed number and a button press are one kind of edit in the history.
-    if (!engine.runBatch(`Fan ${next.count}×${next.beams}`, () => { engine.setFan(noteId, next) })) return
+    // typed number and a button press are one kind of edit in the history. The range is named in the
+    // description only when it is inset, 1-based to match what he typed.
+    const inset = after.from > 0 || after.to < next.count - 1
+    const label = `Fan ${next.count}×${next.beams}${inset ? ` ${after.from + 1}–${after.to + 1}` : ''}`
+    if (!engine.runBatch(label, () => { engine.setFan(noteId, next) })) return
     this.renderScore()
-    dbg(`[Fan] Properties set ${noteId} → ${next.count} notes, ${next.beams} beams`)
+    dbg(`[Fan] Properties set ${noteId} → ${next.count} notes, ${next.beams} beams, ramp ${after.from}…${after.to}`)
   }
 
   /** Dispose the subscription when the app tears down, like every wire. */
