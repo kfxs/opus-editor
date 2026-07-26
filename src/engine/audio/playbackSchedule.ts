@@ -12,14 +12,14 @@
  * loudness stays a deferred refinement — {@link resolveChordLevels} is voice-scoped, not
  * staff-scoped, so a staff-2 chord currently inherits its voice's dynamic (never silence).
  */
-import type { Score, Chord, ChordRest, DynamicLevel, Measure, NotePitch } from '@/types/music'
+import type { Score, Chord, ChordRest, DynamicLevel, FanMark, Measure, NotePitch } from '@/types/music'
 import { durationToBeats, measureCapacityQuarters } from '@/utils/musicUtils'
 import { doubleDuration, durationFlags, durationToFraction } from '@/utils/durations'
 import { fracToNumber } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import { DYNAMIC_VELOCITY, DEFAULT_DYNAMIC, resolveChordLevels } from '@/utils/dynamics'
 import { laneOfSlot, pairRoleAt } from '@/utils/tremoloPair'
-import { fanMembers } from '@/utils/fannedBeam'
+import { fanMembers, fanMemberPitches } from '@/utils/fannedBeam'
 import { legatoChordIds } from '@/utils/slurs'
 import { articulationEffect } from '@/utils/articulations'
 import { buildTempoMap, beatsToSeconds, secondsToBeats, type TempoSegment } from '@/utils/tempoMap'
@@ -195,69 +195,66 @@ export function collectScheduledNotes(
         continue
       }
 
-      for (const np of chord.notes) {
-        // Skip a true (same-pitch) tied continuation — its head already carries the length.
-        if (np.tiedFrom) {
-          const source = chordOf.get(np.tiedFrom)?.notes.find(n => n.id === np.tiedFrom)
-          if (source && sameMidi(source, np)) continue
-        }
+      /** A tied CONTINUATION of the same pitch — its head already carries the whole chain's length. */
+      const isContinuation = (np: NotePitch): boolean => {
+        if (!np.tiedFrom) return false
+        const source = chordOf.get(np.tiedFrom)?.notes.find(n => n.id === np.tiedFrom)
+        return !!source && sameMidi(source, np)
+      }
 
-        // Extend across a same-pitch tiedTo chain; stop at a different pitch or a dead link.
-        let durationBeats = baseDurationBeats
+      /** This pitch's sounding length: its slot's, extended across a same-pitch `tiedTo` chain
+       *  (stopping at a different pitch or a dead link), plus the legato overlap. */
+      const soundingBeatsOf = (np: NotePitch): number => {
+        let beats = baseDurationBeats
         let cursor: NotePitch = np
         while (cursor.tiedTo) {
           const nextChord = chordOf.get(cursor.tiedTo)
           const nextNp = nextChord?.notes.find(n => n.id === cursor.tiedTo)
           if (!nextChord || !nextNp || !sameMidi(nextNp, cursor)) break
-          durationBeats += nextChord.actualDuration
+          beats += nextChord.actualDuration
             ? fracToNumber(nextChord.actualDuration)
             : durationToBeats(nextChord.duration, nextChord.dots || 0)
           cursor = nextNp
         }
-
         // Legato: bind to the next onset with a small, capped overlap.
         if (legatoChords.has(chord.id)) {
-          durationBeats += Math.min(LEGATO_OVERLAP_BEATS, baseDurationBeats * 0.5)
+          beats += Math.min(LEGATO_OVERLAP_BEATS, baseDurationBeats * 0.5)
         }
+        return beats
+      }
 
+      /**
+       * ⭐ A FANNED BEAM branches on the SLOT, beside the two-note tremolo and for the same reason:
+       * it is ONE gesture over the whole event, and its members have PITCHES OF THEIR OWN
+       * (docs/fanned-beam-pitches-plan.md §2 P4). It sat inside the per-pitch loop while every member
+       * shared the slot's pitches — where each chord tone emitted its own run of the whole ramp,
+       * which was right then and wrong the moment they could differ.
+       *
+       * The tie machinery above is per pitch and only means anything for member 0: a member cannot
+       * be tied (P3 refuses it), so members 1…count-1 are their own notes, sounding once each.
+       */
+      if (chord.fan) {
+        collectFanAttacks(events, {
+          chord,
+          fan: chord.fan,
+          startBeats,
+          // The GROUP's span is one number — the event sounds until its longest-held pitch ends, so a
+          // fan tied forward accelerates across the whole chain ("fill what sounds", the tremolo's
+          // rule). Ties into and out of a fan are otherwise deferred.
+          spanBeats: Math.max(baseDurationBeats, ...chord.notes.filter(np => !isContinuation(np)).map(soundingBeatsOf)),
+          suppressed: new Set(chord.notes.filter(isContinuation).map(np => np.id)),
+          velocity,
+          durationFactor: artic.durationFactor,
+        })
+        continue
+      }
+
+      for (const np of chord.notes) {
+        // Skip a true (same-pitch) tied continuation — its head already carries the length.
+        if (isContinuation(np)) continue
+
+        const durationBeats = soundingBeatsOf(np)
         const midi = spellingToMidi(np.step, np.alter, np.octave)
-
-        /**
-         * ⭐ A FANNED BEAM turns ONE note into `count` attacks that speed up or slow down across
-         * exactly its own length — free accelerando *within* the duration, so the group's total
-         * time is unchanged and nothing after it moves. That is not an extra rule here: the offsets
-         * are proportions of this note's sounding length, so they cannot add up to anything else.
-         *
-         * ⭐ THE SAME `startFraction` THE DRAWING USES. The picture and the sound come out of one
-         * expander (`fanMembers`), which is the whole reason it was written as a pure function — a
-         * head at 40% along the group is a note at 40% of its time, by construction rather than by
-         * two implementations agreeing.
-         *
-         * The SOUNDING length, not the written one, so a fanned note tied forward accelerates
-         * across the whole chain — "fill what sounds", the rule the tremolo below follows. (Ties
-         * into and out of a fan are otherwise deferred, docs/fanned-beams-plan.md §4.)
-         *
-         * Before the tremolo, and that ordering is a decision rather than an accident: the two are
-         * mutually exclusive in the model (`ScoreModel.setFan` clears the tremolo and vice versa),
-         * so a slot carrying both is ill-formed — imported JSON is reported, never repaired — and
-         * something has to win predictably. The fan does.
-         */
-        if (chord.fan) {
-          const members = fanMembers(chord.fan, chord.actualDuration ?? durationToFraction(chord.duration, chord.dots ?? 0))
-          for (let k = 0; k < members.length; k++) {
-            const from = members[k].startFraction
-            const to = k + 1 < members.length ? members[k + 1].startFraction : 1
-            events.push({
-              midi,
-              startBeats: startBeats + from * durationBeats,
-              // Each member lasts until the next one starts — they are a run of notes, back to back
-              // — and still takes the articulation's length factor, so a staccato fan is staccato.
-              durationBeats: (to - from) * durationBeats * artic.durationFactor,
-              velocity,
-            })
-          }
-          continue
-        }
 
         // A tremolo turns ONE sounding note into N re-attacks. It fills the note's whole SOUNDING
         // length — including any tie-extension above, because the head carries the chain's length and
@@ -324,6 +321,66 @@ function laneIndexOfMeasure(measure: Measure): Map<string, { lane: ChordRest[]; 
     lane.forEach((s, i) => index.set(s.id, { lane, index: i }))
   }
   return index
+}
+
+/**
+ * ⭐ The attacks of ONE FANNED group, appended to `events` — `count` notes that speed up or slow
+ * down across exactly the slot's own length.
+ *
+ * Free accelerando *within* the duration: the group's total time is unchanged and nothing after it
+ * moves. That is not an extra rule here — the offsets are proportions of the slot's sounding length,
+ * so they cannot add up to anything else.
+ *
+ * ⭐ THE SAME `startFraction` THE DRAWING USES. The picture and the sound come out of one expander
+ * (`fanMembers`), which is the whole reason it was written as a pure function — a head at 40% along
+ * the group is a note at 40% of its time, by construction rather than by two implementations
+ * agreeing. And now the same is true of the PITCHES: `fanMemberPitches` is the projection the
+ * renderer draws from, including its fallback (a mark with no stored members sounds, as it draws, at
+ * the slot's own pitch).
+ *
+ * Member 0 is the slot's own chord — minus any tied continuation, whose head already carries the
+ * chain. Members 1…count-1 are their own notes: they cannot be tied, slurred or articulated
+ * individually (P3 refuses all three), so they sound once each, at their own pitches, wearing the
+ * SLOT's dynamic and articulation because those belong to the whole gesture.
+ *
+ * Called BEFORE the tremolo, and that ordering is a decision rather than an accident: the two are
+ * mutually exclusive in the model (`ScoreModel.setFan` clears the tremolo and vice versa), so a slot
+ * carrying both is ill-formed — imported JSON is reported, never repaired — and something has to win
+ * predictably. The fan does.
+ */
+function collectFanAttacks(
+  events: ScheduledNote[],
+  opts: {
+    chord: Chord
+    fan: FanMark
+    startBeats: number
+    /** The whole group's span in beats — the slot's sounding length (tie-extended). */
+    spanBeats: number
+    /** Pitch ids of the slot's own notes that are tied continuations, and so must not re-attack. */
+    suppressed: Set<string>
+    velocity: number
+    durationFactor: number
+  },
+): void {
+  const { chord, fan, startBeats, spanBeats, suppressed, velocity, durationFactor } = opts
+  const sounding = chord.notes.filter(np => !suppressed.has(np.id))
+  const members = fanMembers(fan, chord.actualDuration ?? durationToFraction(chord.duration, chord.dots ?? 0))
+  const pitches = fanMemberPitches(sounding, fan)
+
+  for (let k = 0; k < members.length; k++) {
+    const from = members[k].startFraction
+    const to = k + 1 < members.length ? members[k + 1].startFraction : 1
+    for (const p of pitches[k] ?? sounding) {
+      events.push({
+        midi: spellingToMidi(p.step, p.alter, p.octave),
+        startBeats: startBeats + from * spanBeats,
+        // Each member lasts until the next one starts — they are a run of notes, back to back — and
+        // still takes the articulation's length factor, so a staccato fan is staccato.
+        durationBeats: (to - from) * spanBeats * durationFactor,
+        velocity,
+      })
+    }
+  }
 }
 
 /**

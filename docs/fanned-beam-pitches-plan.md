@@ -236,7 +236,7 @@ shows no highlight at all.
 > it sounds on, in `buildVoiceNavBeatMap` only — never in `buildBeatMap`, which drives note ENTRY,
 > where a member is not a position you can type at). The member beats have one owner, `fanMemberEntries`.
 
-**P4 — playback.** Each member sounds its OWN pitch. ⚠️ **Not three lines — a restructure.** The fan
+**P4 — playback. ✅ DONE.** Each member sounds its OWN pitch. ⚠️ **Not three lines — a restructure.** The fan
 expansion sits INSIDE the `for np of chord.notes` loop (`engine/audio/playbackSchedule.ts:246`), so
 today each chord pitch emits its own run of the whole ramp, which is right while every member shares
 the slot's pitches and wrong the moment they don't. It moves OUT of that loop: member 0 sounds
@@ -246,6 +246,18 @@ member 0.
 
 The offsets do not change: they are still `fanMembers`'s, still proportions of the slot's own
 sounding length, so the group's total time is unchanged by construction.
+
+> Built as `collectFanAttacks`, beside `collectPairAttacks` and for the same reason — both are
+> decisions about the SLOT, not about one of its pitches. The tie machinery came out of the loop as
+> two named helpers (`isContinuation`, `soundingBeatsOf`) so the fan and the ordinary path read ONE
+> rule; member 0 is the slot's chord minus any suppressed continuation, and the pitch projection is
+> `fanMemberPitches` — the same one the renderer draws from, fallback included, so a mark with no
+> stored members sounds exactly as it draws.
+>
+> **The one decision the plan left open: what span does the group ramp across when the slot is a
+> CHORD whose pitches are tied differently?** Per-pitch lengths were fine while each pitch ran its own
+> ramp; one ramp needs one number. It is the LONGEST tie-extended pitch — the event sounds until its
+> last-held pitch ends. Single-pitch fans (every fan anyone has made) are unaffected.
 
 ## 3. Deliberately NOT in this plan
 

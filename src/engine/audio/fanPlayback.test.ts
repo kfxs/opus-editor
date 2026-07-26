@@ -140,3 +140,84 @@ describe('the fan and the other expansions', () => {
     expect(attacks(score)).toHaveLength(DEFAULT_FAN_COUNT)
   })
 })
+
+/**
+ * ⭐ P4 — EACH MEMBER SOUNDS ITS OWN PITCH (docs/fanned-beam-pitches-plan.md §2 P4).
+ *
+ * The expansion moved OUT of the per-pitch loop to do this. While every member shared the slot's
+ * pitches, running the whole ramp once per chord tone was right; the moment they can differ it is
+ * two rhythms laid over each other.
+ */
+describe('a fan sounds its members’ own pitches', () => {
+  /** A fanned blanca whose members climb D4, E4, F4 — and the typed note stays C4. */
+  function risingFan(count = 4) {
+    const model = new ScoreModel('P')
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.setFan(note.id, { direction: 'accel', count, beams: 3 })
+    const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    const steps = ['D', 'E', 'F', 'G', 'A'] as const
+    slot.fan!.members!.forEach((m, k) => { m[0].step = steps[k % steps.length] })
+    return { model, slot, note }
+  }
+
+  it('⭐ one attack per member, each at its OWN midi, in order', () => {
+    const { model } = risingFan(4)
+    const events = collectScheduledNotes(model.getScore()).sort((a, b) => a.startBeats - b.startBeats)
+    expect(events).toHaveLength(4)
+    expect(events.map(e => e.midi)).toEqual([60, 62, 64, 65]) // C4 D4 E4 F4
+  })
+
+  it('⭐ and it is still ONE run of the ramp — not one per chord tone', () => {
+    // The bug the restructure removes: with the expansion inside the per-pitch loop, a fanned CHORD
+    // emitted the whole ramp once for every pitch of the slot.
+    const { model, slot } = risingFan(3)
+    model.addNote({ step: 'G', octave: 5, duration: 'h', measure: 1, beat: frac(0, 1) }) // slot chord tone
+    expect(slot.notes).toHaveLength(2)
+    const events = collectScheduledNotes(model.getScore())
+    // Member 0 is the slot's chord (2 pitches); members 1 and 2 are one pitch each.
+    expect(events).toHaveLength(4)
+    const onsets = [...new Set(events.map(e => e.startBeats.toFixed(6)))]
+    expect(onsets).toHaveLength(3) // three members ⇒ three onsets, whatever the chord holds
+  })
+
+  it('a member CHORD sounds all of its pitches at that member’s onset', () => {
+    const { model, slot } = risingFan(3)
+    slot.fan!.members![0].push({ id: 'x', step: 'B', alter: 0, octave: 4 })
+    const events = collectScheduledNotes(model.getScore()).sort((a, b) => a.startBeats - b.startBeats)
+    expect(events).toHaveLength(4)
+    expect(events[1].startBeats).toBeCloseTo(events[2].startBeats, 9) // the member's two pitches
+    expect([events[1].midi, events[2].midi].sort()).toEqual([62, 71]) // D4 + B4
+  })
+
+  it('⭐ the members still fill the note EXACTLY — pitches changed nothing about the clock', () => {
+    const { model } = risingFan(5)
+    const events = collectScheduledNotes(model.getScore()).sort((a, b) => a.startBeats - b.startBeats)
+    const last = events[events.length - 1]
+    expect(last.startBeats + last.durationBeats).toBeCloseTo(2, 9) // a blanca, to the last unit
+    expect(events[0].startBeats).toBe(0)
+  })
+
+  it('every member wears the SLOT’s dynamic and articulation — they belong to the gesture', () => {
+    const { model, note } = risingFan(4)
+    const plain = collectScheduledNotes(model.getScore())
+    model.updateNote(note.id, { articulations: ['staccato'] })
+    const staccato = collectScheduledNotes(model.getScore()).sort((a, b) => a.startBeats - b.startBeats)
+    expect(staccato).toHaveLength(plain.length)
+    for (const e of staccato) expect(e.velocity).toBe(plain[0].velocity)
+    for (let k = 0; k < staccato.length; k++) {
+      expect(staccato[k].durationBeats).toBeLessThan(
+        plain.sort((a, b) => a.startBeats - b.startBeats)[k].durationBeats)
+    }
+  })
+
+  it('a mark with no stored members sounds at the slot’s pitch — as it draws', () => {
+    const score = oneFannedNote()
+    const slot = score.measures[0].slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    delete slot.fan!.members
+    const events = collectScheduledNotes(score)
+    expect(events).toHaveLength(DEFAULT_FAN_COUNT)
+    expect(new Set(events.map(e => e.midi))).toEqual(new Set([C4]))
+  })
+})
