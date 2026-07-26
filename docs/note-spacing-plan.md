@@ -294,6 +294,96 @@ then does the even-division mapper answer.
 
 ---
 
+## 7. Inside a FAN — spacing one member (✅ BUILT, 2026-07-26)
+
+Reported from use: select one member of a fanned group, press `Ctrl+→`, and the **whole fan** moves.
+That is not a bug in the spacing feature, it is the spacing feature working on the only address a
+member could give it. Two facts stack up:
+
+- **A member reports the SLOT's beat.** `selectedColumn` (`shortcutWiring.ts:176`) resolves the
+  selected id with `eng.getNote(id)`, and `ScoreModel.getNote` finds a member (`findSlot({
+  fanMembers: true })`) but projects it with `toFlatNote(chord, pitch)` — which carries the chord's
+  beat. So member 4's nudge writes a space at the fan's own column.
+- **And there is no column inside a fan to write to anyway.** A space is applied by shifting
+  **TickContexts** (§4), and a fan is ONE slot = one tick context. Members 1..n−1 are not tickables
+  at all: they are ink placed by `fannedBeamGeometry` (`FannedBeam.ts:266-287`), proportionally
+  between member 0's `headX` and `spanEndX` (the next note's head x), with a min-gap floor and an
+  even compression scale when the bar could not give the room.
+
+### 7.1 The key needs nothing new
+
+⭐ `fanMemberEntries` (`utils/fannedBeam.ts`) already gives every member an **exact beat** — the
+plan for fans says outright that those are arbitrary rationals and that they are POSITIONS, never
+notatable durations. `spacingPositionKey` takes any rational. So *a member space is an ordinary
+`leadingSpace` at the member's own beat*, and it inherits the shape key (`{measureId}:` prefix, §1),
+the bar-width sum (`measureUserSpacePx`, §2), the justify reservation (§3) and the rebar/clipboard
+travel (§6) by construction. No new override kind, no new key format, no new capture/restore.
+
+### 7.2 The width half nearly falls out
+
+A member beat sits strictly *between* the fan's tick context and the next one, so `applyLeadingSpaces`
+shifts the next note and everything after it — which is exactly `spanEndX`. The fan's span therefore
+grows by the authored amount and the bar grows with it: the same "a space has width" semantics the
+rest of this document defends, reached with no new width code.
+
+What does NOT fall out is *where the extra lands*. Today `fannedBeamGeometry` divides `usable =
+spanEndX − headX − minHeadGap` proportionally across all gaps, so the extra would be smeared over
+the whole ramp instead of opening the one gap that was authored. **The one substantive new piece of
+logic:** take the authored member spaces off the top, share what remains by the ramp, then add each
+authored amount back into its own gap — §3's justification rule (*"justify the intrinsic part, hand
+the user space back whole"*) restated at ramp scale. It stays a pure function; the caller
+(`VexFlowRenderer`'s fan-slot builder, which holds `score`, `measure` and `slot.beat`) matches
+`measureLeadingSpaces` against `fanMemberEntries` beats and passes a `memberSpaces: number[]` in px.
+
+### 7.3 The three decisions
+
+- **Member 0 keeps today's behaviour** — it moves the fan's column, because that IS its column. So
+  per-member spacing means members 1..n−1, and nothing about selecting the fan's first head changes.
+- **It GROWS THE BAR** — §7.2's reading, the one consistent with the rest of this document ("a space
+  has width"). ⚠️ It was also the *smaller* change, which is worth recording because the intuition
+  runs the other way: the alternative (spend it inside the fan's existing span, neighbours never
+  move) would have needed member beats *excluded* from `measureUserSpacePx`, where growing the bar
+  needs nothing — the total already sums every space in the bar. Reversing it later is that one
+  exclusion.
+- **The floor** is measured from the drawn HEADS, not from columns. `measuredShrinkRoom` cannot
+  answer for a member and not by oversight: a member is registered under the SLOT's beat (so
+  `pixelXToBeat` keeps the group on one column), so that walk dedups the whole fan into one anchor
+  and would measure the gap before the *group*. `MusicEngine.fanMemberShrinkRoom` reads the two
+  registry entries instead — both head centres — floored at `FAN_MIN_HEAD_GAP_RATIO × the notehead's
+  own measured width`, the same number the geometry refuses to cross.
+
+⚠️ **And the caveat that makes this different from every other column.** Everywhere else a space is
+cosmetic. Inside a fan the head positions *encode* the accelerando — playback reads `fanMembers`'
+quarters and never the drawing, so a member space is the user overruling what the ramp drew, and the
+picture stops being strictly proportional to the sound. That is legitimate (engravers tune fans by
+hand) and it is one-directional by construction: **the sound cannot be changed from here.** Named so
+that a fan whose heads no longer match its own ramp reads as an authored fact and not as a bug.
+
+### 7.4 One trap found while building it — the travel test reads a member as an orphan
+
+`restoreLeadingSpaces` (§6) keeps a space **only where some event still starts at that beat**, and
+that condition IS the auto-reset. A member starts at a beat *no slot holds* — its position is a
+rational inside one — so read literally the test called every member space orphaned and dropped it
+at the first meter change or paste. `columnExistsAt` now counts a fan's member beats as columns,
+which is the only sense the test ever meant: there is a head drawn there for the space to open a gap
+before. Pinned by a test that fails against the old condition.
+
+### 7.5 What it touched
+
+Resolution `ScoreModel.spacingColumnOf` → `MusicEngine.spacingColumnOf` (both spacing callers —
+`shortcutWiring.selectedColumn` and `MouseController.armSpacingDrag` — now ask it for the address
+instead of reading `getNote().beat`, so **the drag moves one member too**) · the beats
+`fanMemberBeats` (`utils/fannedBeam.ts`, now the one owner of that arithmetic, with
+`fanMemberEntries` reading through it) · the floor `MusicEngine.fanMemberShrinkRoom` + the optional
+`anchorNoteId` on `noteSpacingRoom`/`nudgeNoteSpacing` · the drawing `FanGeometryOptions.memberSpaces`
+consumed in `fannedBeamGeometry` and filled by `fanMemberSpacesPx` (`VexFlowRenderer`) · the travel
+`columnExistsAt` (`rebarOps`). Tests: `FannedBeam.test.ts` (the gap opens by exactly the authored
+amount and the ramp's other gaps do not move; member 0 is inert; the floor still holds; an unspaced
+fan is byte-for-byte what it was), `fanMemberCommands.test.ts` (the address), `noteSpacingTravel.test.ts`
+(§7.4). ⏭️ Not yet hand-tested in the app.
+
+---
+
 ## Phases
 
 - **P0 — model + math, no UI. ✅ BUILT.** `LeadingSpaceOverride` (client #10),
@@ -318,6 +408,11 @@ then does the even-division mapper answer.
   through the drawn columns instead of dividing the bar evenly — 11 tests in
   `pixelXToBeatColumns.test.ts`.
 - **P3 — optional.** Multi-select nudge; a numeric field in the Properties window.
+- **P4 — per-member spacing inside a fan (§7). ✅ BUILT.** The address (`spacingColumnOf`), the
+  drawing (`memberSpaces` off the top of the ramp), the member floor (`fanMemberShrinkRoom`) and the
+  travel fix (§7.4), on both the keyboard and the drag. It grows the bar, per §7.3. 11 tests across
+  `FannedBeam.test.ts` / `fanMemberCommands.test.ts` / `noteSpacingTravel.test.ts`.
+  ⏭️ **Not yet hand-tested in the app.**
 
 ## Out of scope
 

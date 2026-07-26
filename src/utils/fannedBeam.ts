@@ -203,6 +203,30 @@ export function fanMemberPitches(notes: NotePitch[], fan: FanMark): NotePitch[][
 }
 
 /**
+ * ⭐ The beat EVERY member of a fan starts on, member 0 first — `slot.beat + Σ preceding member
+ * quarters`, one entry per member the count claims. **The one owner of that arithmetic**, which is
+ * now four passes' worth: the accidental walk, arrow navigation, playback, and — since a member can
+ * carry its own leading space (docs/note-spacing-plan.md §7) — the spacing address it is nudged by.
+ *
+ * ⚠️ Arbitrary rationals, and that is fine: they are POSITIONS, never notatable durations. Nothing
+ * turns one back into a slot. It is also what lets a member share `spacingPositionKey` with an
+ * ordinary column — the key takes any rational, so a member space needs no key of its own.
+ *
+ * Member 0 IS here (at the slot's own beat), unlike {@link fanMemberEntries}: a caller indexing by
+ * member number must be able to ask about the first one without special-casing it.
+ */
+export function fanMemberBeats(fan: FanMark, totalQuarters: Fraction, slotBeat: Fraction): Fraction[] {
+  const spans = fanMembers(fan, totalQuarters)
+  const out: Fraction[] = []
+  let beat = slotBeat
+  for (let k = 0; k < spans.length; k++) {
+    out.push(beat)
+    beat = fracAdd(beat, spans[k].quarters) // member k+1 starts where member k ends
+  }
+  return out
+}
+
+/**
  * Every STORED member with the beat it sounds on — `slot.beat + Σ preceding member quarters`.
  *
  * The one owner of that arithmetic, because three passes now need the same answer and a member at
@@ -222,12 +246,10 @@ export function fanMemberEntries(
 ): Array<{ index: number; pitches: NotePitch[]; beat: Fraction }> {
   const stored = fan.members ?? []
   if (stored.length === 0) return []
-  const spans = fanMembers(fan, totalQuarters)
+  const beats = fanMemberBeats(fan, totalQuarters, slotBeat)
   const out: Array<{ index: number; pitches: NotePitch[]; beat: Fraction }> = []
-  let beat = slotBeat
   for (let k = 0; k < stored.length; k++) {
-    beat = fracAdd(beat, spans[k]?.quarters ?? fracCreate(0, 1)) // member k+1 starts where member k ends
-    out.push({ index: k + 1, pitches: stored[k], beat })
+    out.push({ index: k + 1, pitches: stored[k], beat: beats[k + 1] ?? slotBeat })
   }
   return out
 }

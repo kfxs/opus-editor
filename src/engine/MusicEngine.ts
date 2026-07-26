@@ -4,6 +4,7 @@ import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacing
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
 import { authoredScales, growthPayerShares, squeezedWidth } from './rendering/MeasureLayout'
+import { FAN_MIN_HEAD_GAP_RATIO } from './rendering/FannedBeam'
 import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
@@ -1297,6 +1298,19 @@ export class MusicEngine {
     return stored
   }
 
+  /**
+   * ⭐ The COLUMN a selected note is spaced by — **its own beat inside a fan** rather than the
+   * group's (docs/note-spacing-plan.md §7). Every spacing caller resolves its address through here
+   * instead of reading `getNote().beat`, which reports the SLOT's beat for a fanned member and so
+   * spaced the whole group.
+   *
+   * `memberIndex` ≥ 1 says the address is a gap INSIDE a fan, which is what
+   * {@link noteSpacingRoom} needs before it goes looking for a drawn column that does not exist.
+   */
+  spacingColumnOf(noteId: string): { measure: number; beat: Fraction; memberIndex: number } | null {
+    return this.scoreModel.spacingColumnOf(noteId)
+  }
+
   /** The authored leading space at this column, in staff-spaces. 0 = none (the engraver's own). */
   getNoteSpacing(measureNumber: number, beat: Fraction): number {
     const measure = this.scoreModel.getMeasure(measureNumber)
@@ -1367,6 +1381,41 @@ export class MusicEngine {
   }
 
   /**
+   * ⭐ The same question for a gap INSIDE a fan (§7): how far left may this MEMBER be pulled before
+   * its head closes on the one behind it, in staff-spaces.
+   *
+   * {@link measuredShrinkRoom} cannot answer it, and not by oversight: a member is registered under
+   * the SLOT's beat (so `pixelXToBeat` keeps the group on one column), so that walk dedups the whole
+   * fan into a single anchor and would measure the gap before the group instead of the gap before
+   * the head. The heads are drawn ink, so the honest measurement is the drawn ink: two registry
+   * entries, both head CENTRES, and the floor the geometry itself refuses to cross
+   * ({@link FAN_MIN_HEAD_GAP_RATIO} × the notehead's own measured width).
+   *
+   * ⚠️ Same staleness rule as its sibling — a fresh number against an old picture slides the floor
+   * down one step per press, and the clamp then never bites.
+   *
+   * @returns null when the last render cannot answer (either head undrawn, or an edit not yet drawn).
+   */
+  private fanMemberShrinkRoom(measureNumber: number, noteId: string, memberIndex: number): number | null {
+    if (this.modelDirty) return null
+    const group = this.scoreModel.fanMembersOfSlot(noteId)
+    const behind = group?.[memberIndex - 1]
+    if (!behind) return null
+
+    const registry = this.renderer.getElementRegistry()
+    const here = registry.getById(noteId)
+    const prev = registry.getById(behind.id)
+    if (!here || !prev) return null
+    const x = here.headX ?? here.bbox.x + here.bbox.width / 2
+    const prevX = prev.headX ?? prev.bbox.x + prev.bbox.width / 2
+
+    const geometry = registry.getStaffGeometry(measureNumber, here.staff ?? 0)
+    const staffSpacePx = geometry?.lineSpacing ?? VEXFLOW_DEFAULT_STAFF_SPACE_PX
+    const minGap = here.bbox.width * FAN_MIN_HEAD_GAP_RATIO
+    return Math.max(0, (x - prevX - minGap) / staffSpacePx)
+  }
+
+  /**
    * Nudge the leading space before one column by `delta` staff-spaces and save ONE undo step —
    * the keyboard fine-positioning (Shift+Alt+←/→). Accumulates onto whatever is already there;
    * returning to zero clears the entry.
@@ -1376,12 +1425,16 @@ export class MusicEngine {
    * measured** — an unrendered bar has no gaps to read, and inventing one would engrave a rule
    * nobody chose.
    *
+   * `anchorNoteId` names the note the address came from, so a gap inside a fan is floored against
+   * the head behind it rather than against a column that does not exist (§7). Absent ⇒ an ordinary
+   * column, exactly as before.
+   *
    * @returns the space now stored, or null if the nudge was declined.
    */
-  nudgeNoteSpacing(measureNumber: number, beat: Fraction, delta: number): number | null {
+  nudgeNoteSpacing(measureNumber: number, beat: Fraction, delta: number, anchorNoteId?: string): number | null {
     const measure = this.scoreModel.getMeasure(measureNumber)
     if (!measure) return null
-    const room = this.measuredShrinkRoom(measureNumber, beat)
+    const room = this.noteSpacingRoom(measureNumber, beat, anchorNoteId)
     if (room === null) {
       dbg(`[Spacing] declined bar ${measureNumber} beat ${beat.num}/${beat.den} — no drawn gap to measure the floor against`)
       return null
@@ -1403,10 +1456,17 @@ export class MusicEngine {
    * gesture is then judged against the picture the user actually grabbed, so the floor cannot creep
    * as the drag redraws underneath it.
    *
+   * `anchorNoteId` routes a fanned MEMBER's address to {@link fanMemberShrinkRoom} — the gap it may
+   * close is the one before its own head, not the one before the group (§7).
+   *
    * @returns null when the last render cannot answer — the caller must not drag rather than invent
    * a floor.
    */
-  noteSpacingRoom(measureNumber: number, beat: Fraction): number | null {
+  noteSpacingRoom(measureNumber: number, beat: Fraction, anchorNoteId?: string): number | null {
+    if (anchorNoteId) {
+      const column = this.scoreModel.spacingColumnOf(anchorNoteId)
+      if (column && column.memberIndex >= 1) return this.fanMemberShrinkRoom(measureNumber, anchorNoteId, column.memberIndex)
+    }
     return this.measuredShrinkRoom(measureNumber, beat)
   }
 

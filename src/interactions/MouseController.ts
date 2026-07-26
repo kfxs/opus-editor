@@ -2376,10 +2376,14 @@ export class MouseController {
     this.spacingDragColumn = null
     this.spacingDragChanged = false
     if (!note) return
-    const room = engine.noteSpacingRoom(note.measure, note.beat)
+    // ⭐ A fanned member's own gap, not its group's — `spacingColumnOf` is the address, because the
+    // flat note carries the SLOT's beat (docs/note-spacing-plan.md §7).
+    const column = engine.spacingColumnOf(note.id)
+    if (!column) return
+    const room = engine.noteSpacingRoom(column.measure, column.beat, note.id)
     if (room === null) return
-    this.spacingDragColumn = { measure: note.measure, beat: note.beat }
-    this.spacingDragBaseline = engine.getNoteSpacing(note.measure, note.beat)
+    this.spacingDragColumn = { measure: column.measure, beat: column.beat }
+    this.spacingDragBaseline = engine.getNoteSpacing(column.measure, column.beat)
     this.spacingDragMinSpace = this.spacingDragBaseline - room
     this.spacingDragStaffSpacePx =
       engine.getElementRegistry().getStaffGeometry(note.measure, note.staff ?? 0)?.lineSpacing ?? 10

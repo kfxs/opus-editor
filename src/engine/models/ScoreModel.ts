@@ -20,7 +20,7 @@ import {
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { beamRoleAtRef, type BeamRole } from '@/utils/beaming'
 import { laneOfSlot, pairAcceptsJoined, pairIsValid } from '@/utils/tremoloPair'
-import { normalizeFan, cloneFanFresh, fanMemberPitches } from '@/utils/fannedBeam'
+import { normalizeFan, cloneFanFresh, fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import { spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
 import { type RebarEvent } from '@/utils/rebar'
 import {
@@ -1554,6 +1554,32 @@ export class ScoreModel {
     const found = this.findSlot(noteId, { fanMembers: true })
     if (found?.type !== 'chord' || !found.chord.fan) return null
     return found.member?.index ?? 0
+  }
+
+  /**
+   * ⭐ The COLUMN a note is spaced by — its own beat for anything ordinary, and **the member's own
+   * beat inside a fan** (docs/note-spacing-plan.md §7).
+   *
+   * The whole of the fix for "spacing one member moved the whole fan": `getNote` projects a member
+   * with `toFlatNote(chord, pitch)`, which carries the CHORD's beat, so every member handed the
+   * spacing keys the same address — the group's own column. A member's beat is an exact rational out
+   * of {@link fanMemberBeats}, and `spacingPositionKey` takes any rational, so the address exists
+   * already; nothing here is a new kind of key.
+   *
+   * `memberIndex` is 0 for an ordinary note and for member 0 (whose column IS the slot's), and ≥ 1
+   * for a member with a gap of its own — what the caller needs to know before measuring how far left
+   * it may go, since a member has no drawn column for `measuredShrinkRoom` to read.
+   */
+  spacingColumnOf(noteId: string): { measure: number; beat: Fraction; memberIndex: number } | null {
+    const found = this.findSlot(noteId, { fanMembers: true })
+    if (!found) return null
+    if (found.type === 'rest') return { measure: found.rest.measure, beat: found.rest.beat, memberIndex: 0 }
+    const { chord } = found
+    const index = found.member?.index ?? 0
+    if (index === 0 || !chord.fan) return { measure: chord.measure, beat: chord.beat, memberIndex: 0 }
+    const total = chord.actualDuration ?? durationToFraction(chord.duration, chord.dots ?? 0)
+    const beat = fanMemberBeats(chord.fan, total, chord.beat)[index]
+    return beat ? { measure: chord.measure, beat, memberIndex: index } : { measure: chord.measure, beat: chord.beat, memberIndex: 0 }
   }
 
   /**

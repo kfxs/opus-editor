@@ -76,6 +76,7 @@ describe('tremolo selection', () => {
       getNote: () => ({ id: 'n1', voice: 0, tremolo: 2 }),
       getScore: () => ({ measures: [] }),
       pixelToMeasure: () => 1,
+      spacingColumnOf: () => null,
       noteSpacingRoom: () => null,
       getMeasureRect: () => null,
     }

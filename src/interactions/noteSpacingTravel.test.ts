@@ -179,3 +179,56 @@ describe('leading space — survives a rebar, and auto-resets when its column di
     expect(getMeasureNotes(engine.getScore().measures[1]).length).toBe(before)
   })
 })
+
+/**
+ * ⭐ A MEMBER's space travels too (docs/note-spacing-plan.md §7).
+ *
+ * The trap this pins: `restoreLeadingSpaces` keeps a space only where an event still starts at that
+ * beat, and a fanned member starts at a beat NO SLOT holds — its position is a rational inside one.
+ * Read literally, that test called every member space orphaned and dropped it at the first meter
+ * change. A member is a column in the only sense the test means: there is a head drawn there.
+ */
+describe('leading space — a fanned member’s own gap', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  /** A half note on beat 0 fanned into 4, plus a half note on beat 2. Returns the member beats. */
+  const fannedBar = (m: number) => {
+    const id = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: m, beat: frac(0, 1) })!.id
+    engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'h', measure: m, beat: frac(2, 1) })
+    engine.setFan(id, { direction: 'accel', count: 4, beams: 3 })
+    const slot = engine.getScore().measures[m - 1].slots.find(s => s.type === 'chord' && s.fan)!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    return slot.fan!.members!.map(pitches => engine.spacingColumnOf(pitches[0].id)!.beat)
+  }
+
+  it('⭐ survives a meter change that leaves the fan where it was', () => {
+    const beats = fannedBar(1)
+    const key = spacingPositionKey(measureId(engine, 1), beats[1])
+    engine.setNoteSpacing(1, beats[1], 1.5, -10)
+    expect(leadingSpaceOverrideOf(engine.getScore(), key)?.space).toBe(1.5)
+
+    // 4/4 → 6/4: bar 1 grows, and the fan stays on beat 0 — so its member's gap does too.
+    engine.setTimeSignature(1, { numerator: 6, denominator: 4 })
+
+    const after = engine.getScore().measures[0]
+    const stillThere = measureLeadingSpaces(engine.getScore(), after.id)
+      .find(s => s.beat.num * beats[1].den === beats[1].num * s.beat.den)
+    expect(stillThere?.space).toBe(1.5)
+  })
+
+  it('is DROPPED when the fan that held it is gone', () => {
+    const beats = fannedBar(1)
+    engine.setNoteSpacing(1, beats[1], 1.5, -10)
+
+    // Take the fan off: the members go with it, and there is no head at that beat any more.
+    const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord' && s.fan)!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    engine.setFan(slot.notes[0].id, null)
+    engine.setTimeSignature(1, { numerator: 6, denominator: 4 })
+
+    for (const m of engine.getScore().measures) {
+      expect(measureLeadingSpaces(engine.getScore(), m.id).some(s => s.space === 1.5)).toBe(false)
+    }
+  })
+})

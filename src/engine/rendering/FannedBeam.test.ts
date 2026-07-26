@@ -455,3 +455,61 @@ describe('two fans on one beam', () => {
     expect(fanJoinQuads({ left: collapsed, right: ramp(FAN), toX: 500, thickness: BEAM_WIDTH })).toEqual([])
   })
 })
+
+/**
+ * ⭐ PER-MEMBER SPACING (docs/note-spacing-plan.md §7) — the user nudges ONE member of a fan and
+ * only that gap opens. The width it needs is already inside `spanEndX` by the time this runs (the
+ * bar grew and `applyLeadingSpaces` moved the following note), so what is pinned here is where it
+ * LANDS: in the authored gap, not smeared across the ramp.
+ */
+describe('a member’s own authored space', () => {
+  const spaced = (memberSpaces: number[], spanEndX: number) => fannedBeamGeometry({
+    members: fanMembers(FAN, frac(2, 1)),
+    memberHeadYs: Array.from({ length: FAN.count }, () => [100]),
+    direction: FAN.direction,
+    beams: FAN.beams,
+    headX: 100,
+    spanEndX,
+    stemOffset: 10,
+    minHeadGap: MIN_GAP,
+    memberSpaces,
+    tipY: 60,
+    minStemLength: MIN_STEM,
+    stemDirection: 1,
+    beamWidth: BEAM_WIDTH,
+  })
+
+  const gapsOf = (g: ReturnType<typeof geometry>) =>
+    g.stems.slice(1).map((s, k) => s.headX - g.stems[k].headX)
+
+  it('opens exactly the gap it names, and leaves the others where the ramp put them', () => {
+    const SPACE = 20
+    const plain = gapsOf(geometry(FAN))
+    // The bar grew by SPACE, so the span the group is given grows with it — that is what
+    // `applyLeadingSpaces` did before this code runs.
+    const g = gapsOf(spaced([0, 0, 0, SPACE, 0, 0], 400 + SPACE))
+
+    expect(g[2]).toBeCloseTo(plain[2] + SPACE, 6) // the gap BEFORE member 3
+    for (const k of [0, 1, 3, 4]) expect(g[k]).toBeCloseTo(plain[k], 6)
+  })
+
+  it('member 0 has no gap of its own — that space is the fan COLUMN’s, already spent', () => {
+    const plain = gapsOf(geometry(FAN))
+    expect(gapsOf(spaced([99, 0, 0, 0, 0, 0], 400))).toEqual(plain)
+  })
+
+  it('a negative space closes the gap — down to the floor two heads may never cross', () => {
+    const plain = gapsOf(geometry(FAN))
+    const pulled = gapsOf(spaced([0, 0, -8, 0, 0, 0], 400 - 8))
+    expect(pulled[1]).toBeCloseTo(plain[1] - 8, 6)
+
+    // Past the floor it stops: the heads would otherwise sit on top of one another.
+    const crushed = gapsOf(spaced([0, 0, -500, 0, 0, 0], 400 - 500))
+    for (const gap of crushed) expect(gap).toBeGreaterThanOrEqual(MIN_GAP - 1e-6)
+  })
+
+  it('a fan with no authored spaces is byte-for-byte what it was', () => {
+    expect(spaced([], 400)).toEqual(geometry(FAN))
+    expect(spaced([0, 0, 0, 0, 0, 0], 400)).toEqual(geometry(FAN))
+  })
+})

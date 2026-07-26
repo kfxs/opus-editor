@@ -79,6 +79,7 @@ describe('stem selection', () => {
       pixelToMeasure: () => 1,
       // The two things the fall-through paths ask for: arming a spacing drag on the note, and the
       // bar rect a press on empty space would box-select. Both decline, so neither path does more.
+      spacingColumnOf: () => null,
       noteSpacingRoom: () => null,
       getMeasureRect: () => null,
     }

@@ -173,20 +173,24 @@ export function wireShortcuts(
   // just repainting. The engine DECLINES (null) when it cannot measure how far left the column may
   // go — an unrendered bar has no gaps to read — and we decline with it rather than guessing.
   // One undo per press. See docs/note-spacing-plan.md §5.
-  const selectedColumn = (): { measure: number; beat: Fraction } | null => {
+  // ⭐ The address comes from `spacingColumnOf`, NOT from `getNote().beat`: a fanned member's flat
+  // note carries the SLOT's beat, so reading it there spaced the whole fan whichever member was
+  // selected (docs/note-spacing-plan.md §7). The id travels with the column so the engine can floor
+  // a member's nudge against the head behind it.
+  const selectedColumn = (): { measure: number; beat: Fraction; noteId: string } | null => {
     const eng = getEngine()
     if (!eng || state.selectedItems.size !== 1) return null
     const item = [...state.selectedItems.values()][0]
     if (item.kind !== 'note') return null
-    const note = eng.getNote(item.id)
-    return note ? { measure: note.measure, beat: note.beat } : null
+    const column = eng.spacingColumnOf(item.id)
+    return column ? { measure: column.measure, beat: column.beat, noteId: item.id } : null
   }
 
   const nudgeSelectedNoteSpacing = (delta: number): boolean => {
     const eng = getEngine()
     const column = selectedColumn()
     if (!eng || !column) return false
-    if (eng.nudgeNoteSpacing(column.measure, column.beat, delta) === null) return false
+    if (eng.nudgeNoteSpacing(column.measure, column.beat, delta, column.noteId) === null) return false
     renderer.renderScore()
     return true
   }

@@ -366,3 +366,66 @@ describe('a chord note on a fanned member', () => {
     expect(engine.addFanMemberPitch(noteId, { step: 'E', alter: 0, octave: 4 })).toBeNull()
   })
 })
+
+/**
+ * ⭐ THE SPACING ADDRESS of a fanned member (docs/note-spacing-plan.md §7).
+ *
+ * `getNote` projects a member with the SLOT's beat, which is why nudging one member's spacing moved
+ * the whole fan: every member handed the spacing keys the group's own column. `spacingColumnOf` is
+ * the fix and the only new address in the feature — an exact rational inside the slot, which
+ * `spacingPositionKey` has always been able to hold.
+ */
+describe('MusicEngine.spacingColumnOf', () => {
+  let engine: MusicEngine
+  let noteId: string
+
+  const fanOf = (): FanMark => {
+    const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    return slot.fan!
+  }
+
+  beforeEach(() => {
+    engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
+    engine.addMeasure()
+    // A half note fanned into 4: the members sound at 0, and then at the ramp's own rationals.
+    noteId = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
+    engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
+    engine.setFan(noteId, { direction: 'accel', count: 4, beams: 3 })
+  })
+
+  it('an ordinary note answers its own column', () => {
+    const plain = engine.getScore().measures[0].slots.find(s => s.type === 'chord' && !s.fan)!
+    if (plain.type !== 'chord') throw new Error('expected a chord')
+    expect(engine.spacingColumnOf(plain.notes[0].id)).toEqual({ measure: 1, beat: frac(2, 1), memberIndex: 0 })
+  })
+
+  it('⭐ member 0 IS the slot — its column is the fan’s own, and nothing about it changes', () => {
+    expect(engine.spacingColumnOf(noteId)).toEqual({ measure: 1, beat: frac(0, 1), memberIndex: 0 })
+  })
+
+  it('⭐ every later member answers its OWN beat, in order and inside the slot', () => {
+    const members = fanOf().members!
+    let previous = 0
+    for (let k = 0; k < members.length; k++) {
+      const column = engine.spacingColumnOf(members[k][0].id)!
+      expect(column.memberIndex).toBe(k + 1)
+      const beat = column.beat.num / column.beat.den
+      expect(beat).toBeGreaterThan(previous)
+      expect(beat).toBeLessThan(2) // the slot is a half note: the group never leaves it
+      previous = beat
+    }
+  })
+
+  it('two pitches of ONE member share one address — a member is a chord, and a chord is a column', () => {
+    const member = fanOf().members![0]
+    engine.addFanMemberPitch(member[0].id, { step: 'E', alter: 0, octave: 4 })
+    const stacked = fanOf().members![0]
+    expect(stacked).toHaveLength(2)
+    expect(engine.spacingColumnOf(stacked[1].id)).toEqual(engine.spacingColumnOf(stacked[0].id))
+  })
+
+  it('an unknown id has no address at all — the caller declines rather than guesses', () => {
+    expect(engine.spacingColumnOf('nope')).toBeNull()
+  })
+})

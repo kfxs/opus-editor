@@ -86,6 +86,9 @@ describe('note/rest drag — axis decision', () => {
       pixelToMeasure: vi.fn(() => 1),
       pixelToPosition: vi.fn(() => ({ measure: 1, beat: 1, spelling: { step: 'E', alter: 0, octave: 4 } })),
       updateNote: vi.fn(),
+      // The spacing address of the grabbed note — its own column here; a fanned member's own beat
+      // in the app (docs/note-spacing-plan.md §7).
+      spacingColumnOf: vi.fn(() => ({ measure: note.measure, beat: note.beat, memberIndex: 0 })),
       noteSpacingRoom: vi.fn(() => 2),
       getNoteSpacing: vi.fn(() => 0),
       previewNoteSpacing: vi.fn(() => true),
@@ -252,6 +255,7 @@ describe('note/rest drag — release', () => {
       pixelToMeasure: vi.fn(() => 1),
       pixelToPosition: vi.fn(() => ({ measure: 1, beat: 1, spelling: { step: 'E', alter: 0, octave: 4 } })),
       updateNote: vi.fn(),
+      spacingColumnOf: vi.fn(() => ({ measure: 1, beat: frac(1, 1), memberIndex: 0 })),
       noteSpacingRoom: vi.fn(() => 2), getNoteSpacing: vi.fn(() => 0),
       previewNoteSpacing: vi.fn(() => true), commitNoteSpacing: vi.fn(),
     }

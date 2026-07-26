@@ -4,12 +4,12 @@ import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, u
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
 import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
 import { fannedBeamGeometry, fanJoinQuads, fanStemExtension, FAN_MIN_HEAD_GAP_RATIO, FAN_MIN_STEM_SPACES, type FanGeometry, type FanGeometryOptions, type FanQuad } from './FannedBeam'
-import { FAN_GROUP, fanMembers, fanMemberPitches } from '@/utils/fannedBeam'
+import { FAN_GROUP, fanMembers, fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
-import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, TremoloMark, NotePitch, Accidental as ScoreAccidental } from '@/types/music'
+import type { Score, Measure, Clef, ArticulationType, Tuplet, Chord, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, TremoloMark, NotePitch, Accidental as ScoreAccidental } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, staffLineForSpelling, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { displayedAccidentals } from '@/utils/accidentalState'
@@ -151,6 +151,34 @@ function applyLeadingSpaces(formatter: Formatter, voices: Voice[], score: Score,
     const context = map[tick]
     if (context) context.setX(context.getX() + delta)
   }
+}
+
+/**
+ * The authored leading space before each MEMBER of a fanned slot, in pixels — the §7 half of client
+ * #10 (docs/note-spacing-plan.md). Entry k is the space before member k; entry 0 is always 0,
+ * because the space before member 0 is the space before the fan's own column and
+ * {@link applyLeadingSpaces} has already spent it on the tick context.
+ *
+ * A member's address is an ORDINARY `spacingPositionKey` at the member's own beat — the key takes
+ * any rational and `fanMemberBeats` hands out exact ones — so this is a lookup, not a second
+ * storage scheme. The beats are compared by cross-multiplication rather than as floats: both sides
+ * come out of the same expander, and an exact match is the whole reason the address works.
+ *
+ * Returns an empty array when nothing in the bar is spaced, which is the ordinary case.
+ */
+function fanMemberSpacesPx(score: Score, measureNumber: number, slot: Chord): number[] {
+  if (!slot.fan) return []
+  const measure = score.measures.find(m => m.number === measureNumber)
+  if (!measure) return []
+  const spaces = measureLeadingSpaces(score, measure.id)
+  if (spaces.length === 0) return []
+
+  const beats = fanMemberBeats(slot.fan, slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0), slot.beat)
+  return beats.map((beat, k) => {
+    if (k === 0) return 0 // member 0's space IS the column's, already applied
+    const hit = spaces.find(s => s.beat.num * beat.den === beat.num * s.beat.den)
+    return (hit?.space ?? 0) * VEXFLOW_DEFAULT_STAFF_SPACE_PX
+  })
 }
 
 /**
@@ -1054,6 +1082,7 @@ export class VexFlowRenderer {
       const drawing = this.fanSlotDrawing({
         index: i,
         slot: slots[i],
+        score: pass.score,
         note: staveNotes[i],
         clef: clefForBeat(slots[i].beat),
         signs,
@@ -1105,6 +1134,7 @@ export class VexFlowRenderer {
         const drawing = this.fanSlotDrawing({
           index: i,
           slot: member.slot,
+          score: pass.score,
           note: staveNotes[i]!,
           clef: member.clef,
           // Accidental state is a fact about ONE bar, so it is read per bar and merged. Keyed by
@@ -1287,6 +1317,8 @@ export class VexFlowRenderer {
   private fanSlotDrawing(input: {
     index: number
     slot: ChordRest
+    /** The score being drawn — read for the members' own authored spaces (client #10, §7). */
+    score: Score
     note: StaveNote | undefined
     /** The clef this member's pitches are read against — its own bar's. */
     clef: Clef
@@ -1301,7 +1333,7 @@ export class VexFlowRenderer {
     /** This fan is on a joined beam, so its line is flat even where it has no prefix (a chain). */
     joined: boolean
   }): FanSlotDrawing | null {
-    const { index, slot, note, clef, signs, nextNote, measureNumber, staffIndex, joined } = input
+    const { index, slot, score, note, clef, signs, nextNote, measureNumber, staffIndex, joined } = input
     if (slot.type !== 'chord' || !slot.fan) return null
     if (!note) return null
     const stave = note.getStave()
@@ -1341,6 +1373,7 @@ export class VexFlowRenderer {
       headX, baseY, stemDirection, heads, stored, prefixNotes,
       options: {
         members: fanMembers(slot.fan, slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)),
+        memberSpaces: fanMemberSpacesPx(score, measureNumber, slot),
         memberHeadYs: heads.map(pitches => pitches.map(h => stave.getYForNote(h.line))),
         direction: slot.fan.direction,
         beams: slot.fan.beams,

@@ -152,6 +152,18 @@ export interface FanGeometryOptions {
    */
   accidentalRoom?: number[]
   /**
+   * ⭐ The user-authored leading space, in PIXELS, before each member — 0 (or absent) where the
+   * engraver's own ramp stands (docs/note-spacing-plan.md §7). Index k is the space before member k;
+   * entry 0 is ignored, because the space before member 0 is the space before the fan's own COLUMN
+   * and the tick-context shift has already spent it.
+   *
+   * ⚠️ Its width is already IN `spanEndX`: a member beat lies between the fan's tick context and the
+   * next one, so `applyLeadingSpaces` moved the following note (and the bar grew for it). What this
+   * decides is only WHERE inside the span it lands — without it the extra would be smeared across
+   * the whole ramp instead of opening the one gap that was authored.
+   */
+  memberSpaces?: number[]
+  /**
    * The notes of the group the fan is JOINED to on its LEFT, in order — empty (or absent) for a fan
    * that stands alone. Their presence is what makes the line horizontal and what extends the primary
    * beam back to the first of them.
@@ -238,7 +250,7 @@ export interface FanGeometryOptions {
 export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   const {
     members, memberHeadYs, direction, beams, headX, spanEndX, stemOffset, minHeadGap,
-    accidentalRoom, tipY, minStemLength, stemDirection, beamWidth,
+    accidentalRoom, memberSpaces, tipY, minStemLength, stemDirection, beamWidth,
   } = opts
   const prefix = opts.prefix ?? []
   const joined = prefix.length > 0 || !!opts.joined
@@ -263,12 +275,29 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
    * crowded bar, or one clamped by `MAX_MEASURE_WIDTH` — and then the group compresses evenly
    * instead of piling up at one end.
    */
+  /**
+   * ⭐ AUTHORED SPACE COMES OFF THE TOP, and the ramp shares what is left — §3's justification rule
+   * at ramp scale ("justify the intrinsic part, hand the user space back whole"). Its width is
+   * already inside `usable` (see {@link FanGeometryOptions.memberSpaces}), so leaving it in the
+   * proportional share would spread one member's nudge across every gap in the group and move the
+   * five heads nobody touched.
+   *
+   * The floor is applied to the FINAL gap, after the authored amount is added: a member pulled left
+   * is the user's assertion right up to the point where two heads would occupy one place, and there
+   * it stops — the same floor, the same reason.
+   */
+  const authored = memberSpaces ?? []
+  let authoredTotal = 0
+  for (let k = 1; k < members.length; k++) authoredTotal += authored[k] ?? 0
+  const rampUsable = Math.max(0, usable - authoredTotal)
+
   const gaps: number[] = []
   for (let k = 0; k + 1 < members.length; k++) {
     // The floor grows by whatever sign the NEXT head wears, since an accidental hangs to its left
     // and would otherwise land on this head.
     const floor = minHeadGap + (accidentalRoom?.[k + 1] ?? 0)
-    gaps.push(Math.max(floor, (members[k + 1].startFraction - members[k].startFraction) * usable))
+    const share = (members[k + 1].startFraction - members[k].startFraction) * rampUsable
+    gaps.push(Math.max(floor, share + (authored[k + 1] ?? 0)))
   }
   // Even the floored layout can outgrow the room the bar gave. Scaling every gap by the shortfall
   // keeps the group inside its span and lands it evenly short rather than letting the last members

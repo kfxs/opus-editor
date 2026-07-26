@@ -268,6 +268,11 @@ survives; the setting is gone.
   Dissolving the group into N slots would have handed every re-tile a way to break it (his catch).
 - **MusicXML export** — we have no exporter yet; §2 is the half that would be needed.
 - **Tuning the numbers and the ramp** — hand work, by ear, ongoing. See §1.
+- **Per-member horizontal spacing** — ✅ now BUILT, in **docs/note-spacing-plan.md §7**. Spacing a
+  member used to move the whole fan: a member reports the SLOT's beat, and the group's heads are ink
+  between `headX` and `spanEndX` rather than columns a TickContext shift can reach. Both halves are
+  fixed there — the member's own beat is the address, and the ramp shares the span that is left
+  after the authored gaps come off the top.
 - **Ties into or out of a fanned note.** The tie is drawn from the slot, which now has `count`
   noteheads in it, and the sounding length a tie hands over is the whole group's. Deferred, and
   named here because ties are the pipeline that most reliably surprises this model (the tremolo plan

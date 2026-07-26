@@ -25,7 +25,7 @@ import { type Fraction, fracCreate, fracAdd, fracSub, fracCompare, fracLt, fracG
 import { measureCapacityFrac } from '@/utils/musicUtils'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, keyStaffId, staffMeasureView } from './staffContent'
 import { laneOfSlot, pairIsValid } from '@/utils/tremoloPair'
-import { cloneFanFresh } from '@/utils/fannedBeam'
+import { cloneFanFresh, fanMemberBeats } from '@/utils/fannedBeam'
 import { v4 as uuidv4 } from 'uuid'
 
 // ==================== Callback surface + captured-state types ====================
@@ -933,6 +933,22 @@ function captureLeadingSpaces(score: Score, deps: RebarDeps, regionMeasures: Mea
  * starts there. Overwrites on collision (last wins), so paste can stamp the clip's spaces on top
  * of the destination's by calling this twice.
  */
+/**
+ * Does anything start at this beat — **counting a fanned group's MEMBERS**, which is the §7 half of
+ * the rule (docs/note-spacing-plan.md). A member is not a slot: its beat is an arbitrary rational
+ * inside one, so the plain `slots.some(...)` test called every member space orphaned and dropped it
+ * at the first meter change or paste. A member IS a column here in the only sense the test means —
+ * there is a head drawn at that position for the space to open a gap before.
+ */
+function columnExistsAt(m: Measure, beat: Fraction): boolean {
+  return m.slots.some((s) => {
+    if (fracCompare(s.beat, beat) === 0) return true
+    if (s.type !== 'chord' || !s.fan) return false
+    const total = s.actualDuration ?? durationToFraction(s.duration, s.dots ?? 0)
+    return fanMemberBeats(s.fan, total, s.beat).some((b) => fracCompare(b, beat) === 0)
+  })
+}
+
 function restoreLeadingSpaces(score: Score, deps: RebarDeps, regionNumbers: number[], captured: CapturedLeadingSpace[]): void {
   if (captured.length === 0) return
 
@@ -944,7 +960,7 @@ function restoreLeadingSpaces(score: Score, deps: RebarDeps, regionNumbers: numb
     const target = rangeForOffset(ranges, c.absBeat)
     const beat = fracSub(c.absBeat, target.start)
     const m = target.measure
-    if (!m.slots.some((s) => fracCompare(s.beat, beat) === 0)) continue // no column → no space
+    if (!columnExistsAt(m, beat)) continue // no column → no space
     const next: LeadingSpaceOverride = { kind: 'leadingSpace', space: c.space }
     deps.setEngravingOverride(spacingPositionKey(m.id, beat), next)
   }
