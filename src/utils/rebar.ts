@@ -38,6 +38,7 @@ import type {
   StemDirection,
   ArticulationType,
   TremoloMark,
+  FanMark,
   Tuplet,
 } from '@/types/music'
 import {
@@ -90,6 +91,11 @@ export interface RebarEvent {
    *  not silently drop it — and carried onto EVERY piece a tie-split makes of this event, because a
    *  tremolo interrupted at a barline is still being played across it. */
   tremolo?: TremoloMark
+  /** Fanned (feathered) beam on the event. Carried for the same reason as {@link tremolo} — a slot
+   *  field the relay does not list is a slot field the relay eats — but ⚠️ handed to the FIRST piece
+   *  of a tie-split ONLY: a fan cut in half at a barline is a cross-barline fan nobody asked for,
+   *  and the split has already destroyed the group the mark was an assertion about. */
+  fan?: FanMark
   /** True for an indivisible tuplet event (never tie-split). */
   atomic?: boolean
   /** Verbatim tuplet payload when `atomic`. */
@@ -114,6 +120,8 @@ export interface RebarPiece {
   articulationPlacement?: 'above' | 'below'
   /** Single-note tremolo. See {@link RebarEvent.tremolo} — every piece of a split event keeps it. */
   tremolo?: TremoloMark
+  /** Fanned beam. See {@link RebarEvent.fan} — only the FIRST piece of a split event keeps it. */
+  fan?: FanMark
   /** True for an atomic tuplet passthrough piece (materialise from `payload`). */
   atomic?: boolean
   payload?: RebarTupletPayload
@@ -206,6 +214,7 @@ export function flattenRegion(measures: Measure[], voice: 0 | 1 | 2 | 3 = 0): Re
         articulations: slot.articulations,
         articulationPlacement: slot.articulationPlacement,
         tremolo: slot.tremolo,
+        fan: slot.fan,
         // Collapse marker: the whole chord is tied forward into the next slot.
         tiedForward: slot.notes.length > 0 && slot.notes.every((p) => !!p.tiedTo),
       })
@@ -341,6 +350,11 @@ export function relayEvents(events: RebarEvent[], meter: MeterInfo, opts: RelayO
           // EVERY piece, not just the head: a tremolo interrupted at a barline is still being
           // played across it, so both halves of a tie-split carry the mark.
           tremolo: ev.tremolo,
+          // ⚠️ The FIRST piece only — the opposite rule, and deliberately so. A fan is an assertion
+          // about ONE event ("play this note as six, accelerating"); split that event at a barline
+          // and the group it described is gone. Copying it like the tremolo would silently mint the
+          // cross-barline fan docs/fanned-beams-plan.md §4 excludes, on both halves, twice over.
+          fan: pieces.length === 0 ? ev.fan : undefined,
         }
         bars[i].push(piece)
         pieces.push(piece)

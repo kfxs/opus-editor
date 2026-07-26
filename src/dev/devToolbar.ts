@@ -2,7 +2,7 @@ import type { EditorState } from '../interactions/EditorState'
 import type { PaletteController } from '../interactions/PaletteController'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { NoteDuration } from '../types/music'
-import { durationHighlight } from '../interactions/keypadSync'
+import { durationHighlight, fanHighlight } from '../interactions/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 
 /**
@@ -187,6 +187,8 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   ]
   const durBox = group('Duration:')
   const BTN_BOLD = 'px-3 py-1 rounded text-sm font-bold'
+  /** Tempo words engrave italic, so the buttons say them the way the score will. */
+  const BTN_ITALIC = 'px-3 py-1 rounded text-sm italic'
   for (const { d, glyph, title } of DURATIONS) {
     // `durationHighlight` is THE rule (interactions/keypadSync), shared with the Keypad: a marking
     // tool arms into entry mode but enters no note, so the duration must go dark under an armed
@@ -204,6 +206,34 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   // a method for a future Properties "reset beaming" control (see `PaletteController.setBeam`).
 
   // --- Tremolo: REMOVED, see the note at the top of this file (it lives on the Keypad now). ---
+
+  /**
+   * --- Effect: the FANNED (feathered) beam ---
+   *
+   * `accel.` and `rit.` turn the SELECTED note into a group that speeds up or slows down across
+   * exactly that note's own duration — you enter the time first, then say how it is played, so
+   * nothing else in the bar moves (docs/fanned-beams-plan.md §0). A re-press on the lit one clears
+   * it, and the lit state is READ from the selection rather than pushed, like every other toggle
+   * here. With nothing selected the press does nothing: a fan has nothing to apply to.
+   *
+   * ⚠️ **This is the DEV SHELL, and that is temporary** — the same status as everything in `dev/`.
+   * The buttons live here *while the feature is being built and tuned* because the action has to be
+   * reachable before its real home is chosen, and they call the same `PaletteController` method any
+   * later surface would, so moving them costs one call site. (The Keypad's Beams/Tremolos page is
+   * the obvious candidate — it is where the beam and tremolo clusters ended up, and where Sibelius
+   * puts its feathered-beam buttons — but that is a decision for after the numbers settle.)
+   */
+  const effectBox = group('Effect:')
+  for (const direction of ['accel', 'rit'] as const) {
+    toggle(
+      effectBox, BTN_ITALIC, `${direction}.`,
+      `Fanned beam: play the selected note as several notes ${direction === 'accel' ? 'speeding up' : 'slowing down'} across its own duration`,
+      () => fanHighlight(state, getEngine()) === direction,
+      () => palette.pressFan(direction),
+    )
+  }
+  row.appendChild(effectBox)
+  row.appendChild(divider())
 
   /**
    * The two structure groups below are driven by DIFFERENT measure-selection gestures, because they

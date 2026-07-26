@@ -1,8 +1,10 @@
-import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, Stem, StaveTie, Dot, Barline, ClefNote } from 'vexflow'
+import { Renderer, Stave, StaveConnector, StaveNote, NoteHead, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, Stem, StaveTie, Dot, Barline, ClefNote } from 'vexflow'
 import { ScoreTuplet, layoutTupletMark, drawTupletMark } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
 import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
+import { fannedBeamGeometry, fanStemExtension, FAN_MIN_HEAD_GAP_RATIO } from './FannedBeam'
+import { FAN_GROUP, fanMembers } from '@/utils/fannedBeam'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
@@ -731,6 +733,31 @@ export class VexFlowRenderer {
   }
 
   /**
+   * A FANNED slot's stem has to hold the beam LEVELS — the lines that fan inward from the primary
+   * one toward the noteheads — so it grows by exactly the room they take
+   * ({@link fanStemExtension}, VexFlow's own `beamWidth × 1.5` step, counted).
+   *
+   * The same window and the same mechanism as {@link applyTremoloStemStretch}: post-format,
+   * post-stem-re-assert, pre-draw, bumping the `Stem`'s own extension rather than `setStemLength`
+   * (which would double-count the note's octave-distance term). It runs BEFORE the draw because the
+   * tip it produces is the beam line every member's stem then reaches — {@link drawFannedBeams}
+   * reads it back afterwards, so the two cannot disagree about where the line is.
+   *
+   * A one-beam fan asks for nothing and is left exactly where it was — the rule the tremolo stretch
+   * follows too: nothing moves unless it has to.
+   */
+  private applyFanStemStretch(sortedSlots: ChordRest[], staveNotes: StaveNote[]): void {
+    for (let i = 0; i < sortedSlots.length && i < staveNotes.length; i++) {
+      const slot = sortedSlots[i]
+      if (slot.type !== 'chord' || !slot.fan) continue
+      const stem = staveNotes[i].getStem()
+      if (!stem) continue
+      const extra = fanStemExtension(slot.fan.beams, CROSS_SYSTEM_BEAM_WIDTH)
+      if (extra > 0) stem.setExtension(stem.getExtension() + extra)
+    }
+  }
+
+  /**
    * ⛔ **A TWO-NOTE TREMOLO DOES NOT STRETCH ITS STEMS.** There was a pass here — Gould's rule 2,
    * built as a sibling of {@link applyTremoloStemStretch} — and it is deliberately gone (his call, by
    * eye, 2026-07-25): *"this is not a tremolo on stem but in between the notes, so we should skip the
@@ -868,6 +895,110 @@ export class VexFlowRenderer {
         staff: staffIndex,
         beat: fracToNumber(slot.beat),
         bbox: { x: left, y: top, width: right - left, height: bottom - top },
+      })
+    }
+  }
+
+  /**
+   * Draw each fanned slot's OTHER members and its feathered beam (docs/fanned-beams-plan.md §3, P1).
+   *
+   * ⭐ **The slot's own `StaveNote` is member 0 and is NOT suppressed** — it has already been drawn
+   * by `voice.draw`, wearing a quarter's filled head (NoteBuilder swaps the drawn value). Everything
+   * the outside world knows about this event hangs off that object — the registry's hit-test, the
+   * `staveNoteMap`, the selection recolour's SVG group, tie and slur anchors, articulations, the
+   * dynamic's anchor — so what this pass adds is the members VexFlow does not know about and
+   * nothing else.
+   *
+   * ⚠️ AFTER the voices are drawn, like the two-note tremolo's strokes and for the same reason: the
+   * stem geometry it reads (including {@link applyFanStemStretch}'s extension) is only settled then.
+   * And inside the measure group — one slot, one bar, unlike the cross-barline fragments.
+   *
+   * ⚠️ THE SPAN is the slot's own x-territory: from its notehead to the next note's in the SAME
+   * lane, or to the end of the note area when nothing follows. That is where the width bought by
+   * `laneColumns` lands — but only approximately, because inside the bar VexFlow distributes by
+   * tick. A fan in a busy bar is the case to look at by eye.
+   *
+   * ⚠️ `openGroup` PREFIXES the class with `vf-`, so the bare name goes in, and `closeGroup()` lives
+   * in a `finally` — an unbalanced pair swallows the rest of the render.
+   */
+  private drawFannedBeams(
+    pass: RenderPass,
+    slots: ChordRest[],
+    staveNotes: StaveNote[],
+    stave: Stave,
+    measureNumber: number,
+    staffIndex: number,
+  ): void {
+    for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
+      const slot = slots[i]
+      if (slot.type !== 'chord' || !slot.fan) continue
+      const note = staveNotes[i]
+
+      const headX = note.getNoteHeadBeginX()
+      // Where this slot's room ends: the next note's ink in this lane, or the note area's end. The
+      // next slot is the honest boundary — it is what the formatter itself spaced against.
+      const next = staveNotes[i + 1]
+      const spanEndX = next ? next.getNoteHeadBeginX() : stave.getNoteEndX()
+
+      const { topY, baseY } = note.getStemExtents()
+      const geometry = fannedBeamGeometry({
+        members: fanMembers(slot.fan, slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)),
+        direction: slot.fan.direction,
+        beams: slot.fan.beams,
+        headX,
+        spanEndX,
+        stemOffset: note.getStemX() - headX,
+        // MEASURED from the notehead itself, like the two-note tremolo's flag clearance: heads a
+        // whole glyph apart cannot touch, and the number follows the staff size instead of pinning
+        // a pixel count that would be wrong the day the scale changes. The bar has already been
+        // asked for the room this implies (`fanColumns`); this is what SPENDS it.
+        minHeadGap: note.getGlyphWidth() * FAN_MIN_HEAD_GAP_RATIO,
+        baseY,
+        tipY: topY,
+        stemDirection: note.getStemDirection(),
+        beamWidth: CROSS_SYSTEM_BEAM_WIDTH,
+      })
+      if (geometry.beams.length === 0) continue
+
+      const ctx = pass.context
+      ctx.openGroup('fan', `${FAN_GROUP}-${slot.id}`)
+      try {
+        // The members VexFlow did not draw — member 0 is the real note, already on the page.
+        for (const member of geometry.stems.slice(1)) {
+          for (const line of note.getKeyProps().map(k => k.line)) {
+            const head = new NoteHead({
+              duration: 'q',
+              line,
+              stemDirection: note.getStemDirection(),
+              x: member.headX,
+            })
+            head.setStave(stave) // resolves y from the line, and hands it the context
+            head.setContext(ctx).draw()
+          }
+          ctx.beginPath()
+          ctx.setLineWidth(Stem.WIDTH)
+          ctx.moveTo(member.stemX, member.baseY)
+          ctx.lineTo(member.stemX, member.tipY)
+          ctx.stroke()
+        }
+        for (const q of geometry.beams) {
+          this.fillBeamQuad(ctx, q.startX, q.startY, q.endX, q.endY, q.thickness)
+        }
+      } finally {
+        ctx.closeGroup()
+      }
+
+      // The group's ink, MEASURED from what was just drawn — the same rule the two-note tremolo's
+      // click target follows: the code that placed the ink is the only honest source for where it
+      // is. Filed as a `beam`, which is what the reader sees and what the fan mostly is.
+      const ys = geometry.beams.flatMap(q => [q.startY, q.endY, q.startY + q.thickness, q.endY + q.thickness])
+      const top = Math.min(...ys, baseY)
+      const bottom = Math.max(...ys, baseY)
+      this.elementRegistry.add({
+        type: 'beam',
+        measure: measureNumber,
+        staff: staffIndex,
+        bbox: { x: headX, y: top, width: geometry.stems[geometry.stems.length - 1].stemX - headX, height: bottom - top },
       })
     }
   }
@@ -1728,6 +1859,9 @@ export class VexFlowRenderer {
         this.applyTremoloStemStretch(sortedSlots, staveNotes)
         // (No stem stretch for a TWO-NOTE tremolo — its strokes are not on a stem. See the note
         // where that pass used to be, above `buildTwoNoteTremoloBeams`.)
+        // A FANNED slot's stem holds the beam levels, so it grows here — before the draw, because
+        // the tip it produces is the line every member's stem reaches.
+        this.applyFanStemStretch(sortedSlots, staveNotes)
 
         for (const b of built) {
           b.voice.draw(this.context!, stave)
@@ -1739,6 +1873,11 @@ export class VexFlowRenderer {
         // Two-note tremolo strokes: after the stems and beams are drawn (the geometry they read is
         // only settled then), before registerSlotElements.
         for (const g of groups) this.drawTwoNoteTremolos(pass, g.slots, g.staveNotes, measure.number, staffIndex)
+
+        // The fanned members and their feathered beam — same window, same reason (the stem geometry
+        // is settled only once the stems and beams are drawn), and per LANE because the span reaches
+        // to the next note in the SAME voice.
+        for (const g of groups) this.drawFannedBeams(pass, g.slots, g.staveNotes, stave, measure.number, staffIndex)
 
         // Supporting ledger line for any whole/half rest a shift pushed off the staff
         // (VexFlow skips ledgers for rests — see drawRestLedgerLines).

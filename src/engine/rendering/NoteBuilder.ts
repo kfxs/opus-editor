@@ -3,7 +3,7 @@ import { CenteredTremolo } from './CenteredTremolo'
 import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction, PitchAlter } from '@/types/music'
 import { fracCompare, fracLte } from '@/utils/fraction'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
-import { doubleDuration, durationToVexflow } from '@/utils/durations'
+import { doubleDuration, durationToFraction, durationToVexflow } from '@/utils/durations'
 import { pairRoleAt } from '@/utils/tremoloPair'
 import { pickVoiceMode } from '@/utils/restFill'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
@@ -250,13 +250,40 @@ export function createStaveNotesFromSlots(
     // has already refused the one duration with no double, so the `?? slot.duration` is only the
     // no-pair case.
     const drawnDuration = pairRole ? (doubleDuration(slot.duration) ?? slot.duration) : slot.duration
-    const vexDuration = convertDuration(drawnDuration, slot.dots || 0)
+
+    /**
+     * ⭐ A FANNED slot is written as ONE blanca and DRAWN as its members — filled heads under a
+     * feathered beam (docs/fanned-beams-plan.md §0). So the note VexFlow builds here is a plain
+     * QUARTER whatever the slot says: a filled head, a stem, and no flag to suppress, which is
+     * exactly what a beamed member looks like. Drawing the written value instead would put one
+     * hollow half-note head among five filled companions — a picture that contradicts its own beam.
+     *
+     * The same trick as the pair's doubling two lines up, and it belongs here for the same reason:
+     * the WIDTH path builds its notes through this function too, so a substitution made only at the
+     * draw site would leave the two disagreeing about what is in the bar.
+     *
+     * ⚠️ And no DOTS. The dot belongs to the written value; the members are not it. The length the
+     * dot bought is not lost — it is in the tick multiplier below, and in the span the fan ramps
+     * across.
+     */
+    const fanned = !!slot.fan
+    const vexDuration = fanned
+      ? convertDuration('q', 0)
+      : convertDuration(drawnDuration, slot.dots || 0)
     const staveNote = new StaveNote({ keys, duration: vexDuration, clef: slotClef, autoStem: false })
     // ⚠️ TICKS. The StaveNote now carries TWICE the ticks its slot has, and a FULL-mode voice handed
     // twice the bar's ticks throws. `applyTickMultiplier(1, 2)` halves them back — the same call
     // VexFlow's own `Tuplet` makes (`setTuplet` → `applyTickMultiplier(notesOccupied, noteCount)`) —
     // so the formatter spaces the pair over its REAL length and `pickVoiceMode` still answers FULL.
     if (pairRole) staveNote.applyTickMultiplier(1, 2)
+    // ⚠️ The same TICK correction the pair needs, the other way up: the note is drawn as a quarter
+    // but OCCUPIES its written length, so the formatter must be told the real number or a FULL-mode
+    // voice sees a half-empty bar. `applyTickMultiplier(a, b)` scales by a/b — VexFlow's own
+    // `Tuplet` call — so the slot's length in quarters IS the multiplier.
+    if (fanned) {
+      const real = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
+      staveNote.applyTickMultiplier(real.num, real.den)
+    }
     staveNote.setStemDirection(stemDirection)
 
     // Add accidental modifiers — VexFlow accepts '#', 'b', 'n', '##', 'bb'
@@ -265,9 +292,11 @@ export function createStaveNotesFromSlots(
       if (acc) staveNote.addModifier(new Accidental(acc), idx)
     })
 
-    // Dots
-    for (let d = 0; d < (slot.dots || 0); d++) {
-      Dot.buildAndAttach([staveNote], { all: true })
+    // Dots — none on a fanned slot; see the drawn-value note above.
+    if (!fanned) {
+      for (let d = 0; d < (slot.dots || 0); d++) {
+        Dot.buildAndAttach([staveNote], { all: true })
+      }
     }
 
     // Articulations are per-chord (stored on slot, not per pitch).

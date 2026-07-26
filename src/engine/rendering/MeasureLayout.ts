@@ -4,6 +4,7 @@ import { fracCompare, fracIsZero } from '@/utils/fraction'
 import { type StaffClefs } from '@/utils/clefUtils'
 import { getStaves, staffMeasureView } from '@/engine/models/staffContent'
 import { measureCapacityFrac } from '@/utils/musicUtils'
+import { laneColumns } from '@/utils/fannedBeam'
 import { cautionaryAllowedOf, cautionaryClefAllowedOf, keyStaffId, measureUserSpacePx, measureStretch } from '../models/engravingOverrides'
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import { laneFingerprint, type MeasureWidthCache } from './MeasureWidthCache'
@@ -94,7 +95,12 @@ function noteSpaceForLane(laneView: Measure, clef: Clef, cache?: MeasureWidthCac
     // spaces music: VexFlow's own minimum is ~9px an event, far too tight to read, so this is the
     // number that decides how wide a bar is. It counted CHORDS, so rests earned no space at all and
     // a bar of them collapsed. A rest occupies a beat exactly as a note does.
-    const minSpacingWidth = laneView.slots.length * LAYOUT_CONFIG.MIN_NOTE_SPACING
+    //
+    // 🚨 COLUMNS, not slots: a FANNED slot is drawn as `fan.count` noteheads across its own span
+    // (docs/fanned-beams-plan.md §3), so it claims that many events' worth of room. One slot's 18px
+    // for six heads is the silent version of this bug — the formatter's own answer above cannot see
+    // the fan either, because the fan is drawn by us and not by VexFlow.
+    const minSpacingWidth = laneColumns(laneView.slots) * LAYOUT_CONFIG.MIN_NOTE_SPACING
     // …and a bar of pure SILENCE keeps its presence: one whole rest formats to less than this, and
     // an empty bar should not collapse to the width of its one glyph. Only for lanes with no notes,
     // though — as a floor on EVERY lane it clamps small bars and hides real differences (it swallowed
@@ -157,6 +163,8 @@ function calculateMinimumMeasureWidth(
   // beat count twice) precisely BECAUSE that is how the width was built. Count columns properly here
   // and the floor could exceed the width it is a floor on, making a two-voice bar incompressible. A
   // lane with no slots still gets one column: something is drawn there.
+  // ⚠️ Which is also why `laneColumns` — the fan's extra columns — has to be applied to BOTH: it
+  // widens the number above, so a floor still counting raw slots would no longer be the same rule.
   let widestSpacingFloor = 0
   for (const staffId of staffIds) {
     // TEMPORARY probe — see renderCensus.layoutSub.
@@ -189,7 +197,7 @@ function calculateMinimumMeasureWidth(
     widest = Math.max(widest, noteSpace + clefOverhead)
     widestNoteSpace = Math.max(widestNoteSpace, noteSpace)
     widestOverhead = Math.max(widestOverhead, clefOverhead)
-    widestSpacingFloor = Math.max(widestSpacingFloor, Math.max(1, lane.slots.length) * LAYOUT_CONFIG.MIN_NOTE_SPACING)
+    widestSpacingFloor = Math.max(widestSpacingFloor, Math.max(1, laneColumns(lane.slots)) * LAYOUT_CONFIG.MIN_NOTE_SPACING)
   }
 
   const totalWidth = widest + sharedOverhead

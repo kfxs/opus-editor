@@ -203,6 +203,30 @@ export function tremoloPairHighlight(state: EditorState, engine: TremoloSource |
 }
 
 /**
+ * Which way the selected note's FANNED beam runs, or null when it has none — what lights the
+ * `accel.` / `rit.` pair (docs/fanned-beams-plan.md §3, P2).
+ *
+ * ⭐ **Read from the selection, never pushed.** The fan is a fact about the score, so a Delete, an
+ * undo or a paste changes it without going near the palette — the same live read the articulation,
+ * tie, beam-role and two-note-tremolo highlights make.
+ *
+ * Only the score-derived source, like {@link tremoloPairHighlight} and for the same reason: a fan
+ * applies to notes that already exist, so there is no arming state to report and it never lights for
+ * one. It reports the DIRECTION rather than a boolean because the two buttons are one axis — a note
+ * cannot be accelerating and slowing at once, so lighting `rit.` must dark `accel.`
+ */
+export function fanHighlight(state: EditorState, engine: FanSource | null): 'accel' | 'rit' | null {
+  if (state.selectedMarkingTool || !engine) return null
+  if (noNoteInSelection(state) || !state.selectedNoteId) return null
+  return engine.getNote(state.selectedNoteId)?.fan?.direction ?? null
+}
+
+/** The slice of the engine {@link fanHighlight} reads — structural, like {@link TremoloSource}. */
+export interface FanSource {
+  getNote(noteId: string): { fan?: { direction: 'accel' | 'rit' } } | undefined
+}
+
+/**
  * The dot follows the same rule, from the reactive `selectedDots` count — except when the DOTS
  * themselves are selected on the score, which lights the key regardless: clicking a dot clears the
  * note selection (so `noNoteInSelection` is true) and never touches `selectedDots`, yet the key is

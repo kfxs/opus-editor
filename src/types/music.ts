@@ -237,6 +237,29 @@ export type ArticulationType = 'accent' | 'staccato' | 'tenuto'
 export type TremoloMark = 1 | 2 | 3 | 4 | 5 | 'penderecki'
 
 /**
+ * A FANNED (feathered) beam — a group that speeds up or slows down **within a fixed total
+ * duration**. Gould: it "indicates free accelerando or rallentando *within the duration*" of the
+ * group; the beams converge at the slowest point and are fully feathered at the fastest. It is not
+ * a tempo change — nothing after the group is affected and the clock never moves.
+ *
+ * ⭐ **The assertion, not its consequence.** You type one ordinary note that already fills the bar
+ * — a blanca — and say "play this as an accelerando"; what is stored is that sentence. The N notes
+ * it is played and drawn as are a *projection*, produced by `fanMembers` (utils/fannedBeam) and
+ * never written back. Assertion → consequence is a function; the reverse is not. See
+ * docs/fanned-beams-plan.md §0.
+ *
+ * ⚠️ Every number here is PROVISIONAL — see docs/fanned-beams-plan.md §1. They are not considered
+ * engraving or performance decisions, and tuning them is ongoing hand work.
+ */
+export interface FanMark {
+  direction: 'accel' | 'rit'
+  /** How many notes the group is played and drawn as. */
+  count: number
+  /** Beam lines at the WIDE end. The narrow end is always 1 (Dorico's model, and its limit). */
+  beams: number
+}
+
+/**
  * Clef types
  */
 export type Clef = 'treble' | 'bass' | 'alto' | 'tenor'
@@ -849,6 +872,8 @@ export interface Note {
   tremoloPair?: true
   /** How a two-note tremolo's strokes meet the stems. See {@link Chord.tremoloPairStyle}. */
   tremoloPairStyle?: 'joined' | 'open'
+  /** Fanned (feathered) beam on this note's slot. See {@link Chord.fan}. */
+  fan?: FanMark
   /**
    * Voice index (0–3) this note belongs to. Voices are independent rhythmic
    * streams within a bar. Only voice 0 is populated today (no multi-voice
@@ -1006,6 +1031,25 @@ export interface Chord {
    * Dorico's shape too. See docs/two-note-tremolo-plan.md §2.
    */
   tremoloPairStyle?: 'joined' | 'open'
+  /**
+   * Fanned (feathered) beam: play this ONE event as {@link FanMark.count} notes that speed up or
+   * slow down across exactly its own duration. See {@link FanMark}.
+   *
+   * ⚠️ Like {@link tremoloPair}, the durations are NOT rewritten — `duration` stays `'h'` and the
+   * slot stays one event, so rebar, rest-fill, meter changes, clipboard, JSON, collision and undo
+   * never see a note claiming a length it does not have. Only the drawing and the playback expand
+   * it, and removing the field IS "go back to the note I typed".
+   *
+   * ⚠️ Unlike `tremoloPair` it is a PROPERTY, not a relation — nothing about a neighbouring slot can
+   * invalidate it — so it rides `RebarEvent` and survives a meter change or a paste. The one place
+   * that is not enough: a tie-split keeps it on the FIRST piece only (`relayEvents`), because a fan
+   * cut in half at a barline is a cross-barline fan nobody asked for.
+   *
+   * ⚠️ It is the third expansion of one slot into many attacks, and the three cannot be combined —
+   * {@link tremolo} and {@link tremoloPair} are cleared when a fan is set, and vice versa
+   * (`ScoreModel.setFan`). Rests and tuplet members refuse it outright.
+   */
+  fan?: FanMark
   /**
    * Staff this chord belongs to (a {@link StaffInfo} id). Absent = staff 0 (the first
    * staff), mirroring absent {@link Note.voice} = voice 0. Orthogonal to voice: a slot's

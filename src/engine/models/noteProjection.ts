@@ -41,6 +41,7 @@ export function toFlatNote(chord: Chord, pitch: NotePitch, staffIndex = 0): Note
     tremolo: chord.tremolo,
     tremoloPair: chord.tremoloPair,
     tremoloPairStyle: chord.tremoloPairStyle,
+    fan: chord.fan,
     voice: chord.voice,
     // Mirror voice: the default (0) staff is left absent, so N=1 Notes are unchanged.
     staff: staffIndex === 0 ? undefined : staffIndex,

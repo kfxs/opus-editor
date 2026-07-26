@@ -1,11 +1,12 @@
 import { dbg } from '@/utils/debug'
-import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature, Fraction, TupletFormat, TremoloMark } from '../types/music'
+import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature, Fraction, TupletFormat, TremoloMark, FanMark } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorState'
 import { activeVoiceToModel, armedTool, armedToolUsesLength, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from './EditorState'
 import { durationHighlight, beamHighlight, beamRoleHighlight, secondaryBreakHighlight, beamOverHighlight, tremoloHighlight, tremoloPairHighlight } from './keypadSync'
 import { fracToNumber } from '../utils/fraction'
+import { DEFAULT_FAN_BEAMS, DEFAULT_FAN_COUNT } from '../utils/fannedBeam'
 import { resolveTupletInTimeOf, type TupletResolution } from '../utils/musicUtils'
 import { accidentalTypeToKey, formatPitch } from '../utils/pitchSpelling'
 import { sameTimeSignature } from '../utils/meter'
@@ -663,6 +664,49 @@ export class PaletteController {
       this.state.selectedTremoloNoteId = null
       this.selectNote(null)
     }
+    this.renderScore()
+  }
+
+  /**
+   * ⭐ The FANNED (feathered) beam — `accel.` / `rit.` (docs/fanned-beams-plan.md §3, P2).
+   *
+   * **The time is already entered.** The press acts on notes that exist: it turns each selected note
+   * into a group that speeds up or slows down across exactly that note's own duration, so nothing
+   * else in the bar moves, because nothing else in the bar changed. There is no armed stamp and no
+   * note-entry form — with nothing selected the press is a no-op rather than arming a tool, because
+   * a fan has nothing to be applied to until there is a note under it.
+   *
+   * ACROSS THE SELECTION, unlike the two-note tremolo — a fan is a property of ONE event, not a
+   * relation between two, so "fan these five notes" reads perfectly well (five fanned groups). The
+   * direction is decided for the selection AS A WHOLE, the rule
+   * {@link applyTremoloToSelection} follows: if every selected note already carries a fan in this
+   * direction it comes off all of them, otherwise it goes on all of them. So `accel.` on plain notes
+   * marks them, `rit.` turns them round, and `rit.` again clears them.
+   *
+   * Rests and tuplet members are skipped rather than refused — a passage is a mixture, and you meant
+   * the notes in it that can take one. `ScoreModel.setFan` owns that list; this only reports what the
+   * model answered.
+   */
+  pressFan(direction: 'accel' | 'rit'): void {
+    const engine = this.getEngine()
+    if (!engine || !this.state.selectedNoteId) return
+
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+      .filter(id => {
+        const note = engine.getNote(id)
+        return note && !note.isRest
+      })
+    if (ids.length === 0) return
+
+    const allHaveIt = ids.every(id => engine.getNote(id)?.fan?.direction === direction)
+    const fan: FanMark | null = allHaveIt
+      ? null
+      : { direction, count: DEFAULT_FAN_COUNT, beams: DEFAULT_FAN_BEAMS }
+    const applied = engine.runBatch(allHaveIt ? 'Remove fanned beam' : `Fanned beam ${direction}`, () => {
+      for (const id of ids) engine.setFan(id, fan)
+    })
+    if (!applied) return
+    engine.updateUndoNoteId(this.state.selectedNoteId)
     this.renderScore()
   }
 

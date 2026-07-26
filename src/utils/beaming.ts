@@ -170,6 +170,13 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
       // being circular: the predicate reads the stored `beam` field, never a computed role.
       if (pairRoleAt(slots, i) !== null) { flush(); continue }
 
+      // ⚠️ A FANNED slot owns its own beam too — the feathered one it is the whole point of — so it
+      // is no more a member of an automatic group than a pair is, and for the same reason: two
+      // beams would argue over one stem. Here rather than in the renderer, again because the
+      // cross-barline planner reads these groups and would otherwise drag a fanned corchea across a
+      // barline into someone else's beam. See docs/fanned-beams-plan.md §3 (P0).
+      if (slot.type === 'chord' && slot.fan) { flush(); continue }
+
       // A rest breaks the beam — UNLESS it is marked `beamOver`, when it becomes a SILENT `continue`:
       // swept into the group before it AND bridging the boundary at it, so the note after joins across
       // with no mark on the neighbours. That is what "beam over this rest" means, and it is why the one

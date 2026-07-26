@@ -1272,6 +1272,7 @@ function materializeVoiceBar(
     if (piece.articulations) chord.articulations = piece.articulations
     if (piece.articulationPlacement) chord.articulationPlacement = piece.articulationPlacement
     if (piece.tremolo) chord.tremolo = piece.tremolo
+    if (piece.fan) chord.fan = piece.fan
     measure.slots.push(chord)
     created.push({ piece, chord })
   }

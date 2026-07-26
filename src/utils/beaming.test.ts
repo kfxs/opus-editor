@@ -576,6 +576,33 @@ describe('a two-note tremolo pair is never in an automatic group', () => {
   })
 })
 
+describe('a FANNED slot is never in an automatic group either', () => {
+  /**
+   * Same rule, same place, same reason as the pair above: a fan owns the feathered beam it exists
+   * to draw, so two beams would argue over one stem (docs/fanned-beams-plan.md §3, P0).
+   */
+  const FAN = { direction: 'accel' as const, count: 6, beams: 3 }
+  const fanned = (slots: ChordRest[], i: number): ChordRest[] =>
+    slots.map((s, k) => (k === i && s.type === 'chord' ? { ...s, fan: FAN } : s))
+
+  it('breaks the group at the fanned note', () => {
+    expect(computeBeamGroups(run(4, '8', 2), meter(4, 4))).toEqual([[0, 1], [2, 3]])
+    expect(computeBeamGroups(fanned(run(4, '8', 2), 1), meter(4, 4))).toEqual([[2, 3]])
+  })
+
+  it('leaves the notes around it beaming normally', () => {
+    expect(computeBeamGroups(fanned(run(6, '8', 2), 1), meter(6, 8))).toEqual([[3, 4, 5]])
+  })
+
+  it('does not cross a BARLINE either', () => {
+    const bars: BeamBar[] = [
+      { slots: fanned(run(2, '8', 2), 1), meter: meter(1, 4) },
+      { slots: run(2, '8', 2), meter: meter(1, 4) },
+    ]
+    expect(computeCrossBarBeamGroups(bars)).toEqual([[{ bar: 1, slot: 0 }, { bar: 1, slot: 1 }]])
+  })
+})
+
 describe('beamRoleAt on a two-note tremolo pair — the pair answers for itself', () => {
   /**
    * The grouper cannot see the pair's beam: the pair is excluded there on purpose and the `Beam` is

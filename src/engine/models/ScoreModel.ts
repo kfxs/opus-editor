@@ -1,5 +1,5 @@
 import { dbg } from '@/utils/debug'
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, BeamMode, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CautionaryOverride, CautionaryClefOverride, TremoloMark } from '@/types/music'
+import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, BeamMode, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf, noteOffsetOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX } from './engravingOverrides'
 import {
   tupletSpan,
@@ -2064,7 +2064,49 @@ export class ScoreModel {
       delete chord.tremoloPairStyle
     } else {
       chord.tremolo = tremolo
+      // The other expansion of one slot into many attacks stands down — see {@link setFan}. Only
+      // when a mark is being SET: removing a tremolo is not a statement about the fan.
+      delete chord.fan
     }
+    return this.toFlatNote(chord, pitch)
+  }
+
+  /**
+   * Set — or with `null`, remove — the FANNED (feathered) beam on the slot containing `noteId`:
+   * "play this one event as N notes, speeding up (or slowing down) across exactly its own
+   * duration". See {@link FanMark} and docs/fanned-beams-plan.md §0.
+   *
+   * On the SLOT, like the tremolo and for the same reason: a chord accelerates as a chord.
+   *
+   * ⭐ **Three refusals, and each is the notation talking, not a guard:**
+   * - a REST — you cannot accelerate silence, the same sentence that keeps {@link Rest} free of a
+   *   `tremolo` field;
+   * - a TUPLET member — a ramp inside a ratio is a second normalization of the same span, and
+   *   nobody has asked for one (docs/fanned-beams-plan.md §3);
+   * - nothing to remove — removing a fan that is not there is not an edit, so it reports null
+   *   rather than minting an undo entry, exactly as {@link setTremoloPair} does when switching off.
+   *
+   * ⭐ **Setting a fan takes the tremolo off** (and a pair, and its style). Those are the OTHER two
+   * ways one slot becomes many attacks, and a slot carrying two of them asks playback a question
+   * with two answers — `playbackSchedule` would take whichever it happened to test first and the
+   * loser would vanish with no sign. Arming IS clearing, the rule the marking tools already follow.
+   */
+  setFan(noteId: string, fan: FanMark | null): Note | null {
+    const found = this.findSlot(noteId)
+    if (!found || found.type === 'rest') return null
+    const { chord, pitch } = found
+
+    if (fan === null) {
+      if (!chord.fan) return null
+      delete chord.fan
+      return this.toFlatNote(chord, pitch)
+    }
+
+    if (chord.tupletId) return null
+    chord.fan = fan
+    delete chord.tremolo
+    delete chord.tremoloPair
+    delete chord.tremoloPairStyle
     return this.toFlatNote(chord, pitch)
   }
 
@@ -2112,6 +2154,7 @@ export class ScoreModel {
 
     chord.tremoloPair = true
     if (!chord.tremolo) chord.tremolo = 3
+    delete chord.fan // the third expansion stands down — see {@link setFan}
     return this.toFlatNote(chord, pitch)
   }
 
@@ -2631,6 +2674,9 @@ export class ScoreModel {
       // has for the other relation that cannot span voices.
       tremoloPair: chord.tremoloPair,
       tremoloPairStyle: chord.tremoloPairStyle,
+      // A fan is a PROPERTY of the event like the tremolo, not a relation, so it simply comes along
+      // — there is no partner it can be torn away from.
+      fan: chord.fan,
     }
 
     // Remove the pitch from the source slot.
@@ -2723,6 +2769,7 @@ export class ScoreModel {
       tremolo?: TremoloMark
       tremoloPair?: true
       tremoloPairStyle?: 'joined' | 'open'
+      fan?: FanMark
     },
   ): void {
     const notePitch: NotePitch = {
@@ -2760,6 +2807,10 @@ export class ScoreModel {
         existingChord.tremoloPair = true
         if (payload.tremoloPairStyle) existingChord.tremoloPairStyle = payload.tremoloPairStyle
       }
+      // The fan is the same kind of statement about the event, so it follows the same rule — and it
+      // stands down in front of a tremolo the destination already carries, because the two cannot
+      // both describe the same slot (`setFan`).
+      if (payload.fan && !existingChord.fan && !existingChord.tremolo) existingChord.fan = payload.fan
       if (payload.secondaryBreak && existingChord.secondaryBreak === undefined) {
         existingChord.secondaryBreak = true
       }
@@ -2794,6 +2845,7 @@ export class ScoreModel {
     if (payload.tremolo) chord.tremolo = payload.tremolo
     if (payload.tremoloPair) chord.tremoloPair = true
     if (payload.tremoloPairStyle) chord.tremoloPairStyle = payload.tremoloPairStyle
+    if (payload.fan) chord.fan = payload.fan
     if (targetVoice) chord.voice = targetVoice as 0 | 1 | 2 | 3
     chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
     dbg(`[Model.insertPitch] new chord ${fmtSlot(chord)} → replacing v${targetVoice} rests`)

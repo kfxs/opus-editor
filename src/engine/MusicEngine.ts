@@ -18,7 +18,7 @@ import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } f
 import { prevailingAlterAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
@@ -2787,6 +2787,24 @@ export class MusicEngine {
     const result = this.scoreModel.setTremoloPair(noteId, on)
     if (!result) return null
     this.commit(on ? 'Two-note tremolo' : 'Remove two-note tremolo')
+    return result
+  }
+
+  /**
+   * Set — or with `null`, remove — the FANNED (feathered) beam on the slot containing `noteId`:
+   * "play this one event as N notes, speeding up or slowing down across its own duration".
+   *
+   * Returns null when the fan is refused (a rest, a tuplet member, or nothing to remove — see
+   * `ScoreModel.setFan`), so the press does nothing and mints no undo entry.
+   *
+   * `commit`, not `saveOnly`: a fan changes what SOUNDS, so it belongs with the edits that resync
+   * playback — the same call {@link setTremolo} documents itself making, and the seam that would
+   * otherwise be silently wrong the day P3 lands.
+   */
+  setFan(noteId: string, fan: FanMark | null): Note | null {
+    const result = this.scoreModel.setFan(noteId, fan)
+    if (!result) return null
+    this.commit(fan === null ? 'Remove fanned beam' : `Fanned beam ${fan.direction}`)
     return result
   }
 
