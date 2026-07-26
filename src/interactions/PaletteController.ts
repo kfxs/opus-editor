@@ -1427,8 +1427,16 @@ export class PaletteController {
     const engine = this.getEngine()
     if (!engine || this.state.selectedTool !== 'selection') return
 
+    // A FANNED slot is skipped beside the rests (his call): its beam is the RAMP, one self-contained
+    // feathered group, so there is no "which notes beam together" left to author — and the grouper
+    // flushes at a fan, which would make a written `begin` inert now and alive the moment the mark
+    // came off, the same resurrection trap `routeBeamToTremoloPairStyle` avoids by not writing here.
+    // The row still READS `begin` on one (`beamRoleAtRef`); it is the setting that is gone.
     const ids = selectedNoteIds(this.state.selectedItems.values())
-      .filter(id => !engine.getNote(id)?.isRest)
+      .filter(id => {
+        const note = engine.getNote(id)
+        return note && !note.isRest && !note.fan
+      })
     if (!ids.length) return
 
     engine.runBatch(`Beam: ${beam}`, () => {
@@ -1459,8 +1467,13 @@ export class PaletteController {
     const engine = this.getEngine()
     if (!engine || this.state.selectedTool !== 'selection') return false
 
+    // Rests, and a FANNED slot with them (his call): a subdivision breaks the SECOND beam within a
+    // group, and a fan's beam lines are its ramp — how many it feathers out to is `fan.beams`.
     const ids = selectedNoteIds(this.state.selectedItems.values())
-      .filter(id => !engine.getNote(id)?.isRest)
+      .filter(id => {
+        const note = engine.getNote(id)
+        return note && !note.isRest && !note.fan
+      })
     if (!ids.length) return false
 
     const allHaveIt = ids.every(id => engine.getNote(id)?.secondaryBreak)

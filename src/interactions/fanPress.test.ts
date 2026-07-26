@@ -198,6 +198,39 @@ describe('pressFan across a selection', () => {
     palette.pressFan('accel')
     expect(engine.getNote(note)?.fan).toBeUndefined()
   })
+
+  /**
+   * ⭐ THE BEAM KEYS ARE REFUSED ON A FANNED SLOT (his call). Its beam is the ramp — one
+   * self-contained feathered group — so there is no "which notes beam together" left to say. A
+   * written mode would be inert while the fan is on and ALIVE the moment it came off, which is the
+   * resurrection trap the two-note tremolo avoids the same way: by not writing.
+   */
+  describe('the beam operations on a fanned slot', () => {
+    let note: string
+    beforeEach(() => {
+      note = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })!.id
+      select(note)
+      palette.pressFan('accel')
+    })
+
+    it('setBeam writes nothing', () => {
+      palette.setBeam('begin')
+      expect(engine.getNote(note)?.beam).toBeUndefined()
+    })
+
+    it('the subdivide toggle writes nothing', () => {
+      expect(palette.toggleSecondaryBreak()).toBe(false)
+      expect(engine.getNote(note)?.secondaryBreak).toBeUndefined()
+    })
+
+    it('…and the notes AROUND it still take both', () => {
+      const other = engine.addNoteAtBeat({ step: 'D', octave: 4, duration: '8', measure: 1, beat: frac(0.5, 1) })!.id
+      select(note, other)
+      palette.setBeam('end')
+      expect(engine.getNote(other)?.beam).toBe('end')
+      expect(engine.getNote(note)?.beam).toBeUndefined()
+    })
+  })
 })
 
 describe('fanHighlight — the buttons read the selection', () => {

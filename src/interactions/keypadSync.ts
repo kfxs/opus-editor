@@ -80,7 +80,13 @@ export function beamHighlight(state: EditorState, engine: BeamSource | null): Be
   // grouper's run), so one read is the whole rule. ⚠️ It must be read here and not only from
   // `getNote`: this reports the ARMED value, which survives a press on a member and would light a
   // key that changed nothing.
-  return selectionHasNoBeamRole(state, engine) ? null : state.selectedBeam
+  //
+  // ⭐ …and nothing for the fan's OWNER either (his call), for the opposite reason: the fan HAS a
+  // beam, it just is not one you can author. Where the group starts and ends is settled by the mark
+  // itself — it is one self-contained feathered group — so `single`/`begin`/`continue`/`end` have
+  // nothing left to say and `setBeam` refuses them. What the row still shows there is the ROLE,
+  // which reads `begin` (see `beamRoleAtRef`): the reading survives, the setting is gone.
+  return selectionHasNoBeamRole(state, engine) || selectionIsFanned(state, engine) ? null : state.selectedBeam
 }
 
 /**
@@ -88,7 +94,9 @@ export function beamHighlight(state: EditorState, engine: BeamSource | null): Be
  * a line, and the rule stays a pure function of (state, score-facts) rather than of a whole engine.
  */
 export interface BeamSource {
-  getNote(noteId: string): { isRest?: boolean; secondaryBreak?: boolean; beamOver?: boolean } | undefined
+  /** `fan` is only ever tested for PRESENCE here — the row asks "is this the fan's owner?", never
+   *  what shape it is. Optional like the others, so a test double stays a one-liner. */
+  getNote(noteId: string): { isRest?: boolean; secondaryBreak?: boolean; beamOver?: boolean; fan?: unknown } | undefined
   getBeamRole(noteId: string): BeamRole | null
 }
 
@@ -104,7 +112,10 @@ export function secondaryBreakHighlight(state: EditorState, engine: BeamSource |
   if (!engine || state.selectedTool !== 'selection') return false
   if (state.selectedMarkingTool || noNoteInSelection(state) || !state.selectedNoteId) return false
   const note = engine.getNote(state.selectedNoteId)
-  return !!note && !note.isRest && !!note.secondaryBreak
+  // Never on a FANNED slot (his call): a subdivision breaks the second beam WITHIN a group, and a
+  // fan's beams are the ramp — how many lines it feathers out to is `fan.beams`, not a break. The
+  // toggle is refused there for the same sentence, so an old flag under a fan reports nothing.
+  return !!note && !note.isRest && !note.fan && !!note.secondaryBreak
 }
 
 /**
@@ -136,6 +147,18 @@ export function beamOverHighlight(state: EditorState, engine: BeamSource | null)
 function selectionHasNoBeamRole(state: EditorState, engine: BeamSource | null): boolean {
   if (!engine || state.selectedTool !== 'selection' || !state.selectedNoteId) return false
   return engine.getBeamRole(state.selectedNoteId) === null
+}
+
+/**
+ * Is the single selected thing the OWNER of a fan — the note wearing the mark?
+ *
+ * Members report no `fan` at all ({@link ScoreModel.getNote} keeps the group's marks on the owner),
+ * so this answers for the owner alone, which is exactly what the beam row is about: the group, and
+ * the group is the owner's.
+ */
+function selectionIsFanned(state: EditorState, engine: BeamSource | null): boolean {
+  if (!engine || state.selectedTool !== 'selection' || !state.selectedNoteId) return false
+  return !!engine.getNote(state.selectedNoteId)?.fan
 }
 
 /**

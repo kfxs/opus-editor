@@ -343,6 +343,21 @@ export function beamRoleAtRef(bars: BeamBar[], ref: BeamSlotRef): BeamRole {
   //  - anything else (drawn apart with flags, or open floating strokes) → `single`, which is the
   //    truth and also the key you press to get back.
   const slots = bars[ref.bar]?.slots ?? []
+
+  // ⭐ A FANNED slot answers for ITSELF too, and the answer is `begin` (his call). Same situation as
+  // the pair, one line above: the grouper flushes at a fan (it must, or the cross-barline planner
+  // drags a fanned corchea into someone else's beam), so it would report `single` for a note the
+  // reader plainly sees carrying a beam — a feathered one, drawn by `FannedBeam`.
+  //
+  // `begin` rather than `single` because the group STARTS there: everything the beam covers is
+  // inside this one slot, and the note you typed is its first member. Read the other way round, on a
+  // fan `begin` simply MEANS what `single` means everywhere else — one self-contained group — so
+  // there is no second thing for `single` to say, and the row is not offering two names for one
+  // fact. It is a reading, not a setting: the beam keys are refused on a fanned slot
+  // (`PaletteController.setBeam`), which is why nothing here has to be written back.
+  const own = slots[ref.slot]
+  if (own?.type === 'chord' && own.fan) return 'begin'
+
   const pairRole = pairRoleAt(slots, ref.slot)
   if (pairRole !== null) {
     const firstIndex = pairRole === 'first' ? ref.slot : ref.slot - 1

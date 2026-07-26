@@ -601,6 +601,21 @@ describe('a FANNED slot is never in an automatic group either', () => {
     ]
     expect(computeCrossBarBeamGroups(bars)).toEqual([[{ bar: 1, slot: 0 }, { bar: 1, slot: 1 }]])
   })
+
+  /**
+   * ⭐ …so it ANSWERS FOR ITSELF, like the pair below, and the answer is `begin`: everything the
+   * feathered beam covers is inside that one slot, and the note you typed is its first member.
+   * Without this the pad said `single` about a note plainly carrying a beam.
+   */
+  it('and answers `begin` for itself — whatever its neighbours are doing', () => {
+    const m = meter(4, 4)
+    expect(beamRoleAt(fanned(run(4, '8', 2), 1), m, 1)).toBe('begin')
+    // A LONG note too: the fan is what beams it, so the drawn value is beside the point.
+    expect(beamRoleAt(fanned([chord(0, 1, 'h'), chord(2, 1, 'h')], 0), m, 0)).toBe('begin')
+    // Its neighbours are unaffected — they beam by the meter, as ever.
+    expect(beamRoleAt(fanned(run(4, '8', 2), 1), m, 2)).toBe('begin')
+    expect(beamRoleAt(fanned(run(4, '8', 2), 1), m, 3)).toBe('end')
+  })
 })
 
 describe('beamRoleAt on a two-note tremolo pair — the pair answers for itself', () => {

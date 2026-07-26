@@ -114,6 +114,17 @@ describe('beamHighlight (the dev shell\'s Beam row)', () => {
     expect(beamOverHighlight(stateWith([note('r')], 'entry'), over)).toBe(false)
   })
 
+  it('⭐ reports nothing for the OWNER of a fan — its beam is the ramp, not a mode', () => {
+    const state = stateWith([note('f')])
+    state.selectedBeam = 'single'   // whatever is armed, or was authored before the fan
+    const fanned: BeamSource = { getNote: () => ({ fan: {} }), getBeamRole: () => 'begin' }
+    expect(beamHighlight(state, fanned)).toBeNull()
+    // …but the ROLE still reads, and it reads `begin`: the group starts there and is all inside it.
+    expect(beamRoleHighlight(state, fanned)).toBe('begin')
+    // The subdivide is dark too — a fan's beam lines are `fan.beams`, not a break in a group.
+    expect(secondaryBreakHighlight(state, { getNote: () => ({ fan: {}, secondaryBreak: true }), getBeamRole: () => 'begin' })).toBe(false)
+  })
+
   it('a selected NOTE still reports both facts', () => {
     const state = stateWith([note('a')])
     state.selectedBeam = 'auto'

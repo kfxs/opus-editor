@@ -242,6 +242,23 @@ The typed number is CLAMPED rather than refused (`clampFanCount`/`clampFanBeams`
 guards, not engraving claims. Nothing says a 20-note fan is wrong; the ceilings only stop a typo
 asking the renderer for a thousand noteheads or a speed ratio of 2^99.
 
+## 3b. The beam row on a fanned slot (his call, after using it)
+
+A fan **owns its beam**: the ramp is one self-contained feathered group, and the grouper flushes at a
+fan (§3 P0) so it can never join a neighbour's. So the four beam MODES and the subdivide have nothing
+left to say there, and both are now **refused** — `PaletteController.setBeam` and
+`toggleSecondaryBreak` skip a fanned slot beside the rests. Not merely unbuilt: a written `begin`
+would be inert under the fan and come ALIVE the moment the mark came off, the same resurrection trap
+`routeBeamToTremoloPairStyle` avoids by writing `tremoloPairStyle` instead of `beam`.
+
+⭐ **What the row still shows is the ROLE, and on a fan it reads `begin`, never `single`.**
+`beamRoleAtRef` answers for a fanned slot itself, exactly as it already does for a two-note tremolo
+pair and for the same reason: the grouper cannot see a beam it excluded, so it reported `single`
+about a note plainly carrying one. `begin` because the group STARTS there and everything it covers is
+inside that one slot — read the other way, on a fan `begin` simply MEANS what `single` means
+elsewhere (one self-contained group), so there is no second fact for `single` to report. The reading
+survives; the setting is gone.
+
 ## 4. Deliberately NOT in this plan
 
 - **Per-note pitch** — ⏭️ now planned in **docs/fanned-beam-pitches-plan.md**. ⚠️ And the guess made
