@@ -35,6 +35,8 @@ const geometry = (fan: FanMark, spanEndX = 400) => fannedBeamGeometry({
   spanEndX,
   stemOffset: 10,
   minHeadGap: MIN_GAP,
+  rampFrom: fan.rampFrom,
+  rampTo: fan.rampTo,
   tipY: 60,
   minStemLength: MIN_STEM,
   stemDirection: 1,
@@ -125,6 +127,97 @@ describe('the beam lines', () => {
     const g = geometry({ ...FAN, beams: 1 })
     expect(g.beams).toHaveLength(1)
     expect(g.beams[0].startY).toBe(g.beams[0].endY)
+  })
+})
+
+/**
+ * ⭐ THE WEDGE COVERS ONLY PART OF THE GROUP (docs/fan-ramp-range-plan.md P1). The primary is
+ * untouched — every member is beamed — so what is pinned here is that the EXTRA levels span the
+ * range, and that a member outside it is left holding one line.
+ */
+describe('the wedge’s own two ends', () => {
+  const RANGED: FanMark = { ...FAN, rampFrom: 1, rampTo: 3 }
+
+  it('⭐ the PRIMARY still runs the whole group — a note outside the mark is beamed like any other', () => {
+    const g = geometry(RANGED)
+    expect(g.beams[0].startX).toBe(g.stems[0].stemX)
+    expect(g.beams[0].endX).toBe(g.stems[5].stemX)
+  })
+
+  it('⭐ the extra levels stop at the wedge’s own stems, not at the group’s', () => {
+    const g = geometry(RANGED)
+    expect(g.beams).toHaveLength(3)
+    for (const q of g.beams.slice(1)) {
+      expect(q.startX).toBe(g.stems[1].stemX)
+      expect(q.endX).toBe(g.stems[3].stemX)
+    }
+  })
+
+  it('still converges at the slow end and feathers at the fast one, just sooner', () => {
+    const g = geometry(RANGED)
+    for (const q of g.beams) expect(q.startY).toBe(60) // accel: they meet at rampFrom
+    expect(g.beams[2].endY).toBeGreaterThan(g.beams[1].endY)
+    expect(g.beams[1].endY).toBeGreaterThan(g.beams[0].endY)
+  })
+
+  it('⭐ a rit’s wedge is anchored the same way round — from is LEFT, not narrow', () => {
+    // `rampFrom`/`rampTo` are positions in the group, never "narrow"/"wide": a rit opens at its
+    // rampFrom. Reading them as the ramp's ends would mirror the mark to the other side of the fan.
+    const g = geometry({ ...RANGED, direction: 'rit' })
+    for (const q of g.beams.slice(1)) {
+      expect(q.startX).toBe(g.stems[1].stemX)
+      expect(q.endX).toBe(g.stems[3].stemX)
+    }
+    expect(g.beams[2].startY).toBeGreaterThan(g.beams[1].startY) // feathered at rampFrom
+    for (const q of g.beams) expect(q.endY).toBe(60)             // converged at rampTo
+  })
+
+  it('no range is byte-for-byte the whole group — every fan drawn before this is untouched', () => {
+    expect(geometry({ ...FAN, rampFrom: 0, rampTo: 5 })).toEqual(geometry(FAN))
+    expect(geometry({ ...FAN, direction: 'rit', rampFrom: 0, rampTo: 5 }))
+      .toEqual(geometry({ ...FAN, direction: 'rit' }))
+  })
+
+  it('⚠️ a range past the end of the group is clamped, not indexed off the array', () => {
+    // `normalizeFan` never wrote this; a hand-edited or older file can still say it.
+    expect(() => geometry({ ...FAN, rampFrom: 40, rampTo: 99 })).not.toThrow()
+    const g = geometry({ ...FAN, rampFrom: 40, rampTo: 99 })
+    expect(g.beams[1].startX).toBe(g.stems[4].stemX)
+    expect(g.beams[1].endX).toBe(g.stems[5].stemX)
+  })
+
+  it('⭐ an INSET end reports ONE line to its neighbour, whichever way the fan runs', () => {
+    // The trap: these two numbers are what a joined fan MEETS, and what stands at an end the wedge
+    // never reached is the primary, alone.
+    const accel = geometry({ ...FAN, rampFrom: 1, rampTo: 4 })
+    expect([accel.startLevels, accel.endLevels]).toEqual([1, 1])
+    const rit = geometry({ ...FAN, direction: 'rit', rampFrom: 1, rampTo: 4 })
+    expect([rit.startLevels, rit.endLevels]).toEqual([1, 1])
+    // …and an end the wedge DOES reach still reports its own levels.
+    expect(geometry({ ...FAN, rampFrom: 1 }).endLevels).toBe(3)
+    expect(geometry({ ...FAN, direction: 'rit', rampTo: 4 }).startLevels).toBe(3)
+  })
+
+  it('⭐ on a SLOPED fan the wedge sits ON the line at both of its own ends', () => {
+    // The trap P1 names: the wide end used to be read off the LAST stem's cached tip, which is not
+    // where an inset `rampTo` is once the line leans.
+    const g = fannedBeamGeometry({
+      members: fanMembers(RANGED, frac(2, 1)),
+      memberHeadYs: Array.from({ length: 6 }, (_, k) => [100 - k * 4]), // a rising line
+      direction: 'accel', beams: 3, rampFrom: 1, rampTo: 3,
+      headX: 100, spanEndX: 400, stemOffset: 10, minHeadGap: MIN_GAP,
+      tipY: 60, minStemLength: MIN_STEM, stemDirection: 1, beamWidth: BEAM_WIDTH,
+    })
+    expect(g.beams[0].endY).toBeLessThan(g.beams[0].startY) // it really does lean
+    expect(g.beams[1].startY).toBe(g.stems[1].tipY)         // converged, on the line at rampFrom
+    expect(g.beams[1].endY).toBeCloseTo(g.stems[3].tipY + BEAM_WIDTH * 1.5, 10)
+    expect(g.beams[2].endY).toBeCloseTo(g.stems[3].tipY + BEAM_WIDTH * 3, 10)
+  })
+
+  it('⭐ so the join to the fan behind it thins to the one line they share', () => {
+    const left = geometry({ ...FAN, rampTo: 4 })   // wedge stops before the last member
+    const right = geometry({ ...FAN, direction: 'rit', beams: 4 }) // would meet 4 lines
+    expect(fanJoinQuads({ left, right, toX: 500, thickness: BEAM_WIDTH })).toHaveLength(1)
   })
 })
 

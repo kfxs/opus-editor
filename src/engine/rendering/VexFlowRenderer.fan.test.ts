@@ -78,6 +78,52 @@ describe('a fanned slot renders', () => {
     }
   })
 
+  /**
+   * ⭐ THE RANGE, end to end (docs/fan-ramp-range-plan.md P1) — through `setFan`, so `normalizeFan`
+   * settles it and the renderer reads it off the stored mark.
+   *
+   * The beam quads are OUR OWN arithmetic drawn as `<path>`s, so their x-extents are real here in a
+   * way no glyph measurement is (reference_jsdom_cannot_measure_glyphs). ⚠️ Every member's stem and
+   * every ledger line is a path in this group too — the quads are the FILLED ones (`fillBeamQuad`
+   * ends in `fill()`, the rest in `stroke()`), which is the only honest way to tell them apart.
+   */
+  const beamSpans = (container: HTMLElement): number[] =>
+    [...container.querySelectorAll(`g.vf-${FAN_GROUP} path`)]
+      .filter(p => p.getAttribute('stroke') === 'none')
+      .map((p) => {
+        const xs = [...(p.getAttribute('d') ?? '').matchAll(/[ML]\s*(-?[\d.]+)/g)].map(m => Number(m[1]))
+        return xs.length ? Math.max(...xs) - Math.min(...xs) : 0
+      })
+      .sort((a, b) => b - a)
+
+  it('⭐ a ranged fan draws its wedge short and its PRIMARY over the whole group', () => {
+    const ranged = new ScoreModel('fan render')
+    const a = ranged.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    ranged.setFan(a.id, { ...FAN, rampFrom: 1, rampTo: 3 })
+    const slot = ranged.getMeasure(1)!.slots.find(s => s.type === 'chord')!
+    expect([slot.fan!.rampFrom, slot.fan!.rampTo]).toEqual([1, 3]) // it survived normalizeFan
+
+    const r1 = makeRenderer()
+    r1.renderer.renderScore(ranged.getScore())
+    const [primary, ...wedge] = beamSpans(r1.container)
+    expect(wedge).toHaveLength(2)              // 3 beams: one primary, two feathered levels
+    expect(wedge[0]).toBeLessThan(primary)     // the wedge stops short of both ends
+    expect(wedge[0]).toBeCloseTo(wedge[1], 6)  // …and both levels stop in the same place
+
+    // The same fan with no range: every line spans the group, all three the same length.
+    const whole = new ScoreModel('fan render')
+    const b = whole.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    whole.setFan(b.id, FAN)
+    const r2 = makeRenderer()
+    r2.renderer.renderScore(whole.getScore())
+    const spans = beamSpans(r2.container)
+    expect(spans).toHaveLength(3)
+    for (const w of spans) expect(w).toBeCloseTo(spans[0], 6)
+    // ⭐ …and the RANGED one's group is WIDER, not narrower: an inset wedge puts the tightest gap
+    // inside the span where `fanColumns` counts it, so the bar is asked for more room (P0).
+    expect(primary).toBeGreaterThan(spans[0])
+  })
+
   it('renders on a fanned note that is not the only thing in the bar', () => {
     // The busy-bar case: the fan's span now ends at the NEXT note rather than at the barline.
     const model = new ScoreModel('fan render')

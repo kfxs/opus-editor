@@ -9,7 +9,7 @@
  * precedent for drawing beam lines ourselves is the cross-system overhang (`drawCrossBarSideBeam`)
  * and the two-note tremolo's stroke stack.
  */
-import type { FanMember } from '@/utils/fannedBeam'
+import { rampRange, type FanMember } from '@/utils/fannedBeam'
 
 /** One filled quad, as `fillBeamQuad` wants it: the TOP edge, thickness applied downward. */
 export interface FanQuad {
@@ -58,9 +58,10 @@ export interface FanGeometry {
   /** The beam lines, narrow end to wide end. */
   beams: FanQuad[]
   /**
-   * How many lines the ramp carries at each END of itself — the narrow end is always 1, the wide end
-   * is `beams`. What a neighbouring fan has to meet (docs/fan-beam-join-plan.md P2): the lines that
-   * cross the gap between two fans are the ones BOTH sides have.
+   * How many lines stand at each END of the GROUP — the narrow end of the ramp is always 1, its wide
+   * end is `beams`, and an end the wedge does not reach at all is 1 (the primary, alone). What a
+   * neighbouring fan has to meet (docs/fan-beam-join-plan.md P2): the lines that cross the gap
+   * between two fans are the ones BOTH sides have.
    */
   startLevels: number
   endLevels: number
@@ -133,6 +134,20 @@ export interface FanGeometryOptions {
   direction: 'accel' | 'rit'
   /** Beam lines at the WIDE end. The narrow end is always 1. */
   beams: number
+  /**
+   * ⭐ Which members the WEDGE covers — {@link FanMark.rampFrom}/{@link FanMark.rampTo}, passed
+   * RAW and clamped here against `members.length` (docs/fan-ramp-range-plan.md §3). Absent on either
+   * side means that end of the group, which is every fan drawn before the range existed.
+   *
+   * Only the extra levels move. The primary still runs the whole group — every member is beamed —
+   * so a note outside the mark carries exactly one line, which is what the base speed its
+   * {@link FanMember.quarters} already reports looks like on the page.
+   *
+   * ⚠️ Raw, not resolved by the caller, because `stems[rampTo]` running off the end of the array is
+   * the one way this crashes. `rampRange` (utils/fannedBeam) owns the clamp for both callers.
+   */
+  rampFrom?: number
+  rampTo?: number
   /** The real note's notehead left edge — member 0 is already drawn there. */
   headX: number
   /** The x the LAST member's notehead may reach (the next note's ink, or the barline). */
@@ -238,6 +253,12 @@ export interface FanGeometryOptions {
  * sentence, drawn: an `accel` fans open to the right, a `rit` to the left. Every secondary line
  * therefore runs from the primary's narrow-end point to its own level at the wide end, which is what
  * makes them read as one fan rather than as a stack of beams that happens to be ragged.
+ *
+ * ⭐ **The wedge may cover only PART of the group** ({@link FanGeometryOptions.rampFrom}, and
+ * docs/fan-ramp-range-plan.md). The primary is untouched by that — every member is beamed — so the
+ * whole of the change is which two stems the extra levels span, and the members outside them are
+ * left carrying one line at the base speed their own {@link FanMember.quarters} already reports.
+ * Picture and playback are still the same function; they are simply flat over part of their range.
  *
  * `startFraction` places each member along the span. It is a PROPORTION of the group's time, so the
  * noteheads crowd toward the fast end all by themselves — the drawing says the same thing the
@@ -403,26 +424,35 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   // back to the fan behind it belongs to {@link fanJoinQuads}, not to this ramp's own primary.
   const lineStartX = prefix.length ? prefix[0].stemX : rampStartX
   const endX = stems[stems.length - 1].stemX
-  const endY = stems[stems.length - 1].tipY
   // ⚠️ Both ends carry HALF a stem's width past the outer stems in VexFlow's own beams (it ends a
   // beam line at `getStemX() - Stem.WIDTH / 2`); the caller passes stem x's that already match its
   // notes, so the line simply spans them and the rounded stem ends do the rest.
   const wideAtEnd = direction === 'accel'
 
+  // ⭐ WHERE THE WEDGE STARTS AND ENDS. The whole group when nothing was asked for, which is the
+  // only reason every fan drawn before this reads out identically.
+  const { from: rampFrom, to: rampTo } = rampRange(stems.length, opts.rampFrom, opts.rampTo)
+  const rampFromX = stems[rampFrom].stemX
+  const rampToX = stems[rampTo].stemX
+
   const levels = Math.max(1, Math.round(beams))
   const lines: FanQuad[] = []
   for (let k = 0; k < levels; k++) {
     const offset = k * thickness * 1.5
-    // ⭐ The PRIMARY is one straight edge over the WHOLE joined group, so only it reaches back to
-    // the prefix; the fan's extra levels belong to the ramp and start at its owner's stem.
-    const sX = k === 0 ? lineStartX : rampStartX
+    // ⭐ The PRIMARY is one straight edge over the WHOLE group — every member is beamed, and it
+    // reaches back over the prefix besides. Only the EXTRA levels are the wedge, and they span the
+    // range: outside it a member keeps this one line, which is the base speed, drawn.
+    const sX = k === 0 ? lineStartX : rampFromX
+    const eX = k === 0 ? endX : rampToX
     lines.push({
       // The convergence point: at the NARROW end every line sits on the primary. Only the wide end
       // spreads. k = 0 IS the primary — it carries the slope and nothing else.
       startX: sX,
       startY: lineAt(sX) + (wideAtEnd ? 0 : offset),
-      endX,
-      endY: endY + (wideAtEnd ? offset : 0),
+      endX: eX,
+      // ⚠️ `lineAt`, not the last stem's cached tip: an inset `rampTo` ends the wedge at a stem that
+      // is not the group's last, and on an unjoined fan the line slopes between them.
+      endY: lineAt(eX) + (wideAtEnd ? offset : 0),
       thickness,
     })
   }
@@ -450,8 +480,13 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
     stemLift: Math.max(0, stemDirection * (tipY - lineAt(sx[0]))),
     // The ramp is fully feathered at the FAST end and converged at the slow one, so which end
     // carries `beams` is the direction, exactly as the quads above read it.
-    startLevels: wideAtEnd ? 1 : levels,
-    endLevels: wideAtEnd ? levels : 1,
+    //
+    // ⚠️ **An INSET end carries ONE line whichever way the fan runs**, and this is the trap the
+    // range sets: these two numbers are not about the wedge, they are what a NEIGHBOUR meets across
+    // a join, and what stands at the group's own edge once the wedge stops short is the primary
+    // alone. `fanJoinQuads` takes the min of the two sides and needs no idea any of this happened.
+    startLevels: rampFrom > 0 ? 1 : (wideAtEnd ? 1 : levels),
+    endLevels: rampTo < stems.length - 1 ? 1 : (wideAtEnd ? levels : 1),
     lineY: lineAt(rampStartX),
   }
 }

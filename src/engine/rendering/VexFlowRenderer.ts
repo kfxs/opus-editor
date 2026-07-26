@@ -1443,6 +1443,10 @@ export class VexFlowRenderer {
         memberHeadYs: heads.map(pitches => pitches.map(h => stave.getYForNote(h.line))),
         direction: slot.fan.direction,
         beams: slot.fan.beams,
+        // The wedge's own ends, RAW — `fannedBeamGeometry` clamps them against the member list it
+        // will index, which is the array that actually has to be in range.
+        rampFrom: slot.fan.rampFrom,
+        rampTo: slot.fan.rampTo,
         headX,
         // Where the ramp's room ends — the next note's ink, MINUS whatever space the user authored
         // before that note. Its px are already in the head x (the tick context moved), and spending
