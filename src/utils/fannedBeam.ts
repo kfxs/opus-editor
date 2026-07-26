@@ -54,6 +54,26 @@ export type FanCurve = 'linear'
 export const MAX_FAN_COUNT = 32
 export const MAX_FAN_BEAMS = 6
 
+/**
+ * How far apart the wide end's beam lines may be pulled — a multiple of the ordinary beam gap, so
+ * `1` is the floor (any less and the lines overlap) and this is the ceiling. Four ordinary gaps
+ * between each line is already a wedge taller than the staff at three beams; past that the fan stops
+ * reading as a beam group at all.
+ */
+export const MAX_FAN_SPREAD = 4
+
+/**
+ * Hold a spread inside `[1, {@link MAX_FAN_SPREAD}]`; a non-number becomes 1 (the ordinary gap).
+ *
+ * ⚠️ **Rounded to two decimals, and that is not cosmetic.** `laneFingerprint` — the width cache key —
+ * stringifies the slot whole, so a spread that arrives as `1.7000000000000002` from an input step
+ * would mint its own cache key for the same picture. Fractions are allowed; float noise is not.
+ */
+export function clampFanSpread(spread: number): number {
+  if (!Number.isFinite(spread)) return 1
+  return Math.round(Math.min(MAX_FAN_SPREAD, Math.max(1, spread)) * 100) / 100
+}
+
 /** Hold a member count inside {@link MAX_FAN_COUNT}; a non-number or below 1 becomes 1 (the note itself). */
 export function clampFanCount(count: number): number {
   if (!Number.isFinite(count)) return 1
@@ -74,6 +94,22 @@ export function clampFanBeams(beams: number): number {
  */
 export function fanCount(fan: FanMark): number {
   return Math.max(1, Math.round(fan.count))
+}
+
+/**
+ * ⭐ How far apart this fan's wide end spreads its lines — {@link FanMark.spread}, resolved. Absent
+ * is 1: the ordinary beam gap, and the picture every fan drew before this existed.
+ *
+ * ⚠️ **It CLAMPS, it does not trust**, for {@link fanRampRange}'s reason — `normalizeFan` runs from
+ * `ScoreModel.setFan` alone, while `fromJSON` and the undo restore hand the readers whatever the file
+ * said. A spread of 0 would stack every line on the primary and a negative one would draw the wedge
+ * inside out; both cost one call to make impossible.
+ *
+ * ⚠️ It is the DRAWING's number and no one else's — nothing in `fanWeights`, `fanColumns` or
+ * `fanMembers` may read it. See {@link FanMark.spread}.
+ */
+export function fanSpread(fan: FanMark): number {
+  return clampFanSpread(fan.spread ?? 1)
 }
 
 /**
@@ -275,6 +311,12 @@ export function normalizeFan(fan: FanMark, own: NotePitch[]): FanMark {
     out.rampFrom = from
     out.rampTo = to
   }
+
+  // The same delete, for the same cache-key reason: the ordinary beam gap is spelled by ABSENCE.
+  // Nothing to settle against the count here — a spread is about the lines, not about the members.
+  const spread = fanSpread(out)
+  if (spread === 1) delete out.spread
+  else out.spread = spread
   return out
 }
 

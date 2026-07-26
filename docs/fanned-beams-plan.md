@@ -282,5 +282,9 @@ survives; the setting is gone.
   noteheads in it, and the sounding length a tie hands over is the whole group's. Deferred, and
   named here because ties are the pipeline that most reliably surprises this model (the tremolo plan
   deferred them too, and for the same reason).
+- **How far the wedge OPENS** — ✅ now BUILT, in **docs/fan-beam-spread.md**. The lines step apart by
+  VexFlow's own `beamWidth × 1.5`, which is the tightest they can sit, so the angle drawn here was the
+  minimum; `FanMark.spread` multiplies it. ⭐ The first fan control that does NOT move the sound — what
+  a reader counts is lines, and spreading them does not change how many there are.
 - Fans that don't end in a single beam (2→4), direction changes mid-group, fans crossing a barline
   or a system break, and headless-stem notation (Wikipedia's "approximate number of headless stems").

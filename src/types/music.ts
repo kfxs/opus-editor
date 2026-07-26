@@ -285,6 +285,28 @@ export interface FanMark {
   rampFrom?: number
   rampTo?: number
   /**
+   * ⭐ How far apart the beam lines sit at the WIDE end, as a MULTIPLE of the gap ordinary stacked
+   * beams use (`beamWidth × 1.5`, VexFlow's own step). Absent = 1 = that gap exactly, which is what
+   * every fan drawn before this says — and it is the FLOOR, since any less and the lines overlap. `2`
+   * is twice the air, for a wedge that reads as a wedge across a room.
+   *
+   * ⚠️ **The one fan control that does NOT move the sound**, and the exception is deliberate. Count,
+   * beams, direction and range are all read by `fanWeights` (utils/fannedBeam) because a reader hears
+   * what they see; spread is not, because what a reader COUNTS is lines — 1 at the narrow end, `beams`
+   * at the wide one — and that count is the same whether the lines touch or stand apart. It is an
+   * engraving dial, like a note offset, not a claim about speed. Bar width does not move either: this
+   * is entirely vertical.
+   *
+   * ⚠️ **Three readers must agree or it breaks silently**: the wedge itself, `fanStemExtension` (the
+   * room the inward lines eat out of every stem — miss it and the innermost line runs through the
+   * noteheads), and `fanJoinQuads` (the lines crossing to a joined neighbour). A PREFIX's own beams
+   * are never spread: a 16th group joined to a fan is an ordinary beamed group, and spreading its
+   * lines stops it being one.
+   *
+   * ⚠️ Absent is the only spelling of 1 — `normalizeFan` deletes it, for {@link rampFrom}'s reason.
+   */
+  spread?: number
+  /**
    * The pitches of members 1…`count-1` — **member 0 IS the slot's own {@link Chord.notes}** and is
    * deliberately not repeated here. That is what makes "remove the fan and the note you typed is
    * still there" literally true rather than reconstructed.

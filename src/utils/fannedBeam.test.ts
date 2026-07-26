@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   fanMembers, fanSpeedRatio, rampWeights, fanWeights, fanRampRange, fanColumns, normalizeFan,
-  cloneFanFresh, DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS,
+  cloneFanFresh, fanSpread, clampFanSpread, DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS, MAX_FAN_SPREAD,
 } from './fannedBeam'
 import { fracCreate as frac, fracFromInt, fracAdd, fracEq, fracToNumber } from './fraction'
 import type { FanMark, NotePitch } from '@/types/music'
@@ -297,10 +297,49 @@ describe('normalizeFan — the one owner of members.length === count - 1', () =>
     expect(out.members).toHaveLength(0)
   })
 
+  it('ABSENT is the only spelling of the ordinary beam gap either', () => {
+    expect('spread' in normalizeFan({ direction: 'accel', count: 4, beams: 3, spread: 1 }, own)).toBe(false)
+    expect(normalizeFan({ direction: 'accel', count: 4, beams: 3, spread: 2.5 }, own).spread).toBe(2.5)
+  })
+
+  it('stores the spread CLAMPED, so a typed 99 is not what a later reader sees', () => {
+    expect(normalizeFan({ direction: 'accel', count: 4, beams: 3, spread: 99 }, own).spread).toBe(MAX_FAN_SPREAD)
+    expect('spread' in normalizeFan({ direction: 'accel', count: 4, beams: 3, spread: 0.1 }, own)).toBe(false)
+  })
+
   it('drops what a member is not allowed to carry — a tie belongs to the slot', () => {
     const tied: NotePitch = { ...pitch('C', 'own-1'), tiedTo: 'somewhere', tieDirection: 1 }
     const out = normalizeFan({ direction: 'accel', count: 3, beams: 3 }, [tied])
     expect(out.members!.every(m => m[0].tiedTo === undefined && m[0].tieDirection === undefined)).toBe(true)
+  })
+})
+
+describe('fanSpread — the DRAWING\'s number, and only the drawing\'s', () => {
+  it('absent is 1: the ordinary beam gap, and the floor', () => {
+    expect(fanSpread(fan())).toBe(1)
+    expect(fanSpread(fan({ spread: 2 }))).toBe(2)
+  })
+
+  it('clamps rather than trusts — `fromJSON` and the undo restore never pass normalizeFan', () => {
+    expect(fanSpread(fan({ spread: 0 }))).toBe(1)      // every line stacked on the primary
+    expect(fanSpread(fan({ spread: -3 }))).toBe(1)     // the wedge drawn inside out
+    expect(fanSpread(fan({ spread: 1e6 }))).toBe(MAX_FAN_SPREAD)
+    expect(fanSpread(fan({ spread: NaN }))).toBe(1)
+  })
+
+  it('rounds float noise away, because the width cache key is the slot STRINGIFIED', () => {
+    expect(clampFanSpread(1.7000000000000002)).toBe(1.7)
+  })
+
+  it('⭐ the SOUND does not move — spread is not in the weights, the members or the columns', () => {
+    // The exception this feature is: what a reader counts is LINES, and spreading them does not
+    // change how many there are. Every other fan control is read by `fanWeights`; this one is not.
+    const plain = fan({ count: 6, beams: 3 })
+    const wide = fan({ count: 6, beams: 3, spread: 3 })
+    expect(fanWeights(wide).map(fracToNumber)).toEqual(fanWeights(plain).map(fracToNumber))
+    expect(fanColumns(wide)).toBe(fanColumns(plain))
+    expect(fanMembers(wide, frac(2, 1)).map(m => fracToNumber(m.quarters)))
+      .toEqual(fanMembers(plain, frac(2, 1)).map(m => fracToNumber(m.quarters)))
   })
 })
 

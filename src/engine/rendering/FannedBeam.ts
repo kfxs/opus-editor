@@ -9,7 +9,7 @@
  * precedent for drawing beam lines ourselves is the cross-system overhang (`drawCrossBarSideBeam`)
  * and the two-note tremolo's stroke stack.
  */
-import { rampRange, type FanMember } from '@/utils/fannedBeam'
+import { clampFanSpread, rampRange, type FanMember } from '@/utils/fannedBeam'
 
 /** One filled quad, as `fillBeamQuad` wants it: the TOP edge, thickness applied downward. */
 export interface FanQuad {
@@ -116,9 +116,14 @@ export const FAN_MIN_STEM_SPACES = 2
  *
  * The same arithmetic VexFlow's own multi-beam stems use: each extra level is one `beamWidth × 1.5`
  * step. Not a chosen number — it is the step, counted.
+ *
+ * ⚠️ **`spread` belongs here as much as it belongs to the wedge** ({@link FanMark.spread}): the room
+ * asked for is the room the lines actually take, so a wedge pulled twice as far open needs twice the
+ * stem or its innermost line is drawn straight through the noteheads. Absent = 1 = the ordinary gap,
+ * which is what a PREFIX's levels always pass — its beams are ordinary beams.
  */
-export function fanStemExtension(beams: number, beamWidth: number): number {
-  return Math.max(0, Math.round(beams) - 1) * beamWidth * 1.5
+export function fanStemExtension(beams: number, beamWidth: number, spread = 1): number {
+  return Math.max(0, Math.round(beams) - 1) * beamWidth * 1.5 * Math.max(1, spread)
 }
 
 /** Everything one fan's geometry is computed from — named so the renderer can build it once and
@@ -148,6 +153,14 @@ export interface FanGeometryOptions {
    */
   rampFrom?: number
   rampTo?: number
+  /**
+   * ⭐ How far apart the wide end's lines stand, as a multiple of the ordinary beam gap — absent = 1,
+   * the gap VexFlow's own stacked beams use, which is also the floor. See {@link FanMark.spread}.
+   *
+   * ⚠️ The fan's, and NOT the prefix's: {@link prefixBeams}' levels are ordinary beams and keep the
+   * ordinary gap. Only the wedge opens.
+   */
+  spread?: number
   /** The real note's notehead left edge — member 0 is already drawn there. */
   headX: number
   /** The x the LAST member's notehead may reach (the next note's ink, or the barline). */
@@ -436,9 +449,14 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   const rampToX = stems[rampTo].stemX
 
   const levels = Math.max(1, Math.round(beams))
+  // ⭐ THE WEDGE'S OWN GAP. `× 1.5` is VexFlow's step for stacked beams — the tightest lines can sit
+  // without overlapping — so a spread of 1 is both the default and the floor, and anything above it
+  // is air the engraver asked for. The narrow end does not move: every line still converges on the
+  // primary there, and only the wide end knows this number.
+  const step = thickness * 1.5 * clampFanSpread(opts.spread ?? 1)
   const lines: FanQuad[] = []
   for (let k = 0; k < levels; k++) {
-    const offset = k * thickness * 1.5
+    const offset = k * step
     // ⭐ The PRIMARY is one straight edge over the WHOLE group — every member is beamed, and it
     // reaches back over the prefix besides. Only the EXTRA levels are the wedge, and they span the
     // range: outside it a member keeps this one line, which is the base speed, drawn.
@@ -459,6 +477,9 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   // The PREFIX's own extra levels — a 16th group joined to a fan keeps its second beam, and it stops
   // at the owner's stem because that is where the prefix stops. A `rit.` therefore shows a thickness
   // change there (1 line in, `fan.beams` out); an `accel.` meeting eighths is the clean case.
+  //
+  // ⚠️ `1.5`, NOT `step`: these are ordinary beams that happen to lead into a fan, and an ordinary
+  // beam group's lines sit at the ordinary gap however far the wedge beside them is pulled open.
   for (let k = 1; k < Math.max(0, Math.round(opts.prefixBeams ?? 0)); k++) {
     const offset = k * thickness * 1.5
     lines.push({
@@ -509,13 +530,24 @@ export function fanJoinQuads(opts: {
   toX: number
   /** Signed by the stem direction, as everywhere else here. */
   thickness: number
+  /**
+   * ⭐ The RIGHT fan's {@link FanMark.spread} — whose gap the crossing lines have to match, because
+   * they are drawn from its own `lineY` and land on its stems.
+   *
+   * ⚠️ Two joined fans with DIFFERENT spreads therefore show a step where they meet: a crossing line
+   * leaves the left fan at one height and arrives at the right fan's at another. That is the same
+   * class of edge P1 already accepts at a prefix (1 line in, `fan.beams` out) and the fix is the same
+   * — match them — but it is real, and it is the thing to look at by eye first.
+   */
+  spread?: number
 }): FanQuad[] {
   const { left, right, toX, thickness } = opts
   if (!left.stems.length) return []
   const fromX = left.stems[left.stems.length - 1].stemX
+  const step = thickness * 1.5 * clampFanSpread(opts.spread ?? 1)
   const quads: FanQuad[] = []
   for (let k = 0; k < Math.min(left.endLevels, right.startLevels); k++) {
-    const y = right.lineY + k * thickness * 1.5
+    const y = right.lineY + k * step
     quads.push({ startX: fromX, startY: y, endX: toX, endY: y, thickness })
   }
   return quads

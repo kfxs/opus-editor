@@ -44,7 +44,7 @@ describe('the fan row', () => {
   })
 
   /**
-   * The FAN row's four number inputs, in order: notes, beams, from, to.
+   * The FAN row's five number inputs, in order: notes, beams, from, to, wide.
    *
    * ⚠️ Found by its own label, not by index into the panel: the note-offset control is a number
    * input too and it is painted first, so `querySelectorAll` over the body counts it as well.
@@ -103,8 +103,20 @@ describe('the fan row', () => {
 
   it('no fan, no row — this changes a fan, it never makes one', () => {
     selectionInspection.set([{ kind: 'note', data: { id: 'note-1', step: 'C' } } as unknown as SelectedElement])
-    // The offset input is always there; the fan's four are not.
+    // The offset input is always there; the fan's five are not.
     expect(host.querySelectorAll('input[type=number]')).toHaveLength(1)
+  })
+
+  it('shows the spread — absent reads as 1, the ordinary beam gap', () => {
+    expect(inputs(FAN)[4].value).toBe('1')
+    expect(inputs({ ...FAN, spread: 2.5 })[4].value).toBe('2.5')
+  })
+
+  it('⭐ the spread takes FRACTIONS — it is air, not a count', () => {
+    const wide = inputs(FAN)[4]
+    expect(wide.step).toBe('0.25')
+    type(wide, '1.75')
+    expect(published).toEqual([{ noteId: 'note-1', spread: 1.75 }])
   })
 
   it('Enter commits by blurring, so a press is not counted twice', () => {

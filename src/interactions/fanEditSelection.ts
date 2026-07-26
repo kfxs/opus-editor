@@ -32,6 +32,12 @@ export interface FanEditRequest {
    */
   rampFrom?: number
   rampTo?: number
+  /**
+   * How far apart the wide end's beam lines stand, as a multiple of the ordinary gap (1 = the gap
+   * stacked beams use, and the floor). Absent = leave it alone. Drawing only — see
+   * {@link FanMark.spread}.
+   */
+  spread?: number
 }
 
 export class FanEditSelection {

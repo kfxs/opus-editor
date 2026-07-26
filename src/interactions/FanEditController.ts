@@ -1,6 +1,6 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import { fanEditSelection, type FanEditRequest } from './fanEditSelection'
-import { clampFanBeams, clampFanCount, fanRampRange } from '../utils/fannedBeam'
+import { clampFanBeams, clampFanCount, fanRampRange, fanSpread } from '../utils/fannedBeam'
 import { dbg } from '../utils/debug'
 import type { FanMark } from '../types/music'
 
@@ -28,7 +28,7 @@ export class FanEditController {
     this.unsubscribe = fanEditSelection.onSet((req) => this.apply(req))
   }
 
-  private apply({ noteId, count, beams, rampFrom, rampTo }: FanEditRequest): void {
+  private apply({ noteId, count, beams, rampFrom, rampTo, spread }: FanEditRequest): void {
     const engine = this.getEngine()
     if (!engine) return
     const current = engine.getNote(noteId)?.fan
@@ -50,6 +50,7 @@ export class FanEditController {
     // to write it (docs/fan-ramp-range-plan.md §1). This merges; it does not decide.
     if (rampFrom !== undefined) next.rampFrom = rampFrom
     if (rampTo !== undefined) next.rampTo = rampTo
+    if (spread !== undefined) next.spread = spread
 
     // No change → no edit, and no empty undo entry (the rule `NoteOffsetController` follows).
     //
@@ -57,21 +58,27 @@ export class FanEditController {
     // the same assertion spelled two ways, and the window always publishes a number — so typing the
     // ends it already has would otherwise look like a change here, mint an undo entry, and be
     // dropped again by `normalizeFan` with nothing on the page to show for it.
+    // 🚨 …and the SPREAD is compared resolved for the identical reason: absence IS 1, and the window
+    // publishes a number. This guard is where a new fan field ships dead — it returns before `setFan`
+    // on every press that changed nothing it knows about, so a field it does not know about changes
+    // nothing, ever, with nothing red to show for it.
     const before = fanRampRange(current)
     const after = fanRampRange(next)
     if (
       next.count === current.count && next.beams === current.beams
       && after.from === before.from && after.to === before.to
+      && fanSpread(next) === fanSpread(current)
     ) return
 
     // `runBatch` for the undo entry, `setFan` for the write — the same pair `pressFan` uses, so a
     // typed number and a button press are one kind of edit in the history. The range is named in the
     // description only when it is inset, 1-based to match what he typed.
     const inset = after.from > 0 || after.to < next.count - 1
-    const label = `Fan ${next.count}×${next.beams}${inset ? ` ${after.from + 1}–${after.to + 1}` : ''}`
+    const wide = fanSpread(next) !== 1 ? ` ×${fanSpread(next)}` : ''
+    const label = `Fan ${next.count}×${next.beams}${inset ? ` ${after.from + 1}–${after.to + 1}` : ''}${wide}`
     if (!engine.runBatch(label, () => { engine.setFan(noteId, next) })) return
     this.renderScore()
-    dbg(`[Fan] Properties set ${noteId} → ${next.count} notes, ${next.beams} beams, ramp ${after.from}…${after.to}`)
+    dbg(`[Fan] Properties set ${noteId} → ${next.count} notes, ${next.beams} beams, ramp ${after.from}…${after.to}, spread ${fanSpread(next)}`)
   }
 
   /** Dispose the subscription when the app tears down, like every wire. */

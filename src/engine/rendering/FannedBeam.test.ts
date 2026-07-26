@@ -37,6 +37,7 @@ const geometry = (fan: FanMark, spanEndX = 400) => fannedBeamGeometry({
   minHeadGap: MIN_GAP,
   rampFrom: fan.rampFrom,
   rampTo: fan.rampTo,
+  spread: fan.spread,
   tipY: 60,
   minStemLength: MIN_STEM,
   stemDirection: 1,
@@ -127,6 +128,55 @@ describe('the beam lines', () => {
     const g = geometry({ ...FAN, beams: 1 })
     expect(g.beams).toHaveLength(1)
     expect(g.beams[0].startY).toBe(g.beams[0].endY)
+  })
+})
+
+/**
+ * ⭐ HOW FAR THE WEDGE OPENS ({@link FanMark.spread}). The gap the lines sit at is VexFlow's own
+ * `beamWidth × 1.5` and that is the FLOOR — below it they overlap — so the control multiplies it.
+ * Vertical only: nothing here moves a head, a weight or a column.
+ */
+describe('the wedge’s spread', () => {
+  const ends = (fan: FanMark) => geometry(fan).beams.map(q => q.endY)
+
+  it('opens the WIDE end by the multiple asked for, and moves nothing at the narrow one', () => {
+    const plain = ends(FAN)
+    const wide = ends({ ...FAN, spread: 2 })
+    expect(geometry({ ...FAN, spread: 2 }).beams.every(q => q.startY === 60)).toBe(true)
+    expect(wide[1] - wide[0]).toBeCloseTo(2 * (plain[1] - plain[0]), 10)
+    expect(wide[2] - wide[0]).toBeCloseTo(2 * (plain[2] - plain[0]), 10)
+  })
+
+  it('a fraction is a real answer — this is air, not a count', () => {
+    const half = ends({ ...FAN, spread: 1.5 })
+    expect(half[1] - half[0]).toBeCloseTo(1.5 * BEAM_WIDTH * 1.5, 10)
+  })
+
+  it('absent, 1, and anything below it are ONE picture — the floor is the ordinary gap', () => {
+    expect(ends({ ...FAN, spread: 1 })).toEqual(ends(FAN))
+    expect(ends({ ...FAN, spread: 0 })).toEqual(ends(FAN))
+    expect(ends({ ...FAN, spread: -4 })).toEqual(ends(FAN))
+    expect(ends({ ...FAN, spread: NaN })).toEqual(ends(FAN))
+  })
+
+  it('mirrors for a rit — the spread belongs to the wide end, whichever end that is', () => {
+    const g = geometry({ ...FAN, direction: 'rit', spread: 2 })
+    for (const q of g.beams) expect(q.endY).toBe(60)
+    expect(g.beams[1].startY - g.beams[0].startY).toBeCloseTo(2 * BEAM_WIDTH * 1.5, 10)
+  })
+
+  it('is VERTICAL only — the heads and the span stand exactly where they stood', () => {
+    const plain = geometry(FAN)
+    const wide = geometry({ ...FAN, spread: 3 })
+    expect(wide.stems.map(s => s.headX)).toEqual(plain.stems.map(s => s.headX))
+    expect(wide.beams.map(q => [q.startX, q.endX])).toEqual(plain.beams.map(q => [q.startX, q.endX]))
+  })
+
+  it('rides ON TOP of an inset range — the range says where, the spread says how far', () => {
+    const g = geometry({ ...FAN, rampFrom: 1, rampTo: 3, spread: 2 })
+    expect(g.beams[1].startX).toBe(g.stems[1].stemX)
+    expect(g.beams[1].endX).toBe(g.stems[3].stemX)
+    expect(g.beams[2].endY - g.beams[1].endY).toBeCloseTo(2 * BEAM_WIDTH * 1.5, 10)
   })
 })
 
@@ -287,6 +337,13 @@ describe('fanStemExtension — the room the levels need', () => {
 
   it('never asks for negative stem', () => {
     expect(fanStemExtension(0, BEAM_WIDTH)).toBe(0)
+  })
+
+  it('⭐ grows with the SPREAD — the room asked for is the room the lines take', () => {
+    // Miss this and a wedge pulled open draws its innermost line through the noteheads.
+    expect(fanStemExtension(3, BEAM_WIDTH, 2)).toBe(2 * fanStemExtension(3, BEAM_WIDTH))
+    expect(fanStemExtension(3, BEAM_WIDTH, 1)).toBe(fanStemExtension(3, BEAM_WIDTH))
+    expect(fanStemExtension(3, BEAM_WIDTH, 0.2)).toBe(fanStemExtension(3, BEAM_WIDTH)) // the floor
   })
 })
 
@@ -527,6 +584,16 @@ describe('two fans on one beam', () => {
     }
     expect(quads[0].startY).toBe(right.lineY)
     expect(quads[1].startY).toBeCloseTo(right.lineY + BEAM_WIDTH * 1.5, 6)
+  })
+
+  it('the crossing lines keep the RIGHT fan’s spread — they land on its stems', () => {
+    const left = ramp({ direction: 'accel', count: 6, beams: 3 })
+    const right = ramp({ direction: 'rit', count: 6, beams: 3 })
+    const quads = fanJoinQuads({ left, right, toX: 500, thickness: BEAM_WIDTH, spread: 2 })
+    expect(quads[1].startY).toBeCloseTo(right.lineY + 2 * BEAM_WIDTH * 1.5, 6)
+    // Absent is the ordinary gap here too, so an unspread join is untouched.
+    expect(fanJoinQuads({ left, right, toX: 500, thickness: BEAM_WIDTH })[1].startY)
+      .toBeCloseTo(right.lineY + BEAM_WIDTH * 1.5, 6)
   })
 
   it('⭐ a line handed down by the group overrides anchor, slope AND floor', () => {

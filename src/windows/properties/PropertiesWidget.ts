@@ -4,7 +4,7 @@ import type { SelectedElement } from '../../interactions/selectionSnapshot'
 import { noteOffsetSelection } from '../../interactions/noteOffsetSelection'
 import { articulationStemAlignSelection } from '../../interactions/articulationStemAlignSelection'
 import { fanEditSelection } from '../../interactions/fanEditSelection'
-import { MAX_FAN_BEAMS, MAX_FAN_COUNT, fanRampRange } from '../../utils/fannedBeam'
+import { MAX_FAN_BEAMS, MAX_FAN_COUNT, MAX_FAN_SPREAD, fanRampRange, fanSpread } from '../../utils/fannedBeam'
 import type { ArticulationType, FanMark } from '../../types/music'
 
 /**
@@ -238,7 +238,7 @@ export class PropertiesWidget implements Widget {
     rs.display = 'flex'
     rs.alignItems = 'center'
     rs.gap = '6px'
-    // Four numbers and a label do not fit one line in a narrow window; they wrap rather than clip.
+    // Five numbers and a label do not fit one line in a narrow window; they wrap rather than clip.
     rs.flexWrap = 'wrap'
     rs.color = BISHOP
     rs.margin = '2px 0 4px'
@@ -249,6 +249,7 @@ export class PropertiesWidget implements Widget {
 
     const field = (
       title: string, value: number, max: number, publish: (n: number) => void, hint = title,
+      step = 1,
     ): HTMLElement => {
       const wrap = document.createElement('label')
       wrap.style.display = 'flex'
@@ -264,7 +265,7 @@ export class PropertiesWidget implements Widget {
       input.type = 'number'
       input.min = '1'
       input.max = String(max)
-      input.step = '1'
+      input.step = String(step)
       input.value = String(value)
       const is = input.style
       is.width = '3.5em'
@@ -279,7 +280,9 @@ export class PropertiesWidget implements Widget {
         if (e.key === 'Enter') { e.preventDefault(); input.blur() }
       })
       input.addEventListener('change', () => {
-        const n = parseInt(input.value, 10)
+        // ⚠️ `parseFloat` for a fractional field (the spread), `parseInt` for the counts — a count
+        // typed with a decimal point is a typo, not a request for two-thirds of a note.
+        const n = step === 1 ? parseInt(input.value, 10) : parseFloat(input.value)
         // A number that is not one is not an edit: put the real value back rather than guessing at
         // what was meant. The controller clamps the rest.
         if (!Number.isFinite(n)) { input.value = String(value); return }
@@ -306,6 +309,16 @@ export class PropertiesWidget implements Widget {
       'to', ramp.to + 1, last,
       (n) => fanEditSelection.set({ noteId, rampTo: n - 1 }),
       'the note it ends on — outside the mark the notes are even, on one beam',
+    ))
+
+    // ⭐ HOW FAR THE WEDGE OPENS — a multiple of the ordinary beam gap, so 1 is both the default and
+    // the floor (below it the lines overlap). The only number in this row that does not change the
+    // sound: what a reader counts is lines, and spreading them does not change how many there are.
+    row.appendChild(field(
+      'wide', fanSpread(fan), MAX_FAN_SPREAD,
+      (spread) => fanEditSelection.set({ noteId, spread }),
+      'how far apart the beam lines spread — 1 is the normal beam gap; drawing only, the playback does not change',
+      0.25,
     ))
     return row
   }

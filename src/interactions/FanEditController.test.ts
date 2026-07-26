@@ -3,7 +3,7 @@ import { MusicEngine } from '../engine/MusicEngine'
 import { FanEditController } from './FanEditController'
 import { fanEditSelection } from './fanEditSelection'
 import { fracCreate as frac } from '../utils/fraction'
-import { MAX_FAN_BEAMS, MAX_FAN_COUNT, clampFanBeams, clampFanCount } from '../utils/fannedBeam'
+import { MAX_FAN_BEAMS, MAX_FAN_COUNT, MAX_FAN_SPREAD, clampFanBeams, clampFanCount } from '../utils/fannedBeam'
 import type { FanMark } from '../types/music'
 
 /**
@@ -180,6 +180,45 @@ describe('FanEditController', () => {
       const fan = fanOf(id)!
       expect(fan.members).toHaveLength(1)
       expect([fan.rampFrom, fan.rampTo]).toEqual([undefined, undefined]) // 0…1 IS the whole group
+    })
+  })
+
+  /**
+   * ⭐ THE SPREAD — how far the wedge opens, and the one fan field that changes only the drawing.
+   */
+  describe('the spread', () => {
+    it('🚨 a spread-only edit is a REAL edit — the guard is where a new field ships dead', () => {
+      const id = fanned()
+      fanEditSelection.set({ noteId: id, spread: 2 })
+      expect(fanOf(id)).toMatchObject({ count: 6, beams: 3, spread: 2 })
+      expect(renders).toBe(1)
+      expect(engine.undo()).toBe(true)
+      expect(fanOf(id)?.spread).toBeUndefined()
+    })
+
+    it('⭐ typing the gap it already has is not an edit — absence and 1 are one', () => {
+      const id = fanned()
+      const before = engine.exportJSON()
+      fanEditSelection.set({ noteId: id, spread: 1 })
+      expect(renders).toBe(0)
+      expect(engine.exportJSON()).toBe(before)
+    })
+
+    it('back to 1 comes out ABSENT, and a typed 99 is clamped', () => {
+      const id = fanned()
+      fanEditSelection.set({ noteId: id, spread: 3 })
+      fanEditSelection.set({ noteId: id, spread: 1 })
+      expect(fanOf(id)?.spread).toBeUndefined()
+      fanEditSelection.set({ noteId: id, spread: 99 })
+      expect(fanOf(id)?.spread).toBe(MAX_FAN_SPREAD)
+    })
+
+    it('holds while the other three are edited — one number, one owner', () => {
+      const id = fanned()
+      fanEditSelection.set({ noteId: id, spread: 2 })
+      fanEditSelection.set({ noteId: id, count: 9 })
+      fanEditSelection.set({ noteId: id, rampFrom: 2 })
+      expect(fanOf(id)).toMatchObject({ count: 9, rampFrom: 2, spread: 2 })
     })
   })
 

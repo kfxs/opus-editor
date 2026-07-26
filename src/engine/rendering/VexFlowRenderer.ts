@@ -932,7 +932,7 @@ export class VexFlowRenderer {
       if (slot.type !== 'chord' || !slot.fan) continue
       const stem = staveNotes[i].getStem()
       if (!stem) continue
-      const extra = fanStemExtension(slot.fan.beams, CROSS_SYSTEM_BEAM_WIDTH)
+      const extra = fanStemExtension(slot.fan.beams, CROSS_SYSTEM_BEAM_WIDTH, slot.fan.spread)
       if (extra > 0) stem.setExtension(stem.getExtension() + extra)
     }
   }
@@ -1251,6 +1251,8 @@ export class VexFlowRenderer {
             right: geometry,
             toX: geometry.stems[0].stemX,
             thickness: CROSS_SYSTEM_BEAM_WIDTH * stemDirection,
+            // THIS fan's spread — the crossing lines land on its stems, so they keep its gap.
+            spread: slot.fan?.spread,
           })
         : []
 
@@ -1447,6 +1449,7 @@ export class VexFlowRenderer {
         // will index, which is the array that actually has to be in range.
         rampFrom: slot.fan.rampFrom,
         rampTo: slot.fan.rampTo,
+        spread: slot.fan.spread,
         headX,
         // Where the ramp's room ends — the next note's ink, MINUS whatever space the user authored
         // before that note. Its px are already in the head x (the tick context moved), and spending
@@ -1469,7 +1472,8 @@ export class VexFlowRenderer {
         // a 32nd prefix joined to a one-beam fan is the case that under-reserves otherwise.
         minStemLength: stave.getSpacingBetweenLines() * FAN_MIN_STEM_SPACES
           + Math.max(
-            fanStemExtension(slot.fan.beams, CROSS_SYSTEM_BEAM_WIDTH),
+            fanStemExtension(slot.fan.beams, CROSS_SYSTEM_BEAM_WIDTH, slot.fan.spread),
+            // ⚠️ No spread: the prefix's levels are ORDINARY beams at the ordinary gap.
             fanStemExtension(prefixBeams, CROSS_SYSTEM_BEAM_WIDTH),
           ),
         stemDirection,
