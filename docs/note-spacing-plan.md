@@ -368,7 +368,30 @@ at the first meter change or paste. `columnExistsAt` now counts a fan's member b
 which is the only sense the test ever meant: there is a head drawn there for the space to open a gap
 before. Pinned by a test that fails against the old condition.
 
-### 7.5 What it touched
+### 7.5 Spacing the note AFTER a fan — the ramp was eating it (✅ FIXED, 2026-07-26)
+
+Reported from use: *"I expect the distance between the last element of the fan and the rest to
+increase; instead that gap stays constant and the fan enlarges."* He is spacing the note **after** the
+group, not a member.
+
+One line of cause. The space is authored on the NEXT note's own column, so `applyLeadingSpaces` moves
+that note — and `spanEndX` is that note's head x, so the fan's span arrives already carrying the extra
+px. Inside `usable`, the proportional ramp shares them out over **every** gap in the group: the fan
+grows and the one gap being widened does not move at all.
+
+⭐ **The room a group may spread into ends before the space someone authored after it.**
+`fanTrailingSpacePx` (`VexFlowRenderer`) reads the leading space at the group's own end
+(`slot.beat + its full duration`, the column the next note starts at) and takes it back off
+`spanEndX`. The ramp then keeps exactly the shape it had and the whole of the space lands where it
+was asked for. Measured in `VEXFLOW_DEFAULT_STAFF_SPACE_PX` because it undoes precisely the shift
+`applyLeadingSpaces` applied.
+
+⚠️ The same lever from the other end as `memberSpaces`: a space authored INSIDE the group opens one
+member's gap (off the top, ramp shares the rest); a space authored just AFTER it opens the gap the
+group does not own. Pinned in `VexFlowRenderer.fan.test.ts` — the member heads do not move, the gap
+after the last one does — and verified to fail against the old code.
+
+### 7.6 What it touched
 
 Resolution `ScoreModel.spacingColumnOf` → `MusicEngine.spacingColumnOf` (both spacing callers —
 `shortcutWiring.selectedColumn` and `MouseController.armSpacingDrag` — now ask it for the address

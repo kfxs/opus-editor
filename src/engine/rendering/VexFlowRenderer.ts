@@ -182,6 +182,38 @@ function fanMemberSpacesPx(score: Score, measureNumber: number, slot: Chord): nu
 }
 
 /**
+ * ⭐ The authored leading space, in pixels, before the column that FOLLOWS a fanned slot — the room
+ * the ramp must NOT spend (his report: *"the distance between the last element of the fan and the
+ * rest should increase; instead the fan enlarges and that gap stays constant"*).
+ *
+ * The space is authored on the NEXT note's own column, so `applyLeadingSpaces` moved that note and
+ * every tick context after it — which means `spanEndX` (the next note's head) arrives already
+ * carrying it. Left in, it becomes part of `usable` and the proportional ramp shares it out among
+ * every gap in the group: the fan grows, and the one gap the user was widening does not. Taken back
+ * out, the ramp keeps exactly the shape it had and the whole of the space lands where it was asked
+ * for — between the last member and the note after it.
+ *
+ * ⚠️ The same lever from the other end as {@link fanMemberSpacesPx}: a space authored INSIDE the
+ * group opens one member's gap (that one comes off the top and the ramp shares what is left), a
+ * space authored just AFTER it opens the gap the group does not own at all.
+ *
+ * The address is the group's own end — `slot.beat + its full duration`, the column the next note
+ * starts at. Nothing there (the fan runs to the barline, or nothing is spaced) ⇒ 0.
+ */
+function fanTrailingSpacePx(score: Score, measureNumber: number, slot: Chord): number {
+  if (!slot.fan) return 0
+  const measure = score.measures.find(m => m.number === measureNumber)
+  if (!measure) return 0
+  const spaces = measureLeadingSpaces(score, measure.id)
+  if (spaces.length === 0) return 0
+  const end = fracAdd(slot.beat, slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0))
+  const hit = spaces.find(s => s.beat.num * end.den === end.num * s.beat.den)
+  // ⚠️ The SAME px-per-staff-space `applyLeadingSpaces` shifted the context by — this undoes exactly
+  // that shift, so it has to be measured in exactly that unit.
+  return (hit?.space ?? 0) * VEXFLOW_DEFAULT_STAFF_SPACE_PX
+}
+
+/**
  * ⭐ The authored horizontal OFFSET of each member of a fanned slot, in pixels — the fan's half of
  * client #12 (docs/note-offset-plan.md §"Inside a FAN"). Entry k is member k's own offset, entry 0
  * the OWNER's (which `applyNoteOffsets` has already spent on the `StaveNote`, and which
@@ -1412,7 +1444,11 @@ export class VexFlowRenderer {
         direction: slot.fan.direction,
         beams: slot.fan.beams,
         headX,
-        spanEndX: nextNote ? nextNote.getNoteHeadBeginX() : stave.getNoteEndX(),
+        // Where the ramp's room ends — the next note's ink, MINUS whatever space the user authored
+        // before that note. Its px are already in the head x (the tick context moved), and spending
+        // them on the ramp is what made the fan grow instead of the gap after it.
+        spanEndX: (nextNote ? nextNote.getNoteHeadBeginX() : stave.getNoteEndX())
+          - fanTrailingSpacePx(score, measureNumber, slot),
         stemOffset: note.getStemX() - headX,
         // MEASURED from the notehead itself, like the two-note tremolo's flag clearance: heads a
         // whole glyph apart cannot touch, and the number follows the staff size instead of pinning

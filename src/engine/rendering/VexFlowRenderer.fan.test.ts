@@ -16,6 +16,7 @@ import { ScoreModel } from '../models/ScoreModel'
 import { VexFlowRenderer } from './VexFlowRenderer'
 import { FAN_GROUP } from '@/utils/fannedBeam'
 import { fracCreate as frac } from '@/utils/fraction'
+import { spacingPositionKey } from '../models/engravingOverrides'
 import type { FanMark } from '@/types/music'
 
 const FAN: FanMark = { direction: 'accel', count: 6, beams: 3 }
@@ -361,6 +362,73 @@ describe('the members are selectable', () => {
     const notes = renderer.getElementRegistry().getByType('note')
     expect(notes).toHaveLength(1)
     expect(notes[0].id).toBe(note.id)
+  })
+})
+
+/**
+ * ⭐ SPACING THE NOTE AFTER A FAN opens the gap AFTER the fan — his report: *"I expect the distance
+ * between the last element of the fan and the rest to increase; instead that gap stays constant and
+ * the fan enlarges."*
+ *
+ * The cause is one line: the space is authored on the NEXT note's column, so `applyLeadingSpaces`
+ * moves that note and `spanEndX` (its head x) arrives carrying the extra px. Left inside `usable`,
+ * the proportional ramp shares them out over every gap in the group — so the fan grows and the one
+ * gap being widened does not move at all.
+ *
+ * ⚠️ jsdom stubs glyph measurement, so nothing here asserts an absolute pixel. What it pins is
+ * RELATIVE and exact: the member heads must be where they were, and the note after them must not.
+ */
+describe('the space before the note after a fan', () => {
+  function fannedThenRest() {
+    const model = new ScoreModel('fan trailing space')
+    // A fanned blanca at beat 0, and the next column at beat 2 — his shape exactly.
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
+    model.setFan(note.id, { direction: 'accel', count: 5, beams: 3 })
+    const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    return { model, slot, note, memberIds: slot.fan!.members!.map(m => m[0].id) }
+  }
+
+  const headsOf = (renderer: VexFlowRenderer, ids: string[]) =>
+    ids.map(id => renderer.getElementRegistry().getById(id)!.headX!)
+
+  it('⭐ leaves every member where it was — the room is the GAP’s, not the ramp’s', () => {
+    const { model, memberIds } = fannedThenRest()
+    const { renderer } = makeRenderer()
+    renderer.renderScore(model.getScore())
+    const before = headsOf(renderer, memberIds)
+
+    // The gesture: Shift+Alt+→ on the note at beat 2 — a leading space on ITS column.
+    const measure = model.getMeasure(1)!
+    model.setNoteSpacing(spacingPositionKey(measure.id, frac(2, 1)), 4, -99)
+    renderer.renderScore(model.getScore())
+
+    const after = headsOf(renderer, memberIds)
+    after.forEach((x, k) => expect(x, `member ${k + 1}`).toBeCloseTo(before[k], 6))
+  })
+
+  it('⭐ …and the gap after the last member is what grew', () => {
+    const { model, note, memberIds } = fannedThenRest()
+    const { renderer } = makeRenderer()
+    renderer.renderScore(model.getScore())
+    const gapBefore = renderer.getElementRegistry().getAll()
+      .filter(el => el.type === 'note' && el.id !== note.id && !memberIds.includes(el.id!))
+    expect(gapBefore).toHaveLength(1) // the note at beat 2
+    const nextBefore = gapBefore[0].headX!
+    const heads = headsOf(renderer, memberIds)
+    const lastBefore = heads[heads.length - 1]
+
+    const measure = model.getMeasure(1)!
+    model.setNoteSpacing(spacingPositionKey(measure.id, frac(2, 1)), 4, -99)
+    renderer.renderScore(model.getScore())
+
+    const nextAfter = renderer.getElementRegistry().getAll()
+      .find(el => el.type === 'note' && el.id !== note.id && !memberIds.includes(el.id!))!.headX!
+    const headsAfter = headsOf(renderer, memberIds)
+    const lastAfter = headsAfter[headsAfter.length - 1]
+    // The whole of the authored space landed between the last member and that note.
+    expect(nextAfter - lastAfter).toBeGreaterThan(nextBefore - lastBefore)
   })
 })
 
