@@ -114,3 +114,154 @@ describe('a fanned slot renders', () => {
     expect(renderer.getElementRegistry().getById(later.id)).not.toBeNull()
   })
 })
+
+/**
+ * PER-MEMBER PITCH on the page (docs/fanned-beam-pitches-plan.md §2). Still not a geometry suite —
+ * what is checked is that each member is its own THING in the DOM, which is what P3's selection will
+ * hang off, and that the passes that could take the render down do not.
+ */
+describe('the members are drawn as themselves', () => {
+  /** A fanned blanca whose members climb C4 D4 E4 … — the case the whole feature is for. */
+  function risingFan(count = 4, octave = 4) {
+    const model = new ScoreModel('fan members')
+    const note = model.addNote({ step: 'C', octave, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.setFan(note.id, { direction: 'accel', count, beams: 3 })
+    const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    const steps = ['D', 'E', 'F', 'G', 'A', 'B'] as const
+    slot.fan!.members!.forEach((m, k) => { m[0].step = steps[k % steps.length] })
+    return { model, slot, note }
+  }
+
+  const headGroups = (container: HTMLElement) => container.querySelectorAll('g.vf-fanhead')
+
+  it('⭐ gives every member its OWN group — one per member, member 0 excepted (it is the note)', () => {
+    const { model, slot } = risingFan(4)
+    const { renderer, container } = makeRenderer()
+    renderer.renderScore(model.getScore())
+    expect(headGroups(container)).toHaveLength(3)
+    // Named and addressable, so a highlight can find one: `openGroup` prefixes `vf-`.
+    expect(container.querySelector(`#vf-fanhead-${slot.id}-1`)).not.toBeNull()
+    expect(container.querySelector(`#vf-fanhead-${slot.id}-3`)).not.toBeNull()
+  })
+
+  it('draws a notehead inside each member group', () => {
+    const { model } = risingFan(4)
+    const { renderer, container } = makeRenderer()
+    renderer.renderScore(model.getScore())
+    for (const g of headGroups(container)) {
+      expect(g.querySelector('g.vf-notehead')).not.toBeNull()
+    }
+  })
+
+  it('⭐ an ALTERED member draws its sign — and only the first of them does', () => {
+    const { model, slot } = risingFan(4)
+    for (const m of slot.fan!.members!) { m[0].step = 'F'; m[0].alter = 1 }
+    const { renderer, container } = makeRenderer()
+    renderer.renderScore(model.getScore())
+    // Three member groups: the first F♯ shows its sign, the two repeats do not. The head's own glyph
+    // is a `<text>` too, but nested in its `vf-notehead` group — the SIGN is drawn directly into the
+    // member's group, so a direct child text IS an accidental.
+    const withSign = [...headGroups(container)].filter(g => g.querySelector(':scope > text') !== null)
+    expect(withSign).toHaveLength(1)
+  })
+
+  it('survives members far off the staff — the ledger-line path', () => {
+    // The bug this phase fixes: bare NoteHeads draw no ledger lines, so an off-staff member used to
+    // float. jsdom cannot say where the lines are, only that drawing them does not throw.
+    const { model, slot } = risingFan(6)
+    slot.fan!.members!.forEach((m, k) => { m[0].step = 'C'; m[0].octave = 6 + (k % 2) })
+    const { renderer, container } = makeRenderer()
+    expect(() => renderer.renderScore(model.getScore())).not.toThrow()
+    expect(fanGroups(container)).toHaveLength(1)
+  })
+
+  it('a fan with no stored members still draws — an older file is read, not repaired', () => {
+    const model = new ScoreModel('fan members')
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.setFan(note.id, FAN)
+    const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    delete slot.fan!.members // as an old JSON would arrive
+    const { renderer, container } = makeRenderer()
+    renderer.renderScore(model.getScore())
+    expect(fanGroups(container)).toHaveLength(1)
+    expect(headGroups(container)).toHaveLength(FAN.count - 1)
+  })
+})
+
+/**
+ * 🚨 THE INK LANDS ON THE STAFF. jsdom cannot measure a glyph, but every coordinate the fan
+ * *computes* — the heads' x's, the stems, the beam quads — is real arithmetic and ends up in the
+ * SVG. So the one thing that is checkable is also the one that went wrong: reading the note's
+ * geometry in the wrong window put the whole group at x = 0 with its beam 110px above the staff, and
+ * every unit test still passed.
+ */
+describe('the fan is drawn where the note is', () => {
+  /** Every number appearing in a path/line/rect inside the fan's group. */
+  function coordinates(container: HTMLElement): { xs: number[]; ys: number[] } {
+    const xs: number[] = []
+    const ys: number[] = []
+    for (const g of container.querySelectorAll(`g.vf-${FAN_GROUP}`)) {
+      for (const path of g.querySelectorAll('path')) {
+        const d = path.getAttribute('d') ?? ''
+        const nums = [...d.matchAll(/-?\d+(?:\.\d+)?/g)].map(m => Number(m[0]))
+        for (let i = 0; i + 1 < nums.length; i += 2) { xs.push(nums[i]); ys.push(nums[i + 1]) }
+      }
+      for (const el of g.querySelectorAll('text, rect')) {
+        xs.push(Number(el.getAttribute('x') ?? 0))
+        ys.push(Number(el.getAttribute('y') ?? 0))
+      }
+    }
+    return { xs, ys }
+  }
+
+  it('⭐ every coordinate is inside the page — not at x = 0, not above the canvas', () => {
+    const model = new ScoreModel('fan ink')
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+    model.setFan(note.id, FAN)
+    const { renderer, container } = makeRenderer()
+    renderer.renderScore(model.getScore())
+
+    const { xs, ys } = coordinates(container)
+    expect(xs.length).toBeGreaterThan(0)
+    // The bar's notes start well right of the clef, and nothing may be drawn off the top edge.
+    expect(Math.min(...xs)).toBeGreaterThan(20)
+    expect(Math.min(...ys)).toBeGreaterThan(0)
+  })
+
+  it('⭐ the group hangs off the REAL note — its first stem is that note’s stem', () => {
+    // The bug's signature was a fan drawn at x = 0 while the note it belongs to sat at x = 37.
+    const model = new ScoreModel('fan ink')
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+    model.setFan(note.id, FAN)
+    const { renderer, container } = makeRenderer()
+    renderer.renderScore(model.getScore())
+
+    const noteGroup = renderer.getStaveNoteSVGGroup(note.id)
+    expect(noteGroup).not.toBeNull()
+    const stemRect = noteGroup!.stem?.querySelector('rect, path')
+    const stemX = Number(stemRect?.getAttribute('x') ?? NaN)
+    const { xs } = coordinates(container)
+    if (!Number.isNaN(stemX)) {
+      // The fan's leftmost ink is within a notehead's width of the note's own stem.
+      expect(Math.abs(Math.min(...xs) - stemX)).toBeLessThan(20)
+    }
+  })
+
+  it('⭐ and it stays below the top of the staff, where its stems can reach', () => {
+    const model = new ScoreModel('fan ink')
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+    model.setFan(note.id, FAN)
+    const { renderer, container } = makeRenderer()
+    renderer.renderScore(model.getScore())
+
+    const geom = renderer.getElementRegistry().getStaffGeometry(1, 0)
+    expect(geom).toBeDefined()
+    const topLineY = geom!.lineYPositions[0]
+    const { ys } = coordinates(container)
+    // A stem-up fan on a C4 reaches above the staff, but nowhere near a whole staff-height above it:
+    // the old bug put the beam 110px over the top line.
+    expect(Math.min(...ys)).toBeGreaterThan(topLineY - 60)
+  })
+})

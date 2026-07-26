@@ -8,8 +8,10 @@ import {
   TUPLET_LOCATION_BELOW,
   type TupletNoteStem,
 } from './NoteBuilder'
+import { StaveNote } from 'vexflow'
+import { staffLineForSpelling } from '@/utils/clefUtils'
 import { fracCreate as frac } from '@/utils/fraction'
-import type { ChordRest } from '@/types/music'
+import type { Chord, ChordRest, PitchStep } from '@/types/music'
 
 describe('resolveTupletLocation', () => {
   // A stem-derived fallback distinct from both voice defaults, so we can tell
@@ -196,4 +198,70 @@ describe('createStaveNotesFromSlots — a two-note tremolo pair', () => {
     const single = createStaveNotesFromSlots([chord(0, 'q', { tremolo: 3 }), chord(2, 'q')])
     expect(single[0].getModifiers()).toHaveLength(1)
   })
+})
+
+describe('createStaveNotesFromSlots — a FANNED group takes ONE stem direction', () => {
+  /** A blanca at beat 0, fanned, whose members are given a pitch of their own. */
+  const fanned = (memberStep: PitchStep, memberOctave: number, count = 4): Chord => ({
+    id: 'f1', type: 'chord', beat: frac(0, 1), duration: 'h', measure: 1,
+    notes: [{ id: 'p1', step: 'C', alter: 0, octave: 4 }],
+    fan: {
+      direction: 'accel', count, beams: 3,
+      members: Array.from({ length: count - 1 }, (_, k) => (
+        [{ id: `m${k}`, step: memberStep, alter: 0 as const, octave: memberOctave }]
+      )),
+    },
+  })
+
+  it('⭐ turns the real note’s stem when the MEMBERS are the extreme — a beam has one side', () => {
+    // C4 alone stems up. Members at C6 are further from the middle line than it is, so the group —
+    // the real note included — stems down. (Furthest wins, the rule a beam group already follows;
+    // an exact tie keeps the written note's answer.)
+    const [note] = createStaveNotesFromSlots([fanned('C', 6)])
+    expect(note.getStemDirection()).toBe(-1)
+    // Without the fan the same written note goes the other way — which is what makes this mean
+    // something.
+    const [plain] = createStaveNotesFromSlots([{ ...fanned('C', 6), fan: undefined }])
+    expect(plain.getStemDirection()).toBe(1)
+  })
+
+  it('leaves it alone when the written note is still the extreme', () => {
+    const [note] = createStaveNotesFromSlots([fanned('E', 4)])
+    expect(note.getStemDirection()).toBe(1)
+  })
+
+  it('⛔ but a VOICE still decides for it — in a lane the group follows its voice', () => {
+    // Multi-voice: V2 is forced down, and a high member does not get to argue.
+    const [note] = createStaveNotesFromSlots([fanned('C', 6)], 'treble', 1)
+    expect(note.getStemDirection()).toBe(1)
+  })
+
+  it('an explicit stem override still wins over both', () => {
+    const [note] = createStaveNotesFromSlots([{ ...fanned('C', 6), stemDirection: 'up' }])
+    expect(note.getStemDirection()).toBe(1)
+  })
+})
+
+/**
+ * ⭐ THE LINE ARITHMETIC AGREES WITH VEXFLOW'S OWN. A fan's member heads are placed by hand, from
+ * {@link staffLineForSpelling}; every real notehead is placed by VexFlow from the key string. If the
+ * two ever disagreed, the members would sit at a different height from the note they belong to — and
+ * the fan's stem length, which is measured between them, would be wrong too.
+ *
+ * `getKeyProps().line` is pure table arithmetic, so this is real in jsdom (no glyph is measured).
+ */
+describe('staffLineForSpelling matches VexFlow', () => {
+  const CASES: Array<[PitchStep, number]> = [
+    ['C', 4], ['E', 4], ['B', 4], ['F', 5], ['A', 5], ['C', 6], ['G', 3], ['C', 3],
+  ]
+
+  for (const clef of ['treble', 'bass', 'alto', 'tenor'] as const) {
+    it(`agrees in ${clef}`, () => {
+      for (const [step, octave] of CASES) {
+        const note = new StaveNote({ keys: [`${step.toLowerCase()}/${octave}`], duration: 'q', clef })
+        expect(note.getKeyProps()[0].line, `${step}${octave} ${clef}`)
+          .toBe(staffLineForSpelling(step, octave, clef))
+      }
+    })
+  }
 })

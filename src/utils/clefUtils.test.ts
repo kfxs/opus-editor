@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '@/engine/models/ScoreModel'
-import { resolveStaffClefs, measureOpeningClef, measureEndingClef } from './clefUtils'
+import { resolveStaffClefs, measureOpeningClef, measureEndingClef, staffLineForSpelling } from './clefUtils'
 import { fracCreate as frac } from './fraction'
 import type { Score } from '@/types/music'
 
@@ -70,5 +70,35 @@ describe('resolveStaffClefs — one forward pass, same answers', () => {
     expect(resolveStaffClefs(score, staff0).opening.get(3)).toBe('treble')
     agreesWithPerMeasureHelpers(score, staff0)
     agreesWithPerMeasureHelpers(score, staff1)
+  })
+})
+
+/**
+ * The staff LINE of a pitch — only wanted where a notehead is drawn by hand (a fanned beam's
+ * members), since a `StaveNote` resolves its own. VexFlow's line system: 1 = bottom line, 3 = middle,
+ * 5 = top, half a line per diatonic step.
+ */
+describe('staffLineForSpelling', () => {
+  it('puts each clef’s middle-line pitch on line 3', () => {
+    expect(staffLineForSpelling('B', 4, 'treble')).toBe(3)
+    expect(staffLineForSpelling('D', 3, 'bass')).toBe(3)
+    expect(staffLineForSpelling('C', 4, 'alto')).toBe(3)
+    expect(staffLineForSpelling('A', 3, 'tenor')).toBe(3)
+  })
+
+  it('counts half a line per diatonic step — a space lands on a .5', () => {
+    expect(staffLineForSpelling('E', 4, 'treble')).toBe(1)   // bottom line
+    expect(staffLineForSpelling('F', 4, 'treble')).toBe(1.5) // the space above it
+    expect(staffLineForSpelling('F', 5, 'treble')).toBe(5)   // top line
+  })
+
+  it('⭐ keeps counting off the staff, where the ledger lines start', () => {
+    expect(staffLineForSpelling('C', 4, 'treble')).toBe(0)    // one ledger below
+    expect(staffLineForSpelling('A', 5, 'treble')).toBe(6)    // one ledger above
+    expect(staffLineForSpelling('C', 6, 'treble')).toBe(7)
+  })
+
+  it('ignores the alteration — a sharp does not move the head', () => {
+    expect(staffLineForSpelling('F', 4, 'treble')).toBe(staffLineForSpelling('F', 4, 'treble'))
   })
 })

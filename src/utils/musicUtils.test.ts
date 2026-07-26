@@ -1,4 +1,8 @@
 import { describe, it, expect } from 'vitest'
+import { prevailingAlterAt } from './accidentalState'
+import { spellingDiatonicPos } from './pitchSpelling'
+import { fracToNumber } from './fraction'
+import type { NotePitch, PitchAlter, PitchStep } from '@/types/music'
 import {
   durationToBeats,
   getMeasureDuration,
@@ -10,8 +14,10 @@ import {
   tupletMarkRuns,
   deriveTupletM,
   tupletBracketed,
+  measureAccidentalNotes,
 } from './musicUtils'
 import { fracCreate } from './fraction'
+const frac = fracCreate
 import type { TimeSignature, NoteDuration, Measure, TupletShape } from '@/types/music'
 
 describe('musicUtils', () => {
@@ -301,5 +307,53 @@ describe('musicUtils', () => {
       expect(measureCapacityQuarters(pickup)).toBe(1)
       expect(measureCapacityFrac(pickup)).toEqual(fracCreate(1, 1))
     })
+  })
+})
+
+/**
+ * The bar's notes as the running-accidental rule sees them — `getMeasureNotes` plus every fanned
+ * MEMBER, at the beat it sounds on (docs/fanned-beam-pitches-plan.md §2).
+ */
+describe('measureAccidentalNotes', () => {
+  const pitch = (id: string, step: PitchStep, alter: PitchAlter): NotePitch =>
+    ({ id, step, alter, octave: 4 })
+
+  /** One fanned blanca at beat 0 of a 4/4 bar, played as 3, plus a plain note at beat 2. */
+  const bar = (members: NotePitch[][]): Measure => ({
+    id: 'm1', number: 1, timeSignature: { numerator: 4, denominator: 4 }, tuplets: [],
+    slots: [
+      {
+        id: 's1', type: 'chord', beat: frac(0, 1), duration: 'h', measure: 1,
+        notes: [pitch('a', 'C', 0)],
+        fan: { direction: 'accel', count: members.length + 1, beams: 3, members },
+      },
+      { id: 's2', type: 'chord', beat: frac(2, 1), duration: 'h', measure: 1, notes: [pitch('b', 'G', 0)] },
+    ],
+  })
+
+  it('adds one entry per member pitch, and leaves the ordinary notes alone', () => {
+    const notes = measureAccidentalNotes(bar([[pitch('m1', 'G', 1)], [pitch('m2', 'G', 1)]]))
+    expect(notes).toHaveLength(4) // 2 slot pitches + 2 members
+    expect(notes.filter(n => n.step === 'G')).toHaveLength(3)
+  })
+
+  it('⭐ places each member INSIDE its slot — after it starts, before the next slot', () => {
+    const notes = measureAccidentalNotes(bar([[pitch('m1', 'G', 1)], [pitch('m2', 'G', 1)]]))
+    const members = notes.slice(2) // appended after the flat notes
+    for (const m of members) {
+      expect(fracToNumber(m.beat)).toBeGreaterThan(0)
+      expect(fracToNumber(m.beat)).toBeLessThan(2)
+    }
+    expect(fracToNumber(members[0].beat)).toBeLessThan(fracToNumber(members[1].beat))
+  })
+
+  it('⭐ so a member’s sharp is IN FORCE for a later note in the bar', () => {
+    const notes = measureAccidentalNotes(bar([[pitch('m1', 'G', 1)]]))
+    expect(prevailingAlterAt(notes, spellingDiatonicPos('G', 4), frac(2, 1))).toBe(1)
+  })
+
+  it('a fan with no stored members adds nothing', () => {
+    const measure = bar([])
+    expect(measureAccidentalNotes(measure)).toHaveLength(2)
   })
 })

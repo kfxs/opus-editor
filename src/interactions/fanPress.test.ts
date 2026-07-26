@@ -62,7 +62,22 @@ describe('pressFan', () => {
     const id = blanca()
     select(id)
     palette.pressFan('accel')
-    expect(fanOf(id)).toEqual({ direction: 'accel', count: DEFAULT_FAN_COUNT, beams: DEFAULT_FAN_BEAMS })
+    expect(fanOf(id)).toMatchObject({ direction: 'accel', count: DEFAULT_FAN_COUNT, beams: DEFAULT_FAN_BEAMS })
+  })
+
+  it('⭐ every member starts as the note you typed — and one press is one set of pitches per note', () => {
+    // `pressFan` hands the SAME mark object to every selected note, so the materialisation has to
+    // happen per slot: two notes sharing one members array is two heads with one pitch id.
+    const a = blanca(0)
+    const b = blanca(2)
+    select(a, b)
+    palette.pressFan('accel')
+    const ma = fanOf(a)!.members!
+    const mb = fanOf(b)!.members!
+    expect(ma).toHaveLength(DEFAULT_FAN_COUNT - 1)
+    expect(ma.every(m => m.length === 1 && m[0].step === 'C' && m[0].octave === 4)).toBe(true)
+    const ids = [...ma, ...mb].flat().map(p => p.id)
+    expect(new Set(ids).size).toBe(ids.length)
   })
 
   it('the OTHER direction turns it round rather than clearing it', () => {

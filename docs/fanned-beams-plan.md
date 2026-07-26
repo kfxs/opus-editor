@@ -244,10 +244,11 @@ asking the renderer for a thousand noteheads or a speed ratio of 2^99.
 
 ## 4. Deliberately NOT in this plan
 
-- **Per-note pitch.** Members are all the slot's pitch. Giving them individual pitches is the point
-  where one slot must become N real slots (`actualDuration` is already the sounding-length seam, so
-  the ramp survives that move) — a separate day, and the expander written in §2 is what makes it a
-  port rather than a rewrite.
+- **Per-note pitch** — ⏭️ now planned in **docs/fanned-beam-pitches-plan.md**. ⚠️ And the guess made
+  here was WRONG: it says giving members individual pitches is "the point where one slot must become
+  N real slots". It is not. Pitch identity and rhythmic identity are separable — the members' pitches
+  ride the fan, the slot keeps its one duration, and no pipeline that walks slots sees anything new.
+  Dissolving the group into N slots would have handed every re-tile a way to break it (his catch).
 - **MusicXML export** — we have no exporter yet; §2 is the half that would be needed.
 - **Tuning the numbers and the ramp** — hand work, by ear, ongoing. See §1.
 - **Ties into or out of a fanned note.** The tie is drawn from the slot, which now has `count`

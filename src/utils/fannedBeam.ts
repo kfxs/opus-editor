@@ -16,7 +16,8 @@
  *
  * No VexFlow, no DOM — pure, and unit-tested as such.
  */
-import type { ChordRest, FanMark } from '@/types/music'
+import { v4 as uuidv4 } from 'uuid'
+import type { ChordRest, FanMark, NotePitch } from '@/types/music'
 import { type Fraction, fracCreate, fracFromInt, fracAdd, fracMul, fracDiv, fracSub, fracToNumber } from './fraction'
 
 /**
@@ -125,6 +126,80 @@ export function slotColumns(slot: ChordRest): number {
 /** The columns a whole lane claims — `slots.length` with every fan counted out. */
 export function laneColumns(slots: ChordRest[]): number {
   return slots.reduce((n, slot) => n + slotColumns(slot), 0)
+}
+
+/**
+ * Copy ONE member's pitches — fresh ids, and only what a member is allowed to carry.
+ *
+ * A member is a note (it has an id, so it can be clicked, arrowed and retyped), but it is not the
+ * tied, slurred, articulated thing the SLOT is: those attach to the whole gesture
+ * (docs/fanned-beam-pitches-plan.md §3). A `tiedTo` copied onto a member would be a reference that
+ * `TieRenderer` — which looks its id up in `slot.notes` — can never reach: stored, never drawn.
+ */
+function copyMemberPitches(pitches: NotePitch[]): NotePitch[] {
+  return pitches.map((p) => {
+    const np: NotePitch = { id: uuidv4(), step: p.step, alter: p.alter, octave: p.octave }
+    if (p.forceAccidental) np.forceAccidental = true
+    return np
+  })
+}
+
+/**
+ * ⭐ Hold `count` and {@link FanMark.members} in step — the ONE function allowed to know that
+ * `members.length === count - 1` (member 0 is the slot's own chord, never repeated in the list).
+ *
+ * Three jobs, and each is a decision:
+ * - **materialise** (no members yet): every member starts as a copy of the note you typed, so a
+ *   fresh fan sounds and draws exactly as it did before this existed;
+ * - **grow**: new members copy the LAST one — a rising line continues rising. Jumping back to the
+ *   first note is never what was meant;
+ * - **shrink**: drop from the end.
+ *
+ * ⚠️ **PURE — a fresh `members` array out, and the one handed in is never touched.** `toFlatNote`
+ * hands out the LIVE `chord.fan` (reference_live_model_objects_break_dedup) and `FanEditController`
+ * builds its next mark by spreading it, so an in-place edit here would reach through that spread and
+ * write into the model behind the mutator's back. Undo would not catch it either
+ * (`UndoRedoManager` snapshots by JSON round-trip), which is exactly what makes it silent.
+ * The member arrays that SURVIVE are reused as-is, not re-copied: a member's id has to outlive an
+ * unrelated beams edit, or every selection would drop on the next keystroke.
+ */
+export function normalizeFan(fan: FanMark, own: NotePitch[]): FanMark {
+  const count = clampFanCount(fan.count)
+  const want = count - 1
+  const members = (fan.members ?? []).slice(0, want)
+  const source = members[members.length - 1] ?? own
+  while (members.length < want) members.push(copyMemberPitches(source))
+  return { ...fan, count, members }
+}
+
+/**
+ * Copy a fan onto a NEW slot — same assertion, but every member pitch re-minted.
+ *
+ * For the one place a relay piece becomes a chord (`rebarOps`) and the one place a pitch is moved
+ * into another voice: both build a slot whose own notes get fresh ids, and the members have to
+ * follow. Two live chords sharing a pitch id is not a cosmetic problem — `getElementById` is
+ * document-wide, so the first in tree order silently wins every lookup
+ * (reference_vexflow_getsvgelement_is_document_wide), and an edit aimed at the pasted fan lands on
+ * the one it was copied from.
+ */
+export function cloneFanFresh(fan: FanMark): FanMark {
+  return fan.members ? { ...fan, members: fan.members.map(copyMemberPitches) } : { ...fan }
+}
+
+/**
+ * The PITCHES of every member, member 0 first — `[slot.notes, ...fan.members]`, one entry per
+ * member the count claims.
+ *
+ * The one reader of {@link FanMark.members}, and the one place the fallback lives: a mark that has
+ * never been through `normalizeFan` (an older JSON file) has no members, and a member with no stored
+ * pitch is drawn and sounded at the slot's own — which is exactly what a fan did before pitches were
+ * storable. Readers never repair the model, they only read past it.
+ */
+export function fanMemberPitches(notes: NotePitch[], fan: FanMark): NotePitch[][] {
+  const n = Math.max(1, Math.round(fan.count))
+  const out: NotePitch[][] = [notes]
+  for (let k = 1; k < n; k++) out.push(fan.members?.[k - 1] ?? notes)
+  return out
 }
 
 /** One note of the expanded group. */

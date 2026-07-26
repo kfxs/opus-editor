@@ -248,6 +248,11 @@ export type TremoloMark = 1 | 2 | 3 | 4 | 5 | 'penderecki'
  * never written back. Assertion → consequence is a function; the reverse is not. See
  * docs/fanned-beams-plan.md §0.
  *
+ * ⭐ **The RHYTHM is a projection; the PITCHES are not.** {@link members} is the one thing inside a
+ * fan that is stored, because a pitch cannot be derived from anything — see
+ * docs/fanned-beam-pitches-plan.md §0-§1. It does not make the group divisible: this is still ONE
+ * slot, of one written duration, and no pipeline that walks slots sees anything new.
+ *
  * ⚠️ Every number here is PROVISIONAL — see docs/fanned-beams-plan.md §1. They are not considered
  * engraving or performance decisions, and tuning them is ongoing hand work.
  */
@@ -257,6 +262,26 @@ export interface FanMark {
   count: number
   /** Beam lines at the WIDE end. The narrow end is always 1 (Dorico's model, and its limit). */
   beams: number
+  /**
+   * The pitches of members 1…`count-1` — **member 0 IS the slot's own {@link Chord.notes}** and is
+   * deliberately not repeated here. That is what makes "remove the fan and the note you typed is
+   * still there" literally true rather than reconstructed.
+   *
+   * ⚠️ The invariant is therefore `members.length === count - 1`, and exactly ONE function is
+   * allowed to get that off-by-one right: `normalizeFan` (utils/fannedBeam), called by
+   * `ScoreModel.setFan`. Readers never repair it — a mark that has never been through `setFan` (an
+   * older JSON file, a freshly built `{direction, count, beams}`) simply has no `members`, and a
+   * reader falls back to the slot's own pitches.
+   *
+   * Real {@link NotePitch}es, with ids, because a member IS a note: a click has to select one, and
+   * `getNote` / the arrows / `a`–`g` all address a pitch by id. Dense rather than sparse for the
+   * same reason — half the heads carrying real ids and half synthetic ones would double every
+   * command that resolves one (plan §1).
+   *
+   * What a member is NOT: tied, slurred, articulated or separately dotted. Those attach to the
+   * SLOT — the whole gesture — so those fields are dropped when a member is copied.
+   */
+  members?: NotePitch[][]
 }
 
 /**

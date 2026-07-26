@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fannedBeamGeometry, fanStemExtension } from './FannedBeam'
+import { fannedBeamGeometry, fanStemExtension, FAN_MAX_BEAM_SLOPE } from './FannedBeam'
 import { fanColumns, fanMembers } from '@/utils/fannedBeam'
 import { LAYOUT_CONFIG } from './layoutConfig'
 import { fracCreate as frac } from '@/utils/fraction'
@@ -16,17 +16,27 @@ const BEAM_WIDTH = 5
 const MIN_GAP = 12
 const FAN: FanMark = { direction: 'accel', count: 6, beams: 3 }
 
-/** Stems up, heads at y=100, tips at y=60 — an ordinary stem-up note with room to fan into. */
+const MIN_STEM = 20
+
+/**
+ * Stems up, every head at y=100, tips at y=60 — an ordinary stem-up note with room to fan into,
+ * and every member at the SLOT'S OWN PITCH.
+ *
+ * ⭐ That last part is what makes this file a regression guard as well as a spec: a fan whose members
+ * all share one pitch is what the feature drew before they could differ, and it must still come out
+ * flat, unshifted and unlifted.
+ */
 const geometry = (fan: FanMark, spanEndX = 400) => fannedBeamGeometry({
   members: fanMembers(fan, frac(2, 1)),
+  memberHeadYs: Array.from({ length: Math.max(1, fan.count) }, () => [100]),
   direction: fan.direction,
   beams: fan.beams,
   headX: 100,
   spanEndX,
   stemOffset: 10,
   minHeadGap: MIN_GAP,
-  baseY: 100,
   tipY: 60,
+  minStemLength: MIN_STEM,
   stemDirection: 1,
   beamWidth: BEAM_WIDTH,
 })
@@ -101,9 +111,10 @@ describe('the beam lines', () => {
   it('steps the levels the other way for stems DOWN', () => {
     const g = fannedBeamGeometry({
       members: fanMembers(FAN, frac(2, 1)),
+      memberHeadYs: Array.from({ length: 6 }, () => [60]),
       direction: 'accel', beams: 3,
       headX: 100, spanEndX: 400, stemOffset: 0, minHeadGap: MIN_GAP,
-      baseY: 60, tipY: 100, stemDirection: -1, beamWidth: BEAM_WIDTH,
+      tipY: 100, minStemLength: MIN_STEM, stemDirection: -1, beamWidth: BEAM_WIDTH,
     })
     // Stems down: the tip is BELOW the heads, so the levels march up.
     expect(g.beams[2].endY).toBeLessThan(g.beams[0].endY)
@@ -183,5 +194,92 @@ describe('fanStemExtension — the room the levels need', () => {
 
   it('never asks for negative stem', () => {
     expect(fanStemExtension(0, BEAM_WIDTH)).toBe(0)
+  })
+})
+
+/**
+ * ⭐ PER-MEMBER PITCH (docs/fanned-beam-pitches-plan.md §2). The beam was flat only while every
+ * member sat on one line; with pitches of their own it leans — anchored at member 0's own stem tip,
+ * clamped, and never so close to a head that a stem inverts through it.
+ */
+describe('the beam leans when the members do', () => {
+  /** Member heads climbing 4px a member (stems up), so the line has a reason to slope. */
+  const rising = (fan: FanMark, step = -4, spanEndX = 400) => fannedBeamGeometry({
+    members: fanMembers(fan, frac(2, 1)),
+    memberHeadYs: Array.from({ length: fan.count }, (_, k) => [100 + k * step]),
+    direction: fan.direction, beams: fan.beams,
+    headX: 100, spanEndX, stemOffset: 10, minHeadGap: MIN_GAP,
+    tipY: 60, minStemLength: MIN_STEM, stemDirection: 1, beamWidth: BEAM_WIDTH,
+  })
+
+  it('⭐ starts at member 0’s own stem tip — the one point the page cannot argue with', () => {
+    const g = rising(FAN)
+    expect(g.stems[0].tipY).toBe(60)
+    expect(g.beams[0].startY).toBe(60)
+  })
+
+  it('rises with the pitches, and every stem lands ON the line', () => {
+    const g = rising(FAN)
+    expect(g.beams[0].endY).toBeLessThan(g.beams[0].startY) // higher pitches ⇒ smaller y
+    const slope = (g.beams[0].endY - g.beams[0].startY) / (g.beams[0].endX - g.beams[0].startX)
+    for (const s of g.stems) {
+      expect(s.tipY).toBeCloseTo(g.beams[0].startY + slope * (s.stemX - g.beams[0].startX), 6)
+    }
+  })
+
+  it('each stem still runs from its OWN notehead', () => {
+    const g = rising(FAN)
+    g.stems.forEach((s, k) => expect(s.baseY).toBe(100 - 4 * k))
+  })
+
+  it('⭐ clamps at VexFlow’s own maximum slope rather than standing the beam on end', () => {
+    const g = rising(FAN, -40) // a two-octave leap across the group
+    const slope = Math.abs((g.beams[0].endY - g.beams[0].startY) / (g.beams[0].endX - g.beams[0].startX))
+    expect(slope).toBeCloseTo(FAN_MAX_BEAM_SLOPE, 10)
+  })
+
+  it('⭐ keeps every member’s stem at least the minimum — the whole LINE moves, not one stem', () => {
+    // Clamped slope + a far-flung member ⇒ the line alone cannot reach; it must lift bodily.
+    const g = rising(FAN, -40)
+    for (let k = 0; k < g.stems.length; k++) {
+      const nearY = 100 - 40 * k
+      expect(nearY - g.stems[k].tipY).toBeGreaterThanOrEqual(MIN_STEM - 1e-9)
+    }
+    // And the real note is TOLD to grow by exactly what the lift cost it.
+    expect(g.stemLift).toBeCloseTo(60 - g.stems[0].tipY, 6)
+    expect(g.stemLift).toBeGreaterThan(0)
+  })
+
+  it('a flat group asks for no lift at all — nothing moves unless it has to', () => {
+    expect(geometry(FAN).stemLift).toBe(0)
+  })
+
+  it('leans the other way for a falling line', () => {
+    const g = rising(FAN, 4)
+    expect(g.beams[0].endY).toBeGreaterThan(g.beams[0].startY)
+  })
+})
+
+describe('an accidental buys its own room', () => {
+  const withSigns = (accidentalRoom: number[]) => fannedBeamGeometry({
+    members: fanMembers(FAN, frac(2, 1)),
+    memberHeadYs: Array.from({ length: 6 }, () => [100]),
+    direction: 'accel', beams: 3,
+    headX: 100, spanEndX: 400, stemOffset: 10, minHeadGap: MIN_GAP, accidentalRoom,
+    tipY: 60, minStemLength: MIN_STEM, stemDirection: 1, beamWidth: BEAM_WIDTH,
+  })
+
+  it('widens only the gap BEFORE the head that wears the sign', () => {
+    // The sign hangs to the LEFT of its head, so it is the approach that has to open up.
+    const plain = geometry(FAN).stems.map(s => s.headX)
+    const signed = withSigns([0, 0, 0, 0, 40, 0]).stems.map(s => s.headX)
+    expect(signed[4] - signed[3]).toBeGreaterThan(plain[4] - plain[3])
+    expect(signed[1] - signed[0]).toBeCloseTo(plain[1] - plain[0], 6)
+  })
+
+  it('is a floor like the head gap — a wide gap that already fits is left alone', () => {
+    const plain = geometry(FAN).stems.map(s => s.headX)
+    const signed = withSigns([0, 1, 0, 0, 0, 0]).stems.map(s => s.headX)
+    expect(signed[1] - signed[0]).toBeCloseTo(plain[1] - plain[0], 6)
   })
 })

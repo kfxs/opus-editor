@@ -1,12 +1,13 @@
 import { StaveNote, Voice, Accidental, Articulation, Modifier, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
 import { CenteredTremolo } from './CenteredTremolo'
-import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction, PitchAlter } from '@/types/music'
+import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction } from '@/types/music'
 import { fracCompare, fracLte } from '@/utils/fraction'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
 import { doubleDuration, durationToFraction, durationToVexflow } from '@/utils/durations'
 import { pairRoleAt } from '@/utils/tremoloPair'
 import { pickVoiceMode } from '@/utils/restFill'
-import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
+import { displayedAccidentals } from '@/utils/accidentalState'
+import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
 
 /**
  * Note/measure building helpers shared by the renderer and the measure-width math.
@@ -118,17 +119,12 @@ export function createStaveNotesFromSlots(
     typeof restLineShift === 'function' ? restLineShift : () => restLineShift
   const staveNotes: StaveNote[] = []
 
-  // Track the currently active alteration per diatonic staff position within this measure.
-  // Key = spellingDiatonicPos(step, octave). Value = active PitchAlter (0 = natural).
-  // A position absent from the map has not yet appeared in this measure.
-  //
-  // This is the same running-accidental rule stated purely in utils/accidentalState
-  // (prevailingAlterations) — which MusicEngine.getPrevailingAlter and
-  // SelectionController.computeDisplayedAccidental share. It's kept as an incremental
-  // single-pass accumulator here on purpose: the render walk needs the state AS OF each
-  // slot (and updates it within a chord as signs are shown), which the strictly-before-beat
-  // resolver deliberately does not model. Keep the two in step if the rule ever changes.
-  const activeMeasureAlterations = new Map<number, PitchAlter>()
+  // Which sign each pitch of this lane displays, decided ONCE by the forward walk in
+  // utils/accidentalState (`displayedAccidentals`) — the same rule `prevailingAlterations` states
+  // as a query, and the same map the FAN renderer reads for its hand-drawn member heads. It lived
+  // inline here until the members needed it; the extraction is what keeps the two from drifting
+  // (docs/fanned-beam-pitches-plan.md §2).
+  const displayAccidentals = displayedAccidentals(slots)
 
   for (let slotIndex = 0; slotIndex < slots.length; slotIndex++) {
     const slot = slots[slotIndex]
@@ -156,43 +152,6 @@ export function createStaveNotesFromSlots(
       if (shift) staveNote.setKeyLine(0, staveNote.getLineForRest() + shift)
       staveNotes.push(staveNote)
       continue
-    }
-
-    // Chord slot — decide which accidental sign (if any) to display for each pitch.
-    // displayAccidentals: noteId → VexFlow accidental string, or null if suppressed.
-    const displayAccidentals = new Map<string, string | null>()
-    for (const p of slot.notes) {
-      if (p.tiedFrom) {
-        // Tied continuation: never re-show the accidental
-        displayAccidentals.set(p.id, null)
-        continue
-      }
-      const dPos = spellingDiatonicPos(p.step, p.octave)
-      const activeAlter = activeMeasureAlterations.get(dPos)  // undefined = not seen yet
-
-      if (p.alter !== 0) {
-        // Non-natural pitch — show sign unless the same alteration is already active
-        if (!p.forceAccidental && activeAlter === p.alter) {
-          displayAccidentals.set(p.id, null)  // suppress: redundant
-        } else {
-          const sign = alterToString(p.alter)
-          displayAccidentals.set(p.id, sign)
-          activeMeasureAlterations.set(dPos, p.alter)
-        }
-      } else {
-        // Natural pitch (alter === 0)
-        if (activeAlter !== undefined && activeAlter !== 0) {
-          // A previous note on this staff position was altered — show ♮ to cancel it
-          displayAccidentals.set(p.id, 'n')
-          activeMeasureAlterations.set(dPos, 0)
-        } else if (p.forceAccidental) {
-          // Caller explicitly wants a courtesy natural sign
-          displayAccidentals.set(p.id, 'n')
-          activeMeasureAlterations.set(dPos, 0)
-        } else {
-          displayAccidentals.set(p.id, null)  // no sign needed
-        }
-      }
     }
 
     // Sort pitches low→high by MIDI value (VexFlow requires ascending key order for chords)
@@ -235,7 +194,11 @@ export function createStaveNotesFromSlots(
       const middleDiatonic = middleLineDiatonicPos(slotClef)
       let maxDist = 0
       stemDirection = -1  // default down; middle-line notes follow this convention
-      for (const p of pairSlots.flatMap(s => s.notes)) {
+      // ⭐ A FAN's stem direction is the GROUP's, decided over every member's pitches — because the
+      // members hang off ONE beam line and a beam has one side. Single voice only: with a
+      // `forcedStemDirection` the lane has already answered (V1 up, V2 down) and the group follows
+      // its voice, not its own pitches (docs/fanned-beam-pitches-plan.md §2).
+      for (const p of pairSlots.flatMap(s => [...s.notes, ...(s.fan?.members ?? []).flat()])) {
         const dPos = spellingDiatonicPos(p.step, p.octave)
         const dist = Math.abs(dPos - middleDiatonic)
         if (dist > maxDist) {

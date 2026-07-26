@@ -7,7 +7,7 @@ import type { EditorState } from './EditorState'
 import { modelVoiceToActive } from './EditorState'
 import { buildVoiceNavBeatMap, notesInBox, dynamicsInBox, slursInBox, expandTieChains } from '../utils/beatMap'
 import { fracEq, fracCompare, fracToNumber } from '../utils/fraction'
-import { getMeasureNotes } from '../utils/musicUtils'
+import { getMeasureNotes, measureAccidentalNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
 import { restShiftOverrideOf, restPositionKey } from '../engine/models/engravingOverrides'
 import { keyStaffId } from '../engine/models/staffContent'
@@ -36,7 +36,9 @@ export class SelectionController {
     if (note.isRest || note.tiedFrom) return null
     if (note.forceAccidental && note.alter) return note.alter > 0 ? '#' : 'b'
 
-    const active = prevailingAlterations(getMeasureNotes(measure), note.beat)
+    // The fanned members count here as well — the sign this reports must be the one the renderer
+    // engraves, and that walk sees them (docs/fanned-beam-pitches-plan.md §2).
+    const active = prevailingAlterations(measureAccidentalNotes(measure), note.beat)
     const dPos = spellingDiatonicPos(note.step!, note.octave!)
     const activeAlter = active.get(dPos)
     const noteAlter = note.alter ?? 0

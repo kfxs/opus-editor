@@ -13,6 +13,8 @@ import {
 } from '@/utils/fraction'
 import { MET_NOTE_GLYPH, MET_AUGMENTATION_DOT } from '@/utils/tempoText'
 import { getMeterInfo } from '@/utils/meter'
+import { fanMembers } from '@/utils/fannedBeam'
+import type { AccidentalNote } from '@/utils/accidentalState'
 import {
   durationToFraction,
   durationToBeats,
@@ -665,4 +667,38 @@ export function getMeasureNotes(measure: Measure, score?: Score): Note[] {
     }
   }
   return result
+}
+
+/**
+ * ⭐ The bar's notes AS THE RUNNING-ACCIDENTAL RULE SEES THEM — {@link getMeasureNotes} plus every
+ * FANNED member, at the beat it sounds on.
+ *
+ * A member is a note in the bar, so its accidental holds for the rest of it like any other's
+ * (docs/fanned-beam-pitches-plan.md §2, his decision). Left out, a member's F♯ followed by an
+ * ordinary F later in the bar would draw no natural — and the sign a note DISPLAYS would disagree
+ * with the sign it is engraved with.
+ *
+ * ⛔ **Not by teaching `getMeasureNotes` to emit them.** It has two dozen callers — spans, counts,
+ * navigation, the clipboard's own `selectedSpans` — and every one of them would silently gain N
+ * notes per fan. The accidental queries take a list the CALLER chooses (the scope seam
+ * `accidentalState.ts` documents), so this is that list and nothing else changes.
+ *
+ * The member beats are `slot.beat + Σ preceding member quarters` — arbitrary rationals (8/15 of a
+ * beat is an ordinary answer), which is fine: `prevailingAlterations` only ever COMPARES beats, so
+ * an un-notatable position is a perfectly good one to walk past.
+ */
+export function measureAccidentalNotes(measure: Measure): AccidentalNote[] {
+  const notes: AccidentalNote[] = getMeasureNotes(measure)
+  for (const slot of measure.slots) {
+    if (slot.type !== 'chord' || !slot.fan?.members?.length) continue
+    const spans = fanMembers(slot.fan, slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0))
+    let beat = slot.beat
+    for (let k = 0; k < slot.fan.members.length; k++) {
+      beat = fracAdd(beat, spans[k]?.quarters ?? fracCreate(0, 1)) // member k+1 starts after member k
+      for (const p of slot.fan.members[k]) {
+        notes.push({ step: p.step, alter: p.alter, octave: p.octave, beat })
+      }
+    }
+  }
+  return notes
 }

@@ -11,7 +11,7 @@ import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
 import { getStaves, staffIdAtIndex, staffSlots } from './models/staffContent'
-import { midiToNoteName, beatToFrac, measureCapacityQuarters, compareByPosition, getMeasureNotes, deriveTupletM, tupletMarkRuns } from '@/utils/musicUtils'
+import { midiToNoteName, beatToFrac, measureCapacityQuarters, compareByPosition, measureAccidentalNotes, deriveTupletM, tupletMarkRuns } from '@/utils/musicUtils'
 import { fracToNumber, fracEq } from '@/utils/fraction'
 import { quantizeBeat } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } from '@/utils/pitchSpelling'
@@ -2345,7 +2345,10 @@ export class MusicEngine {
     const measure = this.scoreModel.getScore().measures.find(m => m.number === note.measure)
     if (!measure) return 0
     const targetPos = spellingDiatonicPos(note.step, note.octave)
-    return prevailingAlterAt(getMeasureNotes(measure), targetPos, note.beat)
+    // A FANNED member alters its position for the rest of the bar too, so the list includes them
+    // (docs/fanned-beam-pitches-plan.md §2) — `getMeasureNotes` alone would answer "nothing in force"
+    // for a bar whose only sharp is inside a fan.
+    return prevailingAlterAt(measureAccidentalNotes(measure), targetPos, note.beat)
   }
 
   /**

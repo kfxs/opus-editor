@@ -25,6 +25,7 @@ import { type Fraction, fracCreate, fracAdd, fracSub, fracCompare, fracLt, fracG
 import { measureCapacityFrac } from '@/utils/musicUtils'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, keyStaffId, staffMeasureView } from './staffContent'
 import { laneOfSlot, pairIsValid } from '@/utils/tremoloPair'
+import { cloneFanFresh } from '@/utils/fannedBeam'
 import { v4 as uuidv4 } from 'uuid'
 
 // ==================== Callback surface + captured-state types ====================
@@ -1272,7 +1273,11 @@ function materializeVoiceBar(
     if (piece.articulations) chord.articulations = piece.articulations
     if (piece.articulationPlacement) chord.articulationPlacement = piece.articulationPlacement
     if (piece.tremolo) chord.tremolo = piece.tremolo
-    if (piece.fan) chord.fan = piece.fan
+    // ⭐ Cloned with FRESH member pitch ids, for the same reason the chord's own notes get them just
+    // above: a relay piece is a copy, and a paste can land the same payload twice. Two live slots
+    // sharing a pitch id is silent — `getElementById` is document-wide and the first in tree order
+    // wins. See {@link cloneFanFresh}.
+    if (piece.fan) chord.fan = cloneFanFresh(piece.fan)
     measure.slots.push(chord)
     created.push({ piece, chord })
   }

@@ -36,6 +36,15 @@ export interface FanGeometry {
   stems: FanStem[]
   /** The beam lines, narrow end to wide end. */
   beams: FanQuad[]
+  /**
+   * How much the REAL note's stem must GROW, in pixels, for member 0 to reach the beam line.
+   *
+   * Zero whenever the line passes through its natural tip — which is every fan whose members all
+   * sit at one pitch, i.e. everything that was on the page before members had their own. It becomes
+   * non-zero when a member far from member 0 pushes the whole line away to keep ITS stem long
+   * enough; the line is a straight edge, so what moves for one moves for all.
+   */
+  stemLift: number
 }
 
 /**
@@ -47,6 +56,28 @@ export interface FanGeometry {
  * them rather than merely not overlapping.
  */
 export const FAN_MIN_HEAD_GAP_RATIO = 1.25
+
+/**
+ * The steepest the beam line may run, as rise over run.
+ *
+ * **VexFlow's own number** (`Beam.renderOptions.maxSlope`), so a fan leans no harder than the
+ * ordinary beams beside it — the reader should not be able to tell that this one was drawn by hand.
+ * PROVISIONAL like everything else here, but this one at least has a house to match.
+ */
+export const FAN_MAX_BEAM_SLOPE = 0.25
+
+/**
+ * The shortest stem a member may keep, in staff SPACES, before the beam line is pushed away to give
+ * it room. Measured from the head nearest the line — the same end VexFlow measures its own stems
+ * from.
+ *
+ * ⚠️ It is not tidiness: without a floor, a member whose pitch sits far past the line's reach gets a
+ * stem of zero length and then a NEGATIVE one, drawing a stem that passes through its own head and
+ * out the other side. PROVISIONAL; the room the inward beam levels take is added on top by the
+ * caller ({@link fanStemExtension}), because those lines eat into every member's stem, not just the
+ * real note's.
+ */
+export const FAN_MIN_STEM_SPACES = 2
 
 /**
  * How much stem the beam levels need past the primary line, in pixels — the room the lines that fan
@@ -62,11 +93,22 @@ export function fanStemExtension(beams: number, beamWidth: number): number {
 /**
  * The whole picture, from the real note's geometry and the expander's members.
  *
- * ⭐ **The beam line is FLAT and sits at the stem tips**, exactly where a `Beam` would put it, and
+ * ⭐ **The beam line RUNS FROM MEMBER 0'S OWN STEM TIP**, at the slope the last member asks for, and
  * the extra levels step INWARD from it (`beamWidth × 1.5`, VexFlow's own step, signed by the stem
- * direction). Flat because in P1 every member is the slot's own pitch, so there is no slope to
- * follow — the day members get their own pitches (docs/fanned-beams-plan.md §4) is the day this
- * grows a slope, and it is the only line here that would change.
+ * direction). It was flat while every member was the slot's own pitch; now that they have their own
+ * (docs/fanned-beam-pitches-plan.md §2) it leans, and this is the only line here that changed.
+ *
+ * ⭐ **Anchored at member 0, never at the middle.** The real note's stem is drawn by VexFlow, so the
+ * one place the line and the page cannot argue is the tip it already has. Everything else is
+ * expressed as a lean away from it, plus a {@link FanGeometry.stemLift} the caller feeds back into
+ * that stem — which is why a fan whose members all share one pitch comes out EXACTLY as it did
+ * before they could differ: slope zero, lift zero, the flat line at the stem tips.
+ *
+ * ⚠️ **Two guards, and they are the notation, not tidiness.** The slope is clamped to
+ * {@link FAN_MAX_BEAM_SLOPE} so a wide leap does not stand the beam on end; and every member keeps
+ * at least `minStemLength` of stem, which is what stops a member far from the line from growing a
+ * stem that inverts through its own notehead. When the floor bites, the WHOLE line moves — a beam
+ * is one straight edge, so it cannot bend for one member.
  *
  * ⭐ **The lines converge at the SLOW end and are fully feathered at the FAST one** — Gould's
  * sentence, drawn: an `accel` fans open to the right, a `rit` to the left. Every secondary line
@@ -82,6 +124,12 @@ export function fanStemExtension(beams: number, beamWidth: number): number {
  */
 export function fannedBeamGeometry(opts: {
   members: FanMember[]
+  /**
+   * Each member's notehead y's, member 0 first — one entry per member, one number per head it
+   * carries. The caller resolves them from the pitches and the stave, because that is the one
+   * conversion this module refuses to know about.
+   */
+  memberHeadYs: number[][]
   direction: 'accel' | 'rit'
   /** Beam lines at the WIDE end. The narrow end is always 1. */
   beams: number
@@ -97,20 +145,26 @@ export function fannedBeamGeometry(opts: {
    * the scale changes.
    */
   minHeadGap: number
-  /** Where the stems meet the noteheads (the real note's `getStemExtents().baseY`). */
-  baseY: number
-  /** The stem tips — the primary beam line's y. */
+  /**
+   * Extra room, per member, that its ACCIDENTAL needs to the LEFT of its head — 0 where it carries
+   * no sign. The width pass cannot see this (it counts head columns and cannot measure glyphs), so
+   * the sign buys its room out of the group's own span rather than out of the bar's.
+   */
+  accidentalRoom?: number[]
+  /** The stem tip the real note is ALREADY drawn with — the line's anchor. */
   tipY: number
+  /** The shortest stem any member may keep, in pixels, measured from its head nearest the line. */
+  minStemLength: number
   /** +1 stems up, −1 stems down. */
   stemDirection: number
   beamWidth: number
 }): FanGeometry {
   const {
-    members, direction, beams, headX, spanEndX, stemOffset, minHeadGap, baseY, tipY, stemDirection,
-    beamWidth,
+    members, memberHeadYs, direction, beams, headX, spanEndX, stemOffset, minHeadGap,
+    accidentalRoom, tipY, minStemLength, stemDirection, beamWidth,
   } = opts
-  const empty: FanGeometry = { stems: [], beams: [] }
-  if (members.length < 2) return empty
+  const empty: FanGeometry = { stems: [], beams: [], stemLift: 0 }
+  if (members.length < 2 || memberHeadYs.length < members.length) return empty
 
   // The span the HEADS may occupy: the last one must still fit before whatever comes next, so the
   // room its own glyph takes is not part of the ramp.
@@ -130,7 +184,10 @@ export function fannedBeamGeometry(opts: {
    */
   const gaps: number[] = []
   for (let k = 0; k + 1 < members.length; k++) {
-    gaps.push(Math.max(minHeadGap, (members[k + 1].startFraction - members[k].startFraction) * usable))
+    // The floor grows by whatever sign the NEXT head wears, since an accidental hangs to its left
+    // and would otherwise land on this head.
+    const floor = minHeadGap + (accidentalRoom?.[k + 1] ?? 0)
+    gaps.push(Math.max(floor, (members[k + 1].startFraction - members[k].startFraction) * usable))
   }
   // Even the floored layout can outgrow the room the bar gave. Scaling every gap by the shortfall
   // keeps the group inside its span and lands it evenly short rather than letting the last members
@@ -139,18 +196,59 @@ export function fannedBeamGeometry(opts: {
   const wanted = gaps.reduce((a, b) => a + b, 0)
   const scale = wanted > usable ? usable / wanted : 1
 
-  const stems: FanStem[] = []
+  const xs: number[] = []
   let x = headX
   for (let k = 0; k < members.length; k++) {
     if (k > 0) x += gaps[k - 1] * scale
-    stems.push({ headX: x, stemX: x + stemOffset, baseY, tipY })
+    xs.push(x)
   }
+
+  // Up = +1, so the tip is the SMALLER y and the outer (base) head the larger; down mirrors it.
+  const up = stemDirection > 0
+  const outer = (ys: number[]) => (up ? Math.max(...ys) : Math.min(...ys))
+  const inner = (ys: number[]) => (up ? Math.min(...ys) : Math.max(...ys))
+
+  // The stem length the real note is wearing, measured from the head the tip is reckoned against —
+  // VexFlow's own rule (`Stem.getExtents`: the tip hangs off the INNERmost head). Every member
+  // borrows it, so a group of equal pitches reproduces the note's own stem exactly.
+  const stemHeight = Math.abs(tipY - inner(memberHeadYs[0]))
+  const idealTip = memberHeadYs.map(ys => inner(ys) - stemDirection * stemHeight)
+
+  // ⚠️ Along the STEMS, not the heads: the line meets each member at its stem, so anchoring it at
+  // member 0's headX would leave its own tip off the line by `stemOffset × slope` — and the real
+  // note's stem, which is drawn by VexFlow and cannot be re-aimed sideways, is the one thing here
+  // that has to land exactly.
+  const sx = xs.map(px => px + stemOffset)
+  const runX = sx[sx.length - 1] - sx[0]
+  const rawSlope = runX > 0 ? (idealTip[idealTip.length - 1] - idealTip[0]) / runX : 0
+  const slope = Math.max(-FAN_MAX_BEAM_SLOPE, Math.min(FAN_MAX_BEAM_SLOPE, rawSlope))
+  const lineY = (px: number) => idealTip[0] + slope * (px - sx[0])
+
+  // ⭐ The floor, applied to the WHOLE line. For each member, how far the line would have to move
+  // (away from the heads) to leave it `minStemLength` of stem; the largest of those wins, and a
+  // member that already has room asks for nothing. Signed by the stem direction, so `shift` is
+  // negative for stems up (the line rises) and positive for stems down.
+  let shift = 0
+  for (let k = 0; k < members.length; k++) {
+    const wanted = inner(memberHeadYs[k]) - stemDirection * minStemLength
+    const need = wanted - lineY(sx[k])
+    if (up ? need < shift : need > shift) shift = need
+  }
+
+  const stems: FanStem[] = xs.map((px, k) => ({
+    headX: px,
+    stemX: sx[k],
+    baseY: outer(memberHeadYs[k]),
+    tipY: lineY(sx[k]) + shift,
+  }))
 
   // Signed, so a quad drawn from its top edge downward marches the right way for either stem
   // direction — the same expression `drawCrossBarSideBeam` builds from `Beam`.
   const thickness = beamWidth * stemDirection
   const startX = stems[0].stemX
   const endX = stems[stems.length - 1].stemX
+  const startY = stems[0].tipY
+  const endY = stems[stems.length - 1].tipY
   // ⚠️ Both ends carry HALF a stem's width past the outer stems in VexFlow's own beams (it ends a
   // beam line at `getStemX() - Stem.WIDTH / 2`); the caller passes stem x's that already match its
   // notes, so the line simply spans them and the rounded stem ends do the rest.
@@ -162,12 +260,12 @@ export function fannedBeamGeometry(opts: {
     lines.push({
       startX,
       // The convergence point: at the NARROW end every line sits on the primary. Only the wide end
-      // spreads. k = 0 is the primary itself and is flat by construction.
-      startY: tipY + (wideAtEnd ? 0 : offset),
+      // spreads. k = 0 IS the primary — it carries the slope and nothing else.
+      startY: startY + (wideAtEnd ? 0 : offset),
       endX,
-      endY: tipY + (wideAtEnd ? offset : 0),
+      endY: endY + (wideAtEnd ? offset : 0),
       thickness,
     })
   }
-  return { stems, beams: lines }
+  return { stems, beams: lines, stemLift: Math.abs(shift) }
 }

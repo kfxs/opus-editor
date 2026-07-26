@@ -33,8 +33,14 @@ export class FanEditController {
     const current = engine.getNote(noteId)?.fan
     if (!current) return // nothing to change — see the class note
 
+    // ⚠️ SPREAD, so the members come along — a typed count is a change to the group's size, not an
+    // instruction to throw its pitches away. `ScoreModel.setFan` runs them through `normalizeFan`,
+    // which is what actually grows or shrinks the list; rebuilding the mark field-by-field here
+    // would silently re-materialise every member from the typed note (plan §1).
+    // `current` is the LIVE `chord.fan` (`toFlatNote` hands out the reference), so nothing below may
+    // mutate it — and `normalizeFan` is pure for exactly that reason.
     const next = {
-      direction: current.direction,
+      ...current,
       count: clampFanCount(count ?? current.count),
       beams: clampFanBeams(beams ?? current.beams),
     }

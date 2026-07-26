@@ -54,14 +54,36 @@ describe('FanEditController', () => {
   it('changes the member count, leaving the direction and the beams alone', () => {
     const id = fanned()
     fanEditSelection.set({ noteId: id, count: 9 })
-    expect(fanOf(id)).toEqual({ direction: 'accel', count: 9, beams: 3 })
+    expect(fanOf(id)).toMatchObject({ direction: 'accel', count: 9, beams: 3 })
     expect(renders).toBe(1)
   })
 
   it('changes the beams the same way', () => {
     const id = fanned()
     fanEditSelection.set({ noteId: id, beams: 2 })
-    expect(fanOf(id)).toEqual({ direction: 'accel', count: 6, beams: 2 })
+    expect(fanOf(id)).toMatchObject({ direction: 'accel', count: 6, beams: 2 })
+  })
+
+  it('⭐ a typed count grows or shrinks the members — it does not throw the pitches away', () => {
+    // The controller SPREADS the current mark, so `normalizeFan` sees the members it already has.
+    // Rebuilding the mark field by field would silently re-materialise all of them from the typed
+    // note, and every edited pitch would vanish on the next keystroke.
+    const id = fanned()
+    const grown = () => fanOf(id)!.members!
+    expect(grown()).toHaveLength(5)
+
+    // Mark one member so it can be recognised after the count moves.
+    grown()[0][0].step = 'G'
+    const markedId = grown()[0][0].id
+
+    fanEditSelection.set({ noteId: id, count: 9 })
+    expect(grown()).toHaveLength(8)
+    expect(grown()[0][0].step).toBe('G')
+    expect(grown()[0][0].id).toBe(markedId) // a surviving member keeps its identity
+
+    fanEditSelection.set({ noteId: id, count: 3 })
+    expect(grown()).toHaveLength(2)
+    expect(grown()[0][0].id).toBe(markedId) // shrinking drops from the END
   })
 
   it('⭐ NEVER makes a fan — a note without one is a no-op', () => {

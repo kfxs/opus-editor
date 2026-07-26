@@ -56,6 +56,21 @@ function fanAt(engine: MusicEngine, m: number, beat: number, voice = 0): FanMark
   return slot?.type === 'chord' ? slot.fan : undefined
 }
 
+/**
+ * The ASSERTION a fan carries, without its members — "play this as N, accelerating". The members are
+ * checked separately because they are pitches with ids, and an id that travelled UNCHANGED would be
+ * the bug (docs/fanned-beam-pitches-plan.md §1b).
+ */
+const assertionOf = (fan?: FanMark) =>
+  fan && { direction: fan.direction, count: fan.count, beams: fan.beams }
+
+/** Every member's spelling, in order — the pitches themselves. */
+const memberPitches = (fan?: FanMark) =>
+  fan?.members?.map(m => m.map(p => `${p.step}${p.alter}${p.octave}`).join(' '))
+
+/** Every member pitch id, flat — for asserting a COPY minted its own. */
+const memberIds = (fan?: FanMark) => fan?.members?.flatMap(m => m.map(p => p.id)) ?? []
+
 describe('fan — survives a rebar', () => {
   let engine: MusicEngine
   beforeEach(() => { engine = makeEngine() })
@@ -64,14 +79,16 @@ describe('fan — survives a rebar', () => {
     const ids = fourNotes(engine, 1)
     model(engine).setFan(ids[0], FAN)
     engine.setTimeSignature(1, { numerator: 2, denominator: 4 })
-    expect(fanAt(engine, 1, 0)).toEqual(FAN)
+    expect(assertionOf(fanAt(engine, 1, 0))).toEqual(FAN)
+    // …and the members with it: a re-tile must not quietly hand the group back its typed pitch.
+    expect(memberPitches(fanAt(engine, 1, 0))).toHaveLength(DEFAULT_FAN_COUNT - 1)
   })
 
   it('re-lands on the bar the note moved to, and does not smear onto its neighbours', () => {
     const ids = fourNotes(engine, 1)
     model(engine).setFan(ids[2], FAN) // E4 at absolute beat 2
     engine.setTimeSignature(1, { numerator: 2, denominator: 4 })
-    expect(fanAt(engine, 2, 0)).toEqual(FAN)
+    expect(assertionOf(fanAt(engine, 2, 0))).toEqual(FAN)
     expect(fanAt(engine, 1, 0)).toBeUndefined()
   })
 
@@ -82,7 +99,7 @@ describe('fan — survives a rebar', () => {
     const head = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!
     model(engine).setFan(head.id, FAN)
     engine.setTimeSignature(1, { numerator: 1, denominator: 4 })
-    expect(fanAt(engine, 1, 0)).toEqual(FAN)
+    expect(assertionOf(fanAt(engine, 1, 0))).toEqual(FAN)
     expect(fanAt(engine, 2, 0)).toBeUndefined()
   })
 })
@@ -95,8 +112,26 @@ describe('fan — copy/paste', () => {
     const clip = buildClipboardFromSelection(engine.getScore(), ids)!
     engine.addMeasure()
     engine.pasteEvents(2, frac(0, 1), clip.lanes, clip.spanBeats, 0, [], [], 0, clip.dynamics, clip.slurs)
-    expect(fanAt(engine, 2, 1)).toEqual(FAN)
+    expect(assertionOf(fanAt(engine, 2, 1))).toEqual(FAN)
     expect(fanAt(engine, 2, 0)).toBeUndefined()
+  })
+
+  it('⭐ the pasted fan gets its OWN member pitch ids — same pitches, different notes', () => {
+    // Two live slots sharing a pitch id is silent: `getElementById` is document-wide, so the first
+    // in tree order wins every lookup and an edit aimed at the copy lands on the original.
+    const engine = makeEngine()
+    const ids = fourNotes(engine, 1)
+    model(engine).setFan(ids[1], FAN)
+    const clip = buildClipboardFromSelection(engine.getScore(), ids)!
+    engine.addMeasure()
+    engine.pasteEvents(2, frac(0, 1), clip.lanes, clip.spanBeats, 0, [], [], 0, clip.dynamics, clip.slurs)
+
+    const source = fanAt(engine, 1, 1)
+    const pasted = fanAt(engine, 2, 1)
+    expect(memberPitches(pasted)).toEqual(memberPitches(source))
+    const shared = memberIds(pasted).filter(id => memberIds(source).includes(id))
+    expect(shared).toEqual([])
+    expect(new Set(memberIds(pasted)).size).toBe(DEFAULT_FAN_COUNT - 1)
   })
 })
 
@@ -106,6 +141,7 @@ describe('fan — the voice move (Alt+1/2)', () => {
     const ids = fourNotes(engine, 1)
     model(engine).setFan(ids[0], FAN)
     engine.moveNoteToVoice(ids[0], 1)
-    expect(fanAt(engine, 1, 0, 1)).toEqual(FAN)
+    expect(assertionOf(fanAt(engine, 1, 0, 1))).toEqual(FAN)
+    expect(memberPitches(fanAt(engine, 1, 0, 1))).toHaveLength(DEFAULT_FAN_COUNT - 1)
   })
 })

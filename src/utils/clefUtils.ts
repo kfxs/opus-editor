@@ -35,6 +35,21 @@ export function naturalStemDirection(step: PitchStep, octave: number, clef: Clef
 }
 
 /**
+ * VexFlow STAFF LINE of a pitch under a clef — the number a `NoteHead` and `Stave.getYForNote` both
+ * speak: **1 is the bottom line, 5 the top, 3 the middle**, and a step is half of one (a note in a
+ * space lands on a `.5`). Off the staff continues the same count, which is why a ledger line is
+ * needed at ≥ 6 or ≤ 0 (`restSupportingLedgerLine` states the same bound).
+ *
+ * Only wanted where a head is drawn by HAND — the fanned beam's members
+ * (docs/fanned-beam-pitches-plan.md §2) — since a `StaveNote` resolves its own from the key string.
+ * Derived from the clef's middle line rather than from a table, so a clef added later needs one row
+ * in {@link CLEF_MIDDLE_LINE_DIATONIC} and nothing here.
+ */
+export function staffLineForSpelling(step: PitchStep, octave: number, clef: Clef): number {
+  return 3 + (spellingDiatonicPos(step, octave) - middleLineDiatonicPos(clef)) / 2
+}
+
+/**
  * Does a clef change belong to the staff addressed by `staffId`? Clef is per-staff
  * (multi-staff, docs/multi-staff-plan.md §4): an absent `staffId` on either side resolves
  * to the first staff, so at N=1 (all absent, query undefined) every clef matches the one

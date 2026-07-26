@@ -20,6 +20,7 @@ import {
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { beamRoleAtRef, type BeamRole } from '@/utils/beaming'
 import { laneOfSlot, pairAcceptsJoined, pairIsValid } from '@/utils/tremoloPair'
+import { normalizeFan, cloneFanFresh } from '@/utils/fannedBeam'
 import { spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
 import { type RebarEvent } from '@/utils/rebar'
 import {
@@ -2103,7 +2104,11 @@ export class ScoreModel {
     }
 
     if (chord.tupletId) return null
-    chord.fan = fan
+    // ⭐ The ONE place `count` and `members` are held in step (docs/fanned-beam-pitches-plan.md §1).
+    // Materialises the members on a fresh mark, grows or shrinks them on an edited one — and does it
+    // HERE rather than in the callers so a palette press, a Properties number and anything added
+    // later cannot disagree about the off-by-one.
+    chord.fan = normalizeFan(fan, chord.notes)
     delete chord.tremolo
     delete chord.tremoloPair
     delete chord.tremoloPairStyle
@@ -2810,7 +2815,10 @@ export class ScoreModel {
       // The fan is the same kind of statement about the event, so it follows the same rule — and it
       // stands down in front of a tremolo the destination already carries, because the two cannot
       // both describe the same slot (`setFan`).
-      if (payload.fan && !existingChord.fan && !existingChord.tremolo) existingChord.fan = payload.fan
+      // Cloned, not shared: the slot it came from may still exist (a chord keeps its fan when one of
+      // its pitches leaves), and two live slots holding ONE members array means two heads with the
+      // same pitch id — see {@link cloneFanFresh}.
+      if (payload.fan && !existingChord.fan && !existingChord.tremolo) existingChord.fan = cloneFanFresh(payload.fan)
       if (payload.secondaryBreak && existingChord.secondaryBreak === undefined) {
         existingChord.secondaryBreak = true
       }
@@ -2845,7 +2853,7 @@ export class ScoreModel {
     if (payload.tremolo) chord.tremolo = payload.tremolo
     if (payload.tremoloPair) chord.tremoloPair = true
     if (payload.tremoloPairStyle) chord.tremoloPairStyle = payload.tremoloPairStyle
-    if (payload.fan) chord.fan = payload.fan
+    if (payload.fan) chord.fan = cloneFanFresh(payload.fan) // fresh member ids — see the merge branch
     if (targetVoice) chord.voice = targetVoice as 0 | 1 | 2 | 3
     chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
     dbg(`[Model.insertPitch] new chord ${fmtSlot(chord)} → replacing v${targetVoice} rests`)

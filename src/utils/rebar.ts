@@ -57,6 +57,7 @@ import { durationToFraction } from '@/utils/durations'
 import { tupletSpan } from '@/utils/musicUtils'
 import { getMeterInfo, type MeterInfo } from '@/utils/meter'
 import { fillRests, decomposeSpan } from '@/utils/restFill'
+import { cloneFanFresh } from '@/utils/fannedBeam'
 
 // ---------------------------------------------------------------------------
 // Public data shapes
@@ -214,7 +215,12 @@ export function flattenRegion(measures: Measure[], voice: 0 | 1 | 2 | 3 = 0): Re
         articulations: slot.articulations,
         articulationPlacement: slot.articulationPlacement,
         tremolo: slot.tremolo,
-        fan: slot.fan,
+        // ⚠️ A COPY, not the slot's own mark. The flattened stream is also the clipboard's payload —
+        // documented as position-independent and re-pasteable — and `fan` is the one field on an
+        // event that is an OBJECT. Held by reference, a copied fan would keep changing as its source
+        // was edited (reference_live_model_objects_break_dedup); with member pitches inside, it
+        // would also hand the payload live model ids.
+        fan: slot.fan && cloneFanFresh(slot.fan),
         // Collapse marker: the whole chord is tied forward into the next slot.
         tiedForward: slot.notes.length > 0 && slot.notes.every((p) => !!p.tiedTo),
       })

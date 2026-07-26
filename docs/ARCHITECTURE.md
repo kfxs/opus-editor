@@ -60,8 +60,8 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 │      audio/PlaybackEngine .. WebAudioFont sampled voices       │
 ├─────────────────────────────────────────────────────────────┤
 │  utils/  pure functions: fraction, meter, rebar, restFill,    │  Pure
-│          beaming, beatMap, clefUtils, durations, dynamics,     │  helpers
-│          musicUtils, pitchSpelling, slurs, articulations       │
+│          beaming, fannedBeam, beatMap, clefUtils, durations,   │  helpers
+│          dynamics, musicUtils, pitchSpelling, slurs, artics    │
 │  types/music.ts  the shared interfaces                         │
 │  shortcuts/  declarative keybinding table + manager            │
 └─────────────────────────────────────────────────────────────┘
@@ -131,6 +131,8 @@ holds a *rule*, it is in the wrong file.
 | Which notes are beamed together | `utils/beaming.ts` (pure — a run of bars, each with its own `MeterInfo`, → index groups; one bar is a run of one). The per-note override lives on the NOTE (`Chord.beam`), not in `engravingOverrides`. See `docs/beaming.md` |
 | A beam that crosses a BARLINE | `rendering/CrossBarBeams.ts` decides which barlines are open (bounded by the system break and by any unpainted bar); the bar gives its joined notes a **placeholder** beam, and the one real `Beam` is drawn in a post-measure pass **outside both measure groups**, like a tie. It rides both bars' `measureShapeKey` and pins them as span anchors. See `docs/cross-barline-beaming-plan.md` |
 | How many beam LINES join them (6 sixteenths subdivided 3+3) | `Chord.secondaryBreak` — a SEPARATE field from `Chord.beam`, not a sixth `BeamMode`: which notes are beamed and how they are subdivided are independent statements. Drawn with VexFlow's `Beam.breakSecondaryAt`; the index translation is `secondaryBreakIndices` in `utils/beaming.ts`. See `docs/beaming.md` |
+| A FANNED (feathered) beam — one note played and drawn as many | `Chord.fan` is the ASSERTION ("play this note as six, accelerating"); the RHYTHM is a projection from `utils/fannedBeam.ts` (`fanMembers`), read by BOTH the drawing (`rendering/FannedBeam.ts`) and the playback so they cannot disagree. The slot keeps its own duration — one event, indivisible, so no re-tile can break the group. Only the PITCHES are stored (`FanMark.members`, member 0 IS the slot's own chord), because a pitch cannot be derived; `normalizeFan` is the one function allowed to keep them in step with `count`. 🚨 Its WIDTH comes from the RAMP, not the member count (`fanColumns`): heads are placed proportionally, so the span is set by the group's TIGHTEST gap. See `docs/fanned-beams-plan.md` + `docs/fanned-beam-pitches-plan.md` |
+| Which accidental SIGN a note displays | One forward walk — `displayedAccidentals` (`utils/accidentalState.ts`), read by `NoteBuilder` for the `StaveNote`s AND by the fan renderer for its hand-drawn member heads, so the drawing can never invent a second rule. Its query twin `prevailingAlterations` answers "what is in force at this beat?" for the palette and the selection. ⚠️ Scope is the CALLER's: pass one lane's slots, and use `measureAccidentalNotes` (not `getMeasureNotes`) where fanned members must count — they alter the bar like any other note |
 | **Choosing a colour** | Three semantic modules in `utils/`, never a stray hex: **`voiceColors.ts`** = per-voice note/rest/tuplet selection (V1 blue / V2 green / V3 orange / V4 purple); **`selectionColors.ts`** = the non-voice `INDICATOR_INK` blue, shared by the gutter, the Keypad mode arrow, and every NON-note element selection (clef/time-sig/barline/dynamic/tempo text) — orange is reserved for voice 3, so elements must **not** select in orange; **`chromeColors.ts`** = window/menu/keypad neutrals. Slur-edit handles keep their own orange(open-join)/blue(true-end) language on purpose. |
 
 ---

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { fanMembers, fanSpeedRatio, rampWeights, DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS } from './fannedBeam'
+import { fanMembers, fanSpeedRatio, rampWeights, normalizeFan, cloneFanFresh, DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS } from './fannedBeam'
 import { fracCreate as frac, fracFromInt, fracAdd, fracEq, fracToNumber } from './fraction'
-import type { FanMark } from '@/types/music'
+import type { FanMark, NotePitch } from '@/types/music'
 
 /**
  * The expander (docs/fanned-beams-plan.md §2). What is pinned here is the ONE promise a fan makes —
@@ -145,5 +145,54 @@ describe('rampWeights — the seam the curve will be swapped at', () => {
 
   it('n = 1 has no ramp to build', () => {
     expect(rampWeights(1, 4)).toHaveLength(1)
+  })
+})
+
+/**
+ * ⚠️ `normalizeFan` is PURE — and it has to be, because the mark it is handed is very often the
+ * LIVE `chord.fan` spread into a new object (`toFlatNote` hands out the reference,
+ * `FanEditController` spreads it). An in-place edit here would reach straight through that spread
+ * and write into the model behind the mutator's back, with undo none the wiser.
+ */
+describe('normalizeFan — the one owner of members.length === count - 1', () => {
+  const pitch = (step: string, id: string): NotePitch =>
+    ({ id, step: step as NotePitch['step'], alter: 0, octave: 4 })
+  const own = [pitch('C', 'own-1')]
+
+  it('never touches the mark — or the members array — it was handed', () => {
+    const before: FanMark = { direction: 'accel', count: 2, beams: 3, members: [[pitch('E', 'm1')]] }
+    const snapshot = JSON.stringify(before)
+    const after = normalizeFan({ ...before, count: 5 }, own)
+    expect(JSON.stringify(before)).toBe(snapshot)
+    expect(after.members).not.toBe(before.members)
+    expect(after.members).toHaveLength(4)
+  })
+
+  it('stores the clamped count, so the invariant holds for what was actually written', () => {
+    const out = normalizeFan({ direction: 'rit', count: 1e9, beams: 2 }, own)
+    expect(out.members).toHaveLength(out.count - 1)
+  })
+
+  it('drops what a member is not allowed to carry — a tie belongs to the slot', () => {
+    const tied: NotePitch = { ...pitch('C', 'own-1'), tiedTo: 'somewhere', tieDirection: 1 }
+    const out = normalizeFan({ direction: 'accel', count: 3, beams: 3 }, [tied])
+    expect(out.members!.every(m => m[0].tiedTo === undefined && m[0].tieDirection === undefined)).toBe(true)
+  })
+})
+
+describe('cloneFanFresh — the copy that mints its own ids', () => {
+  it('same pitches, no shared id, and the arrays are its own', () => {
+    const src: FanMark = {
+      direction: 'accel', count: 3, beams: 3,
+      members: [[{ id: 'a', step: 'C', alter: 0, octave: 4 }], [{ id: 'b', step: 'E', alter: 1, octave: 4 }]],
+    }
+    const copy = cloneFanFresh(src)
+    expect(copy.members!.map(m => `${m[0].step}${m[0].alter}${m[0].octave}`)).toEqual(['C04', 'E14'])
+    expect(copy.members!.flat().map(p => p.id)).not.toContain('a')
+    expect(copy.members![0]).not.toBe(src.members![0])
+  })
+
+  it('a mark with no members is copied, not repaired', () => {
+    expect(cloneFanFresh({ direction: 'rit', count: 4, beams: 2 })).toEqual({ direction: 'rit', count: 4, beams: 2 })
   })
 })
