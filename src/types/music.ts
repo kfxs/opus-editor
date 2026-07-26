@@ -263,6 +263,28 @@ export interface FanMark {
   /** Beam lines at the WIDE end. The narrow end is always 1 (Dorico's model, and its limit). */
   beams: number
   /**
+   * ⭐ Which member the feathering STARTS on and which it ENDS on — 0-based member indices,
+   * **inclusive**, and `rampFrom` is always the LEFT one (`0 ≤ rampFrom < rampTo ≤ count-1`). Absent
+   * on both means the whole group, which is what every fan drawn before this existed says.
+   *
+   * ⭐ **Named for the RAMP, not for the beam lines, because they govern both.** A note outside the
+   * mark sounds at the steady base speed and carries ONE beam, so the sounding weights, the head
+   * spacing and the drawn levels are one fact with three readers — `fanWeights` (utils/fannedBeam) is
+   * the reader, and the only place these two numbers are interpreted. Picture and playback are the
+   * same function here, as they have been since day one (docs/fan-ramp-range-plan.md §0).
+   *
+   * ⚠️ **ABSENT IS THE ONLY SPELLING OF THE DEFAULT.** `normalizeFan` drops them both when they come
+   * out equal to `0`/`count-1` (and when `count ≤ 1`, where the inequality cannot hold at all), so
+   * `{rampFrom: 0, rampTo: 5}` never reaches the model. Not tidiness: `laneFingerprint` — the width
+   * cache key — stringifies the whole slot, so the two spellings would mint two cache keys for one
+   * piece of music.
+   *
+   * ⚠️ Readers still CLAMP rather than trust: `normalizeFan` runs from `ScoreModel.setFan` alone, and
+   * `fromJSON` and the undo restore do not go near it — the same reason `members` has a fallback.
+   */
+  rampFrom?: number
+  rampTo?: number
+  /**
    * The pitches of members 1…`count-1` — **member 0 IS the slot's own {@link Chord.notes}** and is
    * deliberately not repeated here. That is what makes "remove the fan and the note you typed is
    * still there" literally true rather than reconstructed.

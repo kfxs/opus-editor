@@ -67,6 +67,86 @@ export function clampFanBeams(beams: number): number {
 }
 
 /**
+ * How many members a fan claims — `count`, held at 1 or more and whole.
+ *
+ * A one-liner with a name because it was spelled out at every reader, and a fan whose count is read
+ * two different ways is a fan whose drawing and playback disagree about how many notes there are.
+ */
+export function fanCount(fan: FanMark): number {
+  return Math.max(1, Math.round(fan.count))
+}
+
+/**
+ * ⭐ Which members the feathering covers — {@link FanMark.rampFrom}/{@link FanMark.rampTo} resolved
+ * against the count, 0-based and INCLUSIVE. Absent on either side means that end of the group.
+ *
+ * ⚠️ **It CLAMPS, it does not trust.** `normalizeFan` is the one place these are written, and it runs
+ * from `ScoreModel.setFan` alone — `fromJSON` and the undo restore hand the readers whatever the file
+ * said. Every other fan reader defends itself for exactly that reason (`fanMemberPitches` falls back
+ * to the slot's pitches, the count is re-rounded at each use), and a range read past the end of its
+ * own ramp is the one failure mode this feature adds. One line, so it is not worth being clever
+ * about.
+ *
+ * `rampFrom` is pinned first and `rampTo` pushed out past it, so a group that SHRINKS under a range
+ * pulls the far end in — `[0…5]` on a fan cut to three members becomes `[0…2]`, the whole group
+ * again — and a pair that arrives crossed keeps the start the user typed.
+ *
+ * A fan of one member has no range to speak of and reports `{from: 0, to: 0}`; every caller has
+ * already returned by then (there is no ramp, no wedge and nothing to draw).
+ */
+export function fanRampRange(fan: FanMark): { from: number; to: number } {
+  return rampRange(fanCount(fan), fan.rampFrom, fan.rampTo)
+}
+
+/**
+ * The same answer for a caller holding the two numbers loose — {@link fannedBeamGeometry}, which is
+ * given a member LIST rather than a mark and must clamp against the length it will actually index.
+ *
+ * Separate so the arithmetic above has one home and not two: an `stems[rampTo]` that runs off the
+ * end of the array is the one way this feature crashes, and it must not depend on the renderer
+ * having resolved the range correctly on the way in.
+ */
+export function rampRange(count: number, rampFrom?: number, rampTo?: number): { from: number; to: number } {
+  const n = Math.max(1, Math.round(count))
+  if (n < 2) return { from: 0, to: 0 }
+  // A number that is not one is not an end: it means the same as absence, which is that end of the
+  // group. Resolved BEFORE the clamp, so a `NaN` cannot arrive at the bounds and come back as 0.
+  const asked = (v: number | undefined, absent: number) =>
+    v !== undefined && Number.isFinite(v) ? Math.round(v) : absent
+  const from = Math.min(n - 2, Math.max(0, asked(rampFrom, 0)))
+  const to = Math.min(n - 1, Math.max(from + 1, asked(rampTo, n - 1)))
+  return { from, to }
+}
+
+/**
+ * ⭐ **THE ONE OWNER OF THE WEIGHT SHAPE** — count, ratio, direction *and* range, resolved into one
+ * duration weight per member. `fanMembers` (playback, head spacing) and `fanColumns` (bar width) both
+ * read it, and neither knows what a range is.
+ *
+ * - outside `[rampFrom, rampTo]`: weight `1` — the base, and the note value the wedge's narrow end
+ *   converges to, so an outside note draws with ONE beam and sounds at the steady speed;
+ * - inside: {@link rampWeights} across the range's own length, reversed for a `rit`.
+ *
+ * ⚠️ **The direction lives HERE, and that is the whole reason this function exists.** Both callers
+ * used to reverse the array themselves, which was harmless while the ramp covered the group and
+ * fatal the moment it does not: reversing the WHOLE array mirrors an inset mark to the other end of
+ * the fan. The reversal belongs to the ramp, not to the group.
+ *
+ * ⚠️ Takes the mark, never `(fan, n)` — the count is spelled out at four readers today, and handing
+ * it in as an argument re-opens the exact disagreement this closes.
+ */
+export function fanWeights(fan: FanMark): Fraction[] {
+  const n = fanCount(fan)
+  if (n < 2) return [fracFromInt(1)]
+  const { from, to } = fanRampRange(fan)
+  const ramp = rampWeights(to - from + 1, fanSpeedRatio(fan.beams))
+  if (fan.direction === 'rit') ramp.reverse()
+  const weights: Fraction[] = []
+  for (let k = 0; k < n; k++) weights.push(k >= from && k <= to ? ramp[k - from] : fracFromInt(1))
+  return weights
+}
+
+/**
  * How many times faster the fast end is than the slow one, read off the beam count.
  *
  * **A beam IS a halving**, so 1 → 3 beams is 4×: the same arithmetic that makes a note with two
@@ -95,12 +175,16 @@ export function fanSpeedRatio(beams: number): number {
  * ⚠️ The unit is `MIN_NOTE_SPACING`: one column is what an ordinary event gets, and that is exactly
  * the claim being made — *a fanned note takes the room of this many notes.* It has to be a count
  * rather than a measured width because the width pass runs where glyphs cannot be measured.
+ *
+ * A RANGE is already in the answer, because {@link fanWeights} is: an inset mark holds its outside
+ * members at weight 1, so the ramp asking for the room is the one actually drawn. It can ask for
+ * MORE, not less — a wedge that ends before the group does puts the tightest gap inside the span
+ * instead of after the last head, where it was not counted.
  */
 export function fanColumns(fan: FanMark): number {
-  const n = Math.max(1, Math.round(fan.count))
+  const n = fanCount(fan)
   if (n < 2) return 1
-  const weights = rampWeights(n, fanSpeedRatio(fan.beams)).map(fracToNumber)
-  if (fan.direction === 'rit') weights.reverse()
+  const weights = fanWeights(fan).map(fracToNumber)
   const sum = weights.reduce((a, b) => a + b, 0)
   const tightest = Math.min(...weights.slice(0, n - 1)) // the gaps, not the members
   return Math.ceil(sum / tightest) + 1
@@ -148,12 +232,15 @@ function copyMemberPitches(pitches: NotePitch[]): NotePitch[] {
  * ⭐ Hold `count` and {@link FanMark.members} in step — the ONE function allowed to know that
  * `members.length === count - 1` (member 0 is the slot's own chord, never repeated in the list).
  *
- * Three jobs, and each is a decision:
+ * Four jobs, and each is a decision:
  * - **materialise** (no members yet): every member starts as a copy of the note you typed, so a
  *   fresh fan sounds and draws exactly as it did before this existed;
  * - **grow**: new members copy the LAST one — a rising line continues rising. Jumping back to the
  *   first note is never what was meant;
- * - **shrink**: drop from the end.
+ * - **shrink**: drop from the end;
+ * - **settle the ramp range** against the count it just clamped — see the body. The same off-by-one
+ *   that makes `members.length === count - 1` this function's business makes `rampTo ≤ count-1` its
+ *   business too, and for the same reason: nobody else knows the count is about to change.
  *
  * ⚠️ **PURE — a fresh `members` array out, and the one handed in is never touched.** `toFlatNote`
  * hands out the LIVE `chord.fan` (reference_live_model_objects_break_dedup) and `FanEditController`
@@ -169,7 +256,26 @@ export function normalizeFan(fan: FanMark, own: NotePitch[]): FanMark {
   const members = (fan.members ?? []).slice(0, want)
   const source = members[members.length - 1] ?? own
   while (members.length < want) members.push(copyMemberPitches(source))
-  return { ...fan, count, members }
+  const out: FanMark = { ...fan, count, members }
+
+  // ⭐ THE FOURTH JOB, and the only one that DELETES: the ramp range is written here or not at all.
+  // Resolved against the CLAMPED count, so a lowered count pulls a stranded range back in the same
+  // way the member list is truncated — one edit, one place, both invariants.
+  //
+  // ⚠️ **Absent is the only spelling of the whole group.** Writing `{rampFrom: 0, rampTo: count-1}`
+  // would say exactly what absence says, in a different string — and `laneFingerprint` stringifies
+  // the whole slot, so the width cache would hold two keys for one piece of music. The `{...fan}`
+  // spread above is what makes the delete necessary rather than optional: a stale range rides
+  // through it untouched.
+  const { from, to } = fanRampRange(out)
+  if (from === 0 && to === count - 1) {
+    delete out.rampFrom
+    delete out.rampTo
+  } else {
+    out.rampFrom = from
+    out.rampTo = to
+  }
+  return out
 }
 
 /**
@@ -196,7 +302,7 @@ export function cloneFanFresh(fan: FanMark): FanMark {
  * storable. Readers never repair the model, they only read past it.
  */
 export function fanMemberPitches(notes: NotePitch[], fan: FanMark): NotePitch[][] {
-  const n = Math.max(1, Math.round(fan.count))
+  const n = fanCount(fan)
   const out: NotePitch[][] = [notes]
   for (let k = 1; k < n; k++) out.push(fan.members?.[k - 1] ?? notes)
   return out
@@ -279,13 +385,18 @@ export interface FanMember {
 }
 
 /**
- * The DURATION weight of each member, before normalization — `w_k = lerp(1, 1/ratio, k/(n-1))`,
- * reversed for `rit`.
+ * The DURATION weight of each of the RAMP's `n` members, before normalization —
+ * `w_k = lerp(1, 1/ratio, k/(n-1))`, always descending.
  *
  * Durations, not speeds, because that is what the caller needs and it keeps the arithmetic exact:
  * an accelerando's notes get progressively SHORTER, so the first weight is 1 and the last is
- * `1/ratio`. A rallentando is the same ramp read backwards. Every term is rational (`ratio` is a
- * power of two), so nothing here needs a float.
+ * `1/ratio`. Every term is rational (`ratio` is a power of two), so nothing here needs a float.
+ *
+ * ⚠️ **The RAMP's length, not the GROUP's, and no direction.** Reversing for a `rit` and mapping the
+ * result onto the group's members are both {@link fanWeights}' business — the ramp may cover only
+ * part of the fan (docs/fan-ramp-range-plan.md §2), and an array reversed by a caller that thinks it
+ * holds the whole group mirrors an inset mark to the other end. This function shapes a ramp; it does
+ * not know where one sits.
  */
 export function rampWeights(n: number, ratio: number, curve: FanCurve = 'linear'): Fraction[] {
   void curve // one shape today; the parameter is the seam, see the file header
@@ -310,14 +421,12 @@ export function rampWeights(n: number, ratio: number, curve: FanCurve = 'linear'
  * feathering means.
  */
 export function fanMembers(fan: FanMark, totalQuarters: Fraction): FanMember[] {
-  const n = Math.max(1, Math.round(fan.count))
+  const n = fanCount(fan)
   // A zero-length slot has no span to ramp across and no proportion to report — one member, which
   // is also the only answer that keeps `Σ quarters` equal to the total.
   if (n === 1 || totalQuarters.num === 0) return [{ index: 0, quarters: totalQuarters, startFraction: 0 }]
 
-  const weights = rampWeights(n, fanSpeedRatio(fan.beams))
-  if (fan.direction === 'rit') weights.reverse()
-
+  const weights = fanWeights(fan)
   const sum = weights.reduce(fracAdd, fracFromInt(0))
   const scale = fracDiv(totalQuarters, sum)
 

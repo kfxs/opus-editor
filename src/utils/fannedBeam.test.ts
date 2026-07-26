@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { fanMembers, fanSpeedRatio, rampWeights, normalizeFan, cloneFanFresh, DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS } from './fannedBeam'
+import {
+  fanMembers, fanSpeedRatio, rampWeights, fanWeights, fanRampRange, fanColumns, normalizeFan,
+  cloneFanFresh, DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS,
+} from './fannedBeam'
 import { fracCreate as frac, fracFromInt, fracAdd, fracEq, fracToNumber } from './fraction'
 import type { FanMark, NotePitch } from '@/types/music'
 
@@ -149,6 +152,100 @@ describe('rampWeights — the seam the curve will be swapped at', () => {
 })
 
 /**
+ * ⭐ The RANGE (docs/fan-ramp-range-plan.md P0). Two promises: the default is **today's numbers, to
+ * the last unit** — this is the whole no-migration claim, and a drifted weight would move every fan
+ * already on the page — and an inset mark holds the members outside it at ONE weight, which is what
+ * makes "outside the mark is a one-beam note at base speed" true of the sound as well as the picture.
+ */
+describe('fanWeights — the one owner of count, ratio, direction and range', () => {
+  const nums = (f: FanMark) => fanWeights(f).map(fracToNumber)
+
+  it('with no range it IS the old expression — the whole group, reversed for a rit', () => {
+    for (const count of [2, 3, 5, 6, 9]) {
+      for (const beams of [1, 2, 3, 4]) {
+        const plain = rampWeights(count, fanSpeedRatio(beams))
+        expect(fanWeights(fan({ count, beams }))).toEqual(plain)
+        expect(fanWeights(fan({ count, beams, direction: 'rit' }))).toEqual([...plain].reverse())
+      }
+    }
+  })
+
+  it('outside the mark every member weighs the same — the base, one beam', () => {
+    const w = nums(fan({ count: 6, beams: 3, rampFrom: 2, rampTo: 4 }))
+    expect(w.slice(0, 3)).toEqual([1, 1, 1]) // 0,1 outside; 2 is the ramp's own narrow end
+    expect(w[5]).toBe(1)
+    expect(w[3]).toBeLessThan(w[2])
+    expect(w[4]).toBeCloseTo(1 / 4, 10) // 3 beams ⇒ the wide end is 4× the speed
+  })
+
+  it('the ramp is REVERSED, not the group — a rit keeps its mark where it was put', () => {
+    // The trap §2 exists for: reversing the whole array would mirror `[1,3]` onto `[2,4]`.
+    const w = nums(fan({ count: 6, beams: 3, direction: 'rit', rampFrom: 1, rampTo: 3 }))
+    expect([w[0], w[4], w[5]]).toEqual([1, 1, 1])
+    expect(w[1]).toBeCloseTo(1 / 4, 10) // a rit OPENS at the wide end
+    expect(w[3]).toBe(1)
+  })
+
+  it('one member each side is a whole ramp — the shortest mark there is', () => {
+    const w = nums(fan({ count: 5, beams: 2, rampFrom: 1, rampTo: 2 }))
+    expect(w).toEqual([1, 1, 0.5, 1, 1])
+  })
+})
+
+describe('fanRampRange — it clamps, it does not trust', () => {
+  it('absent is the whole group', () => {
+    expect(fanRampRange(fan({ count: 6 }))).toEqual({ from: 0, to: 5 })
+  })
+
+  it('a range past the end of the count reads as the group, and never throws', () => {
+    // The reason it clamps at all: `normalizeFan` runs from `setFan` alone, so `fromJSON` and the
+    // undo restore can hand a reader anything the file said.
+    expect(fanRampRange(fan({ count: 3, rampFrom: 9, rampTo: 40 }))).toEqual({ from: 1, to: 2 })
+    expect(() => fanWeights(fan({ count: 3, rampFrom: 9, rampTo: 40 }))).not.toThrow()
+    expect(fanWeights(fan({ count: 3, rampFrom: -5, rampTo: 1.4 }))).toHaveLength(3)
+  })
+
+  it('a NaN end falls back to that end of the group rather than guessing', () => {
+    expect(fanRampRange(fan({ count: 4, rampFrom: NaN, rampTo: NaN }))).toEqual({ from: 0, to: 3 })
+  })
+
+  it('a crossed pair keeps the start and pushes the end past it', () => {
+    expect(fanRampRange(fan({ count: 8, rampFrom: 5, rampTo: 2 }))).toEqual({ from: 5, to: 6 })
+  })
+
+  it('a fan of one has no range to speak of', () => {
+    expect(fanRampRange(fan({ count: 1, rampFrom: 0, rampTo: 3 }))).toEqual({ from: 0, to: 0 })
+  })
+})
+
+describe('the range, read by the three consumers', () => {
+  it('Σ quarters is STILL exactly the slot total', () => {
+    for (const direction of ['accel', 'rit'] as const) {
+      const members = fanMembers(fan({ count: 7, beams: 3, direction, rampFrom: 2, rampTo: 5 }), frac(3, 2))
+      expect(fracEq(total(members), frac(3, 2))).toBe(true)
+      expect(members).toHaveLength(7)
+    }
+  })
+
+  it('the steady stretch is EVEN, and it is not the same speed as the full ramp', () => {
+    // §0's honesty point: the weights are normalized into one unchanged total, so shrinking the ramp
+    // hands time back to the notes outside it. Even at every setting; constant at none.
+    const spans = (f: FanMark) => fanMembers(f, frac(1, 1)).map(m => fracToNumber(m.quarters))
+    const ranged = spans(fan({ count: 6, beams: 3, rampFrom: 3, rampTo: 5 }))
+    expect(ranged[0]).toBeCloseTo(ranged[1], 10)
+    expect(ranged[1]).toBeCloseTo(ranged[2], 10)
+    expect(ranged[0]).toBeLessThan(spans(fan({ count: 6, beams: 3 }))[0])
+  })
+
+  it('an inset wedge asks the bar for MORE room, never less', () => {
+    // The tightest gap moves INSIDE the span, where `fanColumns` counts it — it used to sit after
+    // the last head, which nothing follows.
+    const whole = fanColumns(fan({ count: 6, beams: 3 }))
+    expect(fanColumns(fan({ count: 6, beams: 3, rampFrom: 0, rampTo: 4 }))).toBeGreaterThan(whole)
+  })
+})
+
+/**
  * ⚠️ `normalizeFan` is PURE — and it has to be, because the mark it is handed is very often the
  * LIVE `chord.fan` spread into a new object (`toFlatNote` hands out the reference,
  * `FanEditController` spreads it). An in-place edit here would reach straight through that spread
@@ -171,6 +268,33 @@ describe('normalizeFan — the one owner of members.length === count - 1', () =>
   it('stores the clamped count, so the invariant holds for what was actually written', () => {
     const out = normalizeFan({ direction: 'rit', count: 1e9, beams: 2 }, own)
     expect(out.members).toHaveLength(out.count - 1)
+  })
+
+  it('ABSENT is the only spelling of the whole group — a redundant range is deleted', () => {
+    // Not tidiness: `laneFingerprint` stringifies the slot, so the two spellings would mint two
+    // width-cache keys for one piece of music.
+    const out = normalizeFan({ direction: 'accel', count: 6, beams: 3, rampFrom: 0, rampTo: 5 }, own)
+    expect('rampFrom' in out).toBe(false)
+    expect('rampTo' in out).toBe(false)
+  })
+
+  it('stores an inset range clamped, having already clamped the count', () => {
+    const out = normalizeFan({ direction: 'accel', count: 4, beams: 3, rampFrom: 1, rampTo: 9 }, own)
+    expect([out.rampFrom, out.rampTo]).toEqual([1, 3])
+  })
+
+  it('a LOWERED count pulls a stranded range in — and back to absent when it spans the group', () => {
+    // The same edit that truncates the member list settles the range; nobody else knows the count
+    // is about to change.
+    const out = normalizeFan({ direction: 'rit', count: 3, beams: 2, rampFrom: 0, rampTo: 5 }, own)
+    expect(out.members).toHaveLength(2)
+    expect('rampTo' in out).toBe(false)
+  })
+
+  it('a count of 1 cannot carry a range at all', () => {
+    const out = normalizeFan({ direction: 'accel', count: 1, beams: 3, rampFrom: 0, rampTo: 4 }, own)
+    expect('rampFrom' in out).toBe(false)
+    expect(out.members).toHaveLength(0)
   })
 
   it('drops what a member is not allowed to carry — a tie belongs to the slot', () => {
