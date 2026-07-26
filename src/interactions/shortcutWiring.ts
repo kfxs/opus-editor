@@ -464,6 +464,9 @@ export function wireShortcuts(
       if (!cell) return false
       pressKeypadCell(cell)
     },
+    // Straight to a NAMED Keypad page, rather than stepping the `+` ring to reach it. The seam is
+    // the same one the panel and the numpad read, so the pad follows whether or not it is open.
+    keypadNoteEntryPage: () => keypadPageSelection.set('noteEntry'),
     createSlur: () => palette.createSlur(),
     // Ctrl+Shift+B: keyboard accelerator for the "Add Measure" button — inserts one bar
     // after the Ctrl+Shift-selected measure span (Sibelius's single-bar shortcut). No-op

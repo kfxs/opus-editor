@@ -302,6 +302,19 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   'Ctrl+-': { action: 'zoomOut', description: 'Zoom out' },
   'Ctrl+0': { action: 'zoomReset', description: 'Reset zoom to 100%' },
 
+  // Turn the Keypad straight to the NOTE ENTRY page — Sibelius's F7-style jump to a named layout,
+  // without walking the `+` ring. It names the PAGE, never an index (see `KEYPAD_PAGES`): a page
+  // inserted later must not silently re-point this key.
+  //
+  // 🚨 **The TOP-ROW `Ctrl+1` is the browser's own tab-switch, and a page cannot preventDefault it** —
+  // the same wall `tempoMenu` and `TextEditController` hit, which is why they route through the
+  // numeric keypad instead. So in an ordinary tab this fires from the NUMPAD's `1` and not from the
+  // top row: with NumLock on that key reports `key: '1'`, which is what this table matches on (a
+  // modified shortcut is looked up by `key`, never by `code` — see `ShortcutManager`), and browsers
+  // reserve the top row rather than the pad. The top-row press still works wherever the browser is
+  // not in the way (a desktop shell), and costs nothing to leave declared.
+  'Ctrl+1': { action: 'keypadNoteEntryPage', description: 'Keypad: turn to the note-entry page' },
+
   // View mode (docs/linear-view-plan.md). Sibelius binds Panorama to Ctrl+Shift+P, but Firefox
   // owns that (private window), so: Ctrl+Shift+L for "linear".
   'Ctrl+Shift+l': {

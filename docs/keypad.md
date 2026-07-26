@@ -53,6 +53,19 @@ shut**. A page held privately in `KeypadWidget` would be invisible to the keyboa
 every time the window closed. The widget subscribes and re-lays its grid, like it already did for
 duration and voice.
 
+Two ways to change it: `+` steps the ring (`keypadPageSelection.next`, the ONE place page ORDER is
+used), and a shortcut can jump straight to a NAMED page — `Ctrl+1` turns to note entry
+(`keypadNoteEntryPage`). A jump names the page, never an index, so inserting a page cannot silently
+re-point the key.
+
+🚨 **The top-row `Ctrl+1` is the browser's own tab-switch, and a page cannot `preventDefault` it** —
+the same wall the tempo menu and the text editor hit, which is why they route through the numeric
+keypad. So in an ordinary tab the shortcut fires from the NUMPAD's `1`: with NumLock on that key
+reports `key: '1'`, and a MODIFIED shortcut is looked up by `key`, never by `code` (`ShortcutManager`
+uses `code` only for unmodified keys, which is what routes bare `Numpad4` to a quarter note). The
+top-row press still works wherever the browser is not in the way. Worth knowing before binding any
+other `Ctrl`+digit: our `Ctrl+2`…`Ctrl+9` tuplet presets sit behind the same wall.
+
 ## How a key press gets in
 
 Both ways of pressing a key end in the same function, `keypadPress.pressKeypadCell(cell)`:
