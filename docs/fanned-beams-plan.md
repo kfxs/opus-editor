@@ -214,7 +214,18 @@ buttons — but that is a decision for after the numbers settle, not part of thi
 
 **P3 — playback.** `playbackSchedule` expands a `fan` slot into `count` events at the ramped offsets
 from `fanMembers`, same pitch, same velocity. The group's total time is unchanged, so nothing after
-it moves.
+it moves — and that is not an extra rule to enforce: the offsets are PROPORTIONS of the note's own
+sounding length, so they cannot add up to anything else.
+
+⭐ **The same `startFraction` the drawing uses**, which is the whole reason §2 is a pure function: a
+notehead 40% along the group is a note at 40% of its time *by construction*, not because two
+implementations agree. It expands the SOUNDING length rather than the written one — so a fanned note
+tied forward accelerates across the chain, "fill what sounds", the rule the tremolo follows — and
+each member takes the articulation's length factor, so a staccato fan is staccato.
+
+⚠️ It runs BEFORE the tremolo expansion, and the order is a decision rather than an accident: the
+two are mutually exclusive in the model, so a slot carrying both is ill-formed — imported JSON is
+reported, never repaired — and something has to win predictably. The fan does.
 
 **P4 — editable count and beams.** Change `count` and `beams` on a selected fanned group (Properties
 window is the natural home; the numbers are already the model, so this is UI only). Both re-draw and

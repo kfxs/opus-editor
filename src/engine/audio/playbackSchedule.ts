@@ -14,11 +14,12 @@
  */
 import type { Score, Chord, ChordRest, DynamicLevel, Measure, NotePitch } from '@/types/music'
 import { durationToBeats, measureCapacityQuarters } from '@/utils/musicUtils'
-import { doubleDuration, durationFlags } from '@/utils/durations'
+import { doubleDuration, durationFlags, durationToFraction } from '@/utils/durations'
 import { fracToNumber } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import { DYNAMIC_VELOCITY, DEFAULT_DYNAMIC, resolveChordLevels } from '@/utils/dynamics'
 import { laneOfSlot, pairRoleAt } from '@/utils/tremoloPair'
+import { fanMembers } from '@/utils/fannedBeam'
 import { legatoChordIds } from '@/utils/slurs'
 import { articulationEffect } from '@/utils/articulations'
 import { buildTempoMap, beatsToSeconds, secondsToBeats, type TempoSegment } from '@/utils/tempoMap'
@@ -220,6 +221,43 @@ export function collectScheduledNotes(
         }
 
         const midi = spellingToMidi(np.step, np.alter, np.octave)
+
+        /**
+         * ⭐ A FANNED BEAM turns ONE note into `count` attacks that speed up or slow down across
+         * exactly its own length — free accelerando *within* the duration, so the group's total
+         * time is unchanged and nothing after it moves. That is not an extra rule here: the offsets
+         * are proportions of this note's sounding length, so they cannot add up to anything else.
+         *
+         * ⭐ THE SAME `startFraction` THE DRAWING USES. The picture and the sound come out of one
+         * expander (`fanMembers`), which is the whole reason it was written as a pure function — a
+         * head at 40% along the group is a note at 40% of its time, by construction rather than by
+         * two implementations agreeing.
+         *
+         * The SOUNDING length, not the written one, so a fanned note tied forward accelerates
+         * across the whole chain — "fill what sounds", the rule the tremolo below follows. (Ties
+         * into and out of a fan are otherwise deferred, docs/fanned-beams-plan.md §4.)
+         *
+         * Before the tremolo, and that ordering is a decision rather than an accident: the two are
+         * mutually exclusive in the model (`ScoreModel.setFan` clears the tremolo and vice versa),
+         * so a slot carrying both is ill-formed — imported JSON is reported, never repaired — and
+         * something has to win predictably. The fan does.
+         */
+        if (chord.fan) {
+          const members = fanMembers(chord.fan, chord.actualDuration ?? durationToFraction(chord.duration, chord.dots ?? 0))
+          for (let k = 0; k < members.length; k++) {
+            const from = members[k].startFraction
+            const to = k + 1 < members.length ? members[k + 1].startFraction : 1
+            events.push({
+              midi,
+              startBeats: startBeats + from * durationBeats,
+              // Each member lasts until the next one starts — they are a run of notes, back to back
+              // — and still takes the articulation's length factor, so a staccato fan is staccato.
+              durationBeats: (to - from) * durationBeats * artic.durationFactor,
+              velocity,
+            })
+          }
+          continue
+        }
 
         // A tremolo turns ONE sounding note into N re-attacks. It fills the note's whole SOUNDING
         // length — including any tie-extension above, because the head carries the chain's length and
