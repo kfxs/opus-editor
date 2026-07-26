@@ -79,16 +79,65 @@ describe('a fanned member at the command layer', () => {
     expect(chord().type).toBe('chord')
   })
 
-  it('⭐ a SLUR drops the member and slurs the rest of the selection', () => {
-    // Not a refusal of the gesture: the other notes were selected too, and the slur is theirs.
-    const other = engine.getScore().measures[0].slots.filter(s => s.type === 'chord')
-    expect(other.length).toBeGreaterThan(1)
-    const created = engine.createSlur([memberId, noteId])
-    // Anchored to the real note, never to the member.
-    if (created) {
-      expect(created.startNoteId).not.toBe(memberId)
-      expect(created.endNoteId).not.toBe(memberId)
-    }
+  /**
+   * ⭐ A SLUR *is* allowed on a member — the one place this reverses the plan (§3 refused ties and
+   * slurs together). That was right for the tie: it is a pitch-to-pitch CONTINUATION, and a member
+   * has no length of its own to continue into. A slur is not an attachment to the event's rhythm,
+   * it is a SPAN between two points, and member 2 → member 5 is a span (his ask).
+   */
+  it('⭐ a SLUR anchors to the member — a span, not an attachment', () => {
+    const slot = chord()
+    const second = slot.fan!.members![1][0].id
+    const created = engine.createSlur([memberId, second])
+    expect(created).not.toBeNull()
+    expect(created!.startNoteId).toBe(memberId)
+    expect(created!.endNoteId).toBe(second)
+  })
+
+  it('⭐ the slur runs FORWARD however the two members were clicked', () => {
+    // ⚠️ Every member reports the SLOT's beat, so `compareByPosition` calls them simultaneous and
+    // the sort keeps the CLICK order. Select the later member first and the slur is built backwards
+    // — drawn from the right head to the left one — and only sometimes, which is the worst kind.
+    const slot = chord()
+    const first = slot.fan!.members![0][0].id
+    const third = slot.fan!.members![2][0].id
+    const created = engine.createSlur([third, first])
+    expect(created).not.toBeNull()
+    expect(created!.startNoteId).toBe(first)
+    expect(created!.endNoteId).toBe(third)
+  })
+
+  it('⭐ and it SURVIVES — the dangling-slur sweep knows where members live', () => {
+    // The defensive pass rebuilds the id set from the score; leave members out of it and every
+    // slur inside a fan is dropped the next time any edit runs it.
+    const second = chord().fan!.members![1][0].id
+    const created = engine.createSlur([memberId, second])!
+    engine.updateNote(memberId, { step: 'D', octave: 4 }) // any edit at all
+    expect(engine.getSlurs().some(sl => sl.id === created.id)).toBe(true)
+  })
+
+  it('⭐ `s` on the note you TYPED slurs to member 1 — it IS member 0', () => {
+    // Not "the whole event": once you are working member by member, the thing after the first note
+    // is the second member. Slurring a fan to something outside it means selecting BOTH ends.
+    const created = engine.createSlur([noteId])
+    expect(created).not.toBeNull()
+    expect(created!.startNoteId).toBe(noteId)
+    expect(created!.endNoteId).toBe(chord().fan!.members![0][0].id)
+  })
+
+  it('⭐ `s` on ONE member slurs to the NEXT member, not out of the group', () => {
+    const created = engine.createSlur([memberId])
+    expect(created).not.toBeNull()
+    expect(created!.startNoteId).toBe(memberId)
+    expect(created!.endNoteId).toBe(chord().fan!.members![1][0].id)
+  })
+
+  it('from the LAST member it slurs out of the fan, to the next slot', () => {
+    engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
+    const last = chord().fan!.members![chord().fan!.members!.length - 1][0].id
+    const created = engine.createSlur([last])
+    expect(created).not.toBeNull()
+    expect(engine.getNote(created!.endNoteId)?.step).toBe('G')
   })
 
   it('⛔ and none of the refusals leaves an undo entry behind', () => {

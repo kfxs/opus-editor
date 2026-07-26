@@ -37,9 +37,57 @@ function measureOfNoteId(score: Score, noteId: string): number | undefined {
     for (const s of m.slots) {
       if (s.type === 'chord' && s.notes.some(p => p.id === noteId)) return m.number
       if (s.type === 'rest' && s.id === noteId) return m.number
+      // A FANNED MEMBER lives inside the slot, not in `slot.notes` — and a slur can be anchored to
+      // one (docs/fanned-beam-pitches-plan.md), so it has to name its measure like any other end.
+      if (s.type === 'chord' && (s.fan?.members ?? []).some(mm => mm.some(p => p.id === noteId))) return m.number
     }
   }
   return undefined
+}
+
+/**
+ * ⭐ ONE SLUR ENDPOINT, whatever it is anchored to — an ordinary note or a FANNED MEMBER.
+ *
+ * A member has no `StaveNote`: its head is drawn by hand, so the geometry a slur needs comes from
+ * the anchor the fan renderer recorded (`RenderPass.fanMemberAnchorMap`). The `staveNote` it carries
+ * is the SLOT's, and it is used for exactly two things — constructing VexFlow's `Curve` and asking
+ * for the `Stave` — never for x or y. The endpoints reach `renderCurve` explicitly, which is what
+ * makes anchoring to something VexFlow never drew possible at all.
+ */
+interface SlurEnd {
+  staveNote: StaveNote
+  /** Where the arc springs from / lands: the note's tie edges, or the member head's own. */
+  firstX: number
+  lastX: number
+  /** Stem-aware anchor y for a slur on `direction` (-1 above / +1 below). */
+  endpointY: (direction: number) => number
+  /** +1 up / −1 down — for the auto placement, which follows the stems. */
+  stemDirection: number
+}
+
+function resolveSlurEnd(pass: RenderPass, noteId: string): SlurEnd | undefined {
+  const member = pass.fanMemberAnchorMap.get(noteId)
+  if (member) {
+    return {
+      staveNote: member.staveNote,
+      firstX: member.rightX,
+      lastX: member.leftX,
+      // The same Gould rule as a real note's: notehead side attaches at the head, stem side at the
+      // stem tip — and a member's stem tip is where its own stem meets the beam.
+      endpointY: (direction) => ((direction === -1) === (member.stemDirection === 1) ? member.tipY : member.headY),
+      stemDirection: member.stemDirection,
+    }
+  }
+  const info = pass.staveNoteMap.get(noteId)
+  if (!info?.staveNote) return undefined
+  const { staveNote, noteIndex } = info
+  return {
+    staveNote,
+    firstX: staveNote.getTieRightX(),
+    lastX: staveNote.getTieLeftX(),
+    endpointY: (direction) => slurEndpointY(staveNote, noteIndex, direction),
+    stemDirection: staveNote.getStemDirection?.() ?? -1,
+  }
 }
 
 /** The post-render lookup data the system-edge helpers + segment planner need. A
@@ -296,9 +344,9 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
   const nestDepths = slurNestDepths(score)
 
   for (const slur of score.slurs) {
-    const fromInfo = pass.staveNoteMap.get(slur.startNoteId)
-    const toInfo = pass.staveNoteMap.get(slur.endNoteId)
-    if (!fromInfo?.staveNote || !toInfo?.staveNote) continue
+    const fromEnd = resolveSlurEnd(pass, slur.startNoteId)
+    const toEnd = resolveSlurEnd(pass, slur.endNoteId)
+    if (!fromEnd || !toEnd) continue
 
     const fromMeasure = measureOfNoteId(score, slur.startNoteId)
     const toMeasure = measureOfNoteId(score, slur.endNoteId)
@@ -318,7 +366,9 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
     //    -1 (down), which maps directly onto our +1 (below) / -1 (above).
     const fromMeasureData = score.measures.find(m => m.number === fromMeasure)
     const startSlot = fromMeasureData?.slots.find(
-      s => s.type === 'chord' && s.notes.some(p => p.id === slur.startNoteId),
+      s => s.type === 'chord' && (
+        s.notes.some(p => p.id === slur.startNoteId)
+        || (s.fan?.members ?? []).some(mm => mm.some(p => p.id === slur.startNoteId))),
     )
     const slurVoice = startSlot?.voice ?? slur.voice ?? 0
     const multiVoice = fromMeasureData
@@ -326,7 +376,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
       : false
     const autoDir = multiVoice
       ? (slurVoice % 2 === 0 ? -1 : 1)
-      : ((fromInfo.staveNote.getStemDirection?.() ?? -1) === 1 ? 1 : -1)
+      : (fromEnd.stemDirection === 1 ? 1 : -1)
     const direction = slur.placement === 'below' ? 1
       : slur.placement === 'above' ? -1
       : autoDir
@@ -334,8 +384,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
     // Endpoint anchor Ys — stem-aware (Gould): a slur on the NOTEHEAD side attaches at
     // the notehead; on the STEM side it attaches at the stem tip. Each endpoint uses
     // its own note's stem, so a flipped (stem-side) slur springs from the stem tips.
-    let fromY = slurEndpointY(fromInfo.staveNote, fromInfo.noteIndex, direction)
-    let toY = slurEndpointY(toInfo.staveNote, toInfo.noteIndex, direction)
+    let fromY = fromEnd.endpointY(direction)
+    let toY = toEnd.endpointY(direction)
     if (fromY === undefined || toY === undefined || isNaN(fromY) || isNaN(toY)) continue
 
     const registerPartial = (
@@ -356,8 +406,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
       // yield `class="vf-vf-slur"`, which is what this used to do.
       const group = pass.context.openGroup?.('slur', `slur-${slur.id}`) as SVGGElement | undefined
 
-      const fromNote = fromInfo.staveNote
-      const toNote = toInfo.staveNote
+      const fromNote = fromEnd.staveNote
+      const toNote = toEnd.staveNote
       // Outer slurs (those enclosing nested slurs) arch higher so concentric arcs
       // don't collide. A manual `cps` shape opts out — the user controls that height.
       const nestLift = (nestDepths.get(slur.id) ?? 0) * SLUR_NEST_GAP
@@ -371,8 +421,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
       // branches, so lift them out here; Y folds into fromY/toY (both branches derive from
       // those).
       const off = slurEndpointOffsetPx(endpointOffsetOverrideOf(score, slur.id), fromNote.getStave(), toNote.getStave())
-      const firstX = fromNote.getTieRightX() + off.startX
-      const lastX = toNote.getTieLeftX() + off.endX
+      const firstX = fromEnd.firstX + off.startX
+      const lastX = toEnd.lastX + off.endX
       fromY += off.startY
       toY += off.endY
 

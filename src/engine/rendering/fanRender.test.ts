@@ -363,3 +363,61 @@ describe('the members are selectable', () => {
     expect(notes[0].id).toBe(note.id)
   })
 })
+
+/**
+ * ⭐ A SLUR CAN ANCHOR TO A MEMBER — the one place this reverses the plan's §3 (which refused ties
+ * and slurs together). A tie is a pitch-to-pitch CONTINUATION and a member has no length of its own
+ * to continue into; a slur is a SPAN between two points, and member 2 → member 5 is a span.
+ *
+ * What makes it possible: `drawCurveArc` hands `renderCurve` its endpoints EXPLICITLY, so VexFlow's
+ * `Curve` object only needs *some* note to be constructed with — never for x or y. A member supplies
+ * its own geometry through `RenderPass.fanMemberAnchorMap`.
+ */
+describe('a slur anchored inside a fan', () => {
+  function fannedWithSlur() {
+    const model = new ScoreModel('fan slur')
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
+    model.setFan(note.id, { direction: 'accel', count: 4, beams: 3 })
+    const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    const members = slot.fan!.members!
+    const slur = model.addSlur({ startNoteId: members[0][0].id, endNoteId: members[2][0].id, voice: 0 })
+    return { model, slur, members }
+  }
+
+  it('⭐ draws it — one arc, anchored to something VexFlow never drew', () => {
+    const { model, slur } = fannedWithSlur()
+    const { renderer, container } = makeRenderer()
+    renderer.renderScore(model.getScore())
+
+    expect(container.querySelector(`#vf-slur-${slur.id}`)).not.toBeNull()
+    const registered = renderer.getElementRegistry().getAll().filter(el => el.type === 'slur')
+    expect(registered).toHaveLength(1)
+    expect(registered[0].fromNoteId).toBe(slur.startNoteId)
+  })
+
+  it('⭐ springs from the MEMBERS’ own x’s, not the slot’s', () => {
+    // The bug this rules out: resolving both ends through `staveNoteMap` would anchor every slur in
+    // the group to the real note, so a member-to-member slur would collapse to zero width.
+    const { model, members } = fannedWithSlur()
+    const { renderer } = makeRenderer()
+    renderer.renderScore(model.getScore())
+    const registry = renderer.getElementRegistry()
+    const arc = registry.getAll().find(el => el.type === 'slur')!
+    const from = registry.getById(members[0][0].id)!
+    const to = registry.getById(members[2][0].id)!
+    // The arc spans the two member heads, so it is at least as wide as the gap between them.
+    expect(arc.bbox.width).toBeGreaterThan((to.headX! - from.headX!) * 0.5)
+    expect(arc.bbox.x).toBeGreaterThan(from.headX! - 40)
+  })
+
+  it('the rest of the score still draws after it — the group is balanced', () => {
+    const { model } = fannedWithSlur()
+    model.addMeasure()
+    const later = model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    const { renderer } = makeRenderer()
+    renderer.renderScore(model.getScore())
+    expect(renderer.getElementRegistry().getById(later.id)).not.toBeNull()
+  })
+})

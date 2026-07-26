@@ -20,7 +20,7 @@ import {
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { beamRoleAtRef, type BeamRole } from '@/utils/beaming'
 import { laneOfSlot, pairAcceptsJoined, pairIsValid } from '@/utils/tremoloPair'
-import { normalizeFan, cloneFanFresh } from '@/utils/fannedBeam'
+import { normalizeFan, cloneFanFresh, fanMemberPitches } from '@/utils/fannedBeam'
 import { spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
 import { type RebarEvent } from '@/utils/rebar'
 import {
@@ -1447,8 +1447,13 @@ export class ScoreModel {
     const ids = new Set<string>()
     for (const m of this.score.measures) {
       for (const s of m.slots) {
-        if (s.type === 'chord') for (const p of s.notes) ids.add(p.id)
-        else ids.add(s.id)
+        if (s.type === 'chord') {
+          for (const p of s.notes) ids.add(p.id)
+          // ⭐ A FANNED MEMBER can anchor a slur (docs/fanned-beam-pitches-plan.md) — a slur is a
+          // SPAN between two points, and member 2 → member 5 is a span. Leave them out and every
+          // such slur is silently dropped the next time this defensive pass runs.
+          for (const member of s.fan?.members ?? []) for (const p of member) ids.add(p.id)
+        } else ids.add(s.id)
       }
     }
     for (let i = slurs.length - 1; i >= 0; i--) {
@@ -1514,6 +1519,41 @@ export class ScoreModel {
   isFanMember(noteId: string): boolean {
     const found = this.findSlot(noteId, { fanMembers: true })
     return found?.type === 'chord' && found.member !== undefined
+  }
+
+  /**
+   * ⭐ The whole GROUP `noteId` belongs to, as flat notes in sounding order — member 0's pitches
+   * first, then each member's — or null when the id names neither a fanned slot's note nor one of
+   * its members.
+   *
+   * "What comes next inside this fan?", which is what a slur started on one member needs
+   * (docs/fanned-beam-pitches-plan.md). One pitch per member is enough for an anchor, so this
+   * projects the FIRST of each — the same choice `collapseToBeats` makes for a chord.
+   */
+  fanMembersOfSlot(noteId: string): Note[] | null {
+    const found = this.findSlot(noteId, { fanMembers: true })
+    if (found?.type !== 'chord') return null
+    const { chord } = found
+    const fan = chord.fan
+    if (!fan) return null
+    return fanMemberPitches(chord.notes, fan)
+      .map(heads => heads[0])
+      .filter((p): p is NotePitch => !!p)
+      .map(p => this.toFlatNote(chord, p))
+  }
+
+  /**
+   * Which MEMBER of its fanned group `noteId` belongs to — **0 for the slot's own pitches, since the
+   * note you typed IS member 0** — or null when it is not in a fanned slot at all.
+   *
+   * That zero is the whole point: from inside the group, the thing after the first note is the
+   * second MEMBER, not the next slot. Any pitch of a fanned chord answers 0, so slurring from the
+   * upper note of a fanned chord behaves like slurring from its lower one.
+   */
+  fanMemberIndexOf(noteId: string): number | null {
+    const found = this.findSlot(noteId, { fanMembers: true })
+    if (found?.type !== 'chord' || !found.chord.fan) return null
+    return found.member?.index ?? 0
   }
 
   /**

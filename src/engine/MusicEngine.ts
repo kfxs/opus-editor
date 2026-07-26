@@ -1137,10 +1137,11 @@ export class MusicEngine {
    * @returns the created (or pre-existing) Slur, or null if no valid span resolved.
    */
   createSlur(noteIds: string[]): Slur | null {
-    // Same rule as the tie: a member cannot anchor a slur (it attaches to the slot), so it leaves
-    // the candidate list rather than killing the gesture. Without this the slur would be STORED
-    // pointing at a member id and then silently dropped by `repairDanglingSlurs`.
-    noteIds = noteIds.filter(id => !this.scoreModel.isFanMember(id))
+    // ⭐ A FANNED MEMBER *can* anchor a slur — unlike a tie. The plan refused both together
+    // (docs/fanned-beam-pitches-plan.md §3) and that was right for the tie: it is a pitch-to-pitch
+    // continuation, and a member has no length of its own to continue into. A slur is not an
+    // attachment to the event's rhythm, it is a SPAN between two points, and member 2 → member 5 is
+    // a perfectly good span (his ask). So members stay in the candidate list here.
     // A slur lives in ONE voice. Derive it from the selection (the first resolved
     // note's voice) and keep only that voice's notes — so a voice-2 selection makes a
     // voice-2 slur. (Was hardcoded to voice 0, so `s` did nothing in any other voice.)
@@ -1153,7 +1154,7 @@ export class MusicEngine {
     const slurStaff = resolved[0].staff ?? 0
     const selected = resolved
       .filter(n => (n.voice ?? 0) === slurVoice && (n.staff ?? 0) === slurStaff)
-      .sort(compareByPosition)
+      .sort((a, b) => this.compareForSpan(a, b))
     if (selected.length === 0) return null
 
     const startNote = selected[0]
@@ -2331,7 +2332,39 @@ export class MusicEngine {
    * next musical event, skipping sibling chord heads that share `start`'s beat.
    * `getAllNotes()` emits one entry per pitch, hence the dedupe.
    */
+  /**
+   * ⭐ Order two notes for a SPAN — by position, and INSIDE a fan by member index.
+   *
+   * ⚠️ Position alone cannot order members: every one reports the SLOT's beat (deliberately — that
+   * is what keeps `pixelXToBeat` seeing one column), so `compareByPosition` calls them simultaneous
+   * and the sort keeps whatever order they were CLICKED in. A slur built from that is drawn
+   * backwards — right head to left head — which is exactly as broken as it sounds, and only when
+   * you happened to select the later member first.
+   */
+  private compareForSpan(a: Note, b: Note): number {
+    const byPosition = compareByPosition(a, b)
+    if (byPosition !== 0) return byPosition
+    const ia = this.scoreModel.fanMemberIndexOf(a.id)
+    const ib = this.scoreModel.fanMemberIndexOf(b.id)
+    return ia !== null && ib !== null ? ia - ib : 0
+  }
+
   private nextDistinctSlot(start: Note): Note | undefined {
+    // ⭐ Inside a FAN, "the next thing" is the next MEMBER (his ask).
+    //
+    // ⚠️ Including from the note you TYPED — it is member 0, not a thing standing outside the group,
+    // so `s` on it slurs to member 1. (I first restricted this to members proper, reasoning that the
+    // typed note means "the whole event"; it does not, once you are working member by member.) To
+    // slur a fan to something outside it, select BOTH ends — that path never asks this question.
+    let walkFromId = start.id
+    const group = this.scoreModel.fanMembersOfSlot(start.id)
+    if (group) {
+      const at = this.scoreModel.fanMemberIndexOf(start.id) ?? -1
+      if (at >= 0 && at + 1 < group.length) return group[at + 1]
+      // The LAST member slurs OUT of the fan — and it has to walk on from the SLOT, since the flat
+      // note list has no entry for a member to find itself in.
+      walkFromId = group[0]?.id ?? start.id
+    }
     // Stay within the start note's own voice AND staff — a slur's end anchor must be the
     // next slot in the SAME stream, not whatever event comes next in another voice/staff.
     const startVoice = start.voice ?? 0
@@ -2339,7 +2372,7 @@ export class MusicEngine {
     const sorted = this.scoreModel.getAllNotes()
       .filter(n => (n.voice ?? 0) === startVoice && (n.staff ?? 0) === startStaff)
       .sort(compareByPosition)
-    const idx = sorted.findIndex(n => n.id === start.id)
+    const idx = sorted.findIndex(n => n.id === walkFromId)
     if (idx < 0) return undefined
     for (let i = idx + 1; i < sorted.length; i++) {
       if (sorted[i].measure !== start.measure || !fracEq(sorted[i].beat, start.beat)) return sorted[i]

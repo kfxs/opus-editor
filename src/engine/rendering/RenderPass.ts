@@ -24,6 +24,21 @@ import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
  * the sub-renderers populated. The instance fields remain the canonical home; this
  * object is just a typed bundle of references threaded through one render.
  */
+/** Where one fanned member's head landed — a slur endpoint's worth of geometry. */
+export interface FanMemberAnchor {
+  /** The SLOT's rendered note. Used for the `Curve` object and for `getStave()`, never for x/y. */
+  staveNote: StaveNote
+  /** Left/right edges of THIS member's notehead (the tie edges a slur springs from). */
+  leftX: number
+  rightX: number
+  /** The head's own centre y. */
+  headY: number
+  /** The member's stem tip — where a stem-side slur attaches instead of the head. */
+  tipY: number
+  /** +1 stems up, −1 down: the GROUP's direction, since a beam has one side. */
+  stemDirection: number
+}
+
 export interface RenderPass {
   /** The score being rendered this pass — read for engraving-override lookups (e.g. per-rest
    *  vertical shifts; see docs/rest-shift-plan.md §6.8). */
@@ -32,6 +47,14 @@ export interface RenderPass {
   context: SVGContext
   /** Note/rest id → its rendered StaveNote (+ chord-head index), for ties & slurs. */
   staveNoteMap: Map<string, { staveNote: StaveNote; noteIndex: number }>
+  /**
+   * FANNED MEMBER pitch id → where its head was actually drawn, so a SLUR can anchor to one
+   * (docs/fanned-beam-pitches-plan.md). A member has no `StaveNote` of its own, and everything a
+   * slur endpoint needs is geometry the fan renderer already computed: the head's edges and centre,
+   * the stem tip it hangs from, and the SLOT's note — which VexFlow's `Curve` only needs in order
+   * to be constructed (the endpoints are passed to `renderCurve` explicitly).
+   */
+  fanMemberAnchorMap: Map<string, FanMemberAnchor>
   /** Tuplet id → its rendered VexFlow Tuplet, for scoped highlight. */
   tupletObjectMap: Map<string, VexFlowTuplet>
   /** Dynamic id → its rendered VexFlow Annotation, for layout & scoped highlight. */

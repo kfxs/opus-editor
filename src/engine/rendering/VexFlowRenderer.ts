@@ -22,7 +22,7 @@ import { planCrossBarBeams, laneKey, type CrossBarBeamPlan, type CrossBarJoin, t
 import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
 import { measureShapeKey } from './MeasureRedrawKey'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
-import type { RenderPass } from './RenderPass'
+import type { FanMemberAnchor, RenderPass } from './RenderPass'
 import { renderTies, getTieDirection, TIE_BOW } from './TieRenderer'
 import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
 import { renderSlurs } from './SlurRenderer'
@@ -325,6 +325,8 @@ interface MeasureSnapshot {
    *  `StaveNote`. Without them a reused measure loses every member's highlight target (his report:
    *  add a bar elsewhere, and the fan's members select but no longer light up). */
   fanMembers: [string, { group: SVGGElement; noteIndex: number }][]
+  /** …and where each was DRAWN, so a reused measure can still anchor a slur to one. */
+  fanMemberAnchors: [string, FanMemberAnchor][]
   tuplets: [string, ScoreTuplet][]
   dynamics: [string, Annotation][]
 }
@@ -445,6 +447,12 @@ export class VexFlowRenderer {
    * through here instead. Rebuilt every render, like the note map.
    */
   private fanMemberGroupMap: Map<string, { group: SVGGElement; noteIndex: number }> = new Map()
+  /**
+   * Each FANNED MEMBER pitch id → where its head was drawn, so a SLUR can anchor to one. Filled by
+   * {@link drawFannedBeams} from the geometry it just spent; see {@link FanMemberAnchor}. Cleared,
+   * captured and restored with the group map — the same three sites.
+   */
+  private fanMemberAnchorMap: Map<string, FanMemberAnchor> = new Map()
   /** Measured accidental glyph widths, by sign — see {@link accidentalWidth}. */
   private accidentalWidths: Map<string, number> = new Map()
   /** Map of tuplet IDs to their rendered VexFlow Tuplet objects (for scoped highlight) */
@@ -625,6 +633,7 @@ export class VexFlowRenderer {
       score,
       context: this.context!,
       staveNoteMap: this.staveNoteMap,
+      fanMemberAnchorMap: this.fanMemberAnchorMap,
       tupletObjectMap: this.tupletObjectMap,
       dynamicObjectMap: this.dynamicObjectMap,
       slurGroupMap: this.slurGroupMap,
@@ -1106,6 +1115,16 @@ export class VexFlowRenderer {
                 // The group is this member's whole ink — head, sign, ledgers, stem — so the highlight
                 // is an ordinary recolour of ink we own, not a rectangle painted over someone else's.
                 this.fanMemberGroupMap.set(pitch.id, { group: memberGroup as unknown as SVGGElement, noteIndex: h })
+                // …and WHERE it landed, so a slur can spring from it. Measured from the geometry that
+                // placed the head, not re-derived — the same rule the ink rect follows.
+                this.fanMemberAnchorMap.set(pitch.id, {
+                  staveNote: note,
+                  leftX: member.headX,
+                  rightX: member.headX + note.getGlyphWidth(),
+                  headY: y,
+                  tipY: member.tipY,
+                  stemDirection,
+                })
               }
               if (sign) {
                 // Hand-placed for the same reason the head is: there is no `StaveNote` here to hang
@@ -3544,6 +3563,7 @@ export class VexFlowRenderer {
         // ⚠️ EXPLICIT ids: `captureById`'s default list is slot ids + `slot.notes`, and a fanned
         // member is in neither — it lives inside the slot's `fan`.
         fanMembers: this.captureById(plan.view, this.fanMemberGroupMap, fanMemberIdsOf(plan.view)),
+        fanMemberAnchors: this.captureById(plan.view, this.fanMemberAnchorMap, fanMemberIdsOf(plan.view)),
         tuplets: this.captureById({ ...plan.view, slots: [] }, this.tupletObjectMap, plan.view.tuplets?.map(t => t.id)),
         dynamics: this.captureById({ ...plan.view, slots: [] }, this.dynamicObjectMap, plan.view.dynamics?.map(d => d.id)),
       })
@@ -4024,6 +4044,7 @@ export class VexFlowRenderer {
     this.elementRegistry.clear()
     this.staveNoteMap.clear()
     this.fanMemberGroupMap.clear()
+    this.fanMemberAnchorMap.clear()
     this.tupletObjectMap.clear()
     this.dynamicObjectMap.clear()
     this.slurGroupMap.clear()
@@ -4089,6 +4110,7 @@ export class VexFlowRenderer {
     // measure's absolute position.
     for (const [id, value] of snapshot.staveNotes) this.staveNoteMap.set(id, value)
     for (const [id, value] of snapshot.fanMembers) this.fanMemberGroupMap.set(id, value)
+    for (const [id, value] of snapshot.fanMemberAnchors) this.fanMemberAnchorMap.set(id, value)
     for (const [id, value] of snapshot.tuplets) this.tupletObjectMap.set(id, value)
     for (const [id, value] of snapshot.dynamics) this.dynamicObjectMap.set(id, value)
 

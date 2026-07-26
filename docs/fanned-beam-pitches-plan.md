@@ -263,8 +263,25 @@ sounding length, so the group's total time is unchanged by construction.
 
 - **Per-member duration.** The members' lengths come from the ramp; giving one its own written value
   is a different feature and would put the rhythm back into the group.
-- **Ties, slurs, articulations, dynamics on a member.** Refused — actively, per P3 — not merely
-  unbuilt. They attach to the SLOT (the whole gesture), which is what they already do.
+- **Ties, articulations, dynamics on a member.** Refused — actively, per P3 — not merely unbuilt.
+  They attach to the SLOT (the whole gesture), which is what they already do.
+- ⭐ **SLURS ARE THE EXCEPTION, and this list was wrong to group them with ties** (his ask, after
+  using it). A tie is a pitch-to-pitch CONTINUATION, and a member has no length of its own to
+  continue into — that refusal stands. A slur is not an attachment to the event's rhythm: it is a
+  SPAN between two points, and member 2 → member 5 is a span. So a member CAN anchor one, and the
+  dangling-slur sweep counts member ids as live.
+  - What made it possible without a `StaveNote`: `drawCurveArc` hands `renderCurve` its endpoints
+    EXPLICITLY, so VexFlow's `Curve` only needs *some* note to be constructed with. A member supplies
+    its own geometry through `RenderPass.fanMemberAnchorMap`, recorded where its head was drawn.
+  - ⭐ **`s` on ONE note inside a fan slurs to the NEXT MEMBER — including from the note you TYPED,
+    which IS member 0.** I first restricted that to members proper, reasoning that the typed note
+    means "the whole event"; it does not, once you are working member by member (his correction).
+    From the LAST member it slurs out of the fan; to slur a fan to something outside it, select both
+    ends — that path never asks the question.
+  - ⚠️ **Ordering is not free.** Every member reports the SLOT's beat (which is what keeps
+    `pixelXToBeat` seeing one column), so `compareByPosition` calls them simultaneous and a span
+    built from a selection keeps the CLICK order — a slur drawn backwards, and only when you
+    selected the later member first. `compareForSpan` breaks the tie by member index.
 - **Copying or pasting a single member.** §1b decides this by making it impossible: a partial
   selection yields the plain note, never a piece of a fan. P3's selection is for editing the pitch
   in place, nothing more.
