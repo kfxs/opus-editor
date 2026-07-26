@@ -149,8 +149,16 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
       // — including a `begin` nobody closed — is flushed here.
       // An empty bar opens nothing: there is no note at the boundary to carry the beam, so the
       // group ends here rather than reaching over the bar to the one after it.
+      //
+      // ⚠️ A FANNED first slot never opens it, from EITHER side — and it would otherwise, word for
+      // word: a leading `continue` speaks for the boundary, and a joined fan carries one. The group
+      // would cross, `planCrossBarBeams` would build a `CrossBarJoin` over it, and the placeholder
+      // would take the fan's own stem away while a real `Beam` was built over its quarter-note
+      // `StaveNote`. Joining a fan across a barline is P3 of docs/fan-beam-join-plan.md, and this
+      // line is what P3 removes.
       const first = slots[0]
       const opened = first !== undefined
+        && !(first.type === 'chord' && first.fan)
         && (bridgeNext === 'continue' || (first.type === 'chord' && first.beam === 'continue'))
       if (!opened) flush()
     }
@@ -175,7 +183,18 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
       // beams would argue over one stem. Here rather than in the renderer, again because the
       // cross-barline planner reads these groups and would otherwise drag a fanned corchea across a
       // barline into someone else's beam. See docs/fanned-beams-plan.md §3 (P0).
-      if (slot.type === 'chord' && slot.fan) { flush(); continue }
+      //
+      // ⭐ …but it MAY be JOINED to the group on its LEFT (docs/fan-beam-join-plan.md). `continue`
+      // authored on the owner is the exact word and not a spare key: a beam comes in AND a beam
+      // goes out, and the outgoing one is the ramp. So the fan is pushed onto a group already open
+      // and the group closes ON it — joined behind, never bridging in front, because the fan's last
+      // member is a pitch inside the event and no slot can address it. With nothing open the mark
+      // is inert: a fan is not a group of one.
+      if (slot.type === 'chord' && slot.fan) {
+        if (slot.beam === 'continue' && current.length > 0) current.push(ref)
+        flush()
+        continue
+      }
 
       // A rest breaks the beam — UNLESS it is marked `beamOver`, when it becomes a SILENT `continue`:
       // swept into the group before it AND bridging the boundary at it, so the note after joins across
@@ -353,10 +372,25 @@ export function beamRoleAtRef(bars: BeamBar[], ref: BeamSlotRef): BeamRole {
   // inside this one slot, and the note you typed is its first member. Read the other way round, on a
   // fan `begin` simply MEANS what `single` means everywhere else — one self-contained group — so
   // there is no second thing for `single` to say, and the row is not offering two names for one
-  // fact. It is a reading, not a setting: the beam keys are refused on a fanned slot
-  // (`PaletteController.setBeam`), which is why nothing here has to be written back.
+  // fact.
+  //
+  // ⭐ …unless it is JOINED to the group on its LEFT, when the answer is `continue` — a beam coming
+  // in and a beam going out, the word's own definition (docs/fan-beam-join-plan.md §0). Never `end`,
+  // although the generic rule below would say exactly that: the fan is always the LAST member of its
+  // group (the grouper pushes it, then flushes immediately), which is also why "in a group at all"
+  // and "at index > 0" are the same sentence here — and why the fan still answers for itself rather
+  // than falling through to the loop.
+  //
+  // It stays a READING and not a setting: `continue` is the ONE beam key a fanned slot takes
+  // (`PaletteController.setBeam`), and where that mark is inert — authored on a fan with nothing
+  // open behind it — this reports `begin` while the field says `continue`, which is how you find out
+  // it did nothing.
   const own = slots[ref.slot]
-  if (own?.type === 'chord' && own.fan) return 'begin'
+  if (own?.type === 'chord' && own.fan) {
+    const joined = computeCrossBarBeamGroups(bars)
+      .some(group => group.some(member => member.bar === ref.bar && member.slot === ref.slot))
+    return joined ? 'continue' : 'begin'
+  }
 
   const pairRole = pairRoleAt(slots, ref.slot)
   if (pairRole !== null) {

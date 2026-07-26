@@ -20,6 +20,21 @@ export interface FanQuad {
   thickness: number
 }
 
+/**
+ * One note of the PREFIX — the group the fan is JOINED to on its left
+ * (docs/fan-beam-join-plan.md P1).
+ *
+ * ⚠️ Its position is FIXED by the formatter, not by the ramp: these notes were spaced by VexFlow
+ * like any others, and all this pass does is aim their stems at the shared line. Rests carry no
+ * stem and are not here — the line simply runs over them.
+ */
+export interface FanPrefixNote {
+  /** The note's own `getStemX()`, so the line lands where its stem already is. */
+  stemX: number
+  /** Its notehead y's — a chord contributes all of them. */
+  headYs: number[]
+}
+
 /** Where one member of the group is drawn. */
 export interface FanStem {
   /** Left edge of the notehead. */
@@ -34,6 +49,12 @@ export interface FanStem {
 export interface FanGeometry {
   /** Every member, INCLUDING index 0 — the renderer draws the ones it did not already draw. */
   stems: FanStem[]
+  /**
+   * Where each PREFIX note's stem tip must land — one entry per {@link FanPrefixNote}, in order.
+   * Empty for an unjoined fan. The renderer re-aims the note's OWN `Stem` object at it; it never
+   * draws a line of its own, because a stem drawn any other way could never be selected.
+   */
+  prefixStems: { stemX: number; tipY: number }[]
   /** The beam lines, narrow end to wide end. */
   beams: FanQuad[]
   /**
@@ -119,6 +140,25 @@ export function fanStemExtension(beams: number, beamWidth: number): number {
  * noteheads crowd toward the fast end all by themselves — the drawing says the same thing the
  * playback does because both read the same expander.
  *
+ * ## Joined to the group on its left
+ *
+ * ⭐ **The joined line is HORIZONTAL** (his call, docs/fan-beam-join-plan.md P1 — the cheapest of
+ * three answers). Flat means there is no angle to argue about: the line sits at the height the
+ * outermost note in the WHOLE group asks for and every stem stretches to meet it, which is precisely
+ * the floor pass below ("largest ask wins, the whole line moves") with the slope forced to zero. It
+ * is ordinary engraving besides — a beam goes horizontal when its notes do not move consistently one
+ * way.
+ *
+ * ⚠️ **The thing to look at by eye:** a fan ALONE leans, because its members have their own pitches,
+ * so joining one visibly straightens its own beam. If that reads as a snap rather than as a beam,
+ * the recorded alternative is to slope the line over the whole group (first prefix stem to last
+ * member, VexFlow's own rule) — at the cost of the anchor, since the line would then pass through
+ * neither the prefix's natural tip nor member 0's.
+ *
+ * ⚠️ …and the second: the floor is `minStemLength`, not a natural stem. A PREFIX note further from
+ * the line than member 0 pushes the line only far enough to keep itself that much stem, so the
+ * outermost note of a joined group can end up on a shorter stem than an ordinary beam would give it.
+ *
  * Returns empty geometry when the span has collapsed or a single member is all there is: a fan with
  * no room is not a narrower fan, it is nothing to draw.
  */
@@ -151,6 +191,18 @@ export function fannedBeamGeometry(opts: {
    * the sign buys its room out of the group's own span rather than out of the bar's.
    */
   accidentalRoom?: number[]
+  /**
+   * The notes of the group the fan is JOINED to on its LEFT, in order — empty (or absent) for a fan
+   * that stands alone. Their presence is what makes the line horizontal and what extends the primary
+   * beam back to the first of them.
+   */
+  prefix?: FanPrefixNote[]
+  /**
+   * How many beam LINES the prefix's own durations ask for — the MINIMUM across it, so a mixed
+   * prefix draws the lines they all agree on. Levels past the first run from the prefix's first stem
+   * to the fan's owner and stop there, which is what a partial beam looks like anywhere else.
+   */
+  prefixBeams?: number
   /** The stem tip the real note is ALREADY drawn with — the line's anchor. */
   tipY: number
   /** The shortest stem any member may keep, in pixels, measured from its head nearest the line. */
@@ -163,7 +215,9 @@ export function fannedBeamGeometry(opts: {
     members, memberHeadYs, direction, beams, headX, spanEndX, stemOffset, minHeadGap,
     accidentalRoom, tipY, minStemLength, stemDirection, beamWidth,
   } = opts
-  const empty: FanGeometry = { stems: [], beams: [], stemLift: 0 }
+  const prefix = opts.prefix ?? []
+  const joined = prefix.length > 0
+  const empty: FanGeometry = { stems: [], prefixStems: [], beams: [], stemLift: 0 }
   if (members.length < 2 || memberHeadYs.length < members.length) return empty
 
   // The span the HEADS may occupy: the last one must still fit before whatever comes next, so the
@@ -221,7 +275,10 @@ export function fannedBeamGeometry(opts: {
   const sx = xs.map(px => px + stemOffset)
   const runX = sx[sx.length - 1] - sx[0]
   const rawSlope = runX > 0 ? (idealTip[idealTip.length - 1] - idealTip[0]) / runX : 0
-  const slope = Math.max(-FAN_MAX_BEAM_SLOPE, Math.min(FAN_MAX_BEAM_SLOPE, rawSlope))
+  // ⭐ FLAT once the fan is joined — see the header. The lean is a fact about the members' own
+  // pitches; a joined group is one beam over notes that do not move consistently one way, so the
+  // line stops arguing and the floor below decides its height on its own.
+  const slope = joined ? 0 : Math.max(-FAN_MAX_BEAM_SLOPE, Math.min(FAN_MAX_BEAM_SLOPE, rawSlope))
   const lineY = (px: number) => idealTip[0] + slope * (px - sx[0])
 
   // ⭐ The floor, applied to the WHOLE line. For each member, how far the line would have to move
@@ -229,25 +286,33 @@ export function fannedBeamGeometry(opts: {
   // member that already has room asks for nothing. Signed by the stem direction, so `shift` is
   // negative for stems up (the line rises) and positive for stems down.
   let shift = 0
-  for (let k = 0; k < members.length; k++) {
-    const wanted = inner(memberHeadYs[k]) - stemDirection * minStemLength
-    const need = wanted - lineY(sx[k])
+  const ask = (headYs: number[], px: number) => {
+    const wanted = inner(headYs) - stemDirection * minStemLength
+    const need = wanted - lineY(px)
     if (up ? need < shift : need > shift) shift = need
   }
+  for (let k = 0; k < members.length; k++) ask(memberHeadYs[k], sx[k])
+  // The PREFIX asks with exactly the same voice — it is the same beam, and "the outermost note in
+  // the group" does not care which half of the group it came from.
+  for (const p of prefix) ask(p.headYs, p.stemX)
 
+  const lineAt = (px: number) => lineY(px) + shift
   const stems: FanStem[] = xs.map((px, k) => ({
     headX: px,
     stemX: sx[k],
     baseY: outer(memberHeadYs[k]),
-    tipY: lineY(sx[k]) + shift,
+    tipY: lineAt(sx[k]),
   }))
+  const prefixStems = prefix.map(p => ({ stemX: p.stemX, tipY: lineAt(p.stemX) }))
 
   // Signed, so a quad drawn from its top edge downward marches the right way for either stem
   // direction — the same expression `drawCrossBarSideBeam` builds from `Beam`.
   const thickness = beamWidth * stemDirection
-  const startX = stems[0].stemX
+  // Where the RAMP starts (member 0's stem) and where the whole LINE starts — the same x for a fan
+  // standing alone, the first prefix stem once it is joined.
+  const rampStartX = stems[0].stemX
+  const lineStartX = joined ? prefix[0].stemX : rampStartX
   const endX = stems[stems.length - 1].stemX
-  const startY = stems[0].tipY
   const endY = stems[stems.length - 1].tipY
   // ⚠️ Both ends carry HALF a stem's width past the outer stems in VexFlow's own beams (it ends a
   // beam line at `getStemX() - Stem.WIDTH / 2`); the caller passes stem x's that already match its
@@ -257,15 +322,31 @@ export function fannedBeamGeometry(opts: {
   const lines: FanQuad[] = []
   for (let k = 0; k < Math.max(1, Math.round(beams)); k++) {
     const offset = k * thickness * 1.5
+    // ⭐ The PRIMARY is one straight edge over the WHOLE joined group, so only it reaches back to
+    // the prefix; the fan's extra levels belong to the ramp and start at its owner's stem.
+    const sX = k === 0 ? lineStartX : rampStartX
     lines.push({
-      startX,
       // The convergence point: at the NARROW end every line sits on the primary. Only the wide end
       // spreads. k = 0 IS the primary — it carries the slope and nothing else.
-      startY: startY + (wideAtEnd ? 0 : offset),
+      startX: sX,
+      startY: lineAt(sX) + (wideAtEnd ? 0 : offset),
       endX,
       endY: endY + (wideAtEnd ? offset : 0),
       thickness,
     })
   }
-  return { stems, beams: lines, stemLift: Math.abs(shift) }
+  // The PREFIX's own extra levels — a 16th group joined to a fan keeps its second beam, and it stops
+  // at the owner's stem because that is where the prefix stops. A `rit.` therefore shows a thickness
+  // change there (1 line in, `fan.beams` out); an `accel.` meeting eighths is the clean case.
+  for (let k = 1; k < Math.max(0, Math.round(opts.prefixBeams ?? 0)); k++) {
+    const offset = k * thickness * 1.5
+    lines.push({
+      startX: lineStartX,
+      startY: lineAt(lineStartX) + offset,
+      endX: rampStartX,
+      endY: lineAt(rampStartX) + offset,
+      thickness,
+    })
+  }
+  return { stems, prefixStems, beams: lines, stemLift: Math.abs(shift) }
 }

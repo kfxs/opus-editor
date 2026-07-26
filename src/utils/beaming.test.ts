@@ -618,6 +618,79 @@ describe('a FANNED slot is never in an automatic group either', () => {
   })
 })
 
+describe('a FANNED slot JOINED to the group on its left', () => {
+  /**
+   * docs/fan-beam-join-plan.md §0-§1 (P0). `continue` authored on the OWNER is the join, and it is
+   * the exact word rather than a spare key: a beam comes in and a beam goes out, and the outgoing
+   * one is the ramp. Left only — the fan's last member is a pitch inside the event, so no slot can
+   * address the right end.
+   */
+  const FAN = { direction: 'accel' as const, count: 6, beams: 3 }
+  const joinedFan = (slots: ChordRest[], i: number, beam?: BeamMode): ChordRest[] =>
+    slots.map((s, k) => (k === i && s.type === 'chord' ? { ...s, fan: FAN, ...(beam ? { beam } : {}) } : s))
+
+  it('joins the group behind it, and CLOSES it — nothing bridges in front', () => {
+    // Four eighths in 4/4 beam 2+2; the fan is the second note of the second pair.
+    expect(computeBeamGroups(joinedFan(run(4, '8', 2), 3, 'continue'), meter(4, 4)))
+      .toEqual([[0, 1], [2, 3]])
+    // Un-joined, the same fan flushes as ever and leaves note 2 alone (a group of one is dropped).
+    expect(computeBeamGroups(joinedFan(run(4, '8', 2), 3), meter(4, 4))).toEqual([[0, 1]])
+  })
+
+  it('removes the break BEHIND it like any other `continue`, and the group ends ON it', () => {
+    // The fan sits on beat 1 — a beat boundary — so the join is what carries the first pair over it.
+    // Note 3 is NOT dragged along: the group closed at the fan.
+    expect(computeBeamGroups(joinedFan(run(4, '8', 2), 2, 'continue'), meter(4, 4)))
+      .toEqual([[0, 1, 2]])
+  })
+
+  it('is INERT with nothing open behind it — a fan is not a group of one', () => {
+    const slots = joinedFan(run(4, '8', 2), 0, 'continue')
+    expect(computeBeamGroups(slots, meter(4, 4))).toEqual([[2, 3]])
+    expect(beamRoleAt(slots, meter(4, 4), 0)).toBe('begin')
+  })
+
+  it('joins a fanned LONG note too — the fan beams it whatever the drawn value says', () => {
+    const slots = [chord(0, 2, '8'), { ...chord(1, 2, 'h'), fan: FAN, beam: 'continue' as const }]
+    expect(computeBeamGroups(slots, meter(4, 4))).toEqual([[0, 1]])
+  })
+
+  it('a REST between still kills the join, unless it is `beamOver`', () => {
+    const broken = [chord(0, 2, '8'), rest(1, 2), { ...chord(2, 2, '8'), fan: FAN, beam: 'continue' as const }]
+    expect(computeBeamGroups(broken, meter(4, 4))).toEqual([])
+    const over = [chord(0, 2, '8'), { ...rest(1, 2), beamOver: true }, { ...chord(2, 2, '8'), fan: FAN, beam: 'continue' as const }]
+    expect(computeBeamGroups(over, meter(4, 4))).toEqual([[0, 1, 2]])
+  })
+
+  it('does NOT cross a barline yet (P3) — from either side of the boundary', () => {
+    // A leading `continue` normally speaks for the boundary, and a joined fan carries one; the fan
+    // is excluded from that test until the drawing can span two bars.
+    const leading: BeamBar[] = [
+      { slots: run(2, '8', 2), meter: meter(1, 4) },
+      { slots: joinedFan(run(2, '8', 2), 0, 'continue'), meter: meter(1, 4) },
+    ]
+    expect(computeCrossBarBeamGroups(leading)).toEqual([[{ bar: 0, slot: 0 }, { bar: 0, slot: 1 }]])
+
+    // Nor from the other side: a trailing `continue` in bar 0 opens the boundary for anything but a fan.
+    const trailing: BeamBar[] = [
+      { slots: [chord(0, 2, '8'), chord(1, 2, '8', 'continue')], meter: meter(1, 4) },
+      { slots: joinedFan(run(2, '8', 2), 0, 'continue'), meter: meter(1, 4) },
+    ]
+    expect(computeCrossBarBeamGroups(trailing)).toEqual([[{ bar: 0, slot: 0 }, { bar: 0, slot: 1 }]])
+  })
+
+  it('reads `continue` for itself once joined — never `end`, though it is always last', () => {
+    const m = meter(4, 4)
+    const joined = joinedFan(run(4, '8', 2), 3, 'continue')
+    expect(beamRoleAt(joined, m, 3)).toBe('continue')
+    // Its prefix reads normally: the group is [2, 3], so note 2 begins it.
+    expect(beamRoleAt(joined, m, 2)).toBe('begin')
+    // An INERT mark still reads `begin` while the field says `continue` — that is how a press that
+    // did nothing is told apart from a press that unjoined.
+    expect(beamRoleAt(joinedFan(run(4, '8', 2), 0, 'continue'), m, 0)).toBe('begin')
+  })
+})
+
 describe('beamRoleAt on a two-note tremolo pair — the pair answers for itself', () => {
   /**
    * The grouper cannot see the pair's beam: the pair is excluded there on purpose and the `Beam` is

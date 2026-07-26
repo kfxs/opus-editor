@@ -200,10 +200,15 @@ describe('pressFan across a selection', () => {
   })
 
   /**
-   * ⭐ THE BEAM KEYS ARE REFUSED ON A FANNED SLOT (his call). Its beam is the ramp — one
-   * self-contained feathered group — so there is no "which notes beam together" left to say. A
+   * ⭐ THE BEAM KEYS ARE REFUSED ON A FANNED SLOT (his call) — all but one. Its beam is the ramp,
+   * one self-contained feathered group, so there is no "which notes beam together" left to say. A
    * written mode would be inert while the fan is on and ALIVE the moment it came off, which is the
    * resurrection trap the two-note tremolo avoids the same way: by not writing.
+   *
+   * ⭐ The one is `continue` — the JOIN to the group on the left (docs/fan-beam-join-plan.md §0).
+   * On a fan the word reads exactly as it does anywhere else: a beam comes in AND a beam goes out,
+   * and the outgoing one is the ramp. `begin` is what an unjoined fan already means, `end` and
+   * `single` are impossible, so `continue` is the only choice left to make.
    */
   describe('the beam operations on a fanned slot', () => {
     let note: string
@@ -213,8 +218,18 @@ describe('pressFan across a selection', () => {
       palette.pressFan('accel')
     })
 
-    it('setBeam writes nothing', () => {
-      palette.setBeam('begin')
+    it('setBeam writes nothing — for `begin`, `end` and `single`', () => {
+      for (const mode of ['begin', 'end', 'single'] as const) {
+        palette.setBeam(mode)
+        expect(engine.getNote(note)?.beam).toBeUndefined()
+      }
+    })
+
+    it('⭐ …but `continue` writes the JOIN, and pressing it again UNJOINS', () => {
+      palette.setBeam('continue')
+      expect(engine.getNote(note)?.beam).toBe('continue')
+      // `auto` has no key on the pad, so the same press is the only way back.
+      palette.setBeam('continue')
       expect(engine.getNote(note)?.beam).toBeUndefined()
     })
 

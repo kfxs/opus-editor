@@ -83,10 +83,21 @@ export function beamHighlight(state: EditorState, engine: BeamSource | null): Be
   //
   // ⭐ …and nothing for the fan's OWNER either (his call), for the opposite reason: the fan HAS a
   // beam, it just is not one you can author. Where the group starts and ends is settled by the mark
-  // itself — it is one self-contained feathered group — so `single`/`begin`/`continue`/`end` have
-  // nothing left to say and `setBeam` refuses them. What the row still shows there is the ROLE,
-  // which reads `begin` (see `beamRoleAtRef`): the reading survives, the setting is gone.
-  return selectionHasNoBeamRole(state, engine) || selectionIsFanned(state, engine) ? null : state.selectedBeam
+  // itself — it is one self-contained feathered group — so `begin`/`end`/`single` have nothing left
+  // to say and `setBeam` refuses them.
+  //
+  // ⭐ EXCEPT `continue` — the JOIN to the group on its left (docs/fan-beam-join-plan.md §0), the one
+  // beam key a fan takes. It has to light, or the key would never show what it just wrote and the
+  // only feedback left would be the ROLE, which reads `begin` on an inert mark: the press that did
+  // nothing and the press that unjoins would then look identical.
+  //
+  // ⚠️ Read from the NOTE and not from `state.selectedBeam` like every other selection, because the
+  // press TOGGLES: unjoining writes `auto`, which the armed value never becomes (there is no `auto`
+  // key), so the armed read would leave the key lit over a fan that is no longer joined.
+  if (selectionHasNoBeamRole(state, engine)) return null
+  const fanned = selectionFanOwner(state, engine)
+  if (fanned) return fanned.beam === 'continue' ? 'continue' : null
+  return state.selectedBeam
 }
 
 /**
@@ -96,7 +107,7 @@ export function beamHighlight(state: EditorState, engine: BeamSource | null): Be
 export interface BeamSource {
   /** `fan` is only ever tested for PRESENCE here — the row asks "is this the fan's owner?", never
    *  what shape it is. Optional like the others, so a test double stays a one-liner. */
-  getNote(noteId: string): { isRest?: boolean; secondaryBreak?: boolean; beamOver?: boolean; fan?: unknown } | undefined
+  getNote(noteId: string): { isRest?: boolean; secondaryBreak?: boolean; beamOver?: boolean; fan?: unknown; beam?: BeamMode } | undefined
   getBeamRole(noteId: string): BeamRole | null
 }
 
@@ -150,15 +161,22 @@ function selectionHasNoBeamRole(state: EditorState, engine: BeamSource | null): 
 }
 
 /**
- * Is the single selected thing the OWNER of a fan — the note wearing the mark?
+ * The single selected thing when it is the OWNER of a fan — the note wearing the mark — else null.
  *
  * Members report no `fan` at all ({@link ScoreModel.getNote} keeps the group's marks on the owner),
  * so this answers for the owner alone, which is exactly what the beam row is about: the group, and
  * the group is the owner's.
+ *
+ * The NOTE rather than a boolean, because the row has one thing left to read off it — the authored
+ * `continue` that joins the fan leftward. See {@link beamHighlight}.
  */
-function selectionIsFanned(state: EditorState, engine: BeamSource | null): boolean {
-  if (!engine || state.selectedTool !== 'selection' || !state.selectedNoteId) return false
-  return !!engine.getNote(state.selectedNoteId)?.fan
+function selectionFanOwner(
+  state: EditorState,
+  engine: BeamSource | null,
+): { beam?: BeamMode } | null {
+  if (!engine || state.selectedTool !== 'selection' || !state.selectedNoteId) return null
+  const note = engine.getNote(state.selectedNoteId)
+  return note?.fan ? note : null
 }
 
 /**

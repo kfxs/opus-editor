@@ -421,3 +421,80 @@ describe('a slur anchored inside a fan', () => {
     expect(renderer.getElementRegistry().getById(later.id)).not.toBeNull()
   })
 })
+
+/**
+ * ⭐ JOINED TO THE GROUP ON ITS LEFT (docs/fan-beam-join-plan.md P1). The fan draws the WHOLE joined
+ * group's beam by hand — one line, one owner, one pass — so what is checked here is the seam: the
+ * prefix's stem is drawn by US, inside the fan's group, and is still the NOTE'S OWN `Stem` object,
+ * which is the only thing the selection highlight can find.
+ *
+ * ⚠️ Not a geometry suite, for the file's own reason. Where the line landed is checked by eye.
+ */
+describe('a fan joined to the group on its left', () => {
+  /** An eighth, then a fanned eighth — one beat group, so the join has something to join to. */
+  function joinedPair(join: boolean) {
+    const model = new ScoreModel('fan join')
+    const first = model.addNote({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
+    const fanned = model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(1, 2) })
+    model.setFan(fanned.id, FAN)
+    if (join) model.updateNote(fanned.id, { beam: 'continue' })
+    const { renderer, container } = makeRenderer()
+    renderer.renderScore(model.getScore())
+    const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord' && s.fan)!
+    return { model, renderer, container, first, fanned, slot }
+  }
+
+  it('⭐ draws the prefix’s stem INSIDE the fan’s group — the join is the fan’s ink', () => {
+    const { renderer, container, first, slot } = joinedPair(true)
+    const fanGroup = container.querySelector(`#vf-${FAN_GROUP}-${slot.id}`)
+    expect(fanGroup).not.toBeNull()
+    const stem = renderer.getStaveNoteSVGGroup(first.id)?.stem
+    expect(stem).not.toBeNull()
+    expect(fanGroup!.contains(stem!)).toBe(true)
+  })
+
+  it('…and it is the NOTE’S OWN Stem object, so the highlight can still find it', () => {
+    // 🚨 The whole reason it is not a hand-drawn line: `getStaveNoteSVGGroup` resolves a stem by that
+    // object's SVG element, and ink drawn any other way could never be selected.
+    const { renderer, first } = joinedPair(true)
+    const info = renderer.getStaveNoteSVGGroup(first.id)
+    expect(info?.stem).not.toBeNull()
+    expect(info!.stem!.querySelectorAll('path, rect').length).toBeGreaterThan(0)
+  })
+
+  it('leaves the prefix’s stem where VexFlow drew it when the fan is NOT joined', () => {
+    const { renderer, container, first, slot } = joinedPair(false)
+    const fanGroup = container.querySelector(`#vf-${FAN_GROUP}-${slot.id}`)
+    const stem = renderer.getStaveNoteSVGGroup(first.id)?.stem
+    expect(stem).not.toBeNull()
+    expect(fanGroup!.contains(stem!)).toBe(false)
+  })
+
+  it('builds no VexFlow Beam over the joined group — the line is entirely ours', () => {
+    const { container } = joinedPair(true)
+    expect(container.querySelectorAll('g.vf-beam')).toHaveLength(0)
+  })
+
+  it('⭐ the fan’s ink rect reaches BACK over the prefix, so the joined beam selects the fan', () => {
+    const joinedRect = fanInkRect(joinedPair(true))
+    const aloneRect = fanInkRect(joinedPair(false))
+    expect(joinedRect).not.toBeNull()
+    expect(aloneRect).not.toBeNull()
+    expect(joinedRect!.x).toBeLessThan(aloneRect!.x)
+  })
+
+  it('the rest of the score still draws after it — the group is balanced', () => {
+    const { model, renderer, container, fanned } = joinedPair(true)
+    model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    renderer.renderScore(model.getScore())
+    expect(renderer.getElementRegistry().getById(fanned.id)).not.toBeNull()
+    expect(container.querySelectorAll('g.vf-stavenote').length).toBeGreaterThan(2)
+  })
+
+  /** The fan's own `beam` hit rect — the one `registerFanInk` filed, the widest in the bar. */
+  function fanInkRect(built: { renderer: VexFlowRenderer }): { x: number; width: number } | null {
+    const beams = built.renderer.getElementRegistry().getAll().filter(e => e.type === 'beam')
+    if (!beams.length) return null
+    return { x: beams[0].bbox.x, width: beams[0].bbox.width }
+  }
+})

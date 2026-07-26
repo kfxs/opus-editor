@@ -1427,20 +1427,31 @@ export class PaletteController {
     const engine = this.getEngine()
     if (!engine || this.state.selectedTool !== 'selection') return
 
-    // A FANNED slot is skipped beside the rests (his call): its beam is the RAMP, one self-contained
-    // feathered group, so there is no "which notes beam together" left to author — and the grouper
-    // flushes at a fan, which would make a written `begin` inert now and alive the moment the mark
-    // came off, the same resurrection trap `routeBeamToTremoloPairStyle` avoids by not writing here.
-    // The row still READS `begin` on one (`beamRoleAtRef`); it is the setting that is gone.
-    const ids = selectedNoteIds(this.state.selectedItems.values())
-      .filter(id => {
-        const note = engine.getNote(id)
-        return note && !note.isRest && !note.fan
-      })
-    if (!ids.length) return
+    // A FANNED slot takes exactly ONE of the four, and it is `continue`: the JOIN to the group on
+    // its left (docs/fan-beam-join-plan.md §0). Its own beam is the RAMP — one self-contained
+    // feathered group that always has a beam going out — so `begin` has nothing left to say,
+    // `end`/`single` are impossible, and only "a beam comes in as well" is a choice anyone can make.
+    // The other three are skipped beside the rests, which also avoids the resurrection trap
+    // `routeBeamToTremoloPairStyle` avoids by not writing here: a mark inert under the fan and alive
+    // the moment it came off.
+    //
+    // ⚠️ And it TOGGLES, because `auto` has no key on the pad — without that there is no way to
+    // unjoin. Per note, so a mixed selection each flips its own way.
+    const edits: { id: string; beam: BeamMode }[] = []
+    for (const id of selectedNoteIds(this.state.selectedItems.values())) {
+      const note = engine.getNote(id)
+      if (!note || note.isRest) continue
+      if (note.fan) {
+        if (beam !== 'continue') continue
+        edits.push({ id, beam: note.beam === 'continue' ? 'auto' : 'continue' })
+      } else {
+        edits.push({ id, beam })
+      }
+    }
+    if (!edits.length) return
 
     engine.runBatch(`Beam: ${beam}`, () => {
-      for (const id of ids) engine.updateNote(id, { beam })
+      for (const edit of edits) engine.updateNote(edit.id, { beam: edit.beam })
     })
     this.renderScore()
     // The note's authored beam and its role changed but `selectedBeam` may not have (pressing the mode

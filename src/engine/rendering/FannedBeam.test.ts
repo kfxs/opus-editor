@@ -283,3 +283,106 @@ describe('an accidental buys its own room', () => {
     expect(signed[1] - signed[0]).toBeCloseTo(plain[1] - plain[0], 6)
   })
 })
+
+/**
+ * ⭐ JOINED TO THE GROUP ON ITS LEFT (docs/fan-beam-join-plan.md P1). The whole line becomes ours —
+ * one straight edge from the first prefix stem to the last member — and in v1 it is FLAT.
+ */
+describe('a fan joined to the group on its left', () => {
+  /** Two eighths in front of the fan, stems at x=40 and x=70, heads on the same line as the fan. */
+  const PREFIX = [{ stemX: 40, headYs: [100] }, { stemX: 70, headYs: [100] }]
+
+  const joined = (opts: {
+    fan?: FanMark
+    prefix?: { stemX: number; headYs: number[] }[]
+    prefixBeams?: number
+    memberStep?: number
+  } = {}) => {
+    const fan = opts.fan ?? FAN
+    const step = opts.memberStep ?? 0
+    return fannedBeamGeometry({
+      members: fanMembers(fan, frac(2, 1)),
+      memberHeadYs: Array.from({ length: fan.count }, (_, k) => [100 + k * step]),
+      direction: fan.direction, beams: fan.beams,
+      headX: 100, spanEndX: 400, stemOffset: 10, minHeadGap: MIN_GAP,
+      prefix: opts.prefix ?? PREFIX,
+      prefixBeams: opts.prefixBeams ?? 1,
+      tipY: 60, minStemLength: MIN_STEM, stemDirection: 1, beamWidth: BEAM_WIDTH,
+    })
+  }
+
+  it('⭐ FLATTENS the line — a fan that leans on its own goes horizontal once it is joined', () => {
+    // Alone, the same rising members lean (the test above pins that).
+    const alone = fannedBeamGeometry({
+      members: fanMembers(FAN, frac(2, 1)),
+      memberHeadYs: Array.from({ length: FAN.count }, (_, k) => [100 - 4 * k]),
+      direction: 'accel', beams: 3,
+      headX: 100, spanEndX: 400, stemOffset: 10, minHeadGap: MIN_GAP,
+      tipY: 60, minStemLength: MIN_STEM, stemDirection: 1, beamWidth: BEAM_WIDTH,
+    })
+    expect(alone.beams[0].endY).toBeLessThan(alone.beams[0].startY)
+
+    const g = joined({ memberStep: -4 })
+    expect(g.beams[0].endY).toBe(g.beams[0].startY)
+    // …and every stem in the group, member and prefix alike, lands on that one height.
+    for (const s of g.stems) expect(s.tipY).toBeCloseTo(g.beams[0].startY, 6)
+    for (const p of g.prefixStems) expect(p.tipY).toBeCloseTo(g.beams[0].startY, 6)
+  })
+
+  it('runs the PRIMARY back to the first prefix stem, and nothing else', () => {
+    const g = joined()
+    expect(g.beams[0].startX).toBe(40)              // the first prefix stem
+    expect(g.beams[0].endX).toBe(g.stems[5].stemX)  // the last member
+    // The fan's own extra levels belong to the ramp: they start at the owner's stem.
+    for (const line of g.beams.slice(1)) expect(line.startX).toBe(g.stems[0].stemX)
+  })
+
+  it('gives the prefix one tip per note, at its own stem x', () => {
+    const g = joined()
+    expect(g.prefixStems.map(p => p.stemX)).toEqual([40, 70])
+  })
+
+  it('an UNJOINED fan reports no prefix at all, and is unchanged', () => {
+    const g = geometry(FAN)
+    expect(g.prefixStems).toEqual([])
+    expect(g.beams[0].startX).toBe(g.stems[0].stemX)
+  })
+
+  it('⭐ the prefix keeps its OWN beam levels, and they stop at the owner’s stem', () => {
+    // A 16th prefix: two lines arrive, and the second is the prefix's alone.
+    const g = joined({ prefixBeams: 2 })
+    const prefixLevels = g.beams.filter(line => line.startX === 40 && line.endX === g.stems[0].stemX)
+    expect(prefixLevels).toHaveLength(1)
+    expect(prefixLevels[0].startY).toBeCloseTo(g.beams[0].startY + BEAM_WIDTH * 1.5, 6)
+    // An eighth prefix asks for one line, which IS the primary — nothing extra.
+    expect(joined({ prefixBeams: 1 }).beams).toHaveLength(3)
+  })
+
+  it('⭐ the PREFIX votes on the line’s height like any other note in the group', () => {
+    // A prefix note three octaves up cannot keep its minimum stem where the line was, so the whole
+    // line moves — and the fan's own note is told to grow by exactly what that cost it.
+    const high = [{ stemX: 40, headYs: [20] }, { stemX: 70, headYs: [100] }]
+    const g = joined({ prefix: high })
+    expect(g.beams[0].startY).toBeLessThanOrEqual(20 - MIN_STEM)
+    expect(g.stemLift).toBeCloseTo(60 - g.beams[0].startY, 6)
+    expect(g.stemLift).toBeGreaterThan(0)
+  })
+
+  it('a prefix that already fits moves nothing', () => {
+    expect(joined().stemLift).toBe(0)
+    expect(joined().beams[0].startY).toBe(60)
+  })
+
+  it('steps the prefix’s levels the right way for stems DOWN', () => {
+    const g = fannedBeamGeometry({
+      members: fanMembers(FAN, frac(2, 1)),
+      memberHeadYs: Array.from({ length: 6 }, () => [100]),
+      direction: 'accel', beams: 3,
+      headX: 100, spanEndX: 400, stemOffset: 0, minHeadGap: MIN_GAP,
+      prefix: PREFIX, prefixBeams: 2,
+      tipY: 140, minStemLength: MIN_STEM, stemDirection: -1, beamWidth: BEAM_WIDTH,
+    })
+    const extra = g.beams.find(line => line.startX === 40 && line.endX === g.stems[0].stemX)!
+    expect(extra.startY).toBeCloseTo(g.beams[0].startY - BEAM_WIDTH * 1.5, 6)
+  })
+})

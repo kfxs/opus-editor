@@ -125,6 +125,20 @@ describe('beamHighlight (the dev shell\'s Beam row)', () => {
     expect(secondaryBreakHighlight(state, { getNote: () => ({ fan: {}, secondaryBreak: true }), getBeamRole: () => 'begin' })).toBe(false)
   })
 
+  it('⭐ …except `continue` — the one beam key a fan takes, and it lights what was WRITTEN', () => {
+    // docs/fan-beam-join-plan.md §1 (P0): the join to the group on the left.
+    const state = stateWith([note('f')])
+    const joined: BeamSource = { getNote: () => ({ fan: {}, beam: 'continue' }), getBeamRole: () => 'continue' }
+    state.selectedBeam = 'single'   // the ARMED value is beside the point here…
+    expect(beamHighlight(state, joined)).toBe('continue')
+    expect(beamRoleHighlight(state, joined)).toBe('continue')
+
+    // …and so it goes dark the moment the press UNJOINS, which writes `auto` — a value the armed
+    // side never takes (there is no `auto` key), so an armed read would leave the key lit.
+    state.selectedBeam = 'continue'
+    expect(beamHighlight(state, { getNote: () => ({ fan: {} }), getBeamRole: () => 'begin' })).toBeNull()
+  })
+
   it('a selected NOTE still reports both facts', () => {
     const state = stateWith([note('a')])
     state.selectedBeam = 'auto'
