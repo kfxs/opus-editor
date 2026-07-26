@@ -51,24 +51,36 @@ function overridesAt(score: Score, key: string | undefined): EngravingOverride[]
   return entries?.length ? entries : undefined
 }
 
+/** The entries under SEVERAL keys, as one list — for an element addressed more than one way (see
+ *  {@link noteOverrideKeys}). Undefined when none of them holds anything. */
+function overridesAtAny(score: Score, keys: string[]): EngravingOverride[] | undefined {
+  const entries = keys.flatMap((key) => score.engravingOverrides?.[key] ?? [])
+  return entries.length ? entries : undefined
+}
+
 /**
- * The compartment key for a note or rest.
+ * EVERY compartment key a note or rest answers to — plural, because one element can be addressed
+ * more than one way and the panel must show what the model will accept, not what one lookup happens
+ * to find (the `getNote` lesson).
  *
- * ⚠️ Rests are POSITION-keyed and notes are SLOT-keyed — the one asymmetry in the compartment, and
- * it is not an accident: a rest has no durable id (re-barring makes and unmakes rests freely), so
- * its overrides are addressed by where it sits. Reading the wrong key would silently show no
- * overrides on exactly the elements that most often have one — the rest shift and rest hide both
- * live at the position key; a note's horizontal offset (client #12) lives at its SLOT id.
- *
- * NOT the pitch id: no compartment client keys off a note's pitch id, and the note offset a chord
- * carries is a property of the whole slot (a chord moves as a unit). So a selected pitch resolves to
- * the slot it sits in — otherwise the panel would look up an always-empty key and never show the offset.
+ * ⚠️ **Three different addressing schemes meet on this one element:**
+ * - **The horizontal offset (client #12) is `MusicEngine.offsetTargetOf`** — the SLOT id for an
+ *   ordinary note (a chord moves as a unit) or a rest, and a fanned MEMBER's own first pitch id.
+ *   ⛔ Not `slotIdForNote`: that resolves a member to the chord containing it, so a selected member
+ *   reported its OWNER's number while the nudge wrote its own (docs/note-offset-plan.md).
+ * - **A rest's shift and its hide are POSITION-keyed**, because a rest has no durable id — rebar
+ *   makes and unmakes rests freely.
+ * - …so a REST has BOTH, and reading either one alone hides the other silently: an empty section
+ *   looks exactly like "this element has none".
  */
-function noteOverrideKey(score: Score, engine: MusicEngine, note: Note): string | undefined {
-  if (!note.isRest) return engine.slotIdForNote(note.id)
+function noteOverrideKeys(score: Score, engine: MusicEngine, note: Note): string[] {
+  const keys: string[] = []
+  const target = engine.offsetTargetOf(note.id)
+  if (target) keys.push(target.key)
+  if (!note.isRest) return keys
   const measure = score.measures.find((m) => m.number === note.measure)
-  if (!measure) return undefined
-  return restPositionKey(measure.id, note.voice ?? 0, note.beat, score.staves?.[note.staff ?? 0]?.id)
+  if (measure) keys.push(restPositionKey(measure.id, note.voice ?? 0, note.beat, score.staves?.[note.staff ?? 0]?.id))
+  return keys
 }
 
 export function selectedElements(state: EditorState, engine: MusicEngine | null): SelectedElement[] {
@@ -87,7 +99,7 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
     out.push({
       kind: note?.isRest ? 'rest' : 'note',
       data: note ?? { id, missing: true },
-      overrides: note ? overridesAt(score, noteOverrideKey(score, engine, note)) : undefined,
+      overrides: note ? overridesAtAny(score, noteOverrideKeys(score, engine, note)) : undefined,
     })
   }
 

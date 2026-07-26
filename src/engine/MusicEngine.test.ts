@@ -672,11 +672,11 @@ describe('MusicEngine.nudgeNoteOffset / resetNoteOffset — client #12 horizonta
   let engine: MusicEngine
   beforeEach(() => { engine = makeEngine() })
 
-  // The override is keyed by the SLOT the note lives in, so resolve pitch id → slot id the same
-  // way the facade does, then read the compartment at that key.
+  // Resolve the key the same way the facade does — the SLOT for anything ordinary, a fanned
+  // member's own id for a member — then read the compartment there.
   const offsetOfNote = (noteId: string) => {
-    const slotId = engine['scoreModel'].slotIdForNote(noteId)
-    return slotId ? noteOffsetOverrideOf(engine.getScore(), slotId) : undefined
+    const key = engine.offsetTargetOf(noteId)?.key
+    return key ? noteOffsetOverrideOf(engine.getScore(), key) : undefined
   }
 
   it('accumulates dx onto any existing offset (staff-spaces, +right)', () => {
@@ -697,7 +697,7 @@ describe('MusicEngine.nudgeNoteOffset / resetNoteOffset — client #12 horizonta
   it('keys by slot, so every pitch of a chord shares one offset (a chord moves as a unit)', () => {
     const c = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     const e = engine.addChordNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
-    expect(engine['scoreModel'].slotIdForNote(c.id)).toBe(engine['scoreModel'].slotIdForNote(e.id))
+    expect(engine.offsetTargetOf(c.id)).toEqual(engine.offsetTargetOf(e.id))
     engine.nudgeNoteOffset(c.id, 1)
     // Nudging via the other pitch id lands on the same entry and accumulates.
     engine.nudgeNoteOffset(e.id, 1)

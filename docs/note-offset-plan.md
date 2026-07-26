@@ -305,13 +305,16 @@ which is what a beam does everywhere else:
    - **The fan's ink rect now measures every member's own x** on both edges (`registerFanInk`): it
      spanned `headX` → last stem, and the ramp's order stops being the ink's order the moment a
      member is nudged past its neighbour.
-3. **P2 — the surfaces.** The reader is `noteOverrideKey` (`interactions/selectionSnapshot.ts:67`),
-   which routes through `slotIdForNote` — so a member shows the OWNER's number today (the Properties
-   input reads `element.overrides`; the `getNote` lesson: a surface must report what the model will
-   accept). ⚠️ Its doc comment states *"NOT the pitch id: no compartment client keys off a note's
-   pitch id"* — this feature falsifies that sentence, so it is rewritten, not just re-routed. That
-   leaves `MusicEngine.slotIdForNote` with no caller: fold it into `offsetTargetOf` or keep it
-   deliberately, but decide rather than leave a stranded public method.
+3. **P2 — the surfaces. ✅ DONE.** `noteOverrideKey` became **`noteOverrideKeys`** (plural) in
+   `interactions/selectionSnapshot.ts` and asks the engine for the key the nudge itself writes
+   (`offsetTargetOf`), so a member reports ITS number and not its owner's — the `getNote` lesson: a
+   surface must report what the model will accept. Its doc comment said *"no compartment client keys
+   off a note's pitch id"*; that is now false, so it is rewritten rather than re-routed.
+   ⭐ **Plural, because a REST answers to two schemes at once** — its shift and its hide are
+   position-keyed, its offset is keyed by the slot it is — and reading either key alone hid the
+   other silently. That was a live bug of its own: a rest with an offset showed `0` in Properties.
+   `MusicEngine.slotIdForNote` had no caller left and is **deleted**; the model keeps its own
+   (documented as ⚠️ *not* the offset address, which is the one case they differ on).
    ✅ The `measureShapeKey` half was pulled forward into P1 (and **stays out** of the width key — an
    offset has no width). The keyboard surface needs nothing: it goes through the facade.
 4. **P3 — travel + cleanup.** Member entries join `captureNoteOffsets` / `restoreNoteOffsets`

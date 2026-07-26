@@ -950,15 +950,17 @@ export class ScoreModel {
   }
 
   /**
-   * The **slot** id containing a note/rest id — the address a {@link NoteOffsetOverride} is keyed
-   * by (client #12 — see docs/note-offset-plan.md). Selection hands us a *pitch* id, but VexFlow
-   * cannot x-shift a single notehead of a chord independently, so the offset hangs off the whole
-   * slot: a chord moves as a unit, and a rest (itself a slot) resolves to its own id. Returns
-   * undefined for an id no longer in the score.
+   * The **slot** id containing a note/rest id. Selection hands us a *pitch* id, and VexFlow cannot
+   * x-shift a single notehead of a chord independently, so anything that moves a note by hand hangs
+   * off the whole slot: a chord moves as a unit, and a rest (itself a slot) resolves to its own id.
+   * Returns undefined for an id no longer in the score.
+   *
+   * ⚠️ **NOT the note-offset address** — {@link offsetTargetOf} is, and it differs on exactly one
+   * case: a fanned MEMBER resolves to its OWNER here (it lives in that slot) and to ITSELF there (it
+   * is a head with a stem, and an offset moves the note you offset). Reaching for this one to key an
+   * override is what made a member nudge move the note that was typed.
    */
   slotIdForNote(noteId: string): string | undefined {
-    // A fanned member resolves to the slot it lives in — which is the right answer twice over: the
-    // offset is slot-keyed, and a member has no column of its own to nudge.
     const found = this.findSlot(noteId, { fanMembers: true })
     if (!found) return undefined
     return found.type === 'rest' ? found.rest.id : found.chord.id

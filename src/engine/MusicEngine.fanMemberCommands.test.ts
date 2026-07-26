@@ -258,11 +258,6 @@ describe('a selected fanned member in the selection machinery', () => {
     expect(note.isRest).toBe(false)
   })
 
-  it('⭐ it resolves to its SLOT for anything slot-shaped', () => {
-    const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
-    expect(engine.slotIdForNote(memberId)).toBe(slot.id)
-  })
-
   /**
    * ⭐ …and the horizontal offset is NOT one of those things (docs/note-offset-plan.md §"Inside a
    * FAN"). Reported from use: nudge a member and the note that was typed moved instead, because the

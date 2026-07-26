@@ -43,10 +43,10 @@ function fourNotes(engine: MusicEngine, m: number): string[] {
   )
 }
 
-/** The offset stored on the slot containing note `noteId`, or 0 when none. */
+/** The offset stored for note `noteId`, or 0 when none — read at the key the engine itself writes. */
 const offsetOf = (engine: MusicEngine, noteId: string) => {
-  const slotId = engine.slotIdForNote(noteId)
-  return slotId ? noteOffsetOverrideOf(engine.getScore(), slotId)?.x ?? 0 : 0
+  const key = engine.offsetTargetOf(noteId)?.key
+  return key ? noteOffsetOverrideOf(engine.getScore(), key)?.x ?? 0 : 0
 }
 
 /** The id of the note at (measure, beat) — the pasted/re-tiled slot has a fresh id. */

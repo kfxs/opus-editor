@@ -316,7 +316,8 @@ export class PropertiesWidget implements Widget {
 }
 
 /** The note/rest's current horizontal offset in staff-spaces (0 when none), read from the element's
- *  own overrides — the same slot-keyed entry the engine writes. */
+ *  own overrides — the entry at whichever key the engine writes (the slot's, or a fanned MEMBER's
+ *  own; `selectionSnapshot` resolves it through `offsetTargetOf`, so a member shows ITS number). */
 function currentNoteOffset(element: SelectedElement): number {
   const entry = element.overrides?.find((o) => o.kind === 'noteOffset') as { x?: number } | undefined
   return entry?.x ?? 0

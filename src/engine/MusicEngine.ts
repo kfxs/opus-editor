@@ -2019,13 +2019,6 @@ export class MusicEngine {
     return true
   }
 
-  /** The slot id a note/rest id belongs to — the address its {@link NoteOffsetOverride} is keyed by
-   *  (a chord moves as a unit; a rest is its own slot). Undefined when the id is not in the score.
-   *  Exposed so the Properties seam can resolve a selected pitch id to the key its offset lives at. */
-  slotIdForNote(noteId: string): string | undefined {
-    return this.scoreModel.slotIdForNote(noteId)
-  }
-
   /** The note's current horizontal offset in staff-spaces (0 when none). The absolute value the
    *  Properties input reads and steps from; `NoteOffsetController` turns a new absolute into the
    *  facade's relative `nudgeNoteOffset(dx = new − current)`. Read at the same key the nudge writes
