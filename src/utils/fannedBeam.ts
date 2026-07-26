@@ -41,6 +41,31 @@ export const DEFAULT_FAN_BEAMS = 3
 export type FanCurve = 'linear'
 
 /**
+ * The bounds an EDITED fan is held inside (P4). ⚠️ **Sanity guards, not engraving claims** — nothing
+ * here says a 20-note fan is wrong, only that a typed number should not be able to ask the renderer
+ * for a thousand noteheads or a speed ratio of 2^99.
+ *
+ * `MAX_FAN_BEAMS` is where the two meet notation anyway: beam lines are note values, so 4 is a 64th
+ * and past that there is nothing left to name. The ceiling on the count is pure arithmetic — at that
+ * many members `fanColumns` is already asking for more width than a system has, and the drawing has
+ * been compressing evenly for a while.
+ */
+export const MAX_FAN_COUNT = 32
+export const MAX_FAN_BEAMS = 6
+
+/** Hold a member count inside {@link MAX_FAN_COUNT}; a non-number or below 1 becomes 1 (the note itself). */
+export function clampFanCount(count: number): number {
+  if (!Number.isFinite(count)) return 1
+  return Math.min(MAX_FAN_COUNT, Math.max(1, Math.round(count)))
+}
+
+/** Hold a beam count inside {@link MAX_FAN_BEAMS}; a non-number or below 1 becomes 1 (no feathering). */
+export function clampFanBeams(beams: number): number {
+  if (!Number.isFinite(beams)) return 1
+  return Math.min(MAX_FAN_BEAMS, Math.max(1, Math.round(beams)))
+}
+
+/**
  * How many times faster the fast end is than the slow one, read off the beam count.
  *
  * **A beam IS a halving**, so 1 → 3 beams is 4×: the same arithmetic that makes a note with two

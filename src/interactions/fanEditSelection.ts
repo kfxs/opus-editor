@@ -1,0 +1,42 @@
+/**
+ * The seam the Properties fan inputs publish through (docs/fanned-beams-plan.md §3, P4). The twin of
+ * {@link ./noteOffsetSelection}: **command-only**, so the window writes "this fanned note should be
+ * six notes with three beams" and {@link FanEditController} — the one place that holds the engine —
+ * applies it.
+ *
+ * No highlight/mirror channel, for the same reason the note offset has none: the inputs read their
+ * CURRENT values from `selectionInspection`, which they already subscribe to. Nothing needs mirroring
+ * back, and the window stays a dumb publisher that cannot reach the score.
+ *
+ * A PARTIAL request, because the two numbers are edited one at a time — the controller merges it
+ * into the fan the note is wearing. There is no "make a fan" here: the request only ever *changes*
+ * one, so a note without one is a no-op. Creating and removing fans is the `accel.` / `rit.` press
+ * (`PaletteController.pressFan`), and keeping the two apart is what stops an edit box from silently
+ * inventing a notation.
+ */
+export interface FanEditRequest {
+  /** The selected note whose fan to change. */
+  noteId: string
+  /** How many notes the group is played and drawn as. Absent = leave it alone. */
+  count?: number
+  /** Beam lines at the wide end. Absent = leave it alone. */
+  beams?: number
+}
+
+export class FanEditSelection {
+  private listeners = new Set<(req: FanEditRequest) => void>()
+
+  /** Publish a change. ALWAYS fires (re-typing the same value is a real event — the controller
+   *  decides it is a no-op), mirroring `PaletteSelection.press`. */
+  set(req: FanEditRequest): void {
+    for (const fn of this.listeners) fn(req)
+  }
+
+  /** Handle a change — {@link FanEditController} runs the engine apply. */
+  onSet(fn: (req: FanEditRequest) => void): () => void {
+    this.listeners.add(fn)
+    return () => this.listeners.delete(fn)
+  }
+}
+
+export const fanEditSelection = new FanEditSelection()

@@ -227,9 +227,20 @@ each member takes the articulation's length factor, so a staccato fan is staccat
 two are mutually exclusive in the model, so a slot carrying both is ill-formed — imported JSON is
 reported, never repaired — and something has to win predictably. The fan does.
 
-**P4 — editable count and beams.** Change `count` and `beams` on a selected fanned group (Properties
-window is the natural home; the numbers are already the model, so this is UI only). Both re-draw and
-re-play immediately.
+**P4 — editable count and beams.** Two number inputs in the Properties window, shown only on a note
+that HAS a fan. The numbers ARE the model (`FanMark`), so nothing here computes a consequence — it
+says what the assertion is, and the drawing and the playback both re-read it at once.
+
+⭐ **It CHANGES a fan and never MAKES one.** A note without one is a no-op: creating and removing
+them is the `accel.` / `rit.` press, which is also where the direction lives — offering it here too
+would give one fact two owners, and an edit box that could conjure a notation out of a typed number
+is a worse door than a button. The window stays a dumb publisher (`fanEditSelection` →
+`FanEditController`), the same boundary the note-offset input defends: a content widget never holds
+the engine.
+
+The typed number is CLAMPED rather than refused (`clampFanCount`/`clampFanBeams`) — ⚠️ sanity
+guards, not engraving claims. Nothing says a 20-note fan is wrong; the ceilings only stop a typo
+asking the renderer for a thousand noteheads or a speed ratio of 2^99.
 
 ## 4. Deliberately NOT in this plan
 

@@ -3,7 +3,9 @@ import { selectionInspection } from '../../interactions/selectionInspection'
 import type { SelectedElement } from '../../interactions/selectionSnapshot'
 import { noteOffsetSelection } from '../../interactions/noteOffsetSelection'
 import { articulationStemAlignSelection } from '../../interactions/articulationStemAlignSelection'
-import type { ArticulationType } from '../../types/music'
+import { fanEditSelection } from '../../interactions/fanEditSelection'
+import { MAX_FAN_BEAMS, MAX_FAN_COUNT } from '../../utils/fannedBeam'
+import type { ArticulationType, FanMark } from '../../types/music'
 
 /**
  * What is selected, as the model holds it.
@@ -114,6 +116,13 @@ export class PropertiesWidget implements Widget {
           if (element.kind === 'note' && artics?.length) {
             body.appendChild(this.buildStemAlignCheckbox(id, currentStemAlign(element)))
           }
+          // The fanned group's two numbers, shown only on a note that HAS one: this row changes the
+          // shape of a fan, it never makes one (docs/fanned-beams-plan.md §3, P4). Creating and
+          // removing them is the accel./rit. press, which is also where the direction lives.
+          const fan = (element.data as { fan?: FanMark }).fan
+          if (element.kind === 'note' && fan) {
+            body.appendChild(this.buildFanInputs(id, fan))
+          }
         }
       }
 
@@ -204,6 +213,76 @@ export class PropertiesWidget implements Widget {
       noteOffsetSelection.set(noteId, 0)
     })
     row.appendChild(reset)
+    return row
+  }
+
+  /**
+   * The fanned group's shape — how many notes it is played and drawn as, and how many beam lines it
+   * feathers out to. One row, two number inputs, publishing to {@link fanEditSelection}.
+   *
+   * ⭐ **The numbers ARE the model** (`FanMark`), which is what makes this UI only: nothing here
+   * computes a consequence, it just says what the assertion is. The direction is not offered — that
+   * is the accel./rit. press, and showing it twice would give one fact two owners.
+   *
+   * Committing (Enter or blur) re-draws and re-plays at once, because both read the same field.
+   */
+  private buildFanInputs(noteId: string, fan: FanMark): HTMLElement {
+    const row = document.createElement('div')
+    const rs = row.style
+    rs.display = 'flex'
+    rs.alignItems = 'center'
+    rs.gap = '6px'
+    rs.color = BISHOP
+    rs.margin = '2px 0 4px'
+
+    const label = document.createElement('span')
+    label.textContent = `fan (${fan.direction})`
+    row.appendChild(label)
+
+    const field = (
+      title: string, value: number, max: number, publish: (n: number) => void,
+    ): HTMLElement => {
+      const wrap = document.createElement('label')
+      wrap.style.display = 'flex'
+      wrap.style.alignItems = 'center'
+      wrap.style.gap = '3px'
+      wrap.title = title
+
+      const caption = document.createElement('span')
+      caption.textContent = title
+      wrap.appendChild(caption)
+
+      const input = document.createElement('input')
+      input.type = 'number'
+      input.min = '1'
+      input.max = String(max)
+      input.step = '1'
+      input.value = String(value)
+      const is = input.style
+      is.width = '3.5em'
+      is.font = 'inherit'
+      is.color = BISHOP
+      is.background = 'transparent'
+      is.border = `1px solid ${BISHOP}`
+      is.borderRadius = '2px'
+      is.padding = '1px 4px'
+      // Enter commits (and blurs, which would otherwise commit twice — the offset input's rule).
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur() }
+      })
+      input.addEventListener('change', () => {
+        const n = parseInt(input.value, 10)
+        // A number that is not one is not an edit: put the real value back rather than guessing at
+        // what was meant. The controller clamps the rest.
+        if (!Number.isFinite(n)) { input.value = String(value); return }
+        publish(n)
+      })
+      wrap.appendChild(input)
+      return wrap
+    }
+
+    row.appendChild(field('notes', fan.count, MAX_FAN_COUNT, (count) => fanEditSelection.set({ noteId, count })))
+    row.appendChild(field('beams', fan.beams, MAX_FAN_BEAMS, (beams) => fanEditSelection.set({ noteId, beams })))
     return row
   }
 
