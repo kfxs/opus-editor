@@ -110,9 +110,23 @@ own `Stem` object, re-aimed and drawn — see P1.
   `drawFannedBeams` runs before `registerSlotElements` and `getAt` returns the last match, so the
   prefix noteheads still win their own clicks.
 
-**P2 — fan to fan.** The left fan's last member and the right fan's owner. Both stems are already
-ours, so this is one more quad and a line that spans two slots' geometry — but it needs the two
-ramps' end/start levels reconciled, which is why it is its own phase.
+**P2 — fan to fan.** ✅ DONE. The left fan's last member and the right fan's owner. Both stems are
+already ours, so this is one more quad and a line that spans two slots' geometry — but it needs the
+two ramps' end/start levels reconciled, which is why it is its own phase.
+
+As built, four things it turned out to need:
+- **A fan must be able to OPEN a group**, or the mark on the right fan has nothing to be pushed onto.
+  What it opens is open to FANS ALONE (`fanTail` in the grouper) — an ordinary note joined to a fan's
+  right would be addressing its last member, which §4 rules out. CHAINS fall out of that for free.
+- **`beamRoleAtRef` turns on the INDEX, not on membership** — the first fan of a chain is in a group
+  and still `begin`s it. Still never `end`: a fan always has an outgoing beam.
+- **ONE line for the whole group, asked rather than restated.** Each fan is run through
+  `fannedBeamGeometry` as if it were alone and the OUTERMOST answer wins — the same "largest ask
+  wins, the whole line moves" the floor already applies inside one fan, one level up. That is also
+  what keeps every owner's stem growable, since `stemLift` can only lengthen.
+- The crossing lines are `min(left.endLevels, right.startLevels)`: an `accel.` into a `rit.` joins
+  thickly, everything else on the one line they share, and a level only one side carries stops at its
+  own stem — the same answer P1 gives a 16th prefix meeting a one-beam fan.
 
 **P3 — across a barline, and across a system.** His "we will have to tweak for multi bar". The
 grouper gives the crossing away for free (a leading `continue` already speaks for the boundary); the

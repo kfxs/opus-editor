@@ -498,3 +498,71 @@ describe('a fan joined to the group on its left', () => {
     return { x: beams[0].bbox.x, width: beams[0].bbox.width }
   }
 })
+
+/**
+ * ⭐ P2 — FAN TO FAN. The left fan's last member and the right fan's owner, on one shared line.
+ * The gap's quads belong to the RIGHT fan's group — it is the one wearing the `continue`.
+ */
+describe('two fans joined to each other', () => {
+  function twoFans(join: boolean) {
+    const model = new ScoreModel('fan chain')
+    const left = model.addNote({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
+    const right = model.addNote({ step: 'G', octave: 4, duration: '8', measure: 1, beat: frac(1, 2) })
+    model.setFan(left.id, FAN)
+    model.setFan(right.id, { direction: 'rit', count: 4, beams: 2 })
+    if (join) model.updateNote(right.id, { beam: 'continue' })
+    const { renderer, container } = makeRenderer()
+    renderer.renderScore(model.getScore())
+    return { model, renderer, container, left, right }
+  }
+
+  it('paints both fans’ groups either way — a join adds ink, it does not replace it', () => {
+    expect(fanGroups(twoFans(false).container)).toHaveLength(2)
+    expect(fanGroups(twoFans(true).container)).toHaveLength(2)
+  })
+
+  it('⭐ puts BOTH fans on ONE line — a beam is one straight edge', () => {
+    // Different pitches, so unjoined the two ramps sit at different heights; joined they cannot.
+    const apart = beamTops(twoFans(false))
+    const together = beamTops(twoFans(true))
+    expect(apart[0]).not.toBeCloseTo(apart[1], 1)
+    expect(together[0]).toBeCloseTo(together[1], 1)
+  })
+
+  it('⭐ the right fan’s ink reaches BACK over the gap to the left one', () => {
+    const joined = fanRects(twoFans(true))
+    const alone = fanRects(twoFans(false))
+    expect(joined[1].x).toBeLessThan(alone[1].x)
+  })
+
+  it('builds no VexFlow Beam for the chain either', () => {
+    expect(twoFans(true).container.querySelectorAll('g.vf-beam')).toHaveLength(0)
+  })
+
+  it('the rest of the score still draws after it — both groups are balanced', () => {
+    const { model, renderer, container, right } = twoFans(true)
+    model.addNote({ step: 'A', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    renderer.renderScore(model.getScore())
+    expect(renderer.getElementRegistry().getById(right.id)).not.toBeNull()
+    expect(container.querySelectorAll('g.vf-stavenote').length).toBeGreaterThan(2)
+  })
+
+  /** The topmost y of each fan group's beam ink, left group first. */
+  function beamTops(built: { container: HTMLElement }): number[] {
+    return [...built.container.querySelectorAll(`g.vf-${FAN_GROUP}`)].map(g => {
+      const ys: number[] = []
+      for (const path of g.querySelectorAll('path')) {
+        const nums = [...(path.getAttribute('d') ?? '').matchAll(/-?\d+(?:\.\d+)?/g)].map(m => Number(m[0]))
+        for (let i = 1; i < nums.length; i += 2) ys.push(nums[i])
+      }
+      return Math.min(...ys)
+    })
+  }
+
+  /** Each fan's registered `beam` hit rect, in registration (left-to-right) order. */
+  function fanRects(built: { renderer: VexFlowRenderer }): { x: number }[] {
+    return built.renderer.getElementRegistry().getAll()
+      .filter(e => e.type === 'beam')
+      .map(e => ({ x: e.bbox.x }))
+  }
+})

@@ -679,6 +679,51 @@ describe('a FANNED slot JOINED to the group on its left', () => {
     expect(computeCrossBarBeamGroups(trailing)).toEqual([[{ bar: 0, slot: 0 }, { bar: 0, slot: 1 }]])
   })
 
+  /**
+   * ⭐ P2 — AND THE GROUP ON ITS LEFT MAY BE ANOTHER FAN. A fan has to be able to OPEN a group for
+   * that, but what it opens is open to FANS ALONE: an ordinary note joined to a fan's right would be
+   * addressing its last member, which is a pitch inside the event and not a slot (§4).
+   */
+  describe('…and the group on its left may be another FAN', () => {
+    const twoFans = (secondJoins: boolean): ChordRest[] =>
+      joinedFan(joinedFan(run(2, '8', 2), 0), 1, secondJoins ? 'continue' : undefined)
+
+    it('joins fan to fan', () => {
+      expect(computeBeamGroups(twoFans(true), meter(4, 4))).toEqual([[0, 1]])
+      // Unjoined, each fan is its own self-contained group — which is to say, no group at all.
+      expect(computeBeamGroups(twoFans(false), meter(4, 4))).toEqual([])
+    })
+
+    it('CHAINS — each fan joins the one before it', () => {
+      let slots = run(3, '8', 2)
+      for (const k of [0, 1, 2]) slots = joinedFan(slots, k, k === 0 ? undefined : 'continue')
+      expect(computeBeamGroups(slots, meter(4, 4))).toEqual([[0, 1, 2]])
+    })
+
+    it('⛔ but an ORDINARY note never joins a fan’s RIGHT end, marked or not', () => {
+      // The mark would be addressing the fan's last MEMBER, and no slot can name that.
+      const after = joinedFan(run(2, '8', 2), 0)
+      expect(computeBeamGroups(after, meter(4, 4))).toEqual([])
+      const marked = after.map((slot, k) => (k === 1 && slot.type === 'chord' ? { ...slot, beam: 'continue' as const } : slot))
+      expect(computeBeamGroups(marked, meter(4, 4))).toEqual([])
+    })
+
+    it('the FIRST fan of a chain reads `begin`, the rest `continue` — never `end`', () => {
+      const m = meter(4, 4)
+      const slots = twoFans(true)
+      expect(beamRoleAt(slots, m, 0)).toBe('begin')
+      expect(beamRoleAt(slots, m, 1)).toBe('continue')
+    })
+
+    it('a chain still cannot cross a barline (P3)', () => {
+      const bars: BeamBar[] = [
+        { slots: joinedFan(run(1, '8', 2), 0), meter: meter(1, 8) },
+        { slots: joinedFan(run(1, '8', 2), 0, 'continue'), meter: meter(1, 8) },
+      ]
+      expect(computeCrossBarBeamGroups(bars)).toEqual([])
+    })
+  })
+
   it('reads `continue` for itself once joined — never `end`, though it is always last', () => {
     const m = meter(4, 4)
     const joined = joinedFan(run(4, '8', 2), 3, 'continue')

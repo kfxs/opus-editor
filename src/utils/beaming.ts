@@ -126,6 +126,18 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
    * group that its own beat immediately ends, and the mark would engrave nothing at all.
    */
   let bridgeNext: 'begin' | 'continue' | null = null
+  /**
+   * The group currently ends on a FAN, and **only another fan may extend it**
+   * (docs/fan-beam-join-plan.md P2).
+   *
+   * A fan has to be able to OPEN a group, or a fan-to-fan join could never form: the mark that joins
+   * lives on the RIGHT fan, and it needs something already open on its left to be pushed onto. But
+   * what it opens is open to fans alone — an ordinary note joined to a fan's right end would be
+   * addressing its last MEMBER, which is a pitch inside the event and not a slot anybody can name
+   * (§4). So this stands between the two: a fan leaves the group open, and anything that is not a
+   * fan closes it on arrival.
+   */
+  let fanTail = false
 
   const isRestRef = (ref: BeamSlotRef): boolean => bars[ref.bar].slots[ref.slot].type === 'rest'
 
@@ -138,6 +150,7 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
     current = []
     currentBeatGroup = null
     bridgeNext = null
+    fanTail = false
   }
 
   for (let b = 0; b < bars.length; b++) {
@@ -186,15 +199,33 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
       //
       // ⭐ …but it MAY be JOINED to the group on its LEFT (docs/fan-beam-join-plan.md). `continue`
       // authored on the owner is the exact word and not a spare key: a beam comes in AND a beam
-      // goes out, and the outgoing one is the ramp. So the fan is pushed onto a group already open
-      // and the group closes ON it — joined behind, never bridging in front, because the fan's last
-      // member is a pitch inside the event and no slot can address it. With nothing open the mark
-      // is inert: a fan is not a group of one.
+      // goes out, and the outgoing one is the ramp. So the fan is pushed onto a group already open —
+      // joined behind, never bridging in front, because the fan's last member is a pitch inside the
+      // event and no slot can address it. With nothing open the mark is inert: a fan is not a group
+      // of one.
+      //
+      // ⭐ P2 — AND THE GROUP ON ITS LEFT MAY BE ANOTHER FAN. So a fan no longer closes the group
+      // behind it; it leaves one open, marked {@link fanTail} so that only a fan may take it up.
+      // Chains fall out of that: each fan in the run joins the one before it, and the run ends the
+      // moment anything else arrives.
       if (slot.type === 'chord' && slot.fan) {
-        if (slot.beam === 'continue' && current.length > 0) current.push(ref)
-        flush()
+        if (slot.beam === 'continue' && current.length > 0) {
+          current.push(ref)
+        } else {
+          flush()
+          current = [ref]
+        }
+        currentBeatGroup = getBeatGroup(slot.beat, meter)
+        // A fan bridges nothing forward: the only thing that may follow it is a fan carrying its own
+        // `continue`, and that mark speaks for itself.
+        bridgeNext = null
+        fanTail = true
         continue
       }
+
+      // …and here is where anything that is NOT a fan closes it. A lone unjoined fan therefore still
+      // ends up in no group at all — `flush` drops a group of one, exactly as it did before P2.
+      if (fanTail) flush()
 
       // A rest breaks the beam — UNLESS it is marked `beamOver`, when it becomes a SILENT `continue`:
       // swept into the group before it AND bridging the boundary at it, so the note after joins across
@@ -375,11 +406,12 @@ export function beamRoleAtRef(bars: BeamBar[], ref: BeamSlotRef): BeamRole {
   // fact.
   //
   // ⭐ …unless it is JOINED to the group on its LEFT, when the answer is `continue` — a beam coming
-  // in and a beam going out, the word's own definition (docs/fan-beam-join-plan.md §0). Never `end`,
-  // although the generic rule below would say exactly that: the fan is always the LAST member of its
-  // group (the grouper pushes it, then flushes immediately), which is also why "in a group at all"
-  // and "at index > 0" are the same sentence here — and why the fan still answers for itself rather
-  // than falling through to the loop.
+  // in and a beam going out, the word's own definition (docs/fan-beam-join-plan.md §0). ⚠️ Never
+  // `end`, although the generic rule below would say exactly that for the last fan of a group: a fan
+  // ALWAYS has an outgoing beam, and it is its own ramp.
+  //
+  // The index is what it turns on, not mere membership — P2 put fan CHAINS in one group, so the
+  // first fan of a chain is in a group and still `begin`s it.
   //
   // It stays a READING and not a setting: `continue` is the ONE beam key a fanned slot takes
   // (`PaletteController.setBeam`), and where that mark is inert — authored on a fan with nothing
@@ -387,9 +419,11 @@ export function beamRoleAtRef(bars: BeamBar[], ref: BeamSlotRef): BeamRole {
   // it did nothing.
   const own = slots[ref.slot]
   if (own?.type === 'chord' && own.fan) {
-    const joined = computeCrossBarBeamGroups(bars)
-      .some(group => group.some(member => member.bar === ref.bar && member.slot === ref.slot))
-    return joined ? 'continue' : 'begin'
+    for (const group of computeCrossBarBeamGroups(bars)) {
+      const at = group.findIndex(member => member.bar === ref.bar && member.slot === ref.slot)
+      if (at !== -1) return at === 0 ? 'begin' : 'continue'
+    }
+    return 'begin'
   }
 
   const pairRole = pairRoleAt(slots, ref.slot)

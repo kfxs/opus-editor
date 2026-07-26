@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fannedBeamGeometry, fanStemExtension, FAN_MAX_BEAM_SLOPE } from './FannedBeam'
+import { fannedBeamGeometry, fanJoinQuads, fanStemExtension, FAN_MAX_BEAM_SLOPE } from './FannedBeam'
 import { fanColumns, fanMembers } from '@/utils/fannedBeam'
 import { LAYOUT_CONFIG } from './layoutConfig'
 import { fracCreate as frac } from '@/utils/fraction'
@@ -384,5 +384,74 @@ describe('a fan joined to the group on its left', () => {
     })
     const extra = g.beams.find(line => line.startX === 40 && line.endX === g.stems[0].stemX)!
     expect(extra.startY).toBeCloseTo(g.beams[0].startY - BEAM_WIDTH * 1.5, 6)
+  })
+})
+
+/**
+ * ⭐ P2 — FAN TO FAN (docs/fan-beam-join-plan.md). Two ramps on one beam: the line is shared (a beam
+ * is one straight edge) and the gap between them carries the lines they BOTH have.
+ */
+describe('two fans on one beam', () => {
+  const ramp = (fan: FanMark, extra: Partial<Parameters<typeof fannedBeamGeometry>[0]> = {}) =>
+    fannedBeamGeometry({
+      members: fanMembers(fan, frac(2, 1)),
+      memberHeadYs: Array.from({ length: fan.count }, () => [100]),
+      direction: fan.direction, beams: fan.beams,
+      headX: 100, spanEndX: 400, stemOffset: 10, minHeadGap: MIN_GAP,
+      tipY: 60, minStemLength: MIN_STEM, stemDirection: 1, beamWidth: BEAM_WIDTH,
+      joined: true,
+      ...extra,
+    })
+
+  it('reports how many lines each END of the ramp carries — the narrow end is always 1', () => {
+    const accel = ramp({ direction: 'accel', count: 6, beams: 3 })
+    expect([accel.startLevels, accel.endLevels]).toEqual([1, 3])
+    const rit = ramp({ direction: 'rit', count: 6, beams: 3 })
+    expect([rit.startLevels, rit.endLevels]).toEqual([3, 1])
+  })
+
+  it('⭐ crosses the gap with the lines BOTH sides have, and no more', () => {
+    const accel = ramp({ direction: 'accel', count: 6, beams: 3 }) // ends wide: 3
+    const rit = ramp({ direction: 'rit', count: 6, beams: 4 })     // starts wide: 4
+    const thickness = BEAM_WIDTH
+
+    // accel → rit is the thick join: min(3, 4) = 3.
+    expect(fanJoinQuads({ left: accel, right: rit, toX: 500, thickness })).toHaveLength(3)
+    // rit → accel is the clean one: 1 line out, 1 line in.
+    expect(fanJoinQuads({ left: rit, right: accel, toX: 500, thickness })).toHaveLength(1)
+    // accel → accel: 3 out, 1 in ⇒ one line crosses and the other two stop at their own stem.
+    expect(fanJoinQuads({ left: accel, right: accel, toX: 500, thickness })).toHaveLength(1)
+  })
+
+  it('runs them flat, from the left fan’s LAST stem to the right fan’s owner', () => {
+    const left = ramp({ direction: 'accel', count: 6, beams: 3 })
+    const right = ramp({ direction: 'rit', count: 6, beams: 3 })
+    const quads = fanJoinQuads({ left, right, toX: 500, thickness: BEAM_WIDTH })
+    for (const q of quads) {
+      expect(q.startX).toBe(left.stems[left.stems.length - 1].stemX)
+      expect(q.endX).toBe(500)
+      expect(q.startY).toBe(q.endY) // the joined line is flat
+    }
+    expect(quads[0].startY).toBe(right.lineY)
+    expect(quads[1].startY).toBeCloseTo(right.lineY + BEAM_WIDTH * 1.5, 6)
+  })
+
+  it('⭐ a line handed down by the group overrides anchor, slope AND floor', () => {
+    // Its own answer would be its natural tip; told 30, it sits at 30 and the real note's stem is
+    // told to grow by exactly the difference.
+    const own = ramp({ direction: 'accel', count: 6, beams: 3 })
+    expect(own.lineY).toBe(60)
+    expect(own.stemLift).toBe(0)
+
+    const shared = ramp({ direction: 'accel', count: 6, beams: 3 }, { lineY: 30 })
+    expect(shared.lineY).toBe(30)
+    for (const s of shared.stems) expect(s.tipY).toBe(30)
+    expect(shared.stemLift).toBe(30) // 60 → 30
+  })
+
+  it('a fan with nothing drawn contributes no join quads', () => {
+    const collapsed = ramp({ direction: 'accel', count: 6, beams: 3 }, { spanEndX: 100 })
+    expect(collapsed.stems).toEqual([])
+    expect(fanJoinQuads({ left: collapsed, right: ramp(FAN), toX: 500, thickness: BEAM_WIDTH })).toEqual([])
   })
 })

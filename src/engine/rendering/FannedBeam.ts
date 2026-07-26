@@ -58,6 +58,15 @@ export interface FanGeometry {
   /** The beam lines, narrow end to wide end. */
   beams: FanQuad[]
   /**
+   * How many lines the ramp carries at each END of itself — the narrow end is always 1, the wide end
+   * is `beams`. What a neighbouring fan has to meet (docs/fan-beam-join-plan.md P2): the lines that
+   * cross the gap between two fans are the ones BOTH sides have.
+   */
+  startLevels: number
+  endLevels: number
+  /** The joined line's height — flat, so one number. What the next fan in a chain must share. */
+  lineY: number
+  /**
    * How much the REAL note's stem must GROW, in pixels, for member 0 to reach the beam line.
    *
    * Zero whenever the line passes through its natural tip — which is every fan whose members all
@@ -111,6 +120,70 @@ export function fanStemExtension(beams: number, beamWidth: number): number {
   return Math.max(0, Math.round(beams) - 1) * beamWidth * 1.5
 }
 
+/** Everything one fan's geometry is computed from — named so the renderer can build it once and
+ *  spend it twice: P2 runs the whole joined group through this to reconcile ONE line height. */
+export interface FanGeometryOptions {
+  members: FanMember[]
+  /**
+   * Each member's notehead y's, member 0 first — one entry per member, one number per head it
+   * carries. The caller resolves them from the pitches and the stave, because that is the one
+   * conversion this module refuses to know about.
+   */
+  memberHeadYs: number[][]
+  direction: 'accel' | 'rit'
+  /** Beam lines at the WIDE end. The narrow end is always 1. */
+  beams: number
+  /** The real note's notehead left edge — member 0 is already drawn there. */
+  headX: number
+  /** The x the LAST member's notehead may reach (the next note's ink, or the barline). */
+  spanEndX: number
+  /** `stemX - headX` on the real note: which side of the head the stem is on, and how far. */
+  stemOffset: number
+  /**
+   * The closest two member noteheads may ever come, in pixels — MEASURED by the caller from the
+   * notehead itself, so it follows the staff size instead of pinning a number that is wrong the day
+   * the scale changes.
+   */
+  minHeadGap: number
+  /**
+   * Extra room, per member, that its ACCIDENTAL needs to the LEFT of its head — 0 where it carries
+   * no sign. The width pass cannot see this (it counts head columns and cannot measure glyphs), so
+   * the sign buys its room out of the group's own span rather than out of the bar's.
+   */
+  accidentalRoom?: number[]
+  /**
+   * The notes of the group the fan is JOINED to on its LEFT, in order — empty (or absent) for a fan
+   * that stands alone. Their presence is what makes the line horizontal and what extends the primary
+   * beam back to the first of them.
+   */
+  prefix?: FanPrefixNote[]
+  /**
+   * How many beam LINES the prefix's own durations ask for — the MINIMUM across it, so a mixed
+   * prefix draws the lines they all agree on. Levels past the first run from the prefix's first stem
+   * to the fan's owner and stop there, which is what a partial beam looks like anywhere else.
+   */
+  prefixBeams?: number
+  /**
+   * This fan is part of a JOINED group even though nothing ordinary precedes it — the FIRST fan of a
+   * chain (P2). A prefix already implies it; this says so where there is none.
+   */
+  joined?: boolean
+  /**
+   * The joined group's line, ALREADY RECONCILED across every fan in it (P2) — given, so this fan
+   * neither anchors nor floors it. A beam is one straight edge, so two fans on one beam cannot each
+   * decide their own height; the caller runs this once per fan without it, takes the OUTERMOST answer
+   * and hands it back.
+   */
+  lineY?: number
+  /** The stem tip the real note is ALREADY drawn with — the line's anchor. */
+  tipY: number
+  /** The shortest stem any member may keep, in pixels, measured from its head nearest the line. */
+  minStemLength: number
+  /** +1 stems up, −1 stems down. */
+  stemDirection: number
+  beamWidth: number
+}
+
 /**
  * The whole picture, from the real note's geometry and the expander's members.
  *
@@ -162,62 +235,16 @@ export function fanStemExtension(beams: number, beamWidth: number): number {
  * Returns empty geometry when the span has collapsed or a single member is all there is: a fan with
  * no room is not a narrower fan, it is nothing to draw.
  */
-export function fannedBeamGeometry(opts: {
-  members: FanMember[]
-  /**
-   * Each member's notehead y's, member 0 first — one entry per member, one number per head it
-   * carries. The caller resolves them from the pitches and the stave, because that is the one
-   * conversion this module refuses to know about.
-   */
-  memberHeadYs: number[][]
-  direction: 'accel' | 'rit'
-  /** Beam lines at the WIDE end. The narrow end is always 1. */
-  beams: number
-  /** The real note's notehead left edge — member 0 is already drawn there. */
-  headX: number
-  /** The x the LAST member's notehead may reach (the next note's ink, or the barline). */
-  spanEndX: number
-  /** `stemX - headX` on the real note: which side of the head the stem is on, and how far. */
-  stemOffset: number
-  /**
-   * The closest two member noteheads may ever come, in pixels — MEASURED by the caller from the
-   * notehead itself, so it follows the staff size instead of pinning a number that is wrong the day
-   * the scale changes.
-   */
-  minHeadGap: number
-  /**
-   * Extra room, per member, that its ACCIDENTAL needs to the LEFT of its head — 0 where it carries
-   * no sign. The width pass cannot see this (it counts head columns and cannot measure glyphs), so
-   * the sign buys its room out of the group's own span rather than out of the bar's.
-   */
-  accidentalRoom?: number[]
-  /**
-   * The notes of the group the fan is JOINED to on its LEFT, in order — empty (or absent) for a fan
-   * that stands alone. Their presence is what makes the line horizontal and what extends the primary
-   * beam back to the first of them.
-   */
-  prefix?: FanPrefixNote[]
-  /**
-   * How many beam LINES the prefix's own durations ask for — the MINIMUM across it, so a mixed
-   * prefix draws the lines they all agree on. Levels past the first run from the prefix's first stem
-   * to the fan's owner and stop there, which is what a partial beam looks like anywhere else.
-   */
-  prefixBeams?: number
-  /** The stem tip the real note is ALREADY drawn with — the line's anchor. */
-  tipY: number
-  /** The shortest stem any member may keep, in pixels, measured from its head nearest the line. */
-  minStemLength: number
-  /** +1 stems up, −1 stems down. */
-  stemDirection: number
-  beamWidth: number
-}): FanGeometry {
+export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   const {
     members, memberHeadYs, direction, beams, headX, spanEndX, stemOffset, minHeadGap,
     accidentalRoom, tipY, minStemLength, stemDirection, beamWidth,
   } = opts
   const prefix = opts.prefix ?? []
-  const joined = prefix.length > 0
-  const empty: FanGeometry = { stems: [], prefixStems: [], beams: [], stemLift: 0 }
+  const joined = prefix.length > 0 || !!opts.joined
+  const empty: FanGeometry = {
+    stems: [], prefixStems: [], beams: [], stemLift: 0, startLevels: 0, endLevels: 0, lineY: 0,
+  }
   if (members.length < 2 || memberHeadYs.length < members.length) return empty
 
   // The span the HEADS may occupy: the last one must still fit before whatever comes next, so the
@@ -296,7 +323,9 @@ export function fannedBeamGeometry(opts: {
   // the group" does not care which half of the group it came from.
   for (const p of prefix) ask(p.headYs, p.stemX)
 
-  const lineAt = (px: number) => lineY(px) + shift
+  // A line handed down by the group overrides anchor, slope and floor alike: it was computed from
+  // this same arithmetic run over every fan on the beam, so it already satisfies all three.
+  const lineAt = opts.lineY !== undefined ? () => opts.lineY as number : (px: number) => lineY(px) + shift
   const stems: FanStem[] = xs.map((px, k) => ({
     headX: px,
     stemX: sx[k],
@@ -311,7 +340,9 @@ export function fannedBeamGeometry(opts: {
   // Where the RAMP starts (member 0's stem) and where the whole LINE starts — the same x for a fan
   // standing alone, the first prefix stem once it is joined.
   const rampStartX = stems[0].stemX
-  const lineStartX = joined ? prefix[0].stemX : rampStartX
+  // ⚠️ The PREFIX, not `joined` — the first fan of a chain (P2) is joined and has none, and the gap
+  // back to the fan behind it belongs to {@link fanJoinQuads}, not to this ramp's own primary.
+  const lineStartX = prefix.length ? prefix[0].stemX : rampStartX
   const endX = stems[stems.length - 1].stemX
   const endY = stems[stems.length - 1].tipY
   // ⚠️ Both ends carry HALF a stem's width past the outer stems in VexFlow's own beams (it ends a
@@ -319,8 +350,9 @@ export function fannedBeamGeometry(opts: {
   // notes, so the line simply spans them and the rounded stem ends do the rest.
   const wideAtEnd = direction === 'accel'
 
+  const levels = Math.max(1, Math.round(beams))
   const lines: FanQuad[] = []
-  for (let k = 0; k < Math.max(1, Math.round(beams)); k++) {
+  for (let k = 0; k < levels; k++) {
     const offset = k * thickness * 1.5
     // ⭐ The PRIMARY is one straight edge over the WHOLE joined group, so only it reaches back to
     // the prefix; the fan's extra levels belong to the ramp and start at its owner's stem.
@@ -348,5 +380,49 @@ export function fannedBeamGeometry(opts: {
       thickness,
     })
   }
-  return { stems, prefixStems, beams: lines, stemLift: Math.abs(shift) }
+  return {
+    stems,
+    prefixStems,
+    beams: lines,
+    // How far the REAL note's stem must grow to reach the line. Measured from the tip VexFlow gave
+    // it rather than from `shift`, because a line handed down by the group did not come from `shift`
+    // at all. Never negative: the reconciliation keeps the shared line at or beyond every owner's
+    // own tip, and the stem could not be shortened even if it did not.
+    stemLift: Math.max(0, stemDirection * (tipY - lineAt(sx[0]))),
+    // The ramp is fully feathered at the FAST end and converged at the slow one, so which end
+    // carries `beams` is the direction, exactly as the quads above read it.
+    startLevels: wideAtEnd ? 1 : levels,
+    endLevels: wideAtEnd ? levels : 1,
+    lineY: lineAt(rampStartX),
+  }
+}
+
+/**
+ * The lines that CROSS the gap between two fans on one beam (docs/fan-beam-join-plan.md P2) — from
+ * the left fan's last member's stem to the right fan's owner's stem.
+ *
+ * ⭐ **The lines both sides have**: `min(left.endLevels, right.startLevels)`. A level that only one
+ * of them carries simply stops at its own stem, which is what a partial beam looks like anywhere
+ * else — the same answer P1 already gives a 16th prefix meeting a one-beam fan. So an `accel.`
+ * running into a `rit.` joins thickly, and every other pairing joins on the one line they share.
+ *
+ * Flat, because a joined line is (P1): both ends sit on `lineY`.
+ */
+export function fanJoinQuads(opts: {
+  left: FanGeometry
+  right: FanGeometry
+  /** Where the right fan's owner's stem is — the left end of its own ramp. */
+  toX: number
+  /** Signed by the stem direction, as everywhere else here. */
+  thickness: number
+}): FanQuad[] {
+  const { left, right, toX, thickness } = opts
+  if (!left.stems.length) return []
+  const fromX = left.stems[left.stems.length - 1].stemX
+  const quads: FanQuad[] = []
+  for (let k = 0; k < Math.min(left.endLevels, right.startLevels); k++) {
+    const y = right.lineY + k * thickness * 1.5
+    quads.push({ startX: fromX, startY: y, endX: toX, endY: y, thickness })
+  }
+  return quads
 }

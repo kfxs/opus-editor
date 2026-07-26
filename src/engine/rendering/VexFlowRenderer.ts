@@ -3,13 +3,13 @@ import { ScoreTuplet, layoutTupletMark, drawTupletMark } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
 import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
-import { fannedBeamGeometry, fanStemExtension, FAN_MIN_HEAD_GAP_RATIO, FAN_MIN_STEM_SPACES, type FanGeometry } from './FannedBeam'
+import { fannedBeamGeometry, fanJoinQuads, fanStemExtension, FAN_MIN_HEAD_GAP_RATIO, FAN_MIN_STEM_SPACES, type FanGeometry, type FanGeometryOptions, type FanQuad } from './FannedBeam'
 import { FAN_GROUP, fanMembers, fanMemberPitches } from '@/utils/fannedBeam'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
-import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, TremoloMark, Accidental as ScoreAccidental } from '@/types/music'
+import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, TremoloMark, NotePitch, Accidental as ScoreAccidental } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, staffLineForSpelling, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { displayedAccidentals } from '@/utils/accidentalState'
@@ -209,11 +209,27 @@ const PLACEHOLDER_BEAM = { postFormat: () => {} } as unknown as Beam
  * over. Computed once, because re-deriving it in the second pass would mean re-grouping the lane and
  * two answers that could drift apart.
  */
+/** One fanned slot's resolved drawing inputs — see {@link VexFlowRenderer.fanSlotDrawing}. */
+interface FanSlotDrawing {
+  index: number
+  slot: Extract<ChordRest, { type: 'chord' }>
+  note: StaveNote
+  headX: number
+  baseY: number
+  stemDirection: number
+  /** Per member, per notehead: the pitch, its staff line and the sign it displays (null for none). */
+  heads: { pitch: NotePitch; line: number; sign: string | null }[][]
+  /** The mark's stored member PITCHES — `stored[k - 1]` is member k's, member 0 being the note. */
+  stored: NotePitch[][]
+  prefixNotes: StaveNote[]
+  options: FanGeometryOptions
+}
+
 interface FanJoin {
-  /** The fanned slot — always the LAST member of its group. */
-  fanIndex: number
-  /** The notes in front of it, in order. Never empty (a fan is not a group of one), rests dropped. */
+  /** The ordinary notes in front of the first fan, in order — may be empty (P2: a fan chain). */
   prefix: number[]
+  /** Every fanned slot on this beam, in order. At least one, and more once fans chain (P2). */
+  fans: number[]
 }
 
 /**
@@ -1021,73 +1037,36 @@ export class VexFlowRenderer {
     if (!slots.some(s => s.type === 'chord' && s.fan)) return
     const signs = displayedAccidentals(slots)
 
+    // Every fanned slot of this lane, in order, with everything its geometry is computed from. Built
+    // as a first sweep because a JOINED GROUP has to settle ONE line before any of its fans is drawn
+    // (P2) — and a fan that joins the one before it needs that one's geometry, which is why the draw
+    // loop below keeps what it computed.
+    const drawings: FanSlotDrawing[] = []
     for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
-      const slot = slots[i]
-      if (slot.type !== 'chord' || !slot.fan) continue
-      const note = staveNotes[i]
+      const drawing = this.fanSlotDrawing(i, slots, staveNotes, stave, clefForBeat, signs, fanJoins)
+      if (drawing) drawings.push(drawing)
+    }
+    this.reconcileFanJoinLines(drawings, fanJoins)
 
-      const headX = note.getNoteHeadBeginX()
-      const { topY, baseY } = note.getStemExtents()
-      const stemDirection = note.getStemDirection()
+    const geometries = new Map<number, FanGeometry>()
+    for (const { index: i, slot, note, headX, baseY, stemDirection, heads, stored, prefixNotes, options } of drawings) {
+      const geometry = fannedBeamGeometry(options)
+      geometries.set(i, geometry)
 
-      const clef = clefForBeat(slot.beat)
-      const stored = slot.fan.members ?? []
-      const members = fanMemberPitches(slot.notes, slot.fan).map((heads, k) => heads.map(p => ({
-        pitch: p,
-        line: staffLineForSpelling(p.step, p.octave, clef),
-        // ⚠️ Only a member with a pitch of its OWN can carry a sign. A member falling back to the
-        // slot's pitches (a mark that never went through `normalizeFan`) is the same note, whose
-        // sign the real notehead has already shown — looking its id up would re-draw it on every
-        // head in the group.
-        sign: k > 0 && stored[k - 1] ? signs.get(p.id) ?? null : null,
-      })))
-      // An accidental hangs to the LEFT of its head, and the width pass could not know about it (it
-      // counts head columns and cannot measure glyphs), so the group buys the room out of its own
-      // span. Member 0's sign is VexFlow's business — a real modifier on a real note.
-      const accidentalRoom = members.map((heads, k) => (k === 0 ? 0 : Math.max(
-        0, ...heads.map(h => (h.sign ? this.accidentalWidth(h.sign) : 0)),
-      )))
+      // ⭐ P2 — THE GAP TO THE FAN BEHIND IT. Only the lines both ramps have cross it; the rest stop
+      // at their own stem, which is what a partial beam looks like anywhere else.
+      const join = fanJoins.find(j => j.fans.includes(i))
+      const at = join ? join.fans.indexOf(i) : -1
+      const behind = at > 0 ? geometries.get(join!.fans[at - 1]) : undefined
+      const joinQuads = behind && geometry.stems.length
+        ? fanJoinQuads({
+            left: behind,
+            right: geometry,
+            toX: geometry.stems[0].stemX,
+            thickness: CROSS_SYSTEM_BEAM_WIDTH * stemDirection,
+          })
+        : []
 
-      // ⭐ THE PREFIX — the group this fan is JOINED to on its left (docs/fan-beam-join-plan.md P1).
-      // Their x's and head y's are the FORMATTER's, settled and read here like everything else in
-      // this pass; what the join changes is only where their stems end.
-      const prefixNotes = (fanJoins.find(join => join.fanIndex === i)?.prefix ?? [])
-        .map(k => staveNotes[k])
-        .filter((n): n is StaveNote => !!n && !!n.getStem())
-      // The lines they ask for: the count their own duration carries, the MINIMUM across them so a
-      // mixed prefix draws only what they all agree on.
-      const prefixBeams = prefixNotes.length ? Math.min(...prefixNotes.map(n => n.getBeamCount())) : 0
-
-      // Where this slot's room ends: the next note's ink in this lane, or the note area's end. The
-      // next slot is the honest boundary — it is what the formatter itself spaced against.
-      const next = staveNotes[i + 1]
-      const geometry = fannedBeamGeometry({
-        members: fanMembers(slot.fan, slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)),
-        memberHeadYs: members.map(heads => heads.map(h => stave.getYForNote(h.line))),
-        direction: slot.fan.direction,
-        beams: slot.fan.beams,
-        headX,
-        spanEndX: next ? next.getNoteHeadBeginX() : stave.getNoteEndX(),
-        stemOffset: note.getStemX() - headX,
-        // MEASURED from the notehead itself, like the two-note tremolo's flag clearance: heads a
-        // whole glyph apart cannot touch, and the number follows the staff size instead of pinning
-        // a pixel count that would be wrong the day the scale changes. The bar has already been
-        // asked for the room this implies (`fanColumns`); this is what SPENDS it.
-        minHeadGap: note.getGlyphWidth() * FAN_MIN_HEAD_GAP_RATIO,
-        accidentalRoom,
-        prefix: prefixNotes.map(n => ({ stemX: n.getStemX(), headYs: n.getYs() })),
-        prefixBeams,
-        tipY: topY,
-        // ⚠️ The LARGER of the two extensions: the beam levels eat into every stem in the group, and
-        // a 32nd prefix joined to a one-beam fan is the case that under-reserves otherwise.
-        minStemLength: stave.getSpacingBetweenLines() * FAN_MIN_STEM_SPACES
-          + Math.max(
-            fanStemExtension(slot.fan.beams, CROSS_SYSTEM_BEAM_WIDTH),
-            fanStemExtension(prefixBeams, CROSS_SYSTEM_BEAM_WIDTH),
-          ),
-        stemDirection,
-        beamWidth: CROSS_SYSTEM_BEAM_WIDTH,
-      })
       if (geometry.beams.length === 0) {
         // The fan had no room to draw at all (a collapsed span). Its prefix is still wearing the
         // PLACEHOLDER beam, so `StaveNote.draw` skipped those stems and nobody else is coming for
@@ -1101,7 +1080,7 @@ export class VexFlowRenderer {
       // LAST matching element, so whatever is registered later wins the click. The rect spans the
       // whole fan, so registering it after the heads would swallow every one of them and a member
       // could never be selected. The heads are added in the draw loop below.
-      this.registerFanInk(geometry, headX, baseY, measureNumber, staffIndex, prefixNotes)
+      this.registerFanInk(geometry, headX, baseY, measureNumber, staffIndex, prefixNotes, joinQuads)
 
       const ctx = pass.context
       ctx.openGroup('fan', `${FAN_GROUP}-${slot.id}`)
@@ -1115,7 +1094,7 @@ export class VexFlowRenderer {
         if (geometry.stemLift > 0) {
           ctx.beginPath()
           ctx.setLineWidth(Stem.WIDTH)
-          ctx.moveTo(geometry.stems[0].stemX, topY)
+          ctx.moveTo(geometry.stems[0].stemX, note.getStemExtents().topY)
           ctx.lineTo(geometry.stems[0].stemX, geometry.stems[0].tipY)
           ctx.stroke()
         }
@@ -1129,9 +1108,9 @@ export class VexFlowRenderer {
           // what lets P3 highlight one by an ordinary recolour. ⚠️ `openGroup` prefixes `vf-`.
           const memberGroup = ctx.openGroup(FAN_HEAD_GROUP, `${FAN_HEAD_GROUP}-${slot.id}-${k}`)
           try {
-            const heads = members[k] ?? []
-            for (let h = 0; h < heads.length; h++) {
-              const { pitch, line, sign } = heads[h]
+            const memberHeads = heads[k] ?? []
+            for (let h = 0; h < memberHeads.length; h++) {
+              const { pitch, line, sign } = memberHeads[h]
               const y = stave.getYForNote(line)
               // 🚨 LEDGER LINES BY HAND. `drawLedgerLines` belongs to `StaveNote`; a bare `NoteHead`
               // only swaps to the ledger glyph. Members off the staff drew as floating heads before
@@ -1189,13 +1168,138 @@ export class VexFlowRenderer {
             ctx.closeGroup()
           }
         }
-        for (const q of geometry.beams) {
+        // The gap to the fan behind belongs to THIS fan's ink — it is the one wearing the `continue`.
+        for (const q of [...joinQuads, ...geometry.beams]) {
           this.fillBeamQuad(ctx, q.startX, q.startY, q.endX, q.endY, q.thickness)
         }
       } finally {
         ctx.closeGroup()
       }
 
+    }
+  }
+
+  /**
+   * ONE fanned slot, resolved: its note, its members' heads and signs, its prefix, and the full
+   * option set its geometry is computed from. Null for anything that is not a fanned chord.
+   *
+   * Split out of {@link drawFannedBeams} because P2 has to spend it TWICE — once to ask what line
+   * this fan would want, and once to draw it at the line the whole joined group agreed on.
+   */
+  private fanSlotDrawing(
+    index: number,
+    slots: ChordRest[],
+    staveNotes: StaveNote[],
+    stave: Stave,
+    clefForBeat: (beat: Fraction) => Clef,
+    /** `displayedAccidentals` for this lane — which sign each pitch id shows, if any. */
+    signs: Map<string, string | null>,
+    fanJoins: FanJoin[],
+  ): FanSlotDrawing | null {
+    const slot = slots[index]
+    if (slot.type !== 'chord' || !slot.fan) return null
+    const note = staveNotes[index]
+    if (!note) return null
+
+    const headX = note.getNoteHeadBeginX()
+    const { topY, baseY } = note.getStemExtents()
+    const stemDirection = note.getStemDirection()
+
+    const clef = clefForBeat(slot.beat)
+    const stored = slot.fan.members ?? []
+    const heads = fanMemberPitches(slot.notes, slot.fan).map((pitches, k) => pitches.map(p => ({
+      pitch: p,
+      line: staffLineForSpelling(p.step, p.octave, clef),
+      // ⚠️ Only a member with a pitch of its OWN can carry a sign. A member falling back to the
+      // slot's pitches (a mark that never went through `normalizeFan`) is the same note, whose
+      // sign the real notehead has already shown — looking its id up would re-draw it on every
+      // head in the group.
+      sign: k > 0 && stored[k - 1] ? signs.get(p.id) ?? null : null,
+    })))
+    // An accidental hangs to the LEFT of its head, and the width pass could not know about it (it
+    // counts head columns and cannot measure glyphs), so the group buys the room out of its own
+    // span. Member 0's sign is VexFlow's business — a real modifier on a real note.
+    const accidentalRoom = heads.map((pitches, k) => (k === 0 ? 0 : Math.max(
+      0, ...pitches.map(h => (h.sign ? this.accidentalWidth(h.sign) : 0)),
+    )))
+
+    // ⭐ THE PREFIX — the group this fan is JOINED to on its left (docs/fan-beam-join-plan.md P1).
+    // Their x's and head y's are the FORMATTER's, settled and read here like everything else in this
+    // pass; what the join changes is only where their stems end. Only the FIRST fan of a chain has
+    // one — behind any other stands a fan, and that gap is `fanJoinQuads`' business.
+    const join = fanJoins.find(j => j.fans.includes(index))
+    const prefixNotes = (join && join.fans[0] === index ? join.prefix : [])
+      .map(k => staveNotes[k])
+      .filter((n): n is StaveNote => !!n && !!n.getStem())
+    // The lines they ask for: the count their own duration carries, the MINIMUM across them so a
+    // mixed prefix draws only what they all agree on.
+    const prefixBeams = prefixNotes.length ? Math.min(...prefixNotes.map(n => n.getBeamCount())) : 0
+
+    // Where this slot's room ends: the next note's ink in this lane, or the note area's end. The
+    // next slot is the honest boundary — it is what the formatter itself spaced against.
+    const next = staveNotes[index + 1]
+    return {
+      index, slot, note, headX, baseY, stemDirection, heads, stored, prefixNotes,
+      options: {
+        members: fanMembers(slot.fan, slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)),
+        memberHeadYs: heads.map(pitches => pitches.map(h => stave.getYForNote(h.line))),
+        direction: slot.fan.direction,
+        beams: slot.fan.beams,
+        headX,
+        spanEndX: next ? next.getNoteHeadBeginX() : stave.getNoteEndX(),
+        stemOffset: note.getStemX() - headX,
+        // MEASURED from the notehead itself, like the two-note tremolo's flag clearance: heads a
+        // whole glyph apart cannot touch, and the number follows the staff size instead of pinning
+        // a pixel count that would be wrong the day the scale changes. The bar has already been
+        // asked for the room this implies (`fanColumns`); this is what SPENDS it.
+        minHeadGap: note.getGlyphWidth() * FAN_MIN_HEAD_GAP_RATIO,
+        accidentalRoom,
+        prefix: prefixNotes.map(n => ({ stemX: n.getStemX(), headYs: n.getYs() })),
+        prefixBeams,
+        // Every fan on a joined beam draws flat, prefix or no prefix — a chain's FIRST fan has none.
+        joined: !!join,
+        tipY: topY,
+        // ⚠️ The LARGER of the two extensions: the beam levels eat into every stem in the group, and
+        // a 32nd prefix joined to a one-beam fan is the case that under-reserves otherwise.
+        minStemLength: stave.getSpacingBetweenLines() * FAN_MIN_STEM_SPACES
+          + Math.max(
+            fanStemExtension(slot.fan.beams, CROSS_SYSTEM_BEAM_WIDTH),
+            fanStemExtension(prefixBeams, CROSS_SYSTEM_BEAM_WIDTH),
+          ),
+        stemDirection,
+        beamWidth: CROSS_SYSTEM_BEAM_WIDTH,
+      },
+    }
+  }
+
+  /**
+   * ⭐ P2 — ONE LINE FOR THE WHOLE JOINED GROUP. A beam is one straight edge, so two fans sharing one
+   * cannot each decide their own height.
+   *
+   * Asked, not restated: each fan is run through {@link fannedBeamGeometry} exactly as it would be
+   * alone, and the OUTERMOST answer wins — the same "largest ask wins, the whole line moves" the
+   * floor pass already applies within one fan, one level up. Nothing about the rule is duplicated
+   * here, which is the point of doing it by a second call rather than by arithmetic of its own.
+   *
+   * ⚠️ The outermost is also what keeps every owner's stem GROWABLE: each fan's own answer is at or
+   * beyond its own natural tip (the floor only pushes away), so the outermost is beyond all of them
+   * — and a fan's owner stem is VexFlow's, which `stemLift` can only lengthen.
+   *
+   * Only for a joined group: a fan standing alone keeps the lean its members earned.
+   */
+  private reconcileFanJoinLines(drawings: FanSlotDrawing[], fanJoins: FanJoin[]): void {
+    for (const join of fanJoins) {
+      const members = drawings.filter(d => join.fans.includes(d.index))
+      if (members.length < 2) continue // one fan settles its own line; the floor already heard the prefix
+      const tentative = members
+        .map(d => fannedBeamGeometry(d.options))
+        .filter(geometry => geometry.beams.length > 0)
+      if (!tentative.length) continue
+      const up = members[0].stemDirection > 0
+      const lineY = up
+        ? Math.min(...tentative.map(geometry => geometry.lineY))
+        : Math.max(...tentative.map(geometry => geometry.lineY))
+      for (const d of members) d.options.lineY = lineY
     }
   }
 
@@ -1244,9 +1348,12 @@ export class VexFlowRenderer {
     staffIndex: number,
     /** The joined group in front of it, if any — the rect reaches back over their stems too. */
     prefixNotes: StaveNote[] = [],
+    /** The quads bridging the gap to the fan behind it (P2) — its ink as much as the ramp is. */
+    joinQuads: FanQuad[] = [],
   ): void {
+    const quads = [...geometry.beams, ...joinQuads]
     const ys = [
-      ...geometry.beams.flatMap(q => [q.startY, q.endY, q.startY + q.thickness, q.endY + q.thickness]),
+      ...quads.flatMap(q => [q.startY, q.endY, q.startY + q.thickness, q.endY + q.thickness]),
       ...geometry.stems.map(s => s.baseY),
       ...prefixNotes.map(n => n.getStemExtents().baseY),
     ]
@@ -1256,7 +1363,7 @@ export class VexFlowRenderer {
     // clicking any of it must still select the fan. Its ORDER is already right — this runs before
     // `registerSlotElements` and `getAt` returns the LAST match, so the prefix noteheads still win
     // their own clicks.
-    const left = Math.min(headX, ...geometry.prefixStems.map(p => p.stemX))
+    const left = Math.min(headX, ...geometry.prefixStems.map(p => p.stemX), ...joinQuads.map(q => q.startX))
     this.elementRegistry.add({
       type: 'beam',
       measure: measureNumber,
@@ -2085,7 +2192,7 @@ export class VexFlowRenderer {
         // group's direction like everyone else, but it carries NO beam (see `buildBeams`), so
         // `hasBeam()` skips it here and the re-assert then drags it back to the voice's own side —
         // leaving it disagreeing with the beam it is joined to.
-        const joinedFanOwners = new Set(fanJoins.map(join => g.staveNotes[join.fanIndex]))
+        const joinedFanOwners = new Set(fanJoins.flatMap(join => join.fans.map(i => g.staveNotes[i])))
         for (const staveNote of g.staveNotes) {
           if (intendedStemDir.has(staveNote) && (staveNote.hasBeam() || joinedFanOwners.has(staveNote))) {
             intendedStemDir.set(staveNote, staveNote.getStemDirection())
@@ -2598,17 +2705,20 @@ export class VexFlowRenderer {
         // A beam group lies within one clef region; use the clef at its first slot.
         const groupClef = groupSlots.length ? clefForBeat(groupSlots[0].beat) : 'treble'
 
-        // ⭐ THE JOINED FAN. At most one per group, and always LAST — the grouper pushes it and
-        // flushes immediately — so everything in front of it is the prefix.
-        const fanAt = groupSlots.findIndex(slot => slot.type === 'chord' && !!slot.fan)
-        if (fanAt !== -1) {
+        // ⭐ THE JOINED FAN — or fanS: P2 puts a whole CHAIN of them on one beam, each joined to the
+        // one before it, and the fans are always the group's TAIL (nothing but a fan may follow a
+        // fan), so everything in front of the first one is the prefix.
+        const fans = indices.filter(i => { const slot = sortedSlots[i]; return slot.type === 'chord' && !!slot.fan })
+        if (fans.length) {
           // Rests are dropped: a `beamOver` rest is inside the span but has no stem to aim, and the
           // line simply runs over it.
-          const prefix = indices.slice(0, fanAt).filter(i => sortedSlots[i].type === 'chord')
-          if (!prefix.length) continue
-          // The fan's OWNER votes on the direction with its own notes — it is a member of this
+          const prefix = indices.filter(i => i < fans[0] && sortedSlots[i].type === 'chord')
+          // A group of one is not a beam. The grouper drops those already; this is the same rule for
+          // a group the renderer sees through the cross-barline plan's own `inBarGroups`.
+          if (prefix.length + fans.length < 2) continue
+          // Every fan's OWNER votes on the direction with its own notes — they are members of this
           // group, and a beam group has one direction.
-          // ⏭ Open: whether the fan's MEMBER pitches vote too. They are not in `slot.notes`, so
+          // ⏭ Open: whether the fans' MEMBER pitches vote too. They are not in `slot.notes`, so
           // `calculateBeamGroupStemDirection` cannot see them today.
           const stemDirection = this.calculateBeamGroupStemDirection(groupSlots, groupClef, forcedStemDirection)
           for (const i of prefix) {
@@ -2616,14 +2726,14 @@ export class VexFlowRenderer {
             staveNotes[i].setStemDirection(stemDirection)
             staveNotes[i].setBeam(PLACEHOLDER_BEAM)
           }
-          // ⚠️ THE OWNER IS LEFT ALONE, and that is not a shortcut. `StaveNote.draw` skips the stem
+          // ⚠️ THE OWNERS ARE LEFT ALONE, and that is not a shortcut. `StaveNote.draw` skips the stem
           // whenever `note.beam` is set, so a placeholder there would delete the one stem this whole
           // feature anchors its line to; and `getStemExtension()` answers `stemBeamExtension` once
           // `beam` is set, which MOVES the tip and would make a joined fan sit at a different height
           // from an unjoined one. Nothing is bought either way — `NoteBuilder` already builds a
           // fanned slot as a plain quarter, so there is no flag to suppress.
-          staveNotes[indices[fanAt]].setStemDirection(stemDirection)
-          fanJoins.push({ fanIndex: indices[fanAt], prefix })
+          for (const i of fans) staveNotes[i].setStemDirection(stemDirection)
+          fanJoins.push({ prefix, fans })
           continue
         }
 
