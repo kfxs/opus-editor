@@ -163,15 +163,13 @@ export function computeCrossBarBeamGroups(bars: BeamBar[]): BeamSlotRef[][] {
       // An empty bar opens nothing: there is no note at the boundary to carry the beam, so the
       // group ends here rather than reaching over the bar to the one after it.
       //
-      // ⚠️ A FANNED first slot never opens it, from EITHER side — and it would otherwise, word for
-      // word: a leading `continue` speaks for the boundary, and a joined fan carries one. The group
-      // would cross, `planCrossBarBeams` would build a `CrossBarJoin` over it, and the placeholder
-      // would take the fan's own stem away while a real `Beam` was built over its quarter-note
-      // `StaveNote`. Joining a fan across a barline is P3 of docs/fan-beam-join-plan.md, and this
-      // line is what P3 removes.
+      // ⭐ A FANNED first slot opens it on exactly the same terms as any other (P3 of
+      // docs/fan-beam-join-plan.md): a joined fan carries a leading `continue`, and that satisfies
+      // "across a barline there is nowhere else it could come from" word for word. P0 and P2 kept a
+      // `!first.fan` here while the drawing could not span two bars; `planCrossBarBeams` now routes
+      // such a group to a `CrossBarFanJoin`, which builds no `Beam` and leaves the fan its stem.
       const first = slots[0]
       const opened = first !== undefined
-        && !(first.type === 'chord' && first.fan)
         && (bridgeNext === 'continue' || (first.type === 'chord' && first.beam === 'continue'))
       if (!opened) flush()
     }

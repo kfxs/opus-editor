@@ -236,6 +236,61 @@ describe('cross-barline beams — the planner', () => {
     expect(lanes.get('1:0:v0')!.inBar).toEqual([[0, 1], [2, 3], [4, 5]])
   })
 
+  /**
+   * ⭐ A crossing group holding a FAN is the fan's beam, not a `Beam` (docs/fan-beam-join-plan.md P3).
+   * It is routed to `fanJoins`, its owner keeps its stem, and a group that landed on two systems is
+   * refused outright rather than split.
+   */
+  describe('a crossing group whose beam is a FAN’s', () => {
+    /** Bar 1 ends on an eighth; bar 2 opens with a fanned eighth carrying the join. */
+    function fanAcrossBarline(): ScoreModel {
+      const model = twoBarsOfEighths()
+      const fanned = noteIdAt(model, 2, 0)
+      model.setFan(fanned, { direction: 'accel', count: 6, beams: 3 })
+      model.updateNote(fanned, { beam: 'continue' })
+      return model
+    }
+
+    it('goes to `fanJoins`, never to `joins` — no `Beam` is built over it', () => {
+      const { joins, fanJoins } = joined(fanAcrossBarline())
+      expect(joins).toHaveLength(0)
+      expect(fanJoins).toHaveLength(1)
+      expect(fanJoins[0].members.map(m => m.measureNumber)).toEqual([1, 1, 2])
+      expect(fanJoins[0].members.map(m => m.fan)).toEqual([false, false, true])
+      expect(fanJoins[0].stemDirection).toBe(STEM_UP)
+    })
+
+    it('⭐ the OWNER is kept out of `crossing` — a placeholder would delete its stem', () => {
+      const { lanes } = joined(fanAcrossBarline())
+      // The prefix half, in bar 1, is suppressed exactly as an ordinary crossing group's is…
+      expect(lanes.get('1:0:v0')!.crossing).toEqual([{ slots: [6, 7], stemDirection: STEM_UP }])
+      expect(lanes.get('1:0:v0')!.fanned).toEqual([])
+      // …while the fan itself takes the direction and nothing else.
+      expect(lanes.get('2:0:v0')!.crossing).toEqual([])
+      expect(lanes.get('2:0:v0')!.fanned).toEqual([{ slots: [0], stemDirection: STEM_UP }])
+    })
+
+    it('carries what a two-bar lane cannot answer in one voice — clef, signs, the NEXT note', () => {
+      const model = fanAcrossBarline()
+      const [, , fan] = joined(model).fanJoins[0].members
+      expect(fan.clef).toBe('treble')
+      expect(fan.laneSlots).toEqual(model.getScore().measures[1].slots.filter(s => (s.voice ?? 0) === 0))
+      // ⚠️ The next note in the fan's OWN bar — the ramp must not spread over it.
+      expect(fan.nextLookupId).toBe(noteIdAt(model, 2, 1))
+    })
+
+    it('⛔ a group that landed on TWO systems is refused, and the prefix is handed back', () => {
+      const { joins, fanJoins, lanes } = joined(fanAcrossBarline(), i => ({ line: i }))
+      expect([joins, fanJoins]).toEqual([[], []])
+      // Bar 1's two notes beam as their own group rather than standing flagless for a beam that
+      // never comes — the worst of the three outcomes is a placeholder with no partner.
+      expect(lanes.get('1:0:v0')!.crossing).toEqual([])
+      expect(lanes.get('1:0:v0')!.inBar).toEqual([[0, 1], [2, 3], [4, 5], [6, 7]])
+      expect(lanes.get('2:0:v0')!.crossing).toEqual([])
+      expect(lanes.get('2:0:v0')!.fanned).toEqual([])
+    })
+  })
+
   it('a side whose own bar is undrawn does not draw, while its partner side still does (P3)', () => {
     // The regression bar: side A (line 0, painted) must form and draw its fragment whether or not
     // the next system is culled — the join is the same, so the shape-key descriptor stays stable.

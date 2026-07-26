@@ -18,7 +18,7 @@ import { durationToVexflow, durationToFraction } from '@/utils/durations'
 import { getMeterInfo, timeSignatureVexKey, type MeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { computeBeamGroups, secondaryBreakIndices } from '@/utils/beaming'
-import { planCrossBarBeams, laneKey, type CrossBarBeamPlan, type CrossBarJoin, type CrossBarSide, type LaneBeamPlan } from './CrossBarBeams'
+import { planCrossBarBeams, laneKey, type CrossBarBeamPlan, type CrossBarJoin, type CrossBarFanJoin, type CrossBarSide, type LaneBeamPlan } from './CrossBarBeams'
 import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
 import { measureShapeKey } from './MeasureRedrawKey'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
@@ -214,6 +214,11 @@ interface FanSlotDrawing {
   index: number
   slot: Extract<ChordRest, { type: 'chord' }>
   note: StaveNote
+  /** The note's OWN stave — a synthetic cross-barline lane (P3) has more than one. */
+  stave: Stave
+  /** Where this fan's members register — its own bar, which a synthetic lane does not share. */
+  measureNumber: number
+  staffIndex: number
   headX: number
   baseY: number
   stemDirection: number
@@ -998,7 +1003,8 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Draw each fanned slot's OTHER members and its feathered beam (docs/fanned-beams-plan.md §3, P1).
+   * Draw each fanned slot's OTHER members and its feathered beam (docs/fanned-beams-plan.md §3, P1),
+   * for ONE LANE of one bar.
    *
    * ⭐ **The slot's own `StaveNote` is member 0 and is NOT suppressed** — it has already been drawn
    * by `voice.draw`, wearing a quarter's filled head (NoteBuilder swaps the drawn value). Everything
@@ -1009,26 +1015,30 @@ export class VexFlowRenderer {
    *
    * ⚠️ AFTER the voices are drawn, like the two-note tremolo's strokes and for the same reason: the
    * stem geometry it reads (including {@link applyFanStemStretch}'s extension) is only settled then.
-   * And inside the measure group — one slot, one bar, unlike the cross-barline fragments.
+   * And inside the measure group, because everything it draws is inside this bar. A group that
+   * CROSSES a barline belongs to no bar and is drawn by {@link drawCrossBarFanBeams} instead (P3).
    *
    * ⚠️ THE SPAN is the slot's own x-territory: from its notehead to the next note's in the SAME
    * lane, or to the end of the note area when nothing follows. That is where the width bought by
    * `laneColumns` lands — but only approximately, because inside the bar VexFlow distributes by
    * tick. A fan in a busy bar is the case to look at by eye.
-   *
-   * ⚠️ `openGroup` PREFIXES the class with `vf-`, so the bare name goes in, and `closeGroup()` lives
-   * in a `finally` — an unbalanced pair swallows the rest of the render.
    */
   private drawFannedBeams(
     pass: RenderPass,
     slots: ChordRest[],
     staveNotes: StaveNote[],
-    stave: Stave,
     measureNumber: number,
     staffIndex: number,
     clefForBeat: (beat: Fraction) => Clef,
     /** The fans of this lane that are JOINED to the group on their left, from `buildBeams`. */
     fanJoins: FanJoin[],
+    /**
+     * ⚠️ The slots of this lane whose fan belongs to a group that LEAVES the bar (P3) — skipped
+     * here, because {@link drawCrossBarFanBeams} draws those and drawing one twice paints two
+     * `vf-fan` groups under ONE id. `getElementById` is document-wide and the first in tree order
+     * wins, so the second copy is not merely wasted ink: it steals every lookup the first one owns.
+     */
+    crossingFans: number[] = [],
   ): void {
     // Which sign each pitch of this lane displays — the SAME map NoteBuilder gave the StaveNotes, so
     // a member's accidental obeys one rule with the notes around it, including holding for the rest
@@ -1037,19 +1047,104 @@ export class VexFlowRenderer {
     if (!slots.some(s => s.type === 'chord' && s.fan)) return
     const signs = displayedAccidentals(slots)
 
-    // Every fanned slot of this lane, in order, with everything its geometry is computed from. Built
-    // as a first sweep because a JOINED GROUP has to settle ONE line before any of its fans is drawn
-    // (P2) — and a fan that joins the one before it needs that one's geometry, which is why the draw
-    // loop below keeps what it computed.
     const drawings: FanSlotDrawing[] = []
     for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
-      const drawing = this.fanSlotDrawing(i, slots, staveNotes, stave, clefForBeat, signs, fanJoins)
+      if (crossingFans.includes(i)) continue
+      const join = fanJoins.find(j => j.fans.includes(i))
+      const drawing = this.fanSlotDrawing({
+        index: i,
+        slot: slots[i],
+        note: staveNotes[i],
+        clef: clefForBeat(slots[i].beat),
+        signs,
+        // Only the FIRST fan of a chain has a prefix — behind any other stands a fan, and that gap
+        // is `fanJoinQuads`' business.
+        prefixNotes: join && join.fans[0] === i ? join.prefix.map(k => staveNotes[k]) : [],
+        // Where this slot's room ends: the next note's ink in this lane, or the note area's end. The
+        // next slot is the honest boundary — it is what the formatter itself spaced against.
+        nextNote: staveNotes[i + 1],
+        measureNumber,
+        staffIndex,
+        joined: !!join,
+      })
       if (drawing) drawings.push(drawing)
     }
+    this.drawFanGroups(pass, drawings, fanJoins)
+  }
+
+  /**
+   * ⭐ **P3 — the fans whose beam LEAVES its bar** (docs/fan-beam-join-plan.md). One pass per
+   * crossing group, drawn OUTSIDE every measure group, exactly as {@link drawCrossBarBeams} is and
+   * for the same two reasons: top-level content is torn down and rebuilt every render while measure
+   * groups are REUSED (so a beam drawn into one would vanish on any pass that reuses it), and
+   * culling deletes an off-screen bar's group along with anything drawn into it.
+   *
+   * The whole group comes here, not just the half that reaches over the barline: the joined line's
+   * height is a fact about every note on it, so the fan's own ramp and its members cannot be settled
+   * inside one bar while the rest of the group lives in another.
+   *
+   * What it does is exactly what the in-bar pass does — the two build the same
+   * {@link FanSlotDrawing}s and hand them to the same {@link drawFanGroups}. All that differs is
+   * where the facts come from: the `StaveNote`s by id out of `staveNoteMap` (which is replayed for a
+   * reused measure, so this can draw over bars nobody redrew), and the clef, accidental state and
+   * following note per member, since a synthetic lane spanning two bars has no single answer to any
+   * of them.
+   */
+  private drawCrossBarFanBeams(pass: RenderPass, joins: CrossBarFanJoin[]): void {
+    for (const join of joins) {
+      const staveNotes = join.members.map(m => pass.staveNoteMap.get(m.lookupId)?.staveNote)
+      // A bar that was not painted contributes no StaveNote. The planner already refuses a group
+      // whose bars are not all drawn; this is the runtime proof of it — half a joined beam would
+      // draw stems in mid-air.
+      if (staveNotes.some(n => n === undefined)) continue
+
+      const drawings: FanSlotDrawing[] = []
+      const fanIndices = join.members.map((m, i) => (m.fan ? i : -1)).filter(i => i >= 0)
+      for (const i of fanIndices) {
+        const member = join.members[i]
+        const drawing = this.fanSlotDrawing({
+          index: i,
+          slot: member.slot,
+          note: staveNotes[i]!,
+          clef: member.clef,
+          // Accidental state is a fact about ONE bar, so it is read per bar and merged. Keyed by
+          // pitch id, so the merge cannot conflate two bars' answers about one note.
+          signs: displayedAccidentals(member.laneSlots),
+          prefixNotes: i === fanIndices[0]
+            ? join.members.map((m, k) => (!m.fan && k < i ? staveNotes[k]! : null))
+              .filter((n): n is StaveNote => n !== null)
+            : [],
+          // ⚠️ The next note in the fan's OWN bar, not in the synthetic lane — the fan may be the
+          // last thing on this beam while its bar carries on past it, and the ramp must not spread
+          // over a note the formatter put there.
+          nextNote: member.nextLookupId ? pass.staveNoteMap.get(member.nextLookupId)?.staveNote : undefined,
+          measureNumber: member.measureNumber,
+          staffIndex: join.staffIndex,
+          joined: true,
+        })
+        if (drawing) drawings.push(drawing)
+      }
+      if (!drawings.length) continue
+
+      const prefix = join.members.map((m, i) => (!m.fan && i < fanIndices[0] ? i : -1)).filter(i => i >= 0)
+      this.drawFanGroups(pass, drawings, [{ prefix, fans: fanIndices }])
+    }
+  }
+
+  /**
+   * The shared body of both fan passes: settle each joined group's ONE line, then draw every fan —
+   * its prefix's stems, its members, its ramp, and the gap back to the fan behind it.
+   *
+   * ⚠️ `openGroup` PREFIXES the class with `vf-`, so the bare name goes in, and `closeGroup()` lives
+   * in a `finally` — an unbalanced pair swallows the rest of the render.
+   */
+  private drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: FanJoin[]): void {
     this.reconcileFanJoinLines(drawings, fanJoins)
 
     const geometries = new Map<number, FanGeometry>()
-    for (const { index: i, slot, note, headX, baseY, stemDirection, heads, stored, prefixNotes, options } of drawings) {
+    for (const drawing of drawings) {
+      const { index: i, slot, note, stave, headX, baseY, stemDirection, heads, stored, prefixNotes, options } = drawing
+      const { measureNumber, staffIndex } = drawing
       const geometry = fannedBeamGeometry(options)
       geometries.set(i, geometry)
 
@@ -1175,7 +1270,6 @@ export class VexFlowRenderer {
       } finally {
         ctx.closeGroup()
       }
-
     }
   }
 
@@ -1183,29 +1277,40 @@ export class VexFlowRenderer {
    * ONE fanned slot, resolved: its note, its members' heads and signs, its prefix, and the full
    * option set its geometry is computed from. Null for anything that is not a fanned chord.
    *
-   * Split out of {@link drawFannedBeams} because P2 has to spend it TWICE — once to ask what line
-   * this fan would want, and once to draw it at the line the whole joined group agreed on.
+   * Split out because P2 has to spend it TWICE — once to ask what line this fan would want, and once
+   * to draw it at the line the whole joined group agreed on — and because P3 builds the same thing
+   * from a group that has no single bar to read its clef, its accidentals or its next note from.
+   *
+   * ⭐ The STAVE comes from the note itself. It is the one source that is right in both passes: a
+   * synthetic lane spanning two bars has two staves, and each fan belongs to its own.
    */
-  private fanSlotDrawing(
-    index: number,
-    slots: ChordRest[],
-    staveNotes: StaveNote[],
-    stave: Stave,
-    clefForBeat: (beat: Fraction) => Clef,
-    /** `displayedAccidentals` for this lane — which sign each pitch id shows, if any. */
-    signs: Map<string, string | null>,
-    fanJoins: FanJoin[],
-  ): FanSlotDrawing | null {
-    const slot = slots[index]
+  private fanSlotDrawing(input: {
+    index: number
+    slot: ChordRest
+    note: StaveNote | undefined
+    /** The clef this member's pitches are read against — its own bar's. */
+    clef: Clef
+    /** `displayedAccidentals` for this member's own bar: which pitch ids show a sign. */
+    signs: Map<string, string | null>
+    /** The group this fan is joined to on its left; empty for anything but a chain's first fan. */
+    prefixNotes: StaveNote[]
+    /** The next note in the fan's OWN bar — where its room ends. Absent ⇒ the note area's end. */
+    nextNote: StaveNote | undefined
+    measureNumber: number
+    staffIndex: number
+    /** This fan is on a joined beam, so its line is flat even where it has no prefix (a chain). */
+    joined: boolean
+  }): FanSlotDrawing | null {
+    const { index, slot, note, clef, signs, nextNote, measureNumber, staffIndex, joined } = input
     if (slot.type !== 'chord' || !slot.fan) return null
-    const note = staveNotes[index]
     if (!note) return null
+    const stave = note.getStave()
+    if (!stave) return null
 
     const headX = note.getNoteHeadBeginX()
     const { topY, baseY } = note.getStemExtents()
     const stemDirection = note.getStemDirection()
 
-    const clef = clefForBeat(slot.beat)
     const stored = slot.fan.members ?? []
     const heads = fanMemberPitches(slot.notes, slot.fan).map((pitches, k) => pitches.map(p => ({
       pitch: p,
@@ -1225,28 +1330,22 @@ export class VexFlowRenderer {
 
     // ⭐ THE PREFIX — the group this fan is JOINED to on its left (docs/fan-beam-join-plan.md P1).
     // Their x's and head y's are the FORMATTER's, settled and read here like everything else in this
-    // pass; what the join changes is only where their stems end. Only the FIRST fan of a chain has
-    // one — behind any other stands a fan, and that gap is `fanJoinQuads`' business.
-    const join = fanJoins.find(j => j.fans.includes(index))
-    const prefixNotes = (join && join.fans[0] === index ? join.prefix : [])
-      .map(k => staveNotes[k])
-      .filter((n): n is StaveNote => !!n && !!n.getStem())
+    // pass; what the join changes is only where their stems end.
+    const prefixNotes = input.prefixNotes.filter(n => !!n && !!n.getStem())
     // The lines they ask for: the count their own duration carries, the MINIMUM across them so a
     // mixed prefix draws only what they all agree on.
     const prefixBeams = prefixNotes.length ? Math.min(...prefixNotes.map(n => n.getBeamCount())) : 0
 
-    // Where this slot's room ends: the next note's ink in this lane, or the note area's end. The
-    // next slot is the honest boundary — it is what the formatter itself spaced against.
-    const next = staveNotes[index + 1]
     return {
-      index, slot, note, headX, baseY, stemDirection, heads, stored, prefixNotes,
+      index, slot, note, stave, measureNumber, staffIndex,
+      headX, baseY, stemDirection, heads, stored, prefixNotes,
       options: {
         members: fanMembers(slot.fan, slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)),
         memberHeadYs: heads.map(pitches => pitches.map(h => stave.getYForNote(h.line))),
         direction: slot.fan.direction,
         beams: slot.fan.beams,
         headX,
-        spanEndX: next ? next.getNoteHeadBeginX() : stave.getNoteEndX(),
+        spanEndX: nextNote ? nextNote.getNoteHeadBeginX() : stave.getNoteEndX(),
         stemOffset: note.getStemX() - headX,
         // MEASURED from the notehead itself, like the two-note tremolo's flag clearance: heads a
         // whole glyph apart cannot touch, and the number follows the staff size instead of pinning
@@ -1257,7 +1356,7 @@ export class VexFlowRenderer {
         prefix: prefixNotes.map(n => ({ stemX: n.getStemX(), headYs: n.getYs() })),
         prefixBeams,
         // Every fan on a joined beam draws flat, prefix or no prefix — a chain's FIRST fan has none.
-        joined: !!join,
+        joined,
         tipY: topY,
         // ⚠️ The LARGER of the two extensions: the beam levels eat into every stem in the group, and
         // a 32nd prefix joined to a one-beam fan is the case that under-reserves otherwise.
@@ -1868,7 +1967,7 @@ export class VexFlowRenderer {
    * are independent, so seeing one system never forces the other's bar to be painted for nothing. A
    * one-bar side pins nothing (no pair) but still keeps its own bar from being translated.
    */
-  private spanAnchors(score: Score, joins: CrossBarJoin[]): SpanAnchors {
+  private spanAnchors(score: Score, joins: CrossBarJoin[], fanJoins: CrossBarFanJoin[] = []): SpanAnchors {
     const measures = new Set<number>()
     const list: SpanAnchors['list'] = []
 
@@ -1944,6 +2043,26 @@ export class VexFlowRenderer {
             groups: [measureGroupKey(before, join.staffIndex), measureGroupKey(after, join.staffIndex)],
           })
         }
+      }
+    }
+
+    // …and the fans whose beam crosses one (docs/fan-beam-join-plan.md P3), on the same terms. No
+    // `sides` to walk: such a join is refused outright unless every member landed on ONE system, so
+    // its bars are always one pinned set. Without this, culling would delete the bar holding the
+    // prefix and the joined beam would draw its line to stems that are no longer there.
+    for (const join of fanJoins) {
+      const barsTouched = [...new Set(join.members.map(m => m.measureNumber))].sort((a, b) => a - b)
+      for (let i = 0; i < barsTouched.length; i++) {
+        measures.add(barsTouched[i])
+        if (i === 0) continue
+        list.push({
+          lo: barsTouched[i - 1],
+          hi: barsTouched[i],
+          groups: [
+            measureGroupKey(barsTouched[i - 1], join.staffIndex),
+            measureGroupKey(barsTouched[i], join.staffIndex),
+          ],
+        })
       }
     }
 
@@ -2177,6 +2296,12 @@ export class VexFlowRenderer {
         // with flags. Built here, with the others, because it must exist BEFORE the format pass.
         beams.push(...this.buildTwoNoteTremoloBeams(g.slots, g.staveNotes))
         if (lane?.crossing.length) this.applyCrossBarPlaceholders(g.staveNotes, lane.crossing)
+        // ⚠️ A crossing FAN group's owners take the direction and NOTHING ELSE — no placeholder, or
+        // `StaveNote.draw` would skip the very stem the joined line is anchored to (P3, and P1's
+        // reason). `setStemDirection` clears any beam, which is exactly right here: they have none.
+        for (const owners of lane?.fanned ?? []) {
+          for (const i of owners.slots) g.staveNotes[i]?.setStemDirection(owners.stemDirection)
+        }
 
         // ⚠️ A BEAM GROUP HAS ONE STEM DIRECTION — so the multi-voice re-assert below must be told
         // what the beam decided, not what the note was built with.
@@ -2192,7 +2317,10 @@ export class VexFlowRenderer {
         // group's direction like everyone else, but it carries NO beam (see `buildBeams`), so
         // `hasBeam()` skips it here and the re-assert then drags it back to the voice's own side —
         // leaving it disagreeing with the beam it is joined to.
-        const joinedFanOwners = new Set(fanJoins.flatMap(join => join.fans.map(i => g.staveNotes[i])))
+        const joinedFanOwners = new Set([
+          ...fanJoins.flatMap(join => join.fans.map(i => g.staveNotes[i])),
+          ...(lane?.fanned ?? []).flatMap(owners => owners.slots.map(i => g.staveNotes[i])),
+        ])
         for (const staveNote of g.staveNotes) {
           if (intendedStemDir.has(staveNote) && (staveNote.hasBeam() || joinedFanOwners.has(staveNote))) {
             intendedStemDir.set(staveNote, staveNote.getStemDirection())
@@ -2271,9 +2399,11 @@ export class VexFlowRenderer {
         // is settled only once the stems and beams are drawn), and per LANE because the span reaches
         // to the next note in the SAME voice.
         for (let gi = 0; gi < groups.length; gi++) {
+          const laneOfGroup = beamPlan?.lanes.get(laneKey(measure.number, staffIndex, groups[gi].voice))
           this.drawFannedBeams(
-            pass, groups[gi].slots, groups[gi].staveNotes, stave, measure.number, staffIndex,
+            pass, groups[gi].slots, groups[gi].staveNotes, measure.number, staffIndex,
             clefForBeat, built[gi].fanJoins,
+            (laneOfGroup?.fanned ?? []).flatMap(owners => owners.slots),
           )
         }
 
@@ -3653,7 +3783,7 @@ export class VexFlowRenderer {
     // itself. Within a line the two passes agree by construction — the forcing is what makes them.
     const provisionalBeams = this.planCrossBarBeams(plans, () => true)
 
-    const spans = this.spanAnchors(score, provisionalBeams.joins)
+    const spans = this.spanAnchors(score, provisionalBeams.joins, provisionalBeams.fanJoins)
     // A span's endpoint bar must be REDRAWN when it moves, never translated — see spanAnchors.
     const anchors = spans.measures
     // A system connector is drawn from the Stave of the line's first measure, and a translated
@@ -3816,6 +3946,11 @@ export class VexFlowRenderer {
     // Beams that run through a barline: one `Beam` over both bars, drawn outside either measure
     // group now that every bar has been painted. Before the ties, as a bar's own beams are.
     this.drawCrossBarBeams(pass, beamPlan.joins)
+    // …and the fans whose beam does the same (docs/fan-beam-join-plan.md P3). Here for both of
+    // `drawCrossBarBeams`' reasons — a measure group is REUSED, and culling deletes an off-screen
+    // bar's group with everything drawn into it — and after it, so a fan joined behind an ordinary
+    // cross-barline beam finds its neighbour's stems already settled.
+    this.drawCrossBarFanBeams(pass, beamPlan.fanJoins)
 
     // Render ties between measures after all measures are drawn
     renderTies(pass, score)

@@ -566,3 +566,89 @@ describe('two fans joined to each other', () => {
       .map(e => ({ x: e.bbox.x }))
   }
 })
+
+/**
+ * ⭐ P3 — THE JOIN CROSSES A BARLINE (docs/fan-beam-join-plan.md). The whole group is then drawn by
+ * a top-level pass, outside every measure group, for `drawCrossBarBeams`' own two reasons: a measure
+ * group is REUSED between renders, and culling deletes an off-screen bar's group with everything
+ * drawn into it.
+ */
+describe('a fan joined across a barline', () => {
+  function acrossBarline(join: boolean) {
+    const model = new ScoreModel('fan across')
+    model.addMeasure()
+    // Bar 1 ends with an eighth on the last half-beat; bar 2 opens with the fan.
+    const before = model.addNote({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(7, 2) })
+    const fanned = model.addNote({ step: 'E', octave: 4, duration: '8', measure: 2, beat: frac(0, 1) })
+    model.setFan(fanned.id, FAN)
+    if (join) model.updateNote(fanned.id, { beam: 'continue' })
+    const { renderer, container } = makeRenderer()
+    renderer.renderScore(model.getScore())
+    const slot = model.getScore().measures[1].slots.find(s => s.type === 'chord' && s.fan)!
+    return { model, renderer, container, before, fanned, slot }
+  }
+
+  it('⭐ draws the fan OUTSIDE every measure group once it crosses', () => {
+    const svg = (b: { renderer: VexFlowRenderer }) => b.renderer.getSVGElement()!
+    // Unjoined, the fan belongs to its bar and is drawn inside that bar's group.
+    const alone = acrossBarline(false)
+    expect([...svg(alone).children].filter(el => el.getAttribute('class') === `vf-${FAN_GROUP}`)).toHaveLength(0)
+    expect(fanGroups(alone.container)).toHaveLength(1)
+
+    // Joined, it belongs to no bar — like a tie or a slur.
+    const crossed = acrossBarline(true)
+    expect([...svg(crossed).children].filter(el => el.getAttribute('class') === `vf-${FAN_GROUP}`)).toHaveLength(1)
+    expect(fanGroups(crossed.container)).toHaveLength(1)
+  })
+
+  it('⭐ pulls the PREFIX’s stem across with it — drawn by us, still the note’s own object', () => {
+    const { renderer, container, before, slot } = acrossBarline(true)
+    const fanGroup = container.querySelector(`#vf-${FAN_GROUP}-${slot.id}`)
+    expect(fanGroup).not.toBeNull()
+    const stem = renderer.getStaveNoteSVGGroup(before.id)?.stem
+    expect(stem).not.toBeNull()
+    expect(fanGroup!.contains(stem!)).toBe(true)
+  })
+
+  it('builds no cross-barline `Beam` over it — the line is the fan’s', () => {
+    const { container } = acrossBarline(true)
+    expect(container.querySelectorAll('g.vf-beam')).toHaveLength(0)
+  })
+
+  it('the fan keeps its own stem — the one the joined line is anchored to', () => {
+    // 🚨 The owner must NOT get a placeholder: `StaveNote.draw` skips the stem whenever `note.beam`
+    // is set, and that stem is what `stemLift` tops up to reach the line.
+    const { renderer, fanned } = acrossBarline(true)
+    expect(renderer.getStaveNoteSVGGroup(fanned.id)?.stem).not.toBeNull()
+  })
+
+  it('⭐ TWO FANS across the barline — P2 and P3 at once, chained by the second’s mark', () => {
+    const model = new ScoreModel('fan chain across')
+    model.addMeasure()
+    const left = model.addNote({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(7, 2) })
+    const right = model.addNote({ step: 'E', octave: 4, duration: '8', measure: 2, beat: frac(0, 1) })
+    model.setFan(left.id, FAN)
+    model.setFan(right.id, { direction: 'rit', count: 4, beams: 2 })
+    model.updateNote(right.id, { beam: 'continue' })
+    const { renderer, container } = makeRenderer()
+    renderer.renderScore(model.getScore())
+
+    // Both fans draw, both outside every measure group — the whole group left its bars together.
+    expect(fanGroups(container)).toHaveLength(2)
+    const svg = renderer.getSVGElement()!
+    expect([...svg.children].filter(el => el.getAttribute('class') === `vf-${FAN_GROUP}`)).toHaveLength(2)
+    // Neither owner lost its stem, and no `Beam` was built over the pair.
+    expect(renderer.getStaveNoteSVGGroup(left.id)?.stem).not.toBeNull()
+    expect(renderer.getStaveNoteSVGGroup(right.id)?.stem).not.toBeNull()
+    expect(container.querySelectorAll('g.vf-beam')).toHaveLength(0)
+  })
+
+  it('survives a re-render, and the rest of the score still draws', () => {
+    const { model, renderer, container, fanned } = acrossBarline(true)
+    model.addNote({ step: 'A', octave: 4, duration: 'q', measure: 2, beat: frac(1, 1) })
+    renderer.renderScore(model.getScore())
+    renderer.renderScore(model.getScore())
+    expect(fanGroups(container)).toHaveLength(1)
+    expect(renderer.getElementRegistry().getById(fanned.id)).not.toBeNull()
+  })
+})

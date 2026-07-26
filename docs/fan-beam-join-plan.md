@@ -128,10 +128,33 @@ As built, four things it turned out to need:
   thickly, everything else on the one line they share, and a level only one side carries stops at its
   own stem — the same answer P1 gives a 16th prefix meeting a one-beam fan.
 
-**P3 — across a barline, and across a system.** His "we will have to tweak for multi bar". The
-grouper gives the crossing away for free (a leading `continue` already speaks for the boundary); the
-drawing does not — a joined group spanning two bars belongs to the **top-level** post-measure pass
-like `drawCrossBarBeams`, not to a measure group that gets reused.
+**P3 — across a barline.** ✅ DONE. His "we will have to tweak for multi bar". The grouper gives the
+crossing away for free (a leading `continue` already speaks for the boundary — the `!first.fan` guard
+P0 added simply comes out); the drawing does not — a joined group spanning two bars belongs to the
+**top-level** post-measure pass like `drawCrossBarBeams`, not to a measure group that gets reused.
+
+As built:
+- **A crossing group holding a fan is a `CrossBarFanJoin`, not a `CrossBarJoin`** — no `Beam` object,
+  and the fan's OWNER is kept out of `LaneBeamPlan.crossing` (a placeholder there deletes the stem
+  the line is anchored to) into a new `fanned` list that carries only the stem direction.
+- **The WHOLE group is drawn top-level**, not just the half reaching over the barline: the joined
+  line's height is a fact about every note on it, so the fan's own ramp and members cannot be settled
+  inside one bar while the rest of the group lives in another. Both passes build the same
+  `FanSlotDrawing`s and hand them to the same `drawFanGroups`; only where the facts come from
+  differs — `StaveNote`s by id out of `staveNoteMap`, and the clef, accidental state and following
+  note PER MEMBER, since a synthetic two-bar lane has no single answer to any of them.
+  ⚠️ The `nextNote` is the next slot in the fan's OWN bar, not in the synthetic lane: a fan may be
+  the last thing on the beam while its bar carries on past it.
+- ⚠️ **The measure pass must SKIP a fan a crossing join owns.** Drawing one twice paints two `vf-fan`
+  groups under ONE id, and `getElementById` is document-wide with the first in tree order winning —
+  so the copy does not merely waste ink, it steals every lookup the original owns.
+- **`spanAnchors` pins a fan join's bars** like any other span, or culling deletes the bar holding
+  the prefix and the line draws to stems that are no longer there.
+
+⛔ **Across a SYSTEM is NOT built — see §5.** A group that landed on two systems is refused outright
+by the planner rather than split into sides. The ordinary prefix is handed back to its own bar's
+`inBar` groups so it keeps its own beam — a smaller loss than a fan drawn across a break, and far
+smaller than a placeholder waiting for a beam that never comes (a note with no flag AND no stem).
 
 ## 2. Decisions taken, and where they will show
 
@@ -171,3 +194,35 @@ like `drawCrossBarBeams`, not to a measure group that gets reused.
 
 Joining on the RIGHT (his rule — the last member is not a slot, so nothing can address it); a fan
 inside a tuplet; mixed beam counts in the prefix; and any change to what a fan sounds like.
+
+## 5. ⏭️ WANTED, NOT BUILT — the join across a SYSTEM BREAK
+
+**His call, 2026-07-26: "we should do it, but not now."** So this is a future phase, not a rejection —
+it does not belong in §4.
+
+Today `planCrossBarBeams` refuses a fan group whose members landed on more than one system and hands
+the ordinary prefix back to its own bar. Nothing draws wrong; the join simply is not made.
+
+What it would take, and why it is its own piece of work:
+
+- **A fan group would need SIDES**, the way `CrossBarJoin` already has them. `computeSides` partitions
+  a crossing group at every line change and marks each fragment `openLeft` / `openRight` — the
+  machinery is built and in use; a fan join deliberately has none.
+- **The open end wants a half-beam stub**, exactly as `drawCrossBarSideBeam`'s overhang and
+  `drawCrossBarLoneFragment` already draw one: a short quad past the edge stem, running to the
+  barline and into the margin (`crossSystemOverhangEndX`). ⭐ The count is the question a fan makes
+  new: `CrossBarSide.crossingLeft/Right` is "the levels BOTH sides share", and on a fan that is
+  `fanJoinQuads`' rule — `min(endLevels, startLevels)` — rather than the two notes' `beamCount`.
+- ⚠️ **The shared LINE is the hard part, and it is a real question, not a plumbing one.** A joined
+  line is FLAT at one height (P1), reconciled across every fan on the beam (P2) — and two systems
+  have two staves at two y's. So either each side settles its own height (the two halves of one beam
+  then sit at unrelated heights, which is ordinary for a broken beam and probably right), or the
+  reconciliation is expressed relative to each side's own stave. **Decide that before writing any
+  of the above.**
+- The prefix's stems already come from `staveNoteMap` and are drawn top-level, so nothing about
+  *reaching* the other system's notes is new — P3 solved that half.
+
+⚠️ Whatever is built, `spanAnchors` must keep NOT cross-pinning the two sides: the ordinary path is
+careful that seeing one system never forces the other's bar to be painted for nothing
+(docs/cross-system-beam-fragments-plan.md P4), and a fan join currently leans on being one pinned set
+precisely because it never spans a break.

@@ -107,16 +107,65 @@ export interface CrossBarJoin {
   sides: CrossBarSide[]
 }
 
+/**
+ * One member of a crossing group whose beam is a FAN's (docs/fan-beam-join-plan.md P3).
+ *
+ * It carries what a synthetic lane spanning two bars cannot answer in one voice: the clef the
+ * member's pitches are read against, the lane its accidental state comes from, and the note after it
+ * IN ITS OWN BAR — a fan may be the last thing on the beam while its bar carries on past it, and its
+ * ramp must not spread over a note the formatter put there.
+ */
+export interface CrossBarFanMember {
+  measureNumber: number
+  slotId: string
+  lookupId: string
+  /** The slot itself: the fan mark, its pitches and its rhythm all come off it. */
+  slot: ChordRest
+  clef: Clef
+  /** This member's own bar's lane — read for `displayedAccidentals`, never mutated. */
+  laneSlots: ChordRest[]
+  /** Does this slot wear the fan? The rest of the group is its prefix. */
+  fan: boolean
+  /** The `staveNoteMap` key of the next slot in this member's own bar, if any. */
+  nextLookupId: string | null
+}
+
+/**
+ * ⭐ A crossing group whose beam is a FAN's, and therefore no `Beam` at all
+ * (docs/fan-beam-join-plan.md P3). Its counterpart is {@link CrossBarJoin}, and the difference is
+ * the whole reason it is a separate kind: a fan draws its own line end to end, so the group gets no
+ * `Beam` object, and the fan's OWNER must keep the stem that line is anchored to.
+ *
+ * ⛔ No `sides`. A joined fan group that lands on more than one system is refused outright by the
+ * planner rather than split — a half of a feathered ramp is not a thing v1 knows how to draw, and
+ * the prefix is salvaged back into its own bar's groups instead.
+ */
+export interface CrossBarFanJoin {
+  staffIndex: number
+  voice: number
+  /** ONE direction for the whole group, resolved across all its bars. */
+  stemDirection: number
+  members: CrossBarFanMember[]
+}
+
 /** What one (measure, staff, voice) lane does about beams. Indices are into {@link laneSlots}. */
 export interface LaneBeamPlan {
   /** Groups wholly inside this bar — built and drawn by the bar, as they always were. */
   inBar: number[][]
   /** Slots belonging to a group that leaves this bar, with that group's shared stem direction. */
   crossing: { slots: number[]; stemDirection: number }[]
+  /**
+   * Slots of a crossing FAN group that OWN a fan. The direction reaches them; the placeholder must
+   * not — `StaveNote.draw` skips the stem whenever `note.beam` is set, and that stem is what the
+   * joined line is anchored to (docs/fan-beam-join-plan.md P1).
+   */
+  fanned: { slots: number[]; stemDirection: number }[]
 }
 
 export interface CrossBarBeamPlan {
   joins: CrossBarJoin[]
+  /** The crossing groups whose beam is a fan's — drawn by the fan pass, never by a `Beam`. */
+  fanJoins: CrossBarFanJoin[]
   lanes: Map<string, LaneBeamPlan>
   /**
    * This (measure, staff)'s contribution to its shape key: *which of my slots are flagless, and at
@@ -213,13 +262,14 @@ export function planCrossBarBeams(
   ) => number,
 ): CrossBarBeamPlan {
   const joins: CrossBarJoin[] = []
+  const fanJoins: CrossBarFanJoin[] = []
   const lanes = new Map<string, LaneBeamPlan>()
   const descriptors = new Map<string, string[]>()
 
   const laneOf = (bar: CrossBarBar, voice: number): LaneBeamPlan => {
     const key = laneKey(bar.measureNumber, bar.staffIndex, voice)
     let lane = lanes.get(key)
-    if (!lane) lanes.set(key, (lane = { inBar: [], crossing: [] }))
+    if (!lane) lanes.set(key, (lane = { inBar: [], crossing: [], fanned: [] }))
     return lane
   }
 
@@ -251,6 +301,60 @@ export function planCrossBarBeams(
         const forced = forcedPerBar.find((f, i) => f !== undefined && barsTouched.includes(i))
         const stemDirection = stemDirectionFor(unionSlots, first, forced)
 
+        // ⭐ A group holding a FAN is the fan's beam, not a `Beam` (docs/fan-beam-join-plan.md P3).
+        if (unionSlots.some(slot => slot.type === 'chord' && slot.fan)) {
+          // ⛔ …unless it landed on more than one system. Half a feathered ramp is not a thing v1
+          // knows how to draw, so the join is refused entirely and the ORDINARY notes are handed
+          // back to their own bar — a prefix that keeps its own beam is a smaller loss than a fan
+          // drawn across a break, and a placeholder for a beam that never comes is the worst of the
+          // three (a note with no flag AND no stem).
+          if (new Set(group.map(ref => run[ref.bar].line)).size > 1
+            || group.some(ref => !run[ref.bar].drawn)) {
+            for (const barIndex of barsTouched) {
+              const fragment = group
+                .filter(ref => ref.bar === barIndex && !(slotsPerBar[ref.bar][ref.slot].type === 'chord' && (slotsPerBar[ref.bar][ref.slot] as { fan?: unknown }).fan))
+                .map(ref => ref.slot)
+              if (fragment.length >= 2) laneOf(run[barIndex], voice).inBar.push(fragment)
+            }
+            continue
+          }
+
+          fanJoins.push({
+            staffIndex: run[0].staffIndex,
+            voice,
+            stemDirection,
+            members: group.map((ref, i) => {
+              const slot = unionSlots[i]
+              const next = slotsPerBar[ref.bar][ref.slot + 1]
+              return {
+                measureNumber: run[ref.bar].measureNumber,
+                slotId: slot.id,
+                lookupId: lookupIdOf(slot),
+                slot,
+                clef: run[ref.bar].clef,
+                laneSlots: slotsPerBar[ref.bar],
+                fan: slot.type === 'chord' && !!slot.fan,
+                nextLookupId: next ? lookupIdOf(next) : null,
+              }
+            }),
+          })
+
+          for (const barIndex of barsTouched) {
+            const mine = group.filter(ref => ref.bar === barIndex)
+            const isFan = (ref: { slot: number }): boolean => {
+              const slot = slotsPerBar[barIndex][ref.slot]
+              return slot.type === 'chord' && !!slot.fan
+            }
+            const lane = laneOf(run[barIndex], voice)
+            const prefix = mine.filter(ref => !isFan(ref)).map(ref => ref.slot)
+            const owners = mine.filter(isFan).map(ref => ref.slot)
+            if (prefix.length) lane.crossing.push({ slots: prefix, stemDirection })
+            if (owners.length) lane.fanned.push({ slots: owners, stemDirection })
+            pushDescriptor(run[barIndex], voice, stemDirection, unionSlots)
+          }
+          continue
+        }
+
         const members: CrossBarJoinMember[] = group.map((ref, i) => ({
           measureNumber: run[ref.bar].measureNumber,
           slotId: unionSlots[i].id,
@@ -277,10 +381,7 @@ export function planCrossBarBeams(
             slots: group.filter(ref => ref.bar === barIndex).map(ref => ref.slot),
             stemDirection,
           })
-          const key = `${run[barIndex].measureNumber}:${run[barIndex].staffIndex}`
-          const list = descriptors.get(key) ?? []
-          list.push(`v${voice}/${stemDirection}/${members.map(m => m.slotId).join(',')}`)
-          descriptors.set(key, list)
+          pushDescriptor(run[barIndex], voice, stemDirection, unionSlots)
         }
       }
     }
@@ -288,9 +389,18 @@ export function planCrossBarBeams(
 
   return {
     joins,
+    fanJoins,
     lanes,
     descriptorFor: (measureNumber, staffIndex) =>
       (descriptors.get(`${measureNumber}:${staffIndex}`) ?? []).sort().join(';'),
+  }
+
+  /** One bar's note in the shape key: *which of my slots are flagless, at which stem direction*. */
+  function pushDescriptor(bar: CrossBarBar, voice: number, stemDirection: number, slots: ChordRest[]): void {
+    const key = `${bar.measureNumber}:${bar.staffIndex}`
+    const list = descriptors.get(key) ?? []
+    list.push(`v${voice}/${stemDirection}/${slots.map(s => s.id).join(',')}`)
+    descriptors.set(key, list)
   }
 }
 

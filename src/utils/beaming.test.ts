@@ -662,21 +662,32 @@ describe('a FANNED slot JOINED to the group on its left', () => {
     expect(computeBeamGroups(over, meter(4, 4))).toEqual([[0, 1, 2]])
   })
 
-  it('does NOT cross a barline yet (P3) — from either side of the boundary', () => {
-    // A leading `continue` normally speaks for the boundary, and a joined fan carries one; the fan
-    // is excluded from that test until the drawing can span two bars.
+  it('⭐ P3 — CROSSES a barline, from either side of the boundary', () => {
+    // A leading `continue` speaks for the boundary, and a joined fan carries one. Nothing special
+    // was needed to let it: P0 and P2 kept a `!first.fan` guard here only while the DRAWING could
+    // not span two bars.
     const leading: BeamBar[] = [
       { slots: run(2, '8', 2), meter: meter(1, 4) },
       { slots: joinedFan(run(2, '8', 2), 0, 'continue'), meter: meter(1, 4) },
     ]
-    expect(computeCrossBarBeamGroups(leading)).toEqual([[{ bar: 0, slot: 0 }, { bar: 0, slot: 1 }]])
+    expect(computeCrossBarBeamGroups(leading))
+      .toEqual([[{ bar: 0, slot: 0 }, { bar: 0, slot: 1 }, { bar: 1, slot: 0 }]])
 
-    // Nor from the other side: a trailing `continue` in bar 0 opens the boundary for anything but a fan.
+    // And from the other side: a trailing `continue` in bar 0 opens the boundary, and the fan on the
+    // far side of it joins the run exactly as an ordinary note would.
     const trailing: BeamBar[] = [
       { slots: [chord(0, 2, '8'), chord(1, 2, '8', 'continue')], meter: meter(1, 4) },
       { slots: joinedFan(run(2, '8', 2), 0, 'continue'), meter: meter(1, 4) },
     ]
-    expect(computeCrossBarBeamGroups(trailing)).toEqual([[{ bar: 0, slot: 0 }, { bar: 0, slot: 1 }]])
+    expect(computeCrossBarBeamGroups(trailing))
+      .toEqual([[{ bar: 0, slot: 0 }, { bar: 0, slot: 1 }, { bar: 1, slot: 0 }]])
+
+    // An UNJOINED fan across the boundary still opens nothing — the mark is the whole of it.
+    const unmarked: BeamBar[] = [
+      { slots: run(2, '8', 2), meter: meter(1, 4) },
+      { slots: joinedFan(run(2, '8', 2), 0), meter: meter(1, 4) },
+    ]
+    expect(computeCrossBarBeamGroups(unmarked)).toEqual([[{ bar: 0, slot: 0 }, { bar: 0, slot: 1 }]])
   })
 
   /**
@@ -715,12 +726,18 @@ describe('a FANNED slot JOINED to the group on its left', () => {
       expect(beamRoleAt(slots, m, 1)).toBe('continue')
     })
 
-    it('a chain still cannot cross a barline (P3)', () => {
+    it('⭐ P3 — a chain crosses a barline too: `fanTail` survives an open boundary', () => {
       const bars: BeamBar[] = [
         { slots: joinedFan(run(1, '8', 2), 0), meter: meter(1, 8) },
         { slots: joinedFan(run(1, '8', 2), 0, 'continue'), meter: meter(1, 8) },
       ]
-      expect(computeCrossBarBeamGroups(bars)).toEqual([])
+      expect(computeCrossBarBeamGroups(bars)).toEqual([[{ bar: 0, slot: 0 }, { bar: 1, slot: 0 }]])
+      // Without the mark the boundary never opens and each fan stands alone.
+      const apart: BeamBar[] = [
+        { slots: joinedFan(run(1, '8', 2), 0), meter: meter(1, 8) },
+        { slots: joinedFan(run(1, '8', 2), 0), meter: meter(1, 8) },
+      ]
+      expect(computeCrossBarBeamGroups(apart)).toEqual([])
     })
   })
 
