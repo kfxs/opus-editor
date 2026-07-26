@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { keypadPage } from './keypadLayouts'
 import { pressKeypadCell } from './keypadPress'
 import { tremoloSelection } from '../../interactions/tremoloSelection'
+import { fanSelection } from '../../interactions/fanSelection'
 import { tremoloPairSelection } from '../../interactions/tremoloPairSelection'
 import type { TremoloMark } from '../../types/music'
 
@@ -35,19 +36,30 @@ describe('the Keypad page-2 tremolo keys', () => {
     expect(cellFor('-').select).toBe('beamOver')
   })
 
-  it('only the feathered beams are still unwired', () => {
+  it('⭐ the FEATHERED BEAMS are wired too — `0` accel, `.` rit, Sibelius’s own places', () => {
+    expect(cellFor('0').select).toBe('fan')
+    expect(cellFor('0').fan).toBe('accel')
+    expect(cellFor('.').select).toBe('fan')
+    expect(cellFor('.').fan).toBe('rit')
+  })
+
+  it('⭐ so NOTHING on this page is unwired any more', () => {
+    // The page-2 cells the pad injects (`+` and the mode arrow) are controls, not marks.
     const unwired = cells().filter(c => c.select === 'momentary')
-    expect(unwired.map(c => c.key)).toEqual(['0', '.'])
+    expect(unwired.map(c => c.key)).toEqual([])
   })
 
   describe('a press reaches the palette through the store', () => {
     let pressed: Array<TremoloMark | 'pair'>
+    let fanPressed: Array<'accel' | 'rit'>
     let stops: Array<() => void>
 
     beforeEach(() => {
       pressed = []
+      fanPressed = []
       stops = [
         tremoloSelection.onPress(m => pressed.push(m)),
+        fanSelection.onPress(d => fanPressed.push(d)),
         tremoloPairSelection.onPress(() => pressed.push('pair')),
       ]
     })
@@ -69,6 +81,20 @@ describe('the Keypad page-2 tremolo keys', () => {
     it('the pair presses its OWN store — a second axis, not a seventh mark', () => {
       pressKeypadCell(cellFor('Enter'))
       expect(pressed).toEqual(['pair'])
+    })
+
+    it('⭐ the feathered beams press their DIRECTION, and the pad maps nothing', () => {
+      pressKeypadCell(cellFor('0'))
+      pressKeypadCell(cellFor('.'))
+      expect(fanPressed).toEqual(['accel', 'rit'])
+    })
+
+    it('⭐ pressing the LIT direction fires — that press is what takes the fan OFF', () => {
+      // `pressFan` reads it as "every selected note already has this direction ⇒ remove it". A state
+      // mirror would swallow the press as "no change" and the fan could never be removed from the pad.
+      fanSelection.setHighlight('accel')
+      pressKeypadCell(cellFor('0'))
+      expect(fanPressed).toEqual(['accel'])
     })
   })
 })

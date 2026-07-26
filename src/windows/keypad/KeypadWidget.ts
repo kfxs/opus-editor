@@ -12,6 +12,7 @@ import { subdivideSelection } from '../../interactions/subdivideSelection'
 import { beamOverSelection } from '../../interactions/beamOverSelection'
 import { tremoloSelection } from '../../interactions/tremoloSelection'
 import { tremoloPairSelection } from '../../interactions/tremoloPairSelection'
+import { fanSelection } from '../../interactions/fanSelection'
 import { voiceSelection } from '../../interactions/voiceSelection'
 import { voiceFillColor } from '../../utils/voiceColors'
 import { INDICATOR_INK } from '../../utils/selectionColors'
@@ -108,6 +109,10 @@ export class KeypadWidget implements Widget {
   /** The page-2 beam cluster: mode set, subdivide, beam-rest. */
   private unsubscribeBeam: (() => void) | null = null
   private unsubscribeSubdivide: (() => void) | null = null
+  /** The page-2 mark cluster: the tremolo count, the two-note pair, and the feathered beam. */
+  private unsubscribeTremolo: (() => void) | null = null
+  private unsubscribeTremoloPair: (() => void) | null = null
+  private unsubscribeFan: (() => void) | null = null
   private unsubscribeBeamOver: (() => void) | null = null
 
   mount(host: HTMLElement): void {
@@ -157,6 +162,13 @@ export class KeypadWidget implements Widget {
     this.unsubscribeBeam = beamSelection.onHighlight(() => this.paint())
     this.unsubscribeSubdivide = subdivideSelection.onHighlight(() => this.paint())
     this.unsubscribeBeamOver = beamOverSelection.onHighlight(() => this.paint())
+    // ⚠️ And page 2's MARK cluster, which had no subscription at all: pressing a tremolo (or a
+    // feathered beam) on the selected note changes the SCORE and no other seam, so every other store
+    // short-circuits on "no change" and the pad never repainted — the key you just pressed stayed
+    // dark until something else happened to move. Each of these is engine-read; each needs its own.
+    this.unsubscribeTremolo = tremoloSelection.onHighlight(() => this.paint())
+    this.unsubscribeTremoloPair = tremoloPairSelection.onHighlight(() => this.paint())
+    this.unsubscribeFan = fanSelection.onHighlight(() => this.paint())
 
     this.paint()
   }
@@ -181,6 +193,12 @@ export class KeypadWidget implements Widget {
     this.unsubscribeVoice = null
     this.unsubscribePage?.()
     this.unsubscribePage = null
+    this.unsubscribeTremolo?.()
+    this.unsubscribeTremolo = null
+    this.unsubscribeTremoloPair?.()
+    this.unsubscribeTremoloPair = null
+    this.unsubscribeFan?.()
+    this.unsubscribeFan = null
     this.unsubscribeBeam?.()
     this.unsubscribeBeam = null
     this.unsubscribeSubdivide?.()
@@ -272,6 +290,8 @@ export class KeypadWidget implements Widget {
     // of it (docs/two-note-tremolo-plan.md §4).
     if (cell.select === 'tremolo') return !!cell.tremolo && cell.tremolo === tremoloSelection.get()
     if (cell.select === 'tremoloPair') return tremoloPairSelection.get() === 'tremoloPair'
+    // The feathered beams are a radio like the tremolo counts — a note carries ONE fan.
+    if (cell.select === 'fan') return !!cell.fan && cell.fan === fanSelection.get()
     // An unwired key (the feathered beams on page 2) shows no light.
     if (cell.select === 'momentary') return false
     return cell.select === 'rest' && restSelection.get() === 'rest'

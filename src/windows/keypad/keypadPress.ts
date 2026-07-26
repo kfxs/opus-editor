@@ -10,6 +10,7 @@ import { subdivideSelection } from '../../interactions/subdivideSelection'
 import { beamOverSelection } from '../../interactions/beamOverSelection'
 import { tremoloSelection } from '../../interactions/tremoloSelection'
 import { tremoloPairSelection } from '../../interactions/tremoloPairSelection'
+import { fanSelection } from '../../interactions/fanSelection'
 import { keypadPageSelection } from '../../interactions/keypadPageSelection'
 import type { KeypadCell } from './keypadLayouts'
 
@@ -74,6 +75,14 @@ export function pressKeypadCell(cell: KeypadCell): void {
       // lets a re-press REMOVE the mark: a state mirror would swallow it as "no change".
       if (cell.tremolo) tremoloSelection.press(cell.tremolo)
       break
+    case 'fan':
+      // A FEATHERED BEAM, `accel.` or `rit.` (Sibelius's `0` and `.`). PRESS the direction; it routes
+      // to palette.pressFan — the same method the dev toolbar's two buttons call — which puts a fan on
+      // the selection, turns an existing one round, or takes it off when the lit key is pressed again.
+      // The press channel is what makes that last one possible: a mirror would swallow it as "no
+      // change" (docs/fanned-beams-plan.md §3).
+      if (cell.fan) fanSelection.press(cell.fan)
+      break
     case 'tremoloPair':
       // The two-note tremolo (Sibelius's Enter). A SECOND AXIS beside the count, so it presses its own
       // store and lights beside the lit count key rather than replacing it.
@@ -90,7 +99,7 @@ export function pressKeypadCell(cell: KeypadCell): void {
       beamOverSelection.press('beamOver')
       break
     case 'momentary':
-      // A blank, unassigned key — the tremolos and feathered beams on page 2 are still this. It does
+      // A blank, unassigned key. It does
       // NOTHING, which is the right nothing: a numpad key over an unwired cell must not fall through to
       // some other page's meaning, and an unwired key shows no light (the beam cluster above is wired).
       break

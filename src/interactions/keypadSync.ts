@@ -18,6 +18,7 @@ import { beamSelection } from './beamSelection'
 import { subdivideSelection } from './subdivideSelection'
 import { beamOverSelection } from './beamOverSelection'
 import { tremoloSelection } from './tremoloSelection'
+import { fanSelection } from './fanSelection'
 import { tremoloPairSelection } from './tremoloPairSelection'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
 import { multipleNotesSelected } from './selection'
@@ -180,6 +181,7 @@ export interface TremoloSource {
   getNote(noteId: string): { tremolo?: TremoloMark; tremoloPair?: true } | undefined
 }
 
+
 /**
  * Whether the TWO-NOTE tremolo button is lit — a SECOND AXIS, reported separately.
  *
@@ -317,6 +319,8 @@ export function wireKeypadSync(
     // carries one), the pair is a SECOND AXIS that lights beside the count.
     palette.refreshTremoloSelection()
     palette.refreshTremoloPairSelection()
+    // …and the two feathered-beam keys beside them, engine-read for the same reason.
+    palette.refreshFanSelection()
   }
   sync() // prime
 
@@ -343,6 +347,9 @@ export function wireKeypadSync(
     // `pressTremoloPair` the same button the toolbar's seventh key is.
     tremoloSelection.onPress((mark) => palette.pressTremolo(mark)),
     tremoloPairSelection.onPress(() => palette.pressTremoloPair()),
+    // The feathered beams — `pressFan` is the SAME method the dev toolbar's `accel.`/`rit.` buttons
+    // call, so a press from the pad, the numpad or the toolbar is one action.
+    fanSelection.onPress((direction) => palette.pressFan(direction)),
     // Same path as Alt+1..4 / the toolbar: arm the voice for entry, or move the selection into it.
     voiceSelection.onPress((v) => palette.setActiveVoice(v)),
     // armClef, not setClef: the Clef window's OK confirms a choice, it does not toggle a button.

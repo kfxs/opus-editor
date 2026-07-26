@@ -4,7 +4,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorState'
 import { activeVoiceToModel, armedTool, armedToolUsesLength, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from './EditorState'
-import { durationHighlight, beamHighlight, beamRoleHighlight, secondaryBreakHighlight, beamOverHighlight, tremoloHighlight, tremoloPairHighlight } from './keypadSync'
+import { durationHighlight, beamHighlight, beamRoleHighlight, secondaryBreakHighlight, beamOverHighlight, tremoloHighlight, tremoloPairHighlight, fanHighlight } from './keypadSync'
 import { fracToNumber } from '../utils/fraction'
 import { DEFAULT_FAN_BEAMS, DEFAULT_FAN_COUNT } from '../utils/fannedBeam'
 import { resolveTupletInTimeOf, type TupletResolution } from '../utils/musicUtils'
@@ -20,6 +20,7 @@ import { beamSelection } from './beamSelection'
 import { subdivideSelection } from './subdivideSelection'
 import { beamOverSelection } from './beamOverSelection'
 import { tremoloSelection } from './tremoloSelection'
+import { fanSelection } from './fanSelection'
 import { tremoloPairSelection } from './tremoloPairSelection'
 
 /** Re-exported so the palette's callers keep one import — the type belongs with the rule. */
@@ -2019,6 +2020,18 @@ export class PaletteController {
     tremoloPairSelection.setHighlight(
       tremoloPairHighlight(this.state, this.getEngine()) ? 'tremoloPair' : null,
     )
+  }
+
+  /**
+   * Push the lit FEATHERED-BEAM direction into {@link fanSelection} — the Keypad's `0` / `.`, and the
+   * same {@link fanHighlight} rule the dev toolbar's two buttons read.
+   *
+   * Engine-read like the tremolo's, and pushed after {@link pressFan} for the same reason: applying a
+   * fan writes the SCORE and no top-level state field, so the Proxy never emits and the key would
+   * keep lighting the previous answer.
+   */
+  refreshFanSelection(): void {
+    fanSelection.setHighlight(fanHighlight(this.state, this.getEngine()))
   }
 
   /**

@@ -13,7 +13,7 @@ The pad is multi-page (Sibelius has several layouts). Today there are two:
 | id | name | what's on it |
 |---|---|---|
 | `noteEntry` | Note entry | durations, accidentals, articulations, tie, rest, dot |
-| `beamsTremolos` | Beams/Tremolos | the beam cluster (`/ * - 7 8 9`) is **wired**; the tremolos and feathered beams are pictures, still unwired |
+| `beamsTremolos` | Beams/Tremolos | **fully wired** — the beam cluster (`/ * - 7 8 9`), the tremolos (`1`–`6`, `Enter`) and the feathered beams (`0`, `.`) |
 
 `+` turns the page, from the panel or the pad. Every page carries the same two controls in fixed
 spots — the select arrow (top-left) and the page-turn `+` — injected by `withControls`, so a new
@@ -96,10 +96,24 @@ toolbar row does; `subdivideSelection` and `beamOverSelection` are on/off single
 engine-read, so `PaletteController.refresh*` pushes them (on every state change *and* after each toggle,
 since none is a reactive field).
 
-The tremolos and feathered beams (`1`–`6`, `Enter`, `0`, `.`) are still `select: 'momentary'`: they do
-nothing and show no light. That is the right nothing — a numpad key over an unwired cell must not fall
-through to some other page's meaning. Their drawings are documented in `keypadLayouts.ts` (named recipes
-in the `TREMOLO` map, baked to one SVG by `tremoloBake.ts`).
+The MARK cluster is wired the same way, and each key presses its own value: the six single-note
+tremolos (`1`–`5` strokes, `6` the Penderecki sign) through `tremoloSelection`, the two-note pair
+(`Enter`) through `tremoloPairSelection` — a SECOND AXIS, so it lights *beside* the lit count rather
+than instead of it — and the two FEATHERED BEAMS (`0` accel., `.` rit.) through `fanSelection`. All
+three are engine-read: `PaletteController.refresh*Selection` pushes the light, and the rules
+(`tremoloHighlight`, `tremoloPairHighlight`, `fanHighlight`) are shared with the dev toolbar's rows, so
+a press from the pad, the numpad or the toolbar is one action lighting one set of keys.
+
+The fan pair is a RADIO, like the tremolo counts: a note carries one fan, so pressing the lit direction
+takes it off and pressing the other turns it round. `pressFan` owned both rules already — the pad only
+routes to it. Their drawings are documented in `keypadLayouts.ts` (named recipes in the `TREMOLO` map,
+baked to one SVG by `tremoloBake.ts`).
+
+⚠️ **A key that lights from the SCORE needs its own `onHighlight` subscription in `KeypadWidget`.** The
+mark cluster had none: pressing a tremolo on the selected note changes the score and no other seam, so
+every other store short-circuited on "no change" and the pad never repainted — the key you just pressed
+stayed dark until something else moved. Adding a wired key means adding its subscription *and* releasing
+it in `destroy`.
 
 (The old `keypadProbe` — a temporary light that lit any pressed `momentary` cell so you could see the
 page-aware routing work — is gone now that the cluster lights from real editor state.)
