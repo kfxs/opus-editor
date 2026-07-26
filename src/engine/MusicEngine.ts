@@ -2564,6 +2564,24 @@ export class MusicEngine {
       ? `Delete ${midiToNoteName(spellingToMidi(note.step, note.alter ?? 0, note.octave!))}`
       : 'Delete rest'
 
+    // ⭐ A FANNED MEMBER deletes as a MEMBER, and must never reach the slot bookkeeping below: the
+    // model takes the pitch out (and the member with it, when it was the last one — the group is one
+    // shorter), while everything after this is about a SLOT leaving the bar. A member reports the
+    // slot's beat, so `getChordNotesAt` would answer for the OWNER's chord — one note — and the
+    // "single note becomes a rest" branch would drop a rest into a bar that still has its event in
+    // it. Nothing here is a guard: each line below is simply a different edit.
+    //
+    // A slur can anchor to a member, so one that just lost its anchor is dropped — but only when the
+    // whole MEMBER went. Losing one pitch of a member that has others leaves the anchor standing.
+    if (this.scoreModel.isFanMember(noteId)) {
+      const wholeMember = (this.scoreModel.fanMemberPitches(noteId)?.length ?? 0) <= 1
+      if (!this.scoreModel.deleteNote(noteId)) return false
+      if (wholeMember) this.reanchorSlurs(noteId, null)
+      this.playbackEngine.setScore(this.scoreModel.getScore())
+      this.saveUndoState(description)
+      return true
+    }
+
     // Check if this note is part of a chord (multiple notes at same beat, same voice, same staff)
     const notesAtSameBeat = this.getChordNotesAt(note.measure, note.beat, note.voice ?? 0, note.staff ?? 0)
     const isPartOfChord = notesAtSameBeat.length > 1

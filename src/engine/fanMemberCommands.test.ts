@@ -164,6 +164,68 @@ describe('a fanned member at the command layer', () => {
     // …and the bar is still well-formed: nothing was rest-filled around a phantom edit.
     expect(engine.getScore().measures[0].slots.filter(s => s.type === 'chord')).toHaveLength(2)
   })
+
+  /**
+   * ⭐ DELETE TAKES THE MEMBER OUT OF THE FAN (his ask) — the one edit on this list that used to be
+   * refused and is now a real one. The group is one shorter, and `fan.count` is what says so.
+   */
+  describe('Delete on a member', () => {
+    it('removes it and brings the count down', () => {
+      expect(engine.deleteNote(memberId)).toBe(true)
+      expect(chord().fan!.count).toBe(FAN.count - 1)
+      expect(chord().fan!.members).toHaveLength(FAN.count - 2)
+    })
+
+    it('⚠️ leaves the BAR alone — a member is not a slot leaving it', () => {
+      // The trap: a member reports the SLOT's beat, so the "single note becomes a rest" branch
+      // would drop a rest onto an event that is still there.
+      const before = engine.getScore().measures[0].slots.length
+      engine.deleteNote(memberId)
+      expect(engine.getScore().measures[0].slots).toHaveLength(before)
+      expect(engine.getScore().measures[0].slots.every(s => s.type === 'chord')).toBe(true)
+      expect(chord().notes.map(p => p.step)).toEqual(['C']) // the note you typed, untouched
+    })
+
+    it('takes the FAN itself when the last member goes — a group of one is not a fan', () => {
+      for (let i = 0; i < FAN.count - 1; i++) {
+        const members = chord().fan?.members
+        if (!members?.length) break
+        engine.deleteNote(members[0][0].id)
+      }
+      expect(chord().fan).toBeUndefined()
+      expect(chord().notes).toHaveLength(1)
+    })
+
+    it('is ONE undo entry, and Ctrl+Z puts the member back', () => {
+      engine.deleteNote(memberId)
+      expect(engine.undo()).toBe(true)
+      expect(chord().fan!.count).toBe(FAN.count)
+      expect(chord().fan!.members).toHaveLength(FAN.count - 1)
+    })
+
+    it('drops a slur anchored to the member it removed', () => {
+      const second = chord().fan!.members![1][0].id
+      const created = engine.createSlur([memberId, second])!
+      expect(engine.getSlurs().some(s => s.id === created.id)).toBe(true)
+      engine.deleteNote(memberId)
+      expect(engine.getSlurs().some(s => s.id === created.id)).toBe(false)
+    })
+
+    it('but one pitch of a MEMBER CHORD is just that pitch — the member stays', () => {
+      engine.addFanMemberPitch(memberId, { step: 'G', alter: 0, octave: 4 })
+      const added = engine.fanMemberPitches(memberId)!.find(p => p.step === 'G')!
+      expect(engine.deleteNote(added.id)).toBe(true)
+      expect(chord().fan!.count).toBe(FAN.count)
+      expect(chord().fan!.members![0].map(p => p.step)).toEqual(['C'])
+    })
+
+    it('the note you TYPED is not a member — deleting it deletes the EVENT, fan and all', () => {
+      expect(engine.deleteNote(noteId)).toBe(true)
+      const slots = engine.getScore().measures[0].slots
+      expect(slots.some(s => s.type === 'chord' && s.fan)).toBe(false)
+      expect(slots.some(s => s.type === 'rest')).toBe(true) // …replaced by its rest, as always
+    })
+  })
 })
 
 /**
@@ -295,7 +357,7 @@ describe('a chord note on a fanned member', () => {
     expect(slot().fan!.members![1]).toHaveLength(1)
     expect(engine.redo()).toBe(true)
     expect(slot().fan!.members![1]).toHaveLength(2)
-    // Deleting one of two is allowed; the LAST one is refused (the group's size is fan.count).
+    // Deleting one of two leaves the member standing; the LAST one takes the member with it.
     expect(engine.deleteNote(added.id)).toBe(true)
     expect(slot().fan!.members![1].map(p => p.step)).toEqual(['C'])
   })

@@ -2072,21 +2072,30 @@ export class ScoreModel {
    * member's own spelling wearing the SLOT's rhythm (`toFlatNote` reads both from the chord), which
    * is exactly true: the group is one event, and the member is a pitch inside it.
    *
-   * ⭐ **Everything but the `fan` itself, which only the OWNER reports.** The rhythm is shared — the
-   * member really is that long, at that beat — but the mark is not a fact about the member, it is
-   * the thing the member lives INSIDE. Handing it out on a member makes every reader claim the
-   * member wears one: the Keypad lights `accel.`, the Properties window offers its two numbers, and
-   * `pressFan` counts it as already-fanned — three surfaces inviting an edit {@link setFan} then
-   * refuses, because it resolves the id without `fanMembers` and finds nothing. The refusal is
-   * right; the invitation was the bug. "Which note owns this fan?" has exactly one answer, and it is
-   * member 0 — the note you typed.
+   * ⭐ **Everything but the GROUP'S OWN MARKS, which only the owner reports** — its `fan`, its
+   * `beam` and its `secondaryBreak`. The rhythm is shared: the member really is that long, at that
+   * beat, and the palette shows its duration for exactly that reason. A mark is not. It is not a
+   * fact about the member at all, it is the thing the member lives INSIDE, and every one of these is
+   * a statement about the whole event — where the group starts and ends in a beam, whether a beam is
+   * subdivided in front of it, that it fans.
+   *
+   * Handing them out on a member makes every reader claim the member wears one, and each is a
+   * surface offering an edit the model then refuses (`setFan` and `updateNote`'s member branch both
+   * resolve without `fanMembers`, so nothing is written): the Keypad lit `accel.` and a beam key,
+   * the subdivide key lit, and the Properties window opened the fan's two numbers — all on a note
+   * where none of it could be changed. The refusals were right; the invitation was the bug. "Which
+   * note owns this?" has exactly one answer, and it is member 0 — the note you typed.
    */
   getNote(noteId: string): Note | undefined {
     const found = this.findSlot(noteId, { fanMembers: true })
     if (!found) return undefined
     if (found.type === 'rest') return this.restToFlatNote(found.rest)
     const note = this.toFlatNote(found.chord, found.pitch)
-    if (found.member) delete note.fan
+    if (found.member) {
+      delete note.fan
+      delete note.beam
+      delete note.secondaryBreak
+    }
     return note
   }
 
@@ -2685,20 +2694,37 @@ export class ScoreModel {
     const found = this.findSlot(noteId, { fanMembers: true })
     if (!found) return false
 
-    // ⭐ A FANNED MEMBER: delete the PITCH, never the member. Removing one pitch of a member that
-    // has several is an ordinary chord edit and works. Removing its LAST one is REFUSED — a member
-    // is a note, an empty one is not a notation, and how many members there are is `fan.count`,
-    // which is edited in Properties (docs/fanned-beam-pitches-plan.md §2 P3). Refusing keeps that
-    // one number the only way the group's size changes.
+    // ⭐ A FANNED MEMBER: the PITCH first, and the MEMBER when that was its last one. Removing one
+    // pitch of a member that has several is an ordinary chord edit. Emptying it used to be REFUSED,
+    // on the grounds that `fan.count` in Properties should be the only thing that changes the
+    // group's size — but that made Delete dead on exactly the note you had selected, and "take this
+    // one out of the fan" is a real edit with no other way to ask for it (his ask). So the last
+    // pitch takes its member with it and the count comes down by one: the number and the members
+    // stay in step, which is the invariant `normalizeFan` exists to hold.
+    //
+    // ⚠️ Only members 1…n — member 0 is the slot's OWN chord and is not in this branch at all.
+    // Deleting the note you typed is deleting the EVENT (it falls through to the chord case below
+    // and leaves a rest), because the fan is not a container the note sits in: it is a mark that
+    // note wears.
+    //
+    // Down to one member the mark comes off entirely. A group of one is not a fan — there is no ramp
+    // between a note and itself — and what is left is the note you typed, which is exactly what
+    // `pressFan` leaves when it clears one.
     if (found.type === 'chord' && found.member) {
-      const { member, pitch } = found
-      if (member.pitches.length <= 1) {
-        dbg(`[Model.deleteNote] REFUSED fan member ${noteId}: a member cannot be emptied — change fan.count`)
-        return false
+      const { chord, member, pitch } = found
+      if (member.pitches.length > 1) {
+        member.pitches.splice(member.pitches.indexOf(pitch), 1)
+        dbg(`[Model.deleteNote] fan member ${member.index}: removed one pitch (${member.pitches.length} left)`)
+        return true
       }
-      const idx = member.pitches.indexOf(pitch)
-      member.pitches.splice(idx, 1)
-      dbg(`[Model.deleteNote] fan member ${member.index}: removed one pitch (${member.pitches.length} left)`)
+      const fan = chord.fan!
+      fan.members?.splice(member.index - 1, 1) // 1-based in the GROUP, 0-based in the list
+      fan.count = Math.max(1, fan.count - 1)
+      dbg(`[Model.deleteNote] fan member ${member.index} REMOVED → count ${fan.count}`)
+      if (fan.count < 2) {
+        delete chord.fan
+        dbg(`[Model.deleteNote] …the last member went with it — fan removed`)
+      }
       return true
     }
 

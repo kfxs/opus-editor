@@ -279,11 +279,22 @@ describe('a fanned member as an editable pitch', () => {
     expect(model.getNotePitch(members[0][0].id)?.id).toBe(members[0][0].id)
   })
 
-  it('⭐ deleting its LAST pitch is REFUSED — the group’s size is fan.count', () => {
+  it('⭐ deleting its LAST pitch takes the MEMBER with it — the group is one shorter', () => {
     const { members } = fanned()
-    expect(model.deleteNote(members[0][0].id)).toBe(false)
-    expect(chordAt(0).fan!.members![0]).toHaveLength(1)
-    expect(chordAt(0).fan!.count).toBe(4)
+    const second = members[1][0].id
+    expect(model.deleteNote(members[0][0].id)).toBe(true)
+    expect(chordAt(0).fan!.count).toBe(3)
+    // The count and the list stay in step (members.length === count - 1), and the members that
+    // survive keep their ids — a selection or a slur on a LATER member must not move.
+    expect(chordAt(0).fan!.members).toHaveLength(2)
+    expect(chordAt(0).fan!.members![0][0].id).toBe(second)
+  })
+
+  it('…and the LAST member takes the fan itself — a group of one is not a fan', () => {
+    const { members } = fanned()
+    for (const m of [...members]) model.deleteNote(m[0].id)
+    expect(chordAt(0).fan).toBeUndefined()
+    expect(chordAt(0).notes).toHaveLength(1) // the note you typed is still there
   })
 
   it('deleting ONE pitch of a member that has several removes that pitch', () => {

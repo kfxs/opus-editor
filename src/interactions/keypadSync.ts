@@ -68,10 +68,19 @@ export function durationHighlight(state: EditorState): NoteDuration | null {
 export function beamHighlight(state: EditorState, engine: BeamSource | null): BeamMode | null {
   if (state.selectedMarkingTool) return null
   if (noNoteInSelection(state)) return null
-  // …and nothing for a REST. A rest is not beamed — you cannot beam silence — so it has no beam to
-  // author and `setBeam` already refuses it. `auto` lit over a selected rest would be the row
-  // answering a question the note never asked, and offering a control that does nothing.
-  return selectionIsRest(state, engine) ? null : state.selectedBeam
+  // …and nothing for a selection that HAS NO BEAM ROLE. A rest is not beamed — you cannot beam
+  // silence — so it has no beam to author and `setBeam` already refuses it; `auto` lit over a
+  // selected rest would be the row answering a question the note never asked, and offering a control
+  // that does nothing.
+  //
+  // ⭐ The same sentence covers a FANNED MEMBER (his report), which is why this asks for the role
+  // rather than for `isRest`: the beam belongs to the SLOT — where the group starts and ends — and a
+  // member is a pitch inside one event, so `updateNote` drops a beam written onto it. `getBeamRole`
+  // already answers null for both, and for the same reason (neither is a slot of its own in the
+  // grouper's run), so one read is the whole rule. ⚠️ It must be read here and not only from
+  // `getNote`: this reports the ARMED value, which survives a press on a member and would light a
+  // key that changed nothing.
+  return selectionHasNoBeamRole(state, engine) ? null : state.selectedBeam
 }
 
 /**
@@ -113,13 +122,20 @@ export function beamOverHighlight(state: EditorState, engine: BeamSource | null)
 }
 
 /**
- * Is the single selected thing a rest? Narrower than `PaletteController.selectionIsRest`, which also
- * answers true for the armed rest STAMP — a tool, not a selection. Every caller here has already
- * returned null under a marking tool, so this asks only about the score.
+ * Can the single selected thing be in a beam group at all? False for a REST, for a FANNED MEMBER and
+ * for a stale id — the three things `getBeamRole` answers null about, because none of them is a slot
+ * in the grouper's run. Every real note gets a role (`single` at least), so this is not "nobody
+ * beamed it", it is "there is no beam here to talk about".
+ *
+ * With NO engine it answers false, so the rule degrades to the armed value: the dev shell's row is
+ * built with a null source in tests, and reporting nothing there would hide the armed beam.
+ *
+ * Scoped to selection mode, like the rest check it replaces — in entry mode the row reports what is
+ * ARMED, and the selection is not what it is about.
  */
-function selectionIsRest(state: EditorState, engine: BeamSource | null): boolean {
+function selectionHasNoBeamRole(state: EditorState, engine: BeamSource | null): boolean {
   if (!engine || state.selectedTool !== 'selection' || !state.selectedNoteId) return false
-  return !!engine.getNote(state.selectedNoteId)?.isRest
+  return engine.getBeamRole(state.selectedNoteId) === null
 }
 
 /**

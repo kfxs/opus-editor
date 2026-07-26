@@ -282,16 +282,34 @@ sounding length, so the group's total time is unchanged by construction.
     `pixelXToBeat` seeing one column), so `compareByPosition` calls them simultaneous and a span
     built from a selection keeps the CLICK order — a slur drawn backwards, and only when you
     selected the later member first. `compareForSpan` breaks the tie by member index.
-- ⭐ **The fan MARK itself, on a member — the two surfaces that show it belong to the OWNER** (his
-  ask, after using P3). The Keypad's `accel.`/`rit.` light and the Properties window's `notes`/`beams`
-  row both read `getNote(id).fan`, and that answered for a member too: select any member and the key
-  lit, the row appeared, and both offered an edit `setFan` then refused (it resolves the id WITHOUT
-  `fanMembers`, so a member is not found at all). The refusal was right; the invitation was the bug.
-  `getNote` now drops `fan` on a member — the rhythm is shared, the mark is not: it is the thing the
-  member lives *inside*, and "which note owns this fan?" has one answer, member 0.
+- ⭐ **The SLOT'S OWN MARKS, on a member — every surface that shows one belongs to the OWNER** (his
+  ask, after using P3; the fan first, then the beam). `getNote` answered for a member with the whole
+  slot, so selecting any member lit the Keypad's `accel.`/`rit.`, lit a beam key and the subdivide
+  key, and opened the Properties window's `notes`/`beams` row — all offering edits the model then
+  refused (`setFan` and `updateNote`'s member branch both resolve WITHOUT `fanMembers`, so nothing is
+  written). The refusals were right; the invitation was the bug. `getNote` now drops `fan`, `beam`
+  and `secondaryBreak` on a member: the RHYTHM is shared (the member really is that long, at that
+  beat — the palette shows its duration for that reason), a MARK is not. It is a statement about the
+  whole event, and "which note owns this?" has one answer, member 0.
   - `pressFan` filters members out of the selection as well, next to rests. Left in, a member VOTES
     in the all-or-nothing direction read: owner + its own member would answer "not everything has
     one", and the press that should have cleared the fan would re-set it at the default shape.
+  - `beamHighlight` needs its own gate on top of the projection, and it asks **`getBeamRole(id) ===
+    null`** — which is the rest rule it replaces, widened by one word. That row reports the ARMED
+    beam, so a press on a member (which writes nothing) would otherwise light a key for an edit that
+    did not happen. The role is null for a rest, a member and a stale id, and non-null for every real
+    note, so one read is the whole rule.
+- ⭐ **DELETE ON A MEMBER TAKES IT OUT OF THE FAN** (his ask) — §2 P3 refused it, reasoning that
+  `fan.count` in Properties should be the only thing that changes the group's size. That made Delete
+  dead on exactly the note you had selected, and "take this one out" has no other way to be asked.
+  The last pitch of a member takes the member with it and `count` comes down by one (the two stay in
+  step, the invariant `normalizeFan` exists to hold); down to one member the mark comes off entirely,
+  leaving the note you typed — what `pressFan` leaves when it clears one. A pitch of a member CHORD
+  that has others is still just that pitch.
+  - ⚠️ It short-circuits in `MusicEngine.deleteNote` **before** the slot bookkeeping. A member
+    reports the SLOT's beat, so `getChordNotesAt` answers for the owner's chord and the "single note
+    becomes a rest" branch would have dropped a rest into a bar that still has its event. A slur
+    anchored to the removed member is dropped — but only when the whole member went.
 - **Copying or pasting a single member.** §1b decides this by making it impossible: a partial
   selection yields the plain note, never a piece of a fan. P3's selection is for editing the pitch
   in place, nothing more.
