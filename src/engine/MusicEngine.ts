@@ -955,6 +955,18 @@ export class MusicEngine {
    * makes the refusal a DECISION: the command stops here, reports nothing happened, and mints no
    * undo entry for an edit that did not occur.
    */
+  /**
+   * Is this id a FANNED MEMBER — a pitch living inside a fan rather than in the slot's own chord?
+   *
+   * The public face of the same question {@link refusesFanMember} asks privately, for the callers
+   * that must SKIP a member rather than refuse the whole press: `pressFan` marks a selection, and a
+   * member in it is not a note the mark can go on (`getNote` no longer reports the owner's fan on
+   * one, so the direction read cannot answer for it either).
+   */
+  isFanMember(noteId: string): boolean {
+    return this.scoreModel.isFanMember(noteId)
+  }
+
   private refusesFanMember(noteId: string, what: string): boolean {
     if (!this.scoreModel.isFanMember(noteId)) return false
     dbg(`[Fan] ${what} refused on member ${noteId} — it attaches to the slot, not to one member`)

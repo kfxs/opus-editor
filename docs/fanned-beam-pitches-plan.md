@@ -282,6 +282,16 @@ sounding length, so the group's total time is unchanged by construction.
     `pixelXToBeat` seeing one column), so `compareByPosition` calls them simultaneous and a span
     built from a selection keeps the CLICK order — a slur drawn backwards, and only when you
     selected the later member first. `compareForSpan` breaks the tie by member index.
+- ⭐ **The fan MARK itself, on a member — the two surfaces that show it belong to the OWNER** (his
+  ask, after using P3). The Keypad's `accel.`/`rit.` light and the Properties window's `notes`/`beams`
+  row both read `getNote(id).fan`, and that answered for a member too: select any member and the key
+  lit, the row appeared, and both offered an edit `setFan` then refused (it resolves the id WITHOUT
+  `fanMembers`, so a member is not found at all). The refusal was right; the invitation was the bug.
+  `getNote` now drops `fan` on a member — the rhythm is shared, the mark is not: it is the thing the
+  member lives *inside*, and "which note owns this fan?" has one answer, member 0.
+  - `pressFan` filters members out of the selection as well, next to rests. Left in, a member VOTES
+    in the all-or-nothing direction read: owner + its own member would answer "not everything has
+    one", and the press that should have cleared the fan would re-set it at the default shape.
 - **Copying or pasting a single member.** §1b decides this by making it impossible: a partial
   selection yields the plain note, never a piece of a fan. P3's selection is for editing the pitch
   in place, nothing more.

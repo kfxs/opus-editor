@@ -184,6 +184,20 @@ describe('pressFan across a selection', () => {
     palette.pressFan('rit')
     expect(engine.getNote(note)?.fan?.direction).toBe('rit')
   })
+
+  it('⭐ skips a fanned MEMBER too — and its vote does not skew the all-or-nothing read', () => {
+    const note = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
+    select(note)
+    palette.pressFan('accel')
+    const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    const memberId = slot.type === 'chord' ? slot.fan!.members![0][0].id : ''
+
+    // Owner + one of its own members. Counted, the member would answer "no fan here" and turn the
+    // clearing press into a re-apply at the default shape.
+    select(note, memberId)
+    palette.pressFan('accel')
+    expect(engine.getNote(note)?.fan).toBeUndefined()
+  })
 })
 
 describe('fanHighlight — the buttons read the selection', () => {
@@ -209,5 +223,22 @@ describe('fanHighlight — the buttons read the selection', () => {
 
   it('is dark with nothing selected', () => {
     expect(fanHighlight(state, engine)).toBeNull()
+  })
+
+  it('⭐ is DARK on a fanned MEMBER — the light belongs to the owner', () => {
+    // A member is a pitch inside the group, and `setFan` refuses one. Lighting the key there offers
+    // an edit that cannot happen — and reads as "this note carries a fan", which no member does.
+    const id = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
+    engine.setFan(id, { direction: 'rit', count: 4, beams: 2 })
+    const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    const memberId = slot.type === 'chord' ? slot.fan!.members![0][0].id : ''
+
+    state.selectedNoteId = memberId
+    state.selectedItems = new Map([[`note:${memberId}`, { kind: 'note' as const, id: memberId }]])
+    expect(fanHighlight(state, engine)).toBeNull()
+
+    state.selectedNoteId = id
+    state.selectedItems = new Map([[`note:${id}`, { kind: 'note' as const, id }]])
+    expect(fanHighlight(state, engine)).toBe('rit')
   })
 })

@@ -2071,12 +2071,23 @@ export class ScoreModel {
    * window, the highlight's rest check — has to be able to ask what it is. What comes back is the
    * member's own spelling wearing the SLOT's rhythm (`toFlatNote` reads both from the chord), which
    * is exactly true: the group is one event, and the member is a pitch inside it.
+   *
+   * ⭐ **Everything but the `fan` itself, which only the OWNER reports.** The rhythm is shared — the
+   * member really is that long, at that beat — but the mark is not a fact about the member, it is
+   * the thing the member lives INSIDE. Handing it out on a member makes every reader claim the
+   * member wears one: the Keypad lights `accel.`, the Properties window offers its two numbers, and
+   * `pressFan` counts it as already-fanned — three surfaces inviting an edit {@link setFan} then
+   * refuses, because it resolves the id without `fanMembers` and finds nothing. The refusal is
+   * right; the invitation was the bug. "Which note owns this fan?" has exactly one answer, and it is
+   * member 0 — the note you typed.
    */
   getNote(noteId: string): Note | undefined {
     const found = this.findSlot(noteId, { fanMembers: true })
     if (!found) return undefined
     if (found.type === 'rest') return this.restToFlatNote(found.rest)
-    return this.toFlatNote(found.chord, found.pitch)
+    const note = this.toFlatNote(found.chord, found.pitch)
+    if (found.member) delete note.fan
+    return note
   }
 
   /**

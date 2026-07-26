@@ -149,6 +149,15 @@ describe('a fanned member at the command layer', () => {
     expect(engine.exportJSON()).toBe(before)
   })
 
+  it('⭐ a member does NOT report the fan — only the owner does', () => {
+    // The mark is what the member lives inside, not something it wears. Reported on a member it
+    // lights the Keypad's `accel.` and opens the Properties fan row on a note `setFan` will refuse.
+    expect(engine.getNote(memberId)?.fan).toBeUndefined()
+    expect(engine.getNote(noteId)?.fan).toMatchObject({ direction: 'accel', count: 4 })
+    // …and the rest of the slot's rhythm still comes through, which is the whole point of the split.
+    expect(engine.getNote(memberId)).toMatchObject({ duration: 'h', measure: 1 })
+  })
+
   it('a DURATION change on a member changes nothing — the slot owns the rhythm', () => {
     engine.updateNote(memberId, { duration: 'q' })
     expect(chord().duration).toBe('h')

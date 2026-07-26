@@ -684,9 +684,14 @@ export class PaletteController {
    * direction it comes off all of them, otherwise it goes on all of them. So `accel.` on plain notes
    * marks them, `rit.` turns them round, and `rit.` again clears them.
    *
-   * Rests and tuplet members are skipped rather than refused — a passage is a mixture, and you meant
-   * the notes in it that can take one. `ScoreModel.setFan` owns that list; this only reports what the
-   * model answered.
+   * Rests, tuplet members and FANNED MEMBERS are skipped rather than refused — a passage is a
+   * mixture, and you meant the notes in it that can take one. `ScoreModel.setFan` owns that list;
+   * this only reports what the model answered.
+   *
+   * ⚠️ The member has to be filtered OUT, not merely left to be refused, because it also votes in
+   * the all-or-nothing read below: a selection of one fanned note plus one of its own members would
+   * otherwise answer "not everything has it" (a member reports no fan — `getNote`) and the press
+   * that should have CLEARED the fan would re-set it at the default shape instead.
    */
   pressFan(direction: 'accel' | 'rit'): void {
     const engine = this.getEngine()
@@ -695,7 +700,7 @@ export class PaletteController {
     const ids = selectedNoteIds(this.state.selectedItems.values())
       .filter(id => {
         const note = engine.getNote(id)
-        return note && !note.isRest
+        return note && !note.isRest && !engine.isFanMember(id)
       })
     if (ids.length === 0) return
 
