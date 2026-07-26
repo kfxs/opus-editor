@@ -424,4 +424,29 @@ describe('a reused measure keeps its fanned members', () => {
     renderer.renderScore(model.getScore())
     for (const id of memberIds) expect(renderer.getElementRegistry().getById(id)).not.toBeNull()
   })
+
+  it('⭐ nudging a MEMBER redraws its bar — the third key a member is invisible to', () => {
+    // The client-#12 twin of the dynamic-offset case above, and the same silent trap one level in: a
+    // member's offset is keyed by the member's own first PITCH id, which is neither a slot id nor a
+    // `{measureId}:…` position key — so both of the shape key's existing override lines are blind to
+    // it. Without the member line, the nudge changes nothing in the key, the bar keeps its drawn
+    // group, and the head sits still while the model moves. See docs/note-offset-plan.md.
+    const { model, memberIds } = fannedScore()
+    const renderer = makeRenderer()
+    renderer.renderScore(model.getScore())
+
+    const laneBefore = model.getScore().measures[0]
+    const widthKeyBefore = laneFingerprint(laneBefore)
+    const drawKeyBefore = measureShapeKey(model.getScore(), keyInputs(laneBefore), null, null)
+    const before = renderer.getMeasureSVGGroup(1, 0)
+
+    model.nudgeNoteOffset(model.offsetTargetOf(memberIds[0])!.key, 1)
+
+    const laneAfter = model.getScore().measures[0]
+    expect(laneFingerprint(laneAfter), 'an offset has NO width').toBe(widthKeyBefore)
+    expect(measureShapeKey(model.getScore(), keyInputs(laneAfter), null, null), 'but it is a different PICTURE').not.toBe(drawKeyBefore)
+
+    renderer.renderScore(model.getScore())
+    expect(renderer.getMeasureSVGGroup(1, 0)).not.toBe(before)
+  })
 })

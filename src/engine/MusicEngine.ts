@@ -1986,35 +1986,36 @@ export class MusicEngine {
   /**
    * Nudge a selected note's horizontal offset by `dx` staff-spaces and save ONE undo step (the
    * Ctrl+arrow keyboard fine-positioning — see docs/note-offset-plan.md). Selection gives a *pitch*
-   * id; the override is **slot-keyed** (a chord moves as a unit, and a rest is a slot too), so this
-   * resolves the pitch id to its slot first and delegates the accumulate/clear to the model. A no-op
-   * for an id no longer in the score.
+   * id; the override is keyed by whatever {@link ScoreModel.offsetTargetOf} resolves — the SLOT for
+   * anything ordinary (a chord moves as a unit, and a rest is a slot too), the MEMBER's own key
+   * inside a fan — and the accumulate/clear is the model's. A no-op for an id no longer in the score.
    * @returns true if the note was nudged.
    */
   nudgeNoteOffset(noteId: string, dx: number): boolean {
-    const slotId = this.scoreModel.slotIdForNote(noteId)
-    if (!slotId) return false
-    const ok = this.scoreModel.nudgeNoteOffset(slotId, dx)
+    const target = this.scoreModel.offsetTargetOf(noteId)
+    if (!target) return false
+    const ok = this.scoreModel.nudgeNoteOffset(target.key, dx)
     if (ok) {
       this.saveOnly('Nudge note')
-      const off = noteOffsetOverrideOf(this.scoreModel.getScore(), slotId)
-      dbg(`[Note] nudge ${noteId} (slot ${slotId}) by ${dx} → offset ${off?.x ?? 0} staff-space(s)`)
+      const off = noteOffsetOverrideOf(this.scoreModel.getScore(), target.key)
+      const what = target.memberIndex ? `fan member ${target.memberIndex}` : 'slot'
+      dbg(`[Note] nudge ${noteId} (${what} ${target.key}) by ${dx} → offset ${off?.x ?? 0} staff-space(s)`)
     }
     return ok
   }
 
   /**
    * Reset a selected note to its natural column, dropping its horizontal offset outright (the
-   * Ctrl+Backspace first-class reset — see docs/note-offset-plan.md). Slot-keyed, resolved from the
-   * pitch id like {@link nudgeNoteOffset}. One undo step.
+   * Ctrl+Backspace first-class reset — see docs/note-offset-plan.md). Keyed by
+   * {@link ScoreModel.offsetTargetOf} like {@link nudgeNoteOffset}. One undo step.
    * @returns true if an offset was there to reset.
    */
   resetNoteOffset(noteId: string): boolean {
-    const slotId = this.scoreModel.slotIdForNote(noteId)
-    if (!slotId) return false
-    if (!this.scoreModel.clearNoteOffset(slotId)) return false
+    const target = this.scoreModel.offsetTargetOf(noteId)
+    if (!target) return false
+    if (!this.scoreModel.clearNoteOffset(target.key)) return false
     this.saveOnly('Reset note offset')
-    dbg(`[Note] reset offset ${noteId} (slot ${slotId})`)
+    dbg(`[Note] reset offset ${noteId} (key ${target.key})`)
     return true
   }
 
@@ -2027,11 +2028,19 @@ export class MusicEngine {
 
   /** The note's current horizontal offset in staff-spaces (0 when none). The absolute value the
    *  Properties input reads and steps from; `NoteOffsetController` turns a new absolute into the
-   *  facade's relative `nudgeNoteOffset(dx = new − current)`. Slot-keyed, resolved from the pitch id. */
+   *  facade's relative `nudgeNoteOffset(dx = new − current)`. Read at the same key the nudge writes
+   *  ({@link ScoreModel.offsetTargetOf}) — a member must be told its OWN number, not its owner's. */
   getNoteOffset(noteId: string): number {
-    const slotId = this.scoreModel.slotIdForNote(noteId)
-    if (!slotId) return 0
-    return noteOffsetOverrideOf(this.scoreModel.getScore(), slotId)?.x ?? 0
+    const target = this.scoreModel.offsetTargetOf(noteId)
+    if (!target) return 0
+    return noteOffsetOverrideOf(this.scoreModel.getScore(), target.key)?.x ?? 0
+  }
+
+  /** The compartment key a note's horizontal offset lives at, and which fan member (0 = none) it
+   *  names — exposed so the Properties seam and the renderer resolve the address exactly as the
+   *  nudge does. See {@link ScoreModel.offsetTargetOf}. */
+  offsetTargetOf(noteId: string): { key: string; memberIndex: number } | undefined {
+    return this.scoreModel.offsetTargetOf(noteId)
   }
 
   /**

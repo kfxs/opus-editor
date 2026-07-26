@@ -279,6 +279,51 @@ describe('a fanned member as an editable pitch', () => {
     expect(model.getNotePitch(members[0][0].id)?.id).toBe(members[0][0].id)
   })
 
+  /**
+   * ⭐ …but the horizontal OFFSET is not slot-shaped: a member has a head and a stem of its own and
+   * can be moved off its column like anything else (docs/note-offset-plan.md §"Inside a FAN").
+   */
+  describe('offsetTargetOf — the key its own offset is stored at', () => {
+    it('⭐ a member answers with ITS key, the note that was typed with the slot', () => {
+      const { note, members } = fanned()
+      expect(model.offsetTargetOf(note.id)).toEqual({ key: chordAt(0).id, memberIndex: 0 })
+      expect(model.offsetTargetOf(members[0][0].id)).toEqual({ key: members[0][0].id, memberIndex: 1 })
+      expect(model.offsetTargetOf(members[2][0].id)).toEqual({ key: members[2][0].id, memberIndex: 3 })
+      expect(model.offsetTargetOf('no-such-id')).toBeUndefined()
+    })
+
+    it('⭐ so nudging one member leaves the owner — and every other member — where it was', () => {
+      const { note, members } = fanned()
+      model.nudgeNoteOffset(model.offsetTargetOf(members[1][0].id)!.key, 1.5)
+      const overrides = model.getScore().engravingOverrides ?? {}
+      expect(overrides[members[1][0].id]).toEqual([{ kind: 'noteOffset', x: 1.5 }])
+      expect(overrides[chordAt(0).id]).toBeUndefined()
+      expect(overrides[note.id]).toBeUndefined()
+      expect(overrides[members[0][0].id]).toBeUndefined()
+    })
+
+    it('a member’s pitches share ONE offset — the whole member moves, not one notehead', () => {
+      const { members } = fanned()
+      const stacked = model.addFanMemberPitch(members[0][0].id, { step: 'E', alter: 0, octave: 4 })!
+      expect(model.offsetTargetOf(stacked.id)).toEqual(model.offsetTargetOf(members[0][0].id))
+    })
+
+    it('⭐ deleting the pitch the key is MADE of carries the offset to the next one', () => {
+      const { members } = fanned()
+      const first = members[0][0].id
+      const stacked = model.addFanMemberPitch(first, { step: 'E', alter: 0, octave: 4 })!
+      model.nudgeNoteOffset(model.offsetTargetOf(first)!.key, -2)
+
+      expect(model.deleteNote(first)).toBe(true)
+      // The pitch is gone; the assertion about where the member sits is not, and it is readable
+      // through the id that is left.
+      const overrides = model.getScore().engravingOverrides ?? {}
+      expect(overrides[first]).toBeUndefined()
+      expect(model.offsetTargetOf(stacked.id)).toEqual({ key: stacked.id, memberIndex: 1 })
+      expect(overrides[stacked.id]).toEqual([{ kind: 'noteOffset', x: -2 }])
+    })
+  })
+
   it('⭐ deleting its LAST pitch takes the MEMBER with it — the group is one shorter', () => {
     const { members } = fanned()
     const second = members[1][0].id

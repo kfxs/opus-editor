@@ -258,9 +258,28 @@ describe('a selected fanned member in the selection machinery', () => {
     expect(note.isRest).toBe(false)
   })
 
-  it('⭐ it resolves to its SLOT for anything slot-shaped (the note offset, the spacing drag)', () => {
+  it('⭐ it resolves to its SLOT for anything slot-shaped', () => {
     const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
     expect(engine.slotIdForNote(memberId)).toBe(slot.id)
+  })
+
+  /**
+   * ⭐ …and the horizontal offset is NOT one of those things (docs/note-offset-plan.md §"Inside a
+   * FAN"). Reported from use: nudge a member and the note that was typed moved instead, because the
+   * offset resolved to the slot — the third time a member has answered for its owner.
+   */
+  it('⭐ nudging it moves the MEMBER, not the note that was typed', () => {
+    const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    expect(engine.nudgeNoteOffset(memberId, 1)).toBe(true)
+    expect(engine.getNoteOffset(memberId)).toBe(1)
+    // The owner is untouched, and says so through the same reader the Properties input uses.
+    expect(engine.getNoteOffset(noteId)).toBe(0)
+    expect(engine.getScore().engravingOverrides?.[slot.id]).toBeUndefined()
+
+    expect(engine.resetNoteOffset(memberId)).toBe(true)
+    expect(engine.getNoteOffset(memberId)).toBe(0)
+    // Nothing to reset twice — the key that DECLINES keeps the shortcut free (§C).
+    expect(engine.resetNoteOffset(memberId)).toBe(false)
   })
 
   it('an accidental applied to it re-spells the MEMBER, not the note that was typed', () => {

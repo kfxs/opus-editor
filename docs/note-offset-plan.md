@@ -186,6 +186,156 @@ we don't re-derive it.
   same hook to snap a stem-side mark onto `getStemX()`. The Properties offset input also grew a
   small **reset** button (publishes offset `0` through `noteOffsetSelection`).
 
+## Inside a FAN — offsetting one member (PLANNED, 2026-07-26)
+
+Reported from use: select one member of a fanned group, nudge it, and **the fan owner moves**. Same
+report the spacing feature got (docs/note-spacing-plan.md §7), and the same two causes underneath —
+the address resolves to the owner, and there is nothing at the member end to shift.
+
+- **The address.** `MusicEngine.nudgeNoteOffset` / `resetNoteOffset` / `getNoteOffset` all key the
+  override through `slotIdForNote`, which is `findSlot(id, { fanMembers: true })` → **the containing
+  chord's id** (`ScoreModel.ts:962`). A member's pitch id therefore writes at the owner's key. This
+  is the *third* time a member has resolved to its owner (pitch, spacing, now offset).
+- **And nothing to shift.** The apply is `StaveNote.setXShift` (`applyNoteOffsets`), and members
+  1..n−1 are not `StaveNote`s: they are ink placed by `fannedBeamGeometry` between `headX` and
+  `spanEndX`.
+- **Which is why it looks like the owner MOVES.** The fan pass reads `headX` from
+  `note.getNoteHeadBeginX()`, i.e. *after* the owner's `setXShift` — so the whole ramp starts from
+  the new x. `spanEndX` does not move with it, so today an owner offset does not translate the fan,
+  it **squeezes** it. Fixed as part of this (below), because it is the same line of code.
+
+### The decisions
+
+- ⭐⭐ **AN OFFSET MOVES THE NOTE YOU OFFSET AND NOTHING ELSE — the fan owner included** (his call,
+  and the whole rule): *"if I offset something, things that are not the offset note should never
+  move."* Inside a fan that reads both ways at once. Offsetting a MEMBER must not move the owner
+  (P0). And offsetting the OWNER must not move the members either — member 0 is one note of the
+  group, not a handle the group hangs from. So there is no translate and no squeeze: the ramp is
+  computed from the owner's NATURAL column and every head then takes its own offset, or none.
+- ⭐ **THE WHOLE MEMBER MOVES — head, stem and all** (his call). So the value is a property of the
+  MEMBER, not of one notehead, exactly as an ordinary offset is a property of the slot and not of one
+  chord tone. A member that carries two pitches moves as a unit; we could draw one head off its stem
+  here (unlike VexFlow, we place these heads by hand), and we deliberately do not — a displaced
+  notehead is a different notation from an offset.
+- **Keyed by the member's OWN pitch id** — canonically `member.pitches[0].id`, resolved from whichever
+  pitch is selected. No model change: members have been real `NotePitch` objects with real ids since
+  `docs/fanned-beam-pitches-plan.md` P1, and the compartment is already id-keyed. ⛔ **Not by member
+  INDEX** (`slotId#k` or similar): deleting a member is an operation that already exists (`count--`,
+  ba7018a), and it would slide every entry after it onto the wrong head. ⛔ Not a new `member.id`
+  field either — nothing needs it once the first pitch is the canonical key.
+
+  ⚠️ **But "canonically the first" is not stable under an ordinary chord edit.** A member can hold
+  several pitches, and deleting its FIRST one is the `member.pitches.length > 1` branch of `deleteNote`
+  (`ScoreModel.ts:2741`) — the member lives on, but `pitches[0].id` is now a different id and the
+  offset silently vanishes. ✅ **Decided in P0: the entry MOVES with the key.** `deleteNote` re-stamps
+  it onto the new `pitches[0]` (`moveNoteOffsetKey`), so "the key is the member's first pitch" is an
+  invariant and every reader — the facade, the Properties seam, the renderer — stays
+  `member.pitches[0].id` and never has to search. The alternative (read under any of the member's
+  pitch ids) would have put that search in two places, since the drawing looks the key up too.
+
+  ✅ **A fallback member is not a case.** A mark that never went through `normalizeFan` has no
+  `fan.members`, so `findSlot` cannot reach it (`ScoreModel.ts:1497`) and the renderer never registers
+  it (`stored[k - 1]`, `VexFlowRenderer.ts:1252`) — it is unselectable, and its id IS the slot's own
+  pitch, which resolves to the slot key. Nothing to decide, and saying so keeps the
+  "member resolves to its owner" trap from being reopened here as a bug.
+- **No floor.** Member gaps are floored at `minHeadGap` because two heads on one spot say nothing;
+  an offset is *not* floored anywhere else in this feature, and the reason to nudge a member is
+  usually to clear a collision the ramp itself made. The user's assertion wins.
+
+### The drawing — one new option, applied after the layout
+
+`memberOffsets?: number[]` (px, +right) on `FanGeometryOptions`, added into `xs[k]` **after** the
+proportional/floor/scale pass and **before** `sx` is derived (`FannedBeam.ts:309`). Then everything
+downstream follows for free, because everything downstream is computed from `stems[k]`: the stem
+(`stemX`), the beam quads and their slope, the registry entry, the member's highlight group, the slur
+anchor, the hand-drawn accidental and the ledger lines (`VexFlowRenderer.ts:1240-1275`).
+
+⭐ **Entry 0 is REAL, and it is SUBTRACTED, not added.** VexFlow's `getNoteHeadBeginX()` is
+`getAbsoluteX() + xShift`, so the owner's px are **already inside `headX`** (`VexFlowRenderer.ts:1342`)
+— and `headX` is where the ramp starts. The whole of "the owner moves alone" is therefore one line:
+
+```
+base  = headX - memberOffsets[0]        // the owner's NATURAL column
+usable = spanEndX - base - minHeadGap   // untouched by any offset, which is the point
+xs[k] = base + Σ gaps + memberOffsets[k]
+```
+
+`xs[0]` comes back out as `headX`, so member 0 is drawn exactly where VexFlow put it and every other
+head sits where it would have if nobody had touched anything. One rule for every member, no special
+case at index 0, and **no squeeze and no translate**: `usable` never sees an offset, so the ramp is
+the same picture whatever the owner does.
+
+⛔ That kills the "does a nudged fan cross its own barline?" question before it is asked — nothing at
+the far end ever moves, so `spanEndX` is never re-derived and the last head never walks into the next
+note or the barline.
+
+The px come from `staffSpacesToPixels(x, stave)` (`staffSpace.ts`), the conversion `applyNoteOffsets`
+already uses — not the `VEXFLOW_DEFAULT_STAFF_SPACE_PX` constant `fanMemberSpacesPx` reads. The same
+10 today, but this feature's rule is the stave's.
+
+⚠️ **The opposite rule from `memberSpaces`, and that is the point.** A space is WIDTH: its px are
+already inside `spanEndX` (the tick-context shift grew the bar), so it comes off the top and the ramp
+shares what is left. An offset has NO width: it must not touch `usable`, must not move the next note,
+must not change the bar. Same array shape, opposite arithmetic — do not let them merge.
+
+Two consequences to see by eye rather than be surprised by. Both are the BEAM following its notes,
+which is what a beam does everywhere else:
+
+- Offsetting the **last** member changes the ramp's end x, so the beam lengthens and its slope
+  re-leans. That is correct — it is what moving the last note of any beam does.
+- Offsetting the **owner** leaves every other head still and drags the beam's near end off with its
+  stem, so the line re-leans from that side. **This is the one existing-behaviour change**: today the
+  ramp starts at the shifted `headX` against a fixed `spanEndX` and the group SQUEEZES, moving five
+  heads nobody touched.
+
+### Phases
+
+1. **P0 — the address. ✅ DONE.** `ScoreModel.offsetTargetOf(noteId) → { key, memberIndex }`, beside
+   `spacingColumnOf`: the slot id for an ordinary note/rest/member 0, the member's first pitch id and
+   `k ≥ 1` for a member. The three facade methods route through it (and `MusicEngine.offsetTargetOf`
+   exposes it for P1/P2), `deleteNote` carries the entry when its key pitch goes, and
+   `ScoreModel.nudgeNoteOffset`/`clearNoteOffset` take a `key`, not a `slotId`. As designed, nothing
+   is visible yet: a member nudge stops moving the owner and writes an entry nobody draws.
+2. **P1 — the drawing. ✅ DONE (hand-test).** `memberOffsets` on `FanGeometryOptions` with the base
+   subtraction at index 0, and `fanMemberOffsetsPx` reading the entries (the twin of
+   `fanMemberSpacesPx`, ⚠️ opposite arithmetic). Two things came with it because the phase is not
+   testable by hand without them:
+   - **The shape-key line moved up from P3** — a member key is invisible to both existing override
+     lines, so without it the bar never repaints and a nudge looks like it did nothing.
+   - **The fan's ink rect now measures every member's own x** on both edges (`registerFanInk`): it
+     spanned `headX` → last stem, and the ramp's order stops being the ink's order the moment a
+     member is nudged past its neighbour.
+3. **P2 — the surfaces.** The reader is `noteOverrideKey` (`interactions/selectionSnapshot.ts:67`),
+   which routes through `slotIdForNote` — so a member shows the OWNER's number today (the Properties
+   input reads `element.overrides`; the `getNote` lesson: a surface must report what the model will
+   accept). ⚠️ Its doc comment states *"NOT the pitch id: no compartment client keys off a note's
+   pitch id"* — this feature falsifies that sentence, so it is rewritten, not just re-routed. That
+   leaves `MusicEngine.slotIdForNote` with no caller: fold it into `offsetTargetOf` or keep it
+   deliberately, but decide rather than leave a stranded public method.
+   ✅ The `measureShapeKey` half was pulled forward into P1 (and **stays out** of the width key — an
+   offset has no width). The keyboard surface needs nothing: it goes through the facade.
+4. **P3 — travel + cleanup.** Member entries join `captureNoteOffsets` / `restoreNoteOffsets`
+   (`rebarOps.ts:799` walks `m.slots` only) and `ClipboardLane.noteOffsets`, captured as
+   `(voice, staffId, slot absBeat, member index)` and restored onto the destination member's first
+   pitch id — index is the address *there* because `cloneFanFresh` re-mints every member pitch id
+   (`utils/fannedBeam.ts:185`), so the ids on the far side are new by construction, and capture and
+   restore are one instant of one passage.
+   **The drop rule, stated like the slot one:** no slot starting at that beat → drop; slot there but
+   no member `k` (a fan with fewer members, or no fan at all) → drop. Both benign, neither an error.
+   **Two ways a member dies, not one.** `deleteNote`'s member branch takes its pitch ids with it —
+   sweep the entry there. But lowering `fan.count` truncates through `normalizeFan`
+   (`slice(0, want)`, `utils/fannedBeam.ts:169`), which is the Properties path and never touches
+   `deleteNote`: sweep there too, or record that those orphans are accepted (they can never
+   mis-apply — raising the count again mints fresh ids — they only bloat the JSON).
+
+Tests: the geometry contract in `FannedBeam.test.ts` (an offset moves that member's head and stem and
+**no other head** — the ramp is unchanged; the same run with the offset at index 0, where `headX`
+already carries it, must leave members 1..n−1 exactly where the un-offset run put them), the
+resolution (a member id and
+its owner return different keys), **the multi-pitch member keeps its offset when its first pitch is
+deleted**, the shape key changes when a member's offset does while the width key does not, and one
+travel test — all mirroring the spacing pass's.
+
 ## Explicitly deferred (not first steps)
 
 - **Travel across copy/paste/rebar. ✅ DONE.** Slot ids are re-minted by the `RebarEvent` stream, so

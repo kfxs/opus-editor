@@ -967,34 +967,46 @@ export class ScoreModel {
   /**
    * Nudge a note's manual horizontal offset by `dx` staff-spaces, **accumulating** onto any existing
    * offset (the Ctrl+arrow keyboard fine-positioning — see docs/note-offset-plan.md). Stored as a
-   * {@link NoteOffsetOverride} in the engraving-overrides compartment, keyed by the **slot** id
-   * (`slotId` from {@link slotIdForNote}) — one StaveNote is one slot, so a chord moves as a unit.
-   * The offset is a delta on top of the note's natural column; render folds it back in via
-   * `StaveNote.setXShift`.
+   * {@link NoteOffsetOverride} in the engraving-overrides compartment under the key
+   * {@link offsetTargetOf} resolves — the **slot** id for anything ordinary (one StaveNote is one
+   * slot, so a chord moves as a unit), a fanned MEMBER's own first pitch id for a member. The offset
+   * is a delta on top of the note's natural column; render folds it back in via `StaveNote.setXShift`.
    *
    * Returning to a net `x` of 0 clears the entry (so "absent = default" holds and the JSON stays
    * clean). No undo snapshot here — the facade (`MusicEngine.nudgeNoteOffset`) owns the per-press
    * `saveOnly`, mirroring {@link nudgeDynamicOffset}.
-   * @returns true (the override always exists/updates for a valid slot id).
+   * @returns true (the override always exists/updates for a valid key).
    */
-  nudgeNoteOffset(slotId: string, dx: number): boolean {
-    const prev = noteOffsetOverrideOf(this.score, slotId)
+  nudgeNoteOffset(key: string, dx: number): boolean {
+    const prev = noteOffsetOverrideOf(this.score, key)
     const x = (prev?.x ?? 0) + dx
     if (x === 0) {
-      this.clearEngravingOverride(slotId, 'noteOffset')
+      this.clearEngravingOverride(key, 'noteOffset')
     } else {
       const next: NoteOffsetOverride = { kind: 'noteOffset', x }
-      this.setEngravingOverride(slotId, next)
+      this.setEngravingOverride(key, next)
     }
     return true
   }
 
+  /** Carry a stored note offset from one key to another, doing nothing when there is none — the one
+   *  thing a re-keying edit owes the compartment. Only `noteOffset` moves: every other override at
+   *  the old key belongs to whatever else was addressed by it. */
+  private moveNoteOffsetKey(from: string, to: string): void {
+    const ov = noteOffsetOverrideOf(this.score, from)
+    if (!ov) return
+    this.clearEngravingOverride(from, 'noteOffset')
+    const next: NoteOffsetOverride = { kind: 'noteOffset', x: ov.x }
+    this.setEngravingOverride(to, next)
+    dbg(`[Model] note offset ${ov.x} re-keyed ${from} → ${to}`)
+  }
+
   /** Drop a note's horizontal offset outright, back to its natural column (the Ctrl+Backspace
-   *  first-class reset — see docs/note-offset-plan.md). Keyed by slot id. No undo snapshot here;
-   *  the facade owns it. @returns true if an offset was there to clear. */
-  clearNoteOffset(slotId: string): boolean {
-    if (!noteOffsetOverrideOf(this.score, slotId)) return false
-    this.clearEngravingOverride(slotId, 'noteOffset')
+   *  first-class reset — see docs/note-offset-plan.md). Keyed by {@link offsetTargetOf}. No undo
+   *  snapshot here; the facade owns it. @returns true if an offset was there to clear. */
+  clearNoteOffset(key: string): boolean {
+    if (!noteOffsetOverrideOf(this.score, key)) return false
+    this.clearEngravingOverride(key, 'noteOffset')
     return true
   }
 
@@ -1580,6 +1592,32 @@ export class ScoreModel {
     const total = chord.actualDuration ?? durationToFraction(chord.duration, chord.dots ?? 0)
     const beat = fanMemberBeats(chord.fan, total, chord.beat)[index]
     return beat ? { measure: chord.measure, beat, memberIndex: index } : { measure: chord.measure, beat: chord.beat, memberIndex: 0 }
+  }
+
+  /**
+   * ⭐ The KEY a note's horizontal offset is stored at — the slot's id for anything ordinary, and
+   * **the member's own first pitch id inside a fan** (docs/note-offset-plan.md §"Inside a FAN").
+   *
+   * The twin of {@link spacingColumnOf}, and the same fix one axis over: {@link slotIdForNote}
+   * resolves a member to the chord that contains it, so every member of a group wrote its offset at
+   * the owner's key and nudging one moved the note that was typed. A member is a thing on the page
+   * with a stem, a head and an id of its own; it can be moved off its column like anything else.
+   *
+   * ⚠️ **The first pitch is the key, so the key MOVES when that pitch is deleted** — `deleteNote`
+   * carries the entry across (see its member branch). Keeping the write canonical is what lets every
+   * reader stay `member.pitches[0].id` and never have to search.
+   *
+   * `memberIndex` is 0 for an ordinary note/rest and for member 0 (whose key IS the slot's), ≥ 1 for
+   * a member with an offset of its own — what the renderer needs to know which head to move. A
+   * member that was never normalized has no stored pitches to key off and no id of its own to be
+   * selected by, so it answers with its slot, which is where it is drawn.
+   */
+  offsetTargetOf(noteId: string): { key: string; memberIndex: number } | undefined {
+    const found = this.findSlot(noteId, { fanMembers: true })
+    if (!found) return undefined
+    if (found.type === 'rest') return { key: found.rest.id, memberIndex: 0 }
+    if (!found.member) return { key: found.chord.id, memberIndex: 0 }
+    return { key: found.member.pitches[0].id, memberIndex: found.member.index }
   }
 
   /**
@@ -2739,7 +2777,13 @@ export class ScoreModel {
     if (found.type === 'chord' && found.member) {
       const { chord, member, pitch } = found
       if (member.pitches.length > 1) {
+        // ⚠️ The member's offset is keyed by its FIRST pitch ({@link offsetTargetOf}), so deleting
+        // that pitch would leave the entry stranded at an id nothing resolves to any more and the
+        // member would silently jump back to its natural place. The pitch goes; the assertion about
+        // where the member sits does not.
+        const wasKey = member.pitches[0].id === pitch.id
         member.pitches.splice(member.pitches.indexOf(pitch), 1)
+        if (wasKey) this.moveNoteOffsetKey(pitch.id, member.pitches[0].id)
         dbg(`[Model.deleteNote] fan member ${member.index}: removed one pitch (${member.pitches.length} left)`)
         return true
       }

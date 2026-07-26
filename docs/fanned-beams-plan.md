@@ -273,6 +273,11 @@ survives; the setting is gone.
   between `headX` and `spanEndX` rather than columns a TickContext shift can reach. Both halves are
   fixed there — the member's own beat is the address, and the ramp shares the span that is left
   after the authored gaps come off the top.
+- **Per-member horizontal OFFSET** — P0–P1 DONE, in **docs/note-offset-plan.md** ("Inside a FAN").
+  Same report as the spacing one and the same two causes: the offset is slot-keyed, so a member's id
+  resolves to the owner, and the apply is `setXShift` on a `StaveNote` a member does not have. Keyed
+  by the member's first pitch id, applied as an extra x on `stems[k]` *after* the ramp layout — a
+  space has width and comes off the top, an offset has none and must not touch the span.
 - **Ties into or out of a fanned note.** The tie is drawn from the slot, which now has `count`
   noteheads in it, and the sounding length a tie hands over is the whole group's. Deferred, and
   named here because ties are the pipeline that most reliably surprises this model (the tremolo plan

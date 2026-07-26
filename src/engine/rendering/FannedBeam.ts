@@ -164,6 +164,24 @@ export interface FanGeometryOptions {
    */
   memberSpaces?: number[]
   /**
+   * ⭐ The user-authored horizontal OFFSET of each member, in PIXELS (+right) — 0 (or absent) where
+   * the member stands on its own column (docs/note-offset-plan.md §"Inside a FAN"). Index k is
+   * member k's own offset, **entry 0 included**: the fan's owner is one note of the group, not a
+   * handle the group hangs from.
+   *
+   * ⚠️ **THE OPPOSITE ARITHMETIC FROM {@link memberSpaces}, and mixing them up is the whole trap.** A
+   * space is WIDTH — its px are already inside `spanEndX`, so it comes off the top and the ramp
+   * shares what is left. An offset has NO width: it never touches `usable`, so every head that was
+   * not offset stays exactly where the un-offset ramp put it. *"If I offset something, things that
+   * are not the offset note should never move"* — his rule, and this is where it is kept.
+   *
+   * ⚠️ **Entry 0 is SUBTRACTED, not added.** `headX` is the owner's DRAWN head, and `StaveNote`'s
+   * `xShift` is already in it, so the ramp is built from `headX - memberOffsets[0]` (the natural
+   * column) and member 0 lands back on `headX`. Add it a second time and the fan's own note moves
+   * twice.
+   */
+  memberOffsets?: number[]
+  /**
    * The notes of the group the fan is JOINED to on its LEFT, in order — empty (or absent) for a fan
    * that stands alone. Their presence is what makes the line horizontal and what extends the primary
    * beam back to the first of them.
@@ -250,7 +268,7 @@ export interface FanGeometryOptions {
 export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   const {
     members, memberHeadYs, direction, beams, headX, spanEndX, stemOffset, minHeadGap,
-    accidentalRoom, memberSpaces, tipY, minStemLength, stemDirection, beamWidth,
+    accidentalRoom, memberSpaces, memberOffsets, tipY, minStemLength, stemDirection, beamWidth,
   } = opts
   const prefix = opts.prefix ?? []
   const joined = prefix.length > 0 || !!opts.joined
@@ -259,9 +277,18 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   }
   if (members.length < 2 || memberHeadYs.length < members.length) return empty
 
+  // ⭐ THE RAMP IS BUILT FROM THE NATURAL COLUMN, not from where the owner was nudged to: `headX` is
+  // the DRAWN head and `StaveNote.setXShift` is already in it, so an owner offset would otherwise
+  // start the whole ramp somewhere else — and, against a fixed `spanEndX`, squeeze five heads nobody
+  // touched. Taking it back out here is the entirety of "an offset moves the note you offset and
+  // nothing else"; member 0 gets it added back at its own index below.
+  const offsets = memberOffsets ?? []
+  const base = headX - (offsets[0] ?? 0)
+
   // The span the HEADS may occupy: the last one must still fit before whatever comes next, so the
-  // room its own glyph takes is not part of the ramp.
-  const usable = spanEndX - headX - minHeadGap
+  // room its own glyph takes is not part of the ramp. ⚠️ Measured from `base`, so NO offset ever
+  // changes it — an offset has no width.
+  const usable = spanEndX - base - minHeadGap
   if (usable <= 0) return empty
 
   /**
@@ -306,11 +333,14 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   const wanted = gaps.reduce((a, b) => a + b, 0)
   const scale = wanted > usable ? usable / wanted : 1
 
+  // ⚠️ The offset is added to the head's PLACE, never to the running total: `x` walks the ramp
+  // un-nudged, so one member's offset cannot push the ones after it along. That is the difference
+  // between an offset and a space, in one line.
   const xs: number[] = []
-  let x = headX
+  let x = base
   for (let k = 0; k < members.length; k++) {
     if (k > 0) x += gaps[k - 1] * scale
-    xs.push(x)
+    xs.push(x + (offsets[k] ?? 0))
   }
 
   // Up = +1, so the tip is the SMALLER y and the outer (base) head the larger; down mirrors it.

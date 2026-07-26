@@ -513,3 +513,75 @@ describe('a member’s own authored space', () => {
     expect(spaced([0, 0, 0, 0, 0, 0], 400)).toEqual(geometry(FAN))
   })
 })
+
+/**
+ * ⭐⭐ PER-MEMBER OFFSET (docs/note-offset-plan.md §"Inside a FAN") — his rule, drawn: *"if I offset
+ * something, things that are not the offset note should never move."* One head goes where it was
+ * told; every other head, and the span itself, is exactly what the un-offset ramp produced.
+ *
+ * ⚠️ The whole reason this file has TWO describes that look alike: a SPACE is width the bar already
+ * grew for (it comes off the top and the ramp shares the rest), an OFFSET is no width at all. Same
+ * array shape, opposite arithmetic.
+ */
+describe('a member’s own horizontal offset', () => {
+  const offset = (memberOffsets: number[], headX = 100) => fannedBeamGeometry({
+    members: fanMembers(FAN, frac(2, 1)),
+    memberHeadYs: Array.from({ length: FAN.count }, () => [100]),
+    direction: FAN.direction,
+    beams: FAN.beams,
+    headX,
+    spanEndX: 400,
+    stemOffset: 10,
+    minHeadGap: MIN_GAP,
+    memberOffsets,
+    tipY: 60,
+    minStemLength: MIN_STEM,
+    stemDirection: 1,
+    beamWidth: BEAM_WIDTH,
+  })
+
+  const headsOf = (g: ReturnType<typeof geometry>) => g.stems.map(s => s.headX)
+
+  it('⭐ moves that member’s head and stem, and NO other head', () => {
+    const plain = headsOf(geometry(FAN))
+    const g = offset([0, 0, 0, 12, 0, 0])
+
+    expect(g.stems[3].headX).toBeCloseTo(plain[3] + 12, 6)
+    expect(g.stems[3].stemX).toBeCloseTo(plain[3] + 12 + 10, 6) // the stem goes with the head
+    for (const k of [0, 1, 2, 4, 5]) expect(g.stems[k].headX).toBeCloseTo(plain[k], 6)
+  })
+
+  it('⭐⭐ the OWNER’s offset is already inside headX — so it moves member 0 ALONE', () => {
+    // What the renderer hands us after `applyNoteOffsets`: the note was shifted 15px right, so
+    // `headX` arrives 15 higher AND entry 0 says why.
+    const plain = headsOf(geometry(FAN))
+    const g = offset([15, 0, 0, 0, 0, 0], 115)
+
+    expect(g.stems[0].headX).toBe(115) // the head VexFlow actually drew
+    // …and the group behind it did not budge: no translate, no squeeze.
+    for (let k = 1; k < 6; k++) expect(g.stems[k].headX).toBeCloseTo(plain[k], 6)
+  })
+
+  it('⛔ never a space: the ramp keeps its own gaps whatever is offset', () => {
+    const gapsOf = (g: ReturnType<typeof geometry>) =>
+      g.stems.slice(1).map((s, k) => s.headX - g.stems[k].headX)
+    const plain = gapsOf(geometry(FAN))
+    // A member pulled LEFT crosses its neighbour if the user says so — an offset has no floor (and
+    // no width, so nothing else re-flows to make room).
+    const g = offset([0, 0, -40, 0, 0, 0])
+    expect(g.stems[2].headX).toBeCloseTo(headsOf(geometry(FAN))[2] - 40, 6)
+    expect(gapsOf(g)[2]).toBeCloseTo(plain[2] + 40, 6) // the gap AFTER it opened by exactly as much
+  })
+
+  it('the LAST member’s offset re-leans the beam — a beam follows its notes', () => {
+    const plain = geometry(FAN)
+    const g = offset([0, 0, 0, 0, 0, 18])
+    expect(g.beams[0].endX).toBeCloseTo(plain.beams[0].endX + 18, 6)
+    expect(g.stems[4].headX).toBeCloseTo(plain.stems[4].headX, 6)
+  })
+
+  it('a fan with no offsets is byte-for-byte what it was', () => {
+    expect(offset([])).toEqual(geometry(FAN))
+    expect(offset([0, 0, 0, 0, 0, 0])).toEqual(geometry(FAN))
+  })
+})

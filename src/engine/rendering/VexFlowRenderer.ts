@@ -182,6 +182,36 @@ function fanMemberSpacesPx(score: Score, measureNumber: number, slot: Chord): nu
 }
 
 /**
+ * ⭐ The authored horizontal OFFSET of each member of a fanned slot, in pixels — the fan's half of
+ * client #12 (docs/note-offset-plan.md §"Inside a FAN"). Entry k is member k's own offset, entry 0
+ * the OWNER's (which `applyNoteOffsets` has already spent on the `StaveNote`, and which
+ * `fannedBeamGeometry` therefore takes back OUT of `headX` to find the natural column).
+ *
+ * ⚠️ **The twin of {@link fanMemberSpacesPx} with the opposite arithmetic** — a space is width the
+ * bar already grew for, an offset is no width at all. The keys differ for the same reason: a space is
+ * addressed by the member's own BEAT (a column exists there), an offset by the member's own first
+ * pitch ID (`ScoreModel.offsetTargetOf`), because it is a property of that head and not of a column.
+ *
+ * Returns an empty array when nothing in the group is offset, which is the ordinary case.
+ */
+function fanMemberOffsetsPx(score: Score, slot: Chord, stave: Stave): number[] {
+  if (!slot.fan) return []
+  const count = Math.max(1, Math.round(slot.fan.count))
+  const out: number[] = []
+  let any = false
+  for (let k = 0; k < count; k++) {
+    // Member 0 IS the slot; members 1…n are keyed by their own first pitch. ⚠️ A member with no
+    // stored pitches (a mark that never went through `normalizeFan`) has no id to be offset by and
+    // cannot be selected either — it draws on the slot's own pitch, so it answers 0 here.
+    const key = k === 0 ? slot.id : slot.fan.members?.[k - 1]?.[0]?.id
+    const x = key ? noteOffsetOverrideOf(score, key)?.x ?? 0 : 0
+    if (x !== 0) any = true
+    out.push(x === 0 ? 0 : staffSpacesToPixels(x, stave))
+  }
+  return any ? out : []
+}
+
+/**
  * Bounds information for a rendered measure
  */
 export interface MeasureBounds {
@@ -1374,6 +1404,10 @@ export class VexFlowRenderer {
       options: {
         members: fanMembers(slot.fan, slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)),
         memberSpaces: fanMemberSpacesPx(score, measureNumber, slot),
+        // ⚠️ Same array shape as the spaces above, opposite arithmetic — the geometry SUBTRACTS entry
+        // 0 (already inside `headX`) and adds the rest without touching the span. See
+        // `FanGeometryOptions.memberOffsets`.
+        memberOffsets: fanMemberOffsetsPx(score, slot, stave),
         memberHeadYs: heads.map(pitches => pitches.map(h => stave.getYForNote(h.line))),
         direction: slot.fan.direction,
         beams: slot.fan.beams,
@@ -1495,12 +1529,21 @@ export class VexFlowRenderer {
     // clicking any of it must still select the fan. Its ORDER is already right — this runs before
     // `registerSlotElements` and `getAt` returns the LAST match, so the prefix noteheads still win
     // their own clicks.
-    const left = Math.min(headX, ...geometry.prefixStems.map(p => p.stemX), ...joinQuads.map(q => q.startX))
+    // ⚠️ EVERY member's own x on both edges, not `headX`-to-the-last-stem: a member offset by hand
+    // (client #12) can sit left of the note that was typed or right of the member after it, and the
+    // ramp's own order stops being the ink's order the moment one is nudged.
+    const left = Math.min(
+      headX,
+      ...geometry.stems.map(s => s.headX),
+      ...geometry.prefixStems.map(p => p.stemX),
+      ...joinQuads.map(q => q.startX),
+    )
+    const right = Math.max(...geometry.stems.map(s => s.stemX))
     this.elementRegistry.add({
       type: 'beam',
       measure: measureNumber,
       staff: staffIndex,
-      bbox: { x: left, y: top, width: geometry.stems[geometry.stems.length - 1].stemX - left, height: bottom - top },
+      bbox: { x: left, y: top, width: right - left, height: bottom - top },
     })
   }
 

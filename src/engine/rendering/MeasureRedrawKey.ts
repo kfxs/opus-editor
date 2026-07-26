@@ -179,6 +179,13 @@ export function measureShapeKey(
     // redraws, so `applyNoteOffsets`' setXShift never re-runs and the note sits still while the
     // model moves. WIDTH≠PICTURE, silently. See docs/note-offset-plan.md.
     view.slots.map(s => score.engravingOverrides?.[s.id] ?? null),
+    // ⚠️ …and a FANNED MEMBER's offset is keyed by the member's own first pitch id
+    // (`ScoreModel.offsetTargetOf`), which is in neither of the two lines above: not a slot id, not a
+    // position key. Leave it out and nudging a member changes nothing in the key, so the bar keeps
+    // its drawn group and the head never moves — the same silent WIDTH≠PICTURE trap, one level in.
+    view.slots.map(s => (s.type === 'chord' && s.fan?.members
+      ? s.fan.members.map(pitches => (pitches[0] ? score.engravingOverrides?.[pitches[0].id] ?? null : null))
+      : null)),
     view.tempos ?? null,
     view.timeSignatureChange ?? false,
     view.timeSignatureHidden ?? false,
