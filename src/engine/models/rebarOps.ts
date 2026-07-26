@@ -109,8 +109,14 @@ type CapturedRestShift = { voice: number; staffId?: string; absBeat: Fraction; s
  * beat offset from the region start plus (voice, staffId) — the address of the SLOT it hangs off,
  * since a rebar re-mints slot ids. The chord/rest twin of {@link CapturedRestShift} (a note offset
  * is slot-keyed, so it covers chords AND rests, unlike the rest-only shift). See {@link captureNoteOffsets}.
+ *
+ * ⭐ `member` is the FANNED MEMBER's place in its group (1…count−1), absent for the slot itself. An
+ * INDEX is the right address here and nowhere else: a member's offset is keyed by the member's own
+ * first pitch id, and `cloneFanFresh` re-mints every one of those when the slot is rebuilt — so the
+ * id on the far side is new by construction, while capture and restore are one instant of one
+ * passage and the group's order is exactly what it was.
  */
-type CapturedNoteOffset = { voice: number; staffId?: string; absBeat: Fraction; x: number }
+type CapturedNoteOffset = { voice: number; staffId?: string; absBeat: Fraction; x: number; member?: number }
 
 /** A two-note tremolo snapshotted before a rebar/paste, keyed by the FIRST note's absolute offset so
  *  it can be re-found — and re-validated — once the bars are re-tiled. See {@link captureTremoloPairs}. */
@@ -324,7 +330,7 @@ export function pasteEvents(
   clipDynamics: ClipDynamicInput[] = [],
   clipSlurs: ClipSlurInput[] = [],
   clipSpaces: Array<{ offset: Fraction; space: number }> = [],
-  clipNoteOffsets: { staff: number; voice: number; noteOffsets: Array<{ offset: Fraction; x: number }> }[] = [],
+  clipNoteOffsets: { staff: number; voice: number; noteOffsets: Array<{ offset: Fraction; x: number; member?: number }> }[] = [],
   /** Two-note tremolos the clip carries, per lane — see `ClipboardLane.tremoloPairs`. */
   clipTremoloPairs: { staff: number; voice: number; tremoloPairs: Array<{ offset: Fraction; style?: 'joined' | 'open' }> }[] = [],
 ): string[] {
@@ -535,7 +541,7 @@ export function pasteEvents(
     const destVoice = singleVoice ? targetVoice : voice
     const destStaffId = keyStaffId(score, targetStaff + staff)
     for (const no of offsets) {
-      clipCapturedOffsets.push({ voice: destVoice, staffId: destStaffId, absBeat: fracAdd(pasteStart, no.offset), x: no.x })
+      clipCapturedOffsets.push({ voice: destVoice, staffId: destStaffId, absBeat: fracAdd(pasteStart, no.offset), x: no.x, member: no.member })
     }
   }
   restoreNoteOffsets(score, deps, regionNumbers, clipCapturedOffsets)
@@ -800,10 +806,24 @@ function captureNoteOffsets(score: Score, deps: RebarDeps, regionMeasures: Measu
   const out: CapturedNoteOffset[] = []
   forEachRegionMeasure(regionMeasures, (m, base) => {
     for (const s of m.slots) {
+      const absBeat = fracAdd(base, s.beat)
       const ov = noteOffsetOverrideOf(score, s.id)
-      if (!ov || ov.x === 0) continue
-      out.push({ voice: s.voice ?? 0, staffId: s.staffId, absBeat: fracAdd(base, s.beat), x: ov.x })
-      deps.clearEngravingOverride(s.id, 'noteOffset')
+      if (ov && ov.x !== 0) {
+        out.push({ voice: s.voice ?? 0, staffId: s.staffId, absBeat, x: ov.x })
+        deps.clearEngravingOverride(s.id, 'noteOffset')
+      }
+      // ⭐ …and every FANNED MEMBER's own offset, at the SLOT's beat plus its index. A member has no
+      // beat the tiling can hand back (it lives between the slot's column and the next), so the
+      // group's own address plus a place in it is the whole address — see {@link CapturedNoteOffset}.
+      if (s.type !== 'chord' || !s.fan?.members) continue
+      s.fan.members.forEach((pitches, k) => {
+        const id = pitches[0]?.id
+        if (!id) return
+        const mov = noteOffsetOverrideOf(score, id)
+        if (!mov || mov.x === 0) return
+        out.push({ voice: s.voice ?? 0, staffId: s.staffId, absBeat, x: mov.x, member: k + 1 })
+        deps.clearEngravingOverride(id, 'noteOffset')
+      })
     }
   })
   return out
@@ -817,6 +837,11 @@ function captureNoteOffsets(score: Score, deps: RebarDeps, regionMeasures: Measu
  * moved/merged away loses its offset, benign; docs/note-offset-plan.md deferred-travel note). Keyed
  * by the fresh slot id, so it survives the id re-mint. Overwrites on a collision (last wins), so
  * paste stamps the clip's offsets on top of the destination's by calling this again.
+ *
+ * ⭐ **A captured MEMBER lands on the member of the same index**, keyed by ITS fresh first pitch id —
+ * and drops by the same rule, one level in: a slot that arrived without a fan, or with a shorter
+ * one, has no member `k` to carry it. Neither drop is an error; both are the tiling saying the thing
+ * that was offset is not there any more.
  */
 function restoreNoteOffsets(score: Score, deps: RebarDeps, regionNumbers: number[], captured: CapturedNoteOffset[]): void {
   if (captured.length === 0) return
@@ -832,8 +857,13 @@ function restoreNoteOffsets(score: Score, deps: RebarDeps, regionNumbers: number
       (s) => (s.voice ?? 0) === c.voice && (s.staffId ?? undefined) === (c.staffId ?? undefined) && fracCompare(s.beat, beat) === 0,
     )
     if (!slot) continue // the new tiling has no slot starting here → drop (benign)
+    let key: string | undefined = slot.id
+    if (c.member !== undefined) {
+      key = slot.type === 'chord' ? slot.fan?.members?.[c.member - 1]?.[0]?.id : undefined
+      if (!key) continue // the slot that arrived carries no member k → drop, same rule one level in
+    }
     const next: NoteOffsetOverride = { kind: 'noteOffset', x: c.x }
-    deps.setEngravingOverride(slot.id, next)
+    deps.setEngravingOverride(key, next)
   }
 }
 

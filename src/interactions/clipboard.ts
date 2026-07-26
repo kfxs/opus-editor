@@ -59,8 +59,12 @@ export interface ClipboardLane {
    * SLOT-keyed and nothing in `events` (which holds no ids) can drag it along — a copied passage
    * would otherwise arrive un-offset. Covers chords AND rests (a note offset hangs off the slot).
    * Absent/empty = none. See docs/note-offset-plan.md.
+   *
+   * ⭐ `member` is a fanned MEMBER's place in its group (1…count−1), absent for the slot itself: the
+   * member's own offset travels with the group it belongs to, addressed by index because the paste
+   * mints fresh member ids.
    */
-  noteOffsets?: Array<{ offset: Fraction; x: number }>
+  noteOffsets?: Array<{ offset: Fraction; x: number; member?: number }>
   /**
    * Two-note tremolos whose BOTH notes are inside the selection window, at the FIRST note's offset
    * relative to the selection start (same basis as {@link events}).
@@ -250,9 +254,9 @@ function noteOffsetsInWindow(
   voice: number,
   spanStart: Fraction,
   spanEnd: Fraction,
-): Array<{ offset: Fraction; x: number }> {
+): Array<{ offset: Fraction; x: number; member?: number }> {
   const starts = measureStartOffsets(score)
-  const out: Array<{ offset: Fraction; x: number }> = []
+  const out: Array<{ offset: Fraction; x: number; member?: number }> = []
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
     if (!mStart) continue
@@ -260,9 +264,19 @@ function noteOffsetsInWindow(
       if ((s.voice ?? 0) !== voice || staffIndexOfId(score, s.staffId) !== staff) continue
       const abs = fracAdd(mStart, s.beat)
       if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
+      const offset = fracSub(abs, spanStart)
       const ov = noteOffsetOverrideOf(score, s.id)
-      if (!ov || ov.x === 0) continue
-      out.push({ offset: fracSub(abs, spanStart), x: ov.x })
+      if (ov && ov.x !== 0) out.push({ offset, x: ov.x })
+      // ⭐ …and each fanned MEMBER's own, at the group's offset plus its place in the group. The
+      // member ids on the far side are freshly minted (`cloneFanFresh`), so the index is the address
+      // — safe here because a copy and its paste are one passage, in order.
+      if (s.type !== 'chord' || !s.fan?.members) continue
+      s.fan.members.forEach((pitches, k) => {
+        const id = pitches[0]?.id
+        if (!id) return
+        const mov = noteOffsetOverrideOf(score, id)
+        if (mov && mov.x !== 0) out.push({ offset, x: mov.x, member: k + 1 })
+      })
     }
   }
   return out

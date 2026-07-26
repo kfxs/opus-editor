@@ -308,6 +308,49 @@ describe('a fanned member as an editable pitch', () => {
       expect(model.offsetTargetOf(stacked.id)).toEqual(model.offsetTargetOf(members[0][0].id))
     })
 
+    /**
+     * ⭐ THE SWEEP (P3). An id-keyed entry whose element dies is stranded — it can never mis-apply
+     * (a new member is minted with a new id), but it stays in the JSON forever. A member dies in
+     * four places, and only ONE of them is `deleteNote`.
+     */
+    describe('an offset dies with the member it belongs to', () => {
+      const offsets = () => Object.keys(model.getScore().engravingOverrides ?? {})
+
+      /** A fan with every member offset, so the sweep has something to miss. `keys` is captured up
+       *  front: `fan.members` is the live list, and the edits under test splice it. */
+      function allOffset() {
+        const f = fanned()
+        const keys = f.members.map(m => m[0].id)
+        for (const key of keys) model.nudgeNoteOffset(model.offsetTargetOf(key)!.key, 1)
+        expect(offsets()).toHaveLength(3)
+        return { ...f, keys }
+      }
+
+      it('Delete on the member takes it', () => {
+        const { keys } = allOffset()
+        model.deleteNote(keys[1])
+        expect(offsets()).toEqual([keys[0], keys[2]])
+      })
+
+      it('⭐ …and so does LOWERING the count, which never goes near deleteNote', () => {
+        const { note, keys } = allOffset()
+        model.setFan(note.id, { ...chordAt(0).fan!, count: 2 }) // 4 → 2: members 2 and 3 are gone
+        expect(offsets()).toEqual([keys[0]])
+      })
+
+      it('removing the fan takes all of them — the members went with the mark', () => {
+        const { note } = allOffset()
+        model.setFan(note.id, null)
+        expect(offsets()).toEqual([])
+      })
+
+      it('deleting the note that was typed takes the whole group with it', () => {
+        const { note } = allOffset()
+        model.deleteNote(note.id) // the slot goes, and the fan it wore
+        expect(offsets()).toEqual([])
+      })
+    })
+
     it('⭐ deleting the pitch the key is MADE of carries the offset to the next one', () => {
       const { members } = fanned()
       const first = members[0][0].id

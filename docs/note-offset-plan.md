@@ -317,19 +317,17 @@ which is what a beam does everywhere else:
    (documented as ⚠️ *not* the offset address, which is the one case they differ on).
    ✅ The `measureShapeKey` half was pulled forward into P1 (and **stays out** of the width key — an
    offset has no width). The keyboard surface needs nothing: it goes through the facade.
-4. **P3 — travel + cleanup.** Member entries join `captureNoteOffsets` / `restoreNoteOffsets`
-   (`rebarOps.ts:799` walks `m.slots` only) and `ClipboardLane.noteOffsets`, captured as
+4. **P3 — travel + cleanup. ✅ DONE.** Member entries joined `captureNoteOffsets` /
+   `restoreNoteOffsets` and `ClipboardLane.noteOffsets`, captured as
    `(voice, staffId, slot absBeat, member index)` and restored onto the destination member's first
-   pitch id — index is the address *there* because `cloneFanFresh` re-mints every member pitch id
-   (`utils/fannedBeam.ts:185`), so the ids on the far side are new by construction, and capture and
-   restore are one instant of one passage.
-   **The drop rule, stated like the slot one:** no slot starting at that beat → drop; slot there but
-   no member `k` (a fan with fewer members, or no fan at all) → drop. Both benign, neither an error.
-   **Two ways a member dies, not one.** `deleteNote`'s member branch takes its pitch ids with it —
-   sweep the entry there. But lowering `fan.count` truncates through `normalizeFan`
-   (`slice(0, want)`, `utils/fannedBeam.ts:169`), which is the Properties path and never touches
-   `deleteNote`: sweep there too, or record that those orphans are accepted (they can never
-   mis-apply — raising the count again mints fresh ids — they only bloat the JSON).
+   pitch id. Index is the address *there* because `cloneFanFresh` re-mints every member pitch id, so
+   the ids on the far side are new by construction while capture and restore are one instant of one
+   passage. **The drop rule, stated like the slot one:** no slot starting at that beat → drop; slot
+   there but no member `k` (a fan with fewer members, or no fan at all) → drop. Both benign.
+   **FOUR ways a member dies, not two** — `clearFanMemberOffsets` is one helper called from all of
+   them, which is the point of having it: `deleteNote` on the member; **lowering `fan.count`**
+   (`normalizeFan`'s `slice(0, want)`, which never goes near `deleteNote`); removing the fan
+   outright; and deleting the note that was typed, which takes the slot and the whole group with it.
 
 Tests: the geometry contract in `FannedBeam.test.ts` (an offset moves that member's head and stem and
 **no other head** — the ramp is unchanged; the same run with the offset at index 0, where `headX`

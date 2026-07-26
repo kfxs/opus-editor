@@ -991,6 +991,23 @@ export class ScoreModel {
     return true
   }
 
+  /**
+   * Drop the stored offsets of fanned members that are GOING AWAY — the sweep every id-keyed client
+   * owes the compartment when its element dies (docs/note-offset-plan.md P3).
+   *
+   * ⚠️ **A member dies in more than one place**, which is the whole reason this is a helper: the
+   * `Delete` key takes one ({@link deleteNote}), lowering `fan.count` truncates the list
+   * (`normalizeFan` in {@link setFan}), removing the fan drops all of them, and deleting the note
+   * that was typed takes the slot and the group with it. Miss one and the entry is stranded — it can
+   * never mis-apply, since a new member is minted with a new id, but it stays in the JSON forever.
+   */
+  private clearFanMemberOffsets(members: NotePitch[][] | undefined): void {
+    for (const pitches of members ?? []) {
+      const first = pitches[0]
+      if (first) this.clearEngravingOverride(first.id, 'noteOffset')
+    }
+  }
+
   /** Carry a stored note offset from one key to another, doing nothing when there is none — the one
    *  thing a re-keying edit owes the compartment. Only `noteOffset` moves: every other override at
    *  the old key belongs to whatever else was addressed by it. */
@@ -1390,7 +1407,7 @@ export class ScoreModel {
     clipDynamics: rebarOps.ClipDynamicInput[] = [],
     clipSlurs: rebarOps.ClipSlurInput[] = [],
     clipSpaces: Array<{ offset: Fraction; space: number }> = [],
-    clipNoteOffsets: { staff: number; voice: number; noteOffsets: Array<{ offset: Fraction; x: number }> }[] = [],
+    clipNoteOffsets: { staff: number; voice: number; noteOffsets: Array<{ offset: Fraction; x: number; member?: number }> }[] = [],
   /** Two-note tremolos the clip carries, per lane — see `ClipboardLane.tremoloPairs`. */
   clipTremoloPairs: { staff: number; voice: number; tremoloPairs: Array<{ offset: Fraction; style?: 'joined' | 'open' }> }[] = [],
   ): string[] {
@@ -2300,6 +2317,8 @@ export class ScoreModel {
 
     if (fan === null) {
       if (!chord.fan) return null
+      // The members go with the mark, and so do their authored offsets.
+      this.clearFanMemberOffsets(chord.fan.members)
       delete chord.fan
       return this.toFlatNote(chord, pitch)
     }
@@ -2309,7 +2328,13 @@ export class ScoreModel {
     // Materialises the members on a fresh mark, grows or shrinks them on an edited one — and does it
     // HERE rather than in the callers so a palette press, a Properties number and anything added
     // later cannot disagree about the off-by-one.
+    const before = chord.fan?.members ?? []
     chord.fan = normalizeFan(fan, chord.notes)
+    // ⚠️ A LOWERED count truncates the list (`slice(0, want)`), so this is the second way a member
+    // dies and it never goes near `deleteNote`. The survivors are the same arrays by identity, so
+    // whatever is not in the new list is what left — take its offset with it.
+    const kept = new Set(chord.fan.members ?? [])
+    this.clearFanMemberOffsets(before.filter(m => !kept.has(m)))
     delete chord.tremolo
     delete chord.tremoloPair
     delete chord.tremoloPairStyle
@@ -2790,6 +2815,7 @@ export class ScoreModel {
         return true
       }
       const fan = chord.fan!
+      this.clearFanMemberOffsets([member.pitches]) // its head is going: so is where it was put
       fan.members?.splice(member.index - 1, 1) // 1-based in the GROUP, 0-based in the list
       fan.count = Math.max(1, fan.count - 1)
       dbg(`[Model.deleteNote] fan member ${member.index} REMOVED → count ${fan.count}`)
@@ -2836,8 +2862,9 @@ export class ScoreModel {
       const idx = measure.slots.findIndex(s => s.id === chord.id)
       if (idx !== -1) {
         if (chord.notes.length <= 1) {
-          // Remove the whole chord slot
+          // Remove the whole chord slot — and with it any fan it wore, so its members' offsets go too.
           dbg(`[Model.deleteNote] delete whole chord ${fmtSlot(chord)} → m${measure.number} now ${measure.slots.length - 1} slot(s)`)
+          this.clearFanMemberOffsets(chord.fan?.members)
           measure.slots.splice(idx, 1)
         } else {
           // Remove just this pitch from the chord

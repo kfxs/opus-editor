@@ -94,6 +94,76 @@ describe('note offset — copy/paste', () => {
   })
 })
 
+/**
+ * ⭐ A FANNED MEMBER's offset travels too (docs/note-offset-plan.md P3) — and by a different address
+ * than everything else here: the group's own beat plus the member's INDEX. A member has no column of
+ * its own for the tiling to hand back, and its key (its first pitch id) is re-minted by
+ * `cloneFanFresh` on the far side, so the index is what survives the crossing.
+ */
+describe('note offset — a fanned member', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  /** A fanned half note at bar 1 beat 0, plus a second half note to fill the bar. */
+  function fanned() {
+    const owner = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!
+    engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
+    engine.setFan(owner.id, { direction: 'accel', count: 4, beams: 3 })
+    const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    return { owner, memberIds: slot.fan!.members!.map(m => m[0].id) }
+  }
+
+  /** The offset stored on member `k` of the fan at (measure, beat 0), or 0 when none. */
+  const memberOffsetAt = (m: number, k: number) => {
+    const measure = engine.getScore().measures.find(mm => mm.number === m)!
+    const slot = measure.slots.find(s => s.type === 'chord' && s.beat.num === 0)
+    if (!slot || slot.type !== 'chord') return 0
+    const id = slot.fan?.members?.[k - 1]?.[0]?.id
+    return id ? noteOffsetOverrideOf(engine.getScore(), id)?.x ?? 0 : 0
+  }
+
+  it('⭐ is captured with its INDEX, beside the group’s own offset', () => {
+    const { owner, memberIds } = fanned()
+    engine.nudgeNoteOffset(owner.id, 1)
+    engine.nudgeNoteOffset(memberIds[1], -2) // member 2 of 4
+    const clip = buildClipboardFromSelection(engine.getScore(), [owner.id])!
+    expect(clip.lanes[0].noteOffsets).toEqual([
+      { offset: frac(0, 1), x: 1 },
+      { offset: frac(0, 1), x: -2, member: 2 },
+    ])
+  })
+
+  it('⭐ lands on the member of the same index in the pasted fan', () => {
+    const { owner, memberIds } = fanned()
+    engine.nudgeNoteOffset(memberIds[1], -2)
+    const clip = buildClipboardFromSelection(engine.getScore(), [owner.id])!
+    const clipNoteOffsets = clip.lanes
+      .filter(l => l.noteOffsets?.length)
+      .map(l => ({ staff: l.staff, voice: l.voice, noteOffsets: l.noteOffsets! }))
+    engine.addMeasure()
+    engine.pasteEvents(2, frac(0, 1), clip.lanes, clip.spanBeats, 0, [], [], 0, clip.dynamics, clip.slurs, clip.spaces ?? [], clipNoteOffsets)
+
+    expect(memberOffsetAt(2, 2)).toBe(-2)
+    // …on the PASTED fan's own member, whose id is a fresh one — and only that member.
+    expect(memberOffsetAt(2, 1)).toBe(0)
+    expect(memberOffsetAt(2, 3)).toBe(0)
+  })
+
+  it('follows the group when a meter change re-tiles the bars', () => {
+    const { memberIds } = fanned()
+    engine.nudgeNoteOffset(memberIds[0], 3)
+    engine.setTimeSignature(1, { numerator: 2, denominator: 4 })
+
+    // ⚠️ The precondition, asserted so this cannot pass vacuously: the rebuilt slot's members are
+    // FRESH pitches (`cloneFanFresh`), so the entry can only be there because it was re-stamped.
+    const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    expect(slot.fan!.members![0][0].id).not.toBe(memberIds[0])
+    expect(memberOffsetAt(1, 1)).toBe(3)
+  })
+})
+
 describe('note offset — survives a rebar', () => {
   let engine: MusicEngine
   beforeEach(() => { engine = makeEngine() })

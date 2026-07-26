@@ -902,7 +902,7 @@ export class MusicEngine {
     clipDynamics: ClipDynamicInput[] = [],
     clipSlurs: ClipSlurInput[] = [],
     clipSpaces: Array<{ offset: Fraction; space: number }> = [],
-    clipNoteOffsets: { staff: number; voice: number; noteOffsets: Array<{ offset: Fraction; x: number }> }[] = [],
+    clipNoteOffsets: { staff: number; voice: number; noteOffsets: Array<{ offset: Fraction; x: number; member?: number }> }[] = [],
   /** Two-note tremolos the clip carries, per lane — see `ClipboardLane.tremoloPairs`. */
   clipTremoloPairs: { staff: number; voice: number; tremoloPairs: Array<{ offset: Fraction; style?: 'joined' | 'open' }> }[] = [],
   ): string[] {
