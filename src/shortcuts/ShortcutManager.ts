@@ -110,9 +110,14 @@ export class ShortcutManager {
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key
 
     if (modifierPrefix) {
-      // For shortcuts with modifiers, only use event.key (not code)
-      // This ensures Ctrl+ArrowUp only works with regular arrows, not numpad
-      shortcut = SHORTCUTS[modifierPrefix + key]
+      // For shortcuts with modifiers, use event.key — so Ctrl+ArrowUp works with the regular arrows
+      // and not the numpad, which reports the same `key`.
+      //
+      // …falling back to `code`, which is the only way to name a NUMPAD key on its own (`Ctrl+Numpad1`).
+      // A fallback, not a first choice: it matches nothing that was not declared that way, so the
+      // arrow rule above is untouched. It is also what makes such a binding survive NUMLOCK — with the
+      // lock off the pad reports `key: 'End'`, while the `code` is `Numpad1` either way.
+      shortcut = SHORTCUTS[modifierPrefix + key] ?? SHORTCUTS[modifierPrefix + event.code]
     } else {
       // For shortcuts without modifiers, check code first (for numpad), then key
       shortcut = SHORTCUTS[event.code] || SHORTCUTS[event.key]

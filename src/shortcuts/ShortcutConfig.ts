@@ -306,14 +306,14 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // without walking the `+` ring. It names the PAGE, never an index (see `KEYPAD_PAGES`): a page
   // inserted later must not silently re-point this key.
   //
-  // 🚨 **The TOP-ROW `Ctrl+1` is the browser's own tab-switch, and a page cannot preventDefault it** —
-  // the same wall `tempoMenu` and `TextEditController` hit, which is why they route through the
-  // numeric keypad instead. So in an ordinary tab this fires from the NUMPAD's `1` and not from the
-  // top row: with NumLock on that key reports `key: '1'`, which is what this table matches on (a
-  // modified shortcut is looked up by `key`, never by `code` — see `ShortcutManager`), and browsers
-  // reserve the top row rather than the pad. The top-row press still works wherever the browser is
-  // not in the way (a desktop shell), and costs nothing to leave declared.
-  'Ctrl+1': { action: 'keypadNoteEntryPage', description: 'Keypad: turn to the note-entry page' },
+  // 🚨 **The NUMPAD's `1`, not the top row** (his call). The top-row `Ctrl+1` is the browser's own
+  // tab-switch and a page cannot preventDefault it — the same wall `tempoMenu` and
+  // `TextEditController` hit, which is why they route through the numeric keypad too.
+  //
+  // Named by `code`, so it is the pad and nothing else, and so it survives NUMLOCK: with the lock off
+  // that key reports `key: 'End'`. `ShortcutManager` falls back to `code` for a modified shortcut for
+  // exactly this — a `key` binding could not tell the two `1`s apart.
+  'Ctrl+Numpad1': { action: 'keypadNoteEntryPage', description: 'Keypad: turn to the note-entry page (numpad 1)' },
 
   // View mode (docs/linear-view-plan.md). Sibelius binds Panorama to Ctrl+Shift+P, but Firefox
   // owns that (private window), so: Ctrl+Shift+L for "linear".
