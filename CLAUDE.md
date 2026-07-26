@@ -35,6 +35,7 @@ npm run build      # Production build
 npm run build:check # Type check + build
 npm run test       # Run unit tests (vitest)
 npm run test:e2e   # Run E2E tests (playwright)
+npm run audit:tests # Report source modules with no spec naming them
 ```
 
 ## Project Structure
@@ -155,3 +156,15 @@ loadJSON(json: string): void
 ## Testing
 
 Unit tests are co-located with source files (`*.test.ts`). Run with `npm run test`.
+
+**A spec is named after its subject, sitting beside it: `Subject.topic.test.ts`.**
+A source file splits by *structure*, a spec splits by *topic*, so `ScoreModel.ts`'s
+spec has grown chapters — `ScoreModel.fan.test.ts`, `ScoreModel.barWidth.test.ts` —
+each still importing `./ScoreModel`. Name a new chapter after the module its
+`expect(...)` identifiers are on, **not** its dominant import: the four
+`MeasureLayout.*.test.ts` files all construct a `ScoreModel`, but it is the fixture,
+not the subject. A test that drives several modules and names none is a *feature
+test* and belongs in a per-directory `__tests__/`. `npm run lint:testnames`
+(in `build:check`) enforces the sibling rule; `npm run audit:tests` reports the
+other direction — modules with no spec naming them, i.e. splits never finished.
+See `docs/test-layout-plan.md`.
