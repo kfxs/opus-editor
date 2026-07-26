@@ -31,8 +31,8 @@ const NOTE_EL = {
 }
 const REST_EL = { ...NOTE_EL, type: 'rest' as const, id: 'r1', pitch: undefined }
 
-/** A score the pitch branch can actually find the note in: it re-reads the model by id through
- *  `getMeasureNotes`, so an empty `slots` would make a vertical drag silently do nothing. */
+/** A score the pitch branch can actually find the note in. ⚠️ It re-reads the model by id — through
+ *  the ENGINE (`getNote`), not a `getMeasureNotes` walk, which is blind to a fanned member. */
 const scoreWithNote = () => ({
   measures: [{
     number: 1, id: 'm1', timeSignature: { numerator: 4, denominator: 4 },
@@ -185,6 +185,40 @@ describe('note/rest drag — axis decision', () => {
     engine.noteSpacingRoom = vi.fn(() => null)
     grabAndMove(140, 100)
     expect(engine.previewNoteSpacing).not.toHaveBeenCalled()
+  })
+
+  /**
+   * ⭐ A FANNED MEMBER drags like any other note (docs/fanned-beam-pitches-plan.md §2 P3).
+   *
+   * It reached the registry and the highlight and STILL did nothing on a drag, because the pitch
+   * branch re-read the note through `getMeasureNotes` — which walks `slot.notes` and cannot see a
+   * member. The gesture armed, the axis was decided, and the drop wrote nothing (his report).
+   */
+  it('⭐ a member the flat walk cannot see still re-pitches on a vertical drag', () => {
+    // The score holds ONE fanned slot whose member id is NOT among `slot.notes`.
+    engine.getScore = () => ({
+      measures: [{
+        number: 1, id: 'm1', timeSignature: { numerator: 4, denominator: 4 },
+        slots: [{
+          type: 'chord', id: 's1', measure: 1, beat: frac(0, 1), duration: 'h', voice: 0,
+          notes: [{ id: 'n1', step: 'C', alter: 0, octave: 4 }],
+          fan: {
+            direction: 'accel', count: 2, beams: 3,
+            members: [[{ id: 'fm1', step: 'C', alter: 0, octave: 4 }]],
+          },
+        }],
+      }],
+    })
+    // …and the engine answers for it, exactly as the real `getNote` does.
+    note = { id: 'fm1', measure: 1, beat: frac(0, 1), staff: 0, step: 'C', alter: 0, octave: 4, isRest: false }
+    element = { ...NOTE_EL, id: 'fm1' }
+
+    mc.handleMouseDown(ev({ clientX: 100, clientY: 100 }))
+    state.selectedNoteId = 'fm1'
+    mc.handleMouseMove(ev({ clientX: 104, clientY: 140 })) // dominantly vertical
+
+    expect(engine.updateNote).toHaveBeenCalledWith('fm1', expect.objectContaining({ step: 'E', octave: 4 }))
+    expect(render.renderScore).toHaveBeenCalled()
   })
 })
 

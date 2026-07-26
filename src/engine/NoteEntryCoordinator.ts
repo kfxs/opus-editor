@@ -584,6 +584,22 @@ export class NoteEntryCoordinator {
    * barline with a tie when it overflows the bar).
    */
   updateNote(noteId: string, updates: Partial<NoteParams>): Note {
+    // ⭐ A FANNED MEMBER goes STRAIGHT to the model — none of the rhythm machinery below applies to
+    // it (docs/fanned-beam-pitches-plan.md §2 P3). A member has no duration of its own to shorten,
+    // no gap to rest-fill and no barline to split across: the slot owns all of that, and re-spelling
+    // a pitch inside the group changes none of it. The model writes the spelling and ignores the
+    // rest. This is also what keeps a member's id out of the rebar path entirely.
+    if (this.getScoreModel().isFanMember(noteId)) {
+      const updated = this.getScoreModel().updateNote(noteId, updates)
+      // 🚨 AND IT COMMITS, like every other branch here. Writing to the model without asking to be
+      // saved is the documented trap (`MusicEngine.runBatch` case 2): `saveUndoState` is the only
+      // thing that marks the model dirty and the only thing a surrounding `runBatch` counts — so an
+      // uncommitted edit lands in the data, mints no undo entry, and `adjustPitch` sees "nothing
+      // changed" and SKIPS THE REPAINT. The member moves in the model and not on the page until
+      // some later edit forces a redraw. (His report, first thing he tried.)
+      this.onCommit('Update note')
+      return updated
+    }
     const existingNote = this.getScoreModel().getNote(noteId)
     if (!existingNote) throw new Error(`Note ${noteId} not found`)
 

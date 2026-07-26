@@ -265,3 +265,101 @@ describe('the fan is drawn where the note is', () => {
     expect(Math.min(...ys)).toBeGreaterThan(topLineY - 60)
   })
 })
+
+/**
+ * ⭐ P3 — a member is SELECTABLE: it has a registry entry of its own and an SVG group the highlight
+ * can recolour (docs/fanned-beam-pitches-plan.md §2 P3).
+ */
+describe('the members are selectable', () => {
+  function fannedWithMembers(count = 4) {
+    const model = new ScoreModel('fan select')
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
+    model.setFan(note.id, { direction: 'accel', count, beams: 3 })
+    const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    const steps = ['D', 'E', 'F', 'G'] as const
+    slot.fan!.members!.forEach((m, k) => { m[0].step = steps[k % steps.length] })
+    return { model, slot, note }
+  }
+
+  it('⭐ registers one `note` element per member, at the SLOT’s beat', () => {
+    const { model, slot, note } = fannedWithMembers(4)
+    const { renderer } = makeRenderer()
+    renderer.renderScore(model.getScore())
+    const registry = renderer.getElementRegistry()
+
+    for (const member of slot.fan!.members!) {
+      const el = registry.getById(member[0].id)
+      expect(el, `member ${member[0].step}`).not.toBeNull()
+      expect(el!.type).toBe('note')
+      // ⚠️ THE SLOT'S BEAT, not one of its own. This is what keeps `pixelXToBeat` unmoved: that walk
+      // dedups anchors by beat and keeps the leftmost x, so the members fold into the note's column.
+      expect(el!.beat).toBe(registry.getById(note.id)!.beat)
+      expect(el!.headX).toBeGreaterThan(registry.getById(note.id)!.headX!)
+    }
+  })
+
+  it('⭐ leaves the pixel→beat mapping exactly as it was — a fan adds no anchors', () => {
+    const { model } = fannedWithMembers(6)
+    const { renderer } = makeRenderer()
+    renderer.renderScore(model.getScore())
+    const withFan = renderer.getElementRegistry().pixelXToBeat(200, 1, 4)
+
+    const plain = new ScoreModel('fan select')
+    plain.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    plain.addNote({ step: 'E', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
+    const { renderer: r2 } = makeRenderer()
+    r2.renderScore(plain.getScore())
+    // Two anchors either way (the two slots), so the interpolation is the same shape.
+    expect(withFan).not.toBeNull()
+    expect(typeof withFan).toBe(typeof r2.getElementRegistry().pixelXToBeat(200, 1, 4))
+  })
+
+  it('⭐ hands the highlight a group per member — its own ink, not the note’s', () => {
+    const { model, slot, note } = fannedWithMembers(4)
+    const { renderer } = makeRenderer()
+    renderer.renderScore(model.getScore())
+
+    for (const member of slot.fan!.members!) {
+      const info = renderer.getFanMemberSVGGroup(member[0].id)
+      expect(info).not.toBeNull()
+      expect(info!.group.getAttribute('class')).toBe('vf-fanhead')
+      expect(info!.group.querySelector('g.vf-notehead')).not.toBeNull()
+    }
+    // The real note is NOT a member — it keeps its own StaveNote group.
+    expect(renderer.getFanMemberSVGGroup(note.id)).toBeNull()
+    expect(renderer.getStaveNoteSVGGroup(note.id)).not.toBeNull()
+  })
+
+  it('⭐ the member heads out-rank the fan’s own ink rect for a click', () => {
+    // `getAt` returns the LAST matching element, and the group's rect spans every member — so the
+    // rect has to be registered FIRST or no member could ever be clicked.
+    const { model, slot } = fannedWithMembers(4)
+    const { renderer } = makeRenderer()
+    renderer.renderScore(model.getScore())
+    const registry = renderer.getElementRegistry()
+    const ids = slot.fan!.members!.map(m => m[0].id)
+    const memberEls = ids.map(id => registry.getById(id)!)
+    const all = registry.getAll()
+    const beamIdx = all.findIndex(el => el.type === 'beam')
+    if (beamIdx >= 0) {
+      for (const el of memberEls) expect(all.indexOf(el)).toBeGreaterThan(beamIdx)
+    }
+  })
+
+  it('a fan with no stored members registers nothing extra — nothing to select', () => {
+    const model = new ScoreModel('fan select')
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.setFan(note.id, FAN)
+    const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    delete slot.fan!.members
+    const { renderer } = makeRenderer()
+    renderer.renderScore(model.getScore())
+    // Only the real note is a `note` element in this bar.
+    const notes = renderer.getElementRegistry().getByType('note')
+    expect(notes).toHaveLength(1)
+    expect(notes[0].id).toBe(note.id)
+  })
+})

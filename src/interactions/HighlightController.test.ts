@@ -244,6 +244,7 @@ describe('clearHighlights — the inverse of a highlight pass', () => {
       getNote: () => ({ voice: 1 }),
       getElementById: () => ({ type: 'note' }),
       getStaveNoteSVGGroup: () => ({ group, noteIndex: 0, stem: null }),
+      getFanMemberSVGGroup: () => null, // not a fanned member — the ordinary note path
       getTieSVGGroup: () => undefined, // this note ties to nothing (see the tie tests below)
     } as unknown as MusicEngine
 
@@ -335,6 +336,7 @@ describe('clearHighlights — the inverse of a highlight pass', () => {
         getNote: () => ({ voice: 0 }),
         getElementById: () => ({ type: 'note' }),
         getStaveNoteSVGGroup: () => ({ group, noteIndex: 0, stem: null }),
+      getFanMemberSVGGroup: () => null, // not a fanned member — the ordinary note path
         // Keyed by the FROM note: a note that ties to nothing has no group.
         getTieSVGGroup: (id: string) => (tied && id === 'N1' ? tie : undefined),
       } as unknown as MusicEngine
@@ -405,6 +407,7 @@ describe('clearHighlights — the inverse of a highlight pass', () => {
         getNote: () => ({ voice: 0, tremolo: mark }),
         getElementById: () => ({ type: 'note' }),
         getStaveNoteSVGGroup: () => ({ group, noteIndex: 0, stem: null }),
+      getFanMemberSVGGroup: () => null, // not a fanned member — the ordinary note path
         getTieSVGGroup: () => undefined,
       } as unknown as MusicEngine
 
@@ -478,5 +481,75 @@ describe('clearHighlights — the inverse of a highlight pass', () => {
     expect(registry.getByType('slur-endpoint').length).toBe(0)
     expect(registry.getByType('slur').length).toBe(1) // the engraved slur itself survives
     void hc
+  })
+})
+
+/**
+ * ⭐ A SELECTED FANNED MEMBER (docs/fanned-beam-pitches-plan.md §2 P3) — its ink is ours, drawn into
+ * one group, so the highlight is an ordinary recolour rather than a painted rectangle.
+ *
+ * ⚠️ What is really pinned here is the fill/stroke split: **a glyph is filled, never stroked.**
+ * Giving the accidental a stroke as well as a fill outlines it, and an outlined glyph reads as BOLD
+ * — which is exactly how it looked (his report).
+ */
+describe('the fanned-member highlight', () => {
+  function memberHarness() {
+    const canvas = document.createElement('div')
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    canvas.appendChild(svg)
+
+    // What `drawFannedBeams` paints into one member's group: a notehead subgroup, the accidental
+    // glyph as a direct `<text>`, and the stem + ledger line as direct `<path>`s.
+    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+    group.setAttribute('class', 'vf-fanhead')
+    const headGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+    headGroup.setAttribute('class', 'vf-notehead')
+    const headGlyph = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+    headGroup.appendChild(headGlyph)
+    const accidental = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+    const stem = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    group.append(headGroup, accidental, stem)
+    svg.appendChild(group)
+
+    const engine = {
+      getElementRegistry: () => new ElementRegistry(),
+      getViewMode: () => 'wrapped' as ViewMode,
+      getNote: () => ({ voice: 0 }),
+      getElementById: () => ({ type: 'note' }),
+      getStaveNoteSVGGroup: () => null,
+      getFanMemberSVGGroup: () => ({ group, noteIndex: 0 }),
+      getTieSVGGroup: () => undefined,
+    } as unknown as MusicEngine
+
+    const state = createEditorState()
+    state.selectedItems.set('M1', { kind: 'note', id: 'M1' })
+    const hc = new HighlightController(() => engine, () => canvas, state)
+    return { hc, group, headGlyph, accidental, stem }
+  }
+
+  it('⭐ fills the ACCIDENTAL and never strokes it — a stroked glyph reads as bold', () => {
+    const { hc, accidental } = memberHarness()
+    hc.applySelectionHighlight()
+    expect(accidental.getAttribute('fill')).toBeTruthy()
+    expect(accidental.getAttribute('stroke')).toBeNull()
+  })
+
+  it('fills the notehead and strokes the stem — the same split as an ordinary note', () => {
+    const { hc, headGlyph, stem } = memberHarness()
+    hc.applySelectionHighlight()
+    expect(headGlyph.getAttribute('fill')).toBeTruthy()
+    expect(headGlyph.getAttribute('stroke')).toBeNull()
+    expect(stem.getAttribute('stroke')).toBeTruthy()
+  })
+
+  it('clearHighlights is an exact inverse here too', () => {
+    const { hc, accidental, stem, headGlyph } = memberHarness()
+    hc.applySelectionHighlight()
+    hc.clearHighlights()
+    for (const el of [accidental, stem, headGlyph]) {
+      expect(el.getAttribute('fill')).toBeNull()
+      expect(el.getAttribute('stroke')).toBeNull()
+      expect(el.classList.contains('selected-note')).toBe(false)
+    }
   })
 })

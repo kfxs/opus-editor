@@ -177,7 +177,7 @@ broken build.
   so the choice is to widen the gap floor where a member carries a sign and accept that the bar was
   not asked for it, or to accept the squeeze. Provisional either way, like every other number here.
 
-**P3 — selection, resolution and the audit. ONE phase.** Splitting "you can click it" from "an id
+**P3 — selection, resolution and the audit. ONE phase. ✅ DONE.** Splitting "you can click it" from "an id
 resolves to it" ships a window where the member is selectable and nothing downstream can answer for
 it: `updateNote` **throws** `Note ... not found` (`ScoreModel.ts:2290`), and `highlightNote` returns
 early because `getStaveNoteSVGGroup` is null (`HighlightController.ts:302`) so a selected member
@@ -205,6 +205,36 @@ shows no highlight at all.
 - Deleting a pitch from a member with several removes that pitch. Deleting a member's LAST pitch is
   refused: a member is a note, an empty one is not a notation, and the number of members is
   `fan.count` — edited in Properties, not by deleting heads.
+
+> **Built the other way up: `findSlot` finds a member only when ASKED (`{ fanMembers: true }`).** The
+> plan had it resolve members outright, with an audit adding the refusals — but then a mutator
+> written next year half-writes by default. Failing CLOSED makes every unaudited command refuse by
+> not finding it, and five callers opt in by name (`getNote`, `getNotePitch`, `slotIdForNote`,
+> `updateNote`, `deleteNote`). `updateNote` writes a member's SPELLING and nothing else; the commands
+> that attach to the gesture (tie, articulation, stem flip, convert-to-rest) refuse up front via
+> `MusicEngine.refusesFanMember`, so no undo entry is minted for an edit that did not happen.
+>
+> ⭐ **The bug that came back FIVE times, each in a different disguise: `getMeasureNotes(...).find(...)`
+> as "resolve the selected id".** That walk reads `slot.notes`, so it is blind to a member — and every
+> piece of the selection machinery was built on it. The palette went stale, arrow navigation was a
+> dead end, the pitch DRAG did nothing, `Shift`+letter stacked onto the group's FIRST head, and
+> Alt+↑/↓ inside a fan did nothing. The rule now: **resolve a selected id through the ENGINE**
+> (`getNote`), and where the question is "what else is stacked here?", ask `fanMemberPitches` —
+> because inside a fan **the chord is the MEMBER, not the slot**.
+>
+> Two more that were invisible rather than wrong:
+> - 🚨 **An edit must be COMMITTED, not just written.** The member branch skipped `onCommit`, so
+>   `runBatch` counted no undo request, concluded nothing happened, and its caller SKIPPED THE
+>   REPAINT — the pitch moved everywhere except on the page (`MusicEngine.runBatch` documents this
+>   exact trap; it cost the undo entry too).
+> - 🚨 **A per-render map has THREE sites, not one.** Cleared, captured into `MeasureSnapshot`,
+>   restored on reuse. The member groups had only the first, so a bar that was REUSED (edit any other
+>   bar) lost every member's highlight target while selection kept working — the registry slice is
+>   restored, the map was not.
+>
+> Also built here, beyond the plan's list: arrow ←/→ **walks the members** (each is a stop at the beat
+> it sounds on, in `buildVoiceNavBeatMap` only — never in `buildBeatMap`, which drives note ENTRY,
+> where a member is not a position you can type at). The member beats have one owner, `fanMemberEntries`.
 
 **P4 — playback.** Each member sounds its OWN pitch. ⚠️ **Not three lines — a restructure.** The fan
 expansion sits INSIDE the `for np of chord.notes` loop (`engine/audio/playbackSchedule.ts:246`), so

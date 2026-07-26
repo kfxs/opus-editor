@@ -413,8 +413,13 @@ export class KeyboardController {
     // new note must stay in that voice, or the chord note lands in voice 1 by default.
     const noteVoice = note.voice ?? 0
     const noteStaff = note.staff ?? 0
-    const chordMidis = (measure ? getMeasureNotes(measure, score) : [])
-      .filter(n => !n.isRest && fracEq(n.beat, note.beat) && (n.voice ?? 0) === noteVoice && (n.staff ?? 0) === noteStaff)
+    // ⭐ A FANNED MEMBER is its OWN chord (docs/fanned-beam-pitches-plan.md §2 P3): the pitches
+    // already stacked here are the member's, not the slot's. Resolving this positionally — the
+    // ordinary path below — reads the whole slot and then adds to `slot.notes`, which put the new
+    // note on the group's FIRST head (his report).
+    const memberPitches = engine.fanMemberPitches(this.state.selectedNoteId)
+    const chordMidis = (memberPitches ?? (measure ? getMeasureNotes(measure, score) : [])
+      .filter(n => !n.isRest && fracEq(n.beat, note.beat) && (n.voice ?? 0) === noteVoice && (n.staff ?? 0) === noteStaff))
       .map(n => spellingToMidi(n.step!, n.alter!, n.octave!))
     const baseMidi = chordMidis.length > 0
       ? Math.max(...chordMidis)
@@ -427,19 +432,22 @@ export class KeyboardController {
     if (targetMidi === baseMidi) targetMidi += 12
     const octave = Math.floor(targetMidi / 12) - 1
 
-    const newNote = engine.addChordNote({
-      step,
-      alter,
-      octave,
-      duration: note.duration,
-      measure: note.measure,
-      beat: note.beat,
-      dots: note.dots,
-      isRest: false,
-      tupletId: note.tupletId,
-      voice: noteVoice,
-      ...(noteStaff && { staff: noteStaff }),
-    })
+    const newNote = memberPitches
+      ? engine.addFanMemberPitch(this.state.selectedNoteId, { step, alter, octave })
+      : engine.addChordNote({
+        step,
+        alter,
+        octave,
+        duration: note.duration,
+        measure: note.measure,
+        beat: note.beat,
+        dots: note.dots,
+        isRest: false,
+        tupletId: note.tupletId,
+        voice: noteVoice,
+        ...(noteStaff && { staff: noteStaff }),
+      })
+    if (!newNote) return
     // Clear the armed accidental after the note, same as enterNoteAtCursorPosition — a chord note is
     // still keyboard entry, so the accidental must behave identically (one note, not sticky). Without
     // this, chord entry would keep the sharp while plain entry drops it: two rules, one confusing UX.

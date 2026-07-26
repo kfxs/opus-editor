@@ -202,6 +202,36 @@ export function fanMemberPitches(notes: NotePitch[], fan: FanMark): NotePitch[][
   return out
 }
 
+/**
+ * Every STORED member with the beat it sounds on — `slot.beat + Σ preceding member quarters`.
+ *
+ * The one owner of that arithmetic, because three passes now need the same answer and a member at
+ * the wrong beat is wrong in three different ways: the running-accidental walk would decide the
+ * signs in the wrong order, arrow navigation would step out of order, and playback would too.
+ *
+ * ⚠️ The beats are arbitrary rationals — 8/15 of a beat is an ordinary answer — and that is fine.
+ * They are POSITIONS, never notatable durations; nothing turns them back into slots, which is
+ * exactly what storing the assertion buys (docs/fanned-beams-plan.md §0).
+ *
+ * Member 0 is NOT here: it is the slot's own chord, at the slot's own beat.
+ */
+export function fanMemberEntries(
+  fan: FanMark,
+  totalQuarters: Fraction,
+  slotBeat: Fraction,
+): Array<{ index: number; pitches: NotePitch[]; beat: Fraction }> {
+  const stored = fan.members ?? []
+  if (stored.length === 0) return []
+  const spans = fanMembers(fan, totalQuarters)
+  const out: Array<{ index: number; pitches: NotePitch[]; beat: Fraction }> = []
+  let beat = slotBeat
+  for (let k = 0; k < stored.length; k++) {
+    beat = fracAdd(beat, spans[k]?.quarters ?? fracCreate(0, 1)) // member k+1 starts where member k ends
+    out.push({ index: k + 1, pitches: stored[k], beat })
+  }
+  return out
+}
+
 /** One note of the expanded group. */
 export interface FanMember {
   /** 0-based position in the group. */

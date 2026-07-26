@@ -89,6 +89,13 @@ function fmtSlot(slot: ChordRest): string {
 export const DEFAULT_FRAGMENT_TITLE = 'Fragment 1'
 
 /**
+ * What {@link ScoreModel.updateNote} will write onto a FANNED MEMBER — its spelling, and nothing
+ * else. Named so the ignored-field trace can name what it dropped rather than saying "some fields";
+ * the rule itself is stated at the branch (docs/fanned-beam-pitches-plan.md §2 P3).
+ */
+const FAN_MEMBER_UPDATE_FIELDS = new Set(['step', 'alter', 'octave', 'forceAccidental'])
+
+/**
  * True under the unit-test runner (Vitest). It flips the measure-integrity check
  * ({@link ScoreModel.checkMeasuresWellFormed}) from a dev-console `console.error`
  * into a thrown error — so a malformed bar fails the test that produced it instead
@@ -950,7 +957,9 @@ export class ScoreModel {
    * undefined for an id no longer in the score.
    */
   slotIdForNote(noteId: string): string | undefined {
-    const found = this.findSlot(noteId)
+    // A fanned member resolves to the slot it lives in — which is the right answer twice over: the
+    // offset is slot-keyed, and a member has no column of its own to nudge.
+    const found = this.findSlot(noteId, { fanMembers: true })
     if (!found) return undefined
     return found.type === 'rest' ? found.rest.id : found.chord.id
   }
@@ -1454,9 +1463,22 @@ export class ScoreModel {
 
   /**
    * Find the slot containing the given note/pitch ID.
+   *
+   * ⭐ **A FANNED MEMBER'S pitch is found ONLY when asked for** (`{ fanMembers: true }`), and that
+   * default is the safety rule of docs/fanned-beam-pitches-plan.md §2 P3. A member is a real pitch
+   * with a real id, so an id can now name something that is NOT in `slot.notes` — and almost every
+   * mutator here assumes it is: the delete paths are `chord.notes.filter(n => n.id !== pitch.id)`,
+   * which would no-op on a member and report success, and the tie would write `tiedTo` onto a pitch
+   * `TieRenderer` looks up in `slot.notes` — stored, never drawn, invisible until export.
+   *
+   * Failing CLOSED turns every one of those into a refusal (the caller gets `undefined` and returns
+   * null/false) instead of a silent half-write, and a mutator written next year refuses without
+   * knowing fans exist. The handful of callers that genuinely mean "this pitch, wherever it lives"
+   * — {@link getNote}, {@link getNotePitch}, {@link slotIdForNote}, {@link updateNote},
+   * {@link deleteNote} — opt in, and each states what it does with a member.
    */
-  private findSlot(noteId: string):
-    | { type: 'chord'; chord: Chord; pitch: NotePitch }
+  private findSlot(noteId: string, opts?: { fanMembers?: boolean }):
+    | { type: 'chord'; chord: Chord; pitch: NotePitch; member?: { index: number; pitches: NotePitch[] } }
     | { type: 'rest'; rest: Rest }
     | undefined {
     for (const measure of this.score.measures) {
@@ -1467,10 +1489,57 @@ export class ScoreModel {
         if (slot.type === 'chord') {
           const pitch = slot.notes.find(n => n.id === noteId)
           if (pitch) return { type: 'chord', chord: slot, pitch }
+          if (opts?.fanMembers && slot.fan?.members) {
+            for (let k = 0; k < slot.fan.members.length; k++) {
+              const found = slot.fan.members[k].find(n => n.id === noteId)
+              // `index` is the member's place in the GROUP (1-based), not in the list: member 0 is
+              // the slot's own chord, so the list holds members 1…count-1.
+              if (found) return { type: 'chord', chord: slot, pitch: found, member: { index: k + 1, pitches: slot.fan.members[k] } }
+            }
+          }
         }
       }
     }
     return undefined
+  }
+
+  /**
+   * Is this id a FANNED MEMBER's pitch — a note that lives inside a `fan`, not in `slot.notes`?
+   *
+   * The public face of {@link findSlot}'s opt-in, for the commands that must REFUSE one (a tie, a
+   * slur, an articulation, a duration change: they attach to the SLOT — the whole gesture — and a
+   * member is not one). Refusing needs to be a decision the command makes, not an absence it trips
+   * over, or the refusal reads as a bug the day someone selects a member and presses `T`.
+   */
+  isFanMember(noteId: string): boolean {
+    const found = this.findSlot(noteId, { fanMembers: true })
+    return found?.type === 'chord' && found.member !== undefined
+  }
+
+  /**
+   * The pitches of the FANNED MEMBER containing `noteId` — its whole chord — or null when the id is
+   * not a member's. A member is a chord in its own right (it can hold several pitches), so "what is
+   * already stacked here?" has a different answer for a member than for the slot.
+   */
+  fanMemberPitches(noteId: string): NotePitch[] | null {
+    const found = this.findSlot(noteId, { fanMembers: true })
+    return found?.type === 'chord' && found.member ? found.member.pitches : null
+  }
+
+  /**
+   * ⭐ Stack a pitch onto the FANNED MEMBER containing `noteId` — `Shift`+letter, inside the group.
+   *
+   * The member is the chord here, not the slot: adding to `slot.notes` would put the note on the
+   * group's FIRST head (which is what happened before this existed — his report). Refuses (null)
+   * for anything that is not a member, so the ordinary chord path stays the only door to `slot.notes`.
+   */
+  addFanMemberPitch(noteId: string, spelling: { step: PitchStep; alter: PitchAlter; octave: number }): Note | null {
+    const found = this.findSlot(noteId, { fanMembers: true })
+    if (found?.type !== 'chord' || !found.member) return null
+    const pitch: NotePitch = { id: uuidv4(), step: spelling.step, alter: spelling.alter, octave: spelling.octave }
+    found.member.pitches.push(pitch)
+    dbg(`[Model.addFanMemberPitch] member ${found.member.index}: +${pitch.step}${alterToString(pitch.alter)}${pitch.octave} (${found.member.pitches.length} pitches)`)
+    return this.toFlatNote(found.chord, pitch)
   }
 
   /** Assemble a flat Note from a Chord + NotePitch, resolving the chord's `staffId`
@@ -1955,10 +2024,16 @@ export class ScoreModel {
   }
 
   /**
-   * Get a note by its ID
+   * Get a note by its ID.
+   *
+   * ⭐ Answers for a FANNED MEMBER too (docs/fanned-beam-pitches-plan.md §2 P3): a member is a real
+   * pitch you can click, so everything downstream of a selection — the Keypad, the Properties
+   * window, the highlight's rest check — has to be able to ask what it is. What comes back is the
+   * member's own spelling wearing the SLOT's rhythm (`toFlatNote` reads both from the chord), which
+   * is exactly true: the group is one event, and the member is a pitch inside it.
    */
   getNote(noteId: string): Note | undefined {
-    const found = this.findSlot(noteId)
+    const found = this.findSlot(noteId, { fanMembers: true })
     if (!found) return undefined
     if (found.type === 'rest') return this.restToFlatNote(found.rest)
     return this.toFlatNote(found.chord, found.pitch)
@@ -2208,9 +2283,9 @@ export class ScoreModel {
     return pairIsValid(lane, index) && pairAcceptsJoined(lane, index)
   }
 
-  /** The raw NotePitch behind a note id (chord head only; rests have no pitch). */
+  /** The raw NotePitch behind a note id (chord head or FANNED MEMBER; rests have no pitch). */
   getNotePitch(noteId: string): NotePitch | null {
-    const found = this.findSlot(noteId)
+    const found = this.findSlot(noteId, { fanMembers: true })
     return found && found.type === 'chord' ? found.pitch : null
   }
 
@@ -2291,9 +2366,29 @@ export class ScoreModel {
    * Update a note
    */
   updateNote(noteId: string, updates: Partial<NoteParams>): Note {
-    const found = this.findSlot(noteId)
+    const found = this.findSlot(noteId, { fanMembers: true })
     if (!found) {
       throw new Error(`Note ${noteId} not found`)
+    }
+
+    // ⭐ A FANNED MEMBER IS A PITCH, so a pitch is all it takes (docs/fanned-beam-pitches-plan.md
+    // §2 P3). That is the whole of what P3 buys: `ArrowUp`/`ArrowDown`, `Ctrl+Arrow`, `a`–`g` and
+    // the accidental stamp all route through here and write the spelling onto whichever pitch they
+    // were handed, so they work on a member without knowing one exists.
+    //
+    // ⚠️ Everything else is REFUSED here rather than half-applied: the rhythm fields belong to the
+    // slot (writing them would move the whole group), and a tie/slur/articulation attaches to the
+    // whole gesture. The commands that own those refuse a member up front (`MusicEngine`'s
+    // `isFanMember` guards) so nothing mints an undo entry either; this is the floor under them.
+    if (found.type === 'chord' && found.member) {
+      const { chord, pitch } = found
+      if (updates.step !== undefined) pitch.step = updates.step
+      if (updates.alter !== undefined) pitch.alter = updates.alter
+      if (updates.octave !== undefined) pitch.octave = updates.octave
+      if ('forceAccidental' in updates) pitch.forceAccidental = updates.forceAccidental
+      const ignored = Object.keys(updates).filter(k => !FAN_MEMBER_UPDATE_FIELDS.has(k))
+      if (ignored.length) dbg(`[Model.updateNote] fan member ${noteId}: ignored {${ignored.join(', ')}} — a member is a pitch`)
+      return this.toFlatNote(chord, pitch)
     }
 
     const before = found.type === 'rest' ? found.rest : found.chord
@@ -2536,8 +2631,25 @@ export class ScoreModel {
    * Delete a note
    */
   deleteNote(noteId: string): boolean {
-    const found = this.findSlot(noteId)
+    const found = this.findSlot(noteId, { fanMembers: true })
     if (!found) return false
+
+    // ⭐ A FANNED MEMBER: delete the PITCH, never the member. Removing one pitch of a member that
+    // has several is an ordinary chord edit and works. Removing its LAST one is REFUSED — a member
+    // is a note, an empty one is not a notation, and how many members there are is `fan.count`,
+    // which is edited in Properties (docs/fanned-beam-pitches-plan.md §2 P3). Refusing keeps that
+    // one number the only way the group's size changes.
+    if (found.type === 'chord' && found.member) {
+      const { member, pitch } = found
+      if (member.pitches.length <= 1) {
+        dbg(`[Model.deleteNote] REFUSED fan member ${noteId}: a member cannot be emptied — change fan.count`)
+        return false
+      }
+      const idx = member.pitches.indexOf(pitch)
+      member.pitches.splice(idx, 1)
+      dbg(`[Model.deleteNote] fan member ${member.index}: removed one pitch (${member.pitches.length} left)`)
+      return true
+    }
 
     if (found.type === 'rest') {
       const rest = found.rest

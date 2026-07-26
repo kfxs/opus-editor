@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { prevailingAlterAt } from './accidentalState'
 import { spellingDiatonicPos } from './pitchSpelling'
 import { fracToNumber } from './fraction'
-import type { NotePitch, PitchAlter, PitchStep } from '@/types/music'
+import type { NotePitch, PitchAlter, PitchStep, Score } from '@/types/music'
 import {
   durationToBeats,
   getMeasureDuration,
@@ -15,7 +15,9 @@ import {
   deriveTupletM,
   tupletBracketed,
   measureAccidentalNotes,
+  measureFanMemberNotes,
 } from './musicUtils'
+import { buildBeatMap, buildVoiceNavBeatMap } from './beatMap'
 import { fracCreate } from './fraction'
 const frac = fracCreate
 import type { TimeSignature, NoteDuration, Measure, TupletShape } from '@/types/music'
@@ -355,5 +357,66 @@ describe('measureAccidentalNotes', () => {
   it('a fan with no stored members adds nothing', () => {
     const measure = bar([])
     expect(measureAccidentalNotes(measure)).toHaveLength(2)
+  })
+})
+
+/**
+ * ⭐ ARROW NAVIGATION WALKS THE MEMBERS — each sounds at its own moment inside the slot, so
+ * `buildVoiceNavBeatMap` stops on every one (docs/fanned-beam-pitches-plan.md). Its ENTRY twin,
+ * `buildBeatMap`, deliberately does not: a member is not a position you can type a note at.
+ */
+describe('fanned members in the beat maps', () => {
+  const pitch = (id: string, step: PitchStep): NotePitch => ({ id, step, alter: 0, octave: 4 })
+
+  /** A 4/4 bar: a fanned blanca played as 3 at beat 0, then a plain blanca at beat 2. */
+  const score = (): Score => ({
+    id: 's', title: 't',
+    measures: [{
+      id: 'm1', number: 1, timeSignature: { numerator: 4, denominator: 4 }, tuplets: [],
+      slots: [
+        {
+          id: 's1', type: 'chord', beat: fracCreate(0, 1), duration: 'h', measure: 1,
+          notes: [pitch('a', 'C')],
+          fan: {
+            direction: 'accel', count: 3, beams: 3,
+            members: [[pitch('m1', 'D')], [pitch('m2', 'E')]],
+          },
+        },
+        { id: 's2', type: 'chord', beat: fracCreate(2, 1), duration: 'h', measure: 1, notes: [pitch('b', 'G')] },
+      ],
+    }],
+  })
+
+  it('⭐ the SELECTION map stops on every member, in sounding order', () => {
+    const { beats } = buildVoiceNavBeatMap(score(), 0)
+    expect(beats.map(n => n.id)).toEqual(['a', 'm1', 'm2', 'b'])
+  })
+
+  it('each member sits strictly inside its own slot’s span', () => {
+    const { beats } = buildVoiceNavBeatMap(score(), 0)
+    const beatOf = (id: string) => fracToNumber(beats.find(n => n.id === id)!.beat)
+    expect(beatOf('a')).toBe(0)
+    expect(beatOf('m1')).toBeGreaterThan(0)
+    expect(beatOf('m2')).toBeGreaterThan(beatOf('m1'))
+    expect(beatOf('m2')).toBeLessThan(2)
+  })
+
+  it('a member carries the SLOT’s duration and lane — it has no rhythm of its own', () => {
+    const notes = measureFanMemberNotes(score().measures[0])
+    expect(notes.map(n => n.duration)).toEqual(['h', 'h'])
+    expect(notes.every(n => n.isRest === false)).toBe(true)
+  })
+
+  it('⛔ the ENTRY map does NOT — a member is not a place you can type', () => {
+    const { beats } = buildBeatMap(score(), 0)
+    expect(beats.map(n => n.id)).toEqual(['a', 'b'])
+  })
+
+  it('a fan with no stored members adds no stops', () => {
+    const s = score()
+    const slot = s.measures[0].slots[0]
+    if (slot.type !== 'chord') throw new Error('chord expected')
+    delete slot.fan!.members
+    expect(buildVoiceNavBeatMap(s, 0).beats.map(n => n.id)).toEqual(['a', 'b'])
   })
 })

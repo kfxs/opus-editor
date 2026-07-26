@@ -212,3 +212,98 @@ describe('setFan — the members', () => {
     expect(chordAt(0).duration).toBe('h')
   })
 })
+
+/**
+ * ⭐ P3 — A MEMBER IS A NOTE YOU CAN EDIT (docs/fanned-beam-pitches-plan.md §2 P3).
+ *
+ * The rule underneath all of it: `findSlot` finds a member only when ASKED, so a mutator that has
+ * not thought about fans refuses instead of writing a half-edit nobody can see.
+ */
+describe('a fanned member as an editable pitch', () => {
+  let model: ScoreModel
+  const FAN: FanMark = { direction: 'accel', count: 4, beams: 3 }
+
+  beforeEach(() => { model = new ScoreModel('Fanned beams') })
+
+  const chordAt = (beat: number): Chord => {
+    const slot = model.getMeasure(1)!.slots.find(s => fracToNumber(s.beat) === beat)!
+    if (slot?.type !== 'chord') throw new Error('expected a chord slot')
+    return slot
+  }
+  /** A fanned blanca at bar 1 beat 0; returns the typed note and its members. */
+  function fanned() {
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.setFan(note.id, FAN)
+    return { note, members: chordAt(0).fan!.members! }
+  }
+
+  it('knows one when it sees one', () => {
+    const { note, members } = fanned()
+    expect(model.isFanMember(members[0][0].id)).toBe(true)
+    expect(model.isFanMember(note.id)).toBe(false)
+    expect(model.isFanMember('no-such-id')).toBe(false)
+  })
+
+  it('⭐ getNote answers for it — its own pitch, the SLOT’s rhythm', () => {
+    const { members } = fanned()
+    members[1][0].step = 'G'
+    const got = model.getNote(members[1][0].id)!
+    expect(got.step).toBe('G')
+    expect(got.duration).toBe('h')        // one event: the member has no length of its own
+    expect(fracToNumber(got.beat)).toBe(0)
+    expect(got.isRest).toBe(false)
+  })
+
+  it('⭐ updateNote re-spells it — which is what makes the arrows and a–g work', () => {
+    const { members } = fanned()
+    const id = members[0][0].id
+    model.updateNote(id, { step: 'E', octave: 5, alter: 1 })
+    expect(chordAt(0).fan!.members![0][0]).toMatchObject({ step: 'E', octave: 5, alter: 1 })
+    // …and the note that was typed is untouched.
+    expect(chordAt(0).notes[0]).toMatchObject({ step: 'C', octave: 4 })
+  })
+
+  it('⛔ but updateNote writes NOTHING else onto it — the rhythm is the slot’s', () => {
+    const { members } = fanned()
+    const id = members[0][0].id
+    model.updateNote(id, { duration: 'q', dots: 1, tiedTo: 'somewhere', beam: 'begin' })
+    expect(chordAt(0).duration).toBe('h')
+    expect(chordAt(0).dots).toBeUndefined()
+    expect(chordAt(0).beam).toBeUndefined()
+    expect(members[0][0].tiedTo).toBeUndefined() // a tie stored here would never be drawn
+  })
+
+  it('resolves to its SLOT for anything slot-shaped', () => {
+    const { members } = fanned()
+    expect(model.slotIdForNote(members[0][0].id)).toBe(chordAt(0).id)
+    expect(model.getNotePitch(members[0][0].id)?.id).toBe(members[0][0].id)
+  })
+
+  it('⭐ deleting its LAST pitch is REFUSED — the group’s size is fan.count', () => {
+    const { members } = fanned()
+    expect(model.deleteNote(members[0][0].id)).toBe(false)
+    expect(chordAt(0).fan!.members![0]).toHaveLength(1)
+    expect(chordAt(0).fan!.count).toBe(4)
+  })
+
+  it('deleting ONE pitch of a member that has several removes that pitch', () => {
+    const { members } = fanned()
+    members[0].push({ id: 'extra', step: 'E', alter: 0, octave: 4 })
+    expect(model.deleteNote('extra')).toBe(true)
+    expect(chordAt(0).fan!.members![0].map(p => p.step)).toEqual(['C'])
+  })
+
+  it('⛔ every SLOT-shaped mutator refuses it, by not finding it at all', () => {
+    const { members } = fanned()
+    const id = members[0][0].id
+    expect(model.setTremolo(id, 3)).toBeNull()
+    expect(model.setFan(id, { direction: 'rit', count: 3, beams: 2 })).toBeNull()
+    expect(model.setTremoloPair(id, true)).toBeNull()
+    expect(model.convertToRest(id)).toBeNull()
+    expect(model.moveNoteToVoice(id, 1)).toBe(false)
+    expect(model.setTieDirection(id, 1)).toBe(false)
+    // …and the fan is exactly as it was.
+    expect(chordAt(0).fan).toMatchObject(FAN)
+    expect('tremolo' in chordAt(0)).toBe(false)
+  })
+})

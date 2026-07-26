@@ -13,7 +13,7 @@ import {
 } from '@/utils/fraction'
 import { MET_NOTE_GLYPH, MET_AUGMENTATION_DOT } from '@/utils/tempoText'
 import { getMeterInfo } from '@/utils/meter'
-import { fanMembers } from '@/utils/fannedBeam'
+import { fanMemberEntries } from '@/utils/fannedBeam'
 import type { AccidentalNote } from '@/utils/accidentalState'
 import {
   durationToFraction,
@@ -670,6 +670,36 @@ export function getMeasureNotes(measure: Measure, score?: Score): Note[] {
 }
 
 /**
+ * ⭐ A measure's FANNED MEMBERS as notes, at the beats they sound on — the members of every fan in
+ * the bar, projected into the same flat shape {@link getMeasureNotes} returns.
+ *
+ * Its sibling: `getMeasureNotes` answers "what is in `slot.notes`", this answers "what else is a
+ * note here". Kept apart for the reason stated on {@link measureAccidentalNotes} — two dozen callers
+ * would silently gain N notes per fan if the members were folded into the main walk — so each caller
+ * that genuinely means "members too" asks for them by name.
+ *
+ * A member carries the SLOT's duration and lane (it has no rhythm of its own) and its OWN beat.
+ */
+export function measureFanMemberNotes(measure: Measure, score?: Score): Note[] {
+  const out: Note[] = []
+  for (const slot of measure.slots) {
+    if (slot.type !== 'chord' || !slot.fan) continue
+    const total = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
+    const staff = score ? resolveStaffIndex(score, slot.staffId) : undefined
+    for (const member of fanMemberEntries(slot.fan, total, slot.beat)) {
+      for (const p of member.pitches) {
+        out.push({
+          id: p.id, step: p.step, alter: p.alter, octave: p.octave,
+          duration: slot.duration, measure: slot.measure, beat: member.beat,
+          isRest: false, voice: slot.voice, staff,
+        })
+      }
+    }
+  }
+  return out
+}
+
+/**
  * ⭐ The bar's notes AS THE RUNNING-ACCIDENTAL RULE SEES THEM — {@link getMeasureNotes} plus every
  * FANNED member, at the beat it sounds on.
  *
@@ -690,13 +720,11 @@ export function getMeasureNotes(measure: Measure, score?: Score): Note[] {
 export function measureAccidentalNotes(measure: Measure): AccidentalNote[] {
   const notes: AccidentalNote[] = getMeasureNotes(measure)
   for (const slot of measure.slots) {
-    if (slot.type !== 'chord' || !slot.fan?.members?.length) continue
-    const spans = fanMembers(slot.fan, slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0))
-    let beat = slot.beat
-    for (let k = 0; k < slot.fan.members.length; k++) {
-      beat = fracAdd(beat, spans[k]?.quarters ?? fracCreate(0, 1)) // member k+1 starts after member k
-      for (const p of slot.fan.members[k]) {
-        notes.push({ step: p.step, alter: p.alter, octave: p.octave, beat })
+    if (slot.type !== 'chord' || !slot.fan) continue
+    const total = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
+    for (const member of fanMemberEntries(slot.fan, total, slot.beat)) {
+      for (const p of member.pitches) {
+        notes.push({ step: p.step, alter: p.alter, octave: p.octave, beat: member.beat })
       }
     }
   }

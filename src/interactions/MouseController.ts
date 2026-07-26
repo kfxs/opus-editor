@@ -2339,12 +2339,10 @@ export class MouseController {
     if (this.noteDragAxis === 'spacing') return this.dragNoteSpacing(engine, x)
     if (this.draggedNoteOriginalPitch === null) return true // a rest: nothing to re-pitch
 
-    const score = engine.getScore()
-    let selectedNote = null
-    for (const measure of score.measures) {
-      const note = getMeasureNotes(measure).find(n => n.id === this.state.selectedNoteId)
-      if (note) { selectedNote = note; break }
-    }
+    // ⚠️ Through the ENGINE, not a `getMeasureNotes` walk: that walk reads `slot.notes` and so is
+    // blind to a FANNED MEMBER, which would leave the drag silently doing nothing on exactly the
+    // notes P3 made draggable (his report). `getNote` answers for both.
+    const selectedNote = engine.getNote(this.state.selectedNoteId)
 
     if (selectedNote && !selectedNote.isRest) {
       const measure = engine.getScore().measures.find(m => m.number === selectedNote.measure)

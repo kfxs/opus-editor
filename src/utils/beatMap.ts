@@ -1,6 +1,6 @@
 import type { Note, Score, Fraction } from '../types/music'
 import { fracCompare } from '../utils/fraction'
-import { getMeasureNotes } from '../utils/musicUtils'
+import { getMeasureNotes, measureFanMemberNotes } from '../utils/musicUtils'
 import { spellingToMidi } from '../utils/pitchSpelling'
 
 /**
@@ -53,7 +53,12 @@ export function buildVoiceNavBeatMap(score: Score, voice: number, staff?: number
     .flatMap(m => {
       // Staff is a HARD boundary (no per-measure fallback like voice): filter to the staff
       // first, then apply the voice fallback WITHIN that staff's notes.
-      const notes = getMeasureNotes(m, score).filter(n => staff === undefined || (n.staff ?? 0) === staff)
+      // ⭐ The fan's MEMBERS are stops too — each sounds at its own moment inside the slot, so the
+      // arrows walking time walk through them (docs/fanned-beam-pitches-plan.md). They are added
+      // HERE and not in `buildBeatMap`: that map drives note ENTRY, and a member is not a position
+      // you can type a note at.
+      const notes = [...getMeasureNotes(m, score), ...measureFanMemberNotes(m, score)]
+        .filter(n => staff === undefined || (n.staff ?? 0) === staff)
       const hasVoice = notes.some(n => (n.voice ?? 0) === voice)
       const useVoice = hasVoice ? voice : 0
       return notes

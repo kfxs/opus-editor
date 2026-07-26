@@ -373,3 +373,55 @@ describe('P5.4b — a bar that only moved is translated', () => {
     expect(renderer.getSVGElement()!.querySelector('#vf-m4-s0')).toBeNull()
   })
 })
+
+/**
+ * 🚨 A REUSED MEASURE MUST KEEP ITS FAN MEMBERS' HIGHLIGHT TARGETS.
+ *
+ * The trap this pins (his report): a member has no `StaveNote`, so the highlight resolves it through
+ * the renderer's own `fanMemberGroupMap`. That map is cleared every render like the others — but a
+ * measure whose shape key is unchanged is NOT redrawn, so anything cleared must also be captured
+ * into its snapshot and restored. Miss it and the failure is beautifully quiet: the registry slice
+ * IS restored, so the member still SELECTS; only the highlight stops, and only for bars that
+ * happened not to repaint. Editing a different bar was all it took.
+ */
+describe('a reused measure keeps its fanned members', () => {
+  function fannedScore() {
+    const model = new ScoreModel()
+    model.addMeasure()
+    model.addMeasure()
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.setFan(note.id, { direction: 'accel', count: 4, beams: 3 })
+    const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    return { model, memberIds: slot.fan!.members!.map(m => m[0].id) }
+  }
+
+  it('⭐ an edit in ANOTHER bar leaves every member still highlightable', () => {
+    const { model, memberIds } = fannedScore()
+    const renderer = makeRenderer()
+    renderer.renderScore(model.getScore())
+    for (const id of memberIds) expect(renderer.getFanMemberSVGGroup(id)).not.toBeNull()
+
+    const before = renderer.getMeasureSVGGroup(1, 0)
+
+    // The edit he made: a note in a LATER bar. Bar 1 is untouched, so it is reused.
+    model.addNote({ step: 'A', octave: 3, duration: 'w', measure: 3, beat: frac(0, 1) })
+    renderer.renderScore(model.getScore())
+
+    expect(renderer.getMeasureSVGGroup(1, 0)).toBe(before) // reused, not redrawn — the precondition
+    for (const id of memberIds) {
+      const info = renderer.getFanMemberSVGGroup(id)
+      expect(info, `member ${id} after a reuse`).not.toBeNull()
+      expect(info!.group.isConnected).toBe(true)
+    }
+  })
+
+  it('and the member is still selectable — the registry half was never the broken one', () => {
+    const { model, memberIds } = fannedScore()
+    const renderer = makeRenderer()
+    renderer.renderScore(model.getScore())
+    model.addNote({ step: 'A', octave: 3, duration: 'w', measure: 3, beat: frac(0, 1) })
+    renderer.renderScore(model.getScore())
+    for (const id of memberIds) expect(renderer.getElementRegistry().getById(id)).not.toBeNull()
+  })
+})

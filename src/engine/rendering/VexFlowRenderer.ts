@@ -3,7 +3,7 @@ import { ScoreTuplet, layoutTupletMark, drawTupletMark } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
 import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
-import { fannedBeamGeometry, fanStemExtension, FAN_MIN_HEAD_GAP_RATIO, FAN_MIN_STEM_SPACES } from './FannedBeam'
+import { fannedBeamGeometry, fanStemExtension, FAN_MIN_HEAD_GAP_RATIO, FAN_MIN_STEM_SPACES, type FanGeometry } from './FannedBeam'
 import { FAN_GROUP, fanMembers, fanMemberPitches } from '@/utils/fannedBeam'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
@@ -321,8 +321,19 @@ interface MeasureSnapshot {
   staffGeometry?: StaffGeometry
   bounds?: MeasureBounds
   staveNotes: [string, { staveNote: StaveNote; noteIndex: number }][]
+  /** The FAN MEMBERS' own SVG groups — their answer to `staveNotes`, since a member has no
+   *  `StaveNote`. Without them a reused measure loses every member's highlight target (his report:
+   *  add a bar elsewhere, and the fan's members select but no longer light up). */
+  fanMembers: [string, { group: SVGGElement; noteIndex: number }][]
   tuplets: [string, ScoreTuplet][]
   dynamics: [string, Annotation][]
+}
+
+/** Every FANNED MEMBER pitch id in a measure — the ids `captureById`'s default list cannot reach,
+ *  since they live inside `slot.fan` rather than in `slot.notes`. */
+function fanMemberIdsOf(view: Measure): string[] {
+  return view.slots.flatMap(s =>
+    s.type === 'chord' ? (s.fan?.members ?? []).flat().map(p => p.id) : [])
 }
 
 /**
@@ -427,6 +438,13 @@ export class VexFlowRenderer {
   private widthCache = new MeasureWidthCache()
   /** Map of note IDs to their rendered StaveNotes (for tie rendering) */
   private staveNoteMap: Map<string, { staveNote: StaveNote; noteIndex: number }> = new Map()
+  /**
+   * Each FANNED MEMBER pitch id → the `<g class="vf-fanhead">` its ink was drawn into, and which
+   * head inside it belongs to that pitch. The member's answer to `staveNoteMap`
+   * (docs/fanned-beam-pitches-plan.md §2 P3) — a member has no `StaveNote`, so a highlight resolves
+   * through here instead. Rebuilt every render, like the note map.
+   */
+  private fanMemberGroupMap: Map<string, { group: SVGGElement; noteIndex: number }> = new Map()
   /** Measured accidental glyph widths, by sign — see {@link accidentalWidth}. */
   private accidentalWidths: Map<string, number> = new Map()
   /** Map of tuplet IDs to their rendered VexFlow Tuplet objects (for scoped highlight) */
@@ -988,6 +1006,7 @@ export class VexFlowRenderer {
       const clef = clefForBeat(slot.beat)
       const stored = slot.fan.members ?? []
       const members = fanMemberPitches(slot.notes, slot.fan).map((heads, k) => heads.map(p => ({
+        pitch: p,
         line: staffLineForSpelling(p.step, p.octave, clef),
         // ⚠️ Only a member with a pitch of its OWN can carry a sign. A member falling back to the
         // slot's pitches (a mark that never went through `normalizeFan`) is the same note, whose
@@ -1027,6 +1046,12 @@ export class VexFlowRenderer {
       })
       if (geometry.beams.length === 0) continue
 
+      // ⚠️ The group's own ink rect goes in FIRST, before the member heads — `getAt` returns the
+      // LAST matching element, so whatever is registered later wins the click. The rect spans the
+      // whole fan, so registering it after the heads would swallow every one of them and a member
+      // could never be selected. The heads are added in the draw loop below.
+      this.registerFanInk(geometry, headX, baseY, measureNumber, staffIndex)
+
       const ctx = pass.context
       ctx.openGroup('fan', `${FAN_GROUP}-${slot.id}`)
       try {
@@ -1049,9 +1074,11 @@ export class VexFlowRenderer {
           // ⭐ ONE GROUP PER MEMBER, so a member is a thing on the page and not a rectangle of
           // painted ink: the head, its sign and its ledger lines land inside it together, which is
           // what lets P3 highlight one by an ordinary recolour. ⚠️ `openGroup` prefixes `vf-`.
-          ctx.openGroup(FAN_HEAD_GROUP, `${FAN_HEAD_GROUP}-${slot.id}-${k}`)
+          const memberGroup = ctx.openGroup(FAN_HEAD_GROUP, `${FAN_HEAD_GROUP}-${slot.id}-${k}`)
           try {
-            for (const { line, sign } of members[k] ?? []) {
+            const heads = members[k] ?? []
+            for (let h = 0; h < heads.length; h++) {
+              const { pitch, line, sign } = heads[h]
               const y = stave.getYForNote(line)
               // 🚨 LEDGER LINES BY HAND. `drawLedgerLines` belongs to `StaveNote`; a bare `NoteHead`
               // only swaps to the ledger glyph. Members off the staff drew as floating heads before
@@ -1060,6 +1087,26 @@ export class VexFlowRenderer {
               const head = new NoteHead({ duration: 'q', line, stemDirection, x: member.headX })
               head.setStave(stave) // resolves y from the line, and hands it the context
               head.setContext(ctx).draw()
+              // ⭐ P3: the member becomes CLICKABLE and HIGHLIGHTABLE — but only when it is a member
+              // of its own (a fallback head is the slot's pitch, and that id is already the real
+              // note's). Registered as a `note` because that is what it is; ⚠️ it carries the SLOT's
+              // beat, which is what keeps `pixelXToBeat` unmoved — that walk dedups anchors by beat
+              // and keeps the leftmost x, so the members collapse onto the note's own column.
+              if (stored[k - 1]) {
+                this.addGlyphElement(head, {
+                  type: 'note',
+                  id: pitch.id,
+                  measure: measureNumber,
+                  staff: staffIndex,
+                  beat: fracToNumber(slot.beat),
+                  pitch: spellingToMidi(pitch.step, pitch.alter, pitch.octave),
+                  duration: slot.duration,
+                  headX: member.headX + note.getGlyphWidth() / 2,
+                })
+                // The group is this member's whole ink — head, sign, ledgers, stem — so the highlight
+                // is an ordinary recolour of ink we own, not a rectangle painted over someone else's.
+                this.fanMemberGroupMap.set(pitch.id, { group: memberGroup as unknown as SVGGElement, noteIndex: h })
+              }
               if (sign) {
                 // Hand-placed for the same reason the head is: there is no `StaveNote` here to hang
                 // a modifier on, and a `Modifier` drawn at explicit coordinates without its own x/y
@@ -1086,24 +1133,37 @@ export class VexFlowRenderer {
         ctx.closeGroup()
       }
 
-      // The group's ink, MEASURED from what was just drawn — the same rule the two-note tremolo's
-      // click target follows: the code that placed the ink is the only honest source for where it
-      // is. Filed as a `beam`, which is what the reader sees and what the fan mostly is.
-      // Every member's noteheads count, not just the real note's: with pitches of their own the
-      // group's ink reaches wherever they went.
-      const ys = [
-        ...geometry.beams.flatMap(q => [q.startY, q.endY, q.startY + q.thickness, q.endY + q.thickness]),
-        ...geometry.stems.map(s => s.baseY),
-      ]
-      const top = Math.min(...ys, baseY)
-      const bottom = Math.max(...ys, baseY)
-      this.elementRegistry.add({
-        type: 'beam',
-        measure: measureNumber,
-        staff: staffIndex,
-        bbox: { x: headX, y: top, width: geometry.stems[geometry.stems.length - 1].stemX - headX, height: bottom - top },
-      })
     }
+  }
+
+  /**
+   * The fanned group's ink as ONE hit rect, MEASURED from the geometry that placed it — the same
+   * rule the two-note tremolo's click target follows: the code that put the ink there is the only
+   * honest source for where it is. Filed as a `beam`, which is what the reader sees and what the fan
+   * mostly is.
+   *
+   * Every member's noteheads count, not just the real note's: with pitches of their own the group's
+   * ink reaches wherever they went.
+   */
+  private registerFanInk(
+    geometry: FanGeometry,
+    headX: number,
+    baseY: number,
+    measureNumber: number,
+    staffIndex: number,
+  ): void {
+    const ys = [
+      ...geometry.beams.flatMap(q => [q.startY, q.endY, q.startY + q.thickness, q.endY + q.thickness]),
+      ...geometry.stems.map(s => s.baseY),
+    ]
+    const top = Math.min(...ys, baseY)
+    const bottom = Math.max(...ys, baseY)
+    this.elementRegistry.add({
+      type: 'beam',
+      measure: measureNumber,
+      staff: staffIndex,
+      bbox: { x: headX, y: top, width: geometry.stems[geometry.stems.length - 1].stemX - headX, height: bottom - top },
+    })
   }
 
   /**
@@ -3481,6 +3541,9 @@ export class VexFlowRenderer {
         staffGeometry: this.elementRegistry.getStaffGeometry(plan.measureNumber, plan.staffIndex),
         bounds: plan.staffIndex === 0 ? this.measureBounds.get(plan.measureNumber) : undefined,
         staveNotes: this.captureById(plan.view, this.staveNoteMap),
+        // ⚠️ EXPLICIT ids: `captureById`'s default list is slot ids + `slot.notes`, and a fanned
+        // member is in neither — it lives inside the slot's `fan`.
+        fanMembers: this.captureById(plan.view, this.fanMemberGroupMap, fanMemberIdsOf(plan.view)),
         tuplets: this.captureById({ ...plan.view, slots: [] }, this.tupletObjectMap, plan.view.tuplets?.map(t => t.id)),
         dynamics: this.captureById({ ...plan.view, slots: [] }, this.dynamicObjectMap, plan.view.dynamics?.map(d => d.id)),
       })
@@ -3949,10 +4012,18 @@ export class VexFlowRenderer {
    * the element registry and every object map keyed by the SVG nodes being torn down. Extracted
    * so adding a map means remembering ONE site, not two. Each caller then handles its own genuine
    * differences — SVG teardown policy, `measureLayoutInfo`, `measureBounds`, `snapshots`.
+   *
+   * ⚠️ **A map cleared here has THREE sites, not one.** Measures are REUSED: a bar whose shape key
+   * is unchanged is not redrawn, so whatever this wipes must also be captured into its
+   * {@link MeasureSnapshot} and restored by {@link restoreMeasureFromSnapshot} — or it is simply
+   * gone for every bar that did not repaint, and only for those. That is what happened to the fan
+   * members' groups: selection kept working (the registry slice IS restored) while the highlight
+   * silently stopped.
    */
   private resetPerRenderState(): void {
     this.elementRegistry.clear()
     this.staveNoteMap.clear()
+    this.fanMemberGroupMap.clear()
     this.tupletObjectMap.clear()
     this.dynamicObjectMap.clear()
     this.slurGroupMap.clear()
@@ -4017,6 +4088,7 @@ export class VexFlowRenderer {
     // span anchor is never translated (see spanAnchorMeasures) — nothing reads these for a moved
     // measure's absolute position.
     for (const [id, value] of snapshot.staveNotes) this.staveNoteMap.set(id, value)
+    for (const [id, value] of snapshot.fanMembers) this.fanMemberGroupMap.set(id, value)
     for (const [id, value] of snapshot.tuplets) this.tupletObjectMap.set(id, value)
     for (const [id, value] of snapshot.dynamics) this.dynamicObjectMap.set(id, value)
 
@@ -4135,6 +4207,19 @@ export class VexFlowRenderer {
    *   note's stem is drawn by the Beam (inside `<g class="vf-beam">`, NOT the note's
    *   group), so this is the only reliable way to recolor a beamed note's stem.
    */
+  /**
+   * The SVG group holding ONE FANNED MEMBER's ink — its head, its accidental, its ledger lines and
+   * its stem — plus which head inside it belongs to this pitch id. Null for anything that is not a
+   * member (see {@link getStaveNoteSVGGroup} for those).
+   *
+   * ⭐ A member's whole picture is drawn by us into one group, so a selected member recolours the
+   * ordinary way. The "paint a highlight, don't recolour it" lesson (the barline) is about ink you
+   * do NOT own; this ink is ours.
+   */
+  getFanMemberSVGGroup(noteId: string): { group: SVGGElement; noteIndex: number } | null {
+    return this.fanMemberGroupMap.get(noteId) ?? null
+  }
+
   getStaveNoteSVGGroup(noteId: string): { group: SVGGElement; noteIndex: number; stem: SVGGElement | null } | null {
     const info = this.staveNoteMap.get(noteId)
     if (!info) return null

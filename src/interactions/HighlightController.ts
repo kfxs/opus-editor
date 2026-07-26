@@ -299,12 +299,6 @@ export class HighlightController {
     // `<g class="vf-stavenote">`, so confining the recolor to that group makes the
     // selection highlight bleed-free in both directions (the old approach scanned a
     // synthetic band that overlapped the staff line above or below).
-    const groupInfo = engine.getStaveNoteSVGGroup(noteId)
-    if (!groupInfo) return
-    const { group, noteIndex, stem } = groupInfo
-
-    const isRest = engine.getElementById(noteId)?.type === 'rest'
-
     const SELECTION_COLOR = fillColor
     const SELECTION_STROKE = strokeColor
 
@@ -320,6 +314,36 @@ export class HighlightController {
       this.setStyleProp(svgEl, 'stroke', SELECTION_STROKE)
       this.addClass(svgEl, 'selected-note')
     }
+
+    // ⭐ A FANNED MEMBER has no `StaveNote`, so its ink lives in the group the fan renderer drew it
+    // into (docs/fanned-beam-pitches-plan.md §2 P3) — head, accidental, ledger lines and stem, all
+    // ours, all in one place. The shared beam is untouched because it is drawn OUTSIDE that group.
+    //
+    // ⚠️ **A GLYPH IS FILLED, NEVER STROKED.** Handing the accidental a stroke as well as a fill
+    // outlines it, and an outlined glyph reads as BOLD — the first thing he noticed. Same split as
+    // everywhere else here: `text` glyphs take `colorFill`, the drawn lines (stem, ledgers) take
+    // `colorStroke`.
+    const memberInfo = engine.getFanMemberSVGGroup(noteId)
+    if (memberInfo) {
+      const heads = memberInfo.group.querySelectorAll('g.vf-notehead')
+      // A member with several pitches shares one stem, exactly as a chord does: this pitch's head,
+      // plus the ink that belongs to the member as a whole.
+      const head = heads[memberInfo.noteIndex] ?? heads[0]
+      head?.querySelectorAll('text, path').forEach(colorFill)
+      for (const el of memberInfo.group.children) {
+        if (el.tagName === 'g') continue // another head of this member — not this pitch
+        if (el.tagName === 'text') colorFill(el) // the accidental
+        else colorStroke(el)                     // the stem and its ledger lines
+      }
+      this.raiseToFront(memberInfo.group)
+      return
+    }
+
+    const groupInfo = engine.getStaveNoteSVGGroup(noteId)
+    if (!groupInfo) return
+    const { group, noteIndex, stem } = groupInfo
+
+    const isRest = engine.getElementById(noteId)?.type === 'rest'
 
     if (isRest) {
       // A rest is a single glyph — color every glyph in its group, EXCEPT a dynamic attached to

@@ -508,6 +508,37 @@ describe('SelectionController — navigateChord is voice-scoped', () => {
     selection.navigateChord(1)
     expect(state.selectedNoteId).toBe(top)
   })
+
+  /**
+   * ⭐ Inside a FAN, the chord is the MEMBER (docs/fanned-beam-pitches-plan.md §2 P3).
+   *
+   * The ordinary path resolves the chord positionally — every note at this beat, in this voice —
+   * which inside a fan hands back the SLOT's pitches. The selected member is not among them, so
+   * `currentIndex` is -1 and Alt+↑/↓ silently does nothing (his report). The same rule that makes
+   * `Shift`+letter stack onto the member: a member is a chord in its own right.
+   */
+  it('⭐ walks the MEMBER\'s own pitches, not the slot\'s', () => {
+    const noteId = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
+    engine.addChordNote({ step: 'G', alter: 0, octave: 5, duration: 'h', measure: 1, beat: frac(0, 1) }) // the SLOT's second pitch
+    engine.setFan(noteId, { direction: 'accel', count: 3, beams: 3 })
+
+    const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    const member = slot.fan!.members![0]
+    const low = member[0].id
+    const high = engine.addFanMemberPitch(low, { step: 'E', alter: 0, octave: 4 })!.id
+
+    // Up from the member's lower pitch lands on the member's OWN upper pitch — never the slot's G5.
+    selection.selectNote(low)
+    selection.navigateChord(1)
+    expect(state.selectedNoteId).toBe(high)
+
+    // …and down comes back, clamping at the member's own bottom.
+    selection.navigateChord(-1)
+    expect(state.selectedNoteId).toBe(low)
+    selection.navigateChord(-1)
+    expect(state.selectedNoteId).toBe(low)
+  })
 })
 
 describe('SelectionController — setSelectedNote keeps the highlight set in sync', () => {

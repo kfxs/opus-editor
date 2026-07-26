@@ -18,7 +18,7 @@ import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } f
 import { prevailingAlterAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
@@ -865,6 +865,26 @@ export class MusicEngine {
   }
 
   /**
+   * Stack a pitch onto the FANNED MEMBER holding `noteId` — the member's own `Shift`+letter.
+   *
+   * A member is a chord in its own right, so it is the thing being added to; going through
+   * {@link addChordNote} would resolve the position and land the note on the group's FIRST head.
+   * Returns null when the id is not a member's (the caller then takes the ordinary path).
+   */
+  addFanMemberPitch(noteId: string, spelling: { step: PitchStep; alter: PitchAlter; octave: number }): Note | null {
+    const note = this.scoreModel.addFanMemberPitch(noteId, spelling)
+    if (!note) return null
+    this.commit(`Add chord note ${midiToNoteName(spellingToMidi(spelling.step, spelling.alter, spelling.octave))}`)
+    return note
+  }
+
+  /** The pitches of the fanned MEMBER holding `noteId` (its own chord), or null if not a member. */
+  fanMemberPitches(noteId: string): Note[] | null {
+    const pitches = this.scoreModel.fanMemberPitches(noteId)
+    return pitches ? pitches.map(p => this.scoreModel.getNote(p.id)).filter((n): n is Note => !!n) : null
+  }
+
+  /**
    * Paste a clipboard event stream at (measure, beat), overwriting forward for the
    * clip's span (see {@link ScoreModel.pasteEvents}). One undo entry.
    * @returns the ids of the notes that landed inside the paste window.
@@ -926,9 +946,26 @@ export class MusicEngine {
   // --- Articulations & Ties ---
 
   /**
+   * ⛔ Is this id a FANNED MEMBER, which the command about to run cannot attach to?
+   *
+   * A member is a PITCH inside one event — the ties, slurs, articulations, dots, duration and stem
+   * all belong to the SLOT, the whole gesture (docs/fanned-beam-pitches-plan.md §3). The model
+   * already refuses to store any of it (`findSlot` finds a member only when asked, and `updateNote`
+   * writes nothing but spelling onto one), so this is not what makes the edit safe — it is what
+   * makes the refusal a DECISION: the command stops here, reports nothing happened, and mints no
+   * undo entry for an edit that did not occur.
+   */
+  private refusesFanMember(noteId: string, what: string): boolean {
+    if (!this.scoreModel.isFanMember(noteId)) return false
+    dbg(`[Fan] ${what} refused on member ${noteId} — it attaches to the slot, not to one member`)
+    return true
+  }
+
+  /**
    * Toggle an articulation on a note. Adds if absent, removes if present.
    */
   toggleArticulation(noteId: string, type: ArticulationType): Note | null {
+    if (this.refusesFanMember(noteId, 'articulation')) return null
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest) return null
 
@@ -947,6 +984,7 @@ export class MusicEngine {
    * No-op (returns null) for rests / notes that have none.
    */
   clearArticulations(noteId: string): Note | null {
+    if (this.refusesFanMember(noteId, 'articulation')) return null
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest || !note.articulations?.length) return null
     const result = this.scoreModel.updateNote(noteId, { articulations: [], articulationPlacement: undefined })
@@ -960,6 +998,7 @@ export class MusicEngine {
    * Returns true if tie added, false if removed, null if no candidate found.
    */
   toggleTie(noteId: string): boolean | null {
+    if (this.refusesFanMember(noteId, 'tie')) return null
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest) return null
 
@@ -1025,6 +1064,9 @@ export class MusicEngine {
    * the flip-direction reset on removal).
    */
   tieSelection(noteIds: string[]): boolean | null {
+    // A member in the selection is DROPPED, not a reason to refuse the press: the other notes were
+    // selected too and a tie is theirs to take. Same shape as the rests this already skips.
+    noteIds = noteIds.filter(id => !this.scoreModel.isFanMember(id))
     const ids = [...new Set(noteIds)]
     if (ids.length <= 1) return ids[0] ? this.toggleTie(ids[0]) : null
 
@@ -1095,6 +1137,10 @@ export class MusicEngine {
    * @returns the created (or pre-existing) Slur, or null if no valid span resolved.
    */
   createSlur(noteIds: string[]): Slur | null {
+    // Same rule as the tie: a member cannot anchor a slur (it attaches to the slot), so it leaves
+    // the candidate list rather than killing the gesture. Without this the slur would be STORED
+    // pointing at a member id and then silently dropped by `repairDanglingSlurs`.
+    noteIds = noteIds.filter(id => !this.scoreModel.isFanMember(id))
     // A slur lives in ONE voice. Derive it from the selection (the first resolved
     // note's voice) and keep only that voice's notes — so a voice-2 selection makes a
     // voice-2 slur. (Was hardcoded to voice 0, so `s` did nothing in any other voice.)
@@ -2424,6 +2470,7 @@ export class MusicEngine {
    * it selected use the returned id — the point of returning the rest rather than a boolean.
    */
   convertToRest(noteId: string): Note | null {
+    if (this.refusesFanMember(noteId, 'convert to rest')) return null
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest) return null
 
@@ -2704,6 +2751,9 @@ export class MusicEngine {
    * Rests are ignored (no stem).
    */
   flipStemDirection(noteId: string): Note | null {
+    // The stem is the GROUP's — one beam, one side — so a member cannot flip it (P2 decided it over
+    // every member's pitches). Refused rather than written and ignored.
+    if (this.refusesFanMember(noteId, 'stem flip')) return null
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest) return null
 
@@ -3441,6 +3491,14 @@ export class MusicEngine {
    */
   getStaveNoteSVGGroup(noteId: string): { group: SVGGElement; noteIndex: number; stem: SVGGElement | null } | null {
     return this.renderer.getStaveNoteSVGGroup(noteId)
+  }
+
+  /**
+   * The SVG group of one FANNED MEMBER's ink (head + sign + ledgers + stem), for the same recolour.
+   * A member has no `StaveNote`, so this is its answer to {@link getStaveNoteSVGGroup}.
+   */
+  getFanMemberSVGGroup(noteId: string): { group: SVGGElement; noteIndex: number } | null {
+    return this.renderer.getFanMemberSVGGroup(noteId)
   }
 
   /**

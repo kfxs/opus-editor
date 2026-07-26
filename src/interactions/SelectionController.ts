@@ -83,19 +83,17 @@ export class SelectionController {
   private syncActiveLaneToNote(noteId: string): void {
     const engine = this.getEngine()
     if (!engine) return
-    const score = engine.getScore()
-    for (const measure of score.measures) {
-      const note = getMeasureNotes(measure, score).find(n => n.id === noteId)
-      if (note) {
-        // Selecting/landing on a note makes its voice the active voice, so keyboard entry
-        // continues in that voice (and the cursor advances along its stream) rather than
-        // silently falling back to voice 1.
-        this.state.activeVoice = modelVoiceToActive(note.voice)
-        // Likewise its staff becomes active, so keyboard entry/nav stays on that staff.
-        this.state.activeStaff = note.staff ?? 0
-        break
-      }
-    }
+    // ⚠️ Through the ENGINE, never a `getMeasureNotes` walk: that walk reads `slot.notes` and is
+    // blind to a FANNED MEMBER (docs/fanned-beam-pitches-plan.md §2 P3). Selecting a member has to
+    // make its lane active like any other note, or the next keystroke lands in another voice.
+    const note = engine.getNote(noteId)
+    if (!note) return
+    // Selecting/landing on a note makes its voice the active voice, so keyboard entry
+    // continues in that voice (and the cursor advances along its stream) rather than
+    // silently falling back to voice 1.
+    this.state.activeVoice = modelVoiceToActive(note.voice)
+    // Likewise its staff becomes active, so keyboard entry/nav stays on that staff.
+    this.state.activeStaff = note.staff ?? 0
   }
 
   /**
@@ -107,15 +105,14 @@ export class SelectionController {
   private syncPaletteToNote(noteId: string): void {
     const engine = this.getEngine()
     if (!engine) return
-    const score = engine.getScore()
-    for (const measure of score.measures) {
-      const note = getMeasureNotes(measure, score).find(n => n.id === noteId)
-      if (note) {
-        this.state.selectedDuration = note.duration
-        this.state.selectedAccidental = this.computeDisplayedAccidental(note, measure)
-        this.state.selectedDots = note.dots || 0
-        break
-      }
+    // Same rule as `syncActiveLaneToNote`: the engine's projection, which sees a fanned member too.
+    // A member's DURATION is the slot's — one event — and its accidental is its own.
+    const note = engine.getNote(noteId)
+    const measure = note && engine.getScore().measures.find(m => m.number === note.measure)
+    if (note && measure) {
+      this.state.selectedDuration = note.duration
+      this.state.selectedAccidental = this.computeDisplayedAccidental(note, measure)
+      this.state.selectedDots = note.dots || 0
     }
     // The beam, from the ENGINE's projection and not the loop above: `getMeasureNotes` doesn't carry
     // `beam` (it projects the slot's dots, stem and articulations, but not this one), so reading it
@@ -409,7 +406,15 @@ export class SelectionController {
     const selectedStaff = selectedNote?.staff ?? 0
     const { allFlat, beats } = buildVoiceNavBeatMap(score, selectedVoice, selectedStaff)
 
+    // ⚠️ A FANNED MEMBER is not in the flat map (it lives inside the slot's `fan`, and
+    // `getMeasureNotes` walks `slot.notes`), so it navigates from the SLOT it belongs to — the same
+    // (measure, beat) it sounds at. Without this a member is a dead end: you click one and the
+    // arrows do nothing at all, with nothing on screen to say why
+    // (docs/fanned-beam-pitches-plan.md §2 P3).
+    const selectedPos = selectedNote
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
+      ?? (selectedPos && allFlat.find(n =>
+        n.measureNumber === selectedPos.measure && fracEq(n.beat, selectedPos.beat)))
     if (!currentNote) return
     const currentKey = `${currentNote.measureNumber}:${currentNote.beat.num}/${currentNote.beat.den}`
     const currentIndex = beats.findIndex(n => `${n.measureNumber}:${n.beat.num}/${n.beat.den}` === currentKey)
@@ -497,8 +502,12 @@ export class SelectionController {
 
     const noteVoice = note.voice ?? 0
     const noteStaff = note.staff ?? 0
-    const chordNotes = getMeasureNotes(measure, score)
-      .filter(n => !n.isRest && fracEq(n.beat, note.beat) && (n.voice ?? 0) === noteVoice && (n.staff ?? 0) === noteStaff)
+    // ⭐ Inside a FAN, the chord is the MEMBER — the pitches stacked on this head, not the slot's
+    // (docs/fanned-beam-pitches-plan.md §2 P3). Resolving it positionally, as the ordinary path
+    // does, hands back the slot's own pitches, the selected member is not among them, and Alt+↑/↓
+    // silently does nothing (his report). Same rule as `Shift`+letter, which stacks onto the member.
+    const chordNotes = (engine.fanMemberPitches(this.state.selectedNoteId) ?? getMeasureNotes(measure, score)
+      .filter(n => !n.isRest && fracEq(n.beat, note.beat) && (n.voice ?? 0) === noteVoice && (n.staff ?? 0) === noteStaff))
       .sort((a, b) => spellingToMidi(a.step!, a.alter!, a.octave!) - spellingToMidi(b.step!, b.alter!, b.octave!))
 
     if (chordNotes.length <= 1) return
