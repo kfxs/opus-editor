@@ -22,6 +22,7 @@ import { beamOverSelection } from './beamOverSelection'
 import { tremoloSelection } from './tremoloSelection'
 import { fanSelection } from './fanSelection'
 import { tremoloPairSelection } from './tremoloPairSelection'
+import { staffOf } from '@/utils/lanes'
 
 /** Re-exported so the palette's callers keep one import — the type belongs with the rule. */
 export type { TupletResolution }
@@ -1748,10 +1749,10 @@ export class PaletteController {
     const beatStr = fracToNumber(note.beat).toFixed(3)
     // The mark anchors to the selected note's STAFF (else it renders on staff 0). Absent
     // staffId = staff 0 keeps single-staff output byte-identical.
-    const staffId = engine.staffIdForIndex(note.staff ?? 0)
+    const staffId = engine.staffIdForIndex(staffOf(note))
     const staffParam = staffId ? { staffId } : {}
     engine.addDynamic(note.measure, { beat: note.beat, text: dynamicTextFromTool(tool), voice: 0, placement: 'below', ...staffParam })
-    dbg(`✓ Dynamic ${tool} at measure ${note.measure} beat ${beatStr} staff ${note.staff ?? 0} (on selected note ${this.state.selectedNoteId})`)
+    dbg(`✓ Dynamic ${tool} at measure ${note.measure} beat ${beatStr} staff ${staffOf(note)} (on selected note ${this.state.selectedNoteId})`)
     this.renderScore()
   }
 

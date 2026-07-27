@@ -16,6 +16,7 @@ import type { RenderPass } from './RenderPass'
 import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
+import { voiceOf } from '@/utils/lanes'
 
 // Vertical geometry shared by all slur arcs.
 const SLUR_LIFT = 10   // gap between the notehead and the arc's endpoints
@@ -370,9 +371,9 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         s.notes.some(p => p.id === slur.startNoteId)
         || (s.fan?.members ?? []).some(mm => mm.some(p => p.id === slur.startNoteId))),
     )
-    const slurVoice = startSlot?.voice ?? slur.voice ?? 0
+    const slurVoice = startSlot?.voice ?? voiceOf(slur)
     const multiVoice = fromMeasureData
-      ? new Set(fromMeasureData.slots.map(s => s.voice ?? 0)).size > 1
+      ? new Set(fromMeasureData.slots.map(s => voiceOf(s))).size > 1
       : false
     const autoDir = multiVoice
       ? (slurVoice % 2 === 0 ? -1 : 1)

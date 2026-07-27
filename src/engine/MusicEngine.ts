@@ -24,6 +24,7 @@ import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 import type { RebarEvent } from '@/utils/rebar'
+import { staffOf, voiceOf } from '@/utils/lanes'
 
 /**
  * Configuration for the MusicEngine
@@ -932,7 +933,7 @@ export class MusicEngine {
    *  Staff-scoped: two staves holding a note at the same beat/voice is ordinary, not a chord. */
   private getChordNotesAt(measureNumber: number, beat: Fraction, voice: number = 0, staff: number = 0): Note[] {
     return this.scoreModel.getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && (n.voice ?? 0) === voice && (n.staff ?? 0) === staff && fracEq(n.beat, beat))
+      .filter(n => !n.isRest && voiceOf(n) === voice && staffOf(n) === staff && fracEq(n.beat, beat))
   }
 
   /**
@@ -1041,7 +1042,7 @@ export class MusicEngine {
       // A tie stays within ONE stream — the source's own voice AND staff. Searching all
       // slots would tie a staff-1 note to whatever staff-0 note happens to sit at the next
       // position (voices/staves are independent streams).
-      const stream = allSlots.filter(n => (n.voice ?? 0) === (source.voice ?? 0) && (n.staff ?? 0) === (source.staff ?? 0))
+      const stream = allSlots.filter(n => voiceOf(n) === voiceOf(source) && staffOf(n) === staffOf(source))
       const nextStart = stream.find(n => compareByPosition(n, source) > 0)
       if (!nextStart) {
         dbg(`[Tie] no next slot found — tie not created`)
@@ -1102,7 +1103,7 @@ export class MusicEngine {
     const pairs: { source: Note; target: Note }[] = []
     for (const source of sources) {
       // Scope the forward target to the source's own voice AND staff (independent streams).
-      const stream = all.filter((n) => (n.voice ?? 0) === (source.voice ?? 0) && (n.staff ?? 0) === (source.staff ?? 0))
+      const stream = all.filter((n) => voiceOf(n) === voiceOf(source) && staffOf(n) === staffOf(source))
       const next = stream.find((n) => compareByPosition(n, source) > 0)
       if (!next) continue
       const samePitch = stream.find(
@@ -1163,10 +1164,10 @@ export class MusicEngine {
       .filter((n): n is Note => !!n)
     if (resolved.length === 0) return null
 
-    const slurVoice = resolved[0].voice ?? 0
-    const slurStaff = resolved[0].staff ?? 0
+    const slurVoice = voiceOf(resolved[0])
+    const slurStaff = staffOf(resolved[0])
     const selected = resolved
-      .filter(n => (n.voice ?? 0) === slurVoice && (n.staff ?? 0) === slurStaff)
+      .filter(n => voiceOf(n) === slurVoice && staffOf(n) === slurStaff)
       .sort((a, b) => this.compareForSpan(a, b))
     if (selected.length === 0) return null
 
@@ -1266,7 +1267,7 @@ export class MusicEngine {
     if (!note || !note.isRest) return false
     const measure = this.scoreModel.getMeasure(note.measure)
     if (!measure) return false
-    const key = restPositionKey(measure.id, note.voice ?? 0, note.beat, this.staffIdForIndex(note.staff))
+    const key = restPositionKey(measure.id, voiceOf(note), note.beat, this.staffIdForIndex(note.staff))
     const ok = this.scoreModel.nudgeRestShift(key, delta)
     if (ok) {
       this.saveOnly('Nudge rest')
@@ -1354,7 +1355,7 @@ export class MusicEngine {
     const byStaff = new Map<number, { beat: number; x: number }[]>()
     for (const el of registry.getByMeasure(measureNumber)) {
       if ((el.type !== 'note' && el.type !== 'rest') || el.beat === undefined) continue
-      const staff = el.staff ?? 0
+      const staff = staffOf(el)
       const list = byStaff.get(staff) ?? []
       const x = el.headX ?? el.bbox.x
       // Voices and chord tones share a column: keep its LEFTMOST ink, which is the column's edge.
@@ -1409,7 +1410,7 @@ export class MusicEngine {
     const x = here.headX ?? here.bbox.x + here.bbox.width / 2
     const prevX = prev.headX ?? prev.bbox.x + prev.bbox.width / 2
 
-    const geometry = registry.getStaffGeometry(measureNumber, here.staff ?? 0)
+    const geometry = registry.getStaffGeometry(measureNumber, staffOf(here))
     const staffSpacePx = geometry?.lineSpacing ?? VEXFLOW_DEFAULT_STAFF_SPACE_PX
     const minGap = here.bbox.width * FAN_MIN_HEAD_GAP_RATIO
     return Math.max(0, (x - prevX - minGap) / staffSpacePx)
@@ -1841,7 +1842,7 @@ export class MusicEngine {
     const columnsByStaff = new Map<number, Set<number>>()
     for (const el of registry.getByMeasure(measureNumber)) {
       if ((el.type !== 'note' && el.type !== 'rest') || el.beat === undefined) continue
-      const staff = el.staff ?? 0
+      const staff = staffOf(el)
       const columns = columnsByStaff.get(staff) ?? new Set<number>()
       columns.add(Math.round(el.beat * 1e6))
       columnsByStaff.set(staff, columns)
@@ -2277,7 +2278,7 @@ export class MusicEngine {
     if (!note || !note.isRest) return false
     const measure = this.scoreModel.getMeasure(note.measure)
     if (!measure) return false
-    const key = restPositionKey(measure.id, note.voice ?? 0, note.beat, this.staffIdForIndex(note.staff))
+    const key = restPositionKey(measure.id, voiceOf(note), note.beat, this.staffIdForIndex(note.staff))
     const nowHidden = !restHiddenOf(this.scoreModel.getScore(), key)
     this.scoreModel.toggleRestHidden(key)
     this.saveUndoState(`${nowHidden ? 'Hide' : 'Show'} rest`)
@@ -2441,10 +2442,10 @@ export class MusicEngine {
     }
     // Stay within the start note's own voice AND staff — a slur's end anchor must be the
     // next slot in the SAME stream, not whatever event comes next in another voice/staff.
-    const startVoice = start.voice ?? 0
-    const startStaff = start.staff ?? 0
+    const startVoice = voiceOf(start)
+    const startStaff = staffOf(start)
     const sorted = this.scoreModel.getAllNotes()
-      .filter(n => (n.voice ?? 0) === startVoice && (n.staff ?? 0) === startStaff)
+      .filter(n => voiceOf(n) === startVoice && staffOf(n) === startStaff)
       .sort(compareByPosition)
     const idx = sorted.findIndex(n => n.id === walkFromId)
     if (idx < 0) return undefined
@@ -2607,7 +2608,7 @@ export class MusicEngine {
    *  is ordinary, not a chord, and re-anchoring the OTHER staff's slurs onto this rest would be a real
    *  bug. `noteId` is appended defensively so the note being converted is always covered. */
   private slotPitchIdsFor(note: Note, noteId: string): string[] {
-    const ids = this.getChordNotesAt(note.measure, note.beat, note.voice ?? 0, note.staff ?? 0)
+    const ids = this.getChordNotesAt(note.measure, note.beat, voiceOf(note), staffOf(note))
       .map(n => n.id)
     return ids.includes(noteId) ? ids : [...ids, noteId]
   }
@@ -2645,7 +2646,7 @@ export class MusicEngine {
     }
 
     // Check if this note is part of a chord (multiple notes at same beat, same voice, same staff)
-    const notesAtSameBeat = this.getChordNotesAt(note.measure, note.beat, note.voice ?? 0, note.staff ?? 0)
+    const notesAtSameBeat = this.getChordNotesAt(note.measure, note.beat, voiceOf(note), staffOf(note))
     const isPartOfChord = notesAtSameBeat.length > 1
 
     // Save EVERY tie that targets this note before deletion clears them. When a single
@@ -2701,7 +2702,7 @@ export class MusicEngine {
       // Rest inside a tuplet deleted — fill the empty gap it left behind
       const measure = this.scoreModel.getMeasure(note.measure)
       const tuplet = measure?.tuplets?.find(t => t.id === note.tupletId)
-      if (tuplet) this.scoreModel.refillTupletRemainder(note.measure, tuplet, note.voice ?? 0)
+      if (tuplet) this.scoreModel.refillTupletRemainder(note.measure, tuplet, voiceOf(note))
       this.reanchorSlurs(noteId, null)
     }
 
@@ -2753,7 +2754,7 @@ export class MusicEngine {
     // refills both voices, re-apply after (ScoreModel.setRestBeamOver).
     const beamOverRests = ordered
       .filter(o => o.note.isRest && o.note.beamOver)
-      .map(o => ({ measure: o.note.measure, beat: o.note.beat, staff: o.note.staff ?? 0 }))
+      .map(o => ({ measure: o.note.measure, beat: o.note.beat, staff: staffOf(o.note) }))
 
     // Bars a two-note tremolo could have been torn across — collected BEFORE the move, since a note
     // that leaves takes its bar number with it.
@@ -2896,10 +2897,10 @@ export class MusicEngine {
       const staffId = this.staffIdForIndex(note.staff)
       const measure = this.scoreModel.getMeasure(note.measure)
       const multiVoice = measure
-        ? new Set(staffSlots(measure, staffId, this.scoreModel.getScore()).map(s => s.voice ?? 0)).size > 1
+        ? new Set(staffSlots(measure, staffId, this.scoreModel.getScore()).map(s => voiceOf(s))).size > 1
         : false
       const displayed: 'up' | 'down' = multiVoice
-        ? ((note.voice ?? 0) % 2 === 0 ? 'up' : 'down')
+        ? (voiceOf(note) % 2 === 0 ? 'up' : 'down')
         : naturalStemDirection(note.step!, note.octave!, this.scoreModel.getEffectiveClefAt(note.measure, note.beat, staffId))
       newDirection = displayed === 'down' ? 'up' : 'down'
     }

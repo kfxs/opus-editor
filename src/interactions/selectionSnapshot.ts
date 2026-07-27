@@ -4,6 +4,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { EngravingOverride, Note, Score } from '../types/music'
 import { cautionaryClefKey, cautionaryKey, restPositionKey } from '../engine/models/engravingOverrides'
 import { selectedNoteIds } from './selection'
+import { staffOf, voiceOf } from '@/utils/lanes'
 
 /**
  * What is selected in the score, resolved to the OBJECTS behind it.
@@ -83,7 +84,7 @@ function noteOverrideKeys(score: Score, engine: MusicEngine, note: Note): string
   if (target) keys.push(target.key)
   if (!note.isRest) return keys
   const measure = score.measures.find((m) => m.number === note.measure)
-  if (measure) keys.push(restPositionKey(measure.id, note.voice ?? 0, note.beat, score.staves?.[note.staff ?? 0]?.id))
+  if (measure) keys.push(restPositionKey(measure.id, voiceOf(note), note.beat, score.staves?.[staffOf(note)]?.id))
   return keys
 }
 

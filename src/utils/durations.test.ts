@@ -12,6 +12,8 @@ import {
   fitRestDuration,
   splitBeatsIntoLengths,
   durationFlags,
+  writtenLength,
+  slotLength,
 } from './durations'
 import { getMeasureDurationFrac } from './musicUtils'
 import { fracCreate, fracAdd, fracEq, fracToNumber } from './fraction'
@@ -165,6 +167,42 @@ describe('durationToFraction', () => {
 
   it('double-dotted half = 7/2 beats', () => {
     expect(durationToFraction('h', 2)).toEqual(frac(7, 2))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// writtenLength / slotLength — the object-taking rules the model reads everywhere
+// ---------------------------------------------------------------------------
+
+describe('writtenLength', () => {
+  it('is durationToFraction over an object', () => {
+    expect(writtenLength({ duration: 'q', dots: 1 })).toEqual(frac(3, 2))
+  })
+
+  it('treats absent dots as none', () => {
+    expect(writtenLength({ duration: 'h' })).toEqual(frac(2, 1))
+    expect(writtenLength({ duration: 'h' })).toEqual(writtenLength({ duration: 'h', dots: 0 }))
+  })
+
+  it('answers what is WRITTEN — a triplet quarter is still one beat', () => {
+    // Its actualDuration (2/3) is slotLength's business; writtenLength does not take one.
+    expect(writtenLength({ duration: 'q', dots: 0 })).toEqual(frac(1, 1))
+  })
+})
+
+describe('slotLength', () => {
+  it('prefers actualDuration when the slot carries one', () => {
+    // A triplet quarter: written 1 beat, sounding 2/3.
+    expect(slotLength({ duration: 'q', dots: 0, actualDuration: frac(2, 3) })).toEqual(frac(2, 3))
+  })
+
+  it('falls back to the written length when it does not', () => {
+    expect(slotLength({ duration: '8', dots: 1 })).toEqual(frac(3, 4))
+  })
+
+  it('a measure rest sounds its bar, not its nominal whole', () => {
+    // 3/4: stored duration 'w', actualDuration 3 beats.
+    expect(slotLength({ duration: 'w', actualDuration: frac(3, 1) })).toEqual(frac(3, 1))
   })
 })
 

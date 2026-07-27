@@ -247,6 +247,33 @@ greppable.
 `git diff` review that no site changed meaning (watch for the handful that deliberately
 read a raw `undefined`).
 
+### ✅ Done (2026-07-27)
+
+**Two homes, not one.** `voiceOf` / `staffOf` went into a new dependency-free
+**`utils/lanes.ts`** (it imports nothing at all, so it can be called from anywhere in the core
+without adding a graph edge). `writtenLength` / `slotLength` went into **`utils/durations.ts`**,
+which already declares itself the single source of truth for everything keyed by a
+`NoteDuration` — they are the object-taking twins of `durationToFraction`.
+
+**⭐ The distinction the sweep turned on: an absent FIELD is not an absent OBJECT.** All four
+accessors take a value, deliberately not `T | undefined`. `maybeNote?.voice ?? 0` is answering a
+different question — *there is nothing there* — and 20 sites (mostly `engine.getNote(id)?.voice ??
+0` in `HighlightController`) still spell it out, correctly. Conflating the two would have hidden a
+missing note behind "voice 0". Four more leftovers are a bare `voice ?? 0` on an optional
+PARAMETER, which is the same non-question.
+
+**Counts, measured rather than trusted** — the table above says `x.staff ?? 0` 67 times; it was
+**69** in production code (plus 52 more in tests, left alone: a test that reads through the
+accessor it is checking can't catch the accessor regressing). 150 `voice` + 69 `staff` + 21
+`slotLength` + 12 `writtenLength` = **252 sites swept across 31 files**, with the 24 above left
+standing.
+
+**One duplicate died with it:** `utils/dynamics.ts`'s `dynamicVoice(d)` was `voiceOf` for exactly
+one type. Removed, its 2 callers now read `voiceOf`.
+
+`build:check` green (tsc + all four lint gates + build), 2524 → **2535 tests** (11 new, covering
+both modules). No behaviour change is intended anywhere in this phase.
+
 ---
 
 ## Phase 3 — Make the layer map true again

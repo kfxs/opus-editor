@@ -3,7 +3,7 @@ import { CenteredTremolo } from './CenteredTremolo'
 import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction } from '@/types/music'
 import { fracCompare, fracLte } from '@/utils/fraction'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
-import { doubleDuration, durationToFraction, durationToVexflow } from '@/utils/durations'
+import { doubleDuration, durationToVexflow, slotLength } from '@/utils/durations'
 import { pairRoleAt } from '@/utils/tremoloPair'
 import { pickVoiceMode } from '@/utils/restFill'
 import { displayedAccidentals } from '@/utils/accidentalState'
@@ -244,7 +244,7 @@ export function createStaveNotesFromSlots(
     // voice sees a half-empty bar. `applyTickMultiplier(a, b)` scales by a/b — VexFlow's own
     // `Tuplet` call — so the slot's length in quarters IS the multiplier.
     if (fanned) {
-      const real = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
+      const real = slotLength(slot)
       staveNote.applyTickMultiplier(real.num, real.den)
     }
     staveNote.setStemDirection(stemDirection)

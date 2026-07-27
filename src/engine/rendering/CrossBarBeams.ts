@@ -32,6 +32,7 @@ import type { ChordRest, Clef, Measure } from '@/types/music'
 import { computeCrossBarBeamGroups, secondaryBreakIndices, type BeamBar } from '@/utils/beaming'
 import { fracCompare } from '@/utils/fraction'
 import { getMeterInfo } from '@/utils/meter'
+import { voiceOf } from '@/utils/lanes'
 
 /** One bar of one staff, as the planner needs to see it. */
 export interface CrossBarBar {
@@ -182,7 +183,7 @@ export interface CrossBarBeamPlan {
 export function laneSlots(view: Measure, voice: number): ChordRest[] {
   return [...view.slots]
     .sort((a, b) => fracCompare(a.beat, b.beat))
-    .filter(s => (s.voice ?? 0) === voice)
+    .filter(s => voiceOf(s) === voice)
 }
 
 export function laneKey(measureNumber: number, staffIndex: number, voice: number): string {
@@ -274,7 +275,7 @@ export function planCrossBarBeams(
   }
 
   for (const run of splitIntoRuns(bars)) {
-    const voices = [...new Set(run.flatMap(b => b.view.slots.map(s => s.voice ?? 0)))].sort((a, b) => a - b)
+    const voices = [...new Set(run.flatMap(b => b.view.slots.map(s => voiceOf(s))))].sort((a, b) => a - b)
 
     for (const voice of voices) {
       const slotsPerBar = run.map(b => laneSlots(b.view, voice))
@@ -282,7 +283,7 @@ export function planCrossBarBeams(
       // so a group joining a two-voice bar to a one-voice bar takes it from the bar that has it.
       // Voice parity is the same in both, so two forced bars can never disagree.
       const forcedPerBar = run.map(b =>
-        new Set(b.view.slots.map(s => s.voice ?? 0)).size > 1 ? (voice % 2 === 0 ? 1 : -1) : undefined)
+        new Set(b.view.slots.map(s => voiceOf(s))).size > 1 ? (voice % 2 === 0 ? 1 : -1) : undefined)
       const beamBars: BeamBar[] = run.map((b, i) => ({
         slots: slotsPerBar[i],
         meter: getMeterInfo(b.view.timeSignature),

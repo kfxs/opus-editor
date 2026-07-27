@@ -37,7 +37,7 @@ import {
   fracGt,
   fracToNumber,
 } from '@/utils/fraction'
-import { DURATIONS_DESC, durationToFraction } from '@/utils/durations'
+import { DURATIONS_DESC, durationToFraction, slotLength } from '@/utils/durations'
 import { type MeterInfo, STRENGTH } from '@/utils/meter'
 
 /** One position-anchored note/rest shape: position, base duration, dot count. */
@@ -166,7 +166,7 @@ export function pickVoiceMode(slots: ChordRest[], barQuarters: Fraction): 'soft'
   let used: Fraction = fracCreate(0, 1)
   for (const slot of slots) {
     if (slot.type === 'rest' && slot.isMeasureRest) return 'soft'
-    used = fracAdd(used, slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0))
+    used = fracAdd(used, slotLength(slot))
   }
   return fracGt(used, barQuarters) ? 'soft' : 'full'
 }

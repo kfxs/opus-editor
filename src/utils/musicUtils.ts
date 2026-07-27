@@ -21,6 +21,7 @@ import {
   getDotMultiplier,
   beatsToDuration,
   splitBeatsIntoDurations,
+  slotLength,
 } from '@/utils/durations'
 
 /**
@@ -684,7 +685,7 @@ export function measureFanMemberNotes(measure: Measure, score?: Score): Note[] {
   const out: Note[] = []
   for (const slot of measure.slots) {
     if (slot.type !== 'chord' || !slot.fan) continue
-    const total = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
+    const total = slotLength(slot)
     const staff = score ? resolveStaffIndex(score, slot.staffId) : undefined
     for (const member of fanMemberEntries(slot.fan, total, slot.beat)) {
       for (const p of member.pitches) {
@@ -721,7 +722,7 @@ export function measureAccidentalNotes(measure: Measure): AccidentalNote[] {
   const notes: AccidentalNote[] = getMeasureNotes(measure)
   for (const slot of measure.slots) {
     if (slot.type !== 'chord' || !slot.fan) continue
-    const total = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
+    const total = slotLength(slot)
     for (const member of fanMemberEntries(slot.fan, total, slot.beat)) {
       for (const p of member.pitches) {
         notes.push({ step: p.step, alter: p.alter, octave: p.octave, beat: member.beat })

@@ -334,13 +334,16 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
   still uses the registry bbox; only the recolor uses the group.)
 
 ### Phase 7 — Voice-awareness scaffolding (mostly free; document the seam) — DONE
-**Audit result (verified):** every dynamic path already keys on `voice ?? 0`. Confirmed sites:
-- **Model storage** — `ScoreModel.addDynamic` stores `voice = dynamic.voice ?? 0`. (It no longer
-  replaces a same-(beat, voice) mark — stacking is allowed; see Phase 1.)
-- **Resolution** — `utils/dynamics`: `dynamicVoice(d) = d.voice ?? 0`; `resolveActiveLevel` filters
-  on it walking back; `resolveChordLevels` keys its running map on `slot.voice ?? 0` / `d.voice ?? 0`.
-- **Render matching** — `VexFlowRenderer.attachDynamicsToSlots` matches `dyn.voice ?? 0` against
-  `slot.voice ?? 0` (exact-beat → nearest-following → last, all within the voice).
+**Audit result (verified):** every dynamic path already keys on the voice, absent = 0 — spelled
+`voiceOf` (`utils/lanes.ts`) since the 2026-07-27 accessor sweep. Confirmed sites:
+- **Model storage** — `ScoreModel.addDynamic` stores the mark's own `voice` verbatim, absent and
+  all, so every reader applies the same absent = 0 rule. (It no longer replaces a same-(beat,
+  voice) mark — stacking is allowed; see Phase 1.)
+- **Resolution** — `utils/dynamics`: `resolveActiveLevel` filters on `voiceOf(d)` walking back;
+  `resolveChordLevels` keys its running map on `voiceOf(slot)` / `voiceOf(d)`. (A local
+  `dynamicVoice(d)` wrapper existed until the sweep folded it into `voiceOf`.)
+- **Render matching** — `DynamicsLayout.attachDynamicsToSlots` matches `voiceOf(dyn)` against
+  `voiceOf(slot)` (exact-beat → nearest-following → last, all within the voice).
 - **Playback** — consumes `resolveChordLevels` (per-voice), so it inherits the same keying.
 
 **The single seam:** the *only* hardcoded voice is at placement — `MouseController` passes `voice: 0`

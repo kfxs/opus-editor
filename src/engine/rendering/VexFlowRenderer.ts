@@ -14,7 +14,7 @@ import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fra
 import { measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, staffLineForSpelling, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { beatToFrac, measureCapacityFrac, tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
-import { durationToVexflow, durationToFraction } from '@/utils/durations'
+import { durationToVexflow, slotLength, writtenLength } from '@/utils/durations'
 import { getMeterInfo, timeSignatureVexKey, type MeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { computeBeamGroups, secondaryBreakIndices } from '@/utils/beaming'
@@ -49,6 +49,7 @@ import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex, staffIndexOf
 import { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import type { Rect } from '@/engine/ViewportModel'
 import { dbg } from '@/utils/debug'
+import { staffOf, voiceOf } from '@/utils/lanes'
 
 // Re-exported for existing importers (MusicEngine, App.ts, RenderPass) that referenced
 // these from the renderer before they moved to ./layoutConfig.
@@ -173,7 +174,7 @@ function fanMemberSpacesPx(score: Score, measureNumber: number, slot: Chord): nu
   const spaces = measureLeadingSpaces(score, measure.id)
   if (spaces.length === 0) return []
 
-  const beats = fanMemberBeats(slot.fan, slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0), slot.beat)
+  const beats = fanMemberBeats(slot.fan, slotLength(slot), slot.beat)
   return beats.map((beat, k) => {
     if (k === 0) return 0 // member 0's space IS the column's, already applied
     const hit = spaces.find(s => s.beat.num * beat.den === beat.num * s.beat.den)
@@ -206,7 +207,7 @@ function fanTrailingSpacePx(score: Score, measureNumber: number, slot: Chord): n
   if (!measure) return 0
   const spaces = measureLeadingSpaces(score, measure.id)
   if (spaces.length === 0) return 0
-  const end = fracAdd(slot.beat, slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0))
+  const end = fracAdd(slot.beat, slotLength(slot))
   const hit = spaces.find(s => s.beat.num * end.den === end.num * s.beat.den)
   // ⚠️ The SAME px-per-staff-space `applyLeadingSpaces` shifted the context by — this undoes exactly
   // that shift, so it has to be measured in exactly that unit.
@@ -1436,7 +1437,7 @@ export class VexFlowRenderer {
       index, slot, note, stave, measureNumber, staffIndex,
       headX, baseY, stemDirection, heads, stored, prefixNotes,
       options: {
-        members: fanMembers(slot.fan, slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)),
+        members: fanMembers(slot.fan, slotLength(slot)),
         memberSpaces: fanMemberSpacesPx(score, measureNumber, slot),
         // ⚠️ Same array shape as the spaces above, opposite arithmetic — the geometry SUBTRACTS entry
         // 0 (already inside `headX`) and adds the rest without touching the span. See
@@ -2333,7 +2334,7 @@ export class VexFlowRenderer {
       // is the one knob to retune the spread by eye. (docs/multi-voice-plan.md §13.)
       const REST_LINE_STEP = 3
       const REST_LANE = [0, -1, 1, -2] // × REST_LINE_STEP, indexed by 0-based model voice
-      const voiceIds = [...new Set(sortedAll.map(s => s.voice ?? 0))].sort((a, b) => a - b)
+      const voiceIds = [...new Set(sortedAll.map(s => voiceOf(s)))].sort((a, b) => a - b)
       const multiVoice = voiceIds.length > 1
       // Our intended rest line / stem direction / horizontal shift per StaveNote, captured
       // BEFORE formatting. VexFlow's StaveNote.format rewrites all three for same-tick
@@ -2346,14 +2347,14 @@ export class VexFlowRenderer {
       const intendedStemDir = new Map<StaveNote, number>()
       const intendedXShift = new Map<StaveNote, number>()
       const groups = voiceIds.map(v => {
-        const slots = sortedAll.filter(s => (s.voice ?? 0) === v)
+        const slots = sortedAll.filter(s => voiceOf(s) === v)
         const stemUp = v % 2 === 0
         const forcedStem = multiVoice ? (stemUp ? 1 : -1) : undefined
         const restShift = multiVoice ? (REST_LANE[v] ?? 0) * REST_LINE_STEP : 0
         // notesOnly: one StaveNote per slot (used for beams, tuplets, registration). The
         // resolver adds each rest's manual vertical shift (if any) on top of the voice base.
         const restShiftFor = (slot: ChordRest): number =>
-          restShift + (restShiftOverrideOf(pass.score, restPositionKey(measure.id, slot.voice ?? 0, slot.beat, slot.staffId))?.steps ?? 0)
+          restShift + (restShiftOverrideOf(pass.score, restPositionKey(measure.id, voiceOf(slot), slot.beat, slot.staffId))?.steps ?? 0)
         const staveNotes = createStaveNotesFromSlots(slots, clefForBeat, forcedStem, restShiftFor)
         for (const sn of staveNotes) {
           // Non-measure rests only: measure (whole-bar) rests are centred separately and
@@ -2622,7 +2623,7 @@ export class VexFlowRenderer {
 
       // Keep the ledger in lockstep with a hidden rest: tint it the same gray. The save/restore
       // around the stroke keeps this style local — it does NOT leak into later drawing.
-      const hidden = restHiddenOf(score, restPositionKey(measure.id, slot.voice ?? 0, slot.beat, slot.staffId))
+      const hidden = restHiddenOf(score, restPositionKey(measure.id, voiceOf(slot), slot.beat, slot.staffId))
       const ledgerStyle = hidden
         ? { ...stave.getDefaultLedgerLineStyle(), strokeStyle: HIDDEN_REST_COLOR }
         : stave.getDefaultLedgerLineStyle()
@@ -2728,7 +2729,7 @@ export class VexFlowRenderer {
   private recolorHiddenRests(slots: ChordRest[], measure: Measure, score: Score): void {
     for (const slot of slots) {
       if (slot.type !== 'rest') continue
-      if (!restHiddenOf(score, restPositionKey(measure.id, slot.voice ?? 0, slot.beat, slot.staffId))) continue
+      if (!restHiddenOf(score, restPositionKey(measure.id, voiceOf(slot), slot.beat, slot.staffId))) continue
       const groupInfo = this.getStaveNoteSVGGroup(slot.id)
       if (!groupInfo) continue
       groupInfo.group.querySelectorAll('text, path').forEach((el) => {
@@ -2882,7 +2883,7 @@ export class VexFlowRenderer {
           if (!tupletStaveNoteMap.has(slot.tupletId)) {
             // A tuplet lives in exactly one voice, so the first slot's voice is the
             // tuplet's voice (0 = primary).
-            tupletStaveNoteMap.set(slot.tupletId, { staveNotes: [], tuplet: tupletData, voice: slot.voice ?? 0 })
+            tupletStaveNoteMap.set(slot.tupletId, { staveNotes: [], tuplet: tupletData, voice: voiceOf(slot) })
           }
           tupletStaveNoteMap.get(slot.tupletId)!.staveNotes.push(staveNotes[idx])
         }
@@ -4141,7 +4142,7 @@ export class VexFlowRenderer {
       // The ghost previews entry on the staff the cursor is over (multi-staff): its Y is that
       // staff's row within the system (systemTop + staffIndex*stride) and its clef is that
       // staff's own clef — so the preview lands exactly where the click will place the note.
-      const staffIndex = ghostNote.staff ?? 0
+      const staffIndex = staffOf(ghostNote)
       const staffId = staffIdAtIndex(score, staffIndex)
       // Match the real render's PER-SYSTEM staff-spacing push-down (Client #7) so the
       // translucent ghost lands exactly where the committed note will, on any staff/system
@@ -4251,7 +4252,7 @@ export class VexFlowRenderer {
       // Positions are exact Fractions in quarter-note beats.
       const meter = getMeterInfo(measure.timeSignature)
       const noteStart = beatToFrac(ghostNote.beat)
-      const noteEnd = fracAdd(noteStart, durationToFraction(ghostNote.duration, ghostNote.dots || 0))
+      const noteEnd = fracAdd(noteStart, writtenLength(ghostNote))
 
       const makeRest = (r: RestSlot) => {
         const sn = new StaveNote({ keys: ['b/4'], duration: durationToVexflow(r.duration, r.dots) + 'r' })

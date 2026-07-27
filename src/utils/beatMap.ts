@@ -2,6 +2,7 @@ import type { Note, Score, Fraction } from '../types/music'
 import { fracCompare } from '../utils/fraction'
 import { getMeasureNotes, measureFanMemberNotes } from '../utils/musicUtils'
 import { spellingToMidi } from '../utils/pitchSpelling'
+import { staffOf, voiceOf } from '../utils/lanes'
 
 /**
  * A note augmented with its parent measure number (for cross-measure sorting).
@@ -26,8 +27,8 @@ export type FlatNote = Note & { measureNumber: number }
 export function buildBeatMap(score: Score, voice?: number, staff?: number): { allFlat: FlatNote[]; beats: FlatNote[] } {
   const allFlat: FlatNote[] = score.measures
     .flatMap(m => getMeasureNotes(m, score).map(n => ({ ...n, measureNumber: m.number })))
-    .filter(n => voice === undefined || (n.voice ?? 0) === voice)
-    .filter(n => staff === undefined || (n.staff ?? 0) === staff)
+    .filter(n => voice === undefined || voiceOf(n) === voice)
+    .filter(n => staff === undefined || staffOf(n) === staff)
     .sort((a, b) =>
       a.measureNumber !== b.measureNumber
         ? a.measureNumber - b.measureNumber
@@ -58,11 +59,11 @@ export function buildVoiceNavBeatMap(score: Score, voice: number, staff?: number
       // HERE and not in `buildBeatMap`: that map drives note ENTRY, and a member is not a position
       // you can type a note at.
       const notes = [...getMeasureNotes(m, score), ...measureFanMemberNotes(m, score)]
-        .filter(n => staff === undefined || (n.staff ?? 0) === staff)
-      const hasVoice = notes.some(n => (n.voice ?? 0) === voice)
+        .filter(n => staff === undefined || staffOf(n) === staff)
+      const hasVoice = notes.some(n => voiceOf(n) === voice)
       const useVoice = hasVoice ? voice : 0
       return notes
-        .filter(n => (n.voice ?? 0) === useVoice)
+        .filter(n => voiceOf(n) === useVoice)
         .map(n => ({ ...n, measureNumber: m.number }))
     })
     .sort((a, b) =>
@@ -139,13 +140,13 @@ export function notesInBox(score: Score, currentIds: string[], targetId: string)
     const i = beats.findIndex(b => posKey(b) === posKey(n))
     if (i < 0) continue
     idxLo = Math.min(idxLo, i); idxHi = Math.max(idxHi, i)
-    staffLo = Math.min(staffLo, n.staff ?? 0); staffHi = Math.max(staffHi, n.staff ?? 0)
+    staffLo = Math.min(staffLo, staffOf(n)); staffHi = Math.max(staffHi, staffOf(n))
   }
   if (idxHi < 0) return byId.has(targetId) ? [targetId] : []
 
   const rangeKeys = new Set(beats.slice(idxLo, idxHi + 1).map(posKey))
   return allFlat
-    .filter(n => rangeKeys.has(posKey(n)) && (n.staff ?? 0) >= staffLo && (n.staff ?? 0) <= staffHi)
+    .filter(n => rangeKeys.has(posKey(n)) && staffOf(n) >= staffLo && staffOf(n) <= staffHi)
     .map(n => n.id)
 }
 
@@ -174,7 +175,7 @@ export function dynamicsInBox(score: Score, noteIds: string[]): string[] {
       if (!ids.has(n.id)) continue
       if (!lo || before(m.number, n.beat, lo.m, lo.beat) < 0) lo = { m: m.number, beat: n.beat }
       if (!hi || before(m.number, n.beat, hi.m, hi.beat) > 0) hi = { m: m.number, beat: n.beat }
-      const st = n.staff ?? 0
+      const st = staffOf(n)
       staffLo = Math.min(staffLo, st); staffHi = Math.max(staffHi, st)
     }
   }

@@ -14,7 +14,7 @@
  */
 import type { Score, Chord, ChordRest, DynamicLevel, FanMark, Measure, NotePitch } from '@/types/music'
 import { durationToBeats, measureCapacityQuarters } from '@/utils/musicUtils'
-import { doubleDuration, durationFlags, durationToFraction } from '@/utils/durations'
+import { doubleDuration, durationFlags, slotLength } from '@/utils/durations'
 import { fracToNumber } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import { DYNAMIC_VELOCITY, DEFAULT_DYNAMIC, resolveChordLevels } from '@/utils/dynamics'
@@ -23,6 +23,7 @@ import { fanMembers, fanMemberPitches } from '@/utils/fannedBeam'
 import { legatoChordIds } from '@/utils/slurs'
 import { articulationEffect } from '@/utils/articulations'
 import { buildTempoMap, beatsToSeconds, secondsToBeats, type TempoSegment } from '@/utils/tempoMap'
+import { voiceOf } from '@/utils/lanes'
 
 /** A single sounding note to schedule, in tempo-independent beat units. */
 export interface ScheduledNote {
@@ -314,7 +315,7 @@ function laneIndexOfMeasure(measure: Measure): Map<string, { lane: ChordRest[]; 
   const index = new Map<string, { lane: ChordRest[]; index: number }>()
   const seen = new Set<string>()
   for (const slot of measure.slots) {
-    const key = `${slot.voice ?? 0}:${slot.staffId ?? ''}`
+    const key = `${voiceOf(slot)}:${slot.staffId ?? ''}`
     if (seen.has(key)) continue
     seen.add(key)
     const lane = laneOfSlot(measure.slots, slot)
@@ -364,7 +365,7 @@ function collectFanAttacks(
 ): void {
   const { chord, fan, startBeats, spanBeats, suppressed, velocity, durationFactor } = opts
   const sounding = chord.notes.filter(np => !suppressed.has(np.id))
-  const members = fanMembers(fan, chord.actualDuration ?? durationToFraction(chord.duration, chord.dots ?? 0))
+  const members = fanMembers(fan, slotLength(chord))
   const pitches = fanMemberPitches(sounding, fan)
 
   for (let k = 0; k < members.length; k++) {

@@ -61,7 +61,8 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 ├─────────────────────────────────────────────────────────────┤
 │  utils/  pure functions: fraction, meter, rebar, restFill,    │  Pure
 │          beaming, fannedBeam, beatMap, clefUtils, durations,   │  helpers
-│          dynamics, musicUtils, pitchSpelling, slurs, artics    │
+│          dynamics, lanes, musicUtils, pitchSpelling, slurs,    │
+│          artics                                                │
 │  types/music.ts  the shared interfaces                         │
 │  shortcuts/  declarative keybinding table + manager            │
 └─────────────────────────────────────────────────────────────┘
@@ -155,6 +156,7 @@ holds a *rule*, it is in the wrong file.
 | A keybinding | `shortcuts/ShortcutConfig.ts` |
 | What a NUMPAD key does | `windows/keypad/keypadLayouts.ts` — **not** ShortcutConfig, which binds all 16 pad keys to one `keypadKey` action. The pad is the Keypad panel: a key presses the cell under it *on the page that is showing*. See `docs/keypad.md` |
 | A pure music calculation (durations, meter, fractions) | `utils/` |
+| "which lane is this in?" / "how long is this?" | Four accessors, never a hand-written `?? 0`: `utils/lanes.ts` `voiceOf` / `staffOf` (absent = the first voice/staff) and `utils/durations.ts` `writtenLength` / `slotLength` (`slotLength` prefers `actualDuration`, so a tuplet member and a measure rest time correctly). They resolve an absent FIELD, not an absent OBJECT — `maybeNote?.voice ?? 0` is a different question and stays written out |
 | Which notes are beamed together | `utils/beaming.ts` (pure — a run of bars, each with its own `MeterInfo`, → index groups; one bar is a run of one). The per-note override lives on the NOTE (`Chord.beam`), not in `engravingOverrides`. See `docs/beaming.md` |
 | A beam that crosses a BARLINE | `rendering/CrossBarBeams.ts` decides which barlines are open (bounded by the system break and by any unpainted bar); the bar gives its joined notes a **placeholder** beam, and the one real `Beam` is drawn in a post-measure pass **outside both measure groups**, like a tie. It rides both bars' `measureShapeKey` and pins them as span anchors. See `docs/cross-barline-beaming-plan.md` |
 | How many beam LINES join them (6 sixteenths subdivided 3+3) | `Chord.secondaryBreak` — a SEPARATE field from `Chord.beam`, not a sixth `BeamMode`: which notes are beamed and how they are subdivided are independent statements. Drawn with VexFlow's `Beam.breakSecondaryAt`; the index translation is `secondaryBreakIndices` in `utils/beaming.ts`. See `docs/beaming.md` |

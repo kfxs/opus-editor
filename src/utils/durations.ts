@@ -152,6 +152,37 @@ export function durationToFraction(duration: NoteDuration, dots = 0): Fraction {
   return fracMul(base, dotMul)
 }
 
+/**
+ * The exact length a slot is WRITTEN as — its duration plus its dots, absent dots meaning none.
+ *
+ * The object-taking twin of {@link durationToFraction}, for the dozen sites that had a note, rest,
+ * chord or set of note params in hand and spelled out `durationToFraction(x.duration, x.dots ?? 0)`.
+ *
+ * ⚠️ WRITTEN, not sounding. Inside a tuplet the two differ — see {@link slotLength}, which is what
+ * timing arithmetic wants.
+ */
+export function writtenLength(x: { duration: NoteDuration; dots?: number }): Fraction {
+  return durationToFraction(x.duration, x.dots ?? 0)
+}
+
+/**
+ * The exact length a slot SOUNDS for — `actualDuration` when it carries one, else its written
+ * length.
+ *
+ * This is the rule every timing comparison needs, and it was re-derived at 21 sites. `actualDuration`
+ * is present exactly when written ≠ sounding: a tuplet member (scaled by M/N) and a measure rest
+ * (written `'w'`, sounding a whole bar). Reading `duration + dots` directly at one of those sites
+ * silently mis-times a triplet.
+ *
+ * The absent case is not a fallback for missing data — for an ordinary note the two ARE equal, and
+ * `ScoreModel.computeActualDurationForSlot` only stores the field when they are not.
+ */
+export function slotLength(
+  slot: { duration: NoteDuration; dots?: number; actualDuration?: Fraction },
+): Fraction {
+  return slot.actualDuration ?? writtenLength(slot)
+}
+
 /** One writable length: a base duration plus its dots. What a single note or rest can BE. */
 export interface NoteLength { duration: NoteDuration; dots: number }
 

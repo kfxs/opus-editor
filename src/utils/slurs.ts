@@ -1,4 +1,5 @@
 import type { Score } from '@/types/music'
+import { voiceOf } from '@/utils/lanes'
 
 /**
  * Slur-related helpers for playback. Slurs are notational first-class spans on
@@ -94,7 +95,7 @@ export function slurNestDepths(score: Score): Map<string, number> {
     const a = slotIndex.get(s)
     const b = slotIndex.get(e)
     if (a === undefined || b === undefined) continue
-    spans.push({ id: slur.id, voice: slur.voice ?? 0, start: Math.min(a, b), end: Math.max(a, b) })
+    spans.push({ id: slur.id, voice: voiceOf(slur), start: Math.min(a, b), end: Math.max(a, b) })
     depths.set(slur.id, 0)
   }
 

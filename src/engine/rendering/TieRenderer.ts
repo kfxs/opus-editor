@@ -14,6 +14,7 @@ import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
 import type { RenderPass } from './RenderPass'
 import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
+import { voiceOf } from '@/utils/lanes'
 
 // Tie geometry (same-line, flat). A tie joins one pitch, so both endpoints share a Y
 // and the apex sits at the X midpoint. These reproduce the old hand-drawn quadratic
@@ -54,7 +55,7 @@ export function getTieDirection(notePitch: NotePitch, beat: Fraction, measure: M
   // pitch's staff position. Mirrors the forced stem / articulation side /
   // tuplet-bracket rule (Gould). The pitch-based rule below only applies when the
   // bar has a single voice. (`x` override handled above.)
-  const voiceCount = new Set(measure.slots.map(s => s.voice ?? 0)).size
+  const voiceCount = new Set(measure.slots.map(s => voiceOf(s))).size
   if (voiceCount > 1) {
     const voice = chordAtBeat?.voice ?? 0
     return voice % 2 === 0 ? -1 : 1

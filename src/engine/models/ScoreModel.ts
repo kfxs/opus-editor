@@ -11,7 +11,7 @@ import {
   measureCapacityFrac,
   getMeasureDurationFrac,
 } from '@/utils/musicUtils'
-import { durationToFraction } from '@/utils/durations'
+import { durationToFraction, slotLength, writtenLength } from '@/utils/durations'
 import {
   getMeterInfo,
   isValidTimeSignature,
@@ -48,6 +48,7 @@ import * as tupletOps from './tupletOps'
 import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
 import { tempoMarks, effectiveTempoAt, MIN_BPM, MAX_BPM } from '@/utils/tempoMap'
 import { v4 as uuidv4 } from 'uuid'
+import { voiceOf } from '@/utils/lanes'
 
 // The region-rewrite machinery (rebar / paste) and its captured-state types now live in
 // ./rebarOps. Re-export the two clipboard input types so callers (MusicEngine) keep their
@@ -61,7 +62,7 @@ export type { ClipDynamicInput, ClipSlurInput } from './rebarOps'
  * shown (even default 0) because the multi-voice paths are the sensitive ones.
  */
 function fmtSlot(slot: ChordRest): string {
-  const v = slot.voice ?? 0
+  const v = voiceOf(slot)
   const b = fracToNumber(slot.beat).toFixed(3)
   const dots = slot.dots ? '.'.repeat(slot.dots) : ''
   const tup = slot.tupletId ? ` tup:${slot.tupletId.slice(0, 4)}` : ''
@@ -314,7 +315,7 @@ export class ScoreModel {
       duration: rest.duration,
       measure: measure.number,
       beat: rest.beat,
-      actualDuration: rest.isMeasureRest ? measureCapacityFrac(measure) : durationToFraction(rest.duration, rest.dots),
+      actualDuration: rest.isMeasureRest ? measureCapacityFrac(measure) : writtenLength(rest),
     }
     if (rest.dots) slot.dots = rest.dots
     if (rest.isMeasureRest) slot.isMeasureRest = true
@@ -1607,7 +1608,7 @@ export class ScoreModel {
     const { chord } = found
     const index = found.member?.index ?? 0
     if (index === 0 || !chord.fan) return { measure: chord.measure, beat: chord.beat, memberIndex: 0 }
-    const total = chord.actualDuration ?? durationToFraction(chord.duration, chord.dots ?? 0)
+    const total = slotLength(chord)
     const beat = fanMemberBeats(chord.fan, total, chord.beat)[index]
     return beat ? { measure: chord.measure, beat, memberIndex: index } : { measure: chord.measure, beat: chord.beat, memberIndex: 0 }
   }
@@ -1736,9 +1737,9 @@ export class ScoreModel {
 
     // Regular note — look for an existing Chord at the same beat AND voice
     // (different voices are independent streams and never merge into one chord).
-    const noteVoice = params.voice ?? 0
+    const noteVoice = voiceOf(params)
     const existingChord = measure.slots.find(
-      (s): s is Chord => s.type === 'chord' && fracEq(s.beat, params.beat) && (s.voice ?? 0) === noteVoice
+      (s): s is Chord => s.type === 'chord' && fracEq(s.beat, params.beat) && voiceOf(s) === noteVoice
         && matchesStaff(s.staffId, targetStaffId, this.score)
     )
 
@@ -1860,9 +1861,9 @@ export class ScoreModel {
       }
       if (existing.type === 'rest') {
         const existingDurFrac =
-          existing.actualDuration ?? durationToFraction(existing.duration, existing.dots ?? 0)
+          slotLength(existing)
         const overlaps =
-          (existing.voice ?? 0) === voice &&
+          voiceOf(existing) === voice &&
           matchesStaff(existing.staffId, staffId, this.score) &&
           noteSpansOverlapFrac(beat, durFrac, existing.beat, existingDurFrac)
         if (overlaps) {
@@ -1876,8 +1877,8 @@ export class ScoreModel {
   }
 
   private evictRestsOverlapping(measure: Measure, incoming: ChordRest): string | undefined {
-    const incomingDurFrac = incoming.actualDuration ?? durationToFraction(incoming.duration, incoming.dots ?? 0)
-    const incomingVoice = incoming.voice ?? 0
+    const incomingDurFrac = slotLength(incoming)
+    const incomingVoice = voiceOf(incoming)
     const tieTarget: { id: string; tiedFrom?: string } | undefined =
       incoming.type === 'chord' ? incoming.notes[0] : incoming
 
@@ -1936,8 +1937,8 @@ export class ScoreModel {
    * is safe to call on any duration change; only a genuine grow evicts anything.
    */
   private evictRestsOverlappingChord(measure: Measure, chord: Chord): void {
-    const chordDurFrac = chord.actualDuration ?? durationToFraction(chord.duration, chord.dots ?? 0)
-    const chordVoice = chord.voice ?? 0
+    const chordDurFrac = slotLength(chord)
+    const chordVoice = voiceOf(chord)
 
     const { evicted, remaining } = this.scanOverlappingRests(
       measure, chord.beat, chordDurFrac, chordVoice, chord.staffId, chord.id,
@@ -2039,11 +2040,11 @@ export class ScoreModel {
 
       // Distinct voices present in THIS staff (always include voice 0 so an empty bar fills).
       const voices = new Set<number>([0])
-      for (const slot of laneSlots) voices.add(slot.voice ?? 0)
+      for (const slot of laneSlots) voices.add(voiceOf(slot))
 
       for (const voice of voices) {
         const voiceSlots = laneSlots
-          .filter(slot => (slot.voice ?? 0) === voice)
+          .filter(slot => voiceOf(slot) === voice)
           .sort((a, b) => fracCompare(a.beat, b.beat))
 
         // Only this staff+voice's tuplets may govern its gaps. A tuplet's voice is
@@ -2061,7 +2062,7 @@ export class ScoreModel {
           if (fracLt(currentBeat, slot.beat)) {
             gaps.push({ start: currentBeat, end: slot.beat })
           }
-          const slotDurFrac = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
+          const slotDurFrac = slotLength(slot)
           currentBeat = fracAdd(slot.beat, slotDurFrac)
         }
         if (fracLt(currentBeat, barEnd)) {
@@ -2120,7 +2121,7 @@ export class ScoreModel {
     if ('isMeasureRest' in slot && slot.isMeasureRest) {
       return measureCapacityFrac(measure)
     }
-    const base = durationToFraction(slot.duration, slot.dots ?? 0)
+    const base = writtenLength(slot)
     if (slot.tupletId && measure.tuplets) {
       const tuplet = measure.tuplets.find(t => t.id === slot.tupletId)
       if (tuplet) {
@@ -2206,7 +2207,7 @@ export class ScoreModel {
 
     const bars = this.score.measures.map(measure => ({
       slots: measure.slots
-        .filter(s => matchesStaff(s.staffId, slot.staffId, this.score) && (s.voice ?? 0) === (slot.voice ?? 0))
+        .filter(s => matchesStaff(s.staffId, slot.staffId, this.score) && voiceOf(s) === voiceOf(slot))
         .sort((a, b) => fracCompare(a.beat, b.beat)),
       meter: getMeterInfo(measure.timeSignature),
     }))
@@ -2460,8 +2461,8 @@ export class ScoreModel {
    *  - single voice: opposite the stem (the note-head side). */
   private autoArticulationPlacement(chord: Chord): 'above' | 'below' {
     const measure = this.getMeasure(chord.measure)
-    const multiVoice = measure ? new Set(measure.slots.map(s => s.voice ?? 0)).size > 1 : false
-    if (multiVoice) return (chord.voice ?? 0) === 0 ? 'above' : 'below'
+    const multiVoice = measure ? new Set(measure.slots.map(s => voiceOf(s))).size > 1 : false
+    if (multiVoice) return voiceOf(chord) === 0 ? 'above' : 'below'
     return this.resolveStemDirection(chord) === 'up' ? 'below' : 'above'
   }
 
@@ -2888,14 +2889,14 @@ export class ScoreModel {
 
     const secondaryVoices = new Set<number>()
     for (const slot of measure.slots) {
-      const v = slot.voice ?? 0
+      const v = voiceOf(slot)
       if (v !== 0) secondaryVoices.add(v)
     }
 
     for (const voice of secondaryVoices) {
-      const hasNote = measure.slots.some(s => (s.voice ?? 0) === voice && s.type === 'chord')
+      const hasNote = measure.slots.some(s => voiceOf(s) === voice && s.type === 'chord')
       if (!hasNote) {
-        measure.slots = measure.slots.filter(s => (s.voice ?? 0) !== voice)
+        measure.slots = measure.slots.filter(s => voiceOf(s) !== voice)
       }
     }
   }
@@ -2917,7 +2918,7 @@ export class ScoreModel {
     if (!found || found.type !== 'chord') return false // rests / unknown ids ignored
 
     const { chord, pitch } = found
-    const from = chord.voice ?? 0
+    const from = voiceOf(chord)
     if (from === targetVoice) return false // no-op: already in the target voice
 
     const measure = this.getMeasure(chord.measure)
@@ -3024,7 +3025,7 @@ export class ScoreModel {
     if (!measure) return
     const rest = measure.slots.find(s =>
       s.type === 'rest'
-      && (s.voice ?? 0) === voice
+      && voiceOf(s) === voice
       && staffIndexOfId(this.score, s.staffId) === staff
       && fracEq(s.beat, beat))
     if (rest?.type !== 'rest') return
@@ -3077,7 +3078,7 @@ export class ScoreModel {
     const targetVoice = payload.voice
 
     const existingChord = measure.slots.find(
-      (s): s is Chord => s.type === 'chord' && fracEq(s.beat, payload.beat) && (s.voice ?? 0) === targetVoice,
+      (s): s is Chord => s.type === 'chord' && fracEq(s.beat, payload.beat) && voiceOf(s) === targetVoice,
     )
 
     if (existingChord) {
@@ -3110,8 +3111,8 @@ export class ScoreModel {
         existingChord.secondaryBreak = true
       }
       if (!existingChord.tupletId) {
-        const incomingFrac = durationToFraction(payload.duration, payload.dots ?? 0)
-        const existingFrac = durationToFraction(existingChord.duration, existingChord.dots ?? 0)
+        const incomingFrac = writtenLength(payload)
+        const existingFrac = writtenLength(existingChord)
         if (fracCompare(incomingFrac, existingFrac) < 0) {
           existingChord.duration = payload.duration
           existingChord.dots = payload.dots
@@ -3191,8 +3192,8 @@ export class ScoreModel {
     if (pitch.tiedTo) {
       const partner = this.findSlot(pitch.tiedTo)
       const partnerVoice =
-        partner?.type === 'chord' ? (partner.chord.voice ?? 0)
-        : partner?.type === 'rest' ? (partner.rest.voice ?? 0)
+        partner?.type === 'chord' ? voiceOf(partner.chord)
+        : partner?.type === 'rest' ? voiceOf(partner.rest)
         : undefined
       if (partnerVoice !== voice && !movingIds?.has(pitch.tiedTo)) {
         if (partner?.type === 'chord') partner.pitch.tiedFrom = undefined
@@ -3204,7 +3205,7 @@ export class ScoreModel {
     if (pitch.tiedFrom) {
       const partner = this.findSlot(pitch.tiedFrom)
       // A tie's source is always a chord pitch (a rest can't start a tie).
-      const partnerVoice = partner?.type === 'chord' ? (partner.chord.voice ?? 0) : undefined
+      const partnerVoice = partner?.type === 'chord' ? voiceOf(partner.chord) : undefined
       if (partnerVoice !== voice && !movingIds?.has(pitch.tiedFrom)) {
         if (partner?.type === 'chord') partner.pitch.tiedTo = undefined
         pitch.tiedFrom = undefined
@@ -3225,10 +3226,10 @@ export class ScoreModel {
       if (slur.startNoteId !== pitchId && slur.endNoteId !== pitchId) continue
       const start = this.findSlot(slur.startNoteId)
       const end = this.findSlot(slur.endNoteId)
-      const sv = start?.type === 'chord' ? (start.chord.voice ?? 0) : undefined
-      const ev = end?.type === 'chord' ? (end.chord.voice ?? 0) : undefined
-      if (sv !== undefined && sv === ev && (slur.voice ?? 0) !== sv) {
-        dbg(`[Model.resyncSlurVoice] slur ${slur.id.slice(0, 8)} voice ${slur.voice ?? 0}→${sv}`)
+      const sv = start?.type === 'chord' ? voiceOf(start.chord) : undefined
+      const ev = end?.type === 'chord' ? voiceOf(end.chord) : undefined
+      if (sv !== undefined && sv === ev && voiceOf(slur) !== sv) {
+        dbg(`[Model.resyncSlurVoice] slur ${slur.id.slice(0, 8)} voice ${voiceOf(slur)}→${sv}`)
         slur.voice = sv as 0 | 1 | 2 | 3
       }
     }
@@ -3247,7 +3248,7 @@ export class ScoreModel {
     const sourceTuplet = measure.tuplets?.find(t => t.id === chord.tupletId)
     if (!sourceTuplet) return false // defensive: tupletId with no tuplet record
 
-    const from = chord.voice ?? 0
+    const from = voiceOf(chord)
     const { startBeat, baseDuration, baseDots, numNotes, notesOccupied } = sourceTuplet
     // Slot spacing is the ACTUAL (scaled) duration, not the written baseDuration.
     const slot = tupletSlotDuration(sourceTuplet)
@@ -3278,7 +3279,7 @@ export class ScoreModel {
     // (the tuplet wins). The beat lets us tell a note already sitting on a grid
     // slot (it KEEPS that slot) from a loose note (ordinal pour).
     const existing = measure.slots
-      .filter((s): s is Chord => s.type === 'chord' && (s.voice ?? 0) === targetVoice
+      .filter((s): s is Chord => s.type === 'chord' && voiceOf(s) === targetVoice
         && fracGte(s.beat, startBeat) && fracLt(s.beat, spanEnd))
       .sort((a, b) => fracCompare(a.beat, b.beat))
       .map(c => ({ beat: c.beat, notes: c.notes }))
@@ -3403,10 +3404,10 @@ export class ScoreModel {
     const problems: string[] = []
     const cap = measureCapacityFrac(measure)
     const voices = new Set<number>([0])
-    for (const s of measure.slots) voices.add(s.voice ?? 0)
+    for (const s of measure.slots) voices.add(voiceOf(s))
     for (const voice of voices) {
       const vs = measure.slots
-        .filter(s => (s.voice ?? 0) === voice)
+        .filter(s => voiceOf(s) === voice)
         .sort((a, b) => fracCompare(a.beat, b.beat))
       if (vs.length === 0) continue
       let cursor = fracCreate(0, 1)
@@ -3414,7 +3415,7 @@ export class ScoreModel {
         if (!fracEq(s.beat, cursor)) {
           problems.push(`v${voice}: slot at b${fracToNumber(s.beat).toFixed(3)} expected b${fracToNumber(cursor).toFixed(3)} (gap/overlap)`)
         }
-        const dur = s.actualDuration ?? durationToFraction(s.duration, s.dots ?? 0)
+        const dur = slotLength(s)
         cursor = fracAdd(s.beat, dur)
       }
       if (!fracEq(cursor, cap)) {
@@ -3555,13 +3556,13 @@ export class ScoreModel {
         // Voice 0 is always a stream (an empty lane must show as under-full, not be
         // skipped) — then add every other voice actually present in the lane.
         const voices = new Set<number>([0])
-        for (const s of laneSlots) voices.add(s.voice ?? 0)
+        for (const s of laneSlots) voices.add(voiceOf(s))
 
         for (const voice of voices) {
           const sum = laneSlots
-            .filter(s => (s.voice ?? 0) === voice)
+            .filter(s => voiceOf(s) === voice)
             .reduce(
-              (acc, s) => fracAdd(acc, s.actualDuration ?? durationToFraction(s.duration, s.dots ?? 0)),
+              (acc, s) => fracAdd(acc, slotLength(s)),
               fracCreate(0, 1),
             )
           if (!fracEq(sum, cap)) {

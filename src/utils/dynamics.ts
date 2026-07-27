@@ -13,6 +13,7 @@
  */
 import type { Dynamic, DynamicLevel, Score } from '@/types/music'
 import { fracCompare, fracLte, fracGt } from './fraction'
+import { voiceOf } from '@/utils/lanes'
 
 /**
  * Interpreted level → normalized velocity (0..1), used as the 4th arg of
@@ -268,10 +269,6 @@ export function dynamicLabel(d: Dynamic): string {
   return d.text
 }
 
-/** The voice a dynamic governs (default 0). */
-export function dynamicVoice(d: Dynamic): number {
-  return d.voice ?? 0
-}
 
 /** Dynamics of a measure, sorted ascending by beat (empty if none). */
 export function measureDynamics(score: Score, measureNumber: number): Dynamic[] {
@@ -299,7 +296,7 @@ export function resolveActiveLevel(
   const here = measureDynamics(score, measureNumber)
   for (let i = here.length - 1; i >= 0; i--) {
     const d = here[i]
-    if (dynamicVoice(d) === voice && isInterpreted(d) && fracLte(d.beat, beat)) {
+    if (voiceOf(d) === voice && isInterpreted(d) && fracLte(d.beat, beat)) {
       return dynamicLevelOf(d)!
     }
   }
@@ -308,7 +305,7 @@ export function resolveActiveLevel(
     const earlier = measureDynamics(score, n)
     for (let i = earlier.length - 1; i >= 0; i--) {
       const d = earlier[i]
-      if (dynamicVoice(d) === voice && isInterpreted(d)) {
+      if (voiceOf(d) === voice && isInterpreted(d)) {
         return dynamicLevelOf(d)!
       }
     }
@@ -336,18 +333,18 @@ export function resolveChordLevels(score: Score): Map<string, DynamicLevel> {
 
     for (const slot of measure.slots) {
       if (slot.type !== 'chord') continue
-      const voice = slot.voice ?? 0
+      const voice = voiceOf(slot)
       let level: DynamicLevel = activeLevels.get(voice) ?? DEFAULT_DYNAMIC
       for (const d of measureDyns) {
         if (fracGt(d.beat, slot.beat)) break // sorted: nothing later qualifies
-        if ((d.voice ?? 0) === voice) level = dynamicLevelOf(d)!
+        if (voiceOf(d) === voice) level = dynamicLevelOf(d)!
       }
       out.set(slot.id, level)
     }
 
     // Carry each voice's last (highest-beat) dynamic forward to later measures.
     for (const d of measureDyns) {
-      activeLevels.set(d.voice ?? 0, dynamicLevelOf(d)!)
+      activeLevels.set(voiceOf(d), dynamicLevelOf(d)!)
     }
   }
 

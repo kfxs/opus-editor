@@ -3,12 +3,13 @@ import type { RebarEvent } from '../utils/rebar'
 import { flattenRegion } from '../utils/rebar'
 import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracToNumber } from '../utils/fraction'
 import { measureCapacityFrac, getMeasureNotes } from '../utils/musicUtils'
-import { durationToFraction } from '../utils/durations'
 import { formatPitch } from '../utils/pitchSpelling'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, measureLeadingSpaces } from '../engine/models/engravingOverrides'
 import { keyStaffId } from '../engine/models/staffContent'
 import { staffMeasureView, staffIdAtIndex, staffIndexOfId } from '../engine/models/staffContent'
 import { laneOfSlot, pairIsValid } from '../utils/tremoloPair'
+import { staffOf, voiceOf } from '../utils/lanes'
+import { slotLength } from '../utils/durations'
 
 /**
  * A position-independent snapshot of copied musical material.
@@ -174,7 +175,7 @@ function selectedSpans(score: Score, noteIds: Set<string>): { start: Fraction; e
     if (!mStart) continue
     for (const n of getMeasureNotes(m)) {
       if (!noteIds.has(n.id)) continue
-      const dur = n.actualDuration ?? durationToFraction(n.duration, n.dots ?? 0)
+      const dur = slotLength(n)
       const start = fracAdd(mStart, n.beat)
       spans.push({ start, end: fracAdd(start, dur) })
     }
@@ -202,7 +203,7 @@ function restShiftsInWindow(
     const mStart = starts.get(m.number)
     if (!mStart) continue
     for (const n of getMeasureNotes(m, score)) {
-      if (!n.isRest || (n.voice ?? 0) !== voice || (n.staff ?? 0) !== staff) continue
+      if (!n.isRest || voiceOf(n) !== voice || staffOf(n) !== staff) continue
       const abs = fracAdd(mStart, n.beat)
       if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
       const ov = restShiftOverrideOf(score, restPositionKey(m.id, voice, n.beat, staffId))
@@ -232,7 +233,7 @@ function restHiddenInWindow(
     const mStart = starts.get(m.number)
     if (!mStart) continue
     for (const n of getMeasureNotes(m, score)) {
-      if (!n.isRest || (n.voice ?? 0) !== voice || (n.staff ?? 0) !== staff) continue
+      if (!n.isRest || voiceOf(n) !== voice || staffOf(n) !== staff) continue
       const abs = fracAdd(mStart, n.beat)
       if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
       if (!restHiddenOf(score, restPositionKey(m.id, voice, n.beat, staffId))) continue
@@ -261,7 +262,7 @@ function noteOffsetsInWindow(
     const mStart = starts.get(m.number)
     if (!mStart) continue
     for (const s of m.slots) {
-      if ((s.voice ?? 0) !== voice || staffIndexOfId(score, s.staffId) !== staff) continue
+      if (voiceOf(s) !== voice || staffIndexOfId(score, s.staffId) !== staff) continue
       const abs = fracAdd(mStart, s.beat)
       if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
       const offset = fracSub(abs, spanStart)
@@ -306,7 +307,7 @@ function tremoloPairsInWindow(
     if (!mStart) continue
     for (const slot of m.slots) {
       if (slot.type !== 'chord' || !slot.tremoloPair) continue
-      if ((slot.voice ?? 0) !== voice || staffIndexOfId(score, slot.staffId) !== staff) continue
+      if (voiceOf(slot) !== voice || staffIndexOfId(score, slot.staffId) !== staff) continue
       const lane = laneOfSlot(m.slots, slot)
       const index = lane.indexOf(slot)
       if (!pairIsValid(lane, index)) continue
@@ -358,9 +359,9 @@ function selectedStaffVoices(score: Score, noteIds: Set<string>): Map<number, nu
   for (const m of score.measures) {
     for (const n of getMeasureNotes(m, score)) {
       if (!noteIds.has(n.id)) continue
-      const staff = n.staff ?? 0
+      const staff = staffOf(n)
       if (!raw.has(staff)) raw.set(staff, new Set())
-      raw.get(staff)!.add(n.voice ?? 0)
+      raw.get(staff)!.add(voiceOf(n))
     }
   }
   const out = new Map<number, number[]>()
@@ -394,7 +395,7 @@ function dynamicsInWindow(
       const off = dynamicOffsetOverrideOf(score, d.id)
       out.push({
         staff: staffIdx - topStaff,
-        voice: d.voice ?? 0,
+        voice: voiceOf(d),
         offset: fracSub(abs, spanStart),
         text: d.text,
         ...(d.placement !== undefined ? { placement: d.placement } : {}),
@@ -432,8 +433,8 @@ function slursInWindow(
       if (n.isRest || n.step === undefined || n.octave === undefined) continue
       info.set(n.id, {
         abs: fracAdd(mStart, n.beat),
-        staff: n.staff ?? 0,
-        voice: n.voice ?? 0,
+        staff: staffOf(n),
+        voice: voiceOf(n),
         pitch: { step: n.step, alter: n.alter ?? 0, octave: n.octave },
       })
     }
@@ -561,7 +562,7 @@ export function earliestSelectedPosition(
       if (!idSet.has(n.id)) continue
       const abs = fracAdd(mStart, n.beat)
       if (!best || fracCompare(abs, best.abs) < 0) {
-        best = { measure: m.number, beat: n.beat, voice: n.voice ?? 0, staff: n.staff ?? 0, abs }
+        best = { measure: m.number, beat: n.beat, voice: voiceOf(n), staff: staffOf(n), abs }
       }
     }
   }

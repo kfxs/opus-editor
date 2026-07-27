@@ -21,6 +21,7 @@ import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT, DYNAMIC_GLYPH
 import { dynamicOffsetOverrideOf } from '../models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
+import { voiceOf } from '@/utils/lanes'
 
 /**
  * Attach each of the measure's dynamics to its anchor StaveNote as an Annotation
@@ -53,15 +54,15 @@ export function attachDynamicsToSlots(pass: RenderPass, sortedSlots: ChordRest[]
   const byTarget = new Map<number, string[]>()
   for (const dyn of dynamics) {
     if (dyn.id === pass.suppressedDynamicId) continue // being edited in the text overlay
-    const voice = dyn.voice ?? 0
+    const voice = voiceOf(dyn)
 
-    let targetIdx = sortedSlots.findIndex(s => (s.voice ?? 0) === voice && fracEq(s.beat, dyn.beat))
+    let targetIdx = sortedSlots.findIndex(s => voiceOf(s) === voice && fracEq(s.beat, dyn.beat))
     if (targetIdx === -1) {
-      targetIdx = sortedSlots.findIndex(s => (s.voice ?? 0) === voice && fracGte(s.beat, dyn.beat))
+      targetIdx = sortedSlots.findIndex(s => voiceOf(s) === voice && fracGte(s.beat, dyn.beat))
     }
     if (targetIdx === -1) {
       for (let i = sortedSlots.length - 1; i >= 0; i--) {
-        if ((sortedSlots[i].voice ?? 0) === voice) { targetIdx = i; break }
+        if (voiceOf(sortedSlots[i]) === voice) { targetIdx = i; break }
       }
     }
     if (targetIdx === -1) targetIdx = staveNotes.length - 1

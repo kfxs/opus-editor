@@ -11,6 +11,7 @@
 
 import type { PitchSpelling } from '@/types/music'
 import { dbg } from '@/utils/debug'
+import { staffOf } from '@/utils/lanes'
 
 /**
  * Types of elements we track
@@ -511,7 +512,7 @@ export class ElementRegistry {
    */
   private checkGlyphHeight(element: ElementInfo): void {
     if (!GLYPH_TYPES.has(element.type) || element.measure === undefined) return
-    const spacing = this.getStaffGeometry(element.measure, element.staff ?? 0)?.lineSpacing
+    const spacing = this.getStaffGeometry(element.measure, staffOf(element))?.lineSpacing
     if (!spacing) return // no geometry yet → can't reason about scale; skip silently
     const staffSpaces = element.bbox.height / spacing
     if (staffSpaces > GLYPH_MAX_STAFF_SPACES) {
@@ -808,7 +809,7 @@ export class ElementRegistry {
   findNearestNoteOrRest(x: number, measure: number, staff?: number): ElementInfo | null {
     const notesAndRests = this.elements.filter(
       el => el.measure === measure && (el.type === 'note' || el.type === 'rest')
-        && (staff === undefined || (el.staff ?? 0) === staff)
+        && (staff === undefined || staffOf(el) === staff)
     )
 
     if (notesAndRests.length === 0) return null
@@ -858,7 +859,7 @@ export class ElementRegistry {
   pixelXToBeat(x: number, measure: number, barQuarters: number, staff: number = 0): number | null {
     const anchors: { x: number; beat: number }[] = []
     for (const el of this.elements) {
-      if (el.measure !== measure || (el.staff ?? 0) !== staff) continue
+      if (el.measure !== measure || staffOf(el) !== staff) continue
       if ((el.type !== 'note' && el.type !== 'rest') || el.beat === undefined) continue
       // The notehead's own centre — `headX` where we have it, since the full bbox is widened by
       // accidentals and dots that hang to the left of the column the beat actually sits at.
@@ -1154,7 +1155,7 @@ export class ElementRegistry {
   } {
     const notesAndRests = this.elements.filter(
       el => el.measure === measure && (el.type === 'note' || el.type === 'rest')
-        && (staff === undefined || (el.staff ?? 0) === staff)
+        && (staff === undefined || staffOf(el) === staff)
     )
 
     let nearestLeft: ElementInfo | null = null

@@ -23,6 +23,7 @@
 import type { ChordRest } from '@/types/music'
 import { doubleDuration, durationFlags } from '@/utils/durations'
 import { fracCompare } from '@/utils/fraction'
+import { voiceOf } from '@/utils/lanes'
 
 /** Which end of a pair a slot is, or `null` when it is in none. */
 export type PairRole = 'first' | 'second'
@@ -72,7 +73,7 @@ export function pairIsValid(slots: ChordRest[], index: number): boolean {
   // One bar, one lane. (Within a lane array the measure is constant; the check costs nothing and
   // says the P1 scope out loud.)
   if (first.measure !== second.measure) return false
-  if ((first.voice ?? 0) !== (second.voice ?? 0)) return false
+  if (voiceOf(first) !== voiceOf(second)) return false
   if ((first.staffId ?? '') !== (second.staffId ?? '')) return false
 
   // The same written value, tuplet membership included.
@@ -192,7 +193,7 @@ export function pairRoleAt(slots: ChordRest[], index: number): PairRole | null {
  */
 export function laneOfSlot(measureSlots: ChordRest[], slot: ChordRest): ChordRest[] {
   return measureSlots
-    .filter(s => (s.voice ?? 0) === (slot.voice ?? 0) && (s.staffId ?? '') === (slot.staffId ?? ''))
+    .filter(s => voiceOf(s) === voiceOf(slot) && (s.staffId ?? '') === (slot.staffId ?? ''))
     .sort((a, b) => fracCompare(a.beat, b.beat))
 }
 

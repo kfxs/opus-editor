@@ -13,6 +13,7 @@ import { restShiftOverrideOf, restPositionKey } from '../engine/models/engraving
 import { keyStaffId } from '../engine/models/staffContent'
 import { prevailingAlterations } from '../utils/accidentalState'
 import { itemKey, selectedNoteIds, selectedArticulationNoteIds, type SelectionItem } from './selection'
+import { staffOf, voiceOf } from '@/utils/lanes'
 
 /**
  * Handles note selection, navigation, pitch adjustment, and scroll-into-view.
@@ -86,7 +87,7 @@ export class SelectionController {
     // silently falling back to voice 1.
     this.state.activeVoice = modelVoiceToActive(note.voice)
     // Likewise its staff becomes active, so keyboard entry/nav stays on that staff.
-    this.state.activeStaff = note.staff ?? 0
+    this.state.activeStaff = staffOf(note)
   }
 
   /**
@@ -495,14 +496,14 @@ export class SelectionController {
     const measure = score.measures.find(m => m.number === note.measure)
     if (!measure) return
 
-    const noteVoice = note.voice ?? 0
-    const noteStaff = note.staff ?? 0
+    const noteVoice = voiceOf(note)
+    const noteStaff = staffOf(note)
     // ⭐ Inside a FAN, the chord is the MEMBER — the pitches stacked on this head, not the slot's
     // (docs/fanned-beam-pitches-plan.md §2 P3). Resolving it positionally, as the ordinary path
     // does, hands back the slot's own pitches, the selected member is not among them, and Alt+↑/↓
     // silently does nothing (his report). Same rule as `Shift`+letter, which stacks onto the member.
     const chordNotes = (engine.fanMemberPitches(this.state.selectedNoteId) ?? getMeasureNotes(measure, score)
-      .filter(n => !n.isRest && fracEq(n.beat, note.beat) && (n.voice ?? 0) === noteVoice && (n.staff ?? 0) === noteStaff))
+      .filter(n => !n.isRest && fracEq(n.beat, note.beat) && voiceOf(n) === noteVoice && staffOf(n) === noteStaff))
       .sort((a, b) => spellingToMidi(a.step!, a.alter!, a.octave!) - spellingToMidi(b.step!, b.alter!, b.octave!))
 
     if (chordNotes.length <= 1) return
@@ -539,7 +540,7 @@ export class SelectionController {
    * lockstep by construction.
    */
   private elementVerticalPos(n: Note, clef: Clef, score: Score, measureId: string): number {
-    const voice = n.voice ?? 0
+    const voice = voiceOf(n)
     // Tiebreak only: lower voice index ranks higher. < 1 so it never crosses a real
     // pitch step. (Supports many voices before the cumulative offset approaches 1.)
     const voiceRank = -voice * 0.01
@@ -571,14 +572,14 @@ export class SelectionController {
     const measure = score.measures.find(m => m.number === current.measure)
     if (!measure) return
 
-    const currentVoice = current.voice ?? 0
-    const currentStaff = current.staff ?? 0
+    const currentVoice = voiceOf(current)
+    const currentStaff = staffOf(current)
     const clef = engine.getEffectiveClefAt(current.measure, current.beat, currentStaff)
     const currentPos = this.elementVerticalPos(current, clef, score, measure.id)
 
     // Candidate elements live in OTHER voices OF THE SAME STAFF (a voice hop never targets our
     // own chord, and never crosses into another staff — that's a different vertical axis).
-    const others = getMeasureNotes(measure, score).filter(n => (n.voice ?? 0) !== currentVoice && (n.staff ?? 0) === currentStaff)
+    const others = getMeasureNotes(measure, score).filter(n => voiceOf(n) !== currentVoice && staffOf(n) === currentStaff)
     if (!others.length) return
 
     // Prefer elements sounding at this exact beat; only if no other voice has anything
@@ -670,7 +671,7 @@ export class SelectionController {
     const selStaff = selNote?.staff ?? 0
     const allNotes = score.measures
       .flatMap(m => getMeasureNotes(m, score).map(n => ({ ...n, measureNumber: m.number })))
-      .filter(n => (n.voice ?? 0) === selVoice && (n.staff ?? 0) === selStaff)
+      .filter(n => voiceOf(n) === selVoice && staffOf(n) === selStaff)
       .sort((a, b) =>
         a.measureNumber !== b.measureNumber
           ? a.measureNumber - b.measureNumber

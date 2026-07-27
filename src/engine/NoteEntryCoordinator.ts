@@ -11,12 +11,13 @@ import {
   fracToNumber, fracEq, fracAdd, fracSub, fracMul, fracDiv,
   fracLt, fracGt, fracGte, fracLte, fracFromInt,
 } from '@/utils/fraction'
-import { durationToFraction, fitRestDuration, splitBeatsIntoLengths } from '@/utils/durations'
+import { durationToFraction, fitRestDuration, splitBeatsIntoLengths, slotLength, writtenLength } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
 import type { Note, NoteParams, PixelCoordinates, Tuplet, TupletFormat, NoteDuration, ArticulationType, Accidental, PitchSpelling, Measure } from '@/types/music'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '@/utils/pitchSpelling'
 import { ElementRegistry } from './ElementRegistry'
 import type { ElementInfo } from './ElementRegistry'
+import { staffOf, voiceOf } from '@/utils/lanes'
 
 const CLOSE_THRESHOLD = 25
 const FAR_THRESHOLD = 40
@@ -72,7 +73,7 @@ export class NoteEntryCoordinator {
     let tupletId = params.tupletId
     const tupletAtBeat = tupletId
       ? (targetMeasure.tuplets || []).find(t => t.id === tupletId)
-      : this.getScoreModel().getTupletAtBeat(params.measure, params.beat, params.voice ?? 0)
+      : this.getScoreModel().getTupletAtBeat(params.measure, params.beat, voiceOf(params))
 
     if (tupletAtBeat && !tupletId) {
       tupletId = tupletAtBeat.id
@@ -85,7 +86,7 @@ export class NoteEntryCoordinator {
       const ratio = tupletScale(tupletAtBeat)
       const tupletEnd = fracAdd(tupletAtBeat.startBeat, tupletSpan(tupletAtBeat))
       const remainingActual = fracSub(tupletEnd, finalBeatFrac)
-      const noteActual = fracMul(durationToFraction(params.duration, params.dots || 0), ratio)
+      const noteActual = fracMul(writtenLength(params), ratio)
       if (fracGt(noteActual, remainingActual)) {
         // ÷ the tuplet's own ratio, NOT × N/M. They agree for an ordinary tuplet and part company
         // the moment the two sides carry different note values: "2 quarters in the time of 3
@@ -105,7 +106,7 @@ export class NoteEntryCoordinator {
     // Fraction (see the invariant in ARCHITECTURE.md).
     const soundingDuration = tupletAtBeat
       ? tupletWrittenDuration(tupletAtBeat, params.duration, params.dots || 0)
-      : durationToFraction(params.duration, params.dots || 0)
+      : writtenLength(params)
     // Set actualDuration so checkMeasureOverflow uses the scaled duration, not the written one
     const actualDuration = tupletAtBeat ? soundingDuration : undefined
 
@@ -117,17 +118,17 @@ export class NoteEntryCoordinator {
     // rest removal with proper tie migration, so deleting rests here would break that.
     // NOTE this runs for an incoming REST too, which is what lets a stamped rest overwrite the
     // notes it covers; the rests it covers are evicted by addNote, one layer down.
-    const entryVoice = params.voice ?? 0
-    const entryStaff = params.staff ?? 0
+    const entryVoice = voiceOf(params)
+    const entryStaff = staffOf(params)
     const toDelete = this.getScoreModel().getNotesInMeasure(params.measure).filter(n => {
       if (n.isRest) return false
       // Other voices/staves are independent streams — never clobber them.
-      if ((n.voice ?? 0) !== entryVoice) return false
-      if ((n.staff ?? 0) !== entryStaff) return false
+      if (voiceOf(n) !== entryVoice) return false
+      if (staffOf(n) !== entryStaff) return false
       const nTuplet = n.tupletId ? (targetMeasure.tuplets || []).find(t => t.id === n.tupletId) : undefined
       const nDuration = nTuplet
         ? tupletWrittenDuration(nTuplet, n.duration, n.dots || 0)
-        : durationToFraction(n.duration, n.dots || 0)
+        : writtenLength(n)
       const nEnd = fracAdd(n.beat, nDuration)
       // Two half-open intervals overlap when each starts before the other ends. STRICT comparisons,
       // and no epsilon: notes that merely TOUCH (one ends where the next begins) do not overlap, and
@@ -158,10 +159,10 @@ export class NoteEntryCoordinator {
     }
 
     const note = this.getScoreModel().addNote(finalParams)
-    dbg(`✓ [Entry] KeyboardEntry | v${note.voice ?? 0} ${formatPitch(note)} dur:${note.duration} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}${tupletAtBeat ? ` tuplet:${tupletAtBeat.id}` : ''}`)
+    dbg(`✓ [Entry] KeyboardEntry | v${voiceOf(note)} ${formatPitch(note)} dur:${note.duration} measure:${note.measure} beat:${fracToNumber(note.beat).toFixed(3)}${tupletAtBeat ? ` tuplet:${tupletAtBeat.id}` : ''}`)
 
     if (tupletAtBeat && tupletId) {
-      this.getScoreModel().refillTupletRemainder(params.measure, tupletAtBeat, params.voice ?? 0)
+      this.getScoreModel().refillTupletRemainder(params.measure, tupletAtBeat, voiceOf(params))
     }
 
     this.onCommit('Keyboard enter note')
@@ -222,9 +223,9 @@ export class NoteEntryCoordinator {
     // bar actually has rather than a pixel-derived beat between two slots. A note does this via its
     // rest/chord branches; a rest has one case — whatever is there, notes included, is replaced.
     const stream = this.getScoreModel().getNotesInMeasure(measureNumber)
-      .filter(n => (n.voice ?? 0) === (voice ?? 0) && (n.staff ?? 0) === entryStaff)
+      .filter(n => voiceOf(n) === (voice ?? 0) && staffOf(n) === entryStaff)
     const covering = stream.find(n => {
-      const end = fracAdd(n.beat, n.actualDuration ?? durationToFraction(n.duration, n.dots || 0))
+      const end = fracAdd(n.beat, slotLength(n))
       return fracGte(finalBeat, n.beat) && fracLt(finalBeat, end)
     })
     if (covering) finalBeat = covering.beat
@@ -306,7 +307,7 @@ export class NoteEntryCoordinator {
       // voices/staves are independent streams and must not steer (or be clobbered by) this
       // placement.
       const notesInMeasure = this.getScoreModel().getNotesInMeasure(measureNumber)
-        .filter(n => (n.voice ?? 0) === entryVoice && (n.staff ?? 0) === entryStaff)
+        .filter(n => voiceOf(n) === entryVoice && staffOf(n) === entryStaff)
       const restAtBeat = this.findRestAtBeat(notesInMeasure, finalBeat)
       if (!restAtBeat) {
         // Check if there's a note at this beat we could chord with
@@ -358,7 +359,7 @@ export class NoteEntryCoordinator {
       } else {
         const last = realNotes[realNotes.length - 1]
         const lastActual = last.actualDuration
-          ?? fracMul(durationToFraction(last.duration, last.dots ?? 0), ratio)
+          ?? fracMul(writtenLength(last), ratio)
         fillPointer = fracAdd(last.beat, lastActual)
       }
 
@@ -423,7 +424,7 @@ export class NoteEntryCoordinator {
 
     // For non-overflow cases, update existing chord notes (same beat + voice + staff) to match duration
     const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && (n.voice ?? 0) === entryVoice && (n.staff ?? 0) === entryStaff && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi)
+      .filter(n => !n.isRest && voiceOf(n) === entryVoice && staffOf(n) === entryStaff && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi)
     for (const chordNote of existingChordNotes) {
       if (chordNote.duration !== duration) {
         this.getScoreModel().updateNote(chordNote.id, { duration })
@@ -553,10 +554,10 @@ export class NoteEntryCoordinator {
     duration: NoteParams['duration'],
     dots: number | undefined,
   ): Note | null {
-    const splitVoice = noteParams.voice ?? 0
-    const splitStaff = noteParams.staff ?? 0
+    const splitVoice = voiceOf(noteParams)
+    const splitStaff = staffOf(noteParams)
     const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && (n.voice ?? 0) === splitVoice && (n.staff ?? 0) === splitStaff && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi && !n.tiedTo)
+      .filter(n => !n.isRest && voiceOf(n) === splitVoice && staffOf(n) === splitStaff && fracEq(n.beat, finalBeat) && spellingToMidi(n.step!, n.alter!, n.octave!) !== pitchMidi && !n.tiedTo)
     for (const chordNote of existingChordNotes) {
       this.splitExistingNoteWithTie(chordNote, duration, overflowAmount, dots)
     }
@@ -573,7 +574,7 @@ export class NoteEntryCoordinator {
   /** All non-rest notes at the given beat AND voice in a measure (chord members). */
   private getChordNotesAt(measureNumber: number, beat: Fraction, voice: number = 0, staff: number = 0): Note[] {
     return this.getScoreModel().getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && (n.voice ?? 0) === voice && (n.staff ?? 0) === staff && fracEq(n.beat, beat))
+      .filter(n => !n.isRest && voiceOf(n) === voice && staffOf(n) === staff && fracEq(n.beat, beat))
   }
 
   /**
@@ -612,10 +613,10 @@ export class NoteEntryCoordinator {
     // Edits act on ONE voice's stream. Scope the measure view + chord lookup to the
     // edited note's voice so a duration change never deletes or fills another voice's
     // notes/rests (voices are independent streams that each sum to the bar length).
-    const editVoice = existingNote.voice ?? 0
-    const editStaff = existingNote.staff ?? 0
+    const editVoice = voiceOf(existingNote)
+    const editStaff = staffOf(existingNote)
     const measureNotes = this.getScoreModel().getNotesInMeasure(existingNote.measure)
-      .filter(n => (n.voice ?? 0) === editVoice && (n.staff ?? 0) === editStaff)
+      .filter(n => voiceOf(n) === editVoice && staffOf(n) === editStaff)
     const chordNotes = this.getChordNotesAt(existingNote.measure, existingNote.beat, editVoice, editStaff)
     const isChord = chordNotes.length > 1
 
@@ -735,7 +736,7 @@ export class NoteEntryCoordinator {
     const updatedNote = this.getScoreModel().updateNote(noteId, updates)
 
     // Recompute all filler rests from the fill pointer (in the tuplet's own voice)
-    this.getScoreModel().refillTupletRemainder(existingNote.measure, tuplet, existingNote.voice ?? 0)
+    this.getScoreModel().refillTupletRemainder(existingNote.measure, tuplet, voiceOf(existingNote))
 
     // Also update chord notes to keep duration in sync
     if (isChord) {
@@ -753,8 +754,8 @@ export class NoteEntryCoordinator {
   /** Handles duration updates for regular (non-tuplet) notes, both chords and singles. */
   private updateNonTupletNote(ctx: NoteUpdateCtx): Note {
     const { noteId, updates, existingNote, measureNotes, chordNotes, isChord, oldBeats, newBeats, newDuration, newDots, beatDifference } = ctx
-    const editVoice = existingNote.voice ?? 0
-    const editStaff = existingNote.staff ?? 0
+    const editVoice = voiceOf(existingNote)
+    const editStaff = staffOf(existingNote)
 
     // If duration is being lengthened, remove overlapping notes/rests first
     if (beatDifference < -BEAT_EPSILON) {
@@ -1006,8 +1007,8 @@ export class NoteEntryCoordinator {
     // The tuplet inherits the selected note's voice AND staff (a tuplet is a
     // single-voice run on one staff). Reject if any same-voice, same-staff tuplet
     // already overlaps the span the new tuplet would occupy (not just the exact start beat).
-    const voice = note.voice ?? 0
-    const staff = note.staff ?? 0
+    const voice = voiceOf(note)
+    const staff = staffOf(note)
     // The shape the tuplet WILL have, built before it exists so the span is computed by the same
     // rule the stored tuplet will use. Both sides are the note's own value here — turning a note
     // into a tuplet cannot say "in the time of" something else.
@@ -1101,7 +1102,7 @@ export class NoteEntryCoordinator {
     const staffParam = staff ? { staff } : {}
     // Save any existing same-voice, same-staff note at the start position before createTuplet deletes it
     const existingNoteAtStart = this.getScoreModel().getNotesInMeasure(measureNumber)
-      .find(n => !n.isRest && !n.tupletId && (n.voice ?? 0) === voice && (n.staff ?? 0) === staff && Math.abs(fracToNumber(n.beat) - beat) < 0.001)
+      .find(n => !n.isRest && !n.tupletId && voiceOf(n) === voice && staffOf(n) === staff && Math.abs(fracToNumber(n.beat) - beat) < 0.001)
     const existingNoteData = existingNoteAtStart
       ? { step: existingNoteAtStart.step, alter: existingNoteAtStart.alter, octave: existingNoteAtStart.octave }
       : null
@@ -1256,7 +1257,7 @@ export class NoteEntryCoordinator {
   private findRestAtBeat(notes: Note[], beat: Fraction): Note | null {
     for (const note of notes) {
       if (note.isRest) {
-        const restEnd = fracAdd(note.beat, durationToFraction(note.duration, note.dots || 0))
+        const restEnd = fracAdd(note.beat, writtenLength(note))
         // Check if the beat falls within this rest's time span
         if (fracGte(beat, note.beat) && fracLt(beat, restEnd)) {
           return note
@@ -1328,7 +1329,7 @@ export class NoteEntryCoordinator {
     }
 
     // Erode notes in the overflow zone of the next measure (Sibelius-style)
-    this.erodeOverflowZone(nextMeasureNumber, beatsInNextMeasure, p.voice ?? 0, p.staff ?? 0)
+    this.erodeOverflowZone(nextMeasureNumber, beatsInNextMeasure, voiceOf(p), staffOf(p))
 
     const model = this.getScoreModel()
     const pitch = { step: p.step, alter: p.alter, octave: p.octave, ...(p.voice && { voice: p.voice }), ...(p.staff && { staff: p.staff }) }
@@ -1453,8 +1454,8 @@ export class NoteEntryCoordinator {
     for (const note of notes) {
       if (note.isRest) continue
       // Only erode the overflowing note's own voice/staff — other streams are independent.
-      if ((note.voice ?? 0) !== voice) continue
-      if ((note.staff ?? 0) !== staff) continue
+      if (voiceOf(note) !== voice) continue
+      if (staffOf(note) !== staff) continue
       const noteBeat = fracToNumber(note.beat)
       if (noteBeat >= overflowBeats - epsilon) continue
       this.erodeNoteAtBoundary(note, overflowBeats)
@@ -1562,8 +1563,8 @@ export class NoteEntryCoordinator {
       if (existing.isRest) return false
 
       // Other voices/staves are independent streams — never overwrite them.
-      if ((existing.voice ?? 0) !== voice) return false
-      if ((existing.staff ?? 0) !== staff) return false
+      if (voiceOf(existing) !== voice) return false
+      if (staffOf(existing) !== staff) return false
 
       // Never delete notes that are in the same tuplet (except for same-beat replacement)
       // Notes within a tuplet should coexist and not overwrite each other based on range

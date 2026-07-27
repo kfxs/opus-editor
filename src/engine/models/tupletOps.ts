@@ -17,7 +17,7 @@ import {
   noteSpansOverlapFrac,
   splitBeatsIntoDurations,
 } from '@/utils/musicUtils'
-import { durationToFraction } from '@/utils/durations'
+import { durationToFraction, slotLength, writtenLength } from '@/utils/durations'
 import {
   fracCreate,
   fracAdd,
@@ -31,6 +31,7 @@ import {
 import { toFlatNote, restToFlatNote } from './noteProjection'
 import { staffIndexOfId, staffIdAtIndex } from './staffContent'
 import { v4 as uuidv4 } from 'uuid'
+import { voiceOf } from '@/utils/lanes'
 
 /** Find a measure by its number (mirrors `ScoreModel.getMeasure`). */
 function getMeasure(score: Score, measureNumber: number): Measure | undefined {
@@ -103,9 +104,9 @@ export function createTuplet(
   // Remove existing slots in THIS voice AND staff that overlap the tuplet's time span.
   const tupletDurFrac = tupletSpan(tuplet)
   measure.slots = measure.slots.filter(slot => {
-    if ((slot.voice ?? 0) !== voice) return true // other voices are untouched
+    if (voiceOf(slot) !== voice) return true // other voices are untouched
     if (staffIndexOfId(score, slot.staffId) !== staff) return true // other staves untouched
-    const slotDurFrac = slot.actualDuration ?? durationToFraction(slot.duration, slot.dots ?? 0)
+    const slotDurFrac = slotLength(slot)
     return !noteSpansOverlapFrac(slot.beat, slotDurFrac, startBeat, tupletDurFrac)
   })
 
@@ -307,7 +308,7 @@ export function refillTupletRemainder(
   for (const slot of allSlots) {
     fillGap(pointer, slot.beat)
     const slotActual = slot.actualDuration
-      ?? fracMul(durationToFraction(slot.duration, slot.dots ?? 0), ratio)
+      ?? fracMul(writtenLength(slot), ratio)
     pointer = fracAdd(slot.beat, slotActual)
   }
   fillGap(pointer, tupletEnd)

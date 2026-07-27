@@ -6,6 +6,7 @@ import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 import { ELEMENT_SELECTION_FILL, ELEMENT_SELECTION_STROKE } from '../utils/selectionColors'
 import { tremoloGlyph } from '../utils/tremoloGlyphs'
 import { TREMOLO_PAIR_GROUP } from '../utils/tremoloPair'
+import { staffOf } from '@/utils/lanes'
 
 /**
  * Applies SVG highlight classes/colors after each render.
@@ -769,7 +770,7 @@ export class HighlightController {
     // (staff 0) regardless of which staff's clef was actually selected.
     const clefEl = registry.getByType('clef').find(
       el => el.measure === selected.measure && (el.beat ?? 0) === targetBeat
-        && (el.staff ?? 0) === selected.staff,
+        && staffOf(el) === selected.staff,
     )
     if (!clefEl) return
 
@@ -778,7 +779,7 @@ export class HighlightController {
 
     // Scope the scan to the selected measure's own group so the recolor can't reach a
     // neighbour's clef; fall back to the whole SVG only if the group can't be resolved.
-    const root = engine.getMeasureSVGGroup(clefEl.measure ?? 0, clefEl.staff ?? 0) ?? svg
+    const root = engine.getMeasureSVGGroup(clefEl.measure ?? 0, staffOf(clefEl)) ?? svg
     // The clef glyph is a filled path/text near the measure's left edge.
     this.highlightGlyphsInBBox(root, clefEl.bbox, 'selected-clef')
   }
@@ -843,7 +844,7 @@ export class HighlightController {
 
     for (const tsEl of tsEls) {
       // Scope each staff's recolor to that staff's own group (see applyClefSelectionHighlight).
-      const root = engine.getMeasureSVGGroup(tsEl.measure ?? 0, tsEl.staff ?? 0) ?? svg
+      const root = engine.getMeasureSVGGroup(tsEl.measure ?? 0, staffOf(tsEl)) ?? svg
       // The TS glyph is filled number paths/text in a narrow column after the clef.
       this.highlightGlyphsInBBox(root, tsEl.bbox, 'selected-timesig')
     }

@@ -8,6 +8,7 @@ import { getMeasureNotes, measureCapacityFrac } from '../utils/musicUtils'
 import { fracToNumber, fracEq, fracFromInt, fracSub } from '../utils/fraction'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '../utils/pitchSpelling'
 import { fitRestDuration } from '../utils/durations'
+import { staffOf, voiceOf } from '@/utils/lanes'
 
 /** Natural (no-accidental) semitone offsets for each step letter */
 const STEP_SEMITONES: Record<PitchStep, number> = {
@@ -179,8 +180,8 @@ export class KeyboardController {
     const score = engine.getScore()
     // Continue the cursor note's own voice/staff (see enterNoteAtCursorPosition).
     const cursorNote = engine.getNote(this.state.selectedNoteId)
-    const cursorVoice = cursorNote ? (cursorNote.voice ?? 0) : activeVoiceToModel(this.state.activeVoice)
-    const cursorStaff = cursorNote ? (cursorNote.staff ?? 0) : this.state.activeStaff
+    const cursorVoice = cursorNote ? voiceOf(cursorNote) : activeVoiceToModel(this.state.activeVoice)
+    const cursorStaff = cursorNote ? staffOf(cursorNote) : this.state.activeStaff
     const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, cursorVoice, cursorStaff)
 
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
@@ -246,10 +247,10 @@ export class KeyboardController {
     // must stay in it, not in whatever voice the palette toggle last held. Fall
     // back to the active voice only when the cursor note has no resolvable voice.
     const cursorNote = engine.getNote(this.state.selectedNoteId)
-    const cursorVoice = cursorNote ? (cursorNote.voice ?? 0) : activeVoiceToModel(this.state.activeVoice)
+    const cursorVoice = cursorNote ? voiceOf(cursorNote) : activeVoiceToModel(this.state.activeVoice)
     // Keyboard entry also CONTINUES the cursor note's staff (falling back to the active staff
     // when the cursor note has none), so a run of entered notes stays on one staff.
-    const cursorStaff = cursorNote ? (cursorNote.staff ?? 0) : this.state.activeStaff
+    const cursorStaff = cursorNote ? staffOf(cursorNote) : this.state.activeStaff
     const { allFlat, beats } = navBeatMap(score, this.state.selectedNoteId, cursorVoice, cursorStaff)
 
     const currentNote = allFlat.find(n => n.id === this.state.selectedNoteId)
@@ -411,15 +412,15 @@ export class KeyboardController {
     const measure = score.measures.find(m => m.number === note.measure)
     // Stack onto the selected note's OWN voice — both the existing-pitch scan and the
     // new note must stay in that voice, or the chord note lands in voice 1 by default.
-    const noteVoice = note.voice ?? 0
-    const noteStaff = note.staff ?? 0
+    const noteVoice = voiceOf(note)
+    const noteStaff = staffOf(note)
     // ⭐ A FANNED MEMBER is its OWN chord (docs/fanned-beam-pitches-plan.md §2 P3): the pitches
     // already stacked here are the member's, not the slot's. Resolving this positionally — the
     // ordinary path below — reads the whole slot and then adds to `slot.notes`, which put the new
     // note on the group's FIRST head (his report).
     const memberPitches = engine.fanMemberPitches(this.state.selectedNoteId)
     const chordMidis = (memberPitches ?? (measure ? getMeasureNotes(measure, score) : [])
-      .filter(n => !n.isRest && fracEq(n.beat, note.beat) && (n.voice ?? 0) === noteVoice && (n.staff ?? 0) === noteStaff))
+      .filter(n => !n.isRest && fracEq(n.beat, note.beat) && voiceOf(n) === noteVoice && staffOf(n) === noteStaff))
       .map(n => spellingToMidi(n.step!, n.alter!, n.octave!))
     const baseMidi = chordMidis.length > 0
       ? Math.max(...chordMidis)

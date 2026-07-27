@@ -8,6 +8,7 @@ import { laneColumns } from '@/utils/fannedBeam'
 import { cautionaryAllowedOf, cautionaryClefAllowedOf, keyStaffId, measureUserSpacePx, measureStretch } from '../models/engravingOverrides'
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import { laneFingerprint, type MeasureWidthCache } from './MeasureWidthCache'
+import { voiceOf } from '@/utils/lanes'
 import { renderCensus } from '@/dev/renderCensus' // TEMPORARY — the §9 layout-breakdown probes
 import {
   createStaveNotesFromSlots,
@@ -71,10 +72,10 @@ function noteSpaceForLane(laneView: Measure, clef: Clef, cache?: MeasureWidthCac
   const sorted = [...laneView.slots].sort((a, b) => fracCompare(a.beat, b.beat))
   const clefResolver = makeClefResolver(laneView, clef)
   const capacity = measureCapacityFrac(laneView)
-  const voiceIds = [...new Set(sorted.map(s => s.voice ?? 0))].sort((a, b) => a - b)
+  const voiceIds = [...new Set(sorted.map(s => voiceOf(s)))].sort((a, b) => a - b)
 
   const voices = voiceIds.map(v => {
-    const slots = sorted.filter(s => (s.voice ?? 0) === v)
+    const slots = sorted.filter(s => voiceOf(s) === v)
     const sn = createStaveNotesFromSlots(slots, clefResolver)
     // Create VexFlow Tuplets BEFORE adding notes to voice (adjusts tick values)
     createTupletsForMeasure(laneView, slots, sn)

@@ -17,7 +17,7 @@ import type {
   LeadingSpaceOverride, NoteOffsetOverride,
 } from '@/types/music'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, measureLeadingSpaces } from './engravingOverrides'
-import { durationToFraction } from '@/utils/durations'
+import { slotLength, writtenLength } from '@/utils/durations'
 import { getMeterInfo } from '@/utils/meter'
 import type { RestSlot } from '@/utils/restFill'
 import { flattenRegion, relayEvents, type RebarPiece, type RebarEvent, type BarPlan } from '@/utils/rebar'
@@ -27,6 +27,7 @@ import { staffIndexOfId, matchesStaff, staffIdAtIndex, keyStaffId, staffMeasureV
 import { laneOfSlot, pairIsValid } from '@/utils/tremoloPair'
 import { cloneFanFresh, fanMemberBeats } from '@/utils/fannedBeam'
 import { v4 as uuidv4 } from 'uuid'
+import { voiceOf } from '@/utils/lanes'
 
 // ==================== Callback surface + captured-state types ====================
 
@@ -229,7 +230,7 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
     const staffId = staffIdAtIndex(score, staff)
     const narrowed = regionMeasures.map(m => staffMeasureView(m, staffId, score))
     const voices = new Set<number>([0])
-    for (const nm of narrowed) for (const s of nm.slots) voices.add(s.voice ?? 0)
+    for (const nm of narrowed) for (const s of nm.slots) voices.add(voiceOf(s))
     for (const v of voices) {
       laneEvents.push({ staff, voice: v, events: flattenRegion(narrowed, v as 0 | 1 | 2 | 3) })
     }
@@ -403,7 +404,7 @@ export function pasteEvents(
     const inWindow = fracGte(a.absBeat, pasteStart) && fracLt(a.absBeat, pasteEnd)
     if (!inWindow) return true
     const dv = destByStaff.get(staffIndexOfId(score, a.dyn.staffId))
-    return !dv || !dv.has(a.dyn.voice ?? 0)
+    return !dv || !dv.has(voiceOf(a.dyn))
   })
 
   const meter = getMeterInfo(ts)
@@ -425,7 +426,7 @@ export function pasteEvents(
     // Voice 0 is always re-laid so a grown region keeps its rest spine. On a destination staff we
     // also re-lay the clip's destination voices (they may not exist there yet).
     const voices = new Set<number>([0])
-    for (const nm of narrowed) for (const s of nm.slots) voices.add(s.voice ?? 0)
+    for (const nm of narrowed) for (const s of nm.slots) voices.add(voiceOf(s))
     if (destVoices) for (const dv of destVoices.keys()) voices.add(dv)
 
     for (const v of voices) {
@@ -578,7 +579,7 @@ export function pasteEvents(
     // Only the pasted notes: a destination staff's destination voices (passthrough lanes on
     // other staves can share a voice number, so scope by staff too).
     const dv = destByStaff.get(staffIndexOfId(score, chord.staffId))
-    if (!dv || !dv.has(chord.voice ?? 0)) continue
+    if (!dv || !dv.has(voiceOf(chord))) continue
     const mStart = startOfMeasure.get(chord.measure)
     if (!mStart) continue
     const absOffset = fracAdd(mStart, chord.beat)
@@ -735,7 +736,7 @@ function captureRestShifts(score: Score, deps: RebarDeps, regionMeasures: Measur
   forEachRegionMeasure(regionMeasures, (m, base) => {
     for (const s of m.slots) {
       if (s.type !== 'rest') continue
-      const voice = s.voice ?? 0
+      const voice = voiceOf(s)
       const key = restPositionKey(m.id, voice, s.beat, s.staffId)
       // One pass captures BOTH rest engraving overrides (shift + hidden, client #5/#6) —
       // they share the position address, so they travel together. Capture when either is set.
@@ -776,7 +777,7 @@ function restoreRestShifts(score: Score, deps: RebarDeps, regionNumbers: number[
     // Stamp ONLY when a rest of this voice STARTS exactly here (plan §6.4). No accessor
     // exists post-materialise, so read the slots directly.
     const hasRest = m.slots.some(
-      (s) => s.type === 'rest' && (s.voice ?? 0) === c.voice && (s.staffId ?? undefined) === (c.staffId ?? undefined) && fracCompare(s.beat, beat) === 0,
+      (s) => s.type === 'rest' && voiceOf(s) === c.voice && (s.staffId ?? undefined) === (c.staffId ?? undefined) && fracCompare(s.beat, beat) === 0,
     )
     if (!hasRest) continue
     const key = restPositionKey(m.id, c.voice, beat, c.staffId)
@@ -809,7 +810,7 @@ function captureNoteOffsets(score: Score, deps: RebarDeps, regionMeasures: Measu
       const absBeat = fracAdd(base, s.beat)
       const ov = noteOffsetOverrideOf(score, s.id)
       if (ov && ov.x !== 0) {
-        out.push({ voice: s.voice ?? 0, staffId: s.staffId, absBeat, x: ov.x })
+        out.push({ voice: voiceOf(s), staffId: s.staffId, absBeat, x: ov.x })
         deps.clearEngravingOverride(s.id, 'noteOffset')
       }
       // ⭐ …and every FANNED MEMBER's own offset, at the SLOT's beat plus its index. A member has no
@@ -821,7 +822,7 @@ function captureNoteOffsets(score: Score, deps: RebarDeps, regionMeasures: Measu
         if (!id) return
         const mov = noteOffsetOverrideOf(score, id)
         if (!mov || mov.x === 0) return
-        out.push({ voice: s.voice ?? 0, staffId: s.staffId, absBeat, x: mov.x, member: k + 1 })
+        out.push({ voice: voiceOf(s), staffId: s.staffId, absBeat, x: mov.x, member: k + 1 })
         deps.clearEngravingOverride(id, 'noteOffset')
       })
     }
@@ -854,7 +855,7 @@ function restoreNoteOffsets(score: Score, deps: RebarDeps, regionNumbers: number
     const target = rangeForOffset(ranges, c.absBeat)
     const beat = fracSub(c.absBeat, target.start)
     const slot = target.measure.slots.find(
-      (s) => (s.voice ?? 0) === c.voice && (s.staffId ?? undefined) === (c.staffId ?? undefined) && fracCompare(s.beat, beat) === 0,
+      (s) => voiceOf(s) === c.voice && (s.staffId ?? undefined) === (c.staffId ?? undefined) && fracCompare(s.beat, beat) === 0,
     )
     if (!slot) continue // the new tiling has no slot starting here → drop (benign)
     let key: string | undefined = slot.id
@@ -890,7 +891,7 @@ function captureTremoloPairs(regionMeasures: Measure[]): CapturedTremoloPair[] {
   forEachRegionMeasure(regionMeasures, (m, base) => {
     for (const s of m.slots) {
       if (s.type !== 'chord' || !s.tremoloPair) continue
-      out.push({ voice: s.voice ?? 0, staffId: s.staffId, absBeat: fracAdd(base, s.beat), style: s.tremoloPairStyle })
+      out.push({ voice: voiceOf(s), staffId: s.staffId, absBeat: fracAdd(base, s.beat), style: s.tremoloPairStyle })
     }
   })
   return out
@@ -916,7 +917,7 @@ function restoreTremoloPairs(score: Score, regionNumbers: number[], captured: Ca
     const target = rangeForOffset(ranges, c.absBeat)
     const beat = fracSub(c.absBeat, target.start)
     const slot = target.measure.slots.find(
-      (s) => (s.voice ?? 0) === c.voice && (s.staffId ?? undefined) === (c.staffId ?? undefined) && fracCompare(s.beat, beat) === 0,
+      (s) => voiceOf(s) === c.voice && (s.staffId ?? undefined) === (c.staffId ?? undefined) && fracCompare(s.beat, beat) === 0,
     )
     if (!slot || slot.type !== 'chord') continue
     const lane = laneOfSlot(target.measure.slots, slot)
@@ -974,7 +975,7 @@ function columnExistsAt(m: Measure, beat: Fraction): boolean {
   return m.slots.some((s) => {
     if (fracCompare(s.beat, beat) === 0) return true
     if (s.type !== 'chord' || !s.fan) return false
-    const total = s.actualDuration ?? durationToFraction(s.duration, s.dots ?? 0)
+    const total = slotLength(s)
     return fanMemberBeats(s.fan, total, s.beat).some((b) => fracCompare(b, beat) === 0)
   })
 }
@@ -1026,7 +1027,7 @@ function captureBoundaryTies(score: Score, regionMeasures: Measure[]): {
       // A tie never crosses voices, so the in-region partner shares this external
       // note's voice — record it so the re-find can filter to the right voice
       // (a unison in another voice at the boundary must not steal the tie).
-      const voice = s.voice ?? 0
+      const voice = voiceOf(s)
       for (const p of s.notes) {
         const pitch = { step: p.step, alter: p.alter, octave: p.octave }
         if (p.tiedTo && regionIds.has(p.tiedTo)) incoming.push({ externalId: p.id, pitch, voice })
@@ -1066,7 +1067,7 @@ function boundaryPitchId(
   const m = getMeasure(score, measureNumber)
   if (!m) return undefined
   const chords = (m.slots.filter((s) => s.type === 'chord') as Chord[])
-    .filter((c) => (c.voice ?? 0) === voice) // ties never cross voices
+    .filter((c) => voiceOf(c) === voice) // ties never cross voices
     .sort((a, b) => fracCompare(a.beat, b.beat))
   const ordered = which === 'first' ? chords : chords.reverse()
   for (const c of ordered) {
@@ -1106,7 +1107,7 @@ function captureSlurs(score: Score, regionMeasures: Measure[]): CapturedSlur[] {
     for (const s of m.slots) {
       if (s.type !== 'chord') continue
       const offset = fracAdd(base, s.beat)
-      const voice = s.voice ?? 0
+      const voice = voiceOf(s)
       for (const p of s.notes) {
         inRegion.set(p.id, { offset, pitch: { step: p.step, alter: p.alter, octave: p.octave }, voice })
       }
@@ -1155,7 +1156,7 @@ function restoreSlurs(score: Score, deps: RebarDeps, regionNumbers: number[], ca
     for (const s of m.slots) {
       if (s.type !== 'chord') continue
       const offset = fracAdd(base, s.beat)
-      const voice = s.voice ?? 0
+      const voice = voiceOf(s)
       for (const p of s.notes) {
         const key = slurAnchorKey(offset, { step: p.step, alter: p.alter, octave: p.octave }, voice)
         if (!lookup.has(key)) lookup.set(key, p.id)
@@ -1221,7 +1222,7 @@ function restoreClipSlurs(
     for (const s of m.slots) {
       if (s.type !== 'chord') continue
       const staff = staffIndexOfId(score, s.staffId)
-      const voice = s.voice ?? 0
+      const voice = voiceOf(s)
       const offset = fracAdd(base, s.beat)
       for (const p of s.notes) {
         const k = key(staff, voice, offset, { step: p.step, alter: p.alter, octave: p.octave })
@@ -1305,7 +1306,7 @@ function materializeVoiceBar(
       beat: piece.beat,
       duration: piece.duration,
       measure: measure.number,
-      actualDuration: durationToFraction(piece.duration, piece.dots ?? 0),
+      actualDuration: writtenLength(piece),
       notes: (piece.pitches ?? []).map((p) => {
         const np: NotePitch = { id: uuidv4(), step: p.step, alter: p.alter, octave: p.octave }
         if (p.forceAccidental) np.forceAccidental = true

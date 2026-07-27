@@ -1,7 +1,7 @@
 import type { Note, NoteParams, Measure } from '@/types/music'
 import { measureCapacityQuarters } from '@/utils/musicUtils'
 import { fracAdd, fracToNumber } from '@/utils/fraction'
-import { durationToFraction } from '@/utils/durations'
+import { slotLength } from '@/utils/durations'
 
 /**
  * Result of a collision check
@@ -39,7 +39,7 @@ export class CollisionDetector {
     measure: Measure,
     _existingNotes: Note[],
   ): OverflowResult {
-    const noteDurFrac = note.actualDuration ?? durationToFraction(note.duration, note.dots ?? 0)
+    const noteDurFrac = slotLength(note)
     const noteEnd = fracToNumber(fracAdd(note.beat, noteDurFrac))
     const measureDuration = measureCapacityQuarters(measure)
 

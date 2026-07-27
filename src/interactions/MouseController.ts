@@ -14,6 +14,7 @@ import type { ClipboardController } from './ClipboardController'
 import { DynamicTextSource } from './DynamicTextSource'
 import { fracToNumber, fracEq } from '../utils/fraction'
 import { dynamicTextFromTool, DEFAULT_DYNAMIC_TEXT } from '../utils/dynamics'
+import { staffOf } from '@/utils/lanes'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
  *  edit box opens blank over it and an empty commit deletes it, so it is never actually seen. */
 const DEFAULT_TEMPO_TEXT = 'Tempo'
@@ -427,7 +428,7 @@ export class MouseController {
     if (!note) return
     // Anchor to the selected note's STAFF (else it renders on staff 0); absent staffId
     // keeps single-staff output byte-identical. Voice 0 — see the VOICE SEAM note above.
-    const staffId = engine.staffIdForIndex(note.staff ?? 0)
+    const staffId = engine.staffIdForIndex(staffOf(note))
     const staffParam = staffId ? { staffId } : {}
     const created = engine.addDynamic(note.measure, {
       beat: note.beat, text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below', ...staffParam,
@@ -437,7 +438,7 @@ export class MouseController {
     // its position from the registry, then immediately suppresses + re-renders it.
     this.render.renderScore()
     this.openTextEditor(created.id, true, '')
-    dbg(`✓ Insert dynamic on selection: measure ${note.measure} beat ${fracToNumber(note.beat).toFixed(3)} staff ${note.staff ?? 0} (note ${noteId})`)
+    dbg(`✓ Insert dynamic on selection: measure ${note.measure} beat ${fracToNumber(note.beat).toFixed(3)} staff ${staffOf(note)} (note ${noteId})`)
   }
 
   /**
@@ -767,7 +768,7 @@ export class MouseController {
     if (!m) return false
     // Every note/rest on the clicked staff of this bar (rests included — a bar always has
     // content). These ids drive both the selection and the enclosed-dynamics/slurs pull.
-    const ids = getMeasureNotes(m, score).filter(n => (n.staff ?? 0) === staff).map(n => n.id)
+    const ids = getMeasureNotes(m, score).filter(n => staffOf(n) === staff).map(n => n.id)
     if (!ids.length) return false
 
     this.selection.selectMeasureContents(ids)
@@ -966,7 +967,7 @@ export class MouseController {
 
     this.selection.selectNote(null)
     this.state.selectedElement = {
-      kind: 'clef', measure: clefAt.measure, beat: clefAt.beat ?? 0, staff: clefAt.staff ?? 0,
+      kind: 'clef', measure: clefAt.measure, beat: clefAt.beat ?? 0, staff: staffOf(clefAt),
     }
     const isProtected = clefAt.measure === 1 && (clefAt.beat ?? 0) === 0
     dbg(`✓ Clef selected | measure:${clefAt.measure} beat:${clefAt.beat ?? 0}${isProtected ? ' (measure 1 opening: change only, cannot remove)' : ''}`)
@@ -1834,9 +1835,9 @@ export class MouseController {
    * Always placed below the staff.
    *
    * VOICE SEAM: `voice: 0` is the only hardcoded voice in the dynamics feature —
-   * every resolution/render/playback path already keys on `voice ?? 0` (see
+   * every resolution/render/playback path already keys on `voiceOf` (see
    * utils/dynamics resolveActiveLevel/resolveChordLevels, ScoreModel.addDynamic,
-   * VexFlowRenderer.attachDynamicsToSlots). When multi-voice editing lands, the
+   * DynamicsLayout.attachDynamicsToSlots). When multi-voice editing lands, the
    * ONLY change here is to source the voice from a UI selector (or the active
    * voice) instead of the literal 0; the timeline math needs no rework.
    */
@@ -2387,7 +2388,7 @@ export class MouseController {
     this.spacingDragBaseline = engine.getNoteSpacing(column.measure, column.beat)
     this.spacingDragMinSpace = this.spacingDragBaseline - room
     this.spacingDragStaffSpacePx =
-      engine.getElementRegistry().getStaffGeometry(note.measure, note.staff ?? 0)?.lineSpacing ?? 10
+      engine.getElementRegistry().getStaffGeometry(note.measure, staffOf(note))?.lineSpacing ?? 10
   }
 
   /**

@@ -65,7 +65,8 @@ src/
     audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)
   types/music.ts    # TypeScript interfaces (Note, Measure, Score, etc.)
   utils/            # Pure helpers — fraction, meter, rebar, restFill,
-                    #   beaming, clefUtils, pitchSpelling, dynamics, durations
+                    #   beaming, clefUtils, pitchSpelling, dynamics, durations,
+                    #   lanes (voiceOf/staffOf — absent means the first one)
 ```
 
 **The framework-agnostic boundary is enforced by `npm run lint:boundary`** across
