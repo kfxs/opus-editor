@@ -1,5 +1,9 @@
 import type { WindowLayer } from './WindowLayer'
 import type { Window } from './Window'
+// `TupletBracketEnd` is imported for the {@link} in `format`'s doc comment below. TypeScript's
+// `noUnusedLocals` counts a {@link} as a use; ESLint's rule cannot see JSDoc, so only ESLint calls it
+// unused.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { NoteDuration, TupletBracket, TupletBracketEnd, TupletFormat, TupletNumberStyle } from '../types/music'
 import { DEFAULT_TUPLET_BRACKET_END, resolveTupletInTimeOf, tupletPrintedCounts, type TupletResolution } from '../utils/musicUtils'
 import { tupletSelection, type ArmedTuplet } from '../interactions/tupletSelection'

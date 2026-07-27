@@ -5,6 +5,7 @@
     "ecmaVersion": "latest",
     "sourceType": "module"
   },
+  "plugins": ["@typescript-eslint"],
   "rules": {
     "no-restricted-imports": [
       "error",

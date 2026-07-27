@@ -192,7 +192,7 @@ describe('MouseController', () => {
     })
 
     it('takes the caret down once a rest is actually placed', () => {
-      ;(engine as unknown as { stampRestAtPosition: unknown }).stampRestAtPosition =
+      (engine as unknown as { stampRestAtPosition: unknown }).stampRestAtPosition =
         vi.fn(() => ({ id: 'r1', isRest: true, duration: 'q', measure: 3, beat: { num: 0, den: 1 } }))
       mc.handleClick(ev({ clientX: 100, clientY: 100 }))
       expect(state.selectedNoteId).toBeNull() // out of keyboard entry, as asked
@@ -200,13 +200,13 @@ describe('MouseController', () => {
     })
 
     it('leaves the caret alone when nothing was placed', () => {
-      ;(engine as unknown as { stampRestAtPosition: unknown }).stampRestAtPosition = vi.fn(() => null)
+      (engine as unknown as { stampRestAtPosition: unknown }).stampRestAtPosition = vi.fn(() => null)
       mc.handleClick(ev({ clientX: 100, clientY: 100 }))
       expect(state.selectedNoteId).toBe('cursor-note') // a click that did nothing changes nothing
     })
 
     it('keeps the tool armed — a stamp is used in runs', () => {
-      ;(engine as unknown as { stampRestAtPosition: unknown }).stampRestAtPosition =
+      (engine as unknown as { stampRestAtPosition: unknown }).stampRestAtPosition =
         vi.fn(() => ({ id: 'r1', isRest: true, duration: 'q', measure: 3, beat: { num: 0, den: 1 } }))
       mc.handleClick(ev({ clientX: 100, clientY: 100 }))
       expect(state.selectedMarkingTool?.kind).toBe('rest')

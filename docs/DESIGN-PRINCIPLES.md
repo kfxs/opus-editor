@@ -122,6 +122,35 @@ someone adds "merge two passages" to `MusicEngine` because that is where the men
 action lands. It works, ships, and is invisible — until something that is not the
 editor needs it, and the operation is welded to a renderer.
 
+## 6. A notational statement that can change mid-score is positional, never global
+
+If a statement about the music can differ at two points in the score, it is stored **at a position**
+and resolved by looking backward from the point that asks — never as a field on `Score`.
+
+- Applied three times, each by deletion: **tempo** → `Measure.tempos`, **meter** →
+  `timeSignatureChange`, **clef** → per-staff `Measure.clefs`. All three were once `Score` fields;
+  all three are gone (`score.clef` removed in `a07e834`).
+- Applied pre-emptively to a feature that does not exist yet: `types/music.ts` records why there is
+  no `keySignature` and no `defaultTimeSignature`, and the shape a key signature will take when it
+  is built (`Measure.keys?: KeyChange[]` carrying a `staffId`).
+- The resolution always bottoms out in a **constant**, not in stored state — `DEFAULT_TEMPO`, "no
+  accidentals". "Absent" is answered by a rule, not by a global.
+
+**Why a global is worse than merely wrong:** it does not read as a bug. A `score.tempo` silently
+means *"the tempo at bar 1 beat 0"*, which is indistinguishable from correct until the second value
+appears — and by then everything reads it. That exact conflation is what made `score.clef` bleed
+across staves, and it is the reason this is a principle rather than a style note.
+
+**The test, and its other branch:** *can it vary at a point in the score?* Then it is positional, and
+it belongs to the thing it varies at. *Is it true of the whole document?* Then it is not notation but
+**engraving** — page size, margins, staff size, ragged-last — and boundary case 1 below is where that
+half is still open. The two branches are not a spectrum; a statement is one or the other, and naming
+which is the decision.
+
+**Forbidden:** a `Score` field for any statement that can change mid-score; a "current X" helper that
+resolves such a value from anywhere but a position; storing a default *value* where a default *rule*
+belongs.
+
 ---
 
 ## Known boundary cases
@@ -149,10 +178,9 @@ be made *consciously* before more code piles onto it.
   inside it, so principle 3 keeps its meaning (the *content* model stays free of layout) without
   pretending presentation is unauthorable.
 
-  ⭐ **The discriminator to sort it by, when it is built, is one the project already uses:
-  positional or not.** `score_globals` established that *a notational statement which can change
-  mid-score is never a `Score` field* — tempo, meter and clef are resolved positionally instead. The
-  same test sorts engraving:
+  ⭐ **The discriminator to sort it by, when it is built, is principle 6** — positional or not. That
+  rule was promoted out of this entry (2026-07-27) precisely because it turned out to be doing work
+  well beyond engraving; what remains here is how its two branches land on *this* question:
   - **Can it vary at a point in the score?** Then it is positional and belongs to the thing it
     varies at — a **line break** is a property of the measure it happens before, exactly as a clef
     change is.
@@ -210,16 +238,25 @@ be made *consciously* before more code piles onto it.
   editor, whatever it turns out to be — not before; but do not add code that deepens the assumption
   meanwhile.
 
-- **Thirteen module-level singletons make "exactly one editor" an assumption (re: principles 1 and 5).**
+- **26 module-level singletons make "exactly one editor" an assumption (re: principles 1 and 5).**
   Not score state — palette and chrome state — so they slip past principle 1's letter while making
   the *editor* singular in the way principle 1 forbids for the *score*:
 
   ```
-  interactions/  durationSelection, accidentalSelection, articulationSelection, dotSelection,
-                 tieSelection, restSelection, modeSelection, tupletSelection, clefSelection,
-                 timeSignatureSelection, selectionInspection      ← the Keypad seams
-  windows/       windows            menus/  menus, menuActions
+  interactions/  accidentalSelection, articulationSelection, articulationStemAlignSelection,
+                 beamOverSelection, beamSelection, clefSelection, dotSelection, durationSelection,
+                 fanEditSelection, fanSelection, keypadPageSelection, modeSelection,
+                 noteOffsetSelection, restSelection, selectionInspection, subdivideSelection,
+                 tieSelection, timeSignatureSelection, tremoloPairSelection, tremoloSelection,
+                 tupletSelection, voiceSelection                  ← the Keypad seams
+  windows/       windows            menus/  menus, menuActions    dev/  renderCensus
   ```
+
+  ⚠️ **This count is checked, not promised** — `npm run lint:singletons` fails if the code and the
+  number above disagree (`scripts/check-singletons.mjs`, in `build:check`). It was written as
+  *thirteen*; it is 26. The list nearly doubling **is this entry's own argument firing**, since the
+  argument below is that the sweep is contained *because the list is short*. A new singleton is a
+  decision, not a detail.
 
   They are deliberate: the Keypad talks to the editor through them without either side knowing the
   other, and `windows`/`menus` exist so "add a window" never means "edit `App.ts`". For one editor
@@ -234,13 +271,17 @@ be made *consciously* before more code piles onto it.
   what keeps the cost flat**: a definition module that imports the singleton instead of receiving it
   turns a sweep into archaeology.
 
-  ⚠️ Related, smaller: `engine/models/ScoreModel.ts` reads `import.meta.env` to detect Vitest
-  (`STRICT_INVARIANTS`). It is guarded and degrades to `false`, but it is a bundler assumption inside
-  the score layer, and would be baked or absent if that layer were ever published on its own.
+  ✅ Related, smaller — **fixed 2026-07-27.** `engine/models/ScoreModel.ts` used to read
+  `import.meta.env` to detect Vitest (`STRICT_INVARIANTS`): guarded, but a *bundler* assumption
+  inside the score layer, which would have been baked or absent had that layer ever been published
+  on its own. The detection now lives in `utils/env.ts` (`isTestRun()`) and reads the neutral
+  `process.env`, so the core no longer names Vite anywhere. It has a test rather than a comment
+  behind it (`utils/env.test.ts`) because the flag it feeds is private, and a silent `false` would
+  have disarmed the measure-integrity check across the entire suite with every test still green.
 
 ## How to use this
 
-When adding a feature, ask: *does this make one of the four assumptions above?* If
+When adding a feature, ask: *does this make one of the six assumptions above?* If
 it does, find the version that doesn't. See `ARCHITECTURE.md` → "Key invariants"
 for the lower-level rules (Fraction beats, renderer-as-geometry-source,
 commit-resyncs-playback) that these sit above.

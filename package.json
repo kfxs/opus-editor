@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:check": "npm run lint:boundary && npm run lint:testnames && tsc --noEmit && vite build",
+    "build:check": "npm run lint:boundary && npm run lint:testnames && npm run lint:singletons && npm run lint && tsc --noEmit && vite build",
     "lint:boundary": "eslint --no-eslintrc -c .eslintrc.boundary.json \"src/engine/**/*.ts\" \"src/interactions/**/*.ts\" \"src/windows/**/*.ts\" \"src/menus/**/*.ts\" \"src/dev/**/*.ts\" \"src/utils/**/*.ts\" \"src/types/**/*.ts\"",
     "lint:testnames": "node scripts/check-test-names.mjs",
+    "lint:singletons": "node scripts/check-singletons.mjs",
     "audit:tests": "node scripts/audit-tests.mjs",
     "lint": "eslint . --ext .ts",
     "preview": "vite preview",

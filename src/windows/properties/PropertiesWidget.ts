@@ -147,7 +147,7 @@ export class PropertiesWidget implements Widget {
         body.appendChild(overrides)
       }
     }
-    ;(body.firstElementChild as HTMLElement).style.marginTop = '0'
+    (body.firstElementChild as HTMLElement).style.marginTop = '0'
   }
 
   /**

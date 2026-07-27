@@ -795,7 +795,7 @@ export class GlyphSelect implements Widget {
     if (!this.list || index < 0) return
     this.active = index
     Array.from(this.list.children).forEach((row, i) => {
-      ;(row as HTMLElement).style.background = i === index ? CHROME.accent : 'transparent'
+      (row as HTMLElement).style.background = i === index ? CHROME.accent : 'transparent'
     })
   }
 

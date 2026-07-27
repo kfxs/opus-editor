@@ -1,4 +1,5 @@
 import { dbg } from '@/utils/debug'
+import { isTestRun } from '@/utils/env'
 import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, BeamMode, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf, noteOffsetOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX } from './engravingOverrides'
 import {
@@ -101,15 +102,13 @@ const FAN_MEMBER_UPDATE_FIELDS = new Set(['step', 'alter', 'octave', 'forceAccid
  * into a thrown error — so a malformed bar fails the test that produced it instead
  * of passing silently. In the browser (dev or prod) it stays a log: a bad bar is a
  * bug to notice, not a reason to crash the editor out from under the user.
+ *
+ * The detection itself lives in {@link isTestRun} (`utils/env.ts`) rather than reading
+ * `import.meta.env` here — that was the core's last bundler-specific coupling, and a published
+ * core package must not reach for a Vite global. It has a test behind it (`utils/env.test.ts`)
+ * because a silent `false` would disarm this check across the whole suite with everything green.
  */
-const STRICT_INVARIANTS: boolean = (() => {
-  try {
-    // Vitest injects both of these; Vite dev/prod builds set MODE to development/production.
-    const env = (import.meta as unknown as { env?: Record<string, unknown> }).env
-    if (env && (env.VITEST || env.MODE === 'test' || env.TEST === true)) return true
-  } catch { /* `import.meta.env` may be absent */ }
-  return false
-})()
+const STRICT_INVARIANTS: boolean = isTestRun()
 
 /**
  * ScoreModel manages the musical score data and provides CRUD operations

@@ -2474,7 +2474,7 @@ export class VexFlowRenderer {
         if (multiVoice) {
           for (const sn of staveNotes) {
             if (sn.isRest()) {
-              ;(sn.renderOptions as { draw?: boolean }).draw = true
+              (sn.renderOptions as { draw?: boolean }).draw = true
               const line = intendedRestLine.get(sn)
               if (line !== undefined && sn.getKeyLine(0) !== line) sn.setKeyLine(0, line)
             } else {
@@ -2682,7 +2682,7 @@ export class VexFlowRenderer {
         // draw-time re-centering to fight).
         for (const mod of sn.getModifiers()) {
           if (mod instanceof Accidental) {
-            ;(mod as unknown as { xShift: number }).xShift += px
+            (mod as unknown as { xShift: number }).xShift += px
           }
         }
       }

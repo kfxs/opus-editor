@@ -260,7 +260,16 @@ const tremolo = (layers: GlyphSpec[]): Icon => ({ bake: layers })
  * reloading shows the change at once, in the plain hand-drawing form. To rework a cell, swap its
  * `tremolo(` to `rework(`, adjust the offsets, then swap it back to re-bake. This is the ONLY reason
  * the span renderer in the widget still exists — it is the rework path, not dead code, so keep it.
+ *
+ * ⚠️ It carries an `eslint-disable` for `no-unused-vars`, and BOTH obvious tidy-ups are wrong.
+ * `rework` is referenced by `{@link rework}` in this module's header and in {@link Icon}'s doc:
+ * TypeScript's `noUnusedLocals` counts a `{@link}` as a use and is satisfied, while ESLint's rule
+ * cannot see JSDoc at all — so only ESLint calls it dead. Renaming it to `_rework` to match
+ * `varsIgnorePattern` BREAKS those two links, and tsc then reports it for real. Deleting it throws
+ * away the only producer of the `'layers' in icon` branch in {@link KeypadWidget}, which would go
+ * unreachable. See docs/ARCHITECTURE.md on the lint gate.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const rework = (layers: GlyphSpec[]): Icon => ({ layers })
 
 /** A single-note tremolo: a down-stem quarter wearing N stem strokes. Sibelius: "1 tremolo" … "5

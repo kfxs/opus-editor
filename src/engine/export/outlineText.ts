@@ -209,7 +209,7 @@ function isPrivateUse(char: string): boolean {
 }
 
 function isWhitespace(char: string): boolean {
-  return /^[\s ]$/.test(char)
+  return /^[\s\u00A0]$/.test(char)
 }
 
 /**

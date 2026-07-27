@@ -93,9 +93,35 @@ This is **enforced by lint**, not discipline:
 npm run lint:boundary   # fails the build if any of those dirs import a UI framework
 ```
 
-It is wired into `build:check`. (The full `npm run lint` exists for information
-but is **not** a build gate yet — there is a pre-existing backlog of unrelated
-lint findings; cleaning those is a separate, optional task.)
+It is wired into `build:check`, and so is the full `npm run lint` (since 2026-07-27):
+the backlog this paragraph used to describe was ten trivial findings, and they are
+fixed, so the gate is closed behind them. `build:check` now runs four checks before
+`tsc`:
+
+```bash
+npm run lint:boundary     # no UI framework in engine/interactions/windows/menus/dev
+npm run lint:testnames    # a spec is named after its sibling subject
+npm run lint:singletons   # the singleton count in DESIGN-PRINCIPLES.md is still true
+npm run lint              # the full ESLint pass
+```
+
+The last two are there for the same reason, stated as a rule in
+`docs/refactor-plan-2026-07-27.md` Phase 0c: **a comment asserting a fact about the
+repository gets a script or a test behind it.** A comment asserting a *design* fact
+("N:M is two ints, never a Fraction") cannot rot, because the code enforces it. A
+comment asserting a *repo* fact — "this check runs", "there are thirteen of these",
+"that suite is the source of truth" — can, and every instance of one in these docs
+had. This paragraph was itself one of them.
+
+⚠️ **One trap that closing the `lint` gate exposes: ESLint cannot see `{@link}`, and TypeScript can.**
+`tsc`'s `noUnusedLocals` counts a `{@link Foo}` reference as a use of `Foo`; ESLint's
+`no-unused-vars` has no idea JSDoc exists. In a codebase as `{@link}`-heavy as this one that
+divergence has real consequences, so both current instances carry an `eslint-disable-next-line` with
+the reason (`keypadLayouts.ts`'s `rework`, `tupletWindow.ts`'s `TupletBracketEnd`). **Do not "clean
+up" either one.** Renaming to the `_` prefix that `varsIgnorePattern` allows *breaks the very links
+that make it used*, at which point tsc reports it for real; and deleting it throws away the
+documentation the link was carrying — in `rework`'s case, the only producer of a live branch in
+`KeypadWidget`. If a third case appears, it gets the same treatment, not a rule change.
 
 **Rule of thumb:** new *logic* goes in `interactions/` or `engine/`. `App.ts`
 should only build DOM, construct controllers, and connect them — if a line in it
@@ -185,7 +211,8 @@ Two consequences, and the first is the dangerous one:
   `g.vf-beam`) and stave-derived numbers, never a drawn position. That convention is load-bearing.
 - **Bar-width tests only exercise one branch.** `noteSpace = max(minNoteWidth × 1.15, slots ×
   MIN_NOTE_SPACING, …)` — with `minNoteWidth ≈ 0` the events-times-spacing floor always wins, so the
-  case where glyphs genuinely need more room than the floor is covered only by Playwright and by eye.
+  case where glyphs genuinely need more room than the floor is covered **by eye only** today — see
+  the 🚨 note below on the browser suite that does not exist yet.
 
 ⛔ **Do not "fix" this by stubbing `getContext`.** Fake metrics turn every geometry assertion green on
 fiction; a loud "I can't do this" beats a quiet invented number. Installing the `canvas` package alone
@@ -197,7 +224,17 @@ If we ever do want real metrics in unit tests, it is feasible and the font regis
 **mandatory**, not optional: the fonts here are `.otf` (`public/fonts/Bravura.otf`), which node-canvas
 can `registerFont`, and VexFlow exposes `Element.setTextMeasurementCanvas(canvas)` as the injection
 point. Even then Cairo/FreeType's `actualBoundingBoxAscent/Descent` will not match Skia exactly, so
-assertions need tolerances and Playwright (`npm run test:e2e`) stays the source of truth.
+assertions need tolerances and a real browser stays the source of truth.
+
+🚨 **And that browser suite does not exist yet.** `@playwright/test` is in `devDependencies` and
+`npm run test:e2e` is in `package.json`, but there is **no `playwright.config.*` and not one spec
+file** — the script fails if you run it. So every geometry feature in this renderer is currently
+verified **by eye only**: fan ramps and spread, tremolo stroke placement, bar width, note spacing,
+PDF outline export. That is a real hole, not a formality, and it is stated here rather than implied
+because this paragraph previously named Playwright as "the source of truth", which read as a net that
+was strung. `docs/refactor-plan-2026-07-27.md` Phase 5 is where it actually gets strung, and it is a
+prerequisite for restructuring the renderer (Phase 6) — code motion under a renderer with no
+regression net is the one refactor this codebase cannot currently check.
 
 ---
 
