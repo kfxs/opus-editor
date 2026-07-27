@@ -1,4 +1,4 @@
-import type { BeamMode } from '../types/music'
+import type { BeamMode } from '@/types/music'
 import { PaletteToggleSet } from './paletteToggleSet'
 
 /**
@@ -12,4 +12,4 @@ import { PaletteToggleSet } from './paletteToggleSet'
  * and pushes the lit set back via `refreshBeamSelection` because the role is engine-read, not a
  * reactive field. A Keypad press routes OUT through that same `setBeam`.
  */
-export const beamSelection = new PaletteToggleSet<BeamMode>()
+export const createBeamSelection = () => new PaletteToggleSet<BeamMode>()

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { FanEditController } from './FanEditController'
-import { fanEditSelection } from './fanEditSelection'
+import { bus } from '@/bus'
 import { fracCreate as frac } from '../utils/fraction'
 import { MAX_FAN_BEAMS, MAX_FAN_COUNT, MAX_FAN_SPREAD, clampFanBeams, clampFanCount } from '../utils/fannedBeam'
 import type { FanMark } from '../types/music'
@@ -53,14 +53,14 @@ describe('FanEditController', () => {
 
   it('changes the member count, leaving the direction and the beams alone', () => {
     const id = fanned()
-    fanEditSelection.set({ noteId: id, count: 9 })
+    bus.fanEdit.set({ noteId: id, count: 9 })
     expect(fanOf(id)).toMatchObject({ direction: 'accel', count: 9, beams: 3 })
     expect(renders).toBe(1)
   })
 
   it('changes the beams the same way', () => {
     const id = fanned()
-    fanEditSelection.set({ noteId: id, beams: 2 })
+    bus.fanEdit.set({ noteId: id, beams: 2 })
     expect(fanOf(id)).toMatchObject({ direction: 'accel', count: 6, beams: 2 })
   })
 
@@ -76,12 +76,12 @@ describe('FanEditController', () => {
     grown()[0][0].step = 'G'
     const markedId = grown()[0][0].id
 
-    fanEditSelection.set({ noteId: id, count: 9 })
+    bus.fanEdit.set({ noteId: id, count: 9 })
     expect(grown()).toHaveLength(8)
     expect(grown()[0][0].step).toBe('G')
     expect(grown()[0][0].id).toBe(markedId) // a surviving member keeps its identity
 
-    fanEditSelection.set({ noteId: id, count: 3 })
+    bus.fanEdit.set({ noteId: id, count: 3 })
     expect(grown()).toHaveLength(2)
     expect(grown()[0][0].id).toBe(markedId) // shrinking drops from the END
   })
@@ -90,7 +90,7 @@ describe('FanEditController', () => {
     // Creating and removing them is the accel./rit. press. An edit box that could conjure a notation
     // out of a typed number would be a second owner of that question.
     const id = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
-    fanEditSelection.set({ noteId: id, count: 9 })
+    bus.fanEdit.set({ noteId: id, count: 9 })
     expect(fanOf(id)).toBeUndefined()
     expect(renders).toBe(0)
   })
@@ -98,25 +98,25 @@ describe('FanEditController', () => {
   it('the same value again is not an edit — no repaint, no empty undo entry', () => {
     const id = fanned()
     const before = engine.exportJSON()
-    fanEditSelection.set({ noteId: id, count: 6, beams: 3 })
+    bus.fanEdit.set({ noteId: id, count: 6, beams: 3 })
     expect(renders).toBe(0)
     expect(engine.exportJSON()).toBe(before)
   })
 
   it('one edit is one undo', () => {
     const id = fanned()
-    fanEditSelection.set({ noteId: id, count: 9 })
+    bus.fanEdit.set({ noteId: id, count: 9 })
     expect(engine.undo()).toBe(true)
     expect(fanOf(id)?.count).toBe(6)
   })
 
   it('clamps what is typed rather than refusing it', () => {
     const id = fanned()
-    fanEditSelection.set({ noteId: id, count: 9999 })
+    bus.fanEdit.set({ noteId: id, count: 9999 })
     expect(fanOf(id)?.count).toBe(MAX_FAN_COUNT)
-    fanEditSelection.set({ noteId: id, beams: 0 })
+    bus.fanEdit.set({ noteId: id, beams: 0 })
     expect(fanOf(id)?.beams).toBe(1)
-    fanEditSelection.set({ noteId: id, beams: 99 })
+    bus.fanEdit.set({ noteId: id, beams: 99 })
     expect(fanOf(id)?.beams).toBe(MAX_FAN_BEAMS)
   })
 
@@ -127,9 +127,9 @@ describe('FanEditController', () => {
   describe('the ramp range', () => {
     it('sets where the wedge starts and ends, one end at a time', () => {
       const id = fanned()
-      fanEditSelection.set({ noteId: id, rampTo: 3 })
+      bus.fanEdit.set({ noteId: id, rampTo: 3 })
       expect(fanOf(id)).toMatchObject({ count: 6, beams: 3, rampFrom: 0, rampTo: 3 })
-      fanEditSelection.set({ noteId: id, rampFrom: 1 })
+      bus.fanEdit.set({ noteId: id, rampFrom: 1 })
       expect(fanOf(id)).toMatchObject({ rampFrom: 1, rampTo: 3 }) // the other end held
     })
 
@@ -137,7 +137,7 @@ describe('FanEditController', () => {
       // The guard used to ask only about `count` and `beams`, so this returned before `setFan` and
       // the whole control did nothing.
       const id = fanned()
-      fanEditSelection.set({ noteId: id, rampTo: 3 })
+      bus.fanEdit.set({ noteId: id, rampTo: 3 })
       expect(renders).toBe(1)
       expect(engine.undo()).toBe(true)
       expect(fanOf(id)?.rampTo).toBeUndefined()
@@ -149,34 +149,34 @@ describe('FanEditController', () => {
       // page to undo.
       const id = fanned()
       const before = engine.exportJSON()
-      fanEditSelection.set({ noteId: id, rampFrom: 0 })
-      fanEditSelection.set({ noteId: id, rampTo: 5 })
+      bus.fanEdit.set({ noteId: id, rampFrom: 0 })
+      bus.fanEdit.set({ noteId: id, rampTo: 5 })
       expect(renders).toBe(0)
       expect(engine.exportJSON()).toBe(before)
     })
 
     it('a range that spans the whole group again comes back out ABSENT', () => {
       const id = fanned()
-      fanEditSelection.set({ noteId: id, rampFrom: 2 })
+      bus.fanEdit.set({ noteId: id, rampFrom: 2 })
       expect(fanOf(id)?.rampFrom).toBe(2)
-      fanEditSelection.set({ noteId: id, rampFrom: 0 })
+      bus.fanEdit.set({ noteId: id, rampFrom: 0 })
       expect(fanOf(id)?.rampFrom).toBeUndefined()
       expect(fanOf(id)?.rampTo).toBeUndefined()
     })
 
     it('⭐ clamped by `normalizeFan`, not here — the count is what holds it', () => {
       const id = fanned()
-      fanEditSelection.set({ noteId: id, rampTo: 99 })
+      bus.fanEdit.set({ noteId: id, rampTo: 99 })
       expect(fanOf(id)?.rampTo).toBeUndefined() // 99 → 5 → the whole group → dropped
-      fanEditSelection.set({ noteId: id, rampFrom: 1, rampTo: 4 })
-      fanEditSelection.set({ noteId: id, count: 3 })
+      bus.fanEdit.set({ noteId: id, rampFrom: 1, rampTo: 4 })
+      bus.fanEdit.set({ noteId: id, count: 3 })
       expect(fanOf(id)).toMatchObject({ count: 3, rampFrom: 1, rampTo: 2 }) // pulled back in
     })
 
     it('a count edit that strands the range keeps its members in step too', () => {
       const id = fanned()
-      fanEditSelection.set({ noteId: id, rampFrom: 3, rampTo: 5 })
-      fanEditSelection.set({ noteId: id, count: 2 })
+      bus.fanEdit.set({ noteId: id, rampFrom: 3, rampTo: 5 })
+      bus.fanEdit.set({ noteId: id, count: 2 })
       const fan = fanOf(id)!
       expect(fan.members).toHaveLength(1)
       expect([fan.rampFrom, fan.rampTo]).toEqual([undefined, undefined]) // 0…1 IS the whole group
@@ -189,7 +189,7 @@ describe('FanEditController', () => {
   describe('the spread', () => {
     it('🚨 a spread-only edit is a REAL edit — the guard is where a new field ships dead', () => {
       const id = fanned()
-      fanEditSelection.set({ noteId: id, spread: 2 })
+      bus.fanEdit.set({ noteId: id, spread: 2 })
       expect(fanOf(id)).toMatchObject({ count: 6, beams: 3, spread: 2 })
       expect(renders).toBe(1)
       expect(engine.undo()).toBe(true)
@@ -199,37 +199,37 @@ describe('FanEditController', () => {
     it('⭐ typing the gap it already has is not an edit — absence and 1 are one', () => {
       const id = fanned()
       const before = engine.exportJSON()
-      fanEditSelection.set({ noteId: id, spread: 1 })
+      bus.fanEdit.set({ noteId: id, spread: 1 })
       expect(renders).toBe(0)
       expect(engine.exportJSON()).toBe(before)
     })
 
     it('back to 1 comes out ABSENT, and a typed 99 is clamped', () => {
       const id = fanned()
-      fanEditSelection.set({ noteId: id, spread: 3 })
-      fanEditSelection.set({ noteId: id, spread: 1 })
+      bus.fanEdit.set({ noteId: id, spread: 3 })
+      bus.fanEdit.set({ noteId: id, spread: 1 })
       expect(fanOf(id)?.spread).toBeUndefined()
-      fanEditSelection.set({ noteId: id, spread: 99 })
+      bus.fanEdit.set({ noteId: id, spread: 99 })
       expect(fanOf(id)?.spread).toBe(MAX_FAN_SPREAD)
     })
 
     it('holds while the other three are edited — one number, one owner', () => {
       const id = fanned()
-      fanEditSelection.set({ noteId: id, spread: 2 })
-      fanEditSelection.set({ noteId: id, count: 9 })
-      fanEditSelection.set({ noteId: id, rampFrom: 2 })
+      bus.fanEdit.set({ noteId: id, spread: 2 })
+      bus.fanEdit.set({ noteId: id, count: 9 })
+      bus.fanEdit.set({ noteId: id, rampFrom: 2 })
       expect(fanOf(id)).toMatchObject({ count: 9, rampFrom: 2, spread: 2 })
     })
   })
 
   it('a missing note is a no-op, not a throw', () => {
-    expect(() => fanEditSelection.set({ noteId: 'no-such-id', count: 4 })).not.toThrow()
+    expect(() => bus.fanEdit.set({ noteId: 'no-such-id', count: 4 })).not.toThrow()
   })
 
   it('stops listening once destroyed', () => {
     const id = fanned()
     controller.destroy()
-    fanEditSelection.set({ noteId: id, count: 9 })
+    bus.fanEdit.set({ noteId: id, count: 9 })
     expect(fanOf(id)?.count).toBe(6)
   })
 })

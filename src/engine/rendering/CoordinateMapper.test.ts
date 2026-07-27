@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { CoordinateMapper } from './CoordinateMapper'
 import { spellingToMidi } from '@/utils/pitchSpelling'
-import { getMeasureDuration } from '@/utils/musicUtils'
+import { getMeasureDuration } from '@/utils/measureCapacity'
 
 describe('CoordinateMapper', () => {
   let mapper: CoordinateMapper

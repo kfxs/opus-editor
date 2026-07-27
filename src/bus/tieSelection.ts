@@ -12,4 +12,4 @@ import { PaletteSelection } from './paletteSelection'
  * there) and on the selection-change poke — exactly like {@link articulationSelection}. Tie is a
  * selection-mode action only: there is no armed "entry-mode tie".
  */
-export const tieSelection = new PaletteSelection<'tie'>()
+export const createTieSelection = () => new PaletteSelection<'tie'>()

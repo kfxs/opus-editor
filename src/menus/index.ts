@@ -26,7 +26,7 @@ export const menuActions: InsertMenuActions = {}
 
 windows.whenMounted((host) => {
   menus.mount(host)
-  installInsertMenu(host, menus, menuActions)
+  installInsertMenu(host, menus, windows, menuActions)
 })
 
 /**

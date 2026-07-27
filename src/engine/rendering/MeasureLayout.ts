@@ -3,13 +3,13 @@ import type { Score, Measure, Clef } from '@/types/music'
 import { fracCompare, fracIsZero } from '@/utils/fraction'
 import { type StaffClefs } from '@/utils/clefUtils'
 import { getStaves, staffMeasureView } from '@/engine/models/staffContent'
-import { measureCapacityFrac } from '@/utils/musicUtils'
+import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { laneColumns } from '@/utils/fannedBeam'
 import { cautionaryAllowedOf, cautionaryClefAllowedOf, keyStaffId, measureUserSpacePx, measureStretch } from '../models/engravingOverrides'
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import { laneFingerprint, type MeasureWidthCache } from './MeasureWidthCache'
 import { voiceOf } from '@/utils/lanes'
-import { renderCensus } from '@/dev/renderCensus' // TEMPORARY — the §9 layout-breakdown probes
+import { renderProbe } from '@/engine/RenderProbe' // TEMPORARY — the §9 layout-breakdown probes
 import {
   createStaveNotesFromSlots,
   makeClefResolver,
@@ -56,15 +56,15 @@ function noteSpaceForLane(laneView: Measure, clef: Clef, cache?: MeasureWidthCac
   if (laneView.slots.length === 0) return EMPTY_LANE_NOTE_SPACE
   const hasNotes = laneView.slots.some(s => s.type === 'chord')
 
-  // TEMPORARY probes — the §9 question (see renderCensus.layoutSub). `recording` is false in every
+  // TEMPORARY probes — the §9 question (see {@link RenderProbe.layoutSub}). `recording` is false in every
   // ordinary session, so this is one boolean read, not a clock call.
-  const probing = renderCensus.recording
+  const probing = renderProbe().recording
   const t0 = probing ? performance.now() : 0
   const key = cache ? laneFingerprint(laneView) : undefined
-  if (probing) renderCensus.layoutSub('fingerprint', performance.now() - t0)
+  if (probing) renderProbe().layoutSub('fingerprint', performance.now() - t0)
   if (key !== undefined) {
     const hit = cache!.get(key)
-    renderCensus.layoutCacheProbe(hit !== undefined)
+    renderProbe().layoutCacheProbe(hit !== undefined)
     if (hit !== undefined) return hit
   }
   const tFormat = probing ? performance.now() : 0
@@ -109,7 +109,7 @@ function noteSpaceForLane(laneView: Measure, clef: Clef, cache?: MeasureWidthCac
     const silenceFloor = hasNotes ? 0 : EMPTY_LANE_NOTE_SPACE
     const noteSpace = Math.max(minNoteWidth * 1.15, minSpacingWidth, silenceFloor)
     if (key !== undefined) cache!.set(key, noteSpace)
-    if (probing) renderCensus.layoutSub('format', performance.now() - tFormat)
+    if (probing) renderProbe().layoutSub('format', performance.now() - tFormat)
     return noteSpace
   } catch (error) {
     console.warn(`Could not calculate width for measure ${laneView.number}:`, error)
@@ -168,10 +168,11 @@ function calculateMinimumMeasureWidth(
   // widens the number above, so a floor still counting raw slots would no longer be the same rule.
   let widestSpacingFloor = 0
   for (const staffId of staffIds) {
-    // TEMPORARY probe — see renderCensus.layoutSub.
-    const tView = renderCensus.recording ? performance.now() : 0
+    // TEMPORARY probe — see {@link RenderProbe.layoutSub}.
+    const probe = renderProbe()
+    const tView = probe.recording ? performance.now() : 0
     const lane = single ? measure : staffMeasureView(measure, staffId, score)
-    if (renderCensus.recording) renderCensus.layoutSub('laneView', performance.now() - tView)
+    if (probe.recording) probe.layoutSub('laneView', performance.now() - tView)
     const staffClefs = clefsByStaff.get(staffId)
     const clef = staffClefs?.opening.get(measure.number) ?? 'treble'
 

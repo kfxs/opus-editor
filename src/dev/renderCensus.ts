@@ -15,6 +15,7 @@
  * `window.__census`; see `dump()` for the usage banner.
  */
 import { ScoreModel } from '@/engine/models/ScoreModel'
+import type { RenderLayoutPart, RenderProbe } from '@/engine/RenderProbe'
 import type { PitchStep } from '@/types/music'
 
 interface Bucket {
@@ -35,7 +36,9 @@ interface Bucket {
 
 const now = () => performance.now()
 
-class RenderCensus {
+/** `implements` on purpose: the engine calls this through {@link RenderProbe}, so a signature that
+ *  drifts from the seam must fail to BUILD rather than quietly stop being installable. */
+class RenderCensus implements RenderProbe {
   private on = false
   private buckets = new Map<string, Bucket>()
   private cause = '?'
@@ -123,7 +126,7 @@ class RenderCensus {
    */
   private sub = { laneView: 0, fingerprint: 0, format: 0, hits: 0, misses: 0 }
 
-  layoutSub(part: 'laneView' | 'fingerprint' | 'format', ms: number): void {
+  layoutSub(part: RenderLayoutPart, ms: number): void {
     if (!this.on) return
     this.sub[part] += ms
   }

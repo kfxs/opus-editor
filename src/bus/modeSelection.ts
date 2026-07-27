@@ -15,4 +15,4 @@ import { PaletteSelection } from './paletteSelection'
  * The sole value is `'selection'` — the arrow is a one-way "go to selection mode" command; entry mode
  * is entered by other gestures (arming a tool, clicking a position).
  */
-export const modeSelection = new PaletteSelection<'selection'>()
+export const createModeSelection = () => new PaletteSelection<'selection'>()

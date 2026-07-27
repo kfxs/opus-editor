@@ -12,11 +12,11 @@
  *   the set is unchanged, so mirroring cannot loop.
  * - PRESS: the user hit this key. A command, and it ALWAYS fires ({@link press}) — a press TOGGLES the
  *   value, so it must never be swallowed as "no change". App.ts handles it by running the palette's
- *   own toggleX, the SAME method the Vue button calls.
+ *   own toggleX, the SAME method the dev toolbar's button calls.
  *
  * Keeping the two apart is what lets a state mirror and a Keypad press stay distinct: the mirror only
  * ever touches HIGHLIGHT, the press only ever fires PRESS — so the toggle never double-applies and
- * needs no guard. Framework-agnostic: the panel imports this, never Vue.
+ * needs no guard.
  */
 export class PaletteToggleSet<T> {
   private active = new Set<T>()

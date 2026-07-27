@@ -3,23 +3,7 @@ import type { BeamMode, NoteDuration, TremoloMark } from '../types/music'
 import { armedToolUsesLength, selectedOf } from './EditorState'
 import type { BeamRole } from '../utils/beaming'
 import type { PaletteController } from './PaletteController'
-import { modeSelection } from './modeSelection'
-import { durationSelection } from './durationSelection'
-import { accidentalSelection } from './accidentalSelection'
-import { articulationSelection } from './articulationSelection'
-import { dotSelection } from './dotSelection'
-import { tieSelection } from './tieSelection'
-import { restSelection } from './restSelection'
-import { voiceSelection } from './voiceSelection'
-import { clefSelection } from './clefSelection'
-import { timeSignatureSelection } from './timeSignatureSelection'
-import { tupletSelection } from './tupletSelection'
-import { beamSelection } from './beamSelection'
-import { subdivideSelection } from './subdivideSelection'
-import { beamOverSelection } from './beamOverSelection'
-import { tremoloSelection } from './tremoloSelection'
-import { fanSelection } from './fanSelection'
-import { tremoloPairSelection } from './tremoloPairSelection'
+import { bus } from '@/bus'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
 import { multipleNotesSelected } from './selection'
 
@@ -341,16 +325,16 @@ export function wireKeypadSync(
   const sync = () => {
     // The Select arrow lights whenever the editor is in selection mode — from ANY source (toolbar,
     // Esc, mouse, or the arrow), because this runs on the state's own change-notification.
-    modeSelection.setHighlight(state.selectedTool === 'selection' ? 'selection' : null)
+    bus.mode.setHighlight(state.selectedTool === 'selection' ? 'selection' : null)
     // No gate needed at the call site: durationHighlight owns the whole rule, armed tool included.
     const armed = state.selectedMarkingTool
-    durationSelection.setHighlight(durationHighlight(state))
+    bus.duration.setHighlight(durationHighlight(state))
     // While the accidental stamp is armed, light the ARMED sign (it's the active gesture); when a
     // standalone accidental glyph is selected in the score, light THAT one (so it can be
     // changed/removed from the Keypad); otherwise fall back to the note-entry / selected-note
     // accidental — but never under another tool, where no accidental is in play.
     const selectedAccidentalGlyph = selectedOf(state, 'accidental')
-    accidentalSelection.setHighlight(
+    bus.accidental.setHighlight(
       armed?.kind === 'accidental' ? armed.sign
       : selectedAccidentalGlyph ? accidentalTypeToKey(selectedAccidentalGlyph.type)
       : armed || noNoteInSelection(state) ? null
@@ -358,13 +342,13 @@ export function wireKeypadSync(
     )
     // The Clef window lights the clef that is ARMED, and nothing otherwise: unlike a duration,
     // a clef is never "the selected note's" — it belongs to a measure, not a note.
-    clefSelection.setHighlight(armed?.kind === 'clef' ? armed.clef : null)
+    bus.clef.setHighlight(armed?.kind === 'clef' ? armed.clef : null)
     // No gate needed: dotHighlight owns the whole rule, armed tool included.
-    dotSelection.setHighlight(dotHighlight(state))
+    bus.dot.setHighlight(dotHighlight(state))
     // The voice key follows the SAME single-selection rule as the others: light the active voice when
     // it means something — entry mode (the voice you're writing into) or a single selected note (its
     // voice) — and NOTHING when nothing, or more than one note, is selected (no single voice to show).
-    voiceSelection.setHighlight(noNoteInSelection(state) ? null : state.activeVoice)
+    bus.voice.setHighlight(noNoteInSelection(state) ? null : state.activeVoice)
     // Engine-derived highlights (articulations are a SET, tie reads tiedTo, rest reads isRest): read
     // live, not from a reactive field, so they can't be mirrored — recompute and push on any change.
     palette.refreshArticulationSelection()
@@ -386,39 +370,39 @@ export function wireKeypadSync(
 
   const stops = [
     subscribe(sync),
-    modeSelection.onPress(() => palette.enterSelectionMode()),
-    durationSelection.onPress((d) => palette.setDuration(d)),
-    accidentalSelection.onPress((a) => palette.setAccidental(a)),
-    dotSelection.onPress(() => palette.toggleDot()),
-    articulationSelection.onPress((type) => {
+    bus.mode.onPress(() => palette.enterSelectionMode()),
+    bus.duration.onPress((d) => palette.setDuration(d)),
+    bus.accidental.onPress((a) => palette.setAccidental(a)),
+    bus.dot.onPress(() => palette.toggleDot()),
+    bus.articulation.onPress((type) => {
       if (type === 'accent') palette.toggleAccent()
       else if (type === 'staccato') palette.toggleStaccato()
       else palette.toggleTenuto()
     }),
-    tieSelection.onPress(() => palette.toggleTie()),
-    restSelection.onPress(() => palette.pressRest()),
+    bus.tie.onPress(() => palette.toggleTie()),
+    bus.rest.onPress(() => palette.pressRest()),
     // The beam cluster — the SAME palette methods the dev toolbar's Beam row calls, so a press from the
     // pad, the numpad, or the toolbar all arm/toggle identically.
-    beamSelection.onPress((mode) => palette.setBeam(mode)),
-    subdivideSelection.onPress(() => palette.toggleSecondaryBreak()),
-    beamOverSelection.onPress(() => palette.toggleBeamOver()),
+    bus.beam.onPress((mode) => palette.setBeam(mode)),
+    bus.subdivide.onPress(() => palette.toggleSecondaryBreak()),
+    bus.beamOver.onPress(() => palette.toggleBeamOver()),
     // The tremolo cluster — `pressTremolo` is the SAME four-way router the dev toolbar's row calls
     // (edit the selected mark / apply across a selection / arm for entry / arm the stamp), and
     // `pressTremoloPair` the same button the toolbar's seventh key is.
-    tremoloSelection.onPress((mark) => palette.pressTremolo(mark)),
-    tremoloPairSelection.onPress(() => palette.pressTremoloPair()),
+    bus.tremolo.onPress((mark) => palette.pressTremolo(mark)),
+    bus.tremoloPair.onPress(() => palette.pressTremoloPair()),
     // The feathered beams — `pressFan` is the SAME method the dev toolbar's `accel.`/`rit.` buttons
     // call, so a press from the pad, the numpad or the toolbar is one action.
-    fanSelection.onPress((direction) => palette.pressFan(direction)),
+    bus.fan.onPress((direction) => palette.pressFan(direction)),
     // Same path as Alt+1..4 / the toolbar: arm the voice for entry, or move the selection into it.
-    voiceSelection.onPress((v) => palette.setActiveVoice(v)),
+    bus.voice.onPress((v) => palette.setActiveVoice(v)),
     // armClef, not setClef: the Clef window's OK confirms a choice, it does not toggle a button.
-    clefSelection.onPress((a) => palette.armClef(a.clef, a.cautionary)),
-    timeSignatureSelection.onPress((a) => palette.armTimeSignature(a.timeSignature, a.cautionary, a.pickup)),
+    bus.clef.onPress((a) => palette.armClef(a.clef, a.cautionary)),
+    bus.timeSignature.onPress((a) => palette.armTimeSignature(a.timeSignature, a.cautionary, a.pickup)),
     // The window sends the SENTENCE ("3 ♪ in the time of 1 ♩"); the controller turns it into a shape,
     // exactly as the palette's own boxes do. It can still refuse — the window has already checked,
     // but the check is the controller's, not a promise the caller gets to make.
-    tupletSelection.onPress((a) =>
+    bus.tuplet.onPress((a) =>
       palette.armTupletInTimeOf(a.numNotes, a.unit, a.normalCount, a.normalUnit, a.unitDots, a.normalDots, a.format),
     ),
   ]

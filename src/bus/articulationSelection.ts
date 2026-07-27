@@ -1,4 +1,4 @@
-import type { ArticulationType } from '../types/music'
+import type { ArticulationType } from '@/types/music'
 import { PaletteToggleSet } from './paletteToggleSet'
 
 /**
@@ -13,4 +13,4 @@ import { PaletteToggleSet } from './paletteToggleSet'
  * toggle, and App.ts mirrors it on selection/entry changes; a Keypad press routes OUT through the
  * same toggleX.
  */
-export const articulationSelection = new PaletteToggleSet<ArticulationType>()
+export const createArticulationSelection = () => new PaletteToggleSet<ArticulationType>()

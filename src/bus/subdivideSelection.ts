@@ -8,4 +8,4 @@ import { PaletteSelection } from './paletteSelection'
  * on selection changes. A Keypad press routes OUT through `toggleSecondaryBreak`, the SAME method the
  * dev toolbar's `subdivide` button calls.
  */
-export const subdivideSelection = new PaletteSelection<'subdivide'>()
+export const createSubdivideSelection = () => new PaletteSelection<'subdivide'>()

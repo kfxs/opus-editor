@@ -13,4 +13,4 @@ import { PaletteSelection } from './paletteSelection'
  * score, and a Delete or an undo changes it without going near the palette. `PaletteController
  * .refreshFanSelection` pushes it, and `fanHighlight` (keypadSync) is the rule.
  */
-export const fanSelection = new PaletteSelection<'accel' | 'rit'>()
+export const createFanSelection = () => new PaletteSelection<'accel' | 'rit'>()

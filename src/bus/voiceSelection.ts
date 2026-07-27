@@ -12,4 +12,4 @@ import { PaletteSelection } from './paletteSelection'
  *
  * The keypad's fifth button ("All") is NOT an editor voice and does not press through this seam.
  */
-export const voiceSelection = new PaletteSelection<1 | 2 | 3 | 4>()
+export const createVoiceSelection = () => new PaletteSelection<1 | 2 | 3 | 4>()

@@ -1,12 +1,13 @@
 import type { MusicEngine } from '../engine/MusicEngine'
-import { fanEditSelection, type FanEditRequest } from './fanEditSelection'
+import { bus } from '@/bus'
+import type { FanEditRequest } from '@/bus'
 import { clampFanBeams, clampFanCount, fanRampRange, fanSpread } from '../utils/fannedBeam'
 import { dbg } from '../utils/debug'
 import type { FanMark } from '../types/music'
 
 /**
  * Applies a Properties-panel fan edit to the engine (docs/fanned-beams-plan.md §3, P4). The window is
- * a **dumb publisher**: it writes `{noteId, count?, beams?}` to {@link fanEditSelection}, and this
+ * a **dumb publisher**: it writes `{noteId, count?, beams?}` to {@link bus.fanEdit}, and this
  * controller — the one place that holds `getEngine` — merges it into the fan the note is wearing and
  * repaints.
  *
@@ -25,7 +26,7 @@ export class FanEditController {
     private getEngine: () => MusicEngine | null,
     private renderScore: () => void,
   ) {
-    this.unsubscribe = fanEditSelection.onSet((req) => this.apply(req))
+    this.unsubscribe = bus.fanEdit.onSet((req) => this.apply(req))
   }
 
   private apply({ noteId, count, beams, rampFrom, rampTo, spread }: FanEditRequest): void {

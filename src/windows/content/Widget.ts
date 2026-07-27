@@ -13,8 +13,9 @@
  * ⚠️ THE TOOLKIT STAYS TINY, ON PURPOSE. Widgets are dumb DOM builders: no reactivity, no data
  * binding, no layout engine. That vocabulary — Column, Row, Columns, ScrollText, Button, Label —
  * is enough to assemble a Save dialog, and stopping there is what keeps this from slowly becoming
- * a worse copy of Vue. Anything genuinely complicated does NOT get a widget: it gets a framework
- * component mounted into the box. The toolkit earns its keep on the parts that REPEAT.
+ * a worse copy of a UI framework. Anything genuinely complicated does NOT get a widget: it gets a
+ * module of its own that builds its own elements and subscribes to state, then mounts into the box
+ * — the way `KeypadWidget` and `PropertiesWidget` do. The toolkit earns its keep on what REPEATS.
  */
 export interface Widget {
   mount(host: HTMLElement): void

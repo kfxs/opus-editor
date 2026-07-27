@@ -1,4 +1,8 @@
-import type { InspectedElement } from './selectionSnapshot'
+// A TYPE-ONLY back edge, and deliberately the only one: `InspectedElement` is defined next to the
+// function that BUILDS it (`interactions/selectionSnapshot`), where the 30 lines explaining what it
+// is and why it is not `SelectedElement` belong. `import type` is erased at build, so the bus stays
+// a runtime leaf — the same judgement the refactor plan makes about the two remaining cycles.
+import type { InspectedElement } from '@/interactions/selectionSnapshot'
 
 /**
  * The current selection, resolved to objects, published for anything that wants to SHOW it — today
@@ -12,7 +16,7 @@ import type { InspectedElement } from './selectionSnapshot'
  *
  * Pushed by `keypadSync`'s sync (it already runs on every state change) and read by the window.
  */
-class SelectionInspection {
+export class SelectionInspection {
   private elements: InspectedElement[] = []
   /**
    * The last published snapshot, SERIALIZED at the moment it was published — not re-derived from
@@ -56,4 +60,4 @@ class SelectionInspection {
   }
 }
 
-export const selectionInspection = new SelectionInspection()
+export const createSelectionInspection = () => new SelectionInspection()

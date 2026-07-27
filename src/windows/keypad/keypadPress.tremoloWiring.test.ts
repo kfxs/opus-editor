@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { keypadPage } from './keypadLayouts'
 import { pressKeypadCell } from './keypadPress'
-import { tremoloSelection } from '../../interactions/tremoloSelection'
-import { fanSelection } from '../../interactions/fanSelection'
-import { tremoloPairSelection } from '../../interactions/tremoloPairSelection'
+import { bus } from '@/bus'
 import type { TremoloMark } from '../../types/music'
 
 /**
@@ -58,9 +56,9 @@ describe('the Keypad page-2 tremolo keys', () => {
       pressed = []
       fanPressed = []
       stops = [
-        tremoloSelection.onPress(m => pressed.push(m)),
-        fanSelection.onPress(d => fanPressed.push(d)),
-        tremoloPairSelection.onPress(() => pressed.push('pair')),
+        bus.tremolo.onPress(m => pressed.push(m)),
+        bus.fan.onPress(d => fanPressed.push(d)),
+        bus.tremoloPair.onPress(() => pressed.push('pair')),
       ]
     })
     afterEach(() => stops.forEach(s => s()))
@@ -72,7 +70,7 @@ describe('the Keypad page-2 tremolo keys', () => {
     })
 
     it('⭐ fires even for the mark already lit — a re-press REMOVES it', () => {
-      tremoloSelection.setHighlight(3)
+      bus.tremolo.setHighlight(3)
       pressKeypadCell(cellFor('3'))
       // A state mirror would swallow this as "no change"; the press channel must not.
       expect(pressed).toEqual([3])
@@ -92,7 +90,7 @@ describe('the Keypad page-2 tremolo keys', () => {
     it('⭐ pressing the LIT direction fires — that press is what takes the fan OFF', () => {
       // `pressFan` reads it as "every selected note already has this direction ⇒ remove it". A state
       // mirror would swallow the press as "no change" and the fan could never be removed from the pad.
-      fanSelection.setHighlight('accel')
+      bus.fan.setHighlight('accel')
       pressKeypadCell(cellFor('0'))
       expect(fanPressed).toEqual(['accel'])
     })

@@ -1,4 +1,4 @@
-import { windows } from '@/windows'
+import type { WindowLayer } from '@/windows/WindowLayer'
 import { openClefWindow } from '@/windows/clefWindow'
 import { openTimeSignatureWindow } from '@/windows/timeSignatureWindow'
 import { openTupletWindow } from '@/windows/tupletWindow'
@@ -34,8 +34,13 @@ export interface InsertMenuActions {
 /**
  * The Insert menu's rows. Leaf `onSelect`s read `actions` late (at click), so the app can wire the
  * callbacks after the menu is built.
+ *
+ * ⚠️ `windows` is a PARAMETER, like it is on every window definition (`openClefWindow(windows)`).
+ * This file used to import the singleton instead — the one breach of the convention, and exactly the
+ * case `docs/DESIGN-PRINCIPLES.md` boundary case 5 warns about: *"a definition module that imports
+ * the singleton instead of receiving it turns a sweep into archaeology."*
  */
-function buildInsertItems(actions: InsertMenuActions): MenuItem[] {
+function buildInsertItems(actions: InsertMenuActions, windows: WindowLayer): MenuItem[] {
   return [
     // Opens the Clef window directly: a window is opened by importing the layer, not by asking the
     // app for a callback, so a command that only puts a window up needs no `actions` field at all.
@@ -68,8 +73,8 @@ function buildInsertItems(actions: InsertMenuActions): MenuItem[] {
  * fills — the same arithmetic a window's geometry lives in, and the reason a menu neither scrolls
  * with the music nor scales with the zoom.
  */
-export function installInsertMenu(host: HTMLElement, menus: MenuLayer, actions: InsertMenuActions): void {
-  const items = buildInsertItems(actions)
+export function installInsertMenu(host: HTMLElement, menus: MenuLayer, windows: WindowLayer, actions: InsertMenuActions): void {
+  const items = buildInsertItems(actions, windows)
   // Host-relative coordinates the menu will open at. The mouse path overwrites this with the real
   // click; the key path has no pointer of its own, so it reuses wherever the cursor last was over
   // the score (host centre until the pointer has ever been there).

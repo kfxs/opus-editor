@@ -12,4 +12,4 @@ import { PaletteSelection } from './paletteSelection'
  * modes, so App.ts mirrors dots→highlight in with a plain computed and routes a Keypad press out
  * through toggleDot — no controller-side push needed.
  */
-export const dotSelection = new PaletteSelection<'dot'>()
+export const createDotSelection = () => new PaletteSelection<'dot'>()

@@ -380,6 +380,66 @@ immediate neighbours to a small `utils/measureCapacity.ts`.
 
 *Verify:* `build:check`. Pure code motion; `git diff --stat` should show imports only.
 
+### ✅ Done (2026-07-27)
+
+All four parts landed. `build:check` green, **2535 tests** — the same number as the Phase 2 baseline,
+which is the point: not one line of behaviour changed.
+
+**3a — the probe.** `engine/RenderProbe.ts` declares the interface, defaults it to `NO_RENDER_PROBE`,
+and `App.ts` calls `setRenderProbe(renderCensus)` inside `installPerfInstruments()` (dev builds only,
+after the first render — the census is opt-in from the console, so nothing is missed). 26 call sites
+across `VexFlowRenderer` / `MeasureLayout` / `RenderController` now read `renderProbe()`, and
+`RenderCensus implements RenderProbe` so a drift in either signature fails to BUILD. **`dev/` now
+really does delete cleanly.**
+
+**3c — the fence.** ⚠️ **ESLint replaces a rule wholesale per override**, so the two `overrides`
+blocks each restate the framework group; had they not, the anti-Vue ratchet would have silently
+stopped applying to `engine/` and `interactions/`. And the score-layer override covers
+`engine/models/**`, which is *inside* `engine/**` — so it has to restate the `dev/` ban too, or the
+later override would win and drop it. Both were verified by writing three throwaway files that
+import what is now banned and watching all three fail. A fence nobody has seen bite is not a fence.
+
+**3d — the cycle.** `utils/measureCapacity.ts` (4 functions, 16 files repointed, its own spec built
+from tests that were living in `musicUtils.test.ts` *and* `durations.test.ts` — the latter under a
+header reading *"lives in musicUtils, validated here alongside the duration table"*, which had
+already rotted). ⭐ The cheaper cut existed — moving `MET_NOTE_GLYPH` out of `tempoText` breaks the
+same cycle across 3 files instead of 16 — but capacity is a *subject*, and "how long is this bar" is
+what every timing decision starts from; a grab-bag is the wrong home for the thing everything else is
+measured against.
+
+**3b — the bus.** 21 stores → `src/bus/`, one `EditorBus`, 17 call-site files. Four findings:
+
+1. **⛔ `keypadPageSelection` is NOT on the bus, and could not be.** Its value is a `KeypadPageId` and
+   that vocabulary is owned by `windows/keypad/keypadLayouts` (`nextKeypadPageId` is expressly *the
+   ONE place page ORDER is used*). Putting it on the bus would make the **bus** import `windows/` —
+   upward, and the one thing the directory exists to prevent. It moved to `windows/keypad/` instead,
+   beside the layouts it names. **A leaf that isn't a leaf is worth nothing.**
+2. **The plan's count was wrong again (4th time): 21 `*Selection` stores, not 20** — plus
+   `selectionInspection`, which the plan's glob missed entirely and which is the same kind of store.
+   It is on the bus as `bus.inspection`.
+3. **🚨 The singleton check would have missed the biggest singleton in the codebase.**
+   `scripts/check-singletons.mjs` matched `= new X` and `= {…}`; `export const bus = createEditorBus()`
+   is neither. The count would have read **26 → 5** and looked like a clean win. The rule now also
+   matches a factory call (verified: 6 found, no false positives). This is Phase 0c's own lesson
+   firing on Phase 0c's own script.
+4. **One test file was passing the name check by coincidence.** `interactions/tremoloSelection.test.ts`
+   is about `MouseController`'s hit-testing; it satisfied the sibling rule only because a *store* of
+   that name happened to sit beside it. The store moved and the coincidence went. Renamed
+   `MouseController.tremoloSelection.test.ts`, beside the existing `MouseController.stemSelection.test.ts`.
+
+**What is left of the two-way edge, and deliberately:** `windows/properties/PropertiesWidget` still
+imports `InspectedElement` from `interactions/selectionSnapshot`, and `bus/selectionInspection`
+imports the same type — both `import type`, erased at build, the same judgement this phase already
+makes about the two remaining cycles. The type is defined next to the function that BUILDS it, where
+the 30 lines explaining why it is not `SelectedElement` belong.
+
+**⚠️ NOT closed by this phase:** `interactions/ → windows|menus` still has 12 value edges across 6
+files (`shortcutWiring` → 5 window modules; `DomTextEdit`/`TempoTextSource`/`DynamicTextSource`/
+`TextEditController` → `menus/MenuItem` and two menu definitions). The plan's line *"both sides then
+depend downward on a shared leaf"* is true of the **stores**; it is not yet true of the directories.
+That is a separate decision (shortcut wiring is arguably app-level glue sitting in `interactions/`),
+not a silent leftover.
+
 ---
 
 ## Phase 4 — A clip is a shape, not 14 slots

@@ -1,4 +1,4 @@
-import type { NoteDuration, TupletFormat } from '../types/music'
+import type { NoteDuration, TupletFormat } from '@/types/music'
 
 /**
  * The tuplet the Tuplet window ({@link ../windows/tupletWindow}) asked for, published for
@@ -27,7 +27,7 @@ export interface ArmedTuplet {
   format?: TupletFormat
 }
 
-class TupletSelection {
+export class TupletSelection {
   private listeners = new Set<(armed: ArmedTuplet) => void>()
 
   /** The user chose this tuplet. ALWAYS fires — re-choosing the armed one means "arm it again". */
@@ -41,4 +41,4 @@ class TupletSelection {
   }
 }
 
-export const tupletSelection = new TupletSelection()
+export const createTupletSelection = () => new TupletSelection()

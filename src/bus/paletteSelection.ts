@@ -9,11 +9,11 @@
  * - PRESS: the user hit this key. A command, and it ALWAYS fires ({@link press}) — re-pressing the
  *   armed value is a real event (an accidental toggles OFF), so it must not be swallowed as "no
  *   change". App.ts handles it ({@link onPress}) by running the palette's own setX, the SAME method
- *   the Vue button calls.
+ *   the dev toolbar's button calls.
  *
- * Keeping the two apart is what lets a Vue-origin change and a Keypad press stay distinct: the mirror
- * only ever touches HIGHLIGHT, the Keypad press only ever fires PRESS — so the action never
- * double-applies and needs no guard. Framework-agnostic: the panel imports this, never Vue.
+ * Keeping the two apart is what lets an editor-origin change and a Keypad press stay distinct: the
+ * mirror only ever touches HIGHLIGHT, the Keypad press only ever fires PRESS — so the action never
+ * double-applies and needs no guard.
  */
 export class PaletteSelection<T> {
   private highlight: T | null = null

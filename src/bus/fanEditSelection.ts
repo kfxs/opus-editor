@@ -56,4 +56,4 @@ export class FanEditSelection {
   }
 }
 
-export const fanEditSelection = new FanEditSelection()
+export const createFanEditSelection = () => new FanEditSelection()

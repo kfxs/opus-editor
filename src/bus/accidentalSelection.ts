@@ -1,4 +1,4 @@
-import type { Accidental } from '../types/music'
+import type { Accidental } from '@/types/music'
 import { PaletteSelection } from './paletteSelection'
 
 /**
@@ -8,4 +8,4 @@ import { PaletteSelection } from './paletteSelection'
  * accidental takes it off), which is exactly why the press channel must always fire. App.ts mirrors
  * the accidental-to-highlight in, and routes a Keypad press out through setAccidental.
  */
-export const accidentalSelection = new PaletteSelection<Accidental>()
+export const createAccidentalSelection = () => new PaletteSelection<Accidental>()

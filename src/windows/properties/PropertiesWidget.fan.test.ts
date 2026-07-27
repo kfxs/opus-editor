@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { PropertiesWidget } from './PropertiesWidget'
-import { selectionInspection } from '../../interactions/selectionInspection'
-import { fanEditSelection, type FanEditRequest } from '../../interactions/fanEditSelection'
+import { bus } from '@/bus'
+import type { FanEditRequest } from '@/bus'
 import type { InspectedElement } from '../../interactions/selectionSnapshot'
 import type { FanMark } from '../../types/music'
 
@@ -33,14 +33,14 @@ describe('the fan row', () => {
     widget = new PropertiesWidget()
     widget.mount(host)
     published = []
-    unsubscribe = fanEditSelection.onSet(req => published.push(req))
+    unsubscribe = bus.fanEdit.onSet(req => published.push(req))
   })
   afterEach(() => {
     unsubscribe()
     widget.destroy()
     host.remove()
     // The channel de-dups on the serialized snapshot, so the next test must not look like this one.
-    selectionInspection.set([])
+    bus.inspection.set([])
   })
 
   /**
@@ -50,7 +50,7 @@ describe('the fan row', () => {
    * input too and it is painted first, so `querySelectorAll` over the body counts it as well.
    */
   const inputs = (fan: FanMark): HTMLInputElement[] => {
-    selectionInspection.set(noteElement(fan))
+    bus.inspection.set(noteElement(fan))
     const row = [...host.querySelectorAll('div')].find(d => d.firstChild?.textContent?.startsWith('fan ('))
     return [...(row?.querySelectorAll('input[type=number]') ?? [])] as HTMLInputElement[]
   }
@@ -102,7 +102,7 @@ describe('the fan row', () => {
   })
 
   it('no fan, no row — this changes a fan, it never makes one', () => {
-    selectionInspection.set([{ kind: 'note', data: { id: 'note-1', step: 'C' } } as unknown as InspectedElement])
+    bus.inspection.set([{ kind: 'note', data: { id: 'note-1', step: 'C' } } as unknown as InspectedElement])
     // The offset input is always there; the fan's five are not.
     expect(host.querySelectorAll('input[type=number]')).toHaveLength(1)
   })

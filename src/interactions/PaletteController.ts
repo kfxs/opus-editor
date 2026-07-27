@@ -13,15 +13,7 @@ import { sameTimeSignature } from '../utils/meter'
 import { tempoLabel } from '../utils/tempoMap'
 import { dynamicTextFromTool } from '../utils/dynamics'
 import { selectedNoteIds, selectedArticulationNoteIds, multipleNotesSelected } from './selection'
-import { articulationSelection } from './articulationSelection'
-import { tieSelection } from './tieSelection'
-import { restSelection } from './restSelection'
-import { beamSelection } from './beamSelection'
-import { subdivideSelection } from './subdivideSelection'
-import { beamOverSelection } from './beamOverSelection'
-import { tremoloSelection } from './tremoloSelection'
-import { fanSelection } from './fanSelection'
-import { tremoloPairSelection } from './tremoloPairSelection'
+import { bus } from '@/bus'
 import { staffOf } from '@/utils/lanes'
 
 /** Re-exported so the palette's callers keep one import — the type belongs with the rule. */
@@ -1059,7 +1051,7 @@ export class PaletteController {
   /**
    * One tie-key press (the Keypad's Enter), routed by context — the same split as
    * {@link setAccidental} / {@link pressArticulation}, minus their entry-mode arm: there is no
-   * armed entry-mode tie (see {@link tieSelection}), so entry mode keeps its old meaning.
+   * armed entry-mode tie (see {@link bus.tie}), so entry mode keeps its old meaning.
    *
    *  0. The tie STAMP is already armed → disarm it (a re-press toggles the tool off, like a
    *     re-pressed accidental).
@@ -1533,7 +1525,7 @@ export class PaletteController {
    * a clef were its only one, and the Clef window that replaced them uses {@link armClef} instead
    * (an OK confirms; it does not toggle). Kept, not deleted, because this is the BUTTON gesture and
    * the button is coming back on the editor side: a plain-TS clef palette lights its key from
-   * `clefSelection`'s highlight channel — already pushed by keypadSync — and re-pressing the lit key
+   * `bus.clef`'s highlight channel — already pushed by keypadSync — and re-pressing the lit key
    * has to mean "off", which is exactly this method and nothing else in the class. Deleting it would
    * cost more to rediscover than it costs to keep. Covered by PaletteController.test.ts.
    */
@@ -1609,7 +1601,7 @@ export class PaletteController {
    * signature (see MouseController) and the ghost note is suppressed. Switches to
    * the entry tool so canvas clicks are handled for placement.
    *
-   * ⚠️ NO PRODUCTION CALLER once the Vue time palette goes — its preset buttons and its
+   * ⚠️ NO PRODUCTION CALLER as of the old time palette's deletion — its preset buttons and its
    * custom-meter dialog were the only two, and the Time Signature window that replaced them uses
    * {@link armTimeSignature} instead (an OK confirms; it does not toggle). Kept, not deleted, for
    * the reason {@link setClef} is: this is the BUTTON gesture, and the button is coming back on the
@@ -1931,23 +1923,24 @@ export class PaletteController {
   }
 
   /**
-   * Push which articulations are lit into the {@link articulationSelection} store, so the Keypad
+   * Push which articulations are lit into the {@link bus.articulation} store, so the Keypad
    * reflects the note under the cursor (or the armed entry-mode flags). This is the RULE — the same
-   * `noteHasX` the Vue palette buttons read — and it lives HERE, framework-agnostic, on purpose: the
-   * Vue side only ever POKES this (on a selection/mode/arm change it cannot express as a store event);
-   * it holds no logic of its own. So when the Vue palette is retired, this rule does not move — only
-   * the poke does, onto a framework-agnostic selection observer.
+   * `noteHasX` the dev toolbar's buttons read — and it lives HERE, framework-agnostic, on purpose:
+   * a caller only ever POKES it (on a selection/mode/arm change, which is not something it can
+   * express as a store event) and holds no logic of its own. That is what made retiring the old
+   * framework palette a non-event: this rule did not move, only the poke did — onto `keypadSync`'s
+   * `sync()`, which runs on the state's own change-notification.
    *
    * `setActive` short-circuits on an unchanged set, and a relight is a handful of `setAttribute`s on
    * the panel's buttons — never a score re-render. Called after every toggle (all sources funnel
-   * through toggleAccent/Staccato/Tenuto) and on the Vue poke.
+   * through toggleAccent/Staccato/Tenuto) and on that poke.
    */
   refreshArticulationSelection(): void {
     const active: ArticulationType[] = []
     if (this.noteHasAccent()) active.push('accent')
     if (this.noteHasStaccato()) active.push('staccato')
     if (this.noteHasTenuto()) active.push('tenuto')
-    articulationSelection.setActive(active)
+    bus.articulation.setActive(active)
   }
 
   noteHasTie(): boolean {
@@ -1966,19 +1959,19 @@ export class PaletteController {
   }
 
   /**
-   * Push whether the tie is lit into the {@link tieSelection} store, so the Keypad's Enter key reflects
+   * Push whether the tie is lit into the {@link bus.tie} store, so the Keypad's Enter key reflects
    * the selected note. Like {@link refreshArticulationSelection}, the RULE ({@link noteHasTie}, reading
    * the engine's `tiedTo`) lives HERE, framework-agnostic — a note's tie is not a reactive field, so no
    * App.ts computed can mirror it. Called after every `toggleTie` (all sources funnel through it) and
-   * on the Vue selection-change poke. `setHighlight` short-circuits on no change.
+   * on `keypadSync`'s selection-change poke. `setHighlight` short-circuits on no change.
    */
   refreshTieSelection(): void {
-    tieSelection.setHighlight(this.noteHasTie() ? 'tie' : null)
+    bus.tie.setHighlight(this.noteHasTie() ? 'tie' : null)
   }
 
   /**
    * Is the selected slot a rest? The duration keys already say "quarter" for a selected quarter rest
-   * — this is the half that says WHICH quarter (see {@link restSelection}).
+   * — this is the half that says WHICH quarter (see {@link bus.rest}).
    *
    * Selection-mode only, and deliberately so. There is no armed "enter rests now" state to report in
    * entry mode: a rest is entered with `r` at the cursor, a one-shot action, not a mode — so nothing
@@ -1998,18 +1991,18 @@ export class PaletteController {
   }
 
   /**
-   * Push whether the rest key is lit into the {@link restSelection} store. The tie's twin: the RULE
+   * Push whether the rest key is lit into the {@link bus.rest} store. The tie's twin: the RULE
    * ({@link selectionIsRest}, reading the engine's `isRest`) lives HERE, framework-agnostic, because
    * `isRest` is not a reactive field and no mirror can compute it. Driven by keypadSync's `sync()`,
    * which runs on every state change — including every selection change, the only thing this reads.
    * `setHighlight` short-circuits on no change.
    */
   refreshRestSelection(): void {
-    restSelection.setHighlight(this.selectionIsRest() ? 'rest' : null)
+    bus.rest.setHighlight(this.selectionIsRest() ? 'rest' : null)
   }
 
   /**
-   * Push which beam MODE keys are lit into {@link beamSelection}, so the Keypad's `single`/`begin`/
+   * Push which beam MODE keys are lit into {@link bus.beam}, so the Keypad's `single`/`begin`/
    * `continue`/`end` keys reflect the selected note. A SET, like the articulations and for the same
    * reason the dev toolbar's Beam row lights two buttons: the authored beam ({@link beamHighlight}) and
    * the role it engraves ({@link beamRoleHighlight}) are independent and can disagree. `'auto'` is no key
@@ -2023,11 +2016,11 @@ export class PaletteController {
     if (armed && armed !== 'auto') lit.add(armed)
     const role = beamRoleHighlight(this.state, engine)
     if (role) lit.add(role)
-    beamSelection.setActive(lit)
+    bus.beam.setActive(lit)
   }
 
   /**
-   * Push the lit TREMOLO mark into {@link tremoloSelection} — the Keypad's `1`–`6`, and the same
+   * Push the lit TREMOLO mark into {@link bus.tremolo} — the Keypad's `1`–`6`, and the same
    * `tremoloHighlight` rule the dev toolbar's row reads, so a press from either lights both.
    *
    * Engine-read, so it cannot be mirrored from a reactive field: pushed on every state change AND
@@ -2035,7 +2028,7 @@ export class PaletteController {
    * top-level state field — the Proxy would never emit and the key would keep lighting the old mark.
    */
   refreshTremoloSelection(): void {
-    tremoloSelection.setHighlight(tremoloHighlight(this.state, this.getEngine()))
+    bus.tremolo.setHighlight(tremoloHighlight(this.state, this.getEngine()))
   }
 
   /**
@@ -2043,13 +2036,13 @@ export class PaletteController {
    * push: the count key stays lit beside it.
    */
   refreshTremoloPairSelection(): void {
-    tremoloPairSelection.setHighlight(
+    bus.tremoloPair.setHighlight(
       tremoloPairHighlight(this.state, this.getEngine()) ? 'tremoloPair' : null,
     )
   }
 
   /**
-   * Push the lit FEATHERED-BEAM direction into {@link fanSelection} — the Keypad's `0` / `.`, and the
+   * Push the lit FEATHERED-BEAM direction into {@link bus.fan} — the Keypad's `0` / `.`, and the
    * same {@link fanHighlight} rule the dev toolbar's two buttons read.
    *
    * Engine-read like the tremolo's, and pushed after {@link pressFan} for the same reason: applying a
@@ -2057,25 +2050,25 @@ export class PaletteController {
    * keep lighting the previous answer.
    */
   refreshFanSelection(): void {
-    fanSelection.setHighlight(fanHighlight(this.state, this.getEngine()))
+    bus.fan.setHighlight(fanHighlight(this.state, this.getEngine()))
   }
 
   /**
-   * Push whether the SUBDIVIDE key is lit into {@link subdivideSelection}. The tie's twin: the rule
+   * Push whether the SUBDIVIDE key is lit into {@link bus.subdivide}. The tie's twin: the rule
    * ({@link secondaryBreakHighlight}, engine-read) is single-sourced with the dev toolbar's `subdivide`
    * button. Called on every state change and after {@link toggleSecondaryBreak}.
    */
   refreshSubdivideSelection(): void {
-    subdivideSelection.setHighlight(secondaryBreakHighlight(this.state, this.getEngine()) ? 'subdivide' : null)
+    bus.subdivide.setHighlight(secondaryBreakHighlight(this.state, this.getEngine()) ? 'subdivide' : null)
   }
 
   /**
-   * Push whether the BEAM-REST key is lit into {@link beamOverSelection} — the inverse of subdivide, it
+   * Push whether the BEAM-REST key is lit into {@link bus.beamOver} — the inverse of subdivide, it
    * lights for a rest carrying `beamOver` ({@link beamOverHighlight}). Called on every state change and
    * after {@link toggleBeamOver}.
    */
   refreshBeamOverSelection(): void {
-    beamOverSelection.setHighlight(beamOverHighlight(this.state, this.getEngine()) ? 'beamOver' : null)
+    bus.beamOver.setHighlight(beamOverHighlight(this.state, this.getEngine()) ? 'beamOver' : null)
   }
 
   /**

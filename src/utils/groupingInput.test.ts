@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { parseGrouping, candidateTimeSignature, timeSignatureError, groupingError } from './groupingInput'
 
 /**
- * The rule that used to live in App.ts as two computeds. Pinned here so the plain-TS windows and
- * the Vue dialog cannot drift apart on what a legal grouping is.
+ * The rule that used to live in App.ts as two computeds. Pinned here so the two windows that read
+ * it — the Time Signature window and Beam and Rest Groups — cannot drift apart on what a legal
+ * grouping is.
  */
 describe('parseGrouping', () => {
   it('reads all three separators people actually type', () => {

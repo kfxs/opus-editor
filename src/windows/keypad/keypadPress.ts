@@ -1,17 +1,5 @@
-import { modeSelection } from '../../interactions/modeSelection'
-import { durationSelection } from '../../interactions/durationSelection'
-import { accidentalSelection } from '../../interactions/accidentalSelection'
-import { articulationSelection } from '../../interactions/articulationSelection'
-import { dotSelection } from '../../interactions/dotSelection'
-import { tieSelection } from '../../interactions/tieSelection'
-import { restSelection } from '../../interactions/restSelection'
-import { beamSelection } from '../../interactions/beamSelection'
-import { subdivideSelection } from '../../interactions/subdivideSelection'
-import { beamOverSelection } from '../../interactions/beamOverSelection'
-import { tremoloSelection } from '../../interactions/tremoloSelection'
-import { tremoloPairSelection } from '../../interactions/tremoloPairSelection'
-import { fanSelection } from '../../interactions/fanSelection'
-import { keypadPageSelection } from '../../interactions/keypadPageSelection'
+import { bus } from '@/bus'
+import { keypadPageSelection } from './keypadPageSelection'
 import type { KeypadCell } from './keypadLayouts'
 
 /**
@@ -32,40 +20,40 @@ export function pressKeypadCell(cell: KeypadCell): void {
       // The armed duration lives in the editor's store, not the panel's lit set — PRESS the value
       // and the store lights it back (App.ts runs the full setDuration path). The store decides the
       // radio; the panel maps nothing. `duration` is always present on a duration cell (keypadLayouts).
-      if (cell.duration) durationSelection.press(cell.duration)
+      if (cell.duration) bus.duration.press(cell.duration)
       break
     case 'accidental':
       // Same, and the press channel is what lets ♯-then-♯ toggle OFF: setAccidental sees the armed
       // value pressed again and clears it. A state-mirror would swallow the repeat as "no change".
-      if (cell.accidental) accidentalSelection.press(cell.accidental)
+      if (cell.accidental) bus.accidental.press(cell.accidental)
       break
     case 'articulation':
       // Independent toggles on a set-valued store. PRESS the value; App.ts routes it to the
       // palette's toggleX, which flips the score AND re-pushes the lit set — the store lights it
       // back, so the panel maps nothing. `articulation` is always present here (keypadLayouts).
-      if (cell.articulation) articulationSelection.press(cell.articulation)
+      if (cell.articulation) bus.articulation.press(cell.articulation)
       break
     case 'dot':
       // On/off, like the accidental: PRESS always fires so re-pressing toggles the dot OFF. App.ts
       // routes it through palette.toggleDot and mirrors selectedDots back in as the highlight.
-      dotSelection.press('dot')
+      bus.dot.press('dot')
       break
     case 'tie':
       // On/off like the dot, but engine-backed: PRESS routes to palette.toggleTie, which flips the
       // note's tie AND re-pushes the highlight (tiedTo isn't reactive, so it can't be mirrored).
-      tieSelection.press('tie')
+      bus.tie.press('tie')
       break
     case 'rest':
       // Silences the selection (routes to palette.convertSelectionToRest via keypadSync). Its light
       // still follows the SCORE, not this click — the click changes the score, and the score lights
       // the key. Pressing it with a rest already selected is a no-op, so the light never toggles off.
-      restSelection.press('rest')
+      bus.rest.press('rest')
       break
     case 'beam':
       // One of the four beam MODES (single/begin/continue/end). PRESS the value; App.ts routes it to
       // palette.setBeam — the same method the toolbar's Beam row calls — which arms it and applies it
       // across the selection, then re-pushes the lit set. `beam` is always present on a beam cell.
-      if (cell.beam) beamSelection.press(cell.beam)
+      if (cell.beam) bus.beam.press(cell.beam)
       break
     case 'tremolo':
       // One of the six single-note marks (1–5 strokes, or the Penderecki sign). PRESS the value; it
@@ -73,7 +61,7 @@ export function pressKeypadCell(cell: KeypadCell): void {
       // press from the pad, the numpad or the toolbar all do the same thing (edit the selected mark,
       // apply across a selection, arm for note entry, or arm the stamp). The press channel is what
       // lets a re-press REMOVE the mark: a state mirror would swallow it as "no change".
-      if (cell.tremolo) tremoloSelection.press(cell.tremolo)
+      if (cell.tremolo) bus.tremolo.press(cell.tremolo)
       break
     case 'fan':
       // A FEATHERED BEAM, `accel.` or `rit.` (Sibelius's `0` and `.`). PRESS the direction; it routes
@@ -81,22 +69,22 @@ export function pressKeypadCell(cell: KeypadCell): void {
       // the selection, turns an existing one round, or takes it off when the lit key is pressed again.
       // The press channel is what makes that last one possible: a mirror would swallow it as "no
       // change" (docs/fanned-beams-plan.md §3).
-      if (cell.fan) fanSelection.press(cell.fan)
+      if (cell.fan) bus.fan.press(cell.fan)
       break
     case 'tremoloPair':
       // The two-note tremolo (Sibelius's Enter). A SECOND AXIS beside the count, so it presses its own
       // store and lights beside the lit count key rather than replacing it.
-      tremoloPairSelection.press('tremoloPair')
+      bus.tremoloPair.press('tremoloPair')
       break
     case 'subdivide':
       // The secondary beam break, on/off: PRESS always fires so re-pressing toggles it off. Routes to
       // palette.toggleSecondaryBreak, which flips the score AND re-pushes the highlight (secondaryBreak
       // isn't reactive, so it can't be mirrored).
-      subdivideSelection.press('subdivide')
+      bus.subdivide.press('subdivide')
       break
     case 'beamOver':
       // Beam over the selected rest, on/off like the subdivide: PRESS routes to palette.toggleBeamOver.
-      beamOverSelection.press('beamOver')
+      bus.beamOver.press('beamOver')
       break
     case 'momentary':
       // A blank, unassigned key. It does
@@ -107,7 +95,7 @@ export function pressKeypadCell(cell: KeypadCell): void {
       // The arrow ACTIVATES selection mode. Its light follows the editor, not this click, so there
       // is no local state to flip — the press routes to enterSelectionMode (via keypadSync), the
       // editor's mode changes, and keypadSync's sync() repaints us. (No-op if already there.)
-      modeSelection.press('selection')
+      bus.mode.press('selection')
       break
     case 'page':
       // The `+` key: turn to the next page. It changes the SEAM, not the panel — the panel is a

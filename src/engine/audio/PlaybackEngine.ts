@@ -1,5 +1,5 @@
 import type { Score, Note } from '@/types/music'
-import { measureCapacityQuarters } from '@/utils/musicUtils'
+import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import {
   buildTempoMap,
   beatsToSeconds,

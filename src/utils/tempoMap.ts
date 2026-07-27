@@ -24,7 +24,7 @@
 import type { Score, TempoMark } from '@/types/music'
 import { fracLte, fracToNumber } from './fraction'
 import { durationToBeats } from './durations'
-import { measureCapacityQuarters } from './musicUtils'
+import { measureCapacityQuarters } from './measureCapacity'
 
 /**
  * Quarter-notes per minute assumed when no tempo mark governs a position — i.e. the

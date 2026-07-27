@@ -1,4 +1,4 @@
-import type { NoteDuration } from '../types/music'
+import type { NoteDuration } from '@/types/music'
 import { PaletteSelection } from './paletteSelection'
 
 /**
@@ -7,4 +7,4 @@ import { PaletteSelection } from './paletteSelection'
  * `PaletteController.setDuration` still owns what CHOOSING one DOES; App.ts mirrors the duration-to-
  * highlight in, and routes a Keypad press out through setDuration.
  */
-export const durationSelection = new PaletteSelection<NoteDuration>()
+export const createDurationSelection = () => new PaletteSelection<NoteDuration>()

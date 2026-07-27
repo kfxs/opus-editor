@@ -8,8 +8,8 @@ import { groupingError, parseGrouping } from '../utils/groupingInput'
  * Beam and Rest Groups — opened from the Time Signature window's button.
  *
  * ONE control for now: the beat grouping, in denominator units, judged as you type. It is the same
- * field (and now literally the same rule — utils/groupingInput) that the Vue custom-meter dialog
- * has had all along; this is where it goes as that dialog is retired.
+ * field (and literally the same rule — utils/groupingInput) that the old custom-meter dialog had;
+ * this is where it went when that dialog was retired.
  *
  * ⚠️ It is NOT the whole of Sibelius's dialog, and two things are missing on purpose:
  *

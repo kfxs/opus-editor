@@ -6,7 +6,7 @@ import type { DynamicTool, TempoTool, EditorState } from './EditorState'
 import { activeVoiceToModel, assertNeverElement, assertNeverTool } from './EditorState'
 import type { HighlightController } from './HighlightController'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
-import { renderCensus } from '../dev/renderCensus' // P0 instrument — temporary, see §8
+import { renderProbe } from '../engine/RenderProbe' // P0 instrument seam — temporary, see §8
 
 /**
  * Orchestrates score rendering and ghost-note preview.
@@ -92,7 +92,7 @@ export class RenderController {
     if (!engine) return
     // P0 instrument (temporary): no cause given — the census recovers the call site from the
     // stack, which is the whole point: an edit and a selection both arrive through this method.
-    renderCensus.setCause()
+    renderProbe().setCause()
 
     // Any ghost showing is stale the moment we get here (P4: an overlay, so this is a DOM
     // removal). Erasing a ghost used to be reason enough for a full render — it is not.
@@ -130,7 +130,7 @@ export class RenderController {
   renderPreview(coords: { x: number; y: number }): boolean {
     const engine = this.getEngine()
     if (!engine) return false
-    renderCensus.setCause('ghost:note')
+    renderProbe().setCause('ghost:note')
     // The ghost is placed against the LAST render's layout, so the score under it must be
     // current first. Usually it already is, and this costs nothing.
     this.ensureScoreDrawn(engine)
@@ -191,7 +191,7 @@ export class RenderController {
   renderClefGhost(coords: { x: number; y: number }, clef: Clef): void {
     const engine = this.getEngine()
     if (!engine) return
-    renderCensus.setCause('ghost:clef')
+    renderProbe().setCause('ghost:clef')
     this.ensureScoreDrawn(engine)
     engine.renderScoreWithClefGhost(coords, clef)
   }
@@ -200,7 +200,7 @@ export class RenderController {
   renderTimeSignatureGhost(coords: { x: number; y: number }, ts: TimeSignature): void {
     const engine = this.getEngine()
     if (!engine) return
-    renderCensus.setCause('ghost:timesig')
+    renderProbe().setCause('ghost:timesig')
     this.ensureScoreDrawn(engine)
     engine.renderScoreWithTimeSignatureGhost(coords, ts)
   }
@@ -212,7 +212,7 @@ export class RenderController {
   renderTempoGhost(coords: { x: number; y: number }, tool: TempoTool): void {
     const engine = this.getEngine()
     if (!engine) return
-    renderCensus.setCause('ghost:tempo')
+    renderProbe().setCause('ghost:tempo')
     // Through the SAME tool→text step the click uses (MouseController), so the preview shows the
     // string that will actually be engraved. Spreading the raw tool instead left a bare-metronome
     // ghost with no `text` — and a mark with no text draws nothing, so it never appeared.
@@ -229,7 +229,7 @@ export class RenderController {
   renderDynamicGhost(coords: { x: number; y: number }, tool: DynamicTool): void {
     const engine = this.getEngine()
     if (!engine) return
-    renderCensus.setCause('ghost:dynamic')
+    renderProbe().setCause('ghost:dynamic')
     const beat = { num: 0, den: 1 }
     const ghost: Dynamic = { id: 'ghost-dynamic', beat, text: dynamicTextFromTool(tool), placement: 'below' }
     this.ensureScoreDrawn(engine)
@@ -241,7 +241,7 @@ export class RenderController {
   renderArticulationGhost(coords: { x: number; y: number }, types: ArticulationType[]): void {
     const engine = this.getEngine()
     if (!engine) return
-    renderCensus.setCause('ghost:articulation')
+    renderProbe().setCause('ghost:articulation')
     this.ensureScoreDrawn(engine)
     engine.renderScoreWithArticulationGhost(coords, types)
   }
@@ -251,7 +251,7 @@ export class RenderController {
   renderAccidentalGhost(coords: { x: number; y: number }, accidental: Accidental): void {
     const engine = this.getEngine()
     if (!engine) return
-    renderCensus.setCause('ghost:accidental')
+    renderProbe().setCause('ghost:accidental')
     this.ensureScoreDrawn(engine)
     engine.renderScoreWithAccidentalGhost(coords, accidental)
   }
@@ -263,7 +263,7 @@ export class RenderController {
   renderTremoloGhost(coords: { x: number; y: number }, mark: TremoloMark): void {
     const engine = this.getEngine()
     if (!engine) return
-    renderCensus.setCause('ghost:tremolo')
+    renderProbe().setCause('ghost:tremolo')
     this.ensureScoreDrawn(engine)
     engine.renderScoreWithTremoloGhost(coords, mark)
   }
@@ -274,7 +274,7 @@ export class RenderController {
   renderTieGhost(coords: { x: number; y: number }): void {
     const engine = this.getEngine()
     if (!engine) return
-    renderCensus.setCause('ghost:tie')
+    renderProbe().setCause('ghost:tie')
     this.ensureScoreDrawn(engine)
     engine.renderScoreWithTieGhost(coords)
   }
@@ -284,7 +284,7 @@ export class RenderController {
   renderDotGhost(coords: { x: number; y: number }): void {
     const engine = this.getEngine()
     if (!engine) return
-    renderCensus.setCause('ghost:dot')
+    renderProbe().setCause('ghost:dot')
     this.ensureScoreDrawn(engine)
     engine.renderScoreWithDotGhost(coords)
   }
@@ -296,7 +296,7 @@ export class RenderController {
   renderRestGhost(coords: { x: number; y: number }): void {
     const engine = this.getEngine()
     if (!engine) return
-    renderCensus.setCause('ghost:rest')
+    renderProbe().setCause('ghost:rest')
     this.ensureScoreDrawn(engine)
     engine.renderScoreWithRestGhost(coords, this.state.selectedDuration, this.state.selectedDots)
   }

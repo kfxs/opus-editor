@@ -1,10 +1,10 @@
 import type { EditorState, StateListener } from './EditorState'
 import type { MusicEngine } from '../engine/MusicEngine'
-import { selectionInspection } from './selectionInspection'
+import { bus } from '@/bus'
 import { selectedElements } from './selectionSnapshot'
 
 /**
- * Keep {@link selectionInspection} in step with the editor's selection, so the Properties window
+ * Keep {@link bus.inspection} in step with the editor's selection, so the Properties window
  * always shows what is selected NOW.
  *
  * Its own wire rather than a few lines inside `wireKeypadSync`, which also runs on every state
@@ -22,7 +22,7 @@ export function wireSelectionInspection(
   getEngine: () => MusicEngine | null,
   subscribe: (fn: StateListener) => () => void,
 ): () => void {
-  const sync = () => selectionInspection.set(selectedElements(state, getEngine()))
+  const sync = () => bus.inspection.set(selectedElements(state, getEngine()))
   sync() // prime
 
   const stopState = subscribe(sync)

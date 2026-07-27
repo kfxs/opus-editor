@@ -18,7 +18,8 @@ import { staffOf } from '@/utils/lanes'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
  *  edit box opens blank over it and an empty commit deletes it, so it is never actually seen. */
 const DEFAULT_TEMPO_TEXT = 'Tempo'
-import { getMeasureNotes, beatToFrac, measureCapacityQuarters } from '../utils/musicUtils'
+import { getMeasureNotes, beatToFrac } from '../utils/musicUtils'
+import { measureCapacityQuarters } from '../utils/measureCapacity'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '../utils/pitchSpelling'
 
 /** Registry element types that are staff background / structure rather than clickable

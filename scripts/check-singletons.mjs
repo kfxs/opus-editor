@@ -12,12 +12,18 @@
  * cannot rot because the code enforces it; a repo claim ("there are N of these") can, so it gets a
  * script instead of a promise.
  *
- * THE RULE, mechanical on purpose: a module-level `export const <camelCase> = new …` or
- * `export const <camelCase> = {…}`. That works with no hand-maintained list because the codebase is
- * consistent about naming — a mutable state singleton is camelCase (`durationSelection`, `menus`,
+ * THE RULE, mechanical on purpose: a module-level `export const <camelCase> = new …`, `= {…}`, or
+ * `= someFactory(…)`. That works with no hand-maintained list because the codebase is
+ * consistent about naming — a mutable state singleton is camelCase (`bus`, `menus`,
  * `menuActions`), while a constant lookup table is SCREAMING_SNAKE (`WINDOW_DEFAULTS`,
- * `NUMPAD_CODE_TO_KEY`, `MARKING_TOOL_USES_ARMED_LENGTH`). Verified 2026-07-27: the rule finds 26
+ * `NUMPAD_CODE_TO_KEY`, `MARKING_TOOL_USES_ARMED_LENGTH`). Verified 2026-07-27: the rule finds 6
  * with no false positives and no misses.
+ *
+ * ⚠️ The factory-call form was added in Phase 3b, and it is why the rule is worth re-reading rather
+ * than trusting. Collapsing the twenty-one bus stores into one object turned the biggest singleton
+ * in the codebase into `export const bus = createEditorBus()` — which the original two forms did NOT
+ * match. The count would have fallen from 26 to 5 and looked like a clean win, with the one
+ * singleton that matters most invisible to its own check.
  *
  * If that naming convention is ever broken, this check is what notices — which is the point.
  */
@@ -27,8 +33,8 @@ import { join, relative } from 'node:path'
 const SRC = 'src'
 const DOC = 'docs/DESIGN-PRINCIPLES.md'
 
-/** A module-level `export const camelCase = new X(…)` or `= { … }`. */
-const SINGLETON = /^export const ([a-z][A-Za-z0-9_$]*)(?::[^=]+)? = (?:new [A-Za-z]|\{)/
+/** A module-level `export const camelCase = new X(…)`, `= { … }` or `= createX(…)`. */
+const SINGLETON = /^export const ([a-z][A-Za-z0-9_$]*)(?::[^=]+)? = (?:new [A-Za-z]|\{|[a-z][A-Za-z0-9_$]*\()/
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir)) {

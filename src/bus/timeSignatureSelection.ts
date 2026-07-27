@@ -1,4 +1,4 @@
-import type { Fraction, TimeSignature } from '../types/music'
+import type { Fraction, TimeSignature } from '@/types/music'
 
 /**
  * The armed time signature, published by the Time Signature window ({@link ../windows/timeSignatureWindow})
@@ -24,7 +24,7 @@ export interface ArmedTimeSignature {
   pickup: Fraction | null
 }
 
-class TimeSignatureSelection {
+export class TimeSignatureSelection {
   private listeners = new Set<(armed: ArmedTimeSignature) => void>()
 
   /** The user chose this meter. ALWAYS fires — re-choosing the armed one is a real event (it means
@@ -39,4 +39,4 @@ class TimeSignatureSelection {
   }
 }
 
-export const timeSignatureSelection = new TimeSignatureSelection()
+export const createTimeSignatureSelection = () => new TimeSignatureSelection()

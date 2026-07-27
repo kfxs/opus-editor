@@ -8,4 +8,4 @@ import { PaletteSelection } from './paletteSelection'
  * changes; a Keypad press routes OUT through `toggleBeamOver`, the SAME method the dev toolbar's
  * `beam rest` button calls.
  */
-export const beamOverSelection = new PaletteSelection<'beamOver'>()
+export const createBeamOverSelection = () => new PaletteSelection<'beamOver'>()

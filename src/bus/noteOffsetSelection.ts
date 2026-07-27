@@ -33,4 +33,4 @@ export class NoteOffsetSelection {
   }
 }
 
-export const noteOffsetSelection = new NoteOffsetSelection()
+export const createNoteOffsetSelection = () => new NoteOffsetSelection()

@@ -12,4 +12,4 @@ import { PaletteSelection } from './paletteSelection'
  *
  * A press routes OUT through `pressTremoloPair`, the same method the dev toolbar's button calls.
  */
-export const tremoloPairSelection = new PaletteSelection<'tremoloPair'>()
+export const createTremoloPairSelection = () => new PaletteSelection<'tremoloPair'>()

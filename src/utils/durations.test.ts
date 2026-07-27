@@ -15,8 +15,7 @@ import {
   writtenLength,
   slotLength,
 } from './durations'
-import { getMeasureDurationFrac } from './musicUtils'
-import { fracCreate, fracAdd, fracEq, fracToNumber } from './fraction'
+import { fracCreate, fracAdd, fracToNumber } from './fraction'
 import type { NoteDuration } from '@/types/music'
 
 function frac(num: number, den: number) {
@@ -284,40 +283,6 @@ describe('splitBeatsIntoDurations', () => {
 
   it('returns nothing for zero', () => {
     expect(splitBeatsIntoDurations(0)).toEqual([])
-  })
-})
-
-// ---------------------------------------------------------------------------
-// getMeasureDurationFrac — exact bar length across the generality matrix
-// (lives in musicUtils, validated here alongside the duration table)
-// ---------------------------------------------------------------------------
-
-describe('getMeasureDurationFrac', () => {
-  const cases: Array<[number, number, number, number]> = [
-    // numerator, denominator, expected num, expected den
-    [4, 4, 4, 1],
-    [3, 4, 3, 1],
-    [2, 4, 2, 1],
-    [2, 2, 4, 1],
-    [6, 8, 3, 1],
-    [9, 8, 9, 2],
-    [12, 8, 6, 1],
-    [5, 8, 5, 2],
-    [7, 8, 7, 2],
-    [16, 4, 16, 1],
-    [7, 4, 7, 1],
-    [13, 16, 13, 4],
-    [32, 16, 8, 1],
-    [15, 8, 15, 2],
-  ]
-
-  it.each(cases)('%d/%d → %d/%d quarter beats', (num, den, en, ed) => {
-    expect(fracEq(getMeasureDurationFrac({ numerator: num, denominator: den }), frac(en, ed))).toBe(true)
-  })
-
-  it('agrees with the float getMeasureDuration for /4 meters', () => {
-    // 4/4 = 4/1, reduced fraction equals the float
-    expect(getMeasureDurationFrac({ numerator: 4, denominator: 4 })).toEqual(frac(4, 1))
   })
 })
 

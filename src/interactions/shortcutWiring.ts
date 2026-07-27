@@ -19,7 +19,7 @@ import { toggleSymbolsWindow } from '../windows/symbols'
 import { openTimeSignatureWindow } from '../windows/timeSignatureWindow'
 import { keypadCellForCode } from '../windows/keypad/keypadLayouts'
 import { pressKeypadCell } from '../windows/keypad/keypadPress'
-import { keypadPageSelection } from './keypadPageSelection'
+import { keypadPageSelection } from '../windows/keypad/keypadPageSelection'
 
 /**
  * Wires keyboard shortcuts to controller actions. Framework-agnostic: it reads and writes

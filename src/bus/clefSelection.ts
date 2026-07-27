@@ -1,4 +1,4 @@
-import type { Clef } from '../types/music'
+import type { Clef } from '@/types/music'
 
 /**
  * The armed clef, shared between the editor and the plain-TS Clef window
@@ -24,7 +24,7 @@ export interface ArmedClef {
   cautionary: boolean
 }
 
-class ClefSelection {
+export class ClefSelection {
   private highlight: Clef | null = null
   private highlightListeners = new Set<(clef: Clef | null) => void>()
   private pressListeners = new Set<(armed: ArmedClef) => void>()
@@ -56,4 +56,4 @@ class ClefSelection {
   }
 }
 
-export const clefSelection = new ClefSelection()
+export const createClefSelection = () => new ClefSelection()

@@ -13,7 +13,8 @@
  * staff-scoped, so a staff-2 chord currently inherits its voice's dynamic (never silence).
  */
 import type { Score, Chord, ChordRest, DynamicLevel, FanMark, Measure, NotePitch } from '@/types/music'
-import { durationToBeats, measureCapacityQuarters } from '@/utils/musicUtils'
+import { durationToBeats } from '@/utils/musicUtils'
+import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { doubleDuration, durationFlags, slotLength } from '@/utils/durations'
 import { fracToNumber } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'

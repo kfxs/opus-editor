@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { fracCreate as frac } from '../utils/fraction'
 import { createEditorState } from './EditorState'
-import { selectionInspection } from './selectionInspection'
+import { bus } from '@/bus'
 import { wireSelectionInspection } from './selectionInspectionSync'
 
 /**
@@ -57,13 +57,13 @@ describe('wireSelectionInspection', () => {
     // the state one — if the panel still updates, it updated for the right reason.
     const stop = wireSelectionInspection(state, () => engine, () => () => {})
 
-    expect((selectionInspection.get()[0].data as { duration: string }).duration).toBe('q')
+    expect((bus.inspection.get()[0].data as { duration: string }).duration).toBe('q')
 
     engine.updateNote(note.id, { duration: 'h' })
     // Delivery is deferred to a microtask, so the model is settled when listeners read it.
     await Promise.resolve()
 
-    expect((selectionInspection.get()[0].data as { duration: string }).duration).toBe('h')
+    expect((bus.inspection.get()[0].data as { duration: string }).duration).toBe('h')
     stop()
   })
 
@@ -78,12 +78,12 @@ describe('wireSelectionInspection', () => {
     state.selectedElement = { kind: 'dynamic', id: dynamic.id }
     const stop = wireSelectionInspection(state, () => engine, () => () => {})
 
-    expect(selectionInspection.get()[0].overrides).toBeUndefined()
+    expect(bus.inspection.get()[0].overrides).toBeUndefined()
 
     engine.nudgeDynamicOffset(dynamic.id, 0, -1)
     await Promise.resolve()
 
-    expect(selectionInspection.get()[0].overrides).toEqual([
+    expect(bus.inspection.get()[0].overrides).toEqual([
       expect.objectContaining({ kind: 'dynamicOffset', y: -1 }),
     ])
     stop()
@@ -104,12 +104,12 @@ describe('wireSelectionInspection', () => {
     await Promise.resolve()
 
     const seen = vi.fn()
-    const unsubscribe = selectionInspection.onChange(seen)
+    const unsubscribe = bus.inspection.onChange(seen)
     engine.nudgeDynamicOffset(dynamic.id, 0, -1)
     await Promise.resolve()
 
     expect(seen).toHaveBeenCalled()
-    expect(selectionInspection.get()[0].overrides).toEqual([
+    expect(bus.inspection.get()[0].overrides).toEqual([
       expect.objectContaining({ kind: 'dynamicOffset', y: -2 }),
     ])
     unsubscribe()
@@ -126,7 +126,7 @@ describe('wireSelectionInspection', () => {
     stop()
 
     const seen = vi.fn()
-    const unsubscribe = selectionInspection.onChange(seen)
+    const unsubscribe = bus.inspection.onChange(seen)
     engine.updateNote(note.id, { duration: 'h' })
     await Promise.resolve()
 

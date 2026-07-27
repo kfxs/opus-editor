@@ -34,15 +34,24 @@ that page puts three kinds of key on one pad and isn't any single Sibelius layou
 Nothing on this panel is the panel's. Every light comes from an editor seam, so it cannot show you
 a state the score doesn't have:
 
+Every seam below is a field on the one `bus` object (`src/bus/index.ts`) — the panel imports
+`bus` and nothing else. Each store keeps its own module and its own doc comment; only the exports
+collapsed (docs/refactor-plan-2026-07-27.md 3b).
+
 | what | seam |
 |---|---|
-| tool mode (the arrow) | `interactions/modeSelection` |
-| armed duration / accidental | `durationSelection` / `accidentalSelection` |
-| articulations (a set) | `articulationSelection` |
-| dot / tie / rest | `dotSelection` / `tieSelection` / `restSelection` |
-| beam mode / subdivide / beam-rest | `beamSelection` (a set) / `subdivideSelection` / `beamOverSelection` |
-| active voice | `voiceSelection` |
-| **which page is showing** | `interactions/keypadPageSelection` |
+| tool mode (the arrow) | `bus.mode` |
+| armed duration / accidental | `bus.duration` / `bus.accidental` |
+| articulations (a set) | `bus.articulation` |
+| dot / tie / rest | `bus.dot` / `bus.tie` / `bus.rest` |
+| beam mode / subdivide / beam-rest | `bus.beam` (a set) / `bus.subdivide` / `bus.beamOver` |
+| tremolo / two-note tremolo / fan | `bus.tremolo` / `bus.tremoloPair` / `bus.fan` |
+| active voice | `bus.voice` |
+| **which page is showing** | `windows/keypad/keypadPageSelection` |
+
+⛔ The page store is the one that is NOT on the bus, deliberately: its value is a `KeypadPageId`,
+vocabulary owned by `keypadLayouts`, so putting it there would make the bus depend upward on
+`windows/` — the single thing that directory exists to prevent. It sits beside the layouts instead.
 
 The lights flow IN through `interactions/keypadSync.ts`, which recomputes them on every state change
 and pushes them to the seams. Presses flow OUT through the same seams to `PaletteController` — the

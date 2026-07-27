@@ -6,7 +6,8 @@ import type { Window } from './Window'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { NoteDuration, TupletBracket, TupletBracketEnd, TupletFormat, TupletNumberStyle } from '../types/music'
 import { DEFAULT_TUPLET_BRACKET_END, resolveTupletInTimeOf, tupletPrintedCounts, type TupletResolution } from '../utils/musicUtils'
-import { tupletSelection, type ArmedTuplet } from '../interactions/tupletSelection'
+import { bus } from '@/bus'
+import type { ArmedTuplet } from '@/bus'
 import { Column, Columns, GroupBox, Row } from './content/layout'
 import { Button, Checkbox, GlyphSelect, Label, NumberInput, RadioGroup } from './content/widgets'
 
@@ -23,7 +24,7 @@ import { Button, Checkbox, GlyphSelect, Label, NumberInput, RadioGroup } from '.
  *
  * OK ARMS the tuplet for the next note — it does not apply one, because a tuplet is a group of notes
  * you are about to write and there is nothing to convert until they exist. Same contract as the
- * palette's presets, same route: {@link ../interactions/tupletSelection} → `keypadSync` →
+ * palette's presets, same route: {@link ../interactions/bus.tuplet} → `keypadSync` →
  * `PaletteController.armTupletInTimeOf`.
  *
  * The *Format* box travels too: all three choices land on the tuplet as {@link TupletFormat} when the
@@ -167,7 +168,7 @@ export function openTupletWindow(windows: WindowLayer): Window {
    * Arming and not applying, because a tuplet is a group of notes you are about to WRITE — there is
    * nothing to convert until they exist. That is the same contract the palette's presets have had all
    * along, and the routing is the palette's own `armTupletInTimeOf`, reached through
-   * {@link tupletSelection}: the window publishes the sentence AND its format, `keypadSync` hands
+   * {@link bus.tuplet}: the window publishes the sentence AND its format, `keypadSync` hands
    * them to the controller, and they are written onto the tuplet the next click creates.
    *
    * A refusal is refused HERE too, not only greyed on the button: Enter reaches this function without
@@ -175,7 +176,7 @@ export function openTupletWindow(windows: WindowLayer): Window {
    */
   const accept = (): void => {
     if (!resolve().ok) return
-    tupletSelection.press({ ...entry(), format: format() })
+    bus.tuplet.press({ ...entry(), format: format() })
     win?.close()
   }
 

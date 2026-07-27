@@ -7,7 +7,7 @@ import { Button, Checkbox, GlyphSelect, NumberInput, RadioGroup, Select } from '
 import { CHROME } from '../utils/chromeColors'
 import { openBeamGroupsWindow } from './beamGroupsWindow'
 import { DENOMINATORS, parseGrouping } from '../utils/groupingInput'
-import { timeSignatureSelection } from '../interactions/timeSignatureSelection'
+import { bus } from '@/bus'
 
 /**
  * The Time Signature window, opened from Insert ▸ Time Signature (or T) — modelled on Sibelius's
@@ -202,7 +202,7 @@ export function openTimeSignatureWindow(windows: WindowLayer): Window {
   const accept = (): void => {
     const meter = currentMeter()
     const grouped = parseGrouping(grouping)
-    timeSignatureSelection.press({
+    bus.timeSignature.press({
       timeSignature: grouped ? { ...meter, grouping: grouped } : meter,
       cautionary: cautionary.checked,
       // `null` and not `undefined` when unticked: the box is an ANSWER either way, and "a full bar"

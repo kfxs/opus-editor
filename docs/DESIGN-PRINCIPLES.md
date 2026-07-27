@@ -238,38 +238,40 @@ be made *consciously* before more code piles onto it.
   editor, whatever it turns out to be — not before; but do not add code that deepens the assumption
   meanwhile.
 
-- **26 module-level singletons make "exactly one editor" an assumption (re: principles 1 and 5).**
+- **6 module-level singletons make "exactly one editor" an assumption (re: principles 1 and 5).**
   Not score state — palette and chrome state — so they slip past principle 1's letter while making
   the *editor* singular in the way principle 1 forbids for the *score*:
 
   ```
-  interactions/  accidentalSelection, articulationSelection, articulationStemAlignSelection,
-                 beamOverSelection, beamSelection, clefSelection, dotSelection, durationSelection,
-                 fanEditSelection, fanSelection, keypadPageSelection, modeSelection,
-                 noteOffsetSelection, restSelection, selectionInspection, subdivideSelection,
-                 tieSelection, timeSignatureSelection, tremoloPairSelection, tremoloSelection,
-                 tupletSelection, voiceSelection                  ← the Keypad seams
+  bus/           bus                ← the whole Keypad/window noticeboard, ONE object
   windows/       windows            menus/  menus, menuActions    dev/  renderCensus
+  windows/keypad/keypadPageSelection
   ```
 
   ⚠️ **This count is checked, not promised** — `npm run lint:singletons` fails if the code and the
   number above disagree (`scripts/check-singletons.mjs`, in `build:check`). It was written as
-  *thirteen*; it is 26. The list nearly doubling **is this entry's own argument firing**, since the
-  argument below is that the sweep is contained *because the list is short*. A new singleton is a
-  decision, not a detail.
+  *thirteen*; it became **26**, and the list nearly doubling **was this entry's own argument firing**,
+  since the argument below is that the sweep is contained *because the list is short*. A new
+  singleton is a decision, not a detail.
 
-  They are deliberate: the Keypad talks to the editor through them without either side knowing the
+  They are deliberate: the Keypad talks to the editor through the bus without either side knowing the
   other, and `windows`/`menus` exist so "add a window" never means "edit `App.ts`". For one editor
   per page they are correct. For two on a page, both share one duration store and one Keypad.
 
-  Two honest resolutions, and the choice is open: name them a **conscious exception** the way
-  principle 1 does for audio (*"data may be plural; sound output is one"* — e.g. *"the score is
-  plural; the editing session is one"*), **or** make them instance-scoped, created inside
-  `createEditorApp` and threaded down. The second is a contained sweep *because the list is known and
-  short*, and because `windows`/`menus` have only four direct importers — window and menu definitions
-  already take the layer as a **parameter** (`openClefWindow(windows)`). **Keeping that convention is
-  what keeps the cost flat**: a definition module that imports the singleton instead of receiving it
-  turns a sweep into archaeology.
+  ✅ **The resolution is taken, in two steps (2026-07-27).** The choice used to be open between naming
+  them a **conscious exception** the way principle 1 does for audio, and making them instance-scoped
+  inside `createEditorApp`. **We take the second.** Step one is done: the twenty-one Keypad/window
+  seams that used to be twenty-one named exports across `interactions/` are now one `EditorBus`
+  object in `src/bus/`, built by `createEditorBus()` and published as the single `bus`. Twenty-six
+  call sites that named a store each — `keypadPress.ts` named fourteen, `KeypadWidget.ts` fifteen —
+  now import `bus` and nothing else. Step two happens if and when a second editor is real: delete
+  that one export and thread `createEditorBus()` through `createEditorApp`. That is roughly five
+  files, not twenty-six, which is what the whole entry is about.
+
+  **Keeping the parameter convention is what keeps the cost flat**: a definition module that imports
+  the singleton instead of receiving it turns a sweep into archaeology. Window and menu definitions
+  already take the layer as a **parameter** (`openClefWindow(windows)`); the one module that broke
+  the rule, `menus/insertMenu.ts`, was fixed in the same pass and now receives it too.
 
   ✅ Related, smaller — **fixed 2026-07-27.** `engine/models/ScoreModel.ts` used to read
   `import.meta.env` to detect Vitest (`STRICT_INVARIANTS`): guarded, but a *bundler* assumption

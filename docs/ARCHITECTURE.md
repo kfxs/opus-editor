@@ -27,7 +27,8 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 │      ↓ the strip around the viewport. Reads EditorState and    │
 │        calls the palette; nothing inside the viewport knows    │
 │        it exists, so it deletes cleanly when it has served     │
-│        its purpose. (renderCensus lives here too.)             │
+│        its purpose. (renderCensus lives here too — the engine   │
+│        sees only engine/RenderProbe, and App.ts injects it.)    │
 ├═════════════════════════════════════════════════════════════┤  ← BOUNDARY
 │  interactions/  (framework-agnostic)                          │  Controllers
 │      EditorState ............ all editor UI state + THE       │
@@ -42,6 +43,13 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 │      ClipboardController .... copy / paste (+ clipboard.ts)    │
 │      TextEditController ..... in-canvas DOM text overlay       │
 │      RenderController ....... "re-render now" indirection      │
+├─────────────────────────────────────────────────────────────┤
+│  bus/  the UI NOTICEBOARD — one `EditorBus`, 21 seams         │  UI bus
+│      Publish/subscribe stores both `interactions/` and         │  (a leaf)
+│      `windows/` pin to, so neither has to import the other.    │
+│      Per-store modules keep their doc comments; the EXPORTS    │
+│      collapsed to one `bus`, so a second editor on a page is    │
+│      one threaded parameter and not a 26-file sweep.            │
 ├─────────────────────────────────────────────────────────────┤
 │  engine/  (framework-agnostic)                               │  Engine
 │      MusicEngine ........... FACADE: the single API the UI    │  (facade +
@@ -73,12 +81,30 @@ above. `utils/` import nothing but `types/` and each other. `engine/` and
 `interactions/` may use `utils/`. `dev/` reads state and calls controllers.
 `App.ts` builds the DOM and wires everything together.
 
+Three arrows used to point the wrong way, and were turned in 2026-07-27's Phase 3
+(`docs/refactor-plan-2026-07-27.md`):
+
+- **`engine/` imported `dev/renderCensus`** at three sites, so "dev/ deletes cleanly"
+  was not true — the renderer would not compile without it. The engine now declares
+  `engine/RenderProbe.ts` (an interface defaulting to a no-op) and `App.ts` injects the
+  census into it, in dev builds only.
+- **`interactions/` ↔ `windows/` pointed at each other**, because six window modules
+  imported ~20 `*Selection` stores from `interactions/`. Those stores were never
+  interaction logic; they are `src/bus/`, a leaf both sides depend downward on. What is
+  left of that edge is two `import type` lines for `InspectedElement`, erased at build.
+- **`utils/` + `types/` + `engine/models/` were not fenced against `interactions/`** —
+  only against VexFlow, rendering, audio and `MusicEngine`. They are now, along with
+  `bus/`, which is the arrow `DESIGN-PRINCIPLES.md` §5 cares about most.
+
+`lint:boundary` enforces all three: `engine/`, `interactions/` and `bus/` may not import
+`**/dev/*`, and the score layer may not import an interaction controller or the bus.
+
 ---
 
 ## The framework-agnostic boundary
 
-`src/engine/**`, `src/interactions/**`, `src/windows/**`, `src/menus/**` and
-`src/dev/**` import **no UI framework**. Neither does `App.ts` — Vue was removed
+`src/engine/**`, `src/interactions/**`, `src/bus/**`, `src/windows/**`, `src/menus/**`
+and `src/dev/**` import **no UI framework**. Neither does `App.ts` — Vue was removed
 (docs/remove-vue-plan.md), so the boundary now separates *the app shell* from
 *everything it wires*, rather than a framework from the rest.
 
@@ -92,6 +118,7 @@ This is **enforced by lint**, not discipline:
 
 ```bash
 npm run lint:boundary   # fails the build if any of those dirs import a UI framework
+                        # — and now, if the layer arrows are pointed the wrong way
 ```
 
 It is wired into `build:check`, and so is the full `npm run lint` (since 2026-07-27):
@@ -100,7 +127,8 @@ fixed, so the gate is closed behind them. `build:check` now runs four checks bef
 `tsc`:
 
 ```bash
-npm run lint:boundary     # no UI framework in engine/interactions/windows/menus/dev
+npm run lint:boundary     # no framework anywhere below App.ts; dev/ out of the engine;
+                          # the score layer fenced against interactions/ and bus/
 npm run lint:testnames    # a spec is named after its sibling subject
 npm run lint:singletons   # the singleton count in DESIGN-PRINCIPLES.md is still true
 npm run lint              # the full ESLint pass

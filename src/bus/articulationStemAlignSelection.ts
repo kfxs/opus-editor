@@ -26,4 +26,4 @@ export class ArticulationStemAlignSelection {
   }
 }
 
-export const articulationStemAlignSelection = new ArticulationStemAlignSelection()
+export const createArticulationStemAlignSelection = () => new ArticulationStemAlignSelection()

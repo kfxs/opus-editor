@@ -1,23 +1,10 @@
 import { dbg } from '@/utils/debug'
 import type { Widget } from '../content/Widget'
-import { modeSelection } from '../../interactions/modeSelection'
-import { durationSelection } from '../../interactions/durationSelection'
-import { accidentalSelection } from '../../interactions/accidentalSelection'
-import { articulationSelection } from '../../interactions/articulationSelection'
-import { dotSelection } from '../../interactions/dotSelection'
-import { tieSelection } from '../../interactions/tieSelection'
-import { restSelection } from '../../interactions/restSelection'
-import { beamSelection } from '../../interactions/beamSelection'
-import { subdivideSelection } from '../../interactions/subdivideSelection'
-import { beamOverSelection } from '../../interactions/beamOverSelection'
-import { tremoloSelection } from '../../interactions/tremoloSelection'
-import { tremoloPairSelection } from '../../interactions/tremoloPairSelection'
-import { fanSelection } from '../../interactions/fanSelection'
-import { voiceSelection } from '../../interactions/voiceSelection'
+import { bus } from '@/bus'
 import { voiceFillColor } from '../../utils/voiceColors'
 import { INDICATOR_INK } from '../../utils/selectionColors'
 import { CHROME } from '../../utils/chromeColors'
-import { keypadPageSelection } from '../../interactions/keypadPageSelection'
+import { keypadPageSelection } from './keypadPageSelection'
 import { keypadPage, VOICES, type GlyphSpec, type Icon, type KeypadCell } from './keypadLayouts'
 import { pressKeypadCell } from './keypadPress'
 import { bakeGlyphStack } from './tremoloBake'
@@ -92,8 +79,8 @@ export class KeypadWidget implements Widget {
   private gridEl: HTMLElement | null = null
 
   /** The arrow, the duration keys and the accidental keys light from the EDITOR's stores, not the
-   *  panel's own — so the panel listens to each and repaints when it changes elsewhere (the Vue
-   *  palette, a shortcut, selecting a note). */
+   *  panel's own — so the panel listens to each and repaints when it changes elsewhere (the dev
+   *  toolbar, a shortcut, selecting a note). */
   private unsubscribeMode: (() => void) | null = null
   private unsubscribeDuration: (() => void) | null = null
   private unsubscribeAccidental: (() => void) | null = null
@@ -137,18 +124,18 @@ export class KeypadWidget implements Widget {
 
     // Repaint whenever the tool mode / armed duration / armed accidental changes ANYWHERE — the
     // toolbar, a shortcut, clicking a note. These keys track the editor's state, not just their clicks.
-    this.unsubscribeMode = modeSelection.onHighlight(() => this.paint())
-    this.unsubscribeDuration = durationSelection.onHighlight(() => this.paint())
-    this.unsubscribeAccidental = accidentalSelection.onHighlight(() => this.paint())
-    this.unsubscribeArticulation = articulationSelection.onHighlight(() => this.paint())
-    this.unsubscribeDot = dotSelection.onHighlight(() => this.paint())
-    this.unsubscribeTie = tieSelection.onHighlight(() => this.paint())
-    this.unsubscribeRest = restSelection.onHighlight(() => this.paint())
+    this.unsubscribeMode = bus.mode.onHighlight(() => this.paint())
+    this.unsubscribeDuration = bus.duration.onHighlight(() => this.paint())
+    this.unsubscribeAccidental = bus.accidental.onHighlight(() => this.paint())
+    this.unsubscribeArticulation = bus.articulation.onHighlight(() => this.paint())
+    this.unsubscribeDot = bus.dot.onHighlight(() => this.paint())
+    this.unsubscribeTie = bus.tie.onHighlight(() => this.paint())
+    this.unsubscribeRest = bus.rest.onHighlight(() => this.paint())
     // The voice row lights the EDITOR's active voice, changed from anywhere (Alt+1..4, the toolbar,
     // selecting a note in another voice). Seed it from the seam's current value — keypadSync primes
     // the highlight before this window opens, so onHighlight alone would miss the initial state.
     this.syncVoiceFromSeam()
-    this.unsubscribeVoice = voiceSelection.onHighlight(() => {
+    this.unsubscribeVoice = bus.voice.onHighlight(() => {
       this.syncVoiceFromSeam()
       this.paint()
     })
@@ -159,16 +146,16 @@ export class KeypadWidget implements Widget {
     this.unsubscribePage = keypadPageSelection.subscribe(() => this.showPage())
     // Page 2's beam cluster tracks the editor like every other key — lit from the note under the
     // cursor / the armed mode, changed from anywhere (this pad, the numpad, the dev toolbar's Beam row).
-    this.unsubscribeBeam = beamSelection.onHighlight(() => this.paint())
-    this.unsubscribeSubdivide = subdivideSelection.onHighlight(() => this.paint())
-    this.unsubscribeBeamOver = beamOverSelection.onHighlight(() => this.paint())
+    this.unsubscribeBeam = bus.beam.onHighlight(() => this.paint())
+    this.unsubscribeSubdivide = bus.subdivide.onHighlight(() => this.paint())
+    this.unsubscribeBeamOver = bus.beamOver.onHighlight(() => this.paint())
     // ⚠️ And page 2's MARK cluster, which had no subscription at all: pressing a tremolo (or a
     // feathered beam) on the selected note changes the SCORE and no other seam, so every other store
     // short-circuits on "no change" and the pad never repainted — the key you just pressed stayed
     // dark until something else happened to move. Each of these is engine-read; each needs its own.
-    this.unsubscribeTremolo = tremoloSelection.onHighlight(() => this.paint())
-    this.unsubscribeTremoloPair = tremoloPairSelection.onHighlight(() => this.paint())
-    this.unsubscribeFan = fanSelection.onHighlight(() => this.paint())
+    this.unsubscribeTremolo = bus.tremolo.onHighlight(() => this.paint())
+    this.unsubscribeTremoloPair = bus.tremoloPair.onHighlight(() => this.paint())
+    this.unsubscribeFan = bus.fan.onHighlight(() => this.paint())
 
     this.paint()
   }
@@ -276,25 +263,25 @@ export class KeypadWidget implements Widget {
    * show you a state the score does not have. An unwired `momentary` cell (a feathered beam) stays dark.
    */
   private isLit(cell: KeypadCell): boolean {
-    if (cell.select === 'mode') return modeSelection.get() === 'selection'
-    if (cell.select === 'duration') return cell.duration === durationSelection.get()
-    if (cell.select === 'accidental') return cell.accidental === accidentalSelection.get()
-    if (cell.select === 'articulation') return !!cell.articulation && articulationSelection.isActive(cell.articulation)
-    if (cell.select === 'dot') return dotSelection.get() === 'dot'
-    if (cell.select === 'tie') return tieSelection.get() === 'tie'
-    if (cell.select === 'beam') return !!cell.beam && beamSelection.isActive(cell.beam)
-    if (cell.select === 'subdivide') return subdivideSelection.get() === 'subdivide'
-    if (cell.select === 'beamOver') return beamOverSelection.get() === 'beamOver'
+    if (cell.select === 'mode') return bus.mode.get() === 'selection'
+    if (cell.select === 'duration') return cell.duration === bus.duration.get()
+    if (cell.select === 'accidental') return cell.accidental === bus.accidental.get()
+    if (cell.select === 'articulation') return !!cell.articulation && bus.articulation.isActive(cell.articulation)
+    if (cell.select === 'dot') return bus.dot.get() === 'dot'
+    if (cell.select === 'tie') return bus.tie.get() === 'tie'
+    if (cell.select === 'beam') return !!cell.beam && bus.beam.isActive(cell.beam)
+    if (cell.select === 'subdivide') return bus.subdivide.get() === 'subdivide'
+    if (cell.select === 'beamOver') return bus.beamOver.get() === 'beamOver'
     // ⚠️ TWO AXES, lit independently: the count key says how fast, the pair key says the strokes go
     // between two notes, and a two-note tremolo is BOTH — so `Enter` lights beside `3`, not instead
     // of it (docs/two-note-tremolo-plan.md §4).
-    if (cell.select === 'tremolo') return !!cell.tremolo && cell.tremolo === tremoloSelection.get()
-    if (cell.select === 'tremoloPair') return tremoloPairSelection.get() === 'tremoloPair'
+    if (cell.select === 'tremolo') return !!cell.tremolo && cell.tremolo === bus.tremolo.get()
+    if (cell.select === 'tremoloPair') return bus.tremoloPair.get() === 'tremoloPair'
     // The feathered beams are a radio like the tremolo counts — a note carries ONE fan.
-    if (cell.select === 'fan') return !!cell.fan && cell.fan === fanSelection.get()
+    if (cell.select === 'fan') return !!cell.fan && cell.fan === bus.fan.get()
     // An unwired key (the feathered beams on page 2) shows no light.
     if (cell.select === 'momentary') return false
-    return cell.select === 'rest' && restSelection.get() === 'rest'
+    return cell.select === 'rest' && bus.rest.get() === 'rest'
   }
 
   /**
@@ -325,7 +312,7 @@ export class KeypadWidget implements Widget {
         } else {
           // 1–4: drive the editor's active voice through the seam (same as Alt+1..4 / the toolbar);
           // the highlight mirror lights the button back, so we don't set `this.voice` here.
-          voiceSelection.press((i + 1) as 1 | 2 | 3 | 4)
+          bus.voice.press((i + 1) as 1 | 2 | 3 | 4)
         }
         dbg(`[keypad] voice ${name}`)
       })
@@ -366,7 +353,7 @@ export class KeypadWidget implements Widget {
    *  (nothing / multiple notes selected). The seam holds it 1-based (UI convention); the row is
    *  0-based, and only voices 1–4 map — "All" is never the active voice. */
   private syncVoiceFromSeam(): void {
-    const active = voiceSelection.get()
+    const active = bus.voice.get()
     this.voice = active != null ? active - 1 : null
   }
 

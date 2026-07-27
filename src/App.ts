@@ -23,6 +23,7 @@ import { wireShortcuts } from './interactions/shortcutWiring'
 import { wireKeypadSync } from './interactions/keypadSync'
 import { wireSelectionInspection } from './interactions/selectionInspectionSync'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
+import { setRenderProbe } from './engine/RenderProbe'
 import { mountDevToolbar } from './dev/devToolbar'
 import { mountScoreJsonPanel } from './dev/scoreJsonPanel'
 import { windows } from './windows'
@@ -458,6 +459,10 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // Cast: this project has no vite/client types, and a temporary instrument shouldn't add one.
     if (!(import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) return
     const w = window as unknown as Record<string, unknown>
+    // The engine only knows the `RenderProbe` seam and defaults it to a no-op, so it compiles with
+    // `dev/` deleted (docs/refactor-plan-2026-07-27.md 3a). App.ts is the one place allowed to know
+    // both, so it is the one place that plugs the real instrument in — and only in a dev build.
+    setRenderProbe(renderCensus)
     w.__census = renderCensus
     // Hit-box VISUALIZER (dev tool). Draws every registered hit-box as a coloured SVG rectangle
     // right on the score, so you can SEE which click-boxes are inflated or mis-placed — reads the

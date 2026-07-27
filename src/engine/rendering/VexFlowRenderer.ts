@@ -13,7 +13,8 @@ import type { Score, Measure, Clef, ArticulationType, Tuplet, Chord, ChordRest, 
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
 import { measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, staffLineForSpelling, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { displayedAccidentals } from '@/utils/accidentalState'
-import { beatToFrac, measureCapacityFrac, tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
+import { beatToFrac, tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
+import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { durationToVexflow, slotLength, writtenLength } from '@/utils/durations'
 import { getMeterInfo, timeSignatureVexKey, type MeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
@@ -42,7 +43,7 @@ import {
 } from './NoteBuilder'
 import { calculateMeasureWidths } from './MeasureLayout'
 import { MeasureWidthCache } from './MeasureWidthCache'
-import { renderCensus } from '@/dev/renderCensus' // P0 instrument — temporary, see §8
+import { renderProbe } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex, staffIndexOfId } from '@/engine/models/staffContent'
@@ -3779,7 +3780,7 @@ export class VexFlowRenderer {
     if (!this.context || !this.renderer) {
       throw new Error('Renderer not initialized. Call initialize() first.')
     }
-    renderCensus.beginRender() // P0 instrument — remove with docs/render-performance-plan.md §8
+    renderProbe().beginRender() // P0 instrument — remove with docs/render-performance-plan.md §8
 
     // NOTE: no unconditional `clear()` here any more. The SVG is torn down *selectively*, below,
     // once we know which measures actually changed — see `clearForRender`.
@@ -3821,7 +3822,7 @@ export class VexFlowRenderer {
     //      layout-relevant view state changed. This is what makes SCROLLING free again: the cull
     //      window moved, and the window cannot change a single width. (See `layoutCache`.)
     //   3. compute it.
-    renderCensus.beginLayout()
+    renderProbe().beginLayout()
     const layoutKey = this.layoutStateKey()
     const cachedLayout =
       this.layoutReusable && this.layoutCache?.key === layoutKey ? this.layoutCache.widths : null
@@ -3829,7 +3830,7 @@ export class VexFlowRenderer {
       ? new Map(this.frozenLayout)
       : cachedLayout ?? calculateMeasureWidths(score, clefsByStaff, this.viewMode, this.widthCache, this.justifyLastLine)
     if (!this.frozenLayout) this.layoutCache = { key: layoutKey, widths: measureWidths }
-    renderCensus.endLayout()
+    renderProbe().endLayout()
     // A bar changing SYSTEM is the one layout event with no trace in the score and none in the
     // picture either (you see the new arrangement, never the move). It is also what half the
     // width work is trying to cause or avoid — a bar width nudge, a meter change, a wider
@@ -4038,7 +4039,7 @@ export class VexFlowRenderer {
       })
     }
 
-    renderCensus.measuresRedrawn(redrawn, plans.length)
+    renderProbe().measuresRedrawn(redrawn, plans.length)
 
     // Join the stacked staves into one system with a vertical line at the left edge of each line's
     // first measure (grand-staff look). A single connecting line only — the brace/bracket grouping
@@ -4096,7 +4097,7 @@ export class VexFlowRenderer {
       }
     }
 
-    renderCensus.endRender() // P0 instrument
+    renderProbe().endRender() // P0 instrument
     return ghostNoteRendered
   }
 

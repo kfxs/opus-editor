@@ -2,11 +2,8 @@ import { dbg } from '@/utils/debug'
 import { ScoreModel } from './models/ScoreModel'
 import { CoordinateMapper } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
-import {
-  durationToBeats, splitBeatsIntoDurations, midiToNoteName,
-  tupletSlotDuration, tupletSpan, tupletScale, tupletWrittenDuration, beatToFrac,
-  measureCapacityQuarters, measureCapacityFrac,
-} from '@/utils/musicUtils'
+import { durationToBeats, splitBeatsIntoDurations, midiToNoteName, tupletSlotDuration, tupletSpan, tupletScale, tupletWrittenDuration, beatToFrac } from '@/utils/musicUtils'
+import { measureCapacityQuarters, measureCapacityFrac } from '@/utils/measureCapacity'
 import {
   fracToNumber, fracEq, fracAdd, fracSub, fracMul, fracDiv,
   fracLt, fracGt, fracGte, fracLte, fracFromInt,

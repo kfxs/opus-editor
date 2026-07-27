@@ -2,15 +2,8 @@ import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
 import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, BeamMode, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf, noteOffsetOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX } from './engravingOverrides'
-import {
-  tupletSpan,
-  tupletSlotDuration,
-  tupletScale,
-  noteSpansOverlapFrac,
-  splitBeatsIntoDurations,
-  measureCapacityFrac,
-  getMeasureDurationFrac,
-} from '@/utils/musicUtils'
+import { tupletSpan, tupletSlotDuration, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
+import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
 import { durationToFraction, slotLength, writtenLength } from '@/utils/durations'
 import {
   getMeterInfo,

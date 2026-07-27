@@ -1,11 +1,12 @@
 import type { MusicEngine } from '../engine/MusicEngine'
-import { noteOffsetSelection, type NoteOffsetRequest } from './noteOffsetSelection'
+import { bus } from '@/bus'
+import type { NoteOffsetRequest } from '@/bus'
 import { dbg } from '../utils/debug'
 
 /**
  * Applies a Properties-panel note-offset request to the engine (client #12 — see
  * docs/note-offset-plan.md §B). The window is a **dumb publisher**: it writes an absolute `{noteId,
- * x}` to {@link noteOffsetSelection}, and this controller — the one place that holds `getEngine` —
+ * x}` to {@link bus.noteOffset}, and this controller — the one place that holds `getEngine` —
  * turns it into the facade's relative nudge and repaints.
  *
  * The twin of the keyboard surface in `shortcutWiring` (which nudges by ±¼/1 staff-space); this is
@@ -22,7 +23,7 @@ export class NoteOffsetController {
     private getEngine: () => MusicEngine | null,
     private renderScore: () => void,
   ) {
-    this.unsubscribe = noteOffsetSelection.onSet((req) => this.apply(req))
+    this.unsubscribe = bus.noteOffset.onSet((req) => this.apply(req))
   }
 
   private apply({ noteId, x }: NoteOffsetRequest): void {

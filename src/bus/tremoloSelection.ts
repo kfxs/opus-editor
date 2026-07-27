@@ -1,4 +1,4 @@
-import type { TremoloMark } from '../types/music'
+import type { TremoloMark } from '@/types/music'
 import { PaletteSelection } from './paletteSelection'
 
 /**
@@ -13,4 +13,4 @@ import { PaletteSelection } from './paletteSelection'
  * A press routes OUT through `pressTremolo`, the SAME four-way router the toolbar's buttons call:
  * edit the selected mark, apply across a selection, arm for note entry, or arm the stamp.
  */
-export const tremoloSelection = new PaletteSelection<TremoloMark>()
+export const createTremoloSelection = () => new PaletteSelection<TremoloMark>()

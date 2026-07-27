@@ -1,9 +1,6 @@
 import type { Widget } from '../content/Widget'
-import { selectionInspection } from '../../interactions/selectionInspection'
+import { bus } from '@/bus'
 import type { InspectedElement } from '../../interactions/selectionSnapshot'
-import { noteOffsetSelection } from '../../interactions/noteOffsetSelection'
-import { articulationStemAlignSelection } from '../../interactions/articulationStemAlignSelection'
-import { fanEditSelection } from '../../interactions/fanEditSelection'
 import { MAX_FAN_BEAMS, MAX_FAN_COUNT, MAX_FAN_SPREAD, fanRampRange, fanSpread } from '../../utils/fannedBeam'
 import type { ArticulationType, FanMark } from '../../types/music'
 
@@ -16,7 +13,7 @@ import type { ArticulationType, FanMark } from '../../types/music'
  * of the seam: the selection reaches this window and repaints when it moves; only the widgets are
  * missing.
  *
- * The panel reads {@link selectionInspection} and nothing else. It never touches EditorState, never
+ * The panel reads {@link bus.inspection} and nothing else. It never touches EditorState, never
  * holds the engine, and cannot write — so no edit can escape from a window that is not yet an
  * editor.
  */
@@ -69,8 +66,8 @@ export class PropertiesWidget implements Widget {
     host.appendChild(body)
     this.body = body
 
-    this.paint(selectionInspection.get())
-    this.unsubscribe = selectionInspection.onChange((elements) => this.paint(elements))
+    this.paint(bus.inspection.get())
+    this.unsubscribe = bus.inspection.onChange((elements) => this.paint(elements))
   }
 
   /** The selection lives outside this widget, so the subscription MUST go when the window does. */
@@ -104,7 +101,7 @@ export class PropertiesWidget implements Widget {
       body.appendChild(heading)
 
       // The panel's FIRST real control (client #12 — docs/note-offset-plan.md §B): a note/rest's
-      // horizontal offset, an absolute value in staff-spaces. Publishes to `noteOffsetSelection`; the
+      // horizontal offset, an absolute value in staff-spaces. Publishes to `bus.noteOffset`; the
       // widget never touches the engine (that is NoteOffsetController's job) — it stays a dumb
       // publisher, and the second editable property will cost almost nothing.
       if ((element.kind === 'note' || element.kind === 'rest')) {
@@ -152,7 +149,7 @@ export class PropertiesWidget implements Widget {
 
   /**
    * The absolute horizontal-offset control for one note/rest. A labelled number input in
-   * staff-spaces; committing (Enter or blur) publishes `{id, x}` to {@link noteOffsetSelection}.
+   * staff-spaces; committing (Enter or blur) publishes `{id, x}` to {@link bus.noteOffset}.
    * The window holds no engine — the controller reads the current value and applies the delta — so
    * this only reports the desired absolute, and the panel repaints from `onModelChange` afterward.
    */
@@ -185,7 +182,7 @@ export class PropertiesWidget implements Widget {
     const commit = () => {
       const x = parseFloat(input.value)
       if (!Number.isFinite(x)) { input.value = String(current); return }
-      noteOffsetSelection.set(noteId, x)
+      bus.noteOffset.set(noteId, x)
     }
     // Enter commits (and blurs, which would otherwise commit a second time — so guard on the blur).
     input.addEventListener('keydown', (e) => {
@@ -210,7 +207,7 @@ export class PropertiesWidget implements Widget {
     bs.cursor = 'pointer'
     reset.addEventListener('click', () => {
       input.value = '0'
-      noteOffsetSelection.set(noteId, 0)
+      bus.noteOffset.set(noteId, 0)
     })
     row.appendChild(reset)
     return row
@@ -219,7 +216,7 @@ export class PropertiesWidget implements Widget {
   /**
    * The fanned group's shape — how many notes it is played and drawn as, how many beam lines it
    * feathers out to, and which of its notes the feathering covers. One row, four number inputs,
-   * publishing to {@link fanEditSelection}.
+   * publishing to {@link bus.fanEdit}.
    *
    * ⭐ **The numbers ARE the model** (`FanMark`), which is what makes this UI only: nothing here
    * computes a consequence, it just says what the assertion is. The direction is not offered — that
@@ -292,8 +289,8 @@ export class PropertiesWidget implements Widget {
       return wrap
     }
 
-    row.appendChild(field('notes', fan.count, MAX_FAN_COUNT, (count) => fanEditSelection.set({ noteId, count })))
-    row.appendChild(field('beams', fan.beams, MAX_FAN_BEAMS, (beams) => fanEditSelection.set({ noteId, beams })))
+    row.appendChild(field('notes', fan.count, MAX_FAN_COUNT, (count) => bus.fanEdit.set({ noteId, count })))
+    row.appendChild(field('beams', fan.beams, MAX_FAN_BEAMS, (beams) => bus.fanEdit.set({ noteId, beams })))
 
     // ⭐ WHERE THE WEDGE STARTS AND ENDS. Read through `fanRampRange`, so a fan that has never been
     // given one shows the whole group — the same answer the drawing and the playback are already
@@ -302,12 +299,12 @@ export class PropertiesWidget implements Widget {
     const last = Math.max(1, Math.round(fan.count))
     row.appendChild(field(
       'from', ramp.from + 1, last,
-      (n) => fanEditSelection.set({ noteId, rampFrom: n - 1 }),
+      (n) => bus.fanEdit.set({ noteId, rampFrom: n - 1 }),
       'the note the feathering starts on',
     ))
     row.appendChild(field(
       'to', ramp.to + 1, last,
-      (n) => fanEditSelection.set({ noteId, rampTo: n - 1 }),
+      (n) => bus.fanEdit.set({ noteId, rampTo: n - 1 }),
       'the note it ends on — outside the mark the notes are even, on one beam',
     ))
 
@@ -316,7 +313,7 @@ export class PropertiesWidget implements Widget {
     // sound: what a reader counts is lines, and spreading them does not change how many there are.
     row.appendChild(field(
       'wide', fanSpread(fan), MAX_FAN_SPREAD,
-      (spread) => fanEditSelection.set({ noteId, spread }),
+      (spread) => bus.fanEdit.set({ noteId, spread }),
       'how far apart the beam lines spread — 1 is the normal beam gap; drawing only, the playback does not change',
       0.25,
     ))
@@ -326,7 +323,7 @@ export class PropertiesWidget implements Widget {
   /**
    * The "align to stem" toggle for a note's articulations. A checkbox: checked = stem-side marks
    * align to the stem (modern), unchecked = notehead (traditional default). Publishes `{id, align}`
-   * to {@link articulationStemAlignSelection}; the controller holds the engine, the window does not.
+   * to {@link bus.articulationStemAlign}; the controller holds the engine, the window does not.
    */
   private buildStemAlignCheckbox(noteId: string, current: boolean): HTMLElement {
     const row = document.createElement('label')
@@ -342,7 +339,7 @@ export class PropertiesWidget implements Widget {
     input.type = 'checkbox'
     input.checked = current
     input.style.accentColor = BISHOP
-    input.addEventListener('change', () => articulationStemAlignSelection.set(noteId, input.checked))
+    input.addEventListener('change', () => bus.articulationStemAlign.set(noteId, input.checked))
     row.appendChild(input)
 
     const label = document.createElement('span')

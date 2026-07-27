@@ -1,5 +1,5 @@
 import type { Note, NoteParams, Measure } from '@/types/music'
-import { measureCapacityQuarters } from '@/utils/musicUtils'
+import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { fracAdd, fracToNumber } from '@/utils/fraction'
 import { slotLength } from '@/utils/durations'
 

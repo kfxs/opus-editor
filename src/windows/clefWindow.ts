@@ -3,7 +3,7 @@ import type { Window } from './Window'
 import { Column, Row } from './content/layout'
 import { Button, Checkbox, ChoiceList } from './content/widgets'
 import { CHROME } from '../utils/chromeColors'
-import { clefSelection } from '../interactions/clefSelection'
+import { bus } from '@/bus'
 import type { Clef } from '../types/music'
 
 /**
@@ -104,7 +104,7 @@ export function openClefWindow(windows: WindowLayer): Window {
    * point: the score is where the rest of the gesture happens.
    */
   const accept = (): void => {
-    clefSelection.press({ clef: list.value as Clef, cautionary: cautionary.checked })
+    bus.clef.press({ clef: list.value as Clef, cautionary: cautionary.checked })
     win?.close()
   }
 
@@ -116,7 +116,7 @@ export function openClefWindow(windows: WindowLayer): Window {
   // Opens on whatever is already armed, so re-opening it reflects the editor rather than resetting to
   // the top row. Nothing armed → treble, the one every score starts on.
   const list = new ChoiceList(CLEF_CHOICES, {
-    selected: clefSelection.get() ?? 'treble',
+    selected: bus.clef.get() ?? 'treble',
     onActivate: accept,
   })
   win = windows.open({

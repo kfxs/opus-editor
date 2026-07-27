@@ -54,6 +54,10 @@ src/
   interactions/     # Framework-agnostic controllers (Mouse/Keyboard/Selection/
                     #   Highlight/Palette/Clipboard…) + EditorState + ViewportHost
                     #   (DOM⇄viewport) + shortcutWiring.
+  bus/              # The UI NOTICEBOARD: one `EditorBus` object of ~21 publish/subscribe
+                    #   seams that `interactions/` and `windows/` both pin to, so neither
+                    #   imports the other. Import `{ bus }` from '@/bus' — never a store
+                    #   by name. Per-store modules keep their doc comments.
   shortcuts/        # Keyboard shortcut definitions
   engine/           # Framework-agnostic music engine
     MusicEngine.ts        # Facade — coordinates the components below
@@ -66,12 +70,17 @@ src/
   types/music.ts    # TypeScript interfaces (Note, Measure, Score, etc.)
   utils/            # Pure helpers — fraction, meter, rebar, restFill,
                     #   beaming, clefUtils, pitchSpelling, dynamics, durations,
-                    #   lanes (voiceOf/staffOf — absent means the first one)
+                    #   lanes (voiceOf/staffOf — absent means the first one),
+                    #   measureCapacity (how much fits in a bar)
 ```
 
 **The framework-agnostic boundary is enforced by `npm run lint:boundary`** across
-`engine/`, `interactions/`, `windows/`, `menus/` and `dev/` — it is a ratchet kept
-in place after Vue's removal so a framework cannot creep back in.
+`engine/`, `interactions/`, `bus/`, `windows/`, `menus/` and `dev/` — it is a ratchet
+kept in place after Vue's removal so a framework cannot creep back in. The same check
+now also holds the layer arrows: `engine/`/`interactions/`/`bus/` may not import
+`dev/` (which is why `dev/` really does delete cleanly — the engine talks to
+`engine/RenderProbe.ts`, and `App.ts` injects the census), and the score layer
+(`utils/`, `types/`, `engine/models/`) may not import `interactions/` or `bus/`.
 
 ## Core Types (src/types/music.ts)
 

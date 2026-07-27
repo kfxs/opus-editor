@@ -17,4 +17,4 @@ import { PaletteSelection } from './paletteSelection'
  * "make this a note again" is not an operation the editor has (deleting a note leaves a rest behind
  * via restFill; a rest has no pitch to turn back into). The key reports; it does not yet act.
  */
-export const restSelection = new PaletteSelection<'rest'>()
+export const createRestSelection = () => new PaletteSelection<'rest'>()

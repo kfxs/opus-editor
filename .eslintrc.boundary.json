@@ -23,13 +23,43 @@
               "@/App.vue",
               "**/App.vue"
             ],
-            "message": "Framework-agnostic boundary: src/engine, src/interactions, src/windows, src/menus and src/dev must not import a UI framework. Vue was REMOVED from this project (docs/remove-vue-plan.md) — these patterns stay as a ratchet so it cannot creep back. All UI here is plain TS + DOM; see docs/ARCHITECTURE.md."
+            "message": "Framework-agnostic boundary: src/engine, src/interactions, src/bus, src/windows, src/menus and src/dev must not import a UI framework. Vue was REMOVED from this project (docs/remove-vue-plan.md) — these patterns stay as a ratchet so it cannot creep back. All UI here is plain TS + DOM; see docs/ARCHITECTURE.md."
           }
         ]
       }
     ]
   },
   "overrides": [
+    {
+      "files": ["src/engine/**/*.ts", "src/interactions/**/*.ts", "src/bus/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "vue",
+                  "vue/*",
+                  "pinia",
+                  "@/composables",
+                  "@/composables/*",
+                  "**/composables",
+                  "**/composables/*",
+                  "@/App.vue",
+                  "**/App.vue"
+                ],
+                "message": "Framework-agnostic boundary: no UI framework here. See docs/ARCHITECTURE.md."
+              },
+              {
+                "group": ["@/dev", "@/dev/*", "**/dev/*"],
+                "message": "src/dev is SCAFFOLDING and must delete cleanly: nothing in engine/, interactions/ or bus/ may import it (CLAUDE.md, docs/ARCHITECTURE.md). The engine declares what it wants measured — see src/engine/RenderProbe.ts — and App.ts injects the instrument."
+              }
+            ]
+          }
+        ]
+      }
+    },
     {
       "files": ["src/utils/**/*.ts", "src/types/**/*.ts", "src/engine/models/**/*.ts"],
       "excludedFiles": ["**/*.test.ts"],
@@ -48,8 +78,26 @@
           {
             "patterns": [
               {
-                "group": ["vexflow", "**/rendering/*", "@/engine/rendering/*", "**/audio/*", "@/engine/audio/*", "**/MusicEngine", "@/engine/MusicEngine"],
-                "message": "Score layer must not import a renderer, audio, or the editor's facade. The arrow points editor -> score, never score -> editor — docs/DESIGN-PRINCIPLES.md §5."
+                "group": [
+                  "vue",
+                  "vue/*",
+                  "pinia",
+                  "@/composables",
+                  "@/composables/*",
+                  "**/composables",
+                  "**/composables/*",
+                  "@/App.vue",
+                  "**/App.vue"
+                ],
+                "message": "Framework-agnostic boundary: no UI framework here. See docs/ARCHITECTURE.md."
+              },
+              {
+                "group": ["@/dev", "@/dev/*", "**/dev/*"],
+                "message": "src/dev is SCAFFOLDING and must delete cleanly: the score layer may not import it. See src/engine/RenderProbe.ts for the seam."
+              },
+              {
+                "group": ["vexflow", "**/rendering/*", "@/engine/rendering/*", "**/audio/*", "@/engine/audio/*", "**/MusicEngine", "@/engine/MusicEngine", "@/interactions", "@/interactions/*", "**/interactions/*", "@/bus", "@/bus/*", "**/bus/*"],
+                "message": "Score layer must not import a renderer, audio, the editor's facade, an interaction controller or the UI bus. The arrow points editor -> score, never score -> editor — docs/DESIGN-PRINCIPLES.md §5."
               }
             ]
           }
