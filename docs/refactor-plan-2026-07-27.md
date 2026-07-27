@@ -179,6 +179,42 @@ it.
 select a dynamic → click a note; select a clef → Ctrl+click notes; arm a stamp with each
 element kind selected.
 
+### ✅ Done (2026-07-27)
+
+**Fourteen kinds, not twenty-odd scalars**: clef · timeSignature · barline · dynamic · tempo ·
+tuplet · slur · tie · articulation · accidental · dot · stem · tremolo · measureRange. The 23
+fields collapsed into one `selectedElement`, with `selectedOf(state, kind)` (the twin of
+`armedTool`) for the one-kind-or-nothing reads and `assertNeverElement` for the dispatches.
+`selectedItems` / `selectedNoteId` / `selectionPivotId` / `selectionBase` stayed separate, as
+planned.
+
+**Six tests, written red first**, cover the live inconsistency from every path that replaces the
+selection with notes (`selectNote`, `selectNotes`, `selectMeasureContents`, `extendSelectionTo`);
+2518 → 2524 tests, `build:check` green.
+
+**Three `if`-chains became compiler-policed switches** — that is what the union bought beyond the
+bug fix, and each was a place a fifteenth kind could have been silently forgotten:
+
+- `RenderController.applyHighlights` — was thirteen unconditional `apply*Highlight()` calls, each
+  self-guarding on its own field. Now the four passes that read the multi-select SET run first,
+  then ONE switch paints the element. (Order among the thirteen no longer means anything: only one
+  can run.)
+- `shortcutWiring.deleteSelected` — the `else if` chain's ORDER was load-bearing only because
+  several fields could be set at once. `barline` and `stem` are now explicit "nothing to delete"
+  cases rather than fall-through.
+- `selectionSnapshot.selectedElements` — fourteen independent `if`s describing a state that can no
+  longer exist.
+
+**Two names worth knowing.** `selectionSnapshot`'s `SelectedElement` (the read-only REPORT) was
+renamed **`InspectedElement`**, because `SelectedElement` is now the state. And
+`clearScalarSubSelections` → `clearElementSelection`, one line instead of seventeen.
+
+**Behaviour deliberately changed** (all in the same family as the reported bug): arming a marking
+tool now clears a selected tie/slur/tuplet/dot/stem/tremolo too, not just the six it named; a
+mousedown clears the accidental/articulation/dot/stem/tremolo up front rather than relying on each
+handler's `selectNote(null)`; `resetToDefaults` and `setEntryMode` clear the whole element
+selection rather than three of it.
+
 ---
 
 ## Phase 2 — Three accessors for the model's most-repeated rules

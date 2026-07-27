@@ -9,7 +9,7 @@
  * exactly as clickable as it was.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { createEditorState, type EditorState } from './EditorState'
+import { createEditorState, selectedOf, type EditorState } from './EditorState'
 import { MouseController } from './MouseController'
 
 function fakeSvg(): SVGSVGElement {
@@ -95,27 +95,27 @@ describe('tremolo selection', () => {
 
   it('a press on the strokes selects the tremolo, not the stem under them', () => {
     mc.handleMouseDown(ev({ clientX: 106, clientY: 94 }))
-    expect(state.selectedTremoloNoteId).toBe('n1')
-    expect(state.selectedStemNoteId).toBeNull()
+    expect(selectedOf(state, 'tremolo')?.noteId).toBe('n1')
+    expect(selectedOf(state, 'stem')).toBeNull()
   })
 
   it('⭐ the stem ABOVE the strokes is still selectable — the mark wins only in its own boundaries', () => {
     mc.handleMouseDown(ev({ clientX: 106, clientY: 80 }))
-    expect(state.selectedStemNoteId).toBe('n1')
-    expect(state.selectedTremoloNoteId).toBeNull()
+    expect(selectedOf(state, 'stem')?.noteId).toBe('n1')
+    expect(selectedOf(state, 'tremolo')).toBeNull()
   })
 
   it('⭐ and so is the stem BELOW them, between the strokes and the notehead', () => {
     mc.handleMouseDown(ev({ clientX: 106, clientY: 104 }))
-    expect(state.selectedStemNoteId).toBe('n1')
-    expect(state.selectedTremoloNoteId).toBeNull()
+    expect(selectedOf(state, 'stem')?.noteId).toBe('n1')
+    expect(selectedOf(state, 'tremolo')).toBeNull()
   })
 
   it('the strokes are wider than the stem, and that width is theirs', () => {
     // x=101 is inside the tremolo ink but outside even the padded stem: the mark takes it, and
     // nothing else would have.
     mc.handleMouseDown(ev({ clientX: 101, clientY: 94 }))
-    expect(state.selectedTremoloNoteId).toBe('n1')
+    expect(selectedOf(state, 'tremolo')?.noteId).toBe('n1')
   })
 
   it('selecting the tremolo CLEARS the note selection — exclusive, like the stem', () => {
@@ -126,7 +126,7 @@ describe('tremolo selection', () => {
   it('the NOTE still keeps a press its head owns', () => {
     onHead = true
     mc.handleMouseDown(ev({ clientX: 106, clientY: 94 }))
-    expect(state.selectedTremoloNoteId).toBeNull()
+    expect(selectedOf(state, 'tremolo')).toBeNull()
     expect(selection.selectNote).toHaveBeenCalledWith('n1')
   })
 })

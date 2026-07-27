@@ -142,6 +142,7 @@ holds a *rule*, it is in the wrong file.
 | The selection set, multi-select, keyboard nav | `interactions/SelectionController.ts` |
 | Which tool/duration/accidental is armed | `interactions/PaletteController.ts` |
 | Adding a 9th marking tool (clef/dynamic/stamp/…) | `EditorState.MarkingTool` + build: the compiler names every site — see `docs/marking-tools.md` |
+| Adding a selectable on-score element (a new thing a click can pick) | `EditorState.SelectedElement` + build: `assertNeverElement` names every site — the highlight pass (`RenderController`), Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`) |
 | How notation is drawn to SVG | `engine/rendering/VexFlowRenderer.ts` |
 | Marking something as selected on screen | `interactions/HighlightController.ts` — ⭐ **PAINT a mark (`addNode`), don't recolour engraved ink.** A recolour inherits every renderer detail: how many elements a mark is made of, which group owns them, and whether their coordinates are still true (a REUSED measure carries a `translate`, so its rects' own x is stale). See `docs/barline-selection.md` §3 for the four bugs that came of it |
 | Hit-testing / "what element is at (x,y)" | `engine/ElementRegistry.ts` |
@@ -311,7 +312,7 @@ Vocabulary that is otherwise tribal knowledge.
 | **pending-tie** | A tie armed from a note but not yet completed to a partner; re-anchored when its endpoint is deleted. The "first press always flips" / "read the side the renderer last drew" fallbacks support this — they look like hacks but are correct; leave them. |
 | **tie vs. slur** | A **tie** joins two *same-pitch* notes into one held sound (`Note.tiedTo`). A **slur** is a phrase mark spanning *different* pitches, a first-class object on `Score.slurs[]`. Different concepts, different code. |
 | **beat map** | A linearization of the whole score into an ordered list of beats across measures (`utils/beatMap.ts`), used for cursor navigation and tie-chain expansion. |
-| **armed (tool/paste)** | A palette selection (clef, dynamic, time signature) or a pending paste is "armed": the next canvas click places it. Distinct from a *selected* on-score element (chosen for edit/delete). |
+| **armed (tool/paste)** | A palette selection (clef, dynamic, time signature) or a pending paste is "armed": the next canvas click places it. Distinct from a *selected* on-score element (chosen for edit/delete) — the armed tool is `EditorState.selectedMarkingTool`, the selected element is `EditorState.selectedElement`, and the two are separate unions because a thing waiting to be placed and a thing already on the page are different states. |
 | **measure rest** | A whole-bar rest whose duration is the nominal `'w'` meaning "fill the bar", not a literal whole note — must not be inherited as a real `'w'` duration in non-4/4 bars. |
 | **cautionary** | A courtesy clef/time-signature drawn at a line break to warn of an upcoming change. Handled in `VexFlowRenderer` (`chooseVoiceMode` / cautionary logic) — legitimately complex; leave it. |
 ```

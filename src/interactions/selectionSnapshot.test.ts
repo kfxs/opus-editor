@@ -49,8 +49,7 @@ describe('selectedElements', () => {
 
   it('carries the note an articulation hangs on, since an articulation has no object of its own', () => {
     const state = createEditorState()
-    state.selectedArticulationNoteId = 'n1'
-    state.selectedArticulationType = 'accent'
+    state.selectedElement = { kind: 'articulation', noteId: 'n1', type: 'accent' }
     const [element] = selectedElements(state, engineStub({ n1: { id: 'n1' } }))
     expect(element).toEqual({
       kind: 'articulation',
@@ -58,10 +57,10 @@ describe('selectedElements', () => {
     })
   })
 
-  it('reports every selected thing, not just the first — the editor sets these independently', () => {
+  it('reports the notes AND the selected element — the two are separate selections', () => {
     const state = createEditorState()
     state.selectedNoteId = 'n1'
-    state.selectedTimeSignatureMeasure = 3
+    state.selectedElement = { kind: 'timeSignature', measure: 3 }
     const kinds = selectedElements(state, engineStub({ n1: { id: 'n1' } })).map((e) => e.kind)
     expect(kinds).toEqual(['note', 'timeSignature'])
   })
@@ -149,7 +148,7 @@ describe('selectedElements — engraving overrides', () => {
   // neither an element id nor a rest position key, so they silently reported nothing until asked.
   it('finds a time signature override under the cautionary key', () => {
     const state = createEditorState()
-    state.selectedTimeSignatureMeasure = 1
+    state.selectedElement = { kind: 'timeSignature', measure: 1 }
     const engine = engineWith({}, { 'caution:m1': [{ kind: 'cautionary' }] })
     expect(selectedElements(state, engine)[0].overrides).toEqual([{ kind: 'cautionary' }])
   })

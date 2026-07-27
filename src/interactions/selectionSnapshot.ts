@@ -1,4 +1,5 @@
 import type { EditorState } from './EditorState'
+import { assertNeverElement } from './EditorState'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EngravingOverride, Note, Score } from '../types/music'
 import { cautionaryClefKey, cautionaryKey, restPositionKey } from '../engine/models/engravingOverrides'
@@ -22,11 +23,14 @@ import { selectedNoteIds } from './selection'
  * has no single answer anywhere in the codebase.
  *
  * An ARRAY, not one element, because the selection genuinely can be several things: notes
- * multi-select through `selectedItems`, and the scalar kinds are independent fields that can in
- * principle be set alongside them. Reporting only the first would be a guess about precedence that
- * the editor itself does not make.
+ * multi-select through `selectedItems`, and `selectedElement` names one more alongside them.
+ * Reporting only the first would be a guess about precedence that the editor itself does not make.
+ *
+ * ⚠️ **`InspectedElement`, not `SelectedElement`** — the latter is the STATE (`EditorState
+ * .selectedElement`, the locator union). This is the REPORT: the same selection resolved to its
+ * objects, for something that wants to show it. Two names because they are two things.
  */
-export interface SelectedElement {
+export interface InspectedElement {
   /** Which kind of thing this is — the discriminator, not a label to show the user. */
   kind: string
   /** The element's own data, as the model holds it, or the locator when there is no object to fetch. */
@@ -83,8 +87,8 @@ function noteOverrideKeys(score: Score, engine: MusicEngine, note: Note): string
   return keys
 }
 
-export function selectedElements(state: EditorState, engine: MusicEngine | null): SelectedElement[] {
-  const out: SelectedElement[] = []
+export function selectedElements(state: EditorState, engine: MusicEngine | null): InspectedElement[] {
+  const out: InspectedElement[] = []
   if (!engine) return out
   const score = engine.getScore()
 
@@ -103,127 +107,141 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
     })
   }
 
-  if (state.selectedDynamicId) {
-    out.push({
-      kind: 'dynamic',
-      data: engine.getDynamicById(state.selectedDynamicId) ?? { id: state.selectedDynamicId, missing: true },
-      overrides: overridesAt(score, state.selectedDynamicId),
-    })
-  }
-  if (state.selectedTempoId) {
-    out.push({
-      kind: 'tempo',
-      data: engine.getTempoMarkById(state.selectedTempoId) ?? { id: state.selectedTempoId, missing: true },
-      overrides: overridesAt(score, state.selectedTempoId),
-    })
-  }
-  if (state.selectedSlurId) {
-    out.push({
-      kind: 'slur',
-      data: engine.getSlurById(state.selectedSlurId) ?? { id: state.selectedSlurId, missing: true },
-      overrides: overridesAt(score, state.selectedSlurId),
-    })
-  }
+  const element = state.selectedElement
+  if (!element) return out
 
-  // The kinds below have no object of their own in the model — an articulation, an accidental, a
-  // dot and a tie are PROPERTIES of a note, not entries in a list. Their locator IS the truth, so
-  // the locator is what is reported, with the note it hangs on.
-  if (state.selectedArticulationNoteId) {
-    out.push({
-      kind: 'articulation',
-      data: { noteId: state.selectedArticulationNoteId, type: state.selectedArticulationType, note: engine.getNote(state.selectedArticulationNoteId) },
-    })
-  }
-  if (state.selectedAccidentalNoteId) {
-    out.push({
-      kind: 'accidental',
-      data: { noteId: state.selectedAccidentalNoteId, type: state.selectedAccidentalType, note: engine.getNote(state.selectedAccidentalNoteId) },
-    })
-  }
-  if (state.selectedDotNoteId) {
-    out.push({ kind: 'dot', data: { noteId: state.selectedDotNoteId, note: engine.getNote(state.selectedDotNoteId) } })
-  }
-  if (state.selectedStemNoteId) {
-    // Same shape as the dot: a stem is a PROPERTY of the slot (its direction lives on the note),
-    // not an object in the model — the locator plus the note it belongs to is the whole truth.
-    out.push({ kind: 'stem', data: { noteId: state.selectedStemNoteId, note: engine.getNote(state.selectedStemNoteId) } })
-  }
-  if (state.selectedTremoloNoteId) {
-    // The MARK is a field on the slot (`tremolo`), so the note carries the whole truth — reported
-    // like the dot above, locator plus note.
-    out.push({ kind: 'tremolo', data: { noteId: state.selectedTremoloNoteId, note: engine.getNote(state.selectedTremoloNoteId) } })
-  }
-  if (state.selectedTieFromNoteId) {
-    out.push({ kind: 'tie', data: { fromNoteId: state.selectedTieFromNoteId, from: engine.getNote(state.selectedTieFromNoteId) } })
-  }
+  // ⭐ A `switch`, not fourteen `if`s: the compiler polices it. Only ONE element is selected at a
+  // time now (see {@link SelectedElement}), so a chain of independent tests would be describing a
+  // state that can no longer exist — and `assertNeverElement` is what makes a fifteenth kind
+  // impossible to add without deciding what this window shows for it.
+  switch (element.kind) {
+    case 'dynamic':
+      out.push({
+        kind: 'dynamic',
+        data: engine.getDynamicById(element.id) ?? { id: element.id, missing: true },
+        overrides: overridesAt(score, element.id),
+      })
+      break
+    case 'tempo':
+      out.push({
+        kind: 'tempo',
+        data: engine.getTempoMarkById(element.id) ?? { id: element.id, missing: true },
+        overrides: overridesAt(score, element.id),
+      })
+      break
+    case 'slur':
+      out.push({
+        kind: 'slur',
+        data: engine.getSlurById(element.id) ?? { id: element.id, missing: true },
+        overrides: overridesAt(score, element.id),
+      })
+      break
 
-  if (state.selectedTupletId) {
-    // The OBJECT, like every other kind above — this used to report `{ id }` alone, so the one
-    // element whose fields you most want to read (the ratio, the unit, what was typed) showed
-    // nothing but a uuid.
-    out.push({
-      kind: 'tuplet',
-      data: engine.getTuplet(state.selectedTupletId) ?? { id: state.selectedTupletId, missing: true },
-      overrides: overridesAt(score, state.selectedTupletId),
-    })
-  }
+    // The four kinds below have no object of their own in the model — an articulation, an
+    // accidental, a dot and a tie are PROPERTIES of a note, not entries in a list. Their locator IS
+    // the truth, so the locator is what is reported, with the note it hangs on.
+    case 'articulation':
+      out.push({
+        kind: 'articulation',
+        data: { noteId: element.noteId, type: element.type, note: engine.getNote(element.noteId) },
+      })
+      break
+    case 'accidental':
+      out.push({
+        kind: 'accidental',
+        data: { noteId: element.noteId, type: element.type, note: engine.getNote(element.noteId) },
+      })
+      break
+    case 'dot':
+      out.push({ kind: 'dot', data: { noteId: element.noteId, note: engine.getNote(element.noteId) } })
+      break
+    case 'stem':
+      // Same shape as the dot: a stem is a PROPERTY of the slot (its direction lives on the note),
+      // not an object in the model — the locator plus the note it belongs to is the whole truth.
+      out.push({ kind: 'stem', data: { noteId: element.noteId, note: engine.getNote(element.noteId) } })
+      break
+    case 'tremolo':
+      // The MARK is a field on the slot (`tremolo`), so the note carries the whole truth — reported
+      // like the dot above, locator plus note.
+      out.push({ kind: 'tremolo', data: { noteId: element.noteId, note: engine.getNote(element.noteId) } })
+      break
+    case 'tie':
+      out.push({ kind: 'tie', data: { fromNoteId: element.fromNoteId, from: engine.getNote(element.fromNoteId) } })
+      break
 
-  // Clef and time signature are positional: they belong to a measure (and, for a clef, a staff and
-  // a beat), so the position IS the identity — there is no id to look up. Reported with the
-  // measure they sit in, which is where their values live.
-  if (state.selectedClefMeasure !== null) {
-    out.push({
-      kind: 'clef',
-      data: {
-        measure: state.selectedClefMeasure,
-        beat: state.selectedClefBeat,
-        staff: state.selectedClefStaff,
-        clefs: score.measures.find((m) => m.number === state.selectedClefMeasure)?.clefs,
-      },
-      // Now that clefs HAVE an override kind, this branch has a key to ask for — per staff, like
-      // the flag itself.
-      overrides: overridesAt(
-        score,
-        (() => {
-          const measure = score.measures.find((m) => m.number === state.selectedClefMeasure)
-          if (!measure) return undefined
-          // The first staff is ABSENT in the key, not named — `staffIdForIndex`'s rule, and the
-          // reason this branch showed nothing at first: it asked under a key nobody writes.
-          const staff = state.selectedClefStaff ?? 0
-          return cautionaryClefKey(measure.id, staff ? score.staves?.[staff]?.id : undefined)
-        })(),
-      ),
-    })
-  }
-  if (state.selectedTimeSignatureMeasure !== null) {
-    const measure = score.measures.find((m) => m.number === state.selectedTimeSignatureMeasure)
-    out.push({
-      kind: 'timeSignature',
-      data: { measure: state.selectedTimeSignatureMeasure, timeSignature: measure?.timeSignature },
-      // Its overrides answer to a key of their OWN (`caution:<measureId>`), not to the measure id
-      // and not to a position key — so a kind that looks up nothing shows nothing, which is exactly
-      // what this did until a selected meter turned out to have a cautionary flag worth seeing.
-      overrides: overridesAt(score, measure ? cautionaryKey(measure.id) : undefined),
-    })
-  }
+    case 'tuplet':
+      // The OBJECT, like every other kind above — this used to report `{ id }` alone, so the one
+      // element whose fields you most want to read (the ratio, the unit, what was typed) showed
+      // nothing but a uuid.
+      out.push({
+        kind: 'tuplet',
+        data: engine.getTuplet(element.id) ?? { id: element.id, missing: true },
+        overrides: overridesAt(score, element.id),
+      })
+      break
 
-  // A barline is the one selectable thing with NO object behind it at all: the measures are the
-  // barline spine, so the selection is a boundary. Reported as the measure it closes, which is the
-  // whole of its identity (and the address a barline TYPE would eventually be stored at).
-  if (state.selectedBarlineMeasure !== null) {
-    out.push({ kind: 'barline', data: { endsMeasure: state.selectedBarlineMeasure } })
-  }
+    // Clef and time signature are positional: they belong to a measure (and, for a clef, a staff
+    // and a beat), so the position IS the identity — there is no id to look up. Reported with the
+    // measure they sit in, which is where their values live.
+    case 'clef': {
+      const measure = score.measures.find((m) => m.number === element.measure)
+      out.push({
+        kind: 'clef',
+        data: {
+          measure: element.measure,
+          beat: element.beat,
+          staff: element.staff,
+          clefs: measure?.clefs,
+        },
+        // Now that clefs HAVE an override kind, this branch has a key to ask for — per staff, like
+        // the flag itself. The first staff is ABSENT in the key, not named — `staffIdForIndex`'s
+        // rule, and the reason this branch showed nothing at first: it asked under a key nobody
+        // writes.
+        overrides: overridesAt(
+          score,
+          measure
+            ? cautionaryClefKey(measure.id, element.staff ? score.staves?.[element.staff]?.id : undefined)
+            : undefined,
+        ),
+      })
+      break
+    }
+    case 'timeSignature': {
+      const measure = score.measures.find((m) => m.number === element.measure)
+      out.push({
+        kind: 'timeSignature',
+        data: { measure: element.measure, timeSignature: measure?.timeSignature },
+        // Its overrides answer to a key of their OWN (`caution:<measureId>`), not to the measure id
+        // and not to a position key — so a kind that looks up nothing shows nothing, which is
+        // exactly what this did until a selected meter turned out to have a cautionary flag worth
+        // seeing.
+        overrides: overridesAt(score, measure ? cautionaryKey(measure.id) : undefined),
+      })
+      break
+    }
 
-  // A measure range is a selection of MEASURES, not of anything inside them — the box the user drew.
-  if (state.selectedMeasureRange) {
-    out.push({
-      kind: 'measureRange',
-      data: {
-        ...state.selectedMeasureRange,
-        staff: state.selectedMeasureStaff,
-        style: state.selectedMeasureBoxStyle,
-      },
-    })
+    case 'barline':
+      // A barline is the one selectable thing with NO object behind it at all: the measures are the
+      // barline spine, so the selection is a boundary. Reported as the measure it closes, which is
+      // the whole of its identity (and the address a barline TYPE would eventually be stored at).
+      out.push({ kind: 'barline', data: { endsMeasure: element.measure } })
+      break
+
+    case 'measureRange':
+      // A selection of MEASURES, not of anything inside them — the box the user drew.
+      out.push({
+        kind: 'measureRange',
+        data: {
+          anchor: element.anchor,
+          focus: element.focus,
+          staff: element.staff,
+          style: element.boxStyle,
+        },
+      })
+      break
+
+    default:
+      assertNeverElement(element)
   }
 
   return out

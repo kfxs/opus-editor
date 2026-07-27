@@ -3,7 +3,7 @@ import { dynamicTextFromTool } from '../utils/dynamics'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Clef, TimeSignature, Dynamic, TempoMark, ArticulationType, Accidental, TremoloMark } from '../types/music'
 import type { DynamicTool, TempoTool, EditorState } from './EditorState'
-import { activeVoiceToModel, assertNeverTool } from './EditorState'
+import { activeVoiceToModel, assertNeverElement, assertNeverTool } from './EditorState'
 import type { HighlightController } from './HighlightController'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 import { renderCensus } from '../dev/renderCensus' // P0 instrument — temporary, see §8
@@ -24,25 +24,57 @@ export class RenderController {
   ) {}
 
   private applyHighlights(): void {
-    this.highlight.applyMeasureBox()
+    // The passes that read the multi-selection SET (`selectedItems`), so they run whatever the
+    // single-select element happens to be: the notes, the articulation groups, and the dynamics
+    // and slurs a Shift-click box drags along.
     this.highlight.applySelectionHighlight()
     this.highlight.applyArticulationHighlight()
-    this.highlight.applyAccidentalHighlight()
-    this.highlight.applyDotHighlight()
-    this.highlight.applyStemHighlight()
-    this.highlight.applyTremoloHighlight()
-    this.highlight.applyTupletSelectionHighlight()
-    this.highlight.applyTieHighlight()
-    this.highlight.applyClefSelectionHighlight()
-    this.highlight.applyTimeSignatureSelectionHighlight()
-    this.highlight.applyBarlineSelectionHighlight()
     this.highlight.applyDynamicSelectionHighlight()
-    this.highlight.applyDynamicAnchorLine()
-    this.highlight.applyTempoSelectionHighlight()
     this.highlight.applySlurSelectionHighlight()
-    this.highlight.applySlurHandles()
+    this.applySelectedElementHighlight()
     this.highlight.applySlurEndpointCandidate()
     this.highlight.applyKeyboardCursor()
+  }
+
+  /**
+   * Paint whatever the ONE selected element is — and nothing else.
+   *
+   * ⭐ **This `switch` is the exhaustiveness point.** It used to be thirteen unconditional calls,
+   * each re-reading its own `selected*Id` field and returning immediately when that field was
+   * null; a fourteenth element kind could be added, selected, and simply never drawn, with nothing
+   * to say so. Now {@link assertNeverElement} means a new kind fails to BUILD until someone
+   * decides how it is highlighted — the same guarantee {@link assertNeverTool} gives the marking
+   * tools.
+   *
+   * Only one branch can run, so the order within the switch means nothing (it used to: thirteen
+   * fields could in principle all be set). The two `break`s that paint nothing new are deliberate:
+   * a selected dynamic and a selected slur already had their INK painted by the set passes above,
+   * and what the element selection adds is the extra affordance (the anchor line, the drag
+   * handles) that only the single-click selection gets.
+   */
+  private applySelectedElementHighlight(): void {
+    const element = this.state.selectedElement
+    if (!element) return
+    switch (element.kind) {
+      case 'measureRange': this.highlight.applyMeasureBox(); break
+      case 'accidental': this.highlight.applyAccidentalHighlight(); break
+      case 'dot': this.highlight.applyDotHighlight(); break
+      case 'stem': this.highlight.applyStemHighlight(); break
+      case 'tremolo': this.highlight.applyTremoloHighlight(); break
+      case 'tuplet': this.highlight.applyTupletSelectionHighlight(); break
+      case 'tie': this.highlight.applyTieHighlight(); break
+      case 'clef': this.highlight.applyClefSelectionHighlight(); break
+      case 'timeSignature': this.highlight.applyTimeSignatureSelectionHighlight(); break
+      case 'barline': this.highlight.applyBarlineSelectionHighlight(); break
+      case 'tempo': this.highlight.applyTempoSelectionHighlight(); break
+      // The mark is already coloured above; the anchor line is the single-click extra.
+      case 'dynamic': this.highlight.applyDynamicAnchorLine(); break
+      // The arc is already coloured above; the handles are the single-click extra.
+      case 'slur': this.highlight.applySlurHandles(); break
+      // Painted above, from the set — the element is only the anchor.
+      case 'articulation': break
+      default: assertNeverElement(element)
+    }
   }
 
   /**

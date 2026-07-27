@@ -77,13 +77,13 @@ describe('Delete removes a selected tremolo', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }))
 
   it('takes the mark off the slot', () => {
-    state.selectedTremoloNoteId = noteId
+    state.selectedElement = { kind: 'tremolo', noteId }
     pressDelete()
     expect(tremoloAt(engine)).toBeUndefined()
   })
 
   it('keeps the NOTE — Delete removes the mark, never what carries it', () => {
-    state.selectedTremoloNoteId = noteId
+    state.selectedElement = { kind: 'tremolo', noteId }
     pressDelete()
     expect(engine.getNote(noteId)).toBeTruthy()
     // …and leaves it selected, like the accidental and the dot: stamping a different mark is the
@@ -92,7 +92,7 @@ describe('Delete removes a selected tremolo', () => {
   })
 
   it('is ONE undo step — Ctrl+Z puts the same mark back', () => {
-    state.selectedTremoloNoteId = noteId
+    state.selectedElement = { kind: 'tremolo', noteId }
     pressDelete()
     expect(engine.undo()).toBe(true)
     expect(tremoloAt(engine)).toBe(3)
@@ -100,14 +100,14 @@ describe('Delete removes a selected tremolo', () => {
 
   it('⭐ takes the WHOLE mark, not one stroke — a tremolo is one value on the slot', () => {
     engine.setTremolo(noteId, 5)
-    state.selectedTremoloNoteId = noteId
+    state.selectedElement = { kind: 'tremolo', noteId }
     pressDelete()
     expect(tremoloAt(engine)).toBeUndefined()
   })
 
   it('the Penderecki sign goes the same way — no per-mark path', () => {
     engine.setTremolo(noteId, 'penderecki')
-    state.selectedTremoloNoteId = noteId
+    state.selectedElement = { kind: 'tremolo', noteId }
     pressDelete()
     expect(tremoloAt(engine)).toBeUndefined()
   })
@@ -123,7 +123,7 @@ describe('Delete removes a selected tremolo', () => {
     }
     expect(slotAt(0)?.tremoloPair).toBe(true)
 
-    state.selectedTremoloNoteId = noteId
+    state.selectedElement = { kind: 'tremolo', noteId }
     pressDelete()
 
     // BOTH fields, and only on the first slot — the second never carried anything.

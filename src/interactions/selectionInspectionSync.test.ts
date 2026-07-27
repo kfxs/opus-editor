@@ -75,7 +75,7 @@ describe('wireSelectionInspection', () => {
     const dynamic = engine.addDynamic(1, { text: 'p', beat: frac(0, 1) })!
 
     const state = createEditorState()
-    state.selectedDynamicId = dynamic.id
+    state.selectedElement = { kind: 'dynamic', id: dynamic.id }
     const stop = wireSelectionInspection(state, () => engine, () => () => {})
 
     expect(selectionInspection.get()[0].overrides).toBeUndefined()
@@ -97,7 +97,7 @@ describe('wireSelectionInspection', () => {
     const engine = makeEngine()
     const dynamic = engine.addDynamic(1, { text: 'p', beat: frac(0, 1) })!
     const state = createEditorState()
-    state.selectedDynamicId = dynamic.id
+    state.selectedElement = { kind: 'dynamic', id: dynamic.id }
     const stop = wireSelectionInspection(state, () => engine, () => () => {})
 
     engine.nudgeDynamicOffset(dynamic.id, 0, -1)

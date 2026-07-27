@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { levelToGlyphString } from '@/utils/dynamics'
 import { MusicEngine } from '../engine/MusicEngine'
 import type { Rect } from '../engine/ViewportModel'
-import { createEditorState, type EditorState } from './EditorState'
+import { createEditorState, selectedOf, type EditorState } from './EditorState'
 import { SelectionController } from './SelectionController'
 import { itemKey } from './selection'
 import { expandTieChains } from '../utils/beatMap'
@@ -302,28 +302,28 @@ describe('SelectionController — articulation group multi-selection', () => {
   it('selectArticulation replaces the set with one group and sets the anchor', () => {
     selection.selectArticulation(noteA)
     expect([...state.selectedItems.keys()]).toEqual([artKey(noteA)])
-    expect(state.selectedArticulationNoteId).toBe(noteA)
-    expect(state.selectedArticulationType).toBeNull()
+    expect(selectedOf(state, 'articulation')?.noteId).toBe(noteA)
+    expect(selectedOf(state, 'articulation')?.type).toBeNull()
     expect(state.selectedNoteId).toBeNull()
 
     selection.selectArticulation(noteB)
     expect([...state.selectedItems.keys()]).toEqual([artKey(noteB)])
-    expect(state.selectedArticulationNoteId).toBe(noteB)
+    expect(selectedOf(state, 'articulation')?.noteId).toBe(noteB)
   })
 
   it('toggleArticulation adds groups and tracks the anchor; toggling off removes them', () => {
     selection.toggleArticulation(noteA)
     selection.toggleArticulation(noteB)
     expect([...state.selectedItems.keys()]).toEqual([artKey(noteA), artKey(noteB)])
-    expect(state.selectedArticulationNoteId).toBe(noteB)
+    expect(selectedOf(state, 'articulation')?.noteId).toBe(noteB)
 
     selection.toggleArticulation(noteB)
     expect([...state.selectedItems.keys()]).toEqual([artKey(noteA)])
-    expect(state.selectedArticulationNoteId).toBe(noteA)
+    expect(selectedOf(state, 'articulation')?.noteId).toBe(noteA)
 
     selection.toggleArticulation(noteA)
     expect(state.selectedItems.size).toBe(0)
-    expect(state.selectedArticulationNoteId).toBeNull()
+    expect(selectedOf(state, 'articulation')).toBeNull()
   })
 
   it('toggling an articulation onto a note selection restarts as articulations-only', () => {
@@ -331,7 +331,7 @@ describe('SelectionController — articulation group multi-selection', () => {
     selection.toggleArticulation(noteB)
     expect([...state.selectedItems.keys()]).toEqual([artKey(noteB)])
     expect(state.selectedNoteId).toBeNull()
-    expect(state.selectedArticulationNoteId).toBe(noteB)
+    expect(selectedOf(state, 'articulation')?.noteId).toBe(noteB)
   })
 
   it('selectNote clears articulation groups and the articulation anchor', () => {
@@ -339,7 +339,7 @@ describe('SelectionController — articulation group multi-selection', () => {
     selection.toggleArticulation(noteB)
     selection.selectNote(noteC)
     expect([...state.selectedItems.keys()]).toEqual([noteKey(noteC)])
-    expect(state.selectedArticulationNoteId).toBeNull()
+    expect(selectedOf(state, 'articulation')).toBeNull()
   })
 })
 
@@ -574,6 +574,64 @@ describe('SelectionController — setSelectedNote keeps the highlight set in syn
   })
 })
 
+describe('SelectionController — a note selection replaces the element selection', () => {
+  let engine: MusicEngine
+  let state: EditorState
+  let selection: SelectionController
+  let noteA: string
+  let noteB: string
+
+  beforeEach(() => {
+    engine = makeEngine()
+    state = createEditorState()
+    state.selectedTool = 'selection'
+    selection = new SelectionController(() => engine, state, () => {}, () => {})
+    noteA = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    noteB = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+  })
+
+  // The four hand-maintained clear-lists had already diverged: `clearScalarSubSelections` named
+  // seventeen fields and missed the dynamic, the tempo mark and the tuplet, so replacing the
+  // selection with notes left whichever of those was picked still selected — and still highlighted,
+  // and still what Delete would act on. One field cannot diverge from itself.
+  it('selectNote clears a selected dynamic', () => {
+    state.selectedElement = { kind: 'dynamic', id: 'dyn-1' }
+    selection.selectNote(noteA)
+    expect(state.selectedElement).toBeNull()
+  })
+
+  it('selectNotes clears a selected dynamic', () => {
+    state.selectedElement = { kind: 'dynamic', id: 'dyn-1' }
+    selection.selectNotes([noteA, noteB])
+    expect(state.selectedElement).toBeNull()
+  })
+
+  it('selectNotes clears a selected tempo mark', () => {
+    state.selectedElement = { kind: 'tempo', id: 'tempo-1' }
+    selection.selectNotes([noteA])
+    expect(state.selectedElement).toBeNull()
+  })
+
+  it('selectNotes clears a selected tuplet', () => {
+    state.selectedElement = { kind: 'tuplet', id: 'tuplet-1' }
+    selection.selectNotes([noteA])
+    expect(state.selectedElement).toBeNull()
+  })
+
+  it('selectMeasureContents clears a selected dynamic', () => {
+    state.selectedElement = { kind: 'dynamic', id: 'dyn-1' }
+    selection.selectMeasureContents([noteA, noteB])
+    expect(state.selectedElement).toBeNull()
+  })
+
+  it('extendSelectionTo clears a selected dynamic', () => {
+    selection.selectNote(noteA)
+    state.selectedElement = { kind: 'dynamic', id: 'dyn-1' }
+    selection.extendSelectionTo(noteB)
+    expect(state.selectedElement).toBeNull()
+  })
+})
+
 describe('SelectionController — the palette reflects the selected note', () => {
   let engine: MusicEngine
   let state: EditorState
@@ -593,7 +651,7 @@ describe('SelectionController — the palette reflects the selected note', () =>
   })
 
   it('shows the selected note\'s beam, not a stale auto', () => {
-    // The bug: selecting a note reset selectedBeam to 'auto' (clearScalarSubSelections) and nothing
+    // The bug: selecting a note reset selectedBeam to 'auto' (clearElementSelection) and nothing
     // put the note's own value back, so the Beam row said "auto" about a note you had beamed.
     selection.selectNote(beamed)
     expect(state.selectedBeam).toBe('begin')

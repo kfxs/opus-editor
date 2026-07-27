@@ -1,6 +1,6 @@
 import type { Widget } from '../content/Widget'
 import { selectionInspection } from '../../interactions/selectionInspection'
-import type { SelectedElement } from '../../interactions/selectionSnapshot'
+import type { InspectedElement } from '../../interactions/selectionSnapshot'
 import { noteOffsetSelection } from '../../interactions/noteOffsetSelection'
 import { articulationStemAlignSelection } from '../../interactions/articulationStemAlignSelection'
 import { fanEditSelection } from '../../interactions/fanEditSelection'
@@ -79,7 +79,7 @@ export class PropertiesWidget implements Widget {
     this.unsubscribe = null
   }
 
-  private paint(elements: SelectedElement[]): void {
+  private paint(elements: InspectedElement[]): void {
     const body = this.body
     if (!body) return
     body.textContent = ''
@@ -355,13 +355,13 @@ export class PropertiesWidget implements Widget {
 /** The note/rest's current horizontal offset in staff-spaces (0 when none), read from the element's
  *  own overrides — the entry at whichever key the engine writes (the slot's, or a fanned MEMBER's
  *  own; `selectionSnapshot` resolves it through `offsetTargetOf`, so a member shows ITS number). */
-function currentNoteOffset(element: SelectedElement): number {
+function currentNoteOffset(element: InspectedElement): number {
   const entry = element.overrides?.find((o) => o.kind === 'noteOffset') as { x?: number } | undefined
   return entry?.x ?? 0
 }
 
 /** The note's current articulation stem-align state (false when unset), read from its own object. */
-function currentStemAlign(element: SelectedElement): boolean {
+function currentStemAlign(element: InspectedElement): boolean {
   return (element.data as { articulationStemAlign?: boolean }).articulationStemAlign === true
 }
 

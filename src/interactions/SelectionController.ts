@@ -4,7 +4,7 @@ import { middleLineDiatonicPos } from '../utils/clefUtils'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Rect } from '../engine/ViewportModel'
 import type { EditorState } from './EditorState'
-import { modelVoiceToActive } from './EditorState'
+import { modelVoiceToActive, selectedOf } from './EditorState'
 import { buildVoiceNavBeatMap, notesInBox, dynamicsInBox, slursInBox, expandTieChains } from '../utils/beatMap'
 import { fracEq, fracCompare, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes, measureAccidentalNotes } from '../utils/musicUtils'
@@ -52,26 +52,19 @@ export class SelectionController {
     }
   }
 
-  /** Clear the per-element scalar sub-selections (articulation/accidental/tie/clef/…).
-   *  Notes are mutually exclusive with these in Phase 1, so selecting a note clears them. */
-  private clearScalarSubSelections(): void {
+  /**
+   * Drop the single-select element (articulation/accidental/tie/clef/dynamic/…) and the beam the
+   * palette shows. Notes are mutually exclusive with the element selection, so selecting a note
+   * clears it.
+   *
+   * ⭐ ONE assignment. This used to name seventeen fields and was one of FOUR such lists, which had
+   * already diverged: it missed the dynamic, the tempo mark and the tuplet, so selecting notes while
+   * a dynamic was picked left the dynamic selected. See {@link SelectedElement} — the union is what
+   * makes that list unwritable rather than merely correct today.
+   */
+  private clearElementSelection(): void {
     this.state.selectedBeam = 'auto'
-    this.state.selectedArticulationNoteId = null
-    this.state.selectedArticulationType = null
-    this.state.selectedAccidentalNoteId = null
-    this.state.selectedAccidentalType = null
-    this.state.selectedDotNoteId = null
-    this.state.selectedStemNoteId = null
-    this.state.selectedTremoloNoteId = null
-    this.state.selectedTieFromNoteId = null
-    this.state.selectedSlurId = null
-    this.state.selectedSlurEndpoint = null
-    this.state.selectedSlurSegmentEndpoint = null
-    this.state.selectedClefMeasure = null
-    this.state.selectedClefBeat = null
-    this.state.selectedTimeSignatureMeasure = null
-    this.state.selectedBarlineMeasure = null
-    this.state.selectedMeasureRange = null
+    this.state.selectedElement = null
   }
 
   /**
@@ -116,7 +109,7 @@ export class SelectionController {
     }
     // The beam, from the ENGINE's projection and not the loop above: `getMeasureNotes` doesn't carry
     // `beam` (it projects the slot's dots, stem and articulations, but not this one), so reading it
-    // there would quietly hand back undefined for every note. `clearScalarSubSelections` has already
+    // there would quietly hand back undefined for every note. `clearElementSelection` has already
     // reset it to 'auto', which is the whole bug this line fixes — the palette said 'auto' about
     // every note you clicked, including one you had explicitly beamed.
     // Stored as absent when it IS auto (ScoreModel drops 'auto'), so `?? 'auto'` reads it back.
@@ -132,7 +125,7 @@ export class SelectionController {
 
   /**
    * Shared body for selectNote / moveCaretTo — clears the selection down to this single note (or
-   * null), resets the Shift pivot/base, and clears the scalar sub-selections. The only difference
+   * null), resets the Shift pivot/base, and clears the element selection. The only difference
    * between the two acts is the final sync: `syncPalette=true` is a SELECTION (show the note's
    * duration/accidental/dots); `false` is a CARET ADVANCE that keeps the palette (it holds what
    * you'll type next) and moves only the active lane so the cursor stream stays in this voice/staff.
@@ -147,7 +140,7 @@ export class SelectionController {
     // A plain click (re)sets the Shift pivot and the range base = this single note.
     this.state.selectionPivotId = noteId
     this.state.selectionBase = noteId ? [{ kind: 'note', id: noteId }] : []
-    this.clearScalarSubSelections()
+    this.clearElementSelection()
     if (noteId) {
       if (syncPalette) this.syncPaletteToNote(noteId)
       else this.syncActiveLaneToNote(noteId)
@@ -156,7 +149,7 @@ export class SelectionController {
 
   /**
    * REPLACE the selection with a single note by ID (or clear it with null), and
-   * sync the palette to that note. Also clears any scalar sub-selections.
+   * sync the palette to that note. Also clears the element selection.
    * This is the plain-click / navigation path.
    */
   selectNote(noteId: string | null): void {
@@ -164,15 +157,16 @@ export class SelectionController {
   }
 
   /**
-   * Clear the ENTIRE selection: the multi-select set + note anchor (and the scalar
-   * sub-selections those reset), plus the dynamic and tuplet selections that
-   * `clearScalarSubSelections` doesn't cover. The Esc / deselect-everything path.
+   * Clear the ENTIRE selection: the multi-select set + note anchor + the element selection. The
+   * Esc / deselect-everything path.
+   *
+   * It used to name the dynamic, the tempo and the tuplet on top of `selectNote(null)`, because
+   * `clearScalarSubSelections` did not cover them — the second of the four clear-lists, and the one
+   * that made the first one's omission look deliberate. There is one field now, so there is nothing
+   * left to add here.
    */
   deselectAll(): void {
     this.selectNote(null)
-    this.state.selectedDynamicId = null
-    this.state.selectedTempoId = null
-    this.state.selectedTupletId = null
     // Clearing the selection returns entry to the default voice 1 / staff 0 (Sibelius-style).
     this.state.activeVoice = 1
     this.state.activeStaff = 0
@@ -193,7 +187,7 @@ export class SelectionController {
     this.state.selectedNoteId = anchor
     this.state.selectionPivotId = anchor
     this.state.selectionBase = Array.from(this.state.selectedItems.values())
-    this.clearScalarSubSelections()
+    this.clearElementSelection()
     if (anchor) this.syncPaletteToNote(anchor)
   }
 
@@ -228,15 +222,15 @@ export class SelectionController {
     this.state.selectedNoteId = anchor
     this.state.selectionPivotId = anchor
     this.state.selectionBase = Array.from(this.state.selectedItems.values())
-    this.clearScalarSubSelections()
+    this.clearElementSelection()
     if (anchor) this.syncPaletteToNote(anchor)
   }
 
   /**
    * TOGGLE a note in/out of the multi-selection (ctrl/cmd-click). Adding a note
    * makes it the anchor and syncs the palette; removing one recomputes the anchor
-   * to the remaining last note. Also clears scalar sub-selections, since notes are
-   * mutually exclusive with the other element kinds in Phase 1.
+   * to the remaining last note. Also clears the element selection, since notes are
+   * mutually exclusive with the other element kinds.
    */
   toggleNote(noteId: string): void {
     const item: SelectionItem = { kind: 'note', id: noteId }
@@ -254,7 +248,7 @@ export class SelectionController {
     // current selection, so a following Shift-click keeps these notes.
     this.state.selectionPivotId = noteId
     this.state.selectionBase = Array.from(this.state.selectedItems.values())
-    this.clearScalarSubSelections()
+    this.clearElementSelection()
   }
 
   /**
@@ -301,14 +295,14 @@ export class SelectionController {
     this.state.selectionBase = Array.from(this.state.selectedItems.values())
     this.state.selectionPivotId = targetId
     this.state.selectedNoteId = targetId
-    this.clearScalarSubSelections()
+    this.clearElementSelection()
     this.syncPaletteToNote(targetId)
   }
 
   /**
    * REPLACE the selection with a single articulation GROUP (all articulations on
-   * `noteId`) — the plain-click path. Clears the note set and every scalar
-   * sub-selection, then records this note as the articulation anchor.
+   * `noteId`) — the plain-click path. Clears the note set and the element selection,
+   * then records this note as the articulation anchor.
    */
   selectArticulation(noteId: string): void {
     this.state.selectedItems.clear()
@@ -317,15 +311,14 @@ export class SelectionController {
     this.state.selectedNoteId = null
     this.state.selectionPivotId = null
     this.state.selectionBase = []
-    this.clearScalarSubSelections()
+    this.clearElementSelection()
     // Mark the group selection (type null) so highlight/delete/flip act on the whole note.
-    this.state.selectedArticulationNoteId = noteId
-    this.state.selectedArticulationType = null
+    this.state.selectedElement = { kind: 'articulation', noteId, type: null }
   }
 
   /**
    * TOGGLE an articulation GROUP in/out of the multi-selection (ctrl/cmd-click).
-   * Articulation groups are mutually exclusive with notes (Phase 1), so toggling one
+   * Articulation groups are mutually exclusive with notes, so toggling one
    * onto a note selection starts a fresh articulation-only set. The anchor follows the
    * last remaining group.
    */
@@ -345,10 +338,12 @@ export class SelectionController {
     this.state.selectedNoteId = null
     this.state.selectionPivotId = null
     this.state.selectionBase = []
-    this.clearScalarSubSelections()
+    this.clearElementSelection()
+    // The anchor follows the last remaining group — the articulation twin of `recomputeAnchor`.
     const ids = selectedArticulationNoteIds(this.state.selectedItems.values())
-    this.state.selectedArticulationNoteId = ids.length ? ids[ids.length - 1] : null
-    this.state.selectedArticulationType = null
+    this.state.selectedElement = ids.length
+      ? { kind: 'articulation', noteId: ids[ids.length - 1], type: null }
+      : null
   }
 
   /**
@@ -448,7 +443,7 @@ export class SelectionController {
    *
    * **A barline is named by the measure it ENDS**, so walking them is walking measure numbers: the
    * one after bar `n` is the one ending bar `n + 1`. That is the whole navigation, and it is why
-   * this needs no geometry — the identity is positional (`EditorState.selectedBarlineMeasure`).
+   * this needs no geometry — the identity is positional (`SelectedElement`'s `barline` kind).
    *
    * ⚠️ **Clamps at both ends rather than deselecting.** Note navigation drops the selection when it
    * runs off the end, which suits it: a note is one of thousands and losing it costs a click. There
@@ -464,7 +459,7 @@ export class SelectionController {
    */
   navigateBarline(direction: number): boolean {
     const engine = this.getEngine()
-    const current = this.state.selectedBarlineMeasure
+    const current = selectedOf(this.state, 'barline')?.measure ?? null
     if (!engine || current === null) return false
 
     const last = engine.getScore().measures.length
@@ -474,7 +469,7 @@ export class SelectionController {
       return true
     }
 
-    this.state.selectedBarlineMeasure = target
+    this.state.selectedElement = { kind: 'barline', measure: target }
     dbg(`[Nav] barline ${direction > 0 ? '→' : '←'} → ends measure:${target}`)
     this.renderScore()
     // Tier-1 geometry, so it answers for bars that virtualization has never drawn — which is

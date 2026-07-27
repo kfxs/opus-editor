@@ -1,6 +1,6 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
-import { activeVoiceToModel } from './EditorState'
+import { activeVoiceToModel, selectedOf } from './EditorState'
 import { navBeatMap } from '../utils/beatMap'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 import { ELEMENT_SELECTION_FILL, ELEMENT_SELECTION_STROKE } from '../utils/selectionColors'
@@ -187,8 +187,8 @@ export class HighlightController {
   }
 
   /**
-   * Draw the Sibelius-style blue box around the measure span in state.selectedMeasureRange.
-   * In first-voice blue with no fill; `state.selectedMeasureBoxStyle` picks the look:
+   * Draw the Sibelius-style blue box around the selected `measureRange`.
+   * In first-voice blue with no fill; the box's own `boxStyle` picks the look:
    *   - `'single'` — ONE rectangle: the plain-click passage selection, whose contents
    *     (notes/rests + enclosed dynamics/slurs) ARE selected and highlighted separately.
    *   - `'double'` — two nested rectangles: the Ctrl+Shift+click marker (visual only, NO
@@ -198,7 +198,7 @@ export class HighlightController {
   applyMeasureBox(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
-    const range = this.state.selectedMeasureRange
+    const range = selectedOf(this.state, 'measureRange')
     if (range == null || !engine || !scoreCanvas) return
 
     const svg = scoreCanvas.querySelector('svg')
@@ -215,18 +215,18 @@ export class HighlightController {
     //
     // Vertical extent depends on the box style (they are different operations):
     //   - 'single' (plain-click passage select) → ONE staff's band, the staff the click
-    //     landed on (`selectedMeasureStaff`); a content selection on that staff.
+    //     landed on (the box's own `staff`); a content selection on that staff.
     //   - 'double' (Ctrl+Shift measure select) → the whole measure COLUMN across EVERY
     //     staff (staff 0's top → the last staff's bottom), because add/remove-measure is a
     //     system-wide edit that hits all staves. At N=1 both collapse to the single staff.
-    const isSingle = this.state.selectedMeasureBoxStyle === 'single'
+    const isSingle = range.boxStyle === 'single'
     const staffCount = engine.getScore().staves?.length ?? 1
     const lines = new Map<number, { left: number; right: number; top: number; bottom: number }>()
     for (let m = lo; m <= hi; m++) {
       const rect = engine.getMeasureRect(m)
       if (!rect) continue
       const topGeo = isSingle
-        ? (registry.getStaffGeometry(m, this.state.selectedMeasureStaff) ?? registry.getStaffGeometry(m, 0))
+        ? (registry.getStaffGeometry(m, range.staff) ?? registry.getStaffGeometry(m, 0))
         : registry.getStaffGeometry(m, 0)
       const bottomGeo = isSingle
         ? topGeo
@@ -250,7 +250,7 @@ export class HighlightController {
     const GAP = 3 // inset between the two nested rectangles = the "double box"
     // A plain-click passage selection draws ONE rectangle (Sibelius's single light-blue
     // box); the Ctrl+Shift+click visual marker draws two nested ones (the "double box").
-    const insets = this.state.selectedMeasureBoxStyle === 'single' ? [0] : [0, GAP]
+    const insets = isSingle ? [0] : [0, GAP]
     for (const seg of lines.values()) {
       for (const inset of insets) {
         const box = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
@@ -440,13 +440,14 @@ export class HighlightController {
     if (!engine) return
 
     // Selected articulation groups live in the multi-select set (Ctrl-click adds more);
-    // fall back to the scalar anchor for safety. Each group covers EVERY articulation on
+    // fall back to the element ANCHOR for safety. Each group covers EVERY articulation on
     // its note (Sibelius-style), so highlight all of them, each in its note's voice colour.
     const selectedNoteIds = new Set<string>()
     for (const item of this.state.selectedItems.values()) {
       if (item.kind === 'articulation') selectedNoteIds.add(item.noteId)
     }
-    if (this.state.selectedArticulationNoteId) selectedNoteIds.add(this.state.selectedArticulationNoteId)
+    const anchor = selectedOf(this.state, 'articulation')?.noteId
+    if (anchor) selectedNoteIds.add(anchor)
 
     for (const noteId of selectedNoteIds) {
       const voice = engine.getNote(noteId)?.voice ?? 0
@@ -554,8 +555,8 @@ export class HighlightController {
    *  voice colour, like every other sub-element highlight. */
   applyDotHighlight(): void {
     const engine = this.getEngine()
-    if (!engine || !this.state.selectedDotNoteId) return
-    const noteId = this.state.selectedDotNoteId
+    const noteId = selectedOf(this.state, 'dot')?.noteId
+    if (!engine || !noteId) return
     const voice = engine.getNote(noteId)?.voice ?? 0
     this.colorNoteDots(noteId, voiceFillColor(voice))
   }
@@ -571,8 +572,8 @@ export class HighlightController {
    */
   applyStemHighlight(): void {
     const engine = this.getEngine()
-    if (!engine || !this.state.selectedStemNoteId) return
-    const noteId = this.state.selectedStemNoteId
+    const noteId = selectedOf(this.state, 'stem')?.noteId
+    if (!engine || !noteId) return
     const stem = engine.getStaveNoteSVGGroup(noteId)?.stem
     if (!stem) return
 
@@ -661,20 +662,20 @@ export class HighlightController {
    *  voice colour, like every other sub-element highlight. */
   applyTremoloHighlight(): void {
     const engine = this.getEngine()
-    if (!engine || !this.state.selectedTremoloNoteId) return
-    const noteId = this.state.selectedTremoloNoteId
+    const noteId = selectedOf(this.state, 'tremolo')?.noteId
+    if (!engine || !noteId) return
     this.colorNoteTremolo(noteId, voiceFillColor(engine.getNote(noteId)?.voice ?? 0))
   }
 
   applyAccidentalHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
-    if (!engine || !scoreCanvas || !this.state.selectedAccidentalNoteId) return
+    const selected = selectedOf(this.state, 'accidental')
+    if (!engine || !scoreCanvas || !selected) return
 
     const registry = engine.getElementRegistry()
     const accElements = registry.getByType('accidental').filter(
-      el => el.noteId === this.state.selectedAccidentalNoteId &&
-            el.accidentalType === this.state.selectedAccidentalType,
+      el => el.noteId === selected.noteId && el.accidentalType === selected.type,
     )
     if (!accElements.length) return
 
@@ -683,7 +684,7 @@ export class HighlightController {
 
     // Paint the accidental in ITS voice's colour (V1 blue, V2 green — Sibelius-style;
     // matches the notehead/tie highlight) rather than a uniform orange.
-    const voice = engine.getNote(this.state.selectedAccidentalNoteId)?.voice ?? 0
+    const voice = engine.getNote(selected.noteId)?.voice ?? 0
     const ACCIDENTAL_COLOR = voiceFillColor(voice)
 
     for (const accEl of accElements) {
@@ -713,11 +714,11 @@ export class HighlightController {
 
   applyTieHighlight(): void {
     const engine = this.getEngine()
-    if (!engine || !this.state.selectedTieFromNoteId) return
+    const fromNoteId = selectedOf(this.state, 'tie')?.fromNoteId
+    if (!engine || !fromNoteId) return
 
     // Paint the tie in ITS voice's colour (V1 blue, V2 green — Sibelius-style;
     // matches the notehead highlight) rather than a uniform orange.
-    const fromNoteId = this.state.selectedTieFromNoteId
     const voice = engine.getNote(fromNoteId)?.voice ?? 0
     this.colorNoteTie(fromNoteId, voiceFillColor(voice))
   }
@@ -758,16 +759,17 @@ export class HighlightController {
   applyClefSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
-    if (!engine || !scoreCanvas || this.state.selectedClefMeasure === null) return
+    const selected = selectedOf(this.state, 'clef')
+    if (!engine || !scoreCanvas || !selected) return
 
     const registry = engine.getElementRegistry()
-    const targetBeat = this.state.selectedClefBeat ?? 0
+    const targetBeat = selected.beat
     // Scope by staff — clef is per-staff, so at (measure, beat) each stacked staff has
     // its own opening-clef element. Matching on measure+beat alone highlights the first
     // (staff 0) regardless of which staff's clef was actually selected.
     const clefEl = registry.getByType('clef').find(
-      el => el.measure === this.state.selectedClefMeasure && (el.beat ?? 0) === targetBeat
-        && (el.staff ?? 0) === this.state.selectedClefStaff,
+      el => el.measure === selected.measure && (el.beat ?? 0) === targetBeat
+        && (el.staff ?? 0) === selected.staff,
     )
     if (!clefEl) return
 
@@ -824,14 +826,15 @@ export class HighlightController {
   applyTimeSignatureSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
-    if (!engine || !scoreCanvas || this.state.selectedTimeSignatureMeasure === null) return
+    const selectedTs = selectedOf(this.state, 'timeSignature')
+    if (!engine || !scoreCanvas || !selectedTs) return
 
     const registry = engine.getElementRegistry()
     // A time signature is system-wide: it applies to every staff and is drawn once
     // per staff, so highlight the TS glyph in ALL staves of the measure, not just the
     // one that was clicked. Each staff has its own timeSignature element at this measure.
     const tsEls = registry.getByType('timeSignature').filter(
-      el => el.measure === this.state.selectedTimeSignatureMeasure,
+      el => el.measure === selectedTs.measure,
     )
     if (tsEls.length === 0) return
 
@@ -847,7 +850,7 @@ export class HighlightController {
   }
 
   /**
-   * Highlight the selected barline — the line that ends `state.selectedBarlineMeasure`.
+   * Highlight the selected barline — the line that ends the selected `barline`'s measure.
    *
    * ⭐ **PAINTED, not recoloured** — and that distinction is the whole history of this method.
    * Recolouring means drawing the score black, then hunting down VexFlow's own `<rect>`s and
@@ -875,7 +878,7 @@ export class HighlightController {
   applyBarlineSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
-    const measure = this.state.selectedBarlineMeasure
+    const measure = selectedOf(this.state, 'barline')?.measure ?? null
     if (!engine || !scoreCanvas || measure === null) return
 
     const svg = scoreCanvas.querySelector('svg')
@@ -919,13 +922,14 @@ export class HighlightController {
   applyTupletSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
-    if (!engine || !scoreCanvas || !this.state.selectedTupletId) return
+    const tupletId = selectedOf(this.state, 'tuplet')?.id
+    if (!engine || !scoreCanvas || !tupletId) return
 
     // Recolor inside the tuplet's OWN group only — never a document-wide region — so it
     // cannot bleed onto a neighbouring system (the old bbox scan did exactly that).
     // The group holds the bracket (thin filled <rect>s), the number (<text>), and a
     // transparent pointer-rect hit-area (opacity 0 — leave it alone).
-    const group = engine.getTupletSVGGroup(this.state.selectedTupletId)
+    const group = engine.getTupletSVGGroup(tupletId)
     if (!group) return
 
 
@@ -936,7 +940,7 @@ export class HighlightController {
     this.raiseToFront(group)
 
     // Paint in the tuplet's own voice colour, matching note/cursor selection.
-    const SELECTION_COLOR = voiceFillColor(engine.getTupletVoice(this.state.selectedTupletId))
+    const SELECTION_COLOR = voiceFillColor(engine.getTupletVoice(tupletId))
 
     // Bracket segments: thin rects (1px in one dimension). Skip the full-size pointer
     // hit-area, which spans the whole tuplet bbox.
@@ -966,10 +970,11 @@ export class HighlightController {
    */
   applyTempoSelectionHighlight(): void {
     const engine = this.getEngine()
-    if (!engine || !this.state.selectedTempoId) return
+    const tempoId = selectedOf(this.state, 'tempo')?.id
+    if (!engine || !tempoId) return
 
     const SELECTION_COLOR = ELEMENT_SELECTION_FILL
-    const group = engine.getTempoSVGGroup(this.state.selectedTempoId)
+    const group = engine.getTempoSVGGroup(tempoId)
     if (!group) return
     group.querySelectorAll('text, path').forEach(el => {
       const currentFill = el.getAttribute('fill')
@@ -984,10 +989,11 @@ export class HighlightController {
     const scoreCanvas = this.getScoreCanvas()
     if (!engine || !scoreCanvas) return
 
-    // Highlight every selected dynamic: the scalar single-click selection (selectedDynamicId)
-    // AND any dynamics pulled into a Shift-click box (kind 'dynamic' items in selectedItems).
+    // Highlight every selected dynamic: the single-click element selection AND any dynamics
+    // pulled into a Shift-click box (kind 'dynamic' items in selectedItems).
     const ids = new Set<string>()
-    if (this.state.selectedDynamicId) ids.add(this.state.selectedDynamicId)
+    const singleId = selectedOf(this.state, 'dynamic')?.id
+    if (singleId) ids.add(singleId)
     for (const item of this.state.selectedItems.values()) {
       if (item.kind === 'dynamic') ids.add(item.id)
     }
@@ -1019,18 +1025,19 @@ export class HighlightController {
    * shifted with the bar (offsetElement), so the line tracks a translated measure. Cleared by the
    * next render like every other decoration.
    *
-   * Only the scalar single-click selection gets the line — a Shift-box that swept up several
+   * Only the single-click element selection gets the line — a Shift-box that swept up several
    * dynamics would otherwise draw a fan of lines. This is the first of what may become a family of
    * toggleable "guide" overlays (rulers, markers…); keeping it its own method keeps that door open.
    */
   applyDynamicAnchorLine(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
-    if (!engine || !scoreCanvas || !this.state.selectedDynamicId) return
+    const dynamicId = selectedOf(this.state, 'dynamic')?.id
+    if (!engine || !scoreCanvas || !dynamicId) return
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
 
-    const entry = engine.getElementRegistry().getById(this.state.selectedDynamicId)
+    const entry = engine.getElementRegistry().getById(dynamicId)
     if (entry?.type !== 'dynamic' || !entry.anchor) return
 
     // From the TOP-RIGHT corner of the dynamic's box up to its note anchor point.
@@ -1059,11 +1066,12 @@ export class HighlightController {
     const scoreCanvas = this.getScoreCanvas()
     if (!engine || !scoreCanvas) return
 
-    // Highlight every selected slur: the scalar single-click selection (selectedSlurId, which
-    // also gets draggable handles) AND any slur fully covered by a Shift-click box (kind 'slur'
-    // items in selectedItems, colour only — no handles).
+    // Highlight every selected slur: the single-click element selection (which also gets
+    // draggable handles) AND any slur fully covered by a Shift-click box (kind 'slur' items in
+    // selectedItems, colour only — no handles).
     const ids = new Set<string>()
-    if (this.state.selectedSlurId) ids.add(this.state.selectedSlurId)
+    const singleSlurId = selectedOf(this.state, 'slur')?.id
+    if (singleSlurId) ids.add(singleSlurId)
     for (const item of this.state.selectedItems.values()) {
       if (item.kind === 'slur') ids.add(item.id)
     }
@@ -1122,7 +1130,8 @@ export class HighlightController {
   applySlurHandles(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
-    if (!engine || !scoreCanvas || !this.state.selectedSlurId) return
+    const slur = selectedOf(this.state, 'slur')
+    if (!engine || !scoreCanvas || !slur) return
     // No slur geometry editing in linear view. A slur's control points are a 2-D shape relative
     // to endpoints whose horizontal span differs between the views, so a curve tuned against
     // unjustified linear spacing looks wrong once the line is justified — read-only here is the
@@ -1133,7 +1142,7 @@ export class HighlightController {
     if (!svg) return
 
     const registry = engine.getElementRegistry()
-    const partials = registry.getByType('slur').filter(e => e.id === this.state.selectedSlurId)
+    const partials = registry.getByType('slur').filter(e => e.id === slur.id)
     if (partials.length === 0) return
 
     const R = HighlightController.SLUR_HANDLE_R
@@ -1161,7 +1170,7 @@ export class HighlightController {
 
         registry.add({
           type: 'slur-handle',
-          slurId: this.state.selectedSlurId!,
+          slurId: slur.id,
           cpIndex: i as 0 | 1,
           // This segment's full drag context, read straight off the handle on mousedown.
           controlPoints: partial.controlPoints,
@@ -1188,7 +1197,7 @@ export class HighlightController {
         // The point armed for keyboard nudging reads as "selected": larger, a darker fill
         // and a thicker white ring versus the plain re-anchor squares. Pure cosmetic — the
         // hit-box (registry bbox) is unchanged (slur-endpoint-offset-plan).
-        const selected = which === this.state.selectedSlurEndpoint
+        const selected = which === slur.endpoint
         const half = selected ? S + 2 : S
         const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
         sq.setAttribute('x', String(p.x - half))
@@ -1204,7 +1213,7 @@ export class HighlightController {
 
         registry.add({
           type: 'slur-endpoint',
-          slurId: this.state.selectedSlurId!,
+          slurId: slur.id,
           endpoint: which,
           bbox: { x: p.x - HIT, y: p.y - HIT, width: HIT * 2, height: HIT * 2 },
         })
@@ -1217,7 +1226,7 @@ export class HighlightController {
     // MIDDLE. Same color as the round angle handles (same family — layout-ephemeral, resets
     // with the span count); square shape marks it a position handle, not a curve bend. A
     // same-line slur has no segments → no orange squares.
-    const armed = this.state.selectedSlurSegmentEndpoint
+    const armed = slur.segmentEndpoint
     for (const partial of partials) {
       if (!partial.segmentRole || !partial.segmentEndpoints) continue
       const role = partial.segmentRole
@@ -1246,7 +1255,7 @@ export class HighlightController {
 
         registry.add({
           type: 'slur-segment-endpoint',
-          slurId: this.state.selectedSlurId!,
+          slurId: slur.id,
           segmentRole: role,
           segmentOrdinal: partial.segmentOrdinal,
           segmentSide: role === 'middle' ? side : undefined,

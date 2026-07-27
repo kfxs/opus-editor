@@ -171,7 +171,7 @@ describe('tremoloHighlight (the dev shell\'s Tremolo row)', () => {
 
   it('⭐ the MARK selected on the score lights, even though clicking it cleared the note selection', () => {
     const state = stateWith([])
-    state.selectedTremoloNoteId = 'a'
+    state.selectedElement = { kind: 'tremolo', noteId: 'a' }
     expect(tremoloHighlight(state, carrying(4))).toBe(4)
   })
 
@@ -224,7 +224,7 @@ describe('tremoloPairHighlight (the pair button, beside the count)', () => {
 
   it('⭐ the MARK selected on the score lights it, like the count', () => {
     const state = stateWith([])
-    state.selectedTremoloNoteId = 'a'
+    state.selectedElement = { kind: 'tremolo', noteId: 'a' }
     expect(tremoloPairHighlight(state, paired(true))).toBe(true)
   })
 

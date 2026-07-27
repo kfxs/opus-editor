@@ -1,4 +1,4 @@
-import type { SelectedElement } from './selectionSnapshot'
+import type { InspectedElement } from './selectionSnapshot'
 
 /**
  * The current selection, resolved to objects, published for anything that wants to SHOW it — today
@@ -13,7 +13,7 @@ import type { SelectedElement } from './selectionSnapshot'
  * Pushed by `keypadSync`'s sync (it already runs on every state change) and read by the window.
  */
 class SelectionInspection {
-  private elements: SelectedElement[] = []
+  private elements: InspectedElement[] = []
   /**
    * The last published snapshot, SERIALIZED at the moment it was published — not re-derived from
    * {@link elements} when the next one arrives.
@@ -27,9 +27,9 @@ class SelectionInspection {
    * only thing there is to compare against.
    */
   private lastJson = ''
-  private listeners = new Set<(elements: SelectedElement[]) => void>()
+  private listeners = new Set<(elements: InspectedElement[]) => void>()
 
-  get(): SelectedElement[] {
+  get(): InspectedElement[] {
     return this.elements
   }
 
@@ -41,7 +41,7 @@ class SelectionInspection {
    * The comparison is on the serialized form because that IS what the client renders: a new object
    * with identical contents is not a change to anyone looking at it.
    */
-  set(elements: SelectedElement[]): void {
+  set(elements: InspectedElement[]): void {
     const json = JSON.stringify(elements)
     if (json === this.lastJson) return
     this.lastJson = json
@@ -50,7 +50,7 @@ class SelectionInspection {
   }
 
   /** Repaint hook. Returns an unsubscribe. */
-  onChange(fn: (elements: SelectedElement[]) => void): () => void {
+  onChange(fn: (elements: InspectedElement[]) => void): () => void {
     this.listeners.add(fn)
     return () => this.listeners.delete(fn)
   }

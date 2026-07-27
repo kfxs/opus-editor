@@ -3,7 +3,7 @@ import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSi
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorState'
-import { activeVoiceToModel, armedTool, armedToolUsesLength, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from './EditorState'
+import { activeVoiceToModel, armedTool, armedToolUsesLength, selectedOf, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from './EditorState'
 import { durationHighlight, beamHighlight, beamRoleHighlight, secondaryBreakHighlight, beamOverHighlight, tremoloHighlight, tremoloPairHighlight, fanHighlight } from './keypadSync'
 import { fracToNumber } from '../utils/fraction'
 import { DEFAULT_FAN_BEAMS, DEFAULT_FAN_COUNT } from '../utils/fannedBeam'
@@ -110,12 +110,9 @@ export class PaletteController {
   private armMarkingTool(tool: MarkingTool): void {
     this.state.selectedMarkingTool = tool
     if (this.state.selectedTool !== 'entry') this.state.selectedNoteId = null
-    this.state.selectedClefMeasure = null
-    this.state.selectedClefBeat = null
-    this.state.selectedTimeSignatureMeasure = null
-    this.state.selectedBarlineMeasure = null
-    this.state.selectedDynamicId = null
-    this.state.selectedTempoId = null
+    // ⭐ ONE assignment — the fourth of the four clear-lists, and the shortest: it named six fields
+    // and so left a picked tie/slur/tuplet/dot/stem/tremolo selected under the new ghost.
+    this.state.selectedElement = null
     this.state.selectedTool = 'entry'
     this.showArmedGhost()
   }
@@ -200,8 +197,8 @@ export class PaletteController {
    * Returns inclusive low/high bars, or null when no double box is selected.
    */
   private measureContext(): { lo: number; hi: number } | null {
-    const range = this.state.selectedMeasureRange
-    if (!range || this.state.selectedMeasureBoxStyle !== 'double') return null
+    const range = selectedOf(this.state, 'measureRange')
+    if (!range || range.boxStyle !== 'double') return null
     return { lo: Math.min(range.anchor, range.focus), hi: Math.max(range.anchor, range.focus) }
   }
 
@@ -215,12 +212,10 @@ export class PaletteController {
       return
     }
     engine.insertMeasureAfter(ctx.lo - 1) // 0 = insert at the very front
-    if (this.state.selectedMeasureRange) {
+    const box = selectedOf(this.state, 'measureRange')
+    if (box) {
       // The selected bars moved forward by one; follow them so repeat clicks stack.
-      this.state.selectedMeasureRange = {
-        anchor: this.state.selectedMeasureRange.anchor + 1,
-        focus: this.state.selectedMeasureRange.focus + 1,
-      }
+      this.state.selectedElement = { ...box, anchor: box.anchor + 1, focus: box.focus + 1 }
     }
     dbg(`✓ Added measure before ${ctx.lo}`)
     this.renderScore()
@@ -247,8 +242,8 @@ export class PaletteController {
    * "Add Measure" ops), so the two structure edits stay separate gestures.
    */
   private staffContext(): number | null {
-    if (this.state.selectedMeasureRange === null || this.state.selectedMeasureBoxStyle !== 'single') return null
-    return this.state.selectedMeasureStaff
+    const box = selectedOf(this.state, 'measureRange')
+    return box && box.boxStyle === 'single' ? box.staff : null
   }
 
   // ==================== View mode (wrapped ↔ linear) ====================
@@ -275,9 +270,8 @@ export class PaletteController {
     // draws none) only stops NEW arming — it does not disarm what is already armed. Without
     // this: arm an orange join in wrapped view, switch to linear, press an arrow, and a segment
     // override gets written from inside linear view with a wrapped-captured span count.
-    this.state.selectedSlurEndpoint = null
-    this.state.selectedSlurSegmentEndpoint = null
-    this.state.selectedSlurSegmentSpanCount = 0
+    const slur = selectedOf(this.state, 'slur')
+    if (slur) this.state.selectedElement = { kind: 'slur', id: slur.id }
     this.renderScore()
   }
 
@@ -313,7 +307,7 @@ export class PaletteController {
 
   /**
    * Insert a staff above/below the box-selected staff, keeping the box on the SAME staff the
-   * user had selected. `selectedMeasureStaff` is a raw index into `score.staves`, and inserting
+   * user had selected. The box's `staff` is a raw index into `score.staves`, and inserting
    * a staff shifts every index at/below the insertion point — so an "+ Above" would leave the
    * selection pointing at the freshly inserted staff instead of the one that was selected. Fix
    * generally: resolve the selected staff to its stable id before the insert, then restore its
@@ -326,13 +320,14 @@ export class PaletteController {
       dbg(`Add staff ${position}: no bar selected (click empty space in a bar first)`)
       return
     }
-    const selectedId = engine.getScore().staves?.[this.state.selectedMeasureStaff]?.id
+    const selectedId = engine.getScore().staves?.[ref]?.id
     if (position === 'above') engine.addStaffAbove(ref)
     else engine.addStaffBelow(ref)
     // Re-anchor the box to the originally-selected staff by id (its index may have shifted).
-    if (selectedId !== undefined) {
+    const box = selectedOf(this.state, 'measureRange')
+    if (selectedId !== undefined && box) {
       const idx = engine.getScore().staves?.findIndex(s => s.id === selectedId) ?? -1
-      if (idx >= 0) this.state.selectedMeasureStaff = idx
+      if (idx >= 0) this.state.selectedElement = { ...box, staff: idx }
     }
     dbg(`✓ Added staff ${position} staff ${ref}`)
     this.renderScore()
@@ -430,7 +425,7 @@ export class PaletteController {
 
     // A standalone accidental glyph is selected in the score → the press EDITS it: the same
     // accidental (or a null "remove") deletes it; a different one changes it.
-    if (this.state.selectedAccidentalNoteId) {
+    if (selectedOf(this.state, 'accidental')) {
       this.editSelectedAccidental(accidental)
       return
     }
@@ -460,7 +455,7 @@ export class PaletteController {
 
   /**
    * Edit the standalone accidental glyph currently selected in the score (see
-   * {@link EditorState.selectedAccidentalNoteId}). Pressing the SAME accidental — or a null "remove"
+   * {@link SelectedElement}'s `accidental`). Pressing the SAME accidental — or a null "remove"
    * — deletes it (reverts the note to the measure's prevailing alteration, exactly like the Delete
    * key); pressing a DIFFERENT accidental changes it. After a change the new accidental stays
    * selected so it can be changed again or removed; after a delete NOTHING stays selected — the
@@ -470,21 +465,22 @@ export class PaletteController {
    */
   private editSelectedAccidental(accidental: Accidental | null): void {
     const engine = this.getEngine()
-    const noteId = this.state.selectedAccidentalNoteId
+    const selected = selectedOf(this.state, 'accidental')
+    const noteId = selected?.noteId
     if (!engine || !noteId) return
 
-    const current = accidentalTypeToKey(this.state.selectedAccidentalType)
+    const current = accidentalTypeToKey(selected.type)
     if (accidental === null || accidental === current) {
       // Remove: revert to the prevailing alteration so the glyph disappears in every case.
       engine.runBatch('Remove accidental', () =>
         engine.updateNote(noteId, { alter: engine.getPrevailingAlter(noteId), forceAccidental: undefined }))
-      this.state.selectedAccidentalNoteId = null
-      this.state.selectedAccidentalType = null
+      this.state.selectedElement = null
       this.selectNote(null) // switch-off leaves nothing selected (clears the note anchor too)
       this.renderScore()
     } else {
       engine.runBatch(`Set ${accidental}`, () => engine.setNoteAccidental(noteId, accidental))
-      this.state.selectedAccidentalType = accidental // keep the (now changed) accidental selected
+      // Keep the (now changed) accidental selected — REASSIGNED, never mutated in place.
+      this.state.selectedElement = { kind: 'accidental', noteId, type: accidental }
       this.renderScore()
     }
   }
@@ -597,7 +593,7 @@ export class PaletteController {
     // (1) The MARK itself is selected on the score → change or remove it. Ahead of (2), whose
     // applyTremoloToSelection would return false (clicking the strokes clears the note selection)
     // and wrongly arm the stamp.
-    if (this.state.selectedTremoloNoteId) {
+    if (selectedOf(this.state, 'tremolo')) {
       this.editSelectedTremolo(tremolo)
       return
     }
@@ -647,7 +643,7 @@ export class PaletteController {
     const engine = this.getEngine()
     if (!engine) return
 
-    const noteId = this.state.selectedTremoloNoteId ?? this.singleSelectedNoteId()
+    const noteId = selectedOf(this.state, 'tremolo')?.noteId ?? this.singleSelectedNoteId()
     if (!noteId) return
     const note = engine.getNote(noteId)
     if (!note || note.isRest) return
@@ -661,8 +657,8 @@ export class PaletteController {
     this.refreshTremoloPairSelection()
     if (!applied) return
     // Taking the mark off leaves nothing to keep selected — the same shape editSelectedTremolo has.
-    if (!on && this.state.selectedTremoloNoteId) {
-      this.state.selectedTremoloNoteId = null
+    if (!on && selectedOf(this.state, 'tremolo')) {
+      this.state.selectedElement = null
       this.selectNote(null)
     }
     this.renderScore()
@@ -763,7 +759,7 @@ export class PaletteController {
   private tremoloPairStyleTarget(): string | null {
     const engine = this.getEngine()
     if (!engine) return null
-    const noteId = this.state.selectedTremoloNoteId ?? this.singleSelectedNoteId()
+    const noteId = selectedOf(this.state, 'tremolo')?.noteId ?? this.singleSelectedNoteId()
     if (!noteId) return null
     const note = engine.getNote(noteId)
     if (!note?.tremoloPair) return null
@@ -785,7 +781,7 @@ export class PaletteController {
   }
 
   /**
-   * Edit the tremolo currently selected in the score (see {@link EditorState.selectedTremoloNoteId}):
+   * Edit the tremolo currently selected in the score (see {@link SelectedElement}'s `tremolo`):
    * a DIFFERENT mark changes it, the SAME mark removes it. The twin of
    * {@link editSelectedAccidental}, including what is left selected afterwards — a change keeps the
    * (now different) mark selected so it can be changed again or removed, while a removal leaves
@@ -793,12 +789,12 @@ export class PaletteController {
    */
   private editSelectedTremolo(tremolo: TremoloMark): void {
     const engine = this.getEngine()
-    const noteId = this.state.selectedTremoloNoteId
+    const noteId = selectedOf(this.state, 'tremolo')?.noteId
     if (!engine || !noteId) return
 
     if (engine.getNote(noteId)?.tremolo === tremolo) {
       engine.runBatch('Remove tremolo', () => engine.setTremolo(noteId, null))
-      this.state.selectedTremoloNoteId = null
+      this.state.selectedElement = null
       this.selectNote(null)
     } else {
       engine.runBatch(`Set tremolo ${tremolo}`, () => engine.setTremolo(noteId, tremolo))
@@ -949,7 +945,7 @@ export class PaletteController {
     // accidental-glyph editing, but additive (a note can carry several articulations). Handled
     // before the branch below, whose applyArticulationToSelection would return false (no note
     // selected) and wrongly arm the stamp.
-    if (this.state.selectedArticulationNoteId) {
+    if (selectedOf(this.state, 'articulation')) {
       this.editSelectedArticulation(type)
       this.refreshArticulationSelection()
       return
@@ -1027,7 +1023,7 @@ export class PaletteController {
 
   /**
    * Edit the standalone articulation GROUP(s) selected in the score (see
-   * {@link EditorState.selectedArticulationNoteId}) from the Keypad: additively toggle `type` on
+   * {@link SelectedElement}'s `articulation`) from the Keypad: additively toggle `type` on
    * them. Group-toggle semantics like {@link applyArticulationToSelection} — if EVERY selected group
    * already has it, remove from all; else add to all. When a group is left with NO articulations it
    * has nothing to keep selected, so once ALL selected groups are empty the selection is cleared
@@ -1037,7 +1033,8 @@ export class PaletteController {
     const engine = this.getEngine()
     if (!engine) return
     const ids = selectedArticulationNoteIds(this.state.selectedItems.values())
-    const noteIds = ids.length ? ids : (this.state.selectedArticulationNoteId ? [this.state.selectedArticulationNoteId] : [])
+    const anchor = selectedOf(this.state, 'articulation')?.noteId
+    const noteIds = ids.length ? ids : (anchor ? [anchor] : [])
     if (noteIds.length === 0) return
 
     const allHaveIt = noteIds.every(id => engine.getNote(id)?.articulations?.includes(type))
@@ -1052,8 +1049,7 @@ export class PaletteController {
     // accidental switch-off leaving nothing selected).
     const anyRemain = noteIds.some(id => (engine.getNote(id)?.articulations?.length ?? 0) > 0)
     if (!anyRemain) {
-      this.state.selectedArticulationNoteId = null
-      this.state.selectedArticulationType = null
+      this.state.selectedElement = null
       this.selectNote(null)
     }
     this.renderScore()
@@ -1099,7 +1095,7 @@ export class PaletteController {
     }
 
     // (1) A tie is selected in the score → the press removes it.
-    if (this.state.selectedTieFromNoteId) {
+    if (selectedOf(this.state, 'tie')) {
       this.editSelectedTie()
       return
     }
@@ -1140,7 +1136,7 @@ export class PaletteController {
   }
 
   /**
-   * Remove the tie currently selected in the score (see {@link EditorState.selectedTieFromNoteId}) —
+   * Remove the tie currently selected in the score (see {@link SelectedElement}'s `tie`) —
    * the tie's sibling of {@link editSelectedAccidental}. A tie is VALUELESS, so unlike an accidental
    * there is no "press a different one to change it": the only edit the key can mean is remove,
    * which is also what Delete does to a selected tie. Mirrors the accidental switch-off in leaving
@@ -1149,12 +1145,12 @@ export class PaletteController {
    */
   private editSelectedTie(): void {
     const engine = this.getEngine()
-    const fromNoteId = this.state.selectedTieFromNoteId
+    const fromNoteId = selectedOf(this.state, 'tie')?.fromNoteId
     if (!engine || !fromNoteId) return
 
     dbg(`[Tie] removing selected tie | fromNoteId:${fromNoteId}`)
     engine.toggleTie(fromNoteId) // the tie exists, so this removes it
-    this.state.selectedTieFromNoteId = null
+    this.state.selectedElement = null
     this.selectNote(null)
     this.renderScore()
     this.refreshTieSelection()
@@ -1224,11 +1220,12 @@ export class PaletteController {
     }
 
     // (1) The dots are selected in the score → the press removes them.
-    if (this.state.selectedDotNoteId && engine) {
-      const noteId = this.state.selectedDotNoteId
+    const selectedDot = selectedOf(this.state, 'dot')
+    if (selectedDot && engine) {
+      const noteId = selectedDot.noteId
       dbg(`[Dot] removing selected dot(s) | noteId:${noteId}`)
       engine.runBatch('Remove dot', () => engine.updateNote(noteId, { dots: 0 }))
-      this.state.selectedDotNoteId = null
+      this.state.selectedElement = null
       this.state.selectedDots = 0
       this.selectNote(null)
       this.renderScore()
@@ -1600,7 +1597,7 @@ export class PaletteController {
    * turn would write three redundant changes that say the same thing.
    */
   private selectedMeasureTarget(): number | null {
-    const range = this.state.selectedMeasureRange
+    const range = selectedOf(this.state, 'measureRange')
     if (!range || this.state.selectedTool !== 'selection') return null
     return Math.min(range.anchor, range.focus)
   }
@@ -1699,9 +1696,10 @@ export class PaletteController {
     // carries no `text`, so re-numbering leaves the word alone; a word preset carries no
     // `dots`, so re-wording leaves a dotted unit alone. Renaming never moves the tempo and
     // re-numbering never rewrites the word (decision D2).
-    if (tool && this.state.selectedTempoId) {
+    const selectedTempo = selectedOf(this.state, 'tempo')
+    if (tool && selectedTempo) {
       const engine = this.getEngine()
-      const updated = engine?.updateTempoMark(this.state.selectedTempoId, tool)
+      const updated = engine?.updateTempoMark(selectedTempo.id, tool)
       if (updated) dbg(`✓ Tempo mark → ${tempoLabel(updated)}`)
       this.renderScore()
       return
@@ -1806,9 +1804,7 @@ export class PaletteController {
     this.state.tenuto = false
     this.state.selectedBeam = DEFAULT_BEAM
     this.disarmPositionalTools()
-    this.state.selectedTimeSignatureMeasure = null
-    this.state.selectedBarlineMeasure = null
-    this.state.selectedDynamicId = null
+    this.state.selectedElement = null
   }
 
   /**
@@ -1881,7 +1877,7 @@ export class PaletteController {
     // More than one note selected → no single note to reflect, so the key stays dark (see the Keypad
     // single-selection rule in keypadSync / selection.multipleNotesSelected).
     if (multipleNotesSelected(this.state.selectedItems.values())) return false
-    const noteId = this.state.selectedArticulationNoteId ?? this.state.selectedNoteId
+    const noteId = selectedOf(this.state, 'articulation')?.noteId ?? this.state.selectedNoteId
     if (!noteId) return false
     // A selected REST reports the ARMED flag, not its own articulations — it has none and can have
     // none. Pressing the key with a rest selected arms for the note it is about to become
@@ -1959,7 +1955,7 @@ export class PaletteController {
     // of the reads below, which would report the (cleared) note selection instead.
     if (armedTool(this.state, 'tie')) return true
     // A tie selected in the score lights the key too, so it reads as removable from the Keypad.
-    if (this.state.selectedTieFromNoteId) return true
+    if (selectedOf(this.state, 'tie')) return true
     // More than one note selected → nothing single to reflect (Keypad single-selection rule).
     if (multipleNotesSelected(this.state.selectedItems.values())) return false
     const engine = this.getEngine()

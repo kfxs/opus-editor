@@ -48,7 +48,7 @@ describe('barline selection highlight', () => {
     // rects' own x is not. Asserting against the registry is asserting the thing that was wrong.
     for (const measure of [1, 5, 12, 20]) {
       highlight.clearHighlights()
-      state.selectedBarlineMeasure = measure
+      state.selectedElement = { kind: 'barline', measure: measure }
       highlight.applyBarlineSelectionHighlight()
       const geometry = engine.getElementRegistry().getStaffGeometry(measure, 0)!
       expect(marks()).toHaveLength(1)
@@ -59,7 +59,7 @@ describe('barline selection highlight', () => {
   it('⭐ survives a width change that MOVES neighbouring bars without redrawing them', () => {
     // The reported bug, stated as its cause: stretch a bar, and the bars after it are reused and
     // translated. A recolour read their stale rect coordinates and left half the barline black.
-    state.selectedBarlineMeasure = 12
+    state.selectedElement = { kind: 'barline', measure: 12 }
     engine.setBarWidth(3, 4.5)
     engine.renderScore()
     highlight.clearHighlights()
@@ -73,7 +73,7 @@ describe('barline selection highlight', () => {
     // Two bugs in one line. Unsaid, the mark comes out orange inside a black outline. Stroked in
     // the fill colour, it is the right colour but straddles the edge and draws fatter than every
     // other line on the page. The width has to be the whole of the geometry.
-    state.selectedBarlineMeasure = 4
+    state.selectedElement = { kind: 'barline', measure: 4 }
     highlight.applyBarlineSelectionHighlight()
     const mark = marks()[0]
     expect(mark.getAttribute('stroke')).toBe('none')
@@ -81,7 +81,7 @@ describe('barline selection highlight', () => {
   })
 
   it('clears completely — the mark is a node we own, so removal is deleting it', () => {
-    state.selectedBarlineMeasure = 4
+    state.selectedElement = { kind: 'barline', measure: 4 }
     highlight.applyBarlineSelectionHighlight()
     expect(marks()).toHaveLength(1)
     highlight.clearHighlights()

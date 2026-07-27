@@ -213,6 +213,158 @@ export function assertNeverTool(tool: never): never {
   throw new Error(`Unhandled marking tool: ${JSON.stringify(tool)}`)
 }
 
+/** Which OPEN join of a cross-system slur is armed for keyboard nudging — set by clicking an
+ *  orange segment-endpoint square (docs/multisystem-slur-segment-endpoint-offset-plan.md). */
+export type SlurSegmentEndpoint =
+  | { role: 'begin' }
+  | { role: 'end' }
+  | { role: 'middle'; ordinal: number; side: 'left' | 'right' }
+
+/**
+ * The ONE on-score element that is selected, or none — the single-select half of the selection.
+ *
+ * WHY ONE FIELD, the same argument as {@link MarkingTool} one axis over. These were twenty-odd
+ * independent scalars (`selectedClefMeasure`, `selectedDynamicId`, `selectedSlurId`, …). They are
+ * mutually exclusive — you have picked a clef, or a dynamic, or a barline, never two — but nothing
+ * said so, and the only thing preventing "the dynamic and the tie are both selected" was FOUR
+ * hand-maintained clear-lists covering different subsets of the fields, in four different files.
+ *
+ * They had already diverged, exactly as the marking tools did before their union: `selectNotes` →
+ * `clearScalarSubSelections` named seventeen fields and missed the dynamic, the tempo mark and the
+ * tuplet, so replacing the selection with notes left a picked dynamic selected — highlighted, and
+ * still what Delete would act on. Nothing was wrong with any one of those lists; there were four.
+ *
+ * Holding it in one value makes that unrepresentable rather than merely unreached: **selecting IS
+ * clearing**, so there is nothing to keep in sync, and the four lists collapse to `= null`. Dispatch
+ * by `switch (el.kind)` with an exhaustiveness check ({@link assertNeverElement}) — a fifteenth kind
+ * cannot be added without the compiler naming every site that must handle it.
+ *
+ * ⛔ **Notes are deliberately NOT here.** `selectedItems` / `selectedNoteId` / `selectionPivotId` /
+ * `selectionBase` stay their own thing: notes are a genuine MULTI-selection with an anchor and a
+ * pivot, and the kinds below are single-select. Folding them together would destroy that
+ * distinction rather than clarify it. Two of the kinds below (`articulation` and `measureRange`)
+ * ride ALONGSIDE the set — the union field is their anchor, exactly as `selectedNoteId` is the
+ * note set's.
+ *
+ * ⚠️ Always REASSIGNED, never mutated in place: the observable Proxy traps the SET on
+ * `selectedElement`, so `state.selectedElement.endpoint = 'start'` changes the value and tells
+ * nobody. Read it by narrowing on `.kind`, or with {@link selectedOf} for one-kind-or-nothing.
+ */
+export type SelectedElement =
+  /** A clef change, addressed POSITIONALLY — there is no clef object to hold an id, so the
+   *  (measure, beat, staff) triple IS the identity. `beat` 0 is the opening clef. */
+  | { kind: 'clef'; measure: number; beat: number; staff: number }
+  /** The on-score time-signature glyph in a measure. Distinct from the armed
+   *  `{ kind: 'timeSignature' }` MARKING tool (the meter waiting to be placed). */
+  | { kind: 'timeSignature'; measure: number }
+  /**
+   * The line that ENDS this measure.
+   *
+   * Positional, and with no staff, because a barline has no object in the model at all: the
+   * `measures` array IS the barline spine, so what is selected is a BOUNDARY. And it is one line
+   * per system, not per staff: a barline is a system-wide statement like the time signature (which
+   * is why the highlight paints every staff of the measure), unlike a clef, which each staff
+   * states for itself.
+   */
+  | { kind: 'barline'; measure: number }
+  /** An on-score dynamic, selected for removal/edit. Distinct from the armed
+   *  `{ kind: 'dynamic' }` marking tool. */
+  | { kind: 'dynamic'; id: string }
+  /** An on-score tempo mark, selected for removal/edit. Distinct from the armed
+   *  `{ kind: 'tempo' }` marking tool. */
+  | { kind: 'tempo'; id: string }
+  | { kind: 'tuplet'; id: string }
+  /**
+   * An on-score slur, plus WHICH of its handles (if any) the arrows nudge.
+   *
+   * `endpoint` is a true end (a blue square); `segmentEndpoint` is an OPEN join of a cross-system
+   * slur (an orange one). Mutually exclusive — arming one disarms the other — which is now one
+   * object's business rather than two fields that had to be cleared together at seven sites.
+   * `segmentSpanCount` is the live system count captured when the join was armed, passed to
+   * `nudgeSlurSegmentEndpoint` as the override's reset signature.
+   */
+  | {
+      kind: 'slur'
+      id: string
+      endpoint?: 'start' | 'end'
+      segmentEndpoint?: SlurSegmentEndpoint
+      segmentSpanCount?: number
+    }
+  /** A tie arc, named by the note it starts FROM (a tie is a property of that note). */
+  | { kind: 'tie'; fromNoteId: string }
+  /**
+   * A whole articulation GROUP on one note (Sibelius-style: clicking one glyph picks them all).
+   * `type` is the clicked glyph, carried for context; `null` means the group as a whole, which is
+   * what every current selection path sets.
+   *
+   * Rides ALONGSIDE `selectedItems`, which holds the multi-selection of groups — this is its
+   * ANCHOR, the last group added, exactly as `selectedNoteId` is the note set's.
+   */
+  | { kind: 'articulation'; noteId: string; type: string | null }
+  /** An accidental glyph, named by its note plus which sign was drawn. */
+  | { kind: 'accidental'; noteId: string; type: string | null }
+  /**
+   * A slot's augmentation DOTS. ONE id for ALL of them: `dots` is a single value on the
+   * `Chord`/`Rest` (it modifies the duration), even though VexFlow draws one dot per notehead per
+   * dot — so a chord's dots select and delete together, and "dot one head of a chord" has no
+   * representation. Holds the chord's lowest pitch id (the anchor its dots register against, like
+   * articulations) or a rest's own id — a rest IS its slot. No companion count: it is read live off
+   * the note, exactly as the tie is read off `tiedTo`.
+   */
+  | { kind: 'dot'; noteId: string }
+  /**
+   * A slot's STEM — the anchor note id the stem registers against. A chord has ONE stem, anchored
+   * on its lowest pitch, exactly as its dots and articulations are, so "the stem of one head of a
+   * chord" has no representation.
+   *
+   * Selection ONLY, for now: nothing acts on a selected stem (no delete, no flip — `x` still flips
+   * from the note). It is the pointer half of what already exists on the render side, where the
+   * stem is a registered element with its own ink rect (ElementRegistry `'stem'`); a stem-length
+   * drag is the obvious next thing to hang off it.
+   */
+  | { kind: 'stem'; noteId: string }
+  /**
+   * A slot's TREMOLO mark — the anchor note id, like the stem it rides. A slot carries ONE tremolo
+   * (`setTremolo` replaces, never stacks), so there is one mark to select however many strokes it
+   * draws. Its mutual exclusion with the stem used to be a comment on two fields; it is now the
+   * union's doing (the marks overlap on screen and the click resolves which one you meant).
+   */
+  | { kind: 'tremolo'; noteId: string }
+  /**
+   * A contiguous run of MEASURES outlined by a blue box — a selection of bars, not of anything
+   * inside them. `anchor`/`focus` hold the span's low/high bounds (every measure between them
+   * inclusive). `staff` is the 0-based staff the box-select landed on — the reference staff the
+   * "Staff: + Above / + Below" buttons insert relative to.
+   *
+   * `boxStyle` picks which box, and they are different gestures: `'double'` is the visual-only
+   * Ctrl+Shift+click marker (two nested rectangles, NO objects selected), and a repeat
+   * Ctrl+Shift+click GROWS the span — it only ever gets bigger. `'single'` is the Sibelius-style
+   * plain-click passage selection: ONE rectangle around a single bar whose contents (notes/rests +
+   * enclosed dynamics/slurs) ARE selected — so this one rides alongside a populated
+   * `selectedItems`, like the articulation anchor above.
+   */
+  | { kind: 'measureRange'; anchor: number; focus: number; staff: number; boxStyle: 'single' | 'double' }
+
+/**
+ * The selected element IF it is of `kind`, else null — the read half of {@link SelectedElement},
+ * typed so the payload narrows: `selectedOf(state, 'slur')?.endpoint` is a slur endpoint. Prefer
+ * narrowing on `.kind` directly inside a dispatch; this is for the one-kind-or-nothing reads (a
+ * command asking "is a barline what's selected?"). The twin of {@link armedTool}.
+ */
+export function selectedOf<K extends SelectedElement['kind']>(
+  state: EditorState,
+  kind: K,
+): Extract<SelectedElement, { kind: K }> | null {
+  const el = state.selectedElement
+  return el?.kind === kind ? (el as Extract<SelectedElement, { kind: K }>) : null
+}
+
+/** Compile-time exhaustiveness: a `switch` over {@link SelectedElement} that forgets a kind fails
+ *  to build here, which is what makes adding a fifteenth kind safe instead of a memory test. */
+export function assertNeverElement(element: never): never {
+  throw new Error(`Unhandled selected element: ${JSON.stringify(element)}`)
+}
+
 /**
  * The score canvas's cursor, DERIVED from state — the one place the cursor decision lives, so the
  * view only binds the result. Framework-agnostic on purpose: the class names are the layer contract
@@ -244,8 +396,9 @@ export interface EditorState {
   // --- Note selection ---
   /**
    * The multi-selection set, keyed by `itemKey(item)` (ordered: insertion = click
-   * order). Phase 1 holds only `note` items; other element kinds are still
-   * single-select via the scalar fields below.
+   * order). Holds `note` items and `articulation` groups (plus the `dynamic`/`slur`
+   * items a box drags along); every other element kind is single-select through
+   * {@link selectedElement}.
    */
   selectedItems: Map<string, SelectionItem>
   /**
@@ -268,42 +421,16 @@ export interface EditorState {
    * notes while re-flowing the new range, instead of piling range on range.
    */
   selectionBase: SelectionItem[]
-  selectedArticulationNoteId: string | null
-  selectedArticulationType: string | null
-  selectedAccidentalNoteId: string | null
-  selectedAccidentalType: string | null
   /**
-   * The slot whose augmentation DOTS are selected (null = none). One id for ALL of them: `dots` is
-   * a single value on the `Chord`/`Rest` (it modifies the duration), even though VexFlow draws one
-   * dot per notehead per dot — so a chord's dots select and delete together, and "dot one head of a
-   * chord" has no representation. Holds the chord's lowest pitch id (the anchor its dots register
-   * against, like articulations) or a rest's own id — a rest IS its slot. A dotted REST is ordinary,
-   * not exotic: you can author one, and `restFill` picks them for compound beats (6/8 is full of
-   * them). No companion `selectedDotCount` — the count is read live off the note, exactly as the tie
-   * is read off `tiedTo`. */
-  selectedDotNoteId: string | null
-  /**
-   * The slot whose STEM is selected (null = none). Holds the anchor note id the stem registers
-   * against — a chord has ONE stem, anchored on its lowest pitch, exactly as its dots and
-   * articulations are, so "the stem of one head of a chord" has no representation.
+   * The ONE on-score element that is selected, or null. See {@link SelectedElement}: the fourteen
+   * kinds are mutually exclusive, and holding them in ONE field is what makes "the dynamic and the
+   * tie are both selected" impossible to write, rather than something four clear-lists in four
+   * files have to remember to prevent.
    *
-   * Selection ONLY, for now: nothing acts on a selected stem (no delete, no flip — `x` still flips
-   * from the note). It is the pointer half of what already exists on the render side, where the stem
-   * is a registered element with its own ink rect (ElementRegistry `'stem'`); a stem-length drag is
-   * the obvious next thing to hang off it.
+   * Always REASSIGNED (never mutated in place) so the observable state emits a change. Read it by
+   * narrowing on `.kind`, or with {@link selectedOf} when you want one kind or nothing.
    */
-  selectedStemNoteId: string | null
-  /**
-   * The slot whose TREMOLO mark is selected (null = none) — the anchor note id, like the stem it
-   * rides. A slot carries ONE tremolo (`setTremolo` replaces, never stacks), so there is one mark to
-   * select however many strokes it draws.
-   *
-   * Selection only, for now — nothing acts on it yet, and removal is still Ctrl+Z. Its point is that
-   * the mark is now a thing the pointer can name, which is what a Delete or a properties edit will
-   * need. Mutually exclusive with {@link selectedStemNoteId}: the marks overlap on screen and the
-   * click resolves which one you meant, so the selection must not claim both.
-   */
-  selectedTremoloNoteId: string | null
+  selectedElement: SelectedElement | null
   /**
    * The tremolo NOTE ENTRY is armed with (null = none) — the mark every note entered from here on
    * is born wearing, and what the ghost note shows.
@@ -320,28 +447,6 @@ export interface EditorState {
    * articulations it sits beside.
    */
   selectedTremolo: TremoloMark | null
-  selectedTupletId: string | null
-  selectedTieFromNoteId: string | null
-  /** Id of the on-score slur selected for removal (selection tool); null if none. */
-  selectedSlurId: string | null
-  /** Which endpoint (in/out) of the selected slur is armed for keyboard nudging — set by
-   *  clicking a blue endpoint square (docs/slur-endpoint-offset-plan.md). Only meaningful
-   *  while {@link selectedSlurId} is set; reset to null whenever `selectedSlurId` is
-   *  assigned or cleared, so a stale endpoint can't nudge a newly-selected slur. */
-  selectedSlurEndpoint: 'start' | 'end' | null
-  /** Which OPEN join of a cross-system slur is armed for keyboard nudging — set by clicking
-   *  an orange segment-endpoint square (docs/multisystem-slur-segment-endpoint-offset-plan.md).
-   *  Mutually exclusive with {@link selectedSlurEndpoint} (arming one disarms the other); reset
-   *  to null at every selection change so a stale join can't nudge a newly-selected slur. */
-  selectedSlurSegmentEndpoint:
-    | { role: 'begin' }
-    | { role: 'end' }
-    | { role: 'middle'; ordinal: number; side: 'left' | 'right' }
-    | null
-  /** The live system count captured when {@link selectedSlurSegmentEndpoint} was armed — passed
-   *  to `nudgeSlurSegmentEndpoint` as the override's reset signature (matches the count the
-   *  handle was registered with). Only meaningful while the segment endpoint is armed. */
-  selectedSlurSegmentSpanCount: number
   /** While dragging a slur endpoint handle: the note the slur would snap onto if
    *  released now (highlighted as the candidate anchor); null when not dragging. */
   slurEndpointCandidateNoteId: string | null
@@ -412,31 +517,6 @@ export interface EditorState {
   } | null
   selectedBeam: BeamMode
 
-  // --- Clef tool ---
-  /** Measure of the clef selected for removal (selection tool); null if none. */
-  selectedClefMeasure: number | null
-  /** Beat of the selected clef within its measure (0 = opening clef). */
-  selectedClefBeat: number | null
-  /** 0-based staff of the selected clef (multi-staff); a delete/edit stays on it. */
-  selectedClefStaff: number
-
-  // --- Time signature tool ---
-  /** Measure of the on-score time-signature glyph selected for removal (selection
-   *  tool); null if none. Distinct from the armed `{ kind: 'timeSignature' }` marking
-   *  tool (the meter waiting to be placed). */
-  selectedTimeSignatureMeasure: number | null
-
-  // --- Barline ---
-  /**
-   * The measure whose ENDING barline is selected (selection tool); null if none.
-   *
-   * Positional, and with no staff, because a barline has no object in the model at all: the
-   * `measures` array IS the barline spine, so what is selected is a BOUNDARY — "the line that ends
-   * measure N". And it is one line per system, not per staff: a barline is a system-wide statement
-   * like the time signature (which is why the highlight paints every staff of the measure), unlike
-   * a clef, which each staff states for itself.
-   */
-  selectedBarlineMeasure: number | null
   /**
    * Is the LAST system stretched to the page width? True (the default) is Finale/Sibelius; false is
    * LilyPond's `ragged-last`, where a short final system keeps its natural width.
@@ -446,37 +526,6 @@ export interface EditorState {
    * renderer owns the truth; this is what the UI reads, exactly as `viewMode` does.
    */
   justifyLastLine: boolean
-
-  // --- Measure box selection ---
-  /** The contiguous run of measures outlined by the Sibelius-style blue double box
-   *  (Ctrl+Shift+click on empty space inside a bar); null if none. `anchor`/`focus` hold
-   *  the span's low/high bounds (every measure between them inclusive is selected). A
-   *  repeat Ctrl+Shift+click GROWS the span to also include the clicked bar (union) — it
-   *  only ever gets bigger; a plain click clears it to start fresh. Purely a visual
-   *  marker — NO objects in the measures are selected. Cleared on any other interaction. */
-  selectedMeasureRange: { anchor: number; focus: number } | null
-
-  /** The 0-based staff the last measure box-select landed on (which stacked staff the
-   *  Ctrl+Shift+click fell on). The reference staff the "Staff: + Above / + Below" buttons
-   *  insert relative to. Only meaningful while {@link selectedMeasureRange} is non-null. */
-  selectedMeasureStaff: number
-
-  /** Which box the {@link selectedMeasureRange} renders as. `'double'` = the visual-only
-   *  Ctrl+Shift+click marker (two nested rectangles, no objects selected). `'single'` = the
-   *  Sibelius-style plain-click passage selection: ONE rectangle around a single bar whose
-   *  contents (notes/rests + enclosed dynamics/slurs) ARE selected. Only meaningful while
-   *  {@link selectedMeasureRange} is non-null. */
-  selectedMeasureBoxStyle: 'single' | 'double'
-
-  // --- Dynamics tool ---
-  /** Id of the on-score dynamic selected for removal/edit (selection tool); null
-   *  if none. Distinct from the armed `{ kind: 'dynamic' }` marking tool. */
-  selectedDynamicId: string | null
-
-  // --- Tempo tool ---
-  /** Id of the on-score tempo mark selected for removal/edit (selection tool); null if
-   *  none. Distinct from the armed `{ kind: 'tempo' }` marking tool. */
-  selectedTempoId: string | null
 
   // --- In-canvas text editing ---
   /** Set while a seamless DOM-overlay text editor is open over a mark; null when
@@ -540,20 +589,8 @@ export function createEditorState(): EditorState {
     selectedNoteId: null,
     selectionPivotId: null,
     selectionBase: [],
-    selectedArticulationNoteId: null,
-    selectedArticulationType: null,
-    selectedAccidentalNoteId: null,
-    selectedAccidentalType: null,
-    selectedDotNoteId: null,
-    selectedStemNoteId: null,
-    selectedTremoloNoteId: null,
+    selectedElement: null,
     selectedTremolo: null,
-    selectedTupletId: null,
-    selectedTieFromNoteId: null,
-    selectedSlurId: null,
-    selectedSlurEndpoint: null,
-    selectedSlurSegmentEndpoint: null,
-    selectedSlurSegmentSpanCount: 0,
     slurEndpointCandidateNoteId: null,
     selectedDuration: DEFAULT_DURATION,
     selectedAccidental: null,
@@ -564,17 +601,7 @@ export function createEditorState(): EditorState {
     selectedMarkingTool: null,
     armedTuplet: null,
     selectedBeam: DEFAULT_BEAM,
-    selectedClefMeasure: null,
-    selectedClefBeat: null,
-    selectedClefStaff: 0,
-    selectedTimeSignatureMeasure: null,
-    selectedBarlineMeasure: null,
     justifyLastLine: false,
-    selectedMeasureRange: null,
-    selectedMeasureStaff: 0,
-    selectedMeasureBoxStyle: 'double',
-    selectedDynamicId: null,
-    selectedTempoId: null,
     editingText: null,
     pastePlacementArmed: false,
     showCursor: true,

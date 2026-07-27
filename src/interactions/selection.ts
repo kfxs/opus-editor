@@ -9,10 +9,12 @@
  *
  * Framework-agnostic: no Vue/React/Angular imports.
  *
- * NOTE (Phase 1): the union covers every selectable element so the container is
- * future-proof, but only `note` is currently routed through the set (see
- * SelectionController / MouseController). The other kinds remain single-select
- * via their scalar fields on EditorState until later phases migrate them here.
+ * NOTE: the union covers every selectable element so the container is future-proof,
+ * but only `note` and `articulation` are routed through the set by a click (plus the
+ * `dynamic`/`slur` items a Shift-box drags along — see SelectionController /
+ * MouseController). Every other kind is SINGLE-select and lives in
+ * `EditorState.selectedElement`, its own discriminated union; migrating one here means
+ * giving it a real multi-selection, which none of them has yet.
  */
 export type SelectionItem =
   | { kind: 'note'; id: string } // notes and rests
@@ -24,7 +26,7 @@ export type SelectionItem =
   | { kind: 'accidental'; noteId: string; type: string }
   | { kind: 'clef'; measure: number; beat: number }
   | { kind: 'timeSignature'; measure: number }
-  /** The line that ENDS this measure — a boundary, not an object (see EditorState.selectedBarlineMeasure). */
+  /** The line that ENDS this measure — a boundary, not an object (see `SelectedElement`'s `barline`). */
   | { kind: 'barline'; measure: number }
 
 export type SelectionKind = SelectionItem['kind']

@@ -1,6 +1,6 @@
 import type { EditorState, StateListener } from './EditorState'
 import type { BeamMode, NoteDuration, TremoloMark } from '../types/music'
-import { armedToolUsesLength } from './EditorState'
+import { armedToolUsesLength, selectedOf } from './EditorState'
 import type { BeamRole } from '../utils/beaming'
 import type { PaletteController } from './PaletteController'
 import { modeSelection } from './modeSelection'
@@ -228,7 +228,8 @@ export function tremoloHighlight(state: EditorState, engine: TremoloSource | nul
   if (armed) return armed.kind === 'tremolo' ? armed.tremolo : null
   if (state.selectedTremolo !== null && state.selectedTool === 'entry') return state.selectedTremolo
   if (!engine) return null
-  if (state.selectedTremoloNoteId) return engine.getNote(state.selectedTremoloNoteId)?.tremolo ?? null
+  const markNoteId = selectedOf(state, 'tremolo')?.noteId
+  if (markNoteId) return engine.getNote(markNoteId)?.tremolo ?? null
   if (noNoteInSelection(state) || !state.selectedNoteId) return null
   return engine.getNote(state.selectedNoteId)?.tremolo ?? null
 }
@@ -256,7 +257,8 @@ export interface TremoloSource {
  */
 export function tremoloPairHighlight(state: EditorState, engine: TremoloSource | null): boolean {
   if (state.selectedMarkingTool || !engine) return false
-  if (state.selectedTremoloNoteId) return engine.getNote(state.selectedTremoloNoteId)?.tremoloPair === true
+  const markNoteId = selectedOf(state, 'tremolo')?.noteId
+  if (markNoteId) return engine.getNote(markNoteId)?.tremoloPair === true
   if (noNoteInSelection(state) || !state.selectedNoteId) return false
   return engine.getNote(state.selectedNoteId)?.tremoloPair === true
 }
@@ -305,7 +307,7 @@ export function dotHighlight(state: EditorState): 'dot' | null {
   const armed = state.selectedMarkingTool
   if (armedToolUsesLength(state)) return state.selectedDots < 1 ? null : 'dot'
   if (armed) return armed.kind === 'dot' ? 'dot' : null
-  if (state.selectedDotNoteId) return 'dot'
+  if (selectedOf(state, 'dot')) return 'dot'
   return noNoteInSelection(state) || state.selectedDots < 1 ? null : 'dot'
 }
 
@@ -347,9 +349,10 @@ export function wireKeypadSync(
     // standalone accidental glyph is selected in the score, light THAT one (so it can be
     // changed/removed from the Keypad); otherwise fall back to the note-entry / selected-note
     // accidental — but never under another tool, where no accidental is in play.
+    const selectedAccidentalGlyph = selectedOf(state, 'accidental')
     accidentalSelection.setHighlight(
       armed?.kind === 'accidental' ? armed.sign
-      : state.selectedAccidentalNoteId ? accidentalTypeToKey(state.selectedAccidentalType)
+      : selectedAccidentalGlyph ? accidentalTypeToKey(selectedAccidentalGlyph.type)
       : armed || noNoteInSelection(state) ? null
       : state.selectedAccidental
     )

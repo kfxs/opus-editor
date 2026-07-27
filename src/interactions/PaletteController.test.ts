@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { PaletteController } from './PaletteController'
-import { createEditorState, armedTool, type EditorState, type MarkingTool } from './EditorState'
+import { createEditorState, armedTool, selectedOf, type EditorState, type MarkingTool } from './EditorState'
 import { dotHighlight, durationHighlight } from './keypadSync'
 
 // PaletteController is framework-agnostic; stub its callbacks.
@@ -112,8 +112,7 @@ describe('PaletteController — the Time Signature window applies to a SELECTED 
 
   const boxBars = (anchor: number, focus: number, style: 'single' | 'double' = 'single'): void => {
     state.selectedTool = 'selection'
-    state.selectedMeasureRange = { anchor, focus }
-    state.selectedMeasureBoxStyle = style
+    state.selectedElement = { kind: 'measureRange', anchor, focus, staff: 0, boxStyle: style }
   }
 
   it('applies to the boxed bar instead of arming', () => {
@@ -142,7 +141,7 @@ describe('PaletteController — the Time Signature window applies to a SELECTED 
   it('keeps the box up, so you can see the bar you just changed', () => {
     boxBars(4, 4)
     palette.armTimeSignature({ numerator: 2, denominator: 4 }, true, null)
-    expect(state.selectedMeasureRange).toEqual({ anchor: 4, focus: 4 })
+    expect(state.selectedElement).toEqual({ kind: 'measureRange', anchor: 4, focus: 4, staff: 0, boxStyle: 'single' })
   })
 
   it('arms as before when NO bar is selected', () => {
@@ -1493,16 +1492,16 @@ describe('PaletteController — editing a selected dot', () => {
     // — the press would read as "nothing selected" and arm the stamp instead of editing what IS
     // selected. Same trap as the tie's.
     state.selectedTool = 'selection'
-    state.selectedDotNoteId = 'n1'
+    state.selectedElement = { kind: 'dot', noteId: 'n1' }
     palette.toggleDot()
     expect(updateNote).toHaveBeenCalledWith('n1', { dots: 0 })
     expect(armedTool(state, 'dot')).toBeNull()
-    expect(state.selectedDotNoteId).toBeNull()
+    expect(selectedOf(state, 'dot')).toBeNull()
     expect(selectNote).toHaveBeenCalledWith(null) // switch-off leaves nothing selected
   })
 
   it('lights the dot key while the dots are selected', () => {
-    state.selectedDotNoteId = 'n1'
+    state.selectedElement = { kind: 'dot', noteId: 'n1' }
     expect(dotHighlight(state)).toBe('dot')
   })
 })
@@ -1539,22 +1538,22 @@ describe('PaletteController — editing a selected tie', () => {
     // Clicking a tie clears the note selection outright, so without its own branch the press would
     // read as "nothing selected" and arm the stamp instead of editing the thing that IS selected.
     state.selectedTool = 'selection'
-    state.selectedTieFromNoteId = 'n1'
+    state.selectedElement = { kind: 'tie', fromNoteId: 'n1' }
     palette.toggleTie()
     expect(toggleTieFn).toHaveBeenCalledWith('n1')
     expect(armedTool(state, 'tie')).toBeNull()
-    expect(state.selectedTieFromNoteId).toBeNull()
+    expect(selectedOf(state, 'tie')).toBeNull()
   })
 
   it('leaves nothing selected after the removal (the Keypad switch-off rule)', () => {
     state.selectedTool = 'selection'
-    state.selectedTieFromNoteId = 'n1'
+    state.selectedElement = { kind: 'tie', fromNoteId: 'n1' }
     palette.toggleTie()
     expect(selectNote).toHaveBeenCalledWith(null)
   })
 
   it('lights the Keypad tie key while a tie is selected', () => {
-    state.selectedTieFromNoteId = 'n1'
+    state.selectedElement = { kind: 'tie', fromNoteId: 'n1' }
     expect(palette.noteHasTie()).toBe(true)
   })
 })
@@ -1590,15 +1589,13 @@ describe('PaletteController — editing a selected accidental glyph', () => {
     )
     // A standalone sharp glyph on note "n1" is selected in the score.
     state.selectedTool = 'selection'
-    state.selectedAccidentalNoteId = 'n1'
-    state.selectedAccidentalType = '#'
+    state.selectedElement = { kind: 'accidental', noteId: 'n1', type: '#' }
   })
 
   it('pressing the SAME accidental removes it (reverts to prevailing) and clears the selection', () => {
     palette.setAccidental('#')
     expect(updateNote).toHaveBeenCalledWith('n1', { alter: 0, forceAccidental: undefined })
-    expect(state.selectedAccidentalNoteId).toBeNull()
-    expect(state.selectedAccidentalType).toBeNull()
+    expect(selectedOf(state, 'accidental')).toBeNull()
     // Switch-off leaves NOTHING selected (unlike the Del key, which keeps the note) — otherwise the
     // keypad would show a stray duration for an invisible selection.
     expect(selectNote).toHaveBeenCalledWith(null)
@@ -1608,14 +1605,14 @@ describe('PaletteController — editing a selected accidental glyph', () => {
   it('a null "remove" also deletes the selected accidental', () => {
     palette.setAccidental(null)
     expect(updateNote).toHaveBeenCalledWith('n1', { alter: 0, forceAccidental: undefined })
-    expect(state.selectedAccidentalNoteId).toBeNull()
+    expect(selectedOf(state, 'accidental')).toBeNull()
   })
 
   it('pressing a DIFFERENT accidental changes it and keeps it selected', () => {
     palette.setAccidental('b')
     expect(setNoteAccidental).toHaveBeenCalledWith('n1', 'b')
-    expect(state.selectedAccidentalNoteId).toBe('n1') // still selected
-    expect(state.selectedAccidentalType).toBe('b')    // now the flat
+    expect(selectedOf(state, 'accidental')?.noteId).toBe('n1') // still selected
+    expect(selectedOf(state, 'accidental')?.type).toBe('b')    // now the flat
     expect(updateNote).not.toHaveBeenCalled()
   })
 
@@ -1658,13 +1655,13 @@ describe('PaletteController — editing a selected articulation group', () => {
     state.selectedTool = 'selection'
     arts['n1'] = ['accent']
     state.selectedItems.set('articulation:n1', { kind: 'articulation', noteId: 'n1', type: '' })
-    state.selectedArticulationNoteId = 'n1'
+    state.selectedElement = { kind: 'articulation', noteId: 'n1', type: null }
   })
 
   it('additively ADDS a missing articulation, keeping the group selected', () => {
     palette.toggleStaccato()
     expect(arts['n1'].sort()).toEqual(['accent', 'staccato'])
-    expect(state.selectedArticulationNoteId).toBe('n1') // still selected
+    expect(selectedOf(state, 'articulation')?.noteId).toBe('n1') // still selected
     expect(armedTool(state, 'articulation')).toBeNull() // did NOT arm the stamp
   })
 
@@ -1672,13 +1669,13 @@ describe('PaletteController — editing a selected articulation group', () => {
     arts['n1'] = ['accent', 'staccato']
     palette.toggleAccent()
     expect(arts['n1']).toEqual(['staccato'])
-    expect(state.selectedArticulationNoteId).toBe('n1')
+    expect(selectedOf(state, 'articulation')?.noteId).toBe('n1')
   })
 
   it('toggling off the LAST articulation clears the selection (nothing to keep selected)', () => {
     palette.toggleAccent() // n1 had only 'accent' → now empty
     expect(arts['n1']).toEqual([])
-    expect(state.selectedArticulationNoteId).toBeNull()
+    expect(selectedOf(state, 'articulation')).toBeNull()
     expect(selectNote).toHaveBeenCalledWith(null)
   })
 

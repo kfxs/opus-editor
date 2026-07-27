@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
 import { HighlightController } from './HighlightController'
-import { createEditorState } from './EditorState'
+import { createEditorState, type SlurSegmentEndpoint } from './EditorState'
 import { ElementRegistry, type ElementInfo } from '../engine/ElementRegistry'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
@@ -41,9 +41,12 @@ function runPartials(
   canvas.appendChild(svg)
 
   const state = createEditorState()
-  state.selectedSlurId = 'S1'
-  state.selectedSlurEndpoint = selectedEndpoint
-  state.selectedSlurSegmentEndpoint = selectedSegment
+  state.selectedElement = {
+    kind: 'slur',
+    id: 'S1',
+    endpoint: selectedEndpoint ?? undefined,
+    segmentEndpoint: selectedSegment ?? undefined,
+  }
 
   const hc = new HighlightController(() => engine, () => canvas, state)
   hc.applySlurHandles()
@@ -59,7 +62,7 @@ function runPartials(
     selectedSegRects: svg.querySelectorAll('.slur-segment-endpoint-handle--selected').length,
   }
 }
-type EditorStateSegmentSel = ReturnType<typeof createEditorState>['selectedSlurSegmentEndpoint']
+type EditorStateSegmentSel = SlurSegmentEndpoint | null
 const run = (
   slurExtra: Partial<ElementInfo>,
   selectedEndpoint: 'start' | 'end' | null = null,
@@ -451,7 +454,7 @@ describe('clearHighlights — the inverse of a highlight pass', () => {
     it('selecting the MARK alone lights the same strokes (the shared colouring pass)', () => {
       const { hc, painted, state } = tremoloHarness(2, 2)
       state.selectedItems.clear()
-      state.selectedTremoloNoteId = 'N1'
+      state.selectedElement = { kind: 'tremolo', noteId: 'N1' }
       hc.applyTremoloHighlight()
       expect(painted().length).toBe(2)
     })
@@ -465,7 +468,7 @@ describe('clearHighlights — the inverse of a highlight pass', () => {
       slurEndpoints: { p0: { x: 0, y: 0 }, p1: { x: 9, y: 9 }, direction: 1 },
     })
     const state = createEditorState()
-    state.selectedSlurId = 'S1'
+    state.selectedElement = { kind: 'slur', id: 'S1' }
     const hc2 = new HighlightController(
       () => ({ getElementRegistry: () => registry, getViewMode: () => 'wrapped' as ViewMode } as unknown as MusicEngine),
       () => { const c = document.createElement('div'); c.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'svg')); return c },

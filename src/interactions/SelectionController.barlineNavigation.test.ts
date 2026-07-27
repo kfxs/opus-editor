@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MusicEngine } from '@/engine/MusicEngine'
 import { SelectionController } from './SelectionController'
-import { createEditorState } from './EditorState'
+import { createEditorState, selectedOf } from './EditorState'
 import type { EditorState } from './EditorState'
 import type { Rect } from '@/engine/ViewportModel'
 
@@ -40,21 +40,21 @@ describe('barline navigation', () => {
   })
 
   it('⭐ walks forward and back, naming the measure each barline ENDS', () => {
-    state.selectedBarlineMeasure = 3
+    state.selectedElement = { kind: 'barline', measure: 3 }
     expect(selection.navigateBarline(1)).toBe(true)
-    expect(state.selectedBarlineMeasure).toBe(4)
+    expect(selectedOf(state, 'barline')?.measure).toBe(4)
     expect(selection.navigateBarline(-1)).toBe(true)
-    expect(state.selectedBarlineMeasure).toBe(3)
+    expect(selectedOf(state, 'barline')?.measure).toBe(3)
   })
 
   it('re-renders, because the highlight is applied post-render (and that is what clears the old one)', () => {
-    state.selectedBarlineMeasure = 2
+    state.selectedElement = { kind: 'barline', measure: 2 }
     selection.navigateBarline(1)
     expect(renders).toBe(1)
   })
 
   it('scrolls the destination into view', () => {
-    state.selectedBarlineMeasure = 1
+    state.selectedElement = { kind: 'barline', measure: 1 }
     selection.navigateBarline(1)
     expect(revealed).toHaveLength(1)
   })
@@ -63,13 +63,13 @@ describe('barline navigation', () => {
     // Note navigation deselects when it runs off the end; a barline must not. You are usually
     // holding one because you are working on it, and an arrow that means "no further" should not
     // cost you the selection.
-    state.selectedBarlineMeasure = 6 // the last measure
+    state.selectedElement = { kind: 'barline', measure: 6 } // the last measure
     expect(selection.navigateBarline(1)).toBe(true) // consumed…
-    expect(state.selectedBarlineMeasure).toBe(6)    // …and still held
+    expect(selectedOf(state, 'barline')?.measure).toBe(6)    // …and still held
     expect(renders).toBe(0)                         // nothing moved, nothing repainted
 
-    state.selectedBarlineMeasure = 1
+    state.selectedElement = { kind: 'barline', measure: 1 }
     expect(selection.navigateBarline(-1)).toBe(true)
-    expect(state.selectedBarlineMeasure).toBe(1)
+    expect(selectedOf(state, 'barline')?.measure).toBe(1)
   })
 })

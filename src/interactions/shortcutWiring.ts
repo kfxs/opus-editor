@@ -3,6 +3,7 @@ import { TUPLET_PRESETS, tupletPresetAction } from '@/utils/tupletPresets'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Fraction } from '@/types/music'
 import type { EditorState } from './EditorState'
+import { assertNeverElement, selectedOf } from './EditorState'
 import type { SelectionController } from './SelectionController'
 import type { PaletteController } from './PaletteController'
 import type { KeyboardController } from './KeyboardController'
@@ -74,8 +75,9 @@ export function wireShortcuts(
   // endpoint was armed), false to DECLINE so the key falls through to its normal action.
   const nudgeArmedEndpoint = (dx: number, dy: number): boolean => {
     const eng = getEngine()
-    if (!eng || !state.selectedSlurId || !state.selectedSlurEndpoint) return false
-    eng.nudgeSlurEndpoint(state.selectedSlurId, state.selectedSlurEndpoint, dx, dy)
+    const slur = selectedOf(state, 'slur')
+    if (!eng || !slur?.endpoint) return false
+    eng.nudgeSlurEndpoint(slur.id, slur.endpoint, dx, dy)
     renderer.renderScore()
     return true
   }
@@ -85,8 +87,9 @@ export function wireShortcuts(
   // docs/multisystem-slur-segment-endpoint-offset-plan.md.
   const nudgeArmedSegmentEndpoint = (dx: number, dy: number): boolean => {
     const eng = getEngine()
-    if (!eng || !state.selectedSlurId || !state.selectedSlurSegmentEndpoint) return false
-    eng.nudgeSlurSegmentEndpoint(state.selectedSlurId, state.selectedSlurSegmentEndpoint, dx, dy, state.selectedSlurSegmentSpanCount)
+    const slur = selectedOf(state, 'slur')
+    if (!eng || !slur?.segmentEndpoint) return false
+    eng.nudgeSlurSegmentEndpoint(slur.id, slur.segmentEndpoint, dx, dy, slur.segmentSpanCount ?? 0)
     renderer.renderScore()
     return true
   }
@@ -118,8 +121,9 @@ export function wireShortcuts(
   // true when it consumed the key, false to DECLINE so it falls through. See docs/dynamic-offset-plan.md.
   const nudgeSelectedDynamic = (dx: number, dy: number): boolean => {
     const eng = getEngine()
-    if (!eng || !state.selectedDynamicId) return false
-    if (!eng.nudgeDynamicOffset(state.selectedDynamicId, dx, dy)) return false
+    const dynamicId = selectedOf(state, 'dynamic')?.id
+    if (!eng || !dynamicId) return false
+    if (!eng.nudgeDynamicOffset(dynamicId, dx, dy)) return false
     renderer.renderScore()
     return true
   }
@@ -160,9 +164,10 @@ export function wireShortcuts(
   // when it consumed the key, false to DECLINE so it falls through to its normal action.
   const nudgeStaffSpacingIfBoxSelected = (delta: number): boolean => {
     const eng = getEngine()
-    if (!eng || state.selectedMeasureRange === null || state.selectedMeasureBoxStyle !== 'single') return false
+    const box = selectedOf(state, 'measureRange')
+    if (!eng || !box || box.boxStyle !== 'single') return false
     // Per-system (plan option C): the tweak targets the system the selected bar sits on.
-    if (!eng.nudgeStaffSpacing(state.selectedMeasureStaff, state.selectedMeasureRange.anchor, delta)) return false
+    if (!eng.nudgeStaffSpacing(box.staff, box.anchor, delta)) return false
     renderer.renderScore()
     return true
   }
@@ -206,16 +211,18 @@ export function wireShortcuts(
   // See docs/bar-width-plan.md §4–§6.
   const nudgeSelectedBarWidth = (deltaPx: number): boolean => {
     const eng = getEngine()
-    if (!eng || state.selectedBarlineMeasure === null) return false
-    if (eng.nudgeBarWidth(state.selectedBarlineMeasure, deltaPx) === null) return false
+    const measure = selectedOf(state, 'barline')?.measure
+    if (!eng || measure === undefined) return false
+    if (eng.nudgeBarWidth(measure, deltaPx) === null) return false
     renderer.renderScore()
     return true
   }
 
   const resetSelectedBarWidth = (): boolean => {
     const eng = getEngine()
-    if (!eng || state.selectedBarlineMeasure === null) return false
-    if (!eng.resetBarWidth(state.selectedBarlineMeasure)) return false
+    const measure = selectedOf(state, 'barline')?.measure
+    if (!eng || measure === undefined) return false
+    if (!eng.resetBarWidth(measure)) return false
     renderer.renderScore()
     return true
   }
@@ -311,130 +318,169 @@ export function wireShortcuts(
         state.selectedTool = 'selection'
         selection.selectNote(state.selectedNoteId)
       } else {
-        // Already in selection mode: Esc clears the whole current selection — a note OR
-        // a scalar element (dynamic, clef, tie, slur, accidental, tuplet, time signature).
+        // Already in selection mode: Esc clears the whole current selection — the notes AND
+        // the one selected element (dynamic, clef, tie, slur, accidental, tuplet, meter, …).
         selection.deselectAll()
       }
       renderer.renderScore()
     },
     deleteSelected: () => {
       const eng = getEngine()
-      const artNoteIds = selectedArticulationNoteIds(state.selectedItems.values())
-      if (state.selectedMeasureRange !== null && state.selectedMeasureBoxStyle === 'double' && eng) {
-        // A measure span is box-selected via Ctrl+Shift+click (the DOUBLE box, extendable) —
-        // Delete removes every WHOLE bar in the span and its contents (Sibelius-style),
-        // pulling later bars back and renumbering, all as one undo step. Removing the actual
-        // bar is reserved for this gesture; the plain-click box only clears content (below).
-        const { anchor, focus } = state.selectedMeasureRange
-        const removed = eng.removeMeasureRange(anchor, focus)
-        dbg(`✓ Removed ${removed} measure(s) in span ${Math.min(anchor, focus)}–${Math.max(anchor, focus)}`)
-        state.selectedMeasureRange = null
-        renderer.renderScore()
-      } else if (state.selectedMeasureRange !== null && eng) {
-        // A single bar is plain-click-selected (the SINGLE box) — Delete CLEARS its content
-        // rather than removing the bar: the clicked staff's notes/rests reset to the default
-        // rest fill (one measure rest, not a per-gap recompute) and the dynamics/slurs the box
-        // pulled in are removed, all as ONE undo step (runBatch coalesces).
-        const measure = state.selectedMeasureRange.anchor // single box: anchor === focus
-        const staff = state.selectedMeasureStaff
-        const items = [...state.selectedItems.values()]
-        const dynIds = items.filter(i => i.kind === 'dynamic').map(i => i.id)
-        const slurIds = items.filter(i => i.kind === 'slur').map(i => i.id)
-        eng.runBatch(`Clear measure ${measure}`, () => {
-          eng.clearMeasureStaff(measure, staff)
-          for (const id of dynIds) eng.removeDynamic(id)
-          for (const id of slurIds) eng.removeSlur(id)
-        })
-        dbg(`✓ Cleared measure ${measure} (staff ${staff}) to default rest`)
-        selection.deselectAll()
-        renderer.renderScore()
-      } else if (artNoteIds.length && eng) {
-        // Group selection: Delete removes every articulation on every selected note,
-        // as ONE undoable action (a single Ctrl-Z restores them all).
-        eng.runBatch(`Clear articulations on ${artNoteIds.length} note(s)`, () => {
-          for (const noteId of artNoteIds) eng.clearArticulations(noteId)
-        })
-        selection.selectNote(null)
-        renderer.renderScore()
-      } else if (state.selectedAccidentalNoteId && eng) {
-        const noteId = state.selectedAccidentalNoteId
-        // Remove the accidental by reverting the note to the measure's prevailing
-        // alteration, then clearing any forced sign. This makes the glyph disappear in
-        // every case: a lone sharp/flat → natural (prevailing 0); a required natural
-        // (♮ cancelling an earlier sharp) → back to that sharp (prevailing ±1).
-        eng.updateNote(noteId, { alter: eng.getPrevailingAlter(noteId), forceAccidental: undefined })
-        state.selectedAccidentalNoteId = null
-        state.selectedAccidentalType = null
-        selection.selectNote(noteId)
-        renderer.renderScore()
-      } else if (state.selectedDotNoteId && eng) {
-        // Removes ALL of the slot's dots at once (`dots` is one value on the chord/rest), including
-        // both of a double dot — there is no half-undotting. Keeps the note selected to keep
-        // editing, like the accidental above.
-        const noteId = state.selectedDotNoteId
-        eng.updateNote(noteId, { dots: 0 })
-        state.selectedDotNoteId = null
-        selection.selectNote(noteId)
-        renderer.renderScore()
-      } else if (state.selectedTremoloNoteId && eng) {
-        // The whole mark goes, whatever it was: a tremolo is ONE value on the slot, so there is no
-        // "remove a stroke" here — that is a different edit (change the mark), and it belongs to the
-        // palette/Keypad rather than to Delete. Keeps the note selected afterwards, like the
-        // accidental and the dot above, so the obvious next thing (stamp a different mark) is one
-        // press away. Until this landed, a stamped tremolo could only be taken off with Ctrl+Z
-        // (docs/tremolo-plan.md §2).
-        const noteId = state.selectedTremoloNoteId
-        eng.setTremolo(noteId, null)
-        state.selectedTremoloNoteId = null
-        selection.selectNote(noteId)
-        dbg(`✓ Tremolo removed | noteId:${noteId}`)
-        renderer.renderScore()
-      } else if (state.selectedTieFromNoteId && eng) {
-        eng.toggleTie(state.selectedTieFromNoteId)
-        state.selectedTieFromNoteId = null
-        renderer.renderScore()
-      } else if (state.selectedSlurId && eng) {
-        eng.removeSlur(state.selectedSlurId)
-        state.selectedSlurId = null
-        state.selectedSlurEndpoint = null
-        state.selectedSlurSegmentEndpoint = null
-        renderer.renderScore()
-      } else if (state.selectedTupletId && eng) {
-        eng.deleteTuplet(state.selectedTupletId)
-        state.selectedTupletId = null
-        renderer.renderScore()
-      } else if (state.selectedClefMeasure !== null && eng) {
-        const beat = beatToFrac(state.selectedClefBeat ?? 0)
-        const removed = eng.removeClefAt(state.selectedClefMeasure, beat, state.selectedClefStaff)
-        if (!removed) {
-          dbg(`Cannot remove clef at measure ${state.selectedClefMeasure} beat ${state.selectedClefBeat ?? 0} (measure 1 opening clef can only be changed)`)
+      if (!eng) return
+      const element = state.selectedElement
+
+      // ⭐ A `switch` over the ONE selected element, not a chain of `else if`s over a dozen
+      // independent fields. The chain's ORDER used to be load-bearing (several could be set at
+      // once, so the first match won); with one field they are mutually exclusive by construction,
+      // and `assertNeverElement` makes a fifteenth kind impossible to add without deciding what
+      // Delete does to it — which is the one thing you must not forget for a selectable element.
+      if (element) {
+        switch (element.kind) {
+          case 'measureRange': {
+            const { anchor, focus, staff, boxStyle } = element
+            if (boxStyle === 'double') {
+              // A measure span is box-selected via Ctrl+Shift+click (the DOUBLE box, extendable) —
+              // Delete removes every WHOLE bar in the span and its contents (Sibelius-style),
+              // pulling later bars back and renumbering, all as one undo step. Removing the actual
+              // bar is reserved for this gesture; the plain-click box only clears content (below).
+              const removed = eng.removeMeasureRange(anchor, focus)
+              dbg(`✓ Removed ${removed} measure(s) in span ${Math.min(anchor, focus)}–${Math.max(anchor, focus)}`)
+              state.selectedElement = null
+            } else {
+              // A single bar is plain-click-selected (the SINGLE box) — Delete CLEARS its content
+              // rather than removing the bar: the clicked staff's notes/rests reset to the default
+              // rest fill (one measure rest, not a per-gap recompute) and the dynamics/slurs the box
+              // pulled in are removed, all as ONE undo step (runBatch coalesces).
+              const measure = anchor // single box: anchor === focus
+              const items = [...state.selectedItems.values()]
+              const dynIds = items.filter(i => i.kind === 'dynamic').map(i => i.id)
+              const slurIds = items.filter(i => i.kind === 'slur').map(i => i.id)
+              eng.runBatch(`Clear measure ${measure}`, () => {
+                eng.clearMeasureStaff(measure, staff)
+                for (const id of dynIds) eng.removeDynamic(id)
+                for (const id of slurIds) eng.removeSlur(id)
+              })
+              dbg(`✓ Cleared measure ${measure} (staff ${staff}) to default rest`)
+              selection.deselectAll()
+            }
+            renderer.renderScore()
+            return
+          }
+          case 'articulation': {
+            // Group selection: Delete removes every articulation on every selected note,
+            // as ONE undoable action (a single Ctrl-Z restores them all). The SET is authoritative
+            // (Ctrl-click adds groups); the element is its anchor, and the fallback for safety.
+            const ids = selectedArticulationNoteIds(state.selectedItems.values())
+            const artNoteIds = ids.length ? ids : [element.noteId]
+            eng.runBatch(`Clear articulations on ${artNoteIds.length} note(s)`, () => {
+              for (const noteId of artNoteIds) eng.clearArticulations(noteId)
+            })
+            selection.selectNote(null)
+            renderer.renderScore()
+            return
+          }
+          case 'accidental': {
+            const noteId = element.noteId
+            // Remove the accidental by reverting the note to the measure's prevailing
+            // alteration, then clearing any forced sign. This makes the glyph disappear in
+            // every case: a lone sharp/flat → natural (prevailing 0); a required natural
+            // (♮ cancelling an earlier sharp) → back to that sharp (prevailing ±1).
+            eng.updateNote(noteId, { alter: eng.getPrevailingAlter(noteId), forceAccidental: undefined })
+            state.selectedElement = null
+            selection.selectNote(noteId)
+            renderer.renderScore()
+            return
+          }
+          case 'dot': {
+            // Removes ALL of the slot's dots at once (`dots` is one value on the chord/rest),
+            // including both of a double dot — there is no half-undotting. Keeps the note selected
+            // to keep editing, like the accidental above.
+            const noteId = element.noteId
+            eng.updateNote(noteId, { dots: 0 })
+            state.selectedElement = null
+            selection.selectNote(noteId)
+            renderer.renderScore()
+            return
+          }
+          case 'tremolo': {
+            // The whole mark goes, whatever it was: a tremolo is ONE value on the slot, so there is
+            // no "remove a stroke" here — that is a different edit (change the mark), and it belongs
+            // to the palette/Keypad rather than to Delete. Keeps the note selected afterwards, like
+            // the accidental and the dot above, so the obvious next thing (stamp a different mark)
+            // is one press away. Until this landed, a stamped tremolo could only be taken off with
+            // Ctrl+Z (docs/tremolo-plan.md §2).
+            const noteId = element.noteId
+            eng.setTremolo(noteId, null)
+            state.selectedElement = null
+            selection.selectNote(noteId)
+            dbg(`✓ Tremolo removed | noteId:${noteId}`)
+            renderer.renderScore()
+            return
+          }
+          case 'tie':
+            eng.toggleTie(element.fromNoteId)
+            state.selectedElement = null
+            renderer.renderScore()
+            return
+          case 'slur':
+            eng.removeSlur(element.id)
+            state.selectedElement = null
+            renderer.renderScore()
+            return
+          case 'tuplet':
+            eng.deleteTuplet(element.id)
+            state.selectedElement = null
+            renderer.renderScore()
+            return
+          case 'clef': {
+            const removed = eng.removeClefAt(element.measure, beatToFrac(element.beat), element.staff)
+            if (!removed) {
+              dbg(`Cannot remove clef at measure ${element.measure} beat ${element.beat} (measure 1 opening clef can only be changed)`)
+            }
+            state.selectedElement = null
+            renderer.renderScore()
+            return
+          }
+          case 'timeSignature': {
+            const measureNum = element.measure
+            if (measureNum === 1) {
+              // Measure 1 carries the score's default meter and can't be removed — hide
+              // the glyph instead (the 4/4 meter / bar sizing is kept).
+              eng.setTimeSignatureHidden(measureNum, true)
+            } else {
+              // A mid-score change: revert this region to the prior meter and rebar.
+              eng.removeTimeSignatureChange(measureNum)
+            }
+            state.selectedElement = null
+            renderer.renderScore()
+            return
+          }
+          case 'dynamic':
+            eng.removeDynamic(element.id)
+            state.selectedElement = null
+            renderer.renderScore()
+            return
+          case 'tempo':
+            // Removing the mark reverts the score to the previous mark's tempo (or
+            // DEFAULT_TEMPO if it was the only one) — there is no global to fall back to.
+            eng.removeTempoMark(element.id)
+            state.selectedElement = null
+            renderer.renderScore()
+            return
+          case 'barline':
+          case 'stem':
+            // Nothing to delete. A barline is a BOUNDARY, not an object — the measures array is the
+            // spine, so "delete this barline" would mean merging two bars, a different edit. A stem
+            // is a property every non-rest note has; removing it is not a thing you can do to a
+            // note. Both are selectable so they can be nudged/dragged, and Delete declines rather
+            // than falling through to something else's meaning.
+            return
+          default:
+            assertNeverElement(element)
         }
-        state.selectedClefMeasure = null
-        state.selectedClefBeat = null
-        renderer.renderScore()
-      } else if (state.selectedTimeSignatureMeasure !== null && eng) {
-        const measureNum = state.selectedTimeSignatureMeasure
-        if (measureNum === 1) {
-          // Measure 1 carries the score's default meter and can't be removed — hide
-          // the glyph instead (the 4/4 meter / bar sizing is kept).
-          eng.setTimeSignatureHidden(measureNum, true)
-        } else {
-          // A mid-score change: revert this region to the prior meter and rebar.
-          eng.removeTimeSignatureChange(measureNum)
-        }
-        state.selectedTimeSignatureMeasure = null
-        renderer.renderScore()
-      } else if (state.selectedDynamicId && eng) {
-        eng.removeDynamic(state.selectedDynamicId)
-        state.selectedDynamicId = null
-        renderer.renderScore()
-      } else if (state.selectedTempoId && eng) {
-        // Removing the mark reverts the score to the previous mark's tempo (or
-        // DEFAULT_TEMPO if it was the only one) — there is no global to fall back to.
-        eng.removeTempoMark(state.selectedTempoId)
-        state.selectedTempoId = null
-        renderer.renderScore()
-      } else if (state.selectedItems.size > 0 && eng) {
+      }
+
+      if (state.selectedItems.size > 0) {
         // Delete the whole selection as ONE undoable action so a single Ctrl-Z restores the
         // group. The set holds notes plus any dynamics a Shift-click box pulled in.
         const items = [...state.selectedItems.values()]
@@ -587,20 +633,23 @@ export function wireShortcuts(
       if (!eng) return
       // A selected slur flips side (above ↔ below); a selected articulation flips its
       // side; otherwise x flips a note's stem.
-      if (state.selectedSlurId) {
-        eng.flipSlur(state.selectedSlurId)
+      const slurId = selectedOf(state, 'slur')?.id
+      if (slurId) {
+        eng.flipSlur(slurId)
         renderer.renderScore()
         return
       }
       // A selected tie flips its curve direction (up ↔ below), staying notehead-anchored.
-      if (state.selectedTieFromNoteId) {
-        eng.flipTie(state.selectedTieFromNoteId)
+      const tieFromNoteId = selectedOf(state, 'tie')?.fromNoteId
+      if (tieFromNoteId) {
+        eng.flipTie(tieFromNoteId)
         renderer.renderScore()
         return
       }
       // A selected tuplet flips its bracket/number side (above ↔ below).
-      if (state.selectedTupletId) {
-        eng.flipTuplet(state.selectedTupletId)
+      const tupletId = selectedOf(state, 'tuplet')?.id
+      if (tupletId) {
+        eng.flipTuplet(tupletId)
         renderer.renderScore()
         return
       }

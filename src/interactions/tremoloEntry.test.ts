@@ -13,7 +13,7 @@
  * cross-barline split) is pinned in `tremoloTravel.test.ts`.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { createEditorState, type EditorState } from './EditorState'
+import { createEditorState, selectedOf, type EditorState } from './EditorState'
 import { PaletteController } from './PaletteController'
 import { MusicEngine } from '../engine/MusicEngine'
 import { fracCreate as frac } from '../utils/fraction'
@@ -226,11 +226,11 @@ describe('a tremolo press over a SELECTION', () => {
     engine.setTremolo(ids[0], 3)
     state.selectedItems.clear()
     state.selectedNoteId = null
-    state.selectedTremoloNoteId = ids[0]
+    state.selectedElement = { kind: 'tremolo', noteId: ids[0] }
     palette.pressTremolo(5)
     expect(marks()[0]).toBe(5)
     palette.pressTremolo(5)
     expect(marks()[0]).toBeUndefined()
-    expect(state.selectedTremoloNoteId).toBeNull() // nothing left to select
+    expect(selectedOf(state, 'tremolo')).toBeNull() // nothing left to select
   })
 })

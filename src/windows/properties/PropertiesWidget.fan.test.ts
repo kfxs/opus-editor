@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { PropertiesWidget } from './PropertiesWidget'
 import { selectionInspection } from '../../interactions/selectionInspection'
 import { fanEditSelection, type FanEditRequest } from '../../interactions/fanEditSelection'
-import type { SelectedElement } from '../../interactions/selectionSnapshot'
+import type { InspectedElement } from '../../interactions/selectionSnapshot'
 import type { FanMark } from '../../types/music'
 
 /**
@@ -16,10 +16,10 @@ import type { FanMark } from '../../types/music'
  */
 const FAN: FanMark = { direction: 'accel', count: 6, beams: 3 }
 
-const noteElement = (fan: FanMark): SelectedElement[] => ([{
+const noteElement = (fan: FanMark): InspectedElement[] => ([{
   kind: 'note',
   data: { id: 'note-1', step: 'C', octave: 4, duration: 'h', fan },
-} as unknown as SelectedElement])
+} as unknown as InspectedElement])
 
 describe('the fan row', () => {
   let host: HTMLElement
@@ -102,7 +102,7 @@ describe('the fan row', () => {
   })
 
   it('no fan, no row — this changes a fan, it never makes one', () => {
-    selectionInspection.set([{ kind: 'note', data: { id: 'note-1', step: 'C' } } as unknown as SelectedElement])
+    selectionInspection.set([{ kind: 'note', data: { id: 'note-1', step: 'C' } } as unknown as InspectedElement])
     // The offset input is always there; the fan's five are not.
     expect(host.querySelectorAll('input[type=number]')).toHaveLength(1)
   })

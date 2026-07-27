@@ -111,7 +111,7 @@ describe('bar-width drag', () => {
 
   it('the press still selects the barline', () => {
     mc.handleMouseDown(ev({ clientX: 200, clientY: 110 }))
-    expect(state.selectedBarlineMeasure).toBe(1)
+    expect(state.selectedElement).toEqual({ kind: 'barline', measure: 1 })
   })
 
   it('inside the dead zone nothing is stretched — a click is still a click', () => {
@@ -137,7 +137,7 @@ describe('bar-width drag', () => {
     room = { ...movableRoom(), barlineSlope: 0, stretchForBarlineDelta: (d: number) => 1 + d / 100 }
     grabAndMove(160)
     expect(engine.previewBarWidth).toHaveBeenCalledWith(1, 1 - 40 / 100, 0.25, 8)
-    expect(state.selectedBarlineMeasure).toBe(1)
+    expect(state.selectedElement).toEqual({ kind: 'barline', measure: 1 })
   })
 
   it('declines when the last render cannot measure the room, rather than guessing one', () => {

@@ -3,7 +3,7 @@ import type { ArticulationType, PitchSpelling, Fraction, Note, SlurSegmentAddres
 import type { MusicEngine, BarWidthRoom } from '../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry, ElementType } from '../engine/ElementRegistry'
 import type { EditorState } from './EditorState'
-import { activeVoiceToModel, armedTool, armedNormalSide, armedTupletM, spendArmedTuplet } from './EditorState'
+import { activeVoiceToModel, armedTool, armedNormalSide, armedTupletM, selectedOf, spendArmedTuplet } from './EditorState'
 import { tempoLabel } from '../utils/tempoMap'
 import { tempoFieldsFromTool } from '../utils/tempoText'
 import { TempoTextSource } from './TempoTextSource'
@@ -458,7 +458,7 @@ export class MouseController {
    */
   editSelectedDynamic(): boolean {
     if (this.state.editingText) return false
-    const id = this.state.selectedDynamicId
+    const id = selectedOf(this.state, 'dynamic')?.id
     if (!id || !this.getEngine()?.getDynamicById(id)) return false
     this.openTextEditor(id, false)
     return true
@@ -564,18 +564,10 @@ export class MouseController {
     if (this.handleSlurHandleMouseDown(ctx)) return
     if (this.handleStaffSpacingMouseDown(ctx)) return
 
-    this.state.selectedTupletId = null
-    this.state.selectedTieFromNoteId = null
-    this.state.selectedSlurId = null
-    this.state.selectedSlurEndpoint = null
-    this.state.selectedSlurSegmentEndpoint = null
-    this.state.selectedClefMeasure = null
-    this.state.selectedClefBeat = null
-    this.state.selectedTimeSignatureMeasure = null
-    this.state.selectedBarlineMeasure = null
-    this.state.selectedDynamicId = null
-    this.state.selectedTempoId = null
-    this.state.selectedMeasureRange = null
+    // Whatever was picked is gone; the handlers below each set what this press picked instead.
+    // ⭐ ONE assignment — this used to be twelve fields, and the third of four clear-lists that had
+    // to agree (it was the one missing the accidental, articulation, dot, stem and tremolo).
+    this.state.selectedElement = null
 
     // Single-click element hit-tests, in priority order. Each returns true if it
     // consumed the press; otherwise we fall through to the next kind.
@@ -625,8 +617,8 @@ export class MouseController {
 
     // Any modifier press dismisses a showing measure box — but capture the current span
     // FIRST so a Ctrl+Shift+click can extend from its anchor (re-set in selectMeasureBox).
-    const prevRange = this.state.selectedMeasureRange
-    this.state.selectedMeasureRange = null
+    const prevRange = selectedOf(this.state, 'measureRange')
+    if (prevRange) this.state.selectedElement = null
 
     // Ctrl+Shift+click on empty space inside a bar → Sibelius-style blue measure box.
     // Purely visual: NO objects are selected. Fires only when the click misses every
@@ -721,14 +713,17 @@ export class MouseController {
     const lo = prevRange ? Math.min(prevRange.anchor, prevRange.focus, measure) : measure
     const hi = prevRange ? Math.max(prevRange.anchor, prevRange.focus, measure) : measure
     // The box stands alone — clear any prior selection first, then set the span
-    // (deselectAll resets selectedMeasureRange via clearScalarSubSelections, so order
-    // matters: we set it AFTER).
+    // (deselectAll clears the element selection, so order matters: we set it AFTER).
     this.selection.deselectAll()
-    this.state.selectedMeasureRange = { anchor: lo, focus: hi }
-    this.state.selectedMeasureBoxStyle = 'double'
-    // Remember which stacked staff the click fell on — the reference staff the "Staff:"
-    // add-above/below buttons insert relative to (multi-staff Phase 4). N=1 → always 0.
-    this.state.selectedMeasureStaff = engine.getElementRegistry().staffIndexAtY(measure, y)
+    this.state.selectedElement = {
+      kind: 'measureRange',
+      anchor: lo,
+      focus: hi,
+      // Which stacked staff the click fell on — the reference staff the "Staff:" add-above/below
+      // buttons insert relative to (multi-staff Phase 4). N=1 → always 0.
+      staff: engine.getElementRegistry().staffIndexAtY(measure, y),
+      boxStyle: 'double',
+    }
     dbg(
       lo === hi
         ? `✓ Measure box selected | measure:${measure}`
@@ -776,9 +771,10 @@ export class MouseController {
     if (!ids.length) return false
 
     this.selection.selectMeasureContents(ids)
-    this.state.selectedMeasureRange = { anchor: measure, focus: measure }
-    this.state.selectedMeasureStaff = staff
-    this.state.selectedMeasureBoxStyle = 'single'
+    // AFTER selectMeasureContents, which clears the element selection on its way through.
+    this.state.selectedElement = {
+      kind: 'measureRange', anchor: measure, focus: measure, staff, boxStyle: 'single',
+    }
     dbg(`✓ Measure selected (plain click) | measure:${measure} staff:${staff} | items:${this.state.selectedItems.size}`)
     return true
   }
@@ -802,7 +798,7 @@ export class MouseController {
       }
 
       if (minVerticalDistance > 12) {
-        this.state.selectedTupletId = tupletAtClick.tupletId
+        this.state.selectedElement = { kind: 'tuplet', id: tupletAtClick.tupletId }
         this.state.selectedNoteId = null
         dbg(`✓ Tuplet selected on mousedown | id:${tupletAtClick.tupletId}`)
         this.render.renderScore()
@@ -819,7 +815,8 @@ export class MouseController {
    */
   private handleSlurHandleMouseDown(ctx: MouseDownCtx): boolean {
     const { event, registry, x, y } = ctx
-    if (!this.state.selectedSlurId) return false
+    const selectedSlur = selectedOf(this.state, 'slur')
+    if (!selectedSlur) return false
 
     // Slur control-point handle drag.
     const handle = registry.getByType('slur-handle').find(el => {
@@ -830,7 +827,7 @@ export class MouseController {
     // staff spacing + segment address + span count), so we read everything straight off it
     // — no re-lookup of a 'slur' partial, which on a cross-system slur would ambiguously
     // resolve to the wrong segment (§4a). cpIndex disambiguates the two dots within it.
-    if (handle?.slurId === this.state.selectedSlurId && handle.cpIndex !== undefined
+    if (handle?.slurId === selectedSlur.id && handle.cpIndex !== undefined
         && handle.slurEndpoints && handle.controlPoints) {
       this.isDraggingSlurHandle = true
       this.draggedSlurId = handle.slurId
@@ -847,9 +844,8 @@ export class MouseController {
       // Grabbing a round (angle) handle disarms any armed endpoint square — the two are
       // different editing targets, so the arrows shouldn't keep nudging an endpoint after
       // you reach for the curve shape (slur-endpoint-offset-plan).
-      if (this.state.selectedSlurEndpoint !== null || this.state.selectedSlurSegmentEndpoint !== null) {
-        this.state.selectedSlurEndpoint = null
-        this.state.selectedSlurSegmentEndpoint = null
+      if (selectedSlur.endpoint !== undefined || selectedSlur.segmentEndpoint !== undefined) {
+        this.state.selectedElement = { kind: 'slur', id: selectedSlur.id }
         this.render.renderScore()
       }
       dbg(`Slur handle drag ready | id:${handle.slurId} cp:${handle.cpIndex} seg:${handle.segmentRole ?? 'single'}${handle.segmentRole === 'middle' ? `#${handle.segmentOrdinal}` : ''}`)
@@ -863,7 +859,7 @@ export class MouseController {
       const b = el.bbox
       return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
     })
-    if (endHandle?.slurId === this.state.selectedSlurId && endHandle.endpoint) {
+    if (endHandle?.slurId === selectedSlur.id && endHandle.endpoint) {
       this.isDraggingSlurEndpoint = true
       this.draggedEndpointSlurId = endHandle.slurId
       this.draggedEndpoint = endHandle.endpoint
@@ -872,8 +868,9 @@ export class MouseController {
       // Click = select this point for keyboard nudging; drag (decided on move) re-anchors.
       // Either way the point stays armed afterward, so arrows can fine-tune it. Re-render so
       // the selected square's highlighted border shows immediately (slur-endpoint-offset-plan).
-      this.state.selectedSlurEndpoint = endHandle.endpoint
-      this.state.selectedSlurSegmentEndpoint = null // arming a blue square disarms an orange one
+      // Arming a blue square disarms an orange one — one object, so that is now by construction
+      // rather than a second line that had to remember.
+      this.state.selectedElement = { kind: 'slur', id: selectedSlur.id, endpoint: endHandle.endpoint }
       this.render.renderScore()
       dbg(`Slur endpoint armed | id:${endHandle.slurId} end:${endHandle.endpoint}`)
       event.preventDefault()
@@ -888,14 +885,17 @@ export class MouseController {
       const b = el.bbox
       return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
     })
-    if (segEndHandle?.slurId === this.state.selectedSlurId && segEndHandle.segmentRole) {
+    if (segEndHandle?.slurId === selectedSlur.id && segEndHandle.segmentRole) {
       const role = segEndHandle.segmentRole
-      this.state.selectedSlurEndpoint = null
-      this.state.selectedSlurSegmentEndpoint =
-        role === 'middle' ? { role: 'middle', ordinal: segEndHandle.segmentOrdinal!, side: segEndHandle.segmentSide! }
-        : role === 'begin' ? { role: 'begin' }
-        : { role: 'end' }
-      this.state.selectedSlurSegmentSpanCount = segEndHandle.slurSpanCount ?? 0
+      this.state.selectedElement = {
+        kind: 'slur',
+        id: selectedSlur.id,
+        segmentEndpoint:
+          role === 'middle' ? { role: 'middle', ordinal: segEndHandle.segmentOrdinal!, side: segEndHandle.segmentSide! }
+          : role === 'begin' ? { role: 'begin' }
+          : { role: 'end' },
+        segmentSpanCount: segEndHandle.slurSpanCount ?? 0,
+      }
       this.render.renderScore()
       dbg(`Slur segment endpoint armed | id:${segEndHandle.slurId} role:${role}${role === 'middle' ? `#${segEndHandle.segmentOrdinal} ${segEndHandle.segmentSide}` : ''}`)
       event.preventDefault()
@@ -913,14 +913,15 @@ export class MouseController {
    */
   private handleStaffSpacingMouseDown(ctx: MouseDownCtx): boolean {
     const { engine, event, registry, x, y } = ctx
-    if (this.state.selectedMeasureRange === null || this.state.selectedMeasureBoxStyle !== 'single') return false
-    const measure = this.state.selectedMeasureRange.anchor // single box: anchor === focus
+    const box = selectedOf(this.state, 'measureRange')
+    if (!box || box.boxStyle !== 'single') return false
+    const measure = box.anchor // single box: anchor === focus
     const rect = engine.getMeasureRect(measure)
     if (!rect) return false
     // Hit-test the exact drawn box: this bar's x-range × the selected staff's band (its five
     // lines + the same ±STAFF_BAND_PAD_PX the box and the plain-click select use).
     if (x < rect.x || x >= rect.x + rect.width) return false
-    const staff = this.state.selectedMeasureStaff
+    const staff = box.staff
     const geo = registry.getStaffGeometry(measure, staff)
     if (!geo) return false
     if (y < geo.lineYPositions[0] - STAFF_BAND_PAD_PX || y > geo.lineYPositions[4] + STAFF_BAND_PAD_PX) return false
@@ -942,7 +943,7 @@ export class MouseController {
    *  keyed to a system can be written from a view that has no system worth naming (§4.1).
    *  @returns true if a drag was armed. */
   private armStaffSpacingDrag(engine: MusicEngine, measure: number, startY: number): boolean {
-    const staff = this.state.selectedMeasureStaff
+    const staff = selectedOf(this.state, 'measureRange')?.staff ?? 0
     this.isDraggingStaffSpacing = true
     this.draggedSpacingStaff = staff
     this.draggedSpacingMeasure = measure
@@ -964,9 +965,9 @@ export class MouseController {
     if (clefAt?.measure === undefined) return false
 
     this.selection.selectNote(null)
-    this.state.selectedClefMeasure = clefAt.measure
-    this.state.selectedClefBeat = clefAt.beat ?? 0
-    this.state.selectedClefStaff = clefAt.staff ?? 0
+    this.state.selectedElement = {
+      kind: 'clef', measure: clefAt.measure, beat: clefAt.beat ?? 0, staff: clefAt.staff ?? 0,
+    }
     const isProtected = clefAt.measure === 1 && (clefAt.beat ?? 0) === 0
     dbg(`✓ Clef selected | measure:${clefAt.measure} beat:${clefAt.beat ?? 0}${isProtected ? ' (measure 1 opening: change only, cannot remove)' : ''}`)
 
@@ -1007,7 +1008,7 @@ export class MouseController {
     if (timeSigAt?.measure === undefined) return false
 
     this.selection.selectNote(null)
-    this.state.selectedTimeSignatureMeasure = timeSigAt.measure
+    this.state.selectedElement = { kind: 'timeSignature', measure: timeSigAt.measure }
     const isDefault = timeSigAt.measure === 1
     dbg(`✓ Time signature selected | measure:${timeSigAt.measure}${isDefault ? ' (measure 1 default: delete hides the glyph, meter kept)' : ' (delete reverts to prior meter + rebars)'}`)
     this.render.renderScore()
@@ -1018,8 +1019,8 @@ export class MouseController {
    * Select the barline that ENDS a measure.
    *
    * Registered per (measure, staff) — the ink is drawn once per staff — but selected as ONE
-   * system-wide thing (`selectedBarlineMeasure`), so whichever staff the click lands on, the whole
-   * line is what gets picked. See EditorState.selectedBarlineMeasure for why that is the identity.
+   * system-wide thing (the `barline` element kind), so whichever staff the click lands on, the
+   * whole line is what gets picked. See {@link SelectedElement} for why that is the identity.
    */
   private handleBarlineMouseDown(ctx: MouseDownCtx): boolean {
     const { registry, x, y, closestElement } = ctx
@@ -1038,7 +1039,7 @@ export class MouseController {
     if (closestElement && registry.hitsNoteOrRestBody(closestElement, x, y)) return false
 
     this.selection.selectNote(null)
-    this.state.selectedBarlineMeasure = barlineAt.measure
+    this.state.selectedElement = { kind: 'barline', measure: barlineAt.measure }
     this.armBarWidthDrag(ctx.engine, barlineAt.measure, x)
     dbg(`✓ Barline selected | ends measure:${barlineAt.measure}`)
     this.render.renderScore()
@@ -1195,7 +1196,7 @@ export class MouseController {
     }
 
     this.selection.selectNote(null)
-    this.state.selectedTempoId = tempoAt.id
+    this.state.selectedElement = { kind: 'tempo', id: tempoAt.id }
     dbg(`✓ Tempo mark selected | id:${tempoAt.id}`)
     this.render.renderScore()
     return true
@@ -1299,7 +1300,7 @@ export class MouseController {
     }
 
     this.selection.selectNote(null)
-    this.state.selectedDynamicId = dynamicAt.id
+    this.state.selectedElement = { kind: 'dynamic', id: dynamicAt.id }
     dbg(`✓ Dynamic selected | id:${dynamicAt.id}`)
     this.render.renderScore()
     return true
@@ -1319,7 +1320,7 @@ export class MouseController {
     // Clear the whole note selection (the multi-select Map, not just the anchor)
     // and any scalar sub-selections, so only the tie ends up selected.
     this.selection.selectNote(null)
-    this.state.selectedTieFromNoteId = tieAt.fromNoteId
+    this.state.selectedElement = { kind: 'tie', fromNoteId: tieAt.fromNoteId }
     dbg(`✓ Tie selected | fromNoteId:${tieAt.fromNoteId} toNoteId:${tieAt.toNoteId} fromMeasure:${tieAt.fromMeasure} toMeasure:${tieAt.toMeasure}`)
     this.render.renderScore()
     return true
@@ -1348,11 +1349,10 @@ export class MouseController {
     if (!slurAt?.id) return false
 
     this.selection.selectNote(null)
-    this.state.selectedSlurId = slurAt.id
     // Selecting the slur by its arc disarms any previously-armed endpoint nudge — clicking
-    // a blue (true end) or orange (open join) square is the only thing that re-arms one.
-    this.state.selectedSlurEndpoint = null
-    this.state.selectedSlurSegmentEndpoint = null
+    // a blue (true end) or orange (open join) square is the only thing that re-arms one. Carrying
+    // no endpoint IS that, now the two live in one value.
+    this.state.selectedElement = { kind: 'slur', id: slurAt.id }
     dbg(`✓ Slur selected | id:${slurAt.id}`)
     this.render.renderScore()
     return true
@@ -1401,7 +1401,7 @@ export class MouseController {
     // Clear the whole note selection (the multi-select Map drives the note highlight, not just
     // selectedNoteId) so only the dots show selected — mirrors the accidental.
     this.selection.selectNote(null)
-    this.state.selectedDotNoteId = dotAt.noteId
+    this.state.selectedElement = { kind: 'dot', noteId: dotAt.noteId }
     dbg(`✓ Dot selected | noteId:${dotAt.noteId} dots:${this.getEngine()?.getNote(dotAt.noteId)?.dots ?? 0}`)
     this.render.renderScore()
     return true
@@ -1419,8 +1419,9 @@ export class MouseController {
     // Clear the whole note selection (the multi-select Map drives the note
     // highlight, not just selectedNoteId) so only the accidental shows selected.
     this.selection.selectNote(null)
-    this.state.selectedAccidentalNoteId = accidentalAt.noteId
-    this.state.selectedAccidentalType = accidentalAt.accidentalType || null
+    this.state.selectedElement = {
+      kind: 'accidental', noteId: accidentalAt.noteId, type: accidentalAt.accidentalType || null,
+    }
     dbg(`✓ Accidental selected | noteId:${accidentalAt.noteId} type:${accidentalAt.accidentalType}`)
     this.render.renderScore()
     return true
@@ -1449,7 +1450,7 @@ export class MouseController {
     if (!noteId) return false
 
     this.selection.selectNote(null)
-    this.state.selectedTremoloNoteId = noteId
+    this.state.selectedElement = { kind: 'tremolo', noteId }
     dbg(`✓ Tremolo selected | noteId:${noteId} mark:${this.getEngine()?.getNote(noteId)?.tremolo}`)
     this.render.renderScore()
     return true
@@ -1469,7 +1470,7 @@ export class MouseController {
    * a whole stem-length from its own notehead, so proximity would hand it to a denser neighbour —
    * the same reason the tremolo stamp resolves through {@link ElementRegistry.findStemAt}.
    *
-   * Selection only: nothing acts on the selected stem yet (see EditorState.selectedStemNoteId).
+   * Selection only: nothing acts on the selected stem yet (see {@link SelectedElement}'s `stem`).
    */
   private handleStemMouseDown(ctx: MouseDownCtx): boolean {
     const { registry, x, y, closestElement } = ctx
@@ -1482,7 +1483,7 @@ export class MouseController {
     // Clear the whole note selection (the multi-select Map drives the note highlight, not just
     // selectedNoteId) so only the stem shows selected — mirrors the accidental and the dots.
     this.selection.selectNote(null)
-    this.state.selectedStemNoteId = noteId
+    this.state.selectedElement = { kind: 'stem', noteId }
     dbg(`✓ Stem selected | noteId:${noteId}`)
     this.render.renderScore()
     return true
@@ -1559,7 +1560,7 @@ export class MouseController {
     const { engine, event, x, y } = ctx
     if (this.selectMeasureAt(x, y)) {
       this.render.renderScore()
-      this.armStaffSpacingDrag(engine, this.state.selectedMeasureRange!.anchor, y)
+      this.armStaffSpacingDrag(engine, selectedOf(this.state, 'measureRange')!.anchor, y)
       event.preventDefault()
       return
     }
@@ -2509,8 +2510,13 @@ export class MouseController {
       if (engine.moveClef(this.draggedClefMeasure, this.draggedClefBeat, targetMeasure, targetBeat)) {
         this.draggedClefMeasure = targetMeasure
         this.draggedClefBeat = targetBeat
-        this.state.selectedClefMeasure = targetMeasure
-        this.state.selectedClefBeat = fracToNumber(targetBeat)
+        this.state.selectedElement = {
+          kind: 'clef',
+          measure: targetMeasure,
+          beat: fracToNumber(targetBeat),
+          // The staff does not move with the drag — a clef slides along its own staff.
+          staff: selectedOf(this.state, 'clef')?.staff ?? 0,
+        }
         engine.setDraggingClef({ measure: targetMeasure, beat: targetBeat })
         dbg(`Clef drag | measure:${targetMeasure} beat:${fracToNumber(targetBeat)}`)
         this.render.renderScore()

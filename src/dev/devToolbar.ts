@@ -1,4 +1,5 @@
 import type { EditorState } from '../interactions/EditorState'
+import { selectedOf } from '../interactions/EditorState'
 import type { PaletteController } from '../interactions/PaletteController'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { NoteDuration } from '../types/music'
@@ -254,10 +255,8 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     parent.appendChild(b)
   }
 
-  const hasMeasureContext = () =>
-    state.selectedMeasureRange !== null && state.selectedMeasureBoxStyle === 'double'
-  const hasStaffContext = () =>
-    state.selectedMeasureRange !== null && state.selectedMeasureBoxStyle === 'single'
+  const hasMeasureContext = () => selectedOf(state, 'measureRange')?.boxStyle === 'double'
+  const hasStaffContext = () => selectedOf(state, 'measureRange')?.boxStyle === 'single'
 
   const measureBox = group('Measure:')
   action(measureBox, '+ Before',

@@ -12,7 +12,7 @@
  * as an accidental or a dot is not.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { createEditorState, type EditorState } from './EditorState'
+import { createEditorState, selectedOf, type EditorState } from './EditorState'
 import { MouseController } from './MouseController'
 
 function fakeSvg(): SVGSVGElement {
@@ -99,19 +99,19 @@ describe('stem selection', () => {
 
   it('a press on the stem selects it, by the anchor note id', () => {
     mc.handleMouseDown(ev({ clientX: 106, clientY: 85 }))
-    expect(state.selectedStemNoteId).toBe('n1')
+    expect(selectedOf(state, 'stem')?.noteId).toBe('n1')
     expect(render.renderScore).toHaveBeenCalled()
   })
 
   it('the tip counts — a stem is selected along its whole length, not near its head', () => {
     mc.handleMouseDown(ev({ clientX: 106, clientY: 76 }))
-    expect(state.selectedStemNoteId).toBe('n1')
+    expect(selectedOf(state, 'stem')?.noteId).toBe('n1')
   })
 
   it('⭐ the NOTE keeps the overlap: a press the notehead owns never reaches the stem', () => {
     onHead = true
     mc.handleMouseDown(ev({ clientX: 106, clientY: 108 }))
-    expect(state.selectedStemNoteId).toBeNull()
+    expect(selectedOf(state, 'stem')).toBeNull()
     expect(selection.selectNote).toHaveBeenCalledWith('n1')
   })
 
@@ -122,6 +122,6 @@ describe('stem selection', () => {
 
   it('a press well clear of the stem selects nothing', () => {
     mc.handleMouseDown(ev({ clientX: 140, clientY: 85 }))
-    expect(state.selectedStemNoteId).toBeNull()
+    expect(selectedOf(state, 'stem')).toBeNull()
   })
 })
