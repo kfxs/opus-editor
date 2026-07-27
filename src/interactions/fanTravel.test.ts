@@ -111,7 +111,7 @@ describe('fan — copy/paste', () => {
     model(engine).setFan(ids[1], FAN)
     const clip = buildClipboardFromSelection(engine.getScore(), ids)!
     engine.addMeasure()
-    engine.pasteEvents(2, frac(0, 1), clip.lanes, clip.spanBeats, 0, [], [], 0, clip.dynamics, clip.slurs)
+    engine.pasteEvents(clip, { measure: 2, beat: frac(0, 1), voice: 0 })
     expect(assertionOf(fanAt(engine, 2, 1))).toEqual(FAN)
     expect(fanAt(engine, 2, 0)).toBeUndefined()
   })
@@ -124,7 +124,7 @@ describe('fan — copy/paste', () => {
     model(engine).setFan(ids[1], FAN)
     const clip = buildClipboardFromSelection(engine.getScore(), ids)!
     engine.addMeasure()
-    engine.pasteEvents(2, frac(0, 1), clip.lanes, clip.spanBeats, 0, [], [], 0, clip.dynamics, clip.slurs)
+    engine.pasteEvents(clip, { measure: 2, beat: frac(0, 1), voice: 0 })
 
     const source = fanAt(engine, 1, 1)
     const pasted = fanAt(engine, 2, 1)

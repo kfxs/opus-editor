@@ -105,7 +105,7 @@ describe('tremolo — copy/paste', () => {
     engine.setTremolo(ids[1], 5)
     const clip = buildClipboardFromSelection(engine.getScore(), ids)!
     engine.addMeasure()
-    engine.pasteEvents(2, frac(0, 1), clip.lanes, clip.spanBeats, 0, [], [], 0, clip.dynamics, clip.slurs)
+    engine.pasteEvents(clip, { measure: 2, beat: frac(0, 1), voice: 0 })
     expect(tremoloAt(engine, 2, 1)).toBe(5)
     expect(tremoloAt(engine, 2, 0)).toBeUndefined()
   })

@@ -1,5 +1,5 @@
 import { dbg } from '@/utils/debug'
-import { ScoreModel, type ClipDynamicInput, type ClipSlurInput } from './models/ScoreModel'
+import { ScoreModel } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barWidthKey, measureStretch, BAR_STRETCH_MIN, BAR_STRETCH_MAX, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
@@ -24,7 +24,7 @@ import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, Tuple
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
-import type { RebarEvent } from '@/utils/rebar'
+import type { Clip, ClipTarget } from '@/utils/clip'
 import { staffOf, voiceOf } from '@/utils/lanes'
 
 /**
@@ -888,27 +888,12 @@ export class MusicEngine {
   }
 
   /**
-   * Paste a clipboard event stream at (measure, beat), overwriting forward for the
-   * clip's span (see {@link ScoreModel.pasteEvents}). One undo entry.
+   * Paste a {@link Clip} at `target`, overwriting forward for the clip's span (see
+   * {@link ScoreModel.pasteEvents}). One undo entry.
    * @returns the ids of the notes that landed inside the paste window.
    */
-  pasteEvents(
-    measure: number,
-    beat: Fraction,
-    lanes: { staff: number; voice: number; events: RebarEvent[] }[],
-    spanBeats: Fraction,
-    targetVoice: number,
-    clipRestShifts: { staff: number; voice: number; restShifts: Array<{ offset: Fraction; steps: number }> }[] = [],
-    clipRestHidden: { staff: number; voice: number; restHidden: Array<{ offset: Fraction }> }[] = [],
-    targetStaff: number = 0,
-    clipDynamics: ClipDynamicInput[] = [],
-    clipSlurs: ClipSlurInput[] = [],
-    clipSpaces: Array<{ offset: Fraction; space: number }> = [],
-    clipNoteOffsets: { staff: number; voice: number; noteOffsets: Array<{ offset: Fraction; x: number; member?: number }> }[] = [],
-  /** Two-note tremolos the clip carries, per lane — see `ClipboardLane.tremoloPairs`. */
-  clipTremoloPairs: { staff: number; voice: number; tremoloPairs: Array<{ offset: Fraction; style?: 'joined' | 'open' }> }[] = [],
-  ): string[] {
-    const ids = this.scoreModel.pasteEvents(measure, beat, lanes, spanBeats, targetVoice, clipRestShifts, clipRestHidden, targetStaff, clipDynamics, clipSlurs, clipSpaces, clipNoteOffsets, clipTremoloPairs)
+  pasteEvents(clip: Clip, target: ClipTarget): string[] {
+    const ids = this.scoreModel.pasteEvents(clip, target)
     this.commit('Paste')
     return ids
   }

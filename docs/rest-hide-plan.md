@@ -103,6 +103,8 @@ hidden (parity with the shift, which already travels this way):
 - Plumb through `pasteEvents(..., clipRestHidden)` the same way `clipRestShifts`
   is plumbed (MusicEngine + ScoreModel signatures), routed into
   `restoreRestShifts`/`restoreRestEngraving`.
+  *(Superseded by the `Clip` object — docs/refactor-plan-2026-07-27.md Phase 4: it rides on
+  `ClipLane.restHidden`, and there is no paste parameter to plumb.)*
 - *Optional / can be a follow-up*: if we want to keep this PR small, ship steps
   1–4 + 6 + 7 first (intra-document hide travels via rebar) and add clipboard
   parity second. Flag for the reviewer; rest-shift shipped clipboard parity in

@@ -21,6 +21,7 @@ import { slotLength, writtenLength } from '@/utils/durations'
 import { getMeterInfo } from '@/utils/meter'
 import type { RestSlot } from '@/utils/restFill'
 import { flattenRegion, relayEvents, type RebarPiece, type RebarEvent, type BarPlan } from '@/utils/rebar'
+import type { Clip, ClipSlur, ClipSlurPitch, ClipTarget } from '@/utils/clip'
 import { type Fraction, fracCreate, fracAdd, fracSub, fracCompare, fracLt, fracGte } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, keyStaffId, staffMeasureView } from './staffContent'
@@ -65,38 +66,6 @@ type CapturedAnchor =
   | { kind: 'clef'; absBeat: Fraction; clef: Clef; staffId?: string }
   | { kind: 'dynamic'; absBeat: Fraction; dyn: Dynamic; offset?: { x: number; y: number } }
   | { kind: 'tempo'; absBeat: Fraction; mark: TempoMark }
-
-/**
- * A clipboard dynamic handed to {@link pasteEvents} for re-anchoring at paste time.
- * Structurally identical to the interaction-layer `ClipDynamic`, but declared here so the
- * engine never imports inward (the framework-agnostic boundary). Staff is RELATIVE (0 = topmost
- * copied staff); `offset` is relative to the clip start. See docs/copy-paste-staff-plan.md P2.
- */
-export type ClipDynamicInput = {
-  staff: number
-  voice: number
-  offset: Fraction
-  /** The mark's whole text (SMuFL glyphs + words); the level travels inside it. See {@link Dynamic.text}. */
-  text: string
-  placement?: 'above' | 'below'
-  /** Hand-nudged engraving offset (client #8), captured at copy so it travels with the mark. */
-  engravingOffset?: { x: number; y: number }
-}
-
-/** A pitch identity used to re-find a clip slur endpoint on the pasted notes. */
-type ClipSlurPitchInput = { step: string; alter: number; octave: number }
-
-/**
- * A clipboard slur handed to {@link pasteEvents} for re-anchoring at paste time.
- * Structurally identical to the interaction-layer `ClipSlur` (declared here so the engine
- * never imports inward). Each endpoint is RELATIVE staff (0 = topmost copied staff) / voice /
- * clip-relative offset / pitch. See docs/copy-paste-staff-plan.md P3.
- */
-export type ClipSlurInput = {
-  startStaff: number; startVoice: number; startOffset: Fraction; startPitch: ClipSlurPitchInput
-  endStaff: number;   endVoice: number;   endOffset: Fraction;   endPitch: ClipSlurPitchInput
-  placement?: 'above' | 'below'
-}
 
 /**
  * A rest's manual vertical shift snapshotted before a rebar/paste, keyed by its absolute
@@ -303,16 +272,18 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
 }
 
 /**
- * Paste a clipboard event stream at (targetMeasure, targetBeat), OVERWRITING the
- * existing music forward for the clip's span. Reuses the rebar pipeline so the
- * paste inherits its correctness for free: existing content overlapping the paste
- * window is dropped, the clip's events are dropped in at the target offset, and
- * the merged stream is re-barred (barline-crossing notes split with ties, gaps
- * rest-filled, the region grown if it overflows).
+ * Paste a {@link Clip} at `target`, OVERWRITING the existing music forward for the clip's
+ * span. Reuses the rebar pipeline so the paste inherits its correctness for free: existing
+ * content overlapping the paste window is dropped, the clip's events are dropped in at the
+ * target offset, and the merged stream is re-barred (barline-crossing notes split with ties,
+ * gaps rest-filled, the region grown if it overflows).
  *
- * The region runs from `targetMeasure` to the next explicit TS change (or score
+ * The region runs from `target.measure` to the next explicit TS change (or score
  * end); a single meter governs it (Phase A: pasting across a meter change is not
  * supported — the clip flows in the target region's meter).
+ *
+ * ⭐ TWO arguments, not fourteen: the clip is position-independent material and the target is
+ * where it lands, so everything a clip carries arrives as a field of it (see `utils/clip.ts`).
  *
  * @returns the ids of the flat notes that landed inside the paste window, for
  *          selecting the pasted material.
@@ -320,21 +291,15 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
 export function pasteEvents(
   score: Score,
   deps: RebarDeps,
-  targetMeasure: number,
-  targetBeat: Fraction,
-  clipLanes: { staff: number; voice: number; events: RebarEvent[] }[],
-  spanBeats: Fraction,
-  targetVoice: number,
-  clipRestShifts: { staff: number; voice: number; restShifts: Array<{ offset: Fraction; steps: number }> }[] = [],
-  clipRestHidden: { staff: number; voice: number; restHidden: Array<{ offset: Fraction }> }[] = [],
-  targetStaff: number = 0,
-  clipDynamics: ClipDynamicInput[] = [],
-  clipSlurs: ClipSlurInput[] = [],
-  clipSpaces: Array<{ offset: Fraction; space: number }> = [],
-  clipNoteOffsets: { staff: number; voice: number; noteOffsets: Array<{ offset: Fraction; x: number; member?: number }> }[] = [],
-  /** Two-note tremolos the clip carries, per lane — see `ClipboardLane.tremoloPairs`. */
-  clipTremoloPairs: { staff: number; voice: number; tremoloPairs: Array<{ offset: Fraction; style?: 'joined' | 'open' }> }[] = [],
+  clip: Clip,
+  target: ClipTarget,
 ): string[] {
+  const { measure: targetMeasure, beat: targetBeat, voice: targetVoice } = target
+  const targetStaff = target.staff ?? 0
+  const { lanes: clipLanes, spanBeats } = clip
+  const clipDynamics = clip.dynamics ?? []
+  const clipSlurs = clip.slurs ?? []
+  const clipSpaces = clip.spaces ?? []
   const ordered = [...score.measures].sort((a, b) => a.number - b.number)
   const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
   if (fromIdx === -1) return []
@@ -506,19 +471,19 @@ export function pasteEvents(
   // right staff rather than collapsing onto staff 0. `keyStaffId` gives the absent-for-staff-0
   // id that matches the destination rest slot's own `staffId`.
   const clipCaptured: CapturedRestShift[] = []
-  for (const { staff, voice, restShifts: shifts } of clipRestShifts) {
+  for (const { staff, voice, restShifts } of clipLanes) {
     const destVoice = singleVoice ? targetVoice : voice
     const destStaffId = keyStaffId(score, targetStaff + staff)
-    for (const rs of shifts) {
+    for (const rs of restShifts ?? []) {
       clipCaptured.push({ voice: destVoice, staffId: destStaffId, absBeat: fracAdd(pasteStart, rs.offset), steps: rs.steps, hidden: false })
     }
   }
   // The clip's hidden rests travel the same way (client #6). A hidden rest may carry no
   // shift, so it arrives as its own captured entry (steps 0, hidden true).
-  for (const { staff, voice, restHidden } of clipRestHidden) {
+  for (const { staff, voice, restHidden } of clipLanes) {
     const destVoice = singleVoice ? targetVoice : voice
     const destStaffId = keyStaffId(score, targetStaff + staff)
-    for (const rh of restHidden) {
+    for (const rh of restHidden ?? []) {
       clipCaptured.push({ voice: destVoice, staffId: destStaffId, absBeat: fracAdd(pasteStart, rh.offset), steps: 0, hidden: true })
     }
   }
@@ -538,10 +503,10 @@ export function pasteEvents(
   // absent-for-staff-0 id), and re-voice a single-voice clip into the target voice. restoreNoteOffsets
   // drops any whose slot the paste didn't produce, and stamps on top of the destination's (last wins).
   const clipCapturedOffsets: CapturedNoteOffset[] = []
-  for (const { staff, voice, noteOffsets: offsets } of clipNoteOffsets) {
+  for (const { staff, voice, noteOffsets: offsets } of clipLanes) {
     const destVoice = singleVoice ? targetVoice : voice
     const destStaffId = keyStaffId(score, targetStaff + staff)
-    for (const no of offsets) {
+    for (const no of offsets ?? []) {
       clipCapturedOffsets.push({ voice: destVoice, staffId: destStaffId, absBeat: fracAdd(pasteStart, no.offset), x: no.x, member: no.member })
     }
   }
@@ -549,7 +514,7 @@ export function pasteEvents(
 
   // ⭐ The clip's TWO-NOTE TREMOLOS, re-based and re-voiced exactly like its note offsets — "I should
   // be able to paste what I copied". They travel outside `events` on purpose (see
-  // `ClipboardLane.tremoloPairs`): the relay must keep dropping the relation, because a split event
+  // `ClipLane.tremoloPairs`): the relay must keep dropping the relation, because a split event
   // hands its marks to every piece, while a copy that carries BOTH notes can simply reproduce it.
   //
   // ⚠️ RE-VALIDATED against the tiling that actually arrived, never trusted. The paste may land the
@@ -557,10 +522,10 @@ export function pasteEvents(
   // region — all of which make it no longer a pair, and `pairIsValid` is the one predicate that says
   // so. A mark that does not survive the landing is simply not applied.
   const clipPairs: CapturedTremoloPair[] = []
-  for (const { staff, voice, tremoloPairs } of clipTremoloPairs) {
+  for (const { staff, voice, tremoloPairs } of clipLanes) {
     const destVoice = singleVoice ? targetVoice : voice
     const destStaffId = keyStaffId(score, targetStaff + staff)
-    for (const tp of tremoloPairs) {
+    for (const tp of tremoloPairs ?? []) {
       clipPairs.push({ voice: destVoice, staffId: destStaffId, absBeat: fracAdd(pasteStart, tp.offset), style: tp.style })
     }
   }
@@ -1199,7 +1164,7 @@ function restoreClipSlurs(
   score: Score,
   deps: RebarDeps,
   regionNumbers: number[],
-  clipSlurs: ClipSlurInput[],
+  clipSlurs: ClipSlur[],
   targetStaff: number,
   targetVoice: number,
   singleVoice: boolean,
@@ -1210,7 +1175,7 @@ function restoreClipSlurs(
 
   // (staff | voice | offset | pitch) -> pitch id, over the pasted region (first chord wins).
   const offKey = (off: Fraction): string => { const r = fracCreate(off.num, off.den); return `${r.num}/${r.den}` }
-  const key = (staff: number, voice: number, off: Fraction, p: ClipSlurPitchInput): string =>
+  const key = (staff: number, voice: number, off: Fraction, p: ClipSlurPitch): string =>
     `${staff}|v${voice}|${offKey(off)}|${p.step}/${p.alter}/${p.octave}`
 
   const lookup = new Map<string, string>()
@@ -1232,7 +1197,7 @@ function restoreClipSlurs(
     base = fracAdd(base, cap)
   }
 
-  const resolve = (relStaff: number, endVoice: number, relOffset: Fraction, pitch: ClipSlurPitchInput): string | undefined => {
+  const resolve = (relStaff: number, endVoice: number, relOffset: Fraction, pitch: ClipSlurPitch): string | undefined => {
     const absStaff = targetStaff + relStaff
     if (absStaff < 0 || absStaff >= staffCount) return undefined
     const voice = singleVoice ? targetVoice : endVoice

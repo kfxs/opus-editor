@@ -91,8 +91,9 @@ No migration needed (no persisted clips) — bump `version`, keep round-trip.
       the paste start, maps rel→abs staff (clamp/drop overflow) + re-voices single-voice clips,
       and re-anchors via the existing `restoreBeatAnchors` path. Overwrite semantics: a
       destination dynamic inside the paste window on a destination `(staff,voice)` lane is
-      dropped (`survivingAnchors` filter) so the clip's replaces it (no stacking). `ClipDynamicInput`
-      declared in ScoreModel (engine never imports inward). Tests: capture+paste, offset re-base,
+      dropped (`survivingAnchors` filter) so the clip's replaces it (no stacking). *(The engine's own
+      `ClipDynamicInput` copy is gone — since Phase 4 of docs/refactor-plan-2026-07-27.md the one
+      `ClipDynamic` lives in the CORE, `utils/clip.ts`, so there is nothing to import inward.)* Tests: capture+paste, offset re-base,
       fully-enclosed-only, overwrite-no-stack, cross-staff 1+2→3+4.
 - [x] **Phase 3 — slurs travel. DONE.** `buildClipboardFromSelection` captures slurs with BOTH
       endpoints inside the window (`slursInWindow`) as `ClipSlur{start/end Staff(rel),Voice,Offset,

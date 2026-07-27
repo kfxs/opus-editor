@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
-import type { Chord, Fraction } from '@/types/music'
+import type { Chord } from '@/types/music'
 import { buildClipboardFromSelection } from '@/interactions/clipboard'
 
 /**
@@ -252,9 +252,6 @@ describe('the pair survives copy/paste and a voice move', () => {
     const slot = m.getMeasure(measure)!.slots.find(s => fracToNumber(s.beat) === beat)
     return slot?.type === 'chord' ? slot : undefined
   }
-  const pairChannel = (clip: { lanes: Array<{ staff: number; voice: number; tremoloPairs?: Array<{ offset: Fraction; style?: 'joined' | 'open' }> }> }) =>
-    clip.lanes.filter(l => l.tremoloPairs?.length)
-      .map(l => ({ staff: l.staff, voice: l.voice, tremoloPairs: l.tremoloPairs! }))
 
   it('COPIES and PASTES whole, style included', () => {
     const m = new ScoreModel('P')
@@ -264,8 +261,7 @@ describe('the pair survives copy/paste and a voice move', () => {
 
     const clip = buildClipboardFromSelection(m.getScore(), [a.id, b.id])!
     expect(clip.lanes[0].tremoloPairs).toHaveLength(1)
-    m.pasteEvents(2, frac(0, 1), clip.lanes, clip.spanBeats, 0, [], [], 0,
-      clip.dynamics, clip.slurs, clip.spaces ?? [], [], pairChannel(clip))
+    m.pasteEvents(clip, { measure: 2, beat: frac(0, 1), voice: 0 })
 
     expect(chordAt(m, 2, 0)?.tremoloPair).toBe(true)
     expect(chordAt(m, 2, 0)?.tremolo).toBe(3)
@@ -273,7 +269,6 @@ describe('the pair survives copy/paste and a voice move', () => {
     // Still ONE field, on the first slot — the paste did not invent a second.
     expect(chordAt(m, 2, 1)?.tremoloPair).toBeUndefined()
   })
-
 
   it('⚠️ a paste does NOT un-pair the marks it lands NEAR (his report)', () => {
     // Reported: pasting into bar 4 quietly cleared a pair at bar 4 beat 0 AND one in bar 5 — neither
@@ -287,10 +282,7 @@ describe('the pair survives copy/paste and a voice move', () => {
     m.setTremoloPair(a.id, true)
 
     const clip = buildClipboardFromSelection(m.getScore(), [a.id, b.id])!
-    const chan = pairChannel(clip)
-    const paste = (measure: number, beat: number) => m.pasteEvents(
-      measure, frac(beat, 1), clip.lanes, clip.spanBeats, 0, [], [], 0,
-      clip.dynamics, clip.slurs, clip.spaces ?? [], [], chan)
+    const paste = (measure: number, beat: number) => m.pasteEvents(clip, { measure, beat: frac(beat, 1), voice: 0 })
 
     paste(5, 0)
     paste(4, 2)   // the paste whose region spans BOTH bars

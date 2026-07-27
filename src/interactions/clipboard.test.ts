@@ -5,7 +5,6 @@ import { buildClipboardFromSelection } from './clipboard'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
-import type { ClipboardPayload } from './clipboard'
 
 const fakeRegistry = {
   clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
@@ -57,7 +56,7 @@ describe('clipboard — copy/paste of notes', () => {
     expect(payload.lanes[0].events).toHaveLength(4)
     expect(fracToNumber(payload.spanBeats)).toBe(4)
 
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
     expect(pitches(engine, 2)).toEqual(['C4@0', 'D4@1', 'E4@2', 'F4@3'])
   })
 
@@ -68,14 +67,14 @@ describe('clipboard — copy/paste of notes', () => {
     engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
     expect(pitches(engine, 2)).toEqual(['G4@0'])
 
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
     expect(pitches(engine, 2)).toEqual(['C4@0', 'D4@1', 'E4@2', 'F4@3']) // G4 gone
   })
 
   it('returns the pasted note ids (for selecting them)', () => {
     const ids = fillM1()
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
-    const pasted = engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0)
+    const pasted = engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
     expect(pasted).toHaveLength(4)
     const m2Ids = new Set(flat(engine, 2).map(n => n.id))
     for (const id of pasted) expect(m2Ids.has(id)).toBe(true)
@@ -85,7 +84,7 @@ describe('clipboard — copy/paste of notes', () => {
     const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
     const e = engine.addChordNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) }).id
     const payload = buildClipboardFromSelection(engine.getScore(), [c, e])!
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
 
     const m2 = flat(engine, 2).filter(n => !n.isRest && fracToNumber(n.beat) === 0)
     expect(new Set(m2.map(n => `${n.step}${n.octave}`))).toEqual(new Set(['C4', 'E4']))
@@ -98,7 +97,7 @@ describe('clipboard — copy/paste of notes', () => {
     expect(fracToNumber(payload.spanBeats)).toBe(2)
 
     // Paste at beat 3 of measure 2: 2 beats from beat 3 overflows the 4/4 bar.
-    engine.pasteEvents(2, frac(3, 1), payload.lanes, payload.spanBeats, 0)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(3, 1), voice: 0 })
 
     const m2 = flat(engine, 2).find(n => !n.isRest && fracToNumber(n.beat) === 3)!
     const m3 = flat(engine, 3).find(n => !n.isRest && fracToNumber(n.beat) === 0)!
@@ -115,7 +114,7 @@ describe('clipboard — copy/paste of notes', () => {
     expect(payload.lanes).toHaveLength(1)
     expect(payload.lanes[0].voice).toBe(0)
 
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 1)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 1 })
     const pasted = flat(engine, 2).find(n => !n.isRest && fracToNumber(n.beat) === 0)!
     expect(pasted.step).toBe('C')
     expect(pasted.voice).toBe(1) // landed in voice 2, not voice 1
@@ -128,7 +127,7 @@ describe('clipboard — copy/paste of notes', () => {
     expect(payload.lanes.map(vv => vv.voice).sort()).toEqual([0, 1])
 
     // A multi-voice clip ignores the target voice and preserves the originals.
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
     const m2 = flat(engine, 2).filter(n => !n.isRest && fracToNumber(n.beat) === 0)
     const byVoice = new Map(m2.map(n => [n.voice ?? 0, `${n.step}${n.octave}`]))
     expect(byVoice.get(0)).toBe('C5')
@@ -153,9 +152,6 @@ describe('clipboard — rest-shift travel', () => {
   const restAt = (m: number, beatNum: number) =>
     flat(engine, m).find((n) => n.isRest && fracToNumber(n.beat) === beatNum)!
 
-  const clipRestShiftsOf = (p: ClipboardPayload) =>
-    p.lanes.filter((v) => v.restShifts?.length).map((v) => ({ staff: v.staff, voice: v.voice, restShifts: v.restShifts! }))
-
   it('copies a shifted rest and travels it to the pasted position (same meter / canon)', () => {
     // m1 4/4: C@0(q), D@3(q) → a rest in between. Shift the rest at beat 1.
     const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
@@ -166,7 +162,7 @@ describe('clipboard — rest-shift travel', () => {
     expect(payload.lanes[0].restShifts).toEqual([{ offset: frac(1, 1), steps: 2 }])
 
     // Paste at measure 2 beat 0 (empty, same 4/4) → the regenerated rest at offset 1 is stamped.
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, clipRestShiftsOf(payload))
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
 
     const m2 = engine.getScore().measures.find((x) => x.number === 2)!
     expect(restShiftOverrideOf(engine.getScore(), restPositionKey(m2.id, 0, frac(1, 1)))?.steps).toBe(2)
@@ -191,7 +187,7 @@ describe('clipboard — rest-shift travel', () => {
     // Copy a quarter note from m1 and paste onto m2 beat 2 → a NOTE now starts there.
     const c = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
     const payload = buildClipboardFromSelection(engine.getScore(), [c])!
-    engine.pasteEvents(2, frac(2, 1), payload.lanes, payload.spanBeats, 0, clipRestShiftsOf(payload))
+    engine.pasteEvents(payload, { measure: 2, beat: frac(2, 1), voice: 0 })
 
     expect(restShiftOverrideOf(engine.getScore(), restPositionKey(m2.id, 0, frac(2, 1)))).toBeUndefined()
   })
@@ -204,11 +200,6 @@ describe('clipboard — hidden-rest travel (client #6)', () => {
   const restAt = (m: number, beatNum: number) =>
     flat(engine, m).find((n) => n.isRest && fracToNumber(n.beat) === beatNum)!
 
-  const clipOf = (p: ClipboardPayload) => ({
-    shifts: p.lanes.filter((v) => v.restShifts?.length).map((v) => ({ staff: v.staff, voice: v.voice, restShifts: v.restShifts! })),
-    hidden: p.lanes.filter((v) => v.restHidden?.length).map((v) => ({ staff: v.staff, voice: v.voice, restHidden: v.restHidden! })),
-  })
-
   it('copies a hidden rest and travels it to the pasted position', () => {
     const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
     const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })!.id
@@ -217,8 +208,7 @@ describe('clipboard — hidden-rest travel (client #6)', () => {
     const payload = buildClipboardFromSelection(engine.getScore(), [c, d])!
     expect(payload.lanes[0].restHidden).toEqual([{ offset: frac(1, 1) }])
 
-    const { shifts, hidden } = clipOf(payload)
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, shifts, hidden)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
 
     const m2 = engine.getScore().measures.find((x) => x.number === 2)!
     expect(restHiddenOf(engine.getScore(), restPositionKey(m2.id, 0, frac(1, 1)))).toBe(true)
@@ -261,7 +251,7 @@ describe('clipboard — multi-staff copy/paste', () => {
     engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 3, duration: 'h', measure: 2, beat: frac(0, 1), staff: 1 })
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
 
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
 
     expect(notesOf(2, 0)).toEqual(['C4@0', 'D4@1']) // clip landed on staff 0
     expect(notesOf(2, 1)).toEqual(['C3@0'])         // staff 1 intact (the reported bug wiped it)
@@ -274,7 +264,7 @@ describe('clipboard — multi-staff copy/paste', () => {
     const s1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
 
     const payload = buildClipboardFromSelection(engine.getScore(), [s1])!
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
 
     // The clip carried C3 (source staff 1) only — no C4 from staff 0 mixed in.
     expect(notesOf(2, 0)).toEqual(['C3@0'])
@@ -289,7 +279,7 @@ describe('clipboard — multi-staff copy/paste', () => {
     engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
 
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 1) // target staff 1
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0, staff: 1 }) // target staff 1
 
     expect(notesOf(2, 1)).toEqual(['C4@0']) // clip on staff 1
     expect(notesOf(2, 0)).toEqual(['G4@0']) // staff 0 untouched
@@ -308,7 +298,7 @@ describe('clipboard — multi-staff copy/paste', () => {
     expect(payload.lanes.map(l => l.staff).sort()).toEqual([0, 1]) // relative: 0 = topmost
 
     // Paste onto staff 2 → relStaff 0 lands on staff 2, relStaff 1 on staff 3.
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 2)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0, staff: 2 })
 
     expect(notesOf(2, 2)).toEqual(['C4@0']) // top lane → staff 2
     expect(notesOf(2, 3)).toEqual(['C3@0']) // bottom lane → staff 3
@@ -323,7 +313,7 @@ describe('clipboard — multi-staff copy/paste', () => {
 
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     // Target staff 1: relStaff 0 → staff 1 (OK), relStaff 1 → staff 2 (out of range, dropped).
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 1)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0, staff: 1 })
 
     expect(notesOf(2, 1)).toEqual(['C4@0']) // top lane landed on staff 1
     expect(warn).toHaveBeenCalled()          // overflow lane warned + dropped
@@ -343,8 +333,6 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
       .map(d => `${dynamicLevelOf(d) ?? d.text}@${fracToNumber(d.beat)}`)
   }
 
-  const clipDynsPass = (p: ClipboardPayload) => p.dynamics
-
   it('copies a dynamic under the selection and pastes it into the target bar', () => {
     const ids = [
       engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id,
@@ -357,7 +345,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     expect(payload.dynamics[0]).toMatchObject({ staff: 0, voice: 0, text: levelToGlyphString('f') })
     expect(fracToNumber(payload.dynamics[0].offset)).toBe(0)
 
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, clipDynsPass(payload))
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
     expect(dynsOf(2, 0)).toEqual(['f@0'])
   })
 
@@ -371,7 +359,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     expect(fracToNumber(payload.dynamics[0].offset)).toBe(2)
 
     // Paste at m2 beat 1 → the dynamic lands at beat 1 + offset 2 = beat 3.
-    engine.pasteEvents(2, frac(1, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, clipDynsPass(payload))
+    engine.pasteEvents(payload, { measure: 2, beat: frac(1, 1), voice: 0 })
     expect(dynsOf(2, 0)).toEqual(['p@3'])
   })
 
@@ -395,7 +383,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     engine.addDynamic(2, { beat: frac(0, 1), text: levelToGlyphString('p'), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), [c])!
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, clipDynsPass(payload))
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
     expect(dynsOf(2, 0)).toEqual(['f@0']) // only the clip's, not ['p@0','f@0']
   })
 
@@ -407,7 +395,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     const payload = buildClipboardFromSelection(engine.getScore(), [c])!
     expect(payload.dynamics[0].engravingOffset).toEqual({ x: 2, y: -3 })
 
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, clipDynsPass(payload))
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
 
     // The pasted dynamic got a fresh id, but the offset rode along, re-keyed to it.
     const pasted = engine.getDynamics(2).find(x => dynamicLevelOf(x) === 'f')!
@@ -425,7 +413,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     const payload = buildClipboardFromSelection(engine.getScore(), [s0, s1])!
     expect(payload.dynamics[0]).toMatchObject({ staff: 1, text: levelToGlyphString('mf') }) // relative staff 1 (bottom copied)
 
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 2, clipDynsPass(payload))
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0, staff: 2 })
     expect(dynsOf(2, 3)).toEqual(['mf@0']) // relStaff 1 → staff 3
     expect(dynsOf(2, 2)).toEqual([])       // nothing spurious on staff 2
   })
@@ -456,7 +444,7 @@ describe('clipboard — slurs travel (Phase 3)', () => {
     expect(payload.slurs[0].startPitch).toMatchObject({ step: 'C', octave: 4 })
     expect(payload.slurs[0].endPitch).toMatchObject({ step: 'F', octave: 4 })
 
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, payload.dynamics, payload.slurs)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
 
     const pasted = (engine.getScore().slurs ?? []).filter(s => s.startNoteId === idAt(2, 0, 'C4@0'))
     expect(pasted).toHaveLength(1)
@@ -480,7 +468,7 @@ describe('clipboard — slurs travel (Phase 3)', () => {
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     // Paste at m2 beat 0: the slur's D (clip offset 1) and E (offset 2) land at beats 1 and 2.
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 0, payload.dynamics, payload.slurs)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
 
     const pasted = (engine.getScore().slurs ?? []).filter(s => s.startNoteId === idAt(2, 0, 'D4@1'))
     expect(pasted).toHaveLength(1)
@@ -501,7 +489,7 @@ describe('clipboard — slurs travel (Phase 3)', () => {
     expect(payload.slurs[0].startStaff).toBe(1) // relative staff 1 (bottom copied)
 
     // Paste onto staff 2 → the slur re-anchors on staff 3 (relStaff 1 + target 2).
-    engine.pasteEvents(2, frac(0, 1), payload.lanes, payload.spanBeats, 0, [], [], 2, payload.dynamics, payload.slurs)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0, staff: 2 })
 
     const pasted = (engine.getScore().slurs ?? []).filter(s => s.startNoteId === idAt(2, 3, 'C4@0'))
     expect(pasted).toHaveLength(1)

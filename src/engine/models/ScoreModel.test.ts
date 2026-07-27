@@ -1149,9 +1149,8 @@ describe('rebar preserves beat-anchored annotations (tempo marks)', () => {
     model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f') })
 
     model.pasteEvents(
-      1, frac(0, 1),
-      [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }],
-      frac(4, 1), 0,
+      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { measure: 1, beat: frac(0, 1), voice: 0 },
     )
 
     const tempos = model.getMeasure(1)!.tempos!
@@ -1215,7 +1214,9 @@ describe('rebar preserves slurs (phrasing spans)', () => {
 
     // Overwrite the whole bar with a single whole rest's worth of content via paste of
     // one note at beat 0; the slur's end anchor (C5 @3.5) no longer exists afterwards.
-    model.pasteEvents(1, frac(0, 1), [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], frac(4, 1), 0)
+    model.pasteEvents(
+      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { measure: 1, beat: frac(0, 1), voice: 0 })
 
     // Whatever the outcome, no slur may reference a missing note.
     const ids = new Set<string>()
@@ -1295,7 +1296,9 @@ describe('rebar preserves secondary voices', () => {
     model.addNote({ step: 'G', alter: 0, octave: 3, duration: 'h', measure: 1, beat: frac(0, 1), voice: 1 })
 
     // Paste a single quarter at beat 0 of voice 0.
-    model.pasteEvents(1, frac(0, 1), [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(1, 1), pitches: [{ step: 'A', alter: 0, octave: 4 }] }] }], frac(1, 1), 0)
+    model.pasteEvents(
+      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(1, 1), pitches: [{ step: 'A', alter: 0, octave: 4 }] }] }], spanBeats: frac(1, 1) },
+      { measure: 1, beat: frac(0, 1), voice: 0 })
 
     // Voice 2's half note is still there, still tagged voice 1.
     const v1 = voiceNotes(1, 1)

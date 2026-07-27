@@ -344,8 +344,9 @@ travel test — all mirroring the spacing pass's.
   / `restoreNoteOffsets` in `rebarOps.ts` (keyed by `(voice, staffId, absBeat)`, covering chords AND
   rests since a note offset is slot-keyed), wired into both `rebarRegion` (meter change) and
   `pasteEvents` (destination's own offsets restored, then the clip's stamped on top — last wins). The
-  clip carries them per lane: `ClipboardLane.noteOffsets` (`noteOffsetsInWindow`), threaded through
-  `pasteEvents`' `clipNoteOffsets` param and `ClipboardController`. A slot the new tiling dissolves
+  clip carries them per lane: `ClipLane.noteOffsets` (`noteOffsetsInWindow`) — which since the `Clip`
+  object (docs/refactor-plan-2026-07-27.md Phase 4) is ALL the plumbing there is: `pasteEvents` reads
+  the lane it is given, with no separate param and nothing for `ClipboardController` to project. A slot the new tiling dissolves
   drops its offset (benign). Guarded by `noteOffsetTravel.test.ts`.
 - **Auto-reset beyond delete.** Clear the override when the note is deleted; do not wire the
   fuller anchor-broken machinery yet.

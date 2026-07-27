@@ -76,11 +76,8 @@ describe('note offset — copy/paste', () => {
     const ids = fourNotes(engine, 1)
     engine.nudgeNoteOffset(ids[2], -3) // beat 2
     const clip = buildClipboardFromSelection(engine.getScore(), ids)!
-    const clipNoteOffsets = clip.lanes
-      .filter(l => l.noteOffsets?.length)
-      .map(l => ({ staff: l.staff, voice: l.voice, noteOffsets: l.noteOffsets! }))
     engine.addMeasure()
-    engine.pasteEvents(2, frac(0, 1), clip.lanes, clip.spanBeats, 0, [], [], 0, clip.dynamics, clip.slurs, clip.spaces ?? [], clipNoteOffsets)
+    engine.pasteEvents(clip, { measure: 2, beat: frac(0, 1), voice: 0 })
     expect(offsetOf(engine, noteIdAt(engine, 2, 2)!)).toBe(-3)
   })
 
@@ -88,8 +85,9 @@ describe('note offset — copy/paste', () => {
     const ids = fourNotes(engine, 1)
     const clip = buildClipboardFromSelection(engine.getScore(), ids)!
     engine.addMeasure()
-    // Call the pre-client-#12 arity (no clipNoteOffsets) — must not throw.
-    engine.pasteEvents(2, frac(0, 1), clip.lanes, clip.spanBeats, 0, [], [], 0, clip.dynamics, clip.slurs)
+    // A pre-client-#12 clip has no `noteOffsets` on its lanes at all (the field is optional,
+    // and an old JSON payload off the OS clipboard simply lacks it) — must not throw.
+    engine.pasteEvents(clip, { measure: 2, beat: frac(0, 1), voice: 0 })
     expect(offsetOf(engine, noteIdAt(engine, 2, 0)!)).toBe(0)
   })
 })
@@ -138,11 +136,8 @@ describe('note offset — a fanned member', () => {
     const { owner, memberIds } = fanned()
     engine.nudgeNoteOffset(memberIds[1], -2)
     const clip = buildClipboardFromSelection(engine.getScore(), [owner.id])!
-    const clipNoteOffsets = clip.lanes
-      .filter(l => l.noteOffsets?.length)
-      .map(l => ({ staff: l.staff, voice: l.voice, noteOffsets: l.noteOffsets! }))
     engine.addMeasure()
-    engine.pasteEvents(2, frac(0, 1), clip.lanes, clip.spanBeats, 0, [], [], 0, clip.dynamics, clip.slurs, clip.spaces ?? [], clipNoteOffsets)
+    engine.pasteEvents(clip, { measure: 2, beat: frac(0, 1), voice: 0 })
 
     expect(memberOffsetAt(2, 2)).toBe(-2)
     // …on the PASTED fan's own member, whose id is a fresh one — and only that member.

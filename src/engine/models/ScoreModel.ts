@@ -16,7 +16,7 @@ import { beamRoleAtRef, type BeamRole } from '@/utils/beaming'
 import { laneOfSlot, pairAcceptsJoined, pairIsValid } from '@/utils/tremoloPair'
 import { normalizeFan, cloneFanFresh, fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import { spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
-import { type RebarEvent } from '@/utils/rebar'
+import type { Clip, ClipTarget } from '@/utils/clip'
 import {
   type Fraction,
   fracCreate,
@@ -44,9 +44,8 @@ import { v4 as uuidv4 } from 'uuid'
 import { voiceOf } from '@/utils/lanes'
 
 // The region-rewrite machinery (rebar / paste) and its captured-state types now live in
-// ./rebarOps. Re-export the two clipboard input types so callers (MusicEngine) keep their
-// `import … from './models/ScoreModel'` path.
-export type { ClipDynamicInput, ClipSlurInput } from './rebarOps'
+// ./rebarOps. What a paste TAKES — the `Clip` and where it lands — is core material and lives
+// in @/utils/clip, so callers import it from there rather than through this class.
 
 
 /**
@@ -1384,30 +1383,12 @@ export class ScoreModel {
   }
 
   /**
-   * Overwrite-paste a clipboard event stream at (targetMeasure, targetBeat). Thin delegator
-   * to {@link rebarOps.pasteEvents}, which owns the region-rewrite pipeline. Returns the ids
-   * of the flat notes that landed inside the paste window (for selecting the pasted material).
+   * Overwrite-paste a {@link Clip} at `target`. Thin delegator to {@link rebarOps.pasteEvents},
+   * which owns the region-rewrite pipeline. Returns the ids of the flat notes that landed
+   * inside the paste window (for selecting the pasted material).
    */
-  pasteEvents(
-    targetMeasure: number,
-    targetBeat: Fraction,
-    clipLanes: { staff: number; voice: number; events: RebarEvent[] }[],
-    spanBeats: Fraction,
-    targetVoice: number,
-    clipRestShifts: { staff: number; voice: number; restShifts: Array<{ offset: Fraction; steps: number }> }[] = [],
-    clipRestHidden: { staff: number; voice: number; restHidden: Array<{ offset: Fraction }> }[] = [],
-    targetStaff: number = 0,
-    clipDynamics: rebarOps.ClipDynamicInput[] = [],
-    clipSlurs: rebarOps.ClipSlurInput[] = [],
-    clipSpaces: Array<{ offset: Fraction; space: number }> = [],
-    clipNoteOffsets: { staff: number; voice: number; noteOffsets: Array<{ offset: Fraction; x: number; member?: number }> }[] = [],
-  /** Two-note tremolos the clip carries, per lane — see `ClipboardLane.tremoloPairs`. */
-  clipTremoloPairs: { staff: number; voice: number; tremoloPairs: Array<{ offset: Fraction; style?: 'joined' | 'open' }> }[] = [],
-  ): string[] {
-    return rebarOps.pasteEvents(
-      this.score, this.rebarDeps, targetMeasure, targetBeat, clipLanes, spanBeats, targetVoice,
-      clipRestShifts, clipRestHidden, targetStaff, clipDynamics, clipSlurs, clipSpaces, clipNoteOffsets, clipTremoloPairs,
-    )
+  pasteEvents(clip: Clip, target: ClipTarget): string[] {
+    return rebarOps.pasteEvents(this.score, this.rebarDeps, clip, target)
   }
 
   /**

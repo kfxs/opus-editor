@@ -495,6 +495,59 @@ clipboard plumbing. Two payoffs beyond tidiness:
 passage carrying each travelling attribute (a shifted rest, a hidden rest, a dynamic, a
 slur, an authored space, a note offset, a two-note tremolo).
 
+### ✅ Done (2026-07-27)
+
+`build:check` green, **2535 tests — the same number again**: no behaviour changed, and the
+suite that proves it is the one that already existed. **−222 lines net.**
+
+**The shape, with one deviation from the sketch above: `target` is NOT a field of `Clip`.**
+A clip carries no position — that is the whole reason it can be pasted anywhere, any number
+of times — so putting the destination inside it would have contradicted the doc-comment the
+payload has always carried. Two arguments:
+
+```ts
+pasteEvents(clip: Clip, target: ClipTarget): string[]     // MusicEngine, ScoreModel, rebarOps
+```
+
+**And `travelling` is not a sub-object either — because it turned out not to be a new
+container at all.** `ClipboardLane` ALREADY held `restShifts` / `restHidden` / `noteOffsets`
+/ `tremoloPairs`; `ClipboardController` was re-projecting each of the four back out into a
+`{staff, voice, …}[]` array purely to feed a positional parameter, and `pasteEvents` was
+zipping them back onto the lanes by staff+voice. ⭐ **Four of the fourteen parameters were a
+round-trip of data the clip already had** — the object didn't move them, it deleted the trip.
+The three genuinely clip-wide things (`dynamics`, `slurs`, `spaces`) stay top-level and flat.
+
+**The types moved to the core, `utils/clip.ts`** (a subject of its own beside `utils/rebar.ts`,
+the Phase 3d precedent): `Clip`, `ClipLane`, `ClipDynamic`, `ClipSlur`, `ClipSlurPitch`,
+`ClipTarget`. Two consequences worth naming:
+
+- **`ClipboardPayload extends Clip`** — it now declares only the envelope (`format`, `version`,
+  `origin`, `spanStaves`). The music is inherited, so the payload cannot drift from what paste
+  accepts, and `ClipboardController` hands its payload straight to the engine.
+- **The engine's duplicate types are gone.** `ClipDynamicInput` / `ClipSlurInput` existed in
+  `rebarOps` *"so the engine never imports inward"* — with the definition in the core, the
+  duplicate is unnecessary and so is `ScoreModel`'s re-export of it. The comment was right; the
+  copy was the workaround for the type being in the wrong layer.
+
+**Method:** a parsing sweep of the 40 test call sites (balance the parens, split top-level
+commas, map positionally) with an assertion that **every dropped argument was a projection of
+that same clip** — anything else aborted the script. Then `tsc` named the five now-dead helper
+functions in the tests (`clipRestShiftsOf`, `clipOf`, `clipDynsPass`, `pairChannel`,
+`clipNoteOffsets` ×2), which is the refactor's own receipt. Full `git diff` reviewed by hand.
+
+⚠️ **Two tests changed meaning slightly and were re-worded, not deleted:** "an old clip with no
+`noteOffsets`/`spaces` pastes exactly as before" used to mean *called at the pre-feature arity*.
+Arity is no longer a thing; they now pin the OPTIONAL FIELD path (`lane.noteOffsets ?? []`,
+`clip.spaces ?? []`) — which is what an old JSON payload off the OS clipboard actually
+produces, so the case is still real.
+
+**Docs re-trued** (the Phase 0c rule — a repo fact rots): DESIGN-PRINCIPLES §2 gains the clip as
+the stream's container, §4's *"the multi-staff generalization of today's single-staff
+`pasteEvents(measure, beat, …)`"* is now simply true and says so; note-offset-plan,
+rest-hide-plan and copy-paste-staff-plan each named a parameter that no longer exists.
+
+*Still to hand-test:* copy/paste a passage carrying each travelling attribute.
+
 ---
 
 ## Phase 5 — The geometry net *(prerequisite for Phase 6)*

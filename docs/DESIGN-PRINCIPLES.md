@@ -45,6 +45,9 @@ as an ordered stream of events with relative offsets and durations.
 - This already exists: the `RebarEvent[]` stream (`flattenRegion` →
   `relayEvents` / `pasteEvents`). Treat it as the canonical currency for *portable
   musical material*, not a private detail of re-barring.
+- Its container is `Clip` (`utils/clip.ts`) — lanes of that stream plus everything that
+  travels with them. It sits in the CORE, so building and pasting a run of music needs no
+  editor; the clipboard is one producer of a clip, not its owner.
 - Any operation on "a run of music" — copy/paste, transposition, augmentation,
   reuse, transformation, merging two passages — should be expressible as a
   map/concat over this stream, then re-laid into bars.
@@ -76,9 +79,11 @@ A score *contains* an ordered set of instruments/staves. A single-staff fragment
 and a full multi-instrument score are the **same type** — they differ only in how
 many staves they hold and how much music is in them.
 
-- "Place this material into *(instrument, measure, beat)*" must be expressible —
-  the multi-staff generalization of today's single-staff
-  `pasteEvents(measure, beat, …)`.
+- "Place this material into *(instrument, measure, beat)*" must be expressible — and
+  now is, as one value: `pasteEvents(clip, target)` where `target` is
+  `{ measure, beat, voice, staff }` (`utils/clip.ts`, refactor plan 2026-07-27 Phase 4).
+  The clip itself stores staves RELATIVE to its own topmost one, so a staves-1+2 clip
+  lands on 3+4 and nothing in it names an absolute ensemble.
 - "The full ensemble" never becomes a global assumption baked into entry,
   rendering, or playback such that a small or single-staff score is a special case.
 

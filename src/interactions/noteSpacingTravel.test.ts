@@ -93,7 +93,7 @@ describe('leading space — copy/paste', () => {
     const clip = buildClipboardFromSelection(engine.getScore(), ids)!
 
     fourNotes(engine, 2)
-    engine.pasteEvents(2, frac(0, 1), clip.lanes, clip.spanBeats, 0, [], [], 0, clip.dynamics, clip.slurs, clip.spaces ?? [])
+    engine.pasteEvents(clip, { measure: 2, beat: frac(0, 1), voice: 0 })
 
     expect(spaceAt(engine, 2, 2)).toBe(1.5)
     expect(spaceAt(engine, 1, 2)).toBe(1.5) // …and the source keeps its own
@@ -105,7 +105,7 @@ describe('leading space — copy/paste', () => {
     const clip = buildClipboardFromSelection(engine.getScore(), ids.slice(0, 2)) // beats 0..1
 
     fourNotes(engine, 2)
-    engine.pasteEvents(2, frac(2, 1), clip!.lanes, clip!.spanBeats, 0, [], [], 0, clip!.dynamics, clip!.slurs, clip!.spaces ?? [])
+    engine.pasteEvents(clip!, { measure: 2, beat: frac(2, 1), voice: 0 })
 
     expect(spaceAt(engine, 2, 3)).toBe(2) // clip offset 1 + paste start 2
     expect(spaceAt(engine, 2, 1)).toBe(0)
@@ -118,7 +118,7 @@ describe('leading space — copy/paste', () => {
 
     fourNotes(engine, 2)
     authorSpace(engine, 2, 2, 1) // the destination had its own idea
-    engine.pasteEvents(2, frac(0, 1), clip.lanes, clip.spanBeats, 0, [], [], 0, clip.dynamics, clip.slurs, clip.spaces ?? [])
+    engine.pasteEvents(clip, { measure: 2, beat: frac(0, 1), voice: 0 })
 
     expect(spaceAt(engine, 2, 2)).toBe(3)
   })
@@ -129,7 +129,7 @@ describe('leading space — copy/paste', () => {
     fourNotes(engine, 2)
     authorSpace(engine, 2, 1, 2)
 
-    engine.pasteEvents(2, frac(0, 1), clip.lanes, clip.spanBeats, 0, [], [], 0, clip.dynamics, clip.slurs)
+    engine.pasteEvents(clip, { measure: 2, beat: frac(0, 1), voice: 0 })
 
     // The destination's own space survives the rebar the paste runs.
     expect(spaceAt(engine, 2, 1)).toBe(2)
