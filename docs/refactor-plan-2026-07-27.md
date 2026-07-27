@@ -578,6 +578,85 @@ catch a code-motion regression:
 *Verify:* the suite passes on `main` before Phase 6 starts. That is the whole point — it
 must be green on the code as it is, so a failure afterwards means the refactor.
 
+### ✅ Done (2026-07-27)
+
+**18 specs, green, 5 seconds.** No source file changed — this phase adds a net, it does not
+move anything under it. `build:check` green, **2535 unit tests, unchanged**.
+
+```
+playwright.config.ts       chromium, its own vite on :5199, retries: 0
+e2e/harness.html + .ts     the engine ALONE in a real page → window.__h
+e2e/fixtures.ts            open the page; fail the test if anything threw in it
+e2e/notes.e2e.ts           noteheads, stems, beams          (5)
+e2e/fan.e2e.ts             fanned beams                     (4)
+e2e/tremolo.e2e.ts         both tremolos                    (4)
+e2e/barWidth.e2e.ts        the gesture, and the transfer    (2)
+e2e/systems.e2e.ts         casting off + the system break   (2)
+e2e/pdfExport.e2e.ts       a real PDF comes out             (1)
+```
+
+**⭐ The harness boots the ENGINE, not the app.** No `App`, no controllers, no dev shell —
+so a red test means the renderer, never the wiring (`App.smoke.test.ts` already covers wiring,
+in jsdom, and it exists because that gap once shipped). It also keeps the page to ONE score:
+VexFlow reaches back for what it drew with document-wide `getElementById`, so a second engine
+makes those ids ambiguous — the same trap `scoreSvg.ts` documents for the export render.
+
+**⭐⭐ `getBBox()` IS THE WRONG READER, and it fails quietly.** A music glyph is a `<text>`,
+so its box is the TEXT LAYOUT box: a notehead measures 13 × **160**, nearly the height of the
+whole score. Every reader therefore parses the drawing's own numbers — a `<text>`'s `x`/`y`
+(and the baseline of a notehead IS its line or space), a `<path>`'s `d`. Those come out exact
+and stable, which is why almost nothing here needs a fuzzy tolerance.
+
+**⭐ A rest is drawn as a `vf-notehead`.** There is no class that separates them, so
+`noteheads()` and `rests()` split on SMuFL's own ranges (U+E0A0–E0FF vs U+E4E0–E4FF). Found by
+a spec that asked for "the noteheads" of a one-note bar and got three — the note plus the two
+rests the model fills the bar with. A DOM-shaped reader would have been silently wrong in
+every spec with a part-full bar.
+
+**Three things the browser said that jsdom cannot:**
+1. **A stem is not 35px.** It is, until the note leaves the staff — C6's stem is 40 and lands
+   exactly on the middle line. The first draft asserted the constant and went red immediately.
+2. **`nudgeBarWidth(1, +30)` moves the barline by exactly 30**, while the system still ends on
+   the same right margin and every later bar on the line gives width up. That is bar-width's
+   whole definition (§4's inversion) and it is a measured pixel — unavailable in jsdom, where
+   the room is measured off zeros.
+3. **A `continue` across a system break really does draw on both lines** — two `vf-beam`
+   groups outside every measure group, one in each system's y band, 150px apart.
+
+**Also true and now pinned:** the default two-note tremolo style is `'open'` (strokes float
+between the stems; `'joined'` reaches the tips), a pair of quarters draws all three lines as
+strokes, and five single-note strokes lengthen the stem to make room.
+
+**Housekeeping, each with a reason:**
+- Specs are **`*.e2e.ts`**: vitest's default glob eats `*.spec.ts`, and `npm run test` would
+  then try to launch a browser inside jsdom.
+- A dedicated port (**5199**) with `reuseExistingServer`, so a run neither fights nor silently
+  reuses the `npm run dev` a person has open on 5173.
+- **`retries: 0`.** A geometry assertion is deterministic — same engine, same font, same
+  browser build. A test that passes only on the second try is information, and a retry would
+  swallow it.
+- **NOT in `build:check`** (that gate stays browser-free and fast) and **not in
+  `tsconfig.json`** — the same treatment `vite.config.ts`, `scripts/` and `perf/` already get,
+  because typechecking six Node files would mean pulling `@types/node` into the app's program
+  and re-typing `setTimeout` across `src/`. `npm run lint` does cover them, and every reader is
+  exercised by a passing assertion, so a renamed one goes red.
+
+**⭐ Watched it BITE, the Phase 3 lesson applied to a net rather than a fence.** Two deliberate
+breaks in the renderer, each reverted by inverse edit:
+- `MIN_NOTE_SPACING: 18 → 22` → the two bar-width specs fail; the rest pass, correctly. That is
+  the design showing: relations survive a spacing change, and the one feature whose definition
+  IS a pixel is the one that objects.
+- an early `return` in `drawFanGroups` → all four fan specs fail. That method is on Phase 6a's
+  move list, so this is exactly the regression the net is being strung for.
+
+Three runs back to back gave the same 18 passes at the same numbers — the geometry is
+deterministic, which is why `retries: 0` is honest.
+
+**Docs re-trued** (the Phase 0c rule): ARCHITECTURE.md's 🚨 *"that browser suite does not exist
+yet"* — written in Phase 0 precisely so it could be falsified — is now a section on what the
+suite is and what belongs in it; CLAUDE.md's Testing section states the split (**a drawn
+position is not a unit test**).
+
 ---
 
 ## Phase 6 — Break up the big three, and adopt the rule

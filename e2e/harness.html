@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Geometry harness</title>
+    <style>
+      html, body { margin: 0; background: #ffffff; }
+      #score { width: 1000px; }
+    </style>
+  </head>
+  <body>
+    <!-- The engine's render target. Deliberately NOT the app: the harness boots the engine and
+         nothing else, so a geometry assertion is about the renderer and not about App's wiring. -->
+    <div id="score"></div>
+    <script type="module" src="/e2e/harness.ts"></script>
+  </body>
+</html>

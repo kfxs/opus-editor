@@ -34,7 +34,7 @@ npm run dev        # Start dev server
 npm run build      # Production build
 npm run build:check # Type check + build
 npm run test       # Run unit tests (vitest)
-npm run test:e2e   # Run E2E tests (playwright)
+npm run test:e2e   # Run the browser GEOMETRY suite (playwright; starts its own vite on :5199)
 npm run audit:tests # Report source modules with no spec naming them
 ```
 
@@ -179,3 +179,13 @@ test* and belongs in a per-directory `__tests__/`. `npm run lint:testnames`
 (in `build:check`) enforces the sibling rule; `npm run audit:tests` reports the
 other direction — modules with no spec naming them, i.e. splits never finished.
 See `docs/test-layout-plan.md`.
+
+**⚠️ A drawn POSITION is not a unit test.** Unit tests run in jsdom, which has no
+layout and no fonts: every music glyph measures 0×0, so an assertion about where the
+ink landed measures zeros and agrees with itself. Those tests assert node identity,
+counts and stave arithmetic — never a glyph's coordinates. Geometry belongs in the
+browser suite: `e2e/*.e2e.ts`, run with `npm run test:e2e`, driving the engine alone
+through `e2e/harness.ts`'s `window.__h` (readers for noteheads, stems, beam quads,
+staves, barlines). It is NOT part of `build:check` — that gate stays browser-free —
+so run it either side of any renderer change. See `docs/ARCHITECTURE.md` §"The
+browser suite".

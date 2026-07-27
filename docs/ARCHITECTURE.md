@@ -242,8 +242,8 @@ Two consequences, and the first is the dangerous one:
   `g.vf-beam`) and stave-derived numbers, never a drawn position. That convention is load-bearing.
 - **Bar-width tests only exercise one branch.** `noteSpace = max(minNoteWidth × 1.15, slots ×
   MIN_NOTE_SPACING, …)` — with `minNoteWidth ≈ 0` the events-times-spacing floor always wins, so the
-  case where glyphs genuinely need more room than the floor is covered **by eye only** today — see
-  the 🚨 note below on the browser suite that does not exist yet.
+  case where glyphs genuinely need more room than the floor is only ever exercised in a browser —
+  see the E2E suite below.
 
 ⛔ **Do not "fix" this by stubbing `getContext`.** Fake metrics turn every geometry assertion green on
 fiction; a loud "I can't do this" beats a quiet invented number. Installing the `canvas` package alone
@@ -257,15 +257,38 @@ can `registerFont`, and VexFlow exposes `Element.setTextMeasurementCanvas(canvas
 point. Even then Cairo/FreeType's `actualBoundingBoxAscent/Descent` will not match Skia exactly, so
 assertions need tolerances and a real browser stays the source of truth.
 
-🚨 **And that browser suite does not exist yet.** `@playwright/test` is in `devDependencies` and
-`npm run test:e2e` is in `package.json`, but there is **no `playwright.config.*` and not one spec
-file** — the script fails if you run it. So every geometry feature in this renderer is currently
-verified **by eye only**: fan ramps and spread, tremolo stroke placement, bar width, note spacing,
-PDF outline export. That is a real hole, not a formality, and it is stated here rather than implied
-because this paragraph previously named Playwright as "the source of truth", which read as a net that
-was strung. `docs/refactor-plan-2026-07-27.md` Phase 5 is where it actually gets strung, and it is a
-prerequisite for restructuring the renderer (Phase 6) — code motion under a renderer with no
-regression net is the one refactor this codebase cannot currently check.
+### The browser suite — `npm run test:e2e`
+
+That suite now exists (`e2e/`, `playwright.config.ts` — strung by
+`docs/refactor-plan-2026-07-27.md` Phase 5, as the prerequisite for restructuring the renderer in
+Phase 6). It is where **every assertion about a drawn position belongs**, because it is the only
+place one can be made honestly.
+
+- `e2e/harness.html` + `e2e/harness.ts` boot the **engine alone** — no `App`, no controllers, no dev
+  shell — into a real page, and expose `window.__h`: the engine, plus readers that pull the geometry
+  out of the drawing (`noteheads`, `stems`, `quads`, `staves`, `barlines`, `crossBarBeams`).
+  A failure there is about the renderer, never about wiring; `App.smoke.test.ts` covers wiring in
+  jsdom. One engine per page, deliberately: VexFlow reaches back for what it drew with document-wide
+  `getElementById`, so a second score makes those ids ambiguous.
+- The readers parse the drawing's **own numbers** — a `<text>`'s `x`/`y`, a `<path>`'s `d` — and not
+  `getBBox()`. A music glyph is a `<text>`; its box is the text layout box (160px tall for a
+  notehead), not its ink.
+- The specs are `*.e2e.ts`, not `*.spec.ts`, so vitest's default glob cannot pick them up and try to
+  run them in jsdom.
+- They are **not** in `tsconfig.json` and so are not typechecked by `build:check` — the same
+  treatment `vite.config.ts`, `scripts/` and `perf/` get, and for the same reason: they are Node
+  code, and pulling `@types/node` into the app's program to typecheck six files would re-type
+  `setTimeout` and friends across `src/`. `npm run lint` does cover them, and every reader is
+  exercised by a passing assertion, so a renamed one goes red.
+
+What it covers today is a **small net, not a golden picture**: noteheads/stems/beams, a fanned group
+(head crowding + ramp lines converging), both tremolos, the bar-width gesture landing where it was
+asked while the line still justifies, casting-off with a ragged last system, a beam drawn on both
+sides of a system break, and a real PDF coming out of the export. Enough to catch code motion; add
+to it when a geometry feature is worth pinning.
+
+⚠️ It is deliberately **not** in `build:check` — that gate must stay browser-free and fast. Run it
+before and after any renderer restructuring.
 
 ---
 
