@@ -717,6 +717,94 @@ hard cap can be the wrong pressure. A *warning* may be the right strength.)
 *Verify:* Phase 5's E2E suite green, full unit suite green, `git diff --stat` shows code
 motion only. Hand-test the fan and ghost paths.
 
+### ✅ Done (2026-07-27)
+
+**Code motion, and the rule that keeps it.** `build:check` green, **2546 unit tests** (2535 +
+11 new — the first that could ever be written for the bar-width arithmetic), **23 E2E** (18 + 5
+new ghost specs). No behaviour changed anywhere.
+
+| file | before | after |
+|---|---|---|
+| `rendering/VexFlowRenderer.ts` | 5,491 | **3,744** |
+| `MusicEngine.ts` | 3,696 | **3,256** |
+| new: `rendering/GhostRenderer.ts` | — | 1,017 |
+| new: `rendering/FanPass.ts` | — | 746 |
+| new: `layout/barWidthRoom.ts` | — | 355 |
+| new: `layout/measuredRoom.ts` | — | 163 |
+| new: `rendering/beamInk.ts` | — | 53 |
+
+**6a — the renderer.** The fan cluster and the ghost family, both as free functions over the
+passed-in `RenderPass` / context, in the `TieRenderer` / `SlurRenderer` idiom. `ScoreModel` was
+left alone: it already has the pattern (`clefOps` / `tupletOps` / `rebarOps`), and moving more of
+it is a *content* judgement, not this pass's shape one.
+
+**⭐ Four dependencies had to find a home before the code could move, and each one is the real
+finding — an extraction is only as clean as what the moved code reaches for:**
+1. **`fillBeamQuad` + the `CROSS_SYSTEM_BEAM_*` family → `rendering/beamInk.ts`.** THREE passes
+   draw beam quads (cross-barline beams, the two-note tremolo, the fan) and after the split no two
+   of them live in the same file. A constant reached for from three places is not one file's
+   private business.
+2. **`addGlyphElement` → `ElementRegistry.addGlyph`.** It is the one choke point that keeps a
+   `StaveNote`'s container-union box out of the registry, and the renderer had stopped being its
+   only caller. It now sits beside `checkGlyphHeight`, the tripwire for the very bug it prevents —
+   and which already referred to it by name. Structurally typed on `getBoundingBox()`, so
+   `ElementRegistry` still imports nothing from VexFlow.
+3. **`fanMemberGroupMap` → `RenderPass`**, exactly as `fanMemberAnchorMap` already was: a
+   reference to the renderer's own field, per that file's lifetime contract.
+4. **`LEDGER_LINE_STYLE` + a named `StaffSpacingLayout` → `layoutConfig.ts`.** The note ghost
+   engraves on a real stave, so it needs the same ledger ink; and it needs the render's per-system
+   push-down, which depends on the view mode and linear view's knob — the renderer's, so it is
+   PASSED IN rather than recomputed. In `renderScore` the ghost now reuses the `spacing` that pass
+   already computed.
+
+**⭐ `ghostOverlay` — the frame, extracted with the family.** Every cursor ghost began with the
+same three lines (take the last ghost down, find the `<svg>`, refuse if either is missing), so the
+renderer keeps exactly that and each public `renderScoreWith…Ghost` is one line. ⚠️ Taking the old
+ghost down FIRST is not tidiness: it must happen even when the draw then declines, or moving the
+cursor somewhere a mark cannot go leaves the last preview on the page forever.
+
+**⭐⭐ THE NET WAS STRUNG BEFORE THE CODE MOVED — for the ghosts it did not exist.** Phase 5 covered
+notes, fans, tremolos, bar width, systems and the PDF; it covered **no ghost at all**. So 6a added
+`e2e/ghosts.e2e.ts` (5 specs) before moving them, and this is the pattern to copy: *move code the
+net does not cover, and string that part of the net first.* A ghost is also the one family jsdom
+cannot check even in principle — most of them decide whether to draw by asking `getBBox()` for
+their own size, which answers `undefined` there, so the unit-test version silently removes the
+ghost and returns false.
+- ⭐ **A cursor ghost's own `x`/`y` is NOT where it lands.** It is drawn wherever its throwaway
+  stave put it and then moved to the pointer by a `transform` on its group. The first draft
+  asserted the raw attribute and was out by 180px. New reader `placed()` composes the element's
+  CTM — exact, and still not a `getBBox()`.
+- ⭐ **Watched it BITE:** dropping `clearGhosts()` from `ghostOverlay` fails 3 of the 5; reverted by
+  inverse edit.
+
+**6b — the facade.** `barWidthRoom` (200 lines, a 130-line branch) is now a **pure function** of
+four things — the casting-off, the stored stretch, the view mode, and one measured slack — with
+`MusicEngine.barWidthRoom` as the reader that gathers them. Its three measured-off-the-registry
+siblings went to `layout/measuredRoom.ts`.
+- ⭐ **The staleness rule moved UP, not out.** `modelDirty` is the engine's knowledge, not a
+  measurement, so the guard now sits once in `noteSpacingRoom` / `barWidthRoom` and the layout
+  module is measurement only. Same for `fanMemberShrinkRoom`, which took a `memberIndex` and asked
+  the model for the member behind it: the caller resolves that id now, and the function takes two
+  ids and a registry.
+- ⭐ **Purity bought the test immediately:** `layout/barWidthRoom.test.ts` states §4–§5 —
+  transfer-model slopes, the pinned system-ending barline, the measured shrink floor, the derived
+  ceiling, and a bar alone on a full system — with no renderer, no score and no DOM. Break-tested
+  (`barlineSlope = 1` fails the payer-share spec), reverted.
+- `engine/layout/**` is deliberately OUTSIDE the core fence: a measurement of a drawing is a
+  derived view of the music, never the music (DESIGN-PRINCIPLES principle 3).
+
+**6c — THE RULE, the actual deliverable.** In `CLAUDE.md` (Important Rules) and
+`ARCHITECTURE.md` (its own section, with the nine-day regrowth measurement, the two carve-outs
+that are *not* violations, and the ⚠️ that lint cannot check this one — putting logic in the wrong
+layer imports nothing). `docs/DESIGN-PRINCIPLES.md` is deliberately NOT touched: it is about the
+MODEL's assumptions, and this is about the editor's composition.
+
+⛔ **DECIDED, do not re-propose: there is NO `scripts/check-file-size.mjs`.** His call, asked and
+answered (2026-07-27). The plan had it as "worth discussing"; the argument against is that the four
+checks in the gate each verify a **fact that can rot**, while a size ratchet polices a *number* — it
+would go red for a legitimate 40-line addition to a file that has earned it, and the rule above is
+about *where logic goes*, not about how long a file is. 6c is enforced in review, or not at all.
+
 ---
 
 ## Phase 7 — The model's own performance pass *(optional; do when it bites)*

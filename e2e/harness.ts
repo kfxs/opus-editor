@@ -93,8 +93,37 @@ export interface Harness {
   /** Every drawn bar of every staff — the source for "which system is this bar on?". */
   staves(): StaveBox[]
   /** Export the current score as a PDF (it downloads — the spec catches the download). */
+  /**
+   * The GHOST groups currently on the page, by class — the overlay contract in one reader
+   * (docs/refactor-plan-2026-07-27.md Phase 6a). A ghost is an overlay appended to the score's
+   * `<svg>`, and putting a new one up must take the old one down; anything else is the smear the
+   * tempo ghost once left behind. Class names only — WHERE the ghost landed is read with the
+   * ordinary `glyphs()` / `segments()` readers, scoped to the group.
+   */
+  ghosts(): string[]
+  /**
+   * Every glyph matching `selector`, at the position it ACTUALLY LANDS ON THE PAGE.
+   *
+   * ⚠️ The difference from {@link Harness.glyphs} matters for exactly one family: a cursor ghost is
+   * drawn wherever the throwaway stave put it and then moved to the pointer by a `transform` on its
+   * group, so the `<text>`'s own `x`/`y` is the position BEFORE that move. Composing the element's
+   * CTM is the exact answer (and still not a `getBBox()`, which on a music glyph is the text layout
+   * box). Everything the score itself draws has no transform above it, so for those the two readers
+   * agree.
+   */
+  placed(selector: string): Glyph[]
+  /** The raw `d` of every path matching `selector` — for ink whose SHAPE is the point (a tie's bow). */
+  paths(selector: string): string[]
+  /** The text of every `<text>` matching `selector`, in document order — for WORDS, where
+   *  {@link Harness.glyphs} would only report the first character's codepoint. */
+  texts(selector: string): string[]
   exportPdf(): Promise<void>
 }
+
+/** Every class a ghost overlay is drawn under. Mirrors `GhostRenderer.GHOST_GROUP_SELECTOR`, which
+ *  is what `clearGhosts` sweeps — the spec asserting on this is what notices if the two part. */
+const GHOST_SELECTOR =
+  '.ghost-note-group, .ghost-rest-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo'
 
 declare global {
   interface Window {
@@ -231,6 +260,27 @@ const harness: Harness = {
       }]
     }).sort((a, b) => a.top - b.top || a.x1 - b.x1)
   },
+
+  ghosts: () => all<SVGGElement>(GHOST_SELECTOR).map(g => g.getAttribute('class') ?? ''),
+
+  placed(selector: string): Glyph[] {
+    const root = svg()
+    const toScore = root.getScreenCTM()!.inverse()
+    return all<SVGTextElement>(selector)
+      .filter(t => (t.textContent ?? '').length > 0)
+      .map(t => {
+        const point = root.createSVGPoint()
+        point.x = num(t, 'x')
+        point.y = num(t, 'y')
+        const at = point.matrixTransform(t.getScreenCTM()!).matrixTransform(toScore)
+        return { code: t.textContent!.codePointAt(0)!.toString(16), x: at.x, y: at.y }
+      })
+      .sort(byX)
+  },
+
+  paths: (selector: string) => all<SVGPathElement>(selector).map(p => p.getAttribute('d') ?? ''),
+
+  texts: (selector: string) => all<SVGTextElement>(selector).map(t => t.textContent ?? ''),
 
   exportPdf: () => exportScorePdf(engine.getScore()),
 }

@@ -60,7 +60,11 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 │                              sub-APIs (free funcs over `score`) │
 │      models/CollisionDetector                                  │
 │      rendering/VexFlowRenderer ... notation → SVG (VexFlow 5)  │
+│      rendering/{FanPass,GhostRenderer,Tie…,Slur…} . draw       │
+│                              passes: free funcs over RenderPass │
 │      rendering/CoordinateMapper .. pixel ↔ musical position    │
+│      layout/{barWidthRoom,measuredRoom} . derived-view          │
+│                              arithmetic off the LAST RENDER     │
 │      ElementRegistry ....... rendered-element geometry + hit   │
 │                              testing (authoritative)           │
 │      ViewportModel ......... scroll/zoom box over the content  │
@@ -158,6 +162,49 @@ holds a *rule*, it is in the wrong file.
 
 ---
 
+## ⭐ A new feature adds a MODULE
+
+> **A new feature adds a module. It does not add methods to `MusicEngine`,
+> `ScoreModel` or `VexFlowRenderer`.**
+>
+> The facade may gain a one-line delegation. The logic lives in a feature module, in the style
+> of `clefOps` / `tupletOps` / `rebarOps` / `TieRenderer` / `SlurRenderer` / `FanPass` /
+> `GhostRenderer` / `layout/barWidthRoom`.
+>
+> **And a SCORE operation goes in the core, not on `MusicEngine`** — `engine/models/**`,
+> `utils/**`, `types/**`. `MusicEngine` is the *editor's* facade
+> (`docs/DESIGN-PRINCIPLES.md` §5).
+
+This is the standing convention that `docs/refactor-plan-2026-07-27.md` exists to establish,
+and it is written down because **extraction without a rule is a rounding error**. The measurement
+that says so: the previous pass (2026-07-18) cut `ScoreModel` from 3,714 lines to 2,817 — and in
+the 211 commits over the next nine days it grew back by 846, while `VexFlowRenderer` grew by
+**2,167** and `MusicEngine` by 1,272. Nothing was done wrong in any one of those commits. Each
+feature simply landed where the menu action already was.
+
+Phase 6 then cut `VexFlowRenderer` 5,491 → 3,744 (the fan pass and the ghosts moved out whole)
+and `MusicEngine` 3,696 → 3,256 (the bar-width and measured-room arithmetic). Those numbers are
+what the rule protects; without it they come back.
+
+**Why the second clause is not a style preference.** §5 of `DESIGN-PRINCIPLES.md` already forbids
+it and names the failure mode exactly: *"someone adds 'merge two passages' to `MusicEngine`
+because that is where the menu action lands. It works, ships, and is invisible."* What the
+packaging goal (`docs/refactor-plan-2026-07-27.md` §Context) changes is the **consequence**:
+today a score operation on the facade is a style violation; once the core is published it means
+*the feature is not in the package*, and nobody finds out until an ecosystem consumer needs it.
+
+⚠️ **Lint cannot check this one.** `lint:boundary` makes the import *direction* mechanical, but
+putting the logic in the wrong layer imports nothing — a score operation written inside
+`MusicEngine` reaches for exactly the same modules it would reach for from the core. This clause
+is enforced in review, or not at all.
+
+**What is NOT a violation:** a one-line delegation on the facade (that is the facade's job); a
+method whose subject genuinely is the class (`ScoreModel.getScore`, `VexFlowRenderer.clearGhosts`);
+and a helper private to one existing method. The test is *"could someone want this without the
+editor?"* — if yes, it is a core module.
+
+---
+
 ## Where does X live?
 
 | If you're changing… | Go to |
@@ -172,7 +219,10 @@ holds a *rule*, it is in the wrong file.
 | Which tool/duration/accidental is armed | `interactions/PaletteController.ts` |
 | Adding a 9th marking tool (clef/dynamic/stamp/…) | `EditorState.MarkingTool` + build: the compiler names every site — see `docs/marking-tools.md` |
 | Adding a selectable on-score element (a new thing a click can pick) | `EditorState.SelectedElement` + build: `assertNeverElement` names every site — the highlight pass (`RenderController`), Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`) |
-| How notation is drawn to SVG | `engine/rendering/VexFlowRenderer.ts` |
+| How notation is drawn to SVG | `engine/rendering/VexFlowRenderer.ts` — the pass ORDER and the per-bar work. One family per module beside it, each a free function over `RenderPass`: `TieRenderer`, `SlurRenderer`, `DynamicsLayout`, `TempoLayout`, `FanPass`, `GhostRenderer`. ⭐ A new drawn family joins that list; it does not join the renderer |
+| A cursor GHOST (the translucent preview an armed tool shows) | `engine/rendering/GhostRenderer.ts`. `VexFlowRenderer.ghostOverlay` frames every one: take the last ghost down, refuse if there is no page. ⚠️ A ghost's class must be in `GHOST_GROUP_SELECTOR` or it is never removed and smears a trail |
+| How far a column / a bar may still be squeezed | `engine/layout/measuredRoom.ts` — MEASURED off the last render through `ElementRegistry`, never predicted. ⚠️ The caller owns the staleness rule (`modelDirty` ⇒ decline): a fresh number against an old picture slides the floor one step per press |
+| What a bar-width gesture may do (slopes, floors, the ceiling) | `engine/layout/barWidthRoom.ts` — a PURE function of the casting-off + the stored stretch + the view mode + one measured slack, so `docs/bar-width-plan.md` §4–§5 can be stated in a unit test |
 | Marking something as selected on screen | `interactions/HighlightController.ts` — ⭐ **PAINT a mark (`addNode`), don't recolour engraved ink.** A recolour inherits every renderer detail: how many elements a mark is made of, which group owns them, and whether their coordinates are still true (a REUSED measure carries a `translate`, so its rects' own x is stale). See `docs/barline-selection.md` §3 for the four bugs that came of it |
 | Hit-testing / "what element is at (x,y)" | `engine/ElementRegistry.ts` |
 | Pixel ↔ beat/pitch conversion | `engine/rendering/CoordinateMapper.ts` (+ `ElementRegistry`) |
@@ -266,13 +316,17 @@ place one can be made honestly.
 
 - `e2e/harness.html` + `e2e/harness.ts` boot the **engine alone** — no `App`, no controllers, no dev
   shell — into a real page, and expose `window.__h`: the engine, plus readers that pull the geometry
-  out of the drawing (`noteheads`, `stems`, `quads`, `staves`, `barlines`, `crossBarBeams`).
+  out of the drawing (`noteheads`, `stems`, `quads`, `staves`, `barlines`, `crossBarBeams`,
+  `ghosts`, `placed`, `paths`, `texts`).
   A failure there is about the renderer, never about wiring; `App.smoke.test.ts` covers wiring in
   jsdom. One engine per page, deliberately: VexFlow reaches back for what it drew with document-wide
   `getElementById`, so a second score makes those ids ambiguous.
 - The readers parse the drawing's **own numbers** — a `<text>`'s `x`/`y`, a `<path>`'s `d` — and not
   `getBBox()`. A music glyph is a `<text>`; its box is the text layout box (160px tall for a
-  notehead), not its ink.
+  notehead), not its ink. ⚠️ One exception in *kind*, not in principle: a cursor GHOST is drawn
+  wherever its throwaway stave put it and then moved to the pointer by a `transform` on its group, so
+  its own `x`/`y` is the position **before** that move. `placed()` composes the element's CTM, which
+  is exact and still not a bbox; `glyphs()` and `placed()` agree on everything the score itself draws.
 - The specs are `*.e2e.ts`, not `*.spec.ts`, so vitest's default glob cannot pick them up and try to
   run them in jsdom.
 - They are **not** in `tsconfig.json` and so are not typechecked by `build:check` — the same
@@ -284,8 +338,15 @@ place one can be made honestly.
 What it covers today is a **small net, not a golden picture**: noteheads/stems/beams, a fanned group
 (head crowding + ramp lines converging), both tremolos, the bar-width gesture landing where it was
 asked while the line still justifies, casting-off with a ragged last system, a beam drawn on both
-sides of a system break, and a real PDF coming out of the export. Enough to catch code motion; add
+sides of a system break, the **ghosts** (each in its own overlay group, at the pointer, and replaced
+rather than piled up), and a real PDF coming out of the export. Enough to catch code motion; add
 to it when a geometry feature is worth pinning.
+
+⭐ The ghost specs were added *by* Phase 6a rather than before it, and that is the pattern to copy:
+they cover the ~900 lines that phase moved into `GhostRenderer`, and a ghost is the one family jsdom
+cannot check even in principle — most of them decide whether to draw at all by asking `getBBox()` for
+their own size, which answers `undefined` there, so the unit-test version silently removes the ghost
+and returns false. **Move code the net does not cover, and string that part of the net first.**
 
 ⚠️ It is deliberately **not** in `build:check` — that gate must stay browser-free and fast. Run it
 before and after any renderer restructuring.

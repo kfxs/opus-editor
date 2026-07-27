@@ -88,6 +88,39 @@ export interface GutterState {
 }
 
 /**
+ * How a ledger line is inked. VexFlow's own default is `{ strokeStyle: '#444', lineWidth: 2 }` —
+ * grey, and twice the weight of a staff line (which inherits the context's `stroke-width: 1`).
+ * Neither matches engraving practice, and at high zoom both are plainly visible.
+ *
+ * A ledger line is part of the staff: same ink as everything else on the page, so **black**. It IS
+ * drawn slightly heavier than a staff line, deliberately — Bravura's SMuFL `engravingDefaults` put
+ * `staffLineThickness` at 0.13 staff spaces and `legerLineThickness` at 0.16, a ratio of ~1.23, and
+ * Gould (*Behind Bars*) says the same in words. So 1.25 against the staff's 1, not 2.
+ *
+ * Applied per Stave, since that is the only seam VexFlow offers
+ * ({@link Stave.setDefaultLedgerLineStyle}) — every stave that can carry a note off the staff needs
+ * it, including the ghost's.
+ */
+export const LEDGER_LINE_STYLE = { strokeStyle: '#000000', lineWidth: 1.25 }
+
+/**
+ * Where every SYSTEM starts vertically, once the per-system staff-spacing overrides (Client #7 —
+ * docs/staff-spacing-plan.md) have been resolved. Computed by `VexFlowRenderer.staffSpacingLayout`,
+ * which is the only thing that can: the answer depends on the view mode and linear view's own
+ * spacing knob, and those are the renderer's. Declared here so anything drawing INTO that layout —
+ * the note ghost, notably — can be handed the result instead of recomputing it.
+ */
+export interface StaffSpacingLayout {
+  /** `lineTopPx[line]` — that system's top Y (margin + every earlier system's grown height). */
+  lineTopPx: number[]
+  /** `cumPx[line][staffIndex]` — inclusive prefix sum (px) of the space-above at/above that staff. */
+  cumPx: number[][]
+  lineHeightPx: number[]
+  /** Σ over lines of (numStaves·stride + that line's extra) — the score's drawn height. */
+  contentHeightPx: number
+}
+
+/**
  * Width calculation result for a measure
  */
 export interface MeasureWidthInfo {

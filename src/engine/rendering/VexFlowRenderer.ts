@@ -1,36 +1,46 @@
-import { Renderer, Stave, StaveConnector, StaveNote, NoteHead, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, Stem, StaveTie, Dot, Barline, ClefNote } from 'vexflow'
-import { ScoreTuplet, layoutTupletMark, drawTupletMark } from './ScoreTuplet'
+import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, Stem, StaveTie, ClefNote } from 'vexflow'
+import { ScoreTuplet } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
 import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
-import { fannedBeamGeometry, fanJoinQuads, fanStemExtension, FAN_MIN_HEAD_GAP_RATIO, FAN_MIN_STEM_SPACES, type FanGeometry, type FanGeometryOptions, type FanQuad } from './FannedBeam'
-import { FAN_GROUP, fanMembers, fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
+import { fanStemExtension } from './FannedBeam'
+import { drawFannedBeams, drawCrossBarFanBeams, type FanJoin } from './FanPass'
+import {
+  GHOST_GROUP_SELECTOR,
+  drawNoteGhost,
+  drawRestGhost,
+  drawClefGhost,
+  drawTimeSignatureGhost,
+  drawTempoGhost,
+  drawDynamicGhost,
+  drawArticulationGhost,
+  drawAccidentalGhost,
+  drawTremoloGhost,
+  drawTieGhost,
+  drawDotGhost,
+} from './GhostRenderer'
+import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub, fillBeamQuad } from './beamInk'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
-import type { Score, Measure, Clef, ArticulationType, Tuplet, Chord, ChordRest, Fraction, PitchStep, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, TremoloMark, NotePitch, Accidental as ScoreAccidental } from '@/types/music'
-import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero, fracCreate, fracAdd } from '@/utils/fraction'
-import { measureEndingClef, effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, staffLineForSpelling, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
-import { displayedAccidentals } from '@/utils/accidentalState'
-import { beatToFrac, tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
+import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, TremoloMark, Accidental as ScoreAccidental } from '@/types/music'
+import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero } from '@/utils/fraction'
+import { effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
+import { tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
-import { durationToVexflow, slotLength, writtenLength } from '@/utils/durations'
 import { getMeterInfo, timeSignatureVexKey, type MeterInfo } from '@/utils/meter'
-import { fillRests, type RestSlot } from '@/utils/restFill'
 import { computeBeamGroups, secondaryBreakIndices } from '@/utils/beaming'
 import { planCrossBarBeams, laneKey, type CrossBarBeamPlan, type CrossBarJoin, type CrossBarFanJoin, type CrossBarSide, type LaneBeamPlan } from './CrossBarBeams'
 import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
 import { measureShapeKey } from './MeasureRedrawKey'
-import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
+import { spellingToMidi, spellingDiatonicPos } from '@/utils/pitchSpelling'
 import type { FanMemberAnchor, RenderPass } from './RenderPass'
-import { renderTies, getTieDirection, TIE_BOW } from './TieRenderer'
-import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
+import { renderTies, getTieDirection } from './TieRenderer'
 import { renderSlurs } from './SlurRenderer'
-import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, buildDynamicAnnotation, registerDynamics, applyMixedDynamicRuns, enlargeDynamicGlyphRuns } from './DynamicsLayout'
-import { drawTempoMarks, drawTempoText } from './TempoLayout'
+import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './DynamicsLayout'
+import { drawTempoMarks } from './TempoLayout'
 import {
-  convertDuration,
   chooseVoiceMode,
   createStaveNotesFromSlots,
   restSupportingLedgerLine,
@@ -46,11 +56,11 @@ import { MeasureWidthCache } from './MeasureWidthCache'
 import { renderProbe } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
-import { getStaves, staffMeasureView, firstStaffId, staffIdAtIndex, staffIndexOfId } from '@/engine/models/staffContent'
-import { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
+import { getStaves, staffMeasureView, firstStaffId, staffIndexOfId } from '@/engine/models/staffContent'
+import { LAYOUT_CONFIG, VIEWPORT_HEIGHT, LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout, type ViewMode } from './layoutConfig'
 import type { Rect } from '@/engine/ViewportModel'
 import { dbg } from '@/utils/debug'
-import { staffOf, voiceOf } from '@/utils/lanes'
+import { voiceOf } from '@/utils/lanes'
 
 // Re-exported for existing importers (MusicEngine, App.ts, RenderPass) that referenced
 // these from the renderer before they moved to ./layoutConfig.
@@ -58,32 +68,6 @@ export { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo }
 
 /** Gray a hidden rest renders in (Tailwind gray-400 family) — see docs/rest-hide-plan.md. */
 const HIDDEN_REST_COLOR = '#9CA3AF'
-
-/**
- * How a ledger line is inked. VexFlow's own default is `{ strokeStyle: '#444', lineWidth: 2 }` —
- * grey, and twice the weight of a staff line (which inherits the context's `stroke-width: 1`).
- * Neither matches engraving practice, and at high zoom both are plainly visible.
- *
- * A ledger line is part of the staff: same ink as everything else on the page, so **black**. It IS
- * drawn slightly heavier than a staff line, deliberately — Bravura's SMuFL `engravingDefaults` put
- * `staffLineThickness` at 0.13 staff spaces and `legerLineThickness` at 0.16, a ratio of ~1.23, and
- * Gould (*Behind Bars*) says the same in words. So 1.25 against the staff's 1, not 2.
- *
- * Applied per Stave, since that is the only seam VexFlow offers
- * ({@link Stave.setDefaultLedgerLineStyle}) — every stave that can carry a note off the staff needs
- * it, including the ghost's.
- */
-const LEDGER_LINE_STYLE = { strokeStyle: '#000000', lineWidth: 1.25 }
-
-/**
- * How far the ghost's tuplet number floats above the note, in STAFF SPACES — measured from the stem
- * tip (stem up) or the notehead (stem down) to the number's baseline.
- *
- * In spaces and not pixels so it holds at any staff size, and ONE knob because both stem directions
- * take the same gap: it is the same "clear of the note" distance, and the anchor is what differs.
- * Tune here.
- */
-const GHOST_TUPLET_NUMBER_GAP = 1.5
 
 /**
  * Apply the bar's user-authored horizontal space (client #10 — docs/note-spacing-plan.md §4) by
@@ -156,96 +140,6 @@ function applyLeadingSpaces(formatter: Formatter, voices: Voice[], score: Score,
 }
 
 /**
- * The authored leading space before each MEMBER of a fanned slot, in pixels — the §7 half of client
- * #10 (docs/note-spacing-plan.md). Entry k is the space before member k; entry 0 is always 0,
- * because the space before member 0 is the space before the fan's own column and
- * {@link applyLeadingSpaces} has already spent it on the tick context.
- *
- * A member's address is an ORDINARY `spacingPositionKey` at the member's own beat — the key takes
- * any rational and `fanMemberBeats` hands out exact ones — so this is a lookup, not a second
- * storage scheme. The beats are compared by cross-multiplication rather than as floats: both sides
- * come out of the same expander, and an exact match is the whole reason the address works.
- *
- * Returns an empty array when nothing in the bar is spaced, which is the ordinary case.
- */
-function fanMemberSpacesPx(score: Score, measureNumber: number, slot: Chord): number[] {
-  if (!slot.fan) return []
-  const measure = score.measures.find(m => m.number === measureNumber)
-  if (!measure) return []
-  const spaces = measureLeadingSpaces(score, measure.id)
-  if (spaces.length === 0) return []
-
-  const beats = fanMemberBeats(slot.fan, slotLength(slot), slot.beat)
-  return beats.map((beat, k) => {
-    if (k === 0) return 0 // member 0's space IS the column's, already applied
-    const hit = spaces.find(s => s.beat.num * beat.den === beat.num * s.beat.den)
-    return (hit?.space ?? 0) * VEXFLOW_DEFAULT_STAFF_SPACE_PX
-  })
-}
-
-/**
- * ⭐ The authored leading space, in pixels, before the column that FOLLOWS a fanned slot — the room
- * the ramp must NOT spend (his report: *"the distance between the last element of the fan and the
- * rest should increase; instead the fan enlarges and that gap stays constant"*).
- *
- * The space is authored on the NEXT note's own column, so `applyLeadingSpaces` moved that note and
- * every tick context after it — which means `spanEndX` (the next note's head) arrives already
- * carrying it. Left in, it becomes part of `usable` and the proportional ramp shares it out among
- * every gap in the group: the fan grows, and the one gap the user was widening does not. Taken back
- * out, the ramp keeps exactly the shape it had and the whole of the space lands where it was asked
- * for — between the last member and the note after it.
- *
- * ⚠️ The same lever from the other end as {@link fanMemberSpacesPx}: a space authored INSIDE the
- * group opens one member's gap (that one comes off the top and the ramp shares what is left), a
- * space authored just AFTER it opens the gap the group does not own at all.
- *
- * The address is the group's own end — `slot.beat + its full duration`, the column the next note
- * starts at. Nothing there (the fan runs to the barline, or nothing is spaced) ⇒ 0.
- */
-function fanTrailingSpacePx(score: Score, measureNumber: number, slot: Chord): number {
-  if (!slot.fan) return 0
-  const measure = score.measures.find(m => m.number === measureNumber)
-  if (!measure) return 0
-  const spaces = measureLeadingSpaces(score, measure.id)
-  if (spaces.length === 0) return 0
-  const end = fracAdd(slot.beat, slotLength(slot))
-  const hit = spaces.find(s => s.beat.num * end.den === end.num * s.beat.den)
-  // ⚠️ The SAME px-per-staff-space `applyLeadingSpaces` shifted the context by — this undoes exactly
-  // that shift, so it has to be measured in exactly that unit.
-  return (hit?.space ?? 0) * VEXFLOW_DEFAULT_STAFF_SPACE_PX
-}
-
-/**
- * ⭐ The authored horizontal OFFSET of each member of a fanned slot, in pixels — the fan's half of
- * client #12 (docs/note-offset-plan.md §"Inside a FAN"). Entry k is member k's own offset, entry 0
- * the OWNER's (which `applyNoteOffsets` has already spent on the `StaveNote`, and which
- * `fannedBeamGeometry` therefore takes back OUT of `headX` to find the natural column).
- *
- * ⚠️ **The twin of {@link fanMemberSpacesPx} with the opposite arithmetic** — a space is width the
- * bar already grew for, an offset is no width at all. The keys differ for the same reason: a space is
- * addressed by the member's own BEAT (a column exists there), an offset by the member's own first
- * pitch ID (`ScoreModel.offsetTargetOf`), because it is a property of that head and not of a column.
- *
- * Returns an empty array when nothing in the group is offset, which is the ordinary case.
- */
-function fanMemberOffsetsPx(score: Score, slot: Chord, stave: Stave): number[] {
-  if (!slot.fan) return []
-  const count = Math.max(1, Math.round(slot.fan.count))
-  const out: number[] = []
-  let any = false
-  for (let k = 0; k < count; k++) {
-    // Member 0 IS the slot; members 1…n are keyed by their own first pitch. ⚠️ A member with no
-    // stored pitches (a mark that never went through `normalizeFan`) has no id to be offset by and
-    // cannot be selected either — it draws on the slot's own pitch, so it answers 0 here.
-    const key = k === 0 ? slot.id : slot.fan.members?.[k - 1]?.[0]?.id
-    const x = key ? noteOffsetOverrideOf(score, key)?.x ?? 0 : 0
-    if (x !== 0) any = true
-    out.push(x === 0 ? 0 : staffSpacesToPixels(x, stave))
-  }
-  return any ? out : []
-}
-
-/**
  * Bounds information for a rendered measure
  */
 export interface MeasureBounds {
@@ -291,88 +185,6 @@ export function measureGroupKey(measureNumber: number, staffIndex: number): stri
  * each side of the barline) is the canonical case this feature exists for.
  */
 const PLACEHOLDER_BEAM = { postFormat: () => {} } as unknown as Beam
-
-/**
- * A fanned slot JOINED to the group on its left (docs/fan-beam-join-plan.md), as INDICES into one
- * lane's parallel `slots` / `staveNotes` arrays.
- *
- * The one fact the pre-format pass ({@link VexFlowRenderer.buildBeams}) learns and the post-draw
- * pass ({@link VexFlowRenderer.drawFannedBeams}) needs: which notes the fan's beam has to reach back
- * over. Computed once, because re-deriving it in the second pass would mean re-grouping the lane and
- * two answers that could drift apart.
- */
-/** One fanned slot's resolved drawing inputs — see {@link VexFlowRenderer.fanSlotDrawing}. */
-interface FanSlotDrawing {
-  index: number
-  slot: Extract<ChordRest, { type: 'chord' }>
-  note: StaveNote
-  /** The note's OWN stave — a synthetic cross-barline lane (P3) has more than one. */
-  stave: Stave
-  /** Where this fan's members register — its own bar, which a synthetic lane does not share. */
-  measureNumber: number
-  staffIndex: number
-  headX: number
-  baseY: number
-  stemDirection: number
-  /** Per member, per notehead: the pitch, its staff line and the sign it displays (null for none). */
-  heads: { pitch: NotePitch; line: number; sign: string | null }[][]
-  /** The mark's stored member PITCHES — `stored[k - 1]` is member k's, member 0 being the note. */
-  stored: NotePitch[][]
-  prefixNotes: StaveNote[]
-  options: FanGeometryOptions
-}
-
-interface FanJoin {
-  /** The ordinary notes in front of the first fan, in order — may be empty (P2: a fan chain). */
-  prefix: number[]
-  /** Every fanned slot on this beam, in order. At least one, and more once fans chain (P2). */
-  fans: number[]
-}
-
-/**
- * The half-beam a cross-*system* fragment hangs over its open end (docs/cross-barline-beaming-plan.md):
- * a short fixed stub past the edge note's stem, NOT a run to the system edge — a beam the width of a
- * system reads as a long empty beam, not one going somewhere. VexFlow's own `partialBeamLength` (10px)
- * is the honest floor; these are tuned by eye.
- *
- * The two ends are NOT the same. A fragment at the **end of a line** (open on its right) has to cross
- * the closing barline into the empty margin to read as "continued on the next system" — and how far
- * that is depends on where the last note sits, which justification moves bar to bar. So the line-end
- * end is **computed to the barline** (`measureX + measureWidth`) plus {@link CROSS_SYSTEM_BEAM_MARGIN}
- * into the margin, not a fixed length; the fixed `…LINE_END` is only a fallback when the measure's
- * bounds are unknown. A fragment at the **start of the next line** (open on its left) only projects a
- * little left of its first note, so that one stays the fixed `…LINE_START`. `CROSS_SYSTEM_BEAM_WIDTH`
- * mirrors VexFlow's default `beamWidth` for the lone-note fragment, which has no real `Beam` to read.
- */
-const CROSS_SYSTEM_BEAM_STUB_LINE_END = 22
-const CROSS_SYSTEM_BEAM_STUB_LINE_START = 12
-const CROSS_SYSTEM_BEAM_MARGIN = 10
-const CROSS_SYSTEM_BEAM_WIDTH = 5
-
-/**
- * The SVG group ONE fanned member's ink is painted into — class `vf-fanhead`, id
- * `vf-fanhead-<slotId>-<k>`, nested inside the group's own `vf-fan`.
- *
- * ⭐ Cheap to open here, and it is what turns a member into a thing on the page: the head, its
- * accidental and its ledger lines land in one group, so P3 can highlight a member by an ordinary
- * recolour instead of painting a rectangle over it. (The barline's "paint, don't recolour" lesson is
- * about ink you do not own; this ink is ours.)
- *
- * ⚠️ `openGroup` PREFIXES both with `vf-`, so the bare name is what goes in, and the id carries the
- * name because `getElementById` is document-wide.
- */
-const FAN_HEAD_GROUP = 'fanhead'
-
-/** How far a member's ledger line overhangs its notehead on each side, in px (VexFlow's `strokePx`). */
-const FAN_LEDGER_OVERHANG = 3
-
-/** The gap between a member's accidental and its notehead, in px. PROVISIONAL, like every fan number. */
-const FAN_ACCIDENTAL_GAP = 2
-
-
-/** The stub length for an open end, by the direction it points: right (+1) runs off the line end. */
-const crossSystemStub = (direction: number): number =>
-  direction > 0 ? CROSS_SYSTEM_BEAM_STUB_LINE_END : CROSS_SYSTEM_BEAM_STUB_LINE_START
 
 /**
  * **Tier 1** — where one (measure, staff) sits, and the `Stave` that knows its geometry
@@ -582,8 +394,6 @@ export class VexFlowRenderer {
    * captured and restored with the group map — the same three sites.
    */
   private fanMemberAnchorMap: Map<string, FanMemberAnchor> = new Map()
-  /** Measured accidental glyph widths, by sign — see {@link accidentalWidth}. */
-  private accidentalWidths: Map<string, number> = new Map()
   /** Map of tuplet IDs to their rendered VexFlow Tuplet objects (for scoped highlight) */
   private tupletObjectMap: Map<string, ScoreTuplet> = new Map()
   /** Map of dynamic IDs to their rendered VexFlow Annotation objects (for scoped highlight) */
@@ -616,29 +426,13 @@ export class VexFlowRenderer {
    *  linear mode. Never persisted — see MusicEngine.linearStaffSpacing. */
   private linearStaffSpacing = new Map<string, number>()
 
-  /**
-   * The preview ghosts (note / clef / time-sig / dynamic / tempo) each draw into their own
-   * class-tagged `<g>`, appended last. That makes them a true **overlay**: putting one up or
-   * taking one down is a DOM append/remove against the already-drawn score, never a re-layout
-   * and re-draw of it (docs/render-performance-plan.md §5b).
-   *
-   * ⚠️ `vf-ghost-tempo`, not `ghost-tempo`. The other four ghosts build their `<g>` by hand
-   * (`setAttribute('class', 'ghost-…-group')`); the tempo ghost is the one that goes through
-   * VexFlow's `openGroup('ghost-tempo')` — **which prefixes the class with `vf-` itself**. The
-   * selector used to say `.ghost-tempo`, matched nothing, and so never took a tempo ghost down:
-   * they piled up, one per mouse position, as a permanent blue smear. (Nothing swept them either,
-   * since P4 made ghosts overlays — hovering no longer forces the full render that used to hide
-   * the leak.)
-   */
-  private static readonly GHOST_GROUP_SELECTOR =
-    '.ghost-note-group, .ghost-rest-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo'
-
-  /** Take down whatever ghost is showing. O(1) in the score's size — this is the whole point
-   *  of P4: hovering an invalid element, or leaving the canvas, used to cost a FULL render
+  /** Take down whatever ghost is showing — every group named in {@link GHOST_GROUP_SELECTOR}, which
+   *  is the list the ghost drawings themselves keep. O(1) in the score's size, which is the whole
+   *  point of P4: hovering an invalid element, or leaving the canvas, used to cost a FULL render
    *  whose only job was to erase one translucent notehead. */
   clearGhosts(): void {
     this.getSVGElement()
-      ?.querySelectorAll(VexFlowRenderer.GHOST_GROUP_SELECTOR)
+      ?.querySelectorAll(GHOST_GROUP_SELECTOR)
       .forEach((g) => g.remove())
   }
 
@@ -763,6 +557,7 @@ export class VexFlowRenderer {
       context: this.context!,
       staveNoteMap: this.staveNoteMap,
       fanMemberAnchorMap: this.fanMemberAnchorMap,
+      fanMemberGroupMap: this.fanMemberGroupMap,
       tupletObjectMap: this.tupletObjectMap,
       dynamicObjectMap: this.dynamicObjectMap,
       slurGroupMap: this.slurGroupMap,
@@ -940,19 +735,6 @@ export class VexFlowRenderer {
   }
 
   /**
-   * One accidental glyph's width, cached by sign — what a member's sign needs to the left of its
-   * head. Measured from the glyph itself rather than assumed, so it follows the font; jsdom cannot
-   * measure and answers 0, which is the one environment where nothing is drawn anyway.
-   */
-  private accidentalWidth(sign: string): number {
-    const hit = this.accidentalWidths.get(sign)
-    if (hit !== undefined) return hit
-    const width = new Accidental(sign).getWidth() || 0
-    this.accidentalWidths.set(sign, width)
-    return width
-  }
-
-  /**
    * ⛔ **A TWO-NOTE TREMOLO DOES NOT STRETCH ITS STEMS.** There was a pass here — Gould's rule 2,
    * built as a sibling of {@link applyTremoloStemStretch} — and it is deliberately gone (his call, by
    * eye, 2026-07-25): *"this is not a tremolo on stem but in between the notes, so we should skip the
@@ -1069,7 +851,7 @@ export class VexFlowRenderer {
       pass.context.openGroup('tremolo-pair', `${TREMOLO_PAIR_GROUP}-${anchorId}`)
       try {
         for (const q of quads) {
-          this.fillBeamQuad(pass.context, q.startX, q.startY, q.endX, q.endY, q.thickness)
+          fillBeamQuad(pass.context, q.startX, q.startY, q.endX, q.endY, q.thickness)
         }
       } finally {
         pass.context.closeGroup()
@@ -1092,544 +874,6 @@ export class VexFlowRenderer {
         bbox: { x: left, y: top, width: right - left, height: bottom - top },
       })
     }
-  }
-
-  /**
-   * Draw each fanned slot's OTHER members and its feathered beam (docs/fanned-beams-plan.md §3, P1),
-   * for ONE LANE of one bar.
-   *
-   * ⭐ **The slot's own `StaveNote` is member 0 and is NOT suppressed** — it has already been drawn
-   * by `voice.draw`, wearing a quarter's filled head (NoteBuilder swaps the drawn value). Everything
-   * the outside world knows about this event hangs off that object — the registry's hit-test, the
-   * `staveNoteMap`, the selection recolour's SVG group, tie and slur anchors, articulations, the
-   * dynamic's anchor — so what this pass adds is the members VexFlow does not know about and
-   * nothing else.
-   *
-   * ⚠️ AFTER the voices are drawn, like the two-note tremolo's strokes and for the same reason: the
-   * stem geometry it reads (including {@link applyFanStemStretch}'s extension) is only settled then.
-   * And inside the measure group, because everything it draws is inside this bar. A group that
-   * CROSSES a barline belongs to no bar and is drawn by {@link drawCrossBarFanBeams} instead (P3).
-   *
-   * ⚠️ THE SPAN is the slot's own x-territory: from its notehead to the next note's in the SAME
-   * lane, or to the end of the note area when nothing follows. That is where the width bought by
-   * `laneColumns` lands — but only approximately, because inside the bar VexFlow distributes by
-   * tick. A fan in a busy bar is the case to look at by eye.
-   */
-  private drawFannedBeams(
-    pass: RenderPass,
-    slots: ChordRest[],
-    staveNotes: StaveNote[],
-    measureNumber: number,
-    staffIndex: number,
-    clefForBeat: (beat: Fraction) => Clef,
-    /** The fans of this lane that are JOINED to the group on their left, from `buildBeams`. */
-    fanJoins: FanJoin[],
-    /**
-     * ⚠️ The slots of this lane whose fan belongs to a group that LEAVES the bar (P3) — skipped
-     * here, because {@link drawCrossBarFanBeams} draws those and drawing one twice paints two
-     * `vf-fan` groups under ONE id. `getElementById` is document-wide and the first in tree order
-     * wins, so the second copy is not merely wasted ink: it steals every lookup the first one owns.
-     */
-    crossingFans: number[] = [],
-  ): void {
-    // Which sign each pitch of this lane displays — the SAME map NoteBuilder gave the StaveNotes, so
-    // a member's accidental obeys one rule with the notes around it, including holding for the rest
-    // of the bar (docs/fanned-beam-pitches-plan.md §2). Not free, so not walked for a lane with no
-    // fan in it — which is nearly every lane.
-    if (!slots.some(s => s.type === 'chord' && s.fan)) return
-    const signs = displayedAccidentals(slots)
-
-    const drawings: FanSlotDrawing[] = []
-    for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
-      if (crossingFans.includes(i)) continue
-      const join = fanJoins.find(j => j.fans.includes(i))
-      const drawing = this.fanSlotDrawing({
-        index: i,
-        slot: slots[i],
-        score: pass.score,
-        note: staveNotes[i],
-        clef: clefForBeat(slots[i].beat),
-        signs,
-        // Only the FIRST fan of a chain has a prefix — behind any other stands a fan, and that gap
-        // is `fanJoinQuads`' business.
-        prefixNotes: join && join.fans[0] === i ? join.prefix.map(k => staveNotes[k]) : [],
-        // Where this slot's room ends: the next note's ink in this lane, or the note area's end. The
-        // next slot is the honest boundary — it is what the formatter itself spaced against.
-        nextNote: staveNotes[i + 1],
-        measureNumber,
-        staffIndex,
-        joined: !!join,
-      })
-      if (drawing) drawings.push(drawing)
-    }
-    this.drawFanGroups(pass, drawings, fanJoins)
-  }
-
-  /**
-   * ⭐ **P3 — the fans whose beam LEAVES its bar** (docs/fan-beam-join-plan.md). One pass per
-   * crossing group, drawn OUTSIDE every measure group, exactly as {@link drawCrossBarBeams} is and
-   * for the same two reasons: top-level content is torn down and rebuilt every render while measure
-   * groups are REUSED (so a beam drawn into one would vanish on any pass that reuses it), and
-   * culling deletes an off-screen bar's group along with anything drawn into it.
-   *
-   * The whole group comes here, not just the half that reaches over the barline: the joined line's
-   * height is a fact about every note on it, so the fan's own ramp and its members cannot be settled
-   * inside one bar while the rest of the group lives in another.
-   *
-   * What it does is exactly what the in-bar pass does — the two build the same
-   * {@link FanSlotDrawing}s and hand them to the same {@link drawFanGroups}. All that differs is
-   * where the facts come from: the `StaveNote`s by id out of `staveNoteMap` (which is replayed for a
-   * reused measure, so this can draw over bars nobody redrew), and the clef, accidental state and
-   * following note per member, since a synthetic lane spanning two bars has no single answer to any
-   * of them.
-   */
-  private drawCrossBarFanBeams(pass: RenderPass, joins: CrossBarFanJoin[]): void {
-    for (const join of joins) {
-      const staveNotes = join.members.map(m => pass.staveNoteMap.get(m.lookupId)?.staveNote)
-      // A bar that was not painted contributes no StaveNote. The planner already refuses a group
-      // whose bars are not all drawn; this is the runtime proof of it — half a joined beam would
-      // draw stems in mid-air.
-      if (staveNotes.some(n => n === undefined)) continue
-
-      const drawings: FanSlotDrawing[] = []
-      const fanIndices = join.members.map((m, i) => (m.fan ? i : -1)).filter(i => i >= 0)
-      for (const i of fanIndices) {
-        const member = join.members[i]
-        const drawing = this.fanSlotDrawing({
-          index: i,
-          slot: member.slot,
-          score: pass.score,
-          note: staveNotes[i]!,
-          clef: member.clef,
-          // Accidental state is a fact about ONE bar, so it is read per bar and merged. Keyed by
-          // pitch id, so the merge cannot conflate two bars' answers about one note.
-          signs: displayedAccidentals(member.laneSlots),
-          prefixNotes: i === fanIndices[0]
-            ? join.members.map((m, k) => (!m.fan && k < i ? staveNotes[k]! : null))
-              .filter((n): n is StaveNote => n !== null)
-            : [],
-          // ⚠️ The next note in the fan's OWN bar, not in the synthetic lane — the fan may be the
-          // last thing on this beam while its bar carries on past it, and the ramp must not spread
-          // over a note the formatter put there.
-          nextNote: member.nextLookupId ? pass.staveNoteMap.get(member.nextLookupId)?.staveNote : undefined,
-          measureNumber: member.measureNumber,
-          staffIndex: join.staffIndex,
-          joined: true,
-        })
-        if (drawing) drawings.push(drawing)
-      }
-      if (!drawings.length) continue
-
-      const prefix = join.members.map((m, i) => (!m.fan && i < fanIndices[0] ? i : -1)).filter(i => i >= 0)
-      this.drawFanGroups(pass, drawings, [{ prefix, fans: fanIndices }])
-    }
-  }
-
-  /**
-   * The shared body of both fan passes: settle each joined group's ONE line, then draw every fan —
-   * its prefix's stems, its members, its ramp, and the gap back to the fan behind it.
-   *
-   * ⚠️ `openGroup` PREFIXES the class with `vf-`, so the bare name goes in, and `closeGroup()` lives
-   * in a `finally` — an unbalanced pair swallows the rest of the render.
-   */
-  private drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: FanJoin[]): void {
-    this.reconcileFanJoinLines(drawings, fanJoins)
-
-    const geometries = new Map<number, FanGeometry>()
-    for (const drawing of drawings) {
-      const { index: i, slot, note, stave, headX, baseY, stemDirection, heads, stored, prefixNotes, options } = drawing
-      const { measureNumber, staffIndex } = drawing
-      const geometry = fannedBeamGeometry(options)
-      geometries.set(i, geometry)
-
-      // ⭐ P2 — THE GAP TO THE FAN BEHIND IT. Only the lines both ramps have cross it; the rest stop
-      // at their own stem, which is what a partial beam looks like anywhere else.
-      const join = fanJoins.find(j => j.fans.includes(i))
-      const at = join ? join.fans.indexOf(i) : -1
-      const behind = at > 0 ? geometries.get(join!.fans[at - 1]) : undefined
-      const joinQuads = behind && geometry.stems.length
-        ? fanJoinQuads({
-            left: behind,
-            right: geometry,
-            toX: geometry.stems[0].stemX,
-            thickness: CROSS_SYSTEM_BEAM_WIDTH * stemDirection,
-            // THIS fan's spread — the crossing lines land on its stems, so they keep its gap.
-            spread: slot.fan?.spread,
-          })
-        : []
-
-      if (geometry.beams.length === 0) {
-        // The fan had no room to draw at all (a collapsed span). Its prefix is still wearing the
-        // PLACEHOLDER beam, so `StaveNote.draw` skipped those stems and nobody else is coming for
-        // them — put them back at their natural length rather than leave a row of stemless heads.
-        // Degraded either way (the flag is suppressed too), but a stem is not missing ink.
-        this.drawFanPrefixStems(pass.context, prefixNotes, [])
-        continue
-      }
-
-      // ⚠️ The group's own ink rect goes in FIRST, before the member heads — `getAt` returns the
-      // LAST matching element, so whatever is registered later wins the click. The rect spans the
-      // whole fan, so registering it after the heads would swallow every one of them and a member
-      // could never be selected. The heads are added in the draw loop below.
-      this.registerFanInk(geometry, headX, baseY, measureNumber, staffIndex, prefixNotes, joinQuads)
-
-      const ctx = pass.context
-      ctx.openGroup('fan', `${FAN_GROUP}-${slot.id}`)
-      try {
-        // ⭐ THE REAL NOTE'S STEM, TOPPED UP. When a member's pitch pushes the beam line away, the
-        // line leaves member 0's own tip behind — and that stem is VexFlow's, already drawn.
-        // Extending it would mean deciding the geometry BEFORE the draw, where the note's x and stem
-        // extents are not yet settled (they answer 0 and a tip 110px too high). So the missing piece
-        // is simply drawn here, from the tip VexFlow gave it to the line. Never a shortening: the
-        // line only ever moves AWAY from the heads.
-        if (geometry.stemLift > 0) {
-          ctx.beginPath()
-          ctx.setLineWidth(Stem.WIDTH)
-          ctx.moveTo(geometry.stems[0].stemX, note.getStemExtents().topY)
-          ctx.lineTo(geometry.stems[0].stemX, geometry.stems[0].tipY)
-          ctx.stroke()
-        }
-        // The joined group's own stems, re-aimed onto the line.
-        this.drawFanPrefixStems(ctx, prefixNotes, geometry.prefixStems)
-        // The members VexFlow did not draw — member 0 is the real note, already on the page.
-        for (let k = 1; k < geometry.stems.length; k++) {
-          const member = geometry.stems[k]
-          // ⭐ ONE GROUP PER MEMBER, so a member is a thing on the page and not a rectangle of
-          // painted ink: the head, its sign and its ledger lines land inside it together, which is
-          // what lets P3 highlight one by an ordinary recolour. ⚠️ `openGroup` prefixes `vf-`.
-          const memberGroup = ctx.openGroup(FAN_HEAD_GROUP, `${FAN_HEAD_GROUP}-${slot.id}-${k}`)
-          try {
-            const memberHeads = heads[k] ?? []
-            for (let h = 0; h < memberHeads.length; h++) {
-              const { pitch, line, sign } = memberHeads[h]
-              const y = stave.getYForNote(line)
-              // 🚨 LEDGER LINES BY HAND. `drawLedgerLines` belongs to `StaveNote`; a bare `NoteHead`
-              // only swaps to the ledger glyph. Members off the staff drew as floating heads before
-              // they had their own pitches — a bug then, the ordinary case now.
-              this.drawFanLedgerLines(ctx, member.headX, line, note.getGlyphWidth(), stave)
-              const head = new NoteHead({ duration: 'q', line, stemDirection, x: member.headX })
-              head.setStave(stave) // resolves y from the line, and hands it the context
-              head.setContext(ctx).draw()
-              // ⭐ P3: the member becomes CLICKABLE and HIGHLIGHTABLE — but only when it is a member
-              // of its own (a fallback head is the slot's pitch, and that id is already the real
-              // note's). Registered as a `note` because that is what it is; ⚠️ it carries the SLOT's
-              // beat, which is what keeps `pixelXToBeat` unmoved — that walk dedups anchors by beat
-              // and keeps the leftmost x, so the members collapse onto the note's own column.
-              if (stored[k - 1]) {
-                this.addGlyphElement(head, {
-                  type: 'note',
-                  id: pitch.id,
-                  measure: measureNumber,
-                  staff: staffIndex,
-                  beat: fracToNumber(slot.beat),
-                  pitch: spellingToMidi(pitch.step, pitch.alter, pitch.octave),
-                  duration: slot.duration,
-                  headX: member.headX + note.getGlyphWidth() / 2,
-                })
-                // The group is this member's whole ink — head, sign, ledgers, stem — so the highlight
-                // is an ordinary recolour of ink we own, not a rectangle painted over someone else's.
-                this.fanMemberGroupMap.set(pitch.id, { group: memberGroup as unknown as SVGGElement, noteIndex: h })
-                // …and WHERE it landed, so a slur can spring from it. Measured from the geometry that
-                // placed the head, not re-derived — the same rule the ink rect follows.
-                this.fanMemberAnchorMap.set(pitch.id, {
-                  staveNote: note,
-                  leftX: member.headX,
-                  rightX: member.headX + note.getGlyphWidth(),
-                  headY: y,
-                  tipY: member.tipY,
-                  stemDirection,
-                })
-              }
-              if (sign) {
-                // Hand-placed for the same reason the head is: there is no `StaveNote` here to hang
-                // a modifier on, and a `Modifier` drawn at explicit coordinates without its own x/y
-                // set drags a note's bbox to zero (reference_vexflow_modifier_bbox_needs_x_y).
-                const acc = new Accidental(sign)
-                acc.setContext(ctx)
-                acc.setX(member.headX - this.accidentalWidth(sign) - FAN_ACCIDENTAL_GAP).setY(y)
-                acc.renderText(ctx, 0, 0)
-              }
-            }
-            ctx.beginPath()
-            ctx.setLineWidth(Stem.WIDTH)
-            ctx.moveTo(member.stemX, member.baseY)
-            ctx.lineTo(member.stemX, member.tipY)
-            ctx.stroke()
-          } finally {
-            ctx.closeGroup()
-          }
-        }
-        // The gap to the fan behind belongs to THIS fan's ink — it is the one wearing the `continue`.
-        for (const q of [...joinQuads, ...geometry.beams]) {
-          this.fillBeamQuad(ctx, q.startX, q.startY, q.endX, q.endY, q.thickness)
-        }
-      } finally {
-        ctx.closeGroup()
-      }
-    }
-  }
-
-  /**
-   * ONE fanned slot, resolved: its note, its members' heads and signs, its prefix, and the full
-   * option set its geometry is computed from. Null for anything that is not a fanned chord.
-   *
-   * Split out because P2 has to spend it TWICE — once to ask what line this fan would want, and once
-   * to draw it at the line the whole joined group agreed on — and because P3 builds the same thing
-   * from a group that has no single bar to read its clef, its accidentals or its next note from.
-   *
-   * ⭐ The STAVE comes from the note itself. It is the one source that is right in both passes: a
-   * synthetic lane spanning two bars has two staves, and each fan belongs to its own.
-   */
-  private fanSlotDrawing(input: {
-    index: number
-    slot: ChordRest
-    /** The score being drawn — read for the members' own authored spaces (client #10, §7). */
-    score: Score
-    note: StaveNote | undefined
-    /** The clef this member's pitches are read against — its own bar's. */
-    clef: Clef
-    /** `displayedAccidentals` for this member's own bar: which pitch ids show a sign. */
-    signs: Map<string, string | null>
-    /** The group this fan is joined to on its left; empty for anything but a chain's first fan. */
-    prefixNotes: StaveNote[]
-    /** The next note in the fan's OWN bar — where its room ends. Absent ⇒ the note area's end. */
-    nextNote: StaveNote | undefined
-    measureNumber: number
-    staffIndex: number
-    /** This fan is on a joined beam, so its line is flat even where it has no prefix (a chain). */
-    joined: boolean
-  }): FanSlotDrawing | null {
-    const { index, slot, score, note, clef, signs, nextNote, measureNumber, staffIndex, joined } = input
-    if (slot.type !== 'chord' || !slot.fan) return null
-    if (!note) return null
-    const stave = note.getStave()
-    if (!stave) return null
-
-    const headX = note.getNoteHeadBeginX()
-    const { topY, baseY } = note.getStemExtents()
-    const stemDirection = note.getStemDirection()
-
-    const stored = slot.fan.members ?? []
-    const heads = fanMemberPitches(slot.notes, slot.fan).map((pitches, k) => pitches.map(p => ({
-      pitch: p,
-      line: staffLineForSpelling(p.step, p.octave, clef),
-      // ⚠️ Only a member with a pitch of its OWN can carry a sign. A member falling back to the
-      // slot's pitches (a mark that never went through `normalizeFan`) is the same note, whose
-      // sign the real notehead has already shown — looking its id up would re-draw it on every
-      // head in the group.
-      sign: k > 0 && stored[k - 1] ? signs.get(p.id) ?? null : null,
-    })))
-    // An accidental hangs to the LEFT of its head, and the width pass could not know about it (it
-    // counts head columns and cannot measure glyphs), so the group buys the room out of its own
-    // span. Member 0's sign is VexFlow's business — a real modifier on a real note.
-    const accidentalRoom = heads.map((pitches, k) => (k === 0 ? 0 : Math.max(
-      0, ...pitches.map(h => (h.sign ? this.accidentalWidth(h.sign) : 0)),
-    )))
-
-    // ⭐ THE PREFIX — the group this fan is JOINED to on its left (docs/fan-beam-join-plan.md P1).
-    // Their x's and head y's are the FORMATTER's, settled and read here like everything else in this
-    // pass; what the join changes is only where their stems end.
-    const prefixNotes = input.prefixNotes.filter(n => !!n && !!n.getStem())
-    // The lines they ask for: the count their own duration carries, the MINIMUM across them so a
-    // mixed prefix draws only what they all agree on.
-    const prefixBeams = prefixNotes.length ? Math.min(...prefixNotes.map(n => n.getBeamCount())) : 0
-
-    return {
-      index, slot, note, stave, measureNumber, staffIndex,
-      headX, baseY, stemDirection, heads, stored, prefixNotes,
-      options: {
-        members: fanMembers(slot.fan, slotLength(slot)),
-        memberSpaces: fanMemberSpacesPx(score, measureNumber, slot),
-        // ⚠️ Same array shape as the spaces above, opposite arithmetic — the geometry SUBTRACTS entry
-        // 0 (already inside `headX`) and adds the rest without touching the span. See
-        // `FanGeometryOptions.memberOffsets`.
-        memberOffsets: fanMemberOffsetsPx(score, slot, stave),
-        memberHeadYs: heads.map(pitches => pitches.map(h => stave.getYForNote(h.line))),
-        direction: slot.fan.direction,
-        beams: slot.fan.beams,
-        // The wedge's own ends, RAW — `fannedBeamGeometry` clamps them against the member list it
-        // will index, which is the array that actually has to be in range.
-        rampFrom: slot.fan.rampFrom,
-        rampTo: slot.fan.rampTo,
-        spread: slot.fan.spread,
-        headX,
-        // Where the ramp's room ends — the next note's ink, MINUS whatever space the user authored
-        // before that note. Its px are already in the head x (the tick context moved), and spending
-        // them on the ramp is what made the fan grow instead of the gap after it.
-        spanEndX: (nextNote ? nextNote.getNoteHeadBeginX() : stave.getNoteEndX())
-          - fanTrailingSpacePx(score, measureNumber, slot),
-        stemOffset: note.getStemX() - headX,
-        // MEASURED from the notehead itself, like the two-note tremolo's flag clearance: heads a
-        // whole glyph apart cannot touch, and the number follows the staff size instead of pinning
-        // a pixel count that would be wrong the day the scale changes. The bar has already been
-        // asked for the room this implies (`fanColumns`); this is what SPENDS it.
-        minHeadGap: note.getGlyphWidth() * FAN_MIN_HEAD_GAP_RATIO,
-        accidentalRoom,
-        prefix: prefixNotes.map(n => ({ stemX: n.getStemX(), headYs: n.getYs() })),
-        prefixBeams,
-        // Every fan on a joined beam draws flat, prefix or no prefix — a chain's FIRST fan has none.
-        joined,
-        tipY: topY,
-        // ⚠️ The LARGER of the two extensions: the beam levels eat into every stem in the group, and
-        // a 32nd prefix joined to a one-beam fan is the case that under-reserves otherwise.
-        minStemLength: stave.getSpacingBetweenLines() * FAN_MIN_STEM_SPACES
-          + Math.max(
-            fanStemExtension(slot.fan.beams, CROSS_SYSTEM_BEAM_WIDTH, slot.fan.spread),
-            // ⚠️ No spread: the prefix's levels are ORDINARY beams at the ordinary gap.
-            fanStemExtension(prefixBeams, CROSS_SYSTEM_BEAM_WIDTH),
-          ),
-        stemDirection,
-        beamWidth: CROSS_SYSTEM_BEAM_WIDTH,
-      },
-    }
-  }
-
-  /**
-   * ⭐ P2 — ONE LINE FOR THE WHOLE JOINED GROUP. A beam is one straight edge, so two fans sharing one
-   * cannot each decide their own height.
-   *
-   * Asked, not restated: each fan is run through {@link fannedBeamGeometry} exactly as it would be
-   * alone, and the OUTERMOST answer wins — the same "largest ask wins, the whole line moves" the
-   * floor pass already applies within one fan, one level up. Nothing about the rule is duplicated
-   * here, which is the point of doing it by a second call rather than by arithmetic of its own.
-   *
-   * ⚠️ The outermost is also what keeps every owner's stem GROWABLE: each fan's own answer is at or
-   * beyond its own natural tip (the floor only pushes away), so the outermost is beyond all of them
-   * — and a fan's owner stem is VexFlow's, which `stemLift` can only lengthen.
-   *
-   * Only for a joined group: a fan standing alone keeps the lean its members earned.
-   */
-  private reconcileFanJoinLines(drawings: FanSlotDrawing[], fanJoins: FanJoin[]): void {
-    for (const join of fanJoins) {
-      const members = drawings.filter(d => join.fans.includes(d.index))
-      if (members.length < 2) continue // one fan settles its own line; the floor already heard the prefix
-      const tentative = members
-        .map(d => fannedBeamGeometry(d.options))
-        .filter(geometry => geometry.beams.length > 0)
-      if (!tentative.length) continue
-      const up = members[0].stemDirection > 0
-      const lineY = up
-        ? Math.min(...tentative.map(geometry => geometry.lineY))
-        : Math.max(...tentative.map(geometry => geometry.lineY))
-      for (const d of members) d.options.lineY = lineY
-    }
-  }
-
-  /**
-   * 🚨 The PREFIX's stems — the notes a fan is joined to — drawn as each note's OWN `Stem` object,
-   * never as a hand-drawn line whatever it costs: the selection highlight resolves a stem by that
-   * object's SVG element ({@link getStaveNoteSVGGroup}), so ink drawn any other way could never be
-   * selected. `StaveNote.draw` skipped them (they wear the placeholder beam), so this is their only
-   * drawing — the same pattern {@link drawCrossBarLoneFragment} spells out.
-   *
-   * With `tips`, each stem is re-aimed onto the joined line first. Without (the fan drew nothing),
-   * they keep the length they were formatted with.
-   */
-  private drawFanPrefixStems(ctx: SVGContext, prefixNotes: StaveNote[], tips: { tipY: number }[]): void {
-    for (let k = 0; k < prefixNotes.length; k++) {
-      const prefixNote = prefixNotes[k]
-      const stem = prefixNote.getStem()
-      if (!stem) continue
-      const target = tips[k]
-      if (target) {
-        // Signed by the stem direction, so it reads the same either way up: positive GROWS the stem.
-        // The line is flat and its floor is a minimum rather than a natural length, so a note that
-        // already reached past it shrinks to meet it — which is what a beam does to its notes.
-        const grow = prefixNote.getStemDirection() * (prefixNote.getStemExtents().topY - target.tipY)
-        stem.setExtension(stem.getExtension() + grow)
-      }
-      stem.adjustHeightForBeam() // the flag's height fudge swapped for the beam's; the tip stays put.
-      stem.setContext(ctx).drawWithStyle()
-    }
-  }
-
-  /**
-   * The fanned group's ink as ONE hit rect, MEASURED from the geometry that placed it — the same
-   * rule the two-note tremolo's click target follows: the code that put the ink there is the only
-   * honest source for where it is. Filed as a `beam`, which is what the reader sees and what the fan
-   * mostly is.
-   *
-   * Every member's noteheads count, not just the real note's: with pitches of their own the group's
-   * ink reaches wherever they went.
-   */
-  private registerFanInk(
-    geometry: FanGeometry,
-    headX: number,
-    baseY: number,
-    measureNumber: number,
-    staffIndex: number,
-    /** The joined group in front of it, if any — the rect reaches back over their stems too. */
-    prefixNotes: StaveNote[] = [],
-    /** The quads bridging the gap to the fan behind it (P2) — its ink as much as the ramp is. */
-    joinQuads: FanQuad[] = [],
-  ): void {
-    const quads = [...geometry.beams, ...joinQuads]
-    const ys = [
-      ...quads.flatMap(q => [q.startY, q.endY, q.startY + q.thickness, q.endY + q.thickness]),
-      ...geometry.stems.map(s => s.baseY),
-      ...prefixNotes.map(n => n.getStemExtents().baseY),
-    ]
-    const top = Math.min(...ys, baseY)
-    const bottom = Math.max(...ys, baseY)
-    // ⚠️ LEFT to the first prefix stem, not merely taller: the joined beam is the fan's ink, so
-    // clicking any of it must still select the fan. Its ORDER is already right — this runs before
-    // `registerSlotElements` and `getAt` returns the LAST match, so the prefix noteheads still win
-    // their own clicks.
-    // ⚠️ EVERY member's own x on both edges, not `headX`-to-the-last-stem: a member offset by hand
-    // (client #12) can sit left of the note that was typed or right of the member after it, and the
-    // ramp's own order stops being the ink's order the moment one is nudged.
-    const left = Math.min(
-      headX,
-      ...geometry.stems.map(s => s.headX),
-      ...geometry.prefixStems.map(p => p.stemX),
-      ...joinQuads.map(q => q.startX),
-    )
-    const right = Math.max(...geometry.stems.map(s => s.stemX))
-    this.elementRegistry.add({
-      type: 'beam',
-      measure: measureNumber,
-      staff: staffIndex,
-      bbox: { x: left, y: top, width: right - left, height: bottom - top },
-    })
-  }
-
-  /**
-   * 🚨 The ledger lines of a hand-drawn member head — the ones `StaveNote.drawLedgerLines` would
-   * have drawn if this head belonged to one.
-   *
-   * A bare `NoteHead` off the staff only swaps to the LEDGER glyph (a slightly wider head); the
-   * lines themselves are `StaveNote`'s job, so a fan on a note above or below the staff drew
-   * floating heads. Per-note pitch makes that the ordinary case rather than the exception, which is
-   * why it is fixed here (docs/fanned-beam-pitches-plan.md §2).
-   *
-   * VexFlow's own bounds and its own loop: staff lines are 1–5, so a head needs lines from 6 up to
-   * its own, or from 0 down to it, at the INTEGER lines only (a head in a space hangs off the last
-   * one). The line is drawn a glyph wide plus a little each side — `strokePx`, VexFlow's default.
-   */
-  private drawFanLedgerLines(
-    ctx: SVGContext,
-    headX: number,
-    line: number,
-    glyphWidth: number,
-    stave: Stave,
-  ): void {
-    if (line < 6 && line > 0) return
-    const x1 = headX - FAN_LEDGER_OVERHANG
-    const x2 = headX + glyphWidth + FAN_LEDGER_OVERHANG
-    // The stave's own ledger style, so these are the same ink as every other ledger on the page —
-    // save/restore keeps it local (the rest ledgers do exactly this).
-    ctx.save()
-    stave.applyStyle(ctx, stave.getDefaultLedgerLineStyle())
-    const stroke = (l: number): void => {
-      const y = stave.getYForNote(l)
-      ctx.beginPath()
-      ctx.moveTo(x1, y)
-      ctx.lineTo(x2, y)
-      ctx.stroke()
-    }
-    for (let l = 6; l <= line; l++) stroke(l)
-    for (let l = 0; l >= line; l--) stroke(l)
-    ctx.restore()
   }
 
   /**
@@ -1931,17 +1175,6 @@ export class VexFlowRenderer {
     } else {
       return LOCATION_TOP
     }
-  }
-
-  /**
-   * Resolve the opening clef of every measure (the clef drawn at its barline /
-   * line start). Mid-measure changes are handled per-slot during rendering.
-   * @returns Map of measure number → opening clef
-   */
-  /** Per-measure opening clef for one staff (multi-staff: clef is per-staff). `staffId`
-   *  absent resolves to staff 0 / the single staff at N=1 — identical to the old map. */
-  private computeEffectiveClefs(score: Score, staffId?: string): Map<number, Clef> {
-    return resolveStaffClefs(score, staffId).opening
   }
 
   /**
@@ -2522,7 +1755,7 @@ export class VexFlowRenderer {
         // to the next note in the SAME voice.
         for (let gi = 0; gi < groups.length; gi++) {
           const laneOfGroup = beamPlan?.lanes.get(laneKey(measure.number, staffIndex, groups[gi].voice))
-          this.drawFannedBeams(
+          drawFannedBeams(
             pass, groups[gi].slots, groups[gi].staveNotes, measure.number, staffIndex,
             clefForBeat, built[gi].fanJoins,
             (laneOfGroup?.fanned ?? []).flatMap(owners => owners.slots),
@@ -3086,7 +2319,7 @@ export class VexFlowRenderer {
         const beamY = beamY0 + k * beamThickness * 1.5
         const startY = beam.getSlopeY(startX, firstStemX, beamY, beam.slope)
         const endY = beam.getSlopeY(endX, firstStemX, beamY, beam.slope)
-        this.fillBeamQuad(pass.context, startX, startY, endX, endY, beamThickness)
+        fillBeamQuad(pass.context, startX, startY, endX, endY, beamThickness)
       }
     }
     if (side.openLeft) overhang(staveNotes[0], -1, side.crossingLeft ?? 0)
@@ -3134,7 +2367,7 @@ export class VexFlowRenderer {
     const stub = (endX: number) => {
       for (let k = 0; k < levels; k++) {
         const beamY = beamY0 + k * beamThickness * 1.5
-        this.fillBeamQuad(pass.context, startX, beamY, endX, beamY, beamThickness)
+        fillBeamQuad(pass.context, startX, beamY, endX, beamY, beamThickness)
         minY = Math.min(minY, beamY, beamY + beamThickness)
         maxY = Math.max(maxY, beamY, beamY + beamThickness)
       }
@@ -3153,17 +2386,6 @@ export class VexFlowRenderer {
         bbox: { x: left, y: minY, width: right - left, height: maxY - minY },
       })
     }
-  }
-
-  /** One beam quad, from `drawBeamLines`' vertices (beam.js:596-604): top edge start→end, thickness down. */
-  private fillBeamQuad(ctx: SVGContext, startX: number, startY: number, endX: number, endY: number, thickness: number): void {
-    ctx.beginPath()
-    ctx.moveTo(startX, startY)
-    ctx.lineTo(startX, startY + thickness)
-    ctx.lineTo(endX, endY + thickness)
-    ctx.lineTo(endX, endY)
-    ctx.closePath()
-    ctx.fill()
   }
 
   /** Hit-testing entry for a joined beam, filed under the bar its side starts in. Added after every
@@ -3339,31 +2561,6 @@ export class VexFlowRenderer {
     }
   }
 
-  /**
-   * Register a GLYPH element by its OWN VexFlow object's ink box (docs/tight-bbox-plan.md §6a).
-   *
-   * Pass the LEAF glyph — a `NoteHead`, `Accidental`, `Articulation`, `Dot`, `Clef` — never a
-   * `StaveNote` container: `StaveNote.getBoundingBox()` unions every attached modifier into its own
-   * box, and our dynamics are attached `Annotation`s, so a rest/note carrying a dynamic would
-   * register a box reaching all the way down to the dynamic's ink and steal its clicks. This is the
-   * one choke point that keeps that container-union box out of every glyph registration site.
-   *
-   * Carve-outs that legitimately do NOT go through here: notes/chords (hit-tested semantically off
-   * the notehead, §4a — they keep the union box + `headX`), the region types (line-start clef, time
-   * signature, stave, barline — hand-built rects they WANT), and dynamics/tempo (own ink rebuild).
-   *
-   * @returns whether an element was registered (false when the glyph has no box yet — pre-draw).
-   */
-  private addGlyphElement(
-    glyph: { getBoundingBox(): { x: number; y: number; w: number; h: number } | undefined },
-    info: Omit<ElementInfo, 'bbox'>,
-  ): boolean {
-    const b = glyph.getBoundingBox()
-    if (!b) return false
-    this.elementRegistry.add({ ...info, bbox: { x: b.x, y: b.y, width: b.w, height: b.h } })
-    return true
-  }
-
   private registerSlotElements(
     sortedSlots: ChordRest[],
     staveNotes: StaveNote[],
@@ -3382,7 +2579,7 @@ export class VexFlowRenderer {
           // A rest StaveNote has exactly one notehead (the rest glyph); fall back to the StaveNote
           // if it isn't available yet (pre-draw), which preserves the old behaviour.
           const glyph = staveNote.noteHeads[0] ?? staveNote
-          const registered = this.addGlyphElement(glyph, {
+          const registered = this.elementRegistry.addGlyph(glyph, {
             type: 'rest',
             id: slot.id,
             measure: measure.number,
@@ -3717,12 +2914,7 @@ export class VexFlowRenderer {
    * (this editor never builds a stave with custom spacing — zoom is a CSS transform), so no live
    * stave is needed before Y is computed.
    */
-  private staffSpacingLayout(score: Score, measureWidths: Map<number, MeasureWidthInfo>): {
-    lineTopPx: number[]
-    cumPx: number[][]
-    lineHeightPx: number[]
-    contentHeightPx: number
-  } {
+  private staffSpacingLayout(score: Score, measureWidths: Map<number, MeasureWidthInfo>): StaffSpacingLayout {
     const staves = getStaves(score)
     const staffList = staves.length > 0 ? staves : [{ id: firstStaffId(score) }]
     const numStaves = staffList.length
@@ -4072,7 +3264,7 @@ export class VexFlowRenderer {
     // `drawCrossBarBeams`' reasons — a measure group is REUSED, and culling deletes an off-screen
     // bar's group with everything drawn into it — and after it, so a fan joined behind an ordinary
     // cross-barline beam finds its neighbour's stems already settled.
-    this.drawCrossBarFanBeams(pass, beamPlan.fanJoins)
+    drawCrossBarFanBeams(pass, beamPlan.fanJoins)
 
     // Render ties between measures after all measures are drawn
     renderTies(pass, score)
@@ -4086,319 +3278,13 @@ export class VexFlowRenderer {
       // For ghost note, we need to find the measure's actual position
       const ghostMeasureInfo = measureWidths.get(ghostNote.measure)
       if (ghostMeasureInfo) {
-        ghostNoteRendered = this.renderGhostNoteWithDynamicWidths(
-          ghostNote,
-          score,
-          measureWidths,
-          margin,
-          staveHeight,
-          verticalSpacing
-        )
+        const svg = this.getSVGElement()
+        if (svg) ghostNoteRendered = drawNoteGhost(this.context, svg, ghostNote, score, measureWidths, spacing)
       }
     }
 
     renderProbe().endRender() // P0 instrument
     return ghostNoteRendered
-  }
-
-  private renderGhostNoteWithDynamicWidths(
-    ghostNote: GhostNote,
-    score: Score,
-    measureWidths: Map<number, MeasureWidthInfo>,
-    margin: number,
-    staveHeight: number,
-    verticalSpacing: number
-  ): boolean {
-    try {
-      const measure = score.measures.find(m => m.number === ghostNote.measure)
-      if (!measure) {
-        console.warn('Measure not found for ghost note:', ghostNote.measure)
-        return false
-      }
-
-      const widthInfo = measureWidths.get(ghostNote.measure)
-      if (!widthInfo) {
-        console.warn('Width info not found for ghost note measure:', ghostNote.measure)
-        return false
-      }
-
-      // Guard against a malformed spelling (no step) — skip the preview rather
-      // than crash the whole score render.
-      if (ghostNote.step === undefined) {
-        return false
-      }
-
-      // Calculate X position by summing widths of previous measures on the same line
-      let measureX = margin
-      for (const m of score.measures) {
-        if (m.number === ghostNote.measure) break
-        const mInfo = measureWidths.get(m.number)
-        if (mInfo && mInfo.lineNumber === widthInfo.lineNumber) {
-          measureX += mInfo.finalWidth
-        } else if (mInfo && mInfo.lineNumber < widthInfo.lineNumber) {
-          measureX = margin
-        }
-      }
-
-      // The ghost previews entry on the staff the cursor is over (multi-staff): its Y is that
-      // staff's row within the system (systemTop + staffIndex*stride) and its clef is that
-      // staff's own clef — so the preview lands exactly where the click will place the note.
-      const staffIndex = staffOf(ghostNote)
-      const staffId = staffIdAtIndex(score, staffIndex)
-      // Match the real render's PER-SYSTEM staff-spacing push-down (Client #7) so the
-      // translucent ghost lands exactly where the committed note will, on any staff/system
-      // with spacing ≠ 0. Resolve against this ghost's own line.
-      const spacing = this.staffSpacingLayout(score, measureWidths)
-      const line = widthInfo.lineNumber
-      const systemTop = spacing.lineTopPx[line] ?? margin
-      const measureY = systemTop + staffIndex * (staveHeight + verticalSpacing) + (spacing.cumPx[line]?.[staffIndex] ?? 0)
-      const staveWidth = widthInfo.finalWidth
-      const effectiveClefs = this.computeEffectiveClefs(score, staffId)
-      const openingClef: Clef = effectiveClefs.get(ghostNote.measure) || 'treble'
-      // Match the real stave: only redraw the clef when it changes across the
-      // barline (vs the previous measure's ending clef), not opening-to-opening.
-      const prevEndClef = ghostNote.measure > 1 ? measureEndingClef(score, ghostNote.measure - 1, staffId) : undefined
-      const hasClefChange = prevEndClef !== undefined && openingClef !== prevEndClef
-      // The ghost note must be positioned by the clef in effect at its beat
-      // (mid-measure changes), not just the measure's opening clef.
-      const clef: Clef = effectiveClefAt(score, ghostNote.measure, beatToFrac(ghostNote.beat), staffId)
-
-      // The ghost sits at a real pitch, so it gets real ledger lines — same ink as the engraved ones.
-      const tempStave = new Stave(measureX, measureY, staveWidth)
-      tempStave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
-      const isFirstInLine = measureX === margin
-      if (ghostNote.measure === 1 || isFirstInLine) {
-        tempStave.addClef(openingClef)
-      } else if (hasClefChange) {
-        tempStave.addClef(openingClef, 'small')
-      }
-      if (drawsTimeSignature(measure)) {
-        tempStave.addTimeSignature(timeSignatureVexKey(measure.timeSignature))
-      }
-      // Match the real stave's note area so the ghost note aligns with where the committed note
-      // will land (a cautionary end clef narrows the note area) — and match it on THIS staff, since
-      // the courtesy is per staff now and only some staves may carry one.
-      const ghostCautionaryClef = widthInfo.cautionaryEndClefs?.[staffIndex]
-      if (ghostCautionaryClef) {
-        tempStave.addEndClef(ghostCautionaryClef, 'small')
-      }
-      if (widthInfo.cautionaryEndTimeSig) {
-        tempStave.addEndTimeSignature(timeSignatureVexKey(widthInfo.cautionaryEndTimeSig))
-      }
-      tempStave.setContext(this.context!)
-
-      const vexNote = spellingToVexflowKey(ghostNote.step, ghostNote.alter, ghostNote.octave)
-      const vexDuration = convertDuration(ghostNote.duration as NoteDuration, ghostNote.dots || 0)
-
-      // Stem direction — same diatonic approach as createStaveNotesFromSlots.
-      // Include any existing notes at the same beat so the ghost matches the chord's stem.
-      const middleDiatonic = middleLineDiatonicPos(clef)
-      let stemDirection = -1  // default down; middle-line notes follow this convention
-      let maxDist = 0
-      const checkDiatonic = (step: PitchStep, octave: number) => {
-        const dPos = spellingDiatonicPos(step, octave)
-        const dist = Math.abs(dPos - middleDiatonic)
-        if (dist > maxDist) { maxDist = dist; stemDirection = dPos >= middleDiatonic ? -1 : 1 }
-      }
-      // Only this staff's chords at the beat influence the ghost's stem (a chord on another
-      // staff at the same beat is an independent stream).
-      for (const slot of staffMeasureView(measure, staffId, score).slots) {
-        if (slot.type === 'chord' && Math.abs(fracToNumber(slot.beat) - ghostNote.beat) < 0.001) {
-          for (const p of slot.notes) checkDiatonic(p.step, p.octave)
-        }
-      }
-      checkDiatonic(ghostNote.step, ghostNote.octave)
-
-      const staveNote = new StaveNote({
-        keys: [vexNote],
-        duration: vexDuration,
-        clef,
-        autoStem: false,
-      })
-      staveNote.setStemDirection(stemDirection)
-
-      const dots = ghostNote.dots || 0
-      for (let d = 0; d < dots; d++) {
-        Dot.buildAndAttach([staveNote], { all: true })
-      }
-
-      if (ghostNote.alter !== 0) {
-        const sign = alterToString(ghostNote.alter)
-        staveNote.addModifier(new Accidental(sign), 0)
-      } else if (ghostNote.forceAccidental) {
-        // Armed natural: alter 0 has no sign of its own, so draw the ♮ explicitly.
-        staveNote.addModifier(new Accidental('n'), 0)
-      }
-
-      // The armed entry tremolo, through the SAME modifier the engraved mark uses — so the ghost
-      // wears its strokes exactly where the committed note will, stem stretches and all. Added
-      // before the articulations for no reason but reading order; a tremolo is one modifier and
-      // stacks with nothing.
-      if (ghostNote.tremolo !== undefined) {
-        staveNote.addModifier(new CenteredTremolo(ghostNote.tremolo), 0)
-      }
-
-      if (ghostNote.articulations?.length) {
-        const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
-        const articulationPosition = stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE
-        const sortedGhostArticulations = ghostNote.articulations.slice().sort(
-          (a, b) => ARTICULATION_RENDER_ORDER.indexOf(a) - ARTICULATION_RENDER_ORDER.indexOf(b)
-        )
-        for (const art of sortedGhostArticulations) {
-          staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
-        }
-      }
-
-      // Meter-aware rest fill around the ghost note (same engine as the model).
-      // Positions are exact Fractions in quarter-note beats.
-      const meter = getMeterInfo(measure.timeSignature)
-      const noteStart = beatToFrac(ghostNote.beat)
-      const noteEnd = fracAdd(noteStart, writtenLength(ghostNote))
-
-      const makeRest = (r: RestSlot) => {
-        const sn = new StaveNote({ keys: ['b/4'], duration: durationToVexflow(r.duration, r.dots) + 'r' })
-        if (r.dots) Dot.buildAndAttach([sn], { all: true })
-        return sn
-      }
-
-      const tickables: StaveNote[] = []
-      for (const r of fillRests(fracCreate(0, 1), noteStart, meter)) tickables.push(makeRest(r))
-      tickables.push(staveNote)
-      for (const r of fillRests(noteEnd, measureCapacityFrac(measure), meter)) tickables.push(makeRest(r))
-
-      // VexFlow wants the literal time signature, not quarter-beats.
-      const voice = new Voice({
-        numBeats: measure.timeSignature.numerator,
-        beatValue: measure.timeSignature.denominator,
-      }).setMode(Voice.Mode.SOFT)
-      voice.addTickables(tickables)
-
-      const noteAreaWidth = tempStave.getNoteEndX() - tempStave.getNoteStartX()
-      const rightPadding = 15
-      const formatWidth = noteAreaWidth > 0 ? Math.max(noteAreaWidth - rightPadding, 50) : staveWidth - 100
-      new Formatter().joinVoices([voice]).format([voice], formatWidth)
-
-      const svg = this.getSVGElement()
-      if (!svg) {
-        console.error('SVG element not found for ghost note')
-        return false
-      }
-
-      staveNote.setStave(tempStave)
-
-      let targetShiftX: number | null = null
-      if (ghostNote.rawX !== undefined) {
-        try {
-          const noteX = staveNote.getAbsoluteX()
-          targetShiftX = ghostNote.rawX - noteX
-        } catch (_e) {
-          // getAbsoluteX might not be available before draw
-        }
-      }
-
-      const childrenBefore = svg.children.length
-      staveNote.setContext(this.context!).draw()
-
-      // The armed tuplet's number, over the ghost — "this click STARTS a 5:4", which a notehead
-      // alone cannot say. Drawn the way VexFlow draws a real one: a `new Element('Tuplet')`, so the
-      // font is whatever `Metrics` says the Tuplet category is (Bravura at its own size) rather
-      // than a hardcoded stack that goes stale the day VexFlow retunes, and the text is SMuFL
-      // tuplet digits (see tupletMarkText). Same geometry too — VexFlow puts the number a line and
-      // a half above the top staff line, less its own textYOffset.
-      //
-      // Drawn INSIDE the childrenBefore window on purpose: it is then swept into `.ghost-note-group`
-      // and tinted with the rest of the ghost by the code below, instead of needing its own
-      // teardown. NO bracket: a tuplet's bracket spans notes that do not exist until the click.
-      if (ghostNote.tupletLabel?.length) {
-        // Laid out by the SAME function the engraved mark uses, so the preview's runs are the page's
-        // runs at the page's sizes — a ghost drawn any other way previews a different mark.
-        const mark = layoutTupletMark(ghostNote.tupletLabel)
-        for (const { el } of mark.pieces) el.setContext(this.context!)
-        // The number rides the NOTE, not the staff: it floats a fixed gap above whatever the note's
-        // highest point is — the stem TIP when the stem is up, the NOTEHEAD when it hangs down.
-        //
-        // Deliberately NOT VexFlow's own rule, which then clamps the result to at least 1.5 lines
-        // above the top staff line: that clamp is right for a real tuplet (a bracket spanning several
-        // notes needs one height for all of them) and wrong for a ghost, which is ONE note following
-        // the cursor — clamped, the number stops tracking and drifts away from the notehead as you
-        // move down the staff.
-        const stem = staveNote.getStemExtents()
-        const anchorY = !staveNote.hasStem()
-          ? Math.min(...staveNote.getYs()) // a whole note: the notehead is the whole of it
-          : stemDirection === 1
-            ? stem.topY // stem up — the tip is the highest point
-            : stem.baseY // stem down — the stem hangs below, so the notehead is
-        // Centred on the NOTEHEAD, not on the note's origin: `getAbsoluteX()` is where the note
-        // attaches (accidentals and dots push it around), so a number centred there sits off to one
-        // side of the head it belongs to. The head's own two edges say where it actually is.
-        const headCenterX = (staveNote.getNoteHeadBeginX() + staveNote.getNoteHeadEndX()) / 2
-        // Every run centred as ONE mark, on one baseline — see ScoreTuplet.draw.
-        drawTupletMark(
-          this.context!,
-          mark,
-          headCenterX - mark.width / 2,
-          anchorY - GHOST_TUPLET_NUMBER_GAP * tempStave.getSpacingBetweenLines(),
-        )
-      }
-
-      const newElements: Element[] = []
-      for (let i = childrenBefore; i < svg.children.length; i++) {
-        newElements.push(svg.children[i])
-      }
-
-      if (newElements.length > 0) {
-        // ALWAYS wrap, even with no shift to apply: the group is what makes the ghost an
-        // overlay — loose elements in the SVG could never be taken down again (P4).
-        const ghostGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-        ghostGroup.setAttribute('class', 'ghost-note-group')
-        if (targetShiftX !== null) {
-          ghostGroup.setAttribute('transform', `translate(${targetShiftX}, 0)`)
-        }
-        for (const element of newElements) {
-          svg.removeChild(element)
-        }
-        for (const element of newElements) {
-          ghostGroup.appendChild(element)
-        }
-        svg.appendChild(ghostGroup)
-      }
-
-      // Ghost paints in the active voice's colour (V1 blue / V2 green); default blue.
-      const ghostFill = ghostNote.fillColor ?? '#3B82F6'
-      const ghostStroke = ghostNote.strokeColor ?? '#2563EB'
-      const applyGhostStyle = (element: Element) => {
-        const tagName = element.tagName.toLowerCase()
-        if (tagName === 'path' || tagName === 'ellipse' || tagName === 'circle') {
-          element.setAttribute('fill', ghostFill)
-          element.setAttribute('stroke', ghostStroke)
-          element.setAttribute('opacity', '0.7')
-          const currentStyle = element.getAttribute('style') || ''
-          element.setAttribute('style', currentStyle + `; fill: ${ghostFill} !important; stroke: ${ghostStroke} !important; opacity: 0.7 !important;`)
-        } else if (tagName === 'text') {
-          element.setAttribute('fill', ghostFill)
-          element.setAttribute('opacity', '0.7')
-          const currentStyle = element.getAttribute('style') || ''
-          element.setAttribute('style', currentStyle + `; fill: ${ghostFill} !important; opacity: 0.7 !important;`)
-        } else if (tagName === 'line') {
-          element.setAttribute('stroke', ghostStroke)
-          element.setAttribute('opacity', '0.7')
-          const currentStyle = element.getAttribute('style') || ''
-          element.setAttribute('style', currentStyle + `; stroke: ${ghostStroke} !important; opacity: 0.7 !important;`)
-        }
-        for (let i = 0; i < element.children.length; i++) {
-          applyGhostStyle(element.children[i])
-        }
-      }
-
-      for (let i = childrenBefore; i < svg.children.length; i++) {
-        applyGhostStyle(svg.children[i])
-      }
-
-      return true
-    } catch (error) {
-      console.error('Could not render ghost note with dynamic widths:', error)
-      return false
-    }
   }
 
   /** The drawn `<g>` for one (measure, staff) — the handle P5's incremental redraw and P6's culling
@@ -4772,9 +3658,21 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Render score with an optional ghost note overlay (preview note during mouse hover)
-   * Returns true if ghost note was rendered
+   * The frame every CURSOR ghost is drawn in: take the previous overlay down, and refuse when there
+   * is no page to draw on. What differs between them is only the glyph — which is
+   * {@link GhostRenderer}'s business, so each public method below is one line.
+   *
+   * ⚠️ Taking the old ghost down FIRST is not tidiness: a ghost is an overlay, so an un-removed one
+   * stays on the page forever (see {@link GHOST_GROUP_SELECTOR}). It happens even when the draw then
+   * declines — moving the cursor onto somewhere a mark cannot go must still clear the last preview.
    */
+  private ghostOverlay(draw: (ctx: SVGContext, svg: SVGElement) => boolean): boolean {
+    this.clearGhosts()
+    const svg = this.getSVGElement()
+    if (!svg || !this.context) return false
+    return draw(this.context, svg)
+  }
+
   /**
    * Draw the note ghost as an **overlay** on the already-rendered score (P4). The layout it
    * needs — `measureLayoutInfo` — is still sitting on the renderer from the last real render,
@@ -4784,710 +3682,63 @@ export class VexFlowRenderer {
    * been rendered there is no layout to place the ghost against, so it declines to draw.
    */
   drawGhostNote(score: Score, ghostNote: GhostNote): boolean {
-    this.clearGhosts()
-    if (this.measureLayoutInfo.size === 0) return false
-    return this.renderGhostNoteWithDynamicWidths(
-      ghostNote,
-      score,
-      this.measureLayoutInfo,
-      LAYOUT_CONFIG.MARGIN,
-      LAYOUT_CONFIG.STAVE_HEIGHT,
-      LAYOUT_CONFIG.VERTICAL_SPACING,
-    )
+    if (this.measureLayoutInfo.size === 0) {
+      this.clearGhosts()
+      return false
+    }
+    return this.ghostOverlay((ctx, svg) => drawNoteGhost(
+      ctx, svg, ghostNote, score, this.measureLayoutInfo,
+      this.staffSpacingLayout(score, this.measureLayoutInfo),
+    ))
   }
 
-  /**
-   * Render the score, then overlay a free-floating translucent ghost clef that
-   * follows the cursor (like the ghost note). The clef glyph is drawn alone (via
-   * a 0-line stave so no staff lines appear), wrapped in a `.ghost-clef-group`
-   * for CSS tinting, and translated so its center sits at the cursor.
-   * @returns true if the ghost clef was drawn
-   */
-  /**
-   * Overlay a free-floating translucent ghost REST that follows the cursor — the preview for the
-   * armed rest stamp. Drawn as a real rest {@link StaveNote} of the armed duration + dots, on a
-   * 0-line stave (so no staff lines come with it), then translated to the cursor: the same trick
-   * the clef ghost uses, because both are one glyph shown loose rather than engraved in a bar.
-   *
-   * A real StaveNote and not a bare glyph, because the ghost must answer "how long, and dotted?" —
-   * the two things a rest IS. VexFlow draws the dots at the right offset for each duration; hand-
-   * placing them would be inventing a rule the font already knows.
-   *
-   * THE ATTACH LINE. A whole and a half rest are the same rectangle: what tells them apart is that
-   * a whole rest HANGS from a line and a half rest SITS on one. Floating at the cursor, the ghost
-   * touches no line at all, so both would read the same — a coin-flip on the most basic choice the
-   * tool offers. So for the line-attached rests (whole/half, dotted or not) the ghost draws the ONE
-   * line it attaches to, exactly as the score does for a rest a shift has pushed off the staff
-   * (drawRestLedgerLines / restSupportingLedgerLine). Shorter rests are not line-attached and get
-   * nothing — an eighth rest is unmistakable on its own.
-   *
-   * @returns true if the ghost rest was drawn
-   */
+  /** Overlay a free-floating translucent ghost REST at the cursor — see {@link drawRestGhost}. */
   renderScoreWithRestGhost(cursorX: number, cursorY: number, duration: NoteDuration, dots: number): boolean {
-    this.clearGhosts() // P4: an overlay — take the old ghost down, leave the score alone
-
-    const svg = this.getSVGElement()
-    if (!svg || !this.context) return false
-
-    try {
-      const childrenBefore = svg.children.length
-
-      // A 0-line stave draws nothing itself, and gives the rest something to be positioned against.
-      const tempStave = new Stave(0, cursorY, 120, { numLines: 0 })
-      tempStave.setBegBarType(Barline.type.NONE)
-      tempStave.setEndBarType(Barline.type.NONE)
-      tempStave.setContext(this.context)
-
-      // 'b/4' anchors a rest to the middle line under the default clef — the same key NoteBuilder
-      // uses, so the ghost is positioned by the same rule as the real thing.
-      const rest = new StaveNote({ keys: ['b/4'], duration: convertDuration(duration, dots) + 'r' })
-      for (let d = 0; d < dots; d++) Dot.buildAndAttach([rest], { all: true })
-      rest.setStave(tempStave)
-      rest.setContext(this.context)
-
-      // A voice+formatter gives the note a tickcontext (it will not draw without one).
-      const voice = new Voice({ numBeats: 4, beatValue: 4 }).setMode(Voice.Mode.SOFT).addTickable(rest)
-      new Formatter().joinVoices([voice]).format([voice], 100)
-      rest.draw()
-
-      // The attach line, for the two rests that have one — drawn with the glyph so it travels with
-      // it under the transform below.
-      const line = restSupportingLedgerLine(duration, false, rest.getLineForRest())
-      if (line !== null || duration === 'w' || duration === 'h') {
-        const xBegin = rest.getNoteHeadBeginX()
-        const xEnd = rest.getNoteHeadEndX()
-        const PAD = 3 // px the line overhangs the glyph on each side — reads as a staff line, not a strike-through
-        const y = tempStave.getYForNote(rest.getLineForRest())
-        this.context.beginPath()
-        this.context.moveTo(xBegin - PAD, y)
-        this.context.lineTo(xEnd + PAD, y)
-        this.context.stroke()
-      }
-
-      const newElements: Element[] = []
-      for (let i = childrenBefore; i < svg.children.length; i++) newElements.push(svg.children[i])
-      if (newElements.length === 0) return false
-
-      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-      group.setAttribute('class', 'ghost-rest-group')
-      for (const el of newElements) svg.removeChild(el)
-      for (const el of newElements) group.appendChild(el)
-      svg.appendChild(group)
-
-      // Park it clear of the pointer — LEFT and UP — rather than centred on it, which buries the
-      // glyph under the arrow (whose body extends down-right from its tip). The same reason the
-      // accidental ghost parks left and the dot ghost right-and-up: a ghost you cannot see is not a
-      // preview. Up matters more here than for those two, because the rest is a solid block and the
-      // arrow sits squarely on it.
-      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-      if (gbox && gbox.width > 0) {
-        const GAP_X = 5
-        const LIFT_Y = 10
-        const dx = cursorX - GAP_X - (gbox.x + gbox.width / 2)
-        const dy = cursorY - LIFT_Y - (gbox.y + gbox.height / 2)
-        group.setAttribute('transform', `translate(${dx}, ${dy})`)
-      }
-
-      return true
-    } catch (_e) {
-      return false
-    }
+    return this.ghostOverlay((ctx, svg) => drawRestGhost(ctx, svg, cursorX, cursorY, duration, dots))
   }
 
+  /** Overlay a free-floating translucent ghost CLEF at the cursor — see {@link drawClefGhost}. */
   renderScoreWithClefGhost(cursorX: number, cursorY: number, clef: Clef): boolean {
-    this.clearGhosts() // P4: an overlay — take the old ghost down, leave the score alone
-
-    const svg = this.getSVGElement()
-    if (!svg) return false
-
-    try {
-      const childrenBefore = svg.children.length
-
-      // Draw just the clef glyph: a stave with 0 lines and no barlines renders
-      // only the clef modifier. Initial position is arbitrary — we reposition below.
-      const tempStave = new Stave(0, cursorY, 120, { numLines: 0 })
-      tempStave.setBegBarType(Barline.type.NONE)
-      tempStave.setEndBarType(Barline.type.NONE)
-      tempStave.addClef(clef)
-      tempStave.setContext(this.context!).draw()
-
-      const newElements: Element[] = []
-      for (let i = childrenBefore; i < svg.children.length; i++) {
-        newElements.push(svg.children[i])
-      }
-      if (newElements.length === 0) return false
-
-      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-      group.setAttribute('class', 'ghost-clef-group')
-      for (const el of newElements) svg.removeChild(el)
-      for (const el of newElements) group.appendChild(el)
-      svg.appendChild(group)
-
-      // Center the glyph on the cursor so it tracks the mouse freely.
-      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-      if (gbox && gbox.width > 0) {
-        const dx = cursorX - (gbox.x + gbox.width / 2)
-        const dy = cursorY - (gbox.y + gbox.height / 2)
-        group.setAttribute('transform', `translate(${dx}, ${dy})`)
-      }
-
-      return true
-    } catch (_e) {
-      return false
-    }
+    return this.ghostOverlay((ctx, svg) => drawClefGhost(ctx, svg, cursorX, cursorY, clef))
   }
 
-  /**
-   * Render the score with a free-floating translucent ghost time signature that
-   * follows the cursor (mirrors {@link renderScoreWithClefGhost}). Draws just the
-   * TS glyph on a 0-line stave, wrapped in a `.ghost-timesig-group` for CSS
-   * tinting, translated so its centre sits at the cursor.
-   * @returns true if the ghost time signature was drawn
-   */
+  /** Overlay a ghost TIME SIGNATURE at the cursor — see {@link drawTimeSignatureGhost}. */
   renderScoreWithTimeSignatureGhost(cursorX: number, cursorY: number, ts: TimeSignature): boolean {
-    this.clearGhosts() // P4: an overlay — take the old ghost down, leave the score alone
-
-    const svg = this.getSVGElement()
-    if (!svg) return false
-
-    try {
-      const childrenBefore = svg.children.length
-
-      const tempStave = new Stave(0, cursorY, 120, { numLines: 0 })
-      tempStave.setBegBarType(Barline.type.NONE)
-      tempStave.setEndBarType(Barline.type.NONE)
-      tempStave.addTimeSignature(timeSignatureVexKey(ts))
-      tempStave.setContext(this.context!).draw()
-
-      const newElements: Element[] = []
-      for (let i = childrenBefore; i < svg.children.length; i++) {
-        newElements.push(svg.children[i])
-      }
-      if (newElements.length === 0) return false
-
-      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-      group.setAttribute('class', 'ghost-timesig-group')
-      for (const el of newElements) svg.removeChild(el)
-      for (const el of newElements) group.appendChild(el)
-      svg.appendChild(group)
-
-      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-      if (gbox && gbox.width > 0) {
-        const dx = cursorX - (gbox.x + gbox.width / 2)
-        const dy = cursorY - (gbox.y + gbox.height / 2)
-        group.setAttribute('transform', `translate(${dx}, ${dy})`)
-      }
-
-      return true
-    } catch (_e) {
-      return false
-    }
+    return this.ghostOverlay((ctx, svg) => drawTimeSignatureGhost(ctx, svg, cursorX, cursorY, ts))
   }
 
-  /**
-   * Render the score with a free-floating translucent ghost dynamic that follows
-   * the cursor (mirrors {@link renderScoreWithClefGhost}). Builds the real dynamic
-   * Annotation (level glyph in the music font, or custom italic text) on a
-   * throwaway note, then keeps only the annotation's SVG group — discarding the
-   * temp stave/notehead — wrapped in a `.ghost-dynamic-group` and centred on the
-   * cursor. On click the mark is applied to the clicked slot (see MouseController).
-   *
-   * GOTCHA (font-size inheritance): a dynamic level glyph's `<text>` is emitted
-   * with NO explicit `font-size` — VexFlow lets it inherit the size from its
-   * ancestors in the score's SVG tree. Re-parenting that `<text>` to a group at
-   * the SVG root (as we do here) breaks the inheritance chain, so the glyph would
-   * collapse to the browser default (~16px) and look tiny next to a placed mark.
-   * We therefore re-apply the annotation's resolved font on the wrapper group
-   * below. This is a pure SVG/VexFlow behaviour, unrelated to the UI framework.
-   * @returns true if the ghost dynamic was drawn
-   */
-  /**
-   * Render the score with a GHOST tempo mark following the cursor — the preview for the
-   * armed tempo tool, mirroring the clef / time-signature / dynamic ghosts. Without it the
-   * note-entry ghost is shown while a tempo tool is armed, which says the wrong thing about
-   * what the next click will do.
-   *
-   * Simpler than the dynamic ghost: a dynamic must be hung off a throwaway StaveNote (it is a
-   * note modifier), whereas a tempo mark is text painted straight onto the context — so there are
-   * no leftover notehead/stem elements to discard afterwards, and no stave is needed at all. It
-   * is drawn by the same `drawTempoText` the score uses, so the preview cannot drift from it.
-   */
+  /** Overlay a ghost TEMPO mark at the cursor — see {@link drawTempoGhost}. */
   renderScoreWithTempoGhost(cursorX: number, cursorY: number, mark: TempoMark): boolean {
-    this.clearGhosts() // P4: an overlay — take the old ghost down, leave the score alone
-
-    const svg = this.getSVGElement()
-    if (!svg || !this.context) return false
-    if (!mark.text) return false // nothing to preview (a mark that only sounds)
-
-    try {
-      const group = this.context.openGroup('ghost-tempo') as SVGGElement
-      try {
-        // Drawn at the origin and translated into place below, once its real size is known.
-        drawTempoText(this.context, mark.text, 0, cursorY)
-      } finally {
-        this.context.closeGroup()
-      }
-
-      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-      if (!gbox || gbox.width === 0) {
-        group.remove()
-        return false
-      }
-
-      // Paint it in the ghost blue (the same colour the ghost note uses) at 0.7 opacity —
-      // it is a preview, not yet content.
-      group.setAttribute('opacity', '0.7')
-      group.querySelectorAll('text, path').forEach(el => {
-        if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
-      })
-
-      // Start at the cursor horizontally (that is where the mark will anchor) and center
-      // it vertically on the pointer, so the preview reads as "this lands here".
-      const dx = cursorX - gbox.x
-      const dy = cursorY - (gbox.y + gbox.height / 2)
-      group.setAttribute('transform', `translate(${dx}, ${dy})`)
-      return true
-    } catch {
-      return false
-    }
+    return this.ghostOverlay(ctx => drawTempoGhost(ctx, cursorX, cursorY, mark))
   }
 
+  /** Overlay a ghost DYNAMIC at the cursor — see {@link drawDynamicGhost}. */
   renderScoreWithDynamicGhost(cursorX: number, cursorY: number, dynamic: Dynamic): boolean {
-    this.clearGhosts() // P4: an overlay — take the old ghost down, leave the score alone
-
-    const svg = this.getSVGElement()
-    if (!svg) return false
-
-    try {
-      const childrenBefore = svg.children.length
-
-      // Draw the annotation on a throwaway quarter note. The note/stave glyphs are
-      // discarded below; we keep only the annotation's SVG group.
-      const tempStave = new Stave(0, cursorY, 200)
-      tempStave.setBegBarType(Barline.type.NONE)
-      tempStave.setEndBarType(Barline.type.NONE)
-      tempStave.setContext(this.context!)
-
-      const annotation = buildDynamicAnnotation(dynamic)
-      const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
-      note.setStave(tempStave)
-      note.addModifier(annotation, 0)
-
-      const voice = new Voice({ numBeats: 1, beatValue: 4 })
-      voice.setStrict(false)
-      voice.addTickables([note])
-      new Formatter().joinVoices([voice]).format([voice], 150)
-      voice.draw(this.context!, tempStave)
-
-      const annoEl = annotation.getSVGElement?.() as SVGGElement | undefined
-      // Enlarge the glyph run(s) just like the score pass does (the annotation is drawn at the
-      // small text size for a shared baseline), so the ghost matches what will be placed.
-      const annoText = annoEl?.querySelector?.('text') as SVGTextElement | null
-      if (annoText) enlargeDynamicGlyphRuns(annoText, dynamic)
-
-      const newElements: Element[] = []
-      for (let i = childrenBefore; i < svg.children.length; i++) {
-        newElements.push(svg.children[i])
-      }
-
-      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-      group.setAttribute('class', 'ghost-dynamic-group')
-      // The dynamic glyph's <text> carries no explicit font-size — it inherits it
-      // from its ancestors in the score. Extracting it to the SVG root breaks that
-      // chain (the glyph would shrink to the browser default), so re-apply the
-      // annotation's resolved font on the group for the <text> to inherit.
-      const f = annotation.fontInfo
-      if (f) {
-        group.setAttribute('font-family', f.family)
-        group.setAttribute('font-size', typeof f.size === 'number' ? `${f.size}pt` : String(f.size))
-        if (f.style) group.setAttribute('font-style', f.style)
-      }
-      // Move just the annotation group out (detaches it from the note's group)…
-      if (annoEl) group.appendChild(annoEl)
-      // …then discard the leftover temp stave/notehead/stem elements.
-      for (const el of newElements) {
-        if (el.parentNode === svg) svg.removeChild(el)
-      }
-      if (!annoEl) return false
-
-      svg.appendChild(group)
-
-      // Centre the glyph on the cursor so it tracks the mouse freely.
-      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-      if (gbox && gbox.width > 0) {
-        const dx = cursorX - (gbox.x + gbox.width / 2)
-        const dy = cursorY - (gbox.y + gbox.height / 2)
-        group.setAttribute('transform', `translate(${dx}, ${dy})`)
-      }
-
-      return true
-    } catch (_e) {
-      return false
-    }
+    return this.ghostOverlay((ctx, svg) => drawDynamicGhost(ctx, svg, cursorX, cursorY, dynamic))
   }
 
-  /**
-   * Render the score with a free-floating translucent ghost articulation (accent/staccato/tenuto
-   * glyph) that follows the cursor — the preview for the armed articulation stamp tool. On click the
-   * articulation is added to the clicked note (see MouseController).
-   *
-   * Unlike the dynamic ghost, we do NOT keep the modifier's own SVG group and discard a temp note:
-   * an Articulation's `draw()` opens no group of its own (it renders straight onto the context via
-   * `renderText`, and normally lands INSIDE the note's `vf-stavenote` group), so there is nothing to
-   * extract. Instead — like the tempo ghost — we open OUR group, draw ONLY the articulation into it,
-   * and close: `note.setStave()` populates the note's Y-values and `Formatter.format()` its tick
-   * position, which is everything `Articulation.draw()` reads, so it renders standalone without the
-   * note ever being drawn. The group carries VexFlow's `vf-` prefix (→ `.vf-ghost-articulation`,
-   * registered in {@link GHOST_GROUP_SELECTOR}).
-   *
-   * ADDITIVE: `types` may hold more than one armed articulation; they are drawn STACKED (sorted by
-   * {@link ARTICULATION_RENDER_ORDER}, an explicit `textLine` per glyph) exactly as a real note with
-   * several articulations engraves — so the ghost reads as everything the click will stamp.
-   * @returns true if a ghost articulation was drawn
-   */
+  /** Overlay the armed ARTICULATIONS at the cursor — see {@link drawArticulationGhost}. */
   renderScoreWithArticulationGhost(cursorX: number, cursorY: number, types: ArticulationType[]): boolean {
-    this.clearGhosts() // P4: an overlay — take the old ghost down, leave the score alone
-
-    const svg = this.getSVGElement()
-    if (!svg || !this.context || types.length === 0) return false
-
-    try {
-      const tempStave = new Stave(0, cursorY, 200)
-      tempStave.setBegBarType(Barline.type.NONE)
-      tempStave.setEndBarType(Barline.type.NONE)
-      tempStave.setContext(this.context)
-
-      const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
-      const sorted = types.slice().sort(
-        (a, b) => ARTICULATION_RENDER_ORDER.indexOf(a) - ARTICULATION_RENDER_ORDER.indexOf(b)
-      )
-      const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
-      note.setStave(tempStave) // populates note.ys (what Articulation.draw reads for its Y)
-      const articulations = sorted.map(t => {
-        const art = new Articulation(articulationVexCodes[t]).setPosition(Modifier.Position.ABOVE)
-        note.addModifier(art, 0) // attaches the note to the modifier (checkAttachedNote)
-        return art
-      })
-
-      const voice = new Voice({ numBeats: 1, beatValue: 4 })
-      voice.setStrict(false)
-      voice.addTickables([note])
-      new Formatter().joinVoices([voice]).format([voice], 150) // sets the note's tick X position
-      note.setStave(tempStave)
-
-      const group = this.context.openGroup('ghost-articulation') as SVGGElement
-      try {
-        // Stack them: an explicit textLine per glyph so multiple armed articulations don't overlap
-        // (we draw the modifiers by hand, so the note's ModifierContext isn't doing the spacing).
-        articulations.forEach((art, i) => art.setTextLine(i).setContext(this.context!).draw())
-      } finally {
-        this.context.closeGroup()
-      }
-
-      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-      if (!gbox || gbox.width === 0) {
-        group.remove()
-        return false
-      }
-
-      // Paint it the ghost blue at 0.7 opacity — a preview, not yet content (mirrors the tempo ghost).
-      group.setAttribute('opacity', '0.7')
-      group.querySelectorAll('text, path').forEach(el => {
-        if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
-      })
-
-      // Centre the glyph on the cursor horizontally, but lift it a few px so the lowest glyph
-      // (staccato) doesn't sit right under the pointer — a small breathing gap reads cleaner.
-      const CURSOR_GAP_PX = 8
-      const dx = cursorX - (gbox.x + gbox.width / 2)
-      const dy = cursorY - (gbox.y + gbox.height / 2) - CURSOR_GAP_PX
-      group.setAttribute('transform', `translate(${dx}, ${dy})`)
-      return true
-    } catch (_e) {
-      return false
-    }
+    return this.ghostOverlay(ctx => drawArticulationGhost(ctx, cursorX, cursorY, types))
   }
 
-  /**
-   * Draw ONE translucent ghost accidental (♯/♭/♮) following the cursor — the preview for the armed
-   * accidental stamp tool. Same standalone-draw approach as {@link renderScoreWithArticulationGhost}:
-   * an `Accidental`'s `draw()` reads its note's stave-Y (`setStave`) and formatted tick-X
-   * (`Formatter.format`) but opens no group of its own, so we attach it to a throwaway note, format,
-   * then draw ONLY the accidental into OUR `vf-`-prefixed group (`.vf-ghost-accidental`, in
-   * {@link GHOST_GROUP_SELECTOR}) — the note itself is never drawn. Single-valued: a note has one
-   * accidental, so there is nothing to stack.
-   * @returns true if a ghost accidental was drawn
-   */
+  /** Overlay a ghost ACCIDENTAL at the cursor — see {@link drawAccidentalGhost}. */
   renderScoreWithAccidentalGhost(cursorX: number, cursorY: number, accidental: ScoreAccidental): boolean {
-    this.clearGhosts() // an overlay — take the old ghost down, leave the score alone
-
-    const svg = this.getSVGElement()
-    if (!svg || !this.context) return false
-
-    try {
-      const tempStave = new Stave(0, cursorY, 200)
-      tempStave.setBegBarType(Barline.type.NONE)
-      tempStave.setEndBarType(Barline.type.NONE)
-      tempStave.setContext(this.context)
-
-      const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
-      note.setStave(tempStave) // populates note.ys (what Accidental.draw reads for its Y)
-      const acc = new Accidental(accidental) // '#' | 'b' | 'n' are VexFlow accidental codes as-is
-      note.addModifier(acc, 0) // attaches the note to the modifier (checkAttachedNote)
-
-      const voice = new Voice({ numBeats: 1, beatValue: 4 })
-      voice.setStrict(false)
-      voice.addTickables([note])
-      new Formatter().joinVoices([voice]).format([voice], 150) // sets the note's tick X position
-      note.setStave(tempStave)
-
-      const group = this.context.openGroup('ghost-accidental') as SVGGElement
-      try {
-        acc.setContext(this.context).draw()
-      } finally {
-        this.context.closeGroup()
-      }
-
-      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-      if (!gbox || gbox.width === 0) {
-        group.remove()
-        return false
-      }
-
-      // Paint it ghost blue at 0.7 opacity — a preview, not yet content (mirrors the other ghosts).
-      group.setAttribute('opacity', '0.7')
-      group.querySelectorAll('text, path').forEach(el => {
-        if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
-      })
-
-      // Park it to the LEFT of the pointer rather than centred on it — an accidental is engraved to
-      // the left of its notehead, so this reads as where the sign will land (the mirror of the dot
-      // ghost, which sits right for the same reason), and the arrow stops covering the very glyph
-      // it is previewing. Covers all three signs: ♯ ♭ ♮ share this one draw.
-      const GAP_X = 10
-      const dx = cursorX - GAP_X - (gbox.x + gbox.width / 2)
-      const dy = cursorY - (gbox.y + gbox.height / 2)
-      group.setAttribute('transform', `translate(${dx}, ${dy})`)
-      return true
-    } catch (_e) {
-      return false
-    }
+    return this.ghostOverlay(ctx => drawAccidentalGhost(ctx, cursorX, cursorY, accidental))
   }
 
-  /**
-   * Draw the translucent ghost tremolo STROKES following the cursor — the preview for the armed
-   * tremolo stamp. Same standalone-draw recipe as {@link renderScoreWithArticulationGhost}: a
-   * throwaway note + stave, `setStave` then `Formatter.format` (between them they populate
-   * everything the modifier's `draw()` reads), then draw ONLY the modifier into OUR `vf-`-prefixed
-   * group (`.vf-ghost-tremolo`, registered in {@link GHOST_GROUP_SELECTOR} — a group missing from
-   * that list is never taken down, and the ghost smears a trail across the score).
-   *
-   * The ghost is the **real mark**, not the palette's picture: the dev palette draws a note wearing
-   * its strokes because a button has to be recognisable, while this draws exactly what the click
-   * adds — N copies of `tremolo1`, or the single Penderecki sign. It takes the {@link TremoloMark}
-   * rather than a count precisely so those two cannot diverge: one modifier, one placement.
-   *
-   * ⚠️ Where this differs from every sibling ghost: an `Articulation` positions itself off the
-   * NOTEHEAD, but `Tremolo` positions itself off `note.getStemExtents().topY` — so the strokes land
-   * far above the throwaway note's origin. The bbox-centring below absorbs that on purpose: it
-   * measures where the glyphs ACTUALLY landed and moves the whole group from there, so the offset
-   * never has to be known.
-   * @returns true if a ghost tremolo was drawn
-   */
+  /** Overlay the armed TREMOLO's strokes at the cursor — see {@link drawTremoloGhost}. */
   renderScoreWithTremoloGhost(cursorX: number, cursorY: number, mark: TremoloMark): boolean {
-    this.clearGhosts() // an overlay — take the old ghost down, leave the score alone
-
-    const svg = this.getSVGElement()
-    if (!svg || !this.context) return false
-
-    try {
-      const tempStave = new Stave(0, cursorY, 200)
-      tempStave.setBegBarType(Barline.type.NONE)
-      tempStave.setEndBarType(Barline.type.NONE)
-      tempStave.setContext(this.context)
-
-      const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
-      note.setStave(tempStave) // populates the note's Y values (Tremolo.draw reads its stem extents)
-      const tremolo = new CenteredTremolo(mark)
-      note.addModifier(tremolo, 0) // attaches the note to the modifier (checkAttachedNote)
-
-      const voice = new Voice({ numBeats: 1, beatValue: 4 })
-      voice.setStrict(false)
-      voice.addTickables([note])
-      new Formatter().joinVoices([voice]).format([voice], 150) // sets the note's tick X position
-      note.setStave(tempStave)
-
-      const group = this.context.openGroup('ghost-tremolo') as SVGGElement
-      try {
-        tremolo.setContext(this.context).draw()
-      } finally {
-        this.context.closeGroup()
-      }
-
-      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-      if (!gbox || gbox.width === 0) {
-        group.remove()
-        return false
-      }
-
-      // Paint it ghost blue at 0.7 opacity — a preview, not yet content (mirrors the other ghosts).
-      group.setAttribute('opacity', '0.7')
-      group.querySelectorAll('text, path').forEach(el => {
-        if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
-      })
-
-      // Centred on the pointer: the strokes ride the STEM, so there is no notehead side for them to
-      // sit off — unlike the accidental (left) and dot (right) ghosts, which preview a horizontal
-      // relationship to the note they will join.
-      const dx = cursorX - (gbox.x + gbox.width / 2)
-      const dy = cursorY - (gbox.y + gbox.height / 2)
-      group.setAttribute('transform', `translate(${dx}, ${dy})`)
-      return true
-    } catch (_e) {
-      return false
-    }
+    return this.ghostOverlay(ctx => drawTremoloGhost(ctx, cursorX, cursorY, mark))
   }
 
-  /**
-   * Draw ONE translucent ghost tie following the cursor — the preview for the armed tie stamp tool.
-   * A tie is a RELATION between two notes, not a glyph, so there is no `draw()` to borrow the way
-   * the articulation/accidental ghosts borrow theirs. Instead it is engraved as a REAL tie: the same
-   * {@link drawCurveArc} primitive, with the same {@link TIE_BOW} / {@link CURVE_THICKNESS} an
-   * engraved tie uses — a proper cubic that swells at the belly and pinches to a point at each tip.
-   * Change those constants and the ghost follows. It says "tie tool armed" and no more: WHICH note
-   * ties to WHICH is resolved at click time by {@link MusicEngine.toggleTie} (and logged there),
-   * never previewed.
-   *
-   * `Curve.renderCurve` reads only its params and `renderOptions` — `from`/`to` are used by `draw()`
-   * alone, which we never call — so one throwaway note satisfies the constructor without touching
-   * the arc. It bows DOWNWARD (direction +1), matching the Keypad's tie key, so the armed tool and
-   * the lit key read as one thing, and it STARTS at the cursor rather than straddling it: a tie
-   * begins at the note you click and reaches forward, so its head is the part that follows the mouse.
-   *
-   * STROKED, not filled — so it paints `stroke` where the other ghosts paint `fill`. But like them
-   * it paints through the **DOM, after the draw, never the context**. `save()`/`restore()` do work
-   * now (they were stubbed for years — see {@link initialize}), so a scoped `setStrokeStyle` would
-   * no longer leak; the DOM is still the right answer here, because `openGroup` stamps the context's
-   * attributes onto the `<g>` at the moment it opens, and because painting the node afterwards is
-   * what lets a ghost recolour without re-engraving.
-   * Positioned by absolute path coordinates, so it needs no bbox measure or `translate` either.
-   * @returns true if a ghost tie was drawn
-   */
+  /** Overlay a ghost TIE arc at the cursor — see {@link drawTieGhost}. */
   renderScoreWithTieGhost(cursorX: number, cursorY: number): boolean {
-    this.clearGhosts() // an overlay — take the old ghost down, leave the score alone
-
-    const svg = this.getSVGElement()
-    if (!svg || !this.context) return false
-
-    try {
-      // The arc BEGINS at the cursor and runs to the right, rather than being centred on it — a tie
-      // starts at the note you click and reaches forward to the next, so its head belongs where the
-      // click will land. Nudged clear of the pointer on both axes so the arrow doesn't cover it.
-      const WIDTH = 20      // a short tie — roughly the span between two adjacent noteheads
-      const START_GAP_PX = 4
-      const LIFT_PX = 4
-      const DIRECTION = 1   // +1 = below/sagging, like the Keypad's tie key
-      const x0 = cursorX + START_GAP_PX
-      const y = cursorY - LIFT_PX
-
-      // Throwaway anchor: renderCurve never reads it (see above), it only satisfies the ctor.
-      const anchor = new StaveNote({ keys: ['b/4'], duration: 'q' })
-      const cps: [{ x: number; y: number }, { x: number; y: number }] = [
-        { x: 0, y: TIE_BOW },
-        { x: 0, y: TIE_BOW },
-      ]
-
-      const group = this.context.openGroup('ghost-tie') as SVGGElement
-      try {
-        drawCurveArc(
-          { context: this.context },
-          { x: x0, y }, { x: x0 + WIDTH, y },
-          cps, DIRECTION, CURVE_THICKNESS, anchor, anchor,
-        )
-      } finally {
-        this.context.closeGroup()
-      }
-
-      // Paint it ghost blue at 0.7 opacity through the DOM — a preview, not yet content (mirrors
-      // the other ghosts), and never through the context: see the note above. `renderCurve` strokes
-      // AND fills, so each emitted path carries both and both must be overridden, or the ghost shows
-      // a blue body with a black outline (the same rule as HighlightController.colorTieGroup).
-      group.setAttribute('opacity', '0.7')
-      group.querySelectorAll('path').forEach(p => {
-        p.setAttribute('fill', '#3B82F6')
-        p.setAttribute('stroke', '#3B82F6')
-      })
-      return true
-    } catch (_e) {
-      return false
-    }
+    return this.ghostOverlay(ctx => drawTieGhost(ctx, cursorX, cursorY))
   }
 
-  /**
-   * Draw ONE translucent ghost augmentation dot at the cursor — the preview for the armed dot stamp
-   * tool. Same standalone-draw approach as {@link renderScoreWithAccidentalGhost}: a `Dot` is a
-   * Modifier whose `draw()` reads its note's stave-Y (`setStave`) and formatted tick-X
-   * (`Formatter.format`) but opens no group of its own, so we attach it to a throwaway note, format,
-   * then draw ONLY the dot into OUR `vf-`-prefixed group (`.vf-ghost-dot`, in
-   * {@link GHOST_GROUP_SELECTOR}) — the note itself is never drawn. Valueless: the dot is on or off,
-   * so there is nothing to stack or swap.
-   * @returns true if a ghost dot was drawn
-   */
+  /** Overlay a ghost DOT at the cursor — see {@link drawDotGhost}. */
   renderScoreWithDotGhost(cursorX: number, cursorY: number): boolean {
-    this.clearGhosts() // an overlay — take the old ghost down, leave the score alone
-
-    const svg = this.getSVGElement()
-    if (!svg || !this.context) return false
-
-    try {
-      const tempStave = new Stave(0, cursorY, 200)
-      tempStave.setBegBarType(Barline.type.NONE)
-      tempStave.setEndBarType(Barline.type.NONE)
-      tempStave.setContext(this.context)
-
-      const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
-      note.setStave(tempStave) // populates note.ys (what Dot.draw reads for its Y)
-      Dot.buildAndAttach([note], { all: true })
-      const dot = note.getModifiers().find(m => m.getCategory() === 'Dot')
-      if (!dot) return false
-
-      const voice = new Voice({ numBeats: 1, beatValue: 4 })
-      voice.setStrict(false)
-      voice.addTickables([note])
-      new Formatter().joinVoices([voice]).format([voice], 150) // sets the note's tick X position
-      note.setStave(tempStave)
-
-      const group = this.context.openGroup('ghost-dot') as SVGGElement
-      try {
-        dot.setContext(this.context).draw()
-      } finally {
-        this.context.closeGroup()
-      }
-
-      const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-      if (!gbox || gbox.width === 0) {
-        group.remove()
-        return false
-      }
-
-      // Paint it ghost blue at 0.7 opacity — a preview, not yet content (mirrors the other ghosts).
-      group.setAttribute('opacity', '0.7')
-      group.querySelectorAll('text, path').forEach(el => {
-        if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
-      })
-
-      // Park it clear of the pointer, to the RIGHT and slightly up, rather than centred on it: a dot
-      // is ~3px, so the arrow would simply cover it (the arrow's body extends down-right from its
-      // tip). Same reason the articulation ghost lifts by CURSOR_GAP_PX and the tie starts right of
-      // the cursor. It also reads the way the stamp works — the dot lands to the right of the head.
-      const GAP_X = 10
-      const LIFT_Y = 4
-      const dx = cursorX + GAP_X - (gbox.x + gbox.width / 2)
-      const dy = cursorY - LIFT_Y - (gbox.y + gbox.height / 2)
-      group.setAttribute('transform', `translate(${dx}, ${dy})`)
-      return true
-    } catch (_e) {
-      return false
-    }
+    return this.ghostOverlay(ctx => drawDotGhost(ctx, cursorX, cursorY))
   }
 }

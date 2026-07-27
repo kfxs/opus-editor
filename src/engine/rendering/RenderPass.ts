@@ -55,6 +55,13 @@ export interface RenderPass {
    * to be constructed (the endpoints are passed to `renderCurve` explicitly).
    */
   fanMemberAnchorMap: Map<string, FanMemberAnchor>
+  /**
+   * FANNED MEMBER pitch id → the `<g class="vf-fanhead">` its ink was drawn into, and which head
+   * inside it belongs to that pitch — the member's answer to `staveNoteMap`, since a member has no
+   * `StaveNote` of its own and a highlight has to resolve through something. Filled by
+   * {@link FanPass}, read back by `VexFlowRenderer.getFanMemberSVGGroup`.
+   */
+  fanMemberGroupMap: Map<string, { group: SVGGElement; noteIndex: number }>
   /** Tuplet id → its rendered VexFlow Tuplet, for scoped highlight. */
   tupletObjectMap: Map<string, VexFlowTuplet>
   /** Dynamic id → its rendered VexFlow Annotation, for layout & scoped highlight. */

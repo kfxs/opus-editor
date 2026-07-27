@@ -497,13 +497,43 @@ export class ElementRegistry {
   }
 
   /**
+   * Register a GLYPH element by its OWN VexFlow object's ink box (docs/tight-bbox-plan.md §6a).
+   *
+   * Pass the LEAF glyph — a `NoteHead`, `Accidental`, `Articulation`, `Dot`, `Clef` — never a
+   * `StaveNote` container: `StaveNote.getBoundingBox()` unions every attached modifier into its own
+   * box, and our dynamics are attached `Annotation`s, so a rest/note carrying a dynamic would
+   * register a box reaching all the way down to the dynamic's ink and steal its clicks. This is the
+   * one choke point that keeps that container-union box out of every glyph registration site.
+   *
+   * Carve-outs that legitimately do NOT go through here: notes/chords (hit-tested semantically off
+   * the notehead, §4a — they keep the union box + `headX`), the region types (line-start clef, time
+   * signature, stave, barline — hand-built rects they WANT), and dynamics/tempo (own ink rebuild).
+   *
+   * ⭐ It lives HERE, not on the renderer, because the renderer is no longer the only place that
+   * registers a glyph — {@link FanPass} draws and registers its own noteheads (Phase 6a). It is
+   * structurally typed on `getBoundingBox()`, so this file still imports nothing from VexFlow, and
+   * it now sits beside {@link checkGlyphHeight}, the tripwire for the very bug it prevents.
+   *
+   * @returns whether an element was registered (false when the glyph has no box yet — pre-draw).
+   */
+  addGlyph(
+    glyph: { getBoundingBox(): { x: number; y: number; w: number; h: number } | undefined },
+    info: Omit<ElementInfo, 'bbox'>,
+  ): boolean {
+    const b = glyph.getBoundingBox()
+    if (!b) return false
+    this.add({ ...info, bbox: { x: b.x, y: b.y, width: b.w, height: b.h } })
+    return true
+  }
+
+  /**
    * The RESULT tripwire (docs/tight-bbox-plan.md §6a-ii) — the forever version of the
    * Phase 0 audit. A single glyph is at most a few staff-spaces tall; a StaveNote box
    * that has unioned an attached modifier (a rest carrying a below-staff dynamic, say) is
    * ~7-8. So if a *glyph-type* box measures taller than {@link GLYPH_MAX_STAFF_SPACES}
    * staff-spaces, some caller handed us a container-union box instead of the leaf glyph —
-   * exactly the bug {@link addGlyphElement} on the render side exists to prevent. This
-   * guard catches a *future* element that reintroduces it.
+   * exactly the bug {@link addGlyph} above exists to prevent. This guard catches a *future*
+   * element that reintroduces it.
    *
    * Dev-only (jsdom has no canvas metrics, so this never fires under unit tests; `dbg` is
    * a NOOP in prod). It reasons purely about numbers — no VexFlow coupling — using the
@@ -519,7 +549,7 @@ export class ElementRegistry {
       dbg(
         `⚠️ [hit-box] ${element.type} ${element.id} is ${staffSpaces.toFixed(1)} staff-spaces tall ` +
           `(> ${GLYPH_MAX_STAFF_SPACES}) — likely registered from a container-union box, not its own ` +
-          `glyph. Route it through VexFlowRenderer.addGlyphElement (docs/tight-bbox-plan.md §6a).`,
+          `glyph. Route it through ElementRegistry.addGlyph (docs/tight-bbox-plan.md §6a).`,
       )
     }
   }

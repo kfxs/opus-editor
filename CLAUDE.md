@@ -5,10 +5,20 @@ This file provides guidance to Claude Code when working with this repository.
 ## Important Rules
 
 - **Never commit or push without explicit permission.** Wait for the user to say "commit" or "push" before running git commit or git push commands.
+- **⭐ A new feature adds a MODULE. It does not add methods to `MusicEngine`, `ScoreModel` or
+  `VexFlowRenderer`.** The facade may gain a one-line delegation; the logic lives in a feature
+  module, in the style of `clefOps` / `tupletOps` / `rebarOps` / `TieRenderer` / `SlurRenderer` /
+  `FanPass` / `GhostRenderer` / `layout/barWidthRoom`. **And a SCORE operation goes in the core
+  (`engine/models/**`, `utils/**`, `types/**`), not on `MusicEngine`** — that is the *editor's*
+  facade (`docs/DESIGN-PRINCIPLES.md` §5). Lint cannot check this one: putting the logic in the
+  wrong layer imports nothing. See `docs/ARCHITECTURE.md` §"A new feature adds a MODULE" for the
+  measurement that made it a rule — extraction without it was undone in nine days.
 
 ## Project Overview
 
-A music score editor built with Vue 3, VexFlow, and WebAudioFont. Users can add/edit notes on a staff, play back the score, and export/import JSON.
+A music score editor built with VexFlow and WebAudioFont, in plain TypeScript (no UI framework —
+Vue was removed, see docs/remove-vue-plan.md). Users can add/edit notes on a staff, play back the
+score, and export/import JSON.
 
 ## Tech Stack
 
@@ -65,7 +75,10 @@ src/
     ElementRegistry.ts    # Authoritative hit-testing + pixel↔position
     ViewportModel.ts      # Scroll/zoom viewport state
     models/               # ScoreModel (data model), CollisionDetector
-    rendering/            # VexFlowRenderer, CoordinateMapper
+    layout/               # Derived-view arithmetic, off the LAST RENDER: barWidthRoom
+                          #   (the gesture's closed form) + measuredRoom (what the
+                          #   ElementRegistry says a column/bar can still give up)
+    rendering/            # VexFlowRenderer, CoordinateMapper, FanPass, GhostRenderer
     audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)
   types/music.ts    # TypeScript interfaces (Note, Measure, Score, etc.)
   utils/            # Pure helpers — fraction, meter, rebar, restFill,
