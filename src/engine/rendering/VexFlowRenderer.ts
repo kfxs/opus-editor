@@ -49,13 +49,11 @@ import { LAYOUT_CONFIG, VIEWPORT_HEIGHT, LEDGER_LINE_STYLE, type MeasureWidthInf
 import type { Rect } from '@/engine/ViewportModel'
 import { dbg } from '@/utils/debug'
 import { voiceOf } from '@/utils/lanes'
+import { applyHiddenTreatment, hiddenTreatment, HIDDEN_ELEMENT_COLOR, type RenderAudience } from './hiddenElements'
 
 // Re-exported for existing importers (MusicEngine, App.ts, RenderPass) that referenced
 // these from the renderer before they moved to ./layoutConfig.
 export { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo }
-
-/** Gray a hidden rest renders in (Tailwind gray-400 family) — see docs/rest-hide-plan.md. */
-const HIDDEN_REST_COLOR = '#9CA3AF'
 
 /**
  * Apply the bar's user-authored horizontal space (client #10 — docs/note-spacing-plan.md §4) by
@@ -327,6 +325,10 @@ export class VexFlowRenderer {
    * off-screen — see §8's "geometry consumers that read the renderer".
    */
   private cullWindow: Rect | null = null
+
+  /** Who this render is for — see `./hiddenElements`. The editor's renderer is always `'editor'`;
+   *  an export sets `'print'` on its own renderer so hidden elements leave no ink. */
+  private audience: RenderAudience = 'editor'
 
   /** Whether the LAST system is stretched to the page width. True is Finale/Sibelius (and what
    *  this always did); false is LilyPond's `ragged-last`. View state, not a score field — see
@@ -1845,9 +1847,15 @@ export class VexFlowRenderer {
 
       // Keep the ledger in lockstep with a hidden rest: tint it the same gray. The save/restore
       // around the stroke keeps this style local — it does NOT leak into later drawing.
+      //
+      // ⚠️ This is the one piece of a hidden element's ink with no SVG group of its own (a bare
+      // stroke on the shared context), so it is also the one that cannot be removed after the
+      // fact — for a print audience it must never be drawn. Everything else the rest is made of
+      // goes through `applyHiddenTreatment` in `recolorHiddenRests`.
       const hidden = restHiddenOf(score, restPositionKey(measure.id, voiceOf(slot), slot.beat, slot.staffId))
+      if (hidden && hiddenTreatment(this.audience) === 'omit') continue
       const ledgerStyle = hidden
-        ? { ...stave.getDefaultLedgerLineStyle(), strokeStyle: HIDDEN_REST_COLOR }
+        ? { ...stave.getDefaultLedgerLineStyle(), strokeStyle: HIDDEN_ELEMENT_COLOR }
         : stave.getDefaultLedgerLineStyle()
       ctx.save()
       stave.applyStyle(ctx, ledgerStyle)
@@ -1940,13 +1948,19 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Recolor hidden rests (client #6) gray by editing their rendered SVG, the same post-draw
-   * DOM approach as the ghost note and the selection highlight — NOT VexFlow `setStyle`, which
-   * mutates the shared drawing context and leaks the color onto everything drawn afterwards.
-   * Each rest is a single glyph in its own `vf-stavenote` group, so coloring every `text`/`path`
-   * in the group tints the whole rest (incl. augmentation dots) and nothing else. The rest stays
-   * registered/hit-testable; the selection highlight (voice color) runs later and overrides this.
-   * Must be called after `registerSlotElements` (the staveNoteMap drives `getStaveNoteSVGGroup`).
+   * Give every hidden rest (client #6) the treatment this render's AUDIENCE calls for — gray for
+   * the editor, gone for print. The decision and both treatments live in `./hiddenElements`; this
+   * only finds the ink.
+   *
+   * Each rest is a single glyph in its own `vf-stavenote` group, so the group IS the rest — tinting
+   * it catches the augmentation dots too, and removing it takes the whole rest and nothing else.
+   * The one part of a hidden rest that is not in here is its supporting ledger line, which is a bare
+   * stroke and so is skipped at draw time instead (see `drawRestLedgerLines`).
+   *
+   * Post-draw DOM, like the ghost note and the selection highlight, and for the same reason: VexFlow
+   * `setStyle` mutates the shared context and leaks. Must run after `registerSlotElements` (the
+   * staveNoteMap drives `getStaveNoteSVGGroup`); the rest stays registered and hit-testable either
+   * way, and for the editor the selection highlight runs later and overrides the tint.
    */
   private recolorHiddenRests(slots: ChordRest[], measure: Measure, score: Score): void {
     for (const slot of slots) {
@@ -1954,11 +1968,7 @@ export class VexFlowRenderer {
       if (!restHiddenOf(score, restPositionKey(measure.id, voiceOf(slot), slot.beat, slot.staffId))) continue
       const groupInfo = this.getStaveNoteSVGGroup(slot.id)
       if (!groupInfo) continue
-      groupInfo.group.querySelectorAll('text, path').forEach((el) => {
-        const svgEl = el as SVGElement
-        svgEl.setAttribute('fill', HIDDEN_REST_COLOR)
-        svgEl.style.fill = HIDDEN_REST_COLOR
-      })
+      applyHiddenTreatment(groupInfo.group, this.audience)
     }
   }
 
@@ -3292,6 +3302,13 @@ export class VexFlowRenderer {
    *  whole score. See {@link cullWindow}. */
   setCullWindow(window: Rect | null): void {
     this.cullWindow = window
+  }
+
+  /** Who the render is for. `'print'` omits every hidden element instead of graying it — see
+   *  `./hiddenElements` for why that is a property of the AUDIENCE and not of the element. NOT in
+   *  {@link layoutStateKey}: it changes ink only, never a width, so it cannot invalidate a layout. */
+  setAudience(audience: RenderAudience): void {
+    this.audience = audience
   }
 
   /** Stretch the last system to the page width (Finale/Sibelius) or leave it ragged (LilyPond).

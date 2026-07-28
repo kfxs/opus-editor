@@ -8,12 +8,15 @@ import type { Score } from '@/types/music'
  *  - the on-screen renderer CULLS (only the bars in the viewport are painted — `setCullWindow`),
  *    so its SVG is a window onto the score, not the score;
  *  - it carries the editor's marks: selection recolouring, the armed tool's ghost, the caret,
- *    the linear-view gutter and the play cursor all live on or over that SVG.
+ *    the linear-view gutter and the play cursor all live on or over that SVG — and the gray of
+ *    every element the user has HIDDEN, which is an editing affordance and not engraving.
  *
  * So an export gets its OWN renderer on its OWN detached-ish container: cull window never set
  * (⇒ every bar drawn), wrapped view (⇒ the fixed `CONTAINER_WIDTH` column that is already a
- * page-width casting-off), no ghost, nothing selected. Zoom needs no undoing — it is a CSS
- * transform on the app's layer, so this SVG is always at scale 1.
+ * page-width casting-off), no ghost, nothing selected, and the **print audience** (⇒ a hidden
+ * element leaves no ink at all rather than gray ink — `engine/rendering/hiddenElements.ts`).
+ * Zoom needs no undoing — it is a CSS transform on the app's layer, so this SVG is always at
+ * scale 1.
  *
  * ⚠️ The host must be **laid out**, not `display: none`. Dynamics stacking (DynamicsLayout) and
  * tempo-mark placement (TempoLayout) ask the DOM for `getBBox()` and make real placement
@@ -48,6 +51,9 @@ export async function renderScoreSvg(score: Score): Promise<ScoreSvgRender> {
   try {
     await document.fonts?.ready
     const renderer = new VexFlowRenderer(host)
+    // Paper, not screen: hidden elements are omitted rather than grayed. See the ⚠️ in
+    // `hiddenElements.ts` — they still take their space, they just leave no ink.
+    renderer.setAudience('print')
     // Any size will do — `renderScore` resizes the surface to the music it just cast off.
     renderer.initialize(LAYOUT_CONFIG.CONTAINER_WIDTH, LAYOUT_CONFIG.STAVE_HEIGHT)
     renderer.renderScore(score)

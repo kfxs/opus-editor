@@ -222,9 +222,23 @@ Deselecting re-renders, which re-applies the gray.
   hidden.
 - Facade: `toggleRestHidden` returns false for a non-rest / missing id.
 
+### 10. Print (added 2026-07-28 — this plan originally missed it)
+The gray of step 6a is an **editing affordance, not engraving**, and this plan never
+said what should happen to it on paper. Nothing did, so the answer was "print the
+gray", and the PDF came out with gray rests in it.
+
+The fix is not in the rest: it is `src/engine/rendering/hiddenElements.ts`, which makes
+it a property of the render's **audience** — `'editor'` tints a hidden element, `'print'`
+omits it — with `engine/export/scoreSvg.ts` asking for `'print'`. Applied after the draw,
+so a hidden rest still holds its column on paper exactly as on screen; only the ink goes.
+The rest's supporting ledger line is the one part with no SVG group of its own, so it is
+skipped at draw time instead. See docs/pdf-export.md §4 — and note that the generalisation
+below (hiding other element kinds) now inherits the print behaviour for free.
+
 ## Out of scope (future)
 - A global "View ▸ Hidden objects" toggle to switch hidden rests between gray and
-  fully invisible.
+  fully invisible **on screen**. (Print is settled — see §10 — and is not what this
+  toggle would be about.)
 - Hiding notes / text / other element kinds (generalise client #6 from
   position-keyed rests to id-keyed elements).
 - A palette button for hide/show (shortcut-only for now).

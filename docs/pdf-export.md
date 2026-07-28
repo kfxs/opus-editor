@@ -84,6 +84,32 @@ message rather than writing a file no viewer will open. When a page/layout model
 belongs to **it** — the systems' y-bands are already known from the render (`measureLayoutInfo`
 line numbers + `getAllMeasureBounds`), so cutting between systems is arithmetic, not new machinery.
 
+### 4. The render has an AUDIENCE
+
+`renderScoreSvg` sets `renderer.setAudience('print')`, and that is the third way the export's render
+differs from the editor's (after "no cull" and "no ghost/selection"). It exists because **hidden is
+not gray** — see `src/engine/rendering/hiddenElements.ts`, which owns the whole mechanism:
+
+| audience | a hidden element |
+|---|---|
+| `'editor'` | drawn **gray** — so you can still see it, click it and unhide it |
+| `'print'` | **omitted** — no ink at all |
+
+The gray is an editing affordance, not engraving. It was reaching paper: hiding a rest
+(Ctrl+Shift+H, docs/rest-hide-plan.md) printed a gray rest into the PDF, because the export
+re-renders the score through the same renderer and nothing told that renderer it was engraving
+paper.
+
+⚠️ **Omitted, not un-formatted.** The treatment is applied *after* the draw, so the element already
+took part in formatting and kept its column — a hidden half rest still holds half a bar of space on
+paper, exactly as on screen. Suppressing it any earlier would close the gap and move real notes.
+
+This is deliberately a property of the **audience**, not of the element, so the next hideable thing
+(notes, text, …) inherits the print behaviour instead of re-deciding it and forgetting. A new
+hideable element hands its SVG group to `applyHiddenTreatment` and is done; only ink drawn with no
+group of its own consults `hiddenTreatment` and skips its own draw — today that is exactly one
+thing, the rest's supporting ledger line, which is a bare stroke on the shared context.
+
 ## Not covered yet
 
 - **No title or composer.** `Score` carries them; nothing engraves them, so nothing exports them.
