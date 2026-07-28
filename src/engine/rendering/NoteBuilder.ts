@@ -1,5 +1,6 @@
 import { StaveNote, Voice, Accidental, Articulation, Modifier, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
 import { CenteredTremolo } from './CenteredTremolo'
+import { reserveDotRoom } from './dotPlacement'
 import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction } from '@/types/music'
 import { fracCompare, fracLte } from '@/utils/fraction'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
@@ -264,6 +265,10 @@ export function createStaveNotesFromSlots(
       for (let d = 0; d < (slot.dots || 0); d++) {
         Dot.buildAndAttach([staveNote], { all: true })
       }
+      // ⭐ …and each one buys the room to stand half a staff space off the notehead, which is
+      // where a dot belongs (`dotPlacement`). Uniform per dot, never a function of where the note
+      // sits, so a bar's width stays clef-independent — the invariant this path must not break.
+      reserveDotRoom(staveNote)
     }
 
     // Articulations are per-chord (stored on slot, not per pitch).

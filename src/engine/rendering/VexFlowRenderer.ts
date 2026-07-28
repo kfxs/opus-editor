@@ -6,6 +6,7 @@ import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesD
 import { fanStemExtension } from './FannedBeam'
 import { drawFannedBeams, drawCrossBarFanBeams, type FanJoin } from './FanPass'
 import { clearLedgersForAccidentals } from './ledgerAccidentalClearance'
+import { placeDots } from './dotPlacement'
 import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
 import type { ToolGhost } from './ghostTypes'
 import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub, fillBeamQuad } from './beamInk'
@@ -1693,6 +1694,9 @@ export class VexFlowRenderer {
         // pass on purpose — reserving the room would make bar width depend on the clef, which this
         // editor measured its way out of (`ledgerAccidentalClearance` states the three measurements).
         clearLedgersForAccidentals(staveNotes)
+        // …and an augmentation dot stands half a staff space off its notehead, not the 2px VexFlow
+        // leaves it. Same window, same reason: the ink moves here, the room was bought in the builder.
+        placeDots(staveNotes)
 
         // VexFlow's StaveNote.format() rewrites same-tick multi-voice notes: it hides one
         // of two same-duration rests (renderOptions.draw = false), vertically nudges rests

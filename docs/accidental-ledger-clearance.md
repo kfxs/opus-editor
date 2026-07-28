@@ -81,6 +81,10 @@ shortens both ends of that note's ledger lines. LilyPond trims the left end only
 lines to be ours to draw. If they ever are, the module should change its mind — trim the left, and
 leave the sign where Gould wants it.
 
+The same page produced the same class of report about augmentation dots — see
+`docs/dot-placement.md`, which reuses this invariant (its rule is uniform per dot, so it may buy its
+room on the width path) and clears the ledger tip as a side effect rather than by reading it.
+
 ## Two VexFlow traps paid for here
 
 - `Accidental.setWidth()` **before** `addModifier` is silently lost: `addModifier` → `setNote` →

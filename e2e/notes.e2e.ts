@@ -159,3 +159,55 @@ test('an accidental below the staff clears its own ledger lines', async ({ score
       .toBeGreaterThanOrEqual(sign.right)
   }
 })
+
+/**
+ * ⭐⭐ **AN AUGMENTATION DOT STANDS HALF A STAFF SPACE OFF ITS NOTEHEAD** — his report: *"the dot is
+ * too close to the notehead… for notes with flags looks ok but not for notes with no flags"*, and
+ * *"in notes with ledger lines the dot seems odd"*.
+ *
+ * One number answers all of it (`dotPlacement`): VexFlow leaves 2px, and only a stem-up flagged
+ * note escapes that, because its dot is pushed past the flag. Half a space is also the gap Gould
+ * gives BETWEEN two dots, and the two are meant to be equal — so a double-dotted note is the case
+ * that proves the rule rather than just the number.
+ */
+test('a dot stands half a space off the notehead, and the next dot half a space off that', async ({ score }) => {
+  const measured = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', dots: 1, measure: 1, beat: h.frac(0, 1) })
+    // C4 — on a ledger line below the staff, where the dot used to sit over the line's own tip.
+    h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', dots: 1, measure: 1, beat: h.frac(3, 2) })
+    h.engine.addMeasure()
+    h.engine.addNoteAtBeat({ step: 'A', octave: 4, duration: 'q', dots: 2, measure: 2, beat: h.frac(0, 1) })
+    await h.render()
+    const dotWidth = [...document.querySelectorAll<SVGTextElement>('g.vf-stavenote text')]
+      .filter(t => ((t.textContent ?? '').codePointAt(0) ?? 0) === 0xe1e7)
+      .map(t => t.getComputedTextLength())[0]
+    return {
+      heads: h.noteheads().map(n => ({ x: n.x, y: n.y })),
+      dots: h.glyphs('g.vf-stavenote text').filter(g => g.code === 'e1e7').map(d => ({ x: d.x, y: d.y })),
+      ledgers: h.segments('g.vf-stavenote path').filter(s => Math.abs(s.y1 - s.y2) < 0.01),
+      headWidth: 12,
+      dotWidth,
+    }
+  })
+
+  const gap = (dotX: number, headX: number) => dotX - (headX + measured.headWidth)
+  expect(measured.dots, 'three notes, four dots').toHaveLength(4)
+
+  // The plain quarter and the one sitting on a ledger line: both half a space out.
+  expect(gap(measured.dots[0].x, measured.heads[0].x)).toBeCloseTo(5, 1)
+  expect(gap(measured.dots[1].x, measured.heads[1].x)).toBeCloseTo(5, 1)
+
+  // …which also carries the dot past the ledger line's own tip, with nothing ledger-specific in it.
+  const ledger = measured.ledgers[0]
+  expect(ledger.x2, 'the ledger ends before the dot begins').toBeLessThan(measured.dots[1].x)
+
+  // The double-dotted note: the same gap twice, edge to edge.
+  const [first, second] = measured.dots.slice(2)
+  expect(gap(first.x, measured.heads[2].x)).toBeCloseTo(5, 1)
+  expect(second.x - (first.x + measured.dotWidth), 'dot to dot is the notehead gap again').toBeCloseTo(5, 1)
+
+  // And the vertical convention is untouched: a note ON a line puts its dot in the SPACE ABOVE,
+  // half a staff space up. (G4 is the second line of the treble staff.)
+  expect(measured.heads[0].y - measured.dots[0].y, 'the dot rides in the space above the line').toBeCloseTo(5, 1)
+})
