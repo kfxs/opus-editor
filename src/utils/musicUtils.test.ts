@@ -3,7 +3,7 @@ import { prevailingAlterAt } from './accidentalState'
 import { spellingDiatonicPos } from './pitchSpelling'
 import { fracToNumber } from './fraction'
 import type { NotePitch, PitchAlter, PitchStep, Score } from '@/types/music'
-import { durationToBeats, midiToNoteName, calculateTotalDuration, tupletMarkText, tupletMarkRuns, deriveTupletM, tupletBracketed, measureAccidentalNotes, measureFanMemberNotes } from './musicUtils'
+import { durationToBeats, midiToNoteName, calculateTotalDuration, tupletMarkText, tupletMarkRuns, deriveTupletM, tupletBracketed, measureAccidentalNotes, measureFanMemberNotes, measureSelectableNotes } from './musicUtils'
 import { buildBeatMap, buildVoiceNavBeatMap } from './beatMap'
 import { fracCreate } from './fraction'
 const frac = fracCreate
@@ -303,6 +303,38 @@ describe('measureAccidentalNotes', () => {
   it('a fan with no stored members adds nothing', () => {
     const measure = bar([])
     expect(measureAccidentalNotes(measure)).toHaveLength(2)
+  })
+
+  /**
+   * The same bar, asked the SELECTION question instead. `measureSelectableNotes` is what a gesture
+   * that claims to select "everything here" must use: with `getMeasureNotes` alone, clicking a bar
+   * holding a 6-note fan selected ONE note out of six, and the delete or copy that followed took
+   * one note out of six.
+   */
+  describe('measureSelectableNotes', () => {
+    it('includes the fanned members alongside the ordinary notes', () => {
+      const measure = bar([[pitch('m1', 'G', 1)], [pitch('m2', 'A', 0)]])
+      const ids = measureSelectableNotes(measure).map(n => n.id)
+      expect(ids).toContain('a')   // the fan's own slot note
+      expect(ids).toContain('b')   // the plain note at beat 2
+      expect(ids).toContain('m1')  // …and both members
+      expect(ids).toContain('m2')
+    })
+
+    it('⭐ orders by BEAT, so the last element is the bar’s last event', () => {
+      const measure = bar([[pitch('m1', 'G', 1)], [pitch('m2', 'A', 0)]])
+      const ordered = measureSelectableNotes(measure)
+      // The members sound inside the fan at beat 0..2, so the plain note at beat 2 stays last —
+      // it is the ANCHOR the caller takes, and a plain concatenation would have handed that to m2.
+      expect(ordered[ordered.length - 1].id).toBe('b')
+      const beats = ordered.map(n => fracToNumber(n.beat))
+      expect([...beats].sort((x, y) => x - y)).toEqual(beats)
+    })
+
+    it('leaves a fanless bar exactly as getMeasureNotes had it', () => {
+      const measure = bar([])
+      expect(measureSelectableNotes(measure).map(n => n.id)).toEqual(['a', 'b'])
+    })
   })
 })
 

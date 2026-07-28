@@ -661,6 +661,31 @@ export function measureFanMemberNotes(measure: Measure, score?: Score): Note[] {
 }
 
 /**
+ * ⭐ The bar's notes AS A SELECTION GESTURE SEES THEM — {@link getMeasureNotes} plus every FANNED
+ * member, in beat order.
+ *
+ * The third sibling of `getMeasureNotes` (after {@link measureFanMemberNotes} and
+ * {@link measureAccidentalNotes}), and it exists because "everything here" is a question two
+ * gestures ask and both got wrong: Shift-click's box (`buildSelectionBeatMap`) and the plain-click
+ * whole-bar selection (`MouseController.selectMeasureAt`). A member is a head on the page with a
+ * stem and an id — Ctrl-click has always been able to pick one — so a gesture that claims to select
+ * everything in a bar has to include it, or selecting a bar with a fan in it quietly selects one
+ * note out of six and the delete/copy that follows takes one note out of six.
+ *
+ * ⛔ Still not by teaching `getMeasureNotes` to emit them — see the ⛔ on
+ * {@link measureAccidentalNotes} for why (two dozen callers, every one of them silently gaining N
+ * notes per fan). This is the list a *selection* caller chooses, and nothing else changes.
+ *
+ * **Beat order, not slot order**, because the caller's last element is its ANCHOR: concatenating
+ * would park every member after every ordinary note and hand the anchor to a fan sitting at beat 0.
+ * The sort is stable, so a chord's pitches keep the order `getMeasureNotes` gave them.
+ */
+export function measureSelectableNotes(measure: Measure, score?: Score): Note[] {
+  return [...getMeasureNotes(measure, score), ...measureFanMemberNotes(measure, score)]
+    .sort((a, b) => fracCompare(a.beat, b.beat))
+}
+
+/**
  * ⭐ The bar's notes AS THE RUNNING-ACCIDENTAL RULE SEES THEM — {@link getMeasureNotes} plus every
  * FANNED member, at the beat it sounds on.
  *

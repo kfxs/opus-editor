@@ -1,6 +1,6 @@
 import type { Note, Score, Fraction } from '../types/music'
 import { fracCompare } from '../utils/fraction'
-import { getMeasureNotes, measureFanMemberNotes } from '../utils/musicUtils'
+import { getMeasureNotes, measureFanMemberNotes, measureSelectableNotes } from '../utils/musicUtils'
 import { spellingToMidi } from '../utils/pitchSpelling'
 import { staffOf, voiceOf } from '../utils/lanes'
 
@@ -136,11 +136,13 @@ function posKey(n: FlatNote): string {
  * walks time, and a member is a moment in it). `getMeasureNotes` has two dozen callers and every one
  * of them would silently gain N notes per fan; the rule this follows is `measureFanMemberNotes`'s
  * own — a caller that MEANS members asks for them by name.
+ *
+ * The per-bar half of that question is `measureSelectableNotes`, which the plain-click whole-bar
+ * selection asks directly — one owner, so the two gestures cannot drift apart again.
  */
 export function buildSelectionBeatMap(score: Score): { allFlat: FlatNote[]; beats: FlatNote[] } {
   const allFlat: FlatNote[] = score.measures
-    .flatMap(m => [...getMeasureNotes(m, score), ...measureFanMemberNotes(m, score)]
-      .map(n => ({ ...n, measureNumber: m.number })))
+    .flatMap(m => measureSelectableNotes(m, score).map(n => ({ ...n, measureNumber: m.number })))
     .sort((a, b) =>
       a.measureNumber !== b.measureNumber
         ? a.measureNumber - b.measureNumber

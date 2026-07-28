@@ -20,7 +20,7 @@ import { articulationHit } from './elements/articulation'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
  *  edit box opens blank over it and an empty commit deletes it, so it is never actually seen. */
 const DEFAULT_TEMPO_TEXT = 'Tempo'
-import { getMeasureNotes, beatToFrac } from '../utils/musicUtils'
+import { measureSelectableNotes, beatToFrac } from '../utils/musicUtils'
 import { measureCapacityQuarters } from '../utils/measureCapacity'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '../utils/pitchSpelling'
 
@@ -783,8 +783,12 @@ export class MouseController {
     const m = score.measures.find(mm => mm.number === measure)
     if (!m) return false
     // Every note/rest on the clicked staff of this bar (rests included — a bar always has
-    // content). These ids drive both the selection and the enclosed-dynamics/slurs pull.
-    const ids = getMeasureNotes(m, score).filter(n => staffOf(n) === staff).map(n => n.id)
+    // content), AND every fanned member: selecting a bar means selecting what is in it, and a
+    // member is a head with an id like any other. `getMeasureNotes` alone selected one note out
+    // of six for a bar holding a fan — so the delete or copy that followed took one note out of
+    // six. In beat order, so the anchor is genuinely the bar's last event (`measureSelectableNotes`).
+    // These ids drive both the selection and the enclosed-dynamics/slurs pull.
+    const ids = measureSelectableNotes(m, score).filter(n => staffOf(n) === staff).map(n => n.id)
     if (!ids.length) return false
 
     this.selection.selectMeasureContents(ids)
