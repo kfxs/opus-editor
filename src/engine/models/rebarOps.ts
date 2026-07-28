@@ -26,7 +26,7 @@ import { type Fraction, fracCreate, fracAdd, fracSub, fracCompare, fracLt, fracG
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, keyStaffId, staffMeasureView } from './staffContent'
 import { laneOfSlot, pairIsValid } from '@/utils/tremoloPair'
-import { cloneFanFresh, fanMemberBeats } from '@/utils/fannedBeam'
+import { cloneFanFresh, chordStoredPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import { v4 as uuidv4 } from 'uuid'
 import { voiceOf } from '@/utils/lanes'
 
@@ -549,7 +549,10 @@ export function pasteEvents(
     if (!mStart) continue
     const absOffset = fracAdd(mStart, chord.beat)
     if (fracGte(absOffset, pasteStart) && fracLt(absOffset, pasteEnd)) {
-      for (const np of chord.notes) pastedIds.push(np.id)
+      // ⭐ `chordStoredPitches`, not `chord.notes`: this list is not a report, it is the SELECTION —
+      // `ClipboardController.placeAt` feeds it straight to `selectNotes`. Pasting a fan and being
+      // left holding only its owner was this walk, not the selection.
+      for (const np of chordStoredPitches(chord)) pastedIds.push(np.id)
     }
   }
   return pastedIds

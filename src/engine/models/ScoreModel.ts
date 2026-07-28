@@ -13,7 +13,7 @@ import {
 } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { beamRoleAtRef, type BeamRole } from '@/utils/beaming'
-import { cloneFanFresh, fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
+import { cloneFanFresh, chordStoredPitches, fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import { alterToString } from '@/utils/pitchSpelling'
 import type { Clip, ClipTarget } from '@/utils/clip'
 import {
@@ -1146,11 +1146,11 @@ export class ScoreModel {
     for (const m of this.score.measures) {
       for (const s of m.slots) {
         if (s.type === 'chord') {
-          for (const p of s.notes) ids.add(p.id)
-          // ⭐ A FANNED MEMBER can anchor a slur (docs/fanned-beam-pitches-plan.md) — a slur is a
-          // SPAN between two points, and member 2 → member 5 is a span. Leave them out and every
-          // such slur is silently dropped the next time this defensive pass runs.
-          for (const member of s.fan?.members ?? []) for (const p of member.pitches) ids.add(p.id)
+          // ⭐ `chordStoredPitches` includes the FANNED MEMBERS, and a member can anchor a slur
+          // (docs/fanned-beam-pitches-plan.md) — a slur is a SPAN between two points, and member 2 →
+          // member 5 is a span. Leave them out and every such slur is silently dropped the next time
+          // this defensive pass runs.
+          for (const p of chordStoredPitches(s)) ids.add(p.id)
         } else ids.add(s.id)
       }
     }

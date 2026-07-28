@@ -17,7 +17,7 @@
  * No VexFlow, no DOM — pure, and unit-tested as such.
  */
 import { v4 as uuidv4 } from 'uuid'
-import type { ChordRest, FanMark, FanMemberChord, NotePitch } from '@/types/music'
+import type { Chord, ChordRest, FanMark, FanMemberChord, NotePitch } from '@/types/music'
 import { type Fraction, fracCreate, fracFromInt, fracAdd, fracMul, fracDiv, fracSub, fracToNumber } from './fraction'
 
 /**
@@ -359,6 +359,25 @@ export function fanMemberPitches(notes: NotePitch[], fan: FanMark): NotePitch[][
   const out: NotePitch[][] = [notes]
   for (let k = 1; k < n; k++) out.push(fan.members?.[k - 1]?.pitches ?? notes)
   return out
+}
+
+/**
+ * ⭐ **Every pitch a chord STORES** — its own, plus each fanned member's, in group order.
+ *
+ * The answer to "what notes are actually in this slot", which is not `chord.notes`: a fanned slot
+ * draws N heads and every one of them has an id, is clickable and is selectable. Callers that ask
+ * `chord.notes` and mean *this* have shipped the same bug four times — a shift-click box that could
+ * not reach a member, a bar selection that took one note out of six, an articulation that could not
+ * be put on one, and a paste that handed back only the owner to select.
+ *
+ * ⛔ Not the same as {@link fanMemberPitches}, which is the DRAWING's projection: that one is padded
+ * to `count` and falls back to the slot's own pitches for a member that was never normalized, so it
+ * repeats ids. This returns what exists, once each, and is safe to build a set or a selection from.
+ */
+export function chordStoredPitches(chord: Chord): NotePitch[] {
+  const members = chord.fan?.members ?? []
+  if (!members.length) return chord.notes
+  return [...chord.notes, ...members.flatMap(m => m.pitches)]
 }
 
 /**
