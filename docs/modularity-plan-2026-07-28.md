@@ -450,6 +450,57 @@ genuinely cohesive and **stays whole**; splitting it would be splitting for the 
 ⚠️ Do Phase 0 for `ScoreModel.test.ts` first, or this phase just moves code away from its tests
 again.
 
+### ✅ Done 2026-07-28 — four modules, derived by name
+
+**`ScoreModel` 3,637 → 2,699 (−938).** 2,564 tests green, 23 E2E green, `build:check` clean. The
+amendment was right about every range: taken at face value they would have shipped an `overrideOps`
+that owns dynamics resolution and a `voiceOps` that owns beaming and validation. Written out by
+name first, the four clusters are:
+
+| module | what it is | lines |
+|---|---|---|
+| `overrideOps.ts` | the WRITE side of the engraving-overrides compartment — 14 functions, every one "accumulate or set, and clear at the default" | 329 |
+| `slurOps.ts` | the phrasing spans, and the rules by which their four setters clear each other | 226 |
+| `markOps.ts` | the marks a slot WEARS — articulation side, tie direction, tremolo, pair, fan, beam-over-rest | 354 |
+| `voiceOps.ts` | moving a note between lanes, and the repairs that implies | 398 |
+
+**Excluded, exactly as the amendment said to:** `slotIdForNote` (a general id helper),
+`setCautionaryAllowed` / `setCautionaryClefAllowed` (score policy — they write to the compartment,
+but filing them by their storage rather than by what they SAY is how a module ends up owning a
+topic it has nothing to do with), `getActiveLevel` (dynamics), `insertPitch` (note entry),
+`validateMeasure` (validation). `setRestBeamOver` and `dropStaleTremoloPairs` went to `markOps`
+rather than staying in the voice range they sat in — a beam statement and a tremolo are marks.
+
+Three things the phase needed that the plan did not foresee:
+
+- ⭐ **`slotLookup.ts`** (55 lines) — `findSlot`, the private every `*Ops` module needs first. A
+  free function over a score cannot resolve an id without it, so it had to come out before anything
+  else could. `ScoreModel` keeps a private delegator, so its own mutators read as they did.
+- **`VoiceDeps`**, the `RebarDeps` idiom again: rest-fill and pitch insertion are note-entry
+  machinery a voice move USES but does not own, so they are handed in. `createTuplet` /
+  `refillTupletRemainder` needed no dep — `voiceOps` calls `tupletOps` directly.
+- **`PitchInsert`** in `types/music.ts` — `insertPitch`'s payload was an inline 20-field literal,
+  and a type crossing a module boundary needs a name. It is model vocabulary (a `NotePitch` plus
+  the slot statements it arrives carrying), so it sits with `Chord` / `NotePitch`.
+
+⭐ **The long comments travelled with the code, and the delegators were CONDENSED to one sentence
+plus a pointer** (`See {@link overrideOps.nudgeRestShift} for the why`). Keeping both copies in full
+is how two paragraphs that used to agree stop agreeing. ⚠️ This is also what `lint` caught: ~11
+override types were imported by `ScoreModel` *only* for `{@link}` references in those docs — `tsc`
+counts a `{@link}` as a use and ESLint does not, so the shrinking docs made the imports genuinely
+dead and the second gate said so.
+
+**Phase 0's rule applied to this phase's own output** — every module took its tests with it:
+`ScoreModel.test.ts` 1,967 → **1,680**, `engravingOverrides.test.ts` 643 → **243** (it keeps the
+pure READERS, which is the split that mirrors the modules). New: `overrideOps.test.ts` (242),
+`slurOps.test.ts` (192), `voiceOps.test.ts` (309); `ScoreModel.{tremolo,tremoloPair,fan}.test.ts`
+renamed to `markOps.*`. ⚠️ `markOps.fan.test.ts`'s last chapter drives the fan MEMBER accessors,
+which stayed on `ScoreModel` — noted in its header rather than split.
+
+`slotLookup` and `noteProjection` are now the two modules here with no spec of their own; both are
+small and specced through their callers. They are on `audit:tests`'s list, which is where a to-do
+of that size belongs.
+
 ---
 
 ## Phase 4 — The adjustment gesture *(spike first; ≈half a day for the spike)*

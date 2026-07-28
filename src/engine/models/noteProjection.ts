@@ -7,7 +7,8 @@
  * internal↔public boundary in one named home. See `src/types/music.ts` for the
  * authoritative model/flat definitions.
  */
-import type { Note, Chord, NotePitch, Rest } from '@/types/music'
+import type { Note, Chord, NotePitch, Rest, Score } from '@/types/music'
+import { staffIndexOfId } from './staffContent'
 
 /**
  * Assemble a flat Note from one pitch of a Chord.
@@ -65,4 +66,19 @@ export function restToFlatNote(rest: Rest, staffIndex = 0): Note {
     voice: rest.voice,
     staff: staffIndex === 0 ? undefined : staffIndex,
   }
+}
+
+/**
+ * The two projections above, with the staff ordinal resolved off the score — what a caller holding
+ * a `Score` actually wants, and what {@link ScoreModel}'s private `toFlatNote` / `restToFlatNote`
+ * were. Split out so the `*Ops` modules (free functions over a score) can project without going
+ * back through the model (docs/modularity-plan-2026-07-28.md Phase 3).
+ */
+export function flatNoteOf(score: Score, chord: Chord, pitch: NotePitch): Note {
+  return toFlatNote(chord, pitch, staffIndexOfId(score, chord.staffId))
+}
+
+/** {@link flatNoteOf}'s rest twin. */
+export function flatRestOf(score: Score, rest: Rest): Note {
+  return restToFlatNote(rest, staffIndexOfId(score, rest.staffId))
 }

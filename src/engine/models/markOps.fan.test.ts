@@ -11,6 +11,11 @@ import type { Chord, FanMark } from '@/types/music'
  *
  * Nothing here is about how the fan is DRAWN — jsdom cannot measure glyphs, so a geometry assertion
  * would pass vacuously (reference_jsdom_cannot_measure_glyphs).
+ *
+ * ⚠️ Subject: {@link markOps.setFan}, since 2026-07-28 (modularity plan Phase 3) — this file was
+ * `ScoreModel.fan.test.ts`. Its LAST chapter is the exception: the fan MEMBER accessors
+ * (`addFanMemberPitch`, `fanMemberPitches`) stayed on `ScoreModel`, so those assertions are on the
+ * model. Left together deliberately: one file answers "what is a fan in the model?".
  */
 describe('setFan (model)', () => {
   let model: ScoreModel

@@ -10,6 +10,9 @@ import { buildClipboardFromSelection } from '@/interactions/clipboard'
  * These pin the apply/refuse rule and the two staleness defences (drop + validate). Nothing here is
  * about how the strokes are DRAWN: jsdom cannot measure glyphs, so a geometry assertion would pass
  * vacuously (reference_jsdom_cannot_measure_glyphs) — the strokes are checked by eye.
+ *
+ * Subject: {@link markOps} — renamed from `ScoreModel.tremoloPair.test.ts` on 2026-07-28, when the
+ * mark setters moved into their own module (modularity plan Phase 3). A `ScoreModel` is the fixture.
  */
 describe('tremoloPair (model)', () => {
   let model: ScoreModel

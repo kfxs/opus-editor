@@ -1,8 +1,8 @@
 import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
-import type { Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, BeamMode, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress, SlurSegmentEndpointAddress, RestShiftOverride, RestHiddenOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark } from '@/types/music'
-import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, dynamicOffsetOverrideOf, noteOffsetOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX } from './engravingOverrides'
-import { tupletSpan, tupletSlotDuration, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
+import type { PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark } from '@/types/music'
+import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
+import { tupletSpan, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
 import { durationToFraction, slotLength, writtenLength } from '@/utils/durations'
 import {
@@ -13,9 +13,8 @@ import {
 } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { beamRoleAtRef, type BeamRole } from '@/utils/beaming'
-import { laneOfSlot, pairAcceptsJoined, pairIsValid } from '@/utils/tremoloPair'
-import { normalizeFan, cloneFanFresh, fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
-import { spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
+import { cloneFanFresh, fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
+import { alterToString } from '@/utils/pitchSpelling'
 import type { Clip, ClipTarget } from '@/utils/clip'
 import {
   type Fraction,
@@ -32,10 +31,15 @@ import {
   fracIsPositive,
   fracToNumber,
 } from '@/utils/fraction'
-import { effectiveClefAt, measureOpeningClef, middleLineDiatonicPos } from '@/utils/clefUtils'
+import { effectiveClefAt, measureOpeningClef } from '@/utils/clefUtils'
 import * as clefOps from './clefOps'
 import * as rebarOps from './rebarOps'
-import { toFlatNote, restToFlatNote } from './noteProjection'
+import * as overrideOps from './overrideOps'
+import * as slurOps from './slurOps'
+import * as markOps from './markOps'
+import * as voiceOps from './voiceOps'
+import { flatNoteOf, flatRestOf } from './noteProjection'
+import { findSlot, type FoundSlot } from './slotLookup'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, firstStaffId } from './staffContent'
 import * as tupletOps from './tupletOps'
 import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
@@ -636,309 +640,105 @@ export class ScoreModel {
 
   /** All phrasing slurs (the live array; empty if none). See {@link Slur}. */
   getSlurs(): Slur[] {
-    return this.score.slurs ?? []
+    return slurOps.getSlurs(this.score)
   }
 
   /** Add a slur; returns the stored Slur (with a generated id). */
   addSlur(slur: Omit<Slur, 'id'>): Slur {
-    const created: Slur = { ...slur, id: uuidv4() }
-    if (!this.score.slurs) this.score.slurs = []
-    this.score.slurs.push(created)
-    return created
+    return slurOps.addSlur(this.score, slur)
   }
 
   /** Remove a slur by id. @returns true if one was removed. */
   removeSlur(id: string): boolean {
-    if (!this.score.slurs) return false
-    const i = this.score.slurs.findIndex(s => s.id === id)
-    if (i < 0) return false
-    this.score.slurs.splice(i, 1)
-    this.clearEngravingOverride(id) // auto-reset (§3.3): slur deleted → its overrides die with it
-    return true
+    return slurOps.removeSlur(this.score, id)
   }
 
   /** Find a slur by its exact (directional) endpoints, or undefined. */
   findSlurByEndpoints(startNoteId: string, endNoteId: string): Slur | undefined {
-    return this.score.slurs?.find(s => s.startNoteId === startNoteId && s.endNoteId === endNoteId)
+    return slurOps.findSlurByEndpoints(this.score, startNoteId, endNoteId)
   }
 
   /** Find a slur anywhere by id (live reference), or null. */
   getSlurById(id: string): Slur | null {
-    return this.score.slurs?.find(s => s.id === id) ?? null
+    return slurOps.getSlurById(this.score, id)
   }
 
-  /**
-   * Set (or clear) a slur's user-edited curve shape. Pass the two cubic control-point
-   * deltas (in **staff-spaces**, anchor-relative — the caller converts from pixels) to
-   * override the auto arch; pass `null` to drop the override and revert to the auto
-   * shape. The shape lives in the engraving-overrides compartment keyed by the slur id
-   * (a {@link CurveShapeOverride}), NOT on the `Slur` — pixels stay out of the content
-   * model (Phase 1; see docs/engraving-overrides-plan.md). @returns true if the slur
-   * exists and was updated.
-   */
+  /** Set (or clear) a slur's user-edited curve shape. See {@link slurOps.setSlurShape} for the why. */
   setSlurShape(id: string, cps: CurveControlPointDeltas | null): boolean {
-    const slur = this.getSlurById(id)
-    if (!slur) return false
-    if (cps) {
-      const override: CurveShapeOverride = { kind: 'curveShape', cps }
-      this.setEngravingOverride(id, override)
-    } else {
-      this.clearEngravingOverride(id, 'curveShape')
-    }
-    return true
+    return slurOps.setSlurShape(this.score, id, cps)
   }
 
-  /**
-   * Re-anchor one end of a slur onto a different note (used by the draggable endpoint
-   * handles). Rewrites `startNoteId` or `endNoteId` and **drops any custom shape** — the
-   * hand-tuned arc was relative to the old span, so it re-bows to the auto arch for the
-   * new endpoints. Rejected (returns false) if the slur is missing, the target equals
-   * the current anchor, or it would collapse the span (start === end).
-   */
+  /** Re-anchor one end of a slur onto a different note (used by the draggable endpoint handles). See {@link slurOps.setSlurEndpoint} for the why. */
   setSlurEndpoint(id: string, which: 'start' | 'end', noteId: string): boolean {
-    const slur = this.getSlurById(id)
-    if (!slur) return false
-    const otherId = which === 'start' ? slur.endNoteId : slur.startNoteId
-    const currentId = which === 'start' ? slur.startNoteId : slur.endNoteId
-    if (noteId === otherId || noteId === currentId) return false
-    if (which === 'start') slur.startNoteId = noteId
-    else slur.endNoteId = noteId
-    // auto-reset (§3.3): endpoint re-pointed onto a different element → both the single-arc
-    // shape AND the cross-system per-segment shape were authored against the OLD anchors.
-    // NOTE: 'endpointOffset' is deliberately NOT cleared here — it is anchor-relative, so
-    // the nudge rides onto the new anchor and stays meaningful (slur-endpoint-offset-plan).
-    this.clearEngravingOverride(id, 'curveShape')
-    this.clearEngravingOverride(id, 'segmentCurveShape')
-    // The open-join nudges are margin-bound and span-relative (like segmentCurveShape), so a
-    // re-anchor — which can change the span — wipes them too. The durable note-anchored
-    // 'endpointOffset' above is the only override that survives a re-anchor.
-    this.clearEngravingOverride(id, 'segmentEndpointOffset')
-    return true
+    return slurOps.setSlurEndpoint(this.score, id, which, noteId)
   }
 
   /**
-   * Nudge one endpoint of a slur by a staff-space delta, **accumulating** onto any existing
-   * offset (the in/out keyboard fine-positioning — see docs/slur-endpoint-offset-plan.md).
-   * Stored as a {@link SlurEndpointOffsetOverride} in the engraving-overrides compartment
-   * (staff-spaces, anchor-relative — so it survives a re-anchor and any font/zoom/reflow).
-   * `dx`/`dy` are in staff-spaces. A future "reset" simply calls
-   * `clearEngravingOverride(id, 'endpointOffset')`. @returns true if the slur exists.
-   */
+   * Nudge one endpoint of a slur by a staff-space delta, **accumulating** onto any existing offset
+   * (the in/out keyboard fine-positioning — see docs/slur-endpoint-offset-plan.md).
+   *  See {@link slurOps.setSlurEndpointOffset} for the why. */
   setSlurEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
-    if (!this.getSlurById(id)) return false
-    const prev = this.getEngravingOverride(id, 'endpointOffset') as SlurEndpointOffsetOverride | undefined
-    const base = which === 'start' ? prev?.start : prev?.end
-    const moved = { x: (base?.x ?? 0) + dx, y: (base?.y ?? 0) + dy }
-    const next: SlurEndpointOffsetOverride = {
-      kind: 'endpointOffset',
-      ...(prev?.start ? { start: prev.start } : {}),
-      ...(prev?.end ? { end: prev.end } : {}),
-      [which]: moved,
-    }
-    this.setEngravingOverride(id, next)
-    return true
+    return slurOps.setSlurEndpointOffset(this.score, id, which, dx, dy)
   }
 
   /**
    * Set (or clear) the shape of ONE segment of a cross-system slur (BEGIN, END, or a MIDDLE
-   * addressed by ordinal). Stored in the engraving-overrides compartment as a
-   * {@link SegmentCurveShapeOverride}, separate from the single-arc `curveShape`. `cps` are
-   * in **staff-spaces**, anchor-relative (the caller converts from pixels); pass `null` to
-   * drop just that segment's edit. `spanCount` is the **live** system count at the time of
-   * the edit — it becomes the override's reset signature.
-   *
-   * Count-change handling on write: if the stored override was authored against a *different*
-   * `spanCount`, its MIDDLE edits are stale, so they are dropped here (begin/end are durable
-   * and kept) before the live count is adopted — otherwise a stale middle could resurrect at
-   * the wrong geometry once the signatures matched again. Mirrors the read-time apply rule
-   * in `reconcileSegmentShape`. See docs/multisystem-slur-segment-shape-plan.md §2–§3.
-   * @returns true if the slur exists and was updated.
-   */
+   * addressed by ordinal).
+   *  See {@link slurOps.setSlurSegmentShape} for the why. */
   setSlurSegmentShape(
     id: string,
     segment: SlurSegmentAddress,
     cps: CurveControlPointDeltas | null,
     spanCount: number,
   ): boolean {
-    if (!this.getSlurById(id)) return false
-    const prev = this.getEngravingOverride(id, 'segmentCurveShape') as SegmentCurveShapeOverride | undefined
-    // Rebuild the override fresh (cheap, avoids in-place aliasing). Adopt the live spanCount;
-    // keep begin/end always (durable), keep middles only when the count is unchanged.
-    const keepMiddles = prev !== undefined && prev.spanCount === spanCount
-    const next: SegmentCurveShapeOverride = {
-      kind: 'segmentCurveShape',
-      spanCount,
-      ...(prev?.begin ? { begin: prev.begin } : {}),
-      ...(prev?.end ? { end: prev.end } : {}),
-      middles: keepMiddles ? { ...(prev!.middles ?? {}) } : {},
-    }
-    if (segment.role === 'middle') {
-      if (cps) next.middles![segment.ordinal] = cps
-      else delete next.middles![segment.ordinal]
-    } else if (segment.role === 'begin') {
-      if (cps) next.begin = cps; else delete next.begin
-    } else {
-      if (cps) next.end = cps; else delete next.end
-    }
-    const hasAny = next.begin || next.end || Object.keys(next.middles ?? {}).length > 0
-    if (hasAny) this.setEngravingOverride(id, next)
-    else this.clearEngravingOverride(id, 'segmentCurveShape')
-    return true
+    return slurOps.setSlurSegmentShape(this.score, id, segment, cps, spanCount)
   }
 
   /**
-   * Nudge one OPEN join of a cross-system slur by a staff-space delta, **accumulating** onto
-   * any existing offset (keyboard fine-positioning — see
-   * docs/multisystem-slur-segment-endpoint-offset-plan.md). Stored as a
-   * {@link SegmentEndpointOffsetOverride}, separate from the durable note-anchored
-   * `endpointOffset`. `dx`/`dy` are in **staff-spaces**, margin-relative. `spanCount` is the
-   * **live** system count at the time of the edit — the override's reset signature.
-   *
-   * Count-change handling on write mirrors {@link setSlurSegmentShape}: if the stored override
-   * was authored against a different `spanCount`, its MIDDLE offsets are stale and dropped here
-   * (begin/end durable, kept) before the live count is adopted. @returns true if the slur exists.
-   */
+   * Nudge one OPEN join of a cross-system slur by a staff-space delta, **accumulating** onto any
+   * existing offset (keyboard fine-positioning — see docs/multisystem-slur-segment-endpoint-offset-
+   * plan.md).
+   *  See {@link slurOps.setSlurSegmentEndpointOffset} for the why. */
   setSlurSegmentEndpointOffset(
     id: string,
     address: SlurSegmentEndpointAddress,
     dx: number, dy: number,
     spanCount: number,
   ): boolean {
-    if (!this.getSlurById(id)) return false
-    const prev = this.getEngravingOverride(id, 'segmentEndpointOffset') as SegmentEndpointOffsetOverride | undefined
-    const keepMiddles = prev !== undefined && prev.spanCount === spanCount
-    const next: SegmentEndpointOffsetOverride = {
-      kind: 'segmentEndpointOffset',
-      spanCount,
-      ...(prev?.begin ? { begin: prev.begin } : {}),
-      ...(prev?.end ? { end: prev.end } : {}),
-      middles: keepMiddles ? { ...(prev!.middles ?? {}) } : {},
-    }
-    const add = (base: { x: number; y: number } | undefined) =>
-      ({ x: (base?.x ?? 0) + dx, y: (base?.y ?? 0) + dy })
-    if (address.role === 'begin') {
-      next.begin = add(next.begin)
-    } else if (address.role === 'end') {
-      next.end = add(next.end)
-    } else {
-      const slot = { ...(next.middles![address.ordinal] ?? {}) }
-      slot[address.side] = add(slot[address.side])
-      next.middles![address.ordinal] = slot
-    }
-    this.setEngravingOverride(id, next)
-    return true
+    return slurOps.setSlurSegmentEndpointOffset(this.score, id, address, dx, dy, spanCount)
   }
 
   /**
-   * Nudge a rest's manual vertical shift by `delta` whole staff-steps, **accumulating** onto
-   * any existing shift (the ↑/↓ keyboard fine-positioning — see docs/rest-shift-plan.md).
-   * Stored as a {@link RestShiftOverride} in the engraving-overrides compartment, keyed by the
-   * rest's **position address** (`posKey`, built by `restPositionKey`) rather than an id —
-   * rests have no durable id (rest-fill mints fresh ones every edit). The override is a delta
-   * on top of the automatic multi-voice placement; render adds it back in.
-   *
-   * Returning to a net shift of 0 clears the entry (so "absent = default" holds and the JSON
-   * stays clean). No undo snapshot here — the facade (`MusicEngine.nudgeRestShift`) owns the
-   * per-press `saveOnly`, mirroring `setSlurEndpointOffset` / `nudgeSlurEndpoint`.
-   * @returns true (the override always exists/updates for a valid position key).
-   */
+   * Nudge a rest's manual vertical shift by `delta` whole staff-steps, **accumulating** onto any
+   * existing shift (the ↑/↓ keyboard fine-positioning — see docs/rest-shift-plan.md).
+   *  See {@link overrideOps.nudgeRestShift} for the why. */
   nudgeRestShift(posKey: string, delta: number): boolean {
-    const prev = restShiftOverrideOf(this.score, posKey)
-    const steps = (prev?.steps ?? 0) + delta
-    if (steps === 0) {
-      this.clearEngravingOverride(posKey, 'restShift')
-    } else {
-      const next: RestShiftOverride = { kind: 'restShift', steps }
-      this.setEngravingOverride(posKey, next)
-    }
-    return true
+    return overrideOps.nudgeRestShift(this.score, posKey, delta)
   }
 
   /**
-   * Set the user-authored **leading space** before one rhythmic column (client #10 — see
-   * docs/note-spacing-plan.md), in staff-spaces, signed. Stored as a {@link LeadingSpaceOverride}
-   * keyed by the column's position address (`posKey`, built by `spacingPositionKey`) — a column
-   * has no id of its own, and deliberately no voice/staff either: the key IS the voice and staff
-   * sync.
-   *
-   * ⚠️ **`minSpace` is the caller's, and it is not optional.** A negative space must not pull a
-   * column left through its left neighbour's glyph, and that floor cannot be applied at render:
-   * the formatted gap depends on the justified width, which depends on the very number being
-   * clamped. Clamping only at draw would leave the *width* computed from the unclamped value, so
-   * the bar would move further than its columns do and a hole would open at the barline. So the
-   * clamp lands here, on the way in, measured by whoever has the last render in hand — and every
-   * reader downstream applies the stored number verbatim.
-   *
-   * Zero clears the entry (so "absent = default" holds and the JSON stays clean). No undo snapshot
-   * here — the facade (`MusicEngine.setNoteSpacing`) owns it, mirroring {@link nudgeRestShift} /
-   * {@link nudgeDynamicOffset}. A model-level snapshot would push one undo entry per drag frame.
-   * @returns the space actually stored, after the clamp.
-   */
+   * Set the user-authored **leading space** before one rhythmic column (client #10 — see docs/note-
+   * spacing-plan.md), in staff-spaces, signed.
+   *  See {@link overrideOps.setNoteSpacing} for the why. */
   setNoteSpacing(posKey: string, space: number, minSpace: number): number {
-    const clamped = Math.max(space, minSpace)
-    if (clamped === 0) {
-      this.clearEngravingOverride(posKey, 'leadingSpace')
-    } else {
-      const next: LeadingSpaceOverride = { kind: 'leadingSpace', space: clamped }
-      this.setEngravingOverride(posKey, next)
-    }
-    return clamped
+    return overrideOps.setNoteSpacing(this.score, posKey, space, minSpace)
   }
 
   /**
    * Set a bar's authored **stretch** — the multiplier on its own note space (client #11 — see
-   * docs/bar-width-plan.md). Stored as a {@link BarWidthOverride} keyed by {@link barWidthKey}.
-   *
-   * **Two clamps, and the second is not optional.** `minStretch` is the caller's — the *measured*
-   * floor from the last render, the same contract as {@link setNoteSpacing}'s `minSpace`: only
-   * whoever has the drawn bar in hand knows how much room its music is actually using. On top of
-   * that sits an absolute `[BAR_STRETCH_MIN, BAR_STRETCH_MAX]`, because this override is also
-   * hand-editable in the Score JSON panel and `distributeLineWidths` leaves negative totals
-   * uncapped by design — so a typed `0` would otherwise produce a negative-width bar.
-   *
-   * `1` clears the entry (so "absent = the engraver's own width" holds and the JSON stays clean).
-   * No undo snapshot here — the facade (`MusicEngine.setBarWidth`) owns it, mirroring
-   * {@link setNoteSpacing}; a model-level snapshot would push one undo entry per drag frame.
-   * @returns the stretch actually stored, after both clamps.
-   */
+   * docs/bar-width-plan.md).
+   *  See {@link overrideOps.setBarWidth} for the why. */
   setBarWidth(key: string, stretch: number, minStretch: number): number {
-    const clamped = Math.min(
-      BAR_STRETCH_MAX,
-      Math.max(BAR_STRETCH_MIN, Math.max(stretch, minStretch)),
-    )
-    if (clamped === 1) {
-      this.clearEngravingOverride(key, 'barWidth')
-    } else {
-      const next: BarWidthOverride = { kind: 'barWidth', stretch: clamped }
-      this.setEngravingOverride(key, next)
-    }
-    return clamped
+    return overrideOps.setBarWidth(this.score, key, stretch, minStretch)
   }
 
   /**
-   * Nudge a dynamic's manual position offset by `(dx, dy)` staff-spaces, **accumulating** onto
-   * any existing offset (the ←→↑↓ / Ctrl+arrow keyboard fine-positioning — see
-   * docs/dynamic-offset-plan.md). Stored as a {@link DynamicOffsetOverride} in the
-   * engraving-overrides compartment, keyed by the dynamic's durable `id` (element-id-keyed,
-   * unlike the position-keyed rest clients). The offset is a delta on top of the mark's
-   * automatic placement; render adds it back in.
-   *
-   * Returning to a net (0,0) clears the entry (so "absent = default" holds and the JSON stays
-   * clean). No undo snapshot here — the facade (`MusicEngine.nudgeDynamicOffset`) owns the
-   * per-press `saveOnly`, mirroring {@link nudgeRestShift} / {@link nudgeSlurEndpoint}.
-   * @returns true (the override always exists/updates for a valid dynamic id).
-   */
+   * Nudge a dynamic's manual position offset by `(dx, dy)` staff-spaces, **accumulating** onto any
+   * existing offset (the ←→↑↓ / Ctrl+arrow keyboard fine-positioning — see docs/dynamic-offset-
+   * plan.md).
+   *  See {@link overrideOps.nudgeDynamicOffset} for the why. */
   nudgeDynamicOffset(dynamicId: string, dx: number, dy: number): boolean {
-    const prev = dynamicOffsetOverrideOf(this.score, dynamicId)
-    const x = (prev?.x ?? 0) + dx
-    const y = (prev?.y ?? 0) + dy
-    if (x === 0 && y === 0) {
-      this.clearEngravingOverride(dynamicId, 'dynamicOffset')
-    } else {
-      const next: DynamicOffsetOverride = { kind: 'dynamicOffset', x, y }
-      this.setEngravingOverride(dynamicId, next)
-    }
-    return true
+    return overrideOps.nudgeDynamicOffset(this.score, dynamicId, dx, dy)
   }
 
   /**
@@ -960,65 +760,15 @@ export class ScoreModel {
 
   /**
    * Nudge a note's manual horizontal offset by `dx` staff-spaces, **accumulating** onto any existing
-   * offset (the Ctrl+arrow keyboard fine-positioning — see docs/note-offset-plan.md). Stored as a
-   * {@link NoteOffsetOverride} in the engraving-overrides compartment under the key
-   * {@link offsetTargetOf} resolves — the **slot** id for anything ordinary (one StaveNote is one
-   * slot, so a chord moves as a unit), a fanned MEMBER's own first pitch id for a member. The offset
-   * is a delta on top of the note's natural column; render folds it back in via `StaveNote.setXShift`.
-   *
-   * Returning to a net `x` of 0 clears the entry (so "absent = default" holds and the JSON stays
-   * clean). No undo snapshot here — the facade (`MusicEngine.nudgeNoteOffset`) owns the per-press
-   * `saveOnly`, mirroring {@link nudgeDynamicOffset}.
-   * @returns true (the override always exists/updates for a valid key).
-   */
+   * offset (the Ctrl+arrow keyboard fine-positioning — see docs/note-offset-plan.md).
+   *  See {@link overrideOps.nudgeNoteOffset} for the why. */
   nudgeNoteOffset(key: string, dx: number): boolean {
-    const prev = noteOffsetOverrideOf(this.score, key)
-    const x = (prev?.x ?? 0) + dx
-    if (x === 0) {
-      this.clearEngravingOverride(key, 'noteOffset')
-    } else {
-      const next: NoteOffsetOverride = { kind: 'noteOffset', x }
-      this.setEngravingOverride(key, next)
-    }
-    return true
+    return overrideOps.nudgeNoteOffset(this.score, key, dx)
   }
 
-  /**
-   * Drop the stored offsets of fanned members that are GOING AWAY — the sweep every id-keyed client
-   * owes the compartment when its element dies (docs/note-offset-plan.md P3).
-   *
-   * ⚠️ **A member dies in more than one place**, which is the whole reason this is a helper: the
-   * `Delete` key takes one ({@link deleteNote}), lowering `fan.count` truncates the list
-   * (`normalizeFan` in {@link setFan}), removing the fan drops all of them, and deleting the note
-   * that was typed takes the slot and the group with it. Miss one and the entry is stranded — it can
-   * never mis-apply, since a new member is minted with a new id, but it stays in the JSON forever.
-   */
-  private clearFanMemberOffsets(members: NotePitch[][] | undefined): void {
-    for (const pitches of members ?? []) {
-      const first = pitches[0]
-      if (first) this.clearEngravingOverride(first.id, 'noteOffset')
-    }
-  }
-
-  /** Carry a stored note offset from one key to another, doing nothing when there is none — the one
-   *  thing a re-keying edit owes the compartment. Only `noteOffset` moves: every other override at
-   *  the old key belongs to whatever else was addressed by it. */
-  private moveNoteOffsetKey(from: string, to: string): void {
-    const ov = noteOffsetOverrideOf(this.score, from)
-    if (!ov) return
-    this.clearEngravingOverride(from, 'noteOffset')
-    const next: NoteOffsetOverride = { kind: 'noteOffset', x: ov.x }
-    this.setEngravingOverride(to, next)
-    dbg(`[Model] note offset ${ov.x} re-keyed ${from} → ${to}`)
-  }
-
-  /** Drop a note's horizontal offset outright, back to its natural column (the Ctrl+Backspace
-   *  first-class reset — see docs/note-offset-plan.md). Keyed by {@link offsetTargetOf}. No undo
-   *  snapshot here; the facade owns it. @returns true if an offset was there to clear. */
+  /** first-class reset — see docs/note-offset-plan.md). See {@link overrideOps.clearNoteOffset} for the why. */
   clearNoteOffset(key: string): boolean {
-    if (!noteOffsetOverrideOf(this.score, key)) return false
-    this.clearEngravingOverride(key, 'noteOffset')
-    return true
+    return overrideOps.clearNoteOffset(this.score, key)
   }
 
   /**
@@ -1065,62 +815,28 @@ export class ScoreModel {
   }
 
   toggleRestHidden(posKey: string): boolean {
-    if (restHiddenOf(this.score, posKey)) {
-      this.clearEngravingOverride(posKey, 'restHidden')
-    } else {
-      const next: RestHiddenOverride = { kind: 'restHidden' }
-      this.setEngravingOverride(posKey, next)
-    }
-    return true
+    return overrideOps.toggleRestHidden(this.score, posKey)
   }
 
   /**
-   * Nudge a staff's extra "space above" by `delta` staff-spaces, **accumulating** onto any
-   * existing value (the Sibelius-style Alt+↑/↓ vertical staff drag — see
-   * docs/staff-spacing-plan.md). Stored as a {@link StaffSpacingOverride} in the
-   * engraving-overrides compartment, keyed by the durable `staffId` (unlike the position-keyed
-   * rest clients). Render adds the accumulated per-system `above` back into each stave's Y.
-   *
-   * Returning to a net `above` of 0 clears the entry (so "absent = default" holds and the JSON
-   * stays clean). No undo snapshot here — the facade owns the per-press snapshot, mirroring
-   * {@link nudgeRestShift}.
-   * @returns true (the override always exists/updates for a valid staffId).
-   */
+   * Nudge a staff's extra "space above" by `delta` staff-spaces, **accumulating** onto any existing
+   * value (the Sibelius-style Alt+↑/↓ vertical staff drag — see docs/staff-spacing-plan.md).
+   *  See {@link overrideOps.nudgeStaffSpacing} for the why. */
   nudgeStaffSpacing(staffId: string, delta: number): boolean {
-    const prev = staffSpacingOverrideOf(this.score, staffId)
-    const above = (prev?.above ?? 0) + delta
-    if (above === 0) {
-      this.clearEngravingOverride(staffId, 'staffSpacing')
-    } else {
-      const next: StaffSpacingOverride = { kind: 'staffSpacing', above }
-      this.setEngravingOverride(staffId, next)
-    }
-    return true
+    return overrideOps.nudgeStaffSpacing(this.score, staffId, delta)
   }
 
-  /**
-   * Set a staff's extra "space above" to an absolute `above` (staff-spaces). The drag path
-   * (Phase 2) commits an absolute value rather than accumulating. Keyed by the durable
-   * `staffId`; clears the entry when `above` lands on 0 so "absent = default" holds.
-   * @returns true.
-   */
+  /** Set a staff's extra "space above" to an absolute `above` (staff-spaces). See {@link overrideOps.setStaffSpacing} for the why. */
   setStaffSpacing(staffId: string, above: number): boolean {
-    if (above === 0) {
-      this.clearEngravingOverride(staffId, 'staffSpacing')
-    } else {
-      const next: StaffSpacingOverride = { kind: 'staffSpacing', above }
-      this.setEngravingOverride(staffId, next)
-    }
-    return true
+    return overrideOps.setStaffSpacing(this.score, staffId, above)
   }
 
   /**
-   * Reset a staff to default spacing (Layout → Reset Space Above): drops any
-   * {@link StaffSpacingOverride} on this `staffId`.
-   * @returns true if an override was removed.
-   */
+   * Reset a staff to default spacing (Layout → Reset Space Above): drops any {@link
+   * StaffSpacingOverride} on this `staffId`.
+   *  See {@link overrideOps.resetStaffSpacing} for the why. */
   resetStaffSpacing(staffId: string): boolean {
-    return this.clearEngravingOverride(staffId, 'staffSpacing')
+    return overrideOps.resetStaffSpacing(this.score, staffId)
   }
 
   // ============ Engraving overrides (authored-geometry compartment) ============
@@ -1142,55 +858,16 @@ export class ScoreModel {
   }
 
   /**
-   * Upsert an override: replaces any existing entry of the same `kind` on this
-   * element, otherwise appends. Lazily creates the compartment. An element may hold
-   * several overrides of *different* kinds (e.g. a nudge AND a reshape) but only one
-   * per kind.
-   */
+   * Upsert an override: replaces any existing entry of the same `kind` on this element, otherwise
+   * appends.
+   *  See {@link overrideOps.setEngravingOverride} for the why. */
   setEngravingOverride(elementId: string, override: EngravingOverride): void {
-    if (!this.score.engravingOverrides) this.score.engravingOverrides = {}
-    const all = this.score.engravingOverrides
-    const list = all[elementId] ?? (all[elementId] = [])
-    const i = list.findIndex(o => o.kind === override.kind)
-    if (i >= 0) list[i] = override
-    else list.push(override)
+    overrideOps.setEngravingOverride(this.score, elementId, override)
   }
 
-  /**
-   * Clear overrides on an element: just one `kind` when given, else ALL overrides for
-   * the element. Prunes the element's entry (and the whole compartment) once it
-   * empties, so "absent = none" holds and the JSON stays clean.
-   * @returns true if anything was removed.
-   *
-   * **This is also the conservative auto-reset primitive (plan §3.3 / Phase 2).** The
-   * compartment drops an override on its own ONLY when an edit *provably* breaks its
-   * anchor — the element is **deleted** (clear all kinds) or a span endpoint is
-   * **re-pointed onto a different element** (clear the span-relative `curveShape`). Gray
-   * zone edits (anchors survive, basis merely shifted — e.g. notes inserted under a slur)
-   * stay sticky; when unsure, keep and show. The rule is **operation-driven**: its callers
-   * are the explicit, finite set of edit ops that remove/re-anchor an overridable element
-   * (grep `auto-reset (§3.3)`), NOT a sweep over "what looks orphaned". Today that set is
-   * slur-only — slurs have durable ids; it must NOT be wired to auto-rests/beams until
-   * their ids stop churning across regeneration (plan §3.6, "Adding an element").
-   */
+  /** Clear overrides on an element: just one `kind` when given, else ALL overrides for the element. See {@link overrideOps.clearEngravingOverride} for the why. */
   clearEngravingOverride(elementId: string, kind?: string): boolean {
-    const all = this.score.engravingOverrides
-    const list = all?.[elementId]
-    if (!all || !list) return false
-    let removed = false
-    if (kind === undefined) {
-      delete all[elementId]
-      removed = true
-    } else {
-      const i = list.findIndex(o => o.kind === kind)
-      if (i >= 0) {
-        list.splice(i, 1)
-        removed = true
-      }
-      if (list.length === 0) delete all[elementId]
-    }
-    if (Object.keys(all).length === 0) delete this.score.engravingOverrides
-    return removed
+    return overrideOps.clearEngravingOverride(this.score, elementId, kind)
   }
 
   /**
@@ -1397,6 +1074,17 @@ export class ScoreModel {
    * shares with the rest of the model (measure insertion, gap-fill, engraving overrides, tie /
    * slur repair). Built per call; rebar is not a hot path.
    */
+  /** The ScoreModel callbacks the {@link voiceOps} free functions call back into — bound here for
+   *  the same reason {@link rebarDeps} is: rest-fill and pitch insertion are note-entry machinery a
+   *  voice move uses but does not own. */
+  private get voiceDeps(): voiceOps.VoiceDeps {
+    return {
+      fillGapsWithRests: (m) => this.fillGapsWithRests(m),
+      insertPitch: (m, payload) => this.insertPitch(m, payload),
+      refillTupletRemainder: (n, t, voice) => this.refillTupletRemainder(n, t, voice),
+    }
+  }
+
   private get rebarDeps(): rebarOps.RebarDeps {
     return {
       insertMeasureAfter: (afterNumber, ts) => this.insertMeasureAfter(afterNumber, ts),
@@ -1487,30 +1175,8 @@ export class ScoreModel {
    * — {@link getNote}, {@link getNotePitch}, {@link slotIdForNote}, {@link updateNote},
    * {@link deleteNote} — opt in, and each states what it does with a member.
    */
-  private findSlot(noteId: string, opts?: { fanMembers?: boolean }):
-    | { type: 'chord'; chord: Chord; pitch: NotePitch; member?: { index: number; pitches: NotePitch[] } }
-    | { type: 'rest'; rest: Rest }
-    | undefined {
-    for (const measure of this.score.measures) {
-      for (const slot of measure.slots) {
-        if (slot.type === 'rest' && slot.id === noteId) {
-          return { type: 'rest', rest: slot }
-        }
-        if (slot.type === 'chord') {
-          const pitch = slot.notes.find(n => n.id === noteId)
-          if (pitch) return { type: 'chord', chord: slot, pitch }
-          if (opts?.fanMembers && slot.fan?.members) {
-            for (let k = 0; k < slot.fan.members.length; k++) {
-              const found = slot.fan.members[k].find(n => n.id === noteId)
-              // `index` is the member's place in the GROUP (1-based), not in the list: member 0 is
-              // the slot's own chord, so the list holds members 1…count-1.
-              if (found) return { type: 'chord', chord: slot, pitch: found, member: { index: k + 1, pitches: slot.fan.members[k] } }
-            }
-          }
-        }
-      }
-    }
-    return undefined
+  private findSlot(noteId: string, opts?: { fanMembers?: boolean }): FoundSlot | undefined {
+    return findSlot(this.score, noteId, opts)
   }
 
   /**
@@ -1642,12 +1308,12 @@ export class ScoreModel {
   /** Assemble a flat Note from a Chord + NotePitch, resolving the chord's `staffId`
    *  back-pointer to its 0-based staff index for the flat view. */
   private toFlatNote(chord: Chord, pitch: NotePitch): Note {
-    return toFlatNote(chord, pitch, staffIndexOfId(this.score, chord.staffId))
+    return flatNoteOf(this.score, chord, pitch)
   }
 
   /** Assemble a flat Note from a Rest, resolving its `staffId` to a staff index. */
   private restToFlatNote(rest: Rest): Note {
-    return restToFlatNote(rest, staffIndexOfId(this.score, rest.staffId))
+    return flatRestOf(this.score, rest)
   }
 
   // ==================== Note Entry ====================
@@ -2188,224 +1854,48 @@ export class ScoreModel {
     return beamRoleAtRef(bars, { bar: measureIndex, slot: bars[measureIndex].slots.indexOf(slot) })
   }
 
-  /**
-   * Flip the side (above/below) of the articulations on the slot containing
-   * `noteId`. The first flip resolves the current auto side (stem-derived, the
-   * default) and stores the opposite; a further flip toggles back. No-op for
-   * rests or slots without articulations. Returns the flat note, or null.
-   */
+  /** Flip the side (above/below) of the articulations on the slot containing `noteId`. See {@link markOps.flipArticulationPlacement} for the why. */
   flipArticulationPlacement(noteId: string): Note | null {
-    const found = this.findSlot(noteId)
-    if (!found || found.type === 'rest') return null
-    const { chord, pitch } = found
-    if (!chord.articulations?.length) return null
-    // Sibelius-style `x` toggle: auto ↔ flipped (mirrors flipTuplet/flipSlur/flipTie).
-    // An explicit override returns to the context-aware auto default; an auto mark pins
-    // the opposite of the side it's currently drawn on, so the first press always visibly
-    // flips and two presses round-trip back to auto. Crucially this lets a mark that was
-    // flipped-and-flipped-back follow the voice-aware default again when a 2nd voice is
-    // later added (the old absolute flip pinned a side forever).
-    if (chord.articulationPlacement !== undefined) {
-      delete chord.articulationPlacement
-    } else {
-      chord.articulationPlacement = this.autoArticulationPlacement(chord) === 'above' ? 'below' : 'above'
-    }
-    return this.toFlatNote(chord, pitch)
+    return markOps.flipArticulationPlacement(this.score, noteId)
   }
 
   /**
-   * Set whether the slot's stem-side articulations align to the stem (modern)
-   * rather than the notehead (traditional default). No-op for rests or slots
-   * without articulations. Stores the flag only when true; clears it when false
-   * so the default state serializes clean. Returns the flat note, or null.
-   */
+   * Set whether the slot's stem-side articulations align to the stem (modern) rather than the
+   * notehead (traditional default).
+   *  See {@link markOps.setArticulationStemAlign} for the why. */
   setArticulationStemAlign(noteId: string, align: boolean): Note | null {
-    const found = this.findSlot(noteId)
-    if (!found || found.type === 'rest') return null
-    const { chord, pitch } = found
-    if (!chord.articulations?.length) return null
-    if (align) chord.articulationStemAlign = true
-    else delete chord.articulationStemAlign
-    return this.toFlatNote(chord, pitch)
+    return markOps.setArticulationStemAlign(this.score, noteId, align)
   }
 
-  /**
-   * Set — or with `null`, remove — the single-note tremolo on the slot containing `noteId`.
-   *
-   * SINGLE-VALUED: a note carries one tremolo, so a different mark REPLACES the one there rather
-   * than stacking (articulations are the additive kind). Refuses a REST outright — you cannot
-   * tremolo silence — which is why {@link Rest} has no such field to write. Returns the flat note,
-   * or null when the id is not a chord pitch.
-   *
-   * The mark lives on the slot, so a chord takes it as a chord — passing any pitch id in the chord
-   * marks the whole event, which is the same call {@link setArticulationStemAlign} makes.
-   *
-   * ⭐ REMOVING THE COUNT REMOVES A TWO-NOTE PAIR WITH IT — and the pair's stroke STYLE too — and
-   * that is the model rather than a courtesy: a pair needs a stroke COUNT
-   * (docs/two-note-tremolo-plan.md §0), so `tremoloPair` with no `tremolo` is a mark with nothing to
-   * draw, and `tremoloPairStyle` with no pair is a setting for a mark that is not there. Putting it
-   * here rather than in each caller is what makes Delete, the palette's re-press and anything added
-   * later agree for free. CHANGING the count leaves both alone — that is the same mark re-read.
-   */
+  /** Set — or with `null`, remove — the single-note tremolo on the slot containing `noteId`. See {@link markOps.setTremolo} for the why. */
   setTremolo(noteId: string, tremolo: TremoloMark | null): Note | null {
-    const found = this.findSlot(noteId)
-    if (!found || found.type === 'rest') return null
-    const { chord, pitch } = found
-    if (tremolo === null) {
-      delete chord.tremolo
-      delete chord.tremoloPair
-      delete chord.tremoloPairStyle
-    } else {
-      chord.tremolo = tremolo
-      // The other expansion of one slot into many attacks stands down — see {@link setFan}. Only
-      // when a mark is being SET: removing a tremolo is not a statement about the fan.
-      delete chord.fan
-    }
-    return this.toFlatNote(chord, pitch)
+    return markOps.setTremolo(this.score, noteId, tremolo)
   }
 
   /**
    * Set — or with `null`, remove — the FANNED (feathered) beam on the slot containing `noteId`:
-   * "play this one event as N notes, speeding up (or slowing down) across exactly its own
-   * duration". See {@link FanMark} and docs/fanned-beams-plan.md §0.
-   *
-   * On the SLOT, like the tremolo and for the same reason: a chord accelerates as a chord.
-   *
-   * ⭐ **Three refusals, and each is the notation talking, not a guard:**
-   * - a REST — you cannot accelerate silence, the same sentence that keeps {@link Rest} free of a
-   *   `tremolo` field;
-   * - a TUPLET member — a ramp inside a ratio is a second normalization of the same span, and
-   *   nobody has asked for one (docs/fanned-beams-plan.md §3);
-   * - nothing to remove — removing a fan that is not there is not an edit, so it reports null
-   *   rather than minting an undo entry, exactly as {@link setTremoloPair} does when switching off.
-   *
-   * ⭐ **Setting a fan takes the tremolo off** (and a pair, and its style). Those are the OTHER two
-   * ways one slot becomes many attacks, and a slot carrying two of them asks playback a question
-   * with two answers — `playbackSchedule` would take whichever it happened to test first and the
-   * loser would vanish with no sign. Arming IS clearing, the rule the marking tools already follow.
-   */
+   * "play this one event as N notes, speeding up (or slowing down) across exactly its own duration".
+   *  See {@link markOps.setFan} for the why. */
   setFan(noteId: string, fan: FanMark | null): Note | null {
-    const found = this.findSlot(noteId)
-    if (!found || found.type === 'rest') return null
-    const { chord, pitch } = found
-
-    if (fan === null) {
-      if (!chord.fan) return null
-      // The members go with the mark, and so do their authored offsets.
-      this.clearFanMemberOffsets(chord.fan.members)
-      delete chord.fan
-      return this.toFlatNote(chord, pitch)
-    }
-
-    if (chord.tupletId) return null
-    // ⭐ The ONE place `count` and `members` are held in step (docs/fanned-beam-pitches-plan.md §1).
-    // Materialises the members on a fresh mark, grows or shrinks them on an edited one — and does it
-    // HERE rather than in the callers so a palette press, a Properties number and anything added
-    // later cannot disagree about the off-by-one.
-    const before = chord.fan?.members ?? []
-    chord.fan = normalizeFan(fan, chord.notes)
-    // ⚠️ A LOWERED count truncates the list (`slice(0, want)`), so this is the second way a member
-    // dies and it never goes near `deleteNote`. The survivors are the same arrays by identity, so
-    // whatever is not in the new list is what left — take its offset with it.
-    const kept = new Set(chord.fan.members ?? [])
-    this.clearFanMemberOffsets(before.filter(m => !kept.has(m)))
-    delete chord.tremolo
-    delete chord.tremoloPair
-    delete chord.tremoloPairStyle
-    return this.toFlatNote(chord, pitch)
+    return markOps.setFan(this.score, noteId, fan)
   }
 
-  /**
-   * Set — or with `false`, remove — the TWO-NOTE tremolo on the slot containing `noteId`.
-   *
-   * Refuses (returns null) whenever {@link pairIsValid} says this slot cannot be the first note of a
-   * pair — the §0 list, read off the slot's own lane. The ONE predicate: the button asks it here,
-   * the renderer asks it before drawing, the beam grouper before excluding. It is checked at APPLY
-   * time and again at DRAW time on purpose; neither alone is enough (docs/two-note-tremolo-plan.md
-   * §1).
-   *
-   * ⭐ THE COUNT COMES FROM THE NOTE, and with none there the press sets THREE. The pair is a
-   * separate field from the stroke count, so a press on a note carrying no `tremolo` would otherwise
-   * be a mark with nothing to draw. Three strokes is the ordinary two-note tremolo. Refusing instead
-   * would make the button dead on exactly the note you pressed it on — the trap the tie stamp
-   * already had and fixed (docs/tie-stamp-plan.md §1.3).
-   *
-   * Removing takes ALL of it off — the count, the pair and the STROKE STYLE. The pair is ONE mark,
-   * and half of it is not a notation; and a style left behind on a plain note is the same
-   * resurrection trap the flag itself is, silently re-joining the strokes the day the note is paired
-   * again (his catch).
-   *
-   * Nothing is written to the SECOND slot, in either direction. That is the model (§1) — "mark just
-   * the first note" is true in the data too, and it is why deleting the partner cannot leave a
-   * dangling half-mark.
-   */
+  /** Set — or with `false`, remove — the TWO-NOTE tremolo on the slot containing `noteId`. See {@link markOps.setTremoloPair} for the why. */
   setTremoloPair(noteId: string, on: boolean): Note | null {
-    const found = this.findSlot(noteId)
-    if (!found || found.type === 'rest') return null
-    const { chord, pitch } = found
-
-    if (!on) {
-      if (!chord.tremoloPair) return null
-      delete chord.tremoloPair
-      delete chord.tremolo
-      delete chord.tremoloPairStyle
-      return this.toFlatNote(chord, pitch)
-    }
-
-    const measure = this.score.measures.find(m => m.number === chord.measure)
-    if (!measure) return null
-    const lane = laneOfSlot(measure.slots, chord)
-    if (!pairIsValid(lane, lane.indexOf(chord))) return null
-
-    chord.tremoloPair = true
-    if (!chord.tremolo) chord.tremolo = 3
-    delete chord.fan // the third expansion stands down — see {@link setFan}
-    return this.toFlatNote(chord, pitch)
+    return markOps.setTremoloPair(this.score, noteId, on)
   }
 
   /**
    * Set how a two-note tremolo's strokes MEET the stems — `'joined'` (stem tip to stem tip, like a
    * beam) or `'open'` (floating clear of both, the default).
-   *
-   * Refuses (returns null) unless the slot actually carries a pair AND that pair's drawn value is a
-   * BLANCA — {@link pairAcceptsJoined}, the restriction MuseScore states. Refusing is the point: on a
-   * drawn negra the joined strokes would read as two beamed corcheas, a different rhythm; on a
-   * corchea or shorter the joining line is a real beam; a redonda has no stems to join. Writing the
-   * field there and quietly ignoring it would leave a setting that does nothing and looks broken.
-   *
-   * `'open'` is stored rather than deleted when chosen explicitly — absent and `'open'` draw the same
-   * today, but the field is the per-mark OVERRIDE of a project-wide default that does not exist yet
-   * (§2), and "I chose open" will have to outrank that default when it does.
-   */
+   *  See {@link markOps.setTremoloPairStyle} for the why. */
   setTremoloPairStyle(noteId: string, style: 'joined' | 'open'): Note | null {
-    const found = this.findSlot(noteId)
-    if (!found || found.type === 'rest') return null
-    const { chord, pitch } = found
-    if (!chord.tremoloPair) return null
-
-    const measure = this.score.measures.find(m => m.number === chord.measure)
-    if (!measure) return null
-    const lane = laneOfSlot(measure.slots, chord)
-    const index = lane.indexOf(chord)
-    if (!pairIsValid(lane, index) || !pairAcceptsJoined(lane, index)) return null
-
-    chord.tremoloPairStyle = style
-    return this.toFlatNote(chord, pitch)
+    return markOps.setTremoloPairStyle(this.score, noteId, style)
   }
 
-  /**
-   * Does the two-note tremolo on `noteId` accept the `'joined'` stroke style? The read-only twin of
-   * {@link setTremoloPairStyle}'s own gate, so the palette can dark its control without attempting an
-   * edit to find out.
-   */
+  /** Does the two-note tremolo on `noteId` accept the `'joined'` stroke style? See {@link markOps.tremoloPairAcceptsJoined} for the why. */
   tremoloPairAcceptsJoined(noteId: string): boolean {
-    const found = this.findSlot(noteId)
-    if (!found || found.type === 'rest' || !found.chord.tremoloPair) return false
-    const measure = this.score.measures.find(m => m.number === found.chord.measure)
-    if (!measure) return false
-    const lane = laneOfSlot(measure.slots, found.chord)
-    const index = lane.indexOf(found.chord)
-    return pairIsValid(lane, index) && pairAcceptsJoined(lane, index)
+    return markOps.tremoloPairAcceptsJoined(this.score, noteId)
   }
 
   /** The raw NotePitch behind a note id (chord head or FANNED MEMBER; rests have no pitch). */
@@ -2417,47 +1907,12 @@ export class ScoreModel {
   /** Set the explicit tie-curve direction (-1 up / +1 down) on the tie starting at
    *  `fromNoteId`. No-op (returns false) if the id isn't a chord head with a tie. */
   setTieDirection(fromNoteId: string, direction: -1 | 1): boolean {
-    const found = this.findSlot(fromNoteId)
-    if (!found || found.type === 'rest' || !found.pitch.tiedTo) return false
-    found.pitch.tieDirection = direction
-    return true
+    return markOps.setTieDirection(this.score, fromNoteId, direction)
   }
 
   /** Remove any explicit tie-curve override on `fromNoteId` (revert to auto). */
   clearTieDirection(fromNoteId: string): void {
-    const found = this.findSlot(fromNoteId)
-    if (found && found.type === 'chord') delete found.pitch.tieDirection
-  }
-
-  /** The side articulations land on by default, mirroring NoteBuilder's auto rule:
-   *  - multi-voice measure: the voice's OUTER side — upper voice (0) ABOVE, any lower
-   *    voice BELOW — regardless of stem, so the two voices' marks never collide.
-   *  - single voice: opposite the stem (the note-head side). */
-  private autoArticulationPlacement(chord: Chord): 'above' | 'below' {
-    const measure = this.getMeasure(chord.measure)
-    const multiVoice = measure ? new Set(measure.slots.map(s => voiceOf(s))).size > 1 : false
-    if (multiVoice) return voiceOf(chord) === 0 ? 'above' : 'below'
-    return this.resolveStemDirection(chord) === 'up' ? 'below' : 'above'
-  }
-
-  /** Resolve a chord's effective stem direction, mirroring the renderer: an explicit
-   *  override wins; otherwise the note furthest from the clef's middle line decides. */
-  private resolveStemDirection(chord: Chord): 'up' | 'down' {
-    if (chord.stemDirection === 'up') return 'up'
-    if (chord.stemDirection === 'down') return 'down'
-    const clef = this.getEffectiveClefAt(chord.measure, chord.beat, chord.staffId)
-    const middle = middleLineDiatonicPos(clef)
-    let maxDist = 0
-    let dir: 'up' | 'down' = 'down' // middle-line notes follow this convention
-    for (const p of chord.notes) {
-      const dPos = spellingDiatonicPos(p.step, p.octave)
-      const dist = Math.abs(dPos - middle)
-      if (dist > maxDist) {
-        maxDist = dist
-        dir = dPos >= middle ? 'down' : 'up'
-      }
-    }
-    return dir
+    markOps.clearTieDirection(this.score, fromNoteId)
   }
 
   /**
@@ -2784,12 +2239,12 @@ export class ScoreModel {
         // where the member sits does not.
         const wasKey = member.pitches[0].id === pitch.id
         member.pitches.splice(member.pitches.indexOf(pitch), 1)
-        if (wasKey) this.moveNoteOffsetKey(pitch.id, member.pitches[0].id)
+        if (wasKey) overrideOps.moveNoteOffsetKey(this.score, pitch.id, member.pitches[0].id)
         dbg(`[Model.deleteNote] fan member ${member.index}: removed one pitch (${member.pitches.length} left)`)
         return true
       }
       const fan = chord.fan!
-      this.clearFanMemberOffsets([member.pitches]) // its head is going: so is where it was put
+      overrideOps.clearFanMemberOffsets(this.score, [member.pitches]) // its head is going: so is where it was put
       fan.members?.splice(member.index - 1, 1) // 1-based in the GROUP, 0-based in the list
       fan.count = Math.max(1, fan.count - 1)
       dbg(`[Model.deleteNote] fan member ${member.index} REMOVED → count ${fan.count}`)
@@ -2838,7 +2293,7 @@ export class ScoreModel {
         if (chord.notes.length <= 1) {
           // Remove the whole chord slot — and with it any fan it wore, so its members' offsets go too.
           dbg(`[Model.deleteNote] delete whole chord ${fmtSlot(chord)} → m${measure.number} now ${measure.slots.length - 1} slot(s)`)
-          this.clearFanMemberOffsets(chord.fan?.members)
+          overrideOps.clearFanMemberOffsets(this.score, chord.fan?.members)
           measure.slots.splice(idx, 1)
         } else {
           // Remove just this pitch from the chord
@@ -2852,159 +2307,25 @@ export class ScoreModel {
   }
 
   /**
-   * Drop any secondary voice (model voice ≠ 0) in a measure that has no notes left
-   * — only rests — so the bar reverts to a single stream. Voice 0 is the primary
-   * stream and is never collapsed (an empty bar stays one voice of rests). Called
-   * after deletions; a no-op for single-voice bars.
-   */
+   * Drop any secondary voice (model voice ≠ 0) in a measure that has no notes left — only rests — so
+   * the bar reverts to a single stream.
+   *  See {@link voiceOps.collapseEmptyVoices} for the why. */
   collapseEmptyVoices(measureNumber: number): void {
-    const measure = this.getMeasure(measureNumber)
-    if (!measure) return
-
-    const secondaryVoices = new Set<number>()
-    for (const slot of measure.slots) {
-      const v = voiceOf(slot)
-      if (v !== 0) secondaryVoices.add(v)
-    }
-
-    for (const voice of secondaryVoices) {
-      const hasNote = measure.slots.some(s => voiceOf(s) === voice && s.type === 'chord')
-      if (!hasNote) {
-        measure.slots = measure.slots.filter(s => voiceOf(s) !== voice)
-      }
-    }
+    voiceOps.collapseEmptyVoices(this.score, measureNumber)
   }
 
   /**
-   * Move a single plain note's pitch into another voice, **preserving its
-   * `pitch.id`** so ties/slurs/articulations/selection all stay anchored to it
-   * (see the move-note-to-voice plan §2 — choice B, mutate in place). The source
-   * voice closes its gap with rests (and collapses if it was a now-empty
-   * secondary voice); the target voice opens to receive the note.
-   *
-   * Plain (non-tuplet) notes only — a tuplet member returns false and is left for
-   * the tuplet path (plan Phase 4). Rests and unknown ids are ignored.
-   *
-   * @returns true if the note actually moved.
-   */
+   * Move a single plain note's pitch into another voice, **preserving its `pitch.id`** so
+   * ties/slurs/articulations/selection all stay anchored to it (see the move-note-to-voice plan §2 —
+   * choice B, mutate in place).
+   *  See {@link voiceOps.moveNoteToVoice} for the why. */
   moveNoteToVoice(pitchId: string, targetVoice: number, movingIds?: ReadonlySet<string>): boolean {
-    const found = this.findSlot(pitchId)
-    if (!found || found.type !== 'chord') return false // rests / unknown ids ignored
-
-    const { chord, pitch } = found
-    const from = voiceOf(chord)
-    if (from === targetVoice) return false // no-op: already in the target voice
-
-    const measure = this.getMeasure(chord.measure)
-    if (!measure) return false
-
-    // Tuplet member → the ordinal-fill tuplet path (creates a matching tuplet in
-    // the target voice). Plain notes continue below.
-    if (chord.tupletId) {
-      return this.moveTupletNoteToVoice(measure, chord, pitch, targetVoice, movingIds)
-    }
-
-    dbg(`[Model.moveNoteToVoice] ${pitch.step}${alterToString(pitch.alter)}${pitch.octave} (id ${pitch.id.slice(0, 8)}) v${from}→v${targetVoice} @ m${chord.measure} b${fracToNumber(chord.beat).toFixed(3)}`)
-
-    // Capture the pitch payload before mutating anything (reuse the SAME id).
-    const payload = {
-      id: pitch.id,
-      step: pitch.step,
-      alter: pitch.alter,
-      octave: pitch.octave,
-      forceAccidental: pitch.forceAccidental,
-      tiedTo: pitch.tiedTo,
-      tiedFrom: pitch.tiedFrom,
-      tieDirection: pitch.tieDirection,
-      duration: chord.duration,
-      dots: chord.dots,
-      beat: chord.beat,
-      voice: targetVoice,
-      // Articulations live on the SLOT, not the pitch — carry them so an accented note
-      // keeps its accent across the voice move. Placement (the explicit `x` flip) is NOT
-      // carried: it is voice-aware, so the new voice re-derives the correct auto side.
-      articulations: chord.articulations,
-      articulationStemAlign: chord.articulationStemAlign,
-      // Beaming is a SLOT statement too, and unlike articulation placement it is not
-      // voice-derived: `begin`/`continue`/`end`/`single` say how this note groups with its
-      // neighbours, and moving the whole group to another voice keeps that grouping. Left
-      // behind, an explicitly beamed run would silently fall back to auto beat groups.
-      beam: chord.beam,
-      secondaryBreak: chord.secondaryBreak,
-      // Also a SLOT statement, and not voice-derived: which note you repeat and how finely says
-      // nothing about which voice it is in, so the mark travels with the note.
-      tremolo: chord.tremolo,
-      // ⭐ The TWO-NOTE pair travels too — "I should be able to move what I marked". It is a
-      // RELATION, so unlike the others it can arrive broken: moving one note of a pair and not the
-      // other leaves nothing to alternate with. {@link dropStaleTremoloPairs}, run once the move (or
-      // the whole batch) has settled, is what severs those — the same shape `dropCrossVoiceTies`
-      // has for the other relation that cannot span voices.
-      tremoloPair: chord.tremoloPair,
-      tremoloPairStyle: chord.tremoloPairStyle,
-      // A fan is a PROPERTY of the event like the tremolo, not a relation, so it simply comes along
-      // — there is no partner it can be torn away from.
-      fan: chord.fan,
-    }
-
-    // Remove the pitch from the source slot.
-    let removedWholeSlot = false
-    if (chord.notes.length > 1) {
-      // One pitch of a chord leaves; the chord (and the beat it holds) stays.
-      chord.notes = chord.notes.filter(n => n.id !== pitch.id)
-    } else {
-      // Last/only pitch — remove the whole slot; the source voice now has a gap.
-      measure.slots = measure.slots.filter(s => s.id !== chord.id)
-      removedWholeSlot = true
-    }
-
-    // Insert into the target voice (merges into a same-beat chord, or makes a new
-    // one and clears the target-voice rest there). Reuses the captured id.
-    this.insertPitch(measure, payload)
-
-    // A tie whose partner stayed behind would now span two voices — drop it (plan
-    // §5). A partner that's also moving in this batch (movingIds) is kept: it will
-    // land in the same target voice, so the tie survives.
-    this.dropCrossVoiceTies(pitch.id, targetVoice, movingIds)
-
-    // Repair the source voice if removing a whole slot left a gap, THEN collapse
-    // an emptied secondary voice (order matters — plan Phase 1 step 8).
-    if (removedWholeSlot) {
-      this.fillGapsWithRests(measure)
-      this.collapseEmptyVoices(measure.number)
-    }
-
-    // Keep any slur's stored voice in sync with its (now-moved) anchors.
-    this.resyncSlurVoiceForPitch(pitch.id)
-
-    measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
-
-    // A two-note tremolo the move tore in half. ONLY for a lone move: inside a batch the pair is
-    // invalid between the two notes' moves, and `moveSelectionToVoice` prunes once the loop is done.
-    if (!movingIds) this.dropStaleTremoloPairs(measure.number)
-    return true
+    return voiceOps.moveNoteToVoice(this.score, this.voiceDeps, pitchId, targetVoice, movingIds)
   }
 
-  /**
-   * Set (or clear) `beamOver` on the rest at a given beat/voice/staff.
-   *
-   * A rest does not itself move between voices — each voice fills its own — so when a beam group that
-   * beams over an interior rest changes voice, the flag cannot ride the rest. The move carries it: it
-   * captures where a beamed-over rest sat, and after the target voice has been refilled, re-applies the
-   * flag to the fresh rest there ({@link MusicEngine.moveSelectionToVoice}). A no-op when no such rest
-   * exists — a moved group may decompose its gap into different rests, and a missing target is not an
-   * error. Called inside the move's `runBatch`, so no separate undo entry.
-   */
+  /** Set (or clear) `beamOver` on the rest at a given beat/voice/staff. See {@link markOps.setRestBeamOver} for the why. */
   setRestBeamOver(measureNumber: number, beat: Fraction, voice: number, staff: number, value: boolean): void {
-    const measure = this.getMeasure(measureNumber)
-    if (!measure) return
-    const rest = measure.slots.find(s =>
-      s.type === 'rest'
-      && voiceOf(s) === voice
-      && staffIndexOfId(this.score, s.staffId) === staff
-      && fracEq(s.beat, beat))
-    if (rest?.type !== 'rest') return
-    if (value) rest.beamOver = true
-    else delete rest.beamOver
+    markOps.setRestBeamOver(this.score, measureNumber, beat, voice, staff, value)
   }
 
   /**
@@ -3014,31 +2335,7 @@ export class ScoreModel {
    * new chord and clear the target-voice rest via {@link replaceRestsWithChord}.
    * Used by {@link moveNoteToVoice} so a moved note keeps its anchored ties/slurs.
    */
-  private insertPitch(
-    measure: Measure,
-    payload: {
-      id: string
-      step: PitchStep
-      alter: PitchAlter
-      octave: number
-      forceAccidental?: boolean
-      tiedTo?: string
-      tiedFrom?: string
-      tieDirection?: -1 | 1
-      duration: NoteDuration
-      dots?: number
-      beat: Fraction
-      voice: number
-      articulations?: Chord['articulations']
-      articulationStemAlign?: boolean
-      beam?: BeamMode
-      secondaryBreak?: boolean
-      tremolo?: TremoloMark
-      tremoloPair?: true
-      tremoloPairStyle?: 'joined' | 'open'
-      fan?: FanMark
-    },
-  ): void {
+  private insertPitch(measure: Measure, payload: PitchInsert): void {
     const notePitch: NotePitch = {
       id: payload.id,
       step: payload.step,
@@ -3125,244 +2422,9 @@ export class ScoreModel {
   /**
    * Sever every two-note tremolo in `measureNumber` that is no longer one — the model half of
    * docs/two-note-tremolo-plan.md §1's *"a broken pair is DROPPED, not carried"*.
-   *
-   * Draw-time validation already keeps a stale flag from being DRAWN, and the plan is explicit that
-   * this is not enough on its own: the dead flag sits in the JSON and silently comes back to life the
-   * day a note of the right length lands next to it again. The relay gets the drop for free (a
-   * `RebarEvent` has no such field); every other structural edit needs this.
-   *
-   * ⚠️ CALL IT ONCE THE EDIT HAS SETTLED, never mid-batch. Moving both notes of a pair moves them one
-   * at a time, so between the two the pair is genuinely invalid — pruning there would kill a mark
-   * that is about to be whole again. Hence the callers: a single move prunes at its end, and
-   * `moveSelectionToVoice` prunes after its loop.
-   *
-   * Takes the STYLE with the flag, for the same reason removing the mark does: a style with no pair
-   * is a setting for a mark that is not there.
-   */
+   *  See {@link markOps.dropStaleTremoloPairs} for the why. */
   dropStaleTremoloPairs(measureNumber: number): void {
-    const measure = this.getMeasure(measureNumber)
-    if (!measure) return
-    for (const slot of measure.slots) {
-      if (slot.type !== 'chord' || !slot.tremoloPair) continue
-      const lane = laneOfSlot(measure.slots, slot)
-      if (pairIsValid(lane, lane.indexOf(slot))) continue
-      delete slot.tremoloPair
-      delete slot.tremoloPairStyle
-    }
-  }
-
-  /**
-   * After a pitch changes voice, clear any tie whose partner is NOT in the same
-   * voice (a tie spanning two voices is invalid). Clears both reciprocal sides.
-   * A partner whose id is in `movingIds` is kept — it is moving to the same target
-   * voice in this batch, so the tie survives (plan §5: ties whose both endpoints
-   * land in the same target voice survive).
-   */
-  private dropCrossVoiceTies(pitchId: string, voice: number, movingIds?: ReadonlySet<string>): void {
-    const found = this.findSlot(pitchId)
-    if (!found || found.type !== 'chord') return
-    const pitch = found.pitch
-
-    if (pitch.tiedTo) {
-      const partner = this.findSlot(pitch.tiedTo)
-      const partnerVoice =
-        partner?.type === 'chord' ? voiceOf(partner.chord)
-        : partner?.type === 'rest' ? voiceOf(partner.rest)
-        : undefined
-      if (partnerVoice !== voice && !movingIds?.has(pitch.tiedTo)) {
-        if (partner?.type === 'chord') partner.pitch.tiedFrom = undefined
-        else if (partner?.type === 'rest') partner.rest.tiedFrom = undefined
-        pitch.tiedTo = undefined
-        dbg(`[Model.dropCrossVoiceTies] dropped tiedTo (partner v${partnerVoice ?? '?'} ≠ v${voice})`)
-      }
-    }
-    if (pitch.tiedFrom) {
-      const partner = this.findSlot(pitch.tiedFrom)
-      // A tie's source is always a chord pitch (a rest can't start a tie).
-      const partnerVoice = partner?.type === 'chord' ? voiceOf(partner.chord) : undefined
-      if (partnerVoice !== voice && !movingIds?.has(pitch.tiedFrom)) {
-        if (partner?.type === 'chord') partner.pitch.tiedTo = undefined
-        pitch.tiedFrom = undefined
-        dbg(`[Model.dropCrossVoiceTies] dropped tiedFrom (partner v${partnerVoice ?? '?'} ≠ v${voice})`)
-      }
-    }
-  }
-
-  /**
-   * Keep a slur's stored `voice` field in sync with its anchors after a move. If
-   * both endpoints now sit in the same voice, adopt it (so JSON export and the
-   * renderer's fallback path agree with what's drawn — direction/colour already
-   * derive from the live start-note voice). A slur left spanning two voices keeps
-   * its old field (ambiguous; nothing to reassign).
-   */
-  private resyncSlurVoiceForPitch(pitchId: string): void {
-    for (const slur of this.score.slurs ?? []) {
-      if (slur.startNoteId !== pitchId && slur.endNoteId !== pitchId) continue
-      const start = this.findSlot(slur.startNoteId)
-      const end = this.findSlot(slur.endNoteId)
-      const sv = start?.type === 'chord' ? voiceOf(start.chord) : undefined
-      const ev = end?.type === 'chord' ? voiceOf(end.chord) : undefined
-      if (sv !== undefined && sv === ev && voiceOf(slur) !== sv) {
-        dbg(`[Model.resyncSlurVoice] slur ${slur.id.slice(0, 8)} voice ${voiceOf(slur)}→${sv}`)
-        slur.voice = sv as 0 | 1 | 2 | 3
-      }
-    }
-  }
-
-  /**
-   * Move a tuplet member into another voice — the "ordinal fill" rule
-   * (move-note-to-voice plan, Phase 4). A matching tuplet is created in the target
-   * voice over the SAME span; the moved note lands in its own relative slot; any
-   * notes the target voice already had in that span are poured into the remaining
-   * slots left-to-right (empty → tuplet rests, overflow → dropped, a collision on
-   * the moved note's own slot → chorded). The source tuplet's gap is refilled (and
-   * the tuplet dropped if it ends up all rests). Ids are preserved throughout.
-   */
-  private moveTupletNoteToVoice(measure: Measure, chord: Chord, pitch: NotePitch, targetVoice: number, movingIds?: ReadonlySet<string>): boolean {
-    const sourceTuplet = measure.tuplets?.find(t => t.id === chord.tupletId)
-    if (!sourceTuplet) return false // defensive: tupletId with no tuplet record
-
-    const from = voiceOf(chord)
-    const { startBeat, baseDuration, baseDots, numNotes, notesOccupied } = sourceTuplet
-    // Slot spacing is the ACTUAL (scaled) duration, not the written baseDuration.
-    const slot = tupletSlotDuration(sourceTuplet)
-    const span = tupletSpan(sourceTuplet)
-    const spanEnd = fracAdd(startBeat, span)
-
-    // Relative slot index of the moved note within the tuplet grid.
-    const rawIdx = Math.round(fracToNumber(fracSub(chord.beat, startBeat)) / fracToNumber(slot))
-    const idx = rawIdx >= 0 && rawIdx < numNotes ? rawIdx : 0
-
-    dbg(`[Model.moveTupletNoteToVoice] ${pitch.step}${alterToString(pitch.alter)}${pitch.octave} slot ${idx}/${numNotes} v${from}→v${targetVoice} @ m${measure.number} tuplet b${fracToNumber(startBeat).toFixed(3)}`)
-
-    // The moved pitch, reusing its id (tie/slur/selection anchor).
-    const movedPitch: NotePitch = {
-      id: pitch.id,
-      step: pitch.step,
-      alter: pitch.alter,
-      octave: pitch.octave,
-      forceAccidental: pitch.forceAccidental,
-      tiedTo: pitch.tiedTo,
-      tiedFrom: pitch.tiedFrom,
-      tieDirection: pitch.tieDirection,
-    }
-
-    // Capture the target voice's existing notes in the span BEFORE createTuplet
-    // wipes them, keeping each chord's beat. Each existing CHORD slot is one unit
-    // (keeps its pitches + ids), ordered left-to-right; durations are discarded
-    // (the tuplet wins). The beat lets us tell a note already sitting on a grid
-    // slot (it KEEPS that slot) from a loose note (ordinal pour).
-    const existing = measure.slots
-      .filter((s): s is Chord => s.type === 'chord' && voiceOf(s) === targetVoice
-        && fracGte(s.beat, startBeat) && fracLt(s.beat, spanEnd))
-      .sort((a, b) => fracCompare(a.beat, b.beat))
-      .map(c => ({ beat: c.beat, notes: c.notes }))
-
-    // Remove the moved pitch from the source slot.
-    let removedSourceSlot = false
-    if (chord.notes.length > 1) {
-      chord.notes = chord.notes.filter(n => n.id !== pitch.id)
-    } else {
-      measure.slots = measure.slots.filter(s => s.id !== chord.id)
-      removedSourceSlot = true
-    }
-
-    // Create the matching tuplet in the target voice, on the note's OWN staff (a
-    // voice-move stays on the same staff), so a staff-1 note doesn't drop to staff 0.
-    const targetStaffId = chord.staffId
-    const targetStaff = staffIndexOfId(this.score, targetStaffId)
-    const targetTuplet = this.createTuplet(measure.number, startBeat, baseDuration, numNotes, notesOccupied, targetVoice, targetStaff, baseDots)
-
-    // Which grid slot a beat lands on exactly (−1 if it's between slots).
-    const gridIndexOf = (beat: Fraction): number => {
-      for (let g = 0; g < numNotes; g++) {
-        if (fracEq(fracAdd(startBeat, fracMul(slot, fracCreate(g, 1))), beat)) return g
-      }
-      return -1
-    }
-
-    // Ordinal-fill assignment. The moved note takes its slot; an existing note
-    // already on a grid slot KEEPS it (chord on collision); loose notes pour into
-    // the remaining free slots in order, overflow dropped.
-    const assignment: (NotePitch[] | undefined)[] = new Array(numNotes).fill(undefined)
-    const placeAt = (g: number, pitches: NotePitch[]) => {
-      assignment[g] = assignment[g] ? [...assignment[g]!, ...pitches] : pitches
-    }
-    placeAt(idx, [movedPitch])
-    const loose: NotePitch[][] = []
-    for (const e of existing) {
-      const g = gridIndexOf(e.beat)
-      if (g >= 0) placeAt(g, e.notes) // grid-aligned → keep its own slot
-      else loose.push(e.notes)        // loose → ordinal pour below
-    }
-    let k = 0
-    for (const pitches of loose) {
-      while (k < numNotes && assignment[k] !== undefined) k++
-      if (k >= numNotes) break // overflow — drop the rest
-      assignment[k] = pitches
-      k++
-    }
-
-    // Materialise each occupied grid position as a tuplet chord.
-    for (let g = 0; g < numNotes; g++) {
-      const pitches = assignment[g]
-      if (!pitches || pitches.length === 0) continue
-      const beatG = fracAdd(startBeat, fracMul(slot, fracCreate(g, 1)))
-      const newChord: Chord = {
-        id: uuidv4(),
-        type: 'chord',
-        beat: beatG,
-        duration: baseDuration,
-        measure: measure.number,
-        tupletId: targetTuplet.id,
-        actualDuration: slot,
-        notes: pitches,
-      }
-      if (targetVoice) newChord.voice = targetVoice as 0 | 1 | 2 | 3
-      if (targetStaffId !== undefined) newChord.staffId = targetStaffId
-      // The moved note's own beam statement rides along (same reason as the plain path);
-      // the target voice's pre-existing notes are re-poured, so theirs is not carried.
-      if (g === idx) {
-        if (chord.beam) newChord.beam = chord.beam
-        if (chord.secondaryBreak) newChord.secondaryBreak = true
-      }
-      measure.slots.push(newChord)
-    }
-
-    // Fill the target tuplet's empty slots with tuplet rests.
-    this.refillTupletRemainder(measure.number, targetTuplet, targetVoice)
-
-    // Drop any tie of the moved note that would now span two voices (a co-moving
-    // partner in movingIds is kept — it lands in the same target voice).
-    this.dropCrossVoiceTies(pitch.id, targetVoice, movingIds)
-
-    // Source side: close the source tuplet's gap; drop it if now all rests.
-    if (removedSourceSlot) {
-      this.refillTupletRemainder(measure.number, sourceTuplet, from)
-      const sourceHasNote = measure.slots.some(s => s.tupletId === sourceTuplet.id && s.type === 'chord')
-      if (!sourceHasNote) {
-        tupletOps.deleteTuplet(this.score, sourceTuplet.id, m => this.fillGapsWithRests(m))
-      }
-    }
-
-    // Fill any remaining per-voice gaps (e.g. a brand-new target voice's bar
-    // outside the tuplet span), collapse an emptied secondary voice, and prune
-    // any tuplet left with no member slots.
-    this.fillGapsWithRests(measure)
-    this.collapseEmptyVoices(measure.number)
-    if (measure.tuplets) {
-      measure.tuplets = measure.tuplets.filter(t => measure.slots.some(s => s.tupletId === t.id))
-    }
-
-    // Keep any slur's stored voice in sync with its (now-moved) anchors.
-    this.resyncSlurVoiceForPitch(pitch.id)
-
-    measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
-
-    // A two-note tremolo the move tore in half. ONLY for a lone move: inside a batch the pair is
-    // invalid between the two notes' moves, and `moveSelectionToVoice` prunes once the loop is done.
-    if (!movingIds) this.dropStaleTremoloPairs(measure.number)
-    return true
+    markOps.dropStaleTremoloPairs(this.score, measureNumber)
   }
 
   /**

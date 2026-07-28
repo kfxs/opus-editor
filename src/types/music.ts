@@ -1021,6 +1021,41 @@ export interface NotePitch {
   tieDirection?: -1 | 1
 }
 
+/**
+ * ONE PITCH ON ITS WAY INTO A MEASURE — the payload `ScoreModel.insertPitch` takes.
+ *
+ * A `NotePitch` (what is stored on the chord) plus the SLOT statements the pitch arrives carrying:
+ * where it lands (`beat`, `voice`), how long it is, and the marks that belong to the whole event
+ * rather than to the head — beam, tremolo, fan, articulations. The insert merges it into a chord
+ * already at that beat in that voice, or makes a new slot from these fields.
+ *
+ * Named because it crosses a module boundary: `voiceOps` builds one when a note changes voice and
+ * hands it back to the model to insert (docs/modularity-plan-2026-07-28.md Phase 3). It is model
+ * vocabulary, not a public API shape — nothing outside `engine/models` builds one.
+ */
+export interface PitchInsert {
+  id: string
+  step: PitchStep
+  alter: PitchAlter
+  octave: number
+  forceAccidental?: boolean
+  tiedTo?: string
+  tiedFrom?: string
+  tieDirection?: -1 | 1
+  duration: NoteDuration
+  dots?: number
+  beat: Fraction
+  voice: number
+  articulations?: Chord['articulations']
+  articulationStemAlign?: boolean
+  beam?: BeamMode
+  secondaryBreak?: boolean
+  tremolo?: TremoloMark
+  tremoloPair?: true
+  tremoloPairStyle?: 'joined' | 'open'
+  fan?: FanMark
+}
+
 /** A rhythmic slot containing one or more pitches */
 export interface Chord {
   id: string

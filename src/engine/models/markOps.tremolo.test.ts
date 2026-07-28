@@ -9,6 +9,9 @@ import type { Chord } from '@/types/music'
  * These pin the three properties the stamp relies on and nothing about how the mark is DRAWN:
  * jsdom cannot measure glyphs, so a geometry assertion here would pass vacuously
  * (reference_jsdom_cannot_measure_glyphs). The strokes are checked by eye.
+ *
+ * Subject: {@link markOps} — renamed from `ScoreModel.tremolo.test.ts` on 2026-07-28, when the
+ * mark setters moved into their own module (modularity plan Phase 3). A `ScoreModel` is the fixture.
  */
 describe('tremolo (model)', () => {
   let model: ScoreModel
