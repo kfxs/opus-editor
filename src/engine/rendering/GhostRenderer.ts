@@ -26,6 +26,7 @@
  */
 import { Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Dot, Barline, type SVGContext } from 'vexflow'
 import type { Score, Clef, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, TremoloMark, PitchStep, Accidental as ScoreAccidental, ArticulationType } from '@/types/music'
+import type { ToolGhost } from './ghostTypes'
 import { fracToNumber, fracCreate, fracAdd } from '@/utils/fraction'
 import { beatToFrac } from '@/utils/musicUtils'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
@@ -1013,4 +1014,62 @@ export function drawDotGhost(ctx: SVGContext, cursorX: number, cursorY: number):
   } catch (_e) {
     return false
   }
+}
+
+/**
+ * ONE ROW PER GHOST — the table that replaced four layers of forwarding.
+ *
+ * Drawing a clef ghost used to be `RenderController.renderClefGhost` → `MusicEngine.
+ * renderScoreWithClefGhost` → `VexFlowRenderer.renderScoreWithClefGhost` → `drawClefGhost`: 42
+ * methods across four layers for twelve kinds, and the **twenty in the middle two carried no logic
+ * at all** — each was a single delegating statement, so a thirteenth ghost meant editing four files
+ * in order to add nothing (docs/modularity-plan-2026-07-28.md §4, Phase 2). Now the payload
+ * ({@link ToolGhost}) travels whole and only this table knows which glyph goes with which kind.
+ *
+ * ⚠️ The rows are **adapters, not the bare exports**. The drawers above have genuinely different
+ * signatures — `drawClefGhost` needs the score's `<svg>` (it hangs a real Stave off it),
+ * `drawTempoGhost` does not — and that difference is each drawer's own business, not something to
+ * normalise away by giving five of them a parameter they ignore. The adapter is where the two
+ * shapes meet, and it is one line.
+ *
+ * Total over the union, so a new `ToolGhost` member fails to BUILD until it says how it is drawn —
+ * the same guarantee `assertNeverTool` gives the armed tools, from a table instead of a switch.
+ * ⚠️ SCREAMING_SNAKE deliberately: `scripts/check-singletons.mjs` reads a module-level
+ * `export const <camelCase> = {` as new mutable state and would fail `build:check`. This is a frozen
+ * lookup table, and the name is how the check can tell (docs/DESIGN-PRINCIPLES.md §1).
+ */
+export const GHOST_DRAWERS: {
+  [K in ToolGhost['kind']]: (
+    ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number,
+    ghost: Extract<ToolGhost, { kind: K }>,
+  ) => boolean
+} = {
+  clef: (ctx, svg, x, y, g) => drawClefGhost(ctx, svg, x, y, g.clef),
+  timeSignature: (ctx, svg, x, y, g) => drawTimeSignatureGhost(ctx, svg, x, y, g.timeSignature),
+  tempo: (ctx, _svg, x, y, g) => drawTempoGhost(ctx, x, y, g.mark),
+  dynamic: (ctx, svg, x, y, g) => drawDynamicGhost(ctx, svg, x, y, g.dynamic),
+  articulation: (ctx, _svg, x, y, g) => drawArticulationGhost(ctx, x, y, g.types),
+  accidental: (ctx, _svg, x, y, g) => drawAccidentalGhost(ctx, x, y, g.accidental),
+  tremolo: (ctx, _svg, x, y, g) => drawTremoloGhost(ctx, x, y, g.mark),
+  tie: (ctx, _svg, x, y) => drawTieGhost(ctx, x, y),
+  dot: (ctx, _svg, x, y) => drawDotGhost(ctx, x, y),
+  rest: (ctx, svg, x, y, g) => drawRestGhost(ctx, svg, x, y, g.duration, g.dots),
+}
+
+/**
+ * Draw whatever ghost the editor asked for, at the cursor. The one dispatch point — `VexFlowRenderer`
+ * wraps this in `ghostOverlay` (which takes the last ghost down and refuses when there is no page).
+ *
+ * The cast is the known TypeScript hole in a keyed-dispatch table: `GHOST_DRAWERS[ghost.kind]` widens
+ * to a union of functions whose parameters intersect to `never`, even though every individual row is
+ * sound. It is contained here — one line, one place — which is the reason this function exists rather
+ * than the lookup being written out at the call site.
+ */
+export function drawToolGhost(
+  ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number, ghost: ToolGhost,
+): boolean {
+  const draw = GHOST_DRAWERS[ghost.kind] as (
+    ctx: SVGContext, svg: SVGElement, x: number, y: number, ghost: ToolGhost,
+  ) => boolean
+  return draw(ctx, svg, cursorX, cursorY, ghost)
 }

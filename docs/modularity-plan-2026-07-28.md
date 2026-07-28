@@ -336,6 +336,39 @@ overlay group, at the pointer, and replaced rather than piled up. Run `test:e2e`
 ⚠️ The ghost **note** (`drawNoteGhost`, via `renderScoreWithPreview`) is not a marking tool and stays
 on its own path — it rides the armed duration/accidental/tuplet, not a tool payload.
 
+### ✅ Done 2026-07-28 — as amended, boundary lint included
+
+2,557 tests green (11 new), **23 E2E green either side** — all five ghost specs — `build:check`
+clean. Four layers of forwarding are now two, and **31 methods are gone**:
+
+| | before | after |
+|---|---|---|
+| `RenderController` | 11 `render*Ghost` + a 12-case switch | **1** `renderToolGhost` |
+| `MusicEngine` | 10 one-line delegations | **1** `renderScoreWithToolGhost` |
+| `VexFlowRenderer` | 10 one-line `ghostOverlay` wrappers | **1** `renderScoreWithToolGhost` |
+| `GhostRenderer` | 11 exported drawers | the same 11, **unchanged**, + `GHOST_DRAWERS` |
+
+Adding a ghost is now a `ToolGhost` member, a `GHOST_DRAWERS` row and a `toolGhost` case — three
+edits in three files that each *say something*, instead of four files of which two said nothing.
+
+- **The type is engine-owned**, as the amendment demanded: `engine/rendering/ghostTypes.ts`. The
+  `MarkingTool → ToolGhost` step went to a module of its own, `interactions/toolGhost.ts`, rather
+  than staying in the controller — it is a pure function, so it gets a real spec (`toolGhost.test.ts`,
+  11 tests) instead of only being reachable through a draw. That is the rule from Phase 0 and from
+  CLAUDE.md applied to this phase's own new code.
+- ⭐ **The boundary lint landed with it** (`.eslintrc.boundary.json`): `src/engine/**` may not import
+  `@/interactions` or `@/bus`, tests excluded. **Break-tested both ways** — a `MarkingTool` import in
+  `VexFlowRenderer` and an `EditorState` import in `ScoreModel` both fail, with the engine rule and
+  the score-layer rule reporting separately — then reverted. Documented in `CLAUDE.md` and
+  `ARCHITECTURE.md`, which now say four arrows are enforced, not three.
+- ⚠️ **The census labels are kept verbatim** in `GHOST_CAUSE` rather than derived: the time
+  signature's is `ghost:timesig`, and `` `ghost:${kind}` `` would have renamed that row. A census
+  whose rows are renamed by a refactor cannot be compared with the one taken before it, which is the
+  only thing it is for. There is a test on the string.
+- The three `render*Ghost` methods that were **not** empty (tempo's mark, dynamic's text, rest's
+  armed length) did not disappear — they are three cases in `toolGhost`, and the two entry tools'
+  "no ghost, no repaint" is now a `null` return rather than an early `return` in a switch.
+
 ---
 
 ## Phase 3 — `ScoreModel`'s four `*Ops` modules *(≈1 day)*

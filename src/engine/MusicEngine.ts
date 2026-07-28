@@ -3,6 +3,7 @@ import { ScoreModel } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barWidthKey, measureStretch, BAR_STRETCH_MIN, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
 import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
+import type { ToolGhost } from './rendering/ghostTypes'
 import { measuredShrinkRoom, fanMemberShrinkRoom, measuredBarShrinkPx } from './layout/measuredRoom'
 import { barWidthRoom as barWidthRoomOf, type BarWidthRoom } from './layout/barWidthRoom'
 import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
@@ -2862,63 +2863,24 @@ export class MusicEngine {
   }
 
   /**
-   * Render the score with a free-floating translucent ghost clef that follows the
-   * cursor. The clef glyph tracks the mouse anywhere on the canvas; on click it is
-   * applied to whichever measure was clicked (see MouseController).
-   * @returns true if a ghost clef was drawn, false otherwise
+   * Render the score with ONE free-floating translucent ghost following the cursor — the preview
+   * for whatever marking tool is armed (clef, meter, dynamic, tempo, and the five stamps). The
+   * glyph tracks the mouse anywhere on the canvas; on click, whatever it previews is applied to
+   * what was clicked (see MouseController).
+   *
+   * ⚠️ ONE method, and it stays one. This was ten (`renderScoreWithClefGhost`,
+   * `…TimeSignatureGhost`, …), each a single delegating statement to a matching one-liner on
+   * `VexFlowRenderer` — twenty methods of pure forwarding, so a new ghost was four files' work to
+   * add nothing (docs/modularity-plan-2026-07-28.md Phase 2). A new ghost is now a {@link ToolGhost}
+   * member and a `GHOST_DRAWERS` row; this facade does not learn about it.
+   *
+   * ⚠️ The ghost NOTE is not one of these — it rides the armed duration/accidental/tuplet and goes
+   * through {@link renderScoreWithPreview}.
+   *
+   * @returns true if a ghost was actually drawn, false otherwise
    */
-  renderScoreWithClefGhost(coords: PixelCoordinates, clef: Clef): boolean {
-    return this.renderer.renderScoreWithClefGhost(coords.x, coords.y, clef)
-  }
-
-  /**
-   * Render the score with a free-floating translucent ghost time signature that
-   * follows the cursor; on click it is applied to the clicked measure.
-   * @returns true if a ghost time signature was drawn, false otherwise
-   */
-  renderScoreWithTimeSignatureGhost(coords: PixelCoordinates, ts: TimeSignature): boolean {
-    return this.renderer.renderScoreWithTimeSignatureGhost(coords.x, coords.y, ts)
-  }
-
-  /**
-   * Render the score with a free-floating translucent ghost dynamic that follows
-   * the cursor; on click it is applied to the clicked slot.
-   * @returns true if a ghost dynamic was drawn, false otherwise
-   */
-  /** Render the score with a ghost tempo mark following the cursor (armed tempo tool). */
-  renderScoreWithTempoGhost(coords: PixelCoordinates, mark: TempoMark): boolean {
-    return this.renderer.renderScoreWithTempoGhost(coords.x, coords.y, mark)
-  }
-
-  renderScoreWithDynamicGhost(coords: PixelCoordinates, dynamic: Dynamic): boolean {
-    return this.renderer.renderScoreWithDynamicGhost(coords.x, coords.y, dynamic)
-  }
-
-  renderScoreWithArticulationGhost(coords: PixelCoordinates, types: ArticulationType[]): boolean {
-    return this.renderer.renderScoreWithArticulationGhost(coords.x, coords.y, types)
-  }
-
-  renderScoreWithAccidentalGhost(coords: PixelCoordinates, accidental: Accidental): boolean {
-    return this.renderer.renderScoreWithAccidentalGhost(coords.x, coords.y, accidental)
-  }
-
-  renderScoreWithTieGhost(coords: PixelCoordinates): boolean {
-    return this.renderer.renderScoreWithTieGhost(coords.x, coords.y)
-  }
-
-  renderScoreWithDotGhost(coords: PixelCoordinates): boolean {
-    return this.renderer.renderScoreWithDotGhost(coords.x, coords.y)
-  }
-
-  /** Ghost tremolo MARK at the cursor — see {@link VexFlowRenderer.renderScoreWithTremoloGhost}. */
-  renderScoreWithTremoloGhost(coords: PixelCoordinates, mark: TremoloMark): boolean {
-    return this.renderer.renderScoreWithTremoloGhost(coords.x, coords.y, mark)
-  }
-
-  /** Ghost REST at the cursor, showing the armed length (duration + dots) — see
-   *  {@link VexFlowRenderer.renderScoreWithRestGhost}. */
-  renderScoreWithRestGhost(coords: PixelCoordinates, duration: NoteDuration, dots: number): boolean {
-    return this.renderer.renderScoreWithRestGhost(coords.x, coords.y, duration, dots)
+  renderScoreWithToolGhost(coords: PixelCoordinates, ghost: ToolGhost): boolean {
+    return this.renderer.renderScoreWithToolGhost(coords.x, coords.y, ghost)
   }
 
   /**

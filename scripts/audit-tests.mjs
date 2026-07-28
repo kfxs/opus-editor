@@ -36,6 +36,7 @@ const NO_SPEC_EXPECTED = [
   /\/fontStack\.ts$/,
   /\/layoutConfig\.ts$/,
   /\/main\.ts$/,
+  /\/ghostTypes\.ts$/,       // a `type` union and nothing else — no runtime to have a contract
 ]
 
 function walk(dir, out = []) {

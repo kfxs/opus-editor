@@ -5,26 +5,14 @@ import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
 import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
 import { fanStemExtension } from './FannedBeam'
 import { drawFannedBeams, drawCrossBarFanBeams, type FanJoin } from './FanPass'
-import {
-  GHOST_GROUP_SELECTOR,
-  drawNoteGhost,
-  drawRestGhost,
-  drawClefGhost,
-  drawTimeSignatureGhost,
-  drawTempoGhost,
-  drawDynamicGhost,
-  drawArticulationGhost,
-  drawAccidentalGhost,
-  drawTremoloGhost,
-  drawTieGhost,
-  drawDotGhost,
-} from './GhostRenderer'
+import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
+import type { ToolGhost } from './ghostTypes'
 import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub, fillBeamQuad } from './beamInk'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
-import type { Score, Measure, Clef, ArticulationType, Tuplet, ChordRest, Fraction, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, TremoloMark, Accidental as ScoreAccidental } from '@/types/music'
+import type { Score, Measure, Clef, Tuplet, ChordRest, Fraction, GhostNote, TimeSignature } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero } from '@/utils/fraction'
 import { effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
@@ -3692,53 +3680,17 @@ export class VexFlowRenderer {
     ))
   }
 
-  /** Overlay a free-floating translucent ghost REST at the cursor — see {@link drawRestGhost}. */
-  renderScoreWithRestGhost(cursorX: number, cursorY: number, duration: NoteDuration, dots: number): boolean {
-    return this.ghostOverlay((ctx, svg) => drawRestGhost(ctx, svg, cursorX, cursorY, duration, dots))
-  }
-
-  /** Overlay a free-floating translucent ghost CLEF at the cursor — see {@link drawClefGhost}. */
-  renderScoreWithClefGhost(cursorX: number, cursorY: number, clef: Clef): boolean {
-    return this.ghostOverlay((ctx, svg) => drawClefGhost(ctx, svg, cursorX, cursorY, clef))
-  }
-
-  /** Overlay a ghost TIME SIGNATURE at the cursor — see {@link drawTimeSignatureGhost}. */
-  renderScoreWithTimeSignatureGhost(cursorX: number, cursorY: number, ts: TimeSignature): boolean {
-    return this.ghostOverlay((ctx, svg) => drawTimeSignatureGhost(ctx, svg, cursorX, cursorY, ts))
-  }
-
-  /** Overlay a ghost TEMPO mark at the cursor — see {@link drawTempoGhost}. */
-  renderScoreWithTempoGhost(cursorX: number, cursorY: number, mark: TempoMark): boolean {
-    return this.ghostOverlay(ctx => drawTempoGhost(ctx, cursorX, cursorY, mark))
-  }
-
-  /** Overlay a ghost DYNAMIC at the cursor — see {@link drawDynamicGhost}. */
-  renderScoreWithDynamicGhost(cursorX: number, cursorY: number, dynamic: Dynamic): boolean {
-    return this.ghostOverlay((ctx, svg) => drawDynamicGhost(ctx, svg, cursorX, cursorY, dynamic))
-  }
-
-  /** Overlay the armed ARTICULATIONS at the cursor — see {@link drawArticulationGhost}. */
-  renderScoreWithArticulationGhost(cursorX: number, cursorY: number, types: ArticulationType[]): boolean {
-    return this.ghostOverlay(ctx => drawArticulationGhost(ctx, cursorX, cursorY, types))
-  }
-
-  /** Overlay a ghost ACCIDENTAL at the cursor — see {@link drawAccidentalGhost}. */
-  renderScoreWithAccidentalGhost(cursorX: number, cursorY: number, accidental: ScoreAccidental): boolean {
-    return this.ghostOverlay(ctx => drawAccidentalGhost(ctx, cursorX, cursorY, accidental))
-  }
-
-  /** Overlay the armed TREMOLO's strokes at the cursor — see {@link drawTremoloGhost}. */
-  renderScoreWithTremoloGhost(cursorX: number, cursorY: number, mark: TremoloMark): boolean {
-    return this.ghostOverlay(ctx => drawTremoloGhost(ctx, cursorX, cursorY, mark))
-  }
-
-  /** Overlay a ghost TIE arc at the cursor — see {@link drawTieGhost}. */
-  renderScoreWithTieGhost(cursorX: number, cursorY: number): boolean {
-    return this.ghostOverlay(ctx => drawTieGhost(ctx, cursorX, cursorY))
-  }
-
-  /** Overlay a ghost DOT at the cursor — see {@link drawDotGhost}. */
-  renderScoreWithDotGhost(cursorX: number, cursorY: number): boolean {
-    return this.ghostOverlay(ctx => drawDotGhost(ctx, cursorX, cursorY))
+  /**
+   * Overlay ONE free-floating translucent ghost at the cursor — whichever the editor asked for.
+   *
+   * This was ten one-line methods (`renderScoreWithClefGhost`, `…TieGhost`, …), each forwarding to
+   * its own drawer, with a matching one-liner above it on `MusicEngine` and another above that on
+   * `RenderController`. The payload now travels whole as a {@link ToolGhost} and the kind→glyph
+   * answer lives once, in {@link GHOST_DRAWERS} (docs/modularity-plan-2026-07-28.md Phase 2).
+   *
+   * ⚠️ The ghost NOTE is not one of these — see {@link drawGhostNote} above.
+   */
+  renderScoreWithToolGhost(cursorX: number, cursorY: number, ghost: ToolGhost): boolean {
+    return this.ghostOverlay((ctx, svg) => drawToolGhost(ctx, svg, cursorX, cursorY, ghost))
   }
 }

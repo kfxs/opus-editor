@@ -61,6 +61,41 @@
       }
     },
     {
+      "files": ["src/engine/**/*.ts"],
+      "excludedFiles": ["**/*.test.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "vue",
+                  "vue/*",
+                  "pinia",
+                  "@/composables",
+                  "@/composables/*",
+                  "**/composables",
+                  "**/composables/*",
+                  "@/App.vue",
+                  "**/App.vue"
+                ],
+                "message": "Framework-agnostic boundary: no UI framework here. See docs/ARCHITECTURE.md."
+              },
+              {
+                "group": ["@/dev", "@/dev/*", "**/dev/*"],
+                "message": "src/dev is SCAFFOLDING and must delete cleanly: nothing in engine/ may import it (CLAUDE.md, docs/ARCHITECTURE.md). The engine declares what it wants measured — see src/engine/RenderProbe.ts — and App.ts injects the instrument."
+              },
+              {
+                "group": ["@/interactions", "@/interactions/*", "**/interactions/*", "@/bus", "@/bus/*", "**/bus/*"],
+                "message": "The arrow is App.ts -> interactions -> engine, never back: the engine may not import an editor controller, EditorState, or the UI bus (docs/ARCHITECTURE.md, DESIGN-PRINCIPLES.md §5). The engine declares the vocabulary it wants and the editor translates into it — see src/engine/rendering/ghostTypes.ts, which exists because a `tool: MarkingTool` parameter in the renderer passed all four gates before this rule (docs/modularity-plan-2026-07-28.md Phase 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["src/utils/**/*.ts", "src/types/**/*.ts", "src/engine/models/**/*.ts"],
       "excludedFiles": ["**/*.test.ts"],
       "rules": {

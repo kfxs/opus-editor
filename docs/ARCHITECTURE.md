@@ -100,8 +100,23 @@ Three arrows used to point the wrong way, and were turned in 2026-07-27's Phase 
   only against VexFlow, rendering, audio and `MusicEngine`. They are now, along with
   `bus/`, which is the arrow `DESIGN-PRINCIPLES.md` §5 cares about most.
 
-`lint:boundary` enforces all three: `engine/`, `interactions/` and `bus/` may not import
-`**/dev/*`, and the score layer may not import an interaction controller or the bus.
+A fourth was found in 2026-07-28's modularity review, before it could be crossed:
+
+- **`src/engine/**` as a whole was not fenced against `interactions/`** — only its
+  `models/` subtree was, through the score-layer rule above. So `engine/rendering/` and
+  `MusicEngine` could import the editor's `EditorState` and pass every gate. The ghost
+  pipeline (Phase 2) was about to do exactly that: `drawToolGhost(tool: MarkingTool, …)`
+  reads as harmless and would have inverted the arrow silently. The engine now declares
+  the vocabulary it wants — `engine/rendering/ghostTypes.ts` — and the editor translates
+  into it (`interactions/toolGhost.ts`), which is the same shape as the `RenderProbe` fix
+  above.
+
+`lint:boundary` enforces all four: `engine/`, `interactions/` and `bus/` may not import
+`**/dev/*`; **`engine/` may not import `interactions/` or `bus/`**; and the score layer
+may not import a renderer, audio, the facade, an interaction controller or the bus.
+⚠️ The engine rule excludes `**/*.test.ts` — a test may drive the editor over the engine,
+and one does (`ScoreModel.tremoloPair.test.ts` builds a clip through
+`interactions/clipboard`).
 
 ---
 
@@ -132,7 +147,7 @@ fixed, so the gate is closed behind them. `build:check` now runs four checks bef
 
 ```bash
 npm run lint:boundary     # no framework anywhere below App.ts; dev/ out of the engine;
-                          # the score layer fenced against interactions/ and bus/
+                          # engine/ AND the score layer fenced against interactions/ and bus/
 npm run lint:testnames    # a spec is named after its sibling subject
 npm run lint:singletons   # the singleton count in DESIGN-PRINCIPLES.md is still true
 npm run lint              # the full ESLint pass

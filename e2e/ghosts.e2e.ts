@@ -29,10 +29,10 @@ test('a cursor ghost is one overlay group, and arming another REPLACES it', asyn
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
     await h.render()
 
-    h.engine.renderScoreWithClefGhost({ x: 200, y: 100 }, 'bass')
+    h.engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'clef', clef: 'bass' })
     const clef = h.ghosts()
     // The second ghost must take the first down — the reason `ghostOverlay` clears BEFORE it draws.
-    h.engine.renderScoreWithTimeSignatureGhost({ x: 260, y: 100 }, { numerator: 3, denominator: 4 })
+    h.engine.renderScoreWithToolGhost({ x: 260, y: 100 }, { kind: 'timeSignature', timeSignature: { numerator: 3, denominator: 4 } })
     const timeSig = h.ghosts()
     h.engine.clearGhosts()
     return { clef, timeSig, cleared: h.ghosts() }
@@ -79,9 +79,9 @@ test('the CLEF and REST ghosts draw their glyph at the cursor', async ({ score }
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
     await h.render()
 
-    h.engine.renderScoreWithClefGhost({ x: 200, y: 100 }, 'bass')
+    h.engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'clef', clef: 'bass' })
     const clef = h.placed('.ghost-clef-group text')
-    h.engine.renderScoreWithRestGhost({ x: 200, y: 100 }, 'h', 0)
+    h.engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'rest', duration: 'h', dots: 0 })
     const rest = h.placed('.ghost-rest-group text')
     return { clef, rest }
   })
@@ -106,11 +106,11 @@ test('the ACCIDENTAL, DOT and ARTICULATION ghosts each park clear of the pointer
     await h.render()
 
     const at = { x: 200, y: 100 }
-    h.engine.renderScoreWithAccidentalGhost(at, '#')
+    h.engine.renderScoreWithToolGhost(at, { kind: 'accidental', accidental: '#' })
     const accidental = { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-accidental text') }
-    h.engine.renderScoreWithDotGhost(at)
+    h.engine.renderScoreWithToolGhost(at, { kind: 'dot' })
     const dot = { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-dot text') }
-    h.engine.renderScoreWithArticulationGhost(at, ['accent'])
+    h.engine.renderScoreWithToolGhost(at, { kind: 'articulation', types: ['accent'] })
     const articulation = { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-articulation text') }
     return { accidental, dot, articulation }
   })
@@ -140,9 +140,9 @@ test('the TIE ghost draws a real arc, and the TEMPO ghost its own words', async 
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
     await h.render()
 
-    h.engine.renderScoreWithTieGhost({ x: 200, y: 100 })
+    h.engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'tie' })
     const tie = { groups: h.ghosts(), curves: h.paths('.vf-ghost-tie path') }
-    h.engine.renderScoreWithTempoGhost({ x: 200, y: 100 }, { id: 't1', measure: 1, beat: h.frac(0, 1), text: 'Allegro' })
+    h.engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'tempo', mark: { id: 't1', measure: 1, beat: h.frac(0, 1), text: 'Allegro' } })
     const tempo = { groups: h.ghosts(), texts: h.texts('.vf-ghost-tempo text') }
     return { tie, tempo }
   })

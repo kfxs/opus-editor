@@ -104,7 +104,7 @@ describe('ghost renders must not leak paint into the shared context', () => {
     expect(before.stroke).toBe('black') // guard: a meaningless 'before' would make this vacuous
 
     for (let i = 0; i < 4; i++) {
-      engine.renderScoreWithTieGhost({ x: 100 + i * 10, y: 100 } as PixelCoordinates)
+      engine.renderScoreWithToolGhost({ x: 100 + i * 10, y: 100 } as PixelCoordinates, { kind: 'tie' })
       expect(contextPaint(engine)).toEqual(before)
     }
   })
@@ -113,7 +113,7 @@ describe('ghost renders must not leak paint into the shared context', () => {
     // The tell for a leak: `openGroup` copies the context's attributes onto the <g>, so a coloured
     // group means the context was already dirty when the ghost opened it.
     for (let i = 0; i < 4; i++) {
-      engine.renderScoreWithTieGhost({ x: 100 + i * 10, y: 100 } as PixelCoordinates)
+      engine.renderScoreWithToolGhost({ x: 100 + i * 10, y: 100 } as PixelCoordinates, { kind: 'tie' })
       const group = svgOf(container).querySelector('g.vf-ghost-tie')
       expect(group, 'the ghost arc should be drawn').not.toBeNull()
       expect(group!.getAttribute('stroke')).toBeNull()
@@ -130,7 +130,7 @@ describe('ghost renders must not leak paint into the shared context', () => {
     // Hence the rule above is about the context, not about tidying up per draw.
     const before = contextPaint(engine)
     for (let i = 0; i < 4; i++) {
-      engine.renderScoreWithTieGhost({ x: 100 + i * 10, y: 100 } as PixelCoordinates)
+      engine.renderScoreWithToolGhost({ x: 100 + i * 10, y: 100 } as PixelCoordinates, { kind: 'tie' })
     }
     engine.clearCanvas()
     engine.renderScore()

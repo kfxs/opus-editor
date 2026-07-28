@@ -1,9 +1,7 @@
-import { tempoFieldsFromTool } from '../utils/tempoText'
-import { dynamicTextFromTool } from '../utils/dynamics'
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { Clef, TimeSignature, Dynamic, TempoMark, ArticulationType, Accidental, TremoloMark } from '../types/music'
-import type { DynamicTool, TempoTool, EditorState } from './EditorState'
-import { activeVoiceToModel, assertNeverElement, assertNeverTool } from './EditorState'
+import type { EditorState } from './EditorState'
+import { activeVoiceToModel, assertNeverElement } from './EditorState'
+import { toolGhost, GHOST_CAUSE } from './toolGhost'
 import type { HighlightController } from './HighlightController'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 import { renderProbe } from '../engine/RenderProbe' // P0 instrument seam — temporary, see §8
@@ -187,130 +185,23 @@ export class RenderController {
     this.applyHighlights()
   }
 
-  /** Render the score with a translucent ghost clef at the hovered measure. */
-  renderClefGhost(coords: { x: number; y: number }, clef: Clef): void {
-    const engine = this.getEngine()
-    if (!engine) return
-    renderProbe().setCause('ghost:clef')
-    this.ensureScoreDrawn(engine)
-    engine.renderScoreWithClefGhost(coords, clef)
-  }
-
-  /** Render the score with a translucent ghost time signature following the cursor. */
-  renderTimeSignatureGhost(coords: { x: number; y: number }, ts: TimeSignature): void {
-    const engine = this.getEngine()
-    if (!engine) return
-    renderProbe().setCause('ghost:timesig')
-    this.ensureScoreDrawn(engine)
-    engine.renderScoreWithTimeSignatureGhost(coords, ts)
-  }
-
-  /**
-   * Render the score with a translucent ghost tempo mark following the cursor — showing
-   * exactly what the armed preset will engrave ('Allegro', '♩ = 120', 'Allegro (♩ = 120)').
-   */
-  renderTempoGhost(coords: { x: number; y: number }, tool: TempoTool): void {
-    const engine = this.getEngine()
-    if (!engine) return
-    renderProbe().setCause('ghost:tempo')
-    // Through the SAME tool→text step the click uses (MouseController), so the preview shows the
-    // string that will actually be engraved. Spreading the raw tool instead left a bare-metronome
-    // ghost with no `text` — and a mark with no text draws nothing, so it never appeared.
-    const ghost: TempoMark = { id: 'ghost-tempo', beat: { num: 0, den: 1 }, ...tempoFieldsFromTool(tool) }
-    this.ensureScoreDrawn(engine)
-    engine.renderScoreWithTempoGhost(coords, ghost)
-  }
-
-  /**
-   * Render the score with a translucent ghost dynamic following the cursor. The
-   * `'text'` tool previews the custom-text placeholder; a level tool previews its
-   * glyph (p/mp/mf/f).
-   */
-  renderDynamicGhost(coords: { x: number; y: number }, tool: DynamicTool): void {
-    const engine = this.getEngine()
-    if (!engine) return
-    renderProbe().setCause('ghost:dynamic')
-    const beat = { num: 0, den: 1 }
-    const ghost: Dynamic = { id: 'ghost-dynamic', beat, text: dynamicTextFromTool(tool), placement: 'below' }
-    this.ensureScoreDrawn(engine)
-    engine.renderScoreWithDynamicGhost(coords, ghost)
-  }
-
-  /** Render the score with translucent ghost articulation glyph(s) following the cursor — the
-   *  preview for the armed articulation stamp tool (additive: all armed articulations, stacked). */
-  renderArticulationGhost(coords: { x: number; y: number }, types: ArticulationType[]): void {
-    const engine = this.getEngine()
-    if (!engine) return
-    renderProbe().setCause('ghost:articulation')
-    this.ensureScoreDrawn(engine)
-    engine.renderScoreWithArticulationGhost(coords, types)
-  }
-
-  /** Render the score with a translucent ghost accidental glyph following the cursor — the preview
-   *  for the armed accidental stamp tool. */
-  renderAccidentalGhost(coords: { x: number; y: number }, accidental: Accidental): void {
-    const engine = this.getEngine()
-    if (!engine) return
-    renderProbe().setCause('ghost:accidental')
-    this.ensureScoreDrawn(engine)
-    engine.renderScoreWithAccidentalGhost(coords, accidental)
-  }
-
-  /** Render the score with the translucent ghost tremolo mark following the cursor — the preview for
-   *  the armed tremolo stamp. The mark itself, not the palette's note-wearing-strokes picture; the
-   *  note it lands on is resolved at click time. Strokes or the Penderecki sign — one modifier draws
-   *  both, so the preview cannot disagree with what gets engraved. */
-  renderTremoloGhost(coords: { x: number; y: number }, mark: TremoloMark): void {
-    const engine = this.getEngine()
-    if (!engine) return
-    renderProbe().setCause('ghost:tremolo')
-    this.ensureScoreDrawn(engine)
-    engine.renderScoreWithTremoloGhost(coords, mark)
-  }
-
-  /** Render the score with a translucent ghost tie following the cursor — the preview for the armed
-   *  tie stamp tool. Engraved as a REAL tie (same primitive and shape constants), but it previews
-   *  only the MARK, never which notes will be joined — the engine resolves that on click. */
-  renderTieGhost(coords: { x: number; y: number }): void {
-    const engine = this.getEngine()
-    if (!engine) return
-    renderProbe().setCause('ghost:tie')
-    this.ensureScoreDrawn(engine)
-    engine.renderScoreWithTieGhost(coords)
-  }
-
-  /** Render the score with a translucent ghost dot following the cursor — the preview for the armed
-   *  dot stamp tool. Valueless: the dot is on or off, so there is nothing to preview but the mark. */
-  renderDotGhost(coords: { x: number; y: number }): void {
-    const engine = this.getEngine()
-    if (!engine) return
-    renderProbe().setCause('ghost:dot')
-    this.ensureScoreDrawn(engine)
-    engine.renderScoreWithDotGhost(coords)
-  }
-
-  /** Render the score with a translucent ghost REST following the cursor — the preview for the armed
-   *  rest stamp. The ONLY stamp ghost with a value to show, and it reads it from the armed length
-   *  rather than the tool: a rest IS its duration + dots, and those are the note-entry fields the
-   *  duration/dot keys go on setting while the tool is live (see MARKING_TOOL_USES_ARMED_LENGTH). */
-  renderRestGhost(coords: { x: number; y: number }): void {
-    const engine = this.getEngine()
-    if (!engine) return
-    renderProbe().setCause('ghost:rest')
-    this.ensureScoreDrawn(engine)
-    engine.renderScoreWithRestGhost(coords, this.state.selectedDuration, this.state.selectedDots)
-  }
-
   /**
    * Draw the preview for WHATEVER is armed, at `coords` — the single answer to "what does the next
-   * click do?". A marking tool (clef / time signature / dynamic / tempo / the four stamps) previews
+   * click do?". A marking tool (clef / time signature / dynamic / tempo / the five stamps) previews
    * ITS mark and hides the keyboard cursor; with none armed it falls through to the ghost NOTE.
    *
    * Lives here, not in MouseController, because it is not a mouse gesture: it is a pure function of
-   * `state` over this class's own ghost methods. The mouse calls it on every move — but so does
-   * PaletteController the moment a tool is armed, which is what makes the ghost appear immediately
-   * on the keypress instead of waiting for the pointer to twitch. That symmetry is the whole point:
-   * arming and hovering must show the same thing, so they must go through the same function.
+   * `state`. The mouse calls it on every move — but so does PaletteController the moment a tool is
+   * armed, which is what makes the ghost appear immediately on the keypress instead of waiting for
+   * the pointer to twitch. That symmetry is the whole point: arming and hovering must show the same
+   * thing, so they must go through the same function.
+   *
+   * ⚠️ What is left here is the part that is the CONTROLLER's: hide the cursor, ask the census what
+   * this render was for, and make sure the score under the overlay is current before drawing on it.
+   * WHICH glyph is {@link toolGhost}'s answer and HOW it is drawn is `GHOST_DRAWERS`'s — this used
+   * to be a twelve-case switch over eleven `render*Ghost` methods of my own, each forwarding to a
+   * one-liner on `MusicEngine` and another on `VexFlowRenderer`
+   * (docs/modularity-plan-2026-07-28.md Phase 2).
    */
   renderToolGhost(coords: { x: number; y: number }): void {
     const tool = this.state.selectedMarkingTool
@@ -324,32 +215,19 @@ export class RenderController {
 
     // A marking tool previews ITSELF, never a ghost note — a ghost note here would say "the next
     // click enters a note", which is exactly what it will not do. The keyboard cursor hides for all
-    // of them. EXHAUSTIVE: a ninth tool fails to compile at assertNeverTool until it is drawn.
+    // of them, including the two that then draw nothing.
     this.state.showCursor = false
-    switch (tool.kind) {
-      case 'clef': this.renderClefGhost(coords, tool.clef); return
-      case 'timeSignature': this.renderTimeSignatureGhost(coords, tool.timeSignature); return
-      case 'dynamic': this.renderDynamicGhost(coords, tool.dynamic); return
-      // Click-to-type entry (expression Ctrl+E, tempo Ctrl+Alt+T): NO ghost. A blue cursor signals
-      // "click to place & type", so there is nothing to preview — skip the repaint the others do.
-      case 'dynamicEntry':
-      case 'tempoEntry': return
-      // The actual MARK ('Allegro (♩ = 120)'), so what you see is what gets engraved.
-      case 'tempo': this.renderTempoGhost(coords, tool.tempo); return
-      // Stacked, so the ghost reads as everything the click will stamp.
-      case 'articulation': this.renderArticulationGhost(coords, tool.types); return
-      case 'accidental': this.renderAccidentalGhost(coords, tool.sign); return
-      // Single-valued, and the MARK rather than the palette's picture — strokes or the Penderecki
-      // sign, both through the one modifier that engraves them.
-      case 'tremolo': this.renderTremoloGhost(coords, tool.tremolo); return
-      // The two valueless stamps carry nothing to preview: their ghost is the mark itself, and
-      // WHICH note it lands on is resolved at click time.
-      case 'tie': this.renderTieGhost(coords); return
-      case 'dot': this.renderDotGhost(coords); return
-      // The one stamp whose ghost carries a VALUE — the armed length, which is what a rest is.
-      case 'rest': this.renderRestGhost(coords); return
-      default: assertNeverTool(tool)
-    }
+
+    const ghost = toolGhost(tool, { duration: this.state.selectedDuration, dots: this.state.selectedDots })
+    // A tool with no preview (the click-to-type entry tools) draws nothing AND skips the repaint —
+    // the blue cursor is the signal, and there is nothing to put on the page.
+    if (!ghost) return
+
+    const engine = this.getEngine()
+    if (!engine) return
+    renderProbe().setCause(GHOST_CAUSE[ghost.kind])
+    this.ensureScoreDrawn(engine)
+    engine.renderScoreWithToolGhost(coords, ghost)
   }
 
   /** Render the score with a colored paste caret following the cursor (armed paste). */
