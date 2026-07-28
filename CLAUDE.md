@@ -6,13 +6,21 @@ This file provides guidance to Claude Code when working with this repository.
 
 - **Never commit or push without explicit permission.** Wait for the user to say "commit" or "push" before running git commit or git push commands.
 - **⭐ A new feature adds a MODULE. It does not add methods to `MusicEngine`, `ScoreModel` or
-  `VexFlowRenderer`.** The facade may gain a one-line delegation; the logic lives in a feature
-  module, in the style of `clefOps` / `tupletOps` / `rebarOps` / `TieRenderer` / `SlurRenderer` /
-  `FanPass` / `GhostRenderer` / `layout/barWidthRoom`. **And a SCORE operation goes in the core
-  (`engine/models/**`, `utils/**`, `types/**`), not on `MusicEngine`** — that is the *editor's*
-  facade (`docs/DESIGN-PRINCIPLES.md` §5). Lint cannot check this one: putting the logic in the
-  wrong layer imports nothing. See `docs/ARCHITECTURE.md` §"A new feature adds a MODULE" for the
-  measurement that made it a rule — extraction without it was undone in nine days.
+  `VexFlowRenderer` — nor a per-kind slice to `PaletteController`, `MouseController`,
+  `HighlightController`, `RenderController`, `keypadSync` or `devToolbar`.** The facade may gain a
+  one-line delegation; the logic lives in a feature module, in the style of `clefOps` / `markOps` /
+  `voiceOps` / `rebarOps` / `TieRenderer` / `FanPass` / `GhostRenderer` / `layout/barWidthRoom` /
+  `interactions/elements/*`. **A SLICE TOO THIN TO BE LOGIC IS STILL A SLICE**: if what you are
+  adding is the twelfth `case` in a family, add the twelfth *module* and a **row in its table** —
+  `ELEMENT_SPECS` + `ELEMENT_HIT_ORDER` (`interactions/elements/chain.ts`), `GHOST_DRAWERS` +
+  `ToolGhost` (`engine/rendering/`), `MARKING_TOOL_USES_ARMED_LENGTH`. **And a SCORE operation goes
+  in the core (`engine/models/**`, `utils/**`, `types/**`), not on `MusicEngine`** — that is the
+  *editor's* facade (`docs/DESIGN-PRINCIPLES.md` §5). Lint cannot check any of this: putting the
+  logic in the wrong layer imports nothing, and a slice in the wrong file imports exactly what it
+  would have imported from the right one. See `docs/ARCHITECTURE.md` §"A new feature adds a MODULE"
+  for the measurements that made it a rule — extraction without it was undone in nine days, and the
+  first version of the rule protected only the three files it named while the growth moved to the
+  five it did not.
 
 ## Project Overview
 

@@ -35,7 +35,9 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 │                               reactivity (emitting Proxy)      │
 │      ViewportHost ........... DOM ⇄ ViewportModel scroll/zoom  │
 │      shortcutWiring ......... keybindings → controller actions │
-│      MouseController ........ pointer gestures, ghost preview  │
+│      MouseController ........ pointer GESTURES + the pre-steps │
+│      elements/ .............. one module per selectable kind:   │
+│                               its hit-test + how it paints      │
 │      KeyboardController ..... letter/rest/chord note entry     │
 │      SelectionController .... the selection set + nav          │
 │      PaletteController ...... armed tool / duration / accid.   │
@@ -56,8 +58,9 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 │                              talks to; coordinates everything  │   services)
 │      NoteEntryCoordinator .. placement / overflow / tie-split  │
 │      models/ScoreModel ..... THE data model (see glossary)     │
-│      models/{clef,tuplet,rebar}Ops . delegated mutation        │
-│                              sub-APIs (free funcs over `score`) │
+│      models/{clef,tuplet,rebar,slur,override,mark,voice}Ops     │
+│                              delegated mutation sub-APIs —      │
+│                              free funcs over `score`            │
 │      models/CollisionDetector                                  │
 │      rendering/VexFlowRenderer ... notation → SVG (VexFlow 5)  │
 │      rendering/{FanPass,GhostRenderer,Tie…,Slur…} . draw       │
@@ -180,11 +183,16 @@ holds a *rule*, it is in the wrong file.
 ## ⭐ A new feature adds a MODULE
 
 > **A new feature adds a module. It does not add methods to `MusicEngine`,
-> `ScoreModel` or `VexFlowRenderer`.**
+> `ScoreModel` or `VexFlowRenderer` — nor a per-kind slice to `PaletteController`,
+> `MouseController`, `HighlightController`, `RenderController`, `keypadSync` or
+> `devToolbar`.**
 >
 > The facade may gain a one-line delegation. The logic lives in a feature module, in the style
-> of `clefOps` / `tupletOps` / `rebarOps` / `TieRenderer` / `SlurRenderer` / `FanPass` /
-> `GhostRenderer` / `layout/barWidthRoom`.
+> of `clefOps` / `markOps` / `voiceOps` / `rebarOps` / `TieRenderer` / `SlurRenderer` /
+> `FanPass` / `GhostRenderer` / `layout/barWidthRoom` / `interactions/elements/*`.
+>
+> **A slice too thin to be logic is still a slice.** If what you are adding is the twelfth
+> `case` in a family, add the twelfth *module* and a **row in its table**.
 >
 > **And a SCORE operation goes in the core, not on `MusicEngine`** — `engine/models/**`,
 > `utils/**`, `types/**`. `MusicEngine` is the *editor's* facade
@@ -201,6 +209,30 @@ Phase 6 then cut `VexFlowRenderer` 5,491 → 3,744 (the fan pass and the ghosts 
 and `MusicEngine` 3,696 → 3,256 (the bar-width and measured-room arithmetic). Those numbers are
 what the rule protects; without it they come back.
 
+**Why the clause now names eight files and not three** (`docs/modularity-plan-2026-07-28.md` §3,
+Phase 5). Measured across the window containing that whole pass: the three files the rule NAMED
+were cut, and one of them, `ScoreModel`, **grew anyway** — 3,009 → 3,637 — while
+`PaletteController`, which the rule did not name, put on 525 and `MouseController` 136. The rule
+was not being broken. It forbids putting *logic* in those files, and what lands there is not
+logic: it is one more `case`, one more accessor, one more press handler. **The tax is paid in
+slices too thin for the first clause to catch**, and a feature pays it into ten files at once — the
+fanned beam put 357 lines into two new modules and ~430 lines of wiring into ten shared ones.
+
+What changed in 2026-07-28's Phases 1–3 is that **there is now a table to put the row in.** The
+rule stops asking for restraint and starts describing the path of least resistance:
+
+| family | the module you add | the row(s) you add |
+|---|---|---|
+| a selectable on-score element | `interactions/elements/<kind>.ts` | `ELEMENT_SPECS` (total over the union) + a position in `ELEMENT_HIT_ORDER` (⭐ the order IS the answer to "who wins a press two glyphs both cover") |
+| a cursor ghost | a `draw*Ghost` in `GhostRenderer` | a `ToolGhost` member + a `GHOST_DRAWERS` row + a `toolGhost` case |
+| a marking tool | — | `EditorState.MarkingTool` + `MARKING_TOOL_USES_ARMED_LENGTH` |
+| a score mutation family | `engine/models/<topic>Ops.ts` | a one-line delegator on `ScoreModel` |
+
+And the counts after it: `ScoreModel` 3,637 → **2,699**, `MouseController` 2,566 → **2,198**,
+`RenderController` 360 → **222**, with 31 forwarding methods removed from the ghost pipeline.
+⚠️ `PaletteController` is **2,201 and untouched** — the one named file this pass did not reach,
+and therefore the honest test of whether the clause is read.
+
 **Why the second clause is not a style preference.** §5 of `DESIGN-PRINCIPLES.md` already forbids
 it and names the failure mode exactly: *"someone adds 'merge two passages' to `MusicEngine`
 because that is where the menu action lands. It works, ships, and is invisible."* What the
@@ -210,8 +242,11 @@ today a score operation on the facade is a style violation; once the core is pub
 
 ⚠️ **Lint cannot check this one.** `lint:boundary` makes the import *direction* mechanical, but
 putting the logic in the wrong layer imports nothing — a score operation written inside
-`MusicEngine` reaches for exactly the same modules it would reach for from the core. This clause
-is enforced in review, or not at all.
+`MusicEngine` reaches for exactly the same modules it would reach for from the core. The same is
+true of the slice clause, for the same reason: a twelfth `case` written into `MouseController`
+imports exactly what the twelfth module would have imported. Both are enforced in review, or not
+at all. What the tables buy is that the review has something to point at — "there is a row for
+this" is checkable by eye in a way that "this feels like a slice" is not.
 
 **What is NOT a violation:** a one-line delegation on the facade (that is the facade's job); a
 method whose subject genuinely is the class (`ScoreModel.getScore`, `VexFlowRenderer.clearGhosts`);
@@ -227,15 +262,16 @@ editor?"* — if yes, it is a core module.
 | The note/measure/score data, tie/slur preservation | `engine/models/ScoreModel.ts` |
 | Re-barring / paste — the region-rewrite pipeline (capture → relay → materialize → restore) | `engine/models/rebarOps.ts` (free funcs over `score` + a `RebarDeps` callback bundle; ScoreModel delegates) |
 | Clef / tuplet mutations (sibling delegated sub-APIs) | `engine/models/clefOps.ts` / `tupletOps.ts` |
+| Slurs / engraving-override WRITES / marks on a slot / voice moves | `engine/models/slurOps.ts` / `overrideOps.ts` / `markOps.ts` / `voiceOps.ts` — free functions over `score`, `ScoreModel` delegates. ⚠️ Override READS stay in `engravingOverrides.ts`, so the renderer (which holds a `Score`) cannot write one |
 | Placing a note (grid snap, overflow, cross-barline split) | `engine/NoteEntryCoordinator.ts` |
-| What a click/drag/pan *does* | `interactions/MouseController.ts` |
+| What a click/drag/pan *does* | `interactions/MouseController.ts` — the GESTURES (pan, box-select, the drags) and the pre-steps. ⭐ Which ELEMENT a press picks is not here: it is `interactions/elements/` and the chain it loops over |
 | Letter-key note entry, chord/rest entry | `interactions/KeyboardController.ts` |
 | The selection set, multi-select, keyboard nav | `interactions/SelectionController.ts` |
 | Which tool/duration/accidental is armed | `interactions/PaletteController.ts` |
 | Adding a 9th marking tool (clef/dynamic/stamp/…) | `EditorState.MarkingTool` + build: the compiler names every site — see `docs/marking-tools.md` |
-| Adding a selectable on-score element (a new thing a click can pick) | `EditorState.SelectedElement` + build: `assertNeverElement` names every site — the highlight pass (`RenderController`), Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`) |
+| Adding a selectable on-score element (a new thing a click can pick) | ⭐ ONE new module: `interactions/elements/<kind>.ts` (its hit-test AND how it paints), a row in `ELEMENT_SPECS` and — if a press can land on it — a position in `ELEMENT_HIT_ORDER` (`elements/chain.ts`; the ORDER is the content, and `chain.test.ts` pins it). Then `EditorState.SelectedElement` + build: `assertNeverElement` still names the two sites that stay switches, Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`) |
 | How notation is drawn to SVG | `engine/rendering/VexFlowRenderer.ts` — the pass ORDER and the per-bar work. One family per module beside it, each a free function over `RenderPass`: `TieRenderer`, `SlurRenderer`, `DynamicsLayout`, `TempoLayout`, `FanPass`, `GhostRenderer`. ⭐ A new drawn family joins that list; it does not join the renderer |
-| A cursor GHOST (the translucent preview an armed tool shows) | `engine/rendering/GhostRenderer.ts`. `VexFlowRenderer.ghostOverlay` frames every one: take the last ghost down, refuse if there is no page. ⚠️ A ghost's class must be in `GHOST_GROUP_SELECTOR` or it is never removed and smears a trail |
+| A cursor GHOST (the translucent preview an armed tool shows) | `engine/rendering/GhostRenderer.ts` — a `draw*Ghost`, a `ToolGhost` member (`ghostTypes.ts`), a `GHOST_DRAWERS` row, and a case in `interactions/toolGhost.ts`. ⚠️ The payload is ENGINE-owned, never the editor's `MarkingTool`: `lint:boundary` fences `src/engine/**` off from `@/interactions`. `VexFlowRenderer.ghostOverlay` frames every one: take the last ghost down, refuse if there is no page. ⚠️ A ghost's class must be in `GHOST_GROUP_SELECTOR` or it is never removed and smears a trail |
 | How far a column / a bar may still be squeezed | `engine/layout/measuredRoom.ts` — MEASURED off the last render through `ElementRegistry`, never predicted. ⚠️ The caller owns the staleness rule (`modelDirty` ⇒ decline): a fresh number against an old picture slides the floor one step per press |
 | What a bar-width gesture may do (slopes, floors, the ceiling) | `engine/layout/barWidthRoom.ts` — a PURE function of the casting-off + the stored stretch + the view mode + one measured slack, so `docs/bar-width-plan.md` §4–§5 can be stated in a unit test |
 | Marking something as selected on screen | `interactions/HighlightController.ts` — ⭐ **PAINT a mark (`addNode`), don't recolour engraved ink.** A recolour inherits every renderer detail: how many elements a mark is made of, which group owns them, and whether their coordinates are still true (a REUSED measure carries a `translate`, so its rects' own x is stale). See `docs/barline-selection.md` §3 for the four bugs that came of it |

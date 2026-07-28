@@ -615,6 +615,28 @@ wrong file imports exactly what it would have imported from the right one. It is
 or not at all. What Phases 1–2 change is that after them **there is a table to add the row to** — the
 rule stops asking for restraint and starts describing the path of least resistance.
 
+### ✅ Done 2026-07-28 — and the tables are named, not just the files
+
+`CLAUDE.md` §Important Rules and `ARCHITECTURE.md` §"A new feature adds a MODULE" now carry the
+extended clause: eight files, `RenderController` added to the plan's five because Phase 2 found it
+holding eleven ghost methods of pure forwarding. Three things went in beyond the wording above:
+
+- **The measurement that justifies the extension**, in `ARCHITECTURE.md` — the three named files
+  were cut and one of them (`ScoreModel`) grew anyway, while the unnamed `PaletteController` put on
+  525. The rule was not being broken; what lands in those files is not logic, so the first clause
+  never reached it.
+- **A table of which table to add the row to** — element / ghost / marking tool / score mutation,
+  each with its module and its row(s). That is the part that makes the clause actionable: *"there is
+  a row for this"* is checkable by eye in a way that *"this feels like a slice"* is not.
+- **The "Where does X live?" rows refreshed**, because three of them had just been made stale by
+  this pass — the selectable-element row, the ghost row and the mouse row now describe the tables
+  rather than the switches they replaced. A repo-fact comment that survives the change it describes
+  is the failure mode `docs/refactor-plan-2026-07-27.md` Phase 0c exists to prevent.
+
+⚠️ Left standing deliberately: **`PaletteController` is 2,201 lines and this pass did not touch
+it.** It is the one file named by the new clause that has no table yet — so it is the honest test of
+whether the clause gets read, and the obvious first candidate if a further pass is ever wanted.
+
 ---
 
 ## Sequence, and what each phase is worth
@@ -626,7 +648,13 @@ rule stops asking for restraint and starts describing the path of least resistan
 | 1 | element-kind table | 1 day | medium | **~570** lines, 2 files | a new selectable element = 1 file + 2 rows |
 | 3 | `ScoreModel` `*Ops` | 1 day | low | 4 clusters, **sized once named** | the next model feature |
 | 4 | adjustment gesture | spike | **high** | ✅ spiked → **nothing**, as predicted | — (closed: the gesture is not one gesture) |
-| 5 | rule extension | 15 min | none | — | all of the above staying done |
+| 5 | rule extension | 15 min | none | ✅ done — 8 files named, + the table of tables | all of the above staying done |
+
+**✅ ALL PHASES CLOSED 2026-07-28.** 0 `18a9aee` → 2 `8971f09` → 1 `7a8bc4d` → 3 `a48c75f` →
+4 `47d2b13` (spiked to "no") → 5. Net: `ScoreModel` 3,637 → 2,699, `MouseController` 2,566 → 2,198,
+`RenderController` 360 → 222, `VexFlowRenderer` 3,744 → 3,696, `MusicEngine` 3,256 → 3,218; 31
+forwarding methods and 12 mousedown handlers gone; 24 new modules. 2,564 tests green throughout
+(2,546 at the baseline + 18 new), 23 E2E green, `build:check` clean at every phase.
 
 **`AMENDED` — order is now 0 → 2 → 1 → 3 → 4 (spike) → 5.** Phase 0 is free and unblocks the rest.
 Phases 1 and 2 are the same idea at two sizes, and **2 goes first**: it is half the effort, fully
