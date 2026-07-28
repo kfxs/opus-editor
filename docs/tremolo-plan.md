@@ -650,8 +650,13 @@ box-select/pan. P5 is the pointer half of a registration that already existed.
 ### The rule: BOTH are ink, and the mark wins only inside its own boundaries
 
 ```
-handleTremoloMouseDown  →  handleStemMouseDown  →  handleBarlineMouseDown  →  note / empty space
+tremolo  →  stem  →  barline  →  note / empty space
 ```
+
+*(2026-07-28: these were `handleTremoloMouseDown` / `handleStemMouseDown` / `handleBarlineMouseDown`
+on `MouseController`. They are now three consecutive entries in `ELEMENT_HIT_ORDER`
+— `interactions/elements/chain.ts` — one module per kind. The order and the reasoning below are
+unchanged; `elements/chain.test.ts` pins the order.)*
 
 - Each handler stands down for a press the **notehead** owns (`hitsNoteOrRestBody` first), so neither
   can steal a click on the note. The head and the stem's lower end genuinely overlap; the head keeps

@@ -1,7 +1,8 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
-import { activeVoiceToModel, assertNeverElement } from './EditorState'
+import { activeVoiceToModel } from './EditorState'
 import { toolGhost, GHOST_CAUSE } from './toolGhost'
+import { ELEMENT_SPECS } from './elements/chain'
 import type { HighlightController } from './HighlightController'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 import { renderProbe } from '../engine/RenderProbe' // P0 instrument seam — temporary, see §8
@@ -37,42 +38,25 @@ export class RenderController {
   /**
    * Paint whatever the ONE selected element is — and nothing else.
    *
-   * ⭐ **This `switch` is the exhaustiveness point.** It used to be thirteen unconditional calls,
-   * each re-reading its own `selected*Id` field and returning immediately when that field was
-   * null; a fourteenth element kind could be added, selected, and simply never drawn, with nothing
-   * to say so. Now {@link assertNeverElement} means a new kind fails to BUILD until someone
-   * decides how it is highlighted — the same guarantee {@link assertNeverTool} gives the marking
-   * tools.
+   * ⭐ **The exhaustiveness point.** This used to be thirteen unconditional calls, each re-reading
+   * its own `selected*Id` field and returning immediately when that field was null; a fourteenth
+   * element kind could be added, selected, and simply never drawn, with nothing to say so. It
+   * became a `switch` with {@link assertNeverElement}, and is now a lookup in
+   * {@link ELEMENT_SPECS} — a Record TOTAL over the union, so the guarantee is the same (a
+   * fifteenth kind fails to BUILD until it says how it paints) and the answer now sits in the
+   * kind's OWN module beside its hit-test, rather than in a switch here that has to be kept in
+   * step with one over there (docs/modularity-plan-2026-07-28.md Phase 1).
    *
-   * Only one branch can run, so the order within the switch means nothing (it used to: thirteen
-   * fields could in principle all be set). The two `break`s that paint nothing new are deliberate:
-   * a selected dynamic and a selected slur already had their INK painted by the set passes above,
-   * and what the element selection adds is the extra affordance (the anchor line, the drag
-   * handles) that only the single-click selection gets.
+   * Only one row can run, so their order means nothing (it used to: thirteen fields could in
+   * principle all be set). The rows that paint nothing new are deliberate, and say so where they
+   * are written: a selected dynamic, slur or articulation already had its INK painted by the set
+   * passes above, and what the element selection adds is the extra affordance — the anchor line,
+   * the drag handles — that only the single-click selection gets.
    */
   private applySelectedElementHighlight(): void {
     const element = this.state.selectedElement
     if (!element) return
-    switch (element.kind) {
-      case 'measureRange': this.highlight.applyMeasureBox(); break
-      case 'accidental': this.highlight.applyAccidentalHighlight(); break
-      case 'dot': this.highlight.applyDotHighlight(); break
-      case 'stem': this.highlight.applyStemHighlight(); break
-      case 'tremolo': this.highlight.applyTremoloHighlight(); break
-      case 'tuplet': this.highlight.applyTupletSelectionHighlight(); break
-      case 'tie': this.highlight.applyTieHighlight(); break
-      case 'clef': this.highlight.applyClefSelectionHighlight(); break
-      case 'timeSignature': this.highlight.applyTimeSignatureSelectionHighlight(); break
-      case 'barline': this.highlight.applyBarlineSelectionHighlight(); break
-      case 'tempo': this.highlight.applyTempoSelectionHighlight(); break
-      // The mark is already coloured above; the anchor line is the single-click extra.
-      case 'dynamic': this.highlight.applyDynamicAnchorLine(); break
-      // The arc is already coloured above; the handles are the single-click extra.
-      case 'slur': this.highlight.applySlurHandles(); break
-      // Painted above, from the set — the element is only the anchor.
-      case 'articulation': break
-      default: assertNeverElement(element)
-    }
+    ELEMENT_SPECS[element.kind].highlight(this.highlight)
   }
 
   /**

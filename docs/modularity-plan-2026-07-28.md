@@ -285,6 +285,48 @@ handle, staff spacing) run **before** the `selectedElement = null` clear and mus
 chain — they are gestures, not kinds. Keep them as they are. They are also why `tuplet`,
 `measureRange` and the slur handles have no `ELEMENT_HIT_ORDER` entry.
 
+### ✅ Done 2026-07-28 — both tables, and one deviation
+
+2,564 tests green (7 new), 23 E2E green, `build:check` clean. **`MouseController` 2,566 → 2,198**
+(−368); `RenderController` 238 → 222, its 24-line switch now one line. 14 kind modules + `chain.ts`
+in `interactions/elements/`, 720 lines.
+
+⚠️ **State the cost honestly: the tree gained ~330 lines.** 392 moved out of the two controllers and
+720 arrived, because each kind module opens with a doc block saying what that kind IS and why it
+sits where it does in the chain — prose that was previously implied by a method's position in a
+2,566-line file. The plan's ~570 was a guess at the move; the move was 392. What was bought is not
+fewer lines, it is that a kind is now in ONE place: `elements/dot.ts` is the whole answer to "what
+does a press on a dot do, and what does a selected dot look like?", where that answer used to be a
+hit-test at line 1369, a highlight case at `RenderController:61`, a Delete case at
+`shortcutWiring:394` and a report case in `selectionSnapshot`.
+
+- **`ELEMENT_HIT_ORDER`** — 12 entries, in the order the twelve `if (…) return`s had, with their
+  ordering comments carried in verbatim. `handleMouseDown`'s chain is now a `for` loop; the twelve
+  bodies that used to sit four hundred lines below it are each in their kind's own module.
+- **`ELEMENT_SPECS`** — total over the fourteen kinds, replacing `applySelectedElementHighlight`'s
+  switch. Each spec carries its own `kind`, which is what lets the ORDER be pinned by a test
+  (`elements/chain.test.ts`) — nothing in the type system stops a reorder, and a reorder is exactly
+  what would silently make the stem unclickable on a tremolo'd note.
+- **The shared tail is written once** (`deps.pick`): clear the note selection, become the one
+  selected element, repaint. ⚠️ It takes an optional `arm` that runs BETWEEN the assignment and the
+  repaint — the assignment fires `EditorState`'s Proxy, so the clef and barline drags have to arm on
+  the same side of their subscribers as before. `handleArticulationMouseDown`'s different tail is
+  `pickArticulationGroup`, exactly as the amendment predicted.
+- **`articulationHit` moved to `elements/articulation.ts`** and is imported back by the Ctrl-click
+  multi-select pre-step — the two must agree about what "on an articulation" means, and now there is
+  one test to agree with.
+- **The `apply*Highlight` bodies stayed in `HighlightController`**, per the amendment. What moved is
+  the dispatch.
+
+🚨 **Deviation, deliberate: `delete?` is NOT a row.** The plan sketched
+`delete?(engine, el): boolean` on `ElementSpec`. Read against the code that signature does not fit
+and the move is not worth making: the Delete bodies need the engine, the state, the selection AND
+the multi-select set (Delete on a measure box runs a batch over the dynamics and slurs the box
+pulled in), and each is 5–20 lines of real per-kind reasoning rather than a slice. Same for
+`selectionSnapshot`'s report switch. The claimed win was "one site instead of three that must
+agree" — but they do not have to agree, they answer three different questions, and each is already
+exhaustive at one site via `assertNeverElement`. Both stay switches; `chain.ts` says why.
+
 ---
 
 ## Phase 2 — Collapse the ghost pipeline *(≈half a day)*

@@ -15,6 +15,8 @@ import { DynamicTextSource } from './DynamicTextSource'
 import { fracToNumber, fracEq } from '../utils/fraction'
 import { dynamicTextFromTool, DEFAULT_DYNAMIC_TEXT } from '../utils/dynamics'
 import { staffOf } from '@/utils/lanes'
+import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
+import { articulationHit } from './elements/articulation'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
  *  edit box opens blank over it and an empty commit deletes it, so it is never actually seen. */
 const DEFAULT_TEMPO_TEXT = 'Tempo'
@@ -32,34 +34,6 @@ const MEASURE_BOX_IGNORE_TYPES = new Set<ElementType>(['staff', 'barline', 'beam
  *  (HighlightController.applyMeasureBox), so "click where the box would be → select"; a click
  *  in the GAP between two staves falls outside every band and selects nothing. */
 const STAFF_BAND_PAD_PX = 12
-
-/** Shortest distance from point (px,py) to the line segment a→b (clamped to the
- *  segment, so endpoints don't over-grab). Used for arc-proximity slur hit-testing. */
-function distToSegment(
-  px: number, py: number,
-  a: { x: number; y: number }, b: { x: number; y: number },
-): number {
-  const dx = b.x - a.x, dy = b.y - a.y
-  const lenSq = dx * dx + dy * dy
-  if (lenSq === 0) return Math.hypot(px - a.x, py - a.y)
-  let t = ((px - a.x) * dx + (py - a.y) * dy) / lenSq
-  t = Math.max(0, Math.min(1, t))
-  return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy))
-}
-
-/**
- * Resolved targets for one selection-tool mousedown, computed once and shared by the
- * per-gesture `handle*MouseDown` methods so they don't each re-hit-test.
- */
-interface MouseDownCtx {
-  event: MouseEvent
-  engine: MusicEngine
-  registry: ElementRegistry
-  x: number
-  y: number
-  closestElement: ElementInfo | null
-  tupletAtClick: ElementInfo | null
-}
 
 /**
  * Handles all mouse interactions: clicks, drags, ghost-note preview.
@@ -483,34 +457,93 @@ export class MouseController {
     this.clipboard.pasteAt(measure, beat, staff)
   }
 
-  // --- Mouse handlers ---
+  /**
+   * What the per-kind hit-tests in `elements/` are allowed to do besides answering "mine" — the
+   * shared tail, the two drags they may arm, and the double-click editors. Built once: a press
+   * hands the same object to every entry in {@link ELEMENT_HIT_ORDER}.
+   *
+   * ⭐ `pick` IS the tail eleven of the twelve handlers used to end in — clear the whole NOTE
+   * selection (the multi-select Map drives the note highlight, not just `selectedNoteId`), make
+   * this the ONE selected element, repaint. Written once here instead of eleven times there.
+   */
+  private readonly elementDeps: ElementChainDeps = {
+    pick: (element, arm) => {
+      this.selection.selectNote(null)
+      this.state.selectedElement = element
+      arm?.()
+      this.render.renderScore()
+      return true
+    },
+    pickArticulationGroup: (noteId) => {
+      this.selection.selectArticulation(noteId)
+      this.render.renderScore()
+      return true
+    },
+    armClefDrag: (clef, event) => this.armClefDrag(clef, event),
+    armBarWidthDrag: (measure, x) => {
+      const engine = this.getEngine()
+      if (engine) this.armBarWidthDrag(engine, measure, x)
+    },
+    isDoubleClick: (mark, id) => this.pressIsDoubleClick(mark, id),
+    openEditor: (mark, id) => {
+      if (mark === 'tempo') this.openTempoTextEditor(id, false)
+      else this.openTextEditor(id, false)
+    },
+  }
 
   /**
-   * Resolve the articulation under (x, y), or null. An accent/staccato/tenuto glyph
-   * sits right against its note head, and the padded bbox can cover the head too — so
-   * a click aimed at the note would be "stolen" by the articulation. We only take the
-   * articulation when the click is genuinely closer to the glyph than to the nearest
-   * note/rest; otherwise the caller falls through to note selection.
+   * Arm the horizontal drag for a MOVABLE clef (every clef except the big line-start one),
+   * recovering the exact `Fraction` beat from the model — the pixel beat on the registry entry is
+   * rounded, and a drag has to move the real change.
+   *
+   * Freezes line breaks so sliding the clef re-pitches notes without reflowing the score; we settle
+   * the layout on drop.
    */
-  private articulationHit(
-    x: number, y: number, closestElement: ElementInfo | null, registry: ElementRegistry,
-  ): ElementInfo | null {
-    const artPad = 8
-    const articulationAt = registry.getByType('articulation').find(el => {
-      const b = el.bbox
-      return x >= b.x - artPad && x <= b.x + b.width + artPad && y >= b.y - artPad && y <= b.y + b.height + artPad
-    }) ?? null
-    if (!articulationAt?.noteId) return null
-    const artCx = articulationAt.bbox.x + articulationAt.bbox.width / 2
-    const artCy = articulationAt.bbox.y + articulationAt.bbox.height / 2
-    const artDist = Math.sqrt((x - artCx) ** 2 + (y - artCy) ** 2)
-    const noteDist = closestElement && closestElement.id
-      ? registry.noteOrRestHitDistance(closestElement, x, y)
-      : Infinity
-    if (artDist <= noteDist) return articulationAt
-    dbg(`· Articulation skipped — note closer (artDist:${artDist.toFixed(1)} > noteDist:${noteDist.toFixed(1)})`)
-    return null
+  private armClefDrag(clefAt: ElementInfo, event: MouseEvent): void {
+    if (clefAt.immovable || clefAt.measure === undefined) return
+    const engine = this.getEngine()
+    if (!engine) return
+    const measure = engine.getScore().measures.find(m => m.number === clefAt.measure)
+    const approxBeat = clefAt.beat ?? 0
+    const change = measure?.clefs?.find(c => Math.abs(fracToNumber(c.beat) - approxBeat) < 1e-6)
+    if (!change) return
+    this.isDraggingClef = true
+    this.draggedClefMeasure = clefAt.measure
+    this.draggedClefBeat = change.beat
+    this.draggedClefStartMeasure = clefAt.measure
+    this.draggedClefStartBeat = change.beat
+    this.clefDragStartTime = Date.now()
+    engine.setLayoutFrozen(true)
+    engine.setDraggingClef({ measure: clefAt.measure, beat: change.beat })
+    event.preventDefault()
   }
+
+  /**
+   * Record this press on a tempo mark / dynamic and answer whether it was the SECOND on the same
+   * one inside the double-click window, consuming the pair when it was (so a third click is not
+   * another double).
+   *
+   * ⚠️ Manual, not the native `dblclick` event: selecting re-renders the score on every mousedown,
+   * which swaps the SVG nodes, so the two clicks land on different element instances and the
+   * browser never fires it.
+   */
+  private pressIsDoubleClick(mark: 'tempo' | 'dynamic', id: string): boolean {
+    const now = Date.now()
+    const lastId = mark === 'tempo' ? this.lastTempoDownId : this.lastDynamicDownId
+    const lastTime = mark === 'tempo' ? this.lastTempoDownTime : this.lastDynamicDownTime
+    const isDouble = lastId === id && (now - lastTime) < this.DOUBLE_CLICK_MS
+    const keptId = isDouble ? null : id // consume, so a 3rd click isn't another double
+    if (mark === 'tempo') {
+      this.lastTempoDownId = keptId
+      this.lastTempoDownTime = now
+    } else {
+      this.lastDynamicDownId = keptId
+      this.lastDynamicDownTime = now
+    }
+    return isDouble
+  }
+
+  // --- Mouse handlers ---
 
   handleMouseDown(event: MouseEvent): void {
     // Primary button only. A right-click is not an editing gesture — it opens the context menu
@@ -571,32 +604,14 @@ export class MouseController {
     // to agree (it was the one missing the accidental, articulation, dot, stem and tremolo).
     this.state.selectedElement = null
 
-    // Single-click element hit-tests, in priority order. Each returns true if it
-    // consumed the press; otherwise we fall through to the next kind.
-    if (this.handleClefMouseDown(ctx)) return
-    if (this.handleTimeSignatureMouseDown(ctx)) return
-    if (this.handleTempoMouseDown(ctx)) return
-    if (this.handleDynamicMouseDown(ctx)) return
-    if (this.handleTieMouseDown(ctx)) return
-    if (this.handleSlurMouseDown(ctx)) return
-    if (this.handleAccidentalMouseDown(ctx)) return
-    if (this.handleArticulationMouseDown(ctx)) return
-    // Dots last of the sub-elements: they sit right beside the notehead, so a dot must never win a
-    // press that a neighbouring glyph could claim. It still precedes the note itself — a dot's box
-    // is outside the head, so it can only take clicks that would otherwise select the note.
-    if (this.handleDotMouseDown(ctx)) return
-    // The stem after every glyph that can sit ON it (articulations and dots at the tip, an arc
-    // crossing it) and before the barline, whose pad reaches into the bar's last column. Its own
-    // handler stands down for a press the notehead owns.
-    //
-    // The tremolo goes immediately before it: the mark is drawn on the stem, so it wins inside its
-    // own ink and the stem keeps the rest of its length.
-    if (this.handleTremoloMouseDown(ctx)) return
-    if (this.handleStemMouseDown(ctx)) return
-    // The barline last of all: its box has to be padded to be clickable at 4px, and that pad
-    // reaches into the last column of the bar — so every glyph that could own the click gets
-    // asked first, and the note itself is guarded for inside the handler.
-    if (this.handleBarlineMouseDown(ctx)) return
+    // Single-click element hit-tests, in priority order — one entry per selectable kind, each
+    // consuming the press or declining it. ⭐ THE ORDER IS THE CONTENT and it lives in
+    // {@link ELEMENT_HIT_ORDER}, with the comments that argue it: the dot before the note, the
+    // tremolo before the stem, the barline last of all. Twelve `if`s here, and twelve bodies four
+    // hundred lines below, said the same thing in two places that could disagree.
+    for (const element of ELEMENT_HIT_ORDER) {
+      if (element.hit(ctx, this.elementDeps)) return
+    }
     this.handleNoteOrEmptyMouseDown(ctx)
   }
 
@@ -651,7 +666,7 @@ export class MouseController {
     // before notes since a glyph sits right on its note head; Shift-range isn't
     // supported for articulations yet, so only `additive` arms this path.
     if (additive) {
-      const artHit = this.articulationHit(x, y, closestElement, registry)
+      const artHit = articulationHit(x, y, closestElement, registry)
       if (artHit?.noteId) {
         this.selection.toggleArticulation(artHit.noteId)
         dbg(`✓ Articulation group toggled in selection | noteId:${artHit.noteId} | size:${this.state.selectedItems.size}`)
@@ -956,98 +971,6 @@ export class MouseController {
     return true
   }
 
-  /** Select a clef glyph for removal, and arm a horizontal drag for movable clefs. */
-  private handleClefMouseDown(ctx: MouseDownCtx): boolean {
-    const { engine, event, registry, x, y } = ctx
-    // Clef change selection — click a clef glyph to select it for removal.
-    const clefAt = registry.getByType('clef').find(el => {
-      const b = el.bbox
-      return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
-    }) ?? null
-    if (clefAt?.measure === undefined) return false
-
-    this.selection.selectNote(null)
-    this.state.selectedElement = {
-      kind: 'clef', measure: clefAt.measure, beat: clefAt.beat ?? 0, staff: staffOf(clefAt),
-    }
-    const isProtected = clefAt.measure === 1 && (clefAt.beat ?? 0) === 0
-    dbg(`✓ Clef selected | measure:${clefAt.measure} beat:${clefAt.beat ?? 0}${isProtected ? ' (measure 1 opening: change only, cannot remove)' : ''}`)
-
-    // Arm horizontal dragging for movable clefs (every clef except the big
-    // line-start one). Recover the exact Fraction beat from the model.
-    if (!clefAt.immovable) {
-      const measure = engine.getScore().measures.find(m => m.number === clefAt.measure)
-      const approxBeat = clefAt.beat ?? 0
-      const change = measure?.clefs?.find(c => Math.abs(fracToNumber(c.beat) - approxBeat) < 1e-6)
-      if (change) {
-        this.isDraggingClef = true
-        this.draggedClefMeasure = clefAt.measure
-        this.draggedClefBeat = change.beat
-        this.draggedClefStartMeasure = clefAt.measure
-        this.draggedClefStartBeat = change.beat
-        this.clefDragStartTime = Date.now()
-        // Freeze line breaks so sliding the clef re-pitches notes without
-        // reflowing the score; we settle the layout on drop.
-        engine.setLayoutFrozen(true)
-        engine.setDraggingClef({ measure: clefAt.measure, beat: change.beat })
-        event.preventDefault()
-      }
-    }
-    this.render.renderScore()
-    return true
-  }
-
-  /** Select a time-signature glyph for removal. */
-  private handleTimeSignatureMouseDown(ctx: MouseDownCtx): boolean {
-    const { registry, x, y } = ctx
-    // Time-signature selection — click the TS glyph to select it for removal.
-    // The TS column sits to the right of the clef (no overlap), and the glyph is
-    // only registered where it's drawn (measure 1 + change measures).
-    const timeSigAt = registry.getByType('timeSignature').find(el => {
-      const b = el.bbox
-      return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
-    }) ?? null
-    if (timeSigAt?.measure === undefined) return false
-
-    this.selection.selectNote(null)
-    this.state.selectedElement = { kind: 'timeSignature', measure: timeSigAt.measure }
-    const isDefault = timeSigAt.measure === 1
-    dbg(`✓ Time signature selected | measure:${timeSigAt.measure}${isDefault ? ' (measure 1 default: delete hides the glyph, meter kept)' : ' (delete reverts to prior meter + rebars)'}`)
-    this.render.renderScore()
-    return true
-  }
-
-  /**
-   * Select the barline that ENDS a measure.
-   *
-   * Registered per (measure, staff) — the ink is drawn once per staff — but selected as ONE
-   * system-wide thing (the `barline` element kind), so whichever staff the click lands on, the
-   * whole line is what gets picked. See {@link SelectedElement} for why that is the identity.
-   */
-  private handleBarlineMouseDown(ctx: MouseDownCtx): boolean {
-    const { registry, x, y, closestElement } = ctx
-    // The registered box is 4px wide (it straddles the drawn line) — not a clickable target on its
-    // own, so widen it horizontally. NOT vertically: the box is exactly the five staff lines, and a
-    // click in the gap between two staves is on no barline at all.
-    const pad = 4
-    const barlineAt = registry.getByType('barline').find(el => {
-      const b = el.bbox
-      return x >= b.x - pad && x <= b.x + b.width + pad && y >= b.y && y <= b.y + b.height
-    }) ?? null
-    if (barlineAt?.measure === undefined) return false
-
-    // Never steal a click that lands on a note/rest body — the bar's last column sits close to the
-    // barline, and the pad above reaches into it.
-    if (closestElement && registry.hitsNoteOrRestBody(closestElement, x, y)) return false
-
-    this.selection.selectNote(null)
-    this.state.selectedElement = { kind: 'barline', measure: barlineAt.measure }
-    this.armBarWidthDrag(ctx.engine, barlineAt.measure, x)
-    dbg(`✓ Barline selected | ends measure:${barlineAt.measure}`)
-    this.render.renderScore()
-    return true
-  }
-
   /**
    * Arm a bar-width drag on the grabbed barline: capture the room ONCE, off the last render
    * (docs/bar-width-plan.md §4–§6). Everything the gesture needs is fixed at this moment — the
@@ -1161,49 +1084,6 @@ export class MouseController {
     this.barWidthDragLineKey = null
   }
 
-  /**
-   * Select a tempo mark (above the staff) for removal. A tempo mark is system-level, so
-   * this is NOT scoped to the clicked staff — the mark is drawn once, above the top staff.
-   */
-  private handleTempoMouseDown(ctx: MouseDownCtx): boolean {
-    const { registry, x, y, closestElement } = ctx
-    const pad = 6
-    const tempoAt = registry.getByType('tempo').find(el => {
-      const b = el.bbox
-      return x >= b.x - pad && x <= b.x + b.width + pad
-        && y >= b.y - pad && y <= b.y + b.height + pad
-    }) ?? null
-    if (!tempoAt?.id) return false
-
-    // Never steal a click that lands on a note/rest body — a high note can sit under the
-    // mark's padded box (it is engraved on a fixed line above the staff).
-    if (closestElement && registry.hitsNoteOrRestBody(closestElement, x, y)) return false
-
-    // Double-click → edit the whole mark in place, as one string ('Allegro (♩ = 144)'). The
-    // model is read back out of what was typed — see TempoTextSource / utils/tempoText.
-    const now = Date.now()
-    const isDoubleClick = this.lastTempoDownId === tempoAt.id
-      && (now - this.lastTempoDownTime) < this.DOUBLE_CLICK_MS
-    this.lastTempoDownId = tempoAt.id
-    this.lastTempoDownTime = now
-
-    if (isDoubleClick) {
-      this.lastTempoDownId = null // consume, so a 3rd click isn't another double
-      // Stop the browser's default mousedown focus/selection — it would steal focus back
-      // from the overlay right after we focus it, and typing would go nowhere.
-      ctx.event.preventDefault()
-      dbg(`✓ Editing tempo mark | id:${tempoAt.id}`)
-      this.openTempoTextEditor(tempoAt.id, false)
-      return true
-    }
-
-    this.selection.selectNote(null)
-    this.state.selectedElement = { kind: 'tempo', id: tempoAt.id }
-    dbg(`✓ Tempo mark selected | id:${tempoAt.id}`)
-    this.render.renderScore()
-    return true
-  }
-
   /** Open the in-canvas text overlay over a tempo mark — the WHOLE mark, `Allegro (♩ = 144)`,
    *  as one editable string (TempoTextSource parses the model back out of it). `seedText` opens the
    *  box with different initial text than the model holds — `''` for the blank Ctrl+Alt+T flow. */
@@ -1255,254 +1135,6 @@ export class MouseController {
     this.render.renderScore()
     this.openTempoTextEditor(created.id, true, '')
     dbg(`✓ Insert tempo on selection: measure ${note.measure} beat ${fracToNumber(note.beat).toFixed(3)} (note ${noteId})`)
-  }
-
-  /** Select a dynamic mark for removal, or open the text editor on a double-click. */
-  private handleDynamicMouseDown(ctx: MouseDownCtx): boolean {
-    const { engine, event, registry, x, y, closestElement } = ctx
-    // Dynamic selection — click a dynamic mark (below the staff) to select it for
-    // removal. Small pad makes the small glyph/text easier to hit.
-    const dynPad = 6
-    const dynamicAt = registry.getByType('dynamic').find(el => {
-      const b = el.bbox
-      return x >= b.x - dynPad && x <= b.x + b.width + dynPad
-        && y >= b.y - dynPad && y <= b.y + b.height + dynPad
-    }) ?? null
-    if (!dynamicAt?.id) return false
-
-    // A dynamic's padded hit-box can overlap a notehead/rest; never let it steal a
-    // click that actually lands on a note/rest body — the note is the intended target.
-    if (closestElement && registry.hitsNoteOrRestBody(closestElement, x, y)) return false
-
-    // Manual double-click detection: a second mousedown on the SAME dynamic within
-    // the threshold opens the in-canvas text editor. We can't use the native
-    // `dblclick` event here because selecting re-renders the score on every
-    // mousedown, swapping the SVG nodes — so the two clicks land on different
-    // element instances and the browser never fires dblclick.
-    const now = Date.now()
-    const isDoubleClick = this.lastDynamicDownId === dynamicAt.id
-      && (now - this.lastDynamicDownTime) < this.DOUBLE_CLICK_MS
-    this.lastDynamicDownId = dynamicAt.id
-    this.lastDynamicDownTime = now
-
-    if (isDoubleClick) {
-      const dyn = engine.getDynamicById(dynamicAt.id)
-      if (dyn) {
-        // Any dynamic is editable — a level ('p'/'f') seeds the editor with its
-        // letters, custom text with its text (expression == dynamic, Step 1).
-        this.lastDynamicDownId = null // consume, so a 3rd click isn't a double
-        // Stop the browser's default mousedown focus/selection — otherwise it
-        // steals focus back from the overlay right after we focus it, and typing
-        // goes nowhere.
-        event.preventDefault()
-        dbg(`✓ Editing dynamic | id:${dynamicAt.id}`)
-        this.openTextEditor(dynamicAt.id, false)
-        return true
-      }
-    }
-
-    this.selection.selectNote(null)
-    this.state.selectedElement = { kind: 'dynamic', id: dynamicAt.id }
-    dbg(`✓ Dynamic selected | id:${dynamicAt.id}`)
-    this.render.renderScore()
-    return true
-  }
-
-  /** Select a tie arc for removal. */
-  private handleTieMouseDown(ctx: MouseDownCtx): boolean {
-    const { registry, x, y } = ctx
-    const tiePad = 6
-    const tieAt = registry.getByType('tie').find(el => {
-      const b = el.bbox
-      return x >= b.x - tiePad && x <= b.x + b.width + tiePad
-        && y >= b.y - tiePad && y <= b.y + b.height + tiePad
-    }) ?? null
-    if (!tieAt?.fromNoteId) return false
-
-    // Clear the whole note selection (the multi-select Map, not just the anchor)
-    // and any scalar sub-selections, so only the tie ends up selected.
-    this.selection.selectNote(null)
-    this.state.selectedElement = { kind: 'tie', fromNoteId: tieAt.fromNoteId }
-    dbg(`✓ Tie selected | fromNoteId:${tieAt.fromNoteId} toNoteId:${tieAt.toNoteId} fromMeasure:${tieAt.fromMeasure} toMeasure:${tieAt.toMeasure}`)
-    this.render.renderScore()
-    return true
-  }
-
-  /** Select a slur arc for removal (hit-tested against the sampled curve points). */
-  private handleSlurMouseDown(ctx: MouseDownCtx): boolean {
-    const { registry, x, y } = ctx
-    // Slur selection — hit-test by proximity to the ARC, not the coarse bbox
-    // rectangle (which sits over the spanned notes). Clicking near the curve selects
-    // it; Delete removes the arc (never the notes). We measure distance to the line
-    // SEGMENTS between consecutive sampled points (a continuous ribbon along the
-    // curve), not to the discrete points — otherwise wide arcs (cross-system BEGIN/
-    // MIDDLE/END segments span a whole system, so the fixed ~17 samples sit tens of
-    // px apart) would only be clickable right on a sample dot.
-    const slurPad = 7
-    const slurAt = registry.getByType('slur').find(el => {
-      const pts = el.points
-      if (!pts?.length) return false
-      if (pts.length === 1) return (x - pts[0].x) ** 2 + (y - pts[0].y) ** 2 <= slurPad * slurPad
-      for (let i = 1; i < pts.length; i++) {
-        if (distToSegment(x, y, pts[i - 1], pts[i]) <= slurPad) return true
-      }
-      return false
-    }) ?? null
-    if (!slurAt?.id) return false
-
-    this.selection.selectNote(null)
-    // Selecting the slur by its arc disarms any previously-armed endpoint nudge — clicking
-    // a blue (true end) or orange (open join) square is the only thing that re-arms one. Carrying
-    // no endpoint IS that, now the two live in one value.
-    this.state.selectedElement = { kind: 'slur', id: slurAt.id }
-    dbg(`✓ Slur selected | id:${slurAt.id}`)
-    this.render.renderScore()
-    return true
-  }
-
-  /**
-   * Select a slot's augmentation DOTS. Clicking any one dot selects them ALL — `dots` is a single
-   * value on the chord/rest, so the glyphs (one per notehead per dot) share one anchor id and there
-   * is no individual dot to select. Works on a dotted REST too — the dot is the only sub-element a
-   * rest carries, and it is a normal thing to author (and what restFill picks for a compound beat).
-   */
-  private handleDotMouseDown(ctx: MouseDownCtx): boolean {
-    const { registry, x, y } = ctx
-
-    // A dot glyph is ~3px across, so its bare bbox is unclickable — pad it, like the tie (6) /
-    // dynamic (6) / articulation (8) boxes.
-    //
-    // Padding alone is not enough here, though. The note's own hit-box is not the notehead: it is a
-    // generous ±1.1 staff spaces from the head CENTRE (ElementRegistry.hitsNoteOrRestBody), while
-    // the head is only ~0.65 spaces half-wide — and VexFlow parks the dot in the gap just beyond it.
-    // So the dot lies INSIDE the note's click margin: the two boxes overlap by construction, and
-    // whichever is tested first simply wins while the loser becomes unclickable. Ordering cannot
-    // separate them, and shrinking the note's margin would make every note harder to hit.
-    //
-    // So discriminate by PROXIMITY: the click goes to whichever centre it is nearer. A dot sits
-    // beside its head at much the same height, so the X distance is what separates the two.
-    const dotPad = 6
-    const centerX = (el: ElementInfo) => el.bbox.x + el.bbox.width / 2
-    const hits = registry.getByType('dot').filter(el => {
-      const b = el.bbox
-      return x >= b.x - dotPad && x <= b.x + b.width + dotPad
-        && y >= b.y - dotPad && y <= b.y + b.height + dotPad
-    })
-    if (!hits.length) return false
-    const dotAt = hits.reduce((best, el) =>
-      Math.abs(x - centerX(el)) < Math.abs(x - centerX(best)) ? el : best)
-    if (!dotAt.noteId) return false
-
-    const head = registry.findClosestNoteOrRest(x, y)
-    if (head && registry.hitsNoteOrRestBody(head, x, y)) {
-      const headX = head.headX ?? centerX(head)
-      // Ties go to the note: it is the primary target, and its dots are reachable from it anyway.
-      if (Math.abs(x - headX) <= Math.abs(x - centerX(dotAt))) return false
-    }
-
-    // Clear the whole note selection (the multi-select Map drives the note highlight, not just
-    // selectedNoteId) so only the dots show selected — mirrors the accidental.
-    this.selection.selectNote(null)
-    this.state.selectedElement = { kind: 'dot', noteId: dotAt.noteId }
-    dbg(`✓ Dot selected | noteId:${dotAt.noteId} dots:${this.getEngine()?.getNote(dotAt.noteId)?.dots ?? 0}`)
-    this.render.renderScore()
-    return true
-  }
-
-  /** Select an accidental glyph for removal. */
-  private handleAccidentalMouseDown(ctx: MouseDownCtx): boolean {
-    const { registry, x, y } = ctx
-    const accidentalAt = registry.getByType('accidental').find(el => {
-      const b = el.bbox
-      return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
-    }) ?? null
-    if (!accidentalAt?.noteId) return false
-
-    // Clear the whole note selection (the multi-select Map drives the note
-    // highlight, not just selectedNoteId) so only the accidental shows selected.
-    this.selection.selectNote(null)
-    this.state.selectedElement = {
-      kind: 'accidental', noteId: accidentalAt.noteId, type: accidentalAt.accidentalType || null,
-    }
-    dbg(`✓ Accidental selected | noteId:${accidentalAt.noteId} type:${accidentalAt.accidentalType}`)
-    this.render.renderScore()
-    return true
-  }
-
-  /**
-   * Select a slot's TREMOLO mark — asked immediately before the stem, because it is drawn ON the
-   * stem and the two rects overlap wherever the strokes are.
-   *
-   * THE MARK WINS ONLY INSIDE ITS OWN BOUNDARIES. Both are registered as INK, and this test is bare
-   * containment (no pad, see {@link ElementRegistry.findTremoloAt}), so the border between the two
-   * is the edge of the strokes themselves: press on the strokes and you get the mark; press on the
-   * stem above or below them — which on a two-stroke tremolo is most of its length — and the stem is
-   * still perfectly selectable.
-   *
-   * The notehead keeps its ground first, exactly as it does against the stem: a tremolo's stack is
-   * centred on the stem and cannot reach the head, so this only ever declines a press the head
-   * already owns.
-   */
-  private handleTremoloMouseDown(ctx: MouseDownCtx): boolean {
-    const { registry, x, y, closestElement } = ctx
-    if (closestElement && registry.hitsNoteOrRestBody(closestElement, x, y)) return false
-
-    // A tremolo carries `noteId`, never `id` — like the stem it rides.
-    const noteId = registry.findTremoloAt(x, y)?.noteId
-    if (!noteId) return false
-
-    this.selection.selectNote(null)
-    this.state.selectedElement = { kind: 'tremolo', noteId }
-    dbg(`✓ Tremolo selected | noteId:${noteId} mark:${this.getEngine()?.getNote(noteId)?.tremolo}`)
-    this.render.renderScore()
-    return true
-  }
-
-  /**
-   * Select a slot's STEM — the twin of the dot/accidental handlers, and the pointer half of the
-   * `'stem'` element the renderer already registers.
-   *
-   * THE NOTE COMES FIRST. `hitsNoteOrRestBody` deliberately ignores the stem (its tall box is what
-   * made selection feel over-eager), so a stem click can only ever be one the note itself declined
-   * — but the two rects DO overlap where the stem meets the head, so the note is asked first and
-   * keeps that ground. What is left is the stem's free length, which is exactly what "click the
-   * stem" means.
-   *
-   * Containment on the stem's own ink (padded), never nearest-note: a click at the TIP of a stem is
-   * a whole stem-length from its own notehead, so proximity would hand it to a denser neighbour —
-   * the same reason the tremolo stamp resolves through {@link ElementRegistry.findStemAt}.
-   *
-   * Selection only: nothing acts on the selected stem yet (see {@link SelectedElement}'s `stem`).
-   */
-  private handleStemMouseDown(ctx: MouseDownCtx): boolean {
-    const { registry, x, y, closestElement } = ctx
-    if (closestElement && registry.hitsNoteOrRestBody(closestElement, x, y)) return false
-
-    // A stem carries `noteId`, never `id` (a stem must never answer a lookup for its note).
-    const noteId = registry.findStemAt(x, y)?.noteId
-    if (!noteId) return false
-
-    // Clear the whole note selection (the multi-select Map drives the note highlight, not just
-    // selectedNoteId) so only the stem shows selected — mirrors the accidental and the dots.
-    this.selection.selectNote(null)
-    this.state.selectedElement = { kind: 'stem', noteId }
-    dbg(`✓ Stem selected | noteId:${noteId}`)
-    this.render.renderScore()
-    return true
-  }
-
-  /** Select a whole articulation group (Sibelius-style) on the clicked note. */
-  private handleArticulationMouseDown(ctx: MouseDownCtx): boolean {
-    const { registry, x, y, closestElement } = ctx
-    const articulationAt = this.articulationHit(x, y, closestElement, registry)
-    if (!articulationAt?.noteId) return false
-
-    // Sibelius-style: clicking any articulation selects the whole group on that
-    // note (all its articulations), not just the clicked glyph.
-    this.selection.selectArticulation(articulationAt.noteId)
-    dbg(`✓ Articulation group selected | noteId:${articulationAt.noteId} (clicked:${articulationAt.articulationType})`)
-    this.render.renderScore()
-    return true
   }
 
   /**
