@@ -26,7 +26,7 @@ import { effectiveClefAt, middleLineDiatonicPos } from '@/utils/clefUtils'
 import { voiceOf } from '@/utils/lanes'
 import { staffIndexOfId } from './staffContent'
 import { fracEq } from '@/utils/fraction'
-import { findSlot } from './slotLookup'
+import { findSlot, attackOf } from './slotLookup'
 import { flatNoteOf } from './noteProjection'
 import { clearFanMemberOffsets } from './overrideOps'
 
@@ -42,34 +42,27 @@ function getMeasure(score: Score, measureNumber: number): Measure | undefined {
  * rests or slots without articulations. Returns the flat note, or null.
  */
 export function flipArticulationPlacement(score: Score, noteId: string): Note | null {
-  // ⭐ `fanMembers: true`: a fanned member's marks are its own, so its SIDE is its own too — his
-  // report was that flipping the owner flipped all six, which is what one side per gesture means.
+  // ⭐ `fanMembers: true` + `attackOf`: ONE body for both, because a flip is a fact about the ATTACK
+  // and a fan has N of those. A member flips itself and nothing else — his report was that flipping
+  // the owner flipped all six, which is what one side per gesture means.
   const found = findSlot(score, noteId, { fanMembers: true })
   if (!found || found.type === 'rest') return null
   const { chord, pitch } = found
-
-  // A MEMBER flips itself and nothing else. The auto side it toggles against is the group's — the
-  // same `autoArticulationPlacement` the slot uses, because a member hangs off the same chord — so
-  // one press always visibly flips and two press round-trip back to following the group.
-  if (found.member) {
-    const member = found.member.chord
-    if (!member.articulations?.length) return null
-    if (member.articulationPlacement !== undefined) delete member.articulationPlacement
-    else member.articulationPlacement = autoArticulationPlacement(score, chord) === 'above' ? 'below' : 'above'
-    return flatNoteOf(score, chord, pitch)
-  }
-
-  if (!chord.articulations?.length) return null
+  const attack = attackOf(found)
+  if (!attack?.articulations?.length) return null
   // Sibelius-style `x` toggle: auto ↔ flipped (mirrors flipTuplet/flipSlur/flipTie).
   // An explicit override returns to the context-aware auto default; an auto mark pins
   // the opposite of the side it's currently drawn on, so the first press always visibly
   // flips and two presses round-trip back to auto. Crucially this lets a mark that was
   // flipped-and-flipped-back follow the voice-aware default again when a 2nd voice is
   // later added (the old absolute flip pinned a side forever).
-  if (chord.articulationPlacement !== undefined) {
-    delete chord.articulationPlacement
+  //
+  // The auto side is the CHORD's either way: a member hangs off the same stem in the same voice, so
+  // the side it toggles against is the group's. Only the flip itself is private to the attack.
+  if (attack.articulationPlacement !== undefined) {
+    delete attack.articulationPlacement
   } else {
-    chord.articulationPlacement = autoArticulationPlacement(score, chord) === 'above' ? 'below' : 'above'
+    attack.articulationPlacement = autoArticulationPlacement(score, chord) === 'above' ? 'below' : 'above'
   }
   return flatNoteOf(score, chord, pitch)
 }

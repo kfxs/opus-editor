@@ -321,6 +321,37 @@ export interface FanMark {
 }
 
 /**
+ * ⭐⭐ **AN ATTACK — the thing a MARK attaches to.**
+ *
+ * A written slot is one attack. A FANNED slot is N of them: a fan is how you write six accelerating
+ * notes with one note, and every one of the six is struck, so every one can be marked, flipped and
+ * selected on its own.
+ *
+ * The type exists because that was being re-solved rather than named. Marks arrived on members one
+ * at a time — articulations, then their side — and each one landed as a `found.member ? … : …` fork
+ * whose two arms were the SAME code on two objects (`markOps.flipArticulationPlacement` had six
+ * duplicated lines; `ScoreModel.updateNote` had its own copy). That fork is what a missing type
+ * looks like: the slot is the RHYTHMIC unit, and everything that belongs to the rhythm — the bar's
+ * arithmetic, rebar, the clipboard, undo, JSON, playback's clock — kept working on members for free
+ * from the day they existed. Everything that cost was attack-level, and there was no attack.
+ *
+ * ⭐ So a mark feature adds a field HERE and both carriers get it. `attackOf` (engine/models/
+ * slotLookup) resolves an id to the one that owns it — the member when the id is a member's, the
+ * chord otherwise — and the operation is written once against this.
+ *
+ * ⚠️ Only what a mark needs. The rhythm (`duration`, `beat`, `dots`, `tupletId`) is deliberately NOT
+ * here: a member has none of its own, its length comes from the ramp, and that is the property the
+ * one-slot model exists to protect. A field that would tempt someone to give a member a duration
+ * belongs on {@link Chord} alone.
+ */
+export interface Attack {
+  /** The marks struck with this attack. Absent, never `[]` — see the note on the fan member's. */
+  articulations?: ArticulationType[]
+  /** Explicit side for them (above/below); absent = auto, stem-derived and voice-aware. */
+  articulationPlacement?: 'above' | 'below'
+}
+
+/**
  * ⭐ **One member of a fan — a CHORD in its own right**, which is what this feature had already
  * concluded in prose (`docs/fanned-beam-pitches-plan.md`: *"inside a fan the chord is the MEMBER,
  * not the slot"*) before the type said it. It was `NotePitch[]`, a bare array, and that shape could
@@ -331,7 +362,7 @@ export interface FanMark {
  * reason — half the heads carrying real ids and half synthetic ones would double every command that
  * resolves one (plan §1).
  */
-export interface FanMemberChord {
+export interface FanMemberChord extends Attack {
   /** The member's pitches — one for an ordinary member, several when the head is a chord. */
   pitches: NotePitch[]
   /**
@@ -1098,7 +1129,7 @@ export interface PitchInsert {
 }
 
 /** A rhythmic slot containing one or more pitches */
-export interface Chord {
+export interface Chord extends Attack {
   id: string
   type: 'chord'
   beat: Fraction
@@ -1112,9 +1143,6 @@ export interface Chord {
   secondaryBreak?: boolean
   tupletId?: string
   actualDuration?: Fraction
-  articulations?: ArticulationType[]
-  /** Explicit side for articulations (above/below); omitted = auto (stem-derived). */
-  articulationPlacement?: 'above' | 'below'
   /** Stem-side articulations align to the stem (modern) not the notehead (default). */
   articulationStemAlign?: boolean
   /**

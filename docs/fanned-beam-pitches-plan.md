@@ -280,11 +280,41 @@ sounding length, so the group's total time is unchanged by construction.
     chord is the MEMBER, not the slot"*; a bare array could only ever hold pitches, so the type now
     says what the feature meant. Member 0 keeps its marks on `Chord.articulations`, because member 0
     **is** the slot's chord and needs no second home.
+  - ⭐⭐ **AND IT PRODUCED THE `Attack` TYPE** (his question: *"we are doing lots of things that were
+    solved for the slots... do you still think the model for the fan is correct?"*). The answer is
+    yes, and the evidence is which side of the line each feature fell on. Free from the day members
+    existed: rebar, meter changes, the clipboard, undo, JSON, collision, rest-fill, beam grouping,
+    width, and playback's clock. Costly: pitch editing, accidentals, arrow nav, selection, offsets,
+    spacing, slurs, articulations, flip, highlight, hit-testing. That line is not slot-vs-member —
+    it is **rhythmic vs. attack-level**, and everything free is exactly what the one-slot model
+    exists to protect (the event stays on time; no faked lengths). What was missing was a NAME for
+    the thing a mark attaches to: a written slot is one attack, a fanned slot is N. `Attack`
+    (`types/music.ts`) is that name, `Chord` and `FanMemberChord` both extend it, and `attackOf` /
+    `writeAttackMarks` / `projectAttackMarks` (`engine/models/slotLookup.ts`) are the one resolver,
+    one writer and one reader. A mark feature now adds a field to `Attack` and both carriers have it.
+    ⚠️ **The tripwire that called it**: `FanMemberChord` was growing field-by-field to mirror `Chord`,
+    and `flipArticulationPlacement` had six duplicated lines whose two arms were the same code on two
+    objects. A fork on `found.member` whose branches agree IS the missing type.
+    ⛔ **The alternative — making members real slots — was rejected.** Their durations are arbitrary
+    rationals (8/15 of a beat), so un-notatable durations would break rebar, beaming, rest-fill,
+    width and export: the pain moves, it does not go. And "remove the fan and the note you typed is
+    still there" would become a reconstruction — assertion → consequence is a function, the reverse
+    is not (§0).
   - Drawn by `engine/rendering/fanArticulations.ts`: a stand-in `StaveNote` at the member's own
     pitches, clef, stem direction and stem length, formatted by the library, then translated to the
     member's head. ⛔ Not by a hand-rolled "one staff space per mark" rule — that puts a staccato 2px
     off the identical mark on the note beside it, because a between-lines glyph is snapped into a
     space and re-originned.
+  - ⚠️ **A member's SIDE is its own too**, and this is the trap the first version fell into:
+    `Chord.articulationPlacement` is member 0's OWN flip, because member 0 *is* the slot's chord.
+    Reading it (or member 0's drawn modifiers) as "the group's side" made the owner's `x` move all
+    six — *"if i flip the owner articulation all articulations flip"*. A member follows the STEM
+    until it is flipped, then follows its own `FanMemberChord.articulationPlacement`.
+  - ⚠️ **Drawn is not selectable.** A member's marks were drawn and stored and never REGISTERED, so
+    the hit-test could not see them and the owner's was the only articulation in a fan that could be
+    picked. They register on the member's own first pitch id — the id `selectArticulation`, delete
+    and flip already take — so all three arrived together. The highlight needed the member's
+    `vf-fanhead` group: there is no `vf-notehead` for a head VexFlow never drew.
 - ⭐ **SLURS ARE THE EXCEPTION, and this list was wrong to group them with ties** (his ask, after
   using it). A tie is a pitch-to-pitch CONTINUATION, and a member has no length of its own to
   continue into — that refusal stands. A slur is not an attachment to the event's rhythm: it is a

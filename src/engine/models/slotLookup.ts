@@ -7,7 +7,7 @@
  * the slot that holds it. `ScoreModel` keeps a private delegator, so its own mutators read exactly
  * as they did.
  */
-import type { Score, Chord, FanMemberChord, NotePitch, Rest } from '@/types/music'
+import type { ArticulationType, Attack, Note, Score, Chord, FanMemberChord, NotePitch, Rest } from '@/types/music'
 
 /** What an id resolved to: a pitch inside a chord (possibly a fanned MEMBER), or a rest slot. */
 export type FoundSlot =
@@ -59,4 +59,58 @@ export function findSlot(score: Score, noteId: string, opts?: { fanMembers?: boo
     }
   }
   return undefined
+}
+
+/**
+ * ⭐ **The ATTACK an id belongs to** — the thing a mark is written on and read from.
+ *
+ * The member when the id is a fanned member's, the chord otherwise, and `null` for a rest (silence
+ * is not struck). This one line is what lets a mark operation have ONE body: before it existed,
+ * every such operation forked on `found.member` and wrote the same code twice, which is how a
+ * member came to be missing marks the slot had had for a year.
+ *
+ * ⚠️ It answers "what carries the MARK", never "what carries the rhythm" — those are the same object
+ * for an ordinary note and different objects inside a fan, which is the entire point. Reach for
+ * `found.chord` when you mean the slot's duration, beat or stem; they belong to the gesture and a
+ * member has none of its own.
+ */
+export function attackOf(found: FoundSlot): Attack | null {
+  if (found.type === 'rest') return null
+  return found.member?.chord ?? found.chord
+}
+
+/**
+ * Write a mark update onto an {@link Attack} — the one place `articulations` / `articulationPlacement`
+ * are stored, whichever carrier they land on.
+ *
+ * ⚠️ Absent, never empty. `laneFingerprint` stringifies the whole slot for the width-cache key, so
+ * `[]` and absent would be two keys for one piece of music; `undefined` and absent likewise. Only
+ * the keys actually present in `updates` are touched, so a caller changing one mark field cannot
+ * silently clear the other.
+ */
+export function writeAttackMarks(
+  attack: Attack,
+  updates: { articulations?: ArticulationType[]; articulationPlacement?: 'above' | 'below' },
+): void {
+  if ('articulations' in updates) {
+    if (updates.articulations?.length) attack.articulations = [...updates.articulations]
+    else delete attack.articulations
+  }
+  if ('articulationPlacement' in updates) {
+    if (updates.articulationPlacement) attack.articulationPlacement = updates.articulationPlacement
+    else delete attack.articulationPlacement
+  }
+}
+
+/**
+ * Copy an {@link Attack}'s marks onto the flat {@link Note} projection, replacing whatever came
+ * through from the slot's chord. The read twin of {@link writeAttackMarks}: a mark field added to
+ * `Attack` is reported by `getNote` the moment it is added here, rather than being quietly dropped
+ * for members only.
+ */
+export function projectAttackMarks(note: Note, attack: Attack): void {
+  if (attack.articulations?.length) note.articulations = [...attack.articulations]
+  else delete note.articulations
+  if (attack.articulationPlacement) note.articulationPlacement = attack.articulationPlacement
+  else delete note.articulationPlacement
 }

@@ -356,7 +356,11 @@ describe('MusicEngine.flipArticulation — articulation side override', () => {
     expect(engine.getNote(note.id)!.articulations).toEqual(['staccato', 'accent'])
 
     engine.clearArticulations(note.id)
-    expect(engine.getNote(note.id)!.articulations).toEqual([])
+    // ⭐ ABSENT, not `[]`. This asserted `[]` until the `Attack` seam gave both carriers ONE writer,
+    // and `[]` was the wrong half of it: `laneFingerprint` stringifies the whole slot for the
+    // width-cache key, so an empty array and an absent field are two keys for one piece of music.
+    // A cleared note is a note with no articulations, spelled the one way.
+    expect(engine.getNote(note.id)!.articulations).toBeUndefined()
     expect(engine.getNote(note.id)!.articulationPlacement).toBeUndefined()
   })
 

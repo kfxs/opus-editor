@@ -39,7 +39,7 @@ import * as slurOps from './slurOps'
 import * as markOps from './markOps'
 import * as voiceOps from './voiceOps'
 import { flatNoteOf, flatRestOf } from './noteProjection'
-import { findSlot, type FoundSlot } from './slotLookup'
+import { findSlot, writeAttackMarks, projectAttackMarks, type FoundSlot } from './slotLookup'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, firstStaffId } from './staffContent'
 import * as tupletOps from './tupletOps'
 import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
@@ -1824,14 +1824,10 @@ export class ScoreModel {
       delete note.beam
       delete note.secondaryBreak
       // ⭐ A member's marks are ITS OWN, not the slot's. `toFlatNote` projects through the chord, so
-      // without this every member would report member 0's articulations — which is exactly what made
-      // one staccato look like six, and would make the palette's "do they all have it?" answer yes
-      // for heads that carry nothing.
-      if (found.member.chord.articulations?.length) note.articulations = [...found.member.chord.articulations]
-      else delete note.articulations
-      // …and its own SIDE, for the same reason: the slot's flip is member 0's.
-      if (found.member.chord.articulationPlacement) note.articulationPlacement = found.member.chord.articulationPlacement
-      else delete note.articulationPlacement
+      // without this every member would report member 0's — which is what made one staccato look
+      // like six, and would make the palette's "do they all have it?" answer yes for heads that
+      // carry nothing. Projected from the ATTACK, so a mark field added to that type arrives here.
+      projectAttackMarks(note, found.member.chord)
     }
     return note
   }
@@ -1984,14 +1980,9 @@ export class ScoreModel {
       // ⭐ The MEMBER's own marks, on the member's own record — not on `chord`, which is member 0's.
       // Absent rather than empty when there are none: `laneFingerprint` stringifies the slot for the
       // width-cache key, so `[]` and absent would be two keys for one piece of music.
-      if (updates.articulations !== undefined) {
-        if (updates.articulations.length) found.member.chord.articulations = [...updates.articulations]
-        else delete found.member.chord.articulations
-      }
-      if ('articulationPlacement' in updates) {
-        if (updates.articulationPlacement) found.member.chord.articulationPlacement = updates.articulationPlacement
-        else delete found.member.chord.articulationPlacement
-      }
+      // The marks go on the ATTACK, which for a member is the member — same writer the ordinary
+      // chord branch below uses, so the two cannot drift.
+      writeAttackMarks(found.member.chord, updates)
       const ignored = Object.keys(updates).filter(k => !FAN_MEMBER_UPDATE_FIELDS.has(k))
       if (ignored.length) dbg(`[Model.updateNote] fan member ${noteId}: ignored {${ignored.join(', ')}} — a member is a pitch`)
       return this.toFlatNote(chord, pitch)
@@ -2100,8 +2091,7 @@ export class ScoreModel {
     if ('forceAccidental' in updates) pitch.forceAccidental = updates.forceAccidental
     if (updates.tiedTo !== undefined) pitch.tiedTo = updates.tiedTo
     if (updates.tiedFrom !== undefined) pitch.tiedFrom = updates.tiedFrom
-    if (updates.articulations !== undefined) chord.articulations = updates.articulations
-    if ('articulationPlacement' in updates) chord.articulationPlacement = updates.articulationPlacement
+    writeAttackMarks(chord, updates)
     if ('articulationStemAlign' in updates) chord.articulationStemAlign = updates.articulationStemAlign
 
     // Handle explicit undefined for tie fields
