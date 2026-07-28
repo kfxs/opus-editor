@@ -257,7 +257,7 @@ describe('normalizeFan — the one owner of members.length === count - 1', () =>
   const own = [pitch('C', 'own-1')]
 
   it('never touches the mark — or the members array — it was handed', () => {
-    const before: FanMark = { direction: 'accel', count: 2, beams: 3, members: [[pitch('E', 'm1')]] }
+    const before: FanMark = { direction: 'accel', count: 2, beams: 3, members: [{ pitches: [pitch('E', 'm1')] }] }
     const snapshot = JSON.stringify(before)
     const after = normalizeFan({ ...before, count: 5 }, own)
     expect(JSON.stringify(before)).toBe(snapshot)
@@ -310,7 +310,7 @@ describe('normalizeFan — the one owner of members.length === count - 1', () =>
   it('drops what a member is not allowed to carry — a tie belongs to the slot', () => {
     const tied: NotePitch = { ...pitch('C', 'own-1'), tiedTo: 'somewhere', tieDirection: 1 }
     const out = normalizeFan({ direction: 'accel', count: 3, beams: 3 }, [tied])
-    expect(out.members!.every(m => m[0].tiedTo === undefined && m[0].tieDirection === undefined)).toBe(true)
+    expect(out.members!.every(m => m.pitches[0].tiedTo === undefined && m.pitches[0].tieDirection === undefined)).toBe(true)
   })
 })
 
@@ -347,11 +347,11 @@ describe('cloneFanFresh — the copy that mints its own ids', () => {
   it('same pitches, no shared id, and the arrays are its own', () => {
     const src: FanMark = {
       direction: 'accel', count: 3, beams: 3,
-      members: [[{ id: 'a', step: 'C', alter: 0, octave: 4 }], [{ id: 'b', step: 'E', alter: 1, octave: 4 }]],
+      members: [{ pitches: [{ id: 'a', step: 'C', alter: 0, octave: 4 }] }, { pitches: [{ id: 'b', step: 'E', alter: 1, octave: 4 }] }],
     }
     const copy = cloneFanFresh(src)
-    expect(copy.members!.map(m => `${m[0].step}${m[0].alter}${m[0].octave}`)).toEqual(['C04', 'E14'])
-    expect(copy.members!.flat().map(p => p.id)).not.toContain('a')
+    expect(copy.members!.map(m => `${m.pitches[0].step}${m.pitches[0].alter}${m.pitches[0].octave}`)).toEqual(['C04', 'E14'])
+    expect(copy.members!.flatMap(m => m.pitches).map(p => p.id)).not.toContain('a')
     expect(copy.members![0]).not.toBe(src.members![0])
   })
 

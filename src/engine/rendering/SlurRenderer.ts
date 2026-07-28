@@ -40,7 +40,7 @@ function measureOfNoteId(score: Score, noteId: string): number | undefined {
       if (s.type === 'rest' && s.id === noteId) return m.number
       // A FANNED MEMBER lives inside the slot, not in `slot.notes` — and a slur can be anchored to
       // one (docs/fanned-beam-pitches-plan.md), so it has to name its measure like any other end.
-      if (s.type === 'chord' && (s.fan?.members ?? []).some(mm => mm.some(p => p.id === noteId))) return m.number
+      if (s.type === 'chord' && (s.fan?.members ?? []).some(mm => mm.pitches.some(p => p.id === noteId))) return m.number
     }
   }
   return undefined
@@ -369,7 +369,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
     const startSlot = fromMeasureData?.slots.find(
       s => s.type === 'chord' && (
         s.notes.some(p => p.id === slur.startNoteId)
-        || (s.fan?.members ?? []).some(mm => mm.some(p => p.id === slur.startNoteId))),
+        || (s.fan?.members ?? []).some(mm => mm.pitches.some(p => p.id === slur.startNoteId))),
     )
     const slurVoice = startSlot?.voice ?? voiceOf(slur)
     const multiVoice = fromMeasureData

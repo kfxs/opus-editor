@@ -83,7 +83,7 @@ describe('displayedAccidentals', () => {
   it('⭐ decides a fanned MEMBER’s sign too — the drawing reads it, it does not invent one', () => {
     const fan: FanMark = {
       direction: 'accel', count: 3, beams: 3,
-      members: [[pitch('m1', 'G', 1)], [pitch('m2', 'G', 1)]],
+      members: [{ pitches: [pitch('m1', 'G', 1)] }, { pitches: [pitch('m2', 'G', 1)] }],
     }
     const signs = displayedAccidentals([chord('s1', [pitch('a', 'C', 0)], 0, fan)])
     expect(signs.get('m1')).toBe('#') // the first G♯ of the bar shows its sign
@@ -94,7 +94,7 @@ describe('displayedAccidentals', () => {
     // His decision, and the ordinary common-practice rule: a member is a note in the bar. Left out,
     // the plain G after the fan would draw no natural at all.
     const fan: FanMark = {
-      direction: 'accel', count: 2, beams: 3, members: [[pitch('m1', 'G', 1)]],
+      direction: 'accel', count: 2, beams: 3, members: [{ pitches: [pitch('m1', 'G', 1)] }],
     }
     const signs = displayedAccidentals([
       chord('s1', [pitch('a', 'C', 0)], 0, fan),
@@ -106,7 +106,7 @@ describe('displayedAccidentals', () => {
   it('the DEFAULT fan (every member the note you typed) shows exactly one sign', () => {
     const fan: FanMark = {
       direction: 'accel', count: 3, beams: 3,
-      members: [[pitch('m1', 'F', 1)], [pitch('m2', 'F', 1)]],
+      members: [{ pitches: [pitch('m1', 'F', 1)] }, { pitches: [pitch('m2', 'F', 1)] }],
     }
     const signs = displayedAccidentals([chord('s1', [pitch('a', 'F', 1)], 0, fan)])
     expect([signs.get('a'), signs.get('m1'), signs.get('m2')]).toEqual(['#', null, null])

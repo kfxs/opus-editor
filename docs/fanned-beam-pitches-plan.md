@@ -263,8 +263,28 @@ sounding length, so the group's total time is unchanged by construction.
 
 - **Per-member duration.** The members' lengths come from the ramp; giving one its own written value
   is a different feature and would put the rhythm back into the group.
-- **Ties, articulations, dynamics on a member.** Refused — actively, per P3 — not merely unbuilt.
-  They attach to the SLOT (the whole gesture), which is what they already do.
+- **Ties and dynamics on a member.** Refused — actively, per P3 — not merely unbuilt. They attach to
+  the SLOT (the whole gesture), which is what they already do.
+- ⭐ **ARTICULATIONS ARE THE SECOND EXCEPTION** (2026-07-28, his ask after using it — the same shape
+  as the slur one below, and it arrived the same way). This list was wrong to group them with ties.
+  A fan is how you write **N attacks** with one written note, and an articulation is exactly the
+  thing that belongs to an attack — so the sixth note of an accelerando can be the accented one, and
+  marking it is the ordinary `toggleArticulation` on the member's own id.
+  - It was found from the other end. The mark lived on the slot, so it was drawn on member 0 alone
+    while playback shortened all six — one dot claiming the first note was short and the other five
+    were not. Drawing the slot's mark on **every** head fixed that disagreement and produced the real
+    report: *"if i apply an articulation to the owner of the fan it applies for all the members...
+    this is not wanted"*.
+  - What made it possible: `FanMark.members` stopped being `NotePitch[][]` and became
+    `FanMemberChord[]` — `{ pitches, articulations? }`. The prose had already said *"inside a fan the
+    chord is the MEMBER, not the slot"*; a bare array could only ever hold pitches, so the type now
+    says what the feature meant. Member 0 keeps its marks on `Chord.articulations`, because member 0
+    **is** the slot's chord and needs no second home.
+  - Drawn by `engine/rendering/fanArticulations.ts`: a stand-in `StaveNote` at the member's own
+    pitches, clef, stem direction and stem length, formatted by the library, then translated to the
+    member's head. ⛔ Not by a hand-rolled "one staff space per mark" rule — that puts a staccato 2px
+    off the identical mark on the note beside it, because a between-lines glyph is snapped into a
+    space and re-originned.
 - ⭐ **SLURS ARE THE EXCEPTION, and this list was wrong to group them with ties** (his ask, after
   using it). A tie is a pitch-to-pitch CONTINUATION, and a member has no length of its own to
   continue into — that refusal stands. A slur is not an attachment to the event's rhythm: it is a

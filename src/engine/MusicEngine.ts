@@ -900,7 +900,9 @@ export class MusicEngine {
    * Toggle an articulation on a note. Adds if absent, removes if present.
    */
   toggleArticulation(noteId: string, type: ArticulationType): Note | null {
-    if (this.refusesFanMember(noteId, 'articulation')) return null
+    // ⭐ NOT refused for a fanned member any more (his ask, after using it — the same correction that
+    // made slurs an exception). A fan is how you write N attacks and an articulation belongs to an
+    // attack, so each member carries its own; `updateNote` writes them onto the member's own record.
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest) return null
 
@@ -919,7 +921,6 @@ export class MusicEngine {
    * No-op (returns null) for rests / notes that have none.
    */
   clearArticulations(noteId: string): Note | null {
-    if (this.refusesFanMember(noteId, 'articulation')) return null
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest || !note.articulations?.length) return null
     const result = this.scoreModel.updateNote(noteId, { articulations: [], articulationPlacement: undefined })

@@ -184,7 +184,7 @@ export function measureShapeKey(
     // position key. Leave it out and nudging a member changes nothing in the key, so the bar keeps
     // its drawn group and the head never moves — the same silent WIDTH≠PICTURE trap, one level in.
     view.slots.map(s => (s.type === 'chord' && s.fan?.members
-      ? s.fan.members.map(pitches => (pitches[0] ? score.engravingOverrides?.[pitches[0].id] ?? null : null))
+      ? s.fan.members.map(m => (m.pitches[0] ? score.engravingOverrides?.[m.pitches[0].id] ?? null : null))
       : null)),
     view.tempos ?? null,
     view.timeSignatureChange ?? false,

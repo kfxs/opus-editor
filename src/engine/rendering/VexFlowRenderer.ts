@@ -262,7 +262,7 @@ interface MeasureSnapshot {
  *  since they live inside `slot.fan` rather than in `slot.notes`. */
 function fanMemberIdsOf(view: Measure): string[] {
   return view.slots.flatMap(s =>
-    s.type === 'chord' ? (s.fan?.members ?? []).flat().map(p => p.id) : [])
+    s.type === 'chord' ? (s.fan?.members ?? []).flatMap(m => m.pitches).map(p => p.id) : [])
 }
 
 /**
@@ -1749,6 +1749,7 @@ export class VexFlowRenderer {
             pass, groups[gi].slots, groups[gi].staveNotes, measure.number, staffIndex,
             clefForBeat, built[gi].fanJoins,
             (laneOfGroup?.fanned ?? []).flatMap(owners => owners.slots),
+            groups[gi].forcedStem,
           )
         }
 

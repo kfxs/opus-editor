@@ -208,7 +208,7 @@ describe('createStaveNotesFromSlots — a FANNED group takes ONE stem direction'
     fan: {
       direction: 'accel', count, beams: 3,
       members: Array.from({ length: count - 1 }, (_, k) => (
-        [{ id: `m${k}`, step: memberStep, alter: 0 as const, octave: memberOctave }]
+        { pitches: [{ id: `m${k}`, step: memberStep, alter: 0 as const, octave: memberOctave }] }
       )),
     },
   })

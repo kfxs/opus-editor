@@ -551,7 +551,7 @@ describe('SelectionController — navigateChord is voice-scoped', () => {
     const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
     if (slot.type !== 'chord') throw new Error('expected a chord')
     const member = slot.fan!.members![0]
-    const low = member[0].id
+    const low = member.pitches[0].id
     const high = engine.addFanMemberPitch(low, { step: 'E', alter: 0, octave: 4 })!.id
 
     // Up from the member's lower pitch lands on the member's OWN upper pitch — never the slot's G5.

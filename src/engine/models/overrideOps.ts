@@ -25,7 +25,7 @@
  */
 import type {
   Score, EngravingOverride, RestShiftOverride, RestHiddenOverride, LeadingSpaceOverride,
-  BarWidthOverride, DynamicOffsetOverride, NoteOffsetOverride, StaffSpacingOverride, NotePitch,
+  BarWidthOverride, DynamicOffsetOverride, NoteOffsetOverride, StaffSpacingOverride, FanMemberChord,
 } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import {
@@ -260,9 +260,9 @@ export function clearNoteOffset(score: Score, key: string): boolean {
  * that was typed takes the slot and the group with it. Miss one and the entry is stranded — it can
  * never mis-apply, since a new member is minted with a new id, but it stays in the JSON forever.
  */
-export function clearFanMemberOffsets(score: Score, members: NotePitch[][] | undefined): void {
-  for (const pitches of members ?? []) {
-    const first = pitches[0]
+export function clearFanMemberOffsets(score: Score, members: FanMemberChord[] | undefined): void {
+  for (const member of members ?? []) {
+    const first = member.pitches[0]
     if (first) clearEngravingOverride(score, first.id, 'noteOffset')
   }
 }

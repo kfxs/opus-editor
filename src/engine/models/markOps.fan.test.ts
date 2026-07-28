@@ -166,8 +166,8 @@ describe('setFan — the members', () => {
   it('materialises every member as the note that was typed — pitches, not ids', () => {
     const note = blanca()
     model.setFan(note.id, fan(4))
-    expect(members().map(m => m.map(p => `${p.step}${p.octave}`).join())).toEqual(['C4', 'C4', 'C4'])
-    const ids = members().flat().map(p => p.id)
+    expect(members().map(m => m.pitches.map(p => `${p.step}${p.octave}`).join())).toEqual(['C4', 'C4', 'C4'])
+    const ids = members().flatMap(m => m.pitches).map(p => p.id)
     expect(new Set([...ids, note.id]).size).toBe(ids.length + 1) // every one its own note
   })
 
@@ -176,7 +176,7 @@ describe('setFan — the members', () => {
     model.addNote({ step: 'E', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) }) // joins the chord
     model.setFan(note.id, fan(3))
     expect(members()).toHaveLength(2)
-    expect(members().every(m => m.length === 2)).toBe(true)
+    expect(members().every(m => m.pitches.length === 2)).toBe(true)
   })
 
   it('a count of 1 is a fan with no other members, not a broken list', () => {
@@ -188,18 +188,18 @@ describe('setFan — the members', () => {
   it('growing copies the LAST member — a rising line continues rising', () => {
     const note = blanca()
     model.setFan(note.id, fan(3))
-    members()[1][0].step = 'G' // the line has been edited up to G4
+    members()[1].pitches[0].step = 'G' // the line has been edited up to G4
     model.setFan(note.id, { ...chordAt(0).fan!, count: 5 })
-    expect(members().map(m => m[0].step)).toEqual(['C', 'G', 'G', 'G'])
+    expect(members().map(m => m.pitches[0].step)).toEqual(['C', 'G', 'G', 'G'])
   })
 
   it('shrinking drops from the END, and the survivors keep their ids', () => {
     const note = blanca()
     model.setFan(note.id, fan(6))
-    const kept = members().slice(0, 2).map(m => m[0].id)
+    const kept = members().slice(0, 2).map(m => m.pitches[0].id)
     model.setFan(note.id, { ...chordAt(0).fan!, count: 3 })
     expect(members()).toHaveLength(2)
-    expect(members().map(m => m[0].id)).toEqual(kept)
+    expect(members().map(m => m.pitches[0].id)).toEqual(kept)
   })
 
   it('a clamped count still gets the members it says it has', () => {
@@ -244,15 +244,15 @@ describe('a fanned member as an editable pitch', () => {
 
   it('knows one when it sees one', () => {
     const { note, members } = fanned()
-    expect(model.isFanMember(members[0][0].id)).toBe(true)
+    expect(model.isFanMember(members[0].pitches[0].id)).toBe(true)
     expect(model.isFanMember(note.id)).toBe(false)
     expect(model.isFanMember('no-such-id')).toBe(false)
   })
 
   it('⭐ getNote answers for it — its own pitch, the SLOT’s rhythm', () => {
     const { members } = fanned()
-    members[1][0].step = 'G'
-    const got = model.getNote(members[1][0].id)!
+    members[1].pitches[0].step = 'G'
+    const got = model.getNote(members[1].pitches[0].id)!
     expect(got.step).toBe('G')
     expect(got.duration).toBe('h')        // one event: the member has no length of its own
     expect(fracToNumber(got.beat)).toBe(0)
@@ -261,27 +261,27 @@ describe('a fanned member as an editable pitch', () => {
 
   it('⭐ updateNote re-spells it — which is what makes the arrows and a–g work', () => {
     const { members } = fanned()
-    const id = members[0][0].id
+    const id = members[0].pitches[0].id
     model.updateNote(id, { step: 'E', octave: 5, alter: 1 })
-    expect(chordAt(0).fan!.members![0][0]).toMatchObject({ step: 'E', octave: 5, alter: 1 })
+    expect(chordAt(0).fan!.members![0].pitches[0]).toMatchObject({ step: 'E', octave: 5, alter: 1 })
     // …and the note that was typed is untouched.
     expect(chordAt(0).notes[0]).toMatchObject({ step: 'C', octave: 4 })
   })
 
   it('⛔ but updateNote writes NOTHING else onto it — the rhythm is the slot’s', () => {
     const { members } = fanned()
-    const id = members[0][0].id
+    const id = members[0].pitches[0].id
     model.updateNote(id, { duration: 'q', dots: 1, tiedTo: 'somewhere', beam: 'begin' })
     expect(chordAt(0).duration).toBe('h')
     expect(chordAt(0).dots).toBeUndefined()
     expect(chordAt(0).beam).toBeUndefined()
-    expect(members[0][0].tiedTo).toBeUndefined() // a tie stored here would never be drawn
+    expect(members[0].pitches[0].tiedTo).toBeUndefined() // a tie stored here would never be drawn
   })
 
   it('resolves to its SLOT for anything slot-shaped', () => {
     const { members } = fanned()
-    expect(model.slotIdForNote(members[0][0].id)).toBe(chordAt(0).id)
-    expect(model.getNotePitch(members[0][0].id)?.id).toBe(members[0][0].id)
+    expect(model.slotIdForNote(members[0].pitches[0].id)).toBe(chordAt(0).id)
+    expect(model.getNotePitch(members[0].pitches[0].id)?.id).toBe(members[0].pitches[0].id)
   })
 
   /**
@@ -292,25 +292,25 @@ describe('a fanned member as an editable pitch', () => {
     it('⭐ a member answers with ITS key, the note that was typed with the slot', () => {
       const { note, members } = fanned()
       expect(model.offsetTargetOf(note.id)).toEqual({ key: chordAt(0).id, memberIndex: 0 })
-      expect(model.offsetTargetOf(members[0][0].id)).toEqual({ key: members[0][0].id, memberIndex: 1 })
-      expect(model.offsetTargetOf(members[2][0].id)).toEqual({ key: members[2][0].id, memberIndex: 3 })
+      expect(model.offsetTargetOf(members[0].pitches[0].id)).toEqual({ key: members[0].pitches[0].id, memberIndex: 1 })
+      expect(model.offsetTargetOf(members[2].pitches[0].id)).toEqual({ key: members[2].pitches[0].id, memberIndex: 3 })
       expect(model.offsetTargetOf('no-such-id')).toBeUndefined()
     })
 
     it('⭐ so nudging one member leaves the owner — and every other member — where it was', () => {
       const { note, members } = fanned()
-      model.nudgeNoteOffset(model.offsetTargetOf(members[1][0].id)!.key, 1.5)
+      model.nudgeNoteOffset(model.offsetTargetOf(members[1].pitches[0].id)!.key, 1.5)
       const overrides = model.getScore().engravingOverrides ?? {}
-      expect(overrides[members[1][0].id]).toEqual([{ kind: 'noteOffset', x: 1.5 }])
+      expect(overrides[members[1].pitches[0].id]).toEqual([{ kind: 'noteOffset', x: 1.5 }])
       expect(overrides[chordAt(0).id]).toBeUndefined()
       expect(overrides[note.id]).toBeUndefined()
-      expect(overrides[members[0][0].id]).toBeUndefined()
+      expect(overrides[members[0].pitches[0].id]).toBeUndefined()
     })
 
     it('a member’s pitches share ONE offset — the whole member moves, not one notehead', () => {
       const { members } = fanned()
-      const stacked = model.addFanMemberPitch(members[0][0].id, { step: 'E', alter: 0, octave: 4 })!
-      expect(model.offsetTargetOf(stacked.id)).toEqual(model.offsetTargetOf(members[0][0].id))
+      const stacked = model.addFanMemberPitch(members[0].pitches[0].id, { step: 'E', alter: 0, octave: 4 })!
+      expect(model.offsetTargetOf(stacked.id)).toEqual(model.offsetTargetOf(members[0].pitches[0].id))
     })
 
     /**
@@ -325,7 +325,7 @@ describe('a fanned member as an editable pitch', () => {
        *  front: `fan.members` is the live list, and the edits under test splice it. */
       function allOffset() {
         const f = fanned()
-        const keys = f.members.map(m => m[0].id)
+        const keys = f.members.map(m => m.pitches[0].id)
         for (const key of keys) model.nudgeNoteOffset(model.offsetTargetOf(key)!.key, 1)
         expect(offsets()).toHaveLength(3)
         return { ...f, keys }
@@ -358,7 +358,7 @@ describe('a fanned member as an editable pitch', () => {
 
     it('⭐ deleting the pitch the key is MADE of carries the offset to the next one', () => {
       const { members } = fanned()
-      const first = members[0][0].id
+      const first = members[0].pitches[0].id
       const stacked = model.addFanMemberPitch(first, { step: 'E', alter: 0, octave: 4 })!
       model.nudgeNoteOffset(model.offsetTargetOf(first)!.key, -2)
 
@@ -374,32 +374,32 @@ describe('a fanned member as an editable pitch', () => {
 
   it('⭐ deleting its LAST pitch takes the MEMBER with it — the group is one shorter', () => {
     const { members } = fanned()
-    const second = members[1][0].id
-    expect(model.deleteNote(members[0][0].id)).toBe(true)
+    const second = members[1].pitches[0].id
+    expect(model.deleteNote(members[0].pitches[0].id)).toBe(true)
     expect(chordAt(0).fan!.count).toBe(3)
     // The count and the list stay in step (members.length === count - 1), and the members that
     // survive keep their ids — a selection or a slur on a LATER member must not move.
     expect(chordAt(0).fan!.members).toHaveLength(2)
-    expect(chordAt(0).fan!.members![0][0].id).toBe(second)
+    expect(chordAt(0).fan!.members![0].pitches[0].id).toBe(second)
   })
 
   it('…and the LAST member takes the fan itself — a group of one is not a fan', () => {
     const { members } = fanned()
-    for (const m of [...members]) model.deleteNote(m[0].id)
+    for (const m of [...members]) model.deleteNote(m.pitches[0].id)
     expect(chordAt(0).fan).toBeUndefined()
     expect(chordAt(0).notes).toHaveLength(1) // the note you typed is still there
   })
 
   it('deleting ONE pitch of a member that has several removes that pitch', () => {
     const { members } = fanned()
-    members[0].push({ id: 'extra', step: 'E', alter: 0, octave: 4 })
+    members[0].pitches.push({ id: 'extra', step: 'E', alter: 0, octave: 4 })
     expect(model.deleteNote('extra')).toBe(true)
-    expect(chordAt(0).fan!.members![0].map(p => p.step)).toEqual(['C'])
+    expect(chordAt(0).fan!.members![0].pitches.map(p => p.step)).toEqual(['C'])
   })
 
   it('⛔ every SLOT-shaped mutator refuses it, by not finding it at all', () => {
     const { members } = fanned()
-    const id = members[0][0].id
+    const id = members[0].pitches[0].id
     expect(model.setTremolo(id, 3)).toBeNull()
     expect(model.setFan(id, { direction: 'rit', count: 3, beams: 2 })).toBeNull()
     expect(model.setTremoloPair(id, true)).toBeNull()

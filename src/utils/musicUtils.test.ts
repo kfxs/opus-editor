@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { prevailingAlterAt } from './accidentalState'
 import { spellingDiatonicPos } from './pitchSpelling'
 import { fracToNumber } from './fraction'
-import type { NotePitch, PitchAlter, PitchStep, Score } from '@/types/music'
+import type { FanMemberChord, NotePitch, PitchAlter, PitchStep, Score } from '@/types/music'
 import { durationToBeats, midiToNoteName, calculateTotalDuration, tupletMarkText, tupletMarkRuns, deriveTupletM, tupletBracketed, measureAccidentalNotes, measureFanMemberNotes, measureSelectableNotes } from './musicUtils'
 import { buildBeatMap, buildVoiceNavBeatMap } from './beatMap'
 import { fracCreate } from './fraction'
@@ -267,7 +267,7 @@ describe('measureAccidentalNotes', () => {
     ({ id, step, alter, octave: 4 })
 
   /** One fanned blanca at beat 0 of a 4/4 bar, played as 3, plus a plain note at beat 2. */
-  const bar = (members: NotePitch[][]): Measure => ({
+  const bar = (members: FanMemberChord[]): Measure => ({
     id: 'm1', number: 1, timeSignature: { numerator: 4, denominator: 4 }, tuplets: [],
     slots: [
       {
@@ -280,13 +280,13 @@ describe('measureAccidentalNotes', () => {
   })
 
   it('adds one entry per member pitch, and leaves the ordinary notes alone', () => {
-    const notes = measureAccidentalNotes(bar([[pitch('m1', 'G', 1)], [pitch('m2', 'G', 1)]]))
+    const notes = measureAccidentalNotes(bar([{ pitches: [pitch('m1', 'G', 1)] }, { pitches: [pitch('m2', 'G', 1)] }]))
     expect(notes).toHaveLength(4) // 2 slot pitches + 2 members
     expect(notes.filter(n => n.step === 'G')).toHaveLength(3)
   })
 
   it('⭐ places each member INSIDE its slot — after it starts, before the next slot', () => {
-    const notes = measureAccidentalNotes(bar([[pitch('m1', 'G', 1)], [pitch('m2', 'G', 1)]]))
+    const notes = measureAccidentalNotes(bar([{ pitches: [pitch('m1', 'G', 1)] }, { pitches: [pitch('m2', 'G', 1)] }]))
     const members = notes.slice(2) // appended after the flat notes
     for (const m of members) {
       expect(fracToNumber(m.beat)).toBeGreaterThan(0)
@@ -296,7 +296,7 @@ describe('measureAccidentalNotes', () => {
   })
 
   it('⭐ so a member’s sharp is IN FORCE for a later note in the bar', () => {
-    const notes = measureAccidentalNotes(bar([[pitch('m1', 'G', 1)]]))
+    const notes = measureAccidentalNotes(bar([{ pitches: [pitch('m1', 'G', 1)] }]))
     expect(prevailingAlterAt(notes, spellingDiatonicPos('G', 4), frac(2, 1))).toBe(1)
   })
 
@@ -313,7 +313,7 @@ describe('measureAccidentalNotes', () => {
    */
   describe('measureSelectableNotes', () => {
     it('includes the fanned members alongside the ordinary notes', () => {
-      const measure = bar([[pitch('m1', 'G', 1)], [pitch('m2', 'A', 0)]])
+      const measure = bar([{ pitches: [pitch('m1', 'G', 1)] }, { pitches: [pitch('m2', 'A', 0)] }])
       const ids = measureSelectableNotes(measure).map(n => n.id)
       expect(ids).toContain('a')   // the fan's own slot note
       expect(ids).toContain('b')   // the plain note at beat 2
@@ -322,7 +322,7 @@ describe('measureAccidentalNotes', () => {
     })
 
     it('⭐ orders by BEAT, so the last element is the bar’s last event', () => {
-      const measure = bar([[pitch('m1', 'G', 1)], [pitch('m2', 'A', 0)]])
+      const measure = bar([{ pitches: [pitch('m1', 'G', 1)] }, { pitches: [pitch('m2', 'A', 0)] }])
       const ordered = measureSelectableNotes(measure)
       // The members sound inside the fan at beat 0..2, so the plain note at beat 2 stays last —
       // it is the ANCHOR the caller takes, and a plain concatenation would have handed that to m2.
@@ -357,7 +357,7 @@ describe('fanned members in the beat maps', () => {
           notes: [pitch('a', 'C')],
           fan: {
             direction: 'accel', count: 3, beams: 3,
-            members: [[pitch('m1', 'D')], [pitch('m2', 'E')]],
+            members: [{ pitches: [pitch('m1', 'D')] }, { pitches: [pitch('m2', 'E')] }],
           },
         },
         { id: 's2', type: 'chord', beat: fracCreate(2, 1), duration: 'h', measure: 1, notes: [pitch('b', 'G')] },

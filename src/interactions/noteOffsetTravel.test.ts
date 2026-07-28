@@ -109,7 +109,7 @@ describe('note offset — a fanned member', () => {
     engine.setFan(owner.id, { direction: 'accel', count: 4, beams: 3 })
     const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
     if (slot.type !== 'chord') throw new Error('expected a chord')
-    return { owner, memberIds: slot.fan!.members!.map(m => m[0].id) }
+    return { owner, memberIds: slot.fan!.members!.map(m => m.pitches[0].id) }
   }
 
   /** The offset stored on member `k` of the fan at (measure, beat 0), or 0 when none. */
@@ -117,7 +117,7 @@ describe('note offset — a fanned member', () => {
     const measure = engine.getScore().measures.find(mm => mm.number === m)!
     const slot = measure.slots.find(s => s.type === 'chord' && s.beat.num === 0)
     if (!slot || slot.type !== 'chord') return 0
-    const id = slot.fan?.members?.[k - 1]?.[0]?.id
+    const id = slot.fan?.members?.[k - 1]?.pitches[0]?.id
     return id ? noteOffsetOverrideOf(engine.getScore(), id)?.x ?? 0 : 0
   }
 
@@ -154,7 +154,7 @@ describe('note offset — a fanned member', () => {
     // FRESH pitches (`cloneFanFresh`), so the entry can only be there because it was re-stamped.
     const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
     if (slot.type !== 'chord') throw new Error('expected a chord')
-    expect(slot.fan!.members![0][0].id).not.toBe(memberIds[0])
+    expect(slot.fan!.members![0].pitches[0].id).not.toBe(memberIds[0])
     expect(memberOffsetAt(1, 1)).toBe(3)
   })
 })

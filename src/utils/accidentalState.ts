@@ -108,7 +108,7 @@ export function displayedAccidentals(slots: ChordRest[]): Map<string, string | n
     if (slot.type !== 'chord') continue
     for (const p of slot.notes) decide(p)
     // The fan's other members, in the order they sound — inside this slot, before the next one.
-    for (const member of slot.fan?.members ?? []) for (const p of member) decide(p)
+    for (const member of slot.fan?.members ?? []) for (const p of member.pitches) decide(p)
   }
   return signs
 }

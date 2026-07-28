@@ -73,17 +73,17 @@ describe('FanEditController', () => {
     expect(grown()).toHaveLength(5)
 
     // Mark one member so it can be recognised after the count moves.
-    grown()[0][0].step = 'G'
-    const markedId = grown()[0][0].id
+    grown()[0].pitches[0].step = 'G'
+    const markedId = grown()[0].pitches[0].id
 
     bus.fanEdit.set({ noteId: id, count: 9 })
     expect(grown()).toHaveLength(8)
-    expect(grown()[0][0].step).toBe('G')
-    expect(grown()[0][0].id).toBe(markedId) // a surviving member keeps its identity
+    expect(grown()[0].pitches[0].step).toBe('G')
+    expect(grown()[0].pitches[0].id).toBe(markedId) // a surviving member keeps its identity
 
     bus.fanEdit.set({ noteId: id, count: 3 })
     expect(grown()).toHaveLength(2)
-    expect(grown()[0][0].id).toBe(markedId) // shrinking drops from the END
+    expect(grown()[0].pitches[0].id).toBe(markedId) // shrinking drops from the END
   })
 
   it('⭐ NEVER makes a fan — a note without one is a no-op', () => {

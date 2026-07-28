@@ -307,25 +307,51 @@ export interface FanMark {
    */
   spread?: number
   /**
-   * The pitches of members 1…`count-1` — **member 0 IS the slot's own {@link Chord.notes}** and is
-   * deliberately not repeated here. That is what makes "remove the fan and the note you typed is
-   * still there" literally true rather than reconstructed.
+   * Members 1…`count-1` — **member 0 IS the slot's own {@link Chord.notes}** and is deliberately not
+   * repeated here. That is what makes "remove the fan and the note you typed is still there"
+   * literally true rather than reconstructed.
    *
    * ⚠️ The invariant is therefore `members.length === count - 1`, and exactly ONE function is
    * allowed to get that off-by-one right: `normalizeFan` (utils/fannedBeam), called by
    * `ScoreModel.setFan`. Readers never repair it — a mark that has never been through `setFan` (an
    * older JSON file, a freshly built `{direction, count, beams}`) simply has no `members`, and a
    * reader falls back to the slot's own pitches.
-   *
-   * Real {@link NotePitch}es, with ids, because a member IS a note: a click has to select one, and
-   * `getNote` / the arrows / `a`–`g` all address a pitch by id. Dense rather than sparse for the
-   * same reason — half the heads carrying real ids and half synthetic ones would double every
-   * command that resolves one (plan §1).
-   *
-   * What a member is NOT: tied, slurred, articulated or separately dotted. Those attach to the
-   * SLOT — the whole gesture — so those fields are dropped when a member is copied.
    */
-  members?: NotePitch[][]
+  members?: FanMemberChord[]
+}
+
+/**
+ * ⭐ **One member of a fan — a CHORD in its own right**, which is what this feature had already
+ * concluded in prose (`docs/fanned-beam-pitches-plan.md`: *"inside a fan the chord is the MEMBER,
+ * not the slot"*) before the type said it. It was `NotePitch[]`, a bare array, and that shape could
+ * only ever hold pitches.
+ *
+ * Real {@link NotePitch}es, with ids, because a member IS a note: a click has to select one, and
+ * `getNote` / the arrows / `a`–`g` all address a pitch by id. Dense rather than sparse for the same
+ * reason — half the heads carrying real ids and half synthetic ones would double every command that
+ * resolves one (plan §1).
+ */
+export interface FanMemberChord {
+  /** The member's pitches — one for an ordinary member, several when the head is a chord. */
+  pitches: NotePitch[]
+  /**
+   * ⭐ **This member's OWN articulations** (his ask, after using it — the same correction that made
+   * slurs an exception to the "attaches to the SLOT" rule).
+   *
+   * The plan refused these on the reasoning that an articulation attaches to the whole gesture, and
+   * the drawing followed: one staccato on a fan marked member 0 and playback shortened all six. But
+   * a fan is how you write six ATTACKS, and an attack is exactly the thing an articulation belongs
+   * to — so marking the sixth note alone has to be sayable, and it now is, through the ordinary
+   * `toggleArticulation` on the member's own id.
+   *
+   * Member 0's marks stay where they always were, on {@link Chord.articulations}: member 0 IS the
+   * slot's chord, so it needs no second home and the shape stays honest.
+   *
+   * ⚠️ Absent, not `[]`, when there are none — `laneFingerprint` stringifies the whole slot for the
+   * width cache key, so two spellings of "no articulations" would mint two keys for one piece of
+   * music. `markOps` deletes the field rather than leaving it empty.
+   */
+  articulations?: ArticulationType[]
 }
 
 /**

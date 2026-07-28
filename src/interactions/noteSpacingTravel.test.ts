@@ -199,7 +199,7 @@ describe('leading space — a fanned member’s own gap', () => {
     engine.setFan(id, { direction: 'accel', count: 4, beams: 3 })
     const slot = engine.getScore().measures[m - 1].slots.find(s => s.type === 'chord' && s.fan)!
     if (slot.type !== 'chord') throw new Error('expected a chord')
-    return slot.fan!.members!.map(pitches => engine.spacingColumnOf(pitches[0].id)!.beat)
+    return slot.fan!.members!.map(m => engine.spacingColumnOf(m.pitches[0].id)!.beat)
   }
 
   it('⭐ survives a meter change that leaves the fan where it was', () => {

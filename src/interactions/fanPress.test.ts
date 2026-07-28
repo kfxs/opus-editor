@@ -75,8 +75,8 @@ describe('pressFan', () => {
     const ma = fanOf(a)!.members!
     const mb = fanOf(b)!.members!
     expect(ma).toHaveLength(DEFAULT_FAN_COUNT - 1)
-    expect(ma.every(m => m.length === 1 && m[0].step === 'C' && m[0].octave === 4)).toBe(true)
-    const ids = [...ma, ...mb].flat().map(p => p.id)
+    expect(ma.every(m => m.pitches.length === 1 && m.pitches[0].step === 'C' && m.pitches[0].octave === 4)).toBe(true)
+    const ids = [...ma, ...mb].flatMap(m => m.pitches).map(p => p.id)
     expect(new Set(ids).size).toBe(ids.length)
   })
 
@@ -190,7 +190,7 @@ describe('pressFan across a selection', () => {
     select(note)
     palette.pressFan('accel')
     const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
-    const memberId = slot.type === 'chord' ? slot.fan!.members![0][0].id : ''
+    const memberId = slot.type === 'chord' ? slot.fan!.members![0].pitches[0].id : ''
 
     // Owner + one of its own members. Counted, the member would answer "no fan here" and turn the
     // clearing press into a re-apply at the default shape.
@@ -279,7 +279,7 @@ describe('fanHighlight — the buttons read the selection', () => {
     const id = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
     engine.setFan(id, { direction: 'rit', count: 4, beams: 2 })
     const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
-    const memberId = slot.type === 'chord' ? slot.fan!.members![0][0].id : ''
+    const memberId = slot.type === 'chord' ? slot.fan!.members![0].pitches[0].id : ''
 
     state.selectedNoteId = memberId
     state.selectedItems = new Map([[`note:${memberId}`, { kind: 'note' as const, id: memberId }]])

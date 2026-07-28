@@ -393,7 +393,7 @@ describe('a reused measure keeps its fanned members', () => {
     model.setFan(note.id, { direction: 'accel', count: 4, beams: 3 })
     const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
     if (slot.type !== 'chord') throw new Error('expected a chord')
-    return { model, memberIds: slot.fan!.members!.map(m => m[0].id) }
+    return { model, memberIds: slot.fan!.members!.map(m => m.pitches[0].id) }
   }
 
   it('⭐ an edit in ANOTHER bar leaves every member still highlightable', () => {

@@ -157,8 +157,8 @@ function noteOffsetsInWindow(
       // member ids on the far side are freshly minted (`cloneFanFresh`), so the index is the address
       // — safe here because a copy and its paste are one passage, in order.
       if (s.type !== 'chord' || !s.fan?.members) continue
-      s.fan.members.forEach((pitches, k) => {
-        const id = pitches[0]?.id
+      s.fan.members.forEach((m, k) => {
+        const id = m.pitches[0]?.id
         if (!id) return
         const mov = noteOffsetOverrideOf(score, id)
         if (mov && mov.x !== 0) out.push({ offset, x: mov.x, member: k + 1 })

@@ -782,8 +782,8 @@ function captureNoteOffsets(score: Score, deps: RebarDeps, regionMeasures: Measu
       // beat the tiling can hand back (it lives between the slot's column and the next), so the
       // group's own address plus a place in it is the whole address — see {@link CapturedNoteOffset}.
       if (s.type !== 'chord' || !s.fan?.members) continue
-      s.fan.members.forEach((pitches, k) => {
-        const id = pitches[0]?.id
+      s.fan.members.forEach((m, k) => {
+        const id = m.pitches[0]?.id
         if (!id) return
         const mov = noteOffsetOverrideOf(score, id)
         if (!mov || mov.x === 0) return
@@ -825,7 +825,7 @@ function restoreNoteOffsets(score: Score, deps: RebarDeps, regionNumbers: number
     if (!slot) continue // the new tiling has no slot starting here → drop (benign)
     let key: string | undefined = slot.id
     if (c.member !== undefined) {
-      key = slot.type === 'chord' ? slot.fan?.members?.[c.member - 1]?.[0]?.id : undefined
+      key = slot.type === 'chord' ? slot.fan?.members?.[c.member - 1]?.pitches[0]?.id : undefined
       if (!key) continue // the slot that arrived carries no member k → drop, same rule one level in
     }
     const next: NoteOffsetOverride = { kind: 'noteOffset', x: c.x }

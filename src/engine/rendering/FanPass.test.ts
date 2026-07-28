@@ -181,7 +181,7 @@ describe('the members are drawn as themselves', () => {
     const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
     if (slot.type !== 'chord') throw new Error('expected a chord')
     const steps = ['D', 'E', 'F', 'G', 'A', 'B'] as const
-    slot.fan!.members!.forEach((m, k) => { m[0].step = steps[k % steps.length] })
+    slot.fan!.members!.forEach((m, k) => { m.pitches[0].step = steps[k % steps.length] })
     return { model, slot, note }
   }
 
@@ -208,7 +208,7 @@ describe('the members are drawn as themselves', () => {
 
   it('⭐ an ALTERED member draws its sign — and only the first of them does', () => {
     const { model, slot } = risingFan(4)
-    for (const m of slot.fan!.members!) { m[0].step = 'F'; m[0].alter = 1 }
+    for (const m of slot.fan!.members!) { m.pitches[0].step = 'F'; m.pitches[0].alter = 1 }
     const { renderer, container } = makeRenderer()
     renderer.renderScore(model.getScore())
     // Three member groups: the first F♯ shows its sign, the two repeats do not. The head's own glyph
@@ -222,7 +222,7 @@ describe('the members are drawn as themselves', () => {
     // The bug this phase fixes: bare NoteHeads draw no ledger lines, so an off-staff member used to
     // float. jsdom cannot say where the lines are, only that drawing them does not throw.
     const { model, slot } = risingFan(6)
-    slot.fan!.members!.forEach((m, k) => { m[0].step = 'C'; m[0].octave = 6 + (k % 2) })
+    slot.fan!.members!.forEach((m, k) => { m.pitches[0].step = 'C'; m.pitches[0].octave = 6 + (k % 2) })
     const { renderer, container } = makeRenderer()
     expect(() => renderer.renderScore(model.getScore())).not.toThrow()
     expect(fanGroups(container)).toHaveLength(1)
@@ -331,7 +331,7 @@ describe('the members are selectable', () => {
     const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
     if (slot.type !== 'chord') throw new Error('expected a chord')
     const steps = ['D', 'E', 'F', 'G'] as const
-    slot.fan!.members!.forEach((m, k) => { m[0].step = steps[k % steps.length] })
+    slot.fan!.members!.forEach((m, k) => { m.pitches[0].step = steps[k % steps.length] })
     return { model, slot, note }
   }
 
@@ -342,8 +342,8 @@ describe('the members are selectable', () => {
     const registry = renderer.getElementRegistry()
 
     for (const member of slot.fan!.members!) {
-      const el = registry.getById(member[0].id)
-      expect(el, `member ${member[0].step}`).not.toBeNull()
+      const el = registry.getById(member.pitches[0].id)
+      expect(el, `member ${member.pitches[0].step}`).not.toBeNull()
       expect(el!.type).toBe('note')
       // ⚠️ THE SLOT'S BEAT, not one of its own. This is what keeps `pixelXToBeat` unmoved: that walk
       // dedups anchors by beat and keeps the leftmost x, so the members fold into the note's column.
@@ -374,7 +374,7 @@ describe('the members are selectable', () => {
     renderer.renderScore(model.getScore())
 
     for (const member of slot.fan!.members!) {
-      const info = renderer.getFanMemberSVGGroup(member[0].id)
+      const info = renderer.getFanMemberSVGGroup(member.pitches[0].id)
       expect(info).not.toBeNull()
       expect(info!.group.getAttribute('class')).toBe('vf-fanhead')
       expect(info!.group.querySelector('g.vf-notehead')).not.toBeNull()
@@ -391,7 +391,7 @@ describe('the members are selectable', () => {
     const { renderer } = makeRenderer()
     renderer.renderScore(model.getScore())
     const registry = renderer.getElementRegistry()
-    const ids = slot.fan!.members!.map(m => m[0].id)
+    const ids = slot.fan!.members!.map(m => m.pitches[0].id)
     const memberEls = ids.map(id => registry.getById(id)!)
     const all = registry.getAll()
     const beamIdx = all.findIndex(el => el.type === 'beam')
@@ -438,7 +438,7 @@ describe('the space before the note after a fan', () => {
     model.setFan(note.id, { direction: 'accel', count: 5, beams: 3 })
     const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
     if (slot.type !== 'chord') throw new Error('expected a chord')
-    return { model, slot, note, memberIds: slot.fan!.members!.map(m => m[0].id) }
+    return { model, slot, note, memberIds: slot.fan!.members!.map(m => m.pitches[0].id) }
   }
 
   const headsOf = (renderer: VexFlowRenderer, ids: string[]) =>
@@ -501,7 +501,7 @@ describe('a slur anchored inside a fan', () => {
     const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
     if (slot.type !== 'chord') throw new Error('expected a chord')
     const members = slot.fan!.members!
-    const slur = model.addSlur({ startNoteId: members[0][0].id, endNoteId: members[2][0].id, voice: 0 })
+    const slur = model.addSlur({ startNoteId: members[0].pitches[0].id, endNoteId: members[2].pitches[0].id, voice: 0 })
     return { model, slur, members }
   }
 
@@ -524,8 +524,8 @@ describe('a slur anchored inside a fan', () => {
     renderer.renderScore(model.getScore())
     const registry = renderer.getElementRegistry()
     const arc = registry.getAll().find(el => el.type === 'slur')!
-    const from = registry.getById(members[0][0].id)!
-    const to = registry.getById(members[2][0].id)!
+    const from = registry.getById(members[0].pitches[0].id)!
+    const to = registry.getById(members[2].pitches[0].id)!
     // The arc spans the two member heads, so it is at least as wide as the gap between them.
     expect(arc.bbox.width).toBeGreaterThan((to.headX! - from.headX!) * 0.5)
     expect(arc.bbox.x).toBeGreaterThan(from.headX! - 40)

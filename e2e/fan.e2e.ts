@@ -102,3 +102,128 @@ test('the number of beam lines is the number asked for', async ({ score }) => {
   expect(drawn.ramps).toHaveLength(2)
   expect(linesAt(drawn.ramps.map(r => r.yRight)), 'two lines at the fast end').toBe(2)
 })
+
+/**
+ * ⭐ EVERY MEMBER OF A FAN CARRIES ITS OWN ARTICULATIONS.
+ *
+ * This started as the opposite: an articulation attached to the SLOT, so it was drawn once on member
+ * 0 — the only head VexFlow knows about — while playback shortened all six. Drawing the slot's mark
+ * on every head fixed the disagreement and produced the real complaint: *"if i apply an articulation
+ * to the owner of the fan it applies for all the members... every member should have its own"*. A fan
+ * is how you write N attacks, and an articulation belongs to an attack.
+ *
+ * Only measurable here: a member's marks are hand-placed glyphs on a head VexFlow never drew, and
+ * jsdom measures every glyph as 0x0.
+ */
+const NOTEHEADS = [0xe0a0, 0xe0ff] as const
+const RESTS = [0xe4e0, 0xe4ff] as const
+
+/** Every glyph that is neither a notehead nor a rest — here, the articulation marks. */
+function marksOnly(glyphs: { code: string; x: number; y: number }[]) {
+  return glyphs.filter(g => {
+    const c = parseInt(g.code, 16)
+    const inRange = ([lo, hi]: readonly [number, number]) => c >= lo && c <= hi
+    return !inRange(NOTEHEADS) && !inRange(RESTS)
+  })
+}
+
+test('a mark on the fan OWNER stays on the owner — it is not spread over the members', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const note = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })
+    h.engine.setFan(note!.id, { direction: 'accel', count: 6, beams: 3 })
+    h.engine.toggleArticulation(note!.id, 'staccato')
+    await h.render()
+    return {
+      heads: h.noteheads(),
+      onOwner: h.glyphs('g.vf-stavenote text'),
+      onMembers: h.glyphs('g.vf-fanhead text'),
+    }
+  })
+
+  expect(drawn.heads, 'six heads').toHaveLength(6)
+  expect(marksOnly(drawn.onOwner), 'the owner wears it').toHaveLength(1)
+  expect(marksOnly(drawn.onMembers), 'and no member does — the mark is the owner’s alone').toEqual([])
+})
+
+test('a mark on ONE member appears on that member and nowhere else', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const note = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })
+    h.engine.setFan(note!.id, { direction: 'accel', count: 6, beams: 3 })
+    const slot = h.engine.getScore().measures[0].slots[0]
+    const memberIds = (slot.fan?.members ?? []).map(m => m.pitches[0].id)
+    // The THIRD member alone — the case the model could not even express before.
+    h.engine.toggleArticulation(memberIds[2], 'accent')
+    await h.render()
+    return {
+      heads: h.noteheads(),
+      onOwner: h.glyphs('g.vf-stavenote text'),
+      onMembers: h.glyphs('g.vf-fanhead text'),
+    }
+  })
+
+  const marks = marksOnly(drawn.onMembers)
+  expect(marksOnly(drawn.onOwner), 'the owner was not marked').toEqual([])
+  expect(marks, 'exactly one mark, for the one member that has one').toHaveLength(1)
+
+  // Heads left to right: [owner, m1, m2, m3, m4, m5] — the mark belongs over the FOURTH.
+  const headXs = drawn.heads.map(g => g.x).sort((a, b) => a - b)
+  expect(Math.abs(marks[0].x - headXs[3]), 'on the third member’s head, not the first')
+    .toBeLessThan(8)
+})
+
+test('a member’s mark is engraved exactly like the owner’s — same glyph, same height', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const note = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })
+    h.engine.setFan(note!.id, { direction: 'accel', count: 6, beams: 3 })
+    const slot = h.engine.getScore().measures[0].slots[0]
+    const memberIds = (slot.fan?.members ?? []).map(m => m.pitches[0].id)
+    // The SAME mark on the owner and on a member, whose heads are on the same line — so any
+    // difference in glyph or height is the engraving disagreeing with itself.
+    h.engine.toggleArticulation(note!.id, 'staccato')
+    h.engine.toggleArticulation(memberIds[1], 'staccato')
+    await h.render()
+    return {
+      onOwner: h.glyphs('g.vf-stavenote text'),
+      onMembers: h.glyphs('g.vf-fanhead text'),
+    }
+  })
+
+  const owner = marksOnly(drawn.onOwner)
+  const member = marksOnly(drawn.onMembers)
+  expect(owner).toHaveLength(1)
+  expect(member).toHaveLength(1)
+  // VexFlow keeps a separate above/below glyph per articulation, and a between-lines mark is snapped
+  // into a space and re-originned — both are silent when got wrong, and both show up here.
+  expect(member[0].code, 'the same glyph, so the same side').toBe(owner[0].code)
+  expect(member[0].y, 'and the same distance from a head on the same line').toBe(owner[0].y)
+})
+
+test('two marks on one member stack the way two marks on any note stack', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const note = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })
+    h.engine.setFan(note!.id, { direction: 'accel', count: 6, beams: 3 })
+    const slot = h.engine.getScore().measures[0].slots[0]
+    const memberIds = (slot.fan?.members ?? []).map(m => m.pitches[0].id)
+    for (const t of ['staccato', 'tenuto'] as const) {
+      h.engine.toggleArticulation(note!.id, t)
+      h.engine.toggleArticulation(memberIds[1], t)
+    }
+    await h.render()
+    return {
+      onOwner: h.glyphs('g.vf-stavenote text'),
+      onMembers: h.glyphs('g.vf-fanhead text'),
+    }
+  })
+
+  const owner = marksOnly(drawn.onOwner).sort((a, b) => a.y - b.y)
+  const member = marksOnly(drawn.onMembers).sort((a, b) => a.y - b.y)
+  expect(owner).toHaveLength(2)
+  expect(member).toHaveLength(2)
+  // The stack is the library's, not a constant of ours — so it has to match the note beside it.
+  expect(member.map(g => g.code)).toEqual(owner.map(g => g.code))
+  expect(member.map(g => g.y)).toEqual(owner.map(g => g.y))
+})

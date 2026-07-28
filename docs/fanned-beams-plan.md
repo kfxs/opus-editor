@@ -223,6 +223,13 @@ implementations agree. It expands the SOUNDING length rather than the written on
 tied forward accelerates across the chain, "fill what sounds", the rule the tremolo follows — and
 each member takes the articulation's length factor, so a staccato fan is staccato.
 
+⚠️ **OUTSTANDING (2026-07-28): that last clause is now the SLOT's articulation only.** Members carry
+their own marks since `FanMemberChord.articulations` (docs/fanned-beam-pitches-plan.md §3), and the
+ENGRAVING follows them — but this scheduler still spends the slot's mark across every member and
+never reads a member's own. So an accent on member 3 alone is drawn and not heard, and a staccato on
+the owner alone is heard on all six and drawn on one. Picture and playback have been one function in
+this feature since day one; making them one again means reading each member's own list here.
+
 ⚠️ It runs BEFORE the tremolo expansion, and the order is a decision rather than an accident: the
 two are mutually exclusive in the model, so a slot carrying both is ill-formed — imported JSON is
 reported, never repaired — and something has to win predictably. The fan does.

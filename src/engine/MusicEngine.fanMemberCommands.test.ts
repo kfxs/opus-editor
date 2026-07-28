@@ -4,13 +4,18 @@ import { fracCreate as frac } from '@/utils/fraction'
 import type { Chord, FanMark } from '@/types/music'
 
 /**
- * ⛔ WHAT A FANNED MEMBER REFUSES, and why each refusal is the notation talking
+ * WHAT A FANNED MEMBER TAKES AND WHAT IT REFUSES, and why each answer is the notation talking
  * (docs/fanned-beam-pitches-plan.md §2 P3, §3).
  *
- * A member is a PITCH inside one event. The tie, the slur, the articulation, the duration and the
- * stem all belong to the SLOT — the whole gesture — so a command that attaches one of those stops
- * at the member rather than writing something no renderer will ever draw. The two halves are tested
- * together on purpose: the command reports nothing happened AND the model is untouched.
+ * A member is a note inside one written event, and the line between the two has moved twice, both
+ * times because he used the feature and said so:
+ *  - a SLUR was allowed in (§3 had refused ties and slurs together) — a slur is a SPAN between two
+ *    points, and member 2 → member 5 is a span;
+ *  - an ARTICULATION was allowed in — a fan writes N attacks and a mark belongs to an attack.
+ * What still stops at the member is what genuinely belongs to the whole gesture: the TIE (a
+ * pitch-to-pitch continuation, and a member has no length of its own to continue into), the STEM,
+ * the DURATION and convert-to-rest. Both halves are tested together on purpose: the command reports
+ * what happened AND the model says the same thing.
  */
 const fakeRegistry = {
   clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
@@ -48,25 +53,38 @@ describe('a fanned member at the command layer', () => {
     noteId = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
     engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
     engine.setFan(noteId, FAN)
-    memberId = chord().fan!.members![0][0].id
+    memberId = chord().fan!.members![0].pitches[0].id
   })
 
   it('⭐ ACCEPTS a re-spelling — that is the whole of what P3 buys', () => {
     // The same call `ArrowUp`, `a`–`g` and the accidental stamp all make.
     engine.updateNote(memberId, { step: 'G', octave: 4, alter: 1 })
-    expect(chord().fan!.members![0][0]).toMatchObject({ step: 'G', octave: 4, alter: 1 })
+    expect(chord().fan!.members![0].pitches[0]).toMatchObject({ step: 'G', octave: 4, alter: 1 })
     expect(engine.getNote(memberId)).toMatchObject({ step: 'G', alter: 1, duration: 'h' })
   })
 
   it('⛔ a TIE — it is drawn from the slot, and TieRenderer looks its id up in slot.notes', () => {
     expect(engine.toggleTie(memberId)).toBeNull()
-    expect(chord().fan!.members![0][0].tiedTo).toBeUndefined()
+    expect(chord().fan!.members![0].pitches[0].tiedTo).toBeUndefined()
     expect(chord().notes[0].tiedTo).toBeUndefined()
   })
 
-  it('⛔ an ARTICULATION — it marks the event, and the event is the group', () => {
-    expect(engine.toggleArticulation(memberId, 'accent')).toBeNull()
-    expect(chord().articulations ?? []).toEqual([])
+  /**
+   * ⭐ NO LONGER REFUSED (his ask, after using it): *"every member should have its own articulation,
+   * and we should be able to do it in normal way we apply or not articulation to any note"*. A fan
+   * writes N attacks and an articulation belongs to an attack, so the mark lands on the MEMBER —
+   * and pointedly not on the slot, whose marks are member 0's.
+   */
+  it('⭐ an ARTICULATION lands on the MEMBER, and leaves the owner alone', () => {
+    expect(engine.toggleArticulation(memberId, 'accent')).not.toBeNull()
+    expect(chord().fan!.members![0].articulations).toEqual(['accent'])
+    expect(chord().articulations ?? [], 'the owner was not marked').toEqual([])
+    expect(engine.getNote(memberId)?.articulations, 'and the member reports its own').toEqual(['accent'])
+
+    // Toggling is toggling — off again, and the field goes rather than sitting there empty (two
+    // spellings of "none" would mint two width-cache keys for one piece of music).
+    expect(engine.toggleArticulation(memberId, 'accent')).not.toBeNull()
+    expect(chord().fan!.members![0].articulations).toBeUndefined()
   })
 
   it('⛔ a STEM FLIP — the stem is the GROUP’s, decided over every member', () => {
@@ -87,7 +105,7 @@ describe('a fanned member at the command layer', () => {
    */
   it('⭐ a SLUR anchors to the member — a span, not an attachment', () => {
     const slot = chord()
-    const second = slot.fan!.members![1][0].id
+    const second = slot.fan!.members![1].pitches[0].id
     const created = engine.createSlur([memberId, second])
     expect(created).not.toBeNull()
     expect(created!.startNoteId).toBe(memberId)
@@ -99,8 +117,8 @@ describe('a fanned member at the command layer', () => {
     // the sort keeps the CLICK order. Select the later member first and the slur is built backwards
     // — drawn from the right head to the left one — and only sometimes, which is the worst kind.
     const slot = chord()
-    const first = slot.fan!.members![0][0].id
-    const third = slot.fan!.members![2][0].id
+    const first = slot.fan!.members![0].pitches[0].id
+    const third = slot.fan!.members![2].pitches[0].id
     const created = engine.createSlur([third, first])
     expect(created).not.toBeNull()
     expect(created!.startNoteId).toBe(first)
@@ -110,7 +128,7 @@ describe('a fanned member at the command layer', () => {
   it('⭐ and it SURVIVES — the dangling-slur sweep knows where members live', () => {
     // The defensive pass rebuilds the id set from the score; leave members out of it and every
     // slur inside a fan is dropped the next time any edit runs it.
-    const second = chord().fan!.members![1][0].id
+    const second = chord().fan!.members![1].pitches[0].id
     const created = engine.createSlur([memberId, second])!
     engine.updateNote(memberId, { step: 'D', octave: 4 }) // any edit at all
     expect(engine.getSlurs().some(sl => sl.id === created.id)).toBe(true)
@@ -122,19 +140,19 @@ describe('a fanned member at the command layer', () => {
     const created = engine.createSlur([noteId])
     expect(created).not.toBeNull()
     expect(created!.startNoteId).toBe(noteId)
-    expect(created!.endNoteId).toBe(chord().fan!.members![0][0].id)
+    expect(created!.endNoteId).toBe(chord().fan!.members![0].pitches[0].id)
   })
 
   it('⭐ `s` on ONE member slurs to the NEXT member, not out of the group', () => {
     const created = engine.createSlur([memberId])
     expect(created).not.toBeNull()
     expect(created!.startNoteId).toBe(memberId)
-    expect(created!.endNoteId).toBe(chord().fan!.members![1][0].id)
+    expect(created!.endNoteId).toBe(chord().fan!.members![1].pitches[0].id)
   })
 
   it('from the LAST member it slurs out of the fan, to the next slot', () => {
     engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
-    const last = chord().fan!.members![chord().fan!.members!.length - 1][0].id
+    const last = chord().fan!.members![chord().fan!.members!.length - 1].pitches[0].id
     const created = engine.createSlur([last])
     expect(created).not.toBeNull()
     expect(engine.getNote(created!.endNoteId)?.step).toBe('G')
@@ -143,7 +161,6 @@ describe('a fanned member at the command layer', () => {
   it('⛔ and none of the refusals leaves an undo entry behind', () => {
     const before = engine.exportJSON()
     engine.toggleTie(memberId)
-    engine.toggleArticulation(memberId, 'staccato')
     engine.flipStemDirection(memberId)
     engine.convertToRest(memberId)
     expect(engine.exportJSON()).toBe(before)
@@ -190,7 +207,7 @@ describe('a fanned member at the command layer', () => {
       for (let i = 0; i < FAN.count - 1; i++) {
         const members = chord().fan?.members
         if (!members?.length) break
-        engine.deleteNote(members[0][0].id)
+        engine.deleteNote(members[0].pitches[0].id)
       }
       expect(chord().fan).toBeUndefined()
       expect(chord().notes).toHaveLength(1)
@@ -204,7 +221,7 @@ describe('a fanned member at the command layer', () => {
     })
 
     it('drops a slur anchored to the member it removed', () => {
-      const second = chord().fan!.members![1][0].id
+      const second = chord().fan!.members![1].pitches[0].id
       const created = engine.createSlur([memberId, second])!
       expect(engine.getSlurs().some(s => s.id === created.id)).toBe(true)
       engine.deleteNote(memberId)
@@ -216,7 +233,7 @@ describe('a fanned member at the command layer', () => {
       const added = engine.fanMemberPitches(memberId)!.find(p => p.step === 'G')!
       expect(engine.deleteNote(added.id)).toBe(true)
       expect(chord().fan!.count).toBe(FAN.count)
-      expect(chord().fan!.members![0].map(p => p.step)).toEqual(['C'])
+      expect(chord().fan!.members![0].pitches.map(p => p.step)).toEqual(['C'])
     })
 
     it('the note you TYPED is not a member — deleting it deletes the EVENT, fan and all', () => {
@@ -246,7 +263,7 @@ describe('a selected fanned member in the selection machinery', () => {
     engine.setFan(noteId, FAN)
     const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
     if (slot.type !== 'chord') throw new Error('expected a chord')
-    memberId = slot.fan!.members![0][0].id
+    memberId = slot.fan!.members![0].pitches[0].id
   })
 
   it('⭐ the engine can answer for it — the projection every widget reads', () => {
@@ -281,7 +298,7 @@ describe('a selected fanned member in the selection machinery', () => {
     engine.setNoteAccidental(memberId, '#')
     const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
     if (slot.type !== 'chord') throw new Error('expected a chord')
-    expect(slot.fan!.members![0][0].alter).toBe(1)
+    expect(slot.fan!.members![0].pitches[0].alter).toBe(1)
     expect(slot.notes[0].alter).toBe(0)
   })
 })
@@ -306,7 +323,7 @@ describe('a member edit is a real edit', () => {
     engine.setFan(noteId, FAN)
     const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
     if (slot.type !== 'chord') throw new Error('expected a chord')
-    memberId = slot.fan!.members![0][0].id
+    memberId = slot.fan!.members![0].pitches[0].id
   })
 
   it('⭐ REPORTS the change — which is what tells the caller to repaint', () => {
@@ -346,15 +363,15 @@ describe('a chord note on a fanned member', () => {
     engine.addMeasure()
     noteId = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
     engine.setFan(noteId, FAN)
-    memberId = slot().fan!.members![1][0].id // the SECOND member, so a slot-wide add is obvious
+    memberId = slot().fan!.members![1].pitches[0].id // the SECOND member, so a slot-wide add is obvious
   })
 
   it('⭐ lands on the member, not on the note that was typed', () => {
     const added = engine.addFanMemberPitch(memberId, { step: 'E', alter: 0, octave: 4 })
     expect(added).not.toBeNull()
-    expect(slot().fan!.members![1].map(p => p.step)).toEqual(['C', 'E'])
+    expect(slot().fan!.members![1].pitches.map(p => p.step)).toEqual(['C', 'E'])
     expect(slot().notes.map(p => p.step)).toEqual(['C'])  // the typed note is untouched
-    expect(slot().fan!.members![0]).toHaveLength(1)       // and so is every other member
+    expect(slot().fan!.members![0].pitches).toHaveLength(1) // and so is every other member
   })
 
   it('reports the member’s own pitches — what "already stacked here" means inside a fan', () => {
@@ -368,12 +385,12 @@ describe('a chord note on a fanned member', () => {
   it('is undoable, and the added pitch can be deleted again', () => {
     const added = engine.addFanMemberPitch(memberId, { step: 'E', alter: 0, octave: 4 })!
     expect(engine.undo()).toBe(true)
-    expect(slot().fan!.members![1]).toHaveLength(1)
+    expect(slot().fan!.members![1].pitches).toHaveLength(1)
     expect(engine.redo()).toBe(true)
-    expect(slot().fan!.members![1]).toHaveLength(2)
+    expect(slot().fan!.members![1].pitches).toHaveLength(2)
     // Deleting one of two leaves the member standing; the LAST one takes the member with it.
     expect(engine.deleteNote(added.id)).toBe(true)
-    expect(slot().fan!.members![1].map(p => p.step)).toEqual(['C'])
+    expect(slot().fan!.members![1].pitches.map(p => p.step)).toEqual(['C'])
   })
 
   it('refuses on an ordinary note — the slot has its own door', () => {
@@ -422,7 +439,7 @@ describe('MusicEngine.spacingColumnOf', () => {
     const members = fanOf().members!
     let previous = 0
     for (let k = 0; k < members.length; k++) {
-      const column = engine.spacingColumnOf(members[k][0].id)!
+      const column = engine.spacingColumnOf(members[k].pitches[0].id)!
       expect(column.memberIndex).toBe(k + 1)
       const beat = column.beat.num / column.beat.den
       expect(beat).toBeGreaterThan(previous)
@@ -433,8 +450,8 @@ describe('MusicEngine.spacingColumnOf', () => {
 
   it('two pitches of ONE member share one address — a member is a chord, and a chord is a column', () => {
     const member = fanOf().members![0]
-    engine.addFanMemberPitch(member[0].id, { step: 'E', alter: 0, octave: 4 })
-    const stacked = fanOf().members![0]
+    engine.addFanMemberPitch(member.pitches[0].id, { step: 'E', alter: 0, octave: 4 })
+    const stacked = fanOf().members![0].pitches
     expect(stacked).toHaveLength(2)
     expect(engine.spacingColumnOf(stacked[1].id)).toEqual(engine.spacingColumnOf(stacked[0].id))
   })

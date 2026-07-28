@@ -198,7 +198,7 @@ export function createStaveNotesFromSlots(
       // members hang off ONE beam line and a beam has one side. Single voice only: with a
       // `forcedStemDirection` the lane has already answered (V1 up, V2 down) and the group follows
       // its voice, not its own pitches (docs/fanned-beam-pitches-plan.md §2).
-      for (const p of pairSlots.flatMap(s => [...s.notes, ...(s.fan?.members ?? []).flat()])) {
+      for (const p of pairSlots.flatMap(s => [...s.notes, ...(s.fan?.members ?? []).flatMap(m => m.pitches)])) {
         const dPos = spellingDiatonicPos(p.step, p.octave)
         const dist = Math.abs(dPos - middleDiatonic)
         if (dist > maxDist) {

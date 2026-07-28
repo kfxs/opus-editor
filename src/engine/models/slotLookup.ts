@@ -7,11 +7,19 @@
  * the slot that holds it. `ScoreModel` keeps a private delegator, so its own mutators read exactly
  * as they did.
  */
-import type { Score, Chord, NotePitch, Rest } from '@/types/music'
+import type { Score, Chord, FanMemberChord, NotePitch, Rest } from '@/types/music'
 
 /** What an id resolved to: a pitch inside a chord (possibly a fanned MEMBER), or a rest slot. */
 export type FoundSlot =
-  | { type: 'chord'; chord: Chord; pitch: NotePitch; member?: { index: number; pitches: NotePitch[] } }
+  | {
+      type: 'chord'
+      chord: Chord
+      pitch: NotePitch
+      /** ⭐ `chord` is the MEMBER's own record — a member is a chord in its own right, so what it
+       *  carries beyond its pitches (its articulations) is addressed through this and not through
+       *  the SLOT's chord above. `pitches` stays for the readers that only ever wanted those. */
+      member?: { index: number; pitches: NotePitch[]; chord: FanMemberChord }
+    }
   | { type: 'rest'; rest: Rest }
 
 /**
@@ -41,10 +49,10 @@ export function findSlot(score: Score, noteId: string, opts?: { fanMembers?: boo
         if (pitch) return { type: 'chord', chord: slot, pitch }
         if (opts?.fanMembers && slot.fan?.members) {
           for (let k = 0; k < slot.fan.members.length; k++) {
-            const found = slot.fan.members[k].find(n => n.id === noteId)
+            const found = slot.fan.members[k].pitches.find(n => n.id === noteId)
             // `index` is the member's place in the GROUP (1-based), not in the list: member 0 is
             // the slot's own chord, so the list holds members 1…count-1.
-            if (found) return { type: 'chord', chord: slot, pitch: found, member: { index: k + 1, pitches: slot.fan.members[k] } }
+            if (found) return { type: 'chord', chord: slot, pitch: found, member: { index: k + 1, pitches: slot.fan.members[k].pitches, chord: slot.fan.members[k] } }
           }
         }
       }

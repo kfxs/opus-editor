@@ -17,7 +17,7 @@
  * No VexFlow, no DOM — pure, and unit-tested as such.
  */
 import { v4 as uuidv4 } from 'uuid'
-import type { ChordRest, FanMark, NotePitch } from '@/types/music'
+import type { ChordRest, FanMark, FanMemberChord, NotePitch } from '@/types/music'
 import { type Fraction, fracCreate, fracFromInt, fracAdd, fracMul, fracDiv, fracSub, fracToNumber } from './fraction'
 
 /**
@@ -249,19 +249,27 @@ export function laneColumns(slots: ChordRest[]): number {
 }
 
 /**
- * Copy ONE member's pitches — fresh ids, and only what a member is allowed to carry.
+ * Copy ONE member — fresh pitch ids, and only what a member is allowed to carry.
  *
  * A member is a note (it has an id, so it can be clicked, arrowed and retyped), but it is not the
- * tied, slurred, articulated thing the SLOT is: those attach to the whole gesture
- * (docs/fanned-beam-pitches-plan.md §3). A `tiedTo` copied onto a member would be a reference that
+ * tied or slurred thing the SLOT is: a `tiedTo` copied onto a member would be a reference that
  * `TieRenderer` — which looks its id up in `slot.notes` — can never reach: stored, never drawn.
+ *
+ * ⭐ ARTICULATIONS DO travel, unlike when this was written: they are the member's own now
+ * ({@link FanMemberChord.articulations}), so a member grown from the last one inherits its marks
+ * exactly as it inherits its pitch. A new member of a staccato run is staccato, which is the same
+ * reasoning that makes a grown member copy the LAST one rather than the first.
  */
-function copyMemberPitches(pitches: NotePitch[]): NotePitch[] {
-  return pitches.map((p) => {
-    const np: NotePitch = { id: uuidv4(), step: p.step, alter: p.alter, octave: p.octave }
-    if (p.forceAccidental) np.forceAccidental = true
-    return np
-  })
+function copyMember(member: FanMemberChord): FanMemberChord {
+  const out: FanMemberChord = {
+    pitches: member.pitches.map((p) => {
+      const np: NotePitch = { id: uuidv4(), step: p.step, alter: p.alter, octave: p.octave }
+      if (p.forceAccidental) np.forceAccidental = true
+      return np
+    }),
+  }
+  if (member.articulations?.length) out.articulations = [...member.articulations]
+  return out
 }
 
 /**
@@ -290,8 +298,11 @@ export function normalizeFan(fan: FanMark, own: NotePitch[]): FanMark {
   const count = clampFanCount(fan.count)
   const want = count - 1
   const members = (fan.members ?? []).slice(0, want)
-  const source = members[members.length - 1] ?? own
-  while (members.length < want) members.push(copyMemberPitches(source))
+  // Materialising from the slot's own chord takes its PITCHES only: member 0's articulations stay
+  // member 0's (they live on the chord), so a fresh fan marks one head, exactly as it did before
+  // members could carry marks of their own.
+  const source: FanMemberChord = members[members.length - 1] ?? { pitches: own }
+  while (members.length < want) members.push(copyMember(source))
   const out: FanMark = { ...fan, count, members }
 
   // ⭐ THE FOURTH JOB, and the only one that DELETES: the ramp range is written here or not at all.
@@ -331,7 +342,7 @@ export function normalizeFan(fan: FanMark, own: NotePitch[]): FanMark {
  * the one it was copied from.
  */
 export function cloneFanFresh(fan: FanMark): FanMark {
-  return fan.members ? { ...fan, members: fan.members.map(copyMemberPitches) } : { ...fan }
+  return fan.members ? { ...fan, members: fan.members.map(copyMember) } : { ...fan }
 }
 
 /**
@@ -346,7 +357,7 @@ export function cloneFanFresh(fan: FanMark): FanMark {
 export function fanMemberPitches(notes: NotePitch[], fan: FanMark): NotePitch[][] {
   const n = fanCount(fan)
   const out: NotePitch[][] = [notes]
-  for (let k = 1; k < n; k++) out.push(fan.members?.[k - 1] ?? notes)
+  for (let k = 1; k < n; k++) out.push(fan.members?.[k - 1]?.pitches ?? notes)
   return out
 }
 
@@ -397,7 +408,7 @@ export function fanMemberEntries(
   const beats = fanMemberBeats(fan, totalQuarters, slotBeat)
   const out: Array<{ index: number; pitches: NotePitch[]; beat: Fraction }> = []
   for (let k = 0; k < stored.length; k++) {
-    out.push({ index: k + 1, pitches: stored[k], beat: beats[k + 1] ?? slotBeat })
+    out.push({ index: k + 1, pitches: stored[k].pitches, beat: beats[k + 1] ?? slotBeat })
   }
   return out
 }

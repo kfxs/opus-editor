@@ -15,10 +15,11 @@
  * Both build {@link FanSlotDrawing}s and hand them to {@link drawFanGroups}.
  */
 import { Stave, StaveNote, NoteHead, Accidental, Stem, type SVGContext } from 'vexflow'
-import type { Score, Clef, Chord, ChordRest, Fraction, NotePitch } from '@/types/music'
+import type { Score, Clef, Chord, ChordRest, FanMemberChord, Fraction, NotePitch } from '@/types/music'
 import { fracToNumber } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import { staffLineForSpelling } from '@/utils/clefUtils'
+import { spellingToVexflowKey } from '@/utils/pitchSpelling'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { slotLength } from '@/utils/durations'
 import { FAN_GROUP, fanMembers, fanMemberPitches } from '@/utils/fannedBeam'
@@ -38,6 +39,7 @@ import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
 import { fracAdd } from '@/utils/fraction'
 import { fanMemberBeats } from '@/utils/fannedBeam'
+import { drawFanMemberArticulations, fanArticulationPosition } from './fanArticulations'
 import { measureLeadingSpaces, noteOffsetOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 
@@ -64,6 +66,11 @@ interface FanSlotDrawing {
   note: StaveNote
   /** The note's OWN stave — a synthetic cross-barline lane (P3) has more than one. */
   stave: Stave
+  /** The clef this fan's pitches are read against — its own bar's. */
+  clef: Clef
+  /** The multi-voice stem the lane forced, if any — only ever consulted to pick the side a MEMBER's
+   *  own articulation sits on when member 0 has none to copy. Absent on the cross-barline path. */
+  forcedStemDirection?: number
   /** Where this fan's members register — its own bar, which a synthetic lane does not share. */
   measureNumber: number
   staffIndex: number
@@ -72,8 +79,8 @@ interface FanSlotDrawing {
   stemDirection: number
   /** Per member, per notehead: the pitch, its staff line and the sign it displays (null for none). */
   heads: { pitch: NotePitch; line: number; sign: string | null }[][]
-  /** The mark's stored member PITCHES — `stored[k - 1]` is member k's, member 0 being the note. */
-  stored: NotePitch[][]
+  /** The mark's stored MEMBERS — `stored[k - 1]` is member k, member 0 being the note itself. */
+  stored: FanMemberChord[]
   prefixNotes: StaveNote[]
   options: FanGeometryOptions
 }
@@ -197,7 +204,7 @@ function fanMemberOffsetsPx(score: Score, slot: Chord, stave: Stave): number[] {
     // Member 0 IS the slot; members 1…n are keyed by their own first pitch. ⚠️ A member with no
     // stored pitches (a mark that never went through `normalizeFan`) has no id to be offset by and
     // cannot be selected either — it draws on the slot's own pitch, so it answers 0 here.
-    const key = k === 0 ? slot.id : slot.fan.members?.[k - 1]?.[0]?.id
+    const key = k === 0 ? slot.id : slot.fan.members?.[k - 1]?.pitches[0]?.id
     const x = key ? noteOffsetOverrideOf(score, key)?.x ?? 0 : 0
     if (x !== 0) any = true
     out.push(x === 0 ? 0 : staffSpacesToPixels(x, stave))
@@ -242,6 +249,8 @@ export function drawFannedBeams(
    * wins, so the second copy is not merely wasted ink: it steals every lookup the first one owns.
    */
   crossingFans: number[] = [],
+  /** The lane's forced stem in multi-voice — see {@link FanSlotDrawing.forcedStemDirection}. */
+  forcedStemDirection?: number,
 ): void {
   // Which sign each pitch of this lane displays — the SAME map NoteBuilder gave the StaveNotes, so
   // a member's accidental obeys one rule with the notes around it, including holding for the rest
@@ -260,6 +269,7 @@ export function drawFannedBeams(
       score: pass.score,
       note: staveNotes[i],
       clef: clefForBeat(slots[i].beat),
+      forcedStemDirection,
       signs,
       // Only the FIRST fan of a chain has a prefix — behind any other stands a fan, and that gap
       // is `fanJoinQuads`' business.
@@ -348,7 +358,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
 
   const geometries = new Map<number, FanGeometry>()
   for (const drawing of drawings) {
-    const { index: i, slot, note, stave, headX, baseY, stemDirection, heads, stored, prefixNotes, options } = drawing
+    const { index: i, slot, note, stave, clef, headX, baseY, stemDirection, heads, stored, prefixNotes, options } = drawing
     const { measureNumber, staffIndex } = drawing
     const geometry = fannedBeamGeometry(options)
     geometries.set(i, geometry)
@@ -402,6 +412,9 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
       }
       // The joined group's own stems, re-aimed onto the line.
       drawFanPrefixStems(ctx, prefixNotes, geometry.prefixStems)
+      // ONE side for the whole gesture, settled before any member is drawn: member 0's own marks
+      // when it has them, the lane's rule when it has none (see `fanArticulationPosition`).
+      const articulationPosition = fanArticulationPosition(note, slot, stemDirection, drawing.forcedStemDirection)
       // The members VexFlow did not draw — member 0 is the real note, already on the page.
       for (let k = 1; k < geometry.stems.length; k++) {
         const member = geometry.stems[k]
@@ -466,6 +479,22 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           ctx.moveTo(member.stemX, member.baseY)
           ctx.lineTo(member.stemX, member.tipY)
           ctx.stroke()
+          // The slot's articulation, on THIS head. The mark belongs to the gesture and playback
+          // already spends it across the whole group, so drawing it once on member 0 made the
+          // picture disagree with the sound — see `fanArticulations`. Inside the member's group,
+          // so it recolours with the member it marks; after the stem, whose tip it may clear.
+          // ⭐ THIS member's own articulations — not the slot's, which are member 0's. A fan writes
+          // N attacks and a mark belongs to an attack, so the sixth note can be the accented one.
+          const types = stored[k - 1]?.articulations ?? []
+          if (types.length && memberHeads.length) {
+            drawFanMemberArticulations(ctx, stave, {
+              types,
+              keys: memberHeads.map(mh => spellingToVexflowKey(mh.pitch.step, mh.pitch.alter, mh.pitch.octave)),
+              clef,
+              headX: member.headX,
+              stemLengthPx: Math.abs(member.tipY - member.baseY),
+            }, { position: articulationPosition, stemDirection })
+          }
         } finally {
           ctx.closeGroup()
         }
@@ -509,6 +538,8 @@ function fanSlotDrawing(input: {
   staffIndex: number
   /** This fan is on a joined beam, so its line is flat even where it has no prefix (a chain). */
   joined: boolean
+  /** The lane's forced stem in multi-voice — see {@link FanSlotDrawing.forcedStemDirection}. */
+  forcedStemDirection?: number
 }): FanSlotDrawing | null {
   const { index, slot, score, note, clef, signs, nextNote, measureNumber, staffIndex, joined } = input
   if (slot.type !== 'chord' || !slot.fan) return null
@@ -546,7 +577,7 @@ function fanSlotDrawing(input: {
   const prefixBeams = prefixNotes.length ? Math.min(...prefixNotes.map(n => n.getBeamCount())) : 0
 
   return {
-    index, slot, note, stave, measureNumber, staffIndex,
+    index, slot, note, stave, clef, forcedStemDirection: input.forcedStemDirection, measureNumber, staffIndex,
     headX, baseY, stemDirection, heads, stored, prefixNotes,
     options: {
       members: fanMembers(slot.fan, slotLength(slot)),

@@ -87,11 +87,16 @@ function fmtSlot(slot: ChordRest): string {
 export const DEFAULT_FRAGMENT_TITLE = 'Fragment 1'
 
 /**
- * What {@link ScoreModel.updateNote} will write onto a FANNED MEMBER — its spelling, and nothing
- * else. Named so the ignored-field trace can name what it dropped rather than saying "some fields";
- * the rule itself is stated at the branch (docs/fanned-beam-pitches-plan.md §2 P3).
+ * What {@link ScoreModel.updateNote} will write onto a FANNED MEMBER — its spelling, and its own
+ * articulations. Named so the ignored-field trace can name what it dropped rather than saying "some
+ * fields"; the rule itself is stated at the branch.
+ *
+ * ⭐ `articulations` joined the list when members stopped sharing the slot's (his ask): a fan is how
+ * you write N attacks, and an articulation belongs to an attack. Everything still absent from this
+ * set is absent on purpose — the rhythm fields belong to the slot (writing one would move the whole
+ * group) and a TIE is a pitch-to-pitch continuation a member has no length to continue into.
  */
-const FAN_MEMBER_UPDATE_FIELDS = new Set(['step', 'alter', 'octave', 'forceAccidental'])
+const FAN_MEMBER_UPDATE_FIELDS = new Set(['step', 'alter', 'octave', 'forceAccidental', 'articulations'])
 
 /**
  * True under the unit-test runner (Vitest). It flips the measure-integrity check
@@ -1145,7 +1150,7 @@ export class ScoreModel {
           // ⭐ A FANNED MEMBER can anchor a slur (docs/fanned-beam-pitches-plan.md) — a slur is a
           // SPAN between two points, and member 2 → member 5 is a span. Leave them out and every
           // such slur is silently dropped the next time this defensive pass runs.
-          for (const member of s.fan?.members ?? []) for (const p of member) ids.add(p.id)
+          for (const member of s.fan?.members ?? []) for (const p of member.pitches) ids.add(p.id)
         } else ids.add(s.id)
       }
     }
@@ -1818,6 +1823,12 @@ export class ScoreModel {
       delete note.fan
       delete note.beam
       delete note.secondaryBreak
+      // ⭐ A member's marks are ITS OWN, not the slot's. `toFlatNote` projects through the chord, so
+      // without this every member would report member 0's articulations — which is exactly what made
+      // one staccato look like six, and would make the palette's "do they all have it?" answer yes
+      // for heads that carry nothing.
+      if (found.member.chord.articulations?.length) note.articulations = [...found.member.chord.articulations]
+      else delete note.articulations
     }
     return note
   }
@@ -1957,15 +1968,23 @@ export class ScoreModel {
     // were handed, so they work on a member without knowing one exists.
     //
     // ⚠️ Everything else is REFUSED here rather than half-applied: the rhythm fields belong to the
-    // slot (writing them would move the whole group), and a tie/slur/articulation attaches to the
-    // whole gesture. The commands that own those refuse a member up front (`MusicEngine`'s
-    // `isFanMember` guards) so nothing mints an undo entry either; this is the floor under them.
+    // slot (writing them would move the whole group), and a tie is a pitch-to-pitch continuation a
+    // member has no length of its own to continue into. The commands that own those refuse a member
+    // up front (`MusicEngine`'s `isFanMember` guards) so nothing mints an undo entry either; this is
+    // the floor under them.
     if (found.type === 'chord' && found.member) {
       const { chord, pitch } = found
       if (updates.step !== undefined) pitch.step = updates.step
       if (updates.alter !== undefined) pitch.alter = updates.alter
       if (updates.octave !== undefined) pitch.octave = updates.octave
       if ('forceAccidental' in updates) pitch.forceAccidental = updates.forceAccidental
+      // ⭐ The MEMBER's own marks, on the member's own record — not on `chord`, which is member 0's.
+      // Absent rather than empty when there are none: `laneFingerprint` stringifies the slot for the
+      // width-cache key, so `[]` and absent would be two keys for one piece of music.
+      if (updates.articulations !== undefined) {
+        if (updates.articulations.length) found.member.chord.articulations = [...updates.articulations]
+        else delete found.member.chord.articulations
+      }
       const ignored = Object.keys(updates).filter(k => !FAN_MEMBER_UPDATE_FIELDS.has(k))
       if (ignored.length) dbg(`[Model.updateNote] fan member ${noteId}: ignored {${ignored.join(', ')}} — a member is a pitch`)
       return this.toFlatNote(chord, pitch)
@@ -2244,7 +2263,7 @@ export class ScoreModel {
         return true
       }
       const fan = chord.fan!
-      overrideOps.clearFanMemberOffsets(this.score, [member.pitches]) // its head is going: so is where it was put
+      overrideOps.clearFanMemberOffsets(this.score, [member.chord]) // its head is going: so is where it was put
       fan.members?.splice(member.index - 1, 1) // 1-based in the GROUP, 0-based in the list
       fan.count = Math.max(1, fan.count - 1)
       dbg(`[Model.deleteNote] fan member ${member.index} REMOVED → count ${fan.count}`)
