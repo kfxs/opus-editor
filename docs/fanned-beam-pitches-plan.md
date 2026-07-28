@@ -397,6 +397,11 @@ not `StaveNote`'s:
   would have been walked into by the next member.
 - **The hit box and the slur anchor follow the head, not the column** — else a click on a displaced
   head selects its neighbour.
+- **A member's sign clears the member's own ledger lines**, by the rule in
+  `docs/accidental-ledger-clearance.md` — his second report, from the same page, and general rather
+  than fan-specific: an ordinary note's accidental touched its ledger line too. The fan spends the
+  clearance as column width (it reserves out of its own span) and trims the member's ledger overhang
+  the same 3 → 2px, so a member and a real note look alike on a page that has both.
 
 Geometry is asserted in `e2e/fan.e2e.ts` (four tests), the rules themselves in the two modules'
 sibling specs; in jsdom every glyph measures 0×0, so two heads at one x agree with two heads at two.

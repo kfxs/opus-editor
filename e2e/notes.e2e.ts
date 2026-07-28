@@ -120,3 +120,42 @@ test('a beam over rising pitches slopes up, and never past VexFlow’s cap', asy
   const slope = (beam.yLeft - beam.yRight) / (beam.right - beam.left)
   expect(slope, 'but engraving caps a beam’s slope — it never follows the interval').toBeLessThan(1)
 })
+
+/**
+ * ⭐⭐ **AN ACCIDENTAL CLEARS THE LEDGER LINES OF ITS OWN NOTE** — his report, off the page: *"the
+ * accidental for notes with ledger lines down are too close… it is clear that there is a collision
+ * with the ledger line"*.
+ *
+ * It was arithmetic, not a near miss: VexFlow pads a sign 1px off the notehead and overhangs a
+ * ledger line 3px past it, so the line ran 2px into the sign — on EVERY accidental with a ledger
+ * line. Only a browser can say so: the sign's width is a font measurement, and in jsdom it is 0.
+ * See `ledgerAccidentalClearance` for the rule and for why the sign moves and not the line.
+ */
+test('an accidental below the staff clears its own ledger lines', async ({ score }) => {
+  const measured = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addNoteAtBeat({ step: 'C', alter: 1, octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
+    h.engine.addNoteAtBeat({ step: 'A', alter: 1, octave: 3, duration: 'q', measure: 1, beat: h.frac(1, 1) })
+    await h.render()
+    // The sign's own ADVANCE width — the same measurement VexFlow places it by. (Not `getBBox`,
+    // which on a music glyph is the text LAYOUT box and reports a height the ink never had.)
+    const signs = [...document.querySelectorAll<SVGTextElement>('g.vf-stavenote text')]
+      .filter(t => {
+        const c = (t.textContent ?? '').codePointAt(0) ?? 0
+        return c >= 0xe260 && c <= 0xe26f
+      })
+      .map(t => ({ left: t.x.baseVal[0].value, right: t.x.baseVal[0].value + t.getComputedTextLength() }))
+      .sort((a, b) => a.left - b.left)
+    const ledgers = h.segments('g.vf-stavenote path').filter(s => Math.abs(s.y1 - s.y2) < 0.01)
+    return { signs, ledgers }
+  })
+
+  expect(measured.signs, 'both accidentals are drawn').toHaveLength(2)
+  expect(measured.ledgers.length, 'and both notes have ledger lines').toBeGreaterThanOrEqual(2)
+  for (const sign of measured.signs) {
+    // Every ledger line that starts to the right of this sign must start CLEAR of it.
+    const nearest = Math.min(...measured.ledgers.filter(l => l.x1 > sign.left).map(l => l.x1))
+    expect(nearest, `a ledger line runs into the sign at x=${Math.round(sign.left)}`)
+      .toBeGreaterThanOrEqual(sign.right)
+  }
+})

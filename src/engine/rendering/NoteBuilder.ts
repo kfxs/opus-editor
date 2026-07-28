@@ -250,6 +250,10 @@ export function createStaveNotesFromSlots(
     staveNote.setStemDirection(stemDirection)
 
     // Add accidental modifiers — VexFlow accepts '#', 'b', 'n', '##', 'bb'
+    // ⚠️ Nothing here may depend on where the notes SIT on the staff — see
+    // `ledgerAccidentalClearance`: this builder is the WIDTH path too, and a bar's width is
+    // deliberately clef-independent (`MeasureLayout.clefWidthIndependence.test.ts`). Clearing a
+    // ledger line is therefore a DRAW-time pass, not a wider accidental here.
     sortedPitches.forEach((p, idx) => {
       const acc = displayAccidentals.get(p.id) ?? null
       if (acc) staveNote.addModifier(new Accidental(acc), idx)

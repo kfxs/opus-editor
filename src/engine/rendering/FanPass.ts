@@ -42,7 +42,12 @@ import { fracAdd } from '@/utils/fraction'
 import { fanMemberBeats } from '@/utils/fannedBeam'
 import { drawFanMemberArticulations, fanArticulationPosition } from './fanArticulations'
 import { chordHeadDisplacement, displacedHeadShiftPx } from './chordHeadLayout'
-import { chordAccidentalLayout, chordAccidentalWidth } from './chordAccidentalColumns'
+import { chordAccidentalLayout, chordAccidentalWidth, type ChordAccidentalItem } from './chordAccidentalColumns'
+import {
+  accidentalMeetsLedger,
+  ledgerAccidentalClearance,
+  LEDGER_OVERHANG_BESIDE_ACCIDENTAL,
+} from './ledgerAccidentalClearance'
 import { measureLeadingSpaces, noteOffsetOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 
@@ -123,6 +128,36 @@ function accidentalWidth(sign: string): number {
   const width = new Accidental(sign).getWidth() || 0
   accidentalWidths.set(sign, width)
   return width
+}
+
+/**
+ * ⭐ One member's accidentals, ready for {@link chordAccidentalLayout} — each sign's own width plus
+ * whatever it needs to CLEAR THE LEDGER LINES of its own member (`ledgerAccidentalClearance`).
+ *
+ * The clearance is spent as WIDTH for the same reason it is on a real note: the layout right-aligns
+ * each sign inside its column, so a wider item draws its glyph further left AND makes the column —
+ * and through `accidentalRoom`, the group's own span — pay for the room. One expression, spent by
+ * both the drawing and the reservation, so the two cannot disagree about how wide a member is.
+ */
+function fanAccidentalItems(heads: { line: number; sign: string | null }[]): ChordAccidentalItem[] {
+  const lines = heads.map(h => h.line)
+  return heads.filter(h => h.sign).map(h => ({
+    line: h.line,
+    width: accidentalWidth(h.sign as string)
+      + ledgerAccidentalClearance(h.line, lines, LEDGER_OVERHANG_BESIDE_ACCIDENTAL, FAN_ACCIDENTAL_GAP),
+  }))
+}
+
+/**
+ * How far this member's ledger lines overhang its heads: the trimmed length when one of its signs
+ * stands beside them, the ordinary one otherwise — the same trade a real note makes
+ * (`clearLedgersForAccidentals`), so the two pictures match on a page that has both.
+ */
+function fanLedgerOverhang(heads: { line: number; sign: string | null }[]): number {
+  const lines = heads.map(h => h.line)
+  return heads.some(h => h.sign && accidentalMeetsLedger(h.line, lines))
+    ? LEDGER_OVERHANG_BESIDE_ACCIDENTAL
+    : FAN_LEDGER_OVERHANG
 }
 
 /**
@@ -444,17 +479,18 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           // that is what the accidentals have to clear.
           const chordLeftX = headXs.length ? Math.min(...headXs) : member.headX
           const signedHeads = memberHeads.map((_, h) => h).filter(h => memberHeads[h].sign)
-          const accidentals = chordAccidentalLayout(
-            signedHeads.map(h => ({ line: memberHeads[h].line, width: accidentalWidth(memberHeads[h].sign as string) })),
-            chordLeftX,
-            FAN_ACCIDENTAL_GAP,
-          )
+          const accidentals = chordAccidentalLayout(fanAccidentalItems(memberHeads), chordLeftX, FAN_ACCIDENTAL_GAP)
           // 🚨 LEDGER LINES BY HAND. `drawLedgerLines` belongs to `StaveNote`; a bare `NoteHead`
           // only swaps to the ledger glyph. Members off the staff drew as floating heads before
           // they had their own pitches — a bug then, the ordinary case now. Once per MEMBER, not
           // once per head: a ledger line is a fact about the level, and it has to reach across
           // every head standing on it.
-          drawFanLedgerLines(ctx, stave, memberHeads.map((mh, h) => ({ line: mh.line, x: headXs[h] })), glyphWidth)
+          drawFanLedgerLines(
+            ctx, stave,
+            memberHeads.map((mh, h) => ({ line: mh.line, x: headXs[h] })),
+            glyphWidth,
+            fanLedgerOverhang(memberHeads),
+          )
           for (let h = 0; h < memberHeads.length; h++) {
             const { pitch, line, sign } = memberHeads[h]
             const y = stave.getYForNote(line)
@@ -630,9 +666,8 @@ function fanSlotDrawing(input: {
   // formatter's width — but its displaced head reaches past `headX` like anyone else's.
   const accidentalRoom = heads.map((pitches, k) => {
     if (k === 0) return 0
-    const signs = pitches.filter(h => h.sign).map(h => ({ line: h.line, width: accidentalWidth(h.sign as string) }))
     const headRoom = stemDirection < 0 && memberDisplaced[k].some(Boolean) ? headShift : 0
-    return headRoom + chordAccidentalWidth(signs, FAN_ACCIDENTAL_GAP)
+    return headRoom + chordAccidentalWidth(fanAccidentalItems(pitches), FAN_ACCIDENTAL_GAP)
   })
   const headRightRoom = heads.map((_, k) => (
     stemDirection > 0 && (k === 0 ? note.isDisplaced() : memberDisplaced[k].some(Boolean)) ? headShift : 0
@@ -831,6 +866,7 @@ function drawFanLedgerLines(
   stave: Stave,
   heads: { line: number; x: number }[],
   glyphWidth: number,
+  overhang: number,
 ): void {
   if (!heads.length) return
   const highest = Math.max(...heads.map(h => h.line))
@@ -844,8 +880,8 @@ function drawFanLedgerLines(
     const xs = reaching.map(h => h.x)
     const y = stave.getYForNote(l)
     ctx.beginPath()
-    ctx.moveTo(Math.min(...xs) - FAN_LEDGER_OVERHANG, y)
-    ctx.lineTo(Math.max(...xs) + glyphWidth + FAN_LEDGER_OVERHANG, y)
+    ctx.moveTo(Math.min(...xs) - overhang, y)
+    ctx.lineTo(Math.max(...xs) + glyphWidth + overhang, y)
     ctx.stroke()
   }
   for (let l = 6; l <= highest; l++) stroke(l, heads.filter(h => h.line >= l))

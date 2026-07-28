@@ -5,6 +5,7 @@ import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
 import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
 import { fanStemExtension } from './FannedBeam'
 import { drawFannedBeams, drawCrossBarFanBeams, type FanJoin } from './FanPass'
+import { clearLedgersForAccidentals } from './ledgerAccidentalClearance'
 import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
 import type { ToolGhost } from './ghostTypes'
 import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub, fillBeamQuad } from './beamInk'
@@ -1688,6 +1689,10 @@ export class VexFlowRenderer {
         formatter.format(vexVoices, formatWidth)
         applyLeadingSpaces(formatter, vexVoices, pass.score, measure)
         this.centerMeasureRests(vexVoices, stave)
+        // ⭐ An accidental beside a ledger line: the line trims back, the sign steps out. A DRAW-time
+        // pass on purpose — reserving the room would make bar width depend on the clef, which this
+        // editor measured its way out of (`ledgerAccidentalClearance` states the three measurements).
+        clearLedgersForAccidentals(staveNotes)
 
         // VexFlow's StaveNote.format() rewrites same-tick multi-voice notes: it hides one
         // of two same-duration rests (renderOptions.draw = false), vertically nudges rests

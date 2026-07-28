@@ -378,3 +378,28 @@ test('a member chord’s ledger line reaches under BOTH of its columns', async (
   expect(ledger.x2, 'and runs past the displaced one — one line, not two stubs')
     .toBeGreaterThan(heads[heads.length - 1].x)
 })
+
+test('a fan member’s accidental clears the member’s own ledger lines', async ({ score }) => {
+  const measured = await score.evaluate(async () => {
+    const h = window.__h
+    const note = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })
+    h.engine.setFan(note!.id, { direction: 'accel', count: 2, beams: 3 })
+    const slot = h.engine.getScore().measures[0].slots[0]
+    // A♯3 — below the staff, so the member draws a ledger line of its own beside the sign.
+    h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'A', alter: 1, octave: 3 })
+    await h.render()
+    const signs = [...document.querySelectorAll<SVGTextElement>('g.vf-fanhead text')]
+      .filter(t => {
+        const c = (t.textContent ?? '').codePointAt(0) ?? 0
+        return c >= 0xe260 && c <= 0xe26f
+      })
+      .map(t => ({ left: t.x.baseVal[0].value, right: t.x.baseVal[0].value + t.getComputedTextLength() }))
+    const ledgers = h.segments('g.vf-fanhead path').filter(s => Math.abs(s.y1 - s.y2) < 0.01)
+    return { signs, ledgers }
+  })
+
+  expect(measured.signs, 'the member’s sharp is drawn').toHaveLength(1)
+  expect(measured.ledgers.length, 'and so is its ledger line').toBeGreaterThan(0)
+  const nearest = Math.min(...measured.ledgers.map(l => l.x1))
+  expect(nearest, 'the ledger line starts clear of the sign').toBeGreaterThanOrEqual(measured.signs[0].right)
+})
