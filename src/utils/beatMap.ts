@@ -120,6 +120,37 @@ function posKey(n: FlatNote): string {
 }
 
 /**
+ * The beat map SELECTION works on: every note/rest **plus every fanned member**, each at the beat
+ * it sounds on.
+ *
+ * ⭐ The third map, and the members are the whole reason it exists. A member is a note on the page
+ * with a head, a stem and an id of its own — Ctrl-click has always been able to pick one — so a
+ * gesture that selects "everything between here and there" has to be able to see one. It could not:
+ * {@link notesInBox} was built on {@link buildBeatMap}, which is `getMeasureNotes` alone, so
+ * Shift-clicking a member either failed to extend (the member was invisible, leaving the box on the
+ * anchor) or, when BOTH ends were members, found no endpoints at all and **cleared the selection**.
+ *
+ * ⛔ Not fixable by teaching `buildBeatMap` about members, and not an oversight there: that map
+ * drives note ENTRY, and a member is not a position you can type a note at (see the ⭐ on
+ * {@link buildVoiceNavBeatMap}, which adds them for the same reason this does — arrow navigation
+ * walks time, and a member is a moment in it). `getMeasureNotes` has two dozen callers and every one
+ * of them would silently gain N notes per fan; the rule this follows is `measureFanMemberNotes`'s
+ * own — a caller that MEANS members asks for them by name.
+ */
+export function buildSelectionBeatMap(score: Score): { allFlat: FlatNote[]; beats: FlatNote[] } {
+  const allFlat: FlatNote[] = score.measures
+    .flatMap(m => [...getMeasureNotes(m, score), ...measureFanMemberNotes(m, score)]
+      .map(n => ({ ...n, measureNumber: m.number })))
+    .sort((a, b) =>
+      a.measureNumber !== b.measureNumber
+        ? a.measureNumber - b.measureNumber
+        : fracCompare(a.beat, b.beat),
+    )
+
+  return { allFlat, beats: collapseToBeats(allFlat) }
+}
+
+/**
  * Every note/rest id inside the RECTANGULAR bounding box that encloses a set of already-
  * selected ids PLUS a new target — the beat extent [min…max] × the staff extent [min…max]
  * of all those endpoints. Used by additive Shift-click: each click grows the box (it can
@@ -128,9 +159,13 @@ function posKey(n: FlatNote): string {
  * clicks keep accumulating without ever dropping notes. Whole chords + interior rests are
  * included (they share an in-range position). Falls back to just the target when nothing is
  * locatable.
+ *
+ * Fanned members are in the box like anything else — see {@link buildSelectionBeatMap}. Their beats
+ * are arbitrary rationals (8/15 of a beat is an ordinary answer), which costs this nothing: the box
+ * is an index range over sorted POSITIONS, and it never turns one back into a duration.
  */
 export function notesInBox(score: Score, currentIds: string[], targetId: string): string[] {
-  const { allFlat, beats } = buildBeatMap(score)
+  const { allFlat, beats } = buildSelectionBeatMap(score)
   const byId = new Map(allFlat.map(n => [n.id, n]))
   const endpoints = [...currentIds, targetId].map(id => byId.get(id)).filter(Boolean) as FlatNote[]
   if (!endpoints.length) return byId.has(targetId) ? [targetId] : []

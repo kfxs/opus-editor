@@ -7,7 +7,8 @@ import { SelectionController } from './SelectionController'
 import { itemKey } from './selection'
 import { expandTieChains } from '../utils/beatMap'
 import { fracCreate as frac, fracEq } from '@/utils/fraction'
-import { getMeasureNotes } from '@/utils/musicUtils'
+import { getMeasureNotes, measureFanMemberNotes } from '@/utils/musicUtils'
+import { DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS } from '@/utils/fannedBeam'
 
 // Stub VexFlowRenderer (needs canvas/SVG) and PlaybackEngine (needs Web Audio).
 const fakeRegistry = {
@@ -201,6 +202,31 @@ describe('SelectionController — Shift range select', () => {
     selection.extendSelectionTo(n1)
     expect(selectedIds()).toEqual(new Set([noteKey(n1)]))
     expect(state.selectedNoteId).toBe(n1)
+  })
+
+  /**
+   * REGRESSION, and a COMPOSITION one: `notesInBox` and `expandTieChains` were each defensible
+   * alone, and Shift-click on a fan was broken anyway. Ctrl-click could always pick a fanned member
+   * (it just puts an id in a set), but the range path went through a beat map built from
+   * `getMeasureNotes`, which deliberately omits members — so an anchored member resolved to no
+   * endpoint at all and the empty-endpoint fallback CLEARED the selection. Pinned here as well as in
+   * `beatMap.selection.test.ts` because the unit being right is not the same as the gesture working:
+   * `expandTieChains` sits in between and would drop a member id if it ever stopped passing
+   * unknown ids through.
+   */
+  it('extends a range onto a FANNED MEMBER instead of emptying the selection', () => {
+    engine.setFan(n0, { direction: 'accel', count: DEFAULT_FAN_COUNT, beams: DEFAULT_FAN_BEAMS })
+    const score = engine.getScore()
+    const members = measureFanMemberNotes(score.measures.find(m => m.number === 1)!, score).map(n => n.id)
+    expect(members.length, 'fixture: the fan materialised no members').toBeGreaterThan(2)
+
+    selection.selectNote(members[0])           // pivot = a member
+    selection.extendSelectionTo(members[2])    // shift-click a later member
+
+    const ids = selectedIds()
+    expect(ids.size, 'the selection was emptied').toBeGreaterThan(0)
+    for (const id of members.slice(0, 3)) expect(ids.has(noteKey(id))).toBe(true)
+    expect(state.selectionPivotId).toBe(members[2])
   })
 
   it('pulls a dynamic inside the box into the selection (so it highlights)', () => {
