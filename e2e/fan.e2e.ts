@@ -280,3 +280,101 @@ test('a flipped mark on a member clears the ramp, level with the owner’s', asy
   // measured off a default stem instead of its own lands tens of pixels lower than the owner.
   expect(new Set(marks.map(m => Math.round(m.y))).size, 'one row, not the owner plus stragglers').toBe(1)
 })
+
+/**
+ * ⭐⭐ **A MEMBER IS A CHORD, so the chord rules apply to it** — his report: a second inside a fan
+ * member printed one notehead on top of the other.
+ *
+ * Everything a `StaveNote` does for a chord (Gould, *Behind Bars*, "Chords") the fan has to do
+ * itself, because these heads are hand-drawn at coordinates we compute: seconds cross the stem,
+ * accidentals stack into columns, one ledger line reaches under both columns. The rules themselves
+ * are unit-tested (`chordHeadLayout`, `chordAccidentalColumns`); what only a browser can say is
+ * that the drawing actually spends them — in jsdom every glyph measures 0×0 and two heads at one x
+ * agree with two heads at two.
+ */
+test('a SECOND inside a fan member crosses the stem — upper head right, stem up', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const note = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })
+    h.engine.setFan(note!.id, { direction: 'accel', count: 2, beams: 3 })
+    const slot = h.engine.getScore().measures[0].slots[0]
+    h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'D', alter: 0, octave: 4 })
+    await h.render()
+    return { member: h.glyphs('g.vf-fanhead g.vf-notehead text') }
+  })
+
+  expect(drawn.member, 'the member draws both of its heads').toHaveLength(2)
+  const [upper, lower] = [...drawn.member].sort((a, b) => a.y - b.y)
+  expect(lower.y - upper.y, 'and they really are a second apart').toBeGreaterThan(0)
+  expect(upper.x, 'the upper note of the second is to the RIGHT of the lower').toBeGreaterThan(lower.x)
+  // A whole notehead apart, not a sliver: the stem runs BETWEEN them, which is the rule itself.
+  // (A notehead at this staff size is ~10px wide; 8 is the floor that cannot be a rounding hair.)
+  expect(upper.x - lower.x, 'by about a notehead').toBeGreaterThan(8)
+})
+
+test('…and the stem-down chord mirrors it: the LOWER head crosses', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const note = h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'h', measure: 1, beat: h.frac(0, 1) })
+    h.engine.setFan(note!.id, { direction: 'accel', count: 2, beams: 3 })
+    const slot = h.engine.getScore().measures[0].slots[0]
+    h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'A', alter: 0, octave: 5 })
+    await h.render()
+    return { member: h.glyphs('g.vf-fanhead g.vf-notehead text'), stems: h.stems() }
+  })
+
+  expect(drawn.member).toHaveLength(2)
+  const [upper, lower] = [...drawn.member].sort((a, b) => a.y - b.y)
+  // The higher note is to the right either way — what changes is which of the two was MOVED, and
+  // with the stem down it is the lower one, pushed out to the left of the column.
+  expect(upper.x, 'the upper note is still the right-hand one').toBeGreaterThan(lower.x)
+  expect(lower.x, 'and it is the LOWER head that left the column').toBeLessThan(upper.x)
+})
+
+test('two accidentals in one member stack into columns, the higher one nearest the chord', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const note = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })
+    h.engine.setFan(note!.id, { direction: 'accel', count: 2, beams: 3 })
+    const slot = h.engine.getScore().measures[0].slots[0]
+    const memberId = slot.fan!.members![0].pitches[0].id
+    h.engine.addFanMemberPitch(memberId, { step: 'F', alter: 1, octave: 4 })
+    h.engine.addFanMemberPitch(memberId, { step: 'G', alter: 1, octave: 4 })
+    await h.render()
+    return { member: h.glyphs('g.vf-fanhead text') }
+  })
+
+  const signs = drawn.member.filter(g => {
+    const c = parseInt(g.code, 16)
+    return c >= 0xe260 && c <= 0xe26f
+  })
+  expect(signs, 'both sharps are drawn').toHaveLength(2)
+  const [upper, lower] = [...signs].sort((a, b) => a.y - b.y)
+  expect(upper.x, 'a second apart, they cannot share a column').not.toBe(lower.x)
+  expect(upper.x, 'and the higher sign is the one nearest the chord').toBeGreaterThan(lower.x)
+})
+
+test('a member chord’s ledger line reaches under BOTH of its columns', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const note = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })
+    h.engine.setFan(note!.id, { direction: 'accel', count: 2, beams: 3 })
+    const slot = h.engine.getScore().measures[0].slots[0]
+    // B3 and C4 — a second, and both of them at or below the first ledger line beneath the staff.
+    h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'B', alter: 0, octave: 3 })
+    await h.render()
+    return {
+      member: h.glyphs('g.vf-fanhead g.vf-notehead text'),
+      lines: h.segments('g.vf-fanhead path').filter(s => Math.abs(s.y1 - s.y2) < 0.01),
+    }
+  })
+
+  expect(drawn.member).toHaveLength(2)
+  // ONE line for the level, not one per head: a ledger is a fact about the level it is drawn at.
+  expect(drawn.lines, 'the member has exactly one ledger line').toHaveLength(1)
+  const heads = [...drawn.member].sort((a, b) => a.x - b.x)
+  const ledger = drawn.lines[0]
+  expect(ledger.x1, 'it starts left of the leftmost head').toBeLessThan(heads[0].x)
+  expect(ledger.x2, 'and runs past the displaced one — one line, not two stubs')
+    .toBeGreaterThan(heads[heads.length - 1].x)
+})

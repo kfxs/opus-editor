@@ -41,6 +41,8 @@ import type { RenderPass } from './RenderPass'
 import { fracAdd } from '@/utils/fraction'
 import { fanMemberBeats } from '@/utils/fannedBeam'
 import { drawFanMemberArticulations, fanArticulationPosition } from './fanArticulations'
+import { chordHeadDisplacement, displacedHeadShiftPx } from './chordHeadLayout'
+import { chordAccidentalLayout, chordAccidentalWidth } from './chordAccidentalColumns'
 import { measureLeadingSpaces, noteOffsetOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 
@@ -425,14 +427,38 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
         const memberGroup = ctx.openGroup(FAN_HEAD_GROUP, `${FAN_HEAD_GROUP}-${slot.id}-${k}`)
         try {
           const memberHeads = heads[k] ?? []
+          const glyphWidth = note.getGlyphWidth()
+          // ⭐⭐ THE CHORD RULES, applied to a member. A member IS a chord (`FanMemberChord`), and
+          // everything a `StaveNote` would have done for it — seconds across the stem, accidentals
+          // in columns, one ledger line under both heads — has to be done here, because these heads
+          // are ours. `displaced` is handed to `NoteHead`, which owns the arithmetic that turns it
+          // into an x; we only ask where it landed.
+          const displaced = chordHeadDisplacement(memberHeads.map(mh => mh.line), stemDirection)
+          const noteHeads = memberHeads.map((mh, h) => new NoteHead({
+            duration: 'q', line: mh.line, stemDirection, displaced: displaced[h], x: member.headX,
+          }))
+          // ⚠️ READ BEFORE THE DRAW: `NoteHead.draw` writes its own absolute x back into `x`, so a
+          // displaced head asked twice displaces twice.
+          const headXs = noteHeads.map(h => h.getAbsoluteX())
+          // The chord's left EDGE, not its column: with a stem down it is the displaced head, and
+          // that is what the accidentals have to clear.
+          const chordLeftX = headXs.length ? Math.min(...headXs) : member.headX
+          const signedHeads = memberHeads.map((_, h) => h).filter(h => memberHeads[h].sign)
+          const accidentals = chordAccidentalLayout(
+            signedHeads.map(h => ({ line: memberHeads[h].line, width: accidentalWidth(memberHeads[h].sign as string) })),
+            chordLeftX,
+            FAN_ACCIDENTAL_GAP,
+          )
+          // 🚨 LEDGER LINES BY HAND. `drawLedgerLines` belongs to `StaveNote`; a bare `NoteHead`
+          // only swaps to the ledger glyph. Members off the staff drew as floating heads before
+          // they had their own pitches — a bug then, the ordinary case now. Once per MEMBER, not
+          // once per head: a ledger line is a fact about the level, and it has to reach across
+          // every head standing on it.
+          drawFanLedgerLines(ctx, stave, memberHeads.map((mh, h) => ({ line: mh.line, x: headXs[h] })), glyphWidth)
           for (let h = 0; h < memberHeads.length; h++) {
             const { pitch, line, sign } = memberHeads[h]
             const y = stave.getYForNote(line)
-            // 🚨 LEDGER LINES BY HAND. `drawLedgerLines` belongs to `StaveNote`; a bare `NoteHead`
-            // only swaps to the ledger glyph. Members off the staff drew as floating heads before
-            // they had their own pitches — a bug then, the ordinary case now.
-            drawFanLedgerLines(ctx, member.headX, line, note.getGlyphWidth(), stave)
-            const head = new NoteHead({ duration: 'q', line, stemDirection, x: member.headX })
+            const head = noteHeads[h]
             head.setStave(stave) // resolves y from the line, and hands it the context
             head.setContext(ctx).draw()
             // ⭐ P3: the member becomes CLICKABLE and HIGHLIGHTABLE — but only when it is a member
@@ -449,7 +475,9 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
                 beat: fracToNumber(slot.beat),
                 pitch: spellingToMidi(pitch.step, pitch.alter, pitch.octave),
                 duration: slot.duration,
-                headX: member.headX + note.getGlyphWidth() / 2,
+                // ⚠️ The head's OWN x, not the member's column — a head displaced across the stem
+                // is where the click has to land, or a second selects its neighbour.
+                headX: headXs[h] + glyphWidth / 2,
               })
               // The group is this member's whole ink — head, sign, ledgers, stem — so the highlight
               // is an ordinary recolour of ink we own, not a rectangle painted over someone else's.
@@ -458,8 +486,8 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
               // placed the head, not re-derived — the same rule the ink rect follows.
               pass.fanMemberAnchorMap.set(pitch.id, {
                 staveNote: note,
-                leftX: member.headX,
-                rightX: member.headX + note.getGlyphWidth(),
+                leftX: headXs[h],
+                rightX: headXs[h] + glyphWidth,
                 headY: y,
                 tipY: member.tipY,
                 stemDirection,
@@ -469,9 +497,13 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
               // Hand-placed for the same reason the head is: there is no `StaveNote` here to hang
               // a modifier on, and a `Modifier` drawn at explicit coordinates without its own x/y
               // set drags a note's bbox to zero (reference_vexflow_modifier_bbox_needs_x_y).
+              // ⭐ Its place in the member's own accidental COLUMNS — the topmost sign nearest the
+              // chord, the lowest in the next column out, the rest working inwards (Gould's
+              // zig-zag; `chordAccidentalColumns`). One x for all of them printed two signs on top
+              // of each other the moment a member became a real chord.
               const acc = new Accidental(sign)
               acc.setContext(ctx)
-              acc.setX(member.headX - accidentalWidth(sign) - FAN_ACCIDENTAL_GAP).setY(y)
+              acc.setX(accidentals.xs[signedHeads.indexOf(h)]).setY(y)
               acc.renderText(ctx, 0, 0)
             }
           }
@@ -585,12 +617,26 @@ function fanSlotDrawing(input: {
     // head in the group.
     sign: k > 0 && stored[k - 1] ? signs.get(p.id) ?? null : null,
   })))
-  // An accidental hangs to the LEFT of its head, and the width pass could not know about it (it
-  // counts head columns and cannot measure glyphs), so the group buys the room out of its own
-  // span. Member 0's sign is VexFlow's business — a real modifier on a real note.
-  const accidentalRoom = heads.map((pitches, k) => (k === 0 ? 0 : Math.max(
-    0, ...pitches.map(h => (h.sign ? accidentalWidth(h.sign) : 0)),
-  )))
+  // ⭐ WHAT EACH MEMBER IS WIDER THAN ITS COLUMN BY, both ways — the chord rules cost room, and the
+  // width pass cannot see any of it (it counts head columns and cannot measure glyphs), so the
+  // group buys it out of its own span. To the LEFT: the accidental columns, plus a head displaced
+  // that way (stems down). To the RIGHT: a head displaced that way (stems up), which nothing else
+  // reserves — the gap arithmetic measures between head columns, so without this the next member
+  // walks into a displaced head.
+  const glyphWidth = note.getGlyphWidth()
+  const headShift = displacedHeadShiftPx(glyphWidth)
+  const memberDisplaced = heads.map(pitches => chordHeadDisplacement(pitches.map(h => h.line), stemDirection))
+  // Member 0's own signs are VexFlow's business — real modifiers on a real note, already inside the
+  // formatter's width — but its displaced head reaches past `headX` like anyone else's.
+  const accidentalRoom = heads.map((pitches, k) => {
+    if (k === 0) return 0
+    const signs = pitches.filter(h => h.sign).map(h => ({ line: h.line, width: accidentalWidth(h.sign as string) }))
+    const headRoom = stemDirection < 0 && memberDisplaced[k].some(Boolean) ? headShift : 0
+    return headRoom + chordAccidentalWidth(signs, FAN_ACCIDENTAL_GAP)
+  })
+  const headRightRoom = heads.map((_, k) => (
+    stemDirection > 0 && (k === 0 ? note.isDisplaced() : memberDisplaced[k].some(Boolean)) ? headShift : 0
+  ))
 
   // ⭐ THE PREFIX — the group this fan is JOINED to on its left (docs/fan-beam-join-plan.md P1).
   // Their x's and head y's are the FORMATTER's, settled and read here like everything else in this
@@ -629,8 +675,9 @@ function fanSlotDrawing(input: {
       // whole glyph apart cannot touch, and the number follows the staff size instead of pinning
       // a pixel count that would be wrong the day the scale changes. The bar has already been
       // asked for the room this implies (`fanColumns`); this is what SPENDS it.
-      minHeadGap: note.getGlyphWidth() * FAN_MIN_HEAD_GAP_RATIO,
+      minHeadGap: glyphWidth * FAN_MIN_HEAD_GAP_RATIO,
       accidentalRoom,
+      headRightRoom,
       prefix: prefixNotes.map(n => ({ stemX: n.getStemX(), headYs: n.getYs() })),
       prefixBeams,
       // Every fan on a joined beam draws flat, prefix or no prefix — a chain's FIRST fan has none.
@@ -772,29 +819,36 @@ function registerFanInk(
  * VexFlow's own bounds and its own loop: staff lines are 1–5, so a head needs lines from 6 up to
  * its own, or from 0 down to it, at the INTEGER lines only (a head in a space hangs off the last
  * one). The line is drawn a glyph wide plus a little each side — `strokePx`, VexFlow's default.
+ *
+ * ⭐ The WHOLE member at once, because a ledger line is a fact about the LEVEL and not about one
+ * head: every head standing at or beyond it shares the same line, so a chord with a second gets one
+ * ledger reaching across both columns rather than two stubs with a gap between them. That is
+ * `StaveNote.drawLedgerLines`' own rule (it widens to `doubleWidth` from the leftmost head when a
+ * displaced head reaches the same level), stated once here for any number of heads.
  */
 function drawFanLedgerLines(
   ctx: SVGContext,
-  headX: number,
-  line: number,
-  glyphWidth: number,
   stave: Stave,
+  heads: { line: number; x: number }[],
+  glyphWidth: number,
 ): void {
-  if (line < 6 && line > 0) return
-  const x1 = headX - FAN_LEDGER_OVERHANG
-  const x2 = headX + glyphWidth + FAN_LEDGER_OVERHANG
+  if (!heads.length) return
+  const highest = Math.max(...heads.map(h => h.line))
+  const lowest = Math.min(...heads.map(h => h.line))
+  if (highest < 6 && lowest > 0) return
   // The stave's own ledger style, so these are the same ink as every other ledger on the page —
   // save/restore keeps it local (the rest ledgers do exactly this).
   ctx.save()
   stave.applyStyle(ctx, stave.getDefaultLedgerLineStyle())
-  const stroke = (l: number): void => {
+  const stroke = (l: number, reaching: { x: number }[]): void => {
+    const xs = reaching.map(h => h.x)
     const y = stave.getYForNote(l)
     ctx.beginPath()
-    ctx.moveTo(x1, y)
-    ctx.lineTo(x2, y)
+    ctx.moveTo(Math.min(...xs) - FAN_LEDGER_OVERHANG, y)
+    ctx.lineTo(Math.max(...xs) + glyphWidth + FAN_LEDGER_OVERHANG, y)
     ctx.stroke()
   }
-  for (let l = 6; l <= line; l++) stroke(l)
-  for (let l = 0; l >= line; l--) stroke(l)
+  for (let l = 6; l <= highest; l++) stroke(l, heads.filter(h => h.line >= l))
+  for (let l = 0; l >= lowest; l--) stroke(l, heads.filter(h => h.line <= l))
   ctx.restore()
 }

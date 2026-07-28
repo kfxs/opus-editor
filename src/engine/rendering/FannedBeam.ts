@@ -213,6 +213,18 @@ export interface FanGeometryOptions {
    */
   accidentalRoom?: number[]
   /**
+   * ⭐ Extra room, per member, that its HEADS take to the RIGHT of its column — a member chord
+   * containing a second displaces one head across the stem (`chordHeadDisplacement`), and with
+   * stems up that head reaches a glyph past the column the gaps are measured between. 0 for the
+   * ordinary member, and 0 for every member with stems down, where the displacement goes left and
+   * {@link accidentalRoom} carries it.
+   *
+   * ⚠️ Entry k belongs to the gap AFTER member k, unlike `accidentalRoom` — one is what a head
+   * pushes forward, the other what the next head hangs backward, and the floor between two members
+   * has to add both.
+   */
+  headRightRoom?: number[]
+  /**
    * ⭐ The user-authored leading space, in PIXELS, before each member — 0 (or absent) where the
    * engraver's own ramp stands (docs/note-spacing-plan.md §7). Index k is the space before member k;
    * entry 0 is ignored, because the space before member 0 is the space before the fan's own COLUMN
@@ -335,7 +347,7 @@ export interface FanGeometryOptions {
 export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   const {
     members, memberHeadYs, direction, beams, headX, spanEndX, stemOffset, minHeadGap,
-    accidentalRoom, memberSpaces, memberOffsets, tipY, minStemLength, stemDirection, beamWidth,
+    accidentalRoom, headRightRoom, memberSpaces, memberOffsets, tipY, minStemLength, stemDirection, beamWidth,
   } = opts
   const prefix = opts.prefix ?? []
   const joined = prefix.length > 0 || !!opts.joined
@@ -355,7 +367,9 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   // The span the HEADS may occupy: the last one must still fit before whatever comes next, so the
   // room its own glyph takes is not part of the ramp. ⚠️ Measured from `base`, so NO offset ever
   // changes it — an offset has no width.
-  const usable = spanEndX - base - minHeadGap
+  // ⭐ …and the LAST member's own displaced head comes off the same end: a second under an upward
+  // stem reaches a glyph past the column, and the note after the fan is what it would reach into.
+  const usable = spanEndX - base - minHeadGap - (headRightRoom?.[members.length - 1] ?? 0)
   if (usable <= 0) return empty
 
   /**
@@ -388,8 +402,9 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   const gaps: number[] = []
   for (let k = 0; k + 1 < members.length; k++) {
     // The floor grows by whatever sign the NEXT head wears, since an accidental hangs to its left
-    // and would otherwise land on this head.
-    const floor = minHeadGap + (accidentalRoom?.[k + 1] ?? 0)
+    // and would otherwise land on this head — and by whatever THIS member's own heads reach
+    // forward, which is a displaced second under an upward stem.
+    const floor = minHeadGap + (accidentalRoom?.[k + 1] ?? 0) + (headRightRoom?.[k] ?? 0)
     const share = (members[k + 1].startFraction - members[k].startFraction) * rampUsable
     gaps.push(Math.max(floor, share + (authored[k + 1] ?? 0)))
   }

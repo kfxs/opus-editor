@@ -365,11 +365,45 @@ sounding length, so the group's total time is unchanged by construction.
   in place, nothing more.
 - Cross-barline fans, MusicXML, and the standing list in docs/fanned-beams-plan.md §4.
 
-**Left standing after P2, and known:** a member CHORD whose pitches are a second apart draws its heads
-on top of each other, and two signs in one member stack at one x — the hand-drawn path has no
-displaced heads, which is the same gap the slot's own chord never had (VexFlow displaces those). And
-`fanColumns` still cannot see an accidental, so a signed member buys its room out of the group's own
-span rather than out of the bar's; a dense fan with many signs compresses instead of widening.
+## 3b. The chord rules on a member — FIXED 2026-07-28
+
+**What was left standing after P2:** a member CHORD whose pitches were a second apart drew its heads
+on top of each other, and two signs in one member stacked at one x — the hand-drawn path had no
+displaced heads, which is the same gap the slot's own chord never had (VexFlow displaces those). His
+report: *"the fan members showing second interval as a chord... it is not applying the traditional
+engraving rules"*.
+
+⭐ **A member IS a chord, so it gets the chord rules** (Gould, *Behind Bars*, "Chords" / "Chords with
+adjacent notes", pp. 87–91), and every one of them had to be written because these heads are ours and
+not `StaveNote`'s:
+
+- **Seconds cross the stem** — the stem runs between the pair, upper note right, lower note left; a
+  cluster of three or more alternates from there so its outer notes stay in the column. Which one
+  MOVES follows from the stem (up ⇒ the upper, down ⇒ the lower). `chordHeadDisplacement`
+  (`engine/rendering/chordHeadLayout.ts`) — deliberately VexFlow's own walk (`buildNoteHeads`), so a
+  member and the fan's own note can never disagree about the same three pitches, and the flag is
+  handed to `NoteHead`, which owns the arithmetic that turns it into an x. **Unisons displace too**,
+  as VexFlow does; Gould's separate single-voice unison treatment is unbuilt and would be a case of
+  its own here.
+- **Accidentals stack into columns** — the zig-zag: highest nearest the chord, then the lowest, then
+  working inwards, sharing a column whenever two signs clear each other by a sixth.
+  `chordAccidentalColumns.ts`. ⛔ Not a re-implementation of `Accidental.format`: that needs
+  `Accidental`s on `Note`s inside a formatter's `state`, and a member is a head at a coordinate.
+- **One ledger line per LEVEL, reaching under both columns** — `drawFanLedgerLines` now takes the
+  whole member instead of one head, which is `StaveNote.drawLedgerLines`' own rule generalized.
+- **The room is bought** — `accidentalRoom` now carries the accidental COLUMNS plus a head displaced
+  left (stems down), and the new `headRightRoom` carries a head displaced right (stems up), which
+  nothing reserved before: the gap arithmetic measures between head columns, so a displaced head
+  would have been walked into by the next member.
+- **The hit box and the slur anchor follow the head, not the column** — else a click on a displaced
+  head selects its neighbour.
+
+Geometry is asserted in `e2e/fan.e2e.ts` (four tests), the rules themselves in the two modules'
+sibling specs; in jsdom every glyph measures 0×0, so two heads at one x agree with two heads at two.
+
+**Still standing:** `fanColumns` cannot see an accidental, so a signed member buys its room out of the
+group's own span rather than out of the bar's; a dense fan with many signs compresses instead of
+widening.
 
 ## 4. The numbers
 
