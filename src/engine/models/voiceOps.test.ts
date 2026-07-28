@@ -192,6 +192,49 @@ describe('ScoreModel.moveNoteToVoice — Phase 2 (collision: shorter wins)', () 
   })
 })
 
+describe('ScoreModel.moveNoteToVoice — the OTHER lane axis (staff)', () => {
+  let model: ScoreModel
+  let lower: string
+  beforeEach(() => {
+    model = new ScoreModel('MV')
+    lower = model.addStaffBelow(0)
+  })
+
+  const v = (s: ChordRest) => s.voice ?? 0
+  const onStaff = (staffId: string | undefined) =>
+    slotsOf(model, 1).filter(s => s.staffId === staffId)
+
+  it('keeps a lower-staff note on ITS staff — a voice move is not a staff move', () => {
+    const note = model.addNote({ step: 'A', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
+    expect(model.moveNoteToVoice(note.id, 1)).toBe(true)
+
+    const moved = onStaff(lower).find(s => s.type === 'chord') as any
+    expect(moved).toBeDefined()
+    expect(moved.notes[0].id).toBe(note.id)
+    expect(v(moved)).toBe(1)
+    // The upper staff never hears about it: no chord, and no voice-1 lane invented there.
+    expect(onStaff(undefined).some(s => s.type === 'chord')).toBe(false)
+    expect(onStaff(undefined).some(s => v(s) === 1)).toBe(false)
+  })
+
+  it('does not chord into a same-beat, same-voice note on the OTHER staff', () => {
+    // Upper staff already sounds voice 1 at beat 0 — a different lane, not a collision.
+    const upperNote = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const lowerNote = model.addNote({ step: 'A', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
+
+    expect(model.moveNoteToVoice(lowerNote.id, 1)).toBe(true)
+
+    const upperChords = onStaff(undefined).filter(s => s.type === 'chord') as any[]
+    expect(upperChords).toHaveLength(1)
+    expect(upperChords[0].notes).toHaveLength(1)          // NOT merged
+    expect(upperChords[0].notes[0].id).toBe(upperNote.id)
+    const lowerChords = onStaff(lower).filter(s => s.type === 'chord') as any[]
+    expect(lowerChords).toHaveLength(1)
+    expect(lowerChords[0].notes[0].id).toBe(lowerNote.id)
+    expect(v(lowerChords[0])).toBe(1)
+  })
+})
+
 describe('ScoreModel.moveNoteToVoice — Phase 4 (tuplets, ordinal fill)', () => {
   let model: ScoreModel
   beforeEach(() => { model = new ScoreModel('MV') })

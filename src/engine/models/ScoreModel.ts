@@ -2364,8 +2364,12 @@ export class ScoreModel {
     }
     const targetVoice = payload.voice
 
+    // The target slot is addressed by the whole LANE — (staff, voice) — not by the voice alone:
+    // on a two-staff score both staves have a voice 1, and a beat-matched chord on the other
+    // staff is a different stream, not a collision to merge into.
     const existingChord = measure.slots.find(
-      (s): s is Chord => s.type === 'chord' && fracEq(s.beat, payload.beat) && voiceOf(s) === targetVoice,
+      (s): s is Chord => s.type === 'chord' && fracEq(s.beat, payload.beat) && voiceOf(s) === targetVoice
+        && matchesStaff(s.staffId, payload.staffId, this.score),
     )
 
     if (existingChord) {
@@ -2430,6 +2434,7 @@ export class ScoreModel {
     if (payload.tremoloPairStyle) chord.tremoloPairStyle = payload.tremoloPairStyle
     if (payload.fan) chord.fan = cloneFanFresh(payload.fan) // fresh member ids — see the merge branch
     if (targetVoice) chord.voice = targetVoice as 0 | 1 | 2 | 3
+    if (payload.staffId !== undefined) chord.staffId = payload.staffId
     chord.actualDuration = this.computeActualDurationForSlot(chord, measure)
     dbg(`[Model.insertPitch] new chord ${fmtSlot(chord)} → replacing v${targetVoice} rests`)
     this.replaceRestsWithChord(measure, chord)

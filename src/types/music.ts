@@ -1118,6 +1118,12 @@ export interface PitchInsert {
   dots?: number
   beat: Fraction
   voice: number
+  /**
+   * The staff lane the pitch lands in — **absent = the first staff**, the same rule every
+   * `staffId` follows. A voice move is a move along the VOICE axis only, so the note's own
+   * staff has to travel with it; leaving it out silently dropped a staff-1 note onto staff 0.
+   */
+  staffId?: string
   articulations?: Chord['articulations']
   articulationStemAlign?: boolean
   beam?: BeamMode

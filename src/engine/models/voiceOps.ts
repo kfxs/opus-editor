@@ -119,6 +119,11 @@ export function moveNoteToVoice(score: Score, deps: VoiceDeps, pitchId: string, 
     dots: chord.dots,
     beat: chord.beat,
     voice: targetVoice,
+    // The two lane axes are INDEPENDENT: this move is along the voice axis, so the note keeps
+    // the staff it was on — the same reason {@link moveTupletNoteToVoice} builds its target
+    // tuplet on `chord.staffId`. Omitted, the insert defaulted to the first staff and a
+    // staff-1 note fell to staff 0 (with its rests refilled in the wrong lane behind it).
+    staffId: chord.staffId,
     // Articulations live on the SLOT, not the pitch — carry them so an accented note
     // keeps its accent across the voice move. Placement (the explicit `x` flip) is NOT
     // carried: it is voice-aware, so the new voice re-derives the correct auto side.
