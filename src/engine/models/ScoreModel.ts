@@ -96,7 +96,7 @@ export const DEFAULT_FRAGMENT_TITLE = 'Fragment 1'
  * set is absent on purpose — the rhythm fields belong to the slot (writing one would move the whole
  * group) and a TIE is a pitch-to-pitch continuation a member has no length to continue into.
  */
-const FAN_MEMBER_UPDATE_FIELDS = new Set(['step', 'alter', 'octave', 'forceAccidental', 'articulations'])
+const FAN_MEMBER_UPDATE_FIELDS = new Set(['step', 'alter', 'octave', 'forceAccidental', 'articulations', 'articulationPlacement'])
 
 /**
  * True under the unit-test runner (Vitest). It flips the measure-integrity check
@@ -1829,6 +1829,9 @@ export class ScoreModel {
       // for heads that carry nothing.
       if (found.member.chord.articulations?.length) note.articulations = [...found.member.chord.articulations]
       else delete note.articulations
+      // …and its own SIDE, for the same reason: the slot's flip is member 0's.
+      if (found.member.chord.articulationPlacement) note.articulationPlacement = found.member.chord.articulationPlacement
+      else delete note.articulationPlacement
     }
     return note
   }
@@ -1984,6 +1987,10 @@ export class ScoreModel {
       if (updates.articulations !== undefined) {
         if (updates.articulations.length) found.member.chord.articulations = [...updates.articulations]
         else delete found.member.chord.articulations
+      }
+      if ('articulationPlacement' in updates) {
+        if (updates.articulationPlacement) found.member.chord.articulationPlacement = updates.articulationPlacement
+        else delete found.member.chord.articulationPlacement
       }
       const ignored = Object.keys(updates).filter(k => !FAN_MEMBER_UPDATE_FIELDS.has(k))
       if (ignored.length) dbg(`[Model.updateNote] fan member ${noteId}: ignored {${ignored.join(', ')}} — a member is a pitch`)

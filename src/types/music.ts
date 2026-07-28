@@ -352,6 +352,21 @@ export interface FanMemberChord {
    * music. `markOps` deletes the field rather than leaving it empty.
    */
   articulations?: ArticulationType[]
+  /**
+   * ⭐ Which side THIS member's marks sit on, when it has been flipped away from the group's default
+   * (`x`). Absent = follow the group, which is what {@link Chord.articulationPlacement} says for
+   * member 0 and what the stem says for everyone.
+   *
+   * Its own field for the same reason the articulations are: *"every articulation of the member
+   * should be selectable, deletable and flipped independently"*. Flipping the owner used to flip
+   * all six, because there was one side for the whole gesture — and a fan is six attacks, not one.
+   *
+   * ⚠️ Absent is the only spelling of "follow the group", so a flip back to the default DELETES it
+   * rather than pinning the value it happened to resolve to. That is what lets a member flipped and
+   * flipped back go on following the voice-aware default when a second voice is added later — the
+   * same rule, and the same reason, as the slot's own flip (`markOps.flipArticulationPlacement`).
+   */
+  articulationPlacement?: 'above' | 'below'
 }
 
 /**

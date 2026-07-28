@@ -412,9 +412,9 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
       }
       // The joined group's own stems, re-aimed onto the line.
       drawFanPrefixStems(ctx, prefixNotes, geometry.prefixStems)
-      // ONE side for the whole gesture, settled before any member is drawn: member 0's own marks
-      // when it has them, the lane's rule when it has none (see `fanArticulationPosition`).
-      const articulationPosition = fanArticulationPosition(note, slot, stemDirection, drawing.forcedStemDirection)
+      // The DEFAULT side a member takes when it has not been flipped itself — the stem's, never
+      // member 0's (see `fanArticulationPosition` for why that distinction is the whole bug).
+      const articulationPosition = fanArticulationPosition(stemDirection, drawing.forcedStemDirection)
       // The members VexFlow did not draw — member 0 is the real note, already on the page.
       for (let k = 1; k < geometry.stems.length; k++) {
         const member = geometry.stems[k]
@@ -487,13 +487,29 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           // N attacks and a mark belongs to an attack, so the sixth note can be the accented one.
           const types = stored[k - 1]?.articulations ?? []
           if (types.length && memberHeads.length) {
-            drawFanMemberArticulations(ctx, stave, {
+            const placed = drawFanMemberArticulations(ctx, stave, {
               types,
               keys: memberHeads.map(mh => spellingToVexflowKey(mh.pitch.step, mh.pitch.alter, mh.pitch.octave)),
               clef,
               headX: member.headX,
               stemLengthPx: Math.abs(member.tipY - member.baseY),
+              placement: stored[k - 1]?.articulationPlacement,
             }, { position: articulationPosition, stemDirection })
+            // ⭐ REGISTERED like the owner's, keyed on the member's own first pitch — that id is
+            // what `selectArticulation` / delete / flip all take, so registering it is the whole of
+            // what makes a member's mark clickable. Without this the only selectable articulation in
+            // a fan was the owner's, however many were drawn.
+            for (const { type, rect } of placed) {
+              pass.elementRegistry.add({
+                type: 'articulation',
+                noteId: memberHeads[0].pitch.id,
+                articulationType: type,
+                measure: measureNumber,
+                staff: staffIndex,
+                beat: fracToNumber(slot.beat),
+                bbox: rect,
+              })
+            }
           }
         } finally {
           ctx.closeGroup()

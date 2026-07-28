@@ -2,7 +2,7 @@ import {
   Articulation, Modifier, ModifierContext, StaveNote, TickContext,
   type RenderContext, type Stave,
 } from 'vexflow'
-import type { ArticulationType, Chord, Clef } from '@/types/music'
+import type { ArticulationType, Clef } from '@/types/music'
 import { ARTICULATION_RENDER_ORDER } from './NoteBuilder'
 
 /**
@@ -55,29 +55,33 @@ const PROBE_CONTEXT = {
 } as unknown as RenderContext
 
 /**
- * Which side this slot's marks sit on — decided ONCE for the whole gesture, so a fan cannot print
- * one member's accent above and another's below.
+ * The side a member's marks sit on when the member has not been flipped itself — the AUTO rule, and
+ * nothing else.
  *
- * Member 0's own marks are the best answer available: `NoteBuilder` already applied the full rule
- * (explicit placement, else the voice's OUTER side in multi-voice, else opposite the stem), and
- * reading it back cannot disagree with it. The rest of this only runs when member 0 has no marks to
- * read — a fan whose accent is on member 3 alone — and `forcedStemDirection` is what tells the
- * multi-voice case apart there. It is absent on the cross-barline path, which has no lane to ask;
- * a multi-voice cross-barline fan marked on a member alone would take the single-voice side.
+ * ⛔ **Not member 0's side, and not `slot.articulationPlacement`.** Both were tried and both are the
+ * same mistake: `Chord.articulationPlacement` is member 0's OWN flip, because member 0 *is* the
+ * slot's chord. Reading it here made the owner's `x` move all six marks — *"if i flip the owner
+ * articulation all articulations flip"* — which is one side per gesture again, the thing a fan is
+ * not. A member follows the stem until it is flipped, and then it follows itself.
+ *
+ * The rule is `NoteBuilder`'s: the voice's OUTER side in multi-voice (so two voices' marks never
+ * collide in the middle), the note-head side otherwise. `forcedStemDirection` is absent on the
+ * cross-barline path, which has no lane to ask; a multi-voice cross-barline fan takes the
+ * single-voice side there.
  */
 export function fanArticulationPosition(
-  note: StaveNote,
-  slot: Chord,
   stemDirection: number,
   forcedStemDirection?: number,
 ): number {
-  const own = note.getModifiersByType(Articulation.CATEGORY) as Articulation[]
-  if (own.length) return own[0].getPosition()
-  if (slot.articulationPlacement === 'above') return Modifier.Position.ABOVE
-  if (slot.articulationPlacement === 'below') return Modifier.Position.BELOW
   return forcedStemDirection !== undefined
     ? (forcedStemDirection === 1 ? Modifier.Position.ABOVE : Modifier.Position.BELOW)
     : (stemDirection === 1 ? Modifier.Position.BELOW : Modifier.Position.ABOVE)
+}
+
+/** One drawn member mark, for the caller to register — its kind and the ink it occupies. */
+export interface PlacedFanArticulation {
+  type: ArticulationType
+  rect: { x: number; y: number; width: number; height: number }
 }
 
 /** One member's marks, and where its head and stem actually landed. */
@@ -92,6 +96,8 @@ export interface FanMemberArticulationTarget {
   headX: number
   /** How long the member's stem actually is, in px — a fan gives every member a different one. */
   stemLengthPx: number
+  /** THIS member's own flipped side, when it has one. Absent ⇒ follow the group's. */
+  placement?: 'above' | 'below'
 }
 
 /**
@@ -103,8 +109,14 @@ export function drawFanMemberArticulations(
   stave: Stave,
   target: FanMemberArticulationTarget,
   opts: { position: number; stemDirection: number },
-): void {
-  if (!target.types.length || !target.keys.length) return
+): PlacedFanArticulation[] {
+  if (!target.types.length || !target.keys.length) return []
+
+  // ⭐ The member's OWN side wins over the group's. Flipping the owner used to flip all six, which
+  // is what one side per gesture means and not what a fan is.
+  const position = target.placement === 'above' ? Modifier.Position.ABOVE
+    : target.placement === 'below' ? Modifier.Position.BELOW
+      : opts.position
 
   // Closest-to-the-head first, the order `NoteBuilder` adds them in — so a member's stack reads the
   // same way round as the slot's.
@@ -123,8 +135,8 @@ export function drawFanMemberArticulations(
   const marks = sorted.map((t) => {
     const art = new Articulation(ARTICULATION_VEX_CODES[t])
     // BEFORE the note sees it: this is what swaps `aboveCode`/`belowCode` (`setPosition` calls
-    // `reset`), so the member wears the same glyph as the slot and not its mirror.
-    art.setPosition(opts.position)
+    // `reset`), so the mark wears the glyph of the side it is actually on and not its mirror.
+    art.setPosition(position)
     probe.addModifier(art, 0)
     return art
   })
@@ -142,10 +154,18 @@ export function drawFanMemberArticulations(
   // Where the stand-in's head ended up, so the move to the real one is a single delta.
   const dx = target.headX - probe.getNoteHeadBeginX()
 
-  for (const art of marks) {
+  const placed: PlacedFanArticulation[] = []
+  for (let i = 0; i < marks.length; i++) {
+    const art = marks[i]
     art.setContext(PROBE_CONTEXT).draw() // computes x/y (and the origin shifts) — ink discarded
     art.setContext(ctx)
     art.setX(art.getX() + dx)
     art.renderText(ctx, 0, 0)
+    // The rect the CALLER registers, so a member's mark can be clicked like the owner's. Taken from
+    // the glyph the same way the owner's is (`modifier.getBoundingBox()`), and only after the draw —
+    // geometry is only real once the ink is down.
+    const box = art.getBoundingBox()
+    if (box) placed.push({ type: sorted[i], rect: { x: box.x, y: box.y, width: box.w, height: box.h } })
   }
+  return placed
 }

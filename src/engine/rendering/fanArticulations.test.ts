@@ -1,57 +1,26 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
-import { Articulation, Modifier, StaveNote } from 'vexflow'
+import { Modifier } from 'vexflow'
 import { fanArticulationPosition } from './fanArticulations'
-import type { Chord } from '@/types/music'
 
 /**
  * Subject: {@link fanArticulationPosition} in `./fanArticulations`.
  *
- * ⚠️ Only the SIDE is asserted here. The drawing half of that module is VexFlow's own formatting —
- * a stand-in `StaveNote` is built, the library places the marks on it, and the glyphs are translated
- * to the member's head — and jsdom measures every glyph as 0×0, so every number in it would come
- * back a vacuous zero. Where the ink lands is asserted in `e2e/fan.e2e.ts`.
+ * ⚠️ Only the DEFAULT SIDE is asserted here. The drawing half of that module is VexFlow's own
+ * formatting — a stand-in `StaveNote` is built, the library places the marks on it, and the glyphs
+ * are translated to the member's head — and jsdom measures every glyph as 0×0, so every number in it
+ * would come back a vacuous zero. Where the ink lands is asserted in `e2e/fan.e2e.ts`.
  *
- * The side is different: it is a decision, not a measurement, and getting it wrong prints one
- * gesture's marks above AND below.
+ * The side is different: it is a decision, not a measurement.
  */
 
 const BELOW = Modifier.Position.BELOW
 const ABOVE = Modifier.Position.ABOVE
 
-/** Member 0's note, optionally already wearing a mark on a given side. */
-function ownerNote(markPosition?: number): StaveNote {
-  const note = new StaveNote({ keys: ['c/4'], duration: 'q' })
-  if (markPosition !== undefined) {
-    note.addModifier(new Articulation('a.').setPosition(markPosition), 0)
-  }
-  return note
-}
-
-const slot = (placement?: 'above' | 'below') =>
-  ({ articulationPlacement: placement } as unknown as Chord)
-
 describe('fanArticulationPosition', () => {
-  /**
-   * The first question, and the one that keeps a fan consistent: `NoteBuilder` already applied the
-   * full rule to member 0 (explicit placement, else the voice's outer side in multi-voice, else
-   * opposite the stem). Reading it back cannot disagree with it; re-deriving it can.
-   */
-  it('copies member 0’s side whenever member 0 has a mark to copy', () => {
-    // Everything else points the other way — a down-stem, and an explicit "above" — and the side
-    // still comes from the note, because that is what is already on the page.
-    expect(fanArticulationPosition(ownerNote(BELOW), slot('above'), -1)).toBe(BELOW)
-    expect(fanArticulationPosition(ownerNote(ABOVE), slot('below'), 1)).toBe(ABOVE)
-  })
-
-  it('falls back to the slot’s explicit placement when member 0 is unmarked', () => {
-    expect(fanArticulationPosition(ownerNote(), slot('above'), 1)).toBe(ABOVE)
-    expect(fanArticulationPosition(ownerNote(), slot('below'), -1)).toBe(BELOW)
-  })
-
-  it('otherwise takes the NOTE-HEAD side — opposite the stem', () => {
-    expect(fanArticulationPosition(ownerNote(), slot(), 1), 'stem up ⇒ mark below').toBe(BELOW)
-    expect(fanArticulationPosition(ownerNote(), slot(), -1), 'stem down ⇒ mark above').toBe(ABOVE)
+  it('takes the NOTE-HEAD side — opposite the stem', () => {
+    expect(fanArticulationPosition(1), 'stem up ⇒ mark below').toBe(BELOW)
+    expect(fanArticulationPosition(-1), 'stem down ⇒ mark above').toBe(ABOVE)
   })
 
   /**
@@ -59,7 +28,24 @@ describe('fanArticulationPosition', () => {
    * stem, so the two voices' marks never collide in the middle (Gould, and what `NoteBuilder` does).
    */
   it('takes the voice’s OUTER side when the lane forced a stem', () => {
-    expect(fanArticulationPosition(ownerNote(), slot(), 1, 1), 'upper voice ⇒ above').toBe(ABOVE)
-    expect(fanArticulationPosition(ownerNote(), slot(), -1, -1), 'lower voice ⇒ below').toBe(BELOW)
+    expect(fanArticulationPosition(1, 1), 'upper voice ⇒ above').toBe(ABOVE)
+    expect(fanArticulationPosition(-1, -1), 'lower voice ⇒ below').toBe(BELOW)
+  })
+
+  /**
+   * REGRESSION, and the whole of his second report: *"if i flip the owner articulation all
+   * articulations flip"*.
+   *
+   * This function used to read member 0's drawn marks, and failing that `slot.articulationPlacement`
+   * — both of which are member 0's OWN side, because member 0 *is* the slot's chord. So the owner's
+   * `x` moved all six marks. It now depends on nothing but the stem, which is what "a member follows
+   * the stem until it is flipped, and then it follows itself" means. The signature is the proof:
+   * there is no chord and no note to read a flip off.
+   */
+  it('⭐ depends on the STEM alone — nothing about the owner can reach it', () => {
+    expect(fanArticulationPosition.length, 'stem direction and the forced stem, and nothing else')
+      .toBe(2)
+    // The same answer whatever the owner is doing, because the owner is not an argument.
+    expect(fanArticulationPosition(1)).toBe(fanArticulationPosition(1))
   })
 })

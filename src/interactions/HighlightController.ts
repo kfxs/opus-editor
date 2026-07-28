@@ -476,20 +476,33 @@ export class HighlightController {
     if (!engine) return
     const artElements = engine.getElementRegistry().getByType('articulation').filter(el => el.noteId === noteId)
     if (!artElements.length) return
-    const groupInfo = engine.getStaveNoteSVGGroup(noteId)
-    if (!groupInfo) return
-    const noteheadGroups = groupInfo.group.querySelectorAll('g.vf-notehead')
-    const noteheadGroup = noteheadGroups[groupInfo.noteIndex] ?? noteheadGroups[0]
-    if (!noteheadGroup) return
 
-    const glyphEls = noteheadGroup.querySelectorAll<SVGGraphicsElement>('text, path')
+    // ⭐ A FANNED MEMBER's marks are not in a `vf-notehead` at all — VexFlow never drew that head, so
+    // `FanPass` paints the whole member (head, sign, ledgers, stem AND its articulations) into its
+    // own `vf-fanhead` group. Same search, one group over; without this a member's mark was drawn
+    // and registered and selectable but never lit up.
+    const memberGroup = engine.getFanMemberSVGGroup(noteId)?.group
+    let scope: Element | null = memberGroup ?? null
+    if (!scope) {
+      const groupInfo = engine.getStaveNoteSVGGroup(noteId)
+      if (!groupInfo) return
+      const noteheadGroups = groupInfo.group.querySelectorAll('g.vf-notehead')
+      scope = noteheadGroups[groupInfo.noteIndex] ?? noteheadGroups[0] ?? null
+    }
+    if (!scope) return
+
+    const glyphEls = scope.querySelectorAll<SVGGraphicsElement>('text, path')
+    // In a `vf-notehead` the head is drawn FIRST and is skipped by index; a member's group has its
+    // ledgers before the head, so there is no fixed index to skip and the nearest-centre match below
+    // does the work on its own (a mark sits a staff space clear of the head it belongs to).
+    const skipFirst = !memberGroup
     for (const artEl of artElements) {
       const cx = artEl.bbox.x + artEl.bbox.width / 2
       const cy = artEl.bbox.y + artEl.bbox.height / 2
       let best: SVGGraphicsElement | null = null
       let bestDist = Infinity
       glyphEls.forEach((svgEl, i) => {
-        if (i === 0) return // the notehead glyph itself
+        if (skipFirst && i === 0) return // the notehead glyph itself
         const bb = svgEl.getBBox?.()
         if (!bb || bb.width === 0 || bb.height === 0) return
         const dx = bb.x + bb.width / 2 - cx

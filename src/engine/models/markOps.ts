@@ -42,9 +42,23 @@ function getMeasure(score: Score, measureNumber: number): Measure | undefined {
  * rests or slots without articulations. Returns the flat note, or null.
  */
 export function flipArticulationPlacement(score: Score, noteId: string): Note | null {
-  const found = findSlot(score, noteId)
+  // ⭐ `fanMembers: true`: a fanned member's marks are its own, so its SIDE is its own too — his
+  // report was that flipping the owner flipped all six, which is what one side per gesture means.
+  const found = findSlot(score, noteId, { fanMembers: true })
   if (!found || found.type === 'rest') return null
   const { chord, pitch } = found
+
+  // A MEMBER flips itself and nothing else. The auto side it toggles against is the group's — the
+  // same `autoArticulationPlacement` the slot uses, because a member hangs off the same chord — so
+  // one press always visibly flips and two press round-trip back to following the group.
+  if (found.member) {
+    const member = found.member.chord
+    if (!member.articulations?.length) return null
+    if (member.articulationPlacement !== undefined) delete member.articulationPlacement
+    else member.articulationPlacement = autoArticulationPlacement(score, chord) === 'above' ? 'below' : 'above'
+    return flatNoteOf(score, chord, pitch)
+  }
+
   if (!chord.articulations?.length) return null
   // Sibelius-style `x` toggle: auto ↔ flipped (mirrors flipTuplet/flipSlur/flipTie).
   // An explicit override returns to the context-aware auto default; an auto mark pins
