@@ -548,6 +548,54 @@ ending in "keep the explicit versions" reads as the phase **working**, not as it
 one phase that can correctly end in "no", and it probably will; half a day to close it honestly is
 the point.
 
+### ✅ Spiked and CLOSED 2026-07-28 — the answer is **no**. Keep the explicit versions.
+
+The spike was written, type-checked against the real types, and deleted. It is not in the tree; this
+section is its whole output. **No production code changed in Phase 4.**
+
+First, the shape re-measured — the amendment's three-shape table is exact:
+
+| shape | adjustables | surface |
+|---|---|---|
+| **full** | note spacing (7 methods + `room`), bar width (8 + `room` + `barWidthLineKey`) | the only two with a `room` at all |
+| partial | staff spacing (`nudge`/`preview`/`commit`/`reset`/`get`, **no room**), slur shape (3), slur endpoint (3) | |
+| **one-liner** | rest shift (1), dynamic offset (1), note offset (3) | nothing to abstract |
+
+**The spec is expressible — and that is the trap.** `AdjustableSpec<T, R>` type-checked over both,
+with `T` the target and `R` the room. But `R` has to be generic, because the two rooms are not the
+same kind of thing: note spacing's is a `number` of staff-spaces; bar width's is an object carrying
+`minStretch`, `maxStretch`, `barlineSlope`, `alone`, `capped` **and two conversion functions**
+(`stretchForStep`, `stretchForBarlineDelta`). A generic `R` means nothing written over the spec can
+do anything with the room except hand it straight back to the spec. So the shared `nudge` reduces
+to: read the room, decline if null, call `spec.targetFor(...)`, write, save, log — six lines — and
+every line it was supposed to absorb moves into the spec instead.
+
+**It needed three escape hatches, not the one the criterion allowed** — `room`, `targetFor`,
+`floorFor` — and `targetFor` is where the whole difference lives. For note spacing it is
+`current + delta`. For bar width `delta` is not even a value delta, it is **pixels of barline
+movement**, so `targetFor` is the entirety of `nudgeBarWidth`: the key-press jump, the clamp, and
+the fixed-point fallback a bar alone on its system needs (the bug reported from use twice, from a
+score where bar 1 sat at ×15.738 and would not shrink). That is not a parameter of a shared
+gesture — it **is** the gesture.
+
+**And the arithmetic does not favour it.** The two full instances are 326 lines, of which
+**144 are comment and 168 are code**. The comments are the reasoning that makes the feature
+recoverable — the staleness rule ("a dirty model cannot answer at all"), the pinned-barline
+fallback, the two clamps and why the second is not optional. Every one of them attaches to a named
+gesture. A generic `nudge(spec, target, delta)` has nowhere to put *"a press must move, or the limit
+must be real"*, and the standing rule is that a comment travels with the code it explains.
+
+⭐ **The finding worth keeping: the shared part was extracted long ago, which is why the rest only
+LOOKS repetitive.** `saveOnly`, `commitPreviewed` and `markModelDirty` are three private primitives
+already used by all five `preview`/`commit` pairs — `commitNoteSpacing`, `commitBarWidth`,
+`commitStaffSpacing`, `commitSlurShape`, `commitSlurEndpoint` are one line each *because* of them.
+The repetition that remains is the part that differs, and it differs for reasons that were each
+argued once and are each written down.
+
+So: **no `AdjustableSpec`.** A sixth adjustable stays six files, and that is the honest price of six
+gestures that are not the same gesture. If a seventh ever arrives that is genuinely note spacing's
+shape — a scalar room, a value delta — the thing to share is that pair, not all of them.
+
 ---
 
 ## Phase 5 — Extend the rule to name the real spine *(15 min, do last)*
@@ -577,7 +625,7 @@ rule stops asking for restraint and starts describing the path of least resistan
 | 2 | ghost pipeline | ½ day | low | ~31 methods, 3 files | a new ghost = 1 drawer + 1 row |
 | 1 | element-kind table | 1 day | medium | **~570** lines, 2 files | a new selectable element = 1 file + 2 rows |
 | 3 | `ScoreModel` `*Ops` | 1 day | low | 4 clusters, **sized once named** | the next model feature |
-| 4 | adjustment gesture | spike | **high** | likely **nothing** — see the prediction | a new adjustable = 1 spec, *if* it survives |
+| 4 | adjustment gesture | spike | **high** | ✅ spiked → **nothing**, as predicted | — (closed: the gesture is not one gesture) |
 | 5 | rule extension | 15 min | none | — | all of the above staying done |
 
 **`AMENDED` — order is now 0 → 2 → 1 → 3 → 4 (spike) → 5.** Phase 0 is free and unblocks the rest.
