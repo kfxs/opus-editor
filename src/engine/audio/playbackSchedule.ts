@@ -245,8 +245,9 @@ export function collectScheduledNotes(
           // rule). Ties into and out of a fan are otherwise deferred.
           spanBeats: Math.max(baseDurationBeats, ...chord.notes.filter(np => !isContinuation(np)).map(soundingBeatsOf)),
           suppressed: new Set(chord.notes.filter(isContinuation).map(np => np.id)),
-          velocity,
-          durationFactor: artic.durationFactor,
+          // ⚠️ The dynamic WITHOUT the slot's articulation baked in: inside a fan the articulation is
+          // per member, so folding the slot's into the velocity here would spend it on all six.
+          baseVelocity,
         })
         continue
       }
@@ -341,9 +342,17 @@ function laneIndexOfMeasure(measure: Measure): Map<string, { lane: ChordRest[]; 
  * the slot's own pitch).
  *
  * Member 0 is the slot's own chord — minus any tied continuation, whose head already carries the
- * chain. Members 1…count-1 are their own notes: they cannot be tied, slurred or articulated
- * individually (P3 refuses all three), so they sound once each, at their own pitches, wearing the
- * SLOT's dynamic and articulation because those belong to the whole gesture.
+ * chain. Members 1…count-1 are their own notes, sounding once each at their own pitches.
+ *
+ * ⭐ **AND WITH THEIR OWN ARTICULATIONS.** They used to wear the slot's, because a mark belonged to
+ * the whole gesture; it does not any more (`Attack`, docs/fanned-beam-pitches-plan.md §3), and the
+ * engraving followed the member while this did not — so an accent on member 3 was drawn and not
+ * heard, and a staccato on the owner was heard on all six and drawn on one. Picture and playback
+ * have been one function in this feature since day one, and that is only true if the mark this reads
+ * is the mark that was drawn.
+ *
+ * The DYNAMIC is still the slot's, and that is not an oversight: a dynamic attaches to a position in
+ * the bar, and every member of a fan sounds inside one position. Only the articulation is per attack.
  *
  * Called BEFORE the tremolo, and that ordering is a decision rather than an accident: the two are
  * mutually exclusive in the model (`ScoreModel.setFan` clears the tremolo and vice versa), so a slot
@@ -360,11 +369,11 @@ function collectFanAttacks(
     spanBeats: number
     /** Pitch ids of the slot's own notes that are tied continuations, and so must not re-attack. */
     suppressed: Set<string>
-    velocity: number
-    durationFactor: number
+    /** The slot's dynamic as a velocity, BEFORE any articulation — each member scales it by its own. */
+    baseVelocity: number
   },
 ): void {
-  const { chord, fan, startBeats, spanBeats, suppressed, velocity, durationFactor } = opts
+  const { chord, fan, startBeats, spanBeats, suppressed, baseVelocity } = opts
   const sounding = chord.notes.filter(np => !suppressed.has(np.id))
   const members = fanMembers(fan, slotLength(chord))
   const pitches = fanMemberPitches(sounding, fan)
@@ -372,13 +381,18 @@ function collectFanAttacks(
   for (let k = 0; k < members.length; k++) {
     const from = members[k].startFraction
     const to = k + 1 < members.length ? members[k + 1].startFraction : 1
+    // ⭐ THIS member's own marks. Member 0 reads the chord's, because member 0 IS the slot's chord —
+    // the same rule the drawing follows, and the reason neither needs a special case for it.
+    const artic = articulationEffect(k === 0 ? chord.articulations : fan.members?.[k - 1]?.articulations)
+    const velocity = Math.min(1, baseVelocity * artic.velocityScale)
     for (const p of pitches[k] ?? sounding) {
       events.push({
         midi: spellingToMidi(p.step, p.alter, p.octave),
         startBeats: startBeats + from * spanBeats,
         // Each member lasts until the next one starts — they are a run of notes, back to back — and
-        // still takes the articulation's length factor, so a staccato fan is staccato.
-        durationBeats: (to - from) * spanBeats * durationFactor,
+        // takes its OWN articulation's length factor, so one staccato member is short and the rest
+        // are not.
+        durationBeats: (to - from) * spanBeats * artic.durationFactor,
         velocity,
       })
     }

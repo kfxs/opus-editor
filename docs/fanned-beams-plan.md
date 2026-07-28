@@ -221,14 +221,19 @@ sounding length, so they cannot add up to anything else.
 notehead 40% along the group is a note at 40% of its time *by construction*, not because two
 implementations agree. It expands the SOUNDING length rather than the written one — so a fanned note
 tied forward accelerates across the chain, "fill what sounds", the rule the tremolo follows — and
-each member takes the articulation's length factor, so a staccato fan is staccato.
+each member takes **its own** articulation's length factor and velocity.
 
-⚠️ **OUTSTANDING (2026-07-28): that last clause is now the SLOT's articulation only.** Members carry
-their own marks since `FanMemberChord.articulations` (docs/fanned-beam-pitches-plan.md §3), and the
-ENGRAVING follows them — but this scheduler still spends the slot's mark across every member and
-never reads a member's own. So an accent on member 3 alone is drawn and not heard, and a staccato on
-the owner alone is heard on all six and drawn on one. Picture and playback have been one function in
-this feature since day one; making them one again means reading each member's own list here.
+⭐ That last clause used to read "the articulation's", singular and the slot's — and it was the last
+place the sound still disagreed with the picture. Members carry their own marks
+(`FanMemberChord.articulations`, docs/fanned-beam-pitches-plan.md §3) and the engraving had followed
+them for a commit while this had not, so an accent on member 3 was drawn and never heard, and a
+staccato on the owner was heard on all six and drawn on one. Member 0 reads `Chord.articulations`
+because member 0 **is** the slot's chord — the same rule the drawing follows, which is why neither
+needs a special case for it.
+
+⚠️ The **dynamic** is still the whole gesture's, and that is a different question rather than the same
+oversight: a dynamic attaches to a POSITION in the bar and every member sounds inside one position.
+Only the articulation is per attack.
 
 ⚠️ It runs BEFORE the tremolo expansion, and the order is a decision rather than an accident: the
 two are mutually exclusive in the model, so a slot carrying both is ill-formed — imported JSON is

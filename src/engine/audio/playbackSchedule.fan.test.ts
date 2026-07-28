@@ -117,17 +117,67 @@ describe('a fan turns one note into its members', () => {
 })
 
 describe('the fan and the other expansions', () => {
-  it('a staccato fan is staccato — the articulation shortens every member', () => {
+  /**
+   * ⭐ A staccato on the OWNER shortens the owner and nobody else — the marks are per attack now
+   * (`Attack`, docs/fanned-beam-pitches-plan.md §3), and the drawing has said so since it started
+   * marking members individually. This asserted "every member" until then, which is the same claim
+   * the engraving had already stopped making.
+   */
+  it('a staccato on the OWNER shortens the owner alone', () => {
     const model = new ScoreModel('P')
     const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
     model.setFan(note.id, FAN)
     const plain = attacks(model.getScore())
     model.updateNote(note.id, { articulations: ['staccato'] })
     const staccato = attacks(model.getScore())
+
     expect(staccato).toHaveLength(plain.length)
+    expect(staccato[0].durationBeats, 'member 0 IS the chord, so it takes the mark')
+      .toBeLessThan(plain[0].durationBeats)
+    for (let k = 1; k < plain.length; k++) {
+      expect(staccato[k].durationBeats, `member ${k} was not marked`).toBeCloseTo(plain[k].durationBeats, 9)
+    }
+    // Whoever is marked, the onsets never move: the ramp is the rhythm and a mark is not.
     for (let k = 0; k < plain.length; k++) {
-      expect(staccato[k].durationBeats).toBeLessThan(plain[k].durationBeats)
-      expect(staccato[k].startBeats).toBeCloseTo(plain[k].startBeats, 9) // the onsets do NOT move
+      expect(staccato[k].startBeats).toBeCloseTo(plain[k].startBeats, 9)
+    }
+  })
+
+  /**
+   * ⭐ The other half, and the one the engraving was waiting for: mark ONE member and only that
+   * member is short. An accent on member 3 used to be drawn and not heard.
+   */
+  it('⭐ a staccato on ONE member shortens that member alone', () => {
+    const model = new ScoreModel('P')
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.setFan(note.id, FAN)
+    const plain = attacks(model.getScore())
+    const slot = model.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    model.updateNote(slot.fan!.members![1].pitches[0].id, { articulations: ['staccato'] })
+    const marked = attacks(model.getScore())
+
+    expect(marked).toHaveLength(plain.length)
+    // members[1] is member 2 of the group — index 2 in the attack list.
+    expect(marked[2].durationBeats, 'the marked member is short').toBeLessThan(plain[2].durationBeats)
+    for (const k of [0, 1, 3, 4, 5].filter(i => i < plain.length)) {
+      expect(marked[k].durationBeats, `member ${k} was not marked`).toBeCloseTo(plain[k].durationBeats, 9)
+    }
+  })
+
+  it('⭐ an ACCENT on one member lifts that member’s velocity alone', () => {
+    const model = new ScoreModel('P')
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.setFan(note.id, FAN)
+    const plain = attacks(model.getScore())
+    const slot = model.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('expected a chord')
+    model.updateNote(slot.fan!.members![2].pitches[0].id, { articulations: ['accent'] })
+    const marked = attacks(model.getScore())
+
+    expect(marked[3].velocity, 'the accented member is louder').toBeGreaterThan(plain[3].velocity)
+    for (const k of [0, 1, 2, 4, 5].filter(i => i < plain.length)) {
+      expect(marked[k].velocity, `member ${k} keeps the slot's dynamic`).toBeCloseTo(plain[k].velocity, 9)
     }
   })
 
@@ -198,17 +248,19 @@ describe('a fan sounds its members’ own pitches', () => {
     expect(events[0].startBeats).toBe(0)
   })
 
-  it('every member wears the SLOT’s dynamic and articulation — they belong to the gesture', () => {
+  /**
+   * ⭐ The DYNAMIC is still the gesture's, and that is not the same oversight the articulation was:
+   * a dynamic attaches to a POSITION in the bar, and every member of a fan sounds inside one
+   * position. Only the articulation is per attack.
+   */
+  it('every member wears the SLOT’s dynamic — a dynamic marks a position, not an attack', () => {
     const { model, note } = risingFan(4)
     const plain = collectScheduledNotes(model.getScore())
+    // Mark the OWNER: its own attack changes, and the others keep the dynamic untouched.
     model.updateNote(note.id, { articulations: ['staccato'] })
-    const staccato = collectScheduledNotes(model.getScore()).sort((a, b) => a.startBeats - b.startBeats)
-    expect(staccato).toHaveLength(plain.length)
-    for (const e of staccato) expect(e.velocity).toBe(plain[0].velocity)
-    for (let k = 0; k < staccato.length; k++) {
-      expect(staccato[k].durationBeats).toBeLessThan(
-        plain.sort((a, b) => a.startBeats - b.startBeats)[k].durationBeats)
-    }
+    const after = collectScheduledNotes(model.getScore()).sort((a, b) => a.startBeats - b.startBeats)
+    expect(after).toHaveLength(plain.length)
+    for (const e of after) expect(e.velocity).toBe(plain[0].velocity)
   })
 
   it('a mark with no stored members sounds at the slot’s pitch — as it draws', () => {
