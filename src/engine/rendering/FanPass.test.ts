@@ -2,6 +2,11 @@
 /**
  * The fan actually RENDERS (docs/fanned-beams-plan.md §3, P1).
  *
+ * Subject: {@link FanPass}. It is driven through `VexFlowRenderer.renderScore` because that is the
+ * only way to build a `RenderPass` — the renderer is the FIXTURE, the ink is the pass's (test-layout
+ * plan decision 4). Named `VexFlowRenderer.fan.test.ts` until 2026-07-28, when the modularity plan's
+ * Phase 0 gave the extracted pass a spec under its own name.
+ *
  * ⚠️ Deliberately not a geometry suite — jsdom stubs glyph measurement, so an assertion about where
  * the ink landed would pass vacuously (reference_jsdom_cannot_measure_glyphs); the picture is
  * checked by eye. What IS real here is that the pass runs at all, and the two ways it could take the

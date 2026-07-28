@@ -27,15 +27,17 @@ const SRC = 'src'
  * Tests with no sibling subject, awaiting Phase 4's move to `__tests__/`. SHRINK THIS, never grow
  * it — a new entry means a new homeless spec, which is the thing the rule is for.
  *
- *  - `rendering/` ×4: import nothing but `../MusicEngine`. Their subject lives one directory up, so
+ *  - `rendering/` ×3: import nothing but `../MusicEngine`. Their subject lives one directory up, so
  *    they can never satisfy the rule by renaming (a consequence the plan accepts deliberately).
+ *    `ghostContextLeak` left this list on 2026-07-28: it drives a `MusicEngine`, but everything it
+ *    asserts is the ghost draw path, whose module `GhostRenderer.ts` sits right beside it — so it
+ *    renamed to `GhostRenderer.contextLeak.test.ts` instead (modularity plan Phase 0).
  *  - `interactions/` ×7: scenario tests that build a MusicEngine and drive controllers/clipboard.
  *  - `staveGeometry`: imports `vexflow` and nothing else — a probe of VexFlow's own behaviour, with
  *    no subject in this repo at all. Unresolved; see the plan's decision 6.
  */
 const ALLOWLIST = [
   'src/engine/rendering/dotRegistration.test.ts',
-  'src/engine/rendering/ghostContextLeak.test.ts',
   'src/engine/rendering/ledgerLineStyle.test.ts',
   'src/engine/rendering/noteSpacingRender.test.ts',
   'src/engine/rendering/staveGeometry.test.ts',

@@ -193,6 +193,15 @@ test* and belongs in a per-directory `__tests__/`. `npm run lint:testnames`
 other direction — modules with no spec naming them, i.e. splits never finished.
 See `docs/test-layout-plan.md`.
 
+**⭐ A SPEC MOVES WITH ITS MODULE — extract the tests in the same commit as the code.**
+A split that leaves its assertions in the parent has not finished: the parent spec still
+knows everything the parent used to do, so it never shrinks and keeps pulling the parent
+back, while the extracted module has no contract of its own. That is a structural reason
+splits grow back, independent of the "a new feature adds a MODULE" rule above
+(`docs/modularity-plan-2026-07-28.md` §5 + Phase 0). `npm run audit:tests` lists who is
+still owed one; the parent's own API keeps its own tests — move what the *extracted*
+module answers for.
+
 **⚠️ A drawn POSITION is not a unit test.** Unit tests run in jsdom, which has no
 layout and no fonts: every music glyph measures 0×0, so an assertion about where the
 ink landed measures zeros and agrees with itself. Those tests assert node identity,

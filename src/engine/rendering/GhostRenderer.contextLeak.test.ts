@@ -2,6 +2,11 @@
 /**
  * A ghost must not leak its colour into the **shared draw context**.
  *
+ * Subject: {@link GhostRenderer}, sitting beside this file. A `MusicEngine` is built because that is
+ * how a ghost gets drawn over a real score — it is the FIXTURE, not the subject (test-layout plan
+ * decision 4). Named `ghostContextLeak.test.ts` until 2026-07-28, when the modularity plan's Phase 0
+ * gave the extracted drawers a spec under their own name.
+ *
  * `openGroup` stamps the context's CURRENT attributes onto each new `<g>`, and children with no
  * style of their own inherit them — staff lines carry no `stroke`, so they turn whatever colour was
  * sitting on the context. That is not hypothetical: the tie ghost shipped with exactly that bug and

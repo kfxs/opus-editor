@@ -325,6 +325,50 @@ One stale pointer left deliberately: `docs/time-signature-plan.md` §Phase 0 nam
 `restFill.baseline.test.ts`, now `ScoreModel.restFill.test.ts`. It sits inside a dated
 completion record, so it reads as history rather than as a path to follow.
 
+## Phase 5 — a spec moves with its module (2026-07-28)
+
+Added by `docs/modularity-plan-2026-07-28.md` Phase 0, which re-opens the stop point below on
+purpose and for a different reason. Phases 1–4 were about **layout** — where a spec sits and what it
+is called. This one is about **contracts**: §5 of that plan measures that the extractions moved the
+*code* out and left the *tests* in the parent, so the parent spec never shrinks, still knows
+everything the parent used to do, and the extracted module has no local contract at all. That is a
+reason splits grow back which no amount of renaming fixes.
+
+> **The rule: when a module is extracted, its tests are extracted with it, in the same commit.**
+> A split that leaves its assertions in the parent has not finished.
+
+The two existing scripts already point at both halves of it and neither changes: `lint:testnames`
+(a spec sits beside its subject) and `audit:tests` (a module with no spec naming it). What was
+missing was the rule saying whose job it is.
+
+**Done in the first pass** — the three largest offenders `audit:tests` named, 3,150 lines of module
+with no local contract between them:
+
+| module | now specced by | how |
+|---|---|---|
+| `models/rebarOps.ts` (1,387) | `rebarOps.anchors` / `.spans` / `.voices` / `.timeSignature.test.ts` | 28 `it`s moved out of `ScoreModel.test.ts` (2,518 → 1,967 lines) |
+| `rendering/GhostRenderer.ts` (1,017) | `GhostRenderer.contextLeak.test.ts` | renamed from `ghostContextLeak.test.ts`, and off the `lint:testnames` allowlist |
+| `rendering/FanPass.ts` (746) | `FanPass.test.ts` | renamed from `VexFlowRenderer.fan.test.ts` |
+
+Both renames are decision 4 applied one level further in: the file builds a `MusicEngine` / a
+`VexFlowRenderer` because that is the only way to reach the code, but every assertion is on ink the
+*extracted* module draws. The engine is the fixture. Note this shrinks the 3b allowlist by one —
+`ghostContextLeak` was listed there as unable to satisfy the rule by renaming, because its subject
+was read as `MusicEngine` one directory up. Its subject was sitting beside it the whole time.
+
+What the four `rebarOps` chapters took is the relay's own contract — beat-anchored annotations
+surviving a re-bar, spans re-attaching in their own voice, secondary voices not being erased, and
+the re-barring itself (split-and-tie, atomic tuplets, `rewrite: 'none'`). What stayed in
+`ScoreModel.test.ts` is the meter API's own: validation, propagation, the no-op, the pickup
+override. Test *contents* are unchanged, per decision 7 — the blocks moved verbatim, with the
+imports and the two describe wrappers they need.
+
+Still owed a spec, largest first (`npm run audit:tests` for the current list): `PlaybackEngine`
+(347), `tupletOps` (345), `DynamicsLayout` (320), `TieRenderer` (277), `outlineText` (258),
+`beatMap` (249), `MeasureRedrawKey` (213), `ScoreTuplet` (193) — 26 in the logic layers. Work it
+largest first, one module per commit; `types/music.ts` is not on this list in spirit (it is a
+vocabulary file, and the modularity plan rules out splitting it).
+
 ## Stop point
 
 Phase 3. Phase 4 on demand. No further test reorganisation, no changes to test
