@@ -82,6 +82,32 @@ Two consequences worth knowing:
   barline (below). The mark is kept; there is simply nothing on this side of the barline to start a
   beam with.
 
+## The mark travels with the music (rebar, copy/paste)
+
+`beam` and `secondaryBreak` are carried through the rebar relay — `RebarEvent` → `RebarPiece` →
+`Chord` (`utils/rebar.ts`) — which is the same road a meter change and a **paste** both ride. Named
+there for the reason the tremolo and the fan are: a slot field the relay does not list is a slot
+field the relay eats. The beam is the loudest case of it, because the automatic beat rules refill
+the silence instantly — a passage pasted without its mark does not arrive unbeamed, it arrives
+**beamed differently, and looking deliberate**. (That is what a paste did until 2026-07-28.)
+
+Which piece of a **tie-split** keeps the statement is the mode's own question, because the four do
+not all talk about the same end of the note:
+
+| mode | goes to | why |
+| --- | --- | --- |
+| `begin`, `continue` | the FIRST piece | they say where the group *starts*, and the note starts there |
+| `end` | the LAST piece | it says where the group *closes*, and the note ends there |
+| `single` | EVERY piece | it isolates the whole note; half of it beamed to a neighbour is what it forbids |
+| `secondaryBreak` | the FIRST piece | the break is in front of the note |
+
+The inverse — a tie chain **collapsing** back into one event — keeps the head's statement, so an
+`end` authored on the swallowed tail is dropped. One event holds one beam value, and a second field
+for a tail statement would be a shape for a case nothing in the editor asks for.
+
+⚠️ A rest's `beamOver` does **not** travel: it is tied to the rest object, and a rebar or paste
+regenerates rests. See "Beaming over a rest" below.
+
 ## Through the barline
 
 ```

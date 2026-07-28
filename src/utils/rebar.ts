@@ -39,6 +39,7 @@ import type {
   ArticulationType,
   TremoloMark,
   FanMark,
+  BeamMode,
   Tuplet,
 } from '@/types/music'
 import {
@@ -98,6 +99,19 @@ export interface RebarEvent {
    *  of a tie-split ONLY: a fan cut in half at a barline is a cross-barline fan nobody asked for,
    *  and the split has already destroyed the group the mark was an assertion about. */
   fan?: FanMark
+  /**
+   * The note's explicit BEAM statement, carried for the reason {@link tremolo} and {@link fan} are:
+   * a slot field the relay does not list is a slot field the relay eats, and this one is authored
+   * by hand — a copied run would arrive re-beamed by the automatic beat rules, which is the one
+   * thing the user just overrode.
+   *
+   * ⚠️ Which piece of a tie-split keeps it depends on WHAT it says, because the modes are not all
+   * statements about the same end of the note — see {@link relayEvents}.
+   */
+  beam?: BeamMode
+  /** Secondary-beam break in front of the note. Travels with {@link beam}; it is the same kind of
+   *  authored statement, and it belongs to the note's HEAD (the break is in front of it). */
+  secondaryBreak?: boolean
   /** True for an indivisible tuplet event (never tie-split). */
   atomic?: boolean
   /** Verbatim tuplet payload when `atomic`. */
@@ -124,6 +138,10 @@ export interface RebarPiece {
   tremolo?: TremoloMark
   /** Fanned beam. See {@link RebarEvent.fan} — only the FIRST piece of a split event keeps it. */
   fan?: FanMark
+  /** Explicit beam statement. See {@link RebarEvent.beam} — which piece keeps it depends on the mode. */
+  beam?: BeamMode
+  /** Secondary-beam break. See {@link RebarEvent.secondaryBreak} — the FIRST piece only. */
+  secondaryBreak?: boolean
   /** True for an atomic tuplet passthrough piece (materialise from `payload`). */
   atomic?: boolean
   payload?: RebarTupletPayload
@@ -222,6 +240,8 @@ export function flattenRegion(measures: Measure[], voice: 0 | 1 | 2 | 3 = 0): Re
         // was edited (reference_live_model_objects_break_dedup); with member pitches inside, it
         // would also hand the payload live model ids.
         fan: slot.fan && cloneFanFresh(slot.fan),
+        beam: slot.beam,
+        secondaryBreak: slot.secondaryBreak,
         // Collapse marker: the whole chord is tied forward into the next slot.
         tiedForward: slot.notes.length > 0 && slot.notes.every((p) => !!p.tiedTo),
       })
@@ -252,6 +272,11 @@ function collapseTies(events: FlatEvent[]): RebarEvent[] {
       pitchesEqual(prev.pitches, ev.pitches) &&
       fracEq(fracAdd(prev.offset, prev.duration), ev.offset)
     if (mergeable) {
+      // The merged note is `prev` grown longer, so it keeps prev's marks — including its beam
+      // statement, which is the head's and the head is where the merged note still begins. An
+      // `end` authored on the swallowed TAIL is dropped: one event holds one beam value, and
+      // inventing a second field to carry a tail statement would be a shape for a case (beaming
+      // the far half of a tie) nothing in the editor asks for.
       prev.duration = fracAdd(prev.duration, ev.duration)
       prev.tiedForward = ev.tiedForward
     } else {
@@ -373,6 +398,18 @@ export function relayEvents(events: RebarEvent[], meter: MeterInfo, opts: RelayO
       if (k > 0) pieces[k].tieFromPrev = true
       if (k < pieces.length - 1) pieces[k].tieToNext = true
     }
+    // The BEAM statement, once the pieces are known — and unlike the tremolo (every piece) or the
+    // fan (the first), it is not one rule, because the modes do not all talk about the same end of
+    // the note. `begin`/`continue` say where the group STARTS, and the note starts at its first
+    // piece; `end` says where it CLOSES, and the note ends at its last; `single` isolates the whole
+    // note, and half of it beamed to a neighbour is exactly what `single` forbids — so every piece.
+    if (ev.beam && pieces.length > 0) {
+      if (ev.beam === 'single') for (const p of pieces) p.beam = 'single'
+      else if (ev.beam === 'end') pieces[pieces.length - 1].beam = 'end'
+      else pieces[0].beam = ev.beam
+    }
+    // The break is in front of the note, so it belongs to the head piece.
+    if (ev.secondaryBreak && pieces.length > 0) pieces[0].secondaryBreak = true
     cursor = endAt
   }
 

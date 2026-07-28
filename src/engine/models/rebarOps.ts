@@ -1293,6 +1293,8 @@ function materializeVoiceBar(
     // sharing a pitch id is silent — `getElementById` is document-wide and the first in tree order
     // wins. See {@link cloneFanFresh}.
     if (piece.fan) chord.fan = cloneFanFresh(piece.fan)
+    if (piece.beam) chord.beam = piece.beam
+    if (piece.secondaryBreak) chord.secondaryBreak = true
     measure.slots.push(chord)
     created.push({ piece, chord })
   }

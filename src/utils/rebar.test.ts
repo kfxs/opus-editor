@@ -229,4 +229,67 @@ describe('rebar — flattenRegion', () => {
     expect(events[0].payload?.def.id).toBe('tp')
     expect(events[0].payload?.slots).toHaveLength(3)
   })
+
+  it('carries the authored beam statement and secondary break onto the event', () => {
+    const c = chord(1, 0, '8', [pitch('C')])
+    c.beam = 'begin'
+    c.secondaryBreak = true
+    const events = flattenRegion([measure(1, [c])])
+    expect(events[0].beam).toBe('begin')
+    expect(events[0].secondaryBreak).toBe(true)
+  })
+
+  it('a collapsed tie chain keeps the HEAD note\'s beam statement', () => {
+    const a = pitch('C')
+    const b = pitch('C')
+    a.tiedTo = b.id
+    b.tiedFrom = a.id
+    const head = chord(1, 2, 'h', [a])
+    head.beam = 'begin'
+    const events = flattenRegion([measure(1, [head]), measure(2, [chord(2, 0, 'h', [b])])])
+    expect(events).toHaveLength(1)
+    expect(events[0].beam).toBe('begin')
+  })
+})
+
+// --- the beam statement across a tie-split ---------------------------------
+
+describe('rebar — which piece of a split keeps the beam', () => {
+  /** Split one 4-beat event across 2/4 bars and read each piece's beam. */
+  const beamsOf = (beam: RebarEvent['beam']) =>
+    relayEvents([{ ...note(0, 4), beam }], getMeterInfo(ts(2, 4)), unbounded(2))
+      .flat()
+      .filter((p) => !p.isRest)
+      .map((p) => p.beam)
+
+  it('`begin` goes to the FIRST piece — the group starts where the note starts', () => {
+    expect(beamsOf('begin')).toEqual(['begin', undefined])
+  })
+
+  it('`continue` goes to the FIRST piece too, for the same reason', () => {
+    expect(beamsOf('continue')).toEqual(['continue', undefined])
+  })
+
+  it('`end` goes to the LAST piece — the group closes where the note ends', () => {
+    expect(beamsOf('end')).toEqual([undefined, 'end'])
+  })
+
+  it('`single` goes to EVERY piece — half a note beamed is what it forbids', () => {
+    expect(beamsOf('single')).toEqual(['single', 'single'])
+  })
+
+  it('the secondary break belongs to the head piece only', () => {
+    const pieces = relayEvents([{ ...note(0, 4), secondaryBreak: true }], getMeterInfo(ts(2, 4)), unbounded(2))
+      .flat()
+      .filter((p) => !p.isRest)
+    expect(pieces.map((p) => p.secondaryBreak)).toEqual([true, undefined])
+  })
+
+  it('an unsplit note simply keeps what it was given', () => {
+    const pieces = relayEvents([{ ...note(0, 1), beam: 'end' }], getMeterInfo(ts(4, 4)), unbounded(1))
+      .flat()
+      .filter((p) => !p.isRest)
+    expect(pieces).toHaveLength(1)
+    expect(pieces[0].beam).toBe('end')
+  })
 })
