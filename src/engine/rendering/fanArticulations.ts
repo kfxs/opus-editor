@@ -127,10 +127,15 @@ export function drawFanMemberArticulations(
   // The stand-in: the member's own pitches, clef, stem direction and stem LENGTH, so everything the
   // formatter reads about this note is true of the head we actually drew.
   const probe = new StaveNote({ keys: target.keys, duration: 'q', clef: target.clef })
-  probe.setStemDirection(opts.stemDirection)
   probe.setStave(stave)
   probe.setTickContext(new TickContext())
+  // 🚨 LENGTH BEFORE DIRECTION, and it is not a style choice. `setStemLength` only records an
+  // extension override on the NOTE (`stemExtensionOverride`); the single line that pushes it into
+  // the `Stem` object is inside `setStemDirection`. Set it after, and the stem keeps VexFlow's
+  // default ~35px however long the member's really is — which is what put a flipped member's accent
+  // inside the feathering while the owner's, whose stem the fan had already stretched, looked right.
   if (target.stemLengthPx > 0) probe.setStemLength(target.stemLengthPx)
+  probe.setStemDirection(opts.stemDirection)
 
   const marks = sorted.map((t) => {
     const art = new Articulation(ARTICULATION_VEX_CODES[t])

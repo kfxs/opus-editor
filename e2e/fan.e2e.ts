@@ -227,3 +227,56 @@ test('two marks on one member stack the way two marks on any note stack', async 
   expect(member.map(g => g.code)).toEqual(owner.map(g => g.code))
   expect(member.map(g => g.y)).toEqual(owner.map(g => g.y))
 })
+
+/**
+ * ⭐ A FLIPPED mark clears the BEAM, not just the stem.
+ *
+ * His report: *"when i flip an articulation in a fan the only one that looks good is the owner...
+ * the beam collides with that, it looks like the flip is taking into account the stem length but not
+ * the beams"*. Two causes, and the owner escaped both because the fan had already stretched its real
+ * stem to the ramp:
+ *
+ *  - the stand-in note's stem length was silently ignored — `setStemLength` only records an override
+ *    on the note, and the one line that pushes it into the `Stem` is inside `setStemDirection`, which
+ *    was being called first. So a member's mark was placed off VexFlow's default ~35px stem, landing
+ *    inside the feathering;
+ *  - and a stem TIP is not the outside of the group anyway: it is where the stem meets the innermost
+ *    ramp line, with up to `beams` bands stacked past it.
+ */
+test('a flipped mark on a member clears the ramp, level with the owner’s', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const note = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })
+    h.engine.setFan(note!.id, { direction: 'accel', count: 6, beams: 3 })
+    const slot = h.engine.getScore().measures[0].slots[0]
+    const ids = (slot.fan?.members ?? []).map(m => m.pitches[0].id)
+    // Mark the owner and two members, then flip every one of them onto the STEM side.
+    for (const id of [note!.id, ids[1], ids[4]]) {
+      h.engine.toggleArticulation(id, 'accent')
+      h.engine.flipArticulation(id)
+    }
+    await h.render()
+    return {
+      all: h.glyphs('text'),
+      heads: h.noteheads(),
+      ramps: h.quads('g.vf-fan path'),
+    }
+  })
+
+  const marks = drawn.all.filter(g => {
+    const c = parseInt(g.code, 16)
+    return c >= 0xe4a0 && c <= 0xe4bf
+  })
+  expect(marks, 'the owner and two members are marked').toHaveLength(3)
+
+  // Stem up ⇒ the beam is above the heads and "clear" means ABOVE its topmost edge (smaller y).
+  const beamTop = Math.min(...drawn.ramps.flatMap(r => [r.yLeft, r.yRight]))
+  expect(beamTop, 'the ramp really is above the heads').toBeLessThan(drawn.heads[0].y)
+  for (const m of marks) {
+    expect(m.y, `a mark at x=${Math.round(m.x)} is inside the beam`).toBeLessThan(beamTop)
+  }
+
+  // …and all three sit at the same height, because they all clear the same flat ramp line. A member
+  // measured off a default stem instead of its own lands tens of pixels lower than the owner.
+  expect(new Set(marks.map(m => Math.round(m.y))).size, 'one row, not the owner plus stragglers').toBe(1)
+})

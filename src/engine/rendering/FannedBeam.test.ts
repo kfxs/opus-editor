@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fannedBeamGeometry, fanJoinQuads, fanStemExtension, FAN_MAX_BEAM_SLOPE } from './FannedBeam'
+import { fannedBeamGeometry, fanBeamFarEdge, fanJoinQuads, fanStemExtension, FAN_MAX_BEAM_SLOPE } from './FannedBeam'
 import { fanColumns, fanMembers } from '@/utils/fannedBeam'
 import { LAYOUT_CONFIG } from './layoutConfig'
 import { fracCreate as frac } from '@/utils/fraction'
@@ -743,5 +743,46 @@ describe('a member’s own horizontal offset', () => {
   it('a fan with no offsets is byte-for-byte what it was', () => {
     expect(offset([])).toEqual(geometry(FAN))
     expect(offset([0, 0, 0, 0, 0, 0])).toEqual(geometry(FAN))
+  })
+})
+
+/**
+ * The outside of the beam STACK at one x — what anything on the stem side has to clear.
+ *
+ * Pure arithmetic over the quads, so it is real in jsdom: no glyph is measured and no ink is drawn.
+ * That it reaches the right ANSWER on a real ramp is asserted in `e2e/fan.e2e.ts`.
+ */
+describe('fanBeamFarEdge', () => {
+  /** A flat band from x=0 to x=100 at y, `t` thick (signed: + is downward). */
+  const band = (y: number, t: number) => ({ startX: 0, startY: y, endX: 100, endY: y, thickness: t })
+
+  it('is the OUTER edge of the band, not the line', () => {
+    // Stem up: outward is upward, so a band drawn from 60 downward has its outer edge at 60.
+    expect(fanBeamFarEdge([band(60, 5)], 50, 1)).toBe(60)
+    // Stem down: outward is downward, so the same band's outer edge is its far side.
+    expect(fanBeamFarEdge([band(60, 5)], 50, -1)).toBe(65)
+  })
+
+  it('takes the outermost of a STACK — the wide end has several', () => {
+    const stack = [band(60, 4), band(68, 4), band(76, 4)]
+    expect(fanBeamFarEdge(stack, 50, 1), 'the highest band’s top').toBe(60)
+    expect(fanBeamFarEdge(stack, 50, -1), 'the lowest band’s bottom').toBe(80)
+  })
+
+  it('follows a SLOPING line to the x asked about — that is why it takes one', () => {
+    const ramp = [{ startX: 0, startY: 60, endX: 100, endY: 80, thickness: 0 }]
+    expect(fanBeamFarEdge(ramp, 0, 1)).toBe(60)
+    expect(fanBeamFarEdge(ramp, 50, 1)).toBe(70)
+    expect(fanBeamFarEdge(ramp, 100, 1)).toBe(80)
+  })
+
+  it('clamps outside the quad’s own span rather than extrapolating off the end', () => {
+    const ramp = [{ startX: 0, startY: 60, endX: 100, endY: 80, thickness: 0 }]
+    expect(fanBeamFarEdge(ramp, -50, 1)).toBe(60)
+    expect(fanBeamFarEdge(ramp, 500, 1)).toBe(80)
+  })
+
+  it('reports null when there is no beam to clear, so the caller can fall back', () => {
+    expect(fanBeamFarEdge([], 50, 1)).toBeNull()
   })
 })

@@ -25,6 +25,7 @@ import { slotLength } from '@/utils/durations'
 import { FAN_GROUP, fanMembers, fanMemberPitches } from '@/utils/fannedBeam'
 import {
   fannedBeamGeometry,
+  fanBeamFarEdge,
   fanJoinQuads,
   fanStemExtension,
   FAN_MIN_HEAD_GAP_RATIO,
@@ -492,7 +493,14 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
               keys: memberHeads.map(mh => spellingToVexflowKey(mh.pitch.step, mh.pitch.alter, mh.pitch.octave)),
               clef,
               headX: member.headX,
-              stemLengthPx: Math.abs(member.tipY - member.baseY),
+              // ⭐ To the outside of the BEAM, not to the stem tip. A stem tip is where the stem
+              // meets the innermost ramp line, and the group has up to `beams` bands stacked past
+              // it — a mark measured off the tip lands inside the feathering. Member 0 escapes this
+              // only because its own stem was already stretched to the ramp, which is why it was the
+              // one that looked right.
+              stemLengthPx: Math.abs(
+                (fanBeamFarEdge(geometry.beams, member.stemX, stemDirection) ?? member.tipY) - member.baseY,
+              ),
               placement: stored[k - 1]?.articulationPlacement,
             }, { position: articulationPosition, stemDirection })
             // ⭐ REGISTERED like the owner's, keyed on the member's own first pitch — that id is

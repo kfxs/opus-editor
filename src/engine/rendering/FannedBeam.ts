@@ -21,6 +21,39 @@ export interface FanQuad {
 }
 
 /**
+ * ⭐ The FAR EDGE of the beam stack at one x — the last ink the group has on the stem side, measured
+ * out from the heads.
+ *
+ * A fanned group's beam is not one line: at the wide end it is `beams` of them, and each is a BAND
+ * (`fillBeamQuad` fills from `y` to `y + thickness`). So a stem tip is nowhere near the outside of
+ * the group — it is where the stem meets the INNERMOST line — and anything that has to clear the
+ * beam has to clear this instead.
+ *
+ * Which is what an articulation on the stem side has to do. VexFlow places one against
+ * `getStemExtents().topY`, so member 0 clears its own beam only because its stem was already
+ * stretched to the ramp; a member handed nothing but its stem length puts its accent inside the
+ * feathering, which is exactly what it looked like (*"the beam collides with that... the flip is
+ * taking into account the stem length but not the beams"*).
+ *
+ * Returns null when the group has no beam to clear, so the caller can fall back to the stem tip.
+ */
+export function fanBeamFarEdge(beams: FanQuad[], x: number, stemDirection: number): number | null {
+  let far: number | null = null
+  for (const q of beams) {
+    // A vertical (or degenerate) quad has no run to interpolate along; both ends are the same y.
+    const span = q.endX - q.startX
+    const t = span === 0 ? 0 : Math.min(1, Math.max(0, (x - q.startX) / span))
+    const y = q.startY + t * (q.endY - q.startY)
+    // The band, not the line — a beam is thick and the thickness is signed.
+    for (const edge of [y, y + q.thickness]) {
+      if (far === null) far = edge
+      else far = stemDirection === 1 ? Math.min(far, edge) : Math.max(far, edge)
+    }
+  }
+  return far
+}
+
+/**
  * One note of the PREFIX — the group the fan is JOINED to on its left
  * (docs/fan-beam-join-plan.md P1).
  *
