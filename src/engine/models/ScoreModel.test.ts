@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { levelToGlyphString, dynamicLevelOf } from '@/utils/dynamics'
 import { ScoreModel } from './ScoreModel'
 import { curveShapeOverrideOf, restPositionKey, restShiftOverrideOf, dynamicOffsetOverrideOf } from './engravingOverrides'
-import type { NoteParams, Slur } from '@/types/music'
+import type { NoteParams } from '@/types/music'
 import { fracCreate as frac, fracCompare, fracToNumber } from '@/utils/fraction'
 import { tupletSpan } from '@/utils/musicUtils'
 import { measureOpeningClef } from '@/utils/clefUtils'
@@ -408,14 +408,10 @@ describe('ScoreModel', () => {
       expect(model.toJSON()).not.toContain('"tempos"')
     })
 
-    it('migrates a legacy pixel-space slur cps into the staff-space override compartment', () => {
-      // Pre-Phase-1 scores stored the hand-edited shape inline on the slur, in pixels.
-      model.getScore().slurs = [
-        { id: 'slur-1', startNoteId: 'n-a', endNoteId: 'n-b', cps: [{ x: 2, y: 14 }, { x: -3, y: 16 }] } as unknown as Slur,
-      ]
+    it('round-trips a slur curve shape through the override compartment', () => {
+      model.getScore().slurs = [{ id: 'slur-1', startNoteId: 'n-a', endNoteId: 'n-b' }]
+      model.setSlurShape('slur-1', [{ x: 0.2, y: 1.4 }, { x: -0.3, y: 1.6 }])
       const loaded = ScoreModel.fromJSON(model.toJSON())
-      // Inline cps is gone; the shape now lives in the compartment in staff-spaces (px / 10).
-      expect((loaded.getScore().slurs?.[0] as { cps?: unknown }).cps).toBeUndefined()
       expect(curveShapeOverrideOf(loaded.getScore(), 'slur-1')?.cps).toEqual([{ x: 0.2, y: 1.4 }, { x: -0.3, y: 1.6 }])
     })
 

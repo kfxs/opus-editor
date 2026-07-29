@@ -439,39 +439,17 @@ export function resolveStaffSpacingAbove(score: Score, staffId: string, openingM
 }
 
 /**
- * The line spacing (px) a VexFlow `Stave` uses by default — `getSpacingBetweenLines()`
- * returns this unless a stave is explicitly built with a different `spacingBetweenLinesPx`,
- * which this editor never does (zoom is a CSS transform on a layer above the rendered
- * surface, not a stave-spacing change). The old `Slur.cps` was therefore authored in pixels
- * at exactly this spacing, so it is the correct divisor when migrating that legacy data
- * forward to staff-spaces (no live stave is in hand at JSON-load time).
+ * **How many pixels one staff-space is** — the divisor every staff-spaces↔pixels conversion in the
+ * layout math uses when no live `Stave` is in hand (casting-off happens before any stave exists).
+ *
+ * It is 10 because that is VexFlow's `Tables.STAVE_LINE_DISTANCE`, which we never override, and
+ * because the glyph font size agrees with it by coincidence rather than by construction: VexFlow
+ * sizes glyphs from a *separate* global (`Metrics.fontSize` 30 ⇒ 30pt × 4/3 = 40 px em ⇒ SMuFL's
+ * 4-staff-space em ⇒ 10 px per space). Two independent globals that happen to match.
+ *
+ * ⚠️ **Despite the name, this is not really "VexFlow's default" — it is THE SCORE'S STAFF SIZE**,
+ * and it is the one number that has to stop being a constant the day a staff can be drawn small
+ * (a cue-size violin part over a full-size piano). Its ~20 call sites are all `staffSpaces × this`;
+ * each becomes `staffSpaces × that staff's size`. See docs/staff-size-plan.md.
  */
 export const VEXFLOW_DEFAULT_STAFF_SPACE_PX = 10
-
-/** A pre-Phase-1 slur that may still carry a pixel-space `cps` shape inline. */
-type LegacySlur = Score['slurs'] extends (infer S)[] | undefined
-  ? S & { cps?: CurveControlPointDeltas }
-  : never
-
-/**
- * One-time forward migration of the pre-Phase-1 `Slur.cps` (pixel-space, stored inline on
- * the slur) into the engraving-overrides compartment as a {@link CurveShapeOverride} in
- * staff-spaces. Runs at JSON load (see {@link ScoreModel.fromJSON}); a no-op for scores
- * already in the new format. Mutates `score` in place.
- */
-export function migrateLegacySlurCps(score: Score): void {
-  for (const slur of (score.slurs ?? []) as LegacySlur[]) {
-    if (!slur.cps) continue
-    const cps = slur.cps
-    const ss: CurveControlPointDeltas = [
-      { x: cps[0].x / VEXFLOW_DEFAULT_STAFF_SPACE_PX, y: cps[0].y / VEXFLOW_DEFAULT_STAFF_SPACE_PX },
-      { x: cps[1].x / VEXFLOW_DEFAULT_STAFF_SPACE_PX, y: cps[1].y / VEXFLOW_DEFAULT_STAFF_SPACE_PX },
-    ]
-    if (!score.engravingOverrides) score.engravingOverrides = {}
-    // Don't clobber a new-format override if both somehow coexist — new wins.
-    const list = score.engravingOverrides[slur.id] ?? (score.engravingOverrides[slur.id] = [])
-    const override: CurveShapeOverride = { kind: 'curveShape', cps: ss }
-    if (!list.some(o => o.kind === 'curveShape')) list.push(override)
-    delete slur.cps
-  }
-}

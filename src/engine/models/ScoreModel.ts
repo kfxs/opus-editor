@@ -1,7 +1,7 @@
 import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
 import type { PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark } from '@/types/music'
-import { engravingOverridesOf, engravingOverrideOf, migrateLegacySlurCps, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
+import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
 import { tupletSpan, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
 import { durationToFraction, slotLength, writtenLength } from '@/utils/durations'
@@ -2675,10 +2675,6 @@ export class ScoreModel {
     // TimeSignature type permits any integers), so reject non-dyadic / out-of-
     // range signatures here before they detonate in meter.ts or the renderer.
     ScoreModel.validateMeters(scoreData)
-
-    // Forward-migrate the pre-Phase-1 inline `Slur.cps` (pixels) into the
-    // engraving-overrides compartment (staff-spaces). No-op for new-format scores.
-    migrateLegacySlurCps(scoreData)
 
     // actualDuration is derived state — recompute it rather than trust the wire.
     // The helper handles measure rests (whole-bar length) in every meter.
