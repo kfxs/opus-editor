@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   fracCreate,
   fracFromInt,
-  fracFromFloat,
   fracAdd,
   fracSub,
   fracMul,
@@ -307,25 +306,10 @@ describe('fracToNumber', () => {
   })
 })
 
-describe('fracFromFloat', () => {
-  it('recovers standard beat positions exactly', () => {
-    expect(fracFromFloat(0)).toEqual(frac(0, 1))
-    expect(fracFromFloat(1)).toEqual(frac(1, 1))
-    expect(fracFromFloat(0.5)).toEqual(frac(1, 2))
-    expect(fracFromFloat(0.25)).toEqual(frac(1, 4))
-    expect(fracFromFloat(1.5)).toEqual(frac(3, 2))
-  })
-
-  it('recovers triplet positions', () => {
-    expect(fracFromFloat(1 / 3)).toEqual(frac(1, 3))
-    expect(fracFromFloat(2 / 3)).toEqual(frac(2, 3))
-  })
-
-  it('recovers quintuplet positions', () => {
-    expect(fracFromFloat(1 / 5)).toEqual(frac(1, 5))
-    expect(fracFromFloat(2 / 5)).toEqual(frac(2, 5))
-  })
-})
+// `fracFromFloat` and its three tests are gone: a float → Fraction guesser written for a legacy
+// migration that had nothing to migrate, and never called by anything but these assertions. The
+// direction that survives is `fracToNumber` (tested above) — exact in, approximate out, for display
+// and scheduling only. Nothing recovers a beat from a float.
 
 // durationToFraction / tupletNoteDurationFraction moved to durations.ts;
 // their tests now live in durations.test.ts.

@@ -244,7 +244,7 @@ export function measureLeadingSpaces(score: Score, measureId: string): { beat: F
  * the render subtracts from the format width, so both sides are derived here and cannot disagree.
  *
  * Converted at the layout's own default staff-space, not against a live stave: this is asked
- * during casting-off, before any stave exists. Same convention as the slur migration below.
+ * during casting-off, before any stave exists — see {@link VEXFLOW_DEFAULT_STAFF_SPACE_PX}.
  */
 export function measureUserSpacePx(score: Score, measureId: string): number {
   let total = 0

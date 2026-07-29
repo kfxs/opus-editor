@@ -59,35 +59,11 @@ export function fracFromInt(n: number): Fraction {
   return { num: n, den: 1 }
 }
 
-/**
- * Convert a floating-point number to the nearest Fraction with denominator
- * drawn from musical subdivisions (up to 128th-note resolution in a triplet).
- *
- * This is only used for legacy score migration — prefer fracCreate for new code.
- */
-export function fracFromFloat(value: number): Fraction {
-  // Use denominators that cover all standard + tuplet durations:
-  //   1,2,4,8,16,32 (standard) and their *2/3, *4/5, *4/7 equivalents.
-  // The LCM of {1,2,3,4,5,6,7,8,12,14,16,21,24,28,32,48,56} is 1344.
-  // We try every denominator up to 1344 and pick the best approximation.
-  const CANDIDATE_DENS = [1, 2, 3, 4, 5, 6, 7, 8, 12, 14, 16, 21, 24, 28, 32, 48, 56, 96, 112, 192, 224]
-  let bestNum = Math.round(value)
-  let bestDen = 1
-  let bestErr = Math.abs(value - bestNum)
-
-  for (const d of CANDIDATE_DENS) {
-    const n = Math.round(value * d)
-    const err = Math.abs(value - n / d)
-    if (err < bestErr) {
-      bestErr = err
-      bestNum = n
-      bestDen = d
-    }
-    if (bestErr === 0) break
-  }
-
-  return fracCreate(bestNum, bestDen)
-}
+// ⛔ There is no float → Fraction guesser here, deliberately. `fracFromFloat` used to be, "for
+// legacy score migration" — a past that never existed (there are no persisted scores), and it had
+// no caller but its own test. A beat is built exactly, by `fracCreate` from the two integers that
+// mean it; the moment one is *recovered* from a float, `1/3` is a search for the nearest plausible
+// denominator and the tuplet it came from is a guess. See the "no JSON migration" rule.
 
 // ---------------------------------------------------------------------------
 // Arithmetic

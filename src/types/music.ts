@@ -575,9 +575,9 @@ export interface Slur {
  * font/zoom/spacing and rides along when the music reflows.
  *
  * Open-ended by design: each entry is tagged by `kind`; adding a new kind later is
- * additive (a new tagged member), never a teardown. Phase 0 ships the compartment
- * with no concrete kinds yet — the first kind (`curveShape`, migrating today's
- * {@link Slur.cps}) lands in Phase 1. Distinct from *semantic* side/direction flips
+ * additive (a new tagged member), never a teardown. Phase 0 shipped the compartment
+ * with no concrete kinds yet; the first, {@link CurveShapeOverride}, landed in Phase 1
+ * and is where a hand-shaped slur is kept. Distinct from *semantic* side/direction flips
  * (`stemDirection`, `*.placement`, `tieDirection`), which are notational meaning and
  * stay on the content model above — only continuous geometry lives here.
  */
@@ -597,9 +597,9 @@ export type CurveControlPointDeltas = [{ x: number; y: number }, { x: number; y:
 
 /**
  * Client #1 of the engraving-overrides compartment (Phase 1): a hand-edited curve
- * shape, migrated from the former `Slur.cps`. The two control-point deltas are stored
- * in **staff-spaces**, anchor-relative — NOT pixels (the old `Slur.cps` flaw: a pixel
- * offset is tied to the current font/zoom/spacing). The renderer converts staff-spaces
+ * shape. The two control-point deltas are stored in **staff-spaces**, anchor-relative —
+ * NOT pixels, which is why it lives here rather than inline on the slur: a pixel offset
+ * would be tied to the current font/zoom/spacing. The renderer converts staff-spaces
  * → pixels at draw time against the live stave; absent = the auto arch.
  */
 export interface CurveShapeOverride extends EngravingOverride {

@@ -5,9 +5,9 @@
  * step + alter + octave, not as a raw MIDI integer. This lets the system
  * distinguish C# from Db, D# from Eb, etc.
  *
- * These helpers are pure functions with no side effects. They form the
- * foundation for Phase 2 (NotePitch migration) and Phase 4 (key signature
- * accidental suppression).
+ * These helpers are pure functions with no side effects, and they are the
+ * foundation the pitch model actually stands on: a `Note` carries step/alter/
+ * octave and derives MIDI through here, never the other way round.
  *
  * All functions in this file operate on PitchSpelling objects; none of
  * them depend on any other editor module — safe to import anywhere.
@@ -110,7 +110,8 @@ export function spellingDiatonicPos(step: PitchStep, octave: number): number {
 }
 
 /**
- * Derive the legacy Accidental display character from a PitchAlter.
+ * Derive the {@link Accidental} display character from a PitchAlter — the editor's
+ * sign vocabulary ('#'/'b'), which is what the keypad arms and the palette shows.
  * Returns undefined for naturals (alter === 0) when no accidental sign is needed.
  * Double-sharps/flats fall back to single (VexFlow limitation in current use).
  */
@@ -121,7 +122,9 @@ export function alterToAccidental(alter: PitchAlter): Accidental | undefined {
 }
 
 /**
- * Convert a legacy Accidental string to a PitchAlter integer.
+ * Convert an {@link Accidental} sign to a PitchAlter integer — the direction the
+ * editor actually travels most: the armed keypad accidental becoming stored spelling
+ * (KeyboardController, MouseController, MusicEngine all enter notes through it).
  * '#' → 1, 'b' → -1, 'n' or null/undefined → 0
  */
 export function accidentalToAlter(acc: Accidental | null | undefined): PitchAlter {
@@ -140,7 +143,11 @@ export function accidentalTypeToKey(type: string | null | undefined): Accidental
 }
 
 // ---------------------------------------------------------------------------
-// Conversion: MIDI → PitchSpelling (migration helper)
+// Conversion: MIDI → PitchSpelling
+//
+// ⚠️ Live, and on the hot path: this is how a pixel on the staff becomes a pitch
+// (note entry, drag, the ghost). It is NOT a migration helper, whatever the header
+// used to say — a MIDI number is what the geometry produces, not what a score stores.
 // ---------------------------------------------------------------------------
 
 type SpellingEntry = { step: PitchStep; alter: PitchAlter }
@@ -174,7 +181,7 @@ const BLACK_FLAT: Record<number, SpellingEntry> = {
 /**
  * Convert a MIDI note number to a PitchSpelling.
  *
- * The optional `hint` (the legacy `accidental` field value) resolves the
+ * The optional `hint` (the armed {@link Accidental}, if any) resolves the
  * enharmonic ambiguity for black keys:
  *   - '#' or undefined → sharp spelling (C#, D#, F#, G#, A#)
  *   - 'b' → flat spelling (Db, Eb, Gb, Ab, Bb)

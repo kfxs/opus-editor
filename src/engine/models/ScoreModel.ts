@@ -848,8 +848,8 @@ export class ScoreModel {
   // A separate id-addressed compartment for hand-positioning data (staff-space,
   // anchor-relative), kept OUT of the musical content model. It is a sub-tree of
   // `Score` (`score.engravingOverrides`), so it clones / serializes / undoes with
-  // the score value for free. Phase 0 is infrastructure only — storage + accessors +
-  // JSON round-trip, NO clients yet; slur `cps` migrates in as client #1 in Phase 1.
+  // the score value for free. Phase 0 was infrastructure only — storage + accessors +
+  // JSON round-trip; a slur's hand-edited shape is client #1 (`curveShape`, Phase 1).
   // See docs/engraving-overrides-plan.md.
 
   /** Every override recorded for an element id (the live array, or [] if none). */
