@@ -40,7 +40,7 @@ const widthKey = (view: Measure) => laneFingerprint(view)
 const shapeKey = (score: Score, view: Measure) =>
   measureShapeKey(
     score,
-    { view, clef: 'treble' as Clef, staffIndex: 0, width: 300, isFirstInLine: true, hasClefChange: false },
+    { view, clef: 'treble' as Clef, staffIndex: 0, width: 300, isFirstInLine: true, scale: 1, hasClefChange: false },
     null,
     null,
   )

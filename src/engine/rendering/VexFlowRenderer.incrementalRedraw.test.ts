@@ -24,7 +24,7 @@ import { fracCreate as frac } from '@/utils/fraction'
 
 /** Minimal shape inputs — the width is held fixed so only CONTENT can move the key. */
 function keyInputs(view: Measure) {
-  return { view, staffIndex: 0, width: 300, isFirstInLine: true, clef: 'treble' as const, hasClefChange: false }
+  return { view, staffIndex: 0, width: 300, isFirstInLine: true, scale: 1, clef: 'treble' as const, hasClefChange: false }
 }
 
 function makeRenderer() {

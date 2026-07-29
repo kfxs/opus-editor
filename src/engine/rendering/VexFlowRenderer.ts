@@ -44,12 +44,14 @@ import {
 import { calculateMeasureWidths } from './MeasureLayout'
 import { MeasureWidthCache } from './MeasureWidthCache'
 import { renderProbe } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
-import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
+import { STAFF_SPACE_PX, resolveStaffSize } from '@/engine/models/staffSize'
 import { staffSpacesToPixels } from './staffSpace'
 import { getStaves, staffMeasureView, firstStaffId, staffIndexOfId } from '@/engine/models/staffContent'
 import { LAYOUT_CONFIG, VIEWPORT_HEIGHT, LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout, type ViewMode } from './layoutConfig'
 import { resolveSurface, SKETCH_CANVAS, type Surface, type SurfaceMetrics } from '@/engine/layout/surface'
 import { pageCastOff } from '@/engine/layout/pageCastOff'
+import { staveHeightPx, systemStaffTops, spacingAbovePx } from '@/engine/layout/staffStride'
 import { drawPages, pageOriginPx, surfaceSizePx } from './PagePass'
 import type { Rect } from '@/engine/ViewportModel'
 import { dbg } from '@/utils/debug'
@@ -121,7 +123,7 @@ function applyLeadingSpaces(formatter: Formatter, voices: Voice[], score: Score,
       const beat = spaces[next].beat
       const anchorTick = (beat.num / beat.den) * ticksPerQuarter
       if (tick + EPSILON < anchorTick) break
-      delta += spaces[next].space * VEXFLOW_DEFAULT_STAFF_SPACE_PX
+      delta += spaces[next].space * STAFF_SPACE_PX
       next++
     }
     if (delta === 0) continue
@@ -160,6 +162,18 @@ export interface MeasureBounds {
  * The identity of one drawn measure-on-a-staff. VexFlow's `openGroup` prefixes it, so this becomes
  * `id="vf-m7-s2"` in the SVG — measure 7, staff 2.
  */
+/**
+ * The same placement, in the staff's OWN drawing space — what tier 2 works in, because that is
+ * where its `stave` is and where the group's `scale(k)` transform applies.
+ *
+ * Only the three SVG-space numbers change; everything else (the view, the clef, the system height)
+ * is not a coordinate. A no-op at full size, which is why nothing downstream had to learn about it.
+ */
+function localPlacement(p: MeasurePlacement): MeasurePlacement {
+  if (p.scale === 1) return p
+  return { ...p, x: p.x / p.scale, y: p.y / p.scale, width: p.width / p.scale }
+}
+
 export function measureGroupKey(measureNumber: number, staffIndex: number): string {
   return `m${measureNumber}-s${staffIndex}`
 }
@@ -209,6 +223,17 @@ export interface MeasurePlacement {
   ghostClefBeat?: Fraction
   /** The real height of the system this measure sits on (staff-spacing aware). */
   systemHeight: number
+  /**
+   * **How big this staff is drawn**, as a ratio (1 = full size — docs/staff-size-plan.md).
+   *
+   * ⚠️ `x`, `y` and `width` above are where the bar lands **in the SVG**; the `stave` below is
+   * built at `x/scale, y/scale, width/scale` and painted inside a `<g transform="scale(k)">`, so
+   * everything it reports back is in that group's own space. The two agree at full size, which is
+   * why the difference has to be stated rather than noticed. Anything reading the stave's
+   * coordinates for ink drawn OUTSIDE the group (ties, slurs, cross-bar beams, connectors) has to
+   * multiply — that is §4.3, and it is not done yet.
+   */
+  scale: number
   /** Built by tier 1 when the measure is (re)drawn; restored from the snapshot when it is reused. */
   stave: Stave
 }
@@ -1243,8 +1268,7 @@ export class VexFlowRenderer {
     staffList: { id?: string }[],
     clefsByStaff: Map<string | undefined, StaffClefs>,
     measureWidths: Map<number, MeasureWidthInfo>,
-    spacing: { lineTopPx: number[]; lineLeftPx: number[]; cumPx: number[][]; lineHeightPx: number[] },
-    staffStride: number,
+    spacing: { lineTopPx: number[]; lineLeftPx: number[]; staffTopPx: number[][]; staffSize: number[][]; lineHeightPx: number[] },
   ): Omit<MeasurePlacement, 'stave'>[] {
     const placements: Omit<MeasurePlacement, 'stave'>[] = []
     let currentLine = -1
@@ -1275,9 +1299,9 @@ export class VexFlowRenderer {
       // content (staffMeasureView filters slots/clefs/dynamics/tuplets to the staff). Barlines
       // align because every staff shares this measure's x/width.
       staffList.forEach((staff, staffIndex) => {
-        // `spacing.cumPx[line][i]` already includes this staff's own space-above plus every
-        // staff above it on THIS system (inclusive prefix) — push it and everything below down.
-        const y = systemTop + staffIndex * staffStride + spacing.cumPx[currentLine][staffIndex]
+        // `spacing.staffTopPx[line][i]` is this staff's whole offset within its system: the slots
+        // of the staves above it (each its own size) plus its own space-above and theirs.
+        const y = systemTop + spacing.staffTopPx[currentLine][staffIndex]
         const staffClefs = clefsByStaff.get(staff.id)
         const clef = (staffClefs?.opening.get(measure.number) || 'treble') as Clef
         const prevEndClef = measure.number > 1 ? staffClefs?.ending.get(measure.number - 1) : undefined
@@ -1305,6 +1329,9 @@ export class VexFlowRenderer {
           cautionaryEndTimeSig: widthInfo.cautionaryEndTimeSig,
           ghostClefBeat,
           systemHeight: spacing.lineHeightPx[currentLine],
+          // How big this staff is drawn ON THIS SYSTEM — the one answer, from the same place that
+          // decided where it sits.
+          scale: spacing.staffSize[currentLine]?.[staffIndex] ?? 1,
         })
       })
 
@@ -1481,13 +1508,21 @@ export class VexFlowRenderer {
    * replays its snapshot instead, which is the same thing at zero cost.
    */
   private registerTier1(p: Omit<MeasurePlacement, 'stave'>): Stave {
-    const stave = this.buildStave(p.view, p.x, p.y, p.width, p.isFirstInLine, p.clef, p.hasClefChange, p.cautionaryEndClef, p.cautionaryEndTimeSig)
+    // ⭐ The stave is built in the STAFF'S OWN space: at `x/k, y/k, width/k` inside a group that
+    // will carry `scale(k)`, so the drawn result lands exactly at (x, y, width) and the whole
+    // transform is one multiplication about the origin — no offset term anywhere downstream
+    // (docs/staff-size-plan.md §4.1). At full size `k` is 1 and this is the arithmetic it replaced.
+    const k = p.scale
+    const stave = this.buildStave(p.view, p.x / k, p.y / k, p.width / k, p.isFirstInLine, p.clef, p.hasClefChange, p.cautionaryEndClef, p.cautionaryEndTimeSig)
 
-    this.recordMeasureBounds(stave, p.view, p.x, p.y, p.width, p.staffIndex)
+    this.recordMeasureBounds(stave, p.view, p.x, p.y, p.width, p.staffIndex, k)
     // Per-measure geometry is keyed by (measure, staffIndex), so every stacked staff registers its
     // own — pitch↔y resolves against each staff's real clef + line Y positions, and a click is
-    // attributed to a staff by its y-band (ElementRegistry.staffIndexAtY).
-    this.registerStaffAndGeometry(stave, p.view, p.x, p.width, p.isFirstInLine, p.clef, p.hasClefChange, p.staffIndex)
+    // attributed to a staff by its y-band (ElementRegistry.staffIndexAtY). Everything it reads off
+    // the stave is local, so the registry scales it back out on the way in.
+    this.elementRegistry.withScale(k, () => {
+      this.registerStaffAndGeometry(stave, p.view, p.x / k, p.width / k, p.isFirstInLine, p.clef, p.hasClefChange, p.staffIndex)
+    })
 
     // This measure's REAL system height, so pixelToMeasure's vertical band matches the drawn layout
     // — the uniform fallback under-covers once a staff is spaced far down
@@ -1536,8 +1571,16 @@ export class VexFlowRenderer {
     const key = measureGroupKey(placement.measureNumber, placement.staffIndex)
     const group = this.context.openGroup('measure', key) as SVGGElement
     this.measureGroups.set(key, group)
+    // ⭐ THE staff-size mechanism, and it is one attribute: the bar's own `<g>` — which already
+    // exists at exactly the right granularity, one per measure PER STAFF — carries the scale, so
+    // lines, glyphs, stems, beams and dynamics all shrink together because it is one transform.
+    // ⛔ Not `ctx.scale`, which rewrites the SVG's viewBox and would rescale the whole score
+    // including what is already drawn (docs/staff-size-plan.md §4.1).
+    if (placement.scale !== 1) group.setAttribute('transform', `scale(${placement.scale})`)
     try {
-      return this.drawMeasureContent(pass, placement, beamPlan)
+      // Everything inside draws in the staff's own space, which is where its `stave` already is.
+      return this.elementRegistry.withScale(placement.scale, () =>
+        this.drawMeasureContent(pass, localPlacement(placement), beamPlan))
     } finally {
       // ALWAYS close, even if the draw threw. VexFlow's openGroup pushes the context's append
       // target; leaving it open would nest the entire rest of the score — every later measure, the
@@ -2074,14 +2117,18 @@ export class VexFlowRenderer {
     y: number,
     width: number,
     staffIndex: number,
+    /** The staff's drawn scale: `x/y/width` arrive in SVG coordinates, the stave answers in its
+     *  own. These bounds do not go through the ElementRegistry, so the two stave reads convert
+     *  here — the one place in tier 1 where both spaces meet. */
+    scale: number,
   ): void {
     if (staffIndex !== 0) return
     this.measureBounds.set(measure.number, {
       measureX: x,
       measureY: y,
       measureWidth: width,
-      noteStartX: stave.getNoteStartX(),
-      noteEndX: stave.getNoteEndX(),
+      noteStartX: stave.getNoteStartX() * scale,
+      noteEndX: stave.getNoteEndX() * scale,
     })
   }
 
@@ -2934,25 +2981,30 @@ export class VexFlowRenderer {
   }
 
   /**
-   * PER-SYSTEM vertical push-down from Client #7 staff-spacing overrides (Sibelius "space above
-   * staff" — docs/staff-spacing-plan.md, option C). Each *system* (line) can carry a different
-   * amount, so this resolves the spacing per line and returns:
-   *  - `cumPx[line][staffIndex]` — INCLUSIVE prefix sum (px) of the resolved space-above of every
-   *    staff at/above index `i` on that line (a staff's own space-above pushes it and everything
-   *    below it in its system down);
+   * **Where every staff of every system sits** — the vertical casting-off's own arithmetic.
+   *
+   * Two per-staff facts feed it. Client #7 staff-spacing overrides (Sibelius "space above staff" —
+   * docs/staff-spacing-plan.md, option C), which each *system* (line) can carry a different amount
+   * of; and how big each staff is DRAWN (docs/staff-size-plan.md §5), which decides its stride. It
+   * returns:
+   *  - `staffTopPx[line][staffIndex]` — that staff's top, measured from its system's top: the
+   *    strides of every staff above it plus the space-above of every staff at/above it (a staff's
+   *    own space-above pushes it and everything below it in its system down);
    *  - `lineTopPx[line]` — the system's top Y (margin + the stacked heights of every earlier
    *    system, each grown by its own extra), so systems with different spacing still abut cleanly;
-   *  - `contentHeightPx` — Σ over lines of (numStaves·stride + that line's extra), for `totalHeight`.
+   *  - `contentHeightPx` — Σ over lines of that system's height, for `totalHeight`.
    * The opening measure id per line (the durable per-system anchor) comes from `measureWidths`:
-   * the first measure seen for each `lineNumber`. Converts with the constant default line spacing
-   * (this editor never builds a stave with custom spacing — zoom is a CSS transform), so no live
-   * stave is needed before Y is computed.
+   * the first measure seen for each `lineNumber` — and it is passed to BOTH resolvers, so the day
+   * staff size goes per-system (§3) this site needs no new plumbing.
+   *
+   * Converts space-above with the score's base staff space, no live stave needed: casting-off
+   * happens before any stave exists. (⚠️ It used to say "this editor never builds a stave with
+   * custom spacing" — a repo fact, and false since a staff can be drawn small. The lines of a small
+   * staff are still 10px apart *pre-transform*, which is the space this arithmetic is in.)
    */
   private staffSpacingLayout(score: Score, measureWidths: Map<number, MeasureWidthInfo>): StaffSpacingLayout {
     const staves = getStaves(score)
     const staffList = staves.length > 0 ? staves : [{ id: firstStaffId(score) }]
-    const numStaves = staffList.length
-    const staffStride = LAYOUT_CONFIG.STAVE_HEIGHT + LAYOUT_CONFIG.VERTICAL_SPACING
     // (The ghost path calls this method on its own, so it reads the surface rather than being
     // handed one.)
     const surface = this.surfaceMetrics()
@@ -2968,7 +3020,8 @@ export class VexFlowRenderer {
       if (info && !openingMeasureId.has(info.lineNumber)) openingMeasureId.set(info.lineNumber, m.id)
     }
 
-    const cumPx: number[][] = []
+    const staffTopPx: number[][] = []
+    const staffSize: number[][] = []
     const lineHeightPx: number[] = []
     let contentHeightPx = 0
     for (let line = 0; line < numLines; line++) {
@@ -2979,9 +3032,12 @@ export class VexFlowRenderer {
       // resolver falls back to the per-staff GLOBAL value, which is keyed to a content entity
       // and so travels between views exactly as it should. (docs/linear-view-plan.md §4)
       const openId = this.viewMode === 'linear' ? undefined : openingMeasureId.get(line)
-      const cum: number[] = []
-      let acc = 0
+      const abovePx: number[] = []
+      const sizes: number[] = []
       for (const staff of staffList) {
+        // Resolved per LINE, with this system's opener: today every line answers the same (the
+        // opener is accepted and ignored), and per-system size arrives without moving this loop.
+        const size = staff.id ? resolveStaffSize(score, staff.id, openId) : 1
         // Linear view's view knob wins over the global value when set — it is what the user is
         // looking at right now. It is never written to the score (§4.2b), so this read is the
         // only place it exists.
@@ -2989,13 +3045,16 @@ export class VexFlowRenderer {
           ? this.linearStaffSpacing.get(staff.id)
           : undefined
         const above = knob ?? (staff.id ? resolveStaffSpacingAbove(score, staff.id, openId) : 0)
-        acc += above * VEXFLOW_DEFAULT_STAFF_SPACE_PX
-        cum.push(acc)
+        // In THIS staff's spaces — a staff-space on a small staff is a small space.
+        abovePx.push(spacingAbovePx(above, size))
+        sizes.push(size)
       }
-      cumPx.push(cum)
-      const systemHeight = numStaves * staffStride + acc
-      lineHeightPx.push(systemHeight)
-      contentHeightPx += systemHeight
+      // Summed, not multiplied — a small staff gets a small slot (docs/staff-size-plan.md §5).
+      const system = systemStaffTops(sizes, abovePx)
+      staffTopPx.push(system.topPx)
+      staffSize.push(sizes)
+      lineHeightPx.push(system.heightPx)
+      contentHeightPx += system.heightPx
     }
 
     // ---- Where each system SITS, which is the vertical casting-off. ----
@@ -3009,7 +3068,7 @@ export class VexFlowRenderer {
     const lineTopPx = pages.lineTopInPagePx.map((topInPage, line) => origins[line].y + topInPage)
     const lineLeftPx = origins.map(at => at.x + surface.marginLeftPx)
     return {
-      lineTopPx, lineLeftPx, cumPx, lineHeightPx, contentHeightPx,
+      lineTopPx, lineLeftPx, staffTopPx, staffSize, lineHeightPx, contentHeightPx,
       pageOfLine: pages.pageOfLine, pageCount: pages.pageCount,
     }
   }
@@ -3028,20 +3087,15 @@ export class VexFlowRenderer {
     // half on one page and half on another. (docs/layout-plan.md §5)
     const surface = this.surfaceMetrics()
 
-    // Use layout configuration
-    const staveHeight = LAYOUT_CONFIG.STAVE_HEIGHT
-    const verticalSpacing = LAYOUT_CONFIG.VERTICAL_SPACING
-
     // The staff axis (multi-staff): staves stack vertically within each system, sharing
-    // barlines. N = 1 is the single-staff default. Each system now holds N staves, so the
-    // per-line vertical stride is multiplied by N; a staff's own offset within a system is
-    // `staffIndex * staffStride`. At N=1 this reduces exactly to the old `line * stride`.
+    // barlines. N = 1 is the single-staff default. Where each staff of a system SITS is
+    // `staffSpacingLayout`'s answer (it has to be: a staff drawn small takes a smaller slot, so
+    // the offset is a sum of the staves above it and not a multiple of anything).
     // A live model always has ≥1 staff (constructor seeds it, fromJSON defaults it), but a
     // hand-built staveless score still renders as one staff (undefined staffId → matches all
     // absent-staffId content) rather than drawing nothing.
     const staves = getStaves(score)
     const staffList = staves.length > 0 ? staves : [{ id: firstStaffId(score) }]
-    const staffStride = staveHeight + verticalSpacing
 
     // Resolve the clef in effect at each measure (handles per-measure changes). Clef is
     // per-staff, so compute one map per staff — and hand the whole thing to the width calc,
@@ -3134,7 +3188,7 @@ export class VexFlowRenderer {
 
     // ---- TIER 1 (§7): place every measure. Pure arithmetic over the casting-off; draws nothing. ----
     // Runs over the WHOLE score, and must keep doing so once P6 draws only a window of it.
-    const plans = this.layoutTier1(score, staffList, clefsByStaff, measureWidths, spacing, staffStride)
+    const plans = this.layoutTier1(score, staffList, clefsByStaff, measureWidths, spacing)
 
     // ---- The redraw decision (§7a). Three outcomes, not two. ----
     //
@@ -3169,7 +3223,10 @@ export class VexFlowRenderer {
     // `drawFilter` is the test seam, ANDed on top.
     const visibleMeasures = new Set<number>()
     const windowed = plans.map(p => {
-      const inside = this.inCullWindow(p, staveHeight)
+      // The box is this staff's OWN rectangle, so a small staff gets a small one — and a staff
+      // drawn LARGER than full size gets a big one, which is the direction that would otherwise
+      // cull a bar the window can still see.
+      const inside = this.inCullWindow(p, staveHeightPx(p.scale))
       if (inside) visibleMeasures.add(p.measureNumber)
       return inside
     })
@@ -3535,11 +3592,20 @@ export class VexFlowRenderer {
   ): void {
     const moved = dx !== 0 || dy !== 0
 
-    if (moved && snapshot.group) {
-      snapshot.group.setAttribute('transform', `translate(${dx}, ${dy})`)
-    } else if (snapshot.group) {
-      // Back at its drawn position (a drag returning to baseline) — drop any stale transform.
-      snapshot.group.removeAttribute('transform')
+    // ⚠️ THE STAFF'S SCALE HAS TO SURVIVE THIS, in both branches. This method OWNS the group's
+    // `transform` attribute — it overwrites it to move a bar and REMOVES it to put one back — so a
+    // scaled staff would snap to full size the first time one of its bars moved: never on a fresh
+    // render, always mid-drag (docs/staff-size-plan.md §4.1).
+    //
+    // `translate` FIRST, because `dx/dy` are measured in the parent's space (they come from the
+    // casting-off's own SVG coordinates), while the scale belongs to everything drawn inside.
+    const scaled = plan.scale !== 1 ? ` scale(${plan.scale})` : ''
+    if (snapshot.group) {
+      if (moved) snapshot.group.setAttribute('transform', `translate(${dx}, ${dy})${scaled}`)
+      else if (scaled) snapshot.group.setAttribute('transform', scaled.trim())
+      // Back at its drawn position (a drag returning to baseline), full size — drop any stale
+      // transform rather than leaving an identity one behind.
+      else snapshot.group.removeAttribute('transform')
     }
 
     this.elementRegistry.addAll(snapshot.elements, dx, dy)

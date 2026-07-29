@@ -362,7 +362,10 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   window.addEventListener('wheel', handleZoomWheel, { passive: false })
 
   const devShell = [
-    mountDevToolbar(toolbarHost, { state, palette, getEngine, onStateChange, togglePlayback }),
+    mountDevToolbar(toolbarHost, {
+      state, palette, getEngine, onStateChange, togglePlayback,
+      renderScore: () => renderer.renderScore(),
+    }),
     mountScoreJsonPanel(jsonHost, {
       getEngine,
       onBeforeLoad: () => selection.deselectAll(),

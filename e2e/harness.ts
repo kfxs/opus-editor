@@ -57,6 +57,9 @@ export interface StaveBox {
   x2: number
   /** y of the TOP stave line — bars on the same system share it. */
   top: number
+  /** y of the BOTTOM stave line. `bottom - top` is four staff-spaces of REAL ink, which is how a
+   *  staff drawn small (docs/staff-size-plan.md) is told from one merely moved. */
+  bottom: number
 }
 
 export interface Harness {
@@ -125,6 +128,16 @@ export interface Harness {
   pages(): { x: number; y: number; width: number; height: number }[]
   /** The `<svg>`'s own size, which is what the viewport's scrollers are built from. */
   svgSize(): { width: number; height: number }
+  /**
+   * How big matching ink actually comes out ON SCREEN, per element.
+   *
+   * ⚠️ The one reader here that uses `getBoundingClientRect`, and deliberately: it is the
+   * POST-transform box, which is the whole question when a staff is drawn inside a
+   * `<g transform="scale(k)">` (`getBBox()` is local user space and would report the same numbers
+   * at any scale — docs/staff-size-plan.md §4.2). It is still a *text layout* box on a music
+   * glyph, so use it for RATIOS — "0.7 of what it was" — never as a measurement of the ink.
+   */
+  inkSizes(selector: string): { width: number; height: number }[]
 }
 
 /** Every class a ghost overlay is drawn under. Mirrors `GhostRenderer.GHOST_GROUP_SELECTOR`, which
@@ -280,11 +293,17 @@ const harness: Harness = {
         x1: Math.min(...lines.map(l => l[0].x)),
         x2: Math.max(...lines.map(l => l[1].x)),
         top: Math.min(...lines.map(l => l[0].y)),
+        bottom: Math.max(...lines.map(l => l[0].y)),
       }]
     }).sort((a, b) => a.top - b.top || a.x1 - b.x1)
   },
 
   ghosts: () => all<SVGGElement>(GHOST_SELECTOR).map(g => g.getAttribute('class') ?? ''),
+
+  inkSizes: (selector: string) => all<SVGGraphicsElement>(selector).map(el => {
+    const box = el.getBoundingClientRect()
+    return { width: box.width, height: box.height }
+  }),
 
   placed(selector: string): Glyph[] {
     const root = svg()

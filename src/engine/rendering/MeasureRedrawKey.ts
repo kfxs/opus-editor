@@ -57,6 +57,17 @@ export interface ShapeKeyInputs {
    *  NOT from the model. Note there is no `x`/`y` here — that is the point. */
   width: number
   isFirstInLine: boolean
+  /**
+   * ⚠️ **How big this staff is DRAWN** (docs/staff-size-plan.md §7) — the one piece of a bar's
+   * picture that lives on `score.staves` instead of in the measure, so nothing else in this key
+   * can see it.
+   *
+   * It is not `x`/`y`: a scaled bar is not a bar that moved, it is a bar whose every glyph, stem
+   * and beam is a different size, drawn inside a group carrying the scale. Leave it out and
+   * shrinking a staff would reuse its drawn `<g>` verbatim — the transform never applied, the bar
+   * looking exactly as it did, for a reason nowhere near the staff.
+   */
+  scale: number
   clef: Clef
   hasClefChange: boolean
   cautionaryEndClef?: Clef
@@ -194,6 +205,8 @@ export function measureShapeKey(
     //    moved is translated, not re-engraved (P5.4b). ──
     input.width,
     input.isFirstInLine,
+    // The staff's drawn size — see ShapeKeyInputs.scale. A different size is a different picture.
+    input.scale,
     input.hasClefChange,
     input.cautionaryEndClef ?? null,
     input.cautionaryEndTimeSig ?? null,

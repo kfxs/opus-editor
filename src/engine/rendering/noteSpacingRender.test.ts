@@ -15,11 +15,11 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MusicEngine } from '../MusicEngine'
 import { fracCreate } from '@/utils/fraction'
-import { VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '../models/engravingOverrides'
+import { STAFF_SPACE_PX } from '../models/staffSize'
 import type { NoteParams } from '@/types/music'
 
 const SPACES = 3
-const PX = SPACES * VEXFLOW_DEFAULT_STAFF_SPACE_PX
+const PX = SPACES * STAFF_SPACE_PX
 
 describe('note spacing — render (§4)', () => {
   let engine: MusicEngine
@@ -83,7 +83,7 @@ describe('note spacing — render (§4)', () => {
     engine.setNoteSpacing(1, fracCreate(2, 1), -1, -10)
     const after = columns()
 
-    expect(after.get('0:2')!).toBeCloseTo(before.get('0:2')! - VEXFLOW_DEFAULT_STAFF_SPACE_PX, 4)
+    expect(after.get('0:2')!).toBeCloseTo(before.get('0:2')! - STAFF_SPACE_PX, 4)
   })
 
   it('⭐ a staff with NO note at the anchor beat still shifts — the anchor is a tick, not a slot', () => {

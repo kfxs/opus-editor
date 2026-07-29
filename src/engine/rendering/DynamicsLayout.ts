@@ -123,8 +123,9 @@ export function layoutCoLocatedDynamics(pass: RenderPass, groups: string[][]): v
       // box that re-unions VexFlow's inflated pointer-rect (the very thing registerDynamics stripped).
       // Writing it.box back re-inflated co-located level marks, throwing off hit-testing and the
       // attachment line's dynamic-side endpoint. Mirrors applyDynamicOffsets' shift-in-place.
-      const entry = pass.elementRegistry.getById(it.id)
-      if (entry) entry.bbox = { x: entry.bbox.x + dx, y: entry.bbox.y + dy, width: entry.bbox.width, height: entry.bbox.height }
+      // A LOCAL delta (the translate rides inside the staff's own group), so the registry applies
+      // the staff's scale on the way in — see ElementRegistry.shiftById.
+      pass.elementRegistry.shiftById(it.id, dx, dy)
     }
   }
 }
@@ -249,8 +250,7 @@ export function applyDynamicOffsets(pass: RenderPass, measure: Measure, stave: S
     const existing = el.getAttribute('transform')
     el.setAttribute('transform', existing ? `translate(${dx}, ${dy}) ${existing}` : `translate(${dx}, ${dy})`)
 
-    const entry = pass.elementRegistry.getById(dyn.id)
-    if (entry) entry.bbox = { x: entry.bbox.x + dx, y: entry.bbox.y + dy, width: entry.bbox.width, height: entry.bbox.height }
+    pass.elementRegistry.shiftById(dyn.id, dx, dy)
   }
 }
 

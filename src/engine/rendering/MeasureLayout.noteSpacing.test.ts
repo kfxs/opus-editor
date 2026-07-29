@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { spacingPositionKey, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '../models/engravingOverrides'
+import { spacingPositionKey } from '../models/engravingOverrides'
+import { STAFF_SPACE_PX } from '../models/staffSize'
 import { calculateMeasureWidths } from './MeasureLayout'
 import { LAYOUT_CONFIG } from './layoutConfig'
 import { resolveSurface, SKETCH_CANVAS } from '@/engine/layout/surface'
@@ -47,14 +48,14 @@ describe('note spacing — width (§2)', () => {
     space(model, 2, 3)
     const after = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' })
     expect(after.get(2)!.minWidth - before.get(2)!.minWidth)
-      .toBeCloseTo(3 * VEXFLOW_DEFAULT_STAFF_SPACE_PX, 6)
+      .toBeCloseTo(3 * STAFF_SPACE_PX, 6)
   })
 
   it('reports the authored slice separately from the engraver’s', () => {
     const model = scoreWith(2)
     space(model, 1, 2)
     const info = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' }).get(1)!
-    expect(info.userSpace).toBe(2 * VEXFLOW_DEFAULT_STAFF_SPACE_PX)
+    expect(info.userSpace).toBe(2 * STAFF_SPACE_PX)
     expect(info.minWidth - info.userSpace!).toBeLessThanOrEqual(LAYOUT_CONFIG.MAX_MEASURE_WIDTH)
   })
 
@@ -72,7 +73,7 @@ describe('note spacing — width (§2)', () => {
     space(model, 1, 40)
     const info = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' }).get(1)!
     expect(info.minWidth).toBeGreaterThan(LAYOUT_CONFIG.MAX_MEASURE_WIDTH)
-    expect(info.minWidth).toBeCloseTo(info.minWidth - info.userSpace! + 40 * VEXFLOW_DEFAULT_STAFF_SPACE_PX, 6)
+    expect(info.minWidth).toBeCloseTo(info.minWidth - info.userSpace! + 40 * STAFF_SPACE_PX, 6)
   })
 
   it('reaches the break pass: enough space re-wraps the line', () => {
@@ -147,7 +148,7 @@ describe('note spacing — justification (§3)', () => {
     space(model, 2, 6)
     const widths = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' })
     expect(widths.get(2)!.finalWidth).toBe(widths.get(2)!.minWidth)
-    expect(widths.get(2)!.userSpace).toBe(6 * VEXFLOW_DEFAULT_STAFF_SPACE_PX)
+    expect(widths.get(2)!.userSpace).toBe(6 * STAFF_SPACE_PX)
   })
 
   it('an untouched score justifies exactly as before', () => {

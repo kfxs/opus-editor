@@ -1357,6 +1357,19 @@ export interface Measure {
 export interface StaffInfo {
   /** Stable identity. Slot/clef/dynamic/tuplet `staffId` back-pointers use this. */
   id: string
+  /**
+   * **How big this staff is drawn**, as a ratio of the score's staff size — `1` full size, `0.7`
+   * a small staff (a cue-size violin part over a full-size piano). Absent = 1, by rule.
+   *
+   * ⛔ Deliberately a **ratio, not a `small: true` flag**: a boolean would write the feature's
+   * ceiling into the model on day one. And deliberately **here rather than in an engraving
+   * object**: principle 6's test is *can it vary at a point in the score?* — size varies per
+   * staff (and later per system), so it is positional and belongs to the thing it varies at.
+   * It is NOT part of the layout {@link Surface}; a canvas has no millimetres and still has a
+   * staff size. Read it through `resolveStaffSize` (engine/models/staffSize.ts), never directly —
+   * that is where per-system size will arrive. See docs/staff-size-plan.md §2, §3.
+   */
+  size?: number
 }
 
 /**

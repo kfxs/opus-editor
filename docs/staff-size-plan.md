@@ -1,7 +1,12 @@
 # Staff size — a staff is drawn at a size, and it is not the same size for every staff
 
-**Status: PLANNED.** Nothing built. The review that produced it: the model is already proportional
-(staff-spaces, pixel-free), the **rendering** is not.
+**Status: P0 + P1 + P2 + P4 BUILT** (2026-07-29) — the value, the resolver, the renamed constant,
+the dev button, the per-staff vertical stride, and **the transform: a small staff is now drawn
+small**. ⚠️ **P3 was skipped and is still open**, so a small staff's music is still *spaced* for a
+full-size one and reads as stretched (§6). P5 (§4.3 — ties, slurs, cross-bar beams, connectors, the
+ghost) and P6 are open. §7's redraw keys landed where each became true: `measureShapeKey` in P4,
+`laneFingerprint` + `layoutStateKey` still owed by P3 — see the P2 note. The review that produced the plan: the model is already
+proportional (staff-spaces, pixel-free), the **rendering** is not.
 
 > **Revised 2026-07-29** against the codebase and VexFlow 5's own source. The model half (§2, §3)
 > and the vertical stride (§5) stood. The rendering half did not: `ctx.scale` is **not** a transform
@@ -227,27 +232,117 @@ the button.
 
 ## 8. Phases
 
-**P0 — the value and the resolver.** `StaffInfo.size`, `resolveStaffSize(score, staffId, opener?)`,
-JSON round-trip, a `ScoreModel` mutator. No rendering change. Rename
+**P0 — the value and the resolver. ✅ BUILT.** `StaffInfo.size`, `resolveStaffSize(score, staffId,
+opener?)`, JSON round-trip, a `ScoreModel` mutator. No rendering change. Rename
 `VEXFLOW_DEFAULT_STAFF_SPACE_PX` to what it is (`STAFF_SPACE_PX`, the score's staff size) and move
 it out of `engravingOverrides.ts` — it is a scale, not an authored tweak.
 
-**P1 — the dev-shell button.** Select a measure → resolve its staff → toggle that staff's size
-between `1` and `0.7`. **Scaffolding, in `dev/`, deliberately crude** — it exists to exercise the
-infrastructure while it is iterated on, not to be the UI. It writes a *number*; the two values are
-the button's business, never the model's.
+> Built as one module, `engine/models/staffSize.ts` (`STAFF_SPACE_PX` + `resolveStaffSize` +
+> `setStaffSize` + `isValidStaffSize`), with `ScoreModel.setStaffSize` as the one-line delegator and
+> a spec beside it. Two decisions the plan left open: **1 clears the field** (absent = full size, the
+> `setStaffSpacing` idiom), and a size that is not a finite positive ratio is **reported, not
+> repaired** — `setStaffSize` refuses it and `ScoreModel.fromJSON` throws beside `validateMeters`,
+> so the resolver stays a clean `staff.size ?? 1` with no silent clamp. Nothing calls
+> `resolveStaffSize` yet; P1's button is its first caller.
 
-**P2 — the vertical stride per staff** (§5), **with the three keys** (§7). Visible immediately with
-P1: a small staff gets a small slot. Still no glyph scaling. The keys land here rather than in P3
-because without them P1's button appears not to work at all.
+**P1 — the dev-shell button. ✅ BUILT.** Select a measure → resolve its staff → toggle that staff's
+size between `1` and `0.7`. **Scaffolding, in `dev/`, deliberately crude** — it exists to exercise
+the infrastructure while it is iterated on, not to be the UI. It writes a *number*; the two values
+are the button's business, never the model's.
 
-**P3 — the horizontal room** (§6). The per-lane width contribution and the bar's overhead go
+> `dev/staffSizeToggle.ts` (target / light / press) + a `Small` button in the toolbar's `Staff:`
+> group, on the **plain-click box** — the same gesture and the same target as `+ Above` / `+ Below`
+> beside it. `MusicEngine.setStaffSize(staffIndex, size)` is the one facade line, there for the one
+> reason a write is ever on the facade: undo.
+>
+> ⚠️ Two things that were not free. The light is an **engine read**, so the toolbar needed its
+> model subscription back (`onModelChange`, the shape `wireKeypadSync` uses) — a size write touches
+> no top-level state field, so the observable Proxy never emits and a state-only toolbar lights one
+> press behind. And the press repaints through `RenderController.renderScore`, which the shell did
+> not have: the toolbar's every other button goes through the palette, which repaints itself.
+>
+> ⭐ **Nothing looks different yet, and that is P1 finishing, not P1 failing** — the staff changes
+> size in the model and the picture is identical until P2's stride (and the three keys in §7, which
+> is why they land there and not later).
+
+**P2 — the vertical stride per staff** (§5). **✅ BUILT.** Visible immediately with P1: a small
+staff gets a small slot. Still no glyph scaling.
+
+> `engine/layout/staffStride.ts` — `staveHeightPx` / `staffStridePx` / `minStaffStridePx` /
+> `minSpacingAboveSpaces` / `spacingAbovePx` / `systemStaffTops`. All four inline copies of
+> `STAVE_HEIGHT + VERTICAL_SPACING` are gone, and the size scales the STAFF, not the CLEARANCE.
+>
+> ⭐ **`cumPx` became `staffTopPx`** — the one structural change. The space-above prefix sum was
+> published to consumers that each added `staffIndex × stride` themselves (`layoutTier1`,
+> `GhostRenderer`), which is only correct while every staff is the same size; a per-staff stride
+> cannot be re-derived from an index. So the sum is computed once and read. `staffSpacingLayout`
+> now resolves BOTH per-staff facts per system, opener in hand, so §3's per-system size needs no
+> new plumbing here.
+>
+> Also §5's second half, which is easy to miss: an authored space-above is in **that staff's own**
+> spaces, so it converts at `× size` (`spacingAbovePx`). And the drag clamp takes two sizes — the
+> upper staff owns the slot you collide with, the dragged staff owns the unit — which comes out at
+> the historical −6 spaces for any uniform size.
+
+**⚠️ §7's three keys did NOT land here, and that is a finding, not a shortcut.** The section
+predicted P1's button would "appear not to work at all" without them. It works: the vertical
+casting-off is recomputed on every render (it is not memoized at all), and a bar that only *moved*
+is translated by design — `measureShapeKey` deliberately excludes x/y, which is exactly the case a
+size change is at P2. `VexFlowRenderer.staffSize.test.ts` pins it on the real path (one renderer,
+re-rendered, asserting a mid-line bar that takes the translate branch).
+
+Each key becomes true in the phase that makes it true, and the trap is real in both:
+ - **P3** — `laneFingerprint` and `layoutStateKey`. The moment a lane's width depends on its
+   staff's size, the width memo and the cached casting-off can both hand back full-size answers.
+ - **P4** — `measureShapeKey`. The moment the group carries a transform, a bar at a new size
+   *looks* different, and a reused `<g>` keeps the old picture.
+
+**P3 — the horizontal room** (§6), **with `laneFingerprint` + `layoutStateKey`** (§7). The per-lane width contribution and the bar's overhead go
 per-staff. Still no glyph scaling: the bar is now the right *width* for a small staff drawn large,
 which looks wrong on purpose and is the last cheap step.
 
-**P4 — the transform.** The per-staff group transform (§4.1) + the `ElementRegistry` composition
-(§4.2) + `replaySnapshot`. This is where a small staff actually looks small. Prototype on one staff
-behind a flag first; the readback is the whole risk and the e2e harness can measure it directly.
+**P4 — the transform**, **with `measureShapeKey`** (§7). **✅ BUILT** (out of order — P3 is still
+open, see below). The per-staff group transform (§4.1) + the `ElementRegistry` composition (§4.2) +
+`replaySnapshot`. This is where a small staff actually looks small.
+
+> **The mechanism is one attribute and one division.** `renderMeasure` sets `transform="scale(k)"`
+> on the measure-per-staff `<g>` it already opens, and tier 1 builds the stave at
+> `x/k, y/k, width/k`. That division is what makes the transform a *pure* scale about the SVG
+> origin — no offset term anywhere downstream — so the bar lands exactly where the casting-off put
+> it, spanning exactly what the full-size staff below it spans (barlines still align).
+>
+> **The readback is one seam, as predicted.** `ElementRegistry.withScale(k, fn)` — scoped state, the
+> way a graphics context carries a transform — so all ~30 `add` sites are untouched. `add`,
+> `setStaffGeometry` and `setClefSegments` scale on the way in. `scaleElement` is `offsetElement`'s
+> twin with one difference that matters: **it scales LENGTHS too** (a 0.7 notehead has a 0.7-wide
+> hit-box). `lineSpacing` becomes `10k`, which is what makes pitch↔pixel come out right on a small
+> staff — every consumer already divides by it.
+>
+> ⚠️ **`replaySnapshot` was the trap, in both branches.** It owns the group's `transform`: it
+> overwrites it to move a bar and *removes* it to put one back. Both now carry the scale
+> (`translate(dx, dy) scale(k)`, translate first), so a small staff no longer snaps to full size the
+> first time one of its bars moves — never on a fresh render, always mid-drag.
+>
+> ⚠️ **§4.2's mixing defect was real**: `DynamicsLayout` shifted a registry bbox (global) by a delta
+> read off `getBBox` (local) — off by exactly `k`. Both sites now go through
+> `ElementRegistry.shiftById`, which applies the scale in force.
+>
+> `measureShapeKey` gained `scale`, §7's P4 half. A scaled bar is not a bar that moved, so nothing
+> else in that key could see it.
+>
+> **Proved in the browser**, since this is a drawn-position change and jsdom measures zeros:
+> `e2e/staffSize.e2e.ts` — the lines close up to 0.7, the pitch span with them, the stems too, the
+> bar keeps its width and its place, the staff below is untouched, and full size comes back. jsdom
+> covers the two `replaySnapshot` branches, where a `transform` attribute is real.
+>
+> ⚠️ **P3 is still open and it shows**: a small staff's music is spaced for a full-size staff, so
+> inside its scaled group it gets `1/k` more room than it asked for and reads as *stretched* —
+> exactly what §6 describes. **P5 is open too**: everything in §4.3 draws full size in the wrong
+> place on a scaled staff. Tempo marks turned out NOT to be one of them — `drawTempoMarks` runs
+> inside `drawMeasureContent`, so its group nests in the measure's and scales with it.
+>
+> **Not verified: PDF export of a small staff.** The outliner replaces each `<text>` in place, so the
+> ancestor scale should carry through — but nothing tests it.
 
 **P5 — the passes drawn outside the group** (§4.3). Ties, slurs, cross-barline beams, connectors,
 tempo, the ghost. Split from P4 deliberately: P4 is one mechanism proved on one staff, this is seven
@@ -278,7 +373,7 @@ pipeline — the widths would still be full-size. A transform needs none of that
 that has already been measured, which is exactly why the arithmetic in §4.1 is `x/k` and not a
 different layout.
 
-## 11. One comment that this work makes false
+## 11. One comment that this work makes false ✅ done in P2
 
 `VexFlowRenderer.ts:2948` justifies computing Y from the constant with "this editor never builds a
 stave with custom spacing — zoom is a CSS transform". True today, false from P2. It is a **repo

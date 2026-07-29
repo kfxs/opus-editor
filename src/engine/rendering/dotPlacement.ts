@@ -47,7 +47,7 @@
  * `dotRestDistance` below `dotNoteDistance`). He reported notes; this changes notes.
  */
 import { Dot, Stem, StaveNote } from 'vexflow'
-import { VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /** Gould's half a space, as a fraction of one — the gap after the notehead AND between two dots. */
 export const DOT_GAP_SPACES = 0.5
@@ -57,7 +57,7 @@ export const DOT_GAP_SPACES = 0.5
  * read per stave, so the room reserved on the width path (which has no stave) and the ink placed on
  * the draw path can never disagree. One place to change if the staff is ever scaled.
  */
-export const DOT_GAP_PX = DOT_GAP_SPACES * VEXFLOW_DEFAULT_STAFF_SPACE_PX
+export const DOT_GAP_PX = DOT_GAP_SPACES * STAFF_SPACE_PX
 
 /** `Dot.format`'s own dot-to-dot gap — a literal `dotSpacing = 1` in VexFlow. */
 export const VEXFLOW_DOT_SPACING = 1

@@ -25,7 +25,7 @@ import type { Fraction } from '@/types/music'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
 import { fracToNumber } from '@/utils/fraction'
 import { staffOf } from '@/utils/lanes'
-import { VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { FAN_MIN_HEAD_GAP_RATIO } from '@/engine/rendering/FannedBeam'
 import { LAYOUT_CONFIG } from '@/engine/rendering/layoutConfig'
 
@@ -80,7 +80,7 @@ export function measuredShrinkRoom(registry: ElementRegistry, measureNumber: num
     // The left neighbour, or — for the bar's first column — where notes may start at all.
     const leftX = at > 0 ? columns[at - 1].x : geometry?.noteStartX
     if (leftX === undefined) continue
-    const staffSpacePx = geometry?.lineSpacing ?? VEXFLOW_DEFAULT_STAFF_SPACE_PX
+    const staffSpacePx = geometry?.lineSpacing ?? STAFF_SPACE_PX
     const slack = (columns[at].x - leftX - LAYOUT_CONFIG.MIN_NOTE_SPACING) / staffSpacePx
     room = room === null ? Math.max(0, slack) : Math.min(room, Math.max(0, slack))
   }
@@ -118,7 +118,7 @@ export function fanMemberShrinkRoom(
   const prevX = prev.headX ?? prev.bbox.x + prev.bbox.width / 2
 
   const geometry = registry.getStaffGeometry(measureNumber, staffOf(here))
-  const staffSpacePx = geometry?.lineSpacing ?? VEXFLOW_DEFAULT_STAFF_SPACE_PX
+  const staffSpacePx = geometry?.lineSpacing ?? STAFF_SPACE_PX
   const minGap = here.bbox.width * FAN_MIN_HEAD_GAP_RATIO
   return Math.max(0, (x - prevX - minGap) / staffSpacePx)
 }

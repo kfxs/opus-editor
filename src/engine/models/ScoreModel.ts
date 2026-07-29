@@ -38,6 +38,8 @@ import * as overrideOps from './overrideOps'
 import * as slurOps from './slurOps'
 import * as markOps from './markOps'
 import * as voiceOps from './voiceOps'
+import * as staffSizeOps from './staffSize'
+import { isValidStaffSize } from './staffSize'
 import { flatNoteOf, flatRestOf } from './noteProjection'
 import { findSlot, writeAttackMarks, projectAttackMarks, type FoundSlot } from './slotLookup'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, firstStaffId } from './staffContent'
@@ -842,6 +844,12 @@ export class ScoreModel {
    *  See {@link overrideOps.resetStaffSpacing} for the why. */
   resetStaffSpacing(staffId: string): boolean {
     return overrideOps.resetStaffSpacing(this.score, staffId)
+  }
+
+  /** Set how big a staff is DRAWN, as a ratio (`1` full size, `0.7` a small staff); `1` clears the
+   *  field. Refuses a non-positive size or an unknown staff. See {@link staffSizeOps.setStaffSize}. */
+  setStaffSize(staffId: string, size: number): boolean {
+    return staffSizeOps.setStaffSize(this.score, staffId, size)
   }
 
   // ============ Engraving overrides (authored-geometry compartment) ============
@@ -2676,6 +2684,11 @@ export class ScoreModel {
     // range signatures here before they detonate in meter.ts or the renderer.
     ScoreModel.validateMeters(scoreData)
 
+    // Same reason, for the staff axis: `StaffInfo.size` is a plain `number` in the type, and a
+    // zero or negative one is a scale that divides the whole render. REPORT it, never repair it —
+    // silently clamping a hand-written 0 to 1 would make the file and the picture disagree.
+    ScoreModel.validateStaffSizes(scoreData)
+
     // actualDuration is derived state — recompute it rather than trust the wire.
     // The helper handles measure rests (whole-bar length) in every meter.
     for (const measure of model.score.measures) {
@@ -2701,6 +2714,18 @@ export class ScoreModel {
       }
       if (m.actualDurationOverride !== undefined && !fracIsPositive(m.actualDurationOverride)) {
         throw new Error(`Invalid actualDurationOverride at measure ${m.number}: must be a positive length.`)
+      }
+    }
+  }
+
+  /**
+   * Reject a loaded score whose staff carries a size that is not a drawable ratio. Guards the only
+   * entry point such a value can take: {@link setStaffSize} refuses one, and absent means 1.
+   */
+  private static validateStaffSizes(score: Score): void {
+    for (const s of score.staves ?? []) {
+      if (s.size !== undefined && !isValidStaffSize(s.size)) {
+        throw new Error(`Invalid staff size ${s.size} on staff ${s.id}: must be a positive ratio (1 = full size).`)
       }
     }
   }

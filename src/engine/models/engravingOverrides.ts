@@ -1,5 +1,6 @@
 import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
+import { STAFF_SPACE_PX } from './staffSize'
 
 /**
  * Pure reads over the engraving-overrides compartment (a sub-tree of `Score`; see
@@ -244,12 +245,12 @@ export function measureLeadingSpaces(score: Score, measureId: string): { beat: F
  * the render subtracts from the format width, so both sides are derived here and cannot disagree.
  *
  * Converted at the layout's own default staff-space, not against a live stave: this is asked
- * during casting-off, before any stave exists — see {@link VEXFLOW_DEFAULT_STAFF_SPACE_PX}.
+ * during casting-off, before any stave exists — see {@link STAFF_SPACE_PX}.
  */
 export function measureUserSpacePx(score: Score, measureId: string): number {
   let total = 0
   for (const { space } of measureLeadingSpaces(score, measureId)) total += space
-  return total * VEXFLOW_DEFAULT_STAFF_SPACE_PX
+  return total * STAFF_SPACE_PX
 }
 
 /**
@@ -438,18 +439,3 @@ export function resolveStaffSpacingAbove(score: Score, staffId: string, openingM
   return staffSpacingAbove(score, staffId)
 }
 
-/**
- * **How many pixels one staff-space is** — the divisor every staff-spaces↔pixels conversion in the
- * layout math uses when no live `Stave` is in hand (casting-off happens before any stave exists).
- *
- * It is 10 because that is VexFlow's `Tables.STAVE_LINE_DISTANCE`, which we never override, and
- * because the glyph font size agrees with it by coincidence rather than by construction: VexFlow
- * sizes glyphs from a *separate* global (`Metrics.fontSize` 30 ⇒ 30pt × 4/3 = 40 px em ⇒ SMuFL's
- * 4-staff-space em ⇒ 10 px per space). Two independent globals that happen to match.
- *
- * ⚠️ **Despite the name, this is not really "VexFlow's default" — it is THE SCORE'S STAFF SIZE**,
- * and it is the one number that has to stop being a constant the day a staff can be drawn small
- * (a cue-size violin part over a full-size piano). Its ~20 call sites are all `staffSpaces × this`;
- * each becomes `staffSpaces × that staff's size`. See docs/staff-size-plan.md.
- */
-export const VEXFLOW_DEFAULT_STAFF_SPACE_PX = 10

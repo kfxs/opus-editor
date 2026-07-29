@@ -7,8 +7,8 @@ import {
   measureLeadingSpaces,
   measureUserSpacePx,
   restPositionKey,
-  VEXFLOW_DEFAULT_STAFF_SPACE_PX,
 } from './engravingOverrides'
+import { STAFF_SPACE_PX } from './staffSize'
 import { fracCreate } from '@/utils/fraction'
 
 /**
@@ -109,7 +109,7 @@ describe('measureLeadingSpaces / measureUserSpacePx', () => {
 
   it('sums them to pixels at the layout’s own staff space', () => {
     const { model, m } = build()
-    expect(measureUserSpacePx(model.getScore(), m)).toBe(4 * VEXFLOW_DEFAULT_STAFF_SPACE_PX)
+    expect(measureUserSpacePx(model.getScore(), m)).toBe(4 * STAFF_SPACE_PX)
   })
 
   it('sees nothing in a bar nobody touched', () => {

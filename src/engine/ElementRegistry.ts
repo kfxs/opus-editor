@@ -376,6 +376,79 @@ export function offsetElement(element: ElementInfo, dx: number, dy: number): Ele
 }
 
 /** Translate a staff's geometry by (dx, dy). See {@link offsetElement} for the hazard. */
+/**
+ * Scale one registered element out of a staff's own drawing space into the SVG's — the
+ * {@link ElementRegistry.withScale} half of what {@link offsetElement} does for a move
+ * (docs/staff-size-plan.md §4.2).
+ *
+ * ⚠️ **Every coordinate-bearing field must be listed here, and so must every LENGTH.** That is the
+ * one way this differs from `offsetElement`, which leaves widths and heights alone: a staff drawn
+ * at 0.7 has 0.7-size noteheads, so a box that keeps its full-size width is a hit-box wider than
+ * its glyph. The pure-scale form (no offset term) is what building the stave at `x/k, y/k` buys —
+ * see `withScale`.
+ *
+ * Returns a copy; the element handed in is never mutated.
+ */
+export function scaleElement(element: ElementInfo, k: number): ElementInfo {
+  const scaled: ElementInfo = {
+    ...element,
+    bbox: {
+      x: element.bbox.x * k,
+      y: element.bbox.y * k,
+      width: element.bbox.width * k,
+      height: element.bbox.height * k,
+    },
+  }
+
+  if (element.headX !== undefined) scaled.headX = element.headX * k
+  if (element.anchor) scaled.anchor = { x: element.anchor.x * k, y: element.anchor.y * k }
+  if (element.points) scaled.points = element.points.map(p => ({ x: p.x * k, y: p.y * k }))
+  if (element.controlPoints) {
+    scaled.controlPoints = [
+      { x: element.controlPoints[0].x * k, y: element.controlPoints[0].y * k },
+      { x: element.controlPoints[1].x * k, y: element.controlPoints[1].y * k },
+    ]
+  }
+  if (element.slurEndpoints) {
+    scaled.slurEndpoints = {
+      p0: { x: element.slurEndpoints.p0.x * k, y: element.slurEndpoints.p0.y * k },
+      p1: { x: element.slurEndpoints.p1.x * k, y: element.slurEndpoints.p1.y * k },
+      direction: element.slurEndpoints.direction,
+    }
+  }
+  // The tuplet bracket: positions AND the lengths, since every one of them is ink.
+  if (element.tupletGeometry) {
+    const t = element.tupletGeometry
+    scaled.tupletGeometry = {
+      ...t,
+      x: t.x * k,
+      y: t.y * k,
+      width: t.width * k,
+      notationCenterX: t.notationCenterX * k,
+      bracketLegLength: t.bracketLegLength * k,
+      bracketThickness: t.bracketThickness * k,
+      bracketPadding: t.bracketPadding * k,
+      textYOffset: t.textYOffset * k,
+      yOffset: t.yOffset * k,
+    }
+  }
+
+  return scaled
+}
+
+/** {@link scaleElement} for a staff's own geometry. `lineSpacing` scales with the lines, which is
+ *  what every pitch↔pixel consumer divides by. */
+export function scaleStaffGeometry(geometry: StaffGeometry, k: number): StaffGeometry {
+  return {
+    ...geometry,
+    lineYPositions: geometry.lineYPositions.map(y => y * k) as [number, number, number, number, number],
+    lineSpacing: geometry.lineSpacing * k,
+    noteStartX: geometry.noteStartX * k,
+    noteEndX: geometry.noteEndX * k,
+    clefSegments: geometry.clefSegments?.map(s => ({ ...s, fromX: s.fromX * k })),
+  }
+}
+
 export function offsetStaffGeometry(geometry: StaffGeometry, dx: number, dy: number): StaffGeometry {
   return {
     ...geometry,
@@ -437,10 +510,15 @@ export class ElementRegistry {
   }
 
   /**
-   * Set staff geometry for a (measure, staff) lane
+   * Set staff geometry for a (measure, staff) lane, in the coordinates of the staff currently
+   * being registered ({@link withScale}).
+   *
+   * ⭐ `lineSpacing` scales with everything else, which is what makes a small staff's pitch↔pixel
+   * arithmetic come out right: every consumer divides by it rather than by the score's constant.
    */
   setStaffGeometry(geometry: StaffGeometry): void {
-    this.staffGeometries.set(this.geomKey(geometry.measure, geometry.staff), geometry)
+    const scaled = this.scale === 1 ? geometry : scaleStaffGeometry(geometry, this.scale)
+    this.staffGeometries.set(this.geomKey(scaled.measure, scaled.staff), scaled)
   }
 
   /**
@@ -454,7 +532,11 @@ export class ElementRegistry {
    */
   setClefSegments(measure: number, staff: number, clefSegments: ClefSegment[]): void {
     const geometry = this.staffGeometries.get(this.geomKey(measure, staff))
-    if (geometry) geometry.clefSegments = clefSegments
+    if (!geometry) return
+    // Local X's, like everything else drawn inside the staff's group ({@link withScale}).
+    geometry.clefSegments = this.scale === 1
+      ? clefSegments
+      : clefSegments.map(s => ({ ...s, fromX: s.fromX * this.scale }))
   }
 
   /**
@@ -489,11 +571,69 @@ export class ElementRegistry {
   }
 
   /**
-   * Add an element to the registry
+   * The scale of the staff whose ink is being registered right now — 1 outside {@link withScale}.
+   * See that method for why this is state rather than a parameter.
+   */
+  private scale = 1
+
+  /**
+   * **Register everything `fn` produces in the coordinates of a staff drawn at `k`.**
+   *
+   * A staff drawn small is drawn inside a `<g transform="scale(k)">` (docs/staff-size-plan.md §4.1),
+   * so everything VexFlow reports back — `getYForLine`, `getNoteStartX`, `getBoundingBox`,
+   * `getBBox` — answers in the group's own PRE-transform space, while every consumer of this
+   * registry (hit-testing, pixel↔pitch, scroll-into-view) works in the SVG's. The two differ by
+   * exactly `k`, because the stave is built at `x/k, y/k, width/k` so that the scale is a pure
+   * multiplication about the origin with no offset term.
+   *
+   * ⭐ **One seam, so no call site changes.** There are ~30 `add` sites across seven modules; each
+   * would otherwise have to learn which staff it is on and multiply. Instead the renderer wraps the
+   * work for one (measure, staff) and every registration inside it lands in SVG coordinates. It is
+   * scoped state rather than a parameter for the same reason a graphics context has a transform:
+   * the code in between does not want to know.
+   *
+   * ⚠️ It restores on the way out, exceptions included — a leaked scale would silently multiply the
+   * rest of the score.
+   */
+  withScale<T>(k: number, fn: () => T): T {
+    const previous = this.scale
+    this.scale = k
+    try {
+      return fn()
+    } finally {
+      this.scale = previous
+    }
+  }
+
+  /**
+   * Add an element to the registry, in the coordinates of the staff currently being registered
+   * ({@link withScale} — a no-op at full size).
    */
   add(element: ElementInfo): void {
-    this.checkGlyphHeight(element)
-    this.elements.push(element)
+    const scaled = this.scale === 1 ? element : scaleElement(element, this.scale)
+    this.checkGlyphHeight(scaled)
+    this.elements.push(scaled)
+  }
+
+  /**
+   * Move an already-registered element by a delta measured in the **local** (pre-transform) space
+   * the ink was drawn in — the twin of {@link add} under the same transform.
+   *
+   * For the passes that draw a glyph and *then* nudge it with an SVG `translate` (a co-located
+   * dynamic, a hand-offset one): the translate rides inside the scaled group, so it is a local
+   * delta, while the registry's box is already global. Adding one to the other is off by exactly
+   * `k` — the mixing §4.2 of the plan names, and the reason this is a method rather than two
+   * hand-written `entry.bbox.x + dx` at the call sites.
+   */
+  shiftById(id: string, dx: number, dy: number): void {
+    const entry = this.getById(id)
+    if (!entry) return
+    entry.bbox = {
+      x: entry.bbox.x + dx * this.scale,
+      y: entry.bbox.y + dy * this.scale,
+      width: entry.bbox.width,
+      height: entry.bbox.height,
+    }
   }
 
   /**

@@ -140,10 +140,25 @@ export interface StaffSpacingLayout {
   pageOfLine: number[]
   /** How many sheets the music took. 1 on a canvas: the endless strip is one page. */
   pageCount: number
-  /** `cumPx[line][staffIndex]` — inclusive prefix sum (px) of the space-above at/above that staff. */
-  cumPx: number[][]
+  /**
+   * `staffTopPx[line][staffIndex]` — that staff's top, measured from its SYSTEM's top: the strides
+   * of every staff above it (each one its own, since a staff drawn small takes a smaller slot —
+   * docs/staff-size-plan.md §5) plus the space-above of every staff at/above it.
+   *
+   * ⭐ One number, not two. It used to be `cumPx` — the space-above prefix alone — with every
+   * consumer adding `staffIndex × stride` itself, which was only correct while every staff in the
+   * score was the same size. A per-staff stride cannot be re-derived from an index, so the sum is
+   * computed once, here, and read.
+   */
+  staffTopPx: number[][]
+  /** `staffSize[line][staffIndex]` — how big that staff is DRAWN on that system, as a ratio
+   *  (1 = full size). Published rather than re-resolved by every consumer so there is ONE answer
+   *  per (system, staff): it is what decided `staffTopPx` above, and per-system size (§3 of
+   *  docs/staff-size-plan.md) would make it genuinely vary by line. */
+  staffSize: number[][]
   lineHeightPx: number[]
-  /** Σ over lines of (numStaves·stride + that line's extra) — the score's drawn height. */
+  /** Σ over lines of that system's height (every staff's own stride + its extra) — the score's
+   *  drawn height. */
   contentHeightPx: number
 }
 

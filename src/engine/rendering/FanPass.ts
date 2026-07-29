@@ -48,7 +48,8 @@ import {
   ledgerAccidentalClearance,
   LEDGER_OVERHANG_BESIDE_ACCIDENTAL,
 } from './ledgerAccidentalClearance'
-import { measureLeadingSpaces, noteOffsetOverrideOf, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from '@/engine/models/engravingOverrides'
+import { measureLeadingSpaces, noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { staffSpacesToPixels } from './staffSpace'
 
 /**
@@ -184,7 +185,7 @@ function fanMemberSpacesPx(score: Score, measureNumber: number, slot: Chord): nu
   return beats.map((beat, k) => {
     if (k === 0) return 0 // member 0's space IS the column's, already applied
     const hit = spaces.find(s => s.beat.num * beat.den === beat.num * s.beat.den)
-    return (hit?.space ?? 0) * VEXFLOW_DEFAULT_STAFF_SPACE_PX
+    return (hit?.space ?? 0) * STAFF_SPACE_PX
   })
 }
 
@@ -217,7 +218,7 @@ function fanTrailingSpacePx(score: Score, measureNumber: number, slot: Chord): n
   const hit = spaces.find(s => s.beat.num * end.den === end.num * s.beat.den)
   // ⚠️ The SAME px-per-staff-space `applyLeadingSpaces` shifted the context by — this undoes exactly
   // that shift, so it has to be measured in exactly that unit.
-  return (hit?.space ?? 0) * VEXFLOW_DEFAULT_STAFF_SPACE_PX
+  return (hit?.space ?? 0) * STAFF_SPACE_PX
 }
 
 /**

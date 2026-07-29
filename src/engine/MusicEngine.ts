@@ -1,7 +1,9 @@
 import { dbg } from '@/utils/debug'
 import { ScoreModel } from './models/ScoreModel'
-import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barWidthKey, measureStretch, BAR_STRETCH_MIN, VEXFLOW_DEFAULT_STAFF_SPACE_PX } from './models/engravingOverrides'
-import { VexFlowRenderer, LAYOUT_CONFIG } from './rendering/VexFlowRenderer'
+import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
+import { resolveStaffSize } from './models/staffSize'
+import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx } from './layout/staffStride'
+import { VexFlowRenderer } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
 import type { ToolGhost } from './rendering/ghostTypes'
 import { measuredShrinkRoom, fanMemberShrinkRoom, measuredBarShrinkPx } from './layout/measuredRoom'
@@ -417,6 +419,25 @@ export class MusicEngine {
     const id = this.scoreModel.addStaffBelow(refStaffIndex)
     this.saveOnly(`Add staff below ${refStaffIndex}`)
     return id
+  }
+
+  /**
+   * Set how big the staff at the given 0-based index is DRAWN, as a ratio (`1` full size, `0.7` a
+   * small staff — docs/staff-size-plan.md). Records its own undo entry, like the two above.
+   *
+   * The write lives on the facade for the one reason a write ever does: undo. The value itself and
+   * the rule that reads it are `engine/models/staffSize.ts`; this takes an INDEX because that is
+   * what an editor selection carries, and resolves it to the staff's durable id.
+   *
+   * @returns whether the score changed (false for an unknown staff, an invalid ratio, or a size
+   *          that was already what was asked).
+   */
+  setStaffSize(staffIndex: number, size: number): boolean {
+    const staffId = staffIdAtIndex(this.scoreModel.getScore(), staffIndex)
+    if (staffId === undefined) return false
+    if (!this.scoreModel.setStaffSize(staffId, size)) return false
+    this.saveOnly(`Staff ${staffIndex} size ${size}`)
+    return true
   }
 
   /**
@@ -1639,23 +1660,27 @@ export class MusicEngine {
     return { key: staffSystemSpacingKey(staffId, openingMeasureId), staffId, openingMeasureId }
   }
 
-  /** The smallest stave-top-to-top distance (px) staff-spacing may shrink TO — the collision
-   *  floor. Default distance is `STAVE_HEIGHT + VERTICAL_SPACING`; this keeps enough of it that a
-   *  staff (or a whole system, for the top staff) can't be dragged/nudged up INTO the one above.
-   *  Tunable — start conservative and adjust against the rendered look. */
-  private static readonly MIN_STAFF_STRIDE_PX = 90
-
   /**
    * Clamp a requested space-above so shrinking can't collide the staff/system with the one
-   * above it. `above` is an offset from the default stride, and every consecutive gap (staves
-   * within a system AND system-to-system for the top staff) is `VERTICAL_SPACING + above·ss`, so
-   * a single lower bound on `above` floors every gap at once. No upper bound — you can widen
-   * freely. See docs/staff-spacing-plan.md.
+   * above it. `above` is an offset from the default stride, and every consecutive gap is that
+   * stride plus `above·ss`, so a single lower bound on `above` floors every gap at once. No upper
+   * bound — you can widen freely. See docs/staff-spacing-plan.md and `layout/staffStride`.
+   *
+   * ⚠️ **Two staves' sizes, and they are different staves.** The gap this `above` controls sits
+   * between staff `staffIndex` and the one ABOVE it: it is the upper staff's ink you would collide
+   * with (so the floor comes from *its* size), while `above` itself is authored in the dragged
+   * staff's own spaces. The top staff of a system has no staff above it inside the system — that
+   * gap runs to the previous system's last staff, a casting-off fact this write path does not have
+   * — so it floors against its own, which is exactly what every staff did while there was one
+   * size. See docs/staff-size-plan.md §5.
    */
-  private clampSpacingAbove(above: number): number {
-    const staffStride = LAYOUT_CONFIG.STAVE_HEIGHT + LAYOUT_CONFIG.VERTICAL_SPACING
-    const minAbove = (MusicEngine.MIN_STAFF_STRIDE_PX - staffStride) / VEXFLOW_DEFAULT_STAFF_SPACE_PX
-    return Math.max(above, minAbove)
+  private clampSpacingAbove(above: number, staffIndex: number): number {
+    const score = this.scoreModel.getScore()
+    const sizeOf = (index: number): number => {
+      const id = staffIdAtIndex(score, index)
+      return id ? resolveStaffSize(score, id) : 1
+    }
+    return Math.max(above, minSpacingAboveSpaces(sizeOf(Math.max(0, staffIndex - 1)), sizeOf(staffIndex)))
   }
 
   // ---- Linear view's staff-spacing VIEW KNOB (docs/linear-view-plan.md §4.2b) ----
@@ -1702,7 +1727,7 @@ export class MusicEngine {
     if (this.viewMode === 'linear') {
       const staffId = this.staffIdForSpacing(staffIndex)
       if (!staffId) return false
-      const above = this.clampSpacingAbove(this.getStaffSpacingAbove(staffIndex, measureNumber) + delta)
+      const above = this.clampSpacingAbove(this.getStaffSpacingAbove(staffIndex, measureNumber) + delta, staffIndex)
       this.linearStaffSpacing.set(staffId, above)
       this.syncLinearStaffSpacing()
       dbg(`[Staff/linear] ${delta > 0 ? '↓' : '↑'} view spacing above staff ${staffIndex} by ${delta} → ${above} ss (view only, not saved)`)
@@ -1710,7 +1735,7 @@ export class MusicEngine {
     }
     const t = this.staffSpacingTarget(staffIndex, measureNumber)
     if (!t) return false
-    const above = this.clampSpacingAbove(resolveStaffSpacingAbove(this.scoreModel.getScore(), t.staffId, t.openingMeasureId) + delta)
+    const above = this.clampSpacingAbove(resolveStaffSpacingAbove(this.scoreModel.getScore(), t.staffId, t.openingMeasureId) + delta, staffIndex)
     this.scoreModel.setStaffSpacing(t.key, above) // absolute; clears at 0
     this.saveOnly('Nudge staff spacing')
     dbg(`[Staff] ${delta > 0 ? '↓' : '↑'} space above staff ${staffIndex} @sys(${t.openingMeasureId}) by ${delta} → ${above} ss`)
@@ -1778,13 +1803,13 @@ export class MusicEngine {
     if (this.viewMode === 'linear') {
       const staffId = this.staffIdForSpacing(staffIndex)
       if (!staffId) return false
-      this.linearStaffSpacing.set(staffId, this.clampSpacingAbove(above))
+      this.linearStaffSpacing.set(staffId, this.clampSpacingAbove(above, staffIndex))
       this.syncLinearStaffSpacing()
       return true
     }
     const t = this.staffSpacingTarget(staffIndex, measureNumber)
     if (!t) return false
-    return this.scoreModel.setStaffSpacing(t.key, this.clampSpacingAbove(above))
+    return this.scoreModel.setStaffSpacing(t.key, this.clampSpacingAbove(above, staffIndex))
   }
 
   /** Record one undo entry after a staff-spacing drag settles. A no-op in linear view: the drag
@@ -3149,22 +3174,25 @@ export class MusicEngine {
     if (!b) return null
     const score = this.scoreModel.getScore()
     const staffList = getStaves(score)
-    const numStaves = Math.max(1, staffList.length)
-    const staffStride = LAYOUT_CONFIG.STAVE_HEIGHT + LAYOUT_CONFIG.VERTICAL_SPACING
-    // Client #7 staff-spacing pushes the lower staves further down. `b.measureY` is staff 0's
-    // real drawn top (already reflects its own space-above), so extend the height by the extra
-    // space introduced BETWEEN staff 0 and the last staff — the sum of every lower staff's
-    // space-above (staff 0's own doesn't grow this bar's span). Resolve PER-SYSTEM against the
-    // opening measure of the system this bar sits on (plan option C).
+    if (staffList.length === 0) {
+      return { x: b.measureX, y: b.measureY, width: b.measureWidth, height: staveHeightPx(1) }
+    }
+    // Client #7 staff-spacing pushes the lower staves further down, and a staff drawn small takes
+    // a smaller slot — so this is the render's own vertical arithmetic, asked for one system.
+    // Resolve both PER-SYSTEM against the opening measure of the system this bar sits on (plan
+    // option C for spacing; ignored by size until per-system size exists).
     const openerNum = this.renderer.getSystemOpeningMeasureNumber(measureNumber)
     const openingMeasureId = openerNum !== undefined ? this.scoreModel.getMeasure(openerNum)?.id : undefined
-    let betweenPx = 0
-    for (let i = 1; i < staffList.length; i++) {
-      betweenPx += resolveStaffSpacingAbove(score, staffList[i].id, openingMeasureId) * VEXFLOW_DEFAULT_STAFF_SPACE_PX
-    }
-    // Top of staff 0 → bottom of the last staff (the trailing inter-staff gap is not part of
-    // the bar, so subtract one VERTICAL_SPACING from a naive numStaves*staffStride).
-    const height = (numStaves - 1) * staffStride + LAYOUT_CONFIG.STAVE_HEIGHT + betweenPx
+    const sizes = staffList.map(s => resolveStaffSize(score, s.id, openingMeasureId))
+    const abovePx = staffList.map((s, i) =>
+      spacingAbovePx(resolveStaffSpacingAbove(score, s.id, openingMeasureId), sizes[i]))
+    const { topPx } = systemStaffTops(sizes, abovePx)
+    // Top of staff 0 → bottom of the last staff. `b.measureY` is staff 0's real drawn top (it
+    // already reflects staff 0's own space-above), so measure from `topPx[0]` rather than from the
+    // system top; and the trailing inter-staff gap is not part of the bar, so the last staff
+    // contributes its stave height and not its stride.
+    const last = staffList.length - 1
+    const height = topPx[last] - topPx[0] + staveHeightPx(sizes[last])
     return { x: b.measureX, y: b.measureY, width: b.measureWidth, height }
   }
 

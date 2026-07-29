@@ -44,7 +44,7 @@ import { drawTempoText } from './TempoLayout'
 import { convertDuration, restSupportingLedgerLine, drawsTimeSignature, ARTICULATION_RENDER_ORDER } from './NoteBuilder'
 import { TIE_BOW } from './TieRenderer'
 import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
-import { LAYOUT_CONFIG, LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout } from './layoutConfig'
+import { LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout } from './layoutConfig'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
 
 /**
@@ -83,8 +83,6 @@ export function drawNoteGhost(
    *  music does, so it reads the margins from the render rather than from a constant. */
   surface: SurfaceMetrics,
 ): boolean {
-  const staveHeight = LAYOUT_CONFIG.STAVE_HEIGHT
-  const verticalSpacing = LAYOUT_CONFIG.VERTICAL_SPACING
   try {
     const measure = score.measures.find(m => m.number === ghostNote.measure)
     if (!measure) {
@@ -120,8 +118,8 @@ export function drawNoteGhost(
     }
 
     // The ghost previews entry on the staff the cursor is over (multi-staff): its Y is that
-    // staff's row within the system (systemTop + staffIndex*stride) and its clef is that
-    // staff's own clef — so the preview lands exactly where the click will place the note.
+    // staff's row within the system and its clef is that staff's own clef — so the preview lands
+    // exactly where the click will place the note.
     const staffIndex = staffOf(ghostNote)
     const staffId = staffIdAtIndex(score, staffIndex)
     // Match the real render's PER-SYSTEM staff-spacing push-down (Client #7) so the
@@ -130,7 +128,10 @@ export function drawNoteGhost(
     // spacing depends on the view mode and the linear-view knob, which are the renderer's.
     const line = widthInfo.lineNumber
     const systemTop = spacing.lineTopPx[line] ?? surface.marginTopPx
-    const measureY = systemTop + staffIndex * (staveHeight + verticalSpacing) + (spacing.cumPx[line]?.[staffIndex] ?? 0)
+    // The render's own per-staff offset — strides AND space-above, already summed. Recomputing it
+    // from `staffIndex × stride` is what would put the ghost on the wrong staff the moment one of
+    // them is drawn small (docs/staff-size-plan.md §5).
+    const measureY = systemTop + (spacing.staffTopPx[line]?.[staffIndex] ?? 0)
     const staveWidth = widthInfo.finalWidth
     const effectiveClefs = resolveStaffClefs(score, staffId).opening
     const openingClef: Clef = effectiveClefs.get(ghostNote.measure) || 'treble'

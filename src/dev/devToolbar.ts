@@ -5,6 +5,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { NoteDuration } from '../types/music'
 import { durationHighlight, fanHighlight } from '../interactions/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
+import { isSelectedStaffSmall, toggleSelectedStaffSize } from './staffSizeToggle'
 
 /**
  * The development toolbar — **scaffolding, deliberately kept**.
@@ -49,6 +50,11 @@ export interface DevToolbarDeps {
   onStateChange: (fn: () => void) => () => void
   /** Play/stop lives with the engine wiring in the app, not in the scaffolding. */
   togglePlayback: () => void
+  /** Repaint after a button EDITS the score — `RenderController.renderScore`, the same one the
+   *  palette's own buttons call, not `engine.renderScore` (which knows nothing about ghosts or
+   *  highlights). Only the staff-size button needs it; every other control here goes through the
+   *  palette, which repaints itself. */
+  renderScore: () => void
 }
 
 export interface DevToolbarHandle {
@@ -76,7 +82,7 @@ function divider(): HTMLDivElement {
 }
 
 export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToolbarHandle {
-  const { state, palette, getEngine, onStateChange, togglePlayback } = deps
+  const { state, palette, getEngine, onStateChange, togglePlayback, renderScore } = deps
 
   const row = el('div', 'mb-4 flex gap-2 flex-wrap')
   /**
@@ -280,6 +286,13 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   action(staffBox, '+ Below',
     "Add a staff below the selected bar's staff — click empty space in a measure to select it first",
     hasStaffContext, () => palette.addStaffBelow())
+  // A toggle rather than an `action`, because its light is a question about the SCORE — see
+  // staffSizeToggle.ts, and the model subscription at the bottom of this file that keeps it honest.
+  toggle(staffBox, TOOL_BTN, 'Small',
+    "Draw the selected bar's staff small (0.7) or full size — click empty space in a measure to "
+      + 'select it first. Scaffolding: the stored value is a ratio, and 0.7 is this button’s choice.',
+    () => isSelectedStaffSmall(state, getEngine()),
+    () => { if (toggleSelectedStaffSize(state, getEngine())) renderScore() })
   row.appendChild(staffBox)
   row.appendChild(divider())
 
@@ -322,13 +335,29 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   sync()
   const unsubscribe = onStateChange(sync)
 
-  // (No model subscription. The toolbar's syncers all read `state` now — the only two that read the
-  // ENGINE were the tremolo row's, and they went to the Keypad with it. `wireKeypadSync` carries that
-  // two-source wiring instead, which is where the engine-read lights now live.)
+  /**
+   * ⚠️ TWO SOURCES, again — the shape `wireKeypadSync` and `wireSelectionInspection` use, and the
+   * one this file lost when the tremolo row left for the Keypad. The `Small` button's light is an
+   * ENGINE read: it goes stale two ways, when the selection moves to another staff (**state**, the
+   * subscribe above) and when the SAME staff's size is edited under it (**model** — its own press,
+   * or an undo). A size write touches no top-level state field, so the observable Proxy never
+   * emits and a state-only toolbar would light one press behind.
+   *
+   * LAZILY attached, because App.ts creates the engine after the shell is mounted.
+   */
+  let stopModel: (() => void) | null = null
+  const attachModel = () => {
+    if (stopModel) return
+    stopModel = getEngine()?.onModelChange(sync) ?? null
+  }
+  attachModel()
+  const unsubscribeAttach = onStateChange(attachModel)
 
   return {
     destroy(): void {
       unsubscribe()
+      unsubscribeAttach()
+      stopModel?.()
       row.remove()
     },
   }
