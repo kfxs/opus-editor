@@ -446,3 +446,111 @@ test('seven typed sixteenths collapse into one fan, drawn across the time they s
   }
   expect(drawn.heads[7].x, 'and it ends before the note that was never in it').toBeGreaterThan(fanHeads[6].x)
 })
+
+/**
+ * ⭐⭐ **THE ROOM A FAN GETS COMES FROM ITS MEMBERS, NOT FROM ITS DURATION** (`fanRoom.ts`).
+ *
+ * His report, with two screenshots: seven typed sixteenths read perfectly, and the fan collapsed
+ * out of them was *"too contracted and unreadable"*. The bar was wide enough all along — VexFlow
+ * shares a bar's width out BY TICK, and a fanned slot holds one event's worth of ticks however many
+ * heads it draws, so the room went to the rest after it. Measured then: 28px gaps typed, 11px fanned.
+ *
+ * This is the browser's question twice over: jsdom cannot measure a glyph, and the number that was
+ * wrong is a gap between two of them.
+ */
+test('a fan collapsed out of a passage is drawn as wide as the notes it came from', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const gaps = (xs: number[]) => xs.slice(1).map((x, i) => x - xs[i])
+    const steps = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const
+    const ids = steps.map((step, i) =>
+      h.engine.addNoteAtBeat({ step, octave: 4, duration: '16', measure: 1, beat: h.frac(i, 4) })!.id)
+    await h.render()
+    const typed = gaps(h.noteheads().map(g => g.x))
+    h.engine.collapseIntoFan(ids, 'accel')
+    await h.render()
+    return { typed, fanned: gaps(h.noteheads().map(g => g.x)) }
+  })
+
+  expect(drawn.typed, 'fixture: seven notes were typed').toHaveLength(6)
+  expect(drawn.fanned, 'and seven heads are drawn after the collapse').toHaveLength(6)
+
+  // The group OPENS at the spacing the passage had — that is what "reads like the music you typed"
+  // means — and closes from there, because it is an accelerando.
+  const typedGap = drawn.typed[0]
+  expect(drawn.fanned[0], 'the first gap is the typed one, near enough')
+    .toBeGreaterThan(typedGap * 0.9)
+  expect(drawn.fanned[drawn.fanned.length - 1], 'and the tightest is still more than half of it')
+    .toBeGreaterThan(typedGap * 0.5)
+  for (const [i, gap] of drawn.fanned.slice(1).entries()) {
+    expect(gap, 'crowding all the way, never widening').toBeLessThanOrEqual(drawn.fanned[i] + 0.01)
+  }
+})
+
+test('…and a fan given far more room than it needs does not sprawl into it', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const gaps = (xs: number[]) => xs.slice(1).map((x, i) => x - xs[i])
+    const w = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })!
+    h.engine.setFan(w.id, { direction: 'accel', count: 4, beams: 2 })
+    await h.render()
+    const natural = gaps(h.noteheads().map(g => g.x))
+    // Three times the bar's width — the mirror image of his report, and the one the cap answers.
+    h.engine.previewBarWidth(1, 3, 0.5, 4)
+    await h.render()
+    return { natural, stretched: gaps(h.noteheads().map(g => g.x)) }
+  })
+
+  const span = (gaps: number[]) => gaps.reduce((a, b) => a + b, 0)
+  expect(span(drawn.stretched), 'a stretched bar still spreads its music a little')
+    .toBeGreaterThanOrEqual(span(drawn.natural))
+  expect(span(drawn.stretched), 'but nothing like three times as far — the ramp has a natural size')
+    .toBeLessThan(span(drawn.natural) * 1.6)
+})
+
+/**
+ * ⭐⭐ **A DENSE FAN MAKES ITS BAR GROW, AND NOTHING IS DRAWN OUTSIDE THE BAR** — his second report
+ * on the room, and the sharper of the two.
+ *
+ * Eight thirty-seconds under a 1→3 feather ask for 21 columns. `MAX_MEASURE_WIDTH` used to be
+ * applied last, so the bar was held at 40 staff-spaces and everything that did not fit was drawn
+ * straight through the barline — measured at rests sitting 56px and 69px outside their own bar. His
+ * question was the fix: *"there is still space in the line… the bar can grow more."* The cap is a
+ * preference about bars that could be narrower; a bar's incompressible demand now wins over it.
+ */
+test('a dense fan grows its bar past the cap rather than spilling out of it', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const steps = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C'] as const
+    const ids = steps.map((step, i) =>
+      h.engine.addNoteAtBeat({
+        step, octave: i < 7 ? 4 : 5, duration: '32', measure: 1, beat: h.frac(i, 8),
+      })!.id)
+    // A rit is the worst case: it OPENS with its fastest notes, so its tightest gap is inside the
+    // group and the whole ramp has to be wide enough for it.
+    h.engine.collapseIntoFan(ids, 'rit')
+    await h.render()
+    const bar = h.staves().find(s => s.measure === 1)!
+    return {
+      bar: { x1: bar.x1, x2: bar.x2 },
+      // Every glyph the bar draws — heads, and the rests filling the time after the group.
+      glyphs: h.glyphs('g.vf-stavenote text').concat(h.noteheads()).map(g => g.x),
+      heads: h.noteheads().map(g => g.x),
+    }
+  })
+
+  expect(drawn.heads.length, 'eight attacks are drawn').toBe(8)
+  expect(drawn.bar.x2 - drawn.heads[7], 'and the last head keeps an ordinary column off the barline')
+    .toBeGreaterThanOrEqual(15)
+  expect(drawn.bar.x2 - drawn.bar.x1, 'the bar took the room its content needs, past the 40-space cap')
+    .toBeGreaterThan(40 * 10)
+  for (const x of drawn.glyphs) {
+    expect(x, 'every glyph is inside its own bar').toBeGreaterThanOrEqual(drawn.bar.x1)
+    expect(x, 'every glyph is inside its own bar').toBeLessThanOrEqual(drawn.bar.x2)
+  }
+  // …and the ramp still ramps: a rit opens tight and opens out.
+  const gaps = drawn.heads.slice(1).map((x, i) => x - drawn.heads[i])
+  for (const [i, gap] of gaps.slice(1).entries()) {
+    expect(gap, 'each gap wider than the one before').toBeGreaterThanOrEqual(gaps[i] - 0.01)
+  }
+})

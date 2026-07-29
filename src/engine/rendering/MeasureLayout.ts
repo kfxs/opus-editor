@@ -204,10 +204,23 @@ function calculateMinimumMeasureWidth(
   }
 
   const totalWidth = widest + sharedOverhead
+  // ⭐ **THE CAP IS A PREFERENCE; THE FLOOR IS THE MUSIC.** `MAX_MEASURE_WIDTH` says "one measure
+  // must not dominate a line", which is a taste about bars that could be narrower — and it was being
+  // applied last, so it also clamped bars that could NOT. A fan of eight thirty-seconds asks for 21
+  // columns, the cap held its bar at 40 staff-spaces, and everything that did not fit was drawn
+  // straight through the barline (his screenshot; the rests measured 56px and 69px outside their own
+  // bar). His question, and it is the right one: *"there is still space in the line… the bar can grow
+  // more."* So the incompressible demand — every lane's columns, plus the clefs and meter that must
+  // be drawn — is the floor under the cap, and a bar that genuinely needs more room takes it. The
+  // line then carries fewer bars, which is what casting-off is for.
+  const incompressible = widestSpacingFloor + widestOverhead + sharedOverhead
   return {
-    total: Math.min(
-      Math.max(totalWidth, LAYOUT_CONFIG.MIN_MEASURE_WIDTH),
-      LAYOUT_CONFIG.MAX_MEASURE_WIDTH,
+    total: Math.max(
+      Math.min(
+        Math.max(totalWidth, LAYOUT_CONFIG.MIN_MEASURE_WIDTH),
+        LAYOUT_CONFIG.MAX_MEASURE_WIDTH,
+      ),
+      incompressible,
     ),
     noteSpace: widestNoteSpace,
     overhead: widestOverhead + sharedOverhead,

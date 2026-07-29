@@ -42,6 +42,8 @@ import { fracAdd } from '@/utils/fraction'
 import { fanMemberBeats } from '@/utils/fannedBeam'
 import { drawFanMemberArticulations, fanArticulationPosition } from './fanArticulations'
 import { chordHeadDisplacement, displacedHeadShiftPx } from './chordHeadLayout'
+import { fanMaxSpanPx } from './fanRoom'
+import { LAYOUT_CONFIG } from './layoutConfig'
 import { chordAccidentalLayout, chordAccidentalWidth, type ChordAccidentalItem } from './chordAccidentalColumns'
 import {
   accidentalMeetsLedger,
@@ -708,14 +710,28 @@ function fanSlotDrawing(input: {
       // Where the ramp's room ends — the next note's ink, MINUS whatever space the user authored
       // before that note. Its px are already in the head x (the tick context moved), and spending
       // them on the ramp is what made the fan grow instead of the gap after it.
-      spanEndX: (nextNote ? nextNote.getNoteHeadBeginX() : stave.getNoteEndX())
-        - fanTrailingSpacePx(score, measureNumber, slot),
+      //
+      // ⭐ …and CAPPED at what the ramp actually wants ({@link fanMaxSpanPx}). A group given more
+      // room than it needs — a short fan on a long note, a bar stretched to fill its line — used to
+      // spread every head to the barline, which reads as a rallentando nobody wrote. A ramp has one
+      // natural size (its tightest gap = an ordinary note's column), it may stretch a little past
+      // it, and the room left over stays as air before the next note. The floor for the opposite
+      // case is not here: it is bought from the formatter, in `fanRoom.ts`.
+      spanEndX: Math.min(
+        (nextNote ? nextNote.getNoteHeadBeginX() : stave.getNoteEndX())
+          - fanTrailingSpacePx(score, measureNumber, slot),
+        headX + fanMaxSpanPx(slot.fan),
+      ),
       stemOffset: note.getStemX() - headX,
       // MEASURED from the notehead itself, like the two-note tremolo's flag clearance: heads a
       // whole glyph apart cannot touch, and the number follows the staff size instead of pinning
       // a pixel count that would be wrong the day the scale changes. The bar has already been
       // asked for the room this implies (`fanColumns`); this is what SPENDS it.
       minHeadGap: glyphWidth * FAN_MIN_HEAD_GAP_RATIO,
+      // ⭐ …but the group stands off the NEXT note by an ordinary column, not by the gap its own
+      // heads crowd to. The room is already reserved (`fanColumns`' `+ 1`); leaving it is what
+      // stops the last head almost touching the rest — or the barline — after it (his report).
+      trailingGap: LAYOUT_CONFIG.MIN_NOTE_SPACING,
       accidentalRoom,
       headRightRoom,
       prefix: prefixNotes.map(n => ({ stemX: n.getStemX(), headYs: n.getYs() })),

@@ -1,4 +1,5 @@
 import { StaveNote, Voice, Accidental, Articulation, Modifier, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
+import { FanStaveNote } from './fanRoom'
 import { CenteredTremolo } from './CenteredTremolo'
 import { reserveDotRoom } from './dotPlacement'
 import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction } from '@/types/music'
@@ -234,7 +235,15 @@ export function createStaveNotesFromSlots(
     const vexDuration = fanned
       ? convertDuration('q', 0)
       : convertDuration(drawnDuration, slot.dots || 0)
-    const staveNote = new StaveNote({ keys, duration: vexDuration, clef: slotClef, autoStem: false })
+    // ⭐ A fanned slot is drawn as `count` heads and must ask the FORMATTER for room enough for
+    // them: the bar is widened by `fanColumns`, but VexFlow shares that width out BY TICK, and a
+    // fanned slot holds one event's worth of ticks however many notes it draws. Built here because
+    // this function is the width path AND the draw path — the same reason the drawn value is
+    // substituted above (`fanRoom.ts` states the measurements).
+    const noteStruct = { keys, duration: vexDuration, clef: slotClef, autoStem: false }
+    const staveNote = slot.type === 'chord' && slot.fan
+      ? new FanStaveNote(noteStruct, slot.fan)
+      : new StaveNote(noteStruct)
     // ⚠️ TICKS. The StaveNote now carries TWICE the ticks its slot has, and a FULL-mode voice handed
     // twice the bar's ticks throws. `applyTickMultiplier(1, 2)` halves them back — the same call
     // VexFlow's own `Tuplet` makes (`setTuplet` → `applyTickMultiplier(notesOccupied, noteCount)`) —

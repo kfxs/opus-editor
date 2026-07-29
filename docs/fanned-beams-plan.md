@@ -284,6 +284,51 @@ survives; the setting is gone.
   overturns half a sentence here: a fanned slot's total is no longer always its written value, since
   seven sixteenths span a length no notehead spells. The span rides `FanMark.length`, and everything
   downstream was already asking `slotLength`.
+- **How much room a fan is GIVEN** — ✅ now BUILT, in `engine/rendering/fanRoom.ts`. §3 (P1) widens
+  the BAR by `fanColumns`, and that turned out not to be the same thing as giving the room to the
+  FAN: VexFlow shares a bar's width out by TICK, and a fanned slot holds one event's worth of ticks
+  however many heads it draws. Reported on a collapsed group of seven sixteenths — *"too contracted
+  and unreadable… maybe because we are using just the space of that slot in time?"* — and measured
+  at 11px gaps against the 28px the same seven notes had when typed. The fan now asks the FORMATTER
+  for `fanColumns × MIN_NOTE_SPACING` (a `StaveNote` subclass that re-asserts its width inside
+  `preFormat`, because `TickContext.addTickable` clears the note's `preFormatted` latch and anything
+  set from outside is recomputed away), and the DRAWING caps its span at the same number × 1.5, so a
+  short fan on a long note stops sprawling to the barline. ⭐ One answer to "how much room does this
+  gesture want", read as a floor by the formatter and a ceiling by the drawing.
+  - 🚨 **…and an ask must never exceed the bar.** Reserved verbatim, a fan of eight thirty-seconds
+    (21 columns = 378px) inside a bar the cap held at 400 pushed the rests after it 56px and 69px
+    OUTSIDE their own barline — his screenshot. Two answers, both needed. **`shareFanRoom`**: a fan
+    asks for its share of the room the bar actually has, `noteArea × fanColumns / laneColumns`, and
+    shares sum to one, so nothing can be pushed out by construction. ⭐ That IS the fix in one line —
+    *the room is divided by what is DRAWN, not by what is counted in ticks.*
+  - ⭐⭐ **THE LAST MEMBER'S OWN DURATION IS NOT WHITE SPACE** — his third report, and the sharpest
+    observation of the three: *"a lot of space between the end of the fan and the rest… interesting
+    that it happens with rit but not with accel."* `fanColumns` summed EVERY weight and divided by
+    the tightest, so the room reserved included the last member's own duration as air after its last
+    head; `fannedBeamGeometry` then left exactly that air, because `startFraction` runs over the
+    whole group. On an accel the last member is the SHORTEST — 0.9 of a column, invisible. On a
+    `rit` it is the LONGEST — four columns of white, and the room came out of the notes sharing the
+    bar. Both ends fixed together: the reservation counts the GAPS (`Σ w_k, k < n-1`) plus one
+    ordinary column, and the drawing re-normalizes the shares onto those gaps so the heads fill the
+    span. ⚠️ Every gap keeps its proportion, so the picture still says what the sound does — what
+    changed is only where the group's space stops and the next note's begins.
+    - …and the other half of that boundary: **the group stands off the next note by an ORDINARY
+      column** (`FanGeometryOptions.trailingGap`), not by the `minHeadGap` its own heads crowd to.
+      Filling the span down to the head gap put the last head 12px from the note after it where an
+      ordinary note stands 18px away — *"the last note is almost touching the barline… here it is
+      almost touching the rest."* Inside the group the heads crowd; that is the notation. The group
+      as a whole is a note like any other.
+
+      🚨 **STILL WRONG, AND LEFT THAT WAY ON PURPOSE — see the open item below.** His verdict after
+      the change: *"not fixed… after the fan the space is too close of the next element."*
+  - ⭐⭐ **THE CAP IS A PREFERENCE; THE FLOOR IS THE MUSIC** (his question: *"there is still space in
+    the line… the bar can grow more"*). `MAX_MEASURE_WIDTH` — "one measure must not dominate" — was
+    applied LAST in `calculateMinimumMeasureWidth`, so it also clamped bars that could not compress.
+    A bar's incompressible demand (every lane's columns + the clefs and meter it must draw) is now
+    the floor under the cap, and a bar that genuinely needs the room takes it; the line then carries
+    fewer bars, which is what casting-off is for. Not fan-specific — any dense bar was clamped the
+    same way — and it is why the fan fits in the FIRST place rather than merely fitting inside a
+    squeeze.
 - **MusicXML export** — we have no exporter yet; §2 is the half that would be needed.
 - **Tuning the numbers and the ramp** — hand work, by ear, ongoing. See §1.
 - **Per-member horizontal spacing** — ✅ now BUILT, in **docs/note-spacing-plan.md §7**. Spacing a
@@ -306,3 +351,45 @@ survives; the setting is gone.
   a reader counts is lines, and spreading them does not change how many there are.
 - Fans that don't end in a single beam (2→4), direction changes mid-group, fans crossing a barline
   or a system break, and headless-stem notation (Wikipedia's "approximate number of headless stems").
+
+## 5. ⏭️ OPEN — the space after a fan needs a REAL spacing model, not more constants
+
+**Status: NOT SOLVED, and knowingly left as it is.** Three rounds of his reports moved the room a
+fan gets in the right direction — the group is no longer crammed into its tick share, its bar can
+grow past the cap, and the last member's duration is no longer drawn as white space — but the last
+one stands: *"after the fan the space is too close of the next element… it is wrong."*
+
+**Why more patching is the wrong move.** Every number in that boundary is a constant somebody chose,
+and they are now negotiating with each other:
+
+| number | where | what it claims |
+|---|---|---|
+| `MIN_NOTE_SPACING` (1.8 spaces) | `layoutConfig` | what one ordinary event's column is |
+| `FAN_MIN_HEAD_GAP_RATIO` (1.25) | `FannedBeam` | the closest two fanned heads may come |
+| `trailingGap` (= `MIN_NOTE_SPACING`) | `FanPass` → `FannedBeam` | what the group leaves after itself |
+| `fanColumns(...) + 1` | `utils/fannedBeam` | the room the bar is asked for |
+| `FAN_MAX_SPAN_STRETCH` (1.5) | `fanRoom` | how far a justified bar may stretch it |
+
+Five numbers for one question, each tuned against one screenshot. That is the definition of a magic
+number: it is right in the case it was measured on and silently wrong in the next one. **The fix is
+not a sixth number.**
+
+**What a proper solution looks like.** The question *"how much room does this event need before and
+after it"* is not a fan question at all — it is the score's spacing rule, and this editor does not
+have one. It has a floor per event (`MIN_NOTE_SPACING`) and VexFlow's tick-proportional formatter,
+which is why every feature that draws its own ink (the fan, the two-note tremolo, a member's
+accidental) ends up re-deriving its own approach and departure room by hand. A real model would:
+
+- give every event an **approach** and a **departure** requirement derived from what it actually
+  draws — glyph widths, accidentals, dots, ledger lines — the way Gould's spacing tables and
+  Dorico's spacing engine do, rather than from its duration alone;
+- make a fanned group ask for its members' requirements **as ordinary events** on that same axis, so
+  the gap between its last head and the next note is decided by the SAME rule that decides the gap
+  between any two notes — no `trailingGap`, no `+ 1`;
+- keep the ramp as what it is (a proportional distribution INSIDE the group's own span), so the two
+  concerns stop being tangled: the group's outer room is spacing, the inner crowding is notation.
+
+⚠️ It is a real piece of work — it touches `MeasureLayout`, `NoteBuilder`, the fan, the tremolo and
+every future element that draws its own ink — and it should be planned properly before anything is
+written. His words when we stopped: *"for this we need a proper solution, a robust one, and not use
+magic numbers… let's leave it like this for now."*

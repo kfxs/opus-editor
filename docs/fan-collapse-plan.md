@@ -126,6 +126,17 @@ need them to be a passage), which is what keeps the all-or-nothing direction rul
   the music keeps its total length, with the tied piece holding what the ramp gave up.
 - **The selection** after a collapse is the survivor alone: the other ids name slots the bar no
   longer has.
+- ⭐ **The ROOM** — his first report on the finished feature, and the fix is not in this file:
+  `engine/rendering/fanRoom.ts` (see the entry in docs/fanned-beams-plan.md §4). The collapse is
+  what made it visible — the same seven notes, drawn twice, once at 28px gaps and once at 11px —
+  but the cause is older than this feature and applies to every fan: the bar was widened by
+  `fanColumns` and VexFlow then shared that width out by TICK, so a slot holding one event's worth
+  of ticks got one event's worth of room. A fan asks the formatter for its own width now, and the
+  drawing caps it at the same number, which is the other half of what he asked for: *"no matter
+  what is the total duration of the fan, the visualisation always looks good."*
+  🚨 **The gap AFTER a fan is still wrong** and is left that way deliberately — five tuned constants
+  are negotiating one question, and the answer is a real spacing model, not a sixth. See
+  docs/fanned-beams-plan.md §5.
 
 ## 4. Deliberately NOT here
 

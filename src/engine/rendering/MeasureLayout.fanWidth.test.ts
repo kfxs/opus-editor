@@ -54,7 +54,8 @@ describe('slotColumns / laneColumns', () => {
 
   it('more beams mean a steeper ramp, and a steeper ramp needs more room', () => {
     expect(fanColumns({ ...FAN, beams: 4 })).toBeGreaterThan(fanColumns({ ...FAN, beams: 2 }))
-    expect(fanColumns({ ...FAN, beams: 1 })).toBe(FAN.count + 1) // no ramp: one column each
+    // No ramp at all: N even notes need N-1 gaps of one column, plus the column after the last head.
+    expect(fanColumns({ ...FAN, beams: 1 })).toBe(FAN.count)
   })
 })
 
@@ -95,5 +96,35 @@ describe('the bar makes room for the members', () => {
     model.setFan(id, { ...FAN, count: 12 })
     const info = widthOf(model)
     expect(info.floorWidth).toBeLessThanOrEqual(info.minWidth)
+  })
+})
+
+/**
+ * ⭐⭐ **THE CAP IS A PREFERENCE; THE FLOOR IS THE MUSIC** — his report, on a fan of eight
+ * thirty-seconds. `MAX_MEASURE_WIDTH` ("one measure must not dominate a line") was applied last, so
+ * a bar whose content genuinely needed more was held at the cap and everything past it was drawn
+ * through the barline. His question is the rule: *"there is still space in the line… the bar can
+ * grow more."*
+ */
+describe('a bar that cannot compress outgrows MAX_MEASURE_WIDTH', () => {
+  it('a dense fan takes the room its columns need, cap or no cap', () => {
+    const { model, id } = blanca()
+    // 12 members at 4 beams: a ramp whose tightest gap is a quarter of its longest, so its columns
+    // come to more than the cap allows a bar to be.
+    model.setFan(id, { direction: 'rit', count: 12, beams: 4 })
+    const columns = laneColumns(model.getMeasure(1)!.slots)
+    expect(columns * LAYOUT_CONFIG.MIN_NOTE_SPACING,
+      'fixture: this bar wants more than the cap')
+      .toBeGreaterThan(LAYOUT_CONFIG.MAX_MEASURE_WIDTH)
+
+    const info = widthOf(model)
+    expect(info.minWidth, 'so the bar grew past it')
+      .toBeGreaterThanOrEqual(columns * LAYOUT_CONFIG.MIN_NOTE_SPACING)
+  })
+
+  it('…and an ordinary bar is still capped — nothing else changed', () => {
+    const model = new ScoreModel('cap')
+    model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+    expect(widthOf(model).minWidth).toBeLessThanOrEqual(LAYOUT_CONFIG.MAX_MEASURE_WIDTH)
   })
 })

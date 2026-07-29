@@ -204,9 +204,14 @@ export function fanSpeedRatio(beams: number): number {
  * `count`, and the reason a `rit.` was the worst case reported (a rallentando OPENS with its fastest
  * notes, so its tightest gaps are at the very start).
  *
- * Only the gaps BETWEEN heads count, so the last member's weight is not in the minimum: nothing
- * follows it inside the group. Its own glyph still needs room before whatever comes next, which is
- * the `+ 1` — and it is what stops a fan from running into the note after it.
+ * ⭐ **Only the gaps BETWEEN heads count — the last member's weight is in neither term.** It is not
+ * in the minimum (nothing follows it inside the group) and it is not in the SUM either, which is the
+ * half this got wrong: counted in, the group reserved the last member's own duration as blank space
+ * after its last head. On an accel that is 0.9 of a column and invisible; on a `rit`, whose last
+ * member is its LONGEST, it is four columns of white — his report, *"a lot of space between the end
+ * of the fan and the rest… interesting that it happens with rit but not with accel"*, and the room
+ * came out of the notes that had to share the bar with it. What follows the last head is one
+ * ordinary column, the `+ 1`, exactly as after any other note.
  *
  * ⚠️ The unit is `MIN_NOTE_SPACING`: one column is what an ordinary event gets, and that is exactly
  * the claim being made — *a fanned note takes the room of this many notes.* It has to be a count
@@ -221,9 +226,10 @@ export function fanColumns(fan: FanMark): number {
   const n = fanCount(fan)
   if (n < 2) return 1
   const weights = fanWeights(fan).map(fracToNumber)
-  const sum = weights.reduce((a, b) => a + b, 0)
-  const tightest = Math.min(...weights.slice(0, n - 1)) // the gaps, not the members
-  return Math.ceil(sum / tightest) + 1
+  const gaps = weights.slice(0, n - 1) // the gaps, not the members: nothing follows the last head
+  const span = gaps.reduce((a, b) => a + b, 0)
+  const tightest = Math.min(...gaps)
+  return Math.ceil(span / tightest) + 1
 }
 
 /**

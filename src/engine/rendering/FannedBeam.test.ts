@@ -26,7 +26,8 @@ const MIN_STEM = 20
  * all share one pitch is what the feature drew before they could differ, and it must still come out
  * flat, unshifted and unlifted.
  */
-const geometry = (fan: FanMark, spanEndX = 400) => fannedBeamGeometry({
+const geometry = (fan: FanMark, spanEndX = 400, trailingGap?: number) => fannedBeamGeometry({
+  trailingGap,
   members: fanMembers(fan, frac(2, 1)),
   memberHeadYs: Array.from({ length: Math.max(1, fan.count) }, () => [100]),
   direction: fan.direction,
@@ -57,8 +58,24 @@ describe('the members', () => {
     for (let k = 1; k < g.stems.length; k++) {
       expect(g.stems[k].headX).toBeGreaterThan(g.stems[k - 1].headX)
     }
-    // The last head still has its own glyph's room before whatever comes next.
-    expect(g.stems[g.stems.length - 1].headX).toBeLessThan(400 - MIN_GAP)
+    // The last head still has its own glyph's room before whatever comes next — and now lands
+    // EXACTLY there when the room is plentiful: the heads fill the span, because the last member's
+    // own duration is no longer drawn as white space (his `rit` report). The column after the group
+    // is reserved by `fanColumns`, not left inside the ramp.
+    expect(g.stems[g.stems.length - 1].headX).toBeLessThanOrEqual(400 - MIN_GAP)
+  })
+
+  it('⭐ stands off the next note by an ORDINARY column, not by its own crowded gap', () => {
+    // His report, twice: *"the last note is almost touching the barline"*, and *"here it is almost
+    // touching the rest"*. Inside the group the heads crowd — that IS the notation — but the group
+    // as a whole keeps its distance like any other note. `fanColumns` reserves that column; this is
+    // the option that leaves it.
+    const TRAILING = 18
+    const g = geometry(FAN, 400, TRAILING)
+    const last = g.stems[g.stems.length - 1].headX
+    expect(400 - last).toBeCloseTo(TRAILING, 6)
+    // …and the group is that much tighter for it — the room comes off the ramp, not out of the bar.
+    expect(last).toBeLessThan(geometry(FAN).stems[g.stems.length - 1].headX)
   })
 
   it('crowds toward the FAST end — the drawing says what the playback does', () => {
@@ -306,8 +323,11 @@ describe('⭐ the heads never collapse onto each other', () => {
     const total = gaps.reduce((a, b) => a + b, 0)
     expect(total).toBeLessThanOrEqual(160 - 100 - MIN_GAP + 1e-9)
     for (const gap of gaps) expect(gap).toBeGreaterThan(0)
-    // Evenly short, not proportionally short — the least-bad answer, and it still reads as a group.
-    for (const gap of gaps) expect(gap).toBeCloseTo(gaps[0], 6)
+    // NEARLY even, and never piled up at one end — which is the claim that matters. (It used to come
+    // out exactly even, because every gap hit the floor and was then scaled by one number. With the
+    // trailing air gone the group has no slack, so the widest gaps stay a little above the floor and
+    // the ramp is still faintly legible under the compression. Better, and the same promise.)
+    expect(Math.max(...gaps) / Math.min(...gaps)).toBeLessThan(1.3)
   })
 
   it('stays proportional when the room IS there', () => {
@@ -424,7 +444,11 @@ describe('an accidental buys its own room', () => {
     const plain = geometry(FAN).stems.map(s => s.headX)
     const signed = withSigns([0, 0, 0, 0, 40, 0]).stems.map(s => s.headX)
     expect(signed[4] - signed[3]).toBeGreaterThan(plain[4] - plain[3])
-    expect(signed[1] - signed[0]).toBeCloseTo(plain[1] - plain[0], 6)
+    // …and never the others: the room a sign needs comes OUT of the group's own span, so the gaps
+    // that did not grow give it up rather than growing too. (They used to be untouched to the last
+    // decimal, when the ramp had the last member's duration as slack to spend; now the group is
+    // exactly as wide as its gaps, so what one gap takes the rest pay for.)
+    expect(signed[1] - signed[0]).toBeLessThanOrEqual(plain[1] - plain[0] + 1e-9)
   })
 
   it('is a floor like the head gap — a wide gap that already fits is left alone', () => {

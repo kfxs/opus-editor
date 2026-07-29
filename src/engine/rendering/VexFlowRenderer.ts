@@ -5,6 +5,7 @@ import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
 import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
 import { fanStemExtension } from './FannedBeam'
 import { drawFannedBeams, drawCrossBarFanBeams, type FanJoin } from './FanPass'
+import { shareFanRoom } from './fanRoom'
 import { clearLedgersForAccidentals } from './ledgerAccidentalClearance'
 import { placeDots } from './dotPlacement'
 import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
@@ -1771,6 +1772,11 @@ export class VexFlowRenderer {
         // left edge and then shifts it.
         const userSpacePx = measureUserSpacePx(pass.score, measure.id)
         const formatWidth = Math.max(noteAreaWidth - 15 - userSpacePx, 50)
+        // ⭐ Each fan takes its share of the room THIS bar actually has, counted in columns — the
+        // full ask when the bar could pay it, less when `MAX_MEASURE_WIDTH` clamped the bar. Shares
+        // sum to one, which is what keeps a dense fan from pushing the notes after it through the
+        // barline (`fanRoom.ts`). Per lane: each voice fills the bar, so each divides it.
+        for (const g of groups) shareFanRoom(g.slots, g.staveNotes, formatWidth)
         const formatter = new Formatter().joinVoices(vexVoices)
         formatter.format(vexVoices, formatWidth)
         applyLeadingSpaces(formatter, vexVoices, pass.score, measure)

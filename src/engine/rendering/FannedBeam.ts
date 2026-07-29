@@ -207,6 +207,17 @@ export interface FanGeometryOptions {
    */
   minHeadGap: number
   /**
+   * ⭐ The room left between the LAST head and whatever comes next, in pixels. Absent = the same
+   * {@link minHeadGap} every gap inside the group has.
+   *
+   * A separate number because the two questions are different: inside the group the heads crowd,
+   * and *that* is the notation — but the group as a whole stands off the next note like any other
+   * note does, an ordinary column. Left at `minHeadGap` the fan's last head sat 12px from the note
+   * after it where an ordinary note would sit 18px away, which is what "almost touching the rest"
+   * (his report) looks like. `fanColumns` has always RESERVED that column; this is what leaves it.
+   */
+  trailingGap?: number
+  /**
    * Extra room, per member, that its ACCIDENTAL needs to the LEFT of its head — 0 where it carries
    * no sign. The width pass cannot see this (it counts head columns and cannot measure glyphs), so
    * the sign buys its room out of the group's own span rather than out of the bar's.
@@ -348,6 +359,7 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   const {
     members, memberHeadYs, direction, beams, headX, spanEndX, stemOffset, minHeadGap,
     accidentalRoom, headRightRoom, memberSpaces, memberOffsets, tipY, minStemLength, stemDirection, beamWidth,
+    trailingGap = minHeadGap,
   } = opts
   const prefix = opts.prefix ?? []
   const joined = prefix.length > 0 || !!opts.joined
@@ -365,11 +377,12 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   const base = headX - (offsets[0] ?? 0)
 
   // The span the HEADS may occupy: the last one must still fit before whatever comes next, so the
-  // room its own glyph takes is not part of the ramp. ⚠️ Measured from `base`, so NO offset ever
+  // room its own glyph takes — and the ordinary note gap after it ({@link trailingGap}) — is not
+  // part of the ramp. ⚠️ Measured from `base`, so NO offset ever
   // changes it — an offset has no width.
   // ⭐ …and the LAST member's own displaced head comes off the same end: a second under an upward
   // stem reaches a glyph past the column, and the note after the fan is what it would reach into.
-  const usable = spanEndX - base - minHeadGap - (headRightRoom?.[members.length - 1] ?? 0)
+  const usable = spanEndX - base - trailingGap - (headRightRoom?.[members.length - 1] ?? 0)
   if (usable <= 0) return empty
 
   /**
@@ -399,14 +412,31 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   for (let k = 1; k < members.length; k++) authoredTotal += authored[k] ?? 0
   const rampUsable = Math.max(0, usable - authoredTotal)
 
+  /**
+   * ⭐ **THE HEADS FILL THE SPAN — the last member's own duration is not drawn as white space.**
+   *
+   * `startFraction` runs over the whole group, so the last head sits at `1 - w_last/Σw` of the way
+   * along and the remainder is air INSIDE the fan's room. On an accel the last member is the
+   * shortest and the leftover is invisible; on a `rit` it is the LONGEST — four columns of white
+   * between the group and the note after it, which is what he saw and what made the two directions
+   * look like different features. Dividing by that fraction re-normalizes the shares onto the gaps
+   * alone, which is exactly what `fanColumns` reserves room for at the other end.
+   *
+   * ⚠️ **The picture still says what the sound does.** Every gap keeps its PROPORTION — this scales
+   * them all by one number — so the crowding a reader sees is the ramp they hear. What changes is
+   * only where the group's own space stops and the next note's begins, which is a layout question
+   * and never a rhythmic one (playback reads `startFraction` itself, untouched).
+   */
+  const headSpan = members[members.length - 1].startFraction
   const gaps: number[] = []
   for (let k = 0; k + 1 < members.length; k++) {
     // The floor grows by whatever sign the NEXT head wears, since an accidental hangs to its left
     // and would otherwise land on this head — and by whatever THIS member's own heads reach
     // forward, which is a displaced second under an upward stem.
     const floor = minHeadGap + (accidentalRoom?.[k + 1] ?? 0) + (headRightRoom?.[k] ?? 0)
-    const share = (members[k + 1].startFraction - members[k].startFraction) * rampUsable
-    gaps.push(Math.max(floor, share + (authored[k + 1] ?? 0)))
+    const proportion = (members[k + 1].startFraction - members[k].startFraction)
+      / (headSpan > 0 ? headSpan : 1)
+    gaps.push(Math.max(floor, proportion * rampUsable + (authored[k + 1] ?? 0)))
   }
   // Even the floored layout can outgrow the room the bar gave. Scaling every gap by the shortfall
   // keeps the group inside its span and lands it evenly short rather than letting the last members
