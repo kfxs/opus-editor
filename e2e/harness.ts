@@ -289,7 +289,7 @@ const harness: Harness = {
 
   texts: (selector: string) => all<SVGTextElement>(selector).map(t => t.textContent ?? ''),
 
-  exportPdf: () => exportScorePdf(engine.getScore()),
+  exportPdf: () => exportScorePdf(engine.getScore(), engine.getSurface()),
 
   useLayout: (on: boolean) => engine.setSurface(on ? A4_NORMAL : SKETCH_CANVAS),
 

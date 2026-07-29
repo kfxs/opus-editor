@@ -28,6 +28,10 @@ export interface ScoreSvgRender {
   /** The rendered SVG. Still IN the document — `getBBox`/`getComputedStyle` only answer for an
    *  attached element, and both the outliner and svg2pdf need them. Valid until `dispose()`. */
   svg: SVGSVGElement
+  /** How many pages this render cast off into — 1 on a canvas, which is the endless strip.
+   *  Asked of the render rather than re-derived from the SVG's height: the stacking is
+   *  `PagePass`'s, and inverting it here would be a second answer to one question. */
+  pageCount: number
   /** Removes the host from the document. Always call it (a `finally`), or the page leaks a
    *  full score's worth of SVG per export. */
   dispose(): void
@@ -71,7 +75,7 @@ export async function renderScoreSvg(score: Score, surface: Surface = SKETCH_CAN
 
     const svg = host.querySelector('svg')
     if (!svg) throw new Error('Export render produced no SVG')
-    return { svg: svg as SVGSVGElement, dispose }
+    return { svg: svg as SVGSVGElement, pageCount: renderer.getPageCount(), dispose }
   } catch (error) {
     dispose()
     throw error

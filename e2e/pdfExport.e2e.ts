@@ -48,3 +48,48 @@ test('exports a real PDF, with the music actually in it', async ({ score }) => {
   expect(music.bytes.length - empty.bytes.length, 'twelve bars of music made the file grow')
     .toBeGreaterThan(4_000)
 })
+
+/** Every `/MediaBox [0 0 w h]` in the file, in points — one per page. */
+function mediaBoxes(bytes: Buffer): { widthPt: number; heightPt: number }[] {
+  return [...bytes.toString('latin1').matchAll(/\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]/g)]
+    .map(m => ({ widthPt: Number(m[1]), heightPt: Number(m[2]) }))
+}
+
+test('under a layout the PDF is real A4 pages; without one it is the tall column it always was', async ({ score }) => {
+  // 45 bars of eighths — the same score `pages.e2e.ts` uses, and for the same reason: fewer would
+  // fit on a single page and every claim about pagination would pass vacuously.
+  await score.evaluate(async () => {
+    const h = window.__h
+    while (h.engine.getScore().measures.length < 45) h.engine.addMeasure()
+    for (let measure = 1; measure <= 45; measure++) {
+      for (let eighth = 0; eighth < 8; eighth++) {
+        h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: '8', measure, beat: h.frac(eighth, 2) })
+      }
+    }
+    await h.render()
+  })
+
+  // ---- Layout off: unchanged. One page, as tall as the music came out, and NOT any paper size.
+  const canvas = mediaBoxes((await exportedBytes(score)).bytes)
+  expect(canvas, 'the canvas prints as one page').toHaveLength(1)
+  // 15 systems' worth: 1717 pt, twice an A4 page and no paper size at all — which is the point.
+  expect(canvas[0].heightPt, 'as tall as the whole column').toBeGreaterThan(1500)
+  expect(canvas[0].heightPt).not.toBeCloseTo(841.9, 0)
+
+  // ---- Layout on: one sheet per page, at A4's real size.
+  const drawnPages = await score.evaluate(async () => {
+    window.__h.useLayout(true)
+    await window.__h.render()
+    return window.__h.pages().length
+  })
+  const paged = mediaBoxes((await exportedBytes(score)).bytes)
+
+  expect(paged.length, 'one PDF page per page the render cast off').toBe(drawnPages)
+  expect(paged.length).toBeGreaterThan(1)
+  for (const box of paged) {
+    // A4 is 210 × 297 mm = 595.3 × 841.9 pt. Not a coincidence to be found here: it is 210 mm
+    // because the surface said millimetres, where the canvas could only ever say pixels.
+    expect(box.widthPt).toBeCloseTo(595.3, 0)
+    expect(box.heightPt).toBeCloseTo(841.9, 0)
+  }
+})

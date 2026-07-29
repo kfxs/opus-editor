@@ -39,7 +39,7 @@ describe('the stacking', () => {
 describe('drawPages', () => {
   it('draws nothing at all on a canvas', () => {
     const svg = svgEl()
-    drawPages(svg, CANVAS, 1, 1000)
+    drawPages(svg, CANVAS, 1, 1000, 'editor')
     expect(svg.children).toHaveLength(0)
   })
 
@@ -48,7 +48,7 @@ describe('drawPages', () => {
     const music = document.createElementNS('http://www.w3.org/2000/svg', 'g')
     svg.appendChild(music)
 
-    drawPages(svg, A4, 3, A4.widthPx)
+    drawPages(svg, A4, 3, A4.widthPx, 'editor')
 
     expect(svg.querySelectorAll(`.${PAGE_SHEET_CLASS}`)).toHaveLength(3)
     // ⭐ FIRST child, not last: measure groups are reused across renders, so an appended underlay
@@ -59,21 +59,27 @@ describe('drawPages', () => {
 
   it('replaces the last render’s sheets rather than piling more on', () => {
     const svg = svgEl()
-    drawPages(svg, A4, 3, A4.widthPx)
-    drawPages(svg, A4, 2, A4.widthPx)
+    drawPages(svg, A4, 3, A4.widthPx, 'editor')
+    drawPages(svg, A4, 2, A4.widthPx, 'editor')
     expect(svg.querySelectorAll(`.${PAGE_SHEET_CLASS}`)).toHaveLength(2)
   })
 
   it('takes the sheets away when the surface goes back to a canvas', () => {
     const svg = svgEl()
-    drawPages(svg, A4, 2, A4.widthPx)
-    drawPages(svg, CANVAS, 1, 1000)
+    drawPages(svg, A4, 2, A4.widthPx, 'editor')
+    drawPages(svg, CANVAS, 1, 1000, 'editor')
     expect(svg.querySelectorAll(`.${PAGE_SHEET_CLASS}`)).toHaveLength(0)
+  })
+
+  it('draws nothing for PRINT — the desk is an editing affordance, and paper is already paper', () => {
+    const svg = svgEl()
+    drawPages(svg, A4, 3, A4.widthPx, 'print')
+    expect(svg.children).toHaveLength(0)
   })
 
   it('never answers a hit-test — it is chrome behind the music, not ink in it', () => {
     const svg = svgEl()
-    drawPages(svg, A4, 1, A4.widthPx)
+    drawPages(svg, A4, 1, A4.widthPx, 'editor')
     expect(svg.firstElementChild!.getAttribute('pointer-events')).toBe('none')
   })
 })

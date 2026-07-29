@@ -133,7 +133,9 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
       // Imported on demand: the PDF writer and the outliner are ~600kB of machinery nobody who
       // never exports should download. The button is the only door to them.
       const { exportScorePdf } = await import('../engine/export/pdfExport')
-      await exportScorePdf(engine.getScore())
+      // On the surface the editor is showing: a page layout prints as real pages, the sketching
+      // canvas as the one tall column it has always been (docs/layout-plan.md P2).
+      await exportScorePdf(engine.getScore(), engine.getSurface())
     } catch (error) {
       console.error('PDF export failed:', error)
       window.alert(`PDF export failed: ${error instanceof Error ? error.message : String(error)}`)

@@ -1,9 +1,10 @@
 # Layout — the surface the music is drawn on
 
-**Status: P0 + P1 BUILT (2026-07-29); P2 planned.** Infrastructure first. The layout object is expected
+**Status: P0 + P1 + P2 BUILT (2026-07-29) — the plan is DONE.** Infrastructure first. The layout object is expected
 to grow for a long time; this doc builds the *seam* it grows in, and the smallest possible first
 occupant (an A4 page). The seam exists and is a no-op — `SKETCH_CANVAS` draws exactly what the editor
-always drew — and `Use layout` in the dev toolbar now puts the music on A4 sheets.
+always drew — `Use layout` in the dev toolbar puts the music on A4 sheets, and the PDF exports those
+sheets as real A4 pages. §7 lists what a later iteration on the object adds; nothing there is owed.
 
 ---
 
@@ -286,7 +287,17 @@ jsdom can no more measure a system's height than a notehead's. Two things the bu
    floor cannot pick up the page width (§2). Filtering downstream instead means every future reader
    has to remember to ask.
 
-### P2 — PDF
+### P2 — PDF — ✅ **DONE**
+
+**Built as written**, and it fell out as small as the doc promised. Two things worth recording:
+
+- **The page COUNT is asked, not re-derived.** The first draft recovered it by inverting `PagePass`'s
+  stacking out of the SVG's height — correct arithmetic, and exactly the second derivation of one
+  number that ends with a PDF a page short. `renderScoreSvg` reports what its render cast off.
+- **The sheets must not print.** `PagePass` draws a desk and a sheet edge so you can SEE the paper;
+  on paper that is a picture of a page printed on a page. So it draws nothing for the `'print'`
+  audience — which is the rule `hiddenElements.ts` already states for hidden elements, applied to
+  chrome instead of ink.
 
 - **Layout off: unchanged.** One tall page at 72/96, as today. The canvas has no physical size, so
   the scale is arbitrary and the doc says so plainly.

@@ -352,6 +352,11 @@ export class VexFlowRenderer {
    */
   private surface: Surface = SKETCH_CANVAS
 
+  /** How many pages the LAST render cast off into (1 on a canvas — one endless strip). Kept because
+   *  the export has to ask: re-deriving it from the SVG's height means inverting `PagePass`'s
+   *  stacking, and two derivations of one number is how a PDF ends up a page short. */
+  private lastPageCount = 1
+
   /**
    * **The casting-off of the last render, kept so a scroll doesn't recompute it.**
    *
@@ -3091,6 +3096,7 @@ export class VexFlowRenderer {
     // Client #7 staff-spacing (per-system): resolve each line's own per-staff push-down and
     // system top from the overrides + this render's line assignment (needs `measureWidths`).
     const spacing = this.staffSpacingLayout(score, measureWidths)
+    this.lastPageCount = spacing.pageCount
 
     // Bundle this render's per-render state (references to the instance-field maps —
     // see RenderPass for the lifetime contract). Created here, before the measure loop,
@@ -3230,7 +3236,7 @@ export class VexFlowRenderer {
     // The sheets, behind everything — see `drawPages` on why it must be inserted first rather than
     // appended. Drawn after the clear (which sweeps the last render's) and before any bar, and it
     // draws nothing at all on a canvas.
-    if (svg) drawPages(svg, surface, spacing.pageCount, contentWidth)
+    if (svg) drawPages(svg, surface, spacing.pageCount, contentWidth, this.audience)
 
     const placements: MeasurePlacement[] = []
     let redrawn = 0
@@ -3372,6 +3378,11 @@ export class VexFlowRenderer {
 
   getJustifyLastLine(): boolean {
     return this.justifyLastLine
+  }
+
+  /** How many pages the last render cast off into. 1 on a canvas, and 1 before anything is drawn. */
+  getPageCount(): number {
+    return this.lastPageCount
   }
 
   /** The surface to draw on — a sketching canvas or a page (`engine/layout/surface.ts`).

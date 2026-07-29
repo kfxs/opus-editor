@@ -1,4 +1,5 @@
 import type { SurfaceMetrics } from '@/engine/layout/surface'
+import type { RenderAudience } from './hiddenElements'
 
 /**
  * THE SHEETS — the page rectangles the music is engraved onto, drawn behind everything.
@@ -12,6 +13,11 @@ import type { SurfaceMetrics } from '@/engine/layout/surface'
  * ⭐ **Draws nothing at all on a canvas.** `heightPx === null` IS "no page" (see `SurfaceMetrics`),
  * and the sketching surface has always been a bare white SVG — `app.css` paints it, and a pass that
  * drew "one page" over it would change the picture P0 proved unchanged.
+ *
+ * ⭐ **And nothing at all for PRINT**, which is the same rule `hiddenElements` states for a hidden
+ * element: this is an *editing affordance*, not engraving. The desk and the sheet edge exist to show
+ * you WHERE the paper is; on paper, the paper is the paper — a printed page carrying a gray
+ * rectangle of desk and a hairline rule around its own border is nobody's engraving.
  */
 
 /** The gutter between two drawn sheets. Big enough to read as a gap, small enough not to waste
@@ -59,9 +65,15 @@ export function surfaceHeightPx(surface: SurfaceMetrics, pageCount: number, cont
  * underlay would paint over every bar that survived the last render and leave the newly drawn ones
  * visible — a picture that changes with which bars happened to be dirty.
  */
-export function drawPages(svg: SVGElement, surface: SurfaceMetrics, pageCount: number, svgWidthPx: number): void {
+export function drawPages(
+  svg: SVGElement,
+  surface: SurfaceMetrics,
+  pageCount: number,
+  svgWidthPx: number,
+  audience: RenderAudience,
+): void {
   for (const old of Array.from(svg.querySelectorAll(`.${PAGE_GROUP_CLASS}`))) old.remove()
-  if (surface.heightPx === null) return
+  if (surface.heightPx === null || audience === 'print') return
 
   const ns = 'http://www.w3.org/2000/svg'
   const group = document.createElementNS(ns, 'g')
