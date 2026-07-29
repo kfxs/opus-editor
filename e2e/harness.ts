@@ -20,6 +20,7 @@
  * layout box (160px tall for a notehead), not its ink.
  */
 import { MusicEngine } from '@/engine/MusicEngine'
+import { A4_NORMAL, SKETCH_CANVAS } from '@/engine/layout/surface'
 import { exportScorePdf } from '@/engine/export/pdfExport'
 import { fracCreate } from '@/utils/fraction'
 
@@ -118,6 +119,12 @@ export interface Harness {
    *  {@link Harness.glyphs} would only report the first character's codepoint. */
   texts(selector: string): string[]
   exportPdf(): Promise<void>
+  /** Draw on A4 pages instead of the sketching canvas (docs/layout-plan.md P1). */
+  useLayout(on: boolean): void
+  /** Every drawn SHEET, top to bottom — the page rectangles behind the music. */
+  pages(): { x: number; y: number; width: number; height: number }[]
+  /** The `<svg>`'s own size, which is what the viewport's scrollers are built from. */
+  svgSize(): { width: number; height: number }
 }
 
 /** Every class a ghost overlay is drawn under. Mirrors `GhostRenderer.GHOST_GROUP_SELECTOR`, which
@@ -283,6 +290,15 @@ const harness: Harness = {
   texts: (selector: string) => all<SVGTextElement>(selector).map(t => t.textContent ?? ''),
 
   exportPdf: () => exportScorePdf(engine.getScore()),
+
+  useLayout: (on: boolean) => engine.setSurface(on ? A4_NORMAL : SKETCH_CANVAS),
+
+  pages: () =>
+    all<SVGRectElement>('rect.score-page-sheet')
+      .map(r => ({ x: num(r, 'x'), y: num(r, 'y'), width: num(r, 'width'), height: num(r, 'height') }))
+      .sort((a, b) => a.y - b.y),
+
+  svgSize: () => ({ width: num(svg(), 'width'), height: num(svg(), 'height') }),
 }
 
 window.__h = harness

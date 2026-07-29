@@ -527,6 +527,17 @@ export interface EditorState {
    */
   justifyLastLine: boolean
 
+  /**
+   * Is the music being drawn on a PAGE (A4) rather than the sketching canvas?
+   *
+   * ⚠️ Same standing as {@link justifyLastLine}: view state mirrored here for the toolbar, NOT a
+   * `Score` field and not the truth — the truth is the `Surface` the engine holds
+   * (`engine/layout/surface.ts`), of which this is the two-valued shadow the dev toolbar can
+   * toggle. A canvas has no physical size, so "which of the two" is all a boolean can carry; the
+   * day there are three surfaces this becomes the surface itself.
+   */
+  useLayout: boolean
+
   // --- In-canvas text editing ---
   /** Set while a seamless DOM-overlay text editor is open over a mark; null when
    *  not editing. While non-null, the canvas mouse handlers (click / move) bail so
@@ -602,6 +613,7 @@ export function createEditorState(): EditorState {
     armedTuplet: null,
     selectedBeam: DEFAULT_BEAM,
     justifyLastLine: false,
+    useLayout: false,
     editingText: null,
     pastePlacementArmed: false,
     showCursor: true,

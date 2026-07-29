@@ -15,6 +15,7 @@ import { dynamicTextFromTool } from '../utils/dynamics'
 import { selectedNoteIds, selectedArticulationNoteIds, multipleNotesSelected } from './selection'
 import { bus } from '@/bus'
 import { staffOf } from '@/utils/lanes'
+import { A4_NORMAL, SKETCH_CANVAS } from '@/engine/layout/surface'
 
 /** Re-exported so the palette's callers keep one import — the type belongs with the rule. */
 export type { TupletResolution }
@@ -278,6 +279,24 @@ export class PaletteController {
     if (!engine || engine.getJustifyLastLine() === justify) return
     engine.setJustifyLastLine(justify)
     this.state.justifyLastLine = justify
+    this.renderScore()
+  }
+
+  /**
+   * Draw on a PAGE (A4 at normal margins) or on the sketching canvas — docs/layout-plan.md.
+   *
+   * The same path as the two knobs above it, and the same reason: the engine holds the truth (a
+   * `Surface`, not a boolean), the state carries the toolbar's mirror of it, and one render follows
+   * — which is also the highlight pass. ⭐ The boolean is mapped to a surface HERE rather than
+   * stored as one on the engine: two representations of the same fact, one of which can only say
+   * "on or off", is how they drift.
+   */
+  setUseLayout(useLayout: boolean): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    if ((engine.getSurface().kind === 'page') === useLayout) return
+    engine.setSurface(useLayout ? A4_NORMAL : SKETCH_CANVAS)
+    this.state.useLayout = useLayout
     this.renderScore()
   }
 

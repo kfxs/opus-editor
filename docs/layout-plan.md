@@ -1,9 +1,9 @@
 # Layout — the surface the music is drawn on
 
-**Status: P0 BUILT (2026-07-29); P1–P2 planned.** Infrastructure first. The layout object is expected
+**Status: P0 + P1 BUILT (2026-07-29); P2 planned.** Infrastructure first. The layout object is expected
 to grow for a long time; this doc builds the *seam* it grows in, and the smallest possible first
 occupant (an A4 page). The seam exists and is a no-op — `SKETCH_CANVAS` draws exactly what the editor
-always drew. Nothing yet offers a page: `A4_NORMAL` resolves correctly and nothing sets it.
+always drew — and `Use layout` in the dev toolbar now puts the music on A4 sheets.
 
 ---
 
@@ -247,7 +247,18 @@ pair (§5). One pre-existing failure is untouched and unrelated: `lint:testnames
 (`MeasureLayout.barWidth` / `.raggedLastLine` / `.noteSpacing`, `barWidthRoom.test`,
 `MusicEngine.barWidthNudge`) and move their import to `surface.ts`. Same numbers, same assertions.
 
-### P1 — the page kind
+### P1 — the page kind — ✅ **DONE**
+
+**Built as written**, and the toggle works: `Use layout` swaps the surface, the music re-casts onto
+stacked A4 sheets, and turning it off returns the picture to the byte. 2677 unit tests and 39 browser
+tests green — the 4 new ones are `e2e/pages.e2e.ts`, which is where the *drawn* claims live, since
+jsdom can no more measure a system's height than a notehead's. Two things the build found:
+
+- **P1.3 needed no code.** A bar that changes page moves only in y, and `replaySnapshot` already
+  translates by `(dx, dy)` — the `MOVED` path took pages for free, exactly as claimed.
+- **A test that fits on one page proves nothing.** The first draft of the spec used 30 bars, which
+  cast off to *exactly* 10 systems — A4's text block holds exactly 10 at the 150 px stride, so every
+  page-break assertion passed on a single-page score. It builds 45 bars now, and says why.
 
 1. `engine/layout/pageCastOff.ts` (+ spec) — takes the per-system heights `staffSpacingLayout`
    already computes (`lineHeightPx[]`, declared on `StaffSpacingLayout`, so the function is pure and

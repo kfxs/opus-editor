@@ -169,6 +169,10 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     'Stretch the LAST system to the page width (Finale/Sibelius). Off = ragged, the final system '
       + "keeps its natural width — LilyPond's ragged-last.",
     () => state.justifyLastLine, () => palette.setJustifyLastLine(!state.justifyLastLine))
+  toggle(viewBox, TOOL_BTN, 'Use layout',
+    'Draw the music on PAGES (A4 at 15mm margins) instead of the endless sketching canvas. '
+      + 'Ignored in linear view, which has no systems to break between pages.',
+    () => state.useLayout, () => palette.setUseLayout(!state.useLayout))
   row.appendChild(viewBox)
   row.appendChild(divider())
 

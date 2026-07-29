@@ -126,8 +126,15 @@ export const LEDGER_LINE_STYLE = { strokeStyle: '#000000', lineWidth: 1.25 }
  * the note ghost, notably — can be handed the result instead of recomputing it.
  */
 export interface StaffSpacingLayout {
-  /** `lineTopPx[line]` — that system's top Y (margin + every earlier system's grown height). */
+  /** `lineTopPx[line]` — that system's top Y **in the SVG**: on a canvas, the margin plus every
+   *  earlier system's grown height; on a page, its own page's top plus its place on that page.
+   *  Absolute deliberately — everything downstream (staves, the ghost, the registry) reads this
+   *  one number, so a page offset applied downstream would be a page offset somebody forgets. */
   lineTopPx: number[]
+  /** `pageOfLine[line]` — which page that system landed on (all 0 on a canvas). */
+  pageOfLine: number[]
+  /** How many sheets the music took. 1 on a canvas: the endless strip is one page. */
+  pageCount: number
   /** `cumPx[line][staffIndex]` — inclusive prefix sum (px) of the space-above at/above that staff. */
   cumPx: number[][]
   lineHeightPx: number[]

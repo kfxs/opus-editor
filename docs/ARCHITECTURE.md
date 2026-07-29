@@ -63,11 +63,14 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 │                              free funcs over `score`            │
 │      models/CollisionDetector                                  │
 │      rendering/VexFlowRenderer ... notation → SVG (VexFlow 5)  │
-│      rendering/{FanPass,GhostRenderer,Tie…,Slur…} . draw       │
-│                              passes: free funcs over RenderPass │
+│      rendering/{FanPass,GhostRenderer,PagePass,Tie…,Slur…}     │
+│                              draw passes: free funcs over the   │
+│                              RenderPass / the SVG               │
 │      rendering/CoordinateMapper .. pixel ↔ musical position    │
 │      layout/surface ........ WHAT the music is drawn ON —      │
 │                              canvas or page, an authored value  │
+│      layout/pageCastOff .... the VERTICAL casting-off: which    │
+│                              page each system lands on          │
 │      layout/{barWidthRoom,measuredRoom} . derived-view          │
 │                              arithmetic off the LAST RENDER     │
 │      ElementRegistry ....... rendered-element geometry + hit   │
@@ -276,6 +279,7 @@ editor?"* — if yes, it is a core module.
 | A cursor GHOST (the translucent preview an armed tool shows) | `engine/rendering/GhostRenderer.ts` — a `draw*Ghost`, a `ToolGhost` member (`ghostTypes.ts`), a `GHOST_DRAWERS` row, and a case in `interactions/toolGhost.ts`. ⚠️ The payload is ENGINE-owned, never the editor's `MarkingTool`: `lint:boundary` fences `src/engine/**` off from `@/interactions`. `VexFlowRenderer.ghostOverlay` frames every one: take the last ghost down, refuse if there is no page. ⚠️ A ghost's class must be in `GHOST_GROUP_SELECTOR` or it is never removed and smears a trail |
 | How far a column / a bar may still be squeezed | `engine/layout/measuredRoom.ts` — MEASURED off the last render through `ElementRegistry`, never predicted. ⚠️ The caller owns the staleness rule (`modelDirty` ⇒ decline): a fresh number against an old picture slides the floor one step per press |
 | What a bar-width gesture may do (slopes, floors, the ceiling) | `engine/layout/barWidthRoom.ts` — a PURE function of the casting-off + the stored stretch + the view mode + the surface + one measured slack, so `docs/bar-width-plan.md` §4–§5 can be stated in a unit test |
+| Which PAGE a system lands on, and where on it | `engine/layout/pageCastOff.ts` — the whole vertical algorithm, and short because system heights are already known. It asks the surface ONE question (`contentHeightPx`; `null` ⇒ never break, which is the canvas), and never how the sheets are STACKED — that is a drawing decision and lives in `engine/rendering/PagePass.ts`, which also draws them and owns the only read of `heightPx`. ⚠️ A system taller than a page takes one and overflows it; the `used > 0` guard is what stops that being an infinite loop |
 | The SURFACE the music is drawn on (page size, margins, the width it wraps at) | `engine/layout/surface.ts` — a `Surface` is authored *input*, not derived, and it is the one thing in `engine/layout/` that isn't read off the last render. ⭐ A **canvas** has no physical size (that invariant is what stops a sketching width becoming a page); a **page** is mm. One union in, one flat `SurfaceMetrics` out, so no call site branches on the kind. `MusicEngine` HOLDS the one in use as it holds `viewMode` — ⛔ never `score.layout`, never "the layout *of* the score". `docs/layout-plan.md` |
 | Marking something as selected on screen | `interactions/HighlightController.ts` — ⭐ **PAINT a mark (`addNode`), don't recolour engraved ink.** A recolour inherits every renderer detail: how many elements a mark is made of, which group owns them, and whether their coordinates are still true (a REUSED measure carries a `translate`, so its rects' own x is stale). See `docs/barline-selection.md` §3 for the four bugs that came of it |
 | Hit-testing / "what element is at (x,y)" | `engine/ElementRegistry.ts` |
