@@ -46,9 +46,12 @@ test('the canvas draws no paper at all, and the page draws a sheet per page', as
     expect(page.width).toBeCloseTo(1200, 0)
     expect(page.height).toBeCloseTo(1697, 0)
   }
-  // Stacked top to bottom with a gutter between, never overlapping.
+  // ⭐ SIDE BY SIDE — Sibelius's spread, not a roll of paper: same top edge, each sheet clear of
+  // the one before it with a gutter between.
+  for (const page of pages) expect(page.y, 'every sheet shares one top edge').toBe(pages[0].y)
   for (const [i, page] of pages.slice(1).entries()) {
-    expect(page.y, 'each sheet begins below the one above it').toBeGreaterThan(pages[i].y + pages[i].height)
+    expect(page.x, 'each sheet begins to the right of the one before it')
+      .toBeGreaterThan(pages[i].x + pages[i].width)
   }
 })
 
@@ -63,22 +66,23 @@ test('every system lands on a sheet, inside its margins', async ({ score }) => {
   const tops = [...new Set(staves.map(s => s.top))].sort((a, b) => a - b)
   expect(tops.length, 'several systems').toBeGreaterThan(1)
 
-  // 15 mm margins at 5.714 px/mm ≈ 86 px. A system's staves start at the top line, so the check is
-  // that no system's TOP falls in a margin or, worse, in the gutter between two sheets.
+  // 15 mm margins at 5.714 px/mm ≈ 86 px.
   const MARGIN = 15 * (10 / 1.75)
-  for (const top of tops) {
-    const page = pages.find(p => top >= p.y && top <= p.y + p.height)
-    expect(page, `a system at y=${top} is on a sheet, not in the gutter between two`).toBeTruthy()
-    expect(top - page!.y, 'and below that sheet’s own top margin').toBeGreaterThanOrEqual(MARGIN - 1)
+  // Every bar sits on a sheet — horizontally too, which is the whole of the side-by-side change:
+  // a system on the second page starts a page-and-a-gutter to the right, not under the first.
+  for (const bar of staves) {
+    const page = pages.find(p => bar.x1 >= p.x - 1 && bar.x2 <= p.x + p.width + 1)
+    expect(page, `bar ${bar.measure} is on a sheet, not in the gutter between two`).toBeTruthy()
+    expect(bar.x1 - page!.x, 'and inside that sheet’s own left margin').toBeGreaterThanOrEqual(MARGIN - 1)
+    expect(bar.top - page!.y, 'and below its top margin').toBeGreaterThanOrEqual(MARGIN - 1)
   }
 
   // The first system of each page starts at that page's top margin — a page break is a fresh start,
-  // not a running total carried down from the page above.
-  const firstOnEachPage = pages
-    .map(p => tops.find(t => t >= p.y && t <= p.y + p.height))
-    .filter((t): t is number => t !== undefined)
-  const offsets = firstOnEachPage.map((t, i) => t - pages[i].y)
-  for (const offset of offsets) expect(offset).toBeCloseTo(offsets[0], 1)
+  // not a running total carried over from the page before.
+  const firstOnEachPage = pages.map(p => Math.min(
+    ...staves.filter(b => b.x1 >= p.x - 1 && b.x2 <= p.x + p.width + 1).map(b => b.top),
+  ))
+  for (const top of firstOnEachPage) expect(top).toBeCloseTo(firstOnEachPage[0], 1)
 })
 
 test('the SVG grows to the stacked sheets, so the viewport can scroll through them', async ({ score }) => {
@@ -90,8 +94,9 @@ test('the SVG grows to the stacked sheets, so the viewport can scroll through th
   })
 
   const last = pages[pages.length - 1]
-  expect(size.height, 'the SVG reaches the bottom of the last sheet').toBeCloseTo(last.y + last.height, 0)
-  expect(size.width, 'and is exactly a sheet wide').toBeCloseTo(pages[0].width, 0)
+  expect(size.width, 'the SVG reaches the right edge of the last sheet').toBeCloseTo(last.x + last.width, 0)
+  expect(size.height, 'and is exactly one sheet tall — the pages are beside each other')
+    .toBeCloseTo(pages[0].height, 0)
 })
 
 test('linear view ignores the layout — it is a canvas, and a canvas has no pages', async ({ score }) => {

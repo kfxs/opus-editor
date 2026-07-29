@@ -131,6 +131,11 @@ export interface StaffSpacingLayout {
    *  Absolute deliberately — everything downstream (staves, the ghost, the registry) reads this
    *  one number, so a page offset applied downstream would be a page offset somebody forgets. */
   lineTopPx: number[]
+  /** `lineLeftPx[line]` — where that system's first bar STARTS. The surface's left margin on a
+   *  canvas; on a page, its own page's left edge plus that margin — which is what puts a system on
+   *  the second sheet of a side-by-side spread instead of under the first. Same reasoning as
+   *  `lineTopPx`: one absolute number, so no drawing code has to know where the pages are. */
+  lineLeftPx: number[]
   /** `pageOfLine[line]` — which page that system landed on (all 0 on a canvas). */
   pageOfLine: number[]
   /** How many sheets the music took. 1 on a canvas: the endless strip is one page. */

@@ -88,8 +88,8 @@ scale and none is invented — a staff comes out at ~10.6 mm, which is not a dec
 absence of one. Under a page surface the same staff prints at 7 mm, which is what an engraver
 expects, and it does so because the surface was stated in millimetres.
 
-**How the paged branch cuts.** The whole SVG is placed on *every* page, shifted up by that page's
-own top, and everything outside the page box is simply not displayed. So the cut lands exactly on
+**How the paged branch cuts.** The whole SVG is placed on *every* page, shifted by that page's own
+origin, and everything outside the page box is simply not displayed. So the cut lands exactly on
 the sheet edges the render already cast off against — there is no second derivation of where a page
 break goes, and therefore no way for the PDF's pages to disagree with the ones on screen. The page
 COUNT is asked of the render (`ScoreSvgRender.pageCount`) for the same reason, rather than being

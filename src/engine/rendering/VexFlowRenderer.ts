@@ -50,7 +50,7 @@ import { getStaves, staffMeasureView, firstStaffId, staffIndexOfId } from '@/eng
 import { LAYOUT_CONFIG, VIEWPORT_HEIGHT, LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout, type ViewMode } from './layoutConfig'
 import { resolveSurface, SKETCH_CANVAS, type Surface, type SurfaceMetrics } from '@/engine/layout/surface'
 import { pageCastOff } from '@/engine/layout/pageCastOff'
-import { drawPages, pageTopPx, surfaceHeightPx } from './PagePass'
+import { drawPages, pageOriginPx, surfaceSizePx } from './PagePass'
 import type { Rect } from '@/engine/ViewportModel'
 import { dbg } from '@/utils/debug'
 import { voiceOf } from '@/utils/lanes'
@@ -1243,13 +1243,15 @@ export class VexFlowRenderer {
     staffList: { id?: string }[],
     clefsByStaff: Map<string | undefined, StaffClefs>,
     measureWidths: Map<number, MeasureWidthInfo>,
-    spacing: { lineTopPx: number[]; cumPx: number[][]; lineHeightPx: number[] },
+    spacing: { lineTopPx: number[]; lineLeftPx: number[]; cumPx: number[][]; lineHeightPx: number[] },
     staffStride: number,
-    margin: number,
   ): Omit<MeasurePlacement, 'stave'>[] {
     const placements: Omit<MeasurePlacement, 'stave'>[] = []
     let currentLine = -1
-    let currentX = margin
+    // Where the current system starts: its own page's left edge plus the margin. On a canvas every
+    // system starts at the same x, which is what this has always been.
+    let lineLeft = spacing.lineLeftPx[0] ?? 0
+    let currentX = lineLeft
 
     for (const measure of score.measures) {
       const widthInfo = measureWidths.get(measure.number)
@@ -1260,13 +1262,14 @@ export class VexFlowRenderer {
 
       if (widthInfo.lineNumber !== currentLine) {
         currentLine = widthInfo.lineNumber
-        currentX = margin
+        lineLeft = spacing.lineLeftPx[currentLine] ?? lineLeft
+        currentX = lineLeft
       }
 
       // Top of this system (line): margin + the stacked heights of every system above it, each
       // grown by its own per-system staff-spacing extra (precomputed in `spacing.lineTopPx`).
       const systemTop = spacing.lineTopPx[currentLine]
-      const isFirstInLine = currentX === margin
+      const isFirstInLine = currentX === lineLeft
 
       // Each staff of this measure sits at its own Y with its own clef and its own slice of the
       // content (staffMeasureView filters slots/clefs/dynamics/tuplets to the staff). Barlines
@@ -2997,15 +3000,18 @@ export class VexFlowRenderer {
 
     // ---- Where each system SITS, which is the vertical casting-off. ----
     // Two steps, deliberately separate: `pageCastOff` says which page a system lands on and where
-    // it sits ON that page (pure, and it is the whole algorithm); `pageTopPx` says where that page
-    // is, which is a drawing decision — stacked with a gutter — and belongs to `PagePass`. On a
-    // canvas the first answers "page 0, margin + everything above you" and the second answers 0, so
-    // this reduces exactly to the running total it replaced.
+    // it sits ON that page (pure, and it is the whole algorithm); `pageOriginPx` says where that
+    // page is, which is a drawing decision — side by side, with a gutter — and belongs to
+    // `PagePass`. On a canvas the first answers "page 0, margin + everything above you" and the
+    // second answers (0, 0), so this reduces exactly to the running total it replaced.
     const pages = pageCastOff(lineHeightPx, surface)
-    const lineTopPx = pages.lineTopInPagePx.map(
-      (topInPage, line) => pageTopPx(surface, pages.pageOfLine[line]) + topInPage,
-    )
-    return { lineTopPx, cumPx, lineHeightPx, contentHeightPx, pageOfLine: pages.pageOfLine, pageCount: pages.pageCount }
+    const origins = pages.pageOfLine.map(page => pageOriginPx(surface, page))
+    const lineTopPx = pages.lineTopInPagePx.map((topInPage, line) => origins[line].y + topInPage)
+    const lineLeftPx = origins.map(at => at.x + surface.marginLeftPx)
+    return {
+      lineTopPx, lineLeftPx, cumPx, lineHeightPx, contentHeightPx,
+      pageOfLine: pages.pageOfLine, pageCount: pages.pageCount,
+    }
   }
 
   renderScore(score: Score, ghostNote?: GhostNote): boolean {
@@ -3021,7 +3027,6 @@ export class VexFlowRenderer {
     // margin and width below is read off it, and re-resolving mid-render is how a picture ends up
     // half on one page and half on another. (docs/layout-plan.md §5)
     const surface = this.surfaceMetrics()
-    const margin = surface.marginLeftPx
 
     // Use layout configuration
     const staveHeight = LAYOUT_CONFIG.STAVE_HEIGHT
@@ -3081,22 +3086,25 @@ export class VexFlowRenderer {
     // Store for use in tie rendering (to determine which line each measure is on)
     this.measureLayoutInfo = measureWidths
 
-    // Wrapped view justifies every line to the surface's width, so the SVG is that width.
-    // Linear view has no line to justify to: the music runs off to the right and the SVG has
-    // to grow with it — the side margins + the intrinsic widths, floored at the surface width so a
+    // Client #7 staff-spacing (per-system): resolve each line's own per-staff push-down and
+    // system top from the overrides + this render's line assignment (needs `measureWidths`).
+    // It also casts the systems off into PAGES, which is why the SVG's size comes after it.
+    const spacing = this.staffSpacingLayout(score, measureWidths)
+    this.lastPageCount = spacing.pageCount
+
+    // The whole drawing: one page-wide column on a canvas, the SPREAD when there is paper — pages
+    // side by side, so the SVG is as wide as all of them.
+    // Linear view has no line to justify to: the music runs off to the right and the SVG has to
+    // grow with it — the side margins + the intrinsic widths, floored at the surface width so a
     // short fragment doesn't render on a stub of a page. (docs/linear-view-plan.md §P1)
+    const spread = surfaceSizePx(surface, spacing.pageCount, spacing.contentHeightPx)
     const contentWidth = this.viewMode === 'linear'
       ? Math.max(
-          surface.widthPx,
+          spread.width,
           surface.marginLeftPx + surface.marginRightPx
             + [...measureWidths.values()].reduce((sum, m) => sum + m.finalWidth, 0),
         )
-      : surface.widthPx
-
-    // Client #7 staff-spacing (per-system): resolve each line's own per-staff push-down and
-    // system top from the overrides + this render's line assignment (needs `measureWidths`).
-    const spacing = this.staffSpacingLayout(score, measureWidths)
-    this.lastPageCount = spacing.pageCount
+      : spread.width
 
     // Bundle this render's per-render state (references to the instance-field maps —
     // see RenderPass for the lifetime contract). Created here, before the measure loop,
@@ -3107,7 +3115,7 @@ export class VexFlowRenderer {
     // Each system stacks N staves (N=1 → unchanged); its span grows by that system's own
     // staff-spacing extra, summed across all systems (in `staffSpacingLayout`) so the SVG fits
     // the pushed-down staves.
-    const totalHeight = surfaceHeightPx(surface, spacing.pageCount, spacing.contentHeightPx)
+    const totalHeight = spread.height
 
     // Check if SVG exists (should always exist after initialization)
     const svg = this.getSVGElement()
@@ -3126,7 +3134,7 @@ export class VexFlowRenderer {
 
     // ---- TIER 1 (§7): place every measure. Pure arithmetic over the casting-off; draws nothing. ----
     // Runs over the WHOLE score, and must keep doing so once P6 draws only a window of it.
-    const plans = this.layoutTier1(score, staffList, clefsByStaff, measureWidths, spacing, staffStride, margin)
+    const plans = this.layoutTier1(score, staffList, clefsByStaff, measureWidths, spacing, staffStride)
 
     // ---- The redraw decision (§7a). Three outcomes, not two. ----
     //
@@ -3236,7 +3244,7 @@ export class VexFlowRenderer {
     // The sheets, behind everything — see `drawPages` on why it must be inserted first rather than
     // appended. Drawn after the clear (which sweeps the last render's) and before any bar, and it
     // draws nothing at all on a canvas.
-    if (svg) drawPages(svg, surface, spacing.pageCount, contentWidth, this.audience)
+    if (svg) drawPages(svg, surface, spacing.pageCount, this.audience)
 
     const placements: MeasurePlacement[] = []
     let redrawn = 0

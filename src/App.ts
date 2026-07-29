@@ -28,6 +28,7 @@ import { mountDevToolbar } from './dev/devToolbar'
 import { mountScoreJsonPanel } from './dev/scoreJsonPanel'
 import { windows } from './windows'
 import { menus, menuActions, openMenuAtViewport } from './menus'
+import { A4_NORMAL } from './engine/layout/surface'
 
 /**
  * The editor application. No framework: it builds its own DOM, wires the controllers, and owns the
@@ -374,9 +375,11 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // the transform: scale(zoom) layer: it neither scrolls away with the music nor zooms with it.
   windows.mount(scoreViewport)
 
-  // No `width`: the initial SVG size comes from the engine's own surface (the sketching canvas —
-  // `engine/layout/surface.ts`), and the first render resizes it to whatever it casts off onto.
-  engine = new MusicEngine({ container: scoreContent, height: 400 })
+  // ⭐ The editor opens **on a page**: you are writing music for paper, and `Use layout` off is the
+  // deliberate step away from it rather than the way back. Stated here rather than defaulted in the
+  // engine — see `MusicEngineConfig.surface`. No `width`: the surface answers that, and the first
+  // render resizes the SVG to whatever it cast off onto.
+  engine = new MusicEngine({ container: scoreContent, height: 400, surface: A4_NORMAL })
 
   // Playback-follow: keep the playing measure inside the viewport. We react only when the measure
   // number changes (not every position tick), and viewport.ensureVisible self-gates — it scrolls

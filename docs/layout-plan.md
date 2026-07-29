@@ -1,10 +1,10 @@
 # Layout — the surface the music is drawn on
 
-**Status: P0 + P1 + P2 BUILT (2026-07-29) — the plan is DONE.** Infrastructure first. The layout object is expected
+**Status: P0 + P1 + P2 BUILT (2026-07-29) — the plan is DONE, and the layout is ON by default.** Infrastructure first. The layout object is expected
 to grow for a long time; this doc builds the *seam* it grows in, and the smallest possible first
 occupant (an A4 page). The seam exists and is a no-op — `SKETCH_CANVAS` draws exactly what the editor
-always drew — `Use layout` in the dev toolbar puts the music on A4 sheets, and the PDF exports those
-sheets as real A4 pages. §7 lists what a later iteration on the object adds; nothing there is owed.
+always drew — the editor opens on A4 sheets laid **side by side** (`Use layout`, on by default), and
+the PDF exports those sheets as real A4 pages. §7 lists what a later iteration on the object adds; nothing there is owed.
 
 ---
 
@@ -67,7 +67,7 @@ nothing forbade quietly became a page width.
 |---|---|---|
 | width | a number, meaning nothing physical | A4 210 mm − margins |
 | height | **none** — stack forever | 297 mm, cast off into pages |
-| what you see | one endless column | page rectangles, one after another |
+| what you see | one endless column | page rectangles **side by side**, read across |
 | PDF | unchanged: one tall page at 72/96 | N real A4 pages at real size |
 
 **Linear view is already a canvas** — `renderScore` sets `contentWidth = max(CONTAINER_WIDTH,
@@ -269,13 +269,24 @@ jsdom can no more measure a system's height than a notehead's. Two things the bu
    ⚠️ One degenerate case to answer in the spec rather than at 3 a.m.: a system taller than a page
    (many staves, or a big staff-spacing override). It takes a page of its own and overflows it —
    never an infinite loop, never a page with no system on it.
-2. `engine/rendering/PagePass.ts` — draws the page rectangles behind the music; SVG grows to
-   `pages × (pageHeight + gap)`. `ViewportHost` reads the SVG's size to build its scroller, so
-   scrolling through pages costs nothing new.
+2. `engine/rendering/PagePass.ts` — draws the page rectangles behind the music; the SVG grows to
+   the whole **spread**. `ViewportHost` reads the SVG's size to build its scroller, so scrolling
+   through pages costs nothing new.
+   ⭐ **Side by side (Sibelius/Finale), not stacked** — asked for during the build, and it landed in
+   `PagePass` alone because that module was already the one that owned the arrangement: the axis is
+   one exported knob (`PAGE_FLOW`), read by `pageOriginPx` + `surfaceSizePx` and nowhere else, so
+   `'vertical'` stays a real option and becomes a user choice by being passed in rather than found.
+   The one thing it cost elsewhere is that a system now has a LEFT as well as a top
+   (`StaffSpacingLayout.lineLeftPx`): a system on sheet 2 starts a page to the right.
 3. A bar that changes page has **moved**, not changed shape — it rides the renderer's existing
    `MOVED` path (translate the group), never `REDRAW`.
 4. **`Use layout`** toggle in the dev toolbar's `View:` group, mirrored on `EditorState` as
-   `useLayout`, swapping `SKETCH_CANVAS` ↔ `A4_NORMAL`. Same shape as `Justify last`, and the same
+   `useLayout`, swapping `SKETCH_CANVAS` ↔ `A4_NORMAL`. ⭐ **On by default** — you are writing music
+   for a page, so the editor opens on one and the sketching canvas is the deliberate step away from
+   paper. Stated by `App.ts` (`MusicEngineConfig.surface`), NOT defaulted in the engine: an engine
+   embedded somewhere else has no business assuming a European paper size, and paper should always
+   be an explicit statement. Which is also what keeps every unit spec and the geometry net on the
+   canvas they were written against. Same shape as `Justify last`, and the same
    four hops: `devToolbar` → `PaletteController.setUseLayout` → `MusicEngine` → renderer field +
    `layoutStateKey`.
    ⚠️ That makes **three** hand-rolled view toggles on that path (`viewMode`, `justifyLastLine`,

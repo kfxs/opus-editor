@@ -41,6 +41,12 @@ export interface MusicEngineConfig {
   height?: number
   /** Coordinate mapper configuration */
   coordinateConfig?: Partial<CoordinateMapperConfig>
+  /**
+   * What to draw ON — a page or the sketching canvas (`engine/layout/surface.ts`). Omitted, the
+   * engine draws the canvas: an embedder that has said nothing about paper has not asked for any.
+   * `App.ts` states A4, which is what makes the editor open on a page.
+   */
+  surface?: Surface
 }
 
 /** Re-exported: the type moved to `engine/layout/barWidthRoom` with the function that builds it,
@@ -66,8 +72,9 @@ export class MusicEngine {
 
     // Calculate coordinate mapper config based on container size. ⚠️ These size the *DOM element*
     // before anything is engraved — `renderScore` resizes the SVG to whatever surface it cast off
-    // onto. Defaulted from the sketching canvas so there is ONE 1000 in the codebase, not four.
-    const width = config.width || SKETCH_CANVAS.widthPx
+    // onto. Taken from the engine's own surface rather than a literal, so there is one answer to
+    // "how wide is this thing" and not two.
+    const width = config.width || resolveSurface(this.surface).widthPx
     const height = config.height || 400
     const measuresPerLine = 4 // 4 measures per line
     const margin = 20
@@ -101,6 +108,9 @@ export class MusicEngine {
 
     // Initialize renderer
     this.renderer.initialize(width, height)
+    // Stated, or the plain canvas both this and the renderer already default to. Pushed only when
+    // stated, so the two can never disagree and an embedder that says nothing gets no paper.
+    if (config.surface) this.setSurface(config.surface)
 
     // Set score in playback engine
     this.playbackEngine.setScore(this.scoreModel.getScore())
@@ -2612,6 +2622,12 @@ export class MusicEngine {
   /**
    * The **surface** the music is being drawn on — a sketching canvas or a page
    * (`engine/layout/surface.ts`, docs/layout-plan.md).
+   *
+   * ⚠️ The default here is the plain canvas, and **the editor opens on A4 by saying so**
+   * (`MusicEngineConfig.surface`, set in `App.ts`). Deliberate: an engine embedded somewhere else
+   * has no business assuming a European paper size, and this is the layer that is one day a
+   * package. Paper is always an explicit statement — which is the same reason `renderScoreSvg` and
+   * `exportScorePdf` default to the canvas when a caller states nothing.
    *
    * ⭐ Held exactly as {@link viewMode} is: one replaceable field of session state, so the renders
    * this engine starts internally use the same surface as the ones the editor asks for. That is a

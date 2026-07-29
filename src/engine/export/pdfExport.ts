@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf'
 import { svg2pdf } from 'svg2pdf.js'
 import type { Score } from '@/types/music'
 import { PX_PER_MM, resolveSurface, SKETCH_CANVAS, type Surface } from '@/engine/layout/surface'
-import { pageTopPx } from '@/engine/rendering/PagePass'
+import { pageOriginPx } from '@/engine/rendering/PagePass'
 import { renderScoreSvg, svgPixelSize } from './scoreSvg'
 import { outlineSvgText } from './outlineText'
 import { dbg } from '@/utils/debug'
@@ -79,11 +79,12 @@ async function writeOneTallPage(svg: SVGSVGElement, widthPx: number, heightPx: n
 /**
  * A page surface: one real sheet per page, at its real size in millimetres.
  *
- * The whole SVG is placed on **every** page, shifted up by that page's own top — so page 3 shows
- * the band of music that was engraved 3 sheets down. Everything outside the page box is simply not
- * displayed (PDF shows only what is inside the MediaBox), so the cut lands exactly on the sheet
- * edges the render already cast off against. No slicing, no second render, and no chance of the cut
- * disagreeing with the layout: it IS the layout.
+ * The whole SVG is placed on **every** page, shifted by that page's own origin — so page 3 shows the
+ * sheet that was engraved 3 along. Everything outside the page box is simply not displayed (PDF
+ * shows only what is inside the MediaBox), so the cut lands exactly on the sheet edges the render
+ * already cast off against. No slicing, no second render, and no chance of the cut disagreeing with
+ * the layout: it IS the layout. Which way the sheets run is `PagePass`'s business and not read
+ * here — {@link pageOriginPx} answers for both axes, so a vertical spread would need no change.
  *
  * ⚠️ The cost, stated because it is real: each page carries the whole score's drawing operators, so
  * the file grows with pages × content rather than with content. Compressed, and small in absolute
@@ -110,9 +111,10 @@ async function writePages(
 
   for (let page = 0; page < pageCount; page++) {
     if (page > 0) doc.addPage([pageWidthMm, pageHeightMm])
+    const at = pageOriginPx(metrics, page)
     await svg2pdf(svg, doc, {
-      x: 0,
-      y: -mm(pageTopPx(metrics, page)),
+      x: -mm(at.x),
+      y: -mm(at.y),
       width: mm(widthPx),
       height: mm(heightPx),
     })

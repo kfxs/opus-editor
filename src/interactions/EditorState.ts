@@ -535,6 +535,10 @@ export interface EditorState {
    * (`engine/layout/surface.ts`), of which this is the two-valued shadow the dev toolbar can
    * toggle. A canvas has no physical size, so "which of the two" is all a boolean can carry; the
    * day there are three surfaces this becomes the surface itself.
+   *
+   * Defaults **true**, matching the engine's own default surface — you are writing music for a
+   * page. ⚠️ The two defaults must agree: this is a mirror, and a mirror that starts out lying
+   * makes the first click a no-op (the toggle would ask for the state the engine is already in).
    */
   useLayout: boolean
 
@@ -613,7 +617,7 @@ export function createEditorState(): EditorState {
     armedTuplet: null,
     selectedBeam: DEFAULT_BEAM,
     justifyLastLine: false,
-    useLayout: false,
+    useLayout: true,
     editingText: null,
     pastePlacementArmed: false,
     showCursor: true,

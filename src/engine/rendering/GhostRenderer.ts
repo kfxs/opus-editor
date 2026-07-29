@@ -83,7 +83,6 @@ export function drawNoteGhost(
    *  music does, so it reads the margins from the render rather than from a constant. */
   surface: SurfaceMetrics,
 ): boolean {
-  const margin = surface.marginLeftPx
   const staveHeight = LAYOUT_CONFIG.STAVE_HEIGHT
   const verticalSpacing = LAYOUT_CONFIG.VERTICAL_SPACING
   try {
@@ -105,15 +104,18 @@ export function drawNoteGhost(
       return false
     }
 
-    // Calculate X position by summing widths of previous measures on the same line
-    let measureX = margin
+    // Calculate X position by summing widths of previous measures on the same line. The line's own
+    // left edge, not a bare margin: under a side-by-side page spread, a system on the second sheet
+    // starts a page to the right — and the ghost must stand where the committed note will.
+    const lineLeft = spacing.lineLeftPx[widthInfo.lineNumber] ?? surface.marginLeftPx
+    let measureX = lineLeft
     for (const m of score.measures) {
       if (m.number === ghostNote.measure) break
       const mInfo = measureWidths.get(m.number)
       if (mInfo && mInfo.lineNumber === widthInfo.lineNumber) {
         measureX += mInfo.finalWidth
       } else if (mInfo && mInfo.lineNumber < widthInfo.lineNumber) {
-        measureX = margin
+        measureX = lineLeft
       }
     }
 
@@ -143,7 +145,7 @@ export function drawNoteGhost(
     // The ghost sits at a real pitch, so it gets real ledger lines — same ink as the engraved ones.
     const tempStave = new Stave(measureX, measureY, staveWidth)
     tempStave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
-    const isFirstInLine = measureX === margin
+    const isFirstInLine = measureX === lineLeft
     if (ghostNote.measure === 1 || isFirstInLine) {
       tempStave.addClef(openingClef)
     } else if (hasClefChange) {

@@ -121,7 +121,7 @@ export interface Harness {
   exportPdf(): Promise<void>
   /** Draw on A4 pages instead of the sketching canvas (docs/layout-plan.md P1). */
   useLayout(on: boolean): void
-  /** Every drawn SHEET, top to bottom — the page rectangles behind the music. */
+  /** Every drawn SHEET, left to right — the page rectangles behind the music. */
   pages(): { x: number; y: number; width: number; height: number }[]
   /** The `<svg>`'s own size, which is what the viewport's scrollers are built from. */
   svgSize(): { width: number; height: number }
@@ -251,12 +251,28 @@ const harness: Harness = {
       .sort((a, b) => a.x - b.x),
 
   staves(): StaveBox[] {
+    // ⚠️ Composed through each path's CTM, not read off its `d`. A measure group is REUSED between
+    // renders: a bar whose shape is unchanged but whose place is not gets **translated** rather than
+    // re-engraved (the `MOVED` path), so its stave lines keep the coordinates they were drawn at and
+    // a `transform` on the group carries them to where they actually are. Reading the raw `d` there
+    // reports the bar's PREVIOUS position — which is not a rendering bug this net should be blind
+    // to, it is the one it most needs to see.
+    const root = svg()
+    const toScore = root.getScreenCTM()!.inverse()
+    const placedAt = (el: Element, x: number, y: number) => {
+      const point = root.createSVGPoint()
+      point.x = x
+      point.y = y
+      return point.matrixTransform((el as SVGGraphicsElement).getScreenCTM()!).matrixTransform(toScore)
+    }
+
     return all<SVGGElement>('g.vf-measure[id]').flatMap(g => {
       // The group id is the renderer's own measure key: `vf-m<measure>-s<staff>`.
       const key = /^vf-m(\d+)-s(\d+)$/.exec(g.getAttribute('id') ?? '')
       const lines = [...g.querySelectorAll<SVGPathElement>('g.vf-stave path')]
-        .map(p => pathPoints(p.getAttribute('d') ?? ''))
-        .filter(pts => pts.length === 2 && Math.abs(pts[0].y - pts[1].y) < 0.001)
+        .map(p => ({ path: p, pts: pathPoints(p.getAttribute('d') ?? '') }))
+        .filter(({ pts }) => pts.length === 2 && Math.abs(pts[0].y - pts[1].y) < 0.001)
+        .map(({ path, pts }) => pts.map(pt => placedAt(path, pt.x, pt.y)))
       if (!key || lines.length === 0) return []
       return [{
         measure: Number(key[1]),
@@ -296,7 +312,7 @@ const harness: Harness = {
   pages: () =>
     all<SVGRectElement>('rect.score-page-sheet')
       .map(r => ({ x: num(r, 'x'), y: num(r, 'y'), width: num(r, 'width'), height: num(r, 'height') }))
-      .sort((a, b) => a.y - b.y),
+      .sort((a, b) => a.x - b.x || a.y - b.y),
 
   svgSize: () => ({ width: num(svg(), 'width'), height: num(svg(), 'height') }),
 }
