@@ -271,6 +271,26 @@ inside that one slot — read the other way, on a fan `begin` simply MEANS what 
 elsewhere (one self-contained group), so there is no second fact for `single` to report. The reading
 survives; the setting is gone.
 
+## 3c. Turning a fan round KEEPS it (his report, after using it)
+
+`rit.` on an `accel.` fan used to build a **default** mark and hand it to `setFan`, throwing away
+everything the group had become: *"I create a fan with different notes, accidental alteration and
+everything… now if I change to rit I lose all the fan data, it just makes a plain fan with plain
+notes, same as the first."* The count, the beams, the spread, the ramp range, the collapsed span —
+and, since members carry their own pitches, accidentals and articulations, **the music itself**.
+
+⭐ **Direction is one field of the mark, so the press writes one field of the mark**: `{...current,
+direction}`. The spread keeps the member ARRAYS by identity through `normalizeFan`, which is what
+keeps every pitch id alive — a selection, a slur anchored on a member and an authored offset all
+survive the turn. Only a note with NO fan gets the default shape; that press is a creation, not an
+edit. (`FanEditController` had already learned the same lesson the same way: it rebuilt its mark
+field-by-field and silently dropped the members on every typed count.)
+
+⚠️ **And the collapse press had to learn about it too.** A multi-note selection means "make one
+group" (docs/fan-collapse-plan.md), but a selection *containing a fan* cannot be collapsed — a fan
+into a fan is refused — so reading it that way made "turn these two round" do nothing at all. The
+collapse is offered only when NOTHING selected is a fan already.
+
 ## 4. Deliberately NOT in this plan
 
 - **Per-note pitch** — ⏭️ now planned in **docs/fanned-beam-pitches-plan.md**. ⚠️ And the guess made
@@ -352,44 +372,14 @@ survives; the setting is gone.
 - Fans that don't end in a single beam (2→4), direction changes mid-group, fans crossing a barline
   or a system break, and headless-stem notation (Wikipedia's "approximate number of headless stems").
 
-## 5. ⏭️ OPEN — the space after a fan needs a REAL spacing model, not more constants
+## 5. ⏭️ OPEN — the space after a fan
 
-**Status: NOT SOLVED, and knowingly left as it is.** Three rounds of his reports moved the room a
-fan gets in the right direction — the group is no longer crammed into its tick share, its bar can
-grow past the cap, and the last member's duration is no longer drawn as white space — but the last
-one stands: *"after the fan the space is too close of the next element… it is wrong."*
+**NOT SOLVED, and knowingly left as it is.** Three rounds of his reports moved the room a fan gets
+in the right direction — the group is no longer crammed into its tick share, its bar can grow past
+the cap, and the last member's duration is no longer drawn as white space — but the last one stands:
+*"after the fan the space is too close of the next element… it is wrong."*
 
-**Why more patching is the wrong move.** Every number in that boundary is a constant somebody chose,
-and they are now negotiating with each other:
-
-| number | where | what it claims |
-|---|---|---|
-| `MIN_NOTE_SPACING` (1.8 spaces) | `layoutConfig` | what one ordinary event's column is |
-| `FAN_MIN_HEAD_GAP_RATIO` (1.25) | `FannedBeam` | the closest two fanned heads may come |
-| `trailingGap` (= `MIN_NOTE_SPACING`) | `FanPass` → `FannedBeam` | what the group leaves after itself |
-| `fanColumns(...) + 1` | `utils/fannedBeam` | the room the bar is asked for |
-| `FAN_MAX_SPAN_STRETCH` (1.5) | `fanRoom` | how far a justified bar may stretch it |
-
-Five numbers for one question, each tuned against one screenshot. That is the definition of a magic
-number: it is right in the case it was measured on and silently wrong in the next one. **The fix is
-not a sixth number.**
-
-**What a proper solution looks like.** The question *"how much room does this event need before and
-after it"* is not a fan question at all — it is the score's spacing rule, and this editor does not
-have one. It has a floor per event (`MIN_NOTE_SPACING`) and VexFlow's tick-proportional formatter,
-which is why every feature that draws its own ink (the fan, the two-note tremolo, a member's
-accidental) ends up re-deriving its own approach and departure room by hand. A real model would:
-
-- give every event an **approach** and a **departure** requirement derived from what it actually
-  draws — glyph widths, accidentals, dots, ledger lines — the way Gould's spacing tables and
-  Dorico's spacing engine do, rather than from its duration alone;
-- make a fanned group ask for its members' requirements **as ordinary events** on that same axis, so
-  the gap between its last head and the next note is decided by the SAME rule that decides the gap
-  between any two notes — no `trailingGap`, no `+ 1`;
-- keep the ramp as what it is (a proportional distribution INSIDE the group's own span), so the two
-  concerns stop being tangled: the group's outer room is spacing, the inner crowding is notation.
-
-⚠️ It is a real piece of work — it touches `MeasureLayout`, `NoteBuilder`, the fan, the tremolo and
-every future element that draws its own ink — and it should be planned properly before anything is
-written. His words when we stopped: *"for this we need a proper solution, a robust one, and not use
-magic numbers… let's leave it like this for now."*
+⛔ **Do not add a sixth constant.** Five already negotiate that one boundary, each tuned against one
+screenshot. This is a symptom of the editor having no spacing rule at all, and it is now tracked as
+a whole-editor priority: **`docs/spacing-model-plan.md`** — notes, deliberately NOT a plan yet; it
+needs to be thought through before it becomes one.

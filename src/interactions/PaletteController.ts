@@ -700,7 +700,9 @@ export class PaletteController {
    * follows: if every selected note already carries a fan in this direction it comes off all of them,
    * otherwise the press applies. So `accel.` on plain notes fans them, `rit.` turns a fan round, and
    * `rit.` again clears it — and CLEARING stays per-note, because taking a mark off several notes is
-   * not a gesture that needs them to be a passage.
+   * not a gesture that needs them to be a passage. ⭐ **Turning one round KEEPS it** — see
+   * {@link markFor} below; the collapse is likewise only offered when nothing selected is a fan
+   * already, or "turn these two round" would be read as "make one group of them" and refused.
    *
    * Rests, tuplet members and FANNED MEMBERS are skipped rather than refused — a passage is a
    * mixture, and you meant the notes in it that can take one. `ScoreModel.setFan` owns that list;
@@ -722,10 +724,17 @@ export class PaletteController {
       })
     if (ids.length === 0) return
 
-    const allHaveIt = ids.every(id => engine.getNote(id)?.fan?.direction === direction)
+    // Read every mark BEFORE anything is written: each press below rebuilds a fan FROM the one that
+    // is there, and `setFan` replaces the object it reads.
+    const marks = new Map(ids.map(id => [id, engine.getNote(id)?.fan]))
+    const allHaveIt = ids.every(id => marks.get(id)?.direction === direction)
 
-    // The passage case: several notes, none of them already fanned this way ⇒ ONE group.
-    if (!allHaveIt && ids.length > 1) {
+    // The passage case: several notes, NONE of them fanned at all ⇒ ONE group.
+    //
+    // ⚠️ `!anyFanned`, not merely `!allHaveIt`: two `accel` fans and a press of `rit` is a request to
+    // turn them round, and the collapse would refuse it (a fan cannot be collapsed into a fan), so
+    // the press would silently do nothing at all.
+    if (!allHaveIt && ids.length > 1 && ![...marks.values()].some(Boolean)) {
       const survivorId: string[] = []
       const applied = engine.runBatch(`Fanned beam ${direction}`, () => {
         const note = engine.collapseIntoFan(ids, direction)
@@ -739,11 +748,31 @@ export class PaletteController {
       return
     }
 
-    const fan: FanMark | null = allHaveIt
-      ? null
-      : { direction, count: DEFAULT_FAN_COUNT, beams: DEFAULT_FAN_BEAMS }
+    /**
+     * ⭐⭐ **TURNING A FAN ROUND CHANGES ONE FIELD.** `rit` on an `accel` used to hand `setFan` a
+     * freshly built default mark, which threw away everything the group had become: his report —
+     * *"I create a fan with different notes, accidental alteration and everything… now if I change
+     * to rit I lose all the fan data, it just makes a plain fan with plain notes."* The count, the
+     * beams, the spread, the ramp range, the collapsed span and — since members carry their own
+     * pitches, accidentals and articulations — the music itself.
+     *
+     * Direction is one field of the mark, so the press writes one field of the mark. The spread
+     * keeps the member ARRAYS by identity through `normalizeFan`, which is what keeps every pitch
+     * id alive: a selection, a slur anchored on a member, an authored offset all survive the turn.
+     *
+     * Only a note with NO fan gets the default shape — that press is a creation, not an edit. It is
+     * the same distinction `FanEditController` already makes (it spreads too, after silently
+     * dropping members on every typed count once).
+     */
+    const markFor = (id: string): FanMark | null => {
+      if (allHaveIt) return null
+      const current = marks.get(id)
+      return current
+        ? { ...current, direction }
+        : { direction, count: DEFAULT_FAN_COUNT, beams: DEFAULT_FAN_BEAMS }
+    }
     const applied = engine.runBatch(allHaveIt ? 'Remove fanned beam' : `Fanned beam ${direction}`, () => {
-      for (const id of ids) engine.setFan(id, fan)
+      for (const id of ids) engine.setFan(id, markFor(id))
     })
     if (!applied) return
     engine.updateUndoNoteId(this.state.selectedNoteId)

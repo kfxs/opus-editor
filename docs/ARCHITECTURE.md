@@ -3,6 +3,14 @@
 A map of the codebase for humans. For *what to build next*, see the `docs/*-plan.md`
 files (historical/working plans). For *how the pieces fit together*, read this.
 
+> ⭐⭐ **THE STANDING PRIORITY: this editor has no spacing rule.** Horizontal space is decided by
+> VexFlow's tick-proportional formatter plus one floor per event, so every feature that draws its
+> own ink re-derives "how much room does this need" by hand — and each has done it differently. A
+> real model (Gould: an event's own extent + the space its duration earns) is written up in
+> **`docs/spacing-model-plan.md`** — notes, not a plan yet — and is the biggest piece of work this
+> editor has left. ⛔ Until it exists, resist adding another per-feature constant: that is the
+> pattern it is there to end.
+
 > **The one rule:** dependencies point **inward and downward**. The app shell
 > lives at the very top; the music engine at the bottom never knows it exists.
 > This is enforced mechanically — see [The framework-agnostic

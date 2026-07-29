@@ -193,14 +193,19 @@ describe('pressFan across a selection', () => {
     expect(engine.exportJSON()).not.toBe(before)
   })
 
-  it('⚠️ …including a selection containing a note that is already fanned', () => {
+  it('⭐ a selection that already contains a fan is TURNED ROUND, never collapsed', () => {
+    // A fan cannot be collapsed into a fan, so reading this as a collapse press made it do nothing
+    // at all — where "turn these round" is the only thing it can mean.
     const ids = fourQuarters()
     select(ids[0])
     palette.pressFan('rit') // one fanned note…
-    select(ids[0], ids[1]) // …plus its neighbour: not all have it, so this is a collapse press
-    const before = engine.exportJSON()
+    select(ids[0], ids[1]) // …plus a plain neighbour
     palette.pressFan('accel')
-    expect(engine.exportJSON()).toBe(before) // …and collapsing a fan into a fan is refused
+
+    expect(engine.getNote(ids[0])?.fan?.direction).toBe('accel')
+    expect(engine.getNote(ids[1])?.fan?.direction).toBe('accel')
+    // …and the bar still holds four notes: nothing was swallowed into a group.
+    expect(engine.getScore().measures[0].slots.filter(s => s.type === 'chord')).toHaveLength(4)
   })
 
   it('is ONE undo entry for the whole selection', () => {
@@ -322,5 +327,91 @@ describe('fanHighlight — the buttons read the selection', () => {
     state.selectedNoteId = id
     state.selectedItems = new Map([[`note:${id}`, { kind: 'note' as const, id }]])
     expect(fanHighlight(state, engine)).toBe('rit')
+  })
+})
+
+/**
+ * ⭐⭐ **TURNING A FAN ROUND KEEPS IT** — his report: *"I create a fan with different notes,
+ * accidental alteration and everything… now if I change to rit I lose all the fan data, it just
+ * makes a plain fan with plain notes, same as the first."*
+ *
+ * The press used to build a DEFAULT mark and hand it to `setFan`, so every field the group had
+ * become went with it — and since members carry their own pitches, that is the music itself.
+ * Direction is one field of the mark; the press writes one field of the mark.
+ */
+describe('pressFan turns a fan round without rebuilding it', () => {
+  let engine: MusicEngine
+  let state: EditorState
+  let palette: PaletteController
+
+  beforeEach(() => {
+    engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
+    engine.addMeasure()
+    state = createEditorState()
+    state.selectedTool = 'selection'
+    palette = new PaletteController(
+      () => engine, state, () => {}, () => {}, () => null, () => {},
+    )
+  })
+
+  function select(...ids: string[]) {
+    state.selectedNoteId = ids[0] ?? null
+    state.selectedItems = new Map(ids.map(id => [`note:${id}`, { kind: 'note' as const, id }]))
+  }
+
+  /** A fan of four, edited the way he edits one: its own count, beams, spread and member pitches. */
+  function editedFan() {
+    const id = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
+    engine.setFan(id, { direction: 'accel', count: 4, beams: 4, spread: 2 })
+    const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
+    if (slot.type !== 'chord') throw new Error('fixture')
+    // Retune the members — pitch, and a sign on one of them.
+    const members = slot.fan!.members!
+    engine.updateNote(members[0].pitches[0].id, { step: 'E', octave: 4 })
+    engine.updateNote(members[1].pitches[0].id, { step: 'G', alter: 1, octave: 4, forceAccidental: true })
+    return { id, memberIds: members.map(m => m.pitches[0].id) }
+  }
+
+  const fanOf = (id: string) => engine.getNote(id)?.fan
+
+  it('keeps the count, the beams and the spread', () => {
+    const { id } = editedFan()
+    select(id)
+    palette.pressFan('rit')
+    expect(fanOf(id)).toMatchObject({ direction: 'rit', count: 4, beams: 4, spread: 2 })
+  })
+
+  it('⭐ keeps the MEMBERS — their pitches, their signs, and their ids', () => {
+    const { id, memberIds } = editedFan()
+    select(id)
+    palette.pressFan('rit')
+
+    const members = fanOf(id)!.members!
+    expect(members.map(m => m.pitches[0].id), 'the same pitch ids — a slur or an offset on one survives')
+      .toEqual(memberIds)
+    expect(members.map(m => m.pitches[0].step)).toEqual(['E', 'G', 'C'])
+    expect(members[1].pitches[0].alter).toBe(1)
+  })
+
+  it('keeps a COLLAPSED fan\'s span, so the bar does not silently change length', () => {
+    const ids = (['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const).map((step, i) =>
+      engine.addNoteAtBeat({ step, octave: 4, duration: '16', measure: 1, beat: frac(i, 4) })!.id)
+    select(...ids)
+    palette.pressFan('accel')
+    const before = engine.getNote(ids[0])!
+
+    select(ids[0])
+    palette.pressFan('rit')
+
+    const after = engine.getNote(ids[0])!
+    expect(after.fan?.length).toEqual(before.fan?.length)
+    expect(after.actualDuration).toEqual(before.actualDuration)
+  })
+
+  it('…but a note with NO fan still gets the default shape — that press is a creation', () => {
+    const id = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
+    select(id)
+    palette.pressFan('rit')
+    expect(fanOf(id)).toMatchObject({ direction: 'rit', count: DEFAULT_FAN_COUNT, beams: DEFAULT_FAN_BEAMS })
   })
 })
