@@ -13,6 +13,8 @@ import type { Score, CurveControlPointDeltas, SlurEndpointOffsetOverride } from 
 import { slurNestDepths } from '@/utils/slurs'
 import type { ElementInfo } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
+import { staffIndexOfId } from '@/engine/models/staffContent'
+import { inStaffSpace } from './staffScaleGroup'
 import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
@@ -407,152 +409,161 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
       // yield `class="vf-vf-slur"`, which is what this used to do.
       const group = pass.context.openGroup?.('slur', `slur-${slur.id}`) as SVGGElement | undefined
 
-      const fromNote = fromEnd.staveNote
-      const toNote = toEnd.staveNote
-      // Outer slurs (those enclosing nested slurs) arch higher so concentric arcs
-      // don't collide. A manual `cps` shape opts out — the user controls that height.
-      const nestLift = (nestDepths.get(slur.id) ?? 0) * SLUR_NEST_GAP
+      // A slur is built from its two notes' own coordinates, which live in their staff's scaled
+      // space — so it is drawn there too (docs/staff-size-plan.md §4.3). That covers its ARC, its
+      // thickness, and the handles + sampled points it registers for hit-testing, all at once.
+      // A slur never spans two staves today (cross-staff slurring is not modelled), so the start
+      // note's staff is the slur's.
+      inStaffSpace(pass, staffIndexOfId(score, startSlot?.staffId), group, () => {
 
-      // Endpoint nudge (docs/slur-endpoint-offset-plan.md): a free anchor-relative offset
-      // (staff-spaces) on top of each note anchor. Applied ONCE here, before the
-      // single-vs-cross branch, so every downstream consumer — the arc, the auto-arch cps,
-      // `slurTrueEndpoints`, and therefore the blue squares — flows from the shifted values.
-      // `slurEndpointOffsetPx` converts against each end's OWN stave and yields 0 for a
-      // not-yet-laid-out stave (no throw). The note tie-edge Xs are identical in both
-      // branches, so lift them out here; Y folds into fromY/toY (both branches derive from
-      // those).
-      const off = slurEndpointOffsetPx(endpointOffsetOverrideOf(score, slur.id), fromNote.getStave(), toNote.getStave())
-      const firstX = fromEnd.firstX + off.startX
-      const lastX = toEnd.lastX + off.endX
-      fromY += off.startY
-      toY += off.endY
+        const fromNote = fromEnd.staveNote
+        const toNote = toEnd.staveNote
+        // Outer slurs (those enclosing nested slurs) arch higher so concentric arcs
+        // don't collide. A manual `cps` shape opts out — the user controls that height.
+        const nestLift = (nestDepths.get(slur.id) ?? 0) * SLUR_NEST_GAP
 
-      if (fromLine === toLine) {
-        // Same line: a single arc from the start note to the end note.
-        const startY = fromY + LIFT * direction
-        const endY = toY + LIFT * direction
-        const p0 = { x: firstX, y: startY }
-        const p1 = { x: lastX, y: endY }
-        // A hand-edited shape in the engraving-overrides compartment (stored in
-        // staff-spaces) overrides the auto arch; absent → auto. Convert the override's
-        // deltas to pixels against the live stave (resolution-independent storage).
-        const stave = fromNote.getStave()
-        const cps = resolveCps(curveShapeOverrideOf(score, slur.id)?.cps, stave, p0, p1, direction, nestLift)
-        const arc = drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote)
-        // Store the on-screen control points + endpoint geometry so a selected slur can
-        // show draggable handles (Phase 7), plus the stave's staff-space size so a handle
-        // drag can convert the new pixel shape back to staff-spaces for storage. Same-line
-        // only — a split slur shares one shape, so it gets no handles.
-        registerPartial(arc, undefined, {
-          controlPoints: [arc.c0, arc.c1],
-          slurEndpoints: { p0, p1, direction },
-          staffSpacePx: stave?.getSpacingBetweenLines(),
-        })
-      } else {
-        // Cross-system: one open-ended segment per system the slur crosses
-        // (BEGIN + N×MIDDLE + END), each anchored to the **system** edges — not the
-        // endpoint notes' own measures (that measure-vs-system confusion was the bug
-        // that hid the arc on any non-boundary measure / dropped middle systems).
-        // `firstX`/`lastX` (incl. the endpoint nudge) were lifted above the branch.
-        // The two true endpoints (square re-anchor handles). Attach them to the FIRST
-        // partial that actually registers — independent of which segment draws, since
-        // planSlurSegments may defensively skip a system edge it can't resolve, so we
-        // can't assume the BEGIN partial exists. NO controlPoints/staffSpacePx, so the
-        // round shape handles stay off for a split slur (it has no single shared shape).
-        const trueEnds = slurTrueEndpoints(firstX, lastX, fromY, toY, LIFT, direction)
-        const spanCount = toLine - fromLine + 1
-        let endpointsAttached = false
-        // Register one segment partial: its round-handle context (controlPoints + the
-        // SEGMENT's own endpoints + staff spacing + segment address + spanCount) plus, on
-        // the FIRST registered partial only, the slur's TRUE ends for the square re-anchor
-        // handles. `slurEndpoints` (trueEnds) and `segmentEndpoints` are deliberately
-        // separate: squares re-anchor the whole slur, round handles bend this one segment.
-        const registerSeg = (
-          arc: { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[]; c0: { x: number; y: number }; c1: { x: number; y: number } },
-          partialType: 'start' | 'end' | 'middle',
-          segEnds: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number },
-          stave: Stave | undefined,
-          segmentRole: 'begin' | 'middle' | 'end',
-          segmentOrdinal?: number,
-        ) => {
-          registerPartial(arc, partialType, {
+        // Endpoint nudge (docs/slur-endpoint-offset-plan.md): a free anchor-relative offset
+        // (staff-spaces) on top of each note anchor. Applied ONCE here, before the
+        // single-vs-cross branch, so every downstream consumer — the arc, the auto-arch cps,
+        // `slurTrueEndpoints`, and therefore the blue squares — flows from the shifted values.
+        // `slurEndpointOffsetPx` converts against each end's OWN stave and yields 0 for a
+        // not-yet-laid-out stave (no throw). The note tie-edge Xs are identical in both
+        // branches, so lift them out here; Y folds into fromY/toY (both branches derive from
+        // those).
+        const off = slurEndpointOffsetPx(endpointOffsetOverrideOf(score, slur.id), fromNote.getStave(), toNote.getStave())
+        const firstX = fromEnd.firstX + off.startX
+        const lastX = toEnd.lastX + off.endX
+        fromY += off.startY
+        toY += off.endY
+
+        if (fromLine === toLine) {
+          // Same line: a single arc from the start note to the end note.
+          const startY = fromY + LIFT * direction
+          const endY = toY + LIFT * direction
+          const p0 = { x: firstX, y: startY }
+          const p1 = { x: lastX, y: endY }
+          // A hand-edited shape in the engraving-overrides compartment (stored in
+          // staff-spaces) overrides the auto arch; absent → auto. Convert the override's
+          // deltas to pixels against the live stave (resolution-independent storage).
+          const stave = fromNote.getStave()
+          const cps = resolveCps(curveShapeOverrideOf(score, slur.id)?.cps, stave, p0, p1, direction, nestLift)
+          const arc = drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote)
+          // Store the on-screen control points + endpoint geometry so a selected slur can
+          // show draggable handles (Phase 7), plus the stave's staff-space size so a handle
+          // drag can convert the new pixel shape back to staff-spaces for storage. Same-line
+          // only — a split slur shares one shape, so it gets no handles.
+          registerPartial(arc, undefined, {
             controlPoints: [arc.c0, arc.c1],
-            segmentEndpoints: segEnds,
+            slurEndpoints: { p0, p1, direction },
             staffSpacePx: stave?.getSpacingBetweenLines(),
-            segmentRole,
-            ...(segmentOrdinal !== undefined ? { segmentOrdinal } : {}),
-            slurSpanCount: spanCount,
-            ...(endpointsAttached ? {} : { slurEndpoints: trueEnds }),
           })
-          endpointsAttached = true
-        }
-        // Per-segment hand-edited shapes (plan §3): read the override and apply the live
-        // span-count staleness rule. BEGIN/END are note-anchored (durable) and use their
-        // own note's stave; MIDDLEs are keyed by ordinal (reset on a count change) and use
-        // the system's representative stave. Absent/stale entries fall back to the auto arch.
-        const segShape = reconcileSegmentShape(segmentCurveShapeOverrideOf(score, slur.id), spanCount)
-        // Per-open-join hand nudges (orange squares): same staleness rule as segShape — begin/end
-        // durable, middles dropped on a count change. Added to each segment's OPEN end below,
-        // BEFORE resolveCps, so the arch follows the moved point (mirrors the true-end offset).
-        const segEndOff = reconcileSegmentEndpointOffset(segmentEndpointOffsetOverrideOf(score, slur.id), spanCount)
-        let middleOrdinal = 0
-        for (const seg of planSlurSegments(pass, fromLine, toLine, firstX, lastX)) {
-          if (seg.type === 'begin') {
-            // Start note → system right edge, rising to an open (flat-ish) right end.
-            const startY = fromY + LIFT * direction
-            const p0 = { x: seg.firstX, y: startY }
-            const p1 = { x: seg.rightX, y: startY + ARC * direction }
-            const stave = fromNote.getStave()
-            // Open RIGHT end nudge (the true start p0 carries `endpointOffset` instead).
-            const o = segmentEndpointOffsetPx(segEndOff.begin, stave)
-            p1.x += o.x; p1.y += o.y
-            const cps = resolveCps(segShape.begin, stave, p0, p1, direction, nestLift)
-            registerSeg(
-              drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote),
-              'end', { p0, p1, direction }, stave, 'begin',
-            )
-          } else if (seg.type === 'end') {
-            // System left edge → end note, the mirror of BEGIN. THIS is the 2-line
-            // fix: leftX is the SYSTEM's left margin, not the end note's measure edge.
-            const endY = toY + LIFT * direction
-            const p0 = { x: seg.leftX, y: endY + ARC * direction }
-            const p1 = { x: seg.lastX, y: endY }
-            const stave = toNote.getStave()
-            // Open LEFT end nudge (the true end p1 carries `endpointOffset` instead).
-            const o = segmentEndpointOffsetPx(segEndOff.end, stave)
-            p0.x += o.x; p0.y += o.y
-            const cps = resolveCps(segShape.end, stave, p0, p1, direction, nestLift)
-            registerSeg(
-              drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote),
-              'start', { p0, p1, direction }, stave, 'end',
-            )
-          } else if (seg.type === 'middle') {
-            // A full-width bow across a system the slur merely passes over. Both ends
-            // sit flat at a staff-relative baseline (above the top line / below the
-            // bottom line per the slur's side); slurArchCps bows it symmetrically.
-            const stave = representativeStaveOnLine(pass, score, seg.line)
-            if (!stave) continue
-            const baselineY = direction === -1
-              ? stave.getTopLineTopY() - LIFT
-              : stave.getBottomLineBottomY() + LIFT
-            const p0 = { x: seg.leftX, y: baselineY }
-            const p1 = { x: seg.rightX, y: baselineY }
-            const ordinal = middleOrdinal++
-            // Both open ends nudge independently (left + right) — ordinal-keyed, reset on a
-            // count change with the rest of the middles.
-            const mo = segEndOff.middles[ordinal]
-            const ol = segmentEndpointOffsetPx(mo?.left, stave)
-            const or = segmentEndpointOffsetPx(mo?.right, stave)
-            p0.x += ol.x; p0.y += ol.y
-            p1.x += or.x; p1.y += or.y
-            const cps = resolveCps(segShape.middles[ordinal], stave, p0, p1, direction, nestLift)
-            registerSeg(
-              drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote),
-              'middle', { p0, p1, direction }, stave, 'middle', ordinal,
-            )
+        } else {
+          // Cross-system: one open-ended segment per system the slur crosses
+          // (BEGIN + N×MIDDLE + END), each anchored to the **system** edges — not the
+          // endpoint notes' own measures (that measure-vs-system confusion was the bug
+          // that hid the arc on any non-boundary measure / dropped middle systems).
+          // `firstX`/`lastX` (incl. the endpoint nudge) were lifted above the branch.
+          // The two true endpoints (square re-anchor handles). Attach them to the FIRST
+          // partial that actually registers — independent of which segment draws, since
+          // planSlurSegments may defensively skip a system edge it can't resolve, so we
+          // can't assume the BEGIN partial exists. NO controlPoints/staffSpacePx, so the
+          // round shape handles stay off for a split slur (it has no single shared shape).
+          const trueEnds = slurTrueEndpoints(firstX, lastX, fromY, toY, LIFT, direction)
+          const spanCount = toLine - fromLine + 1
+          let endpointsAttached = false
+          // Register one segment partial: its round-handle context (controlPoints + the
+          // SEGMENT's own endpoints + staff spacing + segment address + spanCount) plus, on
+          // the FIRST registered partial only, the slur's TRUE ends for the square re-anchor
+          // handles. `slurEndpoints` (trueEnds) and `segmentEndpoints` are deliberately
+          // separate: squares re-anchor the whole slur, round handles bend this one segment.
+          const registerSeg = (
+            arc: { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[]; c0: { x: number; y: number }; c1: { x: number; y: number } },
+            partialType: 'start' | 'end' | 'middle',
+            segEnds: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number },
+            stave: Stave | undefined,
+            segmentRole: 'begin' | 'middle' | 'end',
+            segmentOrdinal?: number,
+          ) => {
+            registerPartial(arc, partialType, {
+              controlPoints: [arc.c0, arc.c1],
+              segmentEndpoints: segEnds,
+              staffSpacePx: stave?.getSpacingBetweenLines(),
+              segmentRole,
+              ...(segmentOrdinal !== undefined ? { segmentOrdinal } : {}),
+              slurSpanCount: spanCount,
+              ...(endpointsAttached ? {} : { slurEndpoints: trueEnds }),
+            })
+            endpointsAttached = true
+          }
+          // Per-segment hand-edited shapes (plan §3): read the override and apply the live
+          // span-count staleness rule. BEGIN/END are note-anchored (durable) and use their
+          // own note's stave; MIDDLEs are keyed by ordinal (reset on a count change) and use
+          // the system's representative stave. Absent/stale entries fall back to the auto arch.
+          const segShape = reconcileSegmentShape(segmentCurveShapeOverrideOf(score, slur.id), spanCount)
+          // Per-open-join hand nudges (orange squares): same staleness rule as segShape — begin/end
+          // durable, middles dropped on a count change. Added to each segment's OPEN end below,
+          // BEFORE resolveCps, so the arch follows the moved point (mirrors the true-end offset).
+          const segEndOff = reconcileSegmentEndpointOffset(segmentEndpointOffsetOverrideOf(score, slur.id), spanCount)
+          let middleOrdinal = 0
+          for (const seg of planSlurSegments(pass, fromLine, toLine, firstX, lastX)) {
+            if (seg.type === 'begin') {
+              // Start note → system right edge, rising to an open (flat-ish) right end.
+              const startY = fromY + LIFT * direction
+              const p0 = { x: seg.firstX, y: startY }
+              const p1 = { x: seg.rightX, y: startY + ARC * direction }
+              const stave = fromNote.getStave()
+              // Open RIGHT end nudge (the true start p0 carries `endpointOffset` instead).
+              const o = segmentEndpointOffsetPx(segEndOff.begin, stave)
+              p1.x += o.x; p1.y += o.y
+              const cps = resolveCps(segShape.begin, stave, p0, p1, direction, nestLift)
+              registerSeg(
+                drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote),
+                'end', { p0, p1, direction }, stave, 'begin',
+              )
+            } else if (seg.type === 'end') {
+              // System left edge → end note, the mirror of BEGIN. THIS is the 2-line
+              // fix: leftX is the SYSTEM's left margin, not the end note's measure edge.
+              const endY = toY + LIFT * direction
+              const p0 = { x: seg.leftX, y: endY + ARC * direction }
+              const p1 = { x: seg.lastX, y: endY }
+              const stave = toNote.getStave()
+              // Open LEFT end nudge (the true end p1 carries `endpointOffset` instead).
+              const o = segmentEndpointOffsetPx(segEndOff.end, stave)
+              p0.x += o.x; p0.y += o.y
+              const cps = resolveCps(segShape.end, stave, p0, p1, direction, nestLift)
+              registerSeg(
+                drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote),
+                'start', { p0, p1, direction }, stave, 'end',
+              )
+            } else if (seg.type === 'middle') {
+              // A full-width bow across a system the slur merely passes over. Both ends
+              // sit flat at a staff-relative baseline (above the top line / below the
+              // bottom line per the slur's side); slurArchCps bows it symmetrically.
+              const stave = representativeStaveOnLine(pass, score, seg.line)
+              if (!stave) continue
+              const baselineY = direction === -1
+                ? stave.getTopLineTopY() - LIFT
+                : stave.getBottomLineBottomY() + LIFT
+              const p0 = { x: seg.leftX, y: baselineY }
+              const p1 = { x: seg.rightX, y: baselineY }
+              const ordinal = middleOrdinal++
+              // Both open ends nudge independently (left + right) — ordinal-keyed, reset on a
+              // count change with the rest of the middles.
+              const mo = segEndOff.middles[ordinal]
+              const ol = segmentEndpointOffsetPx(mo?.left, stave)
+              const or = segmentEndpointOffsetPx(mo?.right, stave)
+              p0.x += ol.x; p0.y += ol.y
+              p1.x += or.x; p1.y += or.y
+              const cps = resolveCps(segShape.middles[ordinal], stave, p0, p1, direction, nestLift)
+              registerSeg(
+                drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote),
+                'middle', { p0, p1, direction }, stave, 'middle', ordinal,
+              )
+            }
           }
         }
-      }
+
+      })
 
       pass.context.closeGroup?.()
       if (group) pass.slurGroupMap.set(slur.id, group)

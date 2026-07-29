@@ -82,4 +82,13 @@ export interface RenderPass {
   /** Tempo mark currently being edited in the text overlay — skipped while it is open,
    *  so the engraved word isn't drawn under the DOM input. Mirrors suppressedDynamicId. */
   suppressedTempoId: string | null
+  /**
+   * **How big a staff is DRAWN**, by 0-based index — 1 for full size (docs/staff-size-plan.md).
+   *
+   * Every pass that draws OUTSIDE a measure group needs it, because everything it reads back off
+   * the drawn notes is in that staff's own scaled space (§4.3 — see `inStaffSpace`). A function
+   * rather than an array so a caller cannot index it wrongly, and so the renderer stays the single
+   * place that decides what a staff's size is.
+   */
+  staffScale: (staffIndex: number) => number
 }

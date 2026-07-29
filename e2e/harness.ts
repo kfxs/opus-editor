@@ -129,15 +129,15 @@ export interface Harness {
   /** The `<svg>`'s own size, which is what the viewport's scrollers are built from. */
   svgSize(): { width: number; height: number }
   /**
-   * How big matching ink actually comes out ON SCREEN, per element.
+   * Where matching ink actually comes out, and how big — in SCORE coordinates, per element.
    *
-   * ⚠️ The one reader here that uses `getBoundingClientRect`, and deliberately: it is the
+   * ⚠️ The one reader here built on `getBoundingClientRect`, and deliberately: it is the
    * POST-transform box, which is the whole question when a staff is drawn inside a
    * `<g transform="scale(k)">` (`getBBox()` is local user space and would report the same numbers
    * at any scale — docs/staff-size-plan.md §4.2). It is still a *text layout* box on a music
-   * glyph, so use it for RATIOS — "0.7 of what it was" — never as a measurement of the ink.
+   * glyph, so use its SIZE for RATIOS — "0.7 of what it was" — never as a measurement of the ink.
    */
-  inkSizes(selector: string): { width: number; height: number }[]
+  inkSizes(selector: string): { x: number; y: number; width: number; height: number }[]
 }
 
 /** Every class a ghost overlay is drawn under. Mirrors `GhostRenderer.GHOST_GROUP_SELECTOR`, which
@@ -252,7 +252,10 @@ const harness: Harness = {
   quads: (selector: string) => quadsOf(all<SVGPathElement>(selector)),
 
   crossBarBeams: () =>
+    // Direct children of the <svg> — plus one level deeper through a `vf-scaled` wrapper, which is
+    // what a beam on a staff drawn small is drawn inside (docs/staff-size-plan.md §4.3).
     [...svg().children]
+      .flatMap(el => (el.getAttribute('class') === 'vf-scaled' ? [...el.children] : [el]))
       .filter(el => el.getAttribute('class') === 'vf-beam')
       .map(group => quadsOf([...group.querySelectorAll<SVGPathElement>('path')]))
       .filter(quads => quads.length > 0)
@@ -300,10 +303,21 @@ const harness: Harness = {
 
   ghosts: () => all<SVGGElement>(GHOST_SELECTOR).map(g => g.getAttribute('class') ?? ''),
 
-  inkSizes: (selector: string) => all<SVGGraphicsElement>(selector).map(el => {
-    const box = el.getBoundingClientRect()
-    return { width: box.width, height: box.height }
-  }),
+  inkSizes: (selector: string) => {
+    const root = svg()
+    const toScore = root.getScreenCTM()!.inverse()
+    return all<SVGGraphicsElement>(selector).map(el => {
+      const box = el.getBoundingClientRect()
+      const at = root.createSVGPoint()
+      at.x = box.left
+      at.y = box.top
+      const corner = at.matrixTransform(toScore)
+      // The screen scale is the same for both axes here (no CSS zoom on the harness page), so the
+      // size converts by the root's own `a`/`d` — read off the matrix rather than assumed.
+      const ctm = root.getScreenCTM()!
+      return { x: corner.x, y: corner.y, width: box.width / ctm.a, height: box.height / ctm.d }
+    })
+  },
 
   placed(selector: string): Glyph[] {
     const root = svg()

@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveConnector, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, Stem, StaveTie, ClefNote } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, Stem, StaveTie, ClefNote } from 'vexflow'
 import { ScoreTuplet } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
@@ -47,10 +47,11 @@ import { renderProbe } from '@/engine/RenderProbe' // P0 instrument seam — tem
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { STAFF_SPACE_PX, resolveStaffSize } from '@/engine/models/staffSize'
 import { staffSpacesToPixels } from './staffSpace'
-import { getStaves, staffMeasureView, firstStaffId, staffIndexOfId } from '@/engine/models/staffContent'
+import { getStaves, staffMeasureView, firstStaffId, staffIndexOfId, staffIdAtIndex } from '@/engine/models/staffContent'
 import { LAYOUT_CONFIG, VIEWPORT_HEIGHT, LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout, type ViewMode } from './layoutConfig'
 import { resolveSurface, SKETCH_CANVAS, type Surface, type SurfaceMetrics } from '@/engine/layout/surface'
 import { pageCastOff } from '@/engine/layout/pageCastOff'
+import { inScaledStaffGroup } from './staffScaleGroup'
 import { staveHeightPx, systemStaffTops, spacingAbovePx } from '@/engine/layout/staffStride'
 import { drawPages, pageOriginPx, surfaceSizePx } from './PagePass'
 import type { Rect } from '@/engine/ViewportModel'
@@ -607,7 +608,22 @@ export class VexFlowRenderer {
       elementRegistry: this.elementRegistry,
       suppressedDynamicId: this.suppressedDynamicId,
       suppressedTempoId: this.suppressedTempoId,
+      staffScale: (staffIndex: number) => this.staffScaleOf(score, staffIndex),
     }
+  }
+
+  /**
+   * How big the staff at `staffIndex` is drawn (1 = full size). The renderer's single answer, so
+   * the passes that draw outside a measure group agree with the measure groups themselves.
+   *
+   * ⚠️ Per STAFF, not per system — unlike `staffSpacingLayout`, which resolves the same thing per
+   * line with that system's opener in hand. They agree today because per-system size is not built
+   * (§3); the day it is, this needs the line, and every caller of it draws ink that already knows
+   * which system it is on.
+   */
+  private staffScaleOf(score: Score, staffIndex: number): number {
+    const staffId = staffIdAtIndex(score, staffIndex)
+    return staffId ? resolveStaffSize(score, staffId) : 1
   }
 
   /**
@@ -2361,22 +2377,26 @@ export class VexFlowRenderer {
    */
   private drawCrossBarBeams(pass: RenderPass, joins: CrossBarJoin[]): void {
     for (const join of joins) {
-      for (const side of join.sides) {
-        const staveNotes = side.members
-          .map(member => pass.staveNoteMap.get(member.lookupId)?.staveNote)
-          .filter((staveNote): staveNote is StaveNote => staveNote !== undefined)
-        // A bar that was not painted contributes no StaveNote. A side draws iff all its own bars are
-        // drawn (`side.drawable`), and this is the runtime proof of it — a fragment over half a side
-        // would draw stems in mid-air.
-        if (staveNotes.length !== side.members.length) continue
+      // Drawn from the notes' own stem tips and slopes, which are in their staff's scaled space —
+      // and a beam through a barline is one staff's, both bars of it (docs/staff-size-plan.md §4.3).
+      inScaledStaffGroup(pass, join.staffIndex, `crossbeam-${join.staffIndex}-${join.voice}-${join.sides[0]?.measures[0] ?? 0}`, () => {
+        for (const side of join.sides) {
+          const staveNotes = side.members
+            .map(member => pass.staveNoteMap.get(member.lookupId)?.staveNote)
+            .filter((staveNote): staveNote is StaveNote => staveNote !== undefined)
+          // A bar that was not painted contributes no StaveNote. A side draws iff all its own bars are
+          // drawn (`side.drawable`), and this is the runtime proof of it — a fragment over half a side
+          // would draw stems in mid-air.
+          if (staveNotes.length !== side.members.length) continue
 
-        try {
-          if (staveNotes.length >= 2) this.drawCrossBarSideBeam(pass, side, staveNotes)
-          else this.drawCrossBarLoneFragment(pass, side, staveNotes[0])
-        } catch (beamError) {
-          console.warn(`Could not draw cross-barline beam: ${beamError}`)
+          try {
+            if (staveNotes.length >= 2) this.drawCrossBarSideBeam(pass, side, staveNotes)
+            else this.drawCrossBarLoneFragment(pass, side, staveNotes[0])
+          } catch (beamError) {
+            console.warn(`Could not draw cross-barline beam: ${beamError}`)
+          }
         }
-      }
+      })
     }
   }
 
@@ -3372,10 +3392,7 @@ export class VexFlowRenderer {
         // may be on screen while the middle of the system is, so it is drawn whenever *any* staff of
         // its opening measure is — not when its own two endpoints happen to be.
         if (this.cullWindow && !this.systemIsDrawn(p.measureNumber, staffList.length, drawnKeys)) continue
-        new StaveConnector(p.stave, bottom.stave)
-          .setType('singleLeft')
-          .setContext(this.context!)
-          .draw()
+        this.drawSystemConnector(p, bottom)
       }
     }
 
@@ -3476,6 +3493,34 @@ export class VexFlowRenderer {
    *  knows (it owns `modelDirty`); see {@link layoutReusable} for why the default is `false`. */
   setLayoutReusable(reusable: boolean): void {
     this.layoutReusable = reusable
+  }
+
+  /**
+   * The single vertical line joining a system's top and bottom staves (the grand-staff look).
+   *
+   * ⛔ **Drawn by hand rather than with `StaveConnector`, and this is the one place in §4.3 where
+   * that is the answer.** Every other pass outside a measure group belongs to ONE staff, so it can
+   * be drawn inside that staff's own scale (`inStaffSpace`). A connector cannot: it runs from the
+   * top staff's first line to the bottom staff's last, and those two may be drawn at different
+   * sizes, so there is no single scale to put it in. It has to speak the SVG's coordinates, which
+   * means composing each end through its own staff's.
+   *
+   * The line itself is what VexFlow's `singleLeft` draws — `fillRect(x, topY, 1, height)`
+   * (staveconnector.js:70, :144) — so nothing is lost by drawing it: it is a rectangle, not an
+   * engraved glyph. Its 1px width is deliberately NOT scaled; a system bracket belongs to the
+   * system, not to either staff's ink.
+   */
+  private drawSystemConnector(top: MeasurePlacement, bottom: MeasurePlacement): void {
+    const ctx = this.context
+    if (!ctx) return
+    const topY = top.stave.getYForLine(0) * top.scale
+    // `+ 1` for the bottom line's own thickness (`Tables.STAVE_LINE_THICKNESS`, what VexFlow adds
+    // here), in that staff's ink and so at its scale — otherwise the line stops a hair short of the
+    // staff it is joining.
+    const bottomY = (bottom.stave.getYForLine(bottom.stave.getNumLines() - 1) + 1) * bottom.scale
+    // The staves share an x (barlines align), and it is already in SVG coordinates on the
+    // placement — no need to take the scaled staff's word for it.
+    ctx.fillRect(top.x, topY, 1, bottomY - topY)
   }
 
   /** Is any staff of this measure being painted? (The system connector's own two staves may both be
@@ -3688,6 +3733,7 @@ export class VexFlowRenderer {
     let foundNotePitch: import('@/types/music').NotePitch | undefined
     let foundBeat: Fraction | undefined
     let foundMeasure: Measure | undefined
+    let foundStaffId: string | undefined
 
     outer: for (const measure of score.measures) {
       for (const slot of measure.slots) {
@@ -3697,6 +3743,7 @@ export class VexFlowRenderer {
             foundNotePitch = p
             foundBeat = slot.beat
             foundMeasure = measure
+            foundStaffId = slot.staffId
             break outer
           }
         }
@@ -3713,7 +3760,14 @@ export class VexFlowRenderer {
     if (tieDirection !== undefined) {
       pendingTie.setDirection(tieDirection)
     }
-    pendingTie.setContext(this.context).draw()
+    // Drawn from the note's own coordinates, so it belongs in that note's staff space — the same
+    // rule as the engraved ties next door (docs/staff-size-plan.md §4.3).
+    inScaledStaffGroup(
+      this.createRenderPass(score),
+      staffIndexOfId(score, foundStaffId),
+      `pendingtie-${noteId}`,
+      () => pendingTie.setContext(this.context!).draw(),
+    )
   }
 
   /**

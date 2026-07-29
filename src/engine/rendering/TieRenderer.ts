@@ -15,6 +15,8 @@ import { middleLineDiatonicPos } from '@/utils/clefUtils'
 import type { RenderPass } from './RenderPass'
 import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
 import { voiceOf } from '@/utils/lanes'
+import { staffIndexOfId } from '@/engine/models/staffContent'
+import { inStaffSpace } from './staffScaleGroup'
 
 // Tie geometry (same-line, flat). A tie joins one pitch, so both endpoints share a Y
 // and the apex sits at the X midpoint. These reproduce the old hand-drawn quadratic
@@ -186,19 +188,24 @@ export function renderTies(pass: RenderPass, score: Score): void {
             // `openGroup` prefixes class and id with `vf-` itself (see SlurRenderer).
             const tieGroup = pass.context.openGroup?.('tie', `tie-${pitch.id}`) as SVGGElement | undefined
 
-            if (sameLine) {
-              // Same line: draw flat arc anchored at the source note's Y
-              // (ties always connect the same pitch, so both endpoints share the same Y)
-              const bbox = drawFlatTie(pass, fromInfo, toInfo, tieDirection ?? 1)
-              if (bbox) {
-                pass.elementRegistry.add({
-                  type: 'tie',
-                  fromNoteId: note.id,
-                  toNoteId: note.tiedTo!,
-                  fromMeasure: fromMeasure,
-                  toMeasure: toMeasure!,
-                  tieDirection: tieDirection ?? 1,
-                  bbox,
+            // A tie is drawn from the two notes' own coordinates, and those are in their staff's
+            // space — so the tie is drawn in it too (docs/staff-size-plan.md §4.3). Both ends of a
+            // tie are the same pitch on the same staff, including across a system break, so one
+            // scale covers the whole thing.
+            inStaffSpace(pass, staffIndexOfId(score, slot.staffId), tieGroup, () => {
+              if (sameLine) {
+                // Same line: draw flat arc anchored at the source note's Y
+                // (ties always connect the same pitch, so both endpoints share the same Y)
+                const bbox = drawFlatTie(pass, fromInfo, toInfo, tieDirection ?? 1)
+                if (bbox) {
+                  pass.elementRegistry.add({
+                    type: 'tie',
+                    fromNoteId: note.id,
+                    toNoteId: note.tiedTo!,
+                    fromMeasure: fromMeasure,
+                    toMeasure: toMeasure!,
+                    tieDirection: tieDirection ?? 1,
+                    bbox,
                 })
               }
             } else {
@@ -263,6 +270,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                 // getBoundingBox may fail
               }
             }
+            })
 
             pass.context.closeGroup?.()
             if (tieGroup) pass.tieGroupMap.set(pitch.id, tieGroup)

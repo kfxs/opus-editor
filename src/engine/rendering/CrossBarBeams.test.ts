@@ -44,7 +44,10 @@ function twoBarsOfEighths(): ScoreModel {
 /** The beams drawn OUTSIDE every measure group — i.e. the ones that cross a barline. */
 function crossBarBeamNodes(renderer: VexFlowRenderer): Element[] {
   const svg = renderer.getSVGElement()!
-  return [...svg.children].filter(el => el.getAttribute('class') === 'vf-beam')
+  // …or one level deeper, inside the `vf-scaled` wrapper a beam on a small staff is drawn in.
+  return [...svg.children]
+    .flatMap(el => (el.getAttribute('class') === 'vf-scaled' ? [...el.children] : [el]))
+    .filter(el => el.getAttribute('class') === 'vf-beam')
 }
 
 /** The LAST note of a bar in one voice, by its pitch id — `slots` interleaves the voices. */

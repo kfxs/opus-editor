@@ -49,6 +49,7 @@ import {
   LEDGER_OVERHANG_BESIDE_ACCIDENTAL,
 } from './ledgerAccidentalClearance'
 import { measureLeadingSpaces, noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
+import { inScaledStaffGroup } from './staffScaleGroup'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { staffSpacesToPixels } from './staffSpace'
 
@@ -381,7 +382,10 @@ export function drawCrossBarFanBeams(pass: RenderPass, joins: CrossBarFanJoin[])
     if (!drawings.length) continue
 
     const prefix = join.members.map((m, i) => (!m.fan && i < fanIndices[0] ? i : -1)).filter(i => i >= 0)
-    drawFanGroups(pass, drawings, [{ prefix, fans: fanIndices }])
+    // In the staff's own space, like every other beam drawn outside a measure group — the ramp is
+    // built from these notes' stems (docs/staff-size-plan.md §4.3).
+    inScaledStaffGroup(pass, join.staffIndex, `crossfan-${join.staffIndex}-${join.voice}-${join.members[0]?.measureNumber ?? 0}`,
+      () => drawFanGroups(pass, drawings, [{ prefix, fans: fanIndices }]))
   }
 }
 

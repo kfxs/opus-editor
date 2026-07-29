@@ -135,3 +135,153 @@ test('and back to full size, on the same drawing — the transform is not one-wa
   const top = restored.find(s => s.staff === 0)!
   expect(top.bottom - top.top, 'full size again').toBeCloseTo(40, 0)
 })
+
+/**
+ * P5 — the passes drawn OUTSIDE a bar's own group (docs/staff-size-plan.md §4.3). Each of these
+ * builds its geometry out of coordinates VexFlow stored while the notes were being drawn, which on
+ * a small staff are in that staff's own scaled space. Drawn as-is they land full size where the
+ * *unscaled* notes would have been — which on a single-size score looks perfect.
+ */
+async function twoStavesWithSpans(score: Page): Promise<void> {
+  await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addStaffBelow(0)
+    h.engine.addMeasure()
+    for (const staff of [0, 1]) {
+      // A tie across the barline, and a slur over the same notes.
+      const a = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1), staff })!
+      const b = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(2, 1), staff })!
+      const c = h.engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'w', measure: 2, beat: h.frac(0, 1), staff })!
+      h.engine.updateNote(b.id, { tiedTo: c.id })
+      h.engine.createSlur([a.id, c.id])
+    }
+    await h.render()
+  })
+}
+
+test('a tie and a slur on a small staff are drawn AT that staff, at its size', async ({ score }) => {
+  await twoStavesWithSpans(score)
+
+  const { before, after } = await score.evaluate(async () => {
+    const h = window.__h
+    const read = () => ({
+      staves: h.staves(),
+      ties: h.paths('g.vf-tie path').length,
+      // The BOX of the ink, composed through its own CTM — the question is where it landed and how
+      // big it is, and both change together under a scale.
+      tie: h.inkSizes('g.vf-tie')[0],
+      slur: h.inkSizes('g.vf-slur')[0],
+      lowerSlur: h.inkSizes('g.vf-slur')[1],
+    })
+    const before = read()
+    h.engine.setStaffSize(0, 0.7)
+    await h.render()
+    return { before, after: read() }
+  })
+
+  expect(before.ties, 'the score really has ties in it').toBeGreaterThan(0)
+  expect(after.ties, 'and still does').toBe(before.ties)
+
+  // The tie's and slur's own INK shrank with the staff — their bow depth and their thickness are
+  // staff-space geometry, so this is the scale reaching them. (Their WIDTH is note SPACING, which
+  // is still full-size until P3 — see the note above.)
+  expect(after.tie.height).toBeCloseTo(before.tie.height * 0.7, 0)
+  // The slur only APPROXIMATELY: its arch is a function of the span it has to cover, and the span
+  // is still full-size spacing until P3 — so it is a slightly different curve, drawn small.
+  expect(after.slur.height).toBeLessThan(before.slur.height * 0.85)
+  expect(after.slur.height).toBeGreaterThan(before.slur.height * 0.5)
+  // …and they are drawn AT the small staff. The telling number is how far the slur arches above
+  // its OWN top line: that gap is staff-space geometry, so it shrinks with the staff. Left
+  // unscaled, the slur would be drawn where the full-size notes would have been — further from a
+  // staff whose lines have risen, i.e. a BIGGER gap, which is what this refuses.
+  // (Negative here — these slurs hang BELOW their stems-up notes.)
+  const gap = (r: typeof before) => r.staves.find(s => s.staff === 0)!.top - r.slur.y
+  expect(gap(after)).toBeCloseTo(gap(before) * 0.7, 0)
+
+  // The full-size staff's slur did not change at all.
+  expect(after.lowerSlur.height).toBeCloseTo(before.lowerSlur.height, 0)
+})
+
+test('the STAVE CONNECTOR still joins the two staves when they are different sizes', async ({ score }) => {
+  await twoStaves(score)
+
+  const joined = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.setStaffSize(0, 0.7)
+    await h.render()
+    const staves = h.staves()
+    // The connector is the tall thin rect at the system's left edge — the one piece of §4.3 that
+    // cannot live in either staff's scale, because it runs between two of them.
+    const rects = [...document.querySelectorAll<SVGRectElement>('svg > rect')]
+      .map(r => ({ x: Number(r.getAttribute('x')), y: Number(r.getAttribute('y')), h: Number(r.getAttribute('height')) }))
+    return { top: staves.find(s => s.staff === 0)!, bottom: staves.find(s => s.staff === 1)!, rects }
+  })
+
+  const connector = joined.rects.find(r => r.h > 50)
+  expect(connector, 'a connector was drawn').toBeDefined()
+  expect(connector!.y, 'from the top staff’s top line').toBeCloseTo(joined.top.top, 0)
+  // …to the bottom staff's bottom line, plus that line's own 1px thickness (what VexFlow's own
+  // connector reaches for too), scaled with the staff it belongs to.
+  expect(Math.abs(connector!.y + connector!.h - joined.bottom.bottom)).toBeLessThan(2)
+})
+
+test('a beam through a barline is drawn in its staff’s space too', async ({ score }) => {
+  const beams = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addStaffBelow(0)
+    h.engine.addMeasure()
+    const ids: string[] = []
+    for (let measure = 1; measure <= 2; measure++) {
+      for (let eighth = 0; eighth < 8; eighth++) {
+        const note = h.engine.addNoteAtBeat({
+          step: 'C', octave: 4, duration: '8', measure, beat: h.frac(eighth, 2), staff: 0,
+        })
+        if (note) ids.push(note.id)
+      }
+    }
+    // Mark the group across the barline: the last note of bar 1 continues into bar 2.
+    h.engine.updateNote(ids[7], { beam: 'continue' })
+    await h.render()
+    const before = h.inkSizes('svg > g.vf-beam')
+
+    h.engine.setStaffSize(0, 0.7)
+    await h.render()
+    // One level deeper: on a small staff the beam is drawn inside the scale wrapper.
+    const after = h.inkSizes('svg > g.vf-scaled > g.vf-beam')
+    return { before, after, loose: h.inkSizes('svg > g.vf-beam').length }
+  })
+
+  expect(beams.before.length, 'a beam really does cross the barline').toBeGreaterThan(0)
+  expect(beams.after.length, 'and it is inside the staff’s scale group afterwards').toBe(beams.before.length)
+  expect(beams.loose, 'with nothing left drawn full size at the top level').toBe(0)
+  // Its thickness and its slope are the staff's ink, so both come down with it.
+  expect(beams.after[0].height).toBeCloseTo(beams.before[0].height * 0.7, 0)
+})
+
+test('the NOTE GHOST previews at the size the note will actually be', async ({ score }) => {
+  const ghost = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addStaffBelow(0)
+    h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1), staff: 0 })
+    await h.render()
+    // ⚠️ `placed`, not `noteheads`: the cursor is in SVG coordinates, and once the staff is scaled a
+    // notehead's own `y` attribute is in the staff's space — hovering there aims well below the
+    // staff and previews a ledger-line pitch with a long stem.
+    const real = h.placed('.vf-notehead text')
+
+    h.engine.renderScoreWithPreview({ x: real[0].x + 80, y: real[0].y }, 'q')
+    const before = { stems: h.inkSizes('.ghost-note-group g.vf-stem'), groups: h.ghosts() }
+
+    h.engine.setStaffSize(0, 0.7)
+    await h.render()
+    const scaledReal = h.placed('.vf-notehead text')
+    h.engine.renderScoreWithPreview({ x: scaledReal[0].x + 56, y: scaledReal[0].y }, 'q')
+    return { before, after: { stems: h.inkSizes('.ghost-note-group g.vf-stem'), groups: h.ghosts() } }
+  })
+
+  expect(ghost.before.groups, 'a ghost was drawn').toEqual(['ghost-note-group'])
+  expect(ghost.after.groups, 'and again over the small staff').toEqual(['ghost-note-group'])
+  // ⭐ The preview is the promise "this is what you are about to draw" — on a small staff a
+  // full-size ghost breaks exactly that.
+  expect(ghost.after.stems[0].height).toBeCloseTo(ghost.before.stems[0].height * 0.7, 0)
+})

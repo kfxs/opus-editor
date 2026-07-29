@@ -1,11 +1,12 @@
 # Staff size — a staff is drawn at a size, and it is not the same size for every staff
 
-**Status: P0 + P1 + P2 + P4 BUILT** (2026-07-29) — the value, the resolver, the renamed constant,
-the dev button, the per-staff vertical stride, and **the transform: a small staff is now drawn
-small**. ⚠️ **P3 was skipped and is still open**, so a small staff's music is still *spaced* for a
-full-size one and reads as stretched (§6). P5 (§4.3 — ties, slurs, cross-bar beams, connectors, the
-ghost) and P6 are open. §7's redraw keys landed where each became true: `measureShapeKey` in P4,
-`laneFingerprint` + `layoutStateKey` still owed by P3 — see the P2 note. The review that produced the plan: the model is already
+**Status: P0 + P1 + P2 + P4 + P5 BUILT** (2026-07-29) — the value, the resolver, the renamed
+constant, the dev button, the per-staff vertical stride, **the transform** and **everything drawn
+outside a bar's group**. A small staff is drawn small, with its ties, slurs, beams, connector and
+ghost. ⚠️ **P3 was skipped and is still open**, so its music is still *spaced* for a full-size
+staff and reads as stretched (§6); P6 (the ink constants) is open too. §7's redraw keys landed
+where each became true: `measureShapeKey` in P4, `laneFingerprint` + `layoutStateKey` still owed by
+P3 — see the P2 note. The review that produced the plan: the model is already
 proportional (staff-spaces, pixel-free), the **rendering** is not.
 
 > **Revised 2026-07-29** against the codebase and VexFlow 5's own source. The model half (§2, §3)
@@ -344,9 +345,50 @@ open, see below). The per-staff group transform (§4.1) + the `ElementRegistry` 
 > **Not verified: PDF export of a small staff.** The outliner replaces each `<text>` in place, so the
 > ancestor scale should carry through — but nothing tests it.
 
-**P5 — the passes drawn outside the group** (§4.3). Ties, slurs, cross-barline beams, connectors,
-tempo, the ghost. Split from P4 deliberately: P4 is one mechanism proved on one staff, this is seven
-call sites that each have to be told about it, and neither review reads well mixed with the other.
+**P5 — the passes drawn outside the group** (§4.3). **✅ BUILT.** Ties, slurs, cross-barline beams,
+connectors, tempo, the ghost. Split from P4 deliberately: P4 is one mechanism proved on one staff,
+this is seven call sites that each have to be told about it, and neither review reads well mixed
+with the other.
+
+> ⭐ **Six of the seven are the same answer as P4: put the ink back in the staff's space rather than
+> converting its coordinates.** `staffScaleGroup.ts` — `inStaffSpace` for a pass that already opens
+> a group of its own (a tie's, a slur's), `inScaledStaffGroup` for one that does not (the
+> cross-barline beams, the pending-tie preview). Geometry, curve thickness and beam width all come
+> right at once, and a new kind of ink added to those passes is right without anyone remembering.
+> `RenderPass.staffScale(staffIndex)` is where they all ask.
+>
+> ⛔ **The stave connector is the exception, and it is the interesting one.** It runs from the top
+> staff's first line to the bottom staff's last, and those two may be drawn at *different sizes* —
+> which is precisely the picture this whole plan is for. There is no single scale to put it in, so
+> it is the one thing whose coordinates are composed by hand, each end through its own staff's.
+> `StaveConnector` went with it: `singleLeft` is `fillRect(x, topY, 1, height)`
+> (staveconnector.js:70, :144), so nothing was lost. Its 1px width is deliberately NOT scaled — a
+> system bracket belongs to the system, not to either staff's ink.
+>
+> ⭐ **`inScaledStaffGroup` opens its wrapper ONLY when the staff is not full size**, so a
+> full-size score's DOM is unchanged — the cross-barline beams are identified by being direct
+> children of the `<svg>`, in a unit test and in the e2e harness, and both now look one level
+> deeper through `vf-scaled` as well.
+>
+> **The note ghost** builds its throwaway stave at `x/k, y/k, width/k` and composes
+> `translate(shift) scale(k)` on the overlay group it already had — with the pointer-to-note shift
+> taken out of the staff's space first, since a translate is measured in the parent's.
+>
+> **Tempo marks were never in this list**: `drawTempoMarks` runs inside `drawMeasureContent`, so
+> its group is nested in the measure's and has been scaling since P4.
+>
+> `e2e/staffSize.e2e.ts` covers each: the tie and slur shrink and stay on their own staff (the
+> slur's arch above its top line comes out at exactly 0.7), the cross-barline beam is inside the
+> scale group with nothing left full-size at the top level, the connector still reaches from one
+> staff's top line to the other's bottom when they are different sizes, and the ghost previews at
+> the size the note will be.
+>
+> ⏭️ **Still full size on a small staff: the MARKING-TOOL ghosts** (clef, meter, dynamic, rest,
+> articulation, accidental, tie, dot, tremolo, tempo). They are not in §4.3's table because they are
+> not staff-anchored — each builds a stave at `(0, cursorY)` and follows the pointer, so they are in
+> the right *place*, just drawn at full size over a small staff. Fixing that means resolving the
+> staff under the cursor and threading it through ~10 drawers plus the `ToolGhost` dispatch: its own
+> phase, not this one.
 
 **P6 — the ink constants** (§1). Sweep `LAYOUT_CONFIG` and the loose px constants into staff-spaces,
 by the ink/finger rule. Deliberately last: until P4 there is nothing to be wrong about.

@@ -36,6 +36,7 @@ import { fillRests, type RestSlot } from '@/utils/restFill'
 import { measureEndingClef, effectiveClefAt, middleLineDiatonicPos, resolveStaffClefs } from '@/utils/clefUtils'
 import { spellingToVexflowKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
 import { staffOf } from '@/utils/lanes'
+import { resolveStaffSize } from '@/engine/models/staffSize'
 import { staffMeasureView, staffIdAtIndex } from '@/engine/models/staffContent'
 import { layoutTupletMark, drawTupletMark } from './ScoreTuplet'
 import { CenteredTremolo } from './CenteredTremolo'
@@ -143,10 +144,16 @@ export function drawNoteGhost(
     // (mid-measure changes), not just the measure's opening clef.
     const clef: Clef = effectiveClefAt(score, ghostNote.measure, beatToFrac(ghostNote.beat), staffId)
 
-    // The ghost sits at a real pitch, so it gets real ledger lines — same ink as the engraved ones.
-    const tempStave = new Stave(measureX, measureY, staveWidth)
-    tempStave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
+    // ⭐ The ghost is drawn in ITS STAFF'S own space, like the bar it previews into: the throwaway
+    // stave is built at `x/k, y/k, width/k` and the whole ghost group carries `scale(k)`
+    // (docs/staff-size-plan.md §4.1, §4.3). Full size, k is 1 and this is the arithmetic it
+    // replaced. Get it wrong and the preview is a full-size note over a small staff — the one
+    // place where "what you see is what you get" is the entire point of the drawing.
+    const scale = staffId ? resolveStaffSize(score, staffId) : 1
     const isFirstInLine = measureX === lineLeft
+    // The ghost sits at a real pitch, so it gets real ledger lines — same ink as the engraved ones.
+    const tempStave = new Stave(measureX / scale, measureY / scale, staveWidth / scale)
+    tempStave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
     if (ghostNote.measure === 1 || isFirstInLine) {
       tempStave.addClef(openingClef)
     } else if (hasClefChange) {
@@ -263,7 +270,10 @@ export function drawNoteGhost(
     let targetShiftX: number | null = null
     if (ghostNote.rawX !== undefined) {
       try {
-        const noteX = staveNote.getAbsoluteX()
+        // `rawX` is the pointer, in SVG coordinates; `getAbsoluteX` answers in the stave's own.
+        // The transform below translates in the PARENT's space, so the note's x has to be carried
+        // out of the staff's before the two are subtracted.
+        const noteX = staveNote.getAbsoluteX() * scale
         targetShiftX = ghostNote.rawX - noteX
       } catch (_e) {
         // getAbsoluteX might not be available before draw
@@ -325,9 +335,12 @@ export function drawNoteGhost(
       // overlay — loose elements in the SVG could never be taken down again (P4).
       const ghostGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
       ghostGroup.setAttribute('class', 'ghost-note-group')
-      if (targetShiftX !== null) {
-        ghostGroup.setAttribute('transform', `translate(${targetShiftX}, 0)`)
-      }
+      // Translate FIRST — it is measured in the parent's space — then the staff's own scale, the
+      // same composition `replaySnapshot` uses on a moved bar.
+      const shift = targetShiftX !== null ? `translate(${targetShiftX}, 0)` : ''
+      const scaled = scale !== 1 ? `scale(${scale})` : ''
+      const transform = [shift, scaled].filter(Boolean).join(' ')
+      if (transform) ghostGroup.setAttribute('transform', transform)
       for (const element of newElements) {
         svg.removeChild(element)
       }
