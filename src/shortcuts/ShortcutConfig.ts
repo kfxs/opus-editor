@@ -47,6 +47,16 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Type a rest of the current duration at the caret (keyboard entry), or start keyboard entry at the selection',
   },
 
+  // ⭐ PLAYBACK — `p`, which is Sibelius's own key for it (there it plays FROM the selected note;
+  // Space is its play/stop). ⚠️ Space is not available to us: it is note entry's typewriter key
+  // above, and that is a per-keystroke gesture where playback is a per-session one. MuseScore
+  // spends `p` on its piano-keyboard panel instead — the two apps disagree, so there is no key
+  // here that is right by convention alone, and `p` for "play" at least says what it does.
+  'p': {
+    action: 'togglePlayback',
+    description: 'Play the score, or stop it if it is playing',
+  },
+
   // Note durations (for future use)
   // '1': { action: 'setDurationWhole', description: 'Whole note' },
   // '2': { action: 'setDurationHalf', description: 'Half note' },

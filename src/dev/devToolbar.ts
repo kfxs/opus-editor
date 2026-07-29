@@ -112,6 +112,15 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   function toggle(
     parent: HTMLElement, base: string, label: string, title: string,
     isOn: () => boolean, onClick: () => void, on: string | (() => string) = ON,
+    /**
+     * ⭐ Whether the button can be pressed AT ALL — absent means always. A toggle whose target is a
+     * SELECTION (the staff of a clicked bar) has nothing to act on until there is one, and a button
+     * that looks pressable and silently does nothing is worse than one that says so: his report was
+     * that `Small` can be clicked with no bar selected. Same shape as {@link action}'s `isEnabled`,
+     * which the two staff buttons beside it have always had — the difference between them is only
+     * that a toggle's LIGHT is a question about the score.
+     */
+    isEnabled?: () => boolean,
   ): HTMLButtonElement {
     const b = el('button', `${base} ${OFF}`, label)
     b.title = title
@@ -120,6 +129,8 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     // button on (authored → cyan, the note's actual role → slate), which is only knowable per sync.
     syncers.push(() => {
       b.className = `${base} ${isOn() ? (typeof on === 'function' ? on() : on) : OFF}`
+        + (isEnabled ? ` ${DISABLED_BTN}` : '')
+      if (isEnabled) b.disabled = !isEnabled()
     })
     parent.appendChild(b)
     return b
@@ -156,6 +167,9 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   // --- Tool mode ---
   const toolBox = group('Tool:')
   const TOOL_BTN = 'px-3 py-1 rounded text-sm'
+  /** How a button that CANNOT be pressed right now looks — shared by {@link action} and any
+   *  {@link toggle} given an `isEnabled`, so "disabled" reads the same everywhere in the strip. */
+  const DISABLED_BTN = 'disabled:opacity-40 disabled:cursor-not-allowed'
   toggle(toolBox, TOOL_BTN, 'Entry', 'Note Entry Tool',
     () => state.selectedTool === 'entry',
     () => { state.selectedTool = 'entry'; state.selectedNoteId = null })
@@ -254,8 +268,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
    * measure-structure edit — while "Staff" works on a plain-clicked bar (the SINGLE box) — a
    * staff-structure edit relative to the clicked staff.
    */
-  const ACTION_BTN = 'px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 '
-    + 'disabled:opacity-40 disabled:cursor-not-allowed'
+  const ACTION_BTN = `px-2 py-1 rounded text-sm leading-none bg-gray-600 hover:bg-gray-500 ${DISABLED_BTN}`
   function action(
     parent: HTMLElement, label: string, title: string,
     isEnabled: () => boolean, onClick: () => void,
@@ -292,7 +305,10 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     "Draw the selected bar's staff small (0.7) or full size — click empty space in a measure to "
       + 'select it first. Scaffolding: the stored value is a ratio, and 0.7 is this button’s choice.',
     () => isSelectedStaffSmall(state, getEngine()),
-    () => { if (toggleSelectedStaffSize(state, getEngine())) renderScore() })
+    () => { if (toggleSelectedStaffSize(state, getEngine())) renderScore() },
+    ON,
+    // Nothing to act on until a bar is clicked — the same gesture `+ Above` / `+ Below` wait for.
+    hasStaffContext)
   row.appendChild(staffBox)
   row.appendChild(divider())
 

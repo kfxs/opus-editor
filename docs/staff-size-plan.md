@@ -271,6 +271,14 @@ are the button's business, never the model's.
 > press behind. And the press repaints through `RenderController.renderScore`, which the shell did
 > not have: the toolbar's every other button goes through the palette, which repaints itself.
 >
+> ⭐ **…and it is DISABLED until a bar is selected** (his report: *"Small should not be able to
+> click if a staff (measure) is not selected"*). It was a no-op in that state — `staffSizeTarget`
+> returns null and the press logged and returned — but a button that looks pressable and silently
+> does nothing is worse than one that says so. It now takes the same `hasStaffContext` gate
+> `+ Above` / `+ Below` have always had, through a new optional `isEnabled` on the toolbar's
+> `toggle` helper: a toggle differs from an action in that its LIGHT is a question about the score,
+> not in whether it can be pressed.
+>
 > ⭐ **Nothing looks different yet, and that is P1 finishing, not P1 failing** — the staff changes
 > size in the model and the picture is identical until P2's stride (and the three keys in §7, which
 > is why they land there and not later).

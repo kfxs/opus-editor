@@ -273,6 +273,9 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     () => mouse.insertExpression(),
     () => mouse.insertTempo(),
     () => mouse.editSelectedDynamic(),
+    // `p` — the same toggle the ▶ button runs; the shortcut is a second way to press it, never a
+    // second implementation of it.
+    () => { void togglePlayback() },
   )
 
   // ---------------------------------------------------------------------------------------------

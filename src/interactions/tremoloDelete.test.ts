@@ -65,7 +65,7 @@ describe('Delete removes a selected tremolo', () => {
       { renderScore: vi.fn() } as never,
       {} as never,
       { model: { getViewportSize: () => ({ w: 800, h: 400 }) } } as never,
-      () => null, () => {}, () => {}, () => false,
+      () => null, () => {}, () => {}, () => false, () => {},
     )
     wiring.enable()
     teardown = wiring.disable

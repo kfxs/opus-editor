@@ -39,6 +39,9 @@ export function wireShortcuts(
   insertExpression: () => void,
   insertTempo: () => void,
   editSelectedDynamic: () => boolean,
+  /** Start playback, or stop it if it is running — the SAME toggle the dev shell's ▶ button runs
+   *  (`App.togglePlayback`), so one gesture cannot drift from the other. */
+  togglePlayback: () => void,
 ): { enable: () => void; disable: () => void } {
   const shortcutManager = new ShortcutManager()
 
@@ -253,6 +256,7 @@ export function wireShortcuts(
       state.selectedTool = 'entry'
       renderer.renderScore()
     },
+    togglePlayback: () => togglePlayback(),
     setActiveVoice1: () => palette.setActiveVoice(1),
     setActiveVoice2: () => palette.setActiveVoice(2),
     setActiveVoice3: () => palette.setActiveVoice(3),
