@@ -3,6 +3,12 @@
 **Status: PLANNED.** Nothing built. The review that produced it: the model is already proportional
 (staff-spaces, pixel-free), the **rendering** is not.
 
+> **Revised 2026-07-29** against the codebase and VexFlow 5's own source. The model half (§2, §3)
+> and the vertical stride (§5) stood. The rendering half did not: `ctx.scale` is **not** a transform
+> in VexFlow's SVG backend (§4), the horizontal half of the room was missing entirely (§6), and two
+> memos will answer *clean* to a size change and never redraw (§7). Everything below is now cited to
+> the line that proves it.
+
 The picture this is for: a violin part above a piano part, the violin engraved small and the piano
 full size, on the same system. Today every staff in the editor is exactly one size, and roughly
 thirty numbers quietly encode that.
@@ -11,9 +17,15 @@ thirty numbers quietly encode that.
 
 ## 1. The defect, named
 
-`VEXFLOW_DEFAULT_STAFF_SPACE_PX = 10` has ~20 call sites, every one of them `staffSpaces × 10`. The
-name says it is VexFlow's default. It is not: it is **the score's staff size**, written as a
-constant, and it is what has to stop being one.
+`VEXFLOW_DEFAULT_STAFF_SPACE_PX = 10` (`engravingOverrides.ts:455`) has 16 production references,
+nearly all of them `staffSpaces × 10`. The name says it is VexFlow's default. It is not: it is **the
+score's staff size**, written as a constant, and it is what has to stop being one.
+
+⭐ Two of the sixteen are already right, and they are the shape the rest should end up in:
+`measuredRoom.ts:83` and `:121` read `geometry?.lineSpacing ?? VEXFLOW_DEFAULT_STAFF_SPACE_PX` — the
+staff's own spacing, with the constant only as a fallback for "no geometry yet". The registry has
+carried a per-staff `lineSpacing` since multi-staff (`ElementRegistry.ts:132`); it has simply never
+been given a value other than 10.
 
 Around it, `LAYOUT_CONFIG` is eight absolute pixels that are all secretly staff-spaces at that size
 — `MIN_NOTE_SPACING` 18 (1.8 sp), `CLEF_WIDTH` 45 (4.5 sp), `TIME_SIG_WIDTH` 30, `BARLINE_PADDING`
@@ -74,38 +86,92 @@ trapped later.
 
 Measured, not assumed (VexFlow 5.0.0):
 
-- Glyph size comes from a **global** `MetricsDefaults.fontSize` (30 ⇒ 30pt × 4/3 = 40 px em ⇒
-  SMuFL's 4-staff-space em ⇒ 10 px/space). `Tables.STAVE_LINE_DISTANCE = 10` is a **second,
-  independent** global. They agree by coincidence; nothing enforces it.
-- `Stave` accepts `spacingBetweenLinesPx`, but it only moves the **lines**. Noteheads, clefs, rests
-  and accidentals keep the global font size — a squashed staff with full-size glyphs.
+- Glyph size comes from a **global** `Metrics.fontSize` (`metrics.js:63` — 30 ⇒ 30pt × 4/3 = 40 px
+  em ⇒ SMuFL's 4-staff-space em ⇒ 10 px/space). `Tables.STAVE_LINE_DISTANCE = 10` (`tables.js:647`)
+  is a **second, independent** global. They agree by coincidence; nothing enforces it.
+- `Stave` accepts `spacingBetweenLinesPx`, but it only moves the **lines** (`stave.js:51, 65, 72`).
+  Noteheads, clefs, rests and accidentals keep the global font size — a squashed staff with
+  full-size glyphs.
 - Worse, VexFlow's own placement reads the **global** `STAVE_LINE_DISTANCE` rather than the stave's
-  own spacing in `tuplet.js` (6 sites), `annotation.js` (5), `articulation.js`, `ornament.js`,
-  `stringnumber.js`, `stavenote.js`, `vibrato.js`. Per-stave spacing is only partly honoured even
-  where it exists.
+  own spacing in `tuplet.js` (6 sites), `annotation.js` (5), `stavenote.js` (2), `stringnumber.js`
+  (2), `articulation.js`, `ornament.js`, `vibrato.js`, `frethandfinger.js` — while thirteen other
+  modules ask the stave. The library is split down the middle on the question, so per-stave spacing
+  is only ever partly honoured.
 - `Tables.STEM_HEIGHT` 35 and `STEM_WIDTH` 1.5 are global px.
 - VexFlow's only built-in "smaller" is a global per-category `fontScale` (`GraceNote: 2/3`) and
   `Clef` `size: 'small'`. Category-wide, never per-stave.
 
-⛔ So `spacingBetweenLinesPx` is **not** the mechanism. The mechanism is a **context transform**:
-`ctx.scale(k, k)` around one staff's draw, with the stave built at `x/k, y/k, width/k`. Everything —
-lines, glyphs, stems, beams — scales together, because it is one transform over the ink.
+⛔ So `spacingBetweenLinesPx` is **not** the mechanism. The mechanism is **one transform over the
+ink**: the stave built at `x/k, y/k, width/k` inside a group that carries `scale(k)`. Everything —
+lines, glyphs, stems, beams — scales together, because it is one transform.
 
-### 4.1 The one real cost: reading geometry back
+### 4.1 ⛔ It is a GROUP transform, not `ctx.scale`
+
+`ctx.scale(k, k)` is the obvious spelling and it is wrong. `SVGContext.scale()`
+(`svgcontext.js:146-153`) does not transform subsequent drawing at all: it multiplies
+`state.scaleX/scaleY` and rewrites the **viewBox** — which rescales the entire SVG, including every
+staff already drawn. There is no per-draw scope to it, and `save()`/`restore()` do not give it one:
+they clone `state` and `attributes` and never re-apply the viewBox. `GutterRenderer.ts:86` uses
+`ctx.scale` correctly, and that is the tell — the gutter is a separate SVG at a whole zoom.
+
+⭐ **The right spelling is a `transform` attribute on a `<g>`** — what VexFlow itself does for
+rotation (`svgcontext.js:86`, `openRotation` = `openGroup()` plus a transform), and what this
+codebase already does in `GhostRenderer`, `DynamicsLayout:118` and `replaySnapshot`. **And the group
+already exists at exactly the right granularity**: `VexFlowRenderer.ts:1537` opens
+`openGroup('measure', measureGroupKey(measureNumber, staffIndex))` — one group per measure **per
+staff**. Set its transform, build its stave at `x/k, y/k, width/k`, and that staff's bar is small.
+
+⚠️ **`replaySnapshot` overwrites that attribute**, and this is the trap that would be found late.
+`VexFlowRenderer.ts:3539` writes `transform = translate(dx, dy)` on a group it is moving rather than
+redrawing, and `:3542` *removes* the attribute when the bar returns to where it was painted. A
+scaled staff would snap to full size the first time a bar moves — so never in a fresh render, and
+always mid-drag. Both branches must carry the scale: `translate(dx, dy) scale(k)`, translate first,
+because `dx/dy` are measured in the parent's space.
+
+### 4.2 The cost on the way back: reading geometry
 
 Everything we read back from VexFlow after drawing — `getYForLine`, `getNoteStartX`,
 `getAbsoluteX`, `getModifierStartXY`, `getBoundingBox` — answers in **pre-transform** coordinates.
 A scaled staff would register hit-boxes in the wrong place.
 
 ⭐ **There is exactly one seam, and it already exists.** Every registration in the codebase funnels
-through `ElementRegistry.add()` / `setStaffGeometry()` — 29 production call sites across 7 modules,
-one entry point each. Compose the staff's transform there (`× k`, plus the staff origin) and every
-hit-box, every glyph rect and every staff geometry lands right, with no call site touched.
+through `ElementRegistry.add()` / `setStaffGeometry()` — 28 production `add` sites across 7 modules
+plus 2 `setStaffGeometry` calls, both in `VexFlowRenderer`. Compose the staff's transform there
+(`× k`, plus the staff origin) and every hit-box, every glyph rect and every staff geometry lands
+right, with no call site touched. `StaffGeometry.lineSpacing` becomes `10 × k` in the same stroke,
+which is what makes `measuredRoom`'s two fallbacks (§1) start telling the truth.
 
-⚠️ The two things that would still read raw and must be checked by hand: `DynamicsLayout` and
-`TempoLayout` ask the **DOM** for `getBBox()` (which *is* post-transform — the opposite problem),
-and the e2e readers already compose the CTM for a different reason. Both are named here so neither
-is discovered late.
+⚠️ **`getBBox()` is not the opposite problem — it is the same problem.** It answers in the element's
+own user space and ignores ancestor transforms; `getBoundingClientRect()` / `getCTM()` are the
+post-transform readers. So `DynamicsLayout` and `TempoLayout` read the same pre-transform space
+VexFlow does, and the actual defect there is a **mixing** one: `DynamicsLayout.ts:101-118` derives
+`dx/dy` from local `getBBox()` boxes and then shifts the **registry**'s bbox by that same `dx/dy`
+(`:121-127`). Under a scale the registry box is global and the delta is local — off by exactly `k`.
+`TempoLayout.ts:258` has the same shape.
+
+⭐ The e2e harness composes the CTM already (`e2e/harness.ts:111`), so its readers report the
+*post*-transform picture: the browser suite can measure a scaled staff directly, which is what makes
+the readback risk testable rather than eyeballed.
+
+### 4.3 What is drawn OUTSIDE the measure group
+
+The registry is the one seam for **hit-boxes**. It is not the seam for **ink**, and the difference
+is a second half of the work. Drawn at the SVG's top level, after the measure loop, from
+coordinates read off the drawn (pre-transform) VexFlow objects:
+
+| Pass | Site |
+| --- | --- |
+| cross-barline beams | `VexFlowRenderer.ts:3329` |
+| cross-barline fan beams | `:3332` |
+| ties | `:3335` (`renderTies`) |
+| slurs | `:3338` (`renderSlurs`) |
+| stave connectors | `:3316` |
+| the note ghost | `:3346` |
+| tempo marks | `TempoLayout.ts:250` (opens its own group) |
+
+On a scaled staff each of these draws full-size in the wrong place. Each one knows which staff it
+belongs to, so the fix is uniform — draw inside that staff's scale group, or map through it — but it
+has to be *planned*, because on a single-size score every one of them looks perfect.
 
 ## 5. The vertical stride is the thing that breaks *pagination*
 
@@ -117,7 +183,49 @@ This is independent of glyph scaling and can land first: the stride becomes per-
 (`staff-lines × sizeₛ + clearance`), summed instead of multiplied. In the same function,
 `acc += above * VEXFLOW_DEFAULT_STAFF_SPACE_PX` becomes `× that staff's space`.
 
-## 6. Phases
+⚠️ The stride is computed in **three** places, not one — `VexFlowRenderer.ts:2955` and `:3044`, and
+`MusicEngine.ts:1656` (the minimum-spacing clamp) and `:3153`. All of them read the same two
+`LAYOUT_CONFIG` constants, so all of them go per-staff together or the drag clamp fights the layout.
+
+## 6. And the horizontal room, which is the half nobody looks at
+
+A small staff needs less room *along* the line too, and the width path is per-lane already, which is
+the good news: `MeasureLayout.ts:175-203` computes `noteSpaceForLane(lane, clef, cache)` for each
+staff's own view of the bar and takes the **widest**. The bar's overhead (`CLEF_WIDTH`,
+`TIME_SIG_WIDTH`, `BARLINE_PADDING`) is charged once, for the whole column.
+
+So the small staff's lane must contribute `× sizeₛ`, and the overhead must be the widest staff's,
+not a constant. Leave it out and the failure is quiet and double-ended: the 0.7 staff wins the `max`
+with numbers it does not need, so every bar in the score is too wide — *and* inside its own scaled
+group that lane gets `1/0.7` = 43% more musical room than it asked for, which reads as a small staff
+that has been stretched. Neither looks like "the widths are wrong"; they look like bad spacing.
+
+⭐ This is the same shape as §5 — a per-staff number that used to be one number — but it is a
+different pass, and it is why the transform is not the last phase.
+
+## 7. ⚠️ Two memos will answer *clean*, and nothing will redraw
+
+The renderer does not redraw what it believes is unchanged, and **staff size is invisible to every
+one of its keys** — it lives on `score.staves[i]`, and the keys hash measures.
+
+- `laneFingerprint` (`MeasureWidthCache`) — "is this lane's width still good?" Hashes the lane's
+  slots. A size change touches no slot ⇒ the memoized width comes back, at the old size.
+- `measureShapeKey` (`MeasureRedrawKey.ts`) — "does this bar still *look* the same?" Same blindness
+  ⇒ the drawn `<g>` is reused verbatim, and §4's transform is never applied to it.
+- `layoutStateKey` (`VexFlowRenderer.ts:491`) — "may this render reuse the last casting-off?" Holds
+  view mode, surface, justification, linear spacing. Size changes the casting-off (§5, §6) and is
+  not in it.
+
+All three need the sizes of the staves in play. `measureShapeKey` needs only *this* staff's size;
+`layoutStateKey` needs all of them, and the natural spelling is the same sorted-entries list the
+`linearStaffSpacing` map already uses beside it.
+
+⭐ This is the trap `docs/render-performance-plan.md` §7a names in the abstract — *reuse the wrong
+key and the picture silently rots*. Here it would land on P1's very first click: the stride moves,
+the bars keep their old picture, and the button looks half-broken for a reason that is nowhere near
+the button.
+
+## 8. Phases
 
 **P0 — the value and the resolver.** `StaffInfo.size`, `resolveStaffSize(score, staffId, opener?)`,
 JSON round-trip, a `ScoreModel` mutator. No rendering change. Rename
@@ -129,23 +237,50 @@ between `1` and `0.7`. **Scaffolding, in `dev/`, deliberately crude** — it exi
 infrastructure while it is iterated on, not to be the UI. It writes a *number*; the two values are
 the button's business, never the model's.
 
-**P2 — the vertical stride per staff** (§5). Visible immediately with P1: a small staff gets a small
-slot. Still no glyph scaling.
+**P2 — the vertical stride per staff** (§5), **with the three keys** (§7). Visible immediately with
+P1: a small staff gets a small slot. Still no glyph scaling. The keys land here rather than in P3
+because without them P1's button appears not to work at all.
 
-**P3 — the transform.** `ctx.scale` per staff + the `ElementRegistry` composition (§4.1). This is
-where a small staff actually looks small. Prototype on one staff behind a flag first; the readback
-is the whole risk and the e2e harness can measure it directly.
+**P3 — the horizontal room** (§6). The per-lane width contribution and the bar's overhead go
+per-staff. Still no glyph scaling: the bar is now the right *width* for a small staff drawn large,
+which looks wrong on purpose and is the last cheap step.
 
-**P4 — the ink constants** (§1). Sweep `LAYOUT_CONFIG` and the loose px constants into staff-spaces,
-by the ink/finger rule. Deliberately last: until P3 there is nothing to be wrong about.
+**P4 — the transform.** The per-staff group transform (§4.1) + the `ElementRegistry` composition
+(§4.2) + `replaySnapshot`. This is where a small staff actually looks small. Prototype on one staff
+behind a flag first; the readback is the whole risk and the e2e harness can measure it directly.
 
-## 7. Explicitly not in this plan
+**P5 — the passes drawn outside the group** (§4.3). Ties, slurs, cross-barline beams, connectors,
+tempo, the ghost. Split from P4 deliberately: P4 is one mechanism proved on one staff, this is seven
+call sites that each have to be told about it, and neither review reads well mixed with the other.
+
+**P6 — the ink constants** (§1). Sweep `LAYOUT_CONFIG` and the loose px constants into staff-spaces,
+by the ink/finger rule. Deliberately last: until P4 there is nothing to be wrong about.
+
+## 9. Explicitly not in this plan
 
 - **Per-system size** — §3 is the design that keeps it cheap; building it is not owed.
 - **Cue notes** (a small *note* inside a normal staff) — a different feature; VexFlow's per-category
   `fontScale` is the seam for it, not this.
-- **The global mm-per-staff-space** (`PX_PER_MM = 10 / 1.75`, which currently derives millimetres
-  *from* the staff size). It is a real coupling and it belongs to the engraving object beside
-  `Surface`, not here. ⚠️ It will collide with this work at P4 — one of them has to name the score's
-  base staff size and the other has to read it.
+- **The global mm-per-staff-space** (`PX_PER_MM = 10 / 1.75` — `engine/layout/surface.ts:83`, which
+  currently derives millimetres *from* the staff size). It is a real coupling and it belongs to the
+  engraving object beside `Surface`, not here. ⚠️ It will collide with this work at P6 — one of them
+  has to name the score's base staff size and the other has to read it.
 - **A UI beyond the dev button.** P1's button is scaffolding.
+
+## 10. Rejected, so it is not re-proposed
+
+**Swapping VexFlow's globals per staff** — set `Metrics.fontSize` and `Tables.STAVE_LINE_DISTANCE`,
+draw that staff, put them back. It reads as the smaller change and it is the larger one. `Metrics`
+memoizes font info per key (`metrics.js:12-24`, `cacheFont`), so every swap needs a `Metrics.clear()`
+and gives back the caching the renderer relies on; and tier 1 (`buildStave`, the width pass) runs in
+a *separate earlier pass* from tier 2's draw, so a global set around the draw is wrong for half the
+pipeline — the widths would still be full-size. A transform needs none of that: it is applied to ink
+that has already been measured, which is exactly why the arithmetic in §4.1 is `x/k` and not a
+different layout.
+
+## 11. One comment that this work makes false
+
+`VexFlowRenderer.ts:2948` justifies computing Y from the constant with "this editor never builds a
+stave with custom spacing — zoom is a CSS transform". True today, false from P2. It is a **repo
+fact**, not a design fact, so it rots (`docs/ARCHITECTURE.md` on comments that need a check) — update
+it in the same commit that makes it wrong.
