@@ -374,7 +374,9 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // the transform: scale(zoom) layer: it neither scrolls away with the music nor zooms with it.
   windows.mount(scoreViewport)
 
-  engine = new MusicEngine({ container: scoreContent, width: 1000, height: 400 })
+  // No `width`: the initial SVG size comes from the engine's own surface (the sketching canvas —
+  // `engine/layout/surface.ts`), and the first render resizes it to whatever it casts off onto.
+  engine = new MusicEngine({ container: scoreContent, height: 400 })
 
   // Playback-follow: keep the playing measure inside the viewport. We react only when the measure
   // number changes (not every position tick), and viewport.ensureVisible self-gates — it scrolls

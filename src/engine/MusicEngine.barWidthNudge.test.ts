@@ -17,6 +17,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { MusicEngine } from './MusicEngine'
 import { fracCreate } from '@/utils/fraction'
 import { LAYOUT_CONFIG } from './rendering/layoutConfig'
+import { SKETCH_CANVAS } from './layout/surface'
 import type { NoteParams } from '@/types/music'
 
 const STEP_PX = 10
@@ -263,7 +264,7 @@ describe('MusicEngine.nudgeBarWidth', () => {
     // Alone on its system, justified to the full line — and further pressing changes nothing.
     const filled = engine.getBarWidth(1)
     expect(press(1, STEP_PX)).toBeCloseTo(filled, 6)
-    expect(barlineXOf(1)).toBeGreaterThan(LAYOUT_CONFIG.CONTAINER_WIDTH - LAYOUT_CONFIG.MARGIN * 3)
+    expect(barlineXOf(1)).toBeGreaterThan(SKETCH_CANVAS.widthPx - SKETCH_CANVAS.marginPx * 3)
   })
 
   it('a bar stretched until it is alone on its system can still be brought back', () => {

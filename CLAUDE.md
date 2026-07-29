@@ -83,7 +83,9 @@ src/
     ElementRegistry.ts    # Authoritative hit-testing + pixel↔position
     ViewportModel.ts      # Scroll/zoom viewport state
     models/               # ScoreModel (data model), CollisionDetector
-    layout/               # Derived-view arithmetic, off the LAST RENDER: barWidthRoom
+    layout/               # WHAT the music is drawn on, and derived-view arithmetic off
+                          #   the LAST RENDER: surface (canvas vs page — authored input,
+                          #   the one member here that isn't derived) + barWidthRoom
                           #   (the gesture's closed form) + measuredRoom (what the
                           #   ElementRegistry says a column/bar can still give up)
     rendering/            # VexFlowRenderer, CoordinateMapper, FanPass, GhostRenderer

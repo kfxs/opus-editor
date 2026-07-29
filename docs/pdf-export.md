@@ -74,15 +74,17 @@ replacement would inherit. Stroked text is text drawn twice: the expression word
 
 ### 3. One page, on purpose
 
-There is no document model yet — no page size, no margins, no title block — so the export invents
-none. The page **is** the engraved surface: wrapped view is already a fixed-width column of
-justified systems (`LAYOUT_CONFIG.CONTAINER_WIDTH`), and the PDF is that column at 1:1, however
-tall it comes out. Px → pt is 72/96.
+The page **is** the engraved surface, and today that surface is the **sketching canvas**
+(`engine/layout/surface.ts`): a fixed-width column of justified systems with no physical size at
+all, so the PDF is that column at 1:1, however tall it comes out, and px → pt is 72/96 for want of
+anything better to mean. `renderScoreSvg` takes the surface as an argument — defaulting to
+`SKETCH_CANVAS` — which is where real pages will enter (docs/layout-plan.md P2).
 
 A PDF page stops at 14400 pt (200 inches ≈ 128 systems); past that the export refuses with a plain
-message rather than writing a file no viewer will open. When a page/layout model arrives, pagination
-belongs to **it** — the systems' y-bands are already known from the render (`measureLayoutInfo`
-line numbers + `getAllMeasureBounds`), so cutting between systems is arithmetic, not new machinery.
+message rather than writing a file no viewer will open. Under a real page surface that limit stops
+being reachable. Pagination then belongs to the **surface** — the systems' y-bands are already known
+from the render (`measureLayoutInfo` line numbers + `getAllMeasureBounds`), so cutting between
+systems is arithmetic, not new machinery.
 
 ### 4. The render has an AUDIENCE
 

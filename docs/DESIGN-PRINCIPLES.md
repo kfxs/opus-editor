@@ -168,6 +168,16 @@ be made *consciously* before more code piles onto it.
   session-only view state today: renderer-owned, mirrored on `EditorState` for the toolbar, in
   `layoutStateKey` so flipping it re-casts the score — the same path `viewMode` takes.
 
+  ⭐ **A SECOND member has since arrived, deliberately and by the same route: the SURFACE**
+  (`engine/layout/surface.ts` — page size and margins, or a sketching canvas;
+  `docs/layout-plan.md`). It is session-only for the same reason and travels the same path
+  (engine-held, pushed to the renderer, in `layoutStateKey`). This entry's own list of what the
+  engraving object would hold — *page size, margins, staff size, ragged-last* — is that surface and
+  `justifyLastLine` in one breath, so they are **not** two settings arriving by two routes: they are
+  members of one object, one of which is now built. `Surface` is that object's first member, and
+  `justifyLastLine` folds into it the day either has to persist — not before, since folding it now
+  buys nothing and disturbs a shipped toggle. ⛔ The warning below stands unchanged for a THIRD.
+
   Two homes were ruled out, and why matters more than the ruling:
   - **Not `engravingOverrides`.** That compartment is **id-keyed — element id → adjustment** — and
     every client is an authored tweak *anchored to a musical element*, anchor-relative and in

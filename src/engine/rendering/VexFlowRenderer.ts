@@ -48,6 +48,7 @@ import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacing
 import { staffSpacesToPixels } from './staffSpace'
 import { getStaves, staffMeasureView, firstStaffId, staffIndexOfId } from '@/engine/models/staffContent'
 import { LAYOUT_CONFIG, VIEWPORT_HEIGHT, LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout, type ViewMode } from './layoutConfig'
+import { resolveSurface, SKETCH_CANVAS, type Surface, type SurfaceMetrics } from '@/engine/layout/surface'
 import type { Rect } from '@/engine/ViewportModel'
 import { dbg } from '@/utils/debug'
 import { voiceOf } from '@/utils/lanes'
@@ -336,6 +337,19 @@ export class VexFlowRenderer {
    *  this always did); false is LilyPond's `ragged-last`. View state, not a score field — see
    *  {@link layoutStateKey}. */
   private justifyLastLine = false
+
+  /**
+   * The **surface** this render draws on (`engine/layout/surface.ts`) — the sketching canvas the
+   * editor has always used until something sets a page.
+   *
+   * Held here in the same way and for the same reasons as {@link viewMode} and
+   * {@link justifyLastLine}: view state, never a score field, and in {@link layoutStateKey} so
+   * changing it re-casts the score. Resolved to a {@link SurfaceMetrics} ONCE per render and
+   * threaded from there — no drawing code holds a `Surface`, and nothing anywhere branches on its
+   * kind. (docs/layout-plan.md §5)
+   */
+  private surface: Surface = SKETCH_CANVAS
+
   /**
    * **The casting-off of the last render, kept so a scroll doesn't recompute it.**
    *
@@ -442,8 +456,9 @@ export class VexFlowRenderer {
    * first half and is answered by `MusicEngine.modelDirty`; the selection is deliberately in
    * neither, which is the whole point of P3.
    *
-   * Container width is absent because it is a constant (`LAYOUT_CONFIG.CONTAINER_WIDTH`); add
-   * it here the day it becomes settable, along with page dimensions (§6c).
+   * The **surface** is here (docs/layout-plan.md P0.5) — it is what the casting-off casts off
+   * against, so a different page or canvas width is a different layout, however unchanged the
+   * score. It used to be absent, correctly, while it was a constant.
    *
    * The **cull window** is here, and it is what makes P6 work at all: scrolling changes no content,
    * so without it `isRenderStale()` would answer "no" and the bars newly scrolled into view would
@@ -470,6 +485,7 @@ export class VexFlowRenderer {
     return JSON.stringify([
       this.viewMode,
       this.justifyLastLine,
+      this.surface,
       [...this.linearStaffSpacing.entries()].sort((a, b) => a[0].localeCompare(b[0])),
       this.suppressedDynamicId,
       this.suppressedTempoId,
@@ -2927,7 +2943,9 @@ export class VexFlowRenderer {
     const staffList = staves.length > 0 ? staves : [{ id: firstStaffId(score) }]
     const numStaves = staffList.length
     const staffStride = LAYOUT_CONFIG.STAVE_HEIGHT + LAYOUT_CONFIG.VERTICAL_SPACING
-    const margin = LAYOUT_CONFIG.MARGIN
+    // Where the FIRST system's top sits: the surface's top margin. (The ghost path calls this
+    // method on its own, so it reads the surface rather than being handed a number.)
+    const margin = this.surfaceMetrics().marginTopPx
 
     let numLines = 0
     for (const info of measureWidths.values()) numLines = Math.max(numLines, info.lineNumber + 1)
@@ -2985,8 +3003,13 @@ export class VexFlowRenderer {
     // NOTE: no unconditional `clear()` here any more. The SVG is torn down *selectively*, below,
     // once we know which measures actually changed — see `clearForRender`.
 
+    // The surface being drawn on (page or canvas), resolved ONCE for this whole render: every
+    // margin and width below is read off it, and re-resolving mid-render is how a picture ends up
+    // half on one page and half on another. (docs/layout-plan.md §5)
+    const surface = this.surfaceMetrics()
+    const margin = surface.marginLeftPx
+
     // Use layout configuration
-    const margin = LAYOUT_CONFIG.MARGIN
     const staveHeight = LAYOUT_CONFIG.STAVE_HEIGHT
     const verticalSpacing = LAYOUT_CONFIG.VERTICAL_SPACING
 
@@ -3028,7 +3051,12 @@ export class VexFlowRenderer {
       this.layoutReusable && this.layoutCache?.key === layoutKey ? this.layoutCache.widths : null
     const measureWidths = this.frozenLayout
       ? new Map(this.frozenLayout)
-      : cachedLayout ?? calculateMeasureWidths(score, clefsByStaff, this.viewMode, this.widthCache, this.justifyLastLine)
+      : cachedLayout ?? calculateMeasureWidths(score, clefsByStaff, {
+        mode: this.viewMode,
+        cache: this.widthCache,
+        justifyLastLine: this.justifyLastLine,
+        surface,
+      })
     if (!this.frozenLayout) this.layoutCache = { key: layoutKey, widths: measureWidths }
     renderProbe().endLayout()
     // A bar changing SYSTEM is the one layout event with no trace in the score and none in the
@@ -3039,16 +3067,17 @@ export class VexFlowRenderer {
     // Store for use in tie rendering (to determine which line each measure is on)
     this.measureLayoutInfo = measureWidths
 
-    // Wrapped view justifies every line to one fixed page width, so the surface is that width.
-    // Linear view has no line to justify to: the music runs off to the right and the surface has
-    // to grow with it — 2·margin + the intrinsic widths, floored at the wrapped width so a short
-    // fragment doesn't render on a stub of a page. (docs/linear-view-plan.md §P1)
+    // Wrapped view justifies every line to the surface's width, so the SVG is that width.
+    // Linear view has no line to justify to: the music runs off to the right and the SVG has
+    // to grow with it — the side margins + the intrinsic widths, floored at the surface width so a
+    // short fragment doesn't render on a stub of a page. (docs/linear-view-plan.md §P1)
     const contentWidth = this.viewMode === 'linear'
       ? Math.max(
-          LAYOUT_CONFIG.CONTAINER_WIDTH,
-          margin * 2 + [...measureWidths.values()].reduce((sum, m) => sum + m.finalWidth, 0),
+          surface.widthPx,
+          surface.marginLeftPx + surface.marginRightPx
+            + [...measureWidths.values()].reduce((sum, m) => sum + m.finalWidth, 0),
         )
-      : LAYOUT_CONFIG.CONTAINER_WIDTH
+      : surface.widthPx
 
     // Client #7 staff-spacing (per-system): resolve each line's own per-staff push-down and
     // system top from the overrides + this render's line assignment (needs `measureWidths`).
@@ -3063,7 +3092,7 @@ export class VexFlowRenderer {
     // Each system stacks N staves (N=1 → unchanged); its span grows by that system's own
     // staff-spacing extra, summed across all systems (in `staffSpacingLayout`) so the SVG fits
     // the pushed-down staves.
-    const totalHeight = spacing.contentHeightPx + margin * 2
+    const totalHeight = spacing.contentHeightPx + surface.marginTopPx + surface.marginBottomPx
 
     // Check if SVG exists (should always exist after initialization)
     const svg = this.getSVGElement()
@@ -3287,7 +3316,7 @@ export class VexFlowRenderer {
       const ghostMeasureInfo = measureWidths.get(ghostNote.measure)
       if (ghostMeasureInfo) {
         const svg = this.getSVGElement()
-        if (svg) ghostNoteRendered = drawNoteGhost(this.context, svg, ghostNote, score, measureWidths, spacing)
+        if (svg) ghostNoteRendered = drawNoteGhost(this.context, svg, ghostNote, score, measureWidths, spacing, surface)
       }
     }
 
@@ -3329,6 +3358,18 @@ export class VexFlowRenderer {
 
   getJustifyLastLine(): boolean {
     return this.justifyLastLine
+  }
+
+  /** The surface to draw on — a sketching canvas or a page (`engine/layout/surface.ts`).
+   *  In {@link layoutStateKey}: a different surface is a different casting-off. */
+  setSurface(surface: Surface): void {
+    this.surface = surface
+  }
+
+  /** This render's surface in pixels. Resolved on demand rather than cached: it is a handful of
+   *  multiplications, and a stale copy of it would be a picture drawn on last render's page. */
+  private surfaceMetrics(): SurfaceMetrics {
+    return resolveSurface(this.surface)
   }
 
   /** Tell the renderer whether this render may reuse the last one's casting-off. Only `MusicEngine`
@@ -3704,6 +3745,7 @@ export class VexFlowRenderer {
     return this.ghostOverlay((ctx, svg) => drawNoteGhost(
       ctx, svg, ghostNote, score, this.measureLayoutInfo,
       this.staffSpacingLayout(score, this.measureLayoutInfo),
+      this.surfaceMetrics(),
     ))
   }
 

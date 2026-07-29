@@ -1,4 +1,5 @@
 import { VexFlowRenderer, LAYOUT_CONFIG } from '../rendering/VexFlowRenderer'
+import { resolveSurface, SKETCH_CANVAS, type Surface } from '@/engine/layout/surface'
 import type { Score } from '@/types/music'
 
 /**
@@ -12,8 +13,8 @@ import type { Score } from '@/types/music'
  *    every element the user has HIDDEN, which is an editing affordance and not engraving.
  *
  * So an export gets its OWN renderer on its OWN detached-ish container: cull window never set
- * (⇒ every bar drawn), wrapped view (⇒ the fixed `CONTAINER_WIDTH` column that is already a
- * page-width casting-off), no ghost, nothing selected, and the **print audience** (⇒ a hidden
+ * (⇒ every bar drawn), wrapped view (⇒ the surface's column, cast off exactly as on screen), no
+ * ghost, nothing selected, and the **print audience** (⇒ a hidden
  * element leaves no ink at all rather than gray ink — `engine/rendering/hiddenElements.ts`).
  * Zoom needs no undoing — it is a CSS transform on the app's layer, so this SVG is always at
  * scale 1.
@@ -38,11 +39,18 @@ export interface ScoreSvgRender {
  * `<text>`, so a render that beats `document.fonts.ready` measures fallback metrics and engraves
  * to them.
  */
-export async function renderScoreSvg(score: Score): Promise<ScoreSvgRender> {
+/**
+ * @param surface What to engrave onto (`engine/layout/surface.ts`). An **argument**, not something
+ * threaded from the editor's renderer: this function builds its own renderer, so the surface has no
+ * other way in — and an export's surface is a legitimately separate question from the one the
+ * editor is drawing (docs/layout-plan.md P0.3). Defaults to today's sketching canvas.
+ */
+export async function renderScoreSvg(score: Score, surface: Surface = SKETCH_CANVAS): Promise<ScoreSvgRender> {
+  const metrics = resolveSurface(surface)
   const host = document.createElement('div')
   // Off the left edge of the world, but in the layout: see the ⚠️ above.
   host.style.cssText =
-    `position:absolute; left:-10000px; top:0; width:${LAYOUT_CONFIG.CONTAINER_WIDTH}px;` +
+    `position:absolute; left:-10000px; top:0; width:${metrics.widthPx}px;` +
     ' pointer-events:none; background:#ffffff;'
   // 🚨 FIRST in the document, and only while the render runs — see the note below the function.
   document.body.insertBefore(host, document.body.firstChild)
@@ -54,8 +62,9 @@ export async function renderScoreSvg(score: Score): Promise<ScoreSvgRender> {
     // Paper, not screen: hidden elements are omitted rather than grayed. See the ⚠️ in
     // `hiddenElements.ts` — they still take their space, they just leave no ink.
     renderer.setAudience('print')
-    // Any size will do — `renderScore` resizes the surface to the music it just cast off.
-    renderer.initialize(LAYOUT_CONFIG.CONTAINER_WIDTH, LAYOUT_CONFIG.STAVE_HEIGHT)
+    renderer.setSurface(surface)
+    // Any size will do — `renderScore` resizes the SVG to the music it just cast off.
+    renderer.initialize(metrics.widthPx, LAYOUT_CONFIG.STAVE_HEIGHT)
     renderer.renderScore(score)
     // The render is over; stand out of the live score's light again.
     document.body.appendChild(host)

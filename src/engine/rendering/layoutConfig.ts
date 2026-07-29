@@ -8,6 +8,14 @@ import type { Clef, TimeSignature } from '@/types/music'
  * `MeasureWidthInfo` shape without importing the renderer — which would create a
  * circular dependency, since the renderer imports MeasureLayout. VexFlowRenderer
  * re-exports these names for backward compatibility with existing importers.
+ *
+ * ⭐ **These are ENGRAVING constants — how music is set *on a line* — and nothing here is a
+ * SURFACE.** `CONTAINER_WIDTH` and `MARGIN` used to sit in this object and were exactly that: a
+ * page width and a page margin that nothing owned and nothing forbade, read from ten sites that
+ * each thought they were reading an engraving constant. They now live in
+ * `engine/layout/surface.ts` and reach a render as a `SurfaceMetrics` (docs/layout-plan.md §1).
+ * ⛔ Do not put a page dimension back in here; a constant in this object must hold whether or not
+ * there is a page at all.
  */
 export const LAYOUT_CONFIG = {
   /** Minimum pixels between notes for clickability */
@@ -24,10 +32,6 @@ export const LAYOUT_CONFIG = {
   TIME_SIG_WIDTH: 30,
   /** Padding before/after barlines */
   BARLINE_PADDING: 10,
-  /** Default container width */
-  CONTAINER_WIDTH: 1000,
-  /** Margin around the score */
-  MARGIN: 20,
   /** Stave height */
   STAVE_HEIGHT: 120,
   /** Vertical spacing between lines */
@@ -40,14 +44,25 @@ export const LAYOUT_CONFIG = {
 export const VIEWPORT_LINES = 3.5
 
 /**
+ * The scroll box's own breathing room above and below the music, in px.
+ *
+ * ⚠️ Its own constant, and deliberately so: this used to read `LAYOUT_CONFIG.MARGIN`, i.e. the
+ * viewport's height tracked **the page's margin**. That is the conflation docs/layout-plan.md §1
+ * is about, one import deep — how much padding a *sheet of paper* has is no business of how tall
+ * the window you look through it is. ⛔ Do not "de-duplicate" this back onto a surface: they are
+ * equal by history, not by meaning.
+ */
+export const VIEWPORT_PADDING = 20
+
+/**
  * Fixed height of the score *viewport* (the window you scroll inside), sized to VIEWPORT_LINES
  * staff lines so the JSON panel below stays visible. Derived from LAYOUT_CONFIG so it tracks the
- * per-line content height (STAVE_HEIGHT + VERTICAL_SPACING) + the score's top/bottom margins,
- * rather than being a magic number. See docs/navigation-viewport-plan.md §2.
+ * per-line content height (STAVE_HEIGHT + VERTICAL_SPACING), rather than being a magic number.
+ * See docs/navigation-viewport-plan.md §2.
  */
 export const VIEWPORT_HEIGHT =
   VIEWPORT_LINES * (LAYOUT_CONFIG.STAVE_HEIGHT + LAYOUT_CONFIG.VERTICAL_SPACING) +
-  LAYOUT_CONFIG.MARGIN * 2
+  VIEWPORT_PADDING * 2
 
 /**
  * How the music is laid out on the surface: `wrapped` = today's view, measures broken into

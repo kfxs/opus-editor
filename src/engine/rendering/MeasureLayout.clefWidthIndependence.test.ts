@@ -63,7 +63,7 @@ function widthsUnder(clef: Clef): Map<number, number> {
     opening: new Map([...resolved.opening].map(([m]) => [m, clef])),
     ending: new Map([...resolved.ending].map(([m]) => [m, clef])),
   }
-  const widths = calculateMeasureWidths(score, new Map([[staffId, forced]]), 'wrapped')
+  const widths = calculateMeasureWidths(score, new Map([[staffId, forced]]), { mode: 'wrapped' })
   return new Map([...widths].map(([n, info]) => [n, info.minWidth]))
 }
 
@@ -87,7 +87,7 @@ function widthOf(notes: Array<{ step: 'C' | 'D' | 'E'; alter?: -1 | 1; octave: n
     opening: new Map([...resolved.opening].map(([m]) => [m, clef])),
     ending: new Map([...resolved.ending].map(([m]) => [m, clef])),
   }
-  return calculateMeasureWidths(score, new Map([[staffId, forced]]), 'wrapped').get(1)!.minWidth
+  return calculateMeasureWidths(score, new Map([[staffId, forced]]), { mode: 'wrapped' }).get(1)!.minWidth
 }
 
 /**

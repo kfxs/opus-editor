@@ -3,6 +3,7 @@ import { ScoreModel } from '../models/ScoreModel'
 import { barWidthKey, spacingPositionKey, BAR_STRETCH_MIN } from '../models/engravingOverrides'
 import { calculateMeasureWidths } from './MeasureLayout'
 import { LAYOUT_CONFIG } from './layoutConfig'
+import { resolveSurface, SKETCH_CANVAS } from '@/engine/layout/surface'
 import { resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { fracCreate } from '@/utils/fraction'
 import type { Score, BarWidthOverride, NoteParams, Dynamic } from '@/types/music'
@@ -23,7 +24,7 @@ import type { Score, BarWidthOverride, NoteParams, Dynamic } from '@/types/music
  * the stretcher** — with the invariant the whole feature rests on: a line still lands exactly on
  * `availableWidth`.
  */
-const AVAILABLE = LAYOUT_CONFIG.CONTAINER_WIDTH - LAYOUT_CONFIG.MARGIN * 2
+const AVAILABLE = resolveSurface(SKETCH_CANVAS).contentWidthPx
 
 function clefs(score: Score): Map<string | undefined, StaffClefs> {
   return new Map((score.staves ?? [{ id: undefined }]).map(s => [s.id, resolveStaffClefs(score, s.id)]))
@@ -59,9 +60,9 @@ function stretch(model: ScoreModel, n: number, factor: number) {
 describe('bar width — width (§2)', () => {
   it('the bar grows by exactly the stretch it was given', () => {
     const model = scoreWith(4)
-    const before = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'linear')
+    const before = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' })
     stretch(model, 2, 2)
-    const after = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'linear').get(2)!
+    const after = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' }).get(2)!
     expect(after.stretchSpace).toBeGreaterThan(0)
     expect(after.minWidth - before.get(2)!.minWidth).toBeCloseTo(after.stretchSpace!, 6)
   })
@@ -72,7 +73,7 @@ describe('bar width — width (§2)', () => {
     const model = scoreWith(2)
     stretch(model, 1, 2)
     stretch(model, 2, 2)
-    const widths = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'linear')
+    const widths = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' })
     expect(widths.get(1)!.minWidth).not.toBeCloseTo(widths.get(2)!.minWidth, 6)
     expect(widths.get(1)!.stretchSpace).toBeCloseTo(widths.get(2)!.stretchSpace!, 6)
   })
@@ -80,16 +81,16 @@ describe('bar width — width (§2)', () => {
   it('survives the MAX_MEASURE_WIDTH clamp — the cap is on the music, not on the stretch', () => {
     const model = scoreWith(2)
     stretch(model, 1, 8)
-    const info = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'linear').get(1)!
+    const info = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' }).get(1)!
     expect(info.minWidth - info.stretchSpace!).toBeLessThanOrEqual(LAYOUT_CONFIG.MAX_MEASURE_WIDTH)
     expect(info.minWidth).toBeGreaterThan(LAYOUT_CONFIG.MAX_MEASURE_WIDTH)
   })
 
   it('a stretch below 1 is a NEGATIVE stretchSpace — the bar hands room back', () => {
     const model = scoreWith(3)
-    const before = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'linear')
+    const before = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' })
     stretch(model, 2, 0.5)
-    const after = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'linear').get(2)!
+    const after = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' }).get(2)!
     expect(after.stretchSpace).toBeLessThan(0)
     expect(after.minWidth).toBeLessThan(before.get(2)!.minWidth)
   })
@@ -97,18 +98,18 @@ describe('bar width — width (§2)', () => {
   it('a bar nobody stretched carries no stretchSpace', () => {
     const model = scoreWith(2)
     stretch(model, 1, 2)
-    expect(calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'linear').get(2)!.stretchSpace)
+    expect(calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' }).get(2)!.stretchSpace)
       .toBe(0)
   })
 
   it('reaches the break pass: enough stretch re-wraps the line', () => {
     const model = scoreWith(6)
     const linesBefore = new Set(
-      [...calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true).values()].map(i => i.lineNumber),
+      [...calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true }).values()].map(i => i.lineNumber),
     ).size
     for (let n = 1; n <= 6; n++) stretch(model, n, 4)
     const linesAfter = new Set(
-      [...calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true).values()].map(i => i.lineNumber),
+      [...calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true }).values()].map(i => i.lineNumber),
     ).size
     expect(linesAfter).toBeGreaterThan(linesBefore)
   })
@@ -118,7 +119,7 @@ describe('bar width — justification (§3)', () => {
   it('⭐ the line still lands exactly on the available width', () => {
     const model = scoreWith(4)
     stretch(model, 3, 2)
-    const widths = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true)
+    const widths = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
     for (const line of new Set([...widths.values()].map(i => i.lineNumber))) {
       const total = [...widths.values()].filter(i => i.lineNumber === line).reduce((s, i) => s + i.finalWidth, 0)
       expect(total).toBeCloseTo(AVAILABLE, 6)
@@ -131,7 +132,7 @@ describe('bar width — justification (§3)', () => {
     stretch(model, 4, 0.5)
     const m3 = model.getScore().measures[2]
     model.setNoteSpacing(spacingPositionKey(m3.id, fracCreate(1, 1)), 4, -100)
-    const widths = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true)
+    const widths = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
     for (const line of new Set([...widths.values()].map(i => i.lineNumber))) {
       const total = [...widths.values()].filter(i => i.lineNumber === line).reduce((s, i) => s + i.finalWidth, 0)
       expect(total).toBeCloseTo(AVAILABLE, 6)
@@ -140,9 +141,9 @@ describe('bar width — justification (§3)', () => {
 
   it('the stretch is NOT diluted by the stretcher — it arrives whole, the neighbours pay', () => {
     const model = scoreWith(4)
-    const before = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true)
+    const before = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
     stretch(model, 2, 2)
-    const after = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true)
+    const after = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
     // The bar is wider; its own justified share is smaller (it paid its part of its own stretch).
     expect(after.get(2)!.finalWidth).toBeGreaterThan(before.get(2)!.finalWidth)
     expect(after.get(2)!.finalWidth - after.get(2)!.stretchSpace!).toBeLessThan(before.get(2)!.finalWidth)
@@ -155,7 +156,7 @@ describe('bar width — justification (§3)', () => {
   it('caps the line’s total authored width — no negative widths, nothing off the page', () => {
     const model = scoreWith(3)
     for (let n = 1; n <= 3; n++) stretch(model, n, 8)
-    const widths = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true)
+    const widths = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
     for (const info of widths.values()) {
       expect(info.finalWidth).toBeGreaterThan(0)
       expect(info.finalWidth).toBeLessThanOrEqual(AVAILABLE + 1e-6)
@@ -169,7 +170,7 @@ describe('bar width — justification (§3)', () => {
     for (const m of model.getScore().measures) {
       model.setEngravingOverride(barWidthKey(m.id), { kind: 'barWidth', stretch: 0 } as BarWidthOverride)
     }
-    const widths = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true)
+    const widths = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
     for (const info of widths.values()) expect(info.finalWidth).toBeGreaterThan(0)
     for (const line of new Set([...widths.values()].map(i => i.lineNumber))) {
       const total = [...widths.values()].filter(i => i.lineNumber === line).reduce((s, i) => s + i.finalWidth, 0)
@@ -180,13 +181,13 @@ describe('bar width — justification (§3)', () => {
   it('linear view is already exact — nothing is justified, so the stretch is verbatim', () => {
     const model = scoreWith(3)
     stretch(model, 2, 3)
-    const info = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'linear').get(2)!
+    const info = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' }).get(2)!
     expect(info.finalWidth).toBe(info.minWidth)
   })
 
   it('an unstretched score justifies exactly as before', () => {
     const model = scoreWith(5)
-    const widths = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true)
+    const widths = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
     for (const info of widths.values()) expect(info.stretchSpace).toBe(0)
     for (const line of new Set([...widths.values()].map(i => i.lineNumber))) {
       const total = [...widths.values()].filter(i => i.lineNumber === line).reduce((s, i) => s + i.finalWidth, 0)
@@ -205,7 +206,7 @@ describe('bar width — an empty bar scales its SHARE (§2)', () => {
   it('reserves nothing and folds the stretch into the bar\u2019s own width', () => {
     const model = emptyScore(3)
     stretch(model, 2, 0.5)
-    const info = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'linear').get(2)!
+    const info = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' }).get(2)!
     expect(info.stretchScalesShare).toBe(true)
     expect(info.stretchSpace).toBe(0)
   })
@@ -220,7 +221,7 @@ describe('bar width — an empty bar scales its SHARE (§2)', () => {
     // …bar 3 gets authored rhythm (four rests), bar 4 a dynamic. Neither is "a bar nobody wrote in".
     for (const beat of [0, 1, 2, 3]) empty.addRest('q', 3, fracCreate(beat, 1))
     empty.addDynamic(4, { measure: 4, beat: fracCreate(0, 1), text: 'f' } as Omit<Dynamic, 'id'>)
-    const widths = calculateMeasureWidths(empty.getScore(), clefs(empty.getScore()), 'linear')
+    const widths = calculateMeasureWidths(empty.getScore(), clefs(empty.getScore()), { mode: 'linear' })
     expect(widths.get(1)!.stretchScalesShare).toBe(true)  // untouched
     expect(widths.get(2)!.stretchScalesShare).toBe(false) // has a note
     expect(widths.get(3)!.stretchScalesShare).toBe(false) // authored rhythm
@@ -230,16 +231,16 @@ describe('bar width — an empty bar scales its SHARE (§2)', () => {
   it('a bar WITH music does the opposite — its music is what sets its claim', () => {
     const model = scoreWith(3)
     stretch(model, 2, 0.5)
-    const info = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'linear').get(2)!
+    const info = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' }).get(2)!
     expect(info.stretchScalesShare).toBe(false)
     expect(info.stretchSpace).toBeLessThan(0)
   })
 
   it('⭐ the empty bar gets OUT OF THE WAY: its share drops and the line gives it to the others', () => {
     const model = emptyScore(3)
-    const before = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true)
+    const before = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
     stretch(model, 2, 0.3)
-    const after = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true)
+    const after = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
     // 0.75, not the old 0.6 — and NOT because the bar shrinks less. It lands on the same pixels it
     // always did; what moved is the BASELINE it is a fraction of. An unstretched empty bar used to
     // be inflated to `MIN_MEASURE_WIDTH`, so the old ratio was measured against fat that no longer
@@ -252,11 +253,11 @@ describe('bar width — an empty bar scales its SHARE (§2)', () => {
   })
 
   it('at stretch 1 an empty bar is byte-identical to an unstretched one — the branch is invisible at rest', () => {
-    const plain = calculateMeasureWidths(emptyScore(4).getScore(), clefs(emptyScore(4).getScore()), 'wrapped', undefined, true)
+    const plain = calculateMeasureWidths(emptyScore(4).getScore(), clefs(emptyScore(4).getScore()), { mode: 'wrapped', justifyLastLine: true })
     const model = emptyScore(4)
     stretch(model, 2, 2)
     stretch(model, 2, 1) // …and back, which clears the override
-    const same = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true)
+    const same = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
     for (const n of [1, 2, 3, 4]) {
       expect(same.get(n)!.finalWidth).toBeCloseTo(plain.get(n)!.finalWidth, 6)
     }
@@ -267,7 +268,7 @@ describe('bar width — an empty bar scales its SHARE (§2)', () => {
     // it has to draw, or the glyphs collide.
     const model = emptyScore(2)
     stretch(model, 1, 0.25)
-    const info = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'linear').get(1)!
+    const info = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' }).get(1)!
     expect(info.minWidth).toBeGreaterThan(LAYOUT_CONFIG.CLEF_WIDTH + LAYOUT_CONFIG.TIME_SIG_WIDTH)
   })
 
@@ -275,7 +276,7 @@ describe('bar width — an empty bar scales its SHARE (§2)', () => {
     const model = emptyScore(5)
     stretch(model, 3, 0.3)
     stretch(model, 4, 2.5)
-    const widths = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true)
+    const widths = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
     for (const line of new Set([...widths.values()].map(i => i.lineNumber))) {
       const total = [...widths.values()].filter(i => i.lineNumber === line).reduce((s, i) => s + i.finalWidth, 0)
       expect(total).toBeCloseTo(AVAILABLE, 6)
@@ -292,7 +293,7 @@ describe('bar width — an empty bar scales its SHARE (§2)', () => {
  */
 describe('bar width — asked-for vs forced (§3)', () => {
   const barsOnLine0 = (model: ScoreModel) =>
-    [...calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true).values()]
+    [...calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true }).values()]
       .filter(i => i.lineNumber === 0)
 
   it('⭐ with nothing growing, the casting-off is untouched — no bar goes below what it asks for', () => {
@@ -328,7 +329,7 @@ describe('bar width — asked-for vs forced (§3)', () => {
         model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: fracCreate(beat, 1) } as NoteParams)
       }
     }
-    const widthsOf = () => calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true)
+    const widthsOf = () => calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
     const before = widthsOf()
     stretch(model, 1, 4)
     const after = widthsOf()
@@ -349,7 +350,7 @@ describe('bar width — asked-for vs forced (§3)', () => {
         model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: fracCreate(beat, 1) } as NoteParams)
       }
     }
-    const widthsOf = () => calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true)
+    const widthsOf = () => calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
     const before = widthsOf()
     stretch(model, 1, 8) // hard enough to drive every empty bar on the line to its floor
     const after = widthsOf()
@@ -364,11 +365,11 @@ describe('bar width — asked-for vs forced (§3)', () => {
     // as a design property that it reaches the break pass — letting it squeeze would repeal that
     // silently. Guarded here because both features share this admission rule.
     const model = emptyScore(6)
-    const linesBefore = new Set([...calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true).values()].map(i => i.lineNumber)).size
+    const linesBefore = new Set([...calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true }).values()].map(i => i.lineNumber)).size
     for (let n = 1; n <= 6; n++) {
       model.setNoteSpacing(spacingPositionKey(model.getScore().measures[n - 1].id, fracCreate(1, 1)), 8, -100)
     }
-    const linesAfter = new Set([...calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, true).values()].map(i => i.lineNumber)).size
+    const linesAfter = new Set([...calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true }).values()].map(i => i.lineNumber)).size
     expect(linesAfter).toBeGreaterThan(linesBefore)
   })
 })

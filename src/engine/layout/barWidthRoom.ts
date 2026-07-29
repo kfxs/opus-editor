@@ -2,17 +2,18 @@
  * THE BAR-WIDTH GESTURE'S ARITHMETIC — how much room a bar-width gesture has on one bar, and what a
  * pixel is worth in it. Extracted from {@link MusicEngine} (docs/refactor-plan-2026-07-27.md Phase
  * 6b): it was a 200-line method with a 130-line branch, and it is really a **pure function** of the
- * last render's casting-off, the bar's stored stretch, the view mode and one measured slack — none
- * of which is engine state once it has been read.
+ * last render's casting-off, the bar's stored stretch, the view mode, the surface it was cast off
+ * onto and one measured slack — none of which is engine state once it has been read.
  *
  * Made pure deliberately, not incidentally: every claim in `docs/bar-width-plan.md` §4–§5 is about
  * this mapping, so it is worth being able to state one in a test without a renderer, a score and a
- * DOM. `MusicEngine.barWidthRoom` stays as the one-line reader that gathers the four inputs.
+ * DOM. `MusicEngine.barWidthRoom` stays as the one-line reader that gathers the inputs.
  *
  * This is LAYOUT, not the model — it lives outside the core fence (`engine/models/**`, `utils/**`)
  * because it reasons about a drawing (docs/DESIGN-PRINCIPLES.md principle 3).
  */
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from '@/engine/rendering/layoutConfig'
+import type { SurfaceMetrics } from './surface'
 import { authoredScales, growthPayerShares, squeezedWidth } from '@/engine/rendering/MeasureLayout'
 import { BAR_STRETCH_MIN, BAR_STRETCH_MAX } from '@/engine/models/engravingOverrides'
 
@@ -133,13 +134,22 @@ export function barWidthRoom(input: {
   stretch: number
   viewMode: ViewMode
   /**
+   * The surface the last render cast off onto (`engine/layout/surface.ts`). Only `contentWidthPx`
+   * is read — three times, and always as the same thing: **the total a justified line is worth**.
+   * Every limit below assumes what one bar gains another pays, and that is only true against the
+   * width the line was justified to, so it must be the surface the picture came from rather than a
+   * constant that happens to agree with it today.
+   */
+  surface: SurfaceMetrics
+  /**
    * How many px the DRAWN bar can give back before its music is tighter than the engraver's floor
    * (`measuredBarShrinkPx`, its sibling in this directory). Resolved by the caller because it is the other half of the same
    * "measured off the last render" reading, and null there means the whole answer is null.
    */
   slackPx: number
 }): BarWidthRoom | null {
-  const { measureNumber, layout, stretch, viewMode, slackPx } = input
+  const { measureNumber, layout, stretch, viewMode, surface, slackPx } = input
+  const lineTotal = surface.contentWidthPx
   const info = layout.get(measureNumber)
   if (!info?.noteSpace) return null
 
@@ -195,7 +205,7 @@ export function barWidthRoom(input: {
     // last line anyway when it over-asks (see `calculateMeasureWidths`), so the flag alone would
     // not tell the truth about THIS line. What is on screen does.
     const lineWidth = line.reduce((sum, m) => sum + m.finalWidth, 0)
-    const lineFills = lineWidth >= LAYOUT_CONFIG.CONTAINER_WIDTH - LAYOUT_CONFIG.MARGIN * 2 - 0.5
+    const lineFills = lineWidth >= lineTotal - 0.5
 
     const shares = growthPayerShares(line, measureNumber)
     // Nobody left with anything to give: the line cannot absorb another pixel, so no stretch
@@ -256,7 +266,7 @@ export function barWidthRoom(input: {
     // seven neighbours at their floors took the alone-branch, whose shrink target is a fixed
     // point, and every press re-stored the stretch it already had.
     if (lineFills && (alone || !canPay)) {
-      const available = LAYOUT_CONFIG.CONTAINER_WIDTH - LAYOUT_CONFIG.MARGIN * 2
+      const available = lineTotal
       const nextLineFirst = [...layout.values()]
         .filter(i => i.lineNumber === info.lineNumber + 1)
         .sort((a, b) => a.measureNumber - b.measureNumber)[0]
@@ -303,7 +313,7 @@ export function barWidthRoom(input: {
       solveForBarlineDelta = continuous
     }
 
-    const available = LAYOUT_CONFIG.CONTAINER_WIDTH - LAYOUT_CONFIG.MARGIN * 2
+    const available = lineTotal
     // Asked of the layout, not re-derived here: the two must agree about the same line, or the
     // gesture inverts a formula the picture is no longer following.
     const scales = authoredScales(line, available)

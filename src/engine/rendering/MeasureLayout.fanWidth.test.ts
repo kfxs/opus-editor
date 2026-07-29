@@ -20,7 +20,7 @@ function clefs(score: Score): Map<string | undefined, StaffClefs> {
 }
 
 const widthOf = (model: ScoreModel) =>
-  calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'linear').get(1)!
+  calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' }).get(1)!
 
 /** One blanca at beat 0 of bar 1 — the note the feature is designed around. */
 function blanca(): { model: ScoreModel; id: string } {

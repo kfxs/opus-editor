@@ -6,6 +6,7 @@ import type { ViewMode, GutterState, GutterStaffState } from './rendering/layout
 import type { ToolGhost } from './rendering/ghostTypes'
 import { measuredShrinkRoom, fanMemberShrinkRoom, measuredBarShrinkPx } from './layout/measuredRoom'
 import { barWidthRoom as barWidthRoomOf, type BarWidthRoom } from './layout/barWidthRoom'
+import { resolveSurface, SKETCH_CANVAS, type Surface } from './layout/surface'
 import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
@@ -63,8 +64,10 @@ export class MusicEngine {
     this.scoreModel = new ScoreModel()
     this.renderer = new VexFlowRenderer(config.container)
 
-    // Calculate coordinate mapper config based on container size
-    const width = config.width || 1000
+    // Calculate coordinate mapper config based on container size. ⚠️ These size the *DOM element*
+    // before anything is engraved — `renderScore` resizes the SVG to whatever surface it cast off
+    // onto. Defaulted from the sketching canvas so there is ONE 1000 in the codebase, not four.
+    const width = config.width || SKETCH_CANVAS.widthPx
     const height = config.height || 400
     const measuresPerLine = 4 // 4 measures per line
     const margin = 20
@@ -1381,7 +1384,7 @@ export class MusicEngine {
    * How much room a bar-width gesture has on this bar, and what a pixel is worth in it — everything
    * needed to move a barline, measured off the **last render** (docs/bar-width-plan.md §4–§5).
    *
-   * The arithmetic itself is {@link barWidthRoomOf}, a pure function of the four things read here.
+   * The arithmetic itself is {@link barWidthRoomOf}, a pure function of the things read here.
    * What this method owns is the READING, and one rule that goes with it: ⚠️ **a dirty model cannot
    * answer at all**, because the picture and the numbers would then come from different moments.
    *
@@ -1397,6 +1400,7 @@ export class MusicEngine {
       layout: this.renderer.getMeasureLayoutInfo(),
       stretch: this.getBarWidth(measureNumber),
       viewMode: this.getViewMode(),
+      surface: resolveSurface(this.surface),
       slackPx,
     })
   }
@@ -2603,6 +2607,28 @@ export class MusicEngine {
   /** Sets state only — the caller repaints through RenderController, like {@link setViewMode}. */
   setJustifyLastLine(justify: boolean): void {
     this.renderer.setJustifyLastLine(justify)
+  }
+
+  /**
+   * The **surface** the music is being drawn on — a sketching canvas or a page
+   * (`engine/layout/surface.ts`, docs/layout-plan.md).
+   *
+   * ⭐ Held exactly as {@link viewMode} is: one replaceable field of session state, so the renders
+   * this engine starts internally use the same surface as the ones the editor asks for. That is a
+   * *convenience*, NOT an ownership edge — a surface is paired with a score at the moment of use
+   * and the pairing evaporates. ⛔ There is no `score.layout`, no `Document { score, layout }`, and
+   * no such thing as "the layout **of** the score"; it is "the surface this render is using".
+   */
+  private surface: Surface = SKETCH_CANVAS
+
+  getSurface(): Surface {
+    return this.surface
+  }
+
+  /** Sets state only — the caller repaints through RenderController, like {@link setViewMode}. */
+  setSurface(surface: Surface): void {
+    this.surface = surface
+    this.renderer.setSurface(surface)
   }
 
   /**

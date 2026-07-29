@@ -10,11 +10,11 @@ import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
 import { barWidthKey, BAR_STRETCH_MIN } from '../models/engravingOverrides'
 import { calculateMeasureWidths } from './MeasureLayout'
-import { LAYOUT_CONFIG } from './layoutConfig'
+import { resolveSurface, SKETCH_CANVAS } from '@/engine/layout/surface'
 import { resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import type { Score } from '@/types/music'
 
-const AVAILABLE = LAYOUT_CONFIG.CONTAINER_WIDTH - LAYOUT_CONFIG.MARGIN * 2
+const AVAILABLE = resolveSurface(SKETCH_CANVAS).contentWidthPx
 
 function clefs(score: Score): Map<string | undefined, StaffClefs> {
   return new Map((score.staves ?? [{ id: undefined }]).map(s => [s.id, resolveStaffClefs(score, s.id)]))
@@ -27,7 +27,7 @@ function scoreWith(measureCount: number) {
 }
 
 const widths = (model: ScoreModel, justifyLastLine: boolean) =>
-  calculateMeasureWidths(model.getScore(), clefs(model.getScore()), 'wrapped', undefined, justifyLastLine)
+  calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine })
 
 /** The measures of the highest-numbered system. */
 const lastLine = (w: ReturnType<typeof widths>) => {

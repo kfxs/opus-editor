@@ -26,20 +26,20 @@ describe('calculateMeasureWidths — linear mode', () => {
 
   it('never breaks: every measure lands on line 0', () => {
     const score = scoreWith(COUNT)
-    const widths = calculateMeasureWidths(score, trebleEverywhere(score, COUNT), 'linear')
+    const widths = calculateMeasureWidths(score, trebleEverywhere(score, COUNT), { mode: 'linear' })
     expect(widths.size).toBe(COUNT)
     for (const info of widths.values()) expect(info.lineNumber).toBe(0)
   })
 
   it('never justifies: final width is the intrinsic width', () => {
     const score = scoreWith(COUNT)
-    const widths = calculateMeasureWidths(score, trebleEverywhere(score, COUNT), 'linear')
+    const widths = calculateMeasureWidths(score, trebleEverywhere(score, COUNT), { mode: 'linear' })
     for (const info of widths.values()) expect(info.finalWidth).toBe(info.minWidth)
   })
 
   it('only the first measure opens a line, so only it pays for a full clef', () => {
     const score = scoreWith(COUNT)
-    const widths = calculateMeasureWidths(score, trebleEverywhere(score, COUNT), 'linear')
+    const widths = calculateMeasureWidths(score, trebleEverywhere(score, COUNT), { mode: 'linear' })
     const first = widths.get(1)!
     const second = widths.get(2)!
     // Same content (both empty), so the difference is exactly the clef + the meter glyph that
@@ -54,7 +54,7 @@ describe('calculateMeasureWidths — linear mode', () => {
 
   it('wrapped mode still breaks the same score into several lines', () => {
     const score = scoreWith(COUNT)
-    const widths = calculateMeasureWidths(score, trebleEverywhere(score, COUNT), 'wrapped')
+    const widths = calculateMeasureWidths(score, trebleEverywhere(score, COUNT), { mode: 'wrapped' })
     const lines = new Set([...widths.values()].map(i => i.lineNumber))
     expect(lines.size).toBeGreaterThan(1)
   })
@@ -62,7 +62,7 @@ describe('calculateMeasureWidths — linear mode', () => {
   it('defaults to wrapped when no mode is passed', () => {
     const score = scoreWith(COUNT)
     const clefs = trebleEverywhere(score, COUNT)
-    expect(calculateMeasureWidths(score, clefs)).toEqual(calculateMeasureWidths(score, clefs, 'wrapped'))
+    expect(calculateMeasureWidths(score, clefs)).toEqual(calculateMeasureWidths(score, clefs, { mode: 'wrapped' }))
   })
 })
 
@@ -94,7 +94,7 @@ describe('calculateMeasureWidths — width is per (measure, staff)', () => {
 
   const widthOf = (score: Score) => {
     const clefs = trebleEverywhere(score, score.measures.length)
-    return calculateMeasureWidths(score, clefs, 'linear').get(1)!.minWidth
+    return calculateMeasureWidths(score, clefs, { mode: 'linear' }).get(1)!.minWidth
   }
 
   it('adding a staff with IDENTICAL content does not widen the measure', () => {

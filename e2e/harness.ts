@@ -134,7 +134,7 @@ declare global {
 const host = document.getElementById('score')
 if (!host) throw new Error('#score not found — harness.html must provide the render target')
 
-const engine = new MusicEngine({ container: host, width: 1000, height: 400 })
+const engine = new MusicEngine({ container: host, height: 400 }) // width: the engine's own surface
 
 function svg(): SVGSVGElement {
   const el = host!.querySelector('svg')

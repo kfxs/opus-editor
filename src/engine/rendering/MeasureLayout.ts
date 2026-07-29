@@ -7,6 +7,7 @@ import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { laneColumns } from '@/utils/fannedBeam'
 import { cautionaryAllowedOf, cautionaryClefAllowedOf, keyStaffId, measureUserSpacePx, measureStretch } from '../models/engravingOverrides'
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
+import { resolveSurface, SKETCH_CANVAS, type SurfaceMetrics } from '@/engine/layout/surface'
 import { laneFingerprint, type MeasureWidthCache } from './MeasureWidthCache'
 import { voiceOf } from '@/utils/lanes'
 import { renderProbe } from '@/engine/RenderProbe' // TEMPORARY — the §9 layout-breakdown probes
@@ -737,25 +738,41 @@ function calculateLinearMeasureWidths(
   return results
 }
 
+/** Everything about the *view* that the casting-off depends on. The score and its clefs are the
+ *  two required arguments; these are the knobs, and they are named rather than positional because
+ *  a fifth `, undefined, true` at a call site says nothing about what it turns on. */
+export interface MeasureWidthOptions {
+  mode?: ViewMode
+  cache?: MeasureWidthCache
+  justifyLastLine?: boolean
+  /**
+   * The **surface** the music is being cast off onto (`engine/layout/surface.ts`). Only
+   * `contentWidthPx` is read here — the room between the margins, which is the one number the
+   * two-pass layout has ever needed. Defaults to the sketch canvas, i.e. the 960 px this has
+   * always worked in.
+   */
+  surface?: SurfaceMetrics
+}
+
 /**
  * Calculate widths for all measures using a two-pass algorithm.
  * Pass 1: Calculate minimum widths and group into lines.
  * Pass 2: Distribute available space proportionally within each line.
  *
- * In `linear` mode both passes are skipped — see {@link calculateLinearMeasureWidths}.
+ * In `linear` mode both passes are skipped — see {@link calculateLinearMeasureWidths}. Note that
+ * the linear branch returns **before** the surface is read at all: linear view is a canvas whose
+ * width policy is "as wide as the music", so no bar there is ever cast off against a width.
  */
 export function calculateMeasureWidths(
   score: Score,
   clefsByStaff: Map<string | undefined, StaffClefs>,
-  mode: ViewMode = 'wrapped',
-  cache?: MeasureWidthCache,
-  justifyLastLine = false,
+  options: MeasureWidthOptions = {},
 ): Map<number, MeasureWidthInfo> {
+  const { mode = 'wrapped', cache, justifyLastLine = false, surface = resolveSurface(SKETCH_CANVAS) } = options
   if (mode === 'linear') return calculateLinearMeasureWidths(score, clefsByStaff, cache)
 
   const results = new Map<number, MeasureWidthInfo>()
-  const margin = LAYOUT_CONFIG.MARGIN
-  const availableWidth = LAYOUT_CONFIG.CONTAINER_WIDTH - (margin * 2)
+  const availableWidth = surface.contentWidthPx
 
   // Pass 1: Calculate minimum widths and assign to lines
   let currentLine = 0

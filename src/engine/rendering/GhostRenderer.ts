@@ -45,6 +45,7 @@ import { convertDuration, restSupportingLedgerLine, drawsTimeSignature, ARTICULA
 import { TIE_BOW } from './TieRenderer'
 import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
 import { LAYOUT_CONFIG, LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout } from './layoutConfig'
+import type { SurfaceMetrics } from '@/engine/layout/surface'
 
 /**
  * The preview ghosts (note / clef / time-sig / dynamic / tempo …) each draw into their own
@@ -78,8 +79,11 @@ export function drawNoteGhost(
   measureWidths: Map<number, MeasureWidthInfo>,
   /** The render's OWN per-system push-down, so the ghost lands where the committed note will. */
   spacing: StaffSpacingLayout,
+  /** The render's OWN surface, for the same reason: the ghost has to stand on the same page the
+   *  music does, so it reads the margins from the render rather than from a constant. */
+  surface: SurfaceMetrics,
 ): boolean {
-  const margin = LAYOUT_CONFIG.MARGIN
+  const margin = surface.marginLeftPx
   const staveHeight = LAYOUT_CONFIG.STAVE_HEIGHT
   const verticalSpacing = LAYOUT_CONFIG.VERTICAL_SPACING
   try {
@@ -123,7 +127,7 @@ export function drawNoteGhost(
     // with spacing ≠ 0. Resolved against this ghost's own line — and passed IN, because the
     // spacing depends on the view mode and the linear-view knob, which are the renderer's.
     const line = widthInfo.lineNumber
-    const systemTop = spacing.lineTopPx[line] ?? margin
+    const systemTop = spacing.lineTopPx[line] ?? surface.marginTopPx
     const measureY = systemTop + staffIndex * (staveHeight + verticalSpacing) + (spacing.cumPx[line]?.[staffIndex] ?? 0)
     const staveWidth = widthInfo.finalWidth
     const effectiveClefs = resolveStaffClefs(score, staffId).opening

@@ -24,7 +24,7 @@ function clefsOf(score: Score): Map<string | undefined, StaffClefs> {
 
 /** Widths of every measure, computed with `cache` (or without, when omitted). */
 function widths(score: Score, cache?: MeasureWidthCache): number[] {
-  const result = calculateMeasureWidths(score, clefsOf(score), 'linear', cache)
+  const result = calculateMeasureWidths(score, clefsOf(score), { mode: 'linear', cache: cache })
   return score.measures.map(m => result.get(m.number)!.minWidth)
 }
 
