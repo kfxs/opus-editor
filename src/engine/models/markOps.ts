@@ -26,6 +26,7 @@ import { effectiveClefAt, middleLineDiatonicPos } from '@/utils/clefUtils'
 import { voiceOf } from '@/utils/lanes'
 import { staffIndexOfId } from './staffContent'
 import { fracEq } from '@/utils/fraction'
+import { writtenLength } from '@/utils/durations'
 import { findSlot, attackOf } from './slotLookup'
 import { flatNoteOf } from './noteProjection'
 import { clearFanMemberOffsets } from './overrideOps'
@@ -285,6 +286,11 @@ export function setFan(score: Score, noteId: string, fan: FanMark | null): Note 
     // The members go with the mark, and so do their authored offsets.
     clearFanMemberOffsets(score, chord.fan.members)
     delete chord.fan
+    // ⭐ …and so does the SPAN. A collapsed fan (`fanCollapse`) sounds for longer than it is written
+    // — seven sixteenths under a dotted-quarter carrier — and with the mark gone the slot is its
+    // written value again. A fan is never in a tuplet, so written IS sounding here; the caller
+    // (`ScoreModel.setFan`) closes the time this gives back with a rest.
+    chord.actualDuration = writtenLength(chord)
     return flatNoteOf(score, chord, pitch)
   }
 
@@ -300,6 +306,10 @@ export function setFan(score: Score, noteId: string, fan: FanMark | null): Note 
   // whatever is not in the new list is what left — take its offset with it.
   const kept = new Set(chord.fan.members ?? [])
   clearFanMemberOffsets(score, before.filter(m => !kept.has(m)))
+  // The mark's own span, cached where every timing comparison reads it (`slotLength`). Absent on the
+  // mark = the slot's written value, which is what a fan marked on a note you typed has always meant;
+  // `FanMark.length` is present only when the fan was made by collapsing a passage.
+  chord.actualDuration = chord.fan.length ?? writtenLength(chord)
   delete chord.tremolo
   delete chord.tremoloPair
   delete chord.tremoloPairStyle

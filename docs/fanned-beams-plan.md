@@ -278,6 +278,12 @@ survives; the setting is gone.
   N real slots". It is not. Pitch identity and rhythmic identity are separable — the members' pitches
   ride the fan, the slot keeps its one duration, and no pipeline that walks slots sees anything new.
   Dissolving the group into N slots would have handed every re-tile a way to break it (his catch).
+- **Making a fan out of notes you already typed** — ✅ now BUILT, in **docs/fan-collapse-plan.md**.
+  §0 above says "you enter the time first"; that is one of two ways in, not the only one. Select a
+  passage and the press collapses it into ONE fanned slot with an attack per note. ⚠️ It also
+  overturns half a sentence here: a fanned slot's total is no longer always its written value, since
+  seven sixteenths span a length no notehead spells. The span rides `FanMark.length`, and everything
+  downstream was already asking `slotLength`.
 - **MusicXML export** — we have no exporter yet; §2 is the half that would be needed.
 - **Tuning the numbers and the ramp** — hand work, by ear, ongoing. See §1.
 - **Per-member horizontal spacing** — ✅ now BUILT, in **docs/note-spacing-plan.md §7**. Spacing a

@@ -685,12 +685,22 @@ export class PaletteController {
    * note-entry form — with nothing selected the press is a no-op rather than arming a tool, because
    * a fan has nothing to be applied to until there is a note under it.
    *
-   * ACROSS THE SELECTION, unlike the two-note tremolo — a fan is a property of ONE event, not a
-   * relation between two, so "fan these five notes" reads perfectly well (five fanned groups). The
-   * direction is decided for the selection AS A WHOLE, the rule
-   * {@link applyTremoloToSelection} follows: if every selected note already carries a fan in this
-   * direction it comes off all of them, otherwise it goes on all of them. So `accel.` on plain notes
-   * marks them, `rit.` turns them round, and `rit.` again clears them.
+   * ⭐⭐ **SEVERAL NOTES SELECTED MEANS ONE GESTURE, NOT SEVERAL** (his ask): type the seven notes
+   * you want, select them, press `accel.`, and they COLLAPSE into one fanned slot spanning exactly
+   * the time they spanned, with seven attacks at the pitches you typed
+   * (`engine/models/fanCollapse.ts`). It used to mark each of them separately — seven one-note fans
+   * — and that reading is gone rather than kept beside this one: a gesture means one thing, and
+   * "fan these seven" is much more plainly a request for one group than for seven.
+   *
+   * ⚠️ So a selection the collapse REFUSES (a rest inside, a gap, two bars, two voices, an existing
+   * fan — its list) does NOTHING here, rather than falling back to marking them one by one. A
+   * fallback would answer a question nobody asked, in the shape the old reading had.
+   *
+   * The direction is decided for the selection AS A WHOLE, the rule {@link applyTremoloToSelection}
+   * follows: if every selected note already carries a fan in this direction it comes off all of them,
+   * otherwise the press applies. So `accel.` on plain notes fans them, `rit.` turns a fan round, and
+   * `rit.` again clears it — and CLEARING stays per-note, because taking a mark off several notes is
+   * not a gesture that needs them to be a passage.
    *
    * Rests, tuplet members and FANNED MEMBERS are skipped rather than refused — a passage is a
    * mixture, and you meant the notes in it that can take one. `ScoreModel.setFan` owns that list;
@@ -713,6 +723,22 @@ export class PaletteController {
     if (ids.length === 0) return
 
     const allHaveIt = ids.every(id => engine.getNote(id)?.fan?.direction === direction)
+
+    // The passage case: several notes, none of them already fanned this way ⇒ ONE group.
+    if (!allHaveIt && ids.length > 1) {
+      const survivorId: string[] = []
+      const applied = engine.runBatch(`Fanned beam ${direction}`, () => {
+        const note = engine.collapseIntoFan(ids, direction)
+        if (note) survivorId.push(note.id)
+      })
+      if (!applied) return // refused — see the note above: the press does nothing at all
+      // Nothing to select but the note that is left — the others are members of it now, and the
+      // multi-selection they made up refers to slots the bar no longer has.
+      if (survivorId[0]) this.selectNote(survivorId[0])
+      this.renderScore()
+      return
+    }
+
     const fan: FanMark | null = allHaveIt
       ? null
       : { direction, count: DEFAULT_FAN_COUNT, beams: DEFAULT_FAN_BEAMS }

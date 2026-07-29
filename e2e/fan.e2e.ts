@@ -403,3 +403,46 @@ test('a fan member’s accidental clears the member’s own ledger lines', async
   const nearest = Math.min(...measured.ledgers.map(l => l.x1))
   expect(nearest, 'the ledger line starts clear of the sign').toBeGreaterThanOrEqual(measured.signs[0].right)
 })
+
+/**
+ * ⭐ COLLAPSING A TYPED PASSAGE (`engine/models/fanCollapse.ts`) — his way round: type the notes,
+ * select them, press the button, and they BECOME one fanned gesture.
+ *
+ * Measured here because the length is the part with teeth. Seven sixteenths span 7/16, which no
+ * single notehead spells, so the slot is WRITTEN as a dotted quarter and the span rides the mark.
+ * Every reader has to take the span, not the spelling — and in jsdom a fan drawn 6/16 wide agrees
+ * with one drawn 7/16 wide, because both measure zero.
+ */
+test('seven typed sixteenths collapse into one fan, drawn across the time they spanned', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const steps = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const
+    // Seven sixteenths, then an eighth note left standing at 7/16 — the thing the group must not
+    // walk into, and the ruler for where its own time ends.
+    const ids = steps.map((step, i) =>
+      h.engine.addNoteAtBeat({ step, octave: 4, duration: '16', measure: 1, beat: h.frac(i, 4) })!.id)
+    const after = h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: '8', measure: 1, beat: h.frac(7, 4) })!
+    h.engine.collapseIntoFan(ids, 'accel')
+    await h.render()
+    const chords = h.engine.getScore().measures[0].slots.filter(s => s.type === 'chord')
+    return {
+      heads: h.noteheads(),
+      slots: chords.length,
+      written: h.engine.getNote(ids[0])!.duration,
+      dots: h.engine.getNote(ids[0])!.dots,
+      afterBeat: after.beat,
+    }
+  })
+
+  expect(drawn.slots, 'the seven slots are one event now — plus the note left after it').toBe(2)
+  expect(drawn.written, 'written as the longest value that fits…').toBe('q')
+  expect(drawn.dots, '…which is a dotted quarter').toBe(1)
+  expect(drawn.heads, 'seven fanned heads are drawn, and the untouched note after them').toHaveLength(8)
+
+  const fanHeads = drawn.heads.slice(0, 7)
+  const gaps = fanHeads.slice(1).map((head, i) => head.x - fanHeads[i].x)
+  for (const [i, gap] of gaps.slice(1).entries()) {
+    expect(gap, 'the group still accelerates').toBeLessThanOrEqual(gaps[i] + 0.01)
+  }
+  expect(drawn.heads[7].x, 'and it ends before the note that was never in it').toBeGreaterThan(fanHeads[6].x)
+})

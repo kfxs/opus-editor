@@ -22,7 +22,7 @@ import { getMeterInfo } from '@/utils/meter'
 import type { RestSlot } from '@/utils/restFill'
 import { flattenRegion, relayEvents, type RebarPiece, type RebarEvent, type BarPlan } from '@/utils/rebar'
 import type { Clip, ClipSlur, ClipSlurPitch, ClipTarget } from '@/utils/clip'
-import { type Fraction, fracCreate, fracAdd, fracSub, fracCompare, fracLt, fracGte } from '@/utils/fraction'
+import { type Fraction, fracCreate, fracAdd, fracSub, fracCompare, fracEq, fracLt, fracGte } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, keyStaffId, staffMeasureView } from './staffContent'
 import { laneOfSlot, pairIsValid } from '@/utils/tremoloPair'
@@ -1293,6 +1293,14 @@ function materializeVoiceBar(
     // sharing a pitch id is silent — `getElementById` is document-wide and the first in tree order
     // wins. See {@link cloneFanFresh}.
     if (piece.fan) chord.fan = cloneFanFresh(piece.fan)
+    // ⚠️ …and a COLLAPSED fan's span does not survive being re-tiled. `FanMark.length` says "this
+    // gesture lasts 7/16" — a length the relay has just split into a dotted quarter tied to a
+    // sixteenth, keeping the fan on the FIRST piece (the §7 rule above). Left standing, the mark
+    // would claim time the piece beside it now holds, and two slots would sound over each other.
+    // So the fan reverts to spanning the piece it landed on, which is what every fan meant before
+    // a passage could be collapsed into one (`engine/models/fanCollapse.ts`). The music keeps its
+    // total length either way — the tied piece holds what the ramp gave up.
+    if (chord.fan?.length && !fracEq(chord.fan.length, writtenLength(piece))) delete chord.fan.length
     if (piece.beam) chord.beam = piece.beam
     if (piece.secondaryBreak) chord.secondaryBreak = true
     measure.slots.push(chord)

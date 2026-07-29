@@ -263,6 +263,28 @@ export interface FanMark {
   /** Beam lines at the WIDE end. The narrow end is always 1 (Dorico's model, and its limit). */
   beams: number
   /**
+   * ⭐ **How long the gesture LASTS, when that is not the slot's own written value.** Absent — the
+   * only spelling of the default — means "exactly this note's duration", which is what every fan
+   * marked on a note you typed says, and what the feature meant on day one.
+   *
+   * It exists because a fan can also be made the OTHER way round: type the notes, select them, and
+   * collapse the passage into one fanned gesture (`engine/models/fanCollapse.ts`). Seven sixteenths
+   * span 7/16 — a real length in time, and one no single notehead spells (a dotted quarter TIED to a
+   * sixteenth). The slot keeps ONE written duration regardless, because that is what the fan model
+   * is (see above); the length the group actually occupies is stored here instead.
+   *
+   * ⭐ **On the MARK, so `actualDuration` stays derived.** A slot's sounding length is cached on the
+   * slot (`ChordRest.actualDuration`) and RECOMPUTED — `ScoreModel.computeActualDurationForSlot`, and
+   * `fromJSON` deliberately recomputes every slot's rather than trust the wire. A span stored on the
+   * slot would therefore be erased by its own load. Stored on the mark it is authored data like
+   * `count`, the recompute reads it, and removing the fan gives the slot its written length back with
+   * no cleanup step to forget — the same shape as every other number here: an assertion, with the
+   * sounding length as its consequence.
+   *
+   * ⚠️ In quarter-note beats, exact ({@link Fraction}) — the unit `slotLength` answers in.
+   */
+  length?: Fraction
+  /**
    * ⭐ Which member the feathering STARTS on and which it ENDS on — 0-based member indices,
    * **inclusive**, and `rampFrom` is always the LEFT one (`0 ≤ rampFrom < rampTo ≤ count-1`). Absent
    * on both means the whole group, which is what every fan drawn before this existed says.
@@ -1216,8 +1238,14 @@ export interface Chord extends Attack {
    *
    * ⚠️ Like {@link tremoloPair}, the durations are NOT rewritten — `duration` stays `'h'` and the
    * slot stays one event, so rebar, rest-fill, meter changes, clipboard, JSON, collision and undo
-   * never see a note claiming a length it does not have. Only the drawing and the playback expand
-   * it, and removing the field IS "go back to the note I typed".
+   * see ONE slot however many notes are drawn. Only the drawing and the playback expand it, and
+   * removing the field IS "go back to the note I typed".
+   *
+   * ⚠️ What the slot IS is `duration` + `dots`; what it LASTS is `slotLength` — and since a passage
+   * can be collapsed into a fan (`engine/models/fanCollapse.ts`), those two can differ here: seven
+   * sixteenths span a length no notehead spells, so the span rides {@link FanMark.length} and the
+   * written value is a carrier. Every reader of a fan already asks `slotLength`; a new one must not
+   * reach for `duration` and call it the answer.
    *
    * ⚠️ Unlike `tremoloPair` it is a PROPERTY, not a relation — nothing about a neighbouring slot can
    * invalidate it — so it rides `RebarEvent` and survives a meter change or a paste. The one place

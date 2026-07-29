@@ -2588,6 +2588,21 @@ export class MusicEngine {
   }
 
   /**
+   * ⭐ Collapse the selected PASSAGE into one fanned slot: the notes you typed become the attacks of
+   * one gesture, spanning exactly the time they spanned. Returns the surviving note (the group's
+   * first) for the caller to keep selected, or null when the selection is not a passage —
+   * `fanCollapse.collapseIntoFan` owns that list, and the press then does nothing at all.
+   *
+   * `commit`, for {@link setFan}'s reason: it changes what sounds.
+   */
+  collapseIntoFan(noteIds: string[], direction: 'accel' | 'rit'): Note | null {
+    const result = this.scoreModel.collapseIntoFan(noteIds, direction)
+    if (!result) return null
+    this.commit(`Fanned beam ${direction}`)
+    return result
+  }
+
+  /**
    * How a two-note tremolo's strokes meet the stems — `'joined'` or `'open'`. Returns null when the
    * pair does not accept the choice (see `ScoreModel.setTremoloPairStyle`), so the press does nothing.
    *

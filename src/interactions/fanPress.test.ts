@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { PaletteController } from './PaletteController'
 import { createEditorState, type EditorState } from './EditorState'
@@ -65,18 +65,16 @@ describe('pressFan', () => {
     expect(fanOf(id)).toMatchObject({ direction: 'accel', count: DEFAULT_FAN_COUNT, beams: DEFAULT_FAN_BEAMS })
   })
 
-  it('⭐ every member starts as the note you typed — and one press is one set of pitches per note', () => {
-    // `pressFan` hands the SAME mark object to every selected note, so the materialisation has to
-    // happen per slot: two notes sharing one members array is two heads with one pitch id.
+  it('⭐ every member starts as the note you typed, and each head gets its OWN pitch id', () => {
+    // The materialisation happens per slot: members sharing one pitch object would be N heads with
+    // one id, and every command that resolves a member by id addresses whichever comes first.
     const a = blanca(0)
-    const b = blanca(2)
-    select(a, b)
+    select(a)
     palette.pressFan('accel')
-    const ma = fanOf(a)!.members!
-    const mb = fanOf(b)!.members!
-    expect(ma).toHaveLength(DEFAULT_FAN_COUNT - 1)
-    expect(ma.every(m => m.pitches.length === 1 && m.pitches[0].step === 'C' && m.pitches[0].octave === 4)).toBe(true)
-    const ids = [...ma, ...mb].flatMap(m => m.pitches).map(p => p.id)
+    const members = fanOf(a)!.members!
+    expect(members).toHaveLength(DEFAULT_FAN_COUNT - 1)
+    expect(members.every(m => m.pitches.length === 1 && m.pitches[0].step === 'C' && m.pitches[0].octave === 4)).toBe(true)
+    const ids = members.flatMap(m => m.pitches).map(p => p.id)
     expect(new Set(ids).size).toBe(ids.length)
   })
 
@@ -127,19 +125,21 @@ describe('pressFan across a selection', () => {
   let engine: MusicEngine
   let state: EditorState
   let palette: PaletteController
+  let selectNote: Mock<(id: string | null) => void>
 
   beforeEach(() => {
     engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
     engine.addMeasure()
     state = createEditorState()
     state.selectedTool = 'selection'
+    selectNote = vi.fn((_id: string | null) => {})
     palette = new PaletteController(
       () => engine,
       state,
       () => {},   // renderScore
       () => {},   // renderArmedGhost
       () => null, // getLastMousePosition
-      () => {},   // selectNote
+      selectNote,
     )
   })
 
@@ -151,22 +151,56 @@ describe('pressFan across a selection', () => {
   const fourQuarters = () => (['C', 'D', 'E', 'F'] as const).map((step, i) =>
     engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
 
-  it('fans every selected note — a fan is a property, so five notes are five groups', () => {
+  it('⭐ COLLAPSES the selection into ONE group — four notes are one gesture, not four', () => {
     const ids = fourQuarters()
     select(...ids)
     palette.pressFan('accel')
-    for (const id of ids) expect(engine.getNote(id)?.fan?.direction).toBe('accel')
+
+    // One slot left, spanning the four beats they spanned, with one attack each at their pitches.
+    const chords = engine.getScore().measures[0].slots.filter(s => s.type === 'chord')
+    expect(chords).toHaveLength(1)
+    const fan = engine.getNote(ids[0])!.fan!
+    expect(fan).toMatchObject({ direction: 'accel', count: 4 })
+    expect(fan.members!.map(m => m.pitches[0].step)).toEqual(['D', 'E', 'F'])
+    expect(engine.getNote(ids[0])?.duration).toBe('w')
   })
 
-  it('decides the direction for the selection AS A WHOLE', () => {
+  it('…and leaves the survivor selected — the others are members now', () => {
+    const ids = fourQuarters()
+    select(...ids)
+    palette.pressFan('accel')
+    expect(selectNote).toHaveBeenCalledWith(ids[0])
+  })
+
+  it('the SAME direction again clears the group it just made', () => {
+    const ids = fourQuarters()
+    select(...ids)
+    palette.pressFan('accel')
+    select(ids[0]) // what the press left selected
+    palette.pressFan('accel')
+    expect(engine.getNote(ids[0])?.fan).toBeUndefined()
+    expect(engine.getNote(ids[0])?.duration).toBe('w') // the collapsed length stays; only the mark went
+  })
+
+  it('⚠️ a selection that is NOT a passage does nothing at all — no fans, no undo entry', () => {
+    const ids = fourQuarters()
+    select(ids[0], ids[2]) // a hole: the note between them was not chosen
+    const before = engine.exportJSON()
+    palette.pressFan('accel')
+    expect(engine.exportJSON()).toBe(before)
+    // …and no EMPTY undo entry either: the next undo is the last note's, not the press's.
+    engine.undo()
+    expect(engine.exportJSON()).not.toBe(before)
+  })
+
+  it('⚠️ …including a selection containing a note that is already fanned', () => {
     const ids = fourQuarters()
     select(ids[0])
-    palette.pressFan('accel') // only the first is fanned…
-    select(...ids)
-    palette.pressFan('accel') // …so this SETS all four rather than clearing the one
-    for (const id of ids) expect(engine.getNote(id)?.fan?.direction).toBe('accel')
-    palette.pressFan('accel') // now they all have it — this clears them
-    for (const id of ids) expect(engine.getNote(id)?.fan).toBeUndefined()
+    palette.pressFan('rit') // one fanned note…
+    select(ids[0], ids[1]) // …plus its neighbour: not all have it, so this is a collapse press
+    const before = engine.exportJSON()
+    palette.pressFan('accel')
+    expect(engine.exportJSON()).toBe(before) // …and collapsing a fan into a fan is refused
   })
 
   it('is ONE undo entry for the whole selection', () => {

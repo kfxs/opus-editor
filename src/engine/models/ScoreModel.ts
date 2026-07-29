@@ -37,6 +37,7 @@ import * as rebarOps from './rebarOps'
 import * as overrideOps from './overrideOps'
 import * as slurOps from './slurOps'
 import * as markOps from './markOps'
+import * as fanCollapse from './fanCollapse'
 import * as voiceOps from './voiceOps'
 import * as staffSizeOps from './staffSize'
 import { isValidStaffSize } from './staffSize'
@@ -1769,11 +1770,17 @@ export class ScoreModel {
    * A measure rest spans the whole bar regardless of its `'w'` glyph, so its
    * actual length is the meter's bar length — correct in every meter, not just
    * 4/4 where `'w'` happens to equal four quarters.
+   *
+   * ⭐ …and a fan made by COLLAPSING a passage (`fanCollapse`) spans what that passage spanned,
+   * which need not be writable as one value: seven sixteenths is a dotted quarter tied to a
+   * sixteenth. The span is authored on the MARK ({@link FanMark.length}) precisely so it can be
+   * derived here rather than trusted from the wire — `fromJSON` recomputes every slot's.
    */
   private computeActualDurationForSlot(slot: ChordRest | { duration: NoteDuration; dots?: number; tupletId?: string; isMeasureRest?: boolean }, measure: Measure): Fraction {
     if ('isMeasureRest' in slot && slot.isMeasureRest) {
       return measureCapacityFrac(measure)
     }
+    if ('fan' in slot && slot.fan?.length) return slot.fan.length
     const base = writtenLength(slot)
     if (slot.tupletId && measure.tuplets) {
       const tuplet = measure.tuplets.find(t => t.id === slot.tupletId)
@@ -1895,7 +1902,22 @@ export class ScoreModel {
    * "play this one event as N notes, speeding up (or slowing down) across exactly its own duration".
    *  See {@link markOps.setFan} for the why. */
   setFan(noteId: string, fan: FanMark | null): Note | null {
-    return markOps.setFan(this.score, noteId, fan)
+    const result = markOps.setFan(this.score, noteId, fan)
+    // ⭐ Removing a COLLAPSED fan (`fanCollapse`) hands time BACK to the bar: the slot sounded for
+    // the seven sixteenths its mark claimed and is written as a dotted quarter, so a sixteenth of
+    // silence appears where the group ended. Closing it is the bar's own rule, not the mark's — the
+    // same rest-fill every other shortening edit ends with. A no-op for a fan that never had a span.
+    if (result && fan === null) this.fillMeasureGaps(result.measure)
+    return result
+  }
+
+  /**
+   * ⭐ Collapse a selected PASSAGE into one fanned slot — same total length, one attack per slot, at
+   * the pitches you typed. The other way to make a fan, and the mirror of {@link setFan}: that one
+   * marks a note as a group, this one turns a group into a note that is marked.
+   *  See {@link fanCollapse.collapseIntoFan} for the why, and for what it refuses. */
+  collapseIntoFan(noteIds: string[], direction: 'accel' | 'rit'): Note | null {
+    return fanCollapse.collapseIntoFan(this.score, noteIds, direction)
   }
 
   /** Set — or with `false`, remove — the TWO-NOTE tremolo on the slot containing `noteId`. See {@link markOps.setTremoloPair} for the why. */

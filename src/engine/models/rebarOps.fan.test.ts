@@ -13,7 +13,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
 import { buildClipboardFromSelection } from '@/interactions/clipboard'
-import { fracCreate as frac } from '@/utils/fraction'
+import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
+import { slotLength, writtenLength } from '@/utils/durations'
 import { DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS } from '@/utils/fannedBeam'
 import type { Chord, FanMark } from '@/types/music'
 
@@ -81,5 +82,36 @@ describe('pasteEvents returns every note it landed, fanned members included', ()
 
     const pasted = model.pasteEvents(clip, { measure: 2, beat: frac(0, 1), voice: 0 })
     expect(pasted, 'two plain notes in, two ids out').toHaveLength(2)
+  })
+})
+
+/**
+ * ⭐ **A COLLAPSED fan's SPAN through the relay** (`engine/models/fanCollapse.ts`).
+ *
+ * `FanMark.length` is the one thing on a fan that is a claim about TIME, and the relay's job is to
+ * re-tile time into writable pieces. Seven sixteenths come out as a dotted quarter tied to a
+ * sixteenth, and the fan rides the first piece — so the claim has to come off, or the mark would
+ * still say 7/16 while the piece beside it holds the last one.
+ */
+describe('a collapsed fan re-tiled by the relay', () => {
+  it('keeps the total length, and the mark stops claiming what it no longer has', () => {
+    const model = new ScoreModel()
+    const ids = (['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const).map((step, i) =>
+      model.addNote({ step, octave: 4, duration: '16', measure: 1, beat: frac(i, 4) }).id)
+    model.collapseIntoFan(ids, 'accel')
+    const before = model.getMeasure(1)!.slots.find((s): s is Chord => s.type === 'chord')!
+    expect(before.fan!.length, 'fixture: the collapse claimed 7/16').toBeDefined()
+
+    // A meter change is the relay's own gesture: every event is flattened and re-tiled.
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+
+    const chords = model.getScore().measures.flatMap(m => m.slots.filter((s): s is Chord => s.type === 'chord'))
+    const fanned = chords.find(c => c.fan)!
+    expect(fanned.fan!.length, 'the span reverted to the piece the fan landed on').toBeUndefined()
+    expect(fracToNumber(slotLength(fanned)), '…so it lasts exactly what it is written as')
+      .toBeCloseTo(fracToNumber(writtenLength(fanned)))
+    // …and the sixteenth the ramp gave up is still there, as the piece it was tied into.
+    const total = chords.reduce((sum, c) => sum + fracToNumber(slotLength(c)), 0)
+    expect(total, 'the music lasts exactly as long as it did').toBeCloseTo(1.75)
   })
 })
