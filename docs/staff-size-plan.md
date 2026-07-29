@@ -1,13 +1,17 @@
 # Staff size — a staff is drawn at a size, and it is not the same size for every staff
 
-**Status: P0 + P1 + P2 + P4 + P5 BUILT** (2026-07-29) — the value, the resolver, the renamed
-constant, the dev button, the per-staff vertical stride, **the transform** and **everything drawn
-outside a bar's group**. A small staff is drawn small, with its ties, slurs, beams, connector and
-ghost. ⚠️ **P3 was skipped and is still open**, so its music is still *spaced* for a full-size
-staff and reads as stretched (§6); P6 (the ink constants) is open too. §7's redraw keys landed
-where each became true: `measureShapeKey` in P4, `laneFingerprint` + `layoutStateKey` still owed by
-P3 — see the P2 note. The review that produced the plan: the model is already
-proportional (staff-spaces, pixel-free), the **rendering** is not.
+**Status: EVERY PHASE BUILT EXCEPT P3** (2026-07-29) — P0, P1, P2, P4, P5, P6. The value, the
+resolver, the renamed constant, the dev button, the per-staff vertical stride, **the transform**,
+**everything drawn outside a bar's group**, and the constants sweep. A small staff is drawn small,
+with its ties, slurs, beams, connector and ghost.
+
+⚠️ **P3 — the horizontal room (§6) — was skipped and is the one thing left.** A small staff's music
+is still *spaced* for a full-size staff, so it reads as stretched, and §7's `laneFingerprint` +
+`layoutStateKey` are owed with it (`measureShapeKey` landed in P4 — see the P2 note). The other open
+item is smaller: the **marking-tool ghosts** still preview at full size over a small staff (see P5).
+
+The review that produced the plan: the model was already proportional (staff-spaces, pixel-free),
+the **rendering** was not.
 
 > **Revised 2026-07-29** against the codebase and VexFlow 5's own source. The model half (§2, §3)
 > and the vertical stride (§5) stood. The rendering half did not: `ctx.scale` is **not** a transform
@@ -16,8 +20,12 @@ proportional (staff-spaces, pixel-free), the **rendering** is not.
 > the line that proves it.
 
 The picture this is for: a violin part above a piano part, the violin engraved small and the piano
-full size, on the same system. Today every staff in the editor is exactly one size, and roughly
-thirty numbers quietly encode that.
+full size, on the same system. When this was written every staff in the editor was exactly one size,
+and roughly thirty numbers quietly encoded that.
+
+> **§1-§7 below are the REVIEW, kept as written** — the diagnosis, in the present tense of the day it
+> was made. Where a phase has since changed the thing it describes, the phase says so. The one place
+> to look for what is true *now* is the status line above and §8's phases.
 
 ---
 
@@ -26,6 +34,7 @@ thirty numbers quietly encode that.
 `VEXFLOW_DEFAULT_STAFF_SPACE_PX = 10` (`engravingOverrides.ts:455`) has 16 production references,
 nearly all of them `staffSpaces × 10`. The name says it is VexFlow's default. It is not: it is **the
 score's staff size**, written as a constant, and it is what has to stop being one.
+*(P0 renamed it `STAFF_SPACE_PX` and moved it to `engine/models/staffSize.ts`.)*
 
 ⭐ Two of the sixteen are already right, and they are the shape the rest should end up in:
 `measuredRoom.ts:83` and `:121` read `geometry?.lineSpacing ?? VEXFLOW_DEFAULT_STAFF_SPACE_PX` — the
@@ -390,18 +399,49 @@ with the other.
 > staff under the cursor and threading it through ~10 drawers plus the `ToolGhost` dispatch: its own
 > phase, not this one.
 
-**P6 — the ink constants** (§1). Sweep `LAYOUT_CONFIG` and the loose px constants into staff-spaces,
-by the ink/finger rule. Deliberately last: until P4 there is nothing to be wrong about.
+**P6 — the ink constants** (§1). **✅ BUILT, and it was not the phase it looked like.** Sweep
+`LAYOUT_CONFIG` and the loose px constants into staff-spaces, by the ink/finger rule. Deliberately
+last: until P4 there is nothing to be wrong about.
+
+> ⭐⭐ **P4 had already done most of it, and the sweep as written would have been a bug.** A staff
+> drawn small is drawn inside `scale(k)`, so every ink constant used at DRAW time *already* scales —
+> `CURVE_THICKNESS`, the `beamInk` four, `LEDGER_ACCIDENTAL_GAP`, `DynamicsLayout`'s `GAP`, the
+> tuplet/tempo font sizes. Rewriting those as "staff-spaces × that staff's size" would have scaled
+> them **twice**. The constants that genuinely still need a size are the ones read during the
+> **casting-off**, before any group exists — `MIN_NOTE_SPACING`, `CLEF_WIDTH`, `TIME_SIG_WIDTH`,
+> `BARLINE_PADDING` — and those belong to **P3**, which is still open.
+>
+> So what landed:
+>
+> - **`LAYOUT_CONFIG` says its unit.** All nine are `spaces × STAFF_SPACE_PX` — numerically
+>   identical, but the width path's four are now visibly the ones P3 multiplies. The ink/finger rule
+>   is stated at the top of the file, next to `VIEWPORT_*`, which is where both kinds of pixel used
+>   to live under one naming. Each loose ink constant got a one-line note saying it is ink and ⛔ must
+>   not be multiplied by a staff's size.
+> - **§9's collision, settled the way §9 said**: `PX_PER_MM` now *reads* `STAFF_SPACE_PX` instead of
+>   spelling the 10 out. A page's millimetres are derived from the score's staff size, not the other
+>   way round — and a *staff's own* size stays out of it, because a page is a page whichever part on
+>   it is engraved small.
+> - **⚠️ Two real defects the sweep found**, both the same shape: a number in SVG coordinates used
+>   inside a scaled drawing scope. A **slur crossing a system break** took its system edges from
+>   `measureBounds` and drew them in the staff's space, so on a 0.7 staff it stopped 30% short of the
+>   margin (measured: 688 where the system ends at 980). A **cross-system beam's overhang** compared
+>   a visual barline against a local stem x, so the stub never reached the margin. Both convert at
+>   the one place the two spaces meet, and both are pinned — `planSlurSegments` takes the scale as a
+>   parameter and has a unit test, and `e2e/staffSize.e2e.ts` measures the slur reaching the margin
+>   at both sizes.
+> - **One rotted repo-fact comment** fixed: `dotPlacement`'s "one place to change if the staff is
+>   ever scaled". The staff is scaled now, and the answer is that nothing had to change.
 
 ## 9. Explicitly not in this plan
 
 - **Per-system size** — §3 is the design that keeps it cheap; building it is not owed.
 - **Cue notes** (a small *note* inside a normal staff) — a different feature; VexFlow's per-category
   `fontScale` is the seam for it, not this.
-- **The global mm-per-staff-space** (`PX_PER_MM = 10 / 1.75` — `engine/layout/surface.ts:83`, which
-  currently derives millimetres *from* the staff size). It is a real coupling and it belongs to the
-  engraving object beside `Surface`, not here. ⚠️ It will collide with this work at P6 — one of them
-  has to name the score's base staff size and the other has to read it.
+- ~~**The global mm-per-staff-space**~~ — ✅ **settled in P6**, the way this entry predicted: the
+  collision was real, and `PX_PER_MM` now *reads* `STAFF_SPACE_PX` rather than spelling the 10 out.
+  One of them names the score's base staff size and the other reads it. A *staff's* own size stays
+  out of it: a page is a page whichever part on it is engraved small.
 - **A UI beyond the dev button.** P1's button is scaffolding.
 
 ## 10. Rejected, so it is not re-proposed

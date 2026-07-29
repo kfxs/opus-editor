@@ -1,3 +1,5 @@
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+
 /**
  * The **surface** the music is drawn on — the sheet, not the engraving.
  *
@@ -66,21 +68,31 @@ export interface SurfaceMetrics {
   contentHeightPx: number | null
 }
 
+/** Millimetres to a staff space — MuseScore's `sp`, and the industry's working figure for an
+ *  ordinary printed staff (a 7 mm rastral). The other half of {@link PX_PER_MM}. */
+const MM_PER_STAFF_SPACE = 1.75
+
 /**
  * The one conversion, done once.
  *
  * The whole industry measures layout in staff spaces and converts at the boundary: MusicXML carries
  * every distance in *tenths* (1/10 staff space) plus a `<scaling>` element mapping them to mm,
- * MuseScore's unit is `sp` at **1.75 mm**, Verovio takes pages in 1/10 mm. We never override
- * VexFlow's `STAVE_LINE_DISTANCE`, so 1 staff space = 10 px everywhere in this editor, and
- * MuseScore's 1.75 mm/sp makes the whole mapping this single constant.
+ * MuseScore's unit is `sp` at **1.75 mm**, Verovio takes pages in 1/10 mm. So the mapping is the
+ * score's staff size over MuseScore's millimetres-per-space, and this is the whole of it.
+ *
+ * ⭐ It **reads** {@link STAFF_SPACE_PX} rather than spelling the 10 out, and that is the point:
+ * the two are the same fact — how big a staff space is — and a page's millimetres are derived from
+ * the score's staff size, not the other way round (docs/staff-size-plan.md §9, the collision this
+ * settles). ⛔ A *staff's own* size does not belong here: a page is a page whether the violin part
+ * on it is engraved small or not.
  *
  * Sanity, and the reason a first version is cheap: A4 at 15 mm margins lands at 1029 px of content
  * against today's 960 — 7.1%, so turning a layout on does not re-flow the score into something
  * unrecognisable. It also prints a staff at 7 mm, which is what an engraver expects; the canvas at
  * 72/96 prints one at ~10.6 mm.
  */
-export const PX_PER_MM = 10 / 1.75
+export const PX_PER_MM = STAFF_SPACE_PX / MM_PER_STAFF_SPACE
+
 
 /**
  * Today's surface, verbatim: the 1000 px column with a 20 px margin the editor has always drawn.

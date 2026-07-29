@@ -14,6 +14,9 @@ import type { TupletMarkRun } from '@/types/music'
  * ⚠️ `Metrics.clear` is required — the resolved font is CACHED per category, so a value written
  * after something has already drawn would be ignored. Same dance TempoLayout does for its glyph.
  */
+// ⚠️ GLOBAL, and it has to be: VexFlow sizes glyphs from `Metrics`, which is per-category and
+// never per-stave (docs/staff-size-plan.md §10 — swapping it per staff is the rejected approach).
+// A small staff gets a small number anyway, because the mark is drawn inside its scale group.
 export const TUPLET_FONT_SIZE = 26
 MetricsDefaults.Tuplet = { ...MetricsDefaults.Tuplet, fontSize: TUPLET_FONT_SIZE }
 Metrics.clear('Tuplet')

@@ -19,7 +19,8 @@ const CURVE_OUTLINE = 1
  *
  * The value is the tie's old one, which was the one that looked right.
  */
-export const CURVE_THICKNESS = 2.7
+export const CURVE_THICKNESS = 2.7 // ≈0.27 staff-spaces; INK, so a small staff's own group scales
+// it — ⛔ never multiply by the staff size here (docs/staff-size-plan.md §1).
 
 /**
  * Draw a curved arc (slur **or** tie) as a cubic Bézier via VexFlow's

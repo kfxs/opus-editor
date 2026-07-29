@@ -285,3 +285,45 @@ test('the NOTE GHOST previews at the size the note will actually be', async ({ s
   // full-size ghost breaks exactly that.
   expect(ghost.after.stems[0].height).toBeCloseTo(ghost.before.stems[0].height * 0.7, 0)
 })
+
+test('a slur ACROSS A SYSTEM BREAK still reaches the margin on a small staff', async ({ score }) => {
+  const spans = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addStaffBelow(0)
+    while (h.engine.getScore().measures.length < 10) h.engine.addMeasure()
+    const ids: string[] = []
+    for (let measure = 1; measure <= 10; measure++) {
+      for (let eighth = 0; eighth < 8; eighth++) {
+        const note = h.engine.addNoteAtBeat({
+          step: 'C', octave: 4, duration: '8', measure, beat: h.frac(eighth, 2), staff: 0,
+        })
+        if (note) ids.push(note.id)
+      }
+    }
+    h.engine.createSlur([ids[0], ids[40]]) // several systems apart
+    await h.render()
+
+    const read = () => {
+      const staves = h.staves().filter(s => s.staff === 0)
+      const firstSystemTop = Math.min(...staves.map(s => s.top))
+      return {
+        systemRight: Math.max(...staves.filter(s => s.top === firstSystemTop).map(s => s.x2)),
+        slur: h.inkSizes('g.vf-slur')[0],
+      }
+    }
+    const before = read()
+    h.engine.setStaffSize(0, 0.7)
+    await h.render()
+    return { before, after: read() }
+  })
+
+  // ⚠️ The mixing defect this pins (docs/staff-size-plan.md §1, the P6 sweep): a slur's note
+  // endpoints come off the notes — the staff's own space — while its SYSTEM edges come from
+  // `measureBounds`, which is where the bar landed in the SVG. Drawn together unconverted, the
+  // first segment stopped at `edge × 0.7`: 30% short of the margin, and only for a slur that
+  // crosses a system break, on a staff drawn small.
+  expect(spans.before.slur.x + spans.before.slur.width, 'full size: out to the margin')
+    .toBeCloseTo(spans.before.systemRight, 0)
+  expect(spans.after.slur.x + spans.after.slur.width, 'and small: still out to the same margin')
+    .toBeCloseTo(spans.after.systemRight, 0)
+})

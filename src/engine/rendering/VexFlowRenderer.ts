@@ -2390,8 +2390,8 @@ export class VexFlowRenderer {
           if (staveNotes.length !== side.members.length) continue
 
           try {
-            if (staveNotes.length >= 2) this.drawCrossBarSideBeam(pass, side, staveNotes)
-            else this.drawCrossBarLoneFragment(pass, side, staveNotes[0])
+            if (staveNotes.length >= 2) this.drawCrossBarSideBeam(pass, side, staveNotes, pass.staffScale(join.staffIndex))
+            else this.drawCrossBarLoneFragment(pass, side, staveNotes[0], pass.staffScale(join.staffIndex))
           } catch (beamError) {
             console.warn(`Could not draw cross-barline beam: ${beamError}`)
           }
@@ -2402,7 +2402,7 @@ export class VexFlowRenderer {
 
   /** A side of two or more notes: the real `Beam` (VexFlow draws stems, slope and beam), plus a
    *  half-beam stub past the edge note's stem at each open end. */
-  private drawCrossBarSideBeam(pass: RenderPass, side: CrossBarSide, staveNotes: StaveNote[]): void {
+  private drawCrossBarSideBeam(pass: RenderPass, side: CrossBarSide, staveNotes: StaveNote[], scale: number): void {
     const beam = new Beam(staveNotes)
     if (side.secondaryBreaks.length) beam.breakSecondaryAt(side.secondaryBreaks)
     beam.setContext(pass.context).draw()
@@ -2415,7 +2415,7 @@ export class VexFlowRenderer {
     const beamY0 = beam.getBeamYToDraw()
     const overhang = (edge: StaveNote, direction: number, levels: number) => {
       const startX = edge.getStemX() - Stem.WIDTH / 2
-      const endX = this.crossSystemOverhangEndX(side, startX, direction)
+      const endX = this.crossSystemOverhangEndX(side, startX, direction, scale)
       for (let k = 0; k < levels; k++) {
         const beamY = beamY0 + k * beamThickness * 1.5
         const startY = beam.getSlopeY(startX, firstStemX, beamY, beam.slope)
@@ -2435,13 +2435,19 @@ export class VexFlowRenderer {
    * into the margin**, and how far that is varies with justification — so it is computed to the side's
    * last measure's barline (`measureX + measureWidth`) plus a margin overshoot, not a fixed length; a
    * fixed stub is the fallback only when that measure's bounds are unavailable.
+   *
+   * ⚠️ **Two coordinate spaces meet here, and only one of them is the beam's.** `startX` is a stem's
+   * x, so it is in the staff's own (scaled) space; `measureBounds` is where the bar landed in the
+   * SVG. On a staff drawn small the barline has to be converted before the two can be compared —
+   * otherwise the max picks the stem every time and the overhang shrinks to a stub that never
+   * reaches the margin. (docs/staff-size-plan.md §4.3)
    */
-  private crossSystemOverhangEndX(side: CrossBarSide, startX: number, direction: number): number {
+  private crossSystemOverhangEndX(side: CrossBarSide, startX: number, direction: number, scale: number): number {
     if (direction < 0) return startX - crossSystemStub(-1)
     const lastMeasure = side.measures[side.measures.length - 1]
     const bounds = this.measureBounds.get(lastMeasure)
     if (!bounds) return startX + crossSystemStub(1)
-    const barlineX = bounds.measureX + bounds.measureWidth
+    const barlineX = (bounds.measureX + bounds.measureWidth) / scale
     return Math.max(barlineX, startX) + CROSS_SYSTEM_BEAM_MARGIN
   }
 
@@ -2451,7 +2457,7 @@ export class VexFlowRenderer {
    * selection highlight resolves a beamed stem by the `Stem` object's SVG group, `getStaveNoteSVGGroup`),
    * flat at its natural tip, plus a flat stub of the note's own beam count pointing at the break.
    */
-  private drawCrossBarLoneFragment(pass: RenderPass, side: CrossBarSide, note: StaveNote): void {
+  private drawCrossBarLoneFragment(pass: RenderPass, side: CrossBarSide, note: StaveNote, scale: number): void {
     const stem = note.getStem()
     if (!stem) return
     stem.adjustHeightForBeam() // swap the flag's height fudge for the beam's; the tip does not move.
@@ -2462,8 +2468,8 @@ export class VexFlowRenderer {
     const beamY0 = stem.getExtents().topY // the stem tip, flat — a lone note has no slope to continue.
     const startX = note.getStemX() - Stem.WIDTH / 2
     // Left is the short fixed stub; right runs to the barline (see crossSystemOverhangEndX).
-    const leftEndX = this.crossSystemOverhangEndX(side, startX, -1)
-    const rightEndX = this.crossSystemOverhangEndX(side, startX, 1)
+    const leftEndX = this.crossSystemOverhangEndX(side, startX, -1, scale)
+    const rightEndX = this.crossSystemOverhangEndX(side, startX, 1, scale)
     let minY = Infinity, maxY = -Infinity
     const stub = (endX: number) => {
       for (let k = 0; k < levels; k++) {

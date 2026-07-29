@@ -51,7 +51,8 @@ import { Metrics, StaveNote, Accidental } from 'vexflow'
  * which is the air VexFlow itself leaves between a sign and its notehead less a whisker. Ink that
  * merely stops touching still reads as touching.
  */
-export const LEDGER_ACCIDENTAL_GAP = 2
+export const LEDGER_ACCIDENTAL_GAP = 2 // 0.2 staff-spaces of INK — scaled by the staff's own
+// group on a small staff, so ⛔ not multiplied by its size here (docs/staff-size-plan.md §1).
 
 /**
  * How far an accidental glyph reaches above and below its own staff line, in LINES (1 line = 1

@@ -91,6 +91,8 @@ export function attachDynamicsToSlots(pass: RenderPass, sortedSlots: ChordRest[]
  * @param groups dynamic-id groups (placement order) from {@link attachDynamicsToSlots}.
  */
 export function layoutCoLocatedDynamics(pass: RenderPass, groups: string[][]): void {
+  // 0.6 staff-spaces of INK, in the bar's own space — the mark is drawn inside the staff's scale
+  // group, so a small staff's row closes up with it (docs/staff-size-plan.md §1).
   const GAP = 6
   for (const ids of groups) {
     const items: Array<{ id: string; el: SVGGraphicsElement; box: { x: number; y: number; width: number; height: number } }> = []

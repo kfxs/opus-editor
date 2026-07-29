@@ -24,6 +24,13 @@ import type { SVGContext } from 'vexflow'
  * little left of its first note, so that one stays the fixed `…LINE_START`. `CROSS_SYSTEM_BEAM_WIDTH`
  * mirrors VexFlow's default `beamWidth` for the lone-note fragment, which has no real `Beam` to read.
  */
+/**
+ * ⚠️ All four are INK, in the coordinates of the staff the beam belongs to — a cross-barline beam is
+ * drawn inside that staff's own scale group (`inScaledStaffGroup`), so they shrink with it and ⛔
+ * must not be multiplied by its size here. The one number in this family that is NOT in that space
+ * is the barline a line-end stub runs to: it comes from `measureBounds`, i.e. the SVG, and is
+ * converted where the two meet (`crossSystemOverhangEndX`). See docs/staff-size-plan.md §1, §4.3.
+ */
 export const CROSS_SYSTEM_BEAM_STUB_LINE_END = 22
 export const CROSS_SYSTEM_BEAM_STUB_LINE_START = 12
 export const CROSS_SYSTEM_BEAM_MARGIN = 10

@@ -53,9 +53,12 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 export const DOT_GAP_SPACES = 0.5
 
 /**
- * …in pixels. Pinned to the default staff space like every other engraving number here rather than
- * read per stave, so the room reserved on the width path (which has no stave) and the ink placed on
- * the draw path can never disagree. One place to change if the staff is ever scaled.
+ * …in pixels. Pinned to the score's staff space rather than read per stave, so the room reserved on
+ * the width path (which has no stave) and the ink placed on the draw path can never disagree.
+ *
+ * ⭐ A staff can now BE drawn small, and this needed no change: the ink is drawn inside that
+ * staff's own `<g transform="scale(k)">`, so it shrinks with everything else. ⛔ Multiplying it by
+ * the staff's size here would scale it twice (docs/staff-size-plan.md §1).
  */
 export const DOT_GAP_PX = DOT_GAP_SPACES * STAFF_SPACE_PX
 

@@ -1,4 +1,5 @@
 import type { Clef, TimeSignature } from '@/types/music'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /**
  * Layout configuration for proportional measure spacing.
@@ -16,26 +17,50 @@ import type { Clef, TimeSignature } from '@/types/music'
  * `engine/layout/surface.ts` and reach a render as a `SurfaceMetrics` (docs/layout-plan.md §1).
  * ⛔ Do not put a page dimension back in here; a constant in this object must hold whether or not
  * there is a page at all.
+ *
+ * ## ⭐ INK vs FINGER — the rule that sorts a pixel constant (docs/staff-size-plan.md §1)
+ *
+ * Every number in `LAYOUT_CONFIG` is **ink**: it is a distance in the engraving, and it is secretly
+ * a staff-space at the score's staff size — so each is written as one, `spaces × STAFF_SPACE_PX`,
+ * rather than as the pixel total it used to be. Nothing changed numerically; what changed is that
+ * the unit is now stated.
+ *
+ * Its opposite lives further down this same file and is *correctly* pixels: `VIEWPORT_LINES`,
+ * `VIEWPORT_PADDING`, `VIEWPORT_HEIGHT` — a **window**, plus (elsewhere) `STEM_CLICK_PAD`,
+ * `ENSURE_VISIBLE_PADDING`, `PAGE_GAP_PX` and the gutter chrome. A fingertip and a window do not
+ * shrink with the staff. That both kinds lived in one object under one naming is exactly why nobody
+ * noticed the difference for so long.
+ *
+ * ## ⚠️ …and where a STAFF's own size does and does not multiply them
+ *
+ * A staff drawn small is drawn inside a `<g transform="scale(k)">`, so **ink used at DRAW time
+ * already scales — do not multiply it by the staff's size, that is the double-scaling bug.** The
+ * ones that do need `× sizeₛ` are the ones read during the **casting-off**, before any group
+ * exists: the four width constants below, which is why every one of them is still full-size on a
+ * small staff today (docs/staff-size-plan.md §6 — P3, open).
  */
 export const LAYOUT_CONFIG = {
-  /** Minimum pixels between notes for clickability */
-  MIN_NOTE_SPACING: 18,
-  /** Minimum measure width even for empty measures */
-  MIN_MEASURE_WIDTH: 100,
-  /** Maximum measure width to prevent one measure dominating */
-  MAX_MEASURE_WIDTH: 400,
-  /** Space for clef symbol on first measure of line */
-  CLEF_WIDTH: 45,
-  /** Space for a mid-line clef change (smaller than a line-start clef) */
-  CLEF_CHANGE_WIDTH: 30,
-  /** Space for time signature */
-  TIME_SIG_WIDTH: 30,
-  /** Padding before/after barlines */
-  BARLINE_PADDING: 10,
-  /** Stave height */
-  STAVE_HEIGHT: 120,
-  /** Vertical spacing between lines */
-  VERTICAL_SPACING: 30,
+  /** Minimum space between notes for clickability — 1.8 staff-spaces. ⚠️ WIDTH path. */
+  MIN_NOTE_SPACING: 1.8 * STAFF_SPACE_PX,
+  /** Minimum measure width even for empty measures — 10 staff-spaces. ⚠️ WIDTH path. */
+  MIN_MEASURE_WIDTH: 10 * STAFF_SPACE_PX,
+  /** Maximum measure width, so one measure can't dominate — 40 staff-spaces. ⚠️ WIDTH path. */
+  MAX_MEASURE_WIDTH: 40 * STAFF_SPACE_PX,
+  /** Room for the clef on the first measure of a line — 4.5 staff-spaces. ⚠️ WIDTH path, and also
+   *  the clef's hit-box at draw time (where it scales with the staff, being inside its group). */
+  CLEF_WIDTH: 4.5 * STAFF_SPACE_PX,
+  /** Room for a mid-line clef change (smaller than a line-start clef) — 3 staff-spaces. */
+  CLEF_CHANGE_WIDTH: 3 * STAFF_SPACE_PX,
+  /** Room for the time signature — 3 staff-spaces. */
+  TIME_SIG_WIDTH: 3 * STAFF_SPACE_PX,
+  /** Padding before/after barlines — 1 staff-space. */
+  BARLINE_PADDING: 1 * STAFF_SPACE_PX,
+  /** The vertical room one staff takes, five lines plus what hangs off them — 12 staff-spaces.
+   *  Read through `layout/staffStride`, which is where a staff's own size multiplies it. */
+  STAVE_HEIGHT: 12 * STAFF_SPACE_PX,
+  /** The clearance below a staff, to the next one — 3 staff-spaces. ⛔ Deliberately NOT scaled by a
+   *  staff's size: a gap is not made of ink (docs/staff-size-plan.md §5). */
+  VERTICAL_SPACING: 3 * STAFF_SPACE_PX,
 }
 
 /** How many staff lines of music the viewport shows at once. THE knob for the viewport's height —

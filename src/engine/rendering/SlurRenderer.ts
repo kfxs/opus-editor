@@ -144,19 +144,31 @@ export function planSlurSegments(
   toLine: number,
   firstX: number,
   lastX: number,
+  /**
+   * ⚠️ **How big the slur's staff is drawn** (1 = full size), and it is not optional in spirit.
+   *
+   * `firstX`/`lastX` come off the notes, so they are in the staff's OWN space — but a system edge
+   * comes from `measureBounds`, which is where the bar landed in the SVG. Mixing the two was a real
+   * defect for exactly one shape of music: a slur crossing a system break on a staff drawn small
+   * stopped at `edge × k` instead of the edge, i.e. 30% short of the margin. Everything here is
+   * handed to the drawing, which happens inside the staff's scale group, so the edges are converted
+   * INTO that space here — the one place both kinds of number meet.
+   */
+  scale: number,
 ): SlurSegment[] {
   if (fromLine === toLine) return [{ type: 'single' }]
+  const toLocal = (x: number | undefined): number | undefined => (x === undefined ? undefined : x / scale)
   const segments: SlurSegment[] = []
   for (let line = fromLine; line <= toLine; line++) {
     if (line === fromLine) {
-      const rightX = lineRightEdgeX(pass, line)
+      const rightX = toLocal(lineRightEdgeX(pass, line))
       if (rightX !== undefined) segments.push({ type: 'begin', firstX, rightX })
     } else if (line === toLine) {
-      const leftX = lineLeftEdgeX(pass, line)
+      const leftX = toLocal(lineLeftEdgeX(pass, line))
       if (leftX !== undefined) segments.push({ type: 'end', leftX, lastX })
     } else {
-      const leftX = lineLeftEdgeX(pass, line)
-      const rightX = lineRightEdgeX(pass, line)
+      const leftX = toLocal(lineLeftEdgeX(pass, line))
+      const rightX = toLocal(lineRightEdgeX(pass, line))
       if (leftX !== undefined && rightX !== undefined) segments.push({ type: 'middle', leftX, rightX, line })
     }
   }
@@ -408,13 +420,14 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
       // `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-slur' here would
       // yield `class="vf-vf-slur"`, which is what this used to do.
       const group = pass.context.openGroup?.('slur', `slur-${slur.id}`) as SVGGElement | undefined
+      const slurStaffIndex = staffIndexOfId(score, startSlot?.staffId)
 
       // A slur is built from its two notes' own coordinates, which live in their staff's scaled
       // space — so it is drawn there too (docs/staff-size-plan.md §4.3). That covers its ARC, its
       // thickness, and the handles + sampled points it registers for hit-testing, all at once.
       // A slur never spans two staves today (cross-staff slurring is not modelled), so the start
       // note's staff is the slur's.
-      inStaffSpace(pass, staffIndexOfId(score, startSlot?.staffId), group, () => {
+      inStaffSpace(pass, slurStaffIndex, group, () => {
 
         const fromNote = fromEnd.staveNote
         const toNote = toEnd.staveNote
@@ -505,7 +518,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // BEFORE resolveCps, so the arch follows the moved point (mirrors the true-end offset).
           const segEndOff = reconcileSegmentEndpointOffset(segmentEndpointOffsetOverrideOf(score, slur.id), spanCount)
           let middleOrdinal = 0
-          for (const seg of planSlurSegments(pass, fromLine, toLine, firstX, lastX)) {
+          for (const seg of planSlurSegments(pass, fromLine, toLine, firstX, lastX, pass.staffScale(slurStaffIndex))) {
             if (seg.type === 'begin') {
               // Start note → system right edge, rising to an open (flat-ish) right end.
               const startY = fromY + LIFT * direction

@@ -87,13 +87,13 @@ describe('planSlurSegments', () => {
   const LAST_X = 150  // end note tie-left X
 
   it('same line → a single non-partial segment', () => {
-    expect(planSlurSegments(pass, 0, 0, FIRST_X, LAST_X)).toEqual<SlurSegment[]>([
+    expect(planSlurSegments(pass, 0, 0, FIRST_X, LAST_X, 1)).toEqual<SlurSegment[]>([
       { type: 'single' },
     ])
   })
 
   it('two lines → begin + end (the reported 2-line bug)', () => {
-    const segs = planSlurSegments(pass, 0, 1, FIRST_X, LAST_X)
+    const segs = planSlurSegments(pass, 0, 1, FIRST_X, LAST_X, 1)
     expect(segs.map(s => s.type)).toEqual(['begin', 'end'])
     // BEGIN trails off the START line's right margin (measure 3), from the note X.
     expect(segs[0]).toEqual({ type: 'begin', firstX: FIRST_X, rightX: 390 })
@@ -103,14 +103,23 @@ describe('planSlurSegments', () => {
   })
 
   it('three lines → begin + middle + end, middle spans the full crossed system', () => {
-    const segs = planSlurSegments(pass, 0, 2, FIRST_X, LAST_X)
+    const segs = planSlurSegments(pass, 0, 2, FIRST_X, LAST_X, 1)
     expect(segs.map(s => s.type)).toEqual(['begin', 'middle', 'end'])
     // MIDDLE is line 1's full width: left margin (measure 4 = 100) → right (measure 5 = 480).
     expect(segs[1]).toEqual({ type: 'middle', leftX: 100, rightX: 480, line: 1 })
   })
 
+  it('a SMALL staff: the system edges come back in the staff’s own space', () => {
+    // The note Xs are already in it (they come off the notes); the system edges are where the bar
+    // landed in the SVG, so they are the ones that convert. Left unconverted, a slur crossing a
+    // system break on a 0.7 staff stopped 30% short of the margin. See the `scale` parameter.
+    const segs = planSlurSegments(pass, 0, 1, FIRST_X, LAST_X, 0.5)
+    expect(segs[0]).toEqual({ type: 'begin', firstX: FIRST_X, rightX: 390 * 2 })
+    expect(segs[1]).toEqual({ type: 'end', leftX: 100 * 2, lastX: LAST_X })
+  })
+
   it('four lines → begin + 2×middle + end (N-system generality)', () => {
-    const segs = planSlurSegments(pass, 0, 3, FIRST_X, LAST_X)
+    const segs = planSlurSegments(pass, 0, 3, FIRST_X, LAST_X, 1)
     expect(segs.map(s => s.type)).toEqual(['begin', 'middle', 'middle', 'end'])
     expect(segs[1]).toMatchObject({ type: 'middle', line: 1, leftX: 100, rightX: 480 })
     expect(segs[2]).toMatchObject({ type: 'middle', line: 2, leftX: 100, rightX: 470 })
