@@ -27,6 +27,11 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 > scores, and it is the kind of call the model exists to make cheap: one field, two published tables,
 > both tested.
 >
+> 📄 **Who decides what, and which of it to take next: `docs/vexflow-boundary.md`** — the full
+> inventory of what we own outright, what VexFlow still decides, where that constrains us, and the
+> test for whether a decision is worth taking (⭐ *is there a rule we want to state and can't?* —
+> never *do we control this?*).
+>
 > ⏭️ Still owed: **P5**, the fan's five constants (where `MIN_NOTE_SPACING` finally dies with
 > `fanRoom.ts`, and until then the spacing pass skips any bar holding a fan); the preview **ghost**,
 > which formats its own stave and does not run the pass; **vertical clearance** (an accidental that
