@@ -8,16 +8,24 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 > own ink re-derived "how much room does this need" by hand — and each did it differently. The real
 > model (Gould: an event's own extent + the space its duration earns) is planned in
 > **`docs/spacing-model-plan.md`**, on the evidence in **`docs/spacing-model-research.md`** (Gould's
-> table, the four engines' formulas, and what our own code measures). The rule is
-> **`3.5 staff spaces × √(duration / quarter)`**, plus each event's own ink, combined with a `max`.
+> table, the four engines' formulas, and what our own code measures). ⭐ The rule that ships is
+> **LilyPond's** — `(2 + log₂(t / ♪)) × 1.2` staff spaces, so each doubling **adds** 1.2 where every
+> other engine multiplies — plus each event's own ink, combined with a `max`.
 >
 > **Built — P0 through P4, and the rule is what gets DRAWN.** `engine/layout/spacing.ts` is the rule
 > and the spring solve; `spacingPadding.ts` is the ink (glyph extents measured off our own drawing,
 > plus a padding table keyed by the PAIR of things); `measureColumns.ts` turns a measure into columns
 > carrying both; `MeasureLayout` asks them for a bar's width; and `rendering/spacingPass.ts` writes
 > the x's onto the tick contexts between `format()` and `draw()`, so VexFlow's tick-proportional
-> softmax no longer decides anything horizontal. Measured on the page: a quarter is **3.50** staff
-> spaces, an eighth **2.47**, and their ratio **√2** — Gould's, to three figures.
+> softmax no longer decides anything horizontal. Measured on the page, to the hundredth: a 32nd
+> **1.50**, a 16th **1.80**, an eighth **2.40**, a quarter **3.60**.
+>
+> ⚠️ **Which house?** Gould's √2 power law is still in the code as `GOULD_SPACING`, one field away,
+> and is the closer fit to her table (mean error 4.1% against LilyPond's 7.0%). LilyPond's log law
+> ships because a log law's **dynamic range is narrower** — longest ÷ shortest falls from 5.6 to 4.0
+> — so dense music keeps a far larger share of a line. That was his call, made by eye on his own
+> scores, and it is the kind of call the model exists to make cheap: one field, two published tables,
+> both tested.
 >
 > ⏭️ Still owed: **P5**, the fan's five constants (where `MIN_NOTE_SPACING` finally dies with
 > `fanRoom.ts`, and until then the spacing pass skips any bar holding a fan); the preview **ghost**,

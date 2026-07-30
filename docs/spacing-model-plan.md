@@ -652,10 +652,15 @@ still wrong and is owed a one-line fix** — a repo fact that rotted, cf.
 
 | | before the model | after P2/P3 | after P4 | the rule |
 |---|---|---|---|---|
-| a quarter | 1.94 | 3.72 | **3.50** | 3.5 |
-| an eighth | 3.36 | 2.48 | **2.47** | 2.475 |
-| a 16th | 1.99 | 1.75 | **1.75** | 1.75 |
-| quarter ÷ eighth | 0.58 | 1.51 | **1.414** | √2 |
+| a quarter | 1.94 | 3.72 | **3.60** | 3.6 |
+| an eighth | 3.36 | 2.48 | **2.40** | 2.4 |
+| a 16th | 1.99 | 1.75 | **1.80** | 1.8 |
+| a 32nd | – | 1.43 (the ink) | **1.50** | 1.5 |
+| quarter ÷ eighth | 0.58 | 1.51 | **1.50** | 1.5 |
+
+⚠️ The "after P4" column is against **LilyPond's** curve — §1.0. P4 landed on the √2 law and the
+curve changed the same day; what P4 itself proved is that the drawn gap is the RULE's, whichever
+rule is in force.
 
 ⭐ On his own fragments: bar 2's quarter:16th ratio went **1.54 → 2.005** (Gould's 2.0); a half rest
 after sixteen 32nds went from **2.68 → 5.67** spaces (the rule owes it 4.95); and in a ledgered run
@@ -701,7 +706,8 @@ constants and a module), then the tremolo, then the two draw-time clearance pass
 
   ⭐ **The consequence is one rule for the whole score**, and the per-context `SpacingRule` dies
   before it is built (§1.1). What to watch by eye at P5: the heads now fan **less** than the beam
-  does — a 32nd→8th ramp spaces its members 1.24 → 2.47 (×2) where a linear rule would give ×4. If
+  does — a 32nd→8th ramp spaces its members 1.50 → 2.40 (×1.6 under LilyPond's curve; it was ×2
+  under √2) where a linear rule would give ×4. If
   that reads wrong, it is the *ratio* that is wrong, and it is one field for the whole score rather
   than a second rule for one gesture. ⚠️ It also leaves `docs/note-spacing-plan.md` §7.3's worry —
   the picture drifting from the sound inside a long ramp — open rather than settled; it belongs to
@@ -710,8 +716,10 @@ constants and a module), then the tremolo, then the two draw-time clearance pass
   in steps (paddings by 0.2, duration stretch by 0.33) and only then allows collisions. Our
   `MAX_MEASURE_WIDTH` is a hard number nobody chose musically. A ladder is better; how many rungs is
   taste.
-- **The exact ratio, if not √2** — 1.41 (Gould/Dorico), 1.5 (MuseScore/Verovio) and ~1.35 (Sibelius)
-  are all defensible; it is one number in `SpacingRule` and worth a look by eye once P2 lands.
+- ✅ **The exact curve — DECIDED 2026-07-30 (his call, by eye): LilyPond's.** This entry asked which
+  ratio, assuming a power law; the answer turned out to be a different *shape*. See §1.0. The knob
+  that remains is `LILYPOND_SPACING.base` (1.2 staff spaces per doubling) and its `shortest`
+  reference (an eighth), either of which is one field.
 - **The header as columns** (clef, key, meter with real extents, deleting `CLEF_WIDTH`,
   `CLEF_CHANGE_WIDTH`, `TIME_SIG_WIDTH`) — the same idea one step further, deliberately left out of
   the phases above to keep P3 finishable.

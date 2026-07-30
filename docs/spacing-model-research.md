@@ -64,7 +64,16 @@ Sibelius's shipped table, for calibration (spaces): 32nd 1.41 · 16th 1.94 · 8t
 was then *fine-tuned by eye against classic European engravings* — which is the honest account of
 where any of these numbers come from.
 
-### ⭐ The one that reproduces Gould is `s = 3.5sp × √(t / quarter)`
+### ⭐ The one that reproduces Gould is `s = 3.5sp × √(t / quarter)` — but LilyPond's is the one we SHIP
+
+🚨 **Decided by eye, 2026-07-30, after the model was drawing:** *"dense passages seem too tight to
+me, LilyPond numbers sound better"*, and the standing preference *"in general we should approximate
+to LilyPond as much as possible."* The square root below is still the closer fit to **Gould's**
+table and is still in the code (`GOULD_SPACING`); what ships is the **log** law in the row beneath
+it. The reason is the last column of the comparison table further down: a power law's spread between
+the longest and shortest note on a page grows without bound, a log law's does not
+(5.6 → **4.0**), and that spread is what a reader of dense music feels. See
+`docs/spacing-model-plan.md` §1.0.
 
 Put the five side by side, in staff spaces, all anchored so the quarter is 3½:
 
@@ -300,14 +309,16 @@ column merge to exist before there is anything to compare.
 ## 6b. …AND THE AFTER (P0–P4 built, 2026-07-30)
 
 Same instrument, same fixtures, once the model decides both the bar's width **and** where each
-column lands inside it. All in staff spaces.
+column lands inside it. All in staff spaces, against **LilyPond's** curve — the one that ships
+(§2, and `docs/spacing-model-plan.md` §1.0).
 
-| | before | after | Gould / the rule |
+| | before | after | LilyPond's rule |
 |---|---|---|---|
-| a quarter | 1.94 | **3.50** | 3.5 |
-| an eighth | 3.36 | **2.47** | 2.475 |
-| a 16th | 1.99 | **1.75** | 1.75 |
-| **quarter ÷ eighth** | **0.58** | **1.414** | **√2** |
+| a quarter | 1.94 | **3.60** | 3.6 |
+| an eighth | 3.36 | **2.40** | 2.4 |
+| a 16th | 1.99 | **1.80** | 1.8 |
+| a 32nd | – | **1.50** | 1.5 |
+| **quarter ÷ eighth** | **0.58** | **1.50** | 1.5 |
 | 16 × 𝅘𝅥𝅯 vs 4 × ♩, room | ×3.9 | **×2.1** | ×2 |
 
 The three findings of §6 are each answered: the ordering is no longer inverted (the flag that never
@@ -322,7 +333,7 @@ Two more, from his own scores rather than from fixtures:
   out at **2.15** where the on-staff ones get **1.43** — each gap taking its own ink, which is the
   thing no single formatter law can do.
 - **Silence** got 9% of a bar's width for 50% of its time. A half rest after sixteen 32nds now takes
-  **5.67** spaces against the rule's 4.95. ⚠️ Gould's curve is compressed on purpose and does NOT
+  **4.84** spaces against the rule's 4.8. ⚠️ Gould's curve is compressed on purpose and does NOT
   make space proportional to duration — the notes are still the bulk of the bar, and should be.
 
 ## 7. Sources
