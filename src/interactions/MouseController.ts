@@ -15,6 +15,7 @@ import { DynamicTextSource } from './DynamicTextSource'
 import { fracToNumber, fracEq } from '../utils/fraction'
 import { dynamicTextFromTool, DEFAULT_DYNAMIC_TEXT } from '../utils/dynamics'
 import { staffOf } from '@/utils/lanes'
+import { stampFanAtClick } from './fanStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { articulationHit } from './elements/articulation'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
@@ -1415,6 +1416,9 @@ export class MouseController {
     if (this.stampDotAtClick(engine, registry, x, y)) return
     if (this.stampTremoloAtClick(engine, registry, x, y)) return
     if (this.stampRestAtClick(engine, x, y)) return
+    // The feather stamp's whole click lives in its own module (interactions/fanStamp); this is the
+    // row that gives it a turn.
+    if (stampFanAtClick(this.state, engine, x, y, () => this.render.renderScore())) return
 
     // No marking tool armed → note/tuplet entry.
     this.placeNoteAtClick(engine, registry, x, y, measureNum)

@@ -1,5 +1,6 @@
 import type { WindowLayer } from '@/windows/WindowLayer'
 import { openClefWindow } from '@/windows/clefWindow'
+import { openFeatherWindow } from '@/windows/featherWindow'
 import { openTimeSignatureWindow } from '@/windows/timeSignatureWindow'
 import { openTupletWindow } from '@/windows/tupletWindow'
 import type { MenuLayer } from './MenuLayer'
@@ -45,6 +46,9 @@ function buildInsertItems(actions: InsertMenuActions, windows: WindowLayer): Men
     // Opens the Clef window directly: a window is opened by importing the layer, not by asking the
     // app for a callback, so a command that only puts a window up needs no `actions` field at all.
     { label: 'Clef', shortcut: 'Q', onSelect: () => openClefWindow(windows) },
+    // No accelerator: the window is still the Tuplet window's layout wearing a new title, so there
+    // is nothing yet worth a key. The feather's real way in is the Keypad's `accel.`/`rit.` keys.
+    { label: 'Feathered Beam', onSelect: () => openFeatherWindow(windows) },
     {
       label: 'Text',
       items: [

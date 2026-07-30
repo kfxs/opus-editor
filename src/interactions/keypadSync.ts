@@ -405,6 +405,10 @@ export function wireKeypadSync(
     bus.tuplet.onPress((a) =>
       palette.armTupletInTimeOf(a.numNotes, a.unit, a.normalCount, a.normalUnit, a.unitDots, a.normalDots, a.format),
     ),
+    // The Feathered Beam window's OK. A SECOND fan seam beside `bus.fan` above, and the two mean
+    // opposite things: that one MARKS notes that exist, this one ARMS a stamp for a note that does
+    // not (see bus/fanStampSelection).
+    bus.fanStamp.onPress((a) => palette.armFanStamp(a)),
   ]
 
   /**

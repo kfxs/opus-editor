@@ -8,6 +8,7 @@ import { createDotSelection } from './dotSelection'
 import { createDurationSelection } from './durationSelection'
 import { createFanEditSelection } from './fanEditSelection'
 import { createFanSelection } from './fanSelection'
+import { createFanStampSelection } from './fanStampSelection'
 import { createModeSelection } from './modeSelection'
 import { createNoteOffsetSelection } from './noteOffsetSelection'
 import { createRestSelection } from './restSelection'
@@ -70,6 +71,10 @@ export interface EditorBus {
   fanEdit: ReturnType<typeof createFanEditSelection>
   /** The two feathered-beam keys, `accel.` and `rit.` — a radio, not a pair of toggles. */
   fan: ReturnType<typeof createFanSelection>
+  /** The feather the Feathered Beam window asked for, as the sentence the dialog was told. Press-only.
+   *  A second fan channel and not a value of {@link EditorBus.fan}: that one MARKS notes that exist,
+   *  this one ARMS a stamp for notes that do not. */
+  fanStamp: ReturnType<typeof createFanStampSelection>
   /** Selection mode as a Keypad key (the Select arrow). */
   mode: ReturnType<typeof createModeSelection>
   /** Properties' horizontal note-offset input. Command-only. */
@@ -111,6 +116,7 @@ export function createEditorBus(): EditorBus {
     dot: createDotSelection(),
     fanEdit: createFanEditSelection(),
     fan: createFanSelection(),
+    fanStamp: createFanStampSelection(),
     mode: createModeSelection(),
     noteOffset: createNoteOffsetSelection(),
     rest: createRestSelection(),
@@ -137,6 +143,7 @@ export const bus = createEditorBus()
 export type { ArmedClef } from './clefSelection'
 export type { ArmedTimeSignature } from './timeSignatureSelection'
 export type { ArmedTuplet } from './tupletSelection'
+export type { ArmedFanStamp } from './fanStampSelection'
 export type { FanEditRequest } from './fanEditSelection'
 export type { NoteOffsetRequest } from './noteOffsetSelection'
 export type { ArticulationStemAlignRequest } from './articulationStemAlignSelection'

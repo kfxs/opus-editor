@@ -51,3 +51,12 @@ export type ToolGhost =
   | { kind: 'dot' }
   /** The one ghost with a value to show, and it is the armed length: a rest IS its duration. */
   | { kind: 'rest'; duration: NoteDuration; dots: number }
+  /**
+   * The feather stamp: the NOTEHEAD of the value the dialog typed, dot and all — and nothing else.
+   *
+   * A head with no stem, because the stem is not the stamp's to promise: what a fan draws over the
+   * note it lands on is a beam ramp the {@link FanPass} builds, not the single stem VexFlow would
+   * put under a lone half note. The head is the part that is true either way — it says which value
+   * and which pitch the click will place, which is the whole question at the cursor.
+   */
+  | { kind: 'fan'; duration: NoteDuration; dots: number }

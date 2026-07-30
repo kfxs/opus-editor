@@ -75,6 +75,21 @@ export type MarkingTool =
    *  copy to keep in step, which is the N² problem this union was built to delete. It is why this is
    *  the only tool the note-entry keys stay LIVE under — see {@link MARKING_TOOL_USES_ARMED_LENGTH}. */
   | { kind: 'rest' }
+  /**
+   * ⭐ The FEATHER stamp, armed by the Feathered Beam window's OK — a click places ONE note carrying
+   * a fan of `attacks` attacks over that note's own written length.
+   *
+   * It carries its OWN length (`unit` + `dots`) where the rest stamp reads the armed one, and the
+   * difference is not a style choice: a rest tool is armed by a KEY, beside the duration keys that
+   * are still lit and still working, so reading them is reading what you can see. This tool is armed
+   * by a DIALOG in which you have just said, in as many words, how long the gesture lasts. Taking
+   * that from `selectedDuration` instead would make the dialog's own answer a suggestion the next
+   * press of `3` could quietly overrule — hence `false` in {@link MARKING_TOOL_USES_ARMED_LENGTH}.
+   *
+   * `direction` is the model's own (`FanMark.direction`), so nothing between here and `setFan`
+   * translates it.
+   */
+  | { kind: 'fan'; attacks: number; unit: NoteDuration; dots: number; direction: 'accel' | 'rit' }
   /** VALUELESS — Ctrl+E with nothing selected. The click-to-type expression tool: it places a
    *  custom-text dynamic and opens the inline editor BLANK (no placeholder to clear), rather than
    *  dropping a placeholder like `{ kind:'dynamic'; dynamic:'text' }`. It previews NO ghost — a blue
@@ -114,6 +129,7 @@ export const DEFAULT_BEAM: BeamMode = 'auto'
  */
 export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean> = {
   rest: true,        // a rest is nothing without a length
+  fan: false,        // ALSO a length — but its OWN, typed in the dialog that armed it (see the member)
   clef: false,       // the four below place OBJECTS — a length means nothing to them
   timeSignature: false,
   dynamic: false,

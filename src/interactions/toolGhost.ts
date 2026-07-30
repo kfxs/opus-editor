@@ -65,6 +65,9 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
     // from the tool: a rest IS its duration + dots, and those are the note-entry fields the
     // duration/dot keys go on setting while this tool is live (MARKING_TOOL_USES_ARMED_LENGTH).
     case 'rest': return { kind: 'rest', duration: armed.duration, dots: armed.dots }
+    // The other tool with a value to show — and it reads it from the TOOL, not the armed length:
+    // the dialog that armed it said how long the gesture lasts (see the `fan` member of MarkingTool).
+    case 'fan': return { kind: 'fan', duration: tool.unit, dots: tool.dots }
     // Click-to-type entry: a blue cursor, no ghost. See the header.
     case 'dynamicEntry':
     case 'tempoEntry': return null
@@ -92,4 +95,5 @@ export const GHOST_CAUSE: Record<ToolGhost['kind'], string> = {
   tie: 'ghost:tie',
   dot: 'ghost:dot',
   rest: 'ghost:rest',
+  fan: 'ghost:fan',
 }

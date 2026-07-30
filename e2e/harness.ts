@@ -178,7 +178,7 @@ export interface Harness {
 /** Every class a ghost overlay is drawn under. Mirrors `GhostRenderer.GHOST_GROUP_SELECTOR`, which
  *  is what `clearGhosts` sweeps — the spec asserting on this is what notices if the two part. */
 const GHOST_SELECTOR =
-  '.ghost-note-group, .ghost-rest-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo'
+  '.ghost-note-group, .ghost-rest-group, .ghost-fan-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo'
 
 declare global {
   interface Window {

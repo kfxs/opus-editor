@@ -46,6 +46,7 @@ import { convertDuration, restSupportingLedgerLine, drawsTimeSignature, ARTICULA
 import { TIE_BOW } from './TieRenderer'
 import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
 import { LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout } from './layoutConfig'
+import { drawFanGhost, FAN_GHOST_GROUP_CLASS } from './FanGhost'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
 
 /**
@@ -60,7 +61,7 @@ import type { SurfaceMetrics } from '@/engine/layout/surface'
  * full render that used to hide the leak.)
  */
 export const GHOST_GROUP_SELECTOR =
-  '.ghost-note-group, .ghost-rest-group, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo'
+  `.ghost-note-group, .ghost-rest-group, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo`
 
 /**
  * How far the ghost's tuplet number floats above the note, in STAFF SPACES — measured from the stem
@@ -1074,6 +1075,7 @@ export const GHOST_DRAWERS: {
   tie: (ctx, _svg, x, y) => drawTieGhost(ctx, x, y),
   dot: (ctx, _svg, x, y) => drawDotGhost(ctx, x, y),
   rest: (ctx, svg, x, y, g) => drawRestGhost(ctx, svg, x, y, g.duration, g.dots),
+  fan: (ctx, svg, x, y, g) => drawFanGhost(ctx, svg, x, y, g.duration, g.dots),
 }
 
 /**

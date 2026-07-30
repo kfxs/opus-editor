@@ -14,6 +14,7 @@ import { tempoLabel } from '../utils/tempoMap'
 import { dynamicTextFromTool } from '../utils/dynamics'
 import { selectedNoteIds, selectedArticulationNoteIds, multipleNotesSelected } from './selection'
 import { bus } from '@/bus'
+import type { ArmedFanStamp } from '@/bus'
 import { staffOf } from '@/utils/lanes'
 import { A4_NORMAL, SKETCH_CANVAS } from '@/engine/layout/surface'
 
@@ -936,6 +937,13 @@ export class PaletteController {
         // "length, then mark". Its own field, not `selectedDots`, so it returns 0 like the rest.
         this.state.selectedTremolo = armed.tremolo
         return 0
+      case 'fan':
+        // It HAS a length, unlike the four below — and still promotes nothing. The feather's length
+        // is the GESTURE's, typed in the dialog that armed it; a duration press is a statement about
+        // the next NOTE, and it already carries the value it wants. Retuning the feather from a key
+        // would also make the dialog's answer overrulable from outside it, which is the thing the
+        // tool carrying its own length exists to prevent (see MarkingTool's `fan` member).
+        return 0
       case 'tie':          // valueless — there is no armed entry-mode tie to become
       case 'clef':         // the four below place OBJECTS, not note properties: nothing to carry
       case 'timeSignature':
@@ -1459,6 +1467,30 @@ export class PaletteController {
     // note value being armed, so here it must survive.
     this.state.selectedDots = shape.baseDots ?? 0
     return true
+  }
+
+  /**
+   * ⭐ ARM THE FEATHER STAMP — the Feathered Beam window's OK, routed here through {@link bus.fanStamp}.
+   *
+   * It ARMS rather than applies, for the reason the Tuplet window's OK does: a feather is a gesture
+   * you are about to WRITE, and until the note exists there is nothing to mark. That is also what
+   * separates it from the Keypad's `accel.`/`rit.` keys ({@link pressFan}), which act on notes that
+   * are already there and do nothing at all with an empty selection.
+   *
+   * ⚠️ It writes NO note-entry field — not `selectedDuration`, unlike {@link armTupletInTimeOf}. A
+   * tuplet is a container the ordinary entry path then fills, so the value it is written in has to
+   * BE the armed duration; a feather is placed whole by one click, so its value stays on the tool
+   * where the dialog put it, and the duration keys are free to go on meaning the next note.
+   */
+  armFanStamp(armed: ArmedFanStamp): void {
+    this.armMarkingTool({
+      kind: 'fan',
+      attacks: armed.attacks,
+      unit: armed.unit,
+      dots: armed.dots,
+      direction: armed.direction,
+    })
+    dbg(`[palette] feather stamp armed | ${armed.attacks} attacks in ${armed.unit}${'.'.repeat(armed.dots)} (${armed.direction})`)
   }
 
   /**
