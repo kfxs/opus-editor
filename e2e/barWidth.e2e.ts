@@ -78,7 +78,10 @@ test('the room a bar may shrink into is measured off the music, not invented', a
     const room = h.engine.nudgeBarWidth(2, -500)
     await h.render()
     const bar2 = h.staves().find(s => s.measure === 2)!
-    const heads = h.noteheads()
+    // ⚠️ Filtered by Y as well as X. Bars are wide enough now that this score takes several systems,
+    //    and a bar on system 2 sits in the same horizontal band as bar 2 on system 1 — so an x-only
+    //    filter collected other systems' noteheads and counted nine where there are four.
+    const heads = h.noteheads().filter(head => Math.abs(head.y - bar2.top) < 60)
     return { room, width: bar2.x2 - bar2.x1, x1: bar2.x1, x2: bar2.x2, heads }
   })
 

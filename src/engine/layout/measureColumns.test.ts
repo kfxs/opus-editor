@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { fracCreate as frac } from '@/utils/fraction'
 import { naturalWidth } from './spacing'
-import { measureColumns, PROVISIONAL_PAIR_PADDING } from './measureColumns'
+import { measureColumns } from './measureColumns'
+import { INK, MIN_COLUMN_GAP, pairPadding } from './spacingPadding'
 import type { Measure, NoteParams } from '@/types/music'
 
 /**
@@ -17,11 +18,17 @@ const bar = (model: ScoreModel, n = 1): Measure => model.getMeasure(n)!
 const beats = (measure: Measure) => measureColumns(measure).map(c => c.beat.num / c.beat.den)
 const spans = (measure: Measure) => measureColumns(measure).map(c => c.duration.num / c.duration.den)
 
-/** A bar of `n` notes of one duration, filling 4/4. */
+/**
+ * A bar of `n` notes of one duration, filling 4/4 — all on **B4, the middle line**.
+ *
+ * ⚠️ The pitch matters and used to be C4. In treble that is staff line 0, i.e. a note on a LEDGER
+ * LINE, which is 0.67 spaces of ink wider than a bare notehead — so every "a plain note reaches
+ * exactly one notehead" assertion here was quietly measuring a ledgered one.
+ */
 function evenBar(count: number, duration: NoteParams['duration']): ScoreModel {
   const model = new ScoreModel()
   for (let i = 0; i < count; i++) {
-    model.addNote({ step: 'C', octave: 4, duration, measure: 1, beat: frac(i * 4, count) } as NoteParams)
+    model.addNote({ step: 'B', octave: 4, duration, measure: 1, beat: frac(i * 4, count) } as NoteParams)
   }
   return model
 }
@@ -110,12 +117,15 @@ describe('measureColumns', () => {
     expect(columns.filter(c => c.beat.num / c.beat.den >= 4)).toHaveLength(1)
   })
 
-  it('carries the provisional padding on every column — the ink half\'s stand-in until P3', () => {
-    for (const column of measureColumns(bar(evenBar(4, 'q')))) {
-      expect(column.padding).toBe(PROVISIONAL_PAIR_PADDING)
-      expect(column.extent, 'and no ink at all yet').toEqual({ left: 0, right: 0 })
+  it('carries each column\'s own INK and each gap\'s own PAIR padding', () => {
+    const columns = measureColumns(bar(evenBar(4, 'q')))
+    for (const column of columns.slice(0, 4)) {
+      expect(column.extent, 'a bare notehead, and nothing to its left').toEqual({ left: 0, right: INK.notehead })
       expect(column.authored).toBe(0)
     }
+    expect(columns.slice(0, 3).map(c => c.padding), 'note↔note').toEqual([0.3, 0.3, 0.3])
+    expect(columns[3].padding, 'note↔barline is its own row').toBe(pairPadding('note', 'barline'))
+    expect(columns[4].extent, 'and the barline draws no ink of its own').toEqual({ left: 0, right: 0 })
   })
 })
 
@@ -129,10 +139,12 @@ describe('the width these columns ask for', () => {
     const quarters = asks(evenBar(4, 'q'))
     const sixteenths = asks(evenBar(16, '16'))
     expect(quarters, 'four quarters at Gould\'s 3½ spaces each').toBeCloseTo(14, 6)
-    // The 16th's own 1.75 is under the provisional floor of 1.8, so sixteen of them come to 28.8
-    // rather than 28 — the floor lifting the short end, exactly where §1.1 says it should.
-    expect(sixteenths).toBeCloseTo(16 * PROVISIONAL_PAIR_PADDING, 6)
-    expect(sixteenths / quarters).toBeCloseTo(2.06, 2)
+    // Fifteen gaps of the curve's 1.75, and then the BARLINE gap, which the ink wins: a notehead
+    // plus note↔barline is 2.13, wider than a 16th earns. ⭐ That extra 0.38 is the whole point of
+    // making the barline a column — it is what stops the last 16th of a dense bar sitting 0.6
+    // spaces from the line, which is where `BARLINE_PADDING` used to leave it.
+    expect(sixteenths).toBeCloseTo(15 * 1.75 + INK.notehead + 1.0, 6)
+    expect(sixteenths / quarters).toBeCloseTo(2, 1)
   })
 
   it('⭐ and a QUARTER is wider than an EIGHTH — the inversion P0 measured, undone', () => {
@@ -162,5 +174,165 @@ describe('the width these columns ask for', () => {
       doubled.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(beat, 1), voice: 2 } as NoteParams)
     }
     expect(asks(doubled), 'a second voice on the same beats needs no more room').toBeCloseTo(single, 6)
+  })
+})
+
+describe('the INK half (P3) — what an event draws buys its own minimum', () => {
+  const columnsOf = (model: ScoreModel) => measureColumns(bar(model))
+  const asks = (model: ScoreModel) => naturalWidth(columnsOf(model))
+
+  it('a sharp reaches left of its notehead, and the gap in front of it is note↔accidental', () => {
+    const model = evenBar(4, 'q')
+    const note = model.getNotesInMeasure(1)[1]
+    model.updateNote(note.id, { alter: 1, forceAccidental: true })
+
+    const columns = columnsOf(model)
+    expect(columns[1].extent.left, 'a sharp is 1.4 spaces of ink').toBeCloseTo(1.4, 6)
+    expect(columns[0].padding, 'and the gap before it is the accidental\'s own row').toBe(0.35)
+    expect(columns[0].extent.left, 'the note that has no sign reaches nowhere left').toBe(0)
+  })
+
+  it('⚠️ …but only where a sign is actually DRAWN — the running-accidental rule, not `alter`', () => {
+    // Four C♯s in one bar draw ONE sharp; the other three inherit it. Reserving room for four
+    // accidentals that never appear is the mistake this guards.
+    const model = new ScoreModel()
+    for (const beat of [0, 1, 2, 3]) {
+      // ⚠️ No `forceAccidental` — that flag means "draw it anyway", so it would defeat the rule
+      //    this test is about. A plain F♯ shows its sign the first time and inherits it after.
+      model.addNote({ step: 'F', octave: 5, duration: 'q', measure: 1, beat: frac(beat, 1), alter: 1 } as NoteParams)
+    }
+    const columns = columnsOf(model)
+    expect(columns[0].extent.left, 'the first one shows its sign').toBeCloseTo(1.4, 6)
+    for (const column of columns.slice(1, 4)) {
+      expect(column.extent.left, '…and the rest of the bar inherits it').toBe(0)
+    }
+  })
+
+  it('stacked accidentals reach further, and share a column at a SEVENTH', () => {
+    const stack = (pitches: [step: 'D' | 'F' | 'C', octave: number][]) => {
+      const model = new ScoreModel()
+      for (const [step, octave] of pitches) {
+        model.addNote({ step, octave, duration: 'q', measure: 1, beat: frac(0, 1), alter: 1, forceAccidental: true } as NoteParams)
+      }
+      return columnsOf(model)[0].extent.left
+    }
+    expect(stack([['D', 5]]), 'one sign').toBeCloseTo(1.4, 6)
+    expect(stack([['D', 5], ['F', 5]]), 'a third stacks into two columns').toBeCloseTo(2.7, 6)
+    expect(stack([['D', 5], ['C', 6]]), 'a seventh shares one').toBeCloseTo(1.4, 6)
+  })
+
+  it('a dot reaches right of the notehead, and the gap after it is dot↔note', () => {
+    const model = new ScoreModel()
+    model.addNote({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), dots: 1 } as NoteParams)
+    const columns = columnsOf(model)
+    expect(columns[0].extent.right, 'past the head, to the far side of the dot').toBeCloseTo(2.1, 6)
+    expect(columns[0].padding, 'and a dot asks for more room after it than a head does').toBe(0.5)
+  })
+
+  it('a SECOND displaces a head, so the chord is two noteheads wide', () => {
+    const model = new ScoreModel()
+    model.addNote({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) } as NoteParams)
+    model.addNote({ step: 'A', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) } as NoteParams)
+    expect(columnsOf(model)[0].extent.right).toBeCloseTo(2 * INK.notehead, 6)
+  })
+
+  it('⭐ the BARLINE is a column, and a REST stands further off it than a note', () => {
+    const withNote = new ScoreModel()
+    withNote.addNote({ step: 'B', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) } as NoteParams)
+    const withRest = new ScoreModel()
+    withRest.addNote({ isRest: true, duration: 'w', measure: 1, beat: frac(0, 1) } as NoteParams)
+
+    expect(columnsOf(withNote)[0].padding, 'note↔barline').toBe(1.0)
+    expect(columnsOf(withRest)[0].padding, 'rest↔barline — a rest hangs closer to the line').toBe(1.65)
+  })
+
+  it('⭐ the ink is a MINIMUM under the rule, never a replacement for it', () => {
+    // Four quarters ask 4 × 3.5 = 14 whatever they carry: the rule is far wider than a notehead and
+    // a sharp put together, so the ink is invisible here. That is the `max`, and it is what stops a
+    // bar of accidentals being spaced by its accidentals (which is what the OLD ink path did — a
+    // sharpened quarter came out at 3.75 spaces and a bare one at 1.94).
+    const plain = evenBar(4, 'q')
+    const sharpened = evenBar(4, 'q')
+    for (const note of sharpened.getNotesInMeasure(1)) {
+      sharpened.updateNote(note.id, { alter: 1, forceAccidental: true })
+    }
+    expect(asks(sharpened)).toBeCloseTo(asks(plain), 6)
+    expect(asks(plain)).toBeCloseTo(14, 6)
+  })
+
+  it('…and it BINDS where the rule runs out: thirty-seconds stop at the notehead', () => {
+    // `followingSpace(1/8)` is 1.24 spaces, under the 1.43 two noteheads need. So the floor takes
+    // over at the 32nd and below — exactly where plan §1.1 predicts, and for the reason it gives:
+    // "at the very short end the flattening IS the notehead showing through".
+    const gaps = columnsOf(evenBar(32, '32'))
+    // Every note-to-note gap is the floor; the run-out to the barline is its own, wider, question.
+    for (const [i, column] of gaps.slice(0, 31).entries()) {
+      expect(naturalWidth([column, gaps[i + 1]])).toBeCloseTo(MIN_COLUMN_GAP, 6)
+    }
+    expect(MIN_COLUMN_GAP).toBeCloseTo(1.43, 6)
+  })
+})
+
+describe('LEDGER LINES (P3.1) — ink that depends on where a note SITS', () => {
+  const columnsOf = (model: ScoreModel) => measureColumns(bar(model), () => 'treble')
+
+  /** `count` 32nds on one pitch — dense enough that the ink, not the rule, decides the gaps. */
+  function run(step: 'B' | 'C', octave: number, count = 8): ScoreModel {
+    const model = new ScoreModel()
+    for (let i = 0; i < count; i++) {
+      model.addNote({ step, octave, duration: '32', measure: 1, beat: frac(i, 8) } as NoteParams)
+    }
+    return model
+  }
+
+  it('a ledgered note is 0.67 spaces wider than a bare one, and overhangs it BOTH sides', () => {
+    const bare = columnsOf(run('B', 4))[0].extent
+    const ledgered = columnsOf(run('C', 4))[0].extent // C4 in treble is staff line 0 — one ledger
+
+    expect(bare).toEqual({ left: 0, right: INK.notehead })
+    expect(ledgered.left, 'the ledger reaches left of the head too').toBeCloseTo(0.3, 6)
+    expect(ledgered.right).toBeCloseTo(1.5, 6)
+    expect(ledgered.right - bare.right + ledgered.left).toBeCloseTo(0.67, 6)
+  })
+
+  it('⭐⭐ so a dense run of ledgered notes stops drawing its ledgers on top of each other', () => {
+    // The measured bug: consecutive 32nd gaps came out at 1.64 spaces while a ledger line is 1.80
+    // wide, so each one overlapped the next by 0.16. The floor now covers the ink.
+    const gap = (model: ScoreModel) => {
+      const columns = columnsOf(model)
+      return naturalWidth([columns[0], columns[1]])
+    }
+    const LEDGER_WIDTH = 1.8
+    expect(gap(run('C', 4)), 'wider than the ledger line itself').toBeGreaterThan(LEDGER_WIDTH)
+    expect(gap(run('C', 4)), 'a ledger, its pair padding, and the next ledger\'s overhang')
+      .toBeCloseTo(1.5 + 0.35 + 0.3, 6)
+    expect(gap(run('B', 4)), 'a bare run is unaffected — it stays at the notehead floor')
+      .toBeCloseTo(MIN_COLUMN_GAP, 6)
+  })
+
+  it('⚠️ the CLEF decides it — the same notes, read differently, need different room', () => {
+    const notes = run('C', 4)
+    const inTreble = measureColumns(bar(notes), () => 'treble')[0].extent.right
+    const inAlto = measureColumns(bar(notes), () => 'alto')[0].extent.right
+    const inBass = measureColumns(bar(notes), () => 'bass')[0].extent.right
+    // Middle C is one ledger BELOW a treble staff, one ledger ABOVE a bass staff, and sits on the
+    // middle line of an alto staff — which is the whole point of the alto clef.
+    expect(inTreble, 'ledgered below').toBeCloseTo(1.5, 6)
+    expect(inBass, 'ledgered above — same ink, other side').toBeCloseTo(1.5, 6)
+    expect(inAlto, 'and on the staff, so a bare notehead').toBeCloseTo(INK.notehead, 6)
+  })
+
+  it('a rest\'s width is its OWN — the short ones are the wide ones', () => {
+    const restBar = (duration: NoteParams['duration']) => {
+      const model = new ScoreModel()
+      model.addNote({ isRest: true, duration, measure: 1, beat: frac(0, 1) } as NoteParams)
+      return columnsOf(model)[0].extent.right
+    }
+    expect(restBar('8'), 'an eighth rest is the narrowest').toBeCloseTo(1.0, 6)
+    expect(restBar('q')).toBeCloseTo(1.1, 6)
+    expect(restBar('16')).toBeCloseTo(1.3, 6)
+    expect(restBar('32'), 'and a 32nd rest the widest — each flag leans further right')
+      .toBeCloseTo(1.5, 6)
+    expect(restBar('32')).toBeGreaterThan(restBar('q'))
   })
 })

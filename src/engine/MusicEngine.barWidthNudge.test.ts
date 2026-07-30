@@ -17,6 +17,8 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { MusicEngine } from './MusicEngine'
 import { fracCreate } from '@/utils/fraction'
 import { LAYOUT_CONFIG } from './rendering/layoutConfig'
+import { MIN_COLUMN_GAP } from './layout/spacingPadding'
+import { STAFF_SPACE_PX } from './models/staffSize'
 import { SKETCH_CANVAS } from './layout/surface'
 import type { NoteParams } from '@/types/music'
 
@@ -416,17 +418,23 @@ describe('shrinking an EMPTY bar', () => {
     // The scoping the user drew: only the empty case changed. Bar 1 is busy, so shrinking it stops
     // at the measured MIN_NOTE_SPACING-per-column floor, well short of an empty bar's range.
     //
-    // ⚠️ Asserted against the FLOOR itself, not against a fraction of where the bar started. It used
-    // to say `> before × 0.5`, which held only while the two numbers happened to be close: the
-    // spacing model widened a bar of eight eighths (2.475 spaces each, Gould's curve) while leaving
-    // the provisional floor at 1.8 per gap, so the same bar now has more to give and lands at 46% of
-    // where it began. Its floor did not move, and the floor is the claim.
+    // ⚠️ Asserted against the model's own FLOOR, not against a fraction of where the bar started.
+    // It used to say `> before × 0.5`, which held only while those two numbers happened to be close.
+    // What the bar is entitled to is: it stops, it stops well short of collapsing, and it never
+    // crosses the floor its own music sets — eight eighths are eight columns and a barline, so eight
+    // GAPS, each floored at the tightest two noteheads may come.
     const before = width(1)
-    for (let i = 0; i < 40; i++) { engine.nudgeBarWidth(1, -10); engine.renderScore() }
-    // Eight eighths are eight columns and a barline — so eight GAPS, each floored at MIN_NOTE_SPACING.
-    const floor = 8 * LAYOUT_CONFIG.MIN_NOTE_SPACING
-    expect(width(1), 'it stopped exactly on the engraver\'s own floor').toBeCloseTo(floor, 6)
-    expect(width(1)).toBeLessThan(before)
+    for (let i = 0; i < 60; i++) { engine.nudgeBarWidth(1, -10); engine.renderScore() }
+    const settled = width(1)
+    engine.nudgeBarWidth(1, -10); engine.renderScore()
+    expect(width(1), 'it has stopped — the presses are dead now').toBeCloseTo(settled, 6)
+    expect(settled, 'and it stopped at or above its own music\'s floor')
+      .toBeGreaterThanOrEqual(8 * MIN_COLUMN_GAP * STAFF_SPACE_PX)
+    // ⚠️ It gives up very little now, and that IS its music setting its claim: these eighths are on
+    //    C4, which in treble is a LEDGER note, and a ledger line is 1.80 staff spaces against a bare
+    //    notehead's 1.13 (docs/spacing-model-plan.md P3.1). A run of ledgered eighths is nearly
+    //    incompressible by construction. The bar still moves — it just has almost nothing to give.
+    expect(settled, 'it did give something up').toBeLessThan(before)
   })
 
   it('is reversible — widening puts it back', () => {

@@ -113,40 +113,75 @@ describe('control — the harness can actually see a width change', () => {
     expect(four).toBeGreaterThan(two)
   })
 
-  it('an accidental does NOT widen a bar — the per-event floor already has room for it', () => {
-    // This asserted the OPPOSITE, and it was never true: it passed on an artifact. `widthOf` put two
-    // HALF notes at beats 0 AND 1 — overlapping — and VexFlow's tick maths inflated the formatter's
-    // answer for that malformed bar by ~1px when an accidental appeared. Give it a properly-formed
-    // bar and it fails on the ORIGINAL code too (131 vs 131) — measured, not reasoned.
+  it('🚨 REVERSED: an accidental on the FIRST note DOES widen a bar', () => {
+    // ⚠️ The long history of this one assertion is worth keeping, because it has now been wrong
+    //    twice in opposite directions.
     //
-    // The truth it was standing in front of: a bar's width comes from MIN_NOTE_SPACING per EVENT, and
-    // VexFlow's own minimum (~9-15px an event) almost never beats it. So glyphs do not move the width
-    // — 4 quarters with 4 accidentals measure exactly the same as 4 plain ones, today and before.
-    // Whether that is GOOD is a live question (accidentals do want room), but it is the design as it
-    // stands and is not this change's to settle. The control above ("more notes ⇒ a wider bar") is
-    // what proves the harness can see a width change; this one only ever proved a rounding artifact.
+    //    It first asserted that an accidental WIDENS a bar, and passed on an artifact: `widthOf` put
+    //    two HALF notes at beats 0 AND 1 — overlapping — and VexFlow's tick maths inflated the
+    //    formatter's answer for that malformed bar by ~1 px when a sign appeared. It was then
+    //    reversed to "does NOT widen", which was true of the flat-floor era: a bar's width was
+    //    `MIN_NOTE_SPACING` per event and glyphs did not move it. The comment of the day added
+    //    *"whether that is GOOD is a live question — accidentals do want room"*.
+    //
+    // ⭐ The spacing model settled that question, and this is where the answer shows. A sign on the
+    //   FIRST note lands in the bar's LEAD-IN, which is pure ink with no duration rule over it to
+    //   swallow it — so it is paid for, in full, every time. (Mid-bar it usually is not: there the
+    //   sign sits in a gap that already has a quarter's 3.5 spaces, far more than the ink needs.
+    //   That is the `max`, and both halves of it are correct.)
     const plain = widthOf([{ step: 'C', octave: 4, duration: 'h' }, { step: 'D', octave: 4, duration: 'h' }], 'treble')
     const sharp = widthOf(
       [{ step: 'C', alter: 1, octave: 4, duration: 'h' }, { step: 'D', alter: -1, octave: 4, duration: 'h' }],
       'treble',
     )
-    expect(sharp).toBe(plain)
+    // The sharp reaches 1.4 spaces left of its notehead where a bare head reaches 0.3 (C4 is on a
+    // ledger line in treble) — so the lead-in, and the bar, grow by the difference.
+    expect(sharp - plain).toBeCloseTo(11, 0)
   })
 })
 
 describe('is a measure’s width independent of its clef?', () => {
-  it('every clef produces the SAME minimum width for the same music', () => {
+  it('🚨 REVERSED: a clef DOES change a width — but only through LEDGER LINES', () => {
+    // ⚠️ This test used to assert the opposite, and the assertion was right for as long as the ink
+    //    was a notehead and an accidental: a clef moves every head the same distance *vertically*,
+    //    and accidental stacking depends on the notes' RELATIVE positions. The spacing model's ink
+    //    half (docs/spacing-model-plan.md P3.1) put LEDGER LINES in, and a ledger is 0.67 spaces
+    //    wider than a bare notehead — so whether a note has one is a fact about where it SITS, and
+    //    the same music under two clefs genuinely needs two widths. Drawing it otherwise put the
+    //    ledger lines of a 32nd run on top of each other (his screenshot).
+    //
+    // ⭐ The cost that made the old invariant worth having is gone: with no formatter and no memo in
+    //    the width path, re-widthing 260 bars after a clef change is a walk over their slots.
     const byClef = new Map(CLEFS.map(c => [c, widthsUnder(c)]))
-    const reference = byClef.get('treble')!
+    const differing = CLEFS.filter(clef =>
+      [...byClef.get(clef)!].some(([measure, width]) => Math.abs(width - byClef.get('treble')!.get(measure)!) > 1e-6))
+    expect(differing.length, 'these bars sit off the staff in some clefs and on it in others')
+      .toBeGreaterThan(0)
+  })
 
-    for (const clef of CLEFS) {
-      for (const [measure, width] of byClef.get(clef)!) {
-        expect(width, `measure ${measure} in ${clef} vs treble`).toBeCloseTo(
-          reference.get(measure)!,
-          6,
-        )
-      }
+  it('…and a clef that changes no note\'s LEDGERS changes no width', () => {
+    // The other half, and the one that keeps the reversal honest: the dependence is on the ledger
+    // lines and on NOTHING else.
+    //
+    // ⚠️ The pitches and the duration are both load-bearing. E4/F4/G4 are the only steps that sit
+    //    inside the staff in BOTH treble (E4–F5) and alto (F3–G4), so neither clef draws a ledger.
+    //    And they are THIRTY-SECONDS, so the ink is the active term — the duration rule gives a 32nd
+    //    1.24 spaces and two noteheads need 1.43, so if a ledger appeared it WOULD move the width.
+    //    Quarters would have made this pass vacuously: at 3.5 spaces the rule swallows any ledger.
+    const onStaff = new ScoreModel()
+    const steps = ['E', 'F', 'G'] as const
+    for (let i = 0; i < 8; i++) {
+      onStaff.addNote({ step: steps[i % 3], octave: 4, duration: '32', measure: 1, beat: frac(i, 8) })
     }
+    const width = (clef: Clef): number => {
+      onStaff.setClef(1, clef)
+      const staves = new Map<string | undefined, StaffClefs>([[undefined, resolveStaffClefs(onStaff.getScore(), undefined)]])
+      return calculateMeasureWidths(onStaff.getScore(), staves, { mode: 'linear' }).get(1)!.noteSpace!
+    }
+    const treble = width('treble')
+    expect(width('alto')).toBeCloseTo(treble, 6)
+    // …and the ink really is what is deciding: seven gaps at the two-notehead floor of 1.43.
+    expect(treble).toBeGreaterThan(7 * 1.43 * 10)
   })
 
   it('and the widths are real numbers, not a degenerate constant', () => {

@@ -87,12 +87,15 @@ src/
                           #   derived-view arithmetic off the LAST RENDER: surface (canvas
                           #   vs page — authored input, the one member here that isn't
                           #   derived) + pageCastOff (the VERTICAL casting-off) + spacing
-                          #   (⭐ THE SPACING RULE — Gould's 3.5×√t + the ink + the spring
-                          #   solve, pure) + measureColumns (a measure → its COLUMNS) +
-                          #   barWidthRoom (the gesture's closed form) + measuredRoom (what
+                          #   (⭐ THE SPACING RULE — Gould's 3.5×√t + the spring solve, pure)
+                          #   + spacingPadding (the INK: measured extents + a padding table
+                          #   keyed by the PAIR; ⛔ a new drawn element adds a ROW here, never
+                          #   a constant elsewhere) + measureColumns (a measure → its COLUMNS)
+                          #   + barWidthRoom (the gesture's closed form) + measuredRoom (what
                           #   the ElementRegistry says a column/bar can still give up)
     rendering/            # VexFlowRenderer, CoordinateMapper, FanPass, GhostRenderer,
-                          #   PagePass (the sheets, drawn behind the music)
+                          #   PagePass (the sheets, drawn behind the music) + spacingPass
+                          #   (⭐ WHERE each column goes — the model's x's, post-format)
     audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)
   types/music.ts    # TypeScript interfaces (Note, Measure, Score, etc.)
   utils/            # Pure helpers — fraction, meter, rebar, restFill,

@@ -1,5 +1,5 @@
 import type { Score, Measure } from '@/types/music'
-import { fracIsZero } from '@/utils/fraction'
+import { fracCompare, fracIsZero } from '@/utils/fraction'
 import { type StaffClefs } from '@/utils/clefUtils'
 import { getStaves, staffMeasureView } from '@/engine/models/staffContent'
 import { cautionaryAllowedOf, cautionaryClefAllowedOf, keyStaffId, measureUserSpacePx, measureStretch } from '../models/engravingOverrides'
@@ -8,8 +8,9 @@ import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutCon
 import { resolveSurface, SKETCH_CANVAS, type SurfaceMetrics } from '@/engine/layout/surface'
 import type { MeasureWidthCache } from './MeasureWidthCache'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { measureColumns } from '@/engine/layout/measureColumns'
+import { measureColumns, measureLeadIn, type ClefResolver } from '@/engine/layout/measureColumns'
 import { naturalWidth, minimumWidth } from '@/engine/layout/spacing'
+import { EMPTY_BAR_FLOOR_PX } from '@/engine/layout/spacingPadding'
 import { renderProbe } from '@/engine/RenderProbe' // TEMPORARY — the §9 layout-breakdown probes
 import { drawsTimeSignature } from './NoteBuilder'
 
@@ -56,7 +57,11 @@ export const EMPTY_LANE_NOTE_SPACE = 40
  * ink makes this expensive again. ⛔ Do not re-add it before then on the assumption that a memo is
  * free; the render-perf census exists to answer that with a number.
  */
-function noteSpaceForMeasure(measure: Measure): { natural: number; floor: number } {
+function noteSpaceForMeasure(
+  measure: Measure,
+  clefsByStaff: Map<string | undefined, StaffClefs>,
+  firstStaffId: string | undefined,
+): { natural: number; floor: number } {
   // ⭐ **An EMPTY bar's width is a DEFAULT, not music, so the rule does not govern it.** Under the
   // curve a 4/4 bar of silence would ask for `followingSpace(𝅝)` = 7 staff spaces = 70 px against
   // today's 40 — Gould's number instead of ours, and the plan files it as an improvement (§2). It is
@@ -68,14 +73,14 @@ function noteSpaceForMeasure(measure: Measure): { natural: number; floor: number
   // ⚠️ A bar of AUTHORED rests is not empty (that is what {@link isEmptyBar} is careful about) and
   // is spaced by the rule like any other music — eight eighth-rests are eight columns.
   if (isEmptyBar(measure)) {
-    return { natural: EMPTY_LANE_NOTE_SPACE, floor: LAYOUT_CONFIG.MIN_NOTE_SPACING }
+    return { natural: EMPTY_LANE_NOTE_SPACE, floor: EMPTY_BAR_FLOOR_PX }
   }
 
   // TEMPORARY probe — the §9 question (see {@link RenderProbe.layoutSub}). The bucket is still
   // called `format`; what it times is no longer a formatter but the width term it replaced.
   const probing = renderProbe().recording
   const t0 = probing ? performance.now() : 0
-  const columns = measureColumns(measure)
+  const columns = measureColumns(measure, clefForSlot(measure, clefsByStaff, firstStaffId))
   // ⚠️ Staff spaces out, pixels in: the rule is written in the unit Gould's table is, and the
   // casting-off works in px. ⚠️ A staff drawn small should multiply this by its own size — the same
   // open P3 as the four width constants in `layoutConfig` (docs/staff-size-plan.md §6).
@@ -96,6 +101,31 @@ function noteSpaceForMeasure(measure: Measure): { natural: number; floor: number
   }
   if (probing) renderProbe().layoutSub('format', performance.now() - t0)
   return answer
+}
+
+/**
+ * Which clef governs each slot — its own staff's opening clef, moved on by any INLINE clef change on
+ * that staff at or before the slot's beat.
+ *
+ * ⭐ The width needs this because a LEDGER LINE is ink and whether a note has one is a fact about
+ * where it sits (`engine/layout/measureColumns.ts` explains why that stopped being forbidden). An
+ * absent `staffId` means the first staff, as everywhere else.
+ */
+function clefForSlot(
+  measure: Measure,
+  clefsByStaff: Map<string | undefined, StaffClefs>,
+  firstStaffId: string | undefined,
+): ClefResolver {
+  const inline = (measure.clefs ?? []).filter(change => !fracIsZero(change.beat))
+  return slot => {
+    const staffId = slot.staffId ?? firstStaffId
+    let clef = clefsByStaff.get(staffId)?.opening.get(measure.number) ?? 'treble'
+    for (const change of inline) {
+      if ((change.staffId ?? firstStaffId) !== staffId) continue
+      if (fracCompare(change.beat, slot.beat) <= 0) clef = change.clef
+    }
+    return clef
+  }
 }
 
 /**
@@ -125,12 +155,21 @@ function calculateMinimumMeasureWidth(
   isFirstInLine: boolean,
   clefsByStaff: Map<string | undefined, StaffClefs>,
 ): { total: number; noteSpace: number; overhead: number; spacingFloor: number } {
-  // Shared by every staff: the barline padding, and the meter glyph where one is drawn
-  // (measure 1 + changes).
-  let sharedOverhead = LAYOUT_CONFIG.BARLINE_PADDING * 2
-  if (drawsTimeSignature(measure)) sharedOverhead += LAYOUT_CONFIG.TIME_SIG_WIDTH
-
   const staffIds = staffIdsOf(score, clefsByStaff)
+
+  // Shared by every staff: the bar's LEAD-IN, and the meter glyph where one is drawn (measure 1 +
+  // changes).
+  //
+  // ⭐ The lead-in is the model's now, not a constant — `barline↔note` (or ↔accidental, ↔rest) plus
+  //   the first column's own left extent, which nothing counted before: `naturalWidth` sums the gaps
+  //   BETWEEN columns, so an accidental on a bar's first note bought no room at all and the drawing
+  //   took it out of everything else in the bar.
+  // ⚠️ And it replaces `BARLINE_PADDING × 2`, which was DOUBLE-COUNTING since P3: the trailing side
+  //   became the barline COLUMN's gap (`note↔barline`), so a bar was reserving three spaces of
+  //   barline padding where it owes two.
+  const leadIn = measureLeadIn(measure, clefForSlot(measure, clefsByStaff, staffIds[0]))
+  let sharedOverhead = (leadIn.padding + leadIn.extent) * STAFF_SPACE_PX
+  if (drawsTimeSignature(measure)) sharedOverhead += LAYOUT_CONFIG.TIME_SIG_WIDTH
 
   // At N=1 the lane IS the measure (every slot matches the only staff), so skip the filter —
   // it would copy four arrays per measure per render to arrive back at what it was given.
@@ -142,7 +181,7 @@ function calculateMinimumMeasureWidth(
   //   exceed the width it is a floor on and make the bar incompressible. (That is exactly what the
   //   old pair did the other way round — it counted SLOTS in both, so a two-voice bar's floor
   //   matched its slot-built width.)
-  const { natural: noteSpace, floor: spacingFloor } = noteSpaceForMeasure(measure)
+  const { natural: noteSpace, floor: spacingFloor } = noteSpaceForMeasure(measure, clefsByStaff, staffIds[0])
 
   let widestOverhead = 0
   for (const staffId of staffIds) {
@@ -312,7 +351,7 @@ function measureWidthParts(
 
   if (empty) {
     const scalable = Math.max(0, intrinsic - overhead)
-    const scaled = Math.max(LAYOUT_CONFIG.MIN_NOTE_SPACING, scalable * stretch)
+    const scaled = Math.max(EMPTY_BAR_FLOOR_PX, scalable * stretch)
     return {
       minWidth: overhead + scaled + userSpace,
       userSpace,
@@ -324,14 +363,28 @@ function measureWidthParts(
     }
   }
 
-  const stretchSpace = noteSpace * (stretch - 1)
+  const floorWidth = floorOf(intrinsic)
+  // ⚠️ **A SHRINK lowers the bar's claim, but never below its own INK.** `distributeLineWidths`
+  // shares the line out in proportion to `naturalWidth` and only ever *takes* down to `floorWidth`,
+  // so a claim that is already under the floor is never put back — the bar is simply drawn too
+  // narrow, and its last notehead comes out on the barline. `e2e/barWidth.e2e.ts` found it the
+  // moment P3 lowered the floor from a flat 1.8 staff spaces a column to the ink's own 1.43: a
+  // single −500 px press on a bar of four quarters bottomed out at `BAR_STRETCH_MIN` and drew five
+  // spaces of music into four. The clamp was always owed; the old constant was generous enough to
+  // hide it.
+  //
+  // ⭐ Clamped on the SPACE and not on the width, so `minWidth` and `naturalWidth` stay equal for a
+  // shrink and `distributeLineWidths`'s invariant — *"`growthOf` is never negative: a shrink rides
+  // `naturalWidth` and is already in the baseline"* — still holds. A press past this point is dead,
+  // which is the lesser evil: the alternative is a press that moves a number and not the picture.
+  const stretchSpace = Math.max(noteSpace * (stretch - 1), floorWidth - intrinsic - userSpace)
   return {
     minWidth: intrinsic + userSpace + stretchSpace,
     userSpace,
     stretchSpace,
     noteSpace,
     stretchScalesShare: false,
-    floorWidth: floorOf(intrinsic),
+    floorWidth,
     naturalWidth: stretch >= 1 ? intrinsic + userSpace : intrinsic + userSpace + stretchSpace,
   }
 }

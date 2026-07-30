@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, Stem, StaveTie, ClefNote } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, Stem, StaveTie, ClefNote, Metrics } from 'vexflow'
 import { ScoreTuplet } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
@@ -44,6 +44,8 @@ import {
 } from './NoteBuilder'
 import { calculateMeasureWidths } from './MeasureLayout'
 import { MeasureWidthCache } from './MeasureWidthCache'
+import { measureColumns, measureLeadIn } from '@/engine/layout/measureColumns'
+import { applySpacingPass } from './spacingPass'
 import { renderProbe } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { STAFF_SPACE_PX, resolveStaffSize } from '@/engine/models/staffSize'
@@ -1779,6 +1781,20 @@ export class VexFlowRenderer {
         for (const g of groups) shareFanRoom(g.slots, g.staveNotes, formatWidth)
         const formatter = new Formatter().joinVoices(vexVoices)
         formatter.format(vexVoices, formatWidth)
+        // ⭐⭐ P4 — the model places the columns, and VexFlow's softmax stops deciding anything
+        //     horizontal. Between `format()` and `draw()`, so beams, ties, tuplets and the registry
+        //     all follow. ⛔ Never on a bar with a FAN: its members are drawn across a span bought
+        //     from the formatter by `fanRoom`, and moving the group out from under that span is P5.
+        if (!measure.slots.some(slot => slot.type === 'chord' && slot.fan)) {
+          const leadIn = measureLeadIn(measure, () => clef)
+          const room = (stave.getNoteEndX() - noteStartOf(stave) - userSpacePx) / STAFF_SPACE_PX
+          applySpacingPass(formatter, vexVoices, {
+            columns: measureColumns(measure, () => clef),
+            firstX: leadIn.extent,
+            targetWidth: room - leadIn.extent,
+            meterQuarters: (measure.timeSignature.numerator * 4) / measure.timeSignature.denominator,
+          })
+        }
         applyLeadingSpaces(formatter, vexVoices, pass.score, measure)
         this.centerMeasureRests(vexVoices, stave)
         // ⭐ An accidental beside a ledger line: the line trims back, the sign steps out. A DRAW-time
@@ -2084,6 +2100,7 @@ export class VexFlowRenderer {
    * The property belongs to VexFlow, not to us, so it is pinned by `staveGeometry.test.ts` rather
    * than trusted.
    */
+  // eslint-disable-next-line @typescript-eslint/no-use-before-define -- the helper is below the class
   private buildStave(
     measure: Measure,
     x: number,
@@ -2118,6 +2135,8 @@ export class VexFlowRenderer {
       stave.addEndTimeSignature(timeSignatureVexKey(cautionaryEndTimeSig))
     }
 
+    const drawsHeader = measure.number === 1 || isFirstInLine || hasClefChange || drawsTimeSignature(measure)
+    applyLeadIn(stave, measure, clef, x, drawsHeader)
     return stave
   }
 
@@ -2149,7 +2168,7 @@ export class VexFlowRenderer {
       measureX: x,
       measureY: y,
       measureWidth: width,
-      noteStartX: stave.getNoteStartX() * scale,
+      noteStartX: noteStartOf(stave) * scale,
       noteEndX: stave.getNoteEndX() * scale,
     })
   }
@@ -2180,7 +2199,10 @@ export class VexFlowRenderer {
    * left, under the clef, on every system-opening bar.
    */
   private centerMeasureRests(voices: Voice[], stave: Stave): void {
-    const areaCenter = (stave.getNoteStartX() + stave.getNoteEndX()) / 2
+    // ⚠️ `noteStartOf`, not `getNoteStartX()` — the note area begins where the INK does, 12 px
+    //    further right (see that helper). Centring on the stave's own answer put every measure rest
+    //    6 px left of the area the registry reports, which is the offset this pass exists to remove.
+    const areaCenter = (noteStartOf(stave) + stave.getNoteEndX()) / 2
     for (const voice of voices) {
       for (const tickable of voice.getTickables()) {
         if (!tickable.isCenterAligned()) continue
@@ -2896,7 +2918,7 @@ export class VexFlowRenderer {
         staff: staffIndex,
         lineYPositions,
         lineSpacing: lineYPositions[1] - lineYPositions[0],
-        noteStartX: stave.getNoteStartX(),
+        noteStartX: noteStartOf(stave),
         noteEndX: stave.getNoteEndX(),
         clef,
       })
@@ -3937,4 +3959,57 @@ export class VexFlowRenderer {
   renderScoreWithToolGhost(cursorX: number, cursorY: number, ghost: ToolGhost): boolean {
     return this.ghostOverlay((ctx, svg) => drawToolGhost(ctx, svg, cursorX, cursorY, ghost))
   }
+}
+
+/**
+ * ⭐ **THE BAR'S LEAD-IN — the blank between a barline and the first thing drawn, taken back from
+ * VexFlow** (docs/spacing-model-plan.md P3.2).
+ *
+ * VexFlow starts a headerless bar's notes **1.7 staff spaces** in, always: 5 px of its own
+ * `Stave.startX` plus a 12 px `Stave.padding` that `Note.getAbsoluteX` adds to every note. Neither
+ * number knows what the bar opens with, so a bar beginning with an accidental got the same blank as
+ * one beginning with a bare notehead — and then the accidental hung *into* that blank, which is what
+ * he reported as *"a huge empty space between the barline and the accidental… completely useless"*.
+ *
+ * The model has an answer: `barline↔note` (or ↔accidental, ↔rest) plus that column's own left ink,
+ * which is exactly what {@link measureLeadIn} returns and exactly what the WIDTH now reserves. This
+ * makes the drawing agree with it — `getAbsoluteX` adds `Stave.padding` unconditionally, so the
+ * padding is subtracted back out here and the ink lands where the model put it.
+ *
+ * ⛔ **Only for a bar that draws no header.** Where there is a clef or a meter, `getNoteStartX` is
+ * the sum of those glyphs' widths and is VexFlow's to compute until the header becomes columns too
+ * (plan §4). Overriding it there would put the first note through the clef.
+ */
+/**
+ * ⚠️ **Where a bar's notes ACTUALLY start — `getNoteStartX()` is 12 px short of it, always.**
+ *
+ * `Note.getAbsoluteX()` is `tickContext.x + stave.getNoteStartX() + Metrics.get('Stave.padding')`,
+ * and that last term is in every note and in no stave. So the stave's own answer has never been
+ * where the ink begins; everything that read it — hit-testing, the pixel↔beat interpolation, the
+ * room a bar can still give back — was reading a number 1.2 staff spaces to the left of the truth.
+ * It went unnoticed because the error was the same in every bar and cancelled out of most
+ * comparisons.
+ *
+ * ⭐ It stops cancelling once the LEAD-IN is ours: the whole point is that the blank after a barline
+ * is a number the model chose, so the geometry has to report the place the model actually put the
+ * ink.
+ */
+function noteStartOf(stave: Stave): number {
+  return stave.getNoteStartX() + Metrics.get('Stave.padding', 0)
+}
+
+function applyLeadIn(stave: Stave, measure: Measure, clef: Clef, staveX: number, drawsHeader: boolean): void {
+  // ⚠️ `drawsHeader` is passed IN, not asked of the stave: every `Stave` carries a begin-position
+  //    modifier of its own (its barline), so "does it have begin modifiers?" is always yes and the
+  //    first version of this guard silently did nothing.
+  if (drawsHeader) return
+  // ⚠️ `padding` only, never `padding + extent`: VexFlow's formatter already shifts the first tick
+  //    context right by that column's own left ink, so adding the extent here pays for the
+  //    accidental twice — measured, and it made the blank WIDER than the one it was fixing.
+  const leadIn = measureLeadIn(measure, () => clef).padding * STAFF_SPACE_PX
+  // ⚠️ Never left of the barline: `getNoteStartX` is what the hit-testing and the shrink-room read,
+  //    and a note area that begins outside its own bar is a bug (`tier1Geometry.test.ts`). The pair
+  //    table is chosen so this clamp does not bite — it is here so that a future row which forgets
+  //    the constraint fails visibly narrow rather than silently wrong.
+  stave.setNoteStartX(Math.max(staveX, staveX + leadIn - Metrics.get('Stave.padding', 0)))
 }

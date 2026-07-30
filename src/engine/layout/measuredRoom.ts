@@ -27,7 +27,7 @@ import { fracToNumber } from '@/utils/fraction'
 import { staffOf } from '@/utils/lanes'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { FAN_MIN_HEAD_GAP_RATIO } from '@/engine/rendering/FannedBeam'
-import { LAYOUT_CONFIG } from '@/engine/rendering/layoutConfig'
+import { INK, MIN_COLUMN_GAP, pairPadding, restExtent } from './spacingPadding'
 
 /**
  * How much further LEFT this column may still be pulled before it closes on its left neighbour,
@@ -81,7 +81,11 @@ export function measuredShrinkRoom(registry: ElementRegistry, measureNumber: num
     const leftX = at > 0 ? columns[at - 1].x : geometry?.noteStartX
     if (leftX === undefined) continue
     const staffSpacePx = geometry?.lineSpacing ?? STAFF_SPACE_PX
-    const slack = (columns[at].x - leftX - LAYOUT_CONFIG.MIN_NOTE_SPACING) / staffSpacePx
+    // ⭐ The floor is the MODEL's own — a notehead plus note↔note padding, {@link MIN_COLUMN_GAP} —
+    //   and it is in STAFF SPACES, so a staff drawn small floors at its own smaller number. It used
+    //   to be `MIN_NOTE_SPACING`, an absolute pixel count that was the same on every staff whatever
+    //   its size, and 1.8 spaces where the ink needs 1.43 (docs/spacing-model-plan.md P3).
+    const slack = (columns[at].x - leftX) / staffSpacePx - MIN_COLUMN_GAP
     room = room === null ? Math.max(0, slack) : Math.min(room, Math.max(0, slack))
   }
   return room
@@ -125,9 +129,9 @@ export function fanMemberShrinkRoom(
 
 /**
  * How many pixels of width the **drawn** bar can give back before its music is tighter than the
- * engraver's own floor — `MIN_NOTE_SPACING` (18px) per column, the same rule
- * `noteSpaceForLane` applies when it decides how wide a bar needs to be, but measured on the
- * picture instead of predicted.
+ * engraver's own floor — {@link MIN_COLUMN_GAP} per column, the same rule `noteSpaceForMeasure`
+ * applies when it decides how wide a bar needs to be, but measured on the picture instead of
+ * predicted.
  *
  * Measured, and not stated as "never below its own intrinsic width", because that absolute is
  * wrong and measurably so: on a compressed line every bar is *already* under its intrinsic width
@@ -140,23 +144,43 @@ export function fanMemberShrinkRoom(
  * @returns null when the last render cannot answer (nothing drawn in that bar, or no geometry).
  */
 export function measuredBarShrinkPx(registry: ElementRegistry, measureNumber: number): number | null {
-  const columnsByStaff = new Map<number, Set<number>>()
+  /** Per staff: every drawn column's beat, and whether the LAST one is nothing but rests. */
+  const byStaff = new Map<number, { columns: Set<number>; lastBeat: number; lastIsRest: boolean }>()
   for (const el of registry.getByMeasure(measureNumber)) {
     if ((el.type !== 'note' && el.type !== 'rest') || el.beat === undefined) continue
     const staff = staffOf(el)
-    const columns = columnsByStaff.get(staff) ?? new Set<number>()
-    columns.add(Math.round(el.beat * 1e6))
-    columnsByStaff.set(staff, columns)
+    const seen = byStaff.get(staff) ?? { columns: new Set<number>(), lastBeat: -Infinity, lastIsRest: true }
+    seen.columns.add(Math.round(el.beat * 1e6))
+    if (el.beat > seen.lastBeat) {
+      seen.lastBeat = el.beat
+      seen.lastIsRest = el.type === 'rest'
+    } else if (el.beat === seen.lastBeat && el.type !== 'rest') {
+      seen.lastIsRest = false
+    }
+    byStaff.set(staff, seen)
   }
-  if (columnsByStaff.size === 0) return null
+  if (byStaff.size === 0) return null
 
   let slack: number | null = null
-  for (const [staff, columns] of columnsByStaff) {
+  for (const [staff, { columns, lastIsRest }] of byStaff) {
     const geometry = registry.getStaffGeometry(measureNumber, staff)
     if (!geometry) return null
     const drawn = geometry.noteEndX - geometry.noteStartX
-    const floor = columns.size * LAYOUT_CONFIG.MIN_NOTE_SPACING
-    const mine = Math.max(0, drawn - floor)
+    // ⭐⭐ **THE SAME SHAPE AS `minimumWidth`, gap for gap — and it MUST be.** N drawn columns are
+    //    N−1 note-to-note gaps plus the run-out to the BARLINE, which is its own, wider pair (a rest
+    //    stands further off the line than a notehead). Floor it any other way and this measurement
+    //    and the layout disagree about the same bar: the first version of this said `N × the note
+    //    gap`, which let a bar of four quarters be squeezed 7 px past what the layout would draw, and
+    //    the last notehead came out ON the barline (`e2e/barWidth.e2e.ts` caught it). A floor that
+    //    stops matching the layout does not fail loudly — it lets a barline slide out from under the
+    //    mouse, which is the failure this whole module exists to prevent.
+    const toBarline = lastIsRest
+      // A quarter rest's width stands for every rest here: the registry knows the duration, but this
+      // is a FLOOR and the difference between the widest and narrowest rest is half a staff space.
+      ? restExtent('q') + pairPadding('rest', 'barline')
+      : INK.notehead + pairPadding('note', 'barline')
+    const spaces = Math.max(0, columns.size - 1) * MIN_COLUMN_GAP + toBarline
+    const mine = Math.max(0, drawn - spaces * (geometry.lineSpacing ?? STAFF_SPACE_PX))
     slack = slack === null ? mine : Math.min(slack, mine)
   }
   return slack

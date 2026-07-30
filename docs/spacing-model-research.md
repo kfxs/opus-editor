@@ -297,6 +297,34 @@ Not measured here, deliberately: multi-voice bars (plan §P2 predicts they narro
 counts slots and the model counts columns) and a grand staff's cross-staff columns. Both want the
 column merge to exist before there is anything to compare.
 
+## 6b. …AND THE AFTER (P0–P4 built, 2026-07-30)
+
+Same instrument, same fixtures, once the model decides both the bar's width **and** where each
+column lands inside it. All in staff spaces.
+
+| | before | after | Gould / the rule |
+|---|---|---|---|
+| a quarter | 1.94 | **3.50** | 3.5 |
+| an eighth | 3.36 | **2.47** | 2.475 |
+| a 16th | 1.99 | **1.75** | 1.75 |
+| **quarter ÷ eighth** | **0.58** | **1.414** | **√2** |
+| 16 × 𝅘𝅥𝅯 vs 4 × ♩, room | ×3.9 | **×2.1** | ×2 |
+
+The three findings of §6 are each answered: the ordering is no longer inverted (the flag that never
+gets drawn is out of the width path entirely); one duration gets one answer, with the ink as a
+minimum *under* the rule rather than instead of it; and neither end is pinned at a constant.
+
+Two more, from his own scores rather than from fixtures:
+
+- **Ledger lines** were absent from the ink model — `note↔ledger 0.35` sits in the very MuseScore
+  table §3 quotes. A ledger measures **1.80 spaces against a bare notehead's 1.13**, and a run of
+  ledgered 32nds was drawing its gaps at 1.64, so consecutive ledgers **overlapped**. They now come
+  out at **2.15** where the on-staff ones get **1.43** — each gap taking its own ink, which is the
+  thing no single formatter law can do.
+- **Silence** got 9% of a bar's width for 50% of its time. A half rest after sixteen 32nds now takes
+  **5.67** spaces against the rule's 4.95. ⚠️ Gould's curve is compressed on purpose and does NOT
+  make space proportional to duration — the notes are still the bulk of the bar, and should be.
+
 ## 7. Sources
 
 - Elaine Gould, *Behind Bars* (Faber 2011), p. 39 "Rhythmic spacing" — table quoted in §1, via the

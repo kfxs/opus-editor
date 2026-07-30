@@ -23,6 +23,7 @@ import { MusicEngine } from '@/engine/MusicEngine'
 import { A4_NORMAL, SKETCH_CANVAS } from '@/engine/layout/surface'
 import { exportScorePdf } from '@/engine/export/pdfExport'
 import { censusColumns, type BarSpacing } from '@/dev/spacingCensus'
+import { INK, accidentalExtent, dotExtent } from '@/engine/layout/spacingPadding'
 import { fracCreate } from '@/utils/fraction'
 
 /** Re-exported so a spec can name what `columnGaps()` hands back. */
@@ -109,6 +110,22 @@ export interface Harness {
    * number a spec pins and the number he reads off his own score cannot drift apart.
    */
   columnGaps(): BarSpacing[]
+  /**
+   * The INK TABLE the width path spaces by (`engine/layout/spacingPadding.ts`), so a spec can hold
+   * it against the drawing.
+   *
+   * ⭐ Every number in that table was measured off THIS drawing and then written down, which makes
+   * it a prediction from the moment it is written. This reader is the other half of the promise:
+   * `spacing.e2e.ts` re-measures the same quantities in a real browser and fails if the two have
+   * drifted — *"⛔ what is not an option is measuring one and drawing the other silently"*.
+   */
+  ink(): {
+    notehead: number
+    /** How far left of the head `n` sharps a third apart reach — one column each. */
+    sharps(n: number): number
+    /** How far right of the head `n` augmentation dots reach. */
+    dots(n: number): number
+  }
   /** Export the current score as a PDF (it downloads — the spec catches the download). */
   /**
    * The GHOST groups currently on the page, by class — the overlay contract in one reader
@@ -315,6 +332,13 @@ const harness: Harness = {
   },
 
   columnGaps: () => censusColumns(harness.staves(), [...harness.noteheads(), ...harness.rests()]),
+
+  ink: () => ({
+    notehead: INK.notehead,
+    sharps: (n: number) =>
+      accidentalExtent(Array.from({ length: n }, (_, i) => ({ position: i * 2, sign: '#' }))),
+    dots: dotExtent,
+  }),
 
   ghosts: () => all<SVGGElement>(GHOST_SELECTOR).map(g => g.getAttribute('class') ?? ''),
 

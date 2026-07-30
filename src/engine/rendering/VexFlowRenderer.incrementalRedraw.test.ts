@@ -175,18 +175,45 @@ describe('P5.4 — incremental redraw', () => {
   it('a pitch change redraws ONLY that bar — its neighbours keep their DOM', () => {
     // Re-pitching a note changes the bar's content but not its width, so nothing re-justifies and
     // no neighbour moves. The blast radius should be exactly one bar.
+    //
+    // ⚠️ The note it moves is the one at beat 1, and that is deliberate. E4 → A4 are both inside the
+    //    staff and neither draws a sign, so no ink changes anywhere. Re-pitching the bar's FIRST
+    //    note is a different question and has its own test below.
     const model = buildScore()
     const renderer = makeRenderer()
     renderer.renderScore(model.getScore())
     const before = groupNodes(renderer, 12)
 
-    const target = model.getScore().measures[2].slots.find(s => s.type === 'chord')!
+    const target = model.getScore().measures[2].slots.filter(s => s.type === 'chord')[1]!
     model.updateNote(target.notes[0].id, { step: 'A', octave: 4 })
 
     renderer.renderScore(model.getScore())
     const after = groupNodes(renderer, 12)
 
     expect(redrawnMeasures(before, after)).toEqual([3])
+  })
+
+  it('⚠️ …but re-pitching the FIRST note off its ledger line re-justifies the LINE', () => {
+    // ⭐ New with the spacing model's lead-in, and correct rather than regrettable. The blank between
+    //   a barline and the first thing drawn is `barline↔note` plus that column's own left ink, and it
+    //   is **pure ink with no duration rule over it** — so anything that changes what the first note
+    //   reaches leftward changes the bar's width, and a changed width re-justifies its whole line.
+    //   Here C4 (one ledger below a treble staff, reaching 0.30 left) becomes A4 (on the staff,
+    //   reaching nothing).
+    //
+    //   The blast radius is a LINE, not the score, and only the first note of a bar can do it.
+    const model = buildScore()
+    const renderer = makeRenderer()
+    renderer.renderScore(model.getScore())
+    const before = groupNodes(renderer, 12)
+
+    const first = model.getScore().measures[2].slots.find(s => s.type === 'chord')!
+    model.updateNote(first.notes[0].id, { step: 'A', octave: 4 })
+
+    renderer.renderScore(model.getScore())
+    const redrawn = redrawnMeasures(before, groupNodes(renderer, 12))
+    expect(redrawn.length, 'more than the one bar').toBeGreaterThan(1)
+    expect(redrawn).toContain(3)
   })
 
   it('an incremental render is INDISTINGUISHABLE from a full one', () => {

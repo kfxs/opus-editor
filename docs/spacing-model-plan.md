@@ -430,7 +430,7 @@ Six decisions the writing forced:
 how much room a bar asks for; sharing it out among the columns is P4's, which is why the e2e
 assertions moved to a bar's ROOM and to RATIOS BETWEEN bars.
 
-### P3 — the ink half: extents and a padding table
+### P3 — the ink half: extents and a padding table ✅ DONE 2026-07-30
 - `EventExtent` per column, collected from `Note.getMetrics()` — VexFlow already decomposes exactly
   Gould's extent (`modLeftPx / leftDisplacedHeadPx / notePx / rightDisplacedHeadPx / modRightPx`,
   research §5.3). ⭐ **No new font machinery**: the width pass already builds throwaway `StaveNote`s,
@@ -455,7 +455,117 @@ assertions moved to a bar's ROOM and to RATIOS BETWEEN bars.
 - Unit tests take extents as **fixtures** (they must: research §5.4); the real numbers are pinned in
   `e2e/`.
 
-### P4 — the renderer takes over x
+**As built** — `engine/layout/spacingPadding.ts` (the table) + real extents in `measureColumns`,
+33 unit tests and 4 new browser ones. Five decisions, and the first is a deviation from the plan:
+
+- 🚨 **The extents are a MEASURED TABLE, not `Note.getMetrics()`.** The plan's mechanism assumed the
+  width pass still builds throwaway `StaveNote`s — **P2 deleted that**, and with it the coupling to
+  VexFlow. Bringing it back would have cost three things at once: `MeasureLayout` stops being
+  framework-agnostic, the width cache has to come back, and — the one that decides it — **every
+  extent measures 0 in jsdom**, so the drag floors below would be floored at *nothing* in every unit
+  test that guards them. So the numbers were measured in Chrome, one glyph at a time, and written
+  down: notehead 1.13, sharp 1.40, flat 1.30, natural 1.10, double-flat 2.10, each further accidental
+  column +1.30, first dot 1.70, each further dot +0.90. ⭐ The plan's ⛔ is honoured by the other
+  half: `e2e/spacing.e2e.ts` **re-measures all of them in a browser and fails if the drawing has
+  moved**, so the table cannot silently stop describing the ink. (Measured against it today:
+  notehead 1.125 vs 1.13, sharps and dots exact.)
+- ⭐ **Accidentals share a column at a SEVENTH, and stack at a sixth** — measured one interval at a
+  time rather than assumed, and it is the engraver's own rule, so the drawing and the tradition
+  agree. `accidentalExtent` stacks greedily from the top down, which is what VexFlow does.
+- ⭐ **Which accidentals are DRAWN comes from `displayedAccidentals`, not from `alter`** — the same
+  pure walk `NoteBuilder` uses, at the same (staff, voice) scope. Four C♯s in a bar draw one sign;
+  reading `alter` would have reserved room for four.
+- ⚠️ **`MIN_NOTE_SPACING` is not deleted, and cannot be until P5.** It has exactly one owner left —
+  `fanColumns`, which counts a fan's claim in units of "one ordinary event's column", and which
+  `fanRoom.ts`, `FanPass` and `MeasureLayout`'s interim floor all read. Its four *spacing* readers
+  are gone: `measuredRoom` ×2, `barWidthRoom` and the empty-bar clamp now use `MIN_COLUMN_GAP`
+  (**1.43** spaces — a notehead plus note↔note padding) and `EMPTY_BAR_FLOOR_PX`. ⭐ Two things fell
+  out: the drag floors are now in STAFF SPACES, so a small staff floors at its own smaller number
+  instead of an absolute pixel count; and the old constant's own doc gave the game away — it called
+  itself *"minimum space between notes for **clickability**"* while being used as the engraving rule,
+  which `layoutConfig`'s INK-vs-FINGER rule says is two different things.
+- 🚨 **A real bug the lower floor exposed, and `e2e/barWidth.e2e.ts` caught exactly as §2 predicted.**
+  `distributeLineWidths` shares a line out in proportion to `naturalWidth` and only ever *takes* down
+  to `floorWidth` — so a claim that was already **under** its floor was never put back. One −500 px
+  press on a bar of four quarters bottomed out at `BAR_STRETCH_MIN` and drew five staff spaces of
+  music into four, with the last notehead on the barline. `measureWidthParts` now clamps the shrink
+  at the bar's own ink. The clamp was always owed; 1.8 was just generous enough to hide it.
+
+### P3.1 — the ink the table was missing ✅ DONE 2026-07-30
+Reported by eye on two of his own fragments, measured, and fixed. *"We should do everything industry
+standards do unless there is a really sound reason not to"* — his call, and it is the rule that
+settles the invariant below.
+
+- ⭐⭐ **LEDGER LINES were not in the ink model at all**, and `note↔ledger 0.35` is in the very
+  MuseScore table research §3 quotes. Measured on our own drawing: a ledger runs **−0.30 to +1.50**
+  of the notehead's anchor — **1.80 spaces against a bare head's 1.13**, overhanging on both sides,
+  and the same length at every pitch. A run of ledgered 32nds was drawing its gaps at 1.64 spaces, so
+  consecutive ledgers **overlapped by 0.16** and read as one long line through the notes. Now 0.03,
+  i.e. touching by a quarter-pixel; P4 makes it a hard zero (the bar is wide enough, the split inside
+  it is still VexFlow's).
+- ⭐ **Rest widths are per DURATION, and the SHORT rests are the WIDE ones** — 16th 1.30 and 32nd
+  1.50 against a quarter's 1.10 and an eighth's 1.00, because each flag leans further right. P3
+  shipped one flat 1.2, which was generous for an eighth and 20% tight for a 32nd: backwards exactly
+  where it matters.
+- 🚨 **THE CLEF IS AN INPUT TO THE WIDTH NOW, reversing `reference_spacing_rules_must_be_clef_independent`
+  and inverting `MeasureLayout.clefWidthIndependence.test.ts`.** That invariant rested on two claims
+  and both had expired: the **cost** (the clef in the width-cache key re-ran the formatter on 260
+  bars — 293 ms, 47% of layout; there is no formatter and no memo in this path since P2), and **"a
+  clef cannot change the answer"** (true while the ink was a notehead and an accidental; false the
+  moment ledger lines are in it, since whether a note has one is a fact about where it SITS). The
+  test now asserts the reversal in both directions: a clef changes a width **through ledgers**, and a
+  clef that changes no note's ledgers changes no width. ⚠️ The SHAPE key already carried the clef
+  (`MeasureRedrawKey`), so incremental redraw was never at risk.
+- ⚠️ **Test fixtures on C4 were measuring ledger ink without knowing it.** Middle C is a ledger note
+  in treble *and* in bass — it is on the staff only in alto. Every "a plain note reaches exactly one
+  notehead" fixture moved to **B4, the middle line**.
+
+⏭️ **Still owed from the same family** (his fragments, in his priority order): the space AFTER a
+barline (two constants stack — our `BARLINE_PADDING` and VexFlow's 12 px `Stave.padding` — and
+nothing owns it; belongs with §4's "header as columns"), the first column's LEFT extent (never
+counted: `naturalWidth` sums the gaps *between* columns, so an accidental on a bar's first note buys
+no room), vertical clearance / kerning, and the line's surplus being shared in proportion to each
+bar's TOTAL width when only its MUSIC can stretch.
+
+### P3.2 — the bar's LEAD-IN, taken back from VexFlow ✅ DONE 2026-07-30
+His report: *"in bar 2 I don't know why there is such a huge empty space between the barline and the
+accidental… it is completely useless."* Measured at **1.9 staff spaces** of blank, and none of it
+was ours: VexFlow starts a headerless bar's notes 1.7 spaces in (5 px of `Stave.startX` plus a 12 px
+`Stave.padding` that `Note.getAbsoluteX` adds to every note), whatever the bar opens with.
+
+⭐ Answered with his own rule — *"if on some occasions we can take control over VexFlow's decisions
+and this is an improvement, we should do it."*
+
+- ⭐⭐ **The lead-in is a pair now**: `barline↔note` (or ↔accidental, ↔rest) **plus the first
+  column's own left ink** — and that second half was reserved by nobody. `naturalWidth` sums the gaps
+  BETWEEN columns, so `columns[0].extent.left` appeared in no gap: an accidental on a bar's first
+  note bought **no room at all**, and the drawing took it out of everything else in the bar. That is
+  the second half of his *"the accidentals are stealing space from the notes"*.
+- ⭐ **The drawing honours it** — `applyLeadIn` sets `stave.setNoteStartX`, for bars that draw no
+  header. His bar 2's sharp moved from **1.9 → 1.4** spaces after the barline; a plain bar's lead-in
+  went **1.7 → 1.2**. ⛔ Where there IS a clef or meter, `getNoteStartX` is the sum of those glyphs
+  and stays VexFlow's until the header becomes columns (§4).
+- ⚠️ **The two halves go to different readers.** The WIDTH reserves `padding + extent`; the DRAWING
+  positions on `padding` alone, because VexFlow's formatter already shifts the first tick context by
+  that column's ink. Paying both in the renderer makes the blank WIDER — measured, on the first try.
+- ⚠️ **`BARLINE_PADDING × 2` was DOUBLE-COUNTING since P3.** The trailing side became the barline
+  COLUMN's gap, so every bar was reserving three spaces of barline padding where it owes two.
+- ⚠️ **`barline↔note` is 1.2 against the trailing 1.0, and the odd number is honest.** VexFlow's
+  12 px `Stave.padding` has no public setter, and a lead-in under 1.2 spaces can only be drawn by
+  pushing the note-start left of the barline — which puts a bar's clickable area outside the bar
+  (`tier1Geometry.test.ts` pins that it may not). 1.2 is the tightest the drawing and the model can
+  BOTH say, and saying the same thing is the property worth having.
+- 🚨 **`getNoteStartX()` has always been 12 px short of where the ink begins**, because
+  `Note.getAbsoluteX` adds `Stave.padding` and the stave does not. Everything that read it — hit
+  testing, pixel↔beat, `measuredBarShrinkPx`, the measure-rest centring — was reading a number 1.2
+  staff spaces left of the truth. It cancelled out of most comparisons while every bar had the same
+  error; it stops cancelling the moment the lead-in is ours. `noteStartOf(stave)` is the corrected
+  reader, and `centerMeasureRests` had to move with it or every measure rest sat 6 px off-centre.
+
+⏭️ Still owed from his reports: vertical clearance / kerning, and the line's surplus being shared in
+proportion to each bar's TOTAL width when only its MUSIC can stretch.
+
+### P4 — the renderer takes over x ✅ DONE 2026-07-30
 Format at minimum width, then write our x's onto the tick contexts. The seam exists and is proven:
 `applyLeadingSpaces` (`VexFlowRenderer.ts:96`) already walks `formatter.getTickContexts()` and calls
 `setX`, and `getAbsoluteX()` reads the context lazily at draw — so beams, ties, tuplets, accidentals
@@ -498,6 +608,42 @@ still wrong and is owed a one-line fix** — a repo fact that rotted, cf.
   *more* correct here, but the geometry suite must be re-run either side.
 - A **temporary** `dev/` toggle to A/B the old and new spacing, so he can compare by eye on real
   scores. Removal condition stated in the code: it goes when P5 lands.
+
+**As built** — `engine/rendering/spacingPass.ts`, ~40 lines, called between `format()` and
+`centerMeasureRests`. **Measured on the page, and the rule is now what is drawn:**
+
+| | before the model | after P2/P3 | after P4 | the rule |
+|---|---|---|---|---|
+| a quarter | 1.94 | 3.72 | **3.50** | 3.5 |
+| an eighth | 3.36 | 2.48 | **2.47** | 2.475 |
+| a 16th | 1.99 | 1.75 | **1.75** | 1.75 |
+| quarter ÷ eighth | 0.58 | 1.51 | **1.414** | √2 |
+
+⭐ On his own fragments: bar 2's quarter:16th ratio went **1.54 → 2.005** (Gould's 2.0); a half rest
+after sixteen 32nds went from **2.68 → 5.67** spaces (the rule owes it 4.95); and in a ledgered run
+the ledgered gaps now come out at **2.15** and the on-staff ones at **1.43** — each gap taking its
+own ink, which is the thing no single formatter law can do.
+
+Four decisions:
+
+- ⭐ **The staves align WITHOUT one shared `Formatter`.** §1.2's review said to try VexFlow's own
+  primitive first (`createTickContexts` is stave-blind). It is not needed: every staff is handed the
+  **same merged column list** and writes the same x's, so they agree by construction — and
+  `drawMeasureContent` keeps running per (measure, staff), which culling, the per-staff scale groups
+  and `openGroup` identity all depend on.
+- ⚠️ **`firstX` is the first column's left ink, not zero.** VexFlow's formatter shifts the first tick
+  context right by that column's ink; writing x's ourselves throws that shift away, and without
+  putting it back an accidental on a bar's first note draws to the LEFT of its own barline.
+- ⛔ **The pass does not run on a bar holding a FAN.** Its members are drawn across a span `fanRoom`
+  buys from the formatter, and moving the group's tick context out from under that span is P5 — the
+  phase that replaces the span with the members' own columns.
+- ⚠️ `applyLeadingSpaces` still runs, **after** the pass rather than absorbed into it: it adds a
+  delta on top of an absolute x, which composes correctly. Folding it into `Column.authored` is
+  tidying, not behaviour.
+
+⏭️ Owed: the **preview ghost** formats its own temporary stave and does not run this pass, so a
+ghost can sit where the note will not (the plan named it; `e2e/ghosts.e2e.ts` is still green because
+a cursor ghost is positioned at the pointer).
 
 ### P5 — delete the workarounds
 §2's list, one feature at a time, each with its geometry spec still green: the fan first (five

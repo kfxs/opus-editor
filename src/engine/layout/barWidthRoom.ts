@@ -13,6 +13,7 @@
  * because it reasons about a drawing (docs/DESIGN-PRINCIPLES.md principle 3).
  */
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from '@/engine/rendering/layoutConfig'
+import { EMPTY_BAR_FLOOR_PX } from './spacingPadding'
 import type { SurfaceMetrics } from './surface'
 import { authoredScales, growthPayerShares, squeezedWidth } from '@/engine/rendering/MeasureLayout'
 import { BAR_STRETCH_MIN, BAR_STRETCH_MAX } from '@/engine/models/engravingOverrides'
@@ -46,8 +47,8 @@ export interface BarWidthRoom {
    * had, every press, and the bar stopped shrinking with the log claiming it was alone.
    */
   alone: boolean
-  /** The tightest stretch this bar may take: the drawn music's own floor (`MIN_NOTE_SPACING` per
-   *  column, measured) or the absolute `BAR_STRETCH_MIN`, whichever binds. */
+  /** The tightest stretch this bar may take: the drawn music's own floor ({@link MIN_COLUMN_GAP}
+   *  per column, measured) or the absolute `BAR_STRETCH_MIN`, whichever binds. */
   minStretch: number
   /** The roomiest: the stretch at which this bar's width becomes the WHOLE LINE — derived per bar,
    *  because that is the widest picture there is (past it the bar is alone on its system and
@@ -344,10 +345,11 @@ export function barWidthRoom(input: {
   const shrinkRoom = widthSlope > 1e-6 ? slackPx / widthSlope : Infinity
 
   // A share-scaling (empty) bar has a second floor, and it is the layout's own: `measureWidthParts`
-  // clamps its scalable area at one column's `MIN_NOTE_SPACING`. Below that the stored number keeps
-  // falling while the picture stands still — a dead press, which is the thing every one of these
-  // limits exists to avoid.
-  const layoutFloor = info.stretchScalesShare ? LAYOUT_CONFIG.MIN_NOTE_SPACING / info.noteSpace : 0
+  // clamps its scalable area at ONE COLUMN's worth. Below that the stored number keeps falling while
+  // the picture stands still — a dead press, which is the thing every one of these limits exists to
+  // avoid. ⚠️ The two must name the SAME number or the press dies one step early or one step late,
+  // which is why both read {@link EMPTY_BAR_FLOOR_PX}.
+  const layoutFloor = info.stretchScalesShare ? EMPTY_BAR_FLOOR_PX / info.noteSpace : 0
 
   return {
     stretch,
