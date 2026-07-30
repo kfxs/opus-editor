@@ -43,7 +43,8 @@ carried a per-staff `lineSpacing` since multi-staff (`ElementRegistry.ts:132`); 
 been given a value other than 10.
 
 Around it, `LAYOUT_CONFIG` is eight absolute pixels that are all secretly staff-spaces at that size
-— `MIN_NOTE_SPACING` 18 (1.8 sp), `CLEF_WIDTH` 45 (4.5 sp), `TIME_SIG_WIDTH` 30, `BARLINE_PADDING`
+— `MIN_NOTE_SPACING` 18 (1.8 sp; ⚠️ DELETED 2026-07-30, the spacing model's `MIN_COLUMN_GAP` is
+1.43 sp and the same question), `CLEF_WIDTH` 45 (4.5 sp), `TIME_SIG_WIDTH` 30, `BARLINE_PADDING`
 10, `STAVE_HEIGHT` 120 (12 sp), `VERTICAL_SPACING` 30. Plus ~20 loose px constants that are ink
 (`LEDGER_ACCIDENTAL_GAP`, `CURVE_THICKNESS`, the `beamInk` four, `DynamicsLayout`'s `GAP`, the
 dynamic/tuplet/tempo font sizes).
@@ -416,7 +417,8 @@ last: until P4 there is nothing to be wrong about.
 > `CURVE_THICKNESS`, the `beamInk` four, `LEDGER_ACCIDENTAL_GAP`, `DynamicsLayout`'s `GAP`, the
 > tuplet/tempo font sizes. Rewriting those as "staff-spaces × that staff's size" would have scaled
 > them **twice**. The constants that genuinely still need a size are the ones read during the
-> **casting-off**, before any group exists — `MIN_NOTE_SPACING`, `CLEF_WIDTH`, `TIME_SIG_WIDTH`,
+> **casting-off**, before any group exists — the spacing model's own numbers (⚠️ `MIN_NOTE_SPACING`
+> is deleted; the ink table and `MIN_COLUMN_GAP` replace it), `CLEF_WIDTH`, `TIME_SIG_WIDTH`,
 > `BARLINE_PADDING` — and those belong to **P3**, which is still open.
 >
 > So what landed:

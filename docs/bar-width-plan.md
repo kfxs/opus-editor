@@ -8,6 +8,11 @@ you no gesture at all; Dorico has a square note-spacing handle at the barline.
 
 We take Finale's gesture and MuseScore's model.
 
+> ⚠️ **One name in here has been deleted, 2026-07-30.** `MIN_NOTE_SPACING` — the flat 1.8-staff-space
+> floor per event — is gone, and so is `noteSpaceForLane`. The floors this plan describes are real and
+> still enforced; they read **`MIN_COLUMN_GAP`** (a notehead plus its note↔note padding, 1.43 spaces)
+> and the per-measure `noteSpaceForMeasure`. See `docs/spacing-model-plan.md`.
+
 ## 0. What this is NOT
 
 **It is not more `leadingSpace`.** That client (docs/note-spacing-plan.md) exists to open a *dead

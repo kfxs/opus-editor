@@ -5,6 +5,16 @@ it "indicates free accelerando or rallentando *within the duration*" of the grou
 at the slowest point and are fully feathered at the fastest. It is not a tempo change: nothing after
 the group is affected, the clock never moves.
 
+> 🚨 **SUPERSEDED IN PART, 2026-07-30 — the fan no longer decides its own horizontal room.**
+> Everything here about the *gesture* stands. What is gone is §3's WIDTH mechanism and every constant
+> in it: `fanColumns`, `fanRoom.ts` (`FanStaveNote`, `shareFanRoom`, `fanRoomPx`, `fanMaxSpanPx`),
+> `FAN_MAX_SPAN_STRETCH`, `FAN_MIN_HEAD_GAP_RATIO`, `trailingGap` — and `MIN_NOTE_SPACING`, which
+> they were all counted in. A fan's members are **ordinary COLUMNS** at their own exact beats now
+> (`engine/layout/measureColumns.ts`), so the bar asks for the sum of what those durations earn and
+> each gap is the spacing rule applied to that member. Read `docs/spacing-model-plan.md` §P5 for what
+> replaced it, and expect the heads to crowd more gently than the screenshots here show: ×1.47 where
+> this plan's mechanism gave ×2.5.
+
 ## 0. The decision this plan is built on
 
 **You enter the time first.** The user types one ordinary note — a blanca, a redonda — which already

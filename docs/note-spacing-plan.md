@@ -4,6 +4,11 @@ Sibelius's **note spacing**: grab a note or rest, drag it left/right, and you ch
 *allocated before* it. Everything to its right slides by the same amount, the bar grows or shrinks,
 and every voice at that rhythmic position moves with it.
 
+> ⚠️ **One name in here has been deleted, 2026-07-30.** `MIN_NOTE_SPACING` — the flat 1.8-staff-space
+> floor per event — is gone, and so is `noteSpaceForLane`. The floors this plan describes are real and
+> still enforced; they read **`MIN_COLUMN_GAP`** (a notehead plus its note↔note padding, 1.43 spaces)
+> and the per-measure `noteSpaceForMeasure`. See `docs/spacing-model-plan.md`.
+
 ## The distinction the whole design rests on
 
 **A space is not an offset.**
@@ -180,7 +185,8 @@ the glyph and leaves the column where it was — that is an offset, which is the
 explicitly is not.
 
 **Shrink floor.** A negative space cannot pull a column left through its left neighbour's glyph: the
-gap must never drop below `MIN_NOTE_SPACING` (`layoutConfig.ts:14`), the same number that already
+gap must never drop below the ink floor — `MIN_COLUMN_GAP` (⚠️ was `MIN_NOTE_SPACING`, deleted
+2026-07-30), the same number that already
 decides how wide a bar is. But the clamp is applied **at the write site, not here** — see §1. Render
 trusts the stored number.
 
@@ -349,8 +355,10 @@ the user space back whole"*) restated at ramp scale. It stays a pure function; t
   answer for a member and not by oversight: a member is registered under the SLOT's beat (so
   `pixelXToBeat` keeps the group on one column), so that walk dedups the whole fan into one anchor
   and would measure the gap before the *group*. `MusicEngine.fanMemberShrinkRoom` reads the two
-  registry entries instead — both head centres — floored at `FAN_MIN_HEAD_GAP_RATIO × the notehead's
-  own measured width`, the same number the geometry refuses to cross.
+  registry entries instead — both head centres — floored at `MIN_COLUMN_GAP`, the same number the
+  geometry refuses to cross. (⚠️ It was `FAN_MIN_HEAD_GAP_RATIO × the notehead's own measured width`
+  until 2026-07-30; a fanned head is a notehead, and the spacing model already says how close two of
+  those may come.)
 
 ⚠️ **And the caveat that makes this different from every other column.** Everywhere else a space is
 cosmetic. Inside a fan the head positions *encode* the accelerando — playback reads `fanMembers`'

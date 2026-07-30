@@ -345,7 +345,7 @@ editor?"* — if yes, it is a core module.
 | Which notes are beamed together | `utils/beaming.ts` (pure — a run of bars, each with its own `MeterInfo`, → index groups; one bar is a run of one). The per-note override lives on the NOTE (`Chord.beam`), not in `engravingOverrides`. See `docs/beaming.md` |
 | A beam that crosses a BARLINE | `rendering/CrossBarBeams.ts` decides which barlines are open (bounded by the system break and by any unpainted bar); the bar gives its joined notes a **placeholder** beam, and the one real `Beam` is drawn in a post-measure pass **outside both measure groups**, like a tie. It rides both bars' `measureShapeKey` and pins them as span anchors. See `docs/cross-barline-beaming-plan.md` |
 | How many beam LINES join them (6 sixteenths subdivided 3+3) | `Chord.secondaryBreak` — a SEPARATE field from `Chord.beam`, not a sixth `BeamMode`: which notes are beamed and how they are subdivided are independent statements. Drawn with VexFlow's `Beam.breakSecondaryAt`; the index translation is `secondaryBreakIndices` in `utils/beaming.ts`. See `docs/beaming.md` |
-| A FANNED (feathered) beam — one note played and drawn as many | `Chord.fan` is the ASSERTION ("play this note as six, accelerating"); the RHYTHM is a projection from `utils/fannedBeam.ts` (`fanMembers`), read by BOTH the drawing (`rendering/FannedBeam.ts`) and the playback so they cannot disagree. The slot keeps its own duration — one event, indivisible, so no re-tile can break the group. Only the PITCHES are stored (`FanMark.members`, member 0 IS the slot's own chord), because a pitch cannot be derived; `normalizeFan` is the one function allowed to keep them in step with `count`. 🚨 Its WIDTH comes from the RAMP, not the member count (`fanColumns`): heads are placed proportionally, so the span is set by the group's TIGHTEST gap. See `docs/fanned-beams-plan.md` + `docs/fanned-beam-pitches-plan.md` |
+| A FANNED (feathered) beam — one note played and drawn as many | `Chord.fan` is the ASSERTION ("play this note as six, accelerating"); the RHYTHM is a projection from `utils/fannedBeam.ts` (`fanMembers`), read by BOTH the drawing (`rendering/FannedBeam.ts`) and the playback so they cannot disagree. The slot keeps its own duration — one event, indivisible, so no re-tile can break the group. Only the PITCHES are stored (`FanMark.members`, member 0 IS the slot's own chord), because a pitch cannot be derived; `normalizeFan` is the one function allowed to keep them in step with `count`. ⭐ Its WIDTH is no longer its own question: each member is an ordinary COLUMN at its own exact beat (`fanMemberBeats`), so the bar asks for the sum of what those durations earn and each gap is the spacing rule applied to that member. That deleted `fanColumns`, `fanRoom.ts` and three more constants — see `docs/spacing-model-plan.md` §P5. Also `docs/fanned-beams-plan.md` + `docs/fanned-beam-pitches-plan.md` |
 | Which accidental SIGN a note displays | One forward walk — `displayedAccidentals` (`utils/accidentalState.ts`), read by `NoteBuilder` for the `StaveNote`s AND by the fan renderer for its hand-drawn member heads, so the drawing can never invent a second rule. Its query twin `prevailingAlterations` answers "what is in force at this beat?" for the palette and the selection. ⚠️ Scope is the CALLER's: pass one lane's slots, and use `measureAccidentalNotes` (not `getMeasureNotes`) where fanned members must count — they alter the bar like any other note |
 | **Choosing a colour** | Three semantic modules in `utils/`, never a stray hex: **`voiceColors.ts`** = per-voice note/rest/tuplet selection (V1 blue / V2 green / V3 orange / V4 purple); **`selectionColors.ts`** = the non-voice `INDICATOR_INK` blue, shared by the gutter, the Keypad mode arrow, and every NON-note element selection (clef/time-sig/barline/dynamic/tempo text) — orange is reserved for voice 3, so elements must **not** select in orange; **`chromeColors.ts`** = window/menu/keypad neutrals. Slur-edit handles keep their own orange(open-join)/blue(true-end) language on purpose. |
 
@@ -397,10 +397,12 @@ Two consequences, and the first is the dangerous one:
 - **An assertion about glyph geometry passes vacuously** — it measures zeros and agrees with itself.
   This is why the render tests assert **node identity and counts** (`getMeasureSVGGroup`, counting
   `g.vf-beam`) and stave-derived numbers, never a drawn position. That convention is load-bearing.
-- **Bar-width tests only exercise one branch.** `noteSpace = max(minNoteWidth × 1.15, slots ×
-  MIN_NOTE_SPACING, …)` — with `minNoteWidth ≈ 0` the events-times-spacing floor always wins, so the
-  case where glyphs genuinely need more room than the floor is only ever exercised in a browser —
-  see the E2E suite below.
+- ⭐ **Bar width is no longer one of them.** It used to be `max(minNoteWidth × 1.15, slots ×
+  MIN_NOTE_SPACING)`, and with `minNoteWidth ≈ 0` headless only the flat floor was ever exercised.
+  The spacing model made the whole width path **pure arithmetic over durations and a measured ink
+  table**, so it computes identically in node and in Chrome and is fully unit-testable. What still
+  needs a browser is whether the TABLE still describes the drawing — `e2e/spacing.e2e.ts` re-measures
+  it, which is the pairing every predicted number here needs.
 
 ⛔ **Do not "fix" this by stubbing `getContext`.** Fake metrics turn every geometry assertion green on
 fiction; a loud "I can't do this" beats a quiet invented number. Installing the `canvas` package alone
@@ -479,13 +481,16 @@ Yes → it belongs in the **width key** (`laneFingerprint`, in `MeasureWidthCach
 does. A hairpin does not.
 
 > ⚠️ "Belongs in the width key" is not the same as "will widen the bar", and measuring the second will
-> mislead you about the first. **A bar's width is `events × MIN_NOTE_SPACING` (18px an event).** That
-> floor is the real spacing rule: VexFlow's `preCalculateMinTotalWidth` suggests ~9–15px an event, too
-> tight to read, so it practically never wins the `Math.max` in `MeasureLayout.noteSpaceForLane`. The
-> consequence is worth knowing before you go bug-hunting: **glyphs do not move the width** — four
-> quarters with four accidentals measure exactly the same as four plain ones (measured). Put it in the
-> key anyway. The key's job is "did this bar change?", and over-including is merely slow while a stale
-> picture is not recoverable.
+> mislead you about the first. 🚨 **This paragraph used to say a bar's width is `events ×
+> MIN_NOTE_SPACING` and that glyphs do not move it. Both are dead.** The spacing model
+> (`docs/spacing-model-plan.md`) made a bar's width the DURATION rule summed over its columns, with
+> each event's own ink as a `max` under it — so a duration moves the width always, and a glyph moves
+> it wherever its ink beats the rule (an accidental in a run of 16ths does; the same accidental on a
+> quarter does not, because 3.6 staff spaces already has room for it). `MIN_NOTE_SPACING` itself no
+> longer exists.
+>
+> Put it in the key anyway. The key's job is "did this bar change?", and over-including is merely slow
+> while a stale picture is not recoverable.
 >
 > An **event** is any slot — a rest counts exactly as a note does. It did not until `87e321e`, and a
 > bar of eight rests drew crammed into the width of an empty one.
