@@ -307,6 +307,32 @@ export interface FanMark {
   rampFrom?: number
   rampTo?: number
   /**
+   * ⭐ **Does the beam SUBDIVIDE where this fan joins the group on its left?** Absent = yes, which is
+   * what every fan says unless someone turned it off; `false` draws every level straight through the
+   * boundary, as the join did before this existed.
+   *
+   * His report, with a screenshot of four 16ths beamed into a fan (`beam: 'continue'`): *"the fan is
+   * not distinguishable from semicorcheas"*. Every level ran through, and at an accel.'s narrow end
+   * the wedge's own lines still sit on the primary, so the eye met one thick band that thinned —
+   * the fan began somewhere inside it, unmarked. Breaking the secondary levels there leaves the
+   * primary carrying the group and a gap where the gesture starts, which is what a subdivision says
+   * everywhere else in notation.
+   *
+   * ⚠️ **On the MARK and not on `Chord.secondaryBreak`**, which is the obvious home and cannot hold
+   * the answer: `ScoreModel.updateNote` stores that flag as absent when false (*"the default costs
+   * nothing in JSON"*), so under a default-ON rule "do not subdivide" reads back as "subdivide".
+   * Making it storable would mint a second spelling of "no break" for every ordinary note in the
+   * score, and `laneFingerprint` — the width cache key — stringifies the whole slot. Here the
+   * inversion is free, because absence already means the default.
+   *
+   * ⚠️ Like {@link spread} and the ramp range, **absent is the only spelling of the default**:
+   * `normalizeFan` drops a `true`. Only the refusal is ever written.
+   *
+   * ⛔ It says nothing about a fan standing ALONE — a subdivision breaks the second beam between two
+   * groups, and a lone fan's beam lines are its ramp (how many it feathers out to is {@link beams}).
+   */
+  joinSubdivide?: boolean
+  /**
    * ⭐ How far apart the beam lines sit at the WIDE end, as a MULTIPLE of the gap ordinary stacked
    * beams use (`beamWidth × 1.5`, VexFlow's own step). Absent = 1 = that gap exactly, which is what
    * every fan drawn before this says — and it is the FLOOR, since any less and the lines overlap. `2`

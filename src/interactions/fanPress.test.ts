@@ -272,9 +272,29 @@ describe('pressFan across a selection', () => {
       expect(engine.getNote(note)?.beam).toBeUndefined()
     })
 
-    it('the subdivide toggle writes nothing', () => {
+    it('the subdivide toggle writes nothing on an UNJOINED fan', () => {
       expect(palette.toggleSecondaryBreak()).toBe(false)
       expect(engine.getNote(note)?.secondaryBreak).toBeUndefined()
+    })
+
+    /**
+     * ⭐ …but a JOINED fan takes it, and it lands on the MARK. His report: a run of 16ths beamed into
+     * a fan drew one unbroken band, so the join subdivides by default — which makes the key's job
+     * there to refuse it, and a refusal `Chord.secondaryBreak` cannot store (`updateNote` normalizes
+     * `false` to absent, and absent means subdivided here).
+     */
+    it('⭐ …and a JOINED fan takes it, onto FanMark.joinSubdivide', () => {
+      palette.setBeam('continue')
+      expect(engine.getNote(note)?.fan?.joinSubdivide, 'a fresh join says nothing').toBeUndefined()
+
+      expect(palette.toggleSecondaryBreak(), 'the press is spent on the fan').toBe(true)
+      expect(engine.getNote(note)?.fan?.joinSubdivide).toBe(false)
+      // The note's own flag is untouched — this never was a note-level statement.
+      expect(engine.getNote(note)?.secondaryBreak).toBeUndefined()
+
+      // …and back, which stores nothing: absence is the only spelling of "subdivided".
+      palette.toggleSecondaryBreak()
+      expect(engine.getNote(note)?.fan?.joinSubdivide).toBeUndefined()
     })
 
     it('…and the notes AROUND it still take both', () => {

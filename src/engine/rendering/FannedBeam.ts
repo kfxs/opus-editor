@@ -255,6 +255,27 @@ export interface FanGeometryOptions {
    */
   rampRoom?: number
   /**
+   * ⭐ **SUBDIVIDE THE BEAM WHERE THE JOIN IS** — break the secondary levels between the group on the
+   * left and this fan, so the primary alone carries the boundary. Default TRUE, and nothing in the
+   * editor turns it off today: `false` exists so the two pictures can be told apart in a test, and
+   * because the day it becomes a choice this is where the choice lands.
+   *
+   * ⚠️ **It could NOT be `Chord.secondaryBreak`**, which is the obvious home and cannot hold the
+   * answer: `ScoreModel.updateNote` stores that flag as ABSENT when false (*"the default costs
+   * nothing in JSON"*), so "do not subdivide this join" is unrepresentable there — writing `false`
+   * reads back as unset, which under a default-on rule means `true`. Making it storable would mint a
+   * second spelling of "no break" for every ordinary note in the score, which is what
+   * `laneFingerprint` (the width cache key) must not see. So the choice, if it is ever wanted, is a
+   * field on the FAN — beside `spread`, which is the same kind of engraving dial.
+   *
+   * His report, with a screenshot of a run of 16ths beamed into a fan: *"the fan is not
+   * distinguishable from semicorcheas"*. Every level ran straight through the boundary, and at an
+   * accel.'s narrow end the wedge's own lines still sit on the primary, so what the eye met was one
+   * thick band that thinned — the fan began somewhere inside it, unmarked. The break is where the
+   * gesture starts, which is what a subdivision says everywhere else in notation.
+   */
+  subdivideJoin?: boolean
+  /**
    * ⭐ The user-authored horizontal OFFSET of each member, in PIXELS (+right) — 0 (or absent) where
    * the member stands on its own column (docs/note-offset-plan.md §"Inside a FAN"). Index k is
    * member k's own offset, **entry 0 included**: the fan's owner is one note of the group, not a
@@ -366,6 +387,7 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   const {
     members, memberHeadYs, direction, beams, headX, spanEndX, stemOffset, minHeadGap,
     accidentalRoom, headRightRoom, memberSpaces, memberOffsets, rampRoom, tipY, minStemLength, stemDirection, beamWidth,
+    subdivideJoin = true,
     trailingGap = minHeadGap,
   } = opts
   const prefix = opts.prefix ?? []
@@ -585,19 +607,32 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
       thickness,
     })
   }
-  // The PREFIX's own extra levels — a 16th group joined to a fan keeps its second beam, and it stops
-  // at the owner's stem because that is where the prefix stops. A `rit.` therefore shows a thickness
-  // change there (1 line in, `fan.beams` out); an `accel.` meeting eighths is the clean case.
+  // The PREFIX's own extra levels — a 16th group joined to a fan keeps its second beam. A `rit.`
+  // therefore shows a thickness change where they meet (1 line in, `fan.beams` out); an `accel.`
+  // meeting eighths is the clean case.
+  //
+  // ⭐ **WHERE THEY STOP IS THE SUBDIVISION.** At the last PREFIX stem, leaving the primary alone to
+  // carry the boundary — see {@link FanGeometryOptions.subdivideJoin}. They used to run on to the
+  // fan's own first stem, which is what made the two groups read as one band.
+  //
+  // ⚠️ A prefix of ONE note has no span to draw: first stem and last are the same x, so the level
+  // becomes a fractional beam — a stub reaching back from the note into the group it belongs to,
+  // the same shape VexFlow draws for a lone 16th under a beam. Without it the note simply loses its
+  // second beam, which is a different rhythm.
   //
   // ⚠️ `1.5`, NOT `step`: these are ordinary beams that happen to lead into a fan, and an ordinary
   // beam group's lines sit at the ordinary gap however far the wedge beside them is pulled open.
+  const prefixEndX = subdivideJoin && prefix.length ? prefix[prefix.length - 1].stemX : rampStartX
+  const prefixStartX = subdivideJoin && prefix.length === 1
+    ? prefixEndX - Math.min(SUBDIVIDE_STUB_PX, Math.max(0, rampStartX - prefixEndX))
+    : lineStartX
   for (let k = 1; k < Math.max(0, Math.round(opts.prefixBeams ?? 0)); k++) {
     const offset = k * thickness * 1.5
     lines.push({
-      startX: lineStartX,
-      startY: lineAt(lineStartX) + offset,
-      endX: rampStartX,
-      endY: lineAt(rampStartX) + offset,
+      startX: prefixStartX,
+      startY: lineAt(prefixStartX) + offset,
+      endX: prefixEndX,
+      endY: lineAt(prefixEndX) + offset,
       thickness,
     })
   }
@@ -634,6 +669,14 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
  *
  * Flat, because a joined line is (P1): both ends sit on `lineY`.
  */
+/**
+ * How long a FRACTIONAL beam is, in px — the stub a lone prefix note's secondary becomes once the
+ * join is subdivided. VexFlow's own `partialBeamLength` is the same idea and the same order (its
+ * default is 10); stated here because this line is ours to draw, not VexFlow's, and it must not
+ * silently follow a metric that means something else.
+ */
+const SUBDIVIDE_STUB_PX = 10
+
 export function fanJoinQuads(opts: {
   left: FanGeometry
   right: FanGeometry
@@ -641,6 +684,12 @@ export function fanJoinQuads(opts: {
   toX: number
   /** Signed by the stem direction, as everywhere else here. */
   thickness: number
+  /**
+   * ⭐ SUBDIVIDE the join: only the PRIMARY crosses, and the secondary levels stop on their own side.
+   * Default true, the same rule and the same reason as {@link FanGeometryOptions.subdivideJoin} —
+   * two fans sharing one unbroken band are as unreadable as a group flowing into one.
+   */
+  subdivide?: boolean
   /**
    * ⭐ The RIGHT fan's {@link FanMark.spread} — whose gap the crossing lines have to match, because
    * they are drawn from its own `lineY` and land on its stems.
@@ -657,7 +706,8 @@ export function fanJoinQuads(opts: {
   const fromX = left.stems[left.stems.length - 1].stemX
   const step = thickness * 1.5 * clampFanSpread(opts.spread ?? 1)
   const quads: FanQuad[] = []
-  for (let k = 0; k < Math.min(left.endLevels, right.startLevels); k++) {
+  const crossing = opts.subdivide === false ? Math.min(left.endLevels, right.startLevels) : 1
+  for (let k = 0; k < crossing; k++) {
     const y = right.lineY + k * step
     quads.push({ startX: fromX, startY: y, endX: toX, endY: y, thickness })
   }

@@ -17,7 +17,7 @@
  * No VexFlow, no DOM — pure, and unit-tested as such.
  */
 import { v4 as uuidv4 } from 'uuid'
-import type { Chord, FanMark, FanMemberChord, NotePitch } from '@/types/music'
+import type { BeamMode, Chord, FanMark, FanMemberChord, NotePitch } from '@/types/music'
 import { type Fraction, fracCreate, fracFromInt, fracAdd, fracMul, fracDiv, fracSub, fracToNumber } from './fraction'
 
 /**
@@ -34,6 +34,26 @@ export const DEFAULT_FAN_COUNT = 6
 
 /** How many beam lines the WIDE end of a new fan carries. The narrow end is always 1. */
 export const DEFAULT_FAN_BEAMS = 3
+
+/**
+ * ⭐ Does this fan's JOIN subdivide the beam — {@link FanMark.joinSubdivide}, with its default read.
+ *
+ * The one place the inversion is spelled: absent means SUBDIVIDED, only `false` means the unbroken
+ * band. Every reader asks here — the drawing, the Keypad's light and the toggle — so the default
+ * cannot be written down twice and drift.
+ */
+export function fanJoinSubdivides(fan: FanMark): boolean {
+  return fan.joinSubdivide !== false
+}
+
+/**
+ * Is this slot a fan JOINED to the group on its left? `beam: 'continue'` IS the join (there is no
+ * other spelling — docs/fan-beam-join-plan.md), and it is what makes {@link fanJoinSubdivides} a
+ * question worth asking at all: an unjoined fan has no boundary to break.
+ */
+export function fanIsJoined(slot: { fan?: unknown; beam?: BeamMode }): boolean {
+  return !!slot.fan && slot.beam === 'continue'
+}
 
 /**
  * The shape of the ramp between the slow end and the fast one. Linear today, and deliberately
@@ -274,6 +294,11 @@ export function normalizeFan(fan: FanMark, own: NotePitch[]): FanMark {
   const spread = fanSpread(out)
   if (spread === 1) delete out.spread
   else out.spread = spread
+
+  // …and once more for the join's subdivision: it is ON unless refused, so `true` is absence spelled
+  // out and only `false` is ever stored. Same cache-key reason as the two above.
+  if (fanJoinSubdivides(out)) delete out.joinSubdivide
+  else out.joinSubdivide = false
   return out
 }
 

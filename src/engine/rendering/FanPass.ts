@@ -22,7 +22,7 @@ import { staffLineForSpelling } from '@/utils/clefUtils'
 import { spellingToVexflowKey } from '@/utils/pitchSpelling'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { slotLength } from '@/utils/durations'
-import { FAN_GROUP, fanMembers, fanMemberPitches } from '@/utils/fannedBeam'
+import { FAN_GROUP, fanMembers, fanMemberPitches, fanJoinSubdivides } from '@/utils/fannedBeam'
 import {
   fannedBeamGeometry,
   fanBeamFarEdge,
@@ -413,8 +413,9 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
     const geometry = fannedBeamGeometry(options)
     geometries.set(i, geometry)
 
-    // ⭐ P2 — THE GAP TO THE FAN BEHIND IT. Only the lines both ramps have cross it; the rest stop
-    // at their own stem, which is what a partial beam looks like anywhere else.
+    // ⭐ P2 — THE GAP TO THE FAN BEHIND IT. SUBDIVIDED: the primary crosses and the secondary levels
+    // stop at their own stem, which is what a partial beam looks like anywhere else — and what tells
+    // a reader where one gesture ends and the next begins (`FanGeometryOptions.subdivideJoin`).
     const join = fanJoins.find(j => j.fans.includes(i))
     const at = join ? join.fans.indexOf(i) : -1
     const behind = at > 0 ? geometries.get(join!.fans[at - 1]) : undefined
@@ -426,6 +427,9 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           thickness: CROSS_SYSTEM_BEAM_WIDTH * stemDirection,
           // THIS fan's spread — the crossing lines land on its stems, so they keep its gap.
           spread: slot.fan?.spread,
+          // …and THIS fan's subdivision: the break is in front of the group that starts here, so the
+          // right-hand fan is the one that carries the decision.
+          subdivide: slot.fan ? fanJoinSubdivides(slot.fan) : true,
         })
       : []
 
@@ -758,6 +762,9 @@ function fanSlotDrawing(input: {
       // last member's own duration earns it, exactly as any other note's does, so this is the
       // spacing rule and no longer a constant standing in for one.
       trailingGap: followingSpace(fanMembers(slot.fan, slotLength(slot)).slice(-1)[0].quarters) * STAFF_SPACE_PX,
+      // ⭐ Break the secondary beams where the join is, unless this fan refuses — his report: an
+      // unbroken band made the fan unreadable against the 16ths beamed into it.
+      subdivideJoin: fanJoinSubdivides(slot.fan),
       // ⭐ The room the BAR's own solve gave these members — what makes the ramp spread when the bar
       // is widened, instead of leaving the extra width as air after the last head (his report).
       // Absent when this bar was not placed by the spacing pass, and then the ramp is its durations,

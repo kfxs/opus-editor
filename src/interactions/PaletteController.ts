@@ -6,7 +6,7 @@ import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorS
 import { activeVoiceToModel, armedTool, armedToolUsesLength, selectedOf, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from './EditorState'
 import { durationHighlight, beamHighlight, beamRoleHighlight, secondaryBreakHighlight, beamOverHighlight, tremoloHighlight, tremoloPairHighlight, fanHighlight } from './keypadSync'
 import { fracToNumber } from '../utils/fraction'
-import { DEFAULT_FAN_BEAMS, DEFAULT_FAN_COUNT } from '../utils/fannedBeam'
+import { DEFAULT_FAN_BEAMS, DEFAULT_FAN_COUNT, fanIsJoined, fanJoinSubdivides } from '../utils/fannedBeam'
 import { resolveTupletInTimeOf, type TupletResolution } from '../utils/musicUtils'
 import { accidentalTypeToKey, formatPitch } from '../utils/pitchSpelling'
 import { sameTimeSignature } from '../utils/meter'
@@ -1574,7 +1574,14 @@ export class PaletteController {
     const engine = this.getEngine()
     if (!engine || this.state.selectedTool !== 'selection') return false
 
-    // Rests, and a FANNED slot with them (his call): a subdivision breaks the SECOND beam within a
+    // ⭐ A JOINED FAN TAKES THIS KEY, and takes it first: the join IS an ordinary beam boundary, and
+    // breaking it is what tells a run of 16ths from the fan beamed onto them (his report). It
+    // subdivides by DEFAULT, so what the key does there is refuse — and the refusal lives on the
+    // MARK ({@link FanMark.joinSubdivide}), because `updateNote` cannot store a false
+    // `secondaryBreak` at all.
+    if (this.toggleFanJoinSubdivision()) return true
+
+    // Rests, and an UNJOINED fan with them (his call): a subdivision breaks the SECOND beam within a
     // group, and a fan's beam lines are its ramp — how many it feathers out to is `fan.beams`.
     const ids = selectedNoteIds(this.state.selectedItems.values())
       .filter(id => {
@@ -1589,6 +1596,38 @@ export class PaletteController {
     })
     this.renderScore()
     // secondaryBreak isn't a reactive field, so `sync()` won't fire — push the highlight ourselves.
+    this.refreshSubdivideSelection()
+    return true
+  }
+
+  /**
+   * The subdivide key on a JOINED FAN: flip whether the beam breaks where the fan starts. Returns
+   * whether the press was spent that way, so {@link toggleSecondaryBreak} does nothing else with it.
+   *
+   * SINGLE selection only, like the Properties fan inputs it shares a seam with — the request is
+   * keyed by one note id, and a multi-selection has no single fan to speak for. The value published
+   * is the NEGATION OF THE EFFECTIVE one, never of the stored flag: absent means subdivided, so a
+   * first press on an untouched fan has to send `false` and not `true`.
+   */
+  private toggleFanJoinSubdivision(): boolean {
+    const engine = this.getEngine()
+    const noteId = this.state.selectedNoteId
+    if (!engine || !noteId || multipleNotesSelected(this.state.selectedItems.values())) return false
+    const note = engine.getNote(noteId)
+    if (!note?.fan || !fanIsJoined(note)) return false
+
+    // ⭐ ONE FIELD OF THE MARK, spread onto the mark that is there — {@link pressFan}'s own rule for
+    // turning a fan round, and for its reason: rebuilding the mark would throw away the members, and
+    // with them every member pitch, accidental and offset. `setFan` → `normalizeFan` then drops a
+    // `true` again, so only the refusal is ever stored.
+    const subdivide = !fanJoinSubdivides(note.fan)
+    const applied = engine.runBatch(subdivide ? 'Subdivide fan join' : 'Unbroken fan join', () => {
+      engine.setFan(noteId, { ...note.fan!, joinSubdivide: subdivide })
+    })
+    if (!applied) return true // the press was still ours; the model simply refused it
+    engine.updateUndoNoteId(noteId)
+    this.renderScore()
+    // The mark changed, the selection did not — push the light ourselves, as every fan press does.
     this.refreshSubdivideSelection()
     return true
   }

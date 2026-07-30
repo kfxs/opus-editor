@@ -17,6 +17,9 @@ function stateWith(items: SelectionItem[], tool: 'selection' | 'entry' = 'select
   return state
 }
 
+/** A fan mark, as the doubles below need one — only its presence and `joinSubdivide` are read. */
+const FAN = { direction: 'accel' as const, count: 6, beams: 3 }
+
 describe('multipleNotesSelected', () => {
   it('is false for zero or one note', () => {
     expect(multipleNotesSelected([])).toBe(false)
@@ -117,18 +120,32 @@ describe('beamHighlight (the dev shell\'s Beam row)', () => {
   it('⭐ reports nothing for the OWNER of a fan — its beam is the ramp, not a mode', () => {
     const state = stateWith([note('f')])
     state.selectedBeam = 'single'   // whatever is armed, or was authored before the fan
-    const fanned: BeamSource = { getNote: () => ({ fan: {} }), getBeamRole: () => 'begin' }
+    const fanned: BeamSource = { getNote: () => ({ fan: FAN }), getBeamRole: () => 'begin' }
     expect(beamHighlight(state, fanned)).toBeNull()
     // …but the ROLE still reads, and it reads `begin`: the group starts there and is all inside it.
     expect(beamRoleHighlight(state, fanned)).toBe('begin')
     // The subdivide is dark too — a fan's beam lines are `fan.beams`, not a break in a group.
-    expect(secondaryBreakHighlight(state, { getNote: () => ({ fan: {}, secondaryBreak: true }), getBeamRole: () => 'begin' })).toBe(false)
+    expect(secondaryBreakHighlight(state, { getNote: () => ({ fan: FAN, secondaryBreak: true }), getBeamRole: () => 'begin' })).toBe(false)
+  })
+
+  it('⭐ the subdivide key LIGHTS on a joined fan, and reports the DEFAULT', () => {
+    const state = stateWith([note('f')])
+    const joined = (fan: object): BeamSource =>
+      ({ getNote: () => ({ fan: { ...FAN, ...fan }, beam: 'continue' }), getBeamRole: () => 'continue' })
+
+    // An untouched join is subdivided, so the key opens lit — the whole reason the flag lives on the
+    // mark with absence as its default.
+    expect(secondaryBreakHighlight(state, joined({}))).toBe(true)
+    // …and dark once the fan refuses it.
+    expect(secondaryBreakHighlight(state, joined({ joinSubdivide: false }))).toBe(false)
+    // An UNJOINED fan is still nothing to subdivide, whatever it carries.
+    expect(secondaryBreakHighlight(state, { getNote: () => ({ fan: FAN }), getBeamRole: () => 'begin' })).toBe(false)
   })
 
   it('⭐ …except `continue` — the one beam key a fan takes, and it lights what was WRITTEN', () => {
     // docs/fan-beam-join-plan.md §1 (P0): the join to the group on the left.
     const state = stateWith([note('f')])
-    const joined: BeamSource = { getNote: () => ({ fan: {}, beam: 'continue' }), getBeamRole: () => 'continue' }
+    const joined: BeamSource = { getNote: () => ({ fan: FAN, beam: 'continue' }), getBeamRole: () => 'continue' }
     state.selectedBeam = 'single'   // the ARMED value is beside the point here…
     expect(beamHighlight(state, joined)).toBe('continue')
     expect(beamRoleHighlight(state, joined)).toBe('continue')
@@ -136,7 +153,7 @@ describe('beamHighlight (the dev shell\'s Beam row)', () => {
     // …and so it goes dark the moment the press UNJOINS, which writes `auto` — a value the armed
     // side never takes (there is no `auto` key), so an armed read would leave the key lit.
     state.selectedBeam = 'continue'
-    expect(beamHighlight(state, { getNote: () => ({ fan: {} }), getBeamRole: () => 'begin' })).toBeNull()
+    expect(beamHighlight(state, { getNote: () => ({ fan: FAN }), getBeamRole: () => 'begin' })).toBeNull()
   })
 
   it('a selected NOTE still reports both facts', () => {

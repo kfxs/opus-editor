@@ -630,3 +630,55 @@ test('⭐ WIDENING THE BAR SPREADS THE FAN — its members take their share like
     expect(after[i], `accel: gap ${i} still tighter than gap ${i - 1}`).toBeLessThan(after[i - 1])
   }
 })
+
+test('⭐ A JOINED FAN SUBDIVIDES: the secondary beam breaks where the gesture starts', async ({ score }) => {
+  /*
+   * His screenshot: four 16ths beamed into a fan drew every level straight through the boundary, and
+   * *"the fan is not distinguishable from semicorcheas"* — one thick band that thinned somewhere in
+   * the middle, with nothing saying where the gesture began. The join now breaks the SECONDARY beams
+   * and lets the primary carry the boundary, which is what a subdivision says everywhere else in
+   * notation.
+   *
+   * Measured on the drawn ink, which is the only place it exists: the prefix's second line must STOP
+   * before the fan's first stem, and the primary must not.
+   */
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    // Four sixteenths, then a fan on the second beat, joined to them — his picture.
+    for (const k of [0, 1, 2, 3]) {
+      h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: '16', measure: 1, beat: h.frac(k, 4) })
+    }
+    const owner = h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: h.frac(1, 1) })!
+    h.engine.setFan(owner.id, { direction: 'accel', count: 6, beams: 3 })
+    h.engine.updateNote(owner.id, { beam: 'continue' })
+    await h.render()
+    const quads = h.quads('g.vf-fan path')
+    const heads = h.noteheads().map(n => n.x)
+
+    // The subdivide key's answer, stored on the mark (PaletteController.toggleSecondaryBreak).
+    h.engine.setFan(owner.id, { ...h.engine.getNote(owner.id)!.fan!, joinSubdivide: false })
+    await h.render()
+    return { quads, heads, band: h.quads('g.vf-fan path') }
+  })
+
+  // Ten heads: the four typed sixteenths and the fan's six.
+  expect(drawn.heads).toHaveLength(10)
+  const lastPrefixHead = drawn.heads[3]
+  const firstFanHead = drawn.heads[4]
+
+  // The PRIMARY is the line that reaches the last member — it carries the whole group, boundary and
+  // all, which is what keeps the two groups one beam.
+  const right = Math.max(...drawn.quads.map(q => q.right))
+  const primary = drawn.quads.filter(q => q.right > right - 1)
+  expect(primary.some(q => q.left < lastPrefixHead), 'the primary crosses the join').toBe(true)
+
+  // …and at least one level STOPS between the prefix's last note and the fan's first: that gap is
+  // the subdivision, and it is the whole point of the change.
+  const stops = drawn.quads.filter(q => q.right > lastPrefixHead - 1 && q.right < firstFanHead)
+  expect(stops.length, 'a secondary level ends inside the join — the gap he asked for').toBeGreaterThan(0)
+
+  // …and the Keypad can refuse it: `FanMark.joinSubdivide: false` puts the band back, which is the
+  // picture he reported. Nothing else about the fan moves.
+  expect(drawn.band.every(q => q.right < lastPrefixHead || q.right > firstFanHead),
+    'unsubdivided, no level ends inside the join').toBe(true)
+})

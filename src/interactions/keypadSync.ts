@@ -1,11 +1,12 @@
 import type { EditorState, StateListener } from './EditorState'
-import type { BeamMode, NoteDuration, TremoloMark } from '../types/music'
+import type { BeamMode, FanMark, NoteDuration, TremoloMark } from '../types/music'
 import { armedToolUsesLength, selectedOf } from './EditorState'
 import type { BeamRole } from '../utils/beaming'
 import type { PaletteController } from './PaletteController'
 import { bus } from '@/bus'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
 import { multipleNotesSelected } from './selection'
+import { fanIsJoined, fanJoinSubdivides } from '../utils/fannedBeam'
 
 /**
  * The highlight rule, in one place: a palette value is shown only when it means something —
@@ -91,7 +92,11 @@ export function beamHighlight(state: EditorState, engine: BeamSource | null): Be
 export interface BeamSource {
   /** `fan` is only ever tested for PRESENCE here — the row asks "is this the fan's owner?", never
    *  what shape it is. Optional like the others, so a test double stays a one-liner. */
-  getNote(noteId: string): { isRest?: boolean; secondaryBreak?: boolean; beamOver?: boolean; fan?: unknown; beam?: BeamMode } | undefined
+  getNote(noteId: string): {
+    isRest?: boolean; secondaryBreak?: boolean; beamOver?: boolean; beam?: BeamMode
+    /** Tested for PRESENCE by the beam rows; the subdivide light also reads its `joinSubdivide`. */
+    fan?: FanMark
+  } | undefined
   getBeamRole(noteId: string): BeamRole | null
 }
 
@@ -107,10 +112,15 @@ export function secondaryBreakHighlight(state: EditorState, engine: BeamSource |
   if (!engine || state.selectedTool !== 'selection') return false
   if (state.selectedMarkingTool || noNoteInSelection(state) || !state.selectedNoteId) return false
   const note = engine.getNote(state.selectedNoteId)
-  // Never on a FANNED slot (his call): a subdivision breaks the second beam WITHIN a group, and a
+  if (!note || note.isRest) return false
+  // ⭐ A JOINED fan is the one fan this key means something on, and there it opens LIT: the join
+  // subdivides unless the mark refuses ({@link FanMark.joinSubdivide}), so the button reports the
+  // EFFECTIVE answer and not a stored flag — the default is the whole point of the field.
+  if (fanIsJoined(note) && note.fan) return fanJoinSubdivides(note.fan)
+  // Never on an UNJOINED fan (his call): a subdivision breaks the second beam WITHIN a group, and a
   // fan's beams are the ramp — how many lines it feathers out to is `fan.beams`, not a break. The
   // toggle is refused there for the same sentence, so an old flag under a fan reports nothing.
-  return !!note && !note.isRest && !note.fan && !!note.secondaryBreak
+  return !note.fan && !!note.secondaryBreak
 }
 
 /**

@@ -478,6 +478,7 @@ describe('a fan joined to the group on its left', () => {
     prefix?: { stemX: number; headYs: number[] }[]
     prefixBeams?: number
     memberStep?: number
+    subdivideJoin?: boolean
   } = {}) => {
     const fan = opts.fan ?? FAN
     const step = opts.memberStep ?? 0
@@ -488,6 +489,7 @@ describe('a fan joined to the group on its left', () => {
       headX: 100, spanEndX: 400, stemOffset: 10, minHeadGap: MIN_GAP,
       prefix: opts.prefix ?? PREFIX,
       prefixBeams: opts.prefixBeams ?? 1,
+      subdivideJoin: opts.subdivideJoin,
       tipY: 60, minStemLength: MIN_STEM, stemDirection: 1, beamWidth: BEAM_WIDTH,
     })
   }
@@ -529,14 +531,41 @@ describe('a fan joined to the group on its left', () => {
     expect(g.beams[0].startX).toBe(g.stems[0].stemX)
   })
 
-  it('⭐ the prefix keeps its OWN beam levels, and they stop at the owner’s stem', () => {
-    // A 16th prefix: two lines arrive, and the second is the prefix's alone.
+  it('⭐ the prefix keeps its OWN beam levels, and they stop where the SUBDIVISION is', () => {
+    // A 16th prefix: two lines arrive, and the second is the prefix's alone. It ends at the LAST
+    // PREFIX stem (70), not at the fan's owner (100) — the gap between them is the subdivision.
     const g = joined({ prefixBeams: 2 })
-    const prefixLevels = g.beams.filter(line => line.startX === 40 && line.endX === g.stems[0].stemX)
+    const prefixLevels = g.beams.filter(line => line.startX === 40 && line.endX === 70)
     expect(prefixLevels).toHaveLength(1)
     expect(prefixLevels[0].startY).toBeCloseTo(g.beams[0].startY + BEAM_WIDTH * 1.5, 6)
     // An eighth prefix asks for one line, which IS the primary — nothing extra.
     expect(joined({ prefixBeams: 1 }).beams).toHaveLength(3)
+  })
+
+  /**
+   * ⭐ THE SUBDIVISION AT THE JOIN — his report: a run of 16ths beamed into a fan drew every level
+   * straight through, and *"the fan is not distinguishable from semicorcheas"*.
+   */
+  it('⭐ subdivides by DEFAULT: the secondary stops short of the fan, the primary carries on', () => {
+    const g = joined({ prefixBeams: 2 })
+    const secondary = g.beams.find(line => line.startX === 40 && line !== g.beams[0])!
+    expect(secondary.endX, 'ends at the last prefix stem').toBe(70)
+    expect(secondary.endX, 'and NOT at the fan’s own first stem').not.toBe(g.stems[0].stemX)
+    expect(g.beams[0].endX, 'while the primary still runs the whole group').toBe(g.stems[5].stemX)
+  })
+
+  it('…and `subdivideJoin: false` draws the old unbroken band', () => {
+    const g = joined({ prefixBeams: 2, subdivideJoin: false })
+    const secondary = g.beams.find(line => line.startX === 40 && line !== g.beams[0])!
+    expect(secondary.endX).toBe(g.stems[0].stemX)
+  })
+
+  it('⚠️ a prefix of ONE note keeps its level as a STUB — losing it would be a different rhythm', () => {
+    const g = joined({ prefix: [{ stemX: 70, headYs: [100] }], prefixBeams: 2 })
+    const secondary = g.beams.find(line => line !== g.beams[0] && line.endX === 70)!
+    expect(secondary.endX, 'it ends at the note').toBe(70)
+    expect(secondary.startX, 'and reaches BACK from it, into the group it belongs to').toBeLessThan(70)
+    expect(70 - secondary.startX, 'a fraction of a beam, not a span').toBeLessThan(70 - 40)
   })
 
   it('⭐ the PREFIX votes on the line’s height like any other note in the group', () => {
@@ -563,7 +592,7 @@ describe('a fan joined to the group on its left', () => {
       prefix: PREFIX, prefixBeams: 2,
       tipY: 140, minStemLength: MIN_STEM, stemDirection: -1, beamWidth: BEAM_WIDTH,
     })
-    const extra = g.beams.find(line => line.startX === 40 && line.endX === g.stems[0].stemX)!
+    const extra = g.beams.find(line => line.startX === 40 && line.endX === 70)!
     expect(extra.startY).toBeCloseTo(g.beams[0].startY - BEAM_WIDTH * 1.5, 6)
   })
 })
@@ -591,23 +620,34 @@ describe('two fans on one beam', () => {
     expect([rit.startLevels, rit.endLevels]).toEqual([3, 1])
   })
 
-  it('⭐ crosses the gap with the lines BOTH sides have, and no more', () => {
+  it('⭐ SUBDIVIDES by default: the primary crosses and nothing else does', () => {
     const accel = ramp({ direction: 'accel', count: 6, beams: 3 }) // ends wide: 3
     const rit = ramp({ direction: 'rit', count: 6, beams: 4 })     // starts wide: 4
     const thickness = BEAM_WIDTH
 
-    // accel → rit is the thick join: min(3, 4) = 3.
-    expect(fanJoinQuads({ left: accel, right: rit, toX: 500, thickness })).toHaveLength(3)
-    // rit → accel is the clean one: 1 line out, 1 line in.
+    // However many lines the two sides share, ONE crosses — the boundary is a subdivision.
+    expect(fanJoinQuads({ left: accel, right: rit, toX: 500, thickness })).toHaveLength(1)
     expect(fanJoinQuads({ left: rit, right: accel, toX: 500, thickness })).toHaveLength(1)
+  })
+
+  it('…and unsubdivided it crosses with the lines BOTH sides have, and no more', () => {
+    const accel = ramp({ direction: 'accel', count: 6, beams: 3 }) // ends wide: 3
+    const rit = ramp({ direction: 'rit', count: 6, beams: 4 })     // starts wide: 4
+    const thickness = BEAM_WIDTH
+    const band = { toX: 500, thickness, subdivide: false }
+
+    // accel → rit is the thick join: min(3, 4) = 3.
+    expect(fanJoinQuads({ left: accel, right: rit, ...band })).toHaveLength(3)
+    // rit → accel is the clean one: 1 line out, 1 line in.
+    expect(fanJoinQuads({ left: rit, right: accel, ...band })).toHaveLength(1)
     // accel → accel: 3 out, 1 in ⇒ one line crosses and the other two stop at their own stem.
-    expect(fanJoinQuads({ left: accel, right: accel, toX: 500, thickness })).toHaveLength(1)
+    expect(fanJoinQuads({ left: accel, right: accel, ...band })).toHaveLength(1)
   })
 
   it('runs them flat, from the left fan’s LAST stem to the right fan’s owner', () => {
     const left = ramp({ direction: 'accel', count: 6, beams: 3 })
     const right = ramp({ direction: 'rit', count: 6, beams: 3 })
-    const quads = fanJoinQuads({ left, right, toX: 500, thickness: BEAM_WIDTH })
+    const quads = fanJoinQuads({ left, right, toX: 500, thickness: BEAM_WIDTH, subdivide: false })
     for (const q of quads) {
       expect(q.startX).toBe(left.stems[left.stems.length - 1].stemX)
       expect(q.endX).toBe(500)
@@ -620,10 +660,10 @@ describe('two fans on one beam', () => {
   it('the crossing lines keep the RIGHT fan’s spread — they land on its stems', () => {
     const left = ramp({ direction: 'accel', count: 6, beams: 3 })
     const right = ramp({ direction: 'rit', count: 6, beams: 3 })
-    const quads = fanJoinQuads({ left, right, toX: 500, thickness: BEAM_WIDTH, spread: 2 })
+    const quads = fanJoinQuads({ left, right, toX: 500, thickness: BEAM_WIDTH, spread: 2, subdivide: false })
     expect(quads[1].startY).toBeCloseTo(right.lineY + 2 * BEAM_WIDTH * 1.5, 6)
     // Absent is the ordinary gap here too, so an unspread join is untouched.
-    expect(fanJoinQuads({ left, right, toX: 500, thickness: BEAM_WIDTH })[1].startY)
+    expect(fanJoinQuads({ left, right, toX: 500, thickness: BEAM_WIDTH, subdivide: false })[1].startY)
       .toBeCloseTo(right.lineY + BEAM_WIDTH * 1.5, 6)
   })
 
