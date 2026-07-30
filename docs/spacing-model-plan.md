@@ -562,8 +562,9 @@ settles the invariant below.
 barline (two constants stack — our `BARLINE_PADDING` and VexFlow's 12 px `Stave.padding` — and
 nothing owns it; belongs with §4's "header as columns"), the first column's LEFT extent (never
 counted: `naturalWidth` sums the gaps *between* columns, so an accidental on a bar's first note buys
-no room), vertical clearance / kerning, and the line's surplus being shared in proportion to each
-bar's TOTAL width when only its MUSIC can stretch.
+no room), and vertical clearance / kerning. ✅ The line's surplus is fixed — it is shared by
+`naturalWidth − overhead` now, so the same duration is drawn the same width across a system
+(`docs/vexflow-boundary.md` §6).
 
 ### P3.2 — the bar's LEAD-IN, taken back from VexFlow ✅ DONE 2026-07-30
 His report: *"in bar 2 I don't know why there is such a huge empty space between the barline and the
@@ -600,8 +601,9 @@ and this is an improvement, we should do it."*
   error; it stops cancelling the moment the lead-in is ours. `noteStartOf(stave)` is the corrected
   reader, and `centerMeasureRests` had to move with it or every measure rest sat 6 px off-centre.
 
-⏭️ Still owed from his reports: vertical clearance / kerning, and the line's surplus being shared in
-proportion to each bar's TOTAL width when only its MUSIC can stretch.
+⏭️ Still owed from his reports: vertical clearance / kerning. ✅ The line's surplus is fixed — see
+`docs/vexflow-boundary.md` §6, and `e2e/spacing.e2e.ts`'s *"the SAME DURATION is drawn the same
+width across a system"*.
 
 ### P4 — the renderer takes over x ✅ DONE 2026-07-30
 Format at minimum width, then write our x's onto the tick contexts. The seam exists and is proven:

@@ -145,6 +145,13 @@ note **of the system** (`minSysTicks`) — which then forced step 4 of their alg
 measure joins the system, if its shortest note is shorter than the current one, re-lay out all the
 previous measures* (and undo it if the measure then does not fit).
 
+✅ **And we now have that consistency, by a different route — 2026-07-30.** Ours never depended on
+the shortest note in the system, so MuseScore's re-layout loop was never a risk; what DID break the
+rule was the justifier, which shared a line's surplus in proportion to each bar's whole width while
+only its music could absorb it. A quarter came out 4.28 staff spaces in a system-opening bar and 3.96
+two bars later. Sharing by `naturalWidth − overhead` fixed it: five bars of identical music on one
+line now draw the quarter at 4.130, four times over. See `docs/vexflow-boundary.md` §6.
+
 ⭐ **A rule anchored on an absolute duration (Dorico's, MuseScore 4's shipped `3.5sp × slope^log2(t/quarter)`)
 does not need any of that** — the space for a quarter is the same in every bar of every score, so
 consistency is free and no re-layout loop exists. LilyPond's `common-shortest-duration` and
