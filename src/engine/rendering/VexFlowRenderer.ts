@@ -43,8 +43,9 @@ import {
 } from './NoteBuilder'
 import { calculateMeasureWidths } from './MeasureLayout'
 import { MeasureWidthCache } from './MeasureWidthCache'
-import { measureColumns, measureLeadIn } from '@/engine/layout/measureColumns'
-import { headerExtent, type Header } from '@/engine/layout/headerInk'
+import { clefResolverFor, measureColumns, measureLeadIn, type LeadIn } from '@/engine/layout/measureColumns'
+import type { Column } from '@/engine/layout/spacing'
+import { headerExtent } from '@/engine/layout/headerInk'
 import { applySpacingPass } from './spacingPass'
 import { renderProbe } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
@@ -213,6 +214,36 @@ const PLACEHOLDER_BEAM = { postFormat: () => {} } as unknown as Beam
 export interface MeasurePlacement {
   /** This staff's own lane of the measure (`staffMeasureView`), not the shared measure. */
   view: Measure
+  /**
+   * ⭐⭐ **The SYSTEM's spacing facts for this measure — one answer, shared by every staff of it.**
+   *
+   * A column is a position in the *system*, so beat 2 must land on one x on every staff. Both numbers
+   * here are therefore resolved from the WHOLE measure (all staves merged) and handed to each staff,
+   * rather than recomputed inside `drawMeasureContent` — which is where this went wrong: that function
+   * destructures `view` (this staff's LANE) as `measure`, so each staff was spacing itself as though
+   * it were alone on the page. Reported on a grand staff: *"vertically the second stave doesn't match
+   * with the first, this is wrong notation"*, and measured at 1.0, 1.7 and 2.4 staff spaces of drift
+   * across one bar — a shift plus a scale, because the lane's lead-in AND its column list both
+   * differed.
+   */
+  system: {
+    /** The measure's merged columns, barline last (`engine/layout/measureColumns.ts`). */
+    columns: Column[]
+    /** The measure's lead-in: `barline↔first ink` padding, and that ink's own left reach. */
+    leadIn: LeadIn
+    /**
+     * ⭐ **The WIDEST header any staff of this measure draws**, in staff spaces — so every staff's
+     * notes start at the same x.
+     *
+     * A clef is per staff and a clef CHANGE may happen on one staff alone, which legitimately makes
+     * that staff's header wider. What must not follow is that staff's music starting later than its
+     * neighbour's: measured on a grand staff where only the lower staff changed clef, the two hands
+     * came out 2.6 staff spaces apart at beat 1 and converged to 0.65 by beat 4. The width path
+     * already reserves the widest header (`MeasureLayout`'s `widestOverhead`), so the room is there —
+     * this is the drawing agreeing with it.
+     */
+    headerExtent: number
+  }
   measureNumber: number
   staffIndex: number
   line: number
@@ -1314,6 +1345,35 @@ export class VexFlowRenderer {
       const systemTop = spacing.lineTopPx[currentLine]
       const isFirstInLine = currentX === lineLeft
 
+      // ⭐ ONE answer per measure, shared by every staff: the merged columns and the merged lead-in.
+      //   Resolved here — where the whole measure and every staff's clefs are in hand — because a
+      //   column is a position in the SYSTEM (see `MeasurePlacement.system`). It also stops the
+      //   column walk being repeated per staff.
+      const clefFor = clefResolverFor(measure, clefsByStaff, staffList[0]?.id)
+      const meter = drawsTimeSignature(measure) ? measure.timeSignature : undefined
+      /** Each staff's own header — resolved here so the WIDEST is known before any placement is made. */
+      const headers = staffList.map((staff, staffIndex) => {
+        const clefs = clefsByStaff.get(staff.id)
+        const clef = (clefs?.opening.get(measure.number) || 'treble') as Clef
+        const prevEnd = measure.number > 1 ? clefs?.ending.get(measure.number - 1) : undefined
+        const changed = prevEnd !== undefined && clef !== prevEnd
+        const opens = measure.number === 1 || currentX === lineLeft
+        void staffIndex
+        return {
+          clef,
+          changed,
+          extent: headerExtent({
+            clef: opens ? { clef, small: false } : changed ? { clef, small: true } : undefined,
+            meter,
+          }),
+        }
+      })
+      const system = {
+        columns: measureColumns(measure, clefFor),
+        leadIn: measureLeadIn(measure, clefFor),
+        headerExtent: Math.max(0, ...headers.map(h => h.extent)),
+      }
+
       // Each staff of this measure sits at its own Y with its own clef and its own slice of the
       // content (staffMeasureView filters slots/clefs/dynamics/tuplets to the staff). Barlines
       // align because every staff shares this measure's x/width.
@@ -1335,6 +1395,7 @@ export class VexFlowRenderer {
 
         placements.push({
           view,
+          system,
           measureNumber: measure.number,
           staffIndex,
           line: currentLine,
@@ -1532,7 +1593,7 @@ export class VexFlowRenderer {
     // transform is one multiplication about the origin — no offset term anywhere downstream
     // (docs/staff-size-plan.md §4.1). At full size `k` is 1 and this is the arithmetic it replaced.
     const k = p.scale
-    const stave = this.buildStave(p.view, p.x / k, p.y / k, p.width / k, p.isFirstInLine, p.clef, p.hasClefChange, p.cautionaryEndClef, p.cautionaryEndTimeSig)
+    const stave = this.buildStave(p.view, p.x / k, p.y / k, p.width / k, p.isFirstInLine, p.clef, p.hasClefChange, p.cautionaryEndClef, p.cautionaryEndTimeSig, p.system)
 
     this.recordMeasureBounds(stave, p.view, p.x, p.y, p.width, p.staffIndex, k)
     // Per-measure geometry is keyed by (measure, staffIndex), so every stacked staff registers its
@@ -1786,10 +1847,14 @@ export class VexFlowRenderer {
         //     tick context takes its first member's column like any other note, and `FannedBeam`
         //     spaces the members after it by the same rule (their own durations), so there is
         //     nothing left for `fanRoom` to buy from the formatter.
-        const leadIn = measureLeadIn(measure, () => clef)
+        // ⭐⭐ THE SYSTEM's columns and lead-in, not this LANE's (`MeasurePlacement.system`). `measure`
+        //     in this function is `placement.view` — the staff's own slice — so resolving either from
+        //     it spaced each staff as if it were alone: a grand staff's two hands came out 1.0, 1.7
+        //     and 2.4 staff spaces apart across one bar, for the same beats.
+        const leadIn = placement.system.leadIn
         const room = (stave.getNoteEndX() - noteStartOf(stave) - userSpacePx) / STAFF_SPACE_PX
         applySpacingPass(formatter, vexVoices, {
-          columns: measureColumns(measure, () => clef),
+          columns: placement.system.columns,
           firstX: leadIn.extent,
           targetWidth: room - leadIn.extent,
           meterQuarters: (measure.timeSignature.numerator * 4) / measure.timeSignature.denominator,
@@ -2110,6 +2175,7 @@ export class VexFlowRenderer {
     hasClefChange: boolean = false,
     cautionaryEndClef?: Clef,
     cautionaryEndTimeSig?: TimeSignature,
+    system?: MeasurePlacement['system'],
   ): Stave {
     const stave = new Stave(x, y, width)
     stave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
@@ -2134,12 +2200,17 @@ export class VexFlowRenderer {
       stave.addEndTimeSignature(timeSignatureVexKey(cautionaryEndTimeSig))
     }
 
-    applyLeadIn(stave, measure, clef, x, {
-      clef: measure.number === 1 || isFirstInLine
-        ? { clef, small: false }
-        : hasClefChange ? { clef, small: true } : undefined,
-      meter: drawsTimeSignature(measure) ? measure.timeSignature : undefined,
-    })
+    // ⭐⭐ Where this staff's notes START is a SYSTEM answer, never this lane's: the measure's own
+    //     lead-in plus the widest header any staff of it draws (`MeasurePlacement.system`). Reading
+    //     either from `measure` — which here is the staff's LANE — put a grand staff's two hands at
+    //     different x's for the same beat.
+    applyLeadIn(stave, x, system?.leadIn.padding ?? measureLeadIn(measure, () => clef).padding,
+      system?.headerExtent ?? headerExtent({
+        clef: measure.number === 1 || isFirstInLine
+          ? { clef, small: false }
+          : hasClefChange ? { clef, small: true } : undefined,
+        meter: drawsTimeSignature(measure) ? measure.timeSignature : undefined,
+      }))
     return stave
   }
 
@@ -4006,7 +4077,7 @@ function noteStartOf(stave: Stave): number {
   return stave.getNoteStartX() + Metrics.get('Stave.padding', 0)
 }
 
-function applyLeadIn(stave: Stave, measure: Measure, clef: Clef, staveX: number, header: Header): void {
+function applyLeadIn(stave: Stave, staveX: number, padding: number, header: number): void {
   // ⚠️ `padding` only, never `padding + extent`: VexFlow's formatter already shifts the first tick
   //    context right by that column's own left ink, so adding the extent here pays for the
   //    accidental twice — measured, and it made the blank WIDER than the one it was fixing.
@@ -4016,7 +4087,7 @@ function applyLeadIn(stave: Stave, measure: Measure, clef: Clef, staveX: number,
   //   its own that agreed with the drawing by nobody's arrangement — over by 0.9 staff spaces for a
   //   line-opening bar, UNDER by 0.6 for a two-digit meter. Reading the same number here as the
   //   layout reserved makes them agree by construction rather than by luck.
-  const leadIn = (measureLeadIn(measure, () => clef).padding + headerExtent(header)) * STAFF_SPACE_PX
+  const leadIn = (padding + header) * STAFF_SPACE_PX
   // ⚠️ Never left of the barline: `getNoteStartX` is what the hit-testing and the shrink-room read,
   //    and a note area that begins outside its own bar is a bug (`tier1Geometry.test.ts`). The pair
   //    table is chosen so this clamp does not bite — it is here so that a future row which forgets

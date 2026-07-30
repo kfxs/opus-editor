@@ -689,6 +689,18 @@ Four decisions:
   **same merged column list** and writes the same x's, so they agree by construction — and
   `drawMeasureContent` keeps running per (measure, staff), which culling, the per-staff scale groups
   and `openGroup` identity all depend on.
+
+  🚨 **AS SHIPPED IT DID NOT DO THIS, and the bug lasted until 2026-07-30.** `drawMeasureContent`
+  destructures `view` — the staff's LANE — as `measure`, so both the column list and the lead-in were
+  resolved per staff and each staff spaced itself as though alone on the page. Reported on a grand
+  staff (*"vertically the second stave doesn't match with the first, this is wrong notation"*) and
+  measured at **1.0 / 1.7 / 2.4 staff spaces** of drift across one bar — a shift plus a scale. ⭐ The
+  lesson is about the SENTENCE, not the arithmetic: "every staff is handed the same merged column
+  list" was written here, in `spacingPass`'s own doc, and in `ARCHITECTURE.md`, and was true in the
+  WIDTH path only. A claim that one number is shared needs a test that two readers get the same
+  number — `e2e/systems.e2e.ts` has it now, and the second half of the same rule with it (a clef
+  change on one staff must not move that staff's music out of line: the note start is the widest
+  header on the SYSTEM, which is what the width path always reserved).
 - ⚠️ **`firstX` is the first column's left ink, not zero.** VexFlow's formatter shifts the first tick
   context right by that column's ink; writing x's ourselves throws that shift away, and without
   putting it back an accidental on a bar's first note draws to the LEFT of its own barline.

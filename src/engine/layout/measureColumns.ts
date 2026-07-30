@@ -25,14 +25,14 @@
  * bar holding no slots at all, which draws a single measure rest — one column, at beat 0.
  */
 import type { Measure, Fraction, ChordRest, NotePitch, Clef } from '@/types/music'
-import { fracCompare, fracCreate, fracSub } from '@/utils/fraction'
+import { fracCompare, fracCreate, fracIsZero, fracSub } from '@/utils/fraction'
 import { slotLength } from '@/utils/durations'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fanMemberBeats } from '@/utils/fannedBeam'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { voiceOf } from '@/utils/lanes'
-import { staffLineForSpelling } from '@/utils/clefUtils'
+import { staffLineForSpelling, type StaffClefs } from '@/utils/clefUtils'
 import { INK, INK_HEIGHT, STEM_REACH, accidentalExtent, accidentalHeight, dotExtent, pairPadding, restExtent } from './spacingPadding'
 import { edgeKind, mergedReach, type InkBox } from './kerning'
 import type { Column } from './spacing'
@@ -318,6 +318,37 @@ function displayedSigns(measure: Measure): Map<string, string | null> {
     for (const [id, sign] of displayedAccidentals(ordered)) signs.set(id, sign)
   }
   return signs
+}
+
+/**
+ * ⭐ **Which clef governs each slot** — its own staff's opening clef, moved on by any INLINE clef
+ * change on that staff at or before the slot's beat.
+ *
+ * The width needs it because a LEDGER LINE is ink and whether a note has one is a fact about where it
+ * SITS (see the note above on why that stopped being forbidden). An absent `staffId` means the first
+ * staff, as everywhere else.
+ *
+ * ⚠️ **One definition, two readers, and that is the point.** The width path
+ * (`MeasureLayout.noteSpaceForMeasure`) and the DRAWING (`spacingPass`, through the renderer) must ask
+ * this the same way or they space the same bar differently — which is exactly the bug that put a grand
+ * staff's two hands at different x's for the same beat: the renderer was resolving a LANE while the
+ * width resolved the MEASURE.
+ */
+export function clefResolverFor(
+  measure: Measure,
+  clefsByStaff: Map<string | undefined, StaffClefs>,
+  firstStaffId: string | undefined,
+): ClefResolver {
+  const inline = (measure.clefs ?? []).filter(change => !fracIsZero(change.beat))
+  return slot => {
+    const staffId = slot.staffId ?? firstStaffId
+    let clef = clefsByStaff.get(staffId)?.opening.get(measure.number) ?? 'treble'
+    for (const change of inline) {
+      if ((change.staffId ?? firstStaffId) !== staffId) continue
+      if (fracCompare(change.beat, slot.beat) <= 0) clef = change.clef
+    }
+    return clef
+  }
 }
 
 export function measureColumns(measure: Measure, clefFor: ClefResolver = () => 'treble'): Column[] {

@@ -1,5 +1,5 @@
 import type { Score, Measure, Clef } from '@/types/music'
-import { fracCompare, fracIsZero } from '@/utils/fraction'
+import { fracIsZero } from '@/utils/fraction'
 import { type StaffClefs } from '@/utils/clefUtils'
 import { getStaves, staffMeasureView } from '@/engine/models/staffContent'
 import { cautionaryAllowedOf, cautionaryClefAllowedOf, keyStaffId, measureUserSpacePx, measureStretch } from '../models/engravingOverrides'
@@ -7,7 +7,7 @@ import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutCon
 import { resolveSurface, SKETCH_CANVAS, type SurfaceMetrics } from '@/engine/layout/surface'
 import type { MeasureWidthCache } from './MeasureWidthCache'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { measureColumns, measureLeadIn, type ClefResolver } from '@/engine/layout/measureColumns'
+import { clefResolverFor, measureColumns, measureLeadIn } from '@/engine/layout/measureColumns'
 import { cautionaryExtent, headerExtent, inlineClefExtent } from '@/engine/layout/headerInk'
 import { naturalWidth, minimumWidth } from '@/engine/layout/spacing'
 import { EMPTY_BAR_FLOOR_PX } from '@/engine/layout/spacingPadding'
@@ -76,7 +76,7 @@ function noteSpaceForMeasure(
   // called `format`; what it times is no longer a formatter but the width term it replaced.
   const probing = renderProbe().recording
   const t0 = probing ? performance.now() : 0
-  const columns = measureColumns(measure, clefForSlot(measure, clefsByStaff, firstStaffId))
+  const columns = measureColumns(measure, clefResolverFor(measure, clefsByStaff, firstStaffId))
   // ⚠️ Staff spaces out, pixels in: the rule is written in the unit Gould's table is, and the
   // casting-off works in px. ⚠️ A staff drawn small should multiply this by its own size — the same
   // open P3 as the four width constants in `layoutConfig` (docs/staff-size-plan.md §6).
@@ -95,31 +95,6 @@ function noteSpaceForMeasure(
   }
   if (probing) renderProbe().layoutSub('format', performance.now() - t0)
   return answer
-}
-
-/**
- * Which clef governs each slot — its own staff's opening clef, moved on by any INLINE clef change on
- * that staff at or before the slot's beat.
- *
- * ⭐ The width needs this because a LEDGER LINE is ink and whether a note has one is a fact about
- * where it sits (`engine/layout/measureColumns.ts` explains why that stopped being forbidden). An
- * absent `staffId` means the first staff, as everywhere else.
- */
-function clefForSlot(
-  measure: Measure,
-  clefsByStaff: Map<string | undefined, StaffClefs>,
-  firstStaffId: string | undefined,
-): ClefResolver {
-  const inline = (measure.clefs ?? []).filter(change => !fracIsZero(change.beat))
-  return slot => {
-    const staffId = slot.staffId ?? firstStaffId
-    let clef = clefsByStaff.get(staffId)?.opening.get(measure.number) ?? 'treble'
-    for (const change of inline) {
-      if ((change.staffId ?? firstStaffId) !== staffId) continue
-      if (fracCompare(change.beat, slot.beat) <= 0) clef = change.clef
-    }
-    return clef
-  }
 }
 
 /**
@@ -161,7 +136,7 @@ function calculateMinimumMeasureWidth(
   // ⚠️ And it replaces `BARLINE_PADDING × 2`, which was DOUBLE-COUNTING since P3: the trailing side
   //   became the barline COLUMN's gap (`note↔barline`), so a bar was reserving three spaces of
   //   barline padding where it owes two.
-  const leadIn = measureLeadIn(measure, clefForSlot(measure, clefsByStaff, staffIds[0]))
+  const leadIn = measureLeadIn(measure, clefResolverFor(measure, clefsByStaff, staffIds[0]))
   const sharedOverhead = (leadIn.padding + leadIn.extent) * STAFF_SPACE_PX
   const meter = drawsTimeSignature(measure) ? measure.timeSignature : undefined
 

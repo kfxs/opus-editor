@@ -89,3 +89,98 @@ test('a beam marked across the system break draws on BOTH sides of it', async ({
   expect(second.left, 'the lower one opens the next').toBeGreaterThanOrEqual(startOfSecond.x1)
   expect(second.right).toBeLessThan(startOfSecond.x2)
 })
+
+test('⭐⭐ a GRAND STAFF agrees on x: the same beat lands at the same place on both staves', async ({ score }) => {
+  // His report, on a two-staff fragment: *"look at the image, the space is wrong — vertically the
+  // second stave doesn't match with the first, this is wrong notation."* He was right, and by a lot:
+  // measured at **1.0, 1.7 and 2.4** staff spaces of drift across one bar, growing, because it was a
+  // SHIFT plus a SCALE.
+  //
+  // ⭐ The cause was one destructuring line. `drawMeasureContent` opens with
+  //   `const { view: measure } = placement` — the staff's own LANE — and then resolved both the
+  //   column list and the lead-in from it, so each staff spaced itself as though it were alone on the
+  //   page: the upper staff's eight eighths shared the bar with themselves, the lower staff's three
+  //   notes shared it with themselves, and the two grids had nothing to do with each other. The
+  //   spacing pass's own doc had said the opposite ("every staff is handed the same merged column
+  //   list") since it was written — the merge existed in the WIDTH path only.
+  //
+  // ⚠️ For unmetred contemporary notation, horizontal independence between staves is a thing we will
+  //    want on purpose. It is not the default, and the default is what this pins.
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addStaffBelow(0)
+    h.engine.addMeasure()
+    // Upper: eight eighths. Lower: three notes at beats 0, 1 and 2, each with an accidental — so the
+    // two staves have different rhythms AND different ink, which is what made the drift visible.
+    const steps = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C'] as const
+    steps.forEach((step, i) => {
+      h.engine.addNoteAtBeat({ step, octave: i === 7 ? 5 : 4, duration: '8', measure: 2, beat: h.frac(i, 2), staff: 0 })
+    })
+    h.engine.addNoteAtBeat({ step: 'C', alter: -1, octave: 4, duration: 'q', measure: 2, beat: h.frac(0, 1), staff: 1 })
+    h.engine.addNoteAtBeat({ step: 'A', alter: 1, octave: 4, duration: 'q', measure: 2, beat: h.frac(1, 1), staff: 1 })
+    h.engine.addNoteAtBeat({ step: 'G', alter: 1, octave: 4, duration: 'h', measure: 2, beat: h.frac(2, 1), staff: 1 })
+    await h.render()
+
+    const staves = h.staves().filter(stave => stave.measure === 2)
+    const upper = staves.find(stave => stave.staff === 0)!
+    const lower = staves.find(stave => stave.staff === 1)!
+    const space = (upper.bottom - upper.top) / 4
+    const headsOf = (top: number) => h.noteheads()
+      .filter(g => Math.abs(g.y - top) < 90 && g.x > upper.x1 && g.x < upper.x2)
+      .map(g => (g.x - upper.x1) / space)
+      .sort((a, b) => a - b)
+    const noteStart = (staff: number) =>
+      (h.engine.getElementRegistry().getStaffGeometry(2, staff)!.noteStartX - upper.x1) / space
+    return { upper: headsOf(upper.top), lower: headsOf(lower.top), noteStart: [noteStart(0), noteStart(1)] }
+  })
+
+  console.log(`[census] grand staff, bar 2: upper ${drawn.upper.map(x => x.toFixed(2)).join(' ')} · ` +
+    `lower ${drawn.lower.map(x => x.toFixed(2)).join(' ')} · note starts ${drawn.noteStart.map(x => x.toFixed(2)).join(' ')}`)
+  expect(drawn.upper, 'eight eighths above').toHaveLength(8)
+  expect(drawn.lower, 'three notes below').toHaveLength(3)
+
+  // ⭐⭐ Beats 0, 1 and 2 of the lower staff sit on the upper staff's 1st, 3rd and 5th eighth — to
+  //     three decimals, because they are literally the same number written by the same pass.
+  expect(drawn.lower[0], 'beat 0').toBeCloseTo(drawn.upper[0], 3)
+  expect(drawn.lower[1], 'beat 1').toBeCloseTo(drawn.upper[2], 3)
+  expect(drawn.lower[2], 'beat 2').toBeCloseTo(drawn.upper[4], 3)
+  // …and the music starts at one x for the whole system, which is the other half of the same rule.
+  expect(drawn.noteStart[0], 'one note start for the system').toBeCloseTo(drawn.noteStart[1], 3)
+})
+
+test('⭐ …and a CLEF CHANGE on one staff alone does not move that staff\'s music out of line', async ({ score }) => {
+  // The same rule, second half: a clef is per staff and a change may happen on one staff only, which
+  // legitimately makes that staff's header wider. What must not follow is its music starting later
+  // than its neighbour's — measured at 2.6 staff spaces apart at beat 1, converging to 0.65 by beat 4.
+  // The width path always reserved the WIDEST header (`MeasureLayout`'s `widestOverhead`); the drawing
+  // was placing each staff after its OWN.
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addStaffBelow(0)
+    h.engine.addMeasure()
+    for (const beat of [0, 1, 2, 3]) {
+      for (const staff of [0, 1]) {
+        h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 2, beat: h.frac(beat, 1), staff })
+      }
+    }
+    h.engine.setClef(2, 'bass', 1) // the LOWER staff changes clef at bar 2; the upper does not
+    await h.render()
+    const staves = h.staves().filter(stave => stave.measure === 2)
+    const upper = staves.find(stave => stave.staff === 0)!
+    const lower = staves.find(stave => stave.staff === 1)!
+    const space = (upper.bottom - upper.top) / 4
+    const headsOf = (top: number) => h.noteheads()
+      .filter(g => Math.abs(g.y - top) < 90 && g.x > upper.x1 && g.x < upper.x2)
+      .map(g => (g.x - upper.x1) / space)
+      .sort((a, b) => a - b)
+    return { upper: headsOf(upper.top), lower: headsOf(lower.top) }
+  })
+
+  console.log(`[census] one clef change: upper ${drawn.upper.map(x => x.toFixed(2)).join(' ')} · ` +
+    `lower ${drawn.lower.map(x => x.toFixed(2)).join(' ')}`)
+  expect(drawn.upper, 'four quarters above').toHaveLength(4)
+  expect(drawn.lower, 'four quarters below').toHaveLength(4)
+  for (const [i, x] of drawn.lower.entries()) {
+    expect(x, `beat ${i} agrees across the staves`).toBeCloseTo(drawn.upper[i], 3)
+  }
+})

@@ -90,8 +90,14 @@ test('⭐⭐ a LEFT-HAND accidental buys no room in the RIGHT hand — the piano
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: '16', measure: 1, beat: h.frac(i, 4), staff: 0 })
     }
     // Four DIFFERENT sharpened pitches, so each really draws its sign (a repeated C♯ is spelled once).
+    //
+    // ⚠️ Inside the staff, deliberately: down at C3 these notes would sit on LEDGER LINES, and a ledger
+    //    is ink — `ledger↔note` (1.85) then legitimately widens the gap after each of them by 0.05
+    //    spaces, which is the model working and would blunt the claim below. (It also only became
+    //    visible once both staves shared one column list; before that the right hand never saw the left
+    //    hand's ledgers at all.)
     for (const [i, step] of (['C', 'D', 'F', 'G'] as const).entries()) {
-      h.engine.addNoteAtBeat({ step, octave: 3, alter: 1, duration: 'q', measure: 1, beat: h.frac(i, 1), staff: 1, forceAccidental: true })
+      h.engine.addNoteAtBeat({ step, octave: 4, alter: 1, duration: 'q', measure: 1, beat: h.frac(i, 1), staff: 1, forceAccidental: true })
     }
     await h.render()
     const bars = h.columnGaps()
@@ -107,10 +113,21 @@ test('⭐⭐ a LEFT-HAND accidental buys no room in the RIGHT hand — the piano
   expect(drawn.signs, 'the left hand really draws four sharps').toBe(4)
   expect(drawn.right, 'sixteen 16ths in the right hand').toHaveLength(16)
 
-  // ⭐⭐ EVERY gap the same, to a hundredth. Four of them fall where a left-hand accidental sits; if
-  //     that accidental were still buying room they would be about a staff space wider than the rest.
+  // ⭐⭐ EVERY gap the same. Four of them fall where a left-hand accidental sits; if that accidental
+  //     were still buying room they would be `note↔accidental` (2.88) instead of the rule's 1.80 —
+  //     about a staff space wider than their neighbours.
+  //
+  // ⚠️ To a PIXEL and not to a hundredth: the model's grid is exact (every gap 1.80), but VexFlow draws
+  //    the bar's FIRST notehead half a pixel closer than the rest from its own left-modifier handling.
+  //    That is below the resolution the ink table itself is written at, and it is not a cross-staff
+  //    error — the two hands land on the same x to three decimals (`e2e/systems.e2e.ts`).
   const gaps = noteGaps(drawn.right)
-  for (const gap of gaps) expect(gap, 'one 16th, the same width all through the bar').toBeCloseTo(gaps[0], 2)
+  for (const gap of gaps) {
+    // Within one PIXEL (0.1 staff spaces): the model's grid is exact, the drawing rounds the first
+    // notehead by half of one. An accidental buying room would be a whole space wider, not half a pixel.
+    expect(Math.abs(gap - gaps[1]), 'one 16th, the same width all through the bar').toBeLessThan(0.1)
+  }
+  expect(Math.max(...gaps), 'and none of them is paying for an accidental').toBeLessThan(2.2)
 })
 
 test('⛔ …but inside a BEAM the previous stem is in the way, and the accidental keeps its room', async ({ score }) => {

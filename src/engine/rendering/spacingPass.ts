@@ -34,6 +34,19 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  * merged column list and writes the same x's**, so they agree by construction and the per-staff
  * formatter can stay. A staff with no event at a column simply has no context to write there.
  *
+ * 🚨 **That paragraph was ASPIRATIONAL until 2026-07-30 — the caller was handing each staff its own
+ * LANE.** `drawMeasureContent` opens with `const { view: measure } = placement`, so
+ * `measureColumns(measure)` and `measureLeadIn(measure)` both answered about one staff's slice: the
+ * upper staff's eight eighths shared the bar with themselves and the lower staff's three notes with
+ * themselves. Reported on a grand staff — *"vertically the second stave doesn't match with the first,
+ * this is wrong notation"* — and measured at **1.0, 1.7 and 2.4 staff spaces** of drift across one bar:
+ * a shift (the lane's own lead-in) plus a scale (the lane's own column list). Both now ride on
+ * `MeasurePlacement.system`, resolved once per measure where every staff's clefs are in hand.
+ *
+ * ⚠️ So the invariant this module rests on is **the caller's** to keep, and nothing in here can check
+ * it: hand `applySpacingPass` a per-staff column list and it will faithfully place a per-staff grid.
+ * `e2e/systems.e2e.ts` pins the two hands landing on the same x to three decimals.
+ *
  * ⛔ **It does not run on a bar holding a FAN.** A fan's members are drawn by `FanPass` across a span
  * `fanRoom` bought from the formatter, and moving the group's tick context out from under that span
  * is P5's job — the one that replaces `fanRoom` with the members' own columns. Until then a fanned
