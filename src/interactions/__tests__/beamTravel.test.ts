@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { MusicEngine } from '../engine/MusicEngine'
-import { buildClipboardFromSelection } from './clipboard'
-import { fracCreate as frac, fracToNumber } from '../utils/fraction'
-import type { BeamMode } from '../types/music'
+import { MusicEngine } from '../../engine/MusicEngine'
+import { buildClipboardFromSelection } from '../clipboard'
+import { fracCreate as frac, fracToNumber } from '../../utils/fraction'
+import type { BeamMode } from '../../types/music'
 
 /**
  * AN AUTHORED BEAM TRAVELS WITH THE MUSIC — the beam twin of `tremoloTravel.test.ts`, and there
@@ -22,12 +22,12 @@ const fakeRegistry = {
   registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
   getByMeasure: vi.fn(() => []),
 }
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
+vi.mock('../../engine/rendering/VexFlowRenderer', () => ({
   VexFlowRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn(); getElementRegistry = vi.fn(() => fakeRegistry)
   },
 }))
-vi.mock('../engine/audio/PlaybackEngine', () => ({
+vi.mock('../../engine/audio/PlaybackEngine', () => ({
   PlaybackEngine: class {
     setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
   },

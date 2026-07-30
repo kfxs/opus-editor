@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { MusicEngine } from '../engine/MusicEngine'
-import { buildClipboardFromSelection } from './clipboard'
-import { fracCreate as frac } from '../utils/fraction'
-import { noteOffsetOverrideOf } from '../engine/models/engravingOverrides'
+import { MusicEngine } from '../../engine/MusicEngine'
+import { buildClipboardFromSelection } from '../clipboard'
+import { fracCreate as frac } from '../../utils/fraction'
+import { noteOffsetOverrideOf } from '../../engine/models/engravingOverrides'
 
 /**
  * A note horizontal offset (client #12) TRAVELS WITH THE MUSIC (docs/note-offset-plan.md).
@@ -18,12 +18,12 @@ const fakeRegistry = {
   registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
   getByMeasure: vi.fn(() => []),
 }
-vi.mock('../engine/rendering/VexFlowRenderer', () => ({
+vi.mock('../../engine/rendering/VexFlowRenderer', () => ({
   VexFlowRenderer: class {
     initialize = vi.fn(); renderScore = vi.fn(); getElementRegistry = vi.fn(() => fakeRegistry)
   },
 }))
-vi.mock('../engine/audio/PlaybackEngine', () => ({
+vi.mock('../../engine/audio/PlaybackEngine', () => ({
   PlaybackEngine: class {
     setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
   },

@@ -32,7 +32,12 @@ const SRC = 'src'
  *    `ghostContextLeak` left this list on 2026-07-28: it drives a `MusicEngine`, but everything it
  *    asserts is the ghost draw path, whose module `GhostRenderer.ts` sits right beside it — so it
  *    renamed to `GhostRenderer.contextLeak.test.ts` instead (modularity plan Phase 0).
- *  - `interactions/` ×7: scenario tests that build a MusicEngine and drive controllers/clipboard.
+ *  - `interactions/` ×3: scenario tests that build a MusicEngine and drive controllers/clipboard.
+ *    The five `*Travel` specs left this list on 2026-07-30 — a beam / a tremolo / a fan / an offset
+ *    / a spacing "travels with the music" is one question asked of the whole relay, naming no single
+ *    module, which is exactly what `__tests__/` is for. `beamTravel` had never been listed at all
+ *    (it arrived in `b2b02ae` and the row was never added), so the check had been red ever since;
+ *    moving the family is the fix the rule actually asks for, and it SHRINKS this list.
  *  - `staveGeometry`: imports `vexflow` and nothing else — a probe of VexFlow's own behaviour, with
  *    no subject in this repo at all. Unresolved; see the plan's decision 6.
  */
@@ -42,12 +47,8 @@ const ALLOWLIST = [
   'src/engine/rendering/noteSpacingRender.test.ts',
   'src/engine/rendering/staveGeometry.test.ts',
   'src/interactions/fanPress.test.ts',
-  'src/interactions/fanTravel.test.ts',
-  'src/interactions/noteOffsetTravel.test.ts',
-  'src/interactions/noteSpacingTravel.test.ts',
   'src/interactions/tremoloDelete.test.ts',
   'src/interactions/tremoloEntry.test.ts',
-  'src/interactions/tremoloTravel.test.ts',
 ]
 
 function walk(dir, out = []) {
