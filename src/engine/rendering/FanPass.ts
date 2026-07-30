@@ -632,8 +632,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
  */
 function fanRampRoomPx(solved: SpacedColumns | undefined, slot: Chord): number | undefined {
   if (!solved || !slot.fan) return undefined
-  const beats = fanMemberBeats(slot.fan, slotLength(slot), slot.beat)
-  const spaces = fanRampRoomSpaces(solved.columns, solved.xs, beats)
+  const spaces = fanRampRoomSpaces(solved.columns, solved.xs, slot.beat, slot.fan, slotLength(slot))
   return spaces === undefined ? undefined : spaces * STAFF_SPACE_PX
 }
 

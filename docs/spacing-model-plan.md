@@ -790,6 +790,59 @@ is not symmetrical or even, we should follow Gould's rule"* — but it is exactl
 LilyPond's log law (the default) is the flatter of the two we have: it was chosen for a NARROW
 dynamic range, which is what dense music wants and what a gesture built on contrast does not.
 
+### 3b. ⭐⭐ FIXED music makes COLUMNS; UNFIXED music makes DEMANDS (2026-07-30)
+
+**His report, on a grand staff:** an `accel.`+`rit.` pair on the upper staff over sixteen even
+sixteenths on the lower, and the sixteenths came out at gaps of **21.5, 21.5, 36.3, 36.3, 21.5, …** —
+perfectly regular music drawn unevenly. *"Why are the semicorcheas in the staff below not evenly
+spaced? The measure in the staff above is not measured, so the position should not affect the position
+in the staff below."*
+
+**The cause was §3's own success.** `measureColumns` gave every fan MEMBER a column, which is how the
+bar came to reserve the ramp's room — but a column is one x for the WHOLE SYSTEM (that is the rule,
+and his earlier report). A fan's members fall on accelerating rationals nobody else shares, so each
+one wedged into the other staff's grid and squeezed or stretched whichever gap it landed in.
+
+⭐ **The model now, in his words:** *"the source of truth in the time space is the staff below, not
+the staff above — but both should look nice"*, and *"if we want to do contemporary music we will deal
+all the time with this kind of issue, where some music will be fixed in the time-space of the score
+and other elements not, and we have to be able to work with that."*
+
+So the split is stated in the model itself:
+
+| | makes | example |
+|---|---|---|
+| **FIXED** in the score's time-space | a COLUMN — one x for the system | every ordinary note, and a fan's OWNER |
+| **UNFIXED** | a DEMAND on the gaps it crosses (`Column.minGap`) | a fan's members; the boxed cells and graphic gestures to come |
+
+`Column.minGap` is "the least room the gap after this column may have, for ink that is not a column of
+its own". `gapsBetween` takes it as another floor input, so the solve never learns which kind of
+material asked.
+
+⭐ **THE DEMAND IS ON THE SPAN, NOT PER MEMBER — that distinction is the whole fix.** Handed out per
+member it lumps at the fan's dense end (an `accel.` crowds its last members into one gap of the grid),
+and the staff below came out uneven all over again: 25.1 against 21.5, measured — better than the 36.3
+the columns gave, and still wrong. The ramp needs its width across its OWN TIME, not inside any one
+gap of somebody else's grid. So `fanSpanDemands`:
+
+- if the grid already spans at least the ramp's natural width, it asks for **nothing** — the fan fits
+  itself into the music around it;
+- if it does not, every gap in the span grows by the SAME factor, so the bar opens evenly rather than
+  bulging where the fan is fastest.
+
+⚠️ **Two things this had to keep, and both are pinned.** A dense fan collapsed out of a passage still
+gets the room it needs (`534dcc4`), because a demand is still a floor. And a widened bar still spreads
+the ramp (§3a): `fanRampRoomSpaces` now reads the gap from the fan's own column **to the end of its
+own slot** — ⚠️ not to the next column, which on a grand staff may be another staff's note a sixteenth
+later, and measuring to that crushed every member into the left of its own half note (caught by his
+screenshot mid-change).
+
+⏭️ Whether the profession has a name — or a better mechanism — for the fixed/unfixed split is out
+with a research agent: TENOR, Gourlay, Byrd, Blostein & Haken, Guido, Verovio, MEI, and the niche
+projects, rather than the industry three, which he suspects simply do not deal with it.
+
+---
+
 ---
 
 ## 4. ⏭️ Open decisions (musician's calls)

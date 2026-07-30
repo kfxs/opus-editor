@@ -521,13 +521,13 @@ test('…and a fan in a stretched bar takes its SHARE of the room, not the room'
   const span = (gaps: number[]) => gaps.reduce((a, b) => a + b, 0)
   expect(span(drawn.stretched), 'the ramp grew with the bar — his report')
     .toBeGreaterThan(span(drawn.natural) * 1.3)
-  // …and never MORE than the bar's own factor. With the fan alone in the bar its share is the whole
-  // elastic budget, so ×3 is exactly what it gets — proportional means proportional. What it may not
-  // do is take more than the bar was stretched by, which is what "fills the bar" used to look like.
-  expect(span(drawn.stretched), 'its share, and no more than the bar itself grew')
-    .toBeLessThanOrEqual(span(drawn.natural) * 3 + 0.01)
+  // ⚠️ NOT bounded by the bar's own ×3, and that is not a bug: a bar's width includes its HEADER,
+  // which does not stretch, so the music inside grows by more than the factor asked of the bar. What
+  // the ramp may not do is eat the room after itself — measured below.
+  expect(span(drawn.stretched), 'and by more than a little').toBeGreaterThan(span(drawn.natural) * 2)
   // The old guard's surviving half, measured where it is actually visible: the group still stands
-  // clear of the end of its bar.
+  // clear of the end of its bar. The ramp takes its SHARE of the gap it sits in, never the gap —
+  // the last member's own head and the note↔note padding after it are not the ramp's to spend.
   expect(drawn.barline - drawn.lastHead, 'the last head is still well clear of the barline')
     .toBeGreaterThan(10)
 })
@@ -773,4 +773,48 @@ test('⭐⭐ ACCEL INTO RIT IS A TRIANGLE, not a band with a flat top', async ({
   expect(Math.min(...closing.map(q => q.left)), 'they meet at one x').toBeCloseTo(apex, 1)
   expect(Math.abs(apex - lastOfFirstFan), 'and that x is the last member of the fan before')
     .toBeLessThan(15)
+})
+
+test('⭐⭐ A FAN DOES NOT SPACE THE STAFF BELOW — even sixteenths stay even under it', async ({ score }) => {
+  /*
+   * His report, on a grand staff with an `accel.`+`rit.` pair above sixteen sixteenths below:
+   * *"why the semicorchea space in the staff below are not evenly spaced? the measure in the staff
+   * above is not measured, so the position should not affect the position in the staff below… the
+   * source of truth in the time space is the staff below, not the staff above — but both should look
+   * nice."*
+   *
+   * Measured before the fix: 21.5, 21.5, 36.3, 36.3, 21.5, 36.3, … Perfectly regular music drawn
+   * unevenly, because each fan member was a COLUMN — one x for the whole system — landing on an
+   * accelerating rational inside the sixteenths' grid. The members are the owner's INK now
+   * (`engine/layout/fanRampRoom.ts`), so the fan adds exactly one column: its owner's.
+   */
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addStaffBelow(0)
+    const a = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1), staff: 0 })!
+    h.engine.setFan(a.id, { direction: 'accel', count: 6, beams: 3 })
+    const b = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(2, 1), staff: 0 })!
+    h.engine.setFan(b.id, { direction: 'rit', count: 6, beams: 3, joinSubdivide: false })
+    h.engine.updateNote(b.id, { beam: 'continue' })
+    for (let k = 0; k < 16; k++) {
+      h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: '16', measure: 1, beat: h.frac(k, 4), staff: 1 })
+    }
+    await h.render()
+    const lowerStave = h.staves().find(stave => stave.staff === 1)!
+    const lower = h.noteheads().filter(n => n.y > lowerStave.top - 20).map(n => n.x).sort((p, q) => p - q)
+    return { lower, gaps: lower.slice(1).map((x, i) => x - lower[i]) }
+  })
+
+  expect(drawn.lower, 'sixteen heads on the lower staff').toHaveLength(16)
+
+  // EVEN: every gap the same, to within a rounding wobble. This is the whole assertion.
+  const first = drawn.gaps[0]
+  for (const [i, gap] of drawn.gaps.entries()) {
+    expect(gap, `gap ${i} matches the first — the fan above moves nothing here`).toBeCloseTo(first, 1)
+  }
+
+  // …and the fan above still drew its own six-and-six heads, which is the "both should look nice"
+  // half: the ink floor is what bought them their room.
+  expect(await score.evaluate(() => window.__h.noteheads().length), 'twelve fan heads and sixteen notes')
+    .toBe(28)
 })

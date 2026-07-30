@@ -189,11 +189,29 @@ export interface Column {
    * proportional share. 0 for almost every column.
    */
   authored: number
+  /**
+   * ⭐⭐ **THE LEAST ROOM THE GAP AFTER THIS COLUMN MAY HAVE, in staff spaces, for ink that is NOT a
+   * column of its own** — a fan's ramp, and so far only that.
+   *
+   * A fan is unmeasured music inside a measured slot: its members fall on rationals nobody else in
+   * the system shares, so they cannot be columns (as columns they dictated where every other staff's
+   * notes fell — his report). But they are real ink, and they span SEVERAL gaps of the grid they sit
+   * over. `measureColumns` therefore hands each of those gaps the share of the ramp that crosses it,
+   * and the floor takes the larger of that and the pair's own ink.
+   *
+   * ⭐ **This is the shape contemporary music keeps needing** (his rule): *"some music will be fixed
+   * in the time-space of the score and other elements not, and we have to be able to work with that"*.
+   * Fixed music makes COLUMNS; unfixed music makes DEMANDS on the gaps it crosses. The two live
+   * together here, and the solve does not have to know which is which.
+   *
+   * 0 for every ordinary column.
+   */
+  minGap: number
 }
 
 /** A column with nothing authored, no ink and no padding — the shorthand a duration-only test wants. */
 export function plainColumn(beat: Fraction, duration: Fraction): Column {
-  return { beat, duration, extent: NO_EXTENT, ink: [], padding: 0, authored: 0 }
+  return { beat, duration, extent: NO_EXTENT, ink: [], padding: 0, authored: 0, minGap: 0 }
 }
 
 /**
@@ -219,9 +237,13 @@ function gapsBetween(columns: Column[], rule: SpacingRule): Gap[] {
       // ⭐ The floor is a max over box PAIRS once the ink is located — so a pair that can get out of
       //   the other's way costs nothing (`layout/kerning.ts`). With nothing clear it comes out at
       //   exactly the merged expression below, which is why this cannot widen a bar.
-      floor: column.ink.length > 0 && next.ink.length > 0
-        ? inkFloor(column.ink, next.ink)
-        : column.extent.right + column.padding + next.extent.left,
+      floor: Math.max(
+        column.ink.length > 0 && next.ink.length > 0
+          ? inkFloor(column.ink, next.ink)
+          : column.extent.right + column.padding + next.extent.left,
+        // …and whatever crosses this gap without being a column of it (see `Column.minGap`).
+        column.minGap,
+      ),
       rigid: next.authored,
     }
   })

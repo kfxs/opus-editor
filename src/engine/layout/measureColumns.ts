@@ -26,9 +26,8 @@
  */
 import type { Measure, Fraction, ChordRest, NotePitch, Clef } from '@/types/music'
 import { fracCompare, fracCreate, fracIsZero, fracSub } from '@/utils/fraction'
-import { slotLength } from '@/utils/durations'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
-import { fanMemberBeats } from '@/utils/fannedBeam'
+import { fanSpanDemands } from './fanRampRoom'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { voiceOf } from '@/utils/lanes'
@@ -423,15 +422,7 @@ export function measureColumns(measure: Measure, clefFor: ClefResolver = () => '
 
   for (const slot of measure.slots) {
     add(slot.beat, slotInk(slot, signs, clefFor(slot), multiVoice, flagged.has(slot.id)))
-    if (slot.type === 'chord' && slot.fan) {
-      // ⚠️ A fan's members get a bare notehead's ink. Their own accidentals are the member chords'
-      //    (docs/fanned-beam-pitches-plan.md) and are not modelled here — the fan's drawn span is
-      //    still bought by `fanColumns` until P5, and that claim dominates a fan's bar anyway.
-      // ⚠️ A band over the whole staff: a member's own pitch is the member chord's business, so its
-      //    position is not known here and a box that claimed one would be a guess that unblocks kerns.
-      const member: ColumnInk = [{ left: 0, right: INK.notehead, top: 0, bottom: 4, kind: 'note', staff: slot.staffId }]
-      for (const beat of fanMemberBeats(slot.fan, slotLength(slot), slot.beat)) add(beat, member)
-    }
+
   }
 
   // A bar holding nothing still draws a measure rest, and it starts at the beginning.
@@ -451,6 +442,12 @@ export function measureColumns(measure: Measure, clefFor: ClefResolver = () => '
   //   so no kerning rule can ever tuck ink through a barline.
   inks.push([{ left: 0, right: 0, top: 0, bottom: 4, kind: 'barline', staff: undefined }])
 
+  // ⭐⭐ A FAN'S RAMP IS A DEMAND ON THE GAPS IT CROSSES, not a column of its own — see `Column.minGap`
+  //   and `engine/layout/fanRampRoom.ts`. Computed here, where the final grid is known: the members
+  //   fall on rationals nobody else shares, so each gap is handed the width of the members that cross
+  //   it, and the solve floors that gap accordingly.
+  const minGaps = fanSpanDemands(measure, positions)
+
   return positions.map((beat, i) => ({
     beat,
     duration: i + 1 < positions.length ? fracSub(positions[i + 1], beat) : fracCreate(0, 1),
@@ -459,5 +456,6 @@ export function measureColumns(measure: Measure, clefFor: ClefResolver = () => '
     padding: i + 1 < positions.length ? pairPadding(edgeKind(inks[i], 'right'), edgeKind(inks[i + 1], 'left')) : 0,
     ink: inks[i],
     authored: 0,
+    minGap: minGaps[i] ?? 0,
   }))
 }
