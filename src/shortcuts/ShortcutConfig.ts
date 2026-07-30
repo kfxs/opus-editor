@@ -279,6 +279,24 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Open the clef entry window',
   },
 
+  // Feathered beam: open the Feathered Beam window — the same action as Insert ▸ Feathered Beam.
+  // Reaches the window layer directly, like Q and T.
+  //
+  // ⭐ CTRL+F IS SIBELIUS'S *FIND*, and taken here anyway — his call: this editor has no Find in
+  // edit mode, and if one ever arrives it belongs to a mode of its own. What it is NOT free of is
+  // Chrome's find bar, so the key only works because a handled shortcut is `preventDefault`ed and
+  // Ctrl+F is not in Chrome's RESERVED set (unlike Ctrl+T / Ctrl+W / Ctrl+Shift+T, which never reach
+  // the page at all — see the note on Shift+Alt+T above).
+  //
+  // ⚠️ It ALSO types a *forte* inside an expression's inline editor (`DYNAMIC_INSERT_KEYS`,
+  // Sibelius's binding, which we copied). The two do not fight: the editor is a contentEditable
+  // overlay, and `isInInput` keeps every binding here away from it. Same key, two meanings, chosen
+  // by where the caret is — which is exactly how Sibelius's own Ctrl+letter text shortcuts work.
+  'Ctrl+f': {
+    action: 'openFeatherWindow',
+    description: 'Open the feathered beam window',
+  },
+
   // Expression: attach a custom-text dynamic to the selected note/rest and edit it inline.
   'Ctrl+e': {
     action: 'editDynamicOnSelection',
@@ -358,6 +376,22 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   't': {
     action: 'openTimeSignatureWindow',
     description: 'Open the time signature window',
+  },
+
+  // Tuplet: the third of the bare-letter Insert dialogs, beside Q and T.
+  //
+  // ⭐ AVID'S OWN SUGGESTION, and for this very command. Sibelius has no shortcut for its tuplet
+  // DIALOG at all, so there was nothing to copy — but its manual, on customizing shortcuts, says:
+  // *"if you use lots of triplets and find Control+3 a pain to type, you could assign a single key,
+  // preferably an unused one, such as U"* (Reference §1.31). Of the bare letters, Sibelius leaves
+  // exactly O, U and V unbound; U is the one it points at.
+  //
+  // ⛔ NOT Ctrl+T (Sibelius's Technique text) — Chrome RESERVES it for a new tab and never delivers
+  // it to the page, so it cannot be bound here at all. Plain Alt+T is parked for Technique instead.
+  // ⛔ NOT Ctrl+U either: that is Sibelius's Full Screen.
+  'u': {
+    action: 'openTupletWindow',
+    description: 'Open the tuplet window',
   },
 
   // Tuplets: `Ctrl+`N arms the preset whose N that is — Sibelius's own keys, and the reason the

@@ -46,9 +46,8 @@ function buildInsertItems(actions: InsertMenuActions, windows: WindowLayer): Men
     // Opens the Clef window directly: a window is opened by importing the layer, not by asking the
     // app for a callback, so a command that only puts a window up needs no `actions` field at all.
     { label: 'Clef', shortcut: 'Q', onSelect: () => openClefWindow(windows) },
-    // No accelerator: the window is still the Tuplet window's layout wearing a new title, so there
-    // is nothing yet worth a key. The feather's real way in is the Keypad's `accel.`/`rit.` keys.
-    { label: 'Feathered Beam', onSelect: () => openFeatherWindow(windows) },
+    // The shortcut is a display echo of ShortcutConfig's 'Ctrl+f'; keep them in step.
+    { label: 'Feathered Beam', shortcut: 'Ctrl+F', onSelect: () => openFeatherWindow(windows) },
     {
       label: 'Text',
       items: [
@@ -58,8 +57,9 @@ function buildInsertItems(actions: InsertMenuActions, windows: WindowLayer): Men
       ],
     },
     { label: 'Time Signature', shortcut: 'T', onSelect: () => openTimeSignatureWindow(windows) },
-    // No accelerator: the window is still an empty shell, so there is nothing yet worth a key.
-    { label: 'Tuplet', onSelect: () => openTupletWindow(windows) },
+    // U — a display echo of ShortcutConfig's 'u'; keep them in step. (Sibelius has no key for its
+    // own tuplet dialog; U is the one its manual suggests for a tuplet command.)
+    { label: 'Tuplet', shortcut: 'U', onSelect: () => openTupletWindow(windows) },
   ]
 }
 

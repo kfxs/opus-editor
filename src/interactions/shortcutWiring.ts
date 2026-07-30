@@ -17,6 +17,8 @@ import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
 import { toggleSymbolsWindow } from '../windows/symbols'
 import { openTimeSignatureWindow } from '../windows/timeSignatureWindow'
+import { openFeatherWindow } from '../windows/featherWindow'
+import { openTupletWindow } from '../windows/tupletWindow'
 import { keypadCellForCode } from '../windows/keypad/keypadLayouts'
 import { pressKeypadCell } from '../windows/keypad/keypadPress'
 import { keypadPageSelection } from '../windows/keypad/keypadPageSelection'
@@ -279,6 +281,14 @@ export function wireShortcuts(
     // T — the same action as Insert ▸ Time Signature; reaches the window layer directly, like Q.
     openTimeSignatureWindow: () => {
       openTimeSignatureWindow(windows)
+    },
+    // U — the same action as Insert ▸ Tuplet; reaches the window layer directly, like Q and T.
+    openTupletWindow: () => {
+      openTupletWindow(windows)
+    },
+    // Ctrl+F — the same action as Insert ▸ Feathered Beam; reaches the window layer directly, like Q.
+    openFeatherWindow: () => {
+      openFeatherWindow(windows)
     },
     // Z — the Symbols chart. A TOGGLE, not an open: it is a panel you consult and dismiss with the
     // same key, and it has nothing to commit, so there is no dialog verdict to make Escape mean.
